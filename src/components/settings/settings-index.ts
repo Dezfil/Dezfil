@@ -6,6 +6,7 @@ import { DEFAULTS_TABS, rowValueWords, type DefaultsTabId } from "./defaults-tab
 import type { InstanceRead } from "./instance-read";
 import { capacityText, LIMITS_CARDS, withShownUnit } from "./limits-table";
 import { choiceLabel, LOOK_CARDS } from "./look-tab";
+import { PUBLIC_LINKS_CARD, ruleRowWords, SECURITY_CARDS, type RuleCard } from "./security-table";
 import { formatSettingNumber } from "./server-set";
 import type { IndexCard, TabDeclarations } from "./settings-search";
 import { providerName, serverSettingsRows, type AssistantStatus } from "./system-table";
@@ -101,6 +102,14 @@ function defaultsCards(tab: DefaultsTabId, read: InstanceRead): IndexCard[] {
   })) }));
 }
 
+/** Security's cards, or Publishing's Public links: each row by its label,
+ * its words and its value as the card shows it. */
+function ruleCards(cards: readonly RuleCard[], read: InstanceRead): IndexCard[] {
+  return cards.map(card => ({ id: card.id, title: card.title, keys: card.keys, rows: card.rows.map(row => ({
+    id: row.id, label: row.label, keys: row.keys, value: ruleRowWords(row, read.settings),
+  })) }));
+}
+
 function limitsCards(read: InstanceRead): IndexCard[] {
   return LIMITS_CARDS.map(card => ({ id: card.id, title: card.title, keys: card.keys, rows: card.rows.map(row => {
     const value = row.kind === "capacity" ? capacityText(row.of, row.of === "geocode" ? read.capacities.geocodeRows : read.capacities.isochroneOrigins)
@@ -156,8 +165,9 @@ export function settingsDeclarations(sources: IndexSources, admin: boolean): Tab
     ...(general ? { general: generalCards(general) } : {}),
     ...(admin && sources.instance ? {
       maps: defaultsCards("maps", sources.instance), workflows: defaultsCards("workflows", sources.instance),
-      publishing: defaultsCards("publishing", sources.instance),
-      limits: limitsCards(sources.instance), system: systemCards(sources.instance, sources.health, sources.assistant),
+      publishing: [...ruleCards([PUBLIC_LINKS_CARD], sources.instance), ...defaultsCards("publishing", sources.instance)],
+      limits: limitsCards(sources.instance), security: ruleCards(SECURITY_CARDS, sources.instance),
+      system: systemCards(sources.instance, sources.health, sources.assistant),
     } : {}),
   };
 }

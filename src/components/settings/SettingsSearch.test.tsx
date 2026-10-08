@@ -298,17 +298,19 @@ describe("the Settings search", () => {
     await choose("Header / Light or dark");
     expect(themeButton.style.getPropertyValue("background-color")).toBe("var(--accent-wash)");
     await find("invite");
-    expect(lines()).toEqual(["Side menu / Users"]);
+    // Security's row for invite links starts with the word; Users holds it as a keyword.
+    expect(lines()).toEqual(["Instance / Security · Invite and reset links last", "Side menu / Users"]);
     await choose("Side menu / Users");
     expect(container.querySelector('[id="settings-users"]')!.hasAttribute("data-marked")).toBe(true);
   });
 
-  it("gives a member only the member's tabs: never Maps, Workflows & SQL, Publishing, Limits, System or Users, and never the configuration read", async () => {
+  it("gives a member only the member's tabs: never Maps, Workflows & SQL, Publishing, Limits, Security, System or Users, and never the configuration read", async () => {
     await open("/settings/account", "member");
     for (const query of ["limit", "system", "users", "invite", "environment", "version", "maps", "basemap", "opacity", "workflows",
-      "minimap", "text size", "publishing", "starting width", "tab10"]) {
+      "minimap", "text size", "publishing", "starting width", "tab10", "security", "stay signed in", "shortest password", "who may publish",
+      "embedding"]) {
       await find(query);
-      expect(lines().filter(line => /Maps|Workflows|Publishing|Limits|System|Users/.test(line)), query).toEqual([]);
+      expect(lines().filter(line => /Maps|Workflows|Publishing|Limits|Security|System|Users/.test(line)), query).toEqual([]);
     }
     await find("gis team");
     expect(lines()).toEqual(["Instance / General · Lost password contact"]);
@@ -323,7 +325,7 @@ describe("where a hit lands", () => {
       tokens, look: LOOK, instance: storedRead(STORED), entry: null,
       health: "ready", assistant: { enabled: false, reason: "No model credential is configured." },
     }, true);
-    const tabs: SettingsTabId[] = ["account", "tokens", "appearance", "general", "maps", "workflows", "publishing", "limits", "system"];
+    const tabs: SettingsTabId[] = ["account", "tokens", "appearance", "general", "maps", "workflows", "publishing", "limits", "security", "system"];
     expect(Object.keys(declared).sort()).toEqual([...tabs].sort());
     for (const tab of tabs) {
       await arrive(`/settings/${tab}`);

@@ -116,7 +116,8 @@ describe("what the search finds", () => {
     const theme = searchSettings(index(), "dark");
     expect(paths(theme)).toContain("Header / Light or dark");
     expect(theme.find(hit => hitPath(hit) === "Header / Light or dark")?.target).toEqual({ pointer: "theme" });
-    expect(paths(searchSettings(index(), "invite"))).toEqual(["Side menu / Users"]);
+    // Security's row for invite links starts with the word; Users holds it as a keyword.
+    expect(paths(searchSettings(index(), "invite"))).toEqual(["Instance / Security · Invite and reset links last", "Side menu / Users"]);
   });
 
   it("ranks a label that starts with the words above one that holds them, and both above a keyword", () => {
@@ -235,10 +236,12 @@ describe("what the fields on screen hold now", () => {
 });
 
 describe("what a member's search holds", () => {
-  const ADMIN_ONLY = /Maps|Workflows|Publishing|Limits|System|Users/;
+  const ADMIN_ONLY = /Maps|Workflows|Publishing|Limits|Security|System|Users/;
   const QUERIES = ["limit", "users", "invite", "environment", "version", "query time", "maps", "basemap", "starting view", "legend",
     "color cycle", "opacity", "radius", "workflows", "canvas", "minimap", "results band", "text size", "line wrap", "publishing",
-    "starting width", "starting shape", "export", "new layers", "viz qualitative", "1920"];
+    "starting width", "starting shape", "export", "new layers", "viz qualitative", "1920", "security", "stay signed in", "reset links",
+    "failed sign-ins", "shortest password", "who may create tokens", "tokens expire", "who may publish", "embedding", "listed sites",
+    "public links", "30 days", "any site"];
 
   it("holds only the member's tabs: never Maps, Workflows & SQL, Publishing, Limits, System or Users", () => {
     const member = index(false, { instance: null });
@@ -298,5 +301,53 @@ describe("what the search never reads", () => {
     const built = buildSearchIndex(settingsDeclarations(sources({ tokens: carried }), true), true);
     expect(JSON.stringify(built)).not.toContain(SECRET);
     expect(searchSettings(built, SECRET)).toEqual([]);
+  });
+});
+
+describe("Security and Public links in the search", () => {
+  const keeping = (values: Record<string, unknown>) => ({
+    instance: instanceReadFixture(Object.fromEntries(Object.entries(values).map(([key, value]) => [key, { value, source: "stored" as const, storedValue: value }]))),
+  });
+  const row = (built: ReturnType<typeof index>, query: string, path: string) =>
+    searchSettings(built, query).find(hit => hit.entry.kind === "row" && hitPath(hit) === path);
+  const ROWS: readonly (readonly [string, string, string, string, string])[] = [
+    ["Security", "Stay signed in for", "security", "set-session-length", "Sign-in · 30 days"],
+    ["Security", "Invite and reset links last", "security", "set-link-lifetime", "Sign-in · 7 days"],
+    ["Security", "Failed sign-ins before a pause", "security", "set-sign-in-attempts", "Sign-in · 5 per account, 20 per address"],
+    ["Security", "Shortest password", "security", "set-password-length", "Sign-in · 8 characters"],
+    ["Security", "Who may create tokens", "security", "set-who-tokens", "API tokens · Everyone"],
+    ["Security", "New tokens expire after", "security", "set-token-expiry", "API tokens · Never"],
+    ["Publishing", "Who may publish", "publishing", "set-who-may-publish", "Public links · Everyone"],
+    ["Publishing", "Embedding on other sites", "publishing", "set-embedding", "Public links · Any site"],
+  ];
+
+  it("finds every row by its label as Instance / Tab · Row, with its card and its value, opening its tab on the row", () => {
+    for (const [tab, label, id, anchor, meta] of ROWS) {
+      const hit = row(index(), label.toLowerCase(), `Instance / ${tab} · ${label}`);
+      expect(hit, label).toBeDefined();
+      expect(hit!.meta, label).toBe(meta);
+      expect(hit!.target, label).toEqual({ tab: id, anchor });
+    }
+    expect(paths(searchSettings(index(), "security")).slice(0, 1)).toEqual(["Instance / Security"]);
+    expect(searchSettings(index(), "security")[0].meta).toBe("Sign-in, API tokens");
+    expect(searchSettings(index(), "publishing")[0].meta).toBe("Public links, Image export");
+    const links = searchSettings(index(), "public links").find(hit => hit.entry.kind === "card");
+    expect(hitPath(links!)).toBe("Instance / Publishing · Public links");
+    expect(links!.target).toEqual({ tab: "publishing", anchor: "publishing-public" });
+  });
+
+  it("finds a row by a word it is also known by, and by the words of the value kept", () => {
+    expect(paths(searchSettings(index(), "brute force"))).toEqual(["Instance / Security · Failed sign-ins before a pause"]);
+    expect(paths(searchSettings(index(), "iframe"))).toEqual(["Instance / Publishing · Embedding on other sites"]);
+    const kept = index(true, keeping({ "tokens.expiry": "1y", "publishing.embedding": "listed", "publishing.embedSites": ["https://www.stadtwerke.example"], "security.passwordMin": 14 }));
+    expect(row(kept, "1 year", "Instance / Security · New tokens expire after")!.meta).toBe("API tokens · 1 year");
+    expect(row(kept, "stadtwerke", "Instance / Publishing · Embedding on other sites")!.meta).toBe("Public links · Listed sites: https://www.stadtwerke.example");
+    expect(row(kept, "shortest password", "Instance / Security · Shortest password")!.meta).toBe("Sign-in · 14 characters");
+    expect(paths(searchSettings(index(), "stadtwerke"))).toEqual([]);
+  });
+
+  it("declares nothing of them until the configuration read has answered", () => {
+    const unread = index(true, { instance: null });
+    expect(unread.filter(entry => entry.tab === "security").map(entry => entry.kind)).toEqual(["tab"]);
   });
 });

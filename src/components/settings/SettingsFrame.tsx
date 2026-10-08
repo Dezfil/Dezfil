@@ -12,6 +12,7 @@ import { MapsTab } from "./MapsTab";
 import { WorkflowsTab } from "./WorkflowsTab";
 import { PublishingTab } from "./PublishingTab";
 import { LimitsTab } from "./LimitsTab";
+import { SecurityTab } from "./SecurityTab";
 import { SystemTab } from "./SystemTab";
 import { accountRequest, failureMessage } from "./api";
 import { SettingsColumn } from "./SettingsColumn";
@@ -286,6 +287,7 @@ function TabContent({ tab, loaded }: { tab: SettingsTabId; loaded: Loaded }) {
     case "workflows": return <WorkflowsTab />;
     case "publishing": return <PublishingTab />;
     case "limits": return <LimitsTab />;
+    case "security": return <SecurityTab />;
     case "system": return <SystemTab />;
   }
 }

@@ -91,6 +91,9 @@ const ALLOWED = new Set([
   // Settings: the SQL console's editor sample is SQL, drawn in the
   // editor's own face at the size and wrap the console opens with.
   "src/components/settings/WorkflowsTab.module.css :: .editor",
+  // Settings: the sites that may embed published maps are addresses,
+  // typed one per line.
+  "src/components/settings/RuleCard.module.css :: .sites",
   "src/components/McpSection.module.css :: .endpoint",
   // per-client commands and configuration are literal code.
   "src/components/McpSection.module.css :: .configuration",

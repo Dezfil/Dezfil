@@ -11,7 +11,8 @@ import { WorkflowsTab } from "./WorkflowsTab";
  * The words of the three tabs that hold what new things start with, held
  * to the copy rules. Each tab says nothing but its card titles, its row
  * labels, the names and units of its numbers, the words of its choices and
- * its actions, and the four quiet lines that each name a surprise; no
+ * its actions, and the quiet lines that each name a surprise (Publishing's
+ * two opened by a choice are listed with its words); no
  * element carries a tooltip or a title; and no text or attribute value,
  * the drawings' included, holds an em dash or the spelling "colour". The
  * search keyword "colour" stays: it finds the Color cycle row and is never
@@ -41,7 +42,15 @@ const SAYS: Readonly<Record<string, readonly string[]>> = {
     "Workflow canvas", "Canvas opens", "Full screen", "Framed", "Minimap", "Automatic", "Always", "Never", "Results band", "Closed", "Open",
     "SQL console", "Text size", "11 px", "12 px", "13 px", "14 px", "16 px", "Line wrap",
   ],
-  publishing: ["Image export", "Starting width", "1280 px", "1920 px", "2560 px", "Starting shape", "16:9", "4:3", "1:1"],
+  publishing: [
+    "Public links", "Who may publish", "Everyone", "Admins only", "No one", "Embedding on other sites", "Any site", "Listed sites", "Off",
+    "Image export", "Starting width", "1280 px", "1920 px", "2560 px", "Starting shape", "16:9", "4:3", "1:1",
+    // The two lines a choice opens, each a surprise: narrowing who may
+    // publish takes no published map down, and Off reaches embed code
+    // already pasted elsewhere.
+    "Maps already published stay public until they are unpublished.",
+    "Embed code already on other sites stops showing the map.",
+  ],
 };
 
 let stored: Record<string, unknown>;
@@ -152,6 +161,11 @@ describe("the words of what new things start with", () => {
     holdsTheCopyRules("publishing");
     await press(card("Image export"), "Reset to defaults");
     expect(said(container)).toContain("Undo");
+    holdsTheCopyRules("publishing");
+    await pick("Who may publish", "Admins only");
+    await pick("Embedding on other sites", "Off");
+    expect(said(container)).toContain("Maps already published stay public until they are unpublished.");
+    expect(said(container)).toContain("Embed code already on other sites stops showing the map.");
     holdsTheCopyRules("publishing");
   });
 });

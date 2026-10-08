@@ -155,6 +155,7 @@ describe("the Settings frame", () => {
       { text: "Workflows & SQL", href: "/settings/workflows" },
       { text: "Publishing", href: "/settings/publishing" },
       { text: "Limits", href: "/settings/limits" },
+      { text: "Security", href: "/settings/security" },
       { text: "System", href: "/settings/system" },
       { text: "Users", href: "/users" },
     ]);

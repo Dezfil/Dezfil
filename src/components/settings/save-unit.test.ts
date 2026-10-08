@@ -913,3 +913,97 @@ describe("a card that checks its own text before Save", () => {
     expect(unit.snapshot.saveLine).toBe(true);
   });
 });
+
+describe("a choice that waits for the card's Save", () => {
+  // Listed sites chosen while no site is listed: the choice cannot be kept
+  // alone, so it waits for the sites and goes with them in one write.
+  const embedding: UnitControl = { key: "embedding", kind: "choice", defaultValue: "any" };
+  const sites: UnitControl = { key: "sites", kind: "text" };
+  const NONE_LISTED = "Add at least one site, or choose Any site.";
+  function links(server = fakeServer({ embedding: "any", sites: "" } as Record<string, Value>)) {
+    return new SaveUnit({
+      title: "Public links", controls: [embedding, sites], write: server.write,
+      kept: { embedding: server.stored.embedding, sites: server.stored.sites },
+      validate: values => values.embedding === "listed" && !String(values.sites ?? "").trim() ? { sites: NONE_LISTED } : null,
+    });
+  }
+
+  it("shows the held choice and sends nothing, with Save and Cancel offered and the leave guard told", () => {
+    const server = fakeServer({ embedding: "any", sites: "" } as Record<string, Value>), unit = links(server);
+    unit.hold("embedding", "listed");
+    expect(server.calls).toEqual([]);
+    expect(unit.snapshot.values.embedding).toBe("listed");
+    expect(unit.snapshot.kept.embedding).toBe("any");
+    expect(unit.snapshot.saveLine).toBe(true);
+    expect(unit.snapshot.dirty).toBe(true);
+  });
+
+  it("goes with the typed text in one write on Save, Saved by both only on the response", async () => {
+    const server = fakeServer({ embedding: "any", sites: "" } as Record<string, Value>), unit = links(server);
+    unit.hold("embedding", "listed");
+    unit.edit("sites", "https://a.example");
+    unit.save();
+    expect(server.calls.map(call => call.patch)).toEqual([{ embedding: "listed", sites: "https://a.example" }]);
+    expect(unit.snapshot.saved).toEqual([]);
+    server.calls[0].accept(); await flush();
+    expect(unit.snapshot.kept).toEqual({ embedding: "listed", sites: "https://a.example" });
+    expect([...unit.snapshot.saved].sort()).toEqual(["embedding", "sites"]);
+    expect(unit.snapshot.saveLine).toBe(false);
+    expect(unit.snapshot.dirty).toBe(false);
+  });
+
+  it("is checked with the text before any request, and stays waiting", () => {
+    const server = fakeServer({ embedding: "any", sites: "" } as Record<string, Value>), unit = links(server);
+    unit.hold("embedding", "listed");
+    unit.save();
+    expect(server.calls).toEqual([]);
+    expect(unit.snapshot.errors).toEqual({ sites: NONE_LISTED });
+    expect(unit.snapshot.values.embedding).toBe("listed");
+    expect(unit.snapshot.saveLine).toBe(true);
+  });
+
+  it("stays waiting when the Save is refused", async () => {
+    const server = fakeServer({ embedding: "any", sites: "" } as Record<string, Value>), unit = links(server);
+    unit.hold("embedding", "listed");
+    unit.edit("sites", "ftp://a.example");
+    unit.save();
+    server.calls[0].refuse("invalid_request", "sites: Expected each site as http or https; entry 1 is not."); await flush();
+    expect(unit.snapshot.errors).toEqual({ sites: "Expected each site as http or https; entry 1 is not." });
+    expect(unit.snapshot.values.embedding).toBe("listed");
+    expect(unit.snapshot.kept.embedding).toBe("any");
+    expect(unit.snapshot.saveLine).toBe(true);
+    unit.edit("sites", "https://a.example");
+    unit.save();
+    expect(server.calls[1].patch).toEqual({ embedding: "listed", sites: "https://a.example" });
+  });
+
+  it("goes back to what is kept on Cancel, and Save then sends nothing", () => {
+    const server = fakeServer({ embedding: "any", sites: "" } as Record<string, Value>), unit = links(server);
+    unit.hold("embedding", "listed");
+    unit.cancel();
+    expect(unit.snapshot.values.embedding).toBe("any");
+    expect(unit.snapshot.saveLine).toBe(false);
+    unit.save();
+    expect(server.calls).toEqual([]);
+  });
+
+  it("lets go when the person chooses again: the new choice is kept at once and the wait ends", () => {
+    const server = fakeServer({ embedding: "any", sites: "" } as Record<string, Value>), unit = links(server);
+    unit.hold("embedding", "listed");
+    unit.choose("embedding", "off");
+    expect(server.calls.map(call => call.patch)).toEqual([{ embedding: "off" }]);
+    expect(unit.snapshot.saveLine).toBe(false);
+    unit.hold("embedding", "listed");
+    unit.choose("embedding", "off");
+    // Back on what the write on its way ends at: nothing more is sent.
+    expect(server.calls).toHaveLength(1);
+    expect(unit.snapshot.saveLine).toBe(false);
+  });
+
+  it("holds nothing but a choice", () => {
+    const server = fakeServer({ embedding: "any", sites: "" } as Record<string, Value>), unit = links(server);
+    unit.hold("sites", "https://a.example");
+    expect(unit.snapshot.values.sites).toBe("");
+    expect(unit.snapshot.saveLine).toBe(false);
+  });
+});

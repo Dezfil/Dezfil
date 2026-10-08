@@ -4,11 +4,13 @@
  * drawn only for an admin, and its address opens Account for anyone
  * else, so a member never triggers a read only an admin may make. Maps,
  * Workflows & SQL and Publishing hold what new things start with: a
- * member meets those as the starting state of what they make.
+ * member meets those as the starting state of what they make. Publishing
+ * and Security hold the rules every account follows: a member meets those
+ * as what their own screens allow.
  */
 
 export type SettingsGroup = "you" | "instance";
-export type SettingsTabId = "account" | "tokens" | "appearance" | "general" | "maps" | "workflows" | "publishing" | "limits" | "system";
+export type SettingsTabId = "account" | "tokens" | "appearance" | "general" | "maps" | "workflows" | "publishing" | "limits" | "security" | "system";
 
 export interface SettingsTab {
   readonly id: SettingsTabId;
@@ -26,6 +28,7 @@ export const SETTINGS_TABS: readonly SettingsTab[] = [
   { id: "workflows", label: "Workflows & SQL", group: "instance", adminOnly: true },
   { id: "publishing", label: "Publishing", group: "instance", adminOnly: true },
   { id: "limits", label: "Limits", group: "instance", adminOnly: true },
+  { id: "security", label: "Security", group: "instance", adminOnly: true },
   { id: "system", label: "System", group: "instance", adminOnly: true },
 ];
 
