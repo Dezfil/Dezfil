@@ -392,8 +392,9 @@ async function resolveCredentialedObjectSource(
 /** Import a remote file as one or more tables (spec From URL,
  * materialized; container formats fan out per layer). A new import from a
  * link, web address or cloud storage alike, is admitted by who may import
- * from links before any request leaves; refreshing a link dataset is not
- * an import and keeps working whatever the rule says. */
+ * from links before any request leaves and asked again where it registers;
+ * refreshing a link dataset is not an import and keeps working whatever the
+ * rule says. */
 export async function importFromUrl(
   scope: AccountScope,
   url: string,

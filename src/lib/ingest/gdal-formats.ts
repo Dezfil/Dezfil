@@ -24,6 +24,7 @@ import {
   ingestFile,
   lit,
   measureArtifact,
+  requireLinkImportRule,
   type IngestProvenance,
 } from "./ingest";
 import { extractArchive } from "./container";
@@ -385,6 +386,7 @@ export async function ingestSpatialFile(
         const db = metadataDb();
         const now = new Date().toISOString();
         const tables = db.transaction(() => {
+          requireLinkImportRule(scope, provenance, db);
           const out: DataTable[] = [];
           for (const b of built) {
             const record: DataTable = {

@@ -1,7 +1,9 @@
 import { admitAccountWork } from "@/lib/auth/account-deletion-admission";
 import { registerAccountFile, removeAccountFile } from "@/lib/ingest/file-ownership";
 import { requireFilingDestination } from "@/lib/auth/reach";
+import { requireRule } from "@/lib/auth/instance-rules";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
+import type { Database } from "better-sqlite3";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { mkdir } from "node:fs/promises";
@@ -195,6 +197,17 @@ export interface IngestProvenance {
 }
 
 /**
+ * A new import from a link is admitted again by who may import from links
+ * inside the transaction that registers it: the download and the build take
+ * time, and a rule an admin narrowed meanwhile is the one that decides, with
+ * nothing registered. Uploads and the other sources pass; refreshing a link
+ * dataset replaces its file and never registers, so it is never asked.
+ */
+export function requireLinkImportRule(scope: AccountScope, provenance: IngestProvenance | undefined, db: Database): void {
+  if (provenance?.source === "url") requireRule(scope.accountId, "imports.links", db);
+}
+
+/**
  * Turn a source file into a GeoParquet artifact plus a registry entry.
  * The whole ingest is atomic from the outside: any failure removes the
  * artifact and registers nothing (spec: no partial table is ever created).
@@ -224,6 +237,7 @@ export async function ingestFile(
     // failure leaves no registered table behind.
     const db = metadataDb();
     return db.transaction(() => {
+      requireLinkImportRule(scope, provenance, db);
       const table = registerTable(
         scope,
         {

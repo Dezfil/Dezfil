@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readdir, rm } from "node:fs/promises";
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import os from "node:os";
@@ -9,6 +9,7 @@ import { closeMetadataDb, metadataDb } from "@/lib/metadata/db";
 import { testAccountRequest, testAccountScope } from "@/lib/test-support/accounts";
 import { callAs, ROADS, ruleRefusalBody, tokenFor } from "@/lib/test-support/rule-roads";
 import { PATCH as changeInstanceSettings } from "@/app/api/instance/settings/route";
+import { buildKml } from "../../../test-support/kml";
 import { resetRefreshFences } from "./fence";
 import { importFromUrl } from "./remote";
 
@@ -36,6 +37,8 @@ let base: string;
 let rows = 2;
 let served: string[] = [];
 let tokens: Record<string, string>;
+/** Runs once while the fixture holds the next request, before it answers. */
+let beforeServe: (() => Promise<void>) | null = null;
 
 beforeEach(async () => {
   dir = await mkdtemp(path.join(os.tmpdir(), "dezfil-links-"));
@@ -46,11 +49,20 @@ beforeEach(async () => {
   resetQueryInstance();
   rows = 2;
   served = [];
-  server = createServer((request, response) => {
+  beforeServe = null;
+  server = createServer((request, response) => void (async () => {
     served.push(request.url ?? "");
+    const hold = beforeServe;
+    beforeServe = null;
+    if (hold) await hold();
+    if (request.url?.endsWith(".kml")) {
+      response.writeHead(200, { "content-type": "application/vnd.google-earth.kml+xml" });
+      response.end(buildKml([{ name: "Stops", points: [[13.1, 52.1, "A"]] }, { name: "Sights", points: [[13.2, 52.2, "B"]] }]));
+      return;
+    }
     response.writeHead(200, { "content-type": "text/csv" });
     response.end("name,lat,lon\n" + Array.from({ length: rows }, (_, i) => `p${i},52.${i},13.${i}`).join("\n") + "\n");
-  });
+  })());
   await new Promise<void>(resolve => server.listen(0, "127.0.0.1", () => resolve()));
   base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
   vi.stubEnv("DEZFIL_S3_ENDPOINT", base);
@@ -72,13 +84,17 @@ afterEach(async () => {
   await rm(dir, { recursive: true, force: true });
 });
 
-async function setLinks(value: "everyone" | "admins") {
+async function saveLinks(value: "everyone" | "admins"): Promise<number> {
   const response = await changeInstanceSettings(testAccountRequest(new Request("http://instance.test/api/instance/settings", {
     method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ "imports.links": value }),
   }), metadataDb(), "admin"));
-  expect(response.status).toBe(200);
+  return response.status;
+}
+async function setLinks(value: "everyone" | "admins") {
+  expect(await saveLinks(value)).toBe(200);
 }
 const datasets = () => metadataDb().prepare("SELECT id, name, owner_id, source FROM data_tables ORDER BY name").all();
+const artifacts = async () => (await readdir(path.join(process.env.DEZFIL_DATA_DIR!, "tables")).catch(() => [])).sort();
 const links = () => [`${base}/roads.csv`, "s3://open-data/rivers.csv"];
 
 describe("who may import from links", () => {
@@ -127,5 +143,41 @@ describe("who may import from links", () => {
       code: "rule_refused", status: 403, message: SENTENCE, extra: { rule: "imports.links" },
     });
     expect(outbound.opened).toEqual([]);
+  });
+});
+
+/**
+ * The admission check answers before anything leaves; the download and the
+ * build take time, and an admin may narrow the rule meanwhile. The fixture
+ * saves Admins only while it holds the member's request, after admission and
+ * before registration, and the registration itself then refuses.
+ */
+describe("a rule narrowed while a link import downloads", () => {
+  const FILES = [["a single table", "roads.csv"], ["a container", "trips.kml"]] as const;
+
+  it.each(FILES)("refuses %s at registration and leaves nothing registered", async (_kind, file) => {
+    const saves: number[] = [];
+    beforeServe = async () => { saves.push(await saveLinks("admins")); };
+    const before = datasets();
+    const files = await artifacts();
+    await expect(importFromUrl(testAccountScope(metadataDb(), "member"), `${base}/${file}`)).rejects.toMatchObject({
+      code: "rule_refused", status: 403, message: SENTENCE, extra: { rule: "imports.links" },
+    });
+    // Admitted under Everyone: the request left, and the save answered while it was held.
+    expect(served).toEqual([`/${file}`]);
+    expect(saves).toEqual([200]);
+    expect(datasets()).toEqual(before);
+    expect(await artifacts()).toEqual(files);
+  });
+
+  it.each(FILES)("still registers an admin's %s, whom Admins only lets through", async (_kind, file) => {
+    const saves: number[] = [];
+    beforeServe = async () => { saves.push(await saveLinks("admins")); };
+    const result = await importFromUrl(testAccountScope(metadataDb(), "admin"), `${base}/${file}`);
+    expect(saves).toEqual([200]);
+    const ids = result.tables.map(table => table.id).sort();
+    expect(ids).toHaveLength(file.endsWith(".kml") ? 2 : 1);
+    const admins = (datasets() as { id: string; owner_id: string }[]).filter(row => row.owner_id === "admin");
+    expect(admins.map(row => row.id).sort()).toEqual(ids);
   });
 });
