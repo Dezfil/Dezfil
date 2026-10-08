@@ -1,6 +1,6 @@
 {
   "count": 143,
-  "overall": "1fab7ad3632ce763b562a3b12f49e302b8914e44a7debb90713c24f7c037b2f2",
+  "overall": "625dcfb6b381624e4788c12fba7820a912bce6ea34aef23ad7530577f45d0d88",
   "tools": {
     "get_account": "bd37f5c2eb19d2ede33cb10152a53d49e4029a871d9950f51d3671001efdfb66",
     "update_account": "b86cdb20349d6871c516c495b13864a85908d41cb61203f76a3f7ea95c26ebbb",
@@ -17,7 +17,7 @@
     "delete_user": "54c5491c22b30a6c9ccd1f075fb53e7e06bb588dfe5eec23aea4ca5e546ec959",
     "issue_user_sign_in_link": "593f3027932a41ffa22b97b16369cf1bcd42584b289d9b2ae16a0b846766a2b8",
     "get_instance_settings": "298e0e59a4aff9e456648666359eb50a1c597703fac9a2c43a07850fa5b10f6c",
-    "update_instance_settings": "465daf6be602afaded7536423f5c932315aef170190a6f7b336c64e52f219e17",
+    "update_instance_settings": "5b47a3d2a48cb6508e65e44ffe9c8c4926f4e11edc78b7d40eae98b941cf9393",
     "inspect_table_geometry": "9b703f1792882448a28b9ad4bc3763231bf11e66e8e69c651fe676e605e17ce1",
     "set_table_geometry": "f576d8819c6ae5e9ee371594b63c74d53b7c24dd626153cc3880390669c53383",
     "clear_table_geometry": "afe83933a52d7bb614bd9ab3ac539f289afdfe13f7bfa396e32b61748f0aabc7",

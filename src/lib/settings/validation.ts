@@ -41,6 +41,9 @@ export function catalogueProblems(definitions: readonly SettingDefinition[]): st
     if (!key || !definition.label || !definition.purpose || !definition.documentedDefault) report("incomplete definition");
     if (environment && definition.environmentTiming !== "restart") report("environment changes require restart");
     if (definition.scope === "account" && environment) report("account variable");
+    // Every signed-in account reads these: no deployment pins one, and none is a secret.
+    if (definition.readBy === "signed-in" && environment) report("signed-in variable");
+    if (definition.readBy === "signed-in" && (definition.secret || definition.kind === "secret")) report("signed-in secret");
     if (definition.editable && definition.timing !== "live") report("editable next-start");
     if (definition.editable && (definition.secret || definition.kind === "secret")) report("editable secret");
     if (definition.editable && !write) report("missing validator");

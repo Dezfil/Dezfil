@@ -15,7 +15,8 @@ export interface SettingDefinition {
   readonly label: string;
   readonly purpose: string;
   readonly scope: "instance" | "account" | "platform";
-  readonly readBy: "admin" | "account" | "public";
+  /** Who reads the value: admins, its own account, every signed-in account, or anyone. */
+  readonly readBy: "admin" | "account" | "signed-in" | "public";
   readonly changedBy: "deployment" | "admin" | "account" | "platform";
   readonly kind: "number" | "boolean" | "text" | "choice" | "list" | "address" | "path" | "secret";
   readonly defaultValue: SettingDefault;

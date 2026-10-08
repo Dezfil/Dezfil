@@ -34,7 +34,9 @@ describe("settings catalogue", () => {
   });
 
   it("admits exactly the drawn numeric settings with complete whole-number write bounds", () => {
-    const editable = SETTING_CATALOGUE.filter(d => d.kind === "number" && d.editable);
+    // The numeric limits, each with its variable; the numbers new things
+    // start with are held with the other defaults below.
+    const editable = SETTING_CATALOGUE.filter(d => d.kind === "number" && d.editable && d.environment);
     expect(Object.fromEntries(editable.map(d => [d.key, d.write]))).toEqual(EDITABLE_NUMBERS);
     for (const definition of editable) {
       const { min, max } = EDITABLE_NUMBERS[definition.key as keyof typeof EDITABLE_NUMBERS];
@@ -106,6 +108,55 @@ describe("the look's six picks", () => {
   it.each(Object.keys(LOOK).flatMap(key => [
     [key, "variable", { environment: "DEZFIL_LOOK_SEEDED" }, "account variable"],
     [key, "secret mark", { secret: true }, "editable secret"],
+  ] as const))("%s fails the catalogue with a seeded %s", (key, _seed, change, problem) => {
+    expect(catalogueProblems(SETTING_CATALOGUE)).toEqual([]);
+    const seeded = SETTING_CATALOGUE.map(definition => definition.key === key ? { ...definition, ...change } : definition);
+    expect(catalogueProblems(seeded)).toContain(`${key}: ${problem}`);
+  });
+});
+
+/** What new maps, new layers and three screens start with: each default's
+ * values and the product's own value, as the approved table states them. */
+const NEW_THINGS = {
+  "newMap.basemap": [{ kind: "choice", values: ["auto", "dark", "light", "streets", "satellite"] }, "auto"],
+  "newMap.latitude": [{ kind: "decimal", min: -85, max: 85 }, 40],
+  "newMap.longitude": [{ kind: "decimal", min: -180, max: 180 }, 0],
+  "newMap.zoom": [{ kind: "decimal", min: 0, max: 22 }, 1.3],
+  "newMap.legendCorner": [{ kind: "choice", values: ["top-left", "top-right", "bottom-left", "bottom-right"] }, "bottom-left"],
+  "newLayer.colorCycle": [{ kind: "choice", values: ["uber_viz_qualitative", "bold", "tab10", "paired", "dark2", "set3"] }, "uber_viz_qualitative"],
+  "newLayer.pointOpacity": [{ kind: "integer", min: 10, max: 100 }, 72],
+  "newLayer.lineOpacity": [{ kind: "integer", min: 10, max: 100 }, 95],
+  "newLayer.areaOpacity": [{ kind: "integer", min: 10, max: 100 }, 50],
+  "newLayer.lineWidth": [{ kind: "decimal", min: 0.5, max: 50 }, 2],
+  "newLayer.pointRadius": [{ kind: "decimal", min: 0.5, max: 100 }, 3],
+  "canvas.opens": [{ kind: "choice", values: ["full", "framed"] }, "full"],
+  "canvas.minimap": [{ kind: "choice", values: ["auto", "always", "never"] }, "auto"],
+  "canvas.resultsBand": [{ kind: "choice", values: ["closed", "open"] }, "closed"],
+  "sqlConsole.textSize": [{ kind: "choice", values: ["11", "12", "13", "14", "16"] }, "12"],
+  "sqlConsole.lineWrap": [{ kind: "switch" }, false],
+  "imageExport.width": [{ kind: "choice", values: ["1280", "1920", "2560"] }, "1920"],
+  "imageExport.shape": [{ kind: "choice", values: ["16:9", "4:3", "1:1"] }, "4:3"],
+} as const;
+const KIND_OF_WRITE = { choice: "choice", decimal: "number", integer: "number", switch: "boolean" } as const;
+
+describe("the defaults for new things", () => {
+  it("defines the eighteen with their values and product default, read by every signed-in account and changed by admins, with no variable, never secret and never locked", () => {
+    expect(SETTING_CATALOGUE.filter(d => d.readBy === "signed-in").map(d => d.key)).toEqual(Object.keys(NEW_THINGS));
+    for (const [key, [write, defaultValue]] of Object.entries(NEW_THINGS)) {
+      const definition = settingDefinition(key);
+      expect(definition, key).toMatchObject({ scope: "instance", readBy: "signed-in", changedBy: "admin", kind: KIND_OF_WRITE[write.kind],
+        timing: "live", secret: false, editable: true, defaultValue });
+      expect(definition.write, key).toEqual(write);
+      expect(definition.environment, key).toBeUndefined();
+      expect(lockedEnvironment(definition), key).toBeUndefined();
+      expect(validateStoredValue(definition, defaultValue), key).toEqual({ ok: true, value: defaultValue });
+    }
+    expect(catalogueProblems(SETTING_CATALOGUE)).toEqual([]);
+  });
+
+  it.each(Object.keys(NEW_THINGS).flatMap(key => [
+    [key, "variable", { environment: "DEZFIL_DEFAULT_SEEDED", environmentTiming: "restart" }, "signed-in variable"],
+    [key, "secret mark", { secret: true }, "signed-in secret"],
   ] as const))("%s fails the catalogue with a seeded %s", (key, _seed, change, problem) => {
     expect(catalogueProblems(SETTING_CATALOGUE)).toEqual([]);
     const seeded = SETTING_CATALOGUE.map(definition => definition.key === key ? { ...definition, ...change } : definition);

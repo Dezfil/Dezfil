@@ -498,6 +498,208 @@
               null
             ],
             "description": "Landing page. Preferred entry destination after sign-in. Null clears the stored value."
+          },
+          "newMap.basemap": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "auto",
+              "dark",
+              "light",
+              "streets",
+              "satellite",
+              null
+            ],
+            "description": "Basemap. The basemap a new map starts on. Auto follows the theme; a basemap the instance no longer offers starts on Auto. Null clears the stored value."
+          },
+          "newMap.latitude": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": -85,
+            "maximum": 85,
+            "description": "Starting latitude. The latitude a new map opens at. Null clears the stored value."
+          },
+          "newMap.longitude": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": -180,
+            "maximum": 180,
+            "description": "Starting longitude. The longitude a new map opens at. Null clears the stored value."
+          },
+          "newMap.zoom": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 22,
+            "description": "Starting zoom. The zoom a new map opens at. Null clears the stored value."
+          },
+          "newMap.legendCorner": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "top-left",
+              "top-right",
+              "bottom-left",
+              "bottom-right",
+              null
+            ],
+            "description": "Legend corner. Where a new map's legend sits. Null clears the stored value."
+          },
+          "newLayer.colorCycle": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "uber_viz_qualitative",
+              "bold",
+              "tab10",
+              "paired",
+              "dark2",
+              "set3",
+              null
+            ],
+            "description": "Color cycle. The palette whose colors new layers take in turn, drawn sketches included. Null clears the stored value."
+          },
+          "newLayer.pointOpacity": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 10,
+            "maximum": 100,
+            "description": "Point opacity. How opaque a new points layer is drawn, unless it is created with a style. Null clears the stored value."
+          },
+          "newLayer.lineOpacity": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 10,
+            "maximum": 100,
+            "description": "Line opacity. How opaque a new lines layer is drawn, unless it is created with a style. Null clears the stored value."
+          },
+          "newLayer.areaOpacity": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 10,
+            "maximum": 100,
+            "description": "Area opacity. How opaque a new areas layer is drawn, unless it is created with a style. Null clears the stored value."
+          },
+          "newLayer.lineWidth": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0.5,
+            "maximum": 50,
+            "description": "Line width. How wide a new lines layer is drawn, unless it is created with a style. Null clears the stored value."
+          },
+          "newLayer.pointRadius": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0.5,
+            "maximum": 100,
+            "description": "Point radius. How large a new layer's points are drawn, unless it is created with a style. Null clears the stored value."
+          },
+          "canvas.opens": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "full",
+              "framed",
+              null
+            ],
+            "description": "Canvas opens. Whether a workflow canvas opens full screen or framed. Null clears the stored value."
+          },
+          "canvas.minimap": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "auto",
+              "always",
+              "never",
+              null
+            ],
+            "description": "Canvas minimap. When a workflow canvas shows its minimap until the person chooses: auto shows it from six nodes. Null clears the stored value."
+          },
+          "canvas.resultsBand": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "closed",
+              "open",
+              null
+            ],
+            "description": "Canvas results band. Whether a workflow canvas opens with its results band closed or open until the person chooses. Null clears the stored value."
+          },
+          "sqlConsole.textSize": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "11",
+              "12",
+              "13",
+              "14",
+              "16",
+              null
+            ],
+            "description": "SQL text size. The text size the SQL console's editor opens at. Null clears the stored value."
+          },
+          "sqlConsole.lineWrap": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "SQL line wrap. Whether the SQL console's editor wraps long lines. Null clears the stored value."
+          },
+          "imageExport.width": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "1280",
+              "1920",
+              "2560",
+              null
+            ],
+            "description": "Image starting width. The width a fresh image export card opens at. Null clears the stored value."
+          },
+          "imageExport.shape": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "16:9",
+              "4:3",
+              "1:1",
+              null
+            ],
+            "description": "Image starting shape. The shape a fresh image export card opens at. Null clears the stored value."
           }
         }
       },
