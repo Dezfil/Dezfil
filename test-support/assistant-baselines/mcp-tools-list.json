@@ -1,6 +1,6 @@
 {
   "count": 143,
-  "overall": "c9022903396bb35df89640c05ff0258e8c799c06410aaf3610d30d1390704054",
+  "overall": "bfe2208d0f0fc90d59da12e2d3809bddd93558c5597f547db3e7f2999bdff467",
   "tools": {
     "get_account": "1d39e185a29991c180c5357ee693fb43d368491d0c799a0e52600ca88d32baa8",
     "update_account": "1d58af3260a6581ebaf68dbd67d94671d696509451d7ac08c21462b333f88ac2",
@@ -24,7 +24,7 @@
     "preview_table_geometry": "6884507fa51b0989d86bcdd2534c96043fee4413e4597786e88fceb0c9bf267b",
     "list_geometry_projections": "cdf11f09286d9af09753a8dc36588275c8f3475412ba4aeddd98227a909ccd25",
     "check_health": "143cf09e50ae87d361d89e50b34593f4701afca5672926579e0cca1cee2b56c3",
-    "get_config": "65a5e4585ddeecc7aa1674c096f3a78fd5552b887c1d9218d8d57ebdabe3325a",
+    "get_config": "5d479d90bdeaf549041a8cbcb462739fa4784dd87c174add5c35d281e671dcd5",
     "list_palettes": "5a47a8393621b7520755454eb9b6216af281f7c8314fb800865165256c2c0080",
     "create_palette": "440af3bcc7aeb04570a3b95d4cddacd26d3c501511b1b8e5cc5869664f7f901d",
     "delete_palette": "b8c0b60a1e230638c186bdf035dd61602b0d9655f72cccd5c9ba6044a265af97",

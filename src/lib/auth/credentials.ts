@@ -7,6 +7,7 @@ import { insertSession, insertToken, listAccountTokens, revokeAccountToken, sess
 import { maintainCredentials } from "./credential-maintenance";
 import { AuthError } from "./errors";
 import { newSecret, secretHash } from "./link-issuance.mjs";
+import { requireRule } from "./instance-rules";
 import { securitySettings } from "./security-settings";
 export { newSecret, secretHash } from "./link-issuance.mjs";
 
@@ -106,6 +107,8 @@ export function createApiToken(context: AuthContext, name: string, db: Database 
   now ??= Date.now();
   return db.transaction(() => {
     const account = requireCurrentActor(context, db, now);
+    // Who may create tokens is the instance's rule; tokens made earlier keep working.
+    requireRule(account.id, "tokens.create", db);
     if (!name.trim()) throw new AuthError("invalid_request", "Name the token.", 400);
     const id = randomUUID(), secret = newSecret("token");
     // The lifetime stored at creation, kept whatever a later save says; Never stores none.

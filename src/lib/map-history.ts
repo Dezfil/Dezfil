@@ -12,7 +12,7 @@ import { insertLayer, updateMapFields, updateLayerFields, deleteLayer, reorderLa
 import { undoSteps, redoSteps, setHistoryCursor, historyAvailability,
   type HistoryAvailability, type HistoryImage, type HistoryStep } from "@/lib/metadata/history";
 import { requireMap, requireMapFor, mapWithLayersFor } from "./map-access";
-import { historyChangesPublication } from "./publication-settings";
+import { historyChangesPublication, requireLivePublicationChange } from "./publication-settings";
 import { listLayers } from "@/lib/metadata/maps";
 import { admitMapSql, recheckSaved, savesAsOwner, type SavedAdmission } from "./save-admission";
 
@@ -113,7 +113,7 @@ async function admitReplay(scope: AccountScope, id: string, direction: "undo" | 
   const steps = direction === "undo" ? undoSteps(id) : redoSteps(id);
   // A replay that would change a publication setting is refused before any
   // SQL it restores is evaluated.
-  if (historyChangesPublication(map, listLayers(id), steps, direction)) requireMapFor(scope, id, "publish");
+  if (historyChangesPublication(map, listLayers(id), steps, direction)) { requireMapFor(scope, id, "publish"); requireLivePublicationChange(scope, id); }
   assertHistoryRefs(scope, id, steps, direction);
   requireDocumentRevision(scope, { kind: "map", id, expectedRevision });
   if (savesAsOwner(scope, "map", id)) return null;
@@ -132,10 +132,11 @@ async function applyHistory(
   const admitted = await admitReplay(scope, id, direction, expectedRevision);
   const accepted = metadataDb().transaction(() => {
     // Undo and redo are content changes; one that would put back or take
-    // away a publication setting is the owner's alone, refused whole.
+    // away a publication setting is the owner's alone, refused whole, and on
+    // a live publication who may publish decides it too.
     const map = requireMapFor(scope, id, "edit");
     const steps = direction === "undo" ? undoSteps(id) : redoSteps(id);
-    if (historyChangesPublication(map, listLayers(id), steps, direction)) requireMapFor(scope, id, "publish");
+    if (historyChangesPublication(map, listLayers(id), steps, direction)) { requireMapFor(scope, id, "publish"); requireLivePublicationChange(scope, id); }
     if (admitted) recheckSaved(scope, ...admitted.saved);
     assertHistoryRefs(scope, id, steps, direction);
     requireDocumentRevision(scope, { kind: "map", id, expectedRevision });

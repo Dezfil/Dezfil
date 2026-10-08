@@ -3,7 +3,7 @@ import { recordDocumentChanges, recordDocumentBatch, requireDocumentRevision } f
 import { fileMap } from "@/lib/metadata/owned-projects";
 import { assertMapLayerRefs } from "./map-layer-refs";
 import { requireMapFor, mapWithLayersFor, ownMapWithLayers } from "./map-access";
-import { mapWriteChangesPublication } from "./publication-settings";
+import { mapWriteChangesPublication, requireLivePublicationChange } from "./publication-settings";
 export { requireMap, mapWithLayers, readMap, requireMapFor, mapWithLayersFor, requireOwnMap, ownMapWithLayers, ownsMap } from "./map-access";
 export { mapHistory, undoChange, redoChange, type MapWithHistory } from "./map-history";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
@@ -400,9 +400,10 @@ export function updateMap(
   opts: { groupId?: string | null; expectedRevision?: unknown } = {},
 ): MapWithLayers & DocumentFacts {
   // Content is the editors' to change; the widget publication toggle is a
-  // publication setting, the owner's alone.
+  // publication setting, the owner's alone, and on a live publication who
+  // may publish decides it too.
   const prior = requireMapFor(scope, id, "edit");
-  if (mapWriteChangesPublication(prior, fields)) requireMapFor(scope, id, "publish");
+  if (mapWriteChangesPublication(prior, fields)) { requireMapFor(scope, id, "publish"); requireLivePublicationChange(scope, id); }
   const covered = Object.entries(fields).some(([key, value]) => key !== "viewport" && value !== undefined);
   const checkRevision = () => { if (covered) requireDocumentRevision(scope, { kind: "map", id, expectedRevision: opts.expectedRevision }); };
   assertMapLayerRefs(prior, listLayers(id), fields);
@@ -493,7 +494,7 @@ export function updateMap(
   }
   metadataDb().transaction(() => {
     const current = requireMapFor(scope, id, "edit");
-    if (mapWriteChangesPublication(current, fields)) requireMapFor(scope, id, "publish");
+    if (mapWriteChangesPublication(current, fields)) { requireMapFor(scope, id, "publish"); requireLivePublicationChange(scope, id); }
     checkRevision();
     if (
       fields.name !== undefined ||

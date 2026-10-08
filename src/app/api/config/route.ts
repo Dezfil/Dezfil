@@ -30,7 +30,7 @@ export async function GET(request: Request) {
       geocoderConfigured: geocoderConfigured(),
       defaults: reportedDefaults(instanceDefaults()),
       // The rules every account follows, keyed and valued as the change operation takes them.
-      rules: { "tokens.expiry": security.tokenExpiry },
+      rules: security.rules,
       passwordMin: security.passwordMin,
     }));
   } catch (error) { return authFailure(error); }

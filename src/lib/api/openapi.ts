@@ -11,6 +11,7 @@ import { ACCOUNT_PATHS, ACCOUNT_SCHEMAS } from "./openapi-account";
 import { AUTH_PATHS, AUTH_SCHEMAS, AUTH_SECURITY_SCHEMES } from "./openapi-auth";
 import { settingsContract } from "./openapi-settings";
 import { INSTANCE_DEFAULTS_SCHEMA, INSTANCE_SETTINGS_PATHS, INSTANCE_SETTINGS_SCHEMAS, instanceRulesSchema } from "./openapi-instance-settings";
+import { RULE_KEYS, WHO_MAY_RULES } from "@/lib/settings/instance-rules";
 import { QUERY_EXPORT_TICKET } from "./openapi-tool-responses";
 import { LOCAL_ADD, LOCAL_DELETE, LOCAL_READ, LOCAL_TRANSIENT_READ, REMOTE_READ } from "./operation-mcp";
 import { HISTORY_PATHS, HISTORY_SCHEMAS, MCP_PATHS } from "./openapi-mcp";
@@ -840,6 +841,7 @@ export function buildOpenApiDocument() {
                 message: { type: "string" },
                 retryAfter: { type: "integer", minimum: 1, description: "Seconds before retry after a login limit or temporary authentication capacity refusal." },
                 retryAt: { type: "string", format: "date-time", description: "When a login limit permits another attempt." },
+                rule: { type: "string", enum: [...WHO_MAY_RULES], description: "The instance rule that refused a rule_refused request, keyed as PATCH /api/instance/settings takes it." },
               issues: { type: "array", items: { $ref: "#/components/schemas/GeometryIssue" }, description: "Geometry-choice refusal reasons, when applicable." },
                 position: {
                   type: "object",
@@ -954,7 +956,7 @@ export function buildOpenApiDocument() {
                 "server.",
             },
             defaults: INSTANCE_DEFAULTS_SCHEMA,
-            rules: instanceRulesSchema(["tokens.expiry"]),
+            rules: instanceRulesSchema(RULE_KEYS),
             passwordMin: {
               type: "integer", minimum: 8, maximum: 64,
               description:

@@ -19,8 +19,12 @@ import { securitySettings } from "./security-settings";
 // Fixture values, written out rather than read from the code under test.
 const day = 86_400_000, hour = 3_600_000, start = Date.parse("2026-03-01T00:00:00Z");
 const password = "river otter telescope";
+const RULES = { "tokens.create": "everyone", "tokens.expiry": "never", "publishing.publish": "everyone",
+  "publishing.embedding": "any", "connections.create": "everyone", "imports.links": "everyone" };
+const NARROWED = { "tokens.create": "admins", "tokens.expiry": "1y", "publishing.publish": "none",
+  "publishing.embedding": "off", "connections.create": "admins", "imports.links": "admins" };
 const PRODUCT = { sessionMs: 30 * day, linkMs: 7 * day, failedPerAccount: 5, failedPerAddress: 20, passwordMin: 8,
-  tokenExpiry: "never", tokenLifetimeMs: null };
+  tokenExpiry: "never", tokenLifetimeMs: null, rules: RULES };
 
 let db: Database;
 beforeEach(() => { db = open(":memory:"); });
@@ -36,20 +40,21 @@ describe("the Security rows' reader", () => {
   it("resolves the rows from the store it is handed, on every call", () => {
     expect(securitySettings(db)).toEqual(PRODUCT);
     writeStoredSettings({ "security.sessionDays": "1", "security.linkDays": "14", "security.failedPerAccount": 3, "security.failedPerAddress": 10,
-      "security.passwordMin": 12, "tokens.expiry": "1y" }, db);
+      "security.passwordMin": 12, ...NARROWED }, db);
     expect(securitySettings(db)).toEqual({ sessionMs: day, linkMs: 14 * day, failedPerAccount: 3, failedPerAddress: 10, passwordMin: 12,
-      tokenExpiry: "1y", tokenLifetimeMs: 365 * day });
+      tokenExpiry: "1y", tokenLifetimeMs: 365 * day, rules: NARROWED });
     // Another store keeps its own rows: nothing is kept between calls or across stores.
     const other = open(":memory:");
     try { expect(securitySettings(other)).toEqual(PRODUCT); } finally { other.close(); }
     writeStoredSettings({ "security.sessionDays": null, "security.failedPerAccount": null }, db);
-    expect(securitySettings(db)).toEqual({ ...PRODUCT, linkMs: 14 * day, failedPerAddress: 10, passwordMin: 12, tokenExpiry: "1y", tokenLifetimeMs: 365 * day });
+    expect(securitySettings(db)).toEqual({ ...PRODUCT, linkMs: 14 * day, failedPerAddress: 10, passwordMin: 12, tokenExpiry: "1y", tokenLifetimeMs: 365 * day,
+      rules: NARROWED });
   });
 
   it("reads a stored value the catalogue no longer accepts as the product's own", () => {
-    db.prepare("INSERT INTO workspace_settings (key, value, updated_at) VALUES (?, ?, ?), (?, ?, ?), (?, ?, ?)")
+    db.prepare("INSERT INTO workspace_settings (key, value, updated_at) VALUES (?, ?, ?), (?, ?, ?), (?, ?, ?), (?, ?, ?)")
       .run("instance.security.sessionDays", "2", "2026-03-01", "instance.security.failedPerAccount", "2", "2026-03-01",
-        "instance.security.passwordMin", "7", "2026-03-01");
+        "instance.security.passwordMin", "7", "2026-03-01", "instance.publishing.publish", "nobody", "2026-03-01");
     expect(securitySettings(db)).toEqual(PRODUCT);
   });
 });

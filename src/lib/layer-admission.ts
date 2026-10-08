@@ -26,7 +26,7 @@ import {
 import { requireLayerFor } from "./layer-access";
 import { requireMapFor } from "./map-access";
 import { assertWritableRefs } from "./layer-write-refs";
-import { layerWriteChangesPublication } from "./publication-settings";
+import { layerWriteChangesPublication, requireLivePublicationChange } from "./publication-settings";
 import { mapEvaluation } from "@/lib/query/context";
 import { admitMapSql, recheckSaved, type SavedAdmission } from "./save-admission";
 
@@ -51,10 +51,15 @@ import { admitMapSql, recheckSaved, type SavedAdmission } from "./save-admission
 let updateAdmissions = new WeakMap<Layer, SavedAdmission>();
 
 /** The layer when the acting account may make this write to it: an edit,
- * and the publish permission too when the published fields change. */
+ * and the publish permission too when the published fields change, with who
+ * may publish deciding while the map is published. Asked at admission and
+ * again inside the commit. */
 function permittedLayer(scope: AccountScope, id: string, fields: UpdateLayerFields): Layer {
   const layer = requireLayerFor(scope, id, "edit");
-  if (layerWriteChangesPublication(layer, fields)) requireLayerFor(scope, id, "publish");
+  if (layerWriteChangesPublication(layer, fields)) {
+    requireLayerFor(scope, id, "publish");
+    requireLivePublicationChange(scope, layer.mapId);
+  }
   return layer;
 }
 

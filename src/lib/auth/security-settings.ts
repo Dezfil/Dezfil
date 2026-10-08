@@ -1,12 +1,14 @@
 import type { Database } from "better-sqlite3";
 import { metadataDb } from "@/lib/metadata/db";
 import { settingDefinition } from "@/lib/settings/catalogue";
+import { RULE_KEYS, type InstanceRules } from "@/lib/settings/instance-rules";
 import { readStoredSettings } from "@/lib/settings/store";
 
 const DAY_MS = 86_400_000;
 
-/** How long sign-ins and links last, when failed sign-ins pause and the
- * shortest password, in the units the auth code applies them. */
+/** How long sign-ins and links last, when failed sign-ins pause, the
+ * shortest password, in the units the auth code applies them, and the rules
+ * every account follows. */
 export interface SecuritySettings {
   /** A session's length: issue and every renewal set its expiry this far ahead. */
   readonly sessionMs: number;
@@ -22,6 +24,8 @@ export interface SecuritySettings {
   readonly tokenExpiry: TokenExpiry;
   /** The same in milliseconds from creation; null under Never. */
   readonly tokenLifetimeMs: number | null;
+  /** The rules every signed-in account follows, as the change operation takes them. */
+  readonly rules: InstanceRules;
 }
 
 export type TokenExpiry = "never" | "30d" | "90d" | "1y";
@@ -38,7 +42,8 @@ const TOKEN_LIFETIME_DAYS: Readonly<Record<TokenExpiry, number | null>> = { neve
 export function securitySettings(db: Database = metadataDb()): SecuritySettings {
   const stored = readStoredSettings(db);
   const value = (key: string) => Number(stored[key] ?? settingDefinition(key).defaultValue);
-  const tokenExpiry = (stored["tokens.expiry"] ?? settingDefinition("tokens.expiry").defaultValue) as TokenExpiry;
+  const rules = Object.fromEntries(RULE_KEYS.map(key => [key, stored[key] ?? settingDefinition(key).defaultValue])) as unknown as InstanceRules;
+  const tokenExpiry: TokenExpiry = rules["tokens.expiry"];
   const days = TOKEN_LIFETIME_DAYS[tokenExpiry];
   return {
     sessionMs: value("security.sessionDays") * DAY_MS,
@@ -48,5 +53,6 @@ export function securitySettings(db: Database = metadataDb()): SecuritySettings 
     passwordMin: value("security.passwordMin"),
     tokenExpiry,
     tokenLifetimeMs: days === null ? null : days * DAY_MS,
+    rules,
   };
 }

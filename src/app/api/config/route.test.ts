@@ -54,10 +54,21 @@ function request(actor: string, path: string, method = "GET", body?: unknown) {
   }), db, actor);
 }
 const memberToken = () => createApiToken(requireRequestAuth(request("member", "/api/account"), db), "Agent", db).secret;
-/** The runtime read as a member, by session cookie or by bearer token. */
-async function read(kind: "cookie" | "token") {
+/** With nothing stored: everyone may, published pages embed anywhere, and new tokens never expire. */
+const RULES = {
+  "tokens.create": "everyone", "tokens.expiry": "never", "publishing.publish": "everyone",
+  "publishing.embedding": "any", "connections.create": "everyone", "imports.links": "everyone",
+};
+/** Every rule narrowed by an admin. */
+const NARROWED = {
+  "tokens.create": "admins", "tokens.expiry": "90d", "publishing.publish": "none",
+  "publishing.embedding": "off", "connections.create": "admins", "imports.links": "admins",
+};
+/** The runtime read as a member, by session cookie or by bearer token (a new
+ * one unless one made earlier is given). */
+async function read(kind: "cookie" | "token", token?: string) {
   const input = request("member", "/api/config");
-  if (kind === "token") { input.headers.delete("cookie"); input.headers.set("authorization", `Bearer ${memberToken()}`); }
+  if (kind === "token") { input.headers.delete("cookie"); input.headers.set("authorization", `Bearer ${token ?? memberToken()}`); }
   const response = await GET(input);
   expect(response.status).toBe(200);
   expect(response.headers.get("cache-control")).toBe("private, no-store");
@@ -117,24 +128,40 @@ describe("the runtime read's defaults", () => {
     for (const passwordMin of [7, 65, "12"]) expect(await valid({ ...body, passwordMin })).toBeDefined();
   });
 
-  it.each(["cookie", "token"] as const)("carry the new tokens' expiry to a member by %s as a rule: never with nothing stored, then what an admin stored", async kind => {
-    expect((await read(kind)).rules).toEqual({ "tokens.expiry": "never" });
-    await change({ "tokens.expiry": "90d" });
-    expect((await read(kind)).rules).toEqual({ "tokens.expiry": "90d" });
+  it.each(["cookie", "token"] as const)("carry the rules every account follows to a member by %s: the product's with nothing stored, then what an admin stored", async kind => {
+    // Made first: the narrowed rules let only admins create tokens.
+    const token = memberToken();
+    expect((await read(kind, token)).rules).toEqual(RULES);
+    await change(NARROWED);
+    expect((await read(kind, token)).rules).toEqual(NARROWED);
+  });
+
+  it("carry the rules keyed and valued as the change operation takes them: written back whole, they store exactly what was read", async () => {
+    const token = memberToken();
+    await change(NARROWED);
+    const { rules } = await read("token", token);
+    await change(RULES);
+    await change(rules);
+    expect((await read("cookie")).rules).toEqual(NARROWED);
   });
 
   it("carry the rules to an agent through get_config, keyed and valued as the change operation takes them", async () => {
-    await change({ "tokens.expiry": "1y" });
+    const token = memberToken();
+    await change(NARROWED);
     const tool = buildTools().find(candidate => candidate.name === "get_config")!;
     const result = await executeTool(tool, {}, origin,
       (async (input: RequestInfo | URL, init?: RequestInit) => dispatchAssistantTestRoute(new Request(String(input), init))) as typeof fetch,
-      { authorization: `Bearer ${memberToken()}` });
+      { authorization: `Bearer ${token}` });
     const body = result.body as Record<string, unknown>;
-    expect(body.rules).toEqual({ "tokens.expiry": "1y" });
+    expect(body.rules).toEqual(NARROWED);
     const output = fromJsonSchema(tool.outputSchema as Parameters<typeof fromJsonSchema>[0]);
     const valid = async (value: unknown) => (await output["~standard"].validate(mcpResult(tool, { ...result, body: value }, null).structuredContent)).issues;
     expect(await valid(body)).toBeUndefined();
-    for (const rules of [{}, { "tokens.expiry": "2y" }, { "tokens.expiry": "1y", "tokens.lifetime": "1y" }]) {
+    // Every key present, each value one of its choices, nothing beside them.
+    const { ["imports.links"]: links, ...missing } = NARROWED;
+    expect(links).toBe("admins");
+    for (const rules of [{}, missing, { ...NARROWED, "tokens.expiry": "2y" }, { ...NARROWED, "publishing.publish": "nobody" },
+      { ...NARROWED, "tokens.create": "none" }, { ...NARROWED, "publishing.embedSites": [] }]) {
       expect(await valid({ ...body, rules })).toBeDefined();
     }
   });
