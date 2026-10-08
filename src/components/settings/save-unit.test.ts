@@ -721,6 +721,81 @@ describe("numbers set together", () => {
   });
 });
 
+describe("a row of several numbers sharing one Saved", () => {
+  const row = "set-starting-view";
+  const latitude: UnitControl = { key: "newMap.latitude", kind: "number", decimal: true, min: -85, max: 85, defaultValue: 40, row };
+  const longitude: UnitControl = { key: "newMap.longitude", kind: "number", decimal: true, min: -180, max: 180, defaultValue: 0, row };
+  const zoom: UnitControl = { key: "newMap.zoom", kind: "number", decimal: true, min: 0, max: 22, defaultValue: 1.3, row };
+  const kept = { "newMap.latitude": 40, "newMap.longitude": 0, "newMap.zoom": 1.3 };
+  function view() {
+    const server = fakeServer(kept);
+    return { server, unit: new SaveUnit({ title: "New maps", controls: [latitude, longitude, zoom], write: server.write, kept }) };
+  }
+  async function latitudeKept() {
+    const { server, unit } = view();
+    unit.edit("newMap.latitude", "51.5074"); unit.commit("newMap.latitude");
+    server.calls[0].accept(); await flush();
+    expect(unit.snapshot.saved).toEqual(["newMap.latitude"]);
+    // Still within the latitude's hold.
+    await vi.advanceTimersByTimeAsync(SAVED_HOLD_MS / 2);
+    return { server, unit };
+  }
+
+  it("clears the row's Saved and its timer at an edit in any of its fields, and shows none beside a red line", async () => {
+    const { server, unit } = await latitudeKept();
+    unit.edit("newMap.zoom", "30");
+    expect(unit.snapshot.saved).toEqual([]);
+    unit.commit("newMap.zoom");
+    expect(unit.snapshot.errors).toEqual({ "newMap.zoom": "Enter a number from 0 to 22." });
+    expect(unit.snapshot.saved).toEqual([]);
+    await vi.advanceTimersByTimeAsync(SAVED_HOLD_MS * 2);
+    expect(unit.snapshot.saved).toEqual([]);
+    expect(server.calls).toHaveLength(1);
+  });
+
+  it("clears it at a step in another of its fields too", async () => {
+    const { unit } = await latitudeKept();
+    unit.step("newMap.longitude", "9");
+    expect(unit.snapshot.saved).toEqual([]);
+  });
+
+  it("shows no Saved for a write the row's other field still refuses, and shows it again once the row's next write is accepted with none refused", async () => {
+    const { server, unit } = view();
+    unit.edit("newMap.zoom", "30"); unit.commit("newMap.zoom");
+    unit.keepTogether({ "newMap.latitude": "51.5", "newMap.longitude": "90" });
+    server.calls[0].accept(); await flush();
+    expect(unit.snapshot.kept).toMatchObject({ "newMap.latitude": 51.5, "newMap.longitude": 90 });
+    expect(unit.snapshot.errors).toEqual({ "newMap.zoom": "Enter a number from 0 to 22." });
+    expect(unit.snapshot.saved).toEqual([]);
+    unit.edit("newMap.zoom", "3"); unit.commit("newMap.zoom");
+    server.calls[1].accept(); await flush();
+    expect(unit.snapshot.errors).toEqual({});
+    expect(unit.snapshot.saved).toEqual(["newMap.zoom"]);
+  });
+
+  it("shows no Saved while another of its fields still has a change on its way, or typed and not yet kept", async () => {
+    const { server, unit } = view();
+    unit.edit("newMap.latitude", "10"); unit.commit("newMap.latitude");
+    unit.edit("newMap.longitude", "20"); unit.commit("newMap.longitude");
+    server.calls[0].accept(); await flush();
+    expect(unit.snapshot.saved).toEqual([]);
+    unit.edit("newMap.zoom", "4");
+    server.calls[1].accept(); await flush();
+    expect(unit.snapshot.saved).toEqual([]);
+    unit.commit("newMap.zoom");
+    server.calls[2].accept(); await flush();
+    expect(unit.snapshot.saved).toEqual(["newMap.zoom"]);
+  });
+
+  it("leaves a number in a row of its own as it was: its Saved holds while another field of the card is edited", async () => {
+    const server = fakeServer(), unit = limits(server);
+    unit.edit("queryTimeoutS", "90"); unit.commit("queryTimeoutS");
+    server.calls[0].accept(); await flush();
+    unit.edit("operationTimeoutS", "700");
+    expect(unit.snapshot.saved).toEqual(["queryTimeoutS"]);
+  });
+});
+
 describe("a setting pinned by the server's environment", () => {
   const pinned: UnitControl = { key: "previewRows", kind: "number", min: 10, max: 100000, defaultValue: 1000, locked: true };
 

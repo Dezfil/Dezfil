@@ -80,6 +80,7 @@ function props(element: HostElement) {
 }
 const type = (name: string, text: string) => act(async () => props(field(name)).onChange({ target: { value: text }, nativeEvent: { inputType: "insertText" } }));
 const leave = (name: string) => act(async () => props(field(name)).onBlur({}));
+const enter = (name: string) => act(async () => props(field(name)).onKeyDown({ key: "Enter", preventDefault() {}, nativeEvent: {} }));
 async function typeAndLeave(name: string, text: string) { await type(name, text); await leave(name); await settle(); }
 const writes = () => requests.filter(request => request.method === "PATCH").map(request => request.body);
 const saved = (label: string) => row(label).querySelectorAll('[role="status"]').map(element => element.textContent);
@@ -190,6 +191,46 @@ describe("Maps", () => {
     await settle();
     expect(saved("Starting view")).toEqual(["Saved"]);
     expect(centre()).toBeCloseTo(132, 0);
+  });
+
+  it("never shows a shared row's Saved beside a red line or a field being changed, and shows it again once the row's next write is kept with none refused", async () => {
+    await open();
+    await typeAndLeave("Latitude", "51.5074");
+    expect(saved("Starting view")).toEqual(["Saved"]);
+    // Within the latitude's hold: the zoom typed clears the row's Saved, and its refusal brings none back.
+    await type("Zoom", "30");
+    expect(saved("Starting view")).toEqual([]);
+    await enter("Zoom");
+    expect(row("Starting view").textContent).toContain("Zoom: Enter a number from 0 to 22.");
+    expect(saved("Starting view")).toEqual([]);
+    await leave("Zoom");
+    await settle();
+    expect(saved("Starting view")).toEqual([]);
+    // A click on the locator while the zoom is refused: kept, with no Saved beside the red line.
+    const box = { left: 100, top: 50, width: 176, height: 110 };
+    const y = box.top + ((mercator(51.5) - mercator(78)) * 176 / 110) * box.height;
+    const locator = container.querySelector("[data-locator]")!;
+    await act(async () => props(locator).onClick({ clientX: box.left + 0.75 * box.width, clientY: y, currentTarget: { getBoundingClientRect: () => box } }));
+    await settle();
+    expect(writes().at(-1)).toEqual({ "newMap.latitude": 51.5, "newMap.longitude": 90 });
+    expect(row("Starting view").textContent).toContain("Zoom: Enter a number from 0 to 22.");
+    expect(saved("Starting view")).toEqual([]);
+    // The zoom corrected and kept: the row's Saved returns.
+    await typeAndLeave("Zoom", "3");
+    expect(row("Starting view").textContent).not.toContain("Enter a number");
+    expect(saved("Starting view")).toEqual(["Saved"]);
+    // The opacities share one mark the same way.
+    await typeAndLeave("Points opacity", "40");
+    expect(saved("Opacity")).toEqual(["Saved"]);
+    await type("Lines opacity", "5");
+    expect(saved("Opacity")).toEqual([]);
+    await leave("Lines opacity");
+    await settle();
+    expect(row("Opacity").textContent).toContain("Lines: Enter a number from 10 to 100.");
+    expect(saved("Opacity")).toEqual([]);
+    expect(writes()).toEqual([
+      { "newMap.latitude": 51.5074 }, { "newMap.latitude": 51.5, "newMap.longitude": 90 }, { "newMap.zoom": 3 }, { "newLayer.pointOpacity": 40 },
+    ]);
   });
 
   it("keeps the legend corner picked with the builder's corner picker, at once", async () => {

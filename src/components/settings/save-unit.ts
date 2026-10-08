@@ -13,6 +13,10 @@
  * - Nothing is marked Saved before the server accepted the write, and the
  *   kept value is the one the response reports. Saved shows only by the
  *   value accepted, never by a newer one, and goes at the next change.
+ *   Fields that share one row share its Saved: a change in any of them, or
+ *   a red line under any of them, takes the row's Saved away, and it shows
+ *   again only when a write of the row is accepted while none of them is
+ *   refused, typed and not yet kept, or on its way.
  * - A number out of range is refused before any request, and so is a
  *   number with decimals where the setting takes whole numbers, and typed
  *   text the card's own check refuses on Save. A refusal that
@@ -48,6 +52,8 @@ export interface UnitControl {
   /** A number that takes decimals, kept as given. Every other number is a
    * whole number. */
   readonly decimal?: boolean;
+  /** The row it shares one Saved mark with, where a row holds several. */
+  readonly row?: string;
   /** Pinned by the server's environment, or fixed: never edited, saved, reset or held. */
   readonly locked?: boolean;
   /** What Reset to defaults returns it to. A control without one is not reset. */
@@ -230,7 +236,7 @@ export class SaveUnit {
     if (!control || control.kind !== "number") return;
     this.changed(control, text);
     const problem = numberProblem(text, control);
-    if (problem) { this.errors = { ...this.errors, [key]: problem }; this.settling.delete(key); }
+    if (problem) { this.refuseRow(key, problem); this.settling.delete(key); }
     else {
       this.settling.add(key);
       if (this.settleTimer) clearTimeout(this.settleTimer);
@@ -246,7 +252,7 @@ export class SaveUnit {
     this.settling.delete(key);
     const text = String(this.values[key] ?? "");
     const problem = numberProblem(text, control);
-    if (problem) this.errors = { ...this.errors, [key]: problem };
+    if (problem) this.refuseRow(key, problem);
     else if (this.differs(control, text)) this.enqueue({ how: "keep", patch: { [key]: Number(text.trim()) } });
     this.emit();
   }
@@ -264,7 +270,7 @@ export class SaveUnit {
       this.settling.delete(key);
       this.changed(control, text);
       const problem = numberProblem(text, control);
-      if (problem) this.errors = { ...this.errors, [key]: problem };
+      if (problem) this.refuseRow(key, problem);
       else if (this.differs(control, text)) patch[key] = Number(text.trim());
     }
     if (this.settleTimer && !this.settling.size) { clearTimeout(this.settleTimer); this.settleTimer = null; }
@@ -284,7 +290,7 @@ export class SaveUnit {
     if (!Object.keys(patch).length) return;
     const problems = Object.entries(this.check?.(this.values) ?? {}).filter(([key]) => this.controls.has(key));
     if (problems.length) {
-      this.errors = { ...this.errors, ...Object.fromEntries(problems) };
+      for (const [key, problem] of problems) this.refuseRow(key, problem);
       this.focusTo("field", problems[0][0]);
       this.emit();
       return;
@@ -376,7 +382,7 @@ export class SaveUnit {
       const refused = key in this.errors;
       const passed = this.superseded.delete(key) && !this.pending(key);
       if (refused || passed || (same(control, this.values[key], this.kept[key]) && !this.pending(key))) {
-        if (!same(control, this.values[key], next)) this.unmarkSaved(key);
+        if (!same(control, this.values[key], next)) this.unmarkRow(key);
         this.values[key] = display(control, next);
       }
       if (refused) {
@@ -440,8 +446,9 @@ export class SaveUnit {
     return [...this.controls.values()].filter(control => !control.locked && control.defaultValue !== undefined);
   }
 
-  /** A person's change: the value shows, its red line and its Saved go
-   * (Saved belongs to the value the server accepted), Undo lets go. */
+  /** A person's change: the value shows, its red line goes, and so does
+   * its row's Saved (Saved belongs to the values the server accepted);
+   * Undo lets go. */
   private changed(control: UnitControl, value: Value): void {
     this.values[control.key] = value;
     if (control.key in this.errors) {
@@ -449,7 +456,7 @@ export class SaveUnit {
       delete rest[control.key];
       this.errors = rest;
     }
-    this.unmarkSaved(control.key);
+    this.unmarkRow(control.key);
     this.dropUndo();
   }
 
@@ -541,10 +548,10 @@ export class SaveUnit {
       if (this.lastTyped) this.focusTo("field", this.lastTyped);
     }
     if (operation.how === "keep" || operation.how === "save") {
-      // Saved only by the value this answer accepted, while no newer change is on its way.
+      // Saved only by the value this answer accepted, while no newer change
+      // is on its way, and none of its row is refused or not yet kept.
       for (const key of Object.keys(operation.patch)) {
-        const control = this.controls.get(key);
-        if (control && key in reported && !this.waiting(key) && same(control, this.values[key], this.kept[key])) this.markSaved(key);
+        if (this.controls.has(key) && key in reported && this.settled(key)) this.markSaved(key);
       }
     }
     if (operation.how === "reset") this.offerUndo(operation.previous ?? {});
@@ -556,7 +563,10 @@ export class SaveUnit {
     const keys = Object.keys(operation.patch);
     if (this.refusalRows && failure instanceof WriteRefusal && failure.code === "invalid_request") {
       const rows = rowRefusals(failure.message, keys);
-      if (Object.keys(rows).length) { this.errors = { ...this.errors, ...rows }; return; }
+      if (Object.keys(rows).length) {
+        for (const [key, reason] of Object.entries(rows)) this.refuseRow(key, reason);
+        return;
+      }
     }
     const message = failure instanceof Error && failure.message ? failure.message : "This could not be saved.";
     const retry = !(failure instanceof WriteRefusal) || failure.status >= 500;
@@ -582,6 +592,29 @@ export class SaveUnit {
     if (timer === undefined) return;
     clearTimeout(timer);
     this.saved.delete(key);
+  }
+
+  /** The keys sharing a control's Saved: its row's, or its own alone. */
+  private rowKeys(key: string): string[] {
+    const row = this.controls.get(key)?.row;
+    return row === undefined ? [key] : [...this.controls.values()].filter(control => control.row === row).map(control => control.key);
+  }
+
+  /** A row's Saved goes, every timer of it with it. */
+  private unmarkRow(key: string): void {
+    for (const each of this.rowKeys(key)) this.unmarkSaved(each);
+  }
+
+  /** The red line under a field: never beside its row's Saved. */
+  private refuseRow(key: string, reason: string): void {
+    this.errors = { ...this.errors, [key]: reason };
+    this.unmarkRow(key);
+  }
+
+  /** A row may show Saved: none of it under a red line, waiting to be
+   * sent, or showing anything but what is kept. */
+  private settled(key: string): boolean {
+    return this.rowKeys(key).every(each => !(each in this.errors) && !this.waiting(each) && same(this.controls.get(each)!, this.values[each], this.kept[each]));
   }
 
   private offerUndo(previous: Patch): void {

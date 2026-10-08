@@ -26,11 +26,17 @@ function cardKeys(card: DefaultsCard, settings: Settings): string[] {
   return card.rows.flatMap(row => row.fields.map(field => field.key)).filter(key => settings[key]);
 }
 
+/** The row each setting shares its Saved with, where a row holds several
+ * (the starting view's three numbers, the three opacities). */
+function sharedRows(card: DefaultsCard): ReadonlyMap<string, string> {
+  return new Map(card.rows.filter(row => row.fields.length > 1).flatMap(row => row.fields.map(field => [field.key, row.id] as const)));
+}
+
 function defaultsUnit(card: DefaultsCard, settings: Settings): SaveUnit {
-  const keys = cardKeys(card, settings);
+  const keys = cardKeys(card, settings), rows = sharedRows(card);
   return new SaveUnit({
     title: card.title,
-    controls: keys.map(key => unitControlFor(settings[key])),
+    controls: keys.map(key => ({ ...unitControlFor(settings[key]), ...(rows.has(key) ? { row: rows.get(key) } : {}) })),
     kept: Object.fromEntries(keys.map(key => [key, settings[key].value as Value])),
     write: async patch => keptValues(await writeInstanceSettings(patch), keys),
   });
