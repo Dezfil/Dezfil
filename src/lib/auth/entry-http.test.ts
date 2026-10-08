@@ -9,9 +9,11 @@ import { createFirstAccount } from "./accounts";
 import { authenticateSession, createApiToken, signOut } from "./credentials";
 import { inviteAccount, changeAccountAccess } from "./admin";
 import { currentSession, enter, entryInformation, leave } from "./entry";
+import { gateRequest } from "./gate";
 import { SESSION_COOKIE } from "./http";
-import { LOGIN_ACCOUNT_LIMIT } from "./login-limits";
 
+// The stored per-account count's default, as a fixture.
+const LOGIN_ACCOUNT_LIMIT = 5;
 let db: Database;
 const password = "field notebooks at dawn";
 beforeEach(() => { db = metadata.open(":memory:"); vi.spyOn(metadata, "metadataDb").mockReturnValue(db); });
@@ -54,10 +56,18 @@ it("exposes only entry metadata and removes the legacy prefill once setup exists
   setSetting("view_prefs", '{"maps":{"view":"list"}}', db);
   const before = await entryInformation(request("/api/auth/entry"));
   expect(before.headers.get("cache-control")).toBe("private, no-store");
-  expect(await before.json()).toEqual({ instanceName: "Field atlas", signInMessage: "", lostPasswordContact: "", landingPage: "home", setupRequired: true, prefillName: "Legacy name" });
+  expect(await before.json()).toEqual({ instanceName: "Field atlas", signInMessage: "", lostPasswordContact: "", landingPage: "home", passwordMin: 8, setupRequired: true, prefillName: "Legacy name" });
   const signed = await first();
   const after = await entryInformation(request("/api/auth/entry", undefined, { cookie: cookie(signed.secret) }));
-  expect(await after.json()).toEqual({ instanceName: "Field atlas", signInMessage: "", lostPasswordContact: "", landingPage: "home", setupRequired: false });
+  expect(await after.json()).toEqual({ instanceName: "Field atlas", signInMessage: "", lostPasswordContact: "", landingPage: "home", passwordMin: 8, setupRequired: false });
+});
+it("names the shortest password the entry screens take: 8 for the first account, then the stored one", async () => {
+  writeStoredSettings({ "security.passwordMin": 12 }, db);
+  expect((await (await entryInformation(request("/api/auth/entry"))).json()).passwordMin).toBe(8);
+  await first();
+  expect((await (await entryInformation(request("/api/auth/entry"))).json()).passwordMin).toBe(12);
+  writeStoredSettings({ "security.passwordMin": null }, db);
+  expect((await (await entryInformation(request("/api/auth/entry"))).json()).passwordMin).toBe(8);
 });
 it.each(["http://instance.test", "https://instance.test"])("sets an HttpOnly SameSite cookie using trusted transport at %s", async origin => {
   const response = await enter(request("/api/auth/setup", { name: "Ada", email: "ada@example.test", password }, {}, origin), "setup");
@@ -67,6 +77,19 @@ it.each(["http://instance.test", "https://instance.test"])("sets an HttpOnly Sam
   expect(set).toMatch(/HttpOnly/i); expect(set).toMatch(/SameSite=lax/i); expect(set).toMatch(/Max-Age=2592000/i);
   expect(/; Secure/i.test(set)).toBe(origin.startsWith("https"));
   expect(JSON.stringify(await response.json())).not.toMatch(/password|hash|dz_session/);
+});
+it("gives the cookie the stored session length at entry, on a session read and through the gate", async () => {
+  writeStoredSettings({ "security.sessionDays": "7" }, db);
+  const entered = await enter(request("/api/auth/setup", { name: "Ada", email: "ada@example.test", password }), "setup");
+  const set = entered.headers.get("set-cookie")!;
+  expect(set).toMatch(/Max-Age=604800(;|$)/i);
+  const session = set.split(";")[0];
+  writeStoredSettings({ "security.sessionDays": "1" }, db);
+  const current = await currentSession(request("/api/auth/session", undefined, { cookie: session }));
+  expect(current.status).toBe(200);
+  expect(current.headers.get("set-cookie")).toMatch(/Max-Age=86400(;|$)/i);
+  const gated = gateRequest(request("/maps", undefined, { cookie: session }));
+  expect(gated.headers.get("set-cookie")).toMatch(/Max-Age=86400(;|$)/i);
 });
 it("replaces another account's cookie on redemption and refuses replay without another write", async () => {
   const admin = await first();
@@ -150,8 +173,8 @@ it("serves stored General values anonymously and restores defaults after clearin
   expect(response.status).toBe(200);
   expect(response.headers.get("cache-control")).toBe("private, no-store");
   expect(await response.json()).toEqual({ instanceName: null, setupRequired: false,
-    signInMessage: "Welcome aboard", lostPasswordContact: "Ask the steward", landingPage: "sql" });
+    signInMessage: "Welcome aboard", lostPasswordContact: "Ask the steward", landingPage: "sql", passwordMin: 8 });
   writeStoredSettings({ signInMessage: null, lostPasswordContact: null, landingPage: null }, db);
   expect(await (await entryInformation(request("/api/auth/entry"))).json()).toEqual({ instanceName: null,
-    setupRequired: false, signInMessage: "", lostPasswordContact: "", landingPage: "home" });
+    setupRequired: false, signInMessage: "", lostPasswordContact: "", landingPage: "home", passwordMin: 8 });
 });

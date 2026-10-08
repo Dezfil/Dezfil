@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { PATCH } from "@/app/api/instance/settings/route";
+import { GET, PATCH } from "@/app/api/instance/settings/route";
 import { buildOpenApiDocument } from "@/lib/api/openapi";
 import { buildTools } from "@/lib/tools/tools";
 import { executeTool } from "@/lib/tools/execute";
@@ -33,8 +33,9 @@ it("exposes a closed update input and refuses unknown arguments before HTTP disp
     instanceName: { type: ["string", "null"], pattern: "^\\s*[\\s\\S]{0,80}\\s*$" }, landingPage: { enum: ["home", "projects", "maps", "workflows", "data", "sql", null] },
     "newMap.zoom": { type: ["number", "null"], minimum: 0, maximum: 22 }, "newLayer.pointOpacity": { type: ["integer", "null"], minimum: 10, maximum: 100 },
     "sqlConsole.lineWrap": { type: ["boolean", "null"] }, "imageExport.shape": { enum: ["16:9", "4:3", "1:1", null] } });
-  // The fourteen limits, the four General rows and the eighteen defaults for new things.
-  expect(Object.keys(tool.inputSchema.properties)).toHaveLength(36);
+  // The fourteen limits, the four General rows, the eighteen defaults for new
+  // things, and the twelve sign-in, token, publishing, connection and import rows.
+  expect(Object.keys(tool.inputSchema.properties)).toHaveLength(48);
   for (const key of ["secretKey", "geocoderUrl", "renderCapFeatures", "sourceGrouping"]) expect(tool.inputSchema.properties).not.toHaveProperty(key);
   const fetch = vi.fn();
   const result = await executeTool(tool, { previewRows: 200, unknown: "seed-tool-secret" }, "http://instance.test", fetch);
@@ -58,6 +59,54 @@ it.each([
     expect((await executeTool(tool, { [key]: kept }, "http://instance.test", fetch)).status).toBe(200);
     expect(fetch).toHaveBeenCalledOnce(); expect(readStoredSettings(f.db)).toEqual({ [key]: kept });
   } finally { await client.close(); }
+});
+
+const fifty = Array.from({ length: 50 }, (_, index) => `https://site-${index + 1}.example`);
+it.each([
+  ["security.sessionDays", 30, "90"], ["security.sessionDays", "2", "1"], ["security.linkDays", "30", "14"],
+  ["security.failedPerAccount", 2, 3], ["security.failedPerAccount", 4.5, 4], ["security.failedPerAddress", 1001, 1000],
+  ["security.passwordMin", 7, 8], ["security.passwordMin", 65, 64],
+  ["tokens.create", "members", "admins"], ["tokens.expiry", "60d", "30d"], ["tokens.expiry", 30, "1y"],
+  ["publishing.publish", "nobody", "none"], ["publishing.embedding", "some", "off"],
+  ["connections.create", "members", "admins"], ["imports.links", true, "admins"],
+  ["publishing.embedSites", ["https://portal.example/embed"], ["https://portal.example"]],
+  ["publishing.embedSites", ["ftp://portal.example"], ["http://intranet.example:8080"]],
+  ["publishing.embedSites", ["https://seed-user@portal.example"], ["https://portal.example"]],
+  ["publishing.embedSites", "https://portal.example", ["https://portal.example"]],
+  ["publishing.embedSites", [...fifty, "https://site-51.example"], fifty],
+] as const)("refuses %s = %j off its list, bounds or shape in generated and MCP calls before any HTTP call", async (key, refused, kept) => {
+  const tool = buildTools().find(t => t.name === "update_instance_settings")!;
+  const fetch = vi.fn(dispatch), api = vi.fn((request: Request) => dispatch(request)), client = await testClient(api);
+  try {
+    expect((await executeTool(tool, { [key]: refused }, "http://instance.test", fetch)).status).toBe(400);
+    expect((await client.callTool({ name: tool.name, arguments: { [key]: refused } })).isError).toBe(true);
+    expect(fetch).not.toHaveBeenCalled(); expect(api).not.toHaveBeenCalled();
+    expect(readStoredSettings(f.db)).toEqual({});
+    // The same key with a value inside its list, bounds and shape goes through.
+    expect((await executeTool(tool, { [key]: kept }, "http://instance.test", fetch)).status).toBe(200);
+    expect(fetch).toHaveBeenCalledOnce(); expect(readStoredSettings(f.db)).toEqual({ [key]: kept });
+  } finally { await client.close(); }
+});
+
+it("describes the new rows in the configuration read and the change answer, as the tools' documented output takes them", async () => {
+  const api = vi.fn((request: Request) => request.method === "GET" ? GET(socketRequest(new Request(request, { headers: { authorization: `Bearer ${f.token.secret}` } }))) : dispatch(request));
+  const client = await testClient(api);
+  const stored = { "security.sessionDays": "7", "security.linkDays": "1", "security.failedPerAccount": 10, "security.failedPerAddress": 10,
+    "security.passwordMin": 12, "tokens.create": "admins", "tokens.expiry": "90d", "publishing.publish": "admins", "publishing.embedding": "listed",
+    "publishing.embedSites": ["https://portal.example", "http://intranet.example:8080"], "connections.create": "admins", "imports.links": "admins" };
+  try {
+    const changed = await client.callTool({ name: "update_instance_settings", arguments: stored });
+    expect(changed.isError, JSON.stringify(changed.structuredContent)).not.toBe(true);
+    const read = await client.callTool({ name: "get_instance_settings", arguments: {} });
+    expect(read.isError, JSON.stringify(read.structuredContent)).not.toBe(true);
+    for (const result of [changed, read]) {
+      const settings = (result.structuredContent as { result: { settings: Record<string, { value: unknown; storedValue: unknown; source: string }> } }).result.settings;
+      for (const [key, value] of Object.entries(stored)) expect(settings[key], key).toMatchObject({ value, storedValue: value, source: "stored" });
+    }
+  } finally { await client.close(); }
+  const documented = buildOpenApiDocument().components.schemas.InstanceSettings.properties.settings.properties["publishing.embedSites"].properties;
+  expect(documented.value).toEqual({ anyOf: [{ type: "array", maxItems: 50, items: { type: "string", pattern: "^https?://[a-z0-9.-]+(?::[0-9]{1,5})?$" } },
+    { type: "object", properties: { rule: { type: "string" } }, required: ["rule"], additionalProperties: false }] });
 });
 
 it.each([["instanceName", 80], ["signInMessage", 280], ["lostPasswordContact", 120]] as const)(

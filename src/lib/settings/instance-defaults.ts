@@ -1,4 +1,4 @@
-import type { SettingDefinition, SettingValue, WriteConstraint } from "./types";
+import { KIND_OF, type SettingDefinition, type SettingValue, type WriteConstraint } from "./types";
 
 /**
  * What new maps, new layers, the workflow canvas, the SQL console and the
@@ -14,9 +14,6 @@ import type { SettingDefinition, SettingValue, WriteConstraint } from "./types";
  * Number-like choices are text, so one validator and one schema shape
  * serve every choice; their readers parse them.
  */
-const KIND_OF: Readonly<Record<WriteConstraint["kind"], SettingDefinition["kind"]>> = {
-  integer: "number", decimal: "number", switch: "boolean", text: "text", choice: "choice",
-};
 function startsWith<const K extends string, const W extends WriteConstraint>(
   key: K, label: string, purpose: string, defaultValue: SettingValue, write: W, unit?: string,
 ): SettingDefinition & { readonly key: K; readonly write: W } {
@@ -56,6 +53,14 @@ export const INSTANCE_DEFAULT_SETTINGS = [
   startsWith("imageExport.width", "Image starting width", "The width a fresh image export card opens at.", "1920", choice("1280", "1920", "2560"), "px"),
   startsWith("imageExport.shape", "Image starting shape", "The shape a fresh image export card opens at.", "4:3", choice("16:9", "4:3", "1:1")),
 ] as const;
+
+/** The five groups of what new things start with. Every signed-in account
+ * reads other settings too (who may publish, say), and those are rules, not
+ * defaults: none of them enters what new things start with. */
+const INSTANCE_DEFAULT_GROUPS = ["newMap", "newLayer", "canvas", "sqlConsole", "imageExport"] as const;
+export function isInstanceDefault(definition: { readonly key: string; readonly readBy: string }): boolean {
+  return definition.readBy === "signed-in" && (INSTANCE_DEFAULT_GROUPS as readonly string[]).includes(definition.key.split(".")[0]);
+}
 
 export type InstanceDefaultKey = (typeof INSTANCE_DEFAULT_SETTINGS)[number]["key"];
 type Definition<K extends InstanceDefaultKey> = Extract<(typeof INSTANCE_DEFAULT_SETTINGS)[number], { readonly key: K }>;

@@ -9,7 +9,9 @@
  *   from elsewhere (a place picked on a map) are kept in one write.
  *   Typed text waits for the card's Save, which writes the changed keys
  *   in one request, and Save and Cancel show only while that text
- *   differs from what was saved.
+ *   differs from what was saved. A choice that cannot be kept alone (a
+ *   list chosen with nothing in it yet) is held: it shows, and waits for
+ *   the Save with the text, until another choice is made or Cancel.
  * - Nothing is marked Saved before the server accepted the write, and the
  *   kept value is the one the response reports. Saved shows only by the
  *   value accepted, never by a newer one, and goes at the next change.
@@ -167,6 +169,8 @@ export class SaveUnit {
   private focus: UnitFocus | null = null;
   private focusSeq = 0;
   private lastTyped: string | null = null;
+  /** Choices held for the card's Save. */
+  private readonly held = new Set<string>();
   private readonly settling = new Set<string>();
   private settleTimer: ReturnType<typeof setTimeout> | null = null;
   private flight: Operation | null = null;
@@ -224,8 +228,19 @@ export class SaveUnit {
   choose(key: string, value: Value): void {
     const control = this.editable(key);
     if (!control) return;
+    this.held.delete(key);
     this.changed(control, value);
     if (this.differs(control, value)) this.enqueue({ how: "keep", patch: { [key]: value } });
+    this.emit();
+  }
+
+  /** A choice that cannot be kept alone: it shows, nothing is sent, and it
+   * goes with the card's Save. Choosing again lets it go. */
+  hold(key: string, value: Value): void {
+    const control = this.editable(key);
+    if (!control || control.kind !== "choice") return;
+    this.changed(control, value);
+    this.held.add(key);
     this.emit();
   }
 
@@ -283,7 +298,7 @@ export class SaveUnit {
     if (this.busy) return;
     const patch: Patch = {};
     for (const control of this.controls.values()) {
-      if (control.kind === "text" && !control.locked && !same(control, this.values[control.key], this.kept[control.key])) {
+      if (this.waitsForSave(control) && !same(control, this.values[control.key], this.kept[control.key])) {
         patch[control.key] = this.values[control.key];
       }
     }
@@ -303,6 +318,7 @@ export class SaveUnit {
 
   /** Every control back to what was saved. */
   cancel(): void {
+    this.held.clear();
     for (const control of this.controls.values()) {
       if (!control.locked) this.values[control.key] = display(control, this.target(control.key) ?? this.kept[control.key]);
     }
@@ -327,6 +343,8 @@ export class SaveUnit {
       this.settling.delete(control.key);
     }
     if (this.settleTimer && !this.settling.size) { clearTimeout(this.settleTimer); this.settleTimer = null; }
+    // A held choice is reset with the rest: what the response reports shows.
+    this.held.clear();
     this.errors = {};
     this.note = null;
     this.enqueue({ how: "reset", patch, previous });
@@ -437,6 +455,11 @@ export class SaveUnit {
     this.emit();
   }
 
+  /** Typed text, and a held choice, go with the card's Save. */
+  private waitsForSave(control: UnitControl): boolean {
+    return !control.locked && (control.kind === "text" || this.held.has(control.key));
+  }
+
   private editable(key: string): UnitControl | undefined {
     const control = this.controls.get(key);
     return control && !control.locked ? control : undefined;
@@ -545,6 +568,7 @@ export class SaveUnit {
     this.failed = null;
     if (operation.how === "save") {
       this.busy = false;
+      for (const key of Object.keys(operation.patch)) this.held.delete(key);
       if (this.lastTyped) this.focusTo("field", this.lastTyped);
     }
     if (operation.how === "keep" || operation.how === "save") {
@@ -654,7 +678,7 @@ export class SaveUnit {
 
   private build(): UnitSnapshot {
     const saveLine = [...this.controls.values()].some(control =>
-      control.kind === "text" && !control.locked && !same(control, this.values[control.key], this.kept[control.key]));
+      this.waitsForSave(control) && !same(control, this.values[control.key], this.kept[control.key]));
     return {
       values: { ...this.values }, kept: { ...this.kept }, errors: { ...this.errors }, saved: [...this.saved.keys()],
       note: this.note, busy: this.busy, saveLine, dirty: saveLine, slot: this.slot(),

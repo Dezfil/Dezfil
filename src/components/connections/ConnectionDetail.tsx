@@ -16,7 +16,7 @@ import { AddDataDialog } from "@/components/AddDataDialog";
 import { skippedNotice } from "@/components/skipped-members";
 import { uploadSettleNotice } from "@/components/upload-settle-notice";
 import { useUploadQueue, type UploadQueue } from "@/components/use-upload-queue";
-import { ConnectionForm } from "./ConnectionForm";
+import { RuledConnectionForm } from "./RuledConnectionForm";
 import { contributePath, releasePath } from "@/components/shell/path-model";
 import { PlainCrumbTail } from "@/components/shell/PlainCrumbTail";
 import { ConnectionMenu } from "./ConnectionMenu";
@@ -464,7 +464,7 @@ export function ConnectionDetail({ id }: { id: string }) {
               <span>Saving re-tests the connection</span>
             </div>
             <div className={styles.cardBody}>
-              <ConnectionForm
+              <RuledConnectionForm
                 mode="edit"
                 connection={connection}
                 layout="stacked"

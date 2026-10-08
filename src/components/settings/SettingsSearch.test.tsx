@@ -34,7 +34,7 @@ const LOOK = { ...defaultLook(), color: "slate", background: "hex" };
 /** What the configuration read reports stored. */
 const STORED = { instanceName: "Atlas North", landingPage: "maps", queryTimeoutS: 90, "newLayer.colorCycle": "tab10" };
 let admin = true;
-let tokens: { id: string; name: string; createdAt: string; lastUsedAt: string | null; revokedAt: string | null }[];
+let tokens: { id: string; name: string; createdAt: string; lastUsedAt: string | null; revokedAt: string | null; expiresAt: string | null }[];
 let requests: string[];
 const scrolled: string[] = [];
 Object.assign(HostElement.prototype, { scrollIntoView(this: HostElement) { scrolled.push(this.id); } });
@@ -53,7 +53,7 @@ let themeButton: HostElement;
 
 beforeEach(() => {
   requests = []; scrolled.length = 0; admin = true;
-  tokens = [{ id: "t1", name: "Laptop CLI", createdAt: "2026-10-01T00:00:00.000Z", lastUsedAt: null, revokedAt: null }];
+  tokens = [{ id: "t1", name: "Laptop CLI", createdAt: "2026-10-01T00:00:00.000Z", lastUsedAt: null, revokedAt: null, expiresAt: null }];
   nav.pathname = "/settings"; nav.hash = "";
   nav.replace = vi.fn((address: string) => {
     const at = address.indexOf("#");
@@ -77,7 +77,7 @@ beforeEach(() => {
     if (url === "/api/health") return Response.json({ status: "ready" });
     if (url === "/api/assistant") return Response.json({ enabled: false, reason: "No model credential is configured." });
     if (url === "/api/account/tokens" && init?.method === "POST") {
-      const token = { id: "t2", name: JSON.parse(String(init.body)).name, createdAt: "2026-10-07T00:00:00.000Z", lastUsedAt: null, revokedAt: null };
+      const token = { id: "t2", name: JSON.parse(String(init.body)).name, createdAt: "2026-10-07T00:00:00.000Z", lastUsedAt: null, revokedAt: null, expiresAt: null };
       tokens = [...tokens, token];
       return Response.json({ ...token, secret: SECRET });
     }
@@ -298,17 +298,19 @@ describe("the Settings search", () => {
     await choose("Header / Light or dark");
     expect(themeButton.style.getPropertyValue("background-color")).toBe("var(--accent-wash)");
     await find("invite");
-    expect(lines()).toEqual(["Side menu / Users"]);
+    // Security's row for invite links starts with the word; Users holds it as a keyword.
+    expect(lines()).toEqual(["Instance / Security · Invite and reset links last", "Side menu / Users"]);
     await choose("Side menu / Users");
     expect(container.querySelector('[id="settings-users"]')!.hasAttribute("data-marked")).toBe(true);
   });
 
-  it("gives a member only the member's tabs: never Maps, Workflows & SQL, Publishing, Limits, System or Users, and never the configuration read", async () => {
+  it("gives a member only the member's tabs: never Maps, Workflows & SQL, Publishing, Limits, Security, System or Users, and never the configuration read", async () => {
     await open("/settings/account", "member");
     for (const query of ["limit", "system", "users", "invite", "environment", "version", "maps", "basemap", "opacity", "workflows",
-      "minimap", "text size", "publishing", "starting width", "tab10"]) {
+      "minimap", "text size", "publishing", "starting width", "tab10", "security", "stay signed in", "shortest password", "who may publish",
+      "embedding"]) {
       await find(query);
-      expect(lines().filter(line => /Maps|Workflows|Publishing|Limits|System|Users/.test(line)), query).toEqual([]);
+      expect(lines().filter(line => /Maps|Workflows|Publishing|Limits|Security|System|Users/.test(line)), query).toEqual([]);
     }
     await find("gis team");
     expect(lines()).toEqual(["Instance / General · Lost password contact"]);
@@ -323,7 +325,7 @@ describe("where a hit lands", () => {
       tokens, look: LOOK, instance: storedRead(STORED), entry: null,
       health: "ready", assistant: { enabled: false, reason: "No model credential is configured." },
     }, true);
-    const tabs: SettingsTabId[] = ["account", "tokens", "appearance", "general", "maps", "workflows", "publishing", "limits", "system"];
+    const tabs: SettingsTabId[] = ["account", "tokens", "appearance", "general", "maps", "workflows", "publishing", "limits", "security", "system"];
     expect(Object.keys(declared).sort()).toEqual([...tabs].sort());
     for (const tab of tabs) {
       await arrive(`/settings/${tab}`);

@@ -3,7 +3,10 @@ export type AuthErrorCode =
   | "setup_complete" | "weak_password" | "email_taken" | "self_change_refused"
   | "account_not_deactivated" | "deletion_in_progress" | "deletion_changed"
   | "last_admin" | "forbidden" | "invalid_link" | "current_password_required"
-  | "invalid_request" | "not_found" | "ingress_unavailable" | "rate_limited";
+  | "invalid_request" | "not_found" | "ingress_unavailable" | "rate_limited" | "token_expired"
+  /** An instance rule an admin set excludes the acting account from this
+   * action; the envelope names the rule. */
+  | "rule_refused";
 
 /** Transport-independent failures; entry and account routes map these to their contract. */
 export class AuthError extends Error {

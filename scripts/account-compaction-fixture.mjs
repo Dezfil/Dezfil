@@ -53,7 +53,7 @@ export function liveFixture(directory, seed) {
   if (seed === 'former-missing') { db.exec('VACUUM'); db.pragma('wal_checkpoint(TRUNCATE)'); }
   assert.deepEqual(scan().target, target.slice(0, 6), 'former values must be found immediately after the change in the same open store');
   db.prepare("INSERT INTO auth_sessions VALUES ('session', ?, 'target', 1, 2, 1, NULL)").run(target[6]);
-  db.prepare("INSERT INTO auth_tokens VALUES ('token', 'target', 'name', ?, 1, NULL, 1)").run(target[7]);
+  db.prepare("INSERT INTO auth_tokens VALUES ('token', 'target', 'name', ?, 1, NULL, 1, NULL)").run(target[7]);
   db.prepare("INSERT INTO auth_links VALUES ('link', 'target', 'reset', ?, 1, 2, 2, NULL)").run(target[8]);
   db.prepare(`INSERT INTO pg_connections (id,name,host,port,database,username,password_encrypted,created_at,owner_id)
     VALUES ('connection', 'name', 'localhost', 5432, 'gis', 'user', ?, 'time', 'target')`).run(target[9]);

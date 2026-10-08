@@ -17,7 +17,7 @@ beforeAll(async () => {
   const files = [
     "src/lib/ingest/receive.ts", "src/lib/ingest/budget.ts", "src/lib/ingest/file-ownership.ts", "src/lib/config.ts", "src/lib/limits.ts",
     "src/lib/settings/resolver.ts", "src/lib/settings/remedy.ts", "src/lib/settings/catalogue.ts", "src/lib/settings/numeric.ts",
-    "src/lib/settings/instance-defaults.ts", "src/lib/settings/types.ts", "src/lib/settings/state.ts",
+    "src/lib/settings/instance-defaults.ts", "src/lib/settings/instance-security.ts", "src/lib/settings/types.ts", "src/lib/settings/state.ts",
     "src/lib/api/errors.ts", "src/lib/api/error-catalogue.ts", "src/lib/auth/errors.ts",
     "src/lib/project-scope.ts", "src/app/api/tables/route.ts",
   ];

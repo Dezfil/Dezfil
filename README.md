@@ -38,7 +38,7 @@ the volume works, but state then lasts only for that container's lifetime.
 On first run, create the initial admin account. Application pages and APIs
 require a session or an account API token; admins manage accounts in Users,
 and the instance name, the sign-in page, the defaults for new maps, layers and
-screens, and the limits in Settings.
+screens, the limits, and the sign-in, token and publishing rules in Settings.
 Each person picks their own look on the **Appearance** tab of Settings: color,
 contrast, background, typeface, corners and how the side menu opens. The look is
 kept with the account, so it shows from the first paint in every browser that
@@ -49,8 +49,8 @@ then reach everything filed in it, as viewers or editors.
 Connections are never shared. Dataset and connection names belong to that
 account's space; SQL names another person's dataset `<sql name>.<dataset>`.
 Basemap, palette, operation and model catalogues remain shared; any signed-in
-account can save or delete a custom palette. Published links and embeds remain readable without an account,
-as does the readiness probe. An instance upgraded from a release without accounts
+account can save or delete a custom palette. Published links remain readable without an account,
+as do embeds on the sites the instance allows, and the readiness probe. An instance upgraded from a release without accounts
 also shows setup once. Secure new and upgraded instances until you complete setup,
 and complete it promptly: whoever reaches setup first becomes the admin.
 
@@ -103,6 +103,11 @@ wins, then the default. Shadowed stored values stay saved and apply after the
 variable is removed and the process restarted. Admin changes through
 `PATCH /api/instance/settings` apply live to new work; admitted work retains its
 budget. Settings without a variable are never locked.
+How long sign-ins and links last, the shortest password, and who may create
+tokens, publish, embed, add database connections and import from links have no
+variable: admins set them on the **Security** and **Publishing** tabs or through
+`PATCH /api/instance/settings`, as [Security and rules](docs/configuration.md#security-and-rules)
+lists.
 
 | Setting | Default | What it controls | Changed by |
 |---|---|---|---|

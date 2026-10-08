@@ -15,11 +15,16 @@ function storageKey(key: string): string { return key === "instanceName" ? "inst
 
 /** Every value is stored as its text. A number reads back through Number,
  * which returns exactly the number written; a switch from "true" or
- * "false". Anything else then fails validation and reads as unset. */
+ * "false"; a list from its lines, one entry a line. Anything else then
+ * fails validation and reads as unset. */
 function fromText(definition: SettingDefinition, raw: string): unknown {
   if (definition.kind === "number") return Number(raw);
   if (definition.kind === "boolean") return raw === "true" ? true : raw === "false" ? false : raw;
+  if (definition.kind === "list") return raw.split("\n");
   return raw;
+}
+function toText(value: Exclude<SettingValue, null>): string {
+  return Array.isArray(value) ? value.join("\n") : String(value);
 }
 
 /** Instance text stays in SQLite, including the row used by the legacy writer. */
@@ -87,7 +92,7 @@ export function writeStoredSettings(patch: Readonly<Record<string, unknown>>, db
       if (value === null) db.prepare("DELETE FROM workspace_settings WHERE key = ?").run(storageKey(key));
       else db.prepare(`INSERT INTO workspace_settings (key, value, updated_at) VALUES (?, ?, ?)
         ON CONFLICT (key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`)
-        .run(storageKey(key), String(value), new Date().toISOString());
+        .run(storageKey(key), toText(value), new Date().toISOString());
     }
     (db as ObservedStore)[storeKey]!.dirty = true;
   }).immediate();

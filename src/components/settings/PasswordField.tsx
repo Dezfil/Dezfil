@@ -6,17 +6,20 @@ import { EyeIcon, EyeOffIcon } from "@/components/ui/icons";
 import { LabelledField } from "./SettingsCard";
 import styles from "./SettingsCard.module.css";
 
-export function PasswordField({ label, value, onChange, disabled, newPassword = false, unitKey, error }: {
+export function PasswordField({ label, value, onChange, disabled, newPassword = false, shortest, unitKey, error }: {
   label: string; value: string; onChange: (value: string) => void; disabled?: boolean; newPassword?: boolean;
+  /** A new password's fewest characters, named under it once known. */
+  shortest?: number;
   /** The save unit's key, when a unit moves focus to it. */
   unitKey?: string;
   /** The red line under it. */
   error?: string | null;
 }) {
   const id = useId(), [shown, setShown] = useState(false);
-  const described = [error ? `${id}-error` : null, newPassword ? `${id}-rule` : null].filter(Boolean).join(" ") || undefined;
+  const rule = newPassword && shortest !== undefined ? `At least ${shortest} characters.` : undefined;
+  const described = [error ? `${id}-error` : null, rule ? `${id}-rule` : null].filter(Boolean).join(" ") || undefined;
   return <LabelledField label={label} inputId={id} error={error} errorId={`${id}-error`}
-    rule={newPassword ? "At least 8 characters." : undefined} ruleId={`${id}-rule`}>
+    rule={rule} ruleId={`${id}-rule`}>
     <div className={styles.password}>
       <TextInput id={id} type={shown ? "text" : "password"} autoComplete={newPassword ? "new-password" : "current-password"}
         value={value} onChange={event => onChange(event.target.value)} disabled={disabled} required

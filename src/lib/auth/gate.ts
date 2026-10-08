@@ -3,7 +3,8 @@ import { isAnonymousAsset } from "./public-assets";
 import { NextResponse } from "next/server";
 import { setupComplete } from "@/lib/metadata/accounts";
 import { AuthError } from "./errors";
-import { isAdminRequest, isAnonymousOperation, isEntryRequest } from "./request-policy";
+import { isAdminRequest, isAnonymousOperation, isEntryRequest, isPublishedPage } from "./request-policy";
+import { publishedFramingPolicy } from "./published-framing";
 import { requireAdmin } from "./admin";
 import { metadataDb } from "@/lib/metadata/db";
 import { assertRequestOrigin, authFailure, privateResponse, requestAuth, requestIngress, requireRequestAuth, sessionCookie, sessionSecret } from "./http";
@@ -12,7 +13,16 @@ import { assertRequestOrigin, authFailure, privateResponse, requestAuth, request
 export function gateRequest(request: Request): Response {
   const pathname = new URL(request.url).pathname;
   if (isAnonymousAsset(pathname, request.method, process.env.NODE_ENV === "development") ||
-      (isAnonymousOperation(pathname, request.method) && !isEntryRequest(pathname, request.method))) return NextResponse.next();
+      (isAnonymousOperation(pathname, request.method) && !isEntryRequest(pathname, request.method))) {
+    const response = NextResponse.next();
+    // A published page says which other sites may frame it, read afresh
+    // for each answer; the published API responses carry no such policy.
+    if (isPublishedPage(pathname)) {
+      const policy = publishedFramingPolicy();
+      if (policy) response.headers.set("Content-Security-Policy", policy);
+    }
+    return response;
+  }
   try {
     const ingress = requestIngress(request);
     const redirect = (destination: string) => privateResponse(NextResponse.redirect(new URL(destination, ingress.origin)));

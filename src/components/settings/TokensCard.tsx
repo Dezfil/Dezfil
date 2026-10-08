@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useId, useState, type FormEvent } from "react";
 import type { ApiToken } from "@/lib/metadata/auth-credentials";
+import { ruleRefusal } from "@/lib/settings/instance-rules";
 import { Button } from "@/components/ui/Button";
 import { TextInput } from "@/components/ui/Field";
 import { ErrorNote } from "@/components/ui/ErrorNote";
@@ -13,17 +14,27 @@ import { useDrawn } from "./settings-land";
 import { cardFormClass, CardActions, LabelledField, Note, SettingsCard } from "./SettingsCard";
 import styles from "./SettingsCard.module.css";
 
+/** How long a new token lasts, in the words the admin's choice uses; Never says nothing. */
+const LIFETIME_WORDS: Readonly<Record<string, string>> = { "30d": "30 days", "90d": "90 days", "1y": "1 year" };
+
 /** The person's API / MCP tokens: name one and create it, its secret shown
  * once with Copy token and Done, the list with Revoke behind its
  * confirmation. A typed name or a creation on its way holds the page, so
  * leaving asks first naming the card, and once the new secret is on
- * screen, its own words take over: it will not be shown again. */
-export function TokensCard() {
+ * screen, its own words take over: it will not be shown again. Each token
+ * says when it expires, and Expired once it has; beside Create, one line
+ * says how long a new token lasts, from the runtime read's rule. While
+ * the instance's rule leaves token creation to admins, a member's name
+ * and Create are disabled with that one sentence instead, and the tokens
+ * they made earlier stay listed and revocable. */
+export function TokensCard({ admin }: { admin: boolean }) {
   const ids = useId();
   const [tokens, setTokens] = useState<ApiToken[] | null>(null), [attempt, setAttempt] = useState(0);
   const [name, setName] = useState(""), [secret, setSecret] = useState<string | null>(null);
   const [copied, setCopied] = useState(false), [busy, setBusy] = useState(false), [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null), [revoking, setRevoking] = useState<ApiToken | null>(null);
+  const [lifetime, setLifetime] = useState<string | null>(null), [createRule, setCreateRule] = useState<unknown>(null);
+  const refusal = ruleRefusal("tokens.create", createRule, admin);
   // The secret's entry first: when the secret arrives and the name clears in the same render, the page stays held throughout.
   useGuardEntry("tokens-secret", secret !== null, "API / MCP tokens", "The new token will not be shown again.");
   useGuardEntry("tokens-name", secret === null && (name !== "" || creating), "API / MCP tokens");
@@ -37,8 +48,18 @@ export function TokensCard() {
     }).catch(error => { if (!cancelled) setError(failureMessage(error)); });
     return () => { cancelled = true; };
   }, [attempt]);
+  useEffect(() => {
+    let cancelled = false;
+    accountRequest<{ rules?: Record<string, unknown> }>("/api/config").then(config => {
+      const expiry = config.rules?.["tokens.expiry"];
+      if (!cancelled) { setLifetime(typeof expiry === "string" ? LIFETIME_WORDS[expiry] ?? null : null); setCreateRule(config.rules?.["tokens.create"] ?? null); }
+    }).catch(() => { /* without the rules the line says nothing and Create stays; each token still says its own expiry */ });
+    return () => { cancelled = true; };
+  }, []);
   async function create(event: FormEvent) {
-    event.preventDefault(); setBusy(true); setCreating(true); setError(null);
+    event.preventDefault();
+    if (refusal) return;
+    setBusy(true); setCreating(true); setError(null);
     try {
       const created = await accountRequest<ApiToken & { secret: string }>("/api/account/tokens", "POST", { name });
       const { secret: disclosed, ...token } = created;
@@ -73,9 +94,10 @@ export function TokensCard() {
         <Button onClick={() => { setSecret(null); setCopied(false); }}>Done</Button></CardActions>
     </div> : <form className={cardFormClass} onSubmit={create}>
       <LabelledField id="set-token-name" label="Token name" inputId={`${ids}-name`}>
-        <TextInput id={`${ids}-name`} value={name} onChange={event => setName(event.target.value)} required disabled={busy || tokens === null} />
+        <TextInput id={`${ids}-name`} value={name} onChange={event => setName(event.target.value)} required disabled={busy || tokens === null || !!refusal} />
       </LabelledField>
-      <Button type="submit" variant="primary" busy={busy} disabled={!name.trim() || tokens === null}>Create token</Button>
+      <Button type="submit" variant="primary" busy={busy} disabled={!name.trim() || tokens === null || !!refusal}>Create token</Button>
+      {refusal ? <Note>{refusal}</Note> : lifetime && <Note>{`New tokens expire after ${lifetime}.`}</Note>}
     </form>}
     {tokens === null && !error && <p role="status" className={styles.note}>Loading tokens…</p>}
     {tokens?.length === 0 && <Note>No tokens yet.</Note>}

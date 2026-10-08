@@ -6,13 +6,15 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { open } from "@/lib/metadata/db";
 import { getAccount, listAccounts } from "@/lib/metadata/accounts";
 import { createFirstAccount, signIn, updateOwnProfile } from "./accounts";
-import { adminAccounts, changeAccountAccess, inviteAccount, issueSignInLink, LINK_LIFETIME_MS } from "./admin";
+import { adminAccounts, changeAccountAccess, inviteAccount, issueSignInLink } from "./admin";
 import { authenticateSession, authenticateToken, createApiToken, type AuthContext } from "./credentials";
 import { redeemSignInLink } from "./links";
 
 const password = "river otter telescope";
 const newPassword = "paper cranes at sunrise";
 const start = Date.parse("2026-01-01T00:00:00Z");
+// The stored link lifetime's default, as a fixture.
+const LINK_LIFETIME_MS = 7 * 86_400_000;
 let directory: string, file: string, db: Database, admin: AuthContext;
 beforeEach(async () => {
   directory = mkdtempSync(path.join(os.tmpdir(), "dezfil-safeguards-"));

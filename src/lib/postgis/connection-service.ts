@@ -1,13 +1,15 @@
 import { randomUUID } from "node:crypto";
 import { ApiError } from "@/lib/api/errors";
 import { ERROR_CATALOGUE } from "@/lib/api/error-catalogue";
+import { requireRule } from "@/lib/auth/instance-rules";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { requireOwnedResource, resourceAbsent } from "@/lib/auth/owned-resource";
+import { metadataDb } from "@/lib/metadata/db";
 import { getConnection, insertConnection, renameConnection, updateConnection, deleteConnection } from "@/lib/metadata/connections";
 import { listPostgisSnapshots } from "@/lib/metadata/tables";
 import { reachedTableProjectIds } from "@/lib/metadata/owned-tables";
 import { testConnection, browseRemoteTables } from "./access";
-import { ConnectionInputError, resolveCreateConnectionInput, resolveUpdateConnectionInput } from "./connection-input";
+import { ConnectionInputError, connectionEndpointsEqual, resolveCreateConnectionInput, resolveUpdateConnectionInput, type ConnectionEndpoint } from "./connection-input";
 import { requireTarget } from "./import";
 import { recordConnectionFailure, recordConnectionHealth } from "./status";
 
@@ -26,25 +28,44 @@ export function requireConnection(scope: AccountScope, id: string) {
   if (!connection) throw resourceAbsent();
   return connection;
 }
+/** Pointing a connection at another host, port or database reaches a new
+ * source, as adding one does; its name, user, password and encryption do not. */
+function pointsElsewhere(stored: ConnectionEndpoint & { database: string }, next: ConnectionEndpoint & { database: string }): boolean {
+  return !connectionEndpointsEqual(stored, next) || stored.database !== next.database;
+}
+/** Who may add connections is refused before the test reaches the typed
+ * source, and decided again inside the write, so a rule saved while the test
+ * ran is the one that holds. */
 export async function createConnection(scope: AccountScope, input: unknown) {
   requireAccountScope(scope);
+  requireRule(scope.accountId, "connections.create");
   const values = resolveInput(() => resolveCreateConnectionInput(jsonBody(input)));
   const candidate = { id: randomUUID(), ...values };
   const health = await testConnection(candidate);
-  const connection = insertConnection(scope, candidate);
+  const db = metadataDb();
+  const connection = db.transaction(() => {
+    requireRule(scope.accountId, "connections.create", db);
+    return insertConnection(scope, candidate, db);
+  }).immediate();
   recordConnectionHealth(scope, connection.id, health);
   return requireConnection(scope, connection.id);
 }
 export async function editConnection(scope: AccountScope, id: string, input: unknown) {
   const { connection: current, target } = requireTarget(scope, id);
   const { values, connectivityChanged, passwordReentryRequired } = resolveInput(() => resolveUpdateConnectionInput(jsonBody(input), { ...target, name: current.name }));
+  if (pointsElsewhere(target, values)) requireRule(scope.accountId, "connections.create");
   if (passwordReentryRequired) throw new ApiError("connection_password_required", ERROR_CATALOGUE.connection_password_required, 400);
   if (!connectivityChanged) {
     if (values.name !== current.name) renameConnection(scope, id, values.name);
     return requireConnection(scope, id);
   }
   const health = await testConnection(values);
-  updateConnection(scope, id, values);
+  const db = metadataDb();
+  db.transaction(() => {
+    const stored = getConnection(scope, id, db);
+    if (stored && pointsElsewhere(stored, values)) requireRule(scope.accountId, "connections.create", db);
+    updateConnection(scope, id, values, db);
+  }).immediate();
   recordConnectionHealth(scope, id, health);
   return requireConnection(scope, id);
 }

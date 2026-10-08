@@ -42,6 +42,32 @@ it.each(["cookie", "token"])("admits the active admin via %s with no extra token
   expect(response.status).toBe(200); expect(response.headers.get("cache-control")).toBe("private, no-store");
   expect(readStoredSettings(f.db)).toEqual({ previewRows: 200 });
 });
+it.each(["anonymous", "member", "member-token", "cross-origin"])(
+  "refuses a %s write of the sign-in, token, publishing, connection and import rows without changing storage", async mode => {
+    let headers: Record<string, string> = {}, status = 401;
+    if (mode === "member") { headers = { cookie: `dezfil_session=${f.member.secret}` }; status = 403; }
+    if (mode === "member-token") {
+      headers = { authorization: `Bearer ${createApiToken(authenticateSession(f.member.secret, f.db)!, "Member", f.db).secret}` }; status = 403;
+    }
+    if (mode === "cross-origin") { headers = { cookie: `dezfil_session=${f.admin.secret}` }; status = 403; }
+    const body = { "security.sessionDays": "1", "security.failedPerAccount": 3, "security.failedPerAddress": 10, "security.passwordMin": 12,
+      "tokens.create": "admins", "tokens.expiry": "30d", "publishing.publish": "none", "publishing.embedding": "listed",
+      "publishing.embedSites": ["https://portal.example"], "connections.create": "admins", "imports.links": "admins" };
+    const request = () => socketRequest(new Request("http://instance.test/api/instance/settings", { method: "PATCH",
+      headers: { ...headers, origin: mode === "cross-origin" ? "https://elsewhere.test" : "http://instance.test", "content-type": "application/json" },
+      body: JSON.stringify(body) }));
+    for (const response of [gateRequest(request()), await PATCH(request())]) {
+      expect(response.status).toBe(status); expect(response.headers.get("cache-control")).toBe("private, no-store");
+      expect(await response.json()).toEqual({ error: { code: status === 401 ? "authentication_required" : "forbidden", message: expect.any(String) } });
+      expect(readStoredSettings(f.db)).toEqual({});
+    }
+    // The same body from the admin, by cookie from the instance's own origin, is kept whole.
+    const admitted = await PATCH(socketRequest(new Request("http://instance.test/api/instance/settings", { method: "PATCH",
+      headers: { cookie: `dezfil_session=${f.admin.secret}`, origin: "http://instance.test", "content-type": "application/json" }, body: JSON.stringify(body) })));
+    expect(admitted.status).toBe(200);
+    expect(readStoredSettings(f.db)).toEqual(body);
+  },
+);
 it.each(["demotion", "deactivation", "revocation"])("rechecks a captured actor before writing after %s", mode => {
   if (mode === "demotion") f.db.prepare("UPDATE accounts SET is_admin = 0 WHERE id = 'admin'").run();
   if (mode === "deactivation") f.db.prepare("UPDATE accounts SET status = 'deactivated' WHERE id = 'admin'").run();

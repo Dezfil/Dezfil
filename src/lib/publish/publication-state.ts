@@ -2,6 +2,7 @@ import { documentFacts, type DocumentFacts } from "@/lib/metadata/document-facts
 import { stableJson } from "@/lib/metadata/history";
 import { recordDocumentChanges, requireDocumentRevision } from "@/lib/metadata/revisions";
 import type { AccountScope } from "@/lib/auth/scope";
+import { requireRule } from "@/lib/auth/instance-rules";
 import { ownsMap, requireMap, requireMapFor } from "@/lib/map-access";
 import { ApiError } from "@/lib/api/errors";
 import { metadataDb } from "@/lib/metadata/db";
@@ -54,7 +55,9 @@ export function getPublicationState(scope: AccountScope, id: string): (Publicati
   })();
 }
 
-/** Minting, changing and revoking a publication are the map owner's acts. */
+/** Minting, changing and revoking a publication are the map owner's acts.
+ * Minting and changing also follow who may publish; revoking never does, so
+ * a narrowed rule leaves every owner able to take their map down. */
 function requirePublishedMapOwner(scope: AccountScope, id: string) {
   return requireMapFor(scope, id, "publish");
 }
@@ -81,6 +84,9 @@ export function publishMap(
     if (map.publishToken && map.publishedAt) {
       const changed = (theme !== undefined && theme !== (getPublishedTheme(id) ?? "dark")) ||
         (viewerControls !== undefined && stableJson(normalizeViewerControls(viewerControls)) !== stableJson(normalizeViewerControls(getViewerControls(id))));
+      // Who may publish governs a change to a live publication; a call that
+      // changes nothing answers with the link it already has.
+      if (changed) requireRule(scope.accountId, "publishing.publish");
       if (changed && theme) setPublishedTheme(id, theme);
       if (changed && viewerControls) {
         setViewerControls(id, normalizeViewerControls(viewerControls));
@@ -88,6 +94,7 @@ export function publishMap(
       if (changed) recordDocumentChanges(scope, [{ kind: "map", id }]);
       return { token: map.publishToken, publishedAt: map.publishedAt, ...documentFacts({ kind: "map", id }) };
     }
+    requireRule(scope.accountId, "publishing.publish");
     const token = generateToken();
     const publishedAt = new Date().toISOString();
     updateMapFields(id, { publishToken: token, publishedAt });

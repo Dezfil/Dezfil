@@ -30,7 +30,10 @@ sessions and API token records also persist there. Saved palettes are shared
 instance data. What new maps, new layers, the workflow canvas, the SQL console
 and a fresh image export card start with is kept there too, set by admins on the
 **Maps**, **Workflows & SQL** and **Publishing** tabs; see
-[Instance defaults](#instance-defaults). These are not environment variables.
+[Instance defaults](#instance-defaults). So are how long sign-ins and links last,
+the shortest password, and who may create tokens, publish, embed, connect and
+import; see [Security and rules](#security-and-rules). These are not
+environment variables.
 
 The optional `assistant-models.json` in the data directory supplies the model
 catalogue; environment model lists narrow its offer. It is a file, not an account
@@ -65,9 +68,10 @@ cells. The latter has two values: **Restart**, or **App (live) or restart** for
 an editable live setting. Environment changes always require a restart.
 
 The same check holds this page's **Instance defaults** table to the catalogue's
-defaults, the settings every signed-in account reads: one row per default under
-the key the change operation takes, no orphan row, and each row's default as the
-catalogue documents it.
+defaults, what new things start with, and its **Security and rules** table to
+the catalogue's sign-in, token, publishing, connection and import settings: one
+row per setting under the key the change operation takes, no orphan row, and
+each row's default as the catalogue documents it.
 
 Two classes are deliberately outside the check: source-local test seams
 (`DEZFIL_TEST_*` in `src/` and `DEZFIL_BASE_URL`) and platform plumbing (`NODE_ENV`, `PORT`, `HOSTNAME`,
@@ -116,6 +120,57 @@ A number-like choice is text: send `"16"` for a text size, not `16`.
 
 A layer created with a style keeps it, and a drawn sketch's layer takes only the
 cycle's color. Null clears a stored default, returning it to the value above.
+
+## Security and rules
+
+How long sign-ins and links last, when failed sign-ins pause, the shortest
+password, and who may create API tokens, publish, embed published pages, add
+database connections and import from links. Admins set the sign-in and token
+rows on the **Security** tab of Settings and the publishing rows on the
+**Publishing** tab's Public links card; every row also changes through
+`PATCH /api/instance/settings` under the keys below, the connection and
+link-import rules only there. They are stored instance settings with no
+environment variable, so none is ever locked, and each applies as its last
+column says, without a restart.
+
+Every signed-in account and agent reads the rules it follows as the `rules`
+object of `GET /api/config`: `tokens.create`, `tokens.expiry`,
+`publishing.publish`, `publishing.embedding`, `connections.create` and
+`imports.links`, keyed and valued as the change operation takes them, with the
+shortest password beside it as `passwordMin`. The sign-in entry read carries
+`passwordMin` too, 8 before setup. The lifetimes, the sign-in counts and the
+listed sites are read by admins alone, through `GET /api/instance/settings`.
+
+| Setting | Values | Default | Applies to |
+|---|---|---|---|
+| `security.sessionDays` | `1`, `7`, `30`, `90`, in days | `30` | Each session from its next use: a session keeps the expiry it holds and its next use renews it by this length, so no save signs anyone out. |
+| `security.linkDays` | `1`, `3`, `7`, `14`, in days | `7` | Invitation and reset links issued after the save; a link keeps the lifetime it was issued with. Command-line recovery links keep fifteen minutes. |
+| `security.failedPerAccount` | A whole number from 3 to 100 | `5` | The next sign-in attempt: failed sign-ins for one account within a fixed fifteen minutes before its next attempt pauses. Never above `security.failedPerAddress`. |
+| `security.failedPerAddress` | A whole number from 10 to 1000 | `20` | The next sign-in attempt: failed sign-ins from one network address within the same fifteen minutes. Never below `security.failedPerAccount`. |
+| `security.passwordMin` | A whole number from 8 to 64, in characters | `8` | A password set after the save: at an invitation's or a reset's redemption, or a password change. The first account takes 8, and passwords set earlier keep signing in. |
+| `tokens.create` | `everyone`, `admins` | `everyone` | The next API token created. Tokens made earlier keep working. |
+| `tokens.expiry` | `never`, `30d`, `90d`, `1y` | `never` | Tokens created after the save, counted from their creation; a token keeps the expiry it was created with. |
+| `publishing.publish` | `everyone`, `admins`, `none` | `everyone` | The next publish, or change to a publication (its theme, controls or published fields). `none` stops admins too. Published maps stay public, follow their maps' edits and can be unpublished. |
+| `publishing.embedding` | `any`, `listed`, `off` | `any` | Every published page from its next load: `any` lets any site show it in a frame, `listed` only the sites in `publishing.embedSites`, `off` no other site. The link and the map's data are unchanged. |
+| `publishing.embedSites` | A list of at most 50 sites, each `http` or `https` with a host and an optional port | none | Published pages while `publishing.embedding` is `listed`, which then needs at least one site. |
+| `connections.create` | `everyone`, `admins` | `everyone` | The next database connection added, or a change pointing one at another host, port or database. Testing, browsing, importing, refreshing, renaming, a new password for the same database and deleting keep working. |
+| `imports.links` | `everyone`, `admins` | `everyone` | The next import from a web address or cloud storage. Link datasets keep refreshing. |
+
+A number-like choice is text: send `"90"` for a session length, not `90`. The
+two counts and the listed sites are checked together: a per-address count below
+the per-account one, or `listed` with no site, refuses the whole change. A site
+is kept as its origin, its scheme, host and any port other than the scheme's
+own; a repeated site is kept once, and an empty list or null clears the list.
+Browsers match a site listed with `http` to its `https` address as well, so
+`http://portal.example` also admits `https://portal.example`.
+
+A rule refuses new reach and takes nothing away. An action it refuses answers
+`403 rule_refused`, with `error.rule` naming the rule, and changes nothing; the
+screens show that action disabled with the same sentence. A token past its
+expiry answers `401 token_expired` and stays listed until revoked. Under
+`listed` or `off`, a published page's answer carries
+`Content-Security-Policy: frame-ancestors` with the listed sites, or `'none'`;
+under `any` it carries none, and the published data answers never carry one.
 
 ## Fixed result limits
 

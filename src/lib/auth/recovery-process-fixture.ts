@@ -20,7 +20,9 @@ export function recoveryProcess(directory: string, pauseAfterHash = false) {
   const fixture = mkdtempSync(path.join(directory, "process-"));
   const loader = path.join(fixture, "loader.mjs"), worker = path.join(fixture, "worker.mjs");
   const shim = path.join(fixture, "passwords.mjs");
+  // The rest of the module passes through; only the hash pauses.
   writeFileSync(shim, `import { hashPassword as realHash } from ${JSON.stringify(`${root}/src/lib/auth/passwords.ts`)};
+    export * from ${JSON.stringify(`${root}/src/lib/auth/passwords.ts`)};
     export async function hashPassword(password) {
       const hash = await realHash(password);
       process.stdout.write('hashed\\n');

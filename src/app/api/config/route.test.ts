@@ -54,10 +54,21 @@ function request(actor: string, path: string, method = "GET", body?: unknown) {
   }), db, actor);
 }
 const memberToken = () => createApiToken(requireRequestAuth(request("member", "/api/account"), db), "Agent", db).secret;
-/** The runtime read as a member, by session cookie or by bearer token. */
-async function read(kind: "cookie" | "token") {
+/** With nothing stored: everyone may, published pages embed anywhere, and new tokens never expire. */
+const RULES = {
+  "tokens.create": "everyone", "tokens.expiry": "never", "publishing.publish": "everyone",
+  "publishing.embedding": "any", "connections.create": "everyone", "imports.links": "everyone",
+};
+/** Every rule narrowed by an admin. */
+const NARROWED = {
+  "tokens.create": "admins", "tokens.expiry": "90d", "publishing.publish": "none",
+  "publishing.embedding": "off", "connections.create": "admins", "imports.links": "admins",
+};
+/** The runtime read as a member, by session cookie or by bearer token (a new
+ * one unless one made earlier is given). */
+async function read(kind: "cookie" | "token", token?: string) {
   const input = request("member", "/api/config");
-  if (kind === "token") { input.headers.delete("cookie"); input.headers.set("authorization", `Bearer ${memberToken()}`); }
+  if (kind === "token") { input.headers.delete("cookie"); input.headers.set("authorization", `Bearer ${token ?? memberToken()}`); }
   const response = await GET(input);
   expect(response.status).toBe(200);
   expect(response.headers.get("cache-control")).toBe("private, no-store");
@@ -94,6 +105,65 @@ describe("the runtime read's defaults", () => {
     expect((await read("cookie")).defaults["newMap.basemap"]).toBe("auto");
     vi.stubEnv("DEZFIL_SATELLITE_URL", "https://imagery.example/{z}/{x}/{y}.jpg");
     expect((await read("token")).defaults["newMap.basemap"]).toBe("satellite");
+  });
+
+  it.each(["cookie", "token"] as const)("carry the shortest password to a member by %s: 8 with nothing stored, then what an admin stored", async kind => {
+    expect((await read(kind)).passwordMin).toBe(8);
+    await change({ "security.passwordMin": 12 });
+    expect((await read(kind)).passwordMin).toBe(12);
+  });
+
+  it("carry the shortest password to an agent through get_config, valid against the tool's documented output", async () => {
+    await change({ "security.passwordMin": 12 });
+    const tool = buildTools().find(candidate => candidate.name === "get_config")!;
+    const result = await executeTool(tool, {}, origin,
+      (async (input: RequestInfo | URL, init?: RequestInit) => dispatchAssistantTestRoute(new Request(String(input), init))) as typeof fetch,
+      { authorization: `Bearer ${memberToken()}` });
+    expect((result.body as { passwordMin: unknown }).passwordMin).toBe(12);
+    const output = fromJsonSchema(tool.outputSchema as Parameters<typeof fromJsonSchema>[0]);
+    const valid = async (body: unknown) => (await output["~standard"].validate(mcpResult(tool, { ...result, body }, null).structuredContent)).issues;
+    expect(await valid(result.body)).toBeUndefined();
+    // The documented shape bounds it as the setting does: below the floor, past 64 or as text each fail it.
+    const body = result.body as Record<string, unknown>;
+    for (const passwordMin of [7, 65, "12"]) expect(await valid({ ...body, passwordMin })).toBeDefined();
+  });
+
+  it.each(["cookie", "token"] as const)("carry the rules every account follows to a member by %s: the product's with nothing stored, then what an admin stored", async kind => {
+    // Made first: the narrowed rules let only admins create tokens.
+    const token = memberToken();
+    expect((await read(kind, token)).rules).toEqual(RULES);
+    await change(NARROWED);
+    expect((await read(kind, token)).rules).toEqual(NARROWED);
+  });
+
+  it("carry the rules keyed and valued as the change operation takes them: written back whole, they store exactly what was read", async () => {
+    const token = memberToken();
+    await change(NARROWED);
+    const { rules } = await read("token", token);
+    await change(RULES);
+    await change(rules);
+    expect((await read("cookie")).rules).toEqual(NARROWED);
+  });
+
+  it("carry the rules to an agent through get_config, keyed and valued as the change operation takes them", async () => {
+    const token = memberToken();
+    await change(NARROWED);
+    const tool = buildTools().find(candidate => candidate.name === "get_config")!;
+    const result = await executeTool(tool, {}, origin,
+      (async (input: RequestInfo | URL, init?: RequestInit) => dispatchAssistantTestRoute(new Request(String(input), init))) as typeof fetch,
+      { authorization: `Bearer ${token}` });
+    const body = result.body as Record<string, unknown>;
+    expect(body.rules).toEqual(NARROWED);
+    const output = fromJsonSchema(tool.outputSchema as Parameters<typeof fromJsonSchema>[0]);
+    const valid = async (value: unknown) => (await output["~standard"].validate(mcpResult(tool, { ...result, body: value }, null).structuredContent)).issues;
+    expect(await valid(body)).toBeUndefined();
+    // Every key present, each value one of its choices, nothing beside them.
+    const { ["imports.links"]: links, ...missing } = NARROWED;
+    expect(links).toBe("admins");
+    for (const rules of [{}, missing, { ...NARROWED, "tokens.expiry": "2y" }, { ...NARROWED, "publishing.publish": "nobody" },
+      { ...NARROWED, "tokens.create": "none" }, { ...NARROWED, "publishing.embedSites": [] }]) {
+      expect(await valid({ ...body, rules })).toBeDefined();
+    }
   });
 
   it("reach an agent through get_config, valid against the tool's documented output", async () => {

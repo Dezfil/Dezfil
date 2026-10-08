@@ -12,6 +12,7 @@ import { MapsTab } from "./MapsTab";
 import { WorkflowsTab } from "./WorkflowsTab";
 import { PublishingTab } from "./PublishingTab";
 import { LimitsTab } from "./LimitsTab";
+import { SecurityTab } from "./SecurityTab";
 import { SystemTab } from "./SystemTab";
 import { accountRequest, failureMessage } from "./api";
 import { SettingsColumn } from "./SettingsColumn";
@@ -279,13 +280,14 @@ function Pending({ children }: { children: ReactNode }) {
 function TabContent({ tab, loaded }: { tab: SettingsTabId; loaded: Loaded }) {
   switch (tab) {
     case "account": return <AccountCard account={loaded.account} />;
-    case "tokens": return <TokensCard />;
+    case "tokens": return <TokensCard admin={loaded.account.isAdmin} />;
     case "appearance": return <AppearanceTab />;
     case "general": return <GeneralTab admin={loaded.account.isAdmin} />;
     case "maps": return <MapsTab />;
     case "workflows": return <WorkflowsTab />;
     case "publishing": return <PublishingTab />;
     case "limits": return <LimitsTab />;
+    case "security": return <SecurityTab />;
     case "system": return <SystemTab />;
   }
 }

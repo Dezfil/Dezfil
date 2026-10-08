@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import path from "node:path";
 import { open } from "@/lib/metadata/db";
 import { testAccountScope } from "@/lib/test-support/accounts";
@@ -137,6 +137,81 @@ it("checks null against the resulting pair and validates against storage inside 
     expect(() => changeInstanceSettings(f.context, { queryTimeoutS: 100 }, f.db)).toThrow(/queryTimeoutS.*operationTimeoutS/);
   })();
   expect(limits.operationTimeoutMs).toBe(100_000);
+});
+
+describe("the sign-in counts and the listed sites against each other", () => {
+  const COUNTS = ["security.failedPerAddress", "security.failedPerAccount"];
+  const LISTED = ["publishing.embedSites", "publishing.embedding"];
+  const counts = "security.failedPerAddress must be at least security.failedPerAccount.";
+  const listed = "publishing.embedSites must list at least one site while publishing.embedding is listed.";
+  const site = ["https://portal.example"];
+
+  it.each([
+    ["per address below per account in one body", {}, { "security.failedPerAccount": 50, "security.failedPerAddress": 40 }, COUNTS, counts],
+    ["per account raised past the stored per address", { "security.failedPerAddress": 30 }, { "security.failedPerAccount": 31 }, COUNTS, counts],
+    ["per account raised past the default per address", {}, { "security.failedPerAccount": 21 }, COUNTS, counts],
+    ["per address lowered below the stored per account", { "security.failedPerAccount": 30, "security.failedPerAddress": 40 }, { "security.failedPerAddress": 29 }, COUNTS, counts],
+    ["per address cleared to a default below the stored per account", { "security.failedPerAccount": 30, "security.failedPerAddress": 30 }, { "security.failedPerAddress": null }, COUNTS, counts],
+    ["listed with no site", {}, { "publishing.embedding": "listed" }, LISTED, listed],
+    ["listed with an empty list", {}, { "publishing.embedding": "listed", "publishing.embedSites": [] }, LISTED, listed],
+    ["the listed sites cleared while listed", { "publishing.embedding": "listed", "publishing.embedSites": site }, { "publishing.embedSites": null }, LISTED, listed],
+    ["the listed sites emptied while listed", { "publishing.embedding": "listed", "publishing.embedSites": site }, { "publishing.embedSites": [] }, LISTED, listed],
+  ])("refuses %s, naming both keys and storing nothing of the body, its valid sibling included", async (_name, stored, body, keys, message) => {
+    writeStoredSettings(stored, f.db);
+    const result = await refusal({ previewRows: 200, ...body }, keys);
+    expect(result.error.message).toBe(message);
+    expect(readStoredSettings(f.db)).toEqual(stored);
+    expect(limits.previewRows).toBe(1000);
+  });
+
+  it("names both relationships, and a refused value beside them, in one refusal", async () => {
+    const result = await refusal({ "security.failedPerAccount": 60, "security.failedPerAddress": 50, "publishing.embedding": "listed", "tokens.expiry": "60d" },
+      [...COUNTS, ...LISTED, "tokens.expiry"]);
+    expect(result.error.message).toBe(`tokens.expiry: Expected one of: never, 30d, 90d, 1y. ${counts} ${listed}`);
+  });
+
+  it.each([
+    ["per address equal to per account", {}, { "security.failedPerAccount": 30, "security.failedPerAddress": 30 }],
+    ["per account at its floor under the default per address", {}, { "security.failedPerAccount": 3 }],
+    ["per address at its floor over the default per account", {}, { "security.failedPerAddress": 10 }],
+    ["listed with a site in the same body", {}, { "publishing.embedding": "listed", "publishing.embedSites": site }],
+    ["listed with a site already stored", { "publishing.embedSites": site }, { "publishing.embedding": "listed" }],
+    ["the sites cleared as embedding leaves listed", { "publishing.embedding": "listed", "publishing.embedSites": site }, { "publishing.embedding": "off", "publishing.embedSites": null }],
+    ["an empty list while any site may embed", { "publishing.embedSites": site }, { "publishing.embedSites": [] }],
+  ])("keeps %s", async (_name, stored, body) => {
+    writeStoredSettings(stored, f.db);
+    const response = await patch(body);
+    expect(response.status).toBe(200);
+    const expected = Object.fromEntries(Object.entries({ ...stored, ...body })
+      .filter(([, value]) => value !== null && !(Array.isArray(value) && value.length === 0)));
+    expect(readStoredSettings(f.db)).toEqual(expected);
+  });
+
+  it.each([false, true])("serializes competing sign-in counts against committed state (reverse %s)", async reverse => {
+    const changes = [{ "security.failedPerAccount": 15 }, { "security.failedPerAddress": 12 }];
+    const responses = await Promise.all((reverse ? changes.reverse() : changes).map(patch));
+    expect(responses.map(r => r.status)).toEqual([200, 400]);
+    expect(readStoredSettings(f.db)).toEqual(changes[0]);
+  });
+
+  it.each([false, true])("serializes listing and clearing the sites against committed state (reverse %s)", async reverse => {
+    writeStoredSettings({ "publishing.embedSites": site }, f.db);
+    const changes = [{ "publishing.embedSites": null }, { "publishing.embedding": "listed" }];
+    const responses = await Promise.all((reverse ? changes.reverse() : changes).map(patch));
+    expect(responses.map(r => r.status)).toEqual([200, 400]);
+    expect(readStoredSettings(f.db)).toEqual(reverse ? { "publishing.embedSites": site, "publishing.embedding": "listed" } : {});
+  });
+
+  it("checks both against storage inside an outer transaction", () => {
+    f.db.transaction(() => {
+      changeInstanceSettings(f.context, { "security.failedPerAddress": 40, "publishing.embedSites": site }, f.db);
+      changeInstanceSettings(f.context, { "security.failedPerAccount": 40, "publishing.embedding": "listed" }, f.db);
+      expect(() => changeInstanceSettings(f.context, { "security.failedPerAccount": 41 }, f.db)).toThrow(counts);
+      expect(() => changeInstanceSettings(f.context, { "publishing.embedSites": null }, f.db)).toThrow(listed);
+    })();
+    expect(readStoredSettings(f.db)).toEqual({ "security.failedPerAddress": 40, "security.failedPerAccount": 40,
+      "publishing.embedSites": site, "publishing.embedding": "listed" });
+  });
 });
 
 it.each(["write", "after-write", "response", "commit"])("rolls back %s failure without publishing or waking consumers", async failure => {

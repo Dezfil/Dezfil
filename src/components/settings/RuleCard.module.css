@@ -1,0 +1,52 @@
+/* The Security tab's cards and the Public links card: a choice from a
+   list, the quiet words after a pair of counts, the quiet line a choice
+   opens under its row, and the listed sites, one per line. */
+
+.select {
+  width: auto;
+  min-width: 160px;
+  background: var(--bg-raised);
+  border-color: var(--border-strong);
+  font-size: var(--text-body);
+}
+
+.select:focus {
+  border-color: var(--accent);
+}
+
+.select[aria-invalid="true"] {
+  border-color: var(--danger);
+}
+
+.after {
+  font-size: var(--text-label);
+  color: var(--fg-muted);
+}
+
+/* the line a choice opens: the row's whole width, under the choice */
+.under {
+  flex-basis: 100%;
+  max-width: 56ch;
+  font-size: var(--text-label);
+  line-height: 1.5;
+  color: var(--fg-muted);
+}
+
+.sites {
+  flex-basis: 100%;
+  width: min(420px, 100%);
+  max-width: 420px;
+  background: var(--bg-raised);
+  border-color: var(--border-strong);
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  line-height: 1.6;
+}
+
+.sites:focus {
+  border-color: var(--accent);
+}
+
+.sites[aria-invalid="true"] {
+  border-color: var(--danger);
+}

@@ -15,9 +15,16 @@ const COMMON_PASSWORDS = new Set([
   "hello1234", "secret123",
 ]);
 
-export function validatePassword(password: string): void {
-  if (Array.from(password).length < 8) {
-    throw new AuthError("weak_password", "Use at least 8 characters.", 400);
+/** The fewest characters any password may have: what the first account
+ * takes, and the floor under the instance's shortest password. */
+export const PASSWORD_FLOOR = 8;
+
+/** The shortest length is the caller's input: the stored shortest password
+ * where an instance sets one, the floor for the first account. The refusal
+ * names it. */
+export function validatePassword(password: string, minimum = PASSWORD_FLOOR): void {
+  if (Array.from(password).length < minimum) {
+    throw new AuthError("weak_password", `Use at least ${minimum} characters.`, 400);
   }
   if (COMMON_PASSWORDS.has(password.trim().toLowerCase())) {
     throw new AuthError("weak_password", "This password is too common. Choose a different one.", 400);
@@ -33,9 +40,9 @@ function derive(password: string, salt: Buffer, options: DerivationOptions): Pro
   }), options);
 }
 
-export async function hashPassword(password: string, options: DerivationOptions = {}): Promise<string> {
+export async function hashPassword(password: string, options: DerivationOptions & { minimum?: number } = {}): Promise<string> {
   requireAuthenticationWanted(options.signal);
-  validatePassword(password);
+  validatePassword(password, options.minimum);
   const salt = randomBytes(16);
   return `scrypt$${COST}$8$1$${salt.toString("hex")}$${(await derive(password, salt, options)).toString("hex")}`;
 }

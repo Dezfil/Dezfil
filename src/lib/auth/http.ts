@@ -3,10 +3,11 @@ import { NextResponse } from "next/server";
 import type { Database } from "better-sqlite3";
 import { metadataDb } from "@/lib/metadata/db";
 import { errorResponse } from "@/lib/api/errors";
-import { authenticateSession, SESSION_LIFETIME_MS, type AuthContext } from "./credentials";
+import { authenticateSession, type AuthContext } from "./credentials";
 import { authenticateBearer } from "./delegation";
 import { requireIngress, type Ingress } from "./ingress.mjs";
 import { AuthError, AuthenticationCancelled } from "./errors";
+import { securitySettings } from "./security-settings";
 
 export const SESSION_COOKIE = "dezfil_session";
 export function privateResponse<T extends Response>(response: T): T {
@@ -55,9 +56,11 @@ export function assertRequestOrigin(request: Request, context?: AuthContext): vo
     throw new AuthError("forbidden", "This request must come from the same instance.", 403);
   }
 }
+/** The cookie lives as long as the session it carries: every issue and use
+ * sets the session's expiry the stored length ahead, and the cookie with it. */
 export function sessionCookie(response: NextResponse, secret: string, ingress: Ingress, clear = false): void {
   response.cookies.set(SESSION_COOKIE, clear ? "" : secret, { httpOnly: true, sameSite: "lax", secure: ingress.secure,
-    path: "/", maxAge: clear ? 0 : SESSION_LIFETIME_MS / 1000 });
+    path: "/", maxAge: clear ? 0 : securitySettings().sessionMs / 1000 });
 }
 export function authFailure(error: unknown): Response {
   if (error instanceof AuthenticationCancelled) return privateResponse(new Response(null, { status: 499 }));

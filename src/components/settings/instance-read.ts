@@ -31,8 +31,9 @@ export function useInstanceRead(): { read: InstanceRead | null; error: string | 
   return { read, error, retry: () => { setError(null); setAttempt(value => value + 1); } };
 }
 
-/** The write: the keys changed, answered with the whole read. */
-export function writeInstanceSettings(patch: Record<string, Value>): Promise<InstanceRead> {
+/** The write: the keys changed, answered with the whole read. A list (the
+ * listed sites) goes as an array. */
+export function writeInstanceSettings(patch: Readonly<Record<string, Value | readonly string[]>>): Promise<InstanceRead> {
   return settingsWrite<InstanceRead>(INSTANCE_SETTINGS, "PATCH", patch);
 }
 

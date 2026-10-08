@@ -2,6 +2,7 @@ import { settingRemedy } from "@/lib/settings/remedy";
 import { admitAccountWork } from "@/lib/auth/account-deletion-admission";
 import { registerAccountFile, removeAccountFile } from "./file-ownership";
 import { requireFilingDestination } from "@/lib/auth/reach";
+import { requireRule } from "@/lib/auth/instance-rules";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { createWriteStream } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
@@ -389,7 +390,11 @@ async function resolveCredentialedObjectSource(
 }
 
 /** Import a remote file as one or more tables (spec From URL,
- * materialized; container formats fan out per layer). */
+ * materialized; container formats fan out per layer). A new import from a
+ * link, web address or cloud storage alike, is admitted by who may import
+ * from links before any request leaves and asked again where it registers;
+ * refreshing a link dataset is not an import and keeps working whatever the
+ * rule says. */
 export async function importFromUrl(
   scope: AccountScope,
   url: string,
@@ -399,6 +404,7 @@ export async function importFromUrl(
   const deletionWork = admitAccountWork([requireAccountScope(scope)]);
   try {
   requireAccountScope(scope);
+  requireRule(scope.accountId, "imports.links");
   if (projectId) requireFilingDestination(scope, projectId);
   const source = await resolveRemoteSource(url, scope.accountId);
   try {

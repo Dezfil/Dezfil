@@ -19,7 +19,7 @@ export function seedCleanupBacklog(db, accountId, now, count = 1201) {
         .run(id, hash(id), accountId, now - 40 * day, now - 2 * day, now - 40 * day, flag ? now - 3 * day : null);
       db.prepare('INSERT INTO auth_links VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
         .run(id, accountId, flag ? 'reset' : 'invite', hash(id), now - 40 * day, now - 2 * day, flag === 1 ? now - 3 * day : null, flag === 2 ? now - 3 * day : null);
-      db.prepare('INSERT INTO auth_tokens VALUES (?, ?, ?, ?, ?, ?, ?)')
+      db.prepare('INSERT INTO auth_tokens VALUES (?, ?, ?, ?, ?, ?, ?, NULL)')
         .run(id, accountId, id, hash(id), now - 40 * day, null, now - 31 * day);
     }
   })();
@@ -39,7 +39,7 @@ export function seedCleanupControls(db, accountId, recipientId, now) {
       db.prepare('INSERT INTO auth_links VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
         .run(id, recipientId, 'reset', hash(id), now, expiry, null, null);
     }
-    db.prepare('INSERT INTO auth_tokens VALUES (?, ?, ?, ?, ?, ?, ?)')
+    db.prepare('INSERT INTO auth_tokens VALUES (?, ?, ?, ?, ?, ?, ?, NULL)')
       .run('cleanup-recent-token', accountId, 'Recent revocation', hash('cleanup-recent-token'), now - 40 * day, null, now - day);
   })();
 }

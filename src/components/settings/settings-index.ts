@@ -6,6 +6,7 @@ import { DEFAULTS_TABS, rowValueWords, type DefaultsTabId } from "./defaults-tab
 import type { InstanceRead } from "./instance-read";
 import { capacityText, LIMITS_CARDS, withShownUnit } from "./limits-table";
 import { choiceLabel, LOOK_CARDS } from "./look-tab";
+import { PUBLIC_LINKS_CARD, ruleRowWords, SECURITY_CARDS, type RuleCard } from "./security-table";
 import { formatSettingNumber } from "./server-set";
 import type { IndexCard, TabDeclarations } from "./settings-search";
 import { providerName, serverSettingsRows, type AssistantStatus } from "./system-table";
@@ -38,9 +39,14 @@ export interface IndexSources {
   readonly assistant: AssistantStatus | null;
 }
 
-/** A token's state, as its row in the list says it. */
-export function tokenState(token: Pick<ApiToken, "lastUsedAt" | "revokedAt">): string {
-  return token.revokedAt ? "Revoked" : token.lastUsedAt ? `Last used ${new Date(token.lastUsedAt).toLocaleDateString()}` : "Never used";
+/** A token's state, as its row in the list says it: Revoked, or Expired once
+ * its expiry has passed, else its use and, when it has one, its expiry. */
+export function tokenState(token: Pick<ApiToken, "lastUsedAt" | "revokedAt" | "expiresAt">, now = Date.now()): string {
+  const day = (time: string) => new Date(time).toLocaleDateString();
+  if (token.revokedAt) return "Revoked";
+  if (token.expiresAt && Date.parse(token.expiresAt) <= now) return `Expired ${day(token.expiresAt)}`;
+  const use = token.lastUsedAt ? `Last used ${day(token.lastUsedAt)}` : "Never used";
+  return token.expiresAt ? `${use} · Expires ${day(token.expiresAt)}` : use;
 }
 
 const text = (value: unknown) => typeof value === "string" ? value : "";
@@ -93,6 +99,14 @@ function generalCards(values: EntryValues): IndexCard[] {
 function defaultsCards(tab: DefaultsTabId, read: InstanceRead): IndexCard[] {
   return DEFAULTS_TABS[tab].map(card => ({ id: card.id, title: card.title, keys: card.keys, rows: card.rows.map(row => ({
     id: row.id, label: row.label, keys: row.keys, value: rowValueWords(row, read.settings),
+  })) }));
+}
+
+/** Security's cards, or Publishing's Public links: each row by its label,
+ * its words and its value as the card shows it. */
+function ruleCards(cards: readonly RuleCard[], read: InstanceRead): IndexCard[] {
+  return cards.map(card => ({ id: card.id, title: card.title, keys: card.keys, rows: card.rows.map(row => ({
+    id: row.id, label: row.label, keys: row.keys, value: ruleRowWords(row, read.settings),
   })) }));
 }
 
@@ -151,8 +165,9 @@ export function settingsDeclarations(sources: IndexSources, admin: boolean): Tab
     ...(general ? { general: generalCards(general) } : {}),
     ...(admin && sources.instance ? {
       maps: defaultsCards("maps", sources.instance), workflows: defaultsCards("workflows", sources.instance),
-      publishing: defaultsCards("publishing", sources.instance),
-      limits: limitsCards(sources.instance), system: systemCards(sources.instance, sources.health, sources.assistant),
+      publishing: [...ruleCards([PUBLIC_LINKS_CARD], sources.instance), ...defaultsCards("publishing", sources.instance)],
+      limits: limitsCards(sources.instance), security: ruleCards(SECURITY_CARDS, sources.instance),
+      system: systemCards(sources.instance, sources.health, sources.assistant),
     } : {}),
   };
 }

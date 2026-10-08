@@ -970,6 +970,11 @@ export function GaugeIcon() {
   return <ChromeSvg strokeWidth={1.7}><path d="m12 14 4-4" /><path d="M3.34 19a10 10 0 1 1 17.32 0" /></ChromeSvg>;
 }
 
+/** The Security tab: a shield. */
+export function ShieldIcon() {
+  return <ChromeSvg strokeWidth={1.7}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z" /></ChromeSvg>;
+}
+
 export function ServerIcon() {
   return <ChromeSvg strokeWidth={1.7}><rect x="2" y="2" width="20" height="8" rx="2" /><rect x="2" y="14" width="20" height="8" rx="2" /><path d="M6 6h.01M6 18h.01" /></ChromeSvg>;
 }

@@ -18,7 +18,7 @@ vi.mock("@/components/theme", () => ({
 }));
 vi.mock("./RhumbChart", () => ({ RhumbChart: () => null }));
 
-interface Entry { instanceName: string | null; signInMessage: string; lostPasswordContact: string; landingPage: string; setupRequired: boolean }
+interface Entry { instanceName: string | null; signInMessage: string; lostPasswordContact: string; landingPage: string; passwordMin?: number; setupRequired: boolean }
 let entry: Entry;
 let posted: { url: string; body: unknown }[];
 let replaced: string[];
@@ -36,7 +36,7 @@ function memoryStorage() {
 }
 
 beforeEach(() => {
-  entry = { instanceName: "Atlas", signInMessage: "", lostPasswordContact: "", landingPage: "home", setupRequired: false };
+  entry = { instanceName: "Atlas", signInMessage: "", lostPasswordContact: "", landingPage: "home", passwordMin: 8, setupRequired: false };
   posted = []; replaced = [];
   vi.stubGlobal("localStorage", memoryStorage());
   vi.stubGlobal("sessionStorage", memoryStorage());
@@ -119,6 +119,26 @@ describe("the sign-in page", () => {
     await type("Password", "paper cranes at sunrise");
     await submit();
     expect(replaced).toEqual(["https://dezfil.example/"]);
+  });
+});
+
+describe("the shortest password", () => {
+  it("is named on the invitation page as the entry read gives it", async () => {
+    entry = { ...entry, passwordMin: 12 };
+    await open("redeem");
+    expect(lines()).toContain("At least 12 characters.");
+    expect(container.textContent).not.toContain("At least 8 characters.");
+  });
+
+  it("is named on the first-account page as the entry read gives it, and never on the sign-in page", async () => {
+    entry = { ...entry, setupRequired: true, passwordMin: 8 };
+    await open("setup");
+    expect(lines()).toContain("At least 8 characters.");
+    act(() => root.unmount());
+    root = createRoot(container as unknown as Element);
+    entry = { ...entry, setupRequired: false, passwordMin: 12 };
+    await open("sign-in");
+    expect(container.textContent).not.toMatch(/At least \d+ characters/);
   });
 });
 

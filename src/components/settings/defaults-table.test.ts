@@ -1,15 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { isInstanceDefault } from "@/lib/settings/instance-defaults";
 import { readInstanceSettings } from "@/lib/settings/read";
 import { instanceSettingsFixture } from "../../../test-support/instance-settings";
 import { CHOICE_WORDS, choiceWords, DEFAULTS_LABELS, DEFAULTS_TABS, defaultsFields, defaultsRows } from "./defaults-table";
 
 /**
  * The defaults' label table, held against the configuration read the
- * server answers: every setting every signed-in account reads (what new
- * things start with) has a row under its label on one of the three tabs,
- * every row names a setting the read carries, a choice's words cover
- * exactly the values the read offers, and a number's unit and step agree
- * with the read's.
+ * server answers: every default for new things (a setting every signed-in
+ * account reads, in the defaults' five groups) has a row under its label
+ * on one of the three tabs, every row names a setting the read carries, a
+ * choice's words cover exactly the values the read offers, and a number's
+ * unit and step agree with the read's.
  */
 
 interface ReadSetting {
@@ -29,7 +30,7 @@ const read = (): Record<string, ReadSetting> => JSON.parse(JSON.stringify(readIn
 describe("the defaults' table against the read", () => {
   it("gives every default a row on one of the three tabs, and names nothing the read lacks", () => {
     const settings = read();
-    const defaults = Object.entries(settings).filter(([, setting]) => setting.readBy === "signed-in").map(([key]) => key);
+    const defaults = Object.entries(settings).filter(([key, setting]) => isInstanceDefault({ key, readBy: setting.readBy })).map(([key]) => key);
     const drawn = defaultsFields().map(field => field.key);
     expect(new Set(drawn).size).toBe(drawn.length);
     expect([...drawn].sort()).toEqual([...defaults].sort());

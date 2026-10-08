@@ -116,6 +116,18 @@
   width: 100%;
 }
 
+/* The one sentence beside what the instance's rule on who may publish
+   holds back. */
+.refusal {
+  font-size: var(--text-meta);
+  line-height: 1.5;
+  color: var(--fg-muted);
+}
+
+.unpub .refusal {
+  margin-top: 8px;
+}
+
 /* ---- shared fields: one quiet row, expanding to the statement ---- */
 
 .fields {

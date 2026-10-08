@@ -1,13 +1,16 @@
 import type { Database } from "better-sqlite3";
-import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { open } from "@/lib/metadata/db";
+import { writeStoredSettings } from "@/lib/settings/store";
 import { AuthError } from "./errors";
 import { createFirstAccount, signIn } from "./accounts";
 import { secretHash } from "./credentials";
-import { LOGIN_ACCOUNT_LIMIT, LOGIN_SOURCE_LIMIT, LOGIN_WINDOW_MS, signInFromRequest, withLoginLimit } from "./login-limits";
+import { LOGIN_WINDOW_MS, signInFromRequest, withLoginLimit } from "./login-limits";
 
 let db: Database;
 const time = 1_000_000;
+// The stored counts' defaults, as fixtures: the product's counts before they were settings.
+const LOGIN_ACCOUNT_LIMIT = 5, LOGIN_SOURCE_LIMIT = 20;
 const denied = async () => { throw new AuthError("invalid_credentials", "Email or password is incorrect.", 401); };
 const allowed = async () => "signed in";
 beforeEach(() => { db = open(":memory:"); });
@@ -124,6 +127,46 @@ it("refunds infrastructure failures and successful attempts", async () => {
     await expect(attempt("person@example.test", "192.0.2.1", async () => { throw new Error("storage unavailable"); })).rejects.toThrow("storage unavailable");
     expect(await attempt("person@example.test", "192.0.2.1", allowed)).toBe("signed in");
   }
+});
+
+describe("the stored counts", () => {
+  const store = (patch: Record<string, unknown>) => writeStoredSettings(patch, db);
+  const paused = (retryAt: number, at: number) => ({ code: "rate_limited", status: 429,
+    extra: { retryAt: new Date(retryAt).toISOString(), retryAfter: Math.ceil((retryAt - at) / 1000) } });
+
+  it("at 3 per account and 10 per address, pauses the account's fourth attempt after three failures from a failing address, never past the window", async () => {
+    store({ "security.failedPerAccount": 3, "security.failedPerAddress": 10 });
+    for (let index = 0; index < 3; index++) {
+      await expect(attempt("person@example.test", "192.0.2.1", denied, time + index * 60_000)).rejects.toMatchObject({ code: "invalid_credentials" });
+    }
+    const operation = vi.fn(allowed), fourth = time + 3 * 60_000;
+    await expect(attempt("person@example.test", "192.0.2.1", operation, fourth)).rejects.toMatchObject(paused(time + LOGIN_WINDOW_MS, fourth));
+    expect(operation).not.toHaveBeenCalled();
+    // The pause ends when the window that began with the first failure ends.
+    await expect(attempt("person@example.test", "192.0.2.1", operation, time + LOGIN_WINDOW_MS - 1)).rejects.toMatchObject({ code: "rate_limited" });
+    expect(await attempt("person@example.test", "192.0.2.1", operation, time + LOGIN_WINDOW_MS)).toBe("signed in");
+  });
+
+  it("pauses the next attempt once the count is lowered below the failures already counted", async () => {
+    for (let index = 0; index < 4; index++) await fail("person@example.test", "192.0.2.1");
+    store({ "security.failedPerAccount": 3 });
+    const operation = vi.fn(allowed);
+    await expect(attempt("person@example.test", "192.0.2.1", operation)).rejects.toMatchObject(paused(time + LOGIN_WINDOW_MS, time));
+    expect(operation).not.toHaveBeenCalled();
+  });
+
+  it("at 10 per address, pauses the address's eleventh attempt across accounts and charges no other address", async () => {
+    store({ "security.failedPerAccount": 3, "security.failedPerAddress": 10 });
+    for (let index = 0; index < 10; index++) await fail(`person${index}@example.test`, "192.0.2.1");
+    await expect(attempt("other@example.test", "192.0.2.1", allowed)).rejects.toMatchObject(paused(time + LOGIN_WINDOW_MS, time));
+    expect(await attempt("other@example.test", "192.0.2.2", allowed)).toBe("signed in");
+  });
+
+  it("admits more failures once the counts are raised", async () => {
+    store({ "security.failedPerAccount": 100, "security.failedPerAddress": 1000 });
+    for (let index = 0; index < 30; index++) await fail("person@example.test", "192.0.2.1");
+    expect(await attempt("person@example.test", "192.0.2.1", allowed)).toBe("signed in");
+  });
 });
 
 it("refuses sign-in without the preload rather than falling back to submitted forwarding headers", async () => {

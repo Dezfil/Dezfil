@@ -10,7 +10,8 @@ import { USERS_PATHS, USERS_SCHEMAS } from "./openapi-users";
 import { ACCOUNT_PATHS, ACCOUNT_SCHEMAS } from "./openapi-account";
 import { AUTH_PATHS, AUTH_SCHEMAS, AUTH_SECURITY_SCHEMES } from "./openapi-auth";
 import { settingsContract } from "./openapi-settings";
-import { INSTANCE_DEFAULTS_SCHEMA, INSTANCE_SETTINGS_PATHS, INSTANCE_SETTINGS_SCHEMAS } from "./openapi-instance-settings";
+import { INSTANCE_DEFAULTS_SCHEMA, INSTANCE_SETTINGS_PATHS, INSTANCE_SETTINGS_SCHEMAS, instanceRulesSchema } from "./openapi-instance-settings";
+import { RULE_KEYS, WHO_MAY_RULES } from "@/lib/settings/instance-rules";
 import { QUERY_EXPORT_TICKET } from "./openapi-tool-responses";
 import { LOCAL_ADD, LOCAL_DELETE, LOCAL_READ, LOCAL_TRANSIENT_READ, REMOTE_READ } from "./operation-mcp";
 import { HISTORY_PATHS, HISTORY_SCHEMAS, MCP_PATHS } from "./openapi-mcp";
@@ -157,7 +158,7 @@ export function buildOpenApiDocument() {
       "/api/config": {
         get: op({
           summary: "Runtime client configuration",
-          description: "Instance-wide basemaps, built-in palettes, client limits and the defaults new maps, layers and screens start with, shared by every authenticated account. Includes deployment-configured basemap choices and provider availability, never server-side AI or geocoder credentials. Private, no-store.",
+          description: "Instance-wide basemaps, built-in palettes, client limits, the defaults new maps, layers and screens start with, the rules every account follows and the shortest password, shared by every authenticated account. Includes deployment-configured basemap choices and provider availability, never server-side AI or geocoder credentials. Private, no-store.",
           tag: "System",
           tool: "get_config", mcp: LOCAL_READ,
           display: {"verb": "Read the instance configuration"},
@@ -840,6 +841,7 @@ export function buildOpenApiDocument() {
                 message: { type: "string" },
                 retryAfter: { type: "integer", minimum: 1, description: "Seconds before retry after a login limit or temporary authentication capacity refusal." },
                 retryAt: { type: "string", format: "date-time", description: "When a login limit permits another attempt." },
+                rule: { type: "string", enum: [...WHO_MAY_RULES], description: "The instance rule that refused a rule_refused request, keyed as PATCH /api/instance/settings takes it." },
               issues: { type: "array", items: { $ref: "#/components/schemas/GeometryIssue" }, description: "Geometry-choice refusal reasons, when applicable." },
                 position: {
                   type: "object",
@@ -954,6 +956,14 @@ export function buildOpenApiDocument() {
                 "server.",
             },
             defaults: INSTANCE_DEFAULTS_SCHEMA,
+            rules: instanceRulesSchema(RULE_KEYS),
+            passwordMin: {
+              type: "integer", minimum: 8, maximum: 64,
+              description:
+                "The instance's shortest password: the fewest characters a " +
+                "password set from now may have, from 8 to 64. Admins change " +
+                "it; passwords set earlier keep signing in.",
+            },
           },
         },
         SearchResults: {

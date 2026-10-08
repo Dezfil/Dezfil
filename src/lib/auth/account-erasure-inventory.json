@@ -3450,6 +3450,11 @@
         "memory:immutable-configuration"
       ]
     },
+    "memory:src/lib/settings/instance-security.ts#INSTANCE_SECURITY_SETTINGS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
     "memory:src/lib/settings/numeric.ts#NUMERIC_SETTINGS": {
       "stores": [
         "memory:immutable-configuration"

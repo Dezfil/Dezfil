@@ -1,5 +1,9 @@
+import type { Database } from "better-sqlite3";
+import { requireRule } from "@/lib/auth/instance-rules";
+import type { AccountScope } from "@/lib/auth/scope";
+import { metadataDb } from "@/lib/metadata/db";
 import { stableJson, type HistoryStep } from "@/lib/metadata/history";
-import type { Layer, MapRecord } from "@/lib/metadata/maps";
+import { getMap, type Layer, type MapRecord } from "@/lib/metadata/maps";
 
 /**
  * The publication settings: what a published link shows beyond the map's
@@ -9,6 +13,17 @@ import type { Layer, MapRecord } from "@/lib/metadata/maps";
  * are the map owner's to change, so a write that would change one asks for
  * the publish permission as well as the edit permission.
  */
+
+/**
+ * Who may publish governs a live publication's settings too: while the map is
+ * published, a write that changes one is refused when the instance's rule
+ * excludes the acting account, as publishing it would be. A map that is not
+ * published has no publication to change; publishing it is what the rule
+ * decides then. Called beside the publish permission, inside the write.
+ */
+export function requireLivePublicationChange(scope: AccountScope, mapId: string, db: Database = metadataDb()): void {
+  if (getMap(mapId, db)?.publishToken) requireRule(scope.accountId, "publishing.publish", db);
+}
 
 /** Whether a map write changes the widget publication toggle. */
 export function mapWriteChangesPublication(map: MapRecord, fields: { widgetsPublished?: unknown }): boolean {

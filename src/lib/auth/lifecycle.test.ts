@@ -8,13 +8,15 @@ import { accountPasswordHash, listAccounts } from "@/lib/metadata/accounts";
 import { createFirstAccount, signIn, changeOwnPassword, updateOwnProfile } from "./accounts";
 import { changeAccountAccess, inviteAccount, issueSignInLink } from "./admin";
 import { authenticateSession, authenticateToken, createApiToken, listApiTokens, revokeApiToken,
-  requireCurrentActor, secretHash, SESSION_LIFETIME_MS, signOut, type AuthContext } from "./credentials";
+  requireCurrentActor, secretHash, signOut, type AuthContext } from "./credentials";
 import { redeemSignInLink } from "./links";
 import { hashPassword, verifyPassword } from "./passwords";
 
 const password = "river otter telescope";
 const changedPassword = "paper cranes at sunrise";
 const start = Date.parse("2026-01-01T00:00:00Z");
+// The stored session length's default, as a fixture.
+const SESSION_LIFETIME_MS = 30 * 86_400_000;
 let directory: string, file: string, db: Database, admin: AuthContext;
 beforeEach(async () => {
   directory = mkdtempSync(path.join(os.tmpdir(), "dezfil-auth-"));

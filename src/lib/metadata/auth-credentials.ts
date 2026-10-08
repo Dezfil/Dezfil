@@ -9,6 +9,8 @@ export interface SessionRecord {
 export interface TokenRecord {
   id: string; account_id: string; name: string; secret_hash: string;
   created_at: number; last_used_at: number | null; revoked_at: number | null;
+  /** Null: the token never expires. */
+  expires_at: number | null;
 }
 export interface LinkRecord {
   id: string; account_id: string; kind: "invite" | "reset"; secret_hash: string;
@@ -17,6 +19,8 @@ export interface LinkRecord {
 export interface ApiToken {
   id: string; name: string; createdAt: string; lastUsedAt: string | null;
   revokedAt: string | null;
+  /** When the token stops working; null when it never expires. */
+  expiresAt: string | null;
 }
 
 export function insertSession(row: SessionRecord, db: Database = metadataDb()): void {
@@ -40,10 +44,13 @@ export function revokeSessions(accountId: string, now: number, exceptId: string 
     .run(now, accountId, exceptId, exceptId);
 }
 
-export function insertToken(row: TokenRecord, db: Database = metadataDb()): void {
+/** A row given no expiry never expires. */
+export function insertToken(row: Omit<TokenRecord, "expires_at"> & Partial<Pick<TokenRecord, "expires_at">>,
+  db: Database = metadataDb()): void {
   db.prepare(`INSERT INTO auth_tokens
-    (id, account_id, name, secret_hash, created_at, last_used_at, revoked_at)
-    VALUES (@id, @account_id, @name, @secret_hash, @created_at, @last_used_at, @revoked_at)`).run(row);
+    (id, account_id, name, secret_hash, created_at, last_used_at, revoked_at, expires_at)
+    VALUES (@id, @account_id, @name, @secret_hash, @created_at, @last_used_at, @revoked_at, @expires_at)`)
+    .run({ ...row, expires_at: row.expires_at ?? null });
 }
 
 export function tokenByHash(hash: string, db: Database = metadataDb()): TokenRecord | null {
@@ -59,11 +66,12 @@ function tokenProjection(row: Omit<TokenRecord, "account_id" | "secret_hash">): 
     id: row.id, name: row.name, createdAt: new Date(row.created_at).toISOString(),
     lastUsedAt: row.last_used_at === null ? null : new Date(row.last_used_at).toISOString(),
     revokedAt: row.revoked_at === null ? null : new Date(row.revoked_at).toISOString(),
+    expiresAt: row.expires_at === null ? null : new Date(row.expires_at).toISOString(),
   };
 }
 
 export function listAccountTokens(accountId: string, db: Database = metadataDb()): ApiToken[] {
-  const rows = db.prepare(`SELECT id, name, created_at, last_used_at, revoked_at
+  const rows = db.prepare(`SELECT id, name, created_at, last_used_at, revoked_at, expires_at
     FROM auth_tokens WHERE account_id = ? ORDER BY created_at, id`).all(accountId) as
     Omit<TokenRecord, "account_id" | "secret_hash">[];
   return rows.map(tokenProjection);

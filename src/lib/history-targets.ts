@@ -6,7 +6,7 @@ import { accountActors } from "./metadata/account-actors";
 import type { HistoryStep } from "./metadata/history";
 import type { Layer, MapRecord } from "./metadata/maps";
 import { requireMapFor } from "./map-access";
-import { historyChangesPublication } from "./publication-settings";
+import { historyChangesPublication, requireLivePublicationChange } from "./publication-settings";
 import { admitHistoryTarget } from "./history-admission-cache";
 
 export interface HistoryTarget {
@@ -27,7 +27,10 @@ export async function historyTarget(scope: AccountScope, map: MapRecord, layers:
   };
   try {
     requireMapFor(scope, map.id, "edit");
-    if (historyChangesPublication(map, layers, steps, direction)) requireMapFor(scope, map.id, "publish");
+    if (historyChangesPublication(map, layers, steps, direction)) {
+      requireMapFor(scope, map.id, "publish");
+      requireLivePublicationChange(scope, map.id);
+    }
     await admitHistoryTarget(scope, map.id, revision, steps, direction);
   } catch (error) {
     if (!(error instanceof ApiError || error instanceof AuthError)) throw error;

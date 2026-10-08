@@ -487,4 +487,8 @@ export const MIGRATIONS: string[] = [
   SHARING_MIGRATION,
   REVISIONS_MIGRATION,
   IDENTITIES_MIGRATION,
+  // A token may carry an expiry, stamped at its creation from the instance's
+  // policy. Null never expires: every token made before keeps working until
+  // revoked, and a later change of policy moves no token's expiry.
+  `ALTER TABLE auth_tokens ADD COLUMN expires_at INTEGER;`,
 ];

@@ -21,10 +21,13 @@ export type ListHeadingAction =
 export function ListHeading({
   title,
   line,
+  note = null,
   action,
 }: {
   title: string;
   line: string | null;
+  /** Why the action is drawn disabled, when a rule holds it back. */
+  note?: string | null;
   action: ListHeadingAction;
 }) {
   return (
@@ -32,6 +35,7 @@ export function ListHeading({
       <div>
         <h1>{title}</h1>
         {line && <p className={gallery.subLine}>{line}</p>}
+        {note && <p className={gallery.subLine}>{note}</p>}
       </div>
       {"href" in action ? (
         <Link className={gallery.primary} href={action.href}>

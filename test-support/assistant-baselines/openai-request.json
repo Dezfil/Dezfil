@@ -86,7 +86,7 @@
     {
       "type": "function",
       "name": "list_api_tokens",
-      "description": "List your API tokens. Cookie or bearer authentication is required. Cookie mutations require the same trusted Origin. Responses, including refusals, are private, no-store. Lists only your own tokens, including revoked tokens. Secrets and hashes are never returned.",
+      "description": "List your API tokens. Cookie or bearer authentication is required. Cookie mutations require the same trusted Origin. Responses, including refusals, are private, no-store. Lists only your own tokens, including revoked and expired ones, each with when it expires. Secrets and hashes are never returned.",
       "parameters": {
         "type": "object",
         "properties": {}
@@ -96,7 +96,7 @@
     {
       "type": "function",
       "name": "create_api_token",
-      "description": "Create an API token. At most 65,536 wire bytes; a larger body is refused with `request_body_too_large` before JSON parsing. Cookie or bearer authentication is required. Cookie mutations require the same trusted Origin. Responses, including refusals, are private, no-store. Creates a named API/MCP token for your own account. The secret is returned only on creation. It authenticates with your current account permissions and is refused while the account is deactivated.",
+      "description": "Create an API token. At most 65,536 wire bytes; a larger body is refused with `request_body_too_large` before JSON parsing. Cookie or bearer authentication is required. Cookie mutations require the same trusted Origin. Responses, including refusals, are private, no-store. Creates a named API/MCP token for your own account. The secret is returned only on creation. It authenticates with your current account permissions and is refused while the account is deactivated. It lasts as long as the instance's rule for new tokens said at its creation, or never expires; expiresAt says when, a later change of the rule moves no token's expiry, and once it passes the token is refused with token_expired.",
       "parameters": {
         "type": "object",
         "additionalProperties": false,
@@ -197,7 +197,7 @@
     {
       "type": "function",
       "name": "invite_user",
-      "description": "Invite a user. At most 65,536 wire bytes; a larger body is refused with `request_body_too_large` before JSON parsing. Requires a current admin account through a cookie session or bearer token. Cookie mutations require the same trusted Origin. Responses, including refusals, are private, no-store. Reserves a name and normalized email and returns a signInUrl once. The recipient chooses a password when opening the link; this instance sends no email. The link expires seven days after issue. isAdmin defaults to false and an admin may explicitly grant it. Duplicate emails return email_taken regardless of case or surrounding whitespace, including invited and deactivated accounts. An email awaiting deletion completion remains reserved, including after its profile is removed, and never offers reactivation. For a deactivated duplicate the error carries accountId and canReactivate: true; reactivate that account instead of creating another.",
+      "description": "Invite a user. At most 65,536 wire bytes; a larger body is refused with `request_body_too_large` before JSON parsing. Requires a current admin account through a cookie session or bearer token. Cookie mutations require the same trusted Origin. Responses, including refusals, are private, no-store. Reserves a name and normalized email and returns a signInUrl once. The recipient chooses a password when opening the link; this instance sends no email. The link expires after the instance's link lifetime, security.linkDays, seven days by default, and keeps the lifetime it was issued with. isAdmin defaults to false and an admin may explicitly grant it. Duplicate emails return email_taken regardless of case or surrounding whitespace, including invited and deactivated accounts. An email awaiting deletion completion remains reserved, including after its profile is removed, and never offers reactivation. For a deactivated duplicate the error carries accountId and canReactivate: true; reactivate that account instead of creating another.",
       "parameters": {
         "type": "object",
         "additionalProperties": false,
@@ -299,7 +299,7 @@
     {
       "type": "function",
       "name": "issue_user_sign_in_link",
-      "description": "Issue a new sign-in link. Requires a current admin account through a cookie session or bearer token. Cookie mutations require the same trusted Origin. Responses, including refusals, are private, no-store. Returns a one-time signInUrl expiring in seven days. Replaces every earlier unused link, invalidates the current password and ends browser sessions while API tokens stay valid. The recipient chooses their password and enters as this account even if another account was signed in. An expired, replaced or consumed link grants no access. This instance sends no email; share the returned link with its recipient.",
+      "description": "Issue a new sign-in link. Requires a current admin account through a cookie session or bearer token. Cookie mutations require the same trusted Origin. Responses, including refusals, are private, no-store. Returns a one-time signInUrl expiring after the instance's link lifetime, security.linkDays, seven days by default; the link keeps the lifetime it was issued with. Replaces every earlier unused link, invalidates the current password and ends browser sessions while API tokens stay valid. The recipient chooses their password and enters as this account even if another account was signed in. An expired, replaced or consumed link grants no access. This instance sends no email; share the returned link with its recipient.",
       "parameters": {
         "type": "object",
         "properties": {
@@ -328,7 +328,7 @@
     {
       "type": "function",
       "name": "update_instance_settings",
-      "description": "Change instance settings. At most 65,536 wire bytes; a larger body is refused with `request_body_too_large` before JSON parsing. Requires a current admin through cookie or bearer authentication, rechecked inside the write transaction on every call. Cookie mutations require the same trusted Origin; an admin bearer token calls directly with no additional scope or approval step. Responses, including refusals, are private, no-store. Submit only editable keys; omitted keys stay unchanged and null clears a stored value. The complete body is validated against the committed configuration under one write lock. A refusal or failed commit changes nothing. Non-editable keys answer 400 invalid_request as read-only regardless of their environment. A non-empty environment variable locks an editable setting, including invalid overrides and null writes. A locked editable key answers 409 setting_locked, taking precedence over 400 invalid_request for unknown, non-editable, wrong-kind, non-whole, out-of-range, over-length or invalid-choice entries and a resulting queryTimeoutS at or above operationTimeoutS. Messages identify all failing known keys and their reasons, and unknown keys by their entry position without echoing arbitrary input. An existing environment timeout mismatch is reported in warnings and blocks no unrelated change. Concurrent different-key edits both land; the last accepted value wins on one key. There is no stale-write rejection or Undo. Stored changes apply live to new work; admitted work keeps its budget. Lowered concurrency cancels nothing, increased concurrency wakes waiters after commit, and lowered queue limits keep accepted waiters. Public limits apply against the existing window count. Environment changes need a restart. Returns the same configuration as the read, with the same secret and address disclosure rules; no secret or address setting is accepted. The embedded assistant asks for confirmation before calling on pages admitting writes; SQL and workflow assistants refuse this update. MCP advertises that policy and adds no confirmation step.",
+      "description": "Change instance settings. At most 65,536 wire bytes; a larger body is refused with `request_body_too_large` before JSON parsing. Requires a current admin through cookie or bearer authentication, rechecked inside the write transaction on every call. Cookie mutations require the same trusted Origin; an admin bearer token calls directly with no additional scope or approval step. Responses, including refusals, are private, no-store. Submit only editable keys; omitted keys stay unchanged and null clears a stored value. The complete body is validated against the committed configuration under one write lock. A refusal or failed commit changes nothing. Non-editable keys answer 400 invalid_request as read-only regardless of their environment. A non-empty environment variable locks an editable setting, including invalid overrides and null writes. A locked editable key answers 409 setting_locked, taking precedence over 400 invalid_request for unknown, non-editable, wrong-kind, non-whole, out-of-range, over-length or invalid-choice entries, a site list entry that is not http or https with a host and an optional port, a resulting queryTimeoutS at or above operationTimeoutS, a resulting security.failedPerAddress below security.failedPerAccount, and a resulting publishing.embedding of listed with no publishing.embedSites. Messages identify all failing known keys and their reasons, unknown keys by their entry position and a refused site by its position, without echoing arbitrary input. The sign-in counts, and embedding with its sites, are checked when a body changes either side. An existing environment timeout mismatch is reported in warnings and blocks no unrelated change. Concurrent different-key edits both land; the last accepted value wins on one key. There is no stale-write rejection or Undo. Stored changes apply live to new work; admitted work keeps its budget. Lowered concurrency cancels nothing, increased concurrency wakes waiters after commit, and lowered queue limits keep accepted waiters. Public limits apply against the existing window count. Environment changes need a restart. Returns the same configuration as the read, with the same secret and address disclosure rules; no secret or address setting is accepted. The embedded assistant asks for confirmation before calling on pages admitting writes; SQL and workflow assistants refuse this update. MCP advertises that policy and adds no confirmation step.",
       "parameters": {
         "type": "object",
         "additionalProperties": false,
@@ -700,6 +700,149 @@
               null
             ],
             "description": "Image starting shape. The shape a fresh image export card opens at. Null clears the stored value."
+          },
+          "security.sessionDays": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "1",
+              "7",
+              "30",
+              "90",
+              null
+            ],
+            "description": "Stay signed in for. How long a session lasts after its last use. A session keeps the expiry it holds; its next use renews it by this length. Null clears the stored value."
+          },
+          "security.linkDays": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "1",
+              "3",
+              "7",
+              "14",
+              null
+            ],
+            "description": "Invite and reset links last. How long an invitation or a password reset link stays valid. A link keeps the lifetime it was issued with. Null clears the stored value."
+          },
+          "security.failedPerAccount": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 3,
+            "maximum": 100,
+            "description": "Failed sign-ins per account. Failed sign-ins for one account, within a fixed 15 minutes, before its next attempt pauses. Never above the count per address. Null clears the stored value."
+          },
+          "security.failedPerAddress": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 10,
+            "maximum": 1000,
+            "description": "Failed sign-ins per address. Failed sign-ins from one network address, within a fixed 15 minutes, before its next attempt pauses. Never below the count per account. Null clears the stored value."
+          },
+          "security.passwordMin": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 8,
+            "maximum": 64,
+            "description": "Shortest password. The fewest characters a password set from now may have. Passwords set earlier keep signing in. Null clears the stored value."
+          },
+          "tokens.create": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "everyone",
+              "admins",
+              null
+            ],
+            "description": "Who may create tokens. Whether every account or only admins may create API tokens. Tokens made earlier keep working. Null clears the stored value."
+          },
+          "tokens.expiry": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "never",
+              "30d",
+              "90d",
+              "1y",
+              null
+            ],
+            "description": "New tokens expire after. The lifetime a new API token takes, from its creation. Tokens made earlier keep their own. Null clears the stored value."
+          },
+          "publishing.publish": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "everyone",
+              "admins",
+              "none",
+              null
+            ],
+            "description": "Who may publish. Whether every account, only admins or no one may publish a map or change a publication. Published maps stay public and can be unpublished. Null clears the stored value."
+          },
+          "publishing.embedding": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "any",
+              "listed",
+              "off",
+              null
+            ],
+            "description": "Embedding on other sites. Which other sites may show a published page in a frame: any site, only the listed sites (at least one), or none. Null clears the stored value."
+          },
+          "publishing.embedSites": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "maxItems": 50,
+            "items": {
+              "type": "string",
+              "pattern": "^\\s*[Hh][Tt][Tt][Pp][Ss]?://[^/?#@\\\\\\s]+/?\\s*$"
+            },
+            "description": "Listed sites. The sites that may show a published page in a frame while embedding is limited to listed sites; never empty while it is. Null clears the stored value. At most 50 sites, each http or https with a host and an optional port and nothing else. Each is kept as its scheme, host and port, a repeated site once; an empty list clears to the default."
+          },
+          "connections.create": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "everyone",
+              "admins",
+              null
+            ],
+            "description": "Who may add database connections. Whether every account or only admins may add a database connection. Connections made earlier keep working. Null clears the stored value."
+          },
+          "imports.links": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "everyone",
+              "admins",
+              null
+            ],
+            "description": "Who may import from links. Whether every account or only admins may import from web addresses and cloud storage. Link datasets keep refreshing. Null clears the stored value."
           }
         }
       },
@@ -971,7 +1114,7 @@
     {
       "type": "function",
       "name": "get_config",
-      "description": "Runtime client configuration. Instance-wide basemaps, built-in palettes, client limits and the defaults new maps, layers and screens start with, shared by every authenticated account. Includes deployment-configured basemap choices and provider availability, never server-side AI or geocoder credentials. Private, no-store.",
+      "description": "Runtime client configuration. Instance-wide basemaps, built-in palettes, client limits, the defaults new maps, layers and screens start with, the rules every account follows and the shortest password, shared by every authenticated account. Includes deployment-configured basemap choices and provider availability, never server-side AI or geocoder credentials. Private, no-store.",
       "parameters": {
         "type": "object",
         "properties": {}

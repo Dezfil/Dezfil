@@ -12,7 +12,7 @@ it("describes the shipped instance settings without promising existing sharing l
   expect(html).toContain("Only admins can change the instance name.");
 });
 it("names token reach and the limit of the browser connection check", () => {
-  expect(renderToStaticMarkup(<TokensCard />)).toContain("Tokens use your current access, including shared projects.");
+  expect(renderToStaticMarkup(<TokensCard admin={false} />)).toContain("Tokens use your current access, including shared projects.");
   const html = renderToStaticMarkup(<McpSection />);
   expect(html).toContain("This checks your browser session.");
   expect(html).toContain("API contract and edit revisions");
