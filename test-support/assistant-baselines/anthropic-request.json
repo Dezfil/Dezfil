@@ -913,6 +913,30 @@
       }
     },
     {
+      "name": "test_service",
+      "description": "Test a service. Requires a current admin through cookie or bearer authentication, rechecked on every call. Cookie requests require the same trusted Origin; an admin bearer token calls directly. Responses, including refusals, are private, no-store. Sends the service one fixed request at its address in effect, never one given here: geocode (the address finder) one search for a fixed place, isochrone (travel time) one area on foot round a fixed point for the shortest band, overpass (OpenStreetMap) the smallest Overpass query, overture a listing of the releases, s3 one request to the S3 address's root without credentials. It goes the way the service's own requests go: through the egress check, redirects included, and after the gap between requests for the address finder and travel time. It reaches outside this server and stores nothing: no setting changes and no cache is read or written, except that the Overture Test keeps the release list it finds, as Check now does. A second Test of a service while one runs gets the same answer from the same request. A stored address the instance's key no longer opens is refused with service_address_unreadable, as the service refuses it. The embedded assistant asks for confirmation before calling; SQL and workflow assistants refuse this operation. MCP advertises that policy and adds no confirmation step.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "service": {
+            "type": "string",
+            "enum": [
+              "geocode",
+              "isochrone",
+              "overpass",
+              "overture",
+              "s3"
+            ],
+            "description": "The service to test: geocode, isochrone, overpass, overture or s3."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "service"
+        ]
+      }
+    },
+    {
       "name": "inspect_table_geometry",
       "description": "Inspect a dataset's geometry choices. A dataset is reached by its owner and by the owner and people of every project it is filed in. Lists, schema discovery and counts cover exactly the reached datasets and name each one's owner and the name the caller would type for it: the plain name for the caller's own, <sql name>.<name> for another owner's. Another owner's dataset is shown without connection facts and without links to what the caller cannot reach: a PostGIS snapshot shows its origin kind, with neither its connection nor its remote schema and table. A bare dataset name in a path or parameter is the caller's own dataset. On dataset reads, features, downloads and operation parameters, another owner's dataset the caller reaches is addressed by its qualified name, and in a /api/tables path also by its identifier; changing one by any address answers forbidden. Datasets change, refresh and go only by their owner; administrators reach nothing more. Upload and sketch suffixes ignore other accounts' names. Unreached and missing datasets, maps and project references return not_found before source or artifact access; a refused change leaves resources unchanged. Refresh and geometry changes preserve the dataset's identity and owner and recheck account activity at commit. For file uploads and URL imports only. SQL-save, workflow, PostGIS, OSM, Overture and sketch datasets refuse with 409 geometry_not_supported and a sentence. Unknown or reclaimed dataset identity answers 404 not_found; a stale artifact revision answers 409 input_changed. Column names are identifiers, never SQL expressions or file paths. Reads current stored schema, record, choice, opaque revision and candidates using the same first-1,000-row recognition and full safety evidence as CSV upload. Does not apply a proposal, fetch a source or invent legacy provenance. Repeated inspections reuse candidates while the artifact is unchanged. Historical consumed names and generated outputs are not new source columns.",
       "input_schema": {

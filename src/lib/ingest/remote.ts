@@ -14,7 +14,7 @@ import { pipeline } from "node:stream/promises";
 import { dataDir } from "@/lib/config";
 import { captureIngestBudget, type IngestBudget } from "./budget";
 import { ApiError } from "@/lib/api/errors";
-import { openRemote } from "@/lib/net/remote-fetch";
+import { openRemote, type OpenRemoteOptions, type RemoteResponse } from "@/lib/net/remote-fetch";
 import { withConnection } from "@/lib/duckdb";
 import { detectFormat } from "./ingest";
 import { ingestSource, type IngestResult } from "./gdal-formats";
@@ -220,6 +220,12 @@ export function objectStoreCredentialsEnabled(): boolean {
   return value === "1" || value === "true" || value === "yes";
 }
 
+/** The S3 address in effect, or null for Amazon S3's own addresses; a
+ * stored one the instance's key no longer opens refuses. */
+function s3Address(): string | null {
+  return resolveServiceAddress("s3Endpoint").address;
+}
+
 /**
  * The public HTTPS form of an s3:// or gs:// URL — the anonymous road.
  * The S3 address in effect (DEZFIL_S3_ENDPOINT, else the one an admin
@@ -234,13 +240,26 @@ export function translateObjectUrl(ref: RemoteRef): string {
   if (ref.scheme === "gs:") {
     return `https://storage.googleapis.com/${bucket}${key}`;
   }
-  const custom = resolveServiceAddress("s3Endpoint").address;
+  const custom = s3Address();
   if (custom) return `${custom.replace(/\/$/, "")}/${bucket}${key}`;
   // Virtual-hosted style; buckets with dots break the TLS wildcard, so
   // they fall back to path-style on the global endpoint.
   return bucket.includes(".")
     ? `https://s3.amazonaws.com/${bucket}${key}`
     : `https://${bucket}.s3.amazonaws.com${key}`;
+}
+
+/**
+ * One unsigned request to the S3 address's root (the address in effect, else
+ * Amazon S3's own), on the anonymous road's terms: the outbound engine with
+ * every redirect hop checked, and the link import time limit. A stored
+ * address the instance's key no longer opens refuses rather than reach
+ * Amazon's instead. Cloud storage's Test sends through here.
+ */
+export function openS3AddressRoot(options: Pick<OpenRemoteOptions, "timeoutError" | "onRedirect">): Promise<RemoteResponse> {
+  const custom = s3Address();
+  return openRemote(custom ? `${custom.replace(/\/$/, "")}/` : "https://s3.amazonaws.com/",
+    { timeoutMs: captureIngestBudget().remoteTimeoutMs, ...options });
 }
 
 /** Stream a URL into the ingest scratch directory under the cap. */

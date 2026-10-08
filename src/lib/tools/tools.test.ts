@@ -281,6 +281,8 @@ describe("tool parity", () => {
       "revoke_api_token",
       "revoke_inactive_publication",
       "set_project_person",
+      // Changes nothing here, but it sends a request outside this server.
+      "test_service",
       // Ownership is the one change only the new owner can undo.
       "transfer_map",
       "transfer_project",

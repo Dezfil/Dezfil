@@ -8,8 +8,10 @@ import { buildTools, type ToolDef } from "@/lib/tools/tools";
  * the workflow canvas is offered only the operations that declare
  * themselves read-only (effects), and a conditional operation, one that
  * plans in one form and writes in another, is offered in neither form
- * (D4). The model is never told to avoid an operation: it is offered what
- * its run admits, and a call outside the set, however it arrives, is
+ * (D4), nor is a read-only operation marked as reaching outside this
+ * server (a service's Test), which sends a request a page that only reads
+ * did not ask for. The model is never told to avoid an operation: it is
+ * offered what its run admits, and a call outside the set, however it arrives, is
  * refused before any product operation (the phase rule: the API refuses
  * where a page would warn).
  *
@@ -27,7 +29,7 @@ export function policyFor(context: AssistantContext | undefined): AssistantPolic
 /** Whether one operation is inside a policy's set. */
 export function admits(policy: AssistantPolicy, tool: Pick<ToolDef, "effects">): boolean {
   if (policy === "full") return true;
-  return tool.effects.readOnly && tool.effects.planningArgument === undefined;
+  return tool.effects.readOnly && tool.effects.planningArgument === undefined && !tool.effects.reachesOutside;
 }
 
 /** The tools a run under this policy is offered. */

@@ -55,21 +55,30 @@ function listingFailed(detail: string): ApiError {
 }
 
 /**
+ * One listing, sent: no list looked up or kept. Through the outbound engine,
+ * so the listing address and each redirect hop pass the egress check before
+ * anything is sent. The releases it names, newest first, for a 200 (none
+ * when the answer names none); the body closed otherwise. The pane's
+ * listing and Overture's Test send through here.
+ */
+export async function sendReleaseListing(timeoutError: () => ApiError): Promise<{ statusCode: number; releases: string[] }> {
+  const response = await openRemote(listUrl(), { timeoutMs: LISTING_TIMEOUT_MS, timeoutError });
+  if (response.statusCode !== 200) {
+    response.body.destroy();
+    return { statusCode: response.statusCode, releases: [] };
+  }
+  const text = await readCapped(response.body, LISTING_MAX_BYTES);
+  return { statusCode: 200, releases: text === null ? [] : parseReleaseListing(text) };
+}
+
+/**
  * One listing of the releases, newest first, with no list kept and no
  * fallback: the egress check's refusal as it is, anything else (no answer,
  * a status, an answer with no release in it) as a coded failure.
  */
 export async function requestReleaseListing(): Promise<string[]> {
-  const response = await openRemote(listUrl(), {
-    timeoutMs: LISTING_TIMEOUT_MS,
-    timeoutError: () => listingFailed(`no answer within ${LISTING_TIMEOUT_MS / 1000} s`),
-  });
-  if (response.statusCode !== 200) {
-    response.body.destroy();
-    throw listingFailed(`status ${response.statusCode}`);
-  }
-  const text = await readCapped(response.body, LISTING_MAX_BYTES);
-  const releases = text === null ? [] : parseReleaseListing(text);
+  const { statusCode, releases } = await sendReleaseListing(() => listingFailed(`no answer within ${LISTING_TIMEOUT_MS / 1000} s`));
+  if (statusCode !== 200) throw listingFailed(`status ${statusCode}`);
   if (releases.length === 0) throw listingFailed("no release in the answer");
   return releases;
 }
@@ -82,14 +91,15 @@ export async function requestReleaseListing(): Promise<string[]> {
  */
 export async function listOvertureReleases(options: { refresh?: boolean } = {}): Promise<string[]> {
   if (!options.refresh && cache && Date.now() - cache.at < CACHE_TTL_MS) return cache.releases;
-  return requestReleaseListing().then(keep, (error: unknown) => {
+  return requestReleaseListing().then(keepReleaseList, (error: unknown) => {
     if (error instanceof ApiError && error.code === "egress_blocked") throw error;
     return FALLBACK_RELEASES;
   });
 }
 
-/** Keep a listing as the list this process offers. */
-function keep(releases: string[]): string[] {
+/** Keep a listing as the list this process offers (a listing that named
+ * at least one release; never the pinned fallback). */
+export function keepReleaseList(releases: string[]): string[] {
   cache = { at: Date.now(), releases };
   return releases;
 }

@@ -48,6 +48,10 @@ export interface OpenRemoteOptions {
    * cancelled halfway would otherwise keep asking.
    */
   signal?: AbortSignal;
+  /** Told of each redirect answer before it is followed: its status and
+   * headers, its body closed unread. For a caller that must know who
+   * answered first, when what it is handed is the last hop's answer. */
+  onRedirect?: (hop: { statusCode: number; headers: http.IncomingHttpHeaders }) => void;
 }
 
 /** The exchange stopped because its caller stopped wanting it. Coded rather
@@ -198,6 +202,7 @@ export async function openRemote(
       const status = response.statusCode ?? 0;
       const location = response.headers.location;
       if (REDIRECT_STATUS.has(status) && location) {
+        options.onRedirect?.({ statusCode: status, headers: response.headers });
         // A redirect may stream forever. Close it before replacing the
         // exchange's active handle; draining would leave it without an owner.
         await new Promise<void>((resolve) => {

@@ -10,7 +10,7 @@ import {
   endpointKey,
   searchUrl,
 } from "./endpoint";
-import { takeSlot } from "./limiter";
+import { takeSlot, type Priority } from "./limiter";
 import { normalizeAddress } from "./normalize";
 import { settingRemedy } from "@/lib/settings/remedy";
 
@@ -221,6 +221,81 @@ function fromCache(cached: CachedAnswer, source: "cache" | "wire"): RowAnswer {
   };
 }
 
+/** What one request to the address finder came back with: its status, the
+ * body when the status is 200 (null past the cap), and how long the
+ * exchange took once its slot was taken. */
+export interface GeocoderExchange {
+  statusCode: number;
+  text: string | null;
+  milliseconds: number;
+}
+
+export interface GeocoderRequestOptions {
+  /** A person waiting (a search, a Test) goes ahead of a batch. */
+  priority: Priority;
+  signal?: AbortSignal;
+  deadlineAt?: number;
+  /** Absent, the gap in effect at the request. */
+  gapMs?: number;
+  /** Absent, the answer time limit in effect at the request. */
+  requestTimeoutMs?: number;
+  /** What the deadline throws. The engine's own timeout message embeds the
+   * URL, which may carry a key; each caller codes its own instead. */
+  timeoutError: () => ApiError;
+}
+
+/**
+ * One search, sent: below the cache, so nothing is looked up or kept. The
+ * endpoint's slot is taken first (its gap waited out), the request goes
+ * through the outbound engine, and the body is read for a 200 and closed
+ * otherwise, before the slot is given back. A batch's every ask and the
+ * address finder's Test send through here.
+ */
+export async function requestGeocoder(
+  endpoint: string,
+  query: string,
+  options: GeocoderRequestOptions,
+): Promise<GeocoderExchange> {
+  const url = searchUrl(endpoint, query, { limit: "1" });
+  if (!url) throw unconfiguredError();
+  const { signal, deadlineAt } = options;
+  const release = await takeSlot(endpointKey(endpoint), options.priority, signal, options.gapMs);
+  try {
+    // **Checked again on the near side of the wait**. The wait is
+    // for a slot, and a slot can open after the run that queued for it is over —
+    // so the caller's deadline is honoured *here*, where the request would
+    // otherwise start, and not only where the batch decided to ask.
+    const left = deadlineAt === undefined ? undefined : deadlineAt - Date.now();
+    if (left !== undefined && left <= 0) throw pastDeadline();
+    const limit = options.requestTimeoutMs ?? limits.geocodeRequestTimeoutMs;
+    const started = Date.now();
+    const response = await openRemote(url.toString(), {
+      // The exchange may not outlive the run either: a request that starts with
+      // a second of budget left takes a second, not its own full deadline.
+      timeoutMs: left === undefined ? limit : Math.min(limit, left),
+      timeoutError: options.timeoutError,
+      headers: { "user-agent": USER_AGENT, accept: "application/json" },
+      ...(signal ? { signal } : {}),
+    });
+    if (response.statusCode !== 200) {
+      // **Destroyed, not drained.** `resume()` only starts the body flowing;
+      // the return below releases the slot immediately, so a provider that
+      // sends error headers and then hangs would leave that exchange open
+      // while the retry — or another caller — opens a second one. That is
+      // exactly the concurrent issuance J7 declines, arriving through the
+      // error path. Found at the cross-model review.
+      response.body.destroy();
+      return { statusCode: response.statusCode, text: null, milliseconds: Date.now() - started };
+    }
+    const text = await readCapped(response.body, MAX_BYTES);
+    return { statusCode: 200, text, milliseconds: Date.now() - started };
+  } finally {
+    // Always: a slot nobody releases stops this endpoint for the life of the
+    // process, which is a worse failure than any this function can have.
+    release();
+  }
+}
+
 /** One exchange with the provider. Throws for anything that is not an answer,
  * so the caller's retry sees transport failures and only those. Answers null
  * when the body was past the cap — the exchange worked, so that is a fault
@@ -230,47 +305,20 @@ async function askOnce(
   address: string,
   options: AskOptions,
 ): Promise<string | null> {
-  const url = searchUrl(endpoint, address, { limit: "1" });
-  if (!url) throw unconfiguredError();
-  const { signal, deadlineAt } = options;
-  const release = await takeSlot(endpointKey(endpoint), "batch", signal, options.gapMs);
-  try {
-    // **Checked again on the near side of the wait**. The wait is
-    // for a slot, and a slot can open after the run that queued for it is over —
-    // so the caller's deadline is honoured *here*, where the request would
-    // otherwise start, and not only where the batch decided to ask.
-    const left = deadlineAt === undefined ? undefined : deadlineAt - Date.now();
-    if (left !== undefined && left <= 0) throw pastDeadline();
-    const limit = options.requestTimeoutMs ?? limits.geocodeRequestTimeoutMs;
-    const response = await openRemote(url.toString(), {
-      // The exchange may not outlive the run either: a request that starts with
-      // a second of budget left takes a second, not its own full deadline.
-      timeoutMs: left === undefined ? limit : Math.min(limit, left),
-      // The engine's own timeout message embeds the URL, which may carry a key.
-      // Coded here instead, so the deadline never reaches a job record as text
-      // nobody sanitized.
-      timeoutError: () => providerFailed("no answer inside the deadline"),
-      headers: { "user-agent": USER_AGENT, accept: "application/json" },
-      ...(signal ? { signal } : {}),
-    });
-    if (response.statusCode !== 200) {
-      // **Destroyed, not drained.** `resume()` only starts the body flowing;
-      // the throw below releases the slot immediately, so a provider that
-      // sends error headers and then hangs would leave that exchange open
-      // while the retry — or another caller — opens a second one. That is
-      // exactly the concurrent issuance J7 declines, arriving through the
-      // error path. Found at the cross-model review.
-      response.body.destroy();
-      // **A status is the provider not answering, not the address being
-      // absent.** Recording it on the row would publish a fabricated `no_match`.
-      throw providerFailed(`status ${response.statusCode}`);
-    }
-    return await readCapped(response.body, MAX_BYTES);
-  } finally {
-    // Always: a slot nobody releases stops this endpoint for the life of the
-    // process, which is a worse failure than any this function can have.
-    release();
-  }
+  const exchange = await requestGeocoder(endpoint, address, {
+    priority: "batch",
+    ...(options.signal ? { signal: options.signal } : {}),
+    ...(options.deadlineAt !== undefined ? { deadlineAt: options.deadlineAt } : {}),
+    ...(options.gapMs !== undefined ? { gapMs: options.gapMs } : {}),
+    ...(options.requestTimeoutMs !== undefined ? { requestTimeoutMs: options.requestTimeoutMs } : {}),
+    // Coded here, so the deadline never reaches a job record as text nobody
+    // sanitized.
+    timeoutError: () => providerFailed("no answer inside the deadline"),
+  });
+  // **A status is the provider not answering, not the address being absent.**
+  // Recording it on the row would publish a fabricated `no_match`.
+  if (exchange.statusCode !== 200) throw providerFailed(`status ${exchange.statusCode}`);
+  return exchange.text;
 }
 
 /**

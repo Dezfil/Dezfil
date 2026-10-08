@@ -5263,6 +5263,26 @@
         "memory:immutable-configuration"
       ]
     },
+    "memory:src/lib/api/openapi-instance-services.ts#tested": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/operation-metadata.ts#REACHES_OUTSIDE": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/settings/service-tests.ts#TESTS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/settings/service-tests.ts#running": {
+      "stores": [
+        "memory:provider-scheduling"
+      ]
+    },
     "memory:src/lib/api/openapi-instance-settings.ts#address": {
       "stores": [
         "memory:immutable-configuration"

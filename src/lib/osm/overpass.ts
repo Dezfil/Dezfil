@@ -149,6 +149,32 @@ async function writeCache(key: string, body: OverpassResponse, generation: numbe
   } finally { finish(); }
 }
 
+/** The deadline for one query: its own time budget, and time to send its
+ * answer. It covers the whole exchange, the answer's body included. */
+export function overpassDeadlineS(): number {
+  return limits.overpassTimeoutS + 30;
+}
+
+/**
+ * One query, sent: below the cache, so nothing is looked up or kept. A POST
+ * through the outbound engine, so the endpoint and each redirect hop pass the
+ * egress check before anything is sent. A query and OpenStreetMap's Test
+ * send through here.
+ */
+export function openOverpass(endpoint: string, ql: string, timeoutError: () => ApiError, deadlineS = overpassDeadlineS()): Promise<RemoteResponse> {
+  return openRemote(endpoint, {
+    method: "POST",
+    body: `data=${encodeURIComponent(ql)}`,
+    headers: {
+      "content-type": "application/x-www-form-urlencoded",
+      // Public Overpass instances refuse anonymous user agents (406).
+      "user-agent": "Dezfil/0.1 (self-hosted spatial SQL builder)",
+    },
+    timeoutMs: deadlineS * 1000,
+    timeoutError,
+  });
+}
+
 /** Fetch a query, cached. `bypassCache` re-hits the endpoint (refresh). */
 export async function fetchOverpass(
   ql: string,
@@ -163,9 +189,7 @@ export async function fetchOverpass(
     if (cached) return { response: cached, fromCache: true };
   }
 
-  // The query's own time budget, and time to send its answer: the deadline
-  // covers the whole exchange, the answer's body included.
-  const deadlineS = limits.overpassTimeoutS + 30;
+  const deadlineS = overpassDeadlineS();
   const pastDeadline = new ApiError(
     "remote_fetch_failed",
     `The Overpass endpoint ${origin} did not answer within ${deadlineS} s.`,
@@ -173,17 +197,7 @@ export async function fetchOverpass(
   );
   let response: RemoteResponse;
   try {
-    response = await openRemote(endpoint, {
-      method: "POST",
-      body: `data=${encodeURIComponent(ql)}`,
-      headers: {
-        "content-type": "application/x-www-form-urlencoded",
-        // Public Overpass instances refuse anonymous user agents (406).
-        "user-agent": "Dezfil/0.1 (self-hosted spatial SQL builder)",
-      },
-      timeoutMs: deadlineS * 1000,
-      timeoutError: () => pastDeadline,
-    });
+    response = await openOverpass(endpoint, ql, () => pastDeadline, deadlineS);
   } catch (error) {
     // The egress check's refusal and the deadline name no address; the
     // engine's other failures repeat the whole address, so only the

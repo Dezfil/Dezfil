@@ -25,6 +25,10 @@ export interface OperationEffects {
    * association. Undo, redo and a map's deletion write no step under the
    * group and declare nothing. */
   history?: true;
+  /** Read-only here, but the operation sends a request outside this
+   * server (a service's Test): the SQL and workflow assistants' read-only
+   * policy refuses it, and the embedded assistant confirms it. */
+  reachesOutside?: true;
 }
 export interface ConfirmationWords {
   /** Contains {target}, replaced with the resolved name and stable identity. */
@@ -64,6 +68,8 @@ export interface OperationDisplay {
   };
 }
 export const READ_ONLY: OperationEffects = { readOnly: true, writes: [] };
+/** Changes nothing here, and reaches outside this server to do it. */
+export const REACHES_OUTSIDE: OperationEffects = { readOnly: true, writes: [], reachesOutside: true };
 export function writes(...resources: ResourceWrite[]): OperationEffects {
   return { readOnly: false, writes: resources };
 }
