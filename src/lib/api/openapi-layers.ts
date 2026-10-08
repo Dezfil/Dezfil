@@ -26,7 +26,11 @@ export const LAYER_RESOURCE_PATHS = {
         "The SQL must return at least one geometry column. The first " +
         "geometry column in select order is the primary geometry used " +
         "for simple rendering; additional geometry columns are allowed. " +
-        "A default, publication-ready style is applied when none is provided.",
+        "A default, publication-ready style is applied when none is provided: " +
+        "it takes the instance's defaults for new layers, the next color of " +
+        "the color cycle with the geometry's opacity, the line width and the " +
+        "point radius (`defaults` in the runtime configuration). A given " +
+        "style is kept as given.",
       tag: "Layers",
       tool: "create_layer", mcp: LOCAL_ADD,
       display: {"verb": "Created the layer {subject}", "subject": {"resource": "layers", "result": "id", "name": ["name"]}},

@@ -66,6 +66,21 @@ export function instanceDefaults(db: Database = metadataDb()): InstanceDefaults 
   return resolveInstanceDefaults(readStoredSettings(db), availableBasemaps().map(basemap => basemap.key));
 }
 
+/** The defaults as the runtime read reports them: keyed and valued as the
+ * change operation takes them, every key with its effective value. */
+export type ReportedDefaults = { readonly [K in InstanceDefaultKey]: InstanceDefaultValue<K> };
+
+/** Unset reads back as what it means: the basemap as Auto, the legend corner
+ * as the product's corner. A basemap the instance no longer offers is
+ * therefore reported as Auto, which is what a new map starts on. */
+export function reportedDefaults(defaults: InstanceDefaults): ReportedDefaults {
+  return {
+    ...defaults,
+    "newMap.basemap": defaults["newMap.basemap"] ?? "auto",
+    "newMap.legendCorner": defaults["newMap.legendCorner"] ?? valueOf("newMap.legendCorner", {}),
+  };
+}
+
 /** The layer defaults as a new layer's default style takes them: a stored
  * opacity is a whole percent, the style's a fraction. */
 export function newLayerLook(defaults: InstanceDefaults): NewLayerLook {

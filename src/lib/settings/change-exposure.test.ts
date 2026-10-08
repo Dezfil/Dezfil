@@ -42,6 +42,24 @@ it("exposes a closed update input and refuses unknown arguments before HTTP disp
   expect(JSON.stringify(result)).not.toContain("seed-tool-secret");
 });
 
+it.each([
+  ["newMap.basemap", "terrain", "streets"], ["imageExport.shape", "2:1", "16:9"], ["sqlConsole.textSize", 12, "14"],
+  ["newMap.zoom", 23, 22], ["newMap.latitude", -90, -85], ["newLayer.lineWidth", 0.25, 0.5],
+  ["newLayer.pointOpacity", 72.5, 73], ["sqlConsole.lineWrap", "on", true],
+] as const)("refuses the default %s = %j off its list, bounds or kind in generated and MCP calls before any HTTP call, and keeps %j", async (key, refused, kept) => {
+  const tool = buildTools().find(t => t.name === "update_instance_settings")!;
+  const fetch = vi.fn(dispatch), api = vi.fn((request: Request) => dispatch(request)), client = await testClient(api);
+  try {
+    expect((await executeTool(tool, { [key]: refused }, "http://instance.test", fetch)).status).toBe(400);
+    expect((await client.callTool({ name: tool.name, arguments: { [key]: refused } })).isError).toBe(true);
+    expect(fetch).not.toHaveBeenCalled(); expect(api).not.toHaveBeenCalled();
+    expect(readStoredSettings(f.db)).toEqual({});
+    // The same key with a value inside its list, bounds and kind goes through.
+    expect((await executeTool(tool, { [key]: kept }, "http://instance.test", fetch)).status).toBe(200);
+    expect(fetch).toHaveBeenCalledOnce(); expect(readStoredSettings(f.db)).toEqual({ [key]: kept });
+  } finally { await client.close(); }
+});
+
 it.each([["instanceName", 80], ["signInMessage", 280], ["lostPasswordContact", 120]] as const)(
   "bounds %s after trimming in direct, generated and MCP calls", async (key, max) => {
     const value = "x".repeat(max), args = { [key]: `${value}  ` };
