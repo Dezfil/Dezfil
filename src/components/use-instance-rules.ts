@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ruleRefusal, type WhoMayRule } from "@/lib/settings/instance-rules";
+import { ruleRefusal, type RuleKey, type WhoMayRule } from "@/lib/settings/instance-rules";
 
 /** What a screen knows of one instance rule and of the person reading it:
  * each null until its read answers, and null for good when it fails. */
@@ -39,4 +39,23 @@ export function useRuleRefusal(key: WhoMayRule): string | null {
     return () => { cancelled = true; };
   }, [key]);
   return reads.value === null || reads.admin === null ? null : ruleRefusal(key, reads.value, reads.admin);
+}
+
+/**
+ * One of the instance's rules as the runtime read reports it to the
+ * signed-in person, or null until the read answers and for good when it
+ * fails, read once per mount. A screen that follows it draws as it always
+ * has while it is null.
+ */
+export function useInstanceRule(key: RuleKey): unknown {
+  const [value, setValue] = useState<unknown>(null);
+  useEffect(() => {
+    let cancelled = false;
+    readJson("/api/config").then(config => {
+      const rules = (config as { rules?: Record<string, unknown> }).rules;
+      if (!cancelled && rules && typeof rules === "object") setValue(rules[key] ?? null);
+    }).catch(() => { /* without the rule the screen draws as it always has */ });
+    return () => { cancelled = true; };
+  }, [key]);
+  return value;
 }

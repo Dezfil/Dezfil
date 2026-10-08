@@ -4,7 +4,7 @@ import { useEditorRequest } from "../../document-editor-context";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { MapWithLayers } from "@/lib/metadata/maps";
 import { useTheme } from "@/components/theme";
-import { useRuleRefusal } from "@/components/use-instance-rules";
+import { useInstanceRule, useRuleRefusal } from "@/components/use-instance-rules";
 import { readApiError } from "../../api";
 import { AsyncState, useAsync } from "@/components/ui/AsyncState";
 import { Button } from "@/components/ui/Button";
@@ -457,10 +457,13 @@ function useTransientFlag(): [boolean, () => void] {
 function EmbedView({
   url,
   mapName,
+  listed,
   onBack,
 }: {
   url: string;
   mapName: string;
+  /** Embedding is limited to the sites an admin listed. */
+  listed: boolean;
   onBack: () => void;
 }) {
   const [copied, flagCopied] = useTransientFlag();
@@ -483,6 +486,9 @@ function EmbedView({
       <p className={styles.embedText}>
         Paste this into any page. The map stays live at this link.
       </p>
+      {listed && (
+        <p className={styles.embedText}>Only the sites an admin has listed show it.</p>
+      )}
       <Textarea
         className={styles.snippet}
         value={snippet}
@@ -540,6 +546,10 @@ export function PublishPopover({
   // holds them back, publishing and changing a live publication wait, and a
   // published map keeps its link, its embed and Unpublish.
   const refusal = useRuleRefusal("publishing.publish");
+  // Which other sites may frame a published page: under Off there is no
+  // embed to offer, and under Listed sites the view says only they show it.
+  const embedding = useInstanceRule("publishing.embedding");
+  const embedOffered = embedding !== "off";
 
   // Unpublishing while the embed view is up: there is nothing left to
   // frame, so the view falls back (render-phase adjust, guarded).
@@ -611,8 +621,8 @@ export function PublishPopover({
     if (await copyText(url)) flagCopied();
   };
 
-  if (map.publishToken && view === "embed" && url) {
-    return <EmbedView url={url} mapName={map.name} onBack={() => setView("main")} />;
+  if (map.publishToken && view === "embed" && url && embedOffered) {
+    return <EmbedView url={url} mapName={map.name} listed={embedding === "listed"} onBack={() => setView("main")} />;
   }
 
   return (
@@ -679,7 +689,7 @@ export function PublishPopover({
           />
           <div className={styles.rule} />
           <div className={styles.foot}>
-            {url && (
+            {url && embedOffered && (
               <Button variant="quiet" onClick={() => setView("embed")}>
                 Embed
               </Button>
