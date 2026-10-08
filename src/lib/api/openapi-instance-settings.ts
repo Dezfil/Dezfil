@@ -151,7 +151,10 @@ export const INSTANCE_SETTINGS_PATHS = {
       "after commit, and lowered queue limits keep accepted waiters. Public limits apply against the existing window count. Environment changes need a restart. " +
       "Returns the same configuration as the read, with the same secret and address disclosure rules. No secret is accepted. " +
       "The four service addresses (geocoderUrl, isochroneUrl, overpassUrl, s3Endpoint) are write-only: each is stored encrypted and read back as its scheme and host alone; " +
-      "a refusal names the key and never repeats the address. " +
+      "a refusal names the key and never repeats the address. Before the write, an address is also refused (400 invalid_request, with the egress policy's own sentence) " +
+      "when that policy would refuse a request to it now: a literal in loopback, private, carrier-grade, link-local or metadata, unique-local, unspecified, multicast or reserved space, " +
+      "mapped and NAT64 forms included, or a name all of whose addresses resolve there, unless DEZFIL_EGRESS_ALLOWLIST names it. " +
+      "A name that does not resolve at save is kept; every request to the address is checked again. " +
       "The embedded assistant asks for confirmation before calling on pages admitting writes; SQL and workflow assistants refuse this update. " +
       "MCP advertises that policy and adds no confirmation step.",
     tag: "System", tool: "update_instance_settings", toolInput: { closed: true }, display: { verb: "Changed instance settings" },

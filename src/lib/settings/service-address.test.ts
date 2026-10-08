@@ -2,6 +2,10 @@ import { mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import path from "node:path";
 import type { Database } from "better-sqlite3";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+// The engine's lookup, answered by a fixture resolver: every name here is public.
+const dns = vi.hoisted(() => ({ lookup: vi.fn(async () => [{ address: "203.0.113.10", family: 4 }]) }));
+vi.mock("node:dns/promises", () => ({ lookup: dns.lookup }));
 import { GET, PATCH } from "@/app/api/instance/settings/route";
 import { INSTANCE_SETTINGS_SCHEMAS } from "@/lib/api/openapi-instance-settings";
 import { buildOpenApiDocument } from "@/lib/api/openapi";
@@ -12,6 +16,7 @@ import { resetSecretKeyCache } from "@/lib/secrets";
 import { testAccountScope } from "@/lib/test-support/accounts";
 import { socketRequest } from "@/lib/assistant/testing/socket-request";
 import { SETTING_CATALOGUE } from "./catalogue";
+import { admitServiceAddresses } from "./address-admission";
 import { changeInstanceSettings } from "./change";
 import { readInstanceSettings } from "./read";
 import { SERVICE_ADDRESS_KEYS, resolveServiceAddress, type ServiceAddressKey } from "./service-address";
@@ -143,13 +148,14 @@ describe("the metadata database file", () => {
   beforeEach(() => { dir = mkdtempSync(path.join(f.dir, "file-store-")); });
   afterEach(() => { for (const db of opened.splice(0)) if (db.open) db.close(); rmSync(dir, { recursive: true, force: true }); });
 
-  it("holds no seeded key, in any form the search knows, after each address is saved, changed and read", () => {
+  it("holds no seeded key, in any form the search knows, after each address is saved, changed and read", async () => {
     const db = open(path.join(dir, "metadata.db")); opened.push(db);
     testAccountScope(db, "owner");
     db.prepare("UPDATE accounts SET is_admin = 1 WHERE id = 'owner'").run();
     const context = authenticateSession(issueSession(getAccount("owner", db)!, db, Date.now()).secret, db)!;
-    for (const key of SERVICE_ADDRESS_KEYS) changeInstanceSettings(context, { [key]: `https://first.example/${SEEDS[1]}?key=${SEEDS[2]}` }, db);
-    changeInstanceSettings(context, Object.fromEntries(SERVICE_ADDRESS_KEYS.map(key => [key, seeded(ADDRESSES[key].host)])), db);
+    const change = async (body: Record<string, string>) => changeInstanceSettings(context, body, db, Date.now(), await admitServiceAddresses(body));
+    for (const key of SERVICE_ADDRESS_KEYS) await change({ [key]: `https://first.example/${SEEDS[1]}?key=${SEEDS[2]}` });
+    await change(Object.fromEntries(SERVICE_ADDRESS_KEYS.map(key => [key, seeded(ADDRESSES[key].host)])));
     const read = readInstanceSettings(context, db);
     for (const key of SERVICE_ADDRESS_KEYS) expect(read.settings[key].value).toEqual({ set: true, origin: origin(key) });
     // Each row is there, and none of it is the address.
