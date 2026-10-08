@@ -3440,12 +3440,27 @@
         "memory:immutable-configuration"
       ]
     },
+    "memory:src/lib/settings/defaults.ts#DEFINITIONS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/settings/instance-defaults.ts#INSTANCE_DEFAULT_SETTINGS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
     "memory:src/lib/settings/numeric.ts#NUMERIC_SETTINGS": {
       "stores": [
         "memory:immutable-configuration"
       ]
     },
     "memory:src/lib/settings/resolver.ts#numericByKey": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/settings/store.ts#NUMERIC_LIMITS": {
       "stores": [
         "memory:immutable-configuration"
       ]
