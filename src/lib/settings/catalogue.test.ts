@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { SETTING_CATALOGUE, TEST_WIRING, settingDefinition } from "./catalogue";
 import { catalogueProblems, validateStoredValue } from "./validation";
 import { lockedEnvironment } from "./resolver";
+import type { SettingDefinition } from "./types";
 import { DEFAULTS, EDITABLE_NUMBERS } from "../../../test-support/settings-fixtures";
 
 describe("settings catalogue", () => {
@@ -33,7 +34,9 @@ describe("settings catalogue", () => {
   });
 
   it("admits exactly the drawn numeric settings with complete whole-number write bounds", () => {
-    const editable = SETTING_CATALOGUE.filter(d => d.kind === "number" && d.editable);
+    // The numeric limits, each with its variable; the numbers new things
+    // start with are held with the other defaults below.
+    const editable = SETTING_CATALOGUE.filter(d => d.kind === "number" && d.editable && d.environment);
     expect(Object.fromEntries(editable.map(d => [d.key, d.write]))).toEqual(EDITABLE_NUMBERS);
     for (const definition of editable) {
       const { min, max } = EDITABLE_NUMBERS[definition.key as keyof typeof EDITABLE_NUMBERS];
@@ -109,5 +112,95 @@ describe("the look's six picks", () => {
     expect(catalogueProblems(SETTING_CATALOGUE)).toEqual([]);
     const seeded = SETTING_CATALOGUE.map(definition => definition.key === key ? { ...definition, ...change } : definition);
     expect(catalogueProblems(seeded)).toContain(`${key}: ${problem}`);
+  });
+});
+
+/** What new maps, new layers and three screens start with: each default's
+ * values and the product's own value, as the approved table states them. */
+const NEW_THINGS = {
+  "newMap.basemap": [{ kind: "choice", values: ["auto", "dark", "light", "streets", "satellite"] }, "auto"],
+  "newMap.latitude": [{ kind: "decimal", min: -85, max: 85 }, 40],
+  "newMap.longitude": [{ kind: "decimal", min: -180, max: 180 }, 0],
+  "newMap.zoom": [{ kind: "decimal", min: 0, max: 22 }, 1.3],
+  "newMap.legendCorner": [{ kind: "choice", values: ["top-left", "top-right", "bottom-left", "bottom-right"] }, "bottom-left"],
+  "newLayer.colorCycle": [{ kind: "choice", values: ["uber_viz_qualitative", "bold", "tab10", "paired", "dark2", "set3"] }, "uber_viz_qualitative"],
+  "newLayer.pointOpacity": [{ kind: "integer", min: 10, max: 100 }, 72],
+  "newLayer.lineOpacity": [{ kind: "integer", min: 10, max: 100 }, 95],
+  "newLayer.areaOpacity": [{ kind: "integer", min: 10, max: 100 }, 50],
+  "newLayer.lineWidth": [{ kind: "decimal", min: 0.5, max: 50 }, 2],
+  "newLayer.pointRadius": [{ kind: "decimal", min: 0.5, max: 100 }, 3],
+  "canvas.opens": [{ kind: "choice", values: ["full", "framed"] }, "full"],
+  "canvas.minimap": [{ kind: "choice", values: ["auto", "always", "never"] }, "auto"],
+  "canvas.resultsBand": [{ kind: "choice", values: ["closed", "open"] }, "closed"],
+  "sqlConsole.textSize": [{ kind: "choice", values: ["11", "12", "13", "14", "16"] }, "12"],
+  "sqlConsole.lineWrap": [{ kind: "switch" }, false],
+  "imageExport.width": [{ kind: "choice", values: ["1280", "1920", "2560"] }, "1920"],
+  "imageExport.shape": [{ kind: "choice", values: ["16:9", "4:3", "1:1"] }, "4:3"],
+} as const;
+const KIND_OF_WRITE = { choice: "choice", decimal: "number", integer: "number", switch: "boolean" } as const;
+
+describe("the defaults for new things", () => {
+  it("defines the eighteen with their values and product default, read by every signed-in account and changed by admins, with no variable, never secret and never locked", () => {
+    expect(SETTING_CATALOGUE.filter(d => d.readBy === "signed-in").map(d => d.key)).toEqual(Object.keys(NEW_THINGS));
+    for (const [key, [write, defaultValue]] of Object.entries(NEW_THINGS)) {
+      const definition = settingDefinition(key);
+      expect(definition, key).toMatchObject({ scope: "instance", readBy: "signed-in", changedBy: "admin", kind: KIND_OF_WRITE[write.kind],
+        timing: "live", secret: false, editable: true, defaultValue });
+      expect(definition.write, key).toEqual(write);
+      expect(definition.environment, key).toBeUndefined();
+      expect(lockedEnvironment(definition), key).toBeUndefined();
+      expect(validateStoredValue(definition, defaultValue), key).toEqual({ ok: true, value: defaultValue });
+    }
+    expect(catalogueProblems(SETTING_CATALOGUE)).toEqual([]);
+  });
+
+  it.each(Object.keys(NEW_THINGS).flatMap(key => [
+    [key, "variable", { environment: "DEZFIL_DEFAULT_SEEDED", environmentTiming: "restart" }, "signed-in variable"],
+    [key, "secret mark", { secret: true }, "signed-in secret"],
+  ] as const))("%s fails the catalogue with a seeded %s", (key, _seed, change, problem) => {
+    expect(catalogueProblems(SETTING_CATALOGUE)).toEqual([]);
+    const seeded = SETTING_CATALOGUE.map(definition => definition.key === key ? { ...definition, ...change } : definition);
+    expect(catalogueProblems(seeded)).toContain(`${key}: ${problem}`);
+  });
+});
+
+/** A stored instance setting of each newer value kind, built on an
+ * existing stored definition so only the kind differs. */
+const decimal: SettingDefinition = { ...settingDefinition("landingPage"), key: "seeded.zoom", label: "Seeded zoom",
+  purpose: "A number kept as given.", kind: "number", defaultValue: 1.3, documentedDefault: "1.3",
+  write: { kind: "decimal", min: 0, max: 22 } };
+const toggle: SettingDefinition = { ...settingDefinition("landingPage"), key: "seeded.wrap", label: "Seeded wrap",
+  purpose: "On or off.", kind: "boolean", defaultValue: false, documentedDefault: "off", write: { kind: "switch" } };
+
+describe("the decimal and switch value kinds", () => {
+  it("keeps a finite decimal within its inclusive bounds exactly as given", () => {
+    for (const value of [0, 22, 1.3, 0.1 + 0.2, 21.999999999, -0]) expect(validateStoredValue(decimal, value)).toEqual({ ok: true, value });
+    for (const value of [-0.000001, 22.000001, NaN, Infinity, -Infinity, "1.3", true, [], {}, undefined]) {
+      expect(validateStoredValue(decimal, value), String(value)).toEqual({ ok: false, reason: "Expected a number from 0 to 22." });
+    }
+    expect(validateStoredValue(decimal, null)).toEqual({ ok: true, value: null });
+  });
+
+  it("keeps only true or false for a switch", () => {
+    for (const value of [true, false]) expect(validateStoredValue(toggle, value)).toEqual({ ok: true, value });
+    for (const value of ["true", "false", "on", 0, 1, "", [], {}, undefined]) {
+      expect(validateStoredValue(toggle, value), String(value)).toEqual({ ok: false, reason: "Expected true or false." });
+    }
+    expect(validateStoredValue(toggle, null)).toEqual({ ok: true, value: null });
+  });
+
+  it("admits a well-formed decimal and switch definition", () => {
+    expect(catalogueProblems([...SETTING_CATALOGUE, decimal, toggle])).toEqual([]);
+  });
+
+  it.each([
+    ["a decimal constraint on a choice definition", { ...decimal, kind: "choice" }, "invalid decimal constraint"],
+    ["a decimal constraint with crossed bounds", { ...decimal, write: { kind: "decimal", min: 22, max: 0 } }, "invalid decimal constraint"],
+    ["a decimal constraint with an unbounded end", { ...decimal, write: { kind: "decimal", min: 0, max: Infinity } }, "invalid decimal constraint"],
+    ["a decimal default outside its bounds", { ...decimal, defaultValue: 22.5 }, "default fails validation"],
+    ["a switch constraint on a number definition", { ...toggle, kind: "number" }, "invalid switch constraint"],
+    ["a switch default that is not true or false", { ...toggle, defaultValue: "off" }, "default fails validation"],
+  ] as [string, SettingDefinition, string][])("fails the catalogue with %s", (_name, seeded, problem) => {
+    expect(catalogueProblems([...SETTING_CATALOGUE, seeded])).toContain(`${seeded.key}: ${problem}`);
   });
 });

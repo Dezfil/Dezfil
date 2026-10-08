@@ -37,6 +37,7 @@ import {
 import { removeTileArtifacts } from "@/lib/tiles/build";
 import { dropTableView } from "@/lib/query/views";
 import { layerCycleColor } from "@/lib/style/palettes";
+import { instanceDefaults } from "@/lib/settings/defaults";
 import { POINTS_VIZ } from "@/lib/viz";
 import type { LayerStyle } from "@/lib/style/style";
 import { sketchBaseName } from "./naming";
@@ -134,9 +135,10 @@ async function writeArtifact(
 /* ---------------- creation ---------------- */
 
 /** The explicit all-families style (plan: the mixed default hides lines —
- * a sketch layer must draw points, lines and polygons from birth). */
-function sketchLayerStyle(ordinal: number): LayerStyle {
-  const cycle = layerCycleColor(ordinal);
+ * a sketch layer must draw points, lines and polygons from birth). Only its
+ * color follows the instance's color cycle; the rest is its own. */
+function sketchLayerStyle(ordinal: number, palette: string): LayerStyle {
+  const cycle = layerCycleColor(ordinal, palette);
   return {
     fill: { type: "constant", color: cycle },
     fillOpacity: 0.45,
@@ -251,7 +253,7 @@ export async function createSketch(
         mapId,
         name: displayNameFor(table.name),
         sql: `SELECT * FROM ${sketchReference(scope, mapId, table.name, db)}`,
-        style: sketchLayerStyle(ordinal),
+        style: sketchLayerStyle(ordinal, instanceDefaults(db)["newLayer.colorCycle"]),
         visible: true,
         tooltip: null,
         popup: null,

@@ -9,8 +9,6 @@ import type { BasemapLayers } from "@/lib/basemap-layers";
 import type { WidgetValues } from "@/lib/widget-service";
 import type { LiveDim } from "@/lib/live-filters";
 import {
-  DEFAULT_EXPORT_ASPECT,
-  DEFAULT_EXPORT_WIDTH,
   EXPORT_MAX_DIMENSION,
   EXPORT_WIDTH_PRESETS,
   initialDefinition,
@@ -81,8 +79,11 @@ export interface ExportStage {
    * a different space. */
   canvasWidth: number;
   /** The legal opening step chosen from the same live snapshot as the
-   * camera and canvas width. */
+   * camera and canvas width, judged at the opening size's shape. */
   mapStep: SizeStep;
+  /** The output size the card opens at: the instance's starting width
+   * and shape when it opened. */
+  openingSize: { width: number; height: number };
   legendLayers: NamedStyle[];
   widgets: MapWidget[];
   values: WidgetValues | null;
@@ -110,7 +111,8 @@ export function ExportImageCard({
   const [mapStep, setMapStep] = useState<SizeStep>(stage.mapStep);
 
   // The definition is the card's one source of truth — the editor for
-  // the public contract. Seeded once, in the space the card will open in.
+  // the public contract. Seeded once, at the size the card opened at, in
+  // the space it will open in.
   const [def, setDef] = useState<ExportImageDefinition>(() =>
     initialDefinition(
       {
@@ -125,17 +127,10 @@ export function ExportImageCard({
       // The opening space, through the same resolver every other host
       // uses, so a fresh card and its first render cannot disagree.
       (() => {
-        const size = {
-          width: DEFAULT_EXPORT_WIDTH,
-          height: Math.round(DEFAULT_EXPORT_WIDTH / DEFAULT_EXPORT_ASPECT),
-        };
-        const fit = resolveSpace(size, stage.mapStep);
-        return {
-          width: fit.width,
-          height: size.height,
-          scale: fit.scale,
-        };
+        const fit = resolveSpace(stage.openingSize, stage.mapStep);
+        return { width: fit.width, scale: fit.scale };
       })(),
+      stage.openingSize,
     ),
   );
 

@@ -18,8 +18,9 @@ import {
 /**
  * The SQL editor's opt-in abilities, kept out of the component so the
  * editor file stays the host-agnostic shell it was: schema-driven
- * completion and an error mark at a position. Every host that does not ask
- * for them gets the editor exactly as before.
+ * completion, an error mark at a position, and the text size and line
+ * wrap a host asks for. Every host that does not ask for them gets the
+ * editor exactly as before.
  */
 
 /** What completion knows: table names with their columns, and a bounded
@@ -206,4 +207,35 @@ const errorGutterField = gutterLineClass.compute([errorMarkField], (state) => {
 /** The error-mark extensions; inert until an effect sets a position. */
 export function errorMarkExtensions(): Extension {
   return [errorMarkField, errorGutterField];
+}
+
+/* ---------------------------------------------------------------- */
+/* The look a host asks for: text size and line wrap                */
+/* ---------------------------------------------------------------- */
+
+/** The editor's text size where its host gives none: every editor but
+ * the SQL console's, which opens at the instance's default. */
+export const EDITOR_TEXT_SIZE = 12;
+
+/** One theme per size, made once; the editor's own chrome carries none. */
+const textSizes = new Map<number, Extension>();
+function textSizeTheme(px: number): Extension {
+  let theme = textSizes.get(px);
+  if (!theme) {
+    theme = EditorView.theme({ "&": { fontSize: `${px}px` } });
+    textSizes.set(px, theme);
+  }
+  return theme;
+}
+
+/** The text size and line wrap a host asks for: 12 px and unwrapped
+ * unless it says otherwise. */
+export function editorLook({
+  textSize = EDITOR_TEXT_SIZE,
+  wrap = false,
+}: {
+  textSize?: number;
+  wrap?: boolean;
+}): Extension {
+  return [textSizeTheme(textSize), ...(wrap ? [EditorView.lineWrapping] : [])];
 }

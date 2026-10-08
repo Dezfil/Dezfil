@@ -52,6 +52,14 @@ describe("BasemapThumb", () => {
     ]);
   });
 
+  it("fills a box that draws its own edge when asked, with the same captures, and keeps its own size otherwise", () => {
+    const filled = renderToStaticMarkup(<BasemapThumb style="auto" fill />);
+    expect(filled).toMatch(/^<span[^>]*data-fill="true"/);
+    expect(captures(filled)).toEqual(["/basemaps/thumbs/dark.webp", "/basemaps/thumbs/light.webp"]);
+    expect(captures(renderToStaticMarkup(<BasemapThumb style="streets" fill />))).toEqual(["/basemaps/thumbs/streets.webp"]);
+    expect(renderToStaticMarkup(<BasemapThumb style="auto" />)).not.toContain("data-fill");
+  });
+
   it("offers no imagery card at all until an instance configures imagery", () => {
     expect(availableBasemaps().map((b) => b.key)).not.toContain("satellite");
 

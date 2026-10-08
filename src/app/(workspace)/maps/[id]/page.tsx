@@ -12,6 +12,8 @@ import {
 } from "@/lib/basemap";
 import { limits } from "@/lib/limits";
 import { requirePageScope } from "@/lib/auth/scope-page";
+import { instanceDefaults } from "@/lib/settings/defaults";
+import { ScreenDefaultsProvider } from "@/components/screen-defaults";
 import { viewsOnly } from "../../standing";
 
 export default async function MapBuilderPage({
@@ -25,7 +27,8 @@ export default async function MapBuilderPage({
   const { id } = await params;
   if (!canReach(scope, "map", id)) notFound();
   // Whoever may not change the map reads it (a Viewer, or anyone while its
-  // owner is deactivated); everyone else who reaches it builds.
+  // owner is deactivated); everyone else who reaches it builds. The reader
+  // opens nothing that takes one of the instance's defaults.
   if (viewsOnly(scope, "map", id)) {
     return (
       <MapReader
@@ -41,20 +44,24 @@ export default async function MapBuilderPage({
   // selected. Read server-side — a client-side URL sniff races the
   // router's history commit.
   const { layer } = await searchParams;
+  // The builder's screens are handed the instance's defaults as this page
+  // is served.
   return (
     <LayerDownloadControlProvider
       preparationTimeoutMs={deriveLayerDownloadPreparationTimeoutMs(
         limits.queryTimeoutMs,
       )}
     >
-      <MapBuilder
-        mapId={id}
-        initialLayerId={layer ?? null}
-        basemapUrl={basemapUrl()}
-        basemapOverrideUrl={basemapOverrideUrl()}
-        basemapOverrideAttribution={basemapOverrideAttribution()}
-        basemaps={availableBasemaps()}
-      />
+      <ScreenDefaultsProvider defaults={instanceDefaults()}>
+        <MapBuilder
+          mapId={id}
+          initialLayerId={layer ?? null}
+          basemapUrl={basemapUrl()}
+          basemapOverrideUrl={basemapOverrideUrl()}
+          basemapOverrideAttribution={basemapOverrideAttribution()}
+          basemaps={availableBasemaps()}
+        />
+      </ScreenDefaultsProvider>
     </LayerDownloadControlProvider>
   );
 }

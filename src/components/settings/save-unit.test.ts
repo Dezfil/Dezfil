@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { FADE_MS, rowRefusals, SAVED_HOLD_MS, SaveUnit, SETTLE_MS, UNDO_MS, WriteRefusal, type UnitControl, type Value } from "./save-unit";
+import { FADE_MS, numberProblem, rowRefusals, SAVED_HOLD_MS, SaveUnit, SETTLE_MS, UNDO_MS, WriteRefusal, type UnitControl, type Value } from "./save-unit";
 import { LeaveGuard } from "./leave-guard";
 
 /**
@@ -11,6 +11,7 @@ import { LeaveGuard } from "./leave-guard";
 
 const DEFAULTS: Record<string, Value> = {
   landingPage: "home", signInMessage: "", lostPasswordContact: "", queryTimeoutS: 60, operationTimeoutS: 600, previewRows: 1000,
+  "newLayer.lineWidth": 2, "newLayer.pointOpacity": 72, "sqlConsole.lineWrap": false,
 };
 
 function fakeServer(initial: Record<string, Value> = {}, report: (key: string, value: Value) => Value = (_, value) => value) {
@@ -564,6 +565,234 @@ describe("a write made beside the card", () => {
     server.calls[1].accept(); await flush();
     expect(unit.snapshot.values.landingPage).toBe("data");
     expect(unit.snapshot.saved).toEqual(["landingPage"]);
+  });
+});
+
+describe("a number with decimals, and a switch", () => {
+  const width: UnitControl = { key: "newLayer.lineWidth", kind: "number", decimal: true, min: 0.5, max: 50, defaultValue: 2 };
+  const opacity: UnitControl = { key: "newLayer.pointOpacity", kind: "number", min: 10, max: 100, defaultValue: 72 };
+  const wrap: UnitControl = { key: "sqlConsole.lineWrap", kind: "switch", defaultValue: false };
+  function card(server: ReturnType<typeof fakeServer>, controls: UnitControl[] = [width, opacity, wrap]) {
+    return new SaveUnit({
+      title: "New things", controls, write: server.write,
+      kept: Object.fromEntries(controls.map(control => [control.key, server.stored[control.key]])),
+    });
+  }
+
+  it("keeps a decimal at once when stepped, and on Enter or leaving when typed, as given and never rounded", async () => {
+    const server = fakeServer(), unit = card(server);
+    unit.step("newLayer.lineWidth", "2.5");
+    await vi.advanceTimersByTimeAsync(SETTLE_MS);
+    expect(server.calls.map(call => call.patch)).toEqual([{ "newLayer.lineWidth": 2.5 }]);
+    expect(unit.snapshot.saved).toEqual([]);
+    server.calls[0].accept(); await flush();
+    expect(unit.snapshot.kept["newLayer.lineWidth"]).toBe(2.5);
+    expect(unit.snapshot.values["newLayer.lineWidth"]).toBe("2.5");
+    expect(unit.snapshot.saved).toEqual(["newLayer.lineWidth"]);
+    unit.edit("newLayer.lineWidth", "0.75");
+    expect(server.calls).toHaveLength(1);
+    unit.commit("newLayer.lineWidth");
+    expect(server.calls[1].patch).toEqual({ "newLayer.lineWidth": 0.75 });
+    expect(unit.snapshot.saveLine).toBe(false);
+  });
+
+  it("accepts a decimal only for a number that takes one, and refuses the rest before any request", async () => {
+    const server = fakeServer(), unit = card(server);
+    for (const [key, typed, words] of [
+      ["newLayer.pointOpacity", "72.5", "Enter a whole number."],
+      ["newLayer.lineWidth", "0.4", "Enter a number from 0.5 to 50."],
+      ["newLayer.lineWidth", "50.25", "Enter a number from 0.5 to 50."],
+      ["newLayer.lineWidth", "", "Enter a number."],
+    ]) {
+      unit.edit(key, typed); unit.commit(key);
+      expect(unit.snapshot.errors[key]).toBe(words);
+    }
+    unit.step("newLayer.pointOpacity", "73.5");
+    await vi.advanceTimersByTimeAsync(SETTLE_MS * 2);
+    expect(unit.snapshot.errors["newLayer.pointOpacity"]).toBe("Enter a whole number.");
+    expect(server.calls).toHaveLength(0);
+    expect(numberProblem("1.3", { min: 0, max: 22, decimal: true })).toBeNull();
+    expect(numberProblem("-85", { min: -85, max: 85, decimal: true })).toBeNull();
+    expect(numberProblem("85.01", { min: -85, max: 85, decimal: true })).toBe("Enter a number from -85 to 85.");
+    expect(numberProblem("1.3", { min: 0, max: 22 })).toBe("Enter a whole number.");
+  });
+
+  it("keeps a switch at once, as a choice is, its value true or false, and shows Saved only on the write's response", async () => {
+    const server = fakeServer(), unit = card(server, [wrap]);
+    expect(unit.snapshot.values["sqlConsole.lineWrap"]).toBe(false);
+    unit.choose("sqlConsole.lineWrap", true);
+    expect(server.calls.map(call => call.patch)).toEqual([{ "sqlConsole.lineWrap": true }]);
+    expect(unit.snapshot.values["sqlConsole.lineWrap"]).toBe(true);
+    expect(unit.snapshot).toMatchObject({ saved: [], saveLine: false, dirty: false });
+    server.calls[0].accept(); await flush();
+    expect(unit.snapshot.kept["sqlConsole.lineWrap"]).toBe(true);
+    expect(unit.snapshot.values["sqlConsole.lineWrap"]).toBe(true);
+    expect(unit.snapshot.saved).toEqual(["sqlConsole.lineWrap"]);
+    // Off again is a change of its own; on, while on is kept, is none.
+    unit.choose("sqlConsole.lineWrap", true);
+    expect(server.calls).toHaveLength(1);
+    unit.choose("sqlConsole.lineWrap", false);
+    expect(server.calls[1].patch).toEqual({ "sqlConsole.lineWrap": false });
+  });
+
+  it("never shows Saved for a decimal or a switch the server refuses, and keeps nothing", async () => {
+    const server = fakeServer(), unit = card(server);
+    unit.edit("newLayer.lineWidth", "2.5"); unit.commit("newLayer.lineWidth");
+    expect(server.calls.map(call => call.patch)).toEqual([{ "newLayer.lineWidth": 2.5 }]);
+    server.calls[0].refuse("invalid_request", "newLayer.lineWidth: Expected a number from 0.5 to 50."); await flush();
+    expect(unit.snapshot.errors).toEqual({ "newLayer.lineWidth": "Expected a number from 0.5 to 50." });
+    expect(unit.snapshot.kept["newLayer.lineWidth"]).toBe(2);
+    unit.choose("sqlConsole.lineWrap", true);
+    server.calls[1].refuse("forbidden", "Only admins can change instance settings.", 403); await flush();
+    await vi.advanceTimersByTimeAsync(SAVED_HOLD_MS * 2);
+    expect(unit.snapshot.saved).toEqual([]);
+    expect(unit.snapshot.kept["sqlConsole.lineWrap"]).toBe(false);
+    expect(unit.snapshot.values["sqlConsole.lineWrap"]).toBe(false);
+    expect(unit.snapshot.note).toEqual({ message: "Only admins can change instance settings.", retry: false });
+    expect(server.stored).toMatchObject({ "newLayer.lineWidth": 2, "sqlConsole.lineWrap": false });
+  });
+
+  it("returns a decimal and a switch to their defaults with the rest of the card, and Undo writes them back", async () => {
+    const server = fakeServer({ "newLayer.lineWidth": 2.5, "sqlConsole.lineWrap": true }), unit = card(server);
+    expect(unit.snapshot.slot).toBe("reset");
+    unit.reset();
+    expect(server.calls.map(call => call.patch)).toEqual([{ "newLayer.lineWidth": null, "newLayer.pointOpacity": null, "sqlConsole.lineWrap": null }]);
+    server.calls[0].accept(); await flush();
+    expect(unit.snapshot.values).toEqual({ "newLayer.lineWidth": "2", "newLayer.pointOpacity": "72", "sqlConsole.lineWrap": false });
+    expect(unit.snapshot.slot).toBe("undo");
+    unit.undo();
+    expect(server.calls[1].patch).toEqual({ "newLayer.lineWidth": 2.5, "sqlConsole.lineWrap": true });
+    server.calls[1].accept(); await flush();
+    expect(unit.snapshot.values).toEqual({ "newLayer.lineWidth": "2.5", "newLayer.pointOpacity": "72", "sqlConsole.lineWrap": true });
+  });
+});
+
+describe("numbers set together", () => {
+  const latitude: UnitControl = { key: "newMap.latitude", kind: "number", decimal: true, min: -85, max: 85, defaultValue: 40 };
+  const longitude: UnitControl = { key: "newMap.longitude", kind: "number", decimal: true, min: -180, max: 180, defaultValue: 0 };
+  const zoom: UnitControl = { key: "newMap.zoom", kind: "number", decimal: true, min: 0, max: 22, defaultValue: 1.3 };
+  function view(server = fakeServer({ "newMap.latitude": 40, "newMap.longitude": 0, "newMap.zoom": 1.3 })) {
+    const unit = new SaveUnit({
+      title: "New maps", controls: [latitude, longitude, zoom], write: server.write,
+      kept: { "newMap.latitude": 40, "newMap.longitude": 0, "newMap.zoom": 1.3 },
+    });
+    return { server, unit };
+  }
+
+  it("keeps every changed number in one write, each field showing its text, and marks each Saved on the response", async () => {
+    const { server, unit } = view();
+    unit.keepTogether({ "newMap.latitude": "50.11", "newMap.longitude": "8.68", "newMap.zoom": "1.3" });
+    expect(server.calls.map(call => call.patch)).toEqual([{ "newMap.latitude": 50.11, "newMap.longitude": 8.68 }]);
+    expect(unit.snapshot.values).toMatchObject({ "newMap.latitude": "50.11", "newMap.longitude": "8.68" });
+    server.calls[0].accept(); await flush();
+    expect(unit.snapshot.kept).toMatchObject({ "newMap.latitude": 50.11, "newMap.longitude": 8.68, "newMap.zoom": 1.3 });
+    expect([...unit.snapshot.saved].sort()).toEqual(["newMap.latitude", "newMap.longitude"]);
+  });
+
+  it("drops a number still settling from its steps, so it never lands after the numbers set together", async () => {
+    const { server, unit } = view();
+    unit.step("newMap.latitude", "41");
+    unit.keepTogether({ "newMap.latitude": "-33.87", "newMap.longitude": "151.21" });
+    await vi.advanceTimersByTimeAsync(SETTLE_MS * 2);
+    expect(server.calls.map(call => call.patch)).toEqual([{ "newMap.latitude": -33.87, "newMap.longitude": 151.21 }]);
+  });
+
+  it("waits behind a write on its way, and still sends both numbers in one write", async () => {
+    const { server, unit } = view();
+    unit.edit("newMap.zoom", "4"); unit.commit("newMap.zoom");
+    unit.keepTogether({ "newMap.latitude": "10", "newMap.longitude": "20" });
+    expect(server.calls).toHaveLength(1);
+    server.calls[0].accept(); await flush();
+    expect(server.calls.map(call => call.patch)).toEqual([{ "newMap.zoom": 4 }, { "newMap.latitude": 10, "newMap.longitude": 20 }]);
+  });
+
+  it("draws the red line under a number its check refuses and keeps the others", () => {
+    const { server, unit } = view();
+    unit.keepTogether({ "newMap.latitude": "90", "newMap.longitude": "8.5" });
+    expect(unit.snapshot.errors).toEqual({ "newMap.latitude": "Enter a number from -85 to 85." });
+    expect(server.calls.map(call => call.patch)).toEqual([{ "newMap.longitude": 8.5 }]);
+  });
+
+  it("sends nothing when every number is already what is kept, and ignores a key the card does not hold", () => {
+    const { server, unit } = view();
+    unit.keepTogether({ "newMap.latitude": "40", "newMap.longitude": "0", "newMap.pitch": "30" });
+    expect(server.calls).toHaveLength(0);
+    expect(unit.snapshot.values).not.toHaveProperty("newMap.pitch");
+  });
+});
+
+describe("a row of several numbers sharing one Saved", () => {
+  const row = "set-starting-view";
+  const latitude: UnitControl = { key: "newMap.latitude", kind: "number", decimal: true, min: -85, max: 85, defaultValue: 40, row };
+  const longitude: UnitControl = { key: "newMap.longitude", kind: "number", decimal: true, min: -180, max: 180, defaultValue: 0, row };
+  const zoom: UnitControl = { key: "newMap.zoom", kind: "number", decimal: true, min: 0, max: 22, defaultValue: 1.3, row };
+  const kept = { "newMap.latitude": 40, "newMap.longitude": 0, "newMap.zoom": 1.3 };
+  function view() {
+    const server = fakeServer(kept);
+    return { server, unit: new SaveUnit({ title: "New maps", controls: [latitude, longitude, zoom], write: server.write, kept }) };
+  }
+  async function latitudeKept() {
+    const { server, unit } = view();
+    unit.edit("newMap.latitude", "51.5074"); unit.commit("newMap.latitude");
+    server.calls[0].accept(); await flush();
+    expect(unit.snapshot.saved).toEqual(["newMap.latitude"]);
+    // Still within the latitude's hold.
+    await vi.advanceTimersByTimeAsync(SAVED_HOLD_MS / 2);
+    return { server, unit };
+  }
+
+  it("clears the row's Saved and its timer at an edit in any of its fields, and shows none beside a red line", async () => {
+    const { server, unit } = await latitudeKept();
+    unit.edit("newMap.zoom", "30");
+    expect(unit.snapshot.saved).toEqual([]);
+    unit.commit("newMap.zoom");
+    expect(unit.snapshot.errors).toEqual({ "newMap.zoom": "Enter a number from 0 to 22." });
+    expect(unit.snapshot.saved).toEqual([]);
+    await vi.advanceTimersByTimeAsync(SAVED_HOLD_MS * 2);
+    expect(unit.snapshot.saved).toEqual([]);
+    expect(server.calls).toHaveLength(1);
+  });
+
+  it("clears it at a step in another of its fields too", async () => {
+    const { unit } = await latitudeKept();
+    unit.step("newMap.longitude", "9");
+    expect(unit.snapshot.saved).toEqual([]);
+  });
+
+  it("shows no Saved for a write the row's other field still refuses, and shows it again once the row's next write is accepted with none refused", async () => {
+    const { server, unit } = view();
+    unit.edit("newMap.zoom", "30"); unit.commit("newMap.zoom");
+    unit.keepTogether({ "newMap.latitude": "51.5", "newMap.longitude": "90" });
+    server.calls[0].accept(); await flush();
+    expect(unit.snapshot.kept).toMatchObject({ "newMap.latitude": 51.5, "newMap.longitude": 90 });
+    expect(unit.snapshot.errors).toEqual({ "newMap.zoom": "Enter a number from 0 to 22." });
+    expect(unit.snapshot.saved).toEqual([]);
+    unit.edit("newMap.zoom", "3"); unit.commit("newMap.zoom");
+    server.calls[1].accept(); await flush();
+    expect(unit.snapshot.errors).toEqual({});
+    expect(unit.snapshot.saved).toEqual(["newMap.zoom"]);
+  });
+
+  it("shows no Saved while another of its fields still has a change on its way, or typed and not yet kept", async () => {
+    const { server, unit } = view();
+    unit.edit("newMap.latitude", "10"); unit.commit("newMap.latitude");
+    unit.edit("newMap.longitude", "20"); unit.commit("newMap.longitude");
+    server.calls[0].accept(); await flush();
+    expect(unit.snapshot.saved).toEqual([]);
+    unit.edit("newMap.zoom", "4");
+    server.calls[1].accept(); await flush();
+    expect(unit.snapshot.saved).toEqual([]);
+    unit.commit("newMap.zoom");
+    server.calls[2].accept(); await flush();
+    expect(unit.snapshot.saved).toEqual(["newMap.zoom"]);
+  });
+
+  it("leaves a number in a row of its own as it was: its Saved holds while another field of the card is edited", async () => {
+    const server = fakeServer(), unit = limits(server);
+    unit.edit("queryTimeoutS", "90"); unit.commit("queryTimeoutS");
+    server.calls[0].accept(); await flush();
+    unit.edit("operationTimeoutS", "700");
+    expect(unit.snapshot.saved).toEqual(["queryTimeoutS"]);
   });
 });
 

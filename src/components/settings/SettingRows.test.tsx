@@ -53,6 +53,20 @@ describe("a setting in the save unit", () => {
       .toEqual({ key: "landingPage", kind: "choice", locked: false, defaultValue: "home" });
   });
 
+  it("marks a number that takes decimals with its range, keeps a whole number whole, and draws a switch as one", () => {
+    expect(unitControlFor(read("newLayer.lineWidth", { value: 2.5, source: "stored", storedValue: 2.5 })))
+      .toEqual({ key: "newLayer.lineWidth", kind: "number", min: 0.5, max: 50, decimal: true, locked: false, defaultValue: 2 });
+    expect(unitControlFor(read("newMap.latitude", {})))
+      .toEqual({ key: "newMap.latitude", kind: "number", min: -85, max: 85, decimal: true, locked: false, defaultValue: 40 });
+    expect(unitControlFor(read("newLayer.pointOpacity", {})))
+      .toEqual({ key: "newLayer.pointOpacity", kind: "number", min: 10, max: 100, locked: false, defaultValue: 72 });
+    expect(unitControlFor(read("sqlConsole.lineWrap", { value: true, source: "stored", storedValue: true })))
+      .toEqual({ key: "sqlConsole.lineWrap", kind: "switch", locked: false, defaultValue: false });
+    // A number-like choice stays a choice: its words are the page's.
+    expect(unitControlFor(read("sqlConsole.textSize", {})))
+      .toEqual({ key: "sqlConsole.textSize", kind: "choice", locked: false, defaultValue: "12" });
+  });
+
   it("keeps a pinned or fixed setting out of Save, Reset and the guard", () => {
     expect(unitControlFor(read("queryTimeoutS", { value: 120, source: "environment", locked: true, storedValue: 90 })))
       .toMatchObject({ key: "queryTimeoutS", locked: true });

@@ -1,43 +1,38 @@
 import { privateStateOpen } from "../auth/private-state";
 
 /**
- * The results band's state per viewer: whether it is open, kept in the
- * browser's storage, never on the server. Absent until a viewer ever had
- * it otherwise: the band starts collapsed, and opens once when the page
- * session first meets a run. Its height is NOT kept (on, -08-29: "it
- * should always be the default height when we open a workflow"); the field
- * stays in the stored shape so an older store still reads, and is written
- * as null.
+ * Whether the person chose the results band open or closed, kept in the
+ * browser's storage, never on the server. Only their own opening, closing
+ * or resizing of it is a choice; a run opening the band is not, and is
+ * never kept. Until they choose, the band starts as the instance's
+ * default says, collapsed unless an admin chose open. Its height is NOT
+ * kept (on, -08-29: "it should always be the default height when we open
+ * a workflow").
+ *
+ * The choice has a key of its own. The band's earlier state, kept under
+ * `dezfil.workflow.band`, was written at every opening whether anyone
+ * chose or not, so it says nothing a person chose and is not read.
  */
 
-const KEY = "dezfil.workflow.band";
+const KEY = "dezfil.workflow.band-choice";
 
-export interface BandState {
-  open: boolean | null;
-  height: number | null;
-}
-
-export function readBand(): BandState {
-  if (!privateStateOpen()) return { open: null, height: null };
+/** True for open, false for closed, null while the person never chose. */
+export function readBandChoice(): boolean | null {
+  if (!privateStateOpen()) return null;
   try {
     const raw = localStorage.getItem(KEY);
-    if (!raw) return { open: null, height: null };
-    const parsed = JSON.parse(raw) as Partial<BandState>;
-    return {
-      open: typeof parsed.open === "boolean" ? parsed.open : null,
-      height: typeof parsed.height === "number" && Number.isFinite(parsed.height) ? parsed.height : null,
-    };
+    return raw === "open" ? true : raw === "closed" ? false : null;
   } catch {
-    return { open: null, height: null };
+    return null;
   }
 }
 
-export function writeBand(state: BandState): void {
+export function writeBandChoice(open: boolean): void {
   if (!privateStateOpen()) return;
   try {
-    localStorage.setItem(KEY, JSON.stringify(state));
+    localStorage.setItem(KEY, open ? "open" : "closed");
   } catch {
-    // Storage unavailable: the band just will not be remembered.
+    // Storage unavailable: the choice just will not be remembered.
   }
 }
 

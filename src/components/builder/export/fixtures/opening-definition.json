@@ -1,0 +1,202 @@
+{
+  "a new map in the light theme": {
+    "opens": true,
+    "mapStep": "s",
+    "definition": {
+      "viewport": {
+        "lng": 0,
+        "lat": 40,
+        "zoom": 1.5872819520804713,
+        "pitch": 0,
+        "bearing": 0
+      },
+      "size": {
+        "width": 1920,
+        "height": 1440
+      },
+      "legend": {
+        "visible": true,
+        "corner": "bottom-left",
+        "size": "s"
+      },
+      "widgets": [],
+      "widgetSize": "s",
+      "title": null,
+      "credit": {
+        "corner": "bottom-right",
+        "size": "s"
+      },
+      "basemapLayers": null,
+      "appearance": "light",
+      "mapScale": 1.3333333333333333
+    }
+  },
+  "a saved bottom-right legend with widgets and hidden labels in the dark theme": {
+    "opens": true,
+    "mapStep": "s",
+    "definition": {
+      "viewport": {
+        "lng": 13.4,
+        "lat": 52.52,
+        "zoom": 11.834962500721156,
+        "pitch": 30,
+        "bearing": -15
+      },
+      "size": {
+        "width": 1920,
+        "height": 1440
+      },
+      "legend": {
+        "visible": true,
+        "corner": "bottom-right",
+        "size": "s"
+      },
+      "widgets": [
+        "count",
+        "total"
+      ],
+      "widgetSize": "s",
+      "title": null,
+      "credit": {
+        "corner": "bottom-left",
+        "size": "s"
+      },
+      "basemapLayers": {
+        "labels": false
+      },
+      "appearance": "dark",
+      "mapScale": 1.3333333333333333
+    }
+  },
+  "a saved bottom-right corner with no legend to show": {
+    "opens": true,
+    "mapStep": "s",
+    "definition": {
+      "viewport": {
+        "lng": -73.98,
+        "lat": 40.75,
+        "zoom": 15,
+        "pitch": 0,
+        "bearing": 0
+      },
+      "size": {
+        "width": 1920,
+        "height": 1440
+      },
+      "legend": {
+        "visible": false,
+        "corner": "bottom-right",
+        "size": "s"
+      },
+      "widgets": [],
+      "widgetSize": "s",
+      "title": null,
+      "credit": {
+        "corner": "bottom-right",
+        "size": "s"
+      },
+      "basemapLayers": null,
+      "appearance": "light",
+      "mapScale": 1.3333333333333333
+    }
+  },
+  "a saved top-right legend": {
+    "opens": true,
+    "mapStep": "s",
+    "definition": {
+      "viewport": {
+        "lng": 151.21,
+        "lat": -33.87,
+        "zoom": 10.5,
+        "pitch": 0,
+        "bearing": 0
+      },
+      "size": {
+        "width": 1920,
+        "height": 1440
+      },
+      "legend": {
+        "visible": true,
+        "corner": "top-right",
+        "size": "s"
+      },
+      "widgets": [],
+      "widgetSize": "s",
+      "title": null,
+      "credit": {
+        "corner": "bottom-right",
+        "size": "s"
+      },
+      "basemapLayers": null,
+      "appearance": "dark",
+      "mapScale": 1.3333333333333333
+    }
+  },
+  "near the zoom ceiling": {
+    "opens": true,
+    "mapStep": "m",
+    "definition": {
+      "viewport": {
+        "lng": 2.35,
+        "lat": 48.85,
+        "zoom": 23.932959407276105,
+        "pitch": 0,
+        "bearing": 0
+      },
+      "size": {
+        "width": 1920,
+        "height": 1440
+      },
+      "legend": {
+        "visible": true,
+        "corner": "bottom-left",
+        "size": "s"
+      },
+      "widgets": [],
+      "widgetSize": "s",
+      "title": null,
+      "credit": {
+        "corner": "bottom-right",
+        "size": "s"
+      },
+      "basemapLayers": null,
+      "appearance": "light",
+      "mapScale": 1.7777777777777777
+    }
+  },
+  "nearer the zoom ceiling": {
+    "opens": true,
+    "mapStep": "l",
+    "definition": {
+      "viewport": {
+        "lng": 2.35,
+        "lat": 48.85,
+        "zoom": 23.74799690655495,
+        "pitch": 0,
+        "bearing": 0
+      },
+      "size": {
+        "width": 1920,
+        "height": 1440
+      },
+      "legend": {
+        "visible": true,
+        "corner": "bottom-left",
+        "size": "s"
+      },
+      "widgets": [],
+      "widgetSize": "s",
+      "title": null,
+      "credit": {
+        "corner": "bottom-right",
+        "size": "s"
+      },
+      "basemapLayers": null,
+      "appearance": "light",
+      "mapScale": 2.6666666666666665
+    }
+  },
+  "at the zoom ceiling": {
+    "opens": false
+  }
+}

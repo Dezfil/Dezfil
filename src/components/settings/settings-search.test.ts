@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Account } from "@/lib/metadata/accounts";
 import { defaultLook } from "@/lib/look";
-import { instanceReadFixture } from "./read-fixture";
+import { instanceReadFixture, type Resolution } from "./read-fixture";
 import { settingsDeclarations, withLiveValues, type IndexSources } from "./settings-index";
 import { buildSearchIndex, hitPath, searchSettings, type IndexCard, type SearchHit } from "./settings-search";
 
@@ -103,10 +103,13 @@ describe("what the search finds", () => {
 
   it("finds tabs and cards by their names, and lands a card's hit on the card", () => {
     expect(paths(searchSettings(index(), "limits")).slice(0, 1)).toEqual(["Instance / Limits"]);
-    const card = searchSettings(index(), "image export")[0];
-    expect(hitPath(card)).toBe("Instance / Limits · Image export");
-    expect(card.target).toEqual({ tab: "limits", anchor: "limits-images" });
-    expect(card.meta).toBe("Largest image, Images at once, Time limit per image");
+    // Two cards share the name: Publishing's comes first, in the column's order.
+    const cards = searchSettings(index(), "image export").filter(hit => hit.entry.kind === "card");
+    expect(cards.map(hitPath)).toEqual(["Instance / Publishing · Image export", "Instance / Limits · Image export"]);
+    expect(cards.map(hit => hit.target)).toEqual([{ tab: "publishing", anchor: "publishing-export" }, { tab: "limits", anchor: "limits-images" }]);
+    expect(cards.map(hit => hit.meta)).toEqual(["Starting width, Starting shape", "Largest image, Images at once, Time limit per image"]);
+    expect(paths(searchSettings(index(), "workflows")).slice(0, 1)).toEqual(["Instance / Workflows & SQL"]);
+    expect(searchSettings(index(), "workflows")[0].meta).toBe("Workflow canvas, SQL console");
   });
 
   it("offers the header's light or dark button, and Users for an admin, as pointers", () => {
@@ -132,6 +135,90 @@ describe("what the search finds", () => {
   });
 });
 
+describe("what new things start with, in the search", () => {
+  /** The read with these values stored, as the server reports a kept value. */
+  const keeping = (values: Record<string, unknown>, extra: Record<string, Resolution> = {}) => ({
+    instance: instanceReadFixture({
+      ...Object.fromEntries(Object.entries(values).map(([key, value]) => [key, { value, source: "stored" as const, storedValue: value }])),
+      ...extra,
+    }),
+  });
+  const row = (built: ReturnType<typeof index>, query: string, path: string) =>
+    searchSettings(built, query).find(hit => hit.entry.kind === "row" && hitPath(hit) === path);
+
+  /** Each row as the three tabs show it at the product's values: its tab, its label, its address, its card and value. */
+  const ROWS: readonly (readonly [string, string, string, string, string])[] = [
+    ["Maps", "Basemap", "maps", "set-basemap", "New maps · Auto"],
+    ["Maps", "Starting view", "maps", "set-starting-view", "New maps · Latitude 40, longitude 0, zoom 1.3"],
+    ["Maps", "Legend corner", "maps", "set-legend-corner", "Legend · Bottom left"],
+    ["Maps", "Color cycle", "maps", "set-color-cycle", "New layers · Viz Qualitative"],
+    ["Maps", "Opacity", "maps", "set-opacity", "New layers · Points 72 %, lines 95 %, areas 50 %"],
+    ["Maps", "Line width", "maps", "set-line-width", "New layers · 2 px"],
+    ["Maps", "Point radius", "maps", "set-point-radius", "New layers · 3 px"],
+    ["Workflows & SQL", "Canvas opens", "workflows", "set-canvas-opens", "Workflow canvas · Full screen"],
+    ["Workflows & SQL", "Minimap", "workflows", "set-minimap", "Workflow canvas · Automatic"],
+    ["Workflows & SQL", "Results band", "workflows", "set-results-band", "Workflow canvas · Closed"],
+    ["Workflows & SQL", "Text size", "workflows", "set-sql-text-size", "SQL console · 12 px"],
+    ["Workflows & SQL", "Line wrap", "workflows", "set-sql-line-wrap", "SQL console · Off"],
+    ["Publishing", "Starting width", "publishing", "set-export-width", "Image export · 1920 px"],
+    ["Publishing", "Starting shape", "publishing", "set-export-shape", "Image export · 4:3"],
+  ];
+
+  it("finds every row by its label as Instance / Tab · Row, with its card and its value, opening its tab on the row", () => {
+    for (const [tab, label, id, anchor, meta] of ROWS) {
+      const hit = row(index(), label.toLowerCase(), `Instance / ${tab} · ${label}`);
+      expect(hit, label).toBeDefined();
+      expect(hit!.meta, label).toBe(meta);
+      expect(hit!.target, label).toEqual({ tab: id, anchor });
+    }
+    // The tabs and their cards are found by name too.
+    expect(paths(searchSettings(index(), "maps")).slice(0, 1)).toEqual(["Instance / Maps"]);
+    expect(searchSettings(index(), "maps")[0].meta).toBe("New maps, Legend, New layers");
+    expect(paths(searchSettings(index(), "publishing")).slice(0, 1)).toEqual(["Instance / Publishing"]);
+    const layers = searchSettings(index(), "new layers").find(hit => hit.entry.kind === "card");
+    expect(hitPath(layers!)).toBe("Instance / Maps · New layers");
+    expect(layers!.target).toEqual({ tab: "maps", anchor: "card-new-layers" });
+    expect(layers!.meta).toBe("Color cycle, Opacity, Line width, Point radius");
+  });
+
+  it("finds a row by a word it is also known by", () => {
+    expect(paths(searchSettings(index(), "aspect ratio"))).toEqual(["Instance / Publishing · Starting shape"]);
+    expect(paths(searchSettings(index(), "navigator"))).toEqual(["Instance / Workflows & SQL · Minimap"]);
+    expect(paths(searchSettings(index(), "transparency"))).toEqual(["Instance / Maps · Opacity"]);
+    expect(paths(searchSettings(index(), "soft wrap"))).toEqual(["Instance / Workflows & SQL · Line wrap"]);
+  });
+
+  it("finds a row by the words of the value kept, and no longer by the value it left", () => {
+    const kept = index(true, keeping({
+      "newLayer.colorCycle": "tab10", "canvas.minimap": "always", "newMap.latitude": 51.5, "newMap.longitude": -0.12,
+      "sqlConsole.lineWrap": true, "imageExport.width": "2560", "newLayer.lineOpacity": 35, "newMap.legendCorner": "top-right",
+    }));
+    expect(paths(searchSettings(kept, "tab10"))).toEqual(["Instance / Maps · Color cycle"]);
+    expect(row(kept, "tab10", "Instance / Maps · Color cycle")!.meta).toBe("New layers · Tab10");
+    expect(paths(searchSettings(index(), "tab10"))).toEqual([]);
+    expect(row(kept, "always", "Instance / Workflows & SQL · Minimap")!.meta).toBe("Workflow canvas · Always");
+    expect(row(kept, "51.5", "Instance / Maps · Starting view")!.meta).toBe("New maps · Latitude 51.5, longitude -0.12, zoom 1.3");
+    expect(row(kept, "2560", "Instance / Publishing · Starting width")!.meta).toBe("Image export · 2560 px");
+    expect(row(kept, "line wrap", "Instance / Workflows & SQL · Line wrap")!.meta).toBe("SQL console · On");
+    expect(row(kept, "opacity", "Instance / Maps · Opacity")!.meta).toBe("New layers · Points 72 %, lines 35 %, areas 50 %");
+    expect(row(kept, "top right", "Instance / Maps · Legend corner")!.meta).toBe("Legend · Top right");
+    expect(paths(searchSettings(kept, "viz qualitative"))).toEqual([]);
+  });
+
+  it("reads a stored Satellite as the tab shows it: Auto while the instance offers no imagery, Satellite once it does", () => {
+    const without = index(true, keeping({ "newMap.basemap": "satellite" }));
+    expect(row(without, "basemap", "Instance / Maps · Basemap")!.meta).toBe("New maps · Auto");
+    const imagery = { satelliteUrl: { value: { set: true, origin: "https://imagery.example" }, source: "environment" as const, locked: true } };
+    const offered = index(true, keeping({ "newMap.basemap": "satellite" }, imagery));
+    expect(row(offered, "basemap", "Instance / Maps · Basemap")!.meta).toBe("New maps · Satellite");
+  });
+
+  it("declares nothing of them until the configuration read has answered", () => {
+    const unread = index(true, { instance: null });
+    expect(unread.filter(entry => ["maps", "workflows", "publishing"].includes(entry.tab ?? "")).map(entry => entry.kind)).toEqual(["tab", "tab", "tab"]);
+  });
+});
+
 describe("what the fields on screen hold now", () => {
   it("finds a row by its field's current text, typed and not yet saved, in place of the served value", () => {
     const live = new Map([["set-display-name", "Ada Lovelace"], ["set-sign-in-message", "Bring your badge."], ["set-token-name", "Nightly sync"]]);
@@ -148,14 +235,25 @@ describe("what the fields on screen hold now", () => {
 });
 
 describe("what a member's search holds", () => {
-  it("holds only the member's tabs: never Limits, System or Users", () => {
+  const ADMIN_ONLY = /Maps|Workflows|Publishing|Limits|System|Users/;
+  const QUERIES = ["limit", "users", "invite", "environment", "version", "query time", "maps", "basemap", "starting view", "legend",
+    "color cycle", "opacity", "radius", "workflows", "canvas", "minimap", "results band", "text size", "line wrap", "publishing",
+    "starting width", "starting shape", "export", "new layers", "viz qualitative", "1920"];
+
+  it("holds only the member's tabs: never Maps, Workflows & SQL, Publishing, Limits, System or Users", () => {
     const member = index(false, { instance: null });
     const tabs = new Set(member.map(entry => entry.tab ?? entry.pointer));
     expect([...tabs].sort()).toEqual(["account", "appearance", "general", "theme", "tokens"]);
-    for (const query of ["limit", "users", "invite", "environment", "version", "query time"]) {
-      expect(paths(searchSettings(member, query)).filter(path => /Limits|System|Users/.test(path))).toEqual([]);
+    for (const query of QUERIES) {
+      expect(paths(searchSettings(member, query)).filter(path => ADMIN_ONLY.test(path)), query).toEqual([]);
     }
     expect(searchSettings(member, "gis team").map(hitPath)).toEqual(["Instance / General · Lost password contact"]);
+  });
+
+  it("holds none of the admins' tabs even when handed the configuration read", () => {
+    const handed = index(false);
+    expect([...new Set(handed.map(entry => entry.tab ?? entry.pointer))].sort()).toEqual(["account", "appearance", "general", "theme", "tokens"]);
+    for (const query of QUERIES) expect(paths(searchSettings(handed, query)).filter(path => ADMIN_ONLY.test(path)), query).toEqual([]);
   });
 });
 

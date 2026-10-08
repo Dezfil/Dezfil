@@ -15,6 +15,7 @@ import { AddDataDialog } from "../AddDataDialog";
 import { AddToMapDialog } from "../AddToMapDialog";
 import { skippedNotice } from "../skipped-members";
 import { Spinner } from "../Spinner";
+import { useOpeningDefaults } from "../screen-defaults";
 import type { SqlEditorHandle } from "../sql-editor-handle";
 import type { SqlPosition } from "../sql-editor-extensions";
 import { useUploadQueue } from "../use-upload-queue";
@@ -93,6 +94,10 @@ export function SqlConsole() {
   const assistant = useSqlAssistant();
   const { paneWidth, editorHeight, hydrate: hydrateSizes, startDrag } = useConsoleSplits(assistant.docked);
   const [hydrated, setHydrated] = useState(false);
+
+  /* ---- the editor opens at the instance's text size and line wrap, as
+     the page handed them down when the console opened ---- */
+  const opening = useOpeningDefaults();
 
   /* ---- the draft and its seed ---- */
   const [draft, setDraft] = useState("");
@@ -632,6 +637,8 @@ export function SqlConsole() {
               runSelection
               errorAt={errorAt}
               onSelectionChange={setSelection}
+              textSize={Number(opening["sqlConsole.textSize"])}
+              wrap={opening["sqlConsole.lineWrap"]}
             />
           </div>
           <div className={styles.editorBar}>

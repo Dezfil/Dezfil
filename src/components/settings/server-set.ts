@@ -35,14 +35,18 @@ export function serverSetState(setting: Pick<ReadSetting, "editable" | "locked" 
 const primitive = (value: unknown): value is Value =>
   value === null || typeof value === "string" || typeof value === "number" || typeof value === "boolean";
 
-/** The save unit's view of a setting: its key, how it saves, its range,
- * and its default for Reset. A pinned or fixed setting is locked, so it
- * joins neither Save, Reset nor the leave guard. A card with nothing to
- * return to (this instance's own name) passes `reset: false`. */
+/** The save unit's view of a setting: its key, how it saves, its range
+ * (and whether it takes decimals), and its default for Reset. A pinned or
+ * fixed setting is locked, so it joins neither Save, Reset nor the leave
+ * guard. A card with nothing to return to (this instance's own name)
+ * passes `reset: false`. */
 export function unitControlFor(setting: ReadSetting, options: { reset?: boolean } = {}): UnitControl {
   const locked = serverSetState(setting) !== null;
-  const kind: UnitControl["kind"] = setting.kind === "number" ? "number" : setting.kind === "choice" || setting.kind === "boolean" ? "choice" : "text";
-  const range = setting.write?.kind === "integer" ? { min: setting.write.min, max: setting.write.max } : {};
+  const kind: UnitControl["kind"] = setting.kind === "number" ? "number" : setting.kind === "boolean" ? "switch"
+    : setting.kind === "choice" ? "choice" : "text";
+  const write = setting.write;
+  const range = write?.kind === "integer" ? { min: write.min, max: write.max }
+    : write?.kind === "decimal" ? { min: write.min, max: write.max, decimal: true } : {};
   const resettable = options.reset !== false && !locked && primitive(setting.defaultValue);
   return { key: setting.key, kind, ...range, locked, ...(resettable ? { defaultValue: setting.defaultValue as Value } : {}) };
 }

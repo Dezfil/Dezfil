@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { EditorState } from "@codemirror/state";
+import { EditorView } from "@codemirror/view";
 import {
+  editorLook,
   errorMarkExtensions,
   errorMarkField,
   referencedTables,
@@ -66,5 +68,31 @@ describe("the error mark field", () => {
     let cleared = 0;
     state.field(errorMarkField).between(0, state.doc.length, () => { cleared++; });
     expect(cleared).toBe(0);
+  });
+});
+
+describe("the editor's look", () => {
+  /** The text sizes the editor's state sets, and whether it wraps. */
+  const look = (extension: ReturnType<typeof editorLook>) => {
+    const state = EditorState.create({ extensions: [extension] });
+    const css = state.facet(EditorView.styleModule).map((module) => module.getRules()).join("\n");
+    return {
+      sizes: [...css.matchAll(/font-size:\s*([\d.]+px)/g)].map((m) => m[1]),
+      wraps: state.facet(EditorView.contentAttributes).some((a) => typeof a === "object" && a.class === "cm-lineWrapping"),
+    };
+  };
+
+  it("is 12 px and unwrapped where the host asks for neither", () => {
+    expect(look(editorLook({}))).toEqual({ sizes: ["12px"], wraps: false });
+  });
+
+  it("is wrapped at 12 px where the host asks for the wrap alone", () => {
+    expect(look(editorLook({ wrap: true }))).toEqual({ sizes: ["12px"], wraps: true });
+  });
+
+  it("takes every text size the console offers, wrapped or not", () => {
+    for (const px of [11, 12, 13, 14, 16]) {
+      expect(look(editorLook({ textSize: px, wrap: px === 16 }))).toEqual({ sizes: [`${px}px`], wraps: px === 16 });
+    }
   });
 });

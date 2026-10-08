@@ -26,6 +26,18 @@ describe("the Settings addresses", () => {
     expect(open("/settings/limits/deeper")).toMatchObject({ tab: "account", anchor: null, replace: true });
   });
 
+  it("opens Maps, Workflows & SQL and Publishing for an admin, each row at its own address, and Account for anyone else", () => {
+    for (const [tab, row] of [["maps", "set-basemap"], ["workflows", "set-minimap"], ["publishing", "set-export-width"]] as const) {
+      expect(open(`/settings/${tab}`)).toEqual({ tab, anchor: null, address: `/settings/${tab}`, replace: false });
+      expect(open(`/settings/${tab}`, `#${row}`)).toEqual({ tab, anchor: row, address: `/settings/${tab}#${row}`, replace: false });
+      expect(open(`/settings/${tab}`, "", false)).toEqual({ tab: "account", anchor: null, address: "/settings/account", replace: true });
+      expect(open(`/settings/${tab}`, `#${row}`, false)).toEqual({ tab: "account", anchor: null, address: "/settings/account", replace: true });
+      // The bare address reopens one remembered only for the person who may see it.
+      expect(open("/settings", "", true, tab)).toEqual({ tab, anchor: null, address: `/settings/${tab}`, replace: true });
+      expect(open("/settings", "", false, tab)).toMatchObject({ tab: "account", address: "/settings/account" });
+    }
+  });
+
   it("opens Appearance for every signed-in person, each of its rows at its own address", () => {
     for (const admin of [true, false]) {
       expect(open("/settings/appearance", "", admin)).toEqual({ tab: "appearance", anchor: null, address: "/settings/appearance", replace: false });

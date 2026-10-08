@@ -50,10 +50,11 @@ describe("settings consumption inventory", () => {
     ]);
   });
   it("keeps catalogue and resolver imports inside the settings data boundary", () => {
-    for (const name of ["catalogue", "numeric", "types", "validation", "resolver", "state"]) {
+    const boundary = ["catalogue", "numeric", "instance-defaults", "types", "validation", "resolver", "state"];
+    for (const name of boundary) {
       const source = readFileSync(`src/lib/settings/${name}.ts`, "utf8");
       for (const match of source.matchAll(/(?:from\s+|import\s*\()["']([^"']+)/g)) {
-        expect(["./catalogue", "./numeric", "./types", "./validation", "./resolver", "./state"], name).toContain(match[1]);
+        expect(boundary.map(module => `./${module}`), name).toContain(match[1]);
       }
     }
   });

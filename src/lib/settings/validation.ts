@@ -11,6 +11,11 @@ export function validateStoredValue(definition: SettingDefinition, input: unknow
     case "integer":
       return typeof input === "number" && Number.isInteger(input) && input >= constraint.min && input <= constraint.max
         ? { ok: true, value: input } : { ok: false, reason: `Expected a whole number from ${constraint.min} to ${constraint.max}.` };
+    case "decimal":
+      return typeof input === "number" && Number.isFinite(input) && input >= constraint.min && input <= constraint.max
+        ? { ok: true, value: input } : { ok: false, reason: `Expected a number from ${constraint.min} to ${constraint.max}.` };
+    case "switch":
+      return typeof input === "boolean" ? { ok: true, value: input } : { ok: false, reason: "Expected true or false." };
     case "text": {
       if (typeof input !== "string") return { ok: false, reason: "Expected text." };
       const value = input.trim();
@@ -36,11 +41,16 @@ export function catalogueProblems(definitions: readonly SettingDefinition[]): st
     if (!key || !definition.label || !definition.purpose || !definition.documentedDefault) report("incomplete definition");
     if (environment && definition.environmentTiming !== "restart") report("environment changes require restart");
     if (definition.scope === "account" && environment) report("account variable");
+    // Every signed-in account reads these: no deployment pins one, and none is a secret.
+    if (definition.readBy === "signed-in" && environment) report("signed-in variable");
+    if (definition.readBy === "signed-in" && (definition.secret || definition.kind === "secret")) report("signed-in secret");
     if (definition.editable && definition.timing !== "live") report("editable next-start");
     if (definition.editable && (definition.secret || definition.kind === "secret")) report("editable secret");
     if (definition.editable && !write) report("missing validator");
     if (!definition.editable && write) report("read-only write constraint");
     if (write?.kind === "integer" && (definition.kind !== "number" || !Number.isSafeInteger(write.min) || !Number.isSafeInteger(write.max) || write.min > write.max)) report("invalid integer constraint");
+    if (write?.kind === "decimal" && (definition.kind !== "number" || !Number.isFinite(write.min) || !Number.isFinite(write.max) || write.min > write.max)) report("invalid decimal constraint");
+    if (write?.kind === "switch" && definition.kind !== "boolean") report("invalid switch constraint");
     if (write?.kind === "text" && (definition.kind !== "text" || !Number.isSafeInteger(write.maxLength) || write.maxLength < 1)) report("invalid text constraint");
     if (write?.kind === "choice" && (definition.kind !== "choice" || !write.values.length || new Set(write.values).size !== write.values.length)) report("invalid choice constraint");
     if (definition.editable && !validateStoredValue(definition, definition.defaultValue).ok) report("default fails validation");

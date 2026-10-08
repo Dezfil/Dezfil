@@ -1,5 +1,6 @@
 "use client";
 import { useRef, type ReactNode } from "react";
+import { ChoiceGroup } from "@/components/ui/ChoiceGroup";
 import { NumberInput, TextInput } from "@/components/ui/Field";
 import { LockIcon } from "@/components/ui/icons";
 import type { ServerSetState } from "./server-set";
@@ -43,21 +44,27 @@ export function SettingRow({ id, label, meta, after, stack, mark, children }: {
 }
 
 /**
- * A number a settings row keeps as it changes, with its unit after it. A
- * step (the arrow or page keys, the spin buttons, the wheel) is reported
- * as a step; typing is reported as typing and kept on Enter or on leaving
- * the field. A browser marks a typed change with its input type and a
- * step without one.
+ * A number a settings row keeps as it changes, with quiet words before it
+ * where a row holds several and its unit after it. A step (the arrow or
+ * page keys, the spin buttons, the wheel) is reported as a step; typing
+ * is reported as typing and kept on Enter or on leaving the field. A
+ * browser marks a typed change with its input type and a step without one.
  */
-export function NumberField({ label, unitKey, value, unit, min, max, error, errorId, onStep, onType, onCommit }: {
-  /** The field's accessible name: the row's label. */
+export function NumberField({ label, unitKey, value, prefix, unit, min, max, step = 1, error, errorId, onStep, onType, onCommit }: {
+  /** The field's accessible name: the row's label, or its own where the
+   * row holds several. */
   label: string;
   /** The save unit's key, when a unit moves focus to it. */
   unitKey: string;
   value: string;
+  /** The field's own name, shown before it. */
+  prefix?: string;
   unit?: string;
   min?: number;
   max?: number;
+  /** How far a step moves it: a whole number by default, a finer step or
+   * any amount where it takes decimals. */
+  step?: number | "any";
   /** The red line under the row, when there is one. */
   error?: string | null;
   errorId: string;
@@ -67,7 +74,8 @@ export function NumberField({ label, unitKey, value, unit, min, max, error, erro
 }) {
   const steppedAt = useRef(0);
   return <span className={styles.withUnit}>
-    <NumberInput className={styles.number} aria-label={label} data-unit-key={unitKey} value={value} min={min} max={max} step={1}
+    {prefix}
+    <NumberInput className={styles.number} aria-label={label} data-unit-key={unitKey} value={value} min={min} max={max} step={step}
       aria-invalid={error ? true : undefined} aria-describedby={error ? errorId : undefined}
       onKeyDown={event => {
         if (STEP_KEYS.test(event.key)) steppedAt.current = Date.now();
@@ -82,6 +90,21 @@ export function NumberField({ label, unitKey, value, unit, min, max, error, erro
       onBlur={() => onCommit()} />
     {unit}
   </span>;
+}
+
+/** A settings row's choice drawn as segments: the shipped choice group (one
+ * radio group named by its row, one tab stop on the chosen segment, the
+ * arrows moving the choice) in the settings surface's own look. A choice
+ * too long for its row wraps into even lines. */
+export function SegmentChoice<T extends string>({ label, value, choices, onChange }: {
+  /** The row's label: the group's accessible name. */
+  label: string;
+  value: T;
+  choices: readonly { readonly value: T; readonly label: string }[];
+  onChange: (next: T) => void;
+}) {
+  return <ChoiceGroup label={label} value={value} onChange={onChange} choices={choices}
+    className={styles.segments} itemClassName={styles.segment} />;
 }
 
 /** The red line under a row: the reason its value was not kept. */

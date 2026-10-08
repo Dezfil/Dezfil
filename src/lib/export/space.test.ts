@@ -771,6 +771,23 @@ describe("a step that cannot be offered says why", () => {
     expect(openingMapStep(10, 1200)).toBe("s");
   });
 
+  it("judges the opening in the spaces of the shape the card opens at", () => {
+    // From zoom 23.5 and 23.9 at 800 px, and 24 at 600 px: a wide shape's
+    // spaces are wider, so it opens coarser or not at all, and a square
+    // one's narrower, so it opens finer, than the 4:3 a card opened at
+    // before it had a starting shape.
+    const near = (shape?: { width: number; height: number }) =>
+      [openingMapStep(23.5, 800, shape), openingMapStep(23.9, 800, shape), openingMapStep(24, 600, shape)];
+    expect(near()).toEqual(["m", "l", null]);
+    expect(near({ width: 4, height: 3 })).toEqual(["m", "l", null]);
+    expect(near({ width: 16, height: 9 })).toEqual(["l", null, null]);
+    expect(near({ width: 1, height: 1 })).toEqual(["s", "m", "l"]);
+    // A size is judged by its shape alone.
+    expect(near({ width: 1280, height: 720 })).toEqual(["l", null, null]);
+    expect(near({ width: 2560, height: 2560 })).toEqual(["s", "m", "l"]);
+    expect(openingMapStep(10, 1200, { width: 16, height: 9 })).toBe("s");
+  });
+
   it("never refuses a coarser step — the coverage margin cannot be crossed", () => {
     // The counterpart of the margin-invariance test above: because the
     // world-coverage floor moves with the space by the same factor as

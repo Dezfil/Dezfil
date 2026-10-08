@@ -2,8 +2,9 @@ import type { Database } from "better-sqlite3";
 import { realpathSync } from "node:fs";
 import { observeTransactionBoundary } from "@/lib/metadata/transaction-boundary";
 import { SETTING_CATALOGUE, settingDefinition } from "./catalogue";
+import { NUMERIC_SETTINGS } from "./numeric";
 import { validateStoredValue } from "./validation";
-import type { SettingValue } from "./types";
+import type { SettingDefinition, SettingValue } from "./types";
 import { lockedEnvironment } from "./resolver";
 import { activateCommittedSettings, publishCommittedSettings, releaseCommittedSettings, type NumericOverrides } from "./state";
 
@@ -11,6 +12,15 @@ const storeKey = Symbol.for("dezfil.settings-store");
 type ObservedStore = Database & { [storeKey]?: { identity: string | Database; dirty: boolean } };
 
 function storageKey(key: string): string { return key === "instanceName" ? "instance_name" : `instance.${key}`; }
+
+/** Every value is stored as its text. A number reads back through Number,
+ * which returns exactly the number written; a switch from "true" or
+ * "false". Anything else then fails validation and reads as unset. */
+function fromText(definition: SettingDefinition, raw: string): unknown {
+  if (definition.kind === "number") return Number(raw);
+  if (definition.kind === "boolean") return raw === "true" ? true : raw === "false" ? false : raw;
+  return raw;
+}
 
 /** Instance text stays in SQLite, including the row used by the legacy writer. */
 export function readStoredSettings(db: Database): Record<string, SettingValue> {
@@ -21,14 +31,20 @@ export function readStoredSettings(db: Database): Record<string, SettingValue> {
     if (definition.scope !== "instance" || !definition.editable) continue;
     const raw = stored.get(storageKey(definition.key));
     if (raw === undefined) continue;
-    const value = validateStoredValue(definition, definition.kind === "number" ? Number(raw) : raw);
+    const value = validateStoredValue(definition, fromText(definition, raw));
     if (value.ok && value.value !== null) result[definition.key] = value.value;
   }
   return result;
 }
 
+const NUMERIC_LIMITS = new Set<string>(NUMERIC_SETTINGS.map(definition => definition.key));
+
+/** The committed snapshot holds the numeric limits alone. Any other stored
+ * number (a default for new things) never enters it, so changing one never
+ * wakes the limits' listeners. */
 function numericOverrides(db: Database): NumericOverrides {
-  return Object.fromEntries(Object.entries(readStoredSettings(db)).filter(([, value]) => typeof value === "number")) as NumericOverrides;
+  return Object.fromEntries(Object.entries(readStoredSettings(db))
+    .filter(([key, value]) => NUMERIC_LIMITS.has(key) && typeof value === "number")) as NumericOverrides;
 }
 
 /** Installed when a store opens, before callers can construct transactions. An

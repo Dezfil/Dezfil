@@ -141,6 +141,8 @@ export interface ExportImageSeed {
   basemapLayers: BasemapLayers | null;
 }
 
+/** The product's own starting width, unless the instance's says
+ * otherwise. */
 export const DEFAULT_EXPORT_WIDTH = 1920;
 /** Shapes only, — "current view" was an unnamed custom shape
  * taken from the browser window, and the frame drag does that job
@@ -149,19 +151,23 @@ export const DEFAULT_EXPORT_WIDTH = 1920;
 export const DEFAULT_EXPORT_ASPECT =
   DEFAULT_OPENING_SHAPE.width / DEFAULT_OPENING_SHAPE.height;
 
-/** A fresh card's definition: 4:3 at the default width, the S map size
+/** A fresh card's definition: the size it opens at, the S map size
  * the map's present legend, widget and basemap state, no title — and
  * every element's step at S (field round; M crowded the
  * image). The camera is the builder's, moved so the card opens on the
  * same ground: a wider space at the same zoom would show more. The
- * caller supplies the space the card will lay out in. The card's seed
- * only — a definition that OMITS a step still means M, per the
- * published contract. */
+ * caller supplies the space the card will lay out in, and the size it
+ * opens at: the instance's starting width and shape, the product's 1920
+ * at 4:3 when omitted. The card's seed only — a definition that OMITS a
+ * step still means M, per the published contract. */
 export function initialDefinition(
   seed: ExportImageSeed,
   space: { width: number; scale: number; height?: number },
+  size: { width: number; height: number } = {
+    width: DEFAULT_EXPORT_WIDTH,
+    height: Math.max(1, Math.round(DEFAULT_EXPORT_WIDTH / DEFAULT_EXPORT_ASPECT)),
+  },
 ): ExportImageDefinition {
-  const width = DEFAULT_EXPORT_WIDTH;
   const canvas =
     Number.isFinite(seed.canvasWidth) && seed.canvasWidth > 0
       ? seed.canvasWidth
@@ -175,8 +181,8 @@ export function initialDefinition(
       bearing: seed.camera.bearing ?? 0,
     },
     size: {
-      width,
-      height: space.height ?? Math.max(1, Math.round(width / DEFAULT_EXPORT_ASPECT)),
+      width: size.width,
+      height: space.height ?? size.height,
     },
     legend: {
       visible: seed.legendPresent,

@@ -8,6 +8,9 @@ import { AccountCard } from "./AccountCard";
 import { TokensCard } from "./TokensCard";
 import { AppearanceTab } from "./AppearanceTab";
 import { GeneralTab } from "./GeneralTab";
+import { MapsTab } from "./MapsTab";
+import { WorkflowsTab } from "./WorkflowsTab";
+import { PublishingTab } from "./PublishingTab";
 import { LimitsTab } from "./LimitsTab";
 import { SystemTab } from "./SystemTab";
 import { accountRequest, failureMessage } from "./api";
@@ -271,13 +274,17 @@ function Pending({ children }: { children: ReactNode }) {
 }
 
 /** What each tab draws. Account, Tokens and Appearance hold the person's
- * own cards; General, Limits and System draw from the configuration read. */
+ * own cards; General, Maps, Workflows & SQL, Publishing, Limits and
+ * System draw from the configuration read. */
 function TabContent({ tab, loaded }: { tab: SettingsTabId; loaded: Loaded }) {
   switch (tab) {
     case "account": return <AccountCard account={loaded.account} />;
     case "tokens": return <TokensCard />;
     case "appearance": return <AppearanceTab />;
     case "general": return <GeneralTab admin={loaded.account.isAdmin} />;
+    case "maps": return <MapsTab />;
+    case "workflows": return <WorkflowsTab />;
+    case "publishing": return <PublishingTab />;
     case "limits": return <LimitsTab />;
     case "system": return <SystemTab />;
   }

@@ -3,6 +3,10 @@ export type SettingValue = number | boolean | string | null | readonly string[];
 export type SettingDefault = SettingValue | { readonly rule: string };
 export type WriteConstraint =
   | { readonly kind: "integer"; readonly min: number; readonly max: number }
+  /** Any finite number within inclusive bounds, kept as given: never rounded. */
+  | { readonly kind: "decimal"; readonly min: number; readonly max: number }
+  /** True or false. */
+  | { readonly kind: "switch" }
   | { readonly kind: "text"; readonly maxLength: number; readonly empty: "null" | "value" }
   | { readonly kind: "choice"; readonly values: readonly string[] };
 
@@ -11,7 +15,8 @@ export interface SettingDefinition {
   readonly label: string;
   readonly purpose: string;
   readonly scope: "instance" | "account" | "platform";
-  readonly readBy: "admin" | "account" | "public";
+  /** Who reads the value: admins, its own account, every signed-in account, or anyone. */
+  readonly readBy: "admin" | "account" | "signed-in" | "public";
   readonly changedBy: "deployment" | "admin" | "account" | "platform";
   readonly kind: "number" | "boolean" | "text" | "choice" | "list" | "address" | "path" | "secret";
   readonly defaultValue: SettingDefault;

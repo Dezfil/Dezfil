@@ -93,6 +93,17 @@ describe("the picture-card choice", () => {
     expect(view.checked().map(radio => radio.textContent)).toEqual(["Heather"]);
   });
 
+  it("sits in the tab's even columns, or fills its row with cards no smaller than its size", async () => {
+    const even = await mount(<Held />);
+    expect(even.group().style.gridTemplateColumns).toBeUndefined();
+    await act(async () => root!.unmount());
+    const small = await mount(<PictureChoice label="Basemap" value="kelp" choices={CHOICES} size="s" onChange={() => {}} />);
+    expect(small.group().style.gridTemplateColumns).toBe("repeat(auto-fill, minmax(96px, 1fr))");
+    await act(async () => root!.unmount());
+    const medium = await mount(<PictureChoice label="Canvas opens" value="kelp" choices={CHOICES} size="m" onChange={() => {}} />);
+    expect(medium.group().style.gridTemplateColumns).toBe("repeat(auto-fill, minmax(128px, 1fr))");
+  });
+
   it("offers no stop and takes no pick while the row is disabled", async () => {
     const view = await mount(<Held disabled />);
     expect(view.group().getAttribute("aria-disabled")).toBe("true");

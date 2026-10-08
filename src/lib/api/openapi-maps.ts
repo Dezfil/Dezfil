@@ -39,7 +39,9 @@ export const MAP_COLLECTION_PATHS = {
       summary: "Create a map",
       description:
         "Optionally filed into a project at birth: an " +
-        "unknown project refuses and creates nothing.",
+        "unknown project refuses and creates nothing. A new map takes " +
+        "the instance's defaults for its basemap, starting view and " +
+        "legend corner (`defaults` in the runtime configuration).",
       tag: "Maps",
       tool: "create_map", mcp: LOCAL_ADD,
       display: {"verb": "Created the map {subject}", "subject": {"resource": "maps", "result": "id", "name": ["name"]}},

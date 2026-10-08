@@ -6,6 +6,7 @@ import { testAccountRequest, testAccountScope } from "@/lib/test-support/account
 import { LayerDownloadControlProvider } from "@/components/builder/LayerDownloadControlProvider";
 import { MapBuilder } from "@/components/builder/MapBuilder";
 import { MapReader } from "@/components/reader/MapReader";
+import { ScreenDefaultsProvider } from "@/components/screen-defaults";
 import { WorkflowScreen } from "@/components/WorkflowScreen";
 import MapPage from "./maps/[id]/page";
 import WorkflowPage from "./workflows/[id]/page";
@@ -58,10 +59,15 @@ async function mapPage(account: string, id = "M") {
   who.account = account;
   return (await MapPage({ params: Promise.resolve({ id }), searchParams: Promise.resolve({}) })) as ReactElement<Record<string, unknown>>;
 }
+/** The screen a page opens, inside the providers around it. */
+function screenOf(page: ReactElement<Record<string, unknown>>): ReactElement<Record<string, unknown>> {
+  const provider = page.props.children as ReactElement<{ children: ReactElement<Record<string, unknown>> }>;
+  expect(provider.type).toBe(ScreenDefaultsProvider);
+  return provider.props.children;
+}
 async function workflowPage(account: string, id = "W") {
   who.account = account;
-  const page = (await WorkflowPage({ params: Promise.resolve({ id }) })) as ReactElement<{ children: ReactElement<Record<string, unknown>> }>;
-  return page.props.children;
+  return screenOf((await WorkflowPage({ params: Promise.resolve({ id }) })) as ReactElement<Record<string, unknown>>);
 }
 
 describe("a map's page", () => {
@@ -74,7 +80,7 @@ describe("a map's page", () => {
   it.each(["pat", "edd"])("gives %s the builder", async (account) => {
     const page = await mapPage(account);
     expect(page.type).toBe(LayerDownloadControlProvider);
-    expect((page.props.children as ReactElement).type).toBe(MapBuilder);
+    expect(screenOf(page).type).toBe(MapBuilder);
   });
 
   it("gives a Viewer the builder on their own map filed in the project", async () => {

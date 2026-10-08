@@ -27,7 +27,10 @@ message as plain text and names the contact in its lost-password line. After a
 sign-in, the first account or an accepted invitation, the browser opens the landing
 page. A signed-in visit to the setup or sign-in page still opens Home. Accounts,
 sessions and API token records also persist there. Saved palettes are shared
-instance data. These are not environment variables.
+instance data. What new maps, new layers, the workflow canvas, the SQL console
+and a fresh image export card start with is kept there too, set by admins on the
+**Maps**, **Workflows & SQL** and **Publishing** tabs; see
+[Instance defaults](#instance-defaults). These are not environment variables.
 
 The optional `assistant-models.json` in the data directory supplies the model
 catalogue; environment model lists narrow its offer. It is a file, not an account
@@ -61,10 +64,58 @@ Rows start with `` | `NAME` `` and contain the default, effect and **Changed by*
 cells. The latter has two values: **Restart**, or **App (live) or restart** for
 an editable live setting. Environment changes always require a restart.
 
+The same check holds this page's **Instance defaults** table to the catalogue's
+defaults, the settings every signed-in account reads: one row per default under
+the key the change operation takes, no orphan row, and each row's default as the
+catalogue documents it.
+
 Two classes are deliberately outside the check: source-local test seams
 (`DEZFIL_TEST_*` in `src/` and `DEZFIL_BASE_URL`) and platform plumbing (`NODE_ENV`, `PORT`, `HOSTNAME`,
 `NEXT_RUNTIME`, `TZ`, `CI`, `DUCKDB_EXTENSION_DIR`). Both are listed at the
 end of this page.
+
+## Instance defaults
+
+What new maps, new layers, the workflow canvas, the SQL console and a fresh
+image export card start with. Admins set them on the **Maps**,
+**Workflows & SQL** and **Publishing** tabs of Settings, or through
+`PATCH /api/instance/settings` under the keys below. Every signed-in account and
+agent reads the values in effect as the `defaults` object of `GET /api/config`.
+They are stored instance settings with no environment variable, so none is ever
+locked, and a change applies to the next new thing at once.
+
+Defaults apply to new things only. A map, a layer, a published view or an image
+that already exists keeps what it has, and a canvas, console or export card
+already open keeps what it opened with. Nothing that draws an existing map reads
+a default: the builder, a published view, the read-only map view, an image
+export and the server's own rendering keep each map's stored values and their
+own fallbacks. A duplicated map keeps its source's values.
+
+A number-like choice is text: send `"16"` for a text size, not `16`.
+
+| Setting | Values | Default | Taken when |
+|---|---|---|---|
+| `newMap.basemap` | `auto`, `dark`, `light`, `streets`, `satellite` | `auto` | A map is created, by any path. `auto` follows the theme. `satellite` is offered where imagery is set up; a basemap the instance no longer offers starts the map on `auto`. |
+| `newMap.latitude` | A number from -85 to 85 | `40` | A map is created: the latitude it opens at. |
+| `newMap.longitude` | A number from -180 to 180 | `0` | A map is created: the longitude it opens at. |
+| `newMap.zoom` | A number from 0 to 22 | `1.3` | A map is created: the zoom it opens at. |
+| `newMap.legendCorner` | `top-left`, `top-right`, `bottom-left`, `bottom-right` | `bottom-left` | A map is created: the corner its legend sits in. At the default the map stores no corner, so the read-only map view keeps its legend top left. |
+| `newLayer.colorCycle` | `uber_viz_qualitative`, `bold`, `tab10`, `paired`, `dark2`, `set3` | `uber_viz_qualitative` | A layer is created without a style, or a sketch is drawn: the layer takes the cycle's next color. |
+| `newLayer.pointOpacity` | A whole number from 10 to 100, a percentage | `72` | A points layer is created without a style. |
+| `newLayer.lineOpacity` | A whole number from 10 to 100, a percentage | `95` | A lines layer is created without a style. |
+| `newLayer.areaOpacity` | A whole number from 10 to 100, a percentage | `50` | An areas layer is created without a style. |
+| `newLayer.lineWidth` | A number from 0.5 to 50, in pixels | `2` | A lines layer is created without a style. |
+| `newLayer.pointRadius` | A number from 0.5 to 100, in pixels | `3` | A layer is created without a style: the radius of its points. |
+| `canvas.opens` | `full`, `framed` | `full` | A workflow canvas opens: full screen, or framed in the page. |
+| `canvas.minimap` | `auto`, `always`, `never` | `auto` | A workflow canvas opens, until the person chooses in that browser. `auto` shows it from six nodes. |
+| `canvas.resultsBand` | `closed`, `open` | `closed` | A workflow canvas opens, until the person chooses in that browser. |
+| `sqlConsole.textSize` | `11`, `12`, `13`, `14`, `16`, in pixels | `12` | The SQL console opens: its editor's text size. The other SQL editors stay at 12 pixels. |
+| `sqlConsole.lineWrap` | `true` (on) or `false` (off) | off | The SQL console opens: whether its editor wraps long lines. |
+| `imageExport.width` | `1280`, `1920`, `2560`, in pixels | `1920` | A fresh image export card opens: its starting width. |
+| `imageExport.shape` | `16:9`, `4:3`, `1:1` | `4:3` | A fresh image export card opens: its starting shape. |
+
+A layer created with a style keeps it, and a drawn sketch's layer takes only the
+cycle's color. Null clears a stored default, returning it to the value above.
 
 ## Fixed result limits
 

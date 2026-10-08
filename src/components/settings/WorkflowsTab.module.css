@@ -1,0 +1,120 @@
+/* The Workflows & SQL tab: the canvas sketches in the Canvas opens
+   pictures, and the console's editor in miniature, drawn as text in the
+   editor's face, line height, gutter and code colors (the --code-*
+   tokens). The sample's text size is the kept one, set inline. */
+
+/* how a canvas opens, in the interface's own tones */
+.picture {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.canvas {
+  fill: var(--bg-raised);
+}
+
+.ground {
+  fill: var(--bg-hover);
+}
+
+.frame {
+  fill: var(--bg-raised);
+  stroke: var(--border-strong);
+  stroke-width: 1;
+}
+
+.node {
+  fill: var(--bg-panel);
+  stroke: var(--border-strong);
+  stroke-width: 1;
+}
+
+.edge {
+  fill: none;
+  stroke: var(--fg-faint);
+  stroke-width: 1;
+}
+
+.chrome {
+  fill: var(--bg-panel);
+  stroke: var(--border);
+  stroke-width: 1;
+}
+
+.chromeQuiet {
+  fill: var(--border-strong);
+}
+
+.band {
+  fill: var(--bg-panel);
+  stroke: var(--border-strong);
+  stroke-width: 1;
+}
+
+/* the console's editor in miniature */
+.editor {
+  width: 100%;
+  overflow: hidden;
+  padding: 8px 12px 8px 0;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg-raised);
+  color: var(--fg);
+  font-family: var(--font-mono);
+  font-weight: 400;
+  line-height: 1.75;
+}
+
+.line {
+  display: flex;
+  min-width: 0;
+}
+
+.gutter {
+  flex: none;
+  min-width: 26px;
+  padding: 0 10px 0 4px;
+  text-align: right;
+  color: var(--fg-faint);
+  user-select: none;
+}
+
+.code {
+  flex: 1;
+  min-width: 0;
+  padding: 0 2px 0 4px;
+  white-space: pre;
+  overflow: hidden;
+}
+
+.editor[data-wrap] .code {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.code [data-token="keyword"] {
+  color: var(--code-keyword);
+  font-weight: 600;
+}
+
+.code [data-token="function"] {
+  color: var(--code-function);
+}
+
+.code [data-token="string"] {
+  color: var(--code-string);
+}
+
+.code [data-token="number"] {
+  color: var(--code-number);
+}
+
+.code [data-token="comment"] {
+  color: var(--code-comment);
+  font-style: italic;
+}
+
+.code [data-token="operator"] {
+  color: var(--code-operator);
+}

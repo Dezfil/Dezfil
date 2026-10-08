@@ -11,7 +11,7 @@ import {
 } from "@xyflow/react";
 import { CanvasMinimap } from "./CanvasMinimap";
 import { CanvasNotices, type CanvasNotice } from "./CanvasNotices";
-import { readMinimapChoice, writeMinimapChoice } from "./minimap-store";
+import { useCanvasOpening } from "./canvas-opening";
 import { CanvasPane } from "./CanvasPane";
 import { CanvasFurniture, bandReserve, freeRectOf } from "./CanvasFurniture";
 import { canvasHelperLayout, fitHelper } from "./assistant-layout";
@@ -50,7 +50,7 @@ import {
   type ReadFlowEdge,
 } from "./to-flow";
 import type { SaveState } from "./use-layout-saves";
-import { FAR_ZOOM, MINIMAP_AT } from "./view";
+import { FAR_ZOOM } from "./view";
 import styles from "./WorkflowCanvas.module.css";
 
 export type { HistoryChrome };
@@ -138,7 +138,9 @@ function Canvas({
   recipeName,
 }: WorkflowCanvasProps) {
   const flow = useReactFlow<FlowNode, ReadFlowEdge>();
-  const [view, setView] = useState<"full" | "framed">("full");
+  // Full screen or framed, and the minimap until the viewer chose by the
+  // stage button: as the instance's defaults say (canvas-opening.ts).
+  const { view, setView, minimapShown, toggleMinimap } = useCanvasOpening(graph.members.length);
   // A transient notice at the canvas's foot: a refusal's reason, a link made.
   // It stands before the coordinators because their Retry ports speak here.
   const [notice, setNotice] = useState<CanvasNotice | null>(null);
@@ -155,18 +157,6 @@ function Canvas({
     noticeTimer.current = null;
     setNotice(null);
   }, []);
-  // The minimap: spec rule (from six members) until the viewer chooses by
-  // the stage button, then their choice in every workflow (the browser's,
-  // never the server's). The button always toggles what is on the screen,
-  // so a press under six members shows the map rather than recording a
-  // choice nothing displays.
-  const [minimapChoice, setMinimapChoice] = useState(readMinimapChoice);
-  const minimapShown = minimapChoice ? minimapChoice === "shown" : graph.members.length >= MINIMAP_AT;
-  const toggleMinimap = useCallback(() => {
-    const next = minimapShown ? "hidden" : "shown";
-    writeMinimapChoice(next);
-    setMinimapChoice(next);
-  }, [minimapShown]);
   /** A member to select on its first reconciliation (a paste): state, since the reconciliation runs in render. */
   const [pendingSelect, setPendingSelect] = useState<string | null>(null);
   // Full view dissolves the header bar over the surface, as the builder's
@@ -296,7 +286,7 @@ function Canvas({
       shift.current = origin();
       setView(next);
     },
-    [origin],
+    [origin, setView],
   );
 
   // Moving, adding, linking, selecting, removing, the keys that mutate,

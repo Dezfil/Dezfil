@@ -226,6 +226,17 @@ describe("export image definition — the public contract", () => {
     expect(def.title).toBeNull();
   });
 
+  it("seeds the output size the card opens at, its height taken from that size", () => {
+    const space = { width: 1920, scale: 2560 / 1920 };
+    const def = initialDefinition(seed, space, { width: 2560, height: 1440 });
+    expect(def.size).toEqual({ width: 2560, height: 1440 });
+    expect(resolveMapScale(def)).toBe(space.scale);
+    expect(def.viewport.zoom).toBe(11 + Math.log2(1920 / seed.canvasWidth));
+    expect(validate(def, EXPORT_IMAGE_DEFINITION_SCHEMA)).toEqual([]);
+    // Without one, the product's own: 1920 at 4:3.
+    expect(initialDefinition(seed, space).size).toEqual({ width: 1920, height: 1440 });
+  });
+
   it("the renderer operation is the schema's sole consumer, with the tool", () => {
     // asserted no consumer — deliberately, so the schema carried no tool
     // before an operation implemented it. The renderer is that

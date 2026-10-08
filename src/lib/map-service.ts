@@ -51,6 +51,7 @@ import {
   touchProjectsOf,
 } from "@/lib/metadata/projects";
 import { metadataDb } from "@/lib/metadata/db";
+import { instanceDefaults, type InstanceDefaults } from "@/lib/settings/defaults";
 import { mapEvaluation } from "@/lib/query/context";
 import {
   recordStep,
@@ -74,10 +75,13 @@ const RECORDED_MAP_FIELDS = [
   "widgetsPublished",
 ] as const;
 
-/** Fresh maps open on the populated world: zoomed to ~1.3 and biased north
- * so the canvas clamp pins the view just under the top of the world —
+/** Where a new map opens, from the instance's defaults. The product's own
+ * view opens on the populated world: zoomed to ~1.3 and biased north so
+ * the canvas clamp pins the view just under the top of the world,
  * Greenland to the Southern Ocean, no dead space above. */
-const DEFAULT_VIEWPORT: Viewport = { lng: 0, lat: 40, zoom: 1.3 };
+function startingView(defaults: InstanceDefaults): Viewport {
+  return { lng: defaults["newMap.longitude"], lat: defaults["newMap.latitude"], zoom: defaults["newMap.zoom"] };
+}
 
 /**
  * Validate and normalize incoming basemap layer visibility. Only hidden
@@ -281,19 +285,27 @@ export async function validateMapWriteRefs(
   }
 }
 
+/** Every path that makes a map (the Maps screen, the API, the assistant,
+ * the generated tools) comes through here, so each takes the instance's
+ * defaults as they stand in the creating transaction. A basemap or legend
+ * corner at the product's value resolves to unset and is stored as unset,
+ * as every map before the defaults existed. */
 export function createMap(scope: AccountScope, name: string, projectId: string | null = null): MapRecord & DocumentFacts {
   requireAccountScope(scope);
   if (projectId) requireFilingDestination(scope, projectId);
+  const db = metadataDb();
+  return db.transaction(() => {
+  const defaults = instanceDefaults(db);
   const now = new Date().toISOString();
   const map: MapRecord = {
     id: randomUUID(),
     name: name.trim() || "Untitled map",
-    viewport: DEFAULT_VIEWPORT,
-    basemap: null,
+    viewport: startingView(defaults),
+    basemap: defaults["newMap.basemap"],
     customBasemap: null,
     basemapLayers: null,
     note: null,
-    legendCorner: null,
+    legendCorner: defaults["newMap.legendCorner"],
     legendOrder: null,
     timeline: null,
     widgets: [],
@@ -304,7 +316,6 @@ export function createMap(scope: AccountScope, name: string, projectId: string |
     createdAt: now,
     updatedAt: now,
   };
-  return metadataDb().transaction(() => {
   recordDocumentBatch(scope, () => {
     if (projectId) requireFilingDestination(scope, projectId);
     insertMap(scope, map);
@@ -550,7 +561,9 @@ export function updateMap(
  * Duplicate a map whole: same viewport, basemap, note, legend, and layers
  * under fresh ids — an unpublished draft named "<name> copy". History
  * stays behind; a docked timeline follows its copied layer. Tiles rebuild
- * lazily for the new layer ids, like any new layer.
+ * lazily for the new layer ids, like any new layer. A copy is not a new
+ * map: it reads no instance default, so an unset basemap or legend corner
+ * stays unset.
  *
  * Anyone who reaches the map may duplicate it, a frozen one included: the
  * copy is the duplicator's own, keeps the original's SQL home and its

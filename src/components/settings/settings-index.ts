@@ -2,6 +2,7 @@ import type { Account } from "@/lib/metadata/accounts";
 import type { Look } from "@/lib/look";
 import type { ApiToken } from "@/lib/metadata/auth-credentials";
 import { LANDING_PAGES } from "@/components/auth/entry-settings";
+import { DEFAULTS_TABS, rowValueWords, type DefaultsTabId } from "./defaults-table";
 import type { InstanceRead } from "./instance-read";
 import { capacityText, LIMITS_CARDS, withShownUnit } from "./limits-table";
 import { choiceLabel, LOOK_CARDS } from "./look-tab";
@@ -87,6 +88,14 @@ function generalCards(values: EntryValues): IndexCard[] {
   ];
 }
 
+/** Maps, Workflows & SQL or Publishing: each row by its label, its words
+ * and its value as the tab shows it. */
+function defaultsCards(tab: DefaultsTabId, read: InstanceRead): IndexCard[] {
+  return DEFAULTS_TABS[tab].map(card => ({ id: card.id, title: card.title, keys: card.keys, rows: card.rows.map(row => ({
+    id: row.id, label: row.label, keys: row.keys, value: rowValueWords(row, read.settings),
+  })) }));
+}
+
 function limitsCards(read: InstanceRead): IndexCard[] {
   return LIMITS_CARDS.map(card => ({ id: card.id, title: card.title, keys: card.keys, rows: card.rows.map(row => {
     const value = row.kind === "capacity" ? capacityText(row.of, row.of === "geocode" ? read.capacities.geocodeRows : read.capacities.isochroneOrigins)
@@ -140,6 +149,10 @@ export function settingsDeclarations(sources: IndexSources, admin: boolean): Tab
     tokens: tokenCards(sources.tokens),
     appearance: appearanceCards(sources.look),
     ...(general ? { general: generalCards(general) } : {}),
-    ...(admin && sources.instance ? { limits: limitsCards(sources.instance), system: systemCards(sources.instance, sources.health, sources.assistant) } : {}),
+    ...(admin && sources.instance ? {
+      maps: defaultsCards("maps", sources.instance), workflows: defaultsCards("workflows", sources.instance),
+      publishing: defaultsCards("publishing", sources.instance),
+      limits: limitsCards(sources.instance), system: systemCards(sources.instance, sources.health, sources.assistant),
+    } : {}),
   };
 }

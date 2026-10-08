@@ -33,12 +33,35 @@ const settings = Object.fromEntries(SETTING_CATALOGUE.filter(d => d.scope !== "a
   })];
 }));
 
+/** What new things start with, as the runtime configuration reports them:
+ * the settings every signed-in account reads, keyed and valued as the
+ * change operation takes them, every key present. */
+export const INSTANCE_DEFAULTS_SCHEMA = {
+  type: "object", additionalProperties: false,
+  required: SETTING_CATALOGUE.filter(d => d.readBy === "signed-in").map(definition => definition.key),
+  description: "What new things start with on this instance, keyed and valued as PATCH /api/instance/settings takes them: every key " +
+    "with its effective value. A new map takes the newMap values and a new layer created without a style the newLayer values; " +
+    "the workflow canvas, the SQL console and a fresh image export card take theirs as they open. Admins change them, and " +
+    "nothing that already exists changes with them. A basemap the instance no longer offers reads as auto.",
+  properties: Object.fromEntries(SETTING_CATALOGUE.filter(d => d.readBy === "signed-in").map(definition => {
+    const constraint = definition.write!;
+    const value = constraint.kind === "integer" ? { type: "integer", minimum: constraint.min, maximum: constraint.max }
+      : constraint.kind === "decimal" ? { type: "number", minimum: constraint.min, maximum: constraint.max }
+      : constraint.kind === "switch" ? { type: "boolean" }
+      : constraint.kind === "text" ? { type: "string", maxLength: constraint.maxLength }
+      : { type: "string", enum: [...constraint.values] };
+    return [definition.key, { ...value, description: `${definition.label}${definition.unit ? ` (${definition.unit})` : ""}. ${definition.purpose}` }];
+  })),
+};
+
 export const INSTANCE_SETTINGS_SCHEMAS = {
   InstanceSettingsPatch: {
     type: "object", additionalProperties: false,
     properties: Object.fromEntries(SETTING_CATALOGUE.filter(d => d.scope === "instance" && d.editable).map(definition => {
       const constraint = definition.write!;
       const schema = constraint.kind === "integer" ? { type: ["integer", "null"], minimum: constraint.min, maximum: constraint.max }
+        : constraint.kind === "decimal" ? { type: ["number", "null"], minimum: constraint.min, maximum: constraint.max }
+        : constraint.kind === "switch" ? { type: ["boolean", "null"] }
         : constraint.kind === "text" ? { type: ["string", "null"], pattern: `^\\s*[\\s\\S]{0,${constraint.maxLength}}\\s*$` }
         : { type: ["string", "null"], enum: [...constraint.values, null] };
       return [definition.key, { ...schema, description: `${definition.label}. ${definition.purpose} Null clears the stored value. ${constraint.kind === "text" ? `Text is trimmed before the ${constraint.maxLength}-character limit; empty text clears to the default.` : ""}`.trim() }];

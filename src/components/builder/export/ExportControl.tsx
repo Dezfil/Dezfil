@@ -49,8 +49,9 @@ export function ExportControl({
   chromeClassName: string;
   /** Guarded card opening. */
   onExportImage?: () => boolean;
-  /** Reads the live camera and canvas on each menu opening. */
-  imageExportAvailable?: () => boolean;
+  /** Reads the live camera and canvas on each menu opening, and asks for
+   * the instance's latest defaults, answering again once they are in. */
+  imageExportAvailable?: (onAnswer?: (available: boolean) => void) => boolean;
   /** Shared native-stream download road for every builder data door. */
   layerDataDownloads: LayerDataDownloadPort;
 }) {
@@ -71,7 +72,10 @@ export function ExportControl({
       triggerClassName={chromeClassName}
       triggerProps={{ "data-hint": "Export image or data" }}
       onOpen={() =>
-        setImageAvailable(imageConfigured && imageExportAvailable())
+        setImageAvailable(
+          imageConfigured &&
+            imageExportAvailable((available) => setImageAvailable(available)),
+        )
       }
       // Both classes on the PORTALED menu: `data-export-menu` rides the
       // trigger's wrapper, so a selector hung off it never matched the
