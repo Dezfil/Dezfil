@@ -25,7 +25,9 @@ import { useExportCard } from "./use-export-card";
  * the page handed them down when it opened, with every other opening rule
  * as before, the map-size step judged at that shape. An open card keeps
  * the definition it opened on when the page hands down others; its next
- * opening takes them. The card is wired as the builder wires it.
+ * opening takes them. The card is wired as the builder wires it. The
+ * Export menu's own read of the instance's latest defaults never answers
+ * here, so the page's snapshot stands throughout.
  */
 
 const rail = vi.hoisted(() => ({ shown: [] as { def: ExportImageDefinition; mapStep: SizeStep; aspect: string }[] }));
@@ -97,6 +99,7 @@ afterEach(() => {
 async function builderUnder(builder: Builder, defaults: InstanceDefaults | null) {
   cleanups.splice(0).forEach((cleanup) => cleanup());
   rail.shown.length = 0;
+  vi.stubGlobal("fetch", vi.fn(() => new Promise(() => {})));
   const host = installDomHost();
   const root = createRoot(host.document.body as unknown as Element);
   cleanups.push(() => { act(() => root.unmount()); host.uninstall(); });

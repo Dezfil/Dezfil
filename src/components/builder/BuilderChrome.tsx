@@ -65,8 +65,9 @@ export function HeaderChrome({
   onPublishChange: () => void;
   /** Opens the export image card through its independent framing guard. */
   onExportImage?: () => boolean;
-  /** Rechecks image framing from the live camera/canvas when Export opens. */
-  imageExportAvailable?: () => boolean;
+  /** Rechecks image framing from the live camera/canvas when Export opens,
+   * and again once the instance's latest defaults are read. */
+  imageExportAvailable?: (onAnswer?: (available: boolean) => void) => boolean;
   /** The builder's render records, so the export menu's layer rows
    * can say how much each layer draws. */
   renders: Record<string, LayerRenderData | undefined>;
