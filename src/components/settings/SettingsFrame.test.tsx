@@ -151,12 +151,34 @@ describe("the Settings frame", () => {
       { text: "Tokens", href: "/settings/tokens" },
       { text: "Appearance", href: "/settings/appearance" },
       { text: "General", href: "/settings/general" },
+      { text: "Maps", href: "/settings/maps" },
+      { text: "Workflows & SQL", href: "/settings/workflows" },
+      { text: "Publishing", href: "/settings/publishing" },
       { text: "Limits", href: "/settings/limits" },
       { text: "System", href: "/settings/system" },
       { text: "Users", href: "/users" },
     ]);
+    // Every tab in the column has its glyph.
+    expect(column().querySelectorAll("a").every(a => a.querySelector("svg") !== null)).toBe(true);
     expect(column().textContent).toContain("You");
     expect(column().textContent).toContain("Instance");
+  });
+
+  it("draws Maps, Workflows & SQL and Publishing for an admin, each marked in the column, from the configuration read", async () => {
+    await open("/settings/maps");
+    const current = () => column().querySelectorAll('a[aria-current="page"]').map(a => a.textContent);
+    expect(current()).toEqual(["Maps"]);
+    expect(tabContent().getAttribute("data-tab")).toBe("maps");
+    expect(["card-new-maps", "card-legend", "card-new-layers"].map(id => byId(id)?.tagName)).toEqual(["SECTION", "SECTION", "SECTION"]);
+    nav.pathname = "/settings/workflows"; await follow();
+    expect(current()).toEqual(["Workflows & SQL"]);
+    expect(["card-workflow-canvas", "card-sql-console"].map(id => byId(id)?.tagName)).toEqual(["SECTION", "SECTION"]);
+    expect(byId("card-new-maps")).toBeNull();
+    nav.pathname = "/settings/publishing"; await follow();
+    expect(current()).toEqual(["Publishing"]);
+    expect(byId("publishing-export")?.tagName).toBe("SECTION");
+    expect(readLastTab()).toBe("publishing");
+    expect(requests).toContain("/api/instance/settings");
   });
 
   it("shows a member Account, Tokens, Appearance and General only, and never makes the configuration read", async () => {
@@ -164,6 +186,22 @@ describe("the Settings frame", () => {
     expect(columnLinks().map(link => link.text)).toEqual(["Account", "Tokens", "Appearance", "General"]);
     expect(requests).not.toContain("/api/instance/settings");
     expect(requests.every(url => !url.startsWith("/api/instance"))).toBe(true);
+  });
+
+  it("opens Account for a member at the addresses of Maps, Workflows & SQL and Publishing, rows included, and never reads the configuration", async () => {
+    await open("/settings/maps", "", "member");
+    expect(nav.replace).toHaveBeenLastCalledWith("/settings/account", { scroll: false });
+    expect(byId("account")?.tagName).toBe("SECTION");
+    for (const [pathname, hash] of [["/settings/workflows", "#set-minimap"], ["/settings/publishing", "#set-export-width"], ["/settings/maps", "#set-basemap"]]) {
+      nav.pathname = pathname; nav.hash = hash; await follow();
+      expect(nav.replace).toHaveBeenLastCalledWith("/settings/account", { scroll: false });
+      expect(byId("account")?.tagName).toBe("SECTION");
+      expect(column().querySelectorAll('a[aria-current="page"]').map(a => a.textContent)).toEqual(["Account"]);
+    }
+    expect(columnLinks().map(link => link.text)).toEqual(["Account", "Tokens", "Appearance", "General"]);
+    for (const id of ["card-new-maps", "card-workflow-canvas", "publishing-export", "set-minimap", "set-export-width", "set-basemap"]) expect(byId(id)).toBeNull();
+    expect(requests.every(url => !url.startsWith("/api/instance"))).toBe(true);
+    expect(readLastTab()).toBe("account");
   });
 
   it("marks the tab on screen in the column", async () => {

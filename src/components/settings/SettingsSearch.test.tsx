@@ -31,6 +31,8 @@ vi.mock("next/link", () => ({
 const PASSWORD = "seeded-Password-4711", SECRET = "dz_seededTokenSecret_0042";
 /** The person's look as the own-settings read reports it. */
 const LOOK = { ...defaultLook(), color: "slate", background: "hex" };
+/** What the configuration read reports stored. */
+const STORED = { instanceName: "Atlas North", landingPage: "maps", queryTimeoutS: 90, "newLayer.colorCycle": "tab10" };
 let admin = true;
 let tokens: { id: string; name: string; createdAt: string; lastUsedAt: string | null; revokedAt: string | null }[];
 let requests: string[];
@@ -69,7 +71,7 @@ beforeEach(() => {
     if (url === "/api/instance/settings") {
       // The read answers a moment later than the tab asks, as a server does.
       await new Promise(resolve => setTimeout(resolve, 5));
-      return Response.json(storedRead({ instanceName: "Atlas North", landingPage: "maps", queryTimeoutS: 90 }));
+      return Response.json(storedRead(STORED));
     }
     if (url === "/api/auth/entry") return Response.json({ instanceName: "Atlas North", signInMessage: "", lostPasswordContact: "the GIS team", landingPage: "projects", setupRequired: false });
     if (url === "/api/health") return Response.json({ status: "ready" });
@@ -239,6 +241,36 @@ describe("the Settings search", () => {
     expect(scrolled).toContain("set-preview-rows");
   });
 
+  it("opens Maps, Workflows & SQL and Publishing from a hit, each with its row marked once drawn", async () => {
+    await open("/settings/account");
+    const hits = [
+      ["point radius", "Instance / Maps · Point radius", "/settings/maps#set-point-radius"],
+      ["minimap", "Instance / Workflows & SQL · Minimap", "/settings/workflows#set-minimap"],
+      ["starting shape", "Instance / Publishing · Starting shape", "/settings/publishing#set-export-shape"],
+    ] as const;
+    for (const [query, line, address] of hits) {
+      await find(query);
+      await choose(line);
+      expect(nav.push).toHaveBeenLastCalledWith(address, { scroll: false });
+      expect(field().value).toBe("");
+      await arrive(address);
+      const anchor = address.slice(address.indexOf("#") + 1);
+      expect(container.querySelector(`[id="${anchor}"]`)!.hasAttribute("data-marked"), line).toBe(true);
+      expect(scrolled).toContain(anchor);
+      expect(column().querySelectorAll('a[aria-current="page"]').map(a => a.textContent)).toEqual([line.split(" / ")[1].split(" · ")[0]]);
+    }
+  });
+
+  it("finds a row of what new things start with by the words of its kept value, with its card", async () => {
+    await open("/settings/account");
+    await find("tab10");
+    expect(lines()).toEqual(["Instance / Maps · Color cycle"]);
+    expect(metas()).toEqual(["New layers · Tab10"]);
+    await find("text size");
+    expect(lines()).toEqual(["Instance / Workflows & SQL · Text size"]);
+    expect(metas()).toEqual(["SQL console · 12 px"]);
+  });
+
   it("marks a hit's row on the tab already open without leaving it", async () => {
     await open("/settings/limits");
     await find("images at once");
@@ -271,11 +303,12 @@ describe("the Settings search", () => {
     expect(container.querySelector('[id="settings-users"]')!.hasAttribute("data-marked")).toBe(true);
   });
 
-  it("gives a member only the member's tabs: never Limits, System or Users, and never the configuration read", async () => {
+  it("gives a member only the member's tabs: never Maps, Workflows & SQL, Publishing, Limits, System or Users, and never the configuration read", async () => {
     await open("/settings/account", "member");
-    for (const query of ["limit", "system", "users", "invite", "environment", "version"]) {
+    for (const query of ["limit", "system", "users", "invite", "environment", "version", "maps", "basemap", "opacity", "workflows",
+      "minimap", "text size", "publishing", "starting width", "tab10"]) {
       await find(query);
-      expect(lines().filter(line => /Limits|System|Users/.test(line))).toEqual([]);
+      expect(lines().filter(line => /Maps|Workflows|Publishing|Limits|System|Users/.test(line)), query).toEqual([]);
     }
     await find("gis team");
     expect(lines()).toEqual(["Instance / General · Lost password contact"]);
@@ -287,11 +320,14 @@ describe("where a hit lands", () => {
   it("names only cards and rows its tab draws, under the same id and label", async () => {
     const declared = settingsDeclarations({
       account: { id: "ada", name: "Ada Okafor", email: "ada@example.test", sqlName: "ada_okafor", isAdmin: true } as never,
-      tokens, look: LOOK, instance: storedRead({ instanceName: "Atlas North", landingPage: "maps", queryTimeoutS: 90 }), entry: null,
+      tokens, look: LOOK, instance: storedRead(STORED), entry: null,
       health: "ready", assistant: { enabled: false, reason: "No model credential is configured." },
     }, true);
-    for (const tab of ["account", "tokens", "appearance", "general", "limits", "system"] as SettingsTabId[]) {
+    const tabs: SettingsTabId[] = ["account", "tokens", "appearance", "general", "maps", "workflows", "publishing", "limits", "system"];
+    expect(Object.keys(declared).sort()).toEqual([...tabs].sort());
+    for (const tab of tabs) {
       await arrive(`/settings/${tab}`);
+      expect(declared[tab]!.length, tab).toBeGreaterThan(0);
       for (const card of declared[tab]!) {
         expect(tabContent().querySelector(`[id="${card.id}"]`), `${tab}: ${card.id}`).not.toBeNull();
         for (const row of card.rows.filter(row => !row.secret)) {

@@ -1,8 +1,8 @@
 "use client";
 import { ErrorNote } from "@/components/ui/ErrorNote";
 import { Switch } from "@/components/ui/Switch";
-import { choiceValues, DefaultsCardView, DefaultsChoiceRow, invalid, RowErrors, rowSaved, useDefaultsUnit } from "./defaults-card";
-import { choiceWords, DEFAULTS_TABS } from "./defaults-table";
+import { DefaultsCardView, DefaultsChoiceRow, invalid, RowErrors, rowSaved, useDefaultsUnit } from "./defaults-card";
+import { choiceValues, choiceWords, DEFAULTS_TABS } from "./defaults-table";
 import { useInstanceRead, type InstanceRead } from "./instance-read";
 import { PictureChoice } from "./PictureChoice";
 import type { SaveUnit, UnitSnapshot } from "./save-unit";

@@ -974,6 +974,21 @@ export function ServerIcon() {
   return <ChromeSvg strokeWidth={1.7}><rect x="2" y="2" width="20" height="8" rx="2" /><rect x="2" y="14" width="20" height="8" rx="2" /><path d="M6 6h.01M6 18h.01" /></ChromeSvg>;
 }
 
+/** The Maps tab: the rail's Maps glyph, at the chrome tier. */
+export function MapsIcon() {
+  return <ChromeSvg strokeWidth={1.7}><path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3V6ZM9 3v15M15 6v15" /></ChromeSvg>;
+}
+
+/** The Workflows & SQL tab: the rail's Workflows glyph, at the chrome tier. */
+export function WorkflowsIcon() {
+  return <ChromeSvg strokeWidth={1.7}><rect x="3.5" y="3.5" width="6.5" height="6.5" rx="1.5" /><rect x="14" y="14" width="6.5" height="6.5" rx="1.5" /><path d="M10 6.75h4.75a2 2 0 0 1 2 2V14M14 17.25H9.25a2 2 0 0 1-2-2V10" /></ChromeSvg>;
+}
+
+/** The Publishing tab: a globe. */
+export function PublishingIcon() {
+  return <ChromeSvg strokeWidth={1.7}><circle cx="12" cy="12" r="10" /><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10Z" /></ChromeSvg>;
+}
+
 /** The rail's Users glyph, at the chrome tier. */
 export function UsersIcon() {
   return <ChromeSvg strokeWidth={1.7}><circle cx="9" cy="8" r="3" /><path d="M3 21v-2a6 6 0 0 1 12 0v2M16 5a3 3 0 0 1 0 6M18 15a5 5 0 0 1 3 4v2" /></ChromeSvg>;

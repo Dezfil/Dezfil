@@ -394,7 +394,7 @@ test.describe("the Settings page", () => {
     expectQuiet(errors);
   });
 
-  test("a member's column holds Account, Tokens, Appearance and General only, and the search finds nothing beyond them", async ({ browser, request, baseURL }) => {
+  test("a member's column holds Account, Tokens, Appearance and General only, the admins' tabs' addresses open Account, and the search finds nothing beyond them", async ({ browser, request, baseURL }) => {
     const people: Person[] = [];
     try {
       const member = await invitePerson(browser, request, baseURL!, "Member", runTag());
@@ -402,6 +402,9 @@ test.describe("the Settings page", () => {
       await routeHouse(member.context);
       const page = await member.context.newPage();
       const errors = trackConsole(page);
+      // The configuration read is an admin's: a member's pages never ask for it.
+      const configurationReads: string[] = [];
+      page.on("request", sent => { if (new URL(sent.url()).pathname === SETTINGS) configurationReads.push(sent.url()); });
       await page.goto("/settings/general");
       const links = column(page).getByRole("link");
       await expect(links).toHaveText(["Account", "Tokens", "Appearance", "General"]);
@@ -419,15 +422,23 @@ test.describe("the Settings page", () => {
       await expect(card(page, "Account")).toBeVisible();
       await page.goto("/settings/system#sys-version");
       await expect(page).toHaveURL(new URL("/settings/account", baseURL).href);
+      // So do the addresses of what new things start with, a row's included.
+      for (const address of ["/settings/maps", "/settings/workflows#set-minimap", "/settings/publishing#set-export-width"]) {
+        await page.goto(address);
+        await expect(page).toHaveURL(new URL("/settings/account", baseURL).href);
+        await expect(card(page, "Account")).toBeVisible();
+        await expect(column(page).getByRole("link")).toHaveText(["Account", "Tokens", "Appearance", "General"]);
+      }
 
       const field = page.getByRole("searchbox", { name: "Search settings" });
-      for (const query of ["limit", "users", "DEZFIL_OPERATION_QUEUE_MAX", "version"]) {
+      for (const query of ["limit", "users", "DEZFIL_OPERATION_QUEUE_MAX", "version", "basemap", "minimap", "starting width", "workflows"]) {
         await field.fill(query);
         await expect(answer(page)).toHaveText(`No settings match “${query}”`);
-        await expect(page.getByRole("button", { name: /^(Instance \/ (Limits|System)|Side menu \/ Users)/ })).toHaveCount(0);
+        await expect(page.getByRole("button", { name: /^(Instance \/ (Maps|Workflows & SQL|Publishing|Limits|System)|Side menu \/ Users)/ })).toHaveCount(0);
       }
       await field.fill("instance name");
       await expect(page.getByRole("button", { name: /^Instance \/ General · Instance name/ })).toBeVisible();
+      expect(configurationReads).toEqual([]);
       expectQuiet(errors);
     } finally { await closeAll(people); }
   });

@@ -2,11 +2,13 @@
  * The Settings page's tabs, in the column's order. Labels and groups are
  * the frame's; each tab's content is its own. A tab marked for admins is
  * drawn only for an admin, and its address opens Account for anyone
- * else, so a member never triggers a read only an admin may make.
+ * else, so a member never triggers a read only an admin may make. Maps,
+ * Workflows & SQL and Publishing hold what new things start with: a
+ * member meets those as the starting state of what they make.
  */
 
 export type SettingsGroup = "you" | "instance";
-export type SettingsTabId = "account" | "tokens" | "appearance" | "general" | "limits" | "system";
+export type SettingsTabId = "account" | "tokens" | "appearance" | "general" | "maps" | "workflows" | "publishing" | "limits" | "system";
 
 export interface SettingsTab {
   readonly id: SettingsTabId;
@@ -20,6 +22,9 @@ export const SETTINGS_TABS: readonly SettingsTab[] = [
   { id: "tokens", label: "Tokens", group: "you", adminOnly: false },
   { id: "appearance", label: "Appearance", group: "you", adminOnly: false },
   { id: "general", label: "General", group: "instance", adminOnly: false },
+  { id: "maps", label: "Maps", group: "instance", adminOnly: true },
+  { id: "workflows", label: "Workflows & SQL", group: "instance", adminOnly: true },
+  { id: "publishing", label: "Publishing", group: "instance", adminOnly: true },
   { id: "limits", label: "Limits", group: "instance", adminOnly: true },
   { id: "system", label: "System", group: "instance", adminOnly: true },
 ];

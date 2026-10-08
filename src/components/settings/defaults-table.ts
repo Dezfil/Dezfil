@@ -1,5 +1,9 @@
+import type { ThumbStyle } from "@/components/map/BasemapThumb";
+import { isBasemapKey } from "@/lib/basemap";
 import type { INSTANCE_DEFAULT_SETTINGS, InstanceDefaultKey, InstanceDefaultValue } from "@/lib/settings/instance-defaults";
 import { PALETTES } from "@/lib/style/palettes";
+import { serviceSetUp } from "./limits-table";
+import type { ReadSetting } from "./server-set";
 
 /**
  * What new maps, new layers, the workflow canvas, the SQL console and a
@@ -145,3 +149,39 @@ export function defaultsFields(tab?: DefaultsTabId): DefaultsField[] {
  * draws several, else its row's. */
 export const DEFAULTS_LABELS: Readonly<Record<string, string>> = Object.fromEntries(
   defaultsRows().flatMap(row => row.fields.map(field => [field.key, field.label ?? row.label])));
+
+type Settings = Readonly<Record<string, ReadSetting>>;
+
+/** The values a choice offers, as the read gives them. */
+export function choiceValues(setting: ReadSetting | undefined): readonly string[] {
+  return setting?.write?.kind === "choice" ? setting.write.values : [];
+}
+
+/** The basemaps a new map may start on here: what the builder's picker
+ * offers, Satellite only where imagery is set up. */
+export function offeredBasemaps(settings: Settings): ThumbStyle[] {
+  const imagery = serviceSetUp(settings, "satelliteUrl") === true;
+  return choiceValues(settings["newMap.basemap"])
+    .filter((value): value is ThumbStyle => value === "auto" || isBasemapKey(value))
+    .filter(value => value !== "satellite" || imagery);
+}
+
+/** A basemap as a new map starts on it: one no longer offered is Auto. */
+export const startsOn = (value: unknown, offered: readonly ThumbStyle[]): ThumbStyle =>
+  offered.find(style => style === value) ?? "auto";
+
+/** A row's value in the words its tab shows it with, as the search reads
+ * it: a choice in its words (a basemap the instance no longer offers as
+ * Auto), a switch On or Off, a number with its unit; a row of several
+ * names each, "Latitude 40, longitude 0, zoom 1.3". */
+export function rowValueWords(row: DefaultsRow, settings: Settings): string {
+  const words = row.fields.map(field => {
+    const value = settings[field.key]?.value;
+    if (field.key === "newMap.basemap") return choiceWords(field.key, startsOn(value, offeredBasemaps(settings)));
+    if (typeof value === "boolean") return value ? "On" : "Off";
+    if (typeof value === "number") return field.unit ? `${value} ${field.unit}` : String(value);
+    return value === null || value === undefined ? "" : choiceWords(field.key, value);
+  });
+  if (row.fields.length === 1) return words[0];
+  return row.fields.map((field, index) => `${index ? (field.label ?? "").toLowerCase() : field.label} ${words[index]}`).join(", ");
+}

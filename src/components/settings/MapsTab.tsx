@@ -4,13 +4,12 @@ import { useTheme } from "@/components/theme";
 import { CornerPicker } from "@/components/ui/CornerPicker";
 import { ErrorNote } from "@/components/ui/ErrorNote";
 import { Select } from "@/components/ui/Field";
-import { isBasemapKey, type BasemapKey } from "@/lib/basemap";
+import type { BasemapKey } from "@/lib/basemap";
 import { isCorner } from "@/lib/corners";
-import { choiceValues, DefaultsCardView, DefaultsNumber, invalid, keptNumber, RowErrors, rowSaved, useDefaultsUnit } from "./defaults-card";
-import { choiceWords, DEFAULTS_TABS } from "./defaults-table";
+import { DefaultsCardView, DefaultsNumber, invalid, keptNumber, RowErrors, rowSaved, useDefaultsUnit } from "./defaults-card";
+import { choiceValues, choiceWords, DEFAULTS_TABS, offeredBasemaps, startsOn } from "./defaults-table";
 import { useInstanceRead, type InstanceRead } from "./instance-read";
 import { CycleSwatches, LayerSample } from "./LayerSample";
-import { serviceSetUp } from "./limits-table";
 import { PictureChoice } from "./PictureChoice";
 import type { SaveUnit, UnitSnapshot } from "./save-unit";
 import { useDrawn } from "./settings-land";
@@ -34,19 +33,6 @@ export function MapsTab() {
   if (!read) return <p role="status" className={cardStyles.loading}>Loading settings…</p>;
   return <MapsCards settings={read.settings} />;
 }
-
-/** The basemaps a new map may start on here: what the builder's picker
- * offers, Satellite only where imagery is set up. */
-function offeredBasemaps(settings: Settings): ThumbStyle[] {
-  const imagery = serviceSetUp(settings, "satelliteUrl") === true;
-  return choiceValues(settings["newMap.basemap"])
-    .filter((value): value is ThumbStyle => value === "auto" || isBasemapKey(value))
-    .filter(value => value !== "satellite" || imagery);
-}
-
-/** A basemap as a new map starts on it: one no longer offered is Auto. */
-const startsOn = (value: unknown, offered: readonly ThumbStyle[]): ThumbStyle =>
-  offered.find(style => style === value) ?? "auto";
 
 function MapsCards({ settings }: { settings: Settings }) {
   const [mapsUnit, maps] = useDefaultsUnit(NEW_MAPS, settings);

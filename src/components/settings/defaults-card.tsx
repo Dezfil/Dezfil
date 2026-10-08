@@ -1,7 +1,7 @@
 "use client";
 import { useRef, type ReactNode } from "react";
 import { ErrorNote } from "@/components/ui/ErrorNote";
-import { choiceWords, DEFAULTS_LABELS, type DefaultsCard, type DefaultsRow } from "./defaults-table";
+import { choiceValues, choiceWords, DEFAULTS_LABELS, type DefaultsCard, type DefaultsRow } from "./defaults-table";
 import { keptValues, writeInstanceSettings, type InstanceRead } from "./instance-read";
 import { inLabels } from "./limits-table";
 import { SaveUnit, type UnitSnapshot, type Value } from "./save-unit";
@@ -115,11 +115,6 @@ export function DefaultsNumber({ row, index, setting, unit, snapshot, name, pref
 export function keptNumber(snapshot: UnitSnapshot, setting: ReadSetting | undefined, key: string): number {
   const kept = snapshot.kept[key], value = Number(kept);
   return kept !== null && kept !== undefined && Number.isFinite(value) ? value : Number(setting?.defaultValue);
-}
-
-/** The values a choice offers, as the read gives them. */
-export function choiceValues(setting: ReadSetting | undefined): readonly string[] {
-  return setting?.write?.kind === "choice" ? setting.write.values : [];
 }
 
 /** A row whose one setting is a choice: the values the read offers as
