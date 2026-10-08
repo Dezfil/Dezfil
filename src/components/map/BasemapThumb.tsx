@@ -21,11 +21,24 @@ export type ThumbStyle = BasemapKey | "auto";
  * gradient. */
 const CAPTURED: BasemapKey[] = ["dark", "light", "streets", "satellite"];
 
-export function BasemapThumb({ style }: { style: ThumbStyle }) {
+export function BasemapThumb({
+  style,
+  fill = false,
+}: {
+  style: ThumbStyle;
+  /** Fill the box it sits in, which draws the edge: a settings picture
+   * card's, sized by its card rather than at the panels' fixed height. */
+  fill?: boolean;
+}) {
   const url = (key: BasemapKey) =>
     CAPTURED.includes(key) ? `url(/basemaps/thumbs/${key}.webp)` : undefined;
   return (
-    <span className={styles.thumb} data-style={style} aria-hidden>
+    <span
+      className={styles.thumb}
+      data-style={style}
+      data-fill={fill || undefined}
+      aria-hidden
+    >
       {style === "auto" ? (
         <>
           <span

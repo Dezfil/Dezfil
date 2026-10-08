@@ -667,6 +667,60 @@ describe("a number with decimals, and a switch", () => {
   });
 });
 
+describe("numbers set together", () => {
+  const latitude: UnitControl = { key: "newMap.latitude", kind: "number", decimal: true, min: -85, max: 85, defaultValue: 40 };
+  const longitude: UnitControl = { key: "newMap.longitude", kind: "number", decimal: true, min: -180, max: 180, defaultValue: 0 };
+  const zoom: UnitControl = { key: "newMap.zoom", kind: "number", decimal: true, min: 0, max: 22, defaultValue: 1.3 };
+  function view(server = fakeServer({ "newMap.latitude": 40, "newMap.longitude": 0, "newMap.zoom": 1.3 })) {
+    const unit = new SaveUnit({
+      title: "New maps", controls: [latitude, longitude, zoom], write: server.write,
+      kept: { "newMap.latitude": 40, "newMap.longitude": 0, "newMap.zoom": 1.3 },
+    });
+    return { server, unit };
+  }
+
+  it("keeps every changed number in one write, each field showing its text, and marks each Saved on the response", async () => {
+    const { server, unit } = view();
+    unit.keepTogether({ "newMap.latitude": "50.11", "newMap.longitude": "8.68", "newMap.zoom": "1.3" });
+    expect(server.calls.map(call => call.patch)).toEqual([{ "newMap.latitude": 50.11, "newMap.longitude": 8.68 }]);
+    expect(unit.snapshot.values).toMatchObject({ "newMap.latitude": "50.11", "newMap.longitude": "8.68" });
+    server.calls[0].accept(); await flush();
+    expect(unit.snapshot.kept).toMatchObject({ "newMap.latitude": 50.11, "newMap.longitude": 8.68, "newMap.zoom": 1.3 });
+    expect([...unit.snapshot.saved].sort()).toEqual(["newMap.latitude", "newMap.longitude"]);
+  });
+
+  it("drops a number still settling from its steps, so it never lands after the numbers set together", async () => {
+    const { server, unit } = view();
+    unit.step("newMap.latitude", "41");
+    unit.keepTogether({ "newMap.latitude": "-33.87", "newMap.longitude": "151.21" });
+    await vi.advanceTimersByTimeAsync(SETTLE_MS * 2);
+    expect(server.calls.map(call => call.patch)).toEqual([{ "newMap.latitude": -33.87, "newMap.longitude": 151.21 }]);
+  });
+
+  it("waits behind a write on its way, and still sends both numbers in one write", async () => {
+    const { server, unit } = view();
+    unit.edit("newMap.zoom", "4"); unit.commit("newMap.zoom");
+    unit.keepTogether({ "newMap.latitude": "10", "newMap.longitude": "20" });
+    expect(server.calls).toHaveLength(1);
+    server.calls[0].accept(); await flush();
+    expect(server.calls.map(call => call.patch)).toEqual([{ "newMap.zoom": 4 }, { "newMap.latitude": 10, "newMap.longitude": 20 }]);
+  });
+
+  it("draws the red line under a number its check refuses and keeps the others", () => {
+    const { server, unit } = view();
+    unit.keepTogether({ "newMap.latitude": "90", "newMap.longitude": "8.5" });
+    expect(unit.snapshot.errors).toEqual({ "newMap.latitude": "Enter a number from -85 to 85." });
+    expect(server.calls.map(call => call.patch)).toEqual([{ "newMap.longitude": 8.5 }]);
+  });
+
+  it("sends nothing when every number is already what is kept, and ignores a key the card does not hold", () => {
+    const { server, unit } = view();
+    unit.keepTogether({ "newMap.latitude": "40", "newMap.longitude": "0", "newMap.pitch": "30" });
+    expect(server.calls).toHaveLength(0);
+    expect(unit.snapshot.values).not.toHaveProperty("newMap.pitch");
+  });
+});
+
 describe("a setting pinned by the server's environment", () => {
   const pinned: UnitControl = { key: "previewRows", kind: "number", min: 10, max: 100000, defaultValue: 1000, locked: true };
 

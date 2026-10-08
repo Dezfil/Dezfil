@@ -43,21 +43,27 @@ export function SettingRow({ id, label, meta, after, stack, mark, children }: {
 }
 
 /**
- * A number a settings row keeps as it changes, with its unit after it. A
- * step (the arrow or page keys, the spin buttons, the wheel) is reported
- * as a step; typing is reported as typing and kept on Enter or on leaving
- * the field. A browser marks a typed change with its input type and a
- * step without one.
+ * A number a settings row keeps as it changes, with quiet words before it
+ * where a row holds several and its unit after it. A step (the arrow or
+ * page keys, the spin buttons, the wheel) is reported as a step; typing
+ * is reported as typing and kept on Enter or on leaving the field. A
+ * browser marks a typed change with its input type and a step without one.
  */
-export function NumberField({ label, unitKey, value, unit, min, max, error, errorId, onStep, onType, onCommit }: {
-  /** The field's accessible name: the row's label. */
+export function NumberField({ label, unitKey, value, prefix, unit, min, max, step = 1, error, errorId, onStep, onType, onCommit }: {
+  /** The field's accessible name: the row's label, or its own where the
+   * row holds several. */
   label: string;
   /** The save unit's key, when a unit moves focus to it. */
   unitKey: string;
   value: string;
+  /** The field's own name, shown before it. */
+  prefix?: string;
   unit?: string;
   min?: number;
   max?: number;
+  /** How far a step moves it: a whole number by default, a finer step or
+   * any amount where it takes decimals. */
+  step?: number | "any";
   /** The red line under the row, when there is one. */
   error?: string | null;
   errorId: string;
@@ -67,7 +73,8 @@ export function NumberField({ label, unitKey, value, unit, min, max, error, erro
 }) {
   const steppedAt = useRef(0);
   return <span className={styles.withUnit}>
-    <NumberInput className={styles.number} aria-label={label} data-unit-key={unitKey} value={value} min={min} max={max} step={1}
+    {prefix}
+    <NumberInput className={styles.number} aria-label={label} data-unit-key={unitKey} value={value} min={min} max={max} step={step}
       aria-invalid={error ? true : undefined} aria-describedby={error ? errorId : undefined}
       onKeyDown={event => {
         if (STEP_KEYS.test(event.key)) steppedAt.current = Date.now();

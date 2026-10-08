@@ -5,9 +5,11 @@
  *
  * - A choice, and a switch, is kept at once. A number is kept at once
  *   when stepped, and only the value the steps settle on is sent; a typed
- *   number is kept on Enter or on leaving the field. Typed text waits for
- *   the card's Save, which writes the changed keys in one request, and
- *   Save and Cancel show only while that text differs from what was saved.
+ *   number is kept on Enter or on leaving the field; numbers set together
+ *   from elsewhere (a place picked on a map) are kept in one write.
+ *   Typed text waits for the card's Save, which writes the changed keys
+ *   in one request, and Save and Cancel show only while that text
+ *   differs from what was saved.
  * - Nothing is marked Saved before the server accepted the write, and the
  *   kept value is the one the response reports. Saved shows only by the
  *   value accepted, never by a newer one, and goes at the next change.
@@ -246,6 +248,27 @@ export class SaveUnit {
     const problem = numberProblem(text, control);
     if (problem) this.errors = { ...this.errors, [key]: problem };
     else if (this.differs(control, text)) this.enqueue({ how: "keep", patch: { [key]: Number(text.trim()) } });
+    this.emit();
+  }
+
+  /** Numbers set together from elsewhere (a place picked on a map): each
+   * field shows its text, and every one that passes its own check and
+   * differs from what the writes on their way end at is kept in one write.
+   * One its check refuses takes the red line; a step still settling on any
+   * of them is dropped, so it never lands after. */
+  keepTogether(texts: Readonly<Record<string, string>>): void {
+    const patch: Patch = {};
+    for (const [key, text] of Object.entries(texts)) {
+      const control = this.editable(key);
+      if (!control || control.kind !== "number") continue;
+      this.settling.delete(key);
+      this.changed(control, text);
+      const problem = numberProblem(text, control);
+      if (problem) this.errors = { ...this.errors, [key]: problem };
+      else if (this.differs(control, text)) patch[key] = Number(text.trim());
+    }
+    if (this.settleTimer && !this.settling.size) { clearTimeout(this.settleTimer); this.settleTimer = null; }
+    if (Object.keys(patch).length) this.enqueue({ how: "keep", patch });
     this.emit();
   }
 
