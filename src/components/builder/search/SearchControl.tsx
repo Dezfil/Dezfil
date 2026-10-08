@@ -9,6 +9,7 @@ import {
 import { createPortal } from "react-dom";
 import type { MapWithLayers } from "@/lib/metadata/maps";
 import { useSearch } from "./use-search";
+import { usePlacesUnconfiguredLine } from "./places-remedy";
 import type { SearchAction } from "./rows";
 import styles from "./SearchControl.module.css";
 
@@ -25,8 +26,6 @@ import styles from "./SearchControl.module.css";
 
 const subscribeNever = () => () => {};
 
-const S4_LINE = "Place search needs a geocoding endpoint. Set DEZFIL_GEOCODER_URL.";
-
 export function SearchControl({
   mapId,
   map,
@@ -42,6 +41,9 @@ export function SearchControl({
   );
   const rootRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const unconfiguredLine = usePlacesUnconfiguredLine(
+    state.places?.state === "unconfigured",
+  );
 
   const mounted = useSyncExternalStore(
     subscribeNever,
@@ -212,7 +214,7 @@ export function SearchControl({
             <div className={styles.note}>Searching places…</div>
           )}
           {state.places?.state === "unconfigured" && (
-            <div className={styles.note}>{S4_LINE}</div>
+            <div className={styles.note}>{unconfiguredLine}</div>
           )}
           {state.places?.state === "failed" && (
             <div className={styles.note} data-tone="warn">
