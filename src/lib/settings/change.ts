@@ -3,7 +3,7 @@ import { ApiError } from "@/lib/api/errors";
 import { metadataDb } from "@/lib/metadata/db";
 import { requireAdmin } from "@/lib/auth/admin";
 import type { AuthContext } from "@/lib/auth/credentials";
-import { SETTING_CATALOGUE } from "./catalogue";
+import { SETTING_CATALOGUE, settingDefinition } from "./catalogue";
 import { lockedEnvironment, resolveNumericSettings } from "./resolver";
 import { validateStoredValue } from "./validation";
 import { readStoredSettings, writeStoredSettings } from "./store";
@@ -11,6 +11,27 @@ import { readInstanceSettings } from "./read";
 import { settingsWarnings } from "./relationships";
 import type { SettingValue } from "./types";
 import type { NumericOverrides } from "./state";
+
+/** What the resulting configuration holds for a key: the body's value, else
+ * the stored one, else the default (a cleared value reads as its default). */
+const resultingValue = (resulting: Readonly<Record<string, SettingValue>>, key: string) => resulting[key] ?? settingDefinition(key).defaultValue;
+
+/** The rows that hold only together. No variable sets either side, so only a
+ * change can break one: each is checked when a body touches either side,
+ * against the configuration the body would leave, and refuses it whole. */
+function rowProblems(patch: Readonly<Record<string, SettingValue>>, resulting: Readonly<Record<string, SettingValue>>): string[] {
+  const problems: string[] = [];
+  const touched = (...keys: string[]) => keys.some(key => key in patch);
+  if (touched("security.failedPerAccount", "security.failedPerAddress")
+    && (resultingValue(resulting, "security.failedPerAddress") as number) < (resultingValue(resulting, "security.failedPerAccount") as number)) {
+    problems.push("security.failedPerAddress must be at least security.failedPerAccount.");
+  }
+  if (touched("publishing.embedding", "publishing.embedSites") && resultingValue(resulting, "publishing.embedding") === "listed"
+    && !(resultingValue(resulting, "publishing.embedSites") as readonly string[]).length) {
+    problems.push("publishing.embedSites must list at least one site while publishing.embedding is listed.");
+  }
+  return problems;
+}
 
 /** The write lock covers authority, validation, storage and response assembly.
  * The repository publishes consumers only when the enclosing commit succeeds. */
@@ -43,6 +64,7 @@ export function changeInstanceSettings(context: AuthContext, input: unknown, db:
       const numbers = resolveNumericSettings({ stored: resulting as NumericOverrides });
       problems.push(...settingsWarnings(numbers.queryTimeoutS.value, numbers.operationTimeoutS.value));
     }
+    problems.push(...rowProblems(patch, resulting));
     if (problems.length) throw new ApiError(locked ? "setting_locked" : "invalid_request", problems.join(" "), locked ? 409 : 400);
     writeStoredSettings(patch, db);
     return readInstanceSettings(context, db, now);

@@ -15,21 +15,24 @@ const rule = object({ rule: { type: "string" } });
 const address = { oneOf: [object({ set: { const: false } }), object({ set: { const: true }, origin: { type: "string", description: "Scheme and host only, including the port when set. No user information, path, query or fragment." } }),
   object({ set: { const: true }, unreadable: { const: true } }), rule] };
 
-function valueSchema(definition: SettingDefinition): Record<string, unknown> {
-  if (definition.secret) return definition.key === "secretKey"
-    ? object({ status: { type: "string", enum: ["environment", "data-directory", "not-yet-present"] } })
-    : object({ set: { type: "boolean" } });
-  if (definition.kind === "address") return address;
-  const value = definition.kind === "number" ? { type: "number" } : definition.kind === "boolean" ? { type: "boolean" }
-    : definition.kind === "list" ? { type: "array", items: { type: "string" } } : { type: ["string", "null"] };
-  return { anyOf: [value, rule] };
-}
-
 /** One site as the sites kind takes it: http or https, a host and an
  * optional port, an optional closing slash, nothing else. The server also
  * refuses a host a framing policy cannot name. */
 const SITE = { type: "string", pattern: "^\\s*[Hh][Tt][Tt][Pp][Ss]?://[^/?#@\\\\\\s]+/?\\s*$" };
 const sites = (constraint: Extract<WriteConstraint, { kind: "sites" }>) => ({ maxItems: constraint.maxSites, items: SITE });
+/** A site as it is kept and read back: its scheme, lower-case host and any port. */
+const KEPT_SITE = { type: "string", pattern: "^https?://[a-z0-9.-]+(?::[0-9]{1,5})?$" };
+
+function valueSchema(definition: SettingDefinition): Record<string, unknown> {
+  if (definition.secret) return definition.key === "secretKey"
+    ? object({ status: { type: "string", enum: ["environment", "data-directory", "not-yet-present"] } })
+    : object({ set: { type: "boolean" } });
+  if (definition.kind === "address") return address;
+  const value = definition.write?.kind === "sites" ? { type: "array", maxItems: definition.write.maxSites, items: KEPT_SITE }
+    : definition.kind === "number" ? { type: "number" } : definition.kind === "boolean" ? { type: "boolean" }
+    : definition.kind === "list" ? { type: "array", items: { type: "string" } } : { type: ["string", "null"] };
+  return { anyOf: [value, rule] };
+}
 
 const settings = Object.fromEntries(SETTING_CATALOGUE.filter(d => d.scope !== "account").map(definition => {
   const fields = Object.fromEntries(Object.entries(disclosedDefinition(definition)).filter(([, value]) => value !== undefined)
@@ -111,9 +114,12 @@ export const INSTANCE_SETTINGS_PATHS = {
       "The complete body is validated against the committed configuration under one write lock. A refusal or failed commit changes nothing. " +
       "Non-editable keys answer 400 invalid_request as read-only regardless of their environment. " +
       "A non-empty environment variable locks an editable setting, including invalid overrides and null writes. A locked editable key answers 409 setting_locked, " +
-      "taking precedence over 400 invalid_request for unknown, non-editable, wrong-kind, non-whole, out-of-range, over-length or invalid-choice entries " +
-      "and a resulting queryTimeoutS at or above operationTimeoutS. Messages identify all failing known keys and their reasons, and unknown keys " +
-      "by their entry position without echoing arbitrary input. An existing environment timeout mismatch is reported in warnings and blocks no unrelated change. " +
+      "taking precedence over 400 invalid_request for unknown, non-editable, wrong-kind, non-whole, out-of-range, over-length or invalid-choice entries, " +
+      "a site list entry that is not http or https with a host and an optional port, a resulting queryTimeoutS at or above operationTimeoutS, " +
+      "a resulting security.failedPerAddress below security.failedPerAccount, and a resulting publishing.embedding of listed with no publishing.embedSites. " +
+      "Messages identify all failing known keys and their reasons, unknown keys by their entry position and a refused site by its position, " +
+      "without echoing arbitrary input. The sign-in counts, and embedding with its sites, are checked when a body changes either side. " +
+      "An existing environment timeout mismatch is reported in warnings and blocks no unrelated change. " +
       "Concurrent different-key edits both land; the last accepted value wins on one key. There is no stale-write rejection or Undo. " +
       "Stored changes apply live to new work; admitted work keeps its budget. Lowered concurrency cancels nothing, increased concurrency wakes waiters " +
       "after commit, and lowered queue limits keep accepted waiters. Public limits apply against the existing window count. Environment changes need a restart. " +

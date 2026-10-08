@@ -328,7 +328,7 @@
     {
       "type": "function",
       "name": "update_instance_settings",
-      "description": "Change instance settings. At most 65,536 wire bytes; a larger body is refused with `request_body_too_large` before JSON parsing. Requires a current admin through cookie or bearer authentication, rechecked inside the write transaction on every call. Cookie mutations require the same trusted Origin; an admin bearer token calls directly with no additional scope or approval step. Responses, including refusals, are private, no-store. Submit only editable keys; omitted keys stay unchanged and null clears a stored value. The complete body is validated against the committed configuration under one write lock. A refusal or failed commit changes nothing. Non-editable keys answer 400 invalid_request as read-only regardless of their environment. A non-empty environment variable locks an editable setting, including invalid overrides and null writes. A locked editable key answers 409 setting_locked, taking precedence over 400 invalid_request for unknown, non-editable, wrong-kind, non-whole, out-of-range, over-length or invalid-choice entries and a resulting queryTimeoutS at or above operationTimeoutS. Messages identify all failing known keys and their reasons, and unknown keys by their entry position without echoing arbitrary input. An existing environment timeout mismatch is reported in warnings and blocks no unrelated change. Concurrent different-key edits both land; the last accepted value wins on one key. There is no stale-write rejection or Undo. Stored changes apply live to new work; admitted work keeps its budget. Lowered concurrency cancels nothing, increased concurrency wakes waiters after commit, and lowered queue limits keep accepted waiters. Public limits apply against the existing window count. Environment changes need a restart. Returns the same configuration as the read, with the same secret and address disclosure rules; no secret or address setting is accepted. The embedded assistant asks for confirmation before calling on pages admitting writes; SQL and workflow assistants refuse this update. MCP advertises that policy and adds no confirmation step.",
+      "description": "Change instance settings. At most 65,536 wire bytes; a larger body is refused with `request_body_too_large` before JSON parsing. Requires a current admin through cookie or bearer authentication, rechecked inside the write transaction on every call. Cookie mutations require the same trusted Origin; an admin bearer token calls directly with no additional scope or approval step. Responses, including refusals, are private, no-store. Submit only editable keys; omitted keys stay unchanged and null clears a stored value. The complete body is validated against the committed configuration under one write lock. A refusal or failed commit changes nothing. Non-editable keys answer 400 invalid_request as read-only regardless of their environment. A non-empty environment variable locks an editable setting, including invalid overrides and null writes. A locked editable key answers 409 setting_locked, taking precedence over 400 invalid_request for unknown, non-editable, wrong-kind, non-whole, out-of-range, over-length or invalid-choice entries, a site list entry that is not http or https with a host and an optional port, a resulting queryTimeoutS at or above operationTimeoutS, a resulting security.failedPerAddress below security.failedPerAccount, and a resulting publishing.embedding of listed with no publishing.embedSites. Messages identify all failing known keys and their reasons, unknown keys by their entry position and a refused site by its position, without echoing arbitrary input. The sign-in counts, and embedding with its sites, are checked when a body changes either side. An existing environment timeout mismatch is reported in warnings and blocks no unrelated change. Concurrent different-key edits both land; the last accepted value wins on one key. There is no stale-write rejection or Undo. Stored changes apply live to new work; admitted work keeps its budget. Lowered concurrency cancels nothing, increased concurrency wakes waiters after commit, and lowered queue limits keep accepted waiters. Public limits apply against the existing window count. Environment changes need a restart. Returns the same configuration as the read, with the same secret and address disclosure rules; no secret or address setting is accepted. The embedded assistant asks for confirmation before calling on pages admitting writes; SQL and workflow assistants refuse this update. MCP advertises that policy and adds no confirmation step.",
       "parameters": {
         "type": "object",
         "additionalProperties": false,
@@ -736,7 +736,7 @@
             ],
             "minimum": 3,
             "maximum": 100,
-            "description": "Failed sign-ins per account. Failed sign-ins for one account, within a fixed 15 minutes, before its next attempt pauses. Null clears the stored value."
+            "description": "Failed sign-ins per account. Failed sign-ins for one account, within a fixed 15 minutes, before its next attempt pauses. Never above the count per address. Null clears the stored value."
           },
           "security.failedPerAddress": {
             "type": [
@@ -806,7 +806,7 @@
               "off",
               null
             ],
-            "description": "Embedding on other sites. Which other sites may show a published page in a frame: any site, only the listed sites, or none. Null clears the stored value."
+            "description": "Embedding on other sites. Which other sites may show a published page in a frame: any site, only the listed sites (at least one), or none. Null clears the stored value."
           },
           "publishing.embedSites": {
             "type": [
@@ -818,7 +818,7 @@
               "type": "string",
               "pattern": "^\\s*[Hh][Tt][Tt][Pp][Ss]?://[^/?#@\\\\\\s]+/?\\s*$"
             },
-            "description": "Listed sites. The sites that may show a published page in a frame while embedding is limited to listed sites. Null clears the stored value. At most 50 sites, each http or https with a host and an optional port and nothing else. Each is kept as its scheme, host and port, a repeated site once; an empty list clears to the default."
+            "description": "Listed sites. The sites that may show a published page in a frame while embedding is limited to listed sites; never empty while it is. Null clears the stored value. At most 50 sites, each http or https with a host and an optional port and nothing else. Each is kept as its scheme, host and port, a repeated site once; an empty list clears to the default."
           },
           "connections.create": {
             "type": [
