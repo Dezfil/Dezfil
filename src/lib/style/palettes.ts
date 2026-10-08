@@ -265,12 +265,14 @@ function hex(h: string, a = 1): RgbaColor {
 }
 
 /**
- * New layers cycle through kepler.gl's layer colors by creation order — the
- * first layer gets kepler's signature teal (default styling).
+ * New layers cycle through a categorical palette's colors by creation
+ * order. The product's own cycle is kepler.gl's layer colors, so the first
+ * layer gets kepler's signature teal (default styling).
  */
-export function layerCycleColor(index: number, alpha = 1): RgbaColor {
-  const n = KEPLER_QUALITATIVE.length;
-  return hex(KEPLER_QUALITATIVE[((index % n) + n) % n], alpha);
+export function layerCycleColor(index: number, palette: string = DEFAULT_CATEGORICAL): RgbaColor {
+  const colors = paletteByName(palette, "categorical")?.colors ?? KEPLER_QUALITATIVE;
+  const n = colors.length;
+  return hex(colors[((index % n) + n) % n], 1);
 }
 
 /** The default constant fill for a freshly created layer (cycle start).

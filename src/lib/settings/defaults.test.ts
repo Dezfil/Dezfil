@@ -11,7 +11,8 @@ import { DEFAULT_CATEGORICAL, PALETTES } from "@/lib/style/palettes";
 import { ASPECT_PRESETS } from "@/components/builder/export/aspect";
 import { SETTING_CATALOGUE, settingDefinition } from "./catalogue";
 import { writeStoredSettings } from "./store";
-import { instanceDefaults, resolveInstanceDefaults, type InstanceDefaults } from "./defaults";
+import { PRODUCT_LAYER_LOOK } from "@/lib/style/defaults";
+import { instanceDefaults, newLayerLook, resolveInstanceDefaults, type InstanceDefaults } from "./defaults";
 
 /** What new things start with when no admin changed anything: the product's
  * own values, as the approved table states them, with the basemap and the
@@ -87,6 +88,13 @@ describe("the defaults for new things", () => {
     for (const corner of CORNERS.filter(corner => corner !== "bottom-left")) {
       expect(resolveInstanceDefaults({ "newMap.legendCorner": corner }, ALL_OFFERED)["newMap.legendCorner"]).toBe(corner);
     }
+  });
+
+  it("hand a new layer's default style the cycle and the numbers it draws with, the product's own look with nothing stored", () => {
+    expect(newLayerLook(resolveInstanceDefaults({}, ALL_OFFERED))).toEqual(PRODUCT_LAYER_LOOK);
+    expect(PRODUCT_LAYER_LOOK).toEqual({ palette: "uber_viz_qualitative", pointOpacity: 0.72, lineOpacity: 0.95, areaOpacity: 0.5, lineWidth: 2, pointRadius: 3 });
+    expect(newLayerLook(resolveInstanceDefaults(STORED, ALL_OFFERED)))
+      .toEqual({ palette: "tab10", pointOpacity: 0.1, lineOpacity: 1, areaOpacity: 0.33, lineWidth: 0.5, pointRadius: 12.5 });
   });
 
   it("take the product's value for a stored value the catalogue would refuse", () => {

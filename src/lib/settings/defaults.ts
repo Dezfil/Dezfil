@@ -2,6 +2,7 @@ import type { Database } from "better-sqlite3";
 import { availableBasemaps, type BasemapKey } from "@/lib/basemap";
 import type { Corner } from "@/lib/corners";
 import { metadataDb } from "@/lib/metadata/db";
+import type { NewLayerLook } from "@/lib/style/defaults";
 import { INSTANCE_DEFAULT_SETTINGS, type InstanceDefaultKey, type InstanceDefaultValue } from "./instance-defaults";
 import { readStoredSettings } from "./store";
 import { validateStoredValue } from "./validation";
@@ -63,4 +64,17 @@ export function resolveInstanceDefaults(stored: Readonly<Record<string, unknown>
  * transaction's handle to read inside it. */
 export function instanceDefaults(db: Database = metadataDb()): InstanceDefaults {
   return resolveInstanceDefaults(readStoredSettings(db), availableBasemaps().map(basemap => basemap.key));
+}
+
+/** The layer defaults as a new layer's default style takes them: a stored
+ * opacity is a whole percent, the style's a fraction. */
+export function newLayerLook(defaults: InstanceDefaults): NewLayerLook {
+  return {
+    palette: defaults["newLayer.colorCycle"],
+    pointOpacity: defaults["newLayer.pointOpacity"] / 100,
+    lineOpacity: defaults["newLayer.lineOpacity"] / 100,
+    areaOpacity: defaults["newLayer.areaOpacity"] / 100,
+    lineWidth: defaults["newLayer.lineWidth"],
+    pointRadius: defaults["newLayer.pointRadius"],
+  };
 }

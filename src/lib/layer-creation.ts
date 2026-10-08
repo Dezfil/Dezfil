@@ -12,6 +12,7 @@ import { insertLayer, updateMapFields, nextOrdinal, type Layer } from "@/lib/met
 import { recordStep } from "@/lib/metadata/history";
 import { normalizeStyle, type LayerStyle } from "@/lib/style/style";
 import { defaultStyle } from "@/lib/style/defaults";
+import { instanceDefaults, newLayerLook } from "@/lib/settings/defaults";
 import { POINTS_VIZ } from "@/lib/viz";
 
 /** A new layer enters a manual legend arrangement at the top, durably
@@ -56,10 +57,12 @@ export async function createLayer(
     mapId,
     name: input.name,
     sql: input.sql,
-    // Default colors cycle by creation order (kepler defaults).
+    // Default colors cycle by creation order (kepler defaults), through the
+    // instance's color cycle, with its opacities, line width and point
+    // radius. A given style is kept as given and reads no default.
     style: input.style
       ? normalizeStyle(input.style)
-      : defaultStyle(geometryType, ordinal),
+      : defaultStyle(geometryType, ordinal, newLayerLook(instanceDefaults())),
     visible: true,
     tooltip: null,
     popup: null,

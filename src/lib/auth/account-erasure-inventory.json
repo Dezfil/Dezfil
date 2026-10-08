@@ -3490,6 +3490,11 @@
         "memory:browser-presentation"
       ]
     },
+    "memory:src/lib/style/defaults.ts#PRODUCT_LAYER_LOOK": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
     "memory:src/lib/style/natural-breaks.ts#buildCost.i": {
       "stores": [
         "memory:browser-presentation"
