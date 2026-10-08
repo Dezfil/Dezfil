@@ -10,7 +10,7 @@ import { RunInitiator } from "../sharing/RunInitiator";
 import { useOpeningDefaults } from "../screen-defaults";
 import { Button } from "../ui/Button";
 import { ExternalIcon } from "../ui/icons";
-import { BAND_DEFAULT, BAND_GAP, BAND_MIN, BAR_HEIGHT, COLLAPSE_BELOW, clampHeight, readBand, writeBand } from "./band-store";
+import { BAND_DEFAULT, BAND_GAP, BAND_MIN, BAR_HEIGHT, COLLAPSE_BELOW, clampHeight, readBandChoice, writeBandChoice } from "./band-store";
 import { addToMapFor, availability, effectiveTab, leadFor, notesFor, resolveShown, SELECT_LEAD, STATUS, type BandTab, type Shown } from "./band-selection";
 import { composeLog, forNode } from "./messages";
 import type { CanvasMember } from "./graph";
@@ -36,14 +36,16 @@ const TABS: { id: BandTab; label: string }[] = [
  * The results band: under the canvas, never over it, resized by its top
  * edge (pointer or keyboard), which dragged all the way down collapses it
  * to its bar and dragged up opens it again; there is no separate collapse
- * control (on, -08-29). Open or collapsed is kept per viewer, the height
- * is not: every workflow opens at the default height. Until a viewer ever
- * had it otherwise it opens as the instance's default says, collapsed
- * unless an admin chose open; it opens once when the page session first
- * meets a run, when a tab is chosen on it, and on a press anywhere on its
- * bar. Four tabs: Messages (the run records' log) and, for the selection,
- * Data, Map and Provenance over the documented table reads, with the lead,
- * the facts, the notes and the actions.
+ * control (on, -08-29). Open or collapsed is kept per viewer once they
+ * choose it, by opening, closing or resizing the band; the height is not:
+ * every workflow opens at the default height. Until they choose it opens
+ * as the instance's default says, collapsed unless an admin chose open.
+ * It opens when a tab is chosen on it and on a press anywhere on its bar,
+ * both kept, and once when the page session first meets a run, which is
+ * not the viewer's choice and is not kept. Four tabs: Messages (the run
+ * records' log) and, for the selection, Data, Map and Provenance over the
+ * documented table reads, with the lead, the facts, the notes and the
+ * actions.
  */
 export function ResultsBand({
   runs,
@@ -75,15 +77,24 @@ export function ResultsBand({
   /** A dataset the listing still held has vanished: the page re-reads it. */
   onListingStale: () => void;
 }) {
-  const [stored] = useState(readBand);
+  const [chosen] = useState(readBandChoice);
   const startsOpen = useOpeningDefaults()["canvas.resultsBand"] === "open";
-  const [open, setOpen] = useState<boolean>(stored.open ?? startsOpen);
-  const [openedWith] = useState(open);
+  const [open, setOpen] = useState<boolean>(chosen ?? startsOpen);
   const [height, setHeight] = useState<number>(BAND_DEFAULT);
+  // The person's own opening, closing or resizing: their choice, kept for
+  // the next canvas. A run opening the band changes this canvas alone.
+  const kept = useRef(chosen);
+  const choose = (next: boolean) => {
+    setOpen(next);
+    if (kept.current === next) return;
+    kept.current = next;
+    writeBandChoice(next);
+  };
   const [scope, setScope] = useState<"all" | "node">("all");
   const [wanted, setWanted] = useState<BandTab>("messages");
   // Once per page session: the first run met opens the band (adjusted
-  // during render, as the run arrives with the props).
+  // during render, as the run arrives with the props), for this canvas
+  // alone: nothing is kept.
   const [firstRunSeen, setFirstRunSeen] = useState(false);
   if (activeRunId && !firstRunSeen) {
     setFirstRunSeen(true);
@@ -111,15 +122,6 @@ export function ResultsBand({
   useEffect(() => {
     onHeight(shown + BAND_GAP);
   }, [onHeight, shown]);
-  // Kept from the band's first move on, the viewer's or the first run's,
-  // and never at the opening itself: a viewer who never moved it keeps
-  // following the instance's default.
-  const moved = useRef(false);
-  useEffect(() => {
-    if (!moved.current && open === openedWith) return;
-    moved.current = true;
-    writeBand({ open, height: null });
-  }, [open, openedWith]);
 
   // What the selection resolves to in the listing as last read, then the
   // read's own word: an inspection answered "not found" is the deleted
@@ -156,7 +158,7 @@ export function ResultsBand({
   const chooseTab = (t: BandTab) => {
     setWanted(t);
     setRenewal((n) => n + 1);
-    if (!open) setOpen(true);
+    if (!open) choose(true);
   };
 
   const selectedStepId = selected?.kind === "node" ? selected.id : null;
@@ -170,10 +172,10 @@ export function ResultsBand({
   const drag = useRef<{ startY: number; startH: number } | null>(null);
   const settle = (raw: number) => {
     if (raw < COLLAPSE_BELOW) {
-      setOpen(false);
+      choose(false);
       return;
     }
-    setOpen(true);
+    choose(true);
     setHeight(clampHeight(raw, hostHeight));
   };
   return (
@@ -211,7 +213,7 @@ export function ResultsBand({
             settle(height <= BAND_MIN ? 0 : height - 24);
           } else if (e.key === "Home") {
             e.preventDefault();
-            setOpen(false);
+            choose(false);
           } else if (e.key === "End") {
             e.preventDefault();
             settle(hostHeight);
@@ -228,10 +230,10 @@ export function ResultsBand({
       <div
         className={styles.bar}
         onClick={() => {
-          if (!open) setOpen(true);
+          if (!open) choose(true);
         }}
         onPointerUp={(e) => {
-          if (!open && (e.target as Element).closest("button:disabled")) setOpen(true);
+          if (!open && (e.target as Element).closest("button:disabled")) choose(true);
         }}
         data-band-bar
       >
