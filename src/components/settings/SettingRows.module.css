@@ -1,6 +1,7 @@
 /* A settings card's rows: the label column at the left, the control at
-   the right; the read-only value; and the field the server decides, with
-   its lock and its sentence. */
+   the right; a number with its unit; a choice as segments; the read-only
+   value; and the field the server decides, with its lock and its
+   sentence. */
 
 .rows {
   display: flex;
@@ -99,6 +100,48 @@
 
 .number[aria-invalid="true"] {
   border-color: var(--danger);
+}
+
+/* a choice drawn as segments: the shipped choice group in the surface's
+   own look; a choice too long for its row wraps, each segment growing to
+   share its line */
+.segments {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  padding: 3px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg-panel);
+}
+
+.segment {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1 0 auto;
+  height: 24px;
+  padding: 0 11px;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-label);
+  font-weight: 500;
+  color: var(--fg-muted);
+  white-space: nowrap;
+  transition:
+    color var(--dur-micro) ease,
+    background var(--dur-micro) ease,
+    box-shadow var(--dur-micro) ease;
+}
+
+.segment:hover:not(:disabled) {
+  color: var(--fg);
+}
+
+.segment[aria-checked="true"] {
+  color: var(--accent);
+  font-weight: 600;
+  background: var(--accent-dim);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent);
 }
 
 /* the red line: under the row's control, across the row */

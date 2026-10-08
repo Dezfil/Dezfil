@@ -1,13 +1,13 @@
 "use client";
 import { useRef, type ReactNode } from "react";
 import { ErrorNote } from "@/components/ui/ErrorNote";
-import { DEFAULTS_LABELS, type DefaultsCard, type DefaultsRow } from "./defaults-table";
+import { choiceWords, DEFAULTS_LABELS, type DefaultsCard, type DefaultsRow } from "./defaults-table";
 import { keptValues, writeInstanceSettings, type InstanceRead } from "./instance-read";
 import { inLabels } from "./limits-table";
 import { SaveUnit, type UnitSnapshot, type Value } from "./save-unit";
 import { unitControlFor, type ReadSetting } from "./server-set";
-import { NumberField, RowError, Rows } from "./SettingRows";
-import { Note, ResetSlot, SettingsCard } from "./SettingsCard";
+import { NumberField, RowError, Rows, SegmentChoice, SettingRow } from "./SettingRows";
+import { Note, ResetSlot, SavedMark, SettingsCard } from "./SettingsCard";
 import { useSaveUnit, useUnitFocus } from "./use-save-unit";
 
 /**
@@ -120,4 +120,22 @@ export function keptNumber(snapshot: UnitSnapshot, setting: ReadSetting | undefi
 /** The values a choice offers, as the read gives them. */
 export function choiceValues(setting: ReadSetting | undefined): readonly string[] {
   return setting?.write?.kind === "choice" ? setting.write.values : [];
+}
+
+/** A row whose one setting is a choice: the values the read offers as
+ * segments in their words, kept at once, Saved after them. */
+export function DefaultsChoiceRow({ row, setting, unit, snapshot }: {
+  row: DefaultsRow;
+  setting: ReadSetting | undefined;
+  unit: SaveUnit;
+  snapshot: UnitSnapshot;
+}) {
+  const key = row.fields[0].key;
+  return <SettingRow id={row.id} label={row.label} meta={row.meta}>
+    <SegmentChoice label={row.label} value={String(snapshot.values[key] ?? "")}
+      choices={choiceValues(setting).map(value => ({ value, label: choiceWords(key, value) }))}
+      onChange={next => unit.choose(key, next)} />
+    {rowSaved(row, snapshot) && <SavedMark />}
+    <RowErrors row={row} snapshot={snapshot} />
+  </SettingRow>;
 }

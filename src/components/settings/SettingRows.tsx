@@ -1,5 +1,6 @@
 "use client";
 import { useRef, type ReactNode } from "react";
+import { ChoiceGroup } from "@/components/ui/ChoiceGroup";
 import { NumberInput, TextInput } from "@/components/ui/Field";
 import { LockIcon } from "@/components/ui/icons";
 import type { ServerSetState } from "./server-set";
@@ -89,6 +90,21 @@ export function NumberField({ label, unitKey, value, prefix, unit, min, max, ste
       onBlur={() => onCommit()} />
     {unit}
   </span>;
+}
+
+/** A settings row's choice drawn as segments: the shipped choice group (one
+ * radio group named by its row, one tab stop on the chosen segment, the
+ * arrows moving the choice) in the settings surface's own look. A choice
+ * too long for its row wraps into even lines. */
+export function SegmentChoice<T extends string>({ label, value, choices, onChange }: {
+  /** The row's label: the group's accessible name. */
+  label: string;
+  value: T;
+  choices: readonly { readonly value: T; readonly label: string }[];
+  onChange: (next: T) => void;
+}) {
+  return <ChoiceGroup label={label} value={value} onChange={onChange} choices={choices}
+    className={styles.segments} itemClassName={styles.segment} />;
 }
 
 /** The red line under a row: the reason its value was not kept. */
