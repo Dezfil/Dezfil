@@ -14,6 +14,7 @@ import { headingLine } from "@/components/scope/model";
 import { useAsyncCollection } from "@/components/use-async-collection";
 import { useSearchShortcut } from "@/components/use-search-shortcut";
 import { useTransientNotice } from "@/components/use-transient-notice";
+import { useRuleRefusal } from "@/components/use-instance-rules";
 import { serverUnreachable } from "@/components/failure-copy";
 import gallery from "@/components/gallery.module.css";
 import { ConnectionMenu } from "./ConnectionMenu";
@@ -40,6 +41,10 @@ export function ConnectionsLedger() {
   const [checking, setChecking] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const { notice, show: showNotice } = useTransientNotice();
+  // Who may add database connections: when the instance's rule holds the
+  // person back, Add connection is drawn disabled with its sentence; the
+  // connections listed keep every action they have.
+  const refusal = useRuleRefusal("connections.create");
   // The toolbar the reference gives the page: a search that narrows by
   // name and the Recently checked sort, present from zero. The sort is
   // page state, not a workspace setting: the settings' view-preference
@@ -139,7 +144,12 @@ export function ConnectionsLedger() {
               })
             : null
         }
-        action={{ label: "Add connection", href: "/connections/new" }}
+        note={refusal}
+        action={
+          refusal
+            ? { label: "Add connection", onClick: () => {}, disabled: true }
+            : { label: "Add connection", href: "/connections/new" }
+        }
       />
 
       {actionError ? (
@@ -177,7 +187,7 @@ export function ConnectionsLedger() {
       <AsyncState state={state} onRetry={retry} pendingLabel="Reading your connections…">
         {(entries) => entries.length === 0 ? (
           <div className={gallery.emptyAction}>
-            <button className={gallery.ghost} onClick={() => router.push("/connections/new")}>
+            <button className={gallery.ghost} disabled={!!refusal} onClick={() => router.push("/connections/new")}>
               <span className={gallery.plus}><PlusIcon /></span>
               <b>Add connection</b>
               <small>Snapshot tables from a PostGIS database</small>

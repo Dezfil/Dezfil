@@ -8,7 +8,7 @@ import { formatRelativeTime, readApiError } from "@/components/api";
 import { serverUnreachable } from "@/components/failure-copy";
 import { ErrorNote } from "@/components/ui/ErrorNote";
 import { ChevronIcon } from "@/components/ui/icons";
-import { ConnectionForm } from "./ConnectionForm";
+import { RuledConnectionForm } from "./RuledConnectionForm";
 import { fetchConnections, shortServerVersion } from "./connection-view";
 import { PostgisDataDone, type PostgisDataCompletion } from "./PostgisDataDone";
 import { PostgisLayerDone, type PostgisLayerCompletion } from "./PostgisLayerDone";
@@ -219,7 +219,7 @@ export function PostgisPane({
 
       {step.kind === "form" ? (
         <div className={styles.formWrap}>
-          <ConnectionForm
+          <RuledConnectionForm
             mode="add"
             layout="stacked"
             onCancel={connections.length ? () => setStep({ kind: "pick" }) : undefined}

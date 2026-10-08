@@ -584,7 +584,7 @@
   animation: rise-in var(--dur-entrance) var(--ease-entrance) backwards;
 }
 
-.ghost:hover {
+.ghost:hover:not(:disabled) {
   border-color: var(--accent);
   color: var(--accent);
   background: var(--accent-dim);
@@ -592,9 +592,15 @@
 
 /* The role split gave the label and description their own inks; hover
    must still sweep the whole tile to accent. */
-.ghost:hover b,
-.ghost:hover small {
+.ghost:hover:not(:disabled) b,
+.ghost:hover:not(:disabled) small {
   color: inherit;
+}
+
+/* A tile an instance rule holds back: drawn, not offered. */
+.ghost:disabled {
+  opacity: 0.6;
+  cursor: default;
 }
 
 

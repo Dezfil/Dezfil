@@ -4,6 +4,7 @@ import { useEditorRequest } from "../../document-editor-context";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { MapWithLayers } from "@/lib/metadata/maps";
 import { useTheme } from "@/components/theme";
+import { useRuleRefusal } from "@/components/use-instance-rules";
 import { readApiError } from "../../api";
 import { AsyncState, useAsync } from "@/components/ui/AsyncState";
 import { Button } from "@/components/ui/Button";
@@ -59,11 +60,14 @@ const CONTROL_ROWS: { key: keyof ViewerControls; label: string }[] = [
 function ReaderControls({
   mapId,
   publishedAt,
+  locked,
   onError,
 }: {
   mapId: string;
   /** Changes when the map is published anew — refetches then. */
   publishedAt: string | null;
+  /** Held by the instance's rule on who may publish: shown, not changed. */
+  locked: boolean;
   onError: (message: string) => void;
 }) {
   const request = useEditorRequest();
@@ -142,7 +146,7 @@ function ReaderControls({
               type="button"
               className={styles.mode}
               aria-pressed={state.theme === mode}
-              disabled={busy}
+              disabled={busy || locked}
               onClick={() => setTheme(mode)}
             >
               {mode === "light" ? "Light" : "Dark"}
@@ -171,7 +175,7 @@ function ReaderControls({
             className={styles.controlRow}
             label={label}
             checked={state.viewerControls[key]}
-            disabled={busy}
+            disabled={busy || locked}
             onChange={(e) => setControl(key, e.currentTarget.checked)}
           />
         ))}
@@ -224,6 +228,7 @@ function SharedFields({
   mapId,
   revision,
   heading,
+  locked,
   onLayerChange,
 }: {
   mapId: string;
@@ -233,6 +238,8 @@ function SharedFields({
   revision: string;
   /** "Shared fields" once published; the future tense before. */
   heading: string;
+  /** Held by the instance's rule on who may publish: shown, not changed. */
+  locked: boolean;
   onLayerChange: () => void;
 }) {
   const request = useEditorRequest();
@@ -350,7 +357,7 @@ function SharedFields({
                         key={name}
                         className={styles.fieldOption}
                         checked={entry !== undefined}
-                        disabled={busy || settling || entry?.required}
+                        disabled={busy || settling || locked || entry?.required}
                         onChange={() => toggleField(layer, name)}
                         label={
                           <>
@@ -370,7 +377,7 @@ function SharedFields({
                   <Button
                     variant="quiet"
                     className={styles.resetBtn}
-                    disabled={busy || settling}
+                    disabled={busy || settling || locked}
                     onClick={() => void patch(layer.layerId, null)}
                   >
                     Reset to automatic
@@ -529,6 +536,10 @@ export function PublishPopover({
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<"main" | "embed">("main");
   const { theme } = useTheme();
+  // Who may publish, as the instance's rule has it for this person: when it
+  // holds them back, publishing and changing a live publication wait, and a
+  // published map keeps its link, its embed and Unpublish.
+  const refusal = useRuleRefusal("publishing.publish");
 
   // Unpublishing while the embed view is up: there is nothing left to
   // frame, so the view falls back (render-phase adjust, guarded).
@@ -651,16 +662,19 @@ export function PublishPopover({
             )}
             <Audience tense="present" />
           </div>
+          {refusal && <p className={styles.refusal}>{refusal}</p>}
           <SharedFields
             mapId={map.id}
             revision={revision}
             heading="Shared fields"
+            locked={!!refusal}
             onLayerChange={onChange}
           />
           <div className={styles.rule} />
           <ReaderControls
             mapId={map.id}
             publishedAt={map.publishedAt}
+            locked={!!refusal}
             onError={setError}
           />
           <div className={styles.rule} />
@@ -689,16 +703,21 @@ export function PublishPopover({
               className={styles.publishBtn}
               onClick={() => void publish()}
               busy={busy}
+              disabled={!!refusal}
             >
               {copied ? "Link copied" : "Publish map"}
             </Button>
+            {refusal && <p className={styles.refusal}>{refusal}</p>}
             <Audience tense="future" />
           </div>
           <div className={styles.rule} />
+          {/* A map not yet published has no publication to change: its
+              fields stay its author's to arrange under any rule. */}
           <SharedFields
             mapId={map.id}
             revision={revision}
             heading="Fields this will share"
+            locked={false}
             onLayerChange={onChange}
           />
         </>

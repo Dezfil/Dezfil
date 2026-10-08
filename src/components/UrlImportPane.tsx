@@ -7,6 +7,7 @@ import type { SkippedMember } from "./skipped-members";
 import { ErrorNote } from "./ui/ErrorNote";
 import styles from "./UrlImportPane.module.css";
 import { serverUnreachable } from "./failure-copy";
+import { useRuleRefusal } from "./use-instance-rules";
 
 interface Props {
   /** Fires once per table the import created (container formats can land
@@ -54,6 +55,10 @@ export function UrlImportPane({
   const [nameEdited, setNameEdited] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Who may import from links: when the instance's rule holds the person
+  // back, the entry is drawn disabled with its sentence. Link datasets
+  // already made keep refreshing elsewhere.
+  const refusal = useRuleRefusal("imports.links");
 
   const created = useCallback(
     (table: DataTable) => {
@@ -66,7 +71,7 @@ export function UrlImportPane({
   );
 
   const importUrl = useCallback(async () => {
-    if (!url.trim() || busy) return;
+    if (!url.trim() || busy || refusal) return;
     setBusy(true);
     setError(null);
     try {
@@ -96,7 +101,7 @@ export function UrlImportPane({
     } finally {
       setBusy(false);
     }
-  }, [url, name, busy, created, onSkipped, projectId]);
+  }, [url, name, busy, refusal, created, onSkipped, projectId]);
 
   return (
     <div className={styles.pane}>
@@ -107,7 +112,7 @@ export function UrlImportPane({
           placeholder="https://… · s3://… · gs://… · az://…"
           value={url}
           spellCheck={false}
-          disabled={busy}
+          disabled={busy || !!refusal}
           onChange={(e) => {
             setUrl(e.target.value);
             if (!nameEdited) setName(suggestName(e.target.value));
@@ -124,7 +129,7 @@ export function UrlImportPane({
           placeholder="derived from the URL"
           value={name}
           spellCheck={false}
-          disabled={busy}
+          disabled={busy || !!refusal}
           onChange={(e) => {
             setName(e.target.value);
             setNameEdited(true);
@@ -135,12 +140,13 @@ export function UrlImportPane({
         <button
           className={styles.importBtn}
           onClick={() => void importUrl()}
-          disabled={busy || !url.trim()}
+          disabled={busy || !url.trim() || !!refusal}
         >
           {busy ? "Importing…" : "Import as table"}
         </button>
         {busy && <span className={styles.spinner} aria-hidden />}
       </div>
+      {refusal && <p className={styles.hint}>{refusal}</p>}
       {error && (
         <ErrorNote message={error} onDismiss={() => setError(null)} />
       )}

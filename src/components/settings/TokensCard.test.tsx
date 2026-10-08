@@ -21,6 +21,7 @@ const token = (id: string, fields: Partial<ApiToken>): ApiToken =>
 let tokens: ApiToken[];
 let config: { status: number; body: unknown };
 let created: ApiToken & { secret: string };
+let admin: boolean;
 let host: ReturnType<typeof installDomHost>;
 let root: ReturnType<typeof createRoot>;
 let container: HostElement;
@@ -29,6 +30,7 @@ beforeEach(() => {
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(now);
   tokens = [];
+  admin = false;
   config = { status: 200, body: { rules: { "tokens.expiry": "never" } } };
   created = { ...token("t-new", { name: "Agent", expiresAt: "2026-11-07T12:00:00.000Z" }), secret: "dz_token_fixture-once" };
   vi.stubGlobal("fetch", vi.fn(async (url: string, init: RequestInit = {}) => {
@@ -53,7 +55,7 @@ async function settle() {
   for (let i = 0; i < 4; i += 1) await act(async () => { await new Promise(resolve => setTimeout(resolve, 0)); });
 }
 async function open() {
-  await act(async () => root.render(<TokensCard />));
+  await act(async () => root.render(<TokensCard admin={admin} />));
   await settle();
 }
 /** Each listed token's name, meta line and whether it offers Revoke. */
@@ -110,5 +112,56 @@ describe("the line beside Create", () => {
     expect(container.textContent).not.toContain("New tokens expire");
     expect(container.querySelector('[role="alert"]')).toBeNull();
     expect(notes()).toContain("No tokens yet.");
+  });
+});
+
+describe("who may create tokens", () => {
+  const sentence = "Only admins can create tokens on this instance.";
+  const control = (label: string) => {
+    const field = container.querySelectorAll("label").find(element => element.textContent === label)!;
+    return container.querySelector(`[id="${field.getAttribute("for")}"]`)!;
+  };
+  const create = () => container.querySelectorAll("button").find(button => button.textContent === "Create token")!;
+  async function type(value: string) {
+    const input = control("Token name");
+    const key = Object.keys(input).find(name => name.startsWith("__reactProps$"))!;
+    await act(async () => (input as unknown as Record<string, { onChange: (e: unknown) => void }>)[key].onChange({ target: { value } }));
+  }
+
+  it("draws a member's name and Create disabled with the one sentence under Admins only, and lists what they made", async () => {
+    tokens = [token("earlier", { lastUsedAt: "2026-10-01T09:00:00.000Z", expiresAt: "2026-11-07T12:00:00.000Z" })];
+    config = { status: 200, body: { rules: { "tokens.create": "admins", "tokens.expiry": "30d" } } };
+    await open();
+    expect(control("Token name").disabled).toBe(true);
+    expect(create().disabled).toBe(true);
+    expect(notes()).toContain(sentence);
+    // One sentence beside the held action: the lifetime of a token they cannot make is not said.
+    expect(container.textContent).not.toContain("New tokens expire");
+    expect(rows()).toEqual([["earlier", `Last used ${day("2026-10-01T09:00:00.000Z")} · Expires ${day("2026-11-07T12:00:00.000Z")}`, true]]);
+  });
+
+  it("lets an admin create under Admins only, with no sentence", async () => {
+    admin = true;
+    config = { status: 200, body: { rules: { "tokens.create": "admins", "tokens.expiry": "30d" } } };
+    await open();
+    await type("Agent");
+    expect(control("Token name").disabled).toBe(false);
+    expect(create().disabled).toBe(false);
+    expect(container.textContent).not.toContain(sentence);
+    expect(notes()).toContain("New tokens expire after 30 days.");
+  });
+
+  it("lets a member create when no rule holds them back, and when the runtime read is refused", async () => {
+    const answers = [{ status: 200, body: { rules: { "tokens.create": "everyone", "tokens.expiry": "never" } } },
+      { status: 500, body: { error: { code: "internal", message: "Unavailable." } } }];
+    for (const [index, answer] of answers.entries()) {
+      if (index > 0) { act(() => root.unmount()); root = createRoot(container as unknown as Element); }
+      config = answer;
+      await open();
+      await type("Agent");
+      expect(control("Token name").disabled).toBe(false);
+      expect(create().disabled).toBe(false);
+      expect(container.textContent).not.toContain(sentence);
+    }
   });
 });

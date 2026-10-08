@@ -279,7 +279,7 @@ function Pending({ children }: { children: ReactNode }) {
 function TabContent({ tab, loaded }: { tab: SettingsTabId; loaded: Loaded }) {
   switch (tab) {
     case "account": return <AccountCard account={loaded.account} />;
-    case "tokens": return <TokensCard />;
+    case "tokens": return <TokensCard admin={loaded.account.isAdmin} />;
     case "appearance": return <AppearanceTab />;
     case "general": return <GeneralTab admin={loaded.account.isAdmin} />;
     case "maps": return <MapsTab />;

@@ -141,6 +141,7 @@ export function ConnectionForm({
   layout = "grid",
   title = true,
   cancelLabel = "Cancel",
+  refusal = null,
   onCancel,
   onSaved,
 }: {
@@ -149,6 +150,10 @@ export function ConnectionForm({
   layout?: "grid" | "stacked";
   title?: boolean;
   cancelLabel?: string;
+  /** The instance rule's sentence while it holds back adding a connection:
+   * a new one is drawn disabled, and a saved one keeps everything but
+   * what would point it at another host, port or database. */
+  refusal?: string | null;
   onCancel?: () => void;
   onSaved: (connection: PgConnection) => void;
 }) {
@@ -163,6 +168,8 @@ export function ConnectionForm({
   const dirty = JSON.stringify(fields) !== JSON.stringify(initial);
   const busy = phase.kind === "testing";
   const saved = phase.kind === "saved";
+  const held = refusal !== null;
+  const heldNew = held && mode === "add";
 
   const change = <K extends keyof ConnectionFormFields>(field: K, value: ConnectionFormFields[K]) => {
     setFields((current) => ({ ...current, [field]: value }));
@@ -272,6 +279,7 @@ export function ConnectionForm({
             <input
               className={styles.mono}
               value={url}
+              disabled={held}
               onChange={(event) => fillUrl(event.target.value)}
               spellCheck={false}
               autoComplete="off"
@@ -286,45 +294,46 @@ export function ConnectionForm({
           ) : null}
         </div>
       ) : (
-        <button className={styles.urlLink} type="button" onClick={() => setUrlOpen(true)}>
+        <button className={styles.urlLink} type="button" disabled={held} onClick={() => setUrlOpen(true)}>
           Paste a new connection URL
         </button>
       )}
 
       <div className={styles.grid}>
         <Field label="Connection name" wide>
-          <input value={fields.name} onChange={(event) => change("name", event.target.value)} placeholder="City geodata" />
+          <input value={fields.name} disabled={heldNew} onChange={(event) => change("name", event.target.value)} placeholder="City geodata" />
         </Field>
         <Field label="Host" wide>
-          <input className={styles.mono} value={fields.host} onChange={(event) => change("host", event.target.value)} spellCheck={false} placeholder="db.example.org" />
+          <input className={styles.mono} value={fields.host} disabled={held} onChange={(event) => change("host", event.target.value)} spellCheck={false} placeholder="db.example.org" />
         </Field>
         <Field label="Port">
-          <input className={styles.mono} value={fields.port} onChange={(event) => change("port", event.target.value)} inputMode="numeric" />
+          <input className={styles.mono} value={fields.port} disabled={held} onChange={(event) => change("port", event.target.value)} inputMode="numeric" />
         </Field>
         <Field label="Database">
-          <input className={styles.mono} value={fields.database} onChange={(event) => change("database", event.target.value)} spellCheck={false} />
+          <input className={styles.mono} value={fields.database} disabled={held} onChange={(event) => change("database", event.target.value)} spellCheck={false} />
         </Field>
         <Field label="Username">
-          <input className={styles.mono} value={fields.username} onChange={(event) => change("username", event.target.value)} spellCheck={false} />
+          <input className={styles.mono} value={fields.username} disabled={heldNew} onChange={(event) => change("username", event.target.value)} spellCheck={false} />
         </Field>
         <Field label="Password">
-          <input type="password" value={fields.password} onChange={(event) => change("password", event.target.value)} placeholder={passwordRequirement.placeholder} required={passwordRequirement.required} autoComplete="new-password" />
+          <input type="password" value={fields.password} disabled={heldNew} onChange={(event) => change("password", event.target.value)} placeholder={passwordRequirement.placeholder} required={passwordRequirement.required} autoComplete="new-password" />
         </Field>
       </div>
 
       <label className={styles.check}>
-        <input type="checkbox" checked={fields.ssl} onChange={(event) => change("ssl", event.target.checked)} />
+        <input type="checkbox" checked={fields.ssl} disabled={heldNew} onChange={(event) => change("ssl", event.target.checked)} />
         Require SSL for this connection
       </label>
       {!fields.ssl ? <p className={styles.sslNote}>SSL is not required. The server may still encrypt the connection.</p> : null}
       <p className={styles.note}>Use a read-only database user. The password is stored encrypted and never shown again.</p>
+      {refusal ? <p className={styles.note}>{refusal}</p> : null}
 
       {phase.kind === "error" ? (
         <div className={styles.error} role="alert"><WarnIcon /> <span>{phase.message}</span></div>
       ) : null}
 
       <div className={styles.actions}>
-        <button className={styles.primary} type="button" onClick={() => void submit()} disabled={busy || saved || (mode === "edit" && !dirty)}>
+        <button className={styles.primary} type="button" onClick={() => void submit()} disabled={busy || saved || heldNew || (mode === "edit" && !dirty)}>
           {busy ? "Testing…" : saved ? "Saved" : mode === "edit" ? "Test & save changes" : "Test & save connection"}
         </button>
         {onCancel ? <button className={styles.secondary} type="button" onClick={onCancel}>{cancelLabel}</button> : null}

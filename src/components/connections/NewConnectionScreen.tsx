@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ConnectionForm } from "./ConnectionForm";
+import { RuledConnectionForm } from "./RuledConnectionForm";
 import styles from "./NewConnectionScreen.module.css";
 
 export function NewConnectionScreen() {
@@ -11,7 +11,7 @@ export function NewConnectionScreen() {
     <div className={styles.screen}>
       <Link className={styles.back} href="/connections">‹ Connections</Link>
       <section className={styles.card}>
-        <ConnectionForm
+        <RuledConnectionForm
           mode="add"
           onCancel={() => router.push("/connections")}
           onSaved={(connection) => router.push(`/connections/${connection.id}`)}
