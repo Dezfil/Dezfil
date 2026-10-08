@@ -8,8 +8,9 @@ import { maintainCredentials } from "./credential-maintenance";
 import { deletionReservesEmail } from "./account-deletion-journal";
 import { AuthError, requireAuthenticationWanted } from "./errors";
 import { issueSession, requireCurrentActor, type AuthContext } from "./credentials";
-import { DUMMY_PASSWORD_HASH, hashPassword, verifyPassword } from "./passwords";
+import { DUMMY_PASSWORD_HASH, hashPassword, PASSWORD_FLOOR, verifyPassword } from "./passwords";
 import { adoptLegacyPreferences } from "./adoption";
+import { securitySettings } from "./security-settings";
 
 /** Call under the write transaction, after authorizing the caller. */
 export function requireAvailableEmail(email: string, exceptId: string | null, db: Database, admin = false): void {
@@ -52,7 +53,8 @@ export async function createFirstAccount(input: { name: string; email: string; p
   // The write transaction repeats this check after asynchronous password work.
   if (setupComplete(db)) throw new AuthError("setup_complete", "This instance is already set up.", 409);
   const fields = identityFields(input.name, input.email);
-  const passwordHash = await hashPassword(input.password, { signal });
+  // The first account takes the floor: no admin has chosen anything yet.
+  const passwordHash = await hashPassword(input.password, { signal, minimum: PASSWORD_FLOOR });
   return db.transaction(() => {
     requireAuthenticationWanted(signal);
     if (setupComplete(db)) throw new AuthError("setup_complete", "This instance is already set up.", 409);
@@ -93,7 +95,7 @@ export async function changeOwnPassword(context: AuthContext, currentPassword: s
   db: Database = metadataDb(), now?: number, signal?: AbortSignal): Promise<void> {
   const account = requireCurrentActor(context, db, now ?? Date.now());
   const oldHash = await checkCurrentPassword(account.id, currentPassword, db, signal);
-  const passwordHash = await hashPassword(password, { class: "protected", signal });
+  const passwordHash = await hashPassword(password, { class: "protected", signal, minimum: securitySettings(db).passwordMin });
   db.transaction(() => {
     requireAuthenticationWanted(signal);
     const at = now ?? Date.now();

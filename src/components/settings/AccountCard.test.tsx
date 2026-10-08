@@ -25,13 +25,17 @@ let host: ReturnType<typeof installDomHost>;
 let root: ReturnType<typeof createRoot>;
 let container: HostElement;
 let renamed: string[];
+/** The runtime read's answer, given at once and kept out of the card's writes. */
+let config: { status: number; body: unknown };
 
 beforeEach(async () => {
-  calls = []; renamed = [];
-  vi.stubGlobal("fetch", vi.fn((url: string, init: RequestInit = {}) => new Promise<Response>(resolve => {
-    calls.push({ url, method: init.method ?? "GET", body: init.body ? JSON.parse(String(init.body)) : {},
-      answer: async (status, body) => { await act(async () => { resolve(Response.json(body, { status })); await new Promise(r => setTimeout(r, 0)); }); } });
-  })));
+  calls = []; renamed = []; config = { status: 200, body: { passwordMin: 12 } };
+  vi.stubGlobal("fetch", vi.fn((url: string, init: RequestInit = {}) => url === "/api/config"
+    ? Promise.resolve(Response.json(config.body, { status: config.status }))
+    : new Promise<Response>(resolve => {
+      calls.push({ url, method: init.method ?? "GET", body: init.body ? JSON.parse(String(init.body)) : {},
+        answer: async (status, body) => { await act(async () => { resolve(Response.json(body, { status })); await new Promise(r => setTimeout(r, 0)); }); } });
+    })));
   host = installDomHost();
   host.window.addEventListener(DISPLAY_NAME_EVENT, (event: unknown) => { renamed.push((event as CustomEvent<string>).detail); });
   container = host.document.createElement("div");
@@ -130,6 +134,28 @@ describe("the Account card", () => {
     expect(statuses()).toEqual([]);
     expect(buttons()).toContain("Save");
     expect(field("Email")!.value).toBe("ada@lovelace.test");
+  });
+
+  it("names the shortest password the runtime read gives under New password, and only there", async () => {
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 0)); });
+    const rules = () => container.querySelectorAll("p").map(p => p.textContent).filter(text => /^At least \d+ characters\.$/.test(text ?? ""));
+    expect(rules()).toEqual(["At least 12 characters."]);
+    const rule = container.querySelectorAll("p").find(p => p.textContent === "At least 12 characters.")!;
+    expect(field("New password")!.getAttribute("aria-describedby")).toContain(rule.getAttribute("id"));
+    expect(field("Current password")!.getAttribute("aria-describedby") ?? "").not.toContain(rule.getAttribute("id"));
+  });
+
+  it("names no number while the runtime read is refused, and still changes the password", async () => {
+    config = { status: 500, body: { error: { code: "internal", message: "Unavailable." } } };
+    act(() => root.unmount());
+    root = createRoot(container as unknown as Element);
+    await act(async () => root.render(<AccountCard account={ADA} />));
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 0)); });
+    expect(container.textContent).not.toMatch(/At least \d+ characters/);
+    expect(container.querySelector('[role="alert"]')).toBeNull();
+    await type("Current password", "old secret");
+    await type("New password", "new secret words");
+    expect(button("Change password").disabled).toBe(false);
   });
 
   it("keeps Change password on its own button, always shown, with its shipped words", async () => {

@@ -1114,7 +1114,7 @@
     {
       "type": "function",
       "name": "get_config",
-      "description": "Runtime client configuration. Instance-wide basemaps, built-in palettes, client limits and the defaults new maps, layers and screens start with, shared by every authenticated account. Includes deployment-configured basemap choices and provider availability, never server-side AI or geocoder credentials. Private, no-store.",
+      "description": "Runtime client configuration. Instance-wide basemaps, built-in palettes, client limits, the defaults new maps, layers and screens start with, and the shortest password, shared by every authenticated account. Includes deployment-configured basemap choices and provider availability, never server-side AI or geocoder credentials. Private, no-store.",
       "parameters": {
         "type": "object",
         "properties": {}

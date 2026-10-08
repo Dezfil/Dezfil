@@ -5,8 +5,8 @@ import { readStoredSettings } from "@/lib/settings/store";
 
 const DAY_MS = 86_400_000;
 
-/** How long sign-ins and links last and when failed sign-ins pause, in the
- * units the auth code applies them. */
+/** How long sign-ins and links last, when failed sign-ins pause and the
+ * shortest password, in the units the auth code applies them. */
 export interface SecuritySettings {
   /** A session's length: issue and every renewal set its expiry this far ahead. */
   readonly sessionMs: number;
@@ -16,6 +16,8 @@ export interface SecuritySettings {
   readonly failedPerAccount: number;
   /** Failed sign-ins from one address within the window before its next attempt pauses. */
   readonly failedPerAddress: number;
+  /** The fewest characters a password set from now may have. */
+  readonly passwordMin: number;
 }
 
 /**
@@ -33,5 +35,6 @@ export function securitySettings(db: Database = metadataDb()): SecuritySettings 
     linkMs: value("security.linkDays") * DAY_MS,
     failedPerAccount: value("security.failedPerAccount"),
     failedPerAddress: value("security.failedPerAddress"),
+    passwordMin: value("security.passwordMin"),
   };
 }

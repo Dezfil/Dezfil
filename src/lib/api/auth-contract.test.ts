@@ -31,9 +31,10 @@ it("documents every entry refusal and its retry fields without exposing password
 it("documents the public General entry values without promising navigation", () => {
   const doc = buildOpenApiDocument();
   const schema = doc.components.schemas.AuthEntry;
-  expect(schema.required).toEqual(["instanceName", "signInMessage", "lostPasswordContact", "landingPage", "setupRequired"]);
+  expect(schema.required).toEqual(["instanceName", "signInMessage", "lostPasswordContact", "landingPage", "passwordMin", "setupRequired"]);
   expect(schema.properties).toMatchObject({
     signInMessage: { type: "string", maxLength: 280, default: "" },
+    passwordMin: { type: "integer", minimum: 8, maximum: 64 },
     lostPasswordContact: { type: "string", maxLength: 120, default: "" },
     landingPage: { type: "string", enum: ["home", "projects", "maps", "workflows", "data", "sql"], default: "home" },
   });
@@ -41,6 +42,7 @@ it("documents the public General entry values without promising navigation", () 
   expect(description).toContain("sign-in message");
   expect(description).toContain("lost-password contact");
   expect(description).toContain("landing page");
+  expect(description).toContain("shortest password");
   expect(description).toContain("does not change navigation");
   expect(description).not.toContain("Only the instance name");
 });

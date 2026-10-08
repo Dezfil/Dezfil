@@ -6,6 +6,7 @@ import { issueSession, secretHash } from "./credentials";
 import { maintainCredentials } from "./credential-maintenance";
 import { AuthError, requireAuthenticationWanted } from "./errors";
 import { hashPassword } from "./passwords";
+import { securitySettings } from "./security-settings";
 
 export async function redeemSignInLink(secret: string, password: string,
   db: Database = metadataDb(), now?: number, signal?: AbortSignal) {
@@ -20,7 +21,7 @@ export async function redeemSignInLink(secret: string, password: string,
     return link;
   };
   readLink(now ?? Date.now());
-  const passwordHash = await hashPassword(password, { class: "protected", signal });
+  const passwordHash = await hashPassword(password, { class: "protected", signal, minimum: securitySettings(db).passwordMin });
   return db.transaction(() => {
     requireAuthenticationWanted(signal);
     const at = now ?? Date.now();

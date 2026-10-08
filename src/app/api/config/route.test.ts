@@ -96,6 +96,27 @@ describe("the runtime read's defaults", () => {
     expect((await read("token")).defaults["newMap.basemap"]).toBe("satellite");
   });
 
+  it.each(["cookie", "token"] as const)("carry the shortest password to a member by %s: 8 with nothing stored, then what an admin stored", async kind => {
+    expect((await read(kind)).passwordMin).toBe(8);
+    await change({ "security.passwordMin": 12 });
+    expect((await read(kind)).passwordMin).toBe(12);
+  });
+
+  it("carry the shortest password to an agent through get_config, valid against the tool's documented output", async () => {
+    await change({ "security.passwordMin": 12 });
+    const tool = buildTools().find(candidate => candidate.name === "get_config")!;
+    const result = await executeTool(tool, {}, origin,
+      (async (input: RequestInfo | URL, init?: RequestInit) => dispatchAssistantTestRoute(new Request(String(input), init))) as typeof fetch,
+      { authorization: `Bearer ${memberToken()}` });
+    expect((result.body as { passwordMin: unknown }).passwordMin).toBe(12);
+    const output = fromJsonSchema(tool.outputSchema as Parameters<typeof fromJsonSchema>[0]);
+    const valid = async (body: unknown) => (await output["~standard"].validate(mcpResult(tool, { ...result, body }, null).structuredContent)).issues;
+    expect(await valid(result.body)).toBeUndefined();
+    // The documented shape bounds it as the setting does: below the floor, past 64 or as text each fail it.
+    const body = result.body as Record<string, unknown>;
+    for (const passwordMin of [7, 65, "12"]) expect(await valid({ ...body, passwordMin })).toBeDefined();
+  });
+
   it("reach an agent through get_config, valid against the tool's documented output", async () => {
     await change(CHANGED);
     const tool = buildTools().find(candidate => candidate.name === "get_config")!;

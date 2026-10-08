@@ -17,6 +17,8 @@ interface Entry {
   /** What an admin set for this screen: a message on the sign-in page, who
    * to ask about a lost password, and where people land once signed in. */
   signInMessage?: string | null; lostPasswordContact?: string | null; landingPage?: string | null;
+  /** The fewest characters a password chosen here needs. */
+  passwordMin?: number;
 }
 interface Failure { code?: string; message?: string; retryAt?: string; }
 export function EntryScreen({ mode }: { mode: Mode }) {
@@ -58,6 +60,7 @@ export function EntryScreen({ mode }: { mode: Mode }) {
     finally { setBusy(false); }
   }
   const missingLink = redeem && entry !== null && !secret;
+  const rule = mode !== "sign-in" && typeof entry?.passwordMin === "number" ? `At least ${entry.passwordMin} characters.` : null;
   const instance = entry?.instanceName ?? (setup ? "A new instance" : null);
   const message = mode === "sign-in" ? entry?.signInMessage?.trim() : null;
   return <ThemeProvider><div className={styles.stage}>
@@ -82,10 +85,10 @@ export function EntryScreen({ mode }: { mode: Mode }) {
         <div className={styles.field}><label htmlFor="entry-password">Password</label>
           <div className={styles.password}><TextInput tier="chrome" id="entry-password" type={shown ? "text" : "password"} autoComplete={mode === "sign-in" ? "current-password" : "new-password"}
             value={password} onChange={event => setPassword(event.target.value)} required disabled={busy || !entry || missingLink}
-            aria-describedby={mode === "sign-in" ? undefined : "password-rule"} />
+            aria-describedby={rule ? "password-rule" : undefined} />
             <IconButton action={shown ? "Hide password" : "Show password"} icon={shown ? <EyeOffIcon /> : <EyeIcon />} aria-pressed={shown} className={styles.eye} onClick={() => setShown(value => !value)} />
           </div>
-          {mode !== "sign-in" && <p id="password-rule" className={styles.help}>At least 8 characters.</p>}
+          {rule && <p id="password-rule" className={styles.help}>{rule}</p>}
         </div>
         <Button type="submit" variant="primary" size="chrome" busy={busy} disabled={!entry || missingLink} className={styles.submit}>{setup ? "Create account" : redeem ? "Set password" : "Sign in"}</Button>
         {mode === "sign-in" && (entry || failure) && <p className={styles.help}>{forgotLine(entry?.lostPasswordContact)}</p>}

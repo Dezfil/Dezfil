@@ -8,6 +8,7 @@ import { writeStoredSettings } from "@/lib/settings/store";
 import { socketRequest } from "@/lib/assistant/testing/socket-request";
 import { GET, PATCH } from "@/app/api/instance/settings/route";
 import { instanceSettingsFixture } from "../../../test-support/instance-settings";
+import { changeOwnPassword, createFirstAccount, signIn } from "./accounts";
 import { authenticateSession, issueSession, secretHash, type AuthContext } from "./credentials";
 import { inviteAccount, issueSignInLink } from "./admin";
 import { gateRequest } from "./gate";
@@ -18,7 +19,7 @@ import { securitySettings } from "./security-settings";
 // Fixture values, written out rather than read from the code under test.
 const day = 86_400_000, hour = 3_600_000, start = Date.parse("2026-03-01T00:00:00Z");
 const password = "river otter telescope";
-const PRODUCT = { sessionMs: 30 * day, linkMs: 7 * day, failedPerAccount: 5, failedPerAddress: 20 };
+const PRODUCT = { sessionMs: 30 * day, linkMs: 7 * day, failedPerAccount: 5, failedPerAddress: 20, passwordMin: 8 };
 
 let db: Database;
 beforeEach(() => { db = open(":memory:"); });
@@ -33,18 +34,20 @@ const expiry = (secret: string, store = db) =>
 describe("the Security rows' reader", () => {
   it("resolves the rows from the store it is handed, on every call", () => {
     expect(securitySettings(db)).toEqual(PRODUCT);
-    writeStoredSettings({ "security.sessionDays": "1", "security.linkDays": "14", "security.failedPerAccount": 3, "security.failedPerAddress": 10 }, db);
-    expect(securitySettings(db)).toEqual({ sessionMs: day, linkMs: 14 * day, failedPerAccount: 3, failedPerAddress: 10 });
+    writeStoredSettings({ "security.sessionDays": "1", "security.linkDays": "14", "security.failedPerAccount": 3, "security.failedPerAddress": 10,
+      "security.passwordMin": 12 }, db);
+    expect(securitySettings(db)).toEqual({ sessionMs: day, linkMs: 14 * day, failedPerAccount: 3, failedPerAddress: 10, passwordMin: 12 });
     // Another store keeps its own rows: nothing is kept between calls or across stores.
     const other = open(":memory:");
     try { expect(securitySettings(other)).toEqual(PRODUCT); } finally { other.close(); }
     writeStoredSettings({ "security.sessionDays": null, "security.failedPerAccount": null }, db);
-    expect(securitySettings(db)).toEqual({ ...PRODUCT, linkMs: 14 * day, failedPerAddress: 10 });
+    expect(securitySettings(db)).toEqual({ ...PRODUCT, linkMs: 14 * day, failedPerAddress: 10, passwordMin: 12 });
   });
 
   it("reads a stored value the catalogue no longer accepts as the product's own", () => {
-    db.prepare("INSERT INTO workspace_settings (key, value, updated_at) VALUES (?, ?, ?), (?, ?, ?)")
-      .run("instance.security.sessionDays", "2", "2026-03-01", "instance.security.failedPerAccount", "2", "2026-03-01");
+    db.prepare("INSERT INTO workspace_settings (key, value, updated_at) VALUES (?, ?, ?), (?, ?, ?), (?, ?, ?)")
+      .run("instance.security.sessionDays", "2", "2026-03-01", "instance.security.failedPerAccount", "2", "2026-03-01",
+        "instance.security.passwordMin", "7", "2026-03-01");
     expect(securitySettings(db)).toEqual(PRODUCT);
   });
 });
@@ -103,6 +106,48 @@ describe("invitation and reset links", () => {
   it("issues a fourteen-day link once fourteen days are stored", () => {
     writeStoredSettings({ "security.linkDays": "14" }, db);
     expect(inviteAccount(admin, { name: "Lin", email: "lin@example.test" }, db, start).expiresAt).toBe(start + 14 * day);
+  });
+});
+
+describe("the shortest password", () => {
+  // Fixtures by length: eight, eleven and twelve characters.
+  const eight = "marigold", eleven = "river otter", twelve = "river otters";
+  let admin: AuthContext;
+  beforeEach(async () => {
+    const created = await createFirstAccount({ name: "Ada", email: "ada@example.test", password: eight }, db, start);
+    admin = authenticateSession(created.secret, db, start)!;
+    writeStoredSettings({ "security.passwordMin": 12 }, db);
+  });
+  const snapshot = () => ["accounts", "auth_sessions", "auth_links"].map(table => db.prepare(`SELECT * FROM ${table} ORDER BY 1`).all());
+
+  it("at 12, refuses eleven characters at an invitation's and a reset's redemption and at a change, naming 12 and changing nothing", async () => {
+    const invited = inviteAccount(admin, { name: "Lin", email: "lin@example.test" }, db, start);
+    const member = account("grace");
+    const reset = issueSignInLink(admin, member.id, db, start);
+    for (const attempt of [() => redeemSignInLink(invited.secret, eleven, db, start), () => redeemSignInLink(reset.secret, eleven, db, start),
+      () => changeOwnPassword(admin, eight, eleven, db, start)]) {
+      const before = snapshot();
+      await expect(attempt()).rejects.toMatchObject({ code: "weak_password", status: 400, message: "Use at least 12 characters." });
+      expect(snapshot()).toEqual(before);
+    }
+    expect((await redeemSignInLink(invited.secret, twelve, db, start)).account.id).toBe(invited.account.id);
+    expect((await redeemSignInLink(reset.secret, twelve, db, start)).account.id).toBe(member.id);
+    await changeOwnPassword(admin, eight, twelve, db, start);
+    expect((await signIn("ada@example.test", twelve, db, start)).account.id).toBe(admin.account.id);
+  });
+
+  it("keeps signing in an account whose password was set at 8", async () => {
+    expect((await signIn("ada@example.test", eight, db, start)).account.id).toBe(admin.account.id);
+  });
+
+  it("lets the first account take 8 whatever is stored", async () => {
+    const fresh = open(":memory:");
+    try {
+      writeStoredSettings({ "security.passwordMin": 64 }, fresh);
+      await expect(createFirstAccount({ name: "Bo", email: "bo@example.test", password: "seven77" }, fresh, start))
+        .rejects.toMatchObject({ code: "weak_password", message: "Use at least 8 characters." });
+      expect((await createFirstAccount({ name: "Bo", email: "bo@example.test", password: eight }, fresh, start)).account.isAdmin).toBe(true);
+    } finally { fresh.close(); }
   });
 });
 

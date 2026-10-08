@@ -157,7 +157,7 @@ export function buildOpenApiDocument() {
       "/api/config": {
         get: op({
           summary: "Runtime client configuration",
-          description: "Instance-wide basemaps, built-in palettes, client limits and the defaults new maps, layers and screens start with, shared by every authenticated account. Includes deployment-configured basemap choices and provider availability, never server-side AI or geocoder credentials. Private, no-store.",
+          description: "Instance-wide basemaps, built-in palettes, client limits, the defaults new maps, layers and screens start with, and the shortest password, shared by every authenticated account. Includes deployment-configured basemap choices and provider availability, never server-side AI or geocoder credentials. Private, no-store.",
           tag: "System",
           tool: "get_config", mcp: LOCAL_READ,
           display: {"verb": "Read the instance configuration"},
@@ -954,6 +954,13 @@ export function buildOpenApiDocument() {
                 "server.",
             },
             defaults: INSTANCE_DEFAULTS_SCHEMA,
+            passwordMin: {
+              type: "integer", minimum: 8, maximum: 64,
+              description:
+                "The instance's shortest password: the fewest characters a " +
+                "password set from now may have, from 8 to 64. Admins change " +
+                "it; passwords set earlier keep signing in.",
+            },
           },
         },
         SearchResults: {

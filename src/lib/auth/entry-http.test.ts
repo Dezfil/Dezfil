@@ -56,10 +56,18 @@ it("exposes only entry metadata and removes the legacy prefill once setup exists
   setSetting("view_prefs", '{"maps":{"view":"list"}}', db);
   const before = await entryInformation(request("/api/auth/entry"));
   expect(before.headers.get("cache-control")).toBe("private, no-store");
-  expect(await before.json()).toEqual({ instanceName: "Field atlas", signInMessage: "", lostPasswordContact: "", landingPage: "home", setupRequired: true, prefillName: "Legacy name" });
+  expect(await before.json()).toEqual({ instanceName: "Field atlas", signInMessage: "", lostPasswordContact: "", landingPage: "home", passwordMin: 8, setupRequired: true, prefillName: "Legacy name" });
   const signed = await first();
   const after = await entryInformation(request("/api/auth/entry", undefined, { cookie: cookie(signed.secret) }));
-  expect(await after.json()).toEqual({ instanceName: "Field atlas", signInMessage: "", lostPasswordContact: "", landingPage: "home", setupRequired: false });
+  expect(await after.json()).toEqual({ instanceName: "Field atlas", signInMessage: "", lostPasswordContact: "", landingPage: "home", passwordMin: 8, setupRequired: false });
+});
+it("names the shortest password the entry screens take: 8 for the first account, then the stored one", async () => {
+  writeStoredSettings({ "security.passwordMin": 12 }, db);
+  expect((await (await entryInformation(request("/api/auth/entry"))).json()).passwordMin).toBe(8);
+  await first();
+  expect((await (await entryInformation(request("/api/auth/entry"))).json()).passwordMin).toBe(12);
+  writeStoredSettings({ "security.passwordMin": null }, db);
+  expect((await (await entryInformation(request("/api/auth/entry"))).json()).passwordMin).toBe(8);
 });
 it.each(["http://instance.test", "https://instance.test"])("sets an HttpOnly SameSite cookie using trusted transport at %s", async origin => {
   const response = await enter(request("/api/auth/setup", { name: "Ada", email: "ada@example.test", password }, {}, origin), "setup");
@@ -165,8 +173,8 @@ it("serves stored General values anonymously and restores defaults after clearin
   expect(response.status).toBe(200);
   expect(response.headers.get("cache-control")).toBe("private, no-store");
   expect(await response.json()).toEqual({ instanceName: null, setupRequired: false,
-    signInMessage: "Welcome aboard", lostPasswordContact: "Ask the steward", landingPage: "sql" });
+    signInMessage: "Welcome aboard", lostPasswordContact: "Ask the steward", landingPage: "sql", passwordMin: 8 });
   writeStoredSettings({ signInMessage: null, lostPasswordContact: null, landingPage: null }, db);
   expect(await (await entryInformation(request("/api/auth/entry"))).json()).toEqual({ instanceName: null,
-    setupRequired: false, signInMessage: "", lostPasswordContact: "", landingPage: "home" });
+    setupRequired: false, signInMessage: "", lostPasswordContact: "", landingPage: "home", passwordMin: 8 });
 });

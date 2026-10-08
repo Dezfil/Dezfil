@@ -8,6 +8,8 @@ import { createFirstAccount } from "./accounts";
 import { signInFromRequest } from "./login-limits";
 import { redeemSignInLink } from "./links";
 import { signOut } from "./credentials";
+import { PASSWORD_FLOOR } from "./passwords";
+import { securitySettings } from "./security-settings";
 import { assertRequestOrigin, authBody, authFailure, privateResponse, requestIngress, requireRequestAuth, sessionCookie, sessionSecret } from "./http";
 
 export async function entryInformation(request: Request): Promise<Response> {
@@ -18,7 +20,9 @@ export async function entryInformation(request: Request): Promise<Response> {
     return privateResponse(NextResponse.json({ instanceName: instanceName(db),
       signInMessage: stored.signInMessage ?? settingDefinition("signInMessage").defaultValue,
       lostPasswordContact: stored.lostPasswordContact ?? settingDefinition("lostPasswordContact").defaultValue,
-      landingPage: stored.landingPage ?? settingDefinition("landingPage").defaultValue, setupRequired,
+      landingPage: stored.landingPage ?? settingDefinition("landingPage").defaultValue,
+      // What a password chosen on these screens needs: the first account takes the floor.
+      passwordMin: setupRequired ? PASSWORD_FLOOR : securitySettings(db).passwordMin, setupRequired,
       ...(setupRequired ? { prefillName: getSetting("display_name", db) ?? "" } : {}) }));
   } catch (error) { return authFailure(error); }
 }
