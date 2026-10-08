@@ -17,6 +17,9 @@ export type WriteConstraint =
    * key and read back as its scheme and host alone. */
   | { readonly kind: "address"; readonly maxLength: number };
 
+/** The four services whose address an admin may store beside its variable. */
+export type ServiceAddressKey = "geocoderUrl" | "isochroneUrl" | "overpassUrl" | "s3Endpoint";
+
 export interface SettingDefinition {
   readonly key: string;
   readonly label: string;

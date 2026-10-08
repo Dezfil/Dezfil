@@ -1,7 +1,7 @@
 import { settingDefinition } from "./catalogue";
 import type { NumericSettingKey } from "./numeric";
 import { lockedEnvironment } from "./resolver";
-import type { ServiceAddressKey } from "./service-address";
+import type { ServiceAddressKey } from "./types";
 
 /** A remedy that remains true for API-only administration and deployment
  * locks: the setting while an admin may change it, the variable and a

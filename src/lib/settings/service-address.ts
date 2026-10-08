@@ -6,7 +6,7 @@ import { readDeploymentSetting } from "./deployment-read";
 import { discloseAddress } from "./disclosure";
 import { lockedEnvironment, settingEnvironment } from "./resolver";
 import { readStoredAddress } from "./store";
-import type { SettingDefinition } from "./types";
+import type { ServiceAddressKey, SettingDefinition } from "./types";
 
 /**
  * The four services whose address an admin may store beside its variable:
@@ -18,8 +18,8 @@ import type { SettingDefinition } from "./types";
  * configuration read takes what it may say about one (scheme and host, or
  * set and unreadable) from here; nothing else reads a stored address.
  */
-export const SERVICE_ADDRESS_KEYS = ["geocoderUrl", "isochroneUrl", "overpassUrl", "s3Endpoint"] as const;
-export type ServiceAddressKey = (typeof SERVICE_ADDRESS_KEYS)[number];
+export const SERVICE_ADDRESS_KEYS = ["geocoderUrl", "isochroneUrl", "overpassUrl", "s3Endpoint"] as const satisfies readonly ServiceAddressKey[];
+export type { ServiceAddressKey };
 
 export interface AddressInEffect {
   /** What the service reaches, or null for its own road without one: no
