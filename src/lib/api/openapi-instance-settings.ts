@@ -7,6 +7,7 @@ import { AUTH_SECURITY } from "./openapi-auth";
 import { ERROR_RESPONSE, jsonOk, op } from "./openapi-helpers";
 import { LOCAL_READ, LOCAL_REPLACE } from "./operation-mcp";
 import { READ_ONLY, writes, resource } from "./operation-metadata";
+import { SERVICE_FACTS_SCHEMA } from "./openapi-instance-services";
 
 const object = <T extends Record<string, unknown>>(properties: T) => ({
   type: "object", properties, required: Object.keys(properties), additionalProperties: false,
@@ -110,6 +111,7 @@ export const INSTANCE_SETTINGS_SCHEMAS = {
     capacities: object({ geocodeRows: { type: "integer", minimum: 1 }, isochroneOrigins: { type: "integer", minimum: 0 } }),
     maxImageDimension: { type: "integer", const: EXPORT_MAX_DIMENSION }, version: { type: "string" }, startedAt: { type: "string", format: "date-time" },
     warnings: { type: "array", items: { type: "string" }, description: "Effective timeout relationship mismatches, including deployment overrides. These do not block unrelated edits." },
+    services: SERVICE_FACTS_SCHEMA,
   }),
 };
 
@@ -129,7 +131,9 @@ export const INSTANCE_SETTINGS_PATHS = {
       "Contextual defaults carry a rule when there is no single address or value. The read generates no key, writes no configuration file, " +
       "contacts no service and initializes no engine. Capacities report admitted geocode rows and travel-time origins per run, " +
       "without promising a configured provider. Also returns the fixed maximum image dimension, package version, stable process start time " +
-      "and warnings when the effective query timeout is at or above the run timeout.",
+      "and warnings when the effective query timeout is at or above the run timeout. " +
+      "Services report each provider cache (geocode, isochrone, overpass) with the bytes its answers take, how many it holds and its budget in MB, " +
+      "and the Overture release list this process keeps: how many releases, the newest and when it was listed, or not listed yet.",
     tag: "System", tool: "get_instance_settings", toolInput: { closed: true }, display: { verb: "Read instance configuration" }, effects: READ_ONLY, mcp: LOCAL_READ,
     responses: { "200": jsonOk("#/components/schemas/InstanceSettings"), "401": ERROR_RESPONSE, "403": ERROR_RESPONSE, "503": ERROR_RESPONSE },
   }), security: AUTH_SECURITY }, patch: { ...op({

@@ -139,7 +139,7 @@ export async function maintainOverpassCache(): Promise<void> {
 }
 
 async function writeCache(key: string, body: OverpassResponse, generation: number): Promise<void> {
-  const finish = await beginProviderCacheWrite(generation); if (!finish) return;
+  const finish = await beginProviderCacheWrite(generation, "overpass"); if (!finish) return;
   try {
     await mkdir(cacheDir(), { recursive: true });
     await writeFile(path.join(cacheDir(), `${key}.json`), JSON.stringify(body));

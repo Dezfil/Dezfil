@@ -98,7 +98,7 @@ export async function writeAnswer(
   answer: CachedAnswer,
   generation: number,
 ): Promise<void> {
-  const finish = await beginProviderCacheWrite(generation); if (!finish) return;
+  const finish = await beginProviderCacheWrite(generation, "geocode"); if (!finish) return;
   try {
     const dir = cacheDir();
     await mkdir(dir, { recursive: true });

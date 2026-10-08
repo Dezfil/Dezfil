@@ -261,7 +261,7 @@
     },
     {
       "name": "get_instance_settings",
-      "description": "Read instance configuration. Requires a current admin account through a cookie session or bearer token, rechecked on every call. Responses, including refusals, are private, no-store. Returns every instance and platform definition with its effective value, source, stored value (including a shadowed value), lock and invalid-override state. A non-empty environment variable locks the setting even when invalid; invalid numeric overrides use the default without returning the override text. Empty numeric overrides are absent; a set empty assistant model list retains its default model alone. Environment changes require a restart. Provider keys report set or not set; the encryption key reports environment, data-directory or not-yet-present. Address value and defaultValue expose scheme and host only, never user information, paths, queries or fragments; malformed addresses report set and unreadable. A service address an admin stored reads as set with its scheme and host, or as set and unreadable once the instance's encryption key no longer opens it; its storedValue is always null. The built-in documentedDefault stays as documented, including any path. Contextual defaults carry a rule when there is no single address or value. The read generates no key, writes no configuration file, contacts no service and initializes no engine. Capacities report admitted geocode rows and travel-time origins per run, without promising a configured provider. Also returns the fixed maximum image dimension, package version, stable process start time and warnings when the effective query timeout is at or above the run timeout.",
+      "description": "Read instance configuration. Requires a current admin account through a cookie session or bearer token, rechecked on every call. Responses, including refusals, are private, no-store. Returns every instance and platform definition with its effective value, source, stored value (including a shadowed value), lock and invalid-override state. A non-empty environment variable locks the setting even when invalid; invalid numeric overrides use the default without returning the override text. Empty numeric overrides are absent; a set empty assistant model list retains its default model alone. Environment changes require a restart. Provider keys report set or not set; the encryption key reports environment, data-directory or not-yet-present. Address value and defaultValue expose scheme and host only, never user information, paths, queries or fragments; malformed addresses report set and unreadable. A service address an admin stored reads as set with its scheme and host, or as set and unreadable once the instance's encryption key no longer opens it; its storedValue is always null. The built-in documentedDefault stays as documented, including any path. Contextual defaults carry a rule when there is no single address or value. The read generates no key, writes no configuration file, contacts no service and initializes no engine. Capacities report admitted geocode rows and travel-time origins per run, without promising a configured provider. Also returns the fixed maximum image dimension, package version, stable process start time and warnings when the effective query timeout is at or above the run timeout. Services report each provider cache (geocode, isochrone, overpass) with the bytes its answers take, how many it holds and its budget in MB, and the Overture release list this process keeps: how many releases, the newest and when it was listed, or not listed yet.",
       "input_schema": {
         "type": "object",
         "properties": {},
@@ -891,6 +891,25 @@
             "description": "Who may import from links. Whether every account or only admins may import from web addresses and cloud storage. Link datasets keep refreshing. Null clears the stored value."
           }
         }
+      }
+    },
+    {
+      "name": "clear_service_caches",
+      "description": "Clear service caches. Requires a current admin through cookie or bearer authentication, rechecked on every call. Cookie requests require the same trusted Origin; an admin bearer token calls directly. Responses, including refusals, are private, no-store. Removes cached answers only: with service, that one cache (geocode for the address finder, isochrone for travel time, overpass for OpenStreetMap); without it, all three. Settings, datasets, runs and the Overture release list are unchanged. An answer whose request began before the Clear is not kept, and a write already landing is waited for and then removed. Clearing an empty cache answers the same. Answers with the caches cleared. The embedded assistant asks for confirmation before calling on pages admitting writes; SQL and workflow assistants refuse this operation. MCP advertises that policy and adds no confirmation step.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "service": {
+            "type": "string",
+            "enum": [
+              "geocode",
+              "isochrone",
+              "overpass"
+            ],
+            "description": "The one cache to clear; omitted, all three."
+          }
+        },
+        "additionalProperties": false
       }
     },
     {

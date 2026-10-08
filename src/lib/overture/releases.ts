@@ -94,6 +94,12 @@ function keep(releases: string[]): string[] {
   return releases;
 }
 
+/** The list this process keeps, newest first, and when it was listed; null
+ * before any listing succeeded. The pinned fallback is never kept. */
+export function keptReleaseList(): { releases: string[]; listedAt: number } | null {
+  return cache ? { releases: [...cache.releases], listedAt: cache.at } : null;
+}
+
 export async function latestOvertureRelease(): Promise<string> {
   return (await listOvertureReleases())[0];
 }

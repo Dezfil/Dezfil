@@ -255,6 +255,9 @@ describe("tool parity", () => {
       .sort();
     expect(confirmed).toEqual([
       "change_password",
+      // Emptying a cache loses nothing a service cannot answer again, but
+      // it is asked for as every instance-wide change is.
+      "clear_service_caches",
       "clear_table_geometry",
       "create_api_token",
       "delete_layer",

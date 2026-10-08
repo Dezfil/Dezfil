@@ -25,5 +25,5 @@ export function isAnonymousOperation(pathname: string, method: string): boolean 
 }
 
 export function isAdminRequest(pathname: string): boolean {
-  return pathname === "/users" || pathname === "/api/users" || pathname.startsWith("/api/users/") || pathname === "/api/instance/settings";
+  return pathname === "/users" || pathname === "/api/users" || pathname.startsWith("/api/users/") || pathname.startsWith("/api/instance/");
 }

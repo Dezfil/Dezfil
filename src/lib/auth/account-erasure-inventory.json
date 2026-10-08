@@ -4704,7 +4704,52 @@
         "memory:provider-cache-writers"
       ]
     },
+    "memory:src/lib/provider-cache-generation.ts#beginProviderCacheWrite.writer": {
+      "stores": [
+        "memory:provider-cache-writers"
+      ]
+    },
     "location:src/lib/auth/account-erasure-provider-caches.ts#eraseProviderCaches:dataDir": {
+      "stores": [
+        "file:geocode",
+        "file:isochrone",
+        "file:overpass"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "location:src/lib/settings/service-facts.ts#cacheFacts.directory:dataDir": {
+      "stores": [
+        "file:geocode",
+        "file:isochrone",
+        "file:overpass"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "location:src/lib/settings/service-facts.ts#cacheFacts.directory:path.join": {
+      "stores": [
+        "file:geocode",
+        "file:isochrone",
+        "file:overpass"
+      ],
+      "roots": [
+        "cache/*"
+      ]
+    },
+    "location:src/lib/settings/service-facts.ts#cacheFacts.info:path.join": {
+      "stores": [
+        "file:geocode",
+        "file:isochrone",
+        "file:overpass"
+      ],
+      "roots": [
+        "cache/*/*"
+      ]
+    },
+    "location:src/lib/settings/service-facts.ts#clearServiceCaches:dataDir": {
       "stores": [
         "file:geocode",
         "file:isochrone",
@@ -5194,6 +5239,26 @@
       ]
     },
     "memory:src/lib/api/openapi-instance-settings.ts#INSTANCE_SETTINGS_SCHEMAS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-instance-services.ts#INSTANCE_SERVICES_PATHS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-instance-services.ts#INSTANCE_SERVICES_SCHEMAS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-instance-services.ts#SERVICE_FACTS_SCHEMA": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/settings/service-facts.ts#BUDGET_MB": {
       "stores": [
         "memory:immutable-configuration"
       ]
