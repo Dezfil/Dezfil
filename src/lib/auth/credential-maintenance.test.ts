@@ -3,7 +3,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { open } from "@/lib/metadata/db";
 import { insertAccount } from "@/lib/metadata/accounts";
 import { insertLink, insertSession, insertToken } from "@/lib/metadata/auth-credentials";
-import { authenticateSession, authenticateToken, listApiTokens, revokeApiToken, secretHash, SESSION_LIFETIME_MS } from "./credentials";
+import { authenticateSession, authenticateToken, listApiTokens, revokeApiToken, secretHash } from "./credentials";
 
 import { credentialMaintenance, maintainCredentials } from "./credential-maintenance";
 import { credentialPage, removeExpiredCredentials } from "@/lib/metadata/credential-maintenance";
@@ -14,6 +14,8 @@ import { hashPassword } from "./passwords";
 import { authenticateBearer, authenticateDelegation, delegateCredential } from "./delegation";
 
 const day = 86_400_000, now = Date.parse("2026-07-01T00:00:00Z");
+// The stored session length's default, as a fixture.
+const SESSION_LIFETIME_MS = 30 * day;
 let db: Database;
 beforeEach(() => {
   db = open(":memory:");

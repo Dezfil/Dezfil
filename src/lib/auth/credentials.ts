@@ -7,9 +7,9 @@ import { insertSession, insertToken, listAccountTokens, revokeAccountToken, sess
 import { maintainCredentials } from "./credential-maintenance";
 import { AuthError } from "./errors";
 import { newSecret, secretHash } from "./link-issuance.mjs";
+import { securitySettings } from "./security-settings";
 export { newSecret, secretHash } from "./link-issuance.mjs";
 
-export const SESSION_LIFETIME_MS = 30 * 24 * 60 * 60 * 1000;
 export interface AuthContext {
   account: Account;
   /** Expiry of a server-issued bearer bound to this session or token. */
@@ -18,15 +18,20 @@ export interface AuthContext {
   credential: { kind: "session" | "token"; id: string };
 }
 
-/** Called inside the account transaction after credential verification. */
+/** Called inside the account transaction after credential verification. The
+ * session lasts the length stored now. */
 export function issueSession(account: Account, db: Database, now: number) {
   const secret = newSecret("session");
   const id = randomUUID();
+  const expiresAt = now + securitySettings(db).sessionMs;
   insertSession({ id, account_id: account.id, secret_hash: secretHash(secret), created_at: now,
-    expires_at: now + SESSION_LIFETIME_MS, last_used_at: now, revoked_at: null }, db);
-  return { account, secret, expiresAt: now + SESSION_LIFETIME_MS };
+    expires_at: expiresAt, last_used_at: now, revoked_at: null }, db);
+  return { account, secret, expiresAt };
 }
 
+/** A session is judged by the expiry it holds, never by its last use, so
+ * storing a shorter length ends no session: its next use renews it by the
+ * length stored now. */
 export function authenticateSession(secret: string | null, db: Database = metadataDb(), now?: number): AuthContext | null {
   if (!secret) return null;
   maintainCredentials(db, now);
@@ -36,7 +41,7 @@ export function authenticateSession(secret: string | null, db: Database = metada
     const account = record && getAccount(record.account_id, db);
     if (!record || !account || record.revoked_at !== null || record.expires_at <= now || account.status !== "active") return null;
     db.prepare("UPDATE auth_sessions SET last_used_at = ?, expires_at = ? WHERE id = ?")
-      .run(now, now + SESSION_LIFETIME_MS, record.id);
+      .run(now, now + securitySettings(db).sessionMs, record.id);
     return { account, credential: { kind: "session" as const, id: record.id } };
   }).immediate();
 }

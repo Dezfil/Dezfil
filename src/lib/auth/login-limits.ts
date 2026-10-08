@@ -5,10 +5,10 @@ import { signIn } from "./accounts";
 import { normalizeAddress, requireIngress } from "./ingress.mjs";
 import { secretHash } from "./credentials";
 import { AuthError, AuthenticationCancelled } from "./errors";
+import { securitySettings } from "./security-settings";
 
+/** Fixed: the stored counts say how many failures, never for how long. */
 export const LOGIN_WINDOW_MS = 15 * 60 * 1000;
-export const LOGIN_ACCOUNT_LIMIT = 5;
-export const LOGIN_SOURCE_LIMIT = 20;
 interface Bucket { bucket: string; window_started_at: number; failures: number; pending: number; }
 
 export async function withLoginLimit<T>(email: string, source: string, operation: () => Promise<T>,
@@ -17,7 +17,10 @@ export async function withLoginLimit<T>(email: string, source: string, operation
   const accountKey = `account:${secretHash(normalizeEmail(email))}`;
   const sourceKey = `source:${secretHash(normalizeAddress(source))}`;
   const reservations = db.transaction(() => {
-    const buckets = [[accountKey, LOGIN_ACCOUNT_LIMIT], [sourceKey, LOGIN_SOURCE_LIMIT]] as const;
+    // Read inside the reservation on every attempt, so a lowered count pauses
+    // the next attempt and a raised one admits it, with no restart.
+    const { failedPerAccount, failedPerAddress } = securitySettings(db);
+    const buckets = [[accountKey, failedPerAccount], [sourceKey, failedPerAddress]] as const;
     const rows = buckets.map(([bucket, limit]) => {
       const stored = db.prepare("SELECT * FROM auth_login_limits WHERE bucket = ?").get(bucket) as Bucket | undefined;
       const row = stored && now < stored.window_started_at + LOGIN_WINDOW_MS

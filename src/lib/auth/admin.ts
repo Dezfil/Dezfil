@@ -9,8 +9,7 @@ import { journalForAccount } from "./account-deletion-journal";
 import { ERROR_CATALOGUE } from "@/lib/api/error-catalogue";
 import { AuthError } from "./errors";
 import { issueLink, revokeSignInCredentials } from "./link-issuance.mjs";
-
-export { LINK_LIFETIME_MS } from "./link-issuance.mjs";
+import { securitySettings } from "./security-settings";
 
 export function requireAdmin(context: AuthContext, db: Database, now: number) {
   const account = requireCurrentActor(context, db, now);
@@ -18,8 +17,9 @@ export function requireAdmin(context: AuthContext, db: Database, now: number) {
   return account;
 }
 
+/** A link lasts the lifetime stored at its issue and keeps it after a save. */
 function makeLink(accountId: string, kind: "invite" | "reset", db: Database, now: number) {
-  return { account: getAccount(accountId, db)!, ...issueLink(accountId, kind, db, now) };
+  return { account: getAccount(accountId, db)!, ...issueLink(accountId, kind, db, now, securitySettings(db).linkMs) };
 }
 
 export function adminAccounts(context: AuthContext, db: Database = metadataDb(), now = Date.now()) {

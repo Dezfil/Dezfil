@@ -9,9 +9,11 @@ import { createFirstAccount } from "./accounts";
 import { authenticateSession, createApiToken, signOut } from "./credentials";
 import { inviteAccount, changeAccountAccess } from "./admin";
 import { currentSession, enter, entryInformation, leave } from "./entry";
+import { gateRequest } from "./gate";
 import { SESSION_COOKIE } from "./http";
-import { LOGIN_ACCOUNT_LIMIT } from "./login-limits";
 
+// The stored per-account count's default, as a fixture.
+const LOGIN_ACCOUNT_LIMIT = 5;
 let db: Database;
 const password = "field notebooks at dawn";
 beforeEach(() => { db = metadata.open(":memory:"); vi.spyOn(metadata, "metadataDb").mockReturnValue(db); });
@@ -67,6 +69,19 @@ it.each(["http://instance.test", "https://instance.test"])("sets an HttpOnly Sam
   expect(set).toMatch(/HttpOnly/i); expect(set).toMatch(/SameSite=lax/i); expect(set).toMatch(/Max-Age=2592000/i);
   expect(/; Secure/i.test(set)).toBe(origin.startsWith("https"));
   expect(JSON.stringify(await response.json())).not.toMatch(/password|hash|dz_session/);
+});
+it("gives the cookie the stored session length at entry, on a session read and through the gate", async () => {
+  writeStoredSettings({ "security.sessionDays": "7" }, db);
+  const entered = await enter(request("/api/auth/setup", { name: "Ada", email: "ada@example.test", password }), "setup");
+  const set = entered.headers.get("set-cookie")!;
+  expect(set).toMatch(/Max-Age=604800(;|$)/i);
+  const session = set.split(";")[0];
+  writeStoredSettings({ "security.sessionDays": "1" }, db);
+  const current = await currentSession(request("/api/auth/session", undefined, { cookie: session }));
+  expect(current.status).toBe(200);
+  expect(current.headers.get("set-cookie")).toMatch(/Max-Age=86400(;|$)/i);
+  const gated = gateRequest(request("/maps", undefined, { cookie: session }));
+  expect(gated.headers.get("set-cookie")).toMatch(/Max-Age=86400(;|$)/i);
 });
 it("replaces another account's cookie on redemption and refuses replay without another write", async () => {
   const admin = await first();
