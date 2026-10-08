@@ -86,7 +86,7 @@
     {
       "type": "function",
       "name": "list_api_tokens",
-      "description": "List your API tokens. Cookie or bearer authentication is required. Cookie mutations require the same trusted Origin. Responses, including refusals, are private, no-store. Lists only your own tokens, including revoked tokens. Secrets and hashes are never returned.",
+      "description": "List your API tokens. Cookie or bearer authentication is required. Cookie mutations require the same trusted Origin. Responses, including refusals, are private, no-store. Lists only your own tokens, including revoked and expired ones, each with when it expires. Secrets and hashes are never returned.",
       "parameters": {
         "type": "object",
         "properties": {}
@@ -96,7 +96,7 @@
     {
       "type": "function",
       "name": "create_api_token",
-      "description": "Create an API token. At most 65,536 wire bytes; a larger body is refused with `request_body_too_large` before JSON parsing. Cookie or bearer authentication is required. Cookie mutations require the same trusted Origin. Responses, including refusals, are private, no-store. Creates a named API/MCP token for your own account. The secret is returned only on creation. It authenticates with your current account permissions and is refused while the account is deactivated.",
+      "description": "Create an API token. At most 65,536 wire bytes; a larger body is refused with `request_body_too_large` before JSON parsing. Cookie or bearer authentication is required. Cookie mutations require the same trusted Origin. Responses, including refusals, are private, no-store. Creates a named API/MCP token for your own account. The secret is returned only on creation. It authenticates with your current account permissions and is refused while the account is deactivated. It lasts as long as the instance's rule for new tokens said at its creation, or never expires; expiresAt says when, a later change of the rule moves no token's expiry, and once it passes the token is refused with token_expired.",
       "parameters": {
         "type": "object",
         "additionalProperties": false,
@@ -1114,7 +1114,7 @@
     {
       "type": "function",
       "name": "get_config",
-      "description": "Runtime client configuration. Instance-wide basemaps, built-in palettes, client limits, the defaults new maps, layers and screens start with, and the shortest password, shared by every authenticated account. Includes deployment-configured basemap choices and provider availability, never server-side AI or geocoder credentials. Private, no-store.",
+      "description": "Runtime client configuration. Instance-wide basemaps, built-in palettes, client limits, the defaults new maps, layers and screens start with, the rules every account follows and the shortest password, shared by every authenticated account. Includes deployment-configured basemap choices and provider availability, never server-side AI or geocoder credentials. Private, no-store.",
       "parameters": {
         "type": "object",
         "properties": {}

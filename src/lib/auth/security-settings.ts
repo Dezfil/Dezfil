@@ -18,7 +18,15 @@ export interface SecuritySettings {
   readonly failedPerAddress: number;
   /** The fewest characters a password set from now may have. */
   readonly passwordMin: number;
+  /** How long a token made now lasts, as the rule names it. */
+  readonly tokenExpiry: TokenExpiry;
+  /** The same in milliseconds from creation; null under Never. */
+  readonly tokenLifetimeMs: number | null;
 }
+
+export type TokenExpiry = "never" | "30d" | "90d" | "1y";
+/** A year is 365 days, like the other lifetimes counted in days. */
+const TOKEN_LIFETIME_DAYS: Readonly<Record<TokenExpiry, number | null>> = { never: null, "30d": 30, "90d": 90, "1y": 365 };
 
 /**
  * The Security rows, resolved from the store on every call: the stored value
@@ -30,11 +38,15 @@ export interface SecuritySettings {
 export function securitySettings(db: Database = metadataDb()): SecuritySettings {
   const stored = readStoredSettings(db);
   const value = (key: string) => Number(stored[key] ?? settingDefinition(key).defaultValue);
+  const tokenExpiry = (stored["tokens.expiry"] ?? settingDefinition("tokens.expiry").defaultValue) as TokenExpiry;
+  const days = TOKEN_LIFETIME_DAYS[tokenExpiry];
   return {
     sessionMs: value("security.sessionDays") * DAY_MS,
     linkMs: value("security.linkDays") * DAY_MS,
     failedPerAccount: value("security.failedPerAccount"),
     failedPerAddress: value("security.failedPerAddress"),
     passwordMin: value("security.passwordMin"),
+    tokenExpiry,
+    tokenLifetimeMs: days === null ? null : days * DAY_MS,
   };
 }

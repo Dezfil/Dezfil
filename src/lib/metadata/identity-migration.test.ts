@@ -12,12 +12,19 @@ import { presencesOf } from "@/lib/reach-presence";
 
 const ENTRY = 46, now = "2026-01-02T03:04:05.000Z";
 let directory: string, file: string, db: Database.Database;
+/** A later migration adds the token expiry column; these checks compare the
+ * store as the identity migration left it, every other byte included. */
+const LATER_TOKEN_COLUMN = ", expires_at INTEGER)";
 function schema() {
-  return db.prepare("SELECT type, name, tbl_name, sql FROM sqlite_master WHERE NOT (type = 'table' AND name = 'accounts') ORDER BY type, name").all();
+  return (db.prepare("SELECT type, name, tbl_name, sql FROM sqlite_master WHERE NOT (type = 'table' AND name = 'accounts') ORDER BY type, name").all() as
+    { type: string; name: string; tbl_name: string; sql: string | null }[])
+    .map(entry => entry.type === "table" && entry.name === "auth_tokens" && entry.sql?.endsWith(LATER_TOKEN_COLUMN)
+      ? { ...entry, sql: entry.sql.slice(0, -LATER_TOKEN_COLUMN.length) + ")" } : entry);
 }
 function rows() {
   return Object.fromEntries((db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name").all() as { name: string }[])
-    .map(({ name }) => [name, db.prepare(`SELECT * FROM "${name}" ORDER BY rowid`).all()]));
+    .map(({ name }) => [name, (db.prepare(`SELECT * FROM "${name}" ORDER BY rowid`).all() as Record<string, unknown>[])
+      .map(row => name === "auth_tokens" ? Object.fromEntries(Object.entries(row).filter(([column]) => column !== "expires_at")) : row)]));
 }
 function reopen() { db.close(); db = open(file); }
 function eraseProfile() {
@@ -57,7 +64,7 @@ afterEach(() => { vi.restoreAllMocks(); if (db.open) db.close(); rmSync(director
 it("preserves every row and every other schema entry byte for byte, with enforced foreign keys on repeat opening", () => {
   const beforeRows = rows(), beforeSchema = schema();
   reopen();
-  expect(db.pragma("user_version", { simple: true })).toBe(ENTRY + 1);
+  expect(db.pragma("user_version", { simple: true })).toBe(MIGRATIONS.length);
   expect(rows()).toEqual(beforeRows); expect(schema()).toEqual(beforeSchema);
   expect(db.pragma("foreign_keys", { simple: true })).toBe(1);
   expect(db.pragma("foreign_key_check")).toEqual([]);

@@ -38,9 +38,14 @@ export interface IndexSources {
   readonly assistant: AssistantStatus | null;
 }
 
-/** A token's state, as its row in the list says it. */
-export function tokenState(token: Pick<ApiToken, "lastUsedAt" | "revokedAt">): string {
-  return token.revokedAt ? "Revoked" : token.lastUsedAt ? `Last used ${new Date(token.lastUsedAt).toLocaleDateString()}` : "Never used";
+/** A token's state, as its row in the list says it: Revoked, or Expired once
+ * its expiry has passed, else its use and, when it has one, its expiry. */
+export function tokenState(token: Pick<ApiToken, "lastUsedAt" | "revokedAt" | "expiresAt">, now = Date.now()): string {
+  const day = (time: string) => new Date(time).toLocaleDateString();
+  if (token.revokedAt) return "Revoked";
+  if (token.expiresAt && Date.parse(token.expiresAt) <= now) return `Expired ${day(token.expiresAt)}`;
+  const use = token.lastUsedAt ? `Last used ${day(token.lastUsedAt)}` : "Never used";
+  return token.expiresAt ? `${use} · Expires ${day(token.expiresAt)}` : use;
 }
 
 const text = (value: unknown) => typeof value === "string" ? value : "";

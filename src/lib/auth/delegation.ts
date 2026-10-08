@@ -5,7 +5,7 @@ import { metadataDb } from "@/lib/metadata/db";
 import { getAccount } from "@/lib/metadata/accounts";
 import { sessionById, tokenById } from "@/lib/metadata/auth-credentials";
 import { maintainCredentials } from "./credential-maintenance";
-import { authenticateToken, requireCurrentActor, type AuthContext } from "./credentials";
+import { authenticateToken, expiredToken, requireCurrentActor, tokenExpired, type AuthContext } from "./credentials";
 
 export const DELEGATION_LIFETIME_MS = 5 * 60 * 1000;
 const PREFIX = "dz_delegation_";
@@ -38,10 +38,14 @@ export function authenticateDelegation(secret: string, db: Database = metadataDb
   if (!value || typeof value.accountId !== "string" || typeof value.credentialId !== "string" ||
       (value.kind !== "session" && value.kind !== "token") ||
       typeof value.expiresAt !== "number" || !Number.isSafeInteger(value.expiresAt) || value.expiresAt <= now) return null;
-  const parent = value.kind === "session" ? sessionById(value.credentialId, db) : tokenById(value.credentialId, db);
+  const session = value.kind === "session" ? sessionById(value.credentialId, db) : null;
+  const token = value.kind === "token" ? tokenById(value.credentialId, db) : null;
+  const parent = session ?? token;
   const account = parent && getAccount(parent.account_id, db);
   if (!parent || !account || account.id !== value.accountId || account.status !== "active" || parent.revoked_at !== null ||
-      ("expires_at" in parent && parent.expires_at <= now)) return null;
+      (session !== null && session.expires_at <= now)) return null;
+  // A delegation never outlives the token it was made from, and says why.
+  if (token !== null && tokenExpired(token, now)) throw expiredToken();
   return { account, credential: { kind: value.kind, id: parent.id }, delegationExpiresAt: value.expiresAt, workKey: delegatedWorkKey(secret) };
 }
 

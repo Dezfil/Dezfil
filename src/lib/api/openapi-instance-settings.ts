@@ -65,6 +65,20 @@ export const INSTANCE_DEFAULTS_SCHEMA = {
   })),
 };
 
+/** The rules every signed-in account's screens follow, as the runtime read
+ * reports them: keyed and valued as the change operation takes them, every
+ * key present. */
+export function instanceRulesSchema(keys: readonly string[]) {
+  const definitions = SETTING_CATALOGUE.filter(definition => keys.includes(definition.key));
+  return {
+    type: "object", additionalProperties: false, required: definitions.map(definition => definition.key),
+    description: "The rules every signed-in account follows, keyed and valued as PATCH /api/instance/settings takes them. Admins change them.",
+    properties: Object.fromEntries(definitions.map(definition => [definition.key, {
+      type: "string", enum: [...(definition.write as Extract<WriteConstraint, { kind: "choice" }>).values], description: definition.purpose,
+    }])),
+  };
+}
+
 export const INSTANCE_SETTINGS_SCHEMAS = {
   InstanceSettingsPatch: {
     type: "object", additionalProperties: false,

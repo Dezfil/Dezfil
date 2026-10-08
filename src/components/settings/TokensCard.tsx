@@ -13,17 +13,23 @@ import { useDrawn } from "./settings-land";
 import { cardFormClass, CardActions, LabelledField, Note, SettingsCard } from "./SettingsCard";
 import styles from "./SettingsCard.module.css";
 
+/** How long a new token lasts, in the words the admin's choice uses; Never says nothing. */
+const LIFETIME_WORDS: Readonly<Record<string, string>> = { "30d": "30 days", "90d": "90 days", "1y": "1 year" };
+
 /** The person's API / MCP tokens: name one and create it, its secret shown
  * once with Copy token and Done, the list with Revoke behind its
  * confirmation. A typed name or a creation on its way holds the page, so
  * leaving asks first naming the card, and once the new secret is on
- * screen, its own words take over: it will not be shown again. */
+ * screen, its own words take over: it will not be shown again. Each token
+ * says when it expires, and Expired once it has; beside Create, one line
+ * says how long a new token lasts, from the runtime read's rule. */
 export function TokensCard() {
   const ids = useId();
   const [tokens, setTokens] = useState<ApiToken[] | null>(null), [attempt, setAttempt] = useState(0);
   const [name, setName] = useState(""), [secret, setSecret] = useState<string | null>(null);
   const [copied, setCopied] = useState(false), [busy, setBusy] = useState(false), [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null), [revoking, setRevoking] = useState<ApiToken | null>(null);
+  const [lifetime, setLifetime] = useState<string | null>(null);
   // The secret's entry first: when the secret arrives and the name clears in the same render, the page stays held throughout.
   useGuardEntry("tokens-secret", secret !== null, "API / MCP tokens", "The new token will not be shown again.");
   useGuardEntry("tokens-name", secret === null && (name !== "" || creating), "API / MCP tokens");
@@ -37,6 +43,14 @@ export function TokensCard() {
     }).catch(error => { if (!cancelled) setError(failureMessage(error)); });
     return () => { cancelled = true; };
   }, [attempt]);
+  useEffect(() => {
+    let cancelled = false;
+    accountRequest<{ rules?: Record<string, unknown> }>("/api/config").then(config => {
+      const expiry = config.rules?.["tokens.expiry"];
+      if (!cancelled) setLifetime(typeof expiry === "string" ? LIFETIME_WORDS[expiry] ?? null : null);
+    }).catch(() => { /* without the rule the line says nothing; each token still says its own expiry */ });
+    return () => { cancelled = true; };
+  }, []);
   async function create(event: FormEvent) {
     event.preventDefault(); setBusy(true); setCreating(true); setError(null);
     try {
@@ -76,6 +90,7 @@ export function TokensCard() {
         <TextInput id={`${ids}-name`} value={name} onChange={event => setName(event.target.value)} required disabled={busy || tokens === null} />
       </LabelledField>
       <Button type="submit" variant="primary" busy={busy} disabled={!name.trim() || tokens === null}>Create token</Button>
+      {lifetime && <Note>{`New tokens expire after ${lifetime}.`}</Note>}
     </form>}
     {tokens === null && !error && <p role="status" className={styles.note}>Loading tokens…</p>}
     {tokens?.length === 0 && <Note>No tokens yet.</Note>}

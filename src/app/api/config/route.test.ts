@@ -117,6 +117,28 @@ describe("the runtime read's defaults", () => {
     for (const passwordMin of [7, 65, "12"]) expect(await valid({ ...body, passwordMin })).toBeDefined();
   });
 
+  it.each(["cookie", "token"] as const)("carry the new tokens' expiry to a member by %s as a rule: never with nothing stored, then what an admin stored", async kind => {
+    expect((await read(kind)).rules).toEqual({ "tokens.expiry": "never" });
+    await change({ "tokens.expiry": "90d" });
+    expect((await read(kind)).rules).toEqual({ "tokens.expiry": "90d" });
+  });
+
+  it("carry the rules to an agent through get_config, keyed and valued as the change operation takes them", async () => {
+    await change({ "tokens.expiry": "1y" });
+    const tool = buildTools().find(candidate => candidate.name === "get_config")!;
+    const result = await executeTool(tool, {}, origin,
+      (async (input: RequestInfo | URL, init?: RequestInit) => dispatchAssistantTestRoute(new Request(String(input), init))) as typeof fetch,
+      { authorization: `Bearer ${memberToken()}` });
+    const body = result.body as Record<string, unknown>;
+    expect(body.rules).toEqual({ "tokens.expiry": "1y" });
+    const output = fromJsonSchema(tool.outputSchema as Parameters<typeof fromJsonSchema>[0]);
+    const valid = async (value: unknown) => (await output["~standard"].validate(mcpResult(tool, { ...result, body: value }, null).structuredContent)).issues;
+    expect(await valid(body)).toBeUndefined();
+    for (const rules of [{}, { "tokens.expiry": "2y" }, { "tokens.expiry": "1y", "tokens.lifetime": "1y" }]) {
+      expect(await valid({ ...body, rules })).toBeDefined();
+    }
+  });
+
   it("reach an agent through get_config, valid against the tool's documented output", async () => {
     await change(CHANGED);
     const tool = buildTools().find(candidate => candidate.name === "get_config")!;

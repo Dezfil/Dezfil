@@ -34,7 +34,7 @@ const LOOK = { ...defaultLook(), color: "slate", background: "hex" };
 /** What the configuration read reports stored. */
 const STORED = { instanceName: "Atlas North", landingPage: "maps", queryTimeoutS: 90, "newLayer.colorCycle": "tab10" };
 let admin = true;
-let tokens: { id: string; name: string; createdAt: string; lastUsedAt: string | null; revokedAt: string | null }[];
+let tokens: { id: string; name: string; createdAt: string; lastUsedAt: string | null; revokedAt: string | null; expiresAt: string | null }[];
 let requests: string[];
 const scrolled: string[] = [];
 Object.assign(HostElement.prototype, { scrollIntoView(this: HostElement) { scrolled.push(this.id); } });
@@ -53,7 +53,7 @@ let themeButton: HostElement;
 
 beforeEach(() => {
   requests = []; scrolled.length = 0; admin = true;
-  tokens = [{ id: "t1", name: "Laptop CLI", createdAt: "2026-10-01T00:00:00.000Z", lastUsedAt: null, revokedAt: null }];
+  tokens = [{ id: "t1", name: "Laptop CLI", createdAt: "2026-10-01T00:00:00.000Z", lastUsedAt: null, revokedAt: null, expiresAt: null }];
   nav.pathname = "/settings"; nav.hash = "";
   nav.replace = vi.fn((address: string) => {
     const at = address.indexOf("#");
@@ -77,7 +77,7 @@ beforeEach(() => {
     if (url === "/api/health") return Response.json({ status: "ready" });
     if (url === "/api/assistant") return Response.json({ enabled: false, reason: "No model credential is configured." });
     if (url === "/api/account/tokens" && init?.method === "POST") {
-      const token = { id: "t2", name: JSON.parse(String(init.body)).name, createdAt: "2026-10-07T00:00:00.000Z", lastUsedAt: null, revokedAt: null };
+      const token = { id: "t2", name: JSON.parse(String(init.body)).name, createdAt: "2026-10-07T00:00:00.000Z", lastUsedAt: null, revokedAt: null, expiresAt: null };
       tokens = [...tokens, token];
       return Response.json({ ...token, secret: SECRET });
     }

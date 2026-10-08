@@ -5,7 +5,7 @@ export const AUTH_SECURITY = [{ CookieSession: [] }, { BearerToken: [] }];
 const accountPrecondition = " Optional X-Dezfil-Account asserts the credential's expected account ID. A mismatch returns 401 authentication_required before dispatch. This transport precondition never supplies identity or changes ownership.";
 export const AUTH_SECURITY_SCHEMES = {
   CookieSession: { type: "apiKey", in: "cookie", name: "dezfil_session", description: "HttpOnly, SameSite=Lax session. Secure over HTTPS. Thirty days, rolling with use." + accountPrecondition },
-  BearerToken: { type: "http", scheme: "bearer", description: "An account's API token. Its current account status and privileges are checked on every request." + accountPrecondition },
+  BearerToken: { type: "http", scheme: "bearer", description: "An account's API token. Its current account status and privileges are checked on every request; once a token's expiry passes it is refused with token_expired." + accountPrecondition },
 };
 const body = (properties: Record<string, unknown>, required = Object.keys(properties)) => ({
   "x-byte-limit": 65_536, required: true, content: { "application/json": { schema: { type: "object", additionalProperties: false, properties, required } } },

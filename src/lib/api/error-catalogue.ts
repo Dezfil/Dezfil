@@ -20,6 +20,7 @@ export const ERROR_CATALOGUE: Record<ErrorCode, string> = {
   last_admin: "Keep at least one active admin.",
   forbidden: "This request is not permitted for the current account or origin: an admin-only request, a cookie request from another origin, or a change to something the account can view but cannot make. A refused change has no effect.",
   invalid_link: "This sign-in link is unavailable, expired, replaced or already used.",
+  token_expired: "The API token has passed the expiry it was created with and no longer works. Create a new token; the expired one stays listed until it is revoked.",
   current_password_required: "Enter your current password to make this change.",
   authentication_busy: "Authentication is busy. Try again shortly.",
   ingress_unavailable: "Trusted socket provenance is unavailable. Authentication entry and published reads cannot proceed.",

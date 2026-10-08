@@ -1021,7 +1021,7 @@ server-side, so filesystem paths and engine text stay out of responses
 The complete catalogue is published two ways in the same document: as the
 enum of the `Error` schema, and as `x-error-codes` at the top level, which
 maps every code to a sentence explaining what it means
-(`src/lib/api/error-catalogue.ts`). There are **112** codes. Clients should
+(`src/lib/api/error-catalogue.ts`). There are **113** codes. Clients should
 branch on codes, never on prose.
 
 One status is unusual: a client that abandons an in-flight evaluation gets
@@ -1793,6 +1793,7 @@ response message. Branch on the code.
 | `last_admin` | Keep at least one active admin. |
 | `forbidden` | This request is not permitted for the current account or origin: an admin-only request, a cookie request from another origin, or a change to something the account can view but cannot make. A refused change has no effect. |
 | `invalid_link` | This sign-in link is unavailable, expired, replaced or already used. |
+| `token_expired` | The API token has passed the expiry it was created with and no longer works. Create a new token; the expired one stays listed until it is revoked. |
 | `current_password_required` | Enter your current password to make this change. |
 | `authentication_busy` | Authentication is busy. Try again shortly. |
 | `ingress_unavailable` | Trusted socket provenance is unavailable. Authentication entry and published reads cannot proceed. |

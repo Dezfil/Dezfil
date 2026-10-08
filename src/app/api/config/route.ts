@@ -12,10 +12,12 @@ import { authFailure, privateResponse, requireRequestAuth } from "@/lib/auth/htt
 import { securitySettings } from "@/lib/auth/security-settings";
 
 /** Runtime client configuration (basemaps, palettes, limits worth showing in
- * the UI, what new things start with, and the shortest password). */
+ * the UI, what new things start with, the rules every account follows and
+ * the shortest password). */
 export async function GET(request: Request) {
   try {
     requireRequestAuth(request);
+    const security = securitySettings();
     return privateResponse(NextResponse.json({
       basemapUrl: basemapUrl(),
       basemapOverrideUrl: basemapOverrideUrl(),
@@ -27,7 +29,9 @@ export async function GET(request: Request) {
       // never reaches the browser.
       geocoderConfigured: geocoderConfigured(),
       defaults: reportedDefaults(instanceDefaults()),
-      passwordMin: securitySettings().passwordMin,
+      // The rules every account follows, keyed and valued as the change operation takes them.
+      rules: { "tokens.expiry": security.tokenExpiry },
+      passwordMin: security.passwordMin,
     }));
   } catch (error) { return authFailure(error); }
 }

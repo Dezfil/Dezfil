@@ -26,12 +26,12 @@ export const ACCOUNT_PATHS = {
     requestBody: body({ currentPassword, password: { type: "string", minLength: 8, writeOnly: true } }),
     responses: { "200": jsonOk("#/components/schemas/PasswordChanged"), ...errors, "503": AUTHENTICATION_BUSY_RESPONSE } }), security: AUTH_SECURITY } },
   "/api/account/tokens": {
-    get: { ...op({ summary: "List your API tokens", description: privacy + "Lists only your own tokens, including revoked tokens. Secrets and hashes are never returned.",
+    get: { ...op({ summary: "List your API tokens", description: privacy + "Lists only your own tokens, including revoked and expired ones, each with when it expires. Secrets and hashes are never returned.",
       tag: "Accounts", tool: "list_api_tokens", effects: READ_ONLY, mcp: LOCAL_READ, display: { verb: "Read your API tokens" },
       responses: { "200": jsonOk("#/components/schemas/ApiTokens"), ...errors } }), security: AUTH_SECURITY },
-    post: { ...op({ summary: "Create an API token", description: privacy + "Creates a named API/MCP token for your own account. The secret is returned only on creation. It authenticates with your current account permissions and is refused while the account is deactivated.",
+    post: { ...op({ summary: "Create an API token", description: privacy + "Creates a named API/MCP token for your own account. The secret is returned only on creation. It authenticates with your current account permissions and is refused while the account is deactivated. It lasts as long as the instance's rule for new tokens said at its creation, or never expires; expiresAt says when, a later change of the rule moves no token's expiry, and once it passes the token is refused with token_expired.",
       tag: "Accounts", tool: "create_api_token", effects: writes(resource("accounts")), mcp: LOCAL_ADD, display: { verb: "Created an API token" }, confirm: true,
-      confirmation: { target: "Create an API token for your account?", consequence: "The token grants your current permissions until revoked or deactivated.", subject: ownSubject },
+      confirmation: { target: "Create an API token for your account?", consequence: "The token grants your current permissions until it is revoked or expires, or the account is deactivated.", subject: ownSubject },
       requestBody: body({ name: { type: "string", minLength: 1 } }),
       responses: { "201": jsonOk("#/components/schemas/CreatedApiToken"), ...errors } }), security: AUTH_SECURITY },
   },
@@ -41,7 +41,8 @@ export const ACCOUNT_PATHS = {
     parameters: [pathParam("id", "Your token's ID, never its secret.")],
     responses: { "200": jsonOk("#/components/schemas/TokenRevoked"), ...errors, "404": ERROR_RESPONSE } }), security: AUTH_SECURITY } },
 };
-const tokenProperties = { id: { type: "string" }, name: { type: "string" }, createdAt: { type: "string" }, lastUsedAt: { type: ["string", "null"] }, revokedAt: { type: ["string", "null"] } };
+const tokenProperties = { id: { type: "string" }, name: { type: "string" }, createdAt: { type: "string" }, lastUsedAt: { type: ["string", "null"] }, revokedAt: { type: ["string", "null"] },
+  expiresAt: { type: ["string", "null"], description: "When the token stops working; null when it never expires. An expired token is refused with token_expired and stays listed until revoked." } };
 export const ACCOUNT_SCHEMAS = {
   ApiToken: { type: "object", additionalProperties: false, properties: tokenProperties, required: Object.keys(tokenProperties) },
   CreatedApiToken: { type: "object", additionalProperties: false, properties: { ...tokenProperties, secret: { type: "string", description: "Disclosed once. Store it securely before leaving this response." } }, required: [...Object.keys(tokenProperties), "secret"] },

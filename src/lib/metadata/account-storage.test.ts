@@ -130,7 +130,7 @@ describe("account storage upgrade", () => {
     db.exec(`INSERT INTO original_account VALUES (1, 'first');
       INSERT INTO account_preferences VALUES ('first', '{"maps":{"sort":"name"}}', '${now}');
       INSERT INTO auth_sessions VALUES ('session', 'session-digest', 'first', 100, 200, 100, NULL);
-      INSERT INTO auth_tokens VALUES ('token', 'first', 'CLI', 'token-digest', 100, NULL, 150);
+      INSERT INTO auth_tokens VALUES ('token', 'first', 'CLI', 'token-digest', 100, NULL, 150, 300);
       INSERT INTO auth_links VALUES ('link', 'first', 'reset', 'link-digest', 100, 200, NULL, 150);`);
     const names = ["accounts", "original_account", "account_preferences", "auth_sessions", "auth_tokens", "auth_links"];
     const snapshot = () => names.map(name => db.prepare(`SELECT * FROM ${name}`).all());

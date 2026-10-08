@@ -14,8 +14,8 @@ import { buildSearchIndex, hitPath, searchSettings, type IndexCard, type SearchH
 
 const ACCOUNT = { id: "ada", name: "Ada Okafor", email: "ada@example.test", sqlName: "ada_okafor", isAdmin: true } as Account;
 const TOKENS = [
-  { id: "t1", name: "Laptop CLI", createdAt: "2026-10-01T00:00:00.000Z", lastUsedAt: null, revokedAt: null },
-  { id: "t2", name: "Old script", createdAt: "2026-09-01T00:00:00.000Z", lastUsedAt: null, revokedAt: "2026-09-20T00:00:00.000Z" },
+  { id: "t1", name: "Laptop CLI", createdAt: "2026-10-01T00:00:00.000Z", lastUsedAt: null, revokedAt: null, expiresAt: null },
+  { id: "t2", name: "Old script", createdAt: "2026-09-01T00:00:00.000Z", lastUsedAt: null, revokedAt: "2026-09-20T00:00:00.000Z", expiresAt: null },
 ];
 
 function sources(overrides: Partial<IndexSources> = {}): IndexSources {
