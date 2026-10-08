@@ -37,7 +37,8 @@ the volume works, but state then lasts only for that container's lifetime.
 
 On first run, create the initial admin account. Application pages and APIs
 require a session or an account API token; admins manage accounts in Users,
-and the instance name, the sign-in page and the limits in Settings.
+and the instance name, the sign-in page, the defaults for new maps, layers and
+screens, and the limits in Settings.
 Each person picks their own look on the **Appearance** tab of Settings: color,
 contrast, background, typeface, corners and how the side menu opens. The look is
 kept with the account, so it shows from the first paint in every browser that

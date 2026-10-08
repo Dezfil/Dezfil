@@ -38,23 +38,31 @@ function expectQuiet(errors: ConsoleError[]): void {
   expect(errors.filter(error => !isAllowedConsoleError(error.text, error.url))).toEqual([]);
 }
 
-/** An admin's tabs, each with what is on screen once the tab has drawn whole. */
-const DRAWN: readonly (readonly [string, readonly string[]])[] = [
-  ["Account", ["#account"]],
-  ["Tokens", ["#tokens li"]],
-  ["Appearance", ["#set-side-menu"]],
-  ["General", ["#card-sign-in"]],
-  ["Limits", ["#limits-public"]],
+/** An admin's tabs, in the column's order: each by its link's name and its
+ * pane's id, with what is on screen once the tab has drawn whole. */
+const DRAWN: readonly (readonly [label: string, pane: string, parts: readonly string[]])[] = [
+  ["Account", "account", ["#account"]],
+  ["Tokens", "tokens", ["#tokens li"]],
+  ["Appearance", "appearance", ["#set-side-menu"]],
+  ["General", "general", ["#card-sign-in"]],
+  // Each draws every card at once when its read lands: the last card stands for the tab.
+  ["Maps", "maps", ["#card-new-layers"]],
+  ["Workflows & SQL", "workflows", ["#card-sql-console"]],
+  ["Publishing", "publishing", ["#publishing-export"]],
+  ["Limits", "limits", ["#limits-public"]],
   // The data folder's state, not its Checking placeholder.
-  ["System", ["#sys-assistant-status", "#sys-data-folder [data-state]"]],
+  ["System", "system", ["#sys-assistant-status", "#sys-data-folder [data-state]"]],
 ];
+
+/** The pane a tab is drawn in. */
+const paneOf = (tab: string) => DRAWN.find(([label]) => label === tab)![1];
 
 /** Open a tab from the column and wait until it has drawn whole. */
 async function openTab(page: Page, tab: string): Promise<void> {
-  const [, parts] = DRAWN.find(([name]) => name === tab)!;
+  const [, pane, parts] = DRAWN.find(([label]) => label === tab)!;
   await column(page).getByRole("link", { name: tab, exact: true }).click();
   await expect(column(page).getByRole("link", { name: tab, exact: true })).toHaveAttribute("aria-current", "page");
-  for (const part of parts) await expect(page.locator(`[data-tab="${tab.toLowerCase()}"] ${part}`).first()).toBeVisible();
+  for (const part of parts) await expect(page.locator(`[data-tab="${pane}"] ${part}`).first()).toBeVisible();
 }
 
 /** A frame painted during a change of tab: whether the tab that was on
@@ -89,7 +97,7 @@ async function recordFrames(page: Page): Promise<void> {
       requestAnimationFrame(look);
     };
     requestAnimationFrame(look);
-  }, Object.fromEntries(DRAWN.map(([tab, parts]) => [tab.toLowerCase(), parts])));
+  }, Object.fromEntries(DRAWN.map(([, pane, parts]) => [pane, parts])));
 }
 
 /** Open a tab from the column, recording every frame from the click until
@@ -99,15 +107,16 @@ async function recordFrames(page: Page): Promise<void> {
 async function openDrawn(page: Page, tab: string): Promise<void> {
   const from = await page.evaluate(() =>
     [...document.querySelectorAll("[data-tab]")].find(pane => (pane as HTMLElement).checkVisibility())?.getAttribute("data-tab") ?? "");
+  const to = paneOf(tab);
   await page.evaluate(change => {
     const recorder = (window as unknown as { tabChange: Recorder }).tabChange;
     recorder.frames = [];
     recorder.change = change;
-  }, { from, to: tab.toLowerCase() });
+  }, { from, to });
   await openTab(page, tab);
   await expect.poll(async () => (await recorder(page)).change, { message: `${tab}: still recording` }).toBeNull();
   const { frames } = await recorder(page);
-  const said = `${from} to ${tab.toLowerCase()}: ${JSON.stringify(frames)}`;
+  const said = `${from} to ${to}: ${JSON.stringify(frames)}`;
   expect(frames.length, said).toBeGreaterThan(0);
   expect(frames.filter(frame => !frame.outgoing && !frame.incoming), said).toEqual([]);
   expect(frames.filter(frame => frame.loading), said).toEqual([]);
