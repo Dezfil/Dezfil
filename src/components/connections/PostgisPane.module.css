@@ -131,10 +131,23 @@
   font-weight: 500;
 }
 
-.newConnection:hover {
+.newConnection:hover:not(:disabled) {
   border-color: var(--accent);
   background: var(--accent-dim);
   color: var(--accent-bright);
+}
+
+/* New connection an instance rule holds back: drawn, not offered. */
+.newConnection:disabled {
+  opacity: 0.6;
+}
+
+/* The rule's one sentence under it. */
+.refusal {
+  margin-top: 8px;
+  color: var(--fg-faint);
+  font-size: var(--text-label);
+  line-height: 1.5;
 }
 
 .formWrap {

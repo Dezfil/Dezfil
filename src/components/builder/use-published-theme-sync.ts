@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { useRuleRefusal } from "@/components/use-instance-rules";
 import { readApiError } from "../api";
 
 /**
@@ -17,6 +18,10 @@ import { readApiError } from "../api";
  * rewrite its theme to whatever the author happens to be using. And it
  * states only the theme, never the viewer-controls set, so a mode flip
  * cannot re-enable a control the author unchecked.
+ *
+ * A theme is a change to the publication, so while the instance's rule on
+ * who may publish holds the person back the flip sends nothing: the
+ * server would refuse it, and the publish popover already says why.
  */
 export function usePublishedThemeSync({
   request = fetch,
@@ -40,10 +45,14 @@ export function usePublishedThemeSync({
   // else.
   const failureRef = useRef(onFailure);
   const successRef = useRef(onSuccess);
+  // Kept in a ref for the same reason: the rule answering must not send.
+  const refusal = useRuleRefusal("publishing.publish");
+  const heldRef = useRef(refusal !== null);
   useEffect(() => {
     failureRef.current = onFailure;
     successRef.current = onSuccess;
-  }, [onFailure, onSuccess]);
+    heldRef.current = refusal !== null;
+  }, [onFailure, onSuccess, refusal]);
 
   useEffect(() => {
     const previous = lastTheme.current;
@@ -51,6 +60,7 @@ export function usePublishedThemeSync({
     if (previous === theme) return;
     // Not published: the next publication will capture this mode anyway.
     if (!mapId || !publishToken) return;
+    if (heldRef.current) return;
     let cancelled = false;
     void (async () => {
       try {

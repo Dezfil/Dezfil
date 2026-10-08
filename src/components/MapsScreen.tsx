@@ -33,6 +33,7 @@ import { CheckIcon, PlusIcon } from "./ui/icons";
 import { OwnerPill } from "./sharing/PeopleMarks";
 import { ownedByOther } from "./sharing/people";
 import { useSignedInSqlName } from "./sharing/signed-in";
+import { useRuleRefusal } from "./use-instance-rules";
 import gallery from "./gallery.module.css";
 import styles from "./MapsScreen.module.css";
 import { serverUnreachable } from "./failure-copy";
@@ -119,6 +120,9 @@ export function MapsScreen() {
   const me = useSignedInSqlName();
   const othersOwner = (m: MapOverview) =>
     ownedByOther(m.owner, me) ? m.owner : null;
+  // Who may publish: when the instance's rule holds the person back, a
+  // draft's Publish is drawn disabled with the rule's sentence as its hint.
+  const publishRefusal = useRuleRefusal("publishing.publish");
   // The listing load runs through the shared async contract; the
   // scaffolding's edits overlay keeps mutations updating the list in
   // place, and a retry's fresh answer discards them.
@@ -368,9 +372,9 @@ export function MapsScreen() {
         </button>
       ) : mine ? (
         <button
-          data-hint="Publish map"
+          data-hint={publishRefusal ?? "Publish map"}
           aria-label={`Publish ${m.name}`}
-          disabled={busyId === m.id}
+          disabled={busyId === m.id || publishRefusal !== null}
           onClick={(e) => {
             e.stopPropagation();
             void publishMap(m);

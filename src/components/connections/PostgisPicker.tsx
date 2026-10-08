@@ -9,10 +9,14 @@ export function PostgisPicker({
   connections,
   onSelect,
   onNew,
+  refusal = null,
 }: {
   connections: PgConnection[];
   onSelect: (connection: PgConnection) => void;
   onNew: () => void;
+  /** The instance rule's sentence while it holds back adding a connection:
+   * New connection is drawn disabled beside it; saved ones stay offered. */
+  refusal?: string | null;
 }) {
   return (
     <>
@@ -45,9 +49,10 @@ export function PostgisPicker({
           </button>
         ))}
       </div>
-      <button className={styles.newConnection} type="button" onClick={onNew}>
+      <button className={styles.newConnection} type="button" disabled={refusal !== null} onClick={onNew}>
         <PlusIcon /> New connection
       </button>
+      {refusal ? <p className={styles.refusal}>{refusal}</p> : null}
     </>
   );
 }

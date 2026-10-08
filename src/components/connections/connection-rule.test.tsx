@@ -158,3 +158,32 @@ describe("who may add database connections", () => {
     });
   }
 });
+
+describe("Add data's PostGIS picker under who may add database connections", () => {
+  it("draws New connection disabled with the sentence for a member under Admins only, its saved connections kept", async () => {
+    rule = "admins";
+    connections = [saved];
+    await mount(<PostgisPane onTableCreated={() => {}} />);
+    const add = buttons("New connection")[0];
+    expect(add.disabled).toBe(true);
+    expect(said()).toBe(1);
+    await act(async () => add.click());
+    expect(field("Host")).toBeUndefined();
+    const row = container.querySelectorAll("button").find(element => element.textContent.includes("City"));
+    expect(row?.disabled).toBe(false);
+  });
+
+  for (const [value, who] of [["everyone", "a member"], ["admins", "an admin"], [null, "a member, the rule unread,"]] as const) {
+    it(`offers New connection to ${who} under ${value ?? "no rule"}`, async () => {
+      rule = value;
+      admin = who === "an admin";
+      connections = [saved];
+      await mount(<PostgisPane onTableCreated={() => {}} />);
+      const add = buttons("New connection")[0];
+      expect(add.disabled).toBe(false);
+      expect(said()).toBe(0);
+      await act(async () => add.click());
+      expect(field("Host")!.disabled).toBe(false);
+    });
+  }
+});

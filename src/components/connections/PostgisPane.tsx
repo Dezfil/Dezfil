@@ -9,6 +9,7 @@ import { serverUnreachable } from "@/components/failure-copy";
 import { ErrorNote } from "@/components/ui/ErrorNote";
 import { ChevronIcon } from "@/components/ui/icons";
 import { RuledConnectionForm } from "./RuledConnectionForm";
+import { useRuleRefusal } from "@/components/use-instance-rules";
 import { fetchConnections, shortServerVersion } from "./connection-view";
 import { PostgisDataDone, type PostgisDataCompletion } from "./PostgisDataDone";
 import { PostgisLayerDone, type PostgisLayerCompletion } from "./PostgisLayerDone";
@@ -74,6 +75,9 @@ export function PostgisPane({
   const [error, setError] = useState<string | null>(null);
   const [storedFailure, setStoredFailure] = useState(false);
   const initialHandled = useRef(false);
+  // Who may add database connections: when the instance's rule holds the
+  // person back, the picker's New connection waits beside its sentence.
+  const newRefusal = useRuleRefusal("connections.create");
 
   const replaceConnection = useCallback((connection: PgConnection) => {
     setConnections((current) =>
@@ -214,6 +218,7 @@ export function PostgisPane({
           connections={connections}
           onSelect={(connection) => void browse(connection)}
           onNew={() => setStep({ kind: "form" })}
+          refusal={newRefusal}
         />
       ) : null}
 
