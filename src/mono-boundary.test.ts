@@ -88,6 +88,9 @@ const ALLOWED = new Set([
   // identifier, and a read-only value can be a path or an identifier.
   "src/components/settings/SettingRows.module.css :: .value[data-mono]",
   "src/components/settings/SettingRows.module.css :: .lockedNote code",
+  // Settings: the SQL console's editor sample is SQL, drawn in the
+  // editor's own face at the size and wrap the console opens with.
+  "src/components/settings/WorkflowsTab.module.css :: .editor",
   "src/components/McpSection.module.css :: .endpoint",
   // per-client commands and configuration are literal code.
   "src/components/McpSection.module.css :: .configuration",
