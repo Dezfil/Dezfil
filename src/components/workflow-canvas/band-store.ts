@@ -3,7 +3,8 @@ import { privateStateOpen } from "../auth/private-state";
 /**
  * The results band's state per viewer: whether it is open, kept in the
  * browser's storage, never on the server. Absent until a viewer ever had
- * it otherwise: the band starts collapsed, and opens once when the page
+ * it otherwise: the band then starts as the instance's default says,
+ * collapsed unless an admin chose open, and opens once when the page
  * session first meets a run. Its height is NOT kept (on, -08-29: "it
  * should always be the default height when we open a workflow"); the field
  * stays in the stored shape so an older store still reads, and is written

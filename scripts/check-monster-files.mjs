@@ -35,9 +35,10 @@ const CEILINGS = {
   // for parameter-controls so the workflow canvas composes the same rows.
   "src/components/builder/drawer/ParameterForm.tsx": 449,
   // The workflow canvas, after its right-side furniture left for
-  // CanvasFurniture and its interaction and edit wiring for
-  // use-canvas-editing beside the lock.
-  "src/components/workflow-canvas/WorkflowCanvas.tsx": 531,
+  // CanvasFurniture, its interaction and edit wiring for
+  // use-canvas-editing beside the lock, and how it opens (the view and the
+  // minimap's rule) for canvas-opening.
+  "src/components/workflow-canvas/WorkflowCanvas.tsx": 521,
 };
 
 let failed = false;

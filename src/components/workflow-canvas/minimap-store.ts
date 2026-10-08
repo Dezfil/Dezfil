@@ -3,8 +3,9 @@ import { privateStateOpen } from "../auth/private-state";
 /**
  * Whether the viewer wants the minimap (word after, -08-29: "an option to
  * hide and unhide it"): kept in the browser's storage, never on the
- * server. Until a viewer ever chose, the canvas follows spec rule and
- * shows the map from six members; a choice holds in every workflow:
+ * server. Until a viewer ever chose, the canvas follows the instance's
+ * rule: automatic shows the map from six members, or always, or never; a
+ * choice holds in every workflow:
  * "shown" draws it whatever the count, "hidden" never. The first cut kept
  * only "hidden", so on a small workflow the button's Show showed nothing
  * so the stack's new button did nothing.

@@ -7,6 +7,7 @@ import type { TableListing } from "../api";
 import { formatCount } from "../api";
 import { IconTable } from "../gallery-icons";
 import { RunInitiator } from "../sharing/RunInitiator";
+import { useOpeningDefaults } from "../screen-defaults";
 import { Button } from "../ui/Button";
 import { ExternalIcon } from "../ui/icons";
 import { BAND_DEFAULT, BAND_GAP, BAND_MIN, BAR_HEIGHT, COLLAPSE_BELOW, clampHeight, readBand, writeBand } from "./band-store";
@@ -36,8 +37,9 @@ const TABS: { id: BandTab; label: string }[] = [
  * edge (pointer or keyboard), which dragged all the way down collapses it
  * to its bar and dragged up opens it again; there is no separate collapse
  * control (on, -08-29). Open or collapsed is kept per viewer, the height
- * is not: every workflow opens at the default height. Collapsed until a
- * viewer ever had it otherwise, it opens once when the page session first
+ * is not: every workflow opens at the default height. Until a viewer ever
+ * had it otherwise it opens as the instance's default says, collapsed
+ * unless an admin chose open; it opens once when the page session first
  * meets a run, when a tab is chosen on it, and on a press anywhere on its
  * bar. Four tabs: Messages (the run records' log) and, for the selection,
  * Data, Map and Provenance over the documented table reads, with the lead,
@@ -74,7 +76,9 @@ export function ResultsBand({
   onListingStale: () => void;
 }) {
   const [stored] = useState(readBand);
-  const [open, setOpen] = useState<boolean>(stored.open ?? false);
+  const startsOpen = useOpeningDefaults()["canvas.resultsBand"] === "open";
+  const [open, setOpen] = useState<boolean>(stored.open ?? startsOpen);
+  const [openedWith] = useState(open);
   const [height, setHeight] = useState<number>(BAND_DEFAULT);
   const [scope, setScope] = useState<"all" | "node">("all");
   const [wanted, setWanted] = useState<BandTab>("messages");
@@ -107,9 +111,15 @@ export function ResultsBand({
   useEffect(() => {
     onHeight(shown + BAND_GAP);
   }, [onHeight, shown]);
+  // Kept from the band's first move on, the viewer's or the first run's,
+  // and never at the opening itself: a viewer who never moved it keeps
+  // following the instance's default.
+  const moved = useRef(false);
   useEffect(() => {
+    if (!moved.current && open === openedWith) return;
+    moved.current = true;
     writeBand({ open, height: null });
-  }, [open]);
+  }, [open, openedWith]);
 
   // What the selection resolves to in the listing as last read, then the
   // read's own word: an inspection answered "not found" is the deleted
