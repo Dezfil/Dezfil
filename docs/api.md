@@ -391,7 +391,14 @@ Operations carry a tag; these are the tags, with what each family is for.
 usable, `503` with a reason when it is not. `GET /api/config` returns the
 runtime settings a browser client legitimately needs (available basemaps,
 palettes, the render cap, the preview row count, and whether a geocoder is
-configured, but never a configured URL that might carry a key).
+configured, but never a configured URL that might carry a key), and
+`defaults`: what a new map, a new layer, the workflow canvas, the SQL console
+and a fresh image export card start with on this instance. `defaults` is one
+flat object keyed and valued as `PATCH /api/instance/settings` takes them, every
+key present with its effective value; a basemap the instance no longer offers
+reads as `auto`, which is what a new map starts on. Every signed-in account and
+agent can make this read. [The configuration guide](configuration.md#instance-defaults)
+lists the eighteen keys with their values and defaults.
 `GET /api/openapi.json` serves the description. `GET`/`PATCH /api/settings`
 return the caller's account display name and per-screen view preferences,
 plus the shared instance name. Only admins may change the instance name.
@@ -455,13 +462,23 @@ browser lands on the page `landingPage` names (`/projects`, `/maps`,
 signed-in visit to the setup or sign-in page redirects to Home; the invitation
 page opens whether or not someone is signed in. Responses are private, no-store.
 
-`PATCH /api/instance/settings` changes only submitted editable keys: the fourteen
-Limits numbers, `instanceName`, `signInMessage`, `lostPasswordContact` and
-`landingPage`. The closed `InstanceSettingsPatch` schema names each key and its
-kind and bounds. For example, `{ "previewRows": 2000, "queryTimeoutS": 90 }`;
-null clears a stored value, and an empty object changes nothing. Text is
-trimmed before its length is checked (80 characters for the name, 280 for the
-message, 120 for the contact). Empty text clears the stored value and reports
+`PATCH /api/instance/settings` changes only submitted editable keys, thirty-six
+of them: the fourteen Limits numbers; the four General values `instanceName`,
+`signInMessage`, `lostPasswordContact` and `landingPage`; and the eighteen
+instance defaults `newMap.basemap`, `newMap.latitude`, `newMap.longitude`,
+`newMap.zoom`, `newMap.legendCorner`, `newLayer.colorCycle`,
+`newLayer.pointOpacity`, `newLayer.lineOpacity`, `newLayer.areaOpacity`,
+`newLayer.lineWidth`, `newLayer.pointRadius`, `canvas.opens`, `canvas.minimap`,
+`canvas.resultsBand`, `sqlConsole.textSize`, `sqlConsole.lineWrap`,
+`imageExport.width` and `imageExport.shape`. The closed `InstanceSettingsPatch`
+schema names each key and its kind, bounds or choices. For example,
+`{ "previewRows": 2000, "queryTimeoutS": 90 }` or
+`{ "newMap.zoom": 4.5, "sqlConsole.textSize": "14", "sqlConsole.lineWrap": true }`;
+a number-like choice (text size, image width and shape) is text. Null clears a
+stored value, and an empty object changes nothing. A default applies to new
+things only: no existing map, layer, published view or open screen changes with
+it. Text is trimmed before its length is checked (80 characters for the name,
+280 for the message, 120 for the contact). Empty text clears the stored value and reports
 the default source. The generated tool input accepts the same whitespace
 padding through a string pattern. The answer is the same configuration document as the read.
 
@@ -472,7 +489,8 @@ included: `409 setting_locked` takes precedence over `400 invalid_request`
 when the body contains both locked and invalid keys. Known failing keys and
 reasons are all named; unknown keys are identified by entry position to avoid
 echoing arbitrary input. Validation covers unknown and non-editable keys, kind,
-whole numbers, bounds, text length, choices and a query timeout below the run
+whole numbers, finite decimals (kept as given, never rounded), bounds, true or
+false for a switch, text length, choices and a query timeout below the run
 timeout. An existing environment mismatch remains visible in `warnings` and
 blocks no unrelated edit. Different concurrent keys both land; the last
 accepted write wins for one key. There is no stale-write refusal or Undo.
@@ -714,7 +732,11 @@ own maps and every map filed in a project they own or belong to, and
 duplicate; plus the editing history (`GET /api/maps/{id}/history`,
 `POST .../undo`, `POST .../redo`), the dependency read, card thumbnails,
 search within a map, widget values, and server-side image export
-(`POST /api/maps/{id}/export/image`). `POST /api/maps/look` renders a map
+(`POST /api/maps/{id}/export/image`). A new map takes the instance's defaults
+for its basemap, starting view and legend corner (`defaults` in
+`GET /api/config`), by whichever path creates it; a duplicate keeps its
+source's values, and an existing map never changes when a default does.
+`POST /api/maps/look` renders a map
 and retains the image briefly for an agent to read back through
 `GET /api/maps/look/{renderId}`. These operations and `/render/{id}` require
 an account credential and return private, no-store responses. The renderer
@@ -726,6 +748,10 @@ never enter the render URL, page initialization, image facts or retained state.
 
 **Layers.** A layer is SQL plus a name plus style. Create it on a map
 (`POST /api/maps/{id}/layers`), read and patch it, duplicate it, delete it.
+A new layer created without a style takes the instance's defaults for new
+layers: the next color of the color cycle, the opacity for its geometry, the
+line width and the point radius. A style given at creation is kept as given,
+and a drawn sketch's layer takes only the cycle's color.
 A layer's SQL is read in the map's SQL home. SQL written somewhere else (the
 caller's console, a dataset's "Add to a map", another map, a workflow) says so
 with `writtenIn`, and is carried into the map's home before it is stored (see

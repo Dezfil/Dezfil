@@ -104,16 +104,30 @@ and host, or set-and-unreadable state. The same current-admin checks and
 private, no-store responses apply to direct API calls and tool calls.
 
 `update_instance_settings` calls `PATCH /api/instance/settings` with the closed
-editable-key input. Values are validated together and null clears a stored
-value; the result is the configuration read, including timeout relationship
-warnings. A lock refuses the whole body with `setting_locked`, before other
-validation refusals. All calls recheck current admin authority. The embedded
+editable-key input: the Limits numbers, the General values and the eighteen
+instance defaults, each with its kind, bounds or choices, so a value outside
+them is refused before any call. Values are validated together and null clears
+a stored value; the result is the configuration read, including timeout
+relationship warnings. A lock refuses the whole body with `setting_locked`,
+before other validation refusals. All calls recheck current admin authority. The embedded
 assistant parks the update for confirmation on pages admitting writes, and
 refuses it under SQL and workflow policies. MCP advertises this policy and
 the local settings-write consequences; it adds no approval gate. An active
 admin's bearer token calls directly, without a new token scope. Unknown tool
 arguments are refused before HTTP dispatch. Successes and errors never disclose
 credentials or address paths, queries or user information.
+
+`get_config` reads `GET /api/config`, which every signed-in account and agent
+may call. Besides the basemaps and palettes on offer and the client limits, it
+carries `defaults`: what a new map, a new layer, the workflow canvas, the SQL
+console and a fresh image export card start with, keyed and valued as
+`update_instance_settings` takes them, every key present with its effective
+value. `create_map`, `create_layer` and `create_sketch` take those defaults: a
+new map its basemap, starting view and legend corner, a layer created without
+a style its cycle color, opacity, line width and point radius, and a sketch's
+layer its cycle color alone. A default applies to new things only; an existing
+map and its layers never change with one. The keys and their values are in
+[configuration.md](configuration.md#instance-defaults).
 
 Own-account operations generate `get_account`, `update_account`,
 `change_password`, `list_api_tokens`, `create_api_token` and `revoke_api_token`.

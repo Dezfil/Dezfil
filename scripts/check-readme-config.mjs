@@ -16,6 +16,11 @@
 // Anything else the server reads — today that includes ANTHROPIC_API_KEY
 // and OPENAI_API_KEY — must be documented.
 //
+// The configuration guide's Instance defaults table is held to the
+// catalogue's defaults, the settings every signed-in account reads, in both
+// directions and by documented default. They have no variable, so their rows
+// name the key the change operation takes.
+//
 // Usage: node scripts/check-readme-config.mjs [--src DIR] [--readme FILE] [--configuration FILE]
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
@@ -150,7 +155,49 @@ export function catalogueRowProblems(definitions, rows, label) {
   return problems;
 }
 
-export function configurationProblems({ srcDir, documents, catalogue, testWiring }) {
+const DEFAULTS_HEADING = /^##\s+Instance defaults\s*$/;
+
+/** The rows of the tables under a guide's "Instance defaults" heading, each
+ * by the key its first cell names and its Default cell. Every row there
+ * counts, whatever its key looks like, so an orphan cannot hide by its
+ * spelling. */
+export function defaultsRows(text) {
+  const normalize = value => value.replaceAll("`", "").replace(/\s+/g, " ").trim();
+  const rows = [];
+  let inSection = false, header = null;
+  for (const line of text.split("\n")) {
+    if (/^##?\s/.test(line)) { inSection = DEFAULTS_HEADING.test(line); header = null; continue; }
+    if (!inSection || !line.startsWith("|")) { header = null; continue; }
+    const cells = line.split(/(?<!\\)\|/).slice(1, -1).map(cell => cell.trim());
+    if (!header) { header = cells; continue; }
+    if (cells.every(cell => /^:?-+:?$/.test(cell))) continue;
+    rows.push({ name: normalize(cells[0] ?? ""), defaultValue: normalize(cells[header.indexOf("Default")] ?? "") });
+  }
+  return rows;
+}
+
+/** One row per default, no orphan, each with the catalogue's documented default. */
+export function defaultsRowProblems(definitions, rows, label) {
+  const where = `${label} instance defaults`;
+  const byKey = new Map(definitions.map(definition => [definition.key, definition]));
+  const names = new Set(rows.map(row => row.name));
+  const problems = differences(new Set(byKey.keys()), names, where);
+  for (const name of names) {
+    const matches = rows.filter(row => row.name === name);
+    if (matches.length !== 1) problems.push(`DUPLICATE: ${where}: ${name}`);
+    const definition = byKey.get(name);
+    if (!definition) continue;
+    for (const row of matches) {
+      if (row.defaultValue !== definition.documentedDefault) problems.push(
+        `DEFAULT: ${where}: ${name}: expected ${JSON.stringify(definition.documentedDefault)}, found ${JSON.stringify(row.defaultValue)}`,
+      );
+    }
+  }
+  return problems;
+}
+
+/** `defaultsGuide` names the document, among `documents`, that carries the Instance defaults table. */
+export function configurationProblems({ srcDir, documents, catalogue, testWiring, defaultsGuide }) {
   const definitions = catalogue.filter(definition => definition.environment && definition.scope !== "platform");
   const scriptsDir = path.join(srcDir, "..", "scripts");
   const server = serverVariables(srcDir, scriptsDir);
@@ -166,6 +213,9 @@ export function configurationProblems({ srcDir, documents, catalogue, testWiring
     // Retain each document's direct comparison with executable script reads.
     problems.push(...differences(wiring, new Set(wiringRows.map(row => row.name)), `${label} script test wiring`));
   }
+  const defaults = catalogue.filter(definition => definition.readBy === "signed-in");
+  if (!Object.hasOwn(documents, defaultsGuide ?? "")) problems.push(`MISSING: the guide holding the Instance defaults table is not among the checked documents: ${defaultsGuide}`);
+  else problems.push(...defaultsRowProblems(defaults, defaultsRows(documents[defaultsGuide]), defaultsGuide));
   return problems;
 }
 
@@ -182,6 +232,7 @@ if (isMain) {
   const { SETTING_CATALOGUE, TEST_WIRING } = await settingsSource(path.dirname(srcDir));
   const problems = configurationProblems({ srcDir, catalogue: SETTING_CATALOGUE, testWiring: TEST_WIRING,
     documents: { [readme]: readFileSync(readme, "utf8"), [configuration]: readFileSync(configuration, "utf8") },
+    defaultsGuide: configuration,
   });
   for (const problem of problems) console.error(problem);
   if (problems.length) {
@@ -189,6 +240,7 @@ if (isMain) {
     process.exitCode = 1;
   } else {
     const deployment = SETTING_CATALOGUE.filter(d => d.environment && d.scope !== "platform").length;
-    console.log(`PASS: both documents match ${deployment} deployment settings and ${TEST_WIRING.length} test-wiring names, defaults and change timing; source scans agree in both directions.`);
+    const defaults = SETTING_CATALOGUE.filter(d => d.readBy === "signed-in").length;
+    console.log(`PASS: both documents match ${deployment} deployment settings and ${TEST_WIRING.length} test-wiring names, defaults and change timing; the configuration guide's Instance defaults table matches the ${defaults} instance defaults and their documented values; source scans agree in both directions.`);
   }
 }

@@ -49,8 +49,9 @@ reaches can pass it on.
 
 The Settings column has two groups. Under **You**, every account has **Account**
 (name, email and password), **Tokens** and **Appearance**. Under **Instance**,
-admins have **General**, **Limits** and **System**, with Users linked at the
-column's foot; members see General alone, read-only.
+admins have **General**, **Maps**, **Workflows & SQL**, **Publishing**, **Limits**
+and **System**, with Users linked at the column's foot; members see General
+alone, read-only.
 
 - **Appearance** is the person's own look: Color (Kelp, Harbor, Heather or
   Slate), Contrast (Standard or More contrast), Background (Atlantic chart,
@@ -67,6 +68,18 @@ column's foot; members see General alone, read-only.
   lost password, and the page people open after signing in (Home, Projects, Maps,
   Workflows, Data or SQL). Anyone who opens the sign-in page can read the message,
   so keep anything private out of it.
+- **Maps**, **Workflows & SQL** and **Publishing** hold what new things start
+  with. Maps: a new map's basemap, starting view (a click on the small world
+  map sets its latitude and longitude) and legend corner, and a new layer's
+  color cycle, opacity for points, lines and areas, line width and point radius.
+  Workflows & SQL: whether a workflow canvas opens full screen or framed, its
+  minimap and results band, and the SQL console's text size and line wrap.
+  Publishing: the starting width and shape of a fresh image export card. They
+  apply to new things only: maps and layers that already exist, their published
+  views and images, and a screen already open keep what they have. Someone's own
+  minimap or results band choice still wins in their browser. Members meet the
+  defaults as the starting state of what they make;
+  [the configuration guide](configuration.md#instance-defaults) lists every value.
 - **Limits** changes the editable limits while the instance runs; new work uses a
   changed value at once. A limit its environment variable sets is shown locked,
   naming the variable, and changes only through the environment and a restart.
