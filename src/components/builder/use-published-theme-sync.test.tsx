@@ -19,7 +19,7 @@ let admin: boolean;
 let host: ReturnType<typeof installDomHost>;
 let root: ReturnType<typeof createRoot>;
 let container: HostElement;
-const request = vi.fn(async (_url: string, _init?: RequestInit) => Response.json({ token: "t1" }));
+const request = vi.fn<(url: string, init?: RequestInit) => Promise<Response>>(async () => Response.json({ token: "t1" }));
 const onFailure = vi.fn();
 const onSuccess = vi.fn();
 
