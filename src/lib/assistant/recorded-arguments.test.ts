@@ -11,6 +11,7 @@ import { prepareConfirmation } from "./confirmation";
 import { runAssistant, resumeAssistant, type AssistantEvent } from "./loop";
 import { PendingActionStore } from "./pending";
 import { stubProvider } from "./providers/stub";
+import { recordedArguments } from "./recorded-arguments";
 import { runStream } from "./run-stream";
 import { assistantRuns } from "./runs";
 import { instanceSettingsFixture } from "../../../test-support/instance-settings";
@@ -98,6 +99,50 @@ describe("an address saved through the embedded assistant", () => {
   });
 });
 
+describe("an address argument that is not text", () => {
+  it("is recorded as not an address, whatever it holds; a null, an empty text and every other argument stay as given", () => {
+    expect(recordedArguments({ geocoderUrl: [ADDRESS], isochroneUrl: { address: ADDRESS }, overpassUrl: 7, s3Endpoint: true, previewRows: [ADDRESS] }))
+      .toEqual({ geocoderUrl: "not an address", isochroneUrl: "not an address", overpassUrl: "not an address", s3Endpoint: "not an address", previewRows: [ADDRESS] });
+    const kept = { geocoderUrl: null, isochroneUrl: "", previewRows: 200 };
+    expect(recordedArguments(kept)).toBe(kept);
+  });
+
+  it.each([
+    ["a list", [ADDRESS]],
+    ["an object", { address: ADDRESS }],
+  ])("given as %s, reads as not an address in the confirmation, the events, the receipt and the record, and is refused", async (_what, given) => {
+    const scope = testAccountScope(f.db, "admin");
+    const pending = new PendingActionStore();
+    const provider = stubProvider([
+      { text: "", toolCalls: [{ id: "point-the-finder", name: "update_instance_settings", args: { geocoderUrl: given } }] },
+      { text: "Refused.", toolCalls: [] },
+    ]);
+    const run = assistantRuns.reserve(scope);
+    assistantRuns.bind(scope, run.id, { message: "Use our address finder" });
+    const deps = { scope, baseUrl: "http://instance.test", pending, fetchImpl: dispatch as typeof fetch, runId: run.id };
+
+    const asked = await streamed(runStream(scope, runAssistant(provider, { message: "Use our address finder", history: [] }, deps), run.id));
+    const question = asked.find(event => event.type === "confirm_required");
+    if (question?.type !== "confirm_required") throw new Error("expected a confirmation");
+    expect(question.args).toEqual({ geocoderUrl: "not an address" });
+    expect(assistantRuns.pending(scope)).toEqual([expect.objectContaining({ args: { geocoderUrl: "not an address" } })]);
+    expectNoSeed([asked, assistantRuns.pending(scope), assistantRuns.read(scope, run.id)]);
+
+    const parked = pending.claim(scope, question.id, "approved")!;
+    assistantRuns.resume(scope, run.id, "approved");
+    const done = await streamed(runStream(scope, resumeAssistant(parked, true, deps), run.id));
+    expect(done).toContainEqual(expect.objectContaining({ type: "tool_call", tool: "update_instance_settings", args: { geocoderUrl: "not an address" } }));
+    expect(done).toContainEqual(expect.objectContaining({ type: "tool_result", tool: "update_instance_settings", ok: false }));
+    const record = assistantRuns.read(scope, run.id);
+    expect(record.actions).toEqual([expect.objectContaining({ tool: "update_instance_settings", args: { geocoderUrl: "not an address" } })]);
+    expect(record.confirmations).toEqual([expect.objectContaining({ decision: "approved", args: { geocoderUrl: "not an address" } })]);
+    expectNoSeed([done, record]);
+    // Refused before it was sent; nothing was kept.
+    expect(sent).toEqual([]);
+    expect(resolveServiceAddress("geocoderUrl", f.db).source).toBe("default");
+  });
+});
+
 describe("words declared over an address argument", () => {
   const settings = () => buildTools().find(tool => tool.name === "update_instance_settings")!;
 
@@ -106,12 +151,18 @@ describe("words declared over an address argument", () => {
       subject: { path: null, argument: "overpassUrl", name: "" } } };
     const prepared = await prepareConfirmation(tool, { id: "call", name: tool.name, args: { overpassUrl: ADDRESS } }, { baseUrl: "http://instance.test" });
     expect(prepared?.words.target).toBe(`Send OpenStreetMap queries to ${ORIGIN}?`);
+    for (const given of [[ADDRESS], { address: ADDRESS }]) {
+      const malformed = await prepareConfirmation(tool, { id: "call", name: tool.name, args: { overpassUrl: given } }, { baseUrl: "http://instance.test" });
+      expect(malformed?.words.target).toBe("Send OpenStreetMap queries to not an address?");
+    }
   });
 
   it("give the address as scheme and host in the record's line, and text that is not one as such", () => {
     const tool: ToolDef = { ...settings(), display: { verb: "Pointed OpenStreetMap at {arg.overpassUrl}" } };
     expect(words(tool, { overpassUrl: ADDRESS }).label).toBe(`Pointed OpenStreetMap at ${ORIGIN}`);
     expect(words(tool, { overpassUrl: `not a link ${SEEDS[2]}` }).label).toBe("Pointed OpenStreetMap at not an address");
+    expect(words(tool, { overpassUrl: [ADDRESS] }).label).toBe("Pointed OpenStreetMap at not an address");
+    expect(words(tool, { overpassUrl: { address: ADDRESS } }).label).toBe("Pointed OpenStreetMap at not an address");
     expect(words(tool, { previewRows: 200 }).label).toBe("Pointed OpenStreetMap at");
   });
 });

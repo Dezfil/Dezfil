@@ -36,7 +36,8 @@ import { SETTING_CATALOGUE } from "./catalogue";
  * the variable, through the generated tool and through the embedded
  * assistant, and then searched for in everything the server says or keeps
  * afterwards: every read, change answer and refusal, the assistant's
- * confirmation, events, pending receipt and stored record, the Test answers
+ * confirmation, events, pending receipt and stored record (a call giving
+ * an address as a list or an object, and its refusal, among them), the Test answers
  * and Clear's, the settings search's index, OpenStreetMap's and cloud
  * storage's refusals (a page not found and an error remark that repeat
  * the request among them), the answer, view and record of each geocoding and
@@ -130,6 +131,10 @@ async function ask(method: string, route: string, body?: unknown, as: As = "page
   try { parsed = text ? JSON.parse(text) : null; } catch { parsed = text; }
   return { status: response.status, text, body: parsed };
 }
+
+/** The events of a streamed assistant run, in order. */
+const streamed = async (response: Response) =>
+  (await response.text()).trim().split("\n").filter(Boolean).map(line => JSON.parse(line) as AssistantEvent);
 
 /** The generated tools' road: the admin's token through the shipped routes. */
 const toolFetch = (async (input: RequestInfo | URL, init?: RequestInit) =>
@@ -391,8 +396,6 @@ describe("a service address carrying a key", () => {
   });
 
   it("set through the embedded assistant: its confirmation, events, pending receipt and stored record, read back", async () => {
-    const streamed = async (response: Response) =>
-      (await response.text()).trim().split("\n").filter(Boolean).map(line => JSON.parse(line) as AssistantEvent);
     const scope = testAccountScope(metadataDb(), ADMIN);
     const pending = new PendingActionStore();
     const provider = stubProvider([
@@ -424,6 +427,42 @@ describe("a service address carrying a key", () => {
     expect(record.body.confirmations).toEqual([expect.objectContaining({ decision: "approved", args: { isochroneUrl: origin } })]);
     searched("the assistant's stored record", record.text, { origin });
     await reads("set through the embedded assistant", "stored");
+  });
+
+  it("given to the embedded assistant as a list and as an object: its confirmation, events, pending receipt, refusal and stored record", async () => {
+    const scope = testAccountScope(metadataDb(), ADMIN);
+    for (const [what, given] of [["a list", [address("geocoderUrl")]], ["an object", { address: address("geocoderUrl") }]] as const) {
+      const pending = new PendingActionStore();
+      const provider = stubProvider([
+        { text: "", toolCalls: [{ id: "point-the-finder", name: "update_instance_settings", args: { geocoderUrl: given } }] },
+        { text: "Refused.", toolCalls: [] },
+      ]);
+      const message = `Use our address finder, given as ${what}`;
+      const receipt = assistantRuns.reserve(scope);
+      assistantRuns.bind(scope, receipt.id, { message });
+      const deps = { scope, baseUrl: BASE, pending, fetchImpl: toolFetch, runId: receipt.id };
+
+      const asked = await streamed(runStream(scope, runAssistant(provider, { message, history: [] }, deps), receipt.id));
+      const question = asked.find(event => event.type === "confirm_required");
+      if (question?.type !== "confirm_required") throw new Error("expected a confirmation");
+      searched(`the assistant's confirmation of an address given as ${what}`, question);
+      expect(question.args).toEqual({ geocoderUrl: "not an address" });
+      searched(`the assistant's events before the decision on ${what}`, asked);
+      const waiting = await ask("GET", "/api/assistant/pending");
+      expect(waiting.status).toBe(200);
+      searched(`the pending receipt of ${what}`, waiting.text);
+
+      const parked = pending.claim(scope, question.id, "approved")!;
+      assistantRuns.resume(scope, receipt.id, "approved");
+      const done = await streamed(runStream(scope, resumeAssistant(parked, true, deps), receipt.id));
+      expect(done).toContainEqual(expect.objectContaining({ type: "tool_result", tool: "update_instance_settings", ok: false }));
+      searched(`the assistant's events after the decision on ${what}, its refusal among them`, done);
+      const record = await ask("GET", `/api/assistant/runs/${receipt.id}`);
+      expect(record.status).toBe(200);
+      searched(`the assistant's stored record of ${what}`, record.text);
+    }
+    // Nothing refused was kept.
+    await reads("after the assistant's refused calls", "stored");
   });
 
   it("set by the variable: the reads, the search, the locked refusal, a Test and a run admitted under it", async () => {
