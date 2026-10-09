@@ -122,6 +122,7 @@ describe.each([
     ["the whole address it was asked at, its credential included", at => `${withUser(at)}/SEEDED-KEY-PATH/api/interpreter?key=SEEDED-KEY-QUERY`,
       req => `Not found: http://${pair(req)}@${req.headers.host}${req.url}`, 404],
     ["the Basic credential it was sent, in base64", at => `${withUser(at)}/api/interpreter`, req => `refused ${req.headers.authorization}`],
+    ["a password sent with no user name", at => `${at.replace("//", "//:SEEDED-KEY-PASS@")}/api/interpreter`, req => `refused ${req.headers.authorization}`],
     ["nothing of the address, a key in its path", at => `${at}/SEEDED-KEY-PATH/api/interpreter`, () => ORDINARY],
     ["nothing of the address, a user name", at => `${at.replace("//", "//SEED-USER@")}/api/interpreter`, () => ORDINARY],
     ["nothing of the address, a query", at => `${at}/api/interpreter?key=SEEDED-KEY-QUERY`, () => ORDINARY],
