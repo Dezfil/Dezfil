@@ -253,7 +253,7 @@ describe("the storage read", () => {
     for (const name of names) expect(text, `the answer holds ${name}`).not.toContain(name);
   });
 
-  it("refuses a member, an anonymous caller and an admin's cookie without same-origin evidence, a cross-site navigation's too, walking nothing; an admin's token, the assistant's delegation and the same origin read", async () => {
+  it("refuses a member, an anonymous caller and an admin's cookie without same-origin evidence or with another origin's, a cross-site navigation's too, walking nothing; an admin's token, the assistant's delegation and the instance's own pages read", async () => {
     const memberToken = createApiToken(authenticateSession(p.member.secret, p.db)!, "Member", p.db).secret;
     const cookie = `dezfil_session=${p.admin.secret}`;
     const refused: [Record<string, string>, number][] = [
@@ -265,7 +265,11 @@ describe("the storage read", () => {
       [{ cookie, "sec-fetch-site": "cross-site", "sec-fetch-mode": "navigate" }, 403],
       [{ cookie, "sec-fetch-site": "same-site" }, 403],
       [{ cookie, origin: "https://elsewhere.test", "sec-fetch-site": "same-origin" }, 403],
-      // Neither an Origin nor the browser's own word that the page is this instance's.
+      // The app's own header beside a word of another origin: the other origin wins.
+      [{ cookie, "x-dezfil-account": "admin", origin: "https://elsewhere.test" }, 403],
+      [{ cookie, "x-dezfil-account": "admin", "sec-fetch-site": "cross-site" }, 403],
+      // Neither an Origin, the browser's own word that the page is this
+      // instance's, nor the header this instance's own pages add.
       [{ cookie }, 403],
     ];
     for (const [headers, status] of refused) {
@@ -283,6 +287,9 @@ describe("the storage read", () => {
       { cookie, origin: ORIGIN },
       // This instance's own page reading it: a same-origin fetch carries no Origin.
       { cookie, "sec-fetch-site": "same-origin" },
+      // The same page on a plain-HTTP address off localhost: the browser sends
+      // no fetch metadata there, only the header the app's fetch adds.
+      { cookie, "x-dezfil-account": "admin" },
     ];
     for (const headers of admitted) {
       expect((await GET(read(headers))).status, JSON.stringify(headers)).toBe(200);
