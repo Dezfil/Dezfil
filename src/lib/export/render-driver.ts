@@ -17,6 +17,12 @@ export interface RenderLaunchContext {
   deadline: number;
   requestBoundMs: number;
   signal?: AbortSignal;
+  /** How long the browser's start may take when the caller holds it to its
+   * own time; absent, the driver's own launch timeout, as for an export. */
+  launchTimeoutMs?: number;
+  /** The caller's hard stop: aborted, it ends the browser's process by its
+   * own handle, while it is still starting too. */
+  stop?: AbortSignal;
 }
 
 const EGRESS_REFUSAL = "The map reaches an address this instance's egress " +
@@ -74,6 +80,11 @@ export async function puppeteerDriver(): Promise<RenderDriver> {
           executablePath,
           args: [...flags, ...renderProxyFlags(context.appOrigin, relay.port)],
           headless: true,
+          // A launch held to its caller's time gives up within it, and the
+          // caller's stop kills the process (its group, by its own id)
+          // even before it has answered. An export's keeps the defaults.
+          ...(context.launchTimeoutMs !== undefined ? { timeout: context.launchTimeoutMs } : {}),
+          ...(context.stop ? { signal: context.stop } : {}),
         });
       } catch (error) {
         relay.close();

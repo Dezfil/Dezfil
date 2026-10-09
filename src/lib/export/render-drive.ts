@@ -151,6 +151,11 @@ export interface RenderDrive {
   accountId: string;
   /** What must still hold, asked after the slot, the launch and the render. */
   stand: () => void;
+  /** The launch held to this drive's own time and ended at its stop by the
+   * browser process's own handle, so a browser that never answers its
+   * launch dies with the drive rather than outliving its slot (the
+   * renderer's Test). Absent, the driver's own launch timeout (an export). */
+  boundLaunch?: boolean;
 }
 
 /** Drive the browser for one image, on a slot the caller holds. Throws the
@@ -161,11 +166,16 @@ export async function driveRender(drive: RenderDrive): Promise<RenderImageResult
   let browser: RenderBrowser | null = null;
   let settled = false;
   let timedOut = false;
+  // A bound launch's stop: it ends the browser's process, started or still
+  // starting, by its own handle.
+  const launchStop = drive.boundLaunch ? new AbortController() : null;
+  const stopLaunch = () => launchStop?.abort();
   const watchdog = setTimeout(
     () => {
       // The hard stop: a render past its budget dies, it never lingers — and the outcome is
       // deterministically the coded timeout (a watchdog expiry must never read as render_failed).
       timedOut = true;
+      stopLaunch();
       browser?.kill();
     },
     Math.max(deadline - Date.now(), 1),
@@ -182,6 +192,7 @@ export async function driveRender(drive: RenderDrive): Promise<RenderImageResult
         deadline,
         requestBoundMs,
         signal: drive.signal,
+        ...(launchStop ? { launchTimeoutMs: Math.max(deadline - Date.now(), 1), stop: launchStop.signal } : {}),
       }));
       launching.catch(() => {});
       browser = await new Promise<RenderBrowser>((resolve, reject) => {
@@ -196,13 +207,17 @@ export async function driveRender(drive: RenderDrive): Promise<RenderImageResult
         const timer = setTimeout(
           () => finish(() => {
             timedOut = true;
+            stopLaunch();
             reject(renderTimeout(budget));
           }),
           Math.max(deadline - Date.now(), 1),
         );
         // The caller's departure aborts a slow launch too: the slot must
         // not sit held behind a stuck startup.
-        const onAbort = () => finish(() => reject(new EvaluationCancelled()));
+        const onAbort = () => finish(() => {
+          stopLaunch();
+          reject(new EvaluationCancelled());
+        });
         drive.signal?.addEventListener("abort", onAbort, { once: true });
         if (drive.signal?.aborted) onAbort();
         void launching.then(
@@ -273,6 +288,9 @@ export async function driveRender(drive: RenderDrive): Promise<RenderImageResult
       void closing
         .catch(() => browser?.kill())
         .finally(() => clearTimeout(killTimer));
+    } else {
+      // A bound launch that never handed over its browser ends with the drive.
+      stopLaunch();
     }
   }
 }

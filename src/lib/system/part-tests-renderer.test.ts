@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import path from "node:path";
@@ -29,6 +30,9 @@ import { testPart } from "./part-tests";
  * given back, and an image that is not the picture is failed. With every
  * image slot in use it answers busy at once and launches nothing. No answer
  * holds a path, the browser's output or an error's words.
+ *
+ * A browser that never answers its launch is ended at the Test's limit by
+ * its own process, so no image's browser starts beside it while it lives.
  *
  * The missing, crashing and hanging browsers are stand-in programs started
  * by the real driver; the drawn and the flat pictures come from a driver
@@ -89,6 +93,13 @@ function program(name: string, body: string): { file: string; started: () => boo
   const log = path.join(bin, `${name}.started`);
   writeFileSync(file, `#!/bin/sh\n: > '${log}'\n${body}\n`, { mode: 0o755 });
   return { file, started: () => existsSync(log) };
+}
+
+/** Whether a process runs: one killed and not yet reaped is a zombie,
+ * gone though its id still stands. */
+function running(pid: number): boolean {
+  const state = spawnSync("ps", ["-o", "stat=", "-p", String(pid)], { encoding: "utf8" }).stdout.trim();
+  return state !== "" && !state.startsWith("Z");
 }
 
 /** The check picture as the page draws it, or a flat one. */
@@ -200,6 +211,34 @@ describe("the image renderer's Test", () => {
     expect(Date.now() - asked).toBeLessThan(PART_TEST_LIMITS.image_renderer * 1000 + 2000);
     expect(hanging.started()).toBe(true);
     await vi.waitFor(() => expect(renderQueueState()).toEqual({ active: 0, waiting: 0 }), { timeout: 1000 });
+  }, 30_000);
+
+  it("ends a browser that never answers its launch at the Test's limit, so no image's browser starts beside it", async () => {
+    vi.stubEnv("DEZFIL_EXPORT_RENDER_CONCURRENCY", "1");
+    const list = path.join(bin, "never-ready.pids");
+    vi.stubEnv("DEZFIL_CHROMIUM_PATH", program("never-ready", `echo $$ >> '${list}'\nexec sleep 120`).file);
+    const started = () => existsSync(list) ? readFileSync(list, "utf8").split("\n").filter(Boolean).map(Number) : [];
+    const leaving = new AbortController();
+    try {
+      const asked = Date.now();
+      expect(await test()).toEqual({ part: "image_renderer", result: "failed", reason: "timed_out" });
+      expect(Date.now() - asked).toBeLessThan(PART_TEST_LIMITS.image_renderer * 1000 + 2000);
+      const [first] = started();
+      expect(first).toEqual(expect.any(Number));
+      // Images at once is 1 and the Test's slot is back: an image asked now
+      // launches its own browser at once, which must find the Test's gone.
+      const image = renderMapImage(testAccountScope(), { mapId: "m1", credential: "fixture-render-credential", baseUrl: "http://127.0.0.1:3216",
+        signal: leaving.signal, definition: { viewport: { lng: 0, lat: 0, zoom: 1, pitch: 0, bearing: 0 }, size: { width: 64, height: 64 },
+          legend: { visible: false, corner: "bottom-left", size: "s" }, widgets: [], title: null, appearance: "light", mapScale: 1 } });
+      void image.catch(() => {});
+      await vi.waitFor(() => expect(started()).toHaveLength(2), { timeout: 5000 });
+      expect(running(first), "the Test's browser still runs beside the image's").toBe(false);
+      leaving.abort();
+      await image.catch(() => {});
+    } finally {
+      // Every stand-in started here, stopped by its own id.
+      for (const pid of started()) { try { process.kill(pid, "SIGKILL"); } catch { /* already gone */ } }
+    }
   }, 30_000);
 
   it("answers busy at once with every image slot in use, starting no browser", async () => {

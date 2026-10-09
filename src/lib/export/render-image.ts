@@ -172,6 +172,8 @@ export async function renderCheckImage(input: CheckImageInput): Promise<RenderIm
       driver: input.driver,
       accountId: input.accountId,
       stand: () => {},
+      // Its browser must not outlive its slot, even one that never starts.
+      boundLaunch: true,
     });
   } finally {
     releaseSlot();

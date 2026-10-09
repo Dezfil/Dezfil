@@ -10,14 +10,17 @@ import {
   type RenderBrowser,
   type RenderDriver,
 } from "./render-image";
+import type { RenderLaunchContext } from "./render-driver";
 
 /**
  * The image renderer's Test on the image lane, over injected drivers: it
  * takes a slot only when one is free now and no image waits, else answers
  * busy at once and launches nothing; an image asked while it runs waits
  * for it as behind any image, and starts by the Test's hard stop at the
- * latest, the Test's browser killed; and the lane never runs more
- * browsers than Images at once. No real browser anywhere.
+ * latest, the Test's browser killed; the Test's launch is held to the
+ * Test's own time and ended at its stop, an export's keeping the driver's
+ * own; and the lane never runs more browsers than Images at once. No real
+ * browser anywhere.
  */
 
 const def = () => initialDefinition(
@@ -145,6 +148,37 @@ describe("the renderer's Test on the image lane", () => {
     await vi.advanceTimersByTimeAsync(100);
     await expect(waiting).resolves.toMatchObject({ png: PNG });
     expect(renderQueueState()).toEqual({ active: 0, waiting: 0 });
+  });
+
+  it("holds the Test's launch to the Test's own time and ends it at the hard stop; an export's launch keeps the driver's own", async () => {
+    vi.useFakeTimers();
+    const contexts: RenderLaunchContext[] = [];
+    // A browser that never answers its launch, ended only by its stop.
+    const neverStarts: RenderDriver = {
+      launch: (_path, _flags, context) => {
+        contexts.push(context);
+        return new Promise<RenderBrowser>((_resolve, reject) => {
+          context.stop?.addEventListener("abort", () => reject(new Error("ended")), { once: true });
+        });
+      },
+    };
+    const testing = check(neverStarts).then(value => ({ value }), error => ({ error }));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(contexts).toHaveLength(1);
+    expect(contexts[0].launchTimeoutMs).toBeGreaterThan(LIMIT_MS - 1_000);
+    expect(contexts[0].launchTimeoutMs).toBeLessThanOrEqual(LIMIT_MS);
+    expect(contexts[0].stop?.aborted).toBe(false);
+    await vi.advanceTimersByTimeAsync(LIMIT_MS);
+    expect(await testing).toMatchObject({ error: { code: "render_timeout" } });
+    expect(contexts[0].stop?.aborted).toBe(true);
+    expect(renderQueueState()).toEqual({ active: 0, waiting: 0 });
+
+    vi.useRealTimers();
+    const exporting = lane();
+    const recorded: RenderDriver = { launch: (...args) => { contexts.push(args[2]); return exporting.driver.launch(...args); } };
+    await expect(image(recorded)).resolves.toMatchObject({ png: PNG });
+    expect(contexts[1]).not.toHaveProperty("launchTimeoutMs");
+    expect(contexts[1]).not.toHaveProperty("stop");
   });
 
   it.each([1, 2])("never runs more browsers than Images at once (%i), images and Tests together", async cap => {
