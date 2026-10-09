@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { mkdtemp, mkdir, readdir, rm, utimes, writeFile } from "node:fs/promises";
-import { createServer, type Server } from "node:http";
+import { createServer, type IncomingMessage, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import path from "node:path";
 import {
@@ -11,6 +11,7 @@ import {
 } from "./overpass";
 import { keepRequestsOnThisMachine } from "@/lib/test-support/outside-requests";
 import { egressBlockedError } from "@/lib/net/egress";
+import { settingRemedy } from "@/lib/settings/remedy";
 
 // Every request here goes to a loopback fixture; one that went to the public
 // Overpass server instead fails its test before it leaves this machine.
@@ -148,6 +149,11 @@ describe("a refusal from the Overpass endpoint", () => {
   // Seeds in every part of the address that may carry a key.
   const PATH = "/SEEDED-KEY-0001-PATH/api/interpreter";
   const QUERY = "?key=SEEDED-KEY-0001-QUERY";
+  const WITHHELD = "Its message is not shown: it repeats part of the address.";
+  /** A status refusal whose words were left out: the endpoint as scheme and
+   * host, the status, why there are no words, and what to change. */
+  const withheld = (origin: string, status: number) =>
+    `The Overpass endpoint ${origin} responded ${status}. ${WITHHELD} ${settingRemedy("overpassUrl")}`;
   let server: Server | undefined;
 
   afterEach(async () => {
@@ -155,8 +161,13 @@ describe("a refusal from the Overpass endpoint", () => {
     server = undefined;
   });
 
-  async function serve(status: number, body = ""): Promise<string> {
-    server = createServer((_req, res) => { res.writeHead(status, { "content-type": "text/html" }); res.end(body); });
+  /** A fixture answering every request with one status and a body, fixed or
+   * made from the request it answers. */
+  async function serve(status: number, body: string | ((req: IncomingMessage) => string) = ""): Promise<string> {
+    server = createServer((req, res) => {
+      res.writeHead(status, { "content-type": "text/html" });
+      res.end(typeof body === "string" ? body : body(req));
+    });
     await new Promise<void>((resolve) => server!.listen(0, "127.0.0.1", () => resolve()));
     return `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
   }
@@ -185,7 +196,7 @@ describe("a refusal from the Overpass endpoint", () => {
     const origin = await serve(401, "<p><strong>no access for SEEDED-KEY-0001-USER</strong></p>");
     const refused = await refusal(origin.replace("//", "//SEEDED-KEY-0001-USER:SEEDED-KEY-0001-PASS@") + PATH);
     expect(refused.code).toBe("remote_fetch_failed");
-    expect(refused.message).toBe(`The Overpass endpoint ${origin} responded 401`);
+    expect(refused.message).toBe(withheld(origin, 401));
   });
 
   it("names scheme and host when it rate-limits", async () => {
@@ -200,9 +211,50 @@ describe("a refusal from the Overpass endpoint", () => {
     for (const echoed of [PATH, "SEEDED-KEY-0001-QUERY", "SEEDED-KEY-0001-PATH"]) {
       const origin = await serve(400, `<p><strong>runtime error: ${echoed} refused</strong></p>`);
       const refused = await refusal(`${origin}${PATH}${QUERY}`);
-      expect(refused.message).toBe(`The Overpass endpoint ${origin} responded 400`);
+      expect(refused.message).toBe(withheld(origin, 400));
       await new Promise<void>((resolve) => server!.close(() => resolve()));
     }
+  });
+
+  // A page not found that repeats what it was asked, in a form other than
+  // the address as written: the request's path in hex, a query value or a
+  // path segment in base64 or UTF-16, the credential the request carried.
+  it.each([
+    ["the request's path in hex", (req: IncomingMessage) => Buffer.from(req.url ?? "").toString("hex")],
+    ["a query value in base64", () => Buffer.from("SEEDED-KEY-0001-QUERY").toString("base64")],
+    ["a path segment in base64url", () => Buffer.from("SEEDED-KEY-0001-PATH").toString("base64url")],
+    ["the request's path in UTF-16", (req: IncomingMessage) => Buffer.from(req.url ?? "", "utf16le").toString("latin1")],
+    ["the Basic credential it was sent", (req: IncomingMessage) => req.headers.authorization ?? ""],
+  ])("drops the server's own words when they repeat %s", async (_what, echo) => {
+    const origin = await serve(404, (req) => `<p><strong>Not found: ${echo(req)}</strong></p>`);
+    const refused = await refusal(origin.replace("//", "//SEEDED-KEY-0001-USER:SEEDED-KEY-0001-PASS@") + PATH + QUERY);
+    expect(refused).toMatchObject({ code: "remote_fetch_failed", message: withheld(origin, 404) });
+    expect(refused.message).not.toMatch(/SEEDED|Basic|U0VFREVE|5345454445/);
+  });
+
+  it("checks the server's whole words before shortening them", async () => {
+    // The key straddles the point the words are cut at: what is kept must not
+    // be the first half of it.
+    const origin = await serve(400, `<p><strong>${"x".repeat(290)} SEEDED-KEY-0001-QUERY</strong></p>`);
+    const refused = await refusal(`${origin}${PATH}${QUERY}`);
+    expect(refused.message).toBe(withheld(origin, 400));
+  });
+
+  it("keeps an error remark that repeats nothing of the address", async () => {
+    const origin = await serve(200, JSON.stringify({ elements: [], remark: "runtime error: Query timed out in \"query\" at line 1 after 26 seconds" }));
+    const refused = await refusal(`${origin}${PATH}${QUERY}`);
+    expect(refused).toMatchObject({ code: "remote_fetch_failed",
+      message: "Overpass reported: runtime error: Query timed out in \"query\" at line 1 after 26 seconds. Narrow the area or the tags and retry." });
+  });
+
+  it("drops an error remark that repeats the whole address and the credential", async () => {
+    const address = (at: string) => at.replace("//", "//SEEDED-KEY-0001-USER:SEEDED-KEY-0001-PASS@") + PATH + QUERY;
+    const origin = await serve(200, (req) => JSON.stringify({ elements: [],
+      remark: `runtime error: at ${address(`http://${req.headers.host}`)} as ${req.headers.authorization}` }));
+    const refused = await refusal(address(origin));
+    expect(refused).toMatchObject({ code: "remote_fetch_failed",
+      message: `The Overpass endpoint ${origin} responded 200 with an error. ${WITHHELD} Narrow the area or the tags and retry.` });
+    expect(refused.message).not.toMatch(/SEEDED|Basic/);
   });
 
   it("keeps the server's own words when they repeat nothing of the address", async () => {

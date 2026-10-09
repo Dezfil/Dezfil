@@ -27,6 +27,7 @@ import { testAccountRequest, testAccountScope } from "@/lib/test-support/account
 import { keepRequestsOnThisMachine } from "@/lib/test-support/outside-requests";
 import { executeTool } from "@/lib/tools/execute";
 import { buildTools } from "@/lib/tools/tools";
+import { secretForms } from "./address-secrets";
 import { SETTING_CATALOGUE } from "./catalogue";
 
 /**
@@ -37,7 +38,8 @@ import { SETTING_CATALOGUE } from "./catalogue";
  * afterwards: every read, change answer and refusal, the assistant's
  * confirmation, events, pending receipt and stored record, the Test answers
  * and Clear's, the settings search's index, OpenStreetMap's and cloud
- * storage's refusals, the answer, view and record of each geocoding and
+ * storage's refusals (a page not found and an error remark that repeat
+ * the request among them), the answer, view and record of each geocoding and
  * travel-time run admitted after the save (a failed one's too), every log
  * line the server writes while the battery runs, and at the end every file
  * in the data folder, the metadata database first. Where the surface names
@@ -47,7 +49,8 @@ import { SETTING_CATALOGUE } from "./catalogue";
  *
  * The search knows a key as written, percent-encoded, in base64 and
  * base64url, in hex and in UTF-16, and the user information also as the
- * pair a Basic credential encodes.
+ * pair a Basic credential encodes: the forms the server's own check looks
+ * for before it repeats a service's words.
  *
  * The steps run in order on one instance, one data folder and one set of
  * console sinks: each searches what it made, and the last two search what
@@ -77,15 +80,9 @@ const VARIABLE: Record<AddressKey, string> = {
 const SINKS = ["log", "info", "warn", "error", "debug", "trace"] as const;
 const ACCOUNT = { id: ADMIN, name: "Ada Okafor", email: "ada@example.test", sqlName: "ada_okafor", isAdmin: true } as Account;
 
-/** Every form the search knows for one secret. */
-function forms(secret: string): string[] {
-  const bytes = Buffer.from(secret, "utf8");
-  return [...new Set([secret, encodeURIComponent(secret), bytes.toString("base64"), bytes.toString("base64url"), bytes.toString("hex"),
-    Buffer.from(secret, "utf16le").toString("latin1")])];
-}
 /** Each form of each key the text holds. */
 function leaks(text: string, seeds: Seeds = SAVED): string[] {
-  return [...seeds, `seed-user:${seeds[0]}`].flatMap(secret => forms(secret).filter(form => text.includes(form)));
+  return [...seeds, `seed-user:${seeds[0]}`].flatMap(secret => secretForms(secret).filter(form => text.includes(form)));
 }
 
 let dir: string;
@@ -99,11 +96,14 @@ const lines: string[] = [];
 /** How many surfaces the battery searched. */
 let searchedCount = 0;
 
+/** How a fixture service fails: down, a page not found, an error remark. */
+type Fault = "down" | "missing" | "remark";
+
 /** A service's address on the fixture, its key in all three places. */
-function address(key: AddressKey, options: { seeds?: Seeds; at?: number; down?: boolean; host?: string } = {}): string {
-  const { seeds = SAVED, at = port, down = false, host = "127.0.0.1" } = options;
+function address(key: AddressKey, options: { seeds?: Seeds; at?: number; fault?: Fault; host?: string } = {}): string {
+  const { seeds = SAVED, at = port, fault, host = "127.0.0.1" } = options;
   const tail = key === "overpassUrl" ? "/api/interpreter" : "";
-  return `http://seed-user:${seeds[0]}@${host}:${at}/${down ? "down-" : ""}${SLUG[key]}-${seeds[1]}${tail}?key=${seeds[2]}`;
+  return `http://seed-user:${seeds[0]}@${host}:${at}/${fault ? `${fault}-` : ""}${SLUG[key]}-${seeds[1]}${tail}?key=${seeds[2]}`;
 }
 
 /** Search one surface: no key in any form, and, where it names the
@@ -176,12 +176,22 @@ const json = (res: ServerResponse, status: number, body: unknown) => {
 };
 
 /** The fixture: every service at one port, told apart by path. A service
- * that is down echoes what it was asked, its credential included. */
+ * that is down echoes what it was asked, its credential included; one that
+ * finds no page echoes the request's path in hex and its credential; one
+ * with an error remark repeats the whole address it was asked at and the
+ * credential. */
 function answer(req: IncomingMessage, res: ServerResponse) {
   const url = new URL(req.url ?? "", "http://fixture");
+  const credential = req.headers.authorization ?? "";
   if (url.pathname.includes("/down-")) {
     res.writeHead(503, { "content-type": "text/html" });
-    res.end(`<html><body><p><strong>Unavailable: ${req.url} ${req.headers.authorization ?? ""}</strong></p></body></html>`);
+    res.end(`<html><body><p><strong>Unavailable: ${req.url} ${credential}</strong></p></body></html>`);
+  } else if (url.pathname.includes("/missing-")) {
+    res.writeHead(404, { "content-type": "text/html" });
+    res.end(`<html><body><p><strong>Not found: ${Buffer.from(req.url ?? "").toString("hex")} ${credential}</strong></p></body></html>`);
+  } else if (url.pathname.includes("/remark-")) {
+    const user = Buffer.from(credential.replace(/^Basic /, ""), "base64").toString("utf8");
+    json(res, 200, { version: 0.6, elements: [], remark: `runtime error: at http://${user}@${req.headers.host}${req.url} as ${credential}` });
   } else if (url.pathname.endsWith(".csv")) {
     res.writeHead(200, { "content-type": "text/csv" });
     res.end(url.pathname.includes("origins") ? "label,lon,lat\np,13.41,52.51\n" : "label,address\na,Alpha Street\nb,Beta Street\n");
@@ -292,7 +302,7 @@ describe("a service address carrying a key", () => {
   });
 
   it("at a service that fails: the runs' views, OpenStreetMap's refusal, cloud storage's refusals, a run refused at use", async () => {
-    const down = await save(Object.fromEntries((["geocoderUrl", "isochroneUrl", "overpassUrl"] as const).map(key => [key, address(key, { down: true })])));
+    const down = await save(Object.fromEntries((["geocoderUrl", "isochroneUrl", "overpassUrl"] as const).map(key => [key, address(key, { fault: "down" })])));
     expect(down.status, down.text).toBe(200);
     searched("the change answer to a service that is down", down.text, { origin });
     for (const [operation, parameters] of [
@@ -306,6 +316,15 @@ describe("a service address carrying a key", () => {
     const osm = await ask("POST", "/api/imports/osm", { bbox: [13.3, 52.4, 13.5, 52.6], selectors: ["amenity=cafe"], name: "cafes_again" });
     expect(osm.status, osm.text).toBe(502);
     searched("OpenStreetMap's refusal", osm.text, { origin });
+    // A page not found that repeats the request in other forms, and an
+    // answer whose error remark repeats the whole address and its credential.
+    for (const [fault, what] of [["missing", "a page not found repeating the request"], ["remark", "an error remark repeating the address"]] as const) {
+      const moved = await save({ overpassUrl: address("overpassUrl", { fault }) });
+      expect(moved.status, moved.text).toBe(200);
+      const refused = await ask("POST", "/api/imports/osm", { bbox: [13.3, 52.4, 13.5, 52.6], selectors: ["amenity=cafe"], name: `cafes_${fault}` });
+      expect(refused.status, refused.text).toBe(502);
+      searched(`OpenStreetMap's refusal: ${what}`, refused.text, { origin });
+    }
 
     // Cloud storage refuses in the person's own link, never the address it reached.
     const link = "s3://open-bucket/places.csv";
@@ -348,7 +367,7 @@ describe("a service address carrying a key", () => {
     const byTool = await executeTool(tool("test_service"), { service: "geocode" }, BASE, toolFetch);
     expect(byTool.body).toMatchObject({ service: "geocode", result: "passed" });
     searched("the generated tool's Test answer", byTool.body);
-    await save({ geocoderUrl: address("geocoderUrl", { down: true }) });
+    await save({ geocoderUrl: address("geocoderUrl", { fault: "down" }) });
     const failed = await ask("POST", "/api/instance/services/geocode/test");
     expect(failed.body, failed.text).toMatchObject({ service: "geocode", result: "failed", reason: "status", status: 503 });
     searched("a failed Test's answer", failed.text);
