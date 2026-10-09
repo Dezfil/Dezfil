@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { lstatSync, mkdirSync, mkdtempSync, readdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import { GET } from "@/app/api/instance/storage/route";
@@ -132,6 +132,7 @@ const read = (headers: Record<string, string> = { cookie: `dezfil_session=${p.ad
   socketRequest(new Request(`${ORIGIN}/api/instance/storage`, { headers }));
 
 const L_KEPT = "0b6f3c1e-7d1a-4a52-9c1e-000000000001", L_GONE = "0b6f3c1e-7d1a-4a52-9c1e-000000000002";
+const STAGED = "exports/0b6f3c1e-7d1a-4a52-9c1e-0000000000e1.zip";
 
 /** The fixture folder: each kind, an identical pair that differs only in
  * whether the metadata references it, and one of each leftover place. */
@@ -140,6 +141,10 @@ function fixtureFolder() {
   table(scope, "table-kept", "kept", "tables/kept.parquet");
   const mapId = tiledLayer(scope, L_KEPT, "Kept map");
   registerAccountFile("admin", "tables/kept.parquet");
+  // Staged exports, registered as the export road registers them, before
+  // their bytes: the restart's recovery removes each with its record.
+  registerAccountFile("admin", STAGED);
+  registerAccountFile("admin", "exports/project-0003/archive.zip");
   const sizes: Record<string, [number, StorageKind]> = {
     "tables/kept.parquet": [1000, "tables"],
     "tables/orphan.parquet": [1000, "leftover_files"],
@@ -151,6 +156,7 @@ function fixtureFolder() {
     "tmp/upload-0001.geojson": [400, "leftover_files"],
     "tmp/download-0002/part.bin": [100, "leftover_files"],
     "exports/project-0003/archive.zip": [500, "leftover_files"],
+    [STAGED]: [600, "leftover_files"],
     [`thumbnails/${mapId}.png`]: [700, "thumbnails"],
     [`thumbnails/${mapId}.png.0a1b2c.tmp`]: [70, "leftover_files"],
     [`artifact-inputs/thumbnails/${mapId}.json`]: [30, "thumbnails"],
@@ -178,12 +184,18 @@ function expected(sizes: Record<string, [number, StorageKind]>): Record<StorageK
     want.metadata_database.bytes += lstatSync(path.join(data, file)).size;
     want.metadata_database.files += 1;
   }
-  // The ownership record of the kept table is the server's own record.
-  for (const file of readdirSync(path.join(data, "file-owners"))) {
-    want.other.bytes += lstatSync(path.join(data, "file-owners", file)).size;
-    want.other.files += 1;
-  }
+  for (const { size, kind } of ownershipRecords()) { want[kind].bytes += size; want[kind].files += 1; }
   return want;
+}
+
+/** The ownership records, each as the restart treats it: a staged export's
+ * goes with its file, the kept table's is the server's own. */
+function ownershipRecords(): { rel: string; size: number; kind: StorageKind }[] {
+  return readdirSync(path.join(data, "file-owners")).map(name => {
+    const rel = path.join("file-owners", name);
+    const record = JSON.parse(readFileSync(path.join(data, rel), "utf8")) as { file: string };
+    return { rel, size: lstatSync(path.join(data, rel)).size, kind: record.file.startsWith("exports/") ? "leftover_files" : "other" };
+  });
 }
 
 describe("the storage read", () => {
@@ -197,9 +209,12 @@ describe("the storage read", () => {
     expect(answer.disk!.total).toBeGreaterThan(0);
     expect(answer.disk!.free).toBeGreaterThan(0);
     expect(answer.disk!.free).toBeLessThanOrEqual(answer.disk!.total);
-    // The leftover total is the fixture's, and a restart's five sweeps remove exactly those files.
-    expect(answer.kinds.leftover_files.bytes).toBe(1000 + 2000 + 50 + 300 + 400 + 100 + 500 + 70 + 20);
-    const leftovers = Object.entries(sizes).filter(([, [, kind]]) => kind === "leftover_files").map(([rel]) => rel);
+    // The leftover total is the fixture's with the two staged exports' records,
+    // and a restart's five sweeps remove exactly those files.
+    const records = ownershipRecords().filter(record => record.kind === "leftover_files");
+    expect(records).toHaveLength(2);
+    expect(answer.kinds.leftover_files.bytes).toBe(1000 + 2000 + 50 + 300 + 400 + 100 + 500 + 600 + 70 + 20 + records.reduce((sum, record) => sum + record.size, 0));
+    const leftovers = [...Object.entries(sizes).filter(([, [, kind]]) => kind === "leftover_files").map(([rel]) => rel), ...records.map(record => record.rel)];
     const before = filesNow();
     vi.spyOn(console, "warn").mockImplementation(() => {});
     await cleanTileScratch();

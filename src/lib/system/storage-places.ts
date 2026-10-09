@@ -7,9 +7,11 @@ import type { StorageKind } from "./storage-answer";
  * remove: the upload and download scratch (`tmp/`), the tile scratch
  * (`tiles/scratch/`), staged project exports (`exports/`), table files no
  * dataset uses, archives no tile record names and the build evidence of
- * those archives, and unfinished thumbnail writes (a `.tmp` beside the
- * images and their evidence). A test holds this table against the sweeps
- * themselves, so a place they learn to clear is a finding here.
+ * those archives, unfinished thumbnail writes (a `.tmp` beside the
+ * images and their evidence), and the ownership records of the staged
+ * exports, which the restart's recovery removes with them. A test holds
+ * this table against the sweeps themselves, so a place they learn to clear
+ * is a finding here.
  *
  * Paths are taken as segments under the data folder; nothing here touches
  * the disk.
@@ -24,12 +26,15 @@ export interface StorageReferences {
 }
 
 const METADATA_FILES = new Set(["metadata.sqlite", "metadata.sqlite-wal", "metadata.sqlite-shm", "metadata.sqlite-journal"]);
+const NONE: ReadonlySet<string> = new Set();
 const ARCHIVE = ".pmtiles";
 const EVIDENCE = ".json";
 const UNFINISHED_WRITE = ".tmp";
 
-/** The kind of the file at `segments`, a path under the data folder. */
-export function placeOf(segments: readonly string[], references: StorageReferences): StorageKind {
+/** The kind of the file at `segments`, a path under the data folder.
+ * `leavingRecords` names the ownership records that go with files the
+ * restart removes, as the walk has found them. */
+export function placeOf(segments: readonly string[], references: StorageReferences, leavingRecords: ReadonlySet<string> = NONE): StorageKind {
   const [top, second, third] = segments;
   if (segments.length === 1) return METADATA_FILES.has(top) ? "metadata_database" : "other";
   switch (top) {
@@ -49,6 +54,7 @@ export function placeOf(segments: readonly string[], references: StorageReferenc
         return references.tileLayers.has(third.slice(0, -EVIDENCE.length)) ? "tile_archives" : "leftover_files";
       }
       return "other";
+    case "file-owners": return segments.length === 2 && leavingRecords.has(second) ? "leftover_files" : "other";
     case "cache": return "service_caches";
     case "tmp":
     case "exports": return "leftover_files";
@@ -70,6 +76,7 @@ export function kindsWithin(dir: readonly string[], references: StorageReference
     case "artifact-inputs/thumbnails": return ["thumbnails", "leftover_files"];
     case "artifact-inputs": return ["tile_archives", "thumbnails", "leftover_files", "other"];
     case "artifact-inputs/tiles": return ["tile_archives", "leftover_files"];
+    case "file-owners": return ["other", "leftover_files"];
     // Deeper, the folder's own place decides every file under it.
     default: return [placeOf([...dir, ""], references)];
   }
