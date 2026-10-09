@@ -52,6 +52,12 @@ export function getTileRecord(
   return row ? fromRow(row) : null;
 }
 
+/** Every layer with a tile record, whatever its state: the archives a
+ * restart keeps. */
+export function tileRecordLayerIds(db: Database = metadataDb()): string[] {
+  return (db.prepare(`SELECT layer_id FROM layer_tiles`).pluck().all() as string[]);
+}
+
 export function upsertTileRecord(
   record: Omit<TileRecord, "updatedAt">,
   db: Database = metadataDb(),

@@ -36,12 +36,13 @@ describe("the page action policy", () => {
         tool.confirm || tool.confirmWhen !== undefined, tool.name).toBe(true);
     }
     // The registry holds conditional operations, one that reaches outside and
-    // a read-only one that asks first, so each exclusion is exercised, not vacuous.
+    // read-only ones that ask first, so each exclusion is exercised, not vacuous.
     expect(tools.some((t) => t.effects.planningArgument !== undefined)).toBe(true);
     expect(tools.filter((t) => t.effects.reachesOutside).map((t) => t.name)).toEqual(["test_service"]);
     expect(names).not.toContain("test_service");
-    expect(tools.filter((t) => t.effects.readOnly && !t.effects.reachesOutside && t.confirm).map((t) => t.name)).toEqual(["test_part"]);
+    expect(tools.filter((t) => t.effects.readOnly && !t.effects.reachesOutside && t.confirm).map((t) => t.name).sort()).toEqual(["read_storage", "test_part"]);
     expect(names).not.toContain("test_part");
+    expect(names).not.toContain("read_storage");
   });
 
   /**
@@ -73,7 +74,7 @@ describe("the page action policy", () => {
     // Read-only operations the policy refuses all the same, each for a
     // declared reason.
     const refused = buildTools().filter((t) => t.effects.readOnly && !names.includes(t.name)).map((t) => t.name).sort();
-    expect(refused).toEqual(["test_part", "test_service"]);
+    expect(refused).toEqual(["read_storage", "test_part", "test_service"]);
   });
 
   it("admits answers per tool the way the set is built", () => {

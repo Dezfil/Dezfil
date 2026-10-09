@@ -9,6 +9,7 @@ import { metadataDb } from "@/lib/metadata/db";
 import { keptReleaseList } from "@/lib/overture/releases";
 import { purgeProviderAnswerFiles } from "@/lib/provider-cache-generation";
 import { PROVIDER_CACHES, type ProviderCache } from "@/lib/provider-caches";
+import { forgetStorageRead } from "@/lib/system/storage";
 
 /**
  * What the services keep on this instance, for the configuration read, and
@@ -66,7 +67,9 @@ export async function readServiceFacts(): Promise<ServiceFacts> {
  * Empty one provider cache, or all three, through the purge every account
  * erasure uses: a request that began before the Clear writes no answer
  * after it, and a write already landing is waited for and then removed.
- * The admin is rechecked first; nothing else changes.
+ * The admin is rechecked first; nothing else changes, except that the
+ * storage read's last answer is forgotten, so the next shows the caches
+ * as they are now.
  */
 export async function clearServiceCaches(
   context: AuthContext,
@@ -77,5 +80,6 @@ export async function clearServiceCaches(
   requireAdmin(context, db, now);
   const cleared = cache ? [cache] : [...PROVIDER_CACHES];
   await purgeProviderAnswerFiles(dataDir(), cleared);
+  forgetStorageRead();
   return { cleared };
 }

@@ -1,4 +1,5 @@
 import { PARTS, PART_FAILURES } from "@/lib/system/part-test-answer";
+import { STORAGE_KINDS } from "@/lib/system/storage-answer";
 import { AUTH_SECURITY } from "./openapi-auth";
 import { ERROR_RESPONSE, jsonOk, op } from "./openapi-helpers";
 import { LOCAL_READ } from "./operation-mcp";
@@ -35,7 +36,33 @@ export const PART_STATES_SCHEMA = {
   description: "Each part of this server as System's Status shows it, read without creating an engine, launching a browser or running any program.",
 };
 
+const storageUse = (what: string) => ({
+  ...object({
+    bytes: { type: "integer", minimum: 0, description: "The bytes the files take." },
+    files: { type: "integer", minimum: 0, description: "How many files." },
+    finished: { type: "boolean", description: "False when the walk stopped at its limit before it had seen every such file: the bytes and files are then at least these." },
+  }),
+  description: what,
+});
+
 export const INSTANCE_SYSTEM_SCHEMAS = {
+  StorageRead: {
+    ...object({
+      kinds: object({
+        tables: storageUse("Dataset files the metadata registers."),
+        tile_archives: storageUse("Tile archives with a tile record, and what they were built from."),
+        service_caches: storageUse("The three service caches' answers."),
+        thumbnails: storageUse("Map card images and their evidence."),
+        metadata_database: storageUse("The metadata database and its journal files."),
+        leftover_files: storageUse("What the next restart's sweeps would remove: upload, download and tile scratch, staged project exports, table files no dataset uses, archives no layer uses and their evidence, unfinished thumbnail writes. It includes work in progress."),
+        other: storageUse("Everything else in the data folder, such as the key file and the server's records."),
+      }),
+      total: storageUse("What the data folder holds: every kind together."),
+      disk: { description: "Free and total bytes on the data folder's volume, or null when the system would not say.",
+        oneOf: [object({ free: { type: "integer", minimum: 0 }, total: { type: "integer", minimum: 0 } }), { type: "null" }] },
+    }),
+    description: `What the data folder holds, by kind (${STORAGE_KINDS.join(", ")}). Never a name, an owner, an account, a map, a dataset, a path or a file name.`,
+  },
   PartTestAnswer: {
     description: "A part's Test: passed, with the milliseconds the check took, or failed with one reason: not_found (a program, or the spatial " +
       "extension, is not where its setting points), busy (the part is busy with other work), timed_out (no answer within the Test's own limit) " +
@@ -49,6 +76,30 @@ export const INSTANCE_SYSTEM_SCHEMAS = {
 };
 
 export const INSTANCE_SYSTEM_PATHS = {
+  "/api/instance/storage": { get: { ...op({
+    summary: "Read how the data folder is used",
+    description: "Requires a current admin through cookie or bearer authentication, rechecked on every call. " +
+      "A cookie request sent from another origin is refused; an admin bearer token calls directly. Responses, including refusals, are private, no-store. " +
+      "Walks the data folder and answers, for each kind of file, the bytes its files take and how many there are: tables (dataset files the metadata " +
+      "registers), tile_archives (archives with a tile record and what they were built from), service_caches (the three caches' answers), thumbnails " +
+      "(map card images), metadata_database (the database and its journal files), leftover_files (what the next restart's sweeps would remove: upload, " +
+      "download and tile scratch, staged project exports, table files no dataset uses, archives no layer uses, unfinished thumbnail writes; it includes " +
+      "work in progress) and other (the rest, such as the key file and the server's records); with every kind together and the free and total space on " +
+      "the folder's volume. Each file counts once. It takes names and sizes and which files the metadata references, opening no file and following no " +
+      "link, and answers no name, owner, account, map, dataset, path or file name. One walk runs at a time: a read during a walk gets that walk's " +
+      "answer, and a read within 30 seconds of it gets the same answer unless a service cache was cleared since. A walk stops at 10 seconds, the " +
+      "reference read included, and gives each kind it had not finished as at least what it counted, finished false. It changes nothing and sends " +
+      "nothing outside this server. " +
+      "The embedded assistant asks for confirmation before calling; SQL and workflow assistants refuse this operation. " +
+      "MCP advertises that policy and adds no confirmation step.",
+    tag: "System", tool: "read_storage", toolInput: { closed: true },
+    display: { verb: "Read how the data folder is used" },
+    effects: READ_ONLY, mcp: LOCAL_READ, confirm: true,
+    confirmation: { target: "Read how this server uses its data folder?",
+      consequence: "This server walks its data folder for sizes and counts, for at most 10 seconds. Nothing is saved and nothing is sent outside this server.",
+      subject: { path: null, argument: "", name: "" } },
+    responses: { "200": jsonOk("#/components/schemas/StorageRead"), "401": ERROR_RESPONSE, "403": ERROR_RESPONSE, "503": ERROR_RESPONSE },
+  }), security: AUTH_SECURITY } },
   "/api/instance/parts/{part}/test": { post: { ...op({
     summary: "Test a part of this server",
     description: "Requires a current admin through cookie or bearer authentication, rechecked on every call. " +
