@@ -226,6 +226,17 @@ function s3Address(): string | null {
   return resolveServiceAddress("s3Endpoint").address;
 }
 
+/** A path under the S3 address: the address's own path, then this one. Its
+ * user information and its query, where a key may travel, stay where they
+ * are. Text that is not an address is joined as written, and refused where
+ * it is used. */
+function underS3Address(address: string, subpath: string): string {
+  let url: URL;
+  try { url = new URL(address); } catch { return `${address.replace(/\/$/, "")}${subpath}`; }
+  url.pathname = `${url.pathname.replace(/\/$/, "")}${subpath}`;
+  return url.toString();
+}
+
 /**
  * The public HTTPS form of an s3:// or gs:// URL — the anonymous road.
  * The S3 address in effect (DEZFIL_S3_ENDPOINT, else the one an admin
@@ -241,7 +252,7 @@ export function translateObjectUrl(ref: RemoteRef): string {
     return `https://storage.googleapis.com/${bucket}${key}`;
   }
   const custom = s3Address();
-  if (custom) return `${custom.replace(/\/$/, "")}/${bucket}${key}`;
+  if (custom) return underS3Address(custom, `/${bucket}${key}`);
   // Virtual-hosted style; buckets with dots break the TLS wildcard, so
   // they fall back to path-style on the global endpoint.
   return bucket.includes(".")
@@ -258,7 +269,7 @@ export function translateObjectUrl(ref: RemoteRef): string {
  */
 export function openS3AddressRoot(options: Pick<OpenRemoteOptions, "timeoutError" | "onRedirect">): Promise<RemoteResponse> {
   const custom = s3Address();
-  return openRemote(custom ? `${custom.replace(/\/$/, "")}/` : "https://s3.amazonaws.com/",
+  return openRemote(custom ? underS3Address(custom, "/") : "https://s3.amazonaws.com/",
     { timeoutMs: captureIngestBudget().remoteTimeoutMs, ...options });
 }
 

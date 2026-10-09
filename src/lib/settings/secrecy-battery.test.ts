@@ -197,6 +197,11 @@ function answer(req: IncomingMessage, res: ServerResponse) {
   } else if (url.pathname.includes("/remark-")) {
     const user = Buffer.from(credential.replace(/^Basic /, ""), "base64").toString("utf8");
     json(res, 200, { version: 0.6, elements: [], remark: `runtime error: at http://${user}@${req.headers.host}${req.url} as ${credential}` });
+  } else if (url.pathname.includes("/s3-")) {
+    // An S3 store refuses an unsigned request in its own shape, at its root
+    // and for every object under it.
+    res.writeHead(403, { "content-type": "application/xml" });
+    res.end('<?xml version="1.0" encoding="UTF-8"?>\n<Error><Code>AccessDenied</Code><Message>Access Denied</Message></Error>');
   } else if (url.pathname.endsWith(".csv")) {
     res.writeHead(200, { "content-type": "text/csv" });
     res.end(url.pathname.includes("origins") ? "label,lon,lat\np,13.41,52.51\n" : "label,address\na,Alpha Street\nb,Beta Street\n");
@@ -214,9 +219,8 @@ function answer(req: IncomingMessage, res: ServerResponse) {
     res.writeHead(200, { "content-type": "application/xml" });
     res.end("<ListBucketResult>" + ["2026-08-20.0", "2026-09-17.0"].map(release => `<CommonPrefixes><Prefix>release/${release}/</Prefix></CommonPrefixes>`).join("") + "</ListBucketResult>");
   } else {
-    // An S3 store refuses an unsigned request in its own shape.
-    res.writeHead(403, { "content-type": "application/xml" });
-    res.end('<?xml version="1.0" encoding="UTF-8"?>\n<Error><Code>AccessDenied</Code><Message>Access Denied</Message></Error>');
+    res.writeHead(404, { "content-type": "text/plain" });
+    res.end("No such fixture service.");
   }
 }
 

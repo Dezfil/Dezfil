@@ -194,6 +194,16 @@ describe("each Test passes against its healthy service", () => {
     expect((await runTest("isochrone")).body).toEqual({ service: "isochrone", result: "passed", milliseconds: expect.any(Number) });
   });
 
+  it("asks for the store's root under the S3 address's path, its query and credentials kept", async () => {
+    const port = (fixtures[0].address() as AddressInfo).port;
+    vi.stubEnv("DEZFIL_S3_ENDPOINT", `http://SEEDED-KEY-0001-USER:SEEDED-KEY-0001-PASS@127.0.0.1:${port}/s3-SEEDED-KEY-0001-PATH?key=SEEDED-KEY-0001-QUERY`);
+    const received: { target?: string; credential?: string }[] = [];
+    answer = (service, req, res) => { received.push({ target: req.url, credential: req.headers.authorization }); HEALTHY[service](req, res); };
+    expect((await runTest("s3")).body).toEqual({ service: "s3", result: "passed", milliseconds: expect.any(Number) });
+    expect(received).toEqual([{ target: "/s3-SEEDED-KEY-0001-PATH/?key=SEEDED-KEY-0001-QUERY",
+      credential: `Basic ${Buffer.from("SEEDED-KEY-0001-USER:SEEDED-KEY-0001-PASS").toString("base64")}` }]);
+  });
+
   it("passes a store that redirects its root in S3's own shape, and not a redirect from something else", async () => {
     answer = (_service, req, res) => {
       if (req.url === "/elsewhere") { html(res, 200); return; }

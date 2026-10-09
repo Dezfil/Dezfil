@@ -44,7 +44,7 @@ beforeEach(async () => {
 
   server = createServer((req, res) => {
     seen.push(req.url ?? "");
-    if (req.url === "/points.csv" || req.url === "/bucket/dir/points.csv") {
+    if (req.url === "/points.csv" || req.url === "/bucket/dir/points.csv" || req.url === "/base/bucket/a.csv?key=SEEDED-KEY-0003-QUERY") {
       res.writeHead(200, { "content-type": "text/csv" });
       res.end(csv);
     } else if (req.url === "/big.csv" || req.url === "/bucket/big.csv") {
@@ -219,6 +219,17 @@ describe("translateObjectUrl", () => {
       "http://minio.example:9000/bucket/f.csv",
     );
   });
+
+  it("puts the bucket and key under a custom endpoint's own path, its query and credentials kept", () => {
+    process.env.DEZFIL_S3_ENDPOINT = "http://SEEDED-KEY-0003-USER:SEEDED-KEY-0003-PASS@minio.example:9000/base?key=SEEDED-KEY-0003-QUERY";
+    expect(translateObjectUrl(parseRemoteUrl("s3://bucket/dir/f.csv"))).toBe(
+      "http://SEEDED-KEY-0003-USER:SEEDED-KEY-0003-PASS@minio.example:9000/base/bucket/dir/f.csv?key=SEEDED-KEY-0003-QUERY",
+    );
+    process.env.DEZFIL_S3_ENDPOINT = "http://minio.example:9000/base/?key=SEEDED-KEY-0003-QUERY";
+    expect(translateObjectUrl(parseRemoteUrl("s3://bucket/f.csv"))).toBe(
+      "http://minio.example:9000/base/bucket/f.csv?key=SEEDED-KEY-0003-QUERY",
+    );
+  });
 });
 
 describe("anonymous object-store road", () => {
@@ -229,6 +240,17 @@ describe("anonymous object-store road", () => {
   it("streams an s3:// object through its HTTPS form, path included", async () => {
     const source = await resolveRemoteSource("s3://bucket/dir/points.csv");
     expect(seen).toEqual(["/bucket/dir/points.csv"]);
+    await expect(readFile(source.sourcePath, "utf8")).resolves.toBe(csv);
+    await source.cleanup();
+  });
+
+  it("asks for an object under the S3 address's path, with its query and credentials", async () => {
+    process.env.DEZFIL_S3_ENDPOINT = `${base.replace("//", "//SEEDED-KEY-0003-USER:SEEDED-KEY-0003-PASS@")}/base?key=SEEDED-KEY-0003-QUERY`;
+    const credentials: (string | undefined)[] = [];
+    server.prependListener("request", (req) => credentials.push(req.headers.authorization));
+    const source = await resolveRemoteSource("s3://bucket/a.csv");
+    expect(seen).toEqual(["/base/bucket/a.csv?key=SEEDED-KEY-0003-QUERY"]);
+    expect(credentials).toEqual([`Basic ${Buffer.from("SEEDED-KEY-0003-USER:SEEDED-KEY-0003-PASS").toString("base64")}`]);
     await expect(readFile(source.sourcePath, "utf8")).resolves.toBe(csv);
     await source.cleanup();
   });
