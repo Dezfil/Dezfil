@@ -101,6 +101,19 @@ describe("what the search finds", () => {
     expect(paths(searchSettings(index(), "laptop"))).toEqual(["You / Tokens · Laptop CLI"]);
   });
 
+  it("finds each part on System's Status by its name, its program and its state, as its row shows it before a Test", () => {
+    const status = (query: string) => searchSettings(index(), query).filter(hit => hit.meta?.startsWith("Status · "));
+    expect(status("tippecanoe").map(hit => [hitPath(hit), hit.meta])).toEqual([["Instance / System · Tile builder", "Status · tippecanoe Found"]]);
+    expect(status("duckdb").map(hit => [hitPath(hit), hit.meta])).toEqual([["Instance / System · Query engine", "Status · DuckDB 1.5.4 Not started yet"]]);
+    expect(status("at once").map(hitPath)).toEqual(["Instance / System · Image renderer"]);
+    expect(status("metadata.sqlite").map(hitPath)).toEqual(["Instance / System · Metadata database"]);
+    expect(status("data folder").map(hit => [hitPath(hit), hit.meta])).toEqual([["Instance / System · Data folder", "Status · /srv/dezfil Writable"]]);
+    // A program not where its setting points is found by its state.
+    const read = sources().instance!;
+    const missing = { ...read, parts: { ...read.parts, tile_builder: { found: false, version: null } } };
+    expect(searchSettings(index(true, { instance: missing }), "not found").map(hitPath)).toContain("Instance / System · Tile builder");
+  });
+
   it("finds tabs and cards by their names, and lands a card's hit on the card", () => {
     expect(paths(searchSettings(index(), "limits")).slice(0, 1)).toEqual(["Instance / Limits"]);
     // Two cards share the name: Publishing's comes first, in the column's order.

@@ -4,6 +4,8 @@ import { act, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { settingDefinition } from "@/lib/settings/catalogue";
+import type { Part, PartTestAnswer } from "@/lib/system/part-test-answer";
+import type { PartStates } from "@/lib/system/part-states";
 import { installDomHost, type HostElement } from "../testing/dom-host";
 import { instanceReadFixture, type Resolution } from "./read-fixture";
 import { SystemTab } from "./SystemTab";
@@ -14,9 +16,10 @@ vi.mock("next/link", () => ({
 
 /**
  * System: the Status card from the configuration read and the health
- * read the rail's dot uses, the read-only Assistant card from the
- * assistant's status read, and the Server settings table. The reads are
- * faked; nothing here reaches a server.
+ * read the rail's dot uses, each part with its state and its Test, the
+ * read-only Assistant card from the assistant's status read, and the
+ * Server settings table. The reads and the Tests are faked; nothing here
+ * reaches a server.
  */
 
 let resolved: Record<string, Resolution>;
@@ -24,6 +27,11 @@ let health: number;
 let assistant: unknown;
 let failRead: boolean;
 let requests: string[];
+/** The parts block each configuration read answers with, the first read first; the last one repeats. */
+let partReads: Partial<PartStates>[];
+/** What each part's Test answers. */
+let answers: Partial<Record<Part, PartTestAnswer>>;
+let tested: string[];
 let host: ReturnType<typeof installDomHost>;
 let root: ReturnType<typeof createRoot>;
 let container: HostElement;
@@ -32,13 +40,20 @@ beforeEach(() => {
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(Date.parse("2026-10-07T09:30:00.000Z"));
   resolved = { dataDir: { value: "/data", source: "environment", locked: true } };
-  health = 200; failRead = false; requests = [];
+  health = 200; failRead = false; requests = []; partReads = [{}]; answers = {}; tested = [];
   assistant = { enabled: true, provider: "anthropic", model: "claude-opus-5", models: [], catalogue: {}, stepBudget: 20, autoCheck: true };
-  vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+  vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
     requests.push(url);
     if (url === "/api/instance/settings") {
+      const fixture = instanceReadFixture(resolved, { version: "0.4.2", startedAt: "2026-10-04T09:00:00.000Z" });
+      const parts = partReads.length > 1 ? partReads.shift()! : partReads[0];
       return failRead ? Response.json({ error: { code: "internal", message: "Settings could not be read." } }, { status: 500 })
-        : Response.json(instanceReadFixture(resolved, { version: "0.4.2", startedAt: "2026-10-04T09:00:00.000Z" }));
+        : Response.json({ ...fixture, parts: { ...fixture.parts, ...parts } });
+    }
+    const part = /^\/api\/instance\/parts\/([a-z_]+)\/test$/.exec(url)?.[1] as Part | undefined;
+    if (part && init?.method === "POST") {
+      tested.push(part);
+      return Response.json(answers[part] ?? { part, result: "passed", milliseconds: 4 });
     }
     if (url === "/api/health") return health === 200 ? Response.json({ status: "ready" }) : Response.json({ status: "unready", reason: "Internal error." }, { status: 503 });
     if (url === "/api/assistant") return Response.json(assistant);
@@ -70,24 +85,96 @@ const cells = (id: string) => byId(id).querySelectorAll("td").map(cell => cell.t
 const press = (scope: HostElement, label: string) => act(async () => { scope.querySelectorAll("button").find(button => button.textContent === label)!.click(); });
 
 describe("System", () => {
-  it("draws Status, then the Assistant, then the Server settings, with no Storage card and no Test", async () => {
+  it("draws Status, then the Assistant, then the Server settings, with a Test on each part and nothing else to press", async () => {
     await open();
     expect(titles()).toEqual(["Status", "Assistant", "Server settings"]);
-    // Nothing to press: no Test, no cleanup, no Reset.
-    expect(container.querySelectorAll("button").map(button => button.textContent)).toEqual([]);
+    // A Test per part; no cleanup, no Reset.
+    expect(container.querySelectorAll("button").map(button => button.textContent)).toEqual(["Test", "Test", "Test", "Test", "Test"]);
+    expect(card("Status").querySelectorAll("button")).toHaveLength(5);
   });
 
   it("shows the version with the running time, and the data folder's path with its state from the health read", async () => {
     await open();
     expect(requests).toContain("/api/health");
     expect(byId("sys-version").textContent).toBe("Version0.4.2Running for 3 days");
-    expect(byId("sys-data-folder").textContent).toBe("Data folder/dataWritable");
+    expect(byId("sys-data-folder").textContent).toBe("Data folder/dataWritableTest");
   });
 
   it("says the data folder is not writable when the health read says the instance is not ready", async () => {
     health = 503;
     await open();
-    expect(byId("sys-data-folder").textContent).toBe("Data folder/dataNot writable");
+    expect(byId("sys-data-folder").textContent).toBe("Data folder/dataNot writableTest");
+  });
+
+  it("shows each part under the version with what the read knows of it and its state, a path and a file name in the code face", async () => {
+    await open();
+    const rows = card("Status").querySelectorAll("[id]").map(row => row.getAttribute("id")!).filter(id => id.startsWith("sys-") && !id.endsWith("-label"));
+    expect(rows).toEqual(["sys-version", "sys-data-folder", "sys-engine", "sys-tiler", "sys-renderer", "sys-metadata"]);
+    expect(byId("sys-engine").textContent).toBe("Query engineDuckDB 1.5.4Not started yetTest");
+    expect(byId("sys-tiler").textContent).toBe("Tile buildertippecanoeFoundTest");
+    expect(byId("sys-renderer").textContent).toBe("Image rendererChromium · 2 at onceFoundTest");
+    expect(byId("sys-metadata").textContent).toBe("Metadata databasemetadata.sqliteReadyTest");
+    expect(byId("sys-metadata").querySelector("[data-mono]")?.textContent).toBe("metadata.sqlite");
+    expect(byId("sys-data-folder").querySelector("[data-mono]")?.textContent).toBe("/data");
+    expect(byId("sys-engine").querySelector("[data-mono]")).toBeNull();
+    for (const id of ["sys-engine", "sys-tiler", "sys-renderer", "sys-metadata"]) {
+      expect(byId(id).querySelector("[data-state]")?.getAttribute("data-state"), id).toBe(id === "sys-engine" ? "off" : "on");
+    }
+  });
+
+  it("shows a started engine with its extensions, the tile builder's version once known and a program not found", async () => {
+    partReads = [{ query_engine: { version: "1.5.4", started: true, extensions: ["spatial", "h3", "json"] },
+      tile_builder: { found: true, version: "2.79.0" }, image_renderer: { found: false, imagesAtOnce: 3 } }];
+    await open();
+    expect(byId("sys-engine").textContent).toBe("Query engineDuckDB 1.5.4 · spatial, h3, jsonReadyTest");
+    expect(byId("sys-tiler").textContent).toBe("Tile buildertippecanoe 2.79.0FoundTest");
+    expect(byId("sys-renderer").textContent).toBe("Image rendererChromium · 3 at onceNot foundTest");
+    expect(byId("sys-renderer").querySelector("[data-state]")?.getAttribute("data-state")).toBe("danger");
+  });
+
+  it("runs a part's Test through its route and gives the answer in that part's words, the row's state following it", async () => {
+    answers = {
+      tile_builder: { part: "tile_builder", result: "failed", reason: "not_found" },
+      data_folder: { part: "data_folder", result: "failed", reason: "failed" },
+      metadata_database: { part: "metadata_database", result: "failed", reason: "busy" },
+      image_renderer: { part: "image_renderer", result: "failed", reason: "timed_out" },
+    };
+    await open();
+    for (const id of ["sys-tiler", "sys-data-folder", "sys-metadata", "sys-renderer"]) {
+      await press(byId(id) as HostElement, "Test");
+      await settle();
+    }
+    expect(tested).toEqual(["tile_builder", "data_folder", "metadata_database", "image_renderer"]);
+    expect(byId("sys-tiler").textContent).toBe("Tile buildertippecanoeNot foundTestThe tile builder is not where its setting points.");
+    expect(byId("sys-data-folder").textContent).toBe("Data folder/dataNot writableTestCould not write a file in the data folder.");
+    expect(byId("sys-metadata").textContent).toBe("Metadata databasemetadata.sqliteReadyTestBusy: another write holds the database.");
+    expect(byId("sys-renderer").textContent).toBe("Image rendererChromium · 2 at onceFoundTestDid not finish within 10 seconds.");
+    for (const id of ["sys-tiler", "sys-data-folder", "sys-metadata", "sys-renderer"]) {
+      expect(byId(id).querySelector('[role="status"]')?.getAttribute("data-answer"), id).toBe("failed");
+    }
+  });
+
+  it("reads the parts again after a Test, so a passing engine shows Ready with the extensions it loaded", async () => {
+    answers = { query_engine: { part: "query_engine", result: "passed", milliseconds: 31 } };
+    partReads = [{}, { query_engine: { version: "1.5.4", started: true, extensions: ["spatial", "json"] } }];
+    await open();
+    expect(byId("sys-engine").textContent).toBe("Query engineDuckDB 1.5.4Not started yetTest");
+    const reads = requests.filter(url => url === "/api/instance/settings").length;
+    await press(byId("sys-engine") as HostElement, "Test");
+    await settle();
+    expect(requests.filter(url => url === "/api/instance/settings")).toHaveLength(reads + 1);
+    expect(byId("sys-engine").textContent).toBe("Query engineDuckDB 1.5.4 · spatial, jsonReadyTestAnswered in 31 ms");
+    expect(byId("sys-engine").querySelector('[role="status"]')?.getAttribute("data-answer")).toBe("passed");
+  });
+
+  it("keeps what it shows when the read after a Test fails", async () => {
+    answers = { tile_builder: { part: "tile_builder", result: "passed", milliseconds: 900 } };
+    await open();
+    failRead = true;
+    await press(byId("sys-tiler") as HostElement, "Test");
+    await settle();
+    expect(byId("sys-tiler").textContent).toBe("Tile buildertippecanoeFoundTestBuilt a test archive in 900 ms");
+    expect(titles()).toEqual(["Status", "Assistant", "Server settings"]);
   });
 
   it("shows the assistant on with its provider as a chip, and no key, model or access choice", async () => {

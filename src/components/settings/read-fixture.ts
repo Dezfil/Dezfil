@@ -22,6 +22,13 @@ export function instanceReadFixture(resolved: Readonly<Record<string, Resolution
   return {
     settings, capacities: { geocodeRows: 27, isochroneOrigins: 13 }, maxImageDimension: 4096,
     version: "0.1.0", startedAt: "2026-10-04T09:00:00.000Z", warnings: [],
+    // As a fresh server reports them: the engine not started, both programs found, the tile builder not yet run.
+    parts: {
+      query_engine: { version: "1.5.4", started: false, extensions: [] },
+      tile_builder: { found: true, version: null },
+      image_renderer: { found: true, imagesAtOnce: 2 },
+      metadata_database: { file: "metadata.sqlite" },
+    },
     // As a fresh data folder reports them: every cache empty, no release list taken yet.
     services: { geocode: EMPTY_CACHE(64), isochrone: EMPTY_CACHE(64), overpass: EMPTY_CACHE(2048), overture: { listed: false } },
     ...facts,

@@ -14,6 +14,27 @@ const object = <T extends Record<string, unknown>>(properties: T) => ({
 
 const part = { type: "string", enum: [...PARTS], description: "The part tested." };
 
+/** Each part's state as the configuration read reports it, starting nothing. */
+export const PART_STATES_SCHEMA = {
+  ...object({
+    query_engine: object({
+      version: { type: ["string", "null"], description: "The engine library's version number." },
+      started: { type: "boolean", description: "Whether the engine that runs people's SQL has started; the read never starts it." },
+      extensions: { type: "array", items: { type: "string", enum: ["spatial", "h3", "json"] }, description: "The extensions the started engine loaded, in load order; empty before it starts." },
+    }),
+    tile_builder: object({
+      found: { type: "boolean", description: "Whether an executable file is where the tile builder's setting points (a bare name looked up on the search path), by a file check alone." },
+      version: { type: ["string", "null"], description: "The tile builder's version number once this server has run it, else null." },
+    }),
+    image_renderer: object({
+      found: { type: "boolean", description: "Whether an executable file is where the image renderer's browser setting points (a bare name looked up on the search path), by a file check alone." },
+      imagesAtOnce: { type: "integer", minimum: 1, description: "Images at once in effect." },
+    }),
+    metadata_database: object({ file: { type: "string", description: "The metadata database's file name, without its folder." } }),
+  }),
+  description: "Each part of this server as System's Status shows it, read without creating an engine, launching a browser or running any program.",
+};
+
 export const INSTANCE_SYSTEM_SCHEMAS = {
   PartTestAnswer: {
     description: "A part's Test: passed, with the milliseconds the check took, or failed with one reason: not_found (a program, or the spatial " +

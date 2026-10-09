@@ -1,7 +1,7 @@
-/* System: a part's state (a dot and its words), the quiet reason beside
-   it, the provider's chip, and the server's settings table, where a
-   variable's name and a source never break inside a word and a setting's
-   name wraps only between its words. */
+/* System: a part's state (a dot and its words) in a cell of one width,
+   the quiet reason beside it, the provider's chip, and the server's
+   settings table, where a variable's name and a source never break inside
+   a word and a setting's name wraps only between its words. */
 
 .state {
   display: inline-flex;
@@ -27,6 +27,12 @@
 
 .state[data-state="danger"]::before {
   background: var(--danger);
+}
+
+/* A part's state keeps one width, so the Tests line up down the card. */
+.stateCell {
+  display: inline-flex;
+  min-width: 96px;
 }
 
 .quiet {

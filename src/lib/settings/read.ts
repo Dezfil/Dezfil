@@ -13,6 +13,7 @@ import { readStoredSettings } from "./store";
 import type { NumericOverrides } from "./state";
 import { startedAt, version } from "./process-info";
 import { settingsWarnings } from "./relationships";
+import { readPartStates } from "@/lib/system/parts";
 
 export function readInstanceSettings(context: AuthContext, db: Database = metadataDb(), now = Date.now()) {
   return db.transaction(() => {
@@ -32,6 +33,8 @@ export function readInstanceSettings(context: AuthContext, db: Database = metada
       return [definition.key, { ...disclosedDefinition(definition), ...resolved }];
     }));
     return { settings, capacities: { geocodeRows: maxBatchRows(budget), isochroneOrigins: maxIsochroneOrigins(budget) },
-      maxImageDimension: EXPORT_MAX_DIMENSION, version, startedAt, warnings: settingsWarnings(numbers.queryTimeoutS.value, numbers.operationTimeoutS.value) };
+      maxImageDimension: EXPORT_MAX_DIMENSION, version, startedAt, warnings: settingsWarnings(numbers.queryTimeoutS.value, numbers.operationTimeoutS.value),
+      // Each part's state, read without starting anything.
+      parts: readPartStates({ imagesAtOnce: numbers.exportRenderConcurrency.value, metadataFile: db.name }) };
   }).immediate();
 }

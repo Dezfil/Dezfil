@@ -5324,6 +5324,11 @@
         "memory:immutable-configuration"
       ]
     },
+    "memory:src/lib/api/openapi-instance-system.ts#PART_STATES_SCHEMA": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
     "memory:src/lib/system/part-tests.ts#TESTS": {
       "stores": [
         "memory:immutable-configuration"

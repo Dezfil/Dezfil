@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { accountRequest, failureMessage, settingsWrite } from "./api";
 import type { CacheFacts, ReleaseListFacts } from "./data-table";
+import type { PartStates } from "@/lib/system/part-states";
 import type { Value } from "./save-unit";
 import type { ReadSetting } from "./server-set";
 
@@ -15,8 +16,8 @@ export interface ServicesRead {
 }
 
 /** The configuration read: every instance setting as it resolved, with the
- * facts the System tab shows beside them and what the services keep.
- * Admins only. */
+ * facts the System tab shows beside them, each part's state and what the
+ * services keep. Admins only. */
 export interface InstanceRead {
   readonly settings: Readonly<Record<string, ReadSetting>>;
   readonly capacities: { readonly geocodeRows: number; readonly isochroneOrigins: number };
@@ -24,6 +25,8 @@ export interface InstanceRead {
   readonly version: string;
   readonly startedAt: string;
   readonly warnings: readonly string[];
+  /** Each part's state, read without starting anything. */
+  readonly parts: PartStates;
   readonly services?: ServicesRead;
 }
 

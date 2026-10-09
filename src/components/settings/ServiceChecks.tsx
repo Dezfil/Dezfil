@@ -14,9 +14,10 @@ import styles from "./DataTab.module.css";
 /**
  * What a service card asks of its service and holds for it: the Test,
  * which reaches the service once at the address in effect and answers in
- * its line; a cache's use with Clear; and Overture's release list with
- * Check now, which is Overture's Test. A Test changes no setting; Check
- * now keeps the list it finds, as the Overture pane would.
+ * its line (the Test line System's parts use too); a cache's use with
+ * Clear; and Overture's release list with Check now, which is Overture's
+ * Test. A Test changes no setting; Check now keeps the list it finds, as
+ * the Overture pane would.
  */
 
 /** A mark that shows for a moment, then goes. */
@@ -33,12 +34,14 @@ function useMoment(): [boolean, () => void, () => void] {
   return [shown, show, hide];
 }
 
-/** The Test and its answer line. A second press while it runs sends nothing. */
-export function ServiceTest({ service, label = "Test", onPassed }: {
-  service: TestedService;
+/** A Test and its answer line, against a Test's route, its answer said in
+ * that Test's words. A second press while it runs sends nothing. */
+export function TestLine<Answer>({ path, words, label = "Test", onAnswer }: {
+  path: string;
+  words: (answer: Answer) => { readonly passed: boolean; readonly text: string };
   label?: string;
-  /** Told of a pass, with its answer. */
-  onPassed?: (answer: ServiceTestAnswer) => void;
+  /** Told of every answer the route gave. */
+  onAnswer?: (answer: Answer) => void;
 }) {
   const [busy, setBusy] = useState(false);
   const [shown, setShown] = useState<{ readonly passed: boolean; readonly text: string } | null>(null);
@@ -48,9 +51,9 @@ export function ServiceTest({ service, label = "Test", onPassed }: {
     running.current = true;
     setBusy(true); setShown(null);
     try {
-      const answer = await accountRequest<ServiceTestAnswer>(`/api/instance/services/${service}/test`, "POST");
-      setShown(testAnswerWords(answer));
-      if (answer.result === "passed") onPassed?.(answer);
+      const answer = await accountRequest<Answer>(path, "POST");
+      setShown(words(answer));
+      onAnswer?.(answer);
     } catch (failure) { setShown({ passed: false, text: failureMessage(failure) }); }
     finally { running.current = false; setBusy(false); }
   }
@@ -60,6 +63,17 @@ export function ServiceTest({ service, label = "Test", onPassed }: {
       {shown.passed ? <CheckIcon /> : <XIcon />}{shown.text}
     </span>}
   </span>;
+}
+
+/** A service's Test: it reaches the service once at the address in effect. */
+export function ServiceTest({ service, label = "Test", onPassed }: {
+  service: TestedService;
+  label?: string;
+  /** Told of a pass, with its answer. */
+  onPassed?: (answer: ServiceTestAnswer) => void;
+}) {
+  return <TestLine<ServiceTestAnswer> path={`/api/instance/services/${service}/test`} words={testAnswerWords} label={label}
+    onAnswer={answer => { if (answer.result === "passed") onPassed?.(answer); }} />;
 }
 
 /** A cache's use against its budget and how many answers it holds, or
