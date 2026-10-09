@@ -10,7 +10,9 @@ import { buildTools, type ToolDef } from "@/lib/tools/tools";
  * plans in one form and writes in another, is offered in neither form
  * (D4), nor is a read-only operation marked as reaching outside this
  * server (a service's Test), which sends a request a page that only reads
- * did not ask for. The model is never told to avoid an operation: it is
+ * did not ask for, nor one that asks for confirmation (a part's Test):
+ * an operation that asks first is one a page that only reads does not
+ * run. The model is never told to avoid an operation: it is
  * offered what its run admits, and a call outside the set, however it arrives, is
  * refused before any product operation (the phase rule: the API refuses
  * where a page would warn).
@@ -27,9 +29,10 @@ export function policyFor(context: AssistantContext | undefined): AssistantPolic
 }
 
 /** Whether one operation is inside a policy's set. */
-export function admits(policy: AssistantPolicy, tool: Pick<ToolDef, "effects">): boolean {
+export function admits(policy: AssistantPolicy, tool: Pick<ToolDef, "effects" | "confirm" | "confirmWhen">): boolean {
   if (policy === "full") return true;
-  return tool.effects.readOnly && tool.effects.planningArgument === undefined && !tool.effects.reachesOutside;
+  return tool.effects.readOnly && tool.effects.planningArgument === undefined && !tool.effects.reachesOutside &&
+    !tool.confirm && tool.confirmWhen === undefined;
 }
 
 /** The tools a run under this policy is offered. */

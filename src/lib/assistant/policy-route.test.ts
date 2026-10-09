@@ -92,8 +92,9 @@ const mapName = async (id: string) => ((await (await api(`/api/maps/${id}`)).jso
 const toolNames = (names: { name: string }[]) => names.map((t) => t.name).sort();
 /** The set the spec admits under /sql and workflow contexts: operations
  * declared read-only by their effects, conditional ones excluded (D4), and
- * those that reach outside this server excluded. */
-const readOnlySet = () => toolNames(buildTools().filter((t) => t.effects.readOnly && !t.effects.planningArgument && !t.effects.reachesOutside));
+ * those that reach outside this server or ask for confirmation excluded. */
+const readOnlySet = () => toolNames(buildTools().filter((t) => t.effects.readOnly && !t.effects.planningArgument && !t.effects.reachesOutside &&
+  !t.confirm && t.confirmWhen === undefined));
 
 describe("the page action policy through the real message route", () => {
   it("no context receives every generated tool; each page receives its derived offer with discovery under the measured default and its admitted set under the configured full mode (revised)", async () => {
@@ -114,6 +115,8 @@ describe("the page action policy through the real message route", () => {
     for (const tool of buildTools()) if (tool.effects.planningArgument) expect(restricted).not.toContain(tool.name);
     // A read-only operation that reaches outside this server is not offered either.
     expect(restricted).not.toContain("test_service");
+    // Nor is one that asks for confirmation.
+    expect(restricted).not.toContain("test_part");
     // The default (nothing configured) is the subset; `full` is the configured mode.
     for (const mode of ["subset", "full"] as const) {
       vi.stubEnv("DEZFIL_ASSISTANT_OFFER", mode === "subset" ? "" : "full");

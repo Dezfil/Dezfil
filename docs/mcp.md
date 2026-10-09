@@ -93,8 +93,9 @@ instance name requires current admin authority; a forbidden or invalid field
 refuses the entire patch.
 
 `get_instance_settings` reads the admin-only instance configuration through
-`GET /api/instance/settings`. It is a local, read-only operation, admitted
-by the assistant's read-only policies and requiring no confirmation. Its
+`GET /api/instance/settings`. It is a local, read-only operation that asks
+for no confirmation, so the SQL and workflow assistants' read-only policies
+admit it; they admit no operation that asks first. Its
 input is closed and takes no arguments; unknown arguments are refused before
 HTTP dispatch. The result contains every instance and platform definition,
 effective and stored values, source, lock and invalid-override state, derived
@@ -234,9 +235,9 @@ Direct multipart upload uses the separately configured upload limit.
 
 | | |
 |---|---|
-| Documented operations | 374 |
-| Operations that become tools | 145 |
-| Deliberately excluded | 229 |
+| Documented operations | 376 |
+| Operations that become tools | 146 |
+| Deliberately excluded | 230 |
 
 Measured by building the OpenAPI document and the tool set from
 `src/lib/api/openapi.ts` and `src/lib/tools/tools.ts` and counting the

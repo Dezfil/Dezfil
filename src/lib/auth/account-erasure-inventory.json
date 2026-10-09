@@ -5283,6 +5283,47 @@
         "memory:provider-scheduling"
       ]
     },
+    "location:src/lib/system/part-tests.ts#TESTS.data_folder:dataDir": {
+      "stores": [
+        "data-directory"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "writer:src/lib/system/part-tests.ts#TESTS.data_folder:ensureDataDir": {
+      "stores": [
+        "data-directory"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "memory:src/lib/api/openapi-instance-system.ts#INSTANCE_SYSTEM_PATHS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-instance-system.ts#INSTANCE_SYSTEM_SCHEMAS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-instance-system.ts#part": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/system/part-tests.ts#TESTS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/system/part-tests.ts#running": {
+      "stores": [
+        "memory:provider-scheduling"
+      ]
+    },
     "memory:src/lib/api/openapi-instance-settings.ts#address": {
       "stores": [
         "memory:immutable-configuration"

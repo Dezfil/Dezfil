@@ -1001,6 +1001,29 @@
     },
     {
       "type": "function",
+      "name": "test_part",
+      "description": "Test a part of this server. Requires a current admin through cookie or bearer authentication, rechecked on every call. Cookie requests require the same trusted Origin; an admin bearer token calls directly. Responses, including refusals, are private, no-store. Runs one small fixed check on one part of this server as it is configured now, never one given here: data_folder writes and removes one empty file in the data folder, as the readiness check does, within 5 seconds; metadata_database takes the metadata database's write lock, reads the schema's version and gives the lock back, writing nothing, answering busy when other work holds the lock past the database's 5-second wait. It changes no setting, leaves no file and sends nothing outside this server. A second Test of a part while one runs gets the same answer from the same run. The embedded assistant asks for confirmation before calling; SQL and workflow assistants refuse this operation. MCP advertises that policy and adds no confirmation step.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "part": {
+            "type": "string",
+            "enum": [
+              "data_folder",
+              "metadata_database"
+            ],
+            "description": "The part to test: data_folder or metadata_database."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "part"
+        ]
+      },
+      "strict": false
+    },
+    {
+      "type": "function",
       "name": "inspect_table_geometry",
       "description": "Inspect a dataset's geometry choices. A dataset is reached by its owner and by the owner and people of every project it is filed in. Lists, schema discovery and counts cover exactly the reached datasets and name each one's owner and the name the caller would type for it: the plain name for the caller's own, <sql name>.<name> for another owner's. Another owner's dataset is shown without connection facts and without links to what the caller cannot reach: a PostGIS snapshot shows its origin kind, with neither its connection nor its remote schema and table. A bare dataset name in a path or parameter is the caller's own dataset. On dataset reads, features, downloads and operation parameters, another owner's dataset the caller reaches is addressed by its qualified name, and in a /api/tables path also by its identifier; changing one by any address answers forbidden. Datasets change, refresh and go only by their owner; administrators reach nothing more. Upload and sketch suffixes ignore other accounts' names. Unreached and missing datasets, maps and project references return not_found before source or artifact access; a refused change leaves resources unchanged. Refresh and geometry changes preserve the dataset's identity and owner and recheck account activity at commit. For file uploads and URL imports only. SQL-save, workflow, PostGIS, OSM, Overture and sketch datasets refuse with 409 geometry_not_supported and a sentence. Unknown or reclaimed dataset identity answers 404 not_found; a stale artifact revision answers 409 input_changed. Column names are identifiers, never SQL expressions or file paths. Reads current stored schema, record, choice, opaque revision and candidates using the same first-1,000-row recognition and full safety evidence as CSV upload. Does not apply a proposal, fetch a source or invent legacy provenance. Repeated inspections reuse candidates while the artifact is unchanged. Historical consumed names and generated outputs are not new source columns.",
       "parameters": {

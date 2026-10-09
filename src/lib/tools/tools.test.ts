@@ -281,6 +281,9 @@ describe("tool parity", () => {
       "revoke_api_token",
       "revoke_inactive_publication",
       "set_project_person",
+      // Changes nothing and stays on this server, but it runs work on a part
+      // of it, asked for as every instance-wide action is.
+      "test_part",
       // Changes nothing here, but it sends a request outside this server.
       "test_service",
       // Ownership is the one change only the new owner can undo.

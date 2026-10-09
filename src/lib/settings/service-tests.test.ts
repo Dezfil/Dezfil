@@ -418,7 +418,9 @@ describe("the generated tool", () => {
     expect(Object.keys(tool().inputSchema.properties)).toEqual(["service"]);
     expect(tool().description).toContain("reaches outside this server and stores nothing");
     expect(admits("read_only", tool())).toBe(false);
-    expect(admits("read_only", { effects: { ...tool().effects, reachesOutside: undefined } })).toBe(true);
+    // The mark alone keeps it out: unmarked and unconfirmed, it is admitted.
+    expect(admits("read_only", { ...tool(), confirm: false })).toBe(false);
+    expect(admits("read_only", { ...tool(), confirm: false, effects: { ...tool().effects, reachesOutside: undefined } })).toBe(true);
     expect(admittedTools("read_only")).not.toContain(tool());
     expect(admittedTools("full")).toContain(tool());
 
