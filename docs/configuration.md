@@ -1,9 +1,11 @@
 # Configuration
 
 The catalogue defines every deployment setting. Their defaults allow a local
-instance to start without deployment configuration. The editable limits also accept
-stored admin changes, made on the **Limits** tab of Settings and marked **App (live)
-or restart**; **Restart** marks settings changed only through the environment.
+instance to start without deployment configuration. The editable limits, the four
+service addresses and the services' gaps, answer limits and freshness also accept
+stored admin changes, made on the **Limits** and **Data & services** tabs of
+Settings and marked **App (live) or restart**; **Restart** marks settings changed
+only through the environment.
 `GET /api/instance/settings` reports the effective configuration, sources and
 locks to admins.
 
@@ -33,7 +35,9 @@ and a fresh image export card start with is kept there too, set by admins on the
 [Instance defaults](#instance-defaults). So are how long sign-ins and links last,
 the shortest password, and who may create tokens, publish, embed, connect and
 import; see [Security and rules](#security-and-rules). These are not
-environment variables.
+environment variables. A service address an admin stores is kept there too,
+encrypted with the instance's key; see
+[Service addresses and numbers](#service-addresses-and-numbers).
 
 The optional `assistant-models.json` in the data directory supplies the model
 catalogue; environment model lists narrow its offer. It is a file, not an account
@@ -126,10 +130,11 @@ cycle's color. Null clears a stored default, returning it to the value above.
 How long sign-ins and links last, when failed sign-ins pause, the shortest
 password, and who may create API tokens, publish, embed published pages, add
 database connections and import from links. Admins set the sign-in and token
-rows on the **Security** tab of Settings and the publishing rows on the
-**Publishing** tab's Public links card; every row also changes through
-`PATCH /api/instance/settings` under the keys below, the connection and
-link-import rules only there. They are stored instance settings with no
+rows on the **Security** tab of Settings, the publishing rows on the
+**Publishing** tab's Public links card, and the connection and link-import
+rules on the **Data & services** tab's Connections and imports card; every row
+also changes through `PATCH /api/instance/settings` under the keys below. They
+are stored instance settings with no
 environment variable, so none is ever locked, and each applies as its last
 column says, without a restart.
 
@@ -171,6 +176,64 @@ expiry answers `401 token_expired` and stays listed until revoked. Under
 `listed` or `off`, a published page's answer carries
 `Content-Security-Policy: frame-ancestors` with the listed sites, or `'none'`;
 under `any` it carries none, and the published data answers never carry one.
+
+## Service addresses and numbers
+
+The address finder, travel time, OpenStreetMap and the S3 address that
+anonymous `s3://` links are read through each take an address an admin can
+store on the **Data & services** tab of Settings, beside the variable that
+sets it; so do the services' eight numbers. A set variable wins and locks its
+row, which then shows locked, naming the variable. Each also changes through
+`PATCH /api/instance/settings` under its key below, in the variable's unit; the
+tab shows a gap in seconds and how long answers are kept in days (hours for
+OpenStreetMap).
+
+| Setting | Variable | Values | On the tab |
+|---|---|---|---|
+| `geocoderUrl` | `DEZFIL_GEOCODER_URL` | An address | Address finder: Address |
+| `geocodePaceMs` | `DEZFIL_GEOCODE_PACE_MS` | 0 to 60,000 milliseconds | Address finder: Gap between requests, in tenths of a second |
+| `geocodeRequestTimeoutS` | `DEZFIL_GEOCODE_REQUEST_TIMEOUT_S` | 1 to 120 seconds | Address finder: Answer time limit |
+| `geocodeMatchCacheHours` | `DEZFIL_GEOCODE_MATCH_CACHE_HOURS` | 24 to 8,760 hours | Address finder: Keep found addresses for, in days |
+| `isochroneUrl` | `DEZFIL_ISOCHRONE_URL` | An address | Travel time: Address |
+| `isochronePaceMs` | `DEZFIL_ISOCHRONE_PACE_MS` | 0 to 60,000 milliseconds | Travel time: Gap between requests, in whole seconds |
+| `isochroneRequestTimeoutS` | `DEZFIL_ISOCHRONE_REQUEST_TIMEOUT_S` | 1 to 120 seconds | Travel time: Answer time limit |
+| `isochroneCacheHours` | `DEZFIL_ISOCHRONE_CACHE_HOURS` | 24 to 8,760 hours | Travel time: Keep areas for, in days |
+| `overpassUrl` | `DEZFIL_OVERPASS_URL` | An address | OpenStreetMap: Address |
+| `overpassTimeoutS` | `DEZFIL_OVERPASS_TIMEOUT_S` | 10 to 900 seconds | OpenStreetMap: Time budget per query |
+| `overpassCacheHours` | `DEZFIL_OVERPASS_CACHE_H` | 1 to 720 hours | OpenStreetMap: Keep answers for |
+| `s3Endpoint` | `DEZFIL_S3_ENDPOINT` | An address | Cloud storage: S3 address |
+
+An address is `http` or `https` with a host, at most 2,048 characters, and may
+carry a key in its user information, path or query. It is write-only: stored
+encrypted with the instance's key, like a connection's password, and read back
+anywhere (the configuration read, the change answer, a run's view, a dataset's
+record, a refusal, a Test answer, the assistant's confirmation and record) as
+its scheme and host alone. A new key means sending the whole address again;
+null removes a stored one, OpenStreetMap's returning to the public Overpass
+server and the S3 address to Amazon S3's. With the instance's key replaced, a
+stored address reads as set and unreadable and its service refuses with
+`service_address_unreadable`, never reaching a default, until it is saved
+again.
+
+An address the egress policy would refuse now is refused at save, its key
+named with the policy's own sentence and the address never repeated: a literal
+in loopback, private, carrier-grade, link-local (cloud metadata included),
+unique-local, unspecified, multicast or reserved space, mapped forms included,
+or a name all of whose addresses resolve there, unless `DEZFIL_EGRESS_ALLOWLIST`
+names it. A name that does not resolve at save is kept. Every request checks
+again, against the address it connects to. A geocoding or travel-time run
+finishes on the address, gap and answer limit it was admitted with, and answers
+cached under one address are never served for another.
+
+A gap or an answer limit applies from the next request and freshness at each
+cached answer's next use; a run already admitted keeps its own. The tab also
+shows each cache's use against its budget with Clear, Overture's release list
+with Check now, and a Test per service; both are operations in
+[the API guide](api.md#resource-families). Each cache's budget, how long a
+no-match is kept, the Overpass response budget, the Overture endpoint, signing
+object-store reads with the server's credentials and the allowlist stay the
+environment's alone; the tab shows the last two locked, naming their
+variables.
 
 ## Fixed result limits
 
@@ -242,7 +305,7 @@ behavior and [the API guide](api.md#request-bounds) for exact refusals.
 | `DEZFIL_UPLOAD_MAX_MB` | `5120` | Size cap for one uploaded file. | App (live) or restart |
 | `DEZFIL_REMOTE_MAX_MB` | `2048` | Size cap for one remote import (URL or object store). Deliberately below the upload cap: remote fetches run unattended. | App (live) or restart |
 | `DEZFIL_REMOTE_TIMEOUT_S` | `300` | Time bound for one whole remote fetch, redirects and body included. | App (live) or restart |
-| `DEZFIL_EGRESS_ALLOWLIST` | unset | Comma-separated hosts, IPs, or CIDRs the server may fetch for a user despite the egress policy. By default loopback, private-network, link-local, and cloud-metadata destinations are refused on URL imports and database connections (`src/lib/net/egress.ts`). | Restart |
+| `DEZFIL_EGRESS_ALLOWLIST` | unset | Comma-separated hosts, IPs, or CIDRs the server may fetch for a user despite the egress policy. By default loopback, private-network, link-local, and cloud-metadata destinations are refused for every request the policy governs: imports and refreshes from web addresses, cloud storage links read without the server's credentials, database connections, the address finder and place search, travel time, OpenStreetMap, the Overture release list, custom basemap styles and map image exports (`src/lib/net/egress.ts`). A loopback Overpass or Overture fixture needs it too. | Restart |
 | `DEZFIL_OBJECT_STORE_CREDENTIALS` | off | `1`, `true`, or `yes` signs `s3://`, `gs://`, and `az://` imports with the instance's own credential chain. Off, object-store reads are anonymous, so a user can only read what the public can (`src/lib/ingest/remote.ts`). | Restart |
 | `DEZFIL_S3_ENDPOINT` | AWS | S3-compatible endpoint for anonymous `s3://` imports, addressed path-style. | App (live) or restart |
 

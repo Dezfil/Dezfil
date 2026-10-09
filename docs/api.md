@@ -449,8 +449,18 @@ The encryption key discloses `environment`, `data-directory` or
 `not-yet-present`, without generating or reading a key. Address `value` and
 `defaultValue` disclose only scheme and host as `origin`, or
 `{ set: true, unreadable: true }`; user information, paths, queries and fragments
-are absent. The built-in `documentedDefault` stays as documented, including any
-path. Contextual defaults can carry a `rule`. The read contacts no provider, initializes no
+are absent. A service address is write-only: its `storedValue` is always null,
+and one an admin stored reads as `{ set: true, origin }`, or as set and
+unreadable once the instance's encryption key no longer opens it. With
+neither a stored address nor a variable, the address finder and travel time
+read `{ set: false }`, OpenStreetMap the public Overpass server's origin and the
+S3 address the rule `aws-bucket-endpoint`, Amazon S3's own addresses.
+The built-in `documentedDefault` stays as documented, including any
+path. Contextual defaults can carry a `rule`. `services` reports what the
+services keep, read from the data folder and this process: for `geocode`,
+`isochrone` and `overpass` their cache's `bytes`, `answers` and `budgetMb`, and
+for `overture` the release list this process keeps, `{ listed: false }` or
+`listed` with `releases`, `newest` and `listedAt`. The read contacts no provider, initializes no
 engine and creates no configuration artifact. `capacities` contains
 `geocodeRows` (at least one) and `isochroneOrigins` (possibly zero), matching
 operation admission without promising a provider. `maxImageDimension` is
@@ -469,8 +479,13 @@ browser lands on the page `landingPage` names (`/projects`, `/maps`,
 signed-in visit to the setup or sign-in page redirects to Home; the invitation
 page opens whether or not someone is signed in. Responses are private, no-store.
 
-`PATCH /api/instance/settings` changes only submitted editable keys, forty-eight
-of them: the fourteen Limits numbers; the four General values `instanceName`,
+`PATCH /api/instance/settings` changes only submitted editable keys, sixty
+of them: the fourteen Limits numbers; the services' eight numbers
+`geocodePaceMs`, `geocodeRequestTimeoutS`, `geocodeMatchCacheHours`,
+`isochronePaceMs`, `isochroneRequestTimeoutS`, `isochroneCacheHours`,
+`overpassTimeoutS` and `overpassCacheHours`, in their variables' units; the four
+service addresses `geocoderUrl`, `isochroneUrl`, `overpassUrl` and
+`s3Endpoint`; the four General values `instanceName`,
 `signInMessage`, `lostPasswordContact` and `landingPage`; the eighteen
 instance defaults `newMap.basemap`, `newMap.latitude`, `newMap.longitude`,
 `newMap.zoom`, `newMap.legendCorner`, `newLayer.colorCycle`,
@@ -492,7 +507,16 @@ days) is text. `publishing.embedSites` is a list of at most 50 sites, each
 `http` or `https` with a host and an optional port and nothing else, kept as
 its origin; a failing entry is named by its position, never echoed. Browsers
 match a site listed with `http` to its `https` address as well, so
-`http://portal.example` also admits `https://portal.example`. Null clears
+`http://portal.example` also admits `https://portal.example`. A service
+address is `http` or `https` text with a host, at most 2,048 characters once
+trimmed, kept as given and stored encrypted with the instance's key; it reads
+back as scheme and host alone, so a new key means sending the whole address
+again. Before the write, an address the egress policy would refuse now is
+refused with `400 invalid_request` naming its key with the policy's own
+sentence: a literal in blocked space, mapped and NAT64 forms included, or a
+name all of whose addresses resolve there, unless `DEZFIL_EGRESS_ALLOWLIST`
+names it. A name that does not resolve at save is kept; every request to the
+address is checked again. No refusal repeats an address. Null clears
 a stored value, and an empty object changes nothing. A default applies to new
 things only: no existing map, layer, published view or open screen changes with
 it. A rule refuses new reach and takes nothing away: no session, link, token,
@@ -526,6 +550,26 @@ capacity wakes waiters after commit. Environment changes still need a restart.
 In addition to validation and lock refusals, the operation can answer
 `authentication_required` (401), `forbidden` (403), `request_body_too_large`
 (413), `internal` (500) and `ingress_unavailable` (503).
+
+Two more operations serve the services, with the same admin checks, the same
+trusted-Origin rule for cookies and private, no-store answers.
+`POST /api/instance/services/{service}/test` tests one service (`geocode`,
+`isochrone`, `overpass`, `overture` or `s3`): one fixed request at its address
+in effect, never one given in the call, sent the way the service's own requests
+go, through the egress check with redirects and after the gap between requests.
+It answers `{ service, result: "passed", milliseconds }`, Overture
+`{ service, result: "passed", releases, newest }`, or `result: "failed"` with
+one `reason`: `not_set_up`, `refused` (with the check's sentence as `message`),
+`unreachable`, `timed_out`, `status` (with the `status` answered) or
+`unexpected_answer`; never a body, an address or a key. It changes no setting
+and reads or writes no cache, except that the Overture Test keeps the release
+list it finds; a second Test of a service while one runs shares its request.
+`DELETE /api/instance/caches` empties the cached answers of one service
+(`?service=geocode`, `isochrone` or `overpass`) or of all three, and answers
+`{ cleared }`; an answer whose request began before the Clear is not kept, and
+settings, datasets, runs and the release list are unchanged. Both are
+generated as tools, `test_service` and `clear_service_caches`: the embedded
+assistant confirms each, and the SQL and workflow assistants refuse them.
 
 Built-in and configured basemaps, the palette catalogue, geometry projections,
 the API reference, operation catalogue and offered assistant models are shared

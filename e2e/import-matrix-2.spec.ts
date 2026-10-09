@@ -13,7 +13,9 @@
 //   deployment seam, the same one unit tests use), so the app's own
 //   Overpass client, cache, and ingest road run for REAL against a
 //   recorded-shape Overpass payload; only the Overpass service itself is
-//   imitated.
+//   imitated. OpenStreetMap queries and the Overture release listing go
+//   through the egress check, so both loopback fixtures need the documented
+//   `DEZFIL_EGRESS_ALLOWLIST=127.0.0.1` at launch as well.
 // - POSTGIS — real, live-gated: the failure surface is driven
 //   unconditionally (no network wait — a closed local port refuses
 //   immediately); the end-to-end import runs against the documented local

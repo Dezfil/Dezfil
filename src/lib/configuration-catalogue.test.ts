@@ -5,7 +5,8 @@ import { afterAll, describe, expect, it } from "vitest";
 import { SETTING_CATALOGUE, TEST_WIRING } from "./settings/catalogue";
 import { isInstanceDefault } from "./settings/instance-defaults";
 import { isInstanceRule } from "./settings/instance-security";
-import { configurationProblems } from "../../scripts/check-readme-config.mjs";
+import { configurationProblems, configurationRows } from "../../scripts/check-readme-config.mjs";
+import { addressRows, serviceNumberRows } from "@/components/settings/data-table";
 
 const root = process.cwd();
 const scratch = mkdtempSync(path.join(process.env.DEZFIL_DATA_DIR!, "configuration-check-"));
@@ -205,5 +206,65 @@ describe("the configuration guide's Security and rules table", () => {
       "connections.create", "imports.links",
     ]);
     expect(SETTING_CATALOGUE.filter(definition => isInstanceRule(definition) && isInstanceDefault(definition))).toEqual([]);
+  });
+});
+
+describe("the service addresses and numbers an admin stores on Data & services", () => {
+  const LIVE = "App (live) or restart";
+  const srcDir = path.join(root, "src");
+  const problemsOf = (documents: Record<string, string>) =>
+    configurationProblems({ srcDir, documents, catalogue: SETTING_CATALOGUE, testWiring: TEST_WIRING, defaultsGuide, isInstanceDefault, isInstanceRule });
+  const variableOf = (key: string) => SETTING_CATALOGUE.find(definition => definition.key === key)!.environment!;
+  /** Every address and number the tab draws, by its variable. */
+  const stored = [...addressRows(), ...serviceNumberRows()].map(row => variableOf(row.key));
+  /** The services' settings that stay the environment's alone. */
+  const fixed = ["DEZFIL_GEOCODE_NO_MATCH_CACHE_HOURS", "DEZFIL_GEOCODE_CACHE_MB", "DEZFIL_ISOCHRONE_CACHE_MB", "DEZFIL_OVERPASS_CACHE_MB",
+    "DEZFIL_OVERPASS_MAXSIZE_MB", "DEZFIL_OVERTURE_S3_ENDPOINT", "DEZFIL_OBJECT_STORE_CREDENTIALS", "DEZFIL_EGRESS_ALLOWLIST"];
+
+  it("are the four addresses and the eight numbers, each marked as changed in the app in both guides", () => {
+    expect(stored).toEqual([
+      "DEZFIL_GEOCODER_URL", "DEZFIL_ISOCHRONE_URL", "DEZFIL_OVERPASS_URL", "DEZFIL_S3_ENDPOINT",
+      "DEZFIL_GEOCODE_PACE_MS", "DEZFIL_GEOCODE_REQUEST_TIMEOUT_S", "DEZFIL_GEOCODE_MATCH_CACHE_HOURS",
+      "DEZFIL_ISOCHRONE_PACE_MS", "DEZFIL_ISOCHRONE_REQUEST_TIMEOUT_S", "DEZFIL_ISOCHRONE_CACHE_HOURS",
+      "DEZFIL_OVERPASS_TIMEOUT_S", "DEZFIL_OVERPASS_CACHE_H",
+    ]);
+    for (const guide of guides) {
+      const rows = configurationRows(originals[guide]);
+      for (const name of stored) expect(rows.find(row => row.name === name)?.changedBy, `${guide}: ${name}`).toBe(LIVE);
+      for (const name of fixed) expect(rows.find(row => row.name === name)?.changedBy, `${guide}: ${name}`).toBe("Restart");
+    }
+  });
+
+  it.each(guides)("rejects each of them marked as changed only by a restart in %s, naming it alone", guide => {
+    for (const name of stored) {
+      expect(problemsOf({ ...originals, [guide]: changeRow(originals[guide], name, row => cell(row, 4, "Restart")) }), name)
+        .toEqual([`CHANGED BY: ${guide}: ${name}: expected "${LIVE}", found "Restart"`]);
+    }
+  });
+
+  it.each(guides)("rejects a service setting the environment alone sets marked as changed in the app in %s", guide => {
+    for (const name of fixed) {
+      expect(problemsOf({ ...originals, [guide]: changeRow(originals[guide], name, row => cell(row, 4, LIVE)) }), name)
+        .toEqual([`CHANGED BY: ${guide}: ${name}: expected "Restart", found "${LIVE}"`]);
+    }
+  });
+
+  it("rejects both guides as they read before an admin could store these, every mark in each", () => {
+    const before = Object.fromEntries(guides.map(guide => [guide,
+      stored.reduce((text, name) => changeRow(text, name, row => cell(row, 4, "Restart")), originals[guide])]));
+    expect(problemsOf(before)).toHaveLength(2 * stored.length);
+    const result = check("docs/configuration.md", text => changeRow(text, "DEZFIL_GEOCODER_URL", row => cell(row, 4, "Restart")));
+    expect(result.status, result.output).toBe(1);
+    expect(result.output).toContain(`CHANGED BY: ${result.output.match(/\S*configuration\.md/)![0]}: DEZFIL_GEOCODER_URL: expected "${LIVE}", found "Restart"`);
+  });
+
+  it("rejects a stored address's row lost, or its default changed, in either guide", () => {
+    for (const guide of guides) {
+      // The row taken out whole, so the table around it stays one table.
+      expect(problemsOf({ ...originals, [guide]: changeRow(originals[guide], "DEZFIL_ISOCHRONE_URL", () => "\0").replace("\0\n", "") }))
+        .toEqual([`UNDOCUMENTED: ${guide}: DEZFIL_ISOCHRONE_URL`]);
+      expect(problemsOf({ ...originals, [guide]: changeRow(originals[guide], "DEZFIL_OVERPASS_URL", row => cell(row, 2, "`https://overpass.example/api/interpreter`")) }))
+        .toEqual([`DEFAULT: ${guide}: DEZFIL_OVERPASS_URL: expected "https://overpass-api.de/api/interpreter", found "https://overpass.example/api/interpreter"`]);
+    }
   });
 });
