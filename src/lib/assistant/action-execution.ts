@@ -14,6 +14,7 @@ import type { ProviderExchange, ToolCall } from "./provider";
 import type { Decision } from "./runs";
 import { callPath, type AssistantRevisions } from "./edit-revisions";
 import { shapeLookOutcome } from "./look-outcome";
+import { recordedArguments } from "./recorded-arguments";
 
 /**
  * The execution and recording of one admitted action, out of the loop:
@@ -70,7 +71,7 @@ export async function* execAndRecord(
   settled: SettledGate = {},
 ): AsyncGenerator<AssistantEvent> {
   requireAccountScope(ctx.scope);
-  yield { type: "tool_call", id: call.id, tool: call.name, args: call.args, effects: actionEffects(tool, call.args), ...words(tool, call.args) };
+  yield { type: "tool_call", id: call.id, tool: call.name, args: recordedArguments(call.args), effects: actionEffects(tool, call.args), ...words(tool, call.args) };
   let result;
   let dispatched = false;
   // Measured around the dispatch alone: a gate's wait ended before this
@@ -139,8 +140,10 @@ export async function* execAndRecord(
 
 /** The record's line and subject for a call, from the operation's
  * declaration; the response refines the subject's name once the action
- * happened. */
-export function words(tool: ToolDef, args: Record<string, unknown>, body?: unknown): { label: string; subject?: RecordedSubject } {
+ * happened. The arguments are read as recorded: an address as scheme and
+ * host. */
+export function words(tool: ToolDef, given: Record<string, unknown>, body?: unknown): { label: string; subject?: RecordedSubject } {
+  const args = recordedArguments(given);
   const subject = recordedSubject(tool.display, args, body);
   // A planning call starts nothing and says so.
   const planned = tool.effects.planningArgument !== undefined && args[tool.effects.planningArgument] === true;

@@ -91,8 +91,9 @@ async function seed() {
 const mapName = async (id: string) => ((await (await api(`/api/maps/${id}`)).json()) as { name: string }).name;
 const toolNames = (names: { name: string }[]) => names.map((t) => t.name).sort();
 /** The set the spec admits under /sql and workflow contexts: operations
- * declared read-only by their effects, conditional ones excluded (D4). */
-const readOnlySet = () => toolNames(buildTools().filter((t) => t.effects.readOnly && !t.effects.planningArgument));
+ * declared read-only by their effects, conditional ones excluded (D4), and
+ * those that reach outside this server excluded. */
+const readOnlySet = () => toolNames(buildTools().filter((t) => t.effects.readOnly && !t.effects.planningArgument && !t.effects.reachesOutside));
 
 describe("the page action policy through the real message route", () => {
   it("no context receives every generated tool; each page receives its derived offer with discovery under the measured default and its admitted set under the configured full mode (revised)", async () => {
@@ -111,6 +112,8 @@ describe("the page action policy through the real message route", () => {
     expect(restricted).not.toContain("update_map");
     // Conditional operations declare a write and a planning form; neither form is offered.
     for (const tool of buildTools()) if (tool.effects.planningArgument) expect(restricted).not.toContain(tool.name);
+    // A read-only operation that reaches outside this server is not offered either.
+    expect(restricted).not.toContain("test_service");
     // The default (nothing configured) is the subset; `full` is the configured mode.
     for (const mode of ["subset", "full"] as const) {
       vi.stubEnv("DEZFIL_ASSISTANT_OFFER", mode === "subset" ? "" : "full");

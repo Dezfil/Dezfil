@@ -8,8 +8,20 @@ describe("settings consumption inventory", () => {
     const inventory = consumptionInventory(SETTING_CATALOGUE, sources());
     expect(consumptionProblems(SETTING_CATALOGUE, sources())).toEqual([]);
     expect(inventory).toHaveLength(65); // Deployment settings and the two platform facts.
-    expect(inventory.filter(row => row.consumers.some(c => c.kind === "resolver"))).toHaveLength(40);
+    expect(inventory.filter(row => row.consumers.some(c => c.kind === "resolver"))).toHaveLength(44);
+    // Each service address is read through its resolver, in its service's
+    // own module alone, never from the environment directly.
+    const addresses: Record<string, string[]> = {
+      geocoderUrl: ["src/lib/geocode/endpoint.ts", "src/lib/geocode/endpoint.ts"],
+      isochroneUrl: ["src/lib/isochrone/endpoint.ts", "src/lib/isochrone/endpoint.ts"],
+      overpassUrl: ["src/lib/osm/overpass.ts"],
+      s3Endpoint: ["src/lib/ingest/remote.ts"],
+    };
     for (const row of inventory.filter(row => row.consumers.some(c => c.kind === "resolver"))) {
+      if (row.key in addresses) {
+        expect(row.consumers.map(c => [c.kind, c.file]), row.key).toEqual(addresses[row.key].map(file => ["resolver", file]));
+        continue;
+      }
       expect(row.consumers.map(c => c.kind), row.key).toEqual(["resolver"]);
       expect(row.consumers[0].file, row.key).toBe(row.key.startsWith("public") ? "src/lib/publish/rate-limit.ts" : "src/lib/limits.ts");
     }
@@ -31,16 +43,18 @@ describe("settings consumption inventory", () => {
   it("counts direct and computed reads, environment aliases and resolver imports, never text or writes", () => {
     const source = `
       import { resolveNumber as number } from "@/lib/settings/resolver";
+      import { resolveServiceAddress as address } from "@/lib/settings/service-address";
       const names = { first: "FIRST_API_KEY", second: "SECOND_API_KEY" };
       function read(env = process.env) { return env[names[provider]] + env.DEZFIL_DIRECT; }
       const value = process.env["DEZFIL_QUOTED"];
       const chosen = number("queryTimeoutS");
+      const finder = address("geocoderUrl");
       const hint = "process.env.DEZFIL_MENTION"; // process.env.DEZFIL_COMMENT
       process.env.DEZFIL_WRITE = "1"; delete process.env.DEZFIL_DELETE;
     `;
     expect(scanConsumption("src/lib/example.ts", source).map(c => [c.kind, c.name])).toEqual([
       ["environment", "FIRST_API_KEY"], ["environment", "SECOND_API_KEY"], ["environment", "DEZFIL_DIRECT"],
-      ["environment", "DEZFIL_QUOTED"], ["resolver", "queryTimeoutS"],
+      ["environment", "DEZFIL_QUOTED"], ["resolver", "queryTimeoutS"], ["resolver", "geocoderUrl"],
     ]);
   });
   it("refuses unknown resolver keys and untraceable dynamic environment reads", () => {

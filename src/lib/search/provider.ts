@@ -36,8 +36,8 @@ const PLACES_LIMIT = 6;
 
 export { geocoderConfigured };
 
-function searchUrl(query: string): URL | null {
-  return providerSearchUrl(query, { limit: String(PLACES_LIMIT) });
+function searchUrl(endpoint: string, query: string): URL | null {
+  return providerSearchUrl(endpoint, query, { limit: String(PLACES_LIMIT) });
 }
 
 function failed(message: string): PlacesAnswer {
@@ -110,19 +110,27 @@ export async function searchPlaces(
   query: string,
   signal?: AbortSignal,
 ): Promise<PlacesAnswer> {
-  const url = searchUrl(query);
-  if (!url) {
-    return geocoderConfigured()
-      ? INVALID // configured but not a URL — an administrator typo, worded as such
-      : { state: "unconfigured" };
+  // One read of the endpoint in effect, for the URL and the slot alike. A
+  // stored address the instance's key no longer opens answers with its own
+  // sentence, which names no address.
+  let endpoint: string | null;
+  try {
+    endpoint = configuredEndpoint();
+  } catch (error) {
+    if (error instanceof ApiError && error.code === "service_address_unreadable") return failed(error.message);
+    throw error;
   }
+  if (!endpoint) return { state: "unconfigured" };
+  const url = searchUrl(endpoint, query);
+  // Configured but not a URL — an administrator typo, worded as such.
+  if (!url) return INVALID;
 
   // The instance's next slot for this endpoint, taken ahead of any waiting
   // batch — and **held until this exchange is over**, because one request in
   // flight at a time is the contract, not merely one per interval. Released in
   // a `finally`, since this function answers from a dozen places.
   const release = await takeSlot(
-    endpointKey(configuredEndpoint() ?? ""),
+    endpointKey(endpoint),
     "interactive",
     signal,
   );

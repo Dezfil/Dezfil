@@ -7,11 +7,11 @@ const shape = (admin: boolean) => {
 };
 
 describe("the Settings column", () => {
-  it("shows an admin You and Instance whole, what new things start with between General and Limits, Security between Limits and System, with Users at its foot", () => {
+  it("shows an admin You and Instance whole, what new things start with between General and Data & services, Data & services between Publishing and Limits, Security between Limits and System, with Users at its foot", () => {
     expect(shape(true)).toEqual({
       groups: [
         ["You", ["Account", "Tokens", "Appearance"]],
-        ["Instance", ["General", "Maps", "Workflows & SQL", "Publishing", "Limits", "Security", "System"]],
+        ["Instance", ["General", "Maps", "Workflows & SQL", "Publishing", "Data & services", "Limits", "Security", "System"]],
       ],
       users: true,
     });
@@ -29,12 +29,12 @@ describe("the Settings column", () => {
       expect(canOpenTab(id, false)).toBe(true);
       expect(canOpenTab(id, true)).toBe(true);
     }
-    for (const id of ["maps", "workflows", "publishing", "limits", "security", "system"]) {
+    for (const id of ["maps", "workflows", "publishing", "data", "limits", "security", "system"]) {
       expect(canOpenTab(id, false)).toBe(false);
       expect(canOpenTab(id, true)).toBe(true);
     }
     // The tabs the page does not build, and spellings no tab has.
-    for (const id of ["ai", "libraries", "data", "ai-providers", "users", "", "Account", "Maps", "Security", "workflows-sql"]) {
+    for (const id of ["ai", "libraries", "storage", "ai-providers", "users", "", "Account", "Maps", "Security", "Data", "data-services", "workflows-sql"]) {
       expect(canOpenTab(id, true)).toBe(false);
     }
   });

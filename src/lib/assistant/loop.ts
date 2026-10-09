@@ -30,6 +30,7 @@ import {
   type ProviderReply,
 } from "./provider";
 import type { ParkedRun } from "./pending";
+import { recordedArguments } from "./recorded-arguments";
 import { makeExecutionContext, disposeExecutionContext, type ExecutionContext, type LoopDeps } from "./execution-context";
 export type { LoopDeps } from "./execution-context";
 
@@ -202,7 +203,7 @@ async function* resumeAssistantWork(
       tool: call.name,
       ok: false,
       body: JSON.parse(body),
-      args: call.args, effects: tool ? actionEffects(tool, call.args) : noEffects, outcome: "refused",
+      args: recordedArguments(call.args), effects: tool ? actionEffects(tool, call.args) : noEffects, outcome: "refused",
       // A declined call is recorded in the gate's own words: what was not done.
       ...(tool ? { decision: "declined" as const, ...words(tool, call.args), ...(parked.confirmation ? { label: parked.confirmation.target.replace(/\?\s*$/, "") } : {}) } : {}),
     };
@@ -303,7 +304,7 @@ async function* processCalls(
       if (ctx.runId) assistantRuns.admit(ctx.scope, ctx.runId, call);
       const query = typeof call.args.query === "string" ? call.args.query : "";
       const label = `Looked up operations for ${JSON.stringify(query)}`;
-      yield { type: "tool_call", id: call.id, tool: call.name, args: call.args, effects: noEffects, label };
+      yield { type: "tool_call", id: call.id, tool: call.name, args: recordedArguments(call.args), effects: noEffects, label };
       const started = performance.now();
       const candidates = [...ctx.byName.values()].filter((t) => ctx.admitted.has(t.name) && !ctx.offered.has(t.name));
       const found = findOperations(query, candidates);
@@ -333,7 +334,7 @@ async function* processCalls(
         tool: call.name,
         ok: false,
         body: JSON.parse(body),
-        args: call.args, effects: noEffects, outcome: "refused",
+        args: recordedArguments(call.args), effects: noEffects, outcome: "refused",
       };
       batch.outcomes.push({ toolCallId: call.id, body, isError: true });
       batch.index += 1;
@@ -347,7 +348,7 @@ async function* processCalls(
     if (!ctx.admitted.has(call.name)) {
       const body = { error: { code: POLICY_REFUSAL_CODE, message: ERROR_CATALOGUE.assistant_action_not_admitted } };
       if (ctx.runId) assistantRuns.admit(ctx.scope, ctx.runId, call);
-      yield { type: "tool_result", id: call.id, tool: call.name, ok: false, body, args: call.args, effects: actionEffects(tool, call.args), outcome: "refused", ...words(tool, call.args) };
+      yield { type: "tool_result", id: call.id, tool: call.name, ok: false, body, args: recordedArguments(call.args), effects: actionEffects(tool, call.args), outcome: "refused", ...words(tool, call.args) };
       batch.outcomes.push({ toolCallId: call.id, body: JSON.stringify(body), isError: true });
       batch.index += 1;
       continue;
@@ -393,7 +394,7 @@ async function* processCalls(
         assistantRuns.checkPark(ctx.scope, ctx.runId, { ...data, pendingArguments: call.args });
       }
       const id = ctx.store.park(ctx.scope, parked);
-      yield { type: "confirm_required", id, tool: call.name, args: call.args, callId: call.id, confirmation: confirmation.words, effects: actionEffects(tool, call.args) };
+      yield { type: "confirm_required", id, tool: call.name, args: recordedArguments(call.args), callId: call.id, confirmation: confirmation.words, effects: actionEffects(tool, call.args) };
       yield { type: "done", reason: "end" };
       return true;
     }

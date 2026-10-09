@@ -1,6 +1,8 @@
 "use client";
+import Link from "next/link";
 import { useRef, useState } from "react";
 import { ErrorNote } from "@/components/ui/ErrorNote";
+import { dataRowAddress } from "./data-table";
 import { keptValues, useInstanceRead, writeInstanceSettings, type InstanceRead } from "./instance-read";
 import { capacityText, inLabels, LIMITS_CARDS, LIMITS_LABELS, serviceSetUp, shownUnit, withShownUnit, type LimitsCard, type LimitsRow } from "./limits-table";
 import { SaveUnit, type UnitSnapshot, type Value } from "./save-unit";
@@ -23,7 +25,8 @@ function refusalLabels(settings: Settings): Record<string, string> {
  * the configuration read reports them. Each number is kept as it changes;
  * what the server decides is drawn locked; the capacities a geocode and
  * a travel-time run have follow the time limits from each write's
- * response, marked Not set up while the service's address is not set. */
+ * response, marked Not set up while the service's address is not set,
+ * which leads to that address's row on Data & services. */
 export function LimitsTab() {
   const { read, error, retry } = useInstanceRead();
   const [answered, setAnswered] = useState<InstanceRead | null>(null);
@@ -71,7 +74,9 @@ function LimitsRowView({ row, now, unit, card, words }: {
 }) {
   if (row.kind === "capacity") {
     const count = row.of === "geocode" ? now.capacities.geocodeRows : now.capacities.isochroneOrigins;
-    const after = serviceSetUp(now.settings, row.service) === false ? "Not set up" : undefined;
+    const address = dataRowAddress(row.service);
+    const after = serviceSetUp(now.settings, row.service) !== false ? undefined
+      : address ? <Link href={address} scroll={false} className={styles.link}>Not set up</Link> : "Not set up";
     return <SettingRow id={row.id} label={row.label} meta={row.meta} after={after}><ValueText>{capacityText(row.of, count)}</ValueText></SettingRow>;
   }
   if (row.kind === "image") {

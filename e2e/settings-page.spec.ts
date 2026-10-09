@@ -49,6 +49,7 @@ const DRAWN: readonly (readonly [label: string, pane: string, parts: readonly st
   ["Maps", "maps", ["#card-new-layers"]],
   ["Workflows & SQL", "workflows", ["#card-sql-console"]],
   ["Publishing", "publishing", ["#publishing-export"]],
+  ["Data & services", "data", ["#data-who"]],
   ["Limits", "limits", ["#limits-public"]],
   // The data folder's state, not its Checking placeholder.
   ["System", "system", ["#sys-assistant-status", "#sys-data-folder [data-state]"]],
@@ -432,7 +433,7 @@ test.describe("the Settings page", () => {
       await page.goto("/settings/system#sys-version");
       await expect(page).toHaveURL(new URL("/settings/account", baseURL).href);
       // So do the addresses of what new things start with, a row's included.
-      for (const address of ["/settings/maps", "/settings/workflows#set-minimap", "/settings/publishing#set-export-width"]) {
+      for (const address of ["/settings/maps", "/settings/workflows#set-minimap", "/settings/publishing#set-export-width", "/settings/data#set-geocoder-address"]) {
         await page.goto(address);
         await expect(page).toHaveURL(new URL("/settings/account", baseURL).href);
         await expect(card(page, "Account")).toBeVisible();

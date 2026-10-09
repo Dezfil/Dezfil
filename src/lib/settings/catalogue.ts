@@ -21,6 +21,14 @@ function stored(key: string, label: string, purpose: string, defaultValue: Setti
     kind: write.kind === "choice" ? "choice" : "text", timing: "live", secret: false, editable: true, write };
 }
 const choice = (...values: string[]): WriteConstraint => ({ kind: "choice", values });
+/** A service's address, set by its variable or stored by an admin beside
+ * it: a set variable locks it. Write-only, like the rest of the address
+ * kind: what any read gives back is its scheme and host. */
+function serviceAddress(key: string, environment: string, label: string, purpose: string,
+  defaultValue: SettingDefault, documentedDefault: string): SettingDefinition {
+  return { ...deployment(key, environment, "address", label, purpose, defaultValue, documentedDefault),
+    changedBy: "admin", timing: "live", editable: true, write: { kind: "address", maxLength: 2048 } };
+}
 
 export const SETTING_CATALOGUE: readonly SettingDefinition[] = [
   ...NUMERIC_SETTINGS,
@@ -30,16 +38,16 @@ export const SETTING_CATALOGUE: readonly SettingDefinition[] = [
   deployment("trustedProxies", "DEZFIL_TRUSTED_PROXIES", "list", "Trusted proxies", "Socket peers allowed to supply forwarding information.", [], "unset"),
   deployment("egressAllowlist", "DEZFIL_EGRESS_ALLOWLIST", "list", "Allowed destinations", "Hosts, IPs or CIDRs permitted past the egress policy.", [], "unset"),
   deployment("objectStoreCredentials", "DEZFIL_OBJECT_STORE_CREDENTIALS", "boolean", "Object-store credentials", "Sign imports with the instance credential chain when enabled.", false, "off"),
-  deployment("s3Endpoint", "DEZFIL_S3_ENDPOINT", "address", "S3 endpoint", "Custom S3-compatible endpoint for anonymous imports.", { rule: "aws-bucket-endpoint" }, "AWS"),
-  deployment("overpassUrl", "DEZFIL_OVERPASS_URL", "address", "Overpass endpoint", "Endpoint for OpenStreetMap imports.", "https://overpass-api.de/api/interpreter", "https://overpass-api.de/api/interpreter"),
+  serviceAddress("s3Endpoint", "DEZFIL_S3_ENDPOINT", "S3 endpoint", "Custom S3-compatible endpoint for anonymous imports.", { rule: "aws-bucket-endpoint" }, "AWS"),
+  serviceAddress("overpassUrl", "DEZFIL_OVERPASS_URL", "Overpass endpoint", "Endpoint for OpenStreetMap imports.", "https://overpass-api.de/api/interpreter", "https://overpass-api.de/api/interpreter"),
   deployment("overtureS3Endpoint", "DEZFIL_OVERTURE_S3_ENDPOINT", "address", "Overture endpoint", "S3-compatible override for the public Overture bucket.", null, "unset, the public bucket"),
   deployment("tippecanoe", "DEZFIL_TIPPECANOE", "path", "Tile builder", "Binary used to build vector tiles.", "tippecanoe", "tippecanoe"),
   deployment("basemapUrl", "DEZFIL_BASEMAP_URL", "address", "Basemap address", "Style override pinning the automatic basemap in both themes.", { rule: "built-in-basemap-for-theme" }, "built-in styles"),
   deployment("basemapAttribution", "DEZFIL_BASEMAP_ATTRIBUTION", "text", "Basemap credit", "Credit line for the deployment basemap override.", null, "unset"),
   deployment("satelliteUrl", "DEZFIL_SATELLITE_URL", "address", "Satellite template", "Raster tile template enabling satellite imagery.", null, "unset"),
   deployment("satelliteAttribution", "DEZFIL_SATELLITE_ATTRIBUTION", "text", "Satellite credit", "Credit line required by the imagery provider.", null, "unset"),
-  deployment("geocoderUrl", "DEZFIL_GEOCODER_URL", "address", "Address finder", "Nominatim-compatible endpoint for search and batch geocoding.", null, "unset"),
-  deployment("isochroneUrl", "DEZFIL_ISOCHRONE_URL", "address", "Travel-time endpoint", "Valhalla-compatible endpoint for travel-time areas.", null, "unset"),
+  serviceAddress("geocoderUrl", "DEZFIL_GEOCODER_URL", "Address finder", "Nominatim-compatible endpoint for search and batch geocoding.", null, "unset"),
+  serviceAddress("isochroneUrl", "DEZFIL_ISOCHRONE_URL", "Travel-time endpoint", "Valhalla-compatible endpoint for travel-time areas.", null, "unset"),
   deployment("anthropicApiKey", "ANTHROPIC_API_KEY", "secret", "Anthropic credential", "Enables the assistant with this provider.", null, "unset"),
   deployment("openaiApiKey", "OPENAI_API_KEY", "secret", "OpenAI credential", "Enables the assistant with this provider.", null, "unset"),
   deployment("aiProvider", "DEZFIL_AI_PROVIDER", "choice", "Assistant provider", "Selects the provider when more than one credential is present.", { rule: "first-provider-with-key" }, "first key set"),

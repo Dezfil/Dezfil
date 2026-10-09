@@ -17,11 +17,16 @@ import { limits } from "@/lib/limits";
  * interval would otherwise have two exchanges open at once, which is the
  * concurrent issuance the spec declines. Release in a `finally`, always;
  * releasing twice is harmless by construction.
+ *
+ * **Each request waits by its own gap**: a run's, as it was admitted, so a
+ * gap changed while a run works applies to runs admitted after it.
  */
 
 export type ReleaseSlot = () => void;
 
 interface Waiter {
+  /** How long after the previous request's start this one may start. */
+  gapMs: number;
   resolve: (release: ReleaseSlot) => void;
   reject: (error: unknown) => void;
   signal?: AbortSignal;
@@ -29,8 +34,8 @@ interface Waiter {
 }
 
 interface Endpoint {
-  /** When the next request may start, counting from the last one's start. */
-  nextAt: number;
+  /** When the previous request started; each waiter keeps its own gap after it. */
+  lastStartAt: number;
   busy: boolean;
   waiting: Waiter[];
   draining: boolean;
@@ -51,7 +56,7 @@ export function resetIsochroneLimiter(): void {
 function endpointFor(key: string): Endpoint {
   const found = endpoints.get(key);
   if (found) return found;
-  const made: Endpoint = { nextAt: 0, busy: false, waiting: [], draining: false };
+  const made: Endpoint = { lastStartAt: Number.NEGATIVE_INFINITY, busy: false, waiting: [], draining: false };
   endpoints.set(key, made);
   return made;
 }
@@ -71,20 +76,27 @@ function drain(key: string): void {
       endpoint.draining = false;
       return;
     }
-    const delay = Math.max(0, endpoint.nextAt - Date.now());
+    const delay = Math.max(0, endpoint.lastStartAt + endpoint.waiting[0].gapMs - Date.now());
     const timer = setTimeout(() => {
       if (endpoint.busy) {
         // A release raced this timer; it drains again when it lands.
         endpoint.draining = false;
         return;
       }
-      const next = endpoint.waiting.shift();
+      const next = endpoint.waiting[0];
       if (!next) {
         endpoint.draining = false;
         return;
       }
+      // A waiter that left the queue may have been the one the timer was
+      // set for: the next waits out its own gap.
+      if (Date.now() < endpoint.lastStartAt + next.gapMs) {
+        step();
+        return;
+      }
+      endpoint.waiting.shift();
       endpoint.busy = true;
-      endpoint.nextAt = Date.now() + limits.isochronePaceMs;
+      endpoint.lastStartAt = Date.now();
       next.signal?.removeEventListener("abort", next.onAbort!);
       let released = false;
       next.resolve(() => {
@@ -103,16 +115,18 @@ function drain(key: string): void {
 /**
  * Wait for this endpoint's next slot, and hold it. Rejects if the caller's
  * signal fires first, so a cancelled run stops queueing rather than stopping
- * only after its turn arrives.
+ * only after its turn arrives. `gapMs` is the gap this request keeps after
+ * the previous start: its run's, as admitted; absent, the one in effect now.
  */
 export function takeIsochroneSlot(
   key: string,
   signal?: AbortSignal,
+  gapMs: number = limits.isochronePaceMs,
 ): Promise<ReleaseSlot> {
   if (signal?.aborted) return Promise.reject(new Error("abandoned"));
   const endpoint = endpointFor(key);
   return new Promise<ReleaseSlot>((resolve, reject) => {
-    const waiter: Waiter = { resolve, reject, ...(signal ? { signal } : {}) };
+    const waiter: Waiter = { gapMs, resolve, reject, ...(signal ? { signal } : {}) };
     waiter.onAbort = () => {
       const at = endpoint.waiting.indexOf(waiter);
       if (at >= 0) endpoint.waiting.splice(at, 1);

@@ -1,3 +1,4 @@
+import { DATA_ROW_IDS } from "./data-table";
 import type { InstanceRead } from "./instance-read";
 import { LIMITS_LABELS, LIMITS_ROW_IDS, withShownUnit } from "./limits-table";
 import type { ReadSetting } from "./server-set";
@@ -8,9 +9,10 @@ import { tabAddress } from "./settings-address";
  * decides, in the read's order. A setting Limits draws is named by its
  * Limits row, word for word, and its number takes the unit that row
  * shows, so the row here and the row it links to read alike; the rest by
- * the read's own label and unit. The value is what the read discloses (an
- * address's scheme and host, whether a key is set, the encryption key's
- * state, a number with its unit), never more.
+ * the read's own label and unit. A value stored on Limits or on Data &
+ * services links to the row that holds it there. The value is what the
+ * read discloses (an address's scheme and host, whether a key is set, the
+ * encryption key's state, a number with its unit), never more.
  */
 
 export interface ShownValue {
@@ -26,7 +28,9 @@ export interface ShownValue {
 export type SettingSource =
   | { readonly kind: "environment" }
   | { readonly kind: "default" }
-  | { readonly kind: "stored"; readonly href: string | null };
+  | { readonly kind: "stored"; readonly href: string | null;
+    /** The tab the link names. */
+    readonly where: string | null };
 
 export interface ServerSettingRow {
   readonly key: string;
@@ -69,7 +73,11 @@ export function shownValue(setting: ReadSetting): ShownValue {
 
 function sourceOf(key: string, setting: ReadSetting): SettingSource {
   if (setting.source === "environment") return { kind: "environment" };
-  if (setting.source === "stored") return { kind: "stored", href: LIMITS_ROW_IDS[key] ? tabAddress("limits", LIMITS_ROW_IDS[key]) : null };
+  if (setting.source === "stored") {
+    if (LIMITS_ROW_IDS[key]) return { kind: "stored", href: tabAddress("limits", LIMITS_ROW_IDS[key]), where: "Limits" };
+    if (DATA_ROW_IDS[key]) return { kind: "stored", href: tabAddress("data", DATA_ROW_IDS[key]), where: "Data & services" };
+    return { kind: "stored", href: null, where: null };
+  }
   return { kind: "default" };
 }
 

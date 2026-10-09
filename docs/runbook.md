@@ -406,7 +406,10 @@ Required on the server for a green full run. Without these the affected
 tests fail rather than skip:
 
 - `DEZFIL_RENDER_CAP_FEATURES=2000`, so the 52,001-feature layer tiles;
-- `DEZFIL_EGRESS_ALLOWLIST=127.0.0.1`, for the URL-import loopback fixture;
+- `DEZFIL_EGRESS_ALLOWLIST=127.0.0.1`, for the URL-import loopback fixture and
+  for the two below: OpenStreetMap queries and the Overture release listing
+  go through the egress check, so a loopback Overpass or object store needs
+  the allowlist as well;
 - `DEZFIL_OVERPASS_URL=http://127.0.0.1:31877/overpass`, the recorded OSM
   fixture the suite serves itself on that port;
 - `DEZFIL_OVERTURE_S3_ENDPOINT=127.0.0.1:31878`, the loopback object-store

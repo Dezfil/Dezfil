@@ -98,19 +98,28 @@ by the assistant's read-only policies and requiring no confirmation. Its
 input is closed and takes no arguments; unknown arguments are refused before
 HTTP dispatch. The result contains every instance and platform definition,
 effective and stored values, source, lock and invalid-override state, derived
-admission capacities, the fixed image maximum, version and process start time.
-Credentials are presence or key-location states; addresses contain only scheme
-and host, or set-and-unreadable state. The same current-admin checks and
+admission capacities, the fixed image maximum, version and process start time,
+and `services`: each service cache's size, answer count and budget, and the
+Overture release list this process keeps. Credentials are presence or
+key-location states; addresses contain only scheme and host, or
+set-and-unreadable state, and a stored address never comes back as stored. The same current-admin checks and
 private, no-store responses apply to direct API calls and tool calls.
 
 `update_instance_settings` calls `PATCH /api/instance/settings` with the closed
-editable-key input, forty-eight keys: the fourteen Limits numbers, the four
+editable-key input, sixty keys: the fourteen Limits numbers, the services' eight
+numbers (the address finder's and travel time's gap, answer time limit and
+freshness, OpenStreetMap's time budget and freshness), the four service
+addresses (`geocoderUrl`, `isochroneUrl`, `overpassUrl`, `s3Endpoint`), the four
 General values, the eighteen instance defaults and the twelve sign-in and
 publishing settings (session and link lifetimes, the two failed sign-in counts,
 the shortest password, who may create tokens and their expiry, who may publish,
 embedding and its listed sites, who may add database connections and who may
 import from links), each with its kind, bounds or choices, so a value outside
 them is refused before any call. The listed sites go in as a list of origins.
+An address goes in whole, as text, and is refused when the egress policy would
+refuse it now, its key named with the policy's sentence; the result, the
+assistant's confirmation, its events and its record give it as scheme and host
+alone, while the call itself carries the address as given.
 A per-address count below the per-account one, or embedding limited to listed
 sites with none listed, refuses the whole call. Values are validated together and null clears
 a stored value; the result is the configuration read, including timeout
@@ -122,6 +131,16 @@ the local settings-write consequences; it adds no approval gate. An active
 admin's bearer token calls directly, without a new token scope. Unknown tool
 arguments are refused before HTTP dispatch. Successes and errors never disclose
 credentials or address paths, queries or user information.
+
+`test_service` calls `POST /api/instance/services/{service}/test` and
+`clear_service_caches` calls `DELETE /api/instance/caches`, both admin-only and
+rechecked on every call. A Test sends one fixed request to the service at its
+address in effect and answers passed with the time taken (Overture: how many
+releases and the newest) or failed with one reason from a closed list, never a
+body, an address or a key; it is read-only but reaches outside this server, so
+MCP marks it open-world. Clear removes the cached answers of one service or all
+three and nothing else. The embedded assistant asks before calling either; the
+SQL and workflow assistants are never offered them.
 
 `get_config` reads `GET /api/config`, which every signed-in account and agent
 may call. Besides the basemaps and palettes on offer and the client limits, it
@@ -215,9 +234,9 @@ Direct multipart upload uses the separately configured upload limit.
 
 | | |
 |---|---|
-| Documented operations | 370 |
-| Operations that become tools | 143 |
-| Deliberately excluded | 227 |
+| Documented operations | 374 |
+| Operations that become tools | 145 |
+| Deliberately excluded | 229 |
 
 Measured by building the OpenAPI document and the tool set from
 `src/lib/api/openapi.ts` and `src/lib/tools/tools.ts` and counting the

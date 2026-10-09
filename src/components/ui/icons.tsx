@@ -970,6 +970,11 @@ export function GaugeIcon() {
   return <ChromeSvg strokeWidth={1.7}><path d="m12 14 4-4" /><path d="M3.34 19a10 10 0 1 1 17.32 0" /></ChromeSvg>;
 }
 
+/** The Data & services tab: a store of data, as the rail's Data reads. */
+export function DataServicesIcon() {
+  return <ChromeSvg strokeWidth={1.7}><ellipse cx="12" cy="5" rx="7" ry="3" /><path d="M5 5v7c0 1.7 3.1 3 7 3s7-1.3 7-3V5M5 12v7c0 1.7 3.1 3 7 3s7-1.3 7-3v-7" /></ChromeSvg>;
+}
+
 /** The Security tab: a shield. */
 export function ShieldIcon() {
   return <ChromeSvg strokeWidth={1.7}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z" /></ChromeSvg>;

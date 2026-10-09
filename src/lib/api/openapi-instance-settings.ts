@@ -7,6 +7,7 @@ import { AUTH_SECURITY } from "./openapi-auth";
 import { ERROR_RESPONSE, jsonOk, op } from "./openapi-helpers";
 import { LOCAL_READ, LOCAL_REPLACE } from "./operation-mcp";
 import { READ_ONLY, writes, resource } from "./operation-metadata";
+import { SERVICE_FACTS_SCHEMA } from "./openapi-instance-services";
 
 const object = <T extends Record<string, unknown>>(properties: T) => ({
   type: "object", properties, required: Object.keys(properties), additionalProperties: false,
@@ -22,6 +23,10 @@ const SITE = { type: "string", pattern: "^\\s*[Hh][Tt][Tt][Pp][Ss]?://[^/?#@\\\\
 const sites = (constraint: Extract<WriteConstraint, { kind: "sites" }>) => ({ maxItems: constraint.maxSites, items: SITE });
 /** A site as it is kept and read back: its scheme, lower-case host and any port. */
 const KEPT_SITE = { type: "string", pattern: "^https?://[a-z0-9.-]+(?::[0-9]{1,5})?$" };
+/** A service's address as the address kind takes it: http or https with a
+ * host right after its two slashes; the server also parses it and holds
+ * the length once trimmed. */
+const ADDRESS = { pattern: "^\\s*[Hh][Tt][Tt][Pp][Ss]?://[^/\\\\?#\\s]" };
 
 function valueSchema(definition: SettingDefinition): Record<string, unknown> {
   if (definition.secret) return definition.key === "secretKey"
@@ -39,7 +44,8 @@ const settings = Object.fromEntries(SETTING_CATALOGUE.filter(d => d.scope !== "a
     .map(([key, value]) => [key, { const: value }]));
   return [definition.key, object({ ...fields, value: valueSchema(definition),
     source: { type: "string", enum: ["environment", "stored", "default"] }, locked: { type: "boolean" }, invalidOverride: { type: "boolean" },
-    storedValue: definition.editable ? { anyOf: [valueSchema(definition), { type: "null" }] } : { type: "null" },
+    // An address is write-only: what was stored is never read back, only disclosed in value.
+    storedValue: definition.editable && definition.write?.kind !== "address" ? { anyOf: [valueSchema(definition), { type: "null" }] } : { type: "null" },
   })];
 }));
 
@@ -60,6 +66,7 @@ export const INSTANCE_DEFAULTS_SCHEMA = {
       : constraint.kind === "switch" ? { type: "boolean" }
       : constraint.kind === "text" ? { type: "string", maxLength: constraint.maxLength }
       : constraint.kind === "sites" ? { type: "array", ...sites(constraint) }
+      : constraint.kind === "address" ? { type: "string", ...ADDRESS }
       : { type: "string", enum: [...constraint.values] };
     return [definition.key, { ...value, description: `${definition.label}${definition.unit ? ` (${definition.unit})` : ""}. ${definition.purpose}` }];
   })),
@@ -89,10 +96,14 @@ export const INSTANCE_SETTINGS_SCHEMAS = {
         : constraint.kind === "switch" ? { type: ["boolean", "null"] }
         : constraint.kind === "text" ? { type: ["string", "null"], pattern: `^\\s*[\\s\\S]{0,${constraint.maxLength}}\\s*$` }
         : constraint.kind === "sites" ? { type: ["array", "null"], ...sites(constraint) }
+        : constraint.kind === "address" ? { type: ["string", "null"], ...ADDRESS }
         : { type: ["string", "null"], enum: [...constraint.values, null] };
       const note = constraint.kind === "text" ? `Text is trimmed before the ${constraint.maxLength}-character limit; empty text clears to the default.`
         : constraint.kind === "sites" ? `At most ${constraint.maxSites} sites, each http or https with a host and an optional port and nothing else. ` +
-          "Each is kept as its scheme, host and port, a repeated site once; an empty list clears to the default." : "";
+          "Each is kept as its scheme, host and port, a repeated site once; an empty list clears to the default."
+        : constraint.kind === "address" ? `An http or https address with a host, at most ${constraint.maxLength} characters once trimmed, kept as given. ` +
+          "Write-only: it is stored encrypted with the instance's key and every read gives back its scheme and host alone, so a new key " +
+          `means sending the whole address again. A set ${definition.environment} locks it.` : "";
       return [definition.key, { ...schema, description: `${definition.label}. ${definition.purpose} Null clears the stored value. ${note}`.trim() }];
     })),
   },
@@ -100,6 +111,7 @@ export const INSTANCE_SETTINGS_SCHEMAS = {
     capacities: object({ geocodeRows: { type: "integer", minimum: 1 }, isochroneOrigins: { type: "integer", minimum: 0 } }),
     maxImageDimension: { type: "integer", const: EXPORT_MAX_DIMENSION }, version: { type: "string" }, startedAt: { type: "string", format: "date-time" },
     warnings: { type: "array", items: { type: "string" }, description: "Effective timeout relationship mismatches, including deployment overrides. These do not block unrelated edits." },
+    services: SERVICE_FACTS_SCHEMA,
   }),
 };
 
@@ -113,11 +125,15 @@ export const INSTANCE_SETTINGS_PATHS = {
       "Empty numeric overrides are absent; a set empty assistant model list retains its default model alone. Environment changes require a restart. " +
       "Provider keys report set or not set; the encryption key reports environment, data-directory or not-yet-present. " +
       "Address value and defaultValue expose scheme and host only, never user information, paths, queries or fragments; malformed addresses report set and unreadable. " +
+      "A service address an admin stored reads as set with its scheme and host, or as set and unreadable once the instance's encryption key no longer opens it; " +
+      "its storedValue is always null. " +
       "The built-in documentedDefault stays as documented, including any path. " +
       "Contextual defaults carry a rule when there is no single address or value. The read generates no key, writes no configuration file, " +
       "contacts no service and initializes no engine. Capacities report admitted geocode rows and travel-time origins per run, " +
       "without promising a configured provider. Also returns the fixed maximum image dimension, package version, stable process start time " +
-      "and warnings when the effective query timeout is at or above the run timeout.",
+      "and warnings when the effective query timeout is at or above the run timeout. " +
+      "Services report each provider cache (geocode, isochrone, overpass) with the bytes its answers take, how many it holds and its budget in MB, " +
+      "and the Overture release list this process keeps: how many releases, the newest and when it was listed, or not listed yet.",
     tag: "System", tool: "get_instance_settings", toolInput: { closed: true }, display: { verb: "Read instance configuration" }, effects: READ_ONLY, mcp: LOCAL_READ,
     responses: { "200": jsonOk("#/components/schemas/InstanceSettings"), "401": ERROR_RESPONSE, "403": ERROR_RESPONSE, "503": ERROR_RESPONSE },
   }), security: AUTH_SECURITY }, patch: { ...op({
@@ -137,7 +153,12 @@ export const INSTANCE_SETTINGS_PATHS = {
       "Concurrent different-key edits both land; the last accepted value wins on one key. There is no stale-write rejection or Undo. " +
       "Stored changes apply live to new work; admitted work keeps its budget. Lowered concurrency cancels nothing, increased concurrency wakes waiters " +
       "after commit, and lowered queue limits keep accepted waiters. Public limits apply against the existing window count. Environment changes need a restart. " +
-      "Returns the same configuration as the read, with the same secret and address disclosure rules; no secret or address setting is accepted. " +
+      "Returns the same configuration as the read, with the same secret and address disclosure rules. No secret is accepted. " +
+      "The four service addresses (geocoderUrl, isochroneUrl, overpassUrl, s3Endpoint) are write-only: each is stored encrypted and read back as its scheme and host alone; " +
+      "a refusal names the key and never repeats the address. Before the write, an address is also refused (400 invalid_request, with the egress policy's own sentence) " +
+      "when that policy would refuse a request to it now: a literal in loopback, private, carrier-grade, link-local or metadata, unique-local, unspecified, multicast or reserved space, " +
+      "mapped and NAT64 forms included, or a name all of whose addresses resolve there, unless DEZFIL_EGRESS_ALLOWLIST names it. " +
+      "A name that does not resolve at save is kept; every request to the address is checked again. " +
       "The embedded assistant asks for confirmation before calling on pages admitting writes; SQL and workflow assistants refuse this update. " +
       "MCP advertises that policy and adds no confirmation step.",
     tag: "System", tool: "update_instance_settings", toolInput: { closed: true }, display: { verb: "Changed instance settings" },

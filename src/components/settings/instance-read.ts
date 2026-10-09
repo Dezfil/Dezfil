@@ -1,11 +1,22 @@
 "use client";
 import { useEffect, useState } from "react";
 import { accountRequest, failureMessage, settingsWrite } from "./api";
+import type { CacheFacts, ReleaseListFacts } from "./data-table";
 import type { Value } from "./save-unit";
 import type { ReadSetting } from "./server-set";
 
+/** What the services keep on this instance: each provider cache's use,
+ * answers and budget, and the Overture release list this server holds. */
+export interface ServicesRead {
+  readonly geocode: CacheFacts;
+  readonly isochrone: CacheFacts;
+  readonly overpass: CacheFacts;
+  readonly overture: ReleaseListFacts;
+}
+
 /** The configuration read: every instance setting as it resolved, with the
- * facts the System tab shows beside them. Admins only. */
+ * facts the System tab shows beside them and what the services keep.
+ * Admins only. */
 export interface InstanceRead {
   readonly settings: Readonly<Record<string, ReadSetting>>;
   readonly capacities: { readonly geocodeRows: number; readonly isochroneOrigins: number };
@@ -13,6 +24,7 @@ export interface InstanceRead {
   readonly version: string;
   readonly startedAt: string;
   readonly warnings: readonly string[];
+  readonly services?: ServicesRead;
 }
 
 export const INSTANCE_SETTINGS = "/api/instance/settings";

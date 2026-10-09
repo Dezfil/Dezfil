@@ -11,6 +11,12 @@ export interface Consumption {
 }
 type Sources = Record<string, string>;
 const plumbing = new Set(["NODE_ENV", "HOSTNAME", "NEXT_RUNTIME", "TZ", "CI"]);
+/** The settings readers a consumer imports, by module: the numbers' and
+ * switches' resolver, and the service addresses' resolver. */
+const RESOLVERS: Record<string, readonly string[]> = {
+  "src/lib/settings/resolver": ["resolveNumber", "resolveBoolean", "resolveNumericSetting"],
+  "src/lib/settings/service-address": ["resolveServiceAddress", "serviceAddressConfigured"],
+};
 const definitionFiles = new Set(["catalogue.ts", "numeric.ts", "types.ts", "validation.ts", "resolver.ts"]);
 
 /** Catalogue data and the resolver's dynamic lookup are not their own consumers.
@@ -51,10 +57,11 @@ export function scanConsumption(file: string, source: string): Consumption[] {
     if (ts.isImportDeclaration(node) && ts.isStringLiteral(node.moduleSpecifier)) {
       const specifier = node.moduleSpecifier.text;
       const target = specifier.startsWith("@/") ? `src/${specifier.slice(2)}` : path.posix.join(path.posix.dirname(file), specifier);
-      if (target !== "src/lib/settings/resolver") continue;
+      const readers = RESOLVERS[target];
+      if (!readers) continue;
       const imports = node.importClause?.namedBindings;
       if (imports && ts.isNamedImports(imports)) for (const binding of imports.elements) {
-        if (["resolveNumber", "resolveBoolean", "resolveNumericSetting"].includes((binding.propertyName ?? binding.name).text)) resolvers.add(binding.name.text);
+        if (readers.includes((binding.propertyName ?? binding.name).text)) resolvers.add(binding.name.text);
       }
     }
   }

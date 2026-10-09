@@ -54,6 +54,11 @@ export interface UnitControl {
   /** A number that takes decimals, kept as given. Every other number is a
    * whole number. */
   readonly decimal?: boolean;
+  /** How many decimal places a number that takes decimals takes, where the
+   * page shows the setting in a larger unit than it is kept in (a gap kept
+   * in milliseconds, typed in tenths of a second). Any number of places
+   * without it. */
+  readonly places?: number;
   /** The row it shares one Saved mark with, where a row holds several. */
   readonly row?: string;
   /** Pinned by the server's environment, or fixed: never edited, saved, reset or held. */
@@ -120,8 +125,8 @@ export function rowRefusals(message: string, keys: readonly string[]): Record<st
 }
 
 /** A number's own check, before any request: a decimal only where the
- * control takes one. */
-export function numberProblem(text: string, control: Pick<UnitControl, "min" | "max" | "decimal">): string | null {
+ * control takes one, and no finer than its places. */
+export function numberProblem(text: string, control: Pick<UnitControl, "min" | "max" | "decimal" | "places">): string | null {
   const trimmed = text.trim(), value = Number(trimmed);
   if (!trimmed || !Number.isFinite(value)) return "Enter a number.";
   const { min, max } = control;
@@ -129,7 +134,10 @@ export function numberProblem(text: string, control: Pick<UnitControl, "min" | "
     return min !== undefined && max !== undefined ? `Enter a number from ${min} to ${max}.`
       : min !== undefined ? `Enter a number of ${min} or more.` : `Enter a number of ${max} or less.`;
   }
-  return control.decimal || Number.isInteger(value) ? null : "Enter a whole number.";
+  if (!control.decimal) return Number.isInteger(value) ? null : "Enter a whole number.";
+  const places = control.places;
+  if (places === undefined || Number(value.toFixed(places)) === value) return null;
+  return places === 0 ? "Enter a whole number." : `Enter a number with at most ${places === 1 ? "one decimal place" : `${places} decimal places`}.`;
 }
 
 /** A choice or a switch shows its value as it is; a number and a text as

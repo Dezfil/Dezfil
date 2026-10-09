@@ -89,6 +89,8 @@ it("does not describe deletion as unavailable", () => {
 });
 
 it("rejects a stale count in the outside proof guide", () => {
-  const seeded = { ...docs, proof: docs.proof.replace("129 paths", "130 paths") };
+  // One more path than the guide says, whatever it says today.
+  const seeded = { ...docs, proof: docs.proof.replace(/(\d+) paths/, (_, paths: string) => `${Number(paths) + 1} paths`) };
+  expect(seeded.proof).not.toBe(docs.proof);
   expect(checkContractDocs(document, tools, seeded)).toContain("Proof guide counts differ from contract");
 });

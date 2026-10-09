@@ -23,6 +23,7 @@ import {
   isochroneUrl,
 } from "./endpoint";
 import { takeIsochroneSlot } from "./limiter";
+import { settingRemedy } from "@/lib/settings/remedy";
 
 /**
  * One origin, answered.
@@ -67,13 +68,22 @@ export interface AskIsochroneOptions {
   /** When the caller's whole run must be over — honoured on the near side
    * of the slot wait, where the request would otherwise start. */
   deadlineAt?: number;
+  /** The endpoint the caller's run was admitted with, kept for its every
+   * origin; absent, the endpoint in effect now. */
+  endpoint?: string;
+  /** The gap between requests the caller's run was admitted with; absent,
+   * the gap in effect at the request. */
+  gapMs?: number;
+  /** The answer time limit the caller's run was admitted with, in
+   * milliseconds; absent, the limit in effect at the request. */
+  requestTimeoutMs?: number;
 }
 
 export function isochroneUnconfiguredError(): ApiError {
   return new ApiError(
     "isochrone_unconfigured",
     "No routing endpoint is configured on this instance, so travel-time " +
-      "areas cannot be asked for. Set DEZFIL_ISOCHRONE_URL and try again.",
+      `areas cannot be asked for. ${settingRemedy("isochroneUrl")}`,
     400,
   );
 }
@@ -212,7 +222,8 @@ function unreadable(bands: number[]): OriginAnswer {
  * The provider's body, read into one origin's answer (K8).
  *
  * Exported for the criteria's literal fixtures: every check here has a
- * test that states its coordinates in the test.
+ * test that states its coordinates in the test. Travel time's Test reads its
+ * answer through here too, so it passes only what a run would take.
  */
 export function readIsochroneBody(
   text: string,
@@ -359,6 +370,93 @@ export function readIsochroneBody(
 /* The exchange                                                        */
 /* ------------------------------------------------------------------ */
 
+/** What one request to the travel-time service came back with: its status,
+ * the body for a 200 or a 400 (null past the cap or unreadable), and how
+ * long the exchange took once its slot was taken. */
+export interface IsochroneExchange {
+  statusCode: number;
+  text: string | null;
+  milliseconds: number;
+}
+
+export interface IsochroneRequestOptions {
+  signal?: AbortSignal;
+  deadlineAt?: number;
+  /** Absent, the gap in effect at the request. */
+  gapMs?: number;
+  /** Absent, the answer time limit in effect at the request. */
+  requestTimeoutMs?: number;
+  /** What the deadline throws. The engine's own timeout message embeds the
+   * URL, which may carry a key; each caller codes its own instead. */
+  timeoutError: () => ApiError;
+}
+
+/**
+ * One area, asked: below the cache, so nothing is looked up or kept. The
+ * endpoint's slot is taken first (its gap waited out), the request goes
+ * through the outbound engine, and the body is read for a 200 and for a 400
+ * (where the protocol says it has no route) and closed otherwise, before the
+ * slot is given back. A batch's every ask and the travel-time Test send
+ * through here.
+ */
+export async function requestIsochrone(
+  endpoint: string,
+  origin: { lon: number; lat: number },
+  mode: string,
+  bands: number[],
+  options: IsochroneRequestOptions,
+): Promise<IsochroneExchange> {
+  const url = isochroneUrl(endpoint, origin, mode, bands);
+  if (!url) throw isochroneUnconfiguredError();
+  const { signal, deadlineAt } = options;
+  const release = await takeIsochroneSlot(isochroneEndpointKey(endpoint), signal, options.gapMs);
+  try {
+    const left = deadlineAt === undefined ? undefined : deadlineAt - Date.now();
+    if (left !== undefined && left <= 0) throw pastDeadline();
+    const limit = options.requestTimeoutMs ?? limits.isochroneRequestTimeoutMs;
+    const started = Date.now();
+    const response = await openRemote(url.toString(), {
+      timeoutMs: left === undefined ? limit : Math.min(limit, left),
+      timeoutError: options.timeoutError,
+      headers: { accept: "application/json" },
+      ...(signal ? { signal } : {}),
+    });
+    const statusCode = response.statusCode;
+    if (statusCode === 200) {
+      const text = await readCapped(response.body, MAX_RESPONSE_BYTES);
+      return { statusCode, text, milliseconds: Date.now() - started };
+    }
+    if (statusCode === 400) {
+      // A 400 may be the provider answering: its body is read (capped) so
+      // the caller can tell the protocol's own refusal from a fault.
+      const text = await readCapped(response.body, MAX_RESPONSE_BYTES).catch(() => null);
+      return { statusCode, text, milliseconds: Date.now() - started };
+    }
+    // Destroyed, not drained — error headers then a hanging body must not
+    // hold this endpoint's one slot open into the retry.
+    response.body.destroy();
+    return { statusCode, text: null, milliseconds: Date.now() - started };
+  } finally {
+    release();
+  }
+}
+
+/**
+ * **A structured 400 is the provider answering**: a real Valhalla says "no
+ * suitable edges near location" as a 400 with a numeric error_code, and
+ * treating that as transport would retry it and fail the whole batch over
+ * one off-network origin.
+ */
+export function isNoRouteAnswer(text: string | null): boolean {
+  if (text === null) return false;
+  try {
+    const parsed = JSON.parse(text) as { error_code?: unknown };
+    return typeof parsed === "object" && parsed !== null && typeof parsed.error_code === "number";
+  } catch {
+    return false; // Not the protocol's error shape
+  }
+}
+
 async function askOnce(
   endpoint: string,
   origin: { lon: number; lat: number },
@@ -366,60 +464,20 @@ async function askOnce(
   bands: number[],
   options: AskIsochroneOptions,
 ): Promise<string | { noRoute: true } | null> {
-  const url = isochroneUrl(origin, mode, bands);
-  if (!url) throw isochroneUnconfiguredError();
-  const { signal, deadlineAt } = options;
-  const release = await takeIsochroneSlot(isochroneEndpointKey(endpoint), signal);
-  try {
-    const left = deadlineAt === undefined ? undefined : deadlineAt - Date.now();
-    if (left !== undefined && left <= 0) throw pastDeadline();
-    const response = await openRemote(url.toString(), {
-      timeoutMs:
-        left === undefined
-          ? limits.isochroneRequestTimeoutMs
-          : Math.min(limits.isochroneRequestTimeoutMs, left),
-      // The engine's own timeout message embeds the URL, which may carry a
-      // key. Coded here instead.
-      timeoutError: () => providerFailed("no answer inside the deadline"),
-      headers: { accept: "application/json" },
-      ...(signal ? { signal } : {}),
-    });
-    if (response.statusCode !== 200) {
-      // **A structured 400 is the provider answering**: a
-      // real Valhalla says "no suitable edges near location" as a 400 with
-      // a numeric error_code, and treating that as transport would retry
-      // it and fail the whole batch over one off-network origin. The body
-      // is read (capped) and, when it carries the protocol's own error
-      // shape, handed to the caller as an answer; every other non-200 is
-      // destroyed, not drained — error headers then a hanging body must
-      // not hold this endpoint's one slot open into the retry.
-      if (response.statusCode === 400) {
-        const text = await readCapped(response.body, MAX_RESPONSE_BYTES).catch(
-          () => null,
-        );
-        if (text !== null) {
-          try {
-            const parsed = JSON.parse(text) as { error_code?: unknown };
-            if (
-              typeof parsed === "object" &&
-              parsed !== null &&
-              typeof parsed.error_code === "number"
-            ) {
-              return { noRoute: true };
-            }
-          } catch {
-            /* Not the protocol's error shape — transport, below */
-          }
-        }
-        throw providerFailed("status 400");
-      }
-      response.body.destroy();
-      throw providerFailed(`status ${response.statusCode}`);
-    }
-    return await readCapped(response.body, MAX_RESPONSE_BYTES);
-  } finally {
-    release();
-  }
+  const exchange = await requestIsochrone(endpoint, origin, mode, bands, {
+    ...(options.signal ? { signal: options.signal } : {}),
+    ...(options.deadlineAt !== undefined ? { deadlineAt: options.deadlineAt } : {}),
+    ...(options.gapMs !== undefined ? { gapMs: options.gapMs } : {}),
+    ...(options.requestTimeoutMs !== undefined ? { requestTimeoutMs: options.requestTimeoutMs } : {}),
+    // The engine's own timeout message embeds the URL, which may carry a
+    // key. Coded here instead.
+    timeoutError: () => providerFailed("no answer inside the deadline"),
+  });
+  if (exchange.statusCode === 200) return exchange.text;
+  // The protocol's own refusal is handed to the caller as an answer; every
+  // other status is the provider not answering.
+  if (exchange.statusCode === 400 && isNoRouteAnswer(exchange.text)) return { noRoute: true };
+  throw providerFailed(`status ${exchange.statusCode}`);
 }
 
 async function askWithRetry(
@@ -466,7 +524,7 @@ export async function askIsochrone(
   bands: number[],
   options: AskIsochroneOptions = {},
 ): Promise<OriginAnswer> {
-  const endpoint = configuredIsochroneEndpoint();
+  const endpoint = options.endpoint ?? configuredIsochroneEndpoint();
   if (!endpoint) throw isochroneUnconfiguredError();
   const costing = COSTING_BY_MODE[mode];
   const key = isochroneCacheKey(endpoint, costing, origin, bands);

@@ -190,9 +190,26 @@
   display: flex;
 }
 
-.lockedField input {
+.lockedField :is(input, textarea) {
   width: 100%;
   padding-right: 30px;
+}
+
+/* an address or a list of hosts the server decides */
+.lockedField [data-mono] {
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+}
+
+.lockedField textarea {
+  resize: none;
+  line-height: 1.6;
+}
+
+/* beside a list, the lock stays by its first line */
+.lockedField textarea + svg {
+  top: 10px;
+  transform: none;
 }
 
 .lockedField svg {

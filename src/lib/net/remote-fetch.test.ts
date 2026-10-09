@@ -3,6 +3,11 @@ import { createServer, type Server, type IncomingMessage, type ServerResponse } 
 import type { AddressInfo } from "node:net";
 import { text } from "node:stream/consumers";
 import { openRemote } from "./remote-fetch";
+import { keepRequestsOnThisMachine } from "@/lib/test-support/outside-requests";
+
+// Every exchange here is with a loopback fixture; one that went anywhere
+// else fails its test before it leaves this machine.
+keepRequestsOnThisMachine();
 
 type Handler = (req: IncomingMessage, res: ServerResponse) => void;
 
@@ -187,6 +192,72 @@ describe("openRemote — redirects and bounds", () => {
     await expect(text(response.body)).rejects.toMatchObject({
       code: "remote_fetch_failed",
     });
+  });
+});
+
+describe("openRemote — a query sent with POST", () => {
+  interface Seen { url: string; method: string; body: string; length?: string; type?: string; agent?: string }
+  async function recording(answer: (req: IncomingMessage, res: ServerResponse) => void) {
+    const seen: Seen[] = [];
+    const fixture = await serve((req, res) => {
+      const chunks: Buffer[] = [];
+      req.on("data", (chunk: Buffer) => chunks.push(chunk));
+      req.on("end", () => {
+        seen.push({ url: req.url ?? "", method: req.method ?? "", body: Buffer.concat(chunks).toString("utf8"),
+          length: req.headers["content-length"], type: req.headers["content-type"], agent: req.headers["user-agent"] });
+        answer(req, res);
+      });
+    });
+    return { seen, ...fixture };
+  }
+  const QUERY = "data=%5Bout%3Ajson%5D%3Bnode%3Bout%3B";
+  const posting = { method: "POST" as const, body: QUERY, headers: { "content-type": "application/x-www-form-urlencoded", "user-agent": "Dezfil-test" } };
+
+  it("sends the body with its length and the caller's headers", async () => {
+    process.env.DEZFIL_EGRESS_ALLOWLIST = "127.0.0.1";
+    const fixture = await recording((_req, res) => res.end("answered"));
+    const response = await openRemote(`http://127.0.0.1:${fixture.port}/api/interpreter`, posting);
+    await expect(text(response.body)).resolves.toBe("answered");
+    expect(fixture.seen).toEqual([{ url: "/api/interpreter", method: "POST", body: QUERY, length: String(QUERY.length),
+      type: "application/x-www-form-urlencoded", agent: "Dezfil-test" }]);
+  });
+
+  it.each([307, 308])("keeps the method and the body across a %i", async (status) => {
+    process.env.DEZFIL_EGRESS_ALLOWLIST = "127.0.0.1";
+    const fixture = await recording((req, res) => {
+      if (req.url === "/start") { res.writeHead(status, { location: "/moved" }); res.end(); } else res.end("answered");
+    });
+    const response = await openRemote(`http://127.0.0.1:${fixture.port}/start`, posting);
+    await expect(text(response.body)).resolves.toBe("answered");
+    expect(fixture.seen.map(({ url, method, body }) => [url, method, body])).toEqual([["/start", "POST", QUERY], ["/moved", "POST", QUERY]]);
+  });
+
+  it.each([301, 302, 303])("asks the next hop with a GET and no body after a %i", async (status) => {
+    process.env.DEZFIL_EGRESS_ALLOWLIST = "127.0.0.1";
+    const fixture = await recording((req, res) => {
+      if (req.url === "/start") { res.writeHead(status, { location: "/moved" }); res.end(); } else res.end("answered");
+    });
+    const response = await openRemote(`http://127.0.0.1:${fixture.port}/start`, posting);
+    await expect(text(response.body)).resolves.toBe("answered");
+    expect(fixture.seen.map(({ url, method, body, length, type }) => [url, method, body, length, type])).toEqual([
+      ["/start", "POST", QUERY, String(QUERY.length), "application/x-www-form-urlencoded"],
+      ["/moved", "GET", "", undefined, undefined],
+    ]);
+  });
+
+  it("re-checks the policy on every hop, refusing a redirect into blocked space before contact", async () => {
+    const target = await serve((_req, res) => res.end("secret"));
+    const fixture = await recording((_req, res) => { res.writeHead(307, { location: `http://127.0.0.1:${target.port}/secret` }); res.end(); });
+    process.env.DEZFIL_EGRESS_ALLOWLIST = "localhost";
+    await expect(openRemote(`http://localhost:${fixture.port}/start`, posting)).rejects.toMatchObject({ code: "egress_blocked", status: 403 });
+    expect(fixture.seen).toHaveLength(1);
+    expect(target.connections()).toBe(0);
+  });
+
+  it("refuses blocked space on the first hop without sending the body", async () => {
+    const fixture = await recording((_req, res) => res.end("answered"));
+    await expect(openRemote(`http://127.0.0.1:${fixture.port}/api/interpreter`, posting)).rejects.toMatchObject({ code: "egress_blocked" });
+    expect(fixture.connections()).toBe(0);
   });
 });
 

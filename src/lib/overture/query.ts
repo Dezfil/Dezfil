@@ -1,6 +1,6 @@
 import type { Bbox } from "@/lib/bbox";
 import { OVERTURE_THEMES, type OvertureTheme } from "./catalogue";
-import { OVERTURE_S3_BASE } from "./releases";
+import { OVERTURE_S3_BASE } from "./bucket";
 
 /**
  * Pure query shaping for Overture imports — shared by the server importer,

@@ -94,6 +94,11 @@ const ALLOWED = new Set([
   // Settings: the sites that may embed published maps are addresses,
   // typed one per line.
   "src/components/settings/RuleCard.module.css :: .sites",
+  // Settings: a service's address is pasted whole into its field, and an
+  // address or the hosts the server may reach, set by the environment,
+  // show in their locked field.
+  "src/components/settings/DataTab.module.css :: .addressField",
+  "src/components/settings/SettingRows.module.css :: .lockedField [data-mono]",
   "src/components/McpSection.module.css :: .endpoint",
   // per-client commands and configuration are literal code.
   "src/components/McpSection.module.css :: .configuration",

@@ -154,6 +154,7 @@ describe("the Settings frame", () => {
       { text: "Maps", href: "/settings/maps" },
       { text: "Workflows & SQL", href: "/settings/workflows" },
       { text: "Publishing", href: "/settings/publishing" },
+      { text: "Data & services", href: "/settings/data" },
       { text: "Limits", href: "/settings/limits" },
       { text: "Security", href: "/settings/security" },
       { text: "System", href: "/settings/system" },
@@ -189,18 +190,20 @@ describe("the Settings frame", () => {
     expect(requests.every(url => !url.startsWith("/api/instance"))).toBe(true);
   });
 
-  it("opens Account for a member at the addresses of Maps, Workflows & SQL and Publishing, rows included, and never reads the configuration", async () => {
+  it("opens Account for a member at the addresses of Maps, Workflows & SQL, Publishing and Data & services, rows included, and never reads the configuration", async () => {
     await open("/settings/maps", "", "member");
     expect(nav.replace).toHaveBeenLastCalledWith("/settings/account", { scroll: false });
     expect(byId("account")?.tagName).toBe("SECTION");
-    for (const [pathname, hash] of [["/settings/workflows", "#set-minimap"], ["/settings/publishing", "#set-export-width"], ["/settings/maps", "#set-basemap"]]) {
+    for (const [pathname, hash] of [["/settings/workflows", "#set-minimap"], ["/settings/publishing", "#set-export-width"], ["/settings/maps", "#set-basemap"],
+      ["/settings/data", "#set-geocoder-address"], ["/settings/data", ""]]) {
       nav.pathname = pathname; nav.hash = hash; await follow();
       expect(nav.replace).toHaveBeenLastCalledWith("/settings/account", { scroll: false });
       expect(byId("account")?.tagName).toBe("SECTION");
       expect(column().querySelectorAll('a[aria-current="page"]').map(a => a.textContent)).toEqual(["Account"]);
     }
     expect(columnLinks().map(link => link.text)).toEqual(["Account", "Tokens", "Appearance", "General"]);
-    for (const id of ["card-new-maps", "card-workflow-canvas", "publishing-export", "set-minimap", "set-export-width", "set-basemap"]) expect(byId(id)).toBeNull();
+    for (const id of ["card-new-maps", "card-workflow-canvas", "publishing-export", "set-minimap", "set-export-width", "set-basemap",
+      "data-geocoder", "set-geocoder-address", "data-who"]) expect(byId(id)).toBeNull();
     expect(requests.every(url => !url.startsWith("/api/instance"))).toBe(true);
     expect(readLastTab()).toBe("account");
   });

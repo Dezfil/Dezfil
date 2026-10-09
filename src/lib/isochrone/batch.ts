@@ -37,7 +37,7 @@ import {
 
 /** What the disclosure says about the requests this run made. */
 export interface IsochroneDisclosure {
-  /** Host and path only — never the query string, where a key travels. */
+  /** Scheme and host only: never the path or the query, where a key travels. */
   endpoint: string | null;
   travelMode: string;
   /** The profile actually sent — the provider's own word for the mode. */
@@ -69,6 +69,13 @@ export interface IsochroneBatchOptions {
   timeoutError: () => ApiError;
   /** Where the input is read: the run's evaluation, its account otherwise. */
   reads?: DatasetScope;
+  /** The endpoint the run was admitted with, asked for every origin of the
+   * run; absent, the endpoint in effect when the batch starts. */
+  endpoint?: string;
+  /** The gap and the answer time limit (milliseconds) the run was admitted
+   * with, kept for its every request; absent, those in effect at each. */
+  gapMs?: number;
+  requestTimeoutMs?: number;
 }
 
 interface StagedBand {
@@ -211,7 +218,7 @@ export async function stageIsochroneBatch(
   options: IsochroneBatchOptions,
 ): Promise<IsochroneBatchResult> {
   const { table, mode, bands, signal, deadlineAt, timeoutError } = options;
-  const endpoint = configuredIsochroneEndpoint();
+  const endpoint = options.endpoint ?? configuredIsochroneEndpoint();
   if (!endpoint) throw isochroneUnconfiguredError();
 
   const origins = await boundedEvaluation(
@@ -233,6 +240,9 @@ export async function stageIsochroneBatch(
     const answer = await askIsochrone(origin, mode, bands, {
       ...(signal ? { signal } : {}),
       deadlineAt,
+      endpoint,
+      ...(options.gapMs === undefined ? {} : { gapMs: options.gapMs }),
+      ...(options.requestTimeoutMs === undefined ? {} : { requestTimeoutMs: options.requestTimeoutMs }),
     }).catch((error: unknown) => {
       if (Date.now() >= deadlineAt) throw timeoutError();
       throw error;

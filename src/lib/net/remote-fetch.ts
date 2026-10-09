@@ -25,7 +25,12 @@ export interface RemoteResponse {
 }
 
 export interface OpenRemoteOptions {
-  method?: "GET" | "HEAD";
+  method?: "GET" | "HEAD" | "POST";
+  /** What a POST sends (a query, say), with its length. A 307 or 308 keeps
+   * the method and sends it again to the next hop; a 301, 302 or 303 asks
+   * the next hop with a GET and no body, as browsers do. Every hop re-enters
+   * the egress policy before anything is sent. */
+  body?: string | Buffer;
   /** Overall deadline for the whole exchange — redirects and body included. */
   timeoutMs?: number;
   timeoutError?: () => ApiError;
@@ -43,6 +48,10 @@ export interface OpenRemoteOptions {
    * cancelled halfway would otherwise keep asking.
    */
   signal?: AbortSignal;
+  /** Told of each redirect answer before it is followed: its status and
+   * headers, its body closed unread. For a caller that must know who
+   * answered first, when what it is handed is the last hop's answer. */
+  onRedirect?: (hop: { statusCode: number; headers: http.IncomingHttpHeaders }) => void;
 }
 
 /** The exchange stopped because its caller stopped wanting it. Coded rather
@@ -56,12 +65,23 @@ export function abandonedError(): ApiError {
   );
 }
 
-function fetchFailed(url: string, detail: string): ApiError {
-  return new ApiError(
+function fetchFailed(url: string, detail: string, cause?: unknown): ApiError {
+  const error = new ApiError(
     "remote_fetch_failed",
     `Could not reach ${url}: ${detail}`,
     502,
   );
+  // The transport's own error, for a caller that must not repeat this
+  // message (it names the address) but may name the failure's code.
+  if (cause !== undefined) error.cause = cause;
+  return error;
+}
+
+/** The transport's error code behind a failed exchange (ECONNREFUSED,
+ * ENOTFOUND), or null: what a caller that names no address may say. */
+export function transportCode(error: unknown): string | null {
+  const code = (error as { cause?: { code?: unknown } } | null)?.cause?.code;
+  return typeof code === "string" && /^[A-Z][A-Z_]+$/.test(code) ? code : null;
 }
 
 /** URL.hostname keeps brackets on IPv6 literals; strip for isIP/policy. */
@@ -80,7 +100,8 @@ export async function openRemote(
   url: string,
   options: OpenRemoteOptions = {},
 ): Promise<RemoteResponse> {
-  const method = options.method ?? "GET";
+  let method = options.method ?? "GET";
+  let body = method === "POST" ? options.body : undefined;
   let current = url;
   const state: {
     error: ApiError | null;
@@ -142,6 +163,13 @@ export async function openRemote(
             return;
           }
           const engine = parsed.protocol === "https:" ? https : http;
+          const headers: Record<string, string> = { accept: "*/*", ...options.headers };
+          if (body === undefined) {
+            // A hop asked without the body carries nothing that describes it.
+            for (const name of Object.keys(headers)) if (/^content-(type|length)$/i.test(name)) delete headers[name];
+          } else {
+            headers["content-length"] = String(Buffer.byteLength(body));
+          }
           const req = engine.request(
             parsed,
             {
@@ -150,19 +178,20 @@ export async function openRemote(
               // name that only resolves into blocked space never opens a
               // socket, and the connected address is a validated one.
               ...(isIP(host) ? {} : { lookup: validatingLookup(host) }),
-              headers: { accept: "*/*", ...options.headers },
+              headers,
             },
             resolve,
           );
           state.active = req;
           req.on("error", (error) => reject(state.error ?? error));
-          req.end();
+          req.end(body);
         });
       } catch (error) {
         if (error instanceof ApiError) throw error;
         throw fetchFailed(
           url,
           error instanceof Error ? error.message : "network error",
+          error,
         );
       }
       state.active = response;
@@ -173,6 +202,7 @@ export async function openRemote(
       const status = response.statusCode ?? 0;
       const location = response.headers.location;
       if (REDIRECT_STATUS.has(status) && location) {
+        options.onRedirect?.({ statusCode: status, headers: response.headers });
         // A redirect may stream forever. Close it before replacing the
         // exchange's active handle; draining would leave it without an owner.
         await new Promise<void>((resolve) => {
@@ -185,6 +215,11 @@ export async function openRemote(
           current = new URL(location, parsed).toString();
         } catch {
           throw fetchFailed(url, `invalid redirect target "${location}"`);
+        }
+        // Only a 307 or a 308 keeps a POST and its body.
+        if (method === "POST" && status !== 307 && status !== 308) {
+          method = "GET";
+          body = undefined;
         }
         continue;
       }

@@ -11,6 +11,7 @@ import { readInstanceSettings } from "./read";
 import { settingsWarnings } from "./relationships";
 import type { SettingValue } from "./types";
 import type { NumericOverrides } from "./state";
+import type { AddressAdmission } from "./address-admission";
 
 /** What the resulting configuration holds for a key: the body's value, else
  * the stored one, else the default (a cleared value reads as its default). */
@@ -34,8 +35,12 @@ function rowProblems(patch: Readonly<Record<string, SettingValue>>, resulting: R
 }
 
 /** The write lock covers authority, validation, storage and response assembly.
- * The repository publishes consumers only when the enclosing commit succeeds. */
-export function changeInstanceSettings(context: AuthContext, input: unknown, db: Database = metadataDb(), now = Date.now()) {
+ * The repository publishes consumers only when the enclosing commit succeeds.
+ * A service address in the body must have passed the save-time check
+ * (`admitServiceAddresses`) first, with the same value: its refusals join
+ * the body's others, and an address the check never saw is not written. */
+export function changeInstanceSettings(context: AuthContext, input: unknown, db: Database = metadataDb(), now = Date.now(),
+  admission?: AddressAdmission) {
   return db.transaction(() => {
     requireAdmin(context, db, now);
     if (!input || typeof input !== "object" || Array.isArray(input)) {
@@ -56,7 +61,11 @@ export function changeInstanceSettings(context: AuthContext, input: unknown, db:
       const result = validateStoredValue(definition, value);
       if (!result.ok) problems.push(`${key}: ${result.reason}`);
       else patch[key] = result.value;
+      if (result.ok && definition.write?.kind === "address" && result.value !== null && admission?.checked.get(key) !== result.value) {
+        throw new Error(`${key}: an address is written only after the save-time check.`);
+      }
     }
+    problems.push(...admission?.refusals ?? []);
     const resulting = { ...readStoredSettings(db), ...patch };
     // An existing deployment mismatch is reported by the read; unrelated edits
     // cannot repair it and must remain possible.

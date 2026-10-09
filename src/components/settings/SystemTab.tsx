@@ -95,7 +95,7 @@ function Shown({ value }: { value: ShownValue }) {
 }
 
 function Source({ source }: { source: SettingSource }) {
-  if (source.kind === "stored" && source.href) return <Link href={source.href} scroll={false} className={styles.link}>Limits</Link>;
+  if (source.kind === "stored" && source.href) return <Link href={source.href} scroll={false} className={styles.link}>{source.where}</Link>;
   return <ValueText muted>{source.kind === "environment" ? "Environment" : source.kind === "default" ? "Default" : "Stored"}</ValueText>;
 }
 

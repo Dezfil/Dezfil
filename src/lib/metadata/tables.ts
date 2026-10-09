@@ -7,6 +7,7 @@ import { geometryEvidence, type GeometryEvidence } from "@/lib/geometry-evidence
 import { serializeGeometryStorage, type GeometryStorage } from "@/lib/geometry/state";
 import { listOwnedTables, ownedTableNames } from "./owned-tables";
 import { ApiError } from "@/lib/api/errors";
+import { withRecordedOrigin } from "@/lib/settings/disclosure";
 
 export type TableFormat =
   | "geoparquet"
@@ -84,6 +85,18 @@ export interface TableRow {
   imported_at: string | null;
 }
 
+/** The record as every read gives it: the service a provider run or an
+ * OpenStreetMap import reached reads as scheme and host, whenever it was
+ * recorded. The stored row is never rewritten for it. */
+function recordedSourceParams(source: string, params: Record<string, unknown>): Record<string, unknown> {
+  if (source === "osm") return withRecordedOrigin(params);
+  const disclosure = params.disclosure;
+  if (source === "operation" && typeof disclosure === "object" && disclosure !== null && !Array.isArray(disclosure)) {
+    return { ...params, disclosure: withRecordedOrigin(disclosure as Record<string, unknown>) };
+  }
+  return params;
+}
+
 export function tableFromRow(r: TableRow): DataTable {
   return {
     ...(r.geometry_recognition ? geometryEvidence(JSON.parse(r.geometry_recognition) as GeometryEvidence) : {}),
@@ -100,7 +113,7 @@ export function tableFromRow(r: TableRow): DataTable {
     createdAt: r.created_at,
     source: r.source,
     sourceParams: r.source_params
-      ? (JSON.parse(r.source_params) as Record<string, unknown>)
+      ? recordedSourceParams(r.source, JSON.parse(r.source_params) as Record<string, unknown>)
       : null,
     importedAt: r.imported_at,
   };

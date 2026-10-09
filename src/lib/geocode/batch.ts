@@ -48,7 +48,7 @@ interface StagedRow {
 
 /** What the disclosure says about the request this run made. */
 export interface Disclosure {
-  /** Host and path only — never the query string, where a key travels. */
+  /** Scheme and host only: never the path or the query, where a key travels. */
   endpoint: string | null;
   parameters: { format: string; limit: number };
   /** The address-normalization version these answers were asked under. */
@@ -78,6 +78,13 @@ export interface BatchOptions {
   timeoutError: () => ApiError;
   /** Where the input is read: the run's evaluation, its account otherwise. */
   reads?: DatasetScope;
+  /** The endpoint the run was admitted with, asked for every address of the
+   * run; absent, the endpoint in effect when the batch starts. */
+  endpoint?: string;
+  /** The gap and the answer time limit (milliseconds) the run was admitted
+   * with, kept for its every request; absent, those in effect at each. */
+  gapMs?: number;
+  requestTimeoutMs?: number;
 }
 
 function remaining(deadlineAt: number, timeoutError: () => ApiError): number {
@@ -203,7 +210,7 @@ export async function removeStage(stage: StagingInput): Promise<void> {
  */
 export async function stageBatch(scope: AccountScope, options: BatchOptions): Promise<BatchResult> {
   const { table, column, signal, deadlineAt, timeoutError } = options;
-  const endpoint = configuredEndpoint();
+  const endpoint = options.endpoint ?? configuredEndpoint();
   if (!endpoint) throw unconfiguredError();
 
   const addresses = await boundedEvaluation(
@@ -236,6 +243,9 @@ export async function stageBatch(scope: AccountScope, options: BatchOptions): Pr
     const answer = await geocodeAddress(address, {
       ...(signal ? { signal } : {}),
       deadlineAt,
+      endpoint,
+      ...(options.gapMs === undefined ? {} : { gapMs: options.gapMs }),
+      ...(options.requestTimeoutMs === undefined ? {} : { requestTimeoutMs: options.requestTimeoutMs }),
     }).catch((error: unknown) => {
       if (Date.now() >= deadlineAt) throw timeoutError();
       throw error;

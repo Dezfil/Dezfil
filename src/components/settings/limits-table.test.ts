@@ -11,6 +11,9 @@ import { capacityText, inLabels, LIMITS_CARDS, LIMITS_LABELS, LIMITS_UNITS, limi
  * rows are the ones the read reports as the server's to decide.
  */
 
+const SERVICE_NUMBERS = ["geocodePaceMs", "geocodeRequestTimeoutS", "geocodeMatchCacheHours", "isochronePaceMs",
+  "isochroneRequestTimeoutS", "isochroneCacheHours", "overpassTimeoutS", "overpassCacheHours"];
+
 let fixture: ReturnType<typeof instanceSettingsFixture>;
 beforeEach(() => { fixture = instanceSettingsFixture(); });
 afterEach(() => fixture.close());
@@ -23,7 +26,9 @@ describe("the Limits label table against the read", () => {
     // The limits are the admin's to read, and a variable can set each; the
     // numbers every signed-in account reads are what new things start with,
     // and the sign-in numbers no variable sets: both are drawn on their own tabs.
-    const editable = Object.entries(settings).filter(([, setting]) => setting.kind === "number" && setting.editable && setting.readBy === "admin" && setting.environment).map(([key]) => key);
+    // The services' numbers are drawn with their services, beside their addresses.
+    const editable = Object.entries(settings).filter(([key, setting]) => setting.kind === "number" && setting.editable && setting.readBy === "admin" && setting.environment
+      && !SERVICE_NUMBERS.includes(key)).map(([key]) => key);
     const drawn = limitsSettingRows().map(row => row.key);
     expect(new Set(drawn).size).toBe(drawn.length);
     expect(drawn.filter(key => settings[key]?.editable).sort()).toEqual(editable.sort());

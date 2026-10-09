@@ -125,14 +125,43 @@ describe("what the search finds", () => {
     expect(hits.indexOf("Instance / Limits · Time limit per tool run")).toBeLessThan(hits.indexOf("Instance / Limits · Query time limit"));
     // A keyword alone: the tabs' order, then the rows' order within a tab.
     const rows = paths(searchSettings(index(), "timeout"));
-    expect(rows.slice(0, 4)).toEqual(["Instance / Limits · Link import time limit", "Instance / Limits · Query time limit",
+    expect(rows.slice(0, 6)).toEqual(["Instance / Data & services · Answer time limit", "Instance / Data & services · Time budget per query",
+      "Instance / Limits · Link import time limit", "Instance / Limits · Query time limit",
       "Instance / Limits · Time limit per tool run", "Instance / Limits · Time limit per image"]);
-    expect(rows.slice(4).every(path => path.startsWith("Instance / System · "))).toBe(true);
+    expect(rows.slice(6).every(path => path.startsWith("Instance / System · "))).toBe(true);
   });
 
   it("finds nothing for words no setting holds", () => {
     expect(searchSettings(index(), "zebra crossing")).toEqual([]);
     expect(searchSettings(index(), "   ")).toEqual([]);
+  });
+});
+
+describe("Data & services in the search", () => {
+  it("finds a service's rows by their words and what the read discloses, a service with no address by its address row alone", () => {
+    const built = index(true, { instance: instanceReadFixture({
+      geocoderUrl: { value: { set: true, origin: "https://geocoder.example" }, source: "stored", storedValue: null },
+      geocodePaceMs: { value: 1500, source: "stored", storedValue: 1500 },
+    }, { services: { geocode: { bytes: 2 * 1024 * 1024, answers: 12, budgetMb: 64 }, isochrone: { bytes: 0, answers: 0, budgetMb: 64 },
+      overpass: { bytes: 0, answers: 0, budgetMb: 2048 }, overture: { listed: false } } }) });
+    const hit = (query: string, path: string) => searchSettings(built, query).find(each => hitPath(each) === path);
+    expect(hit("geocoder.example", "Instance / Data & services · Address")?.meta).toBe("Address finder · https://geocoder.example");
+    expect(hit("gap", "Instance / Data & services · Gap between requests")?.meta).toBe("Address finder · 1.5 seconds");
+    expect(hit("12 addresses", "Instance / Data & services · Cache")?.meta).toBe("Address finder · 2 MB of 64 MB · 12 addresses");
+    expect(hit("release list", "Instance / Data & services · Release list")?.meta).toBe("Overture Maps · Not checked yet");
+    expect(hit("allowlist", "Instance / Data & services · Hosts the server may reach")?.meta).toBe("Private network · None");
+    expect(hit("who may import", "Instance / Data & services · Who may import from links")?.meta).toBe("Connections and imports · Everyone");
+    // Travel time has no address: its address row is found, and none of the rows its card does not draw.
+    const travel = searchSettings(built, "travel time").filter(each => each.entry.kind === "row" && each.entry.card === "Travel time");
+    expect(travel.map(hitPath)).toEqual(["Instance / Data & services · Address"]);
+    expect(travel[0].meta).toBe("Travel time · Not set up");
+  });
+
+  it("lists none of Data & services for a member", () => {
+    const built = index(false);
+    for (const query of ["address finder", "gap between requests", "cache", "overpass", "private network", "who may import", "s3 address"]) {
+      expect(paths(searchSettings(built, query)).filter(path => path.includes("Data & services")), query).toEqual([]);
+    }
   });
 });
 

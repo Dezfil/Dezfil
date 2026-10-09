@@ -1,0 +1,121 @@
+/* Data & services: the card head's Test and its answer line, the Not set
+   up, Set and Default chips, a service's address row (what is in effect
+   over an empty field), a cache's use bar, and the quiet line under a
+   locked row. */
+
+.headEnd {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  max-width: 60%;
+}
+
+.test {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px 10px;
+  min-width: 0;
+}
+
+.answer {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  max-width: 48ch;
+  font-size: var(--text-label);
+  line-height: 1.5;
+  color: var(--fg-muted);
+}
+
+.answer svg {
+  flex: none;
+  align-self: center;
+  color: var(--health-ok);
+}
+
+.answer[data-answer="failed"] {
+  color: var(--danger);
+}
+
+.answer[data-answer="failed"] svg {
+  color: inherit;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg-raised);
+  color: var(--fg-muted);
+  font-size: var(--text-meta);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* an address row: what is in effect, then the empty field to paste a new one */
+.address {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+}
+
+.inEffect {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  min-width: 0;
+}
+
+.addressField {
+  width: min(420px, 100%);
+  background: var(--bg-raised);
+  border-color: var(--border-strong);
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+}
+
+.addressField:focus {
+  border-color: var(--accent);
+}
+
+.addressField[aria-invalid="true"] {
+  border-color: var(--danger);
+}
+
+/* a cache's use against its budget; the fill is quiet ink, never a data color */
+.bar {
+  position: relative;
+  flex: none;
+  width: 160px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--bg-hover);
+  overflow: hidden;
+}
+
+.bar > i {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  border-radius: 999px;
+  background: var(--fg-faint);
+}
+
+/* the quiet line under a locked row: the row's whole width */
+.under {
+  flex-basis: 100%;
+  max-width: 64ch;
+  font-size: var(--text-label);
+  line-height: 1.5;
+  color: var(--fg-muted);
+}

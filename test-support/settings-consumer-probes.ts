@@ -22,6 +22,7 @@ import { renderMapImage, renderQueueState } from "../src/lib/export/render-image
 import { initialDefinition } from "../src/lib/export/image-definition";
 import { admitPublishedRequest } from "../src/lib/publish/source-admission";
 import { socketRequest } from "../src/lib/assistant/testing/socket-request";
+import { SERVICE_NUMBER_PROBES } from "./service-number-probes";
 
 type Probe = (db: Database) => Promise<void> | void;
 const payload = Buffer.alloc(1.5 * 1024 ** 2, 32);
@@ -194,4 +195,5 @@ export const numericConsumerProbes: Record<string, Probe> = {
   },
   publicRateLimit: publicWindow("publicRateLimit"),
   publicTileRateLimit: publicWindow("publicTileRateLimit"),
+  ...SERVICE_NUMBER_PROBES,
 };

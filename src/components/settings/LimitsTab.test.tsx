@@ -1,4 +1,4 @@
-import { act } from "react";
+import { act, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { TIMEOUT_RELATIONSHIP } from "@/lib/settings/relationships";
@@ -6,6 +6,10 @@ import { installDomHost, type HostElement } from "../testing/dom-host";
 import { LimitsTab } from "./LimitsTab";
 import { instanceReadFixture } from "./read-fixture";
 import { SETTLE_MS } from "./save-unit";
+
+vi.mock("next/link", () => ({
+  default: ({ href, children, className }: { href: string; children: ReactNode; className?: string }) => <a href={href} className={className}>{children}</a>,
+}));
 
 /**
  * Limits: five cards drawn from the configuration read, each number kept
@@ -163,15 +167,23 @@ describe("Limits", () => {
     expect(buttons(card("Imports"))).not.toContain("Reset to defaults");
   });
 
-  it("marks a capacity Not set up while the read reports its service's address unset", async () => {
+  it("marks a capacity Not set up while the read reports its service's address unset, linking to the address row on Data & services", async () => {
     pinned = { isochroneUrl: { set: true, origin: "https://travel.example" } };
     await open();
     expect(row("Geocode addresses").textContent).toContain("Up to 27 addresses per run");
     expect(row("Geocode addresses").textContent).toContain("Not set up");
     expect(row("Travel-time area").textContent).toContain("Up to 13 origins per run");
     expect(row("Travel-time area").textContent).not.toContain("Not set up");
-    // A mark, not a way somewhere.
-    expect(row("Geocode addresses").querySelector("a")).toBeNull();
+    // Not set up leads to where the address is set.
+    const link = row("Geocode addresses").querySelector("a")!;
+    expect([link.textContent, link.getAttribute("href")]).toEqual(["Not set up", "/settings/data#set-geocoder-address"]);
+    expect(row("Travel-time area").querySelector("a")).toBeNull();
+    pinned = {};
+    await act(async () => root.unmount());
+    root = createRoot(container as unknown as Element);
+    await open();
+    const travel = row("Travel-time area").querySelector("a")!;
+    expect([travel.textContent, travel.getAttribute("href")]).toEqual(["Not set up", "/settings/data#set-travel-address"]);
   });
 
   it("draws no mark when the read does not say whether a service is set up", async () => {

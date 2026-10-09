@@ -52,9 +52,9 @@ reaches can pass it on.
 
 The Settings column has two groups. Under **You**, every account has **Account**
 (name, email and password), **Tokens** and **Appearance**. Under **Instance**,
-admins have **General**, **Maps**, **Workflows & SQL**, **Publishing**, **Limits**,
-**Security** and **System**, with Users linked at the column's foot; members see
-General alone, read-only.
+admins have **General**, **Maps**, **Workflows & SQL**, **Publishing**,
+**Data & services**, **Limits**, **Security** and **System**, with Users linked at
+the column's foot; members see General alone, read-only.
 
 - **Appearance** is the person's own look: Color (Kelp, Harbor, Heather or
   Slate), Contrast (Standard or More contrast), Background (Atlantic chart,
@@ -88,6 +88,20 @@ General alone, read-only.
   per line, or Off). Maps already published stay public until unpublished; a
   published page follows the embedding choice from its next load, so embed code
   on a site no longer allowed stops showing the map.
+- **Data & services** holds the address finder, travel time, OpenStreetMap,
+  Overture, cloud storage, the private hosts the server may reach, and who may
+  add database connections and import from links. A service's address is
+  pasted whole and kept on Save, then shows only as its scheme and host with
+  Set (OpenStreetMap's public server and Amazon S3 show Default); a new key
+  means pasting the whole address again, and Remove asks first. An address the
+  egress rules would refuse is refused at save, and the address finder or
+  travel time without an address shows Not set up. A card's gap between
+  requests, answer time limit and how long answers are kept change as the
+  limits do, and its Reset leaves the address alone. Test sends the service one
+  request and says how it answered, Clear empties a cache, and Check now lists
+  Overture's releases again. Reading cloud storage with the server's
+  credentials and the hosts the server may reach show locked, naming their
+  variables.
 - **Limits** changes the editable limits while the instance runs; new work uses a
   changed value at once. A limit its environment variable sets is shown locked,
   naming the variable, and changes only through the environment and a restart.
@@ -97,7 +111,7 @@ General alone, read-only.
   when new ones expire). No save signs anyone out or changes a link, token or
   password that already exists; each applies from the next session use, link,
   sign-in attempt, password or token. Who may add database connections and who
-  may import from links change only through `PATCH /api/instance/settings`;
+  may import from links are on Data & services;
   [the configuration guide](configuration.md#security-and-rules) lists every
   value.
 - **System** shows the version and how long the server has run, whether the data
@@ -362,7 +376,7 @@ design, and the limit is your disk and memory rather than a tab.
 The settings table has the bounds worth knowing: how large an upload may be, how many
 rows a query may return, when a layer becomes tiles instead of features, and how
 often the instance will talk to an external service. Admins change the editable ones
-on the Limits tab of Settings without a restart. The defaults are chosen to be
+on the Limits and Data & services tabs of Settings without a restart. The defaults are chosen to be
 safe on a small machine. Raise them deliberately, not because a limit annoyed you
 once.
 

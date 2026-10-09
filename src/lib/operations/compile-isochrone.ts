@@ -8,8 +8,9 @@ import {
   removeIsochroneStage,
   stageIsochroneBatch,
 } from "@/lib/isochrone/batch";
-import { isochroneConfigured } from "@/lib/isochrone/endpoint";
+import { configuredIsochroneEndpoint } from "@/lib/isochrone/endpoint";
 import { isochroneUnconfiguredError } from "@/lib/isochrone/provider";
+import { limits } from "@/lib/limits";
 import { maxIsochroneOrigins } from "./provider-capacities";
 export { maxIsochroneOrigins, ATTEMPTS_PER_ORIGIN } from "./provider-capacities";
 import type { DataTable } from "@/lib/metadata/tables";
@@ -200,8 +201,10 @@ export async function compileIsochrone(
   reads: DatasetScope = scope,
 ): Promise<CompiledRun> {
   const label = operation.label;
-  // First, because it is about the instance rather than the request.
-  if (!isochroneConfigured()) throw isochroneUnconfiguredError();
+  // First, because it is about the instance rather than the request. The
+  // address is taken here, at admission, and kept to the run's end.
+  const endpoint = configuredIsochroneEndpoint();
+  if (!endpoint) throw isochroneUnconfiguredError();
 
   const name = str(params, "name");
   if (requireName && !name) required(label, "name");
@@ -214,6 +217,10 @@ export async function compileIsochrone(
   const mode = modeOf(operation, params, label);
   const bands = bandsOf(params, label);
   await refuseCollisions(reads, table, label);
+  // Taken with the size check that derives from them and kept to the run's
+  // end like its address: a change applies to runs admitted after it.
+  const gapMs = limits.isochronePaceMs;
+  const requestTimeoutMs = limits.isochroneRequestTimeoutMs;
   refuseSize(table, label);
 
   return {
@@ -239,6 +246,9 @@ export async function compileIsochrone(
         table,
         mode,
         bands,
+        endpoint,
+        gapMs,
+        requestTimeoutMs,
         ...(context.signal ? { signal: context.signal } : {}),
         deadlineAt: context.deadlineAt,
         timeoutError: context.timeoutError,

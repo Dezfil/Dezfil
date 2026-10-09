@@ -1,4 +1,5 @@
 import type { OperationJob } from "@/lib/metadata/jobs";
+import { withRecordedOrigin } from "@/lib/settings/disclosure";
 
 /**
  * What a run looks like on the wire.
@@ -78,12 +79,14 @@ export function jobView(job: OperationJob): OperationRunView {
  * an unrelated run's disclosure, or silently remove it. What a run asked is a
  * fact about the run, and it settles in the same statement the run does.
  * Found at the cross-model review.
+ *
+ * Its service reads as scheme and host, whenever the run was made.
  */
 function disclosureOf(job: OperationJob): Record<string, unknown> | null {
   const disclosure = job.disclosure;
   return typeof disclosure === "object" &&
     disclosure !== null &&
     !Array.isArray(disclosure)
-    ? (disclosure as Record<string, unknown>)
+    ? withRecordedOrigin(disclosure as Record<string, unknown>)
     : null;
 }

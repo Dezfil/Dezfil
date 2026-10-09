@@ -12,6 +12,25 @@ export function discloseAddress(value: string | null): AddressDisclosure {
   } catch { return { set: true, unreadable: true }; }
 }
 
+/** What may be said about an address anywhere: its scheme and host (with a
+ * port when it has one), or null for text that is not an address. Never
+ * its user information, path, query or fragment. */
+export function addressOrigin(address: string): string | null {
+  const disclosed = discloseAddress(address);
+  return "origin" in disclosed ? disclosed.origin : null;
+}
+
+/**
+ * A record of the service a run or an import reached, as every read gives
+ * it: its `endpoint` as scheme and host. Runs and imports now record the
+ * origin alone; one recorded before that may hold the address's path, where
+ * a key can travel, and is reduced here, at read time, while the stored row
+ * stays as it was written.
+ */
+export function withRecordedOrigin(record: Record<string, unknown>): Record<string, unknown> {
+  return typeof record.endpoint === "string" ? { ...record, endpoint: addressOrigin(record.endpoint) } : record;
+}
+
 export function disclosedDefault(definition: SettingDefinition): SettingDefault | AddressDisclosure | { set: boolean } {
   if (definition.secret) return definition.key === "secretKey" ? { rule: "key-file-or-generate" } : { set: false };
   if (definition.kind === "address" && (typeof definition.defaultValue === "string" || definition.defaultValue === null)) {

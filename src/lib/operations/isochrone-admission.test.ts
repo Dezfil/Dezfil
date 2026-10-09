@@ -120,7 +120,8 @@ describe("admission refuses what it can know", () => {
     delete process.env.DEZFIL_ISOCHRONE_URL;
     await expect(compile(good)).rejects.toMatchObject({
       code: "isochrone_unconfigured",
-      message: expect.stringMatching(/DEZFIL_ISOCHRONE_URL/),
+      // What an admin can change now: the setting, while no variable locks it.
+      message: expect.stringContaining('An admin can change "Travel-time endpoint".'),
     });
   });
 });

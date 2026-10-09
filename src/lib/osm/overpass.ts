@@ -12,6 +12,10 @@ import {
 import { dataDir } from "@/lib/config";
 import { limits } from "@/lib/limits";
 import { ApiError } from "@/lib/api/errors";
+import { readCapped } from "@/lib/net/read-capped";
+import { openRemote, transportCode, type RemoteResponse } from "@/lib/net/remote-fetch";
+import { settingRemedy } from "@/lib/settings/remedy";
+import { addressOrigin, resolveServiceAddress } from "@/lib/settings/service-address";
 import { normalizeQl } from "./query";
 
 /**
@@ -19,13 +23,52 @@ import { normalizeQl } from "./query";
  * user-supplied per request; public instances rate-limit per IP, and every
  * error says so honestly. Responses cache on disk keyed by endpoint +
  * normalized query; refresh bypasses the cache by design.
+ *
+ * The endpoint may carry a key (in its user information, path or query), so
+ * what any refusal names is its scheme and host alone, and the server's own
+ * words travel only when the endpoint has nothing past its host that could
+ * hold one.
+ *
+ * The query goes through the outbound engine like every other request the
+ * server makes for a person: the endpoint, and each redirect hop, must pass
+ * the egress check before anything is sent, so a server in private space
+ * answers only once the deployment's allowlist names it.
  */
 
 export const DEFAULT_OVERPASS_ENDPOINT =
   "https://overpass-api.de/api/interpreter";
 
+/** The endpoint in effect: the variable when set, else the address an admin
+ * stored, else the public server. A stored address the instance's key no
+ * longer opens refuses with a coded error and never reaches the public
+ * server instead. */
 export function overpassEndpoint(): string {
-  return process.env.DEZFIL_OVERPASS_URL || DEFAULT_OVERPASS_ENDPOINT;
+  return resolveServiceAddress("overpassUrl").address ?? DEFAULT_OVERPASS_ENDPOINT;
+}
+
+/** What a refusal may say about the endpoint: its scheme and host. */
+function shown(endpoint: string): string {
+  return addressOrigin(endpoint) ?? "configured";
+}
+
+/** Why a refusal carries none of the server's own words. */
+const WITHHELD = "Its message is not shown for an address with a path, a query or a user name.";
+
+/** The paths an Overpass server is published at. */
+const PUBLISHED_PATHS = new Set(["/", "/api/interpreter", "/api/interpreter/", "/interpreter", "/interpreter/"]);
+
+/**
+ * Whether a refusal may pass on the server's own words: only when the
+ * endpoint has nothing in it that could hold a key. No user information, no
+ * query, no fragment, and a path an Overpass server is published at (none,
+ * `/api/interpreter` or `/interpreter`). At any other endpoint the words are
+ * withheld whatever they say: a server can repeat a key in more forms than
+ * any list of them names.
+ */
+function ownWordsShown(endpoint: string): boolean {
+  let url: URL;
+  try { url = new URL(endpoint); } catch { return false; }
+  return !url.username && !url.password && !url.search && !url.hash && PUBLISHED_PATHS.has(url.pathname);
 }
 
 export interface OverpassResponse {
@@ -106,7 +149,7 @@ export async function maintainOverpassCache(): Promise<void> {
 }
 
 async function writeCache(key: string, body: OverpassResponse, generation: number): Promise<void> {
-  const finish = await beginProviderCacheWrite(generation); if (!finish) return;
+  const finish = await beginProviderCacheWrite(generation, "overpass"); if (!finish) return;
   try {
     await mkdir(cacheDir(), { recursive: true });
     await writeFile(path.join(cacheDir(), `${key}.json`), JSON.stringify(body));
@@ -116,6 +159,54 @@ async function writeCache(key: string, body: OverpassResponse, generation: numbe
   } finally { finish(); }
 }
 
+/** What an answer's text reads as: an Overpass answer (JSON holding a list
+ * of elements, each an object), the query's own failure (an error remark),
+ * JSON that is not an Overpass answer, or not JSON at all. */
+export type OverpassAnswer =
+  | { kind: "answer"; body: OverpassResponse }
+  | { kind: "error"; remark: string }
+  | { kind: "not_overpass" }
+  | { kind: "not_json" };
+
+/** An answer's text read as the import reads it. OpenStreetMap's Test reads
+ * its answer through here too, so it passes only what an import would take. */
+export function readOverpassAnswer(text: string): OverpassAnswer {
+  let body: unknown;
+  try { body = JSON.parse(text); } catch { return { kind: "not_json" }; }
+  if (typeof body !== "object" || body === null || Array.isArray(body)) return { kind: "not_overpass" };
+  const { elements, remark } = body as { elements?: unknown; remark?: unknown };
+  if (typeof remark === "string" && /error/i.test(remark)) return { kind: "error", remark };
+  const listed = Array.isArray(elements) &&
+    elements.every(element => typeof element === "object" && element !== null && !Array.isArray(element));
+  return listed ? { kind: "answer", body: body as OverpassResponse } : { kind: "not_overpass" };
+}
+
+/** The deadline for one query: its own time budget, and time to send its
+ * answer. It covers the whole exchange, the answer's body included. */
+export function overpassDeadlineS(): number {
+  return limits.overpassTimeoutS + 30;
+}
+
+/**
+ * One query, sent: below the cache, so nothing is looked up or kept. A POST
+ * through the outbound engine, so the endpoint and each redirect hop pass the
+ * egress check before anything is sent. A query and OpenStreetMap's Test
+ * send through here.
+ */
+export function openOverpass(endpoint: string, ql: string, timeoutError: () => ApiError, deadlineS = overpassDeadlineS()): Promise<RemoteResponse> {
+  return openRemote(endpoint, {
+    method: "POST",
+    body: `data=${encodeURIComponent(ql)}`,
+    headers: {
+      "content-type": "application/x-www-form-urlencoded",
+      // Public Overpass instances refuse anonymous user agents (406).
+      "user-agent": "Dezfil/0.1 (self-hosted spatial SQL builder)",
+    },
+    timeoutMs: deadlineS * 1000,
+    timeoutError,
+  });
+}
+
 /** Fetch a query, cached. `bypassCache` re-hits the endpoint (refresh). */
 export async function fetchOverpass(
   ql: string,
@@ -123,56 +214,61 @@ export async function fetchOverpass(
 ): Promise<{ response: OverpassResponse; fromCache: boolean }> {
   const generation = providerCacheGeneration();
   const endpoint = overpassEndpoint();
+  const origin = shown(endpoint);
+  const speaks = ownWordsShown(endpoint);
   const key = cacheKey(endpoint, ql);
   if (!options.bypassCache) {
     const cached = await readCache(key);
     if (cached) return { response: cached, fromCache: true };
   }
 
-  let response: Response;
+  const deadlineS = overpassDeadlineS();
+  const pastDeadline = new ApiError(
+    "remote_fetch_failed",
+    `The Overpass endpoint ${origin} did not answer within ${deadlineS} s.`,
+    502,
+  );
+  let response: RemoteResponse;
   try {
-    response = await fetch(endpoint, {
-      method: "POST",
-      headers: {
-        "content-type": "application/x-www-form-urlencoded",
-        // Public Overpass instances refuse anonymous user agents (406).
-        "user-agent": "Dezfil/0.1 (self-hosted spatial SQL builder)",
-      },
-      body: `data=${encodeURIComponent(ql)}`,
-      signal: AbortSignal.timeout((limits.overpassTimeoutS + 30) * 1000),
-    });
+    response = await openOverpass(endpoint, ql, () => pastDeadline, deadlineS);
   } catch (error) {
+    // The egress check's refusal and the deadline name no address; the
+    // engine's other failures repeat the whole address, so only the
+    // transport's code (a refused connection, a name that does not resolve)
+    // travels.
+    if (error === pastDeadline || (error instanceof ApiError && error.code === "egress_blocked")) throw error;
+    const code = transportCode(error);
     throw new ApiError(
       "remote_fetch_failed",
-      `Could not reach the Overpass endpoint ${endpoint}: ${
-        error instanceof Error ? error.message : "network error"
-      }`,
+      `Could not reach the Overpass endpoint ${origin}${code ? ` (${code})` : ""}.`,
       502,
     );
   }
 
-  if (response.status === 429) {
+  const status = response.statusCode;
+  if (status === 429) {
+    response.body.destroy();
     throw new ApiError(
       "rate_limited",
-      `The Overpass endpoint ${endpoint} rate-limited this request (public instances limit per IP). Wait a moment and retry, or configure DEZFIL_OVERPASS_URL to your own instance.`,
+      `The Overpass endpoint ${origin} rate-limited this request (public instances limit per IP). Wait a moment and retry, or point it at your own instance. ${settingRemedy("overpassUrl")}`,
       429,
     );
   }
-  if (response.status === 504) {
+  if (status === 504) {
+    response.body.destroy();
     throw new ApiError(
       "remote_fetch_failed",
       "The Overpass endpoint timed out on this query. Narrow the area or the tags and retry.",
       502,
     );
   }
-  if (!response.ok) {
-    const text = await response.text().catch(() => "");
-    const detail = /<p><strong[^>]*>(.*?)<\/strong>/s.exec(text)?.[1];
+  if (status < 200 || status >= 300) {
+    const text = (await readCapped(response.body, 64 * 1024).catch(() => null)) ?? "";
+    const found = /<p><strong[^>]*>(.*?)<\/strong>/s.exec(text)?.[1];
+    const answered = `The Overpass endpoint ${origin} responded ${status}`;
     throw new ApiError(
       "remote_fetch_failed",
-      `The Overpass endpoint responded ${response.status}${
-        detail ? `: ${detail.slice(0, 300)}` : ""
-      }`,
+      !found ? answered : speaks ? `${answered}: ${found.slice(0, 300)}` : `${answered}. ${WITHHELD} ${settingRemedy("overpassUrl")}`,
       502,
     );
   }
@@ -181,17 +277,13 @@ export async function fetchOverpass(
   // promise is kept locally with slack — the response streams against a
   // bound instead of buffering without limit.
   const localBound = limits.overpassMaxsizeMb * 2 * 1024 * 1024;
-  let text = "";
-  if (response.body) {
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let received = 0;
-    for (;;) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      received += value.byteLength;
+  const chunks: Buffer[] = [];
+  let received = 0;
+  try {
+    for await (const chunk of response.body as AsyncIterable<Buffer>) {
+      received += chunk.length;
       if (received > localBound) {
-        await reader.cancel().catch(() => {});
+        response.body.destroy();
         throw new ApiError(
           "remote_too_large",
           `The Overpass response exceeded the local bound of ${Math.round(
@@ -200,28 +292,38 @@ export async function fetchOverpass(
           413,
         );
       }
-      text += decoder.decode(value, { stream: true });
+      chunks.push(chunk);
     }
-    text += decoder.decode();
+  } catch (error) {
+    // The bound's refusal and the deadline name no address; a transfer cut
+    // short says so without the transport's words.
+    if (error instanceof ApiError) throw error;
+    throw new ApiError("remote_fetch_failed", `The Overpass endpoint ${origin} stopped sending its answer.`, 502);
   }
-  let body: OverpassResponse;
-  try {
-    body = JSON.parse(text) as OverpassResponse;
-  } catch {
+  const answer = readOverpassAnswer(Buffer.concat(chunks).toString("utf8"));
+  if (answer.kind === "not_json") {
     throw new ApiError(
       "remote_fetch_failed",
       "The Overpass endpoint returned a non-JSON response, likely an overload page. Retry shortly.",
       502,
     );
   }
-  if (body.remark && /error/i.test(body.remark)) {
+  if (answer.kind === "error") {
     throw new ApiError(
       "remote_fetch_failed",
-      `Overpass reported: ${body.remark}. Narrow the area or the tags and retry.`,
+      speaks ? `Overpass reported: ${answer.remark}. Narrow the area or the tags and retry.`
+        : `The Overpass endpoint ${origin} responded ${status} with an error. ${WITHHELD} Narrow the area or the tags and retry.`,
+      502,
+    );
+  }
+  if (answer.kind === "not_overpass") {
+    throw new ApiError(
+      "remote_fetch_failed",
+      `The Overpass endpoint ${origin} answered with JSON that is not an Overpass answer. ${settingRemedy("overpassUrl")}`,
       502,
     );
   }
 
-  await writeCache(key, body, generation);
-  return { response: body, fromCache: false };
+  await writeCache(key, answer.body, generation);
+  return { response: answer.body, fromCache: false };
 }

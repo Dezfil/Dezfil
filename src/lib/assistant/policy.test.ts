@@ -28,13 +28,17 @@ describe("the page action policy", () => {
       expect(tool.confirm, tool.name).toBe(false);
       expect(tool.confirmWhen, tool.name).toBeUndefined();
     }
-    // Every excluded tool declares a write on some argument or a planning form.
+    // Every excluded tool declares a write on some argument, a planning form,
+    // or that it reaches outside this server.
     for (const tool of tools) {
       if (names.includes(tool.name)) continue;
-      expect(!tool.effects.readOnly || tool.effects.planningArgument !== undefined, tool.name).toBe(true);
+      expect(!tool.effects.readOnly || tool.effects.planningArgument !== undefined || tool.effects.reachesOutside === true, tool.name).toBe(true);
     }
-    // The registry holds conditional operations, so the exclusion is exercised, not vacuous.
+    // The registry holds conditional operations and one that reaches outside, so
+    // each exclusion is exercised, not vacuous.
     expect(tools.some((t) => t.effects.planningArgument !== undefined)).toBe(true);
+    expect(tools.filter((t) => t.effects.reachesOutside).map((t) => t.name)).toEqual(["test_service"]);
+    expect(names).not.toContain("test_service");
   });
 
   it("admits answers per tool the way the set is built", () => {

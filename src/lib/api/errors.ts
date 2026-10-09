@@ -112,6 +112,9 @@ export type ErrorCode =
   | "geocoder_failed"
   | "isochrone_unconfigured"
   | "isochrone_failed"
+  /** A service address an admin stored that the instance's encryption key
+   * no longer opens: the service refuses instead of reaching a default. */
+  | "service_address_unreadable"
   /** Sketch operations. */
   | "invalid_sketch_feature"
   | "not_a_sketch"

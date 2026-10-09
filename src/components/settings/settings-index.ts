@@ -4,9 +4,10 @@ import type { ApiToken } from "@/lib/metadata/auth-credentials";
 import { LANDING_PAGES } from "@/components/auth/entry-settings";
 import { DEFAULTS_TABS, rowValueWords, type DefaultsTabId } from "./defaults-table";
 import type { InstanceRead } from "./instance-read";
+import { cardSetUp, DATA_CARDS, dataRowWords } from "./data-table";
 import { capacityText, LIMITS_CARDS, withShownUnit } from "./limits-table";
 import { choiceLabel, LOOK_CARDS } from "./look-tab";
-import { PUBLIC_LINKS_CARD, ruleRowWords, SECURITY_CARDS, type RuleCard } from "./security-table";
+import { CONNECTIONS_CARD, PUBLIC_LINKS_CARD, ruleRowWords, SECURITY_CARDS, type RuleCard } from "./security-table";
 import { formatSettingNumber } from "./server-set";
 import type { IndexCard, TabDeclarations } from "./settings-search";
 import { providerName, serverSettingsRows, type AssistantStatus } from "./system-table";
@@ -15,7 +16,8 @@ import { providerName, serverSettingsRows, type AssistantStatus } from "./system
  * What each tab declares to the search: its cards and rows, under the ids
  * the tab draws them with, by the labels it shows, from the same reads the
  * tab draws from. Password fields and a new token's secret are declared
- * secret, so the search never reads them.
+ * secret, so the search never reads them. A service's address field never
+ * reports what is typed in it, so an address's key never reaches the index.
  */
 
 /** The entry screen's values, as a member's General shows them. */
@@ -110,6 +112,19 @@ function ruleCards(cards: readonly RuleCard[], read: InstanceRead): IndexCard[] 
   })) }));
 }
 
+/** Data & services: each row the tab draws, by its label, its words and
+ * its value as the card shows it. A service with no address is declared
+ * as the tab draws it, its address row alone; an address row's value is
+ * what the read discloses, never what its field holds. */
+function dataCards(read: InstanceRead): IndexCard[] {
+  return [...DATA_CARDS.map(card => {
+    const rows = cardSetUp(card, read.settings) ? card.rows : card.rows.filter(row => row.kind === "address");
+    return { id: card.id, title: card.title, keys: card.keys, rows: rows.map(row => ({
+      id: row.id, label: row.label, keys: row.keys, value: dataRowWords(row, read.settings, read.services),
+    })) };
+  }), ...ruleCards([CONNECTIONS_CARD], read)];
+}
+
 function limitsCards(read: InstanceRead): IndexCard[] {
   return LIMITS_CARDS.map(card => ({ id: card.id, title: card.title, keys: card.keys, rows: card.rows.map(row => {
     const value = row.kind === "capacity" ? capacityText(row.of, row.of === "geocode" ? read.capacities.geocodeRows : read.capacities.isochroneOrigins)
@@ -166,6 +181,7 @@ export function settingsDeclarations(sources: IndexSources, admin: boolean): Tab
     ...(admin && sources.instance ? {
       maps: defaultsCards("maps", sources.instance), workflows: defaultsCards("workflows", sources.instance),
       publishing: [...ruleCards([PUBLIC_LINKS_CARD], sources.instance), ...defaultsCards("publishing", sources.instance)],
+      data: dataCards(sources.instance),
       limits: limitsCards(sources.instance), security: ruleCards(SECURITY_CARDS, sources.instance),
       system: systemCards(sources.instance, sources.health, sources.assistant),
     } : {}),

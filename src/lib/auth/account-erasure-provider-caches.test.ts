@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { Readable } from "node:stream";
 import { mkdtemp, rm, writeFile, readFile } from "node:fs/promises";
 import path from "node:path";
 import { closeMetadataDb, metadataDb } from "@/lib/metadata/db";
@@ -13,13 +14,16 @@ import { eraseProviderCaches } from "./account-erasure-provider-caches";
 import { erasureInventory } from "./account-erasure-inventory";
 import { discoverFiles } from "../../../test-support/account-erasure-discovery";
 import { proveErasure } from "../../../test-support/account-erasure-proof";
+// Overpass answers through the outbound engine, faked here.
+const remote = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/net/remote-fetch", () => ({ openRemote: remote, transportCode: () => null }));
 const root = process.env.DEZFIL_DATA_DIR!; let directory: string;
 const endpoint = "https://provider.invalid/search", overpass = "https://overpass.invalid/interpreter";
 beforeEach(async () => {
   directory = await mkdtemp(path.join(root, "provider-caches-")); process.env.DEZFIL_DATA_DIR = directory; closeMetadataDb(); resetSecretKeyCache(); testAccountScope(undefined, "target");
   vi.stubEnv("DEZFIL_SECRET_KEY", ""); vi.stubEnv("DEZFIL_OVERPASS_URL", overpass);
   metadataDb().exec("INSERT INTO workspace_settings VALUES ('fixture', 'instance setting', 'time'); INSERT INTO custom_palettes VALUES ('fixture', 'instance palette', '[]', 'time', 'time')");
-  secretKey(); vi.stubGlobal("fetch", vi.fn(async () => Response.json({ elements: [{ id: "private answer" }] })));
+  secretKey(); remote.mockImplementation(async () => ({ statusCode: 200, body: Readable.from([Buffer.from(JSON.stringify({ elements: [{ id: "private answer" }] }))]) }));
 });
 afterEach(async () => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); closeMetadataDb(); resetSecretKeyCache(); process.env.DEZFIL_DATA_DIR = root; await rm(directory, { recursive: true, force: true }); });
 async function populate() {

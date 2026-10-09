@@ -28,6 +28,11 @@ import {
   resolveOsmRequest,
   withinShapeOf,
 } from "./import";
+import { keepRequestsOnThisMachine } from "@/lib/test-support/outside-requests";
+
+// Every query here goes to the loopback fixture; one that went to the public
+// Overpass server instead fails its test before it leaves this machine.
+keepRequestsOnThisMachine();
 import { refreshTable } from "@/lib/ingest/refresh";
 import { resetRefreshFences } from "@/lib/ingest/fence";
 import { resetQueryInstance } from "@/lib/duckdb";
@@ -255,6 +260,9 @@ beforeEach(async () => {
   });
   await new Promise<void>((resolve) => server.listen(0, () => resolve()));
   process.env.DEZFIL_OVERPASS_URL = `http://127.0.0.1:${(server.address() as AddressInfo).port}/api/interpreter`;
+  // The fixture lives on loopback, which the egress check refuses unless
+  // the allowlist names it, as an administrator's would.
+  process.env.DEZFIL_EGRESS_ALLOWLIST = "127.0.0.1";
 });
 
 afterEach(async () => {
@@ -262,6 +270,7 @@ afterEach(async () => {
   closeMetadataDb();
   delete process.env.DEZFIL_DATA_DIR;
   delete process.env.DEZFIL_OVERPASS_URL;
+  delete process.env.DEZFIL_EGRESS_ALLOWLIST;
   delete process.env.DEZFIL_OSM_MAX_KM2;
   await rm(dir, { recursive: true, force: true });
 });

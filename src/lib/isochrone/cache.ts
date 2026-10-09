@@ -90,7 +90,7 @@ export async function writeIsochrone(
   answer: CachedIsochrone,
   generation: number,
 ): Promise<void> {
-  const finish = await beginProviderCacheWrite(generation); if (!finish) return;
+  const finish = await beginProviderCacheWrite(generation, "isochrone"); if (!finish) return;
   try {
     const dir = cacheDir();
     await mkdir(dir, { recursive: true });

@@ -255,6 +255,9 @@ describe("tool parity", () => {
       .sort();
     expect(confirmed).toEqual([
       "change_password",
+      // Emptying a cache loses nothing a service cannot answer again, but
+      // it is asked for as every instance-wide change is.
+      "clear_service_caches",
       "clear_table_geometry",
       "create_api_token",
       "delete_layer",
@@ -278,6 +281,8 @@ describe("tool parity", () => {
       "revoke_api_token",
       "revoke_inactive_publication",
       "set_project_person",
+      // Changes nothing here, but it sends a request outside this server.
+      "test_service",
       // Ownership is the one change only the new owner can undo.
       "transfer_map",
       "transfer_project",

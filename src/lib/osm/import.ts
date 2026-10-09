@@ -1,4 +1,5 @@
 import { settingRemedy } from "@/lib/settings/remedy";
+import { addressOrigin } from "@/lib/settings/disclosure";
 import { admitAccountWork } from "@/lib/auth/account-deletion-admission";
 import { registerAccountFile, removeAccountFile, fileAccountId } from "@/lib/ingest/file-ownership";
 import { listOwnedTables } from "@/lib/metadata/owned-tables";
@@ -408,7 +409,9 @@ export async function importOsm(
                 ),
               }
             : {}),
-          endpoint: overpassEndpoint(),
+          // The server reached, as scheme and host: the address may carry
+          // a key in its user information, path or query.
+          endpoint: addressOrigin(overpassEndpoint()),
           group,
           class: cls,
           promoted: resolved.promoted,

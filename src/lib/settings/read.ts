@@ -7,6 +7,7 @@ import { maxBatchRows, maxIsochroneOrigins } from "@/lib/operations/provider-cap
 import { SETTING_CATALOGUE } from "./catalogue";
 import { disclosedDefinition } from "./disclosure";
 import { readDeploymentSetting } from "./deployment-read";
+import { serviceAddressSetting } from "./service-address";
 import { resolveNumericSettings } from "./resolver";
 import { readStoredSettings } from "./store";
 import type { NumericOverrides } from "./state";
@@ -22,7 +23,8 @@ export function readInstanceSettings(context: AuthContext, db: Database = metada
       geocodePaceMs: numbers.geocodePaceMs.value, geocodeRequestTimeoutMs: numbers.geocodeRequestTimeoutS.value * 1000,
       isochronePaceMs: numbers.isochronePaceMs.value, isochroneRequestTimeoutMs: numbers.isochroneRequestTimeoutS.value * 1000 };
     const settings = Object.fromEntries(SETTING_CATALOGUE.filter(d => d.scope !== "account").map(definition => {
-      const resolved = numbers[definition.key] ?? (definition.environment ? readDeploymentSetting(definition) : {
+      const resolved = numbers[definition.key] ?? (definition.write?.kind === "address" ? serviceAddressSetting(definition, db)
+        : definition.environment ? readDeploymentSetting(definition) : {
         value: stored[definition.key] ?? definition.defaultValue,
         source: definition.key in stored ? "stored" : "default", storedValue: stored[definition.key] ?? null,
         locked: false, invalidOverride: false,

@@ -1,10 +1,12 @@
 import { testAccountScope } from "@/lib/test-support/accounts";
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { mkdtemp, rm, readdir, readFile } from "node:fs/promises";
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import path from "node:path";
-import { closeMetadataDb } from "@/lib/metadata/db";
+import { closeMetadataDb, metadataDb } from "@/lib/metadata/db";
+import { resetSecretKeyCache } from "@/lib/secrets";
+import { writeStoredSettings } from "@/lib/settings/store";
 import { listTables } from "@/lib/metadata/tables";
 import { ApiError } from "@/lib/api/errors";
 import {
@@ -13,6 +15,12 @@ import {
   resolveRemoteSource,
   translateObjectUrl,
 } from "./remote";
+import { keepRequestsOnThisMachine } from "@/lib/test-support/outside-requests";
+
+// Every request here goes to a loopback fixture; one that went to a public
+// store instead (Amazon's or Google's addresses) fails its test before it
+// leaves this machine.
+keepRequestsOnThisMachine();
 
 /** Single-table imports, unwrapped (made the answer a result set). */
 const importOne = async (url: string, name?: string) =>
@@ -36,7 +44,7 @@ beforeEach(async () => {
 
   server = createServer((req, res) => {
     seen.push(req.url ?? "");
-    if (req.url === "/points.csv" || req.url === "/bucket/dir/points.csv") {
+    if (req.url === "/points.csv" || req.url === "/bucket/dir/points.csv" || req.url === "/base/bucket/a.csv?key=SEEDED-KEY-0003-QUERY") {
       res.writeHead(200, { "content-type": "text/csv" });
       res.end(csv);
     } else if (req.url === "/big.csv" || req.url === "/bucket/big.csv") {
@@ -211,6 +219,17 @@ describe("translateObjectUrl", () => {
       "http://minio.example:9000/bucket/f.csv",
     );
   });
+
+  it("puts the bucket and key under a custom endpoint's own path, its query and credentials kept", () => {
+    process.env.DEZFIL_S3_ENDPOINT = "http://SEEDED-KEY-0003-USER:SEEDED-KEY-0003-PASS@minio.example:9000/base?key=SEEDED-KEY-0003-QUERY";
+    expect(translateObjectUrl(parseRemoteUrl("s3://bucket/dir/f.csv"))).toBe(
+      "http://SEEDED-KEY-0003-USER:SEEDED-KEY-0003-PASS@minio.example:9000/base/bucket/dir/f.csv?key=SEEDED-KEY-0003-QUERY",
+    );
+    process.env.DEZFIL_S3_ENDPOINT = "http://minio.example:9000/base/?key=SEEDED-KEY-0003-QUERY";
+    expect(translateObjectUrl(parseRemoteUrl("s3://bucket/f.csv"))).toBe(
+      "http://minio.example:9000/base/bucket/f.csv?key=SEEDED-KEY-0003-QUERY",
+    );
+  });
 });
 
 describe("anonymous object-store road", () => {
@@ -221,6 +240,17 @@ describe("anonymous object-store road", () => {
   it("streams an s3:// object through its HTTPS form, path included", async () => {
     const source = await resolveRemoteSource("s3://bucket/dir/points.csv");
     expect(seen).toEqual(["/bucket/dir/points.csv"]);
+    await expect(readFile(source.sourcePath, "utf8")).resolves.toBe(csv);
+    await source.cleanup();
+  });
+
+  it("asks for an object under the S3 address's path, with its query and credentials", async () => {
+    process.env.DEZFIL_S3_ENDPOINT = `${base.replace("//", "//SEEDED-KEY-0003-USER:SEEDED-KEY-0003-PASS@")}/base?key=SEEDED-KEY-0003-QUERY`;
+    const credentials: (string | undefined)[] = [];
+    server.prependListener("request", (req) => credentials.push(req.headers.authorization));
+    const source = await resolveRemoteSource("s3://bucket/a.csv");
+    expect(seen).toEqual(["/base/bucket/a.csv?key=SEEDED-KEY-0003-QUERY"]);
+    expect(credentials).toEqual([`Basic ${Buffer.from("SEEDED-KEY-0003-USER:SEEDED-KEY-0003-PASS").toString("base64")}`]);
     await expect(readFile(source.sourcePath, "utf8")).resolves.toBe(csv);
     await source.cleanup();
   });
@@ -274,5 +304,97 @@ describe("credentialed object-store road (opt-in)", () => {
       resolveRemoteSource("s3://bucket/huge.parquet"),
     ).rejects.toMatchObject({ code: "remote_too_large", status: 413 });
     expect(seen).toEqual(["/bucket/huge.parquet"]);
+  });
+});
+
+describe("a refusal on the cloud-storage road", () => {
+  // The S3 address an admin gives may carry a key in its user information
+  // and its path; a refusal names the person's own link instead.
+  const SEEDS = "SEEDED-KEY-0001";
+  let store: Server;
+  let origin: string;
+
+  beforeEach(async () => {
+    store = createServer((req, res) => {
+      if (req.url === `/${SEEDS}-PATH/bucket/hang.csv`) return; // accept, never answer
+      if (req.url === `/${SEEDS}-PATH/bucket/cut.csv`) {
+        res.writeHead(200, { "content-type": "text/csv" });
+        res.write("name,value\n");
+        setTimeout(() => res.socket?.destroy(), 20);
+        return;
+      }
+      res.writeHead(404);
+      res.end(`no such key under ${req.url}`);
+    });
+    await new Promise<void>((resolve) => store.listen(0, "127.0.0.1", () => resolve()));
+    origin = `http://127.0.0.1:${(store.address() as AddressInfo).port}`;
+  });
+
+  afterEach(async () => {
+    if (store.listening) await new Promise<void>((resolve) => store.close(() => resolve()));
+    vi.unstubAllEnvs();
+    resetSecretKeyCache();
+  });
+
+  function use(address: string, via: "variable" | "stored") {
+    if (via === "variable") { process.env.DEZFIL_S3_ENDPOINT = address; return; }
+    vi.stubEnv("DEZFIL_SECRET_KEY", "7a".repeat(32));
+    resetSecretKeyCache();
+    writeStoredSettings({ s3Endpoint: address }, metadataDb());
+  }
+
+  const address = () => origin.replace("//", `//${SEEDS}-USER:${SEEDS}-PASS@`) + `/${SEEDS}-PATH`;
+
+  async function refusal(link: string): Promise<ApiError> {
+    try {
+      await resolveRemoteSource(link);
+    } catch (error) {
+      return error as ApiError;
+    }
+    throw new Error("expected a refusal");
+  }
+
+  function namesOnlyTheLink(error: ApiError, link: string) {
+    expect(error.message).toContain(link);
+    expect(error.message).not.toContain(SEEDS);
+    expect(error.message).not.toContain(origin.slice("http://".length));
+  }
+
+  it.each(["variable", "stored"] as const)("names the link when the store answers a status (%s)", async (via) => {
+    use(address(), via);
+    const error = await refusal("s3://bucket/missing.csv");
+    expect(error).toMatchObject({ code: "remote_fetch_failed", status: 502 });
+    expect(error.message).toMatch(/^The server responded 404 for s3:\/\/bucket\/missing\.csv\./);
+    namesOnlyTheLink(error, "s3://bucket/missing.csv");
+  });
+
+  it.each(["variable", "stored"] as const)("names the link when the store cannot be reached (%s)", async (via) => {
+    use(address(), via);
+    await new Promise<void>((resolve) => store.close(() => resolve()));
+    const error = await refusal("s3://bucket/points.csv");
+    expect(error).toMatchObject({ code: "remote_fetch_failed", status: 502 });
+    expect(error.message).toMatch(/^Could not reach the cloud storage holding s3:\/\/bucket\/points\.csv\./);
+    namesOnlyTheLink(error, "s3://bucket/points.csv");
+  });
+
+  it("names the link when the store does not answer in time", async () => {
+    process.env.DEZFIL_REMOTE_TIMEOUT_S = "1";
+    use(address(), "variable");
+    const error = await refusal("s3://bucket/hang.csv");
+    expect(error).toMatchObject({ code: "remote_timeout", status: 504 });
+    namesOnlyTheLink(error, "s3://bucket/hang.csv");
+  });
+
+  it("names the link when the transfer is cut", async () => {
+    use(address(), "variable");
+    const error = await refusal("s3://bucket/cut.csv");
+    expect(error).toMatchObject({ code: "remote_fetch_failed" });
+    expect(error.message).toMatch(/^The download from s3:\/\/bucket\/cut\.csv was interrupted\./);
+    namesOnlyTheLink(error, "s3://bucket/cut.csv");
+  });
+
+  it("still names a web address it was given, as given", async () => {
+    const error = await refusal(`${origin}/${SEEDS}-PATH/elsewhere.csv`);
+    expect(error.message).toBe(`The server responded 404 for ${origin}/${SEEDS}-PATH/elsewhere.csv.`);
   });
 });

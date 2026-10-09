@@ -4,6 +4,7 @@ import type { ToolDef } from "@/lib/tools/tools";
 import { executeTool } from "@/lib/tools/execute";
 import type { ToolCall } from "./provider";
 import { valuesAt, type ResolvedConfirmation } from "./action-metadata";
+import { recordedArguments } from "./recorded-arguments";
 
 interface ConfirmationDeps { revisions?: AssistantRevisions; baseUrl: string; fetchImpl?: typeof fetch; signal?: AbortSignal }
 /** The recipe API owns membership. Bind its current ordered plan, never model-supplied membership. */
@@ -26,9 +27,11 @@ export async function prepareConfirmation(tool: ToolDef, call: ToolCall, deps: C
   const words = tool.confirmation;
   if (!words) throw new Error(`Missing confirmation declaration for ${tool.name}`);
   const identity = String(call.args[words.subject.argument] ?? "");
+  // The words are a record of the call: an address in them reads as scheme and host.
+  const shown = String(recordedArguments(call.args)[words.subject.argument] ?? "");
   let name: string | undefined;
   let read: unknown;
-  if (words.subject.path === null) return { runPlanRevision, words: { target: words.target.replace("{target}", identity), consequence: words.consequence } };
+  if (words.subject.path === null) return { runPlanRevision, words: { target: words.target.replace("{target}", shown), consequence: words.consequence } };
   const pathname = words.subject.path.replace(/\{([^}]+)\}/g, (_, key: string) => encodeURIComponent(String(call.args[key] ?? "")));
   try {
     const response = await (deps.fetchImpl ?? fetch)(deps.baseUrl.replace(/\/$/, "") + pathname, { signal: deps.signal });
@@ -43,6 +46,6 @@ export async function prepareConfirmation(tool: ToolDef, call: ToolCall, deps: C
       read = subject;
     }
   } catch { /* Identity remains exact if the optional display name cannot be read. */ }
-  const target = name && name !== identity ? `${name} (${identity})` : identity;
+  const target = name && name !== identity ? `${name} (${shown})` : shown;
   return { runPlanRevision, words: { target: words.target.replace("{target}", target), consequence: words.consequence }, subject: read };
 }
