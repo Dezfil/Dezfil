@@ -50,8 +50,7 @@ import { SETTING_CATALOGUE } from "./catalogue";
  *
  * The search knows a key as written, percent-encoded, in base64 and
  * base64url, in hex and in UTF-16, and the user information also as the
- * pair a Basic credential encodes: the forms the server's own check looks
- * for before it repeats a service's words.
+ * pair a Basic credential encodes.
  *
  * The steps run in order on one instance, one data folder and one set of
  * console sinks: each searches what it made, and the last two search what

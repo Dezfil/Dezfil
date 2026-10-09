@@ -14,7 +14,6 @@ import { limits } from "@/lib/limits";
 import { ApiError } from "@/lib/api/errors";
 import { readCapped } from "@/lib/net/read-capped";
 import { openRemote, transportCode, type RemoteResponse } from "@/lib/net/remote-fetch";
-import { repeatsAddressSecret } from "@/lib/settings/address-secrets";
 import { settingRemedy } from "@/lib/settings/remedy";
 import { addressOrigin, resolveServiceAddress } from "@/lib/settings/service-address";
 import { normalizeQl } from "./query";
@@ -27,8 +26,8 @@ import { normalizeQl } from "./query";
  *
  * The endpoint may carry a key (in its user information, path or query), so
  * what any refusal names is its scheme and host alone, and the server's own
- * words travel only when they repeat no part of the address that may carry
- * one, in any form.
+ * words travel only when the endpoint has nothing past its host that could
+ * hold one.
  *
  * The query goes through the outbound engine like every other request the
  * server makes for a person: the endpoint, and each redirect hop, must pass
@@ -53,13 +52,23 @@ function shown(endpoint: string): string {
 }
 
 /** Why a refusal carries none of the server's own words. */
-const WITHHELD = "Its message is not shown: it repeats part of the address.";
+const WITHHELD = "Its message is not shown for an address with a path, a query or a user name.";
 
-/** The server's own words, when they are text that repeats no part of the
- * endpoint that may carry a key, in any form; otherwise nothing. Checked
- * whole, before any shortening, so a key cut in half is not kept either. */
-function ownWords(words: unknown, endpoint: string): string | undefined {
-  return typeof words === "string" && words && !repeatsAddressSecret(words, endpoint) ? words : undefined;
+/** The paths an Overpass server is published at. */
+const PUBLISHED_PATHS = new Set(["/", "/api/interpreter", "/api/interpreter/", "/interpreter", "/interpreter/"]);
+
+/**
+ * Whether a refusal may pass on the server's own words: only when the
+ * endpoint has nothing in it that could hold a key. No user information, no
+ * query, no fragment, and a path an Overpass server is published at (none,
+ * `/api/interpreter` or `/interpreter`). At any other endpoint the words are
+ * withheld whatever they say: a server can repeat a key in more forms than
+ * any list of them names.
+ */
+function ownWordsShown(endpoint: string): boolean {
+  let url: URL;
+  try { url = new URL(endpoint); } catch { return false; }
+  return !url.username && !url.password && !url.search && !url.hash && PUBLISHED_PATHS.has(url.pathname);
 }
 
 export interface OverpassResponse {
@@ -206,6 +215,7 @@ export async function fetchOverpass(
   const generation = providerCacheGeneration();
   const endpoint = overpassEndpoint();
   const origin = shown(endpoint);
+  const speaks = ownWordsShown(endpoint);
   const key = cacheKey(endpoint, ql);
   if (!options.bypassCache) {
     const cached = await readCache(key);
@@ -255,11 +265,10 @@ export async function fetchOverpass(
   if (status < 200 || status >= 300) {
     const text = (await readCapped(response.body, 64 * 1024).catch(() => null)) ?? "";
     const found = /<p><strong[^>]*>(.*?)<\/strong>/s.exec(text)?.[1];
-    const detail = ownWords(found, endpoint)?.slice(0, 300);
     const answered = `The Overpass endpoint ${origin} responded ${status}`;
     throw new ApiError(
       "remote_fetch_failed",
-      detail ? `${answered}: ${detail}` : found ? `${answered}. ${WITHHELD} ${settingRemedy("overpassUrl")}` : answered,
+      !found ? answered : speaks ? `${answered}: ${found.slice(0, 300)}` : `${answered}. ${WITHHELD} ${settingRemedy("overpassUrl")}`,
       502,
     );
   }
@@ -300,10 +309,9 @@ export async function fetchOverpass(
     );
   }
   if (answer.kind === "error") {
-    const remark = ownWords(answer.remark, endpoint);
     throw new ApiError(
       "remote_fetch_failed",
-      remark ? `Overpass reported: ${remark}. Narrow the area or the tags and retry.`
+      speaks ? `Overpass reported: ${answer.remark}. Narrow the area or the tags and retry.`
         : `The Overpass endpoint ${origin} responded ${status} with an error. ${WITHHELD} Narrow the area or the tags and retry.`,
       502,
     );
