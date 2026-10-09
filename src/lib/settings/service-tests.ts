@@ -4,13 +4,13 @@ import { ApiError } from "@/lib/api/errors";
 import { requireAdmin } from "@/lib/auth/admin";
 import type { AuthContext } from "@/lib/auth/credentials";
 import { configuredEndpoint } from "@/lib/geocode/endpoint";
-import { requestGeocoder } from "@/lib/geocode/provider";
+import { readAnswerBody, requestGeocoder } from "@/lib/geocode/provider";
 import { openS3AddressRoot } from "@/lib/ingest/remote";
 import { configuredIsochroneEndpoint } from "@/lib/isochrone/endpoint";
-import { isNoRouteAnswer, requestIsochrone } from "@/lib/isochrone/provider";
+import { isNoRouteAnswer, readIsochroneBody, requestIsochrone } from "@/lib/isochrone/provider";
 import { metadataDb } from "@/lib/metadata/db";
 import { readCapped } from "@/lib/net/read-capped";
-import { openOverpass, overpassEndpoint } from "@/lib/osm/overpass";
+import { openOverpass, overpassEndpoint, readOverpassAnswer } from "@/lib/osm/overpass";
 import { keepReleaseList, sendReleaseListing } from "@/lib/overture/releases";
 import type { ServiceTestAnswer, TestedService } from "./service-test-answer";
 
@@ -26,13 +26,16 @@ import type { ServiceTestAnswer, TestedService } from "./service-test-answer";
  *
  * The answer is a closed shape (`service-test-answer.ts`): what the service
  * said is read only to tell a pass from a failure, and none of it, nor the
- * address or a key, is ever part of the answer.
+ * address or a key, is ever part of the answer. It is read by the service's
+ * own reader (a geocoding run's, a travel-time run's, an import's), so an
+ * answer those would not take is answered, but not as the service does.
  */
 
 /** The address finder's fixed question. */
 export const TEST_PLACE = "Paris";
 /** Travel time's fixed point, asked on foot for the shortest band. */
 export const TEST_POINT = { lon: 2.3522, lat: 48.8566 };
+const TEST_BANDS = [1];
 /** The smallest Overpass query: it selects nothing and prints it. */
 export const TEST_QUERY = "[out:json][timeout:10];out;";
 /** Past this a Test's answer is not read further; none needs more. */
@@ -46,11 +49,6 @@ const unexpected = (service: TestedService): ServiceTestAnswer =>
   ({ service, result: "failed", reason: "unexpected_answer" });
 const notSetUp = (service: TestedService): ServiceTestAnswer =>
   ({ service, result: "failed", reason: "not_set_up" });
-
-function parsed(text: string | null): unknown {
-  if (text === null) return null;
-  try { return JSON.parse(text); } catch { return null; }
-}
 
 /** A status answered: the body is closed unread. */
 function closing(response: { body: { destroy(): void } }, answer: ServiceTestAnswer): ServiceTestAnswer {
@@ -71,18 +69,20 @@ const TESTS: Record<TestedService, (deadline: () => ApiError) => Promise<Service
     // A person waiting, as at a search: ahead of a batch, after the gap.
     const exchange = await requestGeocoder(endpoint, TEST_PLACE, { priority: "interactive", timeoutError: deadline });
     if (exchange.statusCode !== 200) return answeredWith("geocode", exchange.statusCode);
-    return Array.isArray(parsed(exchange.text)) ? passed("geocode", exchange.milliseconds) : unexpected("geocode");
+    return exchange.text !== null && readAnswerBody(exchange.text) !== null ? passed("geocode", exchange.milliseconds) : unexpected("geocode");
   },
 
   async isochrone(deadline) {
     const endpoint = configuredIsochroneEndpoint();
     if (!endpoint) return notSetUp("isochrone");
-    const exchange = await requestIsochrone(endpoint, TEST_POINT, "walking", [1], { timeoutError: deadline });
+    const exchange = await requestIsochrone(endpoint, TEST_POINT, "walking", TEST_BANDS, { timeoutError: deadline });
     // No route from the point, in the protocol's own words, is the service answering.
     if (exchange.statusCode === 400 && isNoRouteAnswer(exchange.text)) return passed("isochrone", exchange.milliseconds);
     if (exchange.statusCode !== 200) return answeredWith("isochrone", exchange.statusCode);
-    const body = parsed(exchange.text) as { features?: unknown } | null;
-    return typeof body === "object" && body !== null && Array.isArray(body.features)
+    // A band with no route is the service answering; an answer the run
+    // could not read is not.
+    const read = exchange.text === null ? null : readIsochroneBody(exchange.text, TEST_POINT, TEST_BANDS);
+    return read !== null && read.bands.every(band => band.status !== "unreadable_answer")
       ? passed("isochrone", exchange.milliseconds) : unexpected("isochrone");
   },
 
@@ -90,11 +90,9 @@ const TESTS: Record<TestedService, (deadline: () => ApiError) => Promise<Service
     const started = Date.now();
     const response = await openOverpass(overpassEndpoint(), TEST_QUERY, deadline);
     if (response.statusCode < 200 || response.statusCode >= 300) return closing(response, answeredWith("overpass", response.statusCode));
-    const body = parsed(await readCapped(response.body, ANSWER_BYTES)) as { elements?: unknown; remark?: unknown } | null;
+    const text = await readCapped(response.body, ANSWER_BYTES);
     const milliseconds = Date.now() - started;
-    const answered = typeof body === "object" && body !== null && Array.isArray(body.elements) &&
-      !(typeof body.remark === "string" && /error/i.test(body.remark));
-    return answered ? passed("overpass", milliseconds) : unexpected("overpass");
+    return text !== null && readOverpassAnswer(text).kind === "answer" ? passed("overpass", milliseconds) : unexpected("overpass");
   },
 
   async overture(deadline) {

@@ -150,6 +150,28 @@ async function writeCache(key: string, body: OverpassResponse, generation: numbe
   } finally { finish(); }
 }
 
+/** What an answer's text reads as: an Overpass answer (JSON holding a list
+ * of elements, each an object), the query's own failure (an error remark),
+ * JSON that is not an Overpass answer, or not JSON at all. */
+export type OverpassAnswer =
+  | { kind: "answer"; body: OverpassResponse }
+  | { kind: "error"; remark: string }
+  | { kind: "not_overpass" }
+  | { kind: "not_json" };
+
+/** An answer's text read as the import reads it. OpenStreetMap's Test reads
+ * its answer through here too, so it passes only what an import would take. */
+export function readOverpassAnswer(text: string): OverpassAnswer {
+  let body: unknown;
+  try { body = JSON.parse(text); } catch { return { kind: "not_json" }; }
+  if (typeof body !== "object" || body === null || Array.isArray(body)) return { kind: "not_overpass" };
+  const { elements, remark } = body as { elements?: unknown; remark?: unknown };
+  if (typeof remark === "string" && /error/i.test(remark)) return { kind: "error", remark };
+  const listed = Array.isArray(elements) &&
+    elements.every(element => typeof element === "object" && element !== null && !Array.isArray(element));
+  return listed ? { kind: "answer", body: body as OverpassResponse } : { kind: "not_overpass" };
+}
+
 /** The deadline for one query: its own time budget, and time to send its
  * answer. It covers the whole exchange, the answer's body included. */
 export function overpassDeadlineS(): number {
@@ -269,19 +291,16 @@ export async function fetchOverpass(
     if (error instanceof ApiError) throw error;
     throw new ApiError("remote_fetch_failed", `The Overpass endpoint ${origin} stopped sending its answer.`, 502);
   }
-  const text = Buffer.concat(chunks).toString("utf8");
-  let body: OverpassResponse;
-  try {
-    body = JSON.parse(text) as OverpassResponse;
-  } catch {
+  const answer = readOverpassAnswer(Buffer.concat(chunks).toString("utf8"));
+  if (answer.kind === "not_json") {
     throw new ApiError(
       "remote_fetch_failed",
       "The Overpass endpoint returned a non-JSON response, likely an overload page. Retry shortly.",
       502,
     );
   }
-  if (body.remark && /error/i.test(body.remark)) {
-    const remark = ownWords(body.remark, endpoint);
+  if (answer.kind === "error") {
+    const remark = ownWords(answer.remark, endpoint);
     throw new ApiError(
       "remote_fetch_failed",
       remark ? `Overpass reported: ${remark}. Narrow the area or the tags and retry.`
@@ -289,7 +308,14 @@ export async function fetchOverpass(
       502,
     );
   }
+  if (answer.kind === "not_overpass") {
+    throw new ApiError(
+      "remote_fetch_failed",
+      `The Overpass endpoint ${origin} answered with JSON that is not an Overpass answer. ${settingRemedy("overpassUrl")}`,
+      502,
+    );
+  }
 
-  await writeCache(key, body, generation);
-  return { response: body, fromCache: false };
+  await writeCache(key, answer.body, generation);
+  return { response: answer.body, fromCache: false };
 }

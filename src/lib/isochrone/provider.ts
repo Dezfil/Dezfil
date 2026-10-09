@@ -222,7 +222,8 @@ function unreadable(bands: number[]): OriginAnswer {
  * The provider's body, read into one origin's answer (K8).
  *
  * Exported for the criteria's literal fixtures: every check here has a
- * test that states its coordinates in the test.
+ * test that states its coordinates in the test. Travel time's Test reads its
+ * answer through here too, so it passes only what a run would take.
  */
 export function readIsochroneBody(
   text: string,

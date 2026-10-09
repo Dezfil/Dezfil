@@ -164,8 +164,11 @@ function wireNumber(value: unknown): number | null {
  * **One candidate, chosen by the provider** (J3): the first entry it returned,
  * in its own ranking. A row per candidate would break one-row-out-per-row-in,
  * which is what makes the result usable without a join back.
+ *
+ * Null for an answer this instance cannot read. The address finder's Test
+ * reads its answer through here too, so it passes only what a run would take.
  */
-function readAnswerBody(text: string): CachedAnswer | null {
+export function readAnswerBody(text: string): CachedAnswer | null {
   let parsed: unknown;
   try {
     parsed = JSON.parse(text);

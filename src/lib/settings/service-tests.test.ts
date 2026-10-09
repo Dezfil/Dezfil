@@ -291,6 +291,26 @@ describe("each failure reason comes from its own fixture", () => {
     expect((await runTest(service)).body).toEqual({ service, result: "failed", reason: "unexpected_answer" });
   });
 
+  // Answers in the service's own format that its own reader refuses, as a
+  // geocoding run, a travel-time run or an import would.
+  const snapped = { type: "Feature", properties: { type: "snapped" }, geometry: { type: "MultiPoint", coordinates: [[TEST_POINT.lon, TEST_POINT.lat]] } };
+  const around = (lon: number, lat: number) => [[[lon - .01, lat - .01], [lon + .01, lat - .01], [lon + .01, lat + .01], [lon - .01, lat + .01], [lon - .01, lat - .01]]];
+  const MALFORMED: [Service, string, unknown][] = [
+    ["geocode", "a list holding null", [null]],
+    ["geocode", "a match with no coordinates", [{ display_name: `${ECHO} Place`, licence: "Fixture" }]],
+    ["geocode", "a match off the globe", [{ display_name: `${ECHO} Place`, lat: "91", lon: "2.3522", licence: "Fixture" }]],
+    ["isochrone", "the band's contour with no geometry", { type: "FeatureCollection", features: [{ type: "Feature", properties: { contour: 1 }, geometry: null }, snapped] }],
+    ["isochrone", "the band's contour away from the point", { type: "FeatureCollection", features: [{ type: "Feature", properties: { contour: 1 }, geometry: { type: "Polygon", coordinates: around(0, 0) } }, snapped] }],
+    ["isochrone", "the band's contour with an open ring", { type: "FeatureCollection", features: [{ type: "Feature", properties: { contour: 1 }, geometry: { type: "Polygon", coordinates: [around(TEST_POINT.lon, TEST_POINT.lat)[0].slice(0, 4)] } }, snapped] }],
+    ["overpass", "elements holding null", { version: 0.6, generator: ECHO, elements: [null] }],
+    ["overpass", "elements holding a number", { version: 0.6, generator: ECHO, elements: [1] }],
+  ];
+  it.each(MALFORMED)("answered, but not as the service does: %s with %s", async (service, _what, reply) => {
+    answer = (_service, _req, res) => json(res, 200, reply);
+    expect((await runTest(service)).body).toEqual({ service, result: "failed", reason: "unexpected_answer" });
+    expect(askedOf(service)).toHaveLength(1);
+  });
+
   it("refuses a stored address the instance's key no longer opens, reaching nothing", async () => {
     const port = (fixtures[0].address() as AddressInfo).port;
     vi.stubEnv("DEZFIL_GEOCODER_URL", undefined);

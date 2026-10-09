@@ -119,7 +119,7 @@ describe("fetchOverpass response handling", () => {
     const ql = "[out:json];node;out;";
     await serve((res) => {
       res.writeHead(200, { "content-type": "application/json" });
-      res.end('{"elements":[1]}');
+      res.end('{"elements":[{"type":"node","id":1,"lat":52.5,"lon":13.4}]}');
     });
     const key = cacheKey(overpassEndpoint(), ql);
     await seedEntry(key, 100, 5); // expired against the 1 h TTL
@@ -255,6 +255,20 @@ describe("a refusal from the Overpass endpoint", () => {
     expect(refused).toMatchObject({ code: "remote_fetch_failed",
       message: `The Overpass endpoint ${origin} responded 200 with an error. ${WITHHELD} Narrow the area or the tags and retry.` });
     expect(refused.message).not.toMatch(/SEEDED|Basic/);
+  });
+
+  it.each([
+    ["an object with no elements", {}],
+    ["elements that are not a list", { elements: null }],
+    ["elements holding null", { elements: [null] }],
+    ["a list", []],
+    ["null", null],
+  ])("refuses an answer that is not an Overpass answer: %s, naming scheme and host, and keeps nothing", async (_what, body) => {
+    const origin = await serve(200, JSON.stringify(body));
+    const refused = await refusal(`${origin}${PATH}${QUERY}`);
+    expect(refused).toMatchObject({ code: "remote_fetch_failed",
+      message: `The Overpass endpoint ${origin} answered with JSON that is not an Overpass answer. ${settingRemedy("overpassUrl")}` });
+    await expect(readdir(cache)).resolves.toEqual([]);
   });
 
   it("keeps the server's own words when they repeat nothing of the address", async () => {
