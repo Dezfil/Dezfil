@@ -614,11 +614,6 @@
       "rule": "Drain target render waiters and active launches; preserve other accounts work and non-content capacity counters.",
       "fixture": "memory:src/lib/export/render-drive.ts#driveRender.browser"
     },
-    "memory:src/lib/export/render-drive.ts#driveRender.closing": {
-      "action": "erase",
-      "rule": "Drain target render waiters and active launches; preserve other accounts work and non-content capacity counters.",
-      "fixture": "memory:src/lib/export/render-drive.ts#driveRender.closing"
-    },
     "memory:src/lib/export/render-drive.ts#driveRender.error": {
       "action": "erase",
       "rule": "Drain target render waiters and active launches; preserve other accounts work and non-content capacity counters.",
@@ -3990,11 +3985,6 @@
         "memory:src/lib/export/render-drive.ts#driveRender.browser"
       ]
     },
-    "memory:src/lib/export/render-drive.ts#driveRender.closing": {
-      "stores": [
-        "memory:src/lib/export/render-drive.ts#driveRender.closing"
-      ]
-    },
     "memory:src/lib/export/render-drive.ts#driveRender.error": {
       "stores": [
         "memory:src/lib/export/render-drive.ts#driveRender.error"
@@ -5352,6 +5342,11 @@
       ]
     },
     "memory:src/lib/system/storage.ts#kept": {
+      "stores": [
+        "memory:storage-read"
+      ]
+    },
+    "memory:src/lib/system/storage.ts#readStorage.walking": {
       "stores": [
         "memory:storage-read"
       ]
