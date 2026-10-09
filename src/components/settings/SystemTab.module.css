@@ -1,5 +1,6 @@
 /* System: a part's state (a dot and its words) in a cell of one width,
-   the quiet reason beside it, the provider's chip, and the server's
+   a kind's size in Storage likewise, the quiet reason or file count
+   beside them, the provider's chip, and the server's
    settings table, where a variable's name and a source never break inside
    a word and a setting's name wraps only between its words. */
 
@@ -33,6 +34,12 @@
 .stateCell {
   display: inline-flex;
   min-width: 96px;
+}
+
+/* A kind's size keeps one width, so the bars line up down Storage. */
+.amount {
+  display: inline-flex;
+  min-width: 72px;
 }
 
 .quiet {

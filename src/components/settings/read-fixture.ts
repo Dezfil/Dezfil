@@ -1,5 +1,6 @@
 import { SETTING_CATALOGUE } from "@/lib/settings/catalogue";
 import { disclosedDefinition } from "@/lib/settings/disclosure";
+import type { StorageRead } from "@/lib/system/storage-answer";
 import type { InstanceRead } from "./instance-read";
 import type { ReadSetting } from "./server-set";
 
@@ -39,4 +40,25 @@ export function instanceReadFixture(resolved: Readonly<Record<string, Resolution
 export function storedRead(stored: Readonly<Record<string, unknown>>, facts: Partial<Omit<InstanceRead, "settings">> = {}): InstanceRead {
   return instanceReadFixture(Object.fromEntries(Object.entries(stored).filter(([, value]) => value !== null && value !== undefined)
     .map(([key, value]) => [key, { value, source: "stored", storedValue: value }])), facts);
+}
+
+const MIB = 1024 * 1024, GIB = 1024 * MIB;
+
+/** For tests: a storage read shaped as the server answers it, every kind
+ * counted to the end, unless `kinds` says otherwise; the total is what
+ * the kinds add up to. */
+export function storageReadFixture(kinds: Partial<StorageRead["kinds"]> = {}, disk: StorageRead["disk"] = { free: 182 * GIB, total: 250 * GIB }): StorageRead {
+  const all: StorageRead["kinds"] = {
+    tables: { bytes: 12_698 * MIB, files: 412, finished: true },
+    tile_archives: { bytes: 3_174 * MIB, files: 83, finished: true },
+    service_caches: { bytes: 6.5 * MIB, files: 120, finished: true },
+    thumbnails: { bytes: 84 * MIB, files: 38, finished: true },
+    metadata_database: { bytes: 46 * MIB, files: 3, finished: true },
+    leftover_files: { bytes: 212 * MIB, files: 14, finished: true },
+    other: { bytes: 40 * 1024, files: 2, finished: true },
+    ...kinds,
+  };
+  const uses = Object.values(all);
+  return { kinds: all, total: { bytes: uses.reduce((sum, use) => sum + use.bytes, 0), files: uses.reduce((sum, use) => sum + use.files, 0),
+    finished: uses.every(use => use.finished) }, disk };
 }

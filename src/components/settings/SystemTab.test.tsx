@@ -6,8 +6,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { settingDefinition } from "@/lib/settings/catalogue";
 import type { Part, PartTestAnswer } from "@/lib/system/part-test-answer";
 import type { PartStates } from "@/lib/system/part-states";
+import type { StorageRead } from "@/lib/system/storage-answer";
 import { installDomHost, type HostElement } from "../testing/dom-host";
-import { instanceReadFixture, type Resolution } from "./read-fixture";
+import { instanceReadFixture, storageReadFixture, type Resolution } from "./read-fixture";
 import { SystemTab } from "./SystemTab";
 
 vi.mock("next/link", () => ({
@@ -17,9 +18,10 @@ vi.mock("next/link", () => ({
 /**
  * System: the Status card from the configuration read and the health
  * read the rail's dot uses, each part with its state and its Test, the
- * read-only Assistant card from the assistant's status read, and the
- * Server settings table. The reads and the Tests are faked; nothing here
- * reaches a server.
+ * Storage card from the storage read with Clear all on the service
+ * caches, the read-only Assistant card from the assistant's status read,
+ * and the Server settings table. The reads, the Tests and the Clear are
+ * faked; nothing here reaches a server.
  */
 
 let resolved: Record<string, Resolution>;
@@ -32,6 +34,11 @@ let partReads: Partial<PartStates>[];
 /** What each part's Test answers. */
 let answers: Partial<Record<Part, PartTestAnswer>>;
 let tested: string[];
+/** What the storage read answers, or null to fail it. */
+let storage: StorageRead | null;
+/** Each request's method and address, in order. */
+let calls: { method: string; url: string }[];
+let clearFails: boolean;
 let host: ReturnType<typeof installDomHost>;
 let root: ReturnType<typeof createRoot>;
 let container: HostElement;
@@ -41,9 +48,18 @@ beforeEach(() => {
   vi.setSystemTime(Date.parse("2026-10-07T09:30:00.000Z"));
   resolved = { dataDir: { value: "/data", source: "environment", locked: true } };
   health = 200; failRead = false; requests = []; partReads = [{}]; answers = {}; tested = [];
+  storage = storageReadFixture(); calls = []; clearFails = false;
   assistant = { enabled: true, provider: "anthropic", model: "claude-opus-5", models: [], catalogue: {}, stepBudget: 20, autoCheck: true };
   vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
     requests.push(url);
+    calls.push({ method: init?.method ?? "GET", url });
+    if (url === "/api/instance/storage") {
+      return storage ? Response.json(storage) : Response.json({ error: { code: "internal", message: "Storage could not be read." } }, { status: 500 });
+    }
+    if (url === "/api/instance/caches" && init?.method === "DELETE") {
+      return clearFails ? Response.json({ error: { code: "internal", message: "The caches could not be cleared." } }, { status: 500 })
+        : Response.json({ cleared: ["geocode", "isochrone", "overpass"] });
+    }
     if (url === "/api/instance/settings") {
       const fixture = instanceReadFixture(resolved, { version: "0.4.2", startedAt: "2026-10-04T09:00:00.000Z" });
       const parts = partReads.length > 1 ? partReads.shift()! : partReads[0];
@@ -78,18 +94,20 @@ async function open() {
   await act(async () => root.render(<SystemTab />));
   await settle();
 }
-const titles = () => container.querySelectorAll("section").map(section => section.querySelector("h2")!.textContent);
-const card = (title: string) => container.querySelectorAll("section").find(section => section.querySelector("h2")?.textContent === title)!;
+/** A card's title: its heading's own words, before any count beside them. */
+const title = (section: HostElement) => section.querySelector("h2")!.childNodes[0]?.textContent ?? "";
+const titles = () => container.querySelectorAll("section").map(title);
+const card = (name: string) => container.querySelectorAll("section").find(section => title(section) === name)!;
 const byId = (id: string) => container.querySelector(`[id="${id}"]`)!;
 const cells = (id: string) => byId(id).querySelectorAll("td").map(cell => cell.textContent);
 const press = (scope: HostElement, label: string) => act(async () => { scope.querySelectorAll("button").find(button => button.textContent === label)!.click(); });
 
 describe("System", () => {
-  it("draws Status, then the Assistant, then the Server settings, with a Test on each part and nothing else to press", async () => {
+  it("draws Status, then Storage, then the Assistant, then the Server settings, with a Test on each part, Clear all and nothing else to press", async () => {
     await open();
-    expect(titles()).toEqual(["Status", "Assistant", "Server settings"]);
-    // A Test per part; no cleanup, no Reset.
-    expect(container.querySelectorAll("button").map(button => button.textContent)).toEqual(["Test", "Test", "Test", "Test", "Test"]);
+    expect(titles()).toEqual(["Status", "Storage", "Assistant", "Server settings"]);
+    // A Test per part and Clear all on the caches; no cleanup, no Reset.
+    expect(container.querySelectorAll("button").map(button => button.textContent)).toEqual(["Test", "Test", "Test", "Test", "Test", "Clear all"]);
     expect(card("Status").querySelectorAll("button")).toHaveLength(5);
   });
 
@@ -174,7 +192,7 @@ describe("System", () => {
     await press(byId("sys-tiler") as HostElement, "Test");
     await settle();
     expect(byId("sys-tiler").textContent).toBe("Tile buildertippecanoeFoundTestBuilt a test archive in 900 ms");
-    expect(titles()).toEqual(["Status", "Assistant", "Server settings"]);
+    expect(titles()).toEqual(["Status", "Storage", "Assistant", "Server settings"]);
   });
 
   it("shows the assistant on with its provider as a chip, and no key, model or access choice", async () => {
@@ -229,7 +247,118 @@ describe("System", () => {
     failRead = false;
     await press(container, "Try again");
     await settle();
-    expect(titles()).toEqual(["Status", "Assistant", "Server settings"]);
+    expect(titles()).toEqual(["Status", "Storage", "Assistant", "Server settings"]);
+  });
+});
+
+describe("System's Storage", () => {
+  const MIB = 1024 * 1024;
+  const storageRows = () => card("Storage").querySelectorAll("[id]").map(row => row.getAttribute("id")!).filter(id => id.startsWith("sys-") && !id.endsWith("-label"));
+  const bar = (id: string) => byId(id).querySelector("i")?.style.width;
+  const count = () => card("Storage").querySelector("h2")!.textContent!.slice("Storage".length);
+  const clearAll = () => byId("sys-caches").querySelectorAll("button").find(button => button.textContent === "Clear all")!;
+
+  it("reads what the data folder holds when System opens: the total in the head, each kind with its size, share and files, and the free space", async () => {
+    await open();
+    expect(calls).toContainEqual({ method: "GET", url: "/api/instance/storage" });
+    expect(count()).toBe("15.8 GB");
+    expect(storageRows()).toEqual(["sys-tables", "sys-tiles", "sys-caches", "sys-thumbnails", "sys-metadata-size", "sys-leftovers", "sys-other", "sys-free"]);
+    expect(byId("sys-tables").textContent).toBe("Tables12.4 GB412 files");
+    expect(byId("sys-tiles").textContent).toBe("Tile archives3.1 GB83 files");
+    expect(byId("sys-caches").textContent).toBe("Service caches6.5 MB120 filesClear all");
+    expect(byId("sys-thumbnails").textContent).toBe("Thumbnails84 MB38 files");
+    expect(byId("sys-metadata-size").textContent).toBe("Metadata database46 MB3 files");
+    expect(byId("sys-other").textContent).toBe("Other40 KB2 files");
+    expect(byId("sys-free").textContent).toBe("Free on the disk182 GB of 250 GB");
+    // The share of what the folder holds, drawn as a bar.
+    expect(["sys-tables", "sys-tiles", "sys-caches", "sys-thumbnails", "sys-metadata-size", "sys-leftovers", "sys-other"].map(bar))
+      .toEqual(["78%", "20%", "0%", "1%", "0%", "1%", "0%"]);
+    expect(bar("sys-free")).toBeUndefined();
+  });
+
+  it("notes Leftover files with what it holds and when it goes, and offers nothing to press there", async () => {
+    await open();
+    expect(byId("sys-leftovers").textContent).toBe("Leftover filesIncludes work in progress. What is left goes at the next restart.212 MB14 files");
+    expect(byId("sys-leftovers").querySelectorAll("button")).toEqual([]);
+    expect(card("Storage").querySelectorAll("button").map(button => button.textContent)).toEqual(["Clear all"]);
+  });
+
+  it("gives each kind the read did not finish as at least what it counted, the total too, and Not counted for nothing", async () => {
+    storage = storageReadFixture({
+      tables: { bytes: 12_698 * MIB, files: 412, finished: false },
+      leftover_files: { bytes: 0, files: 0, finished: false },
+    });
+    await open();
+    expect(count()).toBe("At least 15.6 GB");
+    expect(byId("sys-tables").textContent).toBe("TablesAt least 12.4 GBAt least 412 files");
+    expect(byId("sys-leftovers").textContent).toBe("Leftover filesIncludes work in progress. What is left goes at the next restart.Not counted");
+    // A finished kind beside them reads as it is.
+    expect(byId("sys-tiles").textContent).toBe("Tile archives3.1 GB83 files");
+  });
+
+  it("clears the caches through the caches operation, says Cleared, and shows them empty with the total without them", async () => {
+    await open();
+    await act(async () => { clearAll().click(); });
+    await settle();
+    expect(calls.filter(call => call.method === "DELETE")).toEqual([{ method: "DELETE", url: "/api/instance/caches" }]);
+    expect(byId("sys-caches").textContent).toBe("Service cachesNoneClear allCleared");
+    expect(byId("sys-caches").querySelector('[role="status"]')?.textContent).toBe("Cleared");
+    expect(bar("sys-caches")).toBe("0%");
+    expect(count()).toBe("15.8 GB");
+    expect(clearAll().disabled).toBe(true);
+    // The other kinds are as read; nothing was read again.
+    expect(byId("sys-tables").textContent).toBe("Tables12.4 GB412 files");
+    expect(calls.filter(call => call.url === "/api/instance/storage")).toHaveLength(1);
+  });
+
+  it("holds Clear all back while the caches are empty, and keeps it for caches it did not finish counting", async () => {
+    storage = storageReadFixture({ service_caches: { bytes: 0, files: 0, finished: true } });
+    await open();
+    expect(byId("sys-caches").textContent).toBe("Service cachesNoneClear all");
+    expect(clearAll().disabled).toBe(true);
+    act(() => root.unmount());
+    root = createRoot(container as unknown as Element);
+    storage = storageReadFixture({ service_caches: { bytes: 0, files: 0, finished: false } });
+    await open();
+    expect(clearAll().disabled).toBe(false);
+  });
+
+  it("keeps the caches as read and says why when Clear all fails", async () => {
+    clearFails = true;
+    await open();
+    await act(async () => { clearAll().click(); });
+    await settle();
+    expect(byId("sys-caches").textContent).toBe("Service caches6.5 MB120 filesClear allThe caches could not be cleared.");
+    expect(byId("sys-caches").querySelector('[role="status"]')).toBeNull();
+    expect(clearAll().disabled).toBe(false);
+  });
+
+  it("draws no name, path or file name: not the data folder's path, not the database's file", async () => {
+    resolved = { dataDir: { value: "/srv/dezfil-data", source: "environment", locked: true } };
+    await open();
+    const text = card("Storage").textContent!;
+    expect(byId("sys-data-folder").textContent).toContain("/srv/dezfil-data");
+    expect(text).not.toContain("dezfil-data");
+    expect(text).not.toContain("metadata.sqlite");
+    expect(text).not.toMatch(/\//);
+  });
+
+  it("says Unknown for the free space when the system would not say", async () => {
+    storage = storageReadFixture({}, null);
+    await open();
+    expect(byId("sys-free").textContent).toBe("Free on the diskUnknown");
+    expect(byId("sys-free").querySelector("[data-muted]")?.textContent).toBe("Unknown");
+  });
+
+  it("draws a failed storage read as the error note with Try again, the other cards drawn", async () => {
+    storage = null;
+    await open();
+    expect(titles()).toEqual(["Status", "Storage", "Assistant", "Server settings"]);
+    expect(card("Storage").querySelector('[role="alert"]')?.textContent).toContain("Storage could not be read.");
+    storage = storageReadFixture();
+    await press(card("Storage"), "Try again");
+    await settle();
+    expect(byId("sys-tables").textContent).toBe("Tables12.4 GB412 files");
   });
 });
 

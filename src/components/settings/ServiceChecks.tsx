@@ -21,7 +21,7 @@ import styles from "./DataTab.module.css";
  */
 
 /** A mark that shows for a moment, then goes. */
-function useMoment(): [boolean, () => void, () => void] {
+export function useMoment(): [boolean, () => void, () => void] {
   const [shown, setShown] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);

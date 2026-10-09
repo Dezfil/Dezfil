@@ -104,6 +104,8 @@ describe("what the search finds", () => {
   it("finds each part on System's Status by its name, its program and its state, as its row shows it before a Test", () => {
     const status = (query: string) => searchSettings(index(), query).filter(hit => hit.meta?.startsWith("Status · "));
     expect(status("tippecanoe").map(hit => [hitPath(hit), hit.meta])).toEqual([["Instance / System · Tile builder", "Status · tippecanoe Found"]]);
+    // Storage's rows are another card's: none of them is a Status hit.
+    expect(status("metadata").map(hitPath)).toEqual(["Instance / System · Metadata database"]);
     expect(status("duckdb").map(hit => [hitPath(hit), hit.meta])).toEqual([["Instance / System · Query engine", "Status · DuckDB 1.5.4 Not started yet"]]);
     expect(status("at once").map(hitPath)).toEqual(["Instance / System · Image renderer"]);
     expect(status("metadata.sqlite").map(hitPath)).toEqual(["Instance / System · Metadata database"]);
@@ -112,6 +114,22 @@ describe("what the search finds", () => {
     const read = sources().instance!;
     const missing = { ...read, parts: { ...read.parts, tile_builder: { found: false, version: null } } };
     expect(searchSettings(index(true, { instance: missing }), "not found").map(hitPath)).toContain("Instance / System · Tile builder");
+  });
+
+  it("finds each kind on System's Storage by its name and its words, and Free on the disk, opening the tab on the row", () => {
+    const storage = (query: string) => searchSettings(index(), query).filter(hit => hit.meta === "Storage");
+    expect(storage("leftover").map(hit => [hitPath(hit), hit.target])).toEqual([["Instance / System · Leftover files", { tab: "system", anchor: "sys-leftovers" }]]);
+    expect(storage("scratch").map(hitPath)).toEqual(["Instance / System · Leftover files"]);
+    expect(storage("pmtiles").map(hitPath)).toEqual(["Instance / System · Tile archives"]);
+    expect(storage("geocode").map(hitPath)).toEqual(["Instance / System · Service caches"]);
+    expect(storage("thumbnails").map(hitPath)).toEqual(["Instance / System · Thumbnails"]);
+    expect(storage("free on the disk").map(hitPath)).toEqual(["Instance / System · Free on the disk"]);
+    expect(storage("tables").map(hitPath)).toContain("Instance / System · Tables");
+    expect(storage("metadata").map(hitPath)).toEqual(["Instance / System · Metadata database"]);
+    expect(storage("other").map(hitPath)).toContain("Instance / System · Other");
+    // The card itself, by its name and its words.
+    expect(searchSettings(index(), "disk usage").find(hit => hit.entry.kind === "card" && hit.name === "Storage")?.target)
+      .toEqual({ tab: "system", anchor: "system-storage" });
   });
 
   it("finds tabs and cards by their names, and lands a card's hit on the card", () => {

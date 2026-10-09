@@ -6,7 +6,7 @@ import { openPrivateState } from "../auth/private-state";
 import { endTraversalsWith, traversalKept, traversalTaken } from "../auth/kept-traversals";
 import { DISPLAY_NAME_EVENT } from "../UserBadge";
 import { readLastTab, writeLastTab } from "./last-tab";
-import { storedRead } from "./read-fixture";
+import { storageReadFixture, storedRead } from "./read-fixture";
 import { SettingsFrame } from "./SettingsFrame";
 
 /**
@@ -94,6 +94,7 @@ beforeEach(() => {
     if (url === "/api/settings") return Response.json({ displayName: accountName, instanceName: null, viewPrefs: {}, sourceGrouping: "kind", look: {} });
     if (url === "/api/assistant") return Response.json({ enabled: false, reason: "No model key is set." });
     if (url === "/api/health") return Response.json({ status: "ok" });
+    if (url === "/api/instance/storage") return Response.json(storageReadFixture());
     return Response.json({ error: { code: "not_found", message: "Not found." } }, { status: 404 });
   }));
   openPrivateState("ada");

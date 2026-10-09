@@ -1,6 +1,7 @@
 import type { Account } from "@/lib/metadata/accounts";
 import type { Look } from "@/lib/look";
 import { PARTS } from "@/lib/system/part-test-answer";
+import { STORAGE_KINDS } from "@/lib/system/storage-answer";
 import type { ApiToken } from "@/lib/metadata/auth-credentials";
 import { LANDING_PAGES } from "@/components/auth/entry-settings";
 import { DEFAULTS_TABS, rowValueWords, type DefaultsTabId } from "./defaults-table";
@@ -12,6 +13,7 @@ import { CONNECTIONS_CARD, PUBLIC_LINKS_CARD, ruleRowWords, SECURITY_CARDS, type
 import { formatSettingNumber } from "./server-set";
 import type { IndexCard, TabDeclarations } from "./settings-search";
 import { partMeta, partState, STATUS_ROWS } from "./status-table";
+import { FREE_ROW, STORAGE_CARD, STORAGE_ROWS } from "./storage-table";
 import { providerName, serverSettingsRows, type AssistantStatus } from "./system-table";
 
 /**
@@ -147,6 +149,9 @@ function systemCards(read: InstanceRead, health: IndexSources["health"], assista
       { id: "sys-version", label: "Version", keys: "release build dezfil", value: read.version },
       ...parts,
     ] },
+    // Storage by its rows' names and words: its sizes are read when System
+    // opens, never by a search.
+    { ...STORAGE_CARD, rows: [...STORAGE_KINDS.map(kind => STORAGE_ROWS[kind]), FREE_ROW].map(({ id, label, keys }) => ({ id, label, keys })) },
     { id: "system-assistant", title: "Assistant", keys: "status on off", rows: assistant ? [
       { id: "sys-assistant-status", label: "Status", keys: "on off enabled disabled assistant",
         value: assistant.enabled ? "On" : `Off ${assistant.reason}` },

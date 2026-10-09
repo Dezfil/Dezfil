@@ -10,15 +10,16 @@ import { Rows, SettingRow, ValueText } from "./SettingRows";
 import { Note, SettingsCard } from "./SettingsCard";
 import { useDrawn } from "./settings-land";
 import { PartRow, State } from "./StatusRows";
+import { StorageCard } from "./StorageCard";
 import type { Health } from "./status-table";
 import { providerName, runningFor, serverSettingsRows, type AssistantStatus, type SettingSource, type ShownValue } from "./system-table";
 import cardStyles from "./SettingsCard.module.css";
 import styles from "./SystemTab.module.css";
 
-/** System: the version and each part's state with its Test, the
- * assistant's status, and every setting a server variable decides with
- * the value in effect and where it came from. Nothing here changes a
- * setting. */
+/** System: the version and each part's state with its Test, what the data
+ * folder holds by kind, the assistant's status, and every setting a server
+ * variable decides with the value in effect and where it came from.
+ * Nothing here changes a setting. */
 export function SystemTab() {
   const { read, error, retry } = useInstanceRead();
   const health = useHealth();
@@ -28,6 +29,7 @@ export function SystemTab() {
   if (!read) return <p role="status" className={cardStyles.loading}>Loading settings…</p>;
   return <>
     <StatusCard read={read} health={health} />
+    <StorageCard />
     <AssistantCard />
     <ServerSettingsCard read={read} />
   </>;
