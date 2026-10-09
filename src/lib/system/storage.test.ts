@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { lstatSync, mkdirSync, mkdtempSync, readdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { setTimeout as sleep } from "node:timers/promises";
 import { GET } from "@/app/api/instance/storage/route";
 import { admits } from "@/lib/assistant/policy";
 import { socketRequest } from "@/lib/assistant/testing/socket-request";
@@ -22,7 +23,7 @@ import { testAccountScope } from "@/lib/test-support/accounts";
 import { cleanTileScratch, sweepTileArchives } from "@/lib/tiles/build";
 import { buildTools } from "@/lib/tools/tools";
 import { STORAGE_KINDS, type StorageKind, type StorageRead } from "./storage-answer";
-import { forgetStorageRead, readStorage } from "./storage";
+import { forgetStorageRead, readStorage, STORAGE_WALK_MS } from "./storage";
 
 /**
  * The storage read: what the data folder holds, by kind, from its names and
@@ -30,22 +31,35 @@ import { forgetStorageRead, readStorage } from "./storage";
  * a path. Leftover files are what the next restart's sweeps remove, held
  * here against the sweeps themselves. One walk at a time, its answer given
  * again for 30 seconds unless a cache's Clear came between, and a walk
- * stopped at 10 seconds, its reference read included, gives what it had
- * not finished as at least. Admins only; a link counts nothing.
+ * stopped at 10 seconds, its reference read, every filesystem call and the
+ * disk's statistics included, gives what it had not finished as at least.
+ * Admins only; a link counts nothing.
  */
 
 keepRequestsOnThisMachine();
 
-/** Reads of the data folder's top, one per walk, and what a test does at a read or after the references. */
-const watch = vi.hoisted(() => ({ root: "", walks: 0, onRead: null as null | ((dir: string) => void), afterReferences: null as null | (() => void) }));
+/** Reads of the data folder's top, one per walk, and what a test does at a
+ * read or after the references; `hold` answers a filesystem call in the
+ * call's place, as one that does not come back. */
+type Held = (call: "readdir" | "lstat" | "statfs", target: string) => Promise<unknown> | undefined;
+const watch = vi.hoisted(() => ({ root: "", walks: 0, calls: 0, onRead: null as null | ((dir: string) => void), afterReferences: null as null | (() => void), hold: null as null | Held }));
 vi.mock("node:fs/promises", async importOriginal => {
   const real = await importOriginal<typeof import("node:fs/promises")>();
   const readdir = ((dir: unknown, ...rest: unknown[]) => {
+    watch.calls += 1;
     if (String(dir) === watch.root) watch.walks += 1;
     watch.onRead?.(String(dir));
-    return (real.readdir as (...given: unknown[]) => unknown)(dir, ...rest);
+    return watch.hold?.("readdir", String(dir)) ?? (real.readdir as (...given: unknown[]) => unknown)(dir, ...rest);
   }) as typeof real.readdir;
-  return { ...real, readdir, default: { ...real, readdir } };
+  const lstat = ((file: unknown, ...rest: unknown[]) => {
+    watch.calls += 1;
+    return watch.hold?.("lstat", String(file)) ?? (real.lstat as (...given: unknown[]) => unknown)(file, ...rest);
+  }) as typeof real.lstat;
+  const statfs = ((folder: unknown, ...rest: unknown[]) => {
+    watch.calls += 1;
+    return watch.hold?.("statfs", String(folder)) ?? (real.statfs as (...given: unknown[]) => unknown)(folder, ...rest);
+  }) as typeof real.statfs;
+  return { ...real, readdir, lstat, statfs, default: { ...real, readdir, lstat, statfs } };
 });
 vi.mock("./storage-references", async importOriginal => {
   const real = await importOriginal<typeof import("./storage-references")>();
@@ -80,7 +94,7 @@ beforeEach(() => {
   vi.stubEnv("DEZFIL_DATA_DIR", data);
   closeMetadataDb();
   forgetStorageRead();
-  Object.assign(watch, { root: data, walks: 0, onRead: null, afterReferences: null });
+  Object.assign(watch, { root: data, walks: 0, calls: 0, onRead: null, afterReferences: null, hold: null });
   p = people();
 });
 afterEach(() => {
@@ -293,6 +307,80 @@ describe("one walk at a time", () => {
     for (const kind of STORAGE_KINDS) expect(held.kinds[kind], kind).toEqual({ bytes: 0, files: 0, finished: false });
     expect(held.total.finished).toBe(false);
     expect(watch.walks).toBe(0);
+  });
+
+  it("cuts a reference read longer than 10 seconds between its slices, giving every kind as at least what it counted", async () => {
+    put("tables/orphan.parquet", 1000);
+    const scope = testAccountScope(p.db, "admin");
+    p.db.transaction(() => { for (let i = 0; i < 3000; i += 1) table(scope, `t-${i}`, `t_${i}`, `tables/t-${i}.parquet`); })();
+    vi.useFakeTimers({ toFake: ["Date"] });
+    // Each table the reference read returns takes it 10 ms: all of them, 30 seconds.
+    const prepare = p.db.prepare.bind(p.db);
+    const slow = vi.spyOn(p.db, "prepare").mockImplementation(((sql: string) => {
+      const statement = prepare(sql);
+      if (/FROM data_tables/.test(sql)) {
+        const all = statement.all.bind(statement) as (...args: unknown[]) => unknown[];
+        statement.all = ((...args: unknown[]) => {
+          const rows = all(...args);
+          vi.setSystemTime(Date.now() + rows.length * 10);
+          return rows;
+        }) as typeof statement.all;
+      }
+      return statement;
+    }) as typeof p.db.prepare);
+    try {
+      const started = Date.now();
+      const answer = await readStorage(p.context, p.db);
+      expect(Date.now() - started, "the read ran on past its 10 seconds").toBeLessThanOrEqual(STORAGE_WALK_MS + 2_000);
+      for (const kind of STORAGE_KINDS) expect(answer.kinds[kind], kind).toEqual({ bytes: 0, files: 0, finished: false });
+      expect(answer.total.finished).toBe(false);
+      expect(watch.walks).toBe(0);
+    } finally {
+      slow.mockRestore();
+    }
+  });
+
+  it.each([
+    ["a folder's read", "readdir", () => path.join(data, "tables")],
+    ["a file's look", "lstat", () => path.join(data, "tables", "orphan.parquet")],
+    ["the disk's statistics", "statfs", () => data],
+  ] as const)("answers at 10 seconds while %s is held, ending the walk and owning the held call", async (_what, call, target) => {
+    put("tables/orphan.parquet", 1000);
+    put("cache/geocode/answer-1.json", 60);
+    const held = Promise.withResolvers<never>();
+    let asked = false;
+    watch.hold = (made, at) => {
+      if (made !== call || at !== target()) return undefined;
+      asked = true;
+      return held.promise;
+    };
+    vi.useFakeTimers({ toFake: ["Date", "setTimeout", "clearTimeout"] });
+    try {
+      const reading = readStorage(p.context, p.db);
+      for (let i = 0; i < 500 && !asked; i += 1) await sleep(10);
+      expect(asked).toBe(true);
+      // Whatever is not held runs to its end first: the calls come to rest.
+      for (let rest = 0, last = -1; rest < 3; rest = watch.calls === last ? rest + 1 : 0) { last = watch.calls; await sleep(20); }
+      await vi.advanceTimersByTimeAsync(STORAGE_WALK_MS + 1);
+      const answer = await Promise.race([reading, sleep(2_000).then(() => "still pending" as const)]);
+      expect(answer, "the read still waits on the held call past its 10 seconds").not.toBe("still pending");
+      const read = answer as StorageRead;
+      if (call === "statfs") {
+        expect(read.disk).toBeNull();
+        expect(read.total.finished).toBe(true);
+      } else {
+        expect(read.kinds.tables.finished).toBe(false);
+        expect(read.kinds.leftover_files.finished).toBe(false);
+        expect(read.total.finished).toBe(false);
+      }
+      // The held call comes back late: the walk has ended and makes no more calls.
+      const calls = watch.calls;
+      held.reject(Object.assign(new Error("gone"), { code: "ENOENT" }));
+      await sleep(50);
+      expect(watch.calls).toBe(calls);
+    } finally {
+      held.reject(Object.assign(new Error("gone"), { code: "ENOENT" }));
+    }
   });
 
   it("stops a walk held past 10 seconds, marking what the folders it had not finished may hold, and counting no more", async () => {
