@@ -1,5 +1,5 @@
 import { ApiError } from "@/lib/api/errors";
-import { OVERTURE_BUCKET, OVERTURE_REGION } from "./releases";
+import { OVERTURE_BUCKET, OVERTURE_REGION } from "./bucket";
 
 /**
  * Shared plumbing for every Overture S3 read (import, divisions metadata):

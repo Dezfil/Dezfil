@@ -1,6 +1,7 @@
 import { ApiError } from "@/lib/api/errors";
 import { readCapped } from "@/lib/net/read-capped";
 import { openRemote } from "@/lib/net/remote-fetch";
+import { OVERTURE_BUCKET, OVERTURE_REGION } from "./bucket";
 
 /**
  * Overture release discovery (the release picker is honest). The public
@@ -15,10 +16,6 @@ import { openRemote } from "@/lib/net/remote-fetch";
  * refused while it does not. A refusal is not an outage and gets no
  * fallback, which would offer releases this deployment cannot read.
  */
-
-export const OVERTURE_BUCKET = "overturemaps-us-west-2";
-export const OVERTURE_REGION = "us-west-2";
-export const OVERTURE_S3_BASE = `s3://${OVERTURE_BUCKET}/release`;
 
 /** The listing endpoint. DEZFIL_OVERTURE_S3_ENDPOINT (test seam, the
  * Overpass-URL analog) swaps the public bucket for a local S3-compatible
