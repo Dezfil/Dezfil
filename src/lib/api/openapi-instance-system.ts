@@ -54,11 +54,11 @@ export const INSTANCE_SYSTEM_SCHEMAS = {
         service_caches: storageUse("The three service caches' answers."),
         thumbnails: storageUse("Map card images and their evidence."),
         metadata_database: storageUse("The metadata database and its journal files."),
-        leftover_files: storageUse("What the next restart's sweeps would remove: upload, download and tile scratch, staged project exports, table files no dataset uses, archives no layer uses and their evidence, unfinished thumbnail writes. It includes work in progress."),
+        leftover_files: storageUse("What the next restart's sweeps would remove: upload, download and tile scratch, staged project exports with their ownership records, table files no dataset uses, archives no layer uses and their evidence, unfinished thumbnail writes. It includes work in progress."),
         other: storageUse("Everything else in the data folder, such as the key file and the server's records."),
       }),
       total: storageUse("What the data folder holds: every kind together."),
-      disk: { description: "Free and total bytes on the data folder's volume, or null when the system would not say.",
+      disk: { description: "Free and total bytes on the data folder's volume, or null when the system would not say within the read's 10 seconds.",
         oneOf: [object({ free: { type: "integer", minimum: 0 }, total: { type: "integer", minimum: 0 } }), { type: "null" }] },
     }),
     description: `What the data folder holds, by kind (${STORAGE_KINDS.join(", ")}). Never a name, an owner, an account, a map, a dataset, a path or a file name.`,
@@ -79,17 +79,22 @@ export const INSTANCE_SYSTEM_PATHS = {
   "/api/instance/storage": { get: { ...op({
     summary: "Read how the data folder is used",
     description: "Requires a current admin through cookie or bearer authentication, rechecked on every call. " +
-      "A cookie request sent from another origin is refused; an admin bearer token calls directly. Responses, including refusals, are private, no-store. " +
+      "A cookie request must show it comes from this instance's own page, by an Origin that is this instance's, Sec-Fetch-Site same-origin or the " +
+      "X-Dezfil-Account header its pages send; one with none of them, or with another origin's Origin or a cross-site or same-site Sec-Fetch-Site, " +
+      "is refused. An admin bearer token calls directly. Responses, including refusals, are private, no-store. " +
       "Walks the data folder and answers, for each kind of file, the bytes its files take and how many there are: tables (dataset files the metadata " +
       "registers), tile_archives (archives with a tile record and what they were built from), service_caches (the three caches' answers), thumbnails " +
       "(map card images), metadata_database (the database and its journal files), leftover_files (what the next restart's sweeps would remove: upload, " +
-      "download and tile scratch, staged project exports, table files no dataset uses, archives no layer uses, unfinished thumbnail writes; it includes " +
-      "work in progress) and other (the rest, such as the key file and the server's records); with every kind together and the free and total space on " +
-      "the folder's volume. Each file counts once. It takes names and sizes and which files the metadata references, opening no file and following no " +
+      "download and tile scratch, staged project exports with their ownership records, table files no dataset uses, archives no layer uses, unfinished " +
+      "thumbnail writes; it includes work in progress) and other (the rest, such as the key file and the server's records); with every kind " +
+      "together and the free and total space on the folder's volume. Each file counts once. " +
+      "It takes names and sizes and which files the metadata references, opening no file and following no " +
       "link, and answers no name, owner, account, map, dataset, path or file name. One walk runs at a time: a read during a walk gets that walk's " +
-      "answer, and a read within 30 seconds of it gets the same answer unless a service cache was cleared since. A walk stops at 10 seconds, the " +
-      "reference read included, and gives each kind it had not finished as at least what it counted, finished false. It changes nothing and sends " +
-      "nothing outside this server. " +
+      "answer, and a read within 30 seconds of it gets the same answer, unless a service cache was cleared since the walk began: a read after a " +
+      "Clear never gets a walk begun before it, but waits for that walk to end and joins one fresh walk, so it can take up to two walks' 10 " +
+      "seconds. A walk stops at 10 seconds, the reference read, every filesystem call and the disk's statistics included, and gives each kind " +
+      "it had not finished as at least what it counted, finished false, and the disk as null when its statistics had not come. It changes " +
+      "nothing and sends nothing outside this server. " +
       "The embedded assistant asks for confirmation before calling; SQL and workflow assistants refuse this operation. " +
       "MCP advertises that policy and adds no confirmation step.",
     tag: "System", tool: "read_storage", toolInput: { closed: true },
@@ -110,9 +115,11 @@ export const INSTANCE_SYSTEM_PATHS = {
       "extensions already installed: it installs nothing, so without the spatial extension it answers not_found and leaves the engine for the next " +
       "query to start, and a missing optional extension stays off until the next start; tile_builder asks the tile builder for its version, then " +
       "builds a small archive from a few fixed points in a folder of its own under the tile scratch and removes it, within 30 seconds, beside any " +
-      "layer build, neither waiting behind one nor holding one up; image_renderer has the image renderer's browser photograph a small fixed " +
+      "layer build, neither waiting behind one nor holding one up; a tile builder still running at the limit is asked to stop, ended outright " +
+      "if it has not 2 seconds later, and its folder removed once it is gone; image_renderer has the image renderer's browser photograph a small fixed " +
       "picture of this server's own, from no map or data, and reads its mark's color back, within 10 seconds, only on an image slot free now with " +
       "no image waiting: otherwise it answers busy at once, launching nothing, and an image asked while it runs waits for it as behind any image; " +
+      "its browser is closed, or ended, within those 10 seconds, and only then is its slot free again; " +
       "metadata_database takes the metadata database's write lock, " +
       "reads the schema's version and gives the lock back, writing nothing, answering busy when other work holds the lock past the database's " +
       "5-second wait. It changes no setting, leaves no file and sends nothing outside this server. A second Test of a part while one runs gets " +

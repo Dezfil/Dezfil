@@ -589,10 +589,13 @@ already installed and installing nothing, so without the spatial extension it
 answers `not_found` and leaves the engine for the next query to start;
 `tile_builder` asks the tile builder its version, then builds a small archive
 from a few fixed points in its own scratch folder and removes it, within 30
-seconds, beside any layer build; `image_renderer` photographs a small fixed
-picture of this server's own within 10 seconds, only on an image slot free now
-with no image waiting, else it answers `busy` at once, and an image asked
-meanwhile waits for it as behind any image; `metadata_database` takes the
+seconds, beside any layer build; a tile builder still running at the limit is
+asked to stop, ended outright if it has not 2 seconds later, and its folder
+removed once it is gone; `image_renderer` photographs a small fixed picture of
+this server's own within 10 seconds, only on an image slot free now with no
+image waiting, else it answers `busy` at once, and an image asked meanwhile
+waits for it as behind any image; its browser is closed, or ended, within those
+10 seconds, and only then is its slot free again; `metadata_database` takes the
 database's write lock, reads the schema's version and gives the lock back,
 writing nothing. It answers `{ part, result: "passed", milliseconds }` or
 `result: "failed"` with one `reason`: `not_found`, `busy`, `timed_out` or
@@ -603,13 +606,22 @@ what the data folder holds by kind (`tables`, `tile_archives`,
 `service_caches`, `thumbnails`, `metadata_database`, `leftover_files` and
 `other`), each as `{ bytes, files, finished }`, with the `total` and the
 volume's `disk` space, `{ free, total }` or null. `leftover_files` is what the
-next restart's sweeps would remove, work in progress included. Each file counts
-once; the read takes names, sizes and which files the metadata references,
-opens no file, follows no link and answers no name, owner, path or file name.
-One walk runs at a time and its answer is given again for 30 seconds unless a
-cache is cleared; a walk stops at 10 seconds and gives each kind it had not
-finished as at least what it counted, `finished: false`. Cookie requests to
-either need the same trusted Origin; a token calls directly. Both are generated
+next restart's sweeps would remove, work in progress included, the ownership
+records of staged project exports among it. Each file counts once; the read takes
+names, sizes and which files the metadata references, opens no file, follows
+no link and answers no name, owner, path or file name. One walk runs at a time
+and its answer is given again for 30 seconds, unless a cache is cleared: a read
+after a Clear never gets a walk begun before it, but waits for that walk to end
+and joins one fresh walk, so it can take up to two walks' 10 seconds. A walk
+stops at 10 seconds, its reference read, every filesystem call and the disk's
+statistics included, and gives each kind it had not finished as at least what
+it counted, `finished: false`, and `disk` as null when its statistics had not
+come. A cookie request to the Test needs the same trusted Origin; one to the
+storage read must show it comes from this instance's own page, by an Origin
+that is this instance's, `Sec-Fetch-Site: same-origin` or the
+`X-Dezfil-Account` header its pages send, and is refused with none of them or
+with another origin's Origin or a cross-site or same-site `Sec-Fetch-Site`. A
+token calls directly. Both are generated
 as tools, `test_part` and `read_storage`: the embedded assistant confirms each,
 and the SQL and workflow assistants refuse them.
 
