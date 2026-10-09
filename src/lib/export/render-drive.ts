@@ -13,7 +13,8 @@ import type { ExportImageDefinition } from "./image-definition";
  * close the browser, killing it past a grace. A render past its deadline
  * is killed, never left running. The export of a map and the image
  * renderer's Test both drive through here; the slot is the caller's,
- * taken before and released once this settles.
+ * taken before and released once this settles, which is only once the
+ * browser has closed or been ended, so no browser outlives its slot.
  *
  * The flag posture, stated: the runbook's five software-GL flags
  * (SwiftShader — proven offline in the image by the spike), plus
@@ -36,6 +37,22 @@ const CHROMIUM_FLAGS = [
 
 /** How long a closing browser gets before it is killed outright. */
 const CLOSE_GRACE_MS = 3_000;
+
+/** Close the browser politely, killing it by its own handle when the close
+ * fails or has not finished within `graceMs`; settles once it has closed or
+ * been ended. */
+async function endBrowser(browser: RenderBrowser, graceMs: number, accountId: string): Promise<void> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const grace = new Promise<false>(resolve => { timer = setTimeout(() => resolve(false), graceMs); });
+  try {
+    const closed = trackRenderWork(accountId, browser.close()).then(() => true, () => false);
+    if (!(await Promise.race([closed, grace]))) browser.kill();
+  } catch {
+    browser.kill();
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 /** The browser to launch, as configured now. */
 export function chromiumPath(): string {
@@ -153,8 +170,9 @@ export interface RenderDrive {
   stand: () => void;
   /** The launch held to this drive's own time and ended at its stop by the
    * browser process's own handle, so a browser that never answers its
-   * launch dies with the drive rather than outliving its slot (the
-   * renderer's Test). Absent, the driver's own launch timeout (an export). */
+   * launch dies with the drive rather than outliving its slot, and the
+   * browser's close held to the same time (the renderer's Test). Absent,
+   * the driver's own launch timeout and the full close grace (an export). */
   boundLaunch?: boolean;
 }
 
@@ -283,11 +301,10 @@ export async function driveRender(drive: RenderDrive): Promise<RenderImageResult
   } finally {
     clearTimeout(watchdog);
     if (browser) {
-      const closing = trackRenderWork(drive.accountId, browser.close());
-      const killTimer = setTimeout(() => browser?.kill(), CLOSE_GRACE_MS);
-      void closing
-        .catch(() => browser?.kill())
-        .finally(() => clearTimeout(killTimer));
+      // The drive settles, and its caller gives the slot back, only once the
+      // browser is gone; a bound drive's close is held to its own time.
+      const graceMs = drive.boundLaunch ? Math.min(CLOSE_GRACE_MS, Math.max(deadline - Date.now(), 0)) : CLOSE_GRACE_MS;
+      await endBrowser(browser, graceMs, drive.accountId);
     } else {
       // A bound launch that never handed over its browser ends with the drive.
       stopLaunch();

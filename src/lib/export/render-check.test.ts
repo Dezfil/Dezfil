@@ -19,8 +19,9 @@ import type { RenderLaunchContext } from "./render-driver";
  * for it as behind any image, and starts by the Test's hard stop at the
  * latest, the Test's browser killed; the Test's launch is held to the
  * Test's own time and ended at its stop, an export's keeping the driver's
- * own; and the lane never runs more browsers than Images at once. No real
- * browser anywhere.
+ * own; a slot is kept until its browser has closed or been ended, the
+ * Test's by its limit; and the lane never runs more browsers than Images
+ * at once. No real browser anywhere.
  */
 
 const def = () => initialDefinition(
@@ -31,9 +32,11 @@ const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
 const LIMIT_MS = 10_000;
 
 /** A driver whose every browser is counted while it lives: launched and
- * not yet closed or killed. `hold` keeps each render open until released. */
-function lane(hold = false) {
-  const state = { launched: 0, live: 0, most: 0, killed: 0, urls: [] as string[], releases: [] as (() => void)[] };
+ * not yet closed or killed. `hold` keeps each render open until released;
+ * `closeMs` makes each close take that long, and "held" keeps it open until
+ * the test lets it finish, so only a kill ends the browser before then. */
+function lane(hold = false, closeMs: number | "held" = 0) {
+  const state = { launched: 0, live: 0, most: 0, killed: 0, urls: [] as string[], releases: [] as (() => void)[], closes: [] as (() => void)[] };
   const driver: RenderDriver = {
     async launch() {
       state.launched += 1; state.live += 1; state.most = Math.max(state.most, state.live);
@@ -46,13 +49,21 @@ function lane(hold = false) {
           else await new Promise(resolve => setTimeout(resolve, 5));
           return { png: PNG };
         },
-        async close() { leave(); },
+        async close() {
+          if (closeMs === "held") await new Promise<void>(resolve => state.closes.push(resolve));
+          else if (closeMs > 0) await new Promise(resolve => setTimeout(resolve, closeMs));
+          leave();
+        },
         kill() { state.killed += 1; leave(); },
       };
       return browser;
     },
   };
-  return { driver, state, releaseAll: () => { for (const release of state.releases.splice(0)) release(); } };
+  return {
+    driver, state,
+    releaseAll: () => { for (const release of state.releases.splice(0)) release(); },
+    finishCloses: () => { for (const close of state.closes.splice(0)) close(); },
+  };
 }
 
 const image = (driver: RenderDriver, mapId = "m1") => renderMapImage(testAccountScope(), {
@@ -179,6 +190,64 @@ describe("the renderer's Test on the image lane", () => {
     await expect(image(recorded)).resolves.toMatchObject({ png: PNG });
     expect(contexts[1]).not.toHaveProperty("launchTimeoutMs");
     expect(contexts[1]).not.toHaveProperty("stop");
+  });
+
+  it("keeps the Test's slot until its browser has closed, so an image asked after it never runs beside it", async () => {
+    process.env.DEZFIL_EXPORT_RENDER_CONCURRENCY = "1";
+    const slow = lane(false, 300);
+    expect(await check(slow.driver)).toMatchObject({ png: PNG });
+    await expect(image(slow.driver)).resolves.toMatchObject({ png: PNG });
+    expect(slow.state.launched).toBe(2);
+    expect(slow.state.most, "two browsers ran at once with Images at once 1").toBe(1);
+    expect(renderQueueState()).toEqual({ active: 0, waiting: 0 });
+  });
+
+  it("keeps an image's slot until its browser has closed, ending one whose close hangs by its own handle past the grace", async () => {
+    process.env.DEZFIL_EXPORT_RENDER_CONCURRENCY = "1";
+    vi.useFakeTimers();
+    const hanging = lane(false, "held"), next = lane();
+    try {
+      const first = image(hanging.driver, "a");
+      await vi.advanceTimersByTimeAsync(10);
+      expect(hanging.state.closes).toHaveLength(1);
+      const second = image(next.driver, "b");
+      await vi.advanceTimersByTimeAsync(10);
+      // The first browser is closing: the slot is still its own.
+      expect(next.state.launched, "an image's browser started beside one still closing").toBe(0);
+      expect(renderQueueState()).toEqual({ active: 1, waiting: 1 });
+      await vi.advanceTimersByTimeAsync(5_000);
+      await expect(first).resolves.toMatchObject({ png: PNG });
+      expect(hanging.state.killed).toBe(1);
+      expect(hanging.state.live).toBe(0);
+      await expect(second).resolves.toMatchObject({ png: PNG });
+      expect(next.state.launched).toBe(1);
+      expect(renderQueueState()).toEqual({ active: 0, waiting: 0 });
+    } finally {
+      hanging.finishCloses();
+    }
+  });
+
+  it("ends a Test's browser whose close hangs by the Test's limit, its slot back by then", async () => {
+    process.env.DEZFIL_EXPORT_RENDER_CONCURRENCY = "1";
+    vi.useFakeTimers();
+    const hanging = lane(true, "held");
+    try {
+      const started = Date.now();
+      let answered: number | null = null;
+      const testing = check(hanging.driver).finally(() => { answered = Date.now(); });
+      await vi.advanceTimersByTimeAsync(LIMIT_MS - 500);
+      hanging.releaseAll();
+      await vi.advanceTimersByTimeAsync(10);
+      expect(hanging.state.closes).toHaveLength(1);
+      await vi.advanceTimersByTimeAsync(1_000);
+      expect(await testing).toMatchObject({ png: PNG });
+      expect(answered! - started).toBeLessThanOrEqual(LIMIT_MS);
+      expect(hanging.state.killed, "the Test's browser was not ended by its limit").toBe(1);
+      expect(hanging.state.live).toBe(0);
+      expect(renderQueueState()).toEqual({ active: 0, waiting: 0 });
+    } finally {
+      hanging.finishCloses();
+    }
   });
 
   it.each([1, 2])("never runs more browsers than Images at once (%i), images and Tests together", async cap => {

@@ -101,7 +101,12 @@ it("drains held render buffers and browser closure across module graphs, preserv
   const controlClose = Promise.withResolvers<void>();
   const pending = renderMapImage(currentScope(undefined, "target"), { mapId: "same-name", definition, baseUrl: "http://fixture.test", credential: "sentinel", driver: { launch: async () => ({ render: () => buffers.promise, close: () => closing.promise, kill() {} }) } });
   const outcome = pending.catch(error => error);
-  await renderMapImage(currentScope(undefined, "control"), { mapId: "same-name", definition, baseUrl: "http://fixture.test", credential: "control", driver: { launch: async () => ({ render: async () => ({ png: new Uint8Array([9]) }), close: () => controlClose.promise, kill() {} }) } });
+  // The control's image is made and its browser left closing: a render
+  // settles only once its browser is gone, so its work stays held.
+  let controlClosing = false;
+  const control = renderMapImage(currentScope(undefined, "control"), { mapId: "same-name", definition, baseUrl: "http://fixture.test", credential: "control", driver: { launch: async () => ({ render: async () => ({ png: new Uint8Array([9]) }), close: () => { controlClosing = true; return controlClose.promise; }, kill() {} }) } }).catch(error => error);
+  for (let i = 0; i < 50 && !controlClosing; i += 1) await vi.advanceTimersByTimeAsync(0);
+  expect(controlClosing).toBe(true);
   const stores = Object.fromEntries(Object.entries(erasureInventory.stores).filter(([id, rule]) => /render-image|render-work/.test(id) && rule.action !== "retain"));
   const probes = Object.fromEntries(Object.keys(stores).map(id => [id, { populate() {}, observe: () => ({ target: renderWorkForTests("target") ? ["held target"] : [], control: renderWorkForTests("control") ? ["held control"] : [] }), dispose() {} }]));
   try {
@@ -109,11 +114,12 @@ it("drains held render buffers and browser closure across module graphs, preserv
       deleting(); vi.resetModules(); const second = await import("./account-erasure-copies");
       let done = false; const erased = second.eraseAccountCopies("target", metadataDb()).then(() => { done = true; });
       await vi.advanceTimersByTimeAsync(0); expect(done).toBe(false);
-      buffers.resolve({ png: new Uint8Array([1,2,3]) }); await outcome;
+      // The render's buffers drain; its browser is still closing.
+      buffers.resolve({ png: new Uint8Array([1,2,3]) });
       await vi.advanceTimersByTimeAsync(0); expect(done).toBe(false);
-      closing.resolve(); await erased; expect(done).toBe(true);
+      closing.resolve(); await outcome; await erased; expect(done).toBe(true);
     });
-  } finally { buffers.resolve({ png: new Uint8Array() }); closing.resolve(); controlClose.resolve(); await outcome; (await import("@/lib/metadata/db")).closeMetadataDb(); }
+  } finally { buffers.resolve({ png: new Uint8Array() }); closing.resolve(); controlClose.resolve(); await outcome; await control; (await import("@/lib/metadata/db")).closeMetadataDb(); }
 });
 
 it("keeps ordinary copy reads and claims usable with scopes minted in another compiled graph", async () => {
