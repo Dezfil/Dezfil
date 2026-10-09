@@ -4,7 +4,6 @@ import { closeTileArchives } from "./serve";
 import { metadataDb } from "@/lib/metadata/db";
 import { archiveServable, tileQueryScope, tileReachKey, requireTileAccess, tileAccessAvailable, type TileAccess } from "./access";
 import { createHash, randomUUID } from "node:crypto";
-import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
 import { readdir, rename, rm } from "node:fs/promises";
 import path from "node:path";
@@ -29,7 +28,7 @@ import {
   writeTileEvidence,
 } from "./evidence";
 import { exportGeoJsonSeq } from "./export";
-import { tippecanoePath } from "./tiler";
+import { runTiler } from "./tiler";
 import {
   ensureTileDirs,
   tileArchivePath,
@@ -187,40 +186,18 @@ export async function tileBuildsSettled(): Promise<void> {
   }
 }
 
-function runTippecanoe(input: string, output: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    execFile(
-      tippecanoePath(),
-      [
-        "-o",
-        output,
-        "-l",
-        "features",
-        "-zg",
-        "--drop-densest-as-needed",
-        "--extend-zooms-if-still-dropping",
-        "--force",
-        "--quiet",
-        "-P",
-        input,
-      ],
-      { timeout: limits.tileBuildTimeoutMs, maxBuffer: 16 * 1024 * 1024 },
-      (error, _stdout, stderr) => {
-        if (!error) return resolve();
-        const killed = error.killed || /SIGTERM/.test(String(error.signal));
-        const detail = stderr.trim().split("\n").slice(-3).join(" ");
-        reject(
-          new Error(
-            killed
-              ? `Tiling exceeded the ${Math.round(
-                  limits.tileBuildTimeoutMs / 1000,
-                )}s tile-build timeout. Narrow the layer, or raise DEZFIL_TILE_BUILD_TIMEOUT_S.`
-              : detail || "The tiler failed.",
-          ),
-        );
-      },
-    );
-  });
+/** The layer's tiler run, under the tile-build timeout, said as the
+ * layer's own build message when it fails. */
+async function runTippecanoe(input: string, output: string): Promise<void> {
+  const run = await runTiler(input, output, limits.tileBuildTimeoutMs);
+  if (run.ok) return;
+  throw new Error(
+    run.reason === "timed_out"
+      ? `Tiling exceeded the ${Math.round(
+          limits.tileBuildTimeoutMs / 1000,
+        )}s tile-build timeout. Narrow the layer, or raise DEZFIL_TILE_BUILD_TIMEOUT_S.`
+      : run.detail || "The tiler failed.",
+  );
 }
 
 function generation(layerId: string): number {

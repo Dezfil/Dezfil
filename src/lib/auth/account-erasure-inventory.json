@@ -3590,11 +3590,6 @@
         "memory:tiler-probe"
       ]
     },
-    "memory:src/lib/tiles/tiler.ts#probedPath": {
-      "stores": [
-        "memory:tiler-probe"
-      ]
-    },
     "memory:src/lib/tools/tools.ts#cachedTools": {
       "stores": [
         "memory:tool-schema-cache"
@@ -5332,6 +5327,38 @@
     "memory:src/lib/system/part-tests.ts#running": {
       "stores": [
         "memory:provider-scheduling"
+      ]
+    },
+    "location:src/lib/system/tiler-test.ts#buildTestArchive:tileScratchDir": {
+      "stores": [
+        "file:tile-scratch"
+      ],
+      "roots": [
+        "tiles/scratch"
+      ]
+    },
+    "location:src/lib/system/tiler-test.ts#buildTestArchive.folder:path.join": {
+      "stores": [
+        "file:tile-scratch"
+      ],
+      "roots": [
+        "tiles/scratch/part-test-"
+      ]
+    },
+    "location:src/lib/system/tiler-test.ts#buildTestArchive.folder:tileScratchDir": {
+      "stores": [
+        "file:tile-scratch"
+      ],
+      "roots": [
+        "tiles/scratch"
+      ]
+    },
+    "writer:src/lib/system/tiler-test.ts#buildTestArchive:mkdir": {
+      "stores": [
+        "file:tile-scratch"
+      ],
+      "roots": [
+        "tiles/scratch"
       ]
     },
     "memory:src/lib/api/openapi-instance-settings.ts#address": {

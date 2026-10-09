@@ -8,9 +8,10 @@
 //     DEZFIL_BASE_URL (the Playwright runner's target, read by e2e
 //     tooling, never by the server);
 //   - platform/image plumbing that is not an operator tunable: NODE_ENV,
-//     PORT, HOSTNAME, NEXT_RUNTIME (runtime-provided), and
-//     DUCKDB_EXTENSION_DIR (set by the Dockerfile to the baked bundle;
-//     overriding it defeats the offline guarantee).
+//     PORT, HOSTNAME, NEXT_RUNTIME (runtime-provided), PATH (the system's
+//     program search path, read to find a configured program given by
+//     name), and DUCKDB_EXTENSION_DIR (set by the Dockerfile to the baked
+//     bundle; overriding it defeats the offline guarantee).
 // Script DEZFIL_TEST_* reads are documented too: the image observers are
 // part of the reproducible operator recipes.
 // Anything else the server reads — today that includes ANTHROPIC_API_KEY
@@ -31,7 +32,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { settingsSource } from "./settings-source.mjs";
 
-const PLATFORM = new Set(["NODE_ENV", "PORT", "HOSTNAME", "NEXT_RUNTIME", "TZ", "CI", "DUCKDB_EXTENSION_DIR"]);
+const PLATFORM = new Set(["NODE_ENV", "PORT", "HOSTNAME", "NEXT_RUNTIME", "TZ", "CI", "PATH", "DUCKDB_EXTENSION_DIR"]);
 const DOCUMENTED_PLATFORM = new Set([...PLATFORM, "NEXT_TELEMETRY_DISABLED"]);
 
 const EXCLUDED = (name) =>

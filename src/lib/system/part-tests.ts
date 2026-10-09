@@ -5,6 +5,7 @@ import { dataDir } from "@/lib/config";
 import { ensureDataDir } from "@/lib/data-dir";
 import { MIGRATIONS, metadataDb } from "@/lib/metadata/db";
 import { askQueryEngine } from "./engine-test";
+import { buildTestArchive } from "./tiler-test";
 import { PART_TEST_LIMITS, type Part, type PartFailure, type PartTestAnswer } from "./part-test-answer";
 
 /**
@@ -41,6 +42,13 @@ const TESTS: Record<Part, PartTest> = {
   async query_engine(_db, signal) {
     const outcome = await askQueryEngine(signal);
     if (outcome !== "answered") throw new PartFailed(outcome);
+  },
+
+  // A small archive built from a few fixed points beside any layer build,
+  // the version probed first.
+  async tile_builder(_db, signal) {
+    const outcome = await buildTestArchive(PART_TEST_LIMITS.tile_builder * 1000, signal);
+    if (outcome !== "built") throw new PartFailed(outcome);
   },
 
   // The write lock taken and given back around one fixed fact, the

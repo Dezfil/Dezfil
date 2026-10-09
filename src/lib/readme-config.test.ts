@@ -53,6 +53,7 @@ describe("README config coverage", () => {
         'export const c = process.env.DEZFIL_BASE_URL;', // excluded
         'export const d = process.env.NODE_ENV;', // platform, excluded
         'export const e = process.env.DUCKDB_EXTENSION_DIR;', // plumbing
+        'export const f = process.env.PATH;', // platform, excluded
       ].join("\n"),
       TABLE(["| `DEZFIL_DATA_DIR` | `/data` | Data. |"]),
     );
