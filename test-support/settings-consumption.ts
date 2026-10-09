@@ -10,7 +10,10 @@ export interface Consumption {
   name: string;
 }
 type Sources = Record<string, string>;
-const plumbing = new Set(["NODE_ENV", "HOSTNAME", "NEXT_RUNTIME", "TZ", "CI"]);
+/** Platform plumbing, never an operator setting: what the runtime sets, and
+ * PATH, the system's program search path, read to find a configured
+ * program given by name. */
+const plumbing = new Set(["NODE_ENV", "HOSTNAME", "NEXT_RUNTIME", "TZ", "CI", "PATH"]);
 /** The settings readers a consumer imports, by module: the numbers' and
  * switches' resolver, and the service addresses' resolver. */
 const RESOLVERS: Record<string, readonly string[]> = {
