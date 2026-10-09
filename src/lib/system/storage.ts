@@ -16,8 +16,10 @@ import { beforeDeadline, emptyTally, TOO_LATE, walkDataFolder } from "./storage-
  * filesystem call is raced against the deadline, and past it the answer
  * gives what was not finished as at least. One walk at a time: a read
  * while one runs gets that walk's answer, and a read within 30 seconds of
- * the last walk gets that answer again, unless a cache was cleared since.
- * The admin is rechecked on every read, joined or not.
+ * the last walk gets that answer again, unless a cache was cleared since:
+ * a read after a Clear never gets a walk begun before it, but waits for
+ * that walk to settle and joins one fresh walk. The admin is rechecked on
+ * every read, joined or not.
  */
 
 /** The walk's budget, the reference read included. */
@@ -26,7 +28,8 @@ export const STORAGE_WALK_MS = 10_000;
 export const STORAGE_REUSE_MS = 30_000;
 
 interface Kept {
-  walking: Promise<StorageRead> | null;
+  /** The walk under way, with the generation it began under. */
+  walking: { answer: Promise<StorageRead>; generation: number } | null;
   last: { answer: StorageRead; at: number; generation: number } | null;
   /** Moves on at each forgetting; a walk begun before it is not kept. */
   generation: number;
@@ -67,18 +70,30 @@ async function walk(db: Database): Promise<StorageRead> {
 /** Read what the data folder holds, the admin rechecked first. */
 export async function readStorage(context: AuthContext, db: Database = metadataDb(), now = Date.now()): Promise<StorageRead> {
   requireAdmin(context, db, now);
-  if (kept.walking) return kept.walking;
-  const last = kept.last;
-  if (last && last.generation === kept.generation && Date.now() - last.at < STORAGE_REUSE_MS) return last.answer;
-  const generation = kept.generation;
-  const walking: Promise<StorageRead> = walk(db).then(answer => {
-    if (kept.generation === generation) kept.last = { answer, at: Date.now(), generation };
-    return answer;
-  }).finally(() => {
-    if (kept.walking === walking) kept.walking = null;
-  });
-  kept.walking = walking;
-  return walking;
+  for (;;) {
+    const current = kept.walking;
+    if (current?.generation === kept.generation) return current.answer;
+    if (current) {
+      // Begun before a Clear: its answer is not this read's. Once it has
+      // settled, the first read back starts the one fresh walk the others join.
+      await current.answer.catch(() => {});
+      continue;
+    }
+    const last = kept.last;
+    if (last && last.generation === kept.generation && Date.now() - last.at < STORAGE_REUSE_MS) return last.answer;
+    const generation = kept.generation;
+    const walking = {
+      generation,
+      answer: walk(db).then(answer => {
+        if (kept.generation === generation) kept.last = { answer, at: Date.now(), generation };
+        return answer;
+      }).finally(() => {
+        if (kept.walking === walking) kept.walking = null;
+      }),
+    };
+    kept.walking = walking;
+    return walking.answer;
+  }
 }
 
 /** Forget the last answer: the next read walks afresh. A cache's Clear

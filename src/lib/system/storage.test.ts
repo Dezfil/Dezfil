@@ -297,6 +297,30 @@ describe("one walk at a time", () => {
     expect(watch.walks).toBe(3);
   });
 
+  it("never gives a walk begun before a cache's Clear to a read after it: such reads wait for it and join one fresh walk", async () => {
+    put("cache/geocode/answer-1.json", 60);
+    put("cache/isochrone/answer-2.json", 40);
+    // The first walk counts everything, then waits on the disk's statistics.
+    const held = Promise.withResolvers<never>();
+    let asked = false;
+    watch.hold = call => {
+      if (call !== "statfs" || asked) return undefined;
+      asked = true;
+      return held.promise;
+    };
+    const before = readStorage(p.context, p.db);
+    for (let rest = 0, last = -1; rest < 3; rest = watch.calls === last ? rest + 1 : 0) { last = watch.calls; await sleep(20); }
+    expect(asked).toBe(true);
+    await clearServiceCaches(p.context, null, p.db);
+    const after = [readStorage(p.context, p.db), readStorage(p.context, p.db)];
+    held.reject(Object.assign(new Error("gone"), { code: "ENOENT" }));
+    expect((await before).kinds.service_caches).toEqual({ bytes: 100, files: 2, finished: true });
+    const [first, second] = await Promise.all(after);
+    expect(first.kinds.service_caches, "a read after the Clear was given the walk begun before it").toEqual({ bytes: 0, files: 0, finished: true });
+    expect(second).toBe(first);
+    expect(watch.walks).toBe(2);
+  });
+
   it("stops at 10 seconds, the reference read included, giving every kind as at least what it counted", async () => {
     put("tables/orphan.parquet", 1000);
     put("cache/geocode/answer-1.json", 60);
