@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { mkdtempSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { setTimeout as sleep } from "node:timers/promises";
 import { knownTilerVersion, probeTilerVersion, runTiler, tilerAvailable, tilerFound, tilerVersion, tippecanoePath } from "./tiler";
 
 /**
@@ -26,9 +27,34 @@ beforeEach(() => {
   runs.programs = [];
 });
 afterEach(() => {
+  vi.useRealTimers();
+  // A program a failing test left running is ended by its own id.
+  for (const file of pidFiles) {
+    const pid = existsSync(file) ? Number(readFileSync(file, "utf8")) : 0;
+    if (Number.isInteger(pid) && pid > 1 && alive(pid)) process.kill(pid, "SIGKILL");
+  }
+  pidFiles = [];
   delete process.env.DEZFIL_TIPPECANOE;
   rmSync(dir, { recursive: true, force: true });
 });
+
+/** Where this test's stubborn programs note their process ids. */
+let pidFiles: string[] = [];
+
+/** Whether a process is still there. */
+function alive(pid: number): boolean {
+  try { process.kill(pid, 0); return true; } catch { return false; }
+}
+
+/** A program that ignores the polite stop and would run on for a while.
+ * Its process id is noted, whole, once the stop is already ignored. */
+function stubborn(): { file: string; pid: () => number } {
+  const pidFile = path.join(dir, `stubborn-${pidFiles.length}.pid`);
+  pidFiles.push(pidFile);
+  const file = path.join(dir, `stubborn-${pidFiles.length}`);
+  writeFileSync(file, `#!/bin/sh\ntrap '' TERM\necho $$ > '${pidFile}.tmp' && mv '${pidFile}.tmp' '${pidFile}'\nexec sleep 20\n`, { mode: 0o755 });
+  return { file, pid: () => (existsSync(pidFile) ? Number(readFileSync(pidFile, "utf8")) : 0) };
+}
 
 /** A stand-in tiler: answers its version, then runs `body` for a build. */
 function program(name: string, body: string, mode = 0o755): string {
@@ -108,6 +134,46 @@ describe("one bounded run of the tiler", () => {
     const { input, output } = points();
     expect(await runTiler(input, output, 30_000)).toEqual({ ok: true });
     expect(statSync(output).size).toBeGreaterThan(0);
+  });
+
+  it("ends a program that ignores the stop once its time is up, and returns only once it is gone", async () => {
+    const { input, output } = points();
+    const program = stubborn();
+    process.env.DEZFIL_TIPPECANOE = program.file;
+    const started = Date.now();
+    const run = await Promise.race([runTiler(input, output, 1_500), sleep(10_000).then(() => "still running" as const)]);
+    expect(program.pid()).toBeGreaterThan(1);
+    expect(run).toMatchObject({ ok: false, reason: "timed_out" });
+    expect(alive(program.pid()), "the stopped program is still running").toBe(false);
+    expect(Date.now() - started).toBeLessThan(10_000);
+  });
+
+  it("ends a program that ignores the stop once its signal aborts, and returns only once it is gone", async () => {
+    const { input, output } = points();
+    const program = stubborn();
+    process.env.DEZFIL_TIPPECANOE = program.file;
+    const controller = new AbortController();
+    const running = runTiler(input, output, 30_000, controller.signal);
+    await vi.waitFor(() => expect(program.pid()).toBeGreaterThan(1), { timeout: 5_000 });
+    controller.abort();
+    const run = await Promise.race([running, sleep(10_000).then(() => "still running" as const)]);
+    expect(run).toMatchObject({ ok: false, reason: "timed_out" });
+    expect(alive(program.pid()), "the stopped program is still running").toBe(false);
+  });
+
+  it("ends a version probe that ignores the stop once its time is up, answering unknown once it is gone", async () => {
+    const program = stubborn();
+    process.env.DEZFIL_TIPPECANOE = program.file;
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    const probing = probeTilerVersion();
+    for (let i = 0; i < 500 && program.pid() <= 1; i += 1) await sleep(10);
+    expect(program.pid()).toBeGreaterThan(1);
+    // Well past the probe's own limit and any grace after it.
+    await vi.advanceTimersByTimeAsync(60_000);
+    vi.useRealTimers();
+    expect(await Promise.race([probing, sleep(5_000).then(() => "still running" as const)])).toBeNull();
+    expect(alive(program.pid()), "the stopped probe is still running").toBe(false);
+    expect(knownTilerVersion()).toBeNull();
   });
 
   it("names a missing program, a failure with its last words, and a run stopped past its time or by its signal", async () => {

@@ -1,4 +1,4 @@
-import { execFile } from "node:child_process";
+import { execFile, type ExecFileException } from "node:child_process";
 import { executableFound } from "@/lib/system/executable";
 
 /**
@@ -22,15 +22,73 @@ interface Probe {
 }
 let probe: Probe | null = null;
 
-function probeVersion(bin: string): Promise<string | null> {
+/** How long a program asked to stop has to end on its own before it is
+ * ended outright. */
+const STOP_GRACE_MS = 2_000;
+
+/** How one bounded run of a program ended, and whether it was stopped. */
+interface ProgramRun {
+  error: ExecFileException | null;
+  stdout: string;
+  stderr: string;
+  stopped: boolean;
+}
+
+/**
+ * Run `bin` once, bounded: past `limitMs`, or once `signal` aborts, it is
+ * asked to stop, and ended outright if it has not exited within a short
+ * grace. The run settles only once the process is gone, so whatever follows
+ * (removing its folder, the next run) never proceeds beside it.
+ */
+function runProgram(bin: string, args: string[], limitMs: number, signal?: AbortSignal): Promise<ProgramRun> {
   return new Promise((resolve) => {
-    execFile(bin, ["--version"], { timeout: 10_000 }, (error, stdout, stderr) => {
-      if (error) return resolve(null);
-      // The version banner goes to stderr.
-      const banner = `${stderr}${stdout}`.trim().split("\n")[0] ?? "";
-      resolve(banner || null);
+    let stopped = false;
+    let ending = false;
+    let exited = false;
+    let ended: Omit<ProgramRun, "stopped"> | null = null;
+    let force: ReturnType<typeof setTimeout> | undefined;
+    const child = execFile(bin, args, { maxBuffer: 16 * 1024 * 1024 }, (error, stdout, stderr) => {
+      ended = { error, stdout: String(stdout), stderr: String(stderr) };
+      settle();
     });
+    /** Ask the program to stop, and end it outright past the grace. */
+    function end(): void {
+      if (ending || exited) return;
+      ending = true;
+      // Its pipes are let go, so a helper still holding them cannot keep the
+      // run open once the program itself is gone.
+      child.stdout?.destroy();
+      child.stderr?.destroy();
+      child.kill("SIGTERM");
+      force = setTimeout(() => { if (!exited) child.kill("SIGKILL"); }, STOP_GRACE_MS);
+    }
+    function stop(): void {
+      if (exited) return;
+      stopped = true;
+      end();
+    }
+    function settle(): void {
+      if (!ended) return;
+      // Started and not yet gone: end it first, and settle on its exit.
+      if (!exited && child.pid !== undefined) return end();
+      clearTimeout(timer);
+      clearTimeout(force);
+      signal?.removeEventListener("abort", stop);
+      resolve({ ...ended, stopped });
+    }
+    child.once("exit", () => { exited = true; settle(); });
+    const timer = setTimeout(stop, limitMs);
+    if (signal?.aborted) stop();
+    else signal?.addEventListener("abort", stop, { once: true });
   });
+}
+
+async function probeVersion(bin: string): Promise<string | null> {
+  const run = await runProgram(bin, ["--version"], 10_000);
+  if (run.error || run.stopped) return null;
+  // The version banner goes to stderr.
+  const banner = `${run.stderr}${run.stdout}`.trim().split("\n")[0] ?? "";
+  return banner || null;
 }
 
 /** Start a probe of `bin`, keeping what an earlier probe of it knew until
@@ -81,35 +139,32 @@ export type TilerRun =
 /**
  * One bounded run of the tiler: newline-delimited GeoJSON in, one PMTiles
  * archive out. Past `timeoutMs`, or once `signal` aborts, the process is
- * stopped. The layer build lane and the tile builder's Test both run the
- * tiler through here; neither waits for the other.
+ * stopped, ended outright if it does not stop, and the run returns only
+ * once it is gone. The layer build lane and the tile builder's Test both
+ * run the tiler through here; neither waits for the other.
  */
-export function runTiler(input: string, output: string, timeoutMs: number, signal?: AbortSignal): Promise<TilerRun> {
-  return new Promise((resolve) => {
-    execFile(
-      tippecanoePath(),
-      [
-        "-o",
-        output,
-        "-l",
-        "features",
-        "-zg",
-        "--drop-densest-as-needed",
-        "--extend-zooms-if-still-dropping",
-        "--force",
-        "--quiet",
-        "-P",
-        input,
-      ],
-      { timeout: timeoutMs, maxBuffer: 16 * 1024 * 1024, ...(signal ? { signal } : {}) },
-      (error, _stdout, stderr) => {
-        if (!error) return resolve({ ok: true });
-        const detail = String(stderr).trim().split("\n").slice(-3).join(" ");
-        const code = (error as NodeJS.ErrnoException).code;
-        if (code === "ENOENT" || code === "EACCES") return resolve({ ok: false, reason: "not_found", detail });
-        const stopped = error.killed || /SIGTERM/.test(String(error.signal)) || error.name === "AbortError";
-        resolve({ ok: false, reason: stopped ? "timed_out" : "failed", detail });
-      },
-    );
-  });
+export async function runTiler(input: string, output: string, timeoutMs: number, signal?: AbortSignal): Promise<TilerRun> {
+  const run = await runProgram(
+    tippecanoePath(),
+    [
+      "-o",
+      output,
+      "-l",
+      "features",
+      "-zg",
+      "--drop-densest-as-needed",
+      "--extend-zooms-if-still-dropping",
+      "--force",
+      "--quiet",
+      "-P",
+      input,
+    ],
+    timeoutMs,
+    signal,
+  );
+  if (!run.error && !run.stopped) return { ok: true };
+  const detail = run.stderr.trim().split("\n").slice(-3).join(" ");
+  const code = run.error?.code;
+  if (code === "ENOENT" || code === "EACCES") return { ok: false, reason: "not_found", detail };
+  return { ok: false, reason: run.stopped ? "timed_out" : "failed", detail };
 }

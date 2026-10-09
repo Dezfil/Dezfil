@@ -53,12 +53,14 @@ let seen: unknown[] = [];
 let bin: string;
 /** Opens a held build's gate, when a test holds one. */
 let release: (() => void) | null = null;
+/** Programs a failing test may have left running, ended by their own ids. */
+let leftovers: number[] = [];
 
 beforeEach(() => {
   f = instanceSettingsFixture();
   mkdirSync(SCRATCH, { recursive: true });
   bin = mkdtempSync(path.join(SCRATCH, "tiler-"));
-  seen = []; runs.programs = []; release = null;
+  seen = []; runs.programs = []; release = null; leftovers = [];
   resetTileBuilds();
 });
 afterEach(async () => {
@@ -71,6 +73,7 @@ afterEach(async () => {
   } finally {
     vi.useRealTimers();
     release?.();
+    for (const pid of leftovers) if (Number.isInteger(pid) && pid > 1 && alive(pid)) process.kill(pid, "SIGKILL");
     await tileBuildsSettled();
     resetTileBuilds();
     resetQueryInstance();
@@ -104,6 +107,10 @@ function files(): Record<string, string> {
   return Object.fromEntries(readdirSync(f.dir, { recursive: true, withFileTypes: true }).filter(entry => entry.isFile())
     .map(entry => path.relative(f.dir, path.join(entry.parentPath, entry.name)))
     .map(file => [file, createHash("sha256").update(readFileSync(path.join(f.dir, file))).digest("hex")]).sort());
+}
+/** Whether a process is still there. */
+function alive(pid: number): boolean {
+  try { process.kill(pid, 0); return true; } catch { return false; }
 }
 const settings = () => f.db.prepare("SELECT key, value FROM workspace_settings ORDER BY key").all();
 const scratch = () => existsSync(tileScratchDir()) ? readdirSync(tileScratchDir()) : [];
@@ -179,6 +186,28 @@ describe("the tile builder's Test", () => {
     vi.useRealTimers();
     const program = Number(readFileSync(pid, "utf8"));
     await vi.waitFor(() => expect(() => process.kill(program, 0)).toThrow(), { timeout: 5000 });
+    await vi.waitFor(() => expect(scratch()).toEqual([]), { timeout: 5000 });
+  });
+
+  it("ends a program that ignores the stop after a short grace, keeping its folder until it is gone", async () => {
+    const pid = path.join(bin, "stubborn.pid");
+    // The stop is ignored before the id is noted, whole.
+    vi.stubEnv("DEZFIL_TIPPECANOE", tiler("stubborn", `trap '' TERM\necho $$ > '${pid}.tmp' && mv '${pid}.tmp' '${pid}'\nexec sleep 120`).file);
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    const answer = test();
+    for (let i = 0; i < 500 && !existsSync(pid); i += 1) await sleep(10);
+    const program = Number(readFileSync(pid, "utf8"));
+    leftovers.push(program);
+    await vi.advanceTimersByTimeAsync(PART_TEST_LIMITS.tile_builder * 1000);
+    expect(await answer).toEqual({ part: "tile_builder", result: "failed", reason: "timed_out" });
+    // Asked to stop, it runs on for now, and its folder stays while it does.
+    await sleep(200);
+    expect(alive(program)).toBe(true);
+    expect(scratch()).toHaveLength(1);
+    // Past the grace it is ended outright, and only then is its folder removed.
+    await vi.advanceTimersByTimeAsync(60_000);
+    vi.useRealTimers();
+    await vi.waitFor(() => expect(alive(program), "the stopped program is still running").toBe(false), { timeout: 5000 });
     await vi.waitFor(() => expect(scratch()).toEqual([]), { timeout: 5000 });
   });
 
