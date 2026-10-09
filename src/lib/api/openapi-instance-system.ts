@@ -38,7 +38,10 @@ export const INSTANCE_SYSTEM_PATHS = {
       "extensions already installed: it installs nothing, so without the spatial extension it answers not_found and leaves the engine for the next " +
       "query to start, and a missing optional extension stays off until the next start; tile_builder asks the tile builder for its version, then " +
       "builds a small archive from a few fixed points in a folder of its own under the tile scratch and removes it, within 30 seconds, beside any " +
-      "layer build, neither waiting behind one nor holding one up; metadata_database takes the metadata database's write lock, " +
+      "layer build, neither waiting behind one nor holding one up; image_renderer has the image renderer's browser photograph a small fixed " +
+      "picture of this server's own, from no map or data, and reads its mark's color back, within 10 seconds, only on an image slot free now with " +
+      "no image waiting: otherwise it answers busy at once, launching nothing, and an image asked while it runs waits for it as behind any image; " +
+      "metadata_database takes the metadata database's write lock, " +
       "reads the schema's version and gives the lock back, writing nothing, answering busy when other work holds the lock past the database's " +
       "5-second wait. It changes no setting, leaves no file and sends nothing outside this server. A second Test of a part while one runs gets " +
       "the same answer from the same run. " +

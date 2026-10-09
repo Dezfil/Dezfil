@@ -1,15 +1,16 @@
-import { settingRemedy } from "@/lib/settings/remedy";
 import { admitResourceWork, inDeletionWork, registerRenderDeletionWork } from "@/lib/auth/account-deletion-work";
 import { drainAccountRenders } from "./render-work";
 import { trackRenderWork } from "./render-work";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
-import { AuthError } from "@/lib/auth/errors";
-import { ApiError, EvaluationCancelled } from "@/lib/api/errors";
+import { EvaluationCancelled } from "@/lib/api/errors";
 import { limits } from "@/lib/limits";
 import { onCommittedSettings } from "@/lib/settings/state";
 import { renderRequestBoundMs } from "./render-stall";
-import { puppeteerDriver, type RenderBrowser, type RenderDriver } from "./render-driver";
+import { driveLaunches, driveRender, renderTimeout, type RenderBudget, type RenderImageResult } from "./render-drive";
+import { RENDER_CHECK_DEFINITION, RENDER_CHECK_PATH } from "./render-check";
+import type { RenderDriver } from "./render-driver";
 export type { RenderBrowser, RenderDriver } from "./render-driver";
+export type { RenderImageResult } from "./render-drive";
 import type { ExportImageDefinition } from "./image-definition";
 
 /**
@@ -19,43 +20,18 @@ import type { ExportImageDefinition } from "./image-definition";
  * concurrency cap holds software-GL pressure, and caller departure,
  * timeout, and crash each kill the browser process and release the slot.
  * Every failure is a documented coded error; health is never touched.
- *
- * The flag posture, stated: the runbook's five software-GL flags
- * (SwiftShader — proven offline in the image by the spike), plus
- * `--no-sandbox` (the container runs rootless without the user
- * namespaces chromium's sandbox wants; the only pages rendered are the
- * app's own origin) and `--disable-dev-shm-usage` (default /dev/shm is
- * too small for a compositor).
+ * The drive itself, from a held slot to the screenshot, is
+ * `render-drive.ts`.
  */
-
-const CHROMIUM_FLAGS = [
-  "--use-gl=angle",
-  "--use-angle=swiftshader",
-  "--enable-unsafe-swiftshader",
-  "--ignore-gpu-blocklist",
-  "--disable-gpu-sandbox",
-  "--no-sandbox",
-  "--disable-dev-shm-usage",
-  "--hide-scrollbars",
-];
-
-/** How long a closing browser gets before it is killed outright. */
-const CLOSE_GRACE_MS = 3_000;
-
-function chromiumPath(): string {
-  return process.env.DEZFIL_CHROMIUM_PATH ?? "/usr/bin/chromium";
-}
 
 // ---- the slot queue (documented cap; budget covers the wait) ----
 
-interface RenderBudget { timeoutMs: number; check: boolean; }
 interface Waiter { start: () => boolean; }
 
 const slotKey = Symbol.for("dezfil.image-lane");
 const shared = process as typeof process & { [slotKey]?: { active: number; waiters: Waiter[] } };
 const slots = shared[slotKey] ??= { active: 0, waiters: [] as Waiter[] };
 const { waiters } = slots;
-let launches = 0;
 
 function pumpSlots(): void {
   while (slots.active < limits.exportRenderConcurrency && waiters.length) {
@@ -95,77 +71,12 @@ function acquireSlot(deadline: number, signal: AbortSignal | undefined, budget: 
   });
 }
 
-function renderTimeout(budget: RenderBudget): ApiError {
-  // A per-call budget (the assistant's check) names itself; the export's
-  // own budget keeps its remedy.
-  if (budget.check) {
-    const seconds = budget.timeoutMs / 1000;
-    return new ApiError(
-      "render_timeout",
-      `The image render exceeded the ${Number.isInteger(seconds) ? seconds : seconds.toFixed(2)} s check budget (queue wait included).`,
-      408,
-    );
-  }
-  return new ApiError(
-    "render_timeout",
-    `The image render exceeded the ${Math.round(
-      budget.timeoutMs / 1000,
-    )}s export budget (queue wait included). Retry or reduce the size. ${settingRemedy("exportRenderTimeoutS")}`,
-    408,
-  );
-}
-
-/**
- * Await an active render without making renderer cooperation part of the
- * request boundary. The handlers remain attached after timeout/cancellation,
- * so a late driver resolution or rejection is observed but cannot replace the
- * result already returned to the caller.
- */
-function awaitActiveRender(
-  browser: RenderBrowser,
-  input: Parameters<RenderBrowser["render"]>[0],
-  deadline: number,
-  signal: AbortSignal | undefined,
-  budget: RenderBudget,
-  accountId: string,
-): Promise<Awaited<ReturnType<RenderBrowser["render"]>>> {
-  const rendering = trackRenderWork(accountId, browser.render(input));
-
-  return new Promise((resolve, reject) => {
-    let finished = false;
-    let timer: ReturnType<typeof setTimeout> | null = null;
-    let onAbort: (() => void) | null = null;
-
-    const finish = (settle: () => void) => {
-      if (finished) return;
-      finished = true;
-      if (timer) clearTimeout(timer);
-      if (onAbort) signal?.removeEventListener("abort", onAbort);
-      settle();
-    };
-
-    const terminate = (error: unknown) => {
-      if (finished) return;
-      browser.kill();
-      finish(() => reject(error));
-    };
-
-    onAbort = () => terminate(new EvaluationCancelled());
-    timer = setTimeout(
-      () => terminate(renderTimeout(budget)),
-      Math.max(deadline - Date.now(), 1),
-    );
-    signal?.addEventListener("abort", onAbort, { once: true });
-
-    // This is also the late-outcome observer. Both callbacks return normally
-    // after a boundary result, so a losing rejection cannot go unhandled.
-    void rendering.then(
-      (outcome) => finish(() => resolve(outcome)),
-      (error) => finish(() => reject(error)),
-    );
-
-    if (signal?.aborted) onAbort();
-  });
+/** Take a slot now, when one is free and no image waits for one; never
+ * queue. Whoever takes one releases it. */
+function takeSlotNow(): boolean {
+  if (waiters.length > 0 || slots.active >= limits.exportRenderConcurrency) return false;
+  slots.active += 1;
+  return true;
 }
 
 export interface RenderImageInput {
@@ -182,15 +93,6 @@ export interface RenderImageInput {
   /** What must still hold at every phase besides the account's activity:
    * the product's callers pass the map's reach (render-standing.ts). */
   standing?: () => void;
-}
-
-export interface RenderImageResult {
-  png: Uint8Array;
-  /** The hosts of requests abandoned past the per-request budget (spec
-   * one entry per request; empty when every request answered. */
-  abandoned: string[];
-  /** The render page's declaration of what it consumed, when it made one. */
-  consumed?: string;
 }
 
 /** Render one map to PNG under the documented bounds. */
@@ -217,122 +119,61 @@ async function performRenderMapImage(
   const requestBoundMs = renderRequestBoundMs(input.budgetMs);
   const deadline = Date.now() + budget.timeoutMs;
   await acquireSlot(deadline, input.signal, budget);
-  let browser: RenderBrowser | null = null;
-  let settled = false;
-  let timedOut = false;
-  const watchdog = setTimeout(
-    () => {
-      // The hard stop: a render past its budget dies, it never lingers — and the outcome is
-      // deterministically the coded timeout (a watchdog expiry must never read as render_failed).
-      timedOut = true;
-      browser?.kill();
-    },
-    Math.max(deadline - Date.now(), 1),
-  );
   try {
-    stand();
-    const driver = input.driver ?? (await puppeteerDriver());
-    try {
-      // Launch is inside the budget too: a stalled
-      // launch races the remaining deadline; a late arrival is closed.
-      launches += 1;
-      const launching = trackRenderWork(scope.accountId, driver.launch(chromiumPath(), CHROMIUM_FLAGS, {
-        appOrigin: new URL(input.baseUrl).origin,
-        deadline,
-        requestBoundMs,
-        signal: input.signal,
-      }));
-      launching.catch(() => {});
-      browser = await new Promise<RenderBrowser>((resolve, reject) => {
-        let finished = false;
-        const finish = (settle: () => void) => {
-          if (finished) return;
-          finished = true;
-          clearTimeout(timer);
-          input.signal?.removeEventListener("abort", onAbort);
-          settle();
-        };
-        const timer = setTimeout(
-          () => finish(() => {
-            timedOut = true;
-            reject(renderTimeout(budget));
-          }),
-          Math.max(deadline - Date.now(), 1),
-        );
-        // The caller's departure aborts a slow launch too: the slot must
-        // not sit held behind a stuck startup.
-        const onAbort = () => finish(() => reject(new EvaluationCancelled()));
-        input.signal?.addEventListener("abort", onAbort, { once: true });
-        if (input.signal?.aborted) onAbort();
-        void launching.then(
-          (arrived) => finish(() => resolve(arrived)),
-          (error) => finish(() => reject(error)),
-        );
-      }).catch((error: unknown) => {
-        launching.then((late) => late.kill()).catch(() => {});
-        throw error;
-      });
-    } catch (error) {
-      if (input.signal?.aborted) throw new EvaluationCancelled();
-      if (timedOut || Date.now() >= deadline) throw renderTimeout(budget);
-      if (error instanceof ApiError || error instanceof AuthError || error instanceof EvaluationCancelled) throw error;
-      throw new ApiError(
-        "render_unavailable",
-        "The image renderer's browser is not available on this instance. " +
-          "Check DEZFIL_CHROMIUM_PATH, or use the builder's own download.",
-        503,
-      );
-    }
-    if (input.signal?.aborted) throw new EvaluationCancelled();
-    stand();
-    const outcome = await awaitActiveRender(
-      browser,
-      {
-        url: `${input.baseUrl}/render/${encodeURIComponent(input.mapId)}`,
-        credential: input.credential,
-        width: input.definition.size.width,
-        height: input.definition.size.height,
-        definition: input.definition,
-        deadline,
-        requestBoundMs,
-      },
+    return await driveRender({
+      url: `${input.baseUrl}/render/${encodeURIComponent(input.mapId)}`,
+      credential: input.credential,
+      definition: input.definition,
       deadline,
-      input.signal,
+      requestBoundMs,
       budget,
-      scope.accountId,
-    );
-    stand();
-    settled = true;
-    if (input.signal?.aborted) throw new EvaluationCancelled();
-    if ("failed" in outcome) {
-      // The route's own worded state — already user-safe prose; no
-      // browser diagnostics ride along.
-      throw new ApiError("render_failed", outcome.failed, 502);
-    }
-    return { png: outcome.png, abandoned: outcome.abandoned ?? [], ...(outcome.consumed ? { consumed: outcome.consumed } : {}) };
-  } catch (error) {
-    if (error instanceof AuthError || error instanceof ApiError || error instanceof EvaluationCancelled) {
-      throw error;
-    }
-    if (input.signal?.aborted) throw new EvaluationCancelled();
-    if (timedOut || (!settled && Date.now() >= deadline)) {
-      throw renderTimeout(budget);
-    }
-    throw new ApiError(
-      "render_failed",
-      "The image could not be rendered. Retry; if it persists, the " +
-        "instance's renderer needs attention.",
-      502,
-    );
+      signal: input.signal,
+      driver: input.driver,
+      accountId: scope.accountId,
+      stand,
+    });
   } finally {
-    clearTimeout(watchdog);
-    if (browser) {
-      const closing = trackRenderWork(scope.accountId, browser.close());
-      const killTimer = setTimeout(() => browser?.kill(), CLOSE_GRACE_MS);
-      void closing
-        .catch(() => browser?.kill())
-        .finally(() => clearTimeout(killTimer));
-    }
+    releaseSlot();
+  }
+}
+
+export interface CheckImageInput {
+  baseUrl: string;
+  credential: string;
+  /** The account the browser's work is tracked against. */
+  accountId: string;
+  /** The hard stop: the browser is killed and the slot given back by then. */
+  timeoutMs: number;
+  signal?: AbortSignal;
+  /** Injected by unit tests; the real driver otherwise. */
+  driver?: RenderDriver;
+}
+
+/**
+ * The image renderer's Test: one image of the render route's fixed check
+ * picture, from no map or data, on a slot taken now. When every slot is
+ * in use or an image already waits for one it answers busy at once and
+ * launches nothing, so it never queues and never goes ahead of an image.
+ * Its slot counts against Images at once like any image's, and an image
+ * asked while it runs waits for it as it would behind any image, at most
+ * its hard stop.
+ */
+export async function renderCheckImage(input: CheckImageInput): Promise<RenderImageResult | "busy"> {
+  if (!takeSlotNow()) return "busy";
+  try {
+    return await driveRender({
+      url: `${input.baseUrl}${RENDER_CHECK_PATH}`,
+      credential: input.credential,
+      definition: RENDER_CHECK_DEFINITION,
+      deadline: Date.now() + input.timeoutMs,
+      requestBoundMs: renderRequestBoundMs(input.timeoutMs),
+      budget: { timeoutMs: input.timeoutMs, check: true },
+      signal: input.signal,
+      driver: input.driver,
+      accountId: input.accountId,
+      stand: () => {},
+    });
+  } finally {
     releaseSlot();
   }
 }
@@ -346,5 +187,5 @@ export function renderQueueState(): { active: number; waiting: number } {
  * started, a failed one too (renders counted at the renderer, never
  * from successful results). */
 export function renderStats(): { launches: number } {
-  return { launches };
+  return { launches: driveLaunches() };
 }
