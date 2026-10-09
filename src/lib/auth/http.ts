@@ -49,10 +49,26 @@ export function requireRequestAuth(request: Request, db?: Database): AuthContext
   assertRequestOrigin(request, context);
   return context;
 }
-export function assertRequestOrigin(request: Request, context?: AuthContext): void {
-  if (["GET", "HEAD", "OPTIONS"].includes(request.method)) return;
+/**
+ * How a request's origin is held. A change, the default, needs a cookie
+ * request to carry this instance's Origin; a read passes. A protected read
+ * is a read whose work this server does when asked, so a cookie request
+ * must show it comes from this instance: an Origin that is this
+ * instance's, or, with no Origin, the browser's own `Sec-Fetch-Site:
+ * same-origin`; a link or a form on another site carries the cookie and
+ * neither. A token, and the assistant's delegated request, call directly
+ * in either mode.
+ */
+export type OriginMode = "change" | "protected_read";
+
+export function assertRequestOrigin(request: Request, context?: AuthContext, mode: OriginMode = "change"): void {
+  if (mode === "change" && ["GET", "HEAD", "OPTIONS"].includes(request.method)) return;
   if (context?.credential.kind === "token" || context?.delegationExpiresAt !== undefined) return;
-  if (request.headers.get("origin") !== requestIngress(request).origin) {
+  const origin = request.headers.get("origin");
+  const sameOrigin = origin === null && mode === "protected_read"
+    ? request.headers.get("sec-fetch-site") === "same-origin"
+    : origin === requestIngress(request).origin;
+  if (!sameOrigin) {
     throw new AuthError("forbidden", "This request must come from the same instance.", 403);
   }
 }

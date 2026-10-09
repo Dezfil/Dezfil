@@ -7,6 +7,7 @@ import { admits } from "@/lib/assistant/policy";
 import { socketRequest } from "@/lib/assistant/testing/socket-request";
 import { cleanAbandonedDeletionCandidates } from "@/lib/auth/account-deletion-candidate-recovery";
 import { authenticateSession, createApiToken, issueSession } from "@/lib/auth/credentials";
+import { delegateCredential } from "@/lib/auth/delegation";
 import { gateRequest } from "@/lib/auth/gate";
 import { registerAccountFile } from "@/lib/ingest/file-ownership";
 import { cleanIngestScratch } from "@/lib/ingest/scratch";
@@ -128,7 +129,9 @@ function tiledLayer(scope: ReturnType<typeof testAccountScope>, layerId: string,
   upsertTileRecord({ layerId, state: "ready", fingerprint: "fixture", error: null, featureCount: 4, builtAt: at });
   return map.id;
 }
-const read = (headers: Record<string, string> = { cookie: `dezfil_session=${p.admin.secret}` }) =>
+/** A read, by default as this instance's own page makes it: the admin's
+ * cookie on a same-origin fetch, which carries no Origin. */
+const read = (headers: Record<string, string> = { cookie: `dezfil_session=${p.admin.secret}`, "sec-fetch-site": "same-origin" }) =>
   socketRequest(new Request(`${ORIGIN}/api/instance/storage`, { headers }));
 
 const L_KEPT = "0b6f3c1e-7d1a-4a52-9c1e-000000000001", L_GONE = "0b6f3c1e-7d1a-4a52-9c1e-000000000002";
@@ -250,13 +253,20 @@ describe("the storage read", () => {
     for (const name of names) expect(text, `the answer holds ${name}`).not.toContain(name);
   });
 
-  it("refuses a member, an anonymous caller and a cross-origin cookie, walking nothing; an admin's token and the same origin read", async () => {
+  it("refuses a member, an anonymous caller and an admin's cookie without same-origin evidence, a cross-site navigation's too, walking nothing; an admin's token, the assistant's delegation and the same origin read", async () => {
     const memberToken = createApiToken(authenticateSession(p.member.secret, p.db)!, "Member", p.db).secret;
+    const cookie = `dezfil_session=${p.admin.secret}`;
     const refused: [Record<string, string>, number][] = [
       [{}, 401],
       [{ cookie: `dezfil_session=${p.member.secret}`, origin: ORIGIN }, 403],
       [{ authorization: `Bearer ${memberToken}` }, 403],
-      [{ cookie: `dezfil_session=${p.admin.secret}`, origin: "https://elsewhere.test" }, 403],
+      [{ cookie, origin: "https://elsewhere.test" }, 403],
+      // A link or a form on another site: the Lax cookie rides along, no Origin does.
+      [{ cookie, "sec-fetch-site": "cross-site", "sec-fetch-mode": "navigate" }, 403],
+      [{ cookie, "sec-fetch-site": "same-site" }, 403],
+      [{ cookie, origin: "https://elsewhere.test", "sec-fetch-site": "same-origin" }, 403],
+      // Neither an Origin nor the browser's own word that the page is this instance's.
+      [{ cookie }, 403],
     ];
     for (const [headers, status] of refused) {
       const response = await GET(read(headers));
@@ -267,10 +277,15 @@ describe("the storage read", () => {
     // The gate refuses the caller who is no admin before the route.
     for (const [headers, status] of refused.slice(0, 3)) expect(gateRequest(read(headers)).status).toBe(status);
     expect(watch.walks).toBe(0);
-    const admitted: Record<string, string>[] = [{ authorization: `Bearer ${p.token.secret}` },
-      { cookie: `dezfil_session=${p.admin.secret}`, origin: ORIGIN }, { cookie: `dezfil_session=${p.admin.secret}` }];
+    const admitted: Record<string, string>[] = [
+      { authorization: `Bearer ${p.token.secret}`, "sec-fetch-site": "cross-site" },
+      { authorization: `Bearer ${delegateCredential(p.context, p.db)}`, "sec-fetch-site": "cross-site" },
+      { cookie, origin: ORIGIN },
+      // This instance's own page reading it: a same-origin fetch carries no Origin.
+      { cookie, "sec-fetch-site": "same-origin" },
+    ];
     for (const headers of admitted) {
-      expect((await GET(read(headers))).status).toBe(200);
+      expect((await GET(read(headers))).status, JSON.stringify(headers)).toBe(200);
     }
     // A demoted admin is refused even a kept answer.
     p.db.prepare("UPDATE accounts SET is_admin = 0 WHERE id = 'admin'").run();
