@@ -86,7 +86,9 @@ export const ASSISTANT_PATHS = {
             "declare themselves read-only by their effects, the read-only " +
             "query and the schema reads among them, and no operation that " +
             "declares a write on any argument, conditional (plan or run) " +
-            "operations included. The model is offered only what its run " +
+            "operations included; of the read-only ones they refuse any that " +
+            "reaches outside this server or asks for confirmation, a " +
+            "service's or a part's Test among them. The model is offered only what its run " +
             "admits. A call outside the set, however it arrives, is refused " +
             "before any product operation: its tool_result carries the " +
             "documented error assistant_action_not_admitted and the run's " +

@@ -460,8 +460,16 @@ path. Contextual defaults can carry a `rule`. `services` reports what the
 services keep, read from the data folder and this process: for `geocode`,
 `isochrone` and `overpass` their cache's `bytes`, `answers` and `budgetMb`, and
 for `overture` the release list this process keeps, `{ listed: false }` or
-`listed` with `releases`, `newest` and `listedAt`. The read contacts no provider, initializes no
-engine and creates no configuration artifact. `capacities` contains
+`listed` with `releases`, `newest` and `listedAt`. `parts` reports each part of
+the server as System's Status shows it: for `query_engine` the engine library's
+`version`, whether the engine that runs people's SQL has `started` and the
+`extensions` it loaded; for `tile_builder` whether the program is `found` where
+its setting points (a bare name looked up on the search path, by a file check)
+and its `version` once this server has run it, else null; for `image_renderer`
+whether its browser is `found` and `imagesAtOnce`; for `metadata_database` its
+`file` name without its folder. The read contacts no provider, initializes no
+engine, launches no browser, runs no program and creates no configuration
+artifact. `capacities` contains
 `geocodeRows` (at least one) and `isochroneOrigins` (possibly zero), matching
 operation admission without promising a provider. `maxImageDimension` is
 the fixed export maximum; `version` is the package version and `startedAt`
@@ -570,6 +578,40 @@ list it finds; a second Test of a service while one runs shares its request.
 settings, datasets, runs and the release list are unchanged. Both are
 generated as tools, `test_service` and `clear_service_caches`: the embedded
 assistant confirms each, and the SQL and workflow assistants refuse them.
+
+Two more serve System, admins only and rechecked on every call, with private,
+no-store answers. `POST /api/instance/parts/{part}/test` runs one small fixed
+check on one part as it is configured now, never one given in the call:
+`data_folder` writes and removes one empty file in the data folder within 5
+seconds; `query_engine` asks the engine that runs people's SQL one fixed
+spatial question within 30 seconds, starting a cold engine with the extensions
+already installed and installing nothing, so without the spatial extension it
+answers `not_found` and leaves the engine for the next query to start;
+`tile_builder` asks the tile builder its version, then builds a small archive
+from a few fixed points in its own scratch folder and removes it, within 30
+seconds, beside any layer build; `image_renderer` photographs a small fixed
+picture of this server's own within 10 seconds, only on an image slot free now
+with no image waiting, else it answers `busy` at once, and an image asked
+meanwhile waits for it as behind any image; `metadata_database` takes the
+database's write lock, reads the schema's version and gives the lock back,
+writing nothing. It answers `{ part, result: "passed", milliseconds }` or
+`result: "failed"` with one `reason`: `not_found`, `busy`, `timed_out` or
+`failed`; never a path, a program's output or an error's words. It changes no
+setting, leaves no file and sends nothing outside this server; a second Test of
+a part while one runs gets the same answer. `GET /api/instance/storage` answers
+what the data folder holds by kind (`tables`, `tile_archives`,
+`service_caches`, `thumbnails`, `metadata_database`, `leftover_files` and
+`other`), each as `{ bytes, files, finished }`, with the `total` and the
+volume's `disk` space, `{ free, total }` or null. `leftover_files` is what the
+next restart's sweeps would remove, work in progress included. Each file counts
+once; the read takes names, sizes and which files the metadata references,
+opens no file, follows no link and answers no name, owner, path or file name.
+One walk runs at a time and its answer is given again for 30 seconds unless a
+cache is cleared; a walk stops at 10 seconds and gives each kind it had not
+finished as at least what it counted, `finished: false`. Cookie requests to
+either need the same trusted Origin; a token calls directly. Both are generated
+as tools, `test_part` and `read_storage`: the embedded assistant confirms each,
+and the SQL and workflow assistants refuse them.
 
 Built-in and configured basemaps, the palette catalogue, geometry projections,
 the API reference, operation catalogue and offered assistant models are shared
@@ -1963,7 +2005,7 @@ response message. Branch on the code.
 | `assistant_plan_unavailable` | The current workflow membership could not be established. No run was approved or started. |
 | `assistant_action_uncertain` | The action outcome could not be established. Its declared resources may have changed. |
 | `assistant_action_interrupted` | The read was interrupted before completion. |
-| `assistant_action_not_admitted` | The run's page context does not admit this operation; nothing was performed. Runs under a /sql or workflow context admit only operations that declare themselves read-only. |
+| `assistant_action_not_admitted` | The run's page context does not admit this operation; nothing was performed. Runs under a /sql or workflow context admit only operations that declare themselves read-only, and none that reaches outside this server or asks for confirmation. |
 | `assistant_choice_invalid` | The submitted model choice is malformed: it must be an object whose optional model and effort are strings. |
 | `assistant_model_not_offered` | The requested model is not one this instance offers. GET /api/assistant lists the models it offers. |
 | `assistant_effort_not_offered` | The requested effort is not one the selected model offers. GET /api/assistant lists each model's own efforts. |

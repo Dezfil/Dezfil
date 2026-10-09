@@ -37,6 +37,16 @@ describe("the page action policy is documented", () => {
     expect(description).toContain(POLICY_REFUSAL_CODE);
   });
 
+  it("the message operation's description and the refusal say what the read-only policy refuses besides writes", () => {
+    // The policy refuses a read-only operation that reaches outside this
+    // server or asks for confirmation; neither sentence may claim that
+    // declaring itself read-only is enough.
+    for (const sentence of [description, ERROR_CATALOGUE[POLICY_REFUSAL_CODE]]) {
+      expect(sentence).toContain("reaches outside this server");
+      expect(sentence).toContain("asks for confirmation");
+    }
+  });
+
   it("the error catalogue and the document's error codes carry the refusal", () => {
     expect(ERROR_CATALOGUE[POLICY_REFUSAL_CODE]).toMatch(/does not admit this operation; nothing was performed/);
     expect((document as unknown as { "x-error-codes": Record<string, string> })["x-error-codes"][POLICY_REFUSAL_CODE]).toBe(ERROR_CATALOGUE[POLICY_REFUSAL_CODE]);

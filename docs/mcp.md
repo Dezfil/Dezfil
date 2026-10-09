@@ -100,8 +100,10 @@ input is closed and takes no arguments; unknown arguments are refused before
 HTTP dispatch. The result contains every instance and platform definition,
 effective and stored values, source, lock and invalid-override state, derived
 admission capacities, the fixed image maximum, version and process start time,
-and `services`: each service cache's size, answer count and budget, and the
-Overture release list this process keeps. Credentials are presence or
+`services`: each service cache's size, answer count and budget, and the
+Overture release list this process keeps, and `parts`: each part of the server
+as System's Status shows it, read without starting the engine, launching a
+browser or running a program. Credentials are presence or
 key-location states; addresses contain only scheme and host, or
 set-and-unreadable state, and a stored address never comes back as stored. The same current-admin checks and
 private, no-store responses apply to direct API calls and tool calls.
@@ -142,6 +144,21 @@ body, an address or a key; it is read-only but reaches outside this server, so
 MCP marks it open-world. Clear removes the cached answers of one service or all
 three and nothing else. The embedded assistant asks before calling either; the
 SQL and workflow assistants are never offered them.
+
+`test_part` calls `POST /api/instance/parts/{part}/test` and `read_storage`
+calls `GET /api/instance/storage`, both admin-only and rechecked on every
+call. A part's Test runs one small fixed check on the data folder, the query
+engine, the tile builder, the image renderer or the metadata database as
+configured now, and answers passed with the time taken or failed with one
+reason (`not_found`, `busy`, `timed_out`, `failed`), never a path, a program's
+output or an error's words; the engine's installs nothing, and the renderer's
+answers busy rather than wait for an image slot. The storage read gives each
+kind of file in the data folder its bytes and count, the total and the free
+space, never a name or a path, at least what it counted for a kind its
+10-second walk did not finish. Both are local and read-only and keep nothing,
+so MCP marks them local reads, not open-world; they ask for confirmation, so the
+embedded assistant asks before calling either and the SQL and workflow
+assistants are never offered them.
 
 `get_config` reads `GET /api/config`, which every signed-in account and agent
 may call. Besides the basemaps and palettes on offer and the client limits, it

@@ -63,9 +63,9 @@ are checked against `src/lib/settings/catalogue.ts` by
 cover every deployment definition exactly once, with no orphan row, and match
 its documented default and **Changed by** value. The checker reads the catalogue
 itself; it keeps no separate list of settings. It also scans production `src/`
-names and script `DEZFIL_TEST_*` reads, and holds both documents and the catalogue
-to those sets in both directions. The three test-wiring names keep their own
-coverage check.
+names and the `DEZFIL_TEST_*` reads of the helper scripts and of production
+`src/`, and holds both documents and the catalogue to those sets in both
+directions. The four test-wiring names keep their own coverage check.
 
 Rows start with `` | `NAME` `` and contain the default, effect and **Changed by**
 cells. The latter has two values: **Restart**, or **App (live) or restart** for
@@ -77,10 +77,10 @@ the catalogue's sign-in, token, publishing, connection and import settings: one
 row per setting under the key the change operation takes, no orphan row, and
 each row's default as the catalogue documents it.
 
-Two classes are deliberately outside the check: source-local test seams
-(`DEZFIL_TEST_*` in `src/` and `DEZFIL_BASE_URL`) and platform plumbing (`NODE_ENV`, `PORT`, `HOSTNAME`,
-`NEXT_RUNTIME`, `TZ`, `CI`, `DUCKDB_EXTENSION_DIR`). Both are listed at the
-end of this page.
+Two classes are deliberately outside the check: test-local seams
+(`DEZFIL_TEST_*` read only by test files in `src/`, and `DEZFIL_BASE_URL`) and
+platform plumbing (`NODE_ENV`, `PORT`, `HOSTNAME`, `NEXT_RUNTIME`, `TZ`, `CI`,
+`PATH`, `DUCKDB_EXTENSION_DIR`). Both are listed at the end of this page.
 
 ## Instance defaults
 
@@ -447,6 +447,7 @@ self-hoster, and the README check excludes them by name.
 | `HOSTNAME` | image sets `0.0.0.0` | The listening interface. |
 | `NODE_ENV` | image sets `production` | Standard Node build mode. |
 | `NEXT_RUNTIME` | supplied by the framework | Which runtime a module is executing in. |
+| `PATH` | the system | The program search path. A tile builder or an image renderer whose setting names a program rather than a path is looked up there. |
 | `DUCKDB_EXTENSION_DIR` | image sets `/app/duckdb-extensions` | The baked engine extension bundle. Overriding it defeats the offline guarantee. |
 | `NEXT_TELEMETRY_DISABLED` | image sets `1` | Turns off the framework's own telemetry during build and at runtime. |
 | `TZ`, `CI` | environment | Excluded by name from the README check; the code does not read them as settings. |
@@ -455,13 +456,14 @@ self-hoster, and the README check excludes them by name.
 
 Read by test files, end-to-end specs, and helper scripts, never by the
 server as a setting. They are listed here so nobody mistakes one
-for a tunable. All three names and their defaults are checked in both guides:
+for a tunable. All four names and their defaults are checked in both guides:
 
 | Variable | Default | Effect | Changed by |
 |---|---|---|---|
 | `DEZFIL_TEST_PG_URL` | unset | Test/probe process only: disposable PostGIS fixture URL for live source tests and the full result-budget probe. Never read by the product server. | Restart |
 | `DEZFIL_TEST_PUBLICATION_LOG` | unset | Test preload only: NDJSON destination for per-admission published-source state. Required by `scripts/publication-observer.mjs`; no effect without that preload. | Restart |
 | `DEZFIL_TEST_DERIVATION_LOG` | unset | Test preload only: NDJSON destination for native derivation starts, completions and admission occupancy. Required by `scripts/derivation-observer.mjs`; no effect without that preload. | Restart |
+| `DEZFIL_TEST_EXTENSION_REPOSITORY` | unset | Tests only: a loopback extension repository the engine that runs people's SQL installs from, so a test that lets it install an extension reaches a fixture that records the request, never the internet. Never set in a deployment. | Restart |
 
 - `DEZFIL_BASE_URL`: the target address for the browser test runner and the
   headless journey scripts.
@@ -485,4 +487,4 @@ files and inside the performance harness under `scripts/perf/`, where they
 select an optional arm or name an output file. They are local to the file
 that reads them and are not part of the settings surface. The README check
 does not see them, because it scans non-test source files under `src` and only `DEZFIL_TEST_*`
-reads in helper scripts.
+reads in helper scripts and in those source files.

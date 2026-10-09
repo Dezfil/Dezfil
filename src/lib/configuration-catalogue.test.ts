@@ -44,7 +44,7 @@ it("checks both real documents against the catalogue and retains the script wiri
   const result = check();
   expect(result.status, result.output).toBe(0);
   expect(result.output).toContain("63 deployment settings");
-  expect(result.output).toContain("3 test-wiring names");
+  expect(result.output).toContain("4 test-wiring names");
   expect(result.output).toContain("18 instance defaults");
   expect(result.output).toContain("12 rules");
 });
@@ -96,6 +96,41 @@ describe.each(guides)("%s catalogue drift", file => {
     const result = check(file, text => `${text}\n| \`DEZFIL_TEST_ORPHAN\` | unset | Orphan. | Restart |\n`);
     expect(result.status, result.output).toBe(1);
     expect(result.output).toContain("DEZFIL_TEST_ORPHAN");
+  });
+});
+
+describe("the test seams the product code reads", () => {
+  const seam = "DEZFIL_TEST_EXTENSION_REPOSITORY";
+  const problemsOf = (srcDir: string, testWiring: readonly { environment: string; documentedDefault: string }[] = TEST_WIRING) =>
+    configurationProblems({ srcDir, documents: originals, catalogue: SETTING_CATALOGUE, testWiring, defaultsGuide, isInstanceDefault, isInstanceRule });
+
+  it("hold the engine's extension repository as test wiring, unset by default, in both guides", () => {
+    expect(TEST_WIRING.map(wiring => wiring.environment)).toContain(seam);
+    for (const guide of guides) {
+      expect(configurationRows(originals[guide]).filter(row => row.name === seam), guide).toEqual([{ name: seam, defaultValue: "unset", changedBy: "Restart" }]);
+    }
+    expect(problemsOf(path.join(root, "src"))).toEqual([]);
+  });
+
+  it("rejects the seam taken from the catalogue while the engine still reads it", () => {
+    const problems = problemsOf(path.join(root, "src"), TEST_WIRING.filter(wiring => wiring.environment !== seam));
+    expect(problems).toContain(`STALE: source scan against catalogue: ${seam}`);
+    expect(problems).toContain(`STALE: test wiring reads against catalogue: ${seam}`);
+    for (const guide of guides) expect(problems).toContain(`STALE: ${guide} test wiring: ${seam}`);
+  });
+
+  it("rejects a seam the product code reads that the catalogue and the guides do not name, and leaves one a test file reads to that file", () => {
+    const src = mkdtempSync(path.join(scratch, "src-"));
+    writeFileSync(path.join(src, "engine.ts"), "export const repository = process.env.DEZFIL_TEST_NEW_SEAM;\n");
+    writeFileSync(path.join(src, "engine.test.ts"), "export const local = process.env.DEZFIL_TEST_FILE_LOCAL;\n");
+    const problems = problemsOf(src);
+    expect(problems.filter(problem => problem.includes("DEZFIL_TEST_NEW_SEAM")).sort()).toEqual([
+      "STALE: source scan against catalogue: DEZFIL_TEST_NEW_SEAM",
+      "STALE: test wiring reads against catalogue: DEZFIL_TEST_NEW_SEAM",
+      "UNDOCUMENTED: README.md test wiring reads: DEZFIL_TEST_NEW_SEAM",
+      "UNDOCUMENTED: docs/configuration.md test wiring reads: DEZFIL_TEST_NEW_SEAM",
+    ]);
+    expect(problems.filter(problem => problem.includes("DEZFIL_TEST_FILE_LOCAL"))).toEqual([]);
   });
 });
 

@@ -4,16 +4,19 @@
 //
 // Coverage is defined by what `src` reads from process.env, minus two
 // documented exclusion classes:
-//   - source-local test wiring: DEZFIL_TEST_* (tiler stubs, fixture URLs) and
-//     DEZFIL_BASE_URL (the Playwright runner's target, read by e2e
-//     tooling, never by the server);
+//   - test-local wiring: DEZFIL_TEST_* named anywhere but a read in the
+//     server code (tiler stubs and fixture URLs read by test files, the
+//     names the catalogue lists) and DEZFIL_BASE_URL (the Playwright
+//     runner's target, read by e2e tooling, never by the server);
 //   - platform/image plumbing that is not an operator tunable: NODE_ENV,
 //     PORT, HOSTNAME, NEXT_RUNTIME (runtime-provided), PATH (the system's
 //     program search path, read to find a configured program given by
 //     name), and DUCKDB_EXTENSION_DIR (set by the Dockerfile to the baked
 //     bundle; overriding it defeats the offline guarantee).
 // Script DEZFIL_TEST_* reads are documented too: the image observers are
-// part of the reproducible operator recipes.
+// part of the reproducible operator recipes. So is a DEZFIL_TEST_* seam the
+// server code itself reads (process.env, outside test files): it is test
+// wiring in the product, and both guides name it.
 // Anything else the server reads — today that includes ANTHROPIC_API_KEY
 // and OPENAI_API_KEY — must be documented.
 //
@@ -63,6 +66,26 @@ export function probeVariables(scriptsDir) {
   return names;
 }
 
+/** Test seams the server code itself reads: process.env reads of
+ * DEZFIL_TEST_* in src, test files excluded. A test file's own seam stays
+ * local to it; a mention is not a read. */
+export function seamVariables(srcDir) {
+  const names = new Set();
+  const files = walk(srcDir).filter(file => /\.(?:ts|tsx|js|mjs)$/.test(file) && !/\.test\.(?:ts|tsx|js|mjs)$/.test(file));
+  for (const file of files) {
+    const source = readFileSync(file, "utf8");
+    for (const pattern of [/process\.env\.(DEZFIL_TEST_[A-Z0-9_]+)/g, /process\.env\[["'](DEZFIL_TEST_[A-Z0-9_]+)["']\]/g]) {
+      for (const match of source.matchAll(pattern)) names.add(match[1]);
+    }
+  }
+  return names;
+}
+
+/** Every test-wiring name read: by the helper scripts and by the server code. */
+export function wiringVariables(srcDir, scriptsDir = path.join(srcDir, "..", "scripts")) {
+  return new Set([...probeVariables(scriptsDir), ...seamVariables(srcDir)]);
+}
+
 /** Every operator-facing name the server code reads (src, excluding
  * tests). Three extractions, because the code reads settings three ways:
  * DEZFIL_* tokens in any context (the limits helpers take the name as
@@ -70,7 +93,7 @@ export function probeVariables(scriptsDir) {
  * through a name map), and direct process.env accesses for anything
  * else — minus the documented exclusions. */
 export function serverVariables(srcDir, scriptsDir = path.join(srcDir, "..", "scripts")) {
-  const names = probeVariables(scriptsDir);
+  const names = wiringVariables(srcDir, scriptsDir);
   const files = walk(srcDir).filter(
     (f) =>
       /\.(?:ts|tsx|js|mjs)$/.test(f) && !/\.test\.(?:ts|tsx|js|mjs)$/.test(f),
@@ -227,17 +250,17 @@ export function configurationProblems({ srcDir, documents, catalogue, testWiring
   const definitions = catalogue.filter(definition => definition.environment && definition.scope !== "platform");
   const scriptsDir = path.join(srcDir, "..", "scripts");
   const server = serverVariables(srcDir, scriptsDir);
-  const wiring = probeVariables(scriptsDir);
+  const wiring = wiringVariables(srcDir, scriptsDir);
   const problems = differences(new Set([...definitions, ...testWiring].map(d => d.environment)), server, "source scan against catalogue");
-  problems.push(...differences(new Set(testWiring.map(d => d.environment)), wiring, "script test wiring against catalogue"));
+  problems.push(...differences(new Set(testWiring.map(d => d.environment)), wiring, "test wiring reads against catalogue"));
   for (const [label, text] of Object.entries(documents)) {
     const rows = configurationRows(text).filter(row => !DOCUMENTED_PLATFORM.has(row.name));
     const deploymentRows = rows.filter(row => !row.name.startsWith("DEZFIL_TEST_"));
     const wiringRows = rows.filter(row => row.name.startsWith("DEZFIL_TEST_"));
     problems.push(...catalogueRowProblems(definitions, deploymentRows, label));
     problems.push(...catalogueRowProblems(testWiring, wiringRows, `${label} test wiring`));
-    // Retain each document's direct comparison with executable script reads.
-    problems.push(...differences(wiring, new Set(wiringRows.map(row => row.name)), `${label} script test wiring`));
+    // Retain each document's direct comparison with the executable reads.
+    problems.push(...differences(wiring, new Set(wiringRows.map(row => row.name)), `${label} test wiring reads`));
   }
   if (typeof isInstanceDefault !== "function") throw new TypeError("configurationProblems needs the catalogue's isInstanceDefault predicate.");
   if (typeof isInstanceRule !== "function") throw new TypeError("configurationProblems needs the catalogue's isInstanceRule predicate.");
