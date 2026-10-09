@@ -2940,6 +2940,16 @@
         "memory:engine-extensions"
       ]
     },
+    "memory:src/lib/duckdb.ts#getQueryInstance.extensions": {
+      "stores": [
+        "memory:engine-extensions"
+      ]
+    },
+    "memory:src/lib/duckdb.ts#startedQueryInstance": {
+      "stores": [
+        "memory:engine-extensions"
+      ]
+    },
     "memory:src/lib/duckdb.ts#instancePromise": {
       "stores": [
         "memory:src/lib/duckdb.ts#instancePromise"

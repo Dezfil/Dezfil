@@ -6,7 +6,7 @@
  */
 
 /** The parts of this server with a Test, in the order Status lists them. */
-export const PARTS = ["data_folder", "metadata_database"] as const;
+export const PARTS = ["data_folder", "query_engine", "metadata_database"] as const;
 export type Part = typeof PARTS[number];
 
 /** Why a Test failed: a program, or the spatial extension, is not where its
@@ -22,6 +22,7 @@ export type PartTestAnswer =
 /** Each Test's own limit, in seconds. */
 export const PART_TEST_LIMITS: Readonly<Record<Part, number>> = {
   data_folder: 5,
+  query_engine: 30,
   metadata_database: 5,
 };
 
@@ -37,21 +38,26 @@ function took(milliseconds: number): string {
 
 const PASSED: Readonly<Record<Part, string>> = {
   data_folder: "Passed in",
+  query_engine: "Answered in",
   metadata_database: "Answered in",
 };
 const FAILED: Readonly<Record<Part, string>> = {
   data_folder: "Could not write a file in the data folder.",
+  query_engine: "The engine did not answer as it should.",
   metadata_database: "Could not read the database.",
 };
 const BUSY: Readonly<Partial<Record<Part, string>>> = {
   metadata_database: "Busy: another write holds the database.",
+};
+const NOT_FOUND: Readonly<Partial<Record<Part, string>>> = {
+  query_engine: "The spatial extension is not installed where the engine looks.",
 };
 
 /** A Test's answer line. Never more than the answer's closed shape. */
 export function partTestWords(answer: PartTestAnswer): { readonly passed: boolean; readonly text: string } {
   if (answer.result === "passed") return { passed: true, text: `${PASSED[answer.part]} ${took(answer.milliseconds)}` };
   switch (answer.reason) {
-    case "not_found": return { passed: false, text: "Not where its setting points." };
+    case "not_found": return { passed: false, text: NOT_FOUND[answer.part] ?? "Not where its setting points." };
     case "busy": return { passed: false, text: BUSY[answer.part] ?? "Busy with other work." };
     case "timed_out": return { passed: false, text: `Did not finish within ${PART_TEST_LIMITS[answer.part]} seconds.` };
     case "failed": return { passed: false, text: FAILED[answer.part] };

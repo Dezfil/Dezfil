@@ -4,6 +4,7 @@ import type { AuthContext } from "@/lib/auth/credentials";
 import { dataDir } from "@/lib/config";
 import { ensureDataDir } from "@/lib/data-dir";
 import { MIGRATIONS, metadataDb } from "@/lib/metadata/db";
+import { askQueryEngine } from "./engine-test";
 import { PART_TEST_LIMITS, type Part, type PartFailure, type PartTestAnswer } from "./part-test-answer";
 
 /**
@@ -33,6 +34,13 @@ const TESTS: Record<Part, PartTest> = {
   // The readiness check's own probe: one empty file written and removed.
   async data_folder() {
     await ensureDataDir(dataDir());
+  },
+
+  // One fixed spatial question on the engine that runs people's SQL,
+  // starting a cold one with what is installed and installing nothing.
+  async query_engine(_db, signal) {
+    const outcome = await askQueryEngine(signal);
+    if (outcome !== "answered") throw new PartFailed(outcome);
   },
 
   // The write lock taken and given back around one fixed fact, the

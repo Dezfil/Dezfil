@@ -33,7 +33,10 @@ export const INSTANCE_SYSTEM_PATHS = {
     description: "Requires a current admin through cookie or bearer authentication, rechecked on every call. " +
       "Cookie requests require the same trusted Origin; an admin bearer token calls directly. Responses, including refusals, are private, no-store. " +
       "Runs one small fixed check on one part of this server as it is configured now, never one given here: data_folder writes and removes one " +
-      "empty file in the data folder, as the readiness check does, within 5 seconds; metadata_database takes the metadata database's write lock, " +
+      "empty file in the data folder, as the readiness check does, within 5 seconds; query_engine asks the engine that runs people's SQL one fixed " +
+      "spatial question with a known answer within 30 seconds, interrupting it past them, and starts a cold engine for it loading only the " +
+      "extensions already installed: it installs nothing, so without the spatial extension it answers not_found and leaves the engine for the next " +
+      "query to start, and a missing optional extension stays off until the next start; metadata_database takes the metadata database's write lock, " +
       "reads the schema's version and gives the lock back, writing nothing, answering busy when other work holds the lock past the database's " +
       "5-second wait. It changes no setting, leaves no file and sends nothing outside this server. A second Test of a part while one runs gets " +
       "the same answer from the same run. " +
