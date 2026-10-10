@@ -52,7 +52,8 @@ import { SETTING_CATALOGUE } from "./catalogue";
  * template carrying user information (no browser loads tiles from it), so
  * the template's key is saved in its path and query, its user information
  * given on each of those roads and refused, and set by the variable alone,
- * where it still travels to every sink: every read, change
+ * which carries it to every sink the template reaches (the reads, the
+ * Tests, the imagery style and its refusal, a publication): every read, change
  * answer and refusal, the assistant's confirmation, events, pending receipt
  * and stored record (a call giving an address as a list or an object, and
  * its refusal, among them), the Test answers and Clear's, the settings
@@ -489,11 +490,15 @@ describe("a service address carrying a key", () => {
     const failed = await ask("POST", "/api/instance/services/geocode/test");
     expect(failed.body, failed.text).toMatchObject({ service: "geocode", result: "failed", reason: "status", status: 503 });
     searched("a failed Test's answer", failed.text);
-    await save({ satelliteUrl: address("satelliteUrl", { fault: "down" }) });
-    const imageryDown = await ask("POST", "/api/instance/services/satellite/test");
-    expect(imageryDown.body, imageryDown.text).toMatchObject({ service: "satellite", result: "failed", reason: "status", status: 503 });
-    searched("the satellite imagery's failed Test answer", imageryDown.text);
-    await save({ geocoderUrl: address("geocoderUrl"), satelliteUrl: address("satelliteUrl") });
+    // The tile template's key in its user information too, by the variable:
+    // a save refuses it there.
+    vi.stubEnv(VARIABLE.satelliteUrl, address("satelliteUrl", { fault: "down", user: true }));
+    try {
+      const imageryDown = await ask("POST", "/api/instance/services/satellite/test");
+      expect(imageryDown.body, imageryDown.text).toMatchObject({ service: "satellite", result: "failed", reason: "status", status: 503 });
+      searched("the satellite imagery's failed Test answer", imageryDown.text);
+    } finally { vi.stubEnv(VARIABLE.satelliteUrl, undefined); }
+    await save({ geocoderUrl: address("geocoderUrl") });
     const cleared = await ask("DELETE", "/api/instance/caches");
     expect(cleared.status, cleared.text).toBe(200);
     searched("Clear's answer", cleared.text);
@@ -620,23 +625,28 @@ describe("a service address carrying a key", () => {
   });
 
   it("the imagery style whole for a signed-in request alone, refused to an anonymous one; a publication of a map on Satellite assembled afresh", async () => {
-    const style = await ask("GET", SATELLITE_STYLE_URL);
-    expect(style.status, style.text).toBe(200);
-    // The one place the template is whole: a browser drawing the imagery loads it.
-    expect(leaks(style.text)).toEqual(expect.arrayContaining([SAVED[1], SAVED[2]]));
-    const anonymous = await imageryRoute(socketRequest(new Request(`${BASE}${SATELLITE_STYLE_URL}`)));
-    expect(anonymous.status).toBe(401);
-    searched("the imagery style refused to an anonymous request", await anonymous.text());
-    const scope = testAccountScope(metadataDb(), ADMIN);
-    const map = createMap(scope, "Harbour from above").id;
-    updateMap(scope, map, { basemap: "satellite" }, { expectedRevision: readDocumentRevision({ kind: "map", id: map })?.editRevision });
-    const { token } = publishMap(scope, map, { theme: "dark" }, { expectedRevision: readDocumentRevision({ kind: "map", id: map })?.editRevision });
-    resetPublishCache();
-    const view = await publishedRoute(socketRequest(new Request(`${BASE}/api/published/${token}`)), { params: Promise.resolve({ token }) });
-    const text = await view.text();
-    expect(view.status, text).toBe(200);
-    expect(JSON.parse(text).basemapUrl).toBe(SATELLITE_STYLE_URL);
-    searched("a publication of a map on Satellite, assembled afresh", text);
+    // The tile template's key in all three places, by the variable: a save
+    // refuses its user information.
+    vi.stubEnv(VARIABLE.satelliteUrl, address("satelliteUrl", { user: true }));
+    try {
+      const style = await ask("GET", SATELLITE_STYLE_URL);
+      expect(style.status, style.text).toBe(200);
+      // The one place the template is whole: a browser drawing the imagery loads it.
+      expect(leaks(style.text)).toEqual(expect.arrayContaining([...SAVED]));
+      const anonymous = await imageryRoute(socketRequest(new Request(`${BASE}${SATELLITE_STYLE_URL}`)));
+      expect(anonymous.status).toBe(401);
+      searched("the imagery style refused to an anonymous request", await anonymous.text());
+      const scope = testAccountScope(metadataDb(), ADMIN);
+      const map = createMap(scope, "Harbour from above").id;
+      updateMap(scope, map, { basemap: "satellite" }, { expectedRevision: readDocumentRevision({ kind: "map", id: map })?.editRevision });
+      const { token } = publishMap(scope, map, { theme: "dark" }, { expectedRevision: readDocumentRevision({ kind: "map", id: map })?.editRevision });
+      resetPublishCache();
+      const view = await publishedRoute(socketRequest(new Request(`${BASE}/api/published/${token}`)), { params: Promise.resolve({ token }) });
+      const text = await view.text();
+      expect(view.status, text).toBe(200);
+      expect(JSON.parse(text).basemapUrl).toBe(SATELLITE_STYLE_URL);
+      searched("a publication of a map on Satellite, assembled afresh", text);
+    } finally { vi.stubEnv(VARIABLE.satelliteUrl, undefined); }
   });
 
   it("recorded before origins were: a run, its dataset and an OpenStreetMap import read as scheme and host, their rows untouched", async () => {
