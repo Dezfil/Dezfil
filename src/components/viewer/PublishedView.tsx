@@ -588,7 +588,11 @@ export function PublishedView({
   // two, on the published viewer only. The pair is taken where the
   // instance offers it, as the switcher lists only offered styles, or
   // where it is the publication's own style, which the map holds even
-  // hidden; otherwise the chrome flips and the style stays.
+  // hidden; otherwise the chrome flips and the style stays. A map on its
+  // own custom style still carries the key it was on before, but that
+  // key is not a style the publication holds: its own style is the
+  // custom one, so the stored key opens no way onto a hidden pair.
+  const ownKey = authoredCustom === null ? authoredKey : null;
   const onToggleTheme = () => {
     const pair = effTheme === "dark" ? "light" : "dark";
     // A custom style pins both themes: the pairing below must not fire
@@ -596,7 +600,7 @@ export function PublishedView({
     // readerBasemap and silently replace the custom style for the rest
     // of the load.
     if (!customActive && (themedKey === "dark" || themedKey === "light") &&
-        (pair === authoredKey || offeredOnly(basemaps).some((b) => b.key === pair))) {
+        (pair === ownKey || offeredOnly(basemaps).some((b) => b.key === pair))) {
       setReaderBasemap(pair);
     }
     toggleViewTheme(authoredTheme);

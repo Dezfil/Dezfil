@@ -12,7 +12,8 @@ import { PublishedView } from "./PublishedView";
  * flips, and an explicit Dark or Light moves to its pair only when the
  * instance offers the pair, since the reader may choose only an offered
  * style, or when the pair is the publication's own style, which the map
- * holds. Otherwise the chrome changes and the style stays. Auto
+ * holds. A map on its own custom style holds that style, not the key it
+ * still carries. Otherwise the chrome changes and the style stays. Auto
  * keeps following the theme with Dark and Light offered or not; Streets,
  * Satellite and a map's own style never move with the theme.
  */
@@ -69,11 +70,16 @@ async function open(view: ViewData, hidden: BasemapKey[] = []) {
   const flush = (work: () => void) => act(async () => { work(); await w.settle(); });
   await flush(() => root.render(<PublishedView token="tok" basemapUrl={url("dark")} basemaps={choices(hidden)} />));
   await flush(() => w.pending("GET", "/api/published/tok")[0].ok(view));
-  const toggle = () => host.document.querySelectorAll("button")
-    .find(button => /^Switch to (light|dark) theme$/.test(button.getAttribute("aria-label") ?? ""))!;
+  const button = (test: (button: HostElement) => boolean) => host.document.querySelectorAll("button").find(test)!;
+  const toggle = () => button(b => /^Switch to (light|dark) theme$/.test(b.getAttribute("aria-label") ?? ""));
   return {
     theme: () => page.getAttribute("data-view-theme"),
     press: () => flush(() => toggle().click()),
+    /** Opens the basemap switcher and picks the card labelled `label`. */
+    pick: async (label: string) => {
+      await flush(() => button(b => b.getAttribute("aria-label") === "Basemap").click());
+      await flush(() => button(b => b.textContent === label).click());
+    },
   };
 }
 
@@ -149,5 +155,34 @@ describe("the reader's theme control", () => {
     const reader = await open(viewOn("dark", { custom: true }), hidden);
     await reader.press();
     expect([reader.theme(), canvas.basemapUrl]).toEqual(["light", CUSTOM.url]);
+  });
+
+  // A map on its own style still carries the key it was on before. That key
+  // is not a style the publication holds: once the reader leaves the custom
+  // style for a card, a hidden pair stays out of reach.
+  it.each([
+    ["Dark", "Light", "light", "dark"],
+    ["Light", "Dark", "dark", "light"],
+  ] as [string, string, "light" | "dark", BasemapKey][])(
+    "keeps a reader who left a map's own style, stored key %s, for %s off the hidden stored key",
+    async (_stored, label, picked, stored) => {
+      const reader = await open({ ...viewOn(stored, { custom: true }), theme: picked }, [stored]);
+      expect(canvas.basemapUrl).toBe(CUSTOM.url);
+      await reader.pick(label);
+      expect([reader.theme(), canvas.basemapUrl]).toEqual([picked, url(picked)]);
+      await reader.press();
+      expect([reader.theme(), canvas.basemapUrl]).toEqual([stored, url(picked)]);
+      await reader.press();
+      expect([reader.theme(), canvas.basemapUrl]).toEqual([picked, url(picked)]);
+    },
+  );
+
+  it("still moves a reader who left a map's own style to an offered pair", async () => {
+    const reader = await open({ ...viewOn("dark", { custom: true }), theme: "light" }, ["streets"]);
+    await reader.pick("Light");
+    await reader.press();
+    expect([reader.theme(), canvas.basemapUrl]).toEqual(["dark", url("dark")]);
+    await reader.press();
+    expect([reader.theme(), canvas.basemapUrl]).toEqual(["light", url("light")]);
   });
 });
