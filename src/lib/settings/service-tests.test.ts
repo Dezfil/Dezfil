@@ -476,21 +476,39 @@ describe("each failure reason comes from its own fixture", () => {
     expect(askedOf("satellite")).toHaveLength(1);
   });
 
-  it.each([
-    ["declared", true],
-    ["streamed with no length", false],
-  ])("answered, but not as the service does: the satellite imagery with a tile one byte past the size bound, %s", async (_what, declared) => {
+  it("answered, but not as the service does: the satellite imagery with a tile one byte past the size bound, streamed with no length", async () => {
     const past = Buffer.concat([WHOLE_PNG, Buffer.alloc(TILE_BOUND + 1 - WHOLE_PNG.length)]);
     answer = (_service, _req, res) => {
       res.on("error", () => {});
-      res.writeHead(200, { "content-type": "image/png", ...(declared ? { "content-length": String(past.length) } : {}) });
-      if (declared) res.end(past);
+      res.writeHead(200, { "content-type": "image/png" });
       // In pieces, so the bound is passed mid-stream.
-      else { for (let at = 0; at < past.length; at += 64 * 1024) res.write(past.subarray(at, at + 64 * 1024)); res.end(); }
+      for (let at = 0; at < past.length; at += 64 * 1024) res.write(past.subarray(at, at + 64 * 1024));
+      res.end();
     };
     expect((await runTest("satellite")).body).toEqual({ service: "satellite", result: "failed", reason: "unexpected_answer" });
     expect(askedOf("satellite")).toHaveLength(1);
   });
+
+  it("answered, but not as the service does: the satellite imagery declaring a tile one byte past the size bound, closed unread while the rest is held", async () => {
+    // A PNG's first chunks under a length one byte past the bound, then the
+    // sender holds the rest: nothing it sent is past the bound, so only the
+    // declared length can end the read before the ten seconds do.
+    let sender: ServerResponse | undefined;
+    let hungUp!: () => void;
+    const closed = new Promise<void>(resolve => { hungUp = resolve; });
+    answer = (_service, _req, res) => {
+      sender = res;
+      res.on("error", () => {});
+      res.on("close", () => hungUp());
+      res.writeHead(200, { "content-type": "image/png", "content-length": String(TILE_BOUND + 1) });
+      res.write(WHOLE_PNG.subarray(0, 33));
+    };
+    expect((await runTest("satellite")).body).toEqual({ service: "satellite", result: "failed", reason: "unexpected_answer" });
+    // The Test hung up on a sender still holding its body, not the other way round.
+    await closed;
+    expect(sender?.writableEnded).toBe(false);
+    expect(askedOf("satellite")).toHaveLength(1);
+  }, 20_000);
 
   it.each(MALFORMED)("answered, but not as the service does: %s with %s", async (service, _what, reply) => {
     answer = (_service, _req, res) => json(res, 200, reply);
