@@ -615,11 +615,12 @@ no link and answers no name, owner, path or file name. One walk runs at a time
 and its answer is given again for 30 seconds, unless a cache is cleared: a Clear
 ends a walk under way at once, the reads already joined to it getting what it
 had counted, and a read after the Clear never gets a walk begun before it but
-joins one fresh walk. Every read answers within 10 seconds of being asked: the
-walk that answers it stops by then, its reference read, every filesystem call
-and the disk's statistics included, and a walk stopped by its deadline or ended
-by a Clear gives each kind it had not finished as at least what it counted,
-`finished: false`, and `disk` as null when its statistics had not come. A cookie request to the Test needs the same trusted Origin; one to the
+joins one fresh walk. Every read's deadline is 10 seconds from its asking: the
+walk that answers it cuts every filesystem call and the disk's statistics by
+then and stops its reference read at the first of its slices of 200 rows to end
+past it. A walk stopped by its deadline or ended by a Clear gives each kind it
+had not finished as at least what it counted, `finished: false`, and `disk` as
+null when its statistics had not come. A cookie request to the Test needs the same trusted Origin; one to the
 storage read must show it comes from this instance's own page, by an Origin
 that is this instance's, `Sec-Fetch-Site: same-origin` or the
 `X-Dezfil-Account` header its pages send, and is refused with none of them or

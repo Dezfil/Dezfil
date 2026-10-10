@@ -12,10 +12,11 @@ import { beforeDeadline, emptyTally, TOO_LATE, walkDataFolder } from "./storage-
  * The storage read: what the data folder holds, by kind, from one walk of
  * it (`storage-walk.ts`) after the metadata's references are read
  * (`storage-references.ts`), with the disk's statistics. Every read has one
- * deadline, 10 seconds from when it was asked, and the walk that answers it
- * stops by then: the reference read is cut between its slices, every
- * filesystem call is raced against the deadline, and past it the answer
- * gives what was not finished as at least. One walk at a time: a read
+ * deadline, 10 seconds from when it was asked: every filesystem call of the
+ * walk that answers it, the disk's statistics among them, is raced against
+ * the deadline, and the reference read is checked against it between its
+ * slices, so a slice under way when it passes runs to its end; past it the
+ * answer gives what was not finished as at least. One walk at a time: a read
  * while one runs gets that walk's answer, and a read within 30 seconds of
  * the last walk gets that answer again, unless a cache was cleared since.
  * A Clear ends the walk under way at once, its readers getting what it had

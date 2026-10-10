@@ -32,8 +32,9 @@ import { forgetStorageRead, readStorage, STORAGE_WALK_MS } from "./storage";
  * a path. Leftover files are what the next restart's sweeps remove, held
  * here against the sweeps themselves. One walk at a time, its answer given
  * again for 30 seconds unless a cache's Clear came between, and a walk
- * stopped at 10 seconds, its reference read, every filesystem call and the
- * disk's statistics included, gives what it had not finished as at least.
+ * stopped at 10 seconds, every filesystem call and the disk's statistics cut
+ * there and its reference read at the first slice to end past them, gives
+ * what it had not finished as at least.
  * Admins only; a link counts nothing.
  */
 

@@ -156,7 +156,8 @@ answers busy rather than wait for an image slot. The storage read gives each
 kind of file in the data folder its bytes and count, the total and the free
 space, never a name or a path, at least what it counted for a kind its
 10-second walk did not finish; a cache's Clear ends a walk already under way,
-and a read just after it joins a fresh one, still within its own 10 seconds.
+and a read just after it joins a fresh one, its 10 seconds still counted from
+its own asking.
 Both are local and read-only and keep nothing,
 so MCP marks them local reads, not open-world; they ask for confirmation, so the
 embedded assistant asks before calling either and the SQL and workflow
