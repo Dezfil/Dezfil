@@ -775,7 +775,7 @@
     },
     "memory:storage-read": {
       "action": "retain",
-      "rule": "Keep the last walk of the data folder for at most 30 seconds and the walk in progress: totals of bytes and files by kind and the disk's free space. They contain no account identity, name or content."
+      "rule": "Keep the last walk of the data folder for at most 30 seconds and the walk in progress with what ends it early: totals of bytes and files by kind and the disk's free space. They contain no account identity, name or content."
     }
   },
   "tables": {
@@ -5362,6 +5362,11 @@
       ]
     },
     "memory:src/lib/system/storage.ts#kept": {
+      "stores": [
+        "memory:storage-read"
+      ]
+    },
+    "memory:src/lib/system/storage.ts#readStorage.stop": {
       "stores": [
         "memory:storage-read"
       ]

@@ -358,6 +358,44 @@ describe("one walk at a time", () => {
     expect(watch.walks).toBe(2);
   });
 
+  it("answers a read after a cache's Clear within 10 seconds of its asking, the Clear ending the walk under way, whose readers get what it had counted", async () => {
+    put("tables/orphan.parquet", 1000);
+    put("cache/geocode/answer-1.json", 60);
+    // Every walk is held at the tables folder's read.
+    const held = Promise.withResolvers<never>();
+    watch.hold = (call, at) => (call === "readdir" && at === path.join(data, "tables") ? held.promise : undefined);
+    vi.useFakeTimers({ toFake: ["Date", "setTimeout", "clearTimeout"] });
+    try {
+      let beforeAt: number | null = null;
+      const before = readStorage(p.context, p.db).finally(() => { beforeAt = Date.now(); });
+      for (let rest = 0, last = -1; rest < 3; rest = watch.calls === last ? rest + 1 : 0) { last = watch.calls; await sleep(20); }
+      expect(watch.walks).toBe(1);
+      // Nine seconds into that walk, a cache is cleared and a read is asked.
+      await vi.advanceTimersByTimeAsync(9_000);
+      await clearServiceCaches(p.context, null, p.db);
+      const asked = Date.now();
+      let answeredAt: number | null = null;
+      const after = readStorage(p.context, p.db).finally(() => { answeredAt = Date.now(); });
+      for (let second = 0; second < 25 && answeredAt === null; second += 1) await vi.advanceTimersByTimeAsync(1_000);
+      expect(answeredAt, "the read after the Clear was not answered").not.toBeNull();
+      expect(answeredAt! - asked, "the read after the Clear answered past its 10 seconds").toBeLessThanOrEqual(STORAGE_WALK_MS);
+      // Its own walk, held too, gives what it had not finished as at least.
+      const fresh = await after;
+      expect(fresh.kinds.tables.finished).toBe(false);
+      expect(fresh.total.finished).toBe(false);
+      expect(watch.walks).toBe(2);
+      // The read joined before the Clear had its answer at the Clear: what its
+      // walk had counted, every kind it had not finished as at least.
+      const stale = await before;
+      expect(beforeAt! - asked, "the walk under way ran on past the Clear").toBeLessThanOrEqual(0);
+      expect(stale.kinds.tables.finished).toBe(false);
+      expect(stale.total.finished).toBe(false);
+      expect(stale.kinds.metadata_database.finished).toBe(true);
+    } finally {
+      held.reject(Object.assign(new Error("gone"), { code: "ENOENT" }));
+    }
+  });
+
   it("stops at 10 seconds, the reference read included, giving every kind as at least what it counted", async () => {
     put("tables/orphan.parquet", 1000);
     put("cache/geocode/answer-1.json", 60);

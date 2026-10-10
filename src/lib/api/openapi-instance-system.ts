@@ -90,11 +90,12 @@ export const INSTANCE_SYSTEM_PATHS = {
       "together and the free and total space on the folder's volume. Each file counts once. " +
       "It takes names and sizes and which files the metadata references, opening no file and following no " +
       "link, and answers no name, owner, account, map, dataset, path or file name. One walk runs at a time: a read during a walk gets that walk's " +
-      "answer, and a read within 30 seconds of it gets the same answer, unless a service cache was cleared since the walk began: a read after a " +
-      "Clear never gets a walk begun before it, but waits for that walk to end and joins one fresh walk, so it can take up to two walks' 10 " +
-      "seconds. A walk stops at 10 seconds, the reference read, every filesystem call and the disk's statistics included, and gives each kind " +
-      "it had not finished as at least what it counted, finished false, and the disk as null when its statistics had not come. It changes " +
-      "nothing and sends nothing outside this server. " +
+      "answer, and a read within 30 seconds of it gets the same answer, unless a service cache was cleared since the walk began: a Clear ends a " +
+      "walk under way at once, the reads already joined to it getting what it had counted, and a read after the Clear never gets a walk begun " +
+      "before it but joins one fresh walk. Every read answers within 10 seconds of being asked: the walk that answers it stops by then, the " +
+      "reference read, every filesystem call and the disk's statistics included, and a walk stopped by its deadline or ended by a Clear gives " +
+      "each kind it had not finished as at least what it counted, finished false, and the disk as null when its statistics had not come. It " +
+      "changes nothing and sends nothing outside this server. " +
       "The embedded assistant asks for confirmation before calling; SQL and workflow assistants refuse this operation. " +
       "MCP advertises that policy and adds no confirmation step.",
     tag: "System", tool: "read_storage", toolInput: { closed: true },

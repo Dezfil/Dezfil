@@ -11,8 +11,9 @@ import { kindsWithin, placeOf, type StorageReferences } from "./storage-places";
  * to a file or to a folder, counts nothing. The deadline is checked before
  * every entry, and every filesystem call is raced against it, so a call
  * that does not come back cannot hold the walk past it; a walk stopped by
- * it marks every kind the folders it had not finished may hold as
- * unfinished, so what it counted of those is a floor, never a misreading.
+ * it, or ended early by its `stop`, marks every kind the folders it had not
+ * finished may hold as unfinished, so what it counted of those is a floor,
+ * never a misreading.
  *
  * The ownership records are walked last, once every staged export has
  * been seen: the record of each, named by its path as the ownership road
@@ -30,14 +31,23 @@ const recordName = (segments: readonly string[]) => `${createHash("sha256").upda
 /** What a call raced against the deadline gives when the deadline comes first. */
 export const TOO_LATE = Symbol("too late");
 
-/** `work`'s outcome, or `TOO_LATE` once the deadline passes first. Work left
- * pending stays owned: its outcome, whenever it comes, is observed and
- * dropped, and the caller starts nothing after it. */
-export function beforeDeadline<T>(work: Promise<T>, deadline: number): Promise<T | typeof TOO_LATE> {
+/** `work`'s outcome, or `TOO_LATE` once the deadline passes, or `stop`
+ * aborts, first. Work left pending stays owned: its outcome, whenever it
+ * comes, is observed and dropped, and the caller starts nothing after it. */
+export function beforeDeadline<T>(work: Promise<T>, deadline: number, stop?: AbortSignal): Promise<T | typeof TOO_LATE> {
   let timer: ReturnType<typeof setTimeout> | undefined;
-  const late = new Promise<typeof TOO_LATE>(resolve => { timer = setTimeout(() => resolve(TOO_LATE), Math.max(deadline - Date.now(), 0)); });
+  let onStop: (() => void) | undefined;
+  const late = new Promise<typeof TOO_LATE>(resolve => {
+    timer = setTimeout(() => resolve(TOO_LATE), Math.max(deadline - Date.now(), 0));
+    onStop = () => resolve(TOO_LATE);
+    if (stop?.aborted) onStop();
+    else stop?.addEventListener("abort", onStop, { once: true });
+  });
   work.catch(() => {});
-  return Promise.race([work, late]).finally(() => clearTimeout(timer));
+  return Promise.race([work, late]).finally(() => {
+    clearTimeout(timer);
+    if (onStop) stop?.removeEventListener("abort", onStop);
+  });
 }
 
 type Tally = Record<StorageKind, { bytes: number; files: number; finished: boolean }>;
@@ -48,10 +58,11 @@ export function emptyTally(finished = true): Tally {
 
 const gone = (error: unknown) => ["ENOENT", "ENOTDIR"].includes((error as NodeJS.ErrnoException)?.code ?? "");
 
-export async function walkDataFolder(root: string, references: StorageReferences, deadline: number): Promise<Readonly<Record<StorageKind, StorageUse>>> {
+export async function walkDataFolder(root: string, references: StorageReferences, deadline: number, stop?: AbortSignal): Promise<Readonly<Record<StorageKind, StorageUse>>> {
   const tally = emptyTally();
+  const over = () => Date.now() >= deadline || stop?.aborted === true;
   const unfinished = (dir: readonly string[]) => { for (const kind of kindsWithin(dir, references)) tally[kind].finished = false; };
-  const stop = (current: readonly string[], waiting: readonly (readonly string[])[]) => {
+  const cut = (current: readonly string[], waiting: readonly (readonly string[])[]) => {
     unfinished(current);
     for (const dir of waiting) unfinished(dir);
     return tally;
@@ -61,22 +72,22 @@ export async function walkDataFolder(root: string, references: StorageReferences
   const folders: string[][] = [[]];
   while (folders.length > 0) {
     const dir = folders.pop()!;
-    if (Date.now() >= deadline) return stop(dir, folders);
+    if (over()) return cut(dir, folders);
     let names: string[] | typeof TOO_LATE;
     try {
-      names = await beforeDeadline(readdir(path.join(root, ...dir)), deadline);
+      names = await beforeDeadline(readdir(path.join(root, ...dir)), deadline, stop);
     } catch (error) {
       // A folder removed while the walk ran holds nothing; one it cannot read is not finished.
       if (!gone(error)) unfinished(dir);
       continue;
     }
-    if (names === TOO_LATE) return stop(dir, folders);
+    if (names === TOO_LATE) return cut(dir, folders);
     for (const name of names) {
-      if (Date.now() >= deadline) return stop(dir, folders);
+      if (over()) return cut(dir, folders);
       const segments = [...dir, name];
       let entry;
-      try { entry = await beforeDeadline(lstat(path.join(root, ...segments)), deadline); } catch { continue; } // removed meanwhile
-      if (entry === TOO_LATE) return stop(dir, folders);
+      try { entry = await beforeDeadline(lstat(path.join(root, ...segments)), deadline, stop); } catch { continue; } // removed meanwhile
+      if (entry === TOO_LATE) return cut(dir, folders);
       if (segments[0] === STAGED && segments.length > 1) leaving.add(recordName(segments));
       if (entry.isDirectory()) {
         // The records' folder waits beneath every other, so it is walked last.
