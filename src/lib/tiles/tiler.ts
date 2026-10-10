@@ -38,13 +38,17 @@ interface ProgramRun {
  * Run `bin` once, bounded: past `limitMs`, or once `signal` aborts, it is
  * asked to stop, and ended outright if it has not exited within a short
  * grace. The run settles only once the process is gone, so whatever follows
- * (removing its folder, the next run) never proceeds beside it.
+ * (removing its folder, the next run) never proceeds beside it. The bound
+ * holds until the run settles: a program that has exited while a helper it
+ * started still holds its output pipes is stopped like any other, its pipes
+ * let go, so the helper cannot keep the run open.
  */
 function runProgram(bin: string, args: string[], limitMs: number, signal?: AbortSignal): Promise<ProgramRun> {
   return new Promise((resolve) => {
     let stopped = false;
     let ending = false;
     let exited = false;
+    let settled = false;
     let ended: Omit<ProgramRun, "stopped"> | null = null;
     let force: ReturnType<typeof setTimeout> | undefined;
     const child = execFile(bin, args, { maxBuffer: 16 * 1024 * 1024 }, (error, stdout, stderr) => {
@@ -55,22 +59,23 @@ function runProgram(bin: string, args: string[], limitMs: number, signal?: Abort
     function end(): void {
       if (ending || exited) return;
       ending = true;
-      // Its pipes are let go, so a helper still holding them cannot keep the
-      // run open once the program itself is gone.
-      child.stdout?.destroy();
-      child.stderr?.destroy();
       child.kill("SIGTERM");
       force = setTimeout(() => { if (!exited) child.kill("SIGKILL"); }, STOP_GRACE_MS);
     }
     function stop(): void {
-      if (exited) return;
+      if (settled) return;
       stopped = true;
+      // Its pipes are let go, whether or not the program is still there, so
+      // a helper still holding them cannot keep the run open.
+      child.stdout?.destroy();
+      child.stderr?.destroy();
       end();
     }
     function settle(): void {
       if (!ended) return;
       // Started and not yet gone: end it first, and settle on its exit.
       if (!exited && child.pid !== undefined) return end();
+      settled = true;
       clearTimeout(timer);
       clearTimeout(force);
       signal?.removeEventListener("abort", stop);

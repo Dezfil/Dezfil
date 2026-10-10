@@ -56,6 +56,23 @@ function stubborn(): { file: string; pid: () => number } {
   return { file, pid: () => (existsSync(pidFile) ? Number(readFileSync(pidFile, "utf8")) : 0) };
 }
 
+/** A program that starts a helper holding its output pipes for `seconds`
+ * and exits at once, its version banner written first when asked. The
+ * helper's id is noted, whole, before the program exits. */
+function leavesHelper(seconds: number): { file: string; helper: () => number } {
+  const pidFile = path.join(dir, `helper-${pidFiles.length}.pid`);
+  pidFiles.push(pidFile);
+  const file = path.join(dir, `leaves-helper-${pidFiles.length}`);
+  writeFileSync(file, [
+    "#!/bin/sh",
+    'if [ "$1" = "--version" ]; then echo "tippecanoe v0.0-helper" >&2; fi',
+    `sleep ${seconds} &`,
+    `echo $! > '${pidFile}.tmp' && mv '${pidFile}.tmp' '${pidFile}'`,
+    "exit 0",
+  ].join("\n") + "\n", { mode: 0o755 });
+  return { file, helper: () => (existsSync(pidFile) ? Number(readFileSync(pidFile, "utf8")) : 0) };
+}
+
 /** A stand-in tiler: answers its version, then runs `body` for a build. */
 function program(name: string, body: string, mode = 0o755): string {
   const file = path.join(dir, name);
@@ -173,6 +190,56 @@ describe("one bounded run of the tiler", () => {
     vi.useRealTimers();
     expect(await Promise.race([probing, sleep(5_000).then(() => "still running" as const)])).toBeNull();
     expect(alive(program.pid()), "the stopped probe is still running").toBe(false);
+    expect(knownTilerVersion()).toBeNull();
+  });
+
+  it("returns at its time though the program has exited and a helper still holds its pipes, letting the pipes go", async () => {
+    const { input, output } = points();
+    const helped = leavesHelper(4);
+    process.env.DEZFIL_TIPPECANOE = helped.file;
+    const started = Date.now();
+    const run = await runTiler(input, output, 300);
+    const took = Date.now() - started;
+    expect(helped.helper()).toBeGreaterThan(1);
+    expect(took, "the run waited on the helper past its time").toBeLessThan(300 + 1_000);
+    expect(run).toMatchObject({ ok: false, reason: "timed_out" });
+  });
+
+  it("returns at its time while a helper holds the program's pipes for good", async () => {
+    const { input, output } = points();
+    const helped = leavesHelper(120);
+    process.env.DEZFIL_TIPPECANOE = helped.file;
+    const run = await Promise.race([runTiler(input, output, 300), sleep(5_000).then(() => "still running" as const)]);
+    expect(helped.helper()).toBeGreaterThan(1);
+    expect(run).toMatchObject({ ok: false, reason: "timed_out" });
+  });
+
+  it("returns once its signal aborts though the program has exited and a helper still holds its pipes", async () => {
+    const { input, output } = points();
+    const helped = leavesHelper(120);
+    process.env.DEZFIL_TIPPECANOE = helped.file;
+    const controller = new AbortController();
+    const running = runTiler(input, output, 30_000, controller.signal);
+    await vi.waitFor(() => expect(helped.helper()).toBeGreaterThan(1), { timeout: 5_000 });
+    // The program itself is gone by now; only the helper holds the pipes.
+    await sleep(200);
+    controller.abort();
+    const run = await Promise.race([running, sleep(5_000).then(() => "still running" as const)]);
+    expect(run).toMatchObject({ ok: false, reason: "timed_out" });
+  });
+
+  it("answers a version probe unknown at its limit while a helper holds the program's pipes", async () => {
+    const helped = leavesHelper(120);
+    process.env.DEZFIL_TIPPECANOE = helped.file;
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    const probing = probeTilerVersion();
+    for (let i = 0; i < 500 && helped.helper() <= 1; i += 1) await sleep(10);
+    expect(helped.helper()).toBeGreaterThan(1);
+    await sleep(200);
+    // Past the probe's own limit and any grace after it.
+    await vi.advanceTimersByTimeAsync(60_000);
+    vi.useRealTimers();
+    expect(await Promise.race([probing, sleep(5_000).then(() => "still running" as const)])).toBeNull();
     expect(knownTilerVersion()).toBeNull();
   });
 
