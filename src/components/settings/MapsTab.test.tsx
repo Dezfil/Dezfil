@@ -16,7 +16,7 @@ import { instanceReadFixture } from "./read-fixture";
  */
 
 let stored: Record<string, unknown>;
-let imagery: boolean;
+let imagery: boolean | "unreadable";
 let refuse: { status: number; code: string; message: string } | null;
 let requests: { url: string; method: string; body: unknown }[];
 let host: ReturnType<typeof installDomHost>;
@@ -26,7 +26,8 @@ let container: HostElement;
 function answer() {
   return instanceReadFixture({
     ...Object.fromEntries(Object.entries(stored).map(([key, value]) => [key, { value, source: "stored", storedValue: value }])),
-    ...(imagery ? { satelliteUrl: { value: { set: true, origin: "https://imagery.example" }, source: "environment", locked: true } } : {}),
+    ...(imagery === "unreadable" ? { satelliteUrl: { value: { set: true, unreadable: true }, source: "stored", storedValue: null } }
+      : imagery ? { satelliteUrl: { value: { set: true, origin: "https://imagery.example" }, source: "environment", locked: true } } : {}),
   });
 }
 
@@ -159,6 +160,22 @@ describe("Maps", () => {
     expect(radios("Basemap").map(nameOf)).toEqual(["Auto", "Dark", "Light", "Streets"]);
     // What a new map starts on: the stored choice it cannot draw is Auto.
     expect(checked("Basemap")).toEqual(["Auto"]);
+  });
+
+  it("offers only the styles Libraries offers, Satellite not while its address is unreadable, and shows Auto picked for a stored one now hidden", async () => {
+    imagery = true;
+    stored = { "newMap.basemap": "streets", "basemaps.streets": false, "basemaps.dark": false };
+    await open();
+    expect(radios("Basemap").map(nameOf)).toEqual(["Auto", "Light", "Satellite"]);
+    expect(checked("Basemap")).toEqual(["Auto"]);
+    act(() => root.unmount());
+    root = createRoot(container as unknown as Element);
+    imagery = "unreadable";
+    stored = { "newMap.basemap": "satellite" };
+    await open();
+    expect(radios("Basemap").map(nameOf)).toEqual(["Auto", "Dark", "Light", "Streets"]);
+    expect(checked("Basemap")).toEqual(["Auto"]);
+    expect(writes()).toEqual([]);
   });
 
   it("keeps a typed coordinate on leaving, a decimal as given, and refuses one out of range before any request, naming the field", async () => {

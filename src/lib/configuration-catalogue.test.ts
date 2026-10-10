@@ -2,7 +2,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { afterAll, describe, expect, it } from "vitest";
-import { SETTING_CATALOGUE, TEST_WIRING } from "./settings/catalogue";
+import { isLibrarySwitch, SETTING_CATALOGUE, TEST_WIRING } from "./settings/catalogue";
 import { isInstanceDefault } from "./settings/instance-defaults";
 import { isInstanceRule } from "./settings/instance-security";
 import { configurationProblems, configurationRows } from "../../scripts/check-readme-config.mjs";
@@ -47,12 +47,13 @@ it("checks both real documents against the catalogue and retains the script wiri
   expect(result.output).toContain("4 test-wiring names");
   expect(result.output).toContain("18 instance defaults");
   expect(result.output).toContain("12 rules");
+  expect(result.output).toContain("5 basemap switches");
 });
 
 it("takes defaults and editability from the supplied catalogue, not a copy in the checker", () => {
   const catalogue = SETTING_CATALOGUE.map(definition => definition.key === "uploadMaxMb"
     ? { ...definition, documentedDefault: "777", editable: false, timing: "next-start" as const } : definition);
-  const problems = configurationProblems({ srcDir: path.join(root, "src"), documents: originals, catalogue, testWiring: TEST_WIRING, defaultsGuide, isInstanceDefault, isInstanceRule });
+  const problems = configurationProblems({ srcDir: path.join(root, "src"), documents: originals, catalogue, testWiring: TEST_WIRING, defaultsGuide, isInstanceDefault, isInstanceRule, isLibrarySwitch });
   expect(problems).toHaveLength(4);
   for (const guide of guides) {
     expect(problems).toContainEqual(expect.stringContaining(`DEFAULT: ${guide}: ${variable}: expected "777"`));
@@ -62,7 +63,7 @@ it("takes defaults and editability from the supplied catalogue, not a copy in th
 
 it("rejects deployment and test-wiring names removed from the catalogue while reads remain", () => {
   const problems = configurationProblems({ srcDir: path.join(root, "src"), documents: originals,
-    catalogue: SETTING_CATALOGUE.filter(definition => definition.environment !== variable), testWiring: TEST_WIRING.slice(1), defaultsGuide, isInstanceDefault, isInstanceRule,
+    catalogue: SETTING_CATALOGUE.filter(definition => definition.environment !== variable), testWiring: TEST_WIRING.slice(1), defaultsGuide, isInstanceDefault, isInstanceRule, isLibrarySwitch,
   });
   for (const name of [variable, TEST_WIRING[0].environment]) {
     expect(problems).toContain(`STALE: source scan against catalogue: ${name}`);
@@ -102,7 +103,7 @@ describe.each(guides)("%s catalogue drift", file => {
 describe("the test seams the product code reads", () => {
   const seam = "DEZFIL_TEST_EXTENSION_REPOSITORY";
   const problemsOf = (srcDir: string, testWiring: readonly { environment: string; documentedDefault: string }[] = TEST_WIRING) =>
-    configurationProblems({ srcDir, documents: originals, catalogue: SETTING_CATALOGUE, testWiring, defaultsGuide, isInstanceDefault, isInstanceRule });
+    configurationProblems({ srcDir, documents: originals, catalogue: SETTING_CATALOGUE, testWiring, defaultsGuide, isInstanceDefault, isInstanceRule, isLibrarySwitch });
 
   it("hold the engine's extension repository as test wiring, unset by default, in both guides", () => {
     expect(TEST_WIRING.map(wiring => wiring.environment)).toContain(seam);
@@ -178,7 +179,7 @@ describe("the configuration guide's Instance defaults table", () => {
         .map(definition => definition.key === "newMap.zoom" ? { ...definition, documentedDefault: "2" } : definition),
       { ...opens, key: "canvas.snap", documentedDefault: "on" },
     ];
-    const problems = configurationProblems({ srcDir: path.join(root, "src"), documents: originals, catalogue, testWiring: TEST_WIRING, defaultsGuide, isInstanceDefault, isInstanceRule });
+    const problems = configurationProblems({ srcDir: path.join(root, "src"), documents: originals, catalogue, testWiring: TEST_WIRING, defaultsGuide, isInstanceDefault, isInstanceRule, isLibrarySwitch });
     expect([...problems].sort()).toEqual([
       'DEFAULT: docs/configuration.md instance defaults: newMap.zoom: expected "2", found "1.3"',
       "STALE: docs/configuration.md instance defaults: canvas.resultsBand",
@@ -225,7 +226,7 @@ describe("the configuration guide's Security and rules table", () => {
         .map(definition => definition.key === "security.linkDays" ? { ...definition, documentedDefault: "14" } : definition),
       { ...create, key: "tokens.scopes", documentedDefault: "read" },
     ];
-    const problems = configurationProblems({ srcDir: path.join(root, "src"), documents: originals, catalogue, testWiring: TEST_WIRING, defaultsGuide, isInstanceDefault, isInstanceRule });
+    const problems = configurationProblems({ srcDir: path.join(root, "src"), documents: originals, catalogue, testWiring: TEST_WIRING, defaultsGuide, isInstanceDefault, isInstanceRule, isLibrarySwitch });
     expect([...problems].sort()).toEqual([
       'DEFAULT: docs/configuration.md security and rules: security.linkDays: expected "14", found "7"',
       "STALE: docs/configuration.md security and rules: imports.links",
@@ -244,11 +245,88 @@ describe("the configuration guide's Security and rules table", () => {
   });
 });
 
+describe("the configuration guide's Libraries table", () => {
+  const key = "basemaps.streets";
+  const without = (text: string, name: string) => changeRow(text, name, () => "\0").replace("\0\n", "");
+  const reported = (output: string) => output.split("\n").filter(line => /^[A-Z ]+: /.test(line) && !line.startsWith("FAIL"))
+    .map(line => line.replace(/\S*configuration\.md/, "configuration.md"));
+  const seeds: [string, (text: string) => string, string[]][] = [
+    ["missing switch row", text => without(text, key), [`UNDOCUMENTED: configuration.md libraries: ${key}`]],
+    ["orphan switch row", text => changeRow(text, key, row => `${row}\n| \`basemaps.terrain\` | \`true\` or \`false\` | on | Orphan. |`),
+      ["STALE: configuration.md libraries: basemaps.terrain"]],
+    ["wrong default", text => changeRow(text, key, row => cell(row, 3, "off")), [`DEFAULT: configuration.md libraries: ${key}: expected "on", found "off"`]],
+    ["duplicate switch row", text => changeRow(text, key, row => `${row}\n${row}`), [`DUPLICATE: configuration.md libraries: ${key}`]],
+    ["switch row moved under the rules", text => changeRow(without(text, "basemaps.singleMapStyles"), "imports.links",
+      row => `${row}\n| \`basemaps.singleMapStyles\` | \`true\` or \`false\` | on | Moved. |`), [
+      "STALE: configuration.md security and rules: basemaps.singleMapStyles", "UNDOCUMENTED: configuration.md libraries: basemaps.singleMapStyles"]],
+  ];
+
+  it.each(seeds)("rejects seeded %s, naming only it", (_label, seed, problems) => {
+    const result = check(defaultsGuide, seed);
+    expect(result.status, result.output).toBe(1);
+    expect(reported(result.output).sort()).toEqual(problems);
+  });
+
+  it("rejects a guide that has lost the section, naming every switch", () => {
+    const result = check(defaultsGuide, text => text.replace("## Libraries", "## Basemaps and palettes"));
+    expect(result.status, result.output).toBe(1);
+    expect(reported(result.output).filter(line => line.startsWith("UNDOCUMENTED: configuration.md libraries: "))).toHaveLength(5);
+  });
+
+  it("holds the table to the supplied catalogue's switches, not a copy in the checker", () => {
+    const dark = SETTING_CATALOGUE.find(definition => definition.key === "basemaps.dark")!;
+    const catalogue = [
+      ...SETTING_CATALOGUE.filter(definition => definition.key !== "basemaps.light")
+        .map(definition => definition.key === "basemaps.streets" ? { ...definition, documentedDefault: "off" } : definition),
+      { ...dark, key: "basemaps.terrain" },
+    ];
+    const problems = configurationProblems({ srcDir: path.join(root, "src"), documents: originals, catalogue, testWiring: TEST_WIRING, defaultsGuide, isInstanceDefault, isInstanceRule, isLibrarySwitch });
+    expect([...problems].sort()).toEqual([
+      'DEFAULT: docs/configuration.md libraries: basemaps.streets: expected "off", found "on"',
+      "STALE: docs/configuration.md libraries: basemaps.light",
+      "UNDOCUMENTED: docs/configuration.md libraries: basemaps.terrain",
+    ]);
+  });
+
+  it("counts the five basemap switches, and nothing else, as the Libraries rows", () => {
+    expect(SETTING_CATALOGUE.filter(definition => isLibrarySwitch(definition)).map(definition => definition.key)).toEqual([
+      "basemaps.dark", "basemaps.light", "basemaps.streets", "basemaps.satellite", "basemaps.singleMapStyles",
+    ]);
+    expect(SETTING_CATALOGUE.filter(definition => isLibrarySwitch(definition) && (isInstanceDefault(definition) || isInstanceRule(definition)))).toEqual([]);
+  });
+
+  it("refuses a check without the catalogue's Libraries predicate", () => {
+    expect(() => configurationProblems({ srcDir: path.join(root, "src"), documents: originals, catalogue: SETTING_CATALOGUE, testWiring: TEST_WIRING,
+      defaultsGuide, isInstanceDefault, isInstanceRule, isLibrarySwitch: undefined })).toThrow("isLibrarySwitch");
+  });
+});
+
+describe("the satellite imagery's tile address and credit, stored on Libraries", () => {
+  const LIVE = "App (live) or restart";
+  const satellite = ["DEZFIL_SATELLITE_URL", "DEZFIL_SATELLITE_ATTRIBUTION"];
+  const problemsOf = (documents: Record<string, string>) => configurationProblems({ srcDir: path.join(root, "src"), documents,
+    catalogue: SETTING_CATALOGUE, testWiring: TEST_WIRING, defaultsGuide, isInstanceDefault, isInstanceRule, isLibrarySwitch });
+
+  it("are marked as changed in the app in both guides", () => {
+    for (const guide of guides) {
+      const rows = configurationRows(originals[guide]);
+      for (const name of satellite) expect(rows.find(row => row.name === name)?.changedBy, `${guide}: ${name}`).toBe(LIVE);
+    }
+  });
+
+  it.each(guides)("rejects each marked as changed only by a restart in %s, naming it alone", guide => {
+    for (const name of satellite) {
+      expect(problemsOf({ ...originals, [guide]: changeRow(originals[guide], name, row => cell(row, 4, "Restart")) }), name)
+        .toEqual([`CHANGED BY: ${guide}: ${name}: expected "${LIVE}", found "Restart"`]);
+    }
+  });
+});
+
 describe("the service addresses and numbers an admin stores on Data & services", () => {
   const LIVE = "App (live) or restart";
   const srcDir = path.join(root, "src");
   const problemsOf = (documents: Record<string, string>) =>
-    configurationProblems({ srcDir, documents, catalogue: SETTING_CATALOGUE, testWiring: TEST_WIRING, defaultsGuide, isInstanceDefault, isInstanceRule });
+    configurationProblems({ srcDir, documents, catalogue: SETTING_CATALOGUE, testWiring: TEST_WIRING, defaultsGuide, isInstanceDefault, isInstanceRule, isLibrarySwitch });
   const variableOf = (key: string) => SETTING_CATALOGUE.find(definition => definition.key === key)!.environment!;
   /** Every address and number the tab draws, by its variable. */
   const stored = [...addressRows(), ...serviceNumberRows()].map(row => variableOf(row.key));

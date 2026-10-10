@@ -40,12 +40,23 @@ export function validateStoredValue(definition: SettingDefinition, input: unknow
     }
     case "address": {
       // Never repeated in the reason: an address may carry a key in its user
-      // information, its path or its query.
+      // information, its path or its query. Its placeholders are named,
+      // since they are the product's own text.
       const value = typeof input === "string" ? input.trim() : "";
-      return value.length <= constraint.maxLength && serviceAddressText(value)
-        ? { ok: true, value } : { ok: false, reason: `Expected an http or https address of at most ${constraint.maxLength} characters.` };
+      if (!(value.length <= constraint.maxLength && serviceAddressText(value))) {
+        return { ok: false, reason: `Expected an http or https address of at most ${constraint.maxLength} characters.` };
+      }
+      const placeholders = constraint.placeholders ?? [], missing = placeholders.filter(placeholder => !value.includes(placeholder));
+      return missing.length
+        ? { ok: false, reason: `Expected ${spoken(placeholders)} in the address; ${spoken(missing)} ${missing.length === 1 ? "is" : "are"} missing.` }
+        : { ok: true, value };
     }
   }
+}
+
+/** A short list as a sentence reads it: "a", "a and b", "a, b and c". */
+function spoken(items: readonly string[]): string {
+  return items.length < 2 ? items.join("") : `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
 }
 
 /** An http or https address with a host right after its two slashes, as
@@ -104,7 +115,10 @@ export function catalogueProblems(definitions: readonly SettingDefinition[]): st
     if (write?.kind === "text" && (definition.kind !== "text" || !Number.isSafeInteger(write.maxLength) || write.maxLength < 1)) report("invalid text constraint");
     if (write?.kind === "choice" && (definition.kind !== "choice" || !write.values.length || new Set(write.values).size !== write.values.length)) report("invalid choice constraint");
     if (write?.kind === "sites" && (definition.kind !== "list" || !Number.isSafeInteger(write.maxSites) || write.maxSites < 1)) report("invalid sites constraint");
-    if (write?.kind === "address" && (definition.kind !== "address" || !Number.isSafeInteger(write.maxLength) || write.maxLength < 1)) report("invalid address constraint");
+    if (write?.kind === "address" && (definition.kind !== "address" || !Number.isSafeInteger(write.maxLength) || write.maxLength < 1
+      || (write.placeholders !== undefined && (!write.placeholders.length || write.placeholders.some(placeholder => typeof placeholder !== "string" || !placeholder))))) {
+      report("invalid address constraint");
+    }
     // An address may carry a key, so an editable one is write-only: it is
     // written through the address kind, which stores it encrypted and reads
     // it back as scheme and host, and only admins read even that.

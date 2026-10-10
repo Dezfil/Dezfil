@@ -1,4 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+// The engine's own lookup, answered by a fixture resolver: a name the
+// fixture does not know does not resolve, and no name reaches a real one.
+const dns = vi.hoisted(() => ({ lookup: vi.fn() }));
+vi.mock("node:dns/promises", () => ({ lookup: dns.lookup }));
+
 import { mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
@@ -20,7 +26,7 @@ import { resetIsochroneLimiter } from "@/lib/isochrone/limiter";
 import { egressBlockedError } from "@/lib/net/egress";
 import { keptReleaseList, resetReleaseCache } from "@/lib/overture/releases";
 import { resetSecretKeyCache } from "@/lib/secrets";
-import { TEST_PLACE, TEST_POINT } from "@/lib/settings/service-tests";
+import { TEST_PLACE, TEST_POINT, TEST_TILE } from "@/lib/settings/service-tests";
 import { keepRequestsOnThisMachine } from "@/lib/test-support/outside-requests";
 import { testAccountScope } from "@/lib/test-support/accounts";
 import { executeTool } from "@/lib/tools/execute";
@@ -35,6 +41,8 @@ import { instanceSettingsFixture } from "../../../test-support/instance-settings
  * how many releases and the newest) or one reason from a closed list, never
  * a body, an address or a key. A second Test while one runs gets the same
  * answer from the same request; nothing is stored but the release list.
+ * The satellite imagery's Test asks its tile template for one fixed
+ * low-zoom tile and passes on an image.
  * Admins only; the SQL and workflow assistants are never offered it, since
  * it reaches outside this server, and the embedded assistant asks first.
  */
@@ -44,12 +52,31 @@ import { instanceSettingsFixture } from "../../../test-support/instance-settings
 keepRequestsOnThisMachine();
 
 const ORIGIN = "http://instance.test";
-const SERVICES = ["geocode", "isochrone", "overpass", "overture", "s3"] as const;
+const SERVICES = ["geocode", "isochrone", "overpass", "overture", "s3", "satellite"] as const;
 type Service = typeof SERVICES[number];
 /** What the fixtures put in every body, and the key every address carries:
  * neither may reach an answer. */
 const ECHO = "BODY-ECHO-0001";
-const FORBIDDEN = [ECHO, "SEEDED-KEY-0001", "127.0.0.1", "/search", "/isochrone", "interpreter"];
+const FORBIDDEN = [ECHO, "SEEDED-KEY-0001", "127.0.0.1", "/search", "/isochrone", "interpreter", "/sat-", "{z}", ".png", "imagery.fixture"];
+/** The satellite fixture's tile, a real PNG whose bytes run on into the echo. */
+const WHOLE_PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64");
+const PNG = Buffer.concat([WHOLE_PNG, Buffer.from(ECHO)]);
+/** Real two-pixel tiles in the other formats a browser draws, made by an
+ * image encoder, whole. */
+const TILES = {
+  jpeg: Buffer.from("/9j/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAACAAIDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAf/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAwb/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCYABT7/9k=", "base64"),
+  progressiveJpeg: Buffer.from("/9j/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wgARCAACAAIDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAb/xAAVAQEBAAAAAAAAAAAAAAAAAAACBf/aAAwDAQACEAMQAAABlwJ//8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABBQJ//8QAFBEBAAAAAAAAAAAAAAAAAAAAAP/aAAgBAwEBPwF//8QAFBEBAAAAAAAAAAAAAAAAAAAAAP/aAAgBAgEBPwF//8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQAGPwJ//8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPyF//9oADAMBAAIAAwAAABDz/8QAFBEBAAAAAAAAAAAAAAAAAAAAAP/aAAgBAwEBPxB//8QAFBEBAAAAAAAAAAAAAAAAAAAAAP/aAAgBAgEBPxB//8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxB//9k=", "base64"),
+  gif: Buffer.from("R0lGODlhAgACAIAAAExpcR5aPCH5BAUAAAAALAAAAAACAAIAAAICjFMAOw==", "base64"),
+  webp: Buffer.from("UklGRjAAAABXRUJQVlA4ICQAAABwAQCdASoCAAIAAUAmJZgCdAF1AAD+9YiW1f/AfiD+LZfAAAA=", "base64"),
+  losslessWebp: Buffer.from("UklGRh4AAABXRUJQVlA4TBEAAAAvAUAAAAdQrXqUp/+BiOh/AAA=", "base64"),
+  avif: Buffer.from("AAAAHGZ0eXBhdmlmAAAAAG1pZjFhdmlmbWlhZgAAANZtZXRhAAAAAAAAACFoZGxyAAAAAAAAAABwaWN0AAAAAAAAAAAAAAAAAAAAACJpbG9jAAAAAERAAAEAAQAAAAAA+gABAAAAAAAAACIAAAAjaWluZgAAAAAAAQAAABVpbmZlAgAAAAABAABhdjAxAAAAAA5waXRtAAAAAAABAAAAVmlwcnAAAAA4aXBjbwAAAAxhdjFDgSACAAAAABRpc3BlAAAAAAAAAAIAAAACAAAAEHBpeGkAAAAAAwgICAAAABZpcG1hAAAAAAAAAAEAAQOBAgMAAAAqbWRhdBIACgc4ADaQENBpMhUZQmMEwAA0AATFtegF7p4t+kAd8/U=", "base64"),
+};
+/** The most of a tile's answer the Test reads, as the reference documents it. */
+const TILE_BOUND = 4 * 1024 * 1024;
+/** The satellite template's place on the fixture, its key in the path and the query. */
+const TEMPLATE_PATH = "/sat-SEEDED-KEY-0001-PATH/{z}/{x}/{y}.png?key=SEEDED-KEY-0001-QUERY";
+/** The fixed tile's path under a template's place on the fixture. */
+const tilePath = (place = "/sat-SEEDED-KEY-0001-PATH") => `${place}/${TEST_TILE.z}/${TEST_TILE.x}/${TEST_TILE.y}.png`;
 
 let f: ReturnType<typeof instanceSettingsFixture>;
 let fixtures: Server[] = [];
@@ -64,6 +91,7 @@ function serviceOf(pathname: string): Service {
   if (pathname.endsWith("/isochrone")) return "isochrone";
   if (pathname.endsWith("/api/interpreter")) return "overpass";
   if (pathname.startsWith("/overturemaps-us-west-2/")) return "overture";
+  if (pathname.startsWith("/sat-")) return "satellite";
   return "s3";
 }
 
@@ -96,6 +124,10 @@ const HEALTHY: Record<Service, (req: IncomingMessage, res: ServerResponse) => vo
     res.writeHead(403, { "content-type": "application/xml", "x-amz-request-id": ECHO });
     res.end(`<?xml version="1.0" encoding="UTF-8"?>\n<Error><Code>AccessDenied</Code><Message>${ECHO}</Message></Error>`);
   },
+  satellite: (_req, res) => {
+    res.writeHead(200, { "content-type": "image/png", "x-tile-note": ECHO });
+    res.end(PNG);
+  },
 };
 
 beforeEach(async () => {
@@ -104,6 +136,8 @@ beforeEach(async () => {
   vi.stubEnv("DEZFIL_GEOCODE_PACE_MS", "0"); vi.stubEnv("DEZFIL_ISOCHRONE_PACE_MS", "0");
   vi.stubEnv("DEZFIL_EGRESS_ALLOWLIST", "127.0.0.1");
   resetLimiter(); resetIsochroneLimiter(); resetReleaseCache();
+  dns.lookup.mockReset();
+  dns.lookup.mockRejectedValue(Object.assign(new Error("getaddrinfo ENOTFOUND"), { code: "ENOTFOUND" }));
   asked = []; seen = [];
   answer = (service, req, res) => HEALTHY[service](req, res);
   const server = createServer((req, res) => {
@@ -134,6 +168,7 @@ function point(port: number) {
   vi.stubEnv("DEZFIL_OVERPASS_URL", `http://127.0.0.1:${port}/osm-SEEDED-KEY-0001-PATH/api/interpreter?key=SEEDED-KEY-0001-QUERY`);
   vi.stubEnv("DEZFIL_OVERTURE_S3_ENDPOINT", `127.0.0.1:${port}`);
   vi.stubEnv("DEZFIL_S3_ENDPOINT", `http://127.0.0.1:${port}/s3-SEEDED-KEY-0001-PATH`);
+  vi.stubEnv("DEZFIL_SATELLITE_URL", `http://127.0.0.1:${port}${TEMPLATE_PATH}`);
 }
 
 const ADMIN = () => ({ cookie: `dezfil_session=${f.admin.secret}`, origin: ORIGIN });
@@ -169,7 +204,7 @@ describe("each Test passes against its healthy service", () => {
     expect(asked).toHaveLength(1);
   });
 
-  it("sends the fixed requests: a fixed place, the shortest band round a fixed point on foot, the smallest Overpass query, the listing, the store's root", async () => {
+  it("sends the fixed requests: a fixed place, the shortest band round a fixed point on foot, the smallest Overpass query, the listing, the store's root, one low-zoom tile", async () => {
     const sent: Record<string, string> = {};
     answer = (service, req, res) => {
       const url = new URL(req.url ?? "", "http://x");
@@ -187,6 +222,88 @@ describe("each Test passes against its healthy service", () => {
     expect(sent.overture).toBe("GET ?list-type=2&prefix=release/&delimiter=/");
     expect(askedOf("s3")).toEqual([{ service: "s3", at: expect.any(Number), path: "/s3-SEEDED-KEY-0001-PATH/" }]);
     expect(sent.s3).toBe("GET ");
+    expect(TEST_TILE.z).toBeLessThanOrEqual(3);
+    expect(askedOf("satellite")).toEqual([{ service: "satellite", at: expect.any(Number), path: tilePath() }]);
+    expect(sent.satellite).toBe("GET ?key=SEEDED-KEY-0001-QUERY");
+  });
+
+  it.each([
+    ["a JPEG", "image/jpeg", TILES.jpeg],
+    ["a progressive JPEG", "image/jpeg", TILES.progressiveJpeg],
+    ["a WebP", "image/webp", TILES.webp],
+    ["a lossless WebP", "image/webp", TILES.losslessWebp],
+    ["a GIF", "image/gif", TILES.gif],
+    ["an AVIF", "image/avif", TILES.avif],
+    ["a PNG named only as bytes", "application/octet-stream", WHOLE_PNG],
+  ])("passes the satellite imagery answering %s whole, with or without bytes after its end", async (_what, type, tile) => {
+    for (const body of [tile, Buffer.concat([tile, Buffer.from(ECHO)])]) {
+      answer = (_service, _req, res) => { res.writeHead(200, { "content-type": type }); res.end(body); };
+      expect((await runTest("satellite")).body).toEqual({ service: "satellite", result: "passed", milliseconds: expect.any(Number) });
+    }
+  });
+
+  it("takes the time when the tile has arrived whole, not at its first bytes", async () => {
+    answer = (_service, _req, res) => {
+      res.writeHead(200, { "content-type": "image/png" });
+      res.write(WHOLE_PNG.subarray(0, 40));
+      setTimeout(() => res.end(WHOLE_PNG.subarray(40)), 400);
+    };
+    const { body } = await runTest("satellite");
+    expect(body).toEqual({ service: "satellite", result: "passed", milliseconds: expect.any(Number) });
+    expect(body.milliseconds).toBeGreaterThanOrEqual(390);
+  });
+
+  it("passes a tile at the size bound, its length declared or not", async () => {
+    const atBound = Buffer.concat([WHOLE_PNG, Buffer.alloc(TILE_BOUND - WHOLE_PNG.length)]);
+    for (const declared of [true, false]) {
+      answer = (_service, _req, res) => {
+        res.writeHead(200, { "content-type": "image/png", ...(declared ? { "content-length": String(atBound.length) } : {}) });
+        res.end(atBound);
+      };
+      expect((await runTest("satellite")).body, `declared: ${declared}`).toEqual({ service: "satellite", result: "passed", milliseconds: expect.any(Number) });
+    }
+  });
+
+  it("sends the satellite template's user information as the tile request's credentials, as the S3 address's", async () => {
+    const port = (fixtures[0].address() as AddressInfo).port;
+    vi.stubEnv("DEZFIL_SATELLITE_URL", `http://SEEDED-KEY-0001-USER:SEEDED-KEY-0001-PASS@127.0.0.1:${port}${TEMPLATE_PATH}`);
+    const received: { target?: string; credential?: string }[] = [];
+    answer = (service, req, res) => { received.push({ target: req.url, credential: req.headers.authorization }); HEALTHY[service](req, res); };
+    expect((await runTest("satellite")).body).toEqual({ service: "satellite", result: "passed", milliseconds: expect.any(Number) });
+    expect(received).toEqual([{ target: `${tilePath()}?key=SEEDED-KEY-0001-QUERY`,
+      credential: `Basic ${Buffer.from("SEEDED-KEY-0001-USER:SEEDED-KEY-0001-PASS").toString("base64")}` }]);
+  });
+
+  it("follows the satellite imagery's redirect to its tile, and refuses one into blocked space before contact", async () => {
+    answer = (_service, req, res) => {
+      if (req.url?.startsWith("/sat-moved/")) { HEALTHY.satellite(req, res); return; }
+      res.writeHead(302, { location: req.url?.includes("inside") ? "http://10.0.0.7/sat-inside/tile.png" : "/sat-moved/tile.png" });
+      res.end(ECHO);
+    };
+    expect((await runTest("satellite")).body).toEqual({ service: "satellite", result: "passed", milliseconds: expect.any(Number) });
+    expect(asked.map(entry => entry.path)).toEqual([tilePath(), "/sat-moved/tile.png"]);
+    const port = (fixtures[0].address() as AddressInfo).port;
+    vi.stubEnv("DEZFIL_SATELLITE_URL", `http://127.0.0.1:${port}/sat-inside-SEEDED-KEY-0001-PATH/{z}/{x}/{y}.png`);
+    asked = [];
+    expect((await runTest("satellite")).body).toEqual({ service: "satellite", result: "failed", reason: "refused", message: egressBlockedError().message });
+    expect(asked.map(entry => entry.path)).toEqual([tilePath("/sat-inside-SEEDED-KEY-0001-PATH")]);
+  });
+
+  it("refuses a tile host answered publicly at save and privately at use, reaching nothing, and reaches it once the use answers this machine", async () => {
+    const port = (fixtures[0].address() as AddressInfo).port;
+    vi.stubEnv("DEZFIL_SATELLITE_URL", undefined);
+    dns.lookup.mockResolvedValue([{ address: "203.0.113.10", family: 4 }]);
+    const saved = await PATCH(socketRequest(new Request(`${ORIGIN}/api/instance/settings`, { method: "PATCH",
+      headers: { ...ADMIN(), "content-type": "application/json" },
+      body: JSON.stringify({ satelliteUrl: `http://imagery.fixture.test:${port}${TEMPLATE_PATH}` }) })));
+    expect(saved.status, await saved.clone().text()).toBe(200);
+    expect(dns.lookup).toHaveBeenCalledWith("imagery.fixture.test", { all: true, verbatim: true });
+    dns.lookup.mockResolvedValue([{ address: "10.0.0.7", family: 4 }]);
+    expect((await runTest("satellite")).body).toEqual({ service: "satellite", result: "failed", reason: "refused", message: egressBlockedError().message });
+    expect(asked).toEqual([]);
+    dns.lookup.mockResolvedValue([{ address: "127.0.0.1", family: 4 }]);
+    expect((await runTest("satellite")).body).toEqual({ service: "satellite", result: "passed", milliseconds: expect.any(Number) });
+    expect(asked.map(entry => entry.path)).toEqual([tilePath()]);
   });
 
   it("passes a travel-time service that answers no route from the point in its own words", async () => {
@@ -222,32 +339,33 @@ describe("each Test passes against its healthy service", () => {
 
   it("uses the addresses an admin saved, and refuses at use once the check would", async () => {
     const port = (fixtures[0].address() as AddressInfo).port;
-    for (const variable of ["DEZFIL_GEOCODER_URL", "DEZFIL_ISOCHRONE_URL", "DEZFIL_OVERPASS_URL", "DEZFIL_S3_ENDPOINT"]) vi.stubEnv(variable, undefined);
+    for (const variable of ["DEZFIL_GEOCODER_URL", "DEZFIL_ISOCHRONE_URL", "DEZFIL_OVERPASS_URL", "DEZFIL_S3_ENDPOINT", "DEZFIL_SATELLITE_URL"]) vi.stubEnv(variable, undefined);
     const saved = await PATCH(socketRequest(new Request(`${ORIGIN}/api/instance/settings`, { method: "PATCH",
       headers: { ...ADMIN(), "content-type": "application/json" },
       body: JSON.stringify({ geocoderUrl: `http://127.0.0.1:${port}/geo-SEEDED-KEY-0001-PATH?key=SEEDED-KEY-0001-QUERY`,
         isochroneUrl: `http://127.0.0.1:${port}/iso-SEEDED-KEY-0001-PATH?key=SEEDED-KEY-0001-QUERY`,
         overpassUrl: `http://127.0.0.1:${port}/osm-SEEDED-KEY-0001-PATH/api/interpreter?key=SEEDED-KEY-0001-QUERY`,
-        s3Endpoint: `http://127.0.0.1:${port}/s3-SEEDED-KEY-0001-PATH` }) })));
+        s3Endpoint: `http://127.0.0.1:${port}/s3-SEEDED-KEY-0001-PATH`,
+        satelliteUrl: `http://127.0.0.1:${port}${TEMPLATE_PATH}` }) })));
     expect(saved.status, await saved.clone().text()).toBe(200);
-    for (const service of ["geocode", "isochrone", "overpass", "s3"] as const) {
+    for (const service of ["geocode", "isochrone", "overpass", "s3", "satellite"] as const) {
       expect((await runTest(service)).body).toMatchObject({ service, result: "passed" });
     }
     expect(asked.map(entry => entry.path)).toEqual(["/geo-SEEDED-KEY-0001-PATH/search", "/iso-SEEDED-KEY-0001-PATH/isochrone",
-      "/osm-SEEDED-KEY-0001-PATH/api/interpreter", "/s3-SEEDED-KEY-0001-PATH/"]);
+      "/osm-SEEDED-KEY-0001-PATH/api/interpreter", "/s3-SEEDED-KEY-0001-PATH/", tilePath()]);
 
     vi.stubEnv("DEZFIL_EGRESS_ALLOWLIST", "");
-    for (const service of ["geocode", "isochrone", "overpass", "s3"] as const) {
+    for (const service of ["geocode", "isochrone", "overpass", "s3", "satellite"] as const) {
       expect((await runTest(service)).body).toEqual({ service, result: "failed", reason: "refused", message: egressBlockedError().message });
     }
-    expect(asked).toHaveLength(4);
+    expect(asked).toHaveLength(5);
   });
 });
 
 describe("each failure reason comes from its own fixture", () => {
-  it("not set up: the address finder and travel time with no address, asking nothing", async () => {
-    vi.stubEnv("DEZFIL_GEOCODER_URL", undefined); vi.stubEnv("DEZFIL_ISOCHRONE_URL", undefined);
-    for (const service of ["geocode", "isochrone"] as const) {
+  it("not set up: the address finder, travel time and the satellite imagery with no address, asking nothing", async () => {
+    vi.stubEnv("DEZFIL_GEOCODER_URL", undefined); vi.stubEnv("DEZFIL_ISOCHRONE_URL", undefined); vi.stubEnv("DEZFIL_SATELLITE_URL", undefined);
+    for (const service of ["geocode", "isochrone", "satellite"] as const) {
       expect((await runTest(service)).body).toEqual({ service, result: "failed", reason: "not_set_up" });
     }
     expect(asked).toEqual([]);
@@ -275,6 +393,25 @@ describe("each failure reason comes from its own fixture", () => {
     expect((await runTest(service)).body).toEqual({ service, result: "failed", reason: "timed_out" });
     expect(Date.now() - started).toBeGreaterThanOrEqual(950);
   });
+
+  it("no answer within the time limit: the satellite imagery at its own ten seconds", async () => {
+    answer = () => { /* never answers */ };
+    const started = Date.now();
+    expect((await runTest("satellite")).body).toEqual({ service: "satellite", result: "failed", reason: "timed_out" });
+    expect(Date.now() - started).toBeGreaterThanOrEqual(9_900);
+    expect(Date.now() - started).toBeLessThan(12_000);
+  }, 20_000);
+
+  it("no whole tile within the time limit: a PNG's first chunks, then a stream that stalls, at the same ten seconds", async () => {
+    answer = (_service, _req, res) => {
+      res.writeHead(200, { "content-type": "image/png" });
+      res.write(WHOLE_PNG.subarray(0, 33));
+    };
+    const started = Date.now();
+    expect((await runTest("satellite")).body).toEqual({ service: "satellite", result: "failed", reason: "timed_out" });
+    expect(Date.now() - started).toBeGreaterThanOrEqual(9_900);
+    expect(Date.now() - started).toBeLessThan(12_000);
+  }, 20_000);
 
   it.each(SERVICES)("answered with a status: %s at 503, with its number and no body", async service => {
     answer = (_service, _req, res) => { res.writeHead(503, { "content-type": "text/plain" }); res.end(`${ECHO} unavailable`); };
@@ -304,7 +441,75 @@ describe("each failure reason comes from its own fixture", () => {
     ["isochrone", "the band's contour with an open ring", { type: "FeatureCollection", features: [{ type: "Feature", properties: { contour: 1 }, geometry: { type: "Polygon", coordinates: [around(TEST_POINT.lon, TEST_POINT.lat)[0].slice(0, 4)] } }, snapped] }],
     ["overpass", "elements holding null", { version: 0.6, generator: ECHO, elements: [null] }],
     ["overpass", "elements holding a number", { version: 0.6, generator: ECHO, elements: [1] }],
+    ["satellite", "a tile list in place of a tile", { tiles: [ECHO] }],
   ];
+  it.each([
+    ["a page named as an image", "image/png", Buffer.from(`<html><body>${ECHO}</body></html>`)],
+    ["nothing at all", "image/png", Buffer.alloc(0)],
+    ["a PNG cut short before its signature ends", "image/png", PNG.subarray(0, 5)],
+    ["a JPEG's three-byte marker alone", "image/jpeg", Buffer.from([0xff, 0xd8, 0xff])],
+    ["a PNG cut after its signature", "image/png", WHOLE_PNG.subarray(0, 8)],
+    ["a PNG cut after its header chunk", "image/png", WHOLE_PNG.subarray(0, 33)],
+    ["a PNG cut inside its end chunk", "image/png", WHOLE_PNG.subarray(0, WHOLE_PNG.length - 2)],
+    ["a PNG with no image data", "image/png", Buffer.concat([WHOLE_PNG.subarray(0, 33), WHOLE_PNG.subarray(WHOLE_PNG.length - 12)])],
+    ["a JPEG cut before its end marker", "image/jpeg", TILES.jpeg.subarray(0, TILES.jpeg.length - 2)],
+    ["a progressive JPEG cut after its first scan", "image/jpeg", TILES.progressiveJpeg.subarray(0, 260)],
+    ["a JPEG ending with no scan", "image/jpeg", Buffer.from([0xff, 0xd8, 0xff, 0xd9])],
+    ["a GIF cut before its trailer", "image/gif", TILES.gif.subarray(0, TILES.gif.length - 1)],
+    ["a GIF header alone", "image/gif", Buffer.from("GIF89a\u0001\u0000\u0001\u0000")],
+    ["a WebP short of its declared length", "image/webp", TILES.webp.subarray(0, TILES.webp.length - 1)],
+    ["a WebP header alone", "image/webp", Buffer.concat([Buffer.from("RIFF"), Buffer.from([36, 0, 0, 0]), Buffer.from("WEBPVP8 ")])],
+    ["an AVIF cut inside its image data", "image/avif", TILES.avif.subarray(0, TILES.avif.length - 1)],
+    ["an AVIF's type box alone", "image/avif", TILES.avif.subarray(0, 28)],
+  ])("answered, but not as the service does: the satellite imagery with %s", async (_what, type, body) => {
+    answer = (_service, _req, res) => { res.writeHead(200, { "content-type": type }); res.end(body); };
+    expect((await runTest("satellite")).body).toEqual({ service: "satellite", result: "failed", reason: "unexpected_answer" });
+    expect(askedOf("satellite")).toHaveLength(1);
+  });
+
+  it("no whole answer: the satellite imagery's connection closed before the length it declared, after a PNG's first chunks", async () => {
+    answer = (_service, _req, res) => {
+      res.writeHead(200, { "content-type": "image/png", "content-length": String(WHOLE_PNG.length) });
+      res.write(WHOLE_PNG.subarray(0, 33), () => res.socket?.destroy());
+    };
+    expect((await runTest("satellite")).body).toEqual({ service: "satellite", result: "failed", reason: "unreachable" });
+    expect(askedOf("satellite")).toHaveLength(1);
+  });
+
+  it("answered, but not as the service does: the satellite imagery with a tile one byte past the size bound, streamed with no length", async () => {
+    const past = Buffer.concat([WHOLE_PNG, Buffer.alloc(TILE_BOUND + 1 - WHOLE_PNG.length)]);
+    answer = (_service, _req, res) => {
+      res.on("error", () => {});
+      res.writeHead(200, { "content-type": "image/png" });
+      // In pieces, so the bound is passed mid-stream.
+      for (let at = 0; at < past.length; at += 64 * 1024) res.write(past.subarray(at, at + 64 * 1024));
+      res.end();
+    };
+    expect((await runTest("satellite")).body).toEqual({ service: "satellite", result: "failed", reason: "unexpected_answer" });
+    expect(askedOf("satellite")).toHaveLength(1);
+  });
+
+  it("answered, but not as the service does: the satellite imagery declaring a tile one byte past the size bound, closed unread while the rest is held", async () => {
+    // A PNG's first chunks under a length one byte past the bound, then the
+    // sender holds the rest: nothing it sent is past the bound, so only the
+    // declared length can end the read before the ten seconds do.
+    let sender: ServerResponse | undefined;
+    let hungUp!: () => void;
+    const closed = new Promise<void>(resolve => { hungUp = resolve; });
+    answer = (_service, _req, res) => {
+      sender = res;
+      res.on("error", () => {});
+      res.on("close", () => hungUp());
+      res.writeHead(200, { "content-type": "image/png", "content-length": String(TILE_BOUND + 1) });
+      res.write(WHOLE_PNG.subarray(0, 33));
+    };
+    expect((await runTest("satellite")).body).toEqual({ service: "satellite", result: "failed", reason: "unexpected_answer" });
+    // The Test hung up on a sender still holding its body, not the other way round.
+    await closed;
+    expect(sender?.writableEnded).toBe(false);
+    expect(askedOf("satellite")).toHaveLength(1);
+  }, 20_000);
+
   it.each(MALFORMED)("answered, but not as the service does: %s with %s", async (service, _what, reply) => {
     answer = (_service, _req, res) => json(res, 200, reply);
     expect((await runTest(service)).body).toEqual({ service, result: "failed", reason: "unexpected_answer" });
@@ -322,6 +527,20 @@ describe("each failure reason comes from its own fixture", () => {
     const { status, body } = await runTest("geocode");
     expect(status).toBe(400);
     expect(body).toEqual({ error: { code: "service_address_unreadable", message: expect.stringContaining("Address finder") } });
+    expect(asked).toEqual([]);
+  });
+
+  it("refuses a stored satellite template the instance's key no longer opens, reaching nothing", async () => {
+    const port = (fixtures[0].address() as AddressInfo).port;
+    vi.stubEnv("DEZFIL_SATELLITE_URL", undefined);
+    const saved = await PATCH(socketRequest(new Request(`${ORIGIN}/api/instance/settings`, { method: "PATCH",
+      headers: { ...ADMIN(), "content-type": "application/json" },
+      body: JSON.stringify({ satelliteUrl: `http://127.0.0.1:${port}${TEMPLATE_PATH}` }) })));
+    expect(saved.status).toBe(200);
+    vi.stubEnv("DEZFIL_SECRET_KEY", "6d".repeat(32)); resetSecretKeyCache();
+    const { status, body } = await runTest("satellite");
+    expect(status).toBe(400);
+    expect(body).toEqual({ error: { code: "service_address_unreadable", message: expect.stringContaining("Satellite") } });
     expect(asked).toEqual([]);
   });
 

@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { accountRequest, failureMessage, settingsWrite } from "./api";
 import type { CacheFacts, ReleaseListFacts } from "./data-table";
+import type { LibraryStyleRead } from "./libraries-table";
 import type { PartStates } from "@/lib/system/part-states";
 import type { Value } from "./save-unit";
 import type { ReadSetting } from "./server-set";
@@ -28,6 +29,8 @@ export interface InstanceRead {
   /** Each part's state, read without starting anything. */
   readonly parts: PartStates;
   readonly services?: ServicesRead;
+  /** The basemap library, oldest first, hidden styles included. */
+  readonly basemapStyles?: readonly LibraryStyleRead[];
 }
 
 export const INSTANCE_SETTINGS = "/api/instance/settings";

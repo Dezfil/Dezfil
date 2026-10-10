@@ -317,7 +317,7 @@
     {
       "type": "function",
       "name": "get_instance_settings",
-      "description": "Read instance configuration. Requires a current admin account through a cookie session or bearer token, rechecked on every call. Responses, including refusals, are private, no-store. Returns every instance and platform definition with its effective value, source, stored value (including a shadowed value), lock and invalid-override state. A non-empty environment variable locks the setting even when invalid; invalid numeric overrides use the default without returning the override text. Empty numeric overrides are absent; a set empty assistant model list retains its default model alone. Environment changes require a restart. Provider keys report set or not set; the encryption key reports environment, data-directory or not-yet-present. Address value and defaultValue expose scheme and host only, never user information, paths, queries or fragments; malformed addresses report set and unreadable. A service address an admin stored reads as set with its scheme and host, or as set and unreadable once the instance's encryption key no longer opens it; its storedValue is always null. The built-in documentedDefault stays as documented, including any path. Contextual defaults carry a rule when there is no single address or value. The read generates no key, writes no configuration file, contacts no service and initializes no engine. Capacities report admitted geocode rows and travel-time origins per run, without promising a configured provider. Also returns the fixed maximum image dimension, package version, stable process start time and warnings when the effective query timeout is at or above the run timeout. Services report each provider cache (geocode, isochrone, overpass) with the bytes its answers take, how many it holds and its budget in MB, and the Overture release list this process keeps: how many releases, the newest and when it was listed, or not listed yet. Parts report each part of this server, starting nothing and running no program: the query engine's library version, whether the engine has started and the extensions it loaded; whether the tile builder and the image renderer's browser are executable files where their settings point, by a file check, the tile builder's version once this server has run it, and Images at once; the metadata database's file name.",
+      "description": "Read instance configuration. Requires a current admin account through a cookie session or bearer token, rechecked on every call. Responses, including refusals, are private, no-store. Returns every instance and platform definition with its effective value, source, stored value (including a shadowed value), lock and invalid-override state. A non-empty environment variable locks the setting even when invalid; invalid numeric overrides use the default without returning the override text. Empty numeric overrides are absent; a set empty assistant model list retains its default model alone. Environment changes require a restart. Provider keys report set or not set; the encryption key reports environment, data-directory or not-yet-present. Address value and defaultValue expose scheme and host only, never user information, paths, queries or fragments; malformed addresses report set and unreadable. A service address or the satellite tile template an admin stored reads as set with its scheme and host, or as set and unreadable once the instance's encryption key no longer opens it; its storedValue is always null. The satellite credit an admin stored reads as stored while DEZFIL_SATELLITE_ATTRIBUTION is unset, and as the variable's, with the stored credit as storedValue, while it is set. The built-in documentedDefault stays as documented, including any path. Contextual defaults carry a rule when there is no single address or value. The read generates no key, writes no configuration file, contacts no service and initializes no engine. Capacities report admitted geocode rows and travel-time origins per run, without promising a configured provider. Also returns the fixed maximum image dimension, package version, stable process start time and warnings when the effective query timeout is at or above the run timeout. Services report each provider cache (geocode, isochrone, overpass) with the bytes its answers take, how many it holds and its budget in MB, and the Overture release list this process keeps: how many releases, the newest and when it was listed, or not listed yet. Parts report each part of this server, starting nothing and running no program: the query engine's library version, whether the engine has started and the extensions it loaded; whether the tile builder and the image renderer's browser are executable files where their settings point, by a file check, the tile builder's version once this server has run it, and Images at once; the metadata database's file name. basemapStyles is the basemap library, oldest first, hidden styles included: each style's id, name, address, credit, whether it is offered and when it was added.",
       "parameters": {
         "type": "object",
         "properties": {},
@@ -328,7 +328,7 @@
     {
       "type": "function",
       "name": "update_instance_settings",
-      "description": "Change instance settings. At most 65,536 wire bytes; a larger body is refused with `request_body_too_large` before JSON parsing. Requires a current admin through cookie or bearer authentication, rechecked inside the write transaction on every call. Cookie mutations require the same trusted Origin; an admin bearer token calls directly with no additional scope or approval step. Responses, including refusals, are private, no-store. Submit only editable keys; omitted keys stay unchanged and null clears a stored value. The complete body is validated against the committed configuration under one write lock. A refusal or failed commit changes nothing. Non-editable keys answer 400 invalid_request as read-only regardless of their environment. A non-empty environment variable locks an editable setting, including invalid overrides and null writes. A locked editable key answers 409 setting_locked, taking precedence over 400 invalid_request for unknown, non-editable, wrong-kind, non-whole, out-of-range, over-length or invalid-choice entries, a site list entry that is not http or https with a host and an optional port, a resulting queryTimeoutS at or above operationTimeoutS, a resulting security.failedPerAddress below security.failedPerAccount, and a resulting publishing.embedding of listed with no publishing.embedSites. Messages identify all failing known keys and their reasons, unknown keys by their entry position and a refused site by its position, without echoing arbitrary input. The sign-in counts, and embedding with its sites, are checked when a body changes either side. An existing environment timeout mismatch is reported in warnings and blocks no unrelated change. Concurrent different-key edits both land; the last accepted value wins on one key. There is no stale-write rejection or Undo. Stored changes apply live to new work; admitted work keeps its budget. Lowered concurrency cancels nothing, increased concurrency wakes waiters after commit, and lowered queue limits keep accepted waiters. Public limits apply against the existing window count. Environment changes need a restart. Returns the same configuration as the read, with the same secret and address disclosure rules. No secret is accepted. The four service addresses (geocoderUrl, isochroneUrl, overpassUrl, s3Endpoint) are write-only: each is stored encrypted and read back as its scheme and host alone; a refusal names the key and never repeats the address. Before the write, an address is also refused (400 invalid_request, with the egress policy's own sentence) when that policy would refuse a request to it now: a literal in loopback, private, carrier-grade, link-local or metadata, unique-local, unspecified, multicast or reserved space, mapped and NAT64 forms included, or a name all of whose addresses resolve there, unless DEZFIL_EGRESS_ALLOWLIST names it. A name that does not resolve at save is kept; every request to the address is checked again. The embedded assistant asks for confirmation before calling on pages admitting writes; SQL and workflow assistants refuse this update. MCP advertises that policy and adds no confirmation step.",
+      "description": "Change instance settings. At most 65,536 wire bytes; a larger body is refused with `request_body_too_large` before JSON parsing. Requires a current admin through cookie or bearer authentication, rechecked inside the write transaction on every call. Cookie mutations require the same trusted Origin; an admin bearer token calls directly with no additional scope or approval step. Responses, including refusals, are private, no-store. Submit only editable keys; omitted keys stay unchanged and null clears a stored value. The complete body is validated against the committed configuration under one write lock. A refusal or failed commit changes nothing. Non-editable keys answer 400 invalid_request as read-only regardless of their environment. A non-empty environment variable locks an editable setting, including invalid overrides and null writes. A locked editable key answers 409 setting_locked, taking precedence over 400 invalid_request for unknown, non-editable, wrong-kind, non-whole, out-of-range, over-length or invalid-choice entries, a site list entry that is not http or https with a host and an optional port, a resulting queryTimeoutS at or above operationTimeoutS, a resulting security.failedPerAddress below security.failedPerAccount, and a resulting publishing.embedding of listed with no publishing.embedSites. Messages identify all failing known keys and their reasons, unknown keys by their entry position and a refused site by its position, without echoing arbitrary input. The sign-in counts, and embedding with its sites, are checked when a body changes either side. An existing environment timeout mismatch is reported in warnings and blocks no unrelated change. Concurrent different-key edits both land; the last accepted value wins on one key. There is no stale-write rejection or Undo. Stored changes apply live to new work; admitted work keeps its budget. Lowered concurrency cancels nothing, increased concurrency wakes waiters after commit, and lowered queue limits keep accepted waiters. Public limits apply against the existing window count. Environment changes need a restart. Returns the same configuration as the read, with the same secret and address disclosure rules. No secret is accepted. The four service addresses (geocoderUrl, isochroneUrl, overpassUrl, s3Endpoint) and the satellite imagery's tile template (satelliteUrl) are write-only: each is stored encrypted and read back as its scheme and host alone; a refusal names the key and never repeats the address. The template must also hold {z}, {x} and {y}, a refusal naming the ones missing. Before the write, an address is also refused (400 invalid_request, with the egress policy's own sentence) when that policy would refuse a request to it now, a template with each placeholder filled with a digit: a literal in loopback, private, carrier-grade, link-local or metadata, unique-local, unspecified, multicast or reserved space, mapped and NAT64 forms included, or a name all of whose addresses resolve there, unless DEZFIL_EGRESS_ALLOWLIST names it. A name that does not resolve at save is kept; every request to the address is checked again. The embedded assistant asks for confirmation before calling on pages admitting writes; SQL and workflow assistants refuse this update. MCP advertises that policy and adds no confirmation step.",
       "parameters": {
         "type": "object",
         "additionalProperties": false,
@@ -546,6 +546,22 @@
             ],
             "pattern": "^\\s*[Hh][Tt][Tt][Pp][Ss]?://[^/\\\\?#\\s]",
             "description": "Overpass endpoint. Endpoint for OpenStreetMap imports. Null clears the stored value. An http or https address with a host, at most 2048 characters once trimmed, kept as given. Write-only: it is stored encrypted with the instance's key and every read gives back its scheme and host alone, so a new key means sending the whole address again. A set DEZFIL_OVERPASS_URL locks it."
+          },
+          "satelliteUrl": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^\\s*[Hh][Tt][Tt][Pp][Ss]?://[^/\\\\?#\\s]",
+            "description": "Satellite template. Raster tile template enabling satellite imagery. Null clears the stored value. An http or https address with a host, at most 2048 characters once trimmed, kept as given. It must hold {z}, {x}, {y}; the save-time check reads it with each filled with a digit. Write-only: it is stored encrypted with the instance's key and every read gives back its scheme and host alone, so a new key means sending the whole address again. A set DEZFIL_SATELLITE_URL locks it."
+          },
+          "satelliteAttribution": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^\\s*[\\s\\S]{0,160}\\s*$",
+            "description": "Satellite credit. Credit line required by the imagery provider. Null clears the stored value. Text is trimmed before the 160-character limit; empty text clears to the default. A set DEZFIL_SATELLITE_ATTRIBUTION locks it."
           },
           "geocoderUrl": {
             "type": [
@@ -947,6 +963,41 @@
               null
             ],
             "description": "Who may import from links. Whether every account or only admins may import from web addresses and cloud storage. Link datasets keep refreshing. Null clears the stored value."
+          },
+          "basemaps.dark": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Dark. Whether Dark is offered where a basemap is chosen: the builder's picker, a published page's switcher and the Maps tab. Off, choosing it anew is refused; a map already on it keeps it. Auto keeps following the theme with it either way. Null clears the stored value."
+          },
+          "basemaps.light": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Light. Whether Light is offered where a basemap is chosen: the builder's picker, a published page's switcher and the Maps tab. Off, choosing it anew is refused; a map already on it keeps it. Auto keeps following the theme with it either way. Null clears the stored value."
+          },
+          "basemaps.streets": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Streets. Whether Streets is offered where a basemap is chosen: the builder's picker, a published page's switcher and the Maps tab. Off, choosing it anew is refused; a map already on it keeps it. Null clears the stored value."
+          },
+          "basemaps.satellite": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Satellite. Whether Satellite is offered, while imagery is set up, where a basemap is chosen: the builder's picker, a published page's switcher and the Maps tab. Off, choosing it anew is refused; a map already on it keeps it. Null clears the stored value."
+          },
+          "basemaps.singleMapStyles": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Style addresses on single maps. Whether a map may take a style address the library does not offer. Off, such an address is refused on any map, for everyone, admins included; a map that holds one keeps it. Null clears the stored value."
           }
         }
       },
@@ -976,7 +1027,7 @@
     {
       "type": "function",
       "name": "test_service",
-      "description": "Test a service. Requires a current admin through cookie or bearer authentication, rechecked on every call. Cookie requests require the same trusted Origin; an admin bearer token calls directly. Responses, including refusals, are private, no-store. Sends the service one fixed request at its address in effect, never one given here: geocode (the address finder) one search for a fixed place, isochrone (travel time) one area on foot round a fixed point for the shortest band, overpass (OpenStreetMap) the smallest Overpass query, overture a listing of the releases, s3 one request to the S3 address's root without credentials. It goes the way the service's own requests go: through the egress check, redirects included, and after the gap between requests for the address finder and travel time. It reaches outside this server and stores nothing: no setting changes and no cache is read or written, except that the Overture Test keeps the release list it finds, as Check now does. A second Test of a service while one runs gets the same answer from the same request. A stored address the instance's key no longer opens is refused with service_address_unreadable, as the service refuses it. The embedded assistant asks for confirmation before calling; SQL and workflow assistants refuse this operation. MCP advertises that policy and adds no confirmation step.",
+      "description": "Test a service. Requires a current admin through cookie or bearer authentication, rechecked on every call. Cookie requests require the same trusted Origin; an admin bearer token calls directly. Responses, including refusals, are private, no-store. Sends the service one fixed request at its address in effect, never one given here: geocode (the address finder) one search for a fixed place, isochrone (travel time) one area on foot round a fixed point for the shortest band, overpass (OpenStreetMap) the smallest Overpass query, overture a listing of the releases, s3 one request to the S3 address's root without credentials, satellite one fixed low-zoom tile (zoom 3, x 4, y 2) at the imagery's tile template within 10 seconds, passing when the answer is an image. It goes the way the service's own requests go: through the egress check, redirects included, and after the gap between requests for the address finder and travel time. It reaches outside this server and stores nothing: no setting changes and no cache is read or written, except that the Overture Test keeps the release list it finds, as Check now does. A second Test of a service while one runs gets the same answer from the same request. A stored address the instance's key no longer opens is refused with service_address_unreadable, as the service refuses it. The embedded assistant asks for confirmation before calling; SQL and workflow assistants refuse this operation. MCP advertises that policy and adds no confirmation step.",
       "parameters": {
         "type": "object",
         "properties": {
@@ -987,9 +1038,10 @@
               "isochrone",
               "overpass",
               "overture",
-              "s3"
+              "s3",
+              "satellite"
             ],
-            "description": "The service to test: geocode, isochrone, overpass, overture or s3."
+            "description": "The service to test: geocode, isochrone, overpass, overture, s3 or satellite (the imagery's tile template)."
           }
         },
         "additionalProperties": false,
@@ -1032,6 +1084,75 @@
         "additionalProperties": false,
         "required": [
           "part"
+        ]
+      },
+      "strict": false
+    },
+    {
+      "type": "function",
+      "name": "add_basemap_style",
+      "description": "Add a style to the basemap library. At most 65,536 wire bytes; a larger body is refused with `request_body_too_large` before JSON parsing. Requires a current admin through cookie or bearer authentication, rechecked inside the write on every call. Cookie requests require the same trusted Origin; an admin bearer token calls directly. Responses, including refusals, are private, no-store. Adds a MapLibre style by its address, for everyone choosing a basemap: the builder's picker lists it after the built-in styles, and a map that takes it keeps its own copy of the name, the address and the credit. The server reads the address once, now: first the egress policy's own check, so an address in loopback, private, link-local, metadata or other blocked space, or a name all of whose addresses resolve there, is refused with that check's sentence before anything is sent, unless DEZFIL_EGRESS_ALLOWLIST names it; then one request through the egress-governed client, redirects included, within 8 seconds and 2 MB. A valid style is kept with its sources' credit, else its host. Refused with 400 invalid_request, nothing kept: a name outside 1 to 60 characters, an address that is not http or https with a host or is longer than 2,048 characters, an address the library already holds, a 51st style, an answer that is not a MapLibre style, and a style that cannot be read now: there is no force, because an offered style must draw in the server's images too. No refusal repeats the address. Nothing reads the address again: no schedule and no recheck. Its address is public to whoever draws a map on it, published readers included. The embedded assistant asks for confirmation before calling on pages admitting writes; SQL and workflow assistants refuse this operation. MCP advertises that policy and adds no confirmation step.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^\\s*\\S[\\s\\S]{0,59}\\s*$",
+            "description": "1 to 60 characters once trimmed."
+          },
+          "url": {
+            "type": "string",
+            "pattern": "^\\s*[Hh][Tt][Tt][Pp][Ss]?://[^/\\\\?#\\s]",
+            "description": "An http or https MapLibre style address with a host, at most 2,048 characters once trimmed, kept as given."
+          }
+        },
+        "required": [
+          "name",
+          "url"
+        ],
+        "additionalProperties": false
+      },
+      "strict": false
+    },
+    {
+      "type": "function",
+      "name": "set_basemap_style_offered",
+      "description": "Offer or hide a library style. At most 65,536 wire bytes; a larger body is refused with `request_body_too_large` before JSON parsing. Requires a current admin through cookie or bearer authentication, rechecked inside the write on every call. Cookie requests require the same trusted Origin; an admin bearer token calls directly. Responses, including refusals, are private, no-store. Sets whether an added style is offered where a basemap is chosen. Hidden, it leaves the builder's picker and the runtime configuration; maps that took it keep their copy and draw it. Answers the style as it is now; an unknown id answers 404 not_found. The embedded assistant asks for confirmation before calling on pages admitting writes; SQL and workflow assistants refuse this operation. MCP advertises that policy and adds no confirmation step.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The style's identity in the library."
+          },
+          "offered": {
+            "type": "boolean",
+            "description": "True offers the style where a basemap is chosen; false hides it."
+          }
+        },
+        "required": [
+          "id",
+          "offered"
+        ],
+        "additionalProperties": false
+      },
+      "strict": false
+    },
+    {
+      "type": "function",
+      "name": "remove_basemap_style",
+      "description": "Remove a library style. Requires a current admin through cookie or bearer authentication, rechecked inside the write on every call. Cookie requests require the same trusted Origin; an admin bearer token calls directly. Responses, including refusals, are private, no-store. Removes an added style from the library. Maps that took it keep their copy of its name, address and credit and keep drawing it; nothing else changes. An unknown id answers 404 not_found. The embedded assistant asks for confirmation before calling on pages admitting writes; SQL and workflow assistants refuse this operation. MCP advertises that policy and adds no confirmation step.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The style's identity in the library."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "id"
         ]
       },
       "strict": false
@@ -4102,8 +4223,24 @@
                   "object",
                   "null"
                 ],
-                "description": "Set or replace the map's custom basemap style; null removes it and reveals the stored key again. The server inspects the URL before saving: a valid style saves with its attribution snapshot; unreachable or policy-blocked URLs save only with force: true (every reader's browser fetches the style itself, so they may still work); non-style URLs never save.",
+                "description": "Set or replace the map's custom basemap style; null removes it and reveals the stored key again. The server inspects the URL before saving: a valid style saves with its attribution snapshot; unreachable or policy-blocked URLs save only with force: true (every reader's browser fetches the style itself, so they may still work); non-style URLs never save. { libraryStyle } takes a style the instance's basemap library offers, by its id (GET /api/config lists them as basemapStyles): the map keeps its own copy of the style's name, address and credit, nothing is fetched, and hiding or removing the style later changes no map. A hidden or unknown id is refused. While the basemaps.singleMapStyles setting is off, a url the library does not offer is refused with basemap_not_offered, before it is read, unless the map already holds it.",
+                "anyOf": [
+                  {
+                    "required": [
+                      "url"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "libraryStyle"
+                    ]
+                  }
+                ],
                 "properties": {
+                  "libraryStyle": {
+                    "type": "string",
+                    "description": "A basemap library style's id; given alone, without url, name or force."
+                  },
                   "url": {
                     "type": "string"
                   },
@@ -4118,10 +4255,7 @@
                     "type": "boolean",
                     "description": "Save despite an unreachable or blocked verdict."
                   }
-                },
-                "required": [
-                  "url"
-                ]
+                }
               },
               "basemapLayers": {
                 "type": [
@@ -4366,8 +4500,24 @@
               "object",
               "null"
             ],
-            "description": "Set or replace the map's custom basemap style; null removes it and reveals the stored key again. The server inspects the URL before saving: a valid style saves with its attribution snapshot; unreachable or policy-blocked URLs save only with force: true (every reader's browser fetches the style itself, so they may still work); non-style URLs never save.",
+            "description": "Set or replace the map's custom basemap style; null removes it and reveals the stored key again. The server inspects the URL before saving: a valid style saves with its attribution snapshot; unreachable or policy-blocked URLs save only with force: true (every reader's browser fetches the style itself, so they may still work); non-style URLs never save. { libraryStyle } takes a style the instance's basemap library offers, by its id (GET /api/config lists them as basemapStyles): the map keeps its own copy of the style's name, address and credit, nothing is fetched, and hiding or removing the style later changes no map. A hidden or unknown id is refused. While the basemaps.singleMapStyles setting is off, a url the library does not offer is refused with basemap_not_offered, before it is read, unless the map already holds it.",
+            "anyOf": [
+              {
+                "required": [
+                  "url"
+                ]
+              },
+              {
+                "required": [
+                  "libraryStyle"
+                ]
+              }
+            ],
             "properties": {
+              "libraryStyle": {
+                "type": "string",
+                "description": "A basemap library style's id; given alone, without url, name or force."
+              },
               "url": {
                 "type": "string"
               },
@@ -4382,10 +4532,7 @@
                 "type": "boolean",
                 "description": "Save despite an unreachable or blocked verdict."
               }
-            },
-            "required": [
-              "url"
-            ]
+            }
           },
           "basemapLayers": {
             "type": [

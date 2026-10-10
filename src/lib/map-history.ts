@@ -13,6 +13,7 @@ import { undoSteps, redoSteps, setHistoryCursor, historyAvailability,
   type HistoryAvailability, type HistoryImage, type HistoryStep } from "@/lib/metadata/history";
 import { requireMap, requireMapFor, mapWithLayersFor } from "./map-access";
 import { historyChangesPublication, requireLivePublicationChange } from "./publication-settings";
+import { requireOfferedReplay } from "./basemap-rule";
 import { listLayers } from "@/lib/metadata/maps";
 import { admitMapSql, recheckSaved, savesAsOwner, type SavedAdmission } from "./save-admission";
 
@@ -114,6 +115,9 @@ async function admitReplay(scope: AccountScope, id: string, direction: "undo" | 
   // A replay that would change a publication setting is refused before any
   // SQL it restores is evaluated.
   if (historyChangesPublication(map, listLayers(id), steps, direction)) { requireMapFor(scope, id, "publish"); requireLivePublicationChange(scope, id); }
+  // A replay that would put back a basemap an admin hid, or a style address
+  // this instance does not take now, is refused as choosing it anew.
+  requireOfferedReplay(map, steps, direction);
   assertHistoryRefs(scope, id, steps, direction);
   requireDocumentRevision(scope, { kind: "map", id, expectedRevision });
   if (savesAsOwner(scope, "map", id)) return null;
@@ -137,6 +141,7 @@ async function applyHistory(
     const map = requireMapFor(scope, id, "edit");
     const steps = direction === "undo" ? undoSteps(id) : redoSteps(id);
     if (historyChangesPublication(map, listLayers(id), steps, direction)) { requireMapFor(scope, id, "publish"); requireLivePublicationChange(scope, id); }
+    requireOfferedReplay(map, steps, direction);
     if (admitted) recheckSaved(scope, ...admitted.saved);
     assertHistoryRefs(scope, id, steps, direction);
     requireDocumentRevision(scope, { kind: "map", id, expectedRevision });

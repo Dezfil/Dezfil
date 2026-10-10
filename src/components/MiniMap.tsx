@@ -3,7 +3,7 @@
 import * as maplibregl from "@/lib/maplibre";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { resolveBasemapUrl } from "@/lib/basemap";
+import { builtInBasemapUrl } from "@/lib/basemap";
 import { useTheme } from "@/components/theme";
 import type { Bbox } from "@/lib/bbox";
 import { ringBbox, type Ring } from "@/lib/overture/query";
@@ -438,7 +438,7 @@ export function MiniMap({
     if (!containerRef.current) return;
     const map = new maplibregl.Map({
       container: containerRef.current,
-      style: resolveBasemapUrl(theme === "dark" ? "dark" : "light"),
+      style: builtInBasemapUrl(theme === "dark" ? "dark" : "light"),
       center: initialViewport
         ? [initialViewport.lng, initialViewport.lat]
         : [10, 30],
@@ -523,7 +523,7 @@ export function MiniMap({
 
   useEffect(() => {
     mapRef.current?.setStyle(
-      resolveBasemapUrl(theme === "dark" ? "dark" : "light"),
+      builtInBasemapUrl(theme === "dark" ? "dark" : "light"),
     );
   }, [theme]);
 

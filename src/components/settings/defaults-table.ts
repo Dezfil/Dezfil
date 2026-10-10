@@ -1,8 +1,8 @@
 import type { ThumbStyle } from "@/components/map/BasemapThumb";
-import { isBasemapKey } from "@/lib/basemap";
+import { isBasemapKey, OFFERED_SETTING } from "@/lib/basemap";
 import type { INSTANCE_DEFAULT_SETTINGS, InstanceDefaultKey, InstanceDefaultValue } from "@/lib/settings/instance-defaults";
 import { PALETTES } from "@/lib/style/palettes";
-import { serviceSetUp } from "./limits-table";
+import { imageryState } from "./libraries-table";
 import type { ReadSetting } from "./server-set";
 
 /**
@@ -158,12 +158,14 @@ export function choiceValues(setting: ReadSetting | undefined): readonly string[
 }
 
 /** The basemaps a new map may start on here: what the builder's picker
- * offers, Satellite only where imagery is set up. */
+ * offers. Auto always; each style unless an admin hid it on Libraries,
+ * Satellite only while imagery is set up and its address readable. */
 export function offeredBasemaps(settings: Settings): ThumbStyle[] {
-  const imagery = serviceSetUp(settings, "satelliteUrl") === true;
+  const imagery = imageryState(settings) === "ready";
   return choiceValues(settings["newMap.basemap"])
     .filter((value): value is ThumbStyle => value === "auto" || isBasemapKey(value))
-    .filter(value => value !== "satellite" || imagery);
+    .filter(value => value !== "satellite" || imagery)
+    .filter(value => value === "auto" || settings[OFFERED_SETTING[value]]?.value !== false);
 }
 
 /** A basemap as a new map starts on it: one no longer offered is Auto. */

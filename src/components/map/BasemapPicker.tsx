@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useId, useRef, useState } from "react";
-import { BASEMAPS, type BasemapKey, type BasemapStyle } from "@/lib/basemap";
+import { BASEMAPS, offeredOnly, type BasemapKey, type BasemapStyle } from "@/lib/basemap";
 import { LayersIcon } from "../ui/icons";
 import { popoverTriggerProps, usePopoverDismiss } from "../ui/Popover";
 import { BasemapThumb } from "./BasemapThumb";
@@ -35,9 +35,9 @@ export function BasemapPicker({
   custom?: boolean;
   /** This deployment pins Auto in both themes. */
   pinned: boolean;
-  /** The styles this instance offers, server-injected. Imagery is
-   * configured rather than shipped, so it is a card only where it is
-   * configured. */
+  /** The styles this instance draws, server-injected, each marked
+   * offered or not: only an offered one is a card. Imagery is configured
+   * rather than shipped, so it is a card only where it is configured. */
   basemaps?: BasemapStyle[];
   onPick: (key: BasemapKey | null) => void;
 }) {
@@ -81,7 +81,7 @@ export function BasemapPicker({
               <BasemapThumb style="auto" />
               <span className={styles.label}>Auto</span>
             </button>
-            {basemaps.map((b) => (
+            {offeredOnly(basemaps).map((b) => (
               <button
                 key={b.key}
                 type="button"

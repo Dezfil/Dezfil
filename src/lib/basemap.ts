@@ -2,9 +2,10 @@
  * Built-in basemaps: OpenFreeMap styles — keyless and permitted for production
  * use (dark, light, and streets, selectable per map). A map stores a key (or
  * null). Null means Auto: the builder canvas follows the app theme — unless
- * DEZFIL_BASEMAP_URL is set, which pins Auto in both themes (air-gapped
- * instances). On published views Auto follows the publication's effective
- * theme — the authored default, or a reader's switch for the current page load
+ * the deployment's own style is set, which pins Auto in both themes
+ * (air-gapped instances; the server reads it and hands it down). On
+ * published views Auto follows the publication's effective theme — the
+ * authored default, or a reader's switch for the current page load
  * (retired the remembered per-link override) — while the deployment override
  * stays fixed in both themes. A published reader may also pick a style for the
  * current load, and there the Dark/Light pair moves with the theme control;
@@ -37,13 +38,16 @@ export interface BasemapStyle {
   url: string;
   kind: BasemapKind;
   attribution: AttributionLine[];
+  /** False where an admin hid the style: it is drawn where a map is on it
+   * and listed nowhere a basemap is chosen. Absent means offered. */
+  offered?: boolean;
 }
 
 /** The credit for every vector style and the deployment default.
  * OpenFreeMap's own terms make naming them optional ("You do not need to
  * display the OpenFreeMap part"), so the line stays lean: the required
  * OpenMapTiles and OpenStreetMap credits only. */
-const OPENFREEMAP_ATTRIBUTION: AttributionLine[] = [
+export const BUILT_IN_ATTRIBUTION: AttributionLine[] = [
   { label: "© OpenMapTiles", href: "https://openmaptiles.org" },
   // The OpenStreetMap credit has to be followable: their guidance asks
   // for a link to the copyright page, so a bare label is not a credit.
@@ -59,23 +63,58 @@ export const BASEMAPS: BasemapStyle[] = [
     label: "Dark",
     url: "https://tiles.openfreemap.org/styles/dark",
     kind: "vector",
-    attribution: OPENFREEMAP_ATTRIBUTION,
+    attribution: BUILT_IN_ATTRIBUTION,
   },
   {
     key: "light",
     label: "Light",
     url: "https://tiles.openfreemap.org/styles/positron",
     kind: "vector",
-    attribution: OPENFREEMAP_ATTRIBUTION,
+    attribution: BUILT_IN_ATTRIBUTION,
   },
   {
     key: "streets",
     label: "Streets",
     url: "https://tiles.openfreemap.org/styles/liberty",
     kind: "vector",
-    attribution: OPENFREEMAP_ATTRIBUTION,
+    attribution: BUILT_IN_ATTRIBUTION,
   },
 ];
+
+/** The instance setting that offers each style, keyed as the change
+ * operation takes it: off, the style is drawn where a map is on it and
+ * offered nowhere a basemap is chosen. */
+export const OFFERED_SETTING = {
+  dark: "basemaps.dark",
+  light: "basemaps.light",
+  streets: "basemaps.streets",
+  satellite: "basemaps.satellite",
+} as const satisfies Record<BasemapKey, string>;
+
+/** The instance setting that lets a map take a style address the library
+ * does not offer, keyed as the change operation takes it. */
+export const SINGLE_MAP_STYLES_SETTING = "basemaps.singleMapStyles";
+
+/** Why no style address the library does not offer can be put on a map
+ * while that setting is off: the refusal's message, and the sentence the
+ * builder shows at its disabled paste control. */
+export const SINGLE_MAP_STYLES_OFF =
+  "This instance takes only the styles its basemap library offers, so no map can be put on another style address now. " +
+  "A map that holds one keeps it; an admin can add a style to the library.";
+
+/** A style an admin added to the instance's library by its address, as a
+ * person choosing a basemap is offered it: a map that takes it keeps its own
+ * copy of the name, the address and the credit. */
+export interface LibraryStyleOffer {
+  id: string;
+  name: string;
+  url: string;
+  attribution: AttributionLine[];
+}
+
+/** The library's bounds: how many styles it holds, and a style's name and
+ * address lengths. */
+export const LIBRARY_LIMITS = { styles: 50, name: 60, address: 2048 } as const;
 
 export function isBasemapKey(value: unknown): value is BasemapKey {
   return (BASEMAP_KEYS as readonly unknown[]).includes(value);
@@ -86,125 +125,43 @@ export function isBasemapKey(value: unknown): value is BasemapKey {
  * free to point an unknown number of installs at, so an instance that
  * wants one supplies a raster tile template carrying its own key, plus
  * the credit that provider requires. The style itself is served from the
- * instance, so every basemap stays URL-shaped.
+ * instance, so every basemap stays URL-shaped. The template and the
+ * credit in effect, and the lists of styles an instance draws and offers,
+ * are the server's to read (`basemap-satellite.ts`, `basemap-offer.ts`):
+ * this module reaches the browser and reads no configuration.
  */
 export const SATELLITE_STYLE_URL = "/api/basemaps/satellite";
 
-/** The configured imagery tile template, if any. Server-side only: it
- * may carry a key, so it never travels to the browser as a value. */
-export function satelliteTileUrl(): string | null {
-  return process.env.DEZFIL_SATELLITE_URL?.trim() || null;
+/** A built-in style's own address. */
+export function builtInBasemapUrl(key: "dark" | "light" | "streets"): string {
+  return BASEMAPS.find((b) => b.key === key)!.url;
 }
 
-/** The credit the configured imagery provider requires. */
-export function satelliteAttribution(): AttributionLine[] {
-  const text = process.env.DEZFIL_SATELLITE_ATTRIBUTION?.trim();
-  return text ? [{ label: text }] : [];
+/** The styles of a list a person may choose: an entry marked as not
+ * offered is drawn where a map is on it, and listed nowhere a basemap is
+ * chosen. */
+export function offeredOnly(basemaps: BasemapStyle[]): BasemapStyle[] {
+  return basemaps.filter((b) => b.offered !== false);
 }
 
-/** The satellite entry, present only where imagery is configured. */
-export function satelliteBasemap(): BasemapStyle | null {
-  if (!satelliteTileUrl()) return null;
-  return {
-    key: "satellite",
-    label: "Satellite",
-    url: SATELLITE_STYLE_URL,
-    kind: "imagery",
-    attribution: satelliteAttribution(),
-  };
+/** A key's kind in a list of styles. Null (Auto), or a key the list lacks,
+ * is vector: Auto only ever moves between the built-in vector styles. */
+export function basemapKindIn(
+  basemaps: BasemapStyle[],
+  key: BasemapKey | null,
+): BasemapKind {
+  return (key && basemaps.find((b) => b.key === key)?.kind) || "vector";
 }
 
-/** Every style this instance offers: the three built in, plus satellite
- * when it is configured. */
-export function availableBasemaps(): BasemapStyle[] {
-  const satellite = satelliteBasemap();
-  return satellite ? [...BASEMAPS, satellite] : BASEMAPS;
-}
-
-/** The MapLibre style document served for the configured imagery. */
-export function satelliteStyleDocument(): Record<string, unknown> | null {
-  const tiles = satelliteTileUrl();
-  if (!tiles) return null;
-  const credit = satelliteAttribution()[0]?.label;
-  return {
-    version: 8,
-    name: "Satellite",
-    sources: {
-      satellite: {
-        type: "raster",
-        tiles: [tiles],
-        tileSize: 256,
-        maxzoom: 19,
-        ...(credit ? { attribution: credit } : {}),
-      },
-    },
-    layers: [
-      {
-        id: "background",
-        type: "background",
-        paint: { "background-color": BASEMAP_FALLBACKS.dark },
-      },
-      { id: "satellite", type: "raster", source: "satellite" },
-    ],
-  };
-}
-
-/** The deployment default: the env override, else the dark style. */
-export function basemapUrl(): string {
-  return process.env.DEZFIL_BASEMAP_URL || BASEMAPS[0].url;
-}
-
-/** The deployment override, if set — it pins Auto maps in both themes. */
-export function basemapOverrideUrl(): string | null {
-  return process.env.DEZFIL_BASEMAP_URL || null;
-}
-
-/**
- * The credit for a deployment override. An instance that points the
- * basemap at its own style is served by its own provider, so the built-in
- * credit would name the wrong party: the override carries its own
- * attribution string, and without one nothing is claimed.
- */
-export function basemapOverrideAttribution(): AttributionLine[] {
-  const text = process.env.DEZFIL_BASEMAP_ATTRIBUTION?.trim();
-  return text ? [{ label: text }] : [];
-}
-
-/** A map's effective basemap: its explicit choice, else the deployment default. */
-export function resolveBasemapUrl(key: BasemapKey | null): string {
-  const chosen = key ? availableBasemaps().find((b) => b.key === key) : undefined;
-  return chosen ? chosen.url : basemapUrl();
-}
-
-/** Whether a published Auto basemap follows the effective theme (spec
- * only a genuine Auto with no deployment override does. */
-export function basemapFollowsTheme(key: BasemapKey | null): boolean {
-  return key === null && !basemapOverrideUrl();
-}
-
-/** The Auto style for an effective published theme. The
- * deployment override still pins Auto in both themes. */
-export function autoBasemapUrlForTheme(theme: "light" | "dark"): string {
-  return basemapOverrideUrl() ?? BASEMAPS.find((b) => b.key === theme)!.url;
-}
-
-/** A map's effective basemap kind. Null (Auto / deployment default) is
- * vector — Auto only ever moves between the bundled vector styles, and a
- * deployment override is treated as vector so the groups keep working. */
-export function resolveBasemapKind(key: BasemapKey | null): BasemapKind {
-  return (key && availableBasemaps().find((b) => b.key === key)?.kind) || "vector";
-}
-
-/** A map's effective credit lines. Null is the deployment default: the
- * override's own attribution when one is set, else the built-in credit. */
-export function resolveBasemapAttribution(
+/** A key's credit in a list of styles, else the built-in credit. */
+export function basemapCreditIn(
+  basemaps: BasemapStyle[],
   key: BasemapKey | null,
 ): AttributionLine[] {
-  const chosen =
-    key && availableBasemaps().find((b) => b.key === key)?.attribution;
-  if (chosen) return chosen;
-  if (basemapOverrideUrl()) return basemapOverrideAttribution();
-  return OPENFREEMAP_ATTRIBUTION;
+  return (
+    (key && basemaps.find((b) => b.key === key)?.attribution) ||
+    BUILT_IN_ATTRIBUTION
+  );
 }
 
 /** Background shown while/if basemap tiles are unreachable — data still

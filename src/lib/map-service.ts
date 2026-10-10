@@ -4,6 +4,7 @@ import { fileMap } from "@/lib/metadata/owned-projects";
 import { assertMapLayerRefs } from "./map-layer-refs";
 import { requireMapFor, mapWithLayersFor, ownMapWithLayers } from "./map-access";
 import { mapWriteChangesPublication, requireLivePublicationChange } from "./publication-settings";
+import { requireAllowedStyleAddress, requireOfferedBasemap, requireOfferedLibraryStyle } from "./basemap-rule";
 export { requireMap, mapWithLayers, readMap, requireMapFor, mapWithLayersFor, requireOwnMap, ownMapWithLayers, ownsMap } from "./map-access";
 export { mapHistory, undoChange, redoChange, type MapWithHistory } from "./map-history";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
@@ -389,6 +390,9 @@ export function updateMap(
     basemap: BasemapKey | null;
     /** Pre-inspected by the route — the service trusts it. */
     customBasemap: CustomBasemap | null;
+    /** The library style `customBasemap` was copied from, by its id: asked
+     * again inside the write, which refuses it hidden or removed meanwhile. */
+    libraryStyle: string;
     basemapLayers: unknown;
     legendCorner: unknown;
     legendOrder: unknown;
@@ -496,6 +500,13 @@ export function updateMap(
     const current = requireMapFor(scope, id, "edit");
     if (mapWriteChangesPublication(current, fields)) { requireMapFor(scope, id, "publish"); requireLivePublicationChange(scope, id); }
     checkRevision();
+    // A basemap an admin hid is refused when this write would newly put it in
+    // place, and so is a library style taken by its id that the library no
+    // longer offers, and a style address this instance does not take now.
+    requireOfferedBasemap(current.basemap, fields.basemap === undefined ? current.basemap : fields.basemap);
+    if (fields.libraryStyle !== undefined) requireOfferedLibraryStyle(fields.libraryStyle);
+    const held = current.customBasemap?.url ?? null;
+    requireAllowedStyleAddress(held, fields.customBasemap === undefined ? held : fields.customBasemap?.url ?? null);
     if (
       fields.name !== undefined ||
       fields.viewport !== undefined ||
@@ -588,6 +599,7 @@ export function duplicateMap(scope: AccountScope, id: string): MapWithLayers & D
     const layerIds = new Map<string, string>();
     // The copy keeps its source's SQL home, whoever makes it.
     const home = mapHome(id) ?? undefined;
+    // A copy keeps its source's basemap, hidden or not: the map is already on it.
     insertMap(scope, {
       ...source,
       id: newId,

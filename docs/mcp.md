@@ -109,11 +109,13 @@ set-and-unreadable state, and a stored address never comes back as stored. The s
 private, no-store responses apply to direct API calls and tool calls.
 
 `update_instance_settings` calls `PATCH /api/instance/settings` with the closed
-editable-key input, sixty keys: the fourteen Limits numbers, the services' eight
-numbers (the address finder's and travel time's gap, answer time limit and
+editable-key input, sixty-seven keys: the fourteen Limits numbers, the services'
+eight numbers (the address finder's and travel time's gap, answer time limit and
 freshness, OpenStreetMap's time budget and freshness), the four service
-addresses (`geocoderUrl`, `isochroneUrl`, `overpassUrl`, `s3Endpoint`), the four
-General values, the eighteen instance defaults and the twelve sign-in and
+addresses (`geocoderUrl`, `isochroneUrl`, `overpassUrl`, `s3Endpoint`), the
+satellite imagery's tile address and credit (`satelliteUrl`,
+`satelliteAttribution`), the five basemap switches (which built-in styles are
+offered, and `basemaps.singleMapStyles`), the four General values, the eighteen instance defaults and the twelve sign-in and
 publishing settings (session and link lifetimes, the two failed sign-in counts,
 the shortest password, who may create tokens and their expiry, who may publish,
 embedding and its listed sites, who may add database connections and who may
@@ -138,9 +140,10 @@ credentials or address paths, queries or user information.
 `test_service` calls `POST /api/instance/services/{service}/test` and
 `clear_service_caches` calls `DELETE /api/instance/caches`, both admin-only and
 rechecked on every call. A Test sends one fixed request to the service at its
-address in effect and answers passed with the time taken (Overture: how many
-releases and the newest) or failed with one reason from a closed list, never a
-body, an address or a key; it is read-only but reaches outside this server, so
+address in effect (the satellite imagery: one fixed low-zoom tile at its tile
+template) and answers passed with the time taken (Overture: how many releases
+and the newest) or failed with one reason from a closed list, never a body, an
+address or a key; it is read-only but reaches outside this server, so
 MCP marks it open-world. Clear removes the cached answers of one service or all
 three and nothing else. The embedded assistant asks before calling either; the
 SQL and workflow assistants are never offered them.
@@ -162,6 +165,24 @@ Both are local and read-only and keep nothing,
 so MCP marks them local reads, not open-world; they ask for confirmation, so the
 embedded assistant asks before calling either and the SQL and workflow
 assistants are never offered them.
+
+`add_basemap_style` calls `POST /api/instance/basemaps`,
+`set_basemap_style_offered` calls `PATCH /api/instance/basemaps/{id}` and
+`remove_basemap_style` calls `DELETE /api/instance/basemaps/{id}`, each
+admin-only and rechecked inside its write. The add reads the style's address
+once, through the egress check, and keeps the style with its credit or its
+host; it refuses an address in blocked space, a style it cannot read now, an
+answer that is not a style, an address the library holds and a 51st style,
+repeating no part of the address. It reaches outside this server, so MCP
+marks it open-world. `update_map` takes an offered style with
+`customBasemap: { libraryStyle }`, copying it onto the map and fetching
+nothing. While `basemaps.singleMapStyles` is off (`get_config` reports it as
+`singleMapStyles`), `update_map`, `undo_change` and `redo_change` refuse a
+pasted style address the library does not offer with `basemap_not_offered`
+when they would newly put it on a map; an address a map already holds is
+kept. Hiding and removing change no map: a map keeps its own copy of a
+style it took. The embedded assistant asks before calling any of
+them; the SQL and workflow assistants are never offered them.
 
 `get_config` reads `GET /api/config`, which every signed-in account and agent
 may call. Besides the basemaps and palettes on offer and the client limits, it
@@ -255,9 +276,9 @@ Direct multipart upload uses the separately configured upload limit.
 
 | | |
 |---|---|
-| Documented operations | 379 |
-| Operations that become tools | 147 |
-| Deliberately excluded | 232 |
+| Documented operations | 384 |
+| Operations that become tools | 150 |
+| Deliberately excluded | 234 |
 
 Measured by building the OpenAPI document and the tool set from
 `src/lib/api/openapi.ts` and `src/lib/tools/tools.ts` and counting the

@@ -1,5 +1,6 @@
 import type { Database } from "better-sqlite3";
-import { availableBasemaps, type BasemapKey } from "@/lib/basemap";
+import type { BasemapKey } from "@/lib/basemap";
+import { offeredBasemaps } from "@/lib/basemap-offer";
 import type { Corner } from "@/lib/corners";
 import { metadataDb } from "@/lib/metadata/db";
 import type { NewLayerLook } from "@/lib/style/defaults";
@@ -32,8 +33,8 @@ function valueOf<K extends InstanceDefaultKey>(key: K, stored: Readonly<Record<s
 /**
  * The defaults over the product's own values, from the stored values and
  * the basemaps the instance offers. A stored basemap it no longer offers
- * (Satellite once imagery is removed) starts a new map on Auto, as Auto at
- * the product's value does; the product's corner leaves the corner unset.
+ * (Satellite once imagery is removed, or a style an admin hid) starts a new
+ * map on Auto, as Auto at the product's value does; the product's corner leaves the corner unset.
  */
 export function resolveInstanceDefaults(stored: Readonly<Record<string, unknown>>, offered: readonly BasemapKey[]): InstanceDefaults {
   const value = <K extends InstanceDefaultKey>(key: K) => valueOf(key, stored);
@@ -63,7 +64,7 @@ export function resolveInstanceDefaults(stored: Readonly<Record<string, unknown>
 /** What a new thing starts with on this instance now. Pass the creating
  * transaction's handle to read inside it. */
 export function instanceDefaults(db: Database = metadataDb()): InstanceDefaults {
-  return resolveInstanceDefaults(readStoredSettings(db), availableBasemaps().map(basemap => basemap.key));
+  return resolveInstanceDefaults(readStoredSettings(db), offeredBasemaps(db).map(basemap => basemap.key));
 }
 
 /** The defaults as the runtime read reports them: keyed and valued as the

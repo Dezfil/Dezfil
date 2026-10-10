@@ -1,0 +1,94 @@
+/* Libraries: a basemap row's picture beside its name, the row's switch and
+   Remove at its end, the Add a style form opened in place, and the
+   satellite credit's field. A capture or a map mark sits in a box that
+   draws its own edge; the captures' colors are the styles' own. */
+
+.styles {
+  margin-bottom: 4px;
+}
+
+.styleRow {
+  flex-wrap: wrap;
+}
+
+.lead {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.thumb {
+  position: relative;
+  display: block;
+  flex: none;
+  overflow: hidden;
+  width: 96px;
+  aspect-ratio: 16 / 10;
+  border-radius: var(--radius);
+  border: 1px solid var(--swatch-border);
+  background: var(--bg-raised);
+}
+
+.styleArt {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--fg-faint);
+  background: var(--bg-raised);
+}
+
+.acts {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  gap: 10px;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  padding-bottom: 12px;
+  animation: libraries-in var(--dur-entrance) ease backwards;
+}
+
+@keyframes libraries-in {
+  from {
+    opacity: 0;
+  }
+}
+
+.credit {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+}
+
+.creditLine {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 10px;
+  width: 100%;
+}
+
+.creditField {
+  width: min(420px, 100%);
+  background: var(--bg-raised);
+  border-color: var(--border-strong);
+}
+
+.creditField:focus {
+  border-color: var(--accent);
+}
+
+.creditField[aria-invalid="true"] {
+  border-color: var(--danger);
+}

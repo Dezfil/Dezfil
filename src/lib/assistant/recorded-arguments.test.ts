@@ -30,6 +30,8 @@ const SEEDS = ["SEEDED-KEY-0001-USER", "SEEDED-KEY-0001-PATH", "SEEDED-KEY-0001-
 // A public literal: the save-time check admits it without a lookup.
 const ADDRESS = `https://seed-user:${SEEDS[0]}@203.0.113.10/${SEEDS[1]}/search?key=${SEEDS[2]}`;
 const ORIGIN = "https://203.0.113.10";
+// The satellite imagery's tile template, its key in the same three places.
+const TEMPLATE = `https://seed-user:${SEEDS[0]}@203.0.113.10/${SEEDS[1]}/{z}/{x}/{y}.jpg?key=${SEEDS[2]}`;
 
 let f: ReturnType<typeof instanceSettingsFixture>;
 let sent: unknown[];
@@ -62,11 +64,13 @@ function expectNoSeed(value: unknown) {
 }
 
 describe("an address saved through the embedded assistant", () => {
-  it("is recorded as scheme and host in the confirmation, the events, the pending receipt and the stored record", async () => {
+  it.each([
+    ["geocoderUrl", ADDRESS], ["satelliteUrl", TEMPLATE],
+  ] as const)("%s is recorded as scheme and host in the confirmation, the events, the pending receipt and the stored record", async (key, given) => {
     const scope = testAccountScope(f.db, "admin");
     const pending = new PendingActionStore();
     const provider = stubProvider([
-      { text: "", toolCalls: [{ id: "point-the-finder", name: "update_instance_settings", args: { geocoderUrl: ADDRESS } }] },
+      { text: "", toolCalls: [{ id: "point-the-finder", name: "update_instance_settings", args: { [key]: given } }] },
       { text: "Done.", toolCalls: [] },
     ]);
     const run = assistantRuns.reserve(scope);
@@ -76,33 +80,33 @@ describe("an address saved through the embedded assistant", () => {
     const asked = await streamed(runStream(scope, runAssistant(provider, { message: "Use our address finder", history: [] }, deps), run.id));
     const question = asked.find(event => event.type === "confirm_required");
     if (question?.type !== "confirm_required") throw new Error("expected a confirmation");
-    expect(question.args).toEqual({ geocoderUrl: ORIGIN });
+    expect(question.args).toEqual({ [key]: ORIGIN });
     expect(question.confirmation).toMatchObject({ target: "Change instance settings?" });
-    expect(assistantRuns.pending(scope)).toEqual([expect.objectContaining({ args: { geocoderUrl: ORIGIN } })]);
+    expect(assistantRuns.pending(scope)).toEqual([expect.objectContaining({ args: { [key]: ORIGIN } })]);
     expect(sent).toEqual([]);
     expectNoSeed([asked, assistantRuns.pending(scope), assistantRuns.read(scope, run.id)]);
 
     const parked = pending.claim(scope, question.id, "approved")!;
     assistantRuns.resume(scope, run.id, "approved");
     const done = await streamed(runStream(scope, resumeAssistant(parked, true, deps), run.id));
-    expect(done).toContainEqual(expect.objectContaining({ type: "tool_call", tool: "update_instance_settings", args: { geocoderUrl: ORIGIN } }));
+    expect(done).toContainEqual(expect.objectContaining({ type: "tool_call", tool: "update_instance_settings", args: { [key]: ORIGIN } }));
     expect(done).toContainEqual(expect.objectContaining({ type: "tool_result", tool: "update_instance_settings", ok: true }));
 
     const record = assistantRuns.read(scope, run.id);
-    expect(record.actions).toEqual([expect.objectContaining({ tool: "update_instance_settings", args: { geocoderUrl: ORIGIN }, status: "succeeded" })]);
-    expect(record.confirmations).toEqual([expect.objectContaining({ decision: "approved", args: { geocoderUrl: ORIGIN } })]);
+    expect(record.actions).toEqual([expect.objectContaining({ tool: "update_instance_settings", args: { [key]: ORIGIN }, status: "succeeded" })]);
+    expect(record.confirmations).toEqual([expect.objectContaining({ decision: "approved", args: { [key]: ORIGIN } })]);
     expectNoSeed([done, record]);
 
     // The call itself went out with the address as given, and was kept.
-    expect(sent).toEqual([{ geocoderUrl: ADDRESS }]);
-    expect(resolveServiceAddress("geocoderUrl", f.db)).toEqual({ address: ADDRESS, source: "stored" });
+    expect(sent).toEqual([{ [key]: given }]);
+    expect(resolveServiceAddress(key, f.db)).toEqual({ address: given, source: "stored" });
   });
 });
 
 describe("an address argument that is not text", () => {
   it("is recorded as not an address, whatever it holds; a null, an empty text and every other argument stay as given", () => {
-    expect(recordedArguments({ geocoderUrl: [ADDRESS], isochroneUrl: { address: ADDRESS }, overpassUrl: 7, s3Endpoint: true, previewRows: [ADDRESS] }))
-      .toEqual({ geocoderUrl: "not an address", isochroneUrl: "not an address", overpassUrl: "not an address", s3Endpoint: "not an address", previewRows: [ADDRESS] });
+    expect(recordedArguments({ geocoderUrl: [ADDRESS], isochroneUrl: { address: ADDRESS }, overpassUrl: 7, s3Endpoint: true, satelliteUrl: { tiles: TEMPLATE }, previewRows: [ADDRESS] }))
+      .toEqual({ geocoderUrl: "not an address", isochroneUrl: "not an address", overpassUrl: "not an address", s3Endpoint: "not an address", satelliteUrl: "not an address", previewRows: [ADDRESS] });
     const kept = { geocoderUrl: null, isochroneUrl: "", previewRows: 200 };
     expect(recordedArguments(kept)).toBe(kept);
   });

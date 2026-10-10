@@ -3,7 +3,7 @@
 import * as maplibregl from "@/lib/maplibre";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useEffect, useRef, useState } from "react";
-import { BASEMAP_FALLBACKS, resolveBasemapUrl } from "@/lib/basemap";
+import { BASEMAP_FALLBACKS, builtInBasemapUrl } from "@/lib/basemap";
 import { useTheme } from "@/components/theme";
 import { attemptTablePreviewWebGLMap } from "./table-preview-webgl";
 import styles from "./FeaturePreviewMap.module.css";
@@ -120,7 +120,7 @@ export function FeaturePreviewMap({
       () =>
         new maplibregl.Map({
           container: containerRef.current!,
-          style: resolveBasemapUrl(theme === "dark" ? "dark" : "light"),
+          style: builtInBasemapUrl(theme === "dark" ? "dark" : "light"),
           center: [10, 30],
           zoom: 1.2,
           ...maplibregl.MAP_RENDERER_OPTIONS,

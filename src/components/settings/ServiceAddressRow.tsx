@@ -17,8 +17,9 @@ import cardStyles from "./SettingsCard.module.css";
 import styles from "./DataTab.module.css";
 
 /**
- * A service's address: its own small form, outside its card's numbers, so
- * the card's Reset never touches it. What is in effect shows above an
+ * A service's address, or the satellite imagery's tile template: its own
+ * small form, outside its card's other rows, so the card's Reset never
+ * touches it. What is in effect shows above an
  * empty field: a saved address as its scheme and host with Set and
  * Remove, OpenStreetMap's public server or Amazon S3 with Default, or a
  * saved address the instance's key cannot read. An address is pasted
@@ -29,12 +30,14 @@ import styles from "./DataTab.module.css";
  * Typed text holds the page as any typed text does, but it never reaches
  * the search: an address may carry a key.
  */
-export function ServiceAddressRow({ row, setting, card, onAnswer }: {
+export function ServiceAddressRow({ row, setting, card, onAnswer, labels = DATA_LABELS }: {
   row: AddressRow;
   setting: ReadSetting | undefined;
   /** The card's title, which the leave guard names. */
   card: string;
   onAnswer: (read: InstanceRead) => void;
+  /** The labels a refusal's keys are named by: its tab's. */
+  labels?: Readonly<Record<string, string>>;
 }) {
   const id = useId();
   const [text, setText] = useState("");
@@ -73,7 +76,7 @@ export function ServiceAddressRow({ row, setting, card, onAnswer }: {
     } catch (failure) {
       // The server's reason, after the key it names; never the address.
       const message = failureMessage(failure);
-      setError(failure instanceof WriteRefusal ? rowRefusals(message, [row.key])[row.key] ?? inLabels(message, DATA_LABELS) : message);
+      setError(failure instanceof WriteRefusal ? rowRefusals(message, [row.key])[row.key] ?? inLabels(message, labels) : message);
     } finally { setBusy(false); }
   }
 

@@ -2,8 +2,10 @@
 
 import {
   BASEMAPS,
+  offeredOnly,
   type BasemapKey,
   type BasemapStyle,
+  type LibraryStyleOffer,
 } from "@/lib/basemap";
 import {
   BASEMAP_LAYER_GROUPS,
@@ -14,7 +16,7 @@ import {
 import type { CustomBasemap } from "@/lib/metadata/maps";
 import { CustomBasemapSection } from "./CustomBasemapSection";
 import { BasemapThumb } from "../map/BasemapThumb";
-import { EyeIcon, EyeOffIcon } from "../ui/icons";
+import { EyeIcon, EyeOffIcon, MapIcon } from "../ui/icons";
 import { IconButton } from "../ui/IconButton";
 import panel from "./panel.module.css";
 import styles from "./BasemapPanel.module.css";
@@ -35,11 +37,18 @@ interface Props {
   groupsPresent: BasemapLayerGroup[] | null;
   /** Deployment override set (DEZFIL_BASEMAP_URL) — pins Auto. */
   overridden: boolean;
-  /** The styles this instance offers, server-injected. Imagery is
-   * configured rather than shipped, so it is a card only where it is
-   * configured. */
+  /** The styles this instance draws, server-injected, each marked
+   * offered or not: only an offered one is a card, while the map's own
+   * style keeps its kind for the group toggles. Imagery is configured
+   * rather than shipped, so it is a card only where it is configured. */
   basemaps?: BasemapStyle[];
   onPick: (key: BasemapKey | null) => void;
+  /** The styles the instance's library offers, after the built-in ones. */
+  libraryStyles?: LibraryStyleOffer[];
+  /** Take a library style: the map keeps its own copy of it. */
+  onPickLibrary?: (id: string) => void;
+  /** Why no style address can be pasted now, or null while one can. */
+  pasteRefusal?: string | null;
   /** Hidden basemap content groups; null = all visible. */
   layerToggles: BasemapLayers | null;
   onToggleGroup: (group: BasemapLayerGroup, visible: boolean) => void;
@@ -66,6 +75,9 @@ export function BasemapPanel({
   overridden,
   basemaps = BASEMAPS,
   onPick,
+  libraryStyles = [],
+  onPickLibrary = () => {},
+  pasteRefusal = null,
   layerToggles,
   onToggleGroup,
   statusPillVisible,
@@ -79,6 +91,9 @@ export function BasemapPanel({
     ? !customUnknown
     : (basemaps.find((b) => b.key === active)?.kind ?? "vector") ===
       "vector";
+  // A map's copy of a library style is marked on the library's card, not
+  // drawn again as the map's own custom style.
+  const fromLibrary = custom !== null && libraryStyles.some((s) => s.url === custom.url);
   return (
     <div className={styles.panel}>
       <div className={styles.grid}>
@@ -91,7 +106,7 @@ export function BasemapPanel({
           <BasemapThumb style="auto" />
           <span className={styles.label}>Auto</span>
         </button>
-        {basemaps.map((b) => (
+        {offeredOnly(basemaps).map((b) => (
           <button
             key={b.key}
             type="button"
@@ -103,13 +118,28 @@ export function BasemapPanel({
             <span className={styles.label}>{b.label}</span>
           </button>
         ))}
+        {libraryStyles.map((s) => (
+          <button
+            key={s.id}
+            type="button"
+            className={styles.card}
+            data-active={custom?.url === s.url}
+            onClick={() => onPickLibrary(s.id)}
+          >
+            <span className={styles.styleArt} aria-hidden>
+              <MapIcon />
+            </span>
+            <span className={styles.label}>{s.name}</span>
+          </button>
+        ))}
         <CustomBasemapSection
-          custom={custom}
+          custom={fromLibrary ? null : custom}
           onSave={onSaveCustom}
           onRemove={onRemoveCustom}
+          refusal={pasteRefusal}
         />
       </div>
-      {custom ? (
+      {custom && !fromLibrary ? (
         <p className={styles.note}>
           Remove it to return to the choice underneath.
         </p>

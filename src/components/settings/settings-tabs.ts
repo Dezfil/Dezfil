@@ -4,13 +4,15 @@
  * drawn only for an admin, and its address opens Account for anyone
  * else, so a member never triggers a read only an admin may make. Maps,
  * Workflows & SQL and Publishing hold what new things start with: a
- * member meets those as the starting state of what they make. Publishing,
+ * member meets those as the starting state of what they make. Libraries
+ * holds what the instance offers every map: a member meets it as the
+ * basemaps and palettes their pickers list. Publishing,
  * Data & services and Security hold the rules every account follows: a
  * member meets those as what their own screens allow.
  */
 
 export type SettingsGroup = "you" | "instance";
-export type SettingsTabId = "account" | "tokens" | "appearance" | "general" | "maps" | "workflows" | "publishing" | "data" | "limits" | "security" | "system";
+export type SettingsTabId = "account" | "tokens" | "appearance" | "general" | "maps" | "libraries" | "workflows" | "publishing" | "data" | "limits" | "security" | "system";
 
 export interface SettingsTab {
   readonly id: SettingsTabId;
@@ -25,6 +27,7 @@ export const SETTINGS_TABS: readonly SettingsTab[] = [
   { id: "appearance", label: "Appearance", group: "you", adminOnly: false },
   { id: "general", label: "General", group: "instance", adminOnly: false },
   { id: "maps", label: "Maps", group: "instance", adminOnly: true },
+  { id: "libraries", label: "Libraries", group: "instance", adminOnly: true },
   { id: "workflows", label: "Workflows & SQL", group: "instance", adminOnly: true },
   { id: "publishing", label: "Publishing", group: "instance", adminOnly: true },
   { id: "data", label: "Data & services", group: "instance", adminOnly: true },

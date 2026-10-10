@@ -254,6 +254,9 @@ describe("tool parity", () => {
       .map((t) => t.name)
       .sort();
     expect(confirmed).toEqual([
+      // The basemap library is the instance's, asked for as every
+      // instance-wide change is; the add also reads an outside address.
+      "add_basemap_style",
       "change_password",
       // Emptying a cache loses nothing a service cannot answer again, but
       // it is asked for as every instance-wide change is.
@@ -279,10 +282,12 @@ describe("tool parity", () => {
       // data folder, asked for as every instance-wide action is.
       "read_storage",
       // Who reaches a project is an exposure change in both directions.
+      "remove_basemap_style",
       "remove_project_person",
       "remove_recipe_step",
       "revoke_api_token",
       "revoke_inactive_publication",
+      "set_basemap_style_offered",
       "set_project_person",
       // Changes nothing and stays on this server, but it runs work on a part
       // of it, asked for as every instance-wide action is.

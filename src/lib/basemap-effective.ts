@@ -13,7 +13,7 @@
 
 import {
   BASEMAPS,
-  resolveBasemapAttribution,
+  BUILT_IN_ATTRIBUTION,
   type AttributionLine,
   type BasemapStyle,
   type BasemapKey,
@@ -78,7 +78,7 @@ export function effectiveBasemap(args: {
     kind: "vector",
     attribution: overrideUrl
       ? (args.overrideAttribution ?? [])
-      : resolveBasemapAttribution(null),
+      : BUILT_IN_ATTRIBUTION,
     custom: false,
     followsTheme: overrideUrl === null,
   };

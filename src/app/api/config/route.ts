@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import {
-  availableBasemaps,
   basemapOverrideUrl,
   basemapUrl,
-} from "@/lib/basemap";
+  offeredBasemaps,
+  singleMapStylesAllowed,
+} from "@/lib/basemap-offer";
+import { offeredLibraryStyles } from "@/lib/basemap-library";
 import { PALETTES } from "@/lib/style/palettes";
 import { limits } from "@/lib/limits";
 import { geocoderConfigured } from "@/lib/search/provider";
@@ -21,7 +23,13 @@ export async function GET(request: Request) {
     return privateResponse(NextResponse.json({
       basemapUrl: basemapUrl(),
       basemapOverrideUrl: basemapOverrideUrl(),
-      basemaps: availableBasemaps(),
+      // The styles a person may choose: those an admin hid are left out.
+      basemaps: offeredBasemaps(),
+      // The styles an admin added to the library and offers: a map that
+      // takes one keeps its own copy.
+      basemapStyles: offeredLibraryStyles(),
+      // Whether a map may take a style address the library does not offer.
+      singleMapStyles: singleMapStylesAllowed(),
       palettes: PALETTES,
       renderCapFeatures: limits.renderCapFeatures,
       previewRows: limits.previewRows,

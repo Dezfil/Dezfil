@@ -1,0 +1,100 @@
+/* Libraries' Palettes card: a saved palette's ramp at the end of its row,
+   and the Add a palette form opened in place, its colors one swatch each
+   beside the live ramp. The ramp's colors are data, drawn inline. */
+
+.form {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  padding-bottom: 12px;
+  animation: palettes-in var(--dur-entrance) ease backwards;
+}
+
+@keyframes palettes-in {
+  from {
+    opacity: 0;
+  }
+}
+
+.colorsField {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.colorsLabel {
+  font-size: var(--text-label);
+  color: var(--fg-muted);
+}
+
+.stops {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.stopList {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.stop {
+  appearance: none;
+  -webkit-appearance: none;
+  flex: none;
+  width: calc(var(--control-compact) + 4px);
+  height: var(--control-compact);
+  padding: 2px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--bg-panel);
+  cursor: pointer;
+}
+
+.stop::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.stop::-webkit-color-swatch {
+  border: none;
+  border-radius: var(--radius-sm);
+}
+
+.stop::-moz-color-swatch {
+  border: none;
+  border-radius: var(--radius-sm);
+}
+
+.stop:focus-visible {
+  border-color: var(--accent);
+}
+
+/* a ramp: the gradient, with the swatch edge drawn over it */
+.ramp {
+  display: inline-block;
+  flex: none;
+  width: 108px;
+  height: 12px;
+  margin-left: 4px;
+  border-radius: var(--radius-sm);
+}
+
+.ramp::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-sm);
+  box-shadow: inset 0 0 0 1px var(--swatch-border);
+}
+
+.rowEnd {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  gap: 10px;
+}

@@ -11,7 +11,9 @@ const ENTRY = MIGRATIONS.findIndex(sql => sql.includes("CREATE TABLE project_peo
 const FINAL_STATEMENT = "CREATE INDEX idx_lineage_edges_runner ON lineage_edges(step_id, runner_id);";
 /** Columns the entry adds, each a stamp derived from existing rows. */
 let priorColumns: Record<string, string[]>;
-const ADDED_TABLES = new Set(["project_people", "ownership_transfer_gate", "step_runner_outputs"]);
+/** The tables this entry adds, and the basemap library's, which a later
+ * entry adds with nothing in it. */
+const ADDED_TABLES = new Set(["project_people", "ownership_transfer_gate", "step_runner_outputs", "basemap_styles"]);
 const now = "2026-01-01T00:00:00.000Z";
 let directory: string, file: string, db: Database.Database;
 

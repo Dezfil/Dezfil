@@ -40,8 +40,9 @@ import { fetchPublishedExtent, msToTimeValue } from "./published-extent";
 import {
   BASEMAPS,
   BASEMAP_FALLBACKS,
-  resolveBasemapAttribution,
-  resolveBasemapKind,
+  basemapCreditIn,
+  basemapKindIn,
+  offeredOnly,
   type BasemapKey,
   type BasemapStyle,
 } from "@/lib/basemap";
@@ -557,11 +558,11 @@ export function PublishedView({
   const readerMovedBasemap =
     !customActive && (readerBasemap !== undefined || themedKey !== authoredKey);
   const effBasemapKind = readerMovedBasemap
-    ? resolveBasemapKind(themedKey)
+    ? basemapKindIn(basemaps, themedKey)
     : (view.basemapKind ?? "vector");
   const effAttribution = readerMovedBasemap
-    ? resolveBasemapAttribution(themedKey)
-    : (view.basemapAttribution ?? resolveBasemapAttribution(themedKey));
+    ? basemapCreditIn(basemaps, themedKey)
+    : (view.basemapAttribution ?? basemapCreditIn(basemaps, themedKey));
 
   // Which optional controls this publication exposes. An older cached
   // payload carries none, and every control reads on — the same reading
@@ -584,14 +585,23 @@ export function PublishedView({
   // *are* the modes, so leaving them fixed while the chrome flipped read
   // as a bug. Streets and Satellite are choices about content, not mode,
   // and stay put. This supersedes fixed-explicit-basemap rule for those
-  // two, on the published viewer only.
+  // two, on the published viewer only. The pair is taken where the
+  // instance offers it, as the switcher lists only offered styles, or
+  // where it is the publication's own style, which the map holds even
+  // hidden; otherwise the chrome flips and the style stays. A map on its
+  // own custom style still carries the key it was on before, but that
+  // key is not a style the publication holds: its own style is the
+  // custom one, so the stored key opens no way onto a hidden pair.
+  const ownKey = authoredCustom === null ? authoredKey : null;
   const onToggleTheme = () => {
+    const pair = effTheme === "dark" ? "light" : "dark";
     // A custom style pins both themes: the pairing below must not fire
     // while it is active, or a mere theme toggle would set
     // readerBasemap and silently replace the custom style for the rest
     // of the load.
-    if (!customActive && (themedKey === "dark" || themedKey === "light")) {
-      setReaderBasemap(effTheme === "dark" ? "light" : "dark");
+    if (!customActive && (themedKey === "dark" || themedKey === "light") &&
+        (pair === ownKey || offeredOnly(basemaps).some((b) => b.key === pair))) {
+      setReaderBasemap(pair);
     }
     toggleViewTheme(authoredTheme);
   };

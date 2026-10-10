@@ -30,6 +30,10 @@
       "rule": "Erase every target API token, including expired or revoked entries.",
       "fixture": "table:auth_tokens"
     },
+    "table:basemap_styles": {
+      "action": "retain",
+      "rule": "Keep the instance's basemap library: style names, public style addresses and their credits. It records no account."
+    },
     "table:cascade_members": {
       "action": "erase",
       "rule": "Erase members of erased workflow runs; retain surviving workflow history.",
@@ -785,6 +789,7 @@
     "auth_login_limits": "table:auth_login_limits",
     "auth_sessions": "table:auth_sessions",
     "auth_tokens": "table:auth_tokens",
+    "basemap_styles": "table:basemap_styles",
     "cascade_members": "table:cascade_members",
     "cascade_runs": "table:cascade_runs",
     "custom_palettes": "table:custom_palettes",
@@ -2585,6 +2590,21 @@
       ]
     },
     "memory:src/lib/api/openapi-imports.ts#IMPORT_PATHS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-instance-basemaps.ts#INSTANCE_BASEMAPS_PATHS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-instance-basemaps.ts#INSTANCE_BASEMAPS_SCHEMAS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-instance-basemaps.ts#LIBRARY_STYLE_OFFER_SCHEMA": {
       "stores": [
         "memory:immutable-configuration"
       ]

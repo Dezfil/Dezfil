@@ -30,6 +30,7 @@ function sources(overrides: Partial<IndexSources> = {}): IndexSources {
     }),
     entry: { instanceName: "Atlas North", signInMessage: "", lostPasswordContact: "the GIS team", landingPage: "projects" },
     health: "ready", assistant: { enabled: false, reason: "No model credential is configured." },
+    palettes: [{ name: "coastal-greens", label: "Coastal greens", stops: [{ color: "#e5f5e0", position: 0 }, { color: "#006d2c", position: 1 }] }],
     ...overrides,
   };
 }
@@ -196,6 +197,57 @@ describe("Data & services in the search", () => {
   });
 });
 
+describe("Libraries in the search", () => {
+  const KEY = "SEEDED-KEY-0009-QUERY";
+  const HARBOR = { id: "style-harbor", name: "Harbor chart", url: `https://tiles.harbor.example/styles/chart/style.json?key=${KEY}`,
+    attribution: [{ label: "Harbor Office" }], offered: false, addedAt: "2026-10-01T08:00:00.000Z" };
+  const libraries = (resolved: Record<string, Resolution> = {}) => index(true, { instance: instanceReadFixture(resolved, { basemapStyles: [HARBOR] } as never) });
+  const hit = (built: ReturnType<typeof index>, query: string, path: string) => searchSettings(built, query).find(each => hitPath(each) === path);
+
+  it("finds each basemap by its name with what it says under it and Offered or Hidden, the single-map switch, and a palette by its colors", () => {
+    const built = libraries({ "basemaps.light": { value: false, source: "stored", storedValue: false },
+      "basemaps.singleMapStyles": { value: false, source: "stored", storedValue: false } });
+    expect(hit(built, "dark", "Instance / Libraries · Dark")?.meta).toBe("Basemaps · OpenFreeMap · built in · Offered");
+    expect(hit(built, "light", "Instance / Libraries · Light")?.meta).toBe("Basemaps · OpenFreeMap · built in · Hidden");
+    expect(hit(built, "harbor chart", "Instance / Libraries · Harbor chart")?.meta).toBe("Basemaps · tiles.harbor.example · Hidden");
+    expect(hit(built, "style addresses", "Instance / Libraries · Style addresses on single maps")?.meta).toBe("Basemaps · Not allowed");
+    expect(hit(built, "coastal", "Instance / Libraries · Coastal greens")?.meta).toBe("Palettes · 2 colors");
+    expect(hit(built, "harbor chart", "Instance / Libraries · Harbor chart")!.target).toEqual({ tab: "libraries", anchor: "lib-style-style-harbor" });
+    // No imagery: no Satellite basemap, the tile address Not set up.
+    expect(paths(searchSettings(built, "satellite")).filter(path => path === "Instance / Libraries · Satellite")).toEqual([]);
+    expect(hit(built, "tile address", "Instance / Libraries · Tile address")?.meta).toBe("Satellite imagery · Not set up");
+    // An added style's address is said by its host alone.
+    expect(JSON.stringify(built)).not.toContain(KEY);
+    expect(searchSettings(built, "styles/chart")).toEqual([]);
+  });
+
+  it("finds Satellite and the tile address by the scheme and host the read discloses, and the credit by its words", () => {
+    const built = libraries({
+      satelliteUrl: { value: { set: true, origin: "https://imagery.example" }, source: "stored", storedValue: null },
+      satelliteAttribution: { value: "Imagery © Stadtwerke", source: "stored", storedValue: "Imagery © Stadtwerke" },
+    });
+    expect(hit(built, "satellite", "Instance / Libraries · Satellite")?.meta).toBe("Basemaps · imagery.example · Offered");
+    expect(hit(built, "imagery.example", "Instance / Libraries · Tile address")?.meta).toBe("Satellite imagery · https://imagery.example");
+    expect(hit(built, "stadtwerke", "Instance / Libraries · Credit")?.meta).toBe("Satellite imagery · Imagery © Stadtwerke");
+    const unreadable = libraries({ satelliteUrl: { value: { set: true, unreadable: true }, source: "stored", storedValue: null } });
+    expect(hit(unreadable, "tile address", "Instance / Libraries · Tile address")?.meta).toBe("Satellite imagery · Set");
+    expect(paths(searchSettings(unreadable, "satellite")).filter(path => path === "Instance / Libraries · Satellite")).toEqual([]);
+  });
+
+  it("finds the credit by what its field holds now, typed and not yet saved", () => {
+    const live = new Map([["set-satellite-credit", "Imagery © Typed"]]);
+    const built = buildSearchIndex(withLiveValues(settingsDeclarations(sources({ instance: instanceReadFixture({}, { basemapStyles: [HARBOR] } as never) }), true), live), true);
+    expect(hit(built, "typed", "Instance / Libraries · Credit")?.meta).toBe("Satellite imagery · Imagery © Typed");
+  });
+
+  it("lists none of Libraries for a member, nor reads its palettes into the index", () => {
+    const built = index(false);
+    for (const query of ["libraries", "basemaps", "dark", "harbor chart", "satellite", "tile address", "credit", "palettes", "coastal", "style addresses"]) {
+      expect(paths(searchSettings(built, query)).filter(path => path.includes("Libraries")), query).toEqual([]);
+    }
+  });
+});
+
 describe("what new things start with, in the search", () => {
   /** The read with these values stored, as the server reports a kept value. */
   const keeping = (values: Record<string, unknown>, extra: Record<string, Resolution> = {}) => ({
@@ -296,7 +348,7 @@ describe("what the fields on screen hold now", () => {
 });
 
 describe("what a member's search holds", () => {
-  const ADMIN_ONLY = /Maps|Workflows|Publishing|Limits|Security|System|Users/;
+  const ADMIN_ONLY = /Maps|Libraries|Workflows|Publishing|Limits|Security|System|Users/;
   const QUERIES = ["limit", "users", "invite", "environment", "version", "query time", "maps", "basemap", "starting view", "legend",
     "color cycle", "opacity", "radius", "workflows", "canvas", "minimap", "results band", "text size", "line wrap", "publishing",
     "starting width", "starting shape", "export", "new layers", "viz qualitative", "1920", "security", "stay signed in", "reset links",

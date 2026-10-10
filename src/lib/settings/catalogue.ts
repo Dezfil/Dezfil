@@ -21,14 +21,36 @@ function stored(key: string, label: string, purpose: string, defaultValue: Setti
     kind: write.kind === "choice" ? "choice" : "text", timing: "live", secret: false, editable: true, write };
 }
 const choice = (...values: string[]): WriteConstraint => ({ kind: "choice", values });
-/** A service's address, set by its variable or stored by an admin beside
- * it: a set variable locks it. Write-only, like the rest of the address
- * kind: what any read gives back is its scheme and host. */
+/** An address set by its variable or stored by an admin beside it (a
+ * service's, or the imagery's tile template with its placeholders): a set
+ * variable locks it. Write-only, like the rest of the address kind: what
+ * any read gives back is its scheme and host. */
 function serviceAddress(key: string, environment: string, label: string, purpose: string,
-  defaultValue: SettingDefault, documentedDefault: string): SettingDefinition {
+  defaultValue: SettingDefault, documentedDefault: string, placeholders?: readonly string[]): SettingDefinition {
   return { ...deployment(key, environment, "address", label, purpose, defaultValue, documentedDefault),
-    changedBy: "admin", timing: "live", editable: true, write: { kind: "address", maxLength: 2048 } };
+    changedBy: "admin", timing: "live", editable: true, write: { kind: "address", maxLength: 2048, ...(placeholders ? { placeholders } : {}) } };
 }
+/** Text set by its variable or stored by an admin beside it: a set variable locks it. */
+function textBeside(key: string, environment: string, label: string, purpose: string, maxLength: number): SettingDefinition {
+  return { ...deployment(key, environment, "text", label, purpose, null, "unset"),
+    changedBy: "admin", timing: "live", editable: true, write: { kind: "text", maxLength, empty: "null" } };
+}
+/** Which basemaps the instance offers where one is chosen, and whether a
+ * map may take a style address of its own: switches an admin turns, on by
+ * default, read by every signed-in account and set by no variable, so no
+ * deployment pins one. */
+function basemapSwitch(key: string, label: string, purpose: string): SettingDefinition {
+  return { key, label, purpose, defaultValue: true, documentedDefault: "on", scope: "instance", readBy: "signed-in", changedBy: "admin",
+    kind: "boolean", timing: "live", secret: false, editable: true, write: { kind: "switch" } };
+}
+/** Which settings are the Libraries tab's switches, for a reader of the
+ * catalogue alone: the basemaps offered and whether a single map may take a
+ * style address of its own. */
+export function isLibrarySwitch(definition: { readonly key: string; readonly scope: string; readonly environment?: string }): boolean {
+  return definition.scope === "instance" && !definition.environment && definition.key.split(".")[0] === "basemaps";
+}
+const OFFERED = "where a basemap is chosen: the builder's picker, a published page's switcher and the Maps tab. " +
+  "Off, choosing it anew is refused; a map already on it keeps it.";
 
 export const SETTING_CATALOGUE: readonly SettingDefinition[] = [
   ...NUMERIC_SETTINGS,
@@ -44,8 +66,8 @@ export const SETTING_CATALOGUE: readonly SettingDefinition[] = [
   deployment("tippecanoe", "DEZFIL_TIPPECANOE", "path", "Tile builder", "Binary used to build vector tiles.", "tippecanoe", "tippecanoe"),
   deployment("basemapUrl", "DEZFIL_BASEMAP_URL", "address", "Basemap address", "Style override pinning the automatic basemap in both themes.", { rule: "built-in-basemap-for-theme" }, "built-in styles"),
   deployment("basemapAttribution", "DEZFIL_BASEMAP_ATTRIBUTION", "text", "Basemap credit", "Credit line for the deployment basemap override.", null, "unset"),
-  deployment("satelliteUrl", "DEZFIL_SATELLITE_URL", "address", "Satellite template", "Raster tile template enabling satellite imagery.", null, "unset"),
-  deployment("satelliteAttribution", "DEZFIL_SATELLITE_ATTRIBUTION", "text", "Satellite credit", "Credit line required by the imagery provider.", null, "unset"),
+  serviceAddress("satelliteUrl", "DEZFIL_SATELLITE_URL", "Satellite template", "Raster tile template enabling satellite imagery.", null, "unset", ["{z}", "{x}", "{y}"]),
+  textBeside("satelliteAttribution", "DEZFIL_SATELLITE_ATTRIBUTION", "Satellite credit", "Credit line required by the imagery provider.", 160),
   serviceAddress("geocoderUrl", "DEZFIL_GEOCODER_URL", "Address finder", "Nominatim-compatible endpoint for search and batch geocoding.", null, "unset"),
   serviceAddress("isochroneUrl", "DEZFIL_ISOCHRONE_URL", "Travel-time endpoint", "Valhalla-compatible endpoint for travel-time areas.", null, "unset"),
   deployment("anthropicApiKey", "ANTHROPIC_API_KEY", "secret", "Anthropic credential", "Enables the assistant with this provider.", null, "unset"),
@@ -62,6 +84,13 @@ export const SETTING_CATALOGUE: readonly SettingDefinition[] = [
   stored("landingPage", "Landing page", "Preferred entry destination after sign-in.", "home", choice("home", "projects", "maps", "workflows", "data", "sql")),
   ...INSTANCE_DEFAULT_SETTINGS,
   ...INSTANCE_SECURITY_SETTINGS,
+  basemapSwitch("basemaps.dark", "Dark", `Whether Dark is offered ${OFFERED} Auto keeps following the theme with it either way.`),
+  basemapSwitch("basemaps.light", "Light", `Whether Light is offered ${OFFERED} Auto keeps following the theme with it either way.`),
+  basemapSwitch("basemaps.streets", "Streets", `Whether Streets is offered ${OFFERED}`),
+  basemapSwitch("basemaps.satellite", "Satellite", `Whether Satellite is offered, while imagery is set up, ${OFFERED}`),
+  basemapSwitch("basemaps.singleMapStyles", "Style addresses on single maps",
+    "Whether a map may take a style address the library does not offer. Off, such an address is refused on any map, for everyone, " +
+    "admins included; a map that holds one keeps it."),
   ...(["maps", "data", "workflows", "projects"] as const).flatMap(screen => [
     stored(`${screen}.view`, `${screen} view`, "The account's list layout.", "grid", choice("grid", "list"), "account"),
     stored(`${screen}.sort`, `${screen} sort`, "The account's list ordering.", screen === "maps" || screen === "workflows" ? "edited" : "updated",

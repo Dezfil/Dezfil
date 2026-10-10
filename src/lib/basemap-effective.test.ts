@@ -83,6 +83,19 @@ describe("effective basemap", () => {
     ).toBe(false);
   });
 
+  it("with Dark and Light hidden, Auto still follows the theme and an explicit Dark or Light never moves with it", () => {
+    // The builder's list marks the hidden styles; it has no Dark/Light
+    // pairing of its own, only Auto following the theme.
+    const basemaps = BASEMAPS.map((b) => ({ ...b, offered: b.key !== "dark" && b.key !== "light" }));
+    const url = (key: string) => BASEMAPS.find((b) => b.key === key)!.url;
+    for (const theme of ["light", "dark"] as const) {
+      expect(effectiveBasemap({ ...base, basemaps, theme }).url).toBe(url(theme));
+      for (const key of ["dark", "light"] as const) {
+        expect(effectiveBasemap({ ...base, basemaps, theme, key }).url).toBe(url(key));
+      }
+    }
+  });
+
   it("clearing custom reveals the key's own resolution again", () => {
     const withCustom = effectiveBasemap({ ...base, key: "streets", custom });
     const cleared = effectiveBasemap({ ...base, key: "streets" });

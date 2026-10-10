@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { readdirSync, readFileSync } from "node:fs";
+import { readdirSync, readFileSync, statSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
@@ -8,6 +8,8 @@ import { format } from "node:util";
 import type { InstanceRead } from "@/components/settings/instance-read";
 import { settingsDeclarations } from "@/components/settings/settings-index";
 import { buildSearchIndex } from "@/components/settings/settings-search";
+import { GET as imageryRoute } from "@/app/api/basemaps/satellite/route";
+import { GET as publishedRoute } from "@/app/api/published/[token]/route";
 import { runAssistant, resumeAssistant, type AssistantEvent } from "@/lib/assistant/loop";
 import { PendingActionStore } from "@/lib/assistant/pending";
 import { stubProvider } from "@/lib/assistant/providers/stub";
@@ -15,6 +17,16 @@ import { runStream } from "@/lib/assistant/run-stream";
 import { assistantRuns } from "@/lib/assistant/runs";
 import { dispatchAssistantTestRoute } from "@/lib/assistant/testing/route-dispatch";
 import { socketRequest } from "@/lib/assistant/testing/socket-request";
+import { authenticatedRequest } from "@/lib/assistant/testing/account";
+import { delegateCredential } from "@/lib/auth/delegation";
+import { requireRequestAuth } from "@/lib/auth/http";
+import { SATELLITE_STYLE_URL } from "@/lib/basemap";
+import { lookAtMap, lookDefinition } from "@/lib/export/map-look";
+import { createLayer } from "@/lib/layer-service";
+import { createMap, mapWithLayers, updateMap } from "@/lib/map-service";
+import { readDocumentRevision } from "@/lib/metadata/revisions";
+import { resetPublishCache } from "@/lib/publish/publication-resolution";
+import { publishMap } from "@/lib/publish/publish-service";
 import { resetQueryInstance } from "@/lib/duckdb";
 import { resetLimiter } from "@/lib/geocode/limiter";
 import { resetIsochroneLimiter } from "@/lib/isochrone/limiter";
@@ -31,22 +43,37 @@ import { secretForms } from "./address-secrets";
 import { SETTING_CATALOGUE } from "./catalogue";
 
 /**
- * The secrecy battery. A service address may carry a key in its user
- * information, its path and its query. Here one is set from the page, by
- * the variable, through the generated tool and through the embedded
- * assistant, and then searched for in everything the server says or keeps
- * afterwards: every read, change answer and refusal, the assistant's
- * confirmation, events, pending receipt and stored record (a call giving
- * an address as a list or an object, and its refusal, among them), the Test answers
- * and Clear's, the settings search's index, OpenStreetMap's and cloud
- * storage's refusals (a page not found and an error remark that repeat
- * the request among them), the answer, view and record of each geocoding and
- * travel-time run admitted after the save (a failed one's too), every log
- * line the server writes while the battery runs, and at the end every file
- * in the data folder, the metadata database first. Where the surface names
- * the service, it still gives its scheme and host. A run and its dataset,
- * and an OpenStreetMap import, recorded before the server recorded origins
- * read as scheme and host too, while their rows stay as written.
+ * The secrecy battery. A service address, and the satellite imagery's tile
+ * template, may carry a key in its user information, its path and its
+ * query. Here one is set from the page, by the variable, through the
+ * generated tool and through the embedded assistant, and then searched for
+ * in everything the server says or keeps afterwards: every read, change
+ * answer and refusal, the assistant's confirmation, events, pending receipt
+ * and stored record (a call giving an address as a list or an object, and
+ * its refusal, among them), the Test answers and Clear's, the settings
+ * search's index, OpenStreetMap's and cloud storage's refusals (a page not
+ * found and an error remark that repeat the request among them), the
+ * answer, view and record of each geocoding and travel-time run admitted
+ * after the save (a failed one's too), a publication of a map on Satellite
+ * assembled afresh and the imagery style refused to an anonymous request,
+ * every log line the server writes while the battery runs, and at the end
+ * every file in the data folder, the metadata database first. Where the
+ * surface names the service, it still gives its scheme and host. The one
+ * place the template is whole is the imagery style a signed-in request
+ * receives, which a browser drawing the imagery must load. A run and its
+ * dataset, and an OpenStreetMap import, recorded before the server recorded
+ * origins read as scheme and host too, while their rows stay as written.
+ *
+ * The image half runs on the real renderer, when a production standalone
+ * shares this battery's data folder (provisioning below; skipped without
+ * it): the server's image of a map on Satellite at a tile host that stalls,
+ * the stall fixture recording the seeded tile requests and holding one the
+ * view needs, the render abandoning it, and at a host the renderer's egress
+ * check refuses, the export answering the egress refusal. Each run's
+ * answer, this process's log lines (the renderer's driver runs here) and
+ * the standalone's are searched. A browser makes no request from an
+ * address holding user information, so these images carry the key in the
+ * path and the query.
  *
  * The search knows a key as written, percent-encoded, in base64 and
  * base64url, in hex and in UTF-16, and the user information also as the
@@ -55,6 +82,15 @@ import { SETTING_CATALOGUE } from "./catalogue";
  * The steps run in order on one instance, one data folder and one set of
  * console sinks: each searches what it made, and the last two search what
  * the whole run wrote.
+ *
+ * Provisioning for the image half, as the map check's real-render tests:
+ * DEZFIL_MAP_LOOK_RENDER names the port of a production standalone whose
+ * DEZFIL_DATA_DIR, DEZFIL_SECRET_KEY and DEZFIL_RENDER_DELEGATION_KEY this
+ * process is handed too, DEZFIL_CHROMIUM_PATH points at a headless
+ * Chromium, both processes admit 127.0.0.1 by DEZFIL_EGRESS_ALLOWLIST, the
+ * standalone's DEZFIL_BASEMAP_URL is a loopback style, and
+ * DEZFIL_RENDER_SERVER_LOG names the file the standalone's own output goes
+ * to. The battery then runs whole on the standalone's data folder.
  */
 
 // Every service is a loopback fixture; a request sent anywhere else fails
@@ -70,15 +106,33 @@ const EARLIER: Seeds = ["SEEDED-KEY-EARLIER-USER", "SEEDED-KEY-EARLIER-PATH", "S
 const BASE = "http://instance.test";
 const ADMIN = "test-account";
 const MEMBER = "member";
-const KEYS = ["geocoderUrl", "isochroneUrl", "overpassUrl", "s3Endpoint"] as const;
+const KEYS = ["geocoderUrl", "isochroneUrl", "overpassUrl", "s3Endpoint", "satelliteUrl"] as const;
 type AddressKey = typeof KEYS[number];
-const SLUG: Record<AddressKey, string> = { geocoderUrl: "geo", isochroneUrl: "iso", overpassUrl: "osm", s3Endpoint: "s3" };
+const SLUG: Record<AddressKey, string> = { geocoderUrl: "geo", isochroneUrl: "iso", overpassUrl: "osm", s3Endpoint: "s3", satelliteUrl: "sat" };
 const VARIABLE: Record<AddressKey, string> = {
   geocoderUrl: "DEZFIL_GEOCODER_URL", isochroneUrl: "DEZFIL_ISOCHRONE_URL", overpassUrl: "DEZFIL_OVERPASS_URL", s3Endpoint: "DEZFIL_S3_ENDPOINT",
+  satelliteUrl: "DEZFIL_SATELLITE_URL",
 };
+/** Where each address's requests go on the fixture, past its keyed place. */
+const TAIL: Partial<Record<AddressKey, string>> = { overpassUrl: "/api/interpreter", satelliteUrl: "/{z}/{x}/{y}.png" };
 /** The console's sinks the server writes its log lines to. */
 const SINKS = ["log", "info", "warn", "error", "debug", "trace"] as const;
 const ACCOUNT = { id: ADMIN, name: "Ada Okafor", email: "ada@example.test", sqlName: "ada_okafor", isAdmin: true } as Account;
+/** One opaque pixel: the fixture's every imagery tile. */
+const TILE = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64");
+
+/** The image half's provisioning, read before the battery puts its own environment in place. */
+const RENDER = (() => {
+  const port = process.env.DEZFIL_MAP_LOOK_RENDER;
+  if (!port) return null;
+  const env = (name: string) => {
+    const value = process.env[name];
+    if (!value) throw new Error(`The image half needs ${name}, as the battery's provisioning says`);
+    return value;
+  };
+  return { port, data: env("DEZFIL_DATA_DIR"), secretKey: env("DEZFIL_SECRET_KEY"), chromium: env("DEZFIL_CHROMIUM_PATH"),
+    signing: env("DEZFIL_RENDER_DELEGATION_KEY"), serverLog: env("DEZFIL_RENDER_SERVER_LOG") };
+})();
 
 /** Each form of each key the text holds. */
 function leaks(text: string, seeds: Seeds = SAVED): string[] {
@@ -86,6 +140,8 @@ function leaks(text: string, seeds: Seeds = SAVED): string[] {
 }
 
 let dir: string;
+/** The battery's data folder: its own, or the standalone's for the image half. */
+let data: string;
 let server: Server;
 let port: number;
 let origin: string;
@@ -95,15 +151,17 @@ let imported: string;
 const lines: string[] = [];
 /** How many surfaces the battery searched. */
 let searchedCount = 0;
+/** The render signing key's slot, shared with the standalone for the image half. */
+const SIGNING_KEY = Symbol.for("dezfil.session-delegation-key");
+let heldSigningKey: unknown;
 
 /** How a fixture service fails: down, a page not found, an error remark. */
 type Fault = "down" | "missing" | "remark";
 
 /** A service's address on the fixture, its key in all three places. */
-function address(key: AddressKey, options: { seeds?: Seeds; at?: number; fault?: Fault; host?: string } = {}): string {
-  const { seeds = SAVED, at = port, fault, host = "127.0.0.1" } = options;
-  const tail = key === "overpassUrl" ? "/api/interpreter" : "";
-  return `http://seed-user:${seeds[0]}@${host}:${at}/${fault ? `${fault}-` : ""}${SLUG[key]}-${seeds[1]}${tail}?key=${seeds[2]}`;
+function address(key: AddressKey, options: { seeds?: Seeds; at?: number; fault?: Fault; host?: string; user?: boolean } = {}): string {
+  const { seeds = SAVED, at = port, fault, host = "127.0.0.1", user = true } = options;
+  return `http://${user ? `seed-user:${seeds[0]}@` : ""}${host}:${at}/${fault ? `${fault}-` : ""}${SLUG[key]}-${seeds[1]}${TAIL[key] ?? ""}?key=${seeds[2]}`;
 }
 
 /** Search one surface: no key in any form, and, where it names the
@@ -159,8 +217,35 @@ async function reads(where: string, source: "stored" | "environment") {
     searched(`${where}: the runtime read (${as})`, runtime.text);
   }
   const index = buildSearchIndex(settingsDeclarations({ account: ACCOUNT, tokens: null, look: null, instance: read.body as InstanceRead,
-    entry: null, health: null, assistant: null }, true), true);
+    entry: null, health: null, assistant: null, palettes: null }, true), true);
   searched(`${where}: the settings search`, index, { origin });
+}
+
+/** The renderer's refusal of a map that reaches a blocked address. */
+const EGRESS_REFUSAL = "The map reaches an address this instance's egress policy denies (private and internal ranges). The image was not produced.";
+const LNG0 = 13.4, LAT0 = 52.5;
+
+/** A credential the standalone's render page takes, as the server's own renders carry. */
+const renderCredential = () => delegateCredential(requireRequestAuth(authenticatedRequest()));
+/** How far the standalone's own output had come, and what it wrote since. */
+const serverLogSize = () => statSync(RENDER!.serverLog).size;
+const serverLogSince = (offset: number) => readFileSync(RENDER!.serverLog).subarray(offset).toString("utf8");
+
+/** A map on Satellite with one visibly drawn point at the centre, its
+ * images rendered by the standalone, which reads this battery's store. */
+async function imageryMap(name: string) {
+  vi.stubEnv("PORT", RENDER!.port);
+  const config = await fetch(`http://127.0.0.1:${RENDER!.port}/api/config`, { headers: { authorization: `Bearer ${renderCredential()}` } });
+  expect(config.status, "the standalone takes this process's render credential").toBe(200);
+  const deployment = (await config.json()).basemapOverrideUrl as string | null;
+  expect(deployment && new URL(deployment).hostname, "the standalone's default style is a loopback one").toBe("127.0.0.1");
+  const scope = testAccountScope(metadataDb(), ADMIN);
+  const map = createMap(scope, name).id;
+  const revision = () => ({ expectedRevision: readDocumentRevision({ kind: "map", id: map })?.editRevision });
+  updateMap(scope, map, { viewport: { lng: LNG0, lat: LAT0, zoom: 12, pitch: 0, bearing: 0 }, basemap: "satellite" }, revision());
+  await createLayer(scope, map, { name: "Mark", sql: `SELECT ST_Point(${LNG0}, ${LAT0}) AS geom`,
+    style: { fill: { type: "constant", color: { r: 26, g: 93, b: 74, a: 1 } }, fillOpacity: 1, stroke: { r: 0, g: 0, b: 0, a: 1 }, strokeOpacity: 1, strokeWidth: 0, pointRadius: 10, opacity: 1 } }, revision());
+  return { map, scope };
 }
 
 /** A run through the run operation, settled: its answer, then its view. */
@@ -201,6 +286,9 @@ function answer(req: IncomingMessage, res: ServerResponse) {
     // and for every object under it.
     res.writeHead(403, { "content-type": "application/xml" });
     res.end('<?xml version="1.0" encoding="UTF-8"?>\n<Error><Code>AccessDenied</Code><Message>Access Denied</Message></Error>');
+  } else if (url.pathname.includes("/sat-") && url.pathname.endsWith(".png")) {
+    res.writeHead(200, { "content-type": "image/png", "access-control-allow-origin": "*" });
+    res.end(TILE);
   } else if (url.pathname.endsWith(".csv")) {
     res.writeHead(200, { "content-type": "text/csv" });
     res.end(url.pathname.includes("origins") ? "label,lon,lat\np,13.41,52.51\n" : "label,address\na,Alpha Street\nb,Beta Street\n");
@@ -226,11 +314,15 @@ function answer(req: IncomingMessage, res: ServerResponse) {
 beforeAll(async () => {
   for (const definition of SETTING_CATALOGUE) if (definition.environment) vi.stubEnv(definition.environment, undefined);
   dir = await mkdtemp(path.join(process.cwd(), ".tmp-secrecy-battery-"));
-  vi.stubEnv("DEZFIL_DATA_DIR", path.join(dir, "data"));
+  // With the image half provisioned, the battery runs on the standalone's
+  // data folder and instance key, so the standalone reads what it stores.
+  data = RENDER?.data ?? path.join(dir, "data");
+  vi.stubEnv("DEZFIL_DATA_DIR", data);
   vi.stubEnv("DEZFIL_EGRESS_ALLOWLIST", "127.0.0.1");
   vi.stubEnv("DEZFIL_GEOCODE_PACE_MS", "0");
   vi.stubEnv("DEZFIL_ISOCHRONE_PACE_MS", "0");
-  vi.stubEnv("DEZFIL_SECRET_KEY", "4d".repeat(32)); resetSecretKeyCache();
+  vi.stubEnv("DEZFIL_SECRET_KEY", RENDER?.secretKey ?? "4d".repeat(32)); resetSecretKeyCache();
+  if (RENDER) vi.stubEnv("DEZFIL_CHROMIUM_PATH", RENDER.chromium);
   closeMetadataDb(); resetQueryInstance();
   resetLane(); resetLimiter(); resetIsochroneLimiter(); resetReleaseCache(); assistantRuns.resetForTests();
   server = createServer((req, res) => { req.resume(); req.on("end", () => answer(req, res)); });
@@ -242,6 +334,11 @@ beforeAll(async () => {
   testAccountScope(db, ADMIN);
   db.prepare("UPDATE accounts SET is_admin = 1 WHERE id = ?").run(ADMIN);
   testAccountScope(db, MEMBER);
+  if (RENDER) {
+    const slots = process as unknown as Record<symbol, unknown>;
+    heldSigningKey = slots[SIGNING_KEY];
+    slots[SIGNING_KEY] = Buffer.from(RENDER.signing, "hex");
+  }
   // The console's sinks, for the whole run: every line is kept and searched at the end.
   for (const sink of SINKS) {
     vi.spyOn(console, sink).mockImplementation((...args: unknown[]) => { lines.push(`${sink}: ${format(...args)}`); });
@@ -249,6 +346,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  if (RENDER) (process as unknown as Record<symbol, unknown>)[SIGNING_KEY] = heldSigningKey;
   vi.restoreAllMocks();
   resetLane(); resetLimiter(); resetIsochroneLimiter(); resetReleaseCache(); assistantRuns.resetForTests();
   closeMetadataDb(); resetQueryInstance();
@@ -273,6 +371,8 @@ describe("a service address carrying a key", () => {
       ["a refused scheme", await save({ isochroneUrl: address("isochroneUrl").replace(/^http:/, "ftp:") })],
       ["past the length", await save({ overpassUrl: `${address("overpassUrl")}&pad=${"x".repeat(4096)}` })],
       ["not an address", await save({ s3Endpoint: address("s3Endpoint").replace("http://", "") })],
+      ["a tile template missing its placeholders", await save({ satelliteUrl: address("satelliteUrl").replace("/{z}/{x}/{y}", "") })],
+      ["a tile template in blocked space", await save({ satelliteUrl: address("satelliteUrl", { host: "10.0.0.7" }) })],
       ["a member's change", await ask("PATCH", "/api/instance/settings", { geocoderUrl: address("geocoderUrl") }, "member")],
       ["a member's read", await ask("GET", "/api/instance/settings", undefined, "member")],
     ] as const;
@@ -367,7 +467,7 @@ describe("a service address carrying a key", () => {
   });
 
   it("Tested from the page and through the generated tool, failing and passing, and Clear's answers", async () => {
-    for (const service of ["geocode", "isochrone", "overpass", "overture", "s3"]) {
+    for (const service of ["geocode", "isochrone", "overpass", "overture", "s3", "satellite"]) {
       const tested = await ask("POST", `/api/instance/services/${service}/test`);
       expect(tested.body, tested.text).toMatchObject({ service, result: "passed" });
       searched(`the ${service} Test's answer`, tested.text);
@@ -379,7 +479,11 @@ describe("a service address carrying a key", () => {
     const failed = await ask("POST", "/api/instance/services/geocode/test");
     expect(failed.body, failed.text).toMatchObject({ service: "geocode", result: "failed", reason: "status", status: 503 });
     searched("a failed Test's answer", failed.text);
-    await save({ geocoderUrl: address("geocoderUrl") });
+    await save({ satelliteUrl: address("satelliteUrl", { fault: "down" }) });
+    const imageryDown = await ask("POST", "/api/instance/services/satellite/test");
+    expect(imageryDown.body, imageryDown.text).toMatchObject({ service: "satellite", result: "failed", reason: "status", status: 503 });
+    searched("the satellite imagery's failed Test answer", imageryDown.text);
+    await save({ geocoderUrl: address("geocoderUrl"), satelliteUrl: address("satelliteUrl") });
     const cleared = await ask("DELETE", "/api/instance/caches");
     expect(cleared.status, cleared.text).toBe(200);
     searched("Clear's answer", cleared.text);
@@ -389,12 +493,15 @@ describe("a service address carrying a key", () => {
   });
 
   it("set through the generated tool: its answer and its refusal", async () => {
-    const kept = await executeTool(tool("update_instance_settings"), { overpassUrl: address("overpassUrl") }, BASE, toolFetch);
+    const kept = await executeTool(tool("update_instance_settings"), { overpassUrl: address("overpassUrl"), satelliteUrl: address("satelliteUrl") }, BASE, toolFetch);
     expect(kept.status, JSON.stringify(kept.body)).toBe(200);
     searched("the generated tool's change answer", kept.body, { origin });
     const refused = await executeTool(tool("update_instance_settings"), { geocoderUrl: address("geocoderUrl", { host: "10.0.0.7" }) }, BASE, toolFetch);
     expect(refused.status).toBe(400);
     searched("the generated tool's refusal", refused.body);
+    const refusedTemplate = await executeTool(tool("update_instance_settings"), { satelliteUrl: address("satelliteUrl").replace("{y}", "") }, BASE, toolFetch);
+    expect(refusedTemplate.status).toBe(400);
+    searched("the generated tool's refusal of a tile template", refusedTemplate.body);
     await reads("set through the generated tool", "stored");
   });
 
@@ -402,7 +509,7 @@ describe("a service address carrying a key", () => {
     const scope = testAccountScope(metadataDb(), ADMIN);
     const pending = new PendingActionStore();
     const provider = stubProvider([
-      { text: "", toolCalls: [{ id: "point-travel-time", name: "update_instance_settings", args: { isochroneUrl: address("isochroneUrl") } }] },
+      { text: "", toolCalls: [{ id: "point-travel-time", name: "update_instance_settings", args: { isochroneUrl: address("isochroneUrl"), satelliteUrl: address("satelliteUrl") } }] },
       { text: "Done.", toolCalls: [] },
     ]);
     const message = "Use our routing service";
@@ -414,7 +521,7 @@ describe("a service address carrying a key", () => {
     const question = asked.find(event => event.type === "confirm_required");
     if (question?.type !== "confirm_required") throw new Error("expected a confirmation");
     searched("the assistant's confirmation", question, { origin });
-    expect(question.args).toEqual({ isochroneUrl: origin });
+    expect(question.args).toEqual({ isochroneUrl: origin, satelliteUrl: origin });
     searched("the assistant's events before the decision", asked, { origin });
     const waiting = await ask("GET", "/api/assistant/pending");
     expect(waiting.status).toBe(200);
@@ -427,7 +534,7 @@ describe("a service address carrying a key", () => {
     searched("the assistant's events after the decision", done, { origin });
     const record = await ask("GET", `/api/assistant/runs/${receipt.id}`);
     expect(record.status).toBe(200);
-    expect(record.body.confirmations).toEqual([expect.objectContaining({ decision: "approved", args: { isochroneUrl: origin } })]);
+    expect(record.body.confirmations).toEqual([expect.objectContaining({ decision: "approved", args: { isochroneUrl: origin, satelliteUrl: origin } })]);
     searched("the assistant's stored record", record.text, { origin });
     await reads("set through the embedded assistant", "stored");
   });
@@ -476,15 +583,37 @@ describe("a service address carrying a key", () => {
       expect(locked.status).toBe(409);
       expect(locked.text).toContain(VARIABLE.geocoderUrl);
       searched("the locked refusal", locked.text);
-      const tested = await ask("POST", "/api/instance/services/geocode/test");
-      expect(tested.body, tested.text).toMatchObject({ service: "geocode", result: "passed" });
-      searched("a Test under the variable", tested.text);
+      for (const service of ["geocode", "satellite"]) {
+        const tested = await ask("POST", `/api/instance/services/${service}/test`);
+        expect(tested.body, tested.text).toMatchObject({ service, result: "passed" });
+        searched(`a ${service} Test under the variable`, tested.text);
+      }
       const { view } = await run("geocode_addresses", { input: "addresses", column: "address", name: "located_by_variable" });
       expect(view.body.run.state, view.text).toBe("succeeded");
       searched("a run's view under the variable", view.text, { origin });
     } finally {
       for (const key of KEYS) vi.stubEnv(VARIABLE[key], undefined);
     }
+  });
+
+  it("the imagery style whole for a signed-in request alone, refused to an anonymous one; a publication of a map on Satellite assembled afresh", async () => {
+    const style = await ask("GET", SATELLITE_STYLE_URL);
+    expect(style.status, style.text).toBe(200);
+    // The one place the template is whole: a browser drawing the imagery loads it.
+    expect(leaks(style.text)).toEqual(expect.arrayContaining([...SAVED]));
+    const anonymous = await imageryRoute(socketRequest(new Request(`${BASE}${SATELLITE_STYLE_URL}`)));
+    expect(anonymous.status).toBe(401);
+    searched("the imagery style refused to an anonymous request", await anonymous.text());
+    const scope = testAccountScope(metadataDb(), ADMIN);
+    const map = createMap(scope, "Harbour from above").id;
+    updateMap(scope, map, { basemap: "satellite" }, { expectedRevision: readDocumentRevision({ kind: "map", id: map })?.editRevision });
+    const { token } = publishMap(scope, map, { theme: "dark" }, { expectedRevision: readDocumentRevision({ kind: "map", id: map })?.editRevision });
+    resetPublishCache();
+    const view = await publishedRoute(socketRequest(new Request(`${BASE}/api/published/${token}`)), { params: Promise.resolve({ token }) });
+    const text = await view.text();
+    expect(view.status, text).toBe(200);
+    expect(JSON.parse(text).basemapUrl).toBe(SATELLITE_STYLE_URL);
+    searched("a publication of a map on Satellite, assembled afresh", text);
   });
 
   it("recorded before origins were: a run, its dataset and an OpenStreetMap import read as scheme and host, their rows untouched", async () => {
@@ -518,6 +647,78 @@ describe("a service address carrying a key", () => {
     expect(JSON.stringify(params(imported))).toBe(importBefore);
   });
 
+  it.skipIf(!RENDER)("the image half, a tile host that stalls: the stall fixture records the seeded tile requests, the render abandons them, and its answer and both servers' log lines hold no key", async () => {
+    // Every tile request is recorded; the first one the viewport needs is
+    // held open for ever, the rest answered, as the map check's stall test
+    // does: only a tile the viewport needs holds the map's idle.
+    const asked: string[] = [];
+    const held: ServerResponse[] = [];
+    const stall = createServer((req, res) => {
+      asked.push(req.url ?? "");
+      if (held.length === 0 && Number(new URL(req.url ?? "", "http://fixture").pathname.split("/")[2]) >= 10) { held.push(res); return; }
+      res.writeHead(200, { "content-type": "image/png", "access-control-allow-origin": "*" });
+      res.end(TILE);
+    });
+    await new Promise<void>(resolve => stall.listen(0, "127.0.0.1", () => resolve()));
+    try {
+      const at = (stall.address() as AddressInfo).port;
+      const kept = await save({ satelliteUrl: address("satelliteUrl", { at, user: false }) });
+      expect(kept.status, kept.text).toBe(200);
+      const { map, scope } = await imageryMap("At a tile host that stalls");
+      const before = { lines: lines.length, log: serverLogSize() };
+      const result = await lookAtMap(scope, { mapId: map, credential: renderCredential(), baseUrl: `http://127.0.0.1:${RENDER!.port}` });
+      const rendered = lines.slice(before.lines);
+      searched("the stalled image's answer", { composition: result.composition, attribution: result.attribution, state: result.state, mapName: result.mapName });
+      searched("this process's log lines over the stalled render", rendered.join("\n"));
+      searched("the standalone's log lines over the stalled render", serverLogSince(before.log));
+      // The stalled branch ran: the seeded tile requests reached the fixture,
+      // one was held, and the render abandoned it, saying so in its own log line.
+      expect(held.length, "tile requests the stall fixture held").toBe(1);
+      expect(asked.length, "tile requests the stall fixture recorded").toBeGreaterThan(1);
+      for (const url of asked) {
+        expect(url, "a tile request carries the seeded path key").toContain(SAVED[1]);
+        expect(url, "a tile request carries the seeded query key").toContain(SAVED[2]);
+      }
+      expect(result.composition.abandoned.length, "requests the render abandoned").toBeGreaterThan(0);
+      expect(new Set(result.composition.abandoned), "the hosts the render names").toEqual(new Set(["127.0.0.1"]));
+      expect(rendered.some(line => line.startsWith("warn: ") && line.includes("abandoned")), "the stalled branch's log line").toBe(true);
+    } finally {
+      for (const res of held) res.destroy();
+      stall.closeAllConnections();
+      await new Promise<void>(resolve => stall.close(() => resolve()));
+    }
+  }, 120_000);
+
+  it.skipIf(!RENDER)("the image half, a host the renderer's egress check refuses: the export answers the egress refusal, nothing reaches the host, and the refusal and both servers' log lines hold no key", async () => {
+    const reached: string[] = [];
+    const host = createServer((req, res) => { reached.push(req.url ?? ""); res.writeHead(200, { "content-type": "image/png" }); res.end(TILE); });
+    await new Promise<void>(resolve => host.listen(0, "127.0.0.1", () => resolve()));
+    try {
+      const at = (host.address() as AddressInfo).port;
+      // Kept while the allowlist named the host; the renderer's check, made
+      // in this process at use, no longer does.
+      const kept = await save({ satelliteUrl: address("satelliteUrl", { at, user: false }) });
+      expect(kept.status, kept.text).toBe(200);
+      const { map, scope } = await imageryMap("At a host the egress check refuses");
+      const before = { lines: lines.length, log: serverLogSize() };
+      vi.stubEnv("DEZFIL_EGRESS_ALLOWLIST", "");
+      let refused: Answer;
+      try {
+        refused = await ask("POST", `/api/maps/${map}/export/image`, { definition: lookDefinition(mapWithLayers(scope, map), "light") });
+      } finally { vi.stubEnv("DEZFIL_EGRESS_ALLOWLIST", "127.0.0.1"); }
+      // The refused branch ran: the export answered the renderer's egress refusal.
+      expect(refused.status, refused.text).toBe(502);
+      searched("the export's egress refusal", refused.text);
+      expect(refused.body).toEqual({ error: { code: "render_failed", message: EGRESS_REFUSAL } });
+      expect(reached, "requests that reached the refused host").toEqual([]);
+      searched("this process's log lines over the refused render", lines.slice(before.lines).join("\n"));
+      searched("the standalone's log lines over the refused render", serverLogSince(before.log));
+    } finally {
+      host.closeAllConnections();
+      await new Promise<void>(resolve => host.close(() => resolve()));
+    }
+  }, 120_000);
+
   it("the server's log lines over the battery hold neither key", () => {
     // The sinks were the console's for the whole run: nothing put them back.
     for (const sink of SINKS) expect(vi.isMockFunction(console[sink]), sink).toBe(true);
@@ -529,7 +730,6 @@ describe("a service address carrying a key", () => {
   it("the data folder, the metadata database file first, holds no key the battery set, in any form the search knows", async () => {
     resetLane(); resetLimiter(); resetIsochroneLimiter();
     closeMetadataDb(); resetQueryInstance();
-    const data = path.join(dir, "data");
     const files = readdirSync(data, { recursive: true, withFileTypes: true }).filter(entry => entry.isFile())
       .map(entry => path.relative(data, path.join(entry.parentPath, entry.name)));
     expect(files).toContain("metadata.sqlite");

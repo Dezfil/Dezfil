@@ -3,9 +3,8 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { renderToStaticMarkup } from "react-dom/server";
-import { afterEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
-import { availableBasemaps } from "@/lib/basemap";
 import { BasemapThumb } from "./BasemapThumb";
 
 const PUBLIC_DIR = fileURLToPath(new URL("../../../public/", import.meta.url));
@@ -21,10 +20,6 @@ function captures(html: string): string[] {
 }
 
 describe("BasemapThumb", () => {
-  afterEach(() => {
-    delete process.env.DEZFIL_SATELLITE_URL;
-  });
-
   it("paints the imagery card with a capture that is really in the tree", () => {
     const asked = captures(renderToStaticMarkup(<BasemapThumb style="satellite" />));
 
@@ -58,12 +53,5 @@ describe("BasemapThumb", () => {
     expect(captures(filled)).toEqual(["/basemaps/thumbs/dark.webp", "/basemaps/thumbs/light.webp"]);
     expect(captures(renderToStaticMarkup(<BasemapThumb style="streets" fill />))).toEqual(["/basemaps/thumbs/streets.webp"]);
     expect(renderToStaticMarkup(<BasemapThumb style="auto" />)).not.toContain("data-fill");
-  });
-
-  it("offers no imagery card at all until an instance configures imagery", () => {
-    expect(availableBasemaps().map((b) => b.key)).not.toContain("satellite");
-
-    process.env.DEZFIL_SATELLITE_URL = "https://imagery.invalid/{z}/{x}/{y}.png";
-    expect(availableBasemaps().map((b) => b.key)).toContain("satellite");
   });
 });

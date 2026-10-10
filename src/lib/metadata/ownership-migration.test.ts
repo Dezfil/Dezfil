@@ -56,9 +56,10 @@ function account(id: string, status = "active", admin = false) {
 }
 function reopen() { db.close(); db = open(file); }
 // Later entries add their own stamps derived from ownership (SQL names and
-// homes, run initiators, lineage runners) and their own tables; their test
-// holds those. This one holds everything the ownership entry received.
-const laterTables = new Set(["project_people", "ownership_transfer_gate", "step_runner_outputs"]);
+// homes, run initiators, lineage runners) and their own tables (the
+// basemap library's among them); their tests hold those. This one holds
+// everything the ownership entry received.
+const laterTables = new Set(["project_people", "ownership_transfer_gate", "step_runner_outputs", "basemap_styles"]);
 function snapshot() {
   const names = (db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name").all() as { name: string }[])
     .map(row => row.name).filter(name => !laterTables.has(name));

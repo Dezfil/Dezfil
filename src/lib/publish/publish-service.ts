@@ -19,6 +19,7 @@ import {
   layerFieldStats,
   type LayerRenderData,
 } from "@/lib/layer-service";
+import type { BasemapKey, BasemapKind, AttributionLine } from "@/lib/basemap";
 import {
   autoBasemapUrlForTheme,
   basemapFollowsTheme,
@@ -26,10 +27,7 @@ import {
   resolveBasemapUrl,
   resolveBasemapKind,
   resolveBasemapAttribution,
-  type BasemapKey,
-  type BasemapKind,
-  type AttributionLine,
-} from "@/lib/basemap";
+} from "@/lib/basemap-offer";
 import type { LayerStyle } from "@/lib/style/style";
 import {
   effectiveStyle,

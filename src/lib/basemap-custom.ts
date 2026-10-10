@@ -6,9 +6,19 @@
  * intent and carry the hostname as credit, and not-a-style never saves.
  * The stored basemap key is never touched here — removal elsewhere
  * simply reveals it again.
+ *
+ * A style the instance's basemap library offers is taken by its id: the
+ * map keeps its own copy of the row's name, address and credit, read from
+ * the library as it stands, and nothing is fetched. The copy is stored as a
+ * pasted style is, so hiding or removing the row later changes no map. The
+ * id travels on with the copy: the write that stores it asks the library
+ * again, so a style hidden or removed while the request was on its way is
+ * refused as it would have been before.
  */
 
 import { ApiError } from "@/lib/api/errors";
+import { libraryStyle } from "@/lib/basemap-library";
+import { libraryStyleNotOffered } from "@/lib/basemap-rule";
 import type { CustomBasemap } from "@/lib/metadata/maps";
 import { inspectStyle } from "@/lib/net/inspect-style";
 
@@ -23,20 +33,23 @@ function invalid(message: string): never {
  * Validate and inspect a stated `customBasemap` write. Returns the
  * value to store — null clears. Throws the documented invalid_request
  * wordings for malformed shapes, non-style URLs, and unforced warning
- * verdicts.
+ * verdicts. `admit` may refuse a pasted address before it is inspected.
  */
 export async function resolveCustomBasemapWrite(
   stated: unknown,
   inspect: typeof inspectStyle = inspectStyle,
+  library: typeof libraryStyle = libraryStyle,
+  admit: (url: string) => void = () => {},
 ): Promise<CustomBasemap | null> {
   if (stated === null) return null;
   if (typeof stated !== "object" || Array.isArray(stated)) {
     invalid(
-      "customBasemap must be { url, name?, force? }, or null to remove " +
-        "the custom style.",
+      "customBasemap must be { url, name?, force? }, { libraryStyle }, or " +
+        "null to remove the custom style.",
     );
   }
   const o = stated as Record<string, unknown>;
+  if (o.libraryStyle !== undefined) return fromLibrary(o, library);
   if (typeof o.url !== "string" || !o.url.trim()) {
     invalid("customBasemap.url must be a non-empty string.");
   }
@@ -60,6 +73,8 @@ export async function resolveCustomBasemapWrite(
   }
   const force = o.force === true;
 
+  // An address the instance would refuse is refused before it is read.
+  admit(url);
   const inspection = await inspect(url);
   switch (inspection.verdict) {
     case "valid": {
@@ -87,4 +102,16 @@ export async function resolveCustomBasemapWrite(
   }
   // Exhaustive over the verdicts; TypeScript sees the invalid() throws.
   invalid("The style inspection returned no verdict.");
+}
+
+/** The library road: the row's name, address and credit, copied as they
+ * stand, fetching nothing. Only a style the library offers now is taken. */
+function fromLibrary(o: Record<string, unknown>, library: typeof libraryStyle): CustomBasemap {
+  if (Object.keys(o).some((key) => key !== "libraryStyle")) {
+    invalid("customBasemap takes either { libraryStyle } or { url, name?, force? }, not both.");
+  }
+  const id = o.libraryStyle;
+  const style = typeof id === "string" && id ? library(id) : null;
+  if (!style || !style.offered) throw libraryStyleNotOffered();
+  return { url: style.url, name: style.name, attribution: style.attribution };
 }

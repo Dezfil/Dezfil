@@ -89,7 +89,8 @@ export const INSTANCE_SERVICES_PATHS = {
       "Cookie requests require the same trusted Origin; an admin bearer token calls directly. Responses, including refusals, are private, no-store. " +
       "Sends the service one fixed request at its address in effect, never one given here: geocode (the address finder) one search for a fixed place, " +
       "isochrone (travel time) one area on foot round a fixed point for the shortest band, overpass (OpenStreetMap) the smallest Overpass query, " +
-      "overture a listing of the releases, s3 one request to the S3 address's root without credentials. It goes the way the service's own requests go: " +
+      "overture a listing of the releases, s3 one request to the S3 address's root without credentials, satellite one fixed low-zoom tile " +
+      "(zoom 3, x 4, y 2) at the imagery's tile template within 10 seconds, passing when the answer is an image. It goes the way the service's own requests go: " +
       "through the egress check, redirects included, and after the gap between requests for the address finder and travel time. " +
       "It reaches outside this server and stores nothing: no setting changes and no cache is read or written, except that the Overture Test keeps the " +
       "release list it finds, as Check now does. A second Test of a service while one runs gets the same answer from the same request. " +
@@ -103,7 +104,7 @@ export const INSTANCE_SERVICES_PATHS = {
       consequence: "This server sends one request to the service at its address in effect. Nothing is saved, except that a Test of Overture keeps the release list it finds.",
       subject: { path: null, argument: "service", name: "" } },
     parameters: [{ name: "service", in: "path", required: true, schema: { type: "string", enum: [...TESTED_SERVICES] },
-      description: "The service to test: geocode, isochrone, overpass, overture or s3." }],
+      description: "The service to test: geocode, isochrone, overpass, overture, s3 or satellite (the imagery's tile template)." }],
     responses: { "200": jsonOk("#/components/schemas/ServiceTestAnswer"), "400": ERROR_RESPONSE, "401": ERROR_RESPONSE, "403": ERROR_RESPONSE, "404": ERROR_RESPONSE, "503": ERROR_RESPONSE },
   }), security: AUTH_SECURITY } },
 };

@@ -34,6 +34,7 @@ export const DEFAULTS = {
   "security.failedPerAddress": 20, "security.passwordMin": 8, "tokens.create": "everyone", "tokens.expiry": "never",
   "publishing.publish": "everyone", "publishing.embedding": "any", "publishing.embedSites": [],
   "connections.create": "everyone", "imports.links": "everyone",
+  "basemaps.dark": true, "basemaps.light": true, "basemaps.streets": true, "basemaps.satellite": true, "basemaps.singleMapStyles": true,
   "maps.view": "grid", "maps.sort": "edited", "data.view": "grid", "data.sort": "updated",
   "workflows.view": "grid", "workflows.sort": "edited", "projects.view": "grid", "projects.sort": "updated",
   sourceGrouping: "person", "look.color": "kelp", "look.contrast": "standard", "look.font": "inter",

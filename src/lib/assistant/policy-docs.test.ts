@@ -22,8 +22,9 @@ import { POLICY_REFUSAL_CODE } from "./policy";
  * directory search one. Self-departure adds one. Account deletion adds preview,
  * confirmation, unfinished status and continuation. Instance configuration adds one read.
  * Clearing the services' caches adds one, and a service's Test one. A
- * part's Test adds one, and the storage read one. */
-const GENERATED_TOOLS = 147;
+ * part's Test adds one, and the storage read one. The basemap library adds
+ * three: add, offer or hide, remove. */
+const GENERATED_TOOLS = 150;
 
 describe("the page action policy is documented", () => {
   const document = buildOpenApiDocument();

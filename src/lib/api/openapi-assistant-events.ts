@@ -11,7 +11,7 @@ export const ASSISTANT_EVENT_SCHEMAS = {
       writes: { type: "array", items: {
         type: "object", required: ["resource", "ids", "collection"],
         properties: {
-          resource: { type: "string", enum: ["maps", "layers", "tables", "publications", "recipes", "runs", "projects", "connections", "palettes", "settings", "caches", "assistant"] },
+          resource: { type: "string", enum: ["maps", "layers", "tables", "publications", "recipes", "runs", "projects", "connections", "palettes", "settings", "caches", "basemaps", "assistant"] },
           ids: { type: "array", items: { type: "string" } },
           collection: { type: "boolean", description: "True when a narrower identity cannot be established." },
         },
@@ -26,7 +26,7 @@ export const ASSISTANT_EVENT_SCHEMAS = {
     type: "object", required: ["resource"],
     description: "The subject of an action as resolved when it happened: its resource, its identity when the call or response named one, and its display name when one was carried. A later rename or deletion does not change it.",
     properties: {
-      resource: { type: "string", enum: ["maps", "layers", "tables", "publications", "recipes", "runs", "projects", "connections", "palettes", "settings", "caches", "assistant"] },
+      resource: { type: "string", enum: ["maps", "layers", "tables", "publications", "recipes", "runs", "projects", "connections", "palettes", "settings", "caches", "basemaps", "assistant"] },
       id: { type: "string" }, name: { type: "string" },
     },
   },

@@ -70,7 +70,9 @@ it("measures JSON reader counts and rejects a stale tier independently", () => {
   const changed = structuredClone(document);
   const body = changed.paths["/api/maps"].post.requestBody as Record<string, unknown>;
   body["x-byte-limit"] = 65_536;
-  expect(checkContractDocs(changed, tools, docs)).toContain("JSON tier 65536 readers: reader says 13, contract requires 14");
+  // One more than whatever the reader says, so the seed is stale by one.
+  const said = Number(docs.api.match(/^\| 65,536 \| (\d+) \|$/m)![1]);
+  expect(checkContractDocs(changed, tools, docs)).toContain(`JSON tier 65536 readers: reader says ${said}, contract requires ${said + 1}`);
   const missingBusy = { ...docs, api: docs.api.replace(/^\| `authentication_busy` \|.*\n/m, "") };
   expect(checkContractDocs(document, tools, missingBusy)).toContain("Reader error catalogue has missing or extra codes");
 });

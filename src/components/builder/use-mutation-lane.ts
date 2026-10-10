@@ -237,6 +237,12 @@ export function useMutationLane({
          * into one step — a legend move followed quickly by its reset
          * would undo to nothing. */
         changeGroup?: string;
+        /** What the server is sent, where it takes by reference what the
+         * map will hold (a library style by its id). The request stays
+         * what the map holds: the optimistic map, its drafts and a lost
+         * response's confirmation all read it, so the builder never draws
+         * a reference as if it were the stored value. */
+        sends?: Record<string, unknown>;
       } = {},
     ): Promise<boolean> => {
       const compose = typeof request === "function" ? request : patchIntent(map, request);
@@ -303,7 +309,7 @@ export function useMutationLane({
                   ? { "X-Change-Group": opts.changeGroup }
                   : null),
               }),
-              body: JSON.stringify(body),
+              body: JSON.stringify(opts.sends ?? body),
             }),
           );
         } catch (cause) {

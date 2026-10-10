@@ -3,11 +3,17 @@ import type { Look } from "@/lib/look";
 import { PARTS } from "@/lib/system/part-test-answer";
 import { STORAGE_KINDS } from "@/lib/system/storage-answer";
 import type { ApiToken } from "@/lib/metadata/auth-credentials";
+import type { CustomPalette } from "@/lib/metadata/palettes";
 import { LANDING_PAGES } from "@/components/auth/entry-settings";
 import { DEFAULTS_TABS, rowValueWords, type DefaultsTabId } from "./defaults-table";
 import type { InstanceRead } from "./instance-read";
 import { cardSetUp, DATA_CARDS, dataRowWords } from "./data-table";
+import {
+  BASEMAPS_CARD, BUILT_IN_META, builtInMeta, builtInRows, hostOf, libraryStyleRowId, offeredWords, SATELLITE_ADDRESS_ROW, SATELLITE_CARD,
+  SATELLITE_CREDIT_ROW, satelliteAddressWords, SINGLE_MAP_ROW, switchOn,
+} from "./libraries-table";
 import { capacityText, LIMITS_CARDS, withShownUnit } from "./limits-table";
+import { colorsWords, PALETTES_CARD, paletteRowId } from "./palettes-table";
 import { choiceLabel, LOOK_CARDS } from "./look-tab";
 import { CONNECTIONS_CARD, PUBLIC_LINKS_CARD, ruleRowWords, SECURITY_CARDS, type RuleCard } from "./security-table";
 import { formatSettingNumber } from "./server-set";
@@ -20,8 +26,9 @@ import { providerName, serverSettingsRows, type AssistantStatus } from "./system
  * What each tab declares to the search: its cards and rows, under the ids
  * the tab draws them with, by the labels it shows, from the same reads the
  * tab draws from. Password fields and a new token's secret are declared
- * secret, so the search never reads them. A service's address field never
- * reports what is typed in it, so an address's key never reaches the index.
+ * secret, so the search never reads them. A service's address field and
+ * the satellite imagery's tile address never report what is typed in
+ * them, so an address's key never reaches the index.
  */
 
 /** The entry screen's values, as a member's General shows them. */
@@ -43,6 +50,8 @@ export interface IndexSources {
   readonly entry: EntryValues | null;
   readonly health: "ready" | "unready" | null;
   readonly assistant: AssistantStatus | null;
+  /** The saved palettes, from the palette read, for an admin's Libraries. */
+  readonly palettes: readonly CustomPalette[] | null;
 }
 
 /** A token's state, as its row in the list says it: Revoked, or Expired once
@@ -129,6 +138,32 @@ function dataCards(read: InstanceRead): IndexCard[] {
   }), ...ruleCards([CONNECTIONS_CARD], read)];
 }
 
+/** Libraries: each basemap row by its name, what it says under it and
+ * Offered or Hidden; the single-map switch; the tile address as the read
+ * discloses it and the credit; each saved palette by its name and how
+ * many colors. Never an address's whole text, and never the add forms'
+ * fields, which are not on screen until opened. */
+function librariesCards(read: InstanceRead, palettes: readonly CustomPalette[] | null | undefined): IndexCard[] {
+  const settings = read.settings;
+  return [
+    { ...BASEMAPS_CARD, rows: [
+      ...builtInRows(settings).map(row => ({ id: row.id, label: row.label, keys: row.keys,
+        value: offeredWords(builtInMeta(row, settings) || BUILT_IN_META, switchOn(settings, row.setting)) })),
+      ...(read.basemapStyles ?? []).map(style => ({ id: libraryStyleRowId(style.id), label: style.name, keys: "basemap style added library",
+        value: offeredWords(hostOf(style.url), style.offered) })),
+      { id: SINGLE_MAP_ROW.id, label: SINGLE_MAP_ROW.label, keys: SINGLE_MAP_ROW.keys,
+        value: switchOn(settings, SINGLE_MAP_ROW.key) ? SINGLE_MAP_ROW.on : "Not allowed" },
+    ] },
+    { ...SATELLITE_CARD, rows: [
+      { id: SATELLITE_ADDRESS_ROW.id, label: SATELLITE_ADDRESS_ROW.label, keys: SATELLITE_ADDRESS_ROW.keys, value: satelliteAddressWords(settings) },
+      { id: SATELLITE_CREDIT_ROW.id, label: SATELLITE_CREDIT_ROW.label, keys: SATELLITE_CREDIT_ROW.keys,
+        value: typeof settings[SATELLITE_CREDIT_ROW.key]?.value === "string" ? settings[SATELLITE_CREDIT_ROW.key].value as string : "" },
+    ] },
+    { ...PALETTES_CARD, rows: (palettes ?? []).map(palette => ({ id: paletteRowId(palette.name), label: palette.label, keys: "saved palette ramp",
+      value: colorsWords(palette.stops.length) })) },
+  ];
+}
+
 function limitsCards(read: InstanceRead): IndexCard[] {
   return LIMITS_CARDS.map(card => ({ id: card.id, title: card.title, keys: card.keys, rows: card.rows.map(row => {
     const value = row.kind === "capacity" ? capacityText(row.of, row.of === "geocode" ? read.capacities.geocodeRows : read.capacities.isochroneOrigins)
@@ -189,7 +224,8 @@ export function settingsDeclarations(sources: IndexSources, admin: boolean): Tab
     appearance: appearanceCards(sources.look),
     ...(general ? { general: generalCards(general) } : {}),
     ...(admin && sources.instance ? {
-      maps: defaultsCards("maps", sources.instance), workflows: defaultsCards("workflows", sources.instance),
+      maps: defaultsCards("maps", sources.instance), libraries: librariesCards(sources.instance, sources.palettes),
+      workflows: defaultsCards("workflows", sources.instance),
       publishing: [...ruleCards([PUBLIC_LINKS_CARD], sources.instance), ...defaultsCards("publishing", sources.instance)],
       data: dataCards(sources.instance),
       limits: limitsCards(sources.instance), security: ruleCards(SECURITY_CARDS, sources.instance),

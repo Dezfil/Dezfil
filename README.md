@@ -38,8 +38,9 @@ the volume works, but state then lasts only for that container's lifetime.
 On first run, create the initial admin account. Application pages and APIs
 require a session or an account API token; admins manage accounts in Users,
 and the instance name, the sign-in page, the defaults for new maps, layers and
-screens, the limits, the services' addresses and numbers, and the sign-in,
-token, publishing, connection and import rules in Settings.
+screens, the basemaps on offer, the satellite imagery and the saved palettes,
+the limits, the services' addresses and numbers, and the sign-in, token,
+publishing, connection and import rules in Settings.
 Each person picks their own look on the **Appearance** tab of Settings: color,
 contrast, background, typeface, corners and how the side menu opens. The look is
 kept with the account, so it shows from the first paint in every browser that
@@ -86,12 +87,13 @@ before using it.
 ## Configuration
 
 Every deployment setting below is optional; pass them as `-e NAME=value`
-on `docker run`. The editable limits, the four service addresses and the
-services' gaps, answer limits and freshness also accept stored admin changes,
-marked **App (live) or restart**, made on the **Limits** and **Data & services**
-tabs of Settings; a setting its variable sets shows locked there, naming the
-variable. A stored address is kept encrypted and reads back as its scheme and
-host alone. The **System** tab shows each part of the server (the data
+on `docker run`. The editable limits, the four service addresses, the
+services' gaps, answer limits and freshness, and the satellite imagery's tile
+address and credit also accept stored admin changes, marked
+**App (live) or restart**, made on the **Limits**, **Data & services** and
+**Libraries** tabs of Settings; a setting its variable sets shows locked there,
+naming the variable. A stored address is kept encrypted and reads back as its
+scheme and host alone. The **System** tab shows each part of the server (the data
 folder, the query engine, the tile builder, the image renderer and the
 metadata database) with a Test, what the data folder holds by kind with Clear
 all for the service caches, and every setting a variable decides, with the
@@ -115,6 +117,10 @@ tokens, publish, embed, add database connections and import from links have no
 variable: admins set them on the **Security**, **Publishing** and
 **Data & services** tabs or through
 `PATCH /api/instance/settings`, as [Security and rules](docs/configuration.md#security-and-rules)
+lists. Which basemaps are offered where one is chosen, and whether a single map
+may take a style address the library does not offer, have no variable either:
+admins switch them on the **Libraries** tab, which also keeps the basemap
+library and the saved palettes, as [Libraries](docs/configuration.md#libraries)
 lists.
 
 | Setting | Default | What it controls | Changed by |
@@ -122,7 +128,7 @@ lists.
 | `DEZFIL_DATA_DIR` | ./data; /data in the container | Durable data directory (the mounted volume), including the optional `assistant-models.json` [model catalogue](docs/runbook.md#the-model-catalogue-file). | Restart |
 | `DEZFIL_TRUSTED_PROXIES` | unset | Comma-separated IP addresses or CIDRs of reverse proxy socket peers. Only these peers may supply forwarding information. Configure proxies to replace host/protocol/port forwarding fields and append the actual client address. Direct clients' forwarding headers are discarded. | Restart |
 | `DEZFIL_UPLOAD_MAX_MB` | `5120` | Upload size cap, in MB. | App (live) or restart |
-| `DEZFIL_EGRESS_ALLOWLIST` | unset | Hosts, IPs, or CIDRs the server may fetch for a user despite the egress policy. By default, loopback, private-network, link-local, and cloud-metadata destinations are blocked for every request the policy governs: URL imports and anonymous cloud storage links, PostGIS connections, the address finder, travel time, OpenStreetMap, the Overture release list, custom basemap styles and map image exports. | Restart |
+| `DEZFIL_EGRESS_ALLOWLIST` | unset | Hosts, IPs, or CIDRs the server may fetch for a user despite the egress policy. By default, loopback, private-network, link-local, and cloud-metadata destinations are blocked for every request the policy governs: URL imports and anonymous cloud storage links, PostGIS connections, the address finder, travel time, OpenStreetMap, the Overture release list, custom basemap styles, map image exports and the satellite imagery's Test. | Restart |
 | `DEZFIL_REMOTE_TIMEOUT_S` | `300` | Time bound for one whole remote fetch (URL and object-store imports), redirects and body included. | App (live) or restart |
 | `DEZFIL_REMOTE_MAX_MB` | `2048` | Size cap for one remote import (URL and object-store), in MB. | App (live) or restart |
 | `DEZFIL_OBJECT_STORE_CREDENTIALS` | off | Opt-in (`true`): sign `s3://`/`gs://`/`az://` imports with the instance's own credential chain. Off, object-store reads are anonymous — users can only read what the public can. | Restart |
@@ -147,8 +153,8 @@ lists.
 | `DEZFIL_TIPPECANOE` | `tippecanoe` | Path to the tippecanoe binary used for tile builds. | Restart |
 | `DEZFIL_BASEMAP_URL` | built-in styles | MapLibre style URL for the basemap. | Restart |
 | `DEZFIL_BASEMAP_ATTRIBUTION` | unset | Credit line shown on maps that use `DEZFIL_BASEMAP_URL`. Unset, no credit is shown for the override: the built-in credit would name a provider that is not serving the tiles. | Restart |
-| `DEZFIL_SATELLITE_URL` | unset | Raster tile URL template (`{z}/{y}/{x}`) for satellite imagery, with your own key or token. No imagery ships with the app; unset, no imagery basemap is offered at all. | Restart |
-| `DEZFIL_SATELLITE_ATTRIBUTION` | unset | Credit line the imagery provider requires, shown on every map using it and stored with anything published from one. | Restart |
+| `DEZFIL_SATELLITE_URL` | unset | Raster tile URL template (`{z}/{y}/{x}`) for satellite imagery, with your own key or token. No imagery ships with the app; unset and with no tile address stored on the **Libraries** tab, no imagery basemap is offered at all. | App (live) or restart |
+| `DEZFIL_SATELLITE_ATTRIBUTION` | unset | Credit line the imagery provider requires, shown on every map using it and stored with anything published from one. An admin can store it on the **Libraries** tab instead. | App (live) or restart |
 | `DEZFIL_GEOCODER_URL` | unset | Nominatim-compatible `/search` endpoint for place search in the builder **and for the batch geocoding operation** (key query parameters travel with it, server-side only). Unset, search still answers layers, values, and coordinates, and the geocode operation is not offered. Public Nominatim expects at most one request per second; see `DEZFIL_GEOCODE_PACE_MS`. | App (live) or restart |
 | `DEZFIL_ISOCHRONE_URL` | unset | Valhalla-compatible `/isochrone` endpoint for the travel-time-area operation (key query parameters travel with it, server-side only). Unset, the verb stays visible and refuses with a sentence naming this setting. | App (live) or restart |
 | `DEZFIL_ISOCHRONE_PACE_MS` | `1000` | Milliseconds between isochrone requests — one exchange in flight at a time, this endpoint's own pace. | App (live) or restart |

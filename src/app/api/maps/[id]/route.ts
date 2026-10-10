@@ -18,6 +18,7 @@ import { mapWriteChangesPublication } from "@/lib/publication-settings";
 import { mapPresence } from "@/lib/reach-presence";
 import { isBasemapKey, type BasemapKey } from "@/lib/basemap";
 import { resolveCustomBasemapWrite } from "@/lib/basemap-custom";
+import { requireAllowedStyleAddress } from "@/lib/basemap-rule";
 import type { CustomBasemap, Viewport } from "@/lib/metadata/maps";
 
 type Params = { params: Promise<{ id: string }> };
@@ -58,6 +59,7 @@ export async function PATCH(request: Request, { params }: Params) {
       viewport?: Viewport;
       basemap?: BasemapKey | null;
       customBasemap?: CustomBasemap | null;
+      libraryStyle?: string;
       basemapLayers?: unknown;
       legendCorner?: unknown;
       legendOrder?: unknown;
@@ -120,9 +122,17 @@ export async function PATCH(request: Request, { params }: Params) {
       // Shape, inspection, and block-vs-force semantics live in the
       // module; the service stores what it returns. The inspection is
       // why this branch alone is asynchronous.
+      // A pasted address this instance does not take now is refused before
+      // the server reads it; the write checks again as it stores.
+      const held = current.customBasemap?.url ?? null;
       fields.customBasemap = await resolveCustomBasemapWrite(
-        body.customBasemap,
+        body.customBasemap, undefined, undefined,
+        (url) => requireAllowedStyleAddress(held, url),
       );
+      // A style taken from the library by its id: the id travels with its
+      // copy into the write, which asks the library again as it stores.
+      const taken = (body.customBasemap as { libraryStyle?: unknown } | null)?.libraryStyle;
+      if (typeof taken === "string") fields.libraryStyle = taken;
     }
     if (body.basemapLayers !== undefined) {
       // Group keys and values are validated in the service — the toggles

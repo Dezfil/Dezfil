@@ -95,6 +95,7 @@ beforeEach(() => {
     if (url === "/api/assistant") return Response.json({ enabled: false, reason: "No model key is set." });
     if (url === "/api/health") return Response.json({ status: "ok" });
     if (url === "/api/instance/storage") return Response.json(storageReadFixture());
+    if (url === "/api/palettes") return Response.json({ custom: [] });
     return Response.json({ error: { code: "not_found", message: "Not found." } }, { status: 404 });
   }));
   openPrivateState("ada");
@@ -153,6 +154,7 @@ describe("the Settings frame", () => {
       { text: "Appearance", href: "/settings/appearance" },
       { text: "General", href: "/settings/general" },
       { text: "Maps", href: "/settings/maps" },
+      { text: "Libraries", href: "/settings/libraries" },
       { text: "Workflows & SQL", href: "/settings/workflows" },
       { text: "Publishing", href: "/settings/publishing" },
       { text: "Data & services", href: "/settings/data" },
@@ -184,6 +186,16 @@ describe("the Settings frame", () => {
     expect(requests).toContain("/api/instance/settings");
   });
 
+  it("draws Libraries for an admin, marked in the column, from the configuration and palette reads", async () => {
+    await open("/settings/libraries");
+    expect(column().querySelectorAll('a[aria-current="page"]').map(a => a.textContent)).toEqual(["Libraries"]);
+    expect(tabContent().getAttribute("data-tab")).toBe("libraries");
+    expect(["card-basemaps", "card-satellite", "card-palettes"].map(id => byId(id)?.tagName)).toEqual(["SECTION", "SECTION", "SECTION"]);
+    expect(requests).toContain("/api/instance/settings");
+    expect(requests).toContain("/api/palettes");
+    expect(readLastTab()).toBe("libraries");
+  });
+
   it("shows a member Account, Tokens, Appearance and General only, and never makes the configuration read", async () => {
     await open("/settings/general", "", "member");
     expect(columnLinks().map(link => link.text)).toEqual(["Account", "Tokens", "Appearance", "General"]);
@@ -191,12 +203,12 @@ describe("the Settings frame", () => {
     expect(requests.every(url => !url.startsWith("/api/instance"))).toBe(true);
   });
 
-  it("opens Account for a member at the addresses of Maps, Workflows & SQL, Publishing and Data & services, rows included, and never reads the configuration", async () => {
+  it("opens Account for a member at the addresses of Maps, Libraries, Workflows & SQL, Publishing and Data & services, rows included, and never reads the configuration or the palettes", async () => {
     await open("/settings/maps", "", "member");
     expect(nav.replace).toHaveBeenLastCalledWith("/settings/account", { scroll: false });
     expect(byId("account")?.tagName).toBe("SECTION");
     for (const [pathname, hash] of [["/settings/workflows", "#set-minimap"], ["/settings/publishing", "#set-export-width"], ["/settings/maps", "#set-basemap"],
-      ["/settings/data", "#set-geocoder-address"], ["/settings/data", ""]]) {
+      ["/settings/data", "#set-geocoder-address"], ["/settings/data", ""], ["/settings/libraries", "#set-custom-styles"], ["/settings/libraries", "#card-palettes"]]) {
       nav.pathname = pathname; nav.hash = hash; await follow();
       expect(nav.replace).toHaveBeenLastCalledWith("/settings/account", { scroll: false });
       expect(byId("account")?.tagName).toBe("SECTION");
@@ -204,8 +216,9 @@ describe("the Settings frame", () => {
     }
     expect(columnLinks().map(link => link.text)).toEqual(["Account", "Tokens", "Appearance", "General"]);
     for (const id of ["card-new-maps", "card-workflow-canvas", "publishing-export", "set-minimap", "set-export-width", "set-basemap",
-      "data-geocoder", "set-geocoder-address", "data-who"]) expect(byId(id)).toBeNull();
+      "data-geocoder", "set-geocoder-address", "data-who", "card-basemaps", "card-satellite", "card-palettes", "set-custom-styles"]) expect(byId(id)).toBeNull();
     expect(requests.every(url => !url.startsWith("/api/instance"))).toBe(true);
+    expect(requests).not.toContain("/api/palettes");
     expect(readLastTab()).toBe("account");
   });
 

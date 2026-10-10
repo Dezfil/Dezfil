@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import type { ApiToken } from "@/lib/metadata/auth-credentials";
+import type { CustomPalette } from "@/lib/metadata/palettes";
 import { normalizeLook } from "@/lib/look";
 import { accountRequest } from "./api";
 import { INSTANCE_SETTINGS, type InstanceRead } from "./instance-read";
@@ -10,8 +11,8 @@ import type { AssistantStatus } from "./system-table";
 export type SearchSources = Partial<Omit<IndexSources, "account">>;
 
 /** The reads a search draws on beyond the account: the person's tokens
- * and look, and the configuration, health and assistant reads for an
- * admin or the entry read for a member. Never a read this person may not
+ * and look, and the configuration, health, assistant and palette reads
+ * for an admin or the entry read for a member. Never a read this person may not
  * make. */
 function readsFor(admin: boolean): [keyof SearchSources, () => Promise<unknown>][] {
   const tokens: [keyof SearchSources, () => Promise<unknown>] = ["tokens", () => accountRequest<{ tokens: ApiToken[] }>("/api/account/tokens").then(body => body.tokens)];
@@ -23,6 +24,7 @@ function readsFor(admin: boolean): [keyof SearchSources, () => Promise<unknown>]
     ["instance", () => accountRequest<InstanceRead>(INSTANCE_SETTINGS)],
     ["health", () => fetch("/api/health", { cache: "no-store" }).then(response => response.ok ? "ready" : "unready", () => "unready")],
     ["assistant", () => accountRequest<AssistantStatus>("/api/assistant")],
+    ["palettes", () => accountRequest<{ custom: CustomPalette[] }>("/api/palettes").then(body => body.custom)],
   ];
 }
 

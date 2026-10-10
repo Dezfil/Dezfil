@@ -284,13 +284,16 @@ const ADDRESS_REFUSED = { ok: false, reason: "Expected an http or https address 
 
 describe("the service addresses", () => {
   it("are editable beside their variables, write-only, read by admins and never secret", () => {
-    expect(SETTING_CATALOGUE.filter(d => d.kind === "address" && d.editable).map(d => d.key)).toEqual(Object.keys(SERVICE_ADDRESSES));
+    // The four services' addresses and the satellite imagery's tile template.
+    expect(SETTING_CATALOGUE.filter(d => d.kind === "address" && d.editable).map(d => d.key))
+      .toEqual(["s3Endpoint", "overpassUrl", "satelliteUrl", "geocoderUrl", "isochroneUrl"]);
     for (const [key, environment] of Object.entries(SERVICE_ADDRESSES)) {
       expect(settingDefinition(key), key).toMatchObject({ scope: "instance", readBy: "admin", changedBy: "admin", kind: "address",
-        environment, environmentTiming: "restart", timing: "live", secret: false, editable: true, write: { kind: "address", maxLength: 2048 } });
+        environment, environmentTiming: "restart", timing: "live", secret: false, editable: true });
+      expect(settingDefinition(key).write, key).toEqual({ kind: "address", maxLength: 2048 });
     }
     // The other addresses stay the deployment's alone.
-    for (const key of ["basemapUrl", "satelliteUrl", "overtureS3Endpoint"]) {
+    for (const key of ["basemapUrl", "overtureS3Endpoint"]) {
       expect(settingDefinition(key), key).toMatchObject({ editable: false, changedBy: "deployment", timing: "next-start" });
       expect(settingDefinition(key).write, key).toBeUndefined();
     }
@@ -341,5 +344,104 @@ describe("the service addresses", () => {
     expect(catalogueProblems(SETTING_CATALOGUE)).toEqual([]);
     const seeded = SETTING_CATALOGUE.map(definition => definition.key === key ? { ...definition, ...change } as SettingDefinition : definition);
     expect(catalogueProblems(seeded)).toContain(`${key}: ${problem}`);
+  });
+});
+
+/** Which basemaps the instance offers where one is chosen, and whether a
+ * map may take a style address of its own: switches an admin turns, on by
+ * default, read by every signed-in account and set by no variable. */
+const BASEMAP_SWITCHES = ["basemaps.dark", "basemaps.light", "basemaps.streets", "basemaps.satellite", "basemaps.singleMapStyles"] as const;
+
+describe("the basemap switches", () => {
+  it("are the five, on by default, changed by admins and read by every signed-in account, with no variable, never secret and never locked", () => {
+    expect(SETTING_CATALOGUE.filter(d => d.key.startsWith("basemaps.")).map(d => d.key)).toEqual([...BASEMAP_SWITCHES]);
+    for (const key of BASEMAP_SWITCHES) {
+      const definition = settingDefinition(key);
+      expect(definition, key).toMatchObject({ scope: "instance", readBy: "signed-in", changedBy: "admin", kind: "boolean",
+        timing: "live", secret: false, editable: true, defaultValue: true, documentedDefault: "on" });
+      expect(definition.write, key).toEqual({ kind: "switch" });
+      expect(definition.label, key).not.toBe("");
+      expect(definition.environment, key).toBeUndefined();
+      expect(lockedEnvironment(definition), key).toBeUndefined();
+      for (const value of [true, false]) expect(validateStoredValue(definition, value), key).toEqual({ ok: true, value });
+      for (const value of ["on", "false", 1, 0, "", [], {}, undefined]) expect(validateStoredValue(definition, value).ok, `${key}: ${String(value)}`).toBe(false);
+      expect(validateStoredValue(definition, null), key).toEqual({ ok: true, value: null });
+    }
+    // Neither what new things start with nor a rule.
+    expect(BASEMAP_SWITCHES.filter(key => isInstanceDefault(settingDefinition(key)))).toEqual([]);
+    expect(catalogueProblems(SETTING_CATALOGUE)).toEqual([]);
+  });
+
+  it.each(BASEMAP_SWITCHES.flatMap(key => [
+    [key, "variable", { environment: "DEZFIL_BASEMAPS_SEEDED", environmentTiming: "restart" }, "signed-in variable"],
+    [key, "secret mark", { secret: true }, "signed-in secret"],
+  ] as const))("%s fails the catalogue with a seeded %s", (key, _seed, change, problem) => {
+    expect(catalogueProblems(SETTING_CATALOGUE)).toEqual([]);
+    const seeded = SETTING_CATALOGUE.map(definition => definition.key === key ? { ...definition, ...change } : definition);
+    expect(catalogueProblems(seeded)).toContain(`${key}: ${problem}`);
+  });
+});
+
+/** The satellite imagery's tile template and credit, as seeded keys would travel in them. */
+const TEMPLATE = "https://seed-user:SEEDED-KEY-0002-USER@imagery.example/SEEDED-KEY-0002-PATH/{z}/{x}/{y}.jpg?key=SEEDED-KEY-0002-QUERY";
+
+describe("the satellite rows", () => {
+  it("keep their variables and become editable: the template write-only with its three placeholders, the credit text", () => {
+    expect(settingDefinition("satelliteUrl")).toMatchObject({ scope: "instance", readBy: "admin", changedBy: "admin", kind: "address",
+      environment: "DEZFIL_SATELLITE_URL", environmentTiming: "restart", timing: "live", secret: false, editable: true, defaultValue: null });
+    expect(settingDefinition("satelliteUrl").write).toEqual({ kind: "address", maxLength: 2048, placeholders: ["{z}", "{x}", "{y}"] });
+    expect(settingDefinition("satelliteAttribution")).toMatchObject({ scope: "instance", readBy: "admin", changedBy: "admin", kind: "text",
+      environment: "DEZFIL_SATELLITE_ATTRIBUTION", environmentTiming: "restart", timing: "live", secret: false, editable: true, defaultValue: null });
+    expect(settingDefinition("satelliteAttribution").write).toEqual({ kind: "text", maxLength: 160, empty: "null" });
+    expect(catalogueProblems(SETTING_CATALOGUE)).toEqual([]);
+  });
+
+  it("keeps a template holding {z}, {x} and {y} as given once trimmed, its user information, path and query included", () => {
+    const definition = settingDefinition("satelliteUrl");
+    expect(validateStoredValue(definition, `  ${TEMPLATE}\n`)).toEqual({ ok: true, value: TEMPLATE });
+    const query = "https://imagery.example/tile?z={z}&x={x}&y={y}&key=SEEDED-KEY-0002-QUERY";
+    expect(validateStoredValue(definition, query)).toEqual({ ok: true, value: query });
+    expect(validateStoredValue(definition, null)).toEqual({ ok: true, value: null });
+  });
+
+  it.each([
+    ["{z}", TEMPLATE.replace("{z}", "7"), "{z} is missing"],
+    ["{x}", TEMPLATE.replace("{x}", "7"), "{x} is missing"],
+    ["{y}", TEMPLATE.replace("{y}", "7"), "{y} is missing"],
+    ["{x} and {y}", TEMPLATE.replace("{x}", "7").replace("{y}", "7"), "{x} and {y} are missing"],
+    ["all three", TEMPLATE.replace("/{z}/{x}/{y}", ""), "{z}, {x} and {y} are missing"],
+    ["a placeholder in another case", TEMPLATE.replace("{z}", "{Z}"), "{z} is missing"],
+  ])("refuses a template without %s, naming what is missing and repeating nothing of it", (_name, input, missing) => {
+    const result = validateStoredValue(settingDefinition("satelliteUrl"), input);
+    expect(result).toEqual({ ok: false, reason: `Expected {z}, {x} and {y} in the address; ${missing}.` });
+    expect(JSON.stringify(result)).not.toContain("SEEDED-KEY");
+  });
+
+  it.each([
+    ["another scheme", TEMPLATE.replace("https:", "ftp:")],
+    ["2,049 characters", `https://imagery.example/{z}/{x}/{y}/${"a".repeat(2049 - "https://imagery.example/{z}/{x}/{y}/".length)}`],
+    ["no host", "https:///{z}/{x}/{y}?key=SEEDED-KEY-0002-QUERY"],
+  ])("refuses %s by the address kind's own reason before its placeholders", (_name, input) => {
+    expect(String(input).length).toBeLessThanOrEqual(2049);
+    const result = validateStoredValue(settingDefinition("satelliteUrl"), input);
+    expect(result).toEqual(ADDRESS_REFUSED);
+    expect(JSON.stringify(result)).not.toContain("SEEDED-KEY");
+  });
+
+  it("trims the credit, keeps 160 characters, refuses 161 and clears with empty text", () => {
+    const definition = settingDefinition("satelliteAttribution");
+    expect(validateStoredValue(definition, "  © Imagery Provider  ")).toEqual({ ok: true, value: "© Imagery Provider" });
+    expect(validateStoredValue(definition, "c".repeat(160))).toEqual({ ok: true, value: "c".repeat(160) });
+    expect(validateStoredValue(definition, "c".repeat(161))).toEqual({ ok: false, reason: "Expected at most 160 characters." });
+    expect(validateStoredValue(definition, " ")).toEqual({ ok: true, value: null });
+    expect(validateStoredValue(definition, null)).toEqual({ ok: true, value: null });
+  });
+
+  it.each([
+    ["an empty placeholder list", { kind: "address", maxLength: 2048, placeholders: [] }],
+    ["an empty placeholder", { kind: "address", maxLength: 2048, placeholders: ["{z}", ""] }],
+  ])("fails the catalogue with %s", (_name, write) => {
+    const seeded = SETTING_CATALOGUE.map(definition => definition.key === "satelliteUrl" ? { ...definition, write } as SettingDefinition : definition);
+    expect(catalogueProblems(seeded)).toContain("satelliteUrl: invalid address constraint");
   });
 });

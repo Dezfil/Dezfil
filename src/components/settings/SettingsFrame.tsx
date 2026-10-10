@@ -9,6 +9,7 @@ import { TokensCard } from "./TokensCard";
 import { AppearanceTab } from "./AppearanceTab";
 import { GeneralTab } from "./GeneralTab";
 import { MapsTab } from "./MapsTab";
+import { LibrariesTab } from "./LibrariesTab";
 import { WorkflowsTab } from "./WorkflowsTab";
 import { PublishingTab } from "./PublishingTab";
 import { DataTab } from "./DataTab";
@@ -285,6 +286,7 @@ function TabContent({ tab, loaded }: { tab: SettingsTabId; loaded: Loaded }) {
     case "appearance": return <AppearanceTab />;
     case "general": return <GeneralTab admin={loaded.account.isAdmin} />;
     case "maps": return <MapsTab />;
+    case "libraries": return <LibrariesTab />;
     case "workflows": return <WorkflowsTab />;
     case "publishing": return <PublishingTab />;
     case "data": return <DataTab />;

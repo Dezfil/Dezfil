@@ -1,7 +1,7 @@
 import { GOVERNED_REQUESTS } from "@/lib/net/governed-requests";
 import type { ProviderCache } from "@/lib/provider-caches";
 import type { ServiceTestAnswer, TestedService } from "@/lib/settings/service-test-answer";
-import type { ServiceAddressKey } from "@/lib/settings/types";
+import type { ServiceAddressKey, StoredAddressKey } from "@/lib/settings/types";
 import type { ReadSetting } from "./server-set";
 import { tabAddress } from "./settings-address";
 
@@ -26,7 +26,8 @@ export type ServiceNumberKey =
 
 export interface AddressRow {
   readonly kind: "address";
-  readonly key: ServiceAddressKey;
+  /** A service's address, or the satellite imagery's tile template (Libraries). */
+  readonly key: StoredAddressKey;
   readonly id: string;
   readonly label: string;
   /** The field's accessible name. */

@@ -24,7 +24,7 @@ every documented operation must have a route, and every call the interface
 makes must hit a documented path (`src/lib/api/parity.test.ts`). The
 description cannot drift from the server.
 
-Measured from the current source: **133 paths, 379 operations, 173 named component schemas.** Operations include supported automatic HEAD and OPTIONS.
+Measured from the current source: **135 paths, 384 operations, 177 named component schemas.** Operations include supported automatic HEAD and OPTIONS.
 `npm run lint:contract-docs` measures these numbers and checks the catalogue below
 against the contract; changing only the reader-facing text fails the gate.
 
@@ -64,7 +64,7 @@ preconditions are declared on the operations that require them.
 
 ## Request bounds
 
-Measured JSON reader operations: **65**. These counts include optional bodies,
+Measured JSON reader operations: **67**. These counts include optional bodies,
 helper readers and MCP's external parser handoff, and exclude multipart uploads
 and binary thumbnails. The contract gate measures them; type-aware body-policy
 coverage independently checks the implementation against the contract.
@@ -72,7 +72,7 @@ coverage independently checks the implementation against the contract.
 <!-- body-tiers:start -->
 | JSON wire-byte tier | Operations |
 |---|---|
-| 65,536 | 13 |
+| 65,536 | 15 |
 | 131,072 | 1 |
 | 16,777,216 | 51 |
 <!-- body-tiers:end -->
@@ -487,13 +487,17 @@ browser lands on the page `landingPage` names (`/projects`, `/maps`,
 signed-in visit to the setup or sign-in page redirects to Home; the invitation
 page opens whether or not someone is signed in. Responses are private, no-store.
 
-`PATCH /api/instance/settings` changes only submitted editable keys, sixty
+`PATCH /api/instance/settings` changes only submitted editable keys, sixty-seven
 of them: the fourteen Limits numbers; the services' eight numbers
 `geocodePaceMs`, `geocodeRequestTimeoutS`, `geocodeMatchCacheHours`,
 `isochronePaceMs`, `isochroneRequestTimeoutS`, `isochroneCacheHours`,
 `overpassTimeoutS` and `overpassCacheHours`, in their variables' units; the four
 service addresses `geocoderUrl`, `isochroneUrl`, `overpassUrl` and
-`s3Endpoint`; the four General values `instanceName`,
+`s3Endpoint`; the satellite imagery's tile address `satelliteUrl`, which must
+hold `{z}`, `{x}` and `{y}`, and its credit `satelliteAttribution`, at most 160
+characters; the five basemap switches `basemaps.dark`, `basemaps.light`,
+`basemaps.streets`, `basemaps.satellite` and `basemaps.singleMapStyles`, each
+`true` or `false`; the four General values `instanceName`,
 `signInMessage`, `lostPasswordContact` and `landingPage`; the eighteen
 instance defaults `newMap.basemap`, `newMap.latitude`, `newMap.longitude`,
 `newMap.zoom`, `newMap.legendCorner`, `newLayer.colorCycle`,
@@ -562,9 +566,15 @@ In addition to validation and lock refusals, the operation can answer
 Two more operations serve the services, with the same admin checks, the same
 trusted-Origin rule for cookies and private, no-store answers.
 `POST /api/instance/services/{service}/test` tests one service (`geocode`,
-`isochrone`, `overpass`, `overture` or `s3`): one fixed request at its address
-in effect, never one given in the call, sent the way the service's own requests
-go, through the egress check with redirects and after the gap between requests.
+`isochrone`, `overpass`, `overture`, `s3` or `satellite`): one fixed request at
+its address in effect, never one given in the call, sent the way the service's
+own requests go, through the egress check with redirects and after the gap
+between requests. The satellite imagery's is one fixed low-zoom tile (zoom 3,
+x 4, y 2) at its tile template within 10 seconds, passing when the answer is
+an image: the tile read to its end within those seconds, at most 4 MiB, and
+complete for its format (PNG, JPEG, GIF, WebP or AVIF), the time taken being
+its arrival whole. A cut or larger tile is `unexpected_answer`; one still
+arriving at 10 seconds is `timed_out`.
 It answers `{ service, result: "passed", milliseconds }`, Overture
 `{ service, result: "passed", releases, newest }`, or `result: "failed"` with
 one `reason`: `not_set_up`, `refused` (with the check's sentence as `message`),
@@ -628,6 +638,38 @@ with another origin's Origin or a cross-site or same-site `Sec-Fetch-Site`. A
 token calls directly. Both are generated
 as tools, `test_part` and `read_storage`: the embedded assistant confirms each,
 and the SQL and workflow assistants refuse them.
+
+Three more keep the instance's basemap library, admins only and rechecked
+inside each write, with the same trusted-Origin rule for cookies and private,
+no-store answers. `POST /api/instance/basemaps` adds a MapLibre style by its
+address, `{ name, url }`: the server reads the address once, now, first
+through the egress check (an address in blocked space is refused with the
+check's sentence before anything is sent), then with one request within 8
+seconds and 2 MB, and keeps a valid style with its sources' credit, else its
+host, answering 201 with `{ id, name, url, attribution, offered, addedAt }`.
+It refuses, keeping nothing and repeating no part of the address, a name
+outside 1 to 60 characters, an address that is not http or https with a host
+or is longer than 2,048 characters, an address the library holds, a 51st
+style, an answer that is not a style and a style it cannot read now; there is
+no force. Nothing reads the address again. `PATCH /api/instance/basemaps/{id}`
+with `{ offered }` offers or hides a style where a basemap is chosen, and
+`DELETE /api/instance/basemaps/{id}` removes one, answering `{ removed: true }`;
+maps that took a style keep their copy of its name, address and credit
+through both. The configuration read lists the library as `basemapStyles`,
+hidden styles included, and `GET /api/config` the offered ones as
+`basemapStyles` (id, name, address, credit): a style's address is public to
+whoever draws a map on it. A map takes an offered one with `PATCH
+/api/maps/{id}` and `customBasemap: { libraryStyle }`, the style's id alone:
+the map keeps its own copy of the name, address and credit, nothing is
+fetched, and a hidden or unknown id is refused with `invalid_request`. While
+an admin has turned `basemaps.singleMapStyles` off, a pasted `url` the library
+does not offer is refused with `basemap_not_offered`, before it is read, when
+a map write or an undo or redo would newly put it on a map, for admins too;
+an address the map already holds is kept, and `GET /api/config` reports the
+switch as `singleMapStyles`. The three library operations are generated as
+tools, `add_basemap_style`,
+`set_basemap_style_offered` and `remove_basemap_style`: the embedded assistant
+confirms each, and the SQL and workflow assistants refuse them.
 
 Built-in and configured basemaps, the palette catalogue, geometry projections,
 the API reference, operation catalogue and offered assistant models are shared
@@ -1171,7 +1213,7 @@ server-side, so filesystem paths and engine text stay out of responses
 The complete catalogue is published two ways in the same document: as the
 enum of the `Error` schema, and as `x-error-codes` at the top level, which
 maps every code to a sentence explaining what it means
-(`src/lib/api/error-catalogue.ts`). There are **115** codes. Clients should
+(`src/lib/api/error-catalogue.ts`). There are **116** codes. Clients should
 branch on codes, never on prose.
 
 One status is unusual: a client that abandons an in-flight evaluation gets
@@ -2001,7 +2043,8 @@ response message. Branch on the code.
 | `geocoder_failed` | The configured geocoding endpoint did not answer, twice in a row. The run published nothing rather than recording an absent answer as an address that does not exist. |
 | `isochrone_unconfigured` | No routing endpoint is configured on this instance (the travel-time endpoint an admin sets, or DEZFIL_ISOCHRONE_URL), so an operation that asks a provider for travel-time areas cannot run. The message says which one to change now. |
 | `isochrone_failed` | The configured routing endpoint did not answer, twice in a row. The run published nothing rather than recording an absent answer as an unreachable origin. |
-| `service_address_unreadable` | A service address an admin saved in Settings cannot be read with this instance's encryption key, which changed after it was saved. The service refuses rather than reach a default; an admin saves the address again. |
+| `service_address_unreadable` | A service address, or the satellite imagery's tile template, an admin saved in Settings cannot be read with this instance's encryption key, which changed after it was saved. The service, or the imagery style, refuses rather than reach a default; an admin saves the address again. |
+| `basemap_not_offered` | The basemap a map write or an undo or redo would put a map on is one this instance does not offer now: a style an admin hid, or, while style addresses on single maps are off, a style address the basemap library does not offer. It cannot be chosen anew. The refusal's setting field names the switch, as PATCH /api/instance/settings takes it. Nothing changed; a map already on that basemap keeps it, and Auto is always offered. |
 | `measurement_crs_unavailable` | The data spans more of the earth than any local projection covers, so a distance measured over it would not be in ground metres. Split it by region and measure each part; an area over the same data succeeds and records the global projection it used. |
 | `operation_superseded` | The step this run belonged to was changed or removed while it was working, so the run lost its authority to publish and wrote nothing. What it would have produced is no longer what the step means. |
 | `widget_layer_missing` | The widget references a layer that no longer exists, so its value cannot be computed. |
