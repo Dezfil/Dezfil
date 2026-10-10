@@ -1,7 +1,7 @@
 import { act, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, expect, it, vi } from "vitest";
-import { BASEMAPS, BUILT_IN_ATTRIBUTION } from "@/lib/basemap";
+import { BASEMAPS, BUILT_IN_ATTRIBUTION, type LibraryStyleOffer } from "@/lib/basemap";
 import { EDIT_REVISION_HEADER } from "@/lib/edit-basis";
 import type { MapWithLayers } from "@/lib/metadata/maps";
 import { STALE_MESSAGE } from "../document-sequence";
@@ -27,7 +27,9 @@ import { useBuilderMutations } from "./use-builder-mutations";
  * the check's (the style changed, or a style the check could not read was
  * saved anyway and the save could): it is the save landed where the read
  * holds the same address and name and the rest of the map as it was, and
- * an unknown outcome otherwise.
+ * an unknown outcome otherwise. The copy is the one sent whatever the map
+ * held at the save's turn: an earlier write that failed unlanded never
+ * lends it its name.
  *
  * The basemap's other writes the builder draws before the answer hold what
  * the server stores too: a group shown again is stored as no entry (only
@@ -65,8 +67,8 @@ const initial = { id: "m", name: "Harbour", viewport: { lng: 0, lat: 0, zoom: 2 
 const builtIn = BUILT_IN_ATTRIBUTION.map(line => line.label).join("·");
 
 /** The builder's picker and presentation over its own save lane, the
- * library's read answered with no offered style. */
-async function mount(start: MapWithLayers = initial) {
+ * library's read answered with the styles it offers (none by default). */
+async function mount(start: MapWithLayers = initial, offered: LibraryStyleOffer[] = []) {
   const host = installDomHost();
   vi.stubGlobal("HTMLElement", HostElement);
   const w = wire(); vi.stubGlobal("fetch", w.fetch);
@@ -95,7 +97,7 @@ async function mount(start: MapWithLayers = initial) {
   }
   const flush = (work: () => void) => act(async () => { work(); await w.settle(); });
   await flush(() => root.render(<Builder />));
-  await flush(() => w.pending("GET", "/api/config")[0].ok({ basemapStyles: [], singleMapStyles: true }));
+  await flush(() => w.pending("GET", "/api/config")[0].ok({ basemapStyles: offered, singleMapStyles: true }));
   const button = (text: string) => host.document.querySelectorAll("button").find(b => b.textContent.trim().endsWith(text) || b.getAttribute("aria-label") === text);
   /** Type into an input as React hears it: through its change handler. */
   const type = (selector: string, value: string) => {
@@ -220,6 +222,48 @@ it.each([
   expect(w.pending("GET", "/api/maps/m/history")).toHaveLength(0);
   // Another write's map is never this save's: the next edit meets the server's stale refusal.
   expect(await afterLoss("theirs")).toEqual({ revision: "first", credit: "© Fixture Tiles", next: "stale_revision" });
+  expect(thrown).toEqual([]);
+});
+
+/** A style pasted earlier, on the map when the builder opens. */
+const EARLIER = { url: "https://tiles.example/earlier/style.json", name: "Old harbour", attribution: [{ label: "© Earlier Tiles" }] };
+/** A style the library offers, taken by its id. */
+const CHART: LibraryStyleOffer = { id: "style-chart", name: "Harbour chart", url: "https://charts.example/harbour/style.json",
+  attribution: [{ label: "© Fixture Charts", href: "https://charts.example/terms" }] };
+
+it.each([
+  ["holding the pasted style under the name it was sent with", { url: URL_PASTED, name: CHART.name, attribution: CREDIT }, "pasted",
+    { revision: "pasted", credit: "© Fixture Tiles", next: "saved" }],
+  ["holding it under the earlier style's name, which was never sent", { url: URL_PASTED, name: EARLIER.name, attribution: CREDIT }, "theirs",
+    { revision: "first", credit: "© Fixture Tiles", next: "stale_revision" }],
+])("draws and confirms a pasted style as sent after a take queued before it failed unlanded: a lost answer's read %s", async (_what, stored, revision, outcome) => {
+  const { w, flush, thrown, builder, button, paste, afterLoss } = await mount({ ...initial, customBasemap: EARLIER } as MapWithLayers, [CHART]);
+  // A library take, then, while it is in flight, a style pasted under the
+  // taken style's name.
+  await flush(() => button(CHART.name)!.click());
+  await paste(CHART.name, { verdict: "valid", name: "Harbour", layerCount: 3, sourceCount: 1, attribution: CREDIT });
+  await flush(() => button("Use this style")!.click());
+  const sent = { url: URL_PASTED, name: CHART.name, attribution: CREDIT };
+  expect(builder.map!.customBasemap).toEqual(sent);
+
+  // The take's answer is lost and the read proves it never landed.
+  const [take] = w.pending("PATCH", "/api/maps/m");
+  expect(take.body).toEqual({ customBasemap: { libraryStyle: CHART.id } });
+  await flush(() => take.cut());
+  await flush(() => w.pending("GET", "/api/maps/m")[0].ok({ ...initial, customBasemap: EARLIER, editRevision: "first" }));
+  expect(builder.editor.sequence.revision).toBe("first");
+  // The pasted style is still drawn as it is sent, never over the earlier
+  // style's name (soft: the confirmation below is judged either way).
+  expect.soft(builder.map!.customBasemap).toEqual(sent);
+
+  const [save] = w.pending("PATCH", "/api/maps/m");
+  expect(save.body).toEqual({ customBasemap: { url: URL_PASTED, name: CHART.name } });
+  await flush(() => save.cut());
+  await flush(() => w.pending("GET", "/api/maps/m")[0].ok({ ...initial, customBasemap: stored, editRevision: revision }));
+  // Only the map the save stores is the save landed.
+  expect(builder.editor.sequence.revision).toBe(outcome.revision);
+  expect(w.pending("GET", "/api/maps/m/history")).toHaveLength(outcome.next === "saved" ? 1 : 0);
+  expect(await afterLoss(revision)).toEqual(outcome);
   expect(thrown).toEqual([]);
 });
 

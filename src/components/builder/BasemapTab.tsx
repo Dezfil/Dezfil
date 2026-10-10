@@ -15,12 +15,15 @@ import { takenCopy, useLibraryStyles } from "./use-library-styles";
  * instance's library offers is taken by its id: the server copies it onto
  * the map, and the builder holds that copy from the click on, so it draws
  * the style and its credit as a reload would; a pasted style likewise, its
- * copy built from the check the door made. Every request the lane draws
- * before the answer holds what the server stores, so a lost answer is
- * confirmed by the map read back; a pasted style's by the same address
- * and name under the credit the save itself read. While single maps take
- * only the library's styles, the paste control is drawn disabled with the
- * rule's sentence, for everyone.
+ * copy built from the check the door made. Both copies reach the lane whole,
+ * as a constant: the server stores the copy entire, so it is never merged
+ * field by field into whatever the map holds at its turn, where an earlier
+ * write that failed would leave its own name or credit in it. Every request
+ * the lane draws before the answer holds what the server stores, so a lost
+ * answer is confirmed by the map read back; a pasted style's by the same
+ * address and name under the credit the save itself read. While single
+ * maps take only the library's styles, the paste control is drawn disabled
+ * with the rule's sentence, for everyone.
  */
 export function BasemapTab({
   map,
@@ -58,12 +61,14 @@ export function BasemapTab({
       pasteRefusal={library.singleMapStyles ? null : SINGLE_MAP_STYLES_OFF}
       onPickLibrary={(id) => {
         const style = library.offered.find((s) => s.id === id);
-        if (style) void patchMap({ customBasemap: takenCopy(style) }, { sends: { customBasemap: { libraryStyle: id } } });
+        if (!style) return;
+        const copy = takenCopy(style);
+        void patchMap(() => ({ customBasemap: copy }), { sends: { customBasemap: { libraryStyle: id } } });
       }}
       onSaveCustom={(copy, sends) =>
         // The save reads the style again: a lost answer's read may hold
         // the credit it found there in place of the check's.
-        patchMap({ customBasemap: copy }, { sends: { customBasemap: sends }, adopt: withStoredCredit })
+        patchMap(() => ({ customBasemap: copy }), { sends: { customBasemap: sends }, adopt: withStoredCredit })
       }
       onRemoveCustom={() => void patchMap({ customBasemap: null })}
       groupsPresent={map.customBasemap ? loadedGroups : null}
