@@ -86,6 +86,7 @@ const tick = () => new Promise(resolve => setTimeout(resolve, 10));
 afterEach(() => {
   vi.useRealTimers();
   delete process.env.DEZFIL_EXPORT_RENDER_CONCURRENCY;
+  delete process.env.DEZFIL_EXPORT_RENDER_TIMEOUT_S;
 });
 
 describe("the renderer's Test on the image lane", () => {
@@ -327,6 +328,31 @@ describe("the renderer's Test on the image lane", () => {
     expect(await testing).toMatchObject({ error: { code: "render_timeout" } });
     await expect(waiting).resolves.toMatchObject({ png: PNG });
     expect(startingAtLaunch, "an image's browser started beside the Test's, stopped but not yet gone").toBe(0);
+    expect(renderQueueState()).toEqual({ active: 0, waiting: 0 });
+  });
+
+  it.each([
+    ["an export, on its own budget", undefined],
+    ["the assistant's map check, on its call's budget", 4_000],
+  ] as const)("holds the close of %s to the time left, ending a browser still closing at the budget and answering by then", async (_who, budgetMs) => {
+    process.env.DEZFIL_EXPORT_RENDER_TIMEOUT_S = "10";
+    vi.useFakeTimers();
+    const budget = budgetMs ?? 10_000;
+    // The image is made 100 ms before the budget; its browser takes a second to close.
+    const slow = lane(true, 1_000);
+    const started = Date.now();
+    let answered: number | null = null;
+    const rendering = renderMapImage(testAccountScope(), {
+      mapId: "m1", definition: def(), credential: "fixture-render-credential", baseUrl: "http://127.0.0.1:3216", driver: slow.driver,
+      ...(budgetMs === undefined ? {} : { budgetMs }),
+    }).finally(() => { answered = Date.now(); });
+    await vi.advanceTimersByTimeAsync(budget - 100);
+    slow.releaseAll();
+    await vi.advanceTimersByTimeAsync(2_000);
+    await expect(rendering).resolves.toMatchObject({ png: PNG });
+    expect(answered! - started, "the image answered past its budget").toBeLessThanOrEqual(budget);
+    expect(slow.state.killed).toBe(1);
+    expect(slow.state.live).toBe(0);
     expect(renderQueueState()).toEqual({ active: 0, waiting: 0 });
   });
 

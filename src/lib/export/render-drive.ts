@@ -36,7 +36,8 @@ const CHROMIUM_FLAGS = [
   "--hide-scrollbars",
 ];
 
-/** How long a closing browser gets before it is killed outright. */
+/** How long a closing browser gets before it is killed outright, at most:
+ * never past the drive's deadline. */
 const CLOSE_GRACE_MS = 3_000;
 
 /** Close the browser politely, ending it outright by `end` when the close
@@ -179,9 +180,8 @@ export interface RenderDrive {
   stand: () => void;
   /** The launch held to this drive's own time and ended at its stop by the
    * browser process's own handle, so a browser that never answers its
-   * launch dies with the drive rather than outliving its slot, and the
-   * browser's close held to the same time (the renderer's Test). Absent,
-   * the driver's own launch timeout and the full close grace (an export). */
+   * launch dies with the drive rather than outliving its slot (the
+   * renderer's Test). Absent, the driver's own launch timeout (an export). */
   boundLaunch?: boolean;
 }
 
@@ -327,9 +327,10 @@ export async function driveRender(drive: RenderDrive): Promise<RenderImageResult
       // The drive settles, and its caller gives the slot back, only once the
       // browser is gone: closed, or ended outright and its process exited,
       // whether that end came from the deadline, the caller's departure or a
-      // close past its grace. A bound drive's close is held to its own time.
+      // close past its grace. The close is held to the time left, so a
+      // browser still closing at the deadline is ended then, for every caller.
       const open = browser;
-      const graceMs = drive.boundLaunch ? Math.min(CLOSE_GRACE_MS, Math.max(deadline - Date.now(), 0)) : CLOSE_GRACE_MS;
+      const graceMs = Math.min(CLOSE_GRACE_MS, Math.max(deadline - Date.now(), 0));
       await endBrowser(open, graceMs, drive.accountId, () => endOutright(open));
       if (ended) await ended;
     } else if (launchStop) {
