@@ -4,7 +4,7 @@ import { SINGLE_MAP_STYLES_OFF, type BasemapKey, type BasemapStyle } from "@/lib
 import type { BasemapLayerGroup } from "@/lib/basemap-layers";
 import type { MapWithLayers } from "@/lib/metadata/maps";
 import { BasemapPanel } from "./BasemapPanel";
-import { useLibraryStyles } from "./use-library-styles";
+import { takenCopy, useLibraryStyles } from "./use-library-styles";
 
 /**
  * The inspector's Basemap tab wiring (at-touch slice from MapBuilder):
@@ -12,8 +12,10 @@ import { useLibraryStyles } from "./use-library-styles";
  * custom style's save/remove, and the group toggles, whose bodies build
  * from server truth at their turn so rapid toggles compose. A style the
  * instance's library offers is taken by its id: the server copies it onto
- * the map. While single maps take only the library's styles, the paste
- * control is drawn disabled with the rule's sentence, for everyone.
+ * the map, and the builder holds that copy from the click on, so it draws
+ * the style and its credit as a reload would. While single maps take only
+ * the library's styles, the paste control is drawn disabled with the
+ * rule's sentence, for everyone.
  */
 export function BasemapTab({
   map,
@@ -34,6 +36,7 @@ export function BasemapTab({
     request:
       | Record<string, unknown>
       | ((current: MapWithLayers | null) => Record<string, unknown>),
+    opts?: { sends?: Record<string, unknown> },
   ) => Promise<boolean>;
   statusPillVisible: boolean;
   onToggleStatusPill: (visible: boolean) => void;
@@ -45,7 +48,10 @@ export function BasemapTab({
       custom={map.customBasemap}
       libraryStyles={library.offered}
       pasteRefusal={library.singleMapStyles ? null : SINGLE_MAP_STYLES_OFF}
-      onPickLibrary={(id) => void patchMap({ customBasemap: { libraryStyle: id } })}
+      onPickLibrary={(id) => {
+        const style = library.offered.find((s) => s.id === id);
+        if (style) void patchMap({ customBasemap: takenCopy(style) }, { sends: { customBasemap: { libraryStyle: id } } });
+      }}
       onSaveCustom={(body) => patchMap({ customBasemap: body })}
       onRemoveCustom={() => void patchMap({ customBasemap: null })}
       groupsPresent={map.customBasemap ? loadedGroups : null}

@@ -10,8 +10,9 @@ import { BasemapTab } from "./BasemapTab";
 /**
  * The builder's picker lists the styles the instance's library offers after
  * the built-in ones, and takes one by its id: the server copies it onto the
- * map. A map's copy of a library style is marked on that style's card, not
- * drawn again as the map's own pasted style; a pasted style keeps its tile.
+ * map, and the map holds that copy from the click on. A map's copy of a
+ * library style is marked on that style's card, not drawn again as the
+ * map's own pasted style; a pasted style keeps its tile.
  */
 const HARBOUR: LibraryStyleOffer = { id: "style-harbour", name: "Harbour chart", url: "https://charts.example/harbour/style.json",
   attribution: [{ label: "© Fixture Charts" }] };
@@ -83,7 +84,8 @@ describe("the builder's Basemap tab", () => {
     expect(vi.mocked(fetch)).toHaveBeenCalledExactlyOnceWith("/api/config", { cache: "no-store" });
     expect(cards().slice(4, 6)).toEqual(["Harbour chart", "Works grey"]);
     await act(async () => card("Harbour chart")!.click());
-    expect(patchMap).toHaveBeenCalledExactlyOnceWith({ customBasemap: { libraryStyle: "style-harbour" } });
+    // The server is sent the id; the map holds the copy the server makes.
+    expect(patchMap).toHaveBeenCalledExactlyOnceWith({ customBasemap: copyOf(HARBOUR) }, { sends: { customBasemap: { libraryStyle: "style-harbour" } } });
   });
 
   it("offers the built-in styles alone when the read fails", async () => {
