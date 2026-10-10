@@ -12,13 +12,17 @@ export type WriteConstraint =
   /** A list of sites, each http or https with a host and an optional port
    * and nothing else, kept as its origin. An empty list clears. */
   | { readonly kind: "sites"; readonly maxSites: number }
-  /** A service's address: http or https, at most so many characters once
-   * trimmed, kept as given. Write-only: stored encrypted with the instance's
-   * key and read back as its scheme and host alone. */
-  | { readonly kind: "address"; readonly maxLength: number };
+  /** An address: http or https, at most so many characters once trimmed,
+   * kept as given, holding each of its placeholders when it has any (a tile
+   * template's {z}, {x} and {y}). Write-only: stored encrypted with the
+   * instance's key and read back as its scheme and host alone. */
+  | { readonly kind: "address"; readonly maxLength: number; readonly placeholders?: readonly string[] };
 
 /** The four services whose address an admin may store beside its variable. */
 export type ServiceAddressKey = "geocoderUrl" | "isochroneUrl" | "overpassUrl" | "s3Endpoint";
+/** Every address an admin may store beside its variable: the four
+ * services' and the satellite imagery's tile template. */
+export type StoredAddressKey = ServiceAddressKey | "satelliteUrl";
 
 export interface SettingDefinition {
   readonly key: string;

@@ -6,31 +6,33 @@ import { readDeploymentSetting } from "./deployment-read";
 import { addressOrigin, discloseAddress } from "./disclosure";
 import { lockedEnvironment, settingEnvironment } from "./resolver";
 import { readStoredAddress } from "./store";
-import type { ServiceAddressKey, SettingDefinition } from "./types";
+import type { ServiceAddressKey, SettingDefinition, StoredAddressKey } from "./types";
 
 /**
- * The four services whose address an admin may store beside its variable:
- * the address finder, travel time, OpenStreetMap's Overpass server and the
- * S3 address for `s3://` links.
+ * The addresses an admin may store beside their variables: the four
+ * services' (the address finder, travel time, OpenStreetMap's Overpass
+ * server and the S3 address for `s3://` links) and the satellite imagery's
+ * tile template.
  *
  * This module is the only caller of the store's door to a stored address's
- * plaintext. A service takes its address in effect from here, and the
- * configuration read takes what it may say about one (scheme and host, or
- * set and unreadable) from here; nothing else reads a stored address.
+ * plaintext. A service, and the imagery, takes its address in effect from
+ * here, and the configuration read takes what it may say about one (scheme
+ * and host, or set and unreadable) from here; nothing else reads a stored
+ * address.
  */
 export const SERVICE_ADDRESS_KEYS = ["geocoderUrl", "isochroneUrl", "overpassUrl", "s3Endpoint"] as const satisfies readonly ServiceAddressKey[];
-export type { ServiceAddressKey };
+export type { ServiceAddressKey, StoredAddressKey };
 
 export interface AddressInEffect {
   /** What the service reaches, or null for its own road without one: no
-   * address finder, no travel time, Amazon S3's own addresses. */
+   * address finder, no travel time, Amazon S3's own addresses, no imagery. */
   readonly address: string | null;
   readonly source: "environment" | "stored" | "default";
 }
 
 /** A stored address the instance's key no longer opens. Its service refuses
  * rather than reach a default nobody chose; the address is never named. */
-export function serviceAddressUnreadable(key: ServiceAddressKey): ApiError {
+export function serviceAddressUnreadable(key: StoredAddressKey): ApiError {
   const { label } = settingDefinition(key);
   return new ApiError("service_address_unreadable",
     `The saved address for "${label}" cannot be read with this instance's encryption key, which changed after it was saved. ` +
@@ -46,7 +48,7 @@ const defaultAddress = (definition: SettingDefinition) =>
  * with a coded error and never falls back to the default. Read on each call:
  * a caller that must keep one address for a whole run captures it once.
  */
-export function resolveServiceAddress(key: ServiceAddressKey, db: Database = metadataDb()): AddressInEffect {
+export function resolveServiceAddress(key: StoredAddressKey, db: Database = metadataDb()): AddressInEffect {
   const definition = settingDefinition(key);
   if (lockedEnvironment(definition)) {
     return { address: settingEnvironment(definition)!.trim() || defaultAddress(definition), source: "environment" };
@@ -60,7 +62,7 @@ export function resolveServiceAddress(key: ServiceAddressKey, db: Database = met
 /** Whether the service has an address now: its variable, a stored address
  * (readable or not: an unreadable one is set, and its service refuses), or
  * a default. Never the address itself. */
-export function serviceAddressConfigured(key: ServiceAddressKey, db: Database = metadataDb()): boolean {
+export function serviceAddressConfigured(key: StoredAddressKey, db: Database = metadataDb()): boolean {
   try { return resolveServiceAddress(key, db).address !== null; }
   catch (error) {
     if (error instanceof ApiError && error.code === "service_address_unreadable") return true;

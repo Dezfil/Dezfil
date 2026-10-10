@@ -35,11 +35,14 @@ it("exposes a closed update input and refuses unknown arguments before HTTP disp
     "sqlConsole.lineWrap": { type: ["boolean", "null"] }, "imageExport.shape": { enum: ["16:9", "4:3", "1:1", null] } });
   // The fourteen limits, the four General rows, the eighteen defaults for new
   // things, the twelve sign-in, token, publishing, connection and import
-  // rows, the four service addresses and the services' eight numbers.
-  expect(Object.keys(tool.inputSchema.properties)).toHaveLength(60);
+  // rows, the four service addresses and the services' eight numbers, the
+  // five basemap switches, and the satellite imagery's template and credit.
+  expect(Object.keys(tool.inputSchema.properties)).toHaveLength(67);
   expect(tool.inputSchema.properties).toMatchObject({ geocodePaceMs: { type: ["integer", "null"], minimum: 0, maximum: 60_000 },
     geocodeMatchCacheHours: { type: ["integer", "null"], minimum: 24, maximum: 8_760 }, overpassCacheHours: { type: ["integer", "null"], minimum: 1, maximum: 720 } });
-  for (const key of ["secretKey", "satelliteUrl", "renderCapFeatures", "sourceGrouping"]) expect(tool.inputSchema.properties).not.toHaveProperty(key);
+  for (const key of ["secretKey", "basemapUrl", "renderCapFeatures", "sourceGrouping"]) expect(tool.inputSchema.properties).not.toHaveProperty(key);
+  expect(tool.inputSchema.properties).toMatchObject({ "basemaps.streets": { type: ["boolean", "null"] },
+    satelliteAttribution: { type: ["string", "null"], pattern: "^\\s*[\\s\\S]{0,160}\\s*$" }, satelliteUrl: { type: ["string", "null"] } });
   const fetch = vi.fn();
   const result = await executeTool(tool, { previewRows: 200, unknown: "seed-tool-secret" }, "http://instance.test", fetch);
   expect(result.status).toBe(400); expect(fetch).not.toHaveBeenCalled();
