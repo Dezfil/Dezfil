@@ -614,10 +614,20 @@
       "rule": "Drain target render waiters and active launches; preserve other accounts work and non-content capacity counters.",
       "fixture": "memory:src/lib/export/render-drive.ts#driveRender.browser"
     },
+    "memory:src/lib/export/render-drive.ts#driveRender.ended": {
+      "action": "erase",
+      "rule": "Drain target render waiters and active launches; preserve other accounts work and non-content capacity counters.",
+      "fixture": "memory:src/lib/export/render-drive.ts#driveRender.ended"
+    },
     "memory:src/lib/export/render-drive.ts#driveRender.error": {
       "action": "erase",
       "rule": "Drain target render waiters and active launches; preserve other accounts work and non-content capacity counters.",
       "fixture": "memory:src/lib/export/render-drive.ts#driveRender.error"
+    },
+    "memory:src/lib/export/render-drive.ts#driveRender.lateEnd": {
+      "action": "erase",
+      "rule": "Drain target render waiters and active launches; preserve other accounts work and non-content capacity counters.",
+      "fixture": "memory:src/lib/export/render-drive.ts#driveRender.lateEnd"
     },
     "memory:src/lib/export/render-drive.ts#driveRender.launching": {
       "action": "erase",
@@ -3985,9 +3995,19 @@
         "memory:src/lib/export/render-drive.ts#driveRender.browser"
       ]
     },
+    "memory:src/lib/export/render-drive.ts#driveRender.ended": {
+      "stores": [
+        "memory:src/lib/export/render-drive.ts#driveRender.ended"
+      ]
+    },
     "memory:src/lib/export/render-drive.ts#driveRender.error": {
       "stores": [
         "memory:src/lib/export/render-drive.ts#driveRender.error"
+      ]
+    },
+    "memory:src/lib/export/render-drive.ts#driveRender.lateEnd": {
+      "stores": [
+        "memory:src/lib/export/render-drive.ts#driveRender.lateEnd"
       ]
     },
     "memory:src/lib/export/render-drive.ts#driveRender.launching": {

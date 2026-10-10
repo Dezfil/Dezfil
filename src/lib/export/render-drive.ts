@@ -2,7 +2,7 @@ import { settingRemedy } from "@/lib/settings/remedy";
 import { trackRenderWork } from "./render-work";
 import { AuthError } from "@/lib/auth/errors";
 import { ApiError, EvaluationCancelled } from "@/lib/api/errors";
-import { puppeteerDriver, type RenderBrowser, type RenderDriver } from "./render-driver";
+import { BROWSER_EXIT_BOUND_MS, puppeteerDriver, type RenderBrowser, type RenderDriver } from "./render-driver";
 import type { ExportImageDefinition } from "./image-definition";
 
 /**
@@ -14,7 +14,8 @@ import type { ExportImageDefinition } from "./image-definition";
  * is killed, never left running. The export of a map and the image
  * renderer's Test both drive through here; the slot is the caller's,
  * taken before and released once this settles, which is only once the
- * browser has closed or been ended, so no browser outlives its slot.
+ * browser has closed, or been ended outright and its process has exited,
+ * so no browser outlives its slot.
  *
  * The flag posture, stated: the runbook's five software-GL flags
  * (SwiftShader — proven offline in the image by the spike), plus
@@ -38,20 +39,27 @@ const CHROMIUM_FLAGS = [
 /** How long a closing browser gets before it is killed outright. */
 const CLOSE_GRACE_MS = 3_000;
 
-/** Close the browser politely, killing it by its own handle when the close
+/** Close the browser politely, ending it outright by `end` when the close
  * fails or has not finished within `graceMs`; settles once it has closed or
- * been ended. */
-async function endBrowser(browser: RenderBrowser, graceMs: number, accountId: string): Promise<void> {
+ * its process has exited. */
+async function endBrowser(browser: RenderBrowser, graceMs: number, accountId: string, end: () => Promise<void>): Promise<void> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   const grace = new Promise<false>(resolve => { timer = setTimeout(() => resolve(false), graceMs); });
   try {
     const closed = trackRenderWork(accountId, browser.close()).then(() => true, () => false);
-    if (!(await Promise.race([closed, grace]))) browser.kill();
+    if (!(await Promise.race([closed, grace]))) await end();
   } catch {
-    browser.kill();
+    await end();
   } finally {
     clearTimeout(timer);
   }
+}
+
+/** `work`, or nothing more once `ms` have passed. */
+async function within(work: Promise<unknown>, ms: number): Promise<void> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  await Promise.race([work.then(() => {}, () => {}), new Promise<void>(resolve => { timer = setTimeout(resolve, ms); })]);
+  clearTimeout(timer);
 }
 
 /** The browser to launch, as configured now. */
@@ -111,6 +119,7 @@ function awaitActiveRender(
   signal: AbortSignal | undefined,
   budget: RenderBudget,
   accountId: string,
+  end: () => Promise<void>,
 ): Promise<Awaited<ReturnType<RenderBrowser["render"]>>> {
   const rendering = trackRenderWork(accountId, browser.render(input));
 
@@ -129,7 +138,7 @@ function awaitActiveRender(
 
     const terminate = (error: unknown) => {
       if (finished) return;
-      browser.kill();
+      void end();
       finish(() => reject(error));
     };
 
@@ -184,6 +193,18 @@ export async function driveRender(drive: RenderDrive): Promise<RenderImageResult
   let browser: RenderBrowser | null = null;
   let settled = false;
   let timedOut = false;
+  // The browser ended outright, once: settled when its process has exited.
+  let ended: Promise<void> | null = null;
+  const endOutright = (target: RenderBrowser): Promise<void> => {
+    if (!ended) {
+      let killing: void | Promise<void>;
+      try { killing = target.kill(); } catch { killing = undefined; }
+      ended = Promise.resolve(killing).then(() => {}, () => {});
+    }
+    return ended;
+  };
+  // A late arrival of a launch given up on, ended outright once it arrives.
+  let lateEnd: Promise<void> | null = null;
   // A bound launch's stop: it ends the browser's process, started or still
   // starting, by its own handle.
   const launchStop = drive.boundLaunch ? new AbortController() : null;
@@ -194,7 +215,7 @@ export async function driveRender(drive: RenderDrive): Promise<RenderImageResult
       // deterministically the coded timeout (a watchdog expiry must never read as render_failed).
       timedOut = true;
       stopLaunch();
-      browser?.kill();
+      if (browser) void endOutright(browser);
     },
     Math.max(deadline - Date.now(), 1),
   );
@@ -243,7 +264,7 @@ export async function driveRender(drive: RenderDrive): Promise<RenderImageResult
           (error) => finish(() => reject(error)),
         );
       }).catch((error: unknown) => {
-        launching.then((late) => late.kill()).catch(() => {});
+        lateEnd = launching.then((late) => late.kill()).then(() => {}, () => {});
         throw error;
       });
     } catch (error) {
@@ -259,8 +280,9 @@ export async function driveRender(drive: RenderDrive): Promise<RenderImageResult
     }
     if (drive.signal?.aborted) throw new EvaluationCancelled();
     drive.stand();
+    const open = browser;
     const outcome = await awaitActiveRender(
-      browser,
+      open,
       {
         url: drive.url,
         credential: drive.credential,
@@ -274,6 +296,7 @@ export async function driveRender(drive: RenderDrive): Promise<RenderImageResult
       drive.signal,
       budget,
       drive.accountId,
+      () => endOutright(open),
     );
     drive.stand();
     settled = true;
@@ -302,12 +325,19 @@ export async function driveRender(drive: RenderDrive): Promise<RenderImageResult
     clearTimeout(watchdog);
     if (browser) {
       // The drive settles, and its caller gives the slot back, only once the
-      // browser is gone; a bound drive's close is held to its own time.
+      // browser is gone: closed, or ended outright and its process exited,
+      // whether that end came from the deadline, the caller's departure or a
+      // close past its grace. A bound drive's close is held to its own time.
+      const open = browser;
       const graceMs = drive.boundLaunch ? Math.min(CLOSE_GRACE_MS, Math.max(deadline - Date.now(), 0)) : CLOSE_GRACE_MS;
-      await endBrowser(browser, graceMs, drive.accountId);
-    } else {
-      // A bound launch that never handed over its browser ends with the drive.
+      await endBrowser(open, graceMs, drive.accountId, () => endOutright(open));
+      if (ended) await ended;
+    } else if (launchStop) {
+      // A bound launch that never handed over its browser ends with the
+      // drive, which settles once that launch has given up, its browser
+      // gone, or a late arrival has been ended outright, within the bound.
       stopLaunch();
+      if (lateEnd) await within(lateEnd, BROWSER_EXIT_BOUND_MS);
     }
   }
 }

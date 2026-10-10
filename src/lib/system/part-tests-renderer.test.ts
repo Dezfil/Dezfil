@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
+import { setTimeout as sleep } from "node:timers/promises";
 import path from "node:path";
 import { POST } from "@/app/api/instance/parts/[part]/test/route";
 import { socketRequest } from "@/lib/assistant/testing/socket-request";
@@ -242,6 +243,45 @@ describe("the image renderer's Test", () => {
       for (const pid of started()) { try { process.kill(pid, "SIGKILL"); } catch { /* already gone */ } }
     }
   }, 30_000);
+
+  it("keeps a Test past its limit until its browser has exited, so a Test asked at once joins it, launching nothing", async () => {
+    vi.stubEnv("DEZFIL_CHROMIUM_PATH", program("browser", "exit 0").file);
+    let launches = 0;
+    const exits: (() => void)[] = [];
+    // The first browser's render and close never end, and its process,
+    // ended outright, exits only when the test lets it; any later one
+    // draws the picture at once.
+    stand.driver = { async launch() {
+      launches += 1;
+      if (launches > 1) return answering(picture(true)).driver.launch("", [], { appOrigin: "", deadline: 0, requestBoundMs: 0 });
+      return { render: () => new Promise(() => {}), close: () => new Promise(() => {}),
+        kill: () => new Promise<void>(resolve => exits.push(resolve)) };
+    } };
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
+    try {
+      const first = test();
+      await vi.waitFor(() => expect(launches).toBe(1));
+      await vi.advanceTimersByTimeAsync(PART_TEST_LIMITS.image_renderer * 1000);
+      expect(await first).toEqual({ part: "image_renderer", result: "failed", reason: "timed_out" });
+      // Time for the drive's own end to run its course: its close's grace is spent.
+      await vi.advanceTimersByTimeAsync(100);
+      expect(exits.length).toBeGreaterThan(0);
+      // Its browser has not exited: a Test asked now gets that run's answer.
+      const second = test();
+      await sleep(200);
+      expect(launches, "a second browser launched while the first had not exited").toBe(1);
+      expect(await second).toEqual({ part: "image_renderer", result: "failed", reason: "timed_out" });
+      expect(renderQueueState()).toEqual({ active: 1, waiting: 0 });
+    } finally {
+      vi.useRealTimers();
+      for (const exit of exits.splice(0)) exit();
+    }
+    // Once it has exited, its slot is back and the next Test runs anew.
+    await partTestsSettled();
+    expect(renderQueueState()).toEqual({ active: 0, waiting: 0 });
+    stand.driver = answering(picture(true)).driver;
+    expect(await test()).toMatchObject({ part: "image_renderer", result: "passed" });
+  });
 
   it("answers busy at once with every image slot in use, starting no browser", async () => {
     vi.stubEnv("DEZFIL_EXPORT_RENDER_CONCURRENCY", "1");

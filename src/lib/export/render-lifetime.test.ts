@@ -1,9 +1,12 @@
 import * as metadata from "@/lib/metadata/db";
+import { spawn } from "node:child_process";
+import { EventEmitter } from "node:events";
 import { Server } from "node:net";
 import puppeteer from "puppeteer-core";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { testAccountScope } from "@/lib/test-support/accounts";
 import { EvaluationCancelled } from "@/lib/api/errors";
+import { BROWSER_EXIT_BOUND_MS, puppeteerDriver } from "./render-driver";
 import { renderMapImage, renderQueueState } from "./render-image";
 import * as relayModule from "./render-relay";
 import { RelaySockets, deferred, socksRequest, until } from "./test-support/relay";
@@ -25,9 +28,18 @@ function pageFixture() {
     waitForFunction: vi.fn(async () => {}), evaluate: vi.fn(async () => undefined),
     screenshot: vi.fn(async () => new Uint8Array([137, 80, 78, 71])) };
 }
+/** The browser's process: killed, it exits on the next turn, as a real one does. */
+function processFixture() {
+  const kill = vi.fn(() => {
+    setImmediate(() => { if (child.signalCode === null) { child.signalCode = "SIGKILL"; child.emit("exit", null, "SIGKILL"); } });
+    return true;
+  });
+  const child = Object.assign(new EventEmitter(), { exitCode: null as number | null, signalCode: null as string | null, kill });
+  return child;
+}
 function rawBrowser(page = pageFixture()) {
-  const kill = vi.fn();
-  return { newPage: async () => page, close: vi.fn(async () => {}), process: () => ({ kill }), kill, page };
+  const child = processFixture();
+  return { newPage: async () => page, close: vi.fn(async () => {}), process: () => child, kill: child.kill, page };
 }
 beforeEach(() => {
   db = metadata.open(":memory:"); vi.spyOn(metadata, "metadataDb").mockReturnValue(db);
@@ -195,4 +207,34 @@ it("closes the relay independently of an uncooperative browser close", async () 
   await expect(renderMapImage(testAccountScope(), input)).resolves.toHaveProperty("png");
   await until(() => target.active.size === 0, 2_900); await network.assertClosed(port);
   await until(() => browser.kill.mock.calls.length === 1, 3_500);
+});
+
+it("ends a browser outright and settles once its process has exited, or past a bound for one never reaped", async () => {
+  const context = { appOrigin: "http://127.0.0.1:3216", deadline: Date.now() + 10_000, requestBoundMs: 1_000 };
+  // A real process stands in for the browser's.
+  const child = spawn("sleep", ["60"], { stdio: "ignore" });
+  try {
+    vi.mocked(puppeteer.launch).mockResolvedValueOnce({ ...rawBrowser(), process: () => child } as never);
+    const browser = await (await puppeteerDriver()).launch("/unused", [], context);
+    await browser.kill();
+    expect(child.signalCode, "the kill settled before the browser's process exited").toBe("SIGKILL");
+  } finally {
+    child.kill("SIGKILL");
+  }
+  // A process the system never reaps: it never says it has exited.
+  const stuck = Object.assign(new EventEmitter(), { exitCode: null, signalCode: null, kill: vi.fn(() => true) });
+  vi.mocked(puppeteer.launch).mockResolvedValueOnce({ ...rawBrowser(), process: () => stuck } as never);
+  const browser = await (await puppeteerDriver()).launch("/unused", [], context);
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+  try {
+    let settled = false;
+    void Promise.resolve(browser.kill()).then(() => { settled = true; });
+    await vi.advanceTimersByTimeAsync(BROWSER_EXIT_BOUND_MS - 10);
+    expect(settled, "the kill settled before its process exited or its bound passed").toBe(false);
+    expect(stuck.kill).toHaveBeenCalledWith("SIGKILL");
+    await vi.advanceTimersByTimeAsync(20);
+    expect(settled).toBe(true);
+  } finally {
+    vi.useRealTimers();
+  }
 });

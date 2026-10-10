@@ -1,3 +1,4 @@
+import type { ChildProcess } from "node:child_process";
 import { ApiError, EvaluationCancelled } from "@/lib/api/errors";
 import { startRenderRelay, type RenderRelay } from "./render-relay";
 import { renderProxyFlags } from "./render-proxy";
@@ -24,6 +25,10 @@ export interface RenderLaunchContext {
    * own handle, while it is still starting too. */
   stop?: AbortSignal;
 }
+
+/** How long a browser ended outright is waited for. A killed process
+ * cannot refuse to end, so only one the system never reaps outlasts it. */
+export const BROWSER_EXIT_BOUND_MS = 1_000;
 
 const EGRESS_REFUSAL = "The map reaches an address this instance's egress " +
   "policy denies (private and internal ranges). The image was not produced.";
@@ -56,8 +61,25 @@ export interface RenderBrowser {
   >;
   /** Close politely; the caller force-kills past the grace. */
   close(): Promise<void>;
-  /** The hard stop — never allowed to fail. */
-  kill(): void;
+  /** The hard stop, never allowed to fail: it settles once the browser's
+   * process has exited, or past `BROWSER_EXIT_BOUND_MS` for one the system
+   * never reaps. A stand-in with no process of its own may end at once. */
+  kill(): void | Promise<void>;
+}
+
+/** End `child` outright, settling once it has exited or past the bound. */
+function endProcess(child: ChildProcess | null): Promise<void> {
+  if (!child || child.exitCode !== null || child.signalCode !== null) return Promise.resolve();
+  return new Promise(resolve => {
+    const done = () => { clearTimeout(bound); child.off("exit", done); resolve(); };
+    const bound = setTimeout(done, BROWSER_EXIT_BOUND_MS);
+    child.once("exit", done);
+    try {
+      child.kill("SIGKILL");
+    } catch {
+      // Already gone: its exit is on its way.
+    }
+  });
 }
 
 /** The real driver, loaded lazily so unit tests never touch it. */
@@ -286,11 +308,7 @@ export async function puppeteerDriver(): Promise<RenderDriver> {
         },
         kill() {
           relay.close();
-          try {
-            browser.process()?.kill("SIGKILL");
-          } catch {
-            // Already gone.
-          }
+          return endProcess(browser.process());
         },
       };
     },

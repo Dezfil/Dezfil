@@ -9,6 +9,7 @@ import { askQueryEngine } from "./engine-test";
 import { renderTestImage } from "./renderer-test";
 import { buildTestArchive } from "./tiler-test";
 import { TILER_STOP_GRACE_MS } from "@/lib/tiles/tiler";
+import { BROWSER_EXIT_BOUND_MS } from "@/lib/export/render-driver";
 import { PART_TEST_LIMITS, type Part, type PartFailure, type PartTestAnswer } from "./part-test-answer";
 
 /**
@@ -86,14 +87,15 @@ const TESTS: Record<Part, PartTest> = {
  * question is interrupted a second early; the tiler is asked to stop with
  * its grace before it is ended outright, and a second for its exit and its
  * folder's removal, still to come; the renderer's browser is closed or
- * ended with time to spare. A check that cannot be stopped, a file written
+ * ended outright with the wait for its exit, and half a second more, still
+ * to come. A check that cannot be stopped, a file written
  * or the write lock taken, runs to its limit.
  */
 export const PART_TEST_ENDING_MS: Readonly<Record<Part, number>> = {
   data_folder: 0,
   query_engine: 1_000,
   tile_builder: TILER_STOP_GRACE_MS + 1_000,
-  image_renderer: 500,
+  image_renderer: BROWSER_EXIT_BOUND_MS + 500,
   metadata_database: 0,
 };
 
