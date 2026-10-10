@@ -26,14 +26,17 @@ describe("pane consumes declared metadata", () => {
   it("renders target and consequence for every gate without displaying the opcode", () => {
     const gates = buildTools().filter((tool) => tool.confirm || tool.confirmWhen);
     // Membership, instance configuration, departure, transfers and deletion are gates,
-    // and so are clearing the services' caches, testing a service, testing a part
-    // and reading the data folder's use.
-    expect(gates).toHaveLength(32);
+    // and so are clearing the services' caches, testing a service, testing a part,
+    // reading the data folder's use, and adding, offering and removing a style in
+    // the basemap library.
+    expect(gates).toHaveLength(35);
     for (const tool of gates) {
       const confirmation = { target: tool.confirmation!.target.replace("{target}", "Original (id)"), consequence: tool.confirmation!.consequence };
       const html = renderToStaticMarkup(<AssistantConfirmation pending={{ id: "pending", runId: "run", tool: tool.name, args: {}, confirmation }} promptId="prompt" busy={false} resolve={() => {}} />);
-      expect(html).toContain(confirmation.target);
-      expect(html).toContain(confirmation.consequence);
+      // As the markup carries them: an apostrophe is escaped there.
+      const marked = (text: string) => renderToStaticMarkup(<>{text}</>);
+      expect(html).toContain(marked(confirmation.target));
+      expect(html).toContain(marked(confirmation.consequence));
       expect(html).not.toContain(tool.name);
       expect(html).toContain('aria-labelledby="prompt"');
     }
