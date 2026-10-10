@@ -1,7 +1,8 @@
 // Settings' Libraries tab in a browser: a built-in style hidden leaves the
 // builder's picker and the Maps tab's choices; a style added by its address
 // is offered, taken by a map and removed while the map keeps it; style
-// addresses switched off for single maps stop a member's paste; the
+// addresses switched off for single maps close a member's paste door and
+// the API refuses the address in the same words; the
 // satellite imagery saved, tested, credited and removed; a palette added and
 // deleted; Reset then Undo over the Basemaps card, never an added style; and
 // a search hit landing on its row. Every journey runs as the browser
@@ -14,6 +15,7 @@
 // environment sets the tile address.
 import { createServer, type Server } from "node:http";
 import { test, expect, type APIRequestContext, type Page } from "@playwright/test";
+import { SINGLE_MAP_STYLES_OFF, SINGLE_MAP_STYLES_SETTING } from "../src/lib/basemap";
 import { readThenWriteRequestSetup } from "./edit-basis";
 import { isAllowedConsoleError } from "./console-allowlist";
 import { closeAll, invitePerson, runTag, type Person } from "./sharing-support";
@@ -200,8 +202,18 @@ test.describe("Settings · Libraries", () => {
       await memberPage.goto("/maps");
       const mapId = await createMap(memberPage, `Member map ${runTag()}`);
       await builderBasemaps(memberPage, mapId);
-      await memberPage.getByRole("button", { name: "Custom…" }).click();
-      await expect(memberPage.getByText("This instance takes only the styles its basemap library offers")).toBeVisible();
+      // The paste door is closed, and says why beside it.
+      const door = memberPage.getByRole("button", { name: "Custom…" });
+      await expect(door).toBeDisabled();
+      await expect(door).toHaveAccessibleDescription(SINGLE_MAP_STYLES_OFF);
+      await expect(memberPage.getByText(SINGLE_MAP_STYLES_OFF, { exact: true })).toBeVisible();
+      // The API refuses a pasted address in the same words, naming the switch, and the map keeps no style.
+      const pasted = await readThenWriteRequestSetup(member.api, `/api/maps/${mapId}`, () => ({
+        method: "PATCH", options: { data: { customBasemap: { url: `${fixtureUrl}/member/style.json` } } },
+      }));
+      expect(pasted.status()).toBe(403);
+      expect((await pasted.json()).error).toEqual({ code: "basemap_not_offered", message: SINGLE_MAP_STYLES_OFF, setting: SINGLE_MAP_STYLES_SETTING });
+      expect((await (await member.api.get(`/api/maps/${mapId}`)).json()).customBasemap).toBeNull();
       // A member never reaches Libraries: its address opens Account.
       await memberPage.goto("/settings/libraries#set-custom-styles");
       await expect(memberPage).toHaveURL(new URL("/settings/account", baseURL).href);
@@ -235,7 +247,8 @@ test.describe("Settings · Libraries", () => {
       await expect(satellite(page).locator("[data-answer]")).toHaveText(/^A tile arrived in [\d,]+ ms$/);
       await expect(satellite(page).locator("[data-answer]")).toHaveAttribute("data-answer", "passed");
 
-      const credit = satellite(page).getByLabel("Credit", { exact: true });
+      // The row's group carries the same name; the text box is the one to fill.
+      const credit = satellite(page).getByRole("textbox", { name: "Credit", exact: true });
       await credit.fill("Imagery © Fixture Office");
       const credited = settingsWrite(page);
       await satellite(page).locator("#set-satellite-credit").getByRole("button", { name: "Save", exact: true }).click();
