@@ -47,6 +47,8 @@ const DRAWN: readonly (readonly [label: string, pane: string, parts: readonly st
   ["General", "general", ["#card-sign-in"]],
   // Each draws every card at once when its read lands: the last card stands for the tab.
   ["Maps", "maps", ["#card-new-layers"]],
+  // The library from the configuration read, the palettes from their own: a list or its empty line.
+  ["Libraries", "libraries", ["#lib-style-streets", '#card-palettes :is(ul, p:not([role="status"]))']],
   ["Workflows & SQL", "workflows", ["#card-sql-console"]],
   ["Publishing", "publishing", ["#publishing-export"]],
   ["Data & services", "data", ["#data-who"]],
@@ -433,7 +435,8 @@ test.describe("the Settings page", () => {
       await page.goto("/settings/system#sys-version");
       await expect(page).toHaveURL(new URL("/settings/account", baseURL).href);
       // So do the addresses of what new things start with, a row's included.
-      for (const address of ["/settings/maps", "/settings/workflows#set-minimap", "/settings/publishing#set-export-width", "/settings/data#set-geocoder-address"]) {
+      for (const address of ["/settings/maps", "/settings/libraries#set-custom-styles", "/settings/workflows#set-minimap", "/settings/publishing#set-export-width",
+        "/settings/data#set-geocoder-address"]) {
         await page.goto(address);
         await expect(page).toHaveURL(new URL("/settings/account", baseURL).href);
         await expect(card(page, "Account")).toBeVisible();

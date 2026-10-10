@@ -94,7 +94,7 @@ export function PalettesCard() {
   const nameId = `${ids}-name`, nameErrorId = `${ids}-name-error`;
   return <SettingsCard id={PALETTES_CARD.id} title={PALETTES_CARD.title} count={palettes ? String(palettes.length) : undefined}
     headingId={`${PALETTES_CARD.id}-heading`}
-    head={!adding && palettes && <Button ref={opener} onClick={() => setAdding(true)}><PlusIcon />Add a palette</Button>}>
+    head={!adding && palettes && <Button ref={opener} variant="primary" onClick={() => setAdding(true)}><PlusIcon />Add a palette</Button>}>
     {error && <ErrorNote message={error} onRetry={() => { setError(null); setAttempt(value => value + 1); }} />}
     {!palettes && !error && <p role="status" className={cardStyles.loading}>Loading…</p>}
     {adding && <form className={styles.form} noValidate onSubmit={event => void add(event)} onKeyDown={escape}>

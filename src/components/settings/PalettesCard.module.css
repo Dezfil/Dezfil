@@ -78,7 +78,7 @@
 .ramp {
   display: inline-block;
   flex: none;
-  width: 120px;
+  width: 108px;
   height: 12px;
   margin-left: 4px;
   border-radius: var(--radius-sm);

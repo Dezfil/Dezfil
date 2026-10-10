@@ -32,7 +32,12 @@ const PASSWORD = "seeded-Password-4711", SECRET = "dz_seededTokenSecret_0042";
 /** The person's look as the own-settings read reports it. */
 const LOOK = { ...defaultLook(), color: "slate", background: "hex" };
 /** What the configuration read reports stored. */
-const STORED = { instanceName: "Atlas North", landingPage: "maps", queryTimeoutS: 90, "newLayer.colorCycle": "tab10" };
+const STORED = { instanceName: "Atlas North", landingPage: "maps", queryTimeoutS: 90, "newLayer.colorCycle": "tab10", "basemaps.streets": false };
+/** The library's one added style and the one saved palette. */
+const FACTS = { basemapStyles: [{ id: "style-harbor", name: "Harbor chart", url: "https://tiles.harbor.example/styles/chart/style.json",
+  attribution: [{ label: "Harbor Office" }], offered: true, addedAt: "2026-10-01T08:00:00.000Z" }] } as never;
+const PALETTES = [{ name: "stadtwerke-blues", label: "Stadtwerke blues",
+  stops: [{ color: "#e8f1fa", position: 0 }, { color: "#4a8fd0", position: 0.5 }, { color: "#0d3566", position: 1 }] }];
 let admin = true;
 let tokens: { id: string; name: string; createdAt: string; lastUsedAt: string | null; revokedAt: string | null; expiresAt: string | null }[];
 let requests: string[];
@@ -71,8 +76,9 @@ beforeEach(() => {
     if (url === "/api/instance/settings") {
       // The read answers a moment later than the tab asks, as a server does.
       await new Promise(resolve => setTimeout(resolve, 5));
-      return Response.json(storedRead(STORED));
+      return Response.json(storedRead(STORED, FACTS));
     }
+    if (url === "/api/palettes") return Response.json({ custom: PALETTES });
     if (url === "/api/auth/entry") return Response.json({ instanceName: "Atlas North", signInMessage: "", lostPasswordContact: "the GIS team", landingPage: "projects", setupRequired: false });
     if (url === "/api/health") return Response.json({ status: "ready" });
     if (url === "/api/assistant") return Response.json({ enabled: false, reason: "No model credential is configured." });
@@ -305,19 +311,46 @@ describe("the Settings search", () => {
     expect(container.querySelector('[id="settings-users"]')!.hasAttribute("data-marked")).toBe(true);
   });
 
-  it("gives a member only the member's tabs: never Maps, Workflows & SQL, Publishing, Data & services, Limits, Security, System or Users, and never the configuration or storage read", async () => {
+  it("gives a member only the member's tabs: never Maps, Libraries, Workflows & SQL, Publishing, Data & services, Limits, Security, System or Users, and never the configuration, storage or palette read", async () => {
     await open("/settings/account", "member");
     for (const query of ["limit", "system", "users", "invite", "environment", "version", "maps", "basemap", "opacity", "workflows",
       "minimap", "text size", "publishing", "starting width", "tab10", "security", "stay signed in", "shortest password", "who may publish",
       "embedding", "data", "services", "address finder", "overpass", "cache", "private network", "who may import", "connections", "s3",
-      "storage", "leftover", "free on the disk"]) {
+      "storage", "leftover", "free on the disk", "libraries", "palettes", "stadtwerke", "harbor chart", "satellite", "tile address", "style addresses",
+      "offered", "hidden"]) {
       await find(query);
-      expect(lines().filter(line => /Maps|Workflows|Publishing|Data|Limits|Security|System|Users/.test(line)), query).toEqual([]);
+      expect(lines().filter(line => /Maps|Libraries|Workflows|Publishing|Data|Limits|Security|System|Users/.test(line)), query).toEqual([]);
     }
     await find("gis team");
     expect(lines()).toEqual(["Instance / General · Lost password contact"]);
     expect(requests).not.toContain("/api/instance/settings");
     expect(requests).not.toContain("/api/instance/storage");
+    expect(requests).not.toContain("/api/palettes");
+  });
+
+  it("finds on Libraries each basemap by its name, Offered or Hidden, the single-map switch and a saved palette, and lands on its row", async () => {
+    await open("/settings/account");
+    await find("streets");
+    expect(lines()).toContain("Instance / Libraries · Streets");
+    expect(metas()[lines().indexOf("Instance / Libraries · Streets")]).toBe("Basemaps · OpenFreeMap · built in · Hidden");
+    await find("harbor chart");
+    expect(lines()).toEqual(["Instance / Libraries · Harbor chart"]);
+    expect(metas()).toEqual(["Basemaps · tiles.harbor.example · Offered"]);
+    await find("style addresses");
+    expect(lines()).toEqual(["Instance / Libraries · Style addresses on single maps"]);
+    expect(metas()).toEqual(["Basemaps · Allowed"]);
+    await find("stadtwerke");
+    expect(lines()).toEqual(["Instance / Libraries · Stadtwerke blues"]);
+    expect(metas()).toEqual(["Palettes · 3 colors"]);
+    await choose("Instance / Libraries · Stadtwerke blues");
+    expect(nav.push).toHaveBeenCalledWith("/settings/libraries#palette-stadtwerke-blues", { scroll: false });
+    await arrive("/settings/libraries#palette-stadtwerke-blues");
+    // The palettes are their own read: the row is marked once it is drawn.
+    expect(container.querySelector('[id="palette-stadtwerke-blues"]')!.hasAttribute("data-marked")).toBe(true);
+    expect(scrolled).toContain("palette-stadtwerke-blues");
+    await find("tile address");
+    expect(lines()).toEqual(["Instance / Libraries · Tile address"]);
+    expect(metas()).toEqual(["Satellite imagery · Not set up"]);
   });
 });
 
@@ -325,10 +358,10 @@ describe("where a hit lands", () => {
   it("names only cards and rows its tab draws, under the same id and label", async () => {
     const declared = settingsDeclarations({
       account: { id: "ada", name: "Ada Okafor", email: "ada@example.test", sqlName: "ada_okafor", isAdmin: true } as never,
-      tokens, look: LOOK, instance: storedRead(STORED), entry: null,
-      health: "ready", assistant: { enabled: false, reason: "No model credential is configured." },
+      tokens, look: LOOK, instance: storedRead(STORED, FACTS), entry: null,
+      health: "ready", assistant: { enabled: false, reason: "No model credential is configured." }, palettes: PALETTES,
     }, true);
-    const tabs: SettingsTabId[] = ["account", "tokens", "appearance", "general", "maps", "workflows", "publishing", "data", "limits", "security", "system"];
+    const tabs: SettingsTabId[] = ["account", "tokens", "appearance", "general", "maps", "libraries", "workflows", "publishing", "data", "limits", "security", "system"];
     expect(Object.keys(declared).sort()).toEqual([...tabs].sort());
     for (const tab of tabs) {
       await arrive(`/settings/${tab}`);
@@ -376,6 +409,25 @@ describe("what the search never finds", () => {
     // The row is found by its words and what the read says about it, never by the field's text.
     await find("address finder");
     expect(lines()).toContain("Instance / Data & services · Address");
+    expect(metas().join(" ")).not.toContain("SEEDED");
+  });
+
+  it("finds no tile address typed into the satellite field, by its key or anything else it holds, nor a style address being added", async () => {
+    const typed = "https://seed-user:SEEDED-KEY-0005-USER@imagery.seeded.example/SEEDED-KEY-0005-PATH/{z}/{x}/{y}.jpg?key=SEEDED-KEY-0005-QUERY";
+    await open("/settings/libraries");
+    const address = container.querySelectorAll("input").find(input => input.getAttribute("aria-label") === "Satellite tile address")!;
+    await act(async () => props(address).onChange({ target: { value: typed } }));
+    expect(address.value).toBe(typed);
+    await act(async () => { container.querySelectorAll("button").find(button => button.textContent === "Add a style")!.click(); });
+    await settle();
+    await type("Style address", typed.replace("imagery", "tiles"));
+    for (const query of ["SEEDED-KEY", "seed-user", "imagery.seeded", "tiles.seeded", "0005-PATH", "key=SEEDED", "{z}"]) {
+      await find(query);
+      expect(lines(), query).toEqual([]);
+    }
+    // The row is found by its words and what the read says about it, never by the field's text.
+    await find("tile address");
+    expect(lines()).toEqual(["Instance / Libraries · Tile address"]);
     expect(metas().join(" ")).not.toContain("SEEDED");
   });
 

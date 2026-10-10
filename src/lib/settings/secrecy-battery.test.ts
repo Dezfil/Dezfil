@@ -217,7 +217,7 @@ async function reads(where: string, source: "stored" | "environment") {
     searched(`${where}: the runtime read (${as})`, runtime.text);
   }
   const index = buildSearchIndex(settingsDeclarations({ account: ACCOUNT, tokens: null, look: null, instance: read.body as InstanceRead,
-    entry: null, health: null, assistant: null }, true), true);
+    entry: null, health: null, assistant: null, palettes: null }, true), true);
   searched(`${where}: the settings search`, index, { origin });
 }
 
