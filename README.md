@@ -91,10 +91,13 @@ services' gaps, answer limits and freshness also accept stored admin changes,
 marked **App (live) or restart**, made on the **Limits** and **Data & services**
 tabs of Settings; a setting its variable sets shows locked there, naming the
 variable. A stored address is kept encrypted and reads back as its scheme and
-host alone. The **System** tab lists
-every setting a variable decides, with the value in effect and its source. The
-test-wiring rows are for probe processes. `GET /api/instance/settings` reports
-the effective configuration to admins.
+host alone. The **System** tab shows each part of the server (the data
+folder, the query engine, the tile builder, the image renderer and the
+metadata database) with a Test, what the data folder holds by kind with Clear
+all for the service caches, and every setting a variable decides, with the
+value in effect and its source. The test-wiring rows are for probe processes
+and tests. `GET /api/instance/settings` reports the effective configuration to
+admins.
 Account and instance preferences persist in the data directory, alongside the
 optional model catalogue file. See [configuration](docs/configuration.md).
 
@@ -182,6 +185,7 @@ lists.
 | `DEZFIL_TEST_PG_URL` | unset | Test/probe process only: disposable PostGIS fixture URL for live source tests and the full result-budget probe. Never read by the product server. | Restart |
 | `DEZFIL_TEST_PUBLICATION_LOG` | unset | Test preload only: NDJSON destination for per-admission published-source state. Required by `scripts/publication-observer.mjs`; no effect without that preload. | Restart |
 | `DEZFIL_TEST_DERIVATION_LOG` | unset | Test preload only: NDJSON destination for native derivation starts, completions and admission occupancy. Required by `scripts/derivation-observer.mjs`; no effect without that preload. | Restart |
+| `DEZFIL_TEST_EXTENSION_REPOSITORY` | unset | Tests only: a loopback extension repository the engine that runs people's SQL installs from, so a test that lets it install an extension reaches a fixture that records the request, never the internet. Never set in a deployment. | Restart |
 
 JSON admission has fixed outer byte tiers: 65,536 bytes for authentication
 entry, Account, Users, instance settings and the three anonymous published POSTs; 16,777,216 for

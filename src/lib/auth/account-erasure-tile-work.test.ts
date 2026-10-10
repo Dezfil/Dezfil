@@ -12,9 +12,17 @@ vi.mock("@/lib/tiles/export", () => ({ exportGeoJsonSeq: async (_scope: unknown,
   driver.started?.resolve(); await driver.hold?.promise;
   if (driver.controlId && file.includes(driver.controlId)) await driver.controlHold?.promise; if (driver.fail) throw new Error("retained failure"); return 1;
 } }));
-vi.mock("node:child_process", () => ({ execFile: (_file: string, args: string[], _options: unknown, callback: (error: null, stdout: string, stderr: string) => void) => {
-  void import("node:fs/promises").then(fs => fs.writeFile(args[args.indexOf("-o") + 1], "late archive")).then(() => callback(null, "", ""));
-} }));
+// A stand-in tiler process, as execFile hands one back: it writes its
+// archive late, exits, and only then answers, as a real run does.
+vi.mock("node:child_process", async () => {
+  const { EventEmitter } = await import("node:events");
+  return { execFile: (_file: string, args: string[], _options: unknown, callback: (error: null, stdout: string, stderr: string) => void) => {
+    const child = Object.assign(new EventEmitter(), { pid: 4_194_304, kill: () => true });
+    void import("node:fs/promises").then(fs => fs.writeFile(args[args.indexOf("-o") + 1], "late archive"))
+      .then(() => { child.emit("exit", 0, null); callback(null, "", ""); });
+    return child;
+  } };
+});
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { closeMetadataDb, metadataDb } from "@/lib/metadata/db";

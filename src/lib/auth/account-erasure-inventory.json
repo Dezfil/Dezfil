@@ -380,7 +380,7 @@
       "rule": "Drain target render waiters and active launches; preserve other accounts work and non-content capacity counters.",
       "fixture": "memory:src/lib/export/render-image.ts#active"
     },
-    "memory:src/lib/export/render-image.ts#launches": {
+    "memory:src/lib/export/render-drive.ts#launches": {
       "action": "retain",
       "rule": "Keep the process-wide count of physical launch attempts. It contains no account identity or content."
     },
@@ -609,40 +609,45 @@
       "rule": "Erase target tickets, retained renders and prepared copies by existing account identity; release timers and buffers after settlement/expiry. Preserve other initiators issued copies for their lifetime.",
       "fixture": "memory:src/lib/export/project-export-tickets.ts#projectExportTickets"
     },
-    "memory:src/lib/export/render-image.ts#performRenderMapImage.browser": {
+    "memory:src/lib/export/render-drive.ts#driveRender.browser": {
       "action": "erase",
       "rule": "Drain target render waiters and active launches; preserve other accounts work and non-content capacity counters.",
-      "fixture": "memory:src/lib/export/render-image.ts#performRenderMapImage.browser"
+      "fixture": "memory:src/lib/export/render-drive.ts#driveRender.browser"
     },
-    "memory:src/lib/export/render-image.ts#performRenderMapImage.closing": {
+    "memory:src/lib/export/render-drive.ts#driveRender.ended": {
       "action": "erase",
       "rule": "Drain target render waiters and active launches; preserve other accounts work and non-content capacity counters.",
-      "fixture": "memory:src/lib/export/render-image.ts#performRenderMapImage.closing"
+      "fixture": "memory:src/lib/export/render-drive.ts#driveRender.ended"
     },
-    "memory:src/lib/export/render-image.ts#performRenderMapImage.error": {
+    "memory:src/lib/export/render-drive.ts#driveRender.error": {
       "action": "erase",
       "rule": "Drain target render waiters and active launches; preserve other accounts work and non-content capacity counters.",
-      "fixture": "memory:src/lib/export/render-image.ts#performRenderMapImage.error"
+      "fixture": "memory:src/lib/export/render-drive.ts#driveRender.error"
     },
-    "memory:src/lib/export/render-image.ts#performRenderMapImage.launching": {
+    "memory:src/lib/export/render-drive.ts#driveRender.lateEnd": {
       "action": "erase",
       "rule": "Drain target render waiters and active launches; preserve other accounts work and non-content capacity counters.",
-      "fixture": "memory:src/lib/export/render-image.ts#performRenderMapImage.launching"
+      "fixture": "memory:src/lib/export/render-drive.ts#driveRender.lateEnd"
     },
-    "memory:src/lib/export/render-image.ts#performRenderMapImage.outcome": {
+    "memory:src/lib/export/render-drive.ts#driveRender.launching": {
       "action": "erase",
       "rule": "Drain target render waiters and active launches; preserve other accounts work and non-content capacity counters.",
-      "fixture": "memory:src/lib/export/render-image.ts#performRenderMapImage.outcome"
+      "fixture": "memory:src/lib/export/render-drive.ts#driveRender.launching"
     },
-    "memory:src/lib/export/render-image.ts#performRenderMapImage.settled": {
+    "memory:src/lib/export/render-drive.ts#driveRender.outcome": {
       "action": "erase",
       "rule": "Drain target render waiters and active launches; preserve other accounts work and non-content capacity counters.",
-      "fixture": "memory:src/lib/export/render-image.ts#performRenderMapImage.settled"
+      "fixture": "memory:src/lib/export/render-drive.ts#driveRender.outcome"
     },
-    "memory:src/lib/export/render-image.ts#performRenderMapImage.timedOut": {
+    "memory:src/lib/export/render-drive.ts#driveRender.settled": {
       "action": "erase",
       "rule": "Drain target render waiters and active launches; preserve other accounts work and non-content capacity counters.",
-      "fixture": "memory:src/lib/export/render-image.ts#performRenderMapImage.timedOut"
+      "fixture": "memory:src/lib/export/render-drive.ts#driveRender.settled"
+    },
+    "memory:src/lib/export/render-drive.ts#driveRender.timedOut": {
+      "action": "erase",
+      "rule": "Drain target render waiters and active launches; preserve other accounts work and non-content capacity counters.",
+      "fixture": "memory:src/lib/export/render-drive.ts#driveRender.timedOut"
     },
     "memory:src/lib/export/render-work.ts#work": {
       "action": "erase",
@@ -767,6 +772,10 @@
     "memory:process-start": {
       "action": "retain",
       "rule": "Keep the process start timestamp across route bundles. It contains no account identity or content."
+    },
+    "memory:storage-read": {
+      "action": "retain",
+      "rule": "Keep the last walk of the data folder for at most 30 seconds and the walk in progress with what ends it early: totals of bytes and files by kind and the disk's free space. They contain no account identity, name or content."
     }
   },
   "tables": {
@@ -2940,6 +2949,16 @@
         "memory:engine-extensions"
       ]
     },
+    "memory:src/lib/duckdb.ts#getQueryInstance.extensions": {
+      "stores": [
+        "memory:engine-extensions"
+      ]
+    },
+    "memory:src/lib/duckdb.ts#startedQueryInstance": {
+      "stores": [
+        "memory:engine-extensions"
+      ]
+    },
     "memory:src/lib/duckdb.ts#instancePromise": {
       "stores": [
         "memory:src/lib/duckdb.ts#instancePromise"
@@ -3025,9 +3044,9 @@
         "memory:request-closures"
       ]
     },
-    "memory:src/lib/export/render-image.ts#launches": {
+    "memory:src/lib/export/render-drive.ts#launches": {
       "stores": [
-        "memory:src/lib/export/render-image.ts#launches"
+        "memory:src/lib/export/render-drive.ts#launches"
       ]
     },
     "memory:src/lib/export/render-relay.ts#startRenderRelay.admissions": {
@@ -3580,11 +3599,6 @@
         "memory:tiler-probe"
       ]
     },
-    "memory:src/lib/tiles/tiler.ts#probedPath": {
-      "stores": [
-        "memory:tiler-probe"
-      ]
-    },
     "memory:src/lib/tools/tools.ts#cachedTools": {
       "stores": [
         "memory:tool-schema-cache"
@@ -3976,39 +3990,49 @@
         "memory:src/lib/export/project-export-tickets.ts#projectExportTickets"
       ]
     },
-    "memory:src/lib/export/render-image.ts#performRenderMapImage.browser": {
+    "memory:src/lib/export/render-drive.ts#driveRender.browser": {
       "stores": [
-        "memory:src/lib/export/render-image.ts#performRenderMapImage.browser"
+        "memory:src/lib/export/render-drive.ts#driveRender.browser"
       ]
     },
-    "memory:src/lib/export/render-image.ts#performRenderMapImage.closing": {
+    "memory:src/lib/export/render-drive.ts#driveRender.ended": {
       "stores": [
-        "memory:src/lib/export/render-image.ts#performRenderMapImage.closing"
+        "memory:src/lib/export/render-drive.ts#driveRender.ended"
       ]
     },
-    "memory:src/lib/export/render-image.ts#performRenderMapImage.error": {
+    "memory:src/lib/export/render-drive.ts#driveRender.error": {
       "stores": [
-        "memory:src/lib/export/render-image.ts#performRenderMapImage.error"
+        "memory:src/lib/export/render-drive.ts#driveRender.error"
       ]
     },
-    "memory:src/lib/export/render-image.ts#performRenderMapImage.launching": {
+    "memory:src/lib/export/render-drive.ts#driveRender.lateEnd": {
       "stores": [
-        "memory:src/lib/export/render-image.ts#performRenderMapImage.launching"
+        "memory:src/lib/export/render-drive.ts#driveRender.lateEnd"
       ]
     },
-    "memory:src/lib/export/render-image.ts#performRenderMapImage.outcome": {
+    "memory:src/lib/export/render-drive.ts#driveRender.launching": {
       "stores": [
-        "memory:src/lib/export/render-image.ts#performRenderMapImage.outcome"
+        "memory:src/lib/export/render-drive.ts#driveRender.launching"
       ]
     },
-    "memory:src/lib/export/render-image.ts#performRenderMapImage.settled": {
+    "memory:src/lib/export/render-drive.ts#driveRender.outcome": {
       "stores": [
-        "memory:src/lib/export/render-image.ts#performRenderMapImage.settled"
+        "memory:src/lib/export/render-drive.ts#driveRender.outcome"
       ]
     },
-    "memory:src/lib/export/render-image.ts#performRenderMapImage.timedOut": {
+    "memory:src/lib/export/render-drive.ts#driveRender.settled": {
       "stores": [
-        "memory:src/lib/export/render-image.ts#performRenderMapImage.timedOut"
+        "memory:src/lib/export/render-drive.ts#driveRender.settled"
+      ]
+    },
+    "memory:src/lib/export/render-drive.ts#driveRender.timedOut": {
+      "stores": [
+        "memory:src/lib/export/render-drive.ts#driveRender.timedOut"
+      ]
+    },
+    "memory:src/lib/export/render-check.ts#RENDER_CHECK_DEFINITION": {
+      "stores": [
+        "memory:immutable-configuration"
       ]
     },
     "memory:src/lib/export/render-work.ts#work": {
@@ -4065,6 +4089,14 @@
       ]
     },
     "location:src/lib/ingest/file-ownership.ts#ownedFileRecords:recordPath": {
+      "stores": [
+        "file:account-files"
+      ],
+      "roots": [
+        "file-owners/*.json"
+      ]
+    },
+    "location:src/lib/ingest/file-ownership.ts#ownedFileRecords:unplacedRecordPath": {
       "stores": [
         "file:account-files"
       ],
@@ -4145,6 +4177,30 @@
       ]
     },
     "location:src/lib/ingest/file-ownership.ts#removeAccountFile:recordPath": {
+      "stores": [
+        "file:account-files"
+      ],
+      "roots": [
+        "file-owners/*.json"
+      ]
+    },
+    "location:src/lib/ingest/file-ownership.ts#removeAccountFile:unplacedRecordPath": {
+      "stores": [
+        "file:account-files"
+      ],
+      "roots": [
+        "file-owners/*.json"
+      ]
+    },
+    "location:src/lib/ingest/file-ownership.ts#unplacedRecordPath:folder": {
+      "stores": [
+        "file:account-files"
+      ],
+      "roots": [
+        "file-owners"
+      ]
+    },
+    "location:src/lib/ingest/file-ownership.ts#unplacedRecordPath:path.join": {
       "stores": [
         "file:account-files"
       ],
@@ -5281,6 +5337,107 @@
     "memory:src/lib/settings/service-tests.ts#running": {
       "stores": [
         "memory:provider-scheduling"
+      ]
+    },
+    "location:src/lib/system/part-tests.ts#TESTS.data_folder:dataDir": {
+      "stores": [
+        "data-directory"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "writer:src/lib/system/part-tests.ts#TESTS.data_folder:ensureDataDir": {
+      "stores": [
+        "data-directory"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "memory:src/lib/api/openapi-instance-system.ts#INSTANCE_SYSTEM_PATHS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-instance-system.ts#INSTANCE_SYSTEM_SCHEMAS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-instance-system.ts#part": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-instance-system.ts#PART_STATES_SCHEMA": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/system/part-tests.ts#TESTS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/system/part-tests.ts#running": {
+      "stores": [
+        "memory:provider-scheduling"
+      ]
+    },
+    "location:src/lib/system/storage.ts#walk.folder:dataDir": {
+      "stores": [
+        "data-directory"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "memory:src/lib/system/storage.ts#kept": {
+      "stores": [
+        "memory:storage-read"
+      ]
+    },
+    "memory:src/lib/system/storage.ts#readStorage.stop": {
+      "stores": [
+        "memory:storage-read"
+      ]
+    },
+    "memory:src/lib/system/storage.ts#readStorage.walking": {
+      "stores": [
+        "memory:storage-read"
+      ]
+    },
+    "location:src/lib/system/tiler-test.ts#buildTestArchive:tileScratchDir": {
+      "stores": [
+        "file:tile-scratch"
+      ],
+      "roots": [
+        "tiles/scratch"
+      ]
+    },
+    "location:src/lib/system/tiler-test.ts#buildTestArchive.folder:path.join": {
+      "stores": [
+        "file:tile-scratch"
+      ],
+      "roots": [
+        "tiles/scratch/part-test-"
+      ]
+    },
+    "location:src/lib/system/tiler-test.ts#buildTestArchive.folder:tileScratchDir": {
+      "stores": [
+        "file:tile-scratch"
+      ],
+      "roots": [
+        "tiles/scratch"
+      ]
+    },
+    "writer:src/lib/system/tiler-test.ts#buildTestArchive:mkdir": {
+      "stores": [
+        "file:tile-scratch"
+      ],
+      "roots": [
+        "tiles/scratch"
       ]
     },
     "memory:src/lib/api/openapi-instance-settings.ts#address": {

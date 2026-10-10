@@ -32,6 +32,14 @@
   line-height: 1.35;
 }
 
+/* what the card's rows add up to, quiet beside its title */
+.count {
+  margin-left: 8px;
+  font-size: var(--text-label);
+  font-weight: 500;
+  color: var(--fg-muted);
+}
+
 /* the head's Reset to defaults, then Undo: never taller than the title */
 .slot {
   display: inline-flex;

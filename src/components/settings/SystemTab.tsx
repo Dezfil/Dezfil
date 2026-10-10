@@ -1,21 +1,25 @@
 "use client";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ErrorNote } from "@/components/ui/ErrorNote";
+import { PARTS } from "@/lib/system/part-test-answer";
+import type { PartStates } from "@/lib/system/part-states";
 import { accountRequest, failureMessage } from "./api";
-import { useInstanceRead, type InstanceRead } from "./instance-read";
+import { INSTANCE_SETTINGS, useInstanceRead, type InstanceRead } from "./instance-read";
 import { Rows, SettingRow, ValueText } from "./SettingRows";
 import { Note, SettingsCard } from "./SettingsCard";
 import { useDrawn } from "./settings-land";
+import { PartRow, State } from "./StatusRows";
+import { StorageCard } from "./StorageCard";
+import type { Health } from "./status-table";
 import { providerName, runningFor, serverSettingsRows, type AssistantStatus, type SettingSource, type ShownValue } from "./system-table";
 import cardStyles from "./SettingsCard.module.css";
 import styles from "./SystemTab.module.css";
 
-type Health = "checking" | "ready" | "unready";
-
-/** System, read-only: the version and the data folder's state, the
- * assistant's status, and every setting a server variable decides with
- * the value in effect and where it came from. */
+/** System: the version and each part's state with its Test, what the data
+ * folder holds by kind, the assistant's status, and every setting a server
+ * variable decides with the value in effect and where it came from.
+ * Nothing here changes a setting. */
 export function SystemTab() {
   const { read, error, retry } = useInstanceRead();
   const health = useHealth();
@@ -25,6 +29,7 @@ export function SystemTab() {
   if (!read) return <p role="status" className={cardStyles.loading}>Loading settings…</p>;
   return <>
     <StatusCard read={read} health={health} />
+    <StorageCard />
     <AssistantCard />
     <ServerSettingsCard read={read} />
   </>;
@@ -43,20 +48,24 @@ function useHealth(): Health {
   return health;
 }
 
-/** A part's state: a dot and its words. */
-function State({ state, children }: { state: "on" | "off" | "danger"; children: string }) {
-  return <span className={styles.state} data-state={state}>{children}</span>;
+/** The parts as last read: the tab's read, then each read again after a
+ * Test answers. A read that fails keeps what was shown. */
+function useParts(read: InstanceRead): [PartStates, () => void] {
+  const [fresh, setFresh] = useState<PartStates | null>(null);
+  const mounted = useRef(true);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
+  const again = () => {
+    accountRequest<InstanceRead>(INSTANCE_SETTINGS).then(body => { if (mounted.current && body.parts) setFresh(body.parts); }).catch(() => {});
+  };
+  return [fresh ?? read.parts, again];
 }
 
 function StatusCard({ read, health }: { read: InstanceRead; health: Health }) {
-  const folder = read.settings.dataDir?.value;
+  const [parts, readAgain] = useParts(read);
   return <SettingsCard id="system-status" title="Status" headingId="system-status-heading">
     <Rows>
       <SettingRow id="sys-version" label="Version" after={runningFor(read.startedAt)}><ValueText>{read.version}</ValueText></SettingRow>
-      <SettingRow id="sys-data-folder" label="Data folder" meta={typeof folder === "string" ? <ValueText mono>{folder}</ValueText> : undefined}>
-        {health === "checking" ? <ValueText muted>Checking</ValueText>
-          : health === "ready" ? <State state="on">Writable</State> : <State state="danger">Not writable</State>}
-      </SettingRow>
+      {PARTS.map(part => <PartRow key={part} part={part} read={{ settings: read.settings, parts }} health={health} onAnswered={readAgain} />)}
     </Rows>
   </SettingsCard>;
 }

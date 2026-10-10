@@ -146,7 +146,7 @@ export const ERROR_CATALOGUE: Record<ErrorCode, string> = {
   assistant_plan_unavailable: "The current workflow membership could not be established. No run was approved or started.",
   assistant_action_uncertain: "The action outcome could not be established. Its declared resources may have changed.",
   assistant_action_interrupted: "The read was interrupted before completion.",
-  assistant_action_not_admitted: "The run's page context does not admit this operation; nothing was performed. Runs under a /sql or workflow context admit only operations that declare themselves read-only.",
+  assistant_action_not_admitted: "The run's page context does not admit this operation; nothing was performed. Runs under a /sql or workflow context admit only operations that declare themselves read-only, and none that reaches outside this server or asks for confirmation.",
   assistant_choice_invalid: "The submitted model choice is malformed: it must be an object whose optional model and effort are strings.",
   assistant_model_not_offered: "The requested model is not one this instance offers. GET /api/assistant lists the models it offers.",
   assistant_effort_not_offered: "The requested effort is not one the selected model offers. GET /api/assistant lists each model's own efforts.",

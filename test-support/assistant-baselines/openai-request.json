@@ -317,7 +317,7 @@
     {
       "type": "function",
       "name": "get_instance_settings",
-      "description": "Read instance configuration. Requires a current admin account through a cookie session or bearer token, rechecked on every call. Responses, including refusals, are private, no-store. Returns every instance and platform definition with its effective value, source, stored value (including a shadowed value), lock and invalid-override state. A non-empty environment variable locks the setting even when invalid; invalid numeric overrides use the default without returning the override text. Empty numeric overrides are absent; a set empty assistant model list retains its default model alone. Environment changes require a restart. Provider keys report set or not set; the encryption key reports environment, data-directory or not-yet-present. Address value and defaultValue expose scheme and host only, never user information, paths, queries or fragments; malformed addresses report set and unreadable. A service address an admin stored reads as set with its scheme and host, or as set and unreadable once the instance's encryption key no longer opens it; its storedValue is always null. The built-in documentedDefault stays as documented, including any path. Contextual defaults carry a rule when there is no single address or value. The read generates no key, writes no configuration file, contacts no service and initializes no engine. Capacities report admitted geocode rows and travel-time origins per run, without promising a configured provider. Also returns the fixed maximum image dimension, package version, stable process start time and warnings when the effective query timeout is at or above the run timeout. Services report each provider cache (geocode, isochrone, overpass) with the bytes its answers take, how many it holds and its budget in MB, and the Overture release list this process keeps: how many releases, the newest and when it was listed, or not listed yet.",
+      "description": "Read instance configuration. Requires a current admin account through a cookie session or bearer token, rechecked on every call. Responses, including refusals, are private, no-store. Returns every instance and platform definition with its effective value, source, stored value (including a shadowed value), lock and invalid-override state. A non-empty environment variable locks the setting even when invalid; invalid numeric overrides use the default without returning the override text. Empty numeric overrides are absent; a set empty assistant model list retains its default model alone. Environment changes require a restart. Provider keys report set or not set; the encryption key reports environment, data-directory or not-yet-present. Address value and defaultValue expose scheme and host only, never user information, paths, queries or fragments; malformed addresses report set and unreadable. A service address an admin stored reads as set with its scheme and host, or as set and unreadable once the instance's encryption key no longer opens it; its storedValue is always null. The built-in documentedDefault stays as documented, including any path. Contextual defaults carry a rule when there is no single address or value. The read generates no key, writes no configuration file, contacts no service and initializes no engine. Capacities report admitted geocode rows and travel-time origins per run, without promising a configured provider. Also returns the fixed maximum image dimension, package version, stable process start time and warnings when the effective query timeout is at or above the run timeout. Services report each provider cache (geocode, isochrone, overpass) with the bytes its answers take, how many it holds and its budget in MB, and the Overture release list this process keeps: how many releases, the newest and when it was listed, or not listed yet. Parts report each part of this server, starting nothing and running no program: the query engine's library version, whether the engine has started and the extensions it loaded; whether the tile builder and the image renderer's browser are executable files where their settings point, by a file check, the tile builder's version once this server has run it, and Images at once; the metadata database's file name.",
       "parameters": {
         "type": "object",
         "properties": {},
@@ -995,6 +995,43 @@
         "additionalProperties": false,
         "required": [
           "service"
+        ]
+      },
+      "strict": false
+    },
+    {
+      "type": "function",
+      "name": "read_storage",
+      "description": "Read how the data folder is used. Requires a current admin through cookie or bearer authentication, rechecked on every call. A cookie request must show it comes from this instance's own page, by an Origin that is this instance's, Sec-Fetch-Site same-origin or the X-Dezfil-Account header its pages send; one with none of them, or with another origin's Origin or a cross-site or same-site Sec-Fetch-Site, is refused. An admin bearer token calls directly. Responses, including refusals, are private, no-store. Walks the data folder and answers, for each kind of file, the bytes its files take and how many there are: tables (dataset files the metadata registers), tile_archives (archives with a tile record and what they were built from), service_caches (the three caches' answers), thumbnails (map card images), metadata_database (the database and its journal files), leftover_files (what the next restart's sweeps would remove: upload, download and tile scratch, staged project exports with their ownership records, table files no dataset uses, archives no layer uses, unfinished thumbnail writes; it includes work in progress) and other (the rest, such as the key file and the server's records); with every kind together and the free and total space on the folder's volume. Each file counts once. It takes names and sizes and which files the metadata references, opening no file and following no link, and answers no name, owner, account, map, dataset, path or file name. One walk runs at a time: a read during a walk gets that walk's answer, and a read within 30 seconds of it gets the same answer, unless a service cache was cleared since the walk began: a Clear ends a walk under way at once, the reads already joined to it getting what it had counted, and a read after the Clear never gets a walk begun before it but joins one fresh walk. Every read's deadline is 10 seconds from its asking: the walk that answers it cuts every filesystem call and the disk's statistics by then and stops the reference read at the first of its slices of 200 rows to end past it. A walk stopped by its deadline or ended by a Clear gives each kind it had not finished as at least what it counted, finished false, and the disk as null when its statistics had not come. It changes nothing and sends nothing outside this server. The embedded assistant asks for confirmation before calling; SQL and workflow assistants refuse this operation. MCP advertises that policy and adds no confirmation step.",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "strict": false
+    },
+    {
+      "type": "function",
+      "name": "test_part",
+      "description": "Test a part of this server. Requires a current admin through cookie or bearer authentication, rechecked on every call. Cookie requests require the same trusted Origin; an admin bearer token calls directly. Responses, including refusals, are private, no-store. Runs one small fixed check on one part of this server as it is configured now, never one given here: data_folder writes and removes one empty file in the data folder, as the readiness check does, within 5 seconds; query_engine asks the engine that runs people's SQL one fixed spatial question with a known answer within 30 seconds, interrupting it a second before them, and starts a cold engine for it loading only the extensions already installed: it installs nothing, so without the spatial extension it answers not_found and leaves the engine for the next query to start, and a missing optional extension stays off until the next start; tile_builder asks the tile builder for its version, then builds a small archive from a few fixed points in a folder of its own under the tile scratch and removes it, within 30 seconds, beside any layer build, neither waiting behind one nor holding one up; a tile builder still running 3 seconds before the limit is asked to stop, ended outright if it has not 2 seconds later, and its folder removed once it is gone, all within the 30 seconds; image_renderer has the image renderer's browser photograph a small fixed picture of this server's own, from no map or data, and reads its mark's color back, within 10 seconds, only on an image slot free now with no image waiting: otherwise it answers busy at once, launching nothing, and an image asked while it runs waits for it as behind any image; its browser is closed, or ended, within those 10 seconds, and only then is its slot free again; metadata_database takes the metadata database's write lock, reads the schema's version and gives the lock back, writing nothing, answering busy when other work holds the lock past the database's 5-second wait. It changes no setting, leaves no file and sends nothing outside this server. A second Test of a part asked while one runs, its part's work still ending included, gets that run's answer. The embedded assistant asks for confirmation before calling; SQL and workflow assistants refuse this operation. MCP advertises that policy and adds no confirmation step.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "part": {
+            "type": "string",
+            "enum": [
+              "data_folder",
+              "query_engine",
+              "tile_builder",
+              "image_renderer",
+              "metadata_database"
+            ],
+            "description": "The part to test: data_folder or query_engine or tile_builder or image_renderer or metadata_database."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "part"
         ]
       },
       "strict": false

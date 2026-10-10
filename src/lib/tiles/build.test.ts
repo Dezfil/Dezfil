@@ -381,6 +381,34 @@ describe("tile builds", () => {
     expect(await sweepTileArchives()).toBe(0);
   });
 
+  it("ends a build at its tile-build timeout though the tiler has exited and a helper still holds its pipes", async () => {
+    // The tiler answers its version as usual; a build starts a helper that
+    // holds its output pipes for good, and exits at once.
+    const executable = path.join(dir, "helper-tippecanoe");
+    const helperPid = path.join(dir, "helper.pid");
+    await writeFile(executable, [
+      "#!/bin/sh",
+      'if [ "$1" = "--version" ]; then echo "tippecanoe v0.0-test" >&2; exit 0; fi',
+      "sleep 120 &",
+      `echo $! > '${helperPid}.tmp' && mv '${helperPid}.tmp' '${helperPid}'`,
+      "exit 0",
+    ].join("\n") + "\n", { mode: 0o755 });
+    process.env.DEZFIL_TIPPECANOE = executable;
+    process.env.DEZFIL_TILE_BUILD_TIMEOUT_S = "1";
+    try {
+      expect(ensureTiles(privateTileAccess(testAccountScope(), layerId), input()).state).toBe("building");
+      await vi.waitFor(() => expect(existsSync(helperPid)).toBe(true), { timeout: 10_000 });
+      const settled = await Promise.race([tileBuildsSettled().then(() => "settled" as const),
+        new Promise(resolve => setTimeout(resolve, 8_000)).then(() => "still building" as const)]);
+      expect(settled, "the build waited on the helper past its timeout").toBe("settled");
+      expect(ensureTiles(privateTileAccess(testAccountScope(), layerId), input())).toMatchObject({ state: "failed", error: expect.stringMatching(/tile-build timeout/) });
+      expect(existsSync(tileArchivePath(layerId))).toBe(false);
+    } finally {
+      const pid = existsSync(helperPid) ? Number(await readFile(helperPid, "utf8")) : 0;
+      if (Number.isInteger(pid) && pid > 1) { try { process.kill(pid, "SIGKILL"); } catch { /* already gone */ } }
+    }
+  });
+
   it("undo restoration starts a fresh attempt instead of adopting deleted work", async () => {
     const gate = await gatedTiler();
     ensureTiles(privateTileAccess(testAccountScope(), (input()).layerId), input());

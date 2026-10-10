@@ -62,10 +62,37 @@ function baseConfig(): Record<string, string> {
   return config;
 }
 
-async function loadSpatial(conn: DuckDBConnection): Promise<void> {
+/**
+ * Test wiring, never set in a deployment: the repository the hardened
+ * instance installs extensions from. The engine downloads with its own
+ * HTTP client, which no guard in this process sees, so a test that may
+ * make the engine install points this at a loopback repository that
+ * records each request; unset, the engine's own repositories apply.
+ */
+function testExtensionRepository(): string | null {
+  return process.env.DEZFIL_TEST_EXTENSION_REPOSITORY || null;
+}
+
+/** The extensions the hardened instance loads as it starts. */
+export type EngineExtension = "spatial" | "h3" | "json";
+
+/** A start that installs nothing met a spatial extension that is not
+ * installed where the engine looks for it. */
+export class SpatialNotInstalled extends Error {
+  constructor() { super("The spatial extension is not installed."); }
+}
+
+async function loadSpatial(conn: DuckDBConnection, install = true): Promise<void> {
   try {
     await conn.run("LOAD spatial");
-  } catch {
+  } catch (error) {
+    if (!install) {
+      // Not installed is the one failure said as such; a file that is
+      // there but will not load stays the engine's own error.
+      const listed = await conn.runAndReadAll("SELECT installed FROM duckdb_extensions() WHERE extension_name = 'spatial'");
+      if (listed.getRows()[0]?.[0] !== true) throw new SpatialNotInstalled();
+      throw error;
+    }
     await conn.run("INSTALL spatial");
     await conn.run("LOAD spatial");
   }
@@ -79,19 +106,23 @@ async function loadSpatial(conn: DuckDBConnection): Promise<void> {
  */
 let h3Loaded = false;
 
-async function loadH3(conn: DuckDBConnection): Promise<void> {
+async function loadH3(conn: DuckDBConnection, install = true): Promise<boolean> {
   try {
     await conn.run("LOAD h3");
     h3Loaded = true;
   } catch {
+    // A start that installs nothing leaves hexagons off until the next.
+    if (!install) return h3Loaded = false;
     try {
-      await conn.run("INSTALL h3 FROM community");
+      const repository = testExtensionRepository();
+      await conn.run(`INSTALL h3 FROM ${repository ? `'${repository.replace(/'/g, "''")}'` : "community"}`);
       await conn.run("LOAD h3");
       h3Loaded = true;
     } catch {
       h3Loaded = false;
     }
   }
+  return h3Loaded;
 }
 
 /** Whether hexagonal binning is available on the query instance. */
@@ -128,15 +159,19 @@ export async function h3Ready(scope: DatasetScope): Promise<boolean> {
  * before lockdown; optional like h3 — without it only json-function
  * queries fail, with the engine's own message.
  */
-async function loadJson(conn: DuckDBConnection): Promise<void> {
+async function loadJson(conn: DuckDBConnection, install = true): Promise<boolean> {
   try {
     await conn.run("LOAD json");
+    return true;
   } catch {
+    if (!install) return false;
     try {
       await conn.run("INSTALL json");
       await conn.run("LOAD json");
+      return true;
     } catch {
       /* Json functions unavailable — degrade, don't break */
+      return false;
     }
   }
 }
@@ -159,15 +194,29 @@ export async function trustedH3Ready(): Promise<boolean> {
   try { return await loadTrustedH3(await getInstance()); } finally { release(); }
 }
 
-async function createHardenedInstance(): Promise<DuckDBInstance> {
-  const instance = await DuckDBInstance.create(":memory:", baseConfig());
+/**
+ * The hardened instance. `install` false is the load-only start: the
+ * extensions already installed load and nothing is installed, the
+ * engine's own installing off before its first statement, so a missing
+ * spatial extension fails the start with `SpatialNotInstalled` and a
+ * missing optional one stays off until the next start. `loaded` is told
+ * of each extension as it loads.
+ */
+async function createHardenedInstance(install: boolean, loaded: (extension: EngineExtension) => void): Promise<DuckDBInstance> {
+  const repository = testExtensionRepository();
+  const instance = await DuckDBInstance.create(":memory:", {
+    ...baseConfig(),
+    ...(repository ? { custom_extension_repository: repository, autoinstall_extension_repository: repository } : {}),
+    ...(install ? {} : { autoinstall_known_extensions: "false" }),
+  });
   try {
     const conn = await instance.connect();
     try {
       // Load extensions first — loading is impossible after the lockdown.
-      await loadSpatial(conn);
-      await loadH3(conn);
-      await loadJson(conn);
+      await loadSpatial(conn, install);
+      loaded("spatial");
+      if (await loadH3(conn, install)) loaded("h3");
+      if (await loadJson(conn, install)) loaded("json");
       registerCrsValidator(conn);
       // allowed_directories only applies once external access is disabled:
       // together they fence the filesystem to the artifact directory plus the
@@ -205,16 +254,37 @@ async function createHardenedInstance(): Promise<DuckDBInstance> {
   }
 }
 
-function getQueryInstance(): Promise<DuckDBInstance> {
+/** What the hardened instance in place loaded as it started, kept with the
+ * attempt that started it so a discarded instance's loads are never read. */
+let startedQueryInstance: { attempt: Promise<DuckDBInstance>; extensions: readonly EngineExtension[] } | null = null;
+
+/** The hardened instance, started when there is none. An instance already
+ * starting is joined whichever start it is; `install` says only how a
+ * start made here loads its extensions. A failed start is discarded, so
+ * the next caller starts afresh. */
+function getQueryInstance(install = true): Promise<DuckDBInstance> {
   if (!queryInstancePromise) {
-    const attempt = watchInstance(createHardenedInstance()).catch((error) => {
-      // A reset may have installed a replacement while this attempt waited.
-      if (queryInstancePromise === attempt) queryInstancePromise = null;
-      throw error;
-    });
+    const extensions: EngineExtension[] = [];
+    const attempt: Promise<DuckDBInstance> = watchInstance(createHardenedInstance(install, extension => { extensions.push(extension); })).then(
+      (instance) => {
+        if (queryInstancePromise === attempt) startedQueryInstance = { attempt, extensions };
+        return instance;
+      },
+      (error) => {
+        // A reset may have installed a replacement while this attempt waited.
+        if (queryInstancePromise === attempt) queryInstancePromise = null;
+        throw error;
+      },
+    );
     queryInstancePromise = attempt;
   }
   return queryInstancePromise;
+}
+
+/** The extensions the hardened instance in place loaded, in load order, or
+ * null while there is none (or it is still starting). Starts nothing. */
+export function queryEngineExtensions(): readonly EngineExtension[] | null {
+  return startedQueryInstance !== null && startedQueryInstance.attempt === queryInstancePromise ? startedQueryInstance.extensions : null;
 }
 
 /** Monotonic identity of the hardened catalog: bumped when the
@@ -259,18 +329,20 @@ export async function withConnection<T>(
 
 /**
  * Hand out a hardened-instance connection whose lifecycle the caller owns.
- * Product code reaches this only through the bounded-evaluation boundary
+ * Product code reaches this through the bounded-evaluation boundary
  * (query/bounded) — the one door for user SQL, which defers the release
- * when an abandoned registration still holds the connection. Test harnesses
- * are the only other caller.
+ * when an abandoned registration still holds the connection — and through
+ * the query engine's Test, which asks one fixed question and starts a cold
+ * engine with `install` false, loading only what is installed. Test
+ * harnesses are the only other caller.
  */
-export async function connectQueryInstance(): Promise<DuckDBConnection> {
+export async function connectQueryInstance({ install = true }: { install?: boolean } = {}): Promise<DuckDBConnection> {
   // Captured before the awaits: a reset landing mid-acquisition discards
   // exactly the catalog this connection will belong to, and the stamp
   // must say so.
   const release = holdConnection(), generation = queryCatalogGeneration;
   try {
-    const instance = await getQueryInstance(), conn = await instance.connect();
+    const instance = await getQueryInstance(install), conn = await instance.connect();
     connectionGenerations.set(conn, generation); observeDisconnect(conn, release); return conn;
   } catch (error) { release(); throw error; }
 }

@@ -11,7 +11,18 @@ function relative(file: string): string {
   if (!/^(tables|tmp|exports|tiles\/scratch)\/.+/.test(rel) || rel.split(path.sep).includes("..")) throw new Error("Invalid owned file location.");
   return rel;
 }
-const recordPath = (file: string) => path.join(folder(), `${createHash("sha256").update(file).digest("hex")}.json`);
+const digest = (file: string) => createHash("sha256").update(file).digest("hex");
+const staged = (file: string) => file.startsWith(`exports${path.sep}`);
+/** The name a staged export's record starts with: its place is in its name,
+ * so a reader of names alone tells it from the rest without opening it. The
+ * restart's recovery removes it with the export, whether or not the
+ * export's bytes were ever written. */
+export const STAGED_EXPORT_RECORD = "export-";
+const recordName = (file: string) => (staged(file) ? STAGED_EXPORT_RECORD : "") + digest(file);
+const recordPath = (file: string) => path.join(folder(), `${recordName(file)}.json`);
+/** Where a staged export's record was written before its name carried its
+ * place: still read and removed, so a record left by an earlier run goes. */
+const unplacedRecordPath = (file: string) => path.join(folder(), `${digest(file)}.json`);
 /** Record before writing bytes. Generations keep their owner after row swaps,
  * and failed unlink obligations survive restart without guessing UUID owners. */
 export function registerAccountFile(accountId: string, file: string, directory = false): void {
@@ -29,7 +40,8 @@ export function ownedFileRecords(): OwnedFile[] {
   try { names = readdirSync(folder()); } catch (error) { if ((error as NodeJS.ErrnoException).code === "ENOENT") return []; throw error; }
   return names.map(name => {
     const record = JSON.parse(readFileSync(path.join(folder(), name), "utf8")) as OwnedFile;
-    if (typeof record.accountId !== "string" || relative(record.file) !== record.file || recordPath(record.file) !== path.join(folder(), name)) throw new Error("Invalid file ownership record.");
+    if (typeof record.accountId !== "string" || relative(record.file) !== record.file ||
+      ![recordPath(record.file), unplacedRecordPath(record.file)].includes(path.join(folder(), name))) throw new Error("Invalid file ownership record.");
     return record;
   });
 }
@@ -41,6 +53,7 @@ export async function removeAccountFile(file: string, options: { recursive?: boo
   let rel: string;
   try { rel = relative(file); } catch { return; }
   rmSync(recordPath(rel), { force: true });
+  if (staged(rel)) rmSync(unplacedRecordPath(rel), { force: true });
   });
 }
 

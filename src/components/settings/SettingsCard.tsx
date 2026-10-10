@@ -11,9 +11,11 @@ import styles from "./SettingsCard.module.css";
  * waits.
  */
 
-export function SettingsCard({ id, title, headingId, head, ref, children }: {
+export function SettingsCard({ id, title, count, headingId, head, ref, children }: {
   id?: string;
   title: string;
+  /** Quiet words after the title: what the card's rows add up to. */
+  count?: string;
   headingId: string;
   /** Quiet actions at the head's right. */
   head?: ReactNode;
@@ -22,7 +24,7 @@ export function SettingsCard({ id, title, headingId, head, ref, children }: {
 }) {
   return <section ref={ref} id={id} className={styles.card} aria-labelledby={headingId}>
     <div className={styles.head}>
-      <h2 id={headingId} tabIndex={-1}>{title}</h2>
+      <h2 id={headingId} tabIndex={-1}>{title}{count && <span className={styles.count}>{count}</span>}</h2>
       {head}
     </div>
     {children}

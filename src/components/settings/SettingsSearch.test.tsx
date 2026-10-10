@@ -4,7 +4,7 @@ import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { HostElement, HostEvent, installDomHost } from "../testing/dom-host";
 import { openPrivateState } from "../auth/private-state";
-import { storedRead } from "./read-fixture";
+import { storageReadFixture, storedRead } from "./read-fixture";
 import { SettingsFrame } from "./SettingsFrame";
 import { settingsDeclarations } from "./settings-index";
 import type { SettingsTabId } from "./settings-tabs";
@@ -76,6 +76,7 @@ beforeEach(() => {
     if (url === "/api/auth/entry") return Response.json({ instanceName: "Atlas North", signInMessage: "", lostPasswordContact: "the GIS team", landingPage: "projects", setupRequired: false });
     if (url === "/api/health") return Response.json({ status: "ready" });
     if (url === "/api/assistant") return Response.json({ enabled: false, reason: "No model credential is configured." });
+    if (url === "/api/instance/storage") return Response.json(storageReadFixture());
     if (url === "/api/account/tokens" && init?.method === "POST") {
       const token = { id: "t2", name: JSON.parse(String(init.body)).name, createdAt: "2026-10-07T00:00:00.000Z", lastUsedAt: null, revokedAt: null, expiresAt: null };
       tokens = [...tokens, token];
@@ -304,17 +305,19 @@ describe("the Settings search", () => {
     expect(container.querySelector('[id="settings-users"]')!.hasAttribute("data-marked")).toBe(true);
   });
 
-  it("gives a member only the member's tabs: never Maps, Workflows & SQL, Publishing, Data & services, Limits, Security, System or Users, and never the configuration read", async () => {
+  it("gives a member only the member's tabs: never Maps, Workflows & SQL, Publishing, Data & services, Limits, Security, System or Users, and never the configuration or storage read", async () => {
     await open("/settings/account", "member");
     for (const query of ["limit", "system", "users", "invite", "environment", "version", "maps", "basemap", "opacity", "workflows",
       "minimap", "text size", "publishing", "starting width", "tab10", "security", "stay signed in", "shortest password", "who may publish",
-      "embedding", "data", "services", "address finder", "overpass", "cache", "private network", "who may import", "connections", "s3"]) {
+      "embedding", "data", "services", "address finder", "overpass", "cache", "private network", "who may import", "connections", "s3",
+      "storage", "leftover", "free on the disk"]) {
       await find(query);
       expect(lines().filter(line => /Maps|Workflows|Publishing|Data|Limits|Security|System|Users/.test(line)), query).toEqual([]);
     }
     await find("gis team");
     expect(lines()).toEqual(["Instance / General · Lost password contact"]);
     expect(requests).not.toContain("/api/instance/settings");
+    expect(requests).not.toContain("/api/instance/storage");
   });
 });
 

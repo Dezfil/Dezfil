@@ -12,6 +12,7 @@ import { AUTH_PATHS, AUTH_SCHEMAS, AUTH_SECURITY_SCHEMES } from "./openapi-auth"
 import { settingsContract } from "./openapi-settings";
 import { INSTANCE_DEFAULTS_SCHEMA, INSTANCE_SETTINGS_PATHS, INSTANCE_SETTINGS_SCHEMAS, instanceRulesSchema } from "./openapi-instance-settings";
 import { INSTANCE_SERVICES_PATHS, INSTANCE_SERVICES_SCHEMAS } from "./openapi-instance-services";
+import { INSTANCE_SYSTEM_PATHS, INSTANCE_SYSTEM_SCHEMAS } from "./openapi-instance-system";
 import { RULE_KEYS, WHO_MAY_RULES } from "@/lib/settings/instance-rules";
 import { QUERY_EXPORT_TICKET } from "./openapi-tool-responses";
 import { LOCAL_ADD, LOCAL_DELETE, LOCAL_READ, LOCAL_TRANSIENT_READ, REMOTE_READ } from "./operation-mcp";
@@ -142,6 +143,7 @@ export function buildOpenApiDocument() {
       ...USERS_PATHS,
       ...INSTANCE_SETTINGS_PATHS,
       ...INSTANCE_SERVICES_PATHS,
+      ...INSTANCE_SYSTEM_PATHS,
       ...GEOMETRY_RESOURCE_PATHS,
       "/api/health": {
         get: op({
@@ -827,6 +829,7 @@ export function buildOpenApiDocument() {
         ...USERS_SCHEMAS,
         ...INSTANCE_SETTINGS_SCHEMAS,
         ...INSTANCE_SERVICES_SCHEMAS,
+        ...INSTANCE_SYSTEM_SCHEMAS,
         // Documented as a schema only: the operation that consumes it is
         // the server renderer's feature, and a tool name before that
         // operation exists would hand agents an inert schema and call it

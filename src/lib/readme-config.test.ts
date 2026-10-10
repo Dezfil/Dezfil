@@ -49,15 +49,29 @@ describe("README config coverage", () => {
     const { undocumented, stale } = fixture(
       [
         'export const a = process.env.DEZFIL_DATA_DIR;',
-        'export const b = process.env.DEZFIL_TEST_TILER_LOG;', // excluded
+        'export const b = "DEZFIL_TEST_TILER_LOG";', // a mention, not a read: excluded
         'export const c = process.env.DEZFIL_BASE_URL;', // excluded
         'export const d = process.env.NODE_ENV;', // platform, excluded
         'export const e = process.env.DUCKDB_EXTENSION_DIR;', // plumbing
+        'export const f = process.env.PATH;', // platform, excluded
       ].join("\n"),
       TABLE(["| `DEZFIL_DATA_DIR` | `/data` | Data. |"]),
     );
     expect(undocumented).toEqual([]);
     expect(stale).toEqual([]);
+  });
+
+  it("red on a test seam the server code reads that the README does not document, and stale once it is no longer read", () => {
+    expect(fixture('export const r = process.env.DEZFIL_TEST_ENGINE_SEAM;', TABLE([])).undocumented).toEqual(["DEZFIL_TEST_ENGINE_SEAM"]);
+    expect(fixture('export const r = process.env["DEZFIL_TEST_ENGINE_SEAM"];', TABLE([])).undocumented).toEqual(["DEZFIL_TEST_ENGINE_SEAM"]);
+    expect(fixture('export const r = "no seam";', TABLE(["| `DEZFIL_TEST_ENGINE_SEAM` | unset | Seam. |"])).stale).toEqual(["DEZFIL_TEST_ENGINE_SEAM"]);
+  });
+
+  it("leaves a test seam that only a test file reads to that file", () => {
+    const src = join(dir, `src-${Math.random().toString(36).slice(2)}`);
+    mkdirSync(src, { recursive: true });
+    writeFileSync(join(src, "engine.test.ts"), "export const local = process.env.DEZFIL_TEST_FILE_LOCAL;");
+    expect([...serverVariables(src)]).toEqual([]);
   });
 
   it("red on an undocumented non-DEZFIL administrator setting", () => {

@@ -12,7 +12,7 @@ describe("settings catalogue", () => {
     const rows = [...readFileSync("README.md", "utf8").matchAll(/^\| `([A-Z][A-Z0-9_]+)`/gm)].map(match => match[1]);
     const deployment = SETTING_CATALOGUE.filter(d => d.scope === "instance" && d.environment);
     expect(deployment).toHaveLength(63);
-    expect(TEST_WIRING).toHaveLength(3);
+    expect(TEST_WIRING).toHaveLength(4);
     expect([...deployment.map(d => d.environment), ...TEST_WIRING.map(d => d.environment)].sort()).toEqual(rows.sort());
     expect(catalogueProblems(SETTING_CATALOGUE)).toEqual([]);
     expect(SETTING_CATALOGUE.filter(d => d.scope === "platform").map(d => d.environment).sort()).toEqual(["DUCKDB_EXTENSION_DIR", "PORT"]);

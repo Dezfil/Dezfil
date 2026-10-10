@@ -90,6 +90,7 @@ export const TEST_WIRING = [
   { environment: "DEZFIL_TEST_PG_URL", documentedDefault: "unset", purpose: "Disposable PostGIS fixture URL for probes." },
   { environment: "DEZFIL_TEST_PUBLICATION_LOG", documentedDefault: "unset", purpose: "Publication observer output destination." },
   { environment: "DEZFIL_TEST_DERIVATION_LOG", documentedDefault: "unset", purpose: "Password derivation observer output destination." },
+  { environment: "DEZFIL_TEST_EXTENSION_REPOSITORY", documentedDefault: "unset", purpose: "Loopback extension repository for the engine's installs under test." },
 ] as const;
 
 const byKey = new Map(SETTING_CATALOGUE.map(definition => [definition.key, definition]));

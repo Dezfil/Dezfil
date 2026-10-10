@@ -1,5 +1,7 @@
 import type { Account } from "@/lib/metadata/accounts";
 import type { Look } from "@/lib/look";
+import { PARTS } from "@/lib/system/part-test-answer";
+import { STORAGE_KINDS } from "@/lib/system/storage-answer";
 import type { ApiToken } from "@/lib/metadata/auth-credentials";
 import { LANDING_PAGES } from "@/components/auth/entry-settings";
 import { DEFAULTS_TABS, rowValueWords, type DefaultsTabId } from "./defaults-table";
@@ -10,6 +12,8 @@ import { choiceLabel, LOOK_CARDS } from "./look-tab";
 import { CONNECTIONS_CARD, PUBLIC_LINKS_CARD, ruleRowWords, SECURITY_CARDS, type RuleCard } from "./security-table";
 import { formatSettingNumber } from "./server-set";
 import type { IndexCard, TabDeclarations } from "./settings-search";
+import { partMeta, partState, STATUS_ROWS } from "./status-table";
+import { FREE_ROW, STORAGE_CARD, STORAGE_ROWS } from "./storage-table";
 import { providerName, serverSettingsRows, type AssistantStatus } from "./system-table";
 
 /**
@@ -135,13 +139,19 @@ function limitsCards(read: InstanceRead): IndexCard[] {
 }
 
 function systemCards(read: InstanceRead, health: IndexSources["health"], assistant: AssistantStatus | null): IndexCard[] {
-  const folder = typeof read.settings.dataDir?.value === "string" ? read.settings.dataDir.value : "";
-  const state = health === "ready" ? "Writable" : health === "unready" ? "Not writable" : "";
+  // Each part as its row shows it before a Test: what is known of it and its state.
+  const parts = PARTS.map(part => {
+    const row = STATUS_ROWS[part], meta = partMeta(part, read), state = partState(part, read.parts, health ?? "checking", null);
+    return { id: row.id, label: row.label, keys: row.keys, value: [meta?.text, state.tone === "checking" ? "" : state.text].filter(Boolean).join(" ") };
+  });
   return [
     { id: "system-status", title: "Status", keys: "health version ready", rows: [
       { id: "sys-version", label: "Version", keys: "release build dezfil", value: read.version },
-      { id: "sys-data-folder", label: "Data folder", keys: "data directory disk volume writable", value: [folder, state].filter(Boolean).join(" ") },
+      ...parts,
     ] },
+    // Storage by its rows' names and words: its sizes are read when System
+    // opens, never by a search.
+    { ...STORAGE_CARD, rows: [...STORAGE_KINDS.map(kind => STORAGE_ROWS[kind]), FREE_ROW].map(({ id, label, keys }) => ({ id, label, keys })) },
     { id: "system-assistant", title: "Assistant", keys: "status on off", rows: assistant ? [
       { id: "sys-assistant-status", label: "Status", keys: "on off enabled disabled assistant",
         value: assistant.enabled ? "On" : `Off ${assistant.reason}` },

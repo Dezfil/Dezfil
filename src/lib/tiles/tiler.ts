@@ -1,4 +1,5 @@
-import { execFile } from "node:child_process";
+import { execFile, type ExecFileException } from "node:child_process";
+import { executableFound } from "@/lib/system/executable";
 
 /**
  * Tiler capability. Tippecanoe turns a layer's streamed result into a
@@ -13,31 +14,162 @@ export function tippecanoePath(): string {
   return process.env.DEZFIL_TIPPECANOE ?? "tippecanoe";
 }
 
-let probe: Promise<string | null> | null = null;
-let probedPath: string | null = null;
+/** One probe of one binary path: its answer, and that answer once known. */
+interface Probe {
+  bin: string;
+  version: Promise<string | null>;
+  known: string | null;
+}
+let probe: Probe | null = null;
 
-function probeVersion(bin: string): Promise<string | null> {
+/** How long a program asked to stop has to end on its own before it is
+ * ended outright. */
+export const TILER_STOP_GRACE_MS = 2_000;
+
+/** How one bounded run of a program ended, and whether it was stopped. */
+interface ProgramRun {
+  error: ExecFileException | null;
+  stdout: string;
+  stderr: string;
+  stopped: boolean;
+}
+
+/**
+ * Run `bin` once, bounded: past `limitMs`, or once `signal` aborts, it is
+ * asked to stop, and ended outright if it has not exited within a short
+ * grace. The run settles only once the process is gone, so whatever follows
+ * (removing its folder, the next run) never proceeds beside it. The bound
+ * holds until the run settles: a program that has exited while a helper it
+ * started still holds its output pipes is stopped like any other, its pipes
+ * let go, so the helper cannot keep the run open.
+ */
+function runProgram(bin: string, args: string[], limitMs: number, signal?: AbortSignal): Promise<ProgramRun> {
   return new Promise((resolve) => {
-    execFile(bin, ["--version"], { timeout: 10_000 }, (error, stdout, stderr) => {
-      if (error) return resolve(null);
-      // The version banner goes to stderr.
-      const banner = `${stderr}${stdout}`.trim().split("\n")[0] ?? "";
-      resolve(banner || null);
+    let stopped = false;
+    let ending = false;
+    let exited = false;
+    let settled = false;
+    let ended: Omit<ProgramRun, "stopped"> | null = null;
+    let force: ReturnType<typeof setTimeout> | undefined;
+    const child = execFile(bin, args, { maxBuffer: 16 * 1024 * 1024 }, (error, stdout, stderr) => {
+      ended = { error, stdout: String(stdout), stderr: String(stderr) };
+      settle();
     });
+    /** Ask the program to stop, and end it outright past the grace. */
+    function end(): void {
+      if (ending || exited) return;
+      ending = true;
+      child.kill("SIGTERM");
+      force = setTimeout(() => { if (!exited) child.kill("SIGKILL"); }, TILER_STOP_GRACE_MS);
+    }
+    function stop(): void {
+      if (settled) return;
+      stopped = true;
+      // Its pipes are let go, whether or not the program is still there, so
+      // a helper still holding them cannot keep the run open.
+      child.stdout?.destroy();
+      child.stderr?.destroy();
+      end();
+    }
+    function settle(): void {
+      if (!ended) return;
+      // Started and not yet gone: end it first, and settle on its exit.
+      if (!exited && child.pid !== undefined) return end();
+      settled = true;
+      clearTimeout(timer);
+      clearTimeout(force);
+      signal?.removeEventListener("abort", stop);
+      resolve({ ...ended, stopped });
+    }
+    child.once("exit", () => { exited = true; settle(); });
+    const timer = setTimeout(stop, limitMs);
+    if (signal?.aborted) stop();
+    else signal?.addEventListener("abort", stop, { once: true });
   });
+}
+
+async function probeVersion(bin: string): Promise<string | null> {
+  const run = await runProgram(bin, ["--version"], 10_000);
+  if (run.error || run.stopped) return null;
+  // The version banner goes to stderr.
+  const banner = `${run.stderr}${run.stdout}`.trim().split("\n")[0] ?? "";
+  return banner || null;
+}
+
+/** Start a probe of `bin`, keeping what an earlier probe of it knew until
+ * this one answers. */
+function startProbe(bin: string): Probe {
+  const entry: Probe = { bin, known: probe?.bin === bin ? probe.known : null, version: probeVersion(bin) };
+  void entry.version.then((version) => { entry.known = version; });
+  return entry;
 }
 
 /** The tiler's version banner, or null when it cannot run. Probed once per
  * binary path; tests re-point DEZFIL_TIPPECANOE and get a fresh probe. */
 export function tilerVersion(): Promise<string | null> {
   const bin = tippecanoePath();
-  if (!probe || probedPath !== bin) {
-    probedPath = bin;
-    probe = probeVersion(bin);
-  }
-  return probe;
+  if (!probe || probe.bin !== bin) probe = startProbe(bin);
+  return probe.version;
+}
+
+/** Probe the configured binary afresh, as it is now, and keep what it
+ * answers for every later read. */
+export function probeTilerVersion(): Promise<string | null> {
+  probe = startProbe(tippecanoePath());
+  return probe.version;
+}
+
+/** The version banner the last probe of the configured binary answered, or
+ * null when none has answered or it could not run. Reads; runs nothing. */
+export function knownTilerVersion(): string | null {
+  return probe?.bin === tippecanoePath() ? probe.known : null;
+}
+
+/** Whether the configured binary is an executable file where its setting
+ * points: a file check, never a run. */
+export function tilerFound(): boolean {
+  return executableFound(tippecanoePath());
 }
 
 export async function tilerAvailable(): Promise<boolean> {
   return (await tilerVersion()) !== null;
+}
+
+/** How one run of the tiler ended. `detail` is the last lines the tiler
+ * wrote about its failure, for the layer's own build message alone. */
+export type TilerRun =
+  | { ok: true }
+  | { ok: false; reason: "not_found" | "timed_out" | "failed"; detail: string };
+
+/**
+ * One bounded run of the tiler: newline-delimited GeoJSON in, one PMTiles
+ * archive out. Past `timeoutMs`, or once `signal` aborts, the process is
+ * stopped, ended outright if it does not stop, and the run returns only
+ * once it is gone. The layer build lane and the tile builder's Test both
+ * run the tiler through here; neither waits for the other.
+ */
+export async function runTiler(input: string, output: string, timeoutMs: number, signal?: AbortSignal): Promise<TilerRun> {
+  const run = await runProgram(
+    tippecanoePath(),
+    [
+      "-o",
+      output,
+      "-l",
+      "features",
+      "-zg",
+      "--drop-densest-as-needed",
+      "--extend-zooms-if-still-dropping",
+      "--force",
+      "--quiet",
+      "-P",
+      input,
+    ],
+    timeoutMs,
+    signal,
+  );
+  if (!run.error && !run.stopped) return { ok: true };
+  const detail = run.stderr.trim().split("\n").slice(-3).join(" ");
+  const code = run.error?.code;
+  if (code === "ENOENT" || code === "EACCES") return { ok: false, reason: "not_found", detail };
+  return { ok: false, reason: run.stopped ? "timed_out" : "failed", detail };
 }

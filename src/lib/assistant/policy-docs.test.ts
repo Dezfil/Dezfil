@@ -21,8 +21,9 @@ import { POLICY_REFUSAL_CODE } from "./policy";
  * project's people add their read and two changes, transfer three, and the
  * directory search one. Self-departure adds one. Account deletion adds preview,
  * confirmation, unfinished status and continuation. Instance configuration adds one read.
- * Clearing the services' caches adds one, and a service's Test one. */
-const GENERATED_TOOLS = 145;
+ * Clearing the services' caches adds one, and a service's Test one. A
+ * part's Test adds one, and the storage read one. */
+const GENERATED_TOOLS = 147;
 
 describe("the page action policy is documented", () => {
   const document = buildOpenApiDocument();
@@ -34,6 +35,16 @@ describe("the page action policy is documented", () => {
     expect(description).toContain("conditional (plan or run) operations included");
     expect(description).toContain("confirmation continuations");
     expect(description).toContain(POLICY_REFUSAL_CODE);
+  });
+
+  it("the message operation's description and the refusal say what the read-only policy refuses besides writes", () => {
+    // The policy refuses a read-only operation that reaches outside this
+    // server or asks for confirmation; neither sentence may claim that
+    // declaring itself read-only is enough.
+    for (const sentence of [description, ERROR_CATALOGUE[POLICY_REFUSAL_CODE]]) {
+      expect(sentence).toContain("reaches outside this server");
+      expect(sentence).toContain("asks for confirmation");
+    }
   });
 
   it("the error catalogue and the document's error codes carry the refusal", () => {
