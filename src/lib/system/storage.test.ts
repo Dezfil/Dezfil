@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import { GET } from "@/app/api/instance/storage/route";
@@ -136,6 +136,8 @@ const read = (headers: Record<string, string> = { cookie: `dezfil_session=${p.ad
 
 const L_KEPT = "0b6f3c1e-7d1a-4a52-9c1e-000000000001", L_GONE = "0b6f3c1e-7d1a-4a52-9c1e-000000000002";
 const STAGED = "exports/0b6f3c1e-7d1a-4a52-9c1e-0000000000e1.zip";
+/** A staged export registered and not yet written: its record alone is there. */
+const PENDING = "exports/0b6f3c1e-7d1a-4a52-9c1e-0000000000e2.zip";
 
 /** The fixture folder: each kind, an identical pair that differs only in
  * whether the metadata references it, and one of each leftover place. */
@@ -148,6 +150,7 @@ function fixtureFolder() {
   // their bytes: the restart's recovery removes each with its record.
   registerAccountFile("admin", STAGED);
   registerAccountFile("admin", "exports/project-0003/archive.zip");
+  registerAccountFile("admin", PENDING);
   const sizes: Record<string, [number, StorageKind]> = {
     "tables/kept.parquet": [1000, "tables"],
     "tables/orphan.parquet": [1000, "leftover_files"],
@@ -212,10 +215,11 @@ describe("the storage read", () => {
     expect(answer.disk!.total).toBeGreaterThan(0);
     expect(answer.disk!.free).toBeGreaterThan(0);
     expect(answer.disk!.free).toBeLessThanOrEqual(answer.disk!.total);
-    // The leftover total is the fixture's with the two staged exports' records,
-    // and a restart's five sweeps remove exactly those files.
+    // The leftover total is the fixture's with the staged exports' records,
+    // the one whose export is not yet written included, and a restart's five
+    // sweeps remove exactly those files.
     const records = ownershipRecords().filter(record => record.kind === "leftover_files");
-    expect(records).toHaveLength(2);
+    expect(records).toHaveLength(3);
     expect(answer.kinds.leftover_files.bytes).toBe(1000 + 2000 + 50 + 300 + 400 + 100 + 500 + 600 + 70 + 20 + records.reduce((sum, record) => sum + record.size, 0));
     const leftovers = [...Object.entries(sizes).filter(([, [, kind]]) => kind === "leftover_files").map(([rel]) => rel), ...records.map(record => record.rel)];
     const before = filesNow();
@@ -228,6 +232,21 @@ describe("the storage read", () => {
     const after = filesNow();
     expect(before.filter(file => !after.includes(file)).sort()).toEqual(leftovers.sort());
     expect(after.filter(file => !before.includes(file))).toEqual([]);
+  });
+
+  it("tells each ownership record's kind by its name alone, opening none: records no one may read count as when they could be", async () => {
+    const { sizes } = fixtureFolder();
+    const want = expected(sizes);
+    const owners = path.join(data, "file-owners");
+    const records = readdirSync(owners);
+    for (const name of records) chmodSync(path.join(owners, name), 0o000);
+    try {
+      expect(() => readFileSync(path.join(owners, records[0]))).toThrow();
+      const answer = await readStorage(p.context, p.db);
+      for (const kind of STORAGE_KINDS) expect(answer.kinds[kind], kind).toEqual({ ...want[kind], finished: true });
+    } finally {
+      for (const name of records) chmodSync(path.join(owners, name), 0o600);
+    }
   });
 
   it("answers in its closed shape, through its route, private and no-store, never naming two accounts' people, maps, datasets, ids, paths or files", async () => {

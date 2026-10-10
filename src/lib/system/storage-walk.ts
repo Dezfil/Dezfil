@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import { lstat, readdir } from "node:fs/promises";
 import path from "node:path";
 import { STORAGE_KINDS, type StorageKind, type StorageUse } from "./storage-answer";
@@ -14,19 +13,7 @@ import { kindsWithin, placeOf, type StorageReferences } from "./storage-places";
  * it, or ended early by its `stop`, marks every kind the folders it had not
  * finished may hold as unfinished, so what it counted of those is a floor,
  * never a misreading.
- *
- * The ownership records are walked last, once every staged export has
- * been seen: the record of each, named by its path as the ownership road
- * names it, goes with it at the restart and counts as a leftover.
  */
-
-/** The folder of ownership records, and the staged exports whose records go with them. */
-const RECORDS = "file-owners";
-const STAGED = "exports";
-
-/** The name of the ownership record of the file at `segments`, as the
- * ownership road names it: the digest of its path under the data folder. */
-const recordName = (segments: readonly string[]) => `${createHash("sha256").update(segments.join(path.sep)).digest("hex")}.json`;
 
 /** What a call raced against the deadline gives when the deadline comes first. */
 export const TOO_LATE = Symbol("too late");
@@ -67,8 +54,6 @@ export async function walkDataFolder(root: string, references: StorageReferences
     for (const dir of waiting) unfinished(dir);
     return tally;
   };
-  // Every entry under the staged exports, by its record's name.
-  const leaving = new Set<string>();
   const folders: string[][] = [[]];
   while (folders.length > 0) {
     const dir = folders.pop()!;
@@ -88,15 +73,12 @@ export async function walkDataFolder(root: string, references: StorageReferences
       let entry;
       try { entry = await beforeDeadline(lstat(path.join(root, ...segments)), deadline, stop); } catch { continue; } // removed meanwhile
       if (entry === TOO_LATE) return cut(dir, folders);
-      if (segments[0] === STAGED && segments.length > 1) leaving.add(recordName(segments));
       if (entry.isDirectory()) {
-        // The records' folder waits beneath every other, so it is walked last.
-        if (segments.length === 1 && name === RECORDS) folders.unshift(segments);
-        else folders.push(segments);
+        folders.push(segments);
         continue;
       }
       if (!entry.isFile()) continue; // a link, a socket: nothing
-      const kind = tally[placeOf(segments, references, leaving)];
+      const kind = tally[placeOf(segments, references)];
       kind.bytes += entry.size;
       kind.files += 1;
     }

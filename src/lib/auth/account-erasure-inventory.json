@@ -4096,6 +4096,14 @@
         "file-owners/*.json"
       ]
     },
+    "location:src/lib/ingest/file-ownership.ts#ownedFileRecords:unplacedRecordPath": {
+      "stores": [
+        "file:account-files"
+      ],
+      "roots": [
+        "file-owners/*.json"
+      ]
+    },
     "location:src/lib/ingest/file-ownership.ts#ownedFileRecords.record:folder": {
       "stores": [
         "file:account-files"
@@ -4169,6 +4177,30 @@
       ]
     },
     "location:src/lib/ingest/file-ownership.ts#removeAccountFile:recordPath": {
+      "stores": [
+        "file:account-files"
+      ],
+      "roots": [
+        "file-owners/*.json"
+      ]
+    },
+    "location:src/lib/ingest/file-ownership.ts#removeAccountFile:unplacedRecordPath": {
+      "stores": [
+        "file:account-files"
+      ],
+      "roots": [
+        "file-owners/*.json"
+      ]
+    },
+    "location:src/lib/ingest/file-ownership.ts#unplacedRecordPath:folder": {
+      "stores": [
+        "file:account-files"
+      ],
+      "roots": [
+        "file-owners"
+      ]
+    },
+    "location:src/lib/ingest/file-ownership.ts#unplacedRecordPath:path.join": {
       "stores": [
         "file:account-files"
       ],
