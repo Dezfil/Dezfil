@@ -107,6 +107,13 @@ describe("the runtime read's defaults", () => {
     expect((await read("token")).defaults["newMap.basemap"]).toBe("satellite");
   });
 
+  it.each(["cookie", "token"] as const)("report Auto for a default on a style an admin hid, by %s, and the style again once offered", async kind => {
+    await change({ "newMap.basemap": "streets", "basemaps.streets": false });
+    expect((await read(kind)).defaults["newMap.basemap"]).toBe("auto");
+    await change({ "basemaps.streets": true });
+    expect((await read(kind)).defaults["newMap.basemap"]).toBe("streets");
+  });
+
   it.each(["cookie", "token"] as const)("carry the shortest password to a member by %s: 8 with nothing stored, then what an admin stored", async kind => {
     expect((await read(kind)).passwordMin).toBe(8);
     await change({ "security.passwordMin": 12 });
@@ -186,5 +193,24 @@ describe("the runtime read's defaults", () => {
       { ...body.defaults, "sqlConsole.lineWrap": "on" }, { ...body.defaults, "newMap.zoom": 23 }]) {
       expect(await valid({ ...body, defaults })).toBeDefined();
     }
+  });
+});
+
+describe("the runtime read's basemaps", () => {
+  const keys = (body: { basemaps: { key: string }[] }) => body.basemaps.map(basemap => basemap.key);
+
+  it.each(["cookie", "token"] as const)("offer every style the instance draws while nothing is hidden, by %s", async kind => {
+    vi.stubEnv("DEZFIL_SATELLITE_URL", "https://imagery.example/{z}/{x}/{y}.jpg");
+    expect(keys(await read(kind))).toEqual(["dark", "light", "streets", "satellite"]);
+  });
+
+  it.each(["cookie", "token"] as const)("leave out each style an admin hid, by %s, and nothing marks it", async kind => {
+    vi.stubEnv("DEZFIL_SATELLITE_URL", "https://imagery.example/{z}/{x}/{y}.jpg");
+    await change({ "basemaps.streets": false, "basemaps.satellite": false });
+    const body = await read(kind);
+    expect(keys(body)).toEqual(["dark", "light"]);
+    expect(JSON.stringify(body.basemaps)).not.toContain("offered");
+    await change({ "basemaps.streets": true });
+    expect(keys(await read(kind))).toEqual(["dark", "light", "streets"]);
   });
 });

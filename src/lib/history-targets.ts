@@ -7,6 +7,7 @@ import type { HistoryStep } from "./metadata/history";
 import type { Layer, MapRecord } from "./metadata/maps";
 import { requireMapFor } from "./map-access";
 import { historyChangesPublication, requireLivePublicationChange } from "./publication-settings";
+import { replayedBasemap, requireOfferedBasemap } from "./basemap-rule";
 import { admitHistoryTarget } from "./history-admission-cache";
 
 export interface HistoryTarget {
@@ -31,6 +32,7 @@ export async function historyTarget(scope: AccountScope, map: MapRecord, layers:
       requireMapFor(scope, map.id, "publish");
       requireLivePublicationChange(scope, map.id);
     }
+    requireOfferedBasemap(map.basemap, replayedBasemap(map.basemap, steps, direction));
     await admitHistoryTarget(scope, map.id, revision, steps, direction);
   } catch (error) {
     if (!(error instanceof ApiError || error instanceof AuthError)) throw error;

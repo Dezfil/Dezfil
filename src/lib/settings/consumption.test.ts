@@ -8,7 +8,7 @@ describe("settings consumption inventory", () => {
     const inventory = consumptionInventory(SETTING_CATALOGUE, sources());
     expect(consumptionProblems(SETTING_CATALOGUE, sources())).toEqual([]);
     expect(inventory).toHaveLength(65); // Deployment settings and the two platform facts.
-    expect(inventory.filter(row => row.consumers.some(c => c.kind === "resolver"))).toHaveLength(44);
+    expect(inventory.filter(row => row.consumers.some(c => c.kind === "resolver"))).toHaveLength(45);
     // Each service address is read through its resolver, in its service's
     // own module alone, never from the environment directly.
     const addresses: Record<string, string[]> = {
@@ -16,6 +16,7 @@ describe("settings consumption inventory", () => {
       isochroneUrl: ["src/lib/isochrone/endpoint.ts", "src/lib/isochrone/endpoint.ts"],
       overpassUrl: ["src/lib/osm/overpass.ts"],
       s3Endpoint: ["src/lib/ingest/remote.ts"],
+      satelliteUrl: ["src/lib/basemap-satellite.ts"],
     };
     for (const row of inventory.filter(row => row.consumers.some(c => c.kind === "resolver"))) {
       if (row.key in addresses) {

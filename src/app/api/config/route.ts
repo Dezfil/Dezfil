@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import {
-  availableBasemaps,
   basemapOverrideUrl,
   basemapUrl,
-} from "@/lib/basemap";
+  offeredBasemaps,
+} from "@/lib/basemap-offer";
 import { PALETTES } from "@/lib/style/palettes";
 import { limits } from "@/lib/limits";
 import { geocoderConfigured } from "@/lib/search/provider";
@@ -21,7 +21,8 @@ export async function GET(request: Request) {
     return privateResponse(NextResponse.json({
       basemapUrl: basemapUrl(),
       basemapOverrideUrl: basemapOverrideUrl(),
-      basemaps: availableBasemaps(),
+      // The styles a person may choose: those an admin hid are left out.
+      basemaps: offeredBasemaps(),
       palettes: PALETTES,
       renderCapFeatures: limits.renderCapFeatures,
       previewRows: limits.previewRows,

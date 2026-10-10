@@ -115,6 +115,9 @@ export type ErrorCode =
   /** A service address an admin stored that the instance's encryption key
    * no longer opens: the service refuses instead of reaching a default. */
   | "service_address_unreadable"
+  /** A basemap an admin hid, newly chosen for a map; the envelope names the
+   * switch that hides it. */
+  | "basemap_not_offered"
   /** Sketch operations. */
   | "invalid_sketch_feature"
   | "not_a_sketch"

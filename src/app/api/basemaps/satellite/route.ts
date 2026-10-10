@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { satelliteStyleDocument } from "@/lib/basemap";
+import { satelliteStyleDocument } from "@/lib/basemap-satellite";
 import { authFailure, privateResponse, requireRequestAuth } from "@/lib/auth/http";
 
 /**

@@ -5,11 +5,12 @@ import { MapReader } from "@/components/reader/MapReader";
 import { LayerDownloadControlProvider } from "@/components/builder/LayerDownloadControlProvider";
 import { deriveLayerDownloadPreparationTimeoutMs } from "@/components/builder/layer-download-control";
 import {
-  availableBasemaps,
+  basemapChoices,
   basemapOverrideAttribution,
   basemapOverrideUrl,
   basemapUrl,
-} from "@/lib/basemap";
+  drawingBasemaps,
+} from "@/lib/basemap-offer";
 import { limits } from "@/lib/limits";
 import { requirePageScope } from "@/lib/auth/scope-page";
 import { instanceDefaults } from "@/lib/settings/defaults";
@@ -36,10 +37,12 @@ export default async function MapBuilderPage({
         basemapUrl={basemapUrl()}
         basemapOverrideUrl={basemapOverrideUrl()}
         basemapOverrideAttribution={basemapOverrideAttribution()}
-        basemaps={availableBasemaps()}
+        basemaps={drawingBasemaps()}
       />
     );
   }
+  // The builder draws a map on any style the instance draws, and its
+  // picker lists only the ones it offers: each style comes marked.
   // A promotion flow arrives with?layer=<id> so the landed layer opens
   // selected. Read server-side — a client-side URL sniff races the
   // router's history commit.
@@ -59,7 +62,7 @@ export default async function MapBuilderPage({
           basemapUrl={basemapUrl()}
           basemapOverrideUrl={basemapOverrideUrl()}
           basemapOverrideAttribution={basemapOverrideAttribution()}
-          basemaps={availableBasemaps()}
+          basemaps={basemapChoices()}
         />
       </ScreenDefaultsProvider>
     </LayerDownloadControlProvider>

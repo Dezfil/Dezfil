@@ -40,8 +40,8 @@ import { fetchPublishedExtent, msToTimeValue } from "./published-extent";
 import {
   BASEMAPS,
   BASEMAP_FALLBACKS,
-  resolveBasemapAttribution,
-  resolveBasemapKind,
+  basemapCreditIn,
+  basemapKindIn,
   type BasemapKey,
   type BasemapStyle,
 } from "@/lib/basemap";
@@ -557,11 +557,11 @@ export function PublishedView({
   const readerMovedBasemap =
     !customActive && (readerBasemap !== undefined || themedKey !== authoredKey);
   const effBasemapKind = readerMovedBasemap
-    ? resolveBasemapKind(themedKey)
+    ? basemapKindIn(basemaps, themedKey)
     : (view.basemapKind ?? "vector");
   const effAttribution = readerMovedBasemap
-    ? resolveBasemapAttribution(themedKey)
-    : (view.basemapAttribution ?? resolveBasemapAttribution(themedKey));
+    ? basemapCreditIn(basemaps, themedKey)
+    : (view.basemapAttribution ?? basemapCreditIn(basemaps, themedKey));
 
   // Which optional controls this publication exposes. An older cached
   // payload carries none, and every control reads on — the same reading

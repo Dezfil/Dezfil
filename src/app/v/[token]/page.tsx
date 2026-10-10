@@ -1,7 +1,7 @@
 import { resolvePublication } from "@/lib/publish/publication-scope";
 import { notFound } from "next/navigation";
 import { PublishedView } from "@/components/viewer/PublishedView";
-import { availableBasemaps, basemapUrl } from "@/lib/basemap";
+import { basemapChoices, basemapUrl } from "@/lib/basemap-offer";
 import { getPublishedThemeByToken } from "@/lib/metadata/maps";
 
 export default async function PublishedPage({
@@ -30,7 +30,7 @@ export default async function PublishedPage({
       <PublishedView
         token={token}
         basemapUrl={basemapUrl()}
-        basemaps={availableBasemaps()}
+        basemaps={basemapChoices()}
         embedded={embed === "1"}
       />
     </div>

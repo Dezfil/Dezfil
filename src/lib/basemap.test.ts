@@ -1,46 +1,66 @@
-import { describe, it, expect, afterEach } from "vitest";
+import { describe, it, expect } from "vitest";
+import { SETTING_CATALOGUE } from "@/lib/settings/catalogue";
 import {
-  autoBasemapUrlForTheme,
-  availableBasemaps,
-  basemapOverrideAttribution,
-  satelliteBasemap,
-  satelliteStyleDocument,
-  SATELLITE_STYLE_URL,
-  basemapFollowsTheme,
+  BASEMAP_KEYS,
   BASEMAPS,
   BASEMAP_FALLBACKS,
   BASEMAP_FALLBACK_COLOR,
-  basemapUrl,
-  basemapOverrideUrl,
-  resolveBasemapUrl,
-  resolveBasemapKind,
-  resolveBasemapAttribution,
+  BUILT_IN_ATTRIBUTION,
+  OFFERED_SETTING,
+  SATELLITE_STYLE_URL,
+  basemapCreditIn,
+  basemapKindIn,
+  builtInBasemapUrl,
   isBasemapKey,
+  offeredOnly,
+  type BasemapStyle,
 } from "./basemap";
 
 /**
- * Auto reinterprets null in the builder only — everywhere the server
- * resolves a basemap, null must keep meaning "deployment default" so
- * published output stays viewer-independent and byte-identical.
+ * What the browser may know about basemaps: the built-in styles, their
+ * credit and the lookups over a list the server handed down. Which styles
+ * an instance draws and offers is the server's to read; nothing here reads
+ * configuration.
  */
-describe("basemap resolution", () => {
-  afterEach(() => {
-    delete process.env.DEZFIL_BASEMAP_URL;
+const SATELLITE: BasemapStyle = {
+  key: "satellite",
+  label: "Satellite",
+  url: SATELLITE_STYLE_URL,
+  kind: "imagery",
+  attribution: [{ label: "© Imagery Provider" }],
+};
+
+describe("the built-in basemaps", () => {
+  it("ships no imagery style and no keyless imagery url", () => {
+    expect(BASEMAPS.map((b) => b.key)).toEqual(["dark", "light", "streets"]);
+    for (const b of BASEMAPS) {
+      expect(b.kind).toBe("vector");
+      expect(b.url).not.toContain("arcgisonline");
+    }
   });
 
-  it("resolves null to the deployment default, unchanged", () => {
-    expect(basemapOverrideUrl()).toBeNull();
-    expect(basemapUrl()).toBe(BASEMAPS[0].url); // dark
-    expect(resolveBasemapUrl(null)).toBe(BASEMAPS[0].url);
-    expect(resolveBasemapUrl("light")).toBe(BASEMAPS[1].url);
+  it("every shipped style declares a kind and a non-empty credit", () => {
+    for (const b of BASEMAPS) {
+      expect(["vector", "imagery"]).toContain(b.kind);
+      expect(b.attribution.length).toBeGreaterThan(0);
+      for (const line of b.attribution) expect(line.label.length).toBeGreaterThan(0);
+    }
   });
 
-  it("the deployment override wins for null and loses to explicit choices", () => {
-    process.env.DEZFIL_BASEMAP_URL = "https://tiles.internal/style.json";
-    expect(basemapOverrideUrl()).toBe("https://tiles.internal/style.json");
-    expect(basemapUrl()).toBe("https://tiles.internal/style.json");
-    expect(resolveBasemapUrl(null)).toBe("https://tiles.internal/style.json");
-    expect(resolveBasemapUrl("streets")).toBe(BASEMAPS[2].url);
+  it("links the OpenStreetMap credit to the copyright page", () => {
+    const osm = BUILT_IN_ATTRIBUTION.find((l) => l.label.includes("OpenStreetMap"));
+    expect(osm!.href).toBe("https://www.openstreetmap.org/copyright");
+  });
+
+  it("gives each built-in style its own address", () => {
+    expect(builtInBasemapUrl("dark")).toBe(BASEMAPS[0].url);
+    expect(builtInBasemapUrl("light")).toContain("positron");
+    expect(builtInBasemapUrl("streets")).toBe(BASEMAPS[2].url);
+  });
+
+  it("keeps Satellite a valid key though none is shipped", () => {
+    expect(isBasemapKey("satellite")).toBe(true);
+    expect(isBasemapKey("terrain")).toBe(false);
   });
 
   it("keeps the historical dark fallback for published views", () => {
@@ -49,168 +69,36 @@ describe("basemap resolution", () => {
   });
 });
 
-/**
- * Imagery is configured, never shipped: no imagery service is free to
- * point an unknown number of installs at. An instance supplies a tile
- * template with its own key and the credit that provider requires, and
- * only then is there a satellite entry at all.
- */
-describe("the configured satellite basemap", () => {
-  afterEach(() => {
-    delete process.env.DEZFIL_BASEMAP_URL;
-    delete process.env.DEZFIL_SATELLITE_URL;
-    delete process.env.DEZFIL_SATELLITE_ATTRIBUTION;
-  });
-
-  const configure = () => {
-    process.env.DEZFIL_SATELLITE_URL =
-      "https://imagery.example/tiles/{z}/{y}/{x}?key=SECRET";
-    process.env.DEZFIL_SATELLITE_ATTRIBUTION = "© Imagery Provider";
-  };
-
-  it("ships no imagery style and no keyless imagery url", () => {
-    expect(BASEMAPS.map((b) => b.key)).toEqual(["dark", "light", "streets"]);
-    for (const b of BASEMAPS) {
-      expect(b.kind).toBe("vector");
-      expect(b.url).not.toContain("arcgisonline");
-    }
-    expect(satelliteBasemap()).toBeNull();
-    expect(availableBasemaps().map((b) => b.key)).toEqual([
-      "dark",
-      "light",
-      "streets",
-    ]);
-    expect(satelliteStyleDocument()).toBeNull();
-  });
-
-  it("appears only once imagery is configured, with its own credit", () => {
-    configure();
-    expect(availableBasemaps().map((b) => b.key)).toEqual([
-      "dark",
-      "light",
-      "streets",
-      "satellite",
-    ]);
-    const satellite = satelliteBasemap()!;
-    expect(satellite.kind).toBe("imagery");
-    expect(satellite.url).toBe(SATELLITE_STYLE_URL);
-    expect(satellite.attribution.map((l) => l.label)).toEqual([
-      "© Imagery Provider",
-    ]);
-    expect(resolveBasemapUrl("satellite")).toBe(SATELLITE_STYLE_URL);
-    expect(resolveBasemapKind("satellite")).toBe("imagery");
-    expect(resolveBasemapAttribution("satellite")[0].label).toBe(
-      "© Imagery Provider",
-    );
-  });
-
-  it("stays a valid key, and resolves to the default while unconfigured", () => {
-    expect(isBasemapKey("satellite")).toBe(true);
-    expect(resolveBasemapUrl("satellite")).toBe(BASEMAPS[0].url);
-    expect(resolveBasemapKind("satellite")).toBe("vector");
-  });
-
-  it("serves the configured template and credit as the style document", () => {
-    configure();
-    const style = satelliteStyleDocument() as {
-      version: number;
-      sources: {
-        satellite: { type: string; tiles: string[]; attribution: string };
-      };
-      layers: { type: string }[];
-    };
-    expect(style.version).toBe(8);
-    expect(style.sources.satellite.type).toBe("raster");
-    expect(style.sources.satellite.tiles).toEqual([
-      "https://imagery.example/tiles/{z}/{y}/{x}?key=SECRET",
-    ]);
-    expect(style.sources.satellite.attribution).toBe("© Imagery Provider");
-    expect(style.layers.map((l) => l.type)).toContain("raster");
-  });
-
-  it("beats the deployment override like every explicit choice", () => {
-    configure();
-    process.env.DEZFIL_BASEMAP_URL = "https://tiles.internal/style.json";
-    expect(resolveBasemapUrl("satellite")).toBe(SATELLITE_STYLE_URL);
-  });
-
-  it("every shipped style declares a kind and a non-empty credit", () => {
-    for (const b of BASEMAPS) {
-      expect(["vector", "imagery"]).toContain(b.kind);
-      expect(b.attribution.length).toBeGreaterThan(0);
-      for (const line of b.attribution) {
-        expect(line.label.length).toBeGreaterThan(0);
-      }
+describe("the offer switches", () => {
+  it("name one stored switch per key, each a catalogue row with no variable", () => {
+    expect(Object.keys(OFFERED_SETTING)).toEqual([...BASEMAP_KEYS]);
+    for (const setting of Object.values(OFFERED_SETTING)) {
+      const row = SETTING_CATALOGUE.find((definition) => definition.key === setting);
+      expect(row, setting).toMatchObject({ editable: true, defaultValue: true });
+      expect(row!.environment, setting).toBeUndefined();
     }
   });
 });
 
-describe("published theme basemap resolution", () => {
-  afterEach(() => {
-    delete process.env.DEZFIL_BASEMAP_URL;
+describe("a list the server handed down", () => {
+  const marked = [...BASEMAPS.map((b) => ({ ...b, offered: b.key !== "streets" })), { ...SATELLITE, offered: true }];
+
+  it("offers what is not marked hidden, an unmarked entry included", () => {
+    expect(offeredOnly(marked).map((b) => b.key)).toEqual(["dark", "light", "satellite"]);
+    expect(offeredOnly(BASEMAPS)).toEqual(BASEMAPS);
   });
 
-  it("Auto follows the effective theme: light resolves the light style, dark the dark", () => {
-    expect(autoBasemapUrlForTheme("light")).toContain("positron");
-    expect(autoBasemapUrlForTheme("dark")).toContain("dark");
+  it("still draws a hidden entry by its own kind and credit", () => {
+    expect(basemapKindIn(marked, "satellite")).toBe("imagery");
+    expect(basemapCreditIn(marked, "satellite")).toEqual([{ label: "© Imagery Provider" }]);
+    expect(basemapKindIn(marked, "streets")).toBe("vector");
+    expect(basemapCreditIn(marked, "streets")).toBe(BUILT_IN_ATTRIBUTION);
   });
 
-  it("only a genuine Auto with no override follows the theme", () => {
-    expect(basemapFollowsTheme(null)).toBe(true);
-    expect(basemapFollowsTheme("dark")).toBe(false);
-    expect(basemapFollowsTheme("satellite")).toBe(false);
-    process.env.DEZFIL_BASEMAP_URL = "https://tiles.internal/style.json";
-    expect(basemapFollowsTheme(null)).toBe(false);
-  });
-
-  it("a deployment override pins Auto in both themes", () => {
-    process.env.DEZFIL_BASEMAP_URL = "https://tiles.internal/style.json";
-    expect(autoBasemapUrlForTheme("light")).toBe("https://tiles.internal/style.json");
-    expect(autoBasemapUrlForTheme("dark")).toBe("https://tiles.internal/style.json");
-  });
-});
-
-/**
- * The credit has to name the party actually serving the tiles, and the
- * required OpenStreetMap credit has to be followable.
- */
-describe("basemap credit correctness", () => {
-  afterEach(() => {
-    delete process.env.DEZFIL_BASEMAP_URL;
-    delete process.env.DEZFIL_BASEMAP_ATTRIBUTION;
-  });
-
-  it("links the OpenStreetMap credit to the copyright page", () => {
-    for (const key of [null, "dark", "light", "streets"] as const) {
-      const osm = resolveBasemapAttribution(key).find((l) =>
-        l.label.includes("OpenStreetMap"),
-      );
-      expect(osm).toBeDefined();
-      expect(osm!.href).toBe("https://www.openstreetmap.org/copyright");
+  it("draws Auto, and a key the list lacks, as vector with the built-in credit", () => {
+    for (const key of [null, "satellite"] as const) {
+      expect(basemapKindIn(BASEMAPS, key)).toBe("vector");
+      expect(basemapCreditIn(BASEMAPS, key)).toBe(BUILT_IN_ATTRIBUTION);
     }
-  });
-
-  it("credits the configured provider under a deployment override", () => {
-    process.env.DEZFIL_BASEMAP_URL = "https://tiles.internal/style.json";
-    process.env.DEZFIL_BASEMAP_ATTRIBUTION = "© Internal Tiles";
-    expect(basemapOverrideAttribution().map((l) => l.label)).toEqual([
-      "© Internal Tiles",
-    ]);
-    const lines = resolveBasemapAttribution(null).map((l) => l.label);
-    expect(lines).toEqual(["© Internal Tiles"]);
-    expect(lines.join(" ")).not.toContain("OpenMapTiles");
-  });
-
-  it("claims nothing when an override names no attribution", () => {
-    process.env.DEZFIL_BASEMAP_URL = "https://tiles.internal/style.json";
-    expect(resolveBasemapAttribution(null)).toEqual([]);
-  });
-
-  it("leaves explicit choices on their own credit under an override", () => {
-    process.env.DEZFIL_BASEMAP_URL = "https://tiles.internal/style.json";
-    process.env.DEZFIL_BASEMAP_ATTRIBUTION = "© Internal Tiles";
-    expect(resolveBasemapAttribution("light")[0].label).toBe(
-      "© OpenMapTiles",
-    );
   });
 });

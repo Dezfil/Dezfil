@@ -120,6 +120,8 @@ export const ERROR_CATALOGUE: Record<ErrorCode, string> = {
     "The configured routing endpoint did not answer, twice in a row. The run published nothing rather than recording an absent answer as an unreachable origin.",
   service_address_unreadable:
     "A service address an admin saved in Settings cannot be read with this instance's encryption key, which changed after it was saved. The service refuses rather than reach a default; an admin saves the address again.",
+  basemap_not_offered:
+    "The basemap a map write or an undo or redo would put a map on is one an admin hid on this instance, so it cannot be chosen anew. The refusal's setting field names the switch, as PATCH /api/instance/settings takes it. Nothing changed; a map already on that basemap keeps it, and Auto is always offered.",
   measurement_crs_unavailable:
     "The data spans more of the earth than any local projection covers, so a distance measured over it would not be in ground metres. Split it by region and measure each part; an area over the same data succeeds and records the global projection it used.",
   operation_superseded:

@@ -2,6 +2,7 @@
 
 import {
   BASEMAPS,
+  offeredOnly,
   type BasemapKey,
   type BasemapStyle,
 } from "@/lib/basemap";
@@ -35,9 +36,10 @@ interface Props {
   groupsPresent: BasemapLayerGroup[] | null;
   /** Deployment override set (DEZFIL_BASEMAP_URL) — pins Auto. */
   overridden: boolean;
-  /** The styles this instance offers, server-injected. Imagery is
-   * configured rather than shipped, so it is a card only where it is
-   * configured. */
+  /** The styles this instance draws, server-injected, each marked
+   * offered or not: only an offered one is a card, while the map's own
+   * style keeps its kind for the group toggles. Imagery is configured
+   * rather than shipped, so it is a card only where it is configured. */
   basemaps?: BasemapStyle[];
   onPick: (key: BasemapKey | null) => void;
   /** Hidden basemap content groups; null = all visible. */
@@ -91,7 +93,7 @@ export function BasemapPanel({
           <BasemapThumb style="auto" />
           <span className={styles.label}>Auto</span>
         </button>
-        {basemaps.map((b) => (
+        {offeredOnly(basemaps).map((b) => (
           <button
             key={b.key}
             type="button"

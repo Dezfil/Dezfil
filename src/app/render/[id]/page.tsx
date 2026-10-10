@@ -1,9 +1,9 @@
 import {
-  availableBasemaps,
   basemapOverrideAttribution,
   basemapOverrideUrl,
   basemapUrl,
-} from "@/lib/basemap";
+  drawingBasemaps,
+} from "@/lib/basemap-offer";
 import { RenderExportView } from "./RenderExportView";
 
 /**
@@ -23,13 +23,14 @@ export default async function RenderExportPage({
   const { id } = await params;
   // Environment-read basemap config resolves server-side; everything
   // else the view imports from the same isomorphic lib the builder uses.
+  // The server's image draws every style a map may be on, hidden or not.
   return (
     <RenderExportView
       mapId={id}
       defaultBasemapUrl={basemapUrl()}
       basemapOverrideUrl={basemapOverrideUrl()}
       basemapOverrideAttribution={basemapOverrideAttribution()}
-      basemaps={availableBasemaps()}
+      basemaps={drawingBasemaps()}
     />
   );
 }
