@@ -24,7 +24,7 @@ every documented operation must have a route, and every call the interface
 makes must hit a documented path (`src/lib/api/parity.test.ts`). The
 description cannot drift from the server.
 
-Measured from the current source: **133 paths, 379 operations, 173 named component schemas.** Operations include supported automatic HEAD and OPTIONS.
+Measured from the current source: **135 paths, 384 operations, 177 named component schemas.** Operations include supported automatic HEAD and OPTIONS.
 `npm run lint:contract-docs` measures these numbers and checks the catalogue below
 against the contract; changing only the reader-facing text fails the gate.
 
@@ -64,7 +64,7 @@ preconditions are declared on the operations that require them.
 
 ## Request bounds
 
-Measured JSON reader operations: **65**. These counts include optional bodies,
+Measured JSON reader operations: **67**. These counts include optional bodies,
 helper readers and MCP's external parser handoff, and exclude multipart uploads
 and binary thumbnails. The contract gate measures them; type-aware body-policy
 coverage independently checks the implementation against the contract.
@@ -72,7 +72,7 @@ coverage independently checks the implementation against the contract.
 <!-- body-tiers:start -->
 | JSON wire-byte tier | Operations |
 |---|---|
-| 65,536 | 13 |
+| 65,536 | 15 |
 | 131,072 | 1 |
 | 16,777,216 | 51 |
 <!-- body-tiers:end -->
@@ -628,6 +628,29 @@ with another origin's Origin or a cross-site or same-site `Sec-Fetch-Site`. A
 token calls directly. Both are generated
 as tools, `test_part` and `read_storage`: the embedded assistant confirms each,
 and the SQL and workflow assistants refuse them.
+
+Three more keep the instance's basemap library, admins only and rechecked
+inside each write, with the same trusted-Origin rule for cookies and private,
+no-store answers. `POST /api/instance/basemaps` adds a MapLibre style by its
+address, `{ name, url }`: the server reads the address once, now, first
+through the egress check (an address in blocked space is refused with the
+check's sentence before anything is sent), then with one request within 8
+seconds and 2 MB, and keeps a valid style with its sources' credit, else its
+host, answering 201 with `{ id, name, url, attribution, offered, addedAt }`.
+It refuses, keeping nothing and repeating no part of the address, a name
+outside 1 to 60 characters, an address that is not http or https with a host
+or is longer than 2,048 characters, an address the library holds, a 51st
+style, an answer that is not a style and a style it cannot read now; there is
+no force. Nothing reads the address again. `PATCH /api/instance/basemaps/{id}`
+with `{ offered }` offers or hides a style where a basemap is chosen, and
+`DELETE /api/instance/basemaps/{id}` removes one, answering `{ removed: true }`;
+maps that took a style keep their copy of its name, address and credit
+through both. The configuration read lists the library as `basemapStyles`,
+hidden styles included, and `GET /api/config` the offered ones as
+`basemapStyles` (id, name, address, credit): a style's address is public to
+whoever draws a map on it. They are generated as tools, `add_basemap_style`,
+`set_basemap_style_offered` and `remove_basemap_style`: the embedded assistant
+confirms each, and the SQL and workflow assistants refuse them.
 
 Built-in and configured basemaps, the palette catalogue, geometry projections,
 the API reference, operation catalogue and offered assistant models are shared

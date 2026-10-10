@@ -163,6 +163,18 @@ so MCP marks them local reads, not open-world; they ask for confirmation, so the
 embedded assistant asks before calling either and the SQL and workflow
 assistants are never offered them.
 
+`add_basemap_style` calls `POST /api/instance/basemaps`,
+`set_basemap_style_offered` calls `PATCH /api/instance/basemaps/{id}` and
+`remove_basemap_style` calls `DELETE /api/instance/basemaps/{id}`, each
+admin-only and rechecked inside its write. The add reads the style's address
+once, through the egress check, and keeps the style with its credit or its
+host; it refuses an address in blocked space, a style it cannot read now, an
+answer that is not a style, an address the library holds and a 51st style,
+repeating no part of the address. It reaches outside this server, so MCP
+marks it open-world. Hiding and removing change no map: a map keeps its own
+copy of a style it took. The embedded assistant asks before calling any of
+them; the SQL and workflow assistants are never offered them.
+
 `get_config` reads `GET /api/config`, which every signed-in account and agent
 may call. Besides the basemaps and palettes on offer and the client limits, it
 carries `defaults`: what a new map, a new layer, the workflow canvas, the SQL
@@ -255,9 +267,9 @@ Direct multipart upload uses the separately configured upload limit.
 
 | | |
 |---|---|
-| Documented operations | 379 |
-| Operations that become tools | 147 |
-| Deliberately excluded | 232 |
+| Documented operations | 384 |
+| Operations that become tools | 150 |
+| Deliberately excluded | 234 |
 
 Measured by building the OpenAPI document and the tool set from
 `src/lib/api/openapi.ts` and `src/lib/tools/tools.ts` and counting the

@@ -13,6 +13,7 @@ import { settingsContract } from "./openapi-settings";
 import { INSTANCE_DEFAULTS_SCHEMA, INSTANCE_SETTINGS_PATHS, INSTANCE_SETTINGS_SCHEMAS, instanceRulesSchema } from "./openapi-instance-settings";
 import { INSTANCE_SERVICES_PATHS, INSTANCE_SERVICES_SCHEMAS } from "./openapi-instance-services";
 import { INSTANCE_SYSTEM_PATHS, INSTANCE_SYSTEM_SCHEMAS } from "./openapi-instance-system";
+import { INSTANCE_BASEMAPS_PATHS, INSTANCE_BASEMAPS_SCHEMAS, LIBRARY_STYLE_OFFER_SCHEMA } from "./openapi-instance-basemaps";
 import { RULE_KEYS, WHO_MAY_RULES } from "@/lib/settings/instance-rules";
 import { OFFERED_SETTING } from "@/lib/basemap";
 import { QUERY_EXPORT_TICKET } from "./openapi-tool-responses";
@@ -145,6 +146,7 @@ export function buildOpenApiDocument() {
       ...INSTANCE_SETTINGS_PATHS,
       ...INSTANCE_SERVICES_PATHS,
       ...INSTANCE_SYSTEM_PATHS,
+      ...INSTANCE_BASEMAPS_PATHS,
       ...GEOMETRY_RESOURCE_PATHS,
       "/api/health": {
         get: op({
@@ -831,6 +833,7 @@ export function buildOpenApiDocument() {
         ...INSTANCE_SETTINGS_SCHEMAS,
         ...INSTANCE_SERVICES_SCHEMAS,
         ...INSTANCE_SYSTEM_SCHEMAS,
+        ...INSTANCE_BASEMAPS_SCHEMAS,
         // Documented as a schema only: the operation that consumes it is
         // the server renderer's feature, and a tool name before that
         // operation exists would hand agents an inert schema and call it
@@ -923,6 +926,13 @@ export function buildOpenApiDocument() {
                   },
                 },
               },
+            },
+            basemapStyles: {
+              type: "array",
+              description:
+                "The styles an admin added to the basemap library and offers, " +
+                "oldest first, chosen by their id; hidden ones are left out.",
+              items: LIBRARY_STYLE_OFFER_SCHEMA,
             },
             palettes: {
               type: "array",

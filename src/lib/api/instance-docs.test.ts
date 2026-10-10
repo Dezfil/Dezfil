@@ -22,15 +22,17 @@ describe("the instance operations in the guides", () => {
       .map(([method]) => ({ call: `${method.toUpperCase()} ${path}`, method, path })));
   const tools = buildTools();
 
-  it("covers the settings, the services, the parts and the storage", () => {
+  it("covers the settings, the services, the parts, the storage and the basemap library", () => {
     expect(operations.map(operation => operation.call).sort()).toEqual([
-      "DELETE /api/instance/caches", "GET /api/instance/settings", "GET /api/instance/storage", "PATCH /api/instance/settings",
+      "DELETE /api/instance/basemaps/{id}", "DELETE /api/instance/caches", "GET /api/instance/settings", "GET /api/instance/storage",
+      "PATCH /api/instance/basemaps/{id}", "PATCH /api/instance/settings", "POST /api/instance/basemaps",
       "POST /api/instance/parts/{part}/test", "POST /api/instance/services/{service}/test",
     ]);
   });
 
   it.each(["GET /api/instance/settings", "PATCH /api/instance/settings", "POST /api/instance/services/{service}/test",
-    "DELETE /api/instance/caches", "POST /api/instance/parts/{part}/test", "GET /api/instance/storage"])("describes %s in both guides", call => {
+    "DELETE /api/instance/caches", "POST /api/instance/parts/{part}/test", "GET /api/instance/storage",
+    "POST /api/instance/basemaps", "PATCH /api/instance/basemaps/{id}", "DELETE /api/instance/basemaps/{id}"])("describes %s in both guides", call => {
     expect(api, call).toContain(`\`${call}\``);
     const operation = operations.find(found => found.call === call)!;
     const tool = tools.find(found => found.method === operation.method && found.path === operation.path);

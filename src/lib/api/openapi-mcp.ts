@@ -99,7 +99,7 @@ export const MCP_PATHS = {
             "publish) is completable through these tools.",
           tag: "Agents",
           tool: false,
-          effects: writes(resource("maps"), resource("layers"), resource("tables"), resource("publications"), resource("recipes"), resource("runs"), resource("projects"), resource("connections"), resource("palettes"), resource("settings"), resource("caches"), resource("assistant")),
+          effects: writes(resource("maps"), resource("layers"), resource("tables"), resource("publications"), resource("recipes"), resource("runs"), resource("projects"), resource("connections"), resource("palettes"), resource("settings"), resource("caches"), resource("basemaps"), resource("assistant")),
           requestBody: {
             "x-byte-limit": 16_777_216,
             required: true,

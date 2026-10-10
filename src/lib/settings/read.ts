@@ -15,6 +15,7 @@ import type { SettingDefinition, SettingValue } from "./types";
 import { startedAt, version } from "./process-info";
 import { settingsWarnings } from "./relationships";
 import { readPartStates } from "@/lib/system/parts";
+import { listLibraryStyles } from "@/lib/basemap-library";
 
 /** A row a variable sets. One an admin may also store beside it (the
  * satellite credit) reads as its variable while that is set, which locks
@@ -48,6 +49,8 @@ export function readInstanceSettings(context: AuthContext, db: Database = metada
     return { settings, capacities: { geocodeRows: maxBatchRows(budget), isochroneOrigins: maxIsochroneOrigins(budget) },
       maxImageDimension: EXPORT_MAX_DIMENSION, version, startedAt, warnings: settingsWarnings(numbers.queryTimeoutS.value, numbers.operationTimeoutS.value),
       // Each part's state, read without starting anything.
-      parts: readPartStates({ imagesAtOnce: numbers.exportRenderConcurrency.value, metadataFile: db.name }) };
+      parts: readPartStates({ imagesAtOnce: numbers.exportRenderConcurrency.value, metadataFile: db.name }),
+      // The basemap library, hidden styles included.
+      basemapStyles: listLibraryStyles(db) };
   }).immediate();
 }

@@ -317,7 +317,7 @@
     {
       "type": "function",
       "name": "get_instance_settings",
-      "description": "Read instance configuration. Requires a current admin account through a cookie session or bearer token, rechecked on every call. Responses, including refusals, are private, no-store. Returns every instance and platform definition with its effective value, source, stored value (including a shadowed value), lock and invalid-override state. A non-empty environment variable locks the setting even when invalid; invalid numeric overrides use the default without returning the override text. Empty numeric overrides are absent; a set empty assistant model list retains its default model alone. Environment changes require a restart. Provider keys report set or not set; the encryption key reports environment, data-directory or not-yet-present. Address value and defaultValue expose scheme and host only, never user information, paths, queries or fragments; malformed addresses report set and unreadable. A service address or the satellite tile template an admin stored reads as set with its scheme and host, or as set and unreadable once the instance's encryption key no longer opens it; its storedValue is always null. The satellite credit an admin stored reads as stored while DEZFIL_SATELLITE_ATTRIBUTION is unset, and as the variable's, with the stored credit as storedValue, while it is set. The built-in documentedDefault stays as documented, including any path. Contextual defaults carry a rule when there is no single address or value. The read generates no key, writes no configuration file, contacts no service and initializes no engine. Capacities report admitted geocode rows and travel-time origins per run, without promising a configured provider. Also returns the fixed maximum image dimension, package version, stable process start time and warnings when the effective query timeout is at or above the run timeout. Services report each provider cache (geocode, isochrone, overpass) with the bytes its answers take, how many it holds and its budget in MB, and the Overture release list this process keeps: how many releases, the newest and when it was listed, or not listed yet. Parts report each part of this server, starting nothing and running no program: the query engine's library version, whether the engine has started and the extensions it loaded; whether the tile builder and the image renderer's browser are executable files where their settings point, by a file check, the tile builder's version once this server has run it, and Images at once; the metadata database's file name.",
+      "description": "Read instance configuration. Requires a current admin account through a cookie session or bearer token, rechecked on every call. Responses, including refusals, are private, no-store. Returns every instance and platform definition with its effective value, source, stored value (including a shadowed value), lock and invalid-override state. A non-empty environment variable locks the setting even when invalid; invalid numeric overrides use the default without returning the override text. Empty numeric overrides are absent; a set empty assistant model list retains its default model alone. Environment changes require a restart. Provider keys report set or not set; the encryption key reports environment, data-directory or not-yet-present. Address value and defaultValue expose scheme and host only, never user information, paths, queries or fragments; malformed addresses report set and unreadable. A service address or the satellite tile template an admin stored reads as set with its scheme and host, or as set and unreadable once the instance's encryption key no longer opens it; its storedValue is always null. The satellite credit an admin stored reads as stored while DEZFIL_SATELLITE_ATTRIBUTION is unset, and as the variable's, with the stored credit as storedValue, while it is set. The built-in documentedDefault stays as documented, including any path. Contextual defaults carry a rule when there is no single address or value. The read generates no key, writes no configuration file, contacts no service and initializes no engine. Capacities report admitted geocode rows and travel-time origins per run, without promising a configured provider. Also returns the fixed maximum image dimension, package version, stable process start time and warnings when the effective query timeout is at or above the run timeout. Services report each provider cache (geocode, isochrone, overpass) with the bytes its answers take, how many it holds and its budget in MB, and the Overture release list this process keeps: how many releases, the newest and when it was listed, or not listed yet. Parts report each part of this server, starting nothing and running no program: the query engine's library version, whether the engine has started and the extensions it loaded; whether the tile builder and the image renderer's browser are executable files where their settings point, by a file check, the tile builder's version once this server has run it, and Images at once; the metadata database's file name. basemapStyles is the basemap library, oldest first, hidden styles included: each style's id, name, address, credit, whether it is offered and when it was added.",
       "parameters": {
         "type": "object",
         "properties": {},
@@ -1083,6 +1083,75 @@
         "additionalProperties": false,
         "required": [
           "part"
+        ]
+      },
+      "strict": false
+    },
+    {
+      "type": "function",
+      "name": "add_basemap_style",
+      "description": "Add a style to the basemap library. At most 65,536 wire bytes; a larger body is refused with `request_body_too_large` before JSON parsing. Requires a current admin through cookie or bearer authentication, rechecked inside the write on every call. Cookie requests require the same trusted Origin; an admin bearer token calls directly. Responses, including refusals, are private, no-store. Adds a MapLibre style by its address, for everyone choosing a basemap: the builder's picker lists it after the built-in styles, and a map that takes it keeps its own copy of the name, the address and the credit. The server reads the address once, now: first the egress policy's own check, so an address in loopback, private, link-local, metadata or other blocked space, or a name all of whose addresses resolve there, is refused with that check's sentence before anything is sent, unless DEZFIL_EGRESS_ALLOWLIST names it; then one request through the egress-governed client, redirects included, within 8 seconds and 2 MB. A valid style is kept with its sources' credit, else its host. Refused with 400 invalid_request, nothing kept: a name outside 1 to 60 characters, an address that is not http or https with a host or is longer than 2,048 characters, an address the library already holds, a 51st style, an answer that is not a MapLibre style, and a style that cannot be read now: there is no force, because an offered style must draw in the server's images too. No refusal repeats the address. Nothing reads the address again: no schedule and no recheck. Its address is public to whoever draws a map on it, published readers included. The embedded assistant asks for confirmation before calling on pages admitting writes; SQL and workflow assistants refuse this operation. MCP advertises that policy and adds no confirmation step.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^\\s*\\S[\\s\\S]{0,59}\\s*$",
+            "description": "1 to 60 characters once trimmed."
+          },
+          "url": {
+            "type": "string",
+            "pattern": "^\\s*[Hh][Tt][Tt][Pp][Ss]?://[^/\\\\?#\\s]",
+            "description": "An http or https MapLibre style address with a host, at most 2,048 characters once trimmed, kept as given."
+          }
+        },
+        "required": [
+          "name",
+          "url"
+        ],
+        "additionalProperties": false
+      },
+      "strict": false
+    },
+    {
+      "type": "function",
+      "name": "set_basemap_style_offered",
+      "description": "Offer or hide a library style. At most 65,536 wire bytes; a larger body is refused with `request_body_too_large` before JSON parsing. Requires a current admin through cookie or bearer authentication, rechecked inside the write on every call. Cookie requests require the same trusted Origin; an admin bearer token calls directly. Responses, including refusals, are private, no-store. Sets whether an added style is offered where a basemap is chosen. Hidden, it leaves the builder's picker and the runtime configuration; maps that took it keep their copy and draw it. Answers the style as it is now; an unknown id answers 404 not_found. The embedded assistant asks for confirmation before calling on pages admitting writes; SQL and workflow assistants refuse this operation. MCP advertises that policy and adds no confirmation step.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The style's identity in the library."
+          },
+          "offered": {
+            "type": "boolean",
+            "description": "True offers the style where a basemap is chosen; false hides it."
+          }
+        },
+        "required": [
+          "id",
+          "offered"
+        ],
+        "additionalProperties": false
+      },
+      "strict": false
+    },
+    {
+      "type": "function",
+      "name": "remove_basemap_style",
+      "description": "Remove a library style. Requires a current admin through cookie or bearer authentication, rechecked inside the write on every call. Cookie requests require the same trusted Origin; an admin bearer token calls directly. Responses, including refusals, are private, no-store. Removes an added style from the library. Maps that took it keep their copy of its name, address and credit and keep drawing it; nothing else changes. An unknown id answers 404 not_found. The embedded assistant asks for confirmation before calling on pages admitting writes; SQL and workflow assistants refuse this operation. MCP advertises that policy and adds no confirmation step.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The style's identity in the library."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "id"
         ]
       },
       "strict": false

@@ -9,6 +9,7 @@ import { LOCAL_READ, LOCAL_REPLACE } from "./operation-mcp";
 import { READ_ONLY, writes, resource } from "./operation-metadata";
 import { SERVICE_FACTS_SCHEMA } from "./openapi-instance-services";
 import { PART_STATES_SCHEMA } from "./openapi-instance-system";
+import { LIBRARY_STYLES_SCHEMA } from "./openapi-instance-basemaps";
 
 const object = <T extends Record<string, unknown>>(properties: T) => ({
   type: "object", properties, required: Object.keys(properties), additionalProperties: false,
@@ -115,6 +116,7 @@ export const INSTANCE_SETTINGS_SCHEMAS = {
     maxImageDimension: { type: "integer", const: EXPORT_MAX_DIMENSION }, version: { type: "string" }, startedAt: { type: "string", format: "date-time" },
     warnings: { type: "array", items: { type: "string" }, description: "Effective timeout relationship mismatches, including deployment overrides. These do not block unrelated edits." },
     parts: PART_STATES_SCHEMA,
+    basemapStyles: LIBRARY_STYLES_SCHEMA,
     services: SERVICE_FACTS_SCHEMA,
   }),
 };
@@ -141,7 +143,8 @@ export const INSTANCE_SETTINGS_PATHS = {
       "and the Overture release list this process keeps: how many releases, the newest and when it was listed, or not listed yet. " +
       "Parts report each part of this server, starting nothing and running no program: the query engine's library version, whether the engine " +
       "has started and the extensions it loaded; whether the tile builder and the image renderer's browser are executable files where their " +
-      "settings point, by a file check, the tile builder's version once this server has run it, and Images at once; the metadata database's file name.",
+      "settings point, by a file check, the tile builder's version once this server has run it, and Images at once; the metadata database's file name. " +
+      "basemapStyles is the basemap library, oldest first, hidden styles included: each style's id, name, address, credit, whether it is offered and when it was added.",
     tag: "System", tool: "get_instance_settings", toolInput: { closed: true }, display: { verb: "Read instance configuration" }, effects: READ_ONLY, mcp: LOCAL_READ,
     responses: { "200": jsonOk("#/components/schemas/InstanceSettings"), "401": ERROR_RESPONSE, "403": ERROR_RESPONSE, "503": ERROR_RESPONSE },
   }), security: AUTH_SECURITY }, patch: { ...op({

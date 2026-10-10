@@ -12,17 +12,21 @@ import { presencesOf } from "@/lib/reach-presence";
 
 const ENTRY = 46, now = "2026-01-02T03:04:05.000Z";
 let directory: string, file: string, db: Database.Database;
-/** A later migration adds the token expiry column; these checks compare the
- * store as the identity migration left it, every other byte included. */
+/** Later migrations add the token expiry column and the basemap library's
+ * table; these checks compare the store as the identity migration left it,
+ * every other byte included. */
 const LATER_TOKEN_COLUMN = ", expires_at INTEGER)";
+const LATER_TABLES = new Set(["basemap_styles"]);
 function schema() {
   return (db.prepare("SELECT type, name, tbl_name, sql FROM sqlite_master WHERE NOT (type = 'table' AND name = 'accounts') ORDER BY type, name").all() as
     { type: string; name: string; tbl_name: string; sql: string | null }[])
+    .filter(entry => !LATER_TABLES.has(entry.tbl_name))
     .map(entry => entry.type === "table" && entry.name === "auth_tokens" && entry.sql?.endsWith(LATER_TOKEN_COLUMN)
       ? { ...entry, sql: entry.sql.slice(0, -LATER_TOKEN_COLUMN.length) + ")" } : entry);
 }
 function rows() {
   return Object.fromEntries((db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name").all() as { name: string }[])
+    .filter(({ name }) => !LATER_TABLES.has(name))
     .map(({ name }) => [name, (db.prepare(`SELECT * FROM "${name}" ORDER BY rowid`).all() as Record<string, unknown>[])
       .map(row => name === "auth_tokens" ? Object.fromEntries(Object.entries(row).filter(([column]) => column !== "expires_at")) : row)]));
 }

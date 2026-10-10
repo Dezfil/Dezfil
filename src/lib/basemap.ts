@@ -91,6 +91,20 @@ export const OFFERED_SETTING = {
   satellite: "basemaps.satellite",
 } as const satisfies Record<BasemapKey, string>;
 
+/** A style an admin added to the instance's library by its address, as a
+ * person choosing a basemap is offered it: a map that takes it keeps its own
+ * copy of the name, the address and the credit. */
+export interface LibraryStyleOffer {
+  id: string;
+  name: string;
+  url: string;
+  attribution: AttributionLine[];
+}
+
+/** The library's bounds: how many styles it holds, and a style's name and
+ * address lengths. */
+export const LIBRARY_LIMITS = { styles: 50, name: 60, address: 2048 } as const;
+
 export function isBasemapKey(value: unknown): value is BasemapKey {
   return (BASEMAP_KEYS as readonly unknown[]).includes(value);
 }

@@ -46,8 +46,10 @@ export async function admitServiceAddresses(input: unknown): Promise<AddressAdmi
 const withDigits = (address: string, placeholders: readonly string[]) =>
   placeholders.reduce((text, placeholder) => text.split(placeholder).join("0"), address);
 
-/** The egress check's sentence when it would refuse the address now, else null. */
-async function egressRefusal(address: string): Promise<string | null> {
+/** The egress check's sentence when it would refuse the address now, else
+ * null: the save-time check a stored address takes, and the basemap
+ * library's add before it reads a style. */
+export async function egressRefusal(address: string): Promise<string | null> {
   try {
     await resolveAllowed(new URL(address).hostname);
     return null;

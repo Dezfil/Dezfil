@@ -491,4 +491,16 @@ export const MIGRATIONS: string[] = [
   // policy. Null never expires: every token made before keeps working until
   // revoked, and a later change of policy moves no token's expiry.
   `ALTER TABLE auth_tokens ADD COLUMN expires_at INTEGER;`,
+  // The instance's basemap library: styles an admin added by their address,
+  // read once at the add for their credit. One row per address; a map takes
+  // a copy, so no map refers to a row and removing one changes no map.
+  `CREATE TABLE basemap_styles (
+     id TEXT PRIMARY KEY,
+     name TEXT NOT NULL,
+     url TEXT NOT NULL UNIQUE,
+     attribution TEXT NOT NULL,
+     offered INTEGER NOT NULL DEFAULT 1 CHECK (offered IN (0, 1)),
+     position INTEGER NOT NULL,
+     created_at TEXT NOT NULL
+   );`,
 ];
