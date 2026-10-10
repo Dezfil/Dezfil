@@ -42,6 +42,7 @@ import {
   BASEMAP_FALLBACKS,
   basemapCreditIn,
   basemapKindIn,
+  offeredOnly,
   type BasemapKey,
   type BasemapStyle,
 } from "@/lib/basemap";
@@ -584,14 +585,18 @@ export function PublishedView({
   // *are* the modes, so leaving them fixed while the chrome flipped read
   // as a bug. Streets and Satellite are choices about content, not mode,
   // and stay put. This supersedes fixed-explicit-basemap rule for those
-  // two, on the published viewer only.
+  // two, on the published viewer only. The pair is taken only where the
+  // instance offers it, as the switcher lists only offered styles: with
+  // the pair hidden the chrome flips and the style stays.
   const onToggleTheme = () => {
+    const pair = effTheme === "dark" ? "light" : "dark";
     // A custom style pins both themes: the pairing below must not fire
     // while it is active, or a mere theme toggle would set
     // readerBasemap and silently replace the custom style for the rest
     // of the load.
-    if (!customActive && (themedKey === "dark" || themedKey === "light")) {
-      setReaderBasemap(effTheme === "dark" ? "light" : "dark");
+    if (!customActive && (themedKey === "dark" || themedKey === "light") &&
+        offeredOnly(basemaps).some((b) => b.key === pair)) {
+      setReaderBasemap(pair);
     }
     toggleViewTheme(authoredTheme);
   };
