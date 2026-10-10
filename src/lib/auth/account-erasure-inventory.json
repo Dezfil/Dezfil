@@ -5470,6 +5470,11 @@
         "memory:immutable-configuration"
       ]
     },
+    "memory:src/lib/api/openapi-instance-settings.ts#template": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
     "memory:src/lib/settings/process-info.ts#startedAt": {
       "stores": [
         "memory:process-start"
