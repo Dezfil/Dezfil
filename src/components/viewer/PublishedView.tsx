@@ -585,9 +585,10 @@ export function PublishedView({
   // *are* the modes, so leaving them fixed while the chrome flipped read
   // as a bug. Streets and Satellite are choices about content, not mode,
   // and stay put. This supersedes fixed-explicit-basemap rule for those
-  // two, on the published viewer only. The pair is taken only where the
-  // instance offers it, as the switcher lists only offered styles: with
-  // the pair hidden the chrome flips and the style stays.
+  // two, on the published viewer only. The pair is taken where the
+  // instance offers it, as the switcher lists only offered styles, or
+  // where it is the publication's own style, which the map holds even
+  // hidden; otherwise the chrome flips and the style stays.
   const onToggleTheme = () => {
     const pair = effTheme === "dark" ? "light" : "dark";
     // A custom style pins both themes: the pairing below must not fire
@@ -595,7 +596,7 @@ export function PublishedView({
     // readerBasemap and silently replace the custom style for the rest
     // of the load.
     if (!customActive && (themedKey === "dark" || themedKey === "light") &&
-        offeredOnly(basemaps).some((b) => b.key === pair)) {
+        (pair === authoredKey || offeredOnly(basemaps).some((b) => b.key === pair))) {
       setReaderBasemap(pair);
     }
     toggleViewTheme(authoredTheme);

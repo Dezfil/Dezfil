@@ -11,7 +11,8 @@ import { PublishedView } from "./PublishedView";
  * The published reader's theme control, as a reader presses it: the chrome
  * flips, and an explicit Dark or Light moves to its pair only when the
  * instance offers the pair, since the reader may choose only an offered
- * style. With the pair hidden the chrome changes and the style stays. Auto
+ * style, or when the pair is the publication's own style, which the map
+ * holds. Otherwise the chrome changes and the style stays. Auto
  * keeps following the theme with Dark and Light offered or not; Streets,
  * Satellite and a map's own style never move with the theme.
  */
@@ -101,13 +102,29 @@ describe("the reader's theme control", () => {
     expect([reader.theme(), canvas.basemapUrl]).toEqual(["dark", url("dark")]);
   });
 
-  it("moves a publication on a hidden Dark to an offered Light, and never back onto the hidden Dark", async () => {
+  it("moves a publication on a hidden Dark to an offered Light, and back onto its own Dark, which the map holds", async () => {
     const reader = await open(viewOn("dark"), ["dark"]);
     expect(canvas.basemapUrl).toBe(url("dark"));
     await reader.press();
     expect([reader.theme(), canvas.basemapUrl]).toEqual(["light", url("light")]);
     await reader.press();
-    expect([reader.theme(), canvas.basemapUrl]).toEqual(["dark", url("light")]);
+    expect([reader.theme(), canvas.basemapUrl]).toEqual(["dark", url("dark")]);
+  });
+
+  it("leaves a publication on a hidden Dark there when Light is hidden too", async () => {
+    const reader = await open(viewOn("dark"), ["dark", "light"]);
+    await reader.press();
+    expect([reader.theme(), canvas.basemapUrl]).toEqual(["light", url("dark")]);
+    await reader.press();
+    expect([reader.theme(), canvas.basemapUrl]).toEqual(["dark", url("dark")]);
+  });
+
+  it("returns a Light publication to its own hidden Light from Dark", async () => {
+    const reader = await open({ ...viewOn("light"), theme: "light" }, ["light"]);
+    await reader.press();
+    expect([reader.theme(), canvas.basemapUrl]).toEqual(["dark", url("dark")]);
+    await reader.press();
+    expect([reader.theme(), canvas.basemapUrl]).toEqual(["light", url("light")]);
   });
 
   it.each([[[] as BasemapKey[]], [["dark", "light"] as BasemapKey[]]])("keeps Auto following the theme (hidden: %j)", async hidden => {
