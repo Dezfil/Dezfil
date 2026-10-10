@@ -5,9 +5,9 @@
  */
 
 /** The services a Test reaches: the address finder, travel time,
- * OpenStreetMap's Overpass server, the Overture release listing and the S3
- * address. */
-export const TESTED_SERVICES = ["geocode", "isochrone", "overpass", "overture", "s3"] as const;
+ * OpenStreetMap's Overpass server, the Overture release listing, the S3
+ * address and the satellite imagery's tile template. */
+export const TESTED_SERVICES = ["geocode", "isochrone", "overpass", "overture", "s3", "satellite"] as const;
 export type TestedService = typeof TESTED_SERVICES[number];
 
 /** Why a Test failed: no address; the egress rules refused it (with the

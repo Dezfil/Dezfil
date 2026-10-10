@@ -138,9 +138,10 @@ credentials or address paths, queries or user information.
 `test_service` calls `POST /api/instance/services/{service}/test` and
 `clear_service_caches` calls `DELETE /api/instance/caches`, both admin-only and
 rechecked on every call. A Test sends one fixed request to the service at its
-address in effect and answers passed with the time taken (Overture: how many
-releases and the newest) or failed with one reason from a closed list, never a
-body, an address or a key; it is read-only but reaches outside this server, so
+address in effect (the satellite imagery: one fixed low-zoom tile at its tile
+template) and answers passed with the time taken (Overture: how many releases
+and the newest) or failed with one reason from a closed list, never a body, an
+address or a key; it is read-only but reaches outside this server, so
 MCP marks it open-world. Clear removes the cached answers of one service or all
 three and nothing else. The embedded assistant asks before calling either; the
 SQL and workflow assistants are never offered them.

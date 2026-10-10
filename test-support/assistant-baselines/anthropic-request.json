@@ -965,7 +965,7 @@
     },
     {
       "name": "test_service",
-      "description": "Test a service. Requires a current admin through cookie or bearer authentication, rechecked on every call. Cookie requests require the same trusted Origin; an admin bearer token calls directly. Responses, including refusals, are private, no-store. Sends the service one fixed request at its address in effect, never one given here: geocode (the address finder) one search for a fixed place, isochrone (travel time) one area on foot round a fixed point for the shortest band, overpass (OpenStreetMap) the smallest Overpass query, overture a listing of the releases, s3 one request to the S3 address's root without credentials. It goes the way the service's own requests go: through the egress check, redirects included, and after the gap between requests for the address finder and travel time. It reaches outside this server and stores nothing: no setting changes and no cache is read or written, except that the Overture Test keeps the release list it finds, as Check now does. A second Test of a service while one runs gets the same answer from the same request. A stored address the instance's key no longer opens is refused with service_address_unreadable, as the service refuses it. The embedded assistant asks for confirmation before calling; SQL and workflow assistants refuse this operation. MCP advertises that policy and adds no confirmation step.",
+      "description": "Test a service. Requires a current admin through cookie or bearer authentication, rechecked on every call. Cookie requests require the same trusted Origin; an admin bearer token calls directly. Responses, including refusals, are private, no-store. Sends the service one fixed request at its address in effect, never one given here: geocode (the address finder) one search for a fixed place, isochrone (travel time) one area on foot round a fixed point for the shortest band, overpass (OpenStreetMap) the smallest Overpass query, overture a listing of the releases, s3 one request to the S3 address's root without credentials, satellite one fixed low-zoom tile (zoom 3, x 4, y 2) at the imagery's tile template within 10 seconds, passing when the answer is an image. It goes the way the service's own requests go: through the egress check, redirects included, and after the gap between requests for the address finder and travel time. It reaches outside this server and stores nothing: no setting changes and no cache is read or written, except that the Overture Test keeps the release list it finds, as Check now does. A second Test of a service while one runs gets the same answer from the same request. A stored address the instance's key no longer opens is refused with service_address_unreadable, as the service refuses it. The embedded assistant asks for confirmation before calling; SQL and workflow assistants refuse this operation. MCP advertises that policy and adds no confirmation step.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -976,9 +976,10 @@
               "isochrone",
               "overpass",
               "overture",
-              "s3"
+              "s3",
+              "satellite"
             ],
-            "description": "The service to test: geocode, isochrone, overpass, overture or s3."
+            "description": "The service to test: geocode, isochrone, overpass, overture, s3 or satellite (the imagery's tile template)."
           }
         },
         "additionalProperties": false,

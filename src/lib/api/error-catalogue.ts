@@ -119,7 +119,7 @@ export const ERROR_CATALOGUE: Record<ErrorCode, string> = {
   isochrone_failed:
     "The configured routing endpoint did not answer, twice in a row. The run published nothing rather than recording an absent answer as an unreachable origin.",
   service_address_unreadable:
-    "A service address an admin saved in Settings cannot be read with this instance's encryption key, which changed after it was saved. The service refuses rather than reach a default; an admin saves the address again.",
+    "A service address, or the satellite imagery's tile template, an admin saved in Settings cannot be read with this instance's encryption key, which changed after it was saved. The service, or the imagery style, refuses rather than reach a default; an admin saves the address again.",
   basemap_not_offered:
     "The basemap a map write or an undo or redo would put a map on is one this instance does not offer now: a style an admin hid, or, while style addresses on single maps are off, a style address the basemap library does not offer. It cannot be chosen anew. The refusal's setting field names the switch, as PATCH /api/instance/settings takes it. Nothing changed; a map already on that basemap keeps it, and Auto is always offered.",
   measurement_crs_unavailable:

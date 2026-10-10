@@ -178,9 +178,15 @@ export function buildOpenApiDocument() {
           summary: "The configured imagery style",
           description:
             "A MapLibre style document wrapping the imagery tile template " +
-            "this instance configures, with the provider's credit. No " +
+            "this instance configures, with the provider's credit. It " +
+            "carries the whole template, a key in it included, so it answers " +
+            "signed-in accounts only: an anonymous request, a published " +
+            "page's reader among them, is refused with none of it. No " +
             "imagery ships with the app, so an instance that configures " +
-            "none answers 404 and offers no imagery basemap.",
+            "none answers 404 and offers no imagery basemap. A stored " +
+            "template the instance's key no longer opens is refused with " +
+            "service_address_unreadable, never answered with another style. " +
+            "Private, no-store.",
           tag: "System",
           tool: false,
           effects: READ_ONLY,
@@ -193,6 +199,8 @@ export function buildOpenApiDocument() {
                 },
               },
             },
+            "400": ERROR_RESPONSE,
+            "401": ERROR_RESPONSE,
             "404": { description: "No imagery is configured." },
           },
         }),

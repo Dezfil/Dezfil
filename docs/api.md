@@ -562,9 +562,12 @@ In addition to validation and lock refusals, the operation can answer
 Two more operations serve the services, with the same admin checks, the same
 trusted-Origin rule for cookies and private, no-store answers.
 `POST /api/instance/services/{service}/test` tests one service (`geocode`,
-`isochrone`, `overpass`, `overture` or `s3`): one fixed request at its address
-in effect, never one given in the call, sent the way the service's own requests
-go, through the egress check with redirects and after the gap between requests.
+`isochrone`, `overpass`, `overture`, `s3` or `satellite`): one fixed request at
+its address in effect, never one given in the call, sent the way the service's
+own requests go, through the egress check with redirects and after the gap
+between requests. The satellite imagery's is one fixed low-zoom tile (zoom 3,
+x 4, y 2) at its tile template within 10 seconds, passing when the answer is
+an image.
 It answers `{ service, result: "passed", milliseconds }`, Overture
 `{ service, result: "passed", releases, newest }`, or `result: "failed"` with
 one `reason`: `not_set_up`, `refused` (with the check's sentence as `message`),
@@ -2033,7 +2036,7 @@ response message. Branch on the code.
 | `geocoder_failed` | The configured geocoding endpoint did not answer, twice in a row. The run published nothing rather than recording an absent answer as an address that does not exist. |
 | `isochrone_unconfigured` | No routing endpoint is configured on this instance (the travel-time endpoint an admin sets, or DEZFIL_ISOCHRONE_URL), so an operation that asks a provider for travel-time areas cannot run. The message says which one to change now. |
 | `isochrone_failed` | The configured routing endpoint did not answer, twice in a row. The run published nothing rather than recording an absent answer as an unreachable origin. |
-| `service_address_unreadable` | A service address an admin saved in Settings cannot be read with this instance's encryption key, which changed after it was saved. The service refuses rather than reach a default; an admin saves the address again. |
+| `service_address_unreadable` | A service address, or the satellite imagery's tile template, an admin saved in Settings cannot be read with this instance's encryption key, which changed after it was saved. The service, or the imagery style, refuses rather than reach a default; an admin saves the address again. |
 | `basemap_not_offered` | The basemap a map write or an undo or redo would put a map on is one this instance does not offer now: a style an admin hid, or, while style addresses on single maps are off, a style address the basemap library does not offer. It cannot be chosen anew. The refusal's setting field names the switch, as PATCH /api/instance/settings takes it. Nothing changed; a map already on that basemap keeps it, and Auto is always offered. |
 | `measurement_crs_unavailable` | The data spans more of the earth than any local projection covers, so a distance measured over it would not be in ground metres. Split it by region and measure each part; an area over the same data succeeds and records the global projection it used. |
 | `operation_superseded` | The step this run belonged to was changed or removed while it was working, so the run lost its authority to publish and wrote nothing. What it would have produced is no longer what the step means. |
