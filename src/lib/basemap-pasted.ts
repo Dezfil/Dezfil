@@ -28,3 +28,19 @@ function hostOf(url: string): string {
     return url;
   }
 }
+
+/**
+ * A pasted style's save as the map read back after a lost answer would hold
+ * it. The save reads the style again and stores the credit it finds, which
+ * may not be the check's: the style changed since, or a style the check
+ * could not read was saved anyway and the save could read it. So the read's
+ * credit stands in for the copy's, and nothing else does: the address, the
+ * name and the rest of the map read back must still be what was sent for the
+ * save to count as landed.
+ */
+export function withStoredCredit(sent: Record<string, unknown>, read: { customBasemap: CustomBasemap | null }): Record<string, unknown> {
+  const copy = sent.customBasemap as CustomBasemap | null | undefined;
+  const stored = read.customBasemap;
+  if (!copy || !stored) return sent;
+  return { ...sent, customBasemap: { ...copy, attribution: stored.attribution } };
+}

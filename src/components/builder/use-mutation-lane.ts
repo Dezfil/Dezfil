@@ -243,6 +243,11 @@ export function useMutationLane({
          * response's confirmation all read it, so the builder never draws
          * a reference as if it were the stored value. */
         sends?: Record<string, unknown>;
+        /** For a write whose stored value the server derives in part (a
+         * pasted style's credit, read again at save): the request as the
+         * map read back after a lost answer would hold it. The rest of the
+         * read must still match the request exactly. */
+        adopt?: (request: Record<string, unknown>, read: MapWithLayers) => Record<string, unknown>;
       } = {},
     ): Promise<boolean> => {
       const compose = typeof request === "function" ? request : patchIntent(map, request);
@@ -286,7 +291,7 @@ export function useMutationLane({
             if (sequence.stale || reloadEpochRef.current !== epoch) return;
             const currentRevision = acceptedDocumentFacts(current).editRevision;
             if (!currentRevision) return;
-            if (confirmsMapPatch(before, body, current)) {
+            if (confirmsMapPatch(before, opts.adopt ? opts.adopt(body, current) : body, current)) {
               drafts.accepted(ticket, before);
               applyMapResponse(current, true, sentAt);
             } else if (currentRevision === revision) {

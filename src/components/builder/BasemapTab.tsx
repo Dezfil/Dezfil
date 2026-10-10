@@ -2,6 +2,7 @@
 
 import { SINGLE_MAP_STYLES_OFF, type BasemapKey, type BasemapStyle } from "@/lib/basemap";
 import { withGroupVisibility, type BasemapLayerGroup } from "@/lib/basemap-layers";
+import { withStoredCredit } from "@/lib/basemap-pasted";
 import type { MapWithLayers } from "@/lib/metadata/maps";
 import { BasemapPanel } from "./BasemapPanel";
 import { takenCopy, useLibraryStyles } from "./use-library-styles";
@@ -16,9 +17,10 @@ import { takenCopy, useLibraryStyles } from "./use-library-styles";
  * the style and its credit as a reload would; a pasted style likewise, its
  * copy built from the check the door made. Every request the lane draws
  * before the answer holds what the server stores, so a lost answer is
- * confirmed by the map read back. While single maps take only the
- * library's styles, the paste control is drawn disabled with the rule's
- * sentence, for everyone.
+ * confirmed by the map read back; a pasted style's by the same address
+ * and name under the credit the save itself read. While single maps take
+ * only the library's styles, the paste control is drawn disabled with the
+ * rule's sentence, for everyone.
  */
 export function BasemapTab({
   map,
@@ -39,7 +41,10 @@ export function BasemapTab({
     request:
       | Record<string, unknown>
       | ((current: MapWithLayers | null) => Record<string, unknown>),
-    opts?: { sends?: Record<string, unknown> },
+    opts?: {
+      sends?: Record<string, unknown>;
+      adopt?: (request: Record<string, unknown>, read: MapWithLayers) => Record<string, unknown>;
+    },
   ) => Promise<boolean>;
   statusPillVisible: boolean;
   onToggleStatusPill: (visible: boolean) => void;
@@ -55,7 +60,11 @@ export function BasemapTab({
         const style = library.offered.find((s) => s.id === id);
         if (style) void patchMap({ customBasemap: takenCopy(style) }, { sends: { customBasemap: { libraryStyle: id } } });
       }}
-      onSaveCustom={(copy, sends) => patchMap({ customBasemap: copy }, { sends: { customBasemap: sends } })}
+      onSaveCustom={(copy, sends) =>
+        // The save reads the style again: a lost answer's read may hold
+        // the credit it found there in place of the check's.
+        patchMap({ customBasemap: copy }, { sends: { customBasemap: sends }, adopt: withStoredCredit })
+      }
       onRemoveCustom={() => void patchMap({ customBasemap: null })}
       groupsPresent={map.customBasemap ? loadedGroups : null}
       overridden={overridden}

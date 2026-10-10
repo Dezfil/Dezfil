@@ -132,3 +132,15 @@ it("confirms a take whose answer was lost by the map read back holding the copy"
   expect(card().getAttribute("data-active")).toBe("true");
   expect(thrown).toEqual([]);
 });
+
+it("keeps a take's confirmation exact: a lost answer whose read holds the style under another credit is not taken for it", async () => {
+  const { w, flush, thrown, builder, credit, card } = await mount();
+  await flush(() => card().click());
+  await flush(() => w.pending("PATCH", "/api/maps/m")[0].cut());
+  await flush(() => w.pending("GET", "/api/maps/m")[0].ok({ ...initial, customBasemap: { ...COPY, attribution: [{ label: "© Another chart" }] }, editRevision: "theirs" }));
+  // The take stores the copy the builder drew; a read holding another is no confirmation of it.
+  expect(builder.editor.sequence.revision).toBe("first");
+  expect(w.pending("GET", "/api/maps/m/history")).toHaveLength(0);
+  expect(credit()).toBe("© Fixture Charts");
+  expect(thrown).toEqual([]);
+});

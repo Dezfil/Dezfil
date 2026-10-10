@@ -2,7 +2,9 @@ import { act, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, expect, it, vi } from "vitest";
 import { BASEMAPS, BUILT_IN_ATTRIBUTION } from "@/lib/basemap";
+import { EDIT_REVISION_HEADER } from "@/lib/edit-basis";
 import type { MapWithLayers } from "@/lib/metadata/maps";
+import { STALE_MESSAGE } from "../document-sequence";
 import type { CameraHandle } from "../map/camera-handle";
 import { HostElement, installDomHost } from "../testing/dom-host";
 import { wire } from "../workflow-canvas/fetch-wire";
@@ -20,7 +22,12 @@ import { useBuilderMutations } from "./use-builder-mutations";
  * the typed name and a credit: the style's own lines, or its host when the
  * style carries none or was saved unread. From the click on, the builder
  * holds that copy, as a reload would; an undo and a redo land the server's
- * answer, and a lost answer is confirmed by the map read back.
+ * answer, and a lost answer is confirmed by the map read back. The save
+ * reads the style again, so the map read back may hold another credit than
+ * the check's (the style changed, or a style the check could not read was
+ * saved anyway and the save could): it is the save landed where the read
+ * holds the same address and name and the rest of the map as it was, and
+ * an unknown outcome otherwise.
  *
  * The basemap's other writes the builder draws before the answer hold what
  * the server stores too: a group shown again is stored as no entry (only
@@ -34,6 +41,8 @@ vi.mock("./StatusBar", () => ({ StatusBar: () => null }));
 
 const URL_PASTED = "https://tiles.example/harbour/style.json";
 const CREDIT = [{ label: "© Fixture Tiles", href: "https://tiles.example/terms" }];
+/** The credit the save's own read of the style found, past the check. */
+const REVISED = [{ label: "© Fixture Tiles and partners", href: "https://tiles.example/terms" }];
 const DEPLOYMENT = {
   theme: "dark" as const,
   basemapUrl: "https://tiles.test/style.json",
@@ -104,10 +113,20 @@ async function mount(start: MapWithLayers = initial) {
     expect(check.body).toEqual({ url: URL_PASTED });
     await flush(() => check.ok(inspection));
   };
-  return {
-    w, flush, thrown, builder, button, paste,
-    credit: () => host.document.querySelector("[data-map-credit]")?.textContent ?? null,
+  const credit = () => host.document.querySelector("[data-map-credit]")?.textContent ?? null;
+  /** Where a lost answer left the builder: the lane's basis, the drawn
+   * credit, and the next edit (Auto) answered as the server answers it,
+   * refused as stale on any revision but the one the map holds. */
+  const afterLoss = async (held: string) => {
+    const seen = { revision: builder.editor.sequence.revision, credit: credit() };
+    await flush(() => button("Auto")!.click());
+    const [next] = w.pending("PATCH", "/api/maps/m");
+    await flush(() => next.headers.get(EDIT_REVISION_HEADER) === held
+      ? next.ok({ ...initial, editRevision: "auto" })
+      : next.refuse(409, "stale_revision", STALE_MESSAGE));
+    return { ...seen, next: builder.editor.sequence.stale ? "stale_revision" : "saved" };
   };
+  return { w, flush, thrown, builder, button, paste, credit, afterLoss };
 }
 
 it("draws a checked style's credit from the click on, through its save, an undo and a redo", async () => {
@@ -163,6 +182,44 @@ it("confirms a style saved unread, whose answer was lost, by the map read back h
   expect(builder.editor.sequence.revision).toBe("pasted");
   expect(w.pending("GET", "/api/maps/m/history")).toHaveLength(1);
   expect(credit()).toBe("tiles.example");
+  expect(thrown).toEqual([]);
+});
+
+it("takes the credit the save read when its answer was lost and the style's credit had changed since the check", async () => {
+  const { w, flush, thrown, button, paste, afterLoss } = await mount();
+  await paste("Harbour lights", { verdict: "valid", name: "Harbour", layerCount: 3, sourceCount: 1, attribution: CREDIT });
+  await flush(() => button("Use this style")!.click());
+  await flush(() => w.pending("PATCH", "/api/maps/m")[0].cut());
+  const stored = { url: URL_PASTED, name: "Harbour lights", attribution: REVISED };
+  await flush(() => w.pending("GET", "/api/maps/m")[0].ok({ ...initial, customBasemap: stored, editRevision: "pasted" }));
+  expect(await afterLoss("pasted")).toEqual({ revision: "pasted", credit: "© Fixture Tiles and partners", next: "saved" });
+  expect(thrown).toEqual([]);
+});
+
+it("takes the credit the save read when a style the check could not read was saved anyway, the save read it, and the answer was lost", async () => {
+  const { w, flush, thrown, button, paste, afterLoss } = await mount();
+  await paste("Harbour lights", { verdict: "unreachable", detail: "HTTP 503." });
+  await flush(() => button("Use anyway")!.click());
+  await flush(() => w.pending("PATCH", "/api/maps/m")[0].cut());
+  const stored = { url: URL_PASTED, name: "Harbour lights", attribution: CREDIT };
+  await flush(() => w.pending("GET", "/api/maps/m")[0].ok({ ...initial, customBasemap: stored, editRevision: "pasted" }));
+  expect(await afterLoss("pasted")).toEqual({ revision: "pasted", credit: "© Fixture Tiles", next: "saved" });
+  expect(thrown).toEqual([]);
+});
+
+it.each([
+  ["another name", { customBasemap: { url: URL_PASTED, name: "Someone's harbour", attribution: REVISED } }],
+  ["another address", { customBasemap: { url: "https://tiles.example/other/style.json", name: "Harbour lights", attribution: REVISED } }],
+  ["another change beside the style", { name: "Renamed", customBasemap: { url: URL_PASTED, name: "Harbour lights", attribution: REVISED } }],
+])("takes no map for a lost save's answer whose read holds %s: the outcome stays unknown", async (_what, read) => {
+  const { w, flush, thrown, button, paste, afterLoss } = await mount();
+  await paste("Harbour lights", { verdict: "valid", name: "Harbour", layerCount: 3, sourceCount: 1, attribution: CREDIT });
+  await flush(() => button("Use this style")!.click());
+  await flush(() => w.pending("PATCH", "/api/maps/m")[0].cut());
+  await flush(() => w.pending("GET", "/api/maps/m")[0].ok({ ...initial, ...read, editRevision: "theirs" }));
+  expect(w.pending("GET", "/api/maps/m/history")).toHaveLength(0);
+  // Another write's map is never this save's: the next edit meets the server's stale refusal.
+  expect(await afterLoss("theirs")).toEqual({ revision: "first", credit: "© Fixture Tiles", next: "stale_revision" });
   expect(thrown).toEqual([]);
 });
 
