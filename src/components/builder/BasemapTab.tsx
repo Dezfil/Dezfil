@@ -1,7 +1,7 @@
 "use client";
 
 import { SINGLE_MAP_STYLES_OFF, type BasemapKey, type BasemapStyle } from "@/lib/basemap";
-import type { BasemapLayerGroup } from "@/lib/basemap-layers";
+import { withGroupVisibility, type BasemapLayerGroup } from "@/lib/basemap-layers";
 import type { MapWithLayers } from "@/lib/metadata/maps";
 import { BasemapPanel } from "./BasemapPanel";
 import { takenCopy, useLibraryStyles } from "./use-library-styles";
@@ -13,9 +13,12 @@ import { takenCopy, useLibraryStyles } from "./use-library-styles";
  * from server truth at their turn so rapid toggles compose. A style the
  * instance's library offers is taken by its id: the server copies it onto
  * the map, and the builder holds that copy from the click on, so it draws
- * the style and its credit as a reload would. While single maps take only
- * the library's styles, the paste control is drawn disabled with the
- * rule's sentence, for everyone.
+ * the style and its credit as a reload would; a pasted style likewise, its
+ * copy built from the check the door made. Every request the lane draws
+ * before the answer holds what the server stores, so a lost answer is
+ * confirmed by the map read back. While single maps take only the
+ * library's styles, the paste control is drawn disabled with the rule's
+ * sentence, for everyone.
  */
 export function BasemapTab({
   map,
@@ -52,7 +55,7 @@ export function BasemapTab({
         const style = library.offered.find((s) => s.id === id);
         if (style) void patchMap({ customBasemap: takenCopy(style) }, { sends: { customBasemap: { libraryStyle: id } } });
       }}
-      onSaveCustom={(body) => patchMap({ customBasemap: body })}
+      onSaveCustom={(copy, sends) => patchMap({ customBasemap: copy }, { sends: { customBasemap: sends } })}
       onRemoveCustom={() => void patchMap({ customBasemap: null })}
       groupsPresent={map.customBasemap ? loadedGroups : null}
       overridden={overridden}
@@ -71,12 +74,13 @@ export function BasemapTab({
       onToggleGroup={(group, visible) =>
         // Built when its turn in the lane starts, from server truth: two
         // rapid toggles compose instead of the second reverting the
-        // first.
+        // first. Kept as the server keeps it, hidden groups alone.
         void patchMap((current) => ({
-          basemapLayers: {
-            ...(current?.basemapLayers ?? map.basemapLayers),
-            [group]: visible,
-          },
+          basemapLayers: withGroupVisibility(
+            current ? current.basemapLayers : map.basemapLayers,
+            group,
+            visible,
+          ),
         }))
       }
       statusPillVisible={statusPillVisible}

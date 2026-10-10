@@ -55,9 +55,12 @@ it("ignores late answers and abort errors without clearing a replacement's pendi
 it("still saves a completed valid check and forces a warning only when asked", async () => {
   await act(async () => pending[0].resolve(valid("Current")));
   await click("Use this style");
-  expect(onSave).toHaveBeenLastCalledWith({ url: "https://fixture.test/style", name: null });
+  // The copy the map holds (a style with no credit of its own is credited
+  // to its host), and what the server is sent.
+  const copy = { url: "https://fixture.test/style", name: null, attribution: [{ label: "fixture.test" }] };
+  expect(onSave).toHaveBeenLastCalledWith(copy, { url: "https://fixture.test/style", name: null });
   await click("Custom…"); await edit(); await click("Check");
   await act(async () => pending[1].resolve(Response.json({ verdict: "unreachable", detail: "HTTP 503." })));
   await click("Use anyway");
-  expect(onSave).toHaveBeenLastCalledWith({ url: "https://fixture.test/style", name: null, force: true });
+  expect(onSave).toHaveBeenLastCalledWith(copy, { url: "https://fixture.test/style", name: null, force: true });
 });

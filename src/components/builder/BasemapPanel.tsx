@@ -27,11 +27,11 @@ interface Props {
   /** The map's custom style; null = none. When set it wins
    * over the key and the built-in cards show unselected. */
   custom: CustomBasemap | null;
-  onSaveCustom: (body: {
-    url: string;
-    name: string | null;
-    force?: boolean;
-  }) => Promise<boolean>;
+  /** Save a pasted style: the copy the map holds, and what the server is sent. */
+  onSaveCustom: (
+    copy: CustomBasemap,
+    sends: { url: string; name: string | null; force?: boolean },
+  ) => Promise<boolean>;
   onRemoveCustom: () => void;
   /** Which groups the loaded style yields; null = unknown. */
   groupsPresent: BasemapLayerGroup[] | null;

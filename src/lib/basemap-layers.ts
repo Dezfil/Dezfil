@@ -21,6 +21,21 @@ export type BasemapLayerGroup = (typeof BASEMAP_LAYER_GROUPS)[number];
  * every earlier map. */
 export type BasemapLayers = Partial<Record<BasemapLayerGroup, boolean>>;
 
+/** The visibilities with one group shown or hidden, as they are stored:
+ * the hidden groups alone, null once none is. */
+export function withGroupVisibility(
+  current: BasemapLayers | null,
+  group: BasemapLayerGroup,
+  visible: boolean,
+): BasemapLayers | null {
+  const next: BasemapLayers = Object.fromEntries(
+    Object.entries(current ?? {}).filter(([, shown]) => shown === false),
+  );
+  if (visible) delete next[group];
+  else next[group] = false;
+  return Object.keys(next).length ? next : null;
+}
+
 export function isBasemapLayerGroup(
   value: unknown,
 ): value is BasemapLayerGroup {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { pastedStyleCopy, pastedStyleCredit } from "@/lib/basemap-pasted";
 import type { CustomBasemap } from "@/lib/metadata/maps";
 import type { StyleInspection } from "@/lib/net/inspect-style";
 import styles from "./CustomBasemapSection.module.css";
@@ -12,9 +13,13 @@ import styles from "./CustomBasemapSection.module.css";
  * no permanently visible field. The check is advisory (the save
  * re-inspects server-side); its verdicts decide the wording here:
  * not-a-style blocks, unreachable and blocked warn and can be forced —
- * every reader's browser fetches the style itself. While the instance
- * takes no style address the library does not offer, the door and Change
- * are disabled and say why; a saved style can still be removed.
+ * every reader's browser fetches the style itself. A save hands up the
+ * copy the map will hold (the address, the name and the credit the check
+ * read, or the host where it read none) beside what the server is sent, so
+ * the builder draws the style and its credit before the server answers.
+ * While the instance takes no style address the library does not offer,
+ * the door and Change are disabled and say why; a saved style can still be
+ * removed.
  */
 export function CustomBasemapSection({
   custom,
@@ -23,12 +28,12 @@ export function CustomBasemapSection({
   refusal = null,
 }: {
   custom: CustomBasemap | null;
-  /** PATCH the custom style; resolves false when the write failed. */
-  onSave: (body: {
-    url: string;
-    name: string | null;
-    force?: boolean;
-  }) => Promise<boolean>;
+  /** PATCH the custom style: the copy the map holds from now on, and the
+   * body the server is sent. Resolves false when the write failed. */
+  onSave: (
+    copy: CustomBasemap,
+    sends: { url: string; name: string | null; force?: boolean },
+  ) => Promise<boolean>;
   onRemove: () => void;
   /** Why no style address can be pasted now, or null while one can. */
   refusal?: string | null;
@@ -107,9 +112,14 @@ export function CustomBasemapSection({
 
   const save = async (force: boolean) => {
     setSaving(true);
-    const ok = await onSave({
-      url: url.trim(),
-      name: name.trim() ? name.trim() : null,
+    const address = url.trim();
+    const label = name.trim() ? name.trim() : null;
+    // A forced save stores the host as the credit, as a style the check
+    // could not read has none of its own.
+    const lines = verdict?.verdict === "valid" ? verdict.attribution : [];
+    const ok = await onSave(pastedStyleCopy(address, label, lines), {
+      url: address,
+      name: label,
       ...(force ? { force: true } : {}),
     });
     setSaving(false);
@@ -230,10 +240,9 @@ export function CustomBasemapSection({
           </p>
           <p className={styles.credit}>
             Credit:{" "}
-            {(verdict.attribution.length
-              ? verdict.attribution.map((line) => line.label)
-              : [hostnameOf(url)]
-            ).join(" · ")}
+            {pastedStyleCredit(url.trim(), verdict.attribution)
+              .map((line) => line.label)
+              .join(" · ")}
           </p>
           <button
             type="button"
