@@ -27,7 +27,9 @@
 // no variable, so their rows name the key the change operation takes. Its
 // Security and rules table is held the same way to the catalogue's rules
 // (stored sign-in, token, publishing, connection and import settings, as
-// the catalogue's own predicate says).
+// the catalogue's own predicate says), and its Libraries table to the
+// basemap switches (which styles are offered, and whether a single map may
+// take a style address of its own, as the catalogue's own predicate says).
 //
 // Usage: node scripts/check-readme-config.mjs [--src DIR] [--readme FILE] [--configuration FILE]
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
@@ -185,6 +187,7 @@ export function catalogueRowProblems(definitions, rows, label) {
 
 const DEFAULTS_HEADING = /^##\s+Instance defaults\s*$/;
 const RULES_HEADING = /^##\s+Security and rules\s*$/;
+const LIBRARIES_HEADING = /^##\s+Libraries\s*$/;
 
 /** The rows of the tables under a guide's "Instance defaults" heading, each
  * by the key its first cell names and its Default cell. Every row there
@@ -197,6 +200,11 @@ export function defaultsRows(text) {
 /** The same, under the guide's "Security and rules" heading. */
 export function rulesRows(text) {
   return keyedRows(text, RULES_HEADING);
+}
+
+/** The same, under the guide's "Libraries" heading. */
+export function librariesRows(text) {
+  return keyedRows(text, LIBRARIES_HEADING);
 }
 
 function keyedRows(text, heading) {
@@ -224,6 +232,11 @@ export function rulesRowProblems(definitions, rows, label) {
   return keyedRowProblems(definitions, rows, `${label} security and rules`);
 }
 
+/** One row per basemap switch, no orphan, each with the catalogue's documented default. */
+export function librariesRowProblems(definitions, rows, label) {
+  return keyedRowProblems(definitions, rows, `${label} libraries`);
+}
+
 function keyedRowProblems(definitions, rows, where) {
   const byKey = new Map(definitions.map(definition => [definition.key, definition]));
   const names = new Set(rows.map(row => row.name));
@@ -243,10 +256,10 @@ function keyedRowProblems(definitions, rows, where) {
 }
 
 /** `defaultsGuide` names the document, among `documents`, that carries the
- * Instance defaults and the Security and rules tables; `isInstanceDefault`
- * and `isInstanceRule` are the catalogue's own predicates for which
- * definitions each holds. */
-export function configurationProblems({ srcDir, documents, catalogue, testWiring, defaultsGuide, isInstanceDefault, isInstanceRule }) {
+ * Instance defaults, the Security and rules and the Libraries tables;
+ * `isInstanceDefault`, `isInstanceRule` and `isLibrarySwitch` are the
+ * catalogue's own predicates for which definitions each holds. */
+export function configurationProblems({ srcDir, documents, catalogue, testWiring, defaultsGuide, isInstanceDefault, isInstanceRule, isLibrarySwitch }) {
   const definitions = catalogue.filter(definition => definition.environment && definition.scope !== "platform");
   const scriptsDir = path.join(srcDir, "..", "scripts");
   const server = serverVariables(srcDir, scriptsDir);
@@ -264,12 +277,15 @@ export function configurationProblems({ srcDir, documents, catalogue, testWiring
   }
   if (typeof isInstanceDefault !== "function") throw new TypeError("configurationProblems needs the catalogue's isInstanceDefault predicate.");
   if (typeof isInstanceRule !== "function") throw new TypeError("configurationProblems needs the catalogue's isInstanceRule predicate.");
+  if (typeof isLibrarySwitch !== "function") throw new TypeError("configurationProblems needs the catalogue's isLibrarySwitch predicate.");
   const defaults = catalogue.filter(definition => isInstanceDefault(definition));
   const rules = catalogue.filter(definition => isInstanceRule(definition));
-  if (!Object.hasOwn(documents, defaultsGuide ?? "")) problems.push(`MISSING: the guide holding the Instance defaults and Security and rules tables is not among the checked documents: ${defaultsGuide}`);
+  const switches = catalogue.filter(definition => isLibrarySwitch(definition));
+  if (!Object.hasOwn(documents, defaultsGuide ?? "")) problems.push(`MISSING: the guide holding the Instance defaults, Security and rules and Libraries tables is not among the checked documents: ${defaultsGuide}`);
   else {
     problems.push(...defaultsRowProblems(defaults, defaultsRows(documents[defaultsGuide]), defaultsGuide));
     problems.push(...rulesRowProblems(rules, rulesRows(documents[defaultsGuide]), defaultsGuide));
+    problems.push(...librariesRowProblems(switches, librariesRows(documents[defaultsGuide]), defaultsGuide));
   }
   return problems;
 }
@@ -284,10 +300,10 @@ if (isMain) {
   const srcDir = argOf("--src", path.join(process.cwd(), "src"));
   const readme = argOf("--readme", path.join(process.cwd(), "README.md"));
   const configuration = argOf("--configuration", path.join(process.cwd(), "docs/configuration.md"));
-  const { SETTING_CATALOGUE, TEST_WIRING, isInstanceDefault, isInstanceRule } = await settingsSource(path.dirname(srcDir));
+  const { SETTING_CATALOGUE, TEST_WIRING, isInstanceDefault, isInstanceRule, isLibrarySwitch } = await settingsSource(path.dirname(srcDir));
   const problems = configurationProblems({ srcDir, catalogue: SETTING_CATALOGUE, testWiring: TEST_WIRING,
     documents: { [readme]: readFileSync(readme, "utf8"), [configuration]: readFileSync(configuration, "utf8") },
-    defaultsGuide: configuration, isInstanceDefault, isInstanceRule,
+    defaultsGuide: configuration, isInstanceDefault, isInstanceRule, isLibrarySwitch,
   });
   for (const problem of problems) console.error(problem);
   if (problems.length) {
@@ -297,6 +313,7 @@ if (isMain) {
     const deployment = SETTING_CATALOGUE.filter(d => d.environment && d.scope !== "platform").length;
     const defaults = SETTING_CATALOGUE.filter(d => isInstanceDefault(d)).length;
     const rules = SETTING_CATALOGUE.filter(d => isInstanceRule(d)).length;
-    console.log(`PASS: both documents match ${deployment} deployment settings and ${TEST_WIRING.length} test-wiring names, defaults and change timing; the configuration guide's Instance defaults table matches the ${defaults} instance defaults and its Security and rules table the ${rules} rules, with their documented values; source scans agree in both directions.`);
+    const switches = SETTING_CATALOGUE.filter(d => isLibrarySwitch(d)).length;
+    console.log(`PASS: both documents match ${deployment} deployment settings and ${TEST_WIRING.length} test-wiring names, defaults and change timing; the configuration guide's Instance defaults table matches the ${defaults} instance defaults, its Security and rules table the ${rules} rules and its Libraries table the ${switches} basemap switches, with their documented values; source scans agree in both directions.`);
   }
 }

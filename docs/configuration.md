@@ -2,10 +2,11 @@
 
 The catalogue defines every deployment setting. Their defaults allow a local
 instance to start without deployment configuration. The editable limits, the four
-service addresses and the services' gaps, answer limits and freshness also accept
-stored admin changes, made on the **Limits** and **Data & services** tabs of
-Settings and marked **App (live) or restart**; **Restart** marks settings changed
-only through the environment.
+service addresses, the services' gaps, answer limits and freshness, and the
+satellite imagery's tile address and credit also accept stored admin changes,
+made on the **Limits**, **Data & services** and **Libraries** tabs of Settings and
+marked **App (live) or restart**; **Restart** marks settings changed only through
+the environment.
 `GET /api/instance/settings` reports the effective configuration, sources and
 locks to admins.
 
@@ -34,10 +35,12 @@ and a fresh image export card start with is kept there too, set by admins on the
 **Maps**, **Workflows & SQL** and **Publishing** tabs; see
 [Instance defaults](#instance-defaults). So are how long sign-ins and links last,
 the shortest password, and who may create tokens, publish, embed, connect and
-import; see [Security and rules](#security-and-rules). These are not
-environment variables. A service address an admin stores is kept there too,
-encrypted with the instance's key; see
-[Service addresses and numbers](#service-addresses-and-numbers).
+import; see [Security and rules](#security-and-rules). So are which basemaps are
+offered, the basemap library and whether a single map may take a style address
+of its own, set by admins on the **Libraries** tab; see [Libraries](#libraries).
+These are not environment variables. A service address an admin stores is kept
+there too, encrypted with the instance's key, and so is the satellite imagery's
+tile address; see [Service addresses and numbers](#service-addresses-and-numbers).
 
 The optional `assistant-models.json` in the data directory supplies the model
 catalogue; environment model lists narrow its offer. It is a file, not an account
@@ -72,10 +75,11 @@ cells. The latter has two values: **Restart**, or **App (live) or restart** for
 an editable live setting. Environment changes always require a restart.
 
 The same check holds this page's **Instance defaults** table to the catalogue's
-defaults, what new things start with, and its **Security and rules** table to
-the catalogue's sign-in, token, publishing, connection and import settings: one
-row per setting under the key the change operation takes, no orphan row, and
-each row's default as the catalogue documents it.
+defaults, what new things start with, its **Security and rules** table to
+the catalogue's sign-in, token, publishing, connection and import settings, and
+its **Libraries** table to the catalogue's basemap switches: one row per setting
+under the key the change operation takes, no orphan row, and each row's default
+as the catalogue documents it.
 
 Two classes are deliberately outside the check: test-local seams
 (`DEZFIL_TEST_*` read only by test files in `src/`, and `DEZFIL_BASE_URL`) and
@@ -235,6 +239,57 @@ object-store reads with the server's credentials and the allowlist stay the
 environment's alone; the tab shows the last two locked, naming their
 variables.
 
+## Libraries
+
+What the instance offers every map, set by admins on the **Libraries** tab of
+Settings: which basemaps a person may choose, whether a single map may take a
+style address of its own, the basemap library, the satellite imagery and the
+saved palettes.
+
+The five switches below are stored instance settings with no environment
+variable, so none is ever locked. Each also changes through
+`PATCH /api/instance/settings` under its key, as `true` or `false`, and applies
+from the next choice, without a restart. Every signed-in account reads the
+basemaps on offer in `GET /api/config`, as `basemaps`, `basemapStyles` and
+`singleMapStyles`.
+
+| Setting | Values | Default | Applies to |
+|---|---|---|---|
+| `basemaps.dark` | `true` (offered) or `false` (hidden) | on | Where a basemap is chosen: the builder's picker, a published page's switcher, the **Maps** tab and a new map's default. Hidden, putting a map on Dark anew is refused with `basemap_not_offered`, by a write or an undo or redo; a map already on it keeps it. Auto keeps following the theme with it either way. |
+| `basemaps.light` | `true` (offered) or `false` (hidden) | on | As `basemaps.dark`, for Light. |
+| `basemaps.streets` | `true` (offered) or `false` (hidden) | on | As `basemaps.dark`, for Streets. |
+| `basemaps.satellite` | `true` (offered) or `false` (hidden) | on | As `basemaps.dark`, for Satellite, which is offered only while imagery is set up and its tile address readable. |
+| `basemaps.singleMapStyles` | `true` (allowed) or `false` | on | A style address pasted on a single map. Off, an address the library does not offer is refused with `basemap_not_offered` when a write or an undo or redo would newly put it on a map, admins included; an address a map already holds is kept, and its editor may remove it. |
+
+A new map whose stored basemap is hidden starts on Auto. The tab's Reset
+returns these five and never touches a style an admin added.
+
+The basemap library holds at most 50 styles an admin added by their address,
+each offered or hidden where a basemap is chosen. The server reads a style's
+address once, as it is added, through the egress check, and keeps its credit or
+its host; the address is public to whoever draws a map on it. Adding, hiding
+and removing are operations in [the API guide](api.md#resource-families). A
+map that took a style keeps its own copy of the name, address and credit,
+whatever happens to the library afterwards.
+
+The satellite imagery's tile address and credit are `satelliteUrl` and
+`satelliteAttribution` to `PATCH /api/instance/settings`, beside
+`DEZFIL_SATELLITE_URL` and `DEZFIL_SATELLITE_ATTRIBUTION` under
+[Rendering and tiles](#rendering-and-tiles); a set variable wins and locks its
+row, which then shows locked, naming the variable. The tile address is an
+address holding `{z}`, `{x}` and `{y}`, at most 2,048 characters, kept as
+[Service addresses and numbers](#service-addresses-and-numbers) describes:
+write-only, encrypted with the instance's key, read back as its scheme and host
+alone, and refused at save where the egress policy would refuse it now. The
+credit is text of at most 160 characters. Without a readable tile address
+Satellite leaves every basemap picker; a map on Satellite keeps its choice and
+draws the default style until an address is saved again. The tab's Test
+fetches one fixed low-zoom tile at the address in effect.
+
+The saved palettes are listed on the same tab, each with its colors, and added
+or deleted there through `/api/palettes`, as in the builder. Deleting one
+keeps the colors of every layer classified with it.
+
 ## Fixed result limits
 
 SQL console/SQL previews, dataset inspection, geometry-choice preview and the
@@ -340,8 +395,8 @@ behavior and [the API guide](api.md#request-bounds) for exact refusals.
 | `DEZFIL_TIPPECANOE` | `tippecanoe` | Path to the tile-building binary (`src/lib/tiles/tiler.ts`). The image installs it on the path. | Restart |
 | `DEZFIL_BASEMAP_URL` | built-in styles | A MapLibre style URL that replaces the built-in basemap and pins it in both themes, for instances with no internet access (`src/lib/basemap.ts`). | Restart |
 | `DEZFIL_BASEMAP_ATTRIBUTION` | unset | Credit line shown on maps that use `DEZFIL_BASEMAP_URL`. Unset, no credit is shown for the override: the built-in credit would name a provider that is not serving the tiles. | Restart |
-| `DEZFIL_SATELLITE_URL` | unset | Raster tile URL template (`{z}/{y}/{x}`) for satellite imagery, with your own key or token. No imagery ships with the app; unset, no imagery basemap is offered at all. | App (live) or restart |
-| `DEZFIL_SATELLITE_ATTRIBUTION` | unset | Credit line the imagery provider requires, shown on every map using it and stored with anything published from one. | App (live) or restart |
+| `DEZFIL_SATELLITE_URL` | unset | Raster tile URL template (`{z}/{y}/{x}`) for satellite imagery, with your own key or token. No imagery ships with the app; unset and with no tile address stored on the **Libraries** tab, no imagery basemap is offered at all. | App (live) or restart |
+| `DEZFIL_SATELLITE_ATTRIBUTION` | unset | Credit line the imagery provider requires, shown on every map using it and stored with anything published from one. An admin can store it on the **Libraries** tab instead. | App (live) or restart |
 
 ## Publishing
 

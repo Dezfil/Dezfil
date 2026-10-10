@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { buildOpenApiDocument } from "@/lib/api/openapi";
 import { HTTP_METHODS } from "@/lib/api/http-methods";
 import { buildTools } from "@/lib/tools/tools";
+import { limitsSettingRows } from "@/components/settings/limits-table";
 
 /**
  * The admin's operations on this instance, every one under
@@ -13,6 +14,13 @@ import { buildTools } from "@/lib/tools/tools";
 
 const api = readFileSync("docs/api.md", "utf8");
 const mcp = readFileSync("docs/mcp.md", "utf8");
+
+/** A count from twenty to ninety-nine, in the guides' words. */
+function inWords(count: number): string {
+  const tens = ["", "", "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety"][Math.floor(count / 10)];
+  const ones = ["", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine"][count % 10];
+  return ones ? `${tens}-${ones}` : tens;
+}
 
 describe("the instance operations in the guides", () => {
   const document = buildOpenApiDocument();
@@ -28,6 +36,15 @@ describe("the instance operations in the guides", () => {
       "PATCH /api/instance/basemaps/{id}", "PATCH /api/instance/settings", "POST /api/instance/basemaps",
       "POST /api/instance/parts/{part}/test", "POST /api/instance/services/{service}/test",
     ]);
+  });
+
+  it("names how many keys the settings change takes in both guides, and in the API guide every one the Limits tab does not draw", () => {
+    const keys = Object.keys(document.components.schemas.InstanceSettingsPatch.properties);
+    const flat = (text: string) => text.replace(/\s+/g, " ");
+    expect(flat(api)).toContain(`changes only submitted editable keys, ${inWords(keys.length)} of them`);
+    expect(flat(mcp)).toContain(`editable-key input, ${inWords(keys.length)} keys`);
+    const limits = new Set(limitsSettingRows().map(row => row.key));
+    expect(keys.filter(key => !limits.has(key) && !api.includes(`\`${key}\``))).toEqual([]);
   });
 
   it.each(["GET /api/instance/settings", "PATCH /api/instance/settings", "POST /api/instance/services/{service}/test",

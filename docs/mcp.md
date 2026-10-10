@@ -109,11 +109,13 @@ set-and-unreadable state, and a stored address never comes back as stored. The s
 private, no-store responses apply to direct API calls and tool calls.
 
 `update_instance_settings` calls `PATCH /api/instance/settings` with the closed
-editable-key input, sixty keys: the fourteen Limits numbers, the services' eight
-numbers (the address finder's and travel time's gap, answer time limit and
+editable-key input, sixty-seven keys: the fourteen Limits numbers, the services'
+eight numbers (the address finder's and travel time's gap, answer time limit and
 freshness, OpenStreetMap's time budget and freshness), the four service
-addresses (`geocoderUrl`, `isochroneUrl`, `overpassUrl`, `s3Endpoint`), the four
-General values, the eighteen instance defaults and the twelve sign-in and
+addresses (`geocoderUrl`, `isochroneUrl`, `overpassUrl`, `s3Endpoint`), the
+satellite imagery's tile address and credit (`satelliteUrl`,
+`satelliteAttribution`), the five basemap switches (which built-in styles are
+offered, and `basemaps.singleMapStyles`), the four General values, the eighteen instance defaults and the twelve sign-in and
 publishing settings (session and link lifetimes, the two failed sign-in counts,
 the shortest password, who may create tokens and their expiry, who may publish,
 embedding and its listed sites, who may add database connections and who may

@@ -43,6 +43,12 @@ function basemapSwitch(key: string, label: string, purpose: string): SettingDefi
   return { key, label, purpose, defaultValue: true, documentedDefault: "on", scope: "instance", readBy: "signed-in", changedBy: "admin",
     kind: "boolean", timing: "live", secret: false, editable: true, write: { kind: "switch" } };
 }
+/** Which settings are the Libraries tab's switches, for a reader of the
+ * catalogue alone: the basemaps offered and whether a single map may take a
+ * style address of its own. */
+export function isLibrarySwitch(definition: { readonly key: string; readonly scope: string; readonly environment?: string }): boolean {
+  return definition.scope === "instance" && !definition.environment && definition.key.split(".")[0] === "basemaps";
+}
 const OFFERED = "where a basemap is chosen: the builder's picker, a published page's switcher and the Maps tab. " +
   "Off, choosing it anew is refused; a map already on it keeps it.";
 

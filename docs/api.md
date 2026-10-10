@@ -487,13 +487,17 @@ browser lands on the page `landingPage` names (`/projects`, `/maps`,
 signed-in visit to the setup or sign-in page redirects to Home; the invitation
 page opens whether or not someone is signed in. Responses are private, no-store.
 
-`PATCH /api/instance/settings` changes only submitted editable keys, sixty
+`PATCH /api/instance/settings` changes only submitted editable keys, sixty-seven
 of them: the fourteen Limits numbers; the services' eight numbers
 `geocodePaceMs`, `geocodeRequestTimeoutS`, `geocodeMatchCacheHours`,
 `isochronePaceMs`, `isochroneRequestTimeoutS`, `isochroneCacheHours`,
 `overpassTimeoutS` and `overpassCacheHours`, in their variables' units; the four
 service addresses `geocoderUrl`, `isochroneUrl`, `overpassUrl` and
-`s3Endpoint`; the four General values `instanceName`,
+`s3Endpoint`; the satellite imagery's tile address `satelliteUrl`, which must
+hold `{z}`, `{x}` and `{y}`, and its credit `satelliteAttribution`, at most 160
+characters; the five basemap switches `basemaps.dark`, `basemaps.light`,
+`basemaps.streets`, `basemaps.satellite` and `basemaps.singleMapStyles`, each
+`true` or `false`; the four General values `instanceName`,
 `signInMessage`, `lostPasswordContact` and `landingPage`; the eighteen
 instance defaults `newMap.basemap`, `newMap.latitude`, `newMap.longitude`,
 `newMap.zoom`, `newMap.legendCorner`, `newLayer.colorCycle`,
