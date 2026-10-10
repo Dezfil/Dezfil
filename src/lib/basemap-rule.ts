@@ -4,7 +4,7 @@ import { metadataDb } from "@/lib/metadata/db";
 import type { HistoryStep } from "@/lib/metadata/history";
 import type { CustomBasemap, MapRecord } from "@/lib/metadata/maps";
 import { BASEMAPS, OFFERED_SETTING, SINGLE_MAP_STYLES_OFF, SINGLE_MAP_STYLES_SETTING, type BasemapKey } from "./basemap";
-import { offeredLibraryStyles } from "./basemap-library";
+import { libraryStyle, offeredLibraryStyles } from "./basemap-library";
 import { offeredSwitches, singleMapStylesAllowed } from "./basemap-offer";
 
 /**
@@ -23,7 +23,21 @@ import { offeredSwitches, singleMapStylesAllowed } from "./basemap-offer";
  * addresses on single maps, an address newly put in place is refused unless
  * the basemap library offers it, for everyone, admins included. An address
  * the map already holds is kept, and its editor may remove it.
+ *
+ * A style taken from the library by its id is judged by the library: the id
+ * travels with its copy into the write, which refuses it when the style is
+ * hidden or gone by then, as it is refused before it is read.
  */
+
+/** The refusal for a library style that is hidden, removed or unknown. */
+export function libraryStyleNotOffered(): ApiError {
+  return new ApiError("invalid_request", "customBasemap.libraryStyle names no style the basemap library offers now.", 400);
+}
+
+/** Refuse taking the library style `id` unless the library offers it now. */
+export function requireOfferedLibraryStyle(id: string, db: Database = metadataDb()): void {
+  if (!libraryStyle(id, db)?.offered) throw libraryStyleNotOffered();
+}
 
 /** The refusal for a hidden style: coded, naming the switch that hides it. */
 export function basemapNotOffered(key: BasemapKey): ApiError {

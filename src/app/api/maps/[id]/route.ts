@@ -59,6 +59,7 @@ export async function PATCH(request: Request, { params }: Params) {
       viewport?: Viewport;
       basemap?: BasemapKey | null;
       customBasemap?: CustomBasemap | null;
+      libraryStyle?: string;
       basemapLayers?: unknown;
       legendCorner?: unknown;
       legendOrder?: unknown;
@@ -128,6 +129,10 @@ export async function PATCH(request: Request, { params }: Params) {
         body.customBasemap, undefined, undefined,
         (url) => requireAllowedStyleAddress(held, url),
       );
+      // A style taken from the library by its id: the id travels with its
+      // copy into the write, which asks the library again as it stores.
+      const taken = (body.customBasemap as { libraryStyle?: unknown } | null)?.libraryStyle;
+      if (typeof taken === "string") fields.libraryStyle = taken;
     }
     if (body.basemapLayers !== undefined) {
       // Group keys and values are validated in the service — the toggles

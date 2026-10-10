@@ -18,6 +18,8 @@ import { PendingActionStore } from "@/lib/assistant/pending";
 import { stubProvider } from "@/lib/assistant/providers/stub";
 import { builderContext } from "@/components/builder/assistant/builder-context";
 import { GET as readConfig } from "@/app/api/config/route";
+import * as mapService from "./map-service";
+import * as historyRefs from "./map-history-refs";
 import { createMap, readMap } from "./map-service";
 import { undoChange, redoChange } from "./map-history";
 
@@ -156,6 +158,119 @@ describe("taking a library style", () => {
       expect((await response.json()).basemapStyles).toEqual([{ id, ...COPY() }]);
     }
     expect(asked).toBe(1);
+  });
+});
+
+/** The library's refusal of a take, the same whenever it is judged. */
+const NOT_OFFERED = { status: 400, body: { error: { code: "invalid_request", message: "customBasemap.libraryStyle names no style the basemap library offers now." } } };
+const content = () => ["maps", "map_history"].map(table => db.prepare(`SELECT * FROM ${table} ORDER BY 1`).all());
+const offeredNow = (id: string) => (db.prepare("SELECT offered FROM basemap_styles WHERE id = ?").get(id) as { offered: number } | undefined)?.offered === 1;
+const CHANGES = {
+  hidden: (id: string) => library("PATCH", `/api/instance/basemaps/${id}`, { offered: false }),
+  removed: (id: string) => library("DELETE", `/api/instance/basemaps/${id}`),
+};
+
+/** Hold the next map write between its admission and the transaction that
+ * stores it, where the semantic check is awaited, and let an admin change
+ * the library there. The take was admitted with the style offered. */
+function holdTheNextWrite(id: string, change: (id: string) => Promise<unknown>) {
+  const validate = mapService.validateMapWriteRefs;
+  return vi.spyOn(mapService, "validateMapWriteRefs").mockImplementationOnce(async (...args) => {
+    expect(offeredNow(id), "admitted while offered").toBe(true);
+    await change(id);
+    return validate(...args);
+  });
+}
+
+describe("a take whose admission is held while the style is hidden or removed", () => {
+  it.each(ROADS.flatMap(road => (["hidden", "removed"] as const).map(change => [road, change] as const)))(
+    "is refused by %s when the style is %s meanwhile, as before it was admitted, changing nothing", async (road, change) => {
+      const { id } = await addStyle();
+      const map = createMap(testAccountScope(db, "member"), `held by ${road}`).id, before = content();
+      const held = holdTheNextWrite(id, CHANGES[change]);
+      const answer = await callAs(db, road, "member", tokens.member, "update_map", { id: map, customBasemap: { libraryStyle: id } }, revision(map));
+      expect(held).toHaveBeenCalledTimes(1);
+      expect(answer).toEqual(NOT_OFFERED);
+      expect(content()).toEqual(before);
+      expect(customOf(map)).toBeNull();
+      expect(asked).toBe(1);
+    });
+
+  it.each(["hidden", "removed"] as const)("is refused when the embedded assistant takes it and the style is %s meanwhile", async change => {
+    const { id } = await addStyle();
+    const map = createMap(testAccountScope(db, "member"), "held for the assistant").id, before = content();
+    const held = holdTheNextWrite(id, CHANGES[change]);
+    expect(await assistantCall("member", map, "update_map", { id: map, customBasemap: { libraryStyle: id } })).toMatchObject({ ok: false, body: NOT_OFFERED.body });
+    expect(held).toHaveBeenCalledTimes(1);
+    expect(content()).toEqual(before);
+    expect(asked).toBe(1);
+  });
+
+  it.each(ROADS)("still takes a style offered throughout, held the same way, by %s", async road => {
+    const { id } = await addStyle();
+    const map = createMap(testAccountScope(db, "member"), `kept by ${road}`).id;
+    const held = holdTheNextWrite(id, async () => {});
+    const answer = await callAs(db, road, "member", tokens.member, "update_map", { id: map, customBasemap: { libraryStyle: id } }, revision(map));
+    expect(held).toHaveBeenCalledTimes(1);
+    expect(answer.status, JSON.stringify(answer.body)).toBe(200);
+    expect(customOf(map)).toEqual(COPY());
+  });
+
+  it.each(ROADS)("keeps judging a copy the map holds, and a pasted address, by its address alone (%s)", async road => {
+    const { id } = await addStyle();
+    const map = createMap(testAccountScope(db, "member"), `copy by ${road}`).id;
+    expect((await callAs(db, road, "member", tokens.member, "update_map", { id: map, customBasemap: { libraryStyle: id } }, revision(map))).status).toBe(200);
+    await CHANGES.hidden(id);
+    // Saved, and its copy sent again by address, the style hidden.
+    expect((await callAs(db, road, "member", tokens.member, "update_map", { id: map, name: `saved by ${road}` }, revision(map))).status).toBe(200);
+    const again = await callAs(db, road, "member", tokens.member, "update_map", { id: map, customBasemap: { url: address, name: "Harbour chart" } }, revision(map));
+    expect(again.status, JSON.stringify(again.body)).toBe(200);
+    expect(customOf(map)?.url).toBe(address);
+    // The same address pasted onto another map, the switch on: a pasted address, read to check it.
+    const other = createMap(testAccountScope(db, "member"), `pasted by ${road}`).id;
+    const pasted = await callAs(db, road, "member", tokens.member, "update_map", { id: other, customBasemap: { url: address } }, revision(other));
+    expect(pasted.status, JSON.stringify(pasted.body)).toBe(200);
+    expect(customOf(other)?.url).toBe(address);
+  });
+});
+
+describe("a redo of a take", () => {
+  const singleMapStyles = (allowed: boolean) => library("PATCH", "/api/instance/settings", { "basemaps.singleMapStyles": allowed });
+
+  /** A map that took the style, then undid it, so a redo would put the copy back. */
+  async function undoneTake(id: string) {
+    const member = testAccountScope(db, "member");
+    const map = createMap(member, "redone").id;
+    expect((await callAs(db, "token", "member", tokens.member, "update_map", { id: map, customBasemap: { libraryStyle: id } }, revision(map))).status).toBe(200);
+    await undoChange(member, map, { expectedRevision: revision(map) });
+    expect(customOf(map)).toBeNull();
+    return map;
+  }
+
+  it("puts the copy back by its address with the switch on, the style hidden: the copy is the map's own", async () => {
+    const { id } = await addStyle();
+    const map = await undoneTake(id);
+    await CHANGES.hidden(id);
+    await redoChange(testAccountScope(db, "member"), map, { expectedRevision: revision(map) });
+    expect(customOf(map)).toEqual(COPY());
+    expect(asked).toBe(1);
+  });
+
+  it.each(ROADS)("is refused by %s with the switch off once the style is hidden, judged inside the replay when the hide lands after its admission", async road => {
+    const { id } = await addStyle();
+    await singleMapStyles(false);
+    const map = await undoneTake(id), before = content();
+    const assert = historyRefs.assertHistoryRefs;
+    const held = vi.spyOn(historyRefs, "assertHistoryRefs").mockImplementationOnce((...args) => {
+      expect(offeredNow(id), "admitted while offered").toBe(true);
+      db.prepare("UPDATE basemap_styles SET offered = 0 WHERE id = ?").run(id);
+      return assert(...args);
+    });
+    const answer = await callAs(db, road, "member", tokens.member, "redo_change", { id: map }, revision(map));
+    expect(held).toHaveBeenCalled();
+    expect(answer).toMatchObject({ status: 403, body: { error: { code: "basemap_not_offered", setting: "basemaps.singleMapStyles" } } });
+    expect(content()).toEqual(before);
+    expect(customOf(map)).toBeNull();
   });
 });
 

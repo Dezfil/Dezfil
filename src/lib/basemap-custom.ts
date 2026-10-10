@@ -10,11 +10,15 @@
  * A style the instance's basemap library offers is taken by its id: the
  * map keeps its own copy of the row's name, address and credit, read from
  * the library as it stands, and nothing is fetched. The copy is stored as a
- * pasted style is, so hiding or removing the row later changes no map.
+ * pasted style is, so hiding or removing the row later changes no map. The
+ * id travels on with the copy: the write that stores it asks the library
+ * again, so a style hidden or removed while the request was on its way is
+ * refused as it would have been before.
  */
 
 import { ApiError } from "@/lib/api/errors";
 import { libraryStyle } from "@/lib/basemap-library";
+import { libraryStyleNotOffered } from "@/lib/basemap-rule";
 import type { CustomBasemap } from "@/lib/metadata/maps";
 import { inspectStyle } from "@/lib/net/inspect-style";
 
@@ -108,8 +112,6 @@ function fromLibrary(o: Record<string, unknown>, library: typeof libraryStyle): 
   }
   const id = o.libraryStyle;
   const style = typeof id === "string" && id ? library(id) : null;
-  if (!style || !style.offered) {
-    invalid("customBasemap.libraryStyle names no style the basemap library offers now.");
-  }
+  if (!style || !style.offered) throw libraryStyleNotOffered();
   return { url: style.url, name: style.name, attribution: style.attribution };
 }
