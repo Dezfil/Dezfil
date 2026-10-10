@@ -571,7 +571,10 @@ its address in effect, never one given in the call, sent the way the service's
 own requests go, through the egress check with redirects and after the gap
 between requests. The satellite imagery's is one fixed low-zoom tile (zoom 3,
 x 4, y 2) at its tile template within 10 seconds, passing when the answer is
-an image.
+an image: the tile read to its end within those seconds, at most 4 MiB, and
+complete for its format (PNG, JPEG, GIF, WebP or AVIF), the time taken being
+its arrival whole. A cut or larger tile is `unexpected_answer`; one still
+arriving at 10 seconds is `timed_out`.
 It answers `{ service, result: "passed", milliseconds }`, Overture
 `{ service, result: "passed", releases, newest }`, or `result: "failed"` with
 one `reason`: `not_set_up`, `refused` (with the check's sentence as `message`),

@@ -59,7 +59,20 @@ type Service = typeof SERVICES[number];
 const ECHO = "BODY-ECHO-0001";
 const FORBIDDEN = [ECHO, "SEEDED-KEY-0001", "127.0.0.1", "/search", "/isochrone", "interpreter", "/sat-", "{z}", ".png", "imagery.fixture"];
 /** The satellite fixture's tile, a real PNG whose bytes run on into the echo. */
-const PNG = Buffer.concat([Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64"), Buffer.from(ECHO)]);
+const WHOLE_PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64");
+const PNG = Buffer.concat([WHOLE_PNG, Buffer.from(ECHO)]);
+/** Real two-pixel tiles in the other formats a browser draws, made by an
+ * image encoder, whole. */
+const TILES = {
+  jpeg: Buffer.from("/9j/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAACAAIDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAf/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAwb/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCYABT7/9k=", "base64"),
+  progressiveJpeg: Buffer.from("/9j/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wgARCAACAAIDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAb/xAAVAQEBAAAAAAAAAAAAAAAAAAACBf/aAAwDAQACEAMQAAABlwJ//8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABBQJ//8QAFBEBAAAAAAAAAAAAAAAAAAAAAP/aAAgBAwEBPwF//8QAFBEBAAAAAAAAAAAAAAAAAAAAAP/aAAgBAgEBPwF//8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQAGPwJ//8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPyF//9oADAMBAAIAAwAAABDz/8QAFBEBAAAAAAAAAAAAAAAAAAAAAP/aAAgBAwEBPxB//8QAFBEBAAAAAAAAAAAAAAAAAAAAAP/aAAgBAgEBPxB//8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxB//9k=", "base64"),
+  gif: Buffer.from("R0lGODlhAgACAIAAAExpcR5aPCH5BAUAAAAALAAAAAACAAIAAAICjFMAOw==", "base64"),
+  webp: Buffer.from("UklGRjAAAABXRUJQVlA4ICQAAABwAQCdASoCAAIAAUAmJZgCdAF1AAD+9YiW1f/AfiD+LZfAAAA=", "base64"),
+  losslessWebp: Buffer.from("UklGRh4AAABXRUJQVlA4TBEAAAAvAUAAAAdQrXqUp/+BiOh/AAA=", "base64"),
+  avif: Buffer.from("AAAAHGZ0eXBhdmlmAAAAAG1pZjFhdmlmbWlhZgAAANZtZXRhAAAAAAAAACFoZGxyAAAAAAAAAABwaWN0AAAAAAAAAAAAAAAAAAAAACJpbG9jAAAAAERAAAEAAQAAAAAA+gABAAAAAAAAACIAAAAjaWluZgAAAAAAAQAAABVpbmZlAgAAAAABAABhdjAxAAAAAA5waXRtAAAAAAABAAAAVmlwcnAAAAA4aXBjbwAAAAxhdjFDgSACAAAAABRpc3BlAAAAAAAAAAIAAAACAAAAEHBpeGkAAAAAAwgICAAAABZpcG1hAAAAAAAAAAEAAQOBAgMAAAAqbWRhdBIACgc4ADaQENBpMhUZQmMEwAA0AATFtegF7p4t+kAd8/U=", "base64"),
+};
+/** The most of a tile's answer the Test reads, as the reference documents it. */
+const TILE_BOUND = 4 * 1024 * 1024;
 /** The satellite template's place on the fixture, its key in the path and the query. */
 const TEMPLATE_PATH = "/sat-SEEDED-KEY-0001-PATH/{z}/{x}/{y}.png?key=SEEDED-KEY-0001-QUERY";
 /** The fixed tile's path under a template's place on the fixture. */
@@ -215,13 +228,40 @@ describe("each Test passes against its healthy service", () => {
   });
 
   it.each([
-    ["a JPEG", "image/jpeg", Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 16, 0x4a, 0x46, 0x49, 0x46, 0])],
-    ["a WebP", "image/webp", Buffer.concat([Buffer.from("RIFF"), Buffer.from([36, 0, 0, 0]), Buffer.from("WEBPVP8 ")])],
-    ["a GIF", "image/gif", Buffer.from("GIF89a\u0001\u0000\u0001\u0000")],
-    ["a PNG named only as bytes", "application/octet-stream", PNG],
-  ])("passes the satellite imagery answering %s", async (_what, type, head) => {
-    answer = (_service, _req, res) => { res.writeHead(200, { "content-type": type }); res.end(Buffer.concat([head, Buffer.from(ECHO)])); };
-    expect((await runTest("satellite")).body).toEqual({ service: "satellite", result: "passed", milliseconds: expect.any(Number) });
+    ["a JPEG", "image/jpeg", TILES.jpeg],
+    ["a progressive JPEG", "image/jpeg", TILES.progressiveJpeg],
+    ["a WebP", "image/webp", TILES.webp],
+    ["a lossless WebP", "image/webp", TILES.losslessWebp],
+    ["a GIF", "image/gif", TILES.gif],
+    ["an AVIF", "image/avif", TILES.avif],
+    ["a PNG named only as bytes", "application/octet-stream", WHOLE_PNG],
+  ])("passes the satellite imagery answering %s whole, with or without bytes after its end", async (_what, type, tile) => {
+    for (const body of [tile, Buffer.concat([tile, Buffer.from(ECHO)])]) {
+      answer = (_service, _req, res) => { res.writeHead(200, { "content-type": type }); res.end(body); };
+      expect((await runTest("satellite")).body).toEqual({ service: "satellite", result: "passed", milliseconds: expect.any(Number) });
+    }
+  });
+
+  it("takes the time when the tile has arrived whole, not at its first bytes", async () => {
+    answer = (_service, _req, res) => {
+      res.writeHead(200, { "content-type": "image/png" });
+      res.write(WHOLE_PNG.subarray(0, 40));
+      setTimeout(() => res.end(WHOLE_PNG.subarray(40)), 400);
+    };
+    const { body } = await runTest("satellite");
+    expect(body).toEqual({ service: "satellite", result: "passed", milliseconds: expect.any(Number) });
+    expect(body.milliseconds).toBeGreaterThanOrEqual(390);
+  });
+
+  it("passes a tile at the size bound, its length declared or not", async () => {
+    const atBound = Buffer.concat([WHOLE_PNG, Buffer.alloc(TILE_BOUND - WHOLE_PNG.length)]);
+    for (const declared of [true, false]) {
+      answer = (_service, _req, res) => {
+        res.writeHead(200, { "content-type": "image/png", ...(declared ? { "content-length": String(atBound.length) } : {}) });
+        res.end(atBound);
+      };
+      expect((await runTest("satellite")).body, `declared: ${declared}`).toEqual({ service: "satellite", result: "passed", milliseconds: expect.any(Number) });
+    }
   });
 
   it("sends the satellite template's user information as the tile request's credentials, as the S3 address's", async () => {
@@ -362,6 +402,17 @@ describe("each failure reason comes from its own fixture", () => {
     expect(Date.now() - started).toBeLessThan(12_000);
   }, 20_000);
 
+  it("no whole tile within the time limit: a PNG's first chunks, then a stream that stalls, at the same ten seconds", async () => {
+    answer = (_service, _req, res) => {
+      res.writeHead(200, { "content-type": "image/png" });
+      res.write(WHOLE_PNG.subarray(0, 33));
+    };
+    const started = Date.now();
+    expect((await runTest("satellite")).body).toEqual({ service: "satellite", result: "failed", reason: "timed_out" });
+    expect(Date.now() - started).toBeGreaterThanOrEqual(9_900);
+    expect(Date.now() - started).toBeLessThan(12_000);
+  }, 20_000);
+
   it.each(SERVICES)("answered with a status: %s at 503, with its number and no body", async service => {
     answer = (_service, _req, res) => { res.writeHead(503, { "content-type": "text/plain" }); res.end(`${ECHO} unavailable`); };
     expect((await runTest(service)).body).toEqual({ service, result: "failed", reason: "status", status: 503 });
@@ -396,8 +447,47 @@ describe("each failure reason comes from its own fixture", () => {
     ["a page named as an image", "image/png", Buffer.from(`<html><body>${ECHO}</body></html>`)],
     ["nothing at all", "image/png", Buffer.alloc(0)],
     ["a PNG cut short before its signature ends", "image/png", PNG.subarray(0, 5)],
+    ["a JPEG's three-byte marker alone", "image/jpeg", Buffer.from([0xff, 0xd8, 0xff])],
+    ["a PNG cut after its signature", "image/png", WHOLE_PNG.subarray(0, 8)],
+    ["a PNG cut after its header chunk", "image/png", WHOLE_PNG.subarray(0, 33)],
+    ["a PNG cut inside its end chunk", "image/png", WHOLE_PNG.subarray(0, WHOLE_PNG.length - 2)],
+    ["a PNG with no image data", "image/png", Buffer.concat([WHOLE_PNG.subarray(0, 33), WHOLE_PNG.subarray(WHOLE_PNG.length - 12)])],
+    ["a JPEG cut before its end marker", "image/jpeg", TILES.jpeg.subarray(0, TILES.jpeg.length - 2)],
+    ["a progressive JPEG cut after its first scan", "image/jpeg", TILES.progressiveJpeg.subarray(0, 260)],
+    ["a JPEG ending with no scan", "image/jpeg", Buffer.from([0xff, 0xd8, 0xff, 0xd9])],
+    ["a GIF cut before its trailer", "image/gif", TILES.gif.subarray(0, TILES.gif.length - 1)],
+    ["a GIF header alone", "image/gif", Buffer.from("GIF89a\u0001\u0000\u0001\u0000")],
+    ["a WebP short of its declared length", "image/webp", TILES.webp.subarray(0, TILES.webp.length - 1)],
+    ["a WebP header alone", "image/webp", Buffer.concat([Buffer.from("RIFF"), Buffer.from([36, 0, 0, 0]), Buffer.from("WEBPVP8 ")])],
+    ["an AVIF cut inside its image data", "image/avif", TILES.avif.subarray(0, TILES.avif.length - 1)],
+    ["an AVIF's type box alone", "image/avif", TILES.avif.subarray(0, 28)],
   ])("answered, but not as the service does: the satellite imagery with %s", async (_what, type, body) => {
     answer = (_service, _req, res) => { res.writeHead(200, { "content-type": type }); res.end(body); };
+    expect((await runTest("satellite")).body).toEqual({ service: "satellite", result: "failed", reason: "unexpected_answer" });
+    expect(askedOf("satellite")).toHaveLength(1);
+  });
+
+  it("no whole answer: the satellite imagery's connection closed before the length it declared, after a PNG's first chunks", async () => {
+    answer = (_service, _req, res) => {
+      res.writeHead(200, { "content-type": "image/png", "content-length": String(WHOLE_PNG.length) });
+      res.write(WHOLE_PNG.subarray(0, 33), () => res.socket?.destroy());
+    };
+    expect((await runTest("satellite")).body).toEqual({ service: "satellite", result: "failed", reason: "unreachable" });
+    expect(askedOf("satellite")).toHaveLength(1);
+  });
+
+  it.each([
+    ["declared", true],
+    ["streamed with no length", false],
+  ])("answered, but not as the service does: the satellite imagery with a tile one byte past the size bound, %s", async (_what, declared) => {
+    const past = Buffer.concat([WHOLE_PNG, Buffer.alloc(TILE_BOUND + 1 - WHOLE_PNG.length)]);
+    answer = (_service, _req, res) => {
+      res.on("error", () => {});
+      res.writeHead(200, { "content-type": "image/png", ...(declared ? { "content-length": String(past.length) } : {}) });
+      if (declared) res.end(past);
+      // In pieces, so the bound is passed mid-stream.
+      else { for (let at = 0; at < past.length; at += 64 * 1024) res.write(past.subarray(at, at + 64 * 1024)); res.end(); }
+    };
     expect((await runTest("satellite")).body).toEqual({ service: "satellite", result: "failed", reason: "unexpected_answer" });
     expect(askedOf("satellite")).toHaveLength(1);
   });
