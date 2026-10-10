@@ -29,6 +29,18 @@
   background: var(--accent-dim);
 }
 
+/* A library style has no capture of its own: the art box a capture sits
+   in, holding the map glyph. */
+.styleArt {
+  display: grid;
+  place-items: center;
+  height: 56px;
+  border-radius: var(--radius);
+  border: 1px solid var(--swatch-border);
+  background: var(--bg);
+  color: var(--fg-faint);
+}
+
 .label {
   font-size: 12px;
   font-weight: 500;

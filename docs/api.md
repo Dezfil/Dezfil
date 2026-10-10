@@ -648,7 +648,11 @@ maps that took a style keep their copy of its name, address and credit
 through both. The configuration read lists the library as `basemapStyles`,
 hidden styles included, and `GET /api/config` the offered ones as
 `basemapStyles` (id, name, address, credit): a style's address is public to
-whoever draws a map on it. They are generated as tools, `add_basemap_style`,
+whoever draws a map on it. A map takes an offered one with `PATCH
+/api/maps/{id}` and `customBasemap: { libraryStyle }`, the style's id alone:
+the map keeps its own copy of the name, address and credit, nothing is
+fetched, and a hidden or unknown id is refused with `invalid_request`. They
+are generated as tools, `add_basemap_style`,
 `set_basemap_style_offered` and `remove_basemap_style`: the embedded assistant
 confirms each, and the SQL and workflow assistants refuse them.
 

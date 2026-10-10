@@ -821,8 +821,21 @@ export const MAP_DETAIL_SCHEMAS = {
           "saves with its attribution snapshot; unreachable or " +
           "policy-blocked URLs save only with force: true (every " +
           "reader's browser fetches the style itself, so they may " +
-          "still work); non-style URLs never save.",
+          "still work); non-style URLs never save. " +
+          "{ libraryStyle } takes a style the instance's basemap " +
+          "library offers, by its id (GET /api/config lists them as " +
+          "basemapStyles): the map keeps its own copy of the style's " +
+          "name, address and credit, nothing is fetched, and hiding or " +
+          "removing the style later changes no map. A hidden or unknown " +
+          "id is refused.",
+        anyOf: [{ required: ["url"] }, { required: ["libraryStyle"] }],
         properties: {
+          libraryStyle: {
+            type: "string",
+            description:
+              "A basemap library style's id; given alone, without url, " +
+              "name or force.",
+          },
           url: { type: "string" },
           name: {
             type: ["string", "null"],
@@ -836,7 +849,6 @@ export const MAP_DETAIL_SCHEMAS = {
               "Save despite an unreachable or blocked verdict.",
           },
         },
-        required: ["url"],
       },
       basemapLayers: { $ref: "#/components/schemas/BasemapLayers" },
       legendCorner: { $ref: "#/components/schemas/LegendCorner" },

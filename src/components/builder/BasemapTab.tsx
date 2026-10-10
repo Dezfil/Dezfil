@@ -4,12 +4,15 @@ import type { BasemapKey, BasemapStyle } from "@/lib/basemap";
 import type { BasemapLayerGroup } from "@/lib/basemap-layers";
 import type { MapWithLayers } from "@/lib/metadata/maps";
 import { BasemapPanel } from "./BasemapPanel";
+import { useLibraryStyles } from "./use-library-styles";
 
 /**
  * The inspector's Basemap tab wiring (at-touch slice from MapBuilder):
  * every panel affordance is a PATCH the lane owns — the pick, the
  * custom style's save/remove, and the group toggles, whose bodies build
- * from server truth at their turn so rapid toggles compose.
+ * from server truth at their turn so rapid toggles compose. A style the
+ * instance's library offers is taken by its id: the server copies it onto
+ * the map.
  */
 export function BasemapTab({
   map,
@@ -34,10 +37,13 @@ export function BasemapTab({
   statusPillVisible: boolean;
   onToggleStatusPill: (visible: boolean) => void;
 }) {
+  const libraryStyles = useLibraryStyles();
   return (
     <BasemapPanel
       active={map.basemap}
       custom={map.customBasemap}
+      libraryStyles={libraryStyles}
+      onPickLibrary={(id) => void patchMap({ customBasemap: { libraryStyle: id } })}
       onSaveCustom={(body) => patchMap({ customBasemap: body })}
       onRemoveCustom={() => void patchMap({ customBasemap: null })}
       groupsPresent={map.customBasemap ? loadedGroups : null}

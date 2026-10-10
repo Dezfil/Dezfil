@@ -171,8 +171,10 @@ once, through the egress check, and keeps the style with its credit or its
 host; it refuses an address in blocked space, a style it cannot read now, an
 answer that is not a style, an address the library holds and a 51st style,
 repeating no part of the address. It reaches outside this server, so MCP
-marks it open-world. Hiding and removing change no map: a map keeps its own
-copy of a style it took. The embedded assistant asks before calling any of
+marks it open-world. `update_map` takes an offered style with
+`customBasemap: { libraryStyle }`, copying it onto the map and fetching
+nothing. Hiding and removing change no map: a map keeps its own copy of a
+style it took. The embedded assistant asks before calling any of
 them; the SQL and workflow assistants are never offered them.
 
 `get_config` reads `GET /api/config`, which every signed-in account and agent
