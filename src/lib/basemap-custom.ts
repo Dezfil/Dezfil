@@ -21,6 +21,7 @@ import { libraryStyle } from "@/lib/basemap-library";
 import { libraryStyleNotOffered } from "@/lib/basemap-rule";
 import type { CustomBasemap } from "@/lib/metadata/maps";
 import { inspectStyle } from "@/lib/net/inspect-style";
+import { pastedStyleCopy } from "@/lib/basemap-pasted";
 
 export const CUSTOM_URL_MAX = 2048;
 export const CUSTOM_NAME_MAX = 120;
@@ -77,12 +78,8 @@ export async function resolveCustomBasemapWrite(
   admit(url);
   const inspection = await inspect(url);
   switch (inspection.verdict) {
-    case "valid": {
-      const attribution = inspection.attribution.length
-        ? inspection.attribution
-        : [{ label: new URL(url).hostname }];
-      return { url, name, attribution };
-    }
+    case "valid":
+      return pastedStyleCopy(url, name, inspection.attribution);
     case "not_style":
       invalid(`The URL is not a MapLibre style: ${inspection.detail}`);
       break;
@@ -97,7 +94,7 @@ export async function resolveCustomBasemapWrite(
       }
       // A forced save's credit is the only thing the server can vouch
       // for: the host itself.
-      return { url, name, attribution: [{ label: new URL(url).hostname }] };
+      return pastedStyleCopy(url, name, []);
     }
   }
   // Exhaustive over the verdicts; TypeScript sees the invalid() throws.

@@ -451,7 +451,11 @@ The encryption key discloses `environment`, `data-directory` or
 `{ set: true, unreadable: true }`; user information, paths, queries and fragments
 are absent. A service address is write-only: its `storedValue` is always null,
 and one an admin stored reads as `{ set: true, origin }`, or as set and
-unreadable once the instance's encryption key no longer opens it. With
+unreadable once the instance's encryption key no longer opens it. The satellite
+tile template in effect, stored or set by `DEZFIL_SATELLITE_URL`, reads as
+`{ set: true, origin, userInformation: true }` while it carries a user name or
+password, never given: no browser loads tiles from it, so the imagery is not
+drawn. With
 neither a stored address nor a variable, the address finder and travel time
 read `{ set: false }`, OpenStreetMap the public Overpass server's origin and the
 S3 address the rule `aws-bucket-endpoint`, Amazon S3's own addresses.
@@ -494,7 +498,9 @@ of them: the fourteen Limits numbers; the services' eight numbers
 `overpassTimeoutS` and `overpassCacheHours`, in their variables' units; the four
 service addresses `geocoderUrl`, `isochroneUrl`, `overpassUrl` and
 `s3Endpoint`; the satellite imagery's tile address `satelliteUrl`, which must
-hold `{z}`, `{x}` and `{y}`, and its credit `satelliteAttribution`, at most 160
+hold `{z}`, `{x}` and `{y}` and carry no user name or password (a browser cannot
+load tiles from such an address, so the key belongs in the path or the query,
+and the refusal says so), and its credit `satelliteAttribution`, at most 160
 characters; the five basemap switches `basemaps.dark`, `basemaps.light`,
 `basemaps.streets`, `basemaps.satellite` and `basemaps.singleMapStyles`, each
 `true` or `false`; the four General values `instanceName`,

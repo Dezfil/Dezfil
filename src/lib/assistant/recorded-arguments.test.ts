@@ -30,8 +30,10 @@ const SEEDS = ["SEEDED-KEY-0001-USER", "SEEDED-KEY-0001-PATH", "SEEDED-KEY-0001-
 // A public literal: the save-time check admits it without a lookup.
 const ADDRESS = `https://seed-user:${SEEDS[0]}@203.0.113.10/${SEEDS[1]}/search?key=${SEEDS[2]}`;
 const ORIGIN = "https://203.0.113.10";
-// The satellite imagery's tile template, its key in the same three places.
-const TEMPLATE = `https://seed-user:${SEEDS[0]}@203.0.113.10/${SEEDS[1]}/{z}/{x}/{y}.jpg?key=${SEEDS[2]}`;
+// The satellite imagery's tile template, its key in the path and the query;
+// with the user information too, a save refuses it.
+const TEMPLATE = `https://203.0.113.10/${SEEDS[1]}/{z}/{x}/{y}.jpg?key=${SEEDS[2]}`;
+const TEMPLATE_WITH_USER = `https://seed-user:${SEEDS[0]}@203.0.113.10/${SEEDS[1]}/{z}/{x}/{y}.jpg?key=${SEEDS[2]}`;
 
 let f: ReturnType<typeof instanceSettingsFixture>;
 let sent: unknown[];
@@ -100,6 +102,36 @@ describe("an address saved through the embedded assistant", () => {
     // The call itself went out with the address as given, and was kept.
     expect(sent).toEqual([{ [key]: given }]);
     expect(resolveServiceAddress(key, f.db)).toEqual({ address: given, source: "stored" });
+  });
+});
+
+describe("a tile template carrying user information, given to the embedded assistant", () => {
+  it("is refused after its confirmation, saying where the key belongs, and nothing about the call repeats it", async () => {
+    const scope = testAccountScope(f.db, "admin");
+    const pending = new PendingActionStore();
+    const provider = stubProvider([
+      { text: "", toolCalls: [{ id: "point-the-imagery", name: "update_instance_settings", args: { satelliteUrl: TEMPLATE_WITH_USER } }] },
+      { text: "Refused.", toolCalls: [] },
+    ]);
+    const run = assistantRuns.reserve(scope);
+    assistantRuns.bind(scope, run.id, { message: "Use our imagery" });
+    const deps = { scope, baseUrl: "http://instance.test", pending, fetchImpl: dispatch as typeof fetch, runId: run.id };
+
+    const asked = await streamed(runStream(scope, runAssistant(provider, { message: "Use our imagery", history: [] }, deps), run.id));
+    const question = asked.find(event => event.type === "confirm_required");
+    if (question?.type !== "confirm_required") throw new Error("expected a confirmation");
+    expect(question.args).toEqual({ satelliteUrl: ORIGIN });
+    const parked = pending.claim(scope, question.id, "approved")!;
+    assistantRuns.resume(scope, run.id, "approved");
+    const done = await streamed(runStream(scope, resumeAssistant(parked, true, deps), run.id));
+    expect(done).toContainEqual(expect.objectContaining({ type: "tool_result", tool: "update_instance_settings", ok: false }));
+    expect(JSON.stringify(done)).toContain("A browser cannot load tiles from an address that carries a user name or password; put the key in the path or the query.");
+    const record = assistantRuns.read(scope, run.id);
+    expect(record.actions).toEqual([expect.objectContaining({ tool: "update_instance_settings", args: { satelliteUrl: ORIGIN } })]);
+    expectNoSeed([asked, done, record, assistantRuns.pending(scope)]);
+    // Sent as given, refused by the save; nothing was kept.
+    expect(sent).toEqual([{ satelliteUrl: TEMPLATE_WITH_USER }]);
+    expect(resolveServiceAddress("satelliteUrl", f.db).source).toBe("default");
   });
 });
 

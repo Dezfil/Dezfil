@@ -104,8 +104,9 @@ admission capacities, the fixed image maximum, version and process start time,
 Overture release list this process keeps, and `parts`: each part of the server
 as System's Status shows it, read without starting the engine, launching a
 browser or running a program. Credentials are presence or
-key-location states; addresses contain only scheme and host, or
-set-and-unreadable state, and a stored address never comes back as stored. The same current-admin checks and
+key-location states; addresses contain only scheme and host (the satellite
+tile template also says when it carries a user name or password, never what),
+or set-and-unreadable state, and a stored address never comes back as stored. The same current-admin checks and
 private, no-store responses apply to direct API calls and tool calls.
 
 `update_instance_settings` calls `PATCH /api/instance/settings` with the closed
@@ -122,7 +123,10 @@ embedding and its listed sites, who may add database connections and who may
 import from links), each with its kind, bounds or choices, so a value outside
 them is refused before any call. The listed sites go in as a list of origins.
 An address goes in whole, as text, and is refused when the egress policy would
-refuse it now, its key named with the policy's sentence; the result, the
+refuse it now, its key named with the policy's sentence; the satellite tile
+address is also refused when it carries a user name or password, the refusal
+saying a browser cannot load tiles from such an address and the key belongs in
+the path or the query. The result, the
 assistant's confirmation, its events and its record give it as scheme and host
 alone, while the call itself carries the address as given.
 A per-address count below the per-account one, or embedding limited to listed

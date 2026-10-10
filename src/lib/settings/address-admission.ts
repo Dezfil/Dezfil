@@ -1,8 +1,13 @@
 import { ApiError } from "@/lib/api/errors";
 import { resolveAllowed } from "@/lib/net/egress";
 import { SETTING_CATALOGUE } from "./catalogue";
+import { carriesUserInformation } from "./disclosure";
 import { lockedEnvironment } from "./resolver";
 import { validateStoredValue } from "./validation";
+
+/** Why a tile template carrying user information is refused at save. */
+export const USER_INFORMATION_REFUSED =
+  "A browser cannot load tiles from an address that carries a user name or password; put the key in the path or the query.";
 
 /**
  * The save-time check on a stored address (a service's, or the satellite
@@ -16,8 +21,12 @@ import { validateStoredValue } from "./validation";
  * addresses resolve there, is refused unless the deployment's allowlist
  * names it by name or range. A name that does not resolve now is kept: a
  * save refuses blocked space, not an outage, and every use checks again on
- * the address it connects to. The lookup is the engine's own. Scheme and
- * length, a locked key and every other refusal stay the change operation's.
+ * the address it connects to. The lookup is the engine's own. A tile
+ * template browsers load is refused here too, before any lookup, when it
+ * carries user information: no browser loads tiles from such an address.
+ * One stored before, or set by its variable, has no save to refuse; its
+ * read says so. Scheme and length, a locked key and every other refusal
+ * stay the change operation's.
  */
 export interface AddressAdmission {
   /** One per refused key: the key and the egress check's sentence, never the address. */
@@ -36,6 +45,10 @@ export async function admitServiceAddresses(input: unknown): Promise<AddressAdmi
     const validated = validateStoredValue(definition, value);
     if (!validated.ok || typeof validated.value !== "string") continue;
     checked.set(key, validated.value);
+    if (write.userInformation === "refused" && carriesUserInformation(validated.value)) {
+      refusals.push(`${key}: ${USER_INFORMATION_REFUSED}`);
+      continue;
+    }
     const refusal = await egressRefusal(withDigits(validated.value, write.placeholders ?? []));
     if (refusal) refusals.push(`${key}: ${refusal}`);
   }

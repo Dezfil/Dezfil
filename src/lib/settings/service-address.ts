@@ -3,7 +3,7 @@ import { ApiError } from "@/lib/api/errors";
 import { metadataDb } from "@/lib/metadata/db";
 import { settingDefinition } from "./catalogue";
 import { readDeploymentSetting } from "./deployment-read";
-import { addressOrigin, discloseAddress } from "./disclosure";
+import { addressOrigin, discloseAddress, refusesUserInformation } from "./disclosure";
 import { lockedEnvironment, settingEnvironment } from "./resolver";
 import { readStoredAddress } from "./store";
 import type { ServiceAddressKey, SettingDefinition, StoredAddressKey } from "./types";
@@ -80,6 +80,6 @@ export function serviceAddressSetting(definition: SettingDefinition, db: Databas
   if (lockedEnvironment(definition)) return readDeploymentSetting(definition);
   const stored = readStoredAddress(definition.key, db);
   if (!stored.set) return readDeploymentSetting(definition);
-  return { value: "unreadable" in stored ? { set: true as const, unreadable: true as const } : discloseAddress(stored.address),
+  return { value: "unreadable" in stored ? { set: true as const, unreadable: true as const } : discloseAddress(stored.address, refusesUserInformation(definition)),
     source: "stored" as const, locked: false, invalidOverride: false, storedValue: null };
 }

@@ -25,11 +25,12 @@ import { instanceReadFixture, type Resolution } from "./read-fixture";
 
 const BLOCKED = "The requested address is not reachable from this server: loopback, private-network, link-local, and metadata addresses are blocked by default. Specific hosts can be allowed with DEZFIL_EGRESS_ALLOWLIST.";
 const KEY = "SEEDED-KEY-0008-QUERY";
+const USER_INFORMATION = "Browsers draw no tiles from an address that carries a user name or password. Put the key in the path or the query.";
 const HARBOR: LibraryStyleRead = { id: "style-harbor", name: "Harbor chart", url: "https://tiles.harbor.example/styles/chart/style.json",
   attribution: [{ label: "Harbor Office" }], offered: true, addedAt: "2026-10-01T08:00:00.000Z" };
 
 let stored: Record<string, unknown>;
-let imagery: { set: true; origin: string } | { set: true; unreadable: true } | null;
+let imagery: { set: true; origin: string; userInformation?: true } | { set: true; unreadable: true } | null;
 let pinned: Record<string, Resolution>;
 let library: LibraryStyleRead[];
 let palettes: CustomPalette[];
@@ -291,7 +292,7 @@ describe("Libraries", () => {
 describe("Satellite imagery", () => {
   it("keeps a typed tile address only on Save, then shows its scheme and host, offers Satellite in Basemaps and a Test", async () => {
     await open();
-    const template = `https://seed-user:${KEY}@imagery.example/tiles/{z}/{x}/{y}.jpg?key=${KEY}`;
+    const template = `https://imagery.example/tiles/${KEY}/{z}/{x}/{y}.jpg?key=${KEY}`;
     await type(input(satellite(), "Satellite tile address"), template);
     expect(writes()).toEqual([]);
     expect(buttons(row(satellite(), "Tile address"))).toEqual(["Save", "Cancel"]);
@@ -377,6 +378,16 @@ describe("Satellite imagery", () => {
     expect(row(satellite(), "Credit").textContent).toContain("Set in the server's environment by DEZFIL_SATELLITE_ATTRIBUTION.");
     expect(buttons(satellite())).toEqual(["Test"]);
     expect(satellite().querySelectorAll("[data-unit-slot]")).toEqual([]);
+  });
+
+  it.each([
+    ["saved", () => { imagery = { set: true, origin: "https://imagery.example", userInformation: true }; }],
+    ["set by the variable", () => { pinned = { satelliteUrl: { value: { set: true, origin: "https://imagery.example", userInformation: true }, source: "environment", locked: true } }; }],
+  ])("says under a tile address %s with a user name or password that it draws no tiles, and where the key belongs", async (_how, arrange) => {
+    arrange();
+    await open();
+    expect(row(satellite(), "Tile address").textContent).toContain(USER_INFORMATION);
+    expect(satellite().textContent?.split(USER_INFORMATION)).toHaveLength(2);
   });
 
   it("says a tile address the instance's key cannot read, with Remove and the Test, and no Satellite among the basemaps", async () => {

@@ -39,6 +39,9 @@ export interface AddressRow {
   readonly fallback?: string;
   /** What removing a saved address does, as Remove's dialog says it. */
   readonly removal: string;
+  /** What the row says while the address in effect carries a user name or
+   * password, where that keeps it from working (a tile template browsers load). */
+  readonly userInformation?: string;
 }
 
 export interface NumberRow {

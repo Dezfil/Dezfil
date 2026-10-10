@@ -389,14 +389,14 @@ describe("the satellite rows", () => {
   it("keep their variables and become editable: the template write-only with its three placeholders, the credit text", () => {
     expect(settingDefinition("satelliteUrl")).toMatchObject({ scope: "instance", readBy: "admin", changedBy: "admin", kind: "address",
       environment: "DEZFIL_SATELLITE_URL", environmentTiming: "restart", timing: "live", secret: false, editable: true, defaultValue: null });
-    expect(settingDefinition("satelliteUrl").write).toEqual({ kind: "address", maxLength: 2048, placeholders: ["{z}", "{x}", "{y}"] });
+    expect(settingDefinition("satelliteUrl").write).toEqual({ kind: "address", maxLength: 2048, placeholders: ["{z}", "{x}", "{y}"], userInformation: "refused" });
     expect(settingDefinition("satelliteAttribution")).toMatchObject({ scope: "instance", readBy: "admin", changedBy: "admin", kind: "text",
       environment: "DEZFIL_SATELLITE_ATTRIBUTION", environmentTiming: "restart", timing: "live", secret: false, editable: true, defaultValue: null });
     expect(settingDefinition("satelliteAttribution").write).toEqual({ kind: "text", maxLength: 160, empty: "null" });
     expect(catalogueProblems(SETTING_CATALOGUE)).toEqual([]);
   });
 
-  it("keeps a template holding {z}, {x} and {y} as given once trimmed, its user information, path and query included", () => {
+  it("keeps a template holding {z}, {x} and {y} as given once trimmed, its user information, path and query included (the save refuses user information; one stored before is still read)", () => {
     const definition = settingDefinition("satelliteUrl");
     expect(validateStoredValue(definition, `  ${TEMPLATE}\n`)).toEqual({ ok: true, value: TEMPLATE });
     const query = "https://imagery.example/tile?z={z}&x={x}&y={y}&key=SEEDED-KEY-0002-QUERY";

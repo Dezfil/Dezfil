@@ -19,7 +19,9 @@ import { useBuilderMutations } from "./use-builder-mutations";
  * holds. The server copies the style's name, address and credit onto the
  * map; from the click on, the builder holds that copy, as a reload would,
  * and never the reference the request names it by. An undo and a redo of
- * the take land the server's own answer and draw its credit too.
+ * the take land the server's own answer and draw its credit too. The copy
+ * is the library's whatever the map held at the take's turn: an earlier
+ * write that failed unlanded never lends it its credit.
  */
 
 // The canvas needs WebGL and the status pill measures its layout; the
@@ -56,8 +58,8 @@ const initial = { id: "m", name: "Harbour", viewport: { lng: 0, lat: 0, zoom: 2 
 const builtIn = BUILT_IN_ATTRIBUTION.map(line => line.label).join("·");
 
 /** The builder's picker and presentation over its own save lane, the
- * library's read answered with one offered style. */
-async function mount() {
+ * library's read answered with the styles it offers (one by default). */
+async function mount(start: MapWithLayers = initial, offered: LibraryStyleOffer[] = [HARBOUR]) {
   const host = installDomHost();
   vi.stubGlobal("HTMLElement", HostElement);
   const w = wire(); vi.stubGlobal("fetch", w.fetch);
@@ -67,14 +69,14 @@ async function mount() {
   cleanups.push(() => { act(() => root.unmount()); host.uninstall(); });
   const builder = { editor: null as unknown as ReturnType<typeof useBuilderMutations> };
   function Builder() {
-    const [map, setMap] = useState<MapWithLayers | null>(initial);
+    const [map, setMap] = useState<MapWithLayers | null>(start);
     const rendersRef = useRef({});
     const mapRef = useRef<MapWithLayers | null>(map);
     const cameraRef = useRef<CameraHandle | null>(null);
     const editor = useBuilderMutations({ mapId: "m", map, setMap, rendersRef, setRenders() {}, setSelectedId() {}, refreshLayer: async () => {} });
     builder.editor = editor;
     const { sequence, serverMapRef } = editor;
-    useEffect(() => { sequence.accept(initial); serverMapRef.current = initial; }, [sequence, serverMapRef]);
+    useEffect(() => { sequence.accept(start); serverMapRef.current = start; }, [sequence, serverMapRef]);
     const stage = useMapPresentation({ map: map!, renders: {}, rendersRef, mapRef, endpoints: mapWidgetEndpoints("m", null), cameraRef,
       setFitBounds: () => {}, fail: () => {}, clearFailure: () => {} });
     return <>
@@ -85,11 +87,11 @@ async function mount() {
   }
   const flush = (work: () => void) => act(async () => { work(); await w.settle(); });
   await flush(() => root.render(<Builder />));
-  await flush(() => w.pending("GET", "/api/config")[0].ok({ basemapStyles: [HARBOUR], singleMapStyles: true }));
+  await flush(() => w.pending("GET", "/api/config")[0].ok({ basemapStyles: offered, singleMapStyles: true }));
   return {
     w, flush, thrown, builder,
     credit: () => host.document.querySelector("[data-map-credit]")?.textContent ?? null,
-    card: () => host.document.querySelectorAll("button").find(button => button.textContent.trim() === HARBOUR.name)!,
+    card: (name = HARBOUR.name) => host.document.querySelectorAll("button").find(button => button.textContent.trim() === name)!,
   };
 }
 
@@ -130,5 +132,52 @@ it("confirms a take whose answer was lost by the map read back holding the copy"
   expect(w.pending("GET", "/api/maps/m/history")).toHaveLength(1);
   expect(credit()).toBe("© Fixture Charts");
   expect(card().getAttribute("data-active")).toBe("true");
+  expect(thrown).toEqual([]);
+});
+
+it("keeps a take's confirmation exact: a lost answer whose read holds the style under another credit is not taken for it", async () => {
+  const { w, flush, thrown, builder, credit, card } = await mount();
+  await flush(() => card().click());
+  await flush(() => w.pending("PATCH", "/api/maps/m")[0].cut());
+  await flush(() => w.pending("GET", "/api/maps/m")[0].ok({ ...initial, customBasemap: { ...COPY, attribution: [{ label: "© Another chart" }] }, editRevision: "theirs" }));
+  // The take stores the copy the builder drew; a read holding another is no confirmation of it.
+  expect(builder.editor.sequence.revision).toBe("first");
+  expect(w.pending("GET", "/api/maps/m/history")).toHaveLength(0);
+  expect(credit()).toBe("© Fixture Charts");
+  expect(thrown).toEqual([]);
+});
+
+/** A style pasted earlier, on the map when the builder opens. */
+const EARLIER = { url: "https://tiles.example/earlier/style.json", name: "Old harbour", attribution: [{ label: "© Earlier Tiles" }] };
+/** Another style of the same provider, under the same credit. */
+const NIGHT: LibraryStyleOffer = { id: "style-harbour-night", name: "Harbour chart, night", url: "https://charts.example/night/style.json",
+  attribution: HARBOUR.attribution };
+
+it.each([
+  ["holding the taken copy", COPY, "taken", "taken"],
+  ["holding the taken address and name under the earlier style's credit, which the take never stores", { ...COPY, attribution: EARLIER.attribution }, "theirs", "first"],
+])("draws and confirms a take as the library offers it after another take queued before it failed unlanded: a lost answer's read %s", async (_what, stored, revision, basis) => {
+  const { w, flush, thrown, builder, credit, card } = await mount({ ...initial, customBasemap: EARLIER } as MapWithLayers, [HARBOUR, NIGHT]);
+  expect(credit()).toBe("© Earlier Tiles");
+  // Two takes in a row: the first one's answer is lost and the read proves
+  // it never landed.
+  await flush(() => card(NIGHT.name).click());
+  await flush(() => card().click());
+  const [night] = w.pending("PATCH", "/api/maps/m");
+  expect(night.body).toEqual({ customBasemap: { libraryStyle: NIGHT.id } });
+  await flush(() => night.cut());
+  await flush(() => w.pending("GET", "/api/maps/m")[0].ok({ ...initial, customBasemap: EARLIER, editRevision: "first" }));
+  expect(builder.editor.sequence.revision).toBe("first");
+  // The second take is still drawn as the library offers it, never under
+  // the earlier style's credit (soft: the confirmation below is judged either way).
+  expect.soft(credit()).toBe("© Fixture Charts");
+
+  const [take] = w.pending("PATCH", "/api/maps/m");
+  expect(take.body).toEqual({ customBasemap: { libraryStyle: HARBOUR.id } });
+  await flush(() => take.cut());
+  await flush(() => w.pending("GET", "/api/maps/m")[0].ok({ ...initial, customBasemap: stored, editRevision: revision }));
+  // Only the map the take stores is the take landed.
+  expect(builder.editor.sequence.revision).toBe(basis);
+  expect(w.pending("GET", "/api/maps/m/history")).toHaveLength(basis === "taken" ? 1 : 0);
   expect(thrown).toEqual([]);
 });

@@ -73,7 +73,7 @@ describe("the builder's Basemap tab", () => {
   const map = { basemap: null, customBasemap: null, basemapLayers: null } as unknown as MapWithLayers;
   async function tab(answer: () => Promise<Response>) {
     vi.stubGlobal("fetch", vi.fn(answer));
-    const patchMap = vi.fn(async () => true);
+    const patchMap = vi.fn<(request: unknown, opts?: unknown) => Promise<boolean>>(async () => true);
     await act(async () => root.render(<BasemapTab map={map} loadedGroups={null} overridden={false} patchMap={patchMap}
       statusPillVisible={false} onToggleStatusPill={() => {}} />));
     return patchMap;
@@ -84,8 +84,12 @@ describe("the builder's Basemap tab", () => {
     expect(vi.mocked(fetch)).toHaveBeenCalledExactlyOnceWith("/api/config", { cache: "no-store" });
     expect(cards().slice(4, 6)).toEqual(["Harbour chart", "Works grey"]);
     await act(async () => card("Harbour chart")!.click());
-    // The server is sent the id; the map holds the copy the server makes.
-    expect(patchMap).toHaveBeenCalledExactlyOnceWith({ customBasemap: copyOf(HARBOUR) }, { sends: { customBasemap: { libraryStyle: "style-harbour" } } });
+    // The server is sent the id; the map holds the copy the server makes,
+    // whole, whatever the map holds when the write's turn comes.
+    expect(patchMap).toHaveBeenCalledExactlyOnceWith(expect.any(Function), { sends: { customBasemap: { libraryStyle: "style-harbour" } } });
+    const request = patchMap.mock.calls[0][0] as (current: MapWithLayers | null) => Record<string, unknown>;
+    expect(request(map)).toEqual({ customBasemap: copyOf(HARBOUR) });
+    expect(request({ ...map, customBasemap: { ...copyOf(GREY), attribution: HARBOUR.attribution } })).toEqual({ customBasemap: copyOf(HARBOUR) });
   });
 
   it("offers the built-in styles alone when the read fails", async () => {

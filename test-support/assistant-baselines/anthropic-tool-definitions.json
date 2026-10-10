@@ -1,6 +1,6 @@
 {
   "count": 150,
-  "overall": "21dc28f02ccaa240bc7973e698b5da22c39cd1ae921922dd788024289c807ee4",
+  "overall": "37f778c5837015a125e447320292eb912dd51051093d4af5ab53a25bda936b9b",
   "tools": {
     "get_account": "f9449c42bd1f10ea7744e222cc62614d4a204d733c1126e6dcc7d958fb005cb1",
     "update_account": "70a14b66d198e2ac3c94bf8c358fd680c4a98319aa920c054b9c26c72f2f07ff",
@@ -16,8 +16,8 @@
     "update_user_access": "896a0f37c4a297e4c8790f34c955f5861f0b1b3363af4a7474ec11c92f502454",
     "delete_user": "69118f6c84d09fa5ce2f11fc35293fb2b3f70ddbe4df08ae8e0bf7f58e282714",
     "issue_user_sign_in_link": "d5e09e3840dee2918a1c81cb7173075336aeec9e2e907aa7674e5effc644c9c3",
-    "get_instance_settings": "5bcccb0cbb21a6716874f38a8d4c0f97ba395103b764a88c954befb981d4da1c",
-    "update_instance_settings": "9c63b3b23a6deabcdd8b126db998c5d94075cb0d6170241f0386cd4e4312249f",
+    "get_instance_settings": "6ecb6b0e59eee4fc2520d048bfd44c378cadb6b4935211fb6c90cf99ac72f067",
+    "update_instance_settings": "062a015fbca621980a3d7377ec622244de7b50b57c6032fe041a35c9883192fa",
     "clear_service_caches": "497f3d1cbde3d33e31e78aa6457bde2235bd8e914336a4834f039e7581d36dd1",
     "test_service": "05ed054db76cd82fe489a826379e7509f640bd94fd8afc6dfb22b20179624751",
     "read_storage": "77b62a73a927aa2eb28325f3b90b0058bede789f565ef0903a8f101b8eb196ec",

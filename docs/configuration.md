@@ -280,8 +280,13 @@ row, which then shows locked, naming the variable. The tile address is an
 address holding `{z}`, `{x}` and `{y}`, at most 2,048 characters, kept as
 [Service addresses and numbers](#service-addresses-and-numbers) describes:
 write-only, encrypted with the instance's key, read back as its scheme and host
-alone, and refused at save where the egress policy would refuse it now. The
-credit is text of at most 160 characters. Without a readable tile address
+alone, and refused at save where the egress policy would refuse it now. Unlike
+a service address, it is also refused at save when it carries a user name or
+password: a browser cannot load tiles from such an address, so the key belongs
+in the path or the query. One that carries them anyway, set by the variable or
+stored before saves refused it, reads with `userInformation: true` and is not
+drawn; the tab says so under the tile address. The credit is text of at most
+160 characters. Without a readable tile address
 Satellite leaves every basemap picker; a map on Satellite keeps its choice and
 draws the default style until an address is saved again. The tab's Test
 fetches one fixed low-zoom tile at the address in effect.
@@ -395,7 +400,7 @@ behavior and [the API guide](api.md#request-bounds) for exact refusals.
 | `DEZFIL_TIPPECANOE` | `tippecanoe` | Path to the tile-building binary (`src/lib/tiles/tiler.ts`). The image installs it on the path. | Restart |
 | `DEZFIL_BASEMAP_URL` | built-in styles | A MapLibre style URL that replaces the built-in basemap and pins it in both themes, for instances with no internet access (`src/lib/basemap.ts`). | Restart |
 | `DEZFIL_BASEMAP_ATTRIBUTION` | unset | Credit line shown on maps that use `DEZFIL_BASEMAP_URL`. Unset, no credit is shown for the override: the built-in credit would name a provider that is not serving the tiles. | Restart |
-| `DEZFIL_SATELLITE_URL` | unset | Raster tile URL template (`{z}/{y}/{x}`) for satellite imagery, with your own key or token. No imagery ships with the app; unset and with no tile address stored on the **Libraries** tab, no imagery basemap is offered at all. | App (live) or restart |
+| `DEZFIL_SATELLITE_URL` | unset | Raster tile URL template (`{z}/{y}/{x}`) for satellite imagery, with your own key or token in its path or query. No imagery ships with the app; unset and with no tile address stored on the **Libraries** tab, no imagery basemap is offered at all. A template with a user name or password in it is not drawn, because browsers do not load tiles from such an address; the **Libraries** tab says so under the tile address. | App (live) or restart |
 | `DEZFIL_SATELLITE_ATTRIBUTION` | unset | Credit line the imagery provider requires, shown on every map using it and stored with anything published from one. An admin can store it on the **Libraries** tab instead. | App (live) or restart |
 
 ## Publishing
