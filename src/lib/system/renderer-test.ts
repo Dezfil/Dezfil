@@ -16,8 +16,9 @@ import { executableFound } from "./executable";
  * The image renderer's Test: the browser as configured now photographs
  * the render route's fixed check picture, and the image is read back at
  * the mark and on the ground. It runs only on an image slot free now with
- * no image waiting, else answers busy at once, launching nothing; past
- * its limit the browser is killed and the slot given back.
+ * no image waiting, else answers busy at once, launching nothing. Its
+ * drive is held to `limitMs`, which ends before the Test's own limit: past
+ * it the browser is ended, and the slot given back once it is gone.
  */
 
 /** How far a channel may stray from the drawn color. */

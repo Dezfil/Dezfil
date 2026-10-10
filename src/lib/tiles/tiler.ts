@@ -24,7 +24,7 @@ let probe: Probe | null = null;
 
 /** How long a program asked to stop has to end on its own before it is
  * ended outright. */
-const STOP_GRACE_MS = 2_000;
+export const TILER_STOP_GRACE_MS = 2_000;
 
 /** How one bounded run of a program ended, and whether it was stopped. */
 interface ProgramRun {
@@ -60,7 +60,7 @@ function runProgram(bin: string, args: string[], limitMs: number, signal?: Abort
       if (ending || exited) return;
       ending = true;
       child.kill("SIGTERM");
-      force = setTimeout(() => { if (!exited) child.kill("SIGKILL"); }, STOP_GRACE_MS);
+      force = setTimeout(() => { if (!exited) child.kill("SIGKILL"); }, TILER_STOP_GRACE_MS);
     }
     function stop(): void {
       if (settled) return;

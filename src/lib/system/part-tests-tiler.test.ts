@@ -16,10 +16,10 @@ import { testAccountScope } from "@/lib/test-support/accounts";
 import { privateTileAccess } from "@/lib/tiles/access";
 import { ensureTiles, resetTileBuilds, tileBuildStateForTests, tileBuildsSettled } from "@/lib/tiles/build";
 import { tileArchivePath, tileScratchDir } from "@/lib/tiles/paths";
-import { knownTilerVersion } from "@/lib/tiles/tiler";
+import { knownTilerVersion, TILER_STOP_GRACE_MS } from "@/lib/tiles/tiler";
 import { instanceSettingsFixture } from "../../../test-support/instance-settings";
 import { PART_TEST_LIMITS, partTestWords, type PartTestAnswer } from "./part-test-answer";
-import { testPart } from "./part-tests";
+import { PART_TEST_ENDING_MS, partTestsSettled, testPart } from "./part-tests";
 
 /**
  * The tile builder's Test: the tiler as configured now, its version probed
@@ -74,6 +74,7 @@ afterEach(async () => {
     vi.useRealTimers();
     release?.();
     for (const pid of leftovers) if (Number.isInteger(pid) && pid > 1 && alive(pid)) process.kill(pid, "SIGKILL");
+    await partTestsSettled();
     await tileBuildsSettled();
     resetTileBuilds();
     resetQueryInstance();
@@ -189,26 +190,68 @@ describe("the tile builder's Test", () => {
     await vi.waitFor(() => expect(scratch()).toEqual([]), { timeout: 5000 });
   });
 
-  it("ends a program that ignores the stop after a short grace, keeping its folder until it is gone", async () => {
+  it("stops a program that ignores the stop early enough that it is ended, and its folder removed, within the Test's limit", async () => {
     const pid = path.join(bin, "stubborn.pid");
     // The stop is ignored before the id is noted, whole.
     vi.stubEnv("DEZFIL_TIPPECANOE", tiler("stubborn", `trap '' TERM\necho $$ > '${pid}.tmp' && mv '${pid}.tmp' '${pid}'\nexec sleep 120`).file);
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
-    const answer = test();
+    let answered = false;
+    const answer = test().finally(() => { answered = true; });
     for (let i = 0; i < 500 && !existsSync(pid); i += 1) await sleep(10);
     const program = Number(readFileSync(pid, "utf8"));
     leftovers.push(program);
-    await vi.advanceTimersByTimeAsync(PART_TEST_LIMITS.tile_builder * 1000);
-    expect(await answer).toEqual({ part: "tile_builder", result: "failed", reason: "timed_out" });
-    // Asked to stop, it runs on for now, and its folder stays while it does.
+    // Asked to stop before the limit, it runs on through its grace, its
+    // folder kept and no answer given while it does.
+    await vi.advanceTimersByTimeAsync(PART_TEST_LIMITS.tile_builder * 1000 - PART_TEST_ENDING_MS.tile_builder + 500);
     await sleep(200);
     expect(alive(program)).toBe(true);
     expect(scratch()).toHaveLength(1);
-    // Past the grace it is ended outright, and only then is its folder removed.
-    await vi.advanceTimersByTimeAsync(60_000);
+    expect(answered).toBe(false);
+    // Past the grace it is ended outright, its folder removed, and only then
+    // does the Test answer, all before its limit: the clock goes no further.
+    await vi.advanceTimersByTimeAsync(TILER_STOP_GRACE_MS);
     vi.useRealTimers();
-    await vi.waitFor(() => expect(alive(program), "the stopped program is still running").toBe(false), { timeout: 5000 });
-    await vi.waitFor(() => expect(scratch()).toEqual([]), { timeout: 5000 });
+    expect(await Promise.race([answer, sleep(5_000).then(() => "no answer by the limit" as const)]))
+      .toEqual({ part: "tile_builder", result: "failed", reason: "timed_out" });
+    expect(alive(program), "the stopped program outlived the answer").toBe(false);
+    expect(scratch(), "the folder outlived the answer").toEqual([]);
+  });
+
+  it("keeps a Test past its limit until its program is gone, so a Test asked at once joins it and no second program runs beside the first", async () => {
+    const list = path.join(bin, "stubborn.pids");
+    const overlap = path.join(bin, "overlap");
+    // Each start notes whether an earlier one still runs, then its own id,
+    // and ignores the polite stop.
+    vi.stubEnv("DEZFIL_TIPPECANOE", tiler("stubborn", [
+      "trap '' TERM",
+      `if [ -f '${list}' ]; then for p in $(cat '${list}'); do kill -0 "$p" 2>/dev/null && : > '${overlap}'; done; fi`,
+      `echo $$ >> '${list}'`,
+      "exec sleep 120",
+    ].join("\n")).file);
+    const started = () => existsSync(list) ? readFileSync(list, "utf8").split("\n").filter(Boolean).map(Number) : [];
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      const first = test();
+      for (let i = 0; i < 500 && started().length === 0; i += 1) await sleep(10);
+      expect(started()).toHaveLength(1);
+      await vi.advanceTimersByTimeAsync(PART_TEST_LIMITS.tile_builder * 1000);
+      expect(await first).toEqual({ part: "tile_builder", result: "failed", reason: "timed_out" });
+      // Asked again at once: time for a second program to start, were one started.
+      const second = test();
+      await sleep(1_000);
+      expect(existsSync(overlap), "two programs ran at once").toBe(false);
+      expect(started(), "a second program started while the first was still ending").toHaveLength(1);
+      vi.useRealTimers();
+      expect(await second).toEqual({ part: "tile_builder", result: "failed", reason: "timed_out" });
+      await vi.waitFor(() => expect(alive(started()[0])).toBe(false), { timeout: 5000 });
+      await vi.waitFor(() => expect(scratch()).toEqual([]), { timeout: 5000 });
+    } finally {
+      leftovers.push(...started());
+    }
+    // Once it has ended, the next Test runs anew.
+    await partTestsSettled();
+    vi.stubEnv("DEZFIL_TIPPECANOE", tiler("real", 'exec tippecanoe "$@"').file);
+    expect(await test()).toMatchObject({ part: "tile_builder", result: "passed" });
   });
 
   it("runs once for concurrent Tests, both getting its answer", async () => {

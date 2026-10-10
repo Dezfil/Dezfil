@@ -19,7 +19,7 @@ import { keepRequestsOnThisMachine } from "@/lib/test-support/outside-requests";
 import { testAccountScope } from "@/lib/test-support/accounts";
 import { instanceSettingsFixture } from "../../../test-support/instance-settings";
 import { PART_TEST_LIMITS, partTestWords, type PartTestAnswer } from "./part-test-answer";
-import { testPart } from "./part-tests";
+import { PART_TEST_ENDING_MS, partTestsSettled, testPart } from "./part-tests";
 
 /**
  * The image renderer's Test: the browser as configured now photographs the
@@ -63,6 +63,7 @@ beforeEach(() => {
   bin = mkdtempSync(path.join(SCRATCH, "renderer-"));
   seen = []; pids = []; stand.driver = null;
 });
+afterEach(() => partTestsSettled());
 afterEach(() => {
   try {
     // No answer holds a path, the browser's output or an error's words.
@@ -207,8 +208,9 @@ describe("the image renderer's Test", () => {
     vi.stubEnv("DEZFIL_CHROMIUM_PATH", hanging.file);
     const asked = Date.now();
     expect(await test()).toEqual({ part: "image_renderer", result: "failed", reason: "timed_out" });
-    expect(Date.now() - asked).toBeGreaterThanOrEqual(PART_TEST_LIMITS.image_renderer * 1000 - 50);
-    expect(Date.now() - asked).toBeLessThan(PART_TEST_LIMITS.image_renderer * 1000 + 2000);
+    // Stopped before the limit, so its browser is gone by then.
+    expect(Date.now() - asked).toBeGreaterThanOrEqual(PART_TEST_LIMITS.image_renderer * 1000 - PART_TEST_ENDING_MS.image_renderer - 50);
+    expect(Date.now() - asked).toBeLessThanOrEqual(PART_TEST_LIMITS.image_renderer * 1000);
     expect(hanging.started()).toBe(true);
     await vi.waitFor(() => expect(renderQueueState()).toEqual({ active: 0, waiting: 0 }), { timeout: 1000 });
   }, 30_000);

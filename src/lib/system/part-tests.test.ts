@@ -21,7 +21,7 @@ import { testAccountScope } from "@/lib/test-support/accounts";
 import { executeTool } from "@/lib/tools/execute";
 import { buildTools } from "@/lib/tools/tools";
 import { PARTS, PART_TEST_LIMITS, partTestWords, type PartTestAnswer } from "./part-test-answer";
-import { testPart } from "./part-tests";
+import { partTestsSettled, testPart } from "./part-tests";
 
 /**
  * A part's Test: one small fixed check of a part of this server as it is
@@ -97,6 +97,7 @@ afterEach(() => {
     f.close();
   }
 });
+afterEach(() => partTestsSettled());
 
 const ADMIN = () => ({ cookie: `dezfil_session=${f.admin.secret}`, origin: ORIGIN });
 function request(part: string, headers: Record<string, string> = ADMIN()) {
@@ -149,12 +150,25 @@ describe("the data folder's Test", () => {
     expect(JSON.stringify(seen)).not.toContain(folder);
   });
 
-  it("answers past its limit when the probe does not finish within it", async () => {
-    probe.hold = new Promise(() => {});
-    const started = Date.now();
-    expect((await runTest("data_folder")).body).toEqual({ part: "data_folder", result: "failed", reason: "timed_out" });
-    expect(Date.now() - started).toBeGreaterThanOrEqual(PART_TEST_LIMITS.data_folder * 1000 - 50);
-    expect(Date.now() - started).toBeLessThan(PART_TEST_LIMITS.data_folder * 1000 + 2000);
+  it("answers past its limit when the probe does not finish within it, and a Test asked while the probe still runs joins it", async () => {
+    const held = Promise.withResolvers<void>();
+    probe.hold = held.promise;
+    try {
+      const started = Date.now();
+      expect((await runTest("data_folder")).body).toEqual({ part: "data_folder", result: "failed", reason: "timed_out" });
+      expect(Date.now() - started).toBeGreaterThanOrEqual(PART_TEST_LIMITS.data_folder * 1000 - 50);
+      expect(Date.now() - started).toBeLessThan(PART_TEST_LIMITS.data_folder * 1000 + 2000);
+      // The probe has not ended: a Test asked now gets that run's answer, starting no second probe.
+      expect((await runTest("data_folder")).body).toEqual({ part: "data_folder", result: "failed", reason: "timed_out" });
+      expect(probe.calls, "a second probe ran beside the first").toBe(1);
+    } finally {
+      probe.hold = null;
+      held.resolve();
+    }
+    // Once it has ended, the next Test runs anew.
+    await partTestsSettled();
+    expect((await runTest("data_folder")).body).toMatchObject({ part: "data_folder", result: "passed" });
+    expect(probe.calls).toBe(2);
   }, 15_000);
 });
 

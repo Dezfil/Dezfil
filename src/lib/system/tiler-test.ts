@@ -10,6 +10,8 @@ import { probeTilerVersion, runTiler, tilerFound } from "@/lib/tiles/tiler";
  * the scratch at the next restart. The version is probed first, so it is
  * known from then on. The run is the build lane's own bounded step, taken
  * outside the lane: it neither waits behind a layer build nor holds one up.
+ * It is stopped `stopMs` after it starts, the probe's time included, and
+ * answers once the program is gone and its folder removed.
  */
 
 /** Four points in a small square, one feature per line, as the build lane
@@ -18,7 +20,8 @@ const POINTS = [[13.4, 52.52], [13.41, 52.52], [13.4, 52.53], [13.41, 52.53]]
   .map(([lng, lat], i) => JSON.stringify({ type: "Feature", properties: { n: i }, geometry: { type: "Point", coordinates: [lng, lat] } }))
   .join("\n") + "\n";
 
-export async function buildTestArchive(limitMs: number, signal: AbortSignal): Promise<"built" | "not_found" | "timed_out" | "failed"> {
+export async function buildTestArchive(stopMs: number, signal: AbortSignal): Promise<"built" | "not_found" | "timed_out" | "failed"> {
+  const stopAt = Date.now() + stopMs;
   if (!tilerFound()) return "not_found";
   await probeTilerVersion();
   if (signal.aborted) return "timed_out";
@@ -28,7 +31,7 @@ export async function buildTestArchive(limitMs: number, signal: AbortSignal): Pr
     const input = path.join(folder, "points.geojsonl");
     const output = path.join(folder, "points.pmtiles");
     await writeFile(input, POINTS);
-    const run = await runTiler(input, output, limitMs, signal);
+    const run = await runTiler(input, output, Math.max(stopAt - Date.now(), 1), signal);
     if (!run.ok) return run.reason;
     const archive = await stat(output).catch(() => null);
     return archive?.isFile() && archive.size > 0 ? "built" : "failed";

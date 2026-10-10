@@ -584,14 +584,15 @@ no-store answers. `POST /api/instance/parts/{part}/test` runs one small fixed
 check on one part as it is configured now, never one given in the call:
 `data_folder` writes and removes one empty file in the data folder within 5
 seconds; `query_engine` asks the engine that runs people's SQL one fixed
-spatial question within 30 seconds, starting a cold engine with the extensions
-already installed and installing nothing, so without the spatial extension it
-answers `not_found` and leaves the engine for the next query to start;
-`tile_builder` asks the tile builder its version, then builds a small archive
-from a few fixed points in its own scratch folder and removes it, within 30
-seconds, beside any layer build; a tile builder still running at the limit is
-asked to stop, ended outright if it has not 2 seconds later, and its folder
-removed once it is gone; `image_renderer` photographs a small fixed picture of
+spatial question within 30 seconds, interrupting it a second before them,
+starting a cold engine with the extensions already installed and installing
+nothing, so without the spatial extension it answers `not_found` and leaves the
+engine for the next query to start; `tile_builder` asks the tile builder its
+version, then builds a small archive from a few fixed points in its own scratch
+folder and removes it, within 30 seconds, beside any layer build; a tile builder
+still running 3 seconds before the limit is asked to stop, ended outright if it
+has not 2 seconds later, and its folder removed once it is gone, all within the
+30 seconds; `image_renderer` photographs a small fixed picture of
 this server's own within 10 seconds, only on an image slot free now with no
 image waiting, else it answers `busy` at once, and an image asked meanwhile
 waits for it as behind any image; its browser is closed, or ended, within those
@@ -601,8 +602,9 @@ writing nothing. It answers `{ part, result: "passed", milliseconds }` or
 `result: "failed"` with one `reason`: `not_found`, `busy`, `timed_out` or
 `failed`; never a path, a program's output or an error's words. It changes no
 setting, leaves no file and sends nothing outside this server; a second Test of
-a part while one runs gets the same answer. `GET /api/instance/storage` answers
-what the data folder holds by kind (`tables`, `tile_archives`,
+a part asked while one runs, its part's work still ending included, gets that
+run's answer. `GET /api/instance/storage` answers what the data folder holds by
+kind (`tables`, `tile_archives`,
 `service_caches`, `thumbnails`, `metadata_database`, `leftover_files` and
 `other`), each as `{ bytes, files, finished }`, with the `total` and the
 volume's `disk` space, `{ free, total }` or null. `leftover_files` is what the

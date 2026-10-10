@@ -10,7 +10,7 @@ import { connectQueryInstance, engineStateForTests, h3Available, hasQueryInstanc
 import { keepRequestsOnThisMachine } from "@/lib/test-support/outside-requests";
 import { instanceSettingsFixture } from "../../../test-support/instance-settings";
 import { PART_TEST_LIMITS, type PartTestAnswer } from "./part-test-answer";
-import { testPart } from "./part-tests";
+import { partTestsSettled, testPart } from "./part-tests";
 
 /**
  * The query engine's Test: one fixed spatial question, with a known answer,
@@ -114,6 +114,8 @@ afterEach(() => {
     f.close();
   }
 });
+// Runs before the hook above: each Test's question has ended before the engine is reset.
+afterEach(() => partTestsSettled());
 
 async function test(): Promise<PartTestAnswer> {
   const answer = await testPart(f.context, "query_engine", f.db);

@@ -111,19 +111,20 @@ export const INSTANCE_SYSTEM_PATHS = {
       "Cookie requests require the same trusted Origin; an admin bearer token calls directly. Responses, including refusals, are private, no-store. " +
       "Runs one small fixed check on one part of this server as it is configured now, never one given here: data_folder writes and removes one " +
       "empty file in the data folder, as the readiness check does, within 5 seconds; query_engine asks the engine that runs people's SQL one fixed " +
-      "spatial question with a known answer within 30 seconds, interrupting it past them, and starts a cold engine for it loading only the " +
+      "spatial question with a known answer within 30 seconds, interrupting it a second before them, and starts a cold engine for it loading only the " +
       "extensions already installed: it installs nothing, so without the spatial extension it answers not_found and leaves the engine for the next " +
       "query to start, and a missing optional extension stays off until the next start; tile_builder asks the tile builder for its version, then " +
       "builds a small archive from a few fixed points in a folder of its own under the tile scratch and removes it, within 30 seconds, beside any " +
-      "layer build, neither waiting behind one nor holding one up; a tile builder still running at the limit is asked to stop, ended outright " +
-      "if it has not 2 seconds later, and its folder removed once it is gone; image_renderer has the image renderer's browser photograph a small fixed " +
+      "layer build, neither waiting behind one nor holding one up; a tile builder still running 3 seconds before the limit is asked to stop, ended " +
+      "outright if it has not 2 seconds later, and its folder removed once it is gone, all within the 30 seconds; image_renderer has the image " +
+      "renderer's browser photograph a small fixed " +
       "picture of this server's own, from no map or data, and reads its mark's color back, within 10 seconds, only on an image slot free now with " +
       "no image waiting: otherwise it answers busy at once, launching nothing, and an image asked while it runs waits for it as behind any image; " +
       "its browser is closed, or ended, within those 10 seconds, and only then is its slot free again; " +
       "metadata_database takes the metadata database's write lock, " +
       "reads the schema's version and gives the lock back, writing nothing, answering busy when other work holds the lock past the database's " +
-      "5-second wait. It changes no setting, leaves no file and sends nothing outside this server. A second Test of a part while one runs gets " +
-      "the same answer from the same run. " +
+      "5-second wait. It changes no setting, leaves no file and sends nothing outside this server. A second Test of a part asked while one runs, " +
+      "its part's work still ending included, gets that run's answer. " +
       "The embedded assistant asks for confirmation before calling; SQL and workflow assistants refuse this operation. " +
       "MCP advertises that policy and adds no confirmation step.",
     tag: "System", tool: "test_part", toolInput: { closed: true },
