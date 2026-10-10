@@ -1,15 +1,32 @@
 import type { SettingDefault, SettingDefinition } from "./types";
 
-export type AddressDisclosure = { set: false } | { set: true; origin: string } | { set: true; unreadable: true };
+export type AddressDisclosure = { set: false } | { set: true; origin: string; userInformation?: true } | { set: true; unreadable: true };
 
-/** A path or template can contain credentials just as user information or a query can. */
-export function discloseAddress(value: string | null): AddressDisclosure {
+/** A path or template can contain credentials just as user information or a query can.
+ * Where asked (a tile template browsers load), it also says that the address
+ * carries user information, never what it is: no browser loads tiles from it. */
+export function discloseAddress(value: string | null, reportUserInformation = false): AddressDisclosure {
   if (!value?.trim()) return { set: false };
   try {
     const url = new URL(value);
     if (!url.host) return { set: true, unreadable: true };
-    return { set: true, origin: `${url.protocol}//${url.host}` };
+    const carries = reportUserInformation && (url.username !== "" || url.password !== "");
+    return { set: true, origin: `${url.protocol}//${url.host}`, ...(carries ? { userInformation: true as const } : {}) };
   } catch { return { set: true, unreadable: true }; }
+}
+
+/** Whether an address carries user information: a user name, a password or both. */
+export function carriesUserInformation(address: string): boolean {
+  try {
+    const url = new URL(address);
+    return url.username !== "" || url.password !== "";
+  } catch { return false; }
+}
+
+/** Whether a setting's address takes no user information at save (a tile
+ * template browsers load), so its read reports the one in effect carrying some. */
+export function refusesUserInformation(definition: SettingDefinition): boolean {
+  return definition.write?.kind === "address" && definition.write.userInformation === "refused";
 }
 
 /** What may be said about an address anywhere: its scheme and host (with a

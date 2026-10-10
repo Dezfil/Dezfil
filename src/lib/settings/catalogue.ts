@@ -22,13 +22,15 @@ function stored(key: string, label: string, purpose: string, defaultValue: Setti
 }
 const choice = (...values: string[]): WriteConstraint => ({ kind: "choice", values });
 /** An address set by its variable or stored by an admin beside it (a
- * service's, or the imagery's tile template with its placeholders): a set
- * variable locks it. Write-only, like the rest of the address kind: what
- * any read gives back is its scheme and host. */
+ * service's, or the imagery's tile template with its placeholders, which
+ * browsers load and so takes no user information): a set variable locks
+ * it. Write-only, like the rest of the address kind: what any read gives
+ * back is its scheme and host. */
 function serviceAddress(key: string, environment: string, label: string, purpose: string,
-  defaultValue: SettingDefault, documentedDefault: string, placeholders?: readonly string[]): SettingDefinition {
+  defaultValue: SettingDefault, documentedDefault: string, template?: { readonly placeholders: readonly string[] }): SettingDefinition {
   return { ...deployment(key, environment, "address", label, purpose, defaultValue, documentedDefault),
-    changedBy: "admin", timing: "live", editable: true, write: { kind: "address", maxLength: 2048, ...(placeholders ? { placeholders } : {}) } };
+    changedBy: "admin", timing: "live", editable: true,
+    write: { kind: "address", maxLength: 2048, ...(template ? { placeholders: template.placeholders, userInformation: "refused" as const } : {}) } };
 }
 /** Text set by its variable or stored by an admin beside it: a set variable locks it. */
 function textBeside(key: string, environment: string, label: string, purpose: string, maxLength: number): SettingDefinition {
@@ -66,7 +68,7 @@ export const SETTING_CATALOGUE: readonly SettingDefinition[] = [
   deployment("tippecanoe", "DEZFIL_TIPPECANOE", "path", "Tile builder", "Binary used to build vector tiles.", "tippecanoe", "tippecanoe"),
   deployment("basemapUrl", "DEZFIL_BASEMAP_URL", "address", "Basemap address", "Style override pinning the automatic basemap in both themes.", { rule: "built-in-basemap-for-theme" }, "built-in styles"),
   deployment("basemapAttribution", "DEZFIL_BASEMAP_ATTRIBUTION", "text", "Basemap credit", "Credit line for the deployment basemap override.", null, "unset"),
-  serviceAddress("satelliteUrl", "DEZFIL_SATELLITE_URL", "Satellite template", "Raster tile template enabling satellite imagery.", null, "unset", ["{z}", "{x}", "{y}"]),
+  serviceAddress("satelliteUrl", "DEZFIL_SATELLITE_URL", "Satellite template", "Raster tile template enabling satellite imagery.", null, "unset", { placeholders: ["{z}", "{x}", "{y}"] }),
   textBeside("satelliteAttribution", "DEZFIL_SATELLITE_ATTRIBUTION", "Satellite credit", "Credit line required by the imagery provider.", 160),
   serviceAddress("geocoderUrl", "DEZFIL_GEOCODER_URL", "Address finder", "Nominatim-compatible endpoint for search and batch geocoding.", null, "unset"),
   serviceAddress("isochroneUrl", "DEZFIL_ISOCHRONE_URL", "Travel-time endpoint", "Valhalla-compatible endpoint for travel-time areas.", null, "unset"),

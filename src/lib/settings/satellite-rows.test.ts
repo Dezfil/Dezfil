@@ -14,18 +14,20 @@ import { resetSecretKeyCache } from "@/lib/secrets";
 import { socketRequest } from "@/lib/assistant/testing/socket-request";
 import { recordedArguments } from "@/lib/assistant/recorded-arguments";
 import { resolveServiceAddress } from "./service-address";
-import { readStoredSettings } from "./store";
+import { readStoredSettings, writeStoredSettings } from "./store";
 import { instanceSettingsFixture } from "../../../test-support/instance-settings";
 
 /**
  * The rows Libraries draws: the five basemap switches, stored with no
  * variable; the satellite imagery's tile template, stored beside its
  * variable on the service addresses' rules, refused at save without its
- * placeholders or where the egress policy would refuse a tile request to
- * it; and its credit, stored beside its variable as text.
+ * placeholders, carrying user information (no browser loads tiles from
+ * such an address) or where the egress policy would refuse a tile request
+ * to it; and its credit, stored beside its variable as text.
  */
 const SEEDS = ["SEEDED-KEY-0003-USER", "SEEDED-KEY-0003-PATH", "SEEDED-KEY-0003-QUERY"];
-const at = (host: string) => `https://seed-user:${SEEDS[0]}@${host}/${SEEDS[1]}/{z}/{x}/{y}.jpg?key=${SEEDS[2]}`;
+/** A template at a host, its key in the path and the query. */
+const at = (host: string) => `https://${host}/${SEEDS[1]}/{z}/{x}/{y}.jpg?key=${SEEDS[2]}`;
 const BLOCKED = `satelliteUrl: ${egressBlockedError().message}`;
 const KIND = "satelliteUrl: Expected an http or https address of at most 2048 characters.";
 const PUBLIC = [{ address: "203.0.113.10", family: 4 }];
@@ -160,6 +162,62 @@ describe("the tile template at save", () => {
       expect((await executeTool(tool, { satelliteUrl: at("inside.example") }, "http://instance.test", fetch)).status).toBe(200);
       expect(resolveServiceAddress("satelliteUrl", f.db)).toEqual({ address: at("inside.example"), source: "stored" });
     } finally { await client.close(); }
+  });
+});
+
+/** A template on a public name whose key is in its user information too. */
+const withUser = (user: string, host = "imagery.example") => `https://${user}@${host}/${SEEDS[1]}/{z}/{x}/{y}.jpg?key=${SEEDS[2]}`;
+const CREDENTIALS = "satelliteUrl: A browser cannot load tiles from an address that carries a user name or password; put the key in the path or the query.";
+
+describe("a tile template carrying user information", () => {
+  it.each([
+    ["a user name and a password", withUser(`seed-user:${SEEDS[0]}`)],
+    ["a user name alone", withUser(SEEDS[0])],
+    ["a password alone", withUser(`:${SEEDS[0]}`)],
+  ])("is refused at save from the page with %s, saying where the key belongs, repeating nothing, before any lookup", async (_name, template) => {
+    await refusedAtSave({ satelliteUrl: template }, CREDENTIALS);
+    expect(dns.lookup).not.toHaveBeenCalled();
+  });
+
+  it("is refused by token through the API, the generated tool and MCP, repeating nothing", async () => {
+    const template = withUser(`seed-user:${SEEDS[0]}`);
+    const byToken = await dispatch("http://instance.test/api/instance/settings", { method: "PATCH",
+      headers: { "content-type": "application/json" }, body: JSON.stringify({ satelliteUrl: template }) });
+    const text = await byToken.text();
+    expect(byToken.status, text).toBe(400);
+    expect(JSON.parse(text)).toEqual({ error: { code: "invalid_request", message: CREDENTIALS } });
+    const tool = buildTools().find(t => t.name === "update_instance_settings")!;
+    const fetch = vi.fn(dispatch), client = await testClient(vi.fn((request: Request) => dispatch(request)));
+    try {
+      const result = await executeTool(tool, { satelliteUrl: template }, "http://instance.test", fetch);
+      expect(result.status).toBe(400);
+      const mcp = await client.callTool({ name: tool.name, arguments: { satelliteUrl: template } });
+      expect(mcp.isError).toBe(true);
+      for (const answer of [result, mcp]) expect(JSON.stringify(answer)).toContain(CREDENTIALS);
+      expectNoSeed([text, result, mcp]);
+    } finally { await client.close(); }
+    expect(stored()).toEqual([]);
+  });
+
+  it("stored before saves refused it, or set by the variable, still resolves and reads as carrying user information", async () => {
+    const template = withUser(`seed-user:${SEEDS[0]}`);
+    writeStoredSettings({ satelliteUrl: template }, f.db);
+    expect(resolveServiceAddress("satelliteUrl", f.db)).toEqual({ address: template, source: "stored" });
+    const kept = await read();
+    expect(kept.satelliteUrl).toMatchObject({ value: { set: true, origin: "https://imagery.example", userInformation: true }, source: "stored", storedValue: null });
+    vi.stubEnv("DEZFIL_SATELLITE_URL", withUser(`seed-user:${SEEDS[0]}`, "pinned.example"));
+    const pinned = await read();
+    expect(pinned.satelliteUrl).toMatchObject({ value: { set: true, origin: "https://pinned.example", userInformation: true }, source: "environment", locked: true });
+    expectNoSeed([kept, pinned]);
+  });
+
+  it("is not said of a template without it, nor of a service address that carries it", async () => {
+    const template = `https://imagery.example/${SEEDS[1]}/{z}/{x}/{y}.jpg?key=${SEEDS[2]}`;
+    await keptAtSave(template);
+    vi.stubEnv("DEZFIL_GEOCODER_URL", `https://seed-user:${SEEDS[0]}@geocoder.example/${SEEDS[1]}/search`);
+    const settings = await read();
+    expect(settings.satelliteUrl.value).toEqual({ set: true, origin: "https://imagery.example" });
+    expect(settings.geocoderUrl.value).toEqual({ set: true, origin: "https://geocoder.example" });
   });
 });
 

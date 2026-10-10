@@ -39,6 +39,7 @@ import { testAccountRequest, testAccountScope } from "@/lib/test-support/account
 import { keepRequestsOnThisMachine } from "@/lib/test-support/outside-requests";
 import { executeTool } from "@/lib/tools/execute";
 import { buildTools } from "@/lib/tools/tools";
+import { USER_INFORMATION_REFUSED } from "./address-admission";
 import { secretForms } from "./address-secrets";
 import { SETTING_CATALOGUE } from "./catalogue";
 
@@ -47,7 +48,11 @@ import { SETTING_CATALOGUE } from "./catalogue";
  * template, may carry a key in its user information, its path and its
  * query. Here one is set from the page, by the variable, through the
  * generated tool and through the embedded assistant, and then searched for
- * in everything the server says or keeps afterwards: every read, change
+ * in everything the server says or keeps afterwards. A save refuses a
+ * template carrying user information (no browser loads tiles from it), so
+ * the template's key is saved in its path and query, its user information
+ * given on each of those roads and refused, and set by the variable alone,
+ * where it still travels to every sink: every read, change
  * answer and refusal, the assistant's confirmation, events, pending receipt
  * and stored record (a call giving an address as a list or an object, and
  * its refusal, among them), the Test answers and Clear's, the settings
@@ -158,9 +163,11 @@ let heldSigningKey: unknown;
 /** How a fixture service fails: down, a page not found, an error remark. */
 type Fault = "down" | "missing" | "remark";
 
-/** A service's address on the fixture, its key in all three places. */
+/** A service's address on the fixture, its key in all three places; the
+ * tile template's in its path and query unless asked, as a save refuses
+ * one carrying user information. */
 function address(key: AddressKey, options: { seeds?: Seeds; at?: number; fault?: Fault; host?: string; user?: boolean } = {}): string {
-  const { seeds = SAVED, at = port, fault, host = "127.0.0.1", user = true } = options;
+  const { seeds = SAVED, at = port, fault, host = "127.0.0.1", user = key !== "satelliteUrl" } = options;
   return `http://${user ? `seed-user:${seeds[0]}@` : ""}${host}:${at}/${fault ? `${fault}-` : ""}${SLUG[key]}-${seeds[1]}${TAIL[key] ?? ""}?key=${seeds[2]}`;
 }
 
@@ -365,7 +372,7 @@ describe("a service address carrying a key", () => {
     await reads("saved from the page", "stored");
   });
 
-  it("refused: blocked space, a scheme the kind refuses, past the length, not an address, a member's change and read", async () => {
+  it("refused: blocked space, a scheme the kind refuses, past the length, not an address, a tile template carrying user information, a member's change and read", async () => {
     const refused = [
       ["blocked space", await save({ geocoderUrl: address("geocoderUrl", { host: "10.0.0.7" }) })],
       ["a refused scheme", await save({ isochroneUrl: address("isochroneUrl").replace(/^http:/, "ftp:") })],
@@ -373,6 +380,7 @@ describe("a service address carrying a key", () => {
       ["not an address", await save({ s3Endpoint: address("s3Endpoint").replace("http://", "") })],
       ["a tile template missing its placeholders", await save({ satelliteUrl: address("satelliteUrl").replace("/{z}/{x}/{y}", "") })],
       ["a tile template in blocked space", await save({ satelliteUrl: address("satelliteUrl", { host: "10.0.0.7" }) })],
+      ["a tile template carrying user information", await save({ satelliteUrl: address("satelliteUrl", { user: true }) })],
       ["a member's change", await ask("PATCH", "/api/instance/settings", { geocoderUrl: address("geocoderUrl") }, "member")],
       ["a member's read", await ask("GET", "/api/instance/settings", undefined, "member")],
     ] as const;
@@ -380,6 +388,8 @@ describe("a service address carrying a key", () => {
       expect(answer.status, what).toBeGreaterThanOrEqual(400);
       searched(`the refusal: ${what}`, answer.text);
     }
+    const credentials = refused.find(([what]) => what === "a tile template carrying user information")![1];
+    expect(credentials.body).toEqual({ error: { code: "invalid_request", message: `satelliteUrl: ${USER_INFORMATION_REFUSED}` } });
     // Nothing refused was kept.
     await reads("after the refusals", "stored");
   });
@@ -502,6 +512,10 @@ describe("a service address carrying a key", () => {
     const refusedTemplate = await executeTool(tool("update_instance_settings"), { satelliteUrl: address("satelliteUrl").replace("{y}", "") }, BASE, toolFetch);
     expect(refusedTemplate.status).toBe(400);
     searched("the generated tool's refusal of a tile template", refusedTemplate.body);
+    const refusedCredentials = await executeTool(tool("update_instance_settings"), { satelliteUrl: address("satelliteUrl", { user: true }) }, BASE, toolFetch);
+    expect(refusedCredentials.status).toBe(400);
+    expect(JSON.stringify(refusedCredentials.body)).toContain(USER_INFORMATION_REFUSED);
+    searched("the generated tool's refusal of a tile template carrying user information", refusedCredentials.body);
     await reads("set through the generated tool", "stored");
   });
 
@@ -539,15 +553,19 @@ describe("a service address carrying a key", () => {
     await reads("set through the embedded assistant", "stored");
   });
 
-  it("given to the embedded assistant as a list and as an object: its confirmation, events, pending receipt, refusal and stored record", async () => {
+  it("given to the embedded assistant as a list, as an object and as a tile template carrying user information: its confirmation, events, pending receipt, refusal and stored record", async () => {
     const scope = testAccountScope(metadataDb(), ADMIN);
-    for (const [what, given] of [["a list", [address("geocoderUrl")]], ["an object", { address: address("geocoderUrl") }]] as const) {
+    for (const [what, key, given, shown] of [
+      ["a list", "geocoderUrl", [address("geocoderUrl")], "not an address"],
+      ["an object", "geocoderUrl", { address: address("geocoderUrl") }, "not an address"],
+      ["a tile template carrying user information", "satelliteUrl", address("satelliteUrl", { user: true }), origin],
+    ] as const) {
       const pending = new PendingActionStore();
       const provider = stubProvider([
-        { text: "", toolCalls: [{ id: "point-the-finder", name: "update_instance_settings", args: { geocoderUrl: given } }] },
+        { text: "", toolCalls: [{ id: "point-the-finder", name: "update_instance_settings", args: { [key]: given } }] },
         { text: "Refused.", toolCalls: [] },
       ]);
-      const message = `Use our address finder, given as ${what}`;
+      const message = `Use this, given as ${what}`;
       const receipt = assistantRuns.reserve(scope);
       assistantRuns.bind(scope, receipt.id, { message });
       const deps = { scope, baseUrl: BASE, pending, fetchImpl: toolFetch, runId: receipt.id };
@@ -556,7 +574,7 @@ describe("a service address carrying a key", () => {
       const question = asked.find(event => event.type === "confirm_required");
       if (question?.type !== "confirm_required") throw new Error("expected a confirmation");
       searched(`the assistant's confirmation of an address given as ${what}`, question);
-      expect(question.args).toEqual({ geocoderUrl: "not an address" });
+      expect(question.args).toEqual({ [key]: shown });
       searched(`the assistant's events before the decision on ${what}`, asked);
       const waiting = await ask("GET", "/api/assistant/pending");
       expect(waiting.status).toBe(200);
@@ -566,6 +584,7 @@ describe("a service address carrying a key", () => {
       assistantRuns.resume(scope, receipt.id, "approved");
       const done = await streamed(runStream(scope, resumeAssistant(parked, true, deps), receipt.id));
       expect(done).toContainEqual(expect.objectContaining({ type: "tool_result", tool: "update_instance_settings", ok: false }));
+      if (key === "satelliteUrl") expect(JSON.stringify(done)).toContain(USER_INFORMATION_REFUSED);
       searched(`the assistant's events after the decision on ${what}, its refusal among them`, done);
       const record = await ask("GET", `/api/assistant/runs/${receipt.id}`);
       expect(record.status).toBe(200);
@@ -576,9 +595,13 @@ describe("a service address carrying a key", () => {
   });
 
   it("set by the variable: the reads, the search, the locked refusal, a Test and a run admitted under it", async () => {
-    for (const key of KEYS) vi.stubEnv(VARIABLE[key], address(key));
+    // The tile template's key in its user information too: a variable has no save to refuse it.
+    for (const key of KEYS) vi.stubEnv(VARIABLE[key], address(key, { user: true }));
     try {
       await reads("set by the variable", "environment");
+      // The read says the template carries user information, never what it is.
+      const read = await ask("GET", "/api/instance/settings");
+      expect(read.body.settings.satelliteUrl.value).toEqual({ set: true, origin, userInformation: true });
       const locked = await save({ geocoderUrl: address("geocoderUrl") });
       expect(locked.status).toBe(409);
       expect(locked.text).toContain(VARIABLE.geocoderUrl);
@@ -600,7 +623,7 @@ describe("a service address carrying a key", () => {
     const style = await ask("GET", SATELLITE_STYLE_URL);
     expect(style.status, style.text).toBe(200);
     // The one place the template is whole: a browser drawing the imagery loads it.
-    expect(leaks(style.text)).toEqual(expect.arrayContaining([...SAVED]));
+    expect(leaks(style.text)).toEqual(expect.arrayContaining([SAVED[1], SAVED[2]]));
     const anonymous = await imageryRoute(socketRequest(new Request(`${BASE}${SATELLITE_STYLE_URL}`)));
     expect(anonymous.status).toBe(401);
     searched("the imagery style refused to an anonymous request", await anonymous.text());

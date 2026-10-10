@@ -25,7 +25,8 @@ import styles from "./DataTab.module.css";
  * saved address the instance's key cannot read. An address is pasted
  * whole and kept on Save, never shown again; Remove asks first. Set by
  * the server's environment, the row is the locked field naming its
- * variable.
+ * variable. A tile template in effect that carries a user name or password
+ * says under it that browsers draw nothing from it.
  *
  * Typed text holds the page as any typed text does, but it never reaches
  * the search: an address may carry a key.
@@ -50,10 +51,15 @@ export function ServiceAddressRow({ row, setting, card, onAnswer, labels = DATA_
   useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
   if (!setting) return null;
 
+  // Said while the address in effect carries user information, where the
+  // row has words for it: a template no browser loads tiles from.
+  const credentials = row.userInformation && (setting.value as { userInformation?: boolean } | null)?.userInformation === true
+    ? <RowError id={`${id}-credentials`}>{row.userInformation}</RowError> : null;
   const decided = serverSetState(setting);
   if (decided) {
     return <SettingRow id={row.id} label={row.label} meta={row.meta}>
       <LockedField label={row.name} value={addressWords(row, setting)} mono state={decided} />
+      {credentials}
     </SettingRow>;
   }
 
@@ -103,6 +109,7 @@ export function ServiceAddressRow({ row, setting, card, onAnswer, labels = DATA_
         {saved && <SavedMark />}
       </span>}
       {state.kind === "unreadable" && <RowError id={`${id}-unreadable`}>The instance’s encryption key cannot read the saved address. Save it again.</RowError>}
+      {credentials}
       <TextInput className={styles.addressField} type="url" inputMode="url" autoComplete="off" spellCheck={false} aria-label={row.name}
         placeholder={row.placeholder} value={text} disabled={busy} aria-invalid={error ? true : undefined} aria-describedby={error ? errorId : undefined}
         onChange={event => { setText(event.target.value); setError(null); setSaved(false); }} />

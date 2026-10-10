@@ -1,5 +1,5 @@
 import { SETTING_CATALOGUE } from "@/lib/settings/catalogue";
-import { disclosedDefinition } from "@/lib/settings/disclosure";
+import { disclosedDefinition, refusesUserInformation } from "@/lib/settings/disclosure";
 import { isInstanceDefault } from "@/lib/settings/instance-defaults";
 import type { SettingDefinition, WriteConstraint } from "@/lib/settings/types";
 import { EXPORT_MAX_DIMENSION } from "@/lib/export/space";
@@ -15,8 +15,13 @@ const object = <T extends Record<string, unknown>>(properties: T) => ({
   type: "object", properties, required: Object.keys(properties), additionalProperties: false,
 });
 const rule = object({ rule: { type: "string" } });
-const address = { oneOf: [object({ set: { const: false } }), object({ set: { const: true }, origin: { type: "string", description: "Scheme and host only, including the port when set. No user information, path, query or fragment." } }),
+const ORIGIN = { type: "string", description: "Scheme and host only, including the port when set. No user information, path, query or fragment." };
+const address = { oneOf: [object({ set: { const: false } }), object({ set: { const: true }, origin: ORIGIN }),
   object({ set: { const: true }, unreadable: { const: true } }), rule] };
+/** A tile template browsers load also says when the one in effect carries user information. */
+const template = { oneOf: [...address.oneOf.slice(0, 2), object({ set: { const: true }, origin: ORIGIN,
+  userInformation: { const: true, description: "The template in effect carries a user name or password, never given here. No browser loads tiles from such an address, so the imagery is not drawn." } }),
+  ...address.oneOf.slice(2)] };
 
 /** One site as the sites kind takes it: http or https, a host and an
  * optional port, an optional closing slash, nothing else. The server also
@@ -34,7 +39,7 @@ function valueSchema(definition: SettingDefinition): Record<string, unknown> {
   if (definition.secret) return definition.key === "secretKey"
     ? object({ status: { type: "string", enum: ["environment", "data-directory", "not-yet-present"] } })
     : object({ set: { type: "boolean" } });
-  if (definition.kind === "address") return address;
+  if (definition.kind === "address") return refusesUserInformation(definition) ? template : address;
   const value = definition.write?.kind === "sites" ? { type: "array", maxItems: definition.write.maxSites, items: KEPT_SITE }
     : definition.kind === "number" ? { type: "number" } : definition.kind === "boolean" ? { type: "boolean" }
     : definition.kind === "list" ? { type: "array", items: { type: "string" } } : { type: ["string", "null"] };
@@ -106,6 +111,8 @@ export const INSTANCE_SETTINGS_SCHEMAS = {
           "Each is kept as its scheme, host and port, a repeated site once; an empty list clears to the default."
         : constraint.kind === "address" ? `An http or https address with a host, at most ${constraint.maxLength} characters once trimmed, kept as given. ` +
           (constraint.placeholders ? `It must hold ${constraint.placeholders.join(", ")}; the save-time check reads it with each filled with a digit. ` : "") +
+          (constraint.userInformation === "refused" ? "It must carry no user name or password: a browser cannot load tiles from such an address, " +
+            "so the key belongs in the path or the query. " : "") +
           "Write-only: it is stored encrypted with the instance's key and every read gives back its scheme and host alone, so a new key " +
           `means sending the whole address again. A set ${definition.environment} locks it.` : "";
       return [definition.key, { ...schema, description: `${definition.label}. ${definition.purpose} Null clears the stored value. ${note}`.trim() }];
@@ -132,7 +139,9 @@ export const INSTANCE_SETTINGS_PATHS = {
       "Provider keys report set or not set; the encryption key reports environment, data-directory or not-yet-present. " +
       "Address value and defaultValue expose scheme and host only, never user information, paths, queries or fragments; malformed addresses report set and unreadable. " +
       "A service address or the satellite tile template an admin stored reads as set with its scheme and host, or as set and unreadable once the instance's " +
-      "encryption key no longer opens it; its storedValue is always null. The satellite credit an admin stored reads as stored while DEZFIL_SATELLITE_ATTRIBUTION " +
+      "encryption key no longer opens it; its storedValue is always null. The satellite tile template in effect, stored or set by DEZFIL_SATELLITE_URL, " +
+      "also reads with userInformation true while it carries a user name or password, which is never given: no browser loads tiles from such an address, " +
+      "so the imagery is not drawn. The satellite credit an admin stored reads as stored while DEZFIL_SATELLITE_ATTRIBUTION " +
       "is unset, and as the variable's, with the stored credit as storedValue, while it is set. " +
       "The built-in documentedDefault stays as documented, including any path. " +
       "Contextual defaults carry a rule when there is no single address or value. The read generates no key, writes no configuration file, " +
@@ -167,7 +176,8 @@ export const INSTANCE_SETTINGS_PATHS = {
       "Returns the same configuration as the read, with the same secret and address disclosure rules. No secret is accepted. " +
       "The four service addresses (geocoderUrl, isochroneUrl, overpassUrl, s3Endpoint) and the satellite imagery's tile template (satelliteUrl) are write-only: " +
       "each is stored encrypted and read back as its scheme and host alone; a refusal names the key and never repeats the address. " +
-      "The template must also hold {z}, {x} and {y}, a refusal naming the ones missing. Before the write, an address is also refused " +
+      "The template must also hold {z}, {x} and {y}, a refusal naming the ones missing, and carry no user name or password, refused " +
+      "before any lookup with a sentence saying a browser cannot load tiles from such an address and the key belongs in the path or the query. Before the write, an address is also refused " +
       "(400 invalid_request, with the egress policy's own sentence) when that policy would refuse a request to it now, a template with each placeholder " +
       "filled with a digit: a literal in loopback, private, carrier-grade, link-local or metadata, unique-local, unspecified, multicast or reserved space, " +
       "mapped and NAT64 forms included, or a name all of whose addresses resolve there, unless DEZFIL_EGRESS_ALLOWLIST names it. " +

@@ -48,8 +48,9 @@ import { createMap, readMap, updateMap } from "./map-service";
  */
 
 const ORIGIN = "http://instance.test";
-const SEEDS = ["SEEDED-KEY-0006-USER", "SEEDED-KEY-0006-PATH", "SEEDED-KEY-0006-QUERY"];
-const TEMPLATE = `https://seed-user:${SEEDS[0]}@imagery.example/${SEEDS[1]}/{z}/{x}/{y}.jpg?key=${SEEDS[2]}`;
+const SEEDS = ["SEEDED-KEY-0006-PATH", "SEEDED-KEY-0006-QUERY"];
+// The key in the path and the query: a save refuses one in the user information.
+const TEMPLATE = `https://imagery.example/${SEEDS[0]}/{z}/{x}/{y}.jpg?key=${SEEDS[1]}`;
 const CREDIT = "© Imagery Provider";
 const DEFAULT_STYLE = BASEMAPS[0].url;
 
