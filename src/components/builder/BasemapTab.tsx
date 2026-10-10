@@ -1,6 +1,6 @@
 "use client";
 
-import type { BasemapKey, BasemapStyle } from "@/lib/basemap";
+import { SINGLE_MAP_STYLES_OFF, type BasemapKey, type BasemapStyle } from "@/lib/basemap";
 import type { BasemapLayerGroup } from "@/lib/basemap-layers";
 import type { MapWithLayers } from "@/lib/metadata/maps";
 import { BasemapPanel } from "./BasemapPanel";
@@ -12,7 +12,8 @@ import { useLibraryStyles } from "./use-library-styles";
  * custom style's save/remove, and the group toggles, whose bodies build
  * from server truth at their turn so rapid toggles compose. A style the
  * instance's library offers is taken by its id: the server copies it onto
- * the map.
+ * the map. While single maps take only the library's styles, the paste
+ * control is drawn disabled with the rule's sentence, for everyone.
  */
 export function BasemapTab({
   map,
@@ -37,12 +38,13 @@ export function BasemapTab({
   statusPillVisible: boolean;
   onToggleStatusPill: (visible: boolean) => void;
 }) {
-  const libraryStyles = useLibraryStyles();
+  const library = useLibraryStyles();
   return (
     <BasemapPanel
       active={map.basemap}
       custom={map.customBasemap}
-      libraryStyles={libraryStyles}
+      libraryStyles={library.offered}
+      pasteRefusal={library.singleMapStyles ? null : SINGLE_MAP_STYLES_OFF}
       onPickLibrary={(id) => void patchMap({ customBasemap: { libraryStyle: id } })}
       onSaveCustom={(body) => patchMap({ customBasemap: body })}
       onRemoveCustom={() => void patchMap({ customBasemap: null })}

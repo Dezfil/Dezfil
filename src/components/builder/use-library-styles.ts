@@ -10,23 +10,33 @@ function isOffer(value: unknown): value is LibraryStyleOffer {
   return typeof style?.id === "string" && typeof style.name === "string" && typeof style.url === "string" && Array.isArray(style.attribution);
 }
 
+export interface LibraryStyles {
+  /** The styles the instance's basemap library offers. */
+  offered: LibraryStyleOffer[];
+  /** Whether a map may take a style address the library does not offer. */
+  singleMapStyles: boolean;
+}
+
 /**
- * The styles the instance's basemap library offers, from the runtime read,
- * read once per mount: none until it answers, and none for good when it
- * fails, so the picker draws its built-in styles as it always has.
+ * The styles the instance's basemap library offers and whether a map may
+ * take any other style address, from the runtime read, read once per
+ * mount. Until it answers, and for good when it fails, the picker draws
+ * its built-in styles and the paste control as it always has: the server
+ * refuses an address it does not take whatever the control says.
  */
-export function useLibraryStyles(): LibraryStyleOffer[] {
-  const [styles, setStyles] = useState<LibraryStyleOffer[]>([]);
+export function useLibraryStyles(): LibraryStyles {
+  const [library, setLibrary] = useState<LibraryStyles>({ offered: [], singleMapStyles: true });
   useEffect(() => {
     let cancelled = false;
     fetch("/api/config", { cache: "no-store" })
       .then(response => (response.ok ? response.json() : null))
-      .then((config: { basemapStyles?: unknown } | null) => {
-        const offered = config?.basemapStyles;
-        if (!cancelled && Array.isArray(offered)) setStyles(offered.filter(isOffer));
+      .then((config: { basemapStyles?: unknown; singleMapStyles?: unknown } | null) => {
+        if (cancelled || !config) return;
+        const offered = Array.isArray(config.basemapStyles) ? config.basemapStyles.filter(isOffer) : [];
+        setLibrary({ offered, singleMapStyles: config.singleMapStyles !== false });
       })
       .catch(() => { /* without the read the picker offers the built-in styles */ });
     return () => { cancelled = true; };
   }, []);
-  return styles;
+  return library;
 }

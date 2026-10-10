@@ -29,12 +29,13 @@ function invalid(message: string): never {
  * Validate and inspect a stated `customBasemap` write. Returns the
  * value to store — null clears. Throws the documented invalid_request
  * wordings for malformed shapes, non-style URLs, and unforced warning
- * verdicts.
+ * verdicts. `admit` may refuse a pasted address before it is inspected.
  */
 export async function resolveCustomBasemapWrite(
   stated: unknown,
   inspect: typeof inspectStyle = inspectStyle,
   library: typeof libraryStyle = libraryStyle,
+  admit: (url: string) => void = () => {},
 ): Promise<CustomBasemap | null> {
   if (stated === null) return null;
   if (typeof stated !== "object" || Array.isArray(stated)) {
@@ -68,6 +69,8 @@ export async function resolveCustomBasemapWrite(
   }
   const force = o.force === true;
 
+  // An address the instance would refuse is refused before it is read.
+  admit(url);
   const inspection = await inspect(url);
   switch (inspection.verdict) {
     case "valid": {

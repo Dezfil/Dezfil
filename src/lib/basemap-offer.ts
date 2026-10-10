@@ -5,6 +5,7 @@ import {
   BASEMAPS,
   BUILT_IN_ATTRIBUTION,
   OFFERED_SETTING,
+  SINGLE_MAP_STYLES_SETTING,
   type AttributionLine,
   type BasemapKey,
   type BasemapKind,
@@ -31,6 +32,12 @@ export function offeredSwitches(db: Database = metadataDb()): Record<BasemapKey,
   const stored = readStoredSettings(db);
   return Object.fromEntries(Object.entries(OFFERED_SETTING)
     .map(([key, setting]) => [key, stored[setting] !== false])) as Record<BasemapKey, boolean>;
+}
+
+/** Whether a map may take a style address the library does not offer: on
+ * unless an admin turned it off. */
+export function singleMapStylesAllowed(db: Database = metadataDb()): boolean {
+  return readStoredSettings(db)[SINGLE_MAP_STYLES_SETTING] !== false;
 }
 
 /** Every style a map may be on and still be drawn. */

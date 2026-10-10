@@ -15,7 +15,7 @@ import { INSTANCE_SERVICES_PATHS, INSTANCE_SERVICES_SCHEMAS } from "./openapi-in
 import { INSTANCE_SYSTEM_PATHS, INSTANCE_SYSTEM_SCHEMAS } from "./openapi-instance-system";
 import { INSTANCE_BASEMAPS_PATHS, INSTANCE_BASEMAPS_SCHEMAS, LIBRARY_STYLE_OFFER_SCHEMA } from "./openapi-instance-basemaps";
 import { RULE_KEYS, WHO_MAY_RULES } from "@/lib/settings/instance-rules";
-import { OFFERED_SETTING } from "@/lib/basemap";
+import { OFFERED_SETTING, SINGLE_MAP_STYLES_SETTING } from "@/lib/basemap";
 import { QUERY_EXPORT_TICKET } from "./openapi-tool-responses";
 import { LOCAL_ADD, LOCAL_DELETE, LOCAL_READ, LOCAL_TRANSIENT_READ, REMOTE_READ } from "./operation-mcp";
 import { HISTORY_PATHS, HISTORY_SCHEMAS, MCP_PATHS } from "./openapi-mcp";
@@ -852,7 +852,7 @@ export function buildOpenApiDocument() {
                 retryAfter: { type: "integer", minimum: 1, description: "Seconds before retry after a login limit or temporary authentication capacity refusal." },
                 retryAt: { type: "string", format: "date-time", description: "When a login limit permits another attempt." },
                 rule: { type: "string", enum: [...WHO_MAY_RULES], description: "The instance rule that refused a rule_refused request, keyed as PATCH /api/instance/settings takes it." },
-                setting: { type: "string", enum: Object.values(OFFERED_SETTING), description: "The switch that hides the basemap a basemap_not_offered request chose, keyed as PATCH /api/instance/settings takes it." },
+                setting: { type: "string", enum: [...Object.values(OFFERED_SETTING), SINGLE_MAP_STYLES_SETTING], description: "The switch that refused a basemap_not_offered request: the one hiding the basemap it chose, or basemaps.singleMapStyles for a style address the basemap library does not offer, keyed as PATCH /api/instance/settings takes it." },
               issues: { type: "array", items: { $ref: "#/components/schemas/GeometryIssue" }, description: "Geometry-choice refusal reasons, when applicable." },
                 position: {
                   type: "object",
@@ -933,6 +933,15 @@ export function buildOpenApiDocument() {
                 "The styles an admin added to the basemap library and offers, " +
                 "oldest first, chosen by their id; hidden ones are left out.",
               items: LIBRARY_STYLE_OFFER_SCHEMA,
+            },
+            singleMapStyles: {
+              type: "boolean",
+              description:
+                "Whether a map may take a style address the basemap library " +
+                "does not offer (the basemaps.singleMapStyles setting). Off, " +
+                "such an address is refused with basemap_not_offered when a " +
+                "map write or an undo or redo would newly put it on a map; a " +
+                "map that holds one keeps it.",
             },
             palettes: {
               type: "array",

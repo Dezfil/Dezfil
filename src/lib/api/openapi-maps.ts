@@ -827,7 +827,10 @@ export const MAP_DETAIL_SCHEMAS = {
           "basemapStyles): the map keeps its own copy of the style's " +
           "name, address and credit, nothing is fetched, and hiding or " +
           "removing the style later changes no map. A hidden or unknown " +
-          "id is refused.",
+          "id is refused. While the basemaps.singleMapStyles setting is " +
+          "off, a url the library does not offer is refused with " +
+          "basemap_not_offered, before it is read, unless the map already " +
+          "holds it.",
         anyOf: [{ required: ["url"] }, { required: ["libraryStyle"] }],
         properties: {
           libraryStyle: {

@@ -91,6 +91,17 @@ export const OFFERED_SETTING = {
   satellite: "basemaps.satellite",
 } as const satisfies Record<BasemapKey, string>;
 
+/** The instance setting that lets a map take a style address the library
+ * does not offer, keyed as the change operation takes it. */
+export const SINGLE_MAP_STYLES_SETTING = "basemaps.singleMapStyles";
+
+/** Why no style address the library does not offer can be put on a map
+ * while that setting is off: the refusal's message, and the sentence the
+ * builder shows at its disabled paste control. */
+export const SINGLE_MAP_STYLES_OFF =
+  "This instance takes only the styles its basemap library offers, so no map can be put on another style address now. " +
+  "A map that holds one keeps it; an admin can add a style to the library.";
+
 /** A style an admin added to the instance's library by its address, as a
  * person choosing a basemap is offered it: a map that takes it keeps its own
  * copy of the name, the address and the credit. */

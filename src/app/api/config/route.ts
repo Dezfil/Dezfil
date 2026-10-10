@@ -3,6 +3,7 @@ import {
   basemapOverrideUrl,
   basemapUrl,
   offeredBasemaps,
+  singleMapStylesAllowed,
 } from "@/lib/basemap-offer";
 import { offeredLibraryStyles } from "@/lib/basemap-library";
 import { PALETTES } from "@/lib/style/palettes";
@@ -27,6 +28,8 @@ export async function GET(request: Request) {
       // The styles an admin added to the library and offers: a map that
       // takes one keeps its own copy.
       basemapStyles: offeredLibraryStyles(),
+      // Whether a map may take a style address the library does not offer.
+      singleMapStyles: singleMapStylesAllowed(),
       palettes: PALETTES,
       renderCapFeatures: limits.renderCapFeatures,
       previewRows: limits.previewRows,

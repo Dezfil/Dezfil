@@ -651,8 +651,13 @@ hidden styles included, and `GET /api/config` the offered ones as
 whoever draws a map on it. A map takes an offered one with `PATCH
 /api/maps/{id}` and `customBasemap: { libraryStyle }`, the style's id alone:
 the map keeps its own copy of the name, address and credit, nothing is
-fetched, and a hidden or unknown id is refused with `invalid_request`. They
-are generated as tools, `add_basemap_style`,
+fetched, and a hidden or unknown id is refused with `invalid_request`. While
+an admin has turned `basemaps.singleMapStyles` off, a pasted `url` the library
+does not offer is refused with `basemap_not_offered`, before it is read, when
+a map write or an undo or redo would newly put it on a map, for admins too;
+an address the map already holds is kept, and `GET /api/config` reports the
+switch as `singleMapStyles`. The three library operations are generated as
+tools, `add_basemap_style`,
 `set_basemap_style_offered` and `remove_basemap_style`: the embedded assistant
 confirms each, and the SQL and workflow assistants refuse them.
 
@@ -2029,7 +2034,7 @@ response message. Branch on the code.
 | `isochrone_unconfigured` | No routing endpoint is configured on this instance (the travel-time endpoint an admin sets, or DEZFIL_ISOCHRONE_URL), so an operation that asks a provider for travel-time areas cannot run. The message says which one to change now. |
 | `isochrone_failed` | The configured routing endpoint did not answer, twice in a row. The run published nothing rather than recording an absent answer as an unreachable origin. |
 | `service_address_unreadable` | A service address an admin saved in Settings cannot be read with this instance's encryption key, which changed after it was saved. The service refuses rather than reach a default; an admin saves the address again. |
-| `basemap_not_offered` | The basemap a map write or an undo or redo would put a map on is one an admin hid on this instance, so it cannot be chosen anew. The refusal's setting field names the switch, as PATCH /api/instance/settings takes it. Nothing changed; a map already on that basemap keeps it, and Auto is always offered. |
+| `basemap_not_offered` | The basemap a map write or an undo or redo would put a map on is one this instance does not offer now: a style an admin hid, or, while style addresses on single maps are off, a style address the basemap library does not offer. It cannot be chosen anew. The refusal's setting field names the switch, as PATCH /api/instance/settings takes it. Nothing changed; a map already on that basemap keeps it, and Auto is always offered. |
 | `measurement_crs_unavailable` | The data spans more of the earth than any local projection covers, so a distance measured over it would not be in ground metres. Split it by region and measure each part; an area over the same data succeeds and records the global projection it used. |
 | `operation_superseded` | The step this run belonged to was changed or removed while it was working, so the run lost its authority to publish and wrote nothing. What it would have produced is no longer what the step means. |
 | `widget_layer_missing` | The widget references a layer that no longer exists, so its value cannot be computed. |

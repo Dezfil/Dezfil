@@ -47,6 +47,8 @@ interface Props {
   libraryStyles?: LibraryStyleOffer[];
   /** Take a library style: the map keeps its own copy of it. */
   onPickLibrary?: (id: string) => void;
+  /** Why no style address can be pasted now, or null while one can. */
+  pasteRefusal?: string | null;
   /** Hidden basemap content groups; null = all visible. */
   layerToggles: BasemapLayers | null;
   onToggleGroup: (group: BasemapLayerGroup, visible: boolean) => void;
@@ -75,6 +77,7 @@ export function BasemapPanel({
   onPick,
   libraryStyles = [],
   onPickLibrary = () => {},
+  pasteRefusal = null,
   layerToggles,
   onToggleGroup,
   statusPillVisible,
@@ -133,6 +136,7 @@ export function BasemapPanel({
           custom={fromLibrary ? null : custom}
           onSave={onSaveCustom}
           onRemove={onRemoveCustom}
+          refusal={pasteRefusal}
         />
       </div>
       {custom && !fromLibrary ? (

@@ -173,7 +173,11 @@ answer that is not a style, an address the library holds and a 51st style,
 repeating no part of the address. It reaches outside this server, so MCP
 marks it open-world. `update_map` takes an offered style with
 `customBasemap: { libraryStyle }`, copying it onto the map and fetching
-nothing. Hiding and removing change no map: a map keeps its own copy of a
+nothing. While `basemaps.singleMapStyles` is off (`get_config` reports it as
+`singleMapStyles`), `update_map`, `undo_change` and `redo_change` refuse a
+pasted style address the library does not offer with `basemap_not_offered`
+when they would newly put it on a map; an address a map already holds is
+kept. Hiding and removing change no map: a map keeps its own copy of a
 style it took. The embedded assistant asks before calling any of
 them; the SQL and workflow assistants are never offered them.
 

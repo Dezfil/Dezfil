@@ -1,6 +1,6 @@
 {
   "count": 150,
-  "overall": "cec39137ec116a9e21ae1174223549c546167c764d8813c73fc8219d731060f0",
+  "overall": "e0e1c628feb9a387044478b137701c328a3a8429dee91b7d6266ac9cbc5e0d4d",
   "tools": {
     "get_account": "bd37f5c2eb19d2ede33cb10152a53d49e4029a871d9950f51d3671001efdfb66",
     "update_account": "b86cdb20349d6871c516c495b13864a85908d41cb61203f76a3f7ea95c26ebbb",
@@ -112,7 +112,7 @@
     "sanitize_icon_svg": "6312de4ff4d14641ae9dc9b9d59bda1079f1ac890fe1cf71524cd5b1f0875c1d",
     "inspect_basemap_style": "e90f4aebc970a659a588bb1de421ccd2924445cc0122d8b89ef641468f99b26d",
     "get_map": "91606b124f5ea8a4cbb1e50895bb58378ccc30f5a3256f215b11d4e4198ddc36",
-    "update_map": "cee25bbf5e3c3d514fdb59b82a0afffb4f01f67f78a7077aa935396a7ae3f9cb",
+    "update_map": "d0b9e70f62ee7d7867d6c3fd0871c479fba91829baf65f58d25cefaa740df5a2",
     "delete_map": "45934f91642d3b1d322d61eb17e6151bbcb7084ed28d45cf68ee9a1391b4a261",
     "read_widget_values": "c54518a0210796284793da2f5d1670809e39d56faf4d6c6378b8d623989ac739",
     "search_map": "450fb54bdd3bfc302b2952ba44cfe27fbe04cbfccaae12955a23c8439557e38e",

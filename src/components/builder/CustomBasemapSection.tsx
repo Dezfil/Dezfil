@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import type { CustomBasemap } from "@/lib/metadata/maps";
 import type { StyleInspection } from "@/lib/net/inspect-style";
 import styles from "./CustomBasemapSection.module.css";
@@ -12,12 +12,15 @@ import styles from "./CustomBasemapSection.module.css";
  * no permanently visible field. The check is advisory (the save
  * re-inspects server-side); its verdicts decide the wording here:
  * not-a-style blocks, unreachable and blocked warn and can be forced —
- * every reader's browser fetches the style itself.
+ * every reader's browser fetches the style itself. While the instance
+ * takes no style address the library does not offer, the door and Change
+ * are disabled and say why; a saved style can still be removed.
  */
 export function CustomBasemapSection({
   custom,
   onSave,
   onRemove,
+  refusal = null,
 }: {
   custom: CustomBasemap | null;
   /** PATCH the custom style; resolves false when the write failed. */
@@ -27,7 +30,10 @@ export function CustomBasemapSection({
     force?: boolean;
   }) => Promise<boolean>;
   onRemove: () => void;
+  /** Why no style address can be pasted now, or null while one can. */
+  refusal?: string | null;
 }) {
+  const refusalId = useId();
   const [editing, setEditing] = useState(false);
   const [url, setUrl] = useState("");
   const [name, setName] = useState("");
@@ -110,33 +116,58 @@ export function CustomBasemapSection({
     if (ok) close();
   };
 
+  const refused = refusal !== null;
+  const why = refused ? (
+    <p id={refusalId} className={styles.refusal}>
+      {refusal}
+    </p>
+  ) : null;
+
   // The saved tile.
-  if (custom && !editing) {
+  if (custom && (!editing || refused)) {
     return (
-      <div className={styles.saved} data-active>
-        <span className={styles.savedName}>
-          {custom.name ?? hostnameOf(custom.url)}
-        </span>
-        <span className={styles.savedUrl}>{hostnameOf(custom.url)}</span>
-        <span className={styles.savedActions}>
-          <button type="button" className={styles.action} onClick={open}>
-            Change
-          </button>
-          <button type="button" className={styles.action} onClick={onRemove}>
-            Remove
-          </button>
-        </span>
-      </div>
+      <>
+        <div className={styles.saved} data-active>
+          <span className={styles.savedName}>
+            {custom.name ?? hostnameOf(custom.url)}
+          </span>
+          <span className={styles.savedUrl}>{hostnameOf(custom.url)}</span>
+          <span className={styles.savedActions}>
+            <button
+              type="button"
+              className={styles.action}
+              onClick={open}
+              disabled={refused}
+              aria-describedby={refused ? refusalId : undefined}
+            >
+              Change
+            </button>
+            <button type="button" className={styles.action} onClick={onRemove}>
+              Remove
+            </button>
+          </span>
+        </div>
+        {why}
+      </>
     );
   }
 
   // The dashed door.
-  if (!editing) {
+  if (!editing || refused) {
     return (
-      <button type="button" className={styles.door} onClick={open}>
-        <span className={styles.doorPlus}>+</span>
-        <span>Custom…</span>
-      </button>
+      <>
+        <button
+          type="button"
+          className={styles.door}
+          onClick={open}
+          disabled={refused}
+          aria-describedby={refused ? refusalId : undefined}
+        >
+          <span className={styles.doorPlus}>+</span>
+          <span>Custom…</span>
+        </button>
+        {why}
+      </>
     );
   }
 

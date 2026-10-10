@@ -1,6 +1,6 @@
 {
   "count": 150,
-  "overall": "93941be9e5ebb7299dbb68ce312ba4e8592179e006f3cb1518c60f505ddc6668",
+  "overall": "993f724bb3e20ea02d5bc4086e910d1e3406d53c9a7a5cfd7bbfe2a0803b554d",
   "tools": {
     "get_account": "1d39e185a29991c180c5357ee693fb43d368491d0c799a0e52600ca88d32baa8",
     "update_account": "1d58af3260a6581ebaf68dbd67d94671d696509451d7ac08c21462b333f88ac2",
@@ -31,7 +31,7 @@
     "preview_table_geometry": "6884507fa51b0989d86bcdd2534c96043fee4413e4597786e88fceb0c9bf267b",
     "list_geometry_projections": "cdf11f09286d9af09753a8dc36588275c8f3475412ba4aeddd98227a909ccd25",
     "check_health": "143cf09e50ae87d361d89e50b34593f4701afca5672926579e0cca1cee2b56c3",
-    "get_config": "2e3017f662bc39d069bd40c02c4f7f08d3b4f4343a81ca5478d3b9874a21e5df",
+    "get_config": "099b27cfe646cf3a97f3255b8e6731f8680c119c2180cb5ef7754757de9c047f",
     "list_palettes": "5a47a8393621b7520755454eb9b6216af281f7c8314fb800865165256c2c0080",
     "create_palette": "440af3bcc7aeb04570a3b95d4cddacd26d3c501511b1b8e5cc5869664f7f901d",
     "delete_palette": "b8c0b60a1e230638c186bdf035dd61602b0d9655f72cccd5c9ba6044a265af97",
@@ -112,7 +112,7 @@
     "sanitize_icon_svg": "5beb6f11cd05f0091e892be75c87c869b7b95a027ada9f4de85ed3927f242f49",
     "inspect_basemap_style": "c99d024ef4727d7d5b2f34b69f7ff299aca86c0f93c645e0924d502d873077b8",
     "get_map": "0e8a409eb7a64681b0e4738c24239008cbe90cbf9b6c33bd56dd496ffd2cf493",
-    "update_map": "61fea6e30b2e4d0377ab9a179050df9bc1c5d89e5e5bd41555283cff6ce399ae",
+    "update_map": "32bc4b4252415883fcced007284325f67ae1140298ed9c3a7ca5f660219e837c",
     "delete_map": "8e64ef5fcaf7cc19869fd57a6d6ef9ebd46d8d068afbb3732c338a084bafc89d",
     "read_widget_values": "e5037c448b726108f6d084c93be19744a7ed9c635aa4fd982f737cd8fd98e817",
     "search_map": "8293c87e17396b89f5661f9ba9d0f2db683f2d79d1e3aa0be798f0e936cb92e1",

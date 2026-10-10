@@ -25,6 +25,23 @@
   background: var(--accent-dim);
 }
 
+/* Inert while the instance takes no pasted address: no sweep, no pointer. */
+.door:disabled {
+  border-color: var(--border);
+  color: var(--fg-faint);
+  background: transparent;
+  cursor: default;
+}
+
+/* Why the door is inert: the rule's sentence, under the cards. */
+.refusal {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: var(--text-meta);
+  line-height: 1.45;
+  color: var(--fg-muted);
+}
+
 .doorPlus {
   font-size: var(--text-heading);
   line-height: 1;
