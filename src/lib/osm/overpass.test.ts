@@ -89,7 +89,7 @@ describe("fetchOverpass response handling", () => {
     handler: (res: import("node:http").ServerResponse) => void,
   ): Promise<void> {
     server = createServer((_req, res) => handler(res));
-    await new Promise<void>((resolve) => server.listen(0, () => resolve()));
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", () => resolve()));
     process.env.DEZFIL_OVERPASS_URL = endpoint();
   }
 
