@@ -349,11 +349,14 @@ export async function resolveRemoteSource(
 /** Best-effort anonymous size probe against the object's HTTPS form. A
  * store that answers a HEAD lets the cap fire before anything is read;
  * one that refuses (private objects, az://) yields null — the documented
- * per-scheme residual of the credentialed road. */
+ * per-scheme residual of the credentialed road. A stored S3 address the
+ * instance's key no longer opens is not a store's answer: it refuses the
+ * read, as it does on the anonymous road. */
 async function probeObjectSize(ref: RemoteRef): Promise<number | null> {
   if (ref.scheme === "az:") return null;
+  const address = translateObjectUrl(ref);
   try {
-    const response = await openRemote(translateObjectUrl(ref), {
+    const response = await openRemote(address, {
       method: "HEAD",
       timeoutMs: 10_000,
     });
