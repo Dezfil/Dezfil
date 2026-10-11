@@ -1286,8 +1286,8 @@ installed version is copied whether the catalogue still lists it or not, and
 with the catalogue off; a listed version that is not installed is refused
 with 409 `template_not_installed`, so it is fetched first. The project is
 named as the body says (trimmed, 1 to 120 characters), else after the
-template's title, and its note carries a line naming the template, its
-version and the day. Filed in it under fresh identities: the template's map,
+template's title, and its note carries a line naming the template by its
+title, its version and the day. Filed in it under fresh identities: the template's map,
 every layer, widget, the legend order, camera, basemap and timeline as
 stored, each widget, the legend order and the timeline bound to the copied
 layers, its SQL home the caller's; a workflow example's workflow, each step
