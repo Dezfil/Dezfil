@@ -139,6 +139,8 @@ const OPAQUE: Record<Theme, Record<FillKind, string>> = {
   },
 };
 const CLEAR = "1px solid transparent";
+/** The dashed line of a card that makes something new, kept in its width with no colour. */
+const DASHED_CLEAR = "1px dashed transparent";
 
 /** Each role's parts under Liquid, with the fills it goes opaque at. */
 function liquid(role: Role, theme: Theme, fills: Record<Theme, Record<FillKind, string>> = FILL): Record<string, string> {
@@ -154,7 +156,7 @@ function liquid(role: Role, theme: Theme, fills: Record<Theme, Record<FillKind, 
     };
     case "inner-card": return {
       fill: fill.inner, blur: "blur(6px)", edge: CLEAR, shadow: lit("inner"), "shadow-lifted": lit("lift"), "shadow-dragged": lit("lift"),
-      lens: "8", knob: fill.inner, mark: fill.inner,
+      lens: "8", knob: fill.inner, mark: fill.inner, "edge-hover": CLEAR, "edge-new": DASHED_CLEAR,
     };
     case "menu": return { fill: fill.read, blur: "blur(24px)", edge: CLEAR, shadow: lit("lift"), lens: "14", "edge-strong": CLEAR, "fill-raised": fill.read };
     case "dialog": return { fill: fill.dialog, blur: "blur(24px)", edge: CLEAR, shadow: lit("dialog"), lens: "18" };
@@ -275,7 +277,7 @@ function paper(role: Role, theme: Theme): Record<string, string> | null {
     };
     case "inner-card": return {
       fill: theme === "light" ? "var(--bg-panel)" : "var(--bg-hover)", blur: "none", edge: CLEAR, shadow: PAPER_LIFT[theme].inner,
-      "shadow-lifted": PAPER_LIFT[theme].card, "shadow-dragged": PAPER_LIFT[theme].lift,
+      "shadow-lifted": PAPER_LIFT[theme].card, "shadow-dragged": PAPER_LIFT[theme].lift, "edge-hover": CLEAR, "edge-new": DASHED_CLEAR,
     };
     case "stage": return { shadow: PAPER_LIFT[theme].lift };
     case "menu": case "dialog": return null;

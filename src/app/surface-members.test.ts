@@ -15,7 +15,7 @@ type Role =
   | "glass-chrome" | "glass-panel" | "overlay-panel" | "overlay-control" | "stage"
   | "page-card" | "inner-card" | "menu" | "dialog";
 type Part = "fill" | "blur" | "edge" | "shadow" | "corner" | "shadow-hover" | "shadow-lifted" | "shadow-dragged"
-  | "grow" | "edge-strong" | "edge-hover" | "knob" | "mark" | "fill-raised";
+  | "grow" | "edge-strong" | "edge-hover" | "edge-new" | "knob" | "mark" | "fill-raised";
 /** A member's rule, or with `state` a rule restating some of its parts in
  * a state of the member (hovered, chosen, dragged). */
 type Member = { step: number; role: Role; file: string; selector: string; parts: Part[]; what: string; state?: true };
@@ -178,6 +178,7 @@ export const MEMBERS: Member[] = [
   m(STEP.inner, "inner-card", C + "workflow-canvas/WorkflowCanvas.module.css", ".dragGhost", ["fill", "blur", "shadow-dragged"], "an operation dragged onto the canvas"),
   m(STEP.inner, "inner-card", C + "AddToMapDialog.module.css", ".card, .newCard", ["fill", "blur", "edge"], "a pickable card in a dialog"),
   st(STEP.inner, "inner-card", C + "AddToMapDialog.module.css", ".card:hover:not(:disabled), .newCard:hover:not(:disabled)", ["shadow-lifted"], "a pickable card in a dialog, on hover"),
+  st(STEP.inner, "inner-card", C + "AddToMapDialog.module.css", ".newCard", ["edge-new"], "the card that makes a new map, its dashed line"),
   m(STEP.inner, "inner-card", C + "QueryAreaPicker.module.css", ".cats button[data-active], .subs button[data-active]", CHIP, "a pickable card in a dialog, picked"),
   m(STEP.inner, "inner-card", C + "AreaSemanticsToggle.module.css", ".seg button[data-active]", CHIP, "a segmented control's active tab"),
   m(STEP.inner, "inner-card", C + "ui/Switch.module.css", ".switch::before", CHIP, "a switch's knob"),
@@ -193,7 +194,7 @@ export const MEMBERS: Member[] = [
   m(STEP.inner, "inner-card", C + "workflow-canvas/ResultsBand.module.css", ".scopeBtn[data-on]", CHIP, "a segmented control's active tab"),
   m(STEP.inner, "inner-card", C + "sql/SqlConsole.module.css", ".tabs button[data-on]", CHIP, "a segmented control's active tab"),
   m(STEP.inner, "inner-card", C + "sql/SqlConsole.module.css", ".card", ["fill", "blur", "edge"], "a history card in the SQL pane"),
-  st(STEP.inner, "inner-card", C + "sql/SqlConsole.module.css", ".card:hover", ["shadow-lifted"], "a history card on hover"),
+  st(STEP.inner, "inner-card", C + "sql/SqlConsole.module.css", ".card:hover", ["shadow-lifted", "edge-hover"], "a history card on hover"),
   m(STEP.inner, "inner-card", C + "SourceNav.module.css", ".source[data-active]", CHIP, "a source rail's active entry"),
   // Menu and pop-over: what opens over something and closes. Its ground and
   // edge are read wherever the member draws the panel tone or the hairline
@@ -287,7 +288,7 @@ export const OWN: Own[] = [
 const STANDS_FOR: Record<"fill" | "blur" | "edge" | "shadow", Part[]> = {
   fill: ["fill", "knob", "mark", "fill-raised"],
   blur: ["blur"],
-  edge: ["edge", "edge-strong", "edge-hover"],
+  edge: ["edge", "edge-strong", "edge-hover", "edge-new"],
   shadow: ["shadow", "shadow-lifted", "shadow-dragged", "shadow-hover"],
 };
 
@@ -331,6 +332,7 @@ const PROPERTY: Record<Part, RegExp> = {
   grow: /^transform$/,
   "edge-strong": /^border$/,
   "edge-hover": /^border$/,
+  "edge-new": /^border$/,
   knob: /^background$/,
   mark: /^background$/,
   "fill-raised": /^background$/,
@@ -483,13 +485,16 @@ describe("the members of each role", () => {
     expect(legend.border).toBeUndefined();
   });
 
-  it("grow a stage button on hover, line a gallery card under the pointer, edge the map's tooltip, popup and failure notice and light a slider's thumb from their roles, at today's values", () => {
+  it("grow a stage button on hover, line a gallery card and a history card under the pointer, dash the card that makes a new map, edge the map's tooltip, popup and failure notice and light a slider's thumb from their roles, at today's values", () => {
     const value = (file: string, selector: string, property: string) =>
       resolveThroughBlock(Object.fromEntries(declarations(read(C + file), selector)!)[property]);
     // Each as it was drawn before it read a role, written out here.
     expect(value("map/StageStack.module.css", ".stageBtn:hover", "transform")).toBe("scale(1.06)");
     // A gallery card under the pointer shows the stronger line it showed.
     expect(value("gallery.module.css", ".card:hover", "border")).toBe("1px solid var(--border-strong)");
+    // So does a history card in the SQL pane, and the card that makes a new map keeps its dashed line.
+    expect(value("sql/SqlConsole.module.css", ".card:hover", "border")).toBe("1px solid var(--border-strong)");
+    expect(value("AddToMapDialog.module.css", ".newCard", "border")).toBe("1px dashed var(--border-strong)");
     for (const selector of [".tooltip", ".popup", ".webglFailureCard"]) {
       expect(value("map/MapCanvas.module.css", selector, "border"), selector).toBe("1px solid var(--border-strong)");
     }

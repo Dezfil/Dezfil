@@ -76,7 +76,8 @@
   --surface-page-card-edge-hover: 1px solid transparent;
 
   /* A card inside a panel: the panel tone, a contact line, lifting to a
-     page card's lift and dragged at the panels' */
+     page card's lift and dragged at the panels', no line under the pointer
+     or around a card that makes something new */
   --surface-inner-card-fill: var(--bg-panel);
   --surface-inner-card-blur: none;
   --surface-inner-card-edge: 1px solid transparent;
@@ -87,6 +88,8 @@
   --surface-inner-card-shadow-dragged:
     0 1px 1px color-mix(in srgb, var(--shadow) 40%, transparent),
     0 8px 24px -4px color-mix(in srgb, var(--shadow) 70%, transparent);
+  --surface-inner-card-edge-hover: 1px solid transparent;
+  --surface-inner-card-edge-new: 1px dashed transparent;
 
   /* The map's own frame */
   --surface-stage-shadow:

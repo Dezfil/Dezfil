@@ -892,7 +892,7 @@
   transition: border-color var(--dur-micro), box-shadow var(--dur-micro);
 }
 .card:hover {
-  border-color: var(--border-strong);
+  border: var(--surface-inner-card-edge-hover);
   box-shadow: var(--surface-inner-card-shadow-lifted);
 }
 .card:focus-visible {

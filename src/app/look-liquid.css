@@ -251,6 +251,8 @@
   --surface-inner-card-lens: 8;
   --surface-inner-card-knob: color-mix(in srgb, #fff 10%, var(--bg-panel) 49.5%);
   --surface-inner-card-mark: color-mix(in srgb, #fff 10%, var(--bg-panel) 49.5%);
+  --surface-inner-card-edge-hover: 1px solid transparent;
+  --surface-inner-card-edge-new: 1px dashed transparent;
 }
 
 :root[data-theme="dark"][data-look-liquid~="inner"],
