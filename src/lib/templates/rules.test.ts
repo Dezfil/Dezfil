@@ -25,7 +25,8 @@ import {
 /**
  * The rules every template must meet, held over the shipped set and over
  * the fixture: every shipped version passes, and a fixture failing each
- * rule a template's documents, data and archive can break fails. The check
+ * rule a template's documents, data and archive can break fails, a layer
+ * drawing more than the render cap's default among them. The check
  * over the shipped set is shown to bite by pointing it at a folder holding
  * a failing template. NOTICE is held against the shipped set both ways.
  */
@@ -170,8 +171,31 @@ describe("the rules every template must meet", () => {
     ["an output without its result", { kind: "workflow", edit: SEEDS.missingResult }, "template_members_mismatch"],
     ["a layer naming a dataset outside the template", { edit: SEEDS.layerReferenceOutside }, "template_reference_outside"],
     ["a step reading a dataset outside the template", { kind: "workflow", edit: SEEDS.stepReferenceOutside }, "template_reference_outside"],
+    ["a layer over the render cap", { edit: SEEDS.layerOverRenderCap }, "template_invalid"],
   ])("a template with %s fails them", async (_what, options, code) => {
     expect(await ruleFailed(options)).toBe(code);
+  });
+
+  it("names the layer over the render cap, counted against the cap's default of 250,000", async () => {
+    const template = await build({ edit: SEEDS.layerOverRenderCap });
+    const scratch = path.join(dir, "install-cap");
+    await mkdir(scratch);
+    const expected = { id: template.facts.id, version: template.facts.version, size: template.size, sha256: template.sha256 };
+    await expect(installTemplateArchive(scope, scratch, template.archive, expected, { kind: "shipped" })).rejects.toThrow(
+      `The map's layer 1 ("Stations") draws ${(300_000).toLocaleString()} features, over the render cap of ${(250_000).toLocaleString()}. ` +
+        "A template's layer draws within the cap, its large data as an aggregation or a slice.",
+    );
+  });
+
+  it("counts a layer as its render draws it: live filters applied on the server once the result without them is over the cap", async () => {
+    expect(await ruleFailed({ edit: SEEDS.layerUnderRenderCapFiltered })).toBeNull();
+  });
+
+  it("holds the cap's default, not this instance's: a lower cap set here refuses no template, and a higher one admits none over the default", async () => {
+    vi.stubEnv("DEZFIL_RENDER_CAP_FEATURES", "3");
+    expect(await ruleFailed({})).toBeNull();
+    vi.stubEnv("DEZFIL_RENDER_CAP_FEATURES", "1000000");
+    expect(await ruleFailed({ edit: SEEDS.layerOverRenderCap })).toBe("template_invalid");
   });
 
   it("a template unpacking over the instance's upload cap fails them", async () => {

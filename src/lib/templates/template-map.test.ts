@@ -337,6 +337,20 @@ describe("the map's reader roads", () => {
     expect(await byTool("search_map", { id: MAP, q: "harbour" })).toEqual((await call("GET", `/api/maps/${MAP}/search?q=harbour`, byToken())).body);
   });
 
+  it("refuse a layer over the cap's default, placed by hand since the admission refuses it, at this instance's default cap", async () => {
+    const crowded = await buildTemplate(path.join(dir, "o1"), { id: "crowded-stations", edit: SEEDS.layerOverRenderCap });
+    await installFixture(crowded, path.join(dataDir(), "templates", "crowded-stations", "1"), { kind: "catalogue", origin: "https://catalogue.example" });
+    const layer = "template.crowded-stations.1.layer.layer-stations";
+    const render = await call("GET", `/api/layers/${layer}/render`, byCookie());
+    expect(render.body).toMatchObject({ layerId: layer, ok: false, error: { code: "render_cap_exceeded" } });
+    expect((render.body!.error as { message: string }).message).toBe(
+      `This layer has ${(300_000).toLocaleString()} features, over the render cap of ${(250_000).toLocaleString()}. ` +
+        "A template draws within the cap; make a copy to draw all of it.");
+    expect(f.db.prepare("SELECT count(*) AS n FROM layer_tiles").get()).toEqual({ n: 0 });
+    // Its other layer draws.
+    expect((await call("GET", "/api/layers/template.crowded-stations.1.layer.layer-districts/render", byCookie())).body).toMatchObject({ ok: true });
+  });
+
   it("over the render cap, refuse a template's point layer with the cap refusal and never build tiles", async () => {
     vi.stubEnv("DEZFIL_RENDER_CAP_FEATURES", "3");
     const render = await call("GET", `/api/layers/${STATIONS}/render`, byCookie());

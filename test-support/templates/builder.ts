@@ -462,6 +462,19 @@ export const SEEDS = {
   layerReferenceOutside: (files: TemplateFiles) => {
     (map(files).layers as Record<string, unknown>[])[0].sql = "SELECT * FROM roads";
   },
+  /** The stations layer drawing each station fifty thousand times: 300,000
+   * points, over the default render cap of 250,000. */
+  layerOverRenderCap: (files: TemplateFiles) => {
+    (map(files).layers as Record<string, unknown>[])[0].sql = "SELECT s.* FROM stations AS s, range(50000) AS copies(n)";
+  },
+  /** That layer again, with a range filter its canvas applies live: drawn
+   * without it the result is over the cap, so the render applies every
+   * filter on the server and draws the 100,000 points left. */
+  layerUnderRenderCapFiltered: (files: TemplateFiles) => {
+    const layer = (map(files).layers as Record<string, unknown>[])[0];
+    layer.sql = "SELECT s.* FROM stations AS s, range(50000) AS copies(n)";
+    layer.filters = [{ field: "riders", kind: "range", min: 0, max: 100 }];
+  },
   /** A step whose SQL reads a dataset the template does not hold. */
   stepReferenceOutside: (files: TemplateFiles) => {
     (workflow(files).steps as { parameters: Record<string, unknown> }[])[0].parameters.sql = "SELECT * FROM roads WHERE riders > 100";

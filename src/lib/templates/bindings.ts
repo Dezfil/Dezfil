@@ -13,6 +13,7 @@ import { isAggregated } from "@/lib/viz";
 import type { AdmittedTemplate } from "./admission";
 import { templateMapEvaluation, templateStepEvaluation } from "./home";
 import { refuse } from "./refusals";
+import { drawnFeatures, templateRenderCap } from "./render-cap";
 
 /**
  * The second stage of a template's admission: its documents against its
@@ -24,7 +25,8 @@ import { refuse } from "./refusals";
  * of the map draws a geometry from its SQL, and every column its style,
  * look, filters, tooltip, pop-up and published fields name, and every
  * column its widgets and the timeline read, is in its result, by the layer
- * and map writes' own checks. The home holds the version's datasets and
+ * and map writes' own checks, and draws within the render cap's default
+ * (`render-cap.ts`). The home holds the version's datasets and
  * bundled results and nothing of anyone's, so a reference to a person's
  * dataset, or another template's, binds nothing: that is the reference
  * refusal. Anything else the roads refuse is the invalid refusal, with the
@@ -90,6 +92,13 @@ async function admitLayers(scope: AccountScope, admitted: AdmittedTemplate, home
     // stored, so it is not a reference, as the layer write reads it.
     const read = isAggregated(layer.viz) ? refs.filter((ref) => ref.channel !== "label") : refs;
     await underRoad(where, () => assertWritableRefs(evaluation, read, [], layer.sql, layer.viz, signal));
+    const cap = templateRenderCap();
+    const docked = map.timeline && map.timeline.layerId === layer.id ? map.timeline.field : null;
+    const drawn = await underRoad(where, () => drawnFeatures(evaluation, layer, docked, cap, signal));
+    if (drawn > cap) {
+      refuse("template_invalid", `${where} draws ${drawn.toLocaleString()} features, over the render cap of ${cap.toLocaleString()}. ` +
+        "A template's layer draws within the cap, its large data as an aggregation or a slice.");
+    }
   }
 }
 

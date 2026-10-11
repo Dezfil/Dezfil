@@ -2244,7 +2244,7 @@ response message. Branch on the code.
 | `template_entry_escapes` | A member of a template's archive names a path outside its folder. |
 | `template_members_mismatch` | A template's documents name a member it does not hold, or it holds a member nothing names. |
 | `template_format_unsupported` | A template is in a format version this server does not read. |
-| `template_invalid` | A template's document fails the rules a client's document is held to, or one of its layers or steps does not bind to the template's own data as a client's would. |
+| `template_invalid` | A template's document fails the rules a client's document is held to, one of its layers or steps does not bind to the template's own data as a client's would, or a layer draws more than the render cap's default. |
 | `template_forbidden` | A template carries a publication, token, connection, service address or setting, which no template may. |
 | `template_picture_too_large` | A template's map picture is larger than its 2 MB bound. |
 | `template_licence_refused` | A template's data is under a licence that does not allow redistribution. |
