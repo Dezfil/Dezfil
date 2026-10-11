@@ -2,7 +2,8 @@ import { CARD_PICTURES, CATALOGUE_REFUSALS, CATALOGUE_STATES } from "@/lib/templ
 import { TEMPLATE_KINDS, TEMPLATE_TAGS, TEMPLATE_THEMES } from "@/lib/templates/format";
 import { AUTH_SECURITY } from "./openapi-auth";
 import { ERROR_RESPONSE, jsonOk, op } from "./openapi-helpers";
-import { LOCAL_READ, REMOTE_ADD, REMOTE_READ } from "./operation-mcp";
+import { ownedCreationOp } from "./openapi-owned-creation";
+import { LOCAL_ADD, LOCAL_READ, REMOTE_ADD, REMOTE_READ } from "./operation-mcp";
 import { READ_ONLY, REACHES_OUTSIDE, resource, writes } from "./operation-metadata";
 
 /**
@@ -88,6 +89,13 @@ export const TEMPLATES_SCHEMAS = {
         description: "True when this call downloaded and installed it, or joined the download that did; false when it was installed already and nothing was sent." },
     }),
     description: "A template's version, installed on this server.",
+  },
+  TemplateCopy: {
+    ...object({
+      project: { $ref: "#/components/schemas/Project" },
+      members: { $ref: "#/components/schemas/ProjectMembers" },
+    }),
+    description: "The project a copy made, with its members: the copied map and the copied datasets.",
   },
   TemplateList: object({
     templates: { type: "array", items: { $ref: "#/components/schemas/TemplateCard" },
@@ -182,6 +190,67 @@ export const TEMPLATES_PATHS = {
       "200": jsonOk("#/components/schemas/TemplateFetched"),
       "400": ERROR_RESPONSE, "401": ERROR_RESPONSE, "403": ERROR_RESPONSE, "404": ERROR_RESPONSE, "409": ERROR_RESPONSE,
       "413": ERROR_RESPONSE, "422": ERROR_RESPONSE, "502": ERROR_RESPONSE, "503": ERROR_RESPONSE, "504": ERROR_RESPONSE,
+    },
+  }), security: AUTH_SECURITY } },
+  "/api/templates/{id}/copy": { post: { ...ownedCreationOp({
+    summary: "Copy a template",
+    description: SIGNED_IN + "Cookie requests require the same trusted Origin; a bearer token calls directly. " +
+      "Makes a copy of one installed version of a template into a new project of the caller's, private under the ownership rules, all of it or " +
+      "nothing: the version the body names, else the installed one. The copy is local and sends nothing: an installed version is copied whether the " +
+      "catalogue still lists it or not, and with the catalogue off; a listed version that is not installed is refused with 409 template_not_installed, " +
+      "so fetch it first (POST /api/templates/{id}/fetch). The project is named as the body says (trimmed, 1 to 120 characters), else after the " +
+      "template's title, and its note carries a line naming the template, its version and the day. Filed in it, under fresh identities: the " +
+      "template's map with every layer, widget, the legend order, camera, basemap and timeline, each widget, the legend order and the timeline bound " +
+      "to the copied layers, its SQL home the caller's; and every dataset of the template, the caller's, under its name in the template or the next " +
+      "free name by the suffix rule (`_2`, `_3`), reserved against the caller's datasets and every output name their workflows declare, each " +
+      "layer's SQL naming the dataset as landed. A copied dataset's source reads `template`, with the template's id and version in its " +
+      "sourceParams, and it is never refreshed. The map's card images are the template's pictures, saved after the copy with evidence naming the " +
+      "copied datasets; when they cannot be saved the copy stands and its card shows the placeholder until the map's first capture. A second copy " +
+      "makes a second project of the same name with its datasets suffixed, the first unchanged; copies made at once each land whole under distinct " +
+      "names. Refused, coded, with nothing created: 404 template_not_listed for a version neither installed nor listed; 409 " +
+      "template_not_installed; 409 templates_catalogue_off for a version not installed while an admin has turned the catalogue off; 400 " +
+      "service_address_unreadable for a saved address the instance's key no longer opens; 422 template_reference_unbound for a layer naming a " +
+      "dataset the copy does not make; 422 template_record_mismatch and the template reader's other codes for an installed version that changed on " +
+      "disk; 400 invalid_request for a body that is not an optional name and version; 413 request_body_too_large. Answers the project with its " +
+      "members.",
+    tag: "Templates", tool: "copy_template", toolInput: { closed: true },
+    confirm: true,
+    confirmation: {
+      target: "Copy version {version} of {target} into a new project?",
+      consequence: "Its map, its workflow if it has one, and its datasets (an archive of {size}) become yours in a new project; " +
+        "the template stays as it is.",
+      subject: {
+        path: "/api/templates/{id}", argument: "id", name: "title",
+        binds: { argument: "version", path: "installed", absent: "template_not_installed" },
+        facts: { size: { path: "size", bytes: true, of: "version", fallback: "the size the template lists" } },
+      },
+    },
+    display: { verb: "Copied the template into the project {subject}",
+      subject: { resource: "projects", result: "project.id", name: ["project.name"] } },
+    effects: writes(
+      resource("projects", "", "project.id"),
+      resource("maps", "", "members.maps.*.id"),
+      resource("layers"),
+      resource("tables", "", "members.tables.*.id"),
+    ),
+    mcp: LOCAL_ADD,
+    parameters: [ID_PARAM],
+    requestBody: {
+      "x-byte-limit": 65_536,
+      required: false,
+      content: { "application/json": { schema: {
+        type: "object",
+        properties: {
+          name: { type: "string", description: "The new project's name, trimmed, 1 to 120 characters; without it, the template's title." },
+          version: { type: "integer", minimum: 1, description: "The installed version to copy; without it, the installed one." },
+        },
+        additionalProperties: false,
+      } } },
+    },
+    responses: {
+      "201": jsonOk("#/components/schemas/TemplateCopy", "Created."),
+      "400": ERROR_RESPONSE, "401": ERROR_RESPONSE, "403": ERROR_RESPONSE, "404": ERROR_RESPONSE, "409": ERROR_RESPONSE,
+      "413": ERROR_RESPONSE, "422": ERROR_RESPONSE, "503": ERROR_RESPONSE,
     },
   }), security: AUTH_SECURITY } },
   "/api/templates/{id}/picture": { get: { ...op({

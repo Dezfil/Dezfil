@@ -211,6 +211,10 @@ export const ERROR_CATALOGUE: Record<ErrorCode, string> = {
     "A template's layer or step names a dataset that is neither the template's own nor the result of an earlier step, such as a person's dataset or another template's.",
   template_record_mismatch:
     "An installed template's files differ from the record written when it was installed, so it is refused rather than trusted.",
+  template_not_installed:
+    "That version of the template is listed by the catalogue but not on this server yet, so it cannot be copied; fetch it first (POST /api/templates/{id}/fetch), then copy. Nothing was created.",
+  template_reference_unbound:
+    "A layer or step of the template names a dataset the copy could not bind to the datasets it makes, so the copy was refused whole and nothing was created.",
   internal: "An unexpected server error occurred.",
 };
 

@@ -84,6 +84,10 @@ function bindSubject(subject: ConfirmationWords["subject"], call: ToolCall, read
     const value = read === undefined ? undefined : valuesAt(read, path)[0];
     if (call.args[argument] === undefined) {
       if (value === undefined || value === null) {
+        if (!refused && read !== undefined && subject.binds.absent) {
+          const code = subject.binds.absent;
+          throw new ApiError(code, ERROR_CATALOGUE[code], 409);
+        }
         throw refused ?? new ApiError("internal", "What this call acts on could not be read, so nothing was asked or started.", 502);
       }
       call.args = { ...call.args, [argument]: value };
@@ -93,7 +97,8 @@ function bindSubject(subject: ConfirmationWords["subject"], call: ToolCall, read
     fill[argument] = String(call.args[argument]);
   }
   for (const [key, fact] of Object.entries(subject.facts ?? {})) {
-    const value = describes ? valuesAt(read, fact.path)[0] : undefined;
+    const of = fact.of === undefined || !subject.binds || valuesAt(read, fact.of)[0] === call.args[subject.binds.argument];
+    const value = describes && of ? valuesAt(read, fact.path)[0] : undefined;
     fill[key] = value === undefined || value === null ? fact.fallback
       : fact.bytes && typeof value === "number" ? byteSize(value) : String(value);
   }

@@ -6,6 +6,7 @@ import { POST as refreshRoute } from "@/app/api/templates/refresh/route";
 import { GET as readRoute } from "@/app/api/templates/[id]/route";
 import { GET as pictureRoute } from "@/app/api/templates/[id]/picture/route";
 import { POST as fetchRoute } from "@/app/api/templates/[id]/fetch/route";
+import { POST as copyRoute } from "@/app/api/templates/[id]/copy/route";
 import { POST as testRoute } from "@/app/api/instance/services/[service]/test/route";
 import { GET as configRoute } from "@/app/api/config/route";
 import { ERROR_CATALOGUE } from "@/lib/api/error-catalogue";
@@ -41,8 +42,9 @@ import * as shipped from "./shipped-index";
  * admins only, refused while the catalogue is off; the runtime read saying
  * whether the catalogue is in use; and the assistants: the SQL and workflow
  * ones offered list and read and refused the refresh and the fetch, the
- * embedded one asking before the Test and before a fetch, the fetch's
- * version bound into the call it parks.
+ * embedded one asking before the Test, a fetch and a copy, the version of
+ * a fetch or a copy bound into the call it parks; and the copy's version:
+ * the installed one, a listed one only once fetched.
  */
 
 keepRequestsOnThisMachine();
@@ -224,7 +226,7 @@ describe("the generated tools", () => {
       effects: { readOnly: true, writes: [], reachesOutside: true }, mcp: { destructiveHint: false, openWorldHint: true } });
     expect(tool("list_templates").effects.reachesOutside).toBeUndefined();
     expect(buildTools().filter((t) => t.path.startsWith("/api/templates")).map((t) => t.name).sort())
-      .toEqual(["fetch_template", "get_template", "list_templates", "refresh_templates"]);
+      .toEqual(["copy_template", "fetch_template", "get_template", "list_templates", "refresh_templates"]);
   });
 
   it("answer by a member's token as the routes do", async () => {
@@ -474,6 +476,176 @@ describe("fetch", () => {
       expect(events.some((e) => e.type === "confirm_required")).toBe(false);
       expect(events).toContainEqual(expect.objectContaining({ type: "error", code: "template_not_listed" }));
       expect(catalogue.requests).toEqual([]);
+    });
+  });
+});
+
+describe("copy", () => {
+  const copyCall = (headers: Record<string, string>, body?: string, id = "harbour-stations") =>
+    copyRoute(socketRequest(new Request(`${ORIGIN}/api/templates/${id}/copy`, {
+      method: "POST", headers: { ...headers, ...(body === undefined ? {} : { "content-type": "application/json" }) }, body,
+    })), params(id));
+  const fetchCall = (version: number) =>
+    fetchRoute(socketRequest(new Request(`${ORIGIN}/api/templates/harbour-stations/fetch`, {
+      method: "POST", headers: { ...memberCookie(), "content-type": "application/json" }, body: JSON.stringify({ version }),
+    })), params("harbour-stations"));
+  const refreshPastWindow = (offset: number) => refreshCatalogue(f.db, { now: Date.now() + offset * (REFRESH_WINDOW_MS + 1) });
+  const projects = () => (f.db.prepare("SELECT COUNT(*) AS n FROM projects").get() as { n: number }).n;
+  const copiedVersion = async (response: Response) => {
+    expect(response.status).toBe(201);
+    return ((await response.json()) as { members: { tables: { sourceParams: { version: number } }[] } }).members.tables[0].sourceParams.version;
+  };
+  /** Version 1 installed, version 2 listed. */
+  const newerListed = async () => {
+    await refreshRoute(call("POST", "/api/templates/refresh", memberCookie()));
+    expect((await fetchCall(1)).status).toBe(200);
+    await catalogue.publish([await buildTemplate(path.join(dir, "a2"), { id: "harbour-stations", version: 2 })]);
+    await refreshPastWindow(1);
+  };
+
+  it("is a generated tool that writes the project and what it holds, local, and asks first, its words binding the installed version", () => {
+    expect(tool("copy_template")).toMatchObject({
+      path: "/api/templates/{id}/copy", method: "post", confirm: true,
+      effects: { readOnly: false, writes: [
+        { resource: "projects", result: "project.id", collection: true },
+        { resource: "maps", result: "members.maps.*.id", collection: true },
+        { resource: "layers", collection: true },
+        { resource: "tables", result: "members.tables.*.id", collection: true },
+      ] },
+      mcp: { destructiveHint: false, openWorldHint: false, idempotentHint: false },
+      confirmation: { subject: { path: "/api/templates/{id}", argument: "id",
+        binds: { argument: "version", path: "installed", absent: "template_not_installed" } } },
+    });
+    expect(tool("copy_template").effects.reachesOutside).toBeUndefined();
+    expect(tool("copy_template").description).toContain("belong to the authenticated account");
+  });
+
+  it("refuses a listed version not installed yet, naming the fetch, with nothing created and nothing sent; fetched, copies it", async () => {
+    await refreshRoute(call("POST", "/api/templates/refresh", memberCookie()));
+    const sent = catalogue.requests.length;
+    for (const body of [undefined, JSON.stringify({ version: 1 })]) {
+      const refused = await copyCall(memberCookie(), body);
+      expect(refused.status).toBe(409);
+      expect(refused.headers.get("cache-control")).toBe("private, no-store");
+      expect((await refused.json()).error).toEqual({ code: "template_not_installed",
+        message: expect.stringContaining("POST /api/templates/harbour-stations/fetch") });
+    }
+    expect(catalogue.requests).toHaveLength(sent);
+    expect(projects()).toBe(0);
+    expect((await fetchCall(1)).status).toBe(200);
+    expect(await copiedVersion(await copyCall(memberCookie()))).toBe(1);
+  });
+
+  it("acts on the version named alone, on the installed one without one, whether still listed or not", async () => {
+    await newerListed();
+    expect(await copiedVersion(await copyCall(memberCookie()))).toBe(1);
+    expect(await copiedVersion(await copyCall(memberCookie(), JSON.stringify({ version: 1 })))).toBe(1);
+    const newer = await copyCall(memberCookie(), JSON.stringify({ version: 2 }));
+    expect(newer.status).toBe(409);
+    expect((await newer.json()).error.code).toBe("template_not_installed");
+    const unlisted = await copyCall(memberCookie(), JSON.stringify({ version: 3 }));
+    expect(unlisted.status).toBe(404);
+    expect((await unlisted.json()).error.code).toBe("template_not_listed");
+    await catalogue.publish([]);
+    await refreshPastWindow(2);
+    expect(await copiedVersion(await copyCall(memberCookie(), JSON.stringify({ version: 1 })))).toBe(1);
+    switchOff();
+    expect(await copiedVersion(await copyCall(memberCookie()))).toBe(1);
+    const off = await copyCall(memberCookie(), JSON.stringify({ version: 2 }));
+    expect(off.status).toBe(409);
+    expect((await off.json()).error.code).toBe("templates_catalogue_off");
+  });
+
+  describe("through the assistants", () => {
+    const turn = async (calls: { name: string; args: Record<string, unknown> }, context?: Parameters<typeof runAssistant>[1]["context"]) => {
+      const pending = new PendingActionStore();
+      const provider = stubProvider([
+        { text: "", toolCalls: [{ id: "call-1", name: calls.name, args: calls.args }] },
+        { text: "Done.", toolCalls: [] },
+      ]);
+      const deps = { scope: testAccountScope(f.db, "member"), baseUrl: ORIGIN, pending,
+        fetchImpl: (async (input: RequestInfo | URL, init?: RequestInit) => {
+          const incoming = input instanceof Request ? input : new Request(String(input), init);
+          return dispatch(memberToken().authorization.slice("Bearer ".length))(incoming);
+        }) as typeof fetch };
+      const events: AssistantEvent[] = [];
+      for await (const event of runAssistant(provider, { message: "Copy it", history: [], ...(context ? { context } : {}) }, deps)) events.push(event);
+      return { events, pending, deps };
+    };
+    const resume = async (parked: ReturnType<PendingActionStore["claim"]>, deps: Awaited<ReturnType<typeof turn>>["deps"]) => {
+      const done: AssistantEvent[] = [];
+      for await (const event of resumeAssistant(parked!, true, deps)) done.push(event);
+      return done;
+    };
+    const question = (events: AssistantEvent[]) => {
+      const asked = events.find((e) => e.type === "confirm_required");
+      if (asked?.type !== "confirm_required") throw new Error("expected a confirmation");
+      return asked;
+    };
+    const copiedBy = (done: AssistantEvent[]) => {
+      const result = done.find((e) => e.type === "tool_result" && e.tool === "copy_template");
+      if (result?.type !== "tool_result") throw new Error("expected the copy's result");
+      return result;
+    };
+
+    it("the SQL and workflow assistants refuse the copy with the policy refusal, creating nothing", async () => {
+      expect(admittedTools("read_only").map((t) => t.name)).not.toContain("copy_template");
+      for (const context of [{ page: "sql", draft: "", selection: null, lastExecution: null }, { page: "workflow", recipeId: "r", selectedStepId: null, lastRunId: null }] as const) {
+        const { events } = await turn({ name: "copy_template", args: { id: "quiet-park" } }, context);
+        expect(events.find((e) => e.type === "tool_result")).toMatchObject({ tool: "copy_template", ok: false, outcome: "refused",
+          body: { error: { code: POLICY_REFUSAL_CODE } } });
+      }
+      expect(projects()).toBe(0);
+    });
+
+    it("the embedded assistant asks first, naming the installed version and its size, binds that version into the call, and copies it on approval", async () => {
+      const { events, pending, deps } = await turn({ name: "copy_template", args: { id: "quiet-park" } });
+      const asked = question(events);
+      expect(asked.confirmation).toEqual({
+        target: "Copy version 1 of Quiet park (quiet-park) into a new project?",
+        consequence: `Its map, its workflow if it has one, and its datasets (an archive of ${Math.round(C1.size / 1024)} KB) become yours in a new project; ` +
+          "the template stays as it is.",
+      });
+      expect(asked.args).toEqual({ id: "quiet-park", version: 1 });
+      expect(projects()).toBe(0);
+      const done = await resume(pending.claim(deps.scope, asked.id, "approved"), deps);
+      expect(copiedBy(done)).toMatchObject({ ok: true, body: { project: { name: "Quiet park" } } });
+      expect(projects()).toBe(1);
+    });
+
+    it("a confirmation pending across an index move acts on the version its words name, never the newer one", async () => {
+      await refreshRoute(call("POST", "/api/templates/refresh", memberCookie()));
+      expect((await fetchCall(1)).status).toBe(200);
+      const { events, pending, deps } = await turn({ name: "copy_template", args: { id: "harbour-stations" } });
+      const asked = question(events);
+      expect(asked.confirmation?.target).toBe("Copy version 1 of Harbour stations (harbour-stations) into a new project?");
+      // The index moves to version 2, and version 2 is installed too: a
+      // copy naming no version would now read it.
+      await catalogue.publish([await buildTemplate(path.join(dir, "a2"), { id: "harbour-stations", version: 2 })]);
+      await refreshPastWindow(1);
+      expect((await fetchCall(2)).status).toBe(200);
+      const done = await resume(pending.claim(deps.scope, asked.id, "approved"), deps);
+      const result = copiedBy(done);
+      expect(result.ok).toBe(true);
+      expect((result.body as { members: { tables: { sourceParams: unknown }[] } }).members.tables[0].sourceParams)
+        .toEqual({ template: "harbour-stations", version: 1 });
+    });
+
+    it("words a size only for the version the card describes", async () => {
+      await newerListed();
+      const { events } = await turn({ name: "copy_template", args: { id: "harbour-stations" } });
+      const asked = question(events);
+      expect(asked.args).toEqual({ id: "harbour-stations", version: 1 });
+      expect(asked.confirmation?.consequence).toBe("Its map, its workflow if it has one, and its datasets (an archive of the size the template lists) " +
+        "become yours in a new project; the template stays as it is.");
+    });
+
+    it("a copy with nothing installed is not asked, and the turn ends with the refusal naming the fetch", async () => {
+      await refreshRoute(call("POST", "/api/templates/refresh", memberCookie()));
+      const { events } = await turn({ name: "copy_template", args: { id: "harbour-stations" } });
+      expect(events.some((e) => e.type === "confirm_required")).toBe(false);
+      expect(events).toContainEqual(expect.objectContaining({ type: "error", code: "template_not_installed" }));
+      expect(projects()).toBe(0);
     });
   });
 });

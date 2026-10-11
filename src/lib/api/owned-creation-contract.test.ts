@@ -7,10 +7,10 @@ it("documents authenticated creation and carries ownership semantics into genera
   const paths = ["/api/maps", "/api/maps/{id}/duplicate", "/api/maps/{id}/sketches", "/api/tables",
     "/api/imports/url", "/api/imports/osm", "/api/imports/overture", "/api/imports/postgis",
     "/api/connections/postgis", "/api/projects", "/api/recipes", "/api/recipes/{id}/duplicate",
-    "/api/recipes/{id}/runs", "/api/recipes/{id}/steps/{stepId}/run", "/api/operations/run"];
+    "/api/recipes/{id}/runs", "/api/recipes/{id}/steps/{stepId}/run", "/api/operations/run", "/api/templates/{id}/copy"];
   for (const path of paths) expect(document.paths[path].post.description, path).toContain("belong to the authenticated account");
   const tools = buildTools();
-  for (const name of ["create_map", "create_project", "create_recipe", "create_sketch", "upload_table", "run_operation"]) {
+  for (const name of ["create_map", "create_project", "create_recipe", "create_sketch", "upload_table", "run_operation", "copy_template"]) {
     const tool = tools.find(tool => tool.name === name)!;
     expect(tool, name).toBeDefined();
     expect(tool.description, name).toContain("belong to the authenticated account");

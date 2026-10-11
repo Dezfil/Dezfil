@@ -4,6 +4,7 @@ import type { DataTable } from "./api";
 import { classOfTable } from "./geometry-class";
 import { GeometryIcon, geometryKind } from "./gallery-icons";
 import { CaretIcon } from "./ui/icons";
+import { templateSentence } from "./template-sentence";
 import gallery from "./gallery.module.css";
 
 /**
@@ -19,7 +20,8 @@ export function isRefreshableImport(table: {
   return (
     table.source !== "upload" &&
     table.source !== "operation" &&
-    table.source !== "sketch"
+    table.source !== "sketch" &&
+    table.source !== "template"
   );
 }
 
@@ -38,6 +40,8 @@ export function sourceLabel(table: DataTable): string {
       return "Operation result";
     case "sketch":
       return "Drawn on a map";
+    case "template":
+      return "From a template";
     default:
       return "File upload";
   }
@@ -83,6 +87,8 @@ export function sourceTitle(table: DataTable): string {
         ? `Drawn on "${mapName}"`
         : "Drawn on a map";
     }
+    case "template":
+      return templateSentence(table.sourceParams);
     default:
       return `Uploaded as ${table.sourceFilename ?? "a file"}`;
   }
@@ -96,6 +102,7 @@ export const SOURCE_COLORS: Record<DataTable["source"], string> = {
   postgis: "#4d84ad",
   operation: "var(--source-operation)",
   sketch: "#a84a8f",
+  template: "#9a6b1f",
 };
 
 export function SourceChip({ table }: { table: DataTable }) {

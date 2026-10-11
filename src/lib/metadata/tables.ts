@@ -20,7 +20,8 @@ export type TableFormat =
 /**
  * Where a table came from; an operation's output; a drawn sketch — its
  * sourceParams record the owning map and the session-minted owning
- * layer.
+ * layer; a template's dataset copied into its copier's project — its
+ * sourceParams name the template and the version it came from.
  */
 export type TableSource =
   | "upload"
@@ -29,7 +30,8 @@ export type TableSource =
   | "osm"
   | "postgis"
   | "operation"
-  | "sketch";
+  | "sketch"
+  | "template";
 
 export interface DataTable extends GeometryEvidence {
   id: string;

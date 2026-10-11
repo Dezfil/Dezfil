@@ -78,6 +78,7 @@ const SOURCE_ORDER: TableListing["source"][] = [
   "url",
   "operation",
   "sketch",
+  "template",
 ];
 
 const FILTER_LABELS: Record<TableListing["source"], string> = {
@@ -88,6 +89,7 @@ const FILTER_LABELS: Record<TableListing["source"], string> = {
   url: "URL",
   operation: "Results",
   sketch: "Sketches",
+  template: "Templates",
 };
 
 /** The workflows the page folds its outputs into. */

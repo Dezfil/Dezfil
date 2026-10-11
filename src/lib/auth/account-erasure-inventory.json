@@ -5893,6 +5893,95 @@
       "roots": [
         "templates/*/*"
       ]
+    },
+    "location:src/lib/templates/catalogue.ts#copySource.installed:downloadedTemplatesDir": {
+      "stores": [
+        "file:templates"
+      ],
+      "roots": [
+        "templates"
+      ]
+    },
+    "location:src/lib/templates/catalogue.ts#copySource.installed:path.join": {
+      "stores": [
+        "file:templates"
+      ],
+      "roots": [
+        "templates/*/*"
+      ]
+    },
+    "location:src/lib/templates/copy-artifacts.ts#copyDatasetFile.target:dataDir": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "location:src/lib/templates/copy-artifacts.ts#copyDatasetFile.target:path.join": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "tables/*.parquet"
+      ]
+    },
+    "location:src/lib/templates/copy-artifacts.ts#removeCopiedArtifacts:dataDir": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "location:src/lib/templates/copy-artifacts.ts#removeCopiedArtifacts:path.join": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "*"
+      ]
+    },
+    "memory:src/lib/templates/copy-references.ts#bindCopyReferences.everything": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/templates/copy-references.ts#bindCopyReferences.own": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/templates/copy-references.ts#bindCopyReferences.standIns": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/templates/copy-references.ts#bindCopyReferences.taken": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/templates/copy.ts#holder": {
+      "stores": [
+        "memory:test-seams"
+      ]
+    },
+    "writer:src/lib/templates/copy-artifacts.ts#copyDatasetFile:createWriteStream": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "tables/*.parquet"
+      ]
+    },
+    "writer:src/lib/templates/copy-artifacts.ts#copyDatasetFile:registerAccountFile": {
+      "stores": [
+        "file:account-files"
+      ],
+      "roots": [
+        "tables/*.parquet"
+      ]
     }
   },
   "files": {

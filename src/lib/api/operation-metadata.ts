@@ -1,3 +1,4 @@
+import type { ErrorCode } from "./errors";
 /** Product effects are declared by each operation, never inferred from HTTP.
  * Derived caches and metadata clocks belong to their owning product resource.
  */
@@ -47,12 +48,15 @@ export interface ConfirmationWords {
     /** An argument the call may leave out, which the confirmation binds:
      * completed from the subject read (its value at `path`) before the call
      * waits for its answer, so what the words name is what runs. `{<argument>}`
-     * in the words reads the bound value. */
-    binds?: { argument: string; path: string };
+     * in the words reads the bound value. A read that answers with no value
+     * there refuses the call unasked: with `absent`'s code (409) when the
+     * operation declares one. */
+    binds?: { argument: string; path: string; absent?: ErrorCode };
     /** Words read from the subject: `{<key>}` in the words becomes the value
      * at `path` (a byte count, when `bytes`, in KB, MB or GB). Read only
-     * when the subject describes the bound value; else `fallback`. */
-    facts?: Record<string, { path: string; bytes?: true; fallback: string }>;
+     * when the subject describes the bound value (and, with `of`, when its
+     * value at `of` is the bound value too); else `fallback`. */
+    facts?: Record<string, { path: string; bytes?: true; of?: string; fallback: string }>;
   };
 }
 /** The pages the in-product assistant runs on. */

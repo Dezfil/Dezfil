@@ -264,6 +264,8 @@ describe("tool parity", () => {
       // it is asked for as every instance-wide change is.
       "clear_service_caches",
       "clear_table_geometry",
+      // Creates a project from a template, with its map and datasets.
+      "copy_template",
       "create_api_token",
       "delete_layer",
       "delete_map",

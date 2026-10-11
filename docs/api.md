@@ -24,7 +24,7 @@ every documented operation must have a route, and every call the interface
 makes must hit a documented path (`src/lib/api/parity.test.ts`). The
 description cannot drift from the server.
 
-Measured from the current source: **140 paths, 397 operations, 183 named component schemas.** Operations include supported automatic HEAD and OPTIONS.
+Measured from the current source: **141 paths, 399 operations, 184 named component schemas.** Operations include supported automatic HEAD and OPTIONS.
 `npm run lint:contract-docs` measures these numbers and checks the catalogue below
 against the contract; changing only the reader-facing text fails the gate.
 
@@ -64,7 +64,7 @@ preconditions are declared on the operations that require them.
 
 ## Request bounds
 
-Measured JSON reader operations: **68**. These counts include optional bodies,
+Measured JSON reader operations: **69**. These counts include optional bodies,
 helper readers and MCP's external parser handoff, and exclude multipart uploads
 and binary thumbnails. The contract gate measures them; type-aware body-policy
 coverage independently checks the implementation against the contract.
@@ -72,7 +72,7 @@ coverage independently checks the implementation against the contract.
 <!-- body-tiers:start -->
 | JSON wire-byte tier | Operations |
 |---|---|
-| 65,536 | 16 |
+| 65,536 | 17 |
 | 131,072 | 1 |
 | 16,777,216 | 51 |
 <!-- body-tiers:end -->
@@ -1261,14 +1261,48 @@ the index declares or 150 MB), `template_unpacked_too_large` or
 template reader's other codes (`template_reference_outside` for a layer or
 step naming a dataset that is not the template's, a person's or another
 template's), 403 `egress_blocked`, 502 `remote_fetch_failed` and 504
-`remote_timeout`. List, read one, refresh and fetch are generated as tools,
-`list_templates`, `get_template`, `refresh_templates` and `fetch_template`;
-the SQL and workflow assistants are offered the first two and refuse the
-refresh, which reaches outside this server, and the fetch, which writes. The
-embedded assistant asks before a fetch, its words naming the version and its
-size; a call naming no version is completed with the version those words
-name before it waits, so approving it later fetches that version even if the
-catalogue lists a newer one by then.
+`remote_timeout`. `POST /api/templates/{id}/copy` makes a copy of one
+installed version into a new project of the caller's, all of it or nothing:
+the `version` its optional JSON body names (at most 64 KB, with an optional
+`name`), else the installed one. The copy is local and sends nothing: an
+installed version is copied whether the catalogue still lists it or not, and
+with the catalogue off; a listed version that is not installed is refused
+with 409 `template_not_installed`, so it is fetched first. The project is
+named as the body says (trimmed, 1 to 120 characters), else after the
+template's title, and its note carries a line naming the template, its
+version and the day. Filed in it under fresh identities: the template's map,
+every layer, widget, the legend order, camera, basemap and timeline as
+stored, each widget, the legend order and the timeline bound to the copied
+layers, its SQL home the caller's; and every dataset of the template, the
+caller's, under its name in the template or the next free name by the suffix
+rule (`stations_2`), reserved against the caller's datasets and every output
+name their workflows declare, each layer's SQL rewritten to name the dataset
+as landed. The names are taken inside the copy's one metadata transaction,
+the project first, so two copies at once each land whole under distinct
+names; a failure anywhere before the commit leaves no project, map or
+dataset of the caller's and no file, and a download stays installed. A
+copied dataset's `source` is `template`, with the template's `id` and
+`version` in its `sourceParams`; it is never refreshed. The map's card images
+are the template's pictures, saved after the copy with evidence naming the
+copied datasets; when they cannot be saved the copy stands and its card
+shows the placeholder until the map's first capture. It answers 201
+`{ project, members }`, the project as `GET /api/projects/{id}` reads it with
+its members, and `Location` naming the project. Refused, coded, with nothing
+created: 404 `template_not_listed`, 409 `template_not_installed`, 409
+`templates_catalogue_off` for a version not installed while the catalogue is
+off, 422 `template_reference_unbound` for a layer naming a dataset the copy
+does not make, 422 `template_record_mismatch` and the reader's other codes
+for an installed version that changed on disk, 400 `invalid_request` and 413
+`request_body_too_large`. List, read one, refresh, fetch and copy are
+generated as tools, `list_templates`, `get_template`, `refresh_templates`,
+`fetch_template` and `copy_template`; the SQL and workflow assistants are
+offered the first two and refuse the refresh, which reaches outside this
+server, and the fetch and the copy, which write. The embedded assistant asks
+before a fetch and before a copy, its words naming the version and its size;
+a call naming no version is completed with the version those words name
+before it waits (for a copy, the installed one; with none installed it is
+refused with `template_not_installed` and not asked), so approving it later
+acts on that version even if the catalogue lists a newer one by then.
 
 **Agents.** The assistant and the MCP endpoint. `POST /api/assistant/runs`
 reserves a run, `POST /api/assistant/messages` sends a message under that
@@ -1302,7 +1336,7 @@ server-side, so filesystem paths and engine text stay out of responses
 The complete catalogue is published two ways in the same document: as the
 enum of the `Error` schema, and as `x-error-codes` at the top level, which
 maps every code to a sentence explaining what it means
-(`src/lib/api/error-catalogue.ts`). There are **132** codes. Clients should
+(`src/lib/api/error-catalogue.ts`). There are **134** codes. Clients should
 branch on codes, never on prose.
 
 One status is unusual: a client that abandons an in-flight evaluation gets
@@ -2189,6 +2223,8 @@ response message. Branch on the code.
 | `template_credit_missing` | A template's credit note does not name every source with its licence. |
 | `template_reference_outside` | A template's layer or step names a dataset that is neither the template's own nor the result of an earlier step, such as a person's dataset or another template's. |
 | `template_record_mismatch` | An installed template's files differ from the record written when it was installed, so it is refused rather than trusted. |
+| `template_not_installed` | That version of the template is listed by the catalogue but not on this server yet, so it cannot be copied; fetch it first (POST /api/templates/{id}/fetch), then copy. Nothing was created. |
+| `template_reference_unbound` | A layer or step of the template names a dataset the copy could not bind to the datasets it makes, so the copy was refused whole and nothing was created. |
 | `internal` | An unexpected server error occurred. |
 <!-- error-catalogue:end -->
 

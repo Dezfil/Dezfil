@@ -145,6 +145,11 @@ export type ErrorCode =
   | "template_credit_missing"
   | "template_reference_outside"
   | "template_record_mismatch"
+  /** A listed version is not on this server yet: fetch it, then copy. */
+  | "template_not_installed"
+  /** A copy could not bind one of the template's references to the
+   * datasets it lands: nothing was created. */
+  | "template_reference_unbound"
   | "internal";
 
 export class ApiError extends Error {

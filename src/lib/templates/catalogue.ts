@@ -615,6 +615,50 @@ export async function downloadedSize(id: string, version: number): Promise<numbe
   return (await readInstalledLight(path.join(downloadedTemplatesDir(), id, String(version)), id, version))?.size ?? null;
 }
 
+/** The refusal for a listed version that is not installed: a copy is
+ * local, so the version is fetched first. */
+export function templateNotInstalled(id: string, version: number): ApiError {
+  return new ApiError("template_not_installed",
+    `Version ${version} of the template "${id}" is listed by the catalogue but not on this server yet: fetch it ` +
+    `(POST /api/templates/${id}/fetch), then copy it. Nothing was created.`, 409);
+}
+
+/** The installed version a copy reads, with its folder. */
+export interface CopySource {
+  id: string;
+  version: number;
+  folder: string;
+}
+
+/**
+ * The version a copy of `id` reads: the one named, else the installed one
+ * (a shipped template's shipped version; else the newest download whole by
+ * its record). A copy is local: an installed version is copied whether the
+ * catalogue still lists it or not, and with the catalogue off. A version
+ * that is not installed is refused, and nothing is sent: the one the kept
+ * list names, as not installed yet, naming the fetch; while the catalogue
+ * is off, with the switch's reason; a saved address the key no longer
+ * opens, as every service refuses it; any other, as not listed.
+ */
+export async function copySource(id: string, version: number | null, db: Database = metadataDb()): Promise<CopySource> {
+  if (!ID.test(id)) throw templateNotListed();
+  const shipped = (await shippedVersions()).find((v) => v.facts.id === id);
+  if (shipped) {
+    if (version !== null && version !== shipped.facts.version) throw templateNotListed();
+    return { id, version: shipped.facts.version, folder: shipped.folder };
+  }
+  const installed = version === null
+    ? (await downloadedVersions()).get(id) ?? null
+    : await readInstalledLight(path.join(downloadedTemplatesDir(), id, String(version)), id, version);
+  if (installed) return { id, version: installed.facts.version, folder: installed.folder };
+  const now = catalogueNow(db);
+  if (now.kind === "off") throw catalogueOff();
+  if (now.kind === "unreadable") throw serviceAddressUnreadable("templatesCatalogueUrl");
+  const entry = holder.kept?.key === now.key ? holder.kept.entries.find((e) => e.facts.id === id) : undefined;
+  if (!entry || (version !== null && entry.facts.version !== version)) throw templateNotListed();
+  throw templateNotInstalled(id, entry.facts.version);
+}
+
 /** The version a fetch acts on: installed already, or the one the kept list
  * names, with where the catalogue is read. */
 export type FetchTarget =
