@@ -32,9 +32,9 @@
   top: 9px;
   left: 9px;
   z-index: 3;
-  background: color-mix(in srgb, var(--bg-panel) 93%, transparent);
-  backdrop-filter: blur(12px);
-  box-shadow: 0 2px 8px var(--shadow);
+  background: var(--surface-overlay-control-fill);
+  backdrop-filter: var(--surface-overlay-control-blur);
+  box-shadow: var(--surface-overlay-control-shadow);
 }
 
 .ownerPill[data-placement="inline"] {

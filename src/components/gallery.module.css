@@ -523,9 +523,9 @@
   gap: 2px;
   padding: 3px;
   border-radius: var(--radius-control);
-  background: color-mix(in srgb, var(--bg-panel) 93%, transparent);
-  backdrop-filter: blur(12px);
-  box-shadow: 0 3px 12px var(--shadow);
+  background: var(--surface-overlay-control-fill);
+  backdrop-filter: var(--surface-overlay-control-blur);
+  box-shadow: var(--surface-overlay-control-shadow);
   opacity: 0;
   transform: translateY(-3px);
   transition: var(--dur-micro);

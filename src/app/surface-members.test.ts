@@ -23,7 +23,7 @@ const STEP = {
 } as const;
 
 /** The last step whose members read their role. */
-const MOVED_THROUGH = 6;
+const MOVED_THROUGH = 7;
 
 const C = "src/components/";
 const LAYOUT = "src/app/(workspace)/layout.module.css";
@@ -318,6 +318,20 @@ describe("the members of each role", () => {
     expect(resolve(legend["box-shadow"])).toBe("0 8px 26px var(--shadow)");
     expect(legend["border-radius"]).toBe("var(--radius-legend)");
     expect(legend.border).toBeUndefined();
+  });
+
+  it("count the workflow canvas's full-view button among the stage buttons, so it reads the overlay control", () => {
+    if (STEP.control > MOVED_THROUGH) return;
+    // The full-view toggle stands in the canvas's stage stack: it is drawn
+    // by the shared stage button, whose box is the stage stack's rule.
+    const stage = read(C + "workflow-canvas/CanvasStage.tsx");
+    const action = stage.indexOf('"Fill the screen"');
+    expect(action, "the canvas offers its full view").toBeGreaterThan(-1);
+    expect(/^<(\w+)/.exec(stage.slice(stage.lastIndexOf("<", action)))?.[1]).toBe("StageButton");
+    const stack = read(C + "map/StageStack.tsx");
+    expect(stack).toMatch(/className=\{className \? `\$\{styles\.stageBtn\} \$\{className\}` : styles\.stageBtn\}/);
+    const button = MEMBERS.find(member => member.selector === ".stageBtn")!;
+    expect(memberProblems(button, read(button.file))).toEqual([]);
   });
 
   it("read no role at all until theirs moves, so a half-made move shows", () => {

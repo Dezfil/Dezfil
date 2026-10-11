@@ -83,9 +83,10 @@
   display: grid;
   place-items: center;
   border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--bg-panel) 90%, transparent);
+  background: var(--surface-overlay-control-fill);
+  backdrop-filter: var(--surface-overlay-control-blur);
   color: var(--fg-muted);
-  box-shadow: 0 1px 4px var(--shadow);
+  box-shadow: var(--surface-overlay-control-shadow);
 }
 
 .mark > svg {
