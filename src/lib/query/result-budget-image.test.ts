@@ -3,7 +3,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "no
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
-import { afterAll, describe, expect, it, vi, type TestContext } from "vitest";
+import { expect, it, type TestContext } from "vitest";
 
 /** Whether a process is still there. */
 function alive(pid: number): boolean {
@@ -15,9 +15,11 @@ function groupAlive(leader: number): boolean {
   try { process.kill(-leader, 0); return true; } catch { return false; }
 }
 
-/** For the never-ending run: a docker double that notes its own id at
- * `note` and then never answers, and a hook told the shell's id and the
- * scratch folder once the run starts. */
+/** For the run that does not end: a docker double that notes its own id at
+ * `note` on its first call and then gives no answer for a few seconds,
+ * failing every later call at once, and a hook told the shell's id and the
+ * scratch folder once the run starts. The double's life is bounded, so a
+ * run whose runner is itself interrupted leaves nothing for longer. */
 interface NeverAnswering { note: string; started: (run: { shell: number; directory: string }) => void }
 
 /** One run of the driver over the command doubles. The run keeps no clock
@@ -48,7 +50,8 @@ async function driver(context: Pick<TestContext, "signal" | "onTestFinished">, r
       writeFileSync(join(directory, command), `#!${process.execPath}\n${double}`, { mode: 0o755 });
     }
     if (neverAnswering) {
-      writeFileSync(join(directory, "docker"), `#!/bin/sh\necho $$ > '${neverAnswering.note}.tmp' && mv '${neverAnswering.note}.tmp' '${neverAnswering.note}'\nexec /bin/sleep 3600\n`, { mode: 0o755 });
+      const note = neverAnswering.note;
+      writeFileSync(join(directory, "docker"), `#!/bin/sh\nif [ -e '${note}' ]; then exit 1; fi\necho $$ > '${note}.tmp' && mv '${note}.tmp' '${note}'\n/bin/sleep 5\nexit 1\n`, { mode: 0o755 });
     }
     run = spawn("sh", ["scripts/result-budget-image.sh", "budget-fixture:local", ...args], {
       detached: true,
@@ -143,32 +146,34 @@ it("rejects an unknown mode before starting containers", async (context) => {
   expect(commands).toEqual([]);
 });
 
-describe("a run that never ends", () => {
+it("ends a run that gives no answer through the driver's own cleanup, leaving no process of its group and no scratch folder", async (context) => {
+  // The run is ended by its abort signal, the path the case's timeout and a
+  // cancelled run take into the same cleanup as the case's end, and the
+  // driver settles only once that cleanup is done. No clock decides
+  // anything here: the case waits for the double to be running, whatever
+  // the load, and its timeout is only a hang guard.
   const notes = mkdtempSync(join(tmpdir(), "budget-never-"));
-  const note = join(notes, "double.pid");
-  let run: { shell: number; directory: string } | undefined;
-  let endedByItself = false;
-  afterAll(() => rmSync(notes, { recursive: true, force: true }));
-
-  // The control: a docker double that never answers, the case held to a
-  // short timeout, so the runner gives up on it with the script still
-  // running. The next case reads what this one left behind.
-  it.fails("is given up by its case at the case's timeout", async (context) => {
-    await driver(context, [1], "", ["--full"], { note, started: (started) => { run = started; } });
-    endedByItself = true;
-  }, 3_000);
-
-  it("leaves no process of the script's group and no scratch folder behind", async () => {
-    expect(run, "the never-ending run started").toBeDefined();
-    expect(endedByItself, "the never-ending run ended before its case's timeout").toBe(false);
-    expect(existsSync(note), "the docker double was reached and noted itself").toBe(true);
+  try {
+    const note = join(notes, "double.pid");
+    const controller = new AbortController();
+    let run: { shell: number; directory: string } | undefined;
+    let settled = false;
+    const running = driver({ signal: controller.signal, onTestFinished: context.onTestFinished }, [1], "", ["--full"],
+      { note, started: (started) => { run = started; } });
+    void running.then(() => { settled = true; }, () => { settled = true; });
+    while (!existsSync(note)) {
+      if (settled) throw new Error("the run ended before its docker double was running");
+      await sleep(10);
+    }
     const double = Number(readFileSync(note, "utf8"));
     expect(double).toBeGreaterThan(1);
-    await vi.waitFor(() => {
-      expect(alive(double), "the never-answering double").toBe(false);
-      expect(alive(run!.shell), "the script's shell").toBe(false);
-      expect(groupAlive(run!.shell), "a process of the script's group").toBe(false);
-      expect(existsSync(run!.directory), "the run's scratch folder").toBe(false);
-    }, { timeout: 5_000 });
-  });
+    expect(run, "the run started").toBeDefined();
+    expect(alive(double), "the double gives no answer").toBe(true);
+    controller.abort(new Error("ended by the case"));
+    await expect(running).rejects.toThrow("ended by the case");
+    expect(alive(double), "the double that gave no answer").toBe(false);
+    expect(alive(run!.shell), "the script's shell").toBe(false);
+    expect(groupAlive(run!.shell), "a process of the script's group").toBe(false);
+    expect(existsSync(run!.directory), "the run's scratch folder").toBe(false);
+  } finally { rmSync(notes, { recursive: true, force: true }); }
 });
