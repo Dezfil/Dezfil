@@ -68,6 +68,11 @@ const notPlain = (where: string) =>
   `${where} names "stations" inside a string or a table function's argument; ` +
   "a template's SQL names its own datasets and results as plain table references only.";
 
+/** The refusal of SQL qualifying the stations by a schema, where it does. */
+const schemaQualified = (where: string) =>
+  `${where} qualifies "stations" by a schema; ` +
+  "a template's SQL names its own datasets and results as plain table references only.";
+
 /** The rules over one template as a catalogue serves it: its archive
  * installed by the install's own road, both stages of the admission and
  * the upload's reader. The code of the rule it fails, or null when it
@@ -266,6 +271,28 @@ describe("a template's SQL names its own datasets as plain table references only
       await mkdir(scratch);
       const expected = { id: template.facts.id, version: template.facts.version, size: template.size, sha256: template.sha256 };
       await expect(installTemplateArchive(scope, scratch, template.archive, expected, { kind: "shipped" })).rejects.toThrow(notPlain(where));
+    }
+  });
+
+  it.each<[string, TemplateFixtureOptions]>([
+    ["a schema on its dataset", { edit: SEEDS.layerSchemaTable }],
+    ["a schema on a column over its plainly named dataset", { edit: SEEDS.layerSchemaColumn }],
+    ["a schema on its dataset and a column", { edit: SEEDS.layerSchemaColumnAndTable }],
+    ["a SQL step's catalogue and schema on its dataset", { kind: "workflow", edit: SEEDS.stepSchemaTable }],
+  ])("refuses a template qualifying its dataset by %s", async (_what, options) => {
+    expect(await ruleFailed(options)).toBe("template_invalid");
+  });
+
+  it("names the layer or the step qualifying the dataset by a schema", async () => {
+    for (const [options, where] of [
+      [{ edit: SEEDS.layerSchemaColumn }, 'The map\'s layer 1 ("Stations")'],
+      [{ kind: "workflow", edit: SEEDS.stepSchemaTable }, "The workflow's step 1"],
+    ] as const) {
+      const template = await build(options);
+      const scratch = path.join(dir, `install-schema-${built++}`);
+      await mkdir(scratch);
+      const expected = { id: template.facts.id, version: template.facts.version, size: template.size, sha256: template.sha256 };
+      await expect(installTemplateArchive(scope, scratch, template.archive, expected, { kind: "shipped" })).rejects.toThrow(schemaQualified(where));
     }
   });
 });

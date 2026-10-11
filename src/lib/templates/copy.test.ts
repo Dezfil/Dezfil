@@ -57,10 +57,12 @@ const TODAY = () => new Date().toISOString().slice(0, 10);
 const RIDERS_TOTAL = 340 + 220 + 180 + 90 + 60 + 410;
 const LOCAL_NAME_SQL = "WITH stations_2 AS (SELECT 99 AS x) SELECT * FROM stations";
 const QUALIFIED_SQL = "SELECT stations.id, stations.name, stations.riders, stations.opened, stations.geom FROM stations WHERE stations.riders > 0";
+const SCHEMA_SQL = "SELECT main.stations.geom FROM main.stations";
+const SCHEMA_COLUMN_SQL = "SELECT main.stations.geom FROM stations";
 
 let built: string;
 let M1: BuiltTemplate, Q1: BuiltTemplate, X1: BuiltTemplate, D1: BuiltTemplate, N1: BuiltTemplate, L1: BuiltTemplate;
-let T1: BuiltTemplate;
+let T1: BuiltTemplate, S1: BuiltTemplate, S2: BuiltTemplate;
 let f: ReturnType<typeof instanceSettingsFixture>;
 let dir: string;
 let shippedFolder: string;
@@ -107,6 +109,18 @@ beforeAll(async () => {
   // The stations layer reading its dataset through a table function's
   // listed argument, placed by hand since the admission refuses it.
   T1 = await buildTemplate(path.join(built, "t1"), { id: "listed-name", edit: SEEDS.layerListedName });
+  // The stations layer qualifying a column by its dataset's schema, the
+  // dataset itself qualified or plain; placed by hand, since the admission
+  // refuses both.
+  const stationsSql = (id: string, sql: string) => buildTemplate(path.join(built, id), {
+    id,
+    edit: (files) => {
+      const layers = files.documents.get("maps/map.json")!.layers as Record<string, unknown>[];
+      layers.find((layer) => layer.id === "layer-stations")!.sql = sql;
+    },
+  });
+  S1 = await stationsSql("schema-names", SCHEMA_SQL);
+  S2 = await stationsSql("schema-columns", SCHEMA_COLUMN_SQL);
 });
 afterAll(async () => { await rm(built, { recursive: true, force: true }); });
 
@@ -533,6 +547,29 @@ describe("what a copy refuses", () => {
     expect(holdings(f.db, "member")).toEqual(before);
     expect(await tableFiles()).toEqual(files);
   });
+
+  it.each([["schema-names", SCHEMA_SQL], ["schema-columns", SCHEMA_COLUMN_SQL]] as const)(
+    "a layer qualifying a column by its dataset's schema (%s), once that dataset lands under another name, with nothing created",
+    async (id, sql) => {
+      await installFixture(id === "schema-names" ? S1 : S2, path.join(dataDir(), "templates", id, "1"), { kind: "catalogue", origin: "https://catalogue.example" });
+      // Under the plain names the template's text reads what it read.
+      const first = await landed(await copy(id));
+      expect(layerSql(first.map).Stations).toBe(sql);
+      expect(await renders(first.map.layers.find((l) => l.name === "Stations")!.id)).toMatchObject({ ok: true, featureCount: 6 });
+      const before = holdings(f.db, "member");
+      const files = await tableFiles();
+      // The second copy's dataset lands as "stations_2", bound by the old
+      // name as an alias: "main.stations" names no table of its text.
+      const second = await copy(id);
+      expect(second.status, second.text).toBe(422);
+      expect(second.body).toEqual({ error: {
+        code: "template_reference_unbound",
+        message: 'The map\'s layer 1 ("Stations") could not be bound to the datasets the copy makes, so nothing was created.',
+      } });
+      expect(holdings(f.db, "member")).toEqual(before);
+      expect(await tableFiles()).toEqual(files);
+    },
+  );
 
   it("a body that is not a name and a version, and one past its bound", async () => {
     for (const body of [{ name: "" }, { name: 5 }, { name: "x".repeat(121) }, { version: "1" }, { version: 0 }, { other: 1 }, "[1]", "{ not json"]) {

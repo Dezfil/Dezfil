@@ -1,7 +1,9 @@
 import type { DuckDBConnection } from "@duckdb/node-api";
 import { queryInputsStrict } from "@/lib/operations/inputs";
 import { tableReferences } from "@/lib/operations/sql-references";
+import { readOnlySql } from "@/lib/query/guard";
 import { classifyReference } from "@/lib/query/reference-forms";
+import { collectReferences, serializeSql, type ReferenceCollection } from "@/lib/query/references";
 
 /**
  * A template's SQL names its own datasets and results as plain table
@@ -12,12 +14,17 @@ import { classifyReference } from "@/lib/query/reference-forms";
  * name the rewrite cannot reach (a table function's argument, listed or
  * computed, SQL carried inside a string, a string in a table's place) would
  * outlive the rename and read another dataset of the copier's, or nothing.
- * So a template never names one of its own that way; templates are authored
- * for the product, and the rule costs their SQL nothing.
+ * Nor does a schema on the name (`main.stations`) or on a column's
+ * qualifier (`main.stations.geom`) survive it: a renamed table keeps its old
+ * name only as an alias (`FROM stations_2 AS stations`), which a column
+ * qualified by a schema does not find. So a template never names one of its
+ * own either way; templates are authored for the product, and the rule
+ * costs their SQL nothing.
  *
- * The engine's parse holds the rule, not a reading of the text: every name
- * the rewrite would reach is replaced by one no member carries, and the
- * parse of what is left must read none of the template's members.
+ * The engine's parse holds the rule, not a reading of the text: no table or
+ * column qualifier it finds spells a member with a schema, and once every
+ * name the rewrite would reach is replaced by one no member carries, the
+ * parse of what is left reads none of the template's members.
  */
 
 /** The text with each name the copy's rewrite reaches in a table's place
@@ -44,6 +51,26 @@ function withoutPlainReferences(sql: string, members: ReadonlySet<string>): stri
   return out + sql.slice(cursor);
 }
 
+/** The first member the parse finds qualified by a schema, as a table
+ * (`main.stations`) or in a column's qualifier (`main.stations.geom`, the
+ * column's first two or three parts), or null. */
+function schemaQualified(collected: ReferenceCollection, members: ReadonlySet<string>): string | null {
+  for (const { parts, dynamic } of collected.references) {
+    if (dynamic || parts.length === 1) continue;
+    const classified = classifyReference(parts);
+    if (classified.form === "plain" && members.has(classified.name)) return classified.name;
+  }
+  for (const column of collected.columnRefs) {
+    for (let k = 2; k < column.length && k <= 3; k++) {
+      const classified = classifyReference(column.slice(0, k));
+      if (classified.form === "plain" && members.has(classified.name)) return classified.name;
+    }
+  }
+  return null;
+}
+
+const PLAIN_ONLY = "a template's SQL names its own datasets and results as plain table references only.";
+
 /**
  * The refusal for a text that names one of the template's members (its
  * datasets and its steps' results, lower-cased) other than as a plain table
@@ -55,10 +82,10 @@ export async function plainReferenceProblem(
   members: ReadonlySet<string>,
   where: string,
 ): Promise<string | null> {
+  const parsed = await serializeSql(conn, await readOnlySql(conn, sql));
+  const qualified = schemaQualified(await collectReferences(conn, parsed.statements ?? []), members);
+  if (qualified !== null) return `${where} qualifies "${qualified}" by a schema; ${PLAIN_ONLY}`;
   const { tables } = await queryInputsStrict(conn, withoutPlainReferences(sql, members), () => null);
   const left = tables.find((name) => members.has(name));
-  return left === undefined
-    ? null
-    : `${where} names "${left}" inside a string or a table function's argument; ` +
-      "a template's SQL names its own datasets and results as plain table references only.";
+  return left === undefined ? null : `${where} names "${left}" inside a string or a table function's argument; ${PLAIN_ONLY}`;
 }

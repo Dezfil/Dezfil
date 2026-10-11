@@ -198,7 +198,7 @@ export const ERROR_CATALOGUE: Record<ErrorCode, string> = {
   template_format_unsupported:
     "A template is in a format version this server does not read.",
   template_invalid:
-    "A template's document fails the rules a client's document is held to, one of its layers or steps does not bind to the template's own data as a client's would or names one of its datasets inside a string or a table function's argument, or a layer draws more than the render cap's default.",
+    "A template's document fails the rules a client's document is held to, one of its layers or steps does not bind to the template's own data as a client's would or names one of its datasets other than as a plain table reference (inside a string or a table function's argument, or qualified by a schema), or a layer draws more than the render cap's default.",
   template_forbidden:
     "A template carries a publication, token, connection, service address or setting, which no template may.",
   template_picture_too_large:

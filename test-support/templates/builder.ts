@@ -528,6 +528,24 @@ export const SEEDS = {
     (workflow(files).steps as { parameters: Record<string, unknown> }[])[0].parameters.sql =
       "SELECT * FROM query_table(['stations']) WHERE riders > 100";
   },
+  /** The stations layer qualifying its dataset by a schema. */
+  layerSchemaTable: (files: TemplateFiles) => {
+    (map(files).layers as Record<string, unknown>[])[0].sql = "SELECT * FROM main.stations";
+  },
+  /** The stations layer qualifying a column by its dataset's schema and
+   * name, the dataset named plainly. */
+  layerSchemaColumn: (files: TemplateFiles) => {
+    (map(files).layers as Record<string, unknown>[])[0].sql = "SELECT riders, main.stations.geom FROM stations";
+  },
+  /** The stations layer qualifying its dataset and a column by a schema. */
+  layerSchemaColumnAndTable: (files: TemplateFiles) => {
+    (map(files).layers as Record<string, unknown>[])[0].sql = "SELECT riders, main.stations.geom FROM main.stations";
+  },
+  /** The SQL step qualifying its dataset by a catalogue and a schema. */
+  stepSchemaTable: (files: TemplateFiles) => {
+    (workflow(files).steps as { parameters: Record<string, unknown> }[])[0].parameters.sql =
+      "SELECT * FROM temp.main.stations WHERE riders > 100";
+  },
   /** A widget reading a column its layer's result does not have. */
   widgetColumnMissing: (files: TemplateFiles) => {
     (map(files).widgets as Record<string, unknown>[])[0].field = "seeded_column";

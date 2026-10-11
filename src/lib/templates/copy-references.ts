@@ -23,7 +23,11 @@ import type { AdmittedTemplate } from "./admission";
  * place. A renamed table with no alias of its own keeps its old name as
  * one, so a column the query qualifies by that name still finds it; the
  * parse checks that too, every name the template's SQL bound a table by
- * bound to that table as landed.
+ * bound to that table as landed, and every column qualified by a table
+ * (`stations.geom`, `main.stations.geom`) finding the table it found, as
+ * landed: an alias answers to its own name only, so a column qualified by
+ * a schema finds nothing once its table is renamed, and the copy is
+ * refused.
  *
  * A name a dataset lands under is never a word any of the template's
  * queries uses (a common table expression's name, an alias, a column)
@@ -79,13 +83,51 @@ const renaming = (landed: LandedNames) => (name: string): string | null => {
   return to === undefined || to === name ? null : to;
 };
 
+/** A table a text names in a FROM clause: the name it reads it under, as
+ * `tables` gives it, whether that is a plain name, and the alias written
+ * for it. */
+interface Binding {
+  table: string;
+  plain: boolean;
+  alias: string | null;
+}
+
 /** What a text reads, by the engine's parse: the tables, the references
- * to other people's datasets, and each name it binds a table by (an alias,
- * or the table's own name), to that table. */
+ * to other people's datasets, each name it binds a table by (an alias, or
+ * the table's own name), to that table, each table a FROM clause names, and
+ * its columns, lower-cased parts. */
 interface Reads {
   tables: string[];
   external: string[];
   bound: Map<string, string>;
+  bindings: Binding[];
+  columns: string[][];
+}
+
+/** Whether a column's qualifier names a table the text binds, as the
+ * engine binds it: an aliased table by its alias alone, any other by its
+ * name or a spelling of it with its schema or catalogue
+ * (`main.stations`, `temp.main.stations`). */
+function qualifies(qualifier: readonly string[], binding: Binding): boolean {
+  if (binding.alias !== null) return qualifier.length === 1 && qualifier[0] === binding.alias;
+  if (!binding.plain) return qualifier.length === 1 && qualifier[0] === binding.table;
+  const classified = classifyReference(qualifier);
+  return classified.form === "plain" && classified.name === binding.table;
+}
+
+/** Every column a text qualifies by a table finds the table it found in
+ * the template's text, as landed, read as each spelling the engine could
+ * take it for: its first one, two or three parts naming a table. */
+function columnsAgree(original: Reads, rewritten: Reads, as: (table: string) => string): boolean {
+  const named = (reads: Reads, qualifier: string[], to: (table: string) => string) =>
+    [...new Set(reads.bindings.filter((b) => qualifies(qualifier, b)).map((b) => to(b.table)))].sort().join("\n");
+  return [...original.columns, ...rewritten.columns].every((column) => {
+    for (let parts = 1; parts < column.length && parts <= 3; parts++) {
+      const qualifier = column.slice(0, parts);
+      if (named(original, qualifier, as) !== named(rewritten, qualifier, (table) => table)) return false;
+    }
+    return true;
+  });
 }
 
 /** The rewrite of a text, every renamed table keeping the name the text
@@ -121,15 +163,24 @@ export async function bindCopyReferences(scope: AccountScope, admitted: Admitted
       return await boundedEvaluation(async (conn) => {
         const { tables, external } = await queryInputsStrict(conn, sql, () => null);
         const parsed = await serializeSql(conn, await readOnlySql(conn, sql));
+        const collected = await collectReferences(conn, parsed.statements ?? []);
         const bound = new Map<string, string>();
-        for (const [name, reference] of (await collectReferences(conn, parsed.statements ?? [])).aliases) {
+        for (const [name, reference] of collected.aliases) {
           // A table named by a string is never bound by that name.
           if (reference.dynamic) continue;
           const classified = classifyReference(reference.parts);
           if (classified.form === "qualified") continue;
           bound.set(name, classified.form === "plain" ? classified.name : reference.parts.at(-1)!.toLowerCase());
         }
-        return { tables, external, bound };
+        const bindings = collected.bindings.flatMap(({ reference, alias }): Binding[] => {
+          const classified = classifyReference(reference.parts);
+          // Another person's dataset is no table of the template's: it
+          // refuses the copy as a reference outside it.
+          if (classified.form === "qualified") return [];
+          const plain = classified.form === "plain";
+          return [{ table: plain ? classified.name : reference.parts.at(-1)!.toLowerCase(), plain, alias }];
+        });
+        return { tables, external, bound, bindings, columns: collected.columnRefs };
       }, { scope });
     } catch (error) {
       if (error instanceof ApiError && isBoundedOutcome(error)) throw error;
@@ -187,7 +238,8 @@ export async function bindCopyReferences(scope: AccountScope, admitted: Admitted
         const same = rewritten !== null && rewritten.external.length === 0 &&
           rewritten.tables.length === expected.size && rewritten.tables.every((name) => expected.has(name)) &&
           // Every name the text binds a table by still binds it, as landed.
-          [...original.bound].every(([name, table]) => rewritten.bound.get(name) === as(table));
+          [...original.bound].every(([name, table]) => rewritten.bound.get(name) === as(table)) &&
+          columnsAgree(original, rewritten, as);
         if (!same) unbound(where, null);
       }
     },
