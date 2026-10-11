@@ -13,9 +13,9 @@
 
 .card {
   border-radius: var(--radius-lg);
-  border: 1px solid var(--border);
-  background: var(--bg-panel);
-  box-shadow: 0 1px 4px color-mix(in srgb, var(--shadow) 60%, transparent);
+  border: var(--surface-inner-card-edge);
+  background: var(--surface-inner-card-fill);
+  box-shadow: var(--surface-inner-card-shadow);
   transition:
     border-color var(--dur-micro) ease,
     box-shadow var(--dur-micro) ease,
@@ -43,9 +43,7 @@
   cursor: grabbing;
   transform: scale(1.02);
   border-color: color-mix(in srgb, var(--accent) 45%, transparent);
-  box-shadow:
-    0 10px 28px color-mix(in srgb, var(--shadow) 70%, transparent),
-    0 2px 8px color-mix(in srgb, var(--shadow) 45%, transparent);
+  box-shadow: var(--surface-inner-card-shadow-dragged);
 }
 
 .card[data-errored="true"] .name {

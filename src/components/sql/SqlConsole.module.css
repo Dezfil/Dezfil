@@ -621,9 +621,9 @@
   height: 13px;
 }
 .tabs button[data-on] {
-  background: var(--bg-panel);
+  background: var(--surface-inner-card-fill);
   color: var(--fg);
-  box-shadow: 0 1px 3px var(--shadow);
+  box-shadow: var(--surface-inner-card-shadow);
 }
 .tabs button:disabled {
   opacity: 0.45;
@@ -881,13 +881,13 @@
   padding: 9px 11px 7px;
   border-radius: var(--radius-control);
   cursor: pointer;
-  border: 1px solid var(--border);
-  background: var(--bg-panel);
+  border: var(--surface-inner-card-edge);
+  background: var(--surface-inner-card-fill);
   transition: border-color var(--dur-micro), box-shadow var(--dur-micro);
 }
 .card:hover {
   border-color: var(--border-strong);
-  box-shadow: 0 4px 14px var(--shadow);
+  box-shadow: var(--surface-inner-card-shadow-lifted);
 }
 .card:focus-visible {
   outline: 2px solid var(--focus);

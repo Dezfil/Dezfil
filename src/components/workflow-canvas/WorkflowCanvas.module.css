@@ -88,7 +88,7 @@
   border: 1.5px solid color-mix(in srgb, var(--gc, var(--fg-muted)) 30%, transparent);
   border-radius: var(--radius-card);
   background: color-mix(in srgb, var(--gc, var(--fg-muted)) 12%, var(--bg-panel));
-  box-shadow: 0 2px 8px color-mix(in srgb, var(--shadow) 70%, transparent);
+  box-shadow: var(--surface-inner-card-shadow);
   transition:
     border-color var(--dur-micro),
     box-shadow var(--dur-micro);
@@ -112,13 +112,11 @@
 
 .member[data-sel] .tBox {
   border-color: var(--accent);
-  box-shadow:
-    0 0 0 3px var(--accent-dim),
-    0 6px 20px var(--shadow);
+  box-shadow: 0 0 0 3px var(--accent-dim), var(--surface-inner-card-shadow-lifted);
 }
 
 .member[data-drag] .tBox {
-  box-shadow: 0 14px 34px var(--shadow);
+  box-shadow: var(--surface-inner-card-shadow-dragged);
 }
 
 .member[data-state="running"] .tBox {
@@ -923,12 +921,12 @@ button.tableRow {
   transform: translate(12px, 12px);
   padding: 6px 10px;
   border-radius: var(--radius);
-  background: var(--bg-panel);
+  background: var(--surface-inner-card-fill);
   border: 1px solid var(--accent);
   color: var(--accent);
   font-size: var(--text-label);
   font-weight: 600;
-  box-shadow: 0 6px 20px var(--shadow);
+  box-shadow: var(--surface-inner-card-shadow-dragged);
 }
 
 /* ---- the minimap (reference 13): bottom right, the graph and the

@@ -29,10 +29,10 @@
 
 .cats button[data-active],
 .subs button[data-active] {
-  background: var(--bg-panel);
+  background: var(--surface-inner-card-fill);
   color: var(--fg);
   font-weight: 600;
-  box-shadow: 0 1px 4px var(--shadow);
+  box-shadow: var(--surface-inner-card-shadow);
 }
 
 .subs {

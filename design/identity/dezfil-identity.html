@@ -1601,7 +1601,7 @@ select.kit-field-field {
   border-radius: 50%;
   background: #fff;
   border: 1.5px solid var(--accent);
-  box-shadow: 0 1px 4px color-mix(in srgb, var(--shadow) 80%, transparent);
+  box-shadow: var(--surface-inner-card-shadow);
   transition: transform 0.12s ease;
 }
 
@@ -1627,7 +1627,7 @@ select.kit-field-field {
   border-radius: 50%;
   background: #fff;
   border: 1.5px solid var(--accent);
-  box-shadow: 0 1px 4px color-mix(in srgb, var(--shadow) 80%, transparent);
+  box-shadow: var(--surface-inner-card-shadow);
 }
 
 /* --- Status.module.css (fed verbatim, namespaced) --- */
@@ -1726,8 +1726,8 @@ select.kit-field-field {
   width: 16px;
   height: 16px;
   border-radius: var(--radius-pill);
-  background: var(--bg-panel);
-  box-shadow: 0 1px 2px var(--shadow);
+  background: var(--surface-inner-card-fill);
+  box-shadow: var(--surface-inner-card-shadow);
   transition: transform var(--dur-micro) ease;
   z-index: 1;
 }

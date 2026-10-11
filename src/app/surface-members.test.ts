@@ -23,7 +23,7 @@ const STEP = {
 } as const;
 
 /** The last step whose members read their role. */
-const MOVED_THROUGH = 9;
+const MOVED_THROUGH = 10;
 
 const C = "src/components/";
 const LAYOUT = "src/app/(workspace)/layout.module.css";
@@ -33,6 +33,9 @@ const GLASS: Part[] = ["fill", "blur", "shadow"];
 /** A card on the page draws its ground, its edge and its shadow from its
  * role, so a look that restates any of them reaches every card. */
 const CARD: Part[] = ["fill", "edge", "shadow"];
+/** A chosen tab, entry or knob: drawn on the card's ground with its shadow,
+ * and no edge. */
+const CHOSEN: Part[] = ["fill", "shadow"];
 
 /** The roles with no edge: what floats as glass or over a map draws its
  * shape with the fill and the shadow alone. */
@@ -122,30 +125,36 @@ export const MEMBERS: Member[] = [
   m(STEP.page, "page-card", C + "set-geometry/SetGeometryPanel.module.css", ".dock", CARD, "the set-geometry panel"),
   // Its ground is the map's raised tone under a map still loading, kept.
   m(STEP.page, "page-card", C + "TablePreviewMap.module.css", ".pane", ["edge", "shadow"], "the dataset page's preview card"),
-  // Inner card: a card inside a panel or card, and a control that carries a small shadow
-  m(STEP.inner, "inner-card", C + "builder/LayerList.module.css", ".card", ["shadow"], "a layer card"),
+  // Inner card: a card inside a panel or card, and a control that carries a small shadow.
+  // Its ground and edge are read wherever the member draws the panel tone
+  // or the hairline today; a ground or edge of the member's own (a node
+  // tile's group colour, a slider thumb's white and accent ring, an accent
+  // grip or handle) stays its own.
+  m(STEP.inner, "inner-card", C + "builder/LayerList.module.css", ".card", CARD, "a layer card"),
   m(STEP.inner, "inner-card", C + "builder/LayerList.module.css", ".floating", ["shadow-dragged"], "a layer card dragged"),
   m(STEP.inner, "inner-card", C + "workflow-canvas/WorkflowCanvas.module.css", ".tBox", ["shadow"], "a node tile"),
   m(STEP.inner, "inner-card", C + "workflow-canvas/WorkflowCanvas.module.css", ".member[data-sel] .tBox", ["shadow-lifted"], "a node tile selected"),
   m(STEP.inner, "inner-card", C + "workflow-canvas/WorkflowCanvas.module.css", ".member[data-drag] .tBox", ["shadow-dragged"], "a node tile dragged"),
-  m(STEP.inner, "inner-card", C + "workflow-canvas/WorkflowCanvas.module.css", ".dragGhost", ["shadow-dragged"], "an operation dragged onto the canvas"),
+  m(STEP.inner, "inner-card", C + "workflow-canvas/WorkflowCanvas.module.css", ".dragGhost", ["fill", "shadow-dragged"], "an operation dragged onto the canvas"),
+  m(STEP.inner, "inner-card", C + "AddToMapDialog.module.css", ".card, .newCard", ["fill", "edge"], "a pickable card in a dialog"),
   m(STEP.inner, "inner-card", C + "AddToMapDialog.module.css", ".card:hover:not(:disabled), .newCard:hover:not(:disabled)", ["shadow-lifted"], "a pickable card in a dialog, on hover"),
-  m(STEP.inner, "inner-card", C + "QueryAreaPicker.module.css", ".cats button[data-active], .subs button[data-active]", ["shadow"], "a pickable card in a dialog, picked"),
-  m(STEP.inner, "inner-card", C + "AreaSemanticsToggle.module.css", ".seg button[data-active]", ["shadow"], "a segmented control's active tab"),
-  m(STEP.inner, "inner-card", C + "ui/Switch.module.css", ".switch::before", ["shadow"], "a switch's knob"),
+  m(STEP.inner, "inner-card", C + "QueryAreaPicker.module.css", ".cats button[data-active], .subs button[data-active]", CHOSEN, "a pickable card in a dialog, picked"),
+  m(STEP.inner, "inner-card", C + "AreaSemanticsToggle.module.css", ".seg button[data-active]", CHOSEN, "a segmented control's active tab"),
+  m(STEP.inner, "inner-card", C + "ui/Switch.module.css", ".switch::before", CHOSEN, "a switch's knob"),
   m(STEP.inner, "inner-card", C + "ui/Slider.module.css", ".slider::-webkit-slider-thumb", ["shadow"], "a slider's thumb"),
   m(STEP.inner, "inner-card", C + "ui/Slider.module.css", ".slider::-moz-range-thumb", ["shadow"], "a slider's thumb"),
-  m(STEP.inner, "inner-card", C + "builder/drawer/ParameterForm.module.css", '.modeBtn[aria-pressed="true"]', ["shadow"], "a segmented control's active tab"),
-  m(STEP.inner, "inner-card", C + "builder/style-panel/BreakBrush.module.css", ".thumb::-webkit-slider-thumb", ["shadow"], "the break brush's thumb"),
-  m(STEP.inner, "inner-card", C + "builder/style-panel/BreakBrush.module.css", ".thumb::-moz-range-thumb", ["shadow"], "the break brush's thumb"),
+  m(STEP.inner, "inner-card", C + "builder/drawer/ParameterForm.module.css", '.modeBtn[aria-pressed="true"]', CHOSEN, "a segmented control's active tab"),
+  m(STEP.inner, "inner-card", C + "builder/style-panel/BreakBrush.module.css", ".thumb::-webkit-slider-thumb", CHOSEN, "the break brush's thumb"),
+  m(STEP.inner, "inner-card", C + "builder/style-panel/BreakBrush.module.css", ".thumb::-moz-range-thumb", CHOSEN, "the break brush's thumb"),
   m(STEP.inner, "inner-card", C + "builder/export/ExportImageCard.module.css", ".frameSashGrip", ["shadow"], "a drag grip"),
   m(STEP.inner, "inner-card", C + "MiniMap.module.css", ".handle", ["shadow"], "the mini-map's handles"),
   m(STEP.inner, "inner-card", C + "MiniMap.module.css", ".measure", ["shadow"], "the mini-map's labels"),
-  m(STEP.inner, "inner-card", C + "connections/PostgisPane.module.css", '.segmented button[aria-pressed="true"]', ["shadow"], "a segmented control's active tab"),
-  m(STEP.inner, "inner-card", C + "workflow-canvas/ResultsBand.module.css", ".scopeBtn[data-on]", ["shadow"], "a segmented control's active tab"),
-  m(STEP.inner, "inner-card", C + "sql/SqlConsole.module.css", ".tabs button[data-on]", ["shadow"], "a segmented control's active tab"),
+  m(STEP.inner, "inner-card", C + "connections/PostgisPane.module.css", '.segmented button[aria-pressed="true"]', CHOSEN, "a segmented control's active tab"),
+  m(STEP.inner, "inner-card", C + "workflow-canvas/ResultsBand.module.css", ".scopeBtn[data-on]", CHOSEN, "a segmented control's active tab"),
+  m(STEP.inner, "inner-card", C + "sql/SqlConsole.module.css", ".tabs button[data-on]", CHOSEN, "a segmented control's active tab"),
+  m(STEP.inner, "inner-card", C + "sql/SqlConsole.module.css", ".card", ["fill", "edge"], "a history card in the SQL pane"),
   m(STEP.inner, "inner-card", C + "sql/SqlConsole.module.css", ".card:hover", ["shadow-lifted"], "a history card on hover"),
-  m(STEP.inner, "inner-card", C + "SourceNav.module.css", ".source[data-active]", ["shadow"], "a source rail's active entry"),
+  m(STEP.inner, "inner-card", C + "SourceNav.module.css", ".source[data-active]", CHOSEN, "a source rail's active entry"),
   // Menu and pop-over: what opens over something and closes
   ...([
     [C + "ExportMenu.module.css", ".menu", "a menu"],
@@ -387,6 +396,19 @@ describe("the members of each role", () => {
     expect.soft(marked).toEqual({ "border-radius": "var(--radius-card)", "box-shadow": "var(--surface-page-card-shadow), 0 0 0 6px var(--accent-wash)" });
     const preview = Object.fromEntries(declarations(read(C + "sql/SqlConsole.module.css"), '.resultsCard[data-mode="preview"]') ?? []);
     expect.soft(preview["box-shadow"]).toBe("var(--surface-page-card-shadow), inset 0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent)");
+  });
+
+  it("keep a node tile's own corner, ground and edge, and its selection ring above the lifted shadow", () => {
+    if (STEP.inner > MOVED_THROUGH) return;
+    const canvas = read(C + "workflow-canvas/WorkflowCanvas.module.css");
+    // The tile keeps the card radius and the edge and ground its group colours.
+    const tile = Object.fromEntries(declarations(canvas, ".tBox")!);
+    expect(tile["border-radius"]).toBe("var(--radius-card)");
+    expect(tile.border).toMatch(/var\(--gc,/);
+    expect(tile.background).toMatch(/var\(--gc,/);
+    // Selected, the ring is drawn first, so it paints above the shadow as it did.
+    expect(Object.fromEntries(declarations(canvas, ".member[data-sel] .tBox")!)["box-shadow"])
+      .toBe("0 0 0 3px var(--accent-dim), var(--surface-inner-card-shadow-lifted)");
   });
 
   it("read no role at all until theirs moves, so a half-made move shows", () => {
