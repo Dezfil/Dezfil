@@ -30,6 +30,9 @@ import styles from "./TemplateView.module.css";
 export interface LayersFailure {
   message: string;
   onRetry: () => void;
+  /** True when the stage beside the panel already announces this failure:
+   * the panel's note then mirrors it without announcing it twice. */
+  mirrored?: boolean;
 }
 
 export function HowItsMade({
@@ -129,7 +132,7 @@ export function HowItsMade({
         <Fold name="layers" title="Layers and their SQL" count={layers?.length ?? null}>
           {layers === null ? (
             layersFailure ? (
-              <ErrorNote message={layersFailure.message} onRetry={layersFailure.onRetry} />
+              <ErrorNote message={layersFailure.message} onRetry={layersFailure.onRetry} announce={!layersFailure.mirrored} />
             ) : (
               <p className={styles.quiet}>Reading the layers…</p>
             )

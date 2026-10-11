@@ -276,6 +276,45 @@ describe("a map template opened", () => {
     expect(head("question").getAttribute("aria-expanded")).toBe("false");
     expect(text(fold("question"))).not.toContain("transit office, districts");
   });
+
+  it("says why in the panel too when its map cannot be read, one retry reading the map again for both", async () => {
+    let fail: "network" | "status" | null = "status";
+    const mapRead = (path: string) => path === `/api/maps/${HARBOUR_MAP.id}` || path === `/api/maps/${encodeURIComponent(HARBOUR_MAP.id)}`;
+    fetchAnswer = (call) => {
+      if (mapRead(call.path) && fail === "status") {
+        return Response.json({ error: { code: "internal", message: "The map could not be read." } }, { status: 500 });
+      }
+      if (mapRead(call.path) && fail === "network") throw new TypeError("fetch failed");
+      return answer(call);
+    };
+    const mapReads = () => calls.filter((c) => mapRead(c.path)).length;
+    // The stage's note announces the failure; the panel's mirrors it quietly.
+    const alerts = () => container.querySelectorAll(`[role="alert"]`);
+    const stageNote = () => (alerts().length === 1 && !panel()!.contains(alerts()[0]) ? text(alerts()[0]) : null);
+    await open(detail({}), opened("harbour-stations"));
+    await act(async () => fold("layers").querySelector("button")!.click());
+    expect(stageNote()).toContain("The map could not be read.");
+    expect(text(fold("layers"))).not.toContain("Reading the layers");
+    expect(text(fold("layers"))).toContain("The map could not be read.");
+    const retry = () => fold("layers").querySelectorAll("button").find((b) => b.textContent === "Try again")!;
+    expect(mapReads()).toBe(1);
+    fail = "network";
+    await act(async () => retry().click());
+    await settle();
+    expect(mapReads()).toBe(2);
+    expect(text(fold("layers"))).not.toContain("Reading the layers");
+    expect(text(fold("layers"))).toContain("Is the server reachable?");
+    expect(stageNote()).toContain("Is the server reachable?");
+    fail = null;
+    await act(async () => retry().click());
+    await settle();
+    expect(mapReads()).toBe(3);
+    expect(fold("layers").querySelectorAll("[data-layer-sql]").map((s) => text(s)))
+      .toEqual(["SELECT * FROM stations", "SELECT * FROM districts"]);
+    expect(probe.stage).toMatchObject({ mapId: HARBOUR_MAP.id });
+    expect(alerts()).toHaveLength(0);
+    expect(writes()).toEqual([]);
+  });
 });
 
 describe("a version not on this server yet", () => {

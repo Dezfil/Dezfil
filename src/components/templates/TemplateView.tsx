@@ -90,9 +90,10 @@ export function TemplateView({
   }, [pathname, template.title]);
 
   const mapPanel = useCallback(
-    (layers: MapWithLayers["layers"] | null, renders?: ReaderData["renders"]) =>
+    (layers: MapWithLayers["layers"] | null, renders: ReaderData["renders"] | undefined, failure: LayersFailure | null) =>
       opened ? (
-        <HowItsMade template={template} opened={opened} layers={layers} renders={renders} groupOf={groupOf} labelOf={labelOf} beside="map" />
+        <HowItsMade template={template} opened={opened} layers={layers} renders={renders} layersFailure={failure} groupOf={groupOf}
+          labelOf={labelOf} beside="map" />
       ) : null,
     [template, opened, groupOf, labelOf],
   );
@@ -235,17 +236,26 @@ function Download({ template, onDone }: { template: TemplateDetail; onDone: (det
 type MapState = { status: "pending" } | { status: "failed"; message: string } | { status: "ready"; data: ReaderData };
 
 /** A map template: the reader's map on the template map's id, the panel
- * beside it once its layers are read. */
+ * beside it once its layers are read. One read of the map feeds both, so
+ * a failed read says why in both and either retry reads it again. */
 function TemplateMap({
   opened,
   panel,
   ...basemap
 }: BasemapProps & {
   opened: TemplateContents;
-  panel: (layers: MapWithLayers["layers"] | null, renders?: ReaderData["renders"]) => React.ReactNode;
+  panel: (
+    layers: MapWithLayers["layers"] | null,
+    renders: ReaderData["renders"] | undefined,
+    failure: LayersFailure | null,
+  ) => React.ReactNode;
 }) {
   const [state, setState] = useState<MapState>({ status: "pending" });
   const [attempt, setAttempt] = useState(0);
+  const retry = useCallback(() => {
+    setState({ status: "pending" });
+    setAttempt((n) => n + 1);
+  }, []);
   useEffect(() => {
     let cancelled = false;
     loadReader(opened.mapId).then(
@@ -262,7 +272,11 @@ function TemplateMap({
   }, [opened.mapId, attempt]);
   return (
     <>
-      {panel(state.status === "ready" ? state.data.map.layers : null, state.status === "ready" ? state.data.renders : undefined)}
+      {panel(
+        state.status === "ready" ? state.data.map.layers : null,
+        state.status === "ready" ? state.data.renders : undefined,
+        state.status === "failed" ? { message: state.message, onRetry: retry, mirrored: true } : null,
+      )}
       {state.status === "ready" ? (
         <ReaderStage
           mapId={opened.mapId}
@@ -274,13 +288,7 @@ function TemplateMap({
         />
       ) : state.status === "failed" ? (
         <div className={styles.stageNote}>
-          <ErrorNote
-            message={state.message}
-            onRetry={() => {
-              setState({ status: "pending" });
-              setAttempt((n) => n + 1);
-            }}
-          />
+          <ErrorNote message={state.message} onRetry={retry} />
         </div>
       ) : (
         <div className={styles.stageNote} role="status">
