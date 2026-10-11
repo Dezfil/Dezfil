@@ -33,25 +33,30 @@ export function ParameterRow({
   parameter,
   value,
   ofInputTable,
+  givenColumns,
   onChange,
 }: {
   parameter: OperationParameter;
   value: unknown;
   /** The table whose columns a field parameter names. */
   ofInputTable: string | null;
+  /** The columns to offer as they are, read from no table: what a
+   * template's step saved, whose input no dataset road answers. */
+  givenColumns?: { name: string; type: string }[];
   onChange: (value: unknown) => void;
 }) {
   const { columns: held } = useTableColumns(
-    parameter.type === "field" ||
-      parameter.type === "field_list" ||
-      parameter.type === "column_list"
+    givenColumns === undefined &&
+      (parameter.type === "field" ||
+        parameter.type === "field_list" ||
+        parameter.type === "column_list")
       ? ofInputTable
       : null,
   );
   // Only the columns this parameter can actually take — the catalog says which
   // kind it needs, and offering the rest would be the form knowingly proposing
-  // something the run refuses.
-  const columns = held === null ? null : offeredColumns(parameter, held);
+  // something the run refuses. Given columns are offered as given.
+  const columns = givenColumns ?? (held === null ? null : offeredColumns(parameter, held));
 
   return (
     <div className={styles.field}>
@@ -142,7 +147,7 @@ export function ParameterRow({
           // plain carry wants names, and rendering one as the other sends a
           // shape the run refuses.
           <div className={styles.checks}>
-            {(columns ?? []).length === 0 && (
+            {(columns ?? []).length === 0 && givenColumns === undefined && (
               <p className={styles.help}>Choose an input first.</p>
             )}
             {(columns ?? []).map((column) => {

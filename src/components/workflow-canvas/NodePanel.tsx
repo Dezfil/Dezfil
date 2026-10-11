@@ -21,7 +21,7 @@ import { normalName } from "../workflow-producers";
 import { effectiveParameters, type CanvasGraph, type NodeMember } from "./graph";
 import { outputNameTaken, readerAddressOf } from "./home-names";
 import { expectedClass } from "./link-rules";
-import { callouts, pickerOptions, unproducedOutput } from "./node-panel-model";
+import { callouts, pickerOptions, savedColumns, unproducedOutput } from "./node-panel-model";
 import { InputPicker } from "./InputPicker";
 import { usePanelDraft, type Draft } from "./use-panel-draft";
 import { GeometryGlyph } from "../ui/operation-icons";
@@ -67,7 +67,8 @@ export function NodePanel({
 }) {
   const { stale } = useCanvasRecovery();
   // A template's step reads nothing of a dataset's and is never tried: its
-  // data is no one's, and it never runs.
+  // data is no one's, and it never runs. Its column parameters show the
+  // columns it saved.
   const template = useTemplateCanvas() !== null;
   const step = member.step;
   const operation = operations.find((o) => o.id === step.operation) ?? null;
@@ -291,6 +292,7 @@ export function NodePanel({
                     parameter={parameter}
                     value={values[parameter.name]}
                     ofInputTable={tableFor(parameter)}
+                    givenColumns={template ? savedColumns(values[parameter.name]) : undefined}
                     onChange={(value) => {
                       const next = { ...values, [parameter.name]: value };
                       const valid = outOfBounds(operation, next).length === 0;
