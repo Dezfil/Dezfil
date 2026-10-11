@@ -46,9 +46,9 @@
   max-height: min(60vh, 480px);
   overflow-y: auto;
   border-radius: var(--radius);
-  background: var(--bg-panel);
-  border: 1px solid var(--border);
-  box-shadow: 0 12px 32px var(--shadow);
+  background: var(--surface-menu-fill);
+  border: var(--surface-menu-edge);
+  box-shadow: var(--surface-menu-shadow);
   padding: 6px;
 }
 

@@ -34,10 +34,10 @@
   gap: 8px;
   margin: 0;
   padding: 9px 14px;
-  border: 1px solid var(--border);
+  border: var(--surface-menu-edge);
   border-radius: var(--radius);
-  background: var(--bg-panel);
-  box-shadow: 0 3px 12px var(--shadow);
+  background: var(--surface-menu-fill);
+  box-shadow: var(--surface-menu-shadow);
   color: var(--fg);
   font-size: var(--text-body);
   font-weight: 500;

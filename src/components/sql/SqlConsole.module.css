@@ -793,9 +793,9 @@
   align-items: flex-start;
   padding: 8px 10px;
   border-radius: var(--radius-box);
-  background: var(--bg-panel);
+  background: var(--surface-menu-fill);
   border: 1px solid var(--border-strong);
-  box-shadow: 0 10px 30px var(--shadow);
+  box-shadow: var(--surface-menu-shadow);
 }
 .peekValue {
   font-family: var(--font-mono);
@@ -847,9 +847,9 @@
   pointer-events: none;
   padding: 6px 9px;
   border-radius: var(--radius-row);
-  background: var(--bg-panel);
+  background: var(--surface-menu-fill);
   border: 1px solid var(--border-strong);
-  box-shadow: 0 6px 18px var(--shadow);
+  box-shadow: var(--surface-menu-shadow);
   font-size: var(--text-meta);
   color: var(--fg);
   font-family: var(--font-mono);
@@ -1007,10 +1007,10 @@
   bottom: calc(100% + 6px);
   left: 0;
   min-width: 260px;
-  background: var(--bg-panel);
+  background: var(--surface-menu-fill);
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-box);
-  box-shadow: 0 10px 30px var(--shadow);
+  box-shadow: var(--surface-menu-shadow);
   padding: 4px;
 }
 /* The results bar's menu is placed in viewport coordinates by the

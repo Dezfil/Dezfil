@@ -70,10 +70,10 @@
   left: 0;
   min-width: 208px;
   max-width: 100%;
-  background: var(--bg-panel);
+  background: var(--surface-menu-fill);
   border: 1px solid var(--border-strong);
   border-radius: var(--radius);
-  box-shadow: 0 10px 30px var(--shadow);
+  box-shadow: var(--surface-menu-shadow);
   padding: 4px;
   /* Bound to the pane it opens in: the picker measures the room above the
      chip and writes it to the wrap (menu-room.ts); the fallback is for a

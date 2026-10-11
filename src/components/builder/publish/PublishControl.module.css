@@ -44,11 +44,11 @@
   right: 0;
   z-index: 40;
   width: 300px;
-  background: var(--bg-panel);
-  border: 1px solid var(--border);
+  background: var(--surface-menu-fill);
+  border: var(--surface-menu-edge);
   border-radius: var(--radius-lg);
   padding: 12px;
-  box-shadow: 0 12px 32px var(--shadow);
+  box-shadow: var(--surface-menu-shadow);
   animation: rise-in var(--dur-micro) ease;
 }
 

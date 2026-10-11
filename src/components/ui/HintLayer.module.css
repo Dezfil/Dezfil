@@ -18,7 +18,7 @@
   padding: 5px 8px;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
-  box-shadow: 0 4px 14px var(--shadow);
+  box-shadow: var(--surface-menu-shadow);
   pointer-events: none;
   animation: hint-in var(--dur-micro) ease;
 }

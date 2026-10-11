@@ -195,9 +195,9 @@
   flex-direction: column;
   padding: 5px;
   border-radius: var(--radius-lg);
-  background: var(--bg-panel);
-  border: 1px solid var(--border);
-  box-shadow: 0 10px 30px var(--shadow);
+  background: var(--surface-menu-fill);
+  border: var(--surface-menu-edge);
+  box-shadow: var(--surface-menu-shadow);
 }
 
 /* The body is one element so a state swap has something to move focus

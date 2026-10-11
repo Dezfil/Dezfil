@@ -1014,9 +1014,9 @@
   max-width: 260px;
   padding: 8px 11px;
   border-radius: var(--radius);
-  background: var(--bg-panel);
-  border: 1px solid var(--border);
-  box-shadow: 0 6px 20px var(--shadow);
+  background: var(--surface-menu-fill);
+  border: var(--surface-menu-edge);
+  box-shadow: var(--surface-menu-shadow);
   color: var(--fg);
   font-size: var(--text-label);
   font-weight: 400;

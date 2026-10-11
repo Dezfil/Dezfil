@@ -23,7 +23,7 @@ const STEP = {
 } as const;
 
 /** The last step whose members read their role. */
-const MOVED_THROUGH = 10;
+const MOVED_THROUGH = 11;
 
 const C = "src/components/";
 const LAYOUT = "src/app/(workspace)/layout.module.css";
@@ -36,6 +36,8 @@ const CARD: Part[] = ["fill", "edge", "shadow"];
 /** A chosen tab, entry or knob: drawn on the card's ground with its shadow,
  * and no edge. */
 const CHOSEN: Part[] = ["fill", "shadow"];
+/** A surface drawn on the role's ground with a stronger edge of its own. */
+const GROUND: Part[] = ["fill", "shadow"];
 
 /** The roles with no edge: what floats as glass or over a map draws its
  * shape with the fill and the shadow alone. */
@@ -155,37 +157,40 @@ export const MEMBERS: Member[] = [
   m(STEP.inner, "inner-card", C + "sql/SqlConsole.module.css", ".card", ["fill", "edge"], "a history card in the SQL pane"),
   m(STEP.inner, "inner-card", C + "sql/SqlConsole.module.css", ".card:hover", ["shadow-lifted"], "a history card on hover"),
   m(STEP.inner, "inner-card", C + "SourceNav.module.css", ".source[data-active]", CHOSEN, "a source rail's active entry"),
-  // Menu and pop-over: what opens over something and closes
+  // Menu and pop-over: what opens over something and closes. Its ground and
+  // edge are read wherever the member draws the panel tone or the hairline
+  // today; a stronger edge, the hint's hover tone and the map's raised
+  // tooltip, popup and failure notice stay their own.
   ...([
-    [C + "ExportMenu.module.css", ".menu", "a menu"],
-    [C + "builder/LayerList.module.css", ".menu", "the layer menu"],
-    [C + "builder/assistant/ModelPicker.module.css", ".menu", "the model picker"],
-    [C + "builder/export/ExportControl.module.css", ".menu", "the export menu"],
-    [C + "connections/ConnectionMenu.module.css", ".menu", "the connection menu"],
-    [C + "projects/ProjectHome.module.css", ".menu", "the project menu"],
-    [C + "scope/ScopeFilter.module.css", ".menu", "the scope filter"],
-    [C + "sharing/ShareDialog.module.css", ".results", "the share dialog's results"],
-    [C + "sharing/ShareDialog.module.css", ".menu", "the share dialog's menu"],
-    [C + "sql/SqlConsole.module.css", ".menu", "the SQL page's menu"],
-    [C + "sql/SqlConsole.module.css", ".peek", "the SQL peek"],
-    [C + "sql/SqlConsole.module.css", ".mapTip", "the SQL map's tooltip"],
-    [C + "map/BasemapPicker.module.css", ".panel", "the basemap picker"],
-    [C + "builder/FilterSection.module.css", ".picker", "the filter pop-over"],
-    [C + "builder/publish/PublishControl.module.css", ".pop", "the publish pop-over"],
-    [C + "builder/search/SearchControl.module.css", ".panel", "the search results"],
-    [C + "workflow-canvas/InputPicker.module.css", ".pop", "the input picker"],
-    [C + "SaveResultAsDataset.module.css", ".panel", "the save result pop-over"],
-    [C + "gallery.module.css", ".tip", "the gallery's tip"],
-    [C + "ui/HintLayer.module.css", ".bubble", "the kit's hint"],
-    [C + "map/search-marker.module.css", ".chip", "the search marker's name chip"],
-    [C + "QueryDrawer.module.css", ".drawer", "the query drawer"],
-    [C + "QueryDrawer.module.css", ".drawer[data-accent]", "the query drawer, accented"],
-    [C + "map/MapCanvas.module.css", ".tooltip", "the map's tooltip"],
-    [C + "map/MapCanvas.module.css", ".popup", "the map's popup"],
-    [C + "map/MapCanvas.module.css", ".webglFailureCard", "the map's failure notice"],
-    [C + "TablePreviewMap.module.css", ".refusal", "the preview map's refusal plate"],
-    [C + "builder/export/ExportComposition.module.css", ".frame[data-presentation]", "the export card's preview frame"],
-  ] as const).map(([file, selector, what]) => m(STEP.menu, "menu", file, selector, ["shadow"], what)),
+    [C + "ExportMenu.module.css", ".menu", CARD, "a menu"],
+    [C + "builder/LayerList.module.css", ".menu", CARD, "the layer menu"],
+    [C + "builder/assistant/ModelPicker.module.css", ".menu", GROUND, "the model picker"],
+    [C + "builder/export/ExportControl.module.css", ".menu", CARD, "the export menu"],
+    [C + "connections/ConnectionMenu.module.css", ".menu", CARD, "the connection menu"],
+    [C + "projects/ProjectHome.module.css", ".menu", CARD, "the project menu"],
+    [C + "scope/ScopeFilter.module.css", ".menu", CARD, "the scope filter"],
+    [C + "sharing/ShareDialog.module.css", ".results", CARD, "the share dialog's results"],
+    [C + "sharing/ShareDialog.module.css", ".menu", CARD, "the share dialog's menu"],
+    [C + "sql/SqlConsole.module.css", ".menu", GROUND, "the SQL page's menu"],
+    [C + "sql/SqlConsole.module.css", ".peek", GROUND, "the SQL peek"],
+    [C + "sql/SqlConsole.module.css", ".mapTip", GROUND, "the SQL map's tooltip"],
+    [C + "map/BasemapPicker.module.css", ".panel", GROUND, "the basemap picker"],
+    [C + "builder/FilterSection.module.css", ".picker", GROUND, "the filter pop-over"],
+    [C + "builder/publish/PublishControl.module.css", ".pop", CARD, "the publish pop-over"],
+    [C + "builder/search/SearchControl.module.css", ".panel", CARD, "the search results"],
+    [C + "workflow-canvas/InputPicker.module.css", ".pop", CARD, "the input picker"],
+    [C + "SaveResultAsDataset.module.css", ".panel", CARD, "the save result pop-over"],
+    [C + "gallery.module.css", ".tip", CARD, "the gallery's tip"],
+    [C + "ui/HintLayer.module.css", ".bubble", ["shadow"], "the kit's hint"],
+    [C + "map/search-marker.module.css", ".chip", CARD, "the search marker's name chip"],
+    [C + "QueryDrawer.module.css", ".drawer", ["fill", "blur", "edge", "shadow"], "the query drawer"],
+    [C + "QueryDrawer.module.css", ".drawer[data-accent]", ["shadow"], "the query drawer, accented"],
+    [C + "map/MapCanvas.module.css", ".tooltip", ["shadow"], "the map's tooltip"],
+    [C + "map/MapCanvas.module.css", ".popup", ["shadow"], "the map's popup"],
+    [C + "map/MapCanvas.module.css", ".webglFailureCard", ["shadow"], "the map's failure notice"],
+    [C + "TablePreviewMap.module.css", ".refusal", CARD, "the preview map's refusal plate"],
+    [C + "builder/export/ExportComposition.module.css", ".frame[data-presentation]", ["shadow"], "the export card's preview frame"],
+  ] as const).map(([file, selector, parts, what]) => m(STEP.menu, "menu", file, selector, [...parts], what)),
   // Dialog
   m(STEP.dialog, "dialog", C + "ui/Dialog.module.css", ".dialog", ["shadow"], "every modal"),
   // The Appearance tab's pictures, each reading the role it pictures
@@ -409,6 +414,23 @@ describe("the members of each role", () => {
     // Selected, the ring is drawn first, so it paints above the shadow as it did.
     expect(Object.fromEntries(declarations(canvas, ".member[data-sel] .tBox")!)["box-shadow"])
       .toBe("0 0 0 3px var(--accent-dim), var(--surface-inner-card-shadow-lifted)");
+  });
+
+  it("open every menu and pop-over solid, the map's tooltip and popup on their own raised tone, the accented drawer keeping its ring", () => {
+    if (STEP.menu > MOVED_THROUGH) return;
+    // Solid: no member fills itself with a see-through mix or blurs what is behind it.
+    const menus = MEMBERS.filter(member => member.role === "menu");
+    expect(menus.flatMap(menu => (declarations(read(menu.file), menu.selector) ?? [])
+      .filter(([property, value]) => (/^background(-color)?$/.test(property) && /transparent/.test(value))
+        || (/backdrop-filter$/.test(property) && value !== "var(--surface-menu-blur)"))
+      .map(([property, value]) => `${menu.selector} in ${menu.file}: ${property}: ${value}`))).toEqual([]);
+    const canvas = read(C + "map/MapCanvas.module.css");
+    for (const selector of [".tooltip", ".popup"]) {
+      expect(Object.fromEntries(declarations(canvas, selector)!).background, selector).toBe("var(--bg-raised)");
+    }
+    // The accent ring is drawn first, so it paints above the shadow as it did.
+    expect(Object.fromEntries(declarations(read(C + "QueryDrawer.module.css"), ".drawer[data-accent]")!)["box-shadow"])
+      .toBe("0 0 0 1px color-mix(in srgb, var(--accent) 25%, transparent), var(--surface-menu-shadow)");
   });
 
   it("read no role at all until theirs moves, so a half-made move shows", () => {
