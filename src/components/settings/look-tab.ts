@@ -1,5 +1,5 @@
-import { defaultLook, LOOK_ATTRIBUTES, LOOK_KEYS, lookAttributes, lookChoices, normalizeLook, type Look, type LookKey } from "@/lib/look";
-import { FADE_MS, SaveUnit, UNDO_MS, type UnitNote, type UnitSnapshot, type Value } from "./save-unit";
+import { LIQUID_KINDS, LOOK_ATTRIBUTES, LOOK_KEYS, lookAttributes, lookChoices, normalizeLook, type LiquidKind, type Look, type LookKey } from "@/lib/look";
+import { FADE_MS, SaveUnit, UNDO_MS, type UnitControl, type UnitNote, type UnitSnapshot, type Value } from "./save-unit";
 
 /**
  * The Appearance tab's own logic, framework-free: its cards and rows, the
@@ -12,7 +12,9 @@ import { FADE_MS, SaveUnit, UNDO_MS, type UnitNote, type UnitSnapshot, type Valu
 export const PICTURE_PICKS = ["color", "contrast", "font", "background", "corners", "rail", "panels"] as const satisfies readonly LookKey[];
 export type PicturePick = (typeof PICTURE_PICKS)[number];
 
-export interface LookRow {
+/** A pick drawn as a row of pictures, one per choice. */
+export interface PictureRow {
+  readonly kind?: undefined;
   readonly key: PicturePick;
   readonly label: string;
   /** The row's address inside the tab. */
@@ -21,21 +23,44 @@ export interface LookRow {
   readonly keys: string;
 }
 
+/** The kinds of surface Liquid reaches, one switch each, in sight only
+ * while Liquid is shown. The search finds them through the Panels row. */
+export interface KindsRow {
+  readonly kind: "kinds";
+  readonly label: string;
+  readonly id: string;
+  readonly kinds: readonly { readonly key: LiquidKind; readonly label: string }[];
+}
+
+export type LookRow = PictureRow | KindsRow;
+
 export interface LookCard {
   readonly id: string;
   readonly title: string;
   readonly rows: readonly LookRow[];
 }
 
-/** The cards, top to bottom: Color leads, as it changes the most. A card
- * left with one row keeps its place and names only what it holds. */
+/** The kinds in the person's words, in the order the root lists them. */
+const KIND_LABELS: Readonly<Record<LiquidKind, string>> = {
+  liquidChrome: "Header and side menu", liquidPanels: "Side panels", liquidMap: "On the map", liquidButtons: "Map buttons",
+  liquidCards: "Page cards", liquidInner: "Cards inside panels", liquidMenus: "Menus and pop-overs", liquidDialogs: "Dialogs",
+};
+const KINDS = LIQUID_KINDS.map(([key]) => ({ key, label: KIND_LABELS[key] }));
+
+/** The cards, top to bottom: Color leads, as it changes the most. Panels
+ * leads the second card, the kinds under it while Liquid is shown, then
+ * Background. A card left with one row keeps its place and names only
+ * what it holds. */
 export const LOOK_CARDS: readonly LookCard[] = [
   { id: "appearance-color", title: "Color and contrast", rows: [
     { key: "color", label: "Color", id: "set-color",
       keys: "colour tint hue accent highlight kelp green harbor blue heather violet purple lavender slate grey gray graphite" },
     { key: "contrast", label: "Contrast", id: "set-contrast", keys: "borders legibility readable muted faint accessibility" },
   ] },
-  { id: "appearance-background", title: "Background", rows: [
+  { id: "appearance-background", title: "Panels and background", rows: [
+    { key: "panels", label: "Panels", id: "set-panels",
+      keys: `glass frosted liquid paper transparent blur solid ${KINDS.map(kind => kind.label.toLowerCase()).join(" ")}` },
+    { kind: "kinds", label: "Liquid panels", id: "set-liquid-panels", kinds: KINDS },
     { key: "background", label: "Background", id: "set-background",
       keys: "pattern texture sheet wallpaper chart atlantic coastline plain graticule grid crosses hex hexagon lattice" },
   ] },
@@ -76,6 +101,16 @@ export function choiceLabel(key: LookKey, value: string): string {
 export const unitKey = (key: LookKey) => `look.${key}`;
 const pickOf = (key: string) => key.slice("look.".length) as LookKey;
 
+/** The kinds are in sight only while Liquid is shown for Panels. */
+export const kindsShown = (panels: unknown) => panels === "liquid";
+const KIND_KEYS: ReadonlySet<LookKey> = new Set(LIQUID_KINDS.map(([key]) => key));
+
+/** The picks in sight over a look, the ones a reset pressed over it takes:
+ * every pick, and the kinds while Liquid is shown. */
+export function shownKeys(look: Look): LookKey[] {
+  return LOOK_KEYS.filter(key => !KIND_KEYS.has(key) || kindsShown(look.panels));
+}
+
 export type LookSend = (patch: Partial<Look>) => Promise<Look>;
 
 /**
@@ -101,12 +136,17 @@ export class LookWriter {
 }
 
 /** A card's save unit over the look's slice. The look admits its choices
- * only, so a Reset writes each pick's default itself. */
+ * only, so a Reset writes each pick's default itself. The kinds share one
+ * row's Saved and are out of sight while the card's Panels is not Liquid. */
 export function lookUnit(card: LookCard, kept: Look, writer: LookWriter): SaveUnit {
-  const keys = card.rows.map(row => row.key);
+  const controls: UnitControl[] = card.rows.flatMap(row => row.kind === "kinds"
+    ? row.kinds.map(({ key }) => ({ key: unitKey(key), kind: "choice" as const, defaultValue: lookChoices(key)[0], row: row.id,
+      hidden: (shown: Readonly<Record<string, Value>>) => !kindsShown(shown[unitKey("panels")]) }))
+    : [{ key: unitKey(row.key), kind: "choice" as const, defaultValue: lookChoices(row.key)[0] }]);
+  const keys = controls.map(control => pickOf(control.key));
   return new SaveUnit({
     title: card.title,
-    controls: keys.map(key => ({ key: unitKey(key), kind: "choice" as const, defaultValue: lookChoices(key)[0] })),
+    controls,
     kept: Object.fromEntries(keys.map(key => [unitKey(key), kept[key]])),
     write: async patch => {
       const look = await writer.write(Object.fromEntries(Object.entries(patch).map(([key, value]) =>
@@ -172,7 +212,7 @@ export function stampLook(root: Element, look: Look): void {
   }
 }
 
-const differs = (look: Look) => LOOK_KEYS.some(key => look[key] !== lookChoices(key)[0]);
+const differs = (look: Look) => shownKeys(look).some(key => look[key] !== lookChoices(key)[0]);
 
 export interface LookResetSnapshot {
   /** A write of the reset or its Undo is on its way. */
@@ -186,11 +226,13 @@ export interface LookResetSnapshot {
 interface Offer { readonly previous: Partial<Look>; timer: ReturnType<typeof setTimeout> | null; held: Set<"focus" | "pointer">; expired: boolean; leaving: boolean }
 
 /**
- * The tab-wide Reset to Dezfil's default: every pick back in one write,
- * then Undo in its place for six seconds (held while focus or the pointer
- * rests on it), which writes the previous picks back in one write. A
- * newer pick, a card's Reset or leaving the tab lets the Undo go. What a
- * write kept goes to the cards, whose units show it.
+ * The tab-wide Reset to Dezfil's default: every pick in sight when it is
+ * pressed back in one write (the kinds only while Liquid shows them, so a
+ * kind out of sight stays stored), then Undo in its place for six seconds
+ * (held while focus or the pointer rests on it), which writes back whole
+ * what the reset changed, the kinds it put out of sight included. A newer
+ * pick, a card's Reset or leaving the tab lets the Undo go. What a write
+ * kept goes to the cards, whose units show it.
  */
 export class LookReset {
   private offer: Offer | null = null;
@@ -216,21 +258,23 @@ export class LookReset {
   }
 
   /** The heading row's action for the look on screen: Undo while it is
-   * offered, Reset while a pick differs from the default, else none. */
+   * offered, Reset while a pick in sight differs from the default, else none. */
   slot(shown: Look): "reset" | "undo" | null {
     if (this.offer || this.busy === "undo") return "undo";
     return this.busy === "reset" || differs(shown) ? "reset" : null;
   }
 
-  /** Every pick back to the default, in one write. */
+  /** Every pick in sight back to the default, in one write. */
   reset(shown: Look): void {
     if (this.busy || this.slot(shown) !== "reset") return;
-    const previous = Object.fromEntries(LOOK_KEYS.filter(key => shown[key] !== lookChoices(key)[0]).map(key => [key, shown[key]])) as Partial<Look>;
+    const keys = shownKeys(shown);
+    const patch = Object.fromEntries(keys.map(key => [key, lookChoices(key)[0]])) as Partial<Look>;
+    const previous = Object.fromEntries(keys.filter(key => shown[key] !== lookChoices(key)[0]).map(key => [key, shown[key]])) as Partial<Look>;
     this.dropOffer();
-    this.run("reset", defaultLook(), previous);
+    this.run("reset", patch, previous);
   }
 
-  /** The previous picks back, in one write. */
+  /** What the reset changed back, whole, in one write. */
   undo(): void {
     const offer = this.offer;
     if (!offer || this.busy) return;
