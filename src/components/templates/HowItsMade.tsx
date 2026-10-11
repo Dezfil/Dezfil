@@ -8,6 +8,7 @@ import type { TemplateContents } from "@/lib/templates/opened";
 import { formatCount } from "../api";
 import type { LayerRenderData } from "../builder/render-data";
 import { useHeaderReach } from "../shell/use-header-reach";
+import { ErrorNote } from "../ui/ErrorNote";
 import { ChevronIcon, TemplateIcon } from "../ui/icons";
 import { GeometryGlyph } from "../ui/operation-icons";
 import { WorkflowThumb } from "../WorkflowThumb";
@@ -24,10 +25,18 @@ import styles from "./TemplateView.module.css";
  * layer shows its SQL and its style; the styling choices are the
  * template's own words. Nothing in it edits.
  */
+
+/** Why the template map's layers could not be read, with a retry. */
+export interface LayersFailure {
+  message: string;
+  onRetry: () => void;
+}
+
 export function HowItsMade({
   template,
   opened,
   layers,
+  layersFailure = null,
   renders = {},
   groupOf,
   labelOf,
@@ -35,8 +44,11 @@ export function HowItsMade({
 }: {
   template: TemplateDetail;
   opened: TemplateContents;
-  /** The template map's layers once read; null while they are. */
+  /** The template map's layers once read; null while they are, or when
+   * the read failed. */
   layers: Layer[] | null;
+  /** Why the layers' read failed, with its retry; null unless it did. */
+  layersFailure?: LayersFailure | null;
   renders?: Record<string, LayerRenderData | undefined>;
   /** Operation id to its catalog group, for a node's hue. */
   groupOf: (operation: string) => string | null;
@@ -116,7 +128,11 @@ export function HowItsMade({
         ) : null}
         <Fold name="layers" title="Layers and their SQL" count={layers?.length ?? null}>
           {layers === null ? (
-            <p className={styles.quiet}>Reading the layers…</p>
+            layersFailure ? (
+              <ErrorNote message={layersFailure.message} onRetry={layersFailure.onRetry} />
+            ) : (
+              <p className={styles.quiet}>Reading the layers…</p>
+            )
           ) : (
             layers.map((layer) => {
               const render = renders[layer.id];

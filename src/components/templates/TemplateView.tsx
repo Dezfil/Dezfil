@@ -19,7 +19,7 @@ import { ErrorNote } from "../ui/ErrorNote";
 import { ChevronIcon, DuplicateIcon } from "../ui/icons";
 import { WorkflowScreen } from "../WorkflowScreen";
 import type { TemplateCanvasSeam } from "../workflow-canvas/template-canvas";
-import { HowItsMade } from "./HowItsMade";
+import { HowItsMade, type LayersFailure } from "./HowItsMade";
 import { TemplateCopyDialog } from "./TemplateCopyDialog";
 import { templatePage } from "./template-view-model";
 import styles from "./TemplateView.module.css";
@@ -97,9 +97,9 @@ export function TemplateView({
     [template, opened, groupOf, labelOf],
   );
   const canvasPanel = useCallback(
-    (layers: MapWithLayers["layers"] | null) =>
+    (layers: MapWithLayers["layers"] | null, failure: LayersFailure | null) =>
       opened ? (
-        <HowItsMade template={template} opened={opened} layers={layers} groupOf={groupOf} labelOf={labelOf} beside="canvas" />
+        <HowItsMade template={template} opened={opened} layers={layers} layersFailure={failure} groupOf={groupOf} labelOf={labelOf} beside="canvas" />
       ) : null,
     [template, opened, groupOf, labelOf],
   );
@@ -291,9 +291,14 @@ function TemplateMap({
   );
 }
 
+type LayersRead =
+  | { status: "pending" }
+  | { status: "failed"; message: string }
+  | { status: "ready"; layers: MapWithLayers["layers"] };
+
 /** A workflow example: its canvas view-only, through the read seam, with
  * the panel in the pane's place. The template map's layers are read for
- * the panel alone. */
+ * the panel alone; a read that fails says why in the panel, with a retry. */
 function TemplateCanvas({
   template,
   opened,
@@ -301,35 +306,51 @@ function TemplateCanvas({
 }: {
   template: TemplateDetail;
   opened: TemplateContents;
-  pane: (layers: MapWithLayers["layers"] | null) => React.ReactNode;
+  pane: (layers: MapWithLayers["layers"] | null, failure: LayersFailure | null) => React.ReactNode;
 }) {
-  const [layers, setLayers] = useState<MapWithLayers["layers"] | null>(null);
+  const [read, setRead] = useState<LayersRead>({ status: "pending" });
+  const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     let cancelled = false;
     void (async () => {
+      let next: LayersRead;
       try {
         const response = await fetch(`/api/maps/${encodeURIComponent(opened.mapId)}`);
-        if (!response.ok) return;
-        const map = (await response.json()) as MapWithLayers;
-        if (!cancelled) setLayers(map.layers);
+        next = response.ok
+          ? { status: "ready", layers: ((await response.json()) as MapWithLayers).layers }
+          : { status: "failed", message: await readApiError(response) };
       } catch {
-        // The panel keeps saying the layers are being read.
+        next = { status: "failed", message: serverUnreachable("read the template's layers") };
       }
+      if (!cancelled) setRead(next);
     })();
     return () => {
       cancelled = true;
     };
-  }, [opened.mapId]);
+  }, [opened.mapId, attempt]);
+  const failure = useMemo<LayersFailure | null>(
+    () =>
+      read.status === "failed"
+        ? {
+            message: read.message,
+            onRetry: () => {
+              setRead({ status: "pending" });
+              setAttempt((n) => n + 1);
+            },
+          }
+        : null,
+    [read],
+  );
   const page = useMemo(() => templatePage(template, opened), [template, opened]);
   const seam = useMemo<TemplateCanvasSeam | null>(
     () =>
       page
         ? {
             read: async () => ({ ...page, operations: await readOperations() }),
-            pane: pane(layers),
+            pane: pane(read.status === "ready" ? read.layers : null, failure),
           }
         : null,
-    [page, pane, layers],
+    [page, pane, read, failure],
   );
   if (!seam || !page) return <Fallback message="This template's workflow could not be read on this server." />;
   return <WorkflowScreen id={page.recipe.id} viewOnly runs={false} template={seam} />;

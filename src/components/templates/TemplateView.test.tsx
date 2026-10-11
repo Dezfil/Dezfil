@@ -377,6 +377,33 @@ describe("a workflow example opened", () => {
     expect(calls.map((c) => c.path)).toEqual(expect.arrayContaining(["/api/operations", "/api/maps/template.busy-stations.1.map"]));
   });
 
+  it("says why its layers could not be read, with a retry that reads them, never reading them for ever", async () => {
+    let fail: "network" | "status" | null = "status";
+    fetchAnswer = (call) => {
+      if (call.path === `/api/maps/${encodeURIComponent(BUSY_MAP.id)}` && fail === "status") {
+        return Response.json({ error: { code: "internal", message: "The map could not be read." } }, { status: 500 });
+      }
+      if (call.path === `/api/maps/${encodeURIComponent(BUSY_MAP.id)}` && fail === "network") throw new TypeError("fetch failed");
+      return answer(call);
+    };
+    await open(busy(), opened("busy-stations", WORKFLOW));
+    const head = () => fold("layers").querySelector("button")!;
+    await act(async () => head().click());
+    expect(text(fold("layers"))).not.toContain("Reading the layers");
+    expect(text(fold("layers"))).toContain("The map could not be read.");
+    const retry = () => fold("layers").querySelectorAll("button").find((b) => b.textContent === "Try again")!;
+    fail = "network";
+    await act(async () => retry().click());
+    await settle();
+    expect(text(fold("layers"))).not.toContain("Reading the layers");
+    expect(retry()).toBeTruthy();
+    fail = null;
+    await act(async () => retry().click());
+    await settle();
+    expect(fold("layers").querySelectorAll("[data-layer-sql]").map((s) => text(s))).toEqual(["SELECT * FROM station_rings"]);
+    expect(writes()).toEqual([]);
+  });
+
   it("keeps Make a copy as the only action in the header", async () => {
     await open(busy(), opened("busy-stations", WORKFLOW));
     expect(actions.querySelectorAll("button").map((b) => b.getAttribute("aria-label"))).toEqual(["Make a copy of Busy stations"]);
