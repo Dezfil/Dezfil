@@ -63,7 +63,7 @@
     0 1px 1px color-mix(in srgb, var(--shadow) 40%, transparent),
     0 8px 24px -4px color-mix(in srgb, var(--shadow) 70%, transparent);
 
-  /* Page cards: the lighter lift, the panels' lift on hover */
+  /* Page cards: the lighter lift, the panels' lift on hover, no line under the pointer */
   --surface-page-card-fill: color-mix(in oklab, var(--bg-panel) 96%, var(--bg));
   --surface-page-card-blur: none;
   --surface-page-card-edge: 1px solid transparent;
@@ -73,6 +73,7 @@
   --surface-page-card-shadow-hover:
     0 1px 1px color-mix(in srgb, var(--shadow) 40%, transparent),
     0 8px 24px -4px color-mix(in srgb, var(--shadow) 70%, transparent);
+  --surface-page-card-edge-hover: 1px solid transparent;
 
   /* A card inside a panel: the panel tone, a contact line, lifting to a
      page card's lift and dragged at the panels' */

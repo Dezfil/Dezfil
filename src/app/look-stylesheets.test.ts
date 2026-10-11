@@ -149,7 +149,9 @@ function liquid(role: Role, theme: Theme, fills: Record<Theme, Record<FillKind, 
     case "glass-panel": return { fill: fill.read, blur: "blur(24px)", edge: "none", shadow: lit("lift"), lens: "18" };
     case "overlay-panel": return { fill: fill.read, blur: "blur(24px)", edge: "none", shadow: lit("lift"), lens: "18" };
     case "overlay-control": return { fill: fill.glass, blur: "blur(6px)", edge: "none", shadow: lit("button"), lens: "12", grow: "none" };
-    case "page-card": return { fill: fill.card, blur: "blur(14px)", edge: CLEAR, shadow: lit("card"), "shadow-hover": lit("lift"), lens: "14" };
+    case "page-card": return {
+      fill: fill.card, blur: "blur(14px)", edge: CLEAR, shadow: lit("card"), "shadow-hover": lit("lift"), "edge-hover": CLEAR, lens: "14",
+    };
     case "inner-card": return {
       fill: fill.inner, blur: "blur(6px)", edge: CLEAR, shadow: lit("inner"), "shadow-lifted": lit("lift"), "shadow-dragged": lit("lift"),
       lens: "8", knob: fill.inner, mark: fill.inner,
@@ -268,7 +270,9 @@ function paper(role: Role, theme: Theme): Record<string, string> | null {
   const sheet = { fill: PAPER_PANEL[theme], blur: "none", edge: "none", shadow: PAPER_LIFT[theme].lift };
   switch (role) {
     case "glass-chrome": case "glass-panel": case "overlay-panel": case "overlay-control": return sheet;
-    case "page-card": return { fill: PAPER_PANEL[theme], blur: "none", edge: CLEAR, shadow: PAPER_LIFT[theme].card, "shadow-hover": PAPER_LIFT[theme].lift };
+    case "page-card": return {
+      fill: PAPER_PANEL[theme], blur: "none", edge: CLEAR, shadow: PAPER_LIFT[theme].card, "shadow-hover": PAPER_LIFT[theme].lift, "edge-hover": CLEAR,
+    };
     case "inner-card": return {
       fill: theme === "light" ? "var(--bg-panel)" : "var(--bg-hover)", blur: "none", edge: CLEAR, shadow: PAPER_LIFT[theme].inner,
       "shadow-lifted": PAPER_LIFT[theme].card, "shadow-dragged": PAPER_LIFT[theme].lift,

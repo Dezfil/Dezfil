@@ -293,7 +293,7 @@
 .card:hover {
   transform: translateY(-3px);
   box-shadow: var(--surface-page-card-shadow-hover);
-  border-color: var(--border-strong);
+  border: var(--surface-page-card-edge-hover);
 }
 
 .cardLink {

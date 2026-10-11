@@ -33,9 +33,10 @@ const HAIRLINE = "1px solid var(--border)";
 /** Each role's parts at the values the design names, both themes alike:
  * the theme supplies the tones. Every role but the stage has a lens, how
  * far its edge pulls the backdrop in, none in the shipped look; the
- * overlay control's growth on hover, the menu's stronger edge and raised
- * ground, and the inner card's bright knob and accent mark are today's
- * values, so a look can restate them. */
+ * overlay control's growth on hover, a page card's stronger line under the
+ * pointer, the menu's stronger edge and raised ground, and the inner
+ * card's bright knob and accent mark are today's values, so a look can
+ * restate them. */
 const ROLES: Record<string, Record<string, string>> = {
   "glass-chrome": { fill: FILLS.glass, blur: STRENGTHS.glass, edge: "none", shadow: STEPS.float, lens: "0" },
   "glass-panel": { fill: FILLS.glass, blur: STRENGTHS.glass, edge: "none", shadow: STEPS.float, corner: "var(--radius-card)", lens: "0" },
@@ -43,7 +44,7 @@ const ROLES: Record<string, Record<string, string>> = {
   "overlay-control": { fill: FILLS.glass, blur: STRENGTHS.overlay, edge: "none", shadow: STEPS.float, lens: "0", grow: "scale(1.06)" },
   "page-card": {
     fill: "var(--bg-panel)", blur: "none", edge: HAIRLINE, shadow: STEPS.float, "shadow-hover": STEPS.deep,
-    corner: "var(--radius-card)", lens: "0",
+    "edge-hover": "1px solid var(--border-strong)", corner: "var(--radius-card)", lens: "0",
   },
   "inner-card": {
     fill: "var(--bg-panel)", blur: "none", edge: HAIRLINE, shadow: STEPS.hairline,

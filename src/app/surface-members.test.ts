@@ -15,7 +15,7 @@ type Role =
   | "glass-chrome" | "glass-panel" | "overlay-panel" | "overlay-control" | "stage"
   | "page-card" | "inner-card" | "menu" | "dialog";
 type Part = "fill" | "blur" | "edge" | "shadow" | "corner" | "shadow-hover" | "shadow-lifted" | "shadow-dragged"
-  | "grow" | "edge-strong" | "knob" | "mark" | "fill-raised";
+  | "grow" | "edge-strong" | "edge-hover" | "knob" | "mark" | "fill-raised";
 /** A member's rule, or with `state` a rule restating some of its parts in
  * a state of the member (hovered, chosen, dragged). */
 type Member = { step: number; role: Role; file: string; selector: string; parts: Part[]; what: string; state?: true };
@@ -154,7 +154,7 @@ export const MEMBERS: Member[] = [
   m(STEP.stage, "stage", C + "workflow-canvas/WorkflowCanvas.module.css", '.host[data-view="framed"] .flowArea', ["shadow"], "the framed canvas"),
   // Page card: a card on a page
   m(STEP.page, "page-card", C + "gallery.module.css", ".card", FULL, "the gallery card"),
-  st(STEP.page, "page-card", C + "gallery.module.css", ".card:hover", ["shadow-hover"], "the gallery card lifting on hover"),
+  st(STEP.page, "page-card", C + "gallery.module.css", ".card:hover", ["shadow-hover", "edge-hover"], "the gallery card lifting on hover"),
   m(STEP.page, "page-card", C + "gallery.module.css", ".listCard", FULL, "the gallery's list view card"),
   m(STEP.page, "page-card", C + "settings/SettingsCard.module.css", ".card", FULL, "a Settings card"),
   m(STEP.page, "page-card", C + "settings/SettingsFrame.module.css", ".column", FULL, "the Settings tab column"),
@@ -284,7 +284,7 @@ export const OWN: Own[] = [
 const STANDS_FOR: Record<"fill" | "blur" | "edge" | "shadow", Part[]> = {
   fill: ["fill", "knob", "mark", "fill-raised"],
   blur: ["blur"],
-  edge: ["edge", "edge-strong"],
+  edge: ["edge", "edge-strong", "edge-hover"],
   shadow: ["shadow", "shadow-lifted", "shadow-dragged", "shadow-hover"],
 };
 
@@ -327,6 +327,7 @@ const PROPERTY: Record<Part, RegExp> = {
   "shadow-dragged": /^box-shadow$/,
   grow: /^transform$/,
   "edge-strong": /^border$/,
+  "edge-hover": /^border$/,
   knob: /^background$/,
   mark: /^background$/,
   "fill-raised": /^background$/,
@@ -479,11 +480,13 @@ describe("the members of each role", () => {
     expect(legend.border).toBeUndefined();
   });
 
-  it("grow a stage button on hover, edge the map's tooltip, popup and failure notice and light a slider's thumb from their roles, at today's values", () => {
+  it("grow a stage button on hover, line a gallery card under the pointer, edge the map's tooltip, popup and failure notice and light a slider's thumb from their roles, at today's values", () => {
     const value = (file: string, selector: string, property: string) =>
       resolveThroughBlock(Object.fromEntries(declarations(read(C + file), selector)!)[property]);
     // Each as it was drawn before it read a role, written out here.
     expect(value("map/StageStack.module.css", ".stageBtn:hover", "transform")).toBe("scale(1.06)");
+    // A gallery card under the pointer shows the stronger line it showed.
+    expect(value("gallery.module.css", ".card:hover", "border")).toBe("1px solid var(--border-strong)");
     for (const selector of [".tooltip", ".popup", ".webglFailureCard"]) {
       expect(value("map/MapCanvas.module.css", selector, "border"), selector).toBe("1px solid var(--border-strong)");
     }
