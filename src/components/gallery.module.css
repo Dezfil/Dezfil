@@ -278,9 +278,9 @@
 .card {
   position: relative;
   border-radius: var(--radius-card);
-  background: var(--bg-panel);
-  border: 1px solid var(--border);
-  box-shadow: 0 3px 12px var(--shadow);
+  background: var(--surface-page-card-fill);
+  border: var(--surface-page-card-edge);
+  box-shadow: var(--surface-page-card-shadow);
   transition:
     transform var(--dur-panel) var(--ease-panel),
     box-shadow var(--dur-micro) ease,
@@ -291,7 +291,7 @@
 
 .card:hover {
   transform: translateY(-3px);
-  box-shadow: 0 14px 40px var(--shadow);
+  box-shadow: var(--surface-page-card-shadow-hover);
   border-color: var(--border-strong);
 }
 
@@ -652,11 +652,11 @@
 /* ---- list views ---- */
 
 .listCard {
-  border: 1px solid var(--border);
+  border: var(--surface-page-card-edge);
   border-radius: var(--radius-card);
   overflow: hidden;
-  background: var(--bg-panel);
-  box-shadow: 0 3px 12px var(--shadow);
+  background: var(--surface-page-card-fill);
+  box-shadow: var(--surface-page-card-shadow);
   animation: rise-in var(--dur-entrance) var(--ease-entrance);
 }
 

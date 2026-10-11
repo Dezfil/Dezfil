@@ -136,11 +136,11 @@
   display: flex;
   flex-direction: column;
   min-width: 0;
-  border: 1px solid var(--border-strong);
+  border: var(--surface-page-card-edge);
   border-radius: var(--radius-card);
   overflow: hidden;
-  background: var(--bg-panel);
-  box-shadow: 0 8px 30px var(--shadow);
+  background: var(--surface-page-card-fill);
+  box-shadow: var(--surface-page-card-shadow);
 }
 
 .editorHost {
@@ -497,10 +497,11 @@
   display: flex;
   flex-direction: column;
   min-width: 0;
-  border: 1px solid var(--border);
+  border: var(--surface-page-card-edge);
   border-radius: var(--radius-card);
   overflow: hidden;
-  background: var(--bg-panel);
+  background: var(--surface-page-card-fill);
+  box-shadow: var(--surface-page-card-shadow);
 }
 .resultsCard[data-busy] .resBody {
   opacity: 0.45;
@@ -595,7 +596,7 @@
 }
 .resultsCard[data-mode="preview"] {
   border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent);
+  box-shadow: var(--surface-page-card-shadow), inset 0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
 .tabs {

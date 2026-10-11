@@ -6,9 +6,10 @@
   min-height: 380px;
   border-radius: var(--radius-card);
   overflow: hidden;
-  border: 1px solid var(--border);
+  border: var(--surface-page-card-edge);
+  /* A card on the page whose ground is the map's, under a map still loading. */
   background: var(--bg-raised);
-  box-shadow: 0 3px 12px var(--shadow);
+  box-shadow: var(--surface-page-card-shadow);
 }
 
 

@@ -10,9 +10,10 @@
   gap: 12px;
   min-width: 0;
   padding: 20px;
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--border);
-  background: var(--bg-panel);
+  border-radius: var(--radius-card);
+  border: var(--surface-page-card-edge);
+  background: var(--surface-page-card-fill);
+  box-shadow: var(--surface-page-card-shadow);
 }
 
 .head {

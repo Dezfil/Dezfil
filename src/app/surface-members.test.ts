@@ -23,13 +23,16 @@ const STEP = {
 } as const;
 
 /** The last step whose members read their role. */
-const MOVED_THROUGH = 8;
+const MOVED_THROUGH = 9;
 
 const C = "src/components/";
 const LAYOUT = "src/app/(workspace)/layout.module.css";
 const m = (step: number, role: Role, file: string, selector: string, parts: Part[], what: string): Member =>
   ({ step, role, file, selector, parts, what });
 const GLASS: Part[] = ["fill", "blur", "shadow"];
+/** A card on the page draws its ground, its edge and its shadow from its
+ * role, so a look that restates any of them reaches every card. */
+const CARD: Part[] = ["fill", "edge", "shadow"];
 
 /** The roles with no edge: what floats as glass or over a map draws its
  * shape with the fill and the shadow alone. */
@@ -107,17 +110,18 @@ export const MEMBERS: Member[] = [
   m(STEP.stage, "stage", C + "builder/MapBuilder.module.css", ".canvasCol", ["shadow"], "the map card"),
   m(STEP.stage, "stage", C + "workflow-canvas/WorkflowCanvas.module.css", '.host[data-view="framed"] .flowArea', ["shadow"], "the framed canvas"),
   // Page card: a card on a page
-  m(STEP.page, "page-card", C + "gallery.module.css", ".card", ["shadow"], "the gallery card"),
+  m(STEP.page, "page-card", C + "gallery.module.css", ".card", CARD, "the gallery card"),
   m(STEP.page, "page-card", C + "gallery.module.css", ".card:hover", ["shadow-hover"], "the gallery card lifting on hover"),
-  m(STEP.page, "page-card", C + "gallery.module.css", ".listCard", ["shadow"], "the gallery's list view card"),
-  m(STEP.page, "page-card", C + "settings/SettingsCard.module.css", ".card", ["shadow"], "a Settings card"),
-  m(STEP.page, "page-card", C + "settings/SettingsFrame.module.css", ".column", ["shadow"], "the Settings tab column"),
-  m(STEP.page, "page-card", C + "sql/SqlConsole.module.css", ".editorCard", ["shadow"], "the SQL editor card"),
-  m(STEP.page, "page-card", C + "sql/SqlConsole.module.css", ".resultsCard", ["shadow"], "the SQL results card"),
-  m(STEP.page, "page-card", C + "connections/ConnectionDetail.module.css", ".card", ["shadow"], "the connection detail card"),
-  m(STEP.page, "page-card", C + "connections/NewConnectionScreen.module.css", ".card", ["shadow"], "the new-connection card"),
-  m(STEP.page, "page-card", C + "set-geometry/SetGeometryPanel.module.css", ".dock", ["shadow"], "the set-geometry panel"),
-  m(STEP.page, "page-card", C + "TablePreviewMap.module.css", ".pane", ["shadow"], "the dataset page's preview card"),
+  m(STEP.page, "page-card", C + "gallery.module.css", ".listCard", CARD, "the gallery's list view card"),
+  m(STEP.page, "page-card", C + "settings/SettingsCard.module.css", ".card", CARD, "a Settings card"),
+  m(STEP.page, "page-card", C + "settings/SettingsFrame.module.css", ".column", CARD, "the Settings tab column"),
+  m(STEP.page, "page-card", C + "sql/SqlConsole.module.css", ".editorCard", CARD, "the SQL editor card"),
+  m(STEP.page, "page-card", C + "sql/SqlConsole.module.css", ".resultsCard", CARD, "the SQL results card"),
+  m(STEP.page, "page-card", C + "connections/ConnectionDetail.module.css", ".card", CARD, "the connection detail card"),
+  m(STEP.page, "page-card", C + "connections/NewConnectionScreen.module.css", ".card", CARD, "the new-connection card"),
+  m(STEP.page, "page-card", C + "set-geometry/SetGeometryPanel.module.css", ".dock", CARD, "the set-geometry panel"),
+  // Its ground is the map's raised tone under a map still loading, kept.
+  m(STEP.page, "page-card", C + "TablePreviewMap.module.css", ".pane", ["edge", "shadow"], "the dataset page's preview card"),
   // Inner card: a card inside a panel or card, and a control that carries a small shadow
   m(STEP.inner, "inner-card", C + "builder/LayerList.module.css", ".card", ["shadow"], "a layer card"),
   m(STEP.inner, "inner-card", C + "builder/LayerList.module.css", ".floating", ["shadow-dragged"], "a layer card dragged"),
@@ -364,6 +368,25 @@ describe("the members of each role", () => {
     for (const selector of [".canvasCol", ".mapLayer"]) {
       expect(declarations(css, selector)!.filter(([property]) => /^(opacity|transform|translate|scale)$/.test(property)), selector).toEqual([]);
     }
+  });
+
+  it("round every card on the page at the card radius, and keep its corner and shadow in the states that restate them", () => {
+    if (STEP.page > MOVED_THROUGH) return;
+    // The card radius, the role's corner, written on the radius token as
+    // every member keeps it, so the person's Corners pick reaches it.
+    const cards = MEMBERS.filter(member => member.step === STEP.page && member.parts.includes("shadow"));
+    expect.soft(cards.flatMap(card => (declarations(read(card.file), card.selector) ?? [])
+      .filter(([property, value]) => property === "border-radius" && value !== "var(--radius-card)")
+      .map(([, value]) => `${card.selector} in ${card.file}: ${value}`))).toEqual([]);
+    expect.soft(cards.filter(card => !(declarations(read(card.file), card.selector) ?? []).some(([property]) => property === "border-radius"))
+      .map(card => card.selector)).toEqual([]);
+    // A Settings card marked for a moment, and the SQL results card showing
+    // a preview, restate the card's corner or shadow: each keeps the card's
+    // and adds its own ring.
+    const marked = Object.fromEntries(declarations(read(C + "settings/SettingsFrame.module.css"), '.content section[data-marked=""]') ?? []);
+    expect.soft(marked).toEqual({ "border-radius": "var(--radius-card)", "box-shadow": "var(--surface-page-card-shadow), 0 0 0 6px var(--accent-wash)" });
+    const preview = Object.fromEntries(declarations(read(C + "sql/SqlConsole.module.css"), '.resultsCard[data-mode="preview"]') ?? []);
+    expect.soft(preview["box-shadow"]).toBe("var(--surface-page-card-shadow), inset 0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent)");
   });
 
   it("read no role at all until theirs moves, so a half-made move shows", () => {
