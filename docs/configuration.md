@@ -2,8 +2,9 @@
 
 The catalogue defines every deployment setting. Their defaults allow a local
 instance to start without deployment configuration. The editable limits, the four
-service addresses, the services' gaps, answer limits and freshness, and the
-satellite imagery's tile address and credit also accept stored admin changes,
+service addresses, the services' gaps, answer limits and freshness, the template
+catalogue's address, and the satellite imagery's tile address and credit also
+accept stored admin changes,
 made on the **Limits**, **Data & services** and **Libraries** tabs of Settings and
 marked **App (live) or restart**; **Restart** marks settings changed only through
 the environment.
@@ -38,6 +39,8 @@ the shortest password, and who may create tokens, publish, embed, connect and
 import; see [Security and rules](#security-and-rules). So are which basemaps are
 offered, the basemap library and whether a single map may take a style address
 of its own, set by admins on the **Libraries** tab; see [Libraries](#libraries).
+So is whether the server reads the template catalogue, set by admins on the
+**Data & services** tab; see [Templates](#templates).
 These are not environment variables. A service address an admin stores is kept
 there too, encrypted with the instance's key, and so is the satellite imagery's
 tile address; see [Service addresses and numbers](#service-addresses-and-numbers).
@@ -77,7 +80,8 @@ an editable live setting. Environment changes always require a restart.
 The same check holds this page's **Instance defaults** table to the catalogue's
 defaults, what new things start with, its **Security and rules** table to
 the catalogue's sign-in, token, publishing, connection and import settings, and
-its **Libraries** table to the catalogue's basemap switches: one row per setting
+its **Libraries** table to the catalogue's basemap switches, and its
+**Templates** table to the template catalogue's switch: one row per setting
 under the key the change operation takes, no orphan row, and each row's default
 as the catalogue documents it.
 
@@ -295,6 +299,35 @@ The saved palettes are listed on the same tab, each with its colors, and added
 or deleted there through `/api/palettes`, as in the builder. Deleting one
 keeps the colors of every layer classified with it.
 
+## Templates
+
+Whether the server reads the template catalogue, and where it is. Admins set
+both on the **Data & services** tab of Settings.
+
+The switch below is a stored instance setting with no environment variable, so
+it is never locked. It also changes through `PATCH /api/instance/settings`
+under its key, as `true` or `false`, and applies from the next read, without a
+restart.
+
+| Setting | Values | Default | Applies to |
+|---|---|---|---|
+| `templates.catalogue` | `true` (used) or `false` | on | Every read of the catalogue: its list, its pictures and its downloads. Off, the server reaches the catalogue for nothing; the shipped templates and the ones already downloaded still open and copy. |
+
+The catalogue's address is `templatesCatalogueUrl` to
+`PATCH /api/instance/settings`, beside `DEZFIL_TEMPLATES_CATALOGUE` under
+[Upload and remote import](#upload-and-remote-import); a set variable wins and
+locks its row, which then shows locked, naming the variable. Its default is the
+release catalogue of the public `Dezfil/templates` repository. It is an address
+kept as [Service addresses and numbers](#service-addresses-and-numbers)
+describes: write-only, encrypted with the instance's key, read back as its
+scheme and host alone, and refused at save where the egress policy would refuse
+it now. The variable alone may name a folder on the server instead of an
+address: a folder holding the index and the archives and pictures it names,
+read as files under the same checks, taken from the working directory when the
+path is relative. Every read says a folder is set, never which; a save from the
+tab or the API takes an `http` or `https` address alone, so no token or
+assistant can point the server at a folder.
+
 ## Fixed result limits
 
 SQL console/SQL previews, dataset inspection, geometry-choice preview and the
@@ -368,6 +401,7 @@ behavior and [the API guide](api.md#request-bounds) for exact refusals.
 | `DEZFIL_EGRESS_ALLOWLIST` | unset | Comma-separated hosts, IPs, or CIDRs the server may fetch for a user despite the egress policy. By default loopback, private-network, link-local, and cloud-metadata destinations are refused for every request the policy governs: imports and refreshes from web addresses, cloud storage links read without the server's credentials, database connections, the address finder and place search, travel time, OpenStreetMap, the Overture release list, custom basemap styles, map image exports and the satellite imagery's Test (`src/lib/net/egress.ts`). A loopback Overpass or Overture fixture needs it too. | Restart |
 | `DEZFIL_OBJECT_STORE_CREDENTIALS` | off | `1`, `true`, or `yes` signs `s3://`, `gs://`, and `az://` imports with the instance's own credential chain. Off, object-store reads are anonymous, so a user can only read what the public can (`src/lib/ingest/remote.ts`). | Restart |
 | `DEZFIL_S3_ENDPOINT` | AWS | S3-compatible endpoint for anonymous `s3://` imports, addressed path-style. | App (live) or restart |
+| `DEZFIL_TEMPLATES_CATALOGUE` | `https://github.com/Dezfil/templates/releases/latest/download/index.json` | The template catalogue's index, read by the server; see [Templates](#templates). The variable alone may name a folder on the server instead, read as files under the same checks and never disclosed by its path. | App (live) or restart |
 
 ## Open data providers
 

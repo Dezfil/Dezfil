@@ -5525,6 +5525,11 @@
         "memory:immutable-configuration"
       ]
     },
+    "memory:src/lib/api/openapi-instance-settings.ts#folderAddress": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
     "memory:src/lib/settings/process-info.ts#startedAt": {
       "stores": [
         "memory:process-start"

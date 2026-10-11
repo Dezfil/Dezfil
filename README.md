@@ -88,8 +88,9 @@ before using it.
 
 Every deployment setting below is optional; pass them as `-e NAME=value`
 on `docker run`. The editable limits, the four service addresses, the
-services' gaps, answer limits and freshness, and the satellite imagery's tile
-address and credit also accept stored admin changes, marked
+services' gaps, answer limits and freshness, the template catalogue's address,
+and the satellite imagery's tile address and credit also accept stored admin
+changes, marked
 **App (live) or restart**, made on the **Limits**, **Data & services** and
 **Libraries** tabs of Settings; a setting its variable sets shows locked there,
 naming the variable. A stored address is kept encrypted and reads back as its
@@ -121,7 +122,9 @@ lists. Which basemaps are offered where one is chosen, and whether a single map
 may take a style address the library does not offer, have no variable either:
 admins switch them on the **Libraries** tab, which also keeps the basemap
 library and the saved palettes, as [Libraries](docs/configuration.md#libraries)
-lists.
+lists. Whether the server reads the template catalogue has no variable either:
+admins switch it on the **Data & services** tab, as
+[Templates](docs/configuration.md#templates) says.
 
 | Setting | Default | What it controls | Changed by |
 |---|---|---|---|
@@ -134,6 +137,7 @@ lists.
 | `DEZFIL_OBJECT_STORE_CREDENTIALS` | off | Opt-in (`true`): sign `s3://`/`gs://`/`az://` imports with the instance's own credential chain. Off, object-store reads are anonymous — users can only read what the public can. | Restart |
 | `DEZFIL_S3_ENDPOINT` | AWS | Custom S3-compatible endpoint (MinIO and friends) for anonymous `s3://` imports, addressed path-style. | App (live) or restart |
 | `DEZFIL_OVERPASS_URL` | `https://overpass-api.de/api/interpreter` | Overpass endpoint for OSM imports. Point it at your own instance to escape the public per-IP limits. | App (live) or restart |
+| `DEZFIL_TEMPLATES_CATALOGUE` | `https://github.com/Dezfil/templates/releases/latest/download/index.json` | The template catalogue's index, read by the server. The variable alone may name a folder on the server instead, holding an index and the archives and pictures it names, read as files under the same checks; every read says a folder, never which. | App (live) or restart |
 | `DEZFIL_OVERTURE_S3_ENDPOINT` | unset, the public bucket | S3-compatible endpoint override for Overture reads (path-style, plain http). The test seam behind the browser suite's Overture drive; also fits a private mirror of the bucket. | Restart |
 | `DEZFIL_OVERPASS_TIMEOUT_S` | `60` | Server-side time budget passed with each Overpass query. | App (live) or restart |
 | `DEZFIL_OVERPASS_MAXSIZE_MB` | `512` | Response budget passed with each Overpass query; a response over twice this aborts locally. | Restart |

@@ -1,6 +1,19 @@
 import type { SettingDefault, SettingDefinition } from "./types";
 
-export type AddressDisclosure = { set: false } | { set: true; origin: string; userInformation?: true } | { set: true; unreadable: true };
+export type AddressDisclosure = { set: false } | { set: true; origin: string; userInformation?: true } | { set: true; unreadable: true }
+  | { set: true; folder: true };
+
+/** Whether text is an http or https address, as the address kind takes one,
+ * rather than a folder a variable may name instead. */
+export function isWebAddress(text: string): boolean {
+  return /^\s*https?:\/\//i.test(text);
+}
+
+/** Whether a setting's variable may name a folder on the server instead of
+ * an address (the template catalogue's). */
+export function variableMayNameFolder(definition: SettingDefinition): boolean {
+  return definition.write?.kind === "address" && definition.write.folder === "variable";
+}
 
 /** A path or template can contain credentials just as user information or a query can.
  * Where asked (a tile template browsers load), it also says that the address

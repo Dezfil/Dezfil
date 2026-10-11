@@ -491,7 +491,7 @@ browser lands on the page `landingPage` names (`/projects`, `/maps`,
 signed-in visit to the setup or sign-in page redirects to Home; the invitation
 page opens whether or not someone is signed in. Responses are private, no-store.
 
-`PATCH /api/instance/settings` changes only submitted editable keys, sixty-seven
+`PATCH /api/instance/settings` changes only submitted editable keys, sixty-nine
 of them: the fourteen Limits numbers; the services' eight numbers
 `geocodePaceMs`, `geocodeRequestTimeoutS`, `geocodeMatchCacheHours`,
 `isochronePaceMs`, `isochroneRequestTimeoutS`, `isochroneCacheHours`,
@@ -503,7 +503,11 @@ load tiles from such an address, so the key belongs in the path or the query,
 and the refusal says so), and its credit `satelliteAttribution`, at most 160
 characters; the five basemap switches `basemaps.dark`, `basemaps.light`,
 `basemaps.streets`, `basemaps.satellite` and `basemaps.singleMapStyles`, each
-`true` or `false`; the four General values `instanceName`,
+`true` or `false`; the template catalogue's switch `templates.catalogue`,
+`true` or `false`, and its address `templatesCatalogueUrl`, an address as a
+service's is (only `DEZFIL_TEMPLATES_CATALOGUE` may name a folder on the server
+instead, which every read gives as `{ "set": true, "folder": true }`, never its
+path); the four General values `instanceName`,
 `signInMessage`, `lostPasswordContact` and `landingPage`; the eighteen
 instance defaults `newMap.basemap`, `newMap.latitude`, `newMap.longitude`,
 `newMap.zoom`, `newMap.legendCorner`, `newLayer.colorCycle`,

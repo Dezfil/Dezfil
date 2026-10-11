@@ -19,13 +19,19 @@ export type WriteConstraint =
    * template a browser loads refuses user information at save, since no
    * browser loads tiles from such an address, and its read says when the
    * one in effect carries some. */
-  | { readonly kind: "address"; readonly maxLength: number; readonly placeholders?: readonly string[]; readonly userInformation?: "refused" };
+  | { readonly kind: "address"; readonly maxLength: number; readonly placeholders?: readonly string[]; readonly userInformation?: "refused";
+    /** Its variable alone may name a folder on the server instead of an
+     * address: anything it holds that is not an http or https address is
+     * read as a folder, and every read says a folder, never which. A save
+     * still takes an address alone. */
+    readonly folder?: "variable" };
 
 /** The four services whose address an admin may store beside its variable. */
 export type ServiceAddressKey = "geocoderUrl" | "isochroneUrl" | "overpassUrl" | "s3Endpoint";
 /** Every address an admin may store beside its variable: the four
- * services' and the satellite imagery's tile template. */
-export type StoredAddressKey = ServiceAddressKey | "satelliteUrl";
+ * services', the satellite imagery's tile template and the template
+ * catalogue's. */
+export type StoredAddressKey = ServiceAddressKey | "satelliteUrl" | "templatesCatalogueUrl";
 
 export interface SettingDefinition {
   readonly key: string;

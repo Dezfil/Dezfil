@@ -112,15 +112,15 @@ const EARLIER: Seeds = ["SEEDED-KEY-EARLIER-USER", "SEEDED-KEY-EARLIER-PATH", "S
 const BASE = "http://instance.test";
 const ADMIN = "test-account";
 const MEMBER = "member";
-const KEYS = ["geocoderUrl", "isochroneUrl", "overpassUrl", "s3Endpoint", "satelliteUrl"] as const;
+const KEYS = ["geocoderUrl", "isochroneUrl", "overpassUrl", "s3Endpoint", "satelliteUrl", "templatesCatalogueUrl"] as const;
 type AddressKey = typeof KEYS[number];
-const SLUG: Record<AddressKey, string> = { geocoderUrl: "geo", isochroneUrl: "iso", overpassUrl: "osm", s3Endpoint: "s3", satelliteUrl: "sat" };
+const SLUG: Record<AddressKey, string> = { geocoderUrl: "geo", isochroneUrl: "iso", overpassUrl: "osm", s3Endpoint: "s3", satelliteUrl: "sat", templatesCatalogueUrl: "tpl" };
 const VARIABLE: Record<AddressKey, string> = {
   geocoderUrl: "DEZFIL_GEOCODER_URL", isochroneUrl: "DEZFIL_ISOCHRONE_URL", overpassUrl: "DEZFIL_OVERPASS_URL", s3Endpoint: "DEZFIL_S3_ENDPOINT",
-  satelliteUrl: "DEZFIL_SATELLITE_URL",
+  satelliteUrl: "DEZFIL_SATELLITE_URL", templatesCatalogueUrl: "DEZFIL_TEMPLATES_CATALOGUE",
 };
 /** Where each address's requests go on the fixture, past its keyed place. */
-const TAIL: Partial<Record<AddressKey, string>> = { overpassUrl: "/api/interpreter", satelliteUrl: "/{z}/{x}/{y}.png" };
+const TAIL: Partial<Record<AddressKey, string>> = { overpassUrl: "/api/interpreter", satelliteUrl: "/{z}/{x}/{y}.png", templatesCatalogueUrl: "/index.json" };
 /** The console's sinks the server writes its log lines to. */
 const SINKS = ["log", "info", "warn", "error", "debug", "trace"] as const;
 const ACCOUNT = { id: ADMIN, name: "Ada Okafor", email: "ada@example.test", sqlName: "ada_okafor", isAdmin: true } as Account;
@@ -382,6 +382,8 @@ describe("a service address carrying a key", () => {
       ["a tile template missing its placeholders", await save({ satelliteUrl: address("satelliteUrl").replace("/{z}/{x}/{y}", "") })],
       ["a tile template in blocked space", await save({ satelliteUrl: address("satelliteUrl", { host: "10.0.0.7" }) })],
       ["a tile template carrying user information", await save({ satelliteUrl: address("satelliteUrl", { user: true }) })],
+      ["a catalogue address in blocked space", await save({ templatesCatalogueUrl: address("templatesCatalogueUrl", { host: "10.0.0.7" }) })],
+      ["a folder for the catalogue, which only its variable may name", await save({ templatesCatalogueUrl: `/srv/${SAVED[1]}/catalogue?key=${SAVED[2]}` })],
       ["a member's change", await ask("PATCH", "/api/instance/settings", { geocoderUrl: address("geocoderUrl") }, "member")],
       ["a member's read", await ask("GET", "/api/instance/settings", undefined, "member")],
     ] as const;
@@ -508,7 +510,8 @@ describe("a service address carrying a key", () => {
   });
 
   it("set through the generated tool: its answer and its refusal", async () => {
-    const kept = await executeTool(tool("update_instance_settings"), { overpassUrl: address("overpassUrl"), satelliteUrl: address("satelliteUrl") }, BASE, toolFetch);
+    const kept = await executeTool(tool("update_instance_settings"), { overpassUrl: address("overpassUrl"), satelliteUrl: address("satelliteUrl"),
+      templatesCatalogueUrl: address("templatesCatalogueUrl") }, BASE, toolFetch);
     expect(kept.status, JSON.stringify(kept.body)).toBe(200);
     searched("the generated tool's change answer", kept.body, { origin });
     const refused = await executeTool(tool("update_instance_settings"), { geocoderUrl: address("geocoderUrl", { host: "10.0.0.7" }) }, BASE, toolFetch);
@@ -521,6 +524,9 @@ describe("a service address carrying a key", () => {
     expect(refusedCredentials.status).toBe(400);
     expect(JSON.stringify(refusedCredentials.body)).toContain(USER_INFORMATION_REFUSED);
     searched("the generated tool's refusal of a tile template carrying user information", refusedCredentials.body);
+    const refusedFolder = await executeTool(tool("update_instance_settings"), { templatesCatalogueUrl: `/srv/${SAVED[1]}/catalogue` }, BASE, toolFetch);
+    expect(refusedFolder.status).toBe(400);
+    searched("the generated tool's refusal of a folder for the catalogue", refusedFolder.body);
     await reads("set through the generated tool", "stored");
   });
 
@@ -528,7 +534,8 @@ describe("a service address carrying a key", () => {
     const scope = testAccountScope(metadataDb(), ADMIN);
     const pending = new PendingActionStore();
     const provider = stubProvider([
-      { text: "", toolCalls: [{ id: "point-travel-time", name: "update_instance_settings", args: { isochroneUrl: address("isochroneUrl"), satelliteUrl: address("satelliteUrl") } }] },
+      { text: "", toolCalls: [{ id: "point-travel-time", name: "update_instance_settings", args: { isochroneUrl: address("isochroneUrl"), satelliteUrl: address("satelliteUrl"),
+        templatesCatalogueUrl: address("templatesCatalogueUrl") } }] },
       { text: "Done.", toolCalls: [] },
     ]);
     const message = "Use our routing service";
@@ -540,7 +547,7 @@ describe("a service address carrying a key", () => {
     const question = asked.find(event => event.type === "confirm_required");
     if (question?.type !== "confirm_required") throw new Error("expected a confirmation");
     searched("the assistant's confirmation", question, { origin });
-    expect(question.args).toEqual({ isochroneUrl: origin, satelliteUrl: origin });
+    expect(question.args).toEqual({ isochroneUrl: origin, satelliteUrl: origin, templatesCatalogueUrl: origin });
     searched("the assistant's events before the decision", asked, { origin });
     const waiting = await ask("GET", "/api/assistant/pending");
     expect(waiting.status).toBe(200);
@@ -553,7 +560,7 @@ describe("a service address carrying a key", () => {
     searched("the assistant's events after the decision", done, { origin });
     const record = await ask("GET", `/api/assistant/runs/${receipt.id}`);
     expect(record.status).toBe(200);
-    expect(record.body.confirmations).toEqual([expect.objectContaining({ decision: "approved", args: { isochroneUrl: origin, satelliteUrl: origin } })]);
+    expect(record.body.confirmations).toEqual([expect.objectContaining({ decision: "approved", args: { isochroneUrl: origin, satelliteUrl: origin, templatesCatalogueUrl: origin } })]);
     searched("the assistant's stored record", record.text, { origin });
     await reads("set through the embedded assistant", "stored");
   });
@@ -622,6 +629,25 @@ describe("a service address carrying a key", () => {
     } finally {
       for (const key of KEYS) vi.stubEnv(VARIABLE[key], undefined);
     }
+  });
+
+  it("the template catalogue's variable naming a folder on this server: read as a folder, never its path, by cookie, by token and in the search", async () => {
+    vi.stubEnv(VARIABLE.templatesCatalogueUrl, path.join(dir, `catalogue-${SAVED[0]}`, `${SAVED[1]}-${SAVED[2]}`));
+    try {
+      for (const as of ["page", "token"] as const) {
+        const read = await ask("GET", "/api/instance/settings", undefined, as);
+        expect(read.status).toBe(200);
+        expect(read.body.settings.templatesCatalogueUrl).toMatchObject({ value: { set: true, folder: true }, source: "environment", locked: true });
+        searched(`the configuration read naming a folder (${as})`, read.text);
+      }
+      const locked = await save({ templatesCatalogueUrl: address("templatesCatalogueUrl") });
+      expect(locked.status).toBe(409);
+      searched("the locked refusal under a folder", locked.text);
+      const read = await ask("GET", "/api/instance/settings");
+      const index = buildSearchIndex(settingsDeclarations({ account: ACCOUNT, tokens: null, look: null, instance: read.body as InstanceRead,
+        entry: null, health: null, assistant: null, palettes: null }, true), true);
+      searched("the settings search under a folder", index);
+    } finally { vi.stubEnv(VARIABLE.templatesCatalogueUrl, undefined); }
   });
 
   it("the imagery style whole for a signed-in request alone, refused to an anonymous one; a publication of a map on Satellite assembled afresh", async () => {

@@ -116,9 +116,13 @@ export function catalogueProblems(definitions: readonly SettingDefinition[]): st
     if (write?.kind === "choice" && (definition.kind !== "choice" || !write.values.length || new Set(write.values).size !== write.values.length)) report("invalid choice constraint");
     if (write?.kind === "sites" && (definition.kind !== "list" || !Number.isSafeInteger(write.maxSites) || write.maxSites < 1)) report("invalid sites constraint");
     if (write?.kind === "address" && (definition.kind !== "address" || !Number.isSafeInteger(write.maxLength) || write.maxLength < 1
-      || (write.placeholders !== undefined && (!write.placeholders.length || write.placeholders.some(placeholder => typeof placeholder !== "string" || !placeholder))))) {
+      || (write.placeholders !== undefined && (!write.placeholders.length || write.placeholders.some(placeholder => typeof placeholder !== "string" || !placeholder)))
+      // A tile template a browser loads is an address, never a folder.
+      || (write.folder !== undefined && (write.folder !== "variable" || write.placeholders !== undefined)))) {
       report("invalid address constraint");
     }
+    // Only a variable may name a folder, so a row that allows one has one.
+    if (write?.kind === "address" && write.folder === "variable" && !environment) report("folder without a variable");
     // An address may carry a key, so an editable one is write-only: it is
     // written through the address kind, which stores it encrypted and reads
     // it back as scheme and host, and only admins read even that.

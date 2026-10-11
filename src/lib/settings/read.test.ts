@@ -76,6 +76,8 @@ it("omits seeded credentials from read, schema, defaults and generated tool resu
     expect(result.settings[key].value).toEqual({ set: true, origin });
   }
   expect(result.settings.overtureS3Endpoint.value).toEqual({ set: true, unreadable: true });
+  // The template catalogue's variable names a folder on the server: said, never where.
+  expect(result.settings.templatesCatalogueUrl).toMatchObject({ value: { set: true, folder: true }, source: "environment", locked: true, invalidOverride: false });
   expect(result.settings.anthropicApiKey.value).toEqual({ set: true });
   expect(result.settings.openaiApiKey.value).toEqual({ set: true });
   expect(result.settings.secretKey.value).toEqual({ status: "environment" });
