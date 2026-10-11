@@ -121,7 +121,18 @@ printf 'PMTiles%s' "$input" > "$out"
   process.env.DEZFIL_TEST_TILER_LOG = log;
   process.env.DEZFIL_TILE_BUILD_TIMEOUT_S = "2";
   return {
-    started,
+    /** Resolves once the gated tiler has noted its start, however long the
+     * build's export takes to reach it on a loaded machine. Fails as soon as
+     * every build has settled without that note, so a build that never
+     * reached the tiler says so at once rather than waiting out a clock. */
+    begun: async () => {
+      let settled = false;
+      void tileBuildsSettled().then(() => { settled = true; });
+      while (!existsSync(started)) {
+        if (settled) throw new Error(`every build settled before the gated tiler started; the layer's record: ${JSON.stringify(getTileRecord(layerId))}`);
+        await new Promise((resolve) => setTimeout(resolve, 10));
+      }
+    },
     release: () => writeFile(release, "go"),
     log,
   };
@@ -276,7 +287,7 @@ describe("tile builds", () => {
   it("fences a layer deletion during active preparation and keeps the queue usable", async () => {
     const gate = await gatedTiler();
     ensureTiles(privateTileAccess(testAccountScope(), (input()).layerId), input());
-    await vi.waitFor(() => expect(existsSync(gate.started)).toBe(true));
+    await gate.begun();
 
     await removeLayer(testAccountScope(), layerId, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layerId)?.mapId ?? "missing") })?.editRevision });
     await gate.release();
@@ -297,7 +308,7 @@ describe("tile builds", () => {
     const gate = await gatedTiler();
     ensureTiles(privateTileAccess(testAccountScope(), (input()).layerId), input());
     ensureTiles(privateTileAccess(testAccountScope(), (inputFor(other.id)).layerId), inputFor(other.id));
-    await vi.waitFor(() => expect(existsSync(gate.started)).toBe(true));
+    await gate.begun();
 
     await removeMap(testAccountScope(), mapId, { expectedRevision: readEditRevision({ kind: "map", id: mapId })?.editRevision });
     await gate.release();
@@ -312,7 +323,7 @@ describe("tile builds", () => {
   it("a refresh invalidation fences a build already running", async () => {
     const gate = await gatedTiler();
     ensureTiles(privateTileAccess(testAccountScope(), (input()).layerId), input());
-    await vi.waitFor(() => expect(existsSync(gate.started)).toBe(true));
+    await gate.begun();
 
     // The table under the layer refreshes while the tiler is mid-run: the
     // record goes AND the attempt is fenced, so old-data tiles can never
@@ -383,11 +394,14 @@ describe("tile builds", () => {
 
   it("ends a build at its tile-build timeout though the tiler has exited and a helper still holds its pipes", async () => {
     // The tiler answers its version as usual; a build starts a helper that
-    // holds its output pipes for good, and exits at once.
+    // holds its output pipes for good, and exits at once. It holds off the
+    // polite stop until the helper is noted: a stop landing first on a
+    // loaded machine would end it before the note, leaving no helper to find.
     const executable = path.join(dir, "helper-tippecanoe");
     const helperPid = path.join(dir, "helper.pid");
     await writeFile(executable, [
       "#!/bin/sh",
+      "trap '' TERM",
       'if [ "$1" = "--version" ]; then echo "tippecanoe v0.0-test" >&2; exit 0; fi',
       "sleep 120 &",
       `echo $! > '${helperPid}.tmp' && mv '${helperPid}.tmp' '${helperPid}'`,
@@ -412,7 +426,7 @@ describe("tile builds", () => {
   it("undo restoration starts a fresh attempt instead of adopting deleted work", async () => {
     const gate = await gatedTiler();
     ensureTiles(privateTileAccess(testAccountScope(), (input()).layerId), input());
-    await vi.waitFor(() => expect(existsSync(gate.started)).toBe(true));
+    await gate.begun();
 
     await removeLayer(testAccountScope(), layerId, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layerId)?.mapId ?? "missing") })?.editRevision });
     await undoChange(testAccountScope(), mapId, { expectedRevision: readEditRevision({ kind: "map", id: mapId })?.editRevision });

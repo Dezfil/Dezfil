@@ -37,13 +37,22 @@ import type { LayerFilter } from "@/lib/viz";
  * Provisioning: DEZFIL_MAP_LOOK_RENDER names the standalone's port;
  * DEZFIL_DATA_DIR is the directory both share; DEZFIL_CHROMIUM_PATH
  * points at Playwright's headless shell; DEZFIL_EGRESS_ALLOWLIST admits
- * 127.0.0.1 for the loopback basemap. Skipped without the port.
+ * 127.0.0.1 for the loopback basemap. Skipped without the port. A render
+ * credential is signed with a key each process draws for itself, while
+ * here this process signs it and the standalone serves the page that
+ * checks it: DEZFIL_RENDER_DELEGATION_KEY (64 hexadecimal digits) gives
+ * this process the key, and the standalone takes the same one at start
+ * with
+ * `--import="data:text/javascript,process[Symbol.for('dezfil.session-delegation-key')]=Buffer.from(process.env.DEZFIL_RENDER_DELEGATION_KEY,'hex')"`.
+ * Without it the page answers the sign-in redirect and every look runs
+ * into its budget, so the setup refuses to start.
  * DEZFIL_MAP_LOOK_TRANSPORT_ONLY=1 is the named seed: a stub driver
  * answering a flat image, which must fail here, so a transport pass is
  * distinguishable from a render.
  */
 const port = process.env.DEZFIL_MAP_LOOK_RENDER;
 const transportOnly = process.env.DEZFIL_MAP_LOOK_TRANSPORT_ONLY === "1";
+const SIGNING_KEY = Symbol.for("dezfil.session-delegation-key");
 
 const ZOOM = 12;
 const LNG0 = 13.4; const LAT0 = 52.5;
@@ -83,12 +92,17 @@ const digest = (value: unknown) => createHash("sha256").update(canonical(value))
 describe.skipIf(!port)("the real bounded check renders the map", () => {
   let mapId: string; let kelp: string; let amber: string; let blue: string;
   let basemap: Awaited<ReturnType<typeof startLoopbackBasemap>>;
+  let heldKey: unknown;
   const FILTER: LayerFilter[] = [{ kind: "range", field: "v", min: null, max: 1 }];
   const looks: LookResult[] = [];
 
   beforeAll(async () => {
     const dir = process.env.DEZFIL_DATA_DIR;
     if (!dir) throw new Error("DEZFIL_DATA_DIR must name the directory the standalone shares");
+    const key = process.env.DEZFIL_RENDER_DELEGATION_KEY ?? "";
+    if (!/^[0-9a-f]{64}$/i.test(key)) throw new Error("DEZFIL_RENDER_DELEGATION_KEY must carry the standalone's render signing key, 64 hexadecimal digits");
+    const slots = process as unknown as Record<symbol, unknown>;
+    heldKey = slots[SIGNING_KEY]; slots[SIGNING_KEY] = Buffer.from(key, "hex");
     vi.stubEnv("PORT", port!);
     closeMetadataDb(); resetQueryInstance();
     basemap = await startLoopbackBasemap();
@@ -114,13 +128,19 @@ describe.skipIf(!port)("the real bounded check renders the map", () => {
     await updateLayer(testAccountScope(), amber, { visible: false }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(amber)?.mapId ?? "missing") })?.editRevision });
     await updateLayer(testAccountScope(), blue, { filters: FILTER }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(blue)?.mapId ?? "missing") })?.editRevision });
     updateMap(testAccountScope(), mapId, { widgets: [{ id: "w-count", type: "formula", layerId: kelp, title: "Points", field: null, agg: "count", aggField: null, unit: null, note: null, format: null, visible: true }] }, { expectedRevision: readEditRevision({ kind: "map", id: mapId })?.editRevision });
+    const accepted = await fetch(`http://127.0.0.1:${port}/api/maps/${mapId}`, { headers: { authorization: `Bearer ${delegateCredential(requireRequestAuth(authenticatedRequest()))}` } });
+    if (accepted.status !== 200) throw new Error(`The standalone on port ${port} refused this process's render credential (${accepted.status}): start it with the same DEZFIL_RENDER_DELEGATION_KEY`);
     if (transportOnly) {
       const flat = encodePng({ width: 1024, height: 640, rgba: new Uint8Array(1024 * 640 * 4).fill(240) });
       const driver: RenderDriver = { launch: async () => ({ render: async () => ({ png: flat, consumed: JSON.stringify({ map: mapId, layers: [{ id: kelp, filters: [] }, { id: blue, filters: FILTER }], legend: { visible: true, corner: "bottom-left", order: [kelp, blue] }, widgets: ["w-count"], attribution: "Loopback fixture", failures: [] }) }), close: async () => {}, kill: () => {} }) };
       setLookDriverForTests(driver);
     }
   }, 120_000);
-  afterAll(async () => { setLookDriverForTests(null); await basemap?.close(); vi.unstubAllEnvs(); });
+  afterAll(async () => {
+    setLookDriverForTests(null);
+    (process as unknown as Record<symbol, unknown>)[SIGNING_KEY] = heldKey;
+    await basemap?.close(); vi.unstubAllEnvs();
+  });
 
   const look = async () => {
     const result = await lookAtMap(testAccountScope(), { mapId, credential: delegateCredential(requireRequestAuth(authenticatedRequest())), baseUrl: `http://127.0.0.1:${port}` });

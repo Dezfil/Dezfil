@@ -68,7 +68,11 @@ async function stop() {
 try {
   const firstPid = await boot();
   const entry = await anonymous('GET', '/api/auth/entry'); assert.equal(entry.status, 200);
-  assert.deepEqual(entry.json, { instanceName: legacy.instance, setupRequired: true, prefillName: legacy.name });
+  // The upgrade's own claim: the old store enters setup under its name, its
+  // display name offered to the first account. The read's other fields are
+  // the sign-in screens' settings, whose whole shape the unit suite holds.
+  const { instanceName, setupRequired, prefillName } = entry.json;
+  assert.deepEqual({ instanceName, setupRequired, prefillName }, { instanceName: legacy.instance, setupRequired: true, prefillName: legacy.name });
   assert.equal((await anonymous('GET', `/api/published/${legacy.token}`)).status, 200, 'old publication remains anonymous before adoption');
   assert.equal((await anonymous('GET', '/api/maps')).status, 401);
   await inspectStore(db => {

@@ -58,13 +58,16 @@ function stubborn(): { file: string; pid: () => number } {
 
 /** A program that starts a helper holding its output pipes for `seconds`
  * and exits at once, its version banner written first when asked. The
- * helper's id is noted, whole, before the program exits. */
+ * helper's id is noted, whole, before the program exits, and the program
+ * holds off the polite stop until then: a stop landing first on a loaded
+ * machine would end it before the note, leaving no helper to find. */
 function leavesHelper(seconds: number): { file: string; helper: () => number } {
   const pidFile = path.join(dir, `helper-${pidFiles.length}.pid`);
   pidFiles.push(pidFile);
   const file = path.join(dir, `leaves-helper-${pidFiles.length}`);
   writeFileSync(file, [
     "#!/bin/sh",
+    "trap '' TERM",
     'if [ "$1" = "--version" ]; then echo "tippecanoe v0.0-helper" >&2; fi',
     `sleep ${seconds} &`,
     `echo $! > '${pidFile}.tmp' && mv '${pidFile}.tmp' '${pidFile}'`,
@@ -200,7 +203,7 @@ describe("one bounded run of the tiler", () => {
     const started = Date.now();
     const run = await runTiler(input, output, 300);
     const took = Date.now() - started;
-    expect(helped.helper()).toBeGreaterThan(1);
+    await vi.waitFor(() => expect(helped.helper()).toBeGreaterThan(1), { timeout: 5_000 });
     expect(took, "the run waited on the helper past its time").toBeLessThan(300 + 1_000);
     expect(run).toMatchObject({ ok: false, reason: "timed_out" });
   });
@@ -210,7 +213,7 @@ describe("one bounded run of the tiler", () => {
     const helped = leavesHelper(120);
     process.env.DEZFIL_TIPPECANOE = helped.file;
     const run = await Promise.race([runTiler(input, output, 300), sleep(5_000).then(() => "still running" as const)]);
-    expect(helped.helper()).toBeGreaterThan(1);
+    await vi.waitFor(() => expect(helped.helper()).toBeGreaterThan(1), { timeout: 5_000 });
     expect(run).toMatchObject({ ok: false, reason: "timed_out" });
   });
 
