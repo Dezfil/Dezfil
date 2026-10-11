@@ -184,6 +184,8 @@ describe("the Templates card", () => {
     await flip(false);
     expect(writes()).toEqual([{ "templates.catalogue": false }]);
     expect(marks(row("Catalogue"))).toContain("Saved");
+    // The switch's words follow it: off reads as Settings' other switches read off.
+    expect(row("Catalogue").querySelector("label")!.textContent).toBe("Off");
     expect(buttons(head())).toEqual(["Reset to defaults"]);
     // Off, the server reaches the catalogue for nothing, so there is no Test to press.
     expect(answerLine()).toBeNull();
@@ -194,6 +196,7 @@ describe("the Templates card", () => {
     await press(head(), "Reset to defaults");
     expect(writes().at(-1)).toEqual({ "templates.catalogue": null });
     expect((toggle() as unknown as { checked: boolean }).checked).toBe(true);
+    expect(row("Catalogue").querySelector("label")!.textContent).toBe("In use");
     expect(buttons(head())).toContain("Test");
   });
 

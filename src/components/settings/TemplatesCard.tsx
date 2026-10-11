@@ -54,7 +54,7 @@ export function TemplatesCard({ read, now, onAnswer }: {
   return <SettingsCard ref={root} id={TEMPLATES_CARD.id} title={TEMPLATES_CARD.title} headingId={`${TEMPLATES_CARD.id}-heading`} head={head}>
     <Rows>
       {read.settings[SWITCH.key] && <SettingRow id={SWITCH.id} label={SWITCH.label}>
-        <SwitchRow label={SWITCH.on} aria-label={SWITCH.name} data-unit-key={SWITCH.key}
+        <SwitchRow label={snapshot.values[SWITCH.key] === true ? SWITCH.on : SWITCH.off} aria-label={SWITCH.name} data-unit-key={SWITCH.key}
           checked={snapshot.values[SWITCH.key] === true} onChange={event => unit.choose(SWITCH.key, event.target.checked)} />
         {snapshot.saved.includes(SWITCH.key) && <SavedMark />}
         {error && <RowError id={`${SWITCH.id}-error`}>{inLabels(error, DATA_LABELS)}</RowError>}

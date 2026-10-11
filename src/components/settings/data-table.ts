@@ -160,7 +160,7 @@ export const TEMPLATES_CARD = {
   id: "data-templates", title: "Templates", test: "templates",
   keys: "templates catalogue examples finished maps workflows download",
   catalogue: {
-    key: "templates.catalogue", id: "set-templates-catalogue", label: "Catalogue", name: "Use the catalogue", on: "In use",
+    key: "templates.catalogue", id: "set-templates-catalogue", label: "Catalogue", name: "Use the catalogue", on: "In use", off: "Off",
     keys: "use the catalogue read list switch on off",
   },
   address: {
@@ -424,7 +424,8 @@ export function downloadsRemovalWords(downloads: DownloadsFacts): string {
     "Shipped templates and every copy stay, and a template the catalogue lists downloads again when it is next opened.";
 }
 
-/** The catalogue switch's row, as the search reads it. */
+/** The catalogue switch's row, as the card and the search read it: In use,
+ * or Off as Settings' other switches read off. */
 export function catalogueSwitchWords(settings: Readonly<Record<string, { readonly value: unknown }>>): string {
-  return settings[TEMPLATES_CARD.catalogue.key]?.value === false ? "Not in use" : TEMPLATES_CARD.catalogue.on;
+  return settings[TEMPLATES_CARD.catalogue.key]?.value === false ? TEMPLATES_CARD.catalogue.off : TEMPLATES_CARD.catalogue.on;
 }

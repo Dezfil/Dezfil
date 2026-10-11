@@ -196,7 +196,7 @@ describe("Data & services in the search", () => {
     }) });
     const hit = (query: string, path: string) => searchSettings(built, query).find(each => hitPath(each) === path);
     expect(hit("templates", "Instance / Data & services · Templates")?.target).toEqual({ tab: "data", anchor: "data-templates" });
-    expect(hit("use the catalogue", "Instance / Data & services · Catalogue")?.meta).toBe("Templates · Not in use");
+    expect(hit("use the catalogue", "Instance / Data & services · Catalogue")?.meta).toBe("Templates · Off");
     expect(hit("templates.example", "Instance / Data & services · Catalogue address")?.meta).toBe("Templates · https://templates.example");
     expect(hit("catalogue address", "Instance / Data & services · Catalogue address")!.target).toEqual({ tab: "data", anchor: "set-templates-address" });
     // Read when the card opens, never by a search: found by its name and words, with no value.

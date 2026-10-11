@@ -269,7 +269,7 @@ describe("the words the tab shows", () => {
   it("says the catalogue's switch and the downloads as their rows do, and what Remove all removes", () => {
     expect(catalogueSwitchWords({})).toBe("In use");
     expect(catalogueSwitchWords({ "templates.catalogue": { value: true } })).toBe("In use");
-    expect(catalogueSwitchWords({ "templates.catalogue": { value: false } })).toBe("Not in use");
+    expect(catalogueSwitchWords({ "templates.catalogue": { value: false } })).toBe("Off");
     expect(downloadsWords({ versions: 0, bytes: 0 })).toBe("None");
     expect(downloadsWords({ versions: 1, bytes: 2048 })).toBe("1 version · 2 KB");
     expect(downloadsWords({ versions: 1234, bytes: 1.5 * 1024 ** 3 })).toBe("1,234 versions · 1.5 GB");
