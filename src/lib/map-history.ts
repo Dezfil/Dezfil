@@ -12,6 +12,7 @@ import { insertLayer, updateMapFields, updateLayerFields, deleteLayer, reorderLa
 import { undoSteps, redoSteps, setHistoryCursor, historyAvailability,
   type HistoryAvailability, type HistoryImage, type HistoryStep } from "@/lib/metadata/history";
 import { requireMap, requireMapFor, mapWithLayersFor } from "./map-access";
+import { refuseTemplateDocument } from "./templates/map-read";
 import { historyChangesPublication, requireLivePublicationChange } from "./publication-settings";
 import { requireOfferedReplay } from "./basemap-rule";
 import { listLayers } from "@/lib/metadata/maps";
@@ -29,6 +30,8 @@ export interface MapHistoryAvailability extends HistoryAvailability, DocumentFac
 }
 
 function captureHistory(scope: AccountScope, id: string) {
+  // A template's map has no history.
+  refuseTemplateDocument(id);
   return metadataDb().transaction(() => ({
     map: requireMap(scope, id), layers: listLayers(id),
     facts: documentFacts({ kind: "map", id }),

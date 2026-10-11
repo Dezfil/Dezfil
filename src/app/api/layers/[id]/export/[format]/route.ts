@@ -11,6 +11,7 @@ import {
   EvaluationCancelled,
 } from "@/lib/api/errors";
 import { requireLayer } from "@/lib/layer-access";
+import { refuseTemplateDocument } from "@/lib/templates/map-read";
 import { requireRequestScope } from "@/lib/auth/scope-http";
 import {
   exportLayerResult,
@@ -134,6 +135,8 @@ export async function GET(request: Request, { params }: Params) {
     }
 
     const layer = requireLayer(scope, id);
+    // A template's layer leaves only by its copy: its data is never exported.
+    refuseTemplateDocument(id);
     if (mode.kind === "prepare") {
       return await prepareDownload(scope, request, layer, binding);
     }

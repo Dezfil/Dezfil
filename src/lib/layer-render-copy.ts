@@ -24,6 +24,12 @@ export function renderCapRefusal(
   return `This layer has ${n} points, over the render cap of ${cap}. The heatmap draws raw points; filter it down, or switch to hex bins or grid.`;
 }
 
+/** A template's layer over the cap: it has no tiles of its own, and a copy
+ * is a map of the person's, which tiles. */
+export function templateRenderCapRefusal(featureCount: number, capFeatures: number): string {
+  return `This layer has ${featureCount.toLocaleString()} features, over the render cap of ${capFeatures.toLocaleString()}. A template draws within the cap; make a copy to draw all of it.`;
+}
+
 export function tilerUnavailable(featureCount: number): string {
   return `This layer has ${featureCount.toLocaleString()} features, over the render cap, and rendering it needs the tile builder (tippecanoe), which this instance could not find. Install it, or filter/aggregate the layer.`;
 }

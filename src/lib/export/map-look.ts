@@ -178,6 +178,9 @@ export async function lookAtMap(scope: AccountScope, input: LookInput): Promise<
   if (input.signal?.aborted) throw new EvaluationCancelled();
   const appearance = input.appearance ?? "light";
   const map = mapWithLayers(scope, input.mapId);
+  // The render's standing before any work is admitted for it: a map read
+  // but not stood on (a template's, opened only to view) is absent here.
+  requireRenderStanding(scope, map.id);
   const definition = lookDefinition(map, appearance);
   const problems = definitionRenderProblems(definition);
   if (problems.length > 0) throw new ApiError("render_failed", `The map's stored view cannot be rendered at the check's size: ${problems[0]}.`, 502);

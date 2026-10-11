@@ -27,7 +27,7 @@ import { listTemplates, REFRESH_WINDOW_MS, refreshCatalogue, resetCatalogueForTe
 import { fetchTemplate, setDownloadSeamForTests } from "./download";
 import { downloadedTemplatesDir, readInstalledVersion } from "./installed";
 import { TemplateRefusal } from "./refusals";
-import * as shipped from "./shipped";
+import * as shipped from "./shipped-index";
 
 /**
  * Downloading a listed version: once however many ask together, each

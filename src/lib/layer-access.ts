@@ -3,10 +3,14 @@ import { documentFacts, type DocumentFacts } from "./metadata/document-facts";
 import type { AccountScope } from "@/lib/auth/scope";
 import { requirePermitted, requireReachable, type ActionOf } from "@/lib/auth/reach";
 import { getLayer, type Layer } from "@/lib/metadata/maps";
+import { isTemplateDocumentId } from "@/lib/templates/ids";
+import { readTemplateLayer } from "@/lib/templates/map-read";
 
 /** A layer read: the layer when the acting account reaches its map, else
  * the absent refusal. */
 export function requireLayer(scope: AccountScope, id: string): Layer {
+  // A template's layer is read from its installed folder, never the store.
+  if (isTemplateDocumentId(id)) return readTemplateLayer(scope, id);
   requireReachable(scope, "layer", id);
   return getLayer(id)!;
 }
@@ -19,6 +23,7 @@ export function requireLayerFor(scope: AccountScope, id: string, action: ActionO
 }
 
 export function readLayer(scope: AccountScope, id: string): Layer & DocumentFacts {
+  if (isTemplateDocumentId(id)) return readTemplateLayer(scope, id);
   return metadataDb().transaction(() => {
     const layer = requireLayer(scope, id);
     return { ...layer, ...documentFacts({ kind: "map", id: layer.mapId }) };

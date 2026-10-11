@@ -807,6 +807,10 @@
     "memory:template-downloads": {
       "action": "retain",
       "rule": "Keep the template downloads in flight or queued, by the version each installs, until it settles. Each is request work under its caller's scope, which the install rechecks; they hold a public catalogue's version and no account content."
+    },
+    "memory:template-versions": {
+      "action": "retain",
+      "rule": "Keep each installed template version as last read from its folder, by its id and version, while its record and the shipped index are the files they were, and the reader the map and query modules ask through. They hold a public template's documents and no account identity or content."
     }
   },
   "tables": {
@@ -5547,7 +5551,7 @@
         "memory:process-start"
       ]
     },
-    "location:src/lib/templates/installed.ts#downloadedTemplatesDir:dataDir": {
+    "location:src/lib/templates/record.ts#downloadedTemplatesDir:dataDir": {
       "stores": [
         "file:templates"
       ],
@@ -5555,12 +5559,36 @@
         "."
       ]
     },
-    "location:src/lib/templates/installed.ts#downloadedTemplatesDir:path.join": {
+    "location:src/lib/templates/record.ts#downloadedTemplatesDir:path.join": {
       "stores": [
         "file:templates"
       ],
       "roots": [
         "templates"
+      ]
+    },
+    "location:src/lib/templates/resident.ts#residentTemplate.folder:downloadedTemplatesDir": {
+      "stores": [
+        "file:templates"
+      ],
+      "roots": [
+        "templates"
+      ]
+    },
+    "location:src/lib/templates/resident.ts#residentTemplate.folder:path.join": {
+      "stores": [
+        "file:templates"
+      ],
+      "roots": [
+        "templates/*/*"
+      ]
+    },
+    "location:src/lib/templates/resident.ts#residentTemplate.recordStats:path.join": {
+      "stores": [
+        "file:templates"
+      ],
+      "roots": [
+        "templates/*/*/record.json"
       ]
     },
     "location:src/lib/templates/catalogue.ts#downloadedVersions.dir:downloadedTemplatesDir": {
@@ -5767,6 +5795,16 @@
         "memory:template-downloads"
       ]
     },
+    "memory:src/lib/templates/resident.ts#kept": {
+      "stores": [
+        "memory:template-versions"
+      ]
+    },
+    "memory:src/lib/templates/resolver.ts#provided": {
+      "stores": [
+        "memory:template-versions"
+      ]
+    },
     "memory:src/lib/templates/home.ts#prepareTemplateHome.error": {
       "stores": [
         "memory:request-closures"
@@ -5842,6 +5880,15 @@
       "stores": [
         "file:templates",
         "file:tmp"
+      ],
+      "roots": [
+        "templates/*/*"
+      ]
+    },
+    "writer:src/lib/templates/resident.ts#residentTemplate.resident:read": {
+      "stores": [
+        "file:templates",
+        "file:tables"
       ],
       "roots": [
         "templates/*/*"

@@ -1,27 +1,12 @@
 import { lstat, readdir, readFile } from "node:fs/promises";
 import path from "node:path";
-import { ApiError } from "@/lib/api/errors";
 import { PROJECT_EXPORT_FORMAT_VERSION } from "@/lib/export/project-export";
 import { PngShapeError, pngDimensions } from "@/lib/export/png-codec";
-import { layerFieldsFromBody } from "@/lib/layer-document-rules";
-import {
-  normalizeBasemapLayers,
-  normalizeLegendOrder,
-  normalizeTimeline,
-  normalizeViewport,
-  normalizeWidgets,
-  requireBasemapKey,
-  requireLegendCorner,
-  requireWidgetsPublished,
-} from "@/lib/map-document-rules";
 import type { LayoutDocument } from "@/lib/metadata/recipe-layouts";
 import { findOperation } from "@/lib/operations/catalog";
 import { normalizeLayout } from "@/lib/operations/layout-document";
 import { registeredOutputName, typedOutputNameProblem } from "@/lib/operations/output-names";
 import { recipeName, recipeOrigin } from "@/lib/operations/recipe-api";
-import { styleProblem, type LayerStyle } from "@/lib/style/style";
-import type { LayerFilter, LayerViz, LegendAttrs } from "@/lib/viz";
-import type { MapWidget } from "@/lib/widgets";
 import { forbiddenContent } from "./deny";
 import {
   FACTS_FILE,
@@ -36,8 +21,17 @@ import {
   type TemplateFacts,
   type TemplateTheme,
 } from "./format";
+import {
+  admitMapDocument,
+  invalidDocument as invalid,
+  TEMPLATE_PART_ID as SAFE_ID,
+  underRule,
+  type AdmittedMap,
+} from "./map-document";
 import { refuse, TemplateRefusal } from "./refusals";
 import { creditProblem, licenceProblem } from "./rules";
+
+export type { AdmittedLayer, AdmittedMap } from "./map-document";
 
 /**
  * The first stage of a template's admission: its documents, read from a
@@ -68,39 +62,6 @@ export interface TemplateManifest {
     workflows: { id: string; name: string; file: string }[];
     datasets: { id: string; name: string; file: string; format: string }[];
   };
-}
-
-/** A layer as admitted: its own id and the fields a copy writes. */
-export interface AdmittedLayer {
-  id: string;
-  name: string;
-  sql: string;
-  style: LayerStyle;
-  visible: boolean;
-  tooltip: string[] | null;
-  popup: string[] | null;
-  publishedFields: string[] | null;
-  inLegend: boolean;
-  viz: LayerViz;
-  filters: LayerFilter[];
-  legendTitle: string | null;
-  legendLabels: (string | null)[] | null;
-  legendAttrs: LegendAttrs | null;
-}
-
-export interface AdmittedMap {
-  id: string;
-  name: string;
-  file: string;
-  viewport: ReturnType<typeof normalizeViewport>;
-  basemap: ReturnType<typeof requireBasemapKey>;
-  basemapLayers: ReturnType<typeof normalizeBasemapLayers>;
-  legendCorner: ReturnType<typeof requireLegendCorner>;
-  legendOrder: string[] | null;
-  timeline: ReturnType<typeof normalizeTimeline> | null;
-  widgets: MapWidget[];
-  widgetsPublished: boolean;
-  layers: AdmittedLayer[];
 }
 
 export interface AdmittedStep {
@@ -140,18 +101,11 @@ export interface AdmitFolderOptions {
   extraMembers?: readonly string[];
 }
 
-/** An id the copy rebinds and a file may be named by: no separator, no
- * dot, nothing a path could be built from. */
-const SAFE_ID = /^[A-Za-z0-9_-]{1,64}$/;
 const MAP_FILE = /^maps\/[a-z0-9-]{1,100}\.json$/;
 const WORKFLOW_FILE = /^workflows\/[a-z0-9-]{1,100}\.json$/;
 
 const isObject = (v: unknown): v is Record<string, unknown> =>
   typeof v === "object" && v !== null && !Array.isArray(v);
-
-function invalid(message: string): never {
-  return refuse("template_invalid", message);
-}
 
 /** Every regular file under the folder, relative and slash-separated, with
  * its size. A link or anything else that is not a plain file or folder is
@@ -199,16 +153,6 @@ async function readDocument(
 function denyIn(document: unknown, member: string): void {
   const problem = forbiddenContent(document, `The document "${member}"`);
   if (problem) refuse("template_forbidden", problem);
-}
-
-/** A write road's refusal, worded for the document it came from. */
-function underRule<T>(where: string, rule: () => T): T {
-  try {
-    return rule();
-  } catch (error) {
-    if (error instanceof ApiError) invalid(`${where}: ${error.message}`);
-    throw error;
-  }
 }
 
 function closedKeys(value: Record<string, unknown>, keys: readonly string[], at: string): void {
@@ -269,65 +213,6 @@ function manifestOf(value: unknown): TemplateManifest {
       }),
     },
   };
-}
-
-function layerOf(value: unknown, at: string): AdmittedLayer {
-  if (!isObject(value)) invalid(`${at} must be an object.`);
-  const layer = value as Record<string, unknown>;
-  if (typeof layer.id !== "string" || !SAFE_ID.test(layer.id)) invalid(`${at} needs an id of letters, digits, hyphens and underscores.`);
-  const fields = underRule(at, () => layerFieldsFromBody({ ...layer }));
-  for (const key of ["name", "sql", "style", "visible", "inLegend", "viz", "filters"] as const) {
-    if (fields[key] === undefined) invalid(`${at} has no ${key}.`);
-  }
-  const problem = styleProblem(fields.style);
-  if (problem) invalid(`${at}: The style is not valid: ${problem}`);
-  return {
-    id: layer.id as string,
-    name: fields.name!,
-    sql: fields.sql!,
-    style: fields.style!,
-    visible: fields.visible!,
-    tooltip: fields.tooltip ?? null,
-    popup: fields.popup ?? null,
-    publishedFields: fields.publishedFields ?? null,
-    inLegend: fields.inLegend!,
-    viz: fields.viz!,
-    filters: fields.filters!,
-    legendTitle: fields.legendTitle ?? null,
-    legendLabels: fields.legendLabels ?? null,
-    legendAttrs: fields.legendAttrs ?? null,
-  };
-}
-
-function mapOf(value: unknown, file: string): AdmittedMap {
-  const at = `The map "${file}"`;
-  if (!isObject(value)) invalid(`${at} must be a JSON object.`);
-  const map = value as Record<string, unknown>;
-  if (typeof map.id !== "string" || !SAFE_ID.test(map.id)) invalid(`${at} needs an id of letters, digits, hyphens and underscores.`);
-  if (typeof map.name !== "string" || map.name.trim() === "") invalid(`${at} needs a name.`);
-  if (map.note !== undefined && map.note !== null) {
-    invalid(`${at}: The map note is now a note widget. Send it in \`widgets\`.`);
-  }
-  if (!Array.isArray(map.layers)) invalid(`${at} must list its layers.`);
-  const layers = (map.layers as unknown[]).map((l, i) => layerOf(l, `${at}, layer ${i + 1}`));
-  const layerIds = layers.map((l) => l.id);
-  if (new Set(layerIds).size !== layerIds.length) invalid(`${at} names one layer id twice.`);
-  return underRule(at, () => ({
-    id: map.id as string,
-    name: (map.name as string).trim(),
-    file,
-    viewport: normalizeViewport(map.viewport),
-    basemap: requireBasemapKey(map.basemap ?? null),
-    basemapLayers: map.basemapLayers == null ? null : normalizeBasemapLayers(map.basemapLayers),
-    legendCorner: requireLegendCorner(map.legendCorner ?? null),
-    legendOrder: map.legendOrder == null ? null : normalizeLegendOrder(map.legendOrder, layerIds),
-    timeline: map.timeline == null ? null : normalizeTimeline(map.timeline, layers),
-    // Nothing is stored for a document from outside, so there is no echo
-    // to tolerate: every widget names a layer of this map.
-    widgets: normalizeWidgets(map.widgets ?? [], layerIds, []),
-    widgetsPublished: requireWidgetsPublished(map.widgetsPublished ?? true),
-    layers,
-  }));
 }
 
 function workflowOf(value: unknown, file: string, datasetNames: ReadonlySet<string>): AdmittedWorkflow {
@@ -434,7 +319,7 @@ export async function admitTemplateFolder(
 
   const mapRaw = await readDocument(folder, members, maps[0].file, "The manifest");
   denyIn(mapRaw, maps[0].file);
-  const map = mapOf(mapRaw, maps[0].file);
+  const map = admitMapDocument(mapRaw, maps[0].file);
 
   let workflow: AdmittedWorkflow | null = null;
   if (workflows.length === 1) {

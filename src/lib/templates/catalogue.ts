@@ -26,7 +26,8 @@ import {
 } from "./format";
 import { downloadedTemplatesDir, RECORD_FILE, recordProblem, type InstalledRecord } from "./installed";
 import { refuse, TemplateRefusal } from "./refusals";
-import { readShippedIndex, shippedTemplatesDir } from "./shipped";
+import { readShippedIndex } from "./shipped";
+import { shippedTemplatesDir } from "./shipped-index";
 
 /**
  * The template catalogue as this server reads it, and the template list it

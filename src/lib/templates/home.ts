@@ -1,4 +1,5 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
+import { createReadStream } from "node:fs";
 import { copyFile, link, mkdir, rename, rm, stat } from "node:fs/promises";
 import path from "node:path";
 import type { AccountScope } from "@/lib/auth/scope";
@@ -7,6 +8,7 @@ import { templateEvaluation, type EvaluationContext, type TemplateHome, type Tem
 import type { AdmittedTemplate } from "./admission";
 import { templateDocumentId } from "./ids";
 import type { InstalledRecord } from "./installed";
+import { refuse } from "./refusals";
 
 /**
  * A template's home: where its SQL binds its names.
@@ -37,6 +39,12 @@ import type { InstalledRecord } from "./installed";
 
 const SHA256 = /^[0-9a-f]{64}$/;
 
+async function fileDigest(file: string): Promise<string> {
+  const hash = createHash("sha256");
+  for await (const chunk of createReadStream(file)) hash.update(chunk as Buffer);
+  return hash.digest("hex");
+}
+
 /** The artifact of a template's file, relative to the data folder. */
 export function templateArtifactName(sha256: string): string {
   if (!SHA256.test(sha256)) throw new Error("A template artifact is named by its SHA-256.");
@@ -45,9 +53,11 @@ export function templateArtifactName(sha256: string): string {
 
 /** Make a template's file present in the engine's artifact directory under
  * its content's name; answers that name, relative to the data folder. The
- * caller vouches that the file's content has that checksum: it read the
- * version against its record, or wrote the record itself. */
-export async function stageTemplateArtifact(file: string, sha256: string): Promise<string> {
+ * caller vouches that the file's content has that checksum (it read the
+ * version against its record, or wrote the record itself), or asks for it
+ * to be held to it here, before it is made present: a file of other bytes
+ * is then refused as differing from its record, and nothing is staged. */
+export async function stageTemplateArtifact(file: string, sha256: string, { verify = false }: { verify?: boolean } = {}): Promise<string> {
   const relative = templateArtifactName(sha256);
   const target = path.join(dataDir(), relative);
   try {
@@ -55,6 +65,9 @@ export async function stageTemplateArtifact(file: string, sha256: string): Promi
     return relative;
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+  }
+  if (verify && (await fileDigest(file)) !== sha256) {
+    refuse("template_record_mismatch", `The member "${path.basename(file)}" differs from its record.`);
   }
   await mkdir(path.dirname(target), { recursive: true });
   const partial = path.join(dataDir(), `tables/template-${sha256}-${randomUUID()}.partial`);

@@ -22,7 +22,7 @@ import {
   templatePicture,
 } from "./catalogue";
 import { CATALOGUE_INDEX_FILE, TEMPLATE_FORMAT_VERSION, TEMPLATE_INDEX_MAX_BYTES, TEMPLATE_PICTURE_MAX_BYTES, type CatalogueIndex } from "./format";
-import * as shipped from "./shipped";
+import * as shipped from "./shipped-index";
 
 /**
  * The template list and the catalogue read behind it. The list answers from

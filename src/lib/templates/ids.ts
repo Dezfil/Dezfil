@@ -60,3 +60,8 @@ export function parseTemplateDocumentId(id: string): TemplateDocumentRef | null 
   }
   return null;
 }
+
+/** Whether an id has the template form, whatever it names. */
+export function isTemplateDocumentId(id: string): boolean {
+  return parseTemplateDocumentId(id) !== null;
+}

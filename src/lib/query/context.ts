@@ -1,6 +1,9 @@
 import type { Database } from "better-sqlite3";
+import { resourceAbsent } from "@/lib/auth/owned-resource";
 import type { AccountScope } from "@/lib/auth/scope";
 import { metadataDb } from "@/lib/metadata/db";
+import { parseTemplateDocumentId } from "@/lib/templates/ids";
+import { templateHomeOf } from "@/lib/templates/resolver";
 import { isPublicationScope, type PublicationScope } from "@/lib/publish/publication-scope";
 
 /**
@@ -51,6 +54,9 @@ export interface TemplateHome {
   readonly version: number;
   readonly datasets: readonly TemplateMount[];
   readonly outputs: readonly TemplateMount[];
+  /** Makes every mount's artifact present before the engine binds it, when
+   * the home was prepared without them (a version read from its folder). */
+  readonly stage?: () => Promise<void>;
 }
 
 export interface EvaluationContext {
@@ -99,10 +105,19 @@ function homeOf(table: "maps" | "recipes", id: string, db: Database): string | n
  * A map's evaluation: its layers, tiles, renders, fields, widgets, search and
  * exports bind in the map's home with the caller's reach. A publication
  * already knows its map; a context already made is kept as it is. A map that
- * no longer exists evaluates in the caller's own home, as before.
+ * no longer exists evaluates in the caller's own home, as before. A
+ * template's map evaluates in its template's version, which is no row, so
+ * its id is never looked up: one no installed version answers to is the
+ * absent refusal.
  */
 export function mapEvaluation(scope: Scope, mapId: string, db: Database = metadataDb()): Scope {
   if (isEvaluationContext(scope) || isPublicationScope(scope)) return scope;
+  const template = parseTemplateDocumentId(mapId);
+  if (template) {
+    const home = template.kind === "map" ? templateHomeOf(template) : null;
+    if (!home) throw resourceAbsent();
+    return templateEvaluation(scope, home);
+  }
   return context(scope, homeOf("maps", mapId, db) ?? scope.accountId, "resource", null, { kind: "maps", id: mapId });
 }
 
@@ -122,6 +137,7 @@ export function templateEvaluation(scope: AccountScope, home: TemplateHome): Eva
     version: home.version,
     datasets: Object.freeze([...home.datasets]),
     outputs: Object.freeze([...home.outputs]),
+    ...(home.stage ? { stage: home.stage } : {}),
   }));
 }
 

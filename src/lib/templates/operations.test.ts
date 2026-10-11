@@ -31,7 +31,7 @@ import { REFRESH_WINDOW_MS, refreshCatalogue, resetCatalogueForTests } from "./c
 import { CATALOGUE_INDEX_FILE, TEMPLATE_PICTURE_MAX_BYTES } from "./format";
 import { downloadedTemplatesDir } from "./installed";
 import { INSTALL_REFUSAL_CODES, TEMPLATE_REFUSAL_CODES } from "./refusals";
-import * as shipped from "./shipped";
+import * as shipped from "./shipped-index";
 
 /**
  * The template operations: list, read one, refresh and fetch, each a
