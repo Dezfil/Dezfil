@@ -238,3 +238,32 @@ it("ends a browser outright and settles once its process has exited, or past a b
     vi.useRealTimers();
   }
 });
+
+it("keeps an export's slot until the browser process of a launch that failed has exited", async () => {
+  vi.stubEnv("DEZFIL_EXPORT_RENDER_CONCURRENCY", "1");
+  const started: ReturnType<typeof spawn>[] = [];
+  let firstAliveAtSecondLaunch: boolean | null = null;
+  vi.mocked(puppeteer.launch).mockImplementationOnce(async options => {
+    // As the launcher does when it gives up: the start it waited for never
+    // came, it rejects, and it ends the process it started afterwards,
+    // unawaited (here 400 ms later). A real process stands in for the browser's.
+    const child = spawn("/bin/sh", ["-c", "exec sleep 60", "sh", ...options!.args!], { stdio: "ignore" });
+    started.push(child);
+    await new Promise(resolve => child.once("spawn", resolve));
+    setTimeout(() => child.kill("SIGKILL"), 400);
+    throw Error("Timed out while waiting for the browser to start");
+  }).mockImplementationOnce(async () => {
+    firstAliveAtSecondLaunch = started[0].exitCode === null && started[0].signalCode === null;
+    return rawBrowser() as never;
+  });
+  try {
+    const first = renderMapImage(testAccountScope(), { ...input, budgetMs: 10_000 }).catch(error => error);
+    const second = renderMapImage(testAccountScope(), { ...input, budgetMs: 10_000 });
+    expect(await first).toMatchObject({ code: "render_unavailable" });
+    await expect(second).resolves.toHaveProperty("png");
+    expect(firstAliveAtSecondLaunch, "the next export launched while the failed launch's browser was still running").toBe(false);
+    expect(renderQueueState()).toEqual({ active: 0, waiting: 0 });
+  } finally {
+    for (const child of started) child.kill("SIGKILL");
+  }
+});

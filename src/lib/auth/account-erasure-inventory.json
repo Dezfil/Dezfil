@@ -638,6 +638,11 @@
       "rule": "Drain target render waiters and active launches; preserve other accounts work and non-content capacity counters.",
       "fixture": "memory:src/lib/export/render-drive.ts#driveRender.lateEnd"
     },
+    "memory:src/lib/export/render-drive.ts#driveRender.launchExit": {
+      "action": "erase",
+      "rule": "Drain target render waiters and active launches; preserve other accounts work and non-content capacity counters.",
+      "fixture": "memory:src/lib/export/render-drive.ts#driveRender.launchExit"
+    },
     "memory:src/lib/export/render-drive.ts#driveRender.launching": {
       "action": "erase",
       "rule": "Drain target render waiters and active launches; preserve other accounts work and non-content capacity counters.",
@@ -3054,6 +3059,11 @@
         "memory:immutable-configuration"
       ]
     },
+    "memory:src/lib/export/render-driver.ts#puppeteerDriver.launch.args": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
     "memory:src/lib/export/render-driver.ts#puppeteerDriver.launch.browser": {
       "stores": [
         "memory:request-closures"
@@ -3070,6 +3080,16 @@
       ]
     },
     "memory:src/lib/export/render-driver.ts#puppeteerDriver.launch.relay": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/export/render-driver.ts#puppeteerDriver.launch.starts": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/export/render-driver.ts#watchStarts.seen": {
       "stores": [
         "memory:request-closures"
       ]
@@ -4043,6 +4063,11 @@
     "memory:src/lib/export/render-drive.ts#driveRender.lateEnd": {
       "stores": [
         "memory:src/lib/export/render-drive.ts#driveRender.lateEnd"
+      ]
+    },
+    "memory:src/lib/export/render-drive.ts#driveRender.launchExit": {
+      "stores": [
+        "memory:src/lib/export/render-drive.ts#driveRender.launchExit"
       ]
     },
     "memory:src/lib/export/render-drive.ts#driveRender.launching": {

@@ -37,7 +37,7 @@ it.each(["timeout", "cancellation"])("deletion waits for a launch abandoned by %
     await entered.promise;
     expect(launch).toHaveBeenCalledWith(expect.any(String), expect.any(Array), {
       appOrigin: "http://127.0.0.1:3216", deadline, requestBoundMs: 100, signal: abort.signal,
-      launchTimeoutMs: 300, stop: expect.any(AbortSignal),
+      launchTimeoutMs: 300, stop: expect.any(AbortSignal), exited: expect.any(Function),
     });
     db.exec("UPDATE accounts SET status = 'deleting' WHERE id = 'target'");
     if (ending === "cancellation") abort.abort();

@@ -1,4 +1,5 @@
 import type { ChildProcess } from "node:child_process";
+import { subscribe, unsubscribe } from "node:diagnostics_channel";
 import { ApiError, EvaluationCancelled } from "@/lib/api/errors";
 import { startRenderRelay, type RenderRelay } from "./render-relay";
 import { renderProxyFlags } from "./render-proxy";
@@ -24,6 +25,10 @@ export interface RenderLaunchContext {
   /** The caller's hard stop: aborted, it ends the browser's process by its
    * own handle, while it is still starting too. */
   stop?: AbortSignal;
+  /** Told, before a failed launch rejects, how the process it started
+   * ends: settled once that process has exited, or past
+   * `BROWSER_EXIT_BOUND_MS` for one the system never reaps. */
+  exited?: (gone: Promise<void>) => void;
 }
 
 /** How long a browser ended outright is waited for. A killed process
@@ -82,6 +87,21 @@ function endProcess(child: ChildProcess | null): Promise<void> {
   });
 }
 
+/** The processes started while a launch runs, for the one that launch
+ * started: the only one whose arguments carry `flag`. */
+function watchStarts(flag: string): { started: () => ChildProcess | null; stop: () => void } {
+  const seen: ChildProcess[] = [];
+  const onStart = (message: unknown) => {
+    const child = (message as { process?: ChildProcess }).process;
+    if (child) seen.push(child);
+  };
+  subscribe("child_process", onStart);
+  return {
+    started: () => seen.find((child) => child.spawnargs?.includes(flag)) ?? null,
+    stop: () => unsubscribe("child_process", onStart),
+  };
+}
+
 /** The real driver, loaded lazily so unit tests never touch it. */
 export async function puppeteerDriver(): Promise<RenderDriver> {
   const puppeteer = (await import("puppeteer-core")).default;
@@ -96,11 +116,14 @@ export async function puppeteerDriver(): Promise<RenderDriver> {
           "instance's renderer needs attention.", 502);
       }
       let browser;
+      const args = [...flags, ...renderProxyFlags(context.appOrigin, relay.port)];
+      // The relay's port is this launch's own: its flag names the process.
+      const starts = watchStarts(args.find((flag) => flag.startsWith("--proxy-server=")) ?? "");
       try {
         if (context.signal?.aborted) throw new EvaluationCancelled();
         browser = await puppeteer.launch({
           executablePath,
-          args: [...flags, ...renderProxyFlags(context.appOrigin, relay.port)],
+          args,
           headless: true,
           // A launch held to its caller's time gives up within it, and the
           // caller's stop kills the process (its group, by its own id)
@@ -110,7 +133,14 @@ export async function puppeteerDriver(): Promise<RenderDriver> {
         });
       } catch (error) {
         relay.close();
+        // A launch that gives up (its own timeout, a lost connection) answers
+        // before the process it started has gone: puppeteer closes that
+        // process afterwards, without waiting. It is ended outright here, and
+        // the caller is told when it has exited.
+        context.exited?.(endProcess(starts.started()));
         throw error;
+      } finally {
+        starts.stop();
       }
       const refused: string[] = [];
       const render: RenderBrowser["render"] = async ({ url, width, height, definition, deadline, requestBoundMs, credential }) => {

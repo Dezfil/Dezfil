@@ -208,6 +208,9 @@ export async function driveRender(drive: RenderDrive): Promise<RenderImageResult
   };
   // A late arrival of a launch given up on, ended outright once it arrives.
   let lateEnd: Promise<void> | null = null;
+  // A launch that failed: settled once the process it started has exited,
+  // within the bound, as its driver reports it.
+  let launchExit: Promise<void> | undefined;
   // The launch is held to the drive's own time: its stop ends the browser's
   // process, started or still starting, by its own handle, so a browser
   // that never answers its launch dies with the drive.
@@ -237,6 +240,7 @@ export async function driveRender(drive: RenderDrive): Promise<RenderImageResult
         signal: drive.signal,
         launchTimeoutMs: Math.max(deadline - Date.now(), 1),
         stop: launchStop.signal,
+        exited: (gone) => { launchExit = gone; },
       }));
       launching.catch(() => {});
       browser = await new Promise<RenderBrowser>((resolve, reject) => {
@@ -269,7 +273,9 @@ export async function driveRender(drive: RenderDrive): Promise<RenderImageResult
           (error) => finish(() => reject(error)),
         );
       }).catch((error: unknown) => {
-        lateEnd = launching.then((late) => late.kill()).then(() => {}, () => {});
+        // Gone once a late arrival has been ended outright, or a launch that
+        // failed has seen its process exit.
+        lateEnd = launching.then((late) => late.kill(), () => launchExit).then(() => {}, () => {});
         throw error;
       });
     } catch (error) {
