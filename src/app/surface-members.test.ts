@@ -243,6 +243,9 @@ export const MEMBERS: Member[] = [
   m(STEP.pictures, "page-card", C + "settings/LookPictures.module.css", ".art .fnCard", GROUND, "pictured: a card on the page"),
   m(STEP.pictures, "page-card", C + "settings/LookPictures.module.css", ".art .crCard", CARD, "pictured: a card on the page"),
   m(STEP.pictures, "glass-chrome", C + "settings/LookPictures.module.css", ".art .smRail", GLASS, "pictured: the side rail at rest"),
+  m(STEP.pictures, "glass-chrome", C + "settings/LookPictures.module.css", ".art .pnHead", GLASS, "pictured: the header card over a map"),
+  m(STEP.pictures, "glass-chrome", C + "settings/LookPictures.module.css", ".art .pnRail", GLASS, "pictured: the side menu over a map"),
+  m(STEP.pictures, "overlay-panel", C + "settings/LookPictures.module.css", ".art .pnCard", GLASS, "pictured: a panel read over a map"),
   m(STEP.pictures, "menu", C + "settings/LookPictures.module.css", ".art .smHint", ["shadow"], "pictured: the kit's hint"),
 ];
 

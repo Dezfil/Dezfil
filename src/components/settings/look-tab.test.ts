@@ -37,8 +37,9 @@ describe("the cards and their rows", () => {
       ["Text", ["Typeface"]],
       ["Layout", ["Corners", "Side menu"]],
     ]);
-    expect(LOOK_CARDS.flatMap(card => card.rows.map(row => row.key)).sort()).toEqual([...PICTURE_PICKS].sort());
-    expect([...PICTURE_PICKS]).toEqual(["color", "contrast", "font", "background", "corners", "rail"]);
+    // Every row is drawn as pictures; Panels is drawn before its row joins the tab.
+    expect(LOOK_CARDS.flatMap(card => card.rows.map(row => row.key)).sort()).toEqual(PICTURE_PICKS.filter(key => key !== "panels").sort());
+    expect([...PICTURE_PICKS]).toEqual(["color", "contrast", "font", "background", "corners", "rail", "panels"]);
     expect(new Set(LOOK_CARDS.flatMap(card => [card.id, ...card.rows.map(row => row.id)])).size).toBe(4 + 6);
   });
 

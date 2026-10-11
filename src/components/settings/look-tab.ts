@@ -9,7 +9,7 @@ import { FADE_MS, SaveUnit, UNDO_MS, type UnitNote, type UnitSnapshot, type Valu
  */
 
 /** The picks the tab draws as a row of pictures, one per choice. */
-export const PICTURE_PICKS = ["color", "contrast", "font", "background", "corners", "rail"] as const satisfies readonly LookKey[];
+export const PICTURE_PICKS = ["color", "contrast", "font", "background", "corners", "rail", "panels"] as const satisfies readonly LookKey[];
 export type PicturePick = (typeof PICTURE_PICKS)[number];
 
 export interface LookRow {

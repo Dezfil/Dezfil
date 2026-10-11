@@ -2,6 +2,8 @@
 import { useLayoutEffect, useRef, type ReactNode } from "react";
 import type { PicturePick } from "./look-tab";
 import { CursorIcon } from "@/components/ui/icons";
+import { DEFAULT_CATEGORICAL, paletteByName } from "@/lib/style/palettes";
+import { SAMPLE_GROUNDS } from "./basemap-grounds";
 import styles from "./LookPictures.module.css";
 // The pictures' tokens: each option's values keyed on the picture, beside
 // the person's look on the root.
@@ -118,6 +120,62 @@ function RailPicture({ value }: { value: string }) {
   </Scaled>;
 }
 
+/* ---- Panels: the map under the panels. Its colours are data (a basemap's
+   ground, Global Warming on the cells, the layer cycle's teal and pink on
+   a line and its stops), drawn inline; the panels have none of their own. */
+
+/** The river the cells gather along, across the picture's 240 by 150. */
+const riverY = (x: number) => 19 + 0.27 * x + 10 * Math.sin(x / 26);
+const round = (n: number) => Math.round(n * 10) / 10;
+const RIVER = Array.from({ length: 14 }, (_, i) => -20 + i * 20).map((x, i) => `${i ? "L" : "M"}${x} ${round(riverY(x))}`).join(" ");
+/** The cells: a hex grid along the river, the nearest the warmest. */
+const CELLS = (() => {
+  const ramp = paletteByName("global_warming", "sequential")!.colors;
+  const radius = 4.5, step = Math.sqrt(3) * radius, corners = Array.from({ length: 6 }, (_, i) => (Math.PI / 180) * (60 * i - 30));
+  const out: { d: string; fill: string }[] = [];
+  for (let row = 0, cy = 0; cy < 150; cy += radius * 1.5, row += 1) {
+    for (let cx = row % 2 ? step / 2 : 0; cx < 246; cx += step) {
+      const near = 1 - Math.abs(cy - riverY(cx)) / 24;
+      if (near <= 0) continue;
+      const fill = ramp[Math.min(ramp.length - 1, Math.floor(near * ramp.length))];
+      out.push({ d: `M${corners.map(a => `${round(cx + radius * Math.cos(a))} ${round(cy + radius * Math.sin(a))}`).join("L")}Z`, fill });
+    }
+  }
+  return out;
+})();
+const MAINS = ["M12 92 L60 80 L100 88 L130 74 L170 80 L210 64 L240 68", "M128 12 L134 46 L130 74 L140 114"];
+const STOPS: readonly (readonly [number, number])[] = [[60, 80], [100, 88], [134, 46], [170, 80], [210, 64]];
+
+/** A small map in both themes: the root's theme shows one. */
+function PanelsMap() {
+  const cycle = paletteByName(DEFAULT_CATEGORICAL, "categorical")!.colors;
+  const [teal, pink] = [cycle[0], cycle[6]];
+  return <svg className={styles.pnMap} viewBox="0 0 240 150" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false">
+    {(["light", "dark"] as const).map(theme => {
+      const ground = SAMPLE_GROUNDS[theme];
+      return <g key={theme} className={theme === "light" ? styles.pnDay : styles.pnNight}>
+        <rect width="240" height="150" fill={ground.land} />
+        <path d="M0 128 L240 104 M86 0 L104 150" stroke={ground.road} strokeWidth="3" fill="none" />
+        <path d={RIVER} stroke={ground.water} strokeWidth="7" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+      </g>;
+    })}
+    {CELLS.map((cell, i) => <path key={i} d={cell.d} fill={cell.fill} fillOpacity="0.78" />)}
+    {MAINS.map(d => <path key={d} d={d} stroke={teal} strokeWidth="1.2" fill="none" strokeLinejoin="round" strokeLinecap="round" />)}
+    {STOPS.map(([x, y]) => <circle key={`${x} ${y}`} cx={x} cy={y} r="2.2" fill={pink} />)}
+  </svg>;
+}
+
+/** The header card, the side menu and a card over a small map, in that
+ * style of panel: the map shows through as that style lets it. */
+function PanelsPicture({ value }: { value: string }) {
+  return <Scaled pick="panels" value={value} size="m">
+    <PanelsMap />
+    <span className={styles.pnHead}><b>Dezfil</b><i /></span>
+    <span className={styles.pnRail}><i data-on="" /><i /><i /><i /><i /></span>
+    <span className={styles.pnCard}><b /><i /><i /></span>
+  </Scaled>;
+}
+
 /** The texture itself, under a card floating on it. */
 function BackgroundPicture({ value }: { value: string }) {
   return <span className={`${styles.art} ${styles.backgroundArt}`} data-picture-background={value}>
@@ -132,6 +190,7 @@ const PICTURES: Record<PicturePick, (props: { value: string }) => ReactNode> = {
   background: BackgroundPicture,
   corners: CornersPicture,
   rail: RailPicture,
+  panels: PanelsPicture,
 };
 
 /** The picture of one option of one pick. */
