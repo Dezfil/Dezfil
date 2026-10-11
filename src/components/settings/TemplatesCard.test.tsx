@@ -32,6 +32,12 @@ let stored: Record<string, unknown>;
 let addresses: Record<string, { set: true; origin: string }>;
 let pinned: Record<string, Resolution>;
 let downloads: TemplateDownloads;
+/** What the server holds once a removal is done: a download that landed
+ * while the removal waited its turn stays. */
+let landedMeanwhile: TemplateDownloads;
+/** Whether a read of the template list fails once a removal is done. */
+let listFailsAfterRemoval: boolean;
+let removedOnce: boolean;
 let test: ServiceTestAnswer | { status: number; code: string; message: string };
 let requests: { url: string; method: string; body: unknown }[];
 let host: ReturnType<typeof installDomHost>;
@@ -47,6 +53,9 @@ const answer = () => instanceReadFixture({
 beforeEach(() => {
   stored = {}; addresses = {}; pinned = {}; requests = [];
   downloads = { versions: 2, bytes: 4.1 * MIB };
+  landedMeanwhile = { versions: 0, bytes: 0 };
+  listFailsAfterRemoval = false;
+  removedOnce = false;
   test = { service: "templates", result: "passed", templates: 3, milliseconds: 140 };
   vi.stubGlobal("fetch", vi.fn(async (url: string, init: RequestInit = {}) => {
     const method = init.method ?? "GET", body = init.body ? JSON.parse(String(init.body)) : undefined;
@@ -69,11 +78,15 @@ beforeEach(() => {
       return Response.json(test);
     }
     if (url === "/api/templates" && method === "GET") {
+      if (listFailsAfterRemoval && removedOnce) {
+        return Response.json({ error: { code: "internal_error", message: "The template list could not be read." } }, { status: 500 });
+      }
       return Response.json({ templates: [], catalogue: { state: "not_read", host: "https://github.com", folder: false, readAt: null, reason: null, status: null }, downloads });
     }
     if (url === "/api/templates/downloads" && method === "DELETE") {
       const gone = downloads;
-      downloads = { versions: 0, bytes: 0 };
+      downloads = landedMeanwhile;
+      removedOnce = true;
       return Response.json(gone);
     }
     return Response.json({ error: { code: "not_found", message: "Not found." } }, { status: 404 });
@@ -273,6 +286,36 @@ describe("the Templates card", () => {
     expect(button(row("Downloaded"), "Remove all").disabled).toBe(true);
     // Nothing Remove all does touches a setting.
     expect(writes()).toEqual([]);
+  });
+
+  it("reads the list again after Remove all, so a version that landed while the removal waited still shows", async () => {
+    downloads = { versions: 1, bytes: 50 * 1024 };
+    // Another version finished downloading while the removal waited its
+    // turn: the removal answers the one it took, and the other stays.
+    landedMeanwhile = { versions: 1, bytes: 30 * 1024 };
+    await open();
+    expect(row("Downloaded").textContent).toContain("1 version · 50 KB");
+    await press(row("Downloaded"), "Remove all");
+    await act(async () => { button(dialog()!, "Remove downloads").click(); });
+    await settle();
+    expect(requests.filter(request => request.url === "/api/templates").map(request => request.method)).toEqual(["GET", "GET"]);
+    expect(row("Downloaded").textContent).toContain("1 version · 30 KB");
+    expect(row("Downloaded").textContent).not.toContain("None");
+    expect(marks(row("Downloaded"))).toEqual(["Removed"]);
+    expect(button(row("Downloaded"), "Remove all").disabled).toBe(false);
+  });
+
+  it("says why when the list cannot be read again after Remove all, with no totals it cannot vouch for", async () => {
+    listFailsAfterRemoval = true;
+    await open();
+    await press(row("Downloaded"), "Remove all");
+    await act(async () => { button(dialog()!, "Remove downloads").click(); });
+    await settle();
+    expect(row("Downloaded").textContent).toContain("The template list could not be read.");
+    expect(row("Downloaded").textContent).not.toContain("None");
+    expect(row("Downloaded").textContent).not.toContain("2 versions");
+    expect(marks(row("Downloaded"))).toEqual(["Removed"]);
+    expect(button(row("Downloaded"), "Remove all").disabled).toBe(true);
   });
 
   it("says None with Remove all held back when nothing was downloaded, and one version as one", async () => {

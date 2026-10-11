@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { TemplateDownloads, TemplateList } from "@/lib/templates/card";
 import { Button } from "@/components/ui/Button";
 import { Dialog } from "@/components/ui/Dialog";
@@ -85,18 +85,23 @@ function switchUnit(settings: Settings, onAnswer: (read: InstanceRead) => void):
 
 /** What the downloaded templates hold, from the template list, which sends
  * nothing outside; Remove all, held back while there is nothing to remove,
- * asks first and says Removed. */
+ * asks first, says Removed and reads the list again: a version that
+ * finished downloading while the removal waited its turn stays, and the
+ * row says so. A list it cannot read leaves no totals, only the reason. */
 function DownloadsRow() {
   const [downloads, setDownloads] = useState<TemplateDownloads | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [asking, setAsking] = useState(false);
   const [removed, showRemoved, hideRemoved] = useMoment();
+  const mounted = useRef(false);
   useEffect(() => {
-    let cancelled = false;
-    accountRequest<TemplateList>(LIST).then(list => { if (!cancelled) setDownloads(list.downloads); })
-      .catch(failure => { if (!cancelled) setError(failureMessage(failure)); });
-    return () => { cancelled = true; };
+    mounted.current = true;
+    return () => { mounted.current = false; };
   }, []);
+  const read = useCallback(() => accountRequest<TemplateList>(LIST)
+    .then(list => { if (mounted.current) { setDownloads(list.downloads); setError(null); } })
+    .catch(failure => { if (mounted.current) { setDownloads(null); setError(failureMessage(failure)); } }), []);
+  useEffect(() => { void read(); }, [read]);
   const none = !downloads || downloads.versions === 0;
   return <SettingRow id={DOWNLOADS.id} label={DOWNLOADS.label}>
     {downloads && <ValueText muted={none}>{downloadsWords(downloads)}</ValueText>}
@@ -104,10 +109,12 @@ function DownloadsRow() {
     {removed && <SavedMark text="Removed" />}
     {error && <RowError id={`${DOWNLOADS.id}-error`}>{error}</RowError>}
     {asking && downloads && <RemoveDownloads downloads={downloads} onClose={() => setAsking(false)} onRemoved={gone => {
-      // A download that landed meanwhile stays: what went is what Remove all answered.
+      // What went is what Remove all answered, shown at once; the list,
+      // read again, then says what is there now.
       setDownloads(current => current && { versions: Math.max(0, current.versions - gone.versions), bytes: Math.max(0, current.bytes - gone.bytes) });
       setAsking(false);
       showRemoved();
+      void read();
     }} />}
   </SettingRow>;
 }
