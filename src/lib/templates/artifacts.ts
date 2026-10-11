@@ -1,6 +1,7 @@
 import { lstat, readdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import { TEMPLATE_DOCUMENT_MAX_BYTES } from "./format";
+import { parseTemplateVersion } from "./ids";
 import { downloadedTemplatesDir, RECORD_FILE, recordProblem, type InstalledRecord } from "./record";
 import { SHIPPED_INDEX_FILE, shippedIndexProblem, shippedTemplatesDir, type ShippedIndex } from "./shipped-index";
 
@@ -26,7 +27,6 @@ import { SHIPPED_INDEX_FILE, shippedIndexProblem, shippedTemplatesDir, type Ship
 
 const SHA256 = /^[0-9a-f]{64}$/;
 const ID = /^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$/;
-const VERSION = /^[1-9][0-9]{0,8}$/;
 
 /** The artifact a template file of this content is made present as,
  * relative to the data folder. */
@@ -68,8 +68,9 @@ export async function downloadedFolders(): Promise<InstalledFolder[]> {
   const ids = await readdir(root, { withFileTypes: true }).catch(() => []);
   for (const id of ids.filter((entry) => entry.isDirectory() && ID.test(entry.name))) {
     const versions = await readdir(path.join(root, id.name), { withFileTypes: true }).catch(() => []);
-    for (const version of versions.filter((entry) => entry.isDirectory() && VERSION.test(entry.name))) {
-      out.push({ folder: path.join(root, id.name, version.name), id: id.name, version: Number(version.name), shipped: false });
+    for (const entry of versions.filter((entry) => entry.isDirectory())) {
+      const version = parseTemplateVersion(entry.name);
+      if (version !== null) out.push({ folder: path.join(root, id.name, entry.name), id: id.name, version, shipped: false });
     }
   }
   return out;

@@ -174,6 +174,38 @@ async function fetched(id: string, version: number) {
   expect(answer.status, JSON.stringify(answer.body)).toBe(200);
 }
 
+describe("a version number past nine digits", () => {
+  it("admitted at install, is listed as installed, opens by its ids, copies, and Remove all removes it", async () => {
+    const VERSION = 2026101101;
+    const dated = await buildTemplate(path.join(dir, "dated"), { id: "dated-stations", version: VERSION });
+    await catalogue.publish([A1, dated]);
+    await refreshed();
+    await fetched("dated-stations", VERSION);
+
+    const read = await call("GET", "/api/templates", memberCookie());
+    const card = (read.body!.templates as { id: string; installed: number | null; present: boolean }[]).find((t) => t.id === "dated-stations");
+    expect(card).toMatchObject({ installed: VERSION, present: true });
+    expect(read.body!.downloads).toMatchObject({ versions: 1 });
+
+    const mapId = `template.dated-stations.${VERSION}.map`;
+    const map = await call("GET", `/api/maps/${mapId}`, memberCookie());
+    expect(map.status, JSON.stringify(map.body)).toBe(200);
+    expect(map.body).toMatchObject({ id: mapId });
+    const render = await call("GET", `/api/layers/template.dated-stations.${VERSION}.layer.layer-stations/render`, memberCookie());
+    expect(render.body).toMatchObject({ ok: true, featureCount: 6 });
+
+    // Without a version named, the copy finds the installed one itself.
+    const copied = await call("POST", "/api/templates/dated-stations/copy", memberCookie());
+    expect(copied.status, JSON.stringify(copied.body)).toBe(201);
+    expect((copied.body!.members as { tables: { sourceParams: unknown }[] }).tables[0].sourceParams).toEqual({ template: "dated-stations", version: VERSION });
+
+    const removed = await remove(adminCookie());
+    expect(removed.body).toMatchObject({ versions: 1 });
+    expect(existsSync(versionFolder("dated-stations", VERSION))).toBe(false);
+    expect(await readdir(downloads()).catch(() => [])).toEqual([]);
+  });
+});
+
 describe("the operation", () => {
   it("is a generated tool that removes this server's templates, local and destructive, and asks first, its words reading the size", () => {
     expect(tool("remove_template_downloads")).toMatchObject({

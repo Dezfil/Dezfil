@@ -13,14 +13,31 @@
  * template id, a version number, a layer or step id, a dataset name), so the
  * dot that joins them is never inside one and an id reads back whole.
  *
+ * A version number is read here for every reader alike: the admission of a
+ * template's facts, these ids, and the version folders on disk, so a
+ * version admitted at install is one every reader finds.
+ *
  * Dependency-free on purpose, so any module may read it, a screen's
  * included.
  */
 
 const PREFIX = "template";
 const TEMPLATE_ID = /^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$/;
-const VERSION = /^[1-9][0-9]{0,8}$/;
 const PART = /^[A-Za-z0-9_-]{1,255}$/;
+
+/** A template's version number: a whole number from 1, no larger than
+ * the largest whole number a number holds exactly. */
+export function isTemplateVersion(value: unknown): value is number {
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 1;
+}
+
+/** A version number as an id or a folder name writes it, its decimal
+ * digits with no leading zero, else null. */
+export function parseTemplateVersion(text: string): number | null {
+  if (!/^[1-9][0-9]*$/.test(text)) return null;
+  const version = Number(text);
+  return isTemplateVersion(version) ? version : null;
+}
 
 export type TemplateDocumentKind = "map" | "workflow" | "layer" | "dataset" | "result";
 
@@ -36,7 +53,7 @@ export interface TemplateDocumentRef {
 
 /** Mint the id of a template's document or dataset. */
 export function templateDocumentId(ref: TemplateDocumentRef): string {
-  if (!TEMPLATE_ID.test(ref.template) || !Number.isSafeInteger(ref.version) || ref.version < 1) {
+  if (!TEMPLATE_ID.test(ref.template) || !isTemplateVersion(ref.version)) {
     throw new Error("A template document id needs the template's id and a version from 1.");
   }
   const whole = ref.kind === "map" || ref.kind === "workflow";
@@ -50,13 +67,14 @@ export function templateDocumentId(ref: TemplateDocumentRef): string {
 export function parseTemplateDocumentId(id: string): TemplateDocumentRef | null {
   if (typeof id !== "string" || !id.startsWith(`${PREFIX}.`)) return null;
   const parts = id.split(".");
-  const [prefix, template, version, kind, part, ...rest] = parts;
-  if (prefix !== PREFIX || rest.length > 0 || !TEMPLATE_ID.test(template ?? "") || !VERSION.test(version ?? "")) return null;
+  const [prefix, template, written, kind, part, ...rest] = parts;
+  const version = parseTemplateVersion(written ?? "");
+  if (prefix !== PREFIX || rest.length > 0 || !TEMPLATE_ID.test(template ?? "") || version === null) return null;
   if (kind === "map" || kind === "workflow") {
-    return part === undefined ? { template, version: Number(version), kind } : null;
+    return part === undefined ? { template, version, kind } : null;
   }
   if (kind === "layer" || kind === "dataset" || kind === "result") {
-    return part !== undefined && PART.test(part) ? { template, version: Number(version), kind, part } : null;
+    return part !== undefined && PART.test(part) ? { template, version, kind, part } : null;
   }
   return null;
 }

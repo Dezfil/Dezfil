@@ -25,6 +25,7 @@ import {
   type TemplateFacts,
   type TemplateTheme,
 } from "./format";
+import { isTemplateVersion, parseTemplateVersion } from "./ids";
 import { downloadedTemplatesDir, RECORD_FILE, recordProblem, type InstalledRecord } from "./installed";
 import { refuse, TemplateRefusal } from "./refusals";
 import { readShippedIndex } from "./shipped";
@@ -59,7 +60,6 @@ export const PICTURES_TOTAL_BYTES = 64 * 1024 * 1024;
 const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 const SHA256 = /^[0-9a-f]{64}$/;
 const ID = /^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$/;
-const VERSION = /^[1-9][0-9]{0,8}$/;
 
 const isObject = (v: unknown): v is Record<string, unknown> =>
   typeof v === "object" && v !== null && !Array.isArray(v);
@@ -134,13 +134,13 @@ async function downloadedVersions(): Promise<Map<string, Installed>> {
     return out;
   }
   for (const entry of ids.filter((e) => e.isDirectory() && ID.test(e.name)).sort((a, b) => a.name.localeCompare(b.name))) {
-    let versions: string[];
+    let versions: number[];
     try {
-      versions = (await readdir(path.join(dir, entry.name))).filter((v) => VERSION.test(v));
+      versions = (await readdir(path.join(dir, entry.name))).map(parseTemplateVersion).filter((v): v is number => v !== null);
     } catch {
       continue;
     }
-    for (const version of versions.map(Number).sort((a, b) => b - a)) {
+    for (const version of versions.sort((a, b) => b - a)) {
       const read = await readInstalledLight(path.join(dir, entry.name, String(version)), entry.name, version);
       if (read) {
         out.set(entry.name, read);
@@ -613,7 +613,7 @@ export async function refreshCatalogue(db: Database = metadataDb(), options: Ref
 /** A downloaded version's archive size when it is installed (its facts and
  * record read light, as the list reads them), else null. */
 export async function downloadedSize(id: string, version: number): Promise<number | null> {
-  if (!ID.test(id) || !Number.isSafeInteger(version) || version < 1) return null;
+  if (!ID.test(id) || !isTemplateVersion(version)) return null;
   return (await readInstalledLight(path.join(downloadedTemplatesDir(), id, String(version)), id, version))?.size ?? null;
 }
 

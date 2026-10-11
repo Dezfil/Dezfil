@@ -4,6 +4,7 @@ import { boundedBodyText } from "@/lib/api/bounded-body";
 import { authFailure, privateResponse } from "@/lib/auth/http";
 import { requireRequestScope } from "@/lib/auth/scope-http";
 import { fetchTemplate } from "@/lib/templates/download";
+import { isTemplateVersion } from "@/lib/templates/ids";
 import { installRefusalError, TemplateRefusal } from "@/lib/templates/refusals";
 
 const BODY_MAX_BYTES = 65_536;
@@ -23,7 +24,7 @@ async function requestedVersion(request: Request): Promise<number | null> {
   }
   const { version } = body as { version?: unknown };
   if (version === undefined) return null;
-  if (!Number.isSafeInteger(version) || (version as number) < 1) {
+  if (!isTemplateVersion(version)) {
     throw new ApiError("invalid_request", '"version" must be a whole number from 1.', 400);
   }
   return version as number;

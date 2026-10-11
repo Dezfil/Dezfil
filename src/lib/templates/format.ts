@@ -9,8 +9,12 @@
  * in a version folder.
  *
  * Dependency-free on purpose: the screens read the facts' shape and the
- * closed lists from here, and nothing in it reaches the server.
+ * closed lists from here, and nothing in it reaches the server. It reads
+ * only the ids module, which is free of any, for the one rule of a version
+ * number every reader shares.
  */
+
+import { isTemplateVersion } from "./ids";
 
 /** The template format's own version, beside the export's. A version this
  * server does not read is refused, never guessed at. */
@@ -261,7 +265,7 @@ export function factsProblem(value: unknown): Problem {
   if ((RESERVED_IDS as readonly string[]).includes(value.id)) {
     return `id may not be ${RESERVED_IDS.join(" or ")}: the API's paths take those words.`;
   }
-  if (!Number.isSafeInteger(value.version) || (value.version as number) < 1) {
+  if (!isTemplateVersion(value.version)) {
     return "version must be a whole number from 1.";
   }
   if (!(TEMPLATE_KINDS as readonly unknown[]).includes(value.kind)) {

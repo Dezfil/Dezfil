@@ -4,6 +4,7 @@ import { boundedBodyText } from "@/lib/api/bounded-body";
 import { authFailure, privateResponse } from "@/lib/auth/http";
 import { requireRequestScope } from "@/lib/auth/scope-http";
 import { copyTemplate, type CopyRequest } from "@/lib/templates/copy";
+import { isTemplateVersion } from "@/lib/templates/ids";
 import { installRefusalError, TemplateRefusal } from "@/lib/templates/refusals";
 
 const BODY_MAX_BYTES = 65_536;
@@ -23,7 +24,7 @@ async function copyRequest(request: Request): Promise<CopyRequest> {
   }
   const { name, version } = body as { name?: unknown; version?: unknown };
   if (name !== undefined && typeof name !== "string") throw new ApiError("invalid_request", '"name" must be a string.', 400);
-  if (version !== undefined && (!Number.isSafeInteger(version) || (version as number) < 1)) {
+  if (version !== undefined && !isTemplateVersion(version)) {
     throw new ApiError("invalid_request", '"version" must be a whole number from 1.', 400);
   }
   return { ...(name === undefined ? {} : { name }), ...(version === undefined ? {} : { version: version as number }) };

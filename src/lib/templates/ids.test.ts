@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { randomUUID } from "node:crypto";
-import { parseTemplateDocumentId, templateDocumentId, type TemplateDocumentRef } from "./ids";
+import { isTemplateVersion, parseTemplateDocumentId, parseTemplateVersion, templateDocumentId, type TemplateDocumentRef } from "./ids";
 
 /**
  * A template's documents and datasets are addressed by ids of their own
@@ -38,5 +38,22 @@ describe("template document ids", () => {
     expect(() => templateDocumentId({ template: "harbour-stations", version: 1, kind: "map", part: "x" })).toThrow();
     expect(() => templateDocumentId({ template: "harbour-stations", version: 1, kind: "dataset", part: "a.b" })).toThrow();
     expect(() => templateDocumentId({ template: "harbour-stations", version: 0, kind: "map" })).toThrow();
+  });
+
+  it("carry every version a template is admitted with, past nine digits up to the largest whole number a number holds exactly", () => {
+    for (const version of [2026101101, 9_007_199_254_740_991]) {
+      const ref: TemplateDocumentRef = { template: "harbour-stations", version, kind: "layer", part: "layer-stations" };
+      expect(parseTemplateDocumentId(templateDocumentId(ref))).toEqual(ref);
+      expect(isTemplateVersion(version)).toBe(true);
+      expect(parseTemplateVersion(String(version))).toBe(version);
+    }
+    for (const text of ["9007199254740992", "0", "01", "-1", "1.5", "1e3", " 1", ""]) {
+      expect(parseTemplateVersion(text), text).toBeNull();
+      expect(parseTemplateDocumentId(`template.harbour-stations.${text}.map`), text).toBeNull();
+    }
+    for (const version of [0, -1, 1.5, 9_007_199_254_740_992, Number.NaN]) {
+      expect(isTemplateVersion(version), String(version)).toBe(false);
+      expect(() => templateDocumentId({ template: "harbour-stations", version, kind: "map" }), String(version)).toThrow();
+    }
   });
 });

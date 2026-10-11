@@ -1,5 +1,6 @@
 import path from "node:path";
 import { dataDir } from "@/lib/config";
+import { isTemplateVersion } from "./ids";
 
 /**
  * The installed form's record, as data: what an installed version folder
@@ -88,7 +89,7 @@ export function recordProblem(value: unknown): string | null {
   for (const key of Object.keys(value)) if (!keys.includes(key)) return `The record has a field the format does not name: "${key}".`;
   for (const key of keys) if (!(key in value)) return `The record has no "${key}".`;
   if (value.formatVersion !== RECORD_FORMAT_VERSION) return `The record is in format ${String(value.formatVersion)}; this server reads format ${RECORD_FORMAT_VERSION}.`;
-  if (typeof value.id !== "string" || !Number.isSafeInteger(value.version)) return "The record must name its template and version.";
+  if (typeof value.id !== "string" || !isTemplateVersion(value.version)) return "The record must name its template and version.";
   const archive = value.archive;
   if (!isObject(archive) || typeof archive.sha256 !== "string" || !SHA256.test(archive.sha256) || !Number.isSafeInteger(archive.size) || (archive.size as number) < 0) {
     return "The record must give the archive's SHA-256 and size.";

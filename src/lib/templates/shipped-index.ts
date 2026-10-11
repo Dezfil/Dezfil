@@ -1,6 +1,7 @@
 import { readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { TEMPLATE_DOCUMENT_MAX_BYTES } from "./format";
+import { isTemplateVersion } from "./ids";
 
 /**
  * Where the shipped set lives and what its index says, read by the
@@ -32,7 +33,7 @@ export function shippedIndexProblem(value: unknown): string | null {
   if (!Array.isArray(value.templates)) return "The shipped index must list its templates.";
   const seen = new Set<string>();
   for (const [i, entry] of value.templates.entries()) {
-    if (!isObject(entry) || Object.keys(entry).length !== 2 || typeof entry.id !== "string" || !/^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$/.test(entry.id) || !Number.isSafeInteger(entry.version) || (entry.version as number) < 1) {
+    if (!isObject(entry) || Object.keys(entry).length !== 2 || typeof entry.id !== "string" || !/^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$/.test(entry.id) || !isTemplateVersion(entry.version)) {
       return `The shipped index's templates[${i}] must be { id, version }.`;
     }
     if (seen.has(entry.id)) return `The shipped index lists "${entry.id}" twice.`;
