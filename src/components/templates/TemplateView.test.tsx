@@ -220,6 +220,21 @@ describe("a map template opened", () => {
     expect(calls.filter((c) => c.path.includes("template.")).every((c) => c.path.includes("template.harbour-stations.1."))).toBe(true);
   });
 
+  it("makes a copy of the version it opened through the copy dialog, reading the template nowhere", async () => {
+    fetchAnswer = (call) => call.method === "POST" && call.path === "/api/templates/harbour-stations/copy"
+      ? Response.json({ project: { id: "p-1" }, members: { maps: [{ id: "map-1" }], recipes: [], tables: [] } }, { status: 201 })
+      : answer(call);
+    await open(detail({}), opened("harbour-stations"));
+    await act(async () => actions.querySelector("[data-template-copy]")!.click());
+    const dialog = host.document.querySelector("[data-template-copy-dialog]")!;
+    expect(dialog.querySelector("[data-copy-sub]")!.textContent).toBe("Harbour stations, version 1, becomes yours in a new project.");
+    await act(async () => dialog.querySelector("[data-copy-confirm]")!.click());
+    await settle();
+    expect(writes()).toEqual([{ method: "POST", path: "/api/templates/harbour-stations/copy", body: { name: "Harbour stations", version: 1 } }]);
+    expect(calls.filter((c) => c.path.startsWith("/api/templates") && c.method === "GET")).toEqual([]);
+    expect(nav.push).toHaveBeenCalledWith("/maps/map-1");
+  });
+
   it("puts Make a copy in the header as the page's one action", async () => {
     await open(detail({}), opened("harbour-stations"));
     const buttons = actions.querySelectorAll("button");

@@ -175,6 +175,22 @@ describe("the Templates page's cards", () => {
     await act(async () => { card("harbour-depths").querySelector('button[aria-label="Open Harbour depths"]')!.click(); });
     expect(nav.push).toHaveBeenLastCalledWith("/templates/harbour-depths");
   });
+
+  it("makes a copy from a card through the copy dialog, which reads the template once as it opens", async () => {
+    const howMade = { question: "Which blocks?", datasets: [{ dataset: "blocks", source: "Census grid", made: "Blocks." }], styling: ["Blocks."] };
+    const base = fetchSpy.getMockImplementation() as (input: string, init?: RequestInit) => Promise<Response>;
+    fetchSpy.mockImplementation(async (input: string, init?: RequestInit) =>
+      String(input) === "/api/templates/market-reach" ? Response.json({ ...reach, howMade }) : base(input, init));
+    await open();
+    await act(async () => { card("market-reach").querySelector('button[aria-label="Make a copy of Market reach"]')!.click(); });
+    await settle();
+    const dialog = host.document.querySelector("[data-template-copy-dialog]");
+    expect(dialog?.querySelector("[data-copy-sub]")?.textContent).toBe("Market reach, version 4, becomes yours in a new project.");
+    expect(fetchSpy.mock.calls.filter(([url]) => String(url) === "/api/templates/market-reach")).toHaveLength(1);
+    expect(nav.push).not.toHaveBeenCalled();
+    await act(async () => { dialog!.querySelectorAll("button").find((b) => b.textContent === "Cancel")!.click(); });
+    expect(host.document.querySelector("[data-template-copy-dialog]")).toBeNull();
+  });
 });
 
 describe("the catalogue's line", () => {

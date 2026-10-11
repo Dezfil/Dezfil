@@ -172,3 +172,25 @@ describe("a node's output on a template's canvas", () => {
     expect(html).toContain("data-add-to-map");
   });
 });
+
+describe("a copied workflow's node panel", () => {
+  it("says an output that came with the copy was copied from the template, and offers the map", () => {
+    const html = draw(<OutputFacts step={STEPS[1]} outputName="station_rings" table={RINGS} />, false);
+    expect(html).toContain('data-last-run="true">copied from the template<');
+    expect(html).not.toContain("the template&#x27;s result");
+    expect(html).toContain("data-add-to-map");
+  });
+
+  it("says so in the panel the copy's canvas opens", () => {
+    const html = draw(<NodePanel recipeId="recipe-9" member={node("step-rings")} graph={graph} operations={OPERATIONS}
+      tables={TABLES} onClose={() => {}} onRemove={() => {}} />, false);
+    expect(html).toContain('data-last-run="true">copied from the template<');
+  });
+
+  it("names a run once the first run replaced the copied result", () => {
+    const ran = { ...STEPS[1], templateResult: null, lastSuccessAt: new Date(Date.now() - 60_000).toISOString() };
+    const html = draw(<OutputFacts step={ran} outputName="station_rings" table={RINGS} />, false);
+    expect(html).not.toContain("copied from the template");
+    expect(html).not.toContain("no successful run");
+  });
+});

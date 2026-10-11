@@ -17,7 +17,8 @@ import styles from "./WorkflowCanvas.module.css";
  * the listing no longer holds. Outside the panel's inert fieldsets: the
  * action changes a map, never the node, and stays usable while the node
  * waits in a run. On a template's page the output is the template's own
- * result, named as such and never as a run, and no map takes it.
+ * result, named as such and never as a run, and no map takes it; in a
+ * copy, a result that came with the template says so until its first run.
  */
 export function OutputFacts({ step, outputName, table }: { step: WorkflowStep; outputName: string; table: TableListing | null }) {
   const [subject, setSubject] = useState<string | null>(null);
@@ -63,6 +64,6 @@ export function OutputFacts({ step, outputName, table }: { step: WorkflowStep; o
 /** The Last run row: when the output was made, or where it came from when
  * no run made it. */
 function lastRun(step: WorkflowStep, template: boolean): string {
-  if (template && step.templateResult) return "the template's result";
+  if (step.templateResult) return template ? "the template's result" : "copied from the template";
   return step.lastSuccessAt ? formatRelativeTime(step.lastSuccessAt) : "no successful run";
 }

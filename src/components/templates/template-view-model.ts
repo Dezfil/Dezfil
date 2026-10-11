@@ -162,3 +162,13 @@ export function templatePage(template: Pick<TemplateDetail, "id" | "version">, o
     tables: [...opened.datasets, ...flow.steps.map((step) => step.output)].map((d) => listing(d, opened)),
   };
 }
+
+const counted = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+
+/** What a copy brings, as the copy dialog says it: the map, a workflow
+ * example's workflow, and every dataset (the template's own and, for a
+ * workflow example, each step's bundled result). */
+export function comesWith(template: Pick<TemplateDetail, "kind" | "howMade" | "steps">): string {
+  const datasets = counted(template.howMade.datasets.length + (template.steps?.length ?? 0), "dataset", "datasets");
+  return template.kind === "workflow" ? `1 map, 1 workflow and ${datasets}` : `1 map and ${datasets}`;
+}

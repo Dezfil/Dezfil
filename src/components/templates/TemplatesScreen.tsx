@@ -13,6 +13,7 @@ import { useTheme } from "../theme";
 import { AsyncState, useAsync } from "../ui/AsyncState";
 import { InfoIcon } from "../ui/icons";
 import { TemplateCard } from "./TemplateCard";
+import { TemplateCopyDialog } from "./TemplateCopyDialog";
 import styles from "./Templates.module.css";
 import {
   carriesTag,
@@ -76,6 +77,7 @@ export function TemplatesScreen() {
   const [refreshed, setRefreshed] = useState<Refreshed | null>(null);
   const [query, setQuery] = useState("");
   const [picked, setPicked] = useState<TagPick>("all");
+  const [copying, setCopying] = useState<string | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
   // "/" focuses search, unless the person is already typing somewhere.
@@ -204,7 +206,7 @@ export function TemplatesScreen() {
                     groupOf={groupOf}
                     labelOf={labelOf}
                     onOpen={() => router.push(templateAddress(card.id))}
-                    onCopy={() => router.push(templateAddress(card.id))}
+                    onCopy={() => setCopying(card.id)}
                   />
                 ))}
               </div>
@@ -218,6 +220,7 @@ export function TemplatesScreen() {
           }
         </AsyncState>
       </div>
+      {copying ? <TemplateCopyDialog key={copying} id={copying} onClose={() => setCopying(null)} /> : null}
     </div>
   );
 }

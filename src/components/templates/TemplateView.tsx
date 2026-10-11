@@ -20,6 +20,7 @@ import { ChevronIcon, DuplicateIcon } from "../ui/icons";
 import { WorkflowScreen } from "../WorkflowScreen";
 import type { TemplateCanvasSeam } from "../workflow-canvas/template-canvas";
 import { HowItsMade } from "./HowItsMade";
+import { TemplateCopyDialog } from "./TemplateCopyDialog";
 import { templatePage } from "./template-view-model";
 import styles from "./TemplateView.module.css";
 
@@ -29,7 +30,8 @@ import styles from "./TemplateView.module.css";
  * only view opens, with How it's made where the builder's inspector would
  * stand; a workflow example is its canvas, view-only and with no run, the
  * panel in the pane's place. Make a copy, in the header where Publish
- * stands in the builder, is the only action.
+ * stands in the builder, is the only action: its dialog copies the version
+ * this page opened.
  *
  * The page keeps the version it opened: nothing here reads the template
  * again, so a newer version listed meanwhile changes nothing on it, and a
@@ -61,6 +63,7 @@ export function TemplateView({
 }) {
   const router = useRouter();
   const pathname = usePathname();
+  const [copying, setCopying] = useState(false);
   const { operations } = useOperations();
   const groupOf = useCallback(
     (operation: string) => operations?.find((o) => o.id === operation)?.group ?? null,
@@ -102,7 +105,8 @@ export function TemplateView({
   return (
     <>
       <PlainCrumbTail name={template.title} />
-      <CopyAction title={template.title} onCopy={() => undefined} />
+      <CopyAction title={template.title} onCopy={() => setCopying(true)} />
+      {copying ? <TemplateCopyDialog id={template.id} template={template} onClose={() => setCopying(false)} /> : null}
       {opened === null ? (
         template.present ? (
           <Fallback message="This template's files could not be read on this server." />

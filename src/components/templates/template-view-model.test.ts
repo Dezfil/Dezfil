@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Layer } from "@/lib/metadata/maps";
 import type { CategoricalFill, LayerStyle, RgbaColor } from "@/lib/style/style";
 import type { OpenedTemplate } from "@/lib/templates/opened";
-import { dataRows, stepTitle, styleWords, templatePage } from "./template-view-model";
+import { comesWith, dataRows, stepTitle, styleWords, templatePage } from "./template-view-model";
 
 /**
  * How a template's page words what the template holds: each dataset's row
@@ -146,5 +146,17 @@ describe("a workflow example's documents for the canvas", () => {
       ["busy_stations", "busy_stations", 4, "POINT", "template", []],
       ["station_rings", "station_rings", 4, "POLYGON", "template", []],
     ]);
+  });
+});
+
+describe("what a copy brings, in words", () => {
+  const step = (id: string) => ({ id, operation: "buffer", output: id, reads: ["stations"] });
+  it("counts the map and the template's datasets for a map template", () => {
+    expect(comesWith({ kind: "map", howMade: HOW, steps: null })).toBe("1 map and 2 datasets");
+    expect(comesWith({ kind: "map", howMade: { ...HOW, datasets: HOW.datasets.slice(0, 1) }, steps: null })).toBe("1 map and 1 dataset");
+  });
+
+  it("counts the workflow and each step's result as a dataset for a workflow example", () => {
+    expect(comesWith({ kind: "workflow", howMade: HOW, steps: [step("a"), step("b")] })).toBe("1 map, 1 workflow and 4 datasets");
   });
 });
