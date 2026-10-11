@@ -6,7 +6,6 @@ import { IconButton } from "@/components/ui/IconButton";
 import { TextInput } from "@/components/ui/Field";
 import { ErrorNote } from "@/components/ui/ErrorNote";
 import { EyeIcon, EyeOffIcon } from "@/components/ui/icons";
-import { RhumbChart } from "./RhumbChart";
 import styles from "./EntryScreen.module.css";
 import { accountChanged } from "./private-state";
 import { forgotLine, landingRoute } from "./entry-settings";
@@ -65,7 +64,7 @@ export function EntryScreen({ mode }: { mode: Mode }) {
   const message = mode === "sign-in" ? entry?.signInMessage?.trim() : null;
   return <ThemeProvider><div className={styles.stage}>
     <aside className={styles.brandPane} aria-label="Dezfil">
-      <RhumbChart /><div className={styles.shade} />
+      <div className={styles.shade} />
       <span className={styles.wordmark}>Dezfil</span>
       <div className={styles.foot}>{instance && <span className={styles.instance}>{instance}</span>}
         <span className={styles.subtitle}>{setup ? "Maps, data and SQL, one container." : "Maps, data and SQL on this instance."}</span>
