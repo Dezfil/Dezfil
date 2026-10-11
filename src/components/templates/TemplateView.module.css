@@ -8,14 +8,15 @@
   --stage-stack-left: 0px;
 }
 
-/* ---- the header's one action, on the run chrome's treatment ---- */
+/* ---- the header's one action, on the run chrome's treatment: a primary
+   button's shadow is the float step, as Run all's and Publish's are ---- */
 
 .copyAction {
   font-family: var(--font-display);
   font-weight: 600;
   padding: 0 15px;
   border-radius: var(--radius-control);
-  box-shadow: 0 3px 12px var(--shadow);
+  box-shadow: var(--shadow-float);
 }
 
 .copyAction svg {
@@ -23,7 +24,9 @@
   height: 14px;
 }
 
-/* ---- the panel: the inspector's card ---- */
+/* ---- the panel: the inspector's card, floating glass read beside the
+   map or the canvas as the inspector, the Tools drawer and the canvas's
+   pane are ---- */
 
 .panel {
   position: fixed;
@@ -36,9 +39,9 @@
   flex-direction: column;
   border-radius: var(--radius-card);
   overflow: hidden;
-  background: color-mix(in srgb, var(--bg-panel) 93%, transparent);
-  backdrop-filter: blur(18px);
-  box-shadow: 0 3px 12px var(--shadow);
+  background: var(--surface-glass-panel-fill);
+  backdrop-filter: var(--surface-glass-panel-blur);
+  box-shadow: var(--surface-glass-panel-shadow);
 }
 
 @media (max-width: 1120px) {
