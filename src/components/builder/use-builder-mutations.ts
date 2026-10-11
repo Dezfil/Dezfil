@@ -110,6 +110,22 @@ export function useBuilderMutations({
     });
   }, []);
 
+  // A refused save stored nothing: the live text it carried leaves with
+  // it, so the legend draws the stored text again. A field typed or saved
+  // since holds other text and stays.
+  const retireLegendLive = useCallback((layerId: string, refused: Record<string, unknown>) => {
+    setLegendLive((prev) => {
+      const live = prev[layerId];
+      if (!live) return prev;
+      const kept = Object.entries(live).filter(([key, value]) => !(key in refused) || JSON.stringify(value) !== JSON.stringify(refused[key]));
+      if (kept.length === Object.keys(live).length) return prev;
+      const next = { ...prev };
+      if (kept.length) next[layerId] = Object.fromEntries(kept) as LegendLiveText;
+      else delete next[layerId];
+      return next;
+    });
+  }, []);
+
   // The mutation/recovery lane: the ordered write lanes with
   // verify-then-reconcile recovery, newest-wins response application,
   // lane-owned failure banners, and pending-saves accounting — extracted
@@ -141,6 +157,7 @@ export function useBuilderMutations({
     refreshLayer,
     edited,
     clearLegendLive,
+    retireLegendLive,
   });
 
   const settledLayer = useCallback((layerId: string): Layer | null =>

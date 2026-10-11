@@ -75,6 +75,7 @@ export function useMutationLane({
   refreshLayer,
   edited,
   clearLegendLive,
+  retireLegendLive,
 }: {
   mapId: string;
   sequence: DocumentSequence;
@@ -103,6 +104,9 @@ export function useMutationLane({
   /** Discards a layer's in-progress Legend-tab text — a recovered read
    * is authoritative for it too. */
   clearLegendLive: (layerId: string, accepted?: Layer) => void;
+  /** Retires the Legend-tab text a refused write carried: the refusal
+   * stored nothing, so the legend draws the stored text again. */
+  retireLegendLive: (layerId: string, refused: Record<string, unknown>) => void;
 }) {
   const drafts = useMemo(() => new BuilderDrafts(), []);
   const stale = useSyncExternalStore(sequence.subscribe, sequence.snapshot, sequence.snapshot);
@@ -517,6 +521,7 @@ export function useMutationLane({
           // stale refusal keeps it for copying.
           if (sequence.stale) return null;
           drafts.discard(ticket);
+          retireLegendLive(layerId, body);
           if (reloadEpochRef.current === epoch && serverMapRef.current) {
             const truth = drafts.apply(serverMapRef.current);
             setMap(shown => shown ? withoutRefusedLayerWrite(shown, truth, layerId) : shown);
@@ -566,6 +571,7 @@ export function useMutationLane({
       fail,
           reloadEpochRef,
       rendersRef,
+      retireLegendLive,
     ],
   );
 
