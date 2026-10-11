@@ -229,6 +229,29 @@ describe("the rules every template must meet", () => {
   });
 });
 
+describe("a workflow example's step list in its facts", () => {
+  it("is the workflow's own, what each step reads included, by the parse for a SQL step and by its input for a verb", async () => {
+    expect(await ruleFailed({ kind: "workflow", edit: SEEDS.stepFactsReadsSql })).toBe("template_invalid");
+    expect(await ruleFailed({ kind: "workflow", edit: SEEDS.stepFactsReadsDeclared })).toBe("template_invalid");
+  });
+
+  it("names the step and both sets of reads", async () => {
+    const template = await build({ kind: "workflow", edit: SEEDS.stepFactsReadsSql });
+    const scratch = path.join(dir, "install-reads");
+    await mkdir(scratch);
+    const expected = { id: template.facts.id, version: template.facts.version, size: template.size, sha256: template.sha256 };
+    await expect(installTemplateArchive(scope, scratch, template.archive, expected, { kind: "shipped" })).rejects.toThrow(
+      'The facts list step 1 ("step-busy") as reading districts; the workflow\'s step reads stations.',
+    );
+  });
+
+  it("refuses a step reading outside the template as the reference it is, before the facts are compared", async () => {
+    // The seed changes the step's SQL alone: its facts still say it reads
+    // the stations, so the comparison would refuse it too, under another code.
+    expect(await ruleFailed({ kind: "workflow", edit: SEEDS.stepReferenceOutside })).toBe("template_reference_outside");
+  });
+});
+
 describe("NOTICE against the shipped set", () => {
   const facts = (over: Partial<TemplateFacts> = {}): TemplateFacts => ({
     formatVersion: 1, id: "harbour-stations", version: 2, kind: "map", title: "Harbour stations",

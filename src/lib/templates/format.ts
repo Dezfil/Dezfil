@@ -65,6 +65,20 @@ export interface TemplateSource {
   credit: string;
 }
 
+/** One step of a workflow example as its card draws the graph: the
+ * workflow document's own, in its order. */
+export interface TemplateStep {
+  /** The step's id in the workflow document. */
+  id: string;
+  /** The operation it runs, by its id in the operation catalogue. */
+  operation: string;
+  /** The name of the dataset it makes, as one is stored. */
+  output: string;
+  /** The names it reads, as a run reads them: datasets of the template and
+   * earlier steps' outputs. */
+  reads: string[];
+}
+
 export interface TemplateDatasetLine {
   /** A dataset of the version, by its name in the manifest. */
   dataset: string;
@@ -95,11 +109,20 @@ export interface TemplateFacts {
     /** The styling choices, one line each. */
     styling: string[];
   };
+  /** A workflow example's steps in their order; a map template has none. */
+  steps?: TemplateStep[];
   /** The picture file per theme, under the pictures folder. */
   pictures: Record<TemplateTheme, string>;
 }
 
 const ID = /^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$/;
+/** An id the copy rebinds and a file may be named by: no separator, no
+ * dot, nothing a path could be built from. A step's and a layer's. */
+export const TEMPLATE_PART_ID = /^[A-Za-z0-9_-]{1,64}$/;
+/** A dataset's or an output's name as one is stored. */
+const STORED_NAME = /^[a-z][a-z0-9_]{0,127}$/;
+/** An operation's id in the operation catalogue. */
+const OPERATION = /^[a-z][a-z0-9_]{0,63}$/;
 /** Words the API's template paths take beside an id. */
 export const RESERVED_IDS = ["refresh", "downloads"] as const;
 const DATA_DATE = /^\d{4}(?:-(?:0[1-9]|1[0-2])(?:-(?:0[1-9]|[12]\d|3[01]))?)?$/;
@@ -163,6 +186,58 @@ function datasetLine(value: unknown, at: string): Problem {
 }
 
 /**
+ * A workflow example's step list: each step once, its output a name no
+ * dataset or earlier step has, reading only the template's datasets (the
+ * ones a line of how it is made names) and earlier steps' outputs, so the
+ * graph a card draws from it has no source outside the template. A map
+ * template lists none. Whether the list is the workflow's own is the
+ * admission's to hold, against the workflow document.
+ */
+function stepsProblem(value: Record<string, unknown>, datasets: ReadonlySet<string>): Problem {
+  if (value.kind !== "workflow") return "steps" in value ? "A map template's facts list no steps." : null;
+  if (!("steps" in value)) return "A workflow example's facts must list its steps.";
+  const steps = list(value.steps, "steps", 1, TEMPLATE_STEPS_MAX);
+  if (steps) return steps;
+  const keys = ["id", "operation", "output", "reads"] as const;
+  const ids = new Set<string>();
+  const outputs = new Set<string>();
+  for (const [i, raw] of (value.steps as unknown[]).entries()) {
+    const at = `steps[${i}]`;
+    if (!isObject(raw)) return `${at} must be an object.`;
+    const shape = closed(raw, keys, at);
+    if (shape) return shape;
+    for (const key of keys) {
+      if (!(key in raw)) return `${at} has no "${key}".`;
+    }
+    if (typeof raw.id !== "string" || !TEMPLATE_PART_ID.test(raw.id)) {
+      return `${at}.id must be letters, digits, hyphens and underscores, at most 64 characters.`;
+    }
+    if (ids.has(raw.id)) return `steps names the step "${raw.id}" twice.`;
+    if (typeof raw.operation !== "string" || !OPERATION.test(raw.operation)) {
+      return `${at}.operation must be an operation's id.`;
+    }
+    if (typeof raw.output !== "string" || !STORED_NAME.test(raw.output)) {
+      return `${at}.output must be a dataset name as one is stored.`;
+    }
+    if (datasets.has(raw.output) || outputs.has(raw.output)) {
+      return `${at}.output names "${raw.output}", which a dataset or an earlier step already has.`;
+    }
+    const reads = list(raw.reads, `${at}.reads`, 0, 2 * TEMPLATE_STEPS_MAX);
+    if (reads) return reads;
+    for (const read of raw.reads as unknown[]) {
+      if (typeof read !== "string" || !STORED_NAME.test(read)) return `${at}.reads must list names as they are stored.`;
+      if (!datasets.has(read) && !outputs.has(read)) {
+        return `${at}.reads names "${read}", which is neither a dataset of the template nor an earlier step's output.`;
+      }
+    }
+    if (new Set(raw.reads as string[]).size !== (raw.reads as string[]).length) return `${at}.reads names one dataset twice.`;
+    ids.add(raw.id);
+    outputs.add(raw.output);
+  }
+  return null;
+}
+
+/**
  * The first problem with a facts document, or null when it has the
  * format's shape. Closed throughout: a field the format does not name is a
  * problem, so nothing rides along unread. The format version is the
@@ -175,7 +250,7 @@ export function factsProblem(value: unknown): Problem {
     "formatVersion", "id", "version", "kind", "title", "question", "place",
     "tags", "dataDate", "sources", "howMade", "pictures",
   ] as const;
-  const shape = closed(value, keys, "The facts");
+  const shape = closed(value, [...keys, "steps"], "The facts");
   if (shape) return shape;
   for (const key of keys) {
     if (!(key in value)) return `The facts have no "${key}".`;
@@ -237,6 +312,8 @@ export function factsProblem(value: unknown): Problem {
     const problem = text(line, `howMade.styling[${i}]`, 300);
     if (problem) return problem;
   }
+  const steps = stepsProblem(value, new Set((howMade.datasets as TemplateDatasetLine[]).map((line) => line.dataset)));
+  if (steps) return steps;
   const pictures = value.pictures;
   if (!isObject(pictures)) return "pictures must name a file per theme.";
   const pictureShape = closed(pictures, TEMPLATE_THEMES, "pictures");

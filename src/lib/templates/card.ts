@@ -1,4 +1,4 @@
-import type { TemplateFacts, TemplateKind, TemplateSource, TemplateTag } from "./format";
+import type { TemplateFacts, TemplateKind, TemplateSource, TemplateStep, TemplateTag } from "./format";
 
 /**
  * What the template list answers, as data: one card per template and the
@@ -64,6 +64,10 @@ export interface TemplateCard {
   tags: TemplateTag[];
   dataDate: string;
   sources: TemplateSource[];
+  /** A workflow example's steps in their order, each with what it runs,
+   * makes and reads, as the Workflows page draws a workflow's graph; null
+   * for a map template. */
+  steps: TemplateStep[] | null;
   /** Shipped in the image, or listed by the catalogue. */
   origin: "shipped" | "catalogue";
   /** The version installed on this server, or null. */

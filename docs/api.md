@@ -1214,7 +1214,10 @@ nothing: the shipped templates first, in the image's order, then the entries
 of the catalogue list this process last read, in its index's order (a shipped
 id wins over an entry naming it), then the downloaded templates that list does
 not name. Each card carries the template's facts (`id`, `kind`, `title`,
-`question`, `place`, `tags`, `dataDate`, `sources`), the `version` an open or
+`question`, `place`, `tags`, `dataDate`, `sources`, and for a workflow example
+its `steps` in order, each with its `id`, the `operation` it runs, the `output`
+it makes and the names it `reads`, so its graph draws before it is downloaded;
+`steps` is null for a map template), the `version` an open or
 a copy begun now takes, `origin` (`shipped` or `catalogue`), the `installed`
 and `listed` versions, `present` (false when an open would download it),
 `size` and whether its `picture` is `kept`, `not_kept` or `too_large`. An
@@ -1255,7 +1258,8 @@ against the index as it lands; then it is unpacked and admitted as a client's
 documents are, every dataset and bundled result read through the upload's
 reader (what it measured is recorded), every layer's SQL, columns, widgets
 and timeline and every step bound to the template's own data and the results
-of earlier steps, nothing else; and only then moved into place under the data
+of earlier steps, nothing else, a workflow example's step list in its facts
+the workflow's own, what each step reads included; and only then moved into place under the data
 folder's `templates/<id>/<version>/`. Two calls for one version download it
 once, and downloads run one at a time on this instance; a download waiting
 its turn when an admin turns the catalogue off or moves it sends nothing. A

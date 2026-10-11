@@ -13,6 +13,7 @@ import {
 import { styleProblem, type LayerStyle } from "@/lib/style/style";
 import type { LayerFilter, LayerViz, LegendAttrs } from "@/lib/viz";
 import type { MapWidget } from "@/lib/widgets";
+import { TEMPLATE_PART_ID } from "./format";
 import { refuse } from "./refusals";
 
 /**
@@ -26,9 +27,7 @@ import { refuse } from "./refusals";
 const isObject = (v: unknown): v is Record<string, unknown> =>
   typeof v === "object" && v !== null && !Array.isArray(v);
 
-/** An id the copy rebinds and a file may be named by: no separator, no
- * dot, nothing a path could be built from. */
-export const TEMPLATE_PART_ID = /^[A-Za-z0-9_-]{1,64}$/;
+export { TEMPLATE_PART_ID };
 
 export function invalidDocument(message: string): never {
   return refuse("template_invalid", message);

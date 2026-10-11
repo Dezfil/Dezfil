@@ -185,6 +185,13 @@ describe("the first stage of the admission", () => {
     ["a step without its bundled result", "missingResult", "template_members_mismatch", "workflow"],
     ["two steps declaring one result", "duplicateOutput", "template_invalid", "workflow"],
     ["a layout note the canvas does not draw", "invalidLayoutNote", "template_invalid", "workflow"],
+    ["a workflow example's facts listing no steps", "factsWithoutSteps", "template_invalid", "workflow"],
+    ["a map template's facts listing a step", "mapFactsWithSteps", "template_invalid", "map"],
+    ["a step in the facts reading what the template does not hold", "stepFactsReadUnknown", "template_invalid", "workflow"],
+    ["the facts listing a step under another id", "stepFactsId", "template_invalid", "workflow"],
+    ["the facts naming another operation for a step", "stepFactsOperation", "template_invalid", "workflow"],
+    ["the facts naming another output for a step", "stepFactsOutput", "template_invalid", "workflow"],
+    ["the facts listing fewer steps than the workflow", "stepFactsMissingStep", "template_invalid", "workflow"],
   ];
 
   it.each(documentCases)("refuses %s, from the archive and from the installed form", async (_what, seed, code, kind) => {
@@ -200,6 +207,22 @@ describe("the first stage of the admission", () => {
     const built = await build({ kind: "workflow", edit: SEEDS.geocodingStep });
     const refusal = await refusalOf(admitTemplateFolder(built.folder));
     expect(refusal.message).toMatch(/reaches an outside service/);
+  });
+
+  it("names the step whose facts the workflow does not hold, and what differs", async () => {
+    const operation = await refusalOf(admitTemplateFolder((await build({ kind: "workflow", edit: SEEDS.stepFactsOperation })).folder));
+    expect(operation.message).toBe('The facts list step 2 ("step-rings") as running sql_step; the workflow\'s step runs buffer.');
+    const output = await refusalOf(admitTemplateFolder((await build({ kind: "workflow", edit: SEEDS.stepFactsOutput })).folder));
+    expect(output.message).toBe('The facts list step 1 ("step-busy") as making "busiest_stations"; the workflow\'s step makes "busy_stations".');
+    const count = await refusalOf(admitTemplateFolder((await build({ kind: "workflow", edit: SEEDS.stepFactsMissingStep })).folder));
+    expect(count.message).toBe("The facts list 1 step; the workflow has 2.");
+  });
+
+  it("leaves what a step reads to the second stage, which reads it as a run does: facts saying other reads pass the first", async () => {
+    for (const seed of ["stepFactsReadsSql", "stepFactsReadsDeclared"] as const) {
+      const built = await build({ kind: "workflow", edit: SEEDS[seed] });
+      await expect(admitTemplateFolder(built.folder)).resolves.toMatchObject({ facts: built.facts });
+    }
   });
 
   it("names the forbidden field and what it carries", async () => {

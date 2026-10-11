@@ -45,7 +45,8 @@ export type { AdmittedLayer, AdmittedMap } from "./map-document";
  * under the layout document's rule. A document a client could not write is
  * refused here. Beside them the reader keeps one rule of its own, the deny
  * list (deny.ts), the format's (its two versions, the closed facts and
- * manifest, every member named and present) and the rules on declared
+ * manifest, every member named and present, a workflow example's step
+ * list in its facts the workflow's own) and the rules on declared
  * metadata (rules.ts: a redistributable licence, the credit note).
  *
  * What a document means against data (a layer's SQL drawing geometry, a
@@ -270,6 +271,26 @@ function workflowOf(value: unknown, file: string, datasetNames: ReadonlySet<stri
 }
 
 /**
+ * The facts' step list, which a card draws a workflow example's graph
+ * from, is the workflow's own: each step in its order, with its id, its
+ * operation and the output it declares. What each step reads is the second
+ * stage's to hold, since a SQL step's reads take its parse.
+ */
+function stepFactsAgree(facts: TemplateFacts, workflow: AdmittedWorkflow): void {
+  const listed = facts.steps ?? [];
+  if (listed.length !== workflow.steps.length) {
+    invalid(`The facts list ${listed.length} step${listed.length === 1 ? "" : "s"}; the workflow has ${workflow.steps.length}.`);
+  }
+  workflow.steps.forEach((step, i) => {
+    const fact = listed[i];
+    if (fact.id !== step.id) invalid(`The facts list step ${i + 1} as "${fact.id}"; the workflow's step is "${step.id}".`);
+    const at = `The facts list step ${i + 1} ("${step.id}")`;
+    if (fact.operation !== step.operation) invalid(`${at} as running ${fact.operation}; the workflow's step runs ${step.operation}.`);
+    if (fact.output !== step.output) invalid(`${at} as making "${fact.output}"; the workflow's step makes "${step.output}".`);
+  });
+}
+
+/**
  * Admit a version folder's documents, or refuse it with a coded refusal
  * naming the first fault. Reads nothing but the folder, writes nothing.
  */
@@ -326,6 +347,7 @@ export async function admitTemplateFolder(
     const workflowRaw = await readDocument(folder, members, workflows[0].file, "The manifest");
     denyIn(workflowRaw, workflows[0].file);
     workflow = workflowOf(workflowRaw, workflows[0].file, datasetNames);
+    stepFactsAgree(facts, workflow);
   }
 
   // A line per dataset, each dataset once.

@@ -21,7 +21,9 @@ import { drawnFeatures, templateRenderCap } from "./render-cap";
  *
  * Each step compiles as a run would compile it, in the evaluation of a run
  * at its turn: its inputs and its SQL bind to the template's datasets and
- * the results of the steps before it, and to nothing else. Then each layer
+ * the results of the steps before it, and to nothing else, and what it
+ * reads is what the facts' step list says, the list a card draws the
+ * graph from. Then each layer
  * of the map draws a geometry from its SQL, and every column its style,
  * look, filters, tooltip, pop-up and published fields name, and every
  * column its widgets and the timeline read, is in its result, by the layer
@@ -53,6 +55,19 @@ async function underRoad<T>(where: string, work: () => Promise<T>): Promise<T> {
   }
 }
 
+const named = (reads: readonly string[]) => (reads.length === 0 ? "nothing" : reads.join(", "));
+
+/** What the facts say a step reads, for its card's graph, is what it
+ * reads: the same names, whatever their order. */
+function readsAgree(admitted: AdmittedTemplate, ordinal: number, reads: readonly string[]): void {
+  const said = [...new Set(admitted.facts.steps?.[ordinal]?.reads ?? [])].sort();
+  const read = [...new Set(reads)].sort();
+  if (said.join("\n") !== read.join("\n")) {
+    const step = admitted.workflow!.steps[ordinal];
+    refuse("template_invalid", `The facts list step ${ordinal + 1} ("${step.id}") as reading ${named(said)}; the workflow's step reads ${named(read)}.`);
+  }
+}
+
 async function admitSteps(scope: AccountScope, admitted: AdmittedTemplate, home: TemplateHome, signal?: AbortSignal): Promise<void> {
   const steps = admitted.workflow?.steps ?? [];
   const datasets = new Set(admitted.datasets.map((d) => d.name.toLowerCase()));
@@ -64,6 +79,7 @@ async function admitSteps(scope: AccountScope, admitted: AdmittedTemplate, home:
     for (const read of reads) {
       if (!datasets.has(read) && !earlier.has(read)) outside(where, read);
     }
+    readsAgree(admitted, ordinal, reads);
     const compiled = await underRoad(where, () => compileOperation(scope, step.operation, step.parameters, { evaluation }));
     if (compiled.prepare) refuse("template_invalid", `${where} needs work before it has a query, which a template's steps never do.`);
     if (compiled.sql) await underRoad(where, () => dryRun(evaluation, compiled.sql, signal, step.operation));

@@ -1,5 +1,5 @@
 import { CARD_PICTURES, CATALOGUE_REFUSALS, CATALOGUE_STATES } from "@/lib/templates/card";
-import { TEMPLATE_KINDS, TEMPLATE_TAGS, TEMPLATE_THEMES } from "@/lib/templates/format";
+import { TEMPLATE_KINDS, TEMPLATE_STEPS_MAX, TEMPLATE_TAGS, TEMPLATE_THEMES } from "@/lib/templates/format";
 import { AUTH_SECURITY } from "./openapi-auth";
 import { ERROR_RESPONSE, jsonOk, op } from "./openapi-helpers";
 import { ownedCreationOp } from "./openapi-owned-creation";
@@ -34,6 +34,17 @@ const CARD = {
   tags: { type: "array", minItems: 1, maxItems: 3, items: { type: "string", enum: [...TEMPLATE_TAGS] }, description: "One to three tags from a closed list." },
   dataDate: { type: "string", pattern: "^\\d{4}(-\\d{2}(-\\d{2})?)?$", description: "The data's date: a year, a month or a day." },
   sources: { type: "array", minItems: 1, items: { $ref: "#/components/schemas/TemplateSource" }, description: "Every source of its data, with its licence and the credit it asks for." },
+  steps: {
+    type: ["array", "null"], minItems: 1, maxItems: TEMPLATE_STEPS_MAX,
+    items: object({
+      id: text("The step's id in the template's workflow."),
+      operation: text("The operation it runs, by its id in the operation catalogue."),
+      output: text("The name of the dataset it makes."),
+      reads: { type: "array", items: { type: "string" },
+        description: "The names it reads: datasets of the template and earlier steps' outputs, never anything outside the template." },
+    }),
+    description: "A workflow example's steps in their order, as its workflow holds them, so its graph can be drawn before it is downloaded; null for a map template.",
+  },
   origin: { type: "string", enum: ["shipped", "catalogue"], description: "shipped: in this instance's image, working with no network; catalogue: listed by the template catalogue." },
   installed: { type: ["integer", "null"], minimum: 1, description: "The version installed on this server (shipped or downloaded), or null." },
   listed: { type: ["integer", "null"], minimum: 1, description: "The newest version the catalogue's last list names, or null." },

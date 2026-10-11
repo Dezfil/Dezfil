@@ -204,6 +204,16 @@ export async function fixtureFiles(options: TemplateFixtureOptions = {}): Promis
       ],
       styling: ["Stations as points in the first layer colour.", "Districts as translucent areas."],
     },
+    // A workflow example's steps as its card draws its graph: what each
+    // runs, makes and reads, the workflow document's own.
+    ...(kind === "workflow"
+      ? {
+          steps: [
+            { id: "step-busy", operation: "sql_step", output: "busy_stations", reads: ["stations"] },
+            { id: "step-rings", operation: "buffer", output: "station_rings", reads: ["busy_stations"] },
+          ],
+        }
+      : {}),
     pictures: { light: "pictures/light.png", dark: "pictures/dark.png" },
   };
   documents.set(FACTS_FILE, facts as unknown as Record<string, unknown>);
@@ -367,6 +377,8 @@ const map = (files: TemplateFiles) => files.documents.get("maps/map.json")!;
 const workflow = (files: TemplateFiles) => files.documents.get("workflows/workflow.json")!;
 const facts = (files: TemplateFiles) => files.documents.get(FACTS_FILE)!;
 const manifest = (files: TemplateFiles) => files.documents.get(MANIFEST_FILE)!;
+const factSteps = (files: TemplateFiles) =>
+  facts(files).steps as { id: string; operation: string; output: string; reads: string[] }[];
 
 /**
  * Named seeds, each one fault of the admission's, for a test to build a
@@ -492,6 +504,34 @@ export const SEEDS = {
     const layout = workflow(files).layout as { notes: Record<string, unknown>[] };
     layout.notes[0].color = "seeded-colour";
   },
+  /** A workflow example's facts listing no steps. */
+  factsWithoutSteps: (files: TemplateFiles) => { delete facts(files).steps; },
+  /** A map template's facts listing a step. */
+  mapFactsWithSteps: (files: TemplateFiles) => {
+    facts(files).steps = [{ id: "step-busy", operation: "sql_step", output: "busy_stations", reads: ["stations"] }];
+  },
+  /** A step in the facts reading a name that is neither a dataset of the
+   * template nor an earlier step's output. */
+  stepFactsReadUnknown: (files: TemplateFiles) => { factSteps(files)[0].reads = ["roads"]; },
+  /** The facts listing the first step under another id than the workflow's. */
+  stepFactsId: (files: TemplateFiles) => { factSteps(files)[0].id = "step-first"; },
+  /** The facts naming the second step's operation as another. */
+  stepFactsOperation: (files: TemplateFiles) => { factSteps(files)[1].operation = "sql_step"; },
+  /** The facts naming the first step's output, and what reads it, by
+   * another name than the workflow declares. */
+  stepFactsOutput: (files: TemplateFiles) => {
+    const steps = factSteps(files);
+    steps[0].output = "busiest_stations";
+    steps[1].reads = ["busiest_stations"];
+  },
+  /** The facts listing the first of the workflow's two steps alone. */
+  stepFactsMissingStep: (files: TemplateFiles) => { facts(files).steps = factSteps(files).slice(0, 1); },
+  /** The facts saying the SQL step reads the districts, which it does not:
+   * only its parse can tell. */
+  stepFactsReadsSql: (files: TemplateFiles) => { factSteps(files)[0].reads = ["districts"]; },
+  /** The facts saying the buffer reads the stations, where its input is
+   * the first step's output. */
+  stepFactsReadsDeclared: (files: TemplateFiles) => { factSteps(files)[1].reads = ["stations"]; },
 } as const satisfies Record<string, (files: TemplateFiles) => void>;
 
 /** Archive-level seeds: the shapes of the container a reader must refuse. */

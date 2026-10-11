@@ -4,6 +4,8 @@ import type { AddressInfo } from "node:net";
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import path from "node:path";
 import { ApiError } from "@/lib/api/errors";
+import { buildOpenApiDocument } from "@/lib/api/openapi";
+import { validateAgainstSchema } from "@/lib/export/schema-validate";
 import { egressBlockedError } from "@/lib/net/egress";
 import { resetSecretKeyCache } from "@/lib/secrets";
 import { testService } from "@/lib/settings/service-tests";
@@ -12,7 +14,7 @@ import { keepRequestsOnThisMachine } from "@/lib/test-support/outside-requests";
 import { instanceSettingsFixture } from "../../../test-support/instance-settings";
 import { buildTemplate, installFixture, writeShippedFolder, type BuiltTemplate } from "../../../test-support/templates/builder";
 import { startLoopbackCatalogue, writeFolderCatalogue, type LoopbackCatalogue } from "../../../test-support/templates/catalogue";
-import type { TemplateCard } from "./card";
+import type { TemplateCard, TemplateList } from "./card";
 import {
   listTemplates,
   readTemplate,
@@ -98,7 +100,7 @@ describe("the list", () => {
     expect(ids(list.templates)).toEqual(["quiet-park@1", "busy-stations@1"]);
     expect(list.templates[0]).toEqual({
       id: "quiet-park", kind: "map", version: 1, title: "Quiet park", question: C1.facts.question, place: C1.facts.place,
-      tags: C1.facts.tags, dataDate: C1.facts.dataDate, sources: C1.facts.sources, origin: "shipped", installed: 1, listed: null,
+      tags: C1.facts.tags, dataDate: C1.facts.dataDate, sources: C1.facts.sources, steps: null, origin: "shipped", installed: 1, listed: null,
       present: true, size: C1.size, picture: "kept",
     });
     expect(list.templates[1]).toMatchObject({ origin: "catalogue", installed: 1, listed: null, present: true, size: B1.size, kind: "workflow" });
@@ -114,7 +116,7 @@ describe("the list", () => {
     expect(ids(list.templates)).toEqual(["quiet-park@1", "harbour-stations@1", "busy-stations@1"]);
     expect(list.templates[1]).toEqual({
       id: "harbour-stations", kind: "map", version: 1, title: A1.facts.title, question: A1.facts.question, place: A1.facts.place,
-      tags: A1.facts.tags, dataDate: A1.facts.dataDate, sources: A1.facts.sources, origin: "catalogue", installed: null, listed: 1,
+      tags: A1.facts.tags, dataDate: A1.facts.dataDate, sources: A1.facts.sources, steps: null, origin: "catalogue", installed: null, listed: 1,
       present: false, size: A1.size, picture: "kept",
     });
     expect(list.catalogue).toMatchObject({ state: "listed", host: catalogue.origin, folder: false, reason: null, status: null });
@@ -153,6 +155,36 @@ describe("the list", () => {
     const [card] = (await refreshCatalogue(f.db)).templates;
     expect(card).toMatchObject({ id: "busy-stations", version: 2, title: B2.facts.title, installed: 1, listed: 2, present: false, size: B2.size, picture: "kept" });
     expect(await templatePicture("busy-stations", "light", f.db)).toEqual(B2.files.binaries.get("pictures/light.png"));
+  });
+
+  it("carries a workflow example's steps on its card and its read, listed before it is downloaded and once it is, and none on a map template's", async () => {
+    // The fixture's workflow, stated here: a SQL step over the stations,
+    // then a buffer of its output.
+    const steps = [
+      { id: "step-busy", operation: "sql_step", output: "busy_stations", reads: ["stations"] },
+      { id: "step-rings", operation: "buffer", output: "station_rings", reads: ["busy_stations"] },
+    ];
+    await ship(C1);
+    await catalogue.publish([A1, B1]);
+    const listed = await refreshCatalogue(f.db);
+    const card = (id: string, list: TemplateList) => list.templates.find((c) => c.id === id)!;
+    expect(card("busy-stations", listed)).toMatchObject({ kind: "workflow", present: false, steps });
+    expect(card("harbour-stations", listed).steps).toBeNull();
+    expect(card("quiet-park", listed).steps).toBeNull();
+    expect(await readTemplate("busy-stations", f.db)).toMatchObject({ present: false, steps });
+    expect(await readTemplate("harbour-stations", f.db)).toMatchObject({ steps: null });
+
+    await download(B1);
+    const installed = await listTemplates(f.db);
+    expect(card("busy-stations", installed)).toMatchObject({ present: true, installed: 1, steps });
+    expect(await readTemplate("busy-stations", f.db)).toMatchObject({ present: true, steps });
+
+    // Each answer is the shape the API describes, steps and all.
+    const schemas = buildOpenApiDocument().components.schemas as Record<string, Record<string, unknown>>;
+    expect(validateAgainstSchema(listed, schemas.TemplateList, "$", schemas)).toEqual([]);
+    expect(validateAgainstSchema(installed, schemas.TemplateList, "$", schemas)).toEqual([]);
+    expect(validateAgainstSchema(await readTemplate("busy-stations", f.db), schemas.TemplateDetail, "$", schemas)).toEqual([]);
+    expect(validateAgainstSchema(await readTemplate("harbour-stations", f.db), schemas.TemplateDetail, "$", schemas)).toEqual([]);
   });
 
   it("reads one template with how it is made, and refuses an id no template has", async () => {
@@ -224,6 +256,8 @@ describe("the index's refusals, each coded and refusing it whole", () => {
     ["a picture on another host", (index) => { index.templates[0].pictures.dark = "http://127.0.0.1:9/pictures/dark.png"; }, "template_address_outside"],
     ["a scheme that is not the web's", (index) => { index.templates[0].archive = "file:///etc/passwd"; }, "template_address_outside"],
     ["facts the format does not admit", (index) => { (index.templates[1].facts as { tags: string[] }).tags = ["Unknown"]; }, "template_index_invalid"],
+    ["a workflow example's facts listing no steps", (index) => { delete index.templates[1].facts.steps; }, "template_index_invalid"],
+    ["a step reading what the template does not hold", (index) => { index.templates[1].facts.steps![1].reads = ["roads"]; }, "template_index_invalid"],
     ["an id the API's paths take as a word", (index) => { index.templates[1].facts.id = "refresh"; }, "template_index_invalid"],
     ["an index format this server does not read", (index) => { index.formatVersion = 2; }, "template_index_invalid"],
     ["a size past the archive bound", (index) => { index.templates[0].size = 151 * 1024 * 1024; }, "template_index_invalid"],

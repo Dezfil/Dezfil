@@ -495,6 +495,7 @@ function card(facts: TemplateFacts, fields: Pick<TemplateCard, "origin" | "insta
   return {
     id: facts.id, kind: facts.kind, version: facts.version, title: facts.title, question: facts.question,
     place: facts.place, tags: [...facts.tags], dataDate: facts.dataDate, sources: facts.sources.map((s) => ({ ...s })),
+    steps: facts.kind === "workflow" ? (facts.steps ?? []).map((s) => ({ ...s, reads: [...s.reads] })) : null,
     ...fields,
   };
 }
