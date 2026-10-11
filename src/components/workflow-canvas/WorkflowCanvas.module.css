@@ -624,9 +624,9 @@
   min-height: 0;
   border-radius: var(--radius-card);
   overflow: hidden;
-  background: color-mix(in srgb, var(--bg-panel) 93%, transparent);
-  backdrop-filter: blur(18px);
-  box-shadow: 0 3px 12px var(--shadow);
+  background: var(--surface-glass-panel-fill);
+  backdrop-filter: var(--surface-glass-panel-blur);
+  box-shadow: var(--surface-glass-panel-shadow);
 }
 
 .paneTabs {
@@ -1094,10 +1094,9 @@ button.tableRow {
   min-height: 0;
   border-radius: var(--radius-card);
   overflow: hidden;
-  background: color-mix(in srgb, var(--bg-panel) 93%, transparent);
-  backdrop-filter: blur(18px);
-  border: 1px solid color-mix(in srgb, var(--border-strong) 55%, transparent);
-  box-shadow: 0 3px 12px var(--shadow);
+  background: var(--surface-glass-panel-fill);
+  backdrop-filter: var(--surface-glass-panel-blur);
+  box-shadow: var(--surface-glass-panel-shadow);
   animation: inspIn var(--dur-panel) var(--ease-panel);
 }
 

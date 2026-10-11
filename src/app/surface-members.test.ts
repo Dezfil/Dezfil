@@ -23,7 +23,7 @@ const STEP = {
 } as const;
 
 /** The last step whose members read their role. */
-const MOVED_THROUGH = 4;
+const MOVED_THROUGH = 5;
 
 const C = "src/components/";
 const LAYOUT = "src/app/(workspace)/layout.module.css";
@@ -283,6 +283,16 @@ describe("the members of each role", () => {
   it("read a step where they are a button or a named exception, once their step has moved", () => {
     const moved = DIRECT.filter(direct => direct.step <= MOVED_THROUGH);
     expect(moved.flatMap(direct => directProblems(direct, read(direct.file)))).toEqual([]);
+  });
+
+  it("dress the Assistant pane by composing the Tools drawer, open and closed, with no surface value of its own", () => {
+    if (STEP.panel > MOVED_THROUGH) return;
+    const pane = read(C + "builder/assistant/AssistantPane.module.css");
+    expect(declarations(pane, ".pane")).toContainEqual(["composes", 'drawer from "../drawer/RecipeDrawer.module.css"']);
+    const own = pane.replace(/\/\*[\s\S]*?\*\//g, "").match(/([^{}]+)\{([^{}]*)\}/g) ?? [];
+    expect(own.filter(rule => /^\s*\.pane\b/.test(rule) && /(background|backdrop-filter|border|box-shadow)\s*:/.test(rule))).toEqual([]);
+    const drawer = MEMBERS.find(member => member.selector === ".drawer")!;
+    expect(memberProblems(drawer, read(drawer.file))).toEqual([]);
   });
 
   it("read no role at all until theirs moves, so a half-made move shows", () => {
