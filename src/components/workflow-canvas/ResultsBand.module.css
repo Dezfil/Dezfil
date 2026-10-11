@@ -404,10 +404,10 @@
   gap: 16px;
   align-items: center;
   padding: 7px 15px;
-  background: color-mix(in srgb, var(--bg-panel) 93%, transparent);
-  backdrop-filter: blur(8px);
+  background: var(--surface-overlay-panel-fill);
+  backdrop-filter: var(--surface-overlay-panel-blur);
   border-radius: var(--radius-pill);
-  box-shadow: 0 3px 12px var(--shadow);
+  box-shadow: var(--surface-overlay-panel-shadow);
   font-family: var(--font-mono);
   font-size: var(--text-meta);
   color: var(--fg-muted);

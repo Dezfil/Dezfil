@@ -461,10 +461,10 @@
   transform: translateX(-50%);
   pointer-events: none;
   padding: 5px 9px;
-  border: 1px solid var(--border-strong);
   border-radius: 999px;
-  background: color-mix(in srgb, var(--bg-raised) 90%, transparent);
-  box-shadow: 0 4px 14px var(--shadow);
+  background: var(--surface-overlay-panel-fill);
+  backdrop-filter: var(--surface-overlay-panel-blur);
+  box-shadow: var(--surface-overlay-panel-shadow);
   color: var(--fg-muted);
   /* Status prose: the UI face since 0075. */
   font-family: var(--font-ui);

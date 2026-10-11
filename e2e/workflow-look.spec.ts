@@ -241,9 +241,11 @@ async function expectHistoryStates(page: Page, where: string) {
  * The reference draws it with `wf-kit.css`'s `.statusPill`: the pill
  * radius, 32px tall, 15px of side padding, the panel ground at 93% under
  * an 8px blur with the kit's shadow, the muted ink, and the danger ink in
- * the bad tone. The app's own named differences are its width cap and the
- * foot it keeps above the results band, so the box is measured for its
- * ink, its glass and its centring, never for its width. */
+ * the bad tone. The app's own named differences are its width cap, the
+ * foot it keeps above the results band and its shadow: read over the
+ * canvas, it is an overlay panel like the legend and carries the legend's
+ * overlay shadow. The box is measured for its ink, its glass and its
+ * centring, never for its width. */
 async function expectNotice(page: Page, where: string, text: string, tone?: "bad") {
   const el = page.locator("[data-canvas-notice]");
   await expect.soft(el, `${where} reads its step`).toHaveText(text);
@@ -253,7 +255,7 @@ async function expectNotice(page: Page, where: string, text: string, tone?: "bad
   expect.soft(await style(el, "padding-left"), `${where} keeps the reference's side padding`).toBe("15px");
   expect.soft(await style(el, "padding-right"), `${where} keeps the reference's side padding`).toBe("15px");
   expect.soft(await style(el, "background-color"), `${where} is the panel ground at the reference's 93%`).toBe(await resolved(page, "color-mix(in srgb, var(--bg-panel) 93%, transparent)"));
-  expect.soft(await style(el, "box-shadow"), `${where} carries the reference's shadow`).toContain("0px 3px 12px");
+  expect.soft(await style(el, "box-shadow"), `${where} carries the overlay shadow, as the legend does`).toContain("0px 8px 26px");
   expect.soft(await style(el, "color"), `${where} reads in the ${tone === "bad" ? "danger" : "muted"} ink`).toBe(await token(page, tone === "bad" ? "--danger" : "--fg-muted"));
   // Centred in the area the overlays leave free, as the reference centres
   // its pill on its own `--ov-shift`: in full view the pane floats over

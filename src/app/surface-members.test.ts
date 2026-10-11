@@ -23,7 +23,7 @@ const STEP = {
 } as const;
 
 /** The last step whose members read their role. */
-const MOVED_THROUGH = 5;
+const MOVED_THROUGH = 6;
 
 const C = "src/components/";
 const LAYOUT = "src/app/(workspace)/layout.module.css";
@@ -56,6 +56,11 @@ export const DIRECT: Direct[] = [
   { step: STEP.chrome, file: C + "workflow-canvas/WorkflowCanvas.module.css", selector: ".runChrome .runAction[data-run-action]", property: "box-shadow", value: "var(--shadow-float)", what: "Run all" },
   { step: STEP.chrome, file: C + "gallery.module.css", selector: ".ghost .plus", property: "box-shadow", value: "var(--shadow-float)", what: "the create tile's disc, the face of the New button" },
   { step: STEP.chrome, file: C + "projects/EmptyHome.module.css", selector: ".plateGlyph", property: "box-shadow", value: "var(--shadow-float)", what: "the empty project's glyph, the same face" },
+  {
+    step: STEP.overlay, file: C + "viewer/PublishedView.module.css", selector: ".attribution", property: "background", value: "color-mix(in srgb, var(--bg) 55%, transparent)",
+    what: "a published page's credit chip keeps its ground-tone fill",
+  },
+  { step: STEP.overlay, file: C + "viewer/PublishedView.module.css", selector: ".attribution", property: "backdrop-filter", value: "var(--blur-overlay)", what: "a published page's credit chip takes the overlay strength" },
 ];
 
 export const MEMBERS: Member[] = [
@@ -293,6 +298,26 @@ describe("the members of each role", () => {
     expect(own.filter(rule => /^\s*\.pane\b/.test(rule) && /(background|backdrop-filter|border|box-shadow)\s*:/.test(rule))).toEqual([]);
     const drawer = MEMBERS.find(member => member.selector === ".drawer")!;
     expect(memberProblems(drawer, read(drawer.file))).toEqual([]);
+  });
+
+  it("draw the legend from its role at today's legend values to the digit, so an image of it stays as it was", () => {
+    if (STEP.overlay > MOVED_THROUGH) return;
+    // The block's own tokens, each reference inside it written out: the role
+    // as an image's default scope computes it, against that scope's tones.
+    const globals = read("src/app/globals.css").replace(/\/\*[\s\S]*?\*\//g, "");
+    const body = [...globals.matchAll(/([^{}]+)\{([^{}]*)\}/g)].find(([, selectors]) => selectors.includes("[data-look-default]"))![2];
+    const tokens = new Map([...body.matchAll(/(--[\w-]+)\s*:\s*([^;]+);/g)].map(([, name, value]) => [name, value.trim()]));
+    const resolve = (value: string): string => value.replace(/var\((--[\w-]+)\)/g, (whole, name: string) => (tokens.has(name) ? resolve(tokens.get(name)!) : whole));
+    const legend = Object.fromEntries(declarations(read(C + "map/LegendPanel.module.css"), ".legend")!);
+    expect({ background: legend.background, "backdrop-filter": legend["backdrop-filter"], "box-shadow": legend["box-shadow"] }).toEqual({
+      background: "var(--surface-overlay-panel-fill)", "backdrop-filter": "var(--surface-overlay-panel-blur)", "box-shadow": "var(--surface-overlay-panel-shadow)",
+    });
+    // The legend as it was drawn before it read a role, written out here.
+    expect(resolve(legend.background)).toBe("color-mix(in srgb, var(--bg-panel) 93%, transparent)");
+    expect(resolve(legend["backdrop-filter"])).toBe("blur(8px)");
+    expect(resolve(legend["box-shadow"])).toBe("0 8px 26px var(--shadow)");
+    expect(legend["border-radius"]).toBe("var(--radius-legend)");
+    expect(legend.border).toBeUndefined();
   });
 
   it("read no role at all until theirs moves, so a half-made move shows", () => {

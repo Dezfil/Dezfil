@@ -833,12 +833,12 @@
   gap: 12px;
   padding: 5px 10px;
   border-radius: var(--radius);
-  background: color-mix(in srgb, var(--bg-panel) 88%, transparent);
-  border: 1px solid var(--border);
+  background: var(--surface-overlay-panel-fill);
   font-family: var(--font-mono);
   font-size: 10.5px;
   color: var(--fg-muted);
-  backdrop-filter: blur(8px);
+  backdrop-filter: var(--surface-overlay-panel-blur);
+  box-shadow: var(--surface-overlay-panel-shadow);
 }
 .mapTip {
   position: absolute;

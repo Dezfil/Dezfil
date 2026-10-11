@@ -440,9 +440,9 @@
   display: inline-flex;
   align-items: center;
   text-align: center;
-  background: color-mix(in srgb, var(--bg-panel) 93%, transparent);
-  backdrop-filter: blur(8px);
-  box-shadow: 0 3px 12px var(--shadow);
+  background: var(--surface-overlay-panel-fill);
+  backdrop-filter: var(--surface-overlay-panel-blur);
+  box-shadow: var(--surface-overlay-panel-shadow);
   font-size: var(--text-label);
   color: var(--fg-muted);
   pointer-events: none;
@@ -939,9 +939,9 @@ button.tableRow {
   width: 180px;
   height: 112px;
   border-radius: var(--radius-lg);
-  background: color-mix(in srgb, var(--bg-panel) 92%, transparent);
-  border: 1px solid var(--border);
-  box-shadow: 0 3px 12px var(--shadow);
+  background: var(--surface-overlay-panel-fill);
+  backdrop-filter: var(--surface-overlay-panel-blur);
+  box-shadow: var(--surface-overlay-panel-shadow);
   cursor: pointer;
   touch-action: none;
 }
