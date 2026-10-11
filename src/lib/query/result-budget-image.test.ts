@@ -16,10 +16,12 @@ function groupAlive(leader: number): boolean {
 }
 
 /** For the run that does not end: a docker double that notes its own id at
- * `note` on its first call and then gives no answer for a few seconds,
- * failing every later call at once, and a hook told the shell's id and the
- * scratch folder once the run starts. The double's life is bounded, so a
- * run whose runner is itself interrupted leaves nothing for longer. */
+ * `note` on its first call and then gives no answer for a minute, failing
+ * every later call at once, and a hook told the shell's id and the scratch
+ * folder once the run starts. A minute outlasts the case's 30-second hang
+ * guard, so a driver that does not end the run's whole group fails the
+ * case rather than waiting the double out; it is still bounded, so a run
+ * whose runner is itself interrupted leaves nothing for longer. */
 interface NeverAnswering { note: string; started: (run: { shell: number; directory: string }) => void }
 
 /** One run of the driver over the command doubles. The run keeps no clock
@@ -51,7 +53,7 @@ async function driver(context: Pick<TestContext, "signal" | "onTestFinished">, r
     }
     if (neverAnswering) {
       const note = neverAnswering.note;
-      writeFileSync(join(directory, "docker"), `#!/bin/sh\nif [ -e '${note}' ]; then exit 1; fi\necho $$ > '${note}.tmp' && mv '${note}.tmp' '${note}'\n/bin/sleep 5\nexit 1\n`, { mode: 0o755 });
+      writeFileSync(join(directory, "docker"), `#!/bin/sh\nif [ -e '${note}' ]; then exit 1; fi\necho $$ > '${note}.tmp' && mv '${note}.tmp' '${note}'\n/bin/sleep 60\nexit 1\n`, { mode: 0o755 });
     }
     run = spawn("sh", ["scripts/result-budget-image.sh", "budget-fixture:local", ...args], {
       detached: true,
@@ -149,9 +151,10 @@ it("rejects an unknown mode before starting containers", async (context) => {
 it("ends a run that gives no answer through the driver's own cleanup, leaving no process of its group and no scratch folder", async (context) => {
   // The run is ended by its abort signal, the path the case's timeout and a
   // cancelled run take into the same cleanup as the case's end, and the
-  // driver settles only once that cleanup is done. No clock decides
-  // anything here: the case waits for the double to be running, whatever
-  // the load, and its timeout is only a hang guard.
+  // driver settles only once that cleanup is done. No clock decides a
+  // pass: the case waits for the double to be running, whatever the load,
+  // and a driver that leaves the group alive waits on the double past the
+  // case's timeout.
   const notes = mkdtempSync(join(tmpdir(), "budget-never-"));
   try {
     const note = join(notes, "double.pid");
