@@ -15,9 +15,9 @@
   height: 32px;
   padding: 0 15px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--bg-panel) 93%, transparent);
-  backdrop-filter: blur(8px);
-  box-shadow: 0 3px 12px var(--shadow);
+  background: var(--surface-overlay-panel-fill);
+  backdrop-filter: var(--surface-overlay-panel-blur);
+  box-shadow: var(--surface-overlay-panel-shadow);
   font-family: var(--font-ui);
   font-size: 11.5px;
   color: var(--fg-muted);

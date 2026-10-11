@@ -6,8 +6,8 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
-  background: color-mix(in srgb, var(--bg-panel) 93%, transparent);
-  backdrop-filter: blur(8px);
+  background: var(--surface-overlay-panel-fill);
+  backdrop-filter: var(--surface-overlay-panel-blur);
   border-radius: var(--radius-legend);
   padding: 13px 15px;
   /* The width rule (see legend-fit.ts): the card
@@ -16,7 +16,7 @@
      lines are shorter. 240 here is the pre-measure base; the fit
      shrinks it the moment the card mounts. */
   width: 240px;
-  box-shadow: 0 8px 26px var(--shadow);
+  box-shadow: var(--surface-overlay-panel-shadow);
 }
 
 /* Inside a widget rail the legend is a rail card: its column, not its

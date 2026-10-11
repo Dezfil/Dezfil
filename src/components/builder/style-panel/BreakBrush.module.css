@@ -66,9 +66,9 @@
   height: 18px;
   margin-top: 1px;
   border-radius: var(--radius-sm);
-  background: var(--bg-panel);
+  background: var(--surface-inner-card-fill);
   border: 1.5px solid var(--fg);
-  box-shadow: 0 1px 3px color-mix(in srgb, var(--shadow) 90%, transparent);
+  box-shadow: var(--surface-inner-card-shadow);
   pointer-events: auto;
   cursor: ew-resize;
 }
@@ -82,9 +82,9 @@
   width: 9px;
   height: 18px;
   border-radius: var(--radius-sm);
-  background: var(--bg-panel);
+  background: var(--surface-inner-card-fill);
   border: 1.5px solid var(--fg);
-  box-shadow: 0 1px 3px color-mix(in srgb, var(--shadow) 90%, transparent);
+  box-shadow: var(--surface-inner-card-shadow);
   pointer-events: auto;
   cursor: ew-resize;
 }

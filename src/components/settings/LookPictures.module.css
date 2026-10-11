@@ -93,8 +93,8 @@
   gap: 6px;
   padding: 0 8px;
   border-radius: var(--radius);
-  background: var(--bg-panel);
-  box-shadow: 0 3px 12px var(--shadow);
+  background: var(--surface-page-card-fill);
+  box-shadow: var(--surface-page-card-shadow);
 }
 
 .bgCard > i {
@@ -143,8 +143,9 @@
   gap: 8px;
   padding: 0 8px;
   border-radius: var(--radius-control);
-  background: color-mix(in srgb, var(--bg-panel) 93%, transparent);
-  box-shadow: 0 3px 12px var(--shadow);
+  background: var(--surface-glass-chrome-fill);
+  backdrop-filter: var(--surface-glass-chrome-blur);
+  box-shadow: var(--surface-glass-chrome-shadow);
 }
 
 .art .coHead > b {
@@ -176,8 +177,9 @@
   gap: 12px;
   padding-top: 8px;
   border-radius: var(--radius-control);
-  background: color-mix(in srgb, var(--bg-panel) 93%, transparent);
-  box-shadow: 0 3px 12px var(--shadow);
+  background: var(--surface-glass-chrome-fill);
+  backdrop-filter: var(--surface-glass-chrome-blur);
+  box-shadow: var(--surface-glass-chrome-shadow);
 }
 
 .coRail > i {
@@ -240,8 +242,8 @@
   width: 16px;
   height: 16px;
   border-radius: 999px;
-  background: var(--bg-panel);
-  box-shadow: 0 1px 2px var(--shadow);
+  background: var(--surface-inner-card-fill);
+  box-shadow: var(--surface-inner-card-shadow);
 }
 
 .art .coButton {
@@ -338,8 +340,8 @@
   width: 16px;
   height: 16px;
   border-radius: 999px;
-  background: var(--bg-panel);
-  box-shadow: 0 1px 2px var(--shadow);
+  background: var(--surface-inner-card-fill);
+  box-shadow: var(--surface-inner-card-shadow);
 }
 
 /* ---- Typeface: a few words in that face ---- */
@@ -354,8 +356,8 @@
   padding: 0 12px;
   overflow: hidden;
   border-radius: var(--radius-lg);
-  background: var(--bg-panel);
-  box-shadow: 0 3px 12px var(--shadow);
+  background: var(--surface-page-card-fill);
+  box-shadow: var(--surface-page-card-shadow);
 }
 
 .fnSample {
@@ -388,9 +390,9 @@
   gap: 12px;
   padding: 0 16px;
   border-radius: var(--radius-card);
-  border: 1px solid var(--border);
-  background: var(--bg-panel);
-  box-shadow: 0 3px 12px var(--shadow);
+  border: var(--surface-page-card-edge);
+  background: var(--surface-page-card-fill);
+  box-shadow: var(--surface-page-card-shadow);
 }
 
 .art .crField {
@@ -461,8 +463,9 @@
   gap: 6px;
   padding: 8px 6px;
   border-radius: var(--radius-control);
-  background: var(--bg-panel);
-  box-shadow: 0 3px 12px var(--shadow);
+  background: var(--surface-glass-chrome-fill);
+  backdrop-filter: var(--surface-glass-chrome-blur);
+  box-shadow: var(--surface-glass-chrome-shadow);
   transition:
     width var(--dur-entrance) var(--ease-panel),
     box-shadow var(--dur-entrance) var(--ease-panel);
@@ -548,10 +551,13 @@
   left: 120px;
 }
 
+/* Opened over the page, as the app's rail opens: solid, on the lift with
+   its one side layer. */
 [role="radio"]:hover .art[data-picture-rail="hover"] .smRail {
   width: 104px;
+  background: var(--bg-panel);
   box-shadow:
-    0 10px 30px var(--shadow),
+    var(--shadow-lift),
     16px 0 36px -18px var(--shadow);
   transition-delay: var(--dur-micro);
 }
@@ -590,7 +596,7 @@
   border-radius: var(--radius-sm);
   border: 1px solid var(--border-strong);
   background: var(--bg-hover);
-  box-shadow: 0 4px 14px var(--shadow);
+  box-shadow: var(--surface-menu-shadow);
   font-size: var(--text-meta);
   font-weight: 500;
   white-space: nowrap;

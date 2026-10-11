@@ -2,10 +2,11 @@
 // the feed must be shown to (a) namespace kit CSS without touching a
 // declaration, (b) replace only what sits between markers, and (c) go red
 // the moment a fed source changes without regeneration.
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore — plain-JS CI script, no declaration file on purpose.
-import { namespaceModule, apply, rampJs } from "../../scripts/build-specimen.mjs";
+import { namespaceModule, apply, rampJs, surfaceBlock, surfacePlate, surfacePlateJs } from "../../scripts/build-specimen.mjs";
 
 const marker = (name: string, body = "") =>
   `/* wheelhouse:feed ${name} start */\n${body}\n/* wheelhouse:feed ${name} end */`;
@@ -93,5 +94,97 @@ describe("rampJs", () => {
     const cat = out.slice(out.indexOf("var CAT"));
     expect(cat).toContain('nm:"Bold"');
     expect(cat).not.toContain('nm:"RdBu"');
+  });
+});
+
+// The surface roles' block and the plate drawn from it. A small sheet in
+// the shipped shape: a rule before it, a comment heading it, one inside it.
+const BLOCK = [
+  ":root,",
+  "[data-look-default] {",
+  "  /* the steps */",
+  "  --shadow-float: 0 3px 12px var(--shadow);",
+  "  --blur-glass: blur(18px);",
+  "  --fill-glass: color-mix(in srgb, var(--bg-panel) 93%, transparent);",
+  "  --edge-hairline: 1px solid var(--border);",
+  "  --surface-page-card-fill: var(--bg-panel);",
+  "  --surface-page-card-blur: none;",
+  "  --surface-page-card-edge: var(--edge-hairline);",
+  "  --surface-page-card-shadow: var(--shadow-float);",
+  "  --surface-page-card-shadow-hover: var(--shadow-deep);",
+  "  --surface-page-card-corner: var(--radius-card);",
+  "  --surface-menu-fill: var(--bg-panel);",
+  "  --surface-menu-blur: none;",
+  "  --surface-menu-edge: var(--edge-hairline);",
+  "  --surface-menu-shadow: var(--shadow-float);",
+  "}",
+].join("\n");
+const SHEET = ":root {\n  --bg: #fff;\n}\n\n/* the roles, held once */\n" + BLOCK + "\n";
+const NOTES = {
+  "page-card": { nm: "Page card", what: "A card on a page." },
+  menu: { nm: "Menu", what: "What opens over something and closes." },
+};
+
+describe("surfaceBlock", () => {
+  it("takes the one rule that declares the roles, verbatim from its selector list to its closing brace", () => {
+    const block = surfaceBlock(SHEET);
+    expect(block.text).toBe(BLOCK);
+    expect(block.selectors).toEqual([":root", "[data-look-default]"]);
+    expect(block.tokens.get("--surface-menu-shadow")).toBe("var(--shadow-float)");
+    expect(block.tokens.has("--bg")).toBe(false);
+  });
+
+  it("refuses a sheet where no rule declares the roles, or where two do", () => {
+    expect(() => surfaceBlock(":root { --bg: #fff; }")).toThrow(/no rule declares/);
+    expect(() => surfaceBlock(SHEET + "\n.x { --surface-menu-fill: red; }\n")).toThrow(/more than one rule/);
+  });
+});
+
+describe("surfacePlate", () => {
+  it("lists each role in the block's order with its parts as the block states them, a missing corner as none, and its states", () => {
+    const plate = surfacePlate(surfaceBlock(SHEET), NOTES);
+    expect(plate.roles.map((r: { key: string }) => r.key)).toEqual(["page-card", "menu"]);
+    expect(plate.roles[0]).toEqual({
+      key: "page-card", nm: "Page card", what: "A card on a page.",
+      fill: "var(--bg-panel)", blur: "none", edge: "var(--edge-hairline)", corner: "var(--radius-card)",
+      shadow: "var(--shadow-float)", states: [{ nm: "hover", v: "var(--shadow-deep)" }],
+    });
+    expect(plate.roles[1].corner).toBeNull();
+    expect(plate.roles[1].states).toEqual([]);
+    expect(plate.steps).toEqual({
+      shadow: [{ nm: "float", v: "0 3px 12px var(--shadow)" }],
+      blur: [{ nm: "glass", v: "blur(18px)" }],
+      fill: [{ nm: "glass", v: "color-mix(in srgb, var(--bg-panel) 93%, transparent)" }],
+      edge: [{ nm: "hairline", v: "1px solid var(--border)" }],
+    });
+  });
+
+  it("refuses a role with no words, words for a role the block lacks, and a role missing one of its parts", () => {
+    expect(() => surfacePlate(surfaceBlock(SHEET), { menu: NOTES.menu })).toThrow(/page-card/);
+    expect(() => surfacePlate(surfaceBlock(SHEET), { ...NOTES, stage: { nm: "The stage", what: "The map card." } })).toThrow(/stage/);
+    const noBlur = SHEET.replace("  --surface-menu-blur: none;\n", "");
+    expect(() => surfacePlate(surfaceBlock(noBlur), NOTES)).toThrow(/menu states no blur/);
+  });
+
+  it("draws the shipped tokens' nine roles and six steps, each role with its words", () => {
+    const plate = surfacePlate(surfaceBlock(readFileSync("src/app/globals.css", "utf8")));
+    expect(plate.roles.map((r: { key: string }) => r.key)).toEqual([
+      "glass-chrome", "glass-panel", "overlay-panel", "overlay-control", "page-card", "inner-card", "menu", "dialog", "stage",
+    ]);
+    expect(plate.steps.shadow.map((s: { nm: string }) => s.nm)).toEqual(["hairline", "float", "overlay", "lift", "deep", "dialog"]);
+    for (const role of plate.roles) expect(role.nm.length * role.what.length).toBeGreaterThan(0);
+  });
+});
+
+describe("surfacePlateJs", () => {
+  it("writes the steps and the roles as the page's two arrays, one entry per line", () => {
+    const out = surfacePlateJs(surfacePlate(surfaceBlock(SHEET), NOTES));
+    const lines = out.split("\n");
+    expect(lines[0]).toBe("var SURFACE_STEPS = {");
+    expect(out).toContain('  shadow: [{"nm":"float","v":"0 3px 12px var(--shadow)"}],');
+    expect(out).toContain("var SURFACE_ROLES = [");
+    expect(lines.filter((l: string) => l.startsWith('  {"key":'))).toHaveLength(2);
+    expect(out).toContain('"corner":null');
+    expect(out).toContain('"states":[{"nm":"hover","v":"var(--shadow-deep)"}]');
   });
 });

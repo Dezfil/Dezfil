@@ -105,7 +105,7 @@
   height: 8px;
   border-radius: var(--radius-pill);
   background: var(--accent);
-  box-shadow: 0 2px 8px var(--shadow);
+  box-shadow: var(--surface-inner-card-shadow);
   transition: transform var(--dur-micro) ease;
 }
 

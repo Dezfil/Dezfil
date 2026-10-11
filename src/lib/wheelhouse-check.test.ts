@@ -1,6 +1,7 @@
 // Every wheelhouse rule must be demonstrably red on a violating
 // fixture and green on a clean one, and the inventory ratchet must fail
 // in both directions — a lint nobody has seen fail is not evidence.
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore — plain-JS CI script, no declaration file on purpose.
@@ -11,11 +12,15 @@ import {
   sweepNames,
   sweepSpecimen,
   sweepCursor,
+  sweepSurfaces,
   toRows,
   judge,
+  judgeSurfaceNames,
+  inventoryText,
 } from "../../scripts/check-wheelhouse.mjs";
 
 type Finding = { file: string; rule: string; value: string; line: number };
+type Row = { file: string; rule: string; value: string; count: number; exception?: string };
 const rules = (found: Finding[]) => found.map((f) => f.rule).sort();
 
 describe("sweepStyles", () => {
@@ -209,6 +214,212 @@ describe("the inventory ratchet", () => {
     const rows = toRows(curve);
     expect(rows[0].value).toBe("cubic-bezier(0.25, 1, 0.5, 1)");
     expect(judge(rows, rows)).toEqual([]);
+  });
+
+  // The inventory is regenerated on more than one machine; ordering by the
+  // machine's locale would reshuffle every row on a rewrite and bury the one
+  // row that changed.
+  it("orders rows by code point, whatever the machine's locale", () => {
+    const rows = toRows([
+      { file: "src/b.module.css", rule: "radius", value: "7px", line: 1 },
+      { file: "src/C.module.css", rule: "radius", value: "7px", line: 1 },
+      { file: "src/C.module.css", rule: "duration", value: "0.5s", line: 2 },
+      { file: "src/C.module.css", rule: "Duration", value: "0.5s", line: 3 },
+    ]);
+    expect(rows.map((r: Row) => r.file + " " + r.rule)).toEqual([
+      "src/C.module.css Duration",
+      "src/C.module.css duration",
+      "src/C.module.css radius",
+      "src/b.module.css radius",
+    ]);
+  });
+
+  it("writes the inventory as ASCII with its rows annotated, so a rewrite changes only the rows that changed", () => {
+    const rows = [
+      { file: "src/components/HomeScreen.tsx", rule: "glyph", value: "▶", count: 1 },
+      { file: "src/app/(workspace)/layout.module.css", rule: "shadow", value: "16px 0 36px -18px var(--shadow)", count: 2 },
+    ];
+    const text = inventoryText(rows);
+    expect(text).toContain('"value": "\\u25b6"');
+    expect(/[^\x00-\x7f]/.test(text)).toBe(false);
+    expect(text.endsWith("]\n")).toBe(true);
+    const back = JSON.parse(text) as Row[];
+    expect(back.map((r) => ({ file: r.file, rule: r.rule, value: r.value, count: r.count }))).toEqual(rows);
+    expect(back[0].exception).toBeUndefined();
+    expect(back[1].exception).toMatch(/^Surface exception: the side rail opened over the page/);
+  });
+
+  it("finds the committed inventory in the writer's own form: its order, its escapes and its notes", () => {
+    const text = readFileSync("scripts/wheelhouse-inventory.json", "utf8");
+    const rows = JSON.parse(text) as Row[];
+    const findings = rows.flatMap((r) =>
+      Array.from({ length: r.count }, () => ({ file: r.file, rule: r.rule, value: r.value, line: 0 })),
+    );
+    expect(inventoryText(toRows(findings))).toBe(text);
+  });
+});
+
+// A drop shadow, a background blur and a translucent fill of the panel or
+// raised tone are read from the surface vocabulary in globals.css (a role's
+// part, a shadow step, a blur strength, a fill), never typed: that is what
+// lets one restated role reach every surface that plays it.
+describe("sweepSurfaces", () => {
+  const found = (css: string) =>
+    sweepSurfaces(css, "x.module.css").map((f: Finding) => [f.rule, f.value]);
+
+  it("is red on a typed drop shadow, a typed blur and a typed panel or raised fill", () => {
+    const css = [
+      ".a { box-shadow: 0 3px 12px var(--shadow); }",
+      ".b { backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }",
+      ".c { background: color-mix(in srgb, var(--bg-panel) 93%, transparent); }",
+      ".d { background: color-mix(in srgb, var(--bg-raised) 70%, transparent); }",
+    ].join("\n");
+    expect(found(css)).toEqual([
+      ["shadow", "0 3px 12px var(--shadow)"],
+      ["blur", "blur(8px)"],
+      ["blur", "blur(8px)"],
+      ["fill", "color-mix(in srgb, var(--bg-panel) 93%, transparent)"],
+      ["fill", "color-mix(in srgb, var(--bg-raised) 70%, transparent)"],
+    ]);
+  });
+
+  it("is green on a role's part, a step, a strength and a fill, each read", () => {
+    const css = [
+      ".a { box-shadow: var(--surface-menu-shadow); }",
+      ".b { box-shadow: var(--shadow-lift); }",
+      ".c { box-shadow: var(--surface-inner-card-shadow-dragged); }",
+      ".d { backdrop-filter: var(--surface-overlay-panel-blur); -webkit-backdrop-filter: var(--blur-veil); }",
+      ".e { background: var(--surface-glass-chrome-fill); }",
+      ".f { background: var(--fill-wash); }",
+      ".g { box-shadow: none; backdrop-filter: none; }",
+    ].join("\n");
+    expect(found(css)).toEqual([]);
+  });
+
+  it("judges a shadow per layer: an inset or an offset-free ring beside a read stays outside, a typed drop beside a read does not", () => {
+    expect(found(".a { box-shadow: var(--surface-page-card-shadow), 0 0 0 6px var(--accent-wash); }")).toEqual([]);
+    expect(found(".a { box-shadow: 0 0 0 1px var(--accent), var(--surface-menu-shadow); }")).toEqual([]);
+    expect(found(".a { box-shadow: inset 0 0 0 1px var(--border), inset 2.5px 0 0 var(--accent); }")).toEqual([]);
+    expect(found(".a { box-shadow: 0 0 6px color-mix(in srgb, var(--danger) 70%, transparent); }")).toEqual([]);
+    expect(found(".a { box-shadow:\n    var(--shadow-lift),\n    16px 0 36px -18px var(--shadow); }")).toEqual([
+      ["shadow", "16px 0 36px -18px var(--shadow)"],
+    ]);
+  });
+
+  it("leaves the colour-only shadow tone alone: it draws nothing", () => {
+    expect(found(".a { box-shadow: var(--shadow); }")).toEqual([]);
+  });
+
+  it("leaves fills of the page tone, of the ink, and opaque panel mixes outside the rule", () => {
+    expect(found(".a { background: color-mix(in srgb, var(--bg) 85%, transparent); }")).toEqual([]);
+    expect(found(".a { background: color-mix(in srgb, var(--fg) 32%, transparent); }")).toEqual([]);
+    expect(found(".a { background: color-mix(in srgb, var(--bg-panel) 80%, var(--accent)); }")).toEqual([]);
+  });
+
+  it("catches a typed value one hop away in a local custom property, and a fill written the other way round", () => {
+    expect(found(".a { --lift: 0 6px 20px var(--shadow); box-shadow: var(--lift); }")).toEqual([
+      ["shadow", "0 6px 20px var(--shadow)"],
+    ]);
+    expect(found(".a { --glass: blur(12px); backdrop-filter: var(--glass); }")).toEqual([["blur", "blur(12px)"]]);
+    expect(found(".a { background: linear-gradient(transparent, color-mix(in srgb, transparent, var(--bg-panel) 90%)); }")).toEqual([
+      ["fill", "color-mix(in srgb, transparent, var(--bg-panel) 90%)"],
+    ]);
+  });
+
+  it("reads declarations, not comments, and reports the declaration's line", () => {
+    expect(found("/* was box-shadow: 0 2px 8px var(--shadow); */\n.a { color: var(--fg); }")).toEqual([]);
+    expect(sweepSurfaces("\n.a {\n  box-shadow:\n    0 3px 12px var(--shadow);\n}", "x.module.css")).toEqual([
+      { file: "x.module.css", rule: "shadow", value: "0 3px 12px var(--shadow)", line: 3 },
+    ]);
+  });
+});
+
+// The ratchet on a real stylesheet and the real inventory: the shell's
+// stylesheet carries the header card (a role read three times over) and the
+// rail opened over the page, whose one side layer is a named exception.
+describe("the surface ratchet on the shell's own stylesheet", () => {
+  const SHELL = "src/app/(workspace)/layout.module.css";
+  const SIDE = "16px 0 36px -18px var(--shadow)";
+  const shell = readFileSync(SHELL, "utf8");
+  const inventory = (JSON.parse(readFileSync("scripts/wheelhouse-inventory.json", "utf8")) as Row[]).filter(
+    (r) => r.file === SHELL,
+  );
+  const judgeShell = (css: string, rows: Row[] = inventory) =>
+    judge(
+      toRows([
+        ...sweepStyles(css, SHELL),
+        ...sweepOutline(css, SHELL),
+        ...sweepCursor(css, SHELL),
+        ...sweepSurfaces(css, SHELL),
+      ]),
+      rows,
+    );
+
+  it("holds as it is: the side layer typed twice, its row listing two", () => {
+    expect(shell.split(SIDE).length - 1).toBe(2);
+    expect(judgeShell(shell)).toEqual([]);
+  });
+
+  it("fails as NEW on a shadow, a blur and a fill typed by hand into the header card, each equal to what its role resolves to", () => {
+    const seeds: [string, string, string][] = [
+      ["shadow", "box-shadow: var(--surface-glass-chrome-shadow)", "box-shadow: 0 3px 12px var(--shadow)"],
+      ["blur", "backdrop-filter: var(--surface-glass-chrome-blur)", "backdrop-filter: blur(18px)"],
+      [
+        "fill",
+        "background: var(--surface-glass-chrome-fill)",
+        "background: color-mix(in srgb, var(--bg-panel) 93%, transparent)",
+      ],
+    ];
+    for (const [rule, read, typed] of seeds) {
+      expect(shell.includes(read), read).toBe(true);
+      const problems = judgeShell(shell.replace(read, typed));
+      expect(problems, rule).toHaveLength(1);
+      expect(problems[0], rule).toMatch(new RegExp("^NEW: " + SHELL.replace(/[()]/g, "\\$&") + " - " + rule + " "));
+    }
+  });
+
+  it("fails as STALE when the side layer leaves the code while its row stays", () => {
+    const healed = shell.replace(",\n    " + SIDE, "");
+    expect(healed).not.toBe(shell);
+    const problems = judgeShell(healed);
+    expect(problems).toEqual([
+      "STALE: " + SHELL + " - shadow " + JSON.stringify(SIDE) + " listed x2, found x1 (heal the inventory in the same change)",
+    ]);
+  });
+
+  it("fails as NEW when the row is deleted while the code keeps the side layer", () => {
+    const problems = judgeShell(
+      shell,
+      inventory.filter((r) => !(r.rule === "shadow" && r.value === SIDE)),
+    );
+    expect(problems).toEqual(["NEW: " + SHELL + " - shadow " + JSON.stringify(SIDE) + " x2"]);
+  });
+});
+
+// The surface rows are the named exceptions and only ever shrink: a typed
+// surface value cannot be absorbed by regenerating the inventory alone.
+describe("judgeSurfaceNames", () => {
+  it("fails a surface row that is not a named exception", () => {
+    const row = { file: "src/x.module.css", rule: "shadow", value: "0 2px 6px var(--shadow)", count: 1 };
+    expect(judgeSurfaceNames([row])).toEqual([
+      'UNNAMED: src/x.module.css - shadow "0 2px 6px var(--shadow)" is not a named surface exception',
+    ]);
+  });
+
+  it("passes the named exceptions and leaves the other rules' rows alone", () => {
+    const rows = [
+      { file: "src/app/(workspace)/layout.module.css", rule: "shadow", value: "16px 0 36px -18px var(--shadow)", count: 2 },
+      { file: "src/x.module.css", rule: "font-size", value: "10px", count: 1 },
+    ];
+    expect(judgeSurfaceNames(rows)).toEqual([]);
+  });
+
+  it("holds over the committed inventory, every surface row carrying its note", () => {
+    const rows = JSON.parse(readFileSync("scripts/wheelhouse-inventory.json", "utf8")) as Row[];
+    const surface = rows.filter((r) => ["shadow", "blur", "fill"].includes(r.rule));
+    expect(surface.length).toBeGreaterThan(0);
+    expect(judgeSurfaceNames(rows)).toEqual([]);
+    for (const r of surface) expect(r.exception, r.file + " " + r.value).toMatch(/^Surface exception: /);
   });
 });
 

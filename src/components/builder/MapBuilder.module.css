@@ -127,9 +127,9 @@
   font-size: 13px;
   font-weight: 500;
   white-space: nowrap;
-  background: color-mix(in srgb, var(--bg-panel) 93%, transparent);
-  backdrop-filter: blur(18px);
-  box-shadow: 0 3px 12px var(--shadow);
+  background: var(--surface-glass-chrome-fill);
+  backdrop-filter: var(--surface-glass-chrome-blur);
+  box-shadow: var(--surface-glass-chrome-shadow);
   transition:
     transform 0.12s,
     color 0.12s;
@@ -175,9 +175,9 @@
   flex-direction: column;
   border-radius: var(--radius-card);
   overflow: hidden;
-  background: color-mix(in srgb, var(--bg-panel) 93%, transparent);
-  backdrop-filter: blur(18px);
-  box-shadow: 0 3px 12px var(--shadow);
+  background: var(--surface-glass-panel-fill);
+  backdrop-filter: var(--surface-glass-panel-blur);
+  box-shadow: var(--surface-glass-panel-shadow);
 }
 
 /* Placement only — the strip itself is the kit's Tabs. */
@@ -241,7 +241,7 @@
   border-radius: var(--radius-card);
   overflow: hidden;
   pointer-events: none;
-  box-shadow: 0 14px 40px var(--shadow);
+  box-shadow: var(--surface-stage-shadow);
   transition:
     top var(--dur-panel) var(--ease-panel),
     left var(--dur-panel) var(--ease-panel),
@@ -461,10 +461,10 @@
   transform: translateX(-50%);
   pointer-events: none;
   padding: 5px 9px;
-  border: 1px solid var(--border-strong);
   border-radius: 999px;
-  background: color-mix(in srgb, var(--bg-raised) 90%, transparent);
-  box-shadow: 0 4px 14px var(--shadow);
+  background: var(--surface-overlay-panel-fill);
+  backdrop-filter: var(--surface-overlay-panel-blur);
+  box-shadow: var(--surface-overlay-panel-shadow);
   color: var(--fg-muted);
   /* Status prose: the UI face since 0075. */
   font-family: var(--font-ui);
@@ -558,7 +558,14 @@
 }
 
 /* Entrance choreography: the cards settle in, staggered. The
-   map layer shares the card's timing so the two move as one. */
+   map layer shares the card's timing so the two move as one.
+
+   The card and its layer hold the entrance's first frame through the
+   delay and fill nothing once it has played: an animation that keeps
+   filling after its end holds the card on a compositing layer of its own,
+   and a background blur inside the card (the legend, the status pill, the
+   stage buttons) would read that layer alone, never the map under it.
+   Released, they return to their own styles, which are the end frame. */
 @media (prefers-reduced-motion: no-preference) {
   .rail {
     animation: settle-in 0.55s var(--ease-entrance) 0.07s both;
@@ -566,7 +573,7 @@
 
   .canvasCol,
   .mapLayer {
-    animation: settle-in 0.55s var(--ease-entrance) 0.14s both;
+    animation: settle-in 0.55s var(--ease-entrance) 0.14s backwards;
   }
 }
 

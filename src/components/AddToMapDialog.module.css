@@ -80,8 +80,8 @@
   min-width: 0;
   text-align: left;
   border-radius: var(--radius-card);
-  border: 1px solid var(--border);
-  background: var(--bg-panel);
+  border: var(--surface-inner-card-edge);
+  background: var(--surface-inner-card-fill);
   overflow: hidden;
   transition:
     border-color var(--dur-micro) ease,
@@ -92,7 +92,7 @@
 .card:hover:not(:disabled),
 .newCard:hover:not(:disabled) {
   border-color: var(--accent);
-  box-shadow: 0 6px 18px var(--shadow);
+  box-shadow: var(--surface-inner-card-shadow-lifted);
   transform: translateY(-1px);
 }
 

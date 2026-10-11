@@ -24,6 +24,13 @@
     "count": 1
   },
   {
+    "file": "src/app/(workspace)/layout.module.css",
+    "rule": "shadow",
+    "value": "16px 0 36px -18px var(--shadow)",
+    "count": 2,
+    "exception": "Surface exception: the side rail opened over the page, solid on the lift step with this one side layer of its own (opened by keyboard focus and by the pointer's dwell)"
+  },
+  {
     "file": "src/components/AddDataDialog.module.css",
     "rule": "duration",
     "value": "0.12s",
@@ -94,6 +101,13 @@
     "rule": "duration",
     "value": "0.15s",
     "count": 3
+  },
+  {
+    "file": "src/components/HomeScreen.module.css",
+    "rule": "fill",
+    "value": "color-mix(in srgb, var(--bg-panel) 55%, transparent)",
+    "count": 1,
+    "exception": "Surface exception: a tint, the start page's cards"
   },
   {
     "file": "src/components/HomeScreen.module.css",
@@ -338,6 +352,13 @@
   },
   {
     "file": "src/components/UploadZone.module.css",
+    "rule": "fill",
+    "value": "color-mix(in srgb, var(--bg-panel) 60%, transparent)",
+    "count": 1,
+    "exception": "Surface exception: a tint, the upload zone's chip"
+  },
+  {
+    "file": "src/components/UploadZone.module.css",
     "rule": "font-size",
     "value": "11.5px",
     "count": 1
@@ -359,6 +380,20 @@
     "rule": "font-size",
     "value": "13.5px",
     "count": 1
+  },
+  {
+    "file": "src/components/WorkflowFolder.module.css",
+    "rule": "fill",
+    "value": "color-mix(in srgb, var(--bg-panel) 72%, transparent)",
+    "count": 1,
+    "exception": "Surface exception: a tint, the Data page's folder pane, a fold in the list"
+  },
+  {
+    "file": "src/components/WorkflowFolder.module.css",
+    "rule": "fill",
+    "value": "color-mix(in srgb, var(--bg-raised) 60%, transparent)",
+    "count": 1,
+    "exception": "Surface exception: a tint, the nested row tint"
   },
   {
     "file": "src/components/builder/AssistantPanel.module.css",
@@ -536,6 +571,20 @@
     "count": 1
   },
   {
+    "file": "src/components/builder/export/ExportComposition.module.css",
+    "rule": "fill",
+    "value": "color-mix(in srgb, var(--bg-panel) 93%, transparent)",
+    "count": 2,
+    "exception": "Surface exception: the composition's own title line and failure note, drawn into an exported image with their own fill, so the image stays as it is"
+  },
+  {
+    "file": "src/components/builder/export/ExportComposition.module.css",
+    "rule": "shadow",
+    "value": "0 8px 26px var(--shadow)",
+    "count": 1,
+    "exception": "Surface exception: the composition's own title line, its shadow drawn into an exported image"
+  },
+  {
     "file": "src/components/builder/export/ExportControl.module.css",
     "rule": "cursor",
     "value": ".menu .door[data-static]",
@@ -559,6 +608,13 @@
     "rule": "font-size",
     "value": "13.5px",
     "count": 1
+  },
+  {
+    "file": "src/components/gallery.module.css",
+    "rule": "fill",
+    "value": "color-mix(in srgb, var(--bg-panel) 88%, transparent)",
+    "count": 1,
+    "exception": "Surface exception: a fade, the thumbnail fade on a gallery card"
   },
   {
     "file": "src/components/map/BasemapThumb.module.css",
@@ -621,6 +677,13 @@
     "value": ".pRow[data-current]",
     "count": 1,
     "exception": "census: correct - a label around a radio that is disabled when current"
+  },
+  {
+    "file": "src/components/settings/LookPictures.module.css",
+    "rule": "shadow",
+    "value": "16px 0 36px -18px var(--shadow)",
+    "count": 1,
+    "exception": "Surface exception: the side rail opened over the page, drawn in miniature in the Side menu picture of the Appearance tab"
   },
   {
     "file": "src/components/sql/SqlConsole.module.css",

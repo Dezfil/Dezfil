@@ -20,6 +20,10 @@
 //   card's options take the person's.
 // - The red: the person's Color leaked into the composition's scope by an
 //   injected style fails the same comparison that holds for that Color.
+//   So does a shadow typed by hand on the composition's legend under the
+//   default look: the legend draws its overlay panel role's shadow, and a
+//   value of its own in its place is caught by the comparison with the
+//   clean download.
 // - The server's own image: rendered through the API under the person's
 //   look, it is the image rendered under the default look, by bytes or
 //   within the same ceiling; a render whose definition differs fails the
@@ -56,6 +60,11 @@ const LOOK: Look = Object.fromEntries(PICKS);
 const HEATHER_ACCENT = "#6b4cad";
 const HEATHER_PAINT = "rgb(107, 76, 173)";
 const KELP_ACCENT = "#0d7d5c";
+/** A shadow a member could type for itself in place of its role's, darker
+ * than the overlay panel's step so the image cannot miss it; the second
+ * form is how the browser computes it. */
+const TYPED_LEGEND_SHADOW = "0 4px 14px rgba(0, 0, 0, 0.5)";
+const TYPED_LEGEND_SHADOW_COMPUTED = "rgba(0, 0, 0, 0.5) 0px 4px 14px 0px";
 
 const attrs = (look: Look) => Object.fromEntries(Object.entries(look)
   .filter(([key, value]) => DEFAULTS[key] !== value)
@@ -238,6 +247,21 @@ test.describe("an image keeps Dezfil's default look", () => {
         await test.info().attach("leaked Color", { body: JSON.stringify(result, null, 2), contentType: "application/json" });
         expect(within(result)).toBe(false);
         expect(withinCeiling(result), "the ceiling does not cover a leaked pick").toBe(false);
+      });
+
+      await test.step("the red: a shadow typed by hand on the composition's legend fails the comparison that holds for the default look", async () => {
+        await setLook(person.api, DEFAULTS);
+        const typed = await download(page, mapId, async () => {
+          expect(await rootLook(page)).toEqual({});
+          await page.addStyleTag({ content: `[data-export-composition] [data-map-legend] { box-shadow: ${TYPED_LEGEND_SHADOW} !important; }` });
+          await expect.poll(() => page.locator("[data-export-card] [data-export-composition] [data-map-legend]").filter({ visible: true }).first()
+            .evaluate((el) => getComputedStyle(el).boxShadow)).toBe(TYPED_LEGEND_SHADOW_COMPUTED);
+        });
+        const result = await compare(page, reference, typed);
+        console.log(`[typed] the composition's legend on a hand-typed shadow (${TYPED_LEGEND_SHADOW}): ${line(result)}`);
+        await test.info().attach("typed legend shadow", { body: JSON.stringify(result, null, 2), contentType: "application/json" });
+        expect(within(result)).toBe(false);
+        expect(withinCeiling(result), "the ceiling does not cover a typed shadow").toBe(false);
       });
 
       for (const err of errors) expect(isAllowedConsoleError(err.text, err.url), `${err.text} (${err.url ?? "no url"})`).toBe(true);

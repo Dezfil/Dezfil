@@ -7,9 +7,9 @@
   flex-direction: column;
   min-height: 0;
   border-radius: var(--radius-card);
-  border: 1px solid var(--border);
-  background: var(--bg-panel);
-  box-shadow: 0 3px 12px var(--shadow);
+  border: var(--surface-page-card-edge);
+  background: var(--surface-page-card-fill);
+  box-shadow: var(--surface-page-card-shadow);
   overflow: hidden;
   animation: dock-in var(--dur-panel) var(--ease-panel);
 }

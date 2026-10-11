@@ -88,9 +88,9 @@
   gap: 10px;
   padding: 11px 15px;
   border-radius: var(--radius-legend);
-  background: color-mix(in srgb, var(--bg-panel) 93%, transparent);
-  backdrop-filter: blur(8px);
-  box-shadow: 0 8px 26px var(--shadow);
+  background: var(--surface-overlay-panel-fill);
+  backdrop-filter: var(--surface-overlay-panel-blur);
+  box-shadow: var(--surface-overlay-panel-shadow);
   max-width: calc(100vw - 32px);
 }
 
@@ -186,7 +186,7 @@
   font-size: 10.5px;
   color: var(--fg-faint);
   background: color-mix(in srgb, var(--bg) 55%, transparent);
-  backdrop-filter: blur(3px);
+  backdrop-filter: var(--blur-overlay);
   padding: 3px 9px;
   border-radius: 999px;
 }

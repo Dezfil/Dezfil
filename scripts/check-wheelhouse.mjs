@@ -34,6 +34,24 @@
  *               (e2e/a11y-census.spec.ts) and the kit's structurally
  *               enforced IconButton - this check is the floor, not the
  *               gate.
+ *   shadow      a box-shadow layer with a non-zero x or y offset reads a
+ *               surface role's shadow or one of the six steps; judged per
+ *               layer, so an inset or an offset-free ring composed beside a
+ *               read stays outside, and the colour-only `var(--shadow)`,
+ *               which draws nothing, is not a shadow.
+ *   blur        a backdrop-filter blur reads a role's blur or one of the
+ *               three strengths (glass, overlay, the veil's).
+ *   fill        a color-mix of --bg-panel or --bg-raised with transparent
+ *               reads a role's fill or one of the fills; mixes of the page
+ *               tone (--bg) and the ink are outside the rule.
+ *               These three read the vocabulary at the end of
+ *               src/app/globals.css, so a restated role reaches every
+ *               surface that plays it. A local custom property typed with
+ *               a shadow, a blur or a panel fill is the same typed value
+ *               one hop away and is judged where it is declared. The rows
+ *               they leave in the inventory are the named exceptions
+ *               below and nothing else: a surface row without a name fails
+ *               as UNNAMED, so the list only ever shrinks.
  *
  * Violations present at adoption are enumerated in
  * scripts/wheelhouse-inventory.json - the close sitting's leftover list,
@@ -85,7 +103,33 @@ const NAMED_EXCEPTIONS = {
     "Motion exception 3 of 3 — the drag settle-and-reveal on its bespoke beat",
   "src/components/widgets/SortableCards.module.css\teasing\tcubic-bezier(0.25, 1, 0.5, 1)":
     "Motion exception 3 of 3 — the drag settle-and-reveal's bespoke curve",
+  /* The surface exceptions: what sets a shadow or a translucent panel
+   * fill and plays no surface role, kept typed by name. The veil, the wash
+   * and the published credit chip's blur read the vocabulary and need no
+   * row; the credit drawn into an image, the widget cards and the search
+   * marker's pin declare nothing these rules read. */
+  "src/app/(workspace)/layout.module.css\tshadow\t16px 0 36px -18px var(--shadow)":
+    "Surface exception: the side rail opened over the page, solid on the lift step with this one side layer of its own (opened by keyboard focus and by the pointer's dwell)",
+  "src/components/settings/LookPictures.module.css\tshadow\t16px 0 36px -18px var(--shadow)":
+    "Surface exception: the side rail opened over the page, drawn in miniature in the Side menu picture of the Appearance tab",
+  "src/components/builder/export/ExportComposition.module.css\tfill\tcolor-mix(in srgb, var(--bg-panel) 93%, transparent)":
+    "Surface exception: the composition's own title line and failure note, drawn into an exported image with their own fill, so the image stays as it is",
+  "src/components/builder/export/ExportComposition.module.css\tshadow\t0 8px 26px var(--shadow)":
+    "Surface exception: the composition's own title line, its shadow drawn into an exported image",
+  "src/components/HomeScreen.module.css\tfill\tcolor-mix(in srgb, var(--bg-panel) 55%, transparent)":
+    "Surface exception: a tint, the start page's cards",
+  "src/components/WorkflowFolder.module.css\tfill\tcolor-mix(in srgb, var(--bg-panel) 72%, transparent)":
+    "Surface exception: a tint, the Data page's folder pane, a fold in the list",
+  "src/components/WorkflowFolder.module.css\tfill\tcolor-mix(in srgb, var(--bg-raised) 60%, transparent)":
+    "Surface exception: a tint, the nested row tint",
+  "src/components/UploadZone.module.css\tfill\tcolor-mix(in srgb, var(--bg-panel) 60%, transparent)":
+    "Surface exception: a tint, the upload zone's chip",
+  "src/components/gallery.module.css\tfill\tcolor-mix(in srgb, var(--bg-panel) 88%, transparent)":
+    "Surface exception: a fade, the thumbnail fade on a gallery card",
 };
+
+/** The three surface rules; their inventory rows must be named above. */
+const SURFACE_RULES = new Set(["shadow", "blur", "fill"]);
 
 /* The arrow-cursor rules the census accepted, so a maintainer reading
  * the inventory can tell an accepted use from a recorded defect. Keyed
@@ -168,6 +212,103 @@ export function sweepStyles(css, file) {
         });
       }
     }
+  }
+  return found;
+}
+
+/* The surface vocabulary's reads, by rule. A misspelled read is
+ * lint:tokens' business: an undefined token fails there. */
+const SHADOW_READ = /^var\(--(surface-[\w-]+-shadow(-[\w-]+)?|shadow-(hairline|float|overlay|lift|deep|dialog))\)$/;
+const BLUR_READ = /^var\(--(surface-[\w-]+-blur|blur-(glass|overlay|veil))\)$/;
+const PANEL_TONE = /^var\(--bg-(panel|raised)\)( [\d.]+%)?$/;
+const TRANSPARENT = /^transparent( [\d.]+%)?$/;
+const squash = (s) => s.replace(/\s+/g, " ").trim();
+
+/** Split at the separators outside parentheses: the commas between
+ * shadow layers or color-mix arguments, the spaces between a layer's
+ * parts. */
+function splitTop(value, sep) {
+  const out = [];
+  let depth = 0;
+  let cur = "";
+  for (const ch of value) {
+    if (ch === "(") depth += 1;
+    else if (ch === ")") depth -= 1;
+    if (depth === 0 && sep.test(ch)) {
+      if (cur.trim()) out.push(cur.trim());
+      cur = "";
+    } else cur += ch;
+  }
+  if (cur.trim()) out.push(cur.trim());
+  return out;
+}
+
+/** A drop shadow: a layer that is not a read, not inset, and moves off
+ * its box by a non-zero x or y. A layer with fewer than two plain lengths
+ * is a token read or a colour alone; a token is judged where it is
+ * declared. */
+function isDropLayer(layer) {
+  if (layer === "none" || SHADOW_READ.test(layer)) return false;
+  const parts = splitTop(layer, /\s/);
+  if (parts.includes("inset")) return false;
+  const lengths = parts.filter((p) => /^-?(\d+\.?\d*|\.\d+)(px|r?em)?$/.test(p));
+  if (lengths.length < 2) return false;
+  return parseFloat(lengths[0]) !== 0 || parseFloat(lengths[1]) !== 0;
+}
+
+/** Every color-mix of the panel or raised tone with transparent in a
+ * value, nested ones included (a fade inside a gradient), each squashed
+ * to one line. */
+function panelMixes(value) {
+  const out = [];
+  const open = "color-mix(";
+  for (let at = value.indexOf(open); at >= 0; at = value.indexOf(open, at + 1)) {
+    let depth = 0;
+    let end = -1;
+    for (let i = at + open.length - 1; i < value.length; i++) {
+      if (value[i] === "(") depth += 1;
+      else if (value[i] === ")" && --depth === 0) {
+        end = i;
+        break;
+      }
+    }
+    if (end < 0) continue;
+    const call = value.slice(at, end + 1);
+    const args = splitTop(call.slice(open.length, -1), /,/).map(squash);
+    if (args.length !== 3) continue;
+    const [, a, b] = args;
+    if ((PANEL_TONE.test(a) && TRANSPARENT.test(b)) || (TRANSPARENT.test(a) && PANEL_TONE.test(b))) {
+      out.push(squash(call));
+    }
+  }
+  return out;
+}
+
+/** Typed drop-shadow layers, background blurs and translucent panel or
+ * raised fills: each must be read from the surface vocabulary. Comments
+ * are blanked first (a retired value quoted in one is not a declaration);
+ * a value written over several lines is judged and reported on one. */
+export function sweepSurfaces(css, file) {
+  const found = [];
+  const source = css.replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, " "));
+  const re = /(--[\w-]+|[a-zA-Z-]+)\s*:\s*([^;{}]+)(?=[;}])/g;
+  let m;
+  while ((m = re.exec(source))) {
+    const prop = m[1].toLowerCase();
+    const value = squash(m[2]);
+    const line = source.slice(0, m.index).split("\n").length;
+    const local = prop.startsWith("--");
+    if (prop === "box-shadow" || (local && /var\(--shadow\)/.test(value))) {
+      for (const layer of splitTop(value, /,/)) {
+        if (isDropLayer(layer)) found.push({ file, rule: "shadow", value: layer, line });
+      }
+    }
+    if ((/(^|-)backdrop-filter$/.test(prop) || local) && !BLUR_READ.test(value)) {
+      for (const blur of value.match(/blur\([^()]*\)/g) ?? []) {
+        found.push({ file, rule: "blur", value: blur, line });
+      }
+    }
+    for (const term of panelMixes(value)) found.push({ file, rule: "fill", value: term, line });
   }
   return found;
 }
@@ -357,6 +498,7 @@ export function sweepTree(root) {
       ...sweepStyles(css, rel(p)),
       ...sweepOutline(css, rel(p)),
       ...sweepCursor(css, rel(p)),
+      ...sweepSurfaces(css, rel(p)),
     );
   }
   for (const p of walk(src, (f) => f.endsWith(".tsx") && !f.includes(".test."))) {
@@ -373,6 +515,11 @@ export function sweepTree(root) {
  * contain. */
 const keyOf = (r) => [r.file, r.rule, r.value].join("\t");
 
+/* Code-point order, not the machine's locale: the inventory is rewritten
+ * on more than one machine, and a locale's collation would reshuffle every
+ * row and bury the one that changed. */
+const byCodePoint = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
+
 export function toRows(found) {
   const map = new Map();
   for (const f of found) {
@@ -383,8 +530,8 @@ export function toRows(found) {
   }
   return [...map.values()].sort((a, b) =>
     a.file === b.file
-      ? (a.rule + a.value).localeCompare(b.rule + b.value)
-      : a.file.localeCompare(b.file),
+      ? byCodePoint(a.rule + a.value, b.rule + b.value)
+      : byCodePoint(a.file, b.file),
   );
 }
 
@@ -412,6 +559,34 @@ export function judge(rows, inventory) {
   return problems;
 }
 
+/** The inventory as written: the rows annotated from the two maps above,
+ * two-space JSON, and every character outside ASCII escaped (a glyph
+ * value, a dash in a note), the form the file is kept in, so a rewrite
+ * changes only the rows that changed. */
+export function inventoryText(rows) {
+  const annotated = rows.map((r) => {
+    const note = NAMED_EXCEPTIONS[keyOf(r)] ?? CURSOR_NOTES[keyOf(r)];
+    return note ? { ...r, exception: note } : r;
+  });
+  const ascii = JSON.stringify(annotated, null, 2).replace(
+    /[\u0080-￿]/g,
+    (c) => "\\u" + c.charCodeAt(0).toString(16).padStart(4, "0"),
+  );
+  return ascii + "\n";
+}
+
+/** The surface rows are the named exceptions: a row the map does not
+ * name fails, so regenerating the inventory cannot absorb a typed shadow,
+ * blur or panel fill on its own. */
+export function judgeSurfaceNames(inventory) {
+  return inventory
+    .filter((r) => SURFACE_RULES.has(r.rule) && !NAMED_EXCEPTIONS[keyOf(r)])
+    .map(
+      (r) =>
+        "UNNAMED: " + r.file + " - " + r.rule + " " + JSON.stringify(r.value) + " is not a named surface exception",
+    );
+}
+
 const isMain = process.argv[1] === fileURLToPath(import.meta.url);
 if (isMain) {
   const args = process.argv.slice(2);
@@ -420,16 +595,12 @@ if (isMain) {
   const inventoryPath = path.join(root, "scripts", "wheelhouse-inventory.json");
   const rows = toRows(sweepTree(root));
   if (writeMode) {
-    const annotated = rows.map((r) => {
-      const note = NAMED_EXCEPTIONS[keyOf(r)] ?? CURSOR_NOTES[keyOf(r)];
-      return note ? { ...r, exception: note } : r;
-    });
-    writeFileSync(inventoryPath, JSON.stringify(annotated, null, 2) + "\n");
+    writeFileSync(inventoryPath, inventoryText(rows));
     console.log("WROTE - " + rows.length + " inventory row(s) to " + inventoryPath);
     process.exit(0);
   }
   const inventory = JSON.parse(readFileSync(inventoryPath, "utf8"));
-  const problems = judge(rows, inventory);
+  const problems = [...judge(rows, inventory), ...judgeSurfaceNames(inventory)];
   if (problems.length) {
     for (const p of problems) console.error(p);
     console.error(

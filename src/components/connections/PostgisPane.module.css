@@ -280,8 +280,8 @@
 }
 
 .segmented button[aria-pressed="true"] {
-  background: var(--bg-panel);
-  box-shadow: 0 1px 3px var(--shadow);
+  background: var(--surface-inner-card-fill);
+  box-shadow: var(--surface-inner-card-shadow);
   color: var(--fg);
 }
 

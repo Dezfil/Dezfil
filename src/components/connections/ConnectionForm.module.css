@@ -16,7 +16,7 @@
   padding: 12px;
   border: 1px dashed var(--border-strong);
   border-radius: var(--radius-control);
-  background: color-mix(in srgb, var(--bg-raised) 70%, transparent);
+  background: var(--fill-wash);
 }
 
 .urlBox .field input {

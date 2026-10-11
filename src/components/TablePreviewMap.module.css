@@ -6,9 +6,10 @@
   min-height: 380px;
   border-radius: var(--radius-card);
   overflow: hidden;
-  border: 1px solid var(--border);
+  border: var(--surface-page-card-edge);
+  /* A card on the page whose ground is the map's, under a map still loading. */
   background: var(--bg-raised);
-  box-shadow: 0 3px 12px var(--shadow);
+  box-shadow: var(--surface-page-card-shadow);
 }
 
 
@@ -21,7 +22,7 @@
   text-align: center;
   color: var(--fg-muted);
   font-size: 13px;
-  background: color-mix(in srgb, var(--bg-raised) 70%, transparent);
+  background: var(--fill-wash);
 }
 
 /* The refusal's plate: opaque, so it holds its own contrast over a
@@ -33,10 +34,10 @@
   gap: 8px;
   margin: 0;
   padding: 9px 14px;
-  border: 1px solid var(--border);
+  border: var(--surface-menu-edge);
   border-radius: var(--radius);
-  background: var(--bg-panel);
-  box-shadow: 0 3px 12px var(--shadow);
+  background: var(--surface-menu-fill);
+  box-shadow: var(--surface-menu-shadow);
   color: var(--fg);
   font-size: var(--text-body);
   font-weight: 500;
@@ -58,7 +59,7 @@
   display: grid;
   place-items: center;
   padding: 24px;
-  background: color-mix(in srgb, var(--bg-raised) 70%, transparent);
+  background: var(--fill-wash);
 }
 
 .readout {
@@ -70,10 +71,10 @@
   gap: 16px;
   align-items: center;
   padding: 7px 15px;
-  background: color-mix(in srgb, var(--bg-panel) 93%, transparent);
-  backdrop-filter: blur(8px);
+  background: var(--surface-overlay-panel-fill);
+  backdrop-filter: var(--surface-overlay-panel-blur);
   border-radius: 999px;
-  box-shadow: 0 3px 12px var(--shadow);
+  box-shadow: var(--surface-overlay-panel-shadow);
   font-family: var(--font-mono);
   font-size: 10.5px;
   color: var(--fg-muted);
