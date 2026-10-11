@@ -19,6 +19,9 @@ export function projectStep(value: unknown) {
     ...pick(step, ["id", "recipeId", "ordinal", "operation", "condition", "conditions", "lastSuccessAt"]),
     parameters: step.parameters, proposedParameters: step.proposedParameters,
     output: step.output ? pick(step.output, ["id", "name"]) : null,
+    // A copied output came with a template's copy: no run made it, which is
+    // why the step has no last success.
+    templateResult: step.templateResult ? pick(step.templateResult, ["template", "version"]) : null,
     latestAttempt: projectAttempt(step.latestAttempt),
   };
 }

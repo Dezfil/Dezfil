@@ -86,3 +86,46 @@ describe("what the review found", () => {
     expect(names("SELECT * FROM (SELECT * FROM inner_t) s, outer_t o WHERE s.id = o.id")).toEqual(["inner_t", "outer_t"]);
   });
 });
+
+describe("a rename that keeps the name the query binds a table by", () => {
+  const keep = (sql: string, to: Record<string, string>) =>
+    rewriteTableReferences(sql, (n) => to[n] ?? null, { keepBoundName: true });
+
+  it("gives a renamed table with no alias of its own its old name, as written, so its qualified columns still find it", () => {
+    expect(keep("SELECT stations.geom FROM stations", { stations: "stations_2" })).toBe("SELECT stations.geom FROM stations_2 AS stations");
+    expect(keep('SELECT "Stations".geom FROM "Stations" WHERE "Stations".riders > 1', { stations: "stations_2" }))
+      .toBe('SELECT "Stations".geom FROM "stations_2" AS "Stations" WHERE "Stations".riders > 1');
+    expect(keep("SELECT * FROM main.stations", { stations: "stations_2" })).toBe("SELECT * FROM main.stations_2 AS stations");
+    expect(keep("SELECT s.geom, d.name FROM stations s JOIN districts ON true", { stations: "stations_2", districts: "districts_2" }))
+      .toBe("SELECT s.geom, d.name FROM stations_2 s JOIN districts_2 AS districts ON true");
+    expect(keep("FROM stations SELECT stations.id", { stations: "stations_2" })).toBe("FROM stations_2 AS stations SELECT stations.id");
+  });
+
+  it("leaves an alias of the table's own as it is, quoted or bare, and never adds a second", () => {
+    for (const sql of [
+      "SELECT s.* FROM stations s",
+      "SELECT s.* FROM stations AS s",
+      'SELECT "S".* FROM stations "S"',
+      "SELECT s.* FROM stations AS s(a, b, c, d, e)",
+    ]) expect(keep(sql, { stations: "stations_2" })).toBe(sql.replace("FROM stations", "FROM stations_2"));
+  });
+
+  it("reads a keyword after the name as the clause it opens, not an alias", () => {
+    for (const tail of ["WHERE riders > 1", "TABLESAMPLE 10%", "USING SAMPLE 10%", "LEFT JOIN districts ON true", "ORDER BY 1", "LIMIT 3", "QUALIFY true", "WINDOW w AS ()"]) {
+      expect(keep(`SELECT * FROM stations ${tail}`, { stations: "stations_2" })).toBe(`SELECT * FROM stations_2 AS stations ${tail}`);
+    }
+    expect(keep("SELECT * FROM (SELECT * FROM stations) t", { stations: "stations_2" })).toBe("SELECT * FROM (SELECT * FROM stations_2 AS stations) t");
+    expect(keep("SELECT * FROM stations, districts", { stations: "stations_2" })).toBe("SELECT * FROM stations_2 AS stations, districts");
+  });
+
+  it("leaves a name that lands as itself, and a query_table string, exactly as written; a query string's own SQL keeps its names too", () => {
+    expect(keep("SELECT stations.geom FROM stations", {})).toBe("SELECT stations.geom FROM stations");
+    expect(keep("SELECT * FROM query_table('stations')", { stations: "stations_2" })).toBe("SELECT * FROM query_table('stations_2')");
+    expect(keep("SELECT * FROM query('SELECT stations.id FROM stations')", { stations: "stations_2" }))
+      .toBe("SELECT * FROM query('SELECT stations.id FROM stations_2 AS stations')");
+  });
+
+  it("without the option, renames as it always has", () => {
+    expect(rewriteTableReferences("SELECT * FROM stations", (n) => (n === "stations" ? "stations_2" : null))).toBe("SELECT * FROM stations_2");
+  });
+});

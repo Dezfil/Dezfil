@@ -11,7 +11,8 @@ import { effectiveSql, wrappable, OD_GEOMETRY } from "./query/compile";
 import type { Layer } from "./metadata/maps";
 import { AGG_ELEV, isAggregated, isOdViz, type LayerFilter } from "./viz";
 import { publishedFieldsFor, type PublishedMapContext } from "./publish/published-fields";
-import { renderCapRefusal } from "./layer-render-copy";
+import { renderCapRefusal, templateRenderCapRefusal } from "./layer-render-copy";
+import { isTemplateDocumentId } from "./templates/ids";
 import { renderFilters } from "./layer-render-filters";
 import { layerEvaluation } from "./query/context";
 
@@ -199,10 +200,13 @@ export async function renderLayer(
       let sub = subFor(filters);
       let summary = await summarize(sub);
       let { featureCount, geometryType } = summary;
+      // A template's layer has no tile road: it draws within the cap or
+      // answers the cap refusal, and its copy tiles as any map does.
+      const template = isTemplateDocumentId(layer.id);
       if (featureCount > limits.renderCapFeatures) {
         // Simple features over the cap switch to tiles — live filtering
         // rides the tiles.
-        if (layer.viz.type === "points") {
+        if (layer.viz.type === "points" && !template) {
           return tiledRender(
             layer,
             filters,
@@ -231,11 +235,13 @@ export async function renderLayer(
         return errored(
           layer.id,
           "render_cap_exceeded",
-          renderCapRefusal(
-            { aggregated, od, vizType: layer.viz.type },
-            featureCount,
-            limits.renderCapFeatures,
-          ),
+          template && layer.viz.type === "points"
+            ? templateRenderCapRefusal(featureCount, limits.renderCapFeatures)
+            : renderCapRefusal(
+                { aggregated, od, vizType: layer.viz.type },
+                featureCount,
+                limits.renderCapFeatures,
+              ),
         );
       }
 

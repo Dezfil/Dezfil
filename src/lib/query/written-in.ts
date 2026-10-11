@@ -60,9 +60,11 @@ export function writtenInContext(scope: AccountScope, written: WrittenIn): Evalu
 }
 
 /** Two contexts that bind every name alike: the same home and the same
- * workflow (or none) for the same authority. */
+ * workflow (or none) for the same authority, and the same template's
+ * version (or none). */
 export function sameContext(a: EvaluationContext, b: EvaluationContext): boolean {
-  return a.authority === b.authority && a.home === b.home && a.workflow === b.workflow;
+  return a.authority === b.authority && a.home === b.home && a.workflow === b.workflow &&
+    a.template?.template === b.template?.template && a.template?.version === b.template?.version;
 }
 
 /**

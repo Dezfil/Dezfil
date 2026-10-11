@@ -4,17 +4,21 @@ import { requireAdmin } from "@/lib/auth/admin";
 import type { AuthContext } from "@/lib/auth/credentials";
 import { dataDir } from "@/lib/config";
 import { metadataDb } from "@/lib/metadata/db";
+import { templateArtifactsInUse } from "@/lib/templates/artifacts";
 import { STORAGE_KINDS, type StorageKind, type StorageRead, type StorageUse } from "./storage-answer";
+import type { StorageReferences } from "./storage-places";
 import { readStorageReferences } from "./storage-references";
 import { beforeDeadline, emptyTally, TOO_LATE, walkDataFolder } from "./storage-walk";
 
 /**
  * The storage read: what the data folder holds, by kind, from one walk of
  * it (`storage-walk.ts`) after the metadata's references are read
- * (`storage-references.ts`), with the disk's statistics. Every read has one
+ * (`storage-references.ts`), the installed templates' records read beside
+ * its first folder, with the disk's statistics. Every read has one
  * deadline, 10 seconds from when it was asked: every filesystem call of the
- * walk that answers it, the disk's statistics among them, is raced against
- * the deadline, and the reference read is checked against it between its
+ * walk that answers it, the disk's statistics and the templates' records
+ * among them, is raced against the deadline, and the reference read is
+ * checked against it between its
  * slices, so a slice under way when it passes runs to its end; past it the
  * answer gives what was not finished as at least. One walk at a time: a read
  * while one runs gets that walk's answer, and a read within 30 seconds of
@@ -54,14 +58,28 @@ async function disk(folder: string, deadline: number, stop: AbortSignal): Promis
   }
 }
 
+/** The engine's copies the installed templates need, or null when their
+ * records were not read by the deadline, or before the walk was ended. */
+async function templateReferences(deadline: number, stop: AbortSignal): Promise<ReadonlySet<string> | null> {
+  if (Date.now() >= deadline || stop.aborted) return null;
+  try {
+    const files = await beforeDeadline(templateArtifactsInUse(), deadline, stop);
+    return files === TOO_LATE ? null : files;
+  } catch {
+    return null;
+  }
+}
+
 async function walk(db: Database, deadline: number, stop: AbortSignal): Promise<StorageRead> {
   const folder = dataDir();
   // Asked first, answered beside the walk, held to the same deadline.
   const space = disk(folder, deadline, stop);
-  const references = readStorageReferences(db, deadline);
+  const templateFiles = templateReferences(deadline, stop);
+  const metadata = readStorageReferences(db, deadline);
   // Without the references in time, no file can be told; nothing is finished.
-  const kinds = !references || Date.now() >= deadline || stop.aborted
-    ? emptyTally(false) : await walkDataFolder(folder, references, deadline, stop);
+  const kinds = !metadata || Date.now() >= deadline || stop.aborted
+    ? emptyTally(false)
+    : await walkDataFolder(folder, templateFiles.then((files): StorageReferences | null => files && { ...metadata, templateFiles: files }), deadline, stop);
   const all = STORAGE_KINDS.map(kind => kinds[kind]);
   const total: StorageUse = {
     bytes: all.reduce((sum, use) => sum + use.bytes, 0),

@@ -112,15 +112,15 @@ const EARLIER: Seeds = ["SEEDED-KEY-EARLIER-USER", "SEEDED-KEY-EARLIER-PATH", "S
 const BASE = "http://instance.test";
 const ADMIN = "test-account";
 const MEMBER = "member";
-const KEYS = ["geocoderUrl", "isochroneUrl", "overpassUrl", "s3Endpoint", "satelliteUrl"] as const;
+const KEYS = ["geocoderUrl", "isochroneUrl", "overpassUrl", "s3Endpoint", "satelliteUrl", "templatesCatalogueUrl"] as const;
 type AddressKey = typeof KEYS[number];
-const SLUG: Record<AddressKey, string> = { geocoderUrl: "geo", isochroneUrl: "iso", overpassUrl: "osm", s3Endpoint: "s3", satelliteUrl: "sat" };
+const SLUG: Record<AddressKey, string> = { geocoderUrl: "geo", isochroneUrl: "iso", overpassUrl: "osm", s3Endpoint: "s3", satelliteUrl: "sat", templatesCatalogueUrl: "tpl" };
 const VARIABLE: Record<AddressKey, string> = {
   geocoderUrl: "DEZFIL_GEOCODER_URL", isochroneUrl: "DEZFIL_ISOCHRONE_URL", overpassUrl: "DEZFIL_OVERPASS_URL", s3Endpoint: "DEZFIL_S3_ENDPOINT",
-  satelliteUrl: "DEZFIL_SATELLITE_URL",
+  satelliteUrl: "DEZFIL_SATELLITE_URL", templatesCatalogueUrl: "DEZFIL_TEMPLATES_CATALOGUE",
 };
 /** Where each address's requests go on the fixture, past its keyed place. */
-const TAIL: Partial<Record<AddressKey, string>> = { overpassUrl: "/api/interpreter", satelliteUrl: "/{z}/{x}/{y}.png" };
+const TAIL: Partial<Record<AddressKey, string>> = { overpassUrl: "/api/interpreter", satelliteUrl: "/{z}/{x}/{y}.png", templatesCatalogueUrl: "/index.json" };
 /** The console's sinks the server writes its log lines to. */
 const SINKS = ["log", "info", "warn", "error", "debug", "trace"] as const;
 const ACCOUNT = { id: ADMIN, name: "Ada Okafor", email: "ada@example.test", sqlName: "ada_okafor", isAdmin: true } as Account;
@@ -223,6 +223,9 @@ async function reads(where: string, source: "stored" | "environment") {
     const runtime = await ask("GET", "/api/config", undefined, as);
     expect(runtime.status).toBe(200);
     searched(`${where}: the runtime read (${as})`, runtime.text);
+    const templates = await ask("GET", "/api/templates", undefined, as);
+    expect(templates.status).toBe(200);
+    searched(`${where}: the template list (${as})`, templates.text, { origin });
   }
   const index = buildSearchIndex(settingsDeclarations({ account: ACCOUNT, tokens: null, look: null, instance: read.body as InstanceRead,
     entry: null, health: null, assistant: null, palettes: null }, true), true);
@@ -297,6 +300,8 @@ function answer(req: IncomingMessage, res: ServerResponse) {
   } else if (url.pathname.includes("/sat-") && url.pathname.endsWith(".png")) {
     res.writeHead(200, { "content-type": "image/png", "access-control-allow-origin": "*" });
     res.end(TILE);
+  } else if (url.pathname.includes("/tpl-") && url.pathname.endsWith("/index.json")) {
+    json(res, 200, { formatVersion: 1, templates: [] });
   } else if (url.pathname.endsWith(".csv")) {
     res.writeHead(200, { "content-type": "text/csv" });
     res.end(url.pathname.includes("origins") ? "label,lon,lat\np,13.41,52.51\n" : "label,address\na,Alpha Street\nb,Beta Street\n");
@@ -382,6 +387,8 @@ describe("a service address carrying a key", () => {
       ["a tile template missing its placeholders", await save({ satelliteUrl: address("satelliteUrl").replace("/{z}/{x}/{y}", "") })],
       ["a tile template in blocked space", await save({ satelliteUrl: address("satelliteUrl", { host: "10.0.0.7" }) })],
       ["a tile template carrying user information", await save({ satelliteUrl: address("satelliteUrl", { user: true }) })],
+      ["a catalogue address in blocked space", await save({ templatesCatalogueUrl: address("templatesCatalogueUrl", { host: "10.0.0.7" }) })],
+      ["a folder for the catalogue, which only its variable may name", await save({ templatesCatalogueUrl: `/srv/${SAVED[1]}/catalogue?key=${SAVED[2]}` })],
       ["a member's change", await ask("PATCH", "/api/instance/settings", { geocoderUrl: address("geocoderUrl") }, "member")],
       ["a member's read", await ask("GET", "/api/instance/settings", undefined, "member")],
     ] as const;
@@ -478,11 +485,28 @@ describe("a service address carrying a key", () => {
   });
 
   it("Tested from the page and through the generated tool, failing and passing, and Clear's answers", async () => {
-    for (const service of ["geocode", "isochrone", "overpass", "overture", "s3", "satellite"]) {
+    for (const service of ["geocode", "isochrone", "overpass", "overture", "s3", "satellite", "templates"]) {
       const tested = await ask("POST", `/api/instance/services/${service}/test`);
       expect(tested.body, tested.text).toMatchObject({ service, result: "passed" });
       searched(`the ${service} Test's answer`, tested.text);
     }
+    // The template catalogue read: its refresh by page, by a member and by
+    // the generated tool, the list naming the catalogue by scheme and host.
+    for (const as of ["page", "member"] as const) {
+      const refreshed = await ask("POST", "/api/templates/refresh", undefined, as);
+      expect(refreshed.body.catalogue, refreshed.text).toMatchObject({ state: "empty", host: origin });
+      searched(`the template catalogue's refresh (${as})`, refreshed.text, { origin });
+    }
+    const refreshedByTool = await executeTool(tool("refresh_templates"), {}, BASE, toolFetch);
+    searched("the generated tool's template refresh", refreshedByTool.body, { origin });
+    await save({ templatesCatalogueUrl: address("templatesCatalogueUrl", { fault: "down" }) });
+    const catalogueDown = await ask("POST", "/api/instance/services/templates/test");
+    expect(catalogueDown.body, catalogueDown.text).toMatchObject({ service: "templates", result: "failed", reason: "status", status: 503 });
+    searched("the template catalogue's failed Test answer", catalogueDown.text);
+    const refusedList = await ask("POST", "/api/templates/refresh");
+    expect(refusedList.body.catalogue, refusedList.text).toMatchObject({ state: "refused", reason: "status", status: 503 });
+    searched("the template catalogue's refused refresh", refusedList.text, { origin });
+    await save({ templatesCatalogueUrl: address("templatesCatalogueUrl") });
     const byTool = await executeTool(tool("test_service"), { service: "geocode" }, BASE, toolFetch);
     expect(byTool.body).toMatchObject({ service: "geocode", result: "passed" });
     searched("the generated tool's Test answer", byTool.body);
@@ -508,7 +532,8 @@ describe("a service address carrying a key", () => {
   });
 
   it("set through the generated tool: its answer and its refusal", async () => {
-    const kept = await executeTool(tool("update_instance_settings"), { overpassUrl: address("overpassUrl"), satelliteUrl: address("satelliteUrl") }, BASE, toolFetch);
+    const kept = await executeTool(tool("update_instance_settings"), { overpassUrl: address("overpassUrl"), satelliteUrl: address("satelliteUrl"),
+      templatesCatalogueUrl: address("templatesCatalogueUrl") }, BASE, toolFetch);
     expect(kept.status, JSON.stringify(kept.body)).toBe(200);
     searched("the generated tool's change answer", kept.body, { origin });
     const refused = await executeTool(tool("update_instance_settings"), { geocoderUrl: address("geocoderUrl", { host: "10.0.0.7" }) }, BASE, toolFetch);
@@ -521,6 +546,9 @@ describe("a service address carrying a key", () => {
     expect(refusedCredentials.status).toBe(400);
     expect(JSON.stringify(refusedCredentials.body)).toContain(USER_INFORMATION_REFUSED);
     searched("the generated tool's refusal of a tile template carrying user information", refusedCredentials.body);
+    const refusedFolder = await executeTool(tool("update_instance_settings"), { templatesCatalogueUrl: `/srv/${SAVED[1]}/catalogue` }, BASE, toolFetch);
+    expect(refusedFolder.status).toBe(400);
+    searched("the generated tool's refusal of a folder for the catalogue", refusedFolder.body);
     await reads("set through the generated tool", "stored");
   });
 
@@ -528,7 +556,8 @@ describe("a service address carrying a key", () => {
     const scope = testAccountScope(metadataDb(), ADMIN);
     const pending = new PendingActionStore();
     const provider = stubProvider([
-      { text: "", toolCalls: [{ id: "point-travel-time", name: "update_instance_settings", args: { isochroneUrl: address("isochroneUrl"), satelliteUrl: address("satelliteUrl") } }] },
+      { text: "", toolCalls: [{ id: "point-travel-time", name: "update_instance_settings", args: { isochroneUrl: address("isochroneUrl"), satelliteUrl: address("satelliteUrl"),
+        templatesCatalogueUrl: address("templatesCatalogueUrl") } }] },
       { text: "Done.", toolCalls: [] },
     ]);
     const message = "Use our routing service";
@@ -540,7 +569,7 @@ describe("a service address carrying a key", () => {
     const question = asked.find(event => event.type === "confirm_required");
     if (question?.type !== "confirm_required") throw new Error("expected a confirmation");
     searched("the assistant's confirmation", question, { origin });
-    expect(question.args).toEqual({ isochroneUrl: origin, satelliteUrl: origin });
+    expect(question.args).toEqual({ isochroneUrl: origin, satelliteUrl: origin, templatesCatalogueUrl: origin });
     searched("the assistant's events before the decision", asked, { origin });
     const waiting = await ask("GET", "/api/assistant/pending");
     expect(waiting.status).toBe(200);
@@ -553,7 +582,7 @@ describe("a service address carrying a key", () => {
     searched("the assistant's events after the decision", done, { origin });
     const record = await ask("GET", `/api/assistant/runs/${receipt.id}`);
     expect(record.status).toBe(200);
-    expect(record.body.confirmations).toEqual([expect.objectContaining({ decision: "approved", args: { isochroneUrl: origin, satelliteUrl: origin } })]);
+    expect(record.body.confirmations).toEqual([expect.objectContaining({ decision: "approved", args: { isochroneUrl: origin, satelliteUrl: origin, templatesCatalogueUrl: origin } })]);
     searched("the assistant's stored record", record.text, { origin });
     await reads("set through the embedded assistant", "stored");
   });
@@ -622,6 +651,33 @@ describe("a service address carrying a key", () => {
     } finally {
       for (const key of KEYS) vi.stubEnv(VARIABLE[key], undefined);
     }
+  });
+
+  it("the template catalogue's variable naming a folder on this server: read as a folder, never its path, by cookie, by token and in the search", async () => {
+    vi.stubEnv(VARIABLE.templatesCatalogueUrl, path.join(dir, `catalogue-${SAVED[0]}`, `${SAVED[1]}-${SAVED[2]}`));
+    try {
+      for (const as of ["page", "token"] as const) {
+        const read = await ask("GET", "/api/instance/settings", undefined, as);
+        expect(read.status).toBe(200);
+        expect(read.body.settings.templatesCatalogueUrl).toMatchObject({ value: { set: true, folder: true }, source: "environment", locked: true });
+        searched(`the configuration read naming a folder (${as})`, read.text);
+      }
+      const locked = await save({ templatesCatalogueUrl: address("templatesCatalogueUrl") });
+      expect(locked.status).toBe(409);
+      searched("the locked refusal under a folder", locked.text);
+      for (const as of ["page", "member"] as const) {
+        const refreshed = await ask("POST", "/api/templates/refresh", undefined, as);
+        expect(refreshed.body.catalogue, refreshed.text).toMatchObject({ state: "unreachable", host: null, folder: true });
+        searched(`the template list under a folder (${as})`, refreshed.text);
+      }
+      const tested = await ask("POST", "/api/instance/services/templates/test");
+      expect(tested.body, tested.text).toEqual({ service: "templates", result: "failed", reason: "unreachable" });
+      searched("the template catalogue's Test under a folder", tested.text);
+      const read = await ask("GET", "/api/instance/settings");
+      const index = buildSearchIndex(settingsDeclarations({ account: ACCOUNT, tokens: null, look: null, instance: read.body as InstanceRead,
+        entry: null, health: null, assistant: null, palettes: null }, true), true);
+      searched("the settings search under a folder", index);
+    } finally { vi.stubEnv(VARIABLE.templatesCatalogueUrl, undefined); }
   });
 
   it("the imagery style whole for a signed-in request alone, refused to an anonymous one; a publication of a map on Satellite assembled afresh", async () => {

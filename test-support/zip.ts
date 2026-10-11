@@ -24,12 +24,16 @@ export interface ZipMember {
 export interface ZipOptions {
   /** Archive comment appended after the end record. */
   comment?: Buffer | string;
+  /** Where the archive will start in its file: every offset is written
+   * past this many bytes, so a caller can place the archive after a hole
+   * (an archive larger than a bound without writing its bytes). */
+  baseOffset?: number;
 }
 
 export function buildZip(members: ZipMember[], options: ZipOptions = {}): Buffer {
   const localParts: Buffer[] = [];
   const centralParts: Buffer[] = [];
-  let offset = 0;
+  let offset = options.baseOffset ?? 0;
 
   for (const member of members) {
     const data =

@@ -2,6 +2,8 @@ import { accountMaterialAvailable } from "./account-deletion-admission";
 import type { Database } from "better-sqlite3";
 import { ApiError } from "@/lib/api/errors";
 import { metadataDb } from "@/lib/metadata/db";
+import { parseTemplateDocumentId } from "@/lib/templates/ids";
+import { templateMapPart, templatePresent } from "@/lib/templates/resolver";
 import { resourceAbsent } from "./owned-resource";
 import { requireAccountScope, type AccountScope } from "./scope";
 
@@ -18,6 +20,14 @@ import { requireAccountScope, type AccountScope } from "./scope";
  * missing one (the absent refusal), and a reachable one whose action the
  * standing does not permit is refused with the permission refusal, one plain
  * sentence with no detail. Admin rights grant nothing here.
+ *
+ * A template's map and its layers belong to no account and are no rows: their
+ * ids have a form of their own, and none is ever looked up in the store. Every
+ * signed-in account may view them, through the template's own reads in the map
+ * and layer access modules; no action on them is permitted, so every write
+ * road refuses one with the permission refusal (a missing one with the absent
+ * refusal). The kernel's own reach answers a template's id as absent, so no
+ * road that reads a resource's rows by its identity is ever handed one.
  */
 
 /** The authorization boundaries, as data. Every kind belongs to one. */
@@ -149,6 +159,7 @@ export interface Reached {
 
 function standing(scope: AccountScope, kind: ReachKind, id: string, db: Database): Reached | null {
   const me = requireAccountScope(scope, db);
+  if (parseTemplateDocumentId(id)) return null;
   const parent = db.prepare(PARENT[kind]).get(id) as { parent: string } | undefined;
   if (!parent) return null;
   const row = db.prepare(STANDING[FAMILY[kind]]).get({ me, id: parent.parent }) as
@@ -295,6 +306,12 @@ export function requireCancellable(scope: AccountScope, runId: string, db: Datab
  * absent refusal for an unreachable one, the permission refusal otherwise. */
 export function requirePermitted<K extends ReachKind>(scope: AccountScope, kind: K, id: string,
   action: ActionOf<K>, db: Database = metadataDb()): Reached {
+  if (parseTemplateDocumentId(id)) {
+    requireAccountScope(scope, db);
+    const template = templateMapPart(id);
+    if (template && template.kind === kind && templatePresent(template)) throw permissionRefused();
+    throw resourceAbsent();
+  }
   const reached = requireReachable(scope, kind, id, db);
   const rule = (ACTION_RULES[FAMILY[kind]] as Record<string, ActionRule>)[action as string];
   if (!rule.by.includes(reached.relation)) throw permissionRefused();
@@ -373,6 +390,7 @@ export function mayFileInto(scope: AccountScope, projectId: string, db: Database
 export function requireFilingRemoval(scope: AccountScope, kind: FilingKind, id: string, projectId: string,
   db: Database = metadataDb()): void {
   const me = requireAccountScope(scope, db);
+  if (parseTemplateDocumentId(id)) throw resourceAbsent();
   const filed = db.prepare(FILED[kind]).get(id, projectId) as { owner: string } | undefined;
   if (!filed) throw resourceAbsent();
   if (filed.owner === me) return;

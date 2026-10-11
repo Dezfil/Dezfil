@@ -1,5 +1,5 @@
 import { SETTING_CATALOGUE } from "@/lib/settings/catalogue";
-import { disclosedDefinition, refusesUserInformation } from "@/lib/settings/disclosure";
+import { disclosedDefinition, refusesUserInformation, variableMayNameFolder } from "@/lib/settings/disclosure";
 import { isInstanceDefault } from "@/lib/settings/instance-defaults";
 import type { SettingDefinition, WriteConstraint } from "@/lib/settings/types";
 import { EXPORT_MAX_DIMENSION } from "@/lib/export/space";
@@ -23,6 +23,12 @@ const template = { oneOf: [...address.oneOf.slice(0, 2), object({ set: { const: 
   userInformation: { const: true, description: "The template in effect carries a user name or password, never given here. No browser loads tiles from such an address, so the imagery is not drawn." } }),
   ...address.oneOf.slice(2)] };
 
+/** An address whose variable may name a folder on the server instead (the
+ * template catalogue's) also reads as a folder, never which. */
+const folderAddress = { oneOf: [...address.oneOf.slice(0, 3), object({ set: { const: true },
+  folder: { const: true, description: "The variable names a folder on this server, read as files under the same checks; its path is never given." } }),
+  ...address.oneOf.slice(3)] };
+
 /** One site as the sites kind takes it: http or https, a host and an
  * optional port, an optional closing slash, nothing else. The server also
  * refuses a host a framing policy cannot name. */
@@ -39,7 +45,7 @@ function valueSchema(definition: SettingDefinition): Record<string, unknown> {
   if (definition.secret) return definition.key === "secretKey"
     ? object({ status: { type: "string", enum: ["environment", "data-directory", "not-yet-present"] } })
     : object({ set: { type: "boolean" } });
-  if (definition.kind === "address") return refusesUserInformation(definition) ? template : address;
+  if (definition.kind === "address") return refusesUserInformation(definition) ? template : variableMayNameFolder(definition) ? folderAddress : address;
   const value = definition.write?.kind === "sites" ? { type: "array", maxItems: definition.write.maxSites, items: KEPT_SITE }
     : definition.kind === "number" ? { type: "number" } : definition.kind === "boolean" ? { type: "boolean" }
     : definition.kind === "list" ? { type: "array", items: { type: "string" } } : { type: ["string", "null"] };
@@ -114,7 +120,8 @@ export const INSTANCE_SETTINGS_SCHEMAS = {
           (constraint.userInformation === "refused" ? "It must carry no user name or password: a browser cannot load tiles from such an address, " +
             "so the key belongs in the path or the query. " : "") +
           "Write-only: it is stored encrypted with the instance's key and every read gives back its scheme and host alone, so a new key " +
-          `means sending the whole address again. A set ${definition.environment} locks it.` : "";
+          `means sending the whole address again. A set ${definition.environment} locks it.` +
+          (constraint.folder === "variable" ? ` Only ${definition.environment} may name a folder on the server instead; a folder is never taken here.` : "") : "";
       return [definition.key, { ...schema, description: `${definition.label}. ${definition.purpose} Null clears the stored value. ${note}`.trim() }];
     })),
   },
@@ -143,6 +150,8 @@ export const INSTANCE_SETTINGS_PATHS = {
       "also reads with userInformation true while it carries a user name or password, which is never given: no browser loads tiles from such an address, " +
       "so the imagery is not drawn. The satellite credit an admin stored reads as stored while DEZFIL_SATELLITE_ATTRIBUTION " +
       "is unset, and as the variable's, with the stored credit as storedValue, while it is set. " +
+      "The template catalogue's address (templatesCatalogueUrl) reads as a service address does; while DEZFIL_TEMPLATES_CATALOGUE names a folder on this " +
+      "server instead of an http or https address, it reads as set with folder true, and the folder's path is never given. " +
       "The built-in documentedDefault stays as documented, including any path. " +
       "Contextual defaults carry a rule when there is no single address or value. The read generates no key, writes no configuration file, " +
       "contacts no service and initializes no engine. Capacities report admitted geocode rows and travel-time origins per run, " +
@@ -174,8 +183,10 @@ export const INSTANCE_SETTINGS_PATHS = {
       "Stored changes apply live to new work; admitted work keeps its budget. Lowered concurrency cancels nothing, increased concurrency wakes waiters " +
       "after commit, and lowered queue limits keep accepted waiters. Public limits apply against the existing window count. Environment changes need a restart. " +
       "Returns the same configuration as the read, with the same secret and address disclosure rules. No secret is accepted. " +
-      "The four service addresses (geocoderUrl, isochroneUrl, overpassUrl, s3Endpoint) and the satellite imagery's tile template (satelliteUrl) are write-only: " +
+      "The four service addresses (geocoderUrl, isochroneUrl, overpassUrl, s3Endpoint), the satellite imagery's tile template (satelliteUrl) and the " +
+      "template catalogue's address (templatesCatalogueUrl) are write-only: " +
       "each is stored encrypted and read back as its scheme and host alone; a refusal names the key and never repeats the address. " +
+      "The catalogue's address is http or https here: a folder on the server is named by DEZFIL_TEMPLATES_CATALOGUE alone. " +
       "The template must also hold {z}, {x} and {y}, a refusal naming the ones missing, and carry no user name or password, refused " +
       "before any lookup with a sentence saying a browser cannot load tiles from such an address and the key belongs in the path or the query. Before the write, an address is also refused " +
       "(400 invalid_request, with the egress policy's own sentence) when that policy would refuse a request to it now, a template with each placeholder " +

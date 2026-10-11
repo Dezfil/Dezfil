@@ -59,6 +59,9 @@ COPY --from=build --chown=node:node /app/.next/standalone ./
 COPY --from=build --chown=node:node /app/.next/static ./.next/static
 # 0214: runtime reads this maintained file at its source-relative path.
 COPY --from=build --chown=node:node /app/src/lib/assistant/model-catalogue.json ./src/lib/assistant/model-catalogue.json
+# The shipped templates: an index and one installed folder per version,
+# read at their source-relative path, so they work with no network.
+COPY --from=build --chown=node:node /app/templates ./templates
 # Next's standalone server does not promise to copy `public`; carry the
 # application-owned runtime assets explicitly (including the MVT parser
 # worker) so the one-container renderer never depends on build leftovers.

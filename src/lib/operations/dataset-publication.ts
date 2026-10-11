@@ -57,6 +57,9 @@ export function publishDataset(
             rowCount: table.rowCount,
             importedAt: table.importedAt ?? now,
             sourceParams: table.sourceParams ?? undefined,
+            // A run's output is an operation's, whatever it replaces: a
+            // copied template result becomes the run's.
+            source: table.source,
           },
           db,
         );

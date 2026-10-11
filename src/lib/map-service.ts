@@ -16,23 +16,24 @@ import { ApiError } from "@/lib/api/errors";
 import { removeTileArtifacts } from "@/lib/tiles/build";
 import { prepareThumbnailRemoval } from "@/lib/map-thumbnails";
 import { invalidatePublishedToken } from "@/lib/publish/publish-service";
-import { CORNERS, isCorner, type Corner } from "@/lib/corners";
-import { isValidTimeline, TIMELINE_SPEED, type MapTimeline } from "@/lib/timeline";
-import { isValidWidgets, MAX_WIDGETS, type MapWidget } from "@/lib/widgets";
+import { isValidTimeline } from "@/lib/timeline";
+import { isValidWidgets } from "@/lib/widgets";
+import {
+  normalizeBasemapLayers,
+  normalizeLegendOrder,
+  normalizeTimeline,
+  normalizeWidgets,
+  requireLegendCorner,
+  requireWidgetsPublished,
+} from "@/lib/map-document-rules";
 import {
   refProblem,
   widgetRefs,
   type ColumnRef,
 } from "@/lib/column-validation";
 import { fieldsForWrite } from "@/lib/layer-service";
-import { isAggregated } from "@/lib/viz";
 import { representativeColor } from "@/lib/style/style";
 import type { BasemapKey } from "@/lib/basemap";
-import {
-  BASEMAP_LAYER_GROUPS,
-  isBasemapLayerGroup,
-  type BasemapLayers,
-} from "@/lib/basemap-layers";
 import {
   insertMap,
   mapHome,
@@ -82,139 +83,6 @@ const RECORDED_MAP_FIELDS = [
  * Greenland to the Southern Ocean, no dead space above. */
 function startingView(defaults: InstanceDefaults): Viewport {
   return { lng: defaults["newMap.longitude"], lat: defaults["newMap.latitude"], zoom: defaults["newMap.zoom"] };
-}
-
-/**
- * Validate and normalize incoming basemap layer visibility. Only hidden
- * groups are kept — visible is the default — so an object with nothing
- * hidden normalizes to null, the same as every earlier map.
- */
-function normalizeBasemapLayers(input: unknown): BasemapLayers | null {
-  if (typeof input !== "object" || input === null || Array.isArray(input)) {
-    throw new ApiError(
-      "invalid_request",
-      "basemapLayers must be an object of group visibilities, or null to show everything.",
-      400,
-    );
-  }
-  const normalized: BasemapLayers = {};
-  for (const [group, visible] of Object.entries(input)) {
-    if (!isBasemapLayerGroup(group)) {
-      throw new ApiError(
-        "invalid_request",
-        `Unknown basemap layer group "${group}"; the groups are ${BASEMAP_LAYER_GROUPS.join(", ")}.`,
-        400,
-      );
-    }
-    if (typeof visible !== "boolean") {
-      throw new ApiError(
-        "invalid_request",
-        `basemapLayers.${group} must be true (visible) or false (hidden).`,
-        400,
-      );
-    }
-    if (!visible) normalized[group] = false;
-  }
-  return Object.keys(normalized).length ? normalized : null;
-}
-
-/**
- * Validate a timeline dock. The dock must point at a time filter that
- * actually exists on a non-aggregated layer of this map — hex/grid cells are
- * aggregated server-side, so there is nothing client-side for a playback
- * window to sweep. Everything is checked before anything is written. (Later
- * drift — the layer or filter going away — is tolerated on read: an
- * unresolvable dock simply renders as no timeline.)
- */
-function normalizeTimeline(input: unknown, mapId: string): MapTimeline {
-  if (!isValidTimeline(input)) {
-    throw new ApiError(
-      "invalid_request",
-      "timeline must be { layerId, field, speed? }, speed between " +
-        `${TIMELINE_SPEED.min} and ${TIMELINE_SPEED.max}, or null to undock.`,
-      400,
-    );
-  }
-  const layer = listLayers(mapId).find((l) => l.id === input.layerId);
-  if (!layer) {
-    throw new ApiError(
-      "invalid_request",
-      "timeline.layerId must be one of the map's layers.",
-      400,
-    );
-  }
-  if (isAggregated(layer.viz)) {
-    throw new ApiError(
-      "invalid_request",
-      "Aggregated layers (hexbin/grid) cannot dock the timeline; their " +
-        "time filter still applies, without playback.",
-      400,
-    );
-  }
-  const hasFilter = layer.filters.some(
-    (f) => f.kind === "timerange" && f.field === input.field,
-  );
-  if (!hasFilter) {
-    throw new ApiError(
-      "invalid_request",
-      `The layer needs a time filter on "${input.field}" before that field ` +
-        "can dock the timeline.",
-      400,
-    );
-  }
-  return {
-    layerId: input.layerId,
-    field: input.field,
-    speed: input.speed ?? TIMELINE_SPEED.default,
-  };
-}
-
-/**
- * Validate an incoming widget list. Shape and cross-field rules live in the
- * widgets module; this adds author-time integrity — a caller may not
- * INTRODUCE a widget pointing at a layer the map does not own.
- *
- * Echoing drift that is already stored is tolerated, and that distinction
- * is the whole contract: removed every source of new orphans — deletion
- * cascades to bound widgets in one undoable step, duplication drops what it
- * cannot resolve, and the v21 migration swept the old ones — but replaying
- * an earlier layer-only delete step can still surface one transiently.
- * Refusing the echo would brick every widget write on that map ('s harm);
- * silently dropping it would lose an author's configuration that undoing
- * the same step is about to make whole again. Read lanes degrade a drifted
- * reference to absence, as they always have.
- */
-function normalizeWidgets(input: unknown, mapId: string): MapWidget[] {
-  if (!isValidWidgets(input)) {
-    throw new ApiError(
-      "invalid_request",
-      "widgets must be a list of up to " +
-        `${MAX_WIDGETS} widgets, each { id, type: formula | category | ` +
-        "histogram | note, layerId, title, field, agg, aggField, unit, " +
-        "note, format, visible } with unique ids and type-consistent " +
-        "fields (notes carry layerId: null and a note body).",
-      400,
-    );
-  }
-  const owned = new Set(listLayers(mapId).map((l) => l.id));
-  const stored = new Map(
-    (getMap(mapId)?.widgets ?? []).map((w) => [w.id, w.layerId]),
-  );
-  for (const w of input) {
-    // Notes read nothing and carry no layer.
-    if (w.layerId !== null && !owned.has(w.layerId)) {
-      // An unchanged echo of a reference already stored is not this
-      // caller's error — see the contract above.
-      if (stored.get(w.id) === w.layerId) continue;
-      throw new ApiError(
-        "invalid_request",
-        `Widget "${w.title}" points at layer ${w.layerId}, which is not one ` +
-          "of the map's layers.",
-        400,
-      );
-    }
-  }
-  return input.map((w) => ({ ...w, title: w.title.trim() }));
 }
 
 /**
@@ -410,75 +278,41 @@ export function updateMap(
   if (mapWriteChangesPublication(prior, fields)) { requireMapFor(scope, id, "publish"); requireLivePublicationChange(scope, id); }
   const covered = Object.entries(fields).some(([key, value]) => key !== "viewport" && value !== undefined);
   const checkRevision = () => { if (covered) requireDocumentRevision(scope, { kind: "map", id, expectedRevision: opts.expectedRevision }); };
-  assertMapLayerRefs(prior, listLayers(id), fields);
+  const storedLayers = listLayers(id);
+  assertMapLayerRefs(prior, storedLayers, fields);
   checkRevision();
-  // Validate everything before writing anything — no partial writes.
+  // Validate everything before writing anything — no partial writes. The
+  // rules are the map document's own (map-document-rules.ts), held against
+  // the stored layers and, for the widget echo, the stored widgets.
+  const storedLayerIds = storedLayers.map((l) => l.id);
   const basemapLayers =
     fields.basemapLayers === undefined
       ? undefined
       : fields.basemapLayers === null
         ? null
         : normalizeBasemapLayers(fields.basemapLayers);
-  if (
-    fields.legendCorner !== undefined &&
-    fields.legendCorner !== null &&
-    !isCorner(fields.legendCorner)
-  ) {
-    throw new ApiError(
-      "invalid_request",
-      `The legend corner must be one of ${CORNERS.join(", ")}, or null for bottom-left.`,
-      400,
-    );
-  }
-  const legendCorner = fields.legendCorner as Corner | null | undefined;
-  // The manual legend arrangement: null returns the map to automatic;
-  // anything else must name exactly the map's current layer ids — no
-  // misses, no strangers, no doubles — or nothing changes.
-  let legendOrder: string[] | null | undefined;
-  if (fields.legendOrder === undefined) {
-    legendOrder = undefined;
-  } else if (fields.legendOrder === null) {
-    legendOrder = null;
-  } else {
-    const arrangement = fields.legendOrder;
-    const owned = new Set(listLayers(id).map((l) => l.id));
-    if (
-      !Array.isArray(arrangement) ||
-      !arrangement.every((lid) => typeof lid === "string") ||
-      arrangement.length !== owned.size ||
-      !arrangement.every((lid) => owned.has(lid)) ||
-      new Set(arrangement).size !== arrangement.length
-    ) {
-      throw new ApiError(
-        "invalid_request",
-        "legendOrder must list exactly the map's current layer ids, or null for the automatic order.",
-        400,
-      );
-    }
-    // An empty arrangement (a zero-layer map) is the automatic order.
-    legendOrder = arrangement.length ? (arrangement as string[]) : null;
-  }
+  const legendCorner =
+    fields.legendCorner === undefined
+      ? undefined
+      : requireLegendCorner(fields.legendCorner);
+  const legendOrder =
+    fields.legendOrder === undefined
+      ? undefined
+      : normalizeLegendOrder(fields.legendOrder, storedLayerIds);
   const timeline =
     fields.timeline === undefined
       ? undefined
       : fields.timeline === null
         ? null
-        : normalizeTimeline(fields.timeline, id);
+        : normalizeTimeline(fields.timeline, storedLayers);
   const widgets =
     fields.widgets === undefined
       ? undefined
-      : normalizeWidgets(fields.widgets, id);
-  if (
-    fields.widgetsPublished !== undefined &&
-    typeof fields.widgetsPublished !== "boolean"
-  ) {
-    throw new ApiError(
-      "invalid_request",
-      "widgetsPublished must be true or false.",
-      400,
-    );
-  }
-  const widgetsPublished = fields.widgetsPublished as boolean | undefined;
+      : normalizeWidgets(fields.widgets, storedLayerIds, getMap(id)?.widgets ?? []);
+  const widgetsPublished =
+    fields.widgetsPublished === undefined
+      ? undefined
+      : requireWidgetsPublished(fields.widgetsPublished);
   const priorOrder =
     fields.layerOrder !== undefined
       ? listLayers(id).map((l) => l.id)

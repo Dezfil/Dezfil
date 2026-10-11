@@ -1,9 +1,10 @@
+import type { ErrorCode } from "./errors";
 /** Product effects are declared by each operation, never inferred from HTTP.
  * Derived caches and metadata clocks belong to their owning product resource.
  */
 export type ProductResource =
   | "maps" | "layers" | "tables" | "publications" | "recipes" | "runs"
-  | "projects" | "connections" | "palettes" | "accounts" | "settings" | "caches" | "basemaps" | "assistant";
+  | "projects" | "connections" | "palettes" | "accounts" | "settings" | "caches" | "basemaps" | "templates" | "assistant";
 
 export interface ResourceWrite {
   resource: ProductResource;
@@ -26,8 +27,9 @@ export interface OperationEffects {
    * group and declare nothing. */
   history?: true;
   /** Read-only here, but the operation sends a request outside this
-   * server (a service's Test): the SQL and workflow assistants' read-only
-   * policy refuses it, and the embedded assistant confirms it. */
+   * server (a service's Test, the template catalogue's refresh): the SQL
+   * and workflow assistants' read-only policy refuses it. Whether the
+   * embedded assistant asks first is the operation's own confirm. */
   reachesOutside?: true;
 }
 export interface ConfirmationWords {
@@ -43,6 +45,18 @@ export interface ConfirmationWords {
      * Empty collection path means the response itself is an array. */
     collection?: string;
     identity?: string;
+    /** An argument the call may leave out, which the confirmation binds:
+     * completed from the subject read (its value at `path`) before the call
+     * waits for its answer, so what the words name is what runs. `{<argument>}`
+     * in the words reads the bound value. A read that answers with no value
+     * there refuses the call unasked: with `absent`'s code (409) when the
+     * operation declares one. */
+    binds?: { argument: string; path: string; absent?: ErrorCode };
+    /** Words read from the subject: `{<key>}` in the words becomes the value
+     * at `path` (a byte count, when `bytes`, in KB, MB or GB). Read only
+     * when the subject describes the bound value (and, with `of`, when its
+     * value at `of` is the bound value too); else `fallback`. */
+    facts?: Record<string, { path: string; bytes?: true; of?: string; fallback: string }>;
   };
 }
 /** The pages the in-product assistant runs on. */

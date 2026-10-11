@@ -53,8 +53,9 @@ export const INSTANCE_SYSTEM_SCHEMAS = {
         tile_archives: storageUse("Tile archives with a tile record, and what they were built from."),
         service_caches: storageUse("The three service caches' answers."),
         thumbnails: storageUse("Map card images and their evidence."),
+        templates: storageUse("Downloaded templates, and the copies of an installed template's data the query engine reads, a file with two names counted once."),
         metadata_database: storageUse("The metadata database and its journal files."),
-        leftover_files: storageUse("What the next restart's sweeps would remove: upload, download and tile scratch, staged project exports with their ownership records, table files no dataset uses, archives no layer uses and their evidence, unfinished thumbnail writes. It includes work in progress."),
+        leftover_files: storageUse("What the next restart's sweeps would remove: upload, download and tile scratch, staged project exports with their ownership records, table files no dataset or installed template uses, archives no layer uses and their evidence, unfinished thumbnail writes. It includes work in progress."),
         other: storageUse("Everything else in the data folder, such as the key file and the server's records."),
       }),
       total: storageUse("What the data folder holds: every kind together."),
@@ -84,12 +85,13 @@ export const INSTANCE_SYSTEM_PATHS = {
       "is refused. An admin bearer token calls directly. Responses, including refusals, are private, no-store. " +
       "Walks the data folder and answers, for each kind of file, the bytes its files take and how many there are: tables (dataset files the metadata " +
       "registers), tile_archives (archives with a tile record and what they were built from), service_caches (the three caches' answers), thumbnails " +
-      "(map card images), metadata_database (the database and its journal files), leftover_files (what the next restart's sweeps would remove: upload, " +
-      "download and tile scratch, staged project exports with their ownership records, table files no dataset uses, archives no layer uses, unfinished " +
-      "thumbnail writes; it includes work in progress) and other (the rest, such as the key file and the server's records); with every kind " +
-      "together and the free and total space on the folder's volume. Each file counts once. " +
-      "It takes names and sizes and which files the metadata references, opening no file and following no " +
-      "link, and answers no name, owner, account, map, dataset, path or file name. One walk runs at a time: a read during a walk gets that walk's " +
+      "(map card images), templates (downloaded templates, and the copies of an installed template's data the query engine reads), metadata_database " +
+      "(the database and its journal files), leftover_files (what the next restart's sweeps would remove: upload, " +
+      "download and tile scratch, staged project exports with their ownership records, table files no dataset or installed template uses, archives " +
+      "no layer uses, unfinished thumbnail writes; it includes work in progress) and other (the rest, such as the key file and the server's " +
+      "records); with every kind together and the free and total space on the folder's volume. Each file counts once, however many names it has. " +
+      "It takes names and sizes, which files the metadata references and which the installed templates' records name, opening no other file and " +
+      "following no link, and answers no name, owner, account, map, dataset, path or file name. One walk runs at a time: a read during a walk gets that walk's " +
       "answer, and a read within 30 seconds of it gets the same answer, unless a service cache was cleared since the walk began: a Clear ends a " +
       "walk under way at once, the reads already joined to it getting what it had counted, and a read after the Clear never gets a walk begun " +
       "before it but joins one fresh walk. Every read's deadline is 10 seconds from its asking: the walk that answers it cuts every filesystem " +

@@ -47,13 +47,17 @@ export const INSTANCE_SERVICES_SCHEMAS = {
     cleared: { type: "array", minItems: 1, uniqueItems: true, items: { type: "string", enum: [...PROVIDER_CACHES] }, description: "The caches emptied." },
   }),
   ServiceTestAnswer: {
-    description: "A service's Test: passed, with the milliseconds the service took to answer (Overture: how many releases its listing names and the newest), " +
+    description: "A service's Test: passed, with the milliseconds the service took to answer (Overture: how many releases its listing names and the newest; " +
+      "templates: how many templates the catalogue's index lists, with the milliseconds), " +
       "or failed with one reason: not_set_up (no address), refused (the egress rules refused it; message is the check's sentence), unreachable (nothing answered), " +
       "timed_out (no answer within the service's time limit), status (an answer with that status) or unexpected_answer (an answer, but not as the service gives one). " +
       "Never the service's body, its address or a key.",
     oneOf: [
-      object({ service: { type: "string", enum: TESTED_SERVICES.filter(service => service !== "overture") }, result: { const: "passed" },
+      object({ service: { type: "string", enum: TESTED_SERVICES.filter(service => service !== "overture" && service !== "templates") }, result: { const: "passed" },
         milliseconds: { type: "integer", minimum: 0, description: "How long the service took to answer, once the request was sent." } }),
+      object({ service: { const: "templates" }, result: { const: "passed" },
+        templates: { type: "integer", minimum: 0, description: "How many templates the catalogue's index lists that this server reads." },
+        milliseconds: { type: "integer", minimum: 0, description: "How long the catalogue took to answer with its index, once the request was sent." } }),
       object({ service: { const: "overture" }, result: { const: "passed" },
         releases: { type: "integer", minimum: 1, description: "How many releases the listing names; kept as the list the Overture pane offers." },
         newest: { type: "string", description: "The newest release." } }),
@@ -90,11 +94,14 @@ export const INSTANCE_SERVICES_PATHS = {
       "Sends the service one fixed request at its address in effect, never one given here: geocode (the address finder) one search for a fixed place, " +
       "isochrone (travel time) one area on foot round a fixed point for the shortest band, overpass (OpenStreetMap) the smallest Overpass query, " +
       "overture a listing of the releases, s3 one request to the S3 address's root without credentials, satellite one fixed low-zoom tile " +
-      "(zoom 3, x 4, y 2) at the imagery's tile template within 10 seconds, passing when the answer is an image. It goes the way the service's own requests go: " +
+      "(zoom 3, x 4, y 2) at the imagery's tile template within 10 seconds, passing when the answer is an image, templates the template catalogue's index, " +
+      "read as a refresh reads it within the link import's time bound (DEZFIL_REMOTE_TIMEOUT_S), or from the folder DEZFIL_TEMPLATES_CATALOGUE names, " +
+      "passing with how many templates it lists, an index this server would refuse being unexpected_answer. It goes the way the service's own requests go: " +
       "through the egress check, redirects included, and after the gap between requests for the address finder and travel time. " +
       "It reaches outside this server and stores nothing: no setting changes and no cache is read or written, except that the Overture Test keeps the " +
       "release list it finds, as Check now does. A second Test of a service while one runs gets the same answer from the same request. " +
       "A stored address the instance's key no longer opens is refused with service_address_unreadable, as the service refuses it. " +
+      "While an admin has turned the template catalogue off (templates.catalogue), its Test is refused with 409 templates_catalogue_off and sends nothing. " +
       "The embedded assistant asks for confirmation before calling; SQL and workflow assistants refuse this operation. " +
       "MCP advertises that policy and adds no confirmation step.",
     tag: "System", tool: "test_service", toolInput: { closed: true },
@@ -104,7 +111,8 @@ export const INSTANCE_SERVICES_PATHS = {
       consequence: "This server sends one request to the service at its address in effect. Nothing is saved, except that a Test of Overture keeps the release list it finds.",
       subject: { path: null, argument: "service", name: "" } },
     parameters: [{ name: "service", in: "path", required: true, schema: { type: "string", enum: [...TESTED_SERVICES] },
-      description: "The service to test: geocode, isochrone, overpass, overture, s3 or satellite (the imagery's tile template)." }],
-    responses: { "200": jsonOk("#/components/schemas/ServiceTestAnswer"), "400": ERROR_RESPONSE, "401": ERROR_RESPONSE, "403": ERROR_RESPONSE, "404": ERROR_RESPONSE, "503": ERROR_RESPONSE },
+      description: "The service to test: geocode, isochrone, overpass, overture, s3, satellite (the imagery's tile template) or templates (the template catalogue)." }],
+    responses: { "200": jsonOk("#/components/schemas/ServiceTestAnswer"), "400": ERROR_RESPONSE, "401": ERROR_RESPONSE, "403": ERROR_RESPONSE, "404": ERROR_RESPONSE,
+      "409": ERROR_RESPONSE, "503": ERROR_RESPONSE },
   }), security: AUTH_SECURITY } },
 };

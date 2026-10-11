@@ -11,7 +11,7 @@ describe("settings catalogue", () => {
   it("has one complete definition for each deployment variable and keeps test wiring separate", () => {
     const rows = [...readFileSync("README.md", "utf8").matchAll(/^\| `([A-Z][A-Z0-9_]+)`/gm)].map(match => match[1]);
     const deployment = SETTING_CATALOGUE.filter(d => d.scope === "instance" && d.environment);
-    expect(deployment).toHaveLength(63);
+    expect(deployment).toHaveLength(64);
     expect(TEST_WIRING).toHaveLength(4);
     expect([...deployment.map(d => d.environment), ...TEST_WIRING.map(d => d.environment)].sort()).toEqual(rows.sort());
     expect(catalogueProblems(SETTING_CATALOGUE)).toEqual([]);
@@ -284,9 +284,10 @@ const ADDRESS_REFUSED = { ok: false, reason: "Expected an http or https address 
 
 describe("the service addresses", () => {
   it("are editable beside their variables, write-only, read by admins and never secret", () => {
-    // The four services' addresses and the satellite imagery's tile template.
+    // The four services' addresses, the satellite imagery's tile template
+    // and the template catalogue's address.
     expect(SETTING_CATALOGUE.filter(d => d.kind === "address" && d.editable).map(d => d.key))
-      .toEqual(["s3Endpoint", "overpassUrl", "satelliteUrl", "geocoderUrl", "isochroneUrl"]);
+      .toEqual(["s3Endpoint", "overpassUrl", "satelliteUrl", "geocoderUrl", "isochroneUrl", "templatesCatalogueUrl"]);
     for (const [key, environment] of Object.entries(SERVICE_ADDRESSES)) {
       expect(settingDefinition(key), key).toMatchObject({ scope: "instance", readBy: "admin", changedBy: "admin", kind: "address",
         environment, environmentTiming: "restart", timing: "live", secret: false, editable: true });
@@ -340,6 +341,41 @@ describe("the service addresses", () => {
     ["an address constraint on a text setting", "instanceName", { write: { kind: "address", maxLength: 2048 } }, "invalid address constraint"],
     ["an address constraint with no length", "geocoderUrl", { write: { kind: "address", maxLength: 0 } }, "invalid address constraint"],
     ["an address default that is not an address", "overpassUrl", { defaultValue: "overpass.example" }, "default fails validation"],
+  ] as const)("fails the catalogue with %s", (_name, key, change, problem) => {
+    expect(catalogueProblems(SETTING_CATALOGUE)).toEqual([]);
+    const seeded = SETTING_CATALOGUE.map(definition => definition.key === key ? { ...definition, ...change } as SettingDefinition : definition);
+    expect(catalogueProblems(seeded)).toContain(`${key}: ${problem}`);
+  });
+});
+
+describe("the template catalogue's rows", () => {
+  it("are the switch, on by default with no variable, and the address beside its variable, whose variable alone may name a folder", () => {
+    expect(SETTING_CATALOGUE.filter(d => d.key.startsWith("templates")).map(d => d.key)).toEqual(["templatesCatalogueUrl", "templates.catalogue"]);
+    expect(settingDefinition("templates.catalogue")).toMatchObject({ scope: "instance", readBy: "signed-in", changedBy: "admin", kind: "boolean",
+      timing: "live", secret: false, editable: true, defaultValue: true, documentedDefault: "on", write: { kind: "switch" } });
+    expect(settingDefinition("templates.catalogue").environment).toBeUndefined();
+    const address = settingDefinition("templatesCatalogueUrl");
+    expect(address).toMatchObject({ scope: "instance", readBy: "admin", changedBy: "admin", kind: "address", environment: "DEZFIL_TEMPLATES_CATALOGUE",
+      environmentTiming: "restart", timing: "live", secret: false, editable: true,
+      defaultValue: "https://github.com/Dezfil/templates/releases/latest/download/index.json",
+      documentedDefault: "https://github.com/Dezfil/templates/releases/latest/download/index.json" });
+    expect(address.write).toEqual({ kind: "address", maxLength: 2048, folder: "variable" });
+    expect(["templates.catalogue", "templatesCatalogueUrl"].filter(key => isInstanceDefault(settingDefinition(key)))).toEqual([]);
+    expect(catalogueProblems(SETTING_CATALOGUE)).toEqual([]);
+  });
+
+  it("refuses a folder at save: only the variable may name one", () => {
+    const address = settingDefinition("templatesCatalogueUrl");
+    for (const input of ["/srv/SEEDED-KEY-0005-PATH/catalogue", "catalogue", "./catalogue", "file:///srv/catalogue/index.json"]) {
+      expect(validateStoredValue(address, input), input).toEqual(ADDRESS_REFUSED);
+    }
+    expect(validateStoredValue(address, " https://catalogue.example/index.json ")).toEqual({ ok: true, value: "https://catalogue.example/index.json" });
+  });
+
+  it.each([
+    ["a folder allowed on a row with no variable", "templatesCatalogueUrl", { environment: undefined, environmentTiming: undefined, changedBy: "admin" }, "folder without a variable"],
+    ["a folder allowed on a tile template", "satelliteUrl", { write: { kind: "address", maxLength: 2048, placeholders: ["{z}", "{x}", "{y}"], userInformation: "refused", folder: "variable" } }, "invalid address constraint"],
+    ["a variable on the switch", "templates.catalogue", { environment: "DEZFIL_TEMPLATES_SEEDED", environmentTiming: "restart" }, "signed-in variable"],
   ] as const)("fails the catalogue with %s", (_name, key, change, problem) => {
     expect(catalogueProblems(SETTING_CATALOGUE)).toEqual([]);
     const seeded = SETTING_CATALOGUE.map(definition => definition.key === key ? { ...definition, ...change } as SettingDefinition : definition);

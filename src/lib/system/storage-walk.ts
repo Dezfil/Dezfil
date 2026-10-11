@@ -7,12 +7,19 @@ import { kindsWithin, placeOf, type StorageReferences } from "./storage-places";
  * One walk of the data folder: its entries, folder by folder from an
  * explicit list rather than by recursion, each looked at with `lstat` for
  * its kind and size. No file is opened and no link is followed: a link,
- * to a file or to a folder, counts nothing. The deadline is checked before
+ * to a file or to a folder, counts nothing. A file with more than one name
+ * (a downloaded template's data and the engine's hard link to it) counts
+ * once, under the kind of the name seen first. The deadline is checked before
  * every entry, and every filesystem call is raced against it, so a call
  * that does not come back cannot hold the walk past it; a walk stopped by
  * it, or ended early by its `stop`, marks every kind the folders it had not
  * finished may hold as unfinished, so what it counted of those is a floor,
  * never a misreading.
+ *
+ * The references that tell a file's kind are read beside the walk's first
+ * folder, the data folder's top, and waited for before any entry is told;
+ * without them by the deadline no file can be told, and nothing is
+ * finished.
  */
 
 /** What a call raced against the deadline gives when the deadline comes first. */
@@ -45,15 +52,26 @@ export function emptyTally(finished = true): Tally {
 
 const gone = (error: unknown) => ["ENOENT", "ENOTDIR"].includes((error as NodeJS.ErrnoException)?.code ?? "");
 
-export async function walkDataFolder(root: string, references: StorageReferences, deadline: number, stop?: AbortSignal): Promise<Readonly<Record<StorageKind, StorageUse>>> {
+export async function walkDataFolder(
+  root: string,
+  told: Promise<StorageReferences | null>,
+  deadline: number,
+  stop?: AbortSignal,
+): Promise<Readonly<Record<StorageKind, StorageUse>>> {
   const tally = emptyTally();
   const over = () => Date.now() >= deadline || stop?.aborted === true;
-  const unfinished = (dir: readonly string[]) => { for (const kind of kindsWithin(dir, references)) tally[kind].finished = false; };
+  // Known once the top is read; before that any kind may lie anywhere.
+  let references: StorageReferences | null = null;
+  const unfinished = (dir: readonly string[]) => {
+    for (const kind of references ? kindsWithin(dir, references) : STORAGE_KINDS) tally[kind].finished = false;
+  };
   const cut = (current: readonly string[], waiting: readonly (readonly string[])[]) => {
     unfinished(current);
     for (const dir of waiting) unfinished(dir);
     return tally;
   };
+  // The files with more than one name already counted, by device and inode.
+  const counted = new Set<string>();
   const folders: string[][] = [[]];
   while (folders.length > 0) {
     const dir = folders.pop()!;
@@ -67,6 +85,11 @@ export async function walkDataFolder(root: string, references: StorageReferences
       continue;
     }
     if (names === TOO_LATE) return cut(dir, folders);
+    if (!references) {
+      // Raced against the deadline where they were asked.
+      references = await told;
+      if (!references) return emptyTally(false);
+    }
     for (const name of names) {
       if (over()) return cut(dir, folders);
       const segments = [...dir, name];
@@ -78,6 +101,11 @@ export async function walkDataFolder(root: string, references: StorageReferences
         continue;
       }
       if (!entry.isFile()) continue; // a link, a socket: nothing
+      if (entry.nlink > 1) {
+        const file = `${entry.dev}:${entry.ino}`;
+        if (counted.has(file)) continue;
+        counted.add(file);
+      }
       const kind = tally[placeOf(segments, references)];
       kind.bytes += entry.size;
       kind.files += 1;

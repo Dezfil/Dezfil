@@ -56,6 +56,26 @@ export function siblingNames(
 }
 
 /**
+ * The typed name's own shape, whatever else holds it: a string, not blank,
+ * with a letter or digit in it. The refusal in its own words, or null. A
+ * step definition read from elsewhere, with no recipe around it, is held to
+ * the same shape.
+ */
+export function typedOutputNameProblem(typed: unknown): ApiError | null {
+  if (typeof typed !== "string") {
+    return new ApiError("invalid_request", "The result's name must be a string.", 400);
+  }
+  const trimmed = typed.trim();
+  if (trimmed === "") {
+    return new ApiError("invalid_request", "The result needs a name.", 400);
+  }
+  if (!/[a-z0-9]/i.test(trimmed.normalize("NFKD"))) {
+    return new ApiError("invalid_request", "That name has no letters or digits in it.", 400);
+  }
+  return null;
+}
+
+/**
  * The refusal a typed name earns, or null when it is accepted. Absent is
  * not refused here: a node may be added before it is named, and the run
  * refuses a nameless one.
@@ -83,16 +103,9 @@ export function outputNameRefusal(args: {
           400,
         );
   }
-  if (typeof typed !== "string") {
-    return new ApiError("invalid_request", "The result's name must be a string.", 400);
-  }
-  const trimmed = typed.trim();
-  if (trimmed === "") {
-    return new ApiError("invalid_request", "The result needs a name.", 400);
-  }
-  if (!/[a-z0-9]/i.test(trimmed.normalize("NFKD"))) {
-    return new ApiError("invalid_request", "That name has no letters or digits in it.", 400);
-  }
+  const shape = typedOutputNameProblem(typed);
+  if (shape) return shape;
+  const trimmed = (typed as string).trim();
   const registered = registeredOutputName(trimmed);
   if (produced !== null) {
     if (registered !== produced.toLowerCase()) {

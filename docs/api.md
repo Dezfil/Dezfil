@@ -24,7 +24,7 @@ every documented operation must have a route, and every call the interface
 makes must hit a documented path (`src/lib/api/parity.test.ts`). The
 description cannot drift from the server.
 
-Measured from the current source: **135 paths, 384 operations, 177 named component schemas.** Operations include supported automatic HEAD and OPTIONS.
+Measured from the current source: **142 paths, 401 operations, 185 named component schemas.** Operations include supported automatic HEAD and OPTIONS.
 `npm run lint:contract-docs` measures these numbers and checks the catalogue below
 against the contract; changing only the reader-facing text fails the gate.
 
@@ -64,7 +64,7 @@ preconditions are declared on the operations that require them.
 
 ## Request bounds
 
-Measured JSON reader operations: **67**. These counts include optional bodies,
+Measured JSON reader operations: **69**. These counts include optional bodies,
 helper readers and MCP's external parser handoff, and exclude multipart uploads
 and binary thumbnails. The contract gate measures them; type-aware body-policy
 coverage independently checks the implementation against the contract.
@@ -72,7 +72,7 @@ coverage independently checks the implementation against the contract.
 <!-- body-tiers:start -->
 | JSON wire-byte tier | Operations |
 |---|---|
-| 65,536 | 15 |
+| 65,536 | 17 |
 | 131,072 | 1 |
 | 16,777,216 | 51 |
 <!-- body-tiers:end -->
@@ -404,7 +404,8 @@ lists the eighteen keys with their values and defaults. The same read carries
 `connections.create` and `imports.links`, each with its effective value; and
 `passwordMin`, the fewest characters a password set from now needs.
 [The configuration guide](configuration.md#security-and-rules) lists them with
-the rest of the sign-in and publishing settings.
+the rest of the sign-in and publishing settings. `templates.catalogue` says
+whether the template catalogue is in use.
 `GET /api/openapi.json` serves the description. `GET`/`PATCH /api/settings`
 return the caller's account display name and per-screen view preferences,
 plus the shared instance name. Only admins may change the instance name.
@@ -491,7 +492,7 @@ browser lands on the page `landingPage` names (`/projects`, `/maps`,
 signed-in visit to the setup or sign-in page redirects to Home; the invitation
 page opens whether or not someone is signed in. Responses are private, no-store.
 
-`PATCH /api/instance/settings` changes only submitted editable keys, sixty-seven
+`PATCH /api/instance/settings` changes only submitted editable keys, sixty-nine
 of them: the fourteen Limits numbers; the services' eight numbers
 `geocodePaceMs`, `geocodeRequestTimeoutS`, `geocodeMatchCacheHours`,
 `isochronePaceMs`, `isochroneRequestTimeoutS`, `isochroneCacheHours`,
@@ -503,7 +504,11 @@ load tiles from such an address, so the key belongs in the path or the query,
 and the refusal says so), and its credit `satelliteAttribution`, at most 160
 characters; the five basemap switches `basemaps.dark`, `basemaps.light`,
 `basemaps.streets`, `basemaps.satellite` and `basemaps.singleMapStyles`, each
-`true` or `false`; the four General values `instanceName`,
+`true` or `false`; the template catalogue's switch `templates.catalogue`,
+`true` or `false`, and its address `templatesCatalogueUrl`, an address as a
+service's is (only `DEZFIL_TEMPLATES_CATALOGUE` may name a folder on the server
+instead, which every read gives as `{ "set": true, "folder": true }`, never its
+path); the four General values `instanceName`,
 `signInMessage`, `lostPasswordContact` and `landingPage`; the eighteen
 instance defaults `newMap.basemap`, `newMap.latitude`, `newMap.longitude`,
 `newMap.zoom`, `newMap.legendCorner`, `newLayer.colorCycle`,
@@ -572,7 +577,7 @@ In addition to validation and lock refusals, the operation can answer
 Two more operations serve the services, with the same admin checks, the same
 trusted-Origin rule for cookies and private, no-store answers.
 `POST /api/instance/services/{service}/test` tests one service (`geocode`,
-`isochrone`, `overpass`, `overture`, `s3` or `satellite`): one fixed request at
+`isochrone`, `overpass`, `overture`, `s3`, `satellite` or `templates`): one fixed request at
 its address in effect, never one given in the call, sent the way the service's
 own requests go, through the egress check with redirects and after the gap
 between requests. The satellite imagery's is one fixed low-zoom tile (zoom 3,
@@ -580,9 +585,14 @@ x 4, y 2) at its tile template within 10 seconds, passing when the answer is
 an image: the tile read to its end within those seconds, at most 4 MiB, and
 complete for its format (PNG, JPEG, GIF, WebP or AVIF), the time taken being
 its arrival whole. A cut or larger tile is `unexpected_answer`; one still
-arriving at 10 seconds is `timed_out`.
+arriving at 10 seconds is `timed_out`. The template catalogue's is its index,
+read as a refresh reads it within the link import's time bound (or from the
+folder `DEZFIL_TEMPLATES_CATALOGUE` names), an index this server would refuse
+being `unexpected_answer`; while an admin has turned the catalogue off it is
+refused with 409 `templates_catalogue_off` and sends nothing.
 It answers `{ service, result: "passed", milliseconds }`, Overture
-`{ service, result: "passed", releases, newest }`, or `result: "failed"` with
+`{ service, result: "passed", releases, newest }`, the template catalogue
+`{ service, result: "passed", templates, milliseconds }`, or `result: "failed"` with
 one `reason`: `not_set_up`, `refused` (with the check's sentence as `message`),
 `unreachable`, `timed_out`, `status` (with the `status` answered) or
 `unexpected_answer`; never a body, an address or a key. It changes no setting
@@ -621,13 +631,17 @@ setting, leaves no file and sends nothing outside this server; a second Test of
 a part asked while one runs, its part's work still ending included, gets that
 run's answer. `GET /api/instance/storage` answers what the data folder holds by
 kind (`tables`, `tile_archives`,
-`service_caches`, `thumbnails`, `metadata_database`, `leftover_files` and
-`other`), each as `{ bytes, files, finished }`, with the `total` and the
-volume's `disk` space, `{ free, total }` or null. `leftover_files` is what the
+`service_caches`, `thumbnails`, `templates`, `metadata_database`,
+`leftover_files` and `other`), each as `{ bytes, files, finished }`, with the
+`total` and the volume's `disk` space, `{ free, total }` or null. `templates`
+is the downloaded templates and the copies of an installed template's data the
+query engine reads, which no sweep removes while a version needs them.
+`leftover_files` is what the
 next restart's sweeps would remove, work in progress included, the ownership
-records of staged project exports among it. Each file counts once; the read takes
-names, sizes and which files the metadata references, opens no file, follows
-no link and answers no name, owner, path or file name. One walk runs at a time
+records of staged project exports among it. Each file counts once, however
+many names it has; the read takes names, sizes, which files the metadata
+references and which the installed templates' records name, opens no other
+file, follows no link and answers no name, owner, path or file name. One walk runs at a time
 and its answer is given again for 30 seconds, unless a cache is cleared: a Clear
 ends a walk under way at once, the reads already joined to it getting what it
 had counted, and a read after the Clear never gets a walk begun before it but
@@ -1019,7 +1033,12 @@ the runs of both a single step and the whole workflow. Each person's run
 makes their own outputs, so a step's view describes one run: the reader's own
 latest output of it when they have one, else the workflow owner's, and its
 `output` names that run's `runner` and `runId`, with the step's conditions,
-inputs and last success describing the same run. Each run record names its
+inputs and last success describing the same run. An output that came with a
+copy of a template (its dataset's source is `template`) was made by no run:
+its step reads `lastSuccessAt` null, its `output` names no job or run, and
+`templateResult` names the template (`template`, its id) and the `version`
+copied; the step's first run replaces that output with its own and
+`templateResult` is null from then on. Each run record names its
 `runner`. A qualified reference (`ada.staged`) stays external everywhere it is
 read: ordering, staleness and a workflow's duplication, which renames the
 copy's own outputs where its SQL reads them and leaves a qualified dataset of
@@ -1187,6 +1206,147 @@ the new validation. Other parameters keep their existing treatment, including
 omission of `options`, `service` and `min_protocol_version` (a wire-protocol
 floor); omission outside this inventory is not a claim of harmlessness.
 
+**Templates.** Finished maps and workflow examples with their data, shipped in
+the image or listed by the template catalogue, for every signed-in account,
+with private, no-store answers; an anonymous request is refused.
+`GET /api/templates` lists them from what this server holds and sends
+nothing: the shipped templates first, in the image's order, then the entries
+of the catalogue list this process last read, in its index's order (a shipped
+id wins over an entry naming it), then the downloaded templates that list does
+not name. Each card carries the template's facts (`id`, `kind`, `title`,
+`question`, `place`, `tags`, `dataDate`, `sources`, and for a workflow example
+its `steps` in order, each with its `id`, the `operation` it runs, the `output`
+it makes and the names it `reads`, so its graph draws before it is downloaded;
+`steps` is null for a map template), the `version` an open or
+a copy begun now takes, `origin` (`shipped` or `catalogue`), the `installed`
+and `listed` versions, `present` (false when an open would download it),
+`size` and whether its `picture` is `kept`, `not_kept` or `too_large`. An
+entry naming the installed version is drawn as installed, whatever its
+checksum. `catalogue` says where the catalogue stands: `state` (`listed`,
+`empty`, `not_read`, `off`, `unreachable`, `slow` or `refused`), its `host` as
+scheme and host (null for a folder, with `folder: true`, never its path),
+`readAt`, and for a refusal its `reason` (`status` with the `status`,
+`egress_blocked`, `service_address_unreadable`, `template_index_too_large`,
+`template_index_invalid`, `template_index_repeats_id` or
+`template_address_outside`). `downloads` says what the downloaded templates
+hold: how many `versions` and the `bytes` their folders take. `POST /api/templates/refresh` reads the catalogue
+at the address in effect: its index (at most 1 MB) and then each listed
+template's two pictures in the index's order (at most 2 MB each, a picture
+past it refused alone, and 64 MB for the list, later entries drawn without
+one), through the egress check, redirects included, within the link import's
+time bound, with no credential on any request. It reads at most once in ten
+minutes, answering the kept list inside that window and joining a read under
+way; the kept list is replaced only once a new read is whole, and a read that
+finishes after the address or the switch changed is discarded. While an admin
+has turned the catalogue off it is refused with 409 `templates_catalogue_off`
+and sends nothing; a saved address the instance's key no longer opens is
+refused with `service_address_unreadable`. Cookie requests need the same
+trusted Origin. `GET /api/templates/{id}` answers one card with `howMade`, an
+unknown id 404 `template_not_listed`. `GET /api/templates/{id}/picture?theme=`
+answers the card's map picture as PNG (light when no theme is named), from
+disk for a shipped or downloaded version, else as the kept list holds it;
+it is a card image, outside the tool set. `POST /api/templates/{id}/fetch`
+downloads one version so it opens and copies with no further request: the
+`version` its optional JSON body names (at most 64 KB), else the one its card
+takes now. An installed version (shipped, or downloaded before) answers at
+once and sends nothing; a shipped template has its shipped version alone.
+Any other must be the version the catalogue list this process last read
+names. Its archive is read from its address through the egress check,
+redirects included, with no credential on any hop, within the link import's
+time bound (or from the catalogue's folder), its size and SHA-256 checked
+against the index as it lands; then it is unpacked and admitted as a client's
+documents are, every dataset and bundled result read through the upload's
+reader (what it measured is recorded), every layer's SQL, columns, widgets
+and timeline and every step bound to the template's own data and the results
+of earlier steps, nothing else, a workflow example's step list in its facts
+the workflow's own, what each step reads included; and only then moved into place under the data
+folder's `templates/<id>/<version>/`. Two calls for one version download it
+once, and downloads run one at a time on this instance; a download waiting
+its turn when an admin turns the catalogue off or moves it sends nothing. A
+version installed before stays as it is, so a newer listed version installs
+beside it and the older one stays in use when the newer is refused. It
+answers `{ id, version, size, downloaded }`, `downloaded` false when the
+version was installed already. Refused, coded, leaving nothing installed:
+404 `template_not_listed` for a version neither installed nor listed, 409
+`templates_catalogue_off` while the catalogue is off, 400
+`service_address_unreadable`, 413 `template_archive_too_large` (past the size
+the index declares or 150 MB), `template_unpacked_too_large` or
+`template_picture_too_large`, 422 `template_checksum_mismatch` and the
+template reader's other codes (`template_reference_outside` for a layer or
+step naming a dataset that is not the template's, a person's or another
+template's), 403 `egress_blocked`, 502 `remote_fetch_failed` and 504
+`remote_timeout`. `POST /api/templates/{id}/copy` makes a copy of one
+installed version into a new project of the caller's, all of it or nothing:
+the `version` its optional JSON body names (at most 64 KB, with an optional
+`name`), else the installed one. The copy is local and sends nothing: an
+installed version is copied whether the catalogue still lists it or not, and
+with the catalogue off; a listed version that is not installed is refused
+with 409 `template_not_installed`, so it is fetched first. The project is
+named as the body says (trimmed, 1 to 120 characters), else after the
+template's title, and its note carries a line naming the template, its
+version and the day. Filed in it under fresh identities: the template's map,
+every layer, widget, the legend order, camera, basemap and timeline as
+stored, each widget, the legend order and the timeline bound to the copied
+layers, its SQL home the caller's; a workflow example's workflow, each step
+the caller's own, reading the datasets and earlier outputs as landed and
+declaring its output as landed, each bundled result recorded as the caller's
+output of its step by no job and no run (read with `templateResult` and no
+last success until the step's first run), its canvas layout with every
+position under the copy's step or the dataset as landed and every note; and
+every dataset and bundled result of the template, the caller's, under its
+name in the template or the next free name by the suffix rule
+(`stations_2`), reserved against the caller's datasets, every output name
+their workflows declare and every word the template's own SQL uses (a name
+its query defines for itself, such as a `WITH` name, is never one a dataset
+lands under), each layer's and step's SQL rewritten to name the dataset as
+landed; a renamed dataset that the SQL names with no alias keeps its old
+name as one (`FROM stations_2 AS stations`), so a column the SQL qualifies
+by that name still finds it, while one qualified by a schema as well
+(`main.stations.geom`) would find nothing and refuses the copy. The rewrite
+is checked under exactly the names the copy lands, each text by what the
+engine's parse reads in it (every table, and the table each qualified
+column names), a text the rewrite left as written included, before its one
+metadata transaction, and the transaction takes the names again, the
+project first: when a write committed meanwhile moved them, it writes
+nothing and the copy checks the new names and runs again, so two copies at
+once each land whole under distinct names; a failure anywhere before the
+commit leaves no project, map or dataset of the caller's and no file, and a
+download stays installed. A copied dataset's `source` is `template`, with
+the template's `id` and `version` in its `sourceParams`; it is never
+refreshed. The map's card images
+are the template's pictures, saved after the copy with evidence naming the
+copied datasets; when they cannot be saved the copy stands and its card
+shows the placeholder until the map's first capture. It answers 201
+`{ project, members }`, the project as `GET /api/projects/{id}` reads it with
+its members, and `Location` naming the project. Refused, coded, with nothing
+created: 404 `template_not_listed`, 409 `template_not_installed`, 409
+`templates_catalogue_off` for a version not installed while the catalogue is
+off, 422 `template_reference_unbound` for a layer or step naming a dataset
+the copy does not make, 422 `template_record_mismatch` and the reader's other codes
+for an installed version that changed on disk, 400 `invalid_request` and 413
+`request_body_too_large`. `DELETE /api/templates/downloads`, admins only and
+rechecked on every call, with the same trusted-Origin rule for cookies,
+removes every version downloaded when it began and the copies of their data
+the query engine reads that no installed version needs any more; shipped
+templates and every copy anyone made are untouched. Each version is retired
+as a dataset's file is: no open, copy or render begun after the call finds
+it, the readers already under way finish first, and only then are its files
+removed; a download that lands meanwhile stays, and a removed template
+downloads again at its next open or copy while the catalogue lists it. It
+sends nothing outside this server and answers `{ versions, bytes }`, what
+went. List, read one, refresh, fetch, copy and remove are generated as
+tools, `list_templates`, `get_template`, `refresh_templates`,
+`fetch_template`, `copy_template` and `remove_template_downloads`; the SQL
+and workflow assistants are offered the first two and refuse the refresh,
+which reaches outside this server, and the fetch, the copy and the removal,
+which write. The embedded assistant asks before removing, its words naming
+the size the downloads take, and before a fetch and before a copy, its words
+naming the version and its size;
+a call naming no version is completed with the version those words name
+before it waits (for a copy, the installed one; with none installed it is
+refused with `template_not_installed` and not asked), so approving it later
+acts on that version even if the catalogue lists a newer one by then.
+
 **Agents.** The assistant and the MCP endpoint. `POST /api/assistant/runs`
 reserves a run, `POST /api/assistant/messages` sends a message under that
 run id, and `GET /api/assistant/runs/{id}` re-reads it after a lost
@@ -1219,7 +1379,7 @@ server-side, so filesystem paths and engine text stay out of responses
 The complete catalogue is published two ways in the same document: as the
 enum of the `Error` schema, and as `x-error-codes` at the top level, which
 maps every code to a sentence explaining what it means
-(`src/lib/api/error-catalogue.ts`). There are **116** codes. Clients should
+(`src/lib/api/error-catalogue.ts`). There are **134** codes. Clients should
 branch on codes, never on prose.
 
 One status is unusual: a client that abandons an in-flight evaluation gets
@@ -2090,6 +2250,24 @@ response message. Branch on the code.
 | `vertex_move_refused` | The vertex move was refused: only drawn polygons and freehand shapes offer vertex handles, and the index must name an existing vertex. |
 | `sketch_gone` | The sketch dataset was deleted or replaced while the change was in flight; nothing was written. |
 | `map_not_found` | No map exists with the given id. |
+| `template_not_listed` | No template with that id is shipped with this instance, downloaded to it or listed by the catalogue list it last read. |
+| `templates_catalogue_off` | An admin turned the template catalogue off (the templates.catalogue setting), so the server reaches it for nothing: no refresh, Test or download is sent. Shipped and downloaded templates still open and copy. |
+| `template_archive_too_large` | A template's archive is larger than the size the catalogue's index declares for it, or than the 150 MB a template archive may be; nothing was installed. |
+| `template_checksum_mismatch` | A template's archive arrived with another size or another SHA-256 than the catalogue's index declares; nothing was installed. |
+| `template_unpacked_too_large` | A template's archive unpacks past this instance's upload cap; nothing was installed. |
+| `template_malformed` | A template's archive is not one this server reads: not a readable ZIP holding one .dezfil folder, a document that is not JSON, or a dataset the upload's reader cannot read. |
+| `template_entry_escapes` | A member of a template's archive names a path outside its folder. |
+| `template_members_mismatch` | A template's documents name a member it does not hold, or it holds a member nothing names. |
+| `template_format_unsupported` | A template is in a format version this server does not read. |
+| `template_invalid` | A template's document fails the rules a client's document is held to, one of its layers or steps does not bind to the template's own data as a client's would or names one of its datasets other than as a plain table reference (inside a string or a table function's argument, or qualified by a schema), or a layer draws more than the render cap's default. |
+| `template_forbidden` | A template carries a publication, token, connection, service address or setting, which no template may. |
+| `template_picture_too_large` | A template's map picture is larger than its 2 MB bound. |
+| `template_licence_refused` | A template's data is under a licence that does not allow redistribution. |
+| `template_credit_missing` | A template's credit note does not name every source with its licence. |
+| `template_reference_outside` | A template's layer or step names a dataset that is neither the template's own nor the result of an earlier step, such as a person's dataset or another template's. |
+| `template_record_mismatch` | An installed template's files differ from the record written when it was installed, so it is refused rather than trusted. |
+| `template_not_installed` | That version of the template is listed by the catalogue but not on this server yet, so it cannot be copied; fetch it first (POST /api/templates/{id}/fetch), then copy. Nothing was created. |
+| `template_reference_unbound` | A layer or step of the template names a dataset the copy could not bind to the datasets it makes, so the copy was refused whole and nothing was created. |
 | `internal` | An unexpected server error occurred. |
 <!-- error-catalogue:end -->
 

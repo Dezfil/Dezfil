@@ -3,15 +3,18 @@ import type { StorageKind } from "./storage-answer";
 
 /**
  * The places table: which kind a file in the data folder is, from where it
- * sits and, for a table file or a tile archive, whether the metadata
- * references it. Leftover files are exactly what the next restart's sweeps
+ * sits and, for a table file or a tile archive, whether the metadata or an
+ * installed template references it. Templates are the downloaded versions
+ * (`templates/`) and the engine's copies of an installed version's data in
+ * the artifact directory, which no sweep removes while a version needs
+ * them. Leftover files are exactly what the next restart's sweeps
  * remove: the upload and download scratch (`tmp/`), the tile scratch
  * (`tiles/scratch/`), staged project exports (`exports/`), table files no
- * dataset uses, archives no tile record names and the build evidence of
- * those archives, unfinished thumbnail writes (a `.tmp` beside the
- * images and their evidence), and the ownership records of the staged
- * exports, told by their names, which the restart's recovery removes with
- * them, written or not. A test holds
+ * dataset or installed template uses, archives no tile record names and
+ * the build evidence of those archives, unfinished thumbnail writes (a
+ * `.tmp` beside the images and their evidence), and the ownership records
+ * of the staged exports, told by their names, which the restart's recovery
+ * removes with them, written or not. A test holds
  * this table against the sweeps themselves, so a place they learn to clear
  * is a finding here.
  *
@@ -19,12 +22,16 @@ import type { StorageKind } from "./storage-answer";
  * the disk.
  */
 
-/** What the metadata references, by the names the files carry. */
+/** What the metadata and the installed templates reference, by the names
+ * the files carry. */
 export interface StorageReferences {
   /** The file names of the tables the metadata registers. */
   readonly tableFiles: ReadonlySet<string>;
   /** The layers with a tile record. */
   readonly tileLayers: ReadonlySet<string>;
+  /** The file names, in the artifact directory, of the engine's copies of
+   * an installed template's data. */
+  readonly templateFiles: ReadonlySet<string>;
 }
 
 const METADATA_FILES = new Set(["metadata.sqlite", "metadata.sqlite-wal", "metadata.sqlite-shm", "metadata.sqlite-journal"]);
@@ -38,7 +45,10 @@ export function placeOf(segments: readonly string[], references: StorageReferenc
   if (segments.length === 1) return METADATA_FILES.has(top) ? "metadata_database" : "other";
   switch (top) {
     // A table's file, or everything under one entry of the folder, by that entry's name.
-    case "tables": return references.tableFiles.has(second) ? "tables" : "leftover_files";
+    case "tables":
+      if (references.tableFiles.has(second)) return "tables";
+      return references.templateFiles.has(second) ? "templates" : "leftover_files";
+    case "templates": return "templates";
     case "tiles":
       if (second === "scratch") return "leftover_files";
       if (second.endsWith(ARCHIVE)) return references.tileLayers.has(second.slice(0, -ARCHIVE.length)) ? "tile_archives" : "leftover_files";
@@ -61,7 +71,7 @@ export function placeOf(segments: readonly string[], references: StorageReferenc
   }
 }
 
-const ALL: readonly StorageKind[] = ["tables", "tile_archives", "service_caches", "thumbnails", "metadata_database", "leftover_files", "other"];
+const ALL: readonly StorageKind[] = ["tables", "tile_archives", "service_caches", "thumbnails", "templates", "metadata_database", "leftover_files", "other"];
 
 /** The kinds a file somewhere under the folder `dir` may be: what a walk
  * stopped before it finished that folder leaves unfinished. */
@@ -69,7 +79,7 @@ export function kindsWithin(dir: readonly string[], references: StorageReference
   const at = dir.join("/");
   switch (at) {
     case "": return ALL;
-    case "tables": return ["tables", "leftover_files"];
+    case "tables": return ["tables", "templates", "leftover_files"];
     case "tiles": return ["tile_archives", "leftover_files", "other"];
     case "thumbnails":
     case "artifact-inputs/thumbnails": return ["thumbnails", "leftover_files"];

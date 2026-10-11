@@ -1,4 +1,5 @@
 import type { DataTable } from "../api";
+import { templateSentence } from "../template-sentence";
 
 /**
  * The Provenance tab's words, composed from the dataset's record as the
@@ -98,6 +99,8 @@ export function importedSentence(table: Pick<DataTable, "source" | "sourceFilena
       return `Snapshot of ${str(p.schema) ?? "?"}.${str(p.table) ?? "?"} from ${str(p.connectionName) ?? "a connection"}`;
     case "sketch":
       return `Drawn on ${str(p.mapName) ?? "a map"}`;
+    case "template":
+      return templateSentence(p);
     default:
       return `Uploaded as ${table.sourceFilename ?? "a file"}`;
   }

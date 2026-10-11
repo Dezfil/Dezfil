@@ -795,6 +795,22 @@
     "memory:storage-read": {
       "action": "retain",
       "rule": "Keep the last walk of the data folder for at most 30 seconds and the walk in progress with what ends it early: totals of bytes and files by kind and the disk's free space. They contain no account identity, name or content."
+    },
+    "file:templates": {
+      "action": "retain",
+      "rule": "Keep the downloaded templates under templates/: versions of the public template catalogue with their record. They hold no account identity or content."
+    },
+    "memory:template-catalogue": {
+      "action": "retain",
+      "rule": "Keep the last list the template catalogue answered with its pictures, the read in progress and the switch and address last seen. Read from the address an admin set, they hold no account identity or content."
+    },
+    "memory:template-downloads": {
+      "action": "retain",
+      "rule": "Keep the template downloads in flight or queued, by the version each installs, until it settles. Each is request work under its caller's scope, which the install rechecks; they hold a public catalogue's version and no account content."
+    },
+    "memory:template-versions": {
+      "action": "retain",
+      "rule": "Keep each installed template version as last read from its folder, by its id and version, while its record and the shipped index are the files they were, and the reader the map and query modules ask through. They hold a public template's documents and no account identity or content."
     }
   },
   "tables": {
@@ -5525,9 +5541,509 @@
         "memory:immutable-configuration"
       ]
     },
+    "memory:src/lib/api/openapi-instance-settings.ts#folderAddress": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
     "memory:src/lib/settings/process-info.ts#startedAt": {
       "stores": [
         "memory:process-start"
+      ]
+    },
+    "location:src/lib/templates/record.ts#downloadedTemplatesDir:dataDir": {
+      "stores": [
+        "file:templates"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "location:src/lib/templates/record.ts#downloadedTemplatesDir:path.join": {
+      "stores": [
+        "file:templates"
+      ],
+      "roots": [
+        "templates"
+      ]
+    },
+    "location:src/lib/templates/resident.ts#residentTemplate.folder:downloadedTemplatesDir": {
+      "stores": [
+        "file:templates"
+      ],
+      "roots": [
+        "templates"
+      ]
+    },
+    "location:src/lib/templates/resident.ts#residentTemplate.folder:path.join": {
+      "stores": [
+        "file:templates"
+      ],
+      "roots": [
+        "templates/*/*"
+      ]
+    },
+    "location:src/lib/templates/resident.ts#residentTemplate.recordStats:path.join": {
+      "stores": [
+        "file:templates"
+      ],
+      "roots": [
+        "templates/*/*/record.json"
+      ]
+    },
+    "location:src/lib/templates/catalogue.ts#downloadedVersions.dir:downloadedTemplatesDir": {
+      "stores": [
+        "file:templates"
+      ],
+      "roots": [
+        "templates"
+      ]
+    },
+    "location:src/lib/templates/catalogue.ts#downloadedVersions:path.join": {
+      "stores": [
+        "file:templates"
+      ],
+      "roots": [
+        "templates/*"
+      ]
+    },
+    "location:src/lib/templates/catalogue.ts#downloadedVersions.read:path.join": {
+      "stores": [
+        "file:templates"
+      ],
+      "roots": [
+        "templates/*/*"
+      ]
+    },
+    "location:src/lib/templates/artifacts.ts#downloadedFolders.root:downloadedTemplatesDir": {
+      "stores": [
+        "file:templates"
+      ],
+      "roots": [
+        "templates"
+      ]
+    },
+    "location:src/lib/templates/artifacts.ts#downloadedFolders.versions:path.join": {
+      "stores": [
+        "file:templates"
+      ],
+      "roots": [
+        "templates/*"
+      ]
+    },
+    "location:src/lib/templates/artifacts.ts#downloadedFolders.folder:path.join": {
+      "stores": [
+        "file:templates"
+      ],
+      "roots": [
+        "templates/*/*"
+      ]
+    },
+    "location:src/lib/templates/artifacts.ts#downloadedTotals.bytes:downloadedTemplatesDir": {
+      "stores": [
+        "file:templates"
+      ],
+      "roots": [
+        "templates"
+      ]
+    },
+    "location:src/lib/templates/remove.ts#removeTemplateDownloads:dataDir": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "location:src/lib/templates/remove.ts#removeTemplateDownloads:downloadedTemplatesDir": {
+      "stores": [
+        "file:templates"
+      ],
+      "roots": [
+        "templates"
+      ]
+    },
+    "location:src/lib/templates/remove.ts#removeTemplateDownloads:path.join": {
+      "stores": [
+        "file:tables",
+        "file:templates"
+      ],
+      "roots": [
+        "tables/*",
+        "templates/*"
+      ]
+    },
+    "memory:src/lib/api/openapi-templates.ts#CARD": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-templates.ts#ID_PARAM": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-templates.ts#TEMPLATES_PATHS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-templates.ts#TEMPLATES_SCHEMAS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/templates/catalogue.ts#catalogueNow.error": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/templates/catalogue.ts#catalogueNow.where": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/templates/catalogue.ts#holder": {
+      "stores": [
+        "memory:template-catalogue"
+      ]
+    },
+    "memory:src/lib/templates/catalogue.ts#refreshCatalogue.now": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/templates/catalogue.ts#refreshCatalogue.promise.current": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "location:src/lib/templates/catalogue.ts#downloadedSize:downloadedTemplatesDir": {
+      "stores": [
+        "file:templates"
+      ],
+      "roots": [
+        "templates"
+      ]
+    },
+    "location:src/lib/templates/catalogue.ts#downloadedSize:path.join": {
+      "stores": [
+        "file:templates"
+      ],
+      "roots": [
+        "templates/*/*"
+      ]
+    },
+    "location:src/lib/templates/download.ts#download.scratch:ingestScratchDir": {
+      "stores": [
+        "file:tmp"
+      ],
+      "roots": [
+        "tmp"
+      ]
+    },
+    "location:src/lib/templates/download.ts#download.scratch:path.join": {
+      "stores": [
+        "file:tmp"
+      ],
+      "roots": [
+        "tmp/template-*"
+      ]
+    },
+    "location:src/lib/templates/download.ts#download.archive:path.join": {
+      "stores": [
+        "file:tmp"
+      ],
+      "roots": [
+        "tmp/template-*/archive.zip"
+      ]
+    },
+    "location:src/lib/templates/home.ts#prepareTemplateHome.release:dataDir": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "location:src/lib/templates/home.ts#prepareTemplateHome.release:path.join": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "*"
+      ]
+    },
+    "location:src/lib/templates/home.ts#stageOwn.target:dataDir": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "location:src/lib/templates/home.ts#stageOwn.target:path.join": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "tables/template-*.parquet"
+      ]
+    },
+    "location:src/lib/templates/home.ts#stageTemplateArtifact.partial:dataDir": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "location:src/lib/templates/home.ts#stageTemplateArtifact.partial:path.join": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "tables/template-*-*.partial"
+      ]
+    },
+    "location:src/lib/templates/home.ts#stageTemplateArtifact.target:dataDir": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "location:src/lib/templates/home.ts#stageTemplateArtifact.target:path.join": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "*"
+      ]
+    },
+    "location:src/lib/templates/install.ts#installTemplateArchive.target:downloadedTemplatesDir": {
+      "stores": [
+        "file:templates"
+      ],
+      "roots": [
+        "templates"
+      ]
+    },
+    "location:src/lib/templates/install.ts#installTemplateArchive.target:path.join": {
+      "stores": [
+        "file:templates"
+      ],
+      "roots": [
+        "templates/*/*"
+      ]
+    },
+    "memory:src/lib/query/engine-message.ts#DatasetUnavailable.written": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/templates/download.ts#downloads": {
+      "stores": [
+        "memory:template-downloads"
+      ]
+    },
+    "memory:src/lib/templates/download.ts#downloads.byKey": {
+      "stores": [
+        "memory:template-downloads"
+      ]
+    },
+    "memory:src/lib/templates/resident.ts#kept": {
+      "stores": [
+        "memory:template-versions"
+      ]
+    },
+    "memory:src/lib/templates/resolver.ts#provided": {
+      "stores": [
+        "memory:template-versions"
+      ]
+    },
+    "memory:src/lib/templates/home.ts#prepareTemplateHome.error": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/templates/home.ts#prepareTemplateHome.mounts": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/templates/home.ts#prepareTemplateHome.outputs": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/templates/home.ts#prepareTemplateHome.staged": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "writer:src/lib/templates/download.ts#download.landed:transfer": {
+      "stores": [
+        "file:tmp"
+      ],
+      "roots": [
+        "tmp/template-*/archive.zip"
+      ]
+    },
+    "writer:src/lib/templates/download.ts#download:installTemplateArchive": {
+      "stores": [
+        "file:tmp",
+        "file:templates"
+      ],
+      "roots": [
+        "tmp/template-*",
+        "tmp/template-*/archive.zip"
+      ]
+    },
+    "writer:src/lib/templates/download.ts#download:mkdir": {
+      "stores": [
+        "file:tmp"
+      ],
+      "roots": [
+        "tmp/template-*"
+      ]
+    },
+    "writer:src/lib/templates/home.ts#stageOwn:copyFile": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "tables/template-*.parquet"
+      ]
+    },
+    "writer:src/lib/templates/home.ts#stageTemplateArtifact:copyFile": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "tables/template-*-*.partial"
+      ]
+    },
+    "writer:src/lib/templates/home.ts#stageTemplateArtifact:rename": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "*",
+        "tables/template-*-*.partial"
+      ]
+    },
+    "writer:src/lib/templates/install.ts#installTemplateArchive:rename": {
+      "stores": [
+        "file:templates",
+        "file:tmp"
+      ],
+      "roots": [
+        "templates/*/*"
+      ]
+    },
+    "writer:src/lib/templates/resident.ts#residentTemplate.resident:read": {
+      "stores": [
+        "file:templates",
+        "file:tables"
+      ],
+      "roots": [
+        "templates/*/*"
+      ]
+    },
+    "location:src/lib/templates/catalogue.ts#copySource.installed:downloadedTemplatesDir": {
+      "stores": [
+        "file:templates"
+      ],
+      "roots": [
+        "templates"
+      ]
+    },
+    "location:src/lib/templates/catalogue.ts#copySource.installed:path.join": {
+      "stores": [
+        "file:templates"
+      ],
+      "roots": [
+        "templates/*/*"
+      ]
+    },
+    "location:src/lib/templates/copy-artifacts.ts#copyDatasetFile.target:dataDir": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "location:src/lib/templates/copy-artifacts.ts#copyDatasetFile.target:path.join": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "tables/*.parquet"
+      ]
+    },
+    "location:src/lib/templates/copy-artifacts.ts#removeCopiedArtifacts:dataDir": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "location:src/lib/templates/copy-artifacts.ts#removeCopiedArtifacts:path.join": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "*"
+      ]
+    },
+    "memory:src/lib/templates/copy-references.ts#bindCopyReferences.allowed": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/templates/copy-references.ts#bindCopyReferences.everything": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/templates/copy-references.ts#bindCopyReferences.local": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/templates/copy-references.ts#bindCopyReferences.members": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/templates/copy-references.ts#bindCopyReferences.texts": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/templates/copy.ts#holder": {
+      "stores": [
+        "memory:test-seams"
+      ]
+    },
+    "writer:src/lib/templates/copy-artifacts.ts#copyDatasetFile:createWriteStream": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "tables/*.parquet"
+      ]
+    },
+    "writer:src/lib/templates/copy-artifacts.ts#copyDatasetFile:registerAccountFile": {
+      "stores": [
+        "file:account-files"
+      ],
+      "roots": [
+        "tables/*.parquet"
       ]
     }
   },
@@ -5582,6 +6098,9 @@
     "file:account-deletion-journals": [
       "account-deletions/*.json",
       "account-deletions/*.tmp"
+    ],
+    "file:templates": [
+      "templates/**"
     ]
   },
   "accountReferences": {

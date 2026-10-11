@@ -30,11 +30,22 @@ export interface TableReference {
   dynamic: boolean;
 }
 
+/** A table a FROM clause names, as the statement binds it. */
+export interface TableBinding {
+  reference: TableReference;
+  /** The alias written for it, lower-cased; null when it goes by its own
+   * name, which a column may then qualify by any spelling of that name. */
+  alias: string | null;
+}
+
 export interface ReferenceCollection {
   /** Each distinct reference once, in the order the walk first met it. */
   references: TableReference[];
   /** A lower-cased alias, or implicit name, to the reference it denotes. */
   aliases: Map<string, TableReference>;
+  /** Every place a FROM clause names a table, in walk order, each with the
+   * alias it goes by. */
+  bindings: TableBinding[];
   /** Every column reference, lower-cased parts. */
   columnRefs: string[][];
   /** True when any star projection appears. */
@@ -179,8 +190,9 @@ async function walk(
     // engine's own `recurring.<cte>`: a keyed recursive CTE's recurring table.
     if (!isCteReference(inner, catalog, schema, node.table_name)) {
       const reference = record([catalog, schema, node.table_name].filter(Boolean), false);
-      const alias = typeof node.alias === "string" && node.alias !== "" ? node.alias : node.table_name;
-      out.aliases.set(alias.toLowerCase(), reference);
+      const written = typeof node.alias === "string" && node.alias !== "" ? node.alias.toLowerCase() : null;
+      out.aliases.set(written ?? node.table_name.toLowerCase(), reference);
+      out.bindings.push({ reference, alias: written });
     }
   }
 
@@ -225,7 +237,7 @@ async function walk(
 
 /** The references of serialized statements, in walk order. */
 export async function collectReferences(conn: DuckDBConnection, statements: unknown[]): Promise<ReferenceCollection> {
-  const out: ReferenceCollection = { references: [], aliases: new Map(), columnRefs: [], starScopes: false };
+  const out: ReferenceCollection = { references: [], aliases: new Map(), bindings: [], columnRefs: [], starScopes: false };
   await walk(conn, statements, new Set(), out, new Map());
   return out;
 }

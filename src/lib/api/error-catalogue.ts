@@ -179,6 +179,42 @@ export const ERROR_CATALOGUE: Record<ErrorCode, string> = {
   sketch_gone:
     "The sketch dataset was deleted or replaced while the change was in flight; nothing was written.",
   map_not_found: "No map exists with the given id.",
+  template_not_listed:
+    "No template with that id is shipped with this instance, downloaded to it or listed by the catalogue list it last read.",
+  templates_catalogue_off:
+    "An admin turned the template catalogue off (the templates.catalogue setting), so the server reaches it for nothing: no refresh, Test or download is sent. Shipped and downloaded templates still open and copy.",
+  template_archive_too_large:
+    "A template's archive is larger than the size the catalogue's index declares for it, or than the 150 MB a template archive may be; nothing was installed.",
+  template_checksum_mismatch:
+    "A template's archive arrived with another size or another SHA-256 than the catalogue's index declares; nothing was installed.",
+  template_unpacked_too_large:
+    "A template's archive unpacks past this instance's upload cap; nothing was installed.",
+  template_malformed:
+    "A template's archive is not one this server reads: not a readable ZIP holding one .dezfil folder, a document that is not JSON, or a dataset the upload's reader cannot read.",
+  template_entry_escapes:
+    "A member of a template's archive names a path outside its folder.",
+  template_members_mismatch:
+    "A template's documents name a member it does not hold, or it holds a member nothing names.",
+  template_format_unsupported:
+    "A template is in a format version this server does not read.",
+  template_invalid:
+    "A template's document fails the rules a client's document is held to, one of its layers or steps does not bind to the template's own data as a client's would or names one of its datasets other than as a plain table reference (inside a string or a table function's argument, or qualified by a schema), or a layer draws more than the render cap's default.",
+  template_forbidden:
+    "A template carries a publication, token, connection, service address or setting, which no template may.",
+  template_picture_too_large:
+    "A template's map picture is larger than its 2 MB bound.",
+  template_licence_refused:
+    "A template's data is under a licence that does not allow redistribution.",
+  template_credit_missing:
+    "A template's credit note does not name every source with its licence.",
+  template_reference_outside:
+    "A template's layer or step names a dataset that is neither the template's own nor the result of an earlier step, such as a person's dataset or another template's.",
+  template_record_mismatch:
+    "An installed template's files differ from the record written when it was installed, so it is refused rather than trusted.",
+  template_not_installed:
+    "That version of the template is listed by the catalogue but not on this server yet, so it cannot be copied; fetch it first (POST /api/templates/{id}/fetch), then copy. Nothing was created.",
+  template_reference_unbound:
+    "A layer or step of the template names a dataset the copy could not bind to the datasets it makes, so the copy was refused whole and nothing was created.",
   internal: "An unexpected server error occurred.",
 };
 

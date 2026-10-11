@@ -27,9 +27,10 @@ describe("pane consumes declared metadata", () => {
     const gates = buildTools().filter((tool) => tool.confirm || tool.confirmWhen);
     // Membership, instance configuration, departure, transfers and deletion are gates,
     // and so are clearing the services' caches, testing a service, testing a part,
-    // reading the data folder's use, and adding, offering and removing a style in
-    // the basemap library.
-    expect(gates).toHaveLength(35);
+    // reading the data folder's use, adding, offering and removing a style in
+    // the basemap library, downloading and copying a template, and removing
+    // the downloaded templates.
+    expect(gates).toHaveLength(38);
     for (const tool of gates) {
       const confirmation = { target: tool.confirmation!.target.replace("{target}", "Original (id)"), consequence: tool.confirmation!.consequence };
       const html = renderToStaticMarkup(<AssistantConfirmation pending={{ id: "pending", runId: "run", tool: tool.name, args: {}, confirmation }} promptId="prompt" busy={false} resolve={() => {}} />);

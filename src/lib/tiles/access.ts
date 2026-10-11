@@ -10,6 +10,8 @@ import { metadataDb } from "@/lib/metadata/db";
 import { mapEvaluation } from "@/lib/query/context";
 import type { ArchiveAttribution } from "./evidence";
 import { servableTo, servableToPublication } from "@/lib/artifact-access";
+import { isTemplateDocumentId } from "@/lib/templates/ids";
+import { readTemplateLayer } from "@/lib/templates/map-read";
 
 const tileAccessBrand: unique symbol = Symbol("tile access");
 export interface TileAccess {
@@ -26,8 +28,13 @@ function identity(layerId: string) {
 }
 /** Everyone who reaches the layer's map renders it, and may prepare its tiles
  * in their own reach; which archive they are served is decided by what it
- * drew (archiveServable). */
+ * drew (archiveServable). A template's layer renders for every signed-in
+ * account, and has no tiles: no record, no build, no archive served. */
 export function privateTileAccess(scope: AccountScope, layerId: string): TileAccess {
+  if (isTemplateDocumentId(layerId)) {
+    const layer = readTemplateLayer(scope, layerId);
+    return Object.freeze({ [tileAccessBrand]: true as const, layerId, mapId: layer.mapId, ownerId: null, credential: Object.freeze({ scope }) });
+  }
   requireReachable(scope, "layer", layerId);
   const row = identity(layerId);
   if (!row) throw resourceAbsent();
@@ -36,12 +43,18 @@ export function privateTileAccess(scope: AccountScope, layerId: string): TileAcc
 /** A token grants only a visible published layer, including pending adoption
  * and an inactive publisher. It grants no private response or creation. */
 export function publishedTileAccess(token: string, layerId: string): TileAccess {
+  // A template's map is never published.
+  if (isTemplateDocumentId(layerId)) throw resourceAbsent();
   const row = identity(layerId);
   if (!row || !token || row.publish_token !== token || row.visible !== 1) throw resourceAbsent();
   return Object.freeze({ [tileAccessBrand]: true as const, layerId, mapId: row.map_id, ownerId: row.owner_id, credential: Object.freeze({ token }) });
 }
 export function requireTileAccess(access: TileAccess | undefined, layerId: string): void {
   if (!access || access[tileAccessBrand] !== true || access.layerId !== layerId) throw resourceAbsent();
+  if (isTemplateDocumentId(layerId)) {
+    if (!("scope" in access.credential) || readTemplateLayer(access.credential.scope, layerId).mapId !== access.mapId) throw resourceAbsent();
+    return;
+  }
   if ("scope" in access.credential) requireReachable(access.credential.scope, "layer", layerId);
   const row = identity(layerId);
   if (!row || !accountMaterialAvailable(row.owner_id) || row.map_id !== access.mapId || row.owner_id !== access.ownerId) throw resourceAbsent();
@@ -67,7 +80,7 @@ export function tilesUnavailable(): ApiError {
  * unbound one to nobody. */
 export function archiveServable(access: TileAccess, attribution: ArchiveAttribution): boolean {
   requireTileAccess(access, access.layerId);
-  if (attribution === "unbound") return false;
+  if (attribution === "unbound" || isTemplateDocumentId(access.layerId)) return false;
   const inputs = attribution === "unattributed" ? null : attribution.inputs;
   if ("scope" in access.credential) return servableTo(access.credential.scope, access.mapId, inputs);
   const publication = resolvePublication(access.credential.token);

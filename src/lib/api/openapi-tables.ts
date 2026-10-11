@@ -330,12 +330,17 @@ export const TABLE_SCHEMAS = {
           "postgis",
           "operation",
           "sketch",
+          "template",
         ],
         description:
           "Which source created the table; " +
           '"operation" for a table an operation produced; ' +
           '"sketch" for a table drawn on a map — its ' +
-          "sourceParams carry mapId, mapName and layerId.",
+          "sourceParams carry mapId, mapName and layerId; " +
+          '"template" for a dataset a copy of a template made — its ' +
+          "sourceParams carry the template's id (`template`) and the " +
+          "`version` it was copied from. A template's dataset is never " +
+          "refreshed: the copy is the caller's to change.",
       },
       sourceParams: {
         type: ["object", "null"],

@@ -76,8 +76,11 @@ export const UNKNOWN_TABLE_MESSAGE = "The query refers to an unknown table.";
  * and is already safe: no engine diagnostic is behind it, so no sanitizer
  * rewrites it, even when the name reads like a file word. */
 export class DatasetUnavailable extends ApiError {
+  /** The reference as it was written. */
+  readonly written: string;
   constructor(written: string) {
     super("sql_error", `The dataset "${written}" is not available to you.`, 400);
+    this.written = written;
   }
 }
 export const DATASET_READ_MESSAGE = "The query's dataset could not be read.";
