@@ -56,6 +56,16 @@ as do embeds on the sites the instance allows, and the readiness probe. An insta
 also shows setup once. Secure new and upgraded instances until you complete setup,
 and complete it promptly: whoever reaches setup first becomes the admin.
 
+**Templates**, last in the side menu, shows every signed-in account the
+finished maps and workflow examples the instance offers: the ones shipped in
+the image first, then those the template catalogue lists, each card with its
+picture (a workflow example's graph, its tools on a line of their own), its
+place, the date of its data, its question, its tags and its credit, and for one
+not yet on the server the size its first open downloads. The page draws what
+the server already holds at once and reads the catalogue after; while the
+catalogue is off, does not answer, lists nothing or is refused, one line says
+why only the templates on the server show.
+
 Existing work belongs to the recorded original account after an upgrade.
 Read the [ownership upgrade instructions](docs/runbook.md#upgrading-ownership-storage)
 before updating. SQL uses your imported datasets by name. Direct file reads

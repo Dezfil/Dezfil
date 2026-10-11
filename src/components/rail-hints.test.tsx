@@ -14,7 +14,7 @@ import { UserBadge } from "./UserBadge";
  * (open) or one rest away (hover), and no item carries a hint.
  */
 const account = { id: "one", name: "Frida Merian", email: "frida@example.test", isAdmin: true } as Account;
-const LABELS = ["Home", "Projects", "Maps", "Workflows", "Data", "Connections", "SQL", "Developer", "Users", "Settings"];
+const LABELS = ["Home", "Projects", "Maps", "Workflows", "Data", "Connections", "SQL", "Developer", "Templates", "Users", "Settings"];
 
 function railItems(mode: RailMode): string {
   return renderToStaticMarkup(

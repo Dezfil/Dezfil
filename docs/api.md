@@ -1229,7 +1229,10 @@ scheme and host (null for a folder, with `folder: true`, never its path),
 `egress_blocked`, `service_address_unreadable`, `template_index_too_large`,
 `template_index_invalid`, `template_index_repeats_id` or
 `template_address_outside`). `downloads` says what the downloaded templates
-hold: how many `versions` and the `bytes` their folders take. `POST /api/templates/refresh` reads the catalogue
+hold: how many `versions` and the `bytes` their folders take. The
+**Templates** page, last in the side menu, draws one card per template from
+this list as soon as it answers and only then asks for the refresh below, so
+it never waits on the catalogue. `POST /api/templates/refresh` reads the catalogue
 at the address in effect: its index (at most 1 MB) and then each listed
 template's two pictures in the index's order (at most 2 MB each, a picture
 past it refused alone, and 64 MB for the list, later entries drawn without

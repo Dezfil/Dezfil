@@ -6,7 +6,7 @@ import gallery from "@/components/gallery.module.css";
 
 /**
  * The list pages' one heading: the page supplies its words and its
- * action; the arrangement is shared. No count stands beside the title
+ * action, when it has one; the arrangement is shared. No count stands beside the title
  * in any state — a field round over took the pill back off
  * the five pages, so the heading neither draws a number nor accepts
  * one. The pages still compute their totals, which the second line and
@@ -28,7 +28,8 @@ export function ListHeading({
   line: string | null;
   /** Why the action is drawn disabled, when a rule holds it back. */
   note?: string | null;
-  action: ListHeadingAction;
+  /** None on a page where nothing is made from the heading. */
+  action?: ListHeadingAction;
 }) {
   return (
     <div className={gallery.heading} data-list-heading>
@@ -37,7 +38,7 @@ export function ListHeading({
         {line && <p className={gallery.subLine}>{line}</p>}
         {note && <p className={gallery.subLine}>{note}</p>}
       </div>
-      {"href" in action ? (
+      {action === undefined ? null : "href" in action ? (
         <Link className={gallery.primary} href={action.href}>
           <PlusIcon /> {action.label}
         </Link>

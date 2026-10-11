@@ -1,0 +1,86 @@
+/* The Templates page: the Maps gallery's heading, grid and card, with the
+   lines a template adds under the card's name. Viewport-fit like the other
+   list pages: the heading stays put, the card area scrolls. */
+.screen {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  height: var(--screen-height);
+  min-height: 460px;
+}
+
+/* The catalogue's one line: quiet prose, never a tinted card. */
+.catalogueLine {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: var(--text-label);
+  color: var(--fg-muted);
+  line-height: 1.4;
+}
+
+.catalogueLine svg {
+  flex: none;
+  color: var(--fg-faint);
+}
+
+/* The question the template answers, one line under the name. */
+.question {
+  margin-top: 3px;
+  font-size: var(--text-label);
+  color: var(--fg-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* A workflow example's tools: a line of their own, never among the tags. */
+.tools {
+  margin-top: 6px;
+  font-size: var(--text-meta);
+  color: var(--fg-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tags {
+  margin-top: 9px;
+}
+
+/* The credit travels with the card from the first glance. */
+.credit {
+  margin-top: 9px;
+  font-size: var(--text-meta);
+  color: var(--fg-faint);
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* What an open of an absent version downloads first. */
+.absent {
+  margin-top: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--text-meta);
+  font-weight: 500;
+  color: var(--fg-muted);
+  line-height: 1.4;
+}
+
+.absent svg {
+  width: 13px;
+  height: 13px;
+  flex: none;
+  color: var(--fg-faint);
+}
+
+.absent span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
