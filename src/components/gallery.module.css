@@ -611,7 +611,7 @@
   display: grid;
   place-items: center;
   background: var(--bg-panel);
-  box-shadow: 0 3px 12px var(--shadow);
+  box-shadow: var(--shadow-float);
 }
 
 /* The tile's mark is a drawn icon at the illustrative tier. */

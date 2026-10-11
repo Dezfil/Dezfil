@@ -57,9 +57,9 @@
      path's last segment carries its own 4 px, so 12 px on the right puts
      the last character 16 px from the border, as the P is on the left. */
   padding: 0 12px 0 16px;
-  background: color-mix(in srgb, var(--bg-panel) 93%, transparent);
-  backdrop-filter: blur(18px);
-  box-shadow: 0 3px 12px var(--shadow);
+  background: var(--surface-glass-chrome-fill);
+  backdrop-filter: var(--surface-glass-chrome-blur);
+  box-shadow: var(--surface-glass-chrome-shadow);
 }
 
 .brand {
@@ -170,9 +170,9 @@
   padding: 10px 8px;
   gap: 5px;
   border-radius: var(--radius-rail);
-  background: color-mix(in srgb, var(--bg-panel) 93%, transparent);
-  backdrop-filter: blur(18px);
-  box-shadow: 0 3px 12px var(--shadow);
+  background: var(--surface-glass-chrome-fill);
+  backdrop-filter: var(--surface-glass-chrome-blur);
+  box-shadow: var(--surface-glass-chrome-shadow);
   overflow: hidden;
   /* Expansion: the rail widens as an overlay — it is fixed, so nothing
      reflows. Collapse is immediate. Pointer intent lives in the RailShell
@@ -190,14 +190,16 @@
    *visible* focus: a mouse click parks focus on the link it navigated,
    which must not hold the rail open after the pointer leaves. The
    expanded surface goes opaque: it overlays builder panels,
-   and content bleeding through the glass reads as clutter. Only under
+   and content bleeding through the glass reads as clutter. It stands on
+   the lift step with one side layer of its own, the one shadow layer
+   outside the steps. Only under
    the person's Opens on hover (no attribute, today's look): Icons only
    never opens and Always open already stands open. */
 :global(:root:not([data-look-rail="icons"]):not([data-look-rail="open"])) .rail:has(:focus-visible) {
   width: 210px;
   background: var(--bg-panel);
   box-shadow:
-    0 10px 30px var(--shadow),
+    var(--shadow-lift),
     16px 0 36px -18px var(--shadow);
   transition-delay: 0.15s;
 }
@@ -209,7 +211,7 @@
   width: 210px;
   background: var(--bg-panel);
   box-shadow:
-    0 10px 30px var(--shadow),
+    var(--shadow-lift),
     16px 0 36px -18px var(--shadow);
 }
 

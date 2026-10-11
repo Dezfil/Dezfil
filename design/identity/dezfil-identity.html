@@ -1447,9 +1447,9 @@ select.kit-field-field {
      to a stadium (the used radius clamps to 15 px at 30 px tall, exactly
      the pill's), and a taller chip keeps its corners clear of every row. */
   border-radius: var(--radius-card);
-  background: color-mix(in srgb, var(--bg-panel) 93%, transparent);
-  backdrop-filter: blur(18px);
-  box-shadow: 0 3px 12px var(--shadow);
+  background: var(--surface-glass-chrome-fill);
+  backdrop-filter: var(--surface-glass-chrome-blur);
+  box-shadow: var(--surface-glass-chrome-shadow);
   /* A message must not lose its tail off the stage's edge: the header span this chip replaced had no white-space
      rule and wrapped, and a long import outcome's tail is exactly the
      part naming what went wrong. The host's corner bounds the width, and

@@ -23,17 +23,45 @@ const STEP = {
 } as const;
 
 /** The last step whose members read their role. */
-const MOVED_THROUGH = 3;
+const MOVED_THROUGH = 4;
 
 const C = "src/components/";
+const LAYOUT = "src/app/(workspace)/layout.module.css";
 const m = (step: number, role: Role, file: string, selector: string, parts: Part[], what: string): Member =>
   ({ step, role, file, selector, parts, what });
 const GLASS: Part[] = ["fill", "blur", "shadow"];
 
+/** The roles with no edge: what floats as glass or over a map draws its
+ * shape with the fill and the shadow alone. */
+const EDGELESS: Role[] = ["glass-chrome", "glass-panel", "overlay-panel", "overlay-control"];
+
+/** What reads a step, a strength or a tone directly instead of a role, held
+ * to the exact value it writes once its step has moved: a primary button's
+ * shadow is a step, not a role, and a named exception keeps a value of its
+ * own beside the step it reads. */
+type Direct = { step: number; file: string; selector: string; property: string; value: string; what: string };
+const OPENED_RAIL = [
+  ':global(:root:not([data-look-rail="icons"]):not([data-look-rail="open"])) .rail:has(:focus-visible)',
+  ".rail[data-expanded]",
+];
+export const DIRECT: Direct[] = [
+  ...OPENED_RAIL.flatMap(selector => [
+    { step: STEP.chrome, file: LAYOUT, selector, property: "background", value: "var(--bg-panel)", what: "the side rail opened over the page, solid" },
+    {
+      step: STEP.chrome, file: LAYOUT, selector, property: "box-shadow", value: "var(--shadow-lift), 16px 0 36px -18px var(--shadow)",
+      what: "the side rail opened over the page: the lift and its one side layer",
+    },
+  ]),
+  { step: STEP.chrome, file: C + "builder/publish/PublishControl.module.css", selector: ".trigger", property: "box-shadow", value: "var(--shadow-float)", what: "Publish before publishing" },
+  { step: STEP.chrome, file: C + "workflow-canvas/WorkflowCanvas.module.css", selector: ".runChrome .runAction[data-run-action]", property: "box-shadow", value: "var(--shadow-float)", what: "Run all" },
+  { step: STEP.chrome, file: C + "gallery.module.css", selector: ".ghost .plus", property: "box-shadow", value: "var(--shadow-float)", what: "the create tile's disc, the face of the New button" },
+  { step: STEP.chrome, file: C + "projects/EmptyHome.module.css", selector: ".plateGlyph", property: "box-shadow", value: "var(--shadow-float)", what: "the empty project's glyph, the same face" },
+];
+
 export const MEMBERS: Member[] = [
   // Floating glass, chrome: what floats over the page and carries an icon or one strong line
-  m(STEP.chrome, "glass-chrome", "src/app/(workspace)/layout.module.css", ".headCard", GLASS, "the header card"),
-  m(STEP.chrome, "glass-chrome", "src/app/(workspace)/layout.module.css", ".rail", GLASS, "the side rail at rest"),
+  m(STEP.chrome, "glass-chrome", LAYOUT, ".headCard", GLASS, "the header card"),
+  m(STEP.chrome, "glass-chrome", LAYOUT, ".rail", GLASS, "the side rail at rest"),
   m(STEP.chrome, "glass-chrome", C + "builder/MapBuilder.module.css", ".chromeBtn", GLASS, "the header card's buttons"),
   m(STEP.chrome, "glass-chrome", C + "WorkflowScreen.module.css", ".histBtn", GLASS, "the workflow header's undo and redo"),
   m(STEP.chrome, "glass-chrome", C + "theme.module.css", ".toggle", GLASS, "the theme button"),
@@ -216,8 +244,22 @@ export function memberProblems(member: Member, css: string): string[] {
     for (const [read] of value.matchAll(/--surface-[\w-]+/g)) {
       if (!read.startsWith(own)) problems.push(`${member.selector} reads ${read}, another role's`);
     }
+    if (EDGELESS.includes(member.role) && /^border(-(top|right|bottom|left))?$/.test(property)
+      && !/^(none|0(px)?)$/.test(value) && value !== `var(${own}edge)`) {
+      problems.push(`${member.selector} draws an edge its role has none of: ${property}: ${value}`);
+    }
   }
   return problems;
+}
+
+/** What keeps a direct read from writing its value; empty when it does. */
+export function directProblems(direct: Direct, css: string): string[] {
+  const decls = declarations(css, direct.selector);
+  if (!decls) return [`${direct.file} has no rule ${direct.selector}`];
+  const values = decls.filter(([property]) => property === direct.property).map(([, value]) => value);
+  return values.length === 1 && values[0] === direct.value
+    ? []
+    : [`${direct.selector} ${direct.property}: ${values.join(" | ") || "nothing"}, not ${direct.value}`];
 }
 
 const read = (file: string) => readFileSync(file, "utf8");
@@ -238,6 +280,11 @@ describe("the members of each role", () => {
     expect(moved.flatMap(member => memberProblems(member, read(member.file)))).toEqual([]);
   });
 
+  it("read a step where they are a button or a named exception, once their step has moved", () => {
+    const moved = DIRECT.filter(direct => direct.step <= MOVED_THROUGH);
+    expect(moved.flatMap(direct => directProblems(direct, read(direct.file)))).toEqual([]);
+  });
+
   it("read no role at all until theirs moves, so a half-made move shows", () => {
     const waiting = MEMBERS.filter(member => member.step > MOVED_THROUGH);
     const early = waiting.flatMap(member => (declarations(read(member.file), member.selector) ?? [])
@@ -255,5 +302,16 @@ describe("the members of each role", () => {
       .toContain(".legend reads --surface-glass-panel-blur, another role's");
     expect(memberProblems(legend, moved.replace("var(--surface-overlay-panel-fill)", "color-mix(in srgb, var(--bg-panel) 93%, transparent)")))
       .toContain(".legend types background: color-mix(in srgb, var(--bg-panel) 93%, transparent)");
+    expect(memberProblems(legend, moved.replace("}", "  border: 1px solid var(--border);\n}")))
+      .toEqual([".legend draws an edge its role has none of: border: 1px solid var(--border)"]);
+    expect(memberProblems(legend, moved.replace("}", "  border: 0;\n}"))).toEqual([]);
+  });
+
+  it("fails a direct read that types its value or loses its side layer", () => {
+    const rail = DIRECT.find(direct => direct.selector === ".rail[data-expanded]" && direct.property === "box-shadow")!;
+    const opened = ".rail[data-expanded] {\n  background: var(--bg-panel);\n  box-shadow:\n    var(--shadow-lift),\n    16px 0 36px -18px var(--shadow);\n}";
+    expect(directProblems(rail, opened)).toEqual([]);
+    expect(directProblems(rail, opened.replace("var(--shadow-lift)", "0 10px 30px var(--shadow)"))).toHaveLength(1);
+    expect(directProblems(rail, opened.replace(",\n    16px 0 36px -18px var(--shadow)", ""))).toHaveLength(1);
   });
 });

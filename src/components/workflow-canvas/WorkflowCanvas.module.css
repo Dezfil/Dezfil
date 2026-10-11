@@ -1595,7 +1595,7 @@ span.chip {
   font-weight: 600;
   padding: 0 15px;
   border-radius: var(--radius-control);
-  box-shadow: 0 3px 12px var(--shadow);
+  box-shadow: var(--shadow-float);
 }
 
 .runAction svg {
