@@ -58,8 +58,9 @@ const ROLES: Record<string, Record<string, string>> = {
 };
 
 const VOCABULARY = /^--(shadow-[\w-]+|blur-[\w-]+|fill-[\w-]+|edge-[\w-]+|surface-[\w-]+)$/;
-/** The stylesheets that set tones: the shipped tokens, the look, the pictures. */
-const TOKEN_SHEETS = ["src/app/globals.css", "src/app/look.css", "src/components/settings/look-pictures.css"];
+/** The stylesheets that set tones or restate roles: the shipped tokens, the
+ * look, the pictures, the Panels looks. */
+const TOKEN_SHEETS = ["src/app/globals.css", "src/app/look.css", "src/components/settings/look-pictures.css", "src/app/look-liquid.css"];
 /** The look's stylesheets: they restate a role's parts and the fills for a
  * look, and declare nothing else of the vocabulary. */
 const RESTATERS = ["src/app/look.css", "src/app/look-liquid.css", "src/app/look-paper.css"];
@@ -86,9 +87,10 @@ function resolve(tokens: Map<string, string>, token: string, depth = 0): string 
   return value.replace(/var\((--[\w-]+)\)/g, (whole, name: string) => (tokens.has(name) ? resolve(tokens, name, depth + 1) : whole));
 }
 
-/** The element a selector styles: the root, or its last compound. */
+/** The element a selector styles: the root, or its last compound (a `~=`
+ * inside an attribute is a match, not a combinator). */
 const target = (selector: string) => {
-  const last = selector.split(/\s*[\s>+~]\s*/).filter(Boolean).pop() ?? selector;
+  const last = selector.split(/\s*(?:[\s>+]|~(?!=))\s*/).filter(Boolean).pop() ?? selector;
   return last.startsWith(":root") ? ":root" : last;
 };
 
