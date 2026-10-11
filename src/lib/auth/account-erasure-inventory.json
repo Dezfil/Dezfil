@@ -6010,17 +6010,17 @@
         "memory:request-closures"
       ]
     },
-    "memory:src/lib/templates/copy-references.ts#bindCopyReferences.own": {
+    "memory:src/lib/templates/copy-references.ts#bindCopyReferences.local": {
       "stores": [
         "memory:request-closures"
       ]
     },
-    "memory:src/lib/templates/copy-references.ts#bindCopyReferences.standIns": {
+    "memory:src/lib/templates/copy-references.ts#bindCopyReferences.members": {
       "stores": [
         "memory:request-closures"
       ]
     },
-    "memory:src/lib/templates/copy-references.ts#bindCopyReferences.taken": {
+    "memory:src/lib/templates/copy-references.ts#bindCopyReferences.texts": {
       "stores": [
         "memory:request-closures"
       ]
