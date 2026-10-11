@@ -510,6 +510,7 @@ describe("copy", () => {
         { resource: "projects", result: "project.id", collection: true },
         { resource: "maps", result: "members.maps.*.id", collection: true },
         { resource: "layers", collection: true },
+        { resource: "recipes", result: "members.recipes.*.id", collection: true },
         { resource: "tables", result: "members.tables.*.id", collection: true },
       ] },
       mcp: { destructiveHint: false, openWorldHint: false, idempotentHint: false },

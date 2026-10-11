@@ -8,19 +8,23 @@ import { deriveTableName } from "@/lib/ingest/naming";
 import { saveThemedThumbnail } from "@/lib/map-thumbnails";
 import { metadataDb } from "@/lib/metadata/db";
 import { insertLayer, insertMap } from "@/lib/metadata/maps";
-import { createProject, fileMap } from "@/lib/metadata/owned-projects";
+import { createProject, fileMap, fileRecipe } from "@/lib/metadata/owned-projects";
+import { addStep } from "@/lib/metadata/owned-recipes";
 import { fileOwnedTable } from "@/lib/metadata/owned-tables";
 import { projectName } from "@/lib/metadata/projects";
+import { putLayout } from "@/lib/metadata/recipe-layouts";
+import { recordOutput } from "@/lib/metadata/recipe-outputs";
+import { createRecipe } from "@/lib/metadata/recipes";
 import { readDocumentRevision, recordDocumentBatch } from "@/lib/metadata/revisions";
 import { insertTable } from "@/lib/metadata/tables";
 import { takenNames } from "@/lib/operations/recipe-duplicate";
 import { projectMembers, projectOverview, type ProjectMembers, type ProjectOverview } from "@/lib/project-service";
 import { trackInflight } from "@/lib/query/inflight";
 import { captureInputs, currentMapRevision } from "@/lib/thumbnail-evidence";
-import type { AdmittedMap } from "./admission";
+import type { AdmittedMap, AdmittedWorkflow } from "./admission";
 import { copySource, type CopySource } from "./catalogue";
 import { copyDatasetFile, removeCopiedArtifacts, type CopiedArtifact } from "./copy-artifacts";
-import { bindCopyReferences, type CopyReferences } from "./copy-references";
+import { bindCopyReferences, type CopyReferences, type LandedNames } from "./copy-references";
 import { TEMPLATE_THEMES, type TemplateFacts, type TemplateTheme } from "./format";
 import { readInstalledVersion, type InstalledVersion } from "./installed";
 import { refuse } from "./refusals";
@@ -44,8 +48,13 @@ import { refuse } from "./refusals";
  * `template` naming the id and version, filed in the project; the map
  * under fresh identities, its SQL naming the datasets as landed and its
  * widgets, legend order and timeline bound to the copied layers, filed in
- * the project. A failure anywhere before the commit rolls back the project
- * and removes every artifact the copy made.
+ * the project; and a workflow example's workflow, each step its own,
+ * reading and declaring the names as landed, each bundled result recorded
+ * as the copier's output of its step with no job and no run (the record's
+ * time is the copy's), its canvas layout with every position under the
+ * copy's step or the dataset as landed and every note, filed in the
+ * project. A failure anywhere before the commit rolls back the project and
+ * removes every artifact the copy made.
  *
  * The card images are saved after the commit, through the map's own
  * thumbnail road, which needs the map to exist and be the caller's: the
@@ -131,6 +140,43 @@ function writeMap(scope: AccountScope, map: AdmittedMap, sql: string[], projectI
   return mapId;
 }
 
+/** The workflow, its steps the copier's own, each bundled result recorded
+ * as the copier's output of its step by no job and no run, and its layout
+ * rebound; filed in the project. */
+function writeWorkflow(
+  scope: AccountScope,
+  accountId: string,
+  workflow: AdmittedWorkflow,
+  copy: { parameters: Record<string, unknown>[]; results: { id: string; name: string }[]; landed: LandedNames },
+  projectId: string,
+  now: string,
+  db: Database,
+): void {
+  const recipe = createRecipe(scope, workflow.name, db, workflow.origin);
+  const revision = () => readDocumentRevision({ kind: "workflow", id: recipe.id }, db)!.editRevision;
+  fileRecipe(scope, recipe.id, projectId, db, { expectedRevision: revision() });
+  const stepIds = new Map<string, string>();
+  workflow.steps.forEach((step, i) => {
+    const added = addStep(scope, recipe.id, { operation: step.operation, parameters: copy.parameters[i], origin: null }, db, { expectedRevision: revision() });
+    stepIds.set(step.id, added.id);
+    // The bundled result as the copier's output of the step, recorded as a
+    // run's output is, by no job and no run: the workflow reads it as a
+    // copied result until the step's first run replaces it.
+    recordOutput(added.id, copy.results[i], now, db, { accountId, jobId: null, runId: null });
+  });
+  const rebound = <T>(entries: Record<string, T>, to: (key: string) => string | undefined) =>
+    Object.fromEntries(Object.entries(entries).flatMap(([key, value]) => {
+      const next = to(key);
+      return next === undefined ? [] : [[next, value]];
+    }));
+  putLayout(recipe.id, {
+    steps: rebound(workflow.layout.steps, (id) => stepIds.get(id)),
+    // A source is placed by its dataset's name: the name as landed.
+    sources: rebound(workflow.layout.sources, (name) => copy.landed.get(name.toLowerCase())),
+    notes: workflow.layout.notes,
+  }, db);
+}
+
 interface Planned {
   installed: InstalledVersion;
   references: CopyReferences;
@@ -174,6 +220,15 @@ function writeCopy(scope: AccountScope, accountId: string, planned: Planned, db:
     fileOwnedTable(scope, copied[i].id, project.id, db);
   });
   const mapId = writeMap(scope, admitted.map, references.layerSql(landed), project.id, now, db);
+  const { workflow } = admitted;
+  if (workflow) {
+    // The bundled results land after the datasets, in the steps' order.
+    const results = workflow.steps.map((step, i) => ({
+      id: copied[admitted.datasets.length + i].id,
+      name: landed.get(step.output.toLowerCase())!,
+    }));
+    writeWorkflow(scope, accountId, workflow, { parameters: references.stepParameters(landed), results, landed }, project.id, now, db);
+  }
   return { projectId: project.id, mapId };
 }
 

@@ -95,7 +95,7 @@ export const TEMPLATES_SCHEMAS = {
       project: { $ref: "#/components/schemas/Project" },
       members: { $ref: "#/components/schemas/ProjectMembers" },
     }),
-    description: "The project a copy made, with its members: the copied map and the copied datasets.",
+    description: "The project a copy made, with its members: the copied map, the copied workflow of a workflow example, and the copied datasets.",
   },
   TemplateList: object({
     templates: { type: "array", items: { $ref: "#/components/schemas/TemplateCard" },
@@ -201,16 +201,19 @@ export const TEMPLATES_PATHS = {
       "so fetch it first (POST /api/templates/{id}/fetch). The project is named as the body says (trimmed, 1 to 120 characters), else after the " +
       "template's title, and its note carries a line naming the template, its version and the day. Filed in it, under fresh identities: the " +
       "template's map with every layer, widget, the legend order, camera, basemap and timeline, each widget, the legend order and the timeline bound " +
-      "to the copied layers, its SQL home the caller's; and every dataset of the template, the caller's, under its name in the template or the next " +
-      "free name by the suffix rule (`_2`, `_3`), reserved against the caller's datasets and every output name their workflows declare, each " +
-      "layer's SQL naming the dataset as landed. A copied dataset's source reads `template`, with the template's id and version in its " +
-      "sourceParams, and it is never refreshed. The map's card images are the template's pictures, saved after the copy with evidence naming the " +
+      "to the copied layers, its SQL home the caller's; a workflow example's workflow, each step the caller's own, reading the datasets and the " +
+      "earlier outputs as landed and declaring its output as landed, each bundled result recorded as the caller's output of its step by no job and " +
+      "no run (the workflow read gives such a step no lastSuccessAt and its templateResult until the step's first run replaces it), its canvas " +
+      "layout with every position under the copy's step or the dataset as landed and every note; and every dataset and bundled result of the " +
+      "template, the caller's, under its name in the template or the next free name by the suffix rule (`_2`, `_3`), reserved against the " +
+      "caller's datasets and every output name their workflows declare, each layer's SQL naming the dataset as landed. A copied dataset's source " +
+      "reads `template`, with the template's id and version in its sourceParams, and it is never refreshed. The map's card images are the template's pictures, saved after the copy with evidence naming the " +
       "copied datasets; when they cannot be saved the copy stands and its card shows the placeholder until the map's first capture. A second copy " +
       "makes a second project of the same name with its datasets suffixed, the first unchanged; copies made at once each land whole under distinct " +
       "names. Refused, coded, with nothing created: 404 template_not_listed for a version neither installed nor listed; 409 " +
       "template_not_installed; 409 templates_catalogue_off for a version not installed while an admin has turned the catalogue off; 400 " +
       "service_address_unreadable for a saved address the instance's key no longer opens; 422 template_reference_unbound for a layer naming a " +
-      "dataset the copy does not make; 422 template_record_mismatch and the template reader's other codes for an installed version that changed on " +
+      "dataset the copy does not make, or a step reading one; 422 template_record_mismatch and the template reader's other codes for an installed version that changed on " +
       "disk; 400 invalid_request for a body that is not an optional name and version; 413 request_body_too_large. Answers the project with its " +
       "members.",
     tag: "Templates", tool: "copy_template", toolInput: { closed: true },
@@ -231,6 +234,7 @@ export const TEMPLATES_PATHS = {
       resource("projects", "", "project.id"),
       resource("maps", "", "members.maps.*.id"),
       resource("layers"),
+      resource("recipes", "", "members.recipes.*.id"),
       resource("tables", "", "members.tables.*.id"),
     ),
     mcp: LOCAL_ADD,

@@ -5942,6 +5942,11 @@
         "*"
       ]
     },
+    "memory:src/lib/templates/copy-references.ts#bindCopyReferences.allowed": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
     "memory:src/lib/templates/copy-references.ts#bindCopyReferences.everything": {
       "stores": [
         "memory:request-closures"

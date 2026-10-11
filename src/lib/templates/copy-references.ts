@@ -1,6 +1,7 @@
 import { ApiError } from "@/lib/api/errors";
 import type { AccountScope } from "@/lib/auth/scope";
 import { deriveTableName } from "@/lib/ingest/naming";
+import { findOperation } from "@/lib/operations/catalog";
 import { queryInputsStrict } from "@/lib/operations/inputs";
 import { rewriteTableReferences } from "@/lib/operations/sql-references";
 import { boundedEvaluation, isBoundedOutcome } from "@/lib/query/bounded";
@@ -20,9 +21,12 @@ import type { AdmittedTemplate } from "./admission";
  * transaction, so the check runs first with stand-in names of the same
  * shape, and the transaction applies the same rewrite with the real ones.
  *
- * Each layer's SQL must read the template's datasets and results and
- * nothing else; a reference the copy cannot bind, or a text whose rewrite
- * does not read as it should, refuses the copy whole before any write.
+ * Each layer's SQL must read the template's datasets and results, and each
+ * step its datasets and the results of the steps before it, and nothing
+ * else; a reference the copy cannot bind, or a text whose rewrite does not
+ * read as it should, refuses the copy whole before any write. A step's
+ * named inputs are rewritten as values, its SQL as a layer's is, and the
+ * output it declares takes the name its result lands under.
  */
 
 /** A template name, lower-cased as the engine reads it, to the name it
@@ -32,6 +36,9 @@ export type LandedNames = ReadonlyMap<string, string>;
 export interface CopyReferences {
   /** Each layer's SQL, in the map's order, naming the datasets as landed. */
   layerSql(landed: LandedNames): string[];
+  /** Each step's parameters, in the workflow's order, reading and
+   * declaring the names as landed. */
+  stepParameters(landed: LandedNames): Record<string, unknown>[];
 }
 
 function unbound(where: string, name: string | null): never {
@@ -84,6 +91,17 @@ export async function bindCopyReferences(scope: AccountScope, admitted: Admitted
     if (!same) unbound(where, null);
   };
 
+  const datasets = admitted.datasets.map((d) => d.name.toLowerCase());
+  const steps = admitted.workflow?.steps ?? [];
+  for (const [ordinal, step] of steps.entries()) {
+    const where = `The workflow's step ${ordinal + 1}`;
+    const allowed = new Set([...datasets, ...steps.slice(0, ordinal).map((s) => s.output.toLowerCase())]);
+    for (const input of findOperation(step.operation).inputs) {
+      const value = step.parameters[input.name];
+      if (typeof value === "string" && value !== "" && !allowed.has(value.toLowerCase())) unbound(where, value);
+    }
+    if (typeof step.parameters.sql === "string") await bindSql(where, step.parameters.sql, allowed);
+  }
   const everything = new Set(own);
   for (const [i, layer] of admitted.map.layers.entries()) {
     await bindSql(`The map's layer ${i + 1} ("${layer.name}")`, layer.sql, everything);
@@ -91,5 +109,18 @@ export async function bindCopyReferences(scope: AccountScope, admitted: Admitted
 
   return {
     layerSql: (landed) => admitted.map.layers.map((layer) => rewriteTableReferences(layer.sql, renaming(landed))),
+    stepParameters: (landed) => steps.map((step) => {
+      const rename = renaming(landed);
+      const parameters: Record<string, unknown> = { ...step.parameters };
+      for (const input of findOperation(step.operation).inputs) {
+        const value = parameters[input.name];
+        if (typeof value !== "string") continue;
+        const to = rename(value.toLowerCase());
+        if (to !== null) parameters[input.name] = to;
+      }
+      if (typeof parameters.sql === "string") parameters.sql = rewriteTableReferences(parameters.sql, rename);
+      parameters.name = landed.get(step.output.toLowerCase()) ?? step.output;
+      return parameters;
+    }),
   };
 }

@@ -1029,7 +1029,12 @@ the runs of both a single step and the whole workflow. Each person's run
 makes their own outputs, so a step's view describes one run: the reader's own
 latest output of it when they have one, else the workflow owner's, and its
 `output` names that run's `runner` and `runId`, with the step's conditions,
-inputs and last success describing the same run. Each run record names its
+inputs and last success describing the same run. An output that came with a
+copy of a template (its dataset's source is `template`) was made by no run:
+its step reads `lastSuccessAt` null, its `output` names no job or run, and
+`templateResult` names the template (`template`, its id) and the `version`
+copied; the step's first run replaces that output with its own and
+`templateResult` is null from then on. Each run record names its
 `runner`. A qualified reference (`ada.staged`) stays external everywhere it is
 read: ordering, staleness and a workflow's duplication, which renames the
 copy's own outputs where its SQL reads them and leaves a qualified dataset of
@@ -1273,11 +1278,17 @@ template's title, and its note carries a line naming the template, its
 version and the day. Filed in it under fresh identities: the template's map,
 every layer, widget, the legend order, camera, basemap and timeline as
 stored, each widget, the legend order and the timeline bound to the copied
-layers, its SQL home the caller's; and every dataset of the template, the
-caller's, under its name in the template or the next free name by the suffix
-rule (`stations_2`), reserved against the caller's datasets and every output
-name their workflows declare, each layer's SQL rewritten to name the dataset
-as landed. The names are taken inside the copy's one metadata transaction,
+layers, its SQL home the caller's; a workflow example's workflow, each step
+the caller's own, reading the datasets and earlier outputs as landed and
+declaring its output as landed, each bundled result recorded as the caller's
+output of its step by no job and no run (read with `templateResult` and no
+last success until the step's first run), its canvas layout with every
+position under the copy's step or the dataset as landed and every note; and
+every dataset and bundled result of the template, the caller's, under its
+name in the template or the next free name by the suffix rule
+(`stations_2`), reserved against the caller's datasets and every output name
+their workflows declare, each layer's and step's SQL rewritten to name the
+dataset as landed. The names are taken inside the copy's one metadata transaction,
 the project first, so two copies at once each land whole under distinct
 names; a failure anywhere before the commit leaves no project, map or
 dataset of the caller's and no file, and a download stays installed. A
@@ -1290,8 +1301,8 @@ shows the placeholder until the map's first capture. It answers 201
 its members, and `Location` naming the project. Refused, coded, with nothing
 created: 404 `template_not_listed`, 409 `template_not_installed`, 409
 `templates_catalogue_off` for a version not installed while the catalogue is
-off, 422 `template_reference_unbound` for a layer naming a dataset the copy
-does not make, 422 `template_record_mismatch` and the reader's other codes
+off, 422 `template_reference_unbound` for a layer or step naming a dataset
+the copy does not make, 422 `template_record_mismatch` and the reader's other codes
 for an installed version that changed on disk, 400 `invalid_request` and 413
 `request_body_too_large`. List, read one, refresh, fetch and copy are
 generated as tools, `list_templates`, `get_template`, `refresh_templates`,

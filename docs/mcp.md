@@ -195,10 +195,11 @@ naming no version with the version its words name before it waits for the
 answer. The SQL and workflow assistants are never offered it.
 `copy_template` calls `POST /api/templates/{id}/copy`: it makes a copy of the
 installed version named, else the installed one, into a new project of the
-caller's, with the template's map and its datasets under the caller's names,
-and answers the project with its members. It is local and sends nothing; a
+caller's, with the template's map, a workflow example's workflow (its
+bundled results recorded as the caller's outputs by no run) and its datasets
+under the caller's names, and answers the project with its members. It is local and sends nothing; a
 listed version not installed yet is refused with `template_not_installed`
-(fetch it first). It writes projects, maps, layers and datasets, so MCP marks
+(fetch it first). It writes projects, maps, layers, workflows and datasets, so MCP marks
 it a local addition, not idempotent; it asks for confirmation, its words
 naming the version and its size, and the embedded assistant completes a call
 naming no version with the installed version before it waits. The SQL and
