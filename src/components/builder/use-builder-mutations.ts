@@ -11,6 +11,7 @@ import { useMutationLane } from "./use-mutation-lane";
 import { useMapHistory } from "./use-map-history";
 
 import { acceptedMapWrite } from "./builder-write-response";
+import { withoutRefusedLegendText } from "./refused-legend-text";
 import { DocumentSequence } from "../document-sequence";
 
 type StateSetter<T> = Dispatch<SetStateAction<T>>;
@@ -111,16 +112,16 @@ export function useBuilderMutations({
   }, []);
 
   // A refused save stored nothing: the live text it carried leaves with
-  // it, so the legend draws the stored text again. A field typed or saved
-  // since holds other text and stays.
-  const retireLegendLive = useCallback((layerId: string, refused: Record<string, unknown>) => {
+  // it, title, label slot and variable name each, so the legend draws the
+  // stored text there again. Text typed or saved since stays.
+  const retireLegendLive = useCallback((layerId: string, refused: Record<string, unknown>, stored: Layer | undefined) => {
     setLegendLive((prev) => {
       const live = prev[layerId];
       if (!live) return prev;
-      const kept = Object.entries(live).filter(([key, value]) => !(key in refused) || JSON.stringify(value) !== JSON.stringify(refused[key]));
-      if (kept.length === Object.keys(live).length) return prev;
+      const kept = withoutRefusedLegendText(live, refused, stored);
+      if (JSON.stringify(kept) === JSON.stringify(live)) return prev;
       const next = { ...prev };
-      if (kept.length) next[layerId] = Object.fromEntries(kept) as LegendLiveText;
+      if (Object.keys(kept).length) next[layerId] = kept;
       else delete next[layerId];
       return next;
     });

@@ -19,10 +19,10 @@ import { useLegendTab } from "./use-legend-tab";
 const cleanups: (() => void)[] = [];
 afterEach(() => { cleanups.splice(0).forEach(cleanup => cleanup()); vi.unstubAllGlobals(); });
 
-function setup() {
+function setup(legendAttrs: Record<string, string | null> | null = null) {
   const w = wire();
   const stored = { id: "a", name: "Harbours", visible: true, inLegend: true, viz: { type: "points" }, style: defaultStyle("POINT"),
-    legendTitle: "Stored title", legendLabels: null, legendAttrs: null };
+    legendTitle: "Stored title", legendLabels: null, legendAttrs };
   const initial = { id: "m", name: "Map", editRevision: "seen", legendOrder: null, layers: [stored] } as unknown as MapWithLayers & { editRevision: string };
   let map = initial;
   vi.stubGlobal("fetch", vi.fn((...args: Parameters<typeof globalThis.fetch>) => w.fetch(...args)));
@@ -87,4 +87,41 @@ it("keeps the refused title drawn when the map changed elsewhere, for copying be
   expect(c.h.value.sequence.stale).toBe(true);
   expect(c.drawnTitle()).toBe("Refused title");
   expect(c.h.value.legendLive.a?.legendTitle).toBe("Refused title");
+});
+
+it("takes a refused variable name off the legend while a variable name saved behind it stays, through that save's answer", async () => {
+  const c = setup({ fill: "Stored fill" });
+  // The Legend tab sends every variable name it holds; the lane keeps only
+  // what each save changed, so the radius save carries no fill of its own.
+  c.h.value.onLegendLive("a", { legendAttrs: { fill: "Refused fill" } });
+  c.h.value.tab.onAttrs("a", { fill: "Refused fill" });
+  c.h.render();
+  c.h.value.onLegendLive("a", { legendAttrs: { fill: "Refused fill", radius: "Queued radius" } });
+  c.h.value.tab.onAttrs("a", { fill: "Refused fill", radius: "Queued radius" });
+  c.h.render();
+  const attrs = () => legendItems(c.h.render().legend)[0]?.attrs;
+  expect(attrs()).toEqual({ fill: "Refused fill", radius: "Queued radius" });
+  c.w.pending("PATCH", "/api/layers/a")[0].refuse(400, "invalid_request", "legendAttrs is not valid.");
+  await c.w.settle();
+  expect(attrs(), "the refused fill name stayed on the legend").toEqual({ fill: "Stored fill", radius: "Queued radius" });
+  const next = c.w.pending("PATCH", "/api/layers/a")[0];
+  expect(next.body).toEqual({ legendAttrs: { fill: "Stored fill", radius: "Queued radius" } });
+  next.ok({ ...c.stored, legendAttrs: { fill: "Stored fill", radius: "Queued radius" }, editRevision: "radius" });
+  await c.w.settle();
+  expect(attrs()).toEqual({ fill: "Stored fill", radius: "Queued radius" });
+  expect(c.h.value.legendLive.a).toBeUndefined();
+});
+
+it("keeps a variable name typed since a refused one on the legend, and the stored one where nothing was typed", async () => {
+  const c = setup({ fill: "Stored fill" });
+  c.h.value.onLegendLive("a", { legendAttrs: { fill: "Refused fill" } });
+  c.h.value.tab.onAttrs("a", { fill: "Refused fill" });
+  c.h.render();
+  // Typed since, not saved yet.
+  c.h.value.onLegendLive("a", { legendAttrs: { fill: "Refused fill", radius: "Typed radius" } });
+  c.h.render();
+  c.w.pending("PATCH", "/api/layers/a")[0].refuse(400, "invalid_request", "legendAttrs is not valid.");
+  await c.w.settle();
+  expect(legendItems(c.h.render().legend)[0]?.attrs).toEqual({ fill: "Stored fill", radius: "Typed radius" });
+  expect(c.h.value.legendLive.a?.legendAttrs).toEqual({ fill: "Stored fill", radius: "Typed radius" });
 });

@@ -125,6 +125,7 @@ it("keeps a variable name typed since a refused save and shows the stored one wh
   await settle();
   expect(field(FILL).value).toBe("Stored fill");
   expect(field(RADIUS).value, "the editor dropped text typed since the refused save").toBe("Radius B");
+  expect(drawn().attrs, "the legend and the editor disagree").toEqual({ fill: "Stored fill", radius: "Radius B" });
 });
 
 it("keeps a label typed since a refused save and shows the stored one where nothing was typed", async () => {
