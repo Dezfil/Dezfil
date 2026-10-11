@@ -394,11 +394,14 @@ describe("tile builds", () => {
 
   it("ends a build at its tile-build timeout though the tiler has exited and a helper still holds its pipes", async () => {
     // The tiler answers its version as usual; a build starts a helper that
-    // holds its output pipes for good, and exits at once.
+    // holds its output pipes for good, and exits at once. It holds off the
+    // polite stop until the helper is noted: a stop landing first on a
+    // loaded machine would end it before the note, leaving no helper to find.
     const executable = path.join(dir, "helper-tippecanoe");
     const helperPid = path.join(dir, "helper.pid");
     await writeFile(executable, [
       "#!/bin/sh",
+      "trap '' TERM",
       'if [ "$1" = "--version" ]; then echo "tippecanoe v0.0-test" >&2; exit 0; fi',
       "sleep 120 &",
       `echo $! > '${helperPid}.tmp' && mv '${helperPid}.tmp' '${helperPid}'`,
