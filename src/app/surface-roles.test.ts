@@ -60,7 +60,12 @@ const ROLES: Record<string, Record<string, string>> = {
 const VOCABULARY = /^--(shadow-[\w-]+|blur-[\w-]+|fill-[\w-]+|edge-[\w-]+|surface-[\w-]+)$/;
 /** The stylesheets that set tones or restate roles: the shipped tokens, the
  * look, the pictures, the Panels looks. */
-const TOKEN_SHEETS = ["src/app/globals.css", "src/app/look.css", "src/components/settings/look-pictures.css", "src/app/look-liquid.css"];
+const TOKEN_SHEETS = ["src/app/globals.css", "src/app/look.css", "src/components/settings/look-pictures.css", "src/app/look-liquid.css",
+  "src/app/look-paper.css"];
+/** A tone restated off the block's scopes on purpose, with its reason. */
+const TONES_OFF_SCOPE: { file: string; element: string; why: string }[] = [
+  { file: "src/app/look-paper.css", element: "body", why: "Paper's quieter lines: the roles keep the root's line, so a menu's and a dialog's edge stay as shipped" },
+];
 /** The look's stylesheets: they restate a role's parts and the fills for a
  * look, and declare nothing else of the vocabulary. */
 const RESTATERS = ["src/app/look.css", "src/app/look-liquid.css", "src/app/look-paper.css"];
@@ -148,6 +153,7 @@ export function vocabularyProblems(sheets: Record<string, string>): string[] {
       if (!tones.length) continue;
       for (const selector of rule.selectors) {
         const element = target(selector);
+        if (TONES_OFF_SCOPE.some(entry => entry.file === file && entry.element === element)) continue;
         if (!covered(element)) problems.push(`${file}: ${selector} restates ${tones.join(", ")} on ${element}, outside the block's scopes`);
       }
     }

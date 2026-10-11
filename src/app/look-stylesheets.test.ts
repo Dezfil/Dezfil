@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { LIQUID_KINDS } from "@/lib/look";
+import { LIQUID_KINDS, lookChoices } from "@/lib/look";
 
 /**
  * The Panels looks' stylesheets. A look restates the surface roles' parts
@@ -43,6 +43,7 @@ function rules(css: string): Rule[] {
 const read = (file: string) => readFileSync(file, "utf8");
 const GLOBALS = read("src/app/globals.css");
 const LIQUID_CSS = read("src/app/look-liquid.css");
+const PAPER_CSS = read("src/app/look-paper.css");
 
 const ROLE_NAMES = ["glass-chrome", "glass-panel", "overlay-panel", "overlay-control", "page-card", "inner-card", "menu", "dialog", "stage"] as const;
 type Role = (typeof ROLE_NAMES)[number];
@@ -238,6 +239,102 @@ export function liquidProblems(css: string, globals: string = GLOBALS): string[]
   return problems;
 }
 
+/* ---- Paper's values ---- */
+
+/** Paper's panel: a paper white a step below the panel tone by day (4 %
+ * of the ground mixed in), the raised step by night. */
+const PAPER_PANEL: Record<Theme, string> = { light: "color-mix(in oklab, var(--bg-panel) 96%, var(--bg))", dark: "var(--bg-raised)" };
+/** One gentle two-layer lift, a lighter one on page cards, a contact line inside panels. */
+const PAPER_LIFT: Record<Theme, Record<"lift" | "card" | "inner", string>> = {
+  light: {
+    lift: "0 1px 1px color-mix(in srgb, var(--shadow) 40%, transparent), 0 8px 24px -4px color-mix(in srgb, var(--shadow) 70%, transparent)",
+    card: "0 1px 1px color-mix(in srgb, var(--shadow) 30%, transparent), 0 6px 20px -4px color-mix(in srgb, var(--shadow) 55%, transparent)",
+    inner: "0 1px 2px color-mix(in srgb, var(--shadow) 40%, transparent)",
+  },
+  dark: {
+    lift: "0 1px 1px rgba(0, 0, 0, 0.5), 0 10px 28px -4px rgba(0, 0, 0, 0.55)",
+    card: "0 1px 1px rgba(0, 0, 0, 0.45), 0 8px 24px -4px rgba(0, 0, 0, 0.45)",
+    inner: "0 1px 2px rgba(0, 0, 0, 0.4)",
+  },
+};
+/** The lines inside panels and cards: 7 % ink by day, 8 % by night. */
+const PAPER_LINE: Record<Theme, string> = {
+  light: "color-mix(in srgb, var(--fg) 7%, transparent)",
+  dark: "color-mix(in srgb, var(--fg) 8%, transparent)",
+};
+
+/** Each role's parts under Paper; menus and dialogs are as shipped. */
+function paper(role: Role, theme: Theme): Record<string, string> | null {
+  const sheet = { fill: PAPER_PANEL[theme], blur: "none", edge: "none", shadow: PAPER_LIFT[theme].lift };
+  switch (role) {
+    case "glass-chrome": case "glass-panel": case "overlay-panel": case "overlay-control": return sheet;
+    case "page-card": return { fill: PAPER_PANEL[theme], blur: "none", edge: CLEAR, shadow: PAPER_LIFT[theme].card, "shadow-hover": PAPER_LIFT[theme].lift };
+    case "inner-card": return {
+      fill: theme === "light" ? "var(--bg-panel)" : "var(--bg-hover)", blur: "none", edge: CLEAR, shadow: PAPER_LIFT[theme].inner,
+      "shadow-lifted": PAPER_LIFT[theme].card, "shadow-dragged": PAPER_LIFT[theme].lift,
+    };
+    case "stage": return { shadow: PAPER_LIFT[theme].lift };
+    case "menu": case "dialog": return null;
+  }
+}
+
+const PAPER_SELECTOR = /^:root(\[data-theme="dark"\])?\[data-look-panels="([\w-]+)"\]( \[data-picture-([\w-]+)\])?$/;
+const PAPER_PICTURE = /^:root(\[data-theme="dark"\])? \[data-picture-panels="paper"\]$/;
+const PAPER_LINES = /^:root(\[data-theme="dark"\])?\[data-look-panels="paper"\]:not\(\[data-look-contrast="more"\]\) body$/;
+
+/** What is wrong with Paper's stylesheet; empty when it holds. */
+export function paperProblems(css: string, globals: string = GLOBALS): string[] {
+  const problems: string[] = [];
+  const parts = roleParts(globals);
+  const known = new Set([...parts].flatMap(([role, names]) => names.map(part => `--surface-${role}-${part}`)));
+  const restated = new Map<string, Map<string, string>>();
+  for (const rule of rules(css)) {
+    if (rule.within !== null) problems.push(`${rule.within}: Paper has no conditional rule, its fills are opaque`);
+    if (/!important/.test(rule.body)) problems.push(`${rule.selectors.join(", ")}: forces a declaration`);
+    for (const selector of rule.selectors) {
+      const pick = PAPER_SELECTOR.exec(selector), picture = PAPER_PICTURE.exec(selector), lines = PAPER_LINES.exec(selector);
+      if (!pick && !picture && !lines) { problems.push(`${selector}: keyed on neither the root by Paper, its lines on the body, nor the Paper picture`); continue; }
+      if (pick && (pick[2] !== "paper" || !lookChoices("panels").includes(pick[2]))) problems.push(`${selector}: ${pick[2]} is not Paper`);
+      if (pick?.[4] && !OTHER_PICTURES.includes(pick[4])) problems.push(`${selector}: dresses a picture that shows its own Panels`);
+      const tokens = restated.get(selector) ?? new Map<string, string>();
+      for (const [property, value] of rule.declarations) {
+        if (lines) {
+          if (property !== "--border") problems.push(`${selector}: sets ${property}; the body takes Paper's lines alone`);
+        } else if (/^--surface-(menu|dialog)-/.test(property)) {
+          problems.push(`${selector}: restates ${property}; menus and dialogs are as shipped under Paper`);
+        } else if (!known.has(property)) {
+          problems.push(`${selector}: declares ${property}, not a role's part`);
+        }
+        tokens.set(property, value);
+      }
+      restated.set(selector, tokens);
+    }
+  }
+
+  const holds = (selector: string, expected: Map<string, string>, under?: string) => {
+    const effective = new Map([...(under ? (restated.get(under) ?? []) : []), ...(restated.get(selector) ?? [])]);
+    for (const [token, value] of expected) {
+      if (!effective.has(token)) problems.push(`${selector}: ${token} is not restated`);
+      else if (effective.get(token) !== value) problems.push(`${selector}: ${token} is ${effective.get(token)}, not ${value}`);
+    }
+    for (const token of effective.keys()) if (!expected.has(token)) problems.push(`${selector}: restates ${token}, which Paper leaves as shipped`);
+  };
+  const wanted = (theme: Theme) => new Map(ROLE_NAMES.flatMap(role =>
+    Object.entries(paper(role, theme) ?? {}).map(([part, value]) => [`--surface-${role}-${part}`, value] as [string, string])));
+  const root = (dark: boolean) => `:root${dark ? '[data-theme="dark"]' : ""}[data-look-panels="paper"]`;
+  const selectors = (dark: boolean) => [root(dark), ...OTHER_PICTURES.map(pick => `${root(dark)} [data-picture-${pick}]`),
+    `:root${dark ? '[data-theme="dark"]' : ""} [data-picture-panels="paper"]`];
+  const light = selectors(false), dark = selectors(true);
+  light.forEach((selector, at) => {
+    holds(selector, wanted("light"));
+    holds(dark[at], wanted("dark"), selector);
+  });
+  const linesOn = (dark: boolean) => `${root(dark)}:not([data-look-contrast="more"]) body`;
+  holds(linesOn(false), new Map([["--border", PAPER_LINE.light]]));
+  holds(linesOn(true), new Map([["--border", PAPER_LINE.dark]]), linesOn(false));
+  return problems;
+}
+
 describe("Liquid's stylesheet", () => {
   it("restates every part of each kind's roles, by day and by night, on the root, the other picks' pictures and its own picture, opaque where asked", () => {
     expect(liquidProblems(LIQUID_CSS)).toEqual([]);
@@ -274,5 +371,43 @@ describe("Liquid's stylesheet", () => {
     const look = document.indexOf('import "./look.css";'), liquidSheet = document.indexOf('import "./look-liquid.css";');
     expect(look).toBeGreaterThan(-1);
     expect(liquidSheet).toBeGreaterThan(look);
+  });
+});
+
+describe("Paper's stylesheet", () => {
+  it("restates every role but the menu and the dialog, by day and by night, on the root, the other picks' pictures and its own picture", () => {
+    expect(paperProblems(PAPER_CSS)).toEqual([]);
+  });
+
+  it("softens the lines on the body, never on the root, and never under More contrast", () => {
+    const lines = rules(PAPER_CSS).filter(rule => rule.declarations.some(([property]) => property === "--border"));
+    expect(lines.flatMap(rule => rule.selectors)).toEqual([
+      ':root[data-look-panels="paper"]:not([data-look-contrast="more"]) body',
+      ':root[data-theme="dark"][data-look-panels="paper"]:not([data-look-contrast="more"]) body',
+    ]);
+  });
+
+  it("fails on a menu's part restated, and on a rule keyed on a component's class", () => {
+    const menu = PAPER_CSS.replace("  --surface-glass-chrome-blur: none;\n", "  --surface-glass-chrome-blur: none;\n  --surface-menu-fill: var(--bg-raised);\n");
+    expect(menu).not.toBe(PAPER_CSS);
+    expect(paperProblems(menu)).toContain(':root[data-look-panels="paper"]: restates --surface-menu-fill; menus and dialogs are as shipped under Paper');
+    const dialog = `${PAPER_CSS}\n:root[data-look-panels="paper"] {\n  --surface-dialog-edge: none;\n}\n`;
+    expect(paperProblems(dialog)).toContain(':root[data-look-panels="paper"]: restates --surface-dialog-edge; menus and dialogs are as shipped under Paper');
+    const seeded = `${PAPER_CSS}\n.card {\n  --surface-page-card-fill: var(--bg-raised);\n}\n`;
+    expect(paperProblems(seeded)).toContain(".card: keyed on neither the root by Paper, its lines on the body, nor the Paper picture");
+  });
+
+  it("fails on lines that reach More contrast, and on a part dropped", () => {
+    const always = PAPER_CSS.replaceAll(':not([data-look-contrast="more"]) body', " body");
+    expect(always).not.toBe(PAPER_CSS);
+    expect(paperProblems(always).join("\n")).toMatch(/:root\[data-look-panels="paper"\] body: keyed on neither/);
+    const dropped = PAPER_CSS.replace("  --surface-glass-chrome-blur: none;\n", "");
+    expect(paperProblems(dropped)).toContain(':root[data-look-panels="paper"]: --surface-glass-chrome-blur is not restated');
+  });
+
+  it("is loaded by the document after the look's own rules", () => {
+    const document = read("src/app/document.tsx");
+    expect(document.indexOf('import "./look-paper.css";')).toBeGreaterThan(document.indexOf('import "./look.css";'));
+    expect(document.indexOf('import "./look.css";')).toBeGreaterThan(-1);
   });
 });
