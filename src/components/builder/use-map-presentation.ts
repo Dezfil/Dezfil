@@ -381,6 +381,8 @@ export function useMapPresentation({
     setBottomRightCornerEl,
     setWidgetStackEl,
     setCreditEl,
+    /** The credit's element: the status pill keeps clear of it. */
+    creditEl,
     statusChannel,
     statusPillHidden,
   };

@@ -4,7 +4,9 @@
 .bar {
   position: absolute;
   left: 50%;
-  transform: translateX(-50%);
+  /* Centred; slid left by the measured amount when the basemap credit
+     would otherwise sit under its right end. */
+  transform: translateX(calc(-50% - var(--pill-shift, 0px)));
   bottom: 16px;
   z-index: 5;
   display: flex;
