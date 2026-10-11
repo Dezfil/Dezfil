@@ -43,6 +43,12 @@ let catalogue: LoopbackCatalogue | null = null;
 let mapTemplate: BuiltTemplate;
 let workflowTemplate: BuiltTemplate;
 let environmentNamesCatalogue = false;
+/** Whether setup passed the isolation check: teardown touches no instance
+ * setup refused. */
+let isolated = false;
+/** Whether setup sent the catalogue's address and switch: only then does
+ * teardown put them back and remove what was downloaded from it. */
+let catalogueWritten = false;
 /** What each copy made, removed after the journeys. */
 const copies: Landed[] = [];
 
@@ -208,6 +214,7 @@ async function removeCopy(request: APIRequestContext, landed: Landed): Promise<v
 
 test.beforeAll(async ({ request }) => {
   requireIsolatedInstance();
+  isolated = true;
   const read = await (await request.get(SETTINGS)).json() as { settings: Record<string, { source: string }> };
   environmentNamesCatalogue = read.settings.templatesCatalogueUrl?.source === "environment";
   if (environmentNamesCatalogue) return;
@@ -229,6 +236,8 @@ test.beforeAll(async ({ request }) => {
   // each run, so the server's kept list goes with the address it replaces.
   const address = new URL(catalogue.indexUrl);
   address.hostname = "127.0.0.1";
+  // Set before the write, which may land even if its answer is lost.
+  catalogueWritten = true;
   const saved = await request.patch(SETTINGS, { data: { templatesCatalogueUrl: address.toString(), "templates.catalogue": true } });
   expect(saved.status()).toBe(200);
 });
@@ -239,12 +248,18 @@ test.beforeEach(async ({ context }) => {
   await routeHouse(context);
 });
 
+// Teardown puts back only what this spec made, and only on an instance
+// setup accepted: where setup refused the instance (the default address
+// included), it writes nothing there.
 test.afterAll(async ({ request }) => {
-  if (environmentNamesCatalogue) return;
   try {
-    for (const landed of copies) await removeCopy(request, landed);
-    await request.delete("/api/templates/downloads");
-    await request.patch(SETTINGS, { data: Object.fromEntries(CATALOGUE_KEYS.map(key => [key, null])) });
+    if (isolated) {
+      for (const landed of copies) await removeCopy(request, landed);
+      if (catalogueWritten) {
+        await request.delete("/api/templates/downloads");
+        await request.patch(SETTINGS, { data: Object.fromEntries(CATALOGUE_KEYS.map(key => [key, null])) });
+      }
+    }
   } finally {
     await catalogue?.close();
     if (scratch) await rm(scratch, { recursive: true, force: true });
