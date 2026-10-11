@@ -1,4 +1,5 @@
 import type { ChildProcess } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import { subscribe, unsubscribe } from "node:diagnostics_channel";
 import { ApiError, EvaluationCancelled } from "@/lib/api/errors";
 import { startRenderRelay, type RenderRelay } from "./render-relay";
@@ -87,19 +88,40 @@ function endProcess(child: ChildProcess | null): Promise<void> {
   });
 }
 
-/** The processes started while a launch runs, for the one that launch
- * started: the only one whose arguments carry `flag`. */
-function watchStarts(flag: string): { started: () => ChildProcess | null; stop: () => void } {
-  const seen: ChildProcess[] = [];
-  const onStart = (message: unknown) => {
+/** Names one launch's browser on its command line, with a value no other
+ * launch has. Chromium keeps a switch it has no use for and does nothing
+ * with it. */
+const LAUNCH_SWITCH = "--dezfil-render-launch";
+
+/** Watches the processes this server starts for the one a launch starts,
+ * the one whose command line carries `token`, and keeps only it. The
+ * watching ends at that process, at `end()`, or as soon as one of `stops`
+ * aborts: a launch that never starts its browser nor answers watches no
+ * longer than its caller waits for it. */
+function watchStart(token: string, stops: (AbortSignal | undefined)[]): { started: () => ChildProcess | null; end: () => void } {
+  let found: ChildProcess | null = null;
+  let watching = true;
+  function end() {
+    if (!watching) return;
+    watching = false;
+    unsubscribe("child_process", onStart);
+    for (const stop of stops) stop?.removeEventListener("abort", end);
+  }
+  function onStart(message: unknown) {
     const child = (message as { process?: ChildProcess }).process;
-    if (child) seen.push(child);
-  };
+    // Told as the process is made, before its arguments are set; they are
+    // read once the spawn that made it has returned.
+    if (child) queueMicrotask(() => {
+      if (!found && child.spawnargs?.includes(token)) {
+        found = child;
+        end();
+      }
+    });
+  }
   subscribe("child_process", onStart);
-  return {
-    started: () => seen.find((child) => child.spawnargs?.includes(flag)) ?? null,
-    stop: () => unsubscribe("child_process", onStart),
-  };
+  for (const stop of stops) stop?.addEventListener("abort", end, { once: true });
+  if (stops.some((stop) => stop?.aborted)) end();
+  return { started: () => found, end };
 }
 
 /** The real driver, loaded lazily so unit tests never touch it. */
@@ -116,9 +138,9 @@ export async function puppeteerDriver(): Promise<RenderDriver> {
           "instance's renderer needs attention.", 502);
       }
       let browser;
-      const args = [...flags, ...renderProxyFlags(context.appOrigin, relay.port)];
-      // The relay's port is this launch's own: its flag names the process.
-      const starts = watchStarts(args.find((flag) => flag.startsWith("--proxy-server=")) ?? "");
+      const token = `${LAUNCH_SWITCH}=${randomUUID()}`;
+      const args = [...flags, ...renderProxyFlags(context.appOrigin, relay.port), token];
+      const start = watchStart(token, [context.stop, context.signal]);
       try {
         if (context.signal?.aborted) throw new EvaluationCancelled();
         browser = await puppeteer.launch({
@@ -137,10 +159,10 @@ export async function puppeteerDriver(): Promise<RenderDriver> {
         // before the process it started has gone: puppeteer closes that
         // process afterwards, without waiting. It is ended outright here, and
         // the caller is told when it has exited.
-        context.exited?.(endProcess(starts.started()));
+        context.exited?.(endProcess(start.started()));
         throw error;
       } finally {
-        starts.stop();
+        start.end();
       }
       const refused: string[] = [];
       const render: RenderBrowser["render"] = async ({ url, width, height, definition, deadline, requestBoundMs, credential }) => {

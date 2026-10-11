@@ -3084,12 +3084,17 @@
         "memory:request-closures"
       ]
     },
-    "memory:src/lib/export/render-driver.ts#puppeteerDriver.launch.starts": {
+    "memory:src/lib/export/render-driver.ts#puppeteerDriver.launch.start": {
       "stores": [
         "memory:request-closures"
       ]
     },
-    "memory:src/lib/export/render-driver.ts#watchStarts.seen": {
+    "memory:src/lib/export/render-driver.ts#watchStart.found": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/export/render-driver.ts#watchStart.watching": {
       "stores": [
         "memory:request-closures"
       ]
