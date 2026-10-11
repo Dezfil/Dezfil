@@ -15,9 +15,14 @@ import { resetLimiter, takeSlot } from "@/lib/geocode/limiter";
  */
 
 const KEY = "isochrone-endpoint-under-test";
+const CONFIGURED_PACE_MS = 60;
+// The proof floor is held apart from the setting, so a pace of zero set
+// through the setting alone leaves a failing assertion behind.
+const PACE_FLOOR_MS = 60;
+const PACE_SLACK_MS = 15;
 
 beforeEach(() => {
-  process.env.DEZFIL_ISOCHRONE_PACE_MS = "60";
+  process.env.DEZFIL_ISOCHRONE_PACE_MS = String(CONFIGURED_PACE_MS);
   process.env.DEZFIL_GEOCODE_PACE_MS = "60";
   resetIsochroneLimiter();
   resetLimiter();
@@ -45,8 +50,13 @@ describe("one exchange at a time, at the endpoint's pace", () => {
     await Promise.all([caller(2), caller(2)]);
     expect(starts).toHaveLength(4);
     starts.sort((a, b) => a - b);
+    // Every start is held to the first, at a floor that grows with its
+    // index. A start sampled late on a loaded machine only lengthens its
+    // own span from the first, while two adjacent samples can bunch after
+    // one stall; the small slack covers clock and sampling jitter and stays
+    // far below one whole pace.
     for (let i = 1; i < starts.length; i += 1) {
-      expect(starts[i] - starts[i - 1]).toBeGreaterThanOrEqual(45);
+      expect(starts[i] - starts[0]).toBeGreaterThanOrEqual(i * PACE_FLOOR_MS - PACE_SLACK_MS);
     }
   });
 
