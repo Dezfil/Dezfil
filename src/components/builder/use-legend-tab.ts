@@ -55,14 +55,12 @@ export function useLegendTab({
       onCorner: (legendCorner: Corner) => void patchMap({ legendCorner }),
       onToggle: (id: string, inLegend: boolean) =>
         void patchLayer(id, { inLegend }),
-      // The text saves hand their answer back: the legend editor tells
-      // its own refused text from another surface's change by it.
       onTitle: (id: string, legendTitle: string | null) =>
-        patchLayer(id, { legendTitle }),
+        void patchLayer(id, { legendTitle }),
       onLabels: (id: string, legendLabels: (string | null)[] | null) =>
-        patchLayer(id, { legendLabels }),
+        void patchLayer(id, { legendLabels }),
       onAttrs: (id: string, legendAttrs: LegendAttrs | null) =>
-        patchLayer(id, { legendAttrs }),
+        void patchLayer(id, { legendAttrs }),
       /** The arrangement, top first — the tab's display order. */
       onReorder: (topFirstIds: string[]) => writeOrder(topFirstIds),
       onResetOrder: () => writeOrder(null),
