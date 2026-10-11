@@ -3,7 +3,6 @@ import { assertMapLayerRefs } from "@/lib/map-layer-refs";
 import { listLayers } from "@/lib/metadata/maps";
 import { requireDocumentRevision } from "@/lib/metadata/revisions";
 import { requireRequestScope } from "@/lib/auth/scope-http";
-import { cameraBoundsProblem } from "@/lib/camera-bounds";
 import { NextResponse } from "next/server";
 import { ApiError, errorResponse } from "@/lib/api/errors";
 import { changeGroupOf } from "@/lib/api/change-group";
@@ -16,7 +15,8 @@ import {
 } from "@/lib/map-service";
 import { mapWriteChangesPublication } from "@/lib/publication-settings";
 import { mapPresence } from "@/lib/reach-presence";
-import { isBasemapKey, type BasemapKey } from "@/lib/basemap";
+import type { BasemapKey } from "@/lib/basemap";
+import { normalizeViewport, requireBasemapKey } from "@/lib/map-document-rules";
 import { resolveCustomBasemapWrite } from "@/lib/basemap-custom";
 import { requireAllowedStyleAddress } from "@/lib/basemap-rule";
 import type { CustomBasemap, Viewport } from "@/lib/metadata/maps";
@@ -74,49 +74,10 @@ export async function PATCH(request: Request, { params }: Params) {
       fields.name = body.name;
     }
     if (body.viewport !== undefined) {
-      const v = body.viewport as Record<string, unknown>;
-      if (
-        !v ||
-        typeof v.lng !== "number" ||
-        typeof v.lat !== "number" ||
-        typeof v.zoom !== "number"
-      ) {
-        throw new ApiError(
-          "invalid_request",
-          "viewport must be { lng, lat, zoom } with optional pitch and bearing.",
-          400,
-        );
-      }
-      // Omitted pitch/bearing mean flat and north-up: one whole camera.
-      const cameraProblem = cameraBoundsProblem(v);
-      if (cameraProblem) throw new ApiError("invalid_request", cameraProblem, 400);
-      if (
-        v.bearing !== undefined &&
-        (typeof v.bearing !== "number" || v.bearing < -360 || v.bearing > 360)
-      ) {
-        throw new ApiError(
-          "invalid_request",
-          "viewport.bearing must be a number of degrees, -360 to 360.",
-          400,
-        );
-      }
-      fields.viewport = {
-        lng: v.lng,
-        lat: v.lat,
-        zoom: v.zoom,
-        pitch: (v.pitch as number | undefined) ?? 0,
-        bearing: (v.bearing as number | undefined) ?? 0,
-      };
+      fields.viewport = normalizeViewport(body.viewport);
     }
     if (body.basemap !== undefined) {
-      if (body.basemap !== null && !isBasemapKey(body.basemap)) {
-        throw new ApiError(
-          "invalid_request",
-          "basemap must be one of dark, light, streets, satellite, or null for the deployment default.",
-          400,
-        );
-      }
-      fields.basemap = body.basemap as BasemapKey | null;
+      fields.basemap = requireBasemapKey(body.basemap);
     }
     if (body.customBasemap !== undefined) {
       // Shape, inspection, and block-vs-force semantics live in the
