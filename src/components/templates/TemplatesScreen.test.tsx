@@ -125,6 +125,20 @@ describe("the Templates page's cards", () => {
     expect(c.querySelector('button[aria-label="Make a copy of Harbour depths"]')).not.toBeNull();
   });
 
+  it("lets the date's and the credit's hints show, their words marked as not explaining them", async () => {
+    // The hint layer shows no bubble over visible words unless they are
+    // marked: the date alone does not say it is the data's, and the credit
+    // line is cut short with its licences left out.
+    await open();
+    const c = card("harbour-depths");
+    for (const name of ["date", "credit"]) {
+      const hinted = field(c, name)!;
+      const words = hinted.querySelector("[data-hint-ignore-text]");
+      expect(words?.textContent, name).toBe(hinted.textContent);
+      expect(hinted.childNodes, name).toHaveLength(1);
+    }
+  });
+
   it("draws a day's date as a day and a downloaded map's picture from its own version", async () => {
     await open();
     const c = card("storm-tracks");

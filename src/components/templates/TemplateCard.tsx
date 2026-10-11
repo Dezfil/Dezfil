@@ -80,8 +80,10 @@ export function TemplateCard({
             <span className={gallery.cardName} data-field="title">
               {card.title}
             </span>
+            {/* The hint says what the words do not, so the words are
+                marked as not explaining it (the hint layer's rule). */}
             <span className={gallery.cardWhen} data-field="date" data-hint={`Data of ${date}`}>
-              {date}
+              <span data-hint-ignore-text>{date}</span>
             </span>
           </div>
           <p className={styles.question} data-field="question">
@@ -100,7 +102,7 @@ export function TemplateCard({
             ))}
           </div>
           <p className={styles.credit} data-field="credit" data-hint={creditInFull(card.sources)}>
-            {creditLine(card.sources)}
+            <span data-hint-ignore-text>{creditLine(card.sources)}</span>
           </p>
           {absent && (
             <p className={styles.absent} data-field="absent">
