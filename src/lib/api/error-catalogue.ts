@@ -179,6 +179,10 @@ export const ERROR_CATALOGUE: Record<ErrorCode, string> = {
   sketch_gone:
     "The sketch dataset was deleted or replaced while the change was in flight; nothing was written.",
   map_not_found: "No map exists with the given id.",
+  template_not_listed:
+    "No template with that id is shipped with this instance, downloaded to it or listed by the catalogue list it last read.",
+  templates_catalogue_off:
+    "An admin turned the template catalogue off (the templates.catalogue setting), so the server reaches it for nothing: no refresh, Test or download is sent. Shipped and downloaded templates still open and copy.",
   internal: "An unexpected server error occurred.",
 };
 

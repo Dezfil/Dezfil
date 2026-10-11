@@ -100,6 +100,8 @@ export interface TemplateFacts {
 }
 
 const ID = /^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$/;
+/** Words the API's template paths take beside an id. */
+export const RESERVED_IDS = ["refresh", "downloads"] as const;
 const DATA_DATE = /^\d{4}(?:-(?:0[1-9]|1[0-2])(?:-(?:0[1-9]|[12]\d|3[01]))?)?$/;
 const LICENCE = /^[A-Za-z0-9][A-Za-z0-9.+-]{0,63}$/;
 const PICTURE = /^pictures\/[a-z0-9-]{1,40}\.png$/;
@@ -180,6 +182,9 @@ export function factsProblem(value: unknown): Problem {
   }
   if (typeof value.id !== "string" || !ID.test(value.id)) {
     return "id must be lowercase letters, digits and single hyphens, at most 64 characters.";
+  }
+  if ((RESERVED_IDS as readonly string[]).includes(value.id)) {
+    return `id may not be ${RESERVED_IDS.join(" or ")}: the API's paths take those words.`;
   }
   if (!Number.isSafeInteger(value.version) || (value.version as number) < 1) {
     return "version must be a whole number from 1.";

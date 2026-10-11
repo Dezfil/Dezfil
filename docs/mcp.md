@@ -146,10 +146,12 @@ credentials or address paths, queries or user information.
 `clear_service_caches` calls `DELETE /api/instance/caches`, both admin-only and
 rechecked on every call. A Test sends one fixed request to the service at its
 address in effect (the satellite imagery: one fixed low-zoom tile at its tile
-template) and answers passed with the time taken (Overture: how many releases
-and the newest) or failed with one reason from a closed list, never a body, an
-address or a key; it is read-only but reaches outside this server, so
-MCP marks it open-world. Clear removes the cached answers of one service or all
+template; the template catalogue: its index) and answers passed with the time
+taken (Overture: how many releases and the newest; the template catalogue: how
+many templates it lists) or failed with one reason from a closed list, never a
+body, an address or a key; it is read-only but reaches outside this server, so
+MCP marks it open-world. While an admin has turned the template catalogue off,
+its Test is refused with `templates_catalogue_off` and sends nothing. Clear removes the cached answers of one service or all
 three and nothing else. The embedded assistant asks before calling either; the
 SQL and workflow assistants are never offered them.
 
@@ -170,6 +172,19 @@ Both are local and read-only and keep nothing,
 so MCP marks them local reads, not open-world; they ask for confirmation, so the
 embedded assistant asks before calling either and the SQL and workflow
 assistants are never offered them.
+
+`list_templates` calls `GET /api/templates`, `get_template` calls
+`GET /api/templates/{id}` and `refresh_templates` calls
+`POST /api/templates/refresh`, for every signed-in account. The list and the
+read answer from what this server holds (the shipped templates, the downloaded
+ones and the catalogue list it last read, with the catalogue's state) and send
+nothing, so MCP marks them local reads. The refresh reads the template
+catalogue's index and pictures through the egress check at most once in ten
+minutes, answering the kept list inside that window; it is read-only but
+reaches outside this server, so MCP marks it open-world, and the SQL and
+workflow assistants are offered the list and the read but never the refresh.
+While an admin has turned the catalogue off the refresh is refused with
+`templates_catalogue_off`. A template card's picture is not a tool.
 
 `add_basemap_style` calls `POST /api/instance/basemaps`,
 `set_basemap_style_offered` calls `PATCH /api/instance/basemaps/{id}` and
@@ -281,9 +296,9 @@ Direct multipart upload uses the separately configured upload limit.
 
 | | |
 |---|---|
-| Documented operations | 384 |
-| Operations that become tools | 150 |
-| Deliberately excluded | 234 |
+| Documented operations | 395 |
+| Operations that become tools | 153 |
+| Deliberately excluded | 242 |
 
 Measured by building the OpenAPI document and the tool set from
 `src/lib/api/openapi.ts` and `src/lib/tools/tools.ts` and counting the

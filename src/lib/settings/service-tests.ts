@@ -14,6 +14,7 @@ import { readCapped } from "@/lib/net/read-capped";
 import { openRemote } from "@/lib/net/remote-fetch";
 import { openOverpass, overpassEndpoint, readOverpassAnswer } from "@/lib/osm/overpass";
 import { keepReleaseList, sendReleaseListing } from "@/lib/overture/releases";
+import { testCatalogue } from "@/lib/templates/catalogue";
 import type { ServiceTestAnswer, TestedService } from "./service-test-answer";
 
 /**
@@ -28,7 +29,10 @@ import type { ServiceTestAnswer, TestedService } from "./service-test-answer";
  * template for one fixed low-zoom tile through the same outbound engine and
  * egress check, under its own ten seconds, as a browser drawing the imagery
  * asks for any tile, and reads the tile whole within them: it passes only on
- * an image complete for its format, timed when the last byte arrived.
+ * an image complete for its format, timed when the last byte arrived. The
+ * template catalogue's Test reads its index as a refresh does, within the
+ * link import's time bound, and keeps nothing; while the catalogue is off it
+ * is refused and sends nothing.
  *
  * The answer is a closed shape (`service-test-answer.ts`): what the service
  * said is read only to tell a pass from a failure, and none of it, nor the
@@ -57,7 +61,7 @@ const TILE_TEST_MS = 10_000;
  * draws. One Test runs at a time, so this is also its memory's bound. */
 const TILE_MAX_BYTES = 4 * 1024 * 1024;
 
-const passed = (service: Exclude<TestedService, "overture">, milliseconds: number): ServiceTestAnswer =>
+const passed = (service: Exclude<TestedService, "overture" | "templates">, milliseconds: number): ServiceTestAnswer =>
   ({ service, result: "passed", milliseconds });
 const answeredWith = (service: TestedService, status: number): ServiceTestAnswer =>
   ({ service, result: "failed", reason: "status", status });
@@ -280,6 +284,8 @@ const TESTS: Record<TestedService, (deadline: () => ApiError) => Promise<Service
     const milliseconds = Date.now() - started;
     return tile !== null && isWholeImage(tile) ? passed("satellite", milliseconds) : unexpected("satellite");
   },
+
+  templates: deadline => testCatalogue(deadline),
 };
 
 async function run(service: TestedService): Promise<ServiceTestAnswer> {
@@ -294,6 +300,8 @@ async function run(service: TestedService): Promise<ServiceTestAnswer> {
     // A stored address the instance's key no longer opens: the service
     // refuses, and so does its Test, never reaching a default instead.
     if (error instanceof ApiError && error.code === "service_address_unreadable") throw error;
+    // The template catalogue turned off: refused, as its refresh is.
+    if (error instanceof ApiError && error.code === "templates_catalogue_off") throw error;
     // Whatever else stopped the exchange (a refused connection, a name that
     // does not resolve, an answer cut short) is said without its words,
     // which may repeat the address.

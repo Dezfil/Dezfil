@@ -49,7 +49,7 @@ describe("tool parity", () => {
     // endpoints return MVT bytes for a map renderer; agents read a layer's tile
     // state through render_layer / view_published_map instead. Account entry
     // and session exchange belong to the caller transport. Map
-    // thumbnails are binary card images the builder captures. Table export is a
+    // thumbnails and template pictures are binary card images. Table export is a
     // browser file download — agents read data through SQL and the features
     // endpoint. The settle-lane renders and published widget values are viewer
     // mechanics: agents read widget values through read_widget_values on the
@@ -89,6 +89,8 @@ describe("tool parity", () => {
       // native-stream mechanic; agents call the POST directly.
       "GET /api/query/export",
       "GET /api/tables/{name}/export",
+      // A template card's picture is a card image, like a map's snapshot.
+      "GET /api/templates/{id}/picture",
       "POST /api/assistant/messages",
       "POST /api/assistant/runs",
       "POST /api/assistant/runs/{id}/cancel",

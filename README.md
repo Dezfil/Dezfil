@@ -123,7 +123,7 @@ may take a style address the library does not offer, have no variable either:
 admins switch them on the **Libraries** tab, which also keeps the basemap
 library and the saved palettes, as [Libraries](docs/configuration.md#libraries)
 lists. Whether the server reads the template catalogue has no variable either:
-admins switch it on the **Data & services** tab, as
+admins switch it through the settings change operation, as
 [Templates](docs/configuration.md#templates) says.
 
 | Setting | Default | What it controls | Changed by |
@@ -131,7 +131,7 @@ admins switch it on the **Data & services** tab, as
 | `DEZFIL_DATA_DIR` | ./data; /data in the container | Durable data directory (the mounted volume), including the optional `assistant-models.json` [model catalogue](docs/runbook.md#the-model-catalogue-file). | Restart |
 | `DEZFIL_TRUSTED_PROXIES` | unset | Comma-separated IP addresses or CIDRs of reverse proxy socket peers. Only these peers may supply forwarding information. Configure proxies to replace host/protocol/port forwarding fields and append the actual client address. Direct clients' forwarding headers are discarded. | Restart |
 | `DEZFIL_UPLOAD_MAX_MB` | `5120` | Upload size cap, in MB. | App (live) or restart |
-| `DEZFIL_EGRESS_ALLOWLIST` | unset | Hosts, IPs, or CIDRs the server may fetch for a user despite the egress policy. By default, loopback, private-network, link-local, and cloud-metadata destinations are blocked for every request the policy governs: URL imports and anonymous cloud storage links, PostGIS connections, the address finder, travel time, OpenStreetMap, the Overture release list, custom basemap styles, map image exports and the satellite imagery's Test. | Restart |
+| `DEZFIL_EGRESS_ALLOWLIST` | unset | Hosts, IPs, or CIDRs the server may fetch for a user despite the egress policy. By default, loopback, private-network, link-local, and cloud-metadata destinations are blocked for every request the policy governs: URL imports and anonymous cloud storage links, PostGIS connections, the address finder, travel time, OpenStreetMap, the Overture release list, custom basemap styles, map image exports, the satellite imagery's Test and the template catalogue. | Restart |
 | `DEZFIL_REMOTE_TIMEOUT_S` | `300` | Time bound for one whole remote fetch (URL and object-store imports), redirects and body included. | App (live) or restart |
 | `DEZFIL_REMOTE_MAX_MB` | `2048` | Size cap for one remote import (URL and object-store), in MB. | App (live) or restart |
 | `DEZFIL_OBJECT_STORE_CREDENTIALS` | off | Opt-in (`true`): sign `s3://`/`gs://`/`az://` imports with the instance's own credential chain. Off, object-store reads are anonymous — users can only read what the public can. | Restart |

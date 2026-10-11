@@ -23,8 +23,9 @@ import { POLICY_REFUSAL_CODE } from "./policy";
  * confirmation, unfinished status and continuation. Instance configuration adds one read.
  * Clearing the services' caches adds one, and a service's Test one. A
  * part's Test adds one, and the storage read one. The basemap library adds
- * three: add, offer or hide, remove. */
-const GENERATED_TOOLS = 150;
+ * three: add, offer or hide, remove. Templates add list, read one and
+ * refresh. */
+const GENERATED_TOOLS = 153;
 
 describe("the page action policy is documented", () => {
   const document = buildOpenApiDocument();

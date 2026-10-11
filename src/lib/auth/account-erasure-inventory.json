@@ -795,6 +795,14 @@
     "memory:storage-read": {
       "action": "retain",
       "rule": "Keep the last walk of the data folder for at most 30 seconds and the walk in progress with what ends it early: totals of bytes and files by kind and the disk's free space. They contain no account identity, name or content."
+    },
+    "file:templates": {
+      "action": "retain",
+      "rule": "Keep the downloaded templates under templates/: versions of the public template catalogue with their record. They hold no account identity or content."
+    },
+    "memory:template-catalogue": {
+      "action": "retain",
+      "rule": "Keep the last list the template catalogue answered with its pictures, the read in progress and the switch and address last seen. Read from the address an admin set, they hold no account identity or content."
     }
   },
   "tables": {
@@ -5534,6 +5542,91 @@
       "stores": [
         "memory:process-start"
       ]
+    },
+    "location:src/lib/templates/installed.ts#downloadedTemplatesDir:dataDir": {
+      "stores": [
+        "file:templates"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "location:src/lib/templates/installed.ts#downloadedTemplatesDir:path.join": {
+      "stores": [
+        "file:templates"
+      ],
+      "roots": [
+        "templates"
+      ]
+    },
+    "location:src/lib/templates/catalogue.ts#downloadedVersions.dir:downloadedTemplatesDir": {
+      "stores": [
+        "file:templates"
+      ],
+      "roots": [
+        "templates"
+      ]
+    },
+    "location:src/lib/templates/catalogue.ts#downloadedVersions:path.join": {
+      "stores": [
+        "file:templates"
+      ],
+      "roots": [
+        "templates/*"
+      ]
+    },
+    "location:src/lib/templates/catalogue.ts#downloadedVersions.read:path.join": {
+      "stores": [
+        "file:templates"
+      ],
+      "roots": [
+        "templates/*/*"
+      ]
+    },
+    "memory:src/lib/api/openapi-templates.ts#CARD": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-templates.ts#ID_PARAM": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-templates.ts#TEMPLATES_PATHS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-templates.ts#TEMPLATES_SCHEMAS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/templates/catalogue.ts#catalogueNow.error": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/templates/catalogue.ts#catalogueNow.where": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/templates/catalogue.ts#holder": {
+      "stores": [
+        "memory:template-catalogue"
+      ]
+    },
+    "memory:src/lib/templates/catalogue.ts#refreshCatalogue.now": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/templates/catalogue.ts#refreshCatalogue.promise.current": {
+      "stores": [
+        "memory:request-closures"
+      ]
     }
   },
   "files": {
@@ -5587,6 +5680,9 @@
     "file:account-deletion-journals": [
       "account-deletions/*.json",
       "account-deletions/*.tmp"
+    ],
+    "file:templates": [
+      "templates/**"
     ]
   },
   "accountReferences": {

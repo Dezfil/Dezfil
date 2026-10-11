@@ -3,7 +3,7 @@
  */
 export type ProductResource =
   | "maps" | "layers" | "tables" | "publications" | "recipes" | "runs"
-  | "projects" | "connections" | "palettes" | "accounts" | "settings" | "caches" | "basemaps" | "assistant";
+  | "projects" | "connections" | "palettes" | "accounts" | "settings" | "caches" | "basemaps" | "templates" | "assistant";
 
 export interface ResourceWrite {
   resource: ProductResource;
@@ -26,8 +26,9 @@ export interface OperationEffects {
    * group and declare nothing. */
   history?: true;
   /** Read-only here, but the operation sends a request outside this
-   * server (a service's Test): the SQL and workflow assistants' read-only
-   * policy refuses it, and the embedded assistant confirms it. */
+   * server (a service's Test, the template catalogue's refresh): the SQL
+   * and workflow assistants' read-only policy refuses it. Whether the
+   * embedded assistant asks first is the operation's own confirm. */
   reachesOutside?: true;
 }
 export interface ConfirmationWords {

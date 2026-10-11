@@ -19,6 +19,7 @@ export function populateErasureFiles(directory: string) {
     "account-deletions/target.json", "account-deletions/control.json", "account-deletions/partial.json.tmp",
     "file-owners/target.json", "file-owners/control.json",
     "secret.key", "assistant-models.json",
+    "templates/control-template/1/template.json", "templates/control-template/1/record.json",
   ];
   for (const file of paths) {
     mkdirSync(path.dirname(path.join(directory, file)), { recursive: true });

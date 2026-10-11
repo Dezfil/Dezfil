@@ -28,4 +28,5 @@ export const GOVERNED_REQUESTS: readonly GovernedRequest[] = [
   { label: "Custom basemap styles", modules: ["src/lib/net/inspect-style.ts"] },
   { label: "Map image exports", modules: ["src/lib/export/render-address.ts"] },
   { label: "The satellite imagery's Test", modules: ["src/lib/settings/service-tests.ts"] },
+  { label: "The template catalogue", modules: ["src/lib/templates/catalogue.ts"] },
 ];

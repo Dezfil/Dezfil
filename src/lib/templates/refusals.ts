@@ -28,6 +28,16 @@ export const TEMPLATE_REFUSAL_CODES = [
   "template_credit_missing",
   /** An installed version whose members differ from its record. */
   "template_record_mismatch",
+  /** The catalogue's index is larger than its bound. */
+  "template_index_too_large",
+  /** The catalogue's index is not one this server reads: not JSON, not its
+   * shape, or an entry whose facts are not a template's. */
+  "template_index_invalid",
+  /** The catalogue's index lists one template id twice. */
+  "template_index_repeats_id",
+  /** The catalogue's index names an archive or a picture outside the
+   * catalogue's origin, or outside its folder. */
+  "template_address_outside",
 ] as const;
 
 export type TemplateRefusalCode = (typeof TEMPLATE_REFUSAL_CODES)[number];

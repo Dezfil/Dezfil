@@ -187,7 +187,7 @@ describe("what an address row shows", () => {
 describe("the words the tab shows", () => {
   it("names exactly the requests the egress check governs in the Private network note", () => {
     const note = governedNote();
-    expect(note).toBe("Every other private address is refused for imports and refreshes from web addresses, cloud storage links read without the server's credentials, database connections, the address finder and place search, travel time, OpenStreetMap, the Overture release list, custom basemap styles, map image exports and the satellite imagery's Test.");
+    expect(note).toBe("Every other private address is refused for imports and refreshes from web addresses, cloud storage links read without the server's credentials, database connections, the address finder and place search, travel time, OpenStreetMap, the Overture release list, custom basemap styles, map image exports, the satellite imagery's Test and the template catalogue.");
     for (const request of GOVERNED_REQUESTS) expect(note.toLowerCase()).toContain(request.label.toLowerCase());
   });
 

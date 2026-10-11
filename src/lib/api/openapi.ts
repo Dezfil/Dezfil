@@ -14,6 +14,7 @@ import { INSTANCE_DEFAULTS_SCHEMA, INSTANCE_SETTINGS_PATHS, INSTANCE_SETTINGS_SC
 import { INSTANCE_SERVICES_PATHS, INSTANCE_SERVICES_SCHEMAS } from "./openapi-instance-services";
 import { INSTANCE_SYSTEM_PATHS, INSTANCE_SYSTEM_SCHEMAS } from "./openapi-instance-system";
 import { INSTANCE_BASEMAPS_PATHS, INSTANCE_BASEMAPS_SCHEMAS, LIBRARY_STYLE_OFFER_SCHEMA } from "./openapi-instance-basemaps";
+import { TEMPLATES_PATHS, TEMPLATES_SCHEMAS } from "./openapi-templates";
 import { RULE_KEYS, WHO_MAY_RULES } from "@/lib/settings/instance-rules";
 import { OFFERED_SETTING, SINGLE_MAP_STYLES_SETTING } from "@/lib/basemap";
 import { QUERY_EXPORT_TICKET } from "./openapi-tool-responses";
@@ -133,6 +134,14 @@ export function buildOpenApiDocument() {
           "every person's reach through it and deletes nothing.",
       },
       {
+        name: "Templates",
+        description:
+          "Finished maps and workflow examples with their data, shipped " +
+          "in the image or listed by the template catalogue, for every " +
+          "signed-in account. A template belongs to no one and is listed " +
+          "among no one's maps, workflows or datasets.",
+      },
+      {
         name: "Agents",
         description:
           "Drive Dezfil from AI agents: the documented API surface, " +
@@ -147,6 +156,7 @@ export function buildOpenApiDocument() {
       ...INSTANCE_SERVICES_PATHS,
       ...INSTANCE_SYSTEM_PATHS,
       ...INSTANCE_BASEMAPS_PATHS,
+      ...TEMPLATES_PATHS,
       ...GEOMETRY_RESOURCE_PATHS,
       "/api/health": {
         get: op({
@@ -165,7 +175,7 @@ export function buildOpenApiDocument() {
       "/api/config": {
         get: op({
           summary: "Runtime client configuration",
-          description: "Instance-wide basemaps, built-in palettes, client limits, the defaults new maps, layers and screens start with, the rules every account follows and the shortest password, shared by every authenticated account. Includes deployment-configured basemap choices and provider availability, never server-side AI or geocoder credentials. Private, no-store.",
+          description: "Instance-wide basemaps, built-in palettes, client limits, the defaults new maps, layers and screens start with, whether the template catalogue is in use, the rules every account follows and the shortest password, shared by every authenticated account. Includes deployment-configured basemap choices and provider availability, never server-side AI or geocoder credentials. Private, no-store.",
           tag: "System",
           tool: "get_config", mcp: LOCAL_READ,
           display: {"verb": "Read the instance configuration"},
@@ -842,6 +852,7 @@ export function buildOpenApiDocument() {
         ...INSTANCE_SERVICES_SCHEMAS,
         ...INSTANCE_SYSTEM_SCHEMAS,
         ...INSTANCE_BASEMAPS_SCHEMAS,
+        ...TEMPLATES_SCHEMAS,
         // Documented as a schema only: the operation that consumes it is
         // the server renderer's feature, and a tool name before that
         // operation exists would hand agents an inert schema and call it
@@ -991,6 +1002,21 @@ export function buildOpenApiDocument() {
                 "server.",
             },
             defaults: INSTANCE_DEFAULTS_SCHEMA,
+            templates: {
+              type: "object",
+              required: ["catalogue"],
+              additionalProperties: false,
+              properties: {
+                catalogue: {
+                  type: "boolean",
+                  description:
+                    "Whether the template catalogue is in use (the " +
+                    "templates.catalogue setting). Off, the server reads " +
+                    "it for nothing; shipped and downloaded templates " +
+                    "still open and copy.",
+                },
+              },
+            },
             rules: instanceRulesSchema(RULE_KEYS),
             passwordMin: {
               type: "integer", minimum: 8, maximum: 64,

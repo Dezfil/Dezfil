@@ -302,7 +302,8 @@ keeps the colors of every layer classified with it.
 ## Templates
 
 Whether the server reads the template catalogue, and where it is. Admins set
-both on the **Data & services** tab of Settings.
+both through `PATCH /api/instance/settings` and its generated tool; Settings
+has no card for them yet.
 
 The switch below is a stored instance setting with no environment variable, so
 it is never locked. It also changes through `PATCH /api/instance/settings`
@@ -325,8 +326,16 @@ it now. The variable alone may name a folder on the server instead of an
 address: a folder holding the index and the archives and pictures it names,
 read as files under the same checks, taken from the working directory when the
 path is relative. Every read says a folder is set, never which; a save from the
-tab or the API takes an `http` or `https` address alone, so no token or
+API or a tool takes an `http` or `https` address alone, so no token or
 assistant can point the server at a folder.
+
+The server reads the catalogue only when the template list is refreshed, at
+most once in ten minutes: the index (at most 1 MB), then each listed
+template's two pictures (at most 2 MB each, 64 MB for the list), through the
+egress check within `DEZFIL_REMOTE_TIMEOUT_S` and with no credential, so a
+catalogue on a private network needs `DEZFIL_EGRESS_ALLOWLIST` to name it.
+Changing the address or the switch drops the list read before. The
+catalogue's Test on the services' Test operation reads the index alone.
 
 ## Fixed result limits
 
@@ -398,7 +407,7 @@ behavior and [the API guide](api.md#request-bounds) for exact refusals.
 | `DEZFIL_UPLOAD_MAX_MB` | `5120` | Size cap for one uploaded file. | App (live) or restart |
 | `DEZFIL_REMOTE_MAX_MB` | `2048` | Size cap for one remote import (URL or object store). Deliberately below the upload cap: remote fetches run unattended. | App (live) or restart |
 | `DEZFIL_REMOTE_TIMEOUT_S` | `300` | Time bound for one whole remote fetch, redirects and body included. | App (live) or restart |
-| `DEZFIL_EGRESS_ALLOWLIST` | unset | Comma-separated hosts, IPs, or CIDRs the server may fetch for a user despite the egress policy. By default loopback, private-network, link-local, and cloud-metadata destinations are refused for every request the policy governs: imports and refreshes from web addresses, cloud storage links read without the server's credentials, database connections, the address finder and place search, travel time, OpenStreetMap, the Overture release list, custom basemap styles, map image exports and the satellite imagery's Test (`src/lib/net/egress.ts`). A loopback Overpass or Overture fixture needs it too. | Restart |
+| `DEZFIL_EGRESS_ALLOWLIST` | unset | Comma-separated hosts, IPs, or CIDRs the server may fetch for a user despite the egress policy. By default loopback, private-network, link-local, and cloud-metadata destinations are refused for every request the policy governs: imports and refreshes from web addresses, cloud storage links read without the server's credentials, database connections, the address finder and place search, travel time, OpenStreetMap, the Overture release list, custom basemap styles, map image exports, the satellite imagery's Test and the template catalogue (`src/lib/net/egress.ts`). A loopback Overpass or Overture fixture needs it too. | Restart |
 | `DEZFIL_OBJECT_STORE_CREDENTIALS` | off | `1`, `true`, or `yes` signs `s3://`, `gs://`, and `az://` imports with the instance's own credential chain. Off, object-store reads are anonymous, so a user can only read what the public can (`src/lib/ingest/remote.ts`). | Restart |
 | `DEZFIL_S3_ENDPOINT` | AWS | S3-compatible endpoint for anonymous `s3://` imports, addressed path-style. | App (live) or restart |
 | `DEZFIL_TEMPLATES_CATALOGUE` | `https://github.com/Dezfil/templates/releases/latest/download/index.json` | The template catalogue's index, read by the server; see [Templates](#templates). The variable alone may name a folder on the server instead, read as files under the same checks and never disclosed by its path. | App (live) or restart |

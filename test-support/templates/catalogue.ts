@@ -92,13 +92,15 @@ function listen(server: Server, host?: string): Promise<number> {
 const archiveName = (t: BuiltTemplate) => `${t.facts.id}-${t.facts.version}.zip`;
 const pictureName = (t: BuiltTemplate, theme: string) => `${t.facts.id}-${t.facts.version}-${theme}.png`;
 
-/** The entry an index gives a built template, its addresses as given. */
+/** The entry an index gives a built template, its addresses as given. The
+ * facts are a copy, so a test's edit to the index never reaches the
+ * template it was built from. */
 export function catalogueEntry(
   template: BuiltTemplate,
   addresses: { archive: string; pictures: Record<(typeof TEMPLATE_THEMES)[number], string> },
 ): CatalogueEntry {
   return {
-    facts: template.facts,
+    facts: structuredClone(template.facts),
     size: template.size,
     sha256: template.sha256,
     archive: addresses.archive,

@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { dataDir } from "@/lib/config";
 import { admitTemplateFolder, type AdmittedTemplate } from "./admission";
 import { TEMPLATE_DOCUMENT_MAX_BYTES } from "./format";
 import { refuse, TemplateRefusal } from "./refusals";
@@ -21,6 +22,12 @@ import { refuse, TemplateRefusal } from "./refusals";
  */
 
 export const RECORD_FILE = "record.json";
+
+/** Where downloaded versions are installed: the data folder's `templates/`,
+ * one folder per version at `<id>/<version>/`. */
+export function downloadedTemplatesDir(): string {
+  return path.join(dataDir(), "templates");
+}
 export const RECORD_FORMAT_VERSION = 1;
 
 export type InstalledOrigin =

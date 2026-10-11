@@ -125,6 +125,10 @@ export type ErrorCode =
   | "vertex_move_refused"
   | "sketch_gone"
   | "map_not_found"
+  /** No template with that id is shipped, downloaded or listed. */
+  | "template_not_listed"
+  /** The template catalogue is off: nothing is read from it. */
+  | "templates_catalogue_off"
   | "internal";
 
 export class ApiError extends Error {

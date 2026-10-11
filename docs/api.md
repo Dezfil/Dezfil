@@ -24,7 +24,7 @@ every documented operation must have a route, and every call the interface
 makes must hit a documented path (`src/lib/api/parity.test.ts`). The
 description cannot drift from the server.
 
-Measured from the current source: **135 paths, 384 operations, 177 named component schemas.** Operations include supported automatic HEAD and OPTIONS.
+Measured from the current source: **139 paths, 395 operations, 182 named component schemas.** Operations include supported automatic HEAD and OPTIONS.
 `npm run lint:contract-docs` measures these numbers and checks the catalogue below
 against the contract; changing only the reader-facing text fails the gate.
 
@@ -404,7 +404,8 @@ lists the eighteen keys with their values and defaults. The same read carries
 `connections.create` and `imports.links`, each with its effective value; and
 `passwordMin`, the fewest characters a password set from now needs.
 [The configuration guide](configuration.md#security-and-rules) lists them with
-the rest of the sign-in and publishing settings.
+the rest of the sign-in and publishing settings. `templates.catalogue` says
+whether the template catalogue is in use.
 `GET /api/openapi.json` serves the description. `GET`/`PATCH /api/settings`
 return the caller's account display name and per-screen view preferences,
 plus the shared instance name. Only admins may change the instance name.
@@ -576,7 +577,7 @@ In addition to validation and lock refusals, the operation can answer
 Two more operations serve the services, with the same admin checks, the same
 trusted-Origin rule for cookies and private, no-store answers.
 `POST /api/instance/services/{service}/test` tests one service (`geocode`,
-`isochrone`, `overpass`, `overture`, `s3` or `satellite`): one fixed request at
+`isochrone`, `overpass`, `overture`, `s3`, `satellite` or `templates`): one fixed request at
 its address in effect, never one given in the call, sent the way the service's
 own requests go, through the egress check with redirects and after the gap
 between requests. The satellite imagery's is one fixed low-zoom tile (zoom 3,
@@ -584,9 +585,14 @@ x 4, y 2) at its tile template within 10 seconds, passing when the answer is
 an image: the tile read to its end within those seconds, at most 4 MiB, and
 complete for its format (PNG, JPEG, GIF, WebP or AVIF), the time taken being
 its arrival whole. A cut or larger tile is `unexpected_answer`; one still
-arriving at 10 seconds is `timed_out`.
+arriving at 10 seconds is `timed_out`. The template catalogue's is its index,
+read as a refresh reads it within the link import's time bound (or from the
+folder `DEZFIL_TEMPLATES_CATALOGUE` names), an index this server would refuse
+being `unexpected_answer`; while an admin has turned the catalogue off it is
+refused with 409 `templates_catalogue_off` and sends nothing.
 It answers `{ service, result: "passed", milliseconds }`, Overture
-`{ service, result: "passed", releases, newest }`, or `result: "failed"` with
+`{ service, result: "passed", releases, newest }`, the template catalogue
+`{ service, result: "passed", templates, milliseconds }`, or `result: "failed"` with
 one `reason`: `not_set_up`, `refused` (with the check's sentence as `message`),
 `unreachable`, `timed_out`, `status` (with the `status` answered) or
 `unexpected_answer`; never a body, an address or a key. It changes no setting
@@ -1191,6 +1197,46 @@ the new validation. Other parameters keep their existing treatment, including
 omission of `options`, `service` and `min_protocol_version` (a wire-protocol
 floor); omission outside this inventory is not a claim of harmlessness.
 
+**Templates.** Finished maps and workflow examples with their data, shipped in
+the image or listed by the template catalogue, for every signed-in account,
+with private, no-store answers; an anonymous request is refused.
+`GET /api/templates` lists them from what this server holds and sends
+nothing: the shipped templates first, in the image's order, then the entries
+of the catalogue list this process last read, in its index's order (a shipped
+id wins over an entry naming it), then the downloaded templates that list does
+not name. Each card carries the template's facts (`id`, `kind`, `title`,
+`question`, `place`, `tags`, `dataDate`, `sources`), the `version` an open or
+a copy begun now takes, `origin` (`shipped` or `catalogue`), the `installed`
+and `listed` versions, `present` (false when an open would download it),
+`size` and whether its `picture` is `kept`, `not_kept` or `too_large`. An
+entry naming the installed version is drawn as installed, whatever its
+checksum. `catalogue` says where the catalogue stands: `state` (`listed`,
+`empty`, `not_read`, `off`, `unreachable`, `slow` or `refused`), its `host` as
+scheme and host (null for a folder, with `folder: true`, never its path),
+`readAt`, and for a refusal its `reason` (`status` with the `status`,
+`egress_blocked`, `service_address_unreadable`, `template_index_too_large`,
+`template_index_invalid`, `template_index_repeats_id` or
+`template_address_outside`). `POST /api/templates/refresh` reads the catalogue
+at the address in effect: its index (at most 1 MB) and then each listed
+template's two pictures in the index's order (at most 2 MB each, a picture
+past it refused alone, and 64 MB for the list, later entries drawn without
+one), through the egress check, redirects included, within the link import's
+time bound, with no credential on any request. It reads at most once in ten
+minutes, answering the kept list inside that window and joining a read under
+way; the kept list is replaced only once a new read is whole, and a read that
+finishes after the address or the switch changed is discarded. While an admin
+has turned the catalogue off it is refused with 409 `templates_catalogue_off`
+and sends nothing; a saved address the instance's key no longer opens is
+refused with `service_address_unreadable`. Cookie requests need the same
+trusted Origin. `GET /api/templates/{id}` answers one card with `howMade`, an
+unknown id 404 `template_not_listed`. `GET /api/templates/{id}/picture?theme=`
+answers the card's map picture as PNG (light when no theme is named), from
+disk for a shipped or downloaded version, else as the kept list holds it;
+it is a card image, outside the tool set. List, read one and refresh are
+generated as tools, `list_templates`, `get_template` and `refresh_templates`;
+the SQL and workflow assistants are offered the first two and refuse the
+refresh, which reaches outside this server.
+
 **Agents.** The assistant and the MCP endpoint. `POST /api/assistant/runs`
 reserves a run, `POST /api/assistant/messages` sends a message under that
 run id, and `GET /api/assistant/runs/{id}` re-reads it after a lost
@@ -1223,7 +1269,7 @@ server-side, so filesystem paths and engine text stay out of responses
 The complete catalogue is published two ways in the same document: as the
 enum of the `Error` schema, and as `x-error-codes` at the top level, which
 maps every code to a sentence explaining what it means
-(`src/lib/api/error-catalogue.ts`). There are **116** codes. Clients should
+(`src/lib/api/error-catalogue.ts`). There are **118** codes. Clients should
 branch on codes, never on prose.
 
 One status is unusual: a client that abandons an in-flight evaluation gets
@@ -2094,6 +2140,8 @@ response message. Branch on the code.
 | `vertex_move_refused` | The vertex move was refused: only drawn polygons and freehand shapes offer vertex handles, and the index must name an existing vertex. |
 | `sketch_gone` | The sketch dataset was deleted or replaced while the change was in flight; nothing was written. |
 | `map_not_found` | No map exists with the given id. |
+| `template_not_listed` | No template with that id is shipped with this instance, downloaded to it or listed by the catalogue list it last read. |
+| `templates_catalogue_off` | An admin turned the template catalogue off (the templates.catalogue setting), so the server reaches it for nothing: no refresh, Test or download is sent. Shipped and downloaded templates still open and copy. |
 | `internal` | An unexpected server error occurred. |
 <!-- error-catalogue:end -->
 
