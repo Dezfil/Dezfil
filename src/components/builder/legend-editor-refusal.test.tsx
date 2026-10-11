@@ -235,6 +235,35 @@ it("still sets every field to a change from elsewhere when nothing is being type
     labels: ["Else one", null, "Else three"] });
 });
 
+it.each([
+  { name: TITLE, change: { legendTitle: "Elsewhere" }, text: "Elsewhere", legend: { title: "Elsewhere" } },
+  { name: FILL, change: { legendAttrs: { fill: "Elsewhere fill" } }, text: "Elsewhere fill", legend: { attrs: { fill: "Elsewhere fill" } } },
+  { name: label(2), change: { legendLabels: [null, "Elsewhere two", null] }, text: "Elsewhere two", legend: { labels: [null, "Elsewhere two", null] } },
+])("takes a change from elsewhere into the field with the caret where nothing was typed ($name)", async ({ name, change, text, legend }) => {
+  field(name).focus();
+  await changedElsewhere(change);
+  expect(field(name).value, "a field showing stored text kept the older text").toBe(text);
+  expect(drawn()).toMatchObject(legend);
+  await leave(name);
+  expect(w.pending("PATCH", "/api/layers/a"), "leaving the field put the older text back over the change").toEqual([]);
+});
+
+it.each([
+  { name: TITLE, typed: "Title A", text: "Stored title", legend: { title: "Stored title" } },
+  { name: FILL, typed: "Fill A", text: "Stored fill", legend: { attrs: { fill: "Stored fill" } } },
+  { name: label(1), typed: "One A", text: "", legend: { labels: null } },
+])("shows the stored text again in the field with the caret when its save is refused and nothing was typed since ($name)", async ({ name, typed, text, legend }) => {
+  await type(name, typed);
+  // The window loses focus: the field's leaving saves it, the caret stays.
+  await act(async () => props(field(name)).onBlur({}));
+  answer().refuse(400, "invalid_request", "The legend text is not valid.");
+  await settle();
+  expect(field(name).value, "the refused text stayed in the field").toBe(text);
+  expect(drawn()).toMatchObject(legend);
+  await leave(name);
+  expect(w.pending("PATCH", "/api/layers/a"), "leaving the field sent the refused text again").toEqual([]);
+});
+
 it("sets a field not being typed in to a change from elsewhere that left its own text alone", async () => {
   // Trailing spaces save as nothing new: the field keeps them, unsaved.
   await type(FILL, "Stored fill  ");
