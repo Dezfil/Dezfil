@@ -24,14 +24,17 @@ const harbour: TemplateCard = {
   id: "harbour-depths", kind: "map", version: 2, title: "Harbour depths",
   question: "Where is the water deep enough to berth?", place: "Hamburg",
   tags: ["First map", "3D", "Widgets"], dataDate: "2026-10",
-  sources: [source("Soundings", "CC-BY-4.0", "Hamburg Port Authority"), source("OpenStreetMap", "ODbL-1.0", "© OpenStreetMap contributors")],
+  sources: [
+    source("Hamburg Port Authority", "CC-BY-4.0", "Soundings courtesy of the Hamburg Port Authority, surveyed in 2026."),
+    source("OpenStreetMap", "ODbL-1.0", "© OpenStreetMap contributors"),
+  ],
   steps: null, origin: "shipped", installed: 2, listed: null, present: true, size: 3_200_000, picture: "kept",
 };
 const reach: TemplateCard = {
   id: "market-reach", kind: "workflow", version: 4, title: "Market reach",
   question: "Which blocks are furthest from a market?", place: "Leipzig",
   tags: ["Analysis"], dataDate: "2025",
-  sources: [source("Census grid", "dl-de-by-2.0", "Zensus 2022")],
+  sources: [source("Zensus 2022", "dl-de-by-2.0", "Statistische Ämter des Bundes und der Länder, Zensus 2022.")],
   steps: [
     { id: "near", operation: "nearest", output: "block_nearest", reads: ["blocks", "markets"] },
     { id: "sum", operation: "summarize", output: "reach_by_district", reads: ["block_nearest", "districts"] },
@@ -42,7 +45,7 @@ const storms: TemplateCard = {
   id: "storm-tracks", kind: "map", version: 1, title: "Storm tracks",
   question: "Where did the season's storms go?", place: "West Pacific",
   tags: ["Time"], dataDate: "2024-08-29",
-  sources: [source("IBTrACS", "CC0-1.0", "NOAA NCEI")],
+  sources: [source("NOAA NCEI", "CC0-1.0", "IBTrACS from NOAA's National Centers for Environmental Information.")],
   steps: null, origin: "catalogue", installed: 1, listed: 1, present: true, size: 900_000, picture: "kept",
 };
 
@@ -117,8 +120,11 @@ describe("the Templates page's cards", () => {
     expect(field(c, "date")?.getAttribute("data-hint")).toBe("Data of Oct 2026");
     expect(field(c, "question")?.textContent).toBe("Where is the water deep enough to berth?");
     expect(field(c, "tags")?.querySelectorAll("span").map((tag) => tag.textContent)).toEqual(["First map", "3D"]);
-    expect(field(c, "credit")?.textContent).toBe("Hamburg Port Authority · © OpenStreetMap contributors");
-    expect(field(c, "credit")?.getAttribute("data-hint")).toBe("Hamburg Port Authority (CC-BY-4.0) · © OpenStreetMap contributors (ODbL-1.0)");
+    // The line names the sources, short; each credit and licence is the hint's.
+    expect(field(c, "credit")?.textContent).toBe("Hamburg Port Authority · OpenStreetMap");
+    expect(field(c, "credit")?.getAttribute("data-hint")).toBe(
+      "Soundings courtesy of the Hamburg Port Authority, surveyed in 2026. (CC-BY-4.0) · © OpenStreetMap contributors (ODbL-1.0)",
+    );
     expect(field(c, "absent")).toBeNull();
     expect(field(c, "tools")).toBeNull();
     expect(c.querySelector('button[aria-label="Open Harbour depths"]')).not.toBeNull();
@@ -128,7 +134,7 @@ describe("the Templates page's cards", () => {
   it("lets the date's and the credit's hints show, their words marked as not explaining them", async () => {
     // The hint layer shows no bubble over visible words unless they are
     // marked: the date alone does not say it is the data's, and the credit
-    // line is cut short with its licences left out.
+    // line names the sources with their credits and licences left out.
     await open();
     const c = card("harbour-depths");
     for (const name of ["date", "credit"]) {

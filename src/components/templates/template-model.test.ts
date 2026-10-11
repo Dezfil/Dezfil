@@ -5,7 +5,8 @@ import { absentLine, cardTags, creditInFull, creditLine, dataDateLabel, graphSte
 
 /**
  * The words a template card is drawn with, from facts written here: the
- * data's date at each of its three grains, the credit line and its hint,
+ * data's date at each of its three grains, the credit line (the sources'
+ * names) and its hint (their credits and licences),
  * the tags a card has room for, a workflow example's graph and tools, and
  * when the page asks for the catalogue again.
  */
@@ -20,13 +21,15 @@ describe("a template card's words", () => {
     expect(dataDateLabel("2026-13")).toBe("2026-13");
   });
 
-  it("credits each source by its own words, the licences in the hint", () => {
+  it("names each source on the line, its credit and licence in the hint", () => {
     const sources = [
-      { name: "Earthquakes", licence: "CC0-1.0", credit: "U.S. Geological Survey" },
-      { name: "Plates", licence: "ODC-By-1.0", credit: "Peter Bird" },
+      { name: "USGS", licence: "CC0-1.0", credit: "Earthquake data courtesy of the U.S. Geological Survey." },
+      { name: "Peter Bird (PB2002)", licence: "ODC-By-1.0", credit: "Plate boundaries from Bird (2003), an updated digital model of plate boundaries." },
     ];
-    expect(creditLine(sources)).toBe("U.S. Geological Survey · Peter Bird");
-    expect(creditInFull(sources)).toBe("U.S. Geological Survey (CC0-1.0) · Peter Bird (ODC-By-1.0)");
+    expect(creditLine(sources)).toBe("USGS · Peter Bird (PB2002)");
+    expect(creditInFull(sources)).toBe(
+      "Earthquake data courtesy of the U.S. Geological Survey. (CC0-1.0) · Plate boundaries from Bird (2003), an updated digital model of plate boundaries. (ODC-By-1.0)",
+    );
   });
 
   it("shows two tags at most, in the template's order", () => {

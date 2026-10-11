@@ -27,13 +27,14 @@ export function dataDateLabel(value: string): string {
   return day ? `${Number(day)} ${name} ${year}` : `${name} ${year}`;
 }
 
-/** The credit line: each source's own credit, in the template's order. */
+/** The credit line: each source's name, in the template's order, short
+ * enough to read whole; the credit itself is the hint's. */
 export function creditLine(sources: readonly TemplateSource[]): string {
-  return sources.map((source) => source.credit).join(" · ");
+  return sources.map((source) => source.name).join(" · ");
 }
 
-/** The credit in full, as the line's hint gives it: each credit with its
- * licence. */
+/** The credit in full, as the line's hint gives it: each source's credit
+ * with its licence. */
 export function creditInFull(sources: readonly TemplateSource[]): string {
   return sources.map((source) => `${source.credit} (${source.licence})`).join(" · ");
 }

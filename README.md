@@ -60,8 +60,9 @@ and complete it promptly: whoever reaches setup first becomes the admin.
 finished maps and workflow examples the instance offers: the ones shipped in
 the image first, then those the template catalogue lists, each card with its
 picture (a workflow example's graph, its tools on a line of their own), its
-place, the date of its data, its question, its tags and its credit, and for one
-not yet on the server the size its first open downloads. A search box narrows
+place, the date of its data, its question, its tags and its sources' names
+(each source's credit and licence on hover), and for one not yet on the
+server the size its first open downloads. A search box narrows
 the cards by title, question, place and credit, and the tag chips by tag, each
 chip counting the search's matches. The page draws what the server already
 holds at once and reads the catalogue after; while the catalogue is off, does

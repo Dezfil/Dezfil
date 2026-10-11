@@ -23,8 +23,9 @@ import {
  * lift and corner actions, with the place where a map card counts its
  * layers, the data's date where it says when it changed, and the lines a
  * template adds under its name: the question, a workflow example's tools,
- * its tags, its credit and, for a version not on this server yet, what an
- * open downloads first.
+ * its tags, its sources' names (each one's credit and licence in the
+ * hint) and, for a version not on this server yet, what an open downloads
+ * first.
  */
 export function TemplateCard({
   card,
