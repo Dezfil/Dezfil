@@ -123,7 +123,7 @@ const ALLOWED = new Set([
   "src/components/SaveResultAsDataset.module.css :: .storedAs code",
   "src/components/SqlEditor.tsx :: fontFamily: \"var(--font-mono)\",",
   // The completion list: code, in the editor's own face.
-  "src/components/SqlEditor.tsx :: font: \"12px var(--font-mono)\",",
+  "src/components/sql-editor-extensions.ts :: font: \"12px var(--font-mono)\",",
   // The Data preview grid, extracted from the detail screen by 0199.
   "src/components/TablePreviewGrid.module.css :: .grid",
   // The panel's header names the dataset, an identifier; the
