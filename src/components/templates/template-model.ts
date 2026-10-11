@@ -1,5 +1,5 @@
 import type { CatalogueState, TemplateCard } from "@/lib/templates/card";
-import type { TemplateSource, TemplateStep, TemplateTag } from "@/lib/templates/format";
+import { TEMPLATE_TAGS, type TemplateSource, type TemplateStep, type TemplateTag } from "@/lib/templates/format";
 import { formatBytes } from "../api";
 import type { Theme } from "../theme";
 import type { WorkflowStep } from "../workflow-model";
@@ -147,3 +147,48 @@ function refusedWhy(catalogue: CatalogueState): string {
 
 /** The line while the page reads the catalogue for the first time. */
 export const READING_LINE = "Reading the template catalogue…";
+
+/** Whether a template answers the search: its title, question, place or
+ * credit (each source's name and credit words) holds the text, in any
+ * case. An empty search keeps every template. */
+export function matchesSearch(
+  card: Pick<TemplateCard, "title" | "question" | "place" | "sources">,
+  query: string,
+): boolean {
+  const text = query.trim().toLowerCase();
+  if (text === "") return true;
+  const fields = [card.title, card.question, card.place, ...card.sources.flatMap((s) => [s.name, s.credit])];
+  return fields.some((field) => field.toLowerCase().includes(text));
+}
+
+/** The chip picked: every template, or those carrying one tag. */
+export type TagPick = "all" | TemplateTag;
+
+/** Whether a template carries the picked tag, its card shown or not. */
+export function carriesTag(card: Pick<TemplateCard, "tags">, pick: TagPick): boolean {
+  return pick === "all" || card.tags.includes(pick);
+}
+
+/**
+ * The chips: All, then each tag a template on the list carries, in the
+ * closed list's order; each counts the search's matches carrying it,
+ * every tag counting, not only the two a card has room for.
+ */
+export function tagChips(
+  cards: readonly TemplateCard[],
+  query: string,
+): { pick: TagPick; label: string; count: number }[] {
+  const matches = cards.filter((card) => matchesSearch(card, query));
+  const carried = new Set(cards.flatMap((card) => card.tags));
+  return [
+    { pick: "all", label: "All", count: matches.length },
+    ...TEMPLATE_TAGS.filter((tag) => carried.has(tag)).map((tag) => ({
+      pick: tag,
+      label: tag,
+      count: matches.filter((card) => card.tags.includes(tag)).length,
+    })),
+  ];
+}
+
+/** The one line when the search and the chip leave nothing. */
+export const NO_MATCH_LINE = "No template matches. Clear the search or pick All.";
