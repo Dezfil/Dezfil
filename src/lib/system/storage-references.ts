@@ -7,7 +7,8 @@ import type { StorageReferences } from "./storage-places";
  * transaction: the file names of the registered tables, which the table
  * sweep keeps, and the layers with a tile record, whose archives the
  * archive sweep keeps. Nothing else is read, and none of it leaves the
- * storage read.
+ * storage read. What the installed templates reference is read beside it,
+ * from their records (storage.ts).
  *
  * The database read is synchronous, so it is taken in bounded slices with
  * the deadline checked between them: past it the read stops, and without
@@ -33,8 +34,9 @@ function readSliced(db: Database, table: "data_tables" | "layer_tiles", key: str
   }
 }
 
-/** The references, or null when the deadline passed before they were all read. */
-export function readStorageReferences(db: Database, deadline: number): StorageReferences | null {
+/** The metadata's references, or null when the deadline passed before
+ * they were all read. */
+export function readStorageReferences(db: Database, deadline: number): Omit<StorageReferences, "templateFiles"> | null {
   return db.transaction(() => {
     const tableFiles = readSliced(db, "data_tables", "id", "file", deadline);
     const tileLayers = tableFiles && readSliced(db, "layer_tiles", "layer_id", "layer_id", deadline);

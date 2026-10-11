@@ -82,7 +82,15 @@ export interface TemplateDetail extends TemplateCard {
   howMade: TemplateFacts["howMade"];
 }
 
+/** What the downloaded templates hold on this server: how many versions,
+ * and the bytes their folders take, which Remove all frees. */
+export interface TemplateDownloads {
+  versions: number;
+  bytes: number;
+}
+
 export interface TemplateList {
   templates: TemplateCard[];
   catalogue: CatalogueState;
+  downloads: TemplateDownloads;
 }

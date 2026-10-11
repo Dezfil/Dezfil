@@ -6,6 +6,7 @@ import type { AccountScope } from "@/lib/auth/scope";
 import { dataDir } from "@/lib/config";
 import { templateEvaluation, type EvaluationContext, type TemplateHome, type TemplateMount } from "@/lib/query/context";
 import type { AdmittedTemplate } from "./admission";
+import { templateArtifactName } from "./artifacts";
 import { templateDocumentId } from "./ids";
 import type { InstalledRecord } from "./installed";
 import { refuse } from "./refusals";
@@ -20,24 +21,23 @@ import { refuse } from "./refusals";
  * present in that directory as an artifact of its own: a hard link to the
  * version's file where the two share a disk (a download, or an install in
  * progress), a copy where they do not (a template shipped in the image).
- * Such an artifact is registered as no one's table: nothing lists it, no
- * person's SQL names it, and the boot sweep removes it with every other
- * unregistered artifact.
+ * Such an artifact is registered as no one's table: nothing lists it and no
+ * person's SQL names it.
  *
  * Two ways to stage. Kept, for reading an installed version: named by its
  * content, so one file serves every reader and every version holding the
- * same bytes, made present again by the first home prepared after a
- * restart, and never half written under its name. Own, for an admission:
- * named for this preparation alone and removed when it is released, so a
- * version that is refused, or admitted and then moved into place, leaves
- * nothing in the artifact directory.
+ * same bytes, never half written under its name, and kept while an
+ * installed version needs it, across restarts (artifacts.ts); the boot
+ * sweep removes the ones no installed version needs. Own, for an
+ * admission: named for this preparation alone and removed when it is
+ * released, so a version that is refused, or admitted and then moved into
+ * place, leaves nothing in the artifact directory, and the boot sweep
+ * removes one a stopped process left.
  *
  * The home's namespace is the version's datasets under their names and its
  * bundled results under the output names their steps declare, and nothing
  * else, the caller's own datasets included.
  */
-
-const SHA256 = /^[0-9a-f]{64}$/;
 
 async function fileDigest(file: string): Promise<string> {
   const hash = createHash("sha256");
@@ -45,11 +45,7 @@ async function fileDigest(file: string): Promise<string> {
   return hash.digest("hex");
 }
 
-/** The artifact of a template's file, relative to the data folder. */
-export function templateArtifactName(sha256: string): string {
-  if (!SHA256.test(sha256)) throw new Error("A template artifact is named by its SHA-256.");
-  return `tables/template-${sha256}.parquet`;
-}
+export { templateArtifactName };
 
 /** Make a template's file present in the engine's artifact directory under
  * its content's name; answers that name, relative to the data folder. The

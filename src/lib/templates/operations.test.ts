@@ -226,7 +226,7 @@ describe("the generated tools", () => {
       effects: { readOnly: true, writes: [], reachesOutside: true }, mcp: { destructiveHint: false, openWorldHint: true } });
     expect(tool("list_templates").effects.reachesOutside).toBeUndefined();
     expect(buildTools().filter((t) => t.path.startsWith("/api/templates")).map((t) => t.name).sort())
-      .toEqual(["copy_template", "fetch_template", "get_template", "list_templates", "refresh_templates"]);
+      .toEqual(["copy_template", "fetch_template", "get_template", "list_templates", "refresh_templates", "remove_template_downloads"]);
   });
 
   it("answer by a member's token as the routes do", async () => {

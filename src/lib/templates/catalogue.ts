@@ -9,6 +9,7 @@ import { addressOrigin } from "@/lib/settings/disclosure";
 import type { ServiceTestAnswer } from "@/lib/settings/service-test-answer";
 import { serviceAddressUnreadable } from "@/lib/settings/service-address";
 import type { CardPicture, CatalogueRefusal, CatalogueState, TemplateCard, TemplateDetail, TemplateList } from "./card";
+import { downloadedTotals } from "./artifacts";
 import { catalogueInUse, resolveTemplatesCatalogue, type CatalogueInEffect } from "./catalogue-address";
 import {
   CATALOGUE_FORMAT_VERSION,
@@ -542,7 +543,7 @@ async function drawn(now: Now): Promise<Drawn[]> {
 /** The template list, from disk and the kept list; nothing is sent. */
 export async function listTemplates(db: Database = metadataDb()): Promise<TemplateList> {
   const now = catalogueNow(db);
-  return { templates: (await drawn(now)).map((d) => d.card), catalogue: stateOf(now) };
+  return { templates: (await drawn(now)).map((d) => d.card), catalogue: stateOf(now), downloads: await downloadedTotals() };
 }
 
 async function find(id: string, db: Database): Promise<Drawn> {

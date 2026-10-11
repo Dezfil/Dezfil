@@ -53,6 +53,7 @@ export function storageReadFixture(kinds: Partial<StorageRead["kinds"]> = {}, di
     tile_archives: { bytes: 3_174 * MIB, files: 83, finished: true },
     service_caches: { bytes: 6.5 * MIB, files: 120, finished: true },
     thumbnails: { bytes: 84 * MIB, files: 38, finished: true },
+    templates: { bytes: 4 * MIB, files: 9, finished: true },
     metadata_database: { bytes: 46 * MIB, files: 3, finished: true },
     leftover_files: { bytes: 212 * MIB, files: 14, finished: true },
     other: { bytes: 40 * 1024, files: 2, finished: true },

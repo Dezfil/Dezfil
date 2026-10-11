@@ -24,7 +24,7 @@ every documented operation must have a route, and every call the interface
 makes must hit a documented path (`src/lib/api/parity.test.ts`). The
 description cannot drift from the server.
 
-Measured from the current source: **141 paths, 399 operations, 184 named component schemas.** Operations include supported automatic HEAD and OPTIONS.
+Measured from the current source: **142 paths, 401 operations, 185 named component schemas.** Operations include supported automatic HEAD and OPTIONS.
 `npm run lint:contract-docs` measures these numbers and checks the catalogue below
 against the contract; changing only the reader-facing text fails the gate.
 
@@ -631,13 +631,17 @@ setting, leaves no file and sends nothing outside this server; a second Test of
 a part asked while one runs, its part's work still ending included, gets that
 run's answer. `GET /api/instance/storage` answers what the data folder holds by
 kind (`tables`, `tile_archives`,
-`service_caches`, `thumbnails`, `metadata_database`, `leftover_files` and
-`other`), each as `{ bytes, files, finished }`, with the `total` and the
-volume's `disk` space, `{ free, total }` or null. `leftover_files` is what the
+`service_caches`, `thumbnails`, `templates`, `metadata_database`,
+`leftover_files` and `other`), each as `{ bytes, files, finished }`, with the
+`total` and the volume's `disk` space, `{ free, total }` or null. `templates`
+is the downloaded templates and the copies of an installed template's data the
+query engine reads, which no sweep removes while a version needs them.
+`leftover_files` is what the
 next restart's sweeps would remove, work in progress included, the ownership
-records of staged project exports among it. Each file counts once; the read takes
-names, sizes and which files the metadata references, opens no file, follows
-no link and answers no name, owner, path or file name. One walk runs at a time
+records of staged project exports among it. Each file counts once, however
+many names it has; the read takes names, sizes, which files the metadata
+references and which the installed templates' records name, opens no other
+file, follows no link and answers no name, owner, path or file name. One walk runs at a time
 and its answer is given again for 30 seconds, unless a cache is cleared: a Clear
 ends a walk under way at once, the reads already joined to it getting what it
 had counted, and a read after the Clear never gets a walk begun before it but
@@ -1221,7 +1225,8 @@ scheme and host (null for a folder, with `folder: true`, never its path),
 `readAt`, and for a refusal its `reason` (`status` with the `status`,
 `egress_blocked`, `service_address_unreadable`, `template_index_too_large`,
 `template_index_invalid`, `template_index_repeats_id` or
-`template_address_outside`). `POST /api/templates/refresh` reads the catalogue
+`template_address_outside`). `downloads` says what the downloaded templates
+hold: how many `versions` and the `bytes` their folders take. `POST /api/templates/refresh` reads the catalogue
 at the address in effect: its index (at most 1 MB) and then each listed
 template's two pictures in the index's order (at most 2 MB each, a picture
 past it refused alone, and 64 MB for the list, later entries drawn without
@@ -1304,12 +1309,24 @@ created: 404 `template_not_listed`, 409 `template_not_installed`, 409
 off, 422 `template_reference_unbound` for a layer or step naming a dataset
 the copy does not make, 422 `template_record_mismatch` and the reader's other codes
 for an installed version that changed on disk, 400 `invalid_request` and 413
-`request_body_too_large`. List, read one, refresh, fetch and copy are
-generated as tools, `list_templates`, `get_template`, `refresh_templates`,
-`fetch_template` and `copy_template`; the SQL and workflow assistants are
-offered the first two and refuse the refresh, which reaches outside this
-server, and the fetch and the copy, which write. The embedded assistant asks
-before a fetch and before a copy, its words naming the version and its size;
+`request_body_too_large`. `DELETE /api/templates/downloads`, admins only and
+rechecked on every call, with the same trusted-Origin rule for cookies,
+removes every version downloaded when it began and the copies of their data
+the query engine reads that no installed version needs any more; shipped
+templates and every copy anyone made are untouched. Each version is retired
+as a dataset's file is: no open, copy or render begun after the call finds
+it, the readers already under way finish first, and only then are its files
+removed; a download that lands meanwhile stays, and a removed template
+downloads again at its next open or copy while the catalogue lists it. It
+sends nothing outside this server and answers `{ versions, bytes }`, what
+went. List, read one, refresh, fetch, copy and remove are generated as
+tools, `list_templates`, `get_template`, `refresh_templates`,
+`fetch_template`, `copy_template` and `remove_template_downloads`; the SQL
+and workflow assistants are offered the first two and refuse the refresh,
+which reaches outside this server, and the fetch, the copy and the removal,
+which write. The embedded assistant asks before removing, its words naming
+the size the downloads take, and before a fetch and before a copy, its words
+naming the version and its size;
 a call naming no version is completed with the version those words name
 before it waits (for a copy, the installed one; with none installed it is
 refused with `template_not_installed` and not asked), so approving it later

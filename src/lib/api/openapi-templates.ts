@@ -3,7 +3,7 @@ import { TEMPLATE_KINDS, TEMPLATE_TAGS, TEMPLATE_THEMES } from "@/lib/templates/
 import { AUTH_SECURITY } from "./openapi-auth";
 import { ERROR_RESPONSE, jsonOk, op } from "./openapi-helpers";
 import { ownedCreationOp } from "./openapi-owned-creation";
-import { LOCAL_ADD, LOCAL_READ, REMOTE_ADD, REMOTE_READ } from "./operation-mcp";
+import { LOCAL_ADD, LOCAL_DELETE, LOCAL_READ, REMOTE_ADD, REMOTE_READ } from "./operation-mcp";
 import { READ_ONLY, REACHES_OUTSIDE, resource, writes } from "./operation-metadata";
 
 /**
@@ -97,11 +97,19 @@ export const TEMPLATES_SCHEMAS = {
     }),
     description: "The project a copy made, with its members: the copied map, the copied workflow of a workflow example, and the copied datasets.",
   },
+  TemplateDownloads: {
+    ...object({
+      versions: { type: "integer", minimum: 0, description: "How many downloaded versions." },
+      bytes: { type: "integer", minimum: 0, description: "The bytes their folders take in the data folder." },
+    }),
+    description: "What the downloaded templates hold on this server, which DELETE /api/templates/downloads frees. Shipped templates and copies are not among them.",
+  },
   TemplateList: object({
     templates: { type: "array", items: { $ref: "#/components/schemas/TemplateCard" },
       description: "Shipped templates first, in the image's order; then the catalogue's entries in its index's order, a shipped id winning over an entry naming it; " +
         "then downloaded templates the kept list does not name." },
     catalogue: { $ref: "#/components/schemas/TemplateCatalogueState" },
+    downloads: { $ref: "#/components/schemas/TemplateDownloads" },
   }),
 };
 
@@ -135,6 +143,33 @@ export const TEMPLATES_PATHS = {
     effects: REACHES_OUTSIDE, mcp: REMOTE_READ,
     responses: { "200": jsonOk("#/components/schemas/TemplateList"), "400": ERROR_RESPONSE, "401": ERROR_RESPONSE, "403": ERROR_RESPONSE,
       "409": ERROR_RESPONSE, "503": ERROR_RESPONSE },
+  }), security: AUTH_SECURITY } },
+  "/api/templates/downloads": { delete: { ...op({
+    summary: "Remove the downloaded templates",
+    description: "Requires a current admin through cookie or bearer authentication, rechecked on every call. " +
+      "Cookie requests require the same trusted Origin; an admin bearer token calls directly. Responses, including refusals, are private, no-store. " +
+      "Removes every template version downloaded to this server when the call began, with the engine's copies of its data that no installed " +
+      "version needs any more; shipped templates, and every copy anyone made, are untouched. Each version is retired as a dataset's file is: no " +
+      "open, copy or render begun after the call finds it, readers already under way finish first, and only then are its files removed; a " +
+      "download that lands meanwhile stays. A removed template downloads again at its next open or copy while the catalogue lists it. Sends " +
+      "nothing outside this server. Removing when nothing is downloaded answers the same, with nothing removed. Answers how many versions went " +
+      "and the bytes their folders took. The embedded assistant asks for confirmation before calling; SQL and workflow assistants refuse this " +
+      "operation. MCP advertises that policy and adds no confirmation step.",
+    tag: "Templates", tool: "remove_template_downloads", toolInput: { closed: true },
+    confirm: true,
+    confirmation: {
+      target: "Remove every downloaded template from this server?",
+      consequence: "The downloads take {size}. Shipped templates and the copies people made stay as they are, and a removed template downloads " +
+        "again at its next open.",
+      subject: {
+        path: "/api/templates", argument: "", name: "",
+        facts: { size: { path: "downloads.bytes", bytes: true, fallback: "the space Storage shows for templates" } },
+      },
+    },
+    display: { verb: "Removed the downloaded templates" },
+    effects: writes(resource("templates")), mcp: LOCAL_DELETE,
+    responses: { "200": jsonOk("#/components/schemas/TemplateDownloads"), "400": ERROR_RESPONSE, "401": ERROR_RESPONSE, "403": ERROR_RESPONSE,
+      "503": ERROR_RESPONSE },
   }), security: AUTH_SECURITY } },
   "/api/templates/{id}": { get: { ...op({
     summary: "Read a template",

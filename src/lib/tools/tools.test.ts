@@ -291,6 +291,8 @@ describe("tool parity", () => {
       "remove_basemap_style",
       "remove_project_person",
       "remove_recipe_step",
+      // Removes every downloaded template from this server.
+      "remove_template_downloads",
       "revoke_api_token",
       "revoke_inactive_publication",
       "set_basemap_style_offered",

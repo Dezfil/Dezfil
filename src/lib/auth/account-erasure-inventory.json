@@ -5615,6 +5615,64 @@
         "templates/*/*"
       ]
     },
+    "location:src/lib/templates/artifacts.ts#downloadedFolders.root:downloadedTemplatesDir": {
+      "stores": [
+        "file:templates"
+      ],
+      "roots": [
+        "templates"
+      ]
+    },
+    "location:src/lib/templates/artifacts.ts#downloadedFolders.versions:path.join": {
+      "stores": [
+        "file:templates"
+      ],
+      "roots": [
+        "templates/*"
+      ]
+    },
+    "location:src/lib/templates/artifacts.ts#downloadedFolders.folder:path.join": {
+      "stores": [
+        "file:templates"
+      ],
+      "roots": [
+        "templates/*/*"
+      ]
+    },
+    "location:src/lib/templates/artifacts.ts#downloadedTotals.bytes:downloadedTemplatesDir": {
+      "stores": [
+        "file:templates"
+      ],
+      "roots": [
+        "templates"
+      ]
+    },
+    "location:src/lib/templates/remove.ts#removeTemplateDownloads:dataDir": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "location:src/lib/templates/remove.ts#removeTemplateDownloads:downloadedTemplatesDir": {
+      "stores": [
+        "file:templates"
+      ],
+      "roots": [
+        "templates"
+      ]
+    },
+    "location:src/lib/templates/remove.ts#removeTemplateDownloads:path.join": {
+      "stores": [
+        "file:tables",
+        "file:templates"
+      ],
+      "roots": [
+        "tables/*",
+        "templates/*"
+      ]
+    },
     "memory:src/lib/api/openapi-templates.ts#CARD": {
       "stores": [
         "memory:immutable-configuration"

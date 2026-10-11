@@ -177,11 +177,18 @@ async function download(scope: AccountScope, entry: ListedEntry, where: Catalogu
   }
 }
 
-/** Queue a download behind every one before it. */
-function enqueue(work: () => Promise<FetchedTemplate>): Promise<FetchedTemplate> {
+/** Queue a download, or other work on the downloaded versions, behind
+ * every one before it. */
+function enqueue<T>(work: () => Promise<T>): Promise<T> {
   const turn = downloads.tail.then(work);
   downloads.tail = turn.then(() => {}, () => {});
   return turn;
+}
+
+/** Run `work` in a turn of its own among the downloads: no download
+ * installs, or moves a folder aside, while it runs. */
+export function inDownloadTurn<T>(work: () => Promise<T>): Promise<T> {
+  return enqueue(work);
 }
 
 /**

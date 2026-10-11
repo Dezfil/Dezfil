@@ -164,7 +164,9 @@ reason (`not_found`, `busy`, `timed_out`, `failed`), never a path, a program's
 output or an error's words; the engine's installs nothing, and the renderer's
 answers busy rather than wait for an image slot. The storage read gives each
 kind of file in the data folder its bytes and count, the total and the free
-space, never a name or a path, at least what it counted for a kind its
+space, never a name or a path (templates among the kinds: the downloaded
+ones and the copies of an installed template's data, a file with two names
+counted once), at least what it counted for a kind its
 10-second walk did not finish; a cache's Clear ends a walk already under way,
 and a read just after it joins a fresh one, its 10 seconds still counted from
 its own asking.
@@ -177,7 +179,8 @@ assistants are never offered them.
 `GET /api/templates/{id}` and `refresh_templates` calls
 `POST /api/templates/refresh`, for every signed-in account. The list and the
 read answer from what this server holds (the shipped templates, the downloaded
-ones and the catalogue list it last read, with the catalogue's state) and send
+ones and the catalogue list it last read, with the catalogue's state; the list
+also says how many versions are downloaded and the bytes they take) and send
 nothing, so MCP marks them local reads. The refresh reads the template
 catalogue's index and pictures through the egress check at most once in ten
 minutes, answering the kept list inside that window; it is read-only but
@@ -204,6 +207,14 @@ it a local addition, not idempotent; it asks for confirmation, its words
 naming the version and its size, and the embedded assistant completes a call
 naming no version with the installed version before it waits. The SQL and
 workflow assistants are never offered it.
+`remove_template_downloads` calls `DELETE /api/templates/downloads`, admin-only
+and rechecked on every call: it removes every template version downloaded to
+this server, with the copies of their data no installed version needs, once
+the readers already under way have finished, and answers how many versions
+went and the bytes they took. Shipped templates and copies are untouched. It
+is local, so MCP marks it a local removal, destructive and idempotent; it asks
+for confirmation, its words naming the size the downloads take, and the SQL
+and workflow assistants are never offered it.
 
 `add_basemap_style` calls `POST /api/instance/basemaps`,
 `set_basemap_style_offered` calls `PATCH /api/instance/basemaps/{id}` and
@@ -315,9 +326,9 @@ Direct multipart upload uses the separately configured upload limit.
 
 | | |
 |---|---|
-| Documented operations | 399 |
-| Operations that become tools | 155 |
-| Deliberately excluded | 244 |
+| Documented operations | 401 |
+| Operations that become tools | 156 |
+| Deliberately excluded | 245 |
 
 Measured by building the OpenAPI document and the tool set from
 `src/lib/api/openapi.ts` and `src/lib/tools/tools.ts` and counting the
