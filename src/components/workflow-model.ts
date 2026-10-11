@@ -62,6 +62,10 @@ export interface WorkflowStep {
   reads: string[];
   latestAttempt: LatestAttempt | null;
   lastSuccessAt: string | null;
+  /** Set when the output is a template's bundled result: the template's
+   * own on its page, or one that came with a copy of it, which no run made
+   * (its first run replaces it). */
+  templateResult?: { template: string; version: number } | null;
 }
 
 export type ChipTone = "ok" | "warn" | "bad" | "muted" | "accent";

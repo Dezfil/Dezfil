@@ -28,6 +28,7 @@ import { GeometryGlyph } from "../ui/operation-icons";
 import { RunSection } from "./RunSection";
 import { OutputFacts } from "./OutputFacts";
 import { useCanvasRecovery } from "./WorkflowRecovery";
+import { useTemplateCanvas } from "./template-canvas";
 import { UnsavedMark } from "../builder/UnsavedFields";
 import styles from "./WorkflowCanvas.module.css";
 
@@ -65,6 +66,9 @@ export function NodePanel({
   lockReason?: string | null;
 }) {
   const { stale } = useCanvasRecovery();
+  // A template's step reads nothing of a dataset's and is never tried: its
+  // data is no one's, and it never runs.
+  const template = useTemplateCanvas() !== null;
   const step = member.step;
   const operation = operations.find((o) => o.id === step.operation) ?? null;
   const effective = useMemo(() => effectiveParameters(step), [step]);
@@ -128,7 +132,7 @@ export function NodePanel({
   const tableFor = (parameter: OperationParameter): string | null => {
     const port = parameter.ofInput ?? firstInput?.name ?? null;
     const name = port && typeof values[port] === "string" ? (values[port] as string) : null;
-    if (!name || unproducedOutput(name, graph, tables)) return null;
+    if (template || !name || unproducedOutput(name, graph, tables)) return null;
     return readerAddressOf(name, graph, tables);
   };
   const unproducedInputs = operation
@@ -150,7 +154,7 @@ export function NodePanel({
   // The dry run reads the node's parameters in the workflow's context, its
   // SQL home and declared outputs, so the preview binds like the run will.
   const gate = useDryRun(
-    complete && operation && !waitingOn
+    complete && operation && !waitingOn && !template
       ? { operation: operation.id, parameters: withoutName(sent), writtenIn: { kind: "workflow", id: recipeId } }
       : null,
   );
@@ -350,6 +354,7 @@ export function NodePanel({
               the action changes a map, never the node. */}
           {produced ? <OutputFacts step={step} outputName={member.outputName} table={producedTable} /> : null}
 
+          {template ? null : (
           <fieldset className={styles.inert} disabled={inert} data-inert={inert || undefined} aria-describedby={lockReason ? "panel-lock-reason" : undefined}>
           <div className={styles.sec} data-preview>
             <h4 className={styles.secLabel} style={{ fontWeight: 500 }}>
@@ -400,6 +405,7 @@ export function NodePanel({
             ) : null}
           </div>
           </fieldset>
+          )}
         </section>
         <RunSection member={member} graph={graph} />
         <div className={styles.btnRow}>

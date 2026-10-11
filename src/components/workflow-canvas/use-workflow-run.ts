@@ -394,7 +394,9 @@ class Runner implements WorkflowRunner {
   };
 }
 
-export function useWorkflowRun(id: string, ports: Ports, document?: WorkflowDocument): WorkflowRunner {
+/** `quiet`: a workflow with no runs to read (a template's), whose runs
+ * list is never asked for. */
+export function useWorkflowRun(id: string, ports: Ports, document?: WorkflowDocument, quiet = false): WorkflowRunner {
   const runner = useMemo(() => new Runner(id, ports, document), [id, document]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     runner.setPorts(ports);
@@ -402,8 +404,8 @@ export function useWorkflowRun(id: string, ports: Ports, document?: WorkflowDocu
   const [, bump] = useState(0);
   useEffect(() => runner.subscribe(() => bump((n) => n + 1)), [runner]);
   useEffect(() => {
-    void runner.load();
+    if (!quiet) void runner.load();
     return runner.dispose;
-  }, [runner]);
+  }, [runner, quiet]);
   return runner;
 }

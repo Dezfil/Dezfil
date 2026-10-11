@@ -14,6 +14,7 @@ import type { CanvasGraph } from "./graph";
 import { paneRow, typedName } from "./home-names";
 import type { FlowNode } from "./to-flow";
 import { useViewOnly } from "./view-only";
+import { useTemplateCanvas } from "./template-canvas";
 import styles from "./WorkflowCanvas.module.css";
 import { useHeaderReach } from "../shell/use-header-reach";
 
@@ -32,7 +33,16 @@ const DRAG_THRESHOLD = 6;
 
 export type DropPoint = { x: number; y: number } | null;
 
-export function CanvasPane({
+type PaneProps = Parameters<typeof ListingPane>[0];
+
+/** The pane, or on a template's page the template's How it's made in its
+ * place: a template's canvas adds nothing, and its datasets are its own. */
+export function CanvasPane(props: PaneProps) {
+  const template = useTemplateCanvas();
+  return template ? <>{template.pane}</> : <ListingPane {...props} />;
+}
+
+function ListingPane({
   graph,
   tables,
   operations,

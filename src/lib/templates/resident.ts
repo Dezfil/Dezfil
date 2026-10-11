@@ -2,6 +2,8 @@ import { createHash } from "node:crypto";
 import { readFileSync, statSync, type Stats } from "node:fs";
 import path from "node:path";
 import { ApiError } from "@/lib/api/errors";
+import type { LayoutDocument } from "@/lib/metadata/recipe-layouts";
+import { normalizeLayout } from "@/lib/operations/layout-document";
 import type { TemplateHome, TemplateMount } from "@/lib/query/context";
 import { FACTS_FILE, MANIFEST_FILE, RESULTS_FOLDER, TEMPLATE_DOCUMENT_MAX_BYTES, factsProblem, type TemplateFacts } from "./format";
 import { stageTemplateArtifact, templateArtifactName } from "./home";
@@ -32,6 +34,10 @@ import { readShippedIndexSync, shippedTemplatesDir, SHIPPED_INDEX_FILE } from ".
 
 export interface ResidentStep {
   id: string;
+  /** The operation it runs, by its id in the catalogue. */
+  operation: string;
+  /** Its parameters as the workflow document holds them. */
+  parameters: Record<string, unknown>;
   /** The registered name of the dataset the step makes. */
   output: string;
   /** Its bundled result, relative to the version folder. */
@@ -49,7 +55,15 @@ export interface ResidentTemplate {
   /** The map document's own times, as it was exported. */
   createdAt: string;
   updatedAt: string;
-  workflow: { id: string; name: string; steps: ResidentStep[] } | null;
+  workflow: {
+    id: string;
+    name: string;
+    steps: ResidentStep[];
+    layout: LayoutDocument;
+    /** When the arrangement was last written before the export; null for
+     * one never written, which the canvas arranges by itself. */
+    layoutUpdatedAt: string | null;
+  } | null;
   home: TemplateHome;
 }
 
@@ -137,14 +151,20 @@ function read(id: string, version: number, folder: string, shipped: boolean, rec
     const document = documentOf(folder, record, workflowEntry.file);
     if (!isObject(document) || !Array.isArray(document.steps)) unread("The workflow does not read.");
     const steps = (document.steps as unknown[]).map((step): ResidentStep => {
-      if (!isObject(step) || typeof step.id !== "string" || !isObject(step.parameters) || typeof step.parameters.name !== "string") {
+      if (!isObject(step) || typeof step.id !== "string" || typeof step.operation !== "string" ||
+        !isObject(step.parameters) || typeof step.parameters.name !== "string") {
         unread("A step does not read.");
       }
       const result = `${RESULTS_FOLDER}/${step.id}.parquet`;
       dataOf(folder, record, result);
-      return { id: step.id, output: step.parameters.name, result };
+      return { id: step.id, operation: step.operation, parameters: { ...step.parameters }, output: step.parameters.name, result };
     });
-    workflow = { id: String(document.id), name: String(document.name), steps };
+    // The canvas arrangement under the layout document's own rule, as the
+    // admission read it at install.
+    const layout = normalizeLayout(document.layout ?? {}, new Set(steps.map((s) => s.id)));
+    const written = isObject(document.layout) ? document.layout.updatedAt : null;
+    const layoutUpdatedAt = typeof written === "string" && !Number.isNaN(Date.parse(written)) ? written : null;
+    workflow = { id: String(document.id), name: String(document.name), steps, layout, layoutUpdatedAt };
   }
 
   const members: [string, string][] = [];
