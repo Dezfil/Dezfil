@@ -5,7 +5,8 @@ import path from "node:path";
 import { TemplateView } from "@/components/templates/TemplateView";
 import { socketRequest } from "@/lib/assistant/testing/socket-request";
 import { testAccountRequest } from "@/lib/test-support/accounts";
-import { refreshCatalogue, resetCatalogueForTests } from "@/lib/templates/catalogue";
+import { writeStoredSettings } from "@/lib/settings/store";
+import { listTemplates, refreshCatalogue, resetCatalogueForTests } from "@/lib/templates/catalogue";
 import type { TemplateDetail } from "@/lib/templates/card";
 import type { OpenedTemplate } from "@/lib/templates/opened";
 import * as shippedIndex from "@/lib/templates/shipped-index";
@@ -22,7 +23,8 @@ import TemplatePage from "./page";
  *
  * A map template shipped in the image, a workflow example downloaded at
  * version 1 while the catalogue folder lists its version 2, and a third
- * listed by the folder but not installed.
+ * listed by the folder but not installed. Each test starts as a process
+ * just started: nothing read from the catalogue yet.
  */
 
 vi.mock("@/components/templates/TemplateView", () => ({ TemplateView: () => null }));
@@ -37,9 +39,10 @@ vi.mock("next/headers", () => ({
 }));
 
 let built: string;
-let M1: BuiltTemplate, W1: BuiltTemplate, W2: BuiltTemplate, Q1: BuiltTemplate;
+let M1: BuiltTemplate, W1: BuiltTemplate, W2: BuiltTemplate, Q1: BuiltTemplate, L1: BuiltTemplate;
 let f: ReturnType<typeof instanceSettingsFixture>;
 let dir: string;
+let folder: string;
 
 beforeAll(async () => {
   built = await mkdtemp(path.join(process.cwd(), ".tmp-test-template-page-"));
@@ -47,6 +50,7 @@ beforeAll(async () => {
   W1 = await buildTemplate(path.join(built, "w1"), { kind: "workflow", id: "busy-stations" });
   W2 = await buildTemplate(path.join(built, "w2"), { kind: "workflow", id: "busy-stations", version: 2, title: "Busy stations, renewed" });
   Q1 = await buildTemplate(path.join(built, "q1"), { id: "quiet-park", title: "Quiet park" });
+  L1 = await buildTemplate(path.join(built, "l1"), { id: "late-park", title: "Late park" });
 });
 afterAll(async () => { await rm(built, { recursive: true, force: true }); });
 
@@ -57,7 +61,7 @@ beforeEach(async () => {
   dir = await mkdtemp(path.join(process.cwd(), ".tmp-test-template-page-run-"));
   vi.spyOn(shippedIndex, "shippedTemplatesDir").mockReturnValue(await writeShippedFolder(path.join(dir, "shipped"), [M1]));
   await installFixture(W1, path.join(f.dir, "templates", "busy-stations", "1"), { kind: "catalogue", origin: "https://catalogue.example" });
-  const folder = path.join(dir, "catalogue");
+  folder = path.join(dir, "catalogue");
   await writeFolderCatalogue(folder, [W2, Q1]);
   vi.stubEnv("DEZFIL_TEMPLATES_CATALOGUE", folder);
 });
@@ -104,10 +108,37 @@ describe("a template's address", () => {
     expect(page.props.opened).toBeNull();
   });
 
-  it("is not found for an id no one lists", async () => {
+  it("reads the catalogue first for an id it does not know, so a shared address works before anyone opened Templates", async () => {
+    // As after a restart: nothing read yet, and the template only listed.
+    expect((await listTemplates(f.db)).catalogue.state).toBe("not_read");
+    const page = await open("member", "quiet-park");
+    expect(page.props.template).toMatchObject({ id: "quiet-park", version: 1, present: false, installed: null, listed: 1 });
+    expect(page.props.opened).toBeNull();
+    expect((await listTemplates(f.db)).catalogue.state).toBe("listed");
+  });
+
+  it("reads nothing for a template it already knows", async () => {
+    await open("member", "harbour-stations");
+    await open("member", "busy-stations");
+    expect((await listTemplates(f.db)).catalogue.state).toBe("not_read");
+  });
+
+  it("is not found for an id no one lists, the catalogue read once under its ten-minute rule", async () => {
     await expect(open("member", "no-such-template")).rejects.toThrow("NEXT_HTTP_ERROR_FALLBACK;404");
-    // Listed only once the catalogue is read: not before.
+    expect((await listTemplates(f.db)).catalogue.state).toBe("listed");
+    // Listed since, but the list read a moment ago still answers: not read again.
+    await writeFolderCatalogue(folder, [W2, Q1, L1]);
+    await expect(open("member", "late-park")).rejects.toThrow("NEXT_HTTP_ERROR_FALLBACK;404");
+  });
+
+  it("is not found for a template only listed while the catalogue is off", async () => {
+    writeStoredSettings({ "templates.catalogue": false }, f.db);
     await expect(open("member", "quiet-park")).rejects.toThrow("NEXT_HTTP_ERROR_FALLBACK;404");
+  });
+
+  it("is not found for an id no template can have, reading nothing", async () => {
+    await expect(open("member", "No Such/../Template")).rejects.toThrow("NEXT_HTTP_ERROR_FALLBACK;404");
+    expect((await listTemplates(f.db)).catalogue.state).toBe("not_read");
   });
 
   it("sends an anonymous request to sign in", async () => {

@@ -73,7 +73,8 @@ map one may only view opens, a workflow example's canvas as a viewer sees it
 with no run, and beside either **How it's made**, with the question, each
 dataset's source, licence, credit and date, the workflow's steps, each layer's
 SQL and style, and the styling choices. A version not yet on the server
-downloads first. **Make a copy** is the page's one action, and a card's too:
+downloads first. A template's address can be shared: one this server has not
+listed yet has the catalogue read before the page answers. **Make a copy** is the page's one action, and a card's too:
 its dialog names the version it copies, proposes the title as the new
 project's name and says what comes and its size. Confirming downloads that
 version if it is not on the server yet, copies it into a new project of your

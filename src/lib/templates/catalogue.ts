@@ -559,6 +559,32 @@ export async function readTemplate(id: string, db: Database = metadataDb()): Pro
   return { ...found.card, howMade: structuredClone(found.facts.howMade) };
 }
 
+/**
+ * One template for its own address, which may be shared before this process
+ * has read the catalogue: as the read of one answers, except that an id it
+ * does not know, while the catalogue is in use, has the catalogue read first
+ * on the refresh's own road (under its ten-minute rule, so a list read a
+ * moment ago answers and nothing is sent; off, or at a saved address the
+ * key no longer opens, nothing is sent at all). Not listed then either, it
+ * is not listed. An id no template can have reads nothing.
+ */
+export async function readTemplateForAddress(id: string, db: Database = metadataDb()): Promise<TemplateDetail> {
+  try {
+    return await readTemplate(id, db);
+  } catch (error) {
+    if (!(error instanceof ApiError && error.code === "template_not_listed") || !ID.test(id)) throw error;
+    try {
+      await refreshCatalogue(db);
+    } catch (refused) {
+      // Off, or a saved address the key no longer opens: the refresh sent
+      // nothing, and the template is not listed.
+      if (refused instanceof ApiError) throw error;
+      throw refused;
+    }
+    return readTemplate(id, db);
+  }
+}
+
 /** A template's picture in one theme, or null when none can be read. */
 export async function templatePicture(id: string, theme: TemplateTheme, db: Database = metadataDb()): Promise<Buffer | null> {
   const found = await find(id, db);
