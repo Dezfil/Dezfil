@@ -8,10 +8,10 @@
 // drawing its links between its tiles though no one may change it, its
 // node panel saying a step's output is the template's result, and its
 // copy's saying it was copied from the template. Every journey runs as
-// the browser fixture's admin and puts back what it changed: the
-// catalogue's address and switch, the downloads, and every copy.
+// the browser fixture's admin; teardown removes every copy, every
+// downloaded template and the catalogue's address and switch.
 //
-// The instance must run on loopback away from port 3000 with
+// The instance must be a dedicated one, on loopback away from port 3000, with
 // DEZFIL_EGRESS_ALLOWLIST=127.0.0.1, so the server may read the catalogue
 // this spec serves from a fixture on this machine; nothing here reaches
 // another machine. The fixture's templates are built in a scratch folder
@@ -48,7 +48,7 @@ let environmentNamesCatalogue = false;
  * setup refused. */
 let isolated = false;
 /** Whether setup sent the catalogue's address and switch: only then does
- * teardown put them back and remove what was downloaded from it. */
+ * teardown unset them and remove every downloaded template. */
 let catalogueWritten = false;
 /** What each copy made, removed after the journeys. */
 const copies: Landed[] = [];
@@ -268,9 +268,12 @@ test.beforeEach(async ({ context }) => {
   await routeHouse(context);
 });
 
-// Teardown puts back only what this spec made, and only on an instance
-// setup accepted: where setup refused the instance (the default address
-// included), it writes nothing there.
+// Teardown writes only to an instance setup accepted: where setup refused
+// the instance (the default address included), it writes nothing there.
+// On an accepted one it removes the journeys' copies and, once setup has
+// sent the catalogue's address, every downloaded template and both
+// catalogue settings, whatever they held before the run, since the journey
+// runs on a dedicated instance.
 test.afterAll(async ({ request }) => {
   try {
     if (isolated) {

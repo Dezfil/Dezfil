@@ -71,7 +71,7 @@ export const TEMPLATES_SCHEMAS = {
         styling: { type: "array", items: { type: "string" }, description: "The styling choices, a line each." },
       }),
       contents: { anyOf: [{ $ref: "#/components/schemas/TemplateContents" }, { type: "null" }],
-        description: "What version holds, once it is installed on this server (shipped, or downloaded and whole by its record); null while it is not, " +
+        description: "What the version holds, once it is installed on this server (shipped, or downloaded and whole by its record); null while it is not, " +
           "or when its files do not read. POST /api/templates/{id}/fetch installs a listed version." },
     }),
     description: "One template: its card, how it is made, and what its version holds once installed.",
