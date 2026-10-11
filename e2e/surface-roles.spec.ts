@@ -36,8 +36,8 @@
 // turn named steps red (unset it for green):
 //
 //   typed-shadow   the builder's legend types a shadow of its own by hand:
-//                  "each surface computes its role's values" fails on the
-//                  builder and in full screen.
+//                  every step that reads it fails, on the builder, behind
+//                  the export dialog's veil and in full screen.
 //   typed-member   the legend types the overlay panel's values by hand, and
 //                  the theme button the float step's: every step that
 //                  restates a role or a step on the root fails, while the
@@ -46,8 +46,9 @@
 //                  panel: the export card's preview legend follows the
 //                  root, and the dialog's restatement step fails.
 //   light-tones    a published page's dark root stops restating the steps
-//                  and the glass fill: the dark published page's title bar
-//                  and legend resolve against the light tones and fail.
+//                  and the glass fill: the dark published page's title bar,
+//                  legend and Zoom in button resolve against the light tones
+//                  and fail.
 //
 // The pixel case reads the map card on the build it runs against; on a
 // build where the map card's entrance keeps the card on its own compositing
@@ -195,7 +196,7 @@ async function reseed(page: Page, where: "workspace" | "published" = "workspace"
 // ---- reading the page ----
 
 interface Layer { x: number; y: number; blur: number; spread: number; inset: boolean; colour: RGBA | null }
-interface Want { fill?: RGBA; blur?: string; edge?: { width: string; colour: RGBA } | null; corner?: string; shadows?: Layer[] }
+interface Want { fill?: RGBA; solid?: true; blur?: string; edge?: { width: string; colour: RGBA } | null; corner?: string; shadows?: Layer[] }
 interface Seen { fill: string; blur: string; edgeStyle: string; edgeWidth: string; edgeColor: string; corner: string; shadow: string }
 
 /** A computed colour as numbers: `rgb()`, `rgba()` and the `color(srgb …)`
@@ -256,6 +257,7 @@ const stepLayer = (step: Step, theme: Theme): Layer => {
 function problems(seen: Seen, want: Want): string[] {
   const out: string[] = [];
   if (want.fill && !sameColour(colour(seen.fill), want.fill)) out.push(`fill ${seen.fill}, want ${fmt(want.fill)}`);
+  if (want.solid && (colour(seen.fill)?.[3] ?? 0) < 0.995) out.push(`fill ${seen.fill}, want a solid fill`);
   if (want.blur !== undefined && seen.blur !== want.blur) out.push(`blur ${seen.blur}, want ${want.blur}`);
   if (want.edge === null && seen.edgeStyle !== "none") out.push(`edge ${seen.edgeWidth} ${seen.edgeStyle} ${seen.edgeColor}, want none`);
   if (want.edge && (seen.edgeStyle !== "solid" || seen.edgeWidth !== want.edge.width || !sameColour(colour(seen.edgeColor), want.edge.colour))) {
@@ -297,8 +299,9 @@ interface Member {
   at: (page: Page) => Locator;
   /** The member's own corner under the default look, where its role has none. */
   corner?: string;
-  /** Parts the member keeps as its own (a node tile's group edge, the
-   * framed canvas's ground and strong edge): not compared. */
+  /** Parts the member keeps as its own (a node tile's group tint and edge,
+   * the framed canvas's ground and strong edge): not compared, except that
+   * a fill kept on a solid role must still be solid. */
   own?: Part[];
   /** Inside an image's default scope: never follows a look. */
   image?: true;
@@ -325,14 +328,16 @@ function want(m: Member, theme: Theme, restated?: Restatement): Want {
     if (restated && !m.image && restated.roles.includes(m.kind)) w = { ...w, ...restated.follows };
   }
   for (const part of m.own ?? []) {
+    if (part === "fill" && w.fill?.[3] === 1) w.solid = true;
     if (part === "shadow") delete w.shadows;
     else delete w[part];
   }
   return w;
 }
 
-/** Soft, and polled briefly: a surface that eases its shadow or its fill
- * reads mid-transition for a beat after a state change. */
+/** Soft, and polled: a surface that eases its shadow or its fill reads
+ * mid-transition for a beat after a state change, and on a loaded machine
+ * one read of a busy page can itself take seconds. */
 const settle = expect.configure({ soft: true });
 
 /** A member against its role's values; `state` replaces what a state of
@@ -343,7 +348,7 @@ async function expectMember(m: Member, page: Page, theme: Theme, where: string, 
   if (!(await loc.isVisible())) return;
   const w = { ...want(m, theme, restated), ...state };
   await settle
-    .poll(async () => problems(await read(loc), w), { message: `${where}: ${m.what} (${m.kind})`, timeout: 4_000 })
+    .poll(async () => problems(await read(loc), w), { message: `${where}: ${m.what} (${m.kind})`, timeout: 8_000 })
     .toEqual([]);
 }
 
@@ -796,11 +801,16 @@ async function seedWorkflow(page: Page, tag: string): Promise<string> {
     method: "POST", path: `/api/recipes/${id}/steps`,
     body: { operation: "buffer", parameters: { input: table, distance: 100, name: `${table}_rings` } },
   }));
+  // A second step, so one tile stands unselected while the first one's panel is open.
+  await readThenWriteBrowserSetup(page, `/api/recipes/${id}`, () => ({
+    method: "POST", path: `/api/recipes/${id}/steps`,
+    body: { operation: "buffer", parameters: { input: table, distance: 300, name: `${table}_wide` } },
+  }));
   const recipe = (await api(page, "GET", `/api/recipes/${id}`)).recipe as { steps: { id: string }[] };
   await readThenWriteBrowserSetup(page, `/api/recipes/${id}`, () => ({
     method: "PUT", path: `/api/recipes/${id}/layout`,
     body: {
-      steps: { [recipe.steps[0].id]: { x: 288, y: 200 } },
+      steps: { [recipe.steps[0].id]: { x: 288, y: 200 }, [recipe.steps[1].id]: { x: 288, y: 380 } },
       sources: { [table]: { x: 48, y: 40 } },
       notes: [{ id: "roles", x: 600, y: 40, w: 210, h: 120, color: "yellow", text: "A note" }],
     },
@@ -814,6 +824,8 @@ async function canvasSettled(page: Page): Promise<void> {
 }
 
 const nodeTile = (p: Page) => p.locator('[data-node][data-kind="node"] [data-v="badge"]').first();
+/** A tile at rest: a selected tile adds its ring and the lifted step. */
+const restingTile = (p: Page) => p.locator('[data-node][data-kind="node"]:not([data-sel]) [data-v="badge"]').first();
 
 for (const theme of THEMES) {
   test(`the workflow canvas: its panes, its overlays and its controls, the five blurred surfaces among them (${theme})`, async ({ page, context }) => {
@@ -873,8 +885,8 @@ for (const theme of THEMES) {
       { kind: "overlay-panel", what: "the lock pill", corner: CORNER.pill, at: (p) => p.locator("[data-lock-pill]") },
       { kind: "overlay-panel", what: "the results band's readout", corner: CORNER.pill, at: (p) => p.locator("[data-band-readout]") },
       { kind: "overlay-control", what: "the canvas's Zoom in button", corner: CORNER.stage, at: (p) => p.locator("[data-canvas-stage]").getByRole("button", { name: "Zoom in", exact: true }) },
-      // A node tile keeps its group-coloured edge as its own.
-      { kind: "inner-card", what: "a node tile", corner: CORNER.card, own: ["edge"], at: nodeTile },
+      // A node tile keeps its group tint (solid) and its group-coloured edge as its own.
+      { kind: "inner-card", what: "a node tile at rest", corner: CORNER.card, own: ["fill", "edge"], at: restingTile },
     ], {
       "page-card": "no card stands on the canvas",
       menu: "no menu is open at rest; menus are read on the builder",
@@ -914,8 +926,10 @@ for (const theme of THEMES) {
     await visit(page, `/v/${token}`, "published");
     await expect(page.locator(".maplibregl-canvas")).toBeVisible({ timeout: 30_000 });
     await expect(page.locator("[data-map-legend]").first()).toBeVisible({ timeout: 30_000 });
-    if (theme === "dark") await page.getByRole("button", { name: "Switch to dark theme", exact: true }).click();
-    await expect(page.locator("[data-published-view]")).toHaveAttribute("data-view-theme", theme);
+    // The page opens in the author's mode; the reader's switch takes it to the other.
+    const view = page.locator("[data-published-view]");
+    if ((await view.getAttribute("data-view-theme")) !== theme) await page.getByRole("button", { name: `Switch to ${theme} theme`, exact: true }).click();
+    await expect(view).toHaveAttribute("data-view-theme", theme);
     annotate(`a published page (${theme}): no restatement on the root; a published page never takes a look and reads the roles' default values`);
     await readScreen(page, theme, "a published page", [
       { kind: "overlay-panel", what: "the title bar", corner: CORNER.legend, at: (p) => p.getByRole("heading", { level: 1, name: fx.mapName }).locator("xpath=..") },
