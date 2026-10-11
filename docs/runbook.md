@@ -434,7 +434,11 @@ Subsets run by area: `npm run e2e:keyboard`, `e2e:layers`, `e2e:imports`,
 `e2e:sqlbridge`, `e2e:sqlconsole`, `e2e:draw`, `e2e:styling`,
 `e2e:recovery`, `e2e:lifecycle`, `e2e:theme`, `e2e:states`, `e2e:pixel`,
 `e2e:statepixels`, `e2e:wheelhousepixels`, `e2e:a11y-pixels`,
-`e2e:primitives`, `e2e:smoke`, `e2e:look`.
+`e2e:primitives`, `e2e:smoke`, `e2e:look`, `e2e:surfaces` (the surface
+roles' computed values on every screen, both themes, and the blur drawn
+under the map card's glass; `DEZFIL_SURFACE_ROLES_SEED` set to
+`typed-shadow`, `typed-member`, `scope-forgets` or `light-tones` turns the
+steps its header names red).
 
 Required on the server for a green full run. Without these the affected
 tests fail rather than skip:
