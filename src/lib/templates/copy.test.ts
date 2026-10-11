@@ -57,7 +57,7 @@ const TODAY = () => new Date().toISOString().slice(0, 10);
 const RIDERS_TOTAL = 340 + 220 + 180 + 90 + 60 + 410;
 
 let built: string;
-let M1: BuiltTemplate, Q1: BuiltTemplate, X1: BuiltTemplate;
+let M1: BuiltTemplate, Q1: BuiltTemplate, X1: BuiltTemplate, D1: BuiltTemplate;
 let f: ReturnType<typeof instanceSettingsFixture>;
 let dir: string;
 let shippedFolder: string;
@@ -70,6 +70,20 @@ beforeAll(async () => {
   M1 = await buildTemplate(path.join(built, "m1"), { id: "harbour-stations" });
   Q1 = await buildTemplate(path.join(built, "q1"), { id: "quiet-park", title: "Quiet park" });
   X1 = await buildTemplate(path.join(built, "x1"), { id: "stray-roads", edit: SEEDS.layerReferenceOutside });
+  // The stations layer with more live filters than the canvas takes, the
+  // last a time range on the field the map's timeline docks: the docked
+  // one is delegated in place of the fourth range.
+  D1 = await buildTemplate(path.join(built, "d1"), {
+    id: "docked-stations",
+    edit: (files) => {
+      const map = files.documents.get("maps/map.json")!;
+      const layers = map.layers as Record<string, unknown>[];
+      const wide = { field: "riders", kind: "range", min: 0, max: 1000 };
+      layers.find((layer) => layer.id === "layer-stations")!.filters = [wide, wide, wide, wide,
+        { field: "opened", kind: "timerange", min: "2021-01-01", max: null }];
+      map.timeline = { layerId: "layer-stations", field: "opened", speed: 1 };
+    },
+  });
 });
 afterAll(async () => { await rm(built, { recursive: true, force: true }); });
 
@@ -123,6 +137,7 @@ interface Copied {
 type MapRead = {
   id: string; name: string; home: string; owner: { name: string }; projectId: string | null; published: boolean;
   viewport: unknown; legendOrder: string[] | null; widgetsPublished: boolean;
+  timeline: { layerId: string; field: string } | null;
   widgets: { id: string; type: string; layerId: string | null; note: string | null }[];
   layers: { id: string; name: string; sql: string; style: unknown }[];
 };
@@ -252,6 +267,18 @@ describe("a copy of a map template", () => {
     }
 
     expect(await folderHashes(shippedFolder)).toEqual(folderBefore);
+  });
+
+  it("docks the copy's timeline to the copied layer, whose render splits its live filters by it as the template's does", async () => {
+    await installFixture(D1, path.join(dataDir(), "templates", "docked-stations", "1"), { kind: "catalogue", origin: "https://catalogue.example" });
+    const { map } = await landed(await copy("docked-stations"));
+    const stations = map.layers.find((l) => l.name === "Stations")!;
+    expect(stations.id).not.toBe("layer-stations");
+    expect(map.timeline).toMatchObject({ layerId: stations.id, field: "opened" });
+    // Docked, the time range ships to the canvas and every station is
+    // drawn; a timeline naming any other layer leaves the range applied
+    // here, drawing the two stations opened since 2021.
+    expect(await renders(stations.id)).toMatchObject({ ok: true, mode: "inline", featureCount: 6, liveFiltered: true });
   });
 
   it("a copied dataset is never refreshed: it came from no source to read again", async () => {
