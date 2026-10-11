@@ -14,8 +14,9 @@ import type { ExportImageDefinition } from "./image-definition";
  * is killed, never left running. The export of a map and the image
  * renderer's Test both drive through here; the slot is the caller's,
  * taken before and released once this settles, which is only once the
- * browser has closed, or been ended outright and its process has exited,
- * so no browser outlives its slot.
+ * browser has closed, or been ended outright and its process has exited
+ * (or, for a caller that answers first, once the end it was handed has
+ * settled), so no browser outlives its slot.
  *
  * The flag posture, stated: the runbook's five software-GL flags
  * (SwiftShader — proven offline in the image by the spike), plus
@@ -178,11 +179,13 @@ export interface RenderDrive {
   accountId: string;
   /** What must still hold, asked after the slot, the launch and the render. */
   stand: () => void;
-  /** The launch held to this drive's own time and ended at its stop by the
-   * browser process's own handle, so a browser that never answers its
-   * launch dies with the drive rather than outliving its slot (the
-   * renderer's Test). Absent, the driver's own launch timeout (an export). */
-  boundLaunch?: boolean;
+  /** Where the drive answers before a launch it gave up on has ended (its
+   * deadline or its caller's departure came first), the bounded end of that
+   * launch is handed here and the caller keeps its slot until it settles:
+   * an export answers at its budget and its browser still never outlives
+   * the slot. Absent, the drive itself waits for that end before it
+   * settles (the renderer's Test). */
+  hold?: (end: Promise<void>) => void;
 }
 
 /** Drive the browser for one image, on a slot the caller holds. Throws the
@@ -205,10 +208,11 @@ export async function driveRender(drive: RenderDrive): Promise<RenderImageResult
   };
   // A late arrival of a launch given up on, ended outright once it arrives.
   let lateEnd: Promise<void> | null = null;
-  // A bound launch's stop: it ends the browser's process, started or still
-  // starting, by its own handle.
-  const launchStop = drive.boundLaunch ? new AbortController() : null;
-  const stopLaunch = () => launchStop?.abort();
+  // The launch is held to the drive's own time: its stop ends the browser's
+  // process, started or still starting, by its own handle, so a browser
+  // that never answers its launch dies with the drive.
+  const launchStop = new AbortController();
+  const stopLaunch = () => launchStop.abort();
   const watchdog = setTimeout(
     () => {
       // The hard stop: a render past its budget dies, it never lingers — and the outcome is
@@ -231,7 +235,8 @@ export async function driveRender(drive: RenderDrive): Promise<RenderImageResult
         deadline,
         requestBoundMs,
         signal: drive.signal,
-        ...(launchStop ? { launchTimeoutMs: Math.max(deadline - Date.now(), 1), stop: launchStop.signal } : {}),
+        launchTimeoutMs: Math.max(deadline - Date.now(), 1),
+        stop: launchStop.signal,
       }));
       launching.catch(() => {});
       browser = await new Promise<RenderBrowser>((resolve, reject) => {
@@ -333,12 +338,17 @@ export async function driveRender(drive: RenderDrive): Promise<RenderImageResult
       const graceMs = Math.min(CLOSE_GRACE_MS, Math.max(deadline - Date.now(), 0));
       await endBrowser(open, graceMs, drive.accountId, () => endOutright(open));
       if (ended) await ended;
-    } else if (launchStop) {
-      // A bound launch that never handed over its browser ends with the
-      // drive, which settles once that launch has given up, its browser
-      // gone, or a late arrival has been ended outright, within the bound.
+    } else {
+      // A launch that never handed over its browser ends with the drive:
+      // it is gone once it has given up, or a late arrival has been ended
+      // outright, within the bound. A caller that answers first holds its
+      // slot until then.
       stopLaunch();
-      if (lateEnd) await within(lateEnd, BROWSER_EXIT_BOUND_MS);
+      if (lateEnd) {
+        const gone = within(lateEnd, BROWSER_EXIT_BOUND_MS);
+        if (drive.hold) drive.hold(gone);
+        else await gone;
+      }
     }
   }
 }

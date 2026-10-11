@@ -11,6 +11,7 @@ import {
   type RenderDriver,
 } from "./render-image";
 import type { RenderLaunchContext } from "./render-driver";
+import { limits } from "@/lib/limits";
 
 /**
  * The image renderer's Test on the image lane, over injected drivers: it
@@ -171,7 +172,7 @@ describe("the renderer's Test on the image lane", () => {
     expect(renderQueueState()).toEqual({ active: 0, waiting: 0 });
   });
 
-  it("holds the Test's launch to the Test's own time and ends it at the hard stop; an export's launch keeps the driver's own", async () => {
+  it("holds the Test's launch to the Test's own time and ends it at the hard stop; an export's launch is held to its own budget", async () => {
     vi.useFakeTimers();
     const contexts: RenderLaunchContext[] = [];
     // A browser that never answers its launch, ended only by its stop.
@@ -198,8 +199,9 @@ describe("the renderer's Test on the image lane", () => {
     const exporting = lane();
     const recorded: RenderDriver = { launch: (...args) => { contexts.push(args[2]); return exporting.driver.launch(...args); } };
     await expect(image(recorded)).resolves.toMatchObject({ png: PNG });
-    expect(contexts[1]).not.toHaveProperty("launchTimeoutMs");
-    expect(contexts[1]).not.toHaveProperty("stop");
+    expect(contexts[1].launchTimeoutMs).toBeGreaterThan(0);
+    expect(contexts[1].launchTimeoutMs).toBeLessThanOrEqual(limits.exportRenderTimeoutMs);
+    expect(contexts[1].stop?.aborted).toBe(false);
   });
 
   it("keeps the Test's slot until its browser has closed, so an image asked after it never runs beside it", async () => {

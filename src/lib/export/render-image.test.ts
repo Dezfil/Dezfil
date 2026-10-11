@@ -356,7 +356,57 @@ describe("physical renders are counted at the renderer", () => {
 });
 
 
-it("cancellation while launch is pending releases the deadline timer and kills a late arrival", async () => {
+it("keeps an export's slot until a launch it gave up on at its budget has ended, answering its timeout at the budget", async () => {
+  process.env.DEZFIL_EXPORT_RENDER_CONCURRENCY = "1";
+  process.env.DEZFIL_EXPORT_RENDER_TIMEOUT_S = "0.2";
+  vi.useFakeTimers();
+  // Browsers alive at once: a process counts from its launch until it is
+  // ended or gives up starting.
+  let live = 0, most = 0;
+  const begin = () => { live += 1; most = Math.max(most, live); };
+  // A start that outlasts the first image's budget: the browser arrives
+  // 300 ms in, unless the drive's stop ends its process first.
+  const slowStart: RenderDriver = {
+    launch: (_path, _flags, context) => {
+      begin();
+      return new Promise<RenderBrowser>((resolve, reject) => {
+        let gone = false;
+        const end = () => { if (!gone) { gone = true; live -= 1; } };
+        context.stop?.addEventListener("abort", () => { end(); reject(new Error("ended")); }, { once: true });
+        setTimeout(() => { if (!gone) resolve(browserStub({ kill: end, close: async () => end() }).browser); }, 300);
+      });
+    },
+  };
+  const quickStart: RenderDriver = {
+    launch: async () => {
+      begin();
+      let gone = false;
+      const end = () => { if (!gone) { gone = true; live -= 1; } };
+      return browserStub({ kill: end, close: async () => end() }).browser;
+    },
+  };
+  try {
+    const started = Date.now();
+    let answered: number | null = null;
+    const first = renderMapImage(testAccountScope(), { mapId: "slow", definition: def(), credential: "fixture-render-credential",
+      baseUrl: "http://x", driver: slowStart }).catch((error: unknown) => { answered = Date.now(); throw error; });
+    first.catch(() => {});
+    await vi.advanceTimersByTimeAsync(10);
+    // An image asked meanwhile waits for the slot, on a budget of its own.
+    process.env.DEZFIL_EXPORT_RENDER_TIMEOUT_S = "5";
+    const second = renderMapImage(testAccountScope(), { mapId: "next", definition: def(), credential: "fixture-render-credential",
+      baseUrl: "http://x", driver: quickStart });
+    await vi.advanceTimersByTimeAsync(1_500);
+    await expect(first).rejects.toMatchObject({ code: "render_timeout" });
+    expect(answered! - started, "the export answers its timeout at its budget").toBeLessThanOrEqual(200);
+    await expect(second).resolves.toMatchObject({ png: PNG });
+    expect(most, "two browsers alive at once with Images at once 1").toBe(1);
+    expect(live).toBe(0);
+    expect(renderQueueState()).toEqual({ active: 0, waiting: 0 });
+  } finally { vi.useRealTimers(); }
+});
+
+it("cancellation while launch is pending answers at once, releases the deadline timers and keeps the slot until the late arrival is ended", async () => {
   const scope = testAccountScope(), abort = new AbortController();
   const late = deferred<RenderBrowser>(), entered = deferred<void>();
   const browser = browserStub();
@@ -366,9 +416,13 @@ it("cancellation while launch is pending releases the deadline timer and kills a
       signal: abort.signal, driver: { launch: () => { entered.resolve(); return late.promise; } } });
     await entered.promise; abort.abort();
     await expect(run).rejects.toBeInstanceOf(EvaluationCancelled);
-    expect(vi.getTimerCount()).toBe(0);
+    // What is left is the bound on the late arrival's end, holding the slot.
+    expect(vi.getTimerCount()).toBe(1);
+    expect(renderQueueState()).toEqual({ active: 1, waiting: 0 });
     late.resolve(browser.browser);
     await vi.advanceTimersByTimeAsync(0);
     expect(browser.killed()).toBe(true);
+    expect(vi.getTimerCount()).toBe(0);
+    expect(renderQueueState()).toEqual({ active: 0, waiting: 0 });
   } finally { late.resolve(browser.browser); vi.useRealTimers(); }
 });

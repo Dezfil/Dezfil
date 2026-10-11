@@ -37,6 +37,7 @@ it.each(["timeout", "cancellation"])("deletion waits for a launch abandoned by %
     await entered.promise;
     expect(launch).toHaveBeenCalledWith(expect.any(String), expect.any(Array), {
       appOrigin: "http://127.0.0.1:3216", deadline, requestBoundMs: 100, signal: abort.signal,
+      launchTimeoutMs: 300, stop: expect.any(AbortSignal),
     });
     db.exec("UPDATE accounts SET status = 'deleting' WHERE id = 'target'");
     if (ending === "cancellation") abort.abort();
@@ -44,8 +45,9 @@ it.each(["timeout", "cancellation"])("deletion waits for a launch abandoned by %
     const error = await pending;
     if (ending === "cancellation") expect(error).toBeInstanceOf(EvaluationCancelled);
     else expect(error).toMatchObject({ code: "render_timeout" });
-    expect(renderQueueState()).toEqual({ active: 0, waiting: 0 });
-    expect(vi.getTimerCount()).toBe(0);
+    // The launch it gave up on still holds the slot, under the bound on its end.
+    expect(renderQueueState()).toEqual({ active: 1, waiting: 0 });
+    expect(vi.getTimerCount()).toBe(1);
 
     let accountDrained = false, renderDrained = false;
     const draining = Promise.all([
@@ -63,6 +65,9 @@ it.each(["timeout", "cancellation"])("deletion waits for a launch abandoned by %
     expect(browser.close).not.toHaveBeenCalled();
     expect(renderWorkForTests("target")).toBe(0);
     expect(renderWorkForTests("control")).toBe(1);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(renderQueueState()).toEqual({ active: 0, waiting: 0 });
+    expect(vi.getTimerCount()).toBe(0);
   } finally {
     abort.abort(); late.resolve(browser); control.resolve();
     await pending;
