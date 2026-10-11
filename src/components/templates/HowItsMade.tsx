@@ -90,7 +90,7 @@ export function HowItsMade({
                 <dt>Source</dt>
                 <dd data-fact="source">{row.source?.name ?? "not named"}</dd>
                 <dt>Licence</dt>
-                <dd data-fact="licence" className={styles.mono}>{row.source?.licence ?? "not named"}</dd>
+                <dd data-fact="licence">{row.source?.licence ?? "not named"}</dd>
                 <dt>Credit</dt>
                 <dd data-fact="credit">{row.source?.credit ?? "not named"}</dd>
                 <dt>Data of</dt>

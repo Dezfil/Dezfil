@@ -218,10 +218,6 @@
   overflow-wrap: anywhere;
 }
 
-.mono {
-  font-family: var(--font-mono);
-}
-
 /* ---- the workflow in miniature ---- */
 
 .mini {
