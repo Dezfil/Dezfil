@@ -4,11 +4,12 @@
 // (the download line while its archive is held, How it's made with its
 // sections, Make a copy the only action, the copied note's credits in the
 // reader) with no writing request sent from the view; Make a copy landing
-// in the builder with the note's credits; the workflow example's node
-// panel saying a step's output is the template's result, and its copy's
-// saying it was copied from the template. Every journey runs as the browser
-// fixture's admin and puts back what it changed: the catalogue's address
-// and switch, the downloads, and every copy.
+// in the builder with the note's credits; the workflow example's canvas
+// drawing its links between its tiles though no one may change it, its
+// node panel saying a step's output is the template's result, and its
+// copy's saying it was copied from the template. Every journey runs as
+// the browser fixture's admin and puts back what it changed: the
+// catalogue's address and switch, the downloads, and every copy.
 //
 // The instance must run on loopback away from port 3000 with
 // DEZFIL_EGRESS_ALLOWLIST=127.0.0.1, so the server may read the catalogue
@@ -163,6 +164,25 @@ async function makeCopy(page: Page, template: BuiltTemplate, landing: RegExp): P
   copies.push(landed);
   await expect(page).toHaveURL(landing);
   return landed;
+}
+
+/** Every link on a workflow's canvas is drawn from tile to tile: its path
+ * leaves one tile's right side and reaches another's left, never a mark
+ * folded at the canvas's corner, where a port measured with no box puts
+ * both of a link's ends. The ports themselves stay out of sight. */
+async function expectLinksDrawn(page: Page): Promise<void> {
+  await expect(page.locator(".react-flow__edge").first()).toBeAttached();
+  const misdrawn = () => page.locator("[data-workflow-canvas]").evaluate(canvas => {
+    const tiles = [...canvas.querySelectorAll('[data-node] [data-v="badge"]')].map(tile => tile.getBoundingClientRect());
+    const near = (x: number, side: "left" | "right") => Math.min(...tiles.map(tile => Math.abs(tile[side] - x)));
+    return [...canvas.querySelectorAll(".react-flow__edge")].flatMap(edge => {
+      const path = edge.querySelector("path.react-flow__edge-path")?.getBoundingClientRect();
+      const drawn = path !== undefined && path.width > 0 && near(path.left, "right") <= 24 && near(path.right, "left") <= 24;
+      return drawn ? [] : [`${edge.getAttribute("data-id")}: ${path ? `${Math.round(path.left)} to ${Math.round(path.right)}` : "no path"}`];
+    });
+  });
+  await expect.poll(misdrawn, { timeout: 10_000 }).toEqual([]);
+  await expect(page.locator("[data-workflow-canvas] .react-flow__handle:visible")).toHaveCount(0);
 }
 
 /** Open a node's panel on the canvas, clear of the results band where
@@ -337,6 +357,8 @@ test.describe("Templates", () => {
       await expect(panel(page).locator(`[data-fold="${name}"]`)).toHaveCount(1);
     }
     await expectCopyTheOnlyAction(page, WORKFLOW_TITLE);
+    // View-only, the canvas still draws every link between its tiles.
+    await expectLinksDrawn(page);
     await selectNode(page, RINGS);
     await expect(page.locator("[data-node-panel] [data-last-run]")).toHaveText("the template's result");
 
