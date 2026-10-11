@@ -5,8 +5,10 @@ import { GET as listRoute } from "@/app/api/templates/route";
 import { POST as refreshRoute } from "@/app/api/templates/refresh/route";
 import { GET as readRoute } from "@/app/api/templates/[id]/route";
 import { GET as pictureRoute } from "@/app/api/templates/[id]/picture/route";
+import { POST as fetchRoute } from "@/app/api/templates/[id]/fetch/route";
 import { POST as testRoute } from "@/app/api/instance/services/[service]/test/route";
 import { GET as configRoute } from "@/app/api/config/route";
+import { ERROR_CATALOGUE } from "@/lib/api/error-catalogue";
 import { admittedTools, POLICY_REFUSAL_CODE } from "@/lib/assistant/policy";
 import { resumeAssistant, runAssistant, type AssistantEvent } from "@/lib/assistant/loop";
 import { PendingActionStore } from "@/lib/assistant/pending";
@@ -15,6 +17,7 @@ import { dispatchAssistantTestRoute } from "@/lib/assistant/testing/route-dispat
 import { socketRequest } from "@/lib/assistant/testing/socket-request";
 import { gateRequest } from "@/lib/auth/gate";
 import { authenticateSession, createApiToken } from "@/lib/auth/credentials";
+import { resetQueryInstance } from "@/lib/duckdb";
 import { resetSecretKeyCache } from "@/lib/secrets";
 import { writeStoredSettings } from "@/lib/settings/store";
 import { testAccountScope } from "@/lib/test-support/accounts";
@@ -24,19 +27,22 @@ import { buildTools } from "@/lib/tools/tools";
 import { instanceSettingsFixture } from "../../../test-support/instance-settings";
 import { buildTemplate, writeShippedFolder, type BuiltTemplate } from "../../../test-support/templates/builder";
 import { startLoopbackCatalogue, type LoopbackCatalogue } from "../../../test-support/templates/catalogue";
-import { resetCatalogueForTests } from "./catalogue";
+import { REFRESH_WINDOW_MS, refreshCatalogue, resetCatalogueForTests } from "./catalogue";
 import { CATALOGUE_INDEX_FILE, TEMPLATE_PICTURE_MAX_BYTES } from "./format";
+import { downloadedTemplatesDir } from "./installed";
+import { INSTALL_REFUSAL_CODES, TEMPLATE_REFUSAL_CODES } from "./refusals";
 import * as shipped from "./shipped";
 
 /**
- * The template operations: list, read one and refresh, each a generated
- * tool, the same by cookie, token and tool, for every signed-in account and
- * refused to an anonymous caller; the picture a route outside the tool set;
- * the catalogue's Test through the services' Test operation, admins only,
- * refused while the catalogue is off; the runtime read saying whether the
- * catalogue is in use; and the assistants: the SQL and workflow ones offered
- * list and read and refused the refresh, the embedded one asking before the
- * Test.
+ * The template operations: list, read one, refresh and fetch, each a
+ * generated tool, the same by cookie, token and tool, for every signed-in
+ * account and refused to an anonymous caller; the picture a route outside
+ * the tool set; the catalogue's Test through the services' Test operation,
+ * admins only, refused while the catalogue is off; the runtime read saying
+ * whether the catalogue is in use; and the assistants: the SQL and workflow
+ * ones offered list and read and refused the refresh and the fetch, the
+ * embedded one asking before the Test and before a fetch, the fetch's
+ * version bound into the call it parks.
  */
 
 keepRequestsOnThisMachine();
@@ -57,6 +63,7 @@ afterAll(async () => { await rm(built, { recursive: true, force: true }); });
 
 beforeEach(async () => {
   f = instanceSettingsFixture();
+  resetQueryInstance();
   dir = await mkdtemp(path.join(process.cwd(), ".tmp-test-template-ops-run-"));
   vi.spyOn(shipped, "shippedTemplatesDir").mockReturnValue(await writeShippedFolder(path.join(dir, "shipped"), [C1]));
   vi.stubEnv("DEZFIL_EGRESS_ALLOWLIST", "localhost,127.0.0.1");
@@ -70,6 +77,7 @@ beforeEach(async () => {
 afterEach(async () => {
   await catalogue.close();
   resetCatalogueForTests();
+  resetQueryInstance();
   f.close();
   resetSecretKeyCache();
   await rm(dir, { recursive: true, force: true });
@@ -216,7 +224,7 @@ describe("the generated tools", () => {
       effects: { readOnly: true, writes: [], reachesOutside: true }, mcp: { destructiveHint: false, openWorldHint: true } });
     expect(tool("list_templates").effects.reachesOutside).toBeUndefined();
     expect(buildTools().filter((t) => t.path.startsWith("/api/templates")).map((t) => t.name).sort())
-      .toEqual(["get_template", "list_templates", "refresh_templates"]);
+      .toEqual(["fetch_template", "get_template", "list_templates", "refresh_templates"]);
   });
 
   it("answer by a member's token as the routes do", async () => {
@@ -284,5 +292,188 @@ describe("the assistants", () => {
     for await (const event of resumeAssistant(parked, true, deps)) done.push(event);
     expect(done).toContainEqual(expect.objectContaining({ type: "tool_result", tool: "test_service", ok: true }));
     expect(catalogue.requests).toHaveLength(sent + 1);
+  });
+});
+
+describe("fetch", () => {
+  const fetchCall = (headers: Record<string, string>, body?: string, id = "harbour-stations") =>
+    fetchRoute(socketRequest(new Request(`${ORIGIN}/api/templates/${id}/fetch`, {
+      method: "POST", headers: { ...headers, ...(body === undefined ? {} : { "content-type": "application/json" }) }, body,
+    })), params(id));
+  const archives = () => catalogue.requests.filter((r) => r.path.startsWith("/archives/"));
+  const refreshPastWindow = (offset: number) => refreshCatalogue(f.db, { now: Date.now() + offset * (REFRESH_WINDOW_MS + 1) });
+
+  it("is a generated tool that writes the templates, reaches outside and asks first, its words binding the version", () => {
+    expect(tool("fetch_template")).toMatchObject({
+      path: "/api/templates/{id}/fetch", method: "post", confirm: true,
+      effects: { readOnly: false, writes: [{ resource: "templates", argument: "id", collection: true }] },
+      mcp: { destructiveHint: false, openWorldHint: true, idempotentHint: false },
+      confirmation: { subject: { path: "/api/templates/{id}", argument: "id", binds: { argument: "version", path: "version" } } },
+    });
+    expect(tool("fetch_template").effects.reachesOutside).toBeUndefined();
+  });
+
+  it("answers every refusal an install can give as a documented error code, and the index's own as none", () => {
+    for (const code of INSTALL_REFUSAL_CODES) expect(ERROR_CATALOGUE, code).toHaveProperty(code);
+    expect(INSTALL_REFUSAL_CODES).toHaveLength(TEMPLATE_REFUSAL_CODES.length - 4);
+    for (const code of TEMPLATE_REFUSAL_CODES.filter((c) => !INSTALL_REFUSAL_CODES.includes(c as never))) {
+      expect(ERROR_CATALOGUE, code).not.toHaveProperty(code);
+    }
+  });
+
+  it("answers the same by cookie, token and tool: one download, then the version installed", async () => {
+    await refreshRoute(call("POST", "/api/templates/refresh", memberCookie()));
+    const byCookie = await fetchCall(memberCookie());
+    expect(byCookie.status).toBe(200);
+    expect(byCookie.headers.get("cache-control")).toBe("private, no-store");
+    expect(await byCookie.json()).toEqual({ id: "harbour-stations", version: 1, size: A1.size, downloaded: true });
+    const byToken = await fetchCall(memberToken(), JSON.stringify({ version: 1 }));
+    expect(await byToken.json()).toEqual({ id: "harbour-stations", version: 1, size: A1.size, downloaded: false });
+    const secret = memberToken().authorization.slice("Bearer ".length);
+    const byTool = await executeTool(tool("fetch_template"), { id: "harbour-stations" }, ORIGIN, dispatch(secret));
+    expect(byTool.body).toEqual({ id: "harbour-stations", version: 1, size: A1.size, downloaded: false });
+    const shippedOne = await executeTool(tool("fetch_template"), { id: "quiet-park", version: 1 }, ORIGIN, dispatch(secret));
+    expect(shippedOne.body).toEqual({ id: "quiet-park", version: 1, size: C1.size, downloaded: false });
+    expect(archives()).toHaveLength(1);
+  });
+
+  it("refuses an anonymous request at the gate and the handler, and a cookie from another origin, sending nothing", async () => {
+    await refreshRoute(call("POST", "/api/templates/refresh", memberCookie()));
+    const sent = catalogue.requests.length;
+    for (const response of [gateRequest(call("POST", "/api/templates/harbour-stations/fetch", { origin: ORIGIN })), await fetchCall({ origin: ORIGIN })]) {
+      expect(response.status).toBe(401);
+      expect(await response.json()).toEqual({ error: { code: "authentication_required", message: expect.any(String) } });
+    }
+    const elsewhere = await fetchCall({ cookie: `dezfil_session=${f.member.secret}`, origin: "https://elsewhere.test" });
+    expect(elsewhere.status).toBe(403);
+    expect(catalogue.requests).toHaveLength(sent);
+  });
+
+  it("refuses a body that is not a version, a body past its bound, and a version not listed, each coded and sending nothing", async () => {
+    await refreshRoute(call("POST", "/api/templates/refresh", memberCookie()));
+    const sent = catalogue.requests.length;
+    for (const body of [JSON.stringify({ version: "1" }), JSON.stringify({ version: 0 }), JSON.stringify({ name: "x" }), "[1]", "{ not json"]) {
+      const response = await fetchCall(memberCookie(), body);
+      expect(response.status, body).toBe(400);
+      expect((await response.json()).error.code, body).toBe("invalid_request");
+    }
+    const large = await fetchCall(memberCookie(), JSON.stringify({ version: 1, padding: "x".repeat(70_000) }));
+    expect(large.status).toBe(413);
+    expect((await large.json()).error.code).toBe("request_body_too_large");
+    const unlisted = await fetchCall(memberCookie(), JSON.stringify({ version: 2 }));
+    expect(unlisted.status).toBe(404);
+    expect((await unlisted.json()).error.code).toBe("template_not_listed");
+    expect(catalogue.requests).toHaveLength(sent);
+  });
+
+  it("answers a refused archive with its code and status, and while off the switch's reason, leaving nothing installed", async () => {
+    await catalogue.publish([A1], { edit: (index) => { index.templates[0].sha256 = "0".repeat(64); } });
+    await refreshRoute(call("POST", "/api/templates/refresh", memberCookie()));
+    const mismatch = await fetchCall(memberCookie());
+    expect(mismatch.status).toBe(422);
+    expect(mismatch.headers.get("cache-control")).toBe("private, no-store");
+    expect(await mismatch.json()).toEqual({ error: { code: "template_checksum_mismatch", message: expect.any(String) } });
+    await catalogue.publish([A1], { edit: (index) => { index.templates[0].size = A1.size - 1; } });
+    await refreshPastWindow(1);
+    const large = await fetchCall(memberCookie());
+    expect(large.status).toBe(413);
+    expect((await large.json()).error.code).toBe("template_archive_too_large");
+    switchOff();
+    const sent = catalogue.requests.length;
+    const off = await fetchCall(memberCookie());
+    expect(off.status).toBe(409);
+    expect((await off.json()).error.code).toBe("templates_catalogue_off");
+    expect(catalogue.requests).toHaveLength(sent);
+    expect(await import("node:fs/promises").then((fs) => fs.readdir(downloadedTemplatesDir()).catch(() => []))).toEqual([]);
+  });
+
+  describe("through the assistants", () => {
+    const turn = async (calls: { name: string; args: Record<string, unknown> }, context?: Parameters<typeof runAssistant>[1]["context"]) => {
+      const pending = new PendingActionStore();
+      const provider = stubProvider([
+        { text: "", toolCalls: [{ id: "call-1", name: calls.name, args: calls.args }] },
+        { text: "Done.", toolCalls: [] },
+      ]);
+      const deps = { scope: testAccountScope(f.db, "member"), baseUrl: ORIGIN, pending,
+        fetchImpl: (async (input: RequestInfo | URL, init?: RequestInit) => {
+          const incoming = input instanceof Request ? input : new Request(String(input), init);
+          return dispatch(memberToken().authorization.slice("Bearer ".length))(incoming);
+        }) as typeof fetch };
+      const events: AssistantEvent[] = [];
+      for await (const event of runAssistant(provider, { message: "Fetch it", history: [], ...(context ? { context } : {}) }, deps)) events.push(event);
+      return { events, pending, deps };
+    };
+    const resume = async (parked: ReturnType<PendingActionStore["claim"]>, deps: Awaited<ReturnType<typeof turn>>["deps"]) => {
+      const done: AssistantEvent[] = [];
+      for await (const event of resumeAssistant(parked!, true, deps)) done.push(event);
+      return done;
+    };
+    const question = (events: AssistantEvent[]) => {
+      const asked = events.find((e) => e.type === "confirm_required");
+      if (asked?.type !== "confirm_required") throw new Error("expected a confirmation");
+      return asked;
+    };
+
+    it("the SQL and workflow assistants refuse the fetch with the policy refusal before any request", async () => {
+      expect(admittedTools("read_only").map((t) => t.name)).not.toContain("fetch_template");
+      await refreshRoute(call("POST", "/api/templates/refresh", memberCookie()));
+      const sent = catalogue.requests.length;
+      for (const context of [{ page: "sql", draft: "", selection: null, lastExecution: null }, { page: "workflow", recipeId: "r", selectedStepId: null, lastRunId: null }] as const) {
+        const { events } = await turn({ name: "fetch_template", args: { id: "harbour-stations" } }, context);
+        expect(events.find((e) => e.type === "tool_result")).toMatchObject({ tool: "fetch_template", ok: false, outcome: "refused",
+          body: { error: { code: POLICY_REFUSAL_CODE } } });
+      }
+      expect(catalogue.requests).toHaveLength(sent);
+    });
+
+    it("the embedded assistant asks first, naming the version and its size, binds that version into the call, and fetches it on approval", async () => {
+      await refreshRoute(call("POST", "/api/templates/refresh", memberCookie()));
+      const { events, pending, deps } = await turn({ name: "fetch_template", args: { id: "harbour-stations" } });
+      const asked = question(events);
+      expect(asked.confirmation).toEqual({
+        target: "Download version 1 of Harbour stations (harbour-stations)?",
+        consequence: `Its archive, ${Math.round(A1.size / 1024)} KB, comes from the template catalogue and is checked whole before it is installed on this server. ` +
+          "Nothing is downloaded if that version is installed already.",
+      });
+      expect(asked.args).toEqual({ id: "harbour-stations", version: 1 });
+      expect(archives()).toEqual([]);
+      const done = await resume(pending.claim(deps.scope, asked.id, "approved"), deps);
+      expect(done).toContainEqual(expect.objectContaining({ type: "tool_result", tool: "fetch_template", ok: true,
+        body: { id: "harbour-stations", version: 1, size: A1.size, downloaded: true } }));
+      expect(archives().map((r) => r.path)).toEqual(["/archives/harbour-stations-1.zip"]);
+    });
+
+    it("a confirmation pending across an index move acts on the version its words name, never the newer one", async () => {
+      await refreshRoute(call("POST", "/api/templates/refresh", memberCookie()));
+      const { events, pending, deps } = await turn({ name: "fetch_template", args: { id: "harbour-stations" } });
+      const asked = question(events);
+      expect(asked.confirmation?.target).toBe("Download version 1 of Harbour stations (harbour-stations)?");
+      const A2 = await buildTemplate(path.join(dir, "a2"), { id: "harbour-stations", version: 2 });
+      await catalogue.publish([A2]);
+      await refreshPastWindow(1);
+      const done = await resume(pending.claim(deps.scope, asked.id, "approved"), deps);
+      expect(done).toContainEqual(expect.objectContaining({ type: "tool_result", tool: "fetch_template", ok: false,
+        body: { error: { code: "template_not_listed", message: expect.any(String) } } }));
+      expect(archives()).toEqual([]);
+    });
+
+    it("a call naming another version than the card's names that version, its size as the catalogue lists it", async () => {
+      await refreshRoute(call("POST", "/api/templates/refresh", memberCookie()));
+      const { events } = await turn({ name: "fetch_template", args: { id: "harbour-stations", version: 2 } });
+      const asked = question(events);
+      expect(asked.confirmation).toEqual({
+        target: "Download version 2 of Harbour stations (harbour-stations)?",
+        consequence: "Its archive, of the size the catalogue lists, comes from the template catalogue and is checked whole before it is installed on this server. " +
+          "Nothing is downloaded if that version is installed already.",
+      });
+      expect(asked.args).toEqual({ id: "harbour-stations", version: 2 });
+    });
+
+    it("a fetch whose template cannot be read is not asked, and the read's refusal ends the turn", async () => {
+      const { events } = await turn({ name: "fetch_template", args: { id: "no-such" } });
+      expect(events.some((e) => e.type === "confirm_required")).toBe(false);
+      expect(events).toContainEqual(expect.objectContaining({ type: "error", code: "template_not_listed" }));
+      expect(catalogue.requests).toEqual([]);
+    });
   });
 });

@@ -1,6 +1,9 @@
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
+import type { AccountScope } from "@/lib/auth/scope";
+import { admitTemplateBindings } from "./bindings";
 import { SHIPPED_TEMPLATES_MAX_BYTES, TEMPLATE_DOCUMENT_MAX_BYTES } from "./format";
+import { prepareTemplateHome } from "./home";
 import { readInstalledVersion, type InstalledVersion } from "./installed";
 import { TemplateRefusal } from "./refusals";
 
@@ -72,11 +75,14 @@ export async function readShippedIndex(dir: string): Promise<ShippedIndex> {
  * Hold a shipped folder to the rules every template must meet: the index
  * well formed, each listed version installed at `<id>/<version>/` and read
  * back whole against its record (the first stage, the licence and credit
- * rules among it), nothing in the folder the index does not list, and every
- * listed version together within the shipped bound. Answers every fault,
- * not only the first, so a release sees all it must fix.
+ * rules among it), its documents bound to its own data (the second stage,
+ * the reference rule among it, read as `scope`), nothing in the folder the
+ * index does not list, and every listed version together within the
+ * shipped bound. Answers every fault, not only the first, so a release
+ * sees all it must fix.
  */
 export async function checkShippedSet(
+  scope: AccountScope,
   dir: string = shippedTemplatesDir(),
   { maxBytes = SHIPPED_TEMPLATES_MAX_BYTES }: { maxBytes?: number } = {},
 ): Promise<ShippedSetCheck> {
@@ -94,6 +100,12 @@ export async function checkShippedSet(
     try {
       const version = await readInstalledVersion(path.join(dir, entry.id, String(entry.version)));
       if (version.record.origin.kind !== "shipped") problems.push(`${label}: its record does not say it is shipped.`);
+      const prepared = await prepareTemplateHome(version, { own: true });
+      try {
+        await admitTemplateBindings(scope, version.admitted, prepared.home);
+      } finally {
+        await prepared.release();
+      }
       bytes += [...version.admitted.members.values()].reduce((sum, b) => sum + b, 0);
       versions.push(version);
     } catch (error) {

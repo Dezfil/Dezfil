@@ -275,6 +275,8 @@ describe("tool parity", () => {
       "delete_recipe",
       "delete_table",
       "delete_user",
+      // Downloads a template into this server, from outside it.
+      "fetch_template",
       "finish_user_deletion",
       "invite_user",
       "issue_user_sign_in_link",

@@ -24,7 +24,7 @@ every documented operation must have a route, and every call the interface
 makes must hit a documented path (`src/lib/api/parity.test.ts`). The
 description cannot drift from the server.
 
-Measured from the current source: **139 paths, 395 operations, 182 named component schemas.** Operations include supported automatic HEAD and OPTIONS.
+Measured from the current source: **140 paths, 397 operations, 183 named component schemas.** Operations include supported automatic HEAD and OPTIONS.
 `npm run lint:contract-docs` measures these numbers and checks the catalogue below
 against the contract; changing only the reader-facing text fails the gate.
 
@@ -64,7 +64,7 @@ preconditions are declared on the operations that require them.
 
 ## Request bounds
 
-Measured JSON reader operations: **67**. These counts include optional bodies,
+Measured JSON reader operations: **68**. These counts include optional bodies,
 helper readers and MCP's external parser handoff, and exclude multipart uploads
 and binary thumbnails. The contract gate measures them; type-aware body-policy
 coverage independently checks the implementation against the contract.
@@ -72,7 +72,7 @@ coverage independently checks the implementation against the contract.
 <!-- body-tiers:start -->
 | JSON wire-byte tier | Operations |
 |---|---|
-| 65,536 | 15 |
+| 65,536 | 16 |
 | 131,072 | 1 |
 | 16,777,216 | 51 |
 <!-- body-tiers:end -->
@@ -1232,10 +1232,43 @@ trusted Origin. `GET /api/templates/{id}` answers one card with `howMade`, an
 unknown id 404 `template_not_listed`. `GET /api/templates/{id}/picture?theme=`
 answers the card's map picture as PNG (light when no theme is named), from
 disk for a shipped or downloaded version, else as the kept list holds it;
-it is a card image, outside the tool set. List, read one and refresh are
-generated as tools, `list_templates`, `get_template` and `refresh_templates`;
+it is a card image, outside the tool set. `POST /api/templates/{id}/fetch`
+downloads one version so it opens and copies with no further request: the
+`version` its optional JSON body names (at most 64 KB), else the one its card
+takes now. An installed version (shipped, or downloaded before) answers at
+once and sends nothing; a shipped template has its shipped version alone.
+Any other must be the version the catalogue list this process last read
+names. Its archive is read from its address through the egress check,
+redirects included, with no credential on any hop, within the link import's
+time bound (or from the catalogue's folder), its size and SHA-256 checked
+against the index as it lands; then it is unpacked and admitted as a client's
+documents are, every dataset and bundled result read through the upload's
+reader (what it measured is recorded), every layer's SQL, columns, widgets
+and timeline and every step bound to the template's own data and the results
+of earlier steps, nothing else; and only then moved into place under the data
+folder's `templates/<id>/<version>/`. Two calls for one version download it
+once, and downloads run one at a time on this instance; a download waiting
+its turn when an admin turns the catalogue off or moves it sends nothing. A
+version installed before stays as it is, so a newer listed version installs
+beside it and the older one stays in use when the newer is refused. It
+answers `{ id, version, size, downloaded }`, `downloaded` false when the
+version was installed already. Refused, coded, leaving nothing installed:
+404 `template_not_listed` for a version neither installed nor listed, 409
+`templates_catalogue_off` while the catalogue is off, 400
+`service_address_unreadable`, 413 `template_archive_too_large` (past the size
+the index declares or 150 MB), `template_unpacked_too_large` or
+`template_picture_too_large`, 422 `template_checksum_mismatch` and the
+template reader's other codes (`template_reference_outside` for a layer or
+step naming a dataset that is not the template's, a person's or another
+template's), 403 `egress_blocked`, 502 `remote_fetch_failed` and 504
+`remote_timeout`. List, read one, refresh and fetch are generated as tools,
+`list_templates`, `get_template`, `refresh_templates` and `fetch_template`;
 the SQL and workflow assistants are offered the first two and refuse the
-refresh, which reaches outside this server.
+refresh, which reaches outside this server, and the fetch, which writes. The
+embedded assistant asks before a fetch, its words naming the version and its
+size; a call naming no version is completed with the version those words
+name before it waits, so approving it later fetches that version even if the
+catalogue lists a newer one by then.
 
 **Agents.** The assistant and the MCP endpoint. `POST /api/assistant/runs`
 reserves a run, `POST /api/assistant/messages` sends a message under that
@@ -1269,7 +1302,7 @@ server-side, so filesystem paths and engine text stay out of responses
 The complete catalogue is published two ways in the same document: as the
 enum of the `Error` schema, and as `x-error-codes` at the top level, which
 maps every code to a sentence explaining what it means
-(`src/lib/api/error-catalogue.ts`). There are **118** codes. Clients should
+(`src/lib/api/error-catalogue.ts`). There are **132** codes. Clients should
 branch on codes, never on prose.
 
 One status is unusual: a client that abandons an in-flight evaluation gets
@@ -2142,6 +2175,20 @@ response message. Branch on the code.
 | `map_not_found` | No map exists with the given id. |
 | `template_not_listed` | No template with that id is shipped with this instance, downloaded to it or listed by the catalogue list it last read. |
 | `templates_catalogue_off` | An admin turned the template catalogue off (the templates.catalogue setting), so the server reaches it for nothing: no refresh, Test or download is sent. Shipped and downloaded templates still open and copy. |
+| `template_archive_too_large` | A template's archive is larger than the size the catalogue's index declares for it, or than the 150 MB a template archive may be; nothing was installed. |
+| `template_checksum_mismatch` | A template's archive arrived with another size or another SHA-256 than the catalogue's index declares; nothing was installed. |
+| `template_unpacked_too_large` | A template's archive unpacks past this instance's upload cap; nothing was installed. |
+| `template_malformed` | A template's archive is not one this server reads: not a readable ZIP holding one .dezfil folder, a document that is not JSON, or a dataset the upload's reader cannot read. |
+| `template_entry_escapes` | A member of a template's archive names a path outside its folder. |
+| `template_members_mismatch` | A template's documents name a member it does not hold, or it holds a member nothing names. |
+| `template_format_unsupported` | A template is in a format version this server does not read. |
+| `template_invalid` | A template's document fails the rules a client's document is held to, or one of its layers or steps does not bind to the template's own data as a client's would. |
+| `template_forbidden` | A template carries a publication, token, connection, service address or setting, which no template may. |
+| `template_picture_too_large` | A template's map picture is larger than its 2 MB bound. |
+| `template_licence_refused` | A template's data is under a licence that does not allow redistribution. |
+| `template_credit_missing` | A template's credit note does not name every source with its licence. |
+| `template_reference_outside` | A template's layer or step names a dataset that is neither the template's own nor the result of an earlier step, such as a person's dataset or another template's. |
+| `template_record_mismatch` | An installed template's files differ from the record written when it was installed, so it is refused rather than trusted. |
 | `internal` | An unexpected server error occurred. |
 <!-- error-catalogue:end -->
 

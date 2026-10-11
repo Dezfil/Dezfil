@@ -129,6 +129,22 @@ export type ErrorCode =
   | "template_not_listed"
   /** The template catalogue is off: nothing is read from it. */
   | "templates_catalogue_off"
+  /** A template's archive or version refused at its install: the reader's
+   * coded refusals, each one class of fault. */
+  | "template_archive_too_large"
+  | "template_checksum_mismatch"
+  | "template_unpacked_too_large"
+  | "template_malformed"
+  | "template_entry_escapes"
+  | "template_members_mismatch"
+  | "template_format_unsupported"
+  | "template_invalid"
+  | "template_forbidden"
+  | "template_picture_too_large"
+  | "template_licence_refused"
+  | "template_credit_missing"
+  | "template_reference_outside"
+  | "template_record_mismatch"
   | "internal";
 
 export class ApiError extends Error {

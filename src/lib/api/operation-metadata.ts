@@ -44,6 +44,15 @@ export interface ConfirmationWords {
      * Empty collection path means the response itself is an array. */
     collection?: string;
     identity?: string;
+    /** An argument the call may leave out, which the confirmation binds:
+     * completed from the subject read (its value at `path`) before the call
+     * waits for its answer, so what the words name is what runs. `{<argument>}`
+     * in the words reads the bound value. */
+    binds?: { argument: string; path: string };
+    /** Words read from the subject: `{<key>}` in the words becomes the value
+     * at `path` (a byte count, when `bytes`, in KB, MB or GB). Read only
+     * when the subject describes the bound value; else `fallback`. */
+    facts?: Record<string, { path: string; bytes?: true; fallback: string }>;
   };
 }
 /** The pages the in-product assistant runs on. */

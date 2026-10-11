@@ -1137,6 +1137,29 @@
       }
     },
     {
+      "name": "fetch_template",
+      "description": "Fetch a template. At most 65,536 wire bytes; a larger body is refused with `request_body_too_large` before JSON parsing. Every signed-in account, through cookie or bearer authentication; an anonymous request is refused. Responses, including refusals, are private, no-store. Cookie requests require the same trusted Origin; a bearer token calls directly. Downloads one version of a template so it opens and copies with no further request: the version the body names, else the one its card takes now. An installed version (shipped, or downloaded before) answers at once and sends nothing; a shipped template has its shipped version alone. Otherwise the version must be the one the catalogue list this process last read names (POST /api/templates/refresh reads it again). Its archive is read from its address through the egress check, redirects included, within the link import's time bound (DEZFIL_REMOTE_TIMEOUT_S), with no credential on any request, or from the catalogue's folder; its size and SHA-256 are checked against the index; then it is unpacked and admitted as a client's documents are, every dataset read through the upload's reader, every layer and step bound to the template's own data and nothing else; and only then is it installed. Two calls for one version download it once, and downloads run one at a time on this instance. A version installed before stays as it is. Refused, coded, leaving nothing installed: 404 template_not_listed for a version neither installed nor listed; 409 templates_catalogue_off while an admin has turned the catalogue off; 400 service_address_unreadable for a saved address the instance's key no longer opens; 413 template_archive_too_large (over the declared size or 150 MB), template_unpacked_too_large or template_picture_too_large; 422 template_checksum_mismatch and the template reader's other codes, template_reference_outside among them for a layer or step naming a dataset that is not the template's; 403 egress_blocked; 502 remote_fetch_failed; 504 remote_timeout. Answers the version installed.\n\nAccepted argument sets: only `id`; or only `id`, `version`.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$",
+            "description": "The template's id: lowercase letters, digits and hyphens, the same across its versions."
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "The version to fetch; without it, the one the template's card takes now."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "id"
+        ]
+      }
+    },
+    {
       "name": "inspect_table_geometry",
       "description": "Inspect a dataset's geometry choices. A dataset is reached by its owner and by the owner and people of every project it is filed in. Lists, schema discovery and counts cover exactly the reached datasets and name each one's owner and the name the caller would type for it: the plain name for the caller's own, <sql name>.<name> for another owner's. Another owner's dataset is shown without connection facts and without links to what the caller cannot reach: a PostGIS snapshot shows its origin kind, with neither its connection nor its remote schema and table. A bare dataset name in a path or parameter is the caller's own dataset. On dataset reads, features, downloads and operation parameters, another owner's dataset the caller reaches is addressed by its qualified name, and in a /api/tables path also by its identifier; changing one by any address answers forbidden. Datasets change, refresh and go only by their owner; administrators reach nothing more. Upload and sketch suffixes ignore other accounts' names. Unreached and missing datasets, maps and project references return not_found before source or artifact access; a refused change leaves resources unchanged. Refresh and geometry changes preserve the dataset's identity and owner and recheck account activity at commit. For file uploads and URL imports only. SQL-save, workflow, PostGIS, OSM, Overture and sketch datasets refuse with 409 geometry_not_supported and a sentence. Unknown or reclaimed dataset identity answers 404 not_found; a stale artifact revision answers 409 input_changed. Column names are identifiers, never SQL expressions or file paths. Reads current stored schema, record, choice, opaque revision and candidates using the same first-1,000-row recognition and full safety evidence as CSV upload. Does not apply a proposal, fetch a source or invent legacy provenance. Repeated inspections reuse candidates while the artifact is unchanged. Historical consumed names and generated outputs are not new source columns.",
       "input_schema": {

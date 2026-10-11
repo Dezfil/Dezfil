@@ -167,8 +167,8 @@ export interface ListedEntry {
 type Where = CatalogueInEffect;
 
 /** An address with its user name and password taken out: no request this
- * module sends carries a credential. */
-function withoutCredentials(url: URL): URL {
+ * module or the download sends carries a credential. */
+export function withoutCredentials(url: URL): URL {
   const copy = new URL(url.toString());
   copy.username = "";
   copy.password = "";
@@ -283,8 +283,8 @@ async function readBytesCapped(body: AsyncIterable<Buffer> & { destroy(): void }
 }
 
 /** A redirect naming a user name or password is not followed: no request
- * this module sends carries a credential. */
-function noCredentialHop(hop: { headers: { location?: string } }): void {
+ * this module or the download sends carries a credential. */
+export function noCredentialHop(hop: { headers: { location?: string } }): void {
   const location = hop.headers.location;
   if (!location) return;
   let url: URL;
@@ -605,6 +605,61 @@ export async function refreshCatalogue(db: Database = metadataDb(), options: Ref
     await promise;
   }
   return listTemplates(db);
+}
+
+/** A downloaded version's archive size when it is installed (its facts and
+ * record read light, as the list reads them), else null. */
+export async function downloadedSize(id: string, version: number): Promise<number | null> {
+  if (!ID.test(id) || !Number.isSafeInteger(version) || version < 1) return null;
+  return (await readInstalledLight(path.join(downloadedTemplatesDir(), id, String(version)), id, version))?.size ?? null;
+}
+
+/** The version a fetch acts on: installed already, or the one the kept list
+ * names, with where the catalogue is read. */
+export type FetchTarget =
+  | { kind: "installed"; id: string; version: number; size: number }
+  | { kind: "listed"; entry: ListedEntry; where: CatalogueInEffect };
+
+/**
+ * The version a fetch of `id` acts on: the one named, else the one its card
+ * takes now (the newest listed, unless the installed one is as new). A
+ * shipped id has its shipped version alone. An installed version (shipped,
+ * or downloaded and whole by its record) is answered as it is, and nothing
+ * is sent. Any other must be the version the kept list names, with the
+ * catalogue in use: off, refused with the switch's reason; a saved address
+ * the key no longer opens, refused as every service refuses it; a version
+ * the kept list does not name, not listed. Nothing is read from the
+ * catalogue here: what it lists is what the last refresh kept.
+ */
+export async function fetchTarget(id: string, version: number | null, db: Database = metadataDb()): Promise<FetchTarget> {
+  if (!ID.test(id)) throw templateNotListed();
+  const now = catalogueNow(db);
+  const shipped = (await shippedVersions()).find((v) => v.facts.id === id);
+  if (shipped) {
+    if (version !== null && version !== shipped.facts.version) throw templateNotListed();
+    return { kind: "installed", id, version: shipped.facts.version, size: shipped.size };
+  }
+  const wanted = version ?? (await drawn(now)).find((d) => d.card.id === id)?.card.version ?? null;
+  if (wanted !== null) {
+    const installed = await downloadedSize(id, wanted);
+    if (installed !== null) return { kind: "installed", id, version: wanted, size: installed };
+  }
+  if (now.kind === "off") throw catalogueOff();
+  if (now.kind === "unreadable") throw serviceAddressUnreadable("templatesCatalogueUrl");
+  const entry = holder.kept?.key === now.key ? holder.kept.entries.find((e) => e.facts.id === id) : undefined;
+  if (!entry || entry.facts.version !== wanted) throw templateNotListed();
+  return { kind: "listed", entry, where: now.where };
+}
+
+/** At a download's turn, the catalogue still in use where the version was
+ * listed: off, refused with the switch's reason; a saved address the key no
+ * longer opens, refused as every service refuses it; another address or
+ * folder now, the version is not listed there. */
+export function requireCatalogueAt(where: CatalogueInEffect, db: Database = metadataDb()): void {
+  const now = catalogueNow(db);
+  if (now.kind === "off") throw catalogueOff();
+  if (now.kind === "unreadable") throw serviceAddressUnreadable("templatesCatalogueUrl");
+  if (now.key !== describe(where).key) throw templateNotListed();
 }
 
 /**

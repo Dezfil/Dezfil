@@ -1,8 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import type { Database } from "better-sqlite3";
+import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
+import type { AccountScope } from "@/lib/auth/scope";
+import { dataDir } from "@/lib/config";
+import { resetQueryInstance } from "@/lib/duckdb";
+import * as metadata from "@/lib/metadata/db";
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { readTemplateArchive } from "./archive";
 import { SHIPPED_TEMPLATES_MAX_BYTES, TEMPLATE_ARCHIVE_MAX_BYTES, type TemplateFacts } from "./format";
+import { installTemplateArchive } from "./install";
 import { NOTICE_NONE_LINE, noticeProblems } from "./notice";
 import { TemplateRefusal, type TemplateRefusalCode } from "./refusals";
 import { checkShippedSet, shippedTemplatesDir } from "./shipped";
@@ -18,47 +25,75 @@ import {
 /**
  * The rules every template must meet, held over the shipped set and over
  * the fixture: every shipped version passes, and a fixture failing each
- * rule a template's documents and archive can break fails. The check over
- * the shipped set is shown to bite by pointing it at a folder holding a
- * failing template. NOTICE is held against the shipped set both ways.
+ * rule a template's documents, data and archive can break fails. The check
+ * over the shipped set is shown to bite by pointing it at a folder holding
+ * a failing template. NOTICE is held against the shipped set both ways.
  */
 
 let dir: string;
+let db: Database;
+let scope: AccountScope;
 
 beforeEach(async () => {
   dir = await mkdtemp(path.join(process.cwd(), ".tmp-test-template-rules-"));
+  vi.stubEnv("DEZFIL_DATA_DIR", path.join(dir, "data"));
+  resetQueryInstance();
+  db = metadata.open(":memory:");
+  vi.spyOn(metadata, "metadataDb").mockReturnValue(db);
+  scope = testAccountScope(db, "rules");
 });
 
 afterEach(async () => {
+  vi.restoreAllMocks();
   vi.unstubAllEnvs();
+  resetQueryInstance();
+  db.close();
   await rm(dir, { recursive: true, force: true });
 });
+
+/** Every file under a folder, relative to it; folders alone count for
+ * nothing (the engine makes its own on start). */
+async function filesUnder(root: string): Promise<string[]> {
+  const entries = await readdir(root, { recursive: true, withFileTypes: true }).catch(() => []);
+  return entries.filter((e) => e.isFile()).map((e) => path.relative(root, path.join(e.parentPath, e.name))).sort();
+}
 
 let built = 0;
 const build = (options: TemplateFixtureOptions = {}) => buildTemplate(path.join(dir, `built-${built++}`), options);
 
-/** The rules over one template as a catalogue serves it: its archive read
- * and admitted. The code of the rule it fails, or null when it passes. */
+/** The rules over one template as a catalogue serves it: its archive
+ * installed by the install's own road, both stages of the admission and
+ * the upload's reader. The code of the rule it fails, or null when it
+ * passes; a template that fails leaves nothing in the data folder. */
 async function ruleFailed(options: TemplateFixtureOptions): Promise<TemplateRefusalCode | null> {
   const template = await build(options);
+  const scratch = path.join(dir, `install-${built++}`);
+  await mkdir(scratch);
   try {
-    await readTemplateArchive(template.archive, path.join(dir, `read-${built++}`));
+    const expected = { id: template.facts.id, version: template.facts.version, size: template.size, sha256: template.sha256 };
+    await installTemplateArchive(scope, scratch, template.archive, expected, { kind: "shipped" });
     return null;
   } catch (error) {
-    if (error instanceof TemplateRefusal) return error.code;
+    if (error instanceof TemplateRefusal) {
+      expect(await filesUnder(dataDir())).toEqual([]);
+      return error.code;
+    }
     throw error;
+  } finally {
+    await rm(scratch, { recursive: true, force: true });
+    await rm(dataDir(), { recursive: true, force: true });
   }
 }
 
 describe("the shipped set", () => {
   it("passes every rule: each listed version installed whole, nothing unlisted, within the shipped bound", async () => {
-    const check = await checkShippedSet(shippedTemplatesDir());
+    const check = await checkShippedSet(scope, shippedTemplatesDir());
     expect(check.problems).toEqual([]);
     expect(check.bytes).toBeLessThanOrEqual(SHIPPED_TEMPLATES_MAX_BYTES);
   });
 
   it("is listed in NOTICE, every shipped version with its sources, licences and credits, and nothing else", async () => {
-    const check = await checkShippedSet(shippedTemplatesDir());
+    const check = await checkShippedSet(scope, shippedTemplatesDir());
     const notice = await readFile(path.join(process.cwd(), "NOTICE"), "utf8");
     expect(noticeProblems(notice, check.versions.map((v) => v.admitted.facts))).toEqual([]);
   });
@@ -67,15 +102,25 @@ describe("the shipped set", () => {
     const good = await build();
     const failing = await build({ kind: "workflow", edit: SEEDS.nonCommercialLicence });
     const folder = await writeShippedFolder(path.join(dir, "shipped"), [good, failing]);
-    const check = await checkShippedSet(folder);
+    const check = await checkShippedSet(scope, folder);
     expect(check.versions.map((v) => v.admitted.facts.id)).toEqual(["harbour-stations"]);
     expect(check.problems).toHaveLength(1);
     expect(check.problems[0]).toMatch(/^busy-stations version 1: template_licence_refused: /);
   });
 
+  it("bites on a folder holding a template whose layer names a dataset outside it, in the second stage", async () => {
+    const folder = await writeShippedFolder(path.join(dir, "shipped"), [await build(), await build({ id: "outside", edit: SEEDS.layerReferenceOutside })]);
+    const check = await checkShippedSet(scope, folder);
+    expect(check.versions.map((v) => v.admitted.facts.id)).toEqual(["harbour-stations"]);
+    expect(check.problems).toEqual([
+      'outside version 1: template_reference_outside: The map\'s layer 1 ("Stations") names "roads", which is not a dataset of the template or a result of an earlier step.',
+    ]);
+    expect(await filesUnder(dataDir())).toEqual([]);
+  });
+
   it("passes a folder holding passing templates of both kinds", async () => {
     const folder = await writeShippedFolder(path.join(dir, "shipped"), [await build(), await build({ kind: "workflow" })]);
-    const check = await checkShippedSet(folder);
+    const check = await checkShippedSet(scope, folder);
     expect(check.problems).toEqual([]);
     expect(check.versions.map((v) => v.admitted.facts.id)).toEqual(["harbour-stations", "busy-stations"]);
   });
@@ -83,7 +128,7 @@ describe("the shipped set", () => {
   it("refuses a folder holding a version its index does not list", async () => {
     const folder = await writeShippedFolder(path.join(dir, "shipped"), [await build()]);
     await installFixture(await build({ id: "unlisted" }), path.join(folder, "unlisted", "1"));
-    expect((await checkShippedSet(folder)).problems).toEqual([
+    expect((await checkShippedSet(scope, folder)).problems).toEqual([
       'The shipped folder holds "unlisted", which its index does not list.',
     ]);
   });
@@ -91,7 +136,7 @@ describe("the shipped set", () => {
   it("refuses a member changed after its version was recorded", async () => {
     const folder = await writeShippedFolder(path.join(dir, "shipped"), [await build()]);
     await writeFile(path.join(folder, "harbour-stations", "1", "pictures", "dark.png"), (await build()).files.binaries.get("pictures/light.png")!);
-    expect((await checkShippedSet(folder)).problems).toEqual([
+    expect((await checkShippedSet(scope, folder)).problems).toEqual([
       'harbour-stations version 1: template_record_mismatch: The member "pictures/dark.png" differs from its record.',
     ]);
   });
@@ -99,9 +144,9 @@ describe("the shipped set", () => {
   it("refuses a shipped set past its bound together, the bound 50 MB", async () => {
     expect(SHIPPED_TEMPLATES_MAX_BYTES).toBe(50 * 1024 * 1024);
     const folder = await writeShippedFolder(path.join(dir, "shipped"), [await build(), await build({ kind: "workflow" })]);
-    const { bytes } = await checkShippedSet(folder);
-    expect((await checkShippedSet(folder, { maxBytes: bytes })).problems).toEqual([]);
-    const over = await checkShippedSet(folder, { maxBytes: bytes - 1 });
+    const { bytes } = await checkShippedSet(scope, folder);
+    expect((await checkShippedSet(scope, folder, { maxBytes: bytes })).problems).toEqual([]);
+    const over = await checkShippedSet(scope, folder, { maxBytes: bytes - 1 });
     expect(over.problems).toEqual([
       `The shipped templates together are ${(bytes / (1024 * 1024)).toFixed(1)} MB; the image carries at most ${((bytes - 1) / (1024 * 1024)).toFixed(1)} MB of them.`,
     ]);
@@ -123,6 +168,8 @@ describe("the rules every template must meet", () => {
     ["a stale format version", { edit: SEEDS.staleFormatVersion }, "template_format_unsupported"],
     ["a missing picture", { edit: SEEDS.missingPicture }, "template_members_mismatch"],
     ["an output without its result", { kind: "workflow", edit: SEEDS.missingResult }, "template_members_mismatch"],
+    ["a layer naming a dataset outside the template", { edit: SEEDS.layerReferenceOutside }, "template_reference_outside"],
+    ["a step reading a dataset outside the template", { kind: "workflow", edit: SEEDS.stepReferenceOutside }, "template_reference_outside"],
   ])("a template with %s fails them", async (_what, options, code) => {
     expect(await ruleFailed(options)).toBe(code);
   });

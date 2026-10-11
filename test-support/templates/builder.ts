@@ -458,6 +458,22 @@ export const SEEDS = {
     const steps = workflow(files).steps as { parameters: Record<string, unknown> }[];
     steps[1].parameters.name = steps[0].parameters.name;
   },
+  /** A layer whose SQL names a dataset the template does not hold. */
+  layerReferenceOutside: (files: TemplateFiles) => {
+    (map(files).layers as Record<string, unknown>[])[0].sql = "SELECT * FROM roads";
+  },
+  /** A step whose SQL reads a dataset the template does not hold. */
+  stepReferenceOutside: (files: TemplateFiles) => {
+    (workflow(files).steps as { parameters: Record<string, unknown> }[])[0].parameters.sql = "SELECT * FROM roads WHERE riders > 100";
+  },
+  /** A widget reading a column its layer's result does not have. */
+  widgetColumnMissing: (files: TemplateFiles) => {
+    (map(files).widgets as Record<string, unknown>[])[0].field = "seeded_column";
+  },
+  /** A dataset the upload's reader cannot read. */
+  unreadableDataset: (files: TemplateFiles) => {
+    files.binaries.set("datasets/districts.parquet", Buffer.from("PAR1 seeded bytes that are no table PAR1"));
+  },
   /** A layout note of a colour the canvas does not draw. */
   invalidLayoutNote: (files: TemplateFiles) => {
     const layout = workflow(files).layout as { notes: Record<string, unknown>[] };

@@ -183,6 +183,34 @@ export const ERROR_CATALOGUE: Record<ErrorCode, string> = {
     "No template with that id is shipped with this instance, downloaded to it or listed by the catalogue list it last read.",
   templates_catalogue_off:
     "An admin turned the template catalogue off (the templates.catalogue setting), so the server reaches it for nothing: no refresh, Test or download is sent. Shipped and downloaded templates still open and copy.",
+  template_archive_too_large:
+    "A template's archive is larger than the size the catalogue's index declares for it, or than the 150 MB a template archive may be; nothing was installed.",
+  template_checksum_mismatch:
+    "A template's archive arrived with another size or another SHA-256 than the catalogue's index declares; nothing was installed.",
+  template_unpacked_too_large:
+    "A template's archive unpacks past this instance's upload cap; nothing was installed.",
+  template_malformed:
+    "A template's archive is not one this server reads: not a readable ZIP holding one .dezfil folder, a document that is not JSON, or a dataset the upload's reader cannot read.",
+  template_entry_escapes:
+    "A member of a template's archive names a path outside its folder.",
+  template_members_mismatch:
+    "A template's documents name a member it does not hold, or it holds a member nothing names.",
+  template_format_unsupported:
+    "A template is in a format version this server does not read.",
+  template_invalid:
+    "A template's document fails the rules a client's document is held to, or one of its layers or steps does not bind to the template's own data as a client's would.",
+  template_forbidden:
+    "A template carries a publication, token, connection, service address or setting, which no template may.",
+  template_picture_too_large:
+    "A template's map picture is larger than its 2 MB bound.",
+  template_licence_refused:
+    "A template's data is under a licence that does not allow redistribution.",
+  template_credit_missing:
+    "A template's credit note does not name every source with its licence.",
+  template_reference_outside:
+    "A template's layer or step names a dataset that is neither the template's own nor the result of an earlier step, such as a person's dataset or another template's.",
+  template_record_mismatch:
+    "An installed template's files differ from the record written when it was installed, so it is refused rather than trusted.",
   internal: "An unexpected server error occurred.",
 };
 

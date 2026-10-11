@@ -2,8 +2,8 @@ import { CARD_PICTURES, CATALOGUE_REFUSALS, CATALOGUE_STATES } from "@/lib/templ
 import { TEMPLATE_KINDS, TEMPLATE_TAGS, TEMPLATE_THEMES } from "@/lib/templates/format";
 import { AUTH_SECURITY } from "./openapi-auth";
 import { ERROR_RESPONSE, jsonOk, op } from "./openapi-helpers";
-import { LOCAL_READ, REMOTE_READ } from "./operation-mcp";
-import { READ_ONLY, REACHES_OUTSIDE } from "./operation-metadata";
+import { LOCAL_READ, REMOTE_ADD, REMOTE_READ } from "./operation-mcp";
+import { READ_ONLY, REACHES_OUTSIDE, resource, writes } from "./operation-metadata";
 
 /**
  * Templates: finished maps and workflow examples with their data, shipped
@@ -79,6 +79,16 @@ export const TEMPLATES_SCHEMAS = {
     }),
     description: "Where the template catalogue stands for this list.",
   },
+  TemplateFetched: {
+    ...object({
+      id: text("The template's id."),
+      version: { type: "integer", minimum: 1, description: "The version fetched: the one the request named, else the one its card took." },
+      size: { type: "integer", minimum: 0, description: "Its archive's size in bytes, as transferred." },
+      downloaded: { type: "boolean",
+        description: "True when this call downloaded and installed it, or joined the download that did; false when it was installed already and nothing was sent." },
+    }),
+    description: "A template's version, installed on this server.",
+  },
   TemplateList: object({
     templates: { type: "array", items: { $ref: "#/components/schemas/TemplateCard" },
       description: "Shipped templates first, in the image's order; then the catalogue's entries in its index's order, a shipped id winning over an entry naming it; " +
@@ -127,6 +137,52 @@ export const TEMPLATES_PATHS = {
     effects: READ_ONLY, mcp: LOCAL_READ,
     parameters: [ID_PARAM],
     responses: { "200": jsonOk("#/components/schemas/TemplateDetail"), "401": ERROR_RESPONSE, "404": ERROR_RESPONSE, "503": ERROR_RESPONSE },
+  }), security: AUTH_SECURITY } },
+  "/api/templates/{id}/fetch": { post: { ...op({
+    summary: "Fetch a template",
+    description: SIGNED_IN + "Cookie requests require the same trusted Origin; a bearer token calls directly. " +
+      "Downloads one version of a template so it opens and copies with no further request: the version the body names, else the one its card takes " +
+      "now. An installed version (shipped, or downloaded before) answers at once and sends nothing; a shipped template has its shipped version alone. " +
+      "Otherwise the version must be the one the catalogue list this process last read names (POST /api/templates/refresh reads it again). Its " +
+      "archive is read from its address through the egress check, redirects included, within the link import's time bound (DEZFIL_REMOTE_TIMEOUT_S), " +
+      "with no credential on any request, or from the catalogue's folder; its size and SHA-256 are checked against the index; then it is unpacked " +
+      "and admitted as a client's documents are, every dataset read through the upload's reader, every layer and step bound to the template's own " +
+      "data and nothing else; and only then is it installed. Two calls for one version download it once, and downloads run one at a time on this " +
+      "instance. A version installed before stays as it is. Refused, coded, leaving nothing installed: 404 template_not_listed for a version neither " +
+      "installed nor listed; 409 templates_catalogue_off while an admin has turned the catalogue off; 400 service_address_unreadable for a saved " +
+      "address the instance's key no longer opens; 413 template_archive_too_large (over the declared size or 150 MB), template_unpacked_too_large or " +
+      "template_picture_too_large; 422 template_checksum_mismatch and the template reader's other codes, template_reference_outside among them for a " +
+      "layer or step naming a dataset that is not the template's; 403 egress_blocked; 502 remote_fetch_failed; 504 remote_timeout. " +
+      "Answers the version installed.",
+    tag: "Templates", tool: "fetch_template", toolInput: { closed: true },
+    confirm: true,
+    confirmation: {
+      target: "Download version {version} of {target}?",
+      consequence: "Its archive, {size}, comes from the template catalogue and is checked whole before it is installed on this server. " +
+        "Nothing is downloaded if that version is installed already.",
+      subject: {
+        path: "/api/templates/{id}", argument: "id", name: "title",
+        binds: { argument: "version", path: "version" },
+        facts: { size: { path: "size", bytes: true, fallback: "of the size the catalogue lists" } },
+      },
+    },
+    display: { verb: "Fetched the template {subject}", subject: { resource: "templates", argument: "id" } },
+    effects: writes(resource("templates", "id")), mcp: REMOTE_ADD,
+    parameters: [ID_PARAM],
+    requestBody: {
+      "x-byte-limit": 65_536,
+      required: false,
+      content: { "application/json": { schema: {
+        type: "object",
+        properties: { version: { type: "integer", minimum: 1, description: "The version to fetch; without it, the one the template's card takes now." } },
+        additionalProperties: false,
+      } } },
+    },
+    responses: {
+      "200": jsonOk("#/components/schemas/TemplateFetched"),
+      "400": ERROR_RESPONSE, "401": ERROR_RESPONSE, "403": ERROR_RESPONSE, "404": ERROR_RESPONSE, "409": ERROR_RESPONSE,
+      "413": ERROR_RESPONSE, "422": ERROR_RESPONSE, "502": ERROR_RESPONSE, "503": ERROR_RESPONSE, "504": ERROR_RESPONSE,
+    },
   }), security: AUTH_SECURITY } },
   "/api/templates/{id}/picture": { get: { ...op({
     summary: "Read a template's picture",

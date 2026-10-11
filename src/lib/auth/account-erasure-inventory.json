@@ -803,6 +803,10 @@
     "memory:template-catalogue": {
       "action": "retain",
       "rule": "Keep the last list the template catalogue answered with its pictures, the read in progress and the switch and address last seen. Read from the address an admin set, they hold no account identity or content."
+    },
+    "memory:template-downloads": {
+      "action": "retain",
+      "rule": "Keep the template downloads in flight or queued, by the version each installs, until it settles. Each is request work under its caller's scope, which the install rechecks; they hold a public catalogue's version and no account content."
     }
   },
   "tables": {
@@ -5626,6 +5630,221 @@
     "memory:src/lib/templates/catalogue.ts#refreshCatalogue.promise.current": {
       "stores": [
         "memory:request-closures"
+      ]
+    },
+    "location:src/lib/templates/catalogue.ts#downloadedSize:downloadedTemplatesDir": {
+      "stores": [
+        "file:templates"
+      ],
+      "roots": [
+        "templates"
+      ]
+    },
+    "location:src/lib/templates/catalogue.ts#downloadedSize:path.join": {
+      "stores": [
+        "file:templates"
+      ],
+      "roots": [
+        "templates/*/*"
+      ]
+    },
+    "location:src/lib/templates/download.ts#download.scratch:ingestScratchDir": {
+      "stores": [
+        "file:tmp"
+      ],
+      "roots": [
+        "tmp"
+      ]
+    },
+    "location:src/lib/templates/download.ts#download.scratch:path.join": {
+      "stores": [
+        "file:tmp"
+      ],
+      "roots": [
+        "tmp/template-*"
+      ]
+    },
+    "location:src/lib/templates/download.ts#download.archive:path.join": {
+      "stores": [
+        "file:tmp"
+      ],
+      "roots": [
+        "tmp/template-*/archive.zip"
+      ]
+    },
+    "location:src/lib/templates/home.ts#prepareTemplateHome.release:dataDir": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "location:src/lib/templates/home.ts#prepareTemplateHome.release:path.join": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "*"
+      ]
+    },
+    "location:src/lib/templates/home.ts#stageOwn.target:dataDir": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "location:src/lib/templates/home.ts#stageOwn.target:path.join": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "tables/template-*.parquet"
+      ]
+    },
+    "location:src/lib/templates/home.ts#stageTemplateArtifact.partial:dataDir": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "location:src/lib/templates/home.ts#stageTemplateArtifact.partial:path.join": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "tables/template-*-*.partial"
+      ]
+    },
+    "location:src/lib/templates/home.ts#stageTemplateArtifact.target:dataDir": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "location:src/lib/templates/home.ts#stageTemplateArtifact.target:path.join": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "*"
+      ]
+    },
+    "location:src/lib/templates/install.ts#installTemplateArchive.target:downloadedTemplatesDir": {
+      "stores": [
+        "file:templates"
+      ],
+      "roots": [
+        "templates"
+      ]
+    },
+    "location:src/lib/templates/install.ts#installTemplateArchive.target:path.join": {
+      "stores": [
+        "file:templates"
+      ],
+      "roots": [
+        "templates/*/*"
+      ]
+    },
+    "memory:src/lib/query/engine-message.ts#DatasetUnavailable.written": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/templates/download.ts#downloads": {
+      "stores": [
+        "memory:template-downloads"
+      ]
+    },
+    "memory:src/lib/templates/download.ts#downloads.byKey": {
+      "stores": [
+        "memory:template-downloads"
+      ]
+    },
+    "memory:src/lib/templates/home.ts#prepareTemplateHome.error": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/templates/home.ts#prepareTemplateHome.mounts": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/templates/home.ts#prepareTemplateHome.outputs": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/templates/home.ts#prepareTemplateHome.staged": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "writer:src/lib/templates/download.ts#download.landed:transfer": {
+      "stores": [
+        "file:tmp"
+      ],
+      "roots": [
+        "tmp/template-*/archive.zip"
+      ]
+    },
+    "writer:src/lib/templates/download.ts#download:installTemplateArchive": {
+      "stores": [
+        "file:tmp",
+        "file:templates"
+      ],
+      "roots": [
+        "tmp/template-*",
+        "tmp/template-*/archive.zip"
+      ]
+    },
+    "writer:src/lib/templates/download.ts#download:mkdir": {
+      "stores": [
+        "file:tmp"
+      ],
+      "roots": [
+        "tmp/template-*"
+      ]
+    },
+    "writer:src/lib/templates/home.ts#stageOwn:copyFile": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "tables/template-*.parquet"
+      ]
+    },
+    "writer:src/lib/templates/home.ts#stageTemplateArtifact:copyFile": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "tables/template-*-*.partial"
+      ]
+    },
+    "writer:src/lib/templates/home.ts#stageTemplateArtifact:rename": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "*",
+        "tables/template-*-*.partial"
+      ]
+    },
+    "writer:src/lib/templates/install.ts#installTemplateArchive:rename": {
+      "stores": [
+        "file:templates",
+        "file:tmp"
+      ],
+      "roots": [
+        "templates/*/*"
       ]
     }
   },

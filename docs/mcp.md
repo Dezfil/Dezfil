@@ -185,6 +185,14 @@ reaches outside this server, so MCP marks it open-world, and the SQL and
 workflow assistants are offered the list and the read but never the refresh.
 While an admin has turned the catalogue off the refresh is refused with
 `templates_catalogue_off`. A template card's picture is not a tool.
+`fetch_template` calls `POST /api/templates/{id}/fetch`: it downloads the
+version named, else the one the card takes now, checks it whole and installs
+it, answering at once and sending nothing when that version is installed
+already. It writes this server's templates and reaches outside it, so MCP
+marks it open-world, not idempotent; it asks for confirmation, its words
+naming the version and its size, and the embedded assistant completes a call
+naming no version with the version its words name before it waits for the
+answer. The SQL and workflow assistants are never offered it.
 
 `add_basemap_style` calls `POST /api/instance/basemaps`,
 `set_basemap_style_offered` calls `PATCH /api/instance/basemaps/{id}` and
@@ -296,9 +304,9 @@ Direct multipart upload uses the separately configured upload limit.
 
 | | |
 |---|---|
-| Documented operations | 395 |
-| Operations that become tools | 153 |
-| Deliberately excluded | 242 |
+| Documented operations | 397 |
+| Operations that become tools | 154 |
+| Deliberately excluded | 243 |
 
 Measured by building the OpenAPI document and the tool set from
 `src/lib/api/openapi.ts` and `src/lib/tools/tools.ts` and counting the
