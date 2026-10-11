@@ -68,6 +68,13 @@ holds at once and reads the catalogue after; while the catalogue is off, does
 not answer, lists nothing or is refused, one line says why only the templates
 on the server show.
 
+Opening a template shows the version its card named, read only: a map as a
+map one may only view opens, a workflow example's canvas as a viewer sees it
+with no run, and beside either **How it's made**, with the question, each
+dataset's source, licence, credit and date, the workflow's steps, each layer's
+SQL and style, and the styling choices. A version not yet on the server
+downloads first. **Make a copy** is the page's one action.
+
 Existing work belongs to the recorded original account after an upgrade.
 Read the [ownership upgrade instructions](docs/runbook.md#upgrading-ownership-storage)
 before updating. SQL uses your imported datasets by name. Direct file reads
