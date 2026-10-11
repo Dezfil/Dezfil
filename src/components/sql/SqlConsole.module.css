@@ -823,7 +823,7 @@
   text-align: center;
   color: var(--fg-muted);
   font-size: 13px;
-  background: color-mix(in srgb, var(--bg-raised) 70%, transparent);
+  background: var(--fill-wash);
 }
 .mapReadout {
   position: absolute;

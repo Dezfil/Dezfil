@@ -981,8 +981,8 @@ code, .mono { font-family: var(--font-mono); }
   display: grid;
   place-items: center;
   padding: 24px;
-  background: color-mix(in srgb, var(--fg) 32%, transparent);
-  backdrop-filter: blur(4px);
+  background: var(--fill-veil);
+  backdrop-filter: var(--blur-veil);
   animation: scrim-in var(--dur-entrance) ease backwards;
 }
 
@@ -992,9 +992,9 @@ code, .mono { font-family: var(--font-mono); }
   display: flex;
   overflow: hidden;
   border-radius: var(--radius-card);
-  border: 1px solid var(--border);
-  background: var(--bg-panel);
-  box-shadow: 0 30px 80px var(--shadow);
+  border: var(--surface-dialog-edge);
+  background: var(--surface-dialog-fill);
+  box-shadow: var(--surface-dialog-shadow);
   /* The one intentional suppression in the app: this container
      takes programmatic focus on open as the modality anchor — it is not
      an interactive control, and a ring here would dress the whole card.

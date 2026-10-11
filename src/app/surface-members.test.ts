@@ -19,11 +19,11 @@ type Member = { step: number; role: Role; file: string; selector: string; parts:
 
 /** The steps, in the order the roles move. */
 const STEP = {
-  chrome: 4, panel: 5, overlay: 6, control: 7, stage: 8, page: 9, inner: 10, menu: 11, dialog: 12, pictures: 12,
+  chrome: 4, panel: 5, overlay: 6, control: 7, stage: 8, page: 9, inner: 10, menu: 11, dialog: 12, veil: 12, wash: 12, pictures: 12,
 } as const;
 
 /** The last step whose members read their role. */
-const MOVED_THROUGH = 11;
+const MOVED_THROUGH = 12;
 
 const C = "src/components/";
 const LAYOUT = "src/app/(workspace)/layout.module.css";
@@ -33,10 +33,9 @@ const GLASS: Part[] = ["fill", "blur", "shadow"];
 /** A card on the page draws its ground, its edge and its shadow from its
  * role, so a look that restates any of them reaches every card. */
 const CARD: Part[] = ["fill", "edge", "shadow"];
-/** A chosen tab, entry or knob: drawn on the card's ground with its shadow,
- * and no edge. */
-const CHOSEN: Part[] = ["fill", "shadow"];
-/** A surface drawn on the role's ground with a stronger edge of its own. */
+/** Drawn on the role's ground with its shadow, the edge the member's own
+ * or none: a chosen tab, entry or knob, a menu with a stronger edge, a
+ * pictured card with no edge. */
 const GROUND: Part[] = ["fill", "shadow"];
 
 /** The roles with no edge: what floats as glass or over a map draws its
@@ -52,6 +51,16 @@ const OPENED_RAIL = [
   ':global(:root:not([data-look-rail="icons"]):not([data-look-rail="open"])) .rail:has(:focus-visible)',
   ".rail[data-expanded]",
 ];
+/** The wash: one raised level under a small map while it loads or fails,
+ * and the connection form's URL tray. */
+const WASHES = [
+  [C + "TablePreviewMap.module.css", ".notice", "the wash under the dataset page's preview map"],
+  [C + "TablePreviewMap.module.css", ".errorWrap", "the wash under the dataset page's preview map, failed"],
+  [C + "map/FeaturePreviewMap.module.css", ".notice", "the wash under a feature's preview map"],
+  [C + "sql/SqlConsole.module.css", ".mapNotice", "the wash under the SQL page's map"],
+  [C + "workflow-canvas/ResultsBand.module.css", ".mapNotice", "the wash under the canvas results' map"],
+  [C + "connections/ConnectionForm.module.css", ".urlBox", "the connection form's URL tray"],
+] as const;
 export const DIRECT: Direct[] = [
   ...OPENED_RAIL.flatMap(selector => [
     { step: STEP.chrome, file: LAYOUT, selector, property: "background", value: "var(--bg-panel)", what: "the side rail opened over the page, solid" },
@@ -69,6 +78,16 @@ export const DIRECT: Direct[] = [
     what: "a published page's credit chip keeps its ground-tone fill",
   },
   { step: STEP.overlay, file: C + "viewer/PublishedView.module.css", selector: ".attribution", property: "backdrop-filter", value: "var(--blur-overlay)", what: "a published page's credit chip takes the overlay strength" },
+  // The veil behind every dialog: its ink and its blur, a veil and not a panel.
+  { step: STEP.veil, file: C + "ui/Dialog.module.css", selector: ".scrim", property: "background", value: "var(--fill-veil)", what: "the dialog's veil" },
+  { step: STEP.veil, file: C + "ui/Dialog.module.css", selector: ".scrim", property: "backdrop-filter", value: "var(--blur-veil)", what: "the dialog's veil, its blur" },
+  ...WASHES.map(([file, selector, what]) => ({ step: STEP.wash, file, selector, property: "background", value: "var(--fill-wash)", what })),
+  // The Appearance tab's picture of the rail opened over the page: the rail's exception, drawn small.
+  ...["background", "box-shadow"].map(property => ({
+    step: STEP.pictures, file: C + "settings/LookPictures.module.css", selector: '[role="radio"]:hover .art[data-picture-rail="hover"] .smRail', property,
+    value: property === "background" ? "var(--bg-panel)" : "var(--shadow-lift), 16px 0 36px -18px var(--shadow)",
+    what: "pictured: the side rail opened over the page, solid on the lift with its side layer",
+  })),
 ];
 
 export const MEMBERS: Member[] = [
@@ -140,23 +159,23 @@ export const MEMBERS: Member[] = [
   m(STEP.inner, "inner-card", C + "workflow-canvas/WorkflowCanvas.module.css", ".dragGhost", ["fill", "shadow-dragged"], "an operation dragged onto the canvas"),
   m(STEP.inner, "inner-card", C + "AddToMapDialog.module.css", ".card, .newCard", ["fill", "edge"], "a pickable card in a dialog"),
   m(STEP.inner, "inner-card", C + "AddToMapDialog.module.css", ".card:hover:not(:disabled), .newCard:hover:not(:disabled)", ["shadow-lifted"], "a pickable card in a dialog, on hover"),
-  m(STEP.inner, "inner-card", C + "QueryAreaPicker.module.css", ".cats button[data-active], .subs button[data-active]", CHOSEN, "a pickable card in a dialog, picked"),
-  m(STEP.inner, "inner-card", C + "AreaSemanticsToggle.module.css", ".seg button[data-active]", CHOSEN, "a segmented control's active tab"),
-  m(STEP.inner, "inner-card", C + "ui/Switch.module.css", ".switch::before", CHOSEN, "a switch's knob"),
+  m(STEP.inner, "inner-card", C + "QueryAreaPicker.module.css", ".cats button[data-active], .subs button[data-active]", GROUND, "a pickable card in a dialog, picked"),
+  m(STEP.inner, "inner-card", C + "AreaSemanticsToggle.module.css", ".seg button[data-active]", GROUND, "a segmented control's active tab"),
+  m(STEP.inner, "inner-card", C + "ui/Switch.module.css", ".switch::before", GROUND, "a switch's knob"),
   m(STEP.inner, "inner-card", C + "ui/Slider.module.css", ".slider::-webkit-slider-thumb", ["shadow"], "a slider's thumb"),
   m(STEP.inner, "inner-card", C + "ui/Slider.module.css", ".slider::-moz-range-thumb", ["shadow"], "a slider's thumb"),
-  m(STEP.inner, "inner-card", C + "builder/drawer/ParameterForm.module.css", '.modeBtn[aria-pressed="true"]', CHOSEN, "a segmented control's active tab"),
-  m(STEP.inner, "inner-card", C + "builder/style-panel/BreakBrush.module.css", ".thumb::-webkit-slider-thumb", CHOSEN, "the break brush's thumb"),
-  m(STEP.inner, "inner-card", C + "builder/style-panel/BreakBrush.module.css", ".thumb::-moz-range-thumb", CHOSEN, "the break brush's thumb"),
+  m(STEP.inner, "inner-card", C + "builder/drawer/ParameterForm.module.css", '.modeBtn[aria-pressed="true"]', GROUND, "a segmented control's active tab"),
+  m(STEP.inner, "inner-card", C + "builder/style-panel/BreakBrush.module.css", ".thumb::-webkit-slider-thumb", GROUND, "the break brush's thumb"),
+  m(STEP.inner, "inner-card", C + "builder/style-panel/BreakBrush.module.css", ".thumb::-moz-range-thumb", GROUND, "the break brush's thumb"),
   m(STEP.inner, "inner-card", C + "builder/export/ExportImageCard.module.css", ".frameSashGrip", ["shadow"], "a drag grip"),
   m(STEP.inner, "inner-card", C + "MiniMap.module.css", ".handle", ["shadow"], "the mini-map's handles"),
   m(STEP.inner, "inner-card", C + "MiniMap.module.css", ".measure", ["shadow"], "the mini-map's labels"),
-  m(STEP.inner, "inner-card", C + "connections/PostgisPane.module.css", '.segmented button[aria-pressed="true"]', CHOSEN, "a segmented control's active tab"),
-  m(STEP.inner, "inner-card", C + "workflow-canvas/ResultsBand.module.css", ".scopeBtn[data-on]", CHOSEN, "a segmented control's active tab"),
-  m(STEP.inner, "inner-card", C + "sql/SqlConsole.module.css", ".tabs button[data-on]", CHOSEN, "a segmented control's active tab"),
+  m(STEP.inner, "inner-card", C + "connections/PostgisPane.module.css", '.segmented button[aria-pressed="true"]', GROUND, "a segmented control's active tab"),
+  m(STEP.inner, "inner-card", C + "workflow-canvas/ResultsBand.module.css", ".scopeBtn[data-on]", GROUND, "a segmented control's active tab"),
+  m(STEP.inner, "inner-card", C + "sql/SqlConsole.module.css", ".tabs button[data-on]", GROUND, "a segmented control's active tab"),
   m(STEP.inner, "inner-card", C + "sql/SqlConsole.module.css", ".card", ["fill", "edge"], "a history card in the SQL pane"),
   m(STEP.inner, "inner-card", C + "sql/SqlConsole.module.css", ".card:hover", ["shadow-lifted"], "a history card on hover"),
-  m(STEP.inner, "inner-card", C + "SourceNav.module.css", ".source[data-active]", CHOSEN, "a source rail's active entry"),
+  m(STEP.inner, "inner-card", C + "SourceNav.module.css", ".source[data-active]", GROUND, "a source rail's active entry"),
   // Menu and pop-over: what opens over something and closes. Its ground and
   // edge are read wherever the member draws the panel tone or the hairline
   // today; a stronger edge, the hint's hover tone and the map's raised
@@ -192,15 +211,17 @@ export const MEMBERS: Member[] = [
     [C + "builder/export/ExportComposition.module.css", ".frame[data-presentation]", ["shadow"], "the export card's preview frame"],
   ] as const).map(([file, selector, parts, what]) => m(STEP.menu, "menu", file, selector, [...parts], what)),
   // Dialog
-  m(STEP.dialog, "dialog", C + "ui/Dialog.module.css", ".dialog", ["shadow"], "every modal"),
-  // The Appearance tab's pictures, each reading the role it pictures
-  m(STEP.pictures, "page-card", C + "settings/LookPictures.module.css", ".art .bgCard", ["shadow"], "pictured: a card on the page"),
+  m(STEP.dialog, "dialog", C + "ui/Dialog.module.css", ".dialog", CARD, "every modal"),
+  // The Appearance tab's pictures, each reading the role it pictures: its
+  // ground and edge where the picture draws them as the app does, so a
+  // picture shows what the app does.
+  m(STEP.pictures, "page-card", C + "settings/LookPictures.module.css", ".art .bgCard", GROUND, "pictured: a card on the page"),
   m(STEP.pictures, "glass-chrome", C + "settings/LookPictures.module.css", ".art .coHead", GLASS, "pictured: the header card"),
   m(STEP.pictures, "glass-chrome", C + "settings/LookPictures.module.css", ".art .coRail", GLASS, "pictured: the side rail at rest"),
-  m(STEP.pictures, "inner-card", C + "settings/LookPictures.module.css", ".coSwitch::after", ["shadow"], "pictured: a switch's knob"),
-  m(STEP.pictures, "inner-card", C + "settings/LookPictures.module.css", ".ctSwitch::after", ["shadow"], "pictured: a switch's knob"),
-  m(STEP.pictures, "page-card", C + "settings/LookPictures.module.css", ".art .fnCard", ["shadow"], "pictured: a card on the page"),
-  m(STEP.pictures, "page-card", C + "settings/LookPictures.module.css", ".art .crCard", ["shadow"], "pictured: a card on the page"),
+  m(STEP.pictures, "inner-card", C + "settings/LookPictures.module.css", ".coSwitch::after", GROUND, "pictured: a switch's knob"),
+  m(STEP.pictures, "inner-card", C + "settings/LookPictures.module.css", ".ctSwitch::after", GROUND, "pictured: a switch's knob"),
+  m(STEP.pictures, "page-card", C + "settings/LookPictures.module.css", ".art .fnCard", GROUND, "pictured: a card on the page"),
+  m(STEP.pictures, "page-card", C + "settings/LookPictures.module.css", ".art .crCard", CARD, "pictured: a card on the page"),
   m(STEP.pictures, "glass-chrome", C + "settings/LookPictures.module.css", ".art .smRail", GLASS, "pictured: the side rail at rest"),
   m(STEP.pictures, "menu", C + "settings/LookPictures.module.css", ".art .smHint", ["shadow"], "pictured: the kit's hint"),
 ];
@@ -287,6 +308,16 @@ export function directProblems(direct: Direct, css: string): string[] {
 
 const read = (file: string) => readFileSync(file, "utf8");
 
+/** A value with every reference to the block's own tokens written out: the
+ * role as an image's default scope computes it, against that scope's tones. */
+function resolveThroughBlock(value: string): string {
+  const globals = read("src/app/globals.css").replace(/\/\*[\s\S]*?\*\//g, "");
+  const body = [...globals.matchAll(/([^{}]+)\{([^{}]*)\}/g)].find(([, selectors]) => selectors.includes("[data-look-default]"))![2];
+  const tokens = new Map([...body.matchAll(/(--[\w-]+)\s*:\s*([^;]+);/g)].map(([, name, v]) => [name, v.trim()]));
+  const resolve = (v: string): string => v.replace(/var\((--[\w-]+)\)/g, (whole, name: string) => (tokens.has(name) ? resolve(tokens.get(name)!) : whole));
+  return resolve(value);
+}
+
 describe("the members of each role", () => {
   it("name rules that exist, each once in the table", () => {
     const missing = MEMBERS.filter(member => !declarations(read(member.file), member.selector)).map(member => `${member.file} ${member.selector}`);
@@ -320,12 +351,7 @@ describe("the members of each role", () => {
 
   it("draw the legend from its role at today's legend values to the digit, so an image of it stays as it was", () => {
     if (STEP.overlay > MOVED_THROUGH) return;
-    // The block's own tokens, each reference inside it written out: the role
-    // as an image's default scope computes it, against that scope's tones.
-    const globals = read("src/app/globals.css").replace(/\/\*[\s\S]*?\*\//g, "");
-    const body = [...globals.matchAll(/([^{}]+)\{([^{}]*)\}/g)].find(([, selectors]) => selectors.includes("[data-look-default]"))![2];
-    const tokens = new Map([...body.matchAll(/(--[\w-]+)\s*:\s*([^;]+);/g)].map(([, name, value]) => [name, value.trim()]));
-    const resolve = (value: string): string => value.replace(/var\((--[\w-]+)\)/g, (whole, name: string) => (tokens.has(name) ? resolve(tokens.get(name)!) : whole));
+    const resolve = resolveThroughBlock;
     const legend = Object.fromEntries(declarations(read(C + "map/LegendPanel.module.css"), ".legend")!);
     expect({ background: legend.background, "backdrop-filter": legend["backdrop-filter"], "box-shadow": legend["box-shadow"] }).toEqual({
       background: "var(--surface-overlay-panel-fill)", "backdrop-filter": "var(--surface-overlay-panel-blur)", "box-shadow": "var(--surface-overlay-panel-shadow)",
@@ -336,6 +362,26 @@ describe("the members of each role", () => {
     expect(resolve(legend["box-shadow"])).toBe("0 8px 26px var(--shadow)");
     expect(legend["border-radius"]).toBe("var(--radius-legend)");
     expect(legend.border).toBeUndefined();
+  });
+
+  it("dress every dialog and its veil from the role and the veil's tokens at the values they had", () => {
+    if (STEP.dialog > MOVED_THROUGH) return;
+    const css = read(C + "ui/Dialog.module.css");
+    const dialog = Object.fromEntries(declarations(css, ".dialog")!);
+    const scrim = Object.fromEntries(declarations(css, ".scrim")!);
+    // The dialog and its veil as they were drawn before they read a role, written out here.
+    expect(resolveThroughBlock(dialog.background)).toBe("var(--bg-panel)");
+    expect(resolveThroughBlock(dialog.border)).toBe("1px solid var(--border)");
+    expect(resolveThroughBlock(dialog["border-radius"])).toBe("var(--radius-card)");
+    expect(resolveThroughBlock(dialog["box-shadow"])).toBe("0 30px 80px var(--shadow)");
+    expect(resolveThroughBlock(scrim.background)).toBe("color-mix(in srgb, var(--fg) 32%, transparent)");
+    expect(resolveThroughBlock(scrim["backdrop-filter"])).toBe("blur(4px)");
+  });
+
+  it("draw the wash at its one level wherever a small map loads or fails, and on the connection form's URL tray", () => {
+    if (STEP.wash > MOVED_THROUGH) return;
+    expect(WASHES.map(([file, selector]) => resolveThroughBlock(Object.fromEntries(declarations(read(file), selector)!).background)))
+      .toEqual(WASHES.map(() => "color-mix(in srgb, var(--bg-raised) 70%, transparent)"));
   });
 
   it("count the workflow canvas's full-view button among the stage buttons, so it reads the overlay control", () => {

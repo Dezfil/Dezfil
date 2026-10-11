@@ -22,7 +22,7 @@
   text-align: center;
   color: var(--fg-muted);
   font-size: 13px;
-  background: color-mix(in srgb, var(--bg-raised) 70%, transparent);
+  background: var(--fill-wash);
 }
 
 /* The refusal's plate: opaque, so it holds its own contrast over a
@@ -59,7 +59,7 @@
   display: grid;
   place-items: center;
   padding: 24px;
-  background: color-mix(in srgb, var(--bg-raised) 70%, transparent);
+  background: var(--fill-wash);
 }
 
 .readout {
