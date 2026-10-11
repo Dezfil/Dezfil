@@ -6,6 +6,7 @@ import {
   useRef,
   useState,
   useSyncExternalStore,
+  type CSSProperties,
 } from "react";
 import {
   formatBbox,
@@ -32,6 +33,9 @@ interface Props {
   /** Truth state of the counts: updating dims them as stale;
    * failed replaces them — a kept number is not the current answer. */
   recordsState?: AnswerState;
+  /** The basemap credit in the stage's lower-right corner, which the pill
+   * keeps clear of. */
+  credit?: HTMLElement | null;
 }
 
 /** Which readout just copied, and whether the clipboard cooperated. */
@@ -48,7 +52,9 @@ const FLASH_MS = 1400;
  *
  * When width runs out the pill drops items whole, lowest priority first:
  * pitch, then bbox, then records, then zoom — coords survives last, and
- * the pill vanishes entirely rather than clip. The probe row below holds
+ * the pill vanishes entirely rather than clip. Beside the basemap credit
+ * it slides left in its band rather than cover it, and the room left of
+ * the credit is the width it has. The probe row below holds
  * every present item at natural size, invisibly, so capacity is measured
  * independently of what is shown.
  */
@@ -56,6 +62,7 @@ export function StatusBar({
   channel,
   records = null,
   recordsState = { status: "current", error: null },
+  credit = null,
 }: Props) {
   const status = useSyncExternalStore(
     channel.subscribe,
@@ -90,7 +97,7 @@ export function StatusBar({
     ...(pitchPresent ? (["pitch"] as const) : []),
     "bbox",
   ];
-  const { probeRef, itemRef, visible } = useStatusPriority(present);
+  const { probeRef, itemRef, visible, shift } = useStatusPriority(present, credit);
 
   const value = (key: "coords" | "bbox", text: string | null) =>
     flash?.key === key ? (
@@ -211,7 +218,11 @@ export function StatusBar({
         {items({ measure: true })}
       </div>
       {visible.length > 0 && (
-        <div className={styles.bar} data-status-bar>
+        <div
+          className={styles.bar}
+          data-status-bar
+          style={shift > 0 ? ({ "--pill-shift": `${shift}px` } as CSSProperties) : undefined}
+        >
           {items({ measure: false })}
         </div>
       )}

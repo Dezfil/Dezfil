@@ -174,8 +174,8 @@ export function LegendTab({
             // Remount only when the slot/channel structure changes.
             // Persisted-text changes reconcile inside the editor: the
             // echo of its own commit keeps every other in-progress
-            // draft and focus; an external change still refreshes all
-            // fields to committed.
+            // draft and focus; an external change refreshes every field
+            // to committed but the one being typed in.
             key={`${layer.id}:${slots.length}:${channels.map((c) => c.key).join()}`}
             layer={layer}
             slots={slots}
@@ -271,10 +271,11 @@ function LegendEditor({
 
   // Committed-text reconciliation ---- Commits this editor sent and has
   // not yet seen echoed. An arriving committed change that matches one
-  // is the editor's own echo — the other fields' drafts and focus
-  // survive it. A change matching none is external (undo/redo, API,
-  // another surface): every field refreshes to committed, exactly the
-  // earlier behavior.
+  // is the editor's own echo: only the echoed piece refreshes. A change
+  // matching none is external (undo/redo, the assistant, API, another
+  // surface, a refused save's rollback): every field refreshes to
+  // committed. Neither overwrites text the author has typed into the
+  // field with the caret: it stays, and leaving the field saves it.
   const sentTitle = useRef<(string | null)[]>([]);
   const sentLabels = useRef<string[]>([]);
   const sentAttrs = useRef<string[]>([]);
@@ -345,94 +346,97 @@ function LegendEditor({
       if (at === -1) external = true;
       else sentAttrs.current = sentAttrs.current.slice(at + 1);
     }
-
     if (external) {
       sentTitle.current = [];
       sentLabels.current = [];
       sentAttrs.current = [];
-      setTitle(layer.legendTitle ?? "");
-      setLabels(slots.map((_, i) => layer.legendLabels?.[i] ?? ""));
-      setAttrs(
-        Object.fromEntries(
-          channels.map((c) => {
-            const v = layer.legendAttrs?.[c.key];
-            return [c.key, v === null ? null : (v ?? "")];
-          }),
-        ),
-      );
-      return;
     }
-    // Own echo: only the echoed piece converges to its stored text, and
-    // only where the author is not typing — every other draft is theirs.
-    if (titleChanged && focused !== titleRef.current) {
+
+    // The field with the caret keeps its draft only where the author has
+    // typed something other than the stored text it showed before this
+    // change. A draft still reading as that text takes the new stored
+    // text like any other field; keeping it would put the older text
+    // back on leaving.
+    const typedTitle =
+      focused === titleRef.current && (title.trim() || null) !== prevTitle;
+    const focusedSlot = slots.findIndex(
+      (_, i) => labelRefs.current[i] != null && labelRefs.current[i] === focused,
+    );
+    const typedSlot =
+      focusedSlot !== -1 &&
+      ((labels[focusedSlot] ?? "").trim() || null) !==
+        (prevLabels?.[focusedSlot] ?? null)
+        ? focusedSlot
+        : -1;
+    const focusedChannel = channels.find(
+      (c) => attrRefs.current[c.key] != null && attrRefs.current[c.key] === focused,
+    );
+    const attrsBefore = Object.fromEntries(
+      (JSON.parse(prevAttrs) as [string, string | null][] | null) ?? [],
+    ) as Record<string, string | null | undefined>;
+    const draftAttr = (v: string | null | undefined) =>
+      v === null ? null : (v ?? "").trim() || undefined;
+    const typedChannel =
+      focusedChannel &&
+      draftAttr(attrs[focusedChannel.key]) !== attrsBefore[focusedChannel.key]
+        ? focusedChannel.key
+        : null;
+    const committedAttr = (key: LegendChannelKey) => {
+      const v = layer.legendAttrs?.[key];
+      return v === null ? null : (v ?? "");
+    };
+
+    // Own echo: only the echoed piece converges to its stored text; an
+    // external change: every piece. Never a draft typed in the field with
+    // the caret, whatever moved the committed text: that draft is theirs.
+    if ((titleChanged || external) && !typedTitle) {
       setTitle(layer.legendTitle ?? "");
     }
-    if (labelsChanged) {
+    if (labelsChanged || external) {
       setLabels((cur) =>
         slots.map((_, i) =>
-          focused === labelRefs.current[i]
-            ? (cur[i] ?? "")
-            : (layer.legendLabels?.[i] ?? ""),
+          i === typedSlot ? (cur[i] ?? "") : (layer.legendLabels?.[i] ?? ""),
         ),
       );
     }
-    if (attrsChanged) {
+    if (attrsChanged || external) {
       setAttrs((cur) =>
         Object.fromEntries(
-          channels.map((c) => {
-            if (focused === attrRefs.current[c.key]) {
-              return [c.key, cur[c.key] ?? ""];
-            }
-            const v = layer.legendAttrs?.[c.key];
-            return [c.key, v === null ? null : (v ?? "")];
-          }),
+          channels.map((c) => [
+            c.key,
+            c.key === typedChannel ? (cur[c.key] ?? "") : committedAttr(c.key),
+          ]),
         ),
       );
     }
     // The builder discards this layer's whole live-text entry when the
     // echo lands (a recovered read is authoritative), which also drops
     // the canvas mirror of the draft the author is still typing —
-    // republish the focused field's draft so the canvas legend keeps
-    // showing exactly what the editor shows. Fields
-    // without focus already agree with committed text, which the canvas
-    // falls back to on its own.
-    if (focused === titleRef.current) {
+    // republish a kept draft so the canvas legend keeps showing exactly
+    // what the editor shows, after an external change too. Every other
+    // field agrees with committed text, which the canvas falls back to
+    // on its own.
+    if (typedTitle) {
       onLive(layer.id, { legendTitle: title.trim() || null });
-    } else if (
-      Object.values(labelRefs.current).some(
-        (node) => node !== null && node === focused,
-      )
-    ) {
+    } else if (typedSlot !== -1) {
       onLive(layer.id, {
         legendLabels: labelsValue(
           slots.map((_, i) =>
-            labelRefs.current[i] === focused
-              ? (labels[i] ?? "")
-              : (layer.legendLabels?.[i] ?? ""),
+            i === typedSlot ? (labels[i] ?? "") : (layer.legendLabels?.[i] ?? ""),
           ),
         ),
       });
-    } else {
-      const focusedAttr = channels.find(
-        (c) =>
-          attrRefs.current[c.key] !== null &&
-          attrRefs.current[c.key] === focused,
-      );
-      if (focusedAttr) {
-        onLive(layer.id, {
-          legendAttrs: attrsValue(
-            Object.fromEntries(
-              channels.map((c) => {
-                if (focused === attrRefs.current[c.key]) {
-                  return [c.key, attrs[c.key] ?? ""];
-                }
-                const v = layer.legendAttrs?.[c.key];
-                return [c.key, v === null ? null : (v ?? "")];
-              }),
-            ),
+    } else if (typedChannel) {
+      onLive(layer.id, {
+        legendAttrs: attrsValue(
+          Object.fromEntries(
+            channels.map((c) => [
+              c.key,
+              c.key === typedChannel ? (attrs[c.key] ?? "") : committedAttr(c.key),
+            ]),
           ),
-        });
-      }
+        ),
+      });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [committedJson]);

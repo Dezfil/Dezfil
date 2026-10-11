@@ -278,6 +278,7 @@ export function MapPresentation({
             channel={stage.statusChannel}
             records={stage.widgetRecords}
             recordsState={stage.dash.valuesState}
+            credit={stage.creditEl}
           />
         )}
       </div>

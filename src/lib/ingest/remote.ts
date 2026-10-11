@@ -15,6 +15,7 @@ import { dataDir } from "@/lib/config";
 import { captureIngestBudget, type IngestBudget } from "./budget";
 import { ApiError } from "@/lib/api/errors";
 import { openRemote, type OpenRemoteOptions, type RemoteResponse } from "@/lib/net/remote-fetch";
+import type { DuckDBBlobValue } from "@duckdb/node-api";
 import { withConnection } from "@/lib/duckdb";
 import { detectFormat } from "./ingest";
 import { ingestSource, type IngestResult } from "./gdal-formats";
@@ -349,11 +350,14 @@ export async function resolveRemoteSource(
 /** Best-effort anonymous size probe against the object's HTTPS form. A
  * store that answers a HEAD lets the cap fire before anything is read;
  * one that refuses (private objects, az://) yields null — the documented
- * per-scheme residual of the credentialed road. */
+ * per-scheme residual of the credentialed road. A stored S3 address the
+ * instance's key no longer opens is not a store's answer: it refuses the
+ * read, as it does on the anonymous road. */
 async function probeObjectSize(ref: RemoteRef): Promise<number | null> {
   if (ref.scheme === "az:") return null;
+  const address = translateObjectUrl(ref);
   try {
-    const response = await openRemote(translateObjectUrl(ref), {
+    const response = await openRemote(address, {
       method: "HEAD",
       timeoutMs: 10_000,
     });
@@ -406,9 +410,11 @@ async function resolveCredentialedObjectSource(
         const read = await conn.runAndReadAll(
           `SELECT content, size FROM read_blob('${ref.url.replace(/'/g, "''")}')`,
         );
+        // The engine's client hands a BLOB back wrapped, its bytes under
+        // `bytes`, and read_blob's size as a BIGINT.
         return read.getRowObjects()[0] as unknown as {
-          content: Uint8Array;
-          size: number | bigint;
+          content: DuckDBBlobValue;
+          size: bigint;
         };
       } catch (error) {
         mapObjectStoreError(ref.url, error);
@@ -425,7 +431,7 @@ async function resolveCredentialedObjectSource(
     // write — the documented residual of the credentialed opt-in road
     // (registry: the anonymous road streams; this one buffers up to the
     // remote cap). Written without an extra Buffer copy.
-    await writeFile(tmpPath, blob.content);
+    await writeFile(tmpPath, blob.content.bytes);
     return {
       sourcePath: tmpPath,
       budget,

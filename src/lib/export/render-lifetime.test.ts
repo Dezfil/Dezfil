@@ -1,5 +1,6 @@
 import * as metadata from "@/lib/metadata/db";
 import { spawn } from "node:child_process";
+import { channel } from "node:diagnostics_channel";
 import { EventEmitter } from "node:events";
 import { Server } from "node:net";
 import puppeteer from "puppeteer-core";
@@ -237,4 +238,74 @@ it("ends a browser outright and settles once its process has exited, or past a b
   } finally {
     vi.useRealTimers();
   }
+});
+
+it("keeps an export's slot until the browser process of a launch that failed has exited", async () => {
+  vi.stubEnv("DEZFIL_EXPORT_RENDER_CONCURRENCY", "1");
+  const started: ReturnType<typeof spawn>[] = [];
+  let firstAliveAtSecondLaunch: boolean | null = null;
+  vi.mocked(puppeteer.launch).mockImplementationOnce(async options => {
+    // As the launcher does when it gives up: the start it waited for never
+    // came, it rejects, and it ends the process it started afterwards,
+    // unawaited (here 400 ms later). A real process stands in for the browser's.
+    const child = spawn("/bin/sh", ["-c", "exec sleep 60", "sh", ...options!.args!], { stdio: "ignore" });
+    started.push(child);
+    await new Promise(resolve => child.once("spawn", resolve));
+    setTimeout(() => child.kill("SIGKILL"), 400);
+    throw Error("Timed out while waiting for the browser to start");
+  }).mockImplementationOnce(async () => {
+    firstAliveAtSecondLaunch = started[0].exitCode === null && started[0].signalCode === null;
+    return rawBrowser() as never;
+  });
+  try {
+    const first = renderMapImage(testAccountScope(), { ...input, budgetMs: 10_000 }).catch(error => error);
+    const second = renderMapImage(testAccountScope(), { ...input, budgetMs: 10_000 });
+    expect(await first).toMatchObject({ code: "render_unavailable" });
+    await expect(second).resolves.toHaveProperty("png");
+    expect(firstAliveAtSecondLaunch, "the next export launched while the failed launch's browser was still running").toBe(false);
+    expect(renderQueueState()).toEqual({ active: 0, waiting: 0 });
+  } finally {
+    for (const child of started) child.kill("SIGKILL");
+  }
+});
+
+it("never ends another launch's browser: a launch that fails after a later one started on the same relay port leaves it running", async () => {
+  // Both launches are handed one relay port, as a port freed and taken
+  // again would be; the first launch never starts its browser.
+  vi.mocked(relayModule.startRenderRelay).mockImplementation(async () => ({ port: 43_999, refused: false, settleAdmissions: async () => {}, close() {} }));
+  const context = { appOrigin: "http://127.0.0.1:3216", deadline: Date.now() + 10_000, requestBoundMs: 1_000 };
+  let giveUp!: (error: Error) => void;
+  const started: ReturnType<typeof spawn>[] = [];
+  vi.mocked(puppeteer.launch)
+    .mockImplementationOnce(() => new Promise<never>((_, reject) => { giveUp = reject; }))
+    .mockImplementationOnce(async options => {
+      const child = spawn("/bin/sh", ["-c", "exec sleep 60", "sh", ...options!.args!], { stdio: "ignore" });
+      started.push(child);
+      await new Promise(resolve => child.once("spawn", resolve));
+      return { ...rawBrowser(), process: () => child } as never;
+    });
+  const driver = await puppeteerDriver();
+  let exited: Promise<void> | undefined;
+  const first = driver.launch("/unused", [], { ...context, exited: gone => { exited = gone; } }).catch(error => error);
+  try {
+    await driver.launch("/unused", [], context);
+    giveUp(Error("Timed out while waiting for the browser to start"));
+    expect(await first).toBeInstanceOf(Error);
+    await exited;
+    expect(started[0].signalCode, "a failed launch ended another launch's browser").toBeNull();
+  } finally {
+    for (const child of started) child.kill("SIGKILL");
+  }
+});
+
+it("stops watching for a launch's browser once its caller stops it, though the launch never starts one nor answers", async () => {
+  const starts = channel("child_process");
+  const stop = new AbortController();
+  vi.mocked(puppeteer.launch).mockImplementationOnce(() => new Promise<never>(() => {}));
+  const driver = await puppeteerDriver();
+  void driver.launch("/unused", [], { appOrigin: "http://127.0.0.1:3216", deadline: Date.now() + 10_000, requestBoundMs: 1_000, stop: stop.signal });
+  await until(() => vi.mocked(puppeteer.launch).mock.calls.length === 1);
+  expect(starts.hasSubscribers).toBe(true);
+  stop.abort();
+  expect(starts.hasSubscribers, "the stopped launch is still watching every process this server starts").toBe(false);
 });

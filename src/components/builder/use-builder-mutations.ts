@@ -11,6 +11,7 @@ import { useMutationLane } from "./use-mutation-lane";
 import { useMapHistory } from "./use-map-history";
 
 import { acceptedMapWrite } from "./builder-write-response";
+import { withoutRefusedLegendText } from "./refused-legend-text";
 import { DocumentSequence } from "../document-sequence";
 
 type StateSetter<T> = Dispatch<SetStateAction<T>>;
@@ -110,6 +111,22 @@ export function useBuilderMutations({
     });
   }, []);
 
+  // A refused save stored nothing: the live text it carried leaves with
+  // it, title, label slot and variable name each, so the legend draws the
+  // stored text there again. Text typed or saved since stays.
+  const retireLegendLive = useCallback((layerId: string, refused: Record<string, unknown>, stored: Layer | undefined) => {
+    setLegendLive((prev) => {
+      const live = prev[layerId];
+      if (!live) return prev;
+      const kept = withoutRefusedLegendText(live, refused, stored);
+      if (JSON.stringify(kept) === JSON.stringify(live)) return prev;
+      const next = { ...prev };
+      if (Object.keys(kept).length) next[layerId] = kept;
+      else delete next[layerId];
+      return next;
+    });
+  }, []);
+
   // The mutation/recovery lane: the ordered write lanes with
   // verify-then-reconcile recovery, newest-wins response application,
   // lane-owned failure banners, and pending-saves accounting — extracted
@@ -141,6 +158,7 @@ export function useBuilderMutations({
     refreshLayer,
     edited,
     clearLegendLive,
+    retireLegendLive,
   });
 
   const settledLayer = useCallback((layerId: string): Layer | null =>

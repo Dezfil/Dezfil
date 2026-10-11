@@ -1,4 +1,6 @@
 import type { ChildProcess } from "node:child_process";
+import { randomUUID } from "node:crypto";
+import { subscribe, unsubscribe } from "node:diagnostics_channel";
 import { ApiError, EvaluationCancelled } from "@/lib/api/errors";
 import { startRenderRelay, type RenderRelay } from "./render-relay";
 import { renderProxyFlags } from "./render-proxy";
@@ -24,6 +26,10 @@ export interface RenderLaunchContext {
   /** The caller's hard stop: aborted, it ends the browser's process by its
    * own handle, while it is still starting too. */
   stop?: AbortSignal;
+  /** Told, before a failed launch rejects, how the process it started
+   * ends: settled once that process has exited, or past
+   * `BROWSER_EXIT_BOUND_MS` for one the system never reaps. */
+  exited?: (gone: Promise<void>) => void;
 }
 
 /** How long a browser ended outright is waited for. A killed process
@@ -82,6 +88,42 @@ function endProcess(child: ChildProcess | null): Promise<void> {
   });
 }
 
+/** Names one launch's browser on its command line, with a value no other
+ * launch has. Chromium keeps a switch it has no use for and does nothing
+ * with it. */
+const LAUNCH_SWITCH = "--dezfil-render-launch";
+
+/** Watches the processes this server starts for the one a launch starts,
+ * the one whose command line carries `token`, and keeps only it. The
+ * watching ends at that process, at `end()`, or as soon as one of `stops`
+ * aborts: a launch that never starts its browser nor answers watches no
+ * longer than its caller waits for it. */
+function watchStart(token: string, stops: (AbortSignal | undefined)[]): { started: () => ChildProcess | null; end: () => void } {
+  let found: ChildProcess | null = null;
+  let watching = true;
+  function end() {
+    if (!watching) return;
+    watching = false;
+    unsubscribe("child_process", onStart);
+    for (const stop of stops) stop?.removeEventListener("abort", end);
+  }
+  function onStart(message: unknown) {
+    const child = (message as { process?: ChildProcess }).process;
+    // Told as the process is made, before its arguments are set; they are
+    // read once the spawn that made it has returned.
+    if (child) queueMicrotask(() => {
+      if (!found && child.spawnargs?.includes(token)) {
+        found = child;
+        end();
+      }
+    });
+  }
+  subscribe("child_process", onStart);
+  for (const stop of stops) stop?.addEventListener("abort", end, { once: true });
+  if (stops.some((stop) => stop?.aborted)) end();
+  return { started: () => found, end };
+}
+
 /** The real driver, loaded lazily so unit tests never touch it. */
 export async function puppeteerDriver(): Promise<RenderDriver> {
   const puppeteer = (await import("puppeteer-core")).default;
@@ -96,11 +138,14 @@ export async function puppeteerDriver(): Promise<RenderDriver> {
           "instance's renderer needs attention.", 502);
       }
       let browser;
+      const token = `${LAUNCH_SWITCH}=${randomUUID()}`;
+      const args = [...flags, ...renderProxyFlags(context.appOrigin, relay.port), token];
+      const start = watchStart(token, [context.stop, context.signal]);
       try {
         if (context.signal?.aborted) throw new EvaluationCancelled();
         browser = await puppeteer.launch({
           executablePath,
-          args: [...flags, ...renderProxyFlags(context.appOrigin, relay.port)],
+          args,
           headless: true,
           // A launch held to its caller's time gives up within it, and the
           // caller's stop kills the process (its group, by its own id)
@@ -110,7 +155,14 @@ export async function puppeteerDriver(): Promise<RenderDriver> {
         });
       } catch (error) {
         relay.close();
+        // A launch that gives up (its own timeout, a lost connection) answers
+        // before the process it started has gone: puppeteer closes that
+        // process afterwards, without waiting. It is ended outright here, and
+        // the caller is told when it has exited.
+        context.exited?.(endProcess(start.started()));
         throw error;
+      } finally {
+        start.end();
       }
       const refused: string[] = [];
       const render: RenderBrowser["render"] = async ({ url, width, height, definition, deadline, requestBoundMs, credential }) => {

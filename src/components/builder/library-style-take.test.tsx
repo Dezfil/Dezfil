@@ -7,6 +7,7 @@ import type { CameraHandle } from "../map/camera-handle";
 import { HostElement, installDomHost } from "../testing/dom-host";
 import { wire } from "../workflow-canvas/fetch-wire";
 import { BasemapTab } from "./BasemapTab";
+import { BuilderFailureNotes } from "./BuilderFailureNotes";
 import { builderBasemap } from "./builder-basemap";
 import { MapPresentation } from "./MapPresentation";
 import { mapWidgetEndpoints, useMapPresentation } from "./use-map-presentation";
@@ -67,9 +68,10 @@ async function mount(start: MapWithLayers = initial, offered: LibraryStyleOffer[
   const container = host.document.createElement("div"); host.document.body.appendChild(container);
   const root = createRoot(container as unknown as Element, { onUncaughtError: error => thrown.push(error) });
   cleanups.push(() => { act(() => root.unmount()); host.uninstall(); });
-  const builder = { editor: null as unknown as ReturnType<typeof useBuilderMutations> };
+  const builder = { editor: null as unknown as ReturnType<typeof useBuilderMutations>, map: null as MapWithLayers | null };
   function Builder() {
     const [map, setMap] = useState<MapWithLayers | null>(start);
+    builder.map = map;
     const rendersRef = useRef({});
     const mapRef = useRef<MapWithLayers | null>(map);
     const cameraRef = useRef<CameraHandle | null>(null);
@@ -80,6 +82,7 @@ async function mount(start: MapWithLayers = initial, offered: LibraryStyleOffer[
     const stage = useMapPresentation({ map: map!, renders: {}, rendersRef, mapRef, endpoints: mapWidgetEndpoints("m", null), cameraRef,
       setFitBounds: () => {}, fail: () => {}, clearFailure: () => {} });
     return <>
+      <BuilderFailureNotes failures={editor.failures} clearFailure={editor.clearFailure} activeDownloads={[]} downloadFailures={[]} />
       <BasemapTab map={map!} loadedGroups={null} overridden={false} patchMap={editor.patchMap} statusPillVisible onToggleStatusPill={() => {}} />
       <MapPresentation stage={stage} map={map!} basemap={builderBasemap(map!, DEPLOYMENT)} theme="dark" stageEdges={{ left: 16, right: 16 }}
         fitBounds={null} timeline={null} audience="author" />
@@ -90,6 +93,7 @@ async function mount(start: MapWithLayers = initial, offered: LibraryStyleOffer[
   await flush(() => w.pending("GET", "/api/config")[0].ok({ basemapStyles: offered, singleMapStyles: true }));
   return {
     w, flush, thrown, builder,
+    failure: () => host.document.querySelector('[data-map-error][data-lane="map"]')?.textContent ?? null,
     credit: () => host.document.querySelector("[data-map-credit]")?.textContent ?? null,
     card: (name = HARBOUR.name) => host.document.querySelectorAll("button").find(button => button.textContent.trim() === name)!,
   };
@@ -179,5 +183,50 @@ it.each([
   // Only the map the take stores is the take landed.
   expect(builder.editor.sequence.revision).toBe(basis);
   expect(w.pending("GET", "/api/maps/m/history")).toHaveLength(basis === "taken" ? 1 : 0);
+  expect(thrown).toEqual([]);
+});
+
+/** The server's refusal of a take whose style the library no longer offers. */
+const GONE = "customBasemap.libraryStyle names no style the basemap library offers now.";
+
+it("takes a refused take off the screen: the map shows the style the server stores, the failure line stays", async () => {
+  const { w, flush, thrown, builder, failure, credit, card } = await mount({ ...initial, customBasemap: EARLIER } as MapWithLayers);
+  expect(credit()).toBe("© Earlier Tiles");
+  await flush(() => card().click());
+  expect(credit()).toBe("© Fixture Charts");
+  await flush(() => w.pending("PATCH", "/api/maps/m")[0].refuse(400, "invalid_request", GONE));
+  // A refusal stores nothing: the copy, its credit and its active card go.
+  expect(builder.editor.sequence.revision).toBe("first");
+  expect(credit()).toBe("© Earlier Tiles");
+  expect(card().getAttribute("data-active")).toBe("false");
+  expect(failure()).toContain(GONE);
+  // Nothing of the refused take waits to be drawn again.
+  expect(builder.editor.drafts.apply({ ...initial, customBasemap: EARLIER } as MapWithLayers).customBasemap).toEqual(EARLIER);
+  expect(thrown).toEqual([]);
+});
+
+it("takes a refused take off the screen while a change queued behind it stays drawn until its own answer", async () => {
+  const { w, flush, thrown, builder, failure, credit, card } = await mount({ ...initial, customBasemap: EARLIER } as MapWithLayers);
+  // A take, and a rename made while it is in flight.
+  await flush(() => card().click());
+  await flush(() => void builder.editor.patchMap({ name: "Harbour at night" }));
+  const [refused] = w.pending("PATCH", "/api/maps/m");
+  expect(refused.body).toEqual({ customBasemap: { libraryStyle: HARBOUR.id } });
+  await flush(() => refused.refuse(400, "invalid_request", GONE));
+  // The take leaves the screen; the rename is the user's own later intent,
+  // drawn and sent over the map the server stores.
+  expect(credit()).toBe("© Earlier Tiles");
+  expect(card().getAttribute("data-active")).toBe("false");
+  expect(builder.map!.name).toBe("Harbour at night");
+  expect(failure()).toContain(GONE);
+  const [queued] = w.pending("PATCH", "/api/maps/m");
+  expect(queued.body).toEqual({ name: "Harbour at night" });
+  expect(queued.headers.get("X-Edit-Revision")).toBe("first");
+  // Its answer is what the map then shows: the earlier style, renamed.
+  await flush(() => queued.ok({ ...initial, customBasemap: EARLIER, name: "Harbour at night", editRevision: "renamed" }));
+  expect(builder.editor.sequence.revision).toBe("renamed");
+  expect(credit()).toBe("© Earlier Tiles");
+  expect(card().getAttribute("data-active")).toBe("false");
+  expect(builder.map!.name).toBe("Harbour at night");
   expect(thrown).toEqual([]);
 });

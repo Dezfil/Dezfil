@@ -12,6 +12,7 @@ import { resolveRemoteSource } from "./remote";
 import { prepareSource } from "./gdal-formats";
 import type { OpenRemoteOptions } from "@/lib/net/remote-fetch";
 import { buildZip } from "../../../test-support/zip";
+import { blobValue } from "@duckdb/node-api";
 
 const root = process.env.DEZFIL_DATA_DIR!;
 beforeEach(() => {
@@ -22,6 +23,8 @@ beforeEach(() => {
 afterEach(() => { closeMetadataDb(); vi.unstubAllEnvs(); });
 const write = (patch: Record<string, number>) => writeStoredSettings(patch, metadataDb());
 const payload = Buffer.alloc(1.5 * 1024 ** 2, 32);
+/** read_blob's row as the engine's client hands it back: the BLOB wrapped, the size a BIGINT. */
+const blobRow = () => ({ content: blobValue(payload), size: BigInt(payload.length) });
 const response = (body: Buffer, headers = {}) => ({ statusCode: 200, headers, body: Readable.from([body]), finalUrl: "https://example.test/file.csv" });
 
 it.each([[2, 1, true], [1, 2, false]] as const)("keeps the admitted %s MB at response and stream checks after a change to %s MB", async (initial, next, succeeds) => {
@@ -68,7 +71,7 @@ it.each(["probe", "blob"])("keeps the admitted credentialed-object cap at the la
   network.connect.mockImplementation(async (work: (conn: unknown) => Promise<unknown>) => work({
     run: async () => {}, runAndReadAll: async () => {
       write({ remoteMaxMb: 1 });
-      return { getRowObjects: () => [{ content: payload, size: payload.length }] };
+      return { getRowObjects: () => [blobRow()] };
     },
   }));
   const source = await resolveRemoteSource("s3://bucket/file.geojson");
@@ -82,7 +85,7 @@ it.each([false, true])("keeps every link-size refusal with locked=%s remedies", 
     vi.stubEnv("DEZFIL_OBJECT_STORE_CREDENTIALS", stage === "probe" || stage === "blob" ? "1" : "");
     network.open.mockResolvedValue(response(payload, stage === "declared" || stage === "probe" ? { "content-length": String(payload.length) } : {}));
     network.connect.mockImplementation(async (work: (conn: unknown) => Promise<unknown>) => work({
-      run: async () => {}, runAndReadAll: async () => ({ getRowObjects: () => [{ content: payload, size: payload.length }] }),
+      run: async () => {}, runAndReadAll: async () => ({ getRowObjects: () => [blobRow()] }),
     }));
     const error = await resolveRemoteSource(stage === "probe" || stage === "blob" ? "s3://bucket/file.geojson" : "https://example.test/file.csv").catch(error => error);
     expect(error, stage).toMatchObject({ code: "remote_too_large", status: 413 });

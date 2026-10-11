@@ -119,6 +119,9 @@ async function performRenderMapImage(
   const requestBoundMs = renderRequestBoundMs(input.budgetMs);
   const deadline = Date.now() + budget.timeoutMs;
   await acquireSlot(deadline, input.signal, budget);
+  // A launch given up on at the budget may still be starting when the
+  // export answers: the slot stays held until it has ended.
+  const late: { end: Promise<void> | null } = { end: null };
   try {
     return await driveRender({
       url: `${input.baseUrl}/render/${encodeURIComponent(input.mapId)}`,
@@ -131,9 +134,11 @@ async function performRenderMapImage(
       driver: input.driver,
       accountId: scope.accountId,
       stand,
+      hold: (end) => { late.end = end; },
     });
   } finally {
-    releaseSlot();
+    if (late.end) void late.end.then(releaseSlot);
+    else releaseSlot();
   }
 }
 
@@ -172,8 +177,6 @@ export async function renderCheckImage(input: CheckImageInput): Promise<RenderIm
       driver: input.driver,
       accountId: input.accountId,
       stand: () => {},
-      // Its browser must not outlive its slot, even one that never starts.
-      boundLaunch: true,
     });
   } finally {
     releaseSlot();

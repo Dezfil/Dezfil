@@ -9,6 +9,7 @@ import { closeMetadataDb } from "@/lib/metadata/db";
 import { createMap, mapWithLayers, updateMap } from "@/lib/map-service";
 import { createLayer } from "@/lib/layer-service";
 import { renderQueueState, type RenderBrowser, type RenderDriver } from "./render-image";
+import { BROWSER_EXIT_BOUND_MS } from "./render-driver";
 import { LOOK_IMAGE_MAX_BYTES, LOOK_SOURCE, lookAtMap, type LookResult } from "./map-look";
 import { countPixels, decodePng } from "../../../scripts/png-probe.mjs";
 
@@ -176,7 +177,8 @@ describe("the three deadlines end inside the check's own budget", () => {
     const driver: RenderDriver = { launch: () => new Promise(() => {}) };
     const ms = await elapsed(() => lookAtMap(testAccountScope(), { mapId, credential: "fixture-render-credential", baseUrl: base, driver, budgetMs: 150 }));
     expect(ms).toBeLessThan(1_000);
-    expect(renderQueueState()).toEqual({ active: 0, waiting: 0 });
+    // One that answers not even its stop holds the slot no longer than the bound on its end.
+    await vi.waitFor(() => expect(renderQueueState()).toEqual({ active: 0, waiting: 0 }), { timeout: BROWSER_EXIT_BOUND_MS + 500 });
   });
   it("a render that never settles, the browser killed", async () => {
     const { driver, counts } = driverOf(() => new Promise(() => {}));

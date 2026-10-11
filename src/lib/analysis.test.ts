@@ -26,6 +26,7 @@ import {
   type LayerFilter,
 } from "@/lib/viz";
 import { classifyFill } from "@/lib/style/classify";
+import { createCustomPalette, deleteCustomPalette } from "@/lib/metadata/palettes";
 import type { FillPaint } from "@/lib/style/style";
 import { resetTileBuilds, tileBuildsSettled } from "@/lib/tiles/build";
 
@@ -240,6 +241,38 @@ describe("aggregated rendering", () => {
     const fill = (changed.viz as HexbinViz).fill;
     expect(fill?.type).toBe("quantile");
     if (fill?.type === "quantile") expect(fill.palette).toBe("ice_and_fire");
+  });
+
+  it.each(["quantile", "continuous"] as const)("keeps a deleted saved palette's own colors on a %s fill when the aggregation changes", async method => {
+    const saved = createCustomPalette({ label: "Harbour", stops: [
+      { color: "#08306b", position: 0 }, { color: "#e34a33", position: 0.7 }, { color: "#fff7ec", position: 1 },
+    ] });
+    const revision = (id: string) => ({ expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(id)?.mapId ?? "missing") })?.editRevision });
+    const layer = await pointLayer();
+    const hex = (await updateLayer(testAccountScope(), layer.id, { viz: defaultViz("hexbin") }, revision(layer.id))).viz as HexbinViz;
+    // The saved palette named on the fill, then an aggregation change that
+    // classifies with it while it exists.
+    const named: FillPaint = method === "quantile"
+      ? { ...ramp(hex.fill), palette: saved.name }
+      : { type: "continuous", attribute: "value", palette: saved.name, domain: [0, 1], stops: [{ r: 0, g: 0, b: 0, a: 1 }, { r: 255, g: 255, b: 255, a: 1 }] };
+    await updateLayer(testAccountScope(), layer.id, { viz: { ...hex, fill: named } }, revision(layer.id));
+    const styled = (await updateLayer(testAccountScope(), layer.id, {
+      viz: { type: "hexbin", cellKm: 1.22, aggregate: { fn: "count" } },
+    }, revision(layer.id))).viz as HexbinViz;
+    expect(styled.fill).toMatchObject({ type: method, palette: saved.name });
+    const own = styled.fill!.type === "quantile" ? styled.fill!.colors : (styled.fill as { stops: unknown[] }).stops;
+
+    // The palette is deleted; the next aggregation change reclassifies
+    // with the layer's own colors, never a constant.
+    expect(deleteCustomPalette(saved.name)).toBe(true);
+    const changed = (await updateLayer(testAccountScope(), layer.id, {
+      viz: { type: "hexbin", cellKm: 3.23, aggregate: { fn: "avg", attribute: "riders" } },
+    }, revision(layer.id))).viz as HexbinViz;
+    expect(changed.fill).toMatchObject({ type: method, palette: saved.name });
+    const kept = changed.fill!.type === "quantile" ? changed.fill!.colors : (changed.fill as { stops: unknown[] }).stops;
+    expect(kept[0]).toEqual(own[0]);
+    expect(kept.at(-1)).toEqual(own.at(-1));
+    if (changed.fill!.type === "continuous") expect(changed.fill!.stops).toEqual(own);
   });
 
   it("grid renders square cells", async () => {

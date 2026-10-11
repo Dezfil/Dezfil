@@ -16,6 +16,7 @@ import { readApiError } from "../api";
 import type { LayerRenderData } from "./render-data";
 import { BuilderDrafts } from "./builder-drafts";
 import { confirmsLayerPatch, confirmsMapPatch } from "./map-save-recovery";
+import { withoutRefusedLayerWrite, withoutRefusedMapWrite } from "./refused-write";
 import { DocumentSequence, patchIntent } from "../document-sequence";
 
 /** Who raised a failure — and therefore who owns clearing it. */
@@ -74,6 +75,7 @@ export function useMutationLane({
   refreshLayer,
   edited,
   clearLegendLive,
+  retireLegendLive,
 }: {
   mapId: string;
   sequence: DocumentSequence;
@@ -102,6 +104,10 @@ export function useMutationLane({
   /** Discards a layer's in-progress Legend-tab text — a recovered read
    * is authoritative for it too. */
   clearLegendLive: (layerId: string, accepted?: Layer) => void;
+  /** Retires the Legend-tab text a refused write carried: the refusal
+   * stored nothing, so the legend draws the stored text (the server's
+   * layer with the saves still pending over it) again. */
+  retireLegendLive: (layerId: string, refused: Record<string, unknown>, stored: Layer | undefined) => void;
 }) {
   const drafts = useMemo(() => new BuilderDrafts(), []);
   const stale = useSyncExternalStore(sequence.subscribe, sequence.snapshot, sequence.snapshot);
@@ -323,6 +329,15 @@ export function useMutationLane({
         }
         if (!response.ok) {
           fail("map", await readApiError(response));
+          // A refusal stores nothing: the gesture leaves the screen and the
+          // fields it drew show the stored map. A stale refusal halts the
+          // editor instead, its unsaved values kept for copying.
+          if (sequence.stale) return false;
+          drafts.discard(ticket);
+          if (reloadEpochRef.current === epoch && serverMapRef.current) {
+            const truth = drafts.apply(serverMapRef.current);
+            setMap(current => current ? withoutRefusedMapWrite(current, truth, Object.keys(body)) : current);
+          }
           return false;
         }
         let updated: MapWithLayers;
@@ -503,6 +518,15 @@ export function useMutationLane({
         }
         if (!response.ok) {
           fail(lane, await readApiError(response));
+          // As on the map lane: the refused gesture leaves the screen, a
+          // stale refusal keeps it for copying.
+          if (sequence.stale) return null;
+          drafts.discard(ticket);
+          const truth = serverMapRef.current ? drafts.apply(serverMapRef.current) : null;
+          retireLegendLive(layerId, body, truth?.layers.find((layer) => layer.id === layerId));
+          if (reloadEpochRef.current === epoch && truth) {
+            setMap(shown => shown ? withoutRefusedLayerWrite(shown, truth, layerId) : shown);
+          }
           return null;
         }
         let updated: Layer;
@@ -548,6 +572,7 @@ export function useMutationLane({
       fail,
           reloadEpochRef,
       rendersRef,
+      retireLegendLive,
     ],
   );
 
