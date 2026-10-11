@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { LOOK_KEYS, lookChoices, type LookKey } from "@/lib/look";
 import { LookPicture } from "./LookPictures";
+import { PICTURE_PICKS } from "./look-tab";
 
 /**
  * The Appearance tab's pictures. Each shows its own option while the rest
@@ -143,7 +144,7 @@ describe("the pictures' drawings", () => {
   });
 
   it("draw each pick's every option, carrying the option it shows", () => {
-    for (const key of LOOK_KEYS) for (const value of lookChoices(key)) {
+    for (const key of PICTURE_PICKS) for (const value of lookChoices(key)) {
       const html = renderToStaticMarkup(<LookPicture pick={key} value={value} />);
       expect(html, `${key}=${value}`).toContain(`data-picture-${key}="${value}"`);
       expect(html, `${key}=${value}`).not.toMatch(/—/);

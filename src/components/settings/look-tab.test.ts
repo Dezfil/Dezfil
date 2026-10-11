@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { defaultLook, LOOK_KEYS, lookChoices, type Look, type LookKey } from "@/lib/look";
+import { defaultLook, LOOK_ATTRIBUTES, LOOK_KEYS, lookChoices, type Look, type LookKey } from "@/lib/look";
 import { FADE_MS, UNDO_MS, WriteRefusal, type UnitSnapshot } from "./save-unit";
-import { choiceLabel, LOOK_CARDS, LookReset, lookTab, LookWriter, lookUnit, shownLook, stampLook, unitKey } from "./look-tab";
+import { choiceLabel, LOOK_CARDS, LookReset, lookTab, LookWriter, lookUnit, PICTURE_PICKS, shownLook, stampLook, unitKey } from "./look-tab";
 
 /**
  * The Appearance tab's own logic: its cards and rows, one writer every
@@ -37,7 +37,8 @@ describe("the cards and their rows", () => {
       ["Text", ["Typeface"]],
       ["Layout", ["Corners", "Side menu"]],
     ]);
-    expect(LOOK_CARDS.flatMap(card => card.rows.map(row => row.key)).sort()).toEqual([...LOOK_KEYS].sort());
+    expect(LOOK_CARDS.flatMap(card => card.rows.map(row => row.key)).sort()).toEqual([...PICTURE_PICKS].sort());
+    expect([...PICTURE_PICKS]).toEqual(["color", "contrast", "font", "background", "corners", "rail"]);
     expect(new Set(LOOK_CARDS.flatMap(card => [card.id, ...card.rows.map(row => row.id)])).size).toBe(4 + 6);
   });
 
@@ -45,6 +46,9 @@ describe("the cards and their rows", () => {
     expect(lookChoices("background").map(value => choiceLabel("background", value))).toEqual(["Atlantic chart", "Plain", "Graticule", "Hex lattice"]);
     expect(lookChoices("rail").map(value => choiceLabel("rail", value))).toEqual(["Opens on hover", "Always open", "Icons only"]);
     expect(lookChoices("contrast").map(value => choiceLabel("contrast", value))).toEqual(["Standard", "More contrast"]);
+    expect(lookChoices("panels").map(value => choiceLabel("panels", value))).toEqual(["Glass", "Liquid", "Paper"]);
+    expect(lookChoices("liquidChrome").map(value => choiceLabel("liquidChrome", value))).toEqual(["On", "Off"]);
+    expect(lookChoices("liquidDialogs").map(value => choiceLabel("liquidDialogs", value))).toEqual(["Off", "On"]);
     for (const key of LOOK_KEYS) for (const value of lookChoices(key)) expect(choiceLabel(key, value), `${key}=${value}`).toMatch(/^[A-Z][a-z ]+$/);
   });
 });
@@ -109,15 +113,26 @@ describe("what the page shows", () => {
 
   it("stamps the root with only the picks that differ, removing what no longer does", () => {
     const attributes = new Map<string, string>([["data-theme", "dark"], ["data-look-font", "system"]]);
+    const touched = new Set<string>();
     const root = {
-      setAttribute: (name: string, value: string) => attributes.set(name, value),
-      removeAttribute: (name: string) => attributes.delete(name),
+      setAttribute: (name: string, value: string) => { touched.add(name); attributes.set(name, value); },
+      removeAttribute: (name: string) => { touched.add(name); attributes.delete(name); },
       getAttribute: (name: string) => attributes.get(name) ?? null,
     } as unknown as Element;
     stampLook(root, HARBOR);
     expect(Object.fromEntries(attributes)).toEqual({ "data-theme": "dark", "data-look-color": "harbor", "data-look-rail": "icons" });
+    // Liquid: Panels, and the kinds that are on as one word list.
+    stampLook(root, { ...HARBOR, panels: "liquid", liquidMenus: "on", liquidMap: "off" });
+    expect(Object.fromEntries(attributes)).toEqual({ "data-theme": "dark", "data-look-color": "harbor", "data-look-rail": "icons",
+      "data-look-panels": "liquid", "data-look-liquid": "chrome panels buttons menus" });
+    // Paper keeps the kinds but stamps none of them.
+    stampLook(root, { ...HARBOR, panels: "paper", liquidMenus: "on" });
+    expect(Object.fromEntries(attributes)).toEqual({ "data-theme": "dark", "data-look-color": "harbor", "data-look-rail": "icons",
+      "data-look-panels": "paper" });
     stampLook(root, defaultLook());
     expect(Object.fromEntries(attributes)).toEqual({ "data-theme": "dark" });
+    // Only the look's own attributes are ever touched: never one per kind.
+    expect([...touched].filter(name => !(LOOK_ATTRIBUTES as readonly string[]).includes(name))).toEqual([]);
   });
 });
 

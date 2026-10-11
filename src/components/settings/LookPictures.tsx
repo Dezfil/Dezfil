@@ -1,6 +1,6 @@
 "use client";
 import { useLayoutEffect, useRef, type ReactNode } from "react";
-import type { LookKey } from "@/lib/look";
+import type { PicturePick } from "./look-tab";
 import { CursorIcon } from "@/components/ui/icons";
 import styles from "./LookPictures.module.css";
 // The pictures' tokens: each option's values keyed on the picture, beside
@@ -37,7 +37,7 @@ function useFitScale(box: React.RefObject<HTMLSpanElement | null>, width: number
 }
 
 function Scaled({ pick, value, size, className, children }: {
-  pick: LookKey;
+  pick: PicturePick;
   value: string;
   size: keyof typeof LOGICAL;
   className?: string;
@@ -125,7 +125,7 @@ function BackgroundPicture({ value }: { value: string }) {
   </span>;
 }
 
-const PICTURES: Record<LookKey, (props: { value: string }) => ReactNode> = {
+const PICTURES: Record<PicturePick, (props: { value: string }) => ReactNode> = {
   color: ColorPicture,
   contrast: ContrastPicture,
   font: FontPicture,
@@ -135,7 +135,7 @@ const PICTURES: Record<LookKey, (props: { value: string }) => ReactNode> = {
 };
 
 /** The picture of one option of one pick. */
-export function LookPicture({ pick, value }: { pick: LookKey; value: string }) {
+export function LookPicture({ pick, value }: { pick: PicturePick; value: string }) {
   const Picture = PICTURES[pick];
   return <Picture value={value} />;
 }

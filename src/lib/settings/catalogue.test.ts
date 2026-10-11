@@ -84,7 +84,9 @@ describe("settings catalogue", () => {
   });
 });
 
-/** The look's six picks, today's value first: the account's own choices. */
+/** The look's picks and the kinds of surface Liquid reaches, today's value
+ * first: the account's own choices. A kind is a choice of on or off, the
+ * first four on. */
 const LOOK = {
   "look.color": ["kelp", "harbor", "heather", "slate"],
   "look.contrast": ["standard", "more"],
@@ -92,9 +94,34 @@ const LOOK = {
   "look.background": ["atlantic", "plain", "graticule", "hex"],
   "look.corners": ["rounded", "soft"],
   "look.rail": ["hover", "open", "icons"],
+  "look.panels": ["glass", "liquid", "paper"],
+  "look.liquidChrome": ["on", "off"],
+  "look.liquidPanels": ["on", "off"],
+  "look.liquidMap": ["on", "off"],
+  "look.liquidButtons": ["on", "off"],
+  "look.liquidCards": ["off", "on"],
+  "look.liquidInner": ["off", "on"],
+  "look.liquidMenus": ["off", "on"],
+  "look.liquidDialogs": ["off", "on"],
+};
+/** Panels and the kinds, named in the person's words. */
+const NAMES = {
+  "look.panels": "Panels",
+  "look.liquidChrome": "Header and side menu",
+  "look.liquidPanels": "Side panels",
+  "look.liquidMap": "On the map",
+  "look.liquidButtons": "Map buttons",
+  "look.liquidCards": "Page cards",
+  "look.liquidInner": "Cards inside panels",
+  "look.liquidMenus": "Menus and pop-overs",
+  "look.liquidDialogs": "Dialogs",
 };
 
-describe("the look's six picks", () => {
+describe("the look's picks", () => {
+  it("name Panels and the eight kinds in the person's words", () => {
+    for (const [key, label] of Object.entries(NAMES)) expect(settingDefinition(key).label, key).toBe(label);
+  });
+
   it("are account choices defaulting to today's value, with no variable, never secret and never locked", () => {
     for (const [key, values] of Object.entries(LOOK)) {
       const definition = settingDefinition(key);

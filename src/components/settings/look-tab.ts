@@ -1,4 +1,4 @@
-import { defaultLook, LOOK_KEYS, lookAttributes, lookChoices, normalizeLook, type Look, type LookKey } from "@/lib/look";
+import { defaultLook, LOOK_ATTRIBUTES, LOOK_KEYS, lookAttributes, lookChoices, normalizeLook, type Look, type LookKey } from "@/lib/look";
 import { FADE_MS, SaveUnit, UNDO_MS, type UnitNote, type UnitSnapshot, type Value } from "./save-unit";
 
 /**
@@ -8,8 +8,12 @@ import { FADE_MS, SaveUnit, UNDO_MS, type UnitNote, type UnitSnapshot, type Valu
  * its Undo. A card's own saving, Reset and Undo are the frame's save unit.
  */
 
+/** The picks the tab draws as a row of pictures, one per choice. */
+export const PICTURE_PICKS = ["color", "contrast", "font", "background", "corners", "rail"] as const satisfies readonly LookKey[];
+export type PicturePick = (typeof PICTURE_PICKS)[number];
+
 export interface LookRow {
-  readonly key: LookKey;
+  readonly key: PicturePick;
   readonly label: string;
   /** The row's address inside the tab. */
   readonly id: string;
@@ -51,6 +55,15 @@ const CHOICE_LABELS: Readonly<Record<LookKey, Readonly<Record<string, string>>>>
   background: { atlantic: "Atlantic chart", plain: "Plain", graticule: "Graticule", hex: "Hex lattice" },
   corners: { rounded: "Rounded", soft: "Soft" },
   rail: { hover: "Opens on hover", open: "Always open", icons: "Icons only" },
+  panels: { glass: "Glass", liquid: "Liquid", paper: "Paper" },
+  liquidChrome: { on: "On", off: "Off" },
+  liquidPanels: { on: "On", off: "Off" },
+  liquidMap: { on: "On", off: "Off" },
+  liquidButtons: { on: "On", off: "Off" },
+  liquidCards: { on: "On", off: "Off" },
+  liquidInner: { on: "On", off: "Off" },
+  liquidMenus: { on: "On", off: "Off" },
+  liquidDialogs: { on: "On", off: "Off" },
 };
 
 /** A choice as the tab names it. */
@@ -148,11 +161,12 @@ export function shownLook(snapshots: readonly Pick<UnitSnapshot, "values" | "kep
 }
 
 /** Stamp a look on the document's root: one attribute per pick that
- * differs from the default, every other look attribute removed. */
+ * differs from the default and the kinds' one word list under Liquid,
+ * every other look attribute removed. */
 export function stampLook(root: Element, look: Look): void {
   const attributes: Record<string, string | undefined> = lookAttributes(look);
-  for (const key of LOOK_KEYS) {
-    const name = `data-look-${key}`, value = attributes[name];
+  for (const name of LOOK_ATTRIBUTES) {
+    const value = attributes[name];
     if (value === undefined) root.removeAttribute(name);
     else if (root.getAttribute(name) !== value) root.setAttribute(name, value);
   }

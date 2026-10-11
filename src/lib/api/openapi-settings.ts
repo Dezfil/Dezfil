@@ -33,9 +33,10 @@ function viewPrefsSchema() {
   };
 }
 
-/** The account's look: the six picks, each property built from its catalogue
- * definition, closed to unknown keys. The read carries every pick; the
- * update takes any of them and leaves the rest as they are. */
+/** The account's look: the picks and the kinds Liquid reaches, each property
+ * built from its catalogue definition, closed to unknown keys. The read
+ * carries every pick; the update takes any of them and leaves the rest as
+ * they are. */
 function lookSchema(position: "read" | "update") {
   return {
     type: "object",
@@ -73,7 +74,7 @@ export function settingsContract() {
           description:
             "The signed-in account's display name, per-screen view/sort preferences, " +
             "how the SQL console's source list groups datasets and its look (color, contrast, typeface, " +
-            "background, corners and side menu), " +
+            "background, corners, side menu, panels, and which kinds of surface go liquid under the liquid panels), " +
             "plus the instance name shown beside the wordmark and in browser titles " +
             "(null when unnamed). Cookie or bearer authentication is required. " +
             "Responses, including refusals, are private, no-store.",
