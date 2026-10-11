@@ -1,7 +1,7 @@
 import { act, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, expect, it, vi } from "vitest";
-import { BASEMAPS, BUILT_IN_ATTRIBUTION, type LibraryStyleOffer } from "@/lib/basemap";
+import { BASEMAPS, BUILT_IN_ATTRIBUTION, SINGLE_MAP_STYLES_OFF, type LibraryStyleOffer } from "@/lib/basemap";
 import { EDIT_REVISION_HEADER } from "@/lib/edit-basis";
 import type { MapWithLayers } from "@/lib/metadata/maps";
 import { STALE_MESSAGE } from "../document-sequence";
@@ -9,6 +9,7 @@ import type { CameraHandle } from "../map/camera-handle";
 import { HostElement, installDomHost } from "../testing/dom-host";
 import { wire } from "../workflow-canvas/fetch-wire";
 import { BasemapTab } from "./BasemapTab";
+import { BuilderFailureNotes } from "./BuilderFailureNotes";
 import { builderBasemap } from "./builder-basemap";
 import { MapPresentation } from "./MapPresentation";
 import { mapWidgetEndpoints, useMapPresentation } from "./use-map-presentation";
@@ -90,6 +91,7 @@ async function mount(start: MapWithLayers = initial, offered: LibraryStyleOffer[
     const stage = useMapPresentation({ map: map!, renders: {}, rendersRef, mapRef, endpoints: mapWidgetEndpoints("m", null), cameraRef,
       setFitBounds: () => {}, fail: () => {}, clearFailure: () => {} });
     return <>
+      <BuilderFailureNotes failures={editor.failures} clearFailure={editor.clearFailure} activeDownloads={[]} downloadFailures={[]} />
       <BasemapTab map={map!} loadedGroups={null} overridden={false} patchMap={editor.patchMap} statusPillVisible onToggleStatusPill={() => {}} />
       <MapPresentation stage={stage} map={map!} basemap={builderBasemap(map!, DEPLOYMENT)} theme="dark" stageEdges={{ left: 16, right: 16 }}
         fitBounds={null} timeline={null} audience="author" />
@@ -128,7 +130,8 @@ async function mount(start: MapWithLayers = initial, offered: LibraryStyleOffer[
       : next.refuse(409, "stale_revision", STALE_MESSAGE));
     return { ...seen, next: builder.editor.sequence.stale ? "stale_revision" : "saved" };
   };
-  return { w, flush, thrown, builder, button, paste, credit, afterLoss };
+  const failure = () => host.document.querySelector('[data-map-error][data-lane="map"]')?.textContent ?? null;
+  return { w, flush, thrown, builder, button, paste, credit, failure, afterLoss };
 }
 
 it("draws a checked style's credit from the click on, through its save, an undo and a redo", async () => {
@@ -290,5 +293,22 @@ it("sends a group shown again as the server stores it, and confirms a lost answe
   await flush(() => roads.ok({ ...initial, basemapLayers: { roads: false }, editRevision: "roads" }));
   const [labels] = w.pending("PATCH", "/api/maps/m");
   expect(labels.body).toEqual({ basemapLayers: { roads: false, labels: false } });
+  expect(thrown).toEqual([]);
+});
+
+it("takes a refused pasted style off the screen: the map shows what the server stores, the failure line stays", async () => {
+  const { w, flush, thrown, builder, button, paste, credit, failure } = await mount();
+  expect(credit()).toBe(builtIn);
+  await paste("Harbour lights", { verdict: "valid", name: "Harbour", layerCount: 3, sourceCount: 1, attribution: CREDIT });
+  await flush(() => button("Use this style")!.click());
+  expect(credit()).toBe("© Fixture Tiles");
+  // Single-map styles were switched off for this instance meanwhile.
+  await flush(() => w.pending("PATCH", "/api/maps/m")[0].refuse(403, "basemap_not_offered", SINGLE_MAP_STYLES_OFF));
+  expect(builder.editor.sequence.revision).toBe("first");
+  expect(builder.map!.customBasemap).toBeNull();
+  expect(credit()).toBe(builtIn);
+  expect(failure()).toContain(SINGLE_MAP_STYLES_OFF);
+  // Nothing of the refused style waits to be drawn again.
+  expect(builder.editor.drafts.apply(initial).customBasemap).toBeNull();
   expect(thrown).toEqual([]);
 });

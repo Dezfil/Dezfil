@@ -44,7 +44,7 @@ it("keeps failed opacity visible after fill saves and retires it only after an o
   h.unmount();
 });
 
-it("retires refused SQL after an accepted correction and preserves unrelated and newer drafts", async () => {
+it("takes refused SQL off the screen at its refusal, then lands its correction and preserves unrelated and newer drafts", async () => {
   const w = wire(); vi.stubGlobal("fetch", w.fetch);
   vi.stubGlobal("window", { addEventListener() {}, removeEventListener() {} });
   const layer = { id: "a", sql: "SELECT 1", legendTitle: "original", style: { opacity: 1 } };
@@ -52,25 +52,30 @@ it("retires refused SQL after an accepted correction and preserves unrelated and
   const h = new HookHarness(() => useBuilderMutations({ mapId: "m", map, setMap: next => { map = typeof next === "function" ? next(map)! : next!; }, rendersRef: { current: {} }, setRenders() {}, setSelectedId() {}, refreshLayer: async () => {} }));
   const editor = h.value;
   editor.serverMapRef.current = map; editor.authoritativeLayersRef.current = Object.fromEntries(map.layers.map(l => [l.id, l])); editor.sequence.accept(map);
+  // A refusal stores nothing: the whole refused write leaves the map, while
+  // the edit dialog keeps the typed SQL beside the failure line.
   const invalid = editor.patchLayer("a", { sql: "INVALID SQL", legendTitle: "keep this title" });
   await w.settle(); w.pending("PATCH", "/api/layers/a")[0].refuse(400, "invalid_request", "Invalid SQL");
   expect(await invalid).toBeNull(); h.render();
   expect(h.value.failures["layer:a"]).toBe("Invalid SQL");
+  expect(map.layers[0]).toMatchObject({ sql: "SELECT 1", legendTitle: "original" });
+  expect(editor.drafts.hasLayer("a")).toBe(false);
   const other = h.value.patchLayer("b", { sql: "OTHER INVALID SQL" });
   await w.settle(); w.pending("PATCH", "/api/layers/b")[0].refuse(400, "invalid_request", "Invalid SQL"); await other; h.render();
+  expect(map.layers[1].sql).toBe("SELECT 1");
+  expect(h.value.failures["layer:b"]).toBe("Invalid SQL");
   const correction = h.value.patchLayer("a", { sql: "SELECT 2" });
   await w.settle();
   const newer = h.value.patchLayer("a", { style: { opacity: 0.5 } });
   w.pending("PATCH", "/api/layers/a")[0].ok({ ...layer, sql: "SELECT 2", editRevision: "corrected" });
   await correction; await w.settle(); h.render();
   expect(editor.serverMapRef.current?.layers[0].sql).toBe("SELECT 2");
-  expect(map.layers[0]).toMatchObject({ sql: "SELECT 2", legendTitle: "keep this title", style: { opacity: 0.5 } });
-  expect(map.layers[1].sql).toBe("OTHER INVALID SQL");
+  expect(map.layers[0]).toMatchObject({ sql: "SELECT 2", legendTitle: "original", style: { opacity: 0.5 } });
+  expect(map.layers[1].sql).toBe("SELECT 1");
   expect(h.value.failures["layer:a"]).toBeUndefined();
+  expect(h.value.failures["layer:b"]).toBe("Invalid SQL");
   w.pending("PATCH", "/api/layers/a")[0].ok({ ...layer, sql: "SELECT 2", style: { opacity: 0.5 }, editRevision: "styled" }); await newer;
-  expect(editor.drafts.hasLayer("a")).toBe(true);
-  h.render(); const title = h.value.patchLayer("a", { legendTitle: "corrected title" }); await w.settle();
-  w.pending("PATCH", "/api/layers/a")[0].ok({ ...map.layers[0], legendTitle: "corrected title", editRevision: "title" }); await title;
   expect(editor.drafts.hasLayer("a")).toBe(false);
+  expect(map.layers[0]).toMatchObject({ sql: "SELECT 2", legendTitle: "original", style: { opacity: 0.5 } });
   h.unmount();
 });

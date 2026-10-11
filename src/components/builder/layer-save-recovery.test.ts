@@ -30,7 +30,8 @@ function setup() {
   });
   cleanups.push(() => h.unmount());
   h.value.applyMapResponse(initial, false, Infinity);
-  return { h, w, fetch, initial, clearAppearanceDraft, read: (value: typeof recovered) => { recovered = value; }, opacity: (id: string) => String(map.layers.find(layer => layer.id === id)!.style.opacity) };
+  return { h, w, fetch, initial, clearAppearanceDraft, read: (value: typeof recovered) => { recovered = value; }, opacity: (id: string) => String(map.layers.find(layer => layer.id === id)!.style.opacity),
+    style: (id: string) => map.layers.find(layer => layer.id === id)!.style, map: () => map };
 }
 
 it("restores the failed layer's own opacity and keeps its banner through another layer's success", async () => {
@@ -104,4 +105,63 @@ it.each(["another edit", "unreadable", "stale", "reloaded"])("keeps the layer dr
   expect(c.h.value.drafts.hasLayer("b")).toBe(true);
   expect(c.h.value.sequence.revision).toBe("seen");
   if (outcome === "stale") expect(c.fetch.mock.calls.filter(([path]) => path === "/api/maps/m")).toHaveLength(0);
+});
+
+it("takes a refused layer edit off the screen, keeps its failure line, and draws a later gesture over what the server stores", async () => {
+  const c = setup();
+  const refused = c.h.value.commit("b", { opacity: 0.6 });
+  // Made while the refused edit is in flight, over the drawn 0.6.
+  const later = c.h.value.commit("b", { pointRadius: 4 });
+  const other = c.h.value.commit("a", { opacity: 0.75 });
+  c.w.pending("PATCH", "/api/layers/b")[0].refuse(400, "invalid_request", "The layer style could not be stored.");
+  expect(await refused).toBe(false);
+  await c.w.settle();
+  // A refusal stores nothing: the refused opacity leaves the screen, and
+  // the later gestures stay drawn over the server's layer.
+  expect(c.opacity("b")).toBe("1");
+  expect(c.style("b").pointRadius).toBe(4);
+  expect(c.opacity("a")).toBe("0.75");
+  expect(c.h.render().failures["layer:b"]).toBe("The layer style could not be stored.");
+  const next = c.w.pending("PATCH", "/api/layers/b")[0];
+  expect(next.body).toEqual({ style: { opacity: 1, pointRadius: 4 } });
+  expect(next.headers.get("X-Edit-Revision")).toBe("seen");
+  next.ok({ ...c.initial.layers[1], style: { opacity: 1, pointRadius: 4 }, editRevision: "radius" });
+  expect(await later).toBe(true);
+  await c.w.settle();
+  c.w.pending("PATCH", "/api/layers/a")[0].ok({ ...c.initial.layers[0], style: { opacity: 0.75 }, editRevision: "other" });
+  expect(await other).toBe(true);
+  // The answers are what the map shows; nothing of the refusal returns.
+  expect(c.opacity("b")).toBe("1");
+  expect(c.style("b").pointRadius).toBe(4);
+  expect(c.opacity("a")).toBe("0.75");
+  expect(c.h.value.drafts.hasLayer("b")).toBe(false);
+});
+
+it("takes a refused widget off the screen with the queued edit built on it, while an unrelated queued change waits for its own answer", async () => {
+  const c = setup();
+  const note = (id: string, text: string) => ({ id, type: "note", title: "Note", note: text, visible: true, layerId: null, field: null, agg: "count", aggField: null, unit: null, format: null });
+  c.h.value.applyMapResponse({ ...c.initial, widgets: [note("kept", "kept")] } as unknown as MapWithLayers, false, Infinity);
+  c.h.render();
+  const refused = c.h.value.patchMap({ widgets: [note("kept", "kept"), note("added", "first")] });
+  c.h.render();
+  // An edit of the added note, built on the refused write, and a rename.
+  const edited = c.h.value.patchMap({ widgets: [note("kept", "kept"), note("added", "second")] });
+  c.h.render();
+  const renamed = c.h.value.patchMap({ name: "Renamed" });
+  c.h.render();
+  expect(c.map().widgets.map(w => (w as { note: string }).note)).toEqual(["kept", "second"]);
+  c.w.pending("PATCH", "/api/maps/m")[0].refuse(400, "invalid_request", "widgets[1] is not a widget this map can hold.");
+  expect(await refused).toBe(false);
+  await c.w.settle();
+  // Both widget writes leave the screen; the rename is still drawn.
+  expect(c.map().widgets.map(w => (w as { note: string }).note)).toEqual(["kept"]);
+  expect(c.map().name).toBe("Renamed");
+  expect(c.h.render().failures.map).toBe("widgets[1] is not a widget this map can hold.");
+  c.w.pending("PATCH", "/api/maps/m")[0].ok({ ...c.initial, widgets: [note("kept", "kept")], editRevision: "unchanged" });
+  expect(await edited).toBe(true);
+  await c.w.settle();
+  c.w.pending("PATCH", "/api/maps/m")[0].ok({ ...c.initial, name: "Renamed", widgets: [note("kept", "kept")], editRevision: "renamed" });
+  expect(await renamed).toBe(true);
+  expect(c.map().widgets.map(w => (w as { note: string }).note)).toEqual(["kept"]);
+  expect(c.map().name).toBe("Renamed");
 });
