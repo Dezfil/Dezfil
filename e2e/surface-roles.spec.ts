@@ -62,6 +62,7 @@ import { test, expect, type Locator, type Page } from "@playwright/test";
 import { isAllowedConsoleError } from "./console-allowlist";
 import { readThenWriteBrowserSetup } from "./edit-basis";
 import { rootLook } from "./look-evidence";
+import { colour, fmt, layers, maxStep, paintersAcross, range, rowLuma, sameColour, STRIPES_STYLE, stripesGeoJson, type Layer, type RGBA } from "./surface-reads";
 import {
   FIXTURES_DIR,
   addLayer,
@@ -76,7 +77,6 @@ import {
 // ---- the expected values, written out ----
 
 type Theme = "light" | "dark";
-type RGBA = [number, number, number, number];
 type Step = "hairline" | "float" | "overlay" | "lift" | "deep" | "dialog";
 type Role =
   | "glass-chrome" | "glass-panel" | "overlay-panel" | "overlay-control"
@@ -195,54 +195,9 @@ async function reseed(page: Page, where: "workspace" | "published" = "workspace"
 
 // ---- reading the page ----
 
-interface Layer { x: number; y: number; blur: number; spread: number; inset: boolean; colour: RGBA | null }
 interface Want { fill?: RGBA; solid?: true; blur?: string; edge?: { width: string; colour: RGBA } | null; corner?: string; shadows?: Layer[] }
 interface Seen { fill: string; blur: string; edgeStyle: string; edgeWidth: string; edgeColor: string; corner: string; shadow: string }
 
-/** A computed colour as numbers: `rgb()`, `rgba()` and the `color(srgb …)`
- * form the browser gives a mix. */
-function colour(text: string): RGBA | null {
-  const t = text.trim();
-  if (t === "transparent") return [0, 0, 0, 0];
-  const rgb = /^rgba?\(([^)]*)\)$/.exec(t);
-  if (rgb) {
-    const p = rgb[1].split(/[\s,/]+/).filter(Boolean).map(Number);
-    return [p[0], p[1], p[2], p[3] ?? 1];
-  }
-  const srgb = /^color\(srgb\s+([^)/]*)(?:\/\s*([^)]*))?\)$/.exec(t);
-  if (srgb) {
-    const p = srgb[1].trim().split(/\s+/).map(Number);
-    return [p[0] * 255, p[1] * 255, p[2] * 255, srgb[2] === undefined ? 1 : Number(srgb[2])];
-  }
-  return null;
-}
-const sameColour = (a: RGBA | null, b: RGBA) =>
-  a !== null && Math.abs(a[0] - b[0]) <= 1.5 && Math.abs(a[1] - b[1]) <= 1.5 && Math.abs(a[2] - b[2]) <= 1.5 && Math.abs(a[3] - b[3]) <= 0.006;
-const fmt = (c: RGBA | null) => (c ? `rgba(${c.slice(0, 3).map((v) => Math.round(v)).join(", ")}, ${Number(c[3].toFixed(3))})` : "no colour");
-
-/** A computed box-shadow's layers, split at the commas between layers. */
-function layers(text: string): Layer[] {
-  if (text.trim() === "none") return [];
-  const parts: string[] = [];
-  let depth = 0;
-  let current = "";
-  for (const ch of text) {
-    if (ch === "(") depth += 1;
-    if (ch === ")") depth -= 1;
-    if (ch === "," && depth === 0) {
-      parts.push(current);
-      current = "";
-    } else current += ch;
-  }
-  parts.push(current);
-  return parts.map((part) => {
-    const c = /(rgba?\([^)]*\)|color\([^)]*\)|transparent)/.exec(part);
-    const rest = (c ? part.replace(c[0], " ") : part).trim();
-    const inset = /\binset\b/.test(rest);
-    const n = rest.replace(/\binset\b/, " ").trim().split(/\s+/).filter(Boolean).map((v) => parseFloat(v));
-    return { x: n[0] ?? 0, y: n[1] ?? 0, blur: n[2] ?? 0, spread: n[3] ?? 0, inset, colour: c ? colour(c[0]) : null };
-  });
-}
 /** A drop shadow is a layer with an offset; rings and inset lines are not. */
 const drops = (all: Layer[]) => all.filter((l) => !l.inset && (l.x !== 0 || l.y !== 0));
 const fmtLayer = (l: Layer) => `${l.x}px ${l.y}px ${l.blur}px ${l.spread}px ${fmt(l.colour)}`;
@@ -443,43 +398,6 @@ const layerCard: Member = {
 
 const runId = Date.now().toString(36);
 const THEMES: Theme[] = ["light", "dark"];
-
-/** Vertical stripes in black and white, alternating, one polygon each: a
- * hard edge every stripe, wherever the map is looked at. */
-const STRIPES = 140;
-function stripesGeoJson(): string {
-  const west = 13.0;
-  const east = 13.8;
-  const step = (east - west) / STRIPES;
-  const features = Array.from({ length: STRIPES }, (_, i) => {
-    const a = west + i * step;
-    const b = a + step;
-    return {
-      type: "Feature",
-      properties: { band: i % 2 === 0 ? "ink" : "paper" },
-      geometry: { type: "Polygon", coordinates: [[[a, 52.3], [b, 52.3], [b, 52.7], [a, 52.7], [a, 52.3]]] },
-    };
-  });
-  return JSON.stringify({ type: "FeatureCollection", features });
-}
-const STRIPES_STYLE = {
-  fill: {
-    type: "categorical",
-    attribute: "band",
-    palette: "vivid",
-    map: [
-      { value: "ink", color: { r: 0, g: 0, b: 0, a: 1 } },
-      { value: "paper", color: { r: 255, g: 255, b: 255, a: 1 } },
-    ],
-    other: { r: 128, g: 128, b: 128, a: 1 },
-  },
-  fillOpacity: 1,
-  stroke: { r: 0, g: 0, b: 0, a: 1 },
-  strokeOpacity: 0,
-  strokeWidth: 0,
-  pointRadius: 4,
-  opacity: 1,
-};
 
 interface Fixture { mapId: string; mapName: string; projectName: string; bands: string; points: string }
 
@@ -951,50 +869,6 @@ for (const theme of THEMES) {
 }
 
 // ---- the blur, drawn ----
-
-/** A row of the page as luminance, one value per pixel. */
-async function rowLuma(page: Page, x: number, y: number, width: number): Promise<number[]> {
-  const png = await page.screenshot({ clip: { x, y, width, height: 1 } });
-  return page.evaluate(async (b64) => {
-    const raw = atob(b64);
-    const bytes = new Uint8Array(raw.length);
-    for (let i = 0; i < raw.length; i += 1) bytes[i] = raw.charCodeAt(i);
-    const bmp = await createImageBitmap(new Blob([bytes], { type: "image/png" }));
-    const c = document.createElement("canvas");
-    c.width = bmp.width;
-    c.height = bmp.height;
-    const ctx = c.getContext("2d");
-    if (!ctx) throw new Error("no 2d context");
-    ctx.drawImage(bmp, 0, 0);
-    const { data } = ctx.getImageData(0, 0, c.width, 1);
-    const out: number[] = [];
-    for (let i = 0; i < data.length; i += 4) out.push(0.2126 * data[i] + 0.7152 * data[i + 1] + 0.0722 * data[i + 2]);
-    return out;
-  }, png.toString("base64"));
-}
-const range = (v: number[]) => Math.max(...v) - Math.min(...v);
-const maxStep = (v: number[]) => v.slice(1).reduce((m, x, i) => Math.max(m, Math.abs(x - v[i])), 0);
-
-/** What paints inside the map card across a row: a window "beside" the
- * glass must cross nothing but the drawn map. */
-async function paintersAcross(page: Page, x: number, y: number, width: number): Promise<string[]> {
-  return page.evaluate(({ x, y, width }) => {
-    const card = document.querySelector("[data-drag-canvas]")?.parentElement;
-    if (!card) return ["no map card"];
-    const found: string[] = [];
-    for (const el of Array.from(card.querySelectorAll<HTMLElement>("*"))) {
-      const r = el.getBoundingClientRect();
-      if (r.width === 0 || r.height === 0 || r.right <= x || r.left >= x + width || r.bottom <= y || r.top > y) continue;
-      if (!el.checkVisibility({ opacityProperty: true, visibilityProperty: true })) continue;
-      const cs = getComputedStyle(el);
-      const text = Array.from(el.childNodes).some((n) => n.nodeType === 3 && (n.textContent ?? "").trim() !== "");
-      const paints = cs.backgroundColor !== "rgba(0, 0, 0, 0)" || cs.getPropertyValue("backdrop-filter") !== "none" || cs.boxShadow !== "none"
-        || cs.borderTopStyle !== "none" || ["svg", "img", "canvas"].includes(el.tagName.toLowerCase()) || text;
-      if (paints) found.push(`${el.tagName.toLowerCase()}.${el.className}`);
-    }
-    return found;
-  }, { x, y, width });
-}
 
 /** The stripes' width on screen: the median distance between the hard
  * edges across a clear row. */

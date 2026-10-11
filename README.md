@@ -359,7 +359,7 @@ the preload files from the image. Existing `NODE_OPTIONS` observers are preserve
 `npm run journey:browser` runs the **whole browser surface**, every spec
 file under `e2e/`, with Playwright against a running instance
 (`DEZFIL_BASE_URL` to point it elsewhere, default `localhost:3000`;
-first run needs `npx playwright install chromium`).
+first run needs `npx playwright install chromium firefox webkit`).
 The pipeline does not run it: it is yours to run, against an instance you
 provisioned as below. Third-party hosts
 are blocked during the journey, so it needs no internet beyond the
