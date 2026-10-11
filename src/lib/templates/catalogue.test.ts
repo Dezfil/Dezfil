@@ -235,6 +235,31 @@ describe("the list", () => {
     await expect(readTemplate("no-such-template", f.db)).rejects.toMatchObject({ code: "template_not_listed", status: 404 });
     await expect(templatePicture("no-such-template", "light", f.db)).rejects.toMatchObject({ code: "template_not_listed" });
   });
+
+  it("reads the version named: an installed one with its contents, or the one the kept list names, never another", async () => {
+    await ship(C1);
+    await download(B1);
+    await catalogue.publish([B2]);
+    await refreshCatalogue(f.db);
+    // Unnamed, the card's version: the newer listed one, not installed yet.
+    expect(await readTemplate("busy-stations", f.db)).toMatchObject({ version: 2, present: false, installed: 1, listed: 2, contents: null });
+    // Named, the installed one as it is, with what it holds.
+    const installed = await readTemplate("busy-stations", f.db, 1);
+    expect(installed).toMatchObject({
+      id: "busy-stations", version: 1, title: B1.facts.title, present: true, installed: 1, listed: 2, size: B1.size, howMade: B1.facts.howMade,
+      contents: { mapId: "template.busy-stations.1.map" },
+    });
+    expect(installed.contents!.workflow!.steps.map((step) => step.id)).toEqual(["step-busy", "step-rings"]);
+    // The version the kept list names, as the card reads it.
+    expect(await readTemplate("busy-stations", f.db, 2)).toEqual(await readTemplate("busy-stations", f.db));
+    // Any other is not listed, and a shipped id has its shipped version alone.
+    await expect(readTemplate("busy-stations", f.db, 3)).rejects.toMatchObject({ code: "template_not_listed", status: 404 });
+    expect(await readTemplate("quiet-park", f.db, 1)).toMatchObject({ version: 1, present: true, origin: "shipped" });
+    await expect(readTemplate("quiet-park", f.db, 2)).rejects.toMatchObject({ code: "template_not_listed" });
+    const schemas = buildOpenApiDocument().components.schemas as Record<string, Record<string, unknown>>;
+    expect(validateAgainstSchema(installed, schemas.TemplateDetail, "$", schemas)).toEqual([]);
+    expect(catalogue.requestsFor(`/${CATALOGUE_INDEX_FILE}`)).toHaveLength(1);
+  });
 });
 
 /** A port nothing listens on. */

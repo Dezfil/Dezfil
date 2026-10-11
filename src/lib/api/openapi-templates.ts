@@ -230,12 +230,17 @@ export const TEMPLATES_PATHS = {
     summary: "Read a template",
     description: SIGNED_IN + "Answers one template's card, as the list draws it, how it is made and, once its version is installed on this server, " +
       "what that version holds: its map's id (read through GET /api/maps/{id}), its datasets as measured and a workflow example's steps with their " +
-      "parameters and its saved canvas arrangement. Sends nothing. An id no shipped, downloaded or listed template has answers 404 template_not_listed.",
+      "parameters and its saved canvas arrangement. Sends nothing. Reads the version the query names, else the one its card takes now. " +
+      "An id no shipped, downloaded or listed template has, or a version that is neither installed nor the one the catalogue's last list names, " +
+      "answers 404 template_not_listed; a version that is not a whole number from 1, 400 invalid_request.",
     tag: "Templates", tool: "get_template", toolInput: { closed: true },
     display: { verb: "Read the template {subject}", subject: { resource: "templates", argument: "id", name: ["title"] } },
     effects: READ_ONLY, mcp: LOCAL_READ,
-    parameters: [ID_PARAM],
-    responses: { "200": jsonOk("#/components/schemas/TemplateDetail"), "401": ERROR_RESPONSE, "404": ERROR_RESPONSE, "503": ERROR_RESPONSE },
+    parameters: [ID_PARAM, { name: "version", in: "query", required: false, schema: { type: "integer", minimum: 1 },
+      description: "The version to read: one installed on this server, or the one the catalogue's last list names. Without it, the version " +
+        "its card takes now: the newest listed, unless the installed one is as new." }],
+    responses: { "200": jsonOk("#/components/schemas/TemplateDetail"), "400": ERROR_RESPONSE, "401": ERROR_RESPONSE, "404": ERROR_RESPONSE,
+      "503": ERROR_RESPONSE },
   }), security: AUTH_SECURITY } },
   "/api/templates/{id}/fetch": { post: { ...op({
     summary: "Fetch a template",

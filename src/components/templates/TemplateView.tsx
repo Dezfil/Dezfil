@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import type { AttributionLine, BasemapStyle } from "@/lib/basemap";
 import type { MapWithLayers } from "@/lib/metadata/maps";
 import type { TemplateDetail } from "@/lib/templates/card";
@@ -33,13 +33,13 @@ import styles from "./TemplateView.module.css";
  * stands in the builder, is the only action: its dialog copies the version
  * this page opened.
  *
- * The page keeps the version it opened: nothing here reads the template
- * again, so a newer version listed meanwhile changes nothing on it, and a
- * copy made from it is of this version. A version not on this server yet
- * is downloaded first (the one thing the page may cause to be written, on
- * the server's own templates folder), then the page is served again over
- * the installed version. Every other read is a read: the map and its
- * layers' renders, and the operation catalog.
+ * The page keeps the version it opened: nothing here reads the template's
+ * newest again, so a newer version listed meanwhile changes nothing on it,
+ * and a copy made from it is of this version. A version not on this server
+ * yet is downloaded first (the one thing the page may cause to be written,
+ * on the server's own templates folder), then that version is read again
+ * by its number through the read of one, and opened. Every other read is a
+ * read: the map and its layers' renders, and the operation catalog.
  */
 
 interface BasemapProps {
@@ -52,15 +52,18 @@ interface BasemapProps {
 const subscribeNever = () => () => {};
 
 export function TemplateView({
-  template,
+  template: served,
   ...basemap
 }: BasemapProps & {
   /** The read of one, as the page was served: the version it opens, with
    * what the version holds once it is installed. */
   template: TemplateDetail;
 }) {
+  // The version as served, until its download lands: then that version
+  // read again by its number.
+  const [read, setRead] = useState<{ of: TemplateDetail; detail: TemplateDetail } | null>(null);
+  const template = read?.of === served ? read.detail : served;
   const opened = template.contents;
-  const router = useRouter();
   const pathname = usePathname();
   const [copying, setCopying] = useState(false);
   const { operations } = useOperations();
@@ -108,9 +111,9 @@ export function TemplateView({
       {copying ? <TemplateCopyDialog id={template.id} template={template} onClose={() => setCopying(false)} /> : null}
       {opened === null ? (
         template.present ? (
-          <Fallback message="This template's files could not be read on this server." />
+          <Fallback message={UNREAD} />
         ) : (
-          <Download template={template} onDone={() => router.refresh()} />
+          <Download template={template} onDone={(detail) => setRead({ of: served, detail })} />
         )
       ) : template.kind === "map" ? (
         <TemplateMap opened={opened} panel={mapPanel} {...basemap} />
@@ -156,40 +159,56 @@ function Fallback({ message, onRetry }: { message: string; onRetry?: () => void 
   );
 }
 
-/** Download one version: null once it is installed, else why not. */
-async function download(id: string, version: number): Promise<string | null> {
+const UNREAD = "This template's files could not be read on this server.";
+
+type Downloaded = { detail: TemplateDetail; refused?: never } | { refused: string; detail?: never };
+
+/** Download one version, then read that version again by its number, as
+ * the read of one answers it: never the template's newest, which the
+ * catalogue may have moved on to meanwhile. Else why not. */
+async function download(id: string, version: number): Promise<Downloaded> {
+  const address = `/api/templates/${encodeURIComponent(id)}`;
   let response: Response;
   try {
-    response = await fetch(`/api/templates/${encodeURIComponent(id)}/fetch`, {
+    response = await fetch(`${address}/fetch`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ version }),
     });
   } catch {
-    return serverUnreachable("download the template");
+    return { refused: serverUnreachable("download the template") };
   }
-  return response.ok ? null : await readApiError(response);
+  if (!response.ok) return { refused: await readApiError(response) };
+  try {
+    response = await fetch(`${address}?version=${version}`, { cache: "no-store" });
+  } catch {
+    return { refused: serverUnreachable("read the template") };
+  }
+  if (!response.ok) return { refused: await readApiError(response) };
+  const detail = (await response.json()) as TemplateDetail;
+  return detail.present ? { detail } : { refused: UNREAD };
 }
 
 /** A listed version not on this server yet: downloaded once, as the card
- * said opening would, then the page is served again over it. One request
- * per attempt, however often the page renders or its effects re-run. */
-function Download({ template, onDone }: { template: TemplateDetail; onDone: () => void }) {
+ * said opening would, then read again by its number and handed over. One
+ * download per attempt, however often the page renders or its effects
+ * re-run. */
+function Download({ template, onDone }: { template: TemplateDetail; onDone: (detail: TemplateDetail) => void }) {
   const [failure, setFailure] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
   const done = useRef(onDone);
   useEffect(() => {
     done.current = onDone;
   });
-  const asked = useRef<{ key: string; answer: Promise<string | null> } | null>(null);
+  const asked = useRef<{ key: string; answer: Promise<Downloaded> } | null>(null);
   useEffect(() => {
     const key = `${template.id}@${template.version}#${attempt}`;
     if (asked.current?.key !== key) asked.current = { key, answer: download(template.id, template.version) };
     let cancelled = false;
-    void asked.current.answer.then((refused) => {
+    void asked.current.answer.then((answer) => {
       if (cancelled) return;
-      if (refused === null) done.current();
-      else setFailure(refused);
+      if (answer.detail) done.current(answer.detail);
+      else setFailure(answer.refused);
     });
     return () => {
       cancelled = true;

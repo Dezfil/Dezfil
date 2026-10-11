@@ -1209,7 +1209,7 @@
     {
       "type": "function",
       "name": "get_template",
-      "description": "Read a template. Every signed-in account, through cookie or bearer authentication; an anonymous request is refused. Responses, including refusals, are private, no-store. Answers one template's card, as the list draws it, how it is made and, once its version is installed on this server, what that version holds: its map's id (read through GET /api/maps/{id}), its datasets as measured and a workflow example's steps with their parameters and its saved canvas arrangement. Sends nothing. An id no shipped, downloaded or listed template has answers 404 template_not_listed.",
+      "description": "Read a template. Every signed-in account, through cookie or bearer authentication; an anonymous request is refused. Responses, including refusals, are private, no-store. Answers one template's card, as the list draws it, how it is made and, once its version is installed on this server, what that version holds: its map's id (read through GET /api/maps/{id}), its datasets as measured and a workflow example's steps with their parameters and its saved canvas arrangement. Sends nothing. Reads the version the query names, else the one its card takes now. An id no shipped, downloaded or listed template has, or a version that is neither installed nor the one the catalogue's last list names, answers 404 template_not_listed; a version that is not a whole number from 1, 400 invalid_request.",
       "parameters": {
         "type": "object",
         "properties": {
@@ -1217,6 +1217,11 @@
             "type": "string",
             "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$",
             "description": "The template's id: lowercase letters, digits and hyphens, the same across its versions."
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "The version to read: one installed on this server, or the one the catalogue's last list names. Without it, the version its card takes now: the newest listed, unless the installed one is as new."
           }
         },
         "additionalProperties": false,

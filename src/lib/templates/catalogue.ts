@@ -492,13 +492,17 @@ function stateOf(now: Now): CatalogueState {
 // ---------------------------------------------------------------------------
 // The list.
 
-function card(facts: TemplateFacts, fields: Pick<TemplateCard, "origin" | "installed" | "listed" | "present" | "size" | "picture">): TemplateCard {
+/** What a card says of one version, from its facts. */
+function cardFacts(facts: TemplateFacts): Omit<TemplateCard, "origin" | "installed" | "listed" | "present" | "size" | "picture"> {
   return {
     id: facts.id, kind: facts.kind, version: facts.version, title: facts.title, question: facts.question,
     place: facts.place, tags: [...facts.tags], dataDate: facts.dataDate, sources: facts.sources.map((s) => ({ ...s })),
     steps: facts.kind === "workflow" ? (facts.steps ?? []).map((s) => ({ ...s, reads: [...s.reads] })) : null,
-    ...fields,
   };
+}
+
+function card(facts: TemplateFacts, fields: Pick<TemplateCard, "origin" | "installed" | "listed" | "present" | "size" | "picture">): TemplateCard {
+  return { ...cardFacts(facts), ...fields };
 }
 
 /** Each template a card draws, with where its facts and pictures come from. */
@@ -554,14 +558,37 @@ async function find(id: string, db: Database): Promise<Drawn> {
   return found;
 }
 
-/** One template: its card, how it is made and, once its version is
- * installed, what the version holds; nothing is sent. */
-export async function readTemplate(id: string, db: Database = metadataDb()): Promise<TemplateDetail> {
+/**
+ * One template: its card, how it is made and, once its version is
+ * installed, what the version holds; nothing is sent. Without a version it
+ * reads the one the card takes now. A version named is read as it is: one
+ * installed on this server (a shipped template's shipped version, or a
+ * download whole by its record), else the one the kept list names; any
+ * other is not listed. So a reader that described one version reads that
+ * one again, whatever the catalogue listed meanwhile.
+ */
+export async function readTemplate(id: string, db: Database = metadataDb(), version: number | null = null): Promise<TemplateDetail> {
   const found = await find(id, db);
+  let card = found.card, facts = found.facts;
+  if (version !== null && version !== card.version) {
+    const installed = card.origin === "shipped"
+      ? null
+      : await readInstalledLight(path.join(downloadedTemplatesDir(), id, String(version)), id, version);
+    const listed = found.listed?.facts.version === version ? found.listed : null;
+    if (installed) {
+      facts = installed.facts;
+      card = { ...card, ...cardFacts(facts), present: true, size: installed.size, picture: "kept" };
+    } else if (listed) {
+      facts = listed.facts;
+      card = { ...card, ...cardFacts(facts), present: false, size: listed.size, picture: listed.picture.state };
+    } else {
+      throw templateNotListed();
+    }
+  }
   return {
-    ...found.card,
-    howMade: structuredClone(found.facts.howMade),
-    contents: found.card.present ? templateContents(found.card.id, found.card.version) : null,
+    ...card,
+    howMade: structuredClone(facts.howMade),
+    contents: card.present ? templateContents(card.id, card.version) : null,
   };
 }
 

@@ -1253,8 +1253,13 @@ map one may only view; `datasets`, each with its row count and geometry as
 measured; and `workflow`, a workflow example's steps in order, each with
 its operation, its parameters as saved, what it reads and its bundled
 result, with the saved canvas arrangement (positions and notes), or null
-for a map template. This is how a template's page opens it. An unknown id
-answers 404 `template_not_listed`. `GET /api/templates/{id}/picture?theme=`
+for a map template. `?version=` names the version to read: one installed on
+this server, or the one the catalogue's last list names; without it, the
+version the card takes now. This is how a template's page opens it, and
+how it reads again, by its number, the version it has just downloaded. An
+unknown id, or a version neither installed nor listed, answers 404
+`template_not_listed`; a version that is not a whole number from 1, 400
+`invalid_request`. `GET /api/templates/{id}/picture?theme=`
 answers the card's map picture as PNG (light when no theme is named), from
 disk for a shipped or downloaded version, else as the kept list holds it;
 it is a card image, outside the tool set. `POST /api/templates/{id}/fetch`

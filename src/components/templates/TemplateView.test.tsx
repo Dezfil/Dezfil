@@ -279,17 +279,54 @@ describe("a map template opened", () => {
 });
 
 describe("a version not on this server yet", () => {
-  it("downloads the version the page was served, once, says so meanwhile, then has the page served again", async () => {
+  const QUIET_2 = mapOf("template.quiet-park.2.map", []);
+  const quiet = (version: number, present: boolean) => detail({
+    id: "quiet-park", title: "Quiet park", version, present, installed: present ? version : 1, listed: version, origin: "catalogue",
+    size: 3 * 1024 * 1024, contents: null,
+  });
+  /** The server after the download: version 2 installed, while the
+   * catalogue has meanwhile moved on to a version 3 not on this server. */
+  const afterDownload = (call: Call): Response => {
+    if (call.method === "GET" && call.path === "/api/templates/quiet-park?version=2") {
+      return Response.json({ ...quiet(2, true), contents: { ...opened("quiet-park"), mapId: QUIET_2.id } });
+    }
+    if (call.method === "GET" && call.path === "/api/templates/quiet-park") return Response.json(quiet(3, false));
+    if (call.method === "GET" && call.path === `/api/maps/${encodeURIComponent(QUIET_2.id)}`) return Response.json(QUIET_2);
+    return answer(call);
+  };
+
+  it("downloads the version the page was served, once, says so meanwhile, then reads that version by its number and opens it", async () => {
     let release!: (response: Response) => void;
-    fetchAnswer = (call) => (call.method === "POST" ? new Promise<Response>((resolve) => { release = resolve; }) : answer(call));
-    await open(detail({ id: "quiet-park", version: 2, present: false, installed: 1, listed: 2, origin: "catalogue", size: 3 * 1024 * 1024 }), null, true);
+    fetchAnswer = (call) => (call.method === "POST" ? new Promise<Response>((resolve) => { release = resolve; }) : afterDownload(call));
+    await open(quiet(2, false), null, true);
     expect(writes()).toEqual([{ method: "POST", path: "/api/templates/quiet-park/fetch", body: { version: 2 } }]);
     expect(text(container.querySelector("[data-template-downloading]"))).toBe("Downloading the template, 3.0 MB…");
-    expect(nav.refresh).not.toHaveBeenCalled();
-    await act(async () => release(Response.json({ id: "quiet-park", version: 2 })));
+    await act(async () => release(Response.json({ id: "quiet-park", version: 2, size: 3 * 1024 * 1024, downloaded: true })));
     await settle();
-    expect(nav.refresh).toHaveBeenCalledTimes(1);
     expect(writes()).toHaveLength(1);
+    // The version it described, never the newer one listed meanwhile.
+    expect(calls.filter((c) => c.path.startsWith("/api/templates/quiet-park") && c.method === "GET").map((c) => c.path))
+      .toEqual(["/api/templates/quiet-park?version=2"]);
+    expect(nav.refresh).not.toHaveBeenCalled();
+    expect(probe.stage).toMatchObject({ mapId: "template.quiet-park.2.map" });
+    expect(container.querySelector("[data-template-downloading]")).toBeNull();
+  });
+
+  it("says why when the version it downloaded cannot be read again, with a retry", async () => {
+    let readable = false;
+    fetchAnswer = (call) => call.method === "POST"
+      ? Response.json({ id: "quiet-park", version: 2, size: 3 * 1024 * 1024, downloaded: true })
+      : call.path === "/api/templates/quiet-park?version=2" && !readable
+        ? Response.json({ error: { code: "template_not_listed", message: "No template has that id." } }, { status: 404 })
+        : afterDownload(call);
+    await open(quiet(2, false), null);
+    const fallback = container.querySelector("[data-template-fallback]")!;
+    expect(text(fallback)).toContain("No template has that id.");
+    readable = true;
+    await act(async () => fallback.querySelector("button")!.click());
+    await settle();
+    expect(probe.stage).toMatchObject({ mapId: "template.quiet-park.2.map" });
+    expect(writes().map((c) => c.body)).toEqual([{ version: 2 }, { version: 2 }]);
   });
 
   it("says why a download was refused, with the way back and a retry of the same version", async () => {

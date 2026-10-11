@@ -153,6 +153,15 @@ describe("by cookie and by token", () => {
     expect(catalogue.requests).toEqual([]);
   });
 
+  it("refuses a version that is not a whole number from 1 with invalid_request, sending nothing", async () => {
+    for (const version of ["0", "-1", "1.5", "two", "01", ""]) {
+      const response = await readRoute(call("GET", `/api/templates/quiet-park?version=${version}`, memberCookie()), params("quiet-park"));
+      expect(response.status, version).toBe(400);
+      expect((await response.json()).error.code, version).toBe("invalid_request");
+    }
+    expect(catalogue.requests).toEqual([]);
+  });
+
   it("answers an unknown id with template_not_listed, a picture not kept with not_found, and a theme it does not know with invalid_request", async () => {
     const unknown = await readRoute(call("GET", "/api/templates/no-such", memberCookie()), params("no-such"));
     expect(unknown.status).toBe(404);
@@ -243,6 +252,13 @@ describe("the generated tools", () => {
     expect(shippedRead.body).toMatchObject({ contents: { mapId: "template.quiet-park.1.map", workflow: null } });
     const byCookie = await readRoute(call("GET", "/api/templates/quiet-park", memberCookie()), params("quiet-park"));
     expect(await byCookie.json()).toEqual(shippedRead.body);
+    // A version named reads that version, the same by tool and by cookie.
+    const named = await executeTool(tool("get_template"), { id: "quiet-park", version: 1 }, ORIGIN, dispatch(secret));
+    expect(named.body).toEqual(shippedRead.body);
+    const namedByCookie = await readRoute(call("GET", "/api/templates/quiet-park?version=1", memberCookie()), params("quiet-park"));
+    expect(await namedByCookie.json()).toEqual(shippedRead.body);
+    const other = await executeTool(tool("get_template"), { id: "quiet-park", version: 2 }, ORIGIN, dispatch(secret));
+    expect([other.status, (other.body as { error: { code: string } }).error.code]).toEqual([404, "template_not_listed"]);
     const unknown = await executeTool(tool("get_template"), { id: "no-such" }, ORIGIN, dispatch(secret));
     expect(unknown.status).toBe(404);
     expect(catalogue.requestsFor(`/${CATALOGUE_INDEX_FILE}`)).toHaveLength(1);
