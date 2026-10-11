@@ -34,7 +34,8 @@ import {
  * while the catalogue lists nothing here, one line says why. A search box
  * narrows by title, question, place and credit, the tag chips by tag, with
  * counts that follow the search; there is no sort, since the list's order
- * is the curated one.
+ * is the curated one. With no card at all there is nothing to narrow: the
+ * page shows its line alone, with neither the search box nor a chip.
  */
 
 async function readTemplates(): Promise<TemplateList> {
@@ -123,6 +124,8 @@ export function TemplatesScreen() {
   // list (a refresh replaced it) reads as All.
   const chips = useMemo(() => (list ? tagChips(list.templates, query) : null), [list, query]);
   const pick: TagPick = chips?.some((chip) => chip.pick === picked) ? picked : "all";
+  // Shown until a list has answered with no card at all.
+  const narrowing = !list || list.templates.length > 0;
   const shown = useMemo(
     () => list?.templates.filter((card) => carriesTag(card, pick) && matchesSearch(card, query)) ?? null,
     [list, pick, query],
@@ -146,41 +149,43 @@ export function TemplatesScreen() {
         title="Templates"
         line="Finished maps and workflows on open data. Open one to see how it is made, or make a copy to work on."
       />
-      <div className={gallery.toolbar}>
-        <label className={gallery.search}>
-          <IconSearch />
-          <input
-            ref={searchRef}
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search templates…"
-            aria-label="Search templates"
-          />
-          <kbd>/</kbd>
-        </label>
-        <div className={gallery.chips} role="group" aria-label="Filter templates">
-          {/* Counts appear once the list has answered: a chip saying 0
-              while it is read would be wrong. */}
-          {chips === null ? (
-            <button type="button" className={gallery.filterChip} data-on>
-              All
-            </button>
-          ) : (
-            chips.map((chip) => (
-              <button
-                type="button"
-                key={chip.pick}
-                className={gallery.filterChip}
-                data-on={chip.pick === pick || undefined}
-                onClick={() => setPicked(chip.pick)}
-              >
-                {chip.label}
-                <span className={gallery.chipCount}> · {chip.count}</span>
+      {narrowing && (
+        <div className={gallery.toolbar}>
+          <label className={gallery.search}>
+            <IconSearch />
+            <input
+              ref={searchRef}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search templates…"
+              aria-label="Search templates"
+            />
+            <kbd>/</kbd>
+          </label>
+          <div className={gallery.chips} role="group" aria-label="Filter templates">
+            {/* Counts appear once the list has answered: a chip saying 0
+                while it is read would be wrong. */}
+            {chips === null ? (
+              <button type="button" className={gallery.filterChip} data-on>
+                All
               </button>
-            ))
-          )}
+            ) : (
+              chips.map((chip) => (
+                <button
+                  type="button"
+                  key={chip.pick}
+                  className={gallery.filterChip}
+                  data-on={chip.pick === pick || undefined}
+                  onClick={() => setPicked(chip.pick)}
+                >
+                  {chip.label}
+                  <span className={gallery.chipCount}> · {chip.count}</span>
+                </button>
+              ))
+            )}
+          </div>
         </div>
-      </div>
+      )}
       {line && (
         <p className={styles.catalogueLine} role="status" data-catalogue-line>
           <InfoIcon />

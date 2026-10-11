@@ -233,6 +233,33 @@ describe("the catalogue's line", () => {
     expect(refreshCalls()).toHaveLength(1);
   });
 
+  it.each([
+    ["off", catalogue("off"), `The template catalogue is turned off, ${ONLY}`],
+    ["unreachable", catalogue("unreachable"), `The template catalogue did not answer, ${ONLY}`],
+  ] as const)("shows only its line with no card at all while the catalogue is %s: no search box and no chip", async (_label, state, expected) => {
+    listed = list([], state);
+    await open();
+    expect(line()).toBe(expected);
+    expect(cards()).toHaveLength(0);
+    expect(container.querySelector('input[aria-label="Search templates"]')).toBeNull();
+    expect(container.querySelector('[aria-label="Filter templates"]')).toBeNull();
+    expect(container.textContent).not.toContain("All");
+  });
+
+  it("brings the search box and the chips back once a refresh lists a card", async () => {
+    listed = list([], catalogue("not_read"));
+    let release: (response: Response) => void = () => {};
+    refreshAnswer = () => new Promise((resolve) => { release = resolve; });
+    await open();
+    expect(line()).toBe("Reading the template catalogue…");
+    expect(container.querySelector('input[aria-label="Search templates"]')).toBeNull();
+    await act(async () => release(Response.json(list([reach], catalogue("listed")))));
+    await settle();
+    expect(container.querySelector('input[aria-label="Search templates"]')).not.toBeNull();
+    expect(container.querySelector('[aria-label="Filter templates"]')!.querySelectorAll("button").map((b) => b.textContent))
+      .toEqual(["All · 1", "Analysis · 1"]);
+  });
+
   it("never names the catalogue's address in its line", async () => {
     listed = list([harbour], catalogue("refused", { reason: "status", status: 503, host: "https://catalogue.test" }));
     await open();
