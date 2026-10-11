@@ -118,7 +118,9 @@ interface Styled { element: string; styles: Record<string, string> }
 function rasterizedStyles(page: Page): Promise<Styled[]> {
   return page.evaluate(() => {
     const frame = document.querySelector("[data-export-card] [data-export-composition]")!;
-    const roots = Array.from(frame.querySelectorAll<HTMLElement>("[data-look-default]"));
+    // The two rasterized nodes each carry the default scope inside the
+    // composition's own: the chrome layer and the standalone legend's scale.
+    const roots = Array.from(frame.querySelectorAll<HTMLElement>("[data-look-default] [data-look-default]"));
     const props = ["font-family", "font-size", "font-weight", "line-height", "letter-spacing", "color", "background-color",
       "border-top-color", "border-top-width", "border-top-left-radius", "box-shadow", "fill", "stroke", "opacity"];
     return roots.flatMap((root) => [root, ...Array.from(root.querySelectorAll<Element>("*"))]).map((el) => {

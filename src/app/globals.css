@@ -446,6 +446,8 @@ button:disabled {
   --surface-inner-card-lens: 0;
   /* A slider's thumb: a bright knob that reads on both themes */
   --surface-inner-card-knob: #fff;
+  /* A drag grip's and a map handle's ground: the accent marks them */
+  --surface-inner-card-mark: var(--accent);
 
   /* Menu and pop-over: what opens over something and closes; solid
      unless a look makes it otherwise */
@@ -454,8 +456,11 @@ button:disabled {
   --surface-menu-edge: var(--edge-hairline);
   --surface-menu-shadow: var(--shadow-lift);
   --surface-menu-lens: 0;
-  /* The stronger line of the map's tooltip, popup and failure notice */
+  /* The stronger line of a picker, a peek, the hint and the map's tooltip,
+     popup and failure notice */
   --surface-menu-edge-strong: 1px solid var(--border-strong);
+  /* The raised ground of the map's tooltip, popup and failure notice */
+  --surface-menu-fill-raised: var(--bg-raised);
 
   /* Dialog: every modal, solid unless a look makes it otherwise */
   --surface-dialog-fill: var(--bg-panel);

@@ -33,8 +33,9 @@ const HAIRLINE = "1px solid var(--border)";
 /** Each role's parts at the values the design names, both themes alike:
  * the theme supplies the tones. Every role but the stage has a lens, how
  * far its edge pulls the backdrop in, none in the shipped look; the
- * overlay control's growth on hover, the menu's stronger edge and the
- * inner card's bright knob are today's values, so a look can restate them. */
+ * overlay control's growth on hover, the menu's stronger edge and raised
+ * ground, and the inner card's bright knob and accent mark are today's
+ * values, so a look can restate them. */
 const ROLES: Record<string, Record<string, string>> = {
   "glass-chrome": { fill: FILLS.glass, blur: STRENGTHS.glass, edge: "none", shadow: STEPS.float, lens: "0" },
   "glass-panel": { fill: FILLS.glass, blur: STRENGTHS.glass, edge: "none", shadow: STEPS.float, corner: "var(--radius-card)", lens: "0" },
@@ -46,9 +47,12 @@ const ROLES: Record<string, Record<string, string>> = {
   },
   "inner-card": {
     fill: "var(--bg-panel)", blur: "none", edge: HAIRLINE, shadow: STEPS.hairline,
-    "shadow-lifted": STEPS.float, "shadow-dragged": STEPS.deep, lens: "0", knob: "#fff",
+    "shadow-lifted": STEPS.float, "shadow-dragged": STEPS.deep, lens: "0", knob: "#fff", mark: "var(--accent)",
   },
-  menu: { fill: "var(--bg-panel)", blur: "none", edge: HAIRLINE, shadow: STEPS.lift, lens: "0", "edge-strong": "1px solid var(--border-strong)" },
+  menu: {
+    fill: "var(--bg-panel)", blur: "none", edge: HAIRLINE, shadow: STEPS.lift, lens: "0", "edge-strong": "1px solid var(--border-strong)",
+    "fill-raised": "var(--bg-raised)",
+  },
   dialog: { fill: "var(--bg-panel)", blur: "none", edge: HAIRLINE, shadow: STEPS.dialog, corner: "var(--radius-card)", lens: "0" },
   stage: { fill: "transparent", blur: "none", edge: "none", shadow: STEPS.deep, corner: "var(--radius-card)" },
 };

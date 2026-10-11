@@ -37,6 +37,7 @@
   height: 16px;
   border-radius: var(--radius-pill);
   background: var(--surface-inner-card-fill);
+  backdrop-filter: var(--surface-inner-card-blur);
   box-shadow: var(--surface-inner-card-shadow);
   transition: transform var(--dur-micro) ease;
   z-index: 1;

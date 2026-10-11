@@ -67,6 +67,7 @@
   margin-top: 1px;
   border-radius: var(--radius-sm);
   background: var(--surface-inner-card-fill);
+  backdrop-filter: var(--surface-inner-card-blur);
   border: 1.5px solid var(--fg);
   box-shadow: var(--surface-inner-card-shadow);
   pointer-events: auto;
@@ -83,6 +84,7 @@
   height: 18px;
   border-radius: var(--radius-sm);
   background: var(--surface-inner-card-fill);
+  backdrop-filter: var(--surface-inner-card-blur);
   border: 1.5px solid var(--fg);
   box-shadow: var(--surface-inner-card-shadow);
   pointer-events: auto;

@@ -9,6 +9,7 @@
   border: var(--surface-page-card-edge);
   /* A card on the page whose ground is the map's, under a map still loading. */
   background: var(--bg-raised);
+  backdrop-filter: var(--surface-page-card-blur);
   box-shadow: var(--surface-page-card-shadow);
 }
 
@@ -37,6 +38,7 @@
   border: var(--surface-menu-edge);
   border-radius: var(--radius);
   background: var(--surface-menu-fill);
+  backdrop-filter: var(--surface-menu-blur);
   box-shadow: var(--surface-menu-shadow);
   color: var(--fg);
   font-size: var(--text-body);

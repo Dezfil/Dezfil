@@ -156,6 +156,7 @@
 
 .scopeBtn[data-on] {
   background: var(--surface-inner-card-fill);
+  backdrop-filter: var(--surface-inner-card-blur);
   color: var(--fg);
   box-shadow: var(--surface-inner-card-shadow);
 }

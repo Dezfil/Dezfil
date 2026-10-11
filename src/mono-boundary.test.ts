@@ -224,7 +224,7 @@ const ALLOWED = new Set([
   "src/components/builder/drawer/ParameterForm.module.css :: .number",
   "src/components/builder/drawer/ParameterForm.module.css :: .textarea",
   "src/components/builder/drawer/SuccessFace.module.css :: .table code",
-  "src/components/builder/export/ExportComposition.module.css :: .frame",
+  "src/components/builder/export/ExportComposition.module.css :: .composition",
   "src/components/builder/publish/PublishPopover.module.css :: .fieldName",
   "src/components/builder/publish/PublishPopover.module.css :: .snippet",
   "src/components/builder/publish/PublishPopover.module.css :: .url",

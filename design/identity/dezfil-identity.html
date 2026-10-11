@@ -334,6 +334,8 @@
   --surface-inner-card-lens: 0;
   /* A slider's thumb: a bright knob that reads on both themes */
   --surface-inner-card-knob: #fff;
+  /* A drag grip's and a map handle's ground: the accent marks them */
+  --surface-inner-card-mark: var(--accent);
 
   /* Menu and pop-over: what opens over something and closes; solid
      unless a look makes it otherwise */
@@ -342,8 +344,11 @@
   --surface-menu-edge: var(--edge-hairline);
   --surface-menu-shadow: var(--shadow-lift);
   --surface-menu-lens: 0;
-  /* The stronger line of the map's tooltip, popup and failure notice */
+  /* The stronger line of a picker, a peek, the hint and the map's tooltip,
+     popup and failure notice */
   --surface-menu-edge-strong: 1px solid var(--border-strong);
+  /* The raised ground of the map's tooltip, popup and failure notice */
+  --surface-menu-fill-raised: var(--bg-raised);
 
   /* Dialog: every modal, solid unless a look makes it otherwise */
   --surface-dialog-fill: var(--bg-panel);
@@ -1010,6 +1015,7 @@ code, .mono { font-family: var(--font-mono); }
   border-radius: var(--radius-card);
   border: var(--surface-dialog-edge);
   background: var(--surface-dialog-fill);
+  backdrop-filter: var(--surface-dialog-blur);
   box-shadow: var(--surface-dialog-shadow);
   /* The one intentional suppression in the app: this container
      takes programmatic focus on open as the modality anchor — it is not
@@ -1287,13 +1293,14 @@ select.kit-field-field {
   z-index: 200;
   max-width: 340px;
   background: var(--bg-hover);
+  backdrop-filter: var(--surface-menu-blur);
   color: var(--fg);
   font-family: var(--font-ui);
   font-size: 11px;
   font-weight: 500;
   line-height: 1.35;
   padding: 5px 8px;
-  border: 1px solid var(--border-strong);
+  border: var(--surface-menu-edge-strong);
   border-radius: var(--radius-sm);
   box-shadow: var(--surface-menu-shadow);
   pointer-events: none;
@@ -1616,6 +1623,7 @@ select.kit-field-field {
   margin-top: -5.5px;
   border-radius: 50%;
   background: var(--surface-inner-card-knob);
+  backdrop-filter: var(--surface-inner-card-blur);
   border: 1.5px solid var(--accent);
   box-shadow: var(--surface-inner-card-shadow);
   transition: transform 0.12s ease;
@@ -1642,6 +1650,7 @@ select.kit-field-field {
   height: 15px;
   border-radius: 50%;
   background: var(--surface-inner-card-knob);
+  backdrop-filter: var(--surface-inner-card-blur);
   border: 1.5px solid var(--accent);
   box-shadow: var(--surface-inner-card-shadow);
 }
@@ -1743,6 +1752,7 @@ select.kit-field-field {
   height: 16px;
   border-radius: var(--radius-pill);
   background: var(--surface-inner-card-fill);
+  backdrop-filter: var(--surface-inner-card-blur);
   box-shadow: var(--surface-inner-card-shadow);
   transition: transform var(--dur-micro) ease;
   z-index: 1;

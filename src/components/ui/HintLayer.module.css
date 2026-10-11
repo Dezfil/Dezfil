@@ -10,13 +10,14 @@
   z-index: 200;
   max-width: 340px;
   background: var(--bg-hover);
+  backdrop-filter: var(--surface-menu-blur);
   color: var(--fg);
   font-family: var(--font-ui);
   font-size: 11px;
   font-weight: 500;
   line-height: 1.35;
   padding: 5px 8px;
-  border: 1px solid var(--border-strong);
+  border: var(--surface-menu-edge-strong);
   border-radius: var(--radius-sm);
   box-shadow: var(--surface-menu-shadow);
   pointer-events: none;

@@ -279,6 +279,7 @@
   position: relative;
   border-radius: var(--radius-card);
   background: var(--surface-page-card-fill);
+  backdrop-filter: var(--surface-page-card-blur);
   border: var(--surface-page-card-edge);
   box-shadow: var(--surface-page-card-shadow);
   transition:
@@ -656,6 +657,7 @@
   border-radius: var(--radius-card);
   overflow: hidden;
   background: var(--surface-page-card-fill);
+  backdrop-filter: var(--surface-page-card-blur);
   box-shadow: var(--surface-page-card-shadow);
   animation: rise-in var(--dur-entrance) var(--ease-entrance);
 }
@@ -1015,6 +1017,7 @@
   padding: 8px 11px;
   border-radius: var(--radius);
   background: var(--surface-menu-fill);
+  backdrop-filter: var(--surface-menu-blur);
   border: var(--surface-menu-edge);
   box-shadow: var(--surface-menu-shadow);
   color: var(--fg);

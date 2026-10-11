@@ -71,7 +71,8 @@
   min-width: 208px;
   max-width: 100%;
   background: var(--surface-menu-fill);
-  border: 1px solid var(--border-strong);
+  backdrop-filter: var(--surface-menu-blur);
+  border: var(--surface-menu-edge-strong);
   border-radius: var(--radius);
   box-shadow: var(--surface-menu-shadow);
   padding: 4px;
