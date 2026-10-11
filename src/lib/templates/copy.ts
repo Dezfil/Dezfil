@@ -4,7 +4,6 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { admitAccountWork, type AccountWorkLease } from "@/lib/auth/account-deletion-admission";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
-import { deriveTableName } from "@/lib/ingest/naming";
 import { saveThemedThumbnail } from "@/lib/map-thumbnails";
 import { metadataDb } from "@/lib/metadata/db";
 import { insertLayer, insertMap } from "@/lib/metadata/maps";
@@ -40,15 +39,22 @@ import { refuse } from "./refusals";
  * from before its first byte, the copy admitted as the account's work, so
  * a deletion accepted meanwhile stops it with nothing registered.
  *
+ * The names are taken by the suffix rule against the copier's datasets and
+ * every output name their workflows declare, never on a word the
+ * template's queries use (copy-references.ts), and the rewrite under
+ * exactly those names is checked before the transaction. The transaction
+ * takes them again: names another copy or upload committed meanwhile are
+ * among what it finds, so two copies at once by one account each take
+ * names the other has already taken. Should they differ from the checked
+ * ones, it writes nothing, and the copy checks the new names and runs it
+ * again.
+ *
  * Then one metadata transaction, the project first: the project with its
- * provenance line; the names, allocated inside the transaction by the
- * suffix rule against the copier's datasets and every output name their
- * workflows declare, so two copies at once by one account each take names
- * the other has already taken; the datasets, theirs, with source
- * `template` naming the id and version, filed in the project; the map
- * under fresh identities, its SQL naming the datasets as landed and its
- * widgets, legend order and timeline bound to the copied layers, filed in
- * the project; and a workflow example's workflow, each step its own,
+ * provenance line; the datasets, theirs, with source `template` naming
+ * the id and version, filed in the project; the map under fresh
+ * identities, its SQL naming the datasets as landed and its widgets,
+ * legend order and timeline bound to the copied layers, filed in the
+ * project; and a workflow example's workflow, each step its own,
  * reading and declaring the names as landed, each bundled result recorded
  * as the copier's output of its step with no job and no run (the record's
  * time is the copy's), its canvas layout with every position under the
@@ -183,23 +189,37 @@ interface Planned {
   members: CopiedMember[];
   copied: CopiedArtifact[];
   name: string;
+  /** The names the rewrite was checked under. */
+  landed: LandedNames;
 }
+
+/** The names a copy checked moved before its transaction took them: the
+ * transaction wrote nothing, and these are the names it found. */
+class NamesMoved extends Error {
+  constructor(readonly landed: LandedNames) {
+    super("The copy's dataset names changed before its transaction.");
+  }
+}
+
+/** How many times a copy checks names that moved under it before it gives
+ * up: each move is another write of the copier's committing first. */
+const NAME_ATTEMPTS = 5;
+
+const sameNames = (a: LandedNames, b: LandedNames) => a.size === b.size && [...a].every(([key, name]) => b.get(key) === name);
 
 /** Everything the copy writes, inside its one transaction, the project
  * first. */
 function writeCopy(scope: AccountScope, accountId: string, planned: Planned, db: Database): Omit<Made, "pictures"> {
-  const { installed: { admitted, record }, references, members, copied } = planned;
+  const { installed: { admitted, record }, references, members, copied, landed } = planned;
+  // Taken again here, under the transaction: what another copy committed
+  // since the names were checked is among them now.
+  const now = references.land(takenNames(scope, db, accountId));
+  if (!sameNames(now, landed)) throw new NamesMoved(now);
   const { facts } = admitted;
-  const now = new Date().toISOString();
-  const project = createProject(scope, { name: planned.name, note: provenance(facts, admitted.manifest.project.note, now) }, db);
-  // Taken here, under the transaction: what another copy committed before
-  // this one began is already among them.
-  const taken = takenNames(scope, db, accountId);
-  const landed = new Map<string, string>();
+  const at = new Date().toISOString();
+  const project = createProject(scope, { name: planned.name, note: provenance(facts, admitted.manifest.project.note, at) }, db);
   members.forEach((member, i) => {
-    const name = deriveTableName(member.name, taken);
-    taken.add(name);
-    landed.set(member.name.toLowerCase(), name);
+    const name = landed.get(member.name.toLowerCase())!;
     const measured = record.measured[member.file];
     insertTable(scope, {
       id: copied[i].id,
@@ -212,14 +232,14 @@ function writeCopy(scope: AccountScope, accountId: string, planned: Planned, db:
       crsAssumed: measured.crsAssumed,
       headerSuspect: false,
       rowCount: measured.rowCount,
-      createdAt: now,
+      createdAt: at,
       source: "template",
       sourceParams: { template: facts.id, version: facts.version },
-      importedAt: now,
+      importedAt: at,
     }, db);
     fileOwnedTable(scope, copied[i].id, project.id, db);
   });
-  const mapId = writeMap(scope, admitted.map, references.layerSql(landed), project.id, now, db);
+  const mapId = writeMap(scope, admitted.map, references.layerSql(landed), project.id, at, db);
   const { workflow } = admitted;
   if (workflow) {
     // The bundled results land after the datasets, in the steps' order.
@@ -227,7 +247,7 @@ function writeCopy(scope: AccountScope, accountId: string, planned: Planned, db:
       id: copied[admitted.datasets.length + i].id,
       name: landed.get(step.output.toLowerCase())!,
     }));
-    writeWorkflow(scope, accountId, workflow, { parameters: references.stepParameters(landed), results, landed }, project.id, now, db);
+    writeWorkflow(scope, accountId, workflow, { parameters: references.stepParameters(landed), results, landed }, project.id, at, db);
   }
   return { projectId: project.id, mapId };
 }
@@ -239,6 +259,8 @@ async function makeCopy(scope: AccountScope, accountId: string, source: CopySour
     refuse("template_record_mismatch", `The installed folder of ${source.id} version ${source.version} holds another version.`);
   }
   const references = await bindCopyReferences(scope, admitted);
+  let landed = references.land(takenNames(scope, db, accountId));
+  await references.check(landed);
   const pictures = Object.fromEntries(await Promise.all(TEMPLATE_THEMES.map(async (theme) =>
     [theme, await readFile(path.join(admitted.folder, admitted.pictures[theme]))] as const))) as Record<TemplateTheme, Buffer>;
   const members: CopiedMember[] = [
@@ -251,12 +273,20 @@ async function makeCopy(scope: AccountScope, accountId: string, source: CopySour
       copied.push(await copyDatasetFile(accountId, admitted.folder, member.file, record.files[member.file].sha256));
     }
     await holder.seam.beforeTransaction?.(`${source.id}@${source.version}`);
-    const planned: Planned = { installed, references, members, copied, name: name ?? projectName(admitted.facts.title) };
-    const made = db.transaction(() => recordDocumentBatch(scope, () => {
-      lease.assertCommit();
-      return writeCopy(scope, accountId, planned, db);
-    }, db)).immediate();
-    return { ...made, pictures };
+    for (let attempt = 1; ; attempt++) {
+      const planned: Planned = { installed, references, members, copied, name: name ?? projectName(admitted.facts.title), landed };
+      try {
+        const made = db.transaction(() => recordDocumentBatch(scope, () => {
+          lease.assertCommit();
+          return writeCopy(scope, accountId, planned, db);
+        }, db)).immediate();
+        return { ...made, pictures };
+      } catch (error) {
+        if (!(error instanceof NamesMoved) || attempt === NAME_ATTEMPTS) throw error;
+        landed = error.landed;
+        await references.check(landed);
+      }
+    }
   } catch (error) {
     await removeCopiedArtifacts(copied);
     throw error;

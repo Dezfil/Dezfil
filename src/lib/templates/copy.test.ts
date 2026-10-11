@@ -55,10 +55,11 @@ import * as shippedIndex from "./shipped-index";
 const ORIGIN = "http://instance.test";
 const TODAY = () => new Date().toISOString().slice(0, 10);
 const RIDERS_TOTAL = 340 + 220 + 180 + 90 + 60 + 410;
+const LOCAL_NAME_SQL = "WITH stations_2 AS (SELECT 99 AS x) SELECT * FROM stations";
 const QUALIFIED_SQL = "SELECT stations.id, stations.name, stations.riders, stations.opened, stations.geom FROM stations WHERE stations.riders > 0";
 
 let built: string;
-let M1: BuiltTemplate, Q1: BuiltTemplate, X1: BuiltTemplate, D1: BuiltTemplate, N1: BuiltTemplate;
+let M1: BuiltTemplate, Q1: BuiltTemplate, X1: BuiltTemplate, D1: BuiltTemplate, N1: BuiltTemplate, L1: BuiltTemplate;
 let f: ReturnType<typeof instanceSettingsFixture>;
 let dir: string;
 let shippedFolder: string;
@@ -91,6 +92,15 @@ beforeAll(async () => {
     edit: (files) => {
       const layers = files.documents.get("maps/map.json")!.layers as Record<string, unknown>[];
       layers.find((layer) => layer.id === "layer-stations")!.sql = QUALIFIED_SQL;
+    },
+  });
+  // The stations layer defining a query-local name of the shape a second
+  // copy's dataset would take.
+  L1 = await buildTemplate(path.join(built, "l1"), {
+    id: "local-names",
+    edit: (files) => {
+      const layers = files.documents.get("maps/map.json")!.layers as Record<string, unknown>[];
+      layers.find((layer) => layer.id === "layer-stations")!.sql = LOCAL_NAME_SQL;
     },
   });
 });
@@ -331,6 +341,22 @@ describe("a copy of a map template", () => {
     // It reads the second copy's own dataset: the rows the copied file holds.
     const widgets = await call("POST", `/api/maps/${second.map.id}/widget-values`, byCookie(), {});
     expect(widgets.body).toMatchObject({ widgets: [expect.objectContaining({ value: RIDERS_TOTAL })] });
+  });
+
+  it("never lands a dataset under a name the template's queries define for themselves: a second copy reads its own dataset", async () => {
+    await installFixture(L1, path.join(dataDir(), "templates", "local-names", "1"), { kind: "catalogue", origin: "https://catalogue.example" });
+    const first = await landed(await copy("local-names"));
+    expect(names(first)).toEqual(["districts", "stations"]);
+    expect(layerSql(first.map).Stations).toBe(LOCAL_NAME_SQL);
+    // The second copy finds "stations" taken, and "stations_2" is the
+    // query's own name: the dataset lands past it.
+    const second = await landed(await copy("local-names"));
+    const stations = second.map.layers.find((l) => l.name === "Stations")!;
+    expect(await renders(stations.id)).toMatchObject({ ok: true, mode: "inline", featureCount: 6, geometryType: "POINT" });
+    const widgets = await call("POST", `/api/maps/${second.map.id}/widget-values`, byCookie(), {});
+    expect(widgets.body).toMatchObject({ widgets: [expect.objectContaining({ value: RIDERS_TOTAL })] });
+    expect(names(second)).toEqual(["districts_2", "stations_3"]);
+    expect(stations.sql).toBe("WITH stations_2 AS (SELECT 99 AS x) SELECT * FROM stations_3 AS stations");
   });
 
   it("a copier whose workflow declares a template dataset's name lands that dataset under the next free name", async () => {
