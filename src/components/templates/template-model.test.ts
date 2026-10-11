@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { workflowGraph } from "../workflow-graph";
-import { absentLine, cardTags, creditInFull, creditLine, dataDateLabel, graphSteps, refreshes, toolsLine } from "./template-model";
+import type { TemplateList } from "@/lib/templates/card";
+import { absentLine, cardTags, creditInFull, creditLine, dataDateLabel, graphSteps, READING_LINE, refreshes, screenLine, toolsLine } from "./template-model";
 
 /**
  * The words a template card is drawn with, from facts written here: the
@@ -77,5 +78,22 @@ describe("when the page reads the catalogue again", () => {
     expect(refreshes(state({ state: "refused", reason: "status", status: 404 }))).toBe(true);
     expect(refreshes(state({ state: "off" }))).toBe(false);
     expect(refreshes(state({ state: "refused", reason: "service_address_unreadable" }))).toBe(false);
+  });
+});
+
+describe("the page's line about the catalogue", () => {
+  const list = (over: object) => ({ templates: [], downloads: { versions: 0, bytes: 0 },
+    catalogue: { state: "listed", host: "https://templates.example", folder: false, readAt: null, reason: null, status: null, ...over } }) as TemplateList;
+  it("says nothing before the list answered, the server's words for a refused refresh, then the state's", () => {
+    expect(screenLine(null, null, true)).toBeNull();
+    expect(screenLine(list({ state: "not_read" }), null, true)).toBe(READING_LINE);
+    expect(screenLine(list({ state: "not_read" }), null, false)).toBeNull();
+    expect(screenLine(list({ state: "listed" }), null, true)).toBeNull();
+    expect(screenLine(list({ state: "off" }), null, false)).toBe("The template catalogue is turned off, so only the templates on this server show.");
+    expect(screenLine(list({ state: "refused", reason: "status", status: 503 }), null, false))
+      .toBe("The template catalogue answered with status 503, so only the templates on this server show.");
+    expect(screenLine(list({ state: "listed" }), "The template catalogue is turned off on this instance.", true)).toBe("The template catalogue is turned off on this instance.");
+    // The catalogue's host is never in the line.
+    for (const state of ["listed", "empty", "unreachable", "slow", "off"]) expect(screenLine(list({ state }), null, false) ?? "").not.toContain("templates.example");
   });
 });

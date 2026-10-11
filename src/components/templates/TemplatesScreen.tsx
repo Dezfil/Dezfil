@@ -17,11 +17,10 @@ import { TemplateCopyDialog } from "./TemplateCopyDialog";
 import styles from "./Templates.module.css";
 import {
   carriesTag,
-  catalogueLine,
   matchesSearch,
   NO_MATCH_LINE,
-  READING_LINE,
   refreshes,
+  screenLine,
   tagChips,
   templateAddress,
   type TagPick,
@@ -118,11 +117,7 @@ export function TemplatesScreen() {
   const answer = refreshed && refreshed.of === first ? refreshed : null;
   const list = answer?.list ?? first;
   const reading = first !== null && refreshes(first.catalogue) && answer === null;
-  const line =
-    list === null
-      ? null
-      : (answer?.error ??
-        (reading && list.catalogue.state === "not_read" ? READING_LINE : catalogueLine(list.catalogue)));
+  const line = screenLine(list, answer?.error ?? null, reading);
 
   // A chip only for a tag some template carries; a pick whose tag left the
   // list (a refresh replaced it) reads as All.

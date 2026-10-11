@@ -1,4 +1,4 @@
-import type { CatalogueState, TemplateCard } from "@/lib/templates/card";
+import type { CatalogueState, TemplateCard, TemplateList } from "@/lib/templates/card";
 import { TEMPLATE_TAGS, type TemplateSource, type TemplateStep, type TemplateTag } from "@/lib/templates/format";
 import { formatBytes } from "../api";
 import type { Theme } from "../theme";
@@ -147,6 +147,20 @@ function refusedWhy(catalogue: CatalogueState): string {
 
 /** The line while the page reads the catalogue for the first time. */
 export const READING_LINE = "Reading the template catalogue…";
+
+/**
+ * The page's one line about the catalogue, as it draws it: none before the
+ * list answered; a refused refresh in the server's own words; while the
+ * page's first read of the catalogue is under way, that it is being read;
+ * else why the catalogue's templates are missing, or none. Every word comes
+ * from the list's closed state or the server's refusal, never from the
+ * catalogue's address.
+ */
+export function screenLine(list: TemplateList | null, refused: string | null, reading: boolean): string | null {
+  if (list === null) return null;
+  if (refused !== null) return refused;
+  return reading && list.catalogue.state === "not_read" ? READING_LINE : catalogueLine(list.catalogue);
+}
 
 /** Whether a template answers the search: its title, question, place or
  * credit (each source's name and credit words) holds the text, in any

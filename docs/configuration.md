@@ -302,8 +302,11 @@ keeps the colors of every layer classified with it.
 ## Templates
 
 Whether the server reads the template catalogue, and where it is. Admins set
-both through `PATCH /api/instance/settings` and its generated tool; Settings
-has no card for them yet.
+both on the **Templates** card of the **Data & services** tab of Settings,
+which also tests the catalogue and removes the downloaded templates, or through
+`PATCH /api/instance/settings` and its generated tool. While the catalogue is
+off, the card offers no Test, since the server reaches the catalogue for
+nothing.
 
 The switch below is a stored instance setting with no environment variable, so
 it is never locked. It also changes through `PATCH /api/instance/settings`

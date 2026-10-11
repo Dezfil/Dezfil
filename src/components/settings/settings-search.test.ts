@@ -189,11 +189,36 @@ describe("Data & services in the search", () => {
     expect(travel[0].meta).toBe("Travel time · Not set up");
   });
 
-  it("lists none of Data & services for a member", () => {
+  it("finds the template catalogue's rows by their words and what the read discloses, the downloads by their name alone", () => {
+    const built = index(true, { instance: instanceReadFixture({
+      "templates.catalogue": { value: false, source: "stored", storedValue: false },
+      templatesCatalogueUrl: { value: { set: true, origin: "https://templates.example" }, source: "stored", storedValue: null },
+    }) });
+    const hit = (query: string, path: string) => searchSettings(built, query).find(each => hitPath(each) === path);
+    expect(hit("templates", "Instance / Data & services · Templates")?.target).toEqual({ tab: "data", anchor: "data-templates" });
+    expect(hit("use the catalogue", "Instance / Data & services · Catalogue")?.meta).toBe("Templates · Not in use");
+    expect(hit("templates.example", "Instance / Data & services · Catalogue address")?.meta).toBe("Templates · https://templates.example");
+    expect(hit("catalogue address", "Instance / Data & services · Catalogue address")!.target).toEqual({ tab: "data", anchor: "set-templates-address" });
+    // Read when the card opens, never by a search: found by its name and words, with no value.
+    expect(hit("remove all", "Instance / Data & services · Downloaded")?.meta).toBe("Templates");
+    // In use by default, the default catalogue by its scheme and host; a folder its variable names, with no path.
+    const fresh = index(true, { instance: instanceReadFixture() });
+    expect(searchSettings(fresh, "use the catalogue").find(each => hitPath(each) === "Instance / Data & services · Catalogue")?.meta).toBe("Templates · In use");
+    expect(searchSettings(fresh, "github").find(each => hitPath(each) === "Instance / Data & services · Catalogue address")?.meta).toBe("Templates · https://github.com");
+    const folder = index(true, { instance: instanceReadFixture({
+      templatesCatalogueUrl: { value: { set: true, folder: true }, source: "environment", locked: true },
+    }) });
+    expect(searchSettings(folder, "catalogue address").find(each => hitPath(each) === "Instance / Data & services · Catalogue address")?.meta)
+      .toBe("Templates · A folder on the server");
+  });
+
+  it("lists none of Data & services for a member, the template catalogue's card included", () => {
     const built = index(false);
-    for (const query of ["address finder", "gap between requests", "cache", "overpass", "private network", "who may import", "s3 address"]) {
+    for (const query of ["address finder", "gap between requests", "cache", "overpass", "private network", "who may import", "s3 address",
+      "templates", "use the catalogue", "catalogue address", "downloaded", "remove all"]) {
       expect(paths(searchSettings(built, query)).filter(path => path.includes("Data & services")), query).toEqual([]);
     }
+    expect(settingsDeclarations(sources(), false).data).toBeUndefined();
   });
 });
 

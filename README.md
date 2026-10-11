@@ -148,8 +148,9 @@ may take a style address the library does not offer, have no variable either:
 admins switch them on the **Libraries** tab, which also keeps the basemap
 library and the saved palettes, as [Libraries](docs/configuration.md#libraries)
 lists. Whether the server reads the template catalogue has no variable either:
-admins switch it through the settings change operation, as
-[Templates](docs/configuration.md#templates) says.
+admins switch it on the **Data & services** tab, whose Templates card also
+holds the catalogue's address, its Test and Remove all for the downloaded
+templates, as [Templates](docs/configuration.md#templates) says.
 
 | Setting | Default | What it controls | Changed by |
 |---|---|---|---|

@@ -51,6 +51,17 @@ describe("the Server settings table", () => {
     expect(byVariable(rows, "DEZFIL_REMOTE_MAX_MB")).toMatchObject({ value: { text: "2,048 MB" }, source: { kind: "default" } });
   });
 
+  it("links a stored catalogue address to its row on the Templates card, and says a folder its variable names with no path", () => {
+    writeStoredSettings({ templatesCatalogueUrl: "https://templates.example/index.json" }, fixture.db);
+    expect(byVariable(serverSettingsRows(read()), "DEZFIL_TEMPLATES_CATALOGUE")).toMatchObject({ value: { text: "https://templates.example", mono: true },
+      source: { kind: "stored", href: "/settings/data#set-templates-address", where: "Data & services" } });
+    vi.stubEnv("DEZFIL_TEMPLATES_CATALOGUE", "/srv/SEEDED-KEY-0005-PATH/catalogue");
+    const row = byVariable(serverSettingsRows(read()), "DEZFIL_TEMPLATES_CATALOGUE");
+    expect(row).toMatchObject({ value: { text: "A folder on the server" }, source: { kind: "environment" } });
+    expect(row.value.mono).toBeUndefined();
+    expect(JSON.stringify(row)).not.toContain("SEEDED-KEY");
+  });
+
   it("writes a number with the unit its Limits row shows, and the read's unit for a setting Limits does not draw", () => {
     const rows = serverSettingsRows(read());
     expect(byVariable(rows, "DEZFIL_OPERATION_CONCURRENCY").value).toEqual({ text: "1" });

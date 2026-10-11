@@ -1,4 +1,4 @@
-import { DATA_ROW_IDS } from "./data-table";
+import { addressIsFolder, DATA_ROW_IDS, FOLDER_WORDS } from "./data-table";
 import type { InstanceRead } from "./instance-read";
 import { LIMITS_LABELS, LIMITS_ROW_IDS, withShownUnit } from "./limits-table";
 import type { ReadSetting } from "./server-set";
@@ -59,6 +59,7 @@ export function shownValue(setting: ReadSetting): ShownValue {
   if (setting.kind === "address") {
     const address = value as { set?: boolean; origin?: string; unreadable?: boolean } | null;
     if (!address?.set) return NOT_SET;
+    if (addressIsFolder(setting)) return { text: FOLDER_WORDS };
     return address.origin ? { text: address.origin, mono: true } : { text: "Set" };
   }
   if (setting.kind === "number") return { text: withShownUnit(setting.key, value, setting.unit) };
