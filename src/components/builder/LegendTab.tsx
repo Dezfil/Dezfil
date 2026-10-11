@@ -43,9 +43,11 @@ interface Props {
   /** Set when canvas legend text was clicked — focus that field. */
   focus?: LegendFocus | null;
   onToggle: (id: string, inLegend: boolean) => void;
-  onTitle: (id: string, title: string | null) => void;
-  onLabels: (id: string, labels: (string | null)[] | null) => void;
-  onAttrs: (id: string, attrs: LegendAttrs | null) => void;
+  /** The text saves; each may hand back its answer, the saved layer when
+   * stored and nothing when not. */
+  onTitle: (id: string, title: string | null) => unknown;
+  onLabels: (id: string, labels: (string | null)[] | null) => unknown;
+  onAttrs: (id: string, attrs: LegendAttrs | null) => unknown;
   /** Every keystroke — the canvas legend mirrors it live. */
   onLive: (id: string, text: LegendLiveText) => void;
   /** The whole arrangement after a move, top first. */
@@ -236,9 +238,9 @@ function LegendEditor({
   slots: Slot[];
   channels: Channel[];
   focus: LegendFocus | null;
-  onTitle: (id: string, title: string | null) => void;
-  onLabels: (id: string, labels: (string | null)[] | null) => void;
-  onAttrs: (id: string, attrs: LegendAttrs | null) => void;
+  onTitle: (id: string, title: string | null) => unknown;
+  onLabels: (id: string, labels: (string | null)[] | null) => unknown;
+  onAttrs: (id: string, attrs: LegendAttrs | null) => unknown;
   onLive: (id: string, text: LegendLiveText) => void;
 }) {
   const titleRef = useRef<HTMLInputElement>(null);
@@ -278,6 +280,30 @@ function LegendEditor({
   const sentTitle = useRef<(string | null)[]>([]);
   const sentLabels = useRef<string[]>([]);
   const sentAttrs = useRef<string[]>([]);
+  // Commits this editor sent that no answer has yet said were stored, per
+  // field and value ("refused" once the answer said they were not). The
+  // committed text leaving one of them for text this editor never sent is
+  // that commit refused, not another surface's change: a refusal stores
+  // nothing, so where the author has typed since the text stays, and
+  // elsewhere the stored text returns.
+  const unanswered = useRef({
+    title: new Map<string, "sent" | "refused">(),
+    labels: new Map<string, "sent" | "refused">(),
+    attrs: new Map<string, "sent" | "refused">(),
+  });
+  const awaitAnswer = (field: keyof typeof unanswered.current, key: string, answer: unknown) => {
+    if (!(answer instanceof Promise)) return;
+    const sent = unanswered.current[field];
+    sent.set(key, "sent");
+    const refused = () => { if (sent.has(key)) sent.set(key, "refused"); };
+    void answer.then((stored) => (stored ? sent.delete(key) : refused()), refused);
+  };
+  /** A refusal accounted for: its commit and every other refused one leave. */
+  const settleRefusal = (field: keyof typeof unanswered.current, key: string) => {
+    const sent = unanswered.current[field];
+    sent.delete(key);
+    for (const [other, state] of sent) if (state === "refused") sent.delete(other);
+  };
   // Attr objects can echo with a different key order; compare canonically.
   const canonAttrs = (a: LegendAttrs | null | undefined): string =>
     JSON.stringify(
@@ -330,21 +356,28 @@ function LegendEditor({
     const attrsChanged = attrsNow !== prevAttrs;
 
     let external = false;
+    const refused = { title: false, labels: false, attrs: false };
     if (titleChanged) {
       const at = sentTitle.current.indexOf(titleNow);
-      if (at === -1) external = true;
-      else sentTitle.current = sentTitle.current.slice(at + 1);
+      if (at !== -1) sentTitle.current = sentTitle.current.slice(at + 1);
+      else if (unanswered.current.title.has(JSON.stringify(prevTitle))) refused.title = true;
+      else external = true;
     }
     if (labelsChanged) {
       const at = sentLabels.current.indexOf(JSON.stringify(labelsNow));
-      if (at === -1) external = true;
-      else sentLabels.current = sentLabels.current.slice(at + 1);
+      if (at !== -1) sentLabels.current = sentLabels.current.slice(at + 1);
+      else if (unanswered.current.labels.has(JSON.stringify(prevLabels))) refused.labels = true;
+      else external = true;
     }
     if (attrsChanged) {
       const at = sentAttrs.current.indexOf(attrsNow);
-      if (at === -1) external = true;
-      else sentAttrs.current = sentAttrs.current.slice(at + 1);
+      if (at !== -1) sentAttrs.current = sentAttrs.current.slice(at + 1);
+      else if (unanswered.current.attrs.has(prevAttrs)) refused.attrs = true;
+      else external = true;
     }
+    if (refused.title) settleRefusal("title", JSON.stringify(prevTitle));
+    if (refused.labels) settleRefusal("labels", JSON.stringify(prevLabels));
+    if (refused.attrs) settleRefusal("attrs", prevAttrs);
 
     if (external) {
       sentTitle.current = [];
@@ -362,12 +395,43 @@ function LegendEditor({
       );
       return;
     }
+    // A refused commit of this editor's own: each title, label slot and
+    // variable name still showing the refused text takes the stored text;
+    // one the author has typed in since keeps it, as its live text does.
+    if (refused.title) {
+      if ((title.trim() || null) === prevTitle) setTitle(titleNow ?? "");
+    }
+    if (refused.labels) {
+      setLabels((cur) =>
+        slots.map((_, i) =>
+          ((cur[i] ?? "").trim() || null) === (prevLabels?.[i] ?? null)
+            ? (labelsNow?.[i] ?? "")
+            : (cur[i] ?? ""),
+        ),
+      );
+    }
+    if (refused.attrs) {
+      const before = Object.fromEntries(
+        (JSON.parse(prevAttrs) as [string, string | null][] | null) ?? [],
+      ) as Record<string, string | null | undefined>;
+      setAttrs((cur) =>
+        Object.fromEntries(
+          channels.map((c) => {
+            const draft = cur[c.key];
+            const shown = draft === null ? null : (draft ?? "").trim() || undefined;
+            if (shown !== before[c.key]) return [c.key, draft ?? ""];
+            const v = layer.legendAttrs?.[c.key];
+            return [c.key, v === null ? null : (v ?? "")];
+          }),
+        ),
+      );
+    }
     // Own echo: only the echoed piece converges to its stored text, and
     // only where the author is not typing — every other draft is theirs.
-    if (titleChanged && focused !== titleRef.current) {
+    if (titleChanged && !refused.title && focused !== titleRef.current) {
       setTitle(layer.legendTitle ?? "");
     }
-    if (labelsChanged) {
+    if (labelsChanged && !refused.labels) {
       setLabels((cur) =>
         slots.map((_, i) =>
           focused === labelRefs.current[i]
@@ -376,7 +440,7 @@ function LegendEditor({
         ),
       );
     }
-    if (attrsChanged) {
+    if (attrsChanged && !refused.attrs) {
       setAttrs((cur) =>
         Object.fromEntries(
           channels.map((c) => {
@@ -396,14 +460,15 @@ function LegendEditor({
     // showing exactly what the editor shows. Fields
     // without focus already agree with committed text, which the canvas
     // falls back to on its own.
+    // A refused field's live text was settled with the refusal.
     if (focused === titleRef.current) {
-      onLive(layer.id, { legendTitle: title.trim() || null });
+      if (!refused.title) onLive(layer.id, { legendTitle: title.trim() || null });
     } else if (
       Object.values(labelRefs.current).some(
         (node) => node !== null && node === focused,
       )
     ) {
-      onLive(layer.id, {
+      if (!refused.labels) onLive(layer.id, {
         legendLabels: labelsValue(
           slots.map((_, i) =>
             labelRefs.current[i] === focused
@@ -418,7 +483,7 @@ function LegendEditor({
           attrRefs.current[c.key] !== null &&
           attrRefs.current[c.key] === focused,
       );
-      if (focusedAttr) {
+      if (focusedAttr && !refused.attrs) {
         onLive(layer.id, {
           legendAttrs: attrsValue(
             Object.fromEntries(
@@ -441,7 +506,7 @@ function LegendEditor({
     const next = title.trim() || null;
     if (next !== (layer.legendTitle ?? null)) {
       sentTitle.current.push(next);
-      onTitle(layer.id, next);
+      awaitAnswer("title", JSON.stringify(next), onTitle(layer.id, next));
     }
   };
 
@@ -450,7 +515,7 @@ function LegendEditor({
     const value = next.every((v) => v === null) ? null : next;
     if (JSON.stringify(value) !== JSON.stringify(layer.legendLabels)) {
       sentLabels.current.push(JSON.stringify(value ?? null));
-      onLabels(layer.id, value);
+      awaitAnswer("labels", JSON.stringify(value ?? null), onLabels(layer.id, value));
     }
   };
 
@@ -458,7 +523,7 @@ function LegendEditor({
     const value = attrsValue(state);
     if (JSON.stringify(value) !== JSON.stringify(layer.legendAttrs)) {
       sentAttrs.current.push(canonAttrs(value));
-      onAttrs(layer.id, value);
+      awaitAnswer("attrs", canonAttrs(value), onAttrs(layer.id, value));
     }
   };
 
