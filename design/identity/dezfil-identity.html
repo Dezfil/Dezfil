@@ -258,7 +258,8 @@
 [data-look-default],
 [data-picture-color],
 [data-picture-contrast],
-[data-picture-corners] {
+[data-picture-corners],
+[data-picture-panels] {
   /* Six shadow steps, smallest to largest */
   --shadow-hairline: 0 1px 4px color-mix(in srgb, var(--shadow) 60%, transparent);
   --shadow-float: 0 3px 12px var(--shadow);
@@ -286,6 +287,8 @@
   --surface-glass-chrome-blur: var(--blur-glass);
   --surface-glass-chrome-edge: none;
   --surface-glass-chrome-shadow: var(--shadow-float);
+  /* How far the edge pulls the backdrop in, where a look bends it; none here */
+  --surface-glass-chrome-lens: 0;
 
   /* Floating glass, panel: what floats over the page and is read */
   --surface-glass-panel-fill: var(--fill-glass);
@@ -293,18 +296,23 @@
   --surface-glass-panel-edge: none;
   --surface-glass-panel-shadow: var(--shadow-float);
   --surface-glass-panel-corner: var(--radius-card);
+  --surface-glass-panel-lens: 0;
 
   /* Overlay panel: what is read over a map or the canvas */
   --surface-overlay-panel-fill: var(--fill-glass);
   --surface-overlay-panel-blur: var(--blur-overlay);
   --surface-overlay-panel-edge: none;
   --surface-overlay-panel-shadow: var(--shadow-overlay);
+  --surface-overlay-panel-lens: 0;
 
   /* Overlay control: a control floating over a map, canvas or picture */
   --surface-overlay-control-fill: var(--fill-glass);
   --surface-overlay-control-blur: var(--blur-overlay);
   --surface-overlay-control-edge: none;
   --surface-overlay-control-shadow: var(--shadow-float);
+  --surface-overlay-control-lens: 0;
+  /* A stage button grows a little under the pointer */
+  --surface-overlay-control-grow: scale(1.06);
 
   /* Page card: a card on a page, lifting on hover */
   --surface-page-card-fill: var(--bg-panel);
@@ -313,6 +321,7 @@
   --surface-page-card-shadow: var(--shadow-float);
   --surface-page-card-shadow-hover: var(--shadow-deep);
   --surface-page-card-corner: var(--radius-card);
+  --surface-page-card-lens: 0;
 
   /* Inner card: a card inside a panel or card, and a control that
      carries a small shadow; lifted, and dragged */
@@ -322,20 +331,27 @@
   --surface-inner-card-shadow: var(--shadow-hairline);
   --surface-inner-card-shadow-lifted: var(--shadow-float);
   --surface-inner-card-shadow-dragged: var(--shadow-deep);
+  --surface-inner-card-lens: 0;
+  /* A slider's thumb: a bright knob that reads on both themes */
+  --surface-inner-card-knob: #fff;
 
-  /* Menu and pop-over: what opens over something and closes; solid in
-     every look */
+  /* Menu and pop-over: what opens over something and closes; solid
+     unless a look makes it otherwise */
   --surface-menu-fill: var(--bg-panel);
   --surface-menu-blur: none;
   --surface-menu-edge: var(--edge-hairline);
   --surface-menu-shadow: var(--shadow-lift);
+  --surface-menu-lens: 0;
+  /* The stronger line of the map's tooltip, popup and failure notice */
+  --surface-menu-edge-strong: 1px solid var(--border-strong);
 
-  /* Dialog: every modal, solid in every look */
+  /* Dialog: every modal, solid unless a look makes it otherwise */
   --surface-dialog-fill: var(--bg-panel);
   --surface-dialog-blur: none;
   --surface-dialog-edge: var(--edge-hairline);
   --surface-dialog-shadow: var(--shadow-dialog);
   --surface-dialog-corner: var(--radius-card);
+  --surface-dialog-lens: 0;
 
   /* The stage: the map card and the framed canvas, no fill of its own */
   --surface-stage-fill: transparent;
@@ -1568,9 +1584,9 @@ select.kit-field-field {
    continuous centre. The dual-handle histogram brushes are a different
    control and keep their own handles.
 
-   The thumb's white is deliberate and unchanged: a bright knob reads on
-   both themes, and re-tinting it would be a visible change this package
-   did not name. */
+   The thumb's white is deliberate: a bright knob reads on both themes.
+   It is the inner card's knob, so a look that restates the role reaches
+   it; its accent ring is the thumb's own. */
 
 .kit-slider-slider {
   flex: 1;
@@ -1599,7 +1615,7 @@ select.kit-field-field {
   height: 15px;
   margin-top: -5.5px;
   border-radius: 50%;
-  background: #fff;
+  background: var(--surface-inner-card-knob);
   border: 1.5px solid var(--accent);
   box-shadow: var(--surface-inner-card-shadow);
   transition: transform 0.12s ease;
@@ -1625,7 +1641,7 @@ select.kit-field-field {
   width: 15px;
   height: 15px;
   border-radius: 50%;
-  background: #fff;
+  background: var(--surface-inner-card-knob);
   border: 1.5px solid var(--accent);
   box-shadow: var(--surface-inner-card-shadow);
 }

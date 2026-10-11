@@ -742,12 +742,6 @@
   },
   {
     "file": "src/components/ui/Slider.module.css",
-    "rule": "color",
-    "value": "#fff",
-    "count": 2
-  },
-  {
-    "file": "src/components/ui/Slider.module.css",
     "rule": "duration",
     "value": "0.12s",
     "count": 1

@@ -3,9 +3,9 @@
    continuous centre. The dual-handle histogram brushes are a different
    control and keep their own handles.
 
-   The thumb's white is deliberate and unchanged: a bright knob reads on
-   both themes, and re-tinting it would be a visible change this package
-   did not name. */
+   The thumb's white is deliberate: a bright knob reads on both themes.
+   It is the inner card's knob, so a look that restates the role reaches
+   it; its accent ring is the thumb's own. */
 
 .slider {
   flex: 1;
@@ -34,7 +34,7 @@
   height: 15px;
   margin-top: -5.5px;
   border-radius: 50%;
-  background: #fff;
+  background: var(--surface-inner-card-knob);
   border: 1.5px solid var(--accent);
   box-shadow: var(--surface-inner-card-shadow);
   transition: transform 0.12s ease;
@@ -60,7 +60,7 @@
   width: 15px;
   height: 15px;
   border-radius: 50%;
-  background: #fff;
+  background: var(--surface-inner-card-knob);
   border: 1.5px solid var(--accent);
   box-shadow: var(--surface-inner-card-shadow);
 }

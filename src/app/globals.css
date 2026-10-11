@@ -361,14 +361,17 @@ button:disabled {
    a published page's dark root, an image's default scope (whose dark
    twin restates tones on the same element) and the Appearance tab's
    pictures. An element that comes to restate one of those tones joins
-   this list, or its surfaces carry another element's tones.
+   this list, or its surfaces carry another element's tones. A Panels
+   picture is here for its roles: a look restates them on its own
+   picture, and the block keeps every other picture on these.
    ============================================================ */
 :root,
 [data-view-theme="dark"],
 [data-look-default],
 [data-picture-color],
 [data-picture-contrast],
-[data-picture-corners] {
+[data-picture-corners],
+[data-picture-panels] {
   /* Six shadow steps, smallest to largest */
   --shadow-hairline: 0 1px 4px color-mix(in srgb, var(--shadow) 60%, transparent);
   --shadow-float: 0 3px 12px var(--shadow);
@@ -396,6 +399,8 @@ button:disabled {
   --surface-glass-chrome-blur: var(--blur-glass);
   --surface-glass-chrome-edge: none;
   --surface-glass-chrome-shadow: var(--shadow-float);
+  /* How far the edge pulls the backdrop in, where a look bends it; none here */
+  --surface-glass-chrome-lens: 0;
 
   /* Floating glass, panel: what floats over the page and is read */
   --surface-glass-panel-fill: var(--fill-glass);
@@ -403,18 +408,23 @@ button:disabled {
   --surface-glass-panel-edge: none;
   --surface-glass-panel-shadow: var(--shadow-float);
   --surface-glass-panel-corner: var(--radius-card);
+  --surface-glass-panel-lens: 0;
 
   /* Overlay panel: what is read over a map or the canvas */
   --surface-overlay-panel-fill: var(--fill-glass);
   --surface-overlay-panel-blur: var(--blur-overlay);
   --surface-overlay-panel-edge: none;
   --surface-overlay-panel-shadow: var(--shadow-overlay);
+  --surface-overlay-panel-lens: 0;
 
   /* Overlay control: a control floating over a map, canvas or picture */
   --surface-overlay-control-fill: var(--fill-glass);
   --surface-overlay-control-blur: var(--blur-overlay);
   --surface-overlay-control-edge: none;
   --surface-overlay-control-shadow: var(--shadow-float);
+  --surface-overlay-control-lens: 0;
+  /* A stage button grows a little under the pointer */
+  --surface-overlay-control-grow: scale(1.06);
 
   /* Page card: a card on a page, lifting on hover */
   --surface-page-card-fill: var(--bg-panel);
@@ -423,6 +433,7 @@ button:disabled {
   --surface-page-card-shadow: var(--shadow-float);
   --surface-page-card-shadow-hover: var(--shadow-deep);
   --surface-page-card-corner: var(--radius-card);
+  --surface-page-card-lens: 0;
 
   /* Inner card: a card inside a panel or card, and a control that
      carries a small shadow; lifted, and dragged */
@@ -432,20 +443,27 @@ button:disabled {
   --surface-inner-card-shadow: var(--shadow-hairline);
   --surface-inner-card-shadow-lifted: var(--shadow-float);
   --surface-inner-card-shadow-dragged: var(--shadow-deep);
+  --surface-inner-card-lens: 0;
+  /* A slider's thumb: a bright knob that reads on both themes */
+  --surface-inner-card-knob: #fff;
 
-  /* Menu and pop-over: what opens over something and closes; solid in
-     every look */
+  /* Menu and pop-over: what opens over something and closes; solid
+     unless a look makes it otherwise */
   --surface-menu-fill: var(--bg-panel);
   --surface-menu-blur: none;
   --surface-menu-edge: var(--edge-hairline);
   --surface-menu-shadow: var(--shadow-lift);
+  --surface-menu-lens: 0;
+  /* The stronger line of the map's tooltip, popup and failure notice */
+  --surface-menu-edge-strong: 1px solid var(--border-strong);
 
-  /* Dialog: every modal, solid in every look */
+  /* Dialog: every modal, solid unless a look makes it otherwise */
   --surface-dialog-fill: var(--bg-panel);
   --surface-dialog-blur: none;
   --surface-dialog-edge: var(--edge-hairline);
   --surface-dialog-shadow: var(--shadow-dialog);
   --surface-dialog-corner: var(--radius-card);
+  --surface-dialog-lens: 0;
 
   /* The stage: the map card and the framed canvas, no fill of its own */
   --surface-stage-fill: transparent;

@@ -14,7 +14,8 @@ import { describe, expect, it } from "vitest";
 type Role =
   | "glass-chrome" | "glass-panel" | "overlay-panel" | "overlay-control" | "stage"
   | "page-card" | "inner-card" | "menu" | "dialog";
-type Part = "fill" | "blur" | "edge" | "shadow" | "corner" | "shadow-hover" | "shadow-lifted" | "shadow-dragged";
+type Part = "fill" | "blur" | "edge" | "shadow" | "corner" | "shadow-hover" | "shadow-lifted" | "shadow-dragged"
+  | "grow" | "edge-strong" | "knob";
 type Member = { step: number; role: Role; file: string; selector: string; parts: Part[]; what: string };
 
 /** The steps, in the order the roles move. */
@@ -125,6 +126,7 @@ export const MEMBERS: Member[] = [
   m(STEP.overlay, "overlay-panel", C + "set-geometry/WorldInset.module.css", ".inset", ["shadow"], "the world inset over the set-geometry map"),
   // Overlay control: a control floating over a map, canvas or picture
   m(STEP.control, "overlay-control", C + "map/StageStack.module.css", ".stageBtn", GLASS, "the zoom and stage buttons"),
+  m(STEP.control, "overlay-control", C + "map/StageStack.module.css", ".stageBtn:hover", ["grow"], "the zoom and stage buttons growing on hover"),
   m(STEP.control, "overlay-control", C + "MiniMap.module.css", ".polyActions button", GLASS, "the mini-map's action buttons"),
   m(STEP.control, "overlay-control", C + "gallery.module.css", ".acts", GLASS, "a card's hover pill"),
   m(STEP.control, "overlay-control", C + "sharing/PeopleMarks.module.css", '.ownerPill[data-placement="corner"]', GLASS, "a card's owner mark"),
@@ -162,8 +164,8 @@ export const MEMBERS: Member[] = [
   m(STEP.inner, "inner-card", C + "QueryAreaPicker.module.css", ".cats button[data-active], .subs button[data-active]", GROUND, "a pickable card in a dialog, picked"),
   m(STEP.inner, "inner-card", C + "AreaSemanticsToggle.module.css", ".seg button[data-active]", GROUND, "a segmented control's active tab"),
   m(STEP.inner, "inner-card", C + "ui/Switch.module.css", ".switch::before", GROUND, "a switch's knob"),
-  m(STEP.inner, "inner-card", C + "ui/Slider.module.css", ".slider::-webkit-slider-thumb", ["shadow"], "a slider's thumb"),
-  m(STEP.inner, "inner-card", C + "ui/Slider.module.css", ".slider::-moz-range-thumb", ["shadow"], "a slider's thumb"),
+  m(STEP.inner, "inner-card", C + "ui/Slider.module.css", ".slider::-webkit-slider-thumb", ["knob", "shadow"], "a slider's thumb"),
+  m(STEP.inner, "inner-card", C + "ui/Slider.module.css", ".slider::-moz-range-thumb", ["knob", "shadow"], "a slider's thumb"),
   m(STEP.inner, "inner-card", C + "builder/drawer/ParameterForm.module.css", '.modeBtn[aria-pressed="true"]', GROUND, "a segmented control's active tab"),
   m(STEP.inner, "inner-card", C + "builder/style-panel/BreakBrush.module.css", ".thumb::-webkit-slider-thumb", GROUND, "the break brush's thumb"),
   m(STEP.inner, "inner-card", C + "builder/style-panel/BreakBrush.module.css", ".thumb::-moz-range-thumb", GROUND, "the break brush's thumb"),
@@ -204,9 +206,9 @@ export const MEMBERS: Member[] = [
     [C + "map/search-marker.module.css", ".chip", CARD, "the search marker's name chip"],
     [C + "QueryDrawer.module.css", ".drawer", ["fill", "blur", "edge", "shadow"], "the query drawer"],
     [C + "QueryDrawer.module.css", ".drawer[data-accent]", ["shadow"], "the query drawer, accented"],
-    [C + "map/MapCanvas.module.css", ".tooltip", ["shadow"], "the map's tooltip"],
-    [C + "map/MapCanvas.module.css", ".popup", ["shadow"], "the map's popup"],
-    [C + "map/MapCanvas.module.css", ".webglFailureCard", ["shadow"], "the map's failure notice"],
+    [C + "map/MapCanvas.module.css", ".tooltip", ["edge-strong", "shadow"], "the map's tooltip"],
+    [C + "map/MapCanvas.module.css", ".popup", ["edge-strong", "shadow"], "the map's popup"],
+    [C + "map/MapCanvas.module.css", ".webglFailureCard", ["edge-strong", "shadow"], "the map's failure notice"],
     [C + "TablePreviewMap.module.css", ".refusal", CARD, "the preview map's refusal plate"],
     [C + "builder/export/ExportComposition.module.css", ".frame[data-presentation]", ["shadow"], "the export card's preview frame"],
   ] as const).map(([file, selector, parts, what]) => m(STEP.menu, "menu", file, selector, [...parts], what)),
@@ -236,6 +238,9 @@ const PROPERTY: Record<Part, RegExp> = {
   "shadow-hover": /^box-shadow$/,
   "shadow-lifted": /^box-shadow$/,
   "shadow-dragged": /^box-shadow$/,
+  grow: /^transform$/,
+  "edge-strong": /^border$/,
+  knob: /^background(-color)?$/,
 };
 
 /** The declarations of every rule written with exactly this selector list. */
@@ -362,6 +367,21 @@ describe("the members of each role", () => {
     expect(resolve(legend["box-shadow"])).toBe("0 8px 26px var(--shadow)");
     expect(legend["border-radius"]).toBe("var(--radius-legend)");
     expect(legend.border).toBeUndefined();
+  });
+
+  it("grow a stage button on hover, edge the map's tooltip, popup and failure notice and light a slider's thumb from their roles, at today's values", () => {
+    const value = (file: string, selector: string, property: string) =>
+      resolveThroughBlock(Object.fromEntries(declarations(read(C + file), selector)!)[property]);
+    // Each as it was drawn before it read a role, written out here.
+    expect(value("map/StageStack.module.css", ".stageBtn:hover", "transform")).toBe("scale(1.06)");
+    for (const selector of [".tooltip", ".popup", ".webglFailureCard"]) {
+      expect(value("map/MapCanvas.module.css", selector, "border"), selector).toBe("1px solid var(--border-strong)");
+    }
+    for (const selector of [".slider::-webkit-slider-thumb", ".slider::-moz-range-thumb"]) {
+      expect(value("ui/Slider.module.css", selector, "background"), selector).toBe("#fff");
+      // The accent ring marks the thumb: its own edge, never a role's.
+      expect(Object.fromEntries(declarations(read(C + "ui/Slider.module.css"), selector)!).border, selector).toBe("1.5px solid var(--accent)");
+    }
   });
 
   it("dress every dialog and its veil from the role and the veil's tokens at the values they had", () => {
