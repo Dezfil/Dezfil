@@ -240,11 +240,10 @@
   align-items: center;
   gap: 4px;
   padding: 4px;
-  border: 1px solid var(--border);
   border-radius: var(--radius-control);
-  background: color-mix(in srgb, var(--bg-panel) 93%, transparent);
-  backdrop-filter: blur(8px);
-  box-shadow: 0 3px 12px var(--shadow);
+  background: var(--surface-overlay-control-fill);
+  backdrop-filter: var(--surface-overlay-control-blur);
+  box-shadow: var(--surface-overlay-control-shadow);
   animation: note-menu-in var(--dur-entrance) var(--ease-entrance) backwards;
 }
 

@@ -364,8 +364,8 @@
   padding: 7px;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius);
-  background: var(--bg-panel);
-  box-shadow: 0 8px 24px var(--shadow);
+  background: var(--surface-menu-fill);
+  box-shadow: var(--surface-menu-shadow);
 }
 
 .searchRow {

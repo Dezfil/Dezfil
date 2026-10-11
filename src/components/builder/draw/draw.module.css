@@ -13,9 +13,9 @@
   gap: 4px;
   padding: 5px;
   border-radius: var(--radius-lg);
-  background: color-mix(in srgb, var(--bg-panel) 93%, transparent);
-  backdrop-filter: blur(18px);
-  box-shadow: 0 3px 12px var(--shadow);
+  background: var(--surface-glass-chrome-fill);
+  backdrop-filter: var(--surface-glass-chrome-blur);
+  box-shadow: var(--surface-glass-chrome-shadow);
   pointer-events: auto;
   animation: dock-rise 0.22s cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
@@ -67,9 +67,9 @@
   border-radius: 999px;
   white-space: nowrap;
   overflow: hidden;
-  background: color-mix(in srgb, var(--bg-panel) 93%, transparent);
-  backdrop-filter: blur(18px);
-  box-shadow: 0 3px 12px var(--shadow);
+  background: var(--surface-glass-chrome-fill);
+  backdrop-filter: var(--surface-glass-chrome-blur);
+  box-shadow: var(--surface-glass-chrome-shadow);
   font-size: 12px;
   color: var(--fg-muted);
   pointer-events: auto;

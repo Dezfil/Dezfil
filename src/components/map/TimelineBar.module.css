@@ -6,12 +6,11 @@
   flex-direction: column;
   gap: 6px;
   width: min(680px, calc(100vw - 220px));
-  background: color-mix(in srgb, var(--bg-raised) 94%, transparent);
-  backdrop-filter: blur(8px);
-  border: 1px solid var(--border-strong);
+  background: var(--surface-overlay-panel-fill);
+  backdrop-filter: var(--surface-overlay-panel-blur);
   border-radius: var(--radius-lg);
   padding: 10px 14px 8px;
-  box-shadow: 0 8px 26px var(--shadow);
+  box-shadow: var(--surface-overlay-panel-shadow);
   pointer-events: auto;
 }
 

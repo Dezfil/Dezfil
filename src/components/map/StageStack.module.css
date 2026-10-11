@@ -21,9 +21,11 @@
   width: 38px;
   height: 38px;
   border-radius: var(--radius-stage);
-  background: var(--bg-panel);
+  /* The map's own controls float over it as glass, as the legend does. */
+  background: var(--surface-overlay-control-fill);
+  backdrop-filter: var(--surface-overlay-control-blur);
   color: var(--fg-muted);
-  box-shadow: 0 3px 12px var(--shadow);
+  box-shadow: var(--surface-overlay-control-shadow);
   display: grid;
   place-items: center;
   transition:

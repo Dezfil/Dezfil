@@ -20,7 +20,7 @@
  * host stays square so both hosts' pixels match to the corner. */
 .frame[data-presentation] {
   border-radius: var(--radius-control);
-  box-shadow: 0 10px 34px var(--shadow);
+  box-shadow: var(--surface-menu-shadow);
 }
 
 .frame[data-busy] {

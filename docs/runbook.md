@@ -357,7 +357,11 @@ rule:
   set: off-ramp font sizes, literal radii other than pills and rounds (the
   family is read through its tokens), motion beats,
   raw colour literals in component styles, banned glyph classes,
-  focus-outline suppression and stray arrow cursors.
+  focus-outline suppression and stray arrow cursors. Drop shadows,
+  background blurs and translucent panel fills are read from the surface
+  roles, steps, strengths and fills at the end of `src/app/globals.css`,
+  never typed; the few typed on purpose are named exceptions in the
+  script, and a surface row the script does not name fails.
 - `npm run lint:tokens` fails on a `var(--x)` reference with no definition
   in an authored stylesheet or a credited TypeScript one. A fallback value
   does not excuse an undefined token.
@@ -430,7 +434,11 @@ Subsets run by area: `npm run e2e:keyboard`, `e2e:layers`, `e2e:imports`,
 `e2e:sqlbridge`, `e2e:sqlconsole`, `e2e:draw`, `e2e:styling`,
 `e2e:recovery`, `e2e:lifecycle`, `e2e:theme`, `e2e:states`, `e2e:pixel`,
 `e2e:statepixels`, `e2e:wheelhousepixels`, `e2e:a11y-pixels`,
-`e2e:primitives`, `e2e:smoke`, `e2e:look`.
+`e2e:primitives`, `e2e:smoke`, `e2e:look`, `e2e:surfaces` (the surface
+roles' computed values on every screen, both themes, and the blur drawn
+under the map card's glass; `DEZFIL_SURFACE_ROLES_SEED` set to
+`typed-shadow`, `typed-member`, `scope-forgets` or `light-tones` turns the
+steps its header names red).
 
 Required on the server for a green full run. Without these the affected
 tests fail rather than skip:
@@ -606,9 +614,11 @@ supported extension loads with the network disabled.
 
 **The design specimen.** `node scripts/build-specimen.mjs` rewrites the fed
 sections of the specimen page from the shipped sources: the light and dark
-token blocks, every component stylesheet in the UI kit, and the palette
-ramps. `--check` on the same script is what `npm run lint:specimen` runs.
-Re-run it whenever a token, a kit stylesheet or a palette changes.
+token blocks, the surface roles' block and the plate drawn from it, every
+component stylesheet in the UI kit, and the palette ramps. `--check` on the
+same script is what `npm run lint:specimen` runs. Re-run it whenever a
+token, a surface role, a kit stylesheet or a palette changes. A new surface
+role needs its words in the script's role notes, or the feed stops.
 
 **The look's background sheets.** `node scripts/generate-look-sheets.mjs`
 rewrites `public/look/`: the Atlantic chart in every other Color and theme,

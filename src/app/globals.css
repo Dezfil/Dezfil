@@ -346,3 +346,111 @@ button:disabled {
     animation: none !important;
   }
 }
+
+/* ============================================================
+   Surface roles: how see-through a surface is, its background blur,
+   its edge, its corner and its shadow, held once for every surface
+   that plays the same part. A surface reads its role and never types
+   one of these values, so a look that restates a role on the root
+   moves every surface of that role and nothing else.
+
+   The steps, strengths and fills come first; each role reads them.
+   A custom property's references resolve on the element that declares
+   it, so the block is declared on every element that restates a tone
+   the roles read: the root (both workspace themes and every look),
+   a published page's dark root, an image's default scope (whose dark
+   twin restates tones on the same element) and the Appearance tab's
+   pictures. An element that comes to restate one of those tones joins
+   this list, or its surfaces carry another element's tones.
+   ============================================================ */
+:root,
+[data-view-theme="dark"],
+[data-look-default],
+[data-picture-color],
+[data-picture-contrast],
+[data-picture-corners] {
+  /* Six shadow steps, smallest to largest */
+  --shadow-hairline: 0 1px 4px color-mix(in srgb, var(--shadow) 60%, transparent);
+  --shadow-float: 0 3px 12px var(--shadow);
+  --shadow-overlay: 0 8px 26px var(--shadow);
+  --shadow-lift: 0 10px 30px var(--shadow);
+  --shadow-deep: 0 14px 40px var(--shadow);
+  --shadow-dialog: 0 30px 80px var(--shadow);
+
+  /* Two blur strengths, and the veil's */
+  --blur-glass: blur(18px);
+  --blur-overlay: blur(8px);
+  --blur-veil: blur(4px);
+
+  /* The glass level, the wash under a small map, the veil behind a dialog */
+  --fill-glass: color-mix(in srgb, var(--bg-panel) 93%, transparent);
+  --fill-wash: color-mix(in srgb, var(--bg-raised) 70%, transparent);
+  --fill-veil: color-mix(in srgb, var(--fg) 32%, transparent);
+
+  /* The hairline edge */
+  --edge-hairline: 1px solid var(--border);
+
+  /* Floating glass, chrome: what floats over the page and carries an
+     icon or one strong line */
+  --surface-glass-chrome-fill: var(--fill-glass);
+  --surface-glass-chrome-blur: var(--blur-glass);
+  --surface-glass-chrome-edge: none;
+  --surface-glass-chrome-shadow: var(--shadow-float);
+
+  /* Floating glass, panel: what floats over the page and is read */
+  --surface-glass-panel-fill: var(--fill-glass);
+  --surface-glass-panel-blur: var(--blur-glass);
+  --surface-glass-panel-edge: none;
+  --surface-glass-panel-shadow: var(--shadow-float);
+  --surface-glass-panel-corner: var(--radius-card);
+
+  /* Overlay panel: what is read over a map or the canvas */
+  --surface-overlay-panel-fill: var(--fill-glass);
+  --surface-overlay-panel-blur: var(--blur-overlay);
+  --surface-overlay-panel-edge: none;
+  --surface-overlay-panel-shadow: var(--shadow-overlay);
+
+  /* Overlay control: a control floating over a map, canvas or picture */
+  --surface-overlay-control-fill: var(--fill-glass);
+  --surface-overlay-control-blur: var(--blur-overlay);
+  --surface-overlay-control-edge: none;
+  --surface-overlay-control-shadow: var(--shadow-float);
+
+  /* Page card: a card on a page, lifting on hover */
+  --surface-page-card-fill: var(--bg-panel);
+  --surface-page-card-blur: none;
+  --surface-page-card-edge: var(--edge-hairline);
+  --surface-page-card-shadow: var(--shadow-float);
+  --surface-page-card-shadow-hover: var(--shadow-deep);
+  --surface-page-card-corner: var(--radius-card);
+
+  /* Inner card: a card inside a panel or card, and a control that
+     carries a small shadow; lifted, and dragged */
+  --surface-inner-card-fill: var(--bg-panel);
+  --surface-inner-card-blur: none;
+  --surface-inner-card-edge: var(--edge-hairline);
+  --surface-inner-card-shadow: var(--shadow-hairline);
+  --surface-inner-card-shadow-lifted: var(--shadow-float);
+  --surface-inner-card-shadow-dragged: var(--shadow-deep);
+
+  /* Menu and pop-over: what opens over something and closes; solid in
+     every look */
+  --surface-menu-fill: var(--bg-panel);
+  --surface-menu-blur: none;
+  --surface-menu-edge: var(--edge-hairline);
+  --surface-menu-shadow: var(--shadow-lift);
+
+  /* Dialog: every modal, solid in every look */
+  --surface-dialog-fill: var(--bg-panel);
+  --surface-dialog-blur: none;
+  --surface-dialog-edge: var(--edge-hairline);
+  --surface-dialog-shadow: var(--shadow-dialog);
+  --surface-dialog-corner: var(--radius-card);
+
+  /* The stage: the map card and the framed canvas, no fill of its own */
+  --surface-stage-fill: transparent;
+  --surface-stage-blur: none;
+  --surface-stage-edge: none;
+  --surface-stage-shadow: var(--shadow-deep);
+  --surface-stage-corner: var(--radius-card);
+}

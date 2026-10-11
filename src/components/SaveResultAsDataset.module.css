@@ -17,9 +17,9 @@
   gap: 8px;
   padding: 12px;
   border-radius: var(--radius-card);
-  border: 1px solid var(--border);
-  background: var(--bg-panel);
-  box-shadow: 0 10px 30px var(--shadow);
+  border: var(--surface-menu-edge);
+  background: var(--surface-menu-fill);
+  box-shadow: var(--surface-menu-shadow);
 }
 
 .field {

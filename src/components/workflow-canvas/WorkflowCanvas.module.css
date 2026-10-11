@@ -58,7 +58,9 @@
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-card);
   background: var(--bg);
-  box-shadow: 0 8px 30px var(--shadow);
+  /* The stage's shadow, as the map card's; the strong edge is the framed
+     canvas's own, since its ground is the page's. */
+  box-shadow: var(--surface-stage-shadow);
   overflow: hidden;
 }
 
@@ -86,7 +88,7 @@
   border: 1.5px solid color-mix(in srgb, var(--gc, var(--fg-muted)) 30%, transparent);
   border-radius: var(--radius-card);
   background: color-mix(in srgb, var(--gc, var(--fg-muted)) 12%, var(--bg-panel));
-  box-shadow: 0 2px 8px color-mix(in srgb, var(--shadow) 70%, transparent);
+  box-shadow: var(--surface-inner-card-shadow);
   transition:
     border-color var(--dur-micro),
     box-shadow var(--dur-micro);
@@ -110,13 +112,11 @@
 
 .member[data-sel] .tBox {
   border-color: var(--accent);
-  box-shadow:
-    0 0 0 3px var(--accent-dim),
-    0 6px 20px var(--shadow);
+  box-shadow: 0 0 0 3px var(--accent-dim), var(--surface-inner-card-shadow-lifted);
 }
 
 .member[data-drag] .tBox {
-  box-shadow: 0 14px 34px var(--shadow);
+  box-shadow: var(--surface-inner-card-shadow-dragged);
 }
 
 .member[data-state="running"] .tBox {
@@ -440,9 +440,9 @@
   display: inline-flex;
   align-items: center;
   text-align: center;
-  background: color-mix(in srgb, var(--bg-panel) 93%, transparent);
-  backdrop-filter: blur(8px);
-  box-shadow: 0 3px 12px var(--shadow);
+  background: var(--surface-overlay-panel-fill);
+  backdrop-filter: var(--surface-overlay-panel-blur);
+  box-shadow: var(--surface-overlay-panel-shadow);
   font-size: var(--text-label);
   color: var(--fg-muted);
   pointer-events: none;
@@ -624,9 +624,9 @@
   min-height: 0;
   border-radius: var(--radius-card);
   overflow: hidden;
-  background: color-mix(in srgb, var(--bg-panel) 93%, transparent);
-  backdrop-filter: blur(18px);
-  box-shadow: 0 3px 12px var(--shadow);
+  background: var(--surface-glass-panel-fill);
+  backdrop-filter: var(--surface-glass-panel-blur);
+  box-shadow: var(--surface-glass-panel-shadow);
 }
 
 .paneTabs {
@@ -921,12 +921,12 @@ button.tableRow {
   transform: translate(12px, 12px);
   padding: 6px 10px;
   border-radius: var(--radius);
-  background: var(--bg-panel);
+  background: var(--surface-inner-card-fill);
   border: 1px solid var(--accent);
   color: var(--accent);
   font-size: var(--text-label);
   font-weight: 600;
-  box-shadow: 0 6px 20px var(--shadow);
+  box-shadow: var(--surface-inner-card-shadow-dragged);
 }
 
 /* ---- the minimap (reference 13): bottom right, the graph and the
@@ -939,9 +939,9 @@ button.tableRow {
   width: 180px;
   height: 112px;
   border-radius: var(--radius-lg);
-  background: color-mix(in srgb, var(--bg-panel) 92%, transparent);
-  border: 1px solid var(--border);
-  box-shadow: 0 3px 12px var(--shadow);
+  background: var(--surface-overlay-panel-fill);
+  backdrop-filter: var(--surface-overlay-panel-blur);
+  box-shadow: var(--surface-overlay-panel-shadow);
   cursor: pointer;
   touch-action: none;
 }
@@ -1094,10 +1094,9 @@ button.tableRow {
   min-height: 0;
   border-radius: var(--radius-card);
   overflow: hidden;
-  background: color-mix(in srgb, var(--bg-panel) 93%, transparent);
-  backdrop-filter: blur(18px);
-  border: 1px solid color-mix(in srgb, var(--border-strong) 55%, transparent);
-  box-shadow: 0 3px 12px var(--shadow);
+  background: var(--surface-glass-panel-fill);
+  backdrop-filter: var(--surface-glass-panel-blur);
+  box-shadow: var(--surface-glass-panel-shadow);
   animation: inspIn var(--dur-panel) var(--ease-panel);
 }
 
@@ -1595,7 +1594,7 @@ span.chip {
   font-weight: 600;
   padding: 0 15px;
   border-radius: var(--radius-control);
-  box-shadow: 0 3px 12px var(--shadow);
+  box-shadow: var(--shadow-float);
 }
 
 .runAction svg {

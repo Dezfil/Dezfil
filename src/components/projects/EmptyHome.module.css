@@ -21,7 +21,7 @@
   margin-bottom: 4px;
   border-radius: var(--radius-lg);
   background: var(--bg-panel);
-  box-shadow: 0 3px 12px var(--shadow);
+  box-shadow: var(--shadow-float);
   color: var(--fg-faint);
 }
 

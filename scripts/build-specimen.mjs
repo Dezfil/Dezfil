@@ -13,6 +13,12 @@
  *   ramps          the palette arrays derived from src/lib/style/palettes.ts
  *                  (labels, colorblind flags and colors are fed; the short
  *                  attribution strings below are documentary)
+ *   tokens-surface the surface roles' block of src/app/globals.css verbatim,
+ *                  so the page's samples read the tokens the app reads
+ *   surface-plate  the plate's rows parsed from that block: the shadow
+ *                  steps, blur strengths, fills and edge, and each role's
+ *                  fill, blur, edge, corner, shadow and states as the block
+ *                  states them (the role's name and words are documentary)
  *
  * The only transform applied to token values: --sheet maps to the page's
  * embedded data-URI sheets (var(--sheet-light|dark)) — a standalone page
@@ -50,6 +56,143 @@ const RAMP_NOTES = {
   ice_and_fire: { src: "kepler.gl", cont: true },
   uber_viz_qualitative: { src: "kepler · DEFAULT", def: true },
 };
+
+/** What each surface role is to a person, shown beside its values on the
+ * plate: documentary, as the ramp notes are. The values are fed. A role the
+ * block declares without words here, or words for a role the block does not
+ * declare, stops the feed rather than drawing a row nobody described. */
+const ROLE_NOTES = {
+  "glass-chrome": {
+    nm: "Floating glass, chrome",
+    what: "What floats over the page and carries an icon or one strong line: the header card and its buttons, the theme button, the side rail at rest, the search field, the save chip, the draw dock and its pill.",
+  },
+  "glass-panel": {
+    nm: "Floating glass, panel",
+    what: "What floats over the page and is read: the builder's inspector, the Tools drawer and the Assistant pane, the SQL page's left pane, the workflow canvas's pane and inspector. Docked or overlaying, no edge.",
+  },
+  "overlay-panel": {
+    nm: "Overlay panel",
+    what: "What is read over a map or the canvas: the legend, the status pill, the timeline bar, a published page's title bar, the readouts, the mini-map's legend, the workflow minimap.",
+  },
+  "overlay-control": {
+    nm: "Overlay control",
+    what: "A control floating over a map, canvas or picture: the zoom and stage buttons, the mini-map's actions, a card's hover pill and owner mark, a note's colour bar.",
+  },
+  "page-card": {
+    nm: "Page card",
+    what: "A card on a page: the gallery cards, the Settings cards and column, the SQL editor and results, the connection cards, the set-geometry panel. A gallery card lifts on hover.",
+  },
+  "inner-card": {
+    nm: "Inner card",
+    what: "A card inside a panel or card, and a control that carries a small shadow: the layer cards, the node tiles, the pickable cards in dialogs, a switch's knob, a slider's thumb. Corners as each has them.",
+  },
+  menu: {
+    nm: "Menu and pop-over",
+    what: "What opens over something and closes: every menu, picker and pop-over, the map's tooltip and popup, the hint, the SQL peek, the map's failure notice. Solid in every look; corners as each has them.",
+  },
+  dialog: {
+    nm: "Dialog",
+    what: "Every modal, over its veil. Solid in every look.",
+  },
+  stage: {
+    nm: "The stage",
+    what: "The map card and the framed canvas: no fill of its own, the deep shadow; the framed canvas keeps its edge.",
+  },
+};
+
+/** A role's part, or one of the shadows a state of the role takes. */
+const SURFACE_PART = /^--surface-(.+?)-(fill|blur|edge|corner|shadow(?:-[a-z]+)?)$/;
+/** A step, a strength, a fill or an edge the roles read. */
+const SURFACE_STEP = /^--(shadow|blur|fill|edge)-([\w-]+)$/;
+
+/** The one rule of a stylesheet that declares the surface roles: its text
+ * verbatim from the selector list to the closing brace, its selectors, and
+ * its custom properties in order. Comments are blanked (not removed) while
+ * searching, so a role named in a comment is not mistaken for the rule and
+ * the slice taken from the sheet keeps its comments. */
+export function surfaceBlock(css) {
+  const blank = css.replace(/\/\*[\s\S]*?\*\//g, (c) => c.replace(/[^\n]/g, " "));
+  const first = blank.indexOf("--surface-");
+  if (first < 0) throw new Error("no rule declares the surface roles");
+  const open = blank.lastIndexOf("{", first);
+  const close = blank.indexOf("}", first);
+  if (blank.indexOf("--surface-", close) >= 0) throw new Error("more than one rule declares the surface roles");
+  const from = blank.lastIndexOf("}", open) + 1;
+  const tokens = new Map(
+    [...blank.slice(open + 1, close).matchAll(/(--[\w-]+)\s*:\s*([^;]+);/g)].map(([, name, value]) => [
+      name,
+      value.trim().replace(/\s+/g, " "),
+    ]),
+  );
+  return {
+    text: css.slice(from, close + 1).replace(/^\s*(\/\*[\s\S]*?\*\/\s*)*/, ""),
+    selectors: blank.slice(from, open).split(",").map((s) => s.trim()).filter(Boolean),
+    tokens,
+  };
+}
+
+/** The plate's content from the parsed block: the steps, strengths, fills
+ * and edges in the block's order, and each role with its name and words,
+ * its five parts as the block states them (a role without a corner of its
+ * own keeps each surface's) and the shadows its states take.
+ * @param {{ tokens: Map<string, string> }} block
+ * @param {Record<string, { nm: string, what: string }>} [notes]
+ */
+export function surfacePlate(block, notes = ROLE_NOTES) {
+  const steps = { shadow: [], blur: [], fill: [], edge: [] };
+  const roles = new Map();
+  for (const [token, value] of block.tokens) {
+    const part = SURFACE_PART.exec(token);
+    if (part) {
+      const [, key, name] = part;
+      if (!roles.has(key)) roles.set(key, { parts: {}, states: [] });
+      const role = roles.get(key);
+      if (name.startsWith("shadow-")) role.states.push({ nm: name.slice("shadow-".length), v: value });
+      else role.parts[name] = value;
+      continue;
+    }
+    const step = SURFACE_STEP.exec(token);
+    if (step) steps[step[1]].push({ nm: step[2], v: value });
+  }
+  const unworded = [...roles.keys()].filter((key) => !notes[key]);
+  const unknown = Object.keys(notes).filter((key) => !roles.has(key));
+  if (unworded.length) throw new Error("no words for the role " + unworded.join(", ") + ": add them to ROLE_NOTES");
+  if (unknown.length) throw new Error("words for a role the block does not declare: " + unknown.join(", "));
+  return {
+    steps,
+    roles: [...roles].map(([key, { parts, states }]) => {
+      for (const name of ["fill", "blur", "edge", "shadow"]) {
+        if (!(name in parts)) throw new Error("the role " + key + " states no " + name);
+      }
+      return {
+        key,
+        nm: notes[key].nm,
+        what: notes[key].what,
+        fill: parts.fill,
+        blur: parts.blur,
+        edge: parts.edge,
+        corner: parts.corner ?? null,
+        shadow: parts.shadow,
+        states,
+      };
+    }),
+  };
+}
+
+/** The page's SURFACE_STEPS and SURFACE_ROLES, one entry per line. */
+export function surfacePlateJs(plate) {
+  const groups = Object.entries(plate.steps).map(
+    ([group, rows]) => "  " + group + ": [" + rows.map((r) => JSON.stringify(r)).join(", ") + "],",
+  );
+  return [
+    "var SURFACE_STEPS = {",
+    ...groups,
+    "};",
+    "var SURFACE_ROLES = [",
+    plate.roles.map((r) => "  " + JSON.stringify(r)).join(",\n"),
+    "];",
+  ].join("\n");
+}
 
 /** The declarations of one top-level CSS block, verbatim lines. */
 function blockOf(css, selectorStart) {
@@ -173,6 +316,7 @@ export async function generate(root) {
 
   const light = mapSheet(blockOf(globals, ":root {"));
   const dark = mapSheet(blockOf(globals, ':root[data-theme="dark"]'));
+  const surface = surfaceBlock(globals);
 
   const uiDir = path.join(root, "src/components/ui");
   const modules = readdirSync(uiDir)
@@ -197,6 +341,8 @@ export async function generate(root) {
       "\n    color-scheme: dark;\n  }\n}",
     "kit-css": kitCss,
     ramps: rampJs(await rampRows(root)),
+    "tokens-surface": surface.text,
+    "surface-plate": surfacePlateJs(surfacePlate(surface)),
   };
 }
 

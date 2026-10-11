@@ -29,9 +29,9 @@
   min-height: 0;
   border-radius: var(--radius-card);
   overflow: hidden;
-  background: color-mix(in srgb, var(--bg-panel) 93%, transparent);
-  backdrop-filter: blur(18px);
-  box-shadow: 0 3px 12px var(--shadow);
+  background: var(--surface-glass-panel-fill);
+  backdrop-filter: var(--surface-glass-panel-blur);
+  box-shadow: var(--surface-glass-panel-shadow);
 }
 
 .paneTabs {
@@ -136,11 +136,11 @@
   display: flex;
   flex-direction: column;
   min-width: 0;
-  border: 1px solid var(--border-strong);
+  border: var(--surface-page-card-edge);
   border-radius: var(--radius-card);
   overflow: hidden;
-  background: var(--bg-panel);
-  box-shadow: 0 8px 30px var(--shadow);
+  background: var(--surface-page-card-fill);
+  box-shadow: var(--surface-page-card-shadow);
 }
 
 .editorHost {
@@ -497,10 +497,11 @@
   display: flex;
   flex-direction: column;
   min-width: 0;
-  border: 1px solid var(--border);
+  border: var(--surface-page-card-edge);
   border-radius: var(--radius-card);
   overflow: hidden;
-  background: var(--bg-panel);
+  background: var(--surface-page-card-fill);
+  box-shadow: var(--surface-page-card-shadow);
 }
 .resultsCard[data-busy] .resBody {
   opacity: 0.45;
@@ -595,7 +596,7 @@
 }
 .resultsCard[data-mode="preview"] {
   border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent);
+  box-shadow: var(--surface-page-card-shadow), inset 0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
 .tabs {
@@ -620,9 +621,9 @@
   height: 13px;
 }
 .tabs button[data-on] {
-  background: var(--bg-panel);
+  background: var(--surface-inner-card-fill);
   color: var(--fg);
-  box-shadow: 0 1px 3px var(--shadow);
+  box-shadow: var(--surface-inner-card-shadow);
 }
 .tabs button:disabled {
   opacity: 0.45;
@@ -792,9 +793,9 @@
   align-items: flex-start;
   padding: 8px 10px;
   border-radius: var(--radius-box);
-  background: var(--bg-panel);
+  background: var(--surface-menu-fill);
   border: 1px solid var(--border-strong);
-  box-shadow: 0 10px 30px var(--shadow);
+  box-shadow: var(--surface-menu-shadow);
 }
 .peekValue {
   font-family: var(--font-mono);
@@ -822,7 +823,7 @@
   text-align: center;
   color: var(--fg-muted);
   font-size: 13px;
-  background: color-mix(in srgb, var(--bg-raised) 70%, transparent);
+  background: var(--fill-wash);
 }
 .mapReadout {
   position: absolute;
@@ -833,12 +834,12 @@
   gap: 12px;
   padding: 5px 10px;
   border-radius: var(--radius);
-  background: color-mix(in srgb, var(--bg-panel) 88%, transparent);
-  border: 1px solid var(--border);
+  background: var(--surface-overlay-panel-fill);
   font-family: var(--font-mono);
   font-size: 10.5px;
   color: var(--fg-muted);
-  backdrop-filter: blur(8px);
+  backdrop-filter: var(--surface-overlay-panel-blur);
+  box-shadow: var(--surface-overlay-panel-shadow);
 }
 .mapTip {
   position: absolute;
@@ -846,9 +847,9 @@
   pointer-events: none;
   padding: 6px 9px;
   border-radius: var(--radius-row);
-  background: var(--bg-panel);
+  background: var(--surface-menu-fill);
   border: 1px solid var(--border-strong);
-  box-shadow: 0 6px 18px var(--shadow);
+  box-shadow: var(--surface-menu-shadow);
   font-size: var(--text-meta);
   color: var(--fg);
   font-family: var(--font-mono);
@@ -880,13 +881,13 @@
   padding: 9px 11px 7px;
   border-radius: var(--radius-control);
   cursor: pointer;
-  border: 1px solid var(--border);
-  background: var(--bg-panel);
+  border: var(--surface-inner-card-edge);
+  background: var(--surface-inner-card-fill);
   transition: border-color var(--dur-micro), box-shadow var(--dur-micro);
 }
 .card:hover {
   border-color: var(--border-strong);
-  box-shadow: 0 4px 14px var(--shadow);
+  box-shadow: var(--surface-inner-card-shadow-lifted);
 }
 .card:focus-visible {
   outline: 2px solid var(--focus);
@@ -1006,10 +1007,10 @@
   bottom: calc(100% + 6px);
   left: 0;
   min-width: 260px;
-  background: var(--bg-panel);
+  background: var(--surface-menu-fill);
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-box);
-  box-shadow: 0 10px 30px var(--shadow);
+  box-shadow: var(--surface-menu-shadow);
   padding: 4px;
 }
 /* The results bar's menu is placed in viewport coordinates by the

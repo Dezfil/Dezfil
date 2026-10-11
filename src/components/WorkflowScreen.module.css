@@ -96,9 +96,9 @@
   border: 0;
   border-radius: var(--radius-control);
   color: var(--fg-muted);
-  background: color-mix(in srgb, var(--bg-panel) 93%, transparent);
-  backdrop-filter: blur(18px);
-  box-shadow: 0 3px 12px var(--shadow);
+  background: var(--surface-glass-chrome-fill);
+  backdrop-filter: var(--surface-glass-chrome-blur);
+  box-shadow: var(--surface-glass-chrome-shadow);
   cursor: pointer;
   transition: transform var(--dur-micro) ease;
 }

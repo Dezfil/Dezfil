@@ -26,9 +26,9 @@
 }
 
 .seg button[data-active] {
-  background: var(--bg-panel);
+  background: var(--surface-inner-card-fill);
   color: var(--fg);
-  box-shadow: 0 1px 3px var(--shadow);
+  box-shadow: var(--surface-inner-card-shadow);
 }
 
 .seg button:disabled {

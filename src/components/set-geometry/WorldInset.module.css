@@ -6,8 +6,7 @@
   right: 12px;
   display: block;
   border-radius: var(--radius-sm);
-  border: 1px solid var(--border-strong);
-  box-shadow: 0 3px 12px var(--shadow);
+  box-shadow: var(--surface-overlay-panel-shadow);
   pointer-events: none;
 }
 
