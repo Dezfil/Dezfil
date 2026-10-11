@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { mkdir, open, readFile, rm, writeFile } from "node:fs/promises";
+import { cp, mkdir, open, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { withConnection } from "../../src/lib/duckdb";
 import { encodePng } from "../../src/lib/export/png-codec";
@@ -12,6 +12,13 @@ import {
   type TemplateFacts,
   type TemplateKind,
 } from "../../src/lib/templates/format";
+import {
+  RECORD_FILE,
+  RECORD_FORMAT_VERSION,
+  type DatasetMeasurement,
+  type InstalledOrigin,
+  type InstalledRecord,
+} from "../../src/lib/templates/installed";
 import { buildZip, type ZipMember } from "../zip";
 
 /**
@@ -366,6 +373,18 @@ const manifest = (files: TemplateFiles) => files.documents.get(MANIFEST_FILE)!;
  * fixture that must be refused. Workflow seeds need a workflow example.
  */
 export const SEEDS = {
+  /** A source under a non-commercial licence, credited as such. */
+  nonCommercialLicence: (files: TemplateFiles) => {
+    const sources = facts(files).sources as { licence: string }[];
+    sources[0].licence = "CC-BY-NC-4.0";
+    const note = (map(files).widgets as Record<string, unknown>[]).find((w) => w.type === "note")!;
+    note.note = (note.note as string).replace(FIXTURE_SOURCES[0].licence, "CC-BY-NC-4.0");
+  },
+  /** A credit note naming one source of two. */
+  missingCredit: (files: TemplateFiles) => {
+    const note = (map(files).widgets as Record<string, unknown>[]).find((w) => w.type === "note")!;
+    note.note = `${FIXTURE_SOURCES[0].name} (${FIXTURE_SOURCES[0].licence}). ${FIXTURE_SOURCES[0].credit}`;
+  },
   /** A publication's token on the map. */
   publicationToken: (files: TemplateFiles) => { map(files).publishToken = "seeded-publication-0001"; },
   /** A live publication on the map. */
@@ -459,3 +478,65 @@ export const ARCHIVE_SEEDS = {
   /** A member marked encrypted. */
   encryptedMember: (members: ZipMember[]) => members.map((m, i) => (i === 0 ? { ...m, flags: 1 } : m)),
 } as const satisfies Record<string, (members: ZipMember[]) => ZipMember[]>;
+
+/** What the dataset reader measures of the fixture's datasets and results:
+ * the rows the engine wrote, by member. */
+export const FIXTURE_MEASUREMENTS: Record<string, DatasetMeasurement> = {
+  "datasets/stations.parquet": { rowCount: 6, geometryColumn: "geom", geometryType: "POINT", crsAssumed: true },
+  "datasets/districts.parquet": { rowCount: 2, geometryColumn: "geom", geometryType: "POLYGON", crsAssumed: true },
+  "results/step-busy.parquet": { rowCount: 4, geometryColumn: "geom", geometryType: "POINT", crsAssumed: true },
+  "results/step-rings.parquet": { rowCount: 4, geometryColumn: "geom", geometryType: "POLYGON", crsAssumed: true },
+};
+
+async function membersOf(folder: string, prefix = ""): Promise<string[]> {
+  const out: string[] = [];
+  for (const entry of await readdir(path.join(folder, prefix), { withFileTypes: true })) {
+    const rel = prefix ? `${prefix}/${entry.name}` : entry.name;
+    if (entry.isDirectory()) out.push(...(await membersOf(folder, rel)));
+    else out.push(rel);
+  }
+  return out.sort();
+}
+
+/**
+ * Install a built template as an installed version folder at `target`:
+ * its members and a record written here, from what is on disk, without
+ * the admission. A fixture may so hold a version the admission refuses,
+ * with a record that matches it, to show what refuses it.
+ */
+export async function installFixture(
+  built: BuiltTemplate,
+  target: string,
+  origin: InstalledOrigin = { kind: "shipped" },
+): Promise<InstalledRecord> {
+  await cp(built.folder, target, { recursive: true });
+  const files: InstalledRecord["files"] = {};
+  for (const member of await membersOf(target)) {
+    const bytes = await readFile(path.join(target, member));
+    files[member] = { bytes: bytes.length, sha256: createHash("sha256").update(bytes).digest("hex") };
+  }
+  const measured = Object.fromEntries(Object.entries(FIXTURE_MEASUREMENTS).filter(([m]) => m in files));
+  const record: InstalledRecord = {
+    formatVersion: RECORD_FORMAT_VERSION,
+    id: built.facts.id,
+    version: built.facts.version,
+    archive: { sha256: built.sha256, size: built.size },
+    origin,
+    files,
+    measured,
+  };
+  await writeFile(path.join(target, RECORD_FILE), JSON.stringify(record, null, 2) + "\n");
+  return record;
+}
+
+/**
+ * A shipped folder at `dir`: an index listing these templates, each
+ * installed at `<id>/<version>/`. Answers the folder.
+ */
+export async function writeShippedFolder(dir: string, templates: readonly BuiltTemplate[]): Promise<string> {
+  await mkdir(dir, { recursive: true });
+  for (const t of templates) await installFixture(t, path.join(dir, t.facts.id, String(t.facts.version)));
+  const index = { formatVersion: 1, templates: templates.map((t) => ({ id: t.facts.id, version: t.facts.version })) };
+  await writeFile(path.join(dir, "index.json"), JSON.stringify(index, null, 2) + "\n");
+  return dir;
+}

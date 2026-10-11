@@ -37,6 +37,7 @@ import {
   type TemplateTheme,
 } from "./format";
 import { refuse, TemplateRefusal } from "./refusals";
+import { creditProblem, licenceProblem } from "./rules";
 
 /**
  * The first stage of a template's admission: its documents, read from a
@@ -49,8 +50,9 @@ import { refuse, TemplateRefusal } from "./refusals";
  * catalogue and its output name under the output-name rule, the layout
  * under the layout document's rule. A document a client could not write is
  * refused here. Beside them the reader keeps one rule of its own, the deny
- * list (deny.ts), and the format's: its two versions, the closed facts and
- * manifest, and every member named and present.
+ * list (deny.ts), the format's (its two versions, the closed facts and
+ * manifest, every member named and present) and the rules on declared
+ * metadata (rules.ts: a redistributable licence, the credit note).
  *
  * What a document means against data (a layer's SQL drawing geometry, a
  * step's inputs binding to the template's own datasets) is the second
@@ -484,6 +486,13 @@ export async function admitTemplateFolder(
       throw error;
     }
   }
+
+  // The rules on declared metadata: what the data may be shared under,
+  // and the credit the map carries for it.
+  const licence = licenceProblem(facts);
+  if (licence) refuse("template_licence_refused", licence);
+  const credit = creditProblem(facts, map.widgets);
+  if (credit) refuse("template_credit_missing", credit);
 
   return {
     folder,

@@ -22,6 +22,12 @@ export const TEMPLATE_REFUSAL_CODES = [
   "template_forbidden",
   /** A map picture past its bound. */
   "template_picture_too_large",
+  /** A source under a licence that does not allow redistribution. */
+  "template_licence_refused",
+  /** The map's credit note does not name every source. */
+  "template_credit_missing",
+  /** An installed version whose members differ from its record. */
+  "template_record_mismatch",
 ] as const;
 
 export type TemplateRefusalCode = (typeof TEMPLATE_REFUSAL_CODES)[number];
