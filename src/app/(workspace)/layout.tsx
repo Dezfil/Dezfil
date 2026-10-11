@@ -6,6 +6,7 @@ import { HeadCard } from "@/components/shell/HeadCard";
 import { ShellTitle } from "@/components/shell/ShellTitle";
 import { RailShell } from "@/components/RailShell";
 import { HintLayer } from "@/components/ui/HintLayer";
+import { PanelLens } from "@/components/look/PanelLens";
 import { AccountRail } from "@/components/AccountRail";
 import { ThemeProvider, ThemeToggle } from "@/components/theme";
 import styles from "./layout.module.css";
@@ -65,6 +66,7 @@ export default async function WorkspaceLayout({
       </RailShell>
       <main className={styles.main}>{children}</main>
       <HintLayer />
+      <PanelLens />
     </ThemeProvider>
     </SignedIn>
     </PrivateWorkspace>
