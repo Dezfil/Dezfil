@@ -606,9 +606,11 @@ supported extension loads with the network disabled.
 
 **The design specimen.** `node scripts/build-specimen.mjs` rewrites the fed
 sections of the specimen page from the shipped sources: the light and dark
-token blocks, every component stylesheet in the UI kit, and the palette
-ramps. `--check` on the same script is what `npm run lint:specimen` runs.
-Re-run it whenever a token, a kit stylesheet or a palette changes.
+token blocks, the surface roles' block and the plate drawn from it, every
+component stylesheet in the UI kit, and the palette ramps. `--check` on the
+same script is what `npm run lint:specimen` runs. Re-run it whenever a
+token, a surface role, a kit stylesheet or a palette changes. A new surface
+role needs its words in the script's role notes, or the feed stops.
 
 **The look's background sheets.** `node scripts/generate-look-sheets.mjs`
 rewrites `public/look/`: the Atlantic chart in every other Color and theme,

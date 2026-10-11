@@ -27,10 +27,11 @@
 /* ============================================================
    Dezfil — Wheelhouse Identity
    A living specimen, in two halves. The token blocks below, the
-   primitive kit's component CSS, and the palette ramps sit
-   between wheelhouse:feed markers and are *generated* from the
-   shipped sources by scripts/build-specimen.mjs — never edited
-   by hand; `npm run lint:specimen` fails the build if they drift
+   surface roles and their plate, the primitive kit's component
+   CSS, and the palette ramps sit between wheelhouse:feed markers
+   and are *generated* from the shipped sources by
+   scripts/build-specimen.mjs — never edited by hand;
+   `npm run lint:specimen` fails the build if they drift
    from the codebase. Everything outside those markers — the
    demonstrations, the diagrams, the prose — is authored, and was
    last refreshed against the kit.
@@ -248,6 +249,102 @@
   }
 }
 /* wheelhouse:feed tokens-os end */
+
+/* --- the surface roles: fed verbatim from src/app/globals.css, so
+       the plate's samples read the tokens the app reads. --- */
+/* wheelhouse:feed tokens-surface start */
+:root,
+[data-view-theme="dark"],
+[data-look-default],
+[data-picture-color],
+[data-picture-contrast],
+[data-picture-corners] {
+  /* Six shadow steps, smallest to largest */
+  --shadow-hairline: 0 1px 4px color-mix(in srgb, var(--shadow) 60%, transparent);
+  --shadow-float: 0 3px 12px var(--shadow);
+  --shadow-overlay: 0 8px 26px var(--shadow);
+  --shadow-lift: 0 10px 30px var(--shadow);
+  --shadow-deep: 0 14px 40px var(--shadow);
+  --shadow-dialog: 0 30px 80px var(--shadow);
+
+  /* Two blur strengths, and the veil's */
+  --blur-glass: blur(18px);
+  --blur-overlay: blur(8px);
+  --blur-veil: blur(4px);
+
+  /* The glass level, the wash under a small map, the veil behind a dialog */
+  --fill-glass: color-mix(in srgb, var(--bg-panel) 93%, transparent);
+  --fill-wash: color-mix(in srgb, var(--bg-raised) 70%, transparent);
+  --fill-veil: color-mix(in srgb, var(--fg) 32%, transparent);
+
+  /* The hairline edge */
+  --edge-hairline: 1px solid var(--border);
+
+  /* Floating glass, chrome: what floats over the page and carries an
+     icon or one strong line */
+  --surface-glass-chrome-fill: var(--fill-glass);
+  --surface-glass-chrome-blur: var(--blur-glass);
+  --surface-glass-chrome-edge: none;
+  --surface-glass-chrome-shadow: var(--shadow-float);
+
+  /* Floating glass, panel: what floats over the page and is read */
+  --surface-glass-panel-fill: var(--fill-glass);
+  --surface-glass-panel-blur: var(--blur-glass);
+  --surface-glass-panel-edge: none;
+  --surface-glass-panel-shadow: var(--shadow-float);
+  --surface-glass-panel-corner: var(--radius-card);
+
+  /* Overlay panel: what is read over a map or the canvas */
+  --surface-overlay-panel-fill: var(--fill-glass);
+  --surface-overlay-panel-blur: var(--blur-overlay);
+  --surface-overlay-panel-edge: none;
+  --surface-overlay-panel-shadow: var(--shadow-overlay);
+
+  /* Overlay control: a control floating over a map, canvas or picture */
+  --surface-overlay-control-fill: var(--fill-glass);
+  --surface-overlay-control-blur: var(--blur-overlay);
+  --surface-overlay-control-edge: none;
+  --surface-overlay-control-shadow: var(--shadow-float);
+
+  /* Page card: a card on a page, lifting on hover */
+  --surface-page-card-fill: var(--bg-panel);
+  --surface-page-card-blur: none;
+  --surface-page-card-edge: var(--edge-hairline);
+  --surface-page-card-shadow: var(--shadow-float);
+  --surface-page-card-shadow-hover: var(--shadow-deep);
+  --surface-page-card-corner: var(--radius-card);
+
+  /* Inner card: a card inside a panel or card, and a control that
+     carries a small shadow; lifted, and dragged */
+  --surface-inner-card-fill: var(--bg-panel);
+  --surface-inner-card-blur: none;
+  --surface-inner-card-edge: var(--edge-hairline);
+  --surface-inner-card-shadow: var(--shadow-hairline);
+  --surface-inner-card-shadow-lifted: var(--shadow-float);
+  --surface-inner-card-shadow-dragged: var(--shadow-deep);
+
+  /* Menu and pop-over: what opens over something and closes; solid in
+     every look */
+  --surface-menu-fill: var(--bg-panel);
+  --surface-menu-blur: none;
+  --surface-menu-edge: var(--edge-hairline);
+  --surface-menu-shadow: var(--shadow-lift);
+
+  /* Dialog: every modal, solid in every look */
+  --surface-dialog-fill: var(--bg-panel);
+  --surface-dialog-blur: none;
+  --surface-dialog-edge: var(--edge-hairline);
+  --surface-dialog-shadow: var(--shadow-dialog);
+  --surface-dialog-corner: var(--radius-card);
+
+  /* The stage: the map card and the framed canvas, no fill of its own */
+  --surface-stage-fill: transparent;
+  --surface-stage-blur: none;
+  --surface-stage-edge: none;
+  --surface-stage-shadow: var(--shadow-deep);
+  --surface-stage-corner: var(--radius-card);
+}
+/* wheelhouse:feed tokens-surface end */
 
 /* --- reset --- */
 *, *::before, *::after { box-sizing: border-box; }
@@ -607,11 +704,39 @@ code, .mono { font-family: var(--font-mono); }
 .control-demo { display: flex; align-items: center; gap: 8px; }
 .control-demo .cbar { height: var(--control); border-radius: var(--radius-control); background: var(--accent); color: var(--on-accent); display: flex; align-items: center; padding: 0 14px; font-family: var(--font-display); font-weight: 600; font-size: 13px; }
 .control-demo .cbar.ghost { background: var(--bg-panel); color: var(--fg-muted); border: 1px solid var(--border); box-shadow: 0 3px 12px var(--shadow); width: var(--control); justify-content: center; padding: 0; }
-.shadow-demo { display: flex; gap: 18px; padding: 8px 4px; }
-.shadow-demo i { width: 70px; height: 48px; border-radius: var(--radius-lg); background: var(--bg-panel); border: 1px solid var(--border); }
-.shadow-demo i.s1 { box-shadow: 0 1px 4px color-mix(in srgb, var(--shadow) 60%, transparent); }
-.shadow-demo i.s2 { box-shadow: 0 3px 12px var(--shadow); }
-.shadow-demo i.s3 { box-shadow: 0 14px 40px var(--shadow); }
+.metric.wide { grid-column: 1 / -1; }
+/* The six shadow steps, each sample reading its step (drawn from the fed
+   surface-plate rows by the script below). */
+.shadow-demo { display: flex; flex-wrap: wrap; gap: 22px 26px; padding: 8px 4px 18px; }
+.shadow-demo .step { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.shadow-demo i { width: 76px; height: 50px; border-radius: var(--radius-lg); background: var(--bg-panel); border: 1px solid var(--border); }
+.shadow-demo .lbl { font-family: var(--font-mono); font-size: 11px; color: var(--fg-muted); }
+
+/* ============================================================
+   Surfaces: the role rows are drawn from the fed surface-plate
+   rows; each sample reads its role's tokens over a hatched
+   ground, so its fill and blur show.
+   ============================================================ */
+.surf-vocab { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; margin-top: 20px; }
+.surf-vocab dl { display: grid; grid-template-columns: auto 1fr; gap: 5px 12px; align-items: center; }
+.surf-vocab dt { font-family: var(--font-mono); font-size: 11px; color: var(--fg); display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
+.surf-vocab dd { font-family: var(--font-mono); font-size: 11px; color: var(--fg-muted); overflow-wrap: anywhere; }
+.surf-hatch { background-color: var(--bg); background-image: repeating-linear-gradient(135deg, color-mix(in srgb, var(--accent) 38%, transparent) 0 2px, transparent 2px 9px); }
+.surf-vocab .sw { flex: none; width: 30px; height: 18px; border-radius: var(--radius-sm); overflow: hidden; display: inline-flex; }
+.surf-vocab .sw b { flex: 1; }
+.surf-rows { margin-top: 18px; border-top: 1px solid var(--divider); }
+.surf-row { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr) 270px; gap: 20px; align-items: center; padding: 16px 0; border-bottom: 1px solid var(--divider); }
+.surf-who b { display: block; font-family: var(--font-display); font-weight: 600; font-size: 15px; margin-bottom: 3px; }
+.surf-who span { display: block; font-size: 12.5px; color: var(--fg-muted); line-height: 1.5; }
+.surf-who code { display: block; margin-top: 6px; font-family: var(--font-mono); font-size: 11px; color: var(--fg-faint); }
+.surf-parts { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; font-family: var(--font-mono); font-size: 11px; }
+.surf-parts dt { color: var(--fg-faint); }
+.surf-parts dd { color: var(--fg); overflow-wrap: anywhere; }
+.surf-ground { height: 118px; border-radius: var(--radius-lg); overflow: hidden; display: flex; align-items: center; justify-content: center; gap: 14px; }
+.surf-sample { width: 68px; height: 50px; display: flex; align-items: flex-end; padding: 6px 8px; font-family: var(--font-mono); font-size: 11px; color: var(--fg-muted); }
+@media (max-width: 860px) {
+  .surf-row { grid-template-columns: 1fr; }
+}
 
 /* ============================================================
    Motion
@@ -2153,11 +2278,21 @@ select.kit-field-field {
         <div class="mt">control — <b>38px</b> chrome · <b>30px</b> compact</div>
         <div class="control-demo"><span class="cbar">Publish</span><span class="cbar ghost"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2.5"/></svg></span><span class="cbar" style="height:30px;font-size:12px">Compact</span></div>
       </div>
-      <div class="metric">
-        <div class="mt">shadow — soft, green-tinted</div>
-        <div class="shadow-demo"><i class="s1"></i><i class="s2"></i><i class="s3"></i></div>
+      <div class="metric wide">
+        <div class="mt">shadow · <b>six steps</b>, soft, green-tinted</div>
+        <div class="shadow-demo" id="shadowSteps"></div>
       </div>
     </div>
+  </section>
+
+  <!-- SURFACES -->
+  <section class="plate reveal" id="surfaces">
+    <div class="kicker">Surfaces</div>
+    <h2 class="plate-title">Nine roles, one set of values</h2>
+    <p class="plate-lead">A surface is named for what it is to a person, and its role holds how see-through it is, its blur, its edge, its corner and its shadow. A surface reads its role and never types one of those values, so both themes, a published page and an exported image take them from one place, and a look that restates a role moves every surface of it. Corners stay on the radius family, so the Corners pick still reaches them. Each sample below is drawn by its role's own tokens over a hatched ground; the values, the steps and the rows are fed from the shipped tokens.</p>
+    <div class="surf-vocab" id="surfaceVocab"></div>
+    <div class="surf-rows" id="surfacePlate"></div>
+    <p class="plate-lead" style="font-size:12.5px;margin-top:14px">Outside the roles, each by name: the side rail opened over the page (solid, the lift and its one side shadow), the dialog's veil and the mini-map's, the wash under a small map while it loads and on the URL tray, the image's own credit, title line and failure note, the search marker's pin, and the tints and fades that are not surfaces. A primary button that carries a shadow is a button: it takes the float step and no role.</p>
   </section>
 
   <!-- MOTION -->
@@ -2631,6 +2766,55 @@ document.querySelectorAll('.cat .dots i[data-hex]').forEach(function(c){
   bindTip(c, c.getAttribute('data-hex'));
   c.addEventListener('click', function(){ copy(c.getAttribute('data-hex')); });
 });
+
+/* ---------- surfaces: fed from the surface roles in src/app/globals.css ---------- */
+/* wheelhouse:feed surface-plate start */
+var SURFACE_STEPS = {
+  shadow: [{"nm":"hairline","v":"0 1px 4px color-mix(in srgb, var(--shadow) 60%, transparent)"}, {"nm":"float","v":"0 3px 12px var(--shadow)"}, {"nm":"overlay","v":"0 8px 26px var(--shadow)"}, {"nm":"lift","v":"0 10px 30px var(--shadow)"}, {"nm":"deep","v":"0 14px 40px var(--shadow)"}, {"nm":"dialog","v":"0 30px 80px var(--shadow)"}],
+  blur: [{"nm":"glass","v":"blur(18px)"}, {"nm":"overlay","v":"blur(8px)"}, {"nm":"veil","v":"blur(4px)"}],
+  fill: [{"nm":"glass","v":"color-mix(in srgb, var(--bg-panel) 93%, transparent)"}, {"nm":"wash","v":"color-mix(in srgb, var(--bg-raised) 70%, transparent)"}, {"nm":"veil","v":"color-mix(in srgb, var(--fg) 32%, transparent)"}],
+  edge: [{"nm":"hairline","v":"1px solid var(--border)"}],
+};
+var SURFACE_ROLES = [
+  {"key":"glass-chrome","nm":"Floating glass, chrome","what":"What floats over the page and carries an icon or one strong line: the header card and its buttons, the theme button, the side rail at rest, the search field, the save chip, the draw dock and its pill.","fill":"var(--fill-glass)","blur":"var(--blur-glass)","edge":"none","corner":null,"shadow":"var(--shadow-float)","states":[]},
+  {"key":"glass-panel","nm":"Floating glass, panel","what":"What floats over the page and is read: the builder's inspector, the Tools drawer and the Assistant pane, the SQL page's left pane, the workflow canvas's pane and inspector. Docked or overlaying, no edge.","fill":"var(--fill-glass)","blur":"var(--blur-glass)","edge":"none","corner":"var(--radius-card)","shadow":"var(--shadow-float)","states":[]},
+  {"key":"overlay-panel","nm":"Overlay panel","what":"What is read over a map or the canvas: the legend, the status pill, the timeline bar, a published page's title bar, the readouts, the mini-map's legend, the workflow minimap.","fill":"var(--fill-glass)","blur":"var(--blur-overlay)","edge":"none","corner":null,"shadow":"var(--shadow-overlay)","states":[]},
+  {"key":"overlay-control","nm":"Overlay control","what":"A control floating over a map, canvas or picture: the zoom and stage buttons, the mini-map's actions, a card's hover pill and owner mark, a note's colour bar.","fill":"var(--fill-glass)","blur":"var(--blur-overlay)","edge":"none","corner":null,"shadow":"var(--shadow-float)","states":[]},
+  {"key":"page-card","nm":"Page card","what":"A card on a page: the gallery cards, the Settings cards and column, the SQL editor and results, the connection cards, the set-geometry panel. A gallery card lifts on hover.","fill":"var(--bg-panel)","blur":"none","edge":"var(--edge-hairline)","corner":"var(--radius-card)","shadow":"var(--shadow-float)","states":[{"nm":"hover","v":"var(--shadow-deep)"}]},
+  {"key":"inner-card","nm":"Inner card","what":"A card inside a panel or card, and a control that carries a small shadow: the layer cards, the node tiles, the pickable cards in dialogs, a switch's knob, a slider's thumb. Corners as each has them.","fill":"var(--bg-panel)","blur":"none","edge":"var(--edge-hairline)","corner":null,"shadow":"var(--shadow-hairline)","states":[{"nm":"lifted","v":"var(--shadow-float)"},{"nm":"dragged","v":"var(--shadow-deep)"}]},
+  {"key":"menu","nm":"Menu and pop-over","what":"What opens over something and closes: every menu, picker and pop-over, the map's tooltip and popup, the hint, the SQL peek, the map's failure notice. Solid in every look; corners as each has them.","fill":"var(--bg-panel)","blur":"none","edge":"var(--edge-hairline)","corner":null,"shadow":"var(--shadow-lift)","states":[]},
+  {"key":"dialog","nm":"Dialog","what":"Every modal, over its veil. Solid in every look.","fill":"var(--bg-panel)","blur":"none","edge":"var(--edge-hairline)","corner":"var(--radius-card)","shadow":"var(--shadow-dialog)","states":[]},
+  {"key":"stage","nm":"The stage","what":"The map card and the framed canvas: no fill of its own, the deep shadow; the framed canvas keeps its edge.","fill":"transparent","blur":"none","edge":"none","corner":"var(--radius-card)","shadow":"var(--shadow-deep)","states":[]}
+];
+/* wheelhouse:feed surface-plate end */
+var STEP_HEADS = {shadow:'Shadow steps', blur:'Blur strengths', fill:'Fills', edge:'Edge'};
+function statedAs(v){ return v.replace(/var\((--[\w-]+)\)/g, '$1'); }
+function surfSample(r, shadow, label){
+  var k = '--surface-' + r.key + '-';
+  return '<span class="surf-sample" style="background:var('+k+'fill);-webkit-backdrop-filter:var('+k+'blur);backdrop-filter:var('+k+'blur);border:var('+k+'edge);border-radius:var('+k+'corner, var(--radius-lg));box-shadow:var('+k+shadow+')">'+label+'</span>';
+}
+document.getElementById('shadowSteps').innerHTML = SURFACE_STEPS.shadow.map(function(s){
+  return '<span class="step"><i style="box-shadow:var(--shadow-'+s.nm+')"></i><span class="lbl">'+s.nm+'</span></span>';
+}).join('');
+document.getElementById('surfaceVocab').innerHTML = Object.keys(SURFACE_STEPS).map(function(group){
+  var rows = SURFACE_STEPS[group].map(function(s){
+    var sw = group === 'fill' ? '<span class="sw surf-hatch"><b style="background:var(--fill-'+s.nm+')"></b></span>' : '';
+    return '<dt>'+sw+'--'+group+'-'+s.nm+'</dt><dd>'+s.v+'</dd>';
+  }).join('');
+  return '<div class="metric"><div class="mt">'+STEP_HEADS[group]+'</div><dl>'+rows+'</dl></div>';
+}).join('');
+document.getElementById('surfacePlate').innerHTML = SURFACE_ROLES.map(function(r){
+  var parts = ['fill','blur','edge','corner','shadow'].map(function(p){
+    return '<dt>'+p+'</dt><dd>'+(r[p] === null ? 'as each surface has it' : statedAs(r[p]))+'</dd>';
+  }).join('') + r.states.map(function(s){
+    return '<dt>shadow, '+s.nm+'</dt><dd>'+statedAs(s.v)+'</dd>';
+  }).join('');
+  var samples = surfSample(r, 'shadow', r.states.length ? 'rest' : '') + r.states.map(function(s){
+    return surfSample(r, 'shadow-' + s.nm, s.nm);
+  }).join('');
+  return '<div class="surf-row"><div class="surf-who"><b>'+r.nm+'</b><span>'+r.what+'</span><code>--surface-'+r.key+'-*</code></div>'+
+    '<dl class="surf-parts">'+parts+'</dl><div class="surf-ground surf-hatch">'+samples+'</div></div>';
+}).join('');
 
 /* ---------- demo magnitude chart (Blues, illustrative) ---------- */
 var BLUES = ['#f7fbff','#deebf7','#c6dbef','#9ecae1','#6baed6','#4292c6','#2171b5','#08519c','#08306b'];
