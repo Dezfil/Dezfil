@@ -628,6 +628,11 @@
       "rule": "Drain target render waiters and active launches; preserve other accounts work and non-content capacity counters.",
       "fixture": "memory:src/lib/export/render-drive.ts#driveRender.error"
     },
+    "memory:src/lib/export/render-drive.ts#driveRender.gone": {
+      "action": "erase",
+      "rule": "Drain target render waiters and active launches; preserve other accounts work and non-content capacity counters.",
+      "fixture": "memory:src/lib/export/render-drive.ts#driveRender.gone"
+    },
     "memory:src/lib/export/render-drive.ts#driveRender.lateEnd": {
       "action": "erase",
       "rule": "Drain target render waiters and active launches; preserve other accounts work and non-content capacity counters.",
@@ -637,6 +642,11 @@
       "action": "erase",
       "rule": "Drain target render waiters and active launches; preserve other accounts work and non-content capacity counters.",
       "fixture": "memory:src/lib/export/render-drive.ts#driveRender.launching"
+    },
+    "memory:src/lib/export/render-drive.ts#driveRender.launchStop": {
+      "action": "erase",
+      "rule": "Drain target render waiters and active launches; preserve other accounts work and non-content capacity counters.",
+      "fixture": "memory:src/lib/export/render-drive.ts#driveRender.launchStop"
     },
     "memory:src/lib/export/render-drive.ts#driveRender.outcome": {
       "action": "erase",
@@ -4025,6 +4035,11 @@
         "memory:src/lib/export/render-drive.ts#driveRender.error"
       ]
     },
+    "memory:src/lib/export/render-drive.ts#driveRender.gone": {
+      "stores": [
+        "memory:src/lib/export/render-drive.ts#driveRender.gone"
+      ]
+    },
     "memory:src/lib/export/render-drive.ts#driveRender.lateEnd": {
       "stores": [
         "memory:src/lib/export/render-drive.ts#driveRender.lateEnd"
@@ -4033,6 +4048,11 @@
     "memory:src/lib/export/render-drive.ts#driveRender.launching": {
       "stores": [
         "memory:src/lib/export/render-drive.ts#driveRender.launching"
+      ]
+    },
+    "memory:src/lib/export/render-drive.ts#driveRender.launchStop": {
+      "stores": [
+        "memory:src/lib/export/render-drive.ts#driveRender.launchStop"
       ]
     },
     "memory:src/lib/export/render-drive.ts#driveRender.outcome": {
