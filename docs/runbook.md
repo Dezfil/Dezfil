@@ -357,7 +357,11 @@ rule:
   set: off-ramp font sizes, literal radii other than pills and rounds (the
   family is read through its tokens), motion beats,
   raw colour literals in component styles, banned glyph classes,
-  focus-outline suppression and stray arrow cursors.
+  focus-outline suppression and stray arrow cursors. Drop shadows,
+  background blurs and translucent panel fills are read from the surface
+  roles, steps, strengths and fills at the end of `src/app/globals.css`,
+  never typed; the few typed on purpose are named exceptions in the
+  script, and a surface row the script does not name fails.
 - `npm run lint:tokens` fails on a `var(--x)` reference with no definition
   in an authored stylesheet or a credited TypeScript one. A fallback value
   does not excuse an undefined token.
