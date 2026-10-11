@@ -7,6 +7,7 @@ import path from "node:path";
 import { ApiError } from "@/lib/api/errors";
 import { dataDir } from "@/lib/config";
 import { resetQueryInstance } from "@/lib/duckdb";
+import { ingestScratchDir } from "@/lib/ingest/scratch";
 import { insertTable, type DataTable } from "@/lib/metadata/tables";
 import { resetSecretKeyCache } from "@/lib/secrets";
 import { writeStoredSettings } from "@/lib/settings/store";
@@ -28,6 +29,24 @@ import { fetchTemplate, setDownloadSeamForTests } from "./download";
 import { downloadedTemplatesDir, readInstalledVersion } from "./installed";
 import { TemplateRefusal } from "./refusals";
 import * as shipped from "./shipped-index";
+
+/** A disk that fills under a download: each write the file named takes is
+ * accepted, held in a buffer that is full at once (so the writer waits to
+ * drain), and then fails as a full device fails it, after the call. */
+const disk = vi.hoisted(() => ({ full: null as ((file: string) => boolean) | null }));
+vi.mock("node:fs", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("node:fs")>();
+  const createWriteStream = ((file, options) => {
+    if (!disk.full?.(String(file))) return actual.createWriteStream(file, options);
+    const stream = actual.createWriteStream(file, { ...(typeof options === "object" ? options : {}), highWaterMark: 1 });
+    const fail = (callback: (error: Error) => void) => setImmediate(() =>
+      callback(Object.assign(new Error("ENOSPC: no space left on device, write"), { code: "ENOSPC", errno: -28, syscall: "write" })));
+    stream._write = (_chunk, _encoding, callback) => fail(callback);
+    stream._writev = (_chunks, callback) => fail(callback);
+    return stream;
+  }) as typeof actual.createWriteStream;
+  return { ...actual, default: { ...actual, createWriteStream }, createWriteStream };
+});
 
 /**
  * Downloading a listed version: once however many ask together, each
@@ -72,6 +91,7 @@ beforeEach(async () => {
   vi.stubEnv("DEZFIL_TEMPLATES_CATALOGUE", catalogue.indexUrl);
 });
 afterEach(async () => {
+  disk.full = null;
   setDownloadSeamForTests(null);
   await catalogue.close();
   resetCatalogueForTests();
@@ -370,6 +390,23 @@ describe("each refusal", () => {
     expect(await fetchAs(MAP_ID)).toMatchObject({ downloaded: true });
     expect(await readdir(versionFolder(MAP_ID, 1))).not.toContain("left-behind.txt");
     expect((await readInstalledVersion(versionFolder(MAP_ID, 1))).record.id).toBe(MAP_ID);
+  });
+});
+
+describe("a disk that fills as the archive lands", () => {
+  it("refuses the download, leaves no file, and the next download runs", { timeout: 10_000 }, async () => {
+    await catalogue.publish([A1]);
+    await refresh();
+    const before = await dataFolder();
+    disk.full = (file) => file.startsWith(ingestScratchDir()) && path.basename(file) === "archive.zip";
+    const failed = await fetchAs(MAP_ID).then(() => null, (error: unknown) => error);
+    disk.full = null;
+    expect(failed).toMatchObject({ code: "ENOSPC" });
+    expect(await dataFolder()).toEqual(before);
+    expect(await readdir(ingestScratchDir()).catch(() => [])).toEqual([]);
+    expect(await readdir(downloadedTemplatesDir()).catch(() => [])).toEqual([]);
+    // The download queue moved on: the next one runs and installs.
+    expect(await fetchAs(MAP_ID)).toEqual({ id: MAP_ID, version: 1, size: A1.size, downloaded: true });
   });
 });
 

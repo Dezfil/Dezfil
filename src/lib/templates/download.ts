@@ -3,7 +3,8 @@ import { createHash, randomUUID } from "node:crypto";
 import { createReadStream, createWriteStream } from "node:fs";
 import { mkdir, rm, stat } from "node:fs/promises";
 import path from "node:path";
-import type { Readable } from "node:stream";
+import { Transform, type Readable } from "node:stream";
+import { pipeline } from "node:stream/promises";
 import { ApiError } from "@/lib/api/errors";
 import type { AccountScope } from "@/lib/auth/scope";
 import { ingestScratchDir } from "@/lib/ingest/scratch";
@@ -16,7 +17,7 @@ import type { CatalogueInEffect } from "./catalogue-address";
 import { TEMPLATE_ARCHIVE_MAX_BYTES } from "./format";
 import { installTemplateArchive } from "./install";
 import type { InstalledOrigin } from "./installed";
-import { refuse } from "./refusals";
+import { refuse, TemplateRefusal } from "./refusals";
 
 /**
  * Downloading a listed version, once.
@@ -87,27 +88,26 @@ function archiveOrigin(where: CatalogueInEffect): InstalledOrigin {
 }
 
 /** The bytes of an archive as they land: counted against what the index
- * declares and the bound, and hashed. */
+ * declares and the bound, and hashed. One pipeline carries them from the
+ * body to the file, so a failure anywhere along it (the body's, the
+ * count's refusal, or the file's own, a full disk's included, which comes
+ * after the write was accepted) ends the transfer with that failure,
+ * every stream closed, and nothing waits on a stream that has failed. */
 async function land(body: Readable, file: string, declared: number): Promise<{ size: number; sha256: string }> {
   const hash = createHash("sha256");
-  const out = createWriteStream(file, { flags: "wx" });
   let size = 0;
-  try {
-    for await (const chunk of body as AsyncIterable<Buffer>) {
+  const count = new Transform({
+    transform(chunk: Buffer, _encoding, done) {
       size += chunk.length;
       if (size > declared || size > TEMPLATE_ARCHIVE_MAX_BYTES) {
-        body.destroy();
-        refuse("template_archive_too_large", `The archive is larger than the ${declared} bytes the catalogue's index declares.`);
+        done(new TemplateRefusal("template_archive_too_large", `The archive is larger than the ${declared} bytes the catalogue's index declares.`));
+        return;
       }
       hash.update(chunk);
-      if (!out.write(chunk)) await new Promise<void>((resolve) => out.once("drain", resolve));
-    }
-  } finally {
-    await new Promise<void>((resolve, reject) => {
-      out.once("error", reject);
-      out.end(resolve);
-    });
-  }
+      done(null, chunk);
+    },
+  });
+  await pipeline(body, count, createWriteStream(file, { flags: "wx" }));
   return { size, sha256: hash.digest("hex") };
 }
 
