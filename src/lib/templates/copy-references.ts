@@ -117,12 +117,14 @@ function qualifies(qualifier: readonly string[], binding: Binding): boolean {
 
 /** Every column a text qualifies by a table finds the table it found in
  * the template's text, as landed, read as each spelling the engine could
- * take it for: its first one, two or three parts naming a table. */
+ * take it for: its first one, two or three parts naming a table, the whole
+ * column among them, since a column of a table's name alone is its row
+ * (`stations`, `main.stations`). */
 function columnsAgree(original: Reads, rewritten: Reads, as: (table: string) => string): boolean {
   const named = (reads: Reads, qualifier: string[], to: (table: string) => string) =>
     [...new Set(reads.bindings.filter((b) => qualifies(qualifier, b)).map((b) => to(b.table)))].sort().join("\n");
   return [...original.columns, ...rewritten.columns].every((column) => {
-    for (let parts = 1; parts < column.length && parts <= 3; parts++) {
+    for (let parts = 1; parts <= column.length && parts <= 3; parts++) {
       const qualifier = column.slice(0, parts);
       if (named(original, qualifier, as) !== named(rewritten, qualifier, (table) => table)) return false;
     }

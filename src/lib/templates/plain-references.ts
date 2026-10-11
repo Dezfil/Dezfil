@@ -14,10 +14,11 @@ import { collectReferences, serializeSql, type ReferenceCollection } from "@/lib
  * name the rewrite cannot reach (a table function's argument, listed or
  * computed, SQL carried inside a string, a string in a table's place) would
  * outlive the rename and read another dataset of the copier's, or nothing.
- * Nor does a schema on the name (`main.stations`) or on a column's
- * qualifier (`main.stations.geom`) survive it: a renamed table keeps its old
- * name only as an alias (`FROM stations_2 AS stations`), which a column
- * qualified by a schema does not find. So a template never names one of its
+ * Nor does a schema on the name (`main.stations`), on a column's
+ * qualifier (`main.stations.geom`) or on a column naming the table's whole
+ * row (`main.stations`) survive it: a renamed table keeps its old name only
+ * as an alias (`FROM stations_2 AS stations`), which a column qualified by
+ * a schema does not find. So a template never names one of its
  * own either way; templates are authored for the product, and the rule
  * costs their SQL nothing.
  *
@@ -52,8 +53,10 @@ function withoutPlainReferences(sql: string, members: ReadonlySet<string>): stri
 }
 
 /** The first member the parse finds qualified by a schema, as a table
- * (`main.stations`) or in a column's qualifier (`main.stations.geom`, the
- * column's first two or three parts), or null. */
+ * (`main.stations`) or in a column's place, by the column's first two or
+ * three parts, the whole column among them: a qualifier
+ * (`main.stations.geom`) or the table's row (`main.stations`). Null when
+ * there is none. */
 function schemaQualified(collected: ReferenceCollection, members: ReadonlySet<string>): string | null {
   for (const { parts, dynamic } of collected.references) {
     if (dynamic || parts.length === 1) continue;
@@ -61,7 +64,7 @@ function schemaQualified(collected: ReferenceCollection, members: ReadonlySet<st
     if (classified.form === "plain" && members.has(classified.name)) return classified.name;
   }
   for (const column of collected.columnRefs) {
-    for (let k = 2; k < column.length && k <= 3; k++) {
+    for (let k = 2; k <= column.length && k <= 3; k++) {
       const classified = classifyReference(column.slice(0, k));
       if (classified.form === "plain" && members.has(classified.name)) return classified.name;
     }

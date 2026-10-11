@@ -278,6 +278,7 @@ describe("a template's SQL names its own datasets as plain table references only
     ["a schema on its dataset", { edit: SEEDS.layerSchemaTable }],
     ["a schema on a column over its plainly named dataset", { edit: SEEDS.layerSchemaColumn }],
     ["a schema on its dataset and a column", { edit: SEEDS.layerSchemaColumnAndTable }],
+    ["a schema on a column reading its plainly named dataset's whole row", { edit: SEEDS.layerSchemaRow }],
     ["a SQL step's catalogue and schema on its dataset", { kind: "workflow", edit: SEEDS.stepSchemaTable }],
   ])("refuses a template qualifying its dataset by %s", async (_what, options) => {
     expect(await ruleFailed(options)).toBe("template_invalid");
@@ -286,6 +287,7 @@ describe("a template's SQL names its own datasets as plain table references only
   it("names the layer or the step qualifying the dataset by a schema", async () => {
     for (const [options, where] of [
       [{ edit: SEEDS.layerSchemaColumn }, 'The map\'s layer 1 ("Stations")'],
+      [{ edit: SEEDS.layerSchemaRow }, 'The map\'s layer 1 ("Stations")'],
       [{ kind: "workflow", edit: SEEDS.stepSchemaTable }, "The workflow's step 1"],
     ] as const) {
       const template = await build(options);

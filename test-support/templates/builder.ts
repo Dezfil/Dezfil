@@ -541,6 +541,11 @@ export const SEEDS = {
   layerSchemaColumnAndTable: (files: TemplateFiles) => {
     (map(files).layers as Record<string, unknown>[])[0].sql = "SELECT riders, main.stations.geom FROM main.stations";
   },
+  /** The stations layer reading its dataset's whole row through a column
+   * qualified by a schema, the dataset named plainly. */
+  layerSchemaRow: (files: TemplateFiles) => {
+    (map(files).layers as Record<string, unknown>[])[0].sql = "SELECT * FROM stations WHERE main.stations IS NOT NULL";
+  },
   /** The SQL step qualifying its dataset by a catalogue and a schema. */
   stepSchemaTable: (files: TemplateFiles) => {
     (workflow(files).steps as { parameters: Record<string, unknown> }[])[0].parameters.sql =

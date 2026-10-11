@@ -59,10 +59,11 @@ const LOCAL_NAME_SQL = "WITH stations_2 AS (SELECT 99 AS x) SELECT * FROM statio
 const QUALIFIED_SQL = "SELECT stations.id, stations.name, stations.riders, stations.opened, stations.geom FROM stations WHERE stations.riders > 0";
 const SCHEMA_SQL = "SELECT main.stations.geom FROM main.stations";
 const SCHEMA_COLUMN_SQL = "SELECT main.stations.geom FROM stations";
+const SCHEMA_ROW_SQL = "SELECT * FROM stations WHERE main.stations IS NOT NULL";
 
 let built: string;
 let M1: BuiltTemplate, Q1: BuiltTemplate, X1: BuiltTemplate, D1: BuiltTemplate, N1: BuiltTemplate, L1: BuiltTemplate;
-let T1: BuiltTemplate, S1: BuiltTemplate, S2: BuiltTemplate;
+let T1: BuiltTemplate, S1: BuiltTemplate, S2: BuiltTemplate, S3: BuiltTemplate;
 let f: ReturnType<typeof instanceSettingsFixture>;
 let dir: string;
 let shippedFolder: string;
@@ -121,6 +122,8 @@ beforeAll(async () => {
   });
   S1 = await stationsSql("schema-names", SCHEMA_SQL);
   S2 = await stationsSql("schema-columns", SCHEMA_COLUMN_SQL);
+  // Two parts in a column's place name the dataset's whole row.
+  S3 = await stationsSql("schema-rows", SCHEMA_ROW_SQL);
 });
 afterAll(async () => { await rm(built, { recursive: true, force: true }); });
 
@@ -548,10 +551,10 @@ describe("what a copy refuses", () => {
     expect(await tableFiles()).toEqual(files);
   });
 
-  it.each([["schema-names", SCHEMA_SQL], ["schema-columns", SCHEMA_COLUMN_SQL]] as const)(
+  it.each([["schema-names", SCHEMA_SQL], ["schema-columns", SCHEMA_COLUMN_SQL], ["schema-rows", SCHEMA_ROW_SQL]] as const)(
     "a layer qualifying a column by its dataset's schema (%s), once that dataset lands under another name, with nothing created",
     async (id, sql) => {
-      await installFixture(id === "schema-names" ? S1 : S2, path.join(dataDir(), "templates", id, "1"), { kind: "catalogue", origin: "https://catalogue.example" });
+      await installFixture({ "schema-names": S1, "schema-columns": S2, "schema-rows": S3 }[id], path.join(dataDir(), "templates", id, "1"), { kind: "catalogue", origin: "https://catalogue.example" });
       // Under the plain names the template's text reads what it read.
       const first = await landed(await copy(id));
       expect(layerSql(first.map).Stations).toBe(sql);
