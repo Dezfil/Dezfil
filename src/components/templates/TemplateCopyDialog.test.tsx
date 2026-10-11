@@ -33,7 +33,7 @@ const detail = (more: Partial<TemplateDetail>): TemplateDetail => ({
   id: "harbour-stations", kind: "map", version: 1, title: "Harbour stations", question: "Where are the stations?",
   place: "Example City", tags: ["First map"], dataDate: "2024-05",
   sources: [{ name: "Transit office", licence: "CC-BY-4.0", credit: "Transit office" }], steps: null,
-  origin: "shipped", installed: 1, listed: null, present: true, size: 2_400_000, picture: "kept", howMade: HOW, ...more,
+  origin: "shipped", installed: 1, listed: null, present: true, size: 2_400_000, picture: "kept", howMade: HOW, contents: null, ...more,
 });
 const busy = (version: number, present: boolean) => detail({
   id: "busy-stations", kind: "workflow", version, title: version === 1 ? "Busy stations" : "Busy stations, renewed",

@@ -10,11 +10,11 @@ import { instanceDefaults } from "@/lib/settings/defaults";
 import { writeStoredSettings } from "@/lib/settings/store";
 import { listTemplates, refreshCatalogue, resetCatalogueForTests } from "@/lib/templates/catalogue";
 import type { TemplateDetail } from "@/lib/templates/card";
-import type { OpenedTemplate } from "@/lib/templates/opened";
 import * as shippedIndex from "@/lib/templates/shipped-index";
 import { instanceSettingsFixture } from "../../../../../test-support/instance-settings";
 import { buildTemplate, installFixture, writeShippedFolder, type BuiltTemplate } from "../../../../../test-support/templates/builder";
 import { writeFolderCatalogue } from "../../../../../test-support/templates/catalogue";
+import { GET as readRoute } from "@/app/api/templates/[id]/route";
 import TemplatePage from "./page";
 
 /**
@@ -74,7 +74,7 @@ afterEach(async () => {
   await rm(dir, { recursive: true, force: true });
 });
 
-type Props = { template: TemplateDetail; opened: OpenedTemplate | null; basemaps: unknown[] };
+type Props = { template: TemplateDetail; basemaps: unknown[] };
 /** The view the page serves, inside the instance's screen defaults it
  * hands down. */
 async function open(account: string | null, id: string) {
@@ -91,28 +91,32 @@ describe("a template's address", () => {
     expect(page.type).toBe(TemplateView);
     expect(page.props.template).toMatchObject({ id: "harbour-stations", version: 1, present: true, kind: "map" });
     expect(page.props.template.howMade.datasets.map((d) => d.dataset)).toEqual(["stations", "districts"]);
-    expect(page.props.opened).toMatchObject({ id: "harbour-stations", version: 1, mapId: "template.harbour-stations.1.map", workflow: null });
+    expect(page.props.template.contents).toMatchObject({ mapId: "template.harbour-stations.1.map", workflow: null });
     expect(Array.isArray(page.props.basemaps)).toBe(true);
   });
 
   it("opens a downloaded workflow example with its workflow's documents", async () => {
     const page = await open("member", "busy-stations");
     expect(page.props.template).toMatchObject({ id: "busy-stations", version: 1, present: true, kind: "workflow" });
-    expect(page.props.opened!.workflow!.steps.map((s) => s.id)).toEqual(["step-busy", "step-rings"]);
+    expect(page.props.template.contents!.workflow!.steps.map((s) => s.id)).toEqual(["step-busy", "step-rings"]);
+    // What the page serves is what the documented read of one answers.
+    const read = await readRoute(testAccountRequest(new Request("http://instance.test/api/templates/busy-stations"), f.db, "member"),
+      { params: Promise.resolve({ id: "busy-stations" }) });
+    expect(await read.json()).toEqual(page.props.template);
   });
 
   it("hands a version only listed over with no documents, for the page to download first", async () => {
     await refreshCatalogue(f.db);
     const page = await open("member", "quiet-park");
     expect(page.props.template).toMatchObject({ id: "quiet-park", version: 1, present: false, installed: null, listed: 1 });
-    expect(page.props.opened).toBeNull();
+    expect(page.props.template.contents).toBeNull();
   });
 
   it("opens the version the read names, never an older one installed: a newer listed version is downloaded first", async () => {
     await refreshCatalogue(f.db);
     const page = await open("member", "busy-stations");
     expect(page.props.template).toMatchObject({ id: "busy-stations", version: 2, present: false, installed: 1, listed: 2 });
-    expect(page.props.opened).toBeNull();
+    expect(page.props.template.contents).toBeNull();
   });
 
   it("reads the catalogue first for an id it does not know, so a shared address works before anyone opened Templates", async () => {
@@ -120,7 +124,7 @@ describe("a template's address", () => {
     expect((await listTemplates(f.db)).catalogue.state).toBe("not_read");
     const page = await open("member", "quiet-park");
     expect(page.props.template).toMatchObject({ id: "quiet-park", version: 1, present: false, installed: null, listed: 1 });
-    expect(page.props.opened).toBeNull();
+    expect(page.props.template.contents).toBeNull();
     expect((await listTemplates(f.db)).catalogue.state).toBe("listed");
   });
 

@@ -30,6 +30,7 @@ import { downloadedTemplatesDir, RECORD_FILE, recordProblem, type InstalledRecor
 import { refuse, TemplateRefusal } from "./refusals";
 import { readShippedIndex } from "./shipped";
 import { shippedTemplatesDir } from "./shipped-index";
+import { templateContents } from "./view";
 
 /**
  * The template catalogue as this server reads it, and the template list it
@@ -553,10 +554,15 @@ async function find(id: string, db: Database): Promise<Drawn> {
   return found;
 }
 
-/** One template: its card and how it is made; nothing is sent. */
+/** One template: its card, how it is made and, once its version is
+ * installed, what the version holds; nothing is sent. */
 export async function readTemplate(id: string, db: Database = metadataDb()): Promise<TemplateDetail> {
   const found = await find(id, db);
-  return { ...found.card, howMade: structuredClone(found.facts.howMade) };
+  return {
+    ...found.card,
+    howMade: structuredClone(found.facts.howMade),
+    contents: found.card.present ? templateContents(found.card.id, found.card.version) : null,
+  };
 }
 
 /**

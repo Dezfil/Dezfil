@@ -7,7 +7,7 @@ import { usePathname, useRouter } from "next/navigation";
 import type { AttributionLine, BasemapStyle } from "@/lib/basemap";
 import type { MapWithLayers } from "@/lib/metadata/maps";
 import type { TemplateDetail } from "@/lib/templates/card";
-import type { OpenedTemplate } from "@/lib/templates/opened";
+import type { TemplateContents } from "@/lib/templates/opened";
 import { formatBytes, readApiError, readOperations } from "../api";
 import { useOperations } from "../builder/drawer/use-operations";
 import { serverUnreachable } from "../failure-copy";
@@ -53,14 +53,13 @@ const subscribeNever = () => () => {};
 
 export function TemplateView({
   template,
-  opened,
   ...basemap
 }: BasemapProps & {
-  /** The read of one, as the page was served: the version it opens. */
+  /** The read of one, as the page was served: the version it opens, with
+   * what the version holds once it is installed. */
   template: TemplateDetail;
-  /** The installed version's documents; null while it is not installed. */
-  opened: OpenedTemplate | null;
 }) {
+  const opened = template.contents;
   const router = useRouter();
   const pathname = usePathname();
   const [copying, setCopying] = useState(false);
@@ -223,7 +222,7 @@ function TemplateMap({
   panel,
   ...basemap
 }: BasemapProps & {
-  opened: OpenedTemplate;
+  opened: TemplateContents;
   panel: (layers: MapWithLayers["layers"] | null, renders?: ReaderData["renders"]) => React.ReactNode;
 }) {
   const [state, setState] = useState<MapState>({ status: "pending" });
@@ -282,7 +281,7 @@ function TemplateCanvas({
   pane,
 }: {
   template: TemplateDetail;
-  opened: OpenedTemplate;
+  opened: TemplateContents;
   pane: (layers: MapWithLayers["layers"] | null) => React.ReactNode;
 }) {
   const [layers, setLayers] = useState<MapWithLayers["layers"] | null>(null);

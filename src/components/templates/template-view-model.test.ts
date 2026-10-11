@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Layer } from "@/lib/metadata/maps";
 import type { CategoricalFill, LayerStyle, RgbaColor } from "@/lib/style/style";
-import type { OpenedTemplate } from "@/lib/templates/opened";
+import type { TemplateContents } from "@/lib/templates/opened";
 import { comesWith, dataRows, stepTitle, styleWords, templatePage } from "./template-view-model";
 
 /**
@@ -35,8 +35,8 @@ const HOW = {
 const dataset = (name: string, rowCount: number, geometryType: string | null) => ({
   id: `template.busy-stations.3.dataset.${name}`, name, rowCount, geometryColumn: geometryType ? "geom" : null, geometryType,
 });
-const OPENED: OpenedTemplate = {
-  id: "busy-stations", version: 3, revision: "a".repeat(32), mapId: "template.busy-stations.3.map",
+const OPENED: TemplateContents = {
+  revision: "a".repeat(32), mapId: "template.busy-stations.3.map",
   createdAt: "2026-01-05T10:00:00.000Z", updatedAt: "2026-01-06T10:00:00.000Z",
   datasets: [dataset("stations", 6, "POINT"), dataset("districts", 2, "POLYGON")],
   workflow: {

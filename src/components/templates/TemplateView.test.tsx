@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { OPERATIONS } from "@/lib/operations/catalog";
 import { defaultStyle } from "@/lib/style/defaults";
 import type { TemplateDetail } from "@/lib/templates/card";
-import type { OpenedTemplate } from "@/lib/templates/opened";
+import type { TemplateContents } from "@/lib/templates/opened";
 import { installDomHost, type HostElement } from "../testing/dom-host";
 import { WorkflowCanvas } from "../workflow-canvas/WorkflowCanvas";
 import type { WorkflowStage } from "../workflow-canvas/WorkflowStage";
@@ -85,13 +85,13 @@ const HOW: TemplateDetail["howMade"] = {
 const detail = (more: Partial<TemplateDetail>): TemplateDetail => ({
   id: "harbour-stations", kind: "map", version: 1, title: "Harbour stations", question: "Where are the stations?",
   place: "Example City", tags: ["First map"], dataDate: "2024-05", sources: SOURCES, steps: null,
-  origin: "shipped", installed: 1, listed: null, present: true, size: 2_400_000, picture: "kept", howMade: HOW, ...more,
+  origin: "shipped", installed: 1, listed: null, present: true, size: 2_400_000, picture: "kept", howMade: HOW, contents: null, ...more,
 });
 const dataset = (template: string, name: string, rowCount: number, geometryType: string) => ({
   id: `template.${template}.1.dataset.${name}`, name, rowCount, geometryColumn: "geom", geometryType,
 });
-const opened = (template: string, workflow: OpenedTemplate["workflow"] = null): OpenedTemplate => ({
-  id: template, version: 1, revision: "c0ffee".padEnd(32, "0"), mapId: `template.${template}.1.map`,
+const opened = (template: string, workflow: TemplateContents["workflow"] = null): TemplateContents => ({
+  revision: "c0ffee".padEnd(32, "0"), mapId: `template.${template}.1.map`,
   createdAt: "2026-01-05T10:00:00.000Z", updatedAt: "2026-01-05T10:00:00.000Z",
   datasets: [dataset(template, "stations", 6, "POINT"), dataset(template, "districts", 2, "POLYGON")], workflow,
 });
@@ -116,7 +116,7 @@ const HARBOUR_MAP = mapOf("template.harbour-stations.1.map", [
 const BUSY_MAP = mapOf("template.busy-stations.1.map", [
   layer("template.busy-stations.1.map", "template.busy-stations.1.layer.layer-rings", "Rings", "SELECT * FROM station_rings", "POLYGON", 0),
 ]);
-const WORKFLOW: OpenedTemplate["workflow"] = {
+const WORKFLOW: TemplateContents["workflow"] = {
   name: "Busy stations",
   steps: [
     { id: "step-busy", operation: "sql_step", parameters: { sql: "SELECT * FROM stations WHERE riders > 100", name: "busy_stations" },
@@ -186,9 +186,9 @@ async function settle() {
   for (let i = 0; i < 10; i += 1) await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
 }
 /** Open the page; `strict` mounts it as development does, its effects run twice. */
-async function open(template: TemplateDetail, read: OpenedTemplate | null, strict = false) {
+async function open(template: TemplateDetail, read: TemplateContents | null, strict = false) {
   const view = (
-    <TemplateView template={template} opened={read} basemapUrl="/basemap.json" basemapOverrideUrl={null}
+    <TemplateView template={{ ...template, contents: read }} basemapUrl="/basemap.json" basemapOverrideUrl={null}
       basemapOverrideAttribution={[]} basemaps={[]} />
   );
   await act(async () => root.render(strict ? <StrictMode>{view}</StrictMode> : view));

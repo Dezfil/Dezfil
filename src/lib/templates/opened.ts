@@ -1,11 +1,11 @@
 import type { LayoutNote } from "@/lib/metadata/recipe-layouts";
 
 /**
- * A template version as its page opens it: what the installed folder
- * holds beyond the read of one, as data. The map is read by its own id
- * through the map's roads; a workflow example's canvas reads its documents
- * from here, since a template's workflow is no one's recipe and the recipe
- * roads answer it nothing.
+ * What an installed template version holds, as the read of one answers it
+ * and the template's page opens it. The map is read by its own id through
+ * the map's roads; a workflow example's steps, with their parameters, and
+ * its arrangement are here, since a template's workflow is no one's recipe
+ * and the recipe roads answer it nothing.
  *
  * Dependency-free on purpose (types only), so the page's client half
  * reads the same shape the server half builds.
@@ -44,9 +44,7 @@ export interface OpenedWorkflow {
   };
 }
 
-export interface OpenedTemplate {
-  id: string;
-  version: number;
+export interface TemplateContents {
   /** The version's revision: its archive's checksum, never changed. */
   revision: string;
   /** The template map's id, which every road a map's reader calls takes. */

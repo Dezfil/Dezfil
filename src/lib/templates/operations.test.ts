@@ -237,7 +237,12 @@ describe("the generated tools", () => {
     const listed = await executeTool(tool("list_templates"), {}, ORIGIN, dispatch(secret));
     expect(listed.body).toEqual(refreshed.body);
     const read = await executeTool(tool("get_template"), { id: "harbour-stations" }, ORIGIN, dispatch(secret));
-    expect(read.body).toMatchObject({ id: "harbour-stations", howMade: A1.facts.howMade });
+    expect(read.body).toMatchObject({ id: "harbour-stations", howMade: A1.facts.howMade, contents: null });
+    // The shipped one is installed: the tool answers its contents as the route does by cookie.
+    const shippedRead = await executeTool(tool("get_template"), { id: "quiet-park" }, ORIGIN, dispatch(secret));
+    expect(shippedRead.body).toMatchObject({ contents: { mapId: "template.quiet-park.1.map", workflow: null } });
+    const byCookie = await readRoute(call("GET", "/api/templates/quiet-park", memberCookie()), params("quiet-park"));
+    expect(await byCookie.json()).toEqual(shippedRead.body);
     const unknown = await executeTool(tool("get_template"), { id: "no-such" }, ORIGIN, dispatch(secret));
     expect(unknown.status).toBe(404);
     expect(catalogue.requestsFor(`/${CATALOGUE_INDEX_FILE}`)).toHaveLength(1);

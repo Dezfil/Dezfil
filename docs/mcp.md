@@ -181,7 +181,10 @@ assistants are never offered them.
 read answer from what this server holds (the shipped templates, the downloaded
 ones and the catalogue list it last read, with the catalogue's state; the list
 also says how many versions are downloaded and the bytes they take) and send
-nothing, so MCP marks them local reads. The refresh reads the template
+nothing, so MCP marks them local reads. The read also answers what an
+installed version holds: its map's id for `get_map` and the layer tools, its
+datasets, and a workflow example's steps with their parameters and its saved
+canvas arrangement. The refresh reads the template
 catalogue's index and pictures through the egress check at most once in ten
 minutes, answering the kept list inside that window; it is read-only but
 reaches outside this server, so MCP marks it open-world, and the SQL and

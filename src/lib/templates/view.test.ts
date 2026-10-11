@@ -3,14 +3,15 @@ import { mkdtemp, readdir, rm } from "node:fs/promises";
 import path from "node:path";
 import { buildTemplate, installFixture, writeShippedFolder, type BuiltTemplate } from "../../../test-support/templates/builder";
 import * as shippedIndex from "./shipped-index";
-import { openedTemplate } from "./view";
+import { templateContents } from "./view";
 
 /**
- * A template version as its page opens it, read from the installed folder
- * as the map's reads find it: the map's id, the datasets with what was
- * measured of them, and a workflow example's steps, each with its bundled
- * result as the output, and its arrangement. A version that is not
- * installed opens as nothing. Reading writes nothing.
+ * What a template version holds as its read answers it and its page opens
+ * it, read from the installed folder as the map's reads find it: the map's
+ * id, the datasets with what was measured of them, and a workflow
+ * example's steps, each with its bundled result as the output, and its
+ * arrangement. A version that is not installed holds nothing to read.
+ * Reading writes nothing.
  */
 
 const T0 = "2026-01-05T10:00:00.000Z";
@@ -64,11 +65,8 @@ async function filesUnder(folder: string): Promise<string[]> {
 
 describe("a template opened", () => {
   it("opens a shipped map template on its map's id, with its measured datasets and no workflow", () => {
-    const opened = openedTemplate("harbour-stations", 1)!;
-    expect(opened).toMatchObject({
-      id: "harbour-stations", version: 1, mapId: "template.harbour-stations.1.map",
-      createdAt: T0, updatedAt: T0, workflow: null,
-    });
+    const opened = templateContents("harbour-stations", 1)!;
+    expect(opened).toMatchObject({ mapId: "template.harbour-stations.1.map", createdAt: T0, updatedAt: T0, workflow: null });
     expect(opened.revision).toBe(M1.sha256.slice(0, 32));
     expect(opened.datasets.map(({ name, rowCount, geometryColumn, geometryType }) => ({ name, rowCount, geometryColumn, geometryType })))
       .toEqual([
@@ -78,7 +76,7 @@ describe("a template opened", () => {
   });
 
   it("opens a workflow example's steps with their bundled results as outputs, and its arrangement", () => {
-    const opened = openedTemplate("busy-stations", 1)!;
+    const opened = templateContents("busy-stations", 1)!;
     expect(opened.mapId).toBe("template.busy-stations.1.map");
     const workflow = opened.workflow!;
     expect(workflow.name).toBe("Busy stations");
@@ -100,29 +98,29 @@ describe("a template opened", () => {
   });
 
   it("keeps an arrangement's own time, and leaves one with nothing placed for the canvas to arrange", () => {
-    expect(openedTemplate("kept-arrangement", 1)!.workflow!.layout.updatedAt).toBe("2026-01-04T09:00:00.000Z");
-    expect(openedTemplate("unarranged", 1)!.workflow!.layout).toMatchObject({ steps: {}, sources: {}, notes: [], updatedAt: null });
+    expect(templateContents("kept-arrangement", 1)!.workflow!.layout.updatedAt).toBe("2026-01-04T09:00:00.000Z");
+    expect(templateContents("unarranged", 1)!.workflow!.layout).toMatchObject({ steps: {}, sources: {}, notes: [], updatedAt: null });
   });
 
   it("hands each open its own copy", () => {
-    const first = openedTemplate("busy-stations", 1)!;
+    const first = templateContents("busy-stations", 1)!;
     first.workflow!.steps[0].parameters.sql = "SELECT 1";
     first.workflow!.layout.steps["step-busy"].x = 0;
-    const second = openedTemplate("busy-stations", 1)!;
+    const second = templateContents("busy-stations", 1)!;
     expect(second.workflow!.steps[0].parameters.sql).toBe("SELECT * FROM stations WHERE riders > 100");
     expect(second.workflow!.layout.steps["step-busy"].x).toBe(320);
   });
 
   it("opens nothing for a version not installed, an unknown id, or a shipped id at another version", () => {
-    expect(openedTemplate("busy-stations", 2)).toBeNull();
-    expect(openedTemplate("no-such-template", 1)).toBeNull();
-    expect(openedTemplate("harbour-stations", 2)).toBeNull();
+    expect(templateContents("busy-stations", 2)).toBeNull();
+    expect(templateContents("no-such-template", 1)).toBeNull();
+    expect(templateContents("harbour-stations", 2)).toBeNull();
   });
 
   it("writes nothing", async () => {
     const before = await filesUnder(dir);
-    openedTemplate("harbour-stations", 1);
-    openedTemplate("busy-stations", 1);
+    templateContents("harbour-stations", 1);
+    templateContents("busy-stations", 1);
     expect(await filesUnder(dir)).toEqual(before);
   });
 });

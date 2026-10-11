@@ -3,7 +3,7 @@ import type { FillPaint } from "@/lib/style/style";
 import type { TemplateDetail } from "@/lib/templates/card";
 import type { TemplateSource } from "@/lib/templates/format";
 import { templateDocumentId } from "@/lib/templates/ids";
-import type { OpenedDataset, OpenedTemplate } from "@/lib/templates/opened";
+import type { OpenedDataset, TemplateContents } from "@/lib/templates/opened";
 import { effectiveStyle } from "@/lib/viz";
 import type { TableListing } from "../api";
 import type { PageRead } from "../workflow-canvas/workflow-read";
@@ -32,7 +32,7 @@ export interface DataRow {
   geometryColumn: string | null;
 }
 
-export function dataRows(template: Pick<TemplateDetail, "howMade" | "sources">, opened: Pick<OpenedTemplate, "datasets"> | null): DataRow[] {
+export function dataRows(template: Pick<TemplateDetail, "howMade" | "sources">, opened: Pick<TemplateContents, "datasets"> | null): DataRow[] {
   return template.howMade.datasets.map((line) => {
     const measured = opened?.datasets.find((d) => d.name === line.dataset) ?? null;
     return {
@@ -88,7 +88,7 @@ export function stepTitle(index: number, operation: string, labelOf: ((operation
   return `${index + 1} · ${labelOf ? labelOf(operation) : operation}`;
 }
 
-function listing(dataset: OpenedDataset, opened: OpenedTemplate): TableListing {
+function listing(dataset: OpenedDataset, template: Pick<TemplateDetail, "id" | "version">, opened: TemplateContents): TableListing {
   return {
     id: dataset.id,
     name: dataset.name,
@@ -102,7 +102,7 @@ function listing(dataset: OpenedDataset, opened: OpenedTemplate): TableListing {
     rowCount: dataset.rowCount,
     createdAt: opened.createdAt,
     source: "template",
-    sourceParams: { template: opened.id, version: opened.version },
+    sourceParams: { template: template.id, version: template.version },
     importedAt: null,
     owner: NO_ACCOUNT,
     qualifiedName: dataset.name,
@@ -119,7 +119,7 @@ function listing(dataset: OpenedDataset, opened: OpenedTemplate): TableListing {
  * arrangement with its notes; the template's datasets and results as the
  * datasets the canvas lists. Null for a map template.
  */
-export function templatePage(template: Pick<TemplateDetail, "id" | "version">, opened: OpenedTemplate): Omit<PageRead, "operations"> | null {
+export function templatePage(template: Pick<TemplateDetail, "id" | "version">, opened: TemplateContents): Omit<PageRead, "operations"> | null {
   const flow = opened.workflow;
   if (!flow) return null;
   const mark = { template: template.id, version: template.version };
@@ -143,7 +143,7 @@ export function templatePage(template: Pick<TemplateDetail, "id" | "version">, o
   const outputs = new Set(steps.map((step) => step.output!.name));
   const sources = new Set(steps.flatMap((step) => step.reads).filter((name) => !outputs.has(name)));
   const recipe: WorkflowListing = {
-    id: templateDocumentId({ template: opened.id, version: opened.version, kind: "workflow" }),
+    id: templateDocumentId({ template: template.id, version: template.version, kind: "workflow" }),
     name: flow.name,
     origin: "workflow",
     projectId: null,
@@ -159,7 +159,7 @@ export function templatePage(template: Pick<TemplateDetail, "id" | "version">, o
   return {
     recipe,
     layout: { ...flow.layout, editRevision: opened.revision },
-    tables: [...opened.datasets, ...flow.steps.map((step) => step.output)].map((d) => listing(d, opened)),
+    tables: [...opened.datasets, ...flow.steps.map((step) => step.output)].map((d) => listing(d, template, opened)),
   };
 }
 

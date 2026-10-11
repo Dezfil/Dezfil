@@ -1209,7 +1209,7 @@
     {
       "type": "function",
       "name": "get_template",
-      "description": "Read a template. Every signed-in account, through cookie or bearer authentication; an anonymous request is refused. Responses, including refusals, are private, no-store. Answers one template's card, as the list draws it, and how it is made; sends nothing. An id no shipped, downloaded or listed template has answers 404 template_not_listed.",
+      "description": "Read a template. Every signed-in account, through cookie or bearer authentication; an anonymous request is refused. Responses, including refusals, are private, no-store. Answers one template's card, as the list draws it, how it is made and, once its version is installed on this server, what that version holds: its map's id (read through GET /api/maps/{id}), its datasets as measured and a workflow example's steps with their parameters and its saved canvas arrangement. Sends nothing. An id no shipped, downloaded or listed template has answers 404 template_not_listed.",
       "parameters": {
         "type": "object",
         "properties": {

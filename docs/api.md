@@ -24,7 +24,7 @@ every documented operation must have a route, and every call the interface
 makes must hit a documented path (`src/lib/api/parity.test.ts`). The
 description cannot drift from the server.
 
-Measured from the current source: **142 paths, 401 operations, 185 named component schemas.** Operations include supported automatic HEAD and OPTIONS.
+Measured from the current source: **142 paths, 401 operations, 187 named component schemas.** Operations include supported automatic HEAD and OPTIONS.
 `npm run lint:contract-docs` measures these numbers and checks the catalogue below
 against the contract; changing only the reader-facing text fails the gate.
 
@@ -1244,8 +1244,17 @@ finishes after the address or the switch changed is discarded. While an admin
 has turned the catalogue off it is refused with 409 `templates_catalogue_off`
 and sends nothing; a saved address the instance's key no longer opens is
 refused with `service_address_unreadable`. Cookie requests need the same
-trusted Origin. `GET /api/templates/{id}` answers one card with `howMade`, an
-unknown id 404 `template_not_listed`. `GET /api/templates/{id}/picture?theme=`
+trusted Origin. `GET /api/templates/{id}` answers one card with `howMade` and
+`contents`, what the version holds once it is installed on this server
+(null until then, or when its files do not read): `mapId`, the template
+map's id, which `GET /api/maps/{id}` reads with its layers' SQL and styles
+and whose layers the render and widget-value operations answer, as for a
+map one may only view; `datasets`, each with its row count and geometry as
+measured; and `workflow`, a workflow example's steps in order, each with
+its operation, its parameters as saved, what it reads and its bundled
+result, with the saved canvas arrangement (positions and notes), or null
+for a map template. This is how a template's page opens it. An unknown id
+answers 404 `template_not_listed`. `GET /api/templates/{id}/picture?theme=`
 answers the card's map picture as PNG (light when no theme is named), from
 disk for a shipped or downloaded version, else as the kept list holds it;
 it is a card image, outside the tool set. `POST /api/templates/{id}/fetch`

@@ -1,14 +1,14 @@
 import type { TemplateMount } from "@/lib/query/context";
 import { templateDocumentId } from "./ids";
-import type { OpenedDataset, OpenedTemplate } from "./opened";
+import type { OpenedDataset, TemplateContents } from "./opened";
 import { residentTemplate } from "./resident";
 
 /**
- * A template version as its page opens it, from the installed folder as
- * the map's reads find it; null when no installed version answers. Reads
- * only: nothing is fetched, staged or written.
+ * What an installed template version holds, from its folder as the map's
+ * reads find it; null when no installed version answers. Reads only:
+ * nothing is fetched, staged or written.
  */
-export function openedTemplate(id: string, version: number): OpenedTemplate | null {
+export function templateContents(id: string, version: number): TemplateContents | null {
   const resident = residentTemplate(id, version);
   if (!resident) return null;
   const dataset = (mount: TemplateMount): OpenedDataset => ({
@@ -20,7 +20,7 @@ export function openedTemplate(id: string, version: number): OpenedTemplate | nu
   });
   const reads = new Map((resident.facts.steps ?? []).map((step) => [step.id, step.reads]));
   const flow = resident.workflow;
-  let workflow: OpenedTemplate["workflow"] = null;
+  let workflow: TemplateContents["workflow"] = null;
   if (flow) {
     const { steps, sources, notes } = flow.layout;
     const placed = Object.keys(steps).length + Object.keys(sources).length + notes.length > 0;
@@ -45,8 +45,6 @@ export function openedTemplate(id: string, version: number): OpenedTemplate | nu
     };
   }
   return {
-    id,
-    version,
     revision: resident.record.archive.sha256.slice(0, 32),
     mapId: templateDocumentId({ template: id, version, kind: "map" }),
     createdAt: resident.createdAt,

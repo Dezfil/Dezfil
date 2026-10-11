@@ -4,7 +4,7 @@ import { useRef, useState, type ReactNode } from "react";
 import type { Layer } from "@/lib/metadata/maps";
 import { layerCount, layerKind, layerSwatch } from "@/lib/layer-summary";
 import type { TemplateDetail } from "@/lib/templates/card";
-import type { OpenedTemplate } from "@/lib/templates/opened";
+import type { TemplateContents } from "@/lib/templates/opened";
 import { formatCount } from "../api";
 import type { LayerRenderData } from "../builder/render-data";
 import { useHeaderReach } from "../shell/use-header-reach";
@@ -34,7 +34,7 @@ export function HowItsMade({
   beside,
 }: {
   template: TemplateDetail;
-  opened: OpenedTemplate;
+  opened: TemplateContents;
   /** The template map's layers once read; null while they are. */
   layers: Layer[] | null;
   renders?: Record<string, LayerRenderData | undefined>;
