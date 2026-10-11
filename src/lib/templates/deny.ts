@@ -16,25 +16,26 @@
 
 type Carried = "a publication" | "a token" | "a connection" | "a service address" | "a setting";
 
-const FORBIDDEN_KEYS = new Map<string, Carried>([
-  ["publishToken", "a publication"],
-  ["publishedAt", "a publication"],
-  ["published", "a publication"],
-  ["publication", "a publication"],
-  ["token", "a token"],
-  ["apiToken", "a token"],
-  ["accessToken", "a token"],
-  ["secret", "a token"],
-  ["password", "a token"],
-  ["apiKey", "a token"],
-  ["connection", "a connection"],
-  ["connectionId", "a connection"],
-  ["connections", "a connection"],
-  ["customBasemap", "a service address"],
-  ["libraryStyle", "a service address"],
-  ["settings", "a setting"],
-  ["setting", "a setting"],
-]);
+/** A configuration constant, never changed: what each forbidden key carries. */
+const FORBIDDEN_KEYS: Readonly<Record<string, Carried>> = {
+  publishToken: "a publication",
+  publishedAt: "a publication",
+  published: "a publication",
+  publication: "a publication",
+  token: "a token",
+  apiToken: "a token",
+  accessToken: "a token",
+  secret: "a token",
+  password: "a token",
+  apiKey: "a token",
+  connection: "a connection",
+  connectionId: "a connection",
+  connections: "a connection",
+  customBasemap: "a service address",
+  libraryStyle: "a service address",
+  settings: "a setting",
+  setting: "a setting",
+};
 
 /** A key naming an address the server or a browser would reach. */
 const ADDRESS_KEY = /(?:url|uri|endpoint|href)$/i;
@@ -61,7 +62,8 @@ export function forbiddenContent(document: unknown, where: string): string | nul
     if (typeof value !== "object" || value === null) continue;
     const entries = Object.entries(value as Record<string, unknown>);
     for (const [key, child] of entries) {
-      const carried = FORBIDDEN_KEYS.get(key) ?? (ADDRESS_KEY.test(key) ? "a service address" : undefined);
+      const carried = (Object.hasOwn(FORBIDDEN_KEYS, key) ? FORBIDDEN_KEYS[key] : undefined)
+        ?? (ADDRESS_KEY.test(key) ? "a service address" : undefined);
       if (carried && !empty(child)) {
         const field = at ? `${at}.${key}` : key;
         return `${where} carries ${carried} (${field}), which no template may hold.`;
