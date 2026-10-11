@@ -42,9 +42,10 @@ screens, the basemaps on offer, the satellite imagery and the saved palettes,
 the limits, the services' addresses and numbers, and the sign-in, token,
 publishing, connection and import rules in Settings.
 Each person picks their own look on the **Appearance** tab of Settings: color,
-contrast, background, typeface, corners and how the side menu opens. The look is
-kept with the account, so it shows from the first paint in every browser that
-account signs in to; published pages and exported images keep Dezfil's default look.
+contrast, panels (Glass, Liquid or Paper), background, typeface, corners and how
+the side menu opens. The look is kept with the account, so it shows from the
+first paint in every browser that account signs in to; published pages and
+exported images keep Dezfil's default look.
 Each account's maps, datasets, workflows, connections and projects are private,
 including from admins, until a project's owner shares the project: its people
 then reach everything filed in it, as viewers or editors.
