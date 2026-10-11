@@ -62,7 +62,7 @@ function declaredName(params: Record<string, unknown> | null): string | null {
  * of the SQL home the copy keeps, where a declared output would shadow one
  * for every step that reads it by its plain name. The declaration rule
  * refuses both, so a copy allocated against less could not be edited. */
-function takenNames(scope: AccountScope, db: Database, home: string | null): Set<string> {
+export function takenNames(scope: AccountScope, db: Database, home: string | null): Set<string> {
   const taken = new Set<string>(listOwnedTables(scope, db).map((t) => t.name.toLowerCase()));
   if (home !== null) for (const name of tableNamesOf(home, db)) taken.add(name.toLowerCase());
   for (const recipe of listOwnRecipes(scope, db)) {

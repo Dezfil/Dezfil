@@ -88,6 +88,8 @@ export function stepPayload(view: StepView & { context?: ReaderContext; facts?: 
     reads,
     latestAttempt: attempt,
     lastSuccessAt: step.lastSuccessAt,
+    // The output came with a copy of a template, made by no run.
+    templateResult: view.templateResult ?? null,
   };
 }
 

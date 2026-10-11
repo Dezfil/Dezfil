@@ -4,6 +4,7 @@ import { getTileRecord, type TileRecord } from "@/lib/metadata/tiles";
 import { archiveServable, privateTileAccess, tilesUnavailable } from "./access";
 import { tileArchiveAttribution } from "./evidence";
 import { readTile } from "./serve";
+import { isTemplateDocumentId } from "@/lib/templates/ids";
 
 export function privateTileStatus(scope: AccountScope, layerId: string) {
   requireReachable(scope, "layer", layerId);
@@ -20,6 +21,8 @@ const sameArchive = (a: TileRecord | null, b: TileRecord | null) =>
  * other's authorization. Anyone else gets the tiles' named failure.
  */
 export async function readPrivateTile(scope: AccountScope, layerId: string, z: number, x: number, y: number) {
+  // A template's layer has no tiles.
+  if (isTemplateDocumentId(layerId)) throw tilesUnavailable();
   const access = privateTileAccess(scope, layerId);
   const before = getTileRecord(layerId);
   if (!archiveServable(access, tileArchiveAttribution(layerId, before))) throw tilesUnavailable();

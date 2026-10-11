@@ -4,7 +4,7 @@ import { dataDir } from "@/lib/config";
 import { assistantAvailability, allowedModels, DEFAULT_MODELS } from "@/lib/assistant/config";
 import { readModelCatalogue } from "@/lib/assistant/model-catalogue";
 import { defaultOfferMode } from "@/lib/assistant/offer";
-import { discloseAddress, refusesUserInformation } from "./disclosure";
+import { discloseAddress, isWebAddress, refusesUserInformation, variableMayNameFolder } from "./disclosure";
 import { settingEnvironment } from "./resolver";
 import type { SettingDefinition } from "./types";
 
@@ -20,7 +20,9 @@ export function readDeploymentSetting(definition: SettingDefinition) {
       ? { status: locked ? "environment" : existsSync(path.join(dataDir(), "secret.key")) ? "data-directory" : "not-yet-present" }
       : { set: locked };
   } else if (definition.kind === "address") {
-    value = typeof value === "string" || value === null ? discloseAddress(value, refusesUserInformation(definition)) : value;
+    // A folder the variable names is said to be one, never where it is.
+    value = locked && variableMayNameFolder(definition) && !isWebAddress(raw!) ? { set: true, folder: true }
+      : typeof value === "string" || value === null ? discloseAddress(value, refusesUserInformation(definition)) : value;
   } else if (definition.key === "dataDir") value = dataDir();
   else if (definition.key === "assistantAutoCheck") value = !locked || !["0", "false", "off"].includes(raw!.trim().toLowerCase());
   else if (definition.key === "objectStoreCredentials") value = ["1", "true", "yes"].includes(raw?.toLowerCase() ?? "");

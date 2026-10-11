@@ -42,9 +42,10 @@ export const DISCLOSURE_SEEDS = {
   DEZFIL_OVERPASS_URL: "https://osm.example/seed-overpass-path?key=seed-overpass-query",
   DEZFIL_S3_ENDPOINT: "https://objects.example/seed-s3-path?key=seed-s3-query",
   DEZFIL_OVERTURE_S3_ENDPOINT: "seed-malformed-address",
+  DEZFIL_TEMPLATES_CATALOGUE: "/srv/seed-catalogue-folder/catalogue",
 } as const;
 export const FORBIDDEN_DISCLOSURE = [
   ...Object.values(DISCLOSURE_SEEDS), "seed-user", "seed-password", "seed-geocoder-path", "seed-geocoder-query",
   "seed-routing-path", "seed-routing-query", "seed-template-path", "seed-template-query", "seed-style-path",
-  "seed-style-query", "seed-overpass-path", "seed-overpass-query", "seed-s3-path", "seed-s3-query",
+  "seed-style-query", "seed-overpass-path", "seed-overpass-query", "seed-s3-path", "seed-s3-query", "seed-catalogue-folder",
 ];

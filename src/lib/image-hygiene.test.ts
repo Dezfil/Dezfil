@@ -21,7 +21,9 @@ import {
   MODEL_CATALOGUE_IMAGE_PATH,
   MVT_WORKER_IMAGE_PATH,
   MVT_WORKER_REPO_PATH,
+  SHIPPED_TEMPLATES_INDEX_IMAGE_PATH,
   TOP_LEVEL_ALLOWLIST,
+  templatesPresence,
   trackedManifest,
 } from "../../scripts/check-image-inventory.mjs";
 
@@ -291,6 +293,65 @@ describe("image inventory judge", () => {
     const tracked = trackedManifest(root) as Set<string>;
     expect(tracked.has("src/lib/api/errors.ts")).toBe(true);
     expect(tracked.has("src/lib/no-such-file.ts")).toBe(false);
+  });
+});
+
+// The shipped templates are the one top-level entry the image gained for
+// them, held to documents, datasets and pictures, each file one git tracks.
+describe("the shipped templates in the image", () => {
+  const root = fileURLToPath(new URL("../..", import.meta.url));
+  const TEMPLATE_FILES = [
+    "templates/index.json",
+    "templates/harbour/1/project.json",
+    "templates/harbour/1/datasets/stations.parquet",
+    "templates/harbour/1/pictures/light.png",
+  ];
+  const listing = TEMPLATE_FILES.map((f) => `f /app/${f}`);
+
+  it("requires the shipped index and admits the folder's classes when tracked", () => {
+    expect(TOP_LEVEL_ALLOWLIST.has("templates")).toBe(true);
+    expect(templatesPresence([...CLEAN, ...listing])).toEqual([]);
+    expect(templatesPresence(CLEAN)).toEqual([`MISSING: ${SHIPPED_TEMPLATES_INDEX_IMAGE_PATH}`]);
+    expect(judge([...CLEAN, ...listing], new Set([...TEMPLATE_FILES, "src/lib/api/errors.ts", "public/favicon.svg", "scripts/journey.mjs"]))).toEqual([]);
+    expect(trackedManifest(root).has("templates/index.json")).toBe(true);
+  });
+
+  it("refuses a class the folder never holds, and a file the repository does not track", () => {
+    const tracked = new Set([...TEMPLATE_FILES, "templates/harbour/1/notes.txt", "templates/harbour/1/run.ts", "templates/harbour/1/map.svg"]);
+    const planted = judge([
+      ...listing,
+      "f /app/templates/harbour/1/notes.txt",
+      "f /app/templates/harbour/1/run.ts",
+      "f /app/templates/harbour/1/map.svg",
+      "f /app/templates/harbour/1/extra.parquet",
+    ], tracked);
+    expect(planted).toEqual([
+      "file class the templates/ tree never holds: /app/templates/harbour/1/notes.txt",
+      "file class the templates/ tree never holds: /app/templates/harbour/1/run.ts",
+      "file class the templates/ tree never holds: /app/templates/harbour/1/map.svg",
+      "file the repository does not track: /app/templates/harbour/1/extra.parquet",
+    ]);
+  });
+
+  it("admits nothing else new: a dataset or picture outside the folder still fails", () => {
+    const planted = judge([
+      ...CLEAN,
+      "f /app/stray.parquet",
+      "f /app/src/lib/data.parquet",
+      "f /app/public/picture.png",
+    ], new Set(["src/lib/data.parquet", "public/picture.png", "src/lib/api/errors.ts", "public/favicon.svg", "scripts/journey.mjs"]));
+    expect(planted).toEqual([
+      "unexpected top-level entry: stray.parquet (from /app/stray.parquet)",
+      "file class the src/ tree never holds: /app/src/lib/data.parquet",
+      "file class the public/ tree never holds: /app/public/picture.png",
+    ]);
+  });
+
+  it("reaches the image: the build context keeps the folder, and the runner copies it", () => {
+    const ignored = dockerIgnore({ ignorecase: false }).add(readFileSync(join(root, ".dockerignore"), "utf8"));
+    for (const file of TEMPLATE_FILES) expect(ignored.ignores(file), file).toBe(false);
+    const dockerfile = readFileSync(join(root, "Dockerfile"), "utf8");
+    expect(dockerfile).toMatch(/^COPY --from=build --chown=node:node \/app\/templates \.\/templates$/m);
   });
 });
 

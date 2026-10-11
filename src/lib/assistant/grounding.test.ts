@@ -107,6 +107,15 @@ describe("bounded grounding projections", () => {
     expect(value.run.members).toMatchObject({ total: 65, incomplete: true });
     expect(value.run.members.items[0]).toMatchObject({ stepId: "s", state: "failed", stoppedBy: "cancelled", stoppedReason: "Cancelled by the user.", attempt: { state: "cancelled", error: { code: "operation_interrupted" } } });
   });
+  it("carries a copied step's template result, so its output reads as the template's and never as a run's", async () => {
+    const copied = step("s", { lastSuccessAt: null, output: { id: "t-busy", name: "busy" }, templateResult: { template: "busy-stations", version: 2, path: "/srv" } });
+    const ran = step("ran", { lastSuccessAt: "2026-10-11T08:00:00.000Z", output: { id: "t-rings", name: "rings" }, templateResult: null });
+    const value = await ground(workflow, api({ steps: [copied, ran] }));
+    const [first, second] = value.recipe.steps.items;
+    expect(first).toMatchObject({ id: "s", lastSuccessAt: null, output: { id: "t-busy", name: "busy" } });
+    expect(first.templateResult).toEqual({ template: "busy-stations", version: 2 });
+    expect(second).toMatchObject({ id: "ran", lastSuccessAt: "2026-10-11T08:00:00.000Z", templateResult: null });
+  });
   it("preserves every documented member and attempt outcome separately", async () => {
     const members = ["pending", "running", "succeeded", "failed", "not_run"].map((state, i) => ({ stepId: String(i), state, attempt: state === "not_run" ? null : { state: ["queued", "running", "succeeded", "failed"][i] } }));
     members.push({ stepId: "cancel", state: "failed", attempt: { state: "cancelled" } });

@@ -5,6 +5,7 @@ import { metadataDb } from "@/lib/metadata/db";
 import { ApiError } from "@/lib/api/errors";
 import { listLayers } from "@/lib/metadata/maps";
 import { requireMap } from "@/lib/map-access";
+import { refuseTemplateDocument } from "@/lib/templates/map-read";
 import { queryInputsStrict } from "@/lib/operations/inputs";
 import { boundedEvaluation } from "@/lib/query/bounded";
 import { namespaceFor } from "@/lib/query/namespace";
@@ -118,6 +119,8 @@ export async function readMapDependencies(
   scope: AccountScope,
   mapId: string,
 ): Promise<DocumentFacts & { datasets: MapDependency[] }> {
+  // A template's datasets are listed in no one's data.
+  refuseTemplateDocument(mapId);
   const { layers, facts } = metadataDb().transaction(() => {
     requireMap(scope, mapId);
     return { layers: listLayers(mapId), facts: documentFacts({ kind: "map", id: mapId }) };

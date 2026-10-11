@@ -66,9 +66,19 @@ export interface DescribedRun {
   jobId: string | null;
 }
 
+/** A template's bundled result that came with a copy of the template: the
+ * template's id and the version copied. */
+export interface TemplateResult {
+  template: string;
+  version: number;
+}
+
 export interface StepView {
   /** The step, its output and last success those of the described run. */
   step: RecipeStep;
+  /** Set when the described output is a copied template result, which no
+   * run made: the step then reads no last success. */
+  templateResult?: TemplateResult | null;
   described?: DescribedRun | null;
   /** The described run's output as the reader may follow it, naming its
    * runner and run; null when there is none to show. */
@@ -171,14 +181,35 @@ async function presentReads(scope: DatasetScope, steps: RecipeStep[]): Promise<M
   return new Map(entries);
 }
 
+/** The template and version an output came from, when it is a template's
+ * bundled result that a copy recorded: an output whose dataset's source is
+ * `template`, which nothing but a copy makes and a run replaces. */
+function templateResultOf(datasetId: string): TemplateResult | null {
+  const row = metadataDb().prepare("SELECT source, source_params FROM data_tables WHERE id = ?").get(datasetId) as
+    { source: string; source_params: string | null } | undefined;
+  if (row?.source !== "template") return null;
+  let params: { template?: unknown; version?: unknown } = {};
+  try { params = JSON.parse(row.source_params ?? "{}") ?? {}; } catch { /* Named by its source alone. */ }
+  return {
+    template: typeof params.template === "string" ? params.template : "",
+    version: typeof params.version === "number" ? params.version : 0,
+  };
+}
+
 /**
  * Each step as one runner's: the reader's own recorded output when they have
  * one, else the workflow owner's. A workflow's output has one identity per
  * runner, so a view that mixed one person's output with another's lineage
- * would describe no run at all.
+ * would describe no run at all. A copied template result was made by no run
+ * of the workflow: it reads with no last success, and is marked.
  */
-function describedSteps(scope: AccountScope, steps: RecipeStep[], ownerId: string): { steps: RecipeStep[]; runs: Map<string, { accountId: string; run: DescribedRun } | null> } {
+function describedSteps(scope: AccountScope, steps: RecipeStep[], ownerId: string): {
+  steps: RecipeStep[];
+  runs: Map<string, { accountId: string; run: DescribedRun } | null>;
+  copied: Map<string, TemplateResult | null>;
+} {
   const runs = new Map<string, { accountId: string; run: DescribedRun } | null>();
+  const copied = new Map<string, TemplateResult | null>();
   const labels = accountLabels([scope.accountId, ownerId]);
   const described = steps.map((step) => {
     const own = runnerOutput(step.id, scope.accountId);
@@ -186,14 +217,16 @@ function describedSteps(scope: AccountScope, steps: RecipeStep[], ownerId: strin
     const accountId = own ? scope.accountId : ownerId;
     const person = output ? labels.get(accountId) : undefined;
     runs.set(step.id, output && person ? { accountId, run: { runner: person, runId: output.runId, jobId: output.jobId } } : null);
+    const template = output ? templateResultOf(output.id) : null;
+    copied.set(step.id, template);
     return {
       ...step,
       outputTableId: output?.id ?? null,
       outputTableName: output?.name ?? null,
-      lastSuccessAt: output?.succeededAt ?? null,
+      lastSuccessAt: template ? null : output?.succeededAt ?? null,
     };
   });
-  return { steps: described, runs };
+  return { steps: described, runs, copied };
 }
 
 /** The described outputs that still exist but lie outside the reader's
@@ -212,9 +245,9 @@ function describedOutput(scope: AccountScope, step: RecipeStep, described: { acc
 }
 
 export async function readRecipe(scope: AccountScope, recipeId: string): Promise<RecipeView> {
-  const { recipe, standing, steps, runs, facts, evaluation, namespace, edgesByStep, attempts } = metadataDb().transaction(() => {
+  const { recipe, standing, steps, runs, copied, facts, evaluation, namespace, edgesByStep, attempts } = metadataDb().transaction(() => {
     const recipe = requireRecipe(scope, recipeId), standing = recipeStanding(recipeId)!;
-    const { steps, runs } = describedSteps(scope, listSteps(scope, recipeId), standing.ownerId);
+    const { steps, runs, copied } = describedSteps(scope, listSteps(scope, recipeId), standing.ownerId);
     const evaluation = workflowEvaluation(scope, recipeId);
     const namespace = namespaceFor(evaluation);
     const reachable = new Set(namespace.datasets.map((dataset) => dataset.id));
@@ -223,7 +256,7 @@ export async function readRecipe(scope: AccountScope, recipeId: string): Promise
     const edgesByStep = new Map<string, ConditionEdge[]>(steps.map((step) =>
       [step.id, reachedEdgesForStep(scope, step.id, reachable, undefined, runs.get(step.id)?.accountId ?? null)]));
     const attempts = new Map(steps.map((step) => [step.id, latestStepAttempt(scope, step.id)]));
-    return { recipe, standing, steps, runs, evaluation, namespace, edgesByStep, attempts,
+    return { recipe, standing, steps, runs, copied, evaluation, namespace, edgesByStep, attempts,
       facts: documentFacts({ kind: "workflow", id: recipeId }) };
   })();
   // A reader whose own space is the workflow's home reads its names as their
@@ -250,6 +283,7 @@ export async function readRecipe(scope: AccountScope, recipeId: string): Promise
 
   const views: StepView[] = steps.map((step) => ({
     step,
+    templateResult: copied.get(step.id) ?? null,
     described: runs.get(step.id)?.run ?? null,
     // The described run's output, followed by whoever reaches it; a gone one
     // is told to whoever recorded it, the workflow's owner or its runner.

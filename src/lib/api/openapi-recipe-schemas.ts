@@ -181,6 +181,21 @@ export const RECIPE_SCHEMAS = {
           "together with the condition and never instead of it.",
       },
       lastSuccessAt: { type: ["string", "null"] },
+      templateResult: {
+        type: ["object", "null"],
+        properties: {
+          template: { type: "string", description: "The template's id." },
+          version: { type: "integer", minimum: 1, description: "The version copied." },
+        },
+        required: ["template", "version"],
+        description:
+          "Set when the output this step's view describes is a template's " +
+          "bundled result that came with a copy of the template (its " +
+          "dataset's source is `template`). No run of this workflow made " +
+          "it, so `lastSuccessAt` is null and the output names no job or " +
+          "run. The step's first run replaces it, and this is null from " +
+          "then on.",
+      },
     },
   },
   Recipe: {

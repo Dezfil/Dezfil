@@ -12,10 +12,11 @@ import { geocoderConfigured } from "@/lib/search/provider";
 import { instanceDefaults, reportedDefaults } from "@/lib/settings/defaults";
 import { authFailure, privateResponse, requireRequestAuth } from "@/lib/auth/http";
 import { securitySettings } from "@/lib/auth/security-settings";
+import { catalogueInUse } from "@/lib/templates/catalogue-address";
 
 /** Runtime client configuration (basemaps, palettes, limits worth showing in
- * the UI, what new things start with, the rules every account follows and
- * the shortest password). */
+ * the UI, what new things start with, whether the template catalogue is in
+ * use, the rules every account follows and the shortest password). */
 export async function GET(request: Request) {
   try {
     requireRequestAuth(request);
@@ -37,6 +38,7 @@ export async function GET(request: Request) {
       // never reaches the browser.
       geocoderConfigured: geocoderConfigured(),
       defaults: reportedDefaults(instanceDefaults()),
+      templates: { catalogue: catalogueInUse() },
       // The rules every account follows, keyed and valued as the change operation takes them.
       rules: security.rules,
       passwordMin: security.passwordMin,

@@ -7,8 +7,8 @@ import { metadataDb } from "@/lib/metadata/db";
 import { accountSqlNames } from "@/lib/metadata/accounts";
 import { isPublicationScope, requirePublicationScope, type PublicationScope } from "@/lib/publish/publication-scope";
 import type { DatasetScope } from "./access";
-import { ownerlessDatasets, reachableDatasets, type Namespace } from "./bindings";
-import { contextOf } from "./context";
+import { ownerlessDatasets, reachableDatasets, type Namespace, type ReachableDataset } from "./bindings";
+import { contextOf, type TemplateHome, type TemplateMount } from "./context";
 import { mountPlanOf } from "./mount-plan";
 import { publicationKey, rememberedPublication, resolvePublication, type PublicationReach } from "./publication-namespace";
 
@@ -81,11 +81,41 @@ export function publicationRevision(scope: PublicationScope, db: Database = meta
   return publicationKey(scope.mapId, unrestrictedNamespace(scope, db), db);
 }
 
+/** A template's dataset or bundled result as a reachable dataset: no owner
+ * and no SQL name, so it is mounted under its plain name in the template's
+ * home and is reached by no qualified name. */
+function templateDataset(mount: TemplateMount, output: boolean): ReachableDataset {
+  return {
+    id: mount.id, name: mount.name, sourceFilename: null, format: "geoparquet", file: mount.file,
+    geometryColumn: mount.geometryColumn, geometryType: mount.geometryType, crsAssumed: mount.crsAssumed,
+    headerSuspect: false, rowCount: mount.rowCount, createdAt: "", source: output ? "operation" : "upload",
+    sourceParams: null, importedAt: null, ownerId: null, ownerSqlName: null,
+  };
+}
+
+/** A template's namespace: its version's datasets and its bundled results
+ * under their output names, and nothing of any account's, the caller's own
+ * included. */
+function templateNamespace(home: TemplateHome): Namespace {
+  return {
+    home: { id: null, sqlName: null },
+    datasets: [...home.datasets.map((m) => templateDataset(m, false)), ...home.outputs.map((m) => templateDataset(m, true))],
+    outputs: new Map(home.outputs.map((m) => [m.name.toLowerCase(), m.id])),
+  };
+}
+
 /** The home and the authority's whole reach, before a publication's
  * restriction. */
 function unrestrictedNamespace(scope: DatasetScope, db: Database): Namespace {
   const context = contextOf(scope, db);
   const authority = context.authority;
+  if (context.template) {
+    // The caller is rechecked as every evaluation's authority is; their
+    // reach adds nothing to a template's home.
+    if (isPublicationScope(authority)) requirePublicationScope(authority, db);
+    else requireAccountScope(authority, db);
+    return templateNamespace(context.template);
+  }
   let datasets, runner: string | null;
   if (isPublicationScope(authority)) {
     runner = requirePublicationScope(authority, db);

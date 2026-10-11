@@ -366,6 +366,14 @@ async function performRefresh(
           `Table "${name}" was produced by an operation, not imported. Run the operation again to produce it afresh.`,
           409,
         );
+      // A template's dataset came with a copy of the template: it has no
+      // source to re-run, and the copy is the person's to change.
+      case "template":
+        throw new ApiError(
+          "not_refreshable",
+          `Table "${name}" was copied from a template, not imported, so there is nothing to re-run. Refresh applies to imported tables only.`,
+          409,
+        );
       default:
         throw new ApiError(
           "not_refreshable",

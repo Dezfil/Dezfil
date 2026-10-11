@@ -39,6 +39,9 @@ export async function POST(request: Request, { params }: Params) {
     const { id } = await params;
     const scope = accountScope(actor);
     const map = requireMap(scope, id);
+    // The render's own standing, asked before the body: a map the render
+    // cannot stand on (a template's, opened only to view) is absent here.
+    requireRenderStanding(scope, id);
     let body: unknown;
     try {
       body = await largeJsonValue(request);

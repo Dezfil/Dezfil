@@ -262,17 +262,18 @@ describe("System's Storage", () => {
     await open();
     expect(calls).toContainEqual({ method: "GET", url: "/api/instance/storage" });
     expect(count()).toBe("15.8 GB");
-    expect(storageRows()).toEqual(["sys-tables", "sys-tiles", "sys-caches", "sys-thumbnails", "sys-metadata-size", "sys-leftovers", "sys-other", "sys-free"]);
+    expect(storageRows()).toEqual(["sys-tables", "sys-tiles", "sys-caches", "sys-thumbnails", "sys-templates", "sys-metadata-size", "sys-leftovers", "sys-other", "sys-free"]);
     expect(byId("sys-tables").textContent).toBe("Tables12.4 GB412 files");
     expect(byId("sys-tiles").textContent).toBe("Tile archives3.1 GB83 files");
     expect(byId("sys-caches").textContent).toBe("Service caches6.5 MB120 filesClear all");
     expect(byId("sys-thumbnails").textContent).toBe("Thumbnails84 MB38 files");
+    expect(byId("sys-templates").textContent).toBe("Templates4 MB9 files");
     expect(byId("sys-metadata-size").textContent).toBe("Metadata database46 MB3 files");
     expect(byId("sys-other").textContent).toBe("Other40 KB2 files");
     expect(byId("sys-free").textContent).toBe("Free on the disk182 GB of 250 GB");
     // The share of what the folder holds, drawn as a bar.
-    expect(["sys-tables", "sys-tiles", "sys-caches", "sys-thumbnails", "sys-metadata-size", "sys-leftovers", "sys-other"].map(bar))
-      .toEqual(["78%", "20%", "0%", "1%", "0%", "1%", "0%"]);
+    expect(["sys-tables", "sys-tiles", "sys-caches", "sys-thumbnails", "sys-templates", "sys-metadata-size", "sys-leftovers", "sys-other"].map(bar))
+      .toEqual(["78%", "20%", "0%", "1%", "0%", "0%", "1%", "0%"]);
     expect(bar("sys-free")).toBeUndefined();
   });
 

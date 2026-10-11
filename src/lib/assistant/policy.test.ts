@@ -38,8 +38,9 @@ describe("the page action policy", () => {
     // The registry holds conditional operations, one that reaches outside and
     // read-only ones that ask first, so each exclusion is exercised, not vacuous.
     expect(tools.some((t) => t.effects.planningArgument !== undefined)).toBe(true);
-    expect(tools.filter((t) => t.effects.reachesOutside).map((t) => t.name)).toEqual(["test_service"]);
+    expect(tools.filter((t) => t.effects.reachesOutside).map((t) => t.name).sort()).toEqual(["refresh_templates", "test_service"]);
     expect(names).not.toContain("test_service");
+    expect(names).not.toContain("refresh_templates");
     expect(tools.filter((t) => t.effects.readOnly && !t.effects.reachesOutside && t.confirm).map((t) => t.name).sort()).toEqual(["read_storage", "test_part"]);
     expect(names).not.toContain("test_part");
     expect(names).not.toContain("read_storage");
@@ -60,12 +61,12 @@ describe("the page action policy", () => {
       "get_history", "get_instance_settings", "get_layer", "get_map", "get_map_dependencies", "get_operation_run",
       "get_project", "get_project_members", "get_publication_state", "get_published_fields", "get_recipe",
       "get_recipe_layout", "get_recipe_run", "get_recipe_step", "get_settings", "get_sketch_features",
-      "get_table_features", "get_user_deletion", "get_workflow_dependencies", "inspect_basemap_style",
+      "get_table_features", "get_template", "get_user_deletion", "get_workflow_dependencies", "inspect_basemap_style",
       "inspect_table_geometry", "layer_extent", "list_api_tokens", "list_geometry_projections", "list_layer_fields",
       "list_layers", "list_map_sketches", "list_maps", "list_operation_runs", "list_operations",
       "list_overture_countries", "list_overture_division_levels", "list_overture_releases", "list_overture_states",
       "list_palettes", "list_postgis_connections", "list_postgis_snapshots", "list_postgis_tables",
-      "list_project_people", "list_projects", "list_recipe_runs", "list_recipes", "list_tables", "list_users",
+      "list_project_people", "list_projects", "list_recipe_runs", "list_recipes", "list_tables", "list_templates", "list_users",
       "look_at_map", "preview_overture_import", "preview_postgis_relation", "preview_table_geometry",
       "preview_user_deletion", "published_layer_extent", "read_map_look_image", "read_table_catalogue",
       "read_widget_values", "render_layer", "run_osm_query", "run_overture_query", "run_sql", "sanitize_icon_svg",
@@ -74,7 +75,7 @@ describe("the page action policy", () => {
     // Read-only operations the policy refuses all the same, each for a
     // declared reason.
     const refused = buildTools().filter((t) => t.effects.readOnly && !names.includes(t.name)).map((t) => t.name).sort();
-    expect(refused).toEqual(["read_storage", "test_part", "test_service"]);
+    expect(refused).toEqual(["read_storage", "refresh_templates", "test_part", "test_service"]);
   });
 
   it("admits answers per tool the way the set is built", () => {

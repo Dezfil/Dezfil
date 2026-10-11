@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { chmodSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { createHash, randomUUID } from "node:crypto";
+import { chmodSync, linkSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import { GET } from "@/app/api/instance/storage/route";
@@ -19,6 +20,7 @@ import { insertLayer, type Layer } from "@/lib/metadata/maps";
 import { insertTable, type DataTable } from "@/lib/metadata/tables";
 import { upsertTileRecord } from "@/lib/metadata/tiles";
 import { clearServiceCaches } from "@/lib/settings/service-facts";
+import * as shippedIndex from "@/lib/templates/shipped-index";
 import { keepRequestsOnThisMachine } from "@/lib/test-support/outside-requests";
 import { testAccountScope } from "@/lib/test-support/accounts";
 import { cleanTileScratch, sweepTileArchives } from "@/lib/tiles/build";
@@ -233,6 +235,60 @@ describe("the storage read", () => {
     const after = filesNow();
     expect(before.filter(file => !after.includes(file)).sort()).toEqual(leftovers.sort());
     expect(after.filter(file => !before.includes(file))).toEqual([]);
+  });
+
+  it("counts the installed templates under their own kind, the engine's copies of their data with them and a file with two names once; the sweeps keep what a template needs and remove the rest", async () => {
+    // A version as installed: its data file and a record naming the file's checksum.
+    const installed = (folder: string, id: string, origin: Record<string, string>, bytes: Buffer) => {
+      mkdirSync(path.join(folder, "datasets"), { recursive: true });
+      writeFileSync(path.join(folder, "datasets", "places.parquet"), bytes);
+      const sha256 = createHash("sha256").update(bytes).digest("hex");
+      writeFileSync(path.join(folder, "record.json"), JSON.stringify({
+        formatVersion: 1, id, version: 1, archive: { sha256: "0".repeat(64), size: 1 }, origin,
+        files: { "datasets/places.parquet": { bytes: bytes.length, sha256 } },
+        measured: { "datasets/places.parquet": { rowCount: 1, geometryColumn: "geom", geometryType: "POINT", crsAssumed: false } },
+      }));
+      return sha256;
+    };
+    // The shipped set sits outside the data folder, as in the image.
+    const shipped = path.join(root, "shipped");
+    const shippedSha = installed(path.join(shipped, "quiet-park", "1"), "quiet-park", { kind: "shipped" }, Buffer.alloc(500, 0x62));
+    writeFileSync(path.join(shipped, "index.json"), JSON.stringify({ formatVersion: 1, templates: [{ id: "quiet-park", version: 1 }] }));
+    vi.spyOn(shippedIndex, "shippedTemplatesDir").mockReturnValue(shipped);
+    const version = path.join(data, "templates", "harbour-stations", "1");
+    const downloadedSha = installed(version, "harbour-stations", { kind: "catalogue", origin: "http://127.0.0.1:1" }, Buffer.alloc(700, 0x63));
+    // The engine's copies: the shipped data copied, the downloaded data a second name for its file.
+    put(`tables/template-${shippedSha}.parquet`, 500);
+    writeFileSync(path.join(data, `tables/template-${shippedSha}.parquet`), Buffer.alloc(500, 0x62));
+    linkSync(path.join(version, "datasets", "places.parquet"), path.join(data, `tables/template-${downloadedSha}.parquet`));
+    // What no installed version needs: a copy of data no record names, an
+    // admission's own staging a stopped process left, a partial copy.
+    const leftovers = [
+      `tables/template-${createHash("sha256").update("gone").digest("hex")}.parquet`,
+      `tables/template-${randomUUID()}.parquet`,
+      `tables/template-${shippedSha}-${randomUUID()}.partial`,
+    ];
+    put(leftovers[0], 300);
+    put(leftovers[1], 200);
+    put(leftovers[2], 100);
+
+    const recordBytes = lstatSync(path.join(version, "record.json")).size;
+    const answer = await readStorage(p.context, p.db);
+    expect(answer.kinds.templates).toEqual({ bytes: recordBytes + 700 + 500, files: 3, finished: true });
+    expect(answer.kinds.leftover_files).toEqual({ bytes: 300 + 200 + 100, files: 3, finished: true });
+    expect(answer.kinds.tables).toEqual({ bytes: 0, files: 0, finished: true });
+
+    const before = filesNow();
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    await cleanTileScratch();
+    await sweepTileArchives();
+    await cleanIngestScratch();
+    await cleanAbandonedDeletionCandidates();
+    await sweepTableArtifacts();
+    const after = filesNow();
+    expect(before.filter(file => !after.includes(file)).sort()).toEqual(leftovers.sort());
+    expect(lstatSync(path.join(data, `tables/template-${downloadedSha}.parquet`)).ino).toBe(lstatSync(path.join(version, "datasets", "places.parquet")).ino);
+    vi.restoreAllMocks();
   });
 
   it("tells each ownership record's kind by its name alone, opening none: records no one may read count as when they could be", async () => {
@@ -500,6 +556,25 @@ describe("one walk at a time", () => {
     } finally {
       held.reject(Object.assign(new Error("gone"), { code: "ENOENT" }));
     }
+  });
+
+  it("stops at 10 seconds when the installed templates' records do not come back, telling no file", async () => {
+    put("tables/orphan.parquet", 1000);
+    put("cache/geocode/answer-1.json", 60);
+    mkdirSync(path.join(data, "templates"));
+    // The downloaded templates' folder is read and never answers.
+    const never = new Promise<never>(() => {});
+    watch.hold = (call, at) => (call === "readdir" && at === path.join(data, "templates") ? never : undefined);
+    vi.useFakeTimers({ toFake: ["Date", "setTimeout", "clearTimeout"] });
+    const asked = Date.now();
+    let answeredAt: number | null = null;
+    const reading = readStorage(p.context, p.db).finally(() => { answeredAt = Date.now(); });
+    for (let second = 0; second < 25 && answeredAt === null; second += 1) await vi.advanceTimersByTimeAsync(1_000);
+    expect(answeredAt, "the read was not answered").not.toBeNull();
+    expect(answeredAt! - asked).toBeLessThanOrEqual(STORAGE_WALK_MS);
+    const read = await reading;
+    for (const kind of STORAGE_KINDS) expect(read.kinds[kind], kind).toEqual({ bytes: 0, files: 0, finished: false });
+    expect(read.total.finished).toBe(false);
   });
 
   it("stops a walk held past 10 seconds, marking what the folders it had not finished may hold, and counting no more", async () => {

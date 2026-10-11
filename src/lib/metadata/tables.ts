@@ -20,7 +20,8 @@ export type TableFormat =
 /**
  * Where a table came from; an operation's output; a drawn sketch — its
  * sourceParams record the owning map and the session-minted owning
- * layer.
+ * layer; a template's dataset copied into its copier's project — its
+ * sourceParams name the template and the version it came from.
  */
 export type TableSource =
   | "upload"
@@ -29,7 +30,8 @@ export type TableSource =
   | "osm"
   | "postgis"
   | "operation"
-  | "sketch";
+  | "sketch"
+  | "template";
 
 export interface DataTable extends GeometryEvidence {
   id: string;
@@ -199,6 +201,9 @@ export interface TableDataUpdate extends GeometryStorage {
   /** When present, the re-run recipe swaps in the same statement: a
    * release move can never be separated from the data it produced. */
   sourceParams?: Record<string, unknown>;
+  /** When present, where the replacing data came from: a run replacing a
+   * copied template result makes it an operation's output. */
+  source?: TableSource;
 }
 
 /** Returns whether a row was actually swapped — a refresh racing a delete
@@ -210,7 +215,7 @@ export function updateTableData(
   u: TableDataUpdate,
   db: Database = metadataDb(),
 ): boolean {
-  const setParams = u.sourceParams !== undefined ? `, source_params = ?` : "";
+  const setParams = (u.sourceParams !== undefined ? `, source_params = ?` : "") + (u.source !== undefined ? `, source = ?` : "");
   const values: unknown[] = [
     u.file,
     u.geometryColumn,
@@ -222,6 +227,7 @@ export function updateTableData(
     serializeGeometryStorage(u),
   ];
   if (u.sourceParams !== undefined) values.push(JSON.stringify(u.sourceParams));
+  if (u.source !== undefined) values.push(u.source);
   values.push(ref.name, ref.id);
   if (ref.file !== undefined) values.push(ref.file);
   const info = db

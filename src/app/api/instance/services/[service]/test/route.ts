@@ -11,7 +11,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ ser
     const context = requireRequestAdmin(request);
     const { service } = await params;
     if (!isTestedService(service)) {
-      throw new ApiError("not_found", "There is no such service to test: geocode, isochrone, overpass, overture, s3 or satellite.", 404);
+      throw new ApiError("not_found", "There is no such service to test: geocode, isochrone, overpass, overture, s3, satellite or templates.", 404);
     }
     return privateResponse(NextResponse.json(await testService(context, service)));
   } catch (error) { return authFailure(error); }

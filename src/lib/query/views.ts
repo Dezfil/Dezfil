@@ -50,6 +50,12 @@ export async function registerTableViews(
 ): Promise<void> {
   const caller = requireDatasetScope(scope);
   const context = contextOf(scope);
+  // A template's files are made present for the engine before anything
+  // binds them; they stay in the artifact directory, named by content.
+  if (context.template?.stage) {
+    await context.template.stage();
+    if (abandoned?.()) return;
+  }
   // A publication mounts only the datasets its map's SQL names.
   const publication = isPublicationScope(context.authority) ? await publicationNamespace(conn, context.authority) : null;
   if (publication && abandoned?.()) return;

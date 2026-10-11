@@ -18,7 +18,7 @@ describe("the Storage rows' words", () => {
     expect(STORAGE_CARD).toMatchObject({ id: "system-storage", title: "Storage" });
     expect(STORAGE_KINDS.map(kind => [STORAGE_ROWS[kind].id, STORAGE_ROWS[kind].label])).toEqual([
       ["sys-tables", "Tables"], ["sys-tiles", "Tile archives"], ["sys-caches", "Service caches"], ["sys-thumbnails", "Thumbnails"],
-      ["sys-metadata-size", "Metadata database"], ["sys-leftovers", "Leftover files"], ["sys-other", "Other"],
+      ["sys-templates", "Templates"], ["sys-metadata-size", "Metadata database"], ["sys-leftovers", "Leftover files"], ["sys-other", "Other"],
     ]);
     expect([FREE_ROW.id, FREE_ROW.label]).toEqual(["sys-free", "Free on the disk"]);
   });
@@ -51,7 +51,7 @@ describe("the Storage rows' words", () => {
 
   it("gives a kind's share of what the data folder holds in whole percent", () => {
     const read = storageReadFixture();
-    expect(STORAGE_KINDS.map(kind => shareOf(read.kinds[kind], read.total))).toEqual([78, 20, 0, 1, 0, 1, 0]);
+    expect(STORAGE_KINDS.map(kind => shareOf(read.kinds[kind], read.total))).toEqual([78, 20, 0, 1, 0, 0, 1, 0]);
     expect(shareOf({ bytes: 0, files: 0, finished: true }, { bytes: 0, files: 0, finished: true })).toBe(0);
   });
 

@@ -52,6 +52,7 @@ const SOURCE_WORDS: Record<string, string> = {
   postgis: "PostGIS",
   operation: "Operation result",
   sketch: "Drawn on a map",
+  template: "From a template",
 };
 
 interface ProjectRowWire {

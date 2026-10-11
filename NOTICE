@@ -139,6 +139,18 @@ below.
   base image itself carry their own licenses. Debian ships each package's
   copyright and license under /usr/share/doc in the image; read them there.
 
+Shipped templates
+-----------------
+
+The templates the image carries (templates/) hold third-party data. Each
+shipped version is listed with every source its data comes from, the
+source's licence and the credit it asks for, as the template's own map
+names them in its credit note. Templates a deployment downloads from a
+catalogue are not part of a release and credit their sources in their
+own maps.
+
+No template ships in this release.
+
 Bundled MVT worker license notices
 ----------------------------------
 

@@ -49,7 +49,7 @@ describe("tool parity", () => {
     // endpoints return MVT bytes for a map renderer; agents read a layer's tile
     // state through render_layer / view_published_map instead. Account entry
     // and session exchange belong to the caller transport. Map
-    // thumbnails are binary card images the builder captures. Table export is a
+    // thumbnails and template pictures are binary card images. Table export is a
     // browser file download — agents read data through SQL and the features
     // endpoint. The settle-lane renders and published widget values are viewer
     // mechanics: agents read widget values through read_widget_values on the
@@ -89,6 +89,8 @@ describe("tool parity", () => {
       // native-stream mechanic; agents call the POST directly.
       "GET /api/query/export",
       "GET /api/tables/{name}/export",
+      // A template card's picture is a card image, like a map's snapshot.
+      "GET /api/templates/{id}/picture",
       "POST /api/assistant/messages",
       "POST /api/assistant/runs",
       "POST /api/assistant/runs/{id}/cancel",
@@ -262,6 +264,8 @@ describe("tool parity", () => {
       // it is asked for as every instance-wide change is.
       "clear_service_caches",
       "clear_table_geometry",
+      // Creates a project from a template, with its map and datasets.
+      "copy_template",
       "create_api_token",
       "delete_layer",
       "delete_map",
@@ -273,6 +277,8 @@ describe("tool parity", () => {
       "delete_recipe",
       "delete_table",
       "delete_user",
+      // Downloads a template into this server, from outside it.
+      "fetch_template",
       "finish_user_deletion",
       "invite_user",
       "issue_user_sign_in_link",
@@ -285,6 +291,8 @@ describe("tool parity", () => {
       "remove_basemap_style",
       "remove_project_person",
       "remove_recipe_step",
+      // Removes every downloaded template from this server.
+      "remove_template_downloads",
       "revoke_api_token",
       "revoke_inactive_publication",
       "set_basemap_style_offered",

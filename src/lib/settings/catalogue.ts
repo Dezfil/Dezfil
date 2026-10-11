@@ -32,6 +32,32 @@ function serviceAddress(key: string, environment: string, label: string, purpose
     changedBy: "admin", timing: "live", editable: true,
     write: { kind: "address", maxLength: 2048, ...(template ? { placeholders: template.placeholders, userInformation: "refused" as const } : {}) } };
 }
+/** Where the template catalogue is read: the release catalogue unless an
+ * admin stores another address beside its variable. The variable alone may
+ * name a folder on the server instead, read as files under the same checks:
+ * a token or the assistant could otherwise point the server at any folder
+ * it can read. */
+const TEMPLATES_CATALOGUE = "https://github.com/Dezfil/templates/releases/latest/download/index.json";
+function catalogueAddress(): SettingDefinition {
+  const definition = serviceAddress("templatesCatalogueUrl", "DEZFIL_TEMPLATES_CATALOGUE", "Catalogue address",
+    "Where the template catalogue's index is read; the variable may name a folder on the server instead.", TEMPLATES_CATALOGUE, TEMPLATES_CATALOGUE);
+  return { ...definition, write: { kind: "address", maxLength: 2048, folder: "variable" } };
+}
+/** Whether the server reads the template catalogue at all: a switch an
+ * admin turns, on by default, read by every signed-in account and set by
+ * no variable. */
+function catalogueSwitch(): SettingDefinition {
+  return { key: "templates.catalogue", label: "Use the catalogue",
+    purpose: "Whether the server reads the template catalogue: its list, its pictures and its downloads. Off, it reaches the catalogue " +
+      "for nothing; shipped and downloaded templates still open and copy.",
+    defaultValue: true, documentedDefault: "on", scope: "instance", readBy: "signed-in", changedBy: "admin",
+    kind: "boolean", timing: "live", secret: false, editable: true, write: { kind: "switch" } };
+}
+/** Which settings are the Templates table's, for a reader of the catalogue
+ * alone: the stored rows of the template catalogue that no variable sets. */
+export function isTemplatesSetting(definition: { readonly key: string; readonly scope: string; readonly environment?: string }): boolean {
+  return definition.scope === "instance" && !definition.environment && definition.key.split(".")[0] === "templates";
+}
 /** Text set by its variable or stored by an admin beside it: a set variable locks it. */
 function textBeside(key: string, environment: string, label: string, purpose: string, maxLength: number): SettingDefinition {
   return { ...deployment(key, environment, "text", label, purpose, null, "unset"),
@@ -72,6 +98,7 @@ export const SETTING_CATALOGUE: readonly SettingDefinition[] = [
   textBeside("satelliteAttribution", "DEZFIL_SATELLITE_ATTRIBUTION", "Satellite credit", "Credit line required by the imagery provider.", 160),
   serviceAddress("geocoderUrl", "DEZFIL_GEOCODER_URL", "Address finder", "Nominatim-compatible endpoint for search and batch geocoding.", null, "unset"),
   serviceAddress("isochroneUrl", "DEZFIL_ISOCHRONE_URL", "Travel-time endpoint", "Valhalla-compatible endpoint for travel-time areas.", null, "unset"),
+  catalogueAddress(),
   deployment("anthropicApiKey", "ANTHROPIC_API_KEY", "secret", "Anthropic credential", "Enables the assistant with this provider.", null, "unset"),
   deployment("openaiApiKey", "OPENAI_API_KEY", "secret", "OpenAI credential", "Enables the assistant with this provider.", null, "unset"),
   deployment("aiProvider", "DEZFIL_AI_PROVIDER", "choice", "Assistant provider", "Selects the provider when more than one credential is present.", { rule: "first-provider-with-key" }, "first key set"),
@@ -93,6 +120,7 @@ export const SETTING_CATALOGUE: readonly SettingDefinition[] = [
   basemapSwitch("basemaps.singleMapStyles", "Style addresses on single maps",
     "Whether a map may take a style address the library does not offer. Off, such an address is refused on any map, for everyone, " +
     "admins included; a map that holds one keeps it."),
+  catalogueSwitch(),
   ...(["maps", "data", "workflows", "projects"] as const).flatMap(screen => [
     stored(`${screen}.view`, `${screen} view`, "The account's list layout.", "grid", choice("grid", "list"), "account"),
     stored(`${screen}.sort`, `${screen} sort`, "The account's list ordering.", screen === "maps" || screen === "workflows" ? "edited" : "updated",

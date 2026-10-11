@@ -25,6 +25,14 @@ export function cataloguePresence(lines) {
     ? [] : [`MISSING: ${MODEL_CATALOGUE_IMAGE_PATH}`];
 }
 
+/** The shipped templates' index must actually be present: without it the
+ * image would ship no template and say nothing. */
+export const SHIPPED_TEMPLATES_INDEX_IMAGE_PATH = "/app/templates/index.json";
+export function templatesPresence(lines) {
+  return lines.some((line) => line.trim() === `f ${SHIPPED_TEMPLATES_INDEX_IMAGE_PATH}`)
+    ? [] : [`MISSING: ${SHIPPED_TEMPLATES_INDEX_IMAGE_PATH}`];
+}
+
 export const MVT_WORKER_REPO_PATH =
   "public/workers/loaders.gl-mvt-worker-4.4.5.js";
 export const INGRESS_REPO_PATHS = [
@@ -77,6 +85,8 @@ export const TOP_LEVEL_ALLOWLIST = new Set([
   "public",
   "scripts",
   "src",
+  // The shipped templates: installed version folders and their index.
+  "templates",
 ]);
 
 /** The mirrored source trees are wholly ours, so they are held to an
@@ -109,7 +119,13 @@ const SOURCE_TREE_EXTENSIONS = new Set([
 const TREE_EXTENSION_ADDITIONS = new Map([
   ["public", new Set(["js"])],
 ]);
-const EXTENSION_CONSTRAINED = new Set(["src", "scripts", "public"]);
+// A tree held to classes of its own instead of the source trees': the
+// shipped templates hold documents, datasets and pictures, and nothing a
+// source tree holds (no code, no stylesheet, no vector image).
+const TREE_EXTENSIONS_ONLY = new Map([
+  ["templates", new Set(["json", "parquet", "png"])],
+]);
+const EXTENSION_CONSTRAINED = new Set(["src", "scripts", "public", "templates"]);
 const MANIFEST_TREES = EXTENSION_CONSTRAINED;
 
 /** Material that must never appear anywhere in the shipped tree.
@@ -190,11 +206,14 @@ export function judge(lines, trackedFiles) {
       if (MANIFEST_TREES.has(top) && trackedFiles && !trackedFiles.has(p)) {
         violations.push(`file the repository does not track: ${m[2]}`);
       }
+      const only = TREE_EXTENSIONS_ONLY.get(top);
       if (
         EXTENSION_CONSTRAINED.has(top) &&
         (!ext ||
-          (!SOURCE_TREE_EXTENSIONS.has(ext.toLowerCase()) &&
-            !TREE_EXTENSION_ADDITIONS.get(top)?.has(ext.toLowerCase())))
+          (only
+            ? !only.has(ext.toLowerCase())
+            : !SOURCE_TREE_EXTENSIONS.has(ext.toLowerCase()) &&
+              !TREE_EXTENSION_ADDITIONS.get(top)?.has(ext.toLowerCase())))
       ) {
         violations.push(`file class the ${top}/ tree never holds: ${m[2]}`);
       }
@@ -252,7 +271,7 @@ if (isMain) {
     args[0] === "--listing"
       ? readFileSync(args[1], "utf8").split("\n")
       : listingFromImage(args[0] ?? "dezfil:ci");
-  const violations = [...judge(listing, trackedManifest()), ...cataloguePresence(listing), ...ingressPresence(listing), ...recoveryPresence(listing)];
+  const violations = [...judge(listing, trackedManifest()), ...cataloguePresence(listing), ...ingressPresence(listing), ...recoveryPresence(listing), ...templatesPresence(listing)];
   // Positive presence proofs: the browser and trust store required by image
   // export, plus the application-owned parser worker required by
   // every tiled map host. An allowlist only says a path MAY ship;

@@ -1,6 +1,14 @@
 import { getMap, type Layer } from "@/lib/metadata/maps";
+import { isTemplateDocumentId } from "@/lib/templates/ids";
+import { templateMapTimeline } from "@/lib/templates/map-read";
 import type { LayerFilter } from "@/lib/viz";
 import { liveFilters, type LiveFilter } from "@/lib/live-filters";
+
+/** The docked timeline of the layer's map: a template's from its folder,
+ * any other from the store. */
+function timelineOf(mapId: string) {
+  return isTemplateDocumentId(mapId) ? templateMapTimeline(mapId) : getMap(mapId)?.timeline;
+}
 
 /**
  * The filters this layer's render delegates to the client: the shared rule,
@@ -9,7 +17,7 @@ import { liveFilters, type LiveFilter } from "@/lib/live-filters";
  */
 export function liveRenderFilters(
   layer: Layer,
-  timeline = getMap(layer.mapId)?.timeline,
+  timeline = timelineOf(layer.mapId),
 ): LiveFilter[] {
   const dockedField =
     timeline && timeline.layerId === layer.id ? timeline.field : null;
@@ -23,7 +31,7 @@ export function liveRenderFilters(
  */
 export function renderFilters(
   layer: Layer,
-  timeline = getMap(layer.mapId)?.timeline,
+  timeline = timelineOf(layer.mapId),
 ): LayerFilter[] {
   const live = new Set<LayerFilter>(liveRenderFilters(layer, timeline));
   if (live.size === 0) return layer.filters;

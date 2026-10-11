@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import type { DataTable } from "./api";
-import { CRS_DOOR_TIP, CRS_DOOR_TIP_ACTION, CrsChip } from "./table-chips";
+import { CRS_DOOR_TIP, CRS_DOOR_TIP_ACTION, CrsChip, isRefreshableImport, SourceChip, sourceLabel, sourceTitle } from "./table-chips";
 
 const table: DataTable = {
   id: "t", name: "trips", sourceFilename: "trips.csv", format: "csv", file: "tables/t.parquet", geometryColumn: "geometry", geometryType: "LINESTRING",
@@ -38,5 +38,16 @@ describe("the chip on the Data page's cards and rows stays as shipped", () => {
     const row = renderToStaticMarkup(<table><tbody><TableRow table={listing} actions={actions} /></tbody></table>);
     expect(row).toContain("WGS84 assumed");
     expect(row).not.toContain("data-set-geometry-door");
+  });
+});
+
+describe("a dataset a copy of a template made", () => {
+  const copied: DataTable = { ...table, source: "template", sourceFilename: null, sourceParams: { template: "harbour-stations", version: 2 } };
+  it("says where it came from, by the template and its version, and offers no refresh", () => {
+    expect(sourceLabel(copied)).toBe("From a template");
+    expect(sourceTitle(copied)).toBe("Copied from the template harbour-stations, version 2");
+    expect(sourceTitle({ ...copied, sourceParams: null })).toBe("Copied from a template");
+    expect(isRefreshableImport(copied)).toBe(false);
+    expect(renderToStaticMarkup(<SourceChip table={copied} />)).toContain("From a template");
   });
 });
