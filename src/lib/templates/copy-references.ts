@@ -5,6 +5,9 @@ import { findOperation } from "@/lib/operations/catalog";
 import { queryInputsStrict } from "@/lib/operations/inputs";
 import { rewriteTableReferences } from "@/lib/operations/sql-references";
 import { boundedEvaluation, isBoundedOutcome } from "@/lib/query/bounded";
+import { readOnlySql } from "@/lib/query/guard";
+import { classifyReference } from "@/lib/query/reference-forms";
+import { collectReferences, serializeSql } from "@/lib/query/references";
 import type { AdmittedTemplate } from "./admission";
 
 /**
@@ -17,9 +20,13 @@ import type { AdmittedTemplate } from "./admission";
  * the name as landed, with the shared reference tools: the scanner finds
  * each occurrence, and the engine's parse of the rewritten text is the
  * check that it reads exactly what the template's read, each name in its
- * place. The names a copy lands under are only known inside its
- * transaction, so the check runs first with stand-in names of the same
- * shape, and the transaction applies the same rewrite with the real ones.
+ * place. A renamed table with no alias of its own keeps its old name as
+ * one, so a column the query qualifies by that name still finds it; the
+ * parse checks that too, every name the template's SQL bound a table by
+ * bound to that table as landed. The names a copy lands under are only
+ * known inside its transaction, so the check runs first with stand-in
+ * names of the same shape, and the transaction applies the same rewrite
+ * with the real ones.
  *
  * Each layer's SQL must read the template's datasets and results, and each
  * step its datasets and the results of the steps before it, and nothing
@@ -54,6 +61,19 @@ const renaming = (landed: LandedNames) => (name: string): string | null => {
   return to === undefined || to === name ? null : to;
 };
 
+/** What a text reads, by the engine's parse: the tables, the references
+ * to other people's datasets, and each name it binds a table by (an alias,
+ * or the table's own name), to that table. */
+interface Reads {
+  tables: string[];
+  external: string[];
+  bound: Map<string, string>;
+}
+
+/** The rewrite of a text, every renamed table keeping the name the text
+ * binds it by. */
+const rewrite = (sql: string, landed: LandedNames) => rewriteTableReferences(sql, renaming(landed), { keepBoundName: true });
+
 /** Bind every reference of a template's documents, or refuse the copy. */
 export async function bindCopyReferences(scope: AccountScope, admitted: AdmittedTemplate): Promise<CopyReferences> {
   const own = [
@@ -70,9 +90,21 @@ export async function bindCopyReferences(scope: AccountScope, admitted: Admitted
     standIns.set(name, standIn);
   }
 
-  const reads = async (sql: string) => {
+  const reads = async (sql: string): Promise<Reads | null> => {
     try {
-      return await boundedEvaluation((conn) => queryInputsStrict(conn, sql, () => null), { scope });
+      return await boundedEvaluation(async (conn) => {
+        const { tables, external } = await queryInputsStrict(conn, sql, () => null);
+        const parsed = await serializeSql(conn, await readOnlySql(conn, sql));
+        const bound = new Map<string, string>();
+        for (const [name, reference] of (await collectReferences(conn, parsed.statements ?? [])).aliases) {
+          // A table named by a string is never bound by that name.
+          if (reference.dynamic) continue;
+          const classified = classifyReference(reference.parts);
+          if (classified.form === "qualified") continue;
+          bound.set(name, classified.form === "plain" ? classified.name : reference.parts.at(-1)!.toLowerCase());
+        }
+        return { tables, external, bound };
+      }, { scope });
     } catch (error) {
       if (error instanceof ApiError && isBoundedOutcome(error)) throw error;
       return null;
@@ -84,10 +116,12 @@ export async function bindCopyReferences(scope: AccountScope, admitted: Admitted
     if (!original) unbound(where, null);
     const outside = original.external[0] ?? original.tables.find((name) => !allowed.has(name));
     if (outside !== undefined) unbound(where, outside);
-    const rewritten = await reads(rewriteTableReferences(sql, renaming(standIns)));
+    const rewritten = await reads(rewrite(sql, standIns));
     const expected = new Set(original.tables.map((name) => standIns.get(name)!));
     const same = rewritten !== null && rewritten.external.length === 0 &&
-      rewritten.tables.length === expected.size && rewritten.tables.every((name) => expected.has(name));
+      rewritten.tables.length === expected.size && rewritten.tables.every((name) => expected.has(name)) &&
+      // Every name the text binds a table by still binds it, as landed.
+      [...original.bound].every(([name, table]) => rewritten.bound.get(name) === (standIns.get(table) ?? table));
     if (!same) unbound(where, null);
   };
 
@@ -108,7 +142,7 @@ export async function bindCopyReferences(scope: AccountScope, admitted: Admitted
   }
 
   return {
-    layerSql: (landed) => admitted.map.layers.map((layer) => rewriteTableReferences(layer.sql, renaming(landed))),
+    layerSql: (landed) => admitted.map.layers.map((layer) => rewrite(layer.sql, landed)),
     stepParameters: (landed) => steps.map((step) => {
       const rename = renaming(landed);
       const parameters: Record<string, unknown> = { ...step.parameters };
@@ -118,7 +152,7 @@ export async function bindCopyReferences(scope: AccountScope, admitted: Admitted
         const to = rename(value.toLowerCase());
         if (to !== null) parameters[input.name] = to;
       }
-      if (typeof parameters.sql === "string") parameters.sql = rewriteTableReferences(parameters.sql, rename);
+      if (typeof parameters.sql === "string") parameters.sql = rewrite(parameters.sql, landed);
       parameters.name = landed.get(step.output.toLowerCase()) ?? step.output;
       return parameters;
     }),

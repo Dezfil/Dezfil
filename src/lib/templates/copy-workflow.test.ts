@@ -29,7 +29,8 @@ const ORIGIN = "http://instance.test";
 const TEMPLATE_RESULT = { template: "busy-stations", version: 1 };
 
 let built: string;
-let W1: BuiltTemplate, WX: BuiltTemplate;
+let W1: BuiltTemplate, WX: BuiltTemplate, WN: BuiltTemplate;
+const QUALIFIED_STEP = "SELECT stations.* FROM stations WHERE stations.riders > 100";
 let f: ReturnType<typeof instanceSettingsFixture>;
 let dir: string;
 let downloadFolder: string;
@@ -38,6 +39,10 @@ beforeAll(async () => {
   built = await mkdtemp(path.join(process.cwd(), ".tmp-test-template-copy-workflow-"));
   W1 = await buildTemplate(path.join(built, "w1"), { kind: "workflow", id: "busy-stations" });
   WX = await buildTemplate(path.join(built, "wx"), { kind: "workflow", id: "stray-steps", edit: SEEDS.stepReferenceOutside });
+  // The SQL step qualifying its columns by the dataset's own name.
+  WN = await buildTemplate(path.join(built, "wn"), { kind: "workflow", id: "named-steps", edit: (files) => {
+    (files.documents.get("workflows/workflow.json")!.steps as { parameters: Record<string, unknown> }[])[0].parameters.sql = QUALIFIED_STEP;
+  } });
 });
 afterAll(async () => { await rm(built, { recursive: true, force: true }); });
 
@@ -51,6 +56,7 @@ beforeEach(async () => {
   downloadFolder = path.join(downloads, "busy-stations", "1");
   await installFixture(W1, downloadFolder, { kind: "catalogue", origin: "https://catalogue.example" });
   await installFixture(WX, path.join(downloads, "stray-steps", "1"), { kind: "catalogue", origin: "https://catalogue.example" });
+  await installFixture(WN, path.join(downloads, "named-steps", "1"), { kind: "catalogue", origin: "https://catalogue.example" });
 });
 afterEach(async () => {
   await laneSettled();
@@ -83,8 +89,8 @@ interface Copied {
   members: { maps: { id: string }[]; recipes: { id: string; name: string; projectId: string | null }[]; tables: { id: string; name: string; source: string }[] };
 }
 
-async function copyExample(): Promise<Copied & { recipe: { id: string; home: string; steps: Step[] }; layers: { id: string; name: string; sql: string }[] }> {
-  const response = await call("POST", "/api/templates/busy-stations/copy");
+async function copyExample(id = "busy-stations"): Promise<Copied & { recipe: { id: string; home: string; steps: Step[] }; layers: { id: string; name: string; sql: string }[] }> {
+  const response = await call("POST", `/api/templates/${id}/copy`);
   expect(response.status, response.text).toBe(201);
   const copied = response.body as unknown as Copied;
   const recipe = (await call("GET", `/api/recipes/${copied.members.recipes[0].id}`)).body!.recipe as { id: string; home: string; steps: Step[] };
@@ -161,7 +167,7 @@ describe("a copy of a workflow example", () => {
     // the template's dataset name would draw a source nothing reads.
     const second = await copyExample();
     const [busy, rings] = second.recipe.steps;
-    expect(busy.parameters).toEqual({ sql: "SELECT * FROM stations_2 WHERE riders > 100", name: "busy_stations_2" });
+    expect(busy.parameters).toEqual({ sql: "SELECT * FROM stations_2 AS stations WHERE riders > 100", name: "busy_stations_2" });
     expect(rings.parameters).toEqual({ input: "busy_stations_2", distance: 250, name: "station_rings_2" });
     const read = await layout(second.recipe.id);
     expect(read.steps).toEqual({ [busy.id]: template.steps["step-busy"], [rings.id]: template.steps["step-rings"] });
@@ -169,7 +175,27 @@ describe("a copy of a workflow example", () => {
     const readByAStep = new Set(second.recipe.steps.flatMap((s) => s.reads));
     for (const source of Object.keys(read.sources)) expect(readByAStep.has(source), source).toBe(true);
     expect(read.notes).toEqual(template.notes);
-    expect(Object.fromEntries(second.layers.map((l) => [l.name, l.sql]))).toEqual({ Rings: "SELECT * FROM station_rings_2", "Busy stations": "SELECT * FROM busy_stations_2" });
+    expect(Object.fromEntries(second.layers.map((l) => [l.name, l.sql]))).toEqual({
+      Rings: "SELECT * FROM station_rings_2 AS station_rings", "Busy stations": "SELECT * FROM busy_stations_2 AS busy_stations",
+    });
+  });
+
+  it("a step qualifying its columns by a dataset's name runs when the dataset lands under another name, which it binds by the old one", async () => {
+    const first = await copyExample("named-steps");
+    expect(first.recipe.steps[0].parameters.sql).toBe(QUALIFIED_STEP);
+    // The second copy finds "stations" taken by the first.
+    const second = await copyExample("named-steps");
+    const [busy] = second.recipe.steps;
+
+    const job = await startStepRun(testAccountScope(f.db, "member"), busy.id);
+    await laneSettled();
+    const after = (await call("GET", `/api/recipes/${second.recipe.id}`)).body!.recipe as { steps: Step[] };
+    expect(after.steps[0]).toMatchObject({ output: { name: "busy_stations_2", jobId: job.id }, templateResult: null });
+    expect(after.steps[0].lastSuccessAt).not.toBeNull();
+    // The run read the second copy's own stations: the four busy ones.
+    const render = await call("GET", `/api/layers/${second.layers.find((l) => l.name === "Busy stations")!.id}/render`);
+    expect(render.body).toMatchObject({ ok: true, featureCount: 4, geometryType: "POINT" });
+    expect(busy.parameters).toEqual({ sql: QUALIFIED_STEP.replace("FROM stations", "FROM stations_2 AS stations"), name: "busy_stations_2" });
   });
 
   it("a copier whose workflow declares a result's name lands that result, and the step declaring it, under the next free name", async () => {

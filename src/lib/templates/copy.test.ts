@@ -55,9 +55,10 @@ import * as shippedIndex from "./shipped-index";
 const ORIGIN = "http://instance.test";
 const TODAY = () => new Date().toISOString().slice(0, 10);
 const RIDERS_TOTAL = 340 + 220 + 180 + 90 + 60 + 410;
+const QUALIFIED_SQL = "SELECT stations.id, stations.name, stations.riders, stations.opened, stations.geom FROM stations WHERE stations.riders > 0";
 
 let built: string;
-let M1: BuiltTemplate, Q1: BuiltTemplate, X1: BuiltTemplate, D1: BuiltTemplate;
+let M1: BuiltTemplate, Q1: BuiltTemplate, X1: BuiltTemplate, D1: BuiltTemplate, N1: BuiltTemplate;
 let f: ReturnType<typeof instanceSettingsFixture>;
 let dir: string;
 let shippedFolder: string;
@@ -82,6 +83,14 @@ beforeAll(async () => {
       layers.find((layer) => layer.id === "layer-stations")!.filters = [wide, wide, wide, wide,
         { field: "opened", kind: "timerange", min: "2021-01-01", max: null }];
       map.timeline = { layerId: "layer-stations", field: "opened", speed: 1 };
+    },
+  });
+  // The stations layer qualifying every column by the dataset's own name.
+  N1 = await buildTemplate(path.join(built, "n1"), {
+    id: "named-columns",
+    edit: (files) => {
+      const layers = files.documents.get("maps/map.json")!.layers as Record<string, unknown>[];
+      layers.find((layer) => layer.id === "layer-stations")!.sql = QUALIFIED_SQL;
     },
   });
 });
@@ -303,10 +312,25 @@ describe("a copy of a map template", () => {
     expect(second.project.id).not.toBe(first.project.id);
     expect(second.project.name).toBe(first.project.name);
     expect(names(second)).toEqual(["districts_2", "stations_2"]);
-    expect(layerSql(second.map)).toEqual({ Stations: "SELECT * FROM stations_2", Districts: "SELECT * FROM districts_2" });
+    expect(layerSql(second.map)).toEqual({ Stations: "SELECT * FROM stations_2 AS stations", Districts: "SELECT * FROM districts_2 AS districts" });
     expect(new Set([...first.map.layers, ...second.map.layers].map((l) => l.id)).size).toBe(4);
     expect(await renders(second.map.layers.find((l) => l.name === "Stations")!.id)).toMatchObject({ ok: true, featureCount: 6 });
     expect(await snapshot(first)).toBe(before);
+  });
+
+  it("a layer qualifying its columns by its dataset's name draws when the dataset lands under another name, which it binds by the old one", async () => {
+    await installFixture(N1, path.join(dataDir(), "templates", "named-columns", "1"), { kind: "catalogue", origin: "https://catalogue.example" });
+    const first = await landed(await copy("named-columns"));
+    expect(layerSql(first.map).Stations).toBe(QUALIFIED_SQL);
+    // The second copy finds "stations" taken by the first.
+    const second = await landed(await copy("named-columns"));
+    expect(names(second)).toEqual(["districts_2", "stations_2"]);
+    const stations = second.map.layers.find((l) => l.name === "Stations")!;
+    expect(await renders(stations.id)).toMatchObject({ ok: true, mode: "inline", featureCount: 6, geometryType: "POINT" });
+    expect(stations.sql).toBe(QUALIFIED_SQL.replace("FROM stations", "FROM stations_2 AS stations"));
+    // It reads the second copy's own dataset: the rows the copied file holds.
+    const widgets = await call("POST", `/api/maps/${second.map.id}/widget-values`, byCookie(), {});
+    expect(widgets.body).toMatchObject({ widgets: [expect.objectContaining({ value: RIDERS_TOTAL })] });
   });
 
   it("a copier whose workflow declares a template dataset's name lands that dataset under the next free name", async () => {
@@ -315,7 +339,7 @@ describe("a copy of a map template", () => {
     addStep(recipe.id, { operation: "sql_step", parameters: { sql: "SELECT 1 AS one", name: "stations" } }, f.db);
     const copied = await landed(await copy("harbour-stations"));
     expect(names(copied)).toEqual(["districts", "stations_2"]);
-    expect(layerSql(copied.map)).toEqual({ Stations: "SELECT * FROM stations_2", Districts: "SELECT * FROM districts" });
+    expect(layerSql(copied.map)).toEqual({ Stations: "SELECT * FROM stations_2 AS stations", Districts: "SELECT * FROM districts" });
     expect(await renders(copied.map.layers.find((l) => l.name === "Stations")!.id)).toMatchObject({ ok: true, featureCount: 6 });
   });
 
@@ -364,7 +388,7 @@ describe("a copy of a map template", () => {
     expect([names(one), names(two)].sort()).toEqual([["districts", "stations"], ["districts_2", "stations_2"]]);
     for (const copied of [one, two]) {
       const own = new Set(names(copied));
-      for (const sql of Object.values(layerSql(copied.map))) expect(own.has(sql.replace("SELECT * FROM ", ""))).toBe(true);
+      for (const sql of Object.values(layerSql(copied.map))) expect(own.has(sql.replace("SELECT * FROM ", "").split(" ")[0])).toBe(true);
       expect(await renders(copied.map.layers.find((l) => l.name === "Stations")!.id)).toMatchObject({ ok: true, featureCount: 6 });
     }
     // The earlier rows and files exactly as they were.

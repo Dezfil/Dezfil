@@ -32,6 +32,19 @@ export interface TableReference {
   /** The parts written before the name in a dotted chain (`ada` in
    * `ada.roads`, `main` in `main.roads`), without quotes. */
   qualifier?: string[];
+  /** Whether an alias of its own follows the name (`roads r`, `roads AS
+   * r`), which is then the name the query binds the table by. Not given for
+   * a `query_table` string, which the engine never binds by its name. */
+  aliased?: boolean;
+}
+
+/** How a rewrite treats a table it renames. */
+export interface RewriteOptions {
+  /** Keep the name the query binds a renamed table by: a reference with no
+   * alias of its own takes its old name as one (`FROM roads` becomes
+   * `FROM roads_2 AS roads`), so a column the query qualifies by that name
+   * (`roads.geom`) still finds its table. */
+  keepBoundName?: boolean;
 }
 
 /** A `query('…')` argument: SQL text carried inside a string literal, whose
@@ -54,6 +67,31 @@ const LIST_ENDERS = new Set([
   "UNION", "EXCEPT", "INTERSECT", "ON", "USING", "JOIN", "SELECT", "WITH",
   "FETCH", "FOR", "SAMPLE",
 ]);
+
+/** The words the engine's grammar never reads as a table's alias: its
+ * reserved and type-function keywords (`duckdb_keywords()`). After a table's
+ * name, any other word is its alias, as is a quoted identifier. */
+const NOT_AN_ALIAS = new Set([
+  "ALL", "ANALYSE", "ANALYZE", "AND", "ANTI", "ANY", "ARRAY", "AS", "ASC", "ASOF", "ASYMMETRIC", "AT",
+  "AUTHORIZATION", "BINARY", "BOTH", "BY", "CASE", "CAST", "CHECK", "COLLATE", "COLLATION", "COLUMN",
+  "COLUMNS", "CONCURRENTLY", "CONSTRAINT", "CREATE", "CROSS", "DEFAULT", "DEFERRABLE", "DESC", "DESCRIBE",
+  "DISTINCT", "DO", "ELSE", "END", "EXCEPT", "FALSE", "FETCH", "FOR", "FOREIGN", "FREEZE", "FROM", "FULL",
+  "GENERATED", "GLOB", "GROUP", "HAVING", "ILIKE", "IN", "INITIALLY", "INNER", "INTERSECT", "INTO", "IS",
+  "ISNULL", "JOIN", "LAMBDA", "LATERAL", "LEADING", "LEFT", "LIKE", "LIMIT", "MAP", "NATURAL", "NOT",
+  "NOTNULL", "NULL", "OFFSET", "ON", "ONLY", "OR", "ORDER", "OUTER", "OVERLAPS", "PIVOT", "PIVOT_LONGER",
+  "PIVOT_WIDER", "PLACING", "POSITIONAL", "PRIMARY", "QUALIFY", "REFERENCES", "RETURNING", "RIGHT", "SELECT",
+  "SEMI", "SHOW", "SIMILAR", "SOME", "STRUCT", "SUMMARIZE", "SYMMETRIC", "TABLE", "TABLESAMPLE", "THEN",
+  "TO", "TRAILING", "TRUE", "TRY_CAST", "UNION", "UNIQUE", "UNPACK", "UNPIVOT", "USING", "VARIADIC",
+  "VERBOSE", "WHEN", "WHERE", "WINDOW", "WITH",
+]);
+
+/** Whether the token after a table's name is an alias of its own. */
+function aliasFollows(next: Token | undefined): boolean {
+  if (!next || next.kind !== "ident") return false;
+  if (next.quoted) return true;
+  const word = next.text.toUpperCase();
+  return word === "AS" || !NOT_AN_ALIAS.has(word);
+}
 
 /** Tokens that matter: identifiers (bare or quoted), string literals, and
  * single-character punctuation. Whitespace, comments and numbers are skipped
@@ -241,7 +279,7 @@ function scan(sql: string): { refs: TableReference[]; nested: NestedSql[] } {
     if (up !== null && (LIST_ENDERS.has(up) || JOIN_KINDS.has(up))) continue;
     if (inScopeCte(cteList, last.text.toLowerCase(), i)) continue;
     refs.push({ name: last.text, start: last.start, end: last.end, form: last.quoted ? "quoted" : "bare",
-      ...(qualifier.length ? { qualifier } : {}) });
+      ...(qualifier.length ? { qualifier } : {}), aliased: aliasFollows(tokens[j + 1]) });
   }
   return { refs, nested };
 }
@@ -255,11 +293,14 @@ export function tableReferences(sql: string): TableReference[] {
  * The text with every table reference `rename` answers for replaced, and
  * nothing else changed. Names compare case-insensitively, as the engine
  * reads them; a quoted reference stays quoted; a `query_table` string keeps
- * its quotes; a `query` string has its own SQL rewritten inside.
+ * its quotes; a `query` string has its own SQL rewritten inside. With
+ * `keepBoundName`, a renamed reference with no alias of its own also takes
+ * its old name, as written, for one.
  */
 export function rewriteTableReferences(
   sql: string,
   rename: (name: string) => string | null,
+  options: RewriteOptions = {},
 ): string {
   const { refs, nested } = scan(sql);
   const edits: { start: number; end: number; text: string }[] = [];
@@ -269,17 +310,15 @@ export function rewriteTableReferences(
     if (ref.qualifier && classifyReference([...ref.qualifier, ref.name]).form !== "plain") continue;
     const next = rename(ref.name.toLowerCase());
     if (next === null) continue;
-    edits.push({
-      start: ref.start,
-      end: ref.end,
-      text:
-        ref.form === "quoted" ? `"${next.replace(/"/g, '""')}"`
-        : ref.form === "string" ? `'${next.replace(/'/g, "''")}'`
-        : next,
-    });
+    const renamed =
+      ref.form === "quoted" ? `"${next.replace(/"/g, '""')}"`
+      : ref.form === "string" ? `'${next.replace(/'/g, "''")}'`
+      : next;
+    const bound = options.keepBoundName && ref.form !== "string" && !ref.aliased ? ` AS ${sql.slice(ref.start, ref.end)}` : "";
+    edits.push({ start: ref.start, end: ref.end, text: renamed + bound });
   }
   for (const n of nested) {
-    const inner = rewriteTableReferences(n.sql, rename);
+    const inner = rewriteTableReferences(n.sql, rename, options);
     if (inner === n.sql) continue;
     edits.push({ start: n.start, end: n.end, text: `'${inner.replace(/'/g, "''")}'` });
   }

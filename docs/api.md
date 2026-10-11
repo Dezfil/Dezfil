@@ -1297,7 +1297,9 @@ every dataset and bundled result of the template, the caller's, under its
 name in the template or the next free name by the suffix rule
 (`stations_2`), reserved against the caller's datasets and every output name
 their workflows declare, each layer's and step's SQL rewritten to name the
-dataset as landed. The names are taken inside the copy's one metadata transaction,
+dataset as landed; a renamed dataset that the SQL names with no alias keeps
+its old name as one (`FROM stations_2 AS stations`), so a column the SQL
+qualifies by that name still finds it. The names are taken inside the copy's one metadata transaction,
 the project first, so two copies at once each land whole under distinct
 names; a failure anywhere before the commit leaves no project, map or
 dataset of the caller's and no file, and a download stays installed. A
