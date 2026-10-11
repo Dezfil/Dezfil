@@ -12,15 +12,18 @@ test.describe("account entry", () => {
   test.describe.configure({ mode: "serial" });
   test.skip(!firstRun, "Requires an isolated instance with no accounts and DEZFIL_E2E_FIRST_RUN=1.");
 
-  test("first account, password refusal, still artwork and session reload", async ({ page, baseURL }) => {
+  test("first account, password refusal, the entry photograph and session reload", async ({ page, baseURL }) => {
     expect((await (await page.request.get("/api/auth/entry")).json()).setupRequired).toBe(true);
     await page.goto("/setup");
     await expect(page.getByRole("heading", { name: "Create the first account" })).toBeVisible();
     await expect(page.getByText("It becomes this instance's admin.")).toBeVisible();
     await expect(page.getByText("At least 8 characters.")).toBeVisible();
     await expect(page.getByText("32°23′N · 48°24′E")).toBeVisible();
-    const art = page.locator('aside[aria-label="Dezfil"] svg');
-    expect(await art.evaluate(element => getComputedStyle(element).animationName)).toBe("none");
+    const pane = page.locator('aside[aria-label="Dezfil"]');
+    expect(await pane.evaluate(element => getComputedStyle(element).backgroundImage)).toContain("/entry/river-delta.webp");
+    const photo = await page.request.get("/entry/river-delta.webp");
+    expect(photo.status()).toBe(200);
+    expect(photo.headers()["content-type"]).toBe("image/webp");
     await page.getByLabel("Name", { exact: true }).fill("Browser fixture");
     await page.getByLabel("Email", { exact: true }).fill(email);
     await page.getByLabel("Password", { exact: true }).fill("password");

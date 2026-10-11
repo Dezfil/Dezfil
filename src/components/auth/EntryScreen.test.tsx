@@ -16,7 +16,6 @@ vi.mock("@/components/theme", () => ({
   ThemeProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   ThemeToggle: () => null,
 }));
-vi.mock("./RhumbChart", () => ({ RhumbChart: () => null }));
 
 interface Entry { instanceName: string | null; signInMessage: string; lostPasswordContact: string; landingPage: string; passwordMin?: number; setupRequired: boolean }
 let entry: Entry;

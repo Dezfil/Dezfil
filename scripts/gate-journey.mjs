@@ -70,7 +70,7 @@ export async function gateJourney(base) {
   const html = await signIn.text();
   const assets = new Set([...html.matchAll(/(?:src|href)="(\/_next\/static\/[^"?]+)(?:\?[^\"]*)?"/g)].map(match => match[1]));
   check(assets.size > 0, 'real entry HTML names static assets');
-  for (const pathname of [...assets, '/icon.svg', '/shell-sheet-light.svg', '/shell-sheet-dark.svg', '/maki/marker.svg', '/workers/maplibre-gl-6.11.2/maplibre-gl-worker.mjs', '/workers/maplibre-gl-6.11.2/maplibre-gl-shared.mjs', '/workers/loaders.gl-mvt-worker-4.4.5.js']) {
+  for (const pathname of [...assets, '/icon.svg', '/shell-sheet-light.svg', '/shell-sheet-dark.svg', '/entry/river-delta.webp', '/maki/marker.svg', '/workers/maplibre-gl-6.11.2/maplibre-gl-worker.mjs', '/workers/maplibre-gl-6.11.2/maplibre-gl-shared.mjs', '/workers/loaders.gl-mvt-worker-4.4.5.js']) {
     const response = await anonymous('GET', pathname, { raw: true });
     check(response.status === 200 && !response.headers.has('set-cookie'), `anonymous asset ${pathname}: ${response.status}`);
     await response.body?.cancel();
