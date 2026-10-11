@@ -23,7 +23,7 @@ const STEP = {
 } as const;
 
 /** The last step whose members read their role. */
-const MOVED_THROUGH = 7;
+const MOVED_THROUGH = 8;
 
 const C = "src/components/";
 const LAYOUT = "src/app/(workspace)/layout.module.css";
@@ -332,6 +332,38 @@ describe("the members of each role", () => {
     expect(stack).toMatch(/className=\{className \? `\$\{styles\.stageBtn\} \$\{className\}` : styles\.stageBtn\}/);
     const button = MEMBERS.find(member => member.selector === ".stageBtn")!;
     expect(memberProblems(button, read(button.file))).toEqual([]);
+  });
+
+  it("let the map card's entrance go once it has played, so a blur inside the card reads the map", () => {
+    if (STEP.stage > MOVED_THROUGH) return;
+    const css = read(C + "builder/MapBuilder.module.css").replace(/\/\*[\s\S]*?\*\//g, "");
+    // The entrance plays only where motion is welcome; its block, by its braces.
+    const at = css.indexOf("@media (prefers-reduced-motion: no-preference)");
+    expect(at, "the entrance's block").toBeGreaterThan(-1);
+    const start = css.indexOf("{", at) + 1;
+    let depth = 1, end = start;
+    while (depth > 0 && end < css.length) {
+      if (css[end] === "{") depth += 1;
+      if (css[end] === "}") depth -= 1;
+      end += 1;
+    }
+    const entrance = css.slice(start, end - 1);
+    // The card and its map layer settle in as before, the from-state held
+    // through the delay, and fill nothing forwards: a finished animation
+    // that keeps filling holds the card on a compositing layer of its own,
+    // and a background blur inside the card then reads that layer alone,
+    // never the map under it.
+    expect(declarations(entrance, ".canvasCol, .mapLayer")).toEqual([["animation", "settle-in 0.55s var(--ease-entrance) 0.14s backwards"]]);
+    // The inspector stands outside the card; its entrance is left as it was.
+    expect(declarations(entrance, ".rail")).toEqual([["animation", "settle-in 0.55s var(--ease-entrance) 0.07s both"]]);
+    // Released, the card and the layer return to their own styles, which are
+    // the keyframes' end: neither sets an opacity or a transform of its own.
+    const keyframes = /@keyframes settle-in\s*\{([\s\S]*?\})\s*\}/.exec(css)?.[1] ?? "";
+    expect(declarations(keyframes, "from")).toEqual([["opacity", "0"], ["transform", "translateY(14px)"]]);
+    expect(declarations(keyframes, "to")).toEqual([["opacity", "1"], ["transform", "none"]]);
+    for (const selector of [".canvasCol", ".mapLayer"]) {
+      expect(declarations(css, selector)!.filter(([property]) => /^(opacity|transform|translate|scale)$/.test(property)), selector).toEqual([]);
+    }
   });
 
   it("read no role at all until theirs moves, so a half-made move shows", () => {

@@ -58,7 +58,9 @@
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-card);
   background: var(--bg);
-  box-shadow: 0 8px 30px var(--shadow);
+  /* The stage's shadow, as the map card's; the strong edge is the framed
+     canvas's own, since its ground is the page's. */
+  box-shadow: var(--surface-stage-shadow);
   overflow: hidden;
 }
 
