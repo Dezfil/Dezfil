@@ -15,6 +15,7 @@ import { keepRequestsOnThisMachine } from "@/lib/test-support/outside-requests";
 import { instanceSettingsFixture } from "../../../test-support/instance-settings";
 import {
   ARCHIVE_SEEDS,
+  FIXTURE_MEASUREMENTS,
   SEEDS,
   buildTemplate,
   writeShippedFolder,
@@ -172,6 +173,9 @@ describe("two fetches of one version", () => {
       "datasets/districts.parquet", "datasets/stations.parquet", "results/step-busy.parquet", "results/step-rings.parquet",
     ]);
     expect(installed.record.measured["results/step-rings.parquet"]).toMatchObject({ rowCount: 4, geometryType: "POLYGON" });
+    // The fixture's installed form records what the reader measures, so a
+    // version installed by hand reads as one installed by this road.
+    expect(installed.record.measured).toEqual(FIXTURE_MEASUREMENTS);
   });
 
   it("from the catalogue's folder, installs as a download does, its origin the folder", async () => {

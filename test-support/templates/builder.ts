@@ -498,10 +498,10 @@ export const ARCHIVE_SEEDS = {
 /** What the dataset reader measures of the fixture's datasets and results:
  * the rows the engine wrote, by member. */
 export const FIXTURE_MEASUREMENTS: Record<string, DatasetMeasurement> = {
-  "datasets/stations.parquet": { rowCount: 6, geometryColumn: "geom", geometryType: "POINT", crsAssumed: true },
-  "datasets/districts.parquet": { rowCount: 2, geometryColumn: "geom", geometryType: "POLYGON", crsAssumed: true },
-  "results/step-busy.parquet": { rowCount: 4, geometryColumn: "geom", geometryType: "POINT", crsAssumed: true },
-  "results/step-rings.parquet": { rowCount: 4, geometryColumn: "geom", geometryType: "POLYGON", crsAssumed: true },
+  "datasets/stations.parquet": { rowCount: 6, geometryColumn: "geom", geometryType: "POINT", crsAssumed: false },
+  "datasets/districts.parquet": { rowCount: 2, geometryColumn: "geom", geometryType: "POLYGON", crsAssumed: false },
+  "results/step-busy.parquet": { rowCount: 4, geometryColumn: "geom", geometryType: "POINT", crsAssumed: false },
+  "results/step-rings.parquet": { rowCount: 4, geometryColumn: "geom", geometryType: "POLYGON", crsAssumed: false },
 };
 
 async function membersOf(folder: string, prefix = ""): Promise<string[]> {
