@@ -76,6 +76,17 @@ export interface ClassifyOptions {
   classes?: number;
   /** Apply the palette back-to-front. */
   reversed?: boolean;
+  /** A numeric ramp's colors in place of its palette's, order and any
+   * reversal already applied: a layer's own stored colors, classified with
+   * when the palette it names no longer exists. The fill keeps the name. */
+  colors?: { stops: RgbaColor[]; positions?: number[] };
+}
+
+/** Whether a palette of this kind can be resolved now: the curated
+ * catalogue, or (for numeric ramps) a saved custom palette. */
+export function paletteAvailable(name: string, kind: "sequential" | "categorical"): boolean {
+  if (paletteByName(name, kind)) return true;
+  return kind === "sequential" && getCustomPalette(name) !== null;
 }
 
 function resolvePalette(
@@ -105,7 +116,14 @@ interface ResolvedRamp {
  * custom palettes — unknown names stay rejected. Reversal is applied
  * here so every consumer bakes identical colors.
  */
-function resolveRamp(name: string | undefined, reversed: boolean): ResolvedRamp {
+function resolveRamp(
+  name: string | undefined,
+  reversed: boolean,
+  colors?: ClassifyOptions["colors"],
+): ResolvedRamp {
+  if (colors) {
+    return { palette: name ?? DEFAULT_SEQUENTIAL, stops: colors.stops, positions: colors.positions };
+  }
   if (name !== undefined && !paletteByName(name, "sequential")) {
     const custom = getCustomPalette(name);
     if (!custom) {
@@ -137,9 +155,10 @@ function classRampColors(
   name: string | undefined,
   count: number,
   reversed: boolean,
+  colors?: ClassifyOptions["colors"],
 ): { palette: string; colors: RgbaColor[] } {
-  if (name !== undefined && !paletteByName(name, "sequential")) {
-    const { palette, stops, positions } = resolveRamp(name, reversed);
+  if (colors || (name !== undefined && !paletteByName(name, "sequential"))) {
+    const { palette, stops, positions } = resolveRamp(name, reversed, colors);
     return { palette, colors: rampColors(stops, positions, count) };
   }
   const palette = resolvePalette(name, "sequential");
@@ -182,6 +201,7 @@ export async function classifyFill(
       const { palette, stops, positions } = resolveRamp(
         options.palette,
         reversed,
+        options.colors,
       );
       let lo: number;
       let hi: number;
@@ -275,6 +295,7 @@ export async function classifyFill(
         options.palette,
         nice.length + 1,
         reversed,
+        options.colors,
       );
       return {
         type: "quantile" as const,

@@ -27,7 +27,7 @@ import {
   stableJson,
 } from "@/lib/metadata/history";
 import type { FillPaint, LayerStyle } from "@/lib/style/style";
-import { classifyFill, computeSizeScale } from "@/lib/style/classify";
+import { classifyFill, computeSizeScale, paletteAvailable, type ClassifyOptions } from "@/lib/style/classify";
 import {
   AGG_VALUE,
   AGG_ELEV,
@@ -353,6 +353,22 @@ function priorAggregatedFill(layer: Layer): FillPaint | undefined {
 }
 
 /**
+ * The palette a reclassification carries over from the prior fill. A saved
+ * palette deleted since the layer was styled cannot be asked for by name:
+ * the layer's own stored colors stand in for it (the fill keeps the name),
+ * or, with none stored, the default palette does.
+ */
+function priorPalette(prior: FillPaint | undefined): Pick<ClassifyOptions, "palette" | "colors"> {
+  if (!prior || prior.type === "constant") return {};
+  const kind = prior.type === "categorical" ? "categorical" : "sequential";
+  if (paletteAvailable(prior.palette, kind)) return { palette: prior.palette };
+  const own = prior.type === "quantile" ? { stops: prior.colors }
+    : prior.type === "continuous" ? { stops: prior.stops, positions: prior.positions }
+      : null;
+  return own && own.stops.length > 0 ? { palette: prior.palette, colors: own } : {};
+}
+
+/**
  * Fill for an aggregated layer, classified over the aggregate value. When
  * classification cannot run (empty result, missing extension), fall back to
  * a constant so the layer stays usable — render reports its own errors.
@@ -388,10 +404,7 @@ async function aggregatedFill(
       AGG_VALUE,
       priorMethod,
       {
-        palette:
-          priorCategorical?.palette ??
-          priorContinuous?.palette ??
-          priorRamp?.palette,
+        ...priorPalette(prior),
         classes: priorRamp?.classes ?? priorRamp?.colors.length,
         reversed:
           priorCategorical?.reversed ??
