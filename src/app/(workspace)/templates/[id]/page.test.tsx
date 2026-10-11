@@ -2,9 +2,11 @@ import type { ReactElement } from "react";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { mkdtemp, rm } from "node:fs/promises";
 import path from "node:path";
+import { ScreenDefaultsProvider } from "@/components/screen-defaults";
 import { TemplateView } from "@/components/templates/TemplateView";
 import { socketRequest } from "@/lib/assistant/testing/socket-request";
 import { testAccountRequest } from "@/lib/test-support/accounts";
+import { instanceDefaults } from "@/lib/settings/defaults";
 import { writeStoredSettings } from "@/lib/settings/store";
 import { listTemplates, refreshCatalogue, resetCatalogueForTests } from "@/lib/templates/catalogue";
 import type { TemplateDetail } from "@/lib/templates/card";
@@ -73,9 +75,14 @@ afterEach(async () => {
 });
 
 type Props = { template: TemplateDetail; opened: OpenedTemplate | null; basemaps: unknown[] };
+/** The view the page serves, inside the instance's screen defaults it
+ * hands down. */
 async function open(account: string | null, id: string) {
   who.account = account;
-  return (await TemplatePage({ params: Promise.resolve({ id }) })) as ReactElement<Props>;
+  const page = (await TemplatePage({ params: Promise.resolve({ id }) })) as ReactElement<{ defaults: unknown; children: ReactElement<Props> }>;
+  expect(page.type).toBe(ScreenDefaultsProvider);
+  expect(page.props.defaults).toEqual(instanceDefaults());
+  return page.props.children;
 }
 
 describe("a template's address", () => {

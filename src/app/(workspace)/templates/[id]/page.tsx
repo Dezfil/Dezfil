@@ -1,7 +1,9 @@
 import { notFound } from "next/navigation";
+import { ScreenDefaultsProvider } from "@/components/screen-defaults";
 import { TemplateView } from "@/components/templates/TemplateView";
 import { ApiError } from "@/lib/api/errors";
 import { requirePageScope } from "@/lib/auth/scope-page";
+import { instanceDefaults } from "@/lib/settings/defaults";
 import {
   basemapOverrideAttribution,
   basemapOverrideUrl,
@@ -21,6 +23,10 @@ import { openedTemplate } from "@/lib/templates/view";
  * it does not know has the catalogue read first, as the Templates page's
  * refresh reads it, and is not found only when the catalogue does not list
  * it either. Nothing here writes.
+ *
+ * A workflow example's canvas opens with the instance's canvas defaults,
+ * handed down as a workflow's page hands them; it mounts no assistant
+ * pane, so the layer-download control that pane needs is not mounted.
  */
 export default async function TemplatePage({ params }: { params: Promise<{ id: string }> }) {
   await requirePageScope();
@@ -34,13 +40,15 @@ export default async function TemplatePage({ params }: { params: Promise<{ id: s
   }
   const opened = template.present ? openedTemplate(template.id, template.version) : null;
   return (
-    <TemplateView
-      template={template}
-      opened={opened}
-      basemapUrl={basemapUrl()}
-      basemapOverrideUrl={basemapOverrideUrl()}
-      basemapOverrideAttribution={basemapOverrideAttribution()}
-      basemaps={drawingBasemaps()}
-    />
+    <ScreenDefaultsProvider defaults={instanceDefaults()}>
+      <TemplateView
+        template={template}
+        opened={opened}
+        basemapUrl={basemapUrl()}
+        basemapOverrideUrl={basemapOverrideUrl()}
+        basemapOverrideAttribution={basemapOverrideAttribution()}
+        basemaps={drawingBasemaps()}
+      />
+    </ScreenDefaultsProvider>
   );
 }
