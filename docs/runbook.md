@@ -374,6 +374,36 @@ because a couple of engine-seeding cases dominate the run on a two-core
 machine. Some unit tests build real tiles, so keep `tippecanoe` on `PATH`;
 `npm run test:watch` reruns on change.
 
+The real-render tests (`*.real-render.test.ts` under `src/lib/export/` and
+`src/lib/system/`) drive the server's image check through a real headless
+Chromium against a production standalone, and skip unless
+`DEZFIL_MAP_LOOK_RENDER` names that standalone's port. The standalone shares
+the test process's scratch `DEZFIL_DATA_DIR` and its render signing key. Each
+process draws that key for itself at start, so both take it from
+`DEZFIL_RENDER_DELEGATION_KEY` (64 hexadecimal digits): the test reads it, and
+the standalone gets it from a test-only preload. Build the standalone in a
+separate checkout and provision it as in
+[the departure proof](#project-departure-proof-on-a-production-standalone),
+then, with a port other than the one you develop on:
+
+```sh
+export DEZFIL_RENDER_DELEGATION_KEY=$(openssl rand -hex 32)
+export DEZFIL_DATA_DIR=$(mktemp -d) DEZFIL_EGRESS_ALLOWLIST=127.0.0.1
+export DEZFIL_CHROMIUM_PATH=/path/to/chrome-headless-shell
+(cd .next/standalone && PORT=3581 HOSTNAME=127.0.0.1 \
+  node --import=./scripts/ingress-preload.mjs \
+  --import="data:text/javascript,process[Symbol.for('dezfil.session-delegation-key')]=Buffer.from(process.env.DEZFIL_RENDER_DELEGATION_KEY,'hex')" \
+  server.js) > render-standalone.log 2>&1 &
+# Wait for GET http://127.0.0.1:3581/api/health to return 200.
+DEZFIL_MAP_LOOK_RENDER=3581 npx vitest run src/lib/export/map-look.real-render.test.ts
+```
+
+Without the shared key the standalone answers the render page with the
+sign-in redirect and every image runs into its budget, so each file's setup
+first checks that the standalone accepts its credential and refuses to start
+otherwise. Each file's header names any further variable it needs. Stop the
+standalone by its port when done.
+
 ## The browser suite
 
 Browser and HTTP journeys target an isolated scratch instance. Shared fixtures
