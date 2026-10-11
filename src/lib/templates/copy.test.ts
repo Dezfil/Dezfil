@@ -60,6 +60,7 @@ const QUALIFIED_SQL = "SELECT stations.id, stations.name, stations.riders, stati
 
 let built: string;
 let M1: BuiltTemplate, Q1: BuiltTemplate, X1: BuiltTemplate, D1: BuiltTemplate, N1: BuiltTemplate, L1: BuiltTemplate;
+let T1: BuiltTemplate;
 let f: ReturnType<typeof instanceSettingsFixture>;
 let dir: string;
 let shippedFolder: string;
@@ -103,6 +104,9 @@ beforeAll(async () => {
       layers.find((layer) => layer.id === "layer-stations")!.sql = LOCAL_NAME_SQL;
     },
   });
+  // The stations layer reading its dataset through a table function's
+  // listed argument, placed by hand since the admission refuses it.
+  T1 = await buildTemplate(path.join(built, "t1"), { id: "listed-name", edit: SEEDS.layerListedName });
 });
 afterAll(async () => { await rm(built, { recursive: true, force: true }); });
 
@@ -507,6 +511,27 @@ describe("what a copy refuses", () => {
     expect((await copy("stray-roads")).body!.error).toMatchObject({ message: expect.stringContaining('"roads"') });
     for (const table of ["projects", "recipes", "data_tables"]) expect(count(f.db, table, "member"), table).toBe(0);
     expect(await tableFiles()).toEqual({});
+  });
+
+  it("a layer reading its dataset by a name the rewrite cannot reach, once that dataset lands under another name, though the text is unchanged, with nothing created", async () => {
+    await installFixture(T1, path.join(dataDir(), "templates", "listed-name", "1"), { kind: "catalogue", origin: "https://catalogue.example" });
+    // Under the plain names the template's text reads what it read.
+    const first = await landed(await copy("listed-name"));
+    expect(names(first)).toEqual(["districts", "stations"]);
+    expect(layerSql(first.map).Stations).toBe("SELECT * FROM query_table(['stations'])");
+    expect(await renders(first.map.layers.find((l) => l.name === "Stations")!.id)).toMatchObject({ ok: true, featureCount: 6 });
+    const before = holdings(f.db, "member");
+    const files = await tableFiles();
+    // "stations" is the first copy's now: a second copy's dataset would
+    // land as "stations_2" while its layer went on reading the first's.
+    const second = await copy("listed-name");
+    expect(second.status, second.text).toBe(422);
+    expect(second.body).toEqual({ error: {
+      code: "template_reference_unbound",
+      message: 'The map\'s layer 1 ("Stations") could not be bound to the datasets the copy makes, so nothing was created.',
+    } });
+    expect(holdings(f.db, "member")).toEqual(before);
+    expect(await tableFiles()).toEqual(files);
   });
 
   it("a body that is not a name and a version, and one past its bound", async () => {

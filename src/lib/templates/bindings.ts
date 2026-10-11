@@ -6,12 +6,13 @@ import { assertWritableRefs } from "@/lib/layer-write-refs";
 import { compileOperation } from "@/lib/operations/compile";
 import { dryRun } from "@/lib/operations/materialize";
 import { stepReads } from "@/lib/operations/step-reads";
-import { isBoundedOutcome } from "@/lib/query/bounded";
-import type { TemplateHome } from "@/lib/query/context";
+import { boundedEvaluation, isBoundedOutcome } from "@/lib/query/bounded";
+import type { EvaluationContext, TemplateHome } from "@/lib/query/context";
 import { DatasetUnavailable } from "@/lib/query/engine-message";
 import { isAggregated } from "@/lib/viz";
 import type { AdmittedTemplate } from "./admission";
 import { templateMapEvaluation, templateStepEvaluation } from "./home";
+import { plainReferenceProblem } from "./plain-references";
 import { refuse } from "./refusals";
 import { drawnFeatures, templateRenderCap } from "./render-cap";
 
@@ -21,9 +22,10 @@ import { drawnFeatures, templateRenderCap } from "./render-cap";
  *
  * Each step compiles as a run would compile it, in the evaluation of a run
  * at its turn: its inputs and its SQL bind to the template's datasets and
- * the results of the steps before it, and to nothing else, and what it
+ * the results of the steps before it, and to nothing else, what it
  * reads is what the facts' step list says, the list a card draws the
- * graph from. Then each layer
+ * graph from, and its SQL names them as plain table references only
+ * (plain-references.ts), as each layer's does. Then each layer
  * of the map draws a geometry from its SQL, and every column its style,
  * look, filters, tooltip, pop-up and published fields name, and every
  * column its widgets and the timeline read, is in its result, by the layer
@@ -57,6 +59,29 @@ async function underRoad<T>(where: string, work: () => Promise<T>): Promise<T> {
 
 const named = (reads: readonly string[]) => (reads.length === 0 ? "nothing" : reads.join(", "));
 
+/** Every name a template's SQL may read: its datasets and its steps'
+ * results, lower-cased. */
+function membersOf(admitted: AdmittedTemplate): Set<string> {
+  return new Set([
+    ...admitted.datasets.map((d) => d.name.toLowerCase()),
+    ...(admitted.workflow?.steps ?? []).map((s) => s.output.toLowerCase()),
+  ]);
+}
+
+/** A text naming the template's own datasets or results other than as
+ * plain table references is refused, naming where. */
+async function plainReferencesOnly(
+  evaluation: EvaluationContext,
+  where: string,
+  sql: string,
+  members: ReadonlySet<string>,
+  signal?: AbortSignal,
+): Promise<void> {
+  const problem = await underRoad(where, () =>
+    boundedEvaluation((conn) => plainReferenceProblem(conn, sql, members, where), { scope: evaluation, signal }));
+  if (problem) refuse("template_invalid", problem);
+}
+
 /** What the facts say a step reads, for its card's graph, is what it
  * reads: the same names, whatever their order. */
 function readsAgree(admitted: AdmittedTemplate, ordinal: number, reads: readonly string[]): void {
@@ -79,6 +104,7 @@ async function admitSteps(scope: AccountScope, admitted: AdmittedTemplate, home:
     for (const read of reads) {
       if (!datasets.has(read) && !earlier.has(read)) outside(where, read);
     }
+    if (typeof step.parameters.sql === "string") await plainReferencesOnly(evaluation, where, step.parameters.sql, membersOf(admitted), signal);
     readsAgree(admitted, ordinal, reads);
     const compiled = await underRoad(where, () => compileOperation(scope, step.operation, step.parameters, { evaluation }));
     if (compiled.prepare) refuse("template_invalid", `${where} needs work before it has a query, which a template's steps never do.`);
@@ -92,6 +118,7 @@ async function admitLayers(scope: AccountScope, admitted: AdmittedTemplate, home
   for (const [i, layer] of map.layers.entries()) {
     const where = `The map's layer ${i + 1} ("${layer.name}")`;
     await underRoad(where, () => inspectLayerGeometry(evaluation, layer.sql, signal));
+    await plainReferencesOnly(evaluation, where, layer.sql, membersOf(admitted), signal);
     const refs: ColumnRef[] = [
       ...styleRefs(layer.style),
       ...vizRefs(layer.viz),

@@ -491,6 +491,43 @@ export const SEEDS = {
   stepReferenceOutside: (files: TemplateFiles) => {
     (workflow(files).steps as { parameters: Record<string, unknown> }[])[0].parameters.sql = "SELECT * FROM roads WHERE riders > 100";
   },
+  /** The stations layer reading its dataset through a table function's
+   * listed argument, which a copy's rewrite of table names never reaches. */
+  layerListedName: (files: TemplateFiles) => {
+    (map(files).layers as Record<string, unknown>[])[0].sql = "SELECT * FROM query_table(['stations'])";
+  },
+  /** The stations layer naming its dataset in a table function's string. */
+  layerStringName: (files: TemplateFiles) => {
+    (map(files).layers as Record<string, unknown>[])[0].sql = "SELECT * FROM query_table('stations')";
+  },
+  /** The stations layer computing its dataset's name. */
+  layerComputedName: (files: TemplateFiles) => {
+    (map(files).layers as Record<string, unknown>[])[0].sql = "SELECT * FROM query_table('sta' || 'tions')";
+  },
+  /** The stations layer handing its dataset's name to a function that
+   * reads a table by name. */
+  layerFunctionOverName: (files: TemplateFiles) => {
+    (map(files).layers as Record<string, unknown>[])[0].sql =
+      "SELECT s.* FROM stations AS s WHERE (SELECT count(*) FROM pragma_table_info('stations')) > 0";
+  },
+  /** The stations layer handing its dataset's name to a file reader. */
+  layerReaderOverName: (files: TemplateFiles) => {
+    (map(files).layers as Record<string, unknown>[])[0].sql = "SELECT * FROM read_parquet('stations')";
+  },
+  /** The stations layer reading its dataset inside SQL carried as a string. */
+  layerNestedQuery: (files: TemplateFiles) => {
+    (map(files).layers as Record<string, unknown>[])[0].sql = "SELECT * FROM query('SELECT * FROM stations')";
+  },
+  /** The stations layer naming its dataset by a string in a table's place. */
+  layerStringTable: (files: TemplateFiles) => {
+    (map(files).layers as Record<string, unknown>[])[0].sql = "SELECT * FROM 'stations'";
+  },
+  /** The SQL step reading its dataset through a table function's listed
+   * argument. */
+  stepListedName: (files: TemplateFiles) => {
+    (workflow(files).steps as { parameters: Record<string, unknown> }[])[0].parameters.sql =
+      "SELECT * FROM query_table(['stations']) WHERE riders > 100";
+  },
   /** A widget reading a column its layer's result does not have. */
   widgetColumnMissing: (files: TemplateFiles) => {
     (map(files).widgets as Record<string, unknown>[])[0].field = "seeded_column";

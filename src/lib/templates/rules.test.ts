@@ -62,6 +62,12 @@ async function filesUnder(root: string): Promise<string[]> {
 let built = 0;
 const build = (options: TemplateFixtureOptions = {}) => buildTemplate(path.join(dir, `built-${built++}`), options);
 
+/** The refusal of SQL naming the stations other than as a plain table
+ * reference, where it does. */
+const notPlain = (where: string) =>
+  `${where} names "stations" inside a string or a table function's argument; ` +
+  "a template's SQL names its own datasets and results as plain table references only.";
+
 /** The rules over one template as a catalogue serves it: its archive
  * installed by the install's own road, both stages of the admission and
  * the upload's reader. The code of the rule it fails, or null when it
@@ -117,6 +123,13 @@ describe("the shipped set", () => {
       'outside version 1: template_reference_outside: The map\'s layer 1 ("Stations") names "roads", which is not a dataset of the template or a result of an earlier step.',
     ]);
     expect(await filesUnder(dataDir())).toEqual([]);
+  });
+
+  it("bites on a folder holding a template whose SQL names its dataset other than as a plain table reference", async () => {
+    const folder = await writeShippedFolder(path.join(dir, "shipped"), [await build(), await build({ id: "listed-name", edit: SEEDS.layerListedName })]);
+    const check = await checkShippedSet(scope, folder);
+    expect(check.versions.map((v) => v.admitted.facts.id)).toEqual(["harbour-stations"]);
+    expect(check.problems).toEqual([`listed-name version 1: template_invalid: ${notPlain('The map\'s layer 1 ("Stations")')}`]);
   });
 
   it("passes a folder holding passing templates of both kinds", async () => {
@@ -226,6 +239,34 @@ describe("the rules every template must meet", () => {
       },
     });
     expect(code).toBe("template_credit_missing");
+  });
+});
+
+describe("a template's SQL names its own datasets as plain table references only", () => {
+  it.each<[string, TemplateFixtureOptions]>([
+    ["a table function's listed argument", { edit: SEEDS.layerListedName }],
+    ["a table function's string argument", { edit: SEEDS.layerStringName }],
+    ["a table function's computed argument", { edit: SEEDS.layerComputedName }],
+    ["a function reading a table by its name", { edit: SEEDS.layerFunctionOverName }],
+    ["a file reader over its name", { edit: SEEDS.layerReaderOverName }],
+    ["SQL carried in a string", { edit: SEEDS.layerNestedQuery }],
+    ["a string in a table's place", { edit: SEEDS.layerStringTable }],
+    ["a SQL step's table function argument", { kind: "workflow", edit: SEEDS.stepListedName }],
+  ])("refuses a template naming its dataset through %s", async (_what, options) => {
+    expect(await ruleFailed(options)).toBe("template_invalid");
+  });
+
+  it("names the layer or the step, and the dataset", async () => {
+    for (const [options, where] of [
+      [{ edit: SEEDS.layerListedName }, 'The map\'s layer 1 ("Stations")'],
+      [{ kind: "workflow", edit: SEEDS.stepListedName }, "The workflow's step 1"],
+    ] as const) {
+      const template = await build(options);
+      const scratch = path.join(dir, `install-plain-${built++}`);
+      await mkdir(scratch);
+      const expected = { id: template.facts.id, version: template.facts.version, size: template.size, sha256: template.sha256 };
+      await expect(installTemplateArchive(scope, scratch, template.archive, expected, { kind: "shipped" })).rejects.toThrow(notPlain(where));
+    }
   });
 });
 

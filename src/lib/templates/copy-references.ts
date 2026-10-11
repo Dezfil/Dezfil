@@ -37,7 +37,11 @@ import type { AdmittedTemplate } from "./admission";
  * Each layer's SQL must read the template's datasets and results, and each
  * step its datasets and the results of the steps before it, and nothing
  * else; a reference the copy cannot bind, or a text whose rewrite does not
- * read as it should, refuses the copy whole before any write. A step's
+ * read as it should, refuses the copy whole before any write. Every text is
+ * held to what it reads under the landed names, the ones the rewrite left as
+ * written too: the admission refuses a template naming its own datasets
+ * other than as plain table references (plain-references.ts), and this is
+ * where one placed past it is still refused rather than copied. A step's
  * named inputs are rewritten as values, its SQL as a layer's is, and the
  * output it declares takes the name its result lands under.
  */
@@ -173,9 +177,11 @@ export async function bindCopyReferences(scope: AccountScope, admitted: Admitted
     check: async (landed) => {
       for (const { where, sql, original } of texts) {
         const text = rewrite(sql, landed);
-        // Nothing renamed: the text is the template's, read as it was.
-        if (text === sql) continue;
-        const rewritten = await reads(text);
+        // Held by what the text reads, never by whether it changed: a name
+        // the rewrite does not reach (a table function's listed or computed
+        // argument) leaves the text as it was while its dataset lands under
+        // another name. An unchanged text reads what the template's read.
+        const rewritten = text === sql ? original : await reads(text);
         const as = (table: string) => landed.get(table) ?? table;
         const expected = new Set(original.tables.map(as));
         const same = rewritten !== null && rewritten.external.length === 0 &&

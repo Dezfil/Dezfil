@@ -1302,10 +1302,11 @@ lands under), each layer's and step's SQL rewritten to name the dataset as
 landed; a renamed dataset that the SQL names with no alias keeps its old
 name as one (`FROM stations_2 AS stations`), so a column the SQL qualifies
 by that name still finds it. The rewrite is checked under exactly the names
-the copy lands, before its one metadata transaction, and the transaction
-takes the names again, the project first: when a write committed meanwhile
-moved them, it writes nothing and the copy checks the new names and runs
-again, so two copies at once each land whole under distinct names; a
+the copy lands, each text by what the engine's parse reads in it, a text the
+rewrite left as written included, before its one metadata transaction, and
+the transaction takes the names again, the project first: when a write
+committed meanwhile moved them, it writes nothing and the copy checks the new
+names and runs again, so two copies at once each land whole under distinct names; a
 failure anywhere before the commit leaves no project, map or
 dataset of the caller's and no file, and a download stays installed. A
 copied dataset's `source` is `template`, with the template's `id` and
@@ -2255,7 +2256,7 @@ response message. Branch on the code.
 | `template_entry_escapes` | A member of a template's archive names a path outside its folder. |
 | `template_members_mismatch` | A template's documents name a member it does not hold, or it holds a member nothing names. |
 | `template_format_unsupported` | A template is in a format version this server does not read. |
-| `template_invalid` | A template's document fails the rules a client's document is held to, one of its layers or steps does not bind to the template's own data as a client's would, or a layer draws more than the render cap's default. |
+| `template_invalid` | A template's document fails the rules a client's document is held to, one of its layers or steps does not bind to the template's own data as a client's would or names one of its datasets inside a string or a table function's argument, or a layer draws more than the render cap's default. |
 | `template_forbidden` | A template carries a publication, token, connection, service address or setting, which no template may. |
 | `template_picture_too_large` | A template's map picture is larger than its 2 MB bound. |
 | `template_licence_refused` | A template's data is under a licence that does not allow redistribution. |
