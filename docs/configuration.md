@@ -342,6 +342,14 @@ catalogue on a private network needs `DEZFIL_EGRESS_ALLOWLIST` to name it.
 Changing the address or the switch drops the list read before. The
 catalogue's Test on the services' Test operation reads the index alone.
 
+The shipped templates need no catalogue: they are installed in the image's
+`templates/` folder and listed first, in its index's order, whether the
+catalogue is on, off or unreachable. This release ships three: the maps
+*Forty years of big earthquakes* and *The world's air routes*, and the
+workflow example *Health access in Rwanda*. They change only with a release; a
+catalogue entry naming one of their ids does not replace it, and Remove all
+leaves them. `NOTICE` lists their data's sources, licences and credits.
+
 ## Fixed result limits
 
 SQL console/SQL previews, dataset inspection, geometry-choice preview and the

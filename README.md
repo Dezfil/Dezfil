@@ -68,7 +68,10 @@ the cards by title, question, place and credit, and the tag chips by tag, each
 chip counting the search's matches. The page draws what the server already
 holds at once and reads the catalogue after; while the catalogue is off, does
 not answer, lists nothing or is refused, one line says why only the templates
-on the server show.
+on the server show. The image ships three, which open and copy with no
+network: the maps *Forty years of big earthquakes* and *The world's air
+routes*, and the workflow example *Health access in Rwanda*. [NOTICE](NOTICE)
+lists their data's sources, licences and credits.
 
 Opening a template shows the version its card named, read only: a map as a
 map one may only view opens, a workflow example's canvas as a viewer sees it
