@@ -302,8 +302,11 @@ keeps the colors of every layer classified with it.
 ## Templates
 
 Whether the server reads the template catalogue, and where it is. Admins set
-both through `PATCH /api/instance/settings` and its generated tool; Settings
-has no card for them yet.
+both on the **Templates** card of the **Data & services** tab of Settings,
+which also tests the catalogue and removes the downloaded templates, or through
+`PATCH /api/instance/settings` and its generated tool. While the catalogue is
+off, the card offers no Test, since the server reaches the catalogue for
+nothing.
 
 The switch below is a stored instance setting with no environment variable, so
 it is never locked. It also changes through `PATCH /api/instance/settings`
@@ -329,9 +332,11 @@ path is relative. Every read says a folder is set, never which; a save from the
 API or a tool takes an `http` or `https` address alone, so no token or
 assistant can point the server at a folder.
 
-The server reads the catalogue only when the template list is refreshed, at
-most once in ten minutes: the index (at most 1 MB), then each listed
-template's two pictures (at most 2 MB each, 64 MB for the list), through the
+The server reads the catalogue only when the template list is refreshed, which
+the **Templates** page asks for each time it opens, and a template's own page
+when it names a template the server has not listed yet, at most once in ten
+minutes: the index (at most 1 MB), then each listed template's two pictures
+(at most 2 MB each, 64 MB for the list), through the
 egress check within `DEZFIL_REMOTE_TIMEOUT_S` and with no credential, so a
 catalogue on a private network needs `DEZFIL_EGRESS_ALLOWLIST` to name it.
 Changing the address or the switch drops the list read before. The

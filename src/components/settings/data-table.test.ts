@@ -5,9 +5,9 @@ import { SERVICE_ADDRESS_KEYS } from "@/lib/settings/service-address";
 import { writeStoredSettings } from "@/lib/settings/store";
 import { instanceSettingsFixture } from "../../../test-support/instance-settings";
 import {
-  addressRows, addressState, addressWords, cacheShare, cacheWords, cardSetUp, checkedWords, DATA_CARDS, DATA_LABELS, DATA_ROW_IDS,
-  dataRowAddress, governedNote, lockedLines, numberWords, pageRange, releaseListWords, serviceNumberRows, sizeWords, testAnswerWords,
-  toApi, toPage,
+  addressIsFolder, addressRows, addressState, addressWords, cacheShare, cacheWords, cardSetUp, catalogueSwitchWords, checkedWords, DATA_CARDS,
+  DATA_LABELS, DATA_ROW_IDS, dataRowAddress, dataTabCards, downloadsRemovalWords, downloadsWords, FOLDER_WORDS, governedNote, lockedLines,
+  numberWords, pageRange, releaseListWords, serviceNumberRows, sizeWords, TEMPLATES_CARD, testAnswerWords, toApi, toPage,
 } from "./data-table";
 import { limitsSettingRows } from "./limits-table";
 import { CONNECTIONS_CARD, RULE_CHOICE_WORDS } from "./security-table";
@@ -98,6 +98,27 @@ describe("the Data & services table against the read", () => {
       ["data-geocoder", "geocode", "geocoderUrl"], ["data-travel", "isochrone", "isochroneUrl"], ["data-osm", "overpass", null],
       ["data-overture", null, null], ["data-storage", "s3", null], ["data-private", null, null],
     ]);
+    // The template catalogue's card stands between the services and the private network.
+    expect(dataTabCards().map(card => card.id)).toEqual([
+      "data-geocoder", "data-travel", "data-osm", "data-overture", "data-storage", "data-templates", "data-private",
+    ]);
+  });
+
+  it("draws the template catalogue's switch and address as the read offers them, its Test the catalogue's", () => {
+    const settings = read().settings;
+    const { catalogue, address, downloads } = TEMPLATES_CARD;
+    expect([TEMPLATES_CARD.title, catalogue.label, address.label, downloads.label]).toEqual(["Templates", "Catalogue", "Catalogue address", "Downloaded"]);
+    expect(TEMPLATES_CARD.test).toBe("templates");
+    // The switch: a stored setting no variable sets, on by default, an admin's to change.
+    expect(settings[catalogue.key]).toMatchObject({ kind: "boolean", editable: true, defaultValue: true, value: true, write: { kind: "switch" } });
+    expect(settings[catalogue.key].environment).toBeUndefined();
+    // The address: the service addresses' kind beside its variable, which alone may name a folder.
+    expect(settings[address.key]).toMatchObject({ kind: "address", editable: true, environment: "DEZFIL_TEMPLATES_CATALOGUE",
+      write: { kind: "address", folder: "variable" }, value: { set: true, origin: "https://github.com" } });
+    expect(addressState(address, settings[address.key])).toEqual({ kind: "default", text: "https://github.com", mono: true });
+    const ids = [TEMPLATES_CARD.id, catalogue.id, address.id, downloads.id];
+    const others = DATA_CARDS.flatMap(card => [card.id, ...card.rows.map(row => row.id)]);
+    expect(ids.filter(id => others.includes(id))).toEqual([]);
   });
 });
 
@@ -148,12 +169,15 @@ describe("the page's units", () => {
 
 describe("where the rows are", () => {
   it("gives every stored address and number its row's address inside the tab", () => {
-    expect(Object.keys(DATA_ROW_IDS).sort()).toEqual([...SERVICE_NUMBERS, ...SERVICE_ADDRESS_KEYS].sort());
+    expect(Object.keys(DATA_ROW_IDS).sort()).toEqual([...SERVICE_NUMBERS, ...SERVICE_ADDRESS_KEYS, "templates.catalogue", "templatesCatalogueUrl"].sort());
+    expect(dataRowAddress("templatesCatalogueUrl")).toBe("/settings/data#set-templates-address");
+    expect(dataRowAddress("templates.catalogue")).toBe("/settings/data#set-templates-catalogue");
     expect(dataRowAddress("geocoderUrl")).toBe("/settings/data#set-geocoder-address");
     expect(dataRowAddress("isochroneUrl")).toBe("/settings/data#set-travel-address");
     expect(dataRowAddress("geocodePaceMs")).toBe("/settings/data#set-geocoder-gap");
     expect(dataRowAddress("queryTimeoutS")).toBeNull();
-    expect(DATA_LABELS).toMatchObject({ geocodePaceMs: "Gap between requests", overpassTimeoutS: "Time budget per query", s3Endpoint: "S3 address" });
+    expect(DATA_LABELS).toMatchObject({ geocodePaceMs: "Gap between requests", overpassTimeoutS: "Time budget per query", s3Endpoint: "S3 address",
+      templatesCatalogueUrl: "Template catalogue address", "templates.catalogue": "Use the catalogue" });
   });
 });
 
@@ -172,6 +196,21 @@ describe("what an address row shows", () => {
     expect(addressState(row("overpassUrl"), { source: "stored", value: { set: true, origin: "https://osm.example" } })).toEqual({ kind: "saved", origin: "https://osm.example" });
     expect(addressState(row("overpassUrl"), { source: "stored", value: { set: true, unreadable: true } })).toEqual({ kind: "unreadable" });
     expect(addressWords(row("overpassUrl"), { source: "stored", value: { set: true, unreadable: true } })).toBe("Set");
+  });
+
+  it("says a folder the catalogue's variable names as a folder on the server, never its path", () => {
+    const address = TEMPLATES_CARD.address;
+    vi.stubEnv("DEZFIL_TEMPLATES_CATALOGUE", "/srv/SEEDED-KEY-0004-PATH/catalogue");
+    const settings = read().settings;
+    expect(settings[address.key]).toMatchObject({ value: { set: true, folder: true }, source: "environment" });
+    expect(addressIsFolder(settings[address.key])).toBe(true);
+    expect(addressWords(address, settings[address.key])).toBe(FOLDER_WORDS);
+    expect(FOLDER_WORDS).toBe("A folder on the server");
+    expect(JSON.stringify(settings[address.key])).not.toContain("SEEDED-KEY");
+    vi.stubEnv("DEZFIL_TEMPLATES_CATALOGUE", "https://seed-user:SEEDED-KEY-0004-USER@mirror.example/SEEDED-KEY-0004-PATH/index.json");
+    const addressed = read().settings;
+    expect(addressIsFolder(addressed[address.key])).toBe(false);
+    expect(addressWords(address, addressed[address.key])).toBe("https://mirror.example");
   });
 
   it("collapses the address finder and travel time to their address while the read reports it not set", () => {
@@ -220,5 +259,22 @@ describe("the words the tab shows", () => {
     expect(testAnswerWords({ service: "s3", result: "failed", reason: "timed_out" }).text).toBe("No answer within the time limit.");
     expect(testAnswerWords({ service: "geocode", result: "failed", reason: "status", status: 503 })).toEqual({ passed: false, text: "Answered with status 503." });
     expect(testAnswerWords({ service: "geocode", result: "failed", reason: "unexpected_answer" }).text).toBe("Answered, but not as the service does.");
+    // The template catalogue's: how many its index lists, and the time.
+    expect(testAnswerWords({ service: "templates", result: "passed", templates: 12, milliseconds: 1840 })).toEqual({ passed: true, text: "Lists 12 templates, answered in 1,840 ms" });
+    expect(testAnswerWords({ service: "templates", result: "passed", templates: 1, milliseconds: 40 }).text).toBe("Lists 1 template, answered in 40 ms");
+    expect(testAnswerWords({ service: "templates", result: "passed", templates: 0, milliseconds: 40 }).text).toBe("Lists no templates, answered in 40 ms");
+    expect(testAnswerWords({ service: "templates", result: "failed", reason: "status", status: 404 }).text).toBe("Answered with status 404.");
+  });
+
+  it("says the catalogue's switch and the downloads as their rows do, and what Remove all removes", () => {
+    expect(catalogueSwitchWords({})).toBe("In use");
+    expect(catalogueSwitchWords({ "templates.catalogue": { value: true } })).toBe("In use");
+    expect(catalogueSwitchWords({ "templates.catalogue": { value: false } })).toBe("Off");
+    expect(downloadsWords({ versions: 0, bytes: 0 })).toBe("None");
+    expect(downloadsWords({ versions: 1, bytes: 2048 })).toBe("1 version · 2 KB");
+    expect(downloadsWords({ versions: 1234, bytes: 1.5 * 1024 ** 3 })).toBe("1,234 versions · 1.5 GB");
+    expect(downloadsRemovalWords({ versions: 1, bytes: 20 * 1024 * 1024 })).toBe(
+      "1 version (20 MB) is removed. Shipped templates and every copy stay, and a template the catalogue lists downloads again when it is next opened.");
+    expect(downloadsRemovalWords({ versions: 3, bytes: 4.1 * 1024 * 1024 })).toMatch(/^3 versions \(4\.1 MB\) are removed\. /);
   });
 });

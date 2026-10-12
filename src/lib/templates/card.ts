@@ -1,4 +1,5 @@
 import type { TemplateFacts, TemplateKind, TemplateSource, TemplateStep, TemplateTag } from "./format";
+import type { TemplateContents } from "./opened";
 
 /**
  * What the template list answers, as data: one card per template and the
@@ -81,9 +82,13 @@ export interface TemplateCard {
   picture: CardPicture;
 }
 
-/** One template as the read of one answers it: its card and how it is made. */
+/** One template as the read of one answers it: its card, how it is made,
+ * and what the version holds once it is installed on this server. */
 export interface TemplateDetail extends TemplateCard {
   howMade: TemplateFacts["howMade"];
+  /** The installed version's contents; null while `version` is not on this
+   * server, or its files do not read. */
+  contents: TemplateContents | null;
 }
 
 /** What the downloaded templates hold on this server: how many versions,

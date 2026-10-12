@@ -545,10 +545,14 @@
   color: var(--fg-faint);
 }
 
-/* Locked: the ports are gone, nothing links. */
+/* Locked: the ports are out of sight and out of reach, nothing links. They
+   keep their boxes, which is where the library measures each link's ends:
+   a port with no box measures at the canvas's corner, and every link drew
+   folded there, on a canvas locked from its first draw. */
 .host[data-locked] .port,
 .host[data-locked] .sqlSide {
-  display: none;
+  visibility: hidden;
+  pointer-events: none;
 }
 
 /* Locked, a tile is the hand's, not the finger's: pressing on it pans the

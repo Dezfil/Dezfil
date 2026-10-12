@@ -109,7 +109,7 @@ interface Made {
 }
 
 function provenance(facts: TemplateFacts, note: string | null, now: string): string {
-  const line = `Copied from the template ${facts.title} (${facts.id}), version ${facts.version}, on ${now.slice(0, 10)}.`;
+  const line = `Copied from the template ${facts.title}, version ${facts.version}, on ${now.slice(0, 10)}.`;
   return note ? `${line}\n\n${note}` : line;
 }
 

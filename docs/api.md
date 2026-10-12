@@ -24,7 +24,7 @@ every documented operation must have a route, and every call the interface
 makes must hit a documented path (`src/lib/api/parity.test.ts`). The
 description cannot drift from the server.
 
-Measured from the current source: **142 paths, 401 operations, 185 named component schemas.** Operations include supported automatic HEAD and OPTIONS.
+Measured from the current source: **142 paths, 401 operations, 187 named component schemas.** Operations include supported automatic HEAD and OPTIONS.
 `npm run lint:contract-docs` measures these numbers and checks the catalogue below
 against the contract; changing only the reader-facing text fails the gate.
 
@@ -1234,7 +1234,10 @@ scheme and host (null for a folder, with `folder: true`, never its path),
 `egress_blocked`, `service_address_unreadable`, `template_index_too_large`,
 `template_index_invalid`, `template_index_repeats_id` or
 `template_address_outside`). `downloads` says what the downloaded templates
-hold: how many `versions` and the `bytes` their folders take. `POST /api/templates/refresh` reads the catalogue
+hold: how many `versions` and the `bytes` their folders take. The
+**Templates** page, last in the side menu, draws one card per template from
+this list as soon as it answers and only then asks for the refresh below, so
+it never waits on the catalogue. `POST /api/templates/refresh` reads the catalogue
 at the address in effect: its index (at most 1 MB) and then each listed
 template's two pictures in the index's order (at most 2 MB each, a picture
 past it refused alone, and 64 MB for the list, later entries drawn without
@@ -1246,8 +1249,22 @@ finishes after the address or the switch changed is discarded. While an admin
 has turned the catalogue off it is refused with 409 `templates_catalogue_off`
 and sends nothing; a saved address the instance's key no longer opens is
 refused with `service_address_unreadable`. Cookie requests need the same
-trusted Origin. `GET /api/templates/{id}` answers one card with `howMade`, an
-unknown id 404 `template_not_listed`. `GET /api/templates/{id}/picture?theme=`
+trusted Origin. `GET /api/templates/{id}` answers one card with `howMade` and
+`contents`, what the version holds once it is installed on this server
+(null until then, or when its files do not read): `mapId`, the template
+map's id, which `GET /api/maps/{id}` reads with its layers' SQL and styles
+and whose layers the render and widget-value operations answer, as for a
+map one may only view; `datasets`, each with its row count and geometry as
+measured; and `workflow`, a workflow example's steps in order, each with
+its operation, its parameters as saved, what it reads and its bundled
+result, with the saved canvas arrangement (positions and notes), or null
+for a map template. `?version=` names the version to read: one installed on
+this server, or the one the catalogue's last list names; without it, the
+version the card takes now. This is how a template's page opens it, and
+how it reads again, by its number, the version it has just downloaded. An
+unknown id, or a version neither installed nor listed, answers 404
+`template_not_listed`; a version that is not a whole number from 1, 400
+`invalid_request`. `GET /api/templates/{id}/picture?theme=`
 answers the card's map picture as PNG (light when no theme is named), from
 disk for a shipped or downloaded version, else as the kept list holds it;
 it is a card image, outside the tool set. `POST /api/templates/{id}/fetch`
@@ -1288,8 +1305,8 @@ installed version is copied whether the catalogue still lists it or not, and
 with the catalogue off; a listed version that is not installed is refused
 with 409 `template_not_installed`, so it is fetched first. The project is
 named as the body says (trimmed, 1 to 120 characters), else after the
-template's title, and its note carries a line naming the template, its
-version and the day. Filed in it under fresh identities: the template's map,
+template's title, and its note carries a line naming the template by its
+title, its version and the day. Filed in it under fresh identities: the template's map,
 every layer, widget, the legend order, camera, basemap and timeline as
 stored, each widget, the legend order and the timeline bound to the copied
 layers, its SQL home the caller's; a workflow example's workflow, each step

@@ -187,12 +187,78 @@ describe("the list", () => {
     expect(validateAgainstSchema(await readTemplate("harbour-stations", f.db), schemas.TemplateDetail, "$", schemas)).toEqual([]);
   });
 
+  it("reads an installed version's contents: its map's id, its datasets as measured, a workflow example's steps with their parameters and results and its arrangement", async () => {
+    // The fixtures, stated here: two datasets measured at install, and the
+    // workflow example's two steps over them, placed with one note.
+    const measured = [
+      { name: "stations", rowCount: 6, geometryColumn: "geom", geometryType: "POINT" },
+      { name: "districts", rowCount: 2, geometryColumn: "geom", geometryType: "POLYGON" },
+    ];
+    await ship(C1);
+    await download(B1);
+    await catalogue.publish([A1]);
+    await refreshCatalogue(f.db);
+
+    const busy = await readTemplate("busy-stations", f.db);
+    expect(busy.contents).toMatchObject({ mapId: "template.busy-stations.1.map", revision: B1.sha256.slice(0, 32) });
+    expect(busy.contents!.datasets.map(({ name, rowCount, geometryColumn, geometryType }) => ({ name, rowCount, geometryColumn, geometryType })))
+      .toEqual(measured);
+    const workflow = busy.contents!.workflow!;
+    expect(workflow.name).toBe("Busy stations");
+    expect(workflow.steps.map(({ id, operation, parameters, reads, output }) => ({ id, operation, parameters, reads, output: output.name }))).toEqual([
+      { id: "step-busy", operation: "sql_step", parameters: { sql: "SELECT * FROM stations WHERE riders > 100", name: "busy_stations" },
+        reads: ["stations"], output: "busy_stations" },
+      { id: "step-rings", operation: "buffer", parameters: { input: "busy_stations", distance: 250, name: "station_rings" },
+        reads: ["busy_stations"], output: "station_rings" },
+    ]);
+    expect(workflow.layout).toMatchObject({
+      steps: { "step-busy": { x: 320, y: 40 }, "step-rings": { x: 620, y: 40 } }, sources: { stations: { x: 20, y: 40 } },
+      notes: [{ id: "note-1", x: 320, y: 220, w: 240, h: 120, color: "yellow", text: "Busy means more than a hundred riders." }],
+    });
+
+    const quiet = await readTemplate("quiet-park", f.db);
+    expect(quiet.contents).toMatchObject({ mapId: "template.quiet-park.1.map", workflow: null });
+    expect(quiet.contents!.datasets.map((d) => d.name)).toEqual(measured.map((d) => d.name));
+    // Listed and not on this server: nothing to read yet.
+    expect((await readTemplate("harbour-stations", f.db)).contents).toBeNull();
+
+    const schemas = buildOpenApiDocument().components.schemas as Record<string, Record<string, unknown>>;
+    for (const read of [busy, quiet, await readTemplate("harbour-stations", f.db)]) {
+      expect(validateAgainstSchema(read, schemas.TemplateDetail, "$", schemas), read.id).toEqual([]);
+    }
+  });
+
   it("reads one template with how it is made, and refuses an id no template has", async () => {
     await catalogue.publish([B1]);
     await refreshCatalogue(f.db);
     expect(await readTemplate("busy-stations", f.db)).toMatchObject({ id: "busy-stations", version: 1, howMade: B1.facts.howMade });
     await expect(readTemplate("no-such-template", f.db)).rejects.toMatchObject({ code: "template_not_listed", status: 404 });
     await expect(templatePicture("no-such-template", "light", f.db)).rejects.toMatchObject({ code: "template_not_listed" });
+  });
+
+  it("reads the version named: an installed one with its contents, or the one the kept list names, never another", async () => {
+    await ship(C1);
+    await download(B1);
+    await catalogue.publish([B2]);
+    await refreshCatalogue(f.db);
+    // Unnamed, the card's version: the newer listed one, not installed yet.
+    expect(await readTemplate("busy-stations", f.db)).toMatchObject({ version: 2, present: false, installed: 1, listed: 2, contents: null });
+    // Named, the installed one as it is, with what it holds.
+    const installed = await readTemplate("busy-stations", f.db, 1);
+    expect(installed).toMatchObject({
+      id: "busy-stations", version: 1, title: B1.facts.title, present: true, installed: 1, listed: 2, size: B1.size, howMade: B1.facts.howMade,
+      contents: { mapId: "template.busy-stations.1.map" },
+    });
+    expect(installed.contents!.workflow!.steps.map((step) => step.id)).toEqual(["step-busy", "step-rings"]);
+    // The version the kept list names, as the card reads it.
+    expect(await readTemplate("busy-stations", f.db, 2)).toEqual(await readTemplate("busy-stations", f.db));
+    // Any other is not listed, and a shipped id has its shipped version alone.
+    await expect(readTemplate("busy-stations", f.db, 3)).rejects.toMatchObject({ code: "template_not_listed", status: 404 });
+    expect(await readTemplate("quiet-park", f.db, 1)).toMatchObject({ version: 1, present: true, origin: "shipped" });
+    await expect(readTemplate("quiet-park", f.db, 2)).rejects.toMatchObject({ code: "template_not_listed" });
+    const schemas = buildOpenApiDocument().components.schemas as Record<string, Record<string, unknown>>;
+    expect(validateAgainstSchema(installed, schemas.TemplateDetail, "$", schemas)).toEqual([]);
+    expect(catalogue.requestsFor(`/${CATALOGUE_INDEX_FILE}`)).toHaveLength(1);
   });
 });
 

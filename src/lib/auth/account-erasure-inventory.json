@@ -5968,6 +5968,22 @@
         "templates/*/*"
       ]
     },
+    "location:src/lib/templates/catalogue.ts#readTemplate.installed:downloadedTemplatesDir": {
+      "stores": [
+        "file:templates"
+      ],
+      "roots": [
+        "templates"
+      ]
+    },
+    "location:src/lib/templates/catalogue.ts#readTemplate.installed:path.join": {
+      "stores": [
+        "file:templates"
+      ],
+      "roots": [
+        "templates/*/*"
+      ]
+    },
     "location:src/lib/templates/copy-artifacts.ts#copyDatasetFile.target:dataDir": {
       "stores": [
         "file:tables"

@@ -74,6 +74,17 @@ const LINKS = [
     match: (p: string) => p.startsWith("/developer"),
     icon: <path d="M3.5 5h17v14h-17zM7.5 9.5l3 2.5-3 2.5M13 15h4" />,
   },
+  {
+    href: "/templates",
+    label: "Templates",
+    match: (p: string) => p.startsWith("/templates"),
+    icon: (
+      <>
+        <circle cx="12" cy="12" r="9" />
+        <path d="m15.6 8.4-2.1 5.1-5.1 2.1 2.1-5.1 5.1-2.1Z" />
+      </>
+    ),
+  },
 ];
 
 /* Bottom-cluster entry, same row shape as the sections.

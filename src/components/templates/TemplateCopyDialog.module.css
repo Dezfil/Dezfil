@@ -1,0 +1,79 @@
+/* Make a copy: the kit dialog with the New-workflow dialog's name field,
+   a line saying what comes, and the two actions. */
+
+.dialog {
+  width: min(460px, 100%);
+  flex-direction: column;
+}
+
+.head {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 16px 18px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.head strong {
+  font-family: var(--font-display);
+  font-size: var(--text-heading);
+  font-weight: 600;
+}
+
+.head small {
+  color: var(--fg-muted);
+  font-size: var(--text-label);
+}
+
+.nameField {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 14px 18px 0;
+  font-family: var(--font-ui);
+  font-size: var(--text-meta);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+
+.nameField input {
+  font-family: var(--font-ui);
+  font-size: var(--text-body);
+  color: var(--fg);
+  background: var(--bg-raised);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  padding: 7px 10px;
+}
+
+/* the accent tint on focus; the global :focus-visible ring stays. */
+.nameField input:focus {
+  border-color: color-mix(in srgb, var(--accent) 60%, transparent);
+}
+
+.line {
+  padding: 12px 18px 0;
+  font-size: var(--text-label);
+  line-height: 1.5;
+  color: var(--fg-muted);
+}
+
+.line b {
+  font-weight: 600;
+  color: var(--fg);
+}
+
+.problem {
+  padding: 10px 18px 0;
+  font-size: var(--text-label);
+  line-height: 1.45;
+  color: var(--danger);
+}
+
+.foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 16px 18px;
+}

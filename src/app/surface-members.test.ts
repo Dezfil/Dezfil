@@ -89,6 +89,7 @@ export const DIRECT: Direct[] = [
   ]),
   { step: STEP.chrome, file: C + "builder/publish/PublishControl.module.css", selector: ".trigger", property: "box-shadow", value: "var(--shadow-float)", what: "Publish before publishing" },
   { step: STEP.chrome, file: C + "workflow-canvas/WorkflowCanvas.module.css", selector: ".runChrome .runAction[data-run-action]", property: "box-shadow", value: "var(--shadow-float)", what: "Run all" },
+  { step: STEP.chrome, file: C + "templates/TemplateView.module.css", selector: ".copyAction", property: "box-shadow", value: "var(--shadow-float)", what: "Make a copy, a template's one action" },
   { step: STEP.chrome, file: C + "gallery.module.css", selector: ".ghost .plus", property: "box-shadow", value: "var(--shadow-float)", what: "the create tile's disc, the face of the New button" },
   { step: STEP.chrome, file: C + "projects/EmptyHome.module.css", selector: ".plateGlyph", property: "box-shadow", value: "var(--shadow-float)", what: "the empty project's glyph, the same face" },
   {
@@ -127,6 +128,7 @@ export const MEMBERS: Member[] = [
   m(STEP.panel, "glass-panel", C + "workflow-canvas/WorkflowCanvas.module.css", ".inspector", GLASS, "the workflow canvas's inspector"),
   m(STEP.panel, "glass-panel", C + "builder/drawer/RecipeDrawer.module.css", ".drawer", GLASS, "the Tools drawer, and the Assistant pane that composes it"),
   st(STEP.panel, "glass-panel", C + "builder/drawer/RecipeDrawer.module.css", '.drawer[data-overlay="true"]', ["shadow"], "the drawer and the pane overlaying the stage"),
+  m(STEP.panel, "glass-panel", C + "templates/TemplateView.module.css", ".panel", GLASS, "How it's made beside a template's map or canvas"),
   // Overlay panel: what is read over a map or the canvas
   m(STEP.overlay, "overlay-panel", C + "map/LegendPanel.module.css", ".legend", GLASS, "the legend"),
   m(STEP.overlay, "overlay-panel", C + "builder/StatusBar.module.css", ".bar", GLASS, "the status pill"),

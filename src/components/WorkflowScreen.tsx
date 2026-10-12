@@ -39,6 +39,7 @@ import { useRunConfirm } from "./workflow-canvas/use-run-confirm";
 import { useWorkflowAssistant } from "./workflow-canvas/WorkflowAssistantHost";
 import { HeaderHistory } from "./workflow-canvas/HeaderHistory";
 import { ViewOnly } from "./workflow-canvas/view-only";
+import { TemplateCanvas, type TemplateCanvasSeam } from "./workflow-canvas/template-canvas";
 import { usePathname } from "next/navigation";
 import { contributePath, releasePath } from "@/components/shell/path-model";
 import styles from "./WorkflowScreen.module.css";
@@ -149,6 +150,7 @@ function WorkflowEditor({
   id,
   viewOnly = false,
   runs = !viewOnly,
+  template,
 }: WorkflowRecoveryProps & {
   id: string;
   /** The page of whoever may not change the workflow, decided by the page
@@ -157,13 +159,17 @@ function WorkflowEditor({
   /** Whether its runs are offered: whoever may run it, which a frozen
    * workflow still allows to its Editors. */
   runs?: boolean;
+  /** A template's workflow example on the template's page: its documents
+   * come through this seam, the page owns the header, and nothing is read
+   * from the recipe, run or dataset roads (template-canvas.tsx). */
+  template?: TemplateCanvasSeam;
 }) {
   const editorDocument = useMemo(() => new WorkflowDocument(id), [id]);
   const load = useCallback(async (): Promise<PageRead> => {
-    const page = recoverySeed ?? await readWorkflowPage(id);
+    const page = template ? await template.read() : (recoverySeed ?? await readWorkflowPage(id));
     editorDocument.install(page.recipe, page.layout);
     return page;
-  }, [id, editorDocument, recoverySeed]);
+  }, [id, editorDocument, recoverySeed, template]);
   const { state, retry } = useAsync<PageRead>(load, `workflow:${id}`);
   // The live state: the first read seeds it; every accepted change
   // re-reads the recipe, an import re-reads the tables, a layout write
@@ -199,6 +205,9 @@ function WorkflowEditor({
   const tablesSeq = useRef(0);
   const latestTablesRead = useRef<Promise<boolean> | null>(null);
   const refreshTables = useCallback(async (): Promise<boolean> => {
+    // A template's datasets are listed in no one's data: its listing is
+    // the one its page handed over.
+    if (template) return false;
     const mine = ++tablesSeq.current;
     const read = (async () => {
       try {
@@ -215,7 +224,7 @@ function WorkflowEditor({
     const landed = await read;
     if (!landed && mine !== tablesSeq.current && latestTablesRead.current) return latestTablesRead.current;
     return landed;
-  }, []);
+  }, [template]);
   // One request per import, carrying every table it brought (a container
   // can hold several): the canvas places each as a loose source.
   const onTablesCreated = useCallback(
@@ -378,7 +387,8 @@ function WorkflowEditor({
     }),
     [edits, refreshRecipe, refreshTables],
   );
-  const runner = useWorkflowRun(id, runPorts, editorDocument);
+  // A template's workflow has no runs to read.
+  const runner = useWorkflowRun(id, runPorts, editorDocument, template !== undefined);
   const editorPort = useWorkflowEditorPort(id, editorDocument, runner, refreshTables, setLive);
   // The assistant's door and open state: the door follows Undo and Redo in the header's left
   // group; the pane is the canvas's to mount, closed on every page open. A run resolved from
@@ -417,13 +427,14 @@ function WorkflowEditor({
   // membership; nothing renders while the page is unloaded.
   const canvasPath = usePathname();
   useEffect(() => {
-    if (!page) return;
+    // A template's page names it in the path itself.
+    if (!page || template) return;
     contributePath(canvasPath, {
       name,
       projectId: page.recipe.projectId,
     });
     return () => releasePath(canvasPath);
-  }, [canvasPath, page, name]);
+  }, [canvasPath, page, name, template]);
   const graph = useMemo(
     () =>
       page
@@ -461,14 +472,15 @@ function WorkflowEditor({
       onRecovered?.(seed);
     } }}>
     <ViewOnly value={viewOnly} runs={runs}>
+    <TemplateCanvas value={template ?? null}>
     <div className={styles.screen} data-workflow-frame data-view-only={viewOnly || undefined}>
-      {crumbSlot &&
+      {!template && crumbSlot &&
         page &&
         createPortal(
           <CrumbName name={name} owner={page.recipe.owner} facts={page.recipe} onRename={(n) => void rename(n)} readOnly={viewOnly} />,
           crumbSlot,
         )}
-      {historySlot &&
+      {!template && historySlot &&
         page &&
         graph &&
         history &&
@@ -476,7 +488,7 @@ function WorkflowEditor({
           <HeaderHistory history={history} assistant={assistant} />,
           historySlot,
         )}
-      {actionSlot &&
+      {!template && actionSlot &&
         page &&
         graph &&
         createPortal(
@@ -543,6 +555,7 @@ function WorkflowEditor({
         uploadQueue={uploadQueue}
       />
     </div>
+    </TemplateCanvas>
     </ViewOnly>
     </CanvasRecoveryContext.Provider>
     </DocumentEditorContext.Provider>

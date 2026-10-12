@@ -278,3 +278,24 @@ export function unproducedOutput(name: string | null, graph: CanvasGraph, tables
   const m = memberByName(graph, name);
   return m !== null && m.kind === "node" && m.step.output === null;
 }
+
+/**
+ * The columns a parameter's saved value names, as a column control offers
+ * them: a field's name, a column list's names, a carried value's column.
+ * A template's step is shown by what it saved, and its inputs are no one's
+ * datasets whose columns a road could read; their types are not known
+ * here, so none is given.
+ */
+export function savedColumns(value: unknown): { name: string; type: string }[] {
+  const names = typeof value === "string"
+    ? [value]
+    : Array.isArray(value)
+      ? value.flatMap((entry: unknown) =>
+        typeof entry === "string"
+          ? [entry]
+          : entry !== null && typeof entry === "object" && typeof (entry as { field?: unknown }).field === "string"
+            ? [(entry as { field: string }).field]
+            : [])
+      : [];
+  return [...new Set(names.filter((name) => name !== ""))].map((name) => ({ name, type: "" }));
+}

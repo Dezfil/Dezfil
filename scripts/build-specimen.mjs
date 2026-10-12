@@ -68,7 +68,7 @@ const ROLE_NOTES = {
   },
   "glass-panel": {
     nm: "Floating glass, panel",
-    what: "What floats over the page and is read: the builder's inspector, the Tools drawer and the Assistant pane, the SQL page's left pane, the workflow canvas's pane and inspector. Docked or overlaying, no edge.",
+    what: "What floats over the page and is read: the builder's inspector, the Tools drawer and the Assistant pane, the SQL page's left pane, the workflow canvas's pane and inspector, How it's made beside a template. Docked or overlaying, no edge.",
   },
   "overlay-panel": {
     nm: "Overlay panel",

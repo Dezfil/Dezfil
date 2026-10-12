@@ -136,11 +136,16 @@ export function ReaderStage({
   basemapOverrideUrl,
   basemapOverrideAttribution,
   basemaps,
+  besidePanel = false,
 }: BasemapProps & {
   mapId: string;
   map: MapWithLayers;
   projectId: string | null;
   renders: Record<string, LayerRenderData>;
+  /** The stage stands beside a panel where the builder's inspector would
+   * (a template's How it's made): it keeps the builder's edge, and the
+   * page around it names it in the header and the path. */
+  besidePanel?: boolean;
 }) {
   const { theme } = useTheme();
   const [renders, setRenders] = useState(loaded);
@@ -208,18 +213,20 @@ export function ReaderStage({
   // edges first and slides across, and before the edges are read (the read
   // waits a frame).
   useLayoutEffect(() => {
+    if (besidePanel) return;
     document.body.setAttribute("data-map-reader", "");
     return () => document.body.removeAttribute("data-map-reader");
-  }, []);
+  }, [besidePanel]);
   const stageEdges = useStageEdges();
 
   // The shell's path: the map's name and, when the reader reaches it, its
   // project, whose segment leads home and carries the people mark.
   const pathname = usePathname();
   useEffect(() => {
+    if (besidePanel) return;
     contributePath(pathname, { name: map.name, projectId });
     return () => releasePath(pathname);
-  }, [pathname, map.name, projectId]);
+  }, [pathname, map.name, projectId, besidePanel]);
 
   const failed = map.layers.filter((l) => {
     const r = renders[l.id];
@@ -235,7 +242,9 @@ export function ReaderStage({
 
   return (
     <>
-      <PlainCrumbTail facts={acceptedDocumentFacts(map)} name={map.name} owner={(map as { owner?: PersonLabel }).owner} />
+      {besidePanel ? null : (
+        <PlainCrumbTail facts={acceptedDocumentFacts(map)} name={map.name} owner={(map as { owner?: PersonLabel }).owner} />
+      )}
       <MapPresentation
         stage={stage}
         map={map}

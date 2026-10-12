@@ -5,7 +5,7 @@ import { Dialog } from "@/components/ui/Dialog";
 import { ErrorNote } from "@/components/ui/ErrorNote";
 import { TextInput } from "@/components/ui/Field";
 import { failureMessage } from "./api";
-import { addressState, addressWords, DATA_LABELS, type AddressRow } from "./data-table";
+import { addressIsFolder, addressState, addressWords, DATA_LABELS, type AddressRow } from "./data-table";
 import { writeInstanceSettings, type InstanceRead } from "./instance-read";
 import { inLabels } from "./limits-table";
 import { rowRefusals, SAVED_HOLD_MS, WriteRefusal } from "./save-unit";
@@ -25,8 +25,10 @@ import styles from "./DataTab.module.css";
  * saved address the instance's key cannot read. An address is pasted
  * whole and kept on Save, never shown again; Remove asks first. Set by
  * the server's environment, the row is the locked field naming its
- * variable. A tile template in effect that carries a user name or password
- * says under it that browsers draw nothing from it.
+ * variable, or a folder on the server where the variable names one in
+ * place of an address (the template catalogue's), never its path. A tile
+ * template in effect that carries a user name or password says under it
+ * that browsers draw nothing from it.
  *
  * Typed text holds the page as any typed text does, but it never reaches
  * the search: an address may carry a key.
@@ -58,7 +60,7 @@ export function ServiceAddressRow({ row, setting, card, onAnswer, labels = DATA_
   const decided = serverSetState(setting);
   if (decided) {
     return <SettingRow id={row.id} label={row.label} meta={row.meta}>
-      <LockedField label={row.name} value={addressWords(row, setting)} mono state={decided} />
+      <LockedField label={row.name} value={addressWords(row, setting)} mono={!addressIsFolder(setting)} state={decided} />
       {credentials}
     </SettingRow>;
   }

@@ -21,13 +21,18 @@ export const STORAGE_CARD = { id: "system-storage", title: "Storage", keys: "dis
 
 export const LEFTOVER_NOTE = "Includes work in progress. What is left goes at the next restart.";
 
+/** Templates holds more than the Templates card's Downloaded row: the
+ * query engine reads an installed template's data from copies kept beside
+ * the tables, the shipped templates' among them. */
+export const TEMPLATES_NOTE = "Counts the downloads and the query engine’s copies of installed templates’ data.";
+
 const DISK = "disk storage space size";
 export const STORAGE_ROWS: Readonly<Record<StorageKind, StorageRowFacts>> = {
   tables: { id: "sys-tables", label: "Tables", keys: `${DISK} tables datasets geoparquet` },
   tile_archives: { id: "sys-tiles", label: "Tile archives", keys: `${DISK} tiles pmtiles archives` },
   service_caches: { id: "sys-caches", label: "Service caches", keys: `${DISK} cache caches geocode overpass isochrone clear` },
   thumbnails: { id: "sys-thumbnails", label: "Thumbnails", keys: `${DISK} thumbnails images cards` },
-  templates: { id: "sys-templates", label: "Templates", keys: `${DISK} templates downloaded downloads examples` },
+  templates: { id: "sys-templates", label: "Templates", keys: `${DISK} templates downloaded downloads examples`, meta: TEMPLATES_NOTE },
   metadata_database: { id: "sys-metadata-size", label: "Metadata database", keys: `${DISK} sqlite metadata` },
   leftover_files: { id: "sys-leftovers", label: "Leftover files", keys: `${DISK} leftover stray orphan scratch temporary sweep restart`, meta: LEFTOVER_NOTE },
   other: { id: "sys-other", label: "Other", keys: `${DISK} other rest records` },

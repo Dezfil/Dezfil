@@ -8,6 +8,7 @@ import type { CanvasGraph, CanvasMember, NodeMember, SourceMember } from "./grap
 import { NodePanel } from "./NodePanel";
 import type { WorkflowRun } from "./run-overlay";
 import { SourcePanel } from "./SourcePanel";
+import { useTemplateCanvas } from "./template-canvas";
 import { WorkflowAssistantPane, type WorkflowAssistant } from "./WorkflowAssistantHost";
 
 /**
@@ -18,7 +19,9 @@ import { WorkflowAssistantPane, type WorkflowAssistant } from "./WorkflowAssista
  * stays mounted; shifted left by the pane's width plus gutter in full
  * view at or above the limit; and the pane itself, whose context and
  * chips read the selection and the runner. The band's reserve and the
- * free rect the placements read live here too.
+ * free rect the placements read live here too. A template's canvas mounts
+ * no assistant pane: nothing on a template's page acts but Make a copy,
+ * and its page offers no door to one.
  */
 
 /** The gutter the shell keeps around its cards (the kit's token, as a number). */
@@ -68,6 +71,7 @@ export function CanvasFurniture({ selected, graph, operations, tables, layout, l
   runner: { active: WorkflowRun | null; ended: WorkflowRun | null };
 }) {
   const run = lastObservedRun(runner);
+  const template = useTemplateCanvas() !== null;
   const panel = selected && (selected.kind === "node" || selected.kind === "source") ? selected : null;
   const style = { "--panel-shift": `${layout.panelShift}px` } as React.CSSProperties;
   return (
@@ -81,12 +85,14 @@ export function CanvasFurniture({ selected, graph, operations, tables, layout, l
           )}
         </div>
       )}
-      <WorkflowAssistantPane
-        assistant={assistant}
-        overlay={layout.paneOverlay}
-        context={workflowAssistantContext(recipe.id, selected, run)}
-        facts={workflowFacts(recipe.name, selected, run)}
-      />
+      {template ? null : (
+        <WorkflowAssistantPane
+          assistant={assistant}
+          overlay={layout.paneOverlay}
+          context={workflowAssistantContext(recipe.id, selected, run)}
+          facts={workflowFacts(recipe.name, selected, run)}
+        />
+      )}
     </>
   );
 }

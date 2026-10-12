@@ -7,6 +7,7 @@ import { AddToMapDialog, tableSubject } from "../AddToMapDialog";
 import { Button } from "../ui/Button";
 import type { WorkflowStep } from "../workflow-model";
 import { NO_GEOMETRY_LAYER } from "./band-selection";
+import { useTemplateCanvas } from "./template-canvas";
 import styles from "./WorkflowCanvas.module.css";
 
 /**
@@ -15,10 +16,13 @@ import styles from "./WorkflowCanvas.module.css";
  * dataset, unavailable with the reason for a table, absent for an output
  * the listing no longer holds. Outside the panel's inert fieldsets: the
  * action changes a map, never the node, and stays usable while the node
- * waits in a run.
+ * waits in a run. On a template's page the output is the template's own
+ * result, named as such and never as a run, and no map takes it; in a
+ * copy, a result that came with the template says so until its first run.
  */
 export function OutputFacts({ step, outputName, table }: { step: WorkflowStep; outputName: string; table: TableListing | null }) {
   const [subject, setSubject] = useState<string | null>(null);
+  const template = useTemplateCanvas() !== null;
   return (
     <>
       <dl className={styles.kvs} data-output-facts>
@@ -32,10 +36,10 @@ export function OutputFacts({ step, outputName, table }: { step: WorkflowStep; o
         </div>
         <div className={styles.kv}>
           <dt>Last run</dt>
-          <dd data-plain>{step.lastSuccessAt ? formatRelativeTime(step.lastSuccessAt) : "no successful run"}</dd>
+          <dd data-plain data-last-run>{lastRun(step, template)}</dd>
         </div>
       </dl>
-      {table ? (
+      {table && !template ? (
         <div data-output-actions>
           <div className={styles.btnRow}>
             <Button
@@ -55,4 +59,11 @@ export function OutputFacts({ step, outputName, table }: { step: WorkflowStep; o
       <AddToMapDialog key={subject ?? "<closed>"} subject={tableSubject(subject)} onClose={() => setSubject(null)} />
     </>
   );
+}
+
+/** The Last run row: when the output was made, or where it came from when
+ * no run made it. */
+function lastRun(step: WorkflowStep, template: boolean): string {
+  if (step.templateResult) return template ? "the template's result" : "copied from the template";
+  return step.lastSuccessAt ? formatRelativeTime(step.lastSuccessAt) : "no successful run";
 }

@@ -9,6 +9,7 @@ import { GeometryGlyph } from "../ui/operation-icons";
 import { formatCount } from "../api";
 import type { CanvasGraph, NodeMember, SourceMember } from "./graph";
 import { useTableFacts } from "./use-table-facts";
+import { useTemplateCanvas } from "./template-canvas";
 import styles from "./WorkflowCanvas.module.css";
 
 /**
@@ -37,8 +38,10 @@ export function SourcePanel({
 }) {
   // The dataset by the name its reader types: the home's `roads` is
   // someone else's when the reader is not the home, and a bare name would
-  // read the reader's own.
-  const read = useTableFacts(member.missing ? null : member.typedName);
+  // read the reader's own. A template's dataset is no one's to read: its
+  // panel says what its page handed over.
+  const template = useTemplateCanvas() !== null;
+  const read = useTableFacts(member.missing || template ? null : member.typedName);
   // A node reading the table through two ports is one reader.
   const readers = graph.edges
     .filter((e) => e.from === member.id && e.time !== "lineage")
@@ -89,7 +92,9 @@ export function SourcePanel({
               <div className={styles.kv}>
                 <dt>Source</dt>
                 <dd data-plain>
-                  {facts
+                  {template
+                    ? "this template"
+                    : facts
                     ? facts.sourceFilename
                       ? `${facts.sourceFilename} (${facts.format})`
                       : facts.inputs
@@ -101,7 +106,7 @@ export function SourcePanel({
             </dl>
           </section>
         ) : null}
-        {!member.missing ? (
+        {!member.missing && !template ? (
           <section className={styles.sec} aria-label="Columns">
             <h4 className={styles.secLabel}>
               Columns {facts ? <span className={styles.cnt}>{facts.columns.length}</span> : null}
@@ -144,7 +149,7 @@ export function SourcePanel({
           )}
         </section>
         <div className={styles.btnRow}>
-          {!member.missing && member.typedName ? (
+          {!member.missing && !template && member.typedName ? (
             <Link href={`/tables/${encodeURIComponent(member.typedName)}`} className={styles.linkBtn} data-open-explorer>
               <ExternalIcon /> Open in Data
             </Link>

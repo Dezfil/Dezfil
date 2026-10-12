@@ -259,7 +259,7 @@ describe("a copy of a map template", () => {
 
     expect(copied.project).toMatchObject({
       name: "Harbour stations",
-      note: `Copied from the template Harbour stations (harbour-stations), version 1, on ${TODAY()}.`,
+      note: `Copied from the template Harbour stations, version 1, on ${TODAY()}.`,
       role: "owner", mapCount: 1, recipeCount: 0, tableCount: 2,
     });
     expect(names(copied)).toEqual(["districts", "stations"]);

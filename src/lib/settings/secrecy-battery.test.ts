@@ -5,9 +5,12 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import type { AddressInfo } from "node:net";
 import path from "node:path";
 import { format } from "node:util";
+import { readApiError } from "@/components/api";
+import { testAnswerWords } from "@/components/settings/data-table";
 import type { InstanceRead } from "@/components/settings/instance-read";
 import { settingsDeclarations } from "@/components/settings/settings-index";
 import { buildSearchIndex } from "@/components/settings/settings-search";
+import { screenLine } from "@/components/templates/template-model";
 import { GET as imageryRoute } from "@/app/api/basemaps/satellite/route";
 import { GET as publishedRoute } from "@/app/api/published/[token]/route";
 import { runAssistant, resumeAssistant, type AssistantEvent } from "@/lib/assistant/loop";
@@ -54,7 +57,9 @@ import { SETTING_CATALOGUE } from "./catalogue";
  * given on each of those roads and refused, and set by the variable alone,
  * which carries it to every sink the template reaches (the reads, the
  * Tests, the imagery style and its refusal, a publication): every read, change
- * answer and refusal, the assistant's confirmation, events, pending receipt
+ * answer and refusal, the Templates tab's line about the catalogue and the
+ * Templates card's Test line as each draws them from what it was answered,
+ * the assistant's confirmation, events, pending receipt
  * and stored record (a call giving an address as a list or an object, and
  * its refusal, among them), the Test answers and Clear's, the settings
  * search's index, OpenStreetMap's and cloud storage's refusals (a page not
@@ -225,11 +230,20 @@ async function reads(where: string, source: "stored" | "environment") {
     searched(`${where}: the runtime read (${as})`, runtime.text);
     const templates = await ask("GET", "/api/templates", undefined, as);
     expect(templates.status).toBe(200);
+    searched(`${where}: the Templates tab's line (${as})`, await tabLine(templates));
     searched(`${where}: the template list (${as})`, templates.text, { origin });
   }
   const index = buildSearchIndex(settingsDeclarations({ account: ACCOUNT, tokens: null, look: null, instance: read.body as InstanceRead,
     entry: null, health: null, assistant: null, palettes: null }, true), true);
   searched(`${where}: the settings search`, index, { origin });
+}
+
+/** The Templates tab's line about the catalogue, as the page draws it from
+ * a template list it was answered, or from a refresh it was refused in the
+ * refusal's own words over the list it already holds. */
+async function tabLine(answer: Answer, holding: unknown = null): Promise<string> {
+  if (answer.status === 200) return screenLine(answer.body, null, false) ?? "";
+  return screenLine(holding as never, await readApiError(new Response(answer.text, { status: answer.status })), false) ?? "";
 }
 
 /** The renderer's refusal of a map that reaches a blocked address. */
@@ -489,23 +503,45 @@ describe("a service address carrying a key", () => {
       const tested = await ask("POST", `/api/instance/services/${service}/test`);
       expect(tested.body, tested.text).toMatchObject({ service, result: "passed" });
       searched(`the ${service} Test's answer`, tested.text);
+      searched(`the ${service} Test's line`, testAnswerWords(tested.body).text);
     }
     // The template catalogue read: its refresh by page, by a member and by
-    // the generated tool, the list naming the catalogue by scheme and host.
+    // the generated tool, the list naming the catalogue by scheme and host,
+    // and the Templates tab's line drawn from each list.
+    let held: unknown = null;
     for (const as of ["page", "member"] as const) {
       const refreshed = await ask("POST", "/api/templates/refresh", undefined, as);
       expect(refreshed.body.catalogue, refreshed.text).toMatchObject({ state: "empty", host: origin });
+      searched(`the Templates tab's line after the refresh (${as})`, await tabLine(refreshed));
       searched(`the template catalogue's refresh (${as})`, refreshed.text, { origin });
+      held = refreshed.body;
     }
     const refreshedByTool = await executeTool(tool("refresh_templates"), {}, BASE, toolFetch);
     searched("the generated tool's template refresh", refreshedByTool.body, { origin });
     await save({ templatesCatalogueUrl: address("templatesCatalogueUrl", { fault: "down" }) });
     const catalogueDown = await ask("POST", "/api/instance/services/templates/test");
     expect(catalogueDown.body, catalogueDown.text).toMatchObject({ service: "templates", result: "failed", reason: "status", status: 503 });
+    searched("the template catalogue's failed Test line", testAnswerWords(catalogueDown.body).text);
     searched("the template catalogue's failed Test answer", catalogueDown.text);
     const refusedList = await ask("POST", "/api/templates/refresh");
     expect(refusedList.body.catalogue, refusedList.text).toMatchObject({ state: "refused", reason: "status", status: 503 });
+    const refusedLine = await tabLine(refusedList);
+    expect(refusedLine).toBe("The template catalogue answered with status 503, so only the templates on this server show.");
+    searched("the Templates tab's line for a catalogue that refused", refusedLine);
     searched("the template catalogue's refused refresh", refusedList.text, { origin });
+    // Turned off while the page held a list: its refresh and the Test are
+    // refused, and the page's line is the refusal's own words.
+    expect((await save({ "templates.catalogue": false })).status).toBe(200);
+    const offList = await ask("POST", "/api/templates/refresh");
+    expect(offList.status, offList.text).toBe(409);
+    const offLine = await tabLine(offList, held);
+    expect(offLine).toBe(offList.body.error.message);
+    searched("the Templates tab's line for a refresh refused while off", offLine);
+    searched("the template catalogue's refresh refused while off", offList.text);
+    const offTest = await ask("POST", "/api/instance/services/templates/test");
+    expect(offTest.status, offTest.text).toBe(409);
+    searched("the template catalogue's Test refused while off", offTest.text);
+    expect((await save({ "templates.catalogue": null })).status).toBe(200);
     await save({ templatesCatalogueUrl: address("templatesCatalogueUrl") });
     const byTool = await executeTool(tool("test_service"), { service: "geocode" }, BASE, toolFetch);
     expect(byTool.body).toMatchObject({ service: "geocode", result: "passed" });

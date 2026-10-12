@@ -245,6 +245,11 @@ const ALLOWED = new Set([
   "src/components/sql/SqlConsole.module.css :: .resNotes code",
   "src/components/sql/SqlConsole.module.css :: .rowName",
   "src/components/ui/ErrorNote.module.css :: .detailText",
+  // A template's How it's made, as its reference sets it: a dataset's
+  // name and a step's output are identifiers, a layer's SQL is code.
+  "src/components/templates/TemplateView.module.css :: .dataTop b",
+  "src/components/templates/TemplateView.module.css :: .steps code",
+  "src/components/templates/TemplateView.module.css :: .sql",
 ]);
 
 describe("the mono boundary", () => {

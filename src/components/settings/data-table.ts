@@ -8,8 +8,9 @@ import { tabAddress } from "./settings-address";
 /**
  * The Data & services tab's rows: one card per outside service (the
  * address finder, travel time, OpenStreetMap, Overture, cloud storage),
- * then the private hosts the server may reach; the card on who may add
- * connections or import from links is Security's kind and lives with it.
+ * the template catalogue's card, then the private hosts the server may
+ * reach; the card on who may add connections or import from links is
+ * Security's kind and lives with it.
  * Each row is mapped by key onto the configuration read, which supplies a
  * number's range, default and value in its variable's unit, an address as
  * scheme and host, and whether the server's environment decides it. This
@@ -147,6 +148,39 @@ export const DATA_CARDS: readonly DataCard[] = [
   ] },
 ];
 
+/**
+ * Templates: whether the server reads the template catalogue and where,
+ * its Test, and what the downloaded templates hold, with Remove all. The
+ * switch is kept at once and Reset returns it on; the address is a
+ * service address's own form, a folder its variable names shown with no
+ * path; the downloads are the template list's, read when the card opens
+ * and never by the search.
+ */
+export const TEMPLATES_CARD = {
+  id: "data-templates", title: "Templates", test: "templates",
+  keys: "templates catalogue examples finished maps workflows download",
+  catalogue: {
+    key: "templates.catalogue", id: "set-templates-catalogue", label: "Catalogue", name: "Use the catalogue", on: "In use", off: "Off",
+    keys: "use the catalogue read list switch on off",
+  },
+  address: {
+    kind: "address", key: "templatesCatalogueUrl", id: "set-templates-address", label: "Catalogue address", name: "Template catalogue address",
+    keys: "templates catalogue url index address folder release mirror", placeholder: "https://templates.example/index.json",
+    removal: "The default catalogue is read again.",
+  },
+  downloads: { id: "set-templates-downloads", label: "Downloaded", keys: "downloads downloaded remove all disk space versions" },
+} as const satisfies { readonly address: AddressRow; readonly test: TestedService } & Record<string, unknown>;
+
+export type TemplatesCardRows = typeof TEMPLATES_CARD;
+
+/** The tab's cards in the order it draws them: the services, then
+ * Templates, then the private network the server may reach. */
+export function dataTabCards(): readonly (DataCard | TemplatesCardRows)[] {
+  return DATA_CARDS.flatMap((card): (DataCard | TemplatesCardRows)[] => card.id === "data-private" ? [TEMPLATES_CARD, card] : [card]);
+}
+
+export const isTemplatesCard = (card: DataCard | TemplatesCardRows): card is TemplatesCardRows => card.id === TEMPLATES_CARD.id;
+
 /** Every row the tab's service cards draw, top to bottom. */
 export function dataRows(): DataRow[] {
   return DATA_CARDS.flatMap(card => card.rows);
@@ -162,18 +196,25 @@ export function addressRows(): AddressRow[] {
   return dataRows().filter((row): row is AddressRow => row.kind === "address");
 }
 
-/** Where each address and number the tab draws is, as a row address inside the tab. */
-export const DATA_ROW_IDS: Readonly<Record<string, string>> = Object.fromEntries(dataRows().flatMap(row =>
-  row.kind === "address" || row.kind === "number" ? [[row.key, row.id]] : []));
+/** Where each address, number and switch the tab draws is, as a row address inside the tab. */
+export const DATA_ROW_IDS: Readonly<Record<string, string>> = {
+  ...Object.fromEntries(dataRows().flatMap(row => row.kind === "address" || row.kind === "number" ? [[row.key, row.id]] : [])),
+  [TEMPLATES_CARD.catalogue.key]: TEMPLATES_CARD.catalogue.id,
+  [TEMPLATES_CARD.address.key]: TEMPLATES_CARD.address.id,
+};
 
 /** The address of a row this tab draws, by its setting's key, for a link from another tab. */
 export function dataRowAddress(key: string): string | null {
   return DATA_ROW_IDS[key] ? tabAddress("data", DATA_ROW_IDS[key]) : null;
 }
 
-/** The label each number and address is named by in a refusal, by key. */
-export const DATA_LABELS: Readonly<Record<string, string>> = Object.fromEntries(dataRows().flatMap((row): [string, string][] =>
-  row.kind === "number" ? [[row.key, row.label]] : row.kind === "address" ? [[row.key, row.name]] : []));
+/** The label each number, address and switch is named by in a refusal, by key. */
+export const DATA_LABELS: Readonly<Record<string, string>> = {
+  ...Object.fromEntries(dataRows().flatMap((row): [string, string][] =>
+    row.kind === "number" ? [[row.key, row.label]] : row.kind === "address" ? [[row.key, row.name]] : [])),
+  [TEMPLATES_CARD.catalogue.key]: TEMPLATES_CARD.catalogue.name,
+  [TEMPLATES_CARD.address.key]: TEMPLATES_CARD.address.name,
+};
 
 const round = (value: number, places: number) => Number(value.toFixed(places));
 
@@ -228,10 +269,21 @@ export function addressState(row: AddressRow, setting: Pick<ReadSetting, "value"
   return { kind: "none" };
 }
 
+/** What a folder on the server reads as where its variable names one in
+ * place of an address (the template catalogue's): never its path. */
+export const FOLDER_WORDS = "A folder on the server";
+
+/** Whether the read says a folder is set, which it never names. */
+export function addressIsFolder(setting: Pick<ReadSetting, "value"> | undefined): boolean {
+  return (setting?.value as { folder?: unknown } | null | undefined)?.folder === true;
+}
+
 /** An address as the search and a locked field read it: scheme and host,
- * the default's words, Set for one that cannot be read, or Not set up. */
+ * a folder with no path, the default's words, Set for one that cannot be
+ * read, or Not set up. */
 export function addressWords(row: AddressRow, setting: Pick<ReadSetting, "value" | "source"> | undefined): string {
   const value = setting?.value as { set?: boolean; origin?: string } | null | undefined;
+  if (addressIsFolder(setting)) return FOLDER_WORDS;
   if (setting?.source === "environment") return value?.origin ?? (value?.set ? "Set" : "");
   const state = addressState(row, setting);
   return state.kind === "saved" ? state.origin : state.kind === "default" ? state.text : state.kind === "unreadable" ? "Set" : "Not set up";
@@ -330,11 +382,20 @@ export function releaseListWords(facts: ReleaseListFacts | undefined, now = Date
   return `${releasesWords(facts.releases, facts.newest)} · ${checkedWords(facts.listedAt, now)}`;
 }
 
+/** How many templates the catalogue's index lists, and the time it took. */
+export function catalogueListedWords(templates: number, milliseconds: number): string {
+  const listed = templates === 0 ? "Lists no templates" : `Lists ${grouped(templates)} ${templates === 1 ? "template" : "templates"}`;
+  return `${listed}, answered in ${grouped(milliseconds)} ms`;
+}
+
 /** A Test's answer line: the time taken (Overture: how many and the
- * newest), or its one reason. Never more than the answer's closed shape. */
+ * newest; the template catalogue: how many and the time), or its one
+ * reason. Never more than the answer's closed shape. */
 export function testAnswerWords(answer: ServiceTestAnswer): { readonly passed: boolean; readonly text: string } {
   if (answer.result === "passed") {
-    return { passed: true, text: "releases" in answer ? releasesWords(answer.releases, answer.newest) : `Answered in ${grouped(answer.milliseconds)} ms` };
+    if ("releases" in answer) return { passed: true, text: releasesWords(answer.releases, answer.newest) };
+    if ("templates" in answer) return { passed: true, text: catalogueListedWords(answer.templates, answer.milliseconds) };
+    return { passed: true, text: `Answered in ${grouped(answer.milliseconds)} ms` };
   }
   switch (answer.reason) {
     case "not_set_up": return { passed: false, text: "Not set up." };
@@ -344,4 +405,27 @@ export function testAnswerWords(answer: ServiceTestAnswer): { readonly passed: b
     case "status": return { passed: false, text: `Answered with status ${answer.status}.` };
     case "unexpected_answer": return { passed: false, text: "Answered, but not as the service does." };
   }
+}
+
+/** What the downloaded templates hold, as their row says it. */
+export interface DownloadsFacts { readonly versions: number; readonly bytes: number }
+
+const versionsWords = (count: number) => `${grouped(count)} ${count === 1 ? "version" : "versions"}`;
+
+/** The Downloaded row: how many versions and their size, or None. */
+export function downloadsWords(downloads: DownloadsFacts): string {
+  return downloads.versions === 0 ? "None" : `${versionsWords(downloads.versions)} · ${sizeWords(downloads.bytes)}`;
+}
+
+/** What Remove all asks before it removes the downloads: what goes, and
+ * what stays, which is the surprise. */
+export function downloadsRemovalWords(downloads: DownloadsFacts): string {
+  return `${versionsWords(downloads.versions)} (${sizeWords(downloads.bytes)}) ${downloads.versions === 1 ? "is" : "are"} removed. ` +
+    "Shipped templates and every copy stay, and a template the catalogue lists downloads again when it is next opened.";
+}
+
+/** The catalogue switch's row, as the card and the search read it: In use,
+ * or Off as Settings' other switches read off. */
+export function catalogueSwitchWords(settings: Readonly<Record<string, { readonly value: unknown }>>): string {
+  return settings[TEMPLATES_CARD.catalogue.key]?.value === false ? TEMPLATES_CARD.catalogue.off : TEMPLATES_CARD.catalogue.on;
 }

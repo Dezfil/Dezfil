@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { STORAGE_KINDS } from "@/lib/system/storage-answer";
 import { storageReadFixture } from "./read-fixture";
-import { amountWords, cachesCleared, filesWords, FREE_ROW, freeWords, LEFTOVER_NOTE, shareOf, STORAGE_CARD, STORAGE_ROWS } from "./storage-table";
+import { amountWords, cachesCleared, filesWords, FREE_ROW, freeWords, LEFTOVER_NOTE, shareOf, STORAGE_CARD, STORAGE_ROWS, TEMPLATES_NOTE } from "./storage-table";
 
 /**
  * Storage's rows in words: each kind of file with its size, its share of
@@ -23,10 +23,14 @@ describe("the Storage rows' words", () => {
     expect([FREE_ROW.id, FREE_ROW.label]).toEqual(["sys-free", "Free on the disk"]);
   });
 
-  it("notes Leftover files with what it holds and when it goes, and no other row", () => {
+  it("notes Leftover files with what it holds and when it goes, Templates with what it counts, and no other row", () => {
     expect(LEFTOVER_NOTE).toBe("Includes work in progress. What is left goes at the next restart.");
-    expect(STORAGE_KINDS.filter(kind => STORAGE_ROWS[kind].meta)).toEqual(["leftover_files"]);
+    // More than the Templates card's Downloaded row: the query engine's
+    // copies of the installed templates' data, shipped ones included.
+    expect(TEMPLATES_NOTE).toBe("Counts the downloads and the query engine’s copies of installed templates’ data.");
+    expect(STORAGE_KINDS.filter(kind => STORAGE_ROWS[kind].meta)).toEqual(["templates", "leftover_files"]);
     expect(STORAGE_ROWS.leftover_files.meta).toBe(LEFTOVER_NOTE);
+    expect(STORAGE_ROWS.templates.meta).toBe(TEMPLATES_NOTE);
   });
 
   it("says a kind's size in the largest readable unit and its files, None for nothing", () => {

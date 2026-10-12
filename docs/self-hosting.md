@@ -97,8 +97,8 @@ the column's foot; members see General alone, read-only.
   published page follows the embedding choice from its next load, so embed code
   on a site no longer allowed stops showing the map.
 - **Data & services** holds the address finder, travel time, OpenStreetMap,
-  Overture, cloud storage, the private hosts the server may reach, and who may
-  add database connections and import from links. A service's address is
+  Overture, cloud storage, the template catalogue, the private hosts the server
+  may reach, and who may add database connections and import from links. A service's address is
   pasted whole and kept on Save, then shows only as its scheme and host with
   Set (OpenStreetMap's public server and Amazon S3 show Default); a new key
   means pasting the whole address again, and Remove asks first. An address the
@@ -107,7 +107,11 @@ the column's foot; members see General alone, read-only.
   requests, answer time limit and how long answers are kept change as the
   limits do, and its Reset leaves the address alone. Test sends the service one
   request and says how it answered, Clear empties a cache, and Check now lists
-  Overture's releases again. Reading cloud storage with the server's
+  Overture's releases again. The Templates card turns the catalogue on or off,
+  keeps its address as a service's (a folder its variable names shows as a
+  folder, never its path), tests it while it is in use, and shows how much the
+  downloaded templates take, with Remove all, which asks first and leaves the
+  shipped templates and every copy. Reading cloud storage with the server's
   credentials and the hosts the server may reach show locked, naming their
   variables.
 - **Limits** changes the editable limits while the instance runs; new work uses a

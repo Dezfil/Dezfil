@@ -7,6 +7,7 @@ import { AddToMapDialog, tableSubject } from "../AddToMapDialog";
 import { ResultsBand } from "./ResultsBand";
 import type { CanvasGraph, CanvasMember } from "./graph";
 import type { WorkflowRunner } from "./use-workflow-run";
+import { useTemplateCanvas } from "./template-canvas";
 
 /**
  * The results band with its map door, beside the canvas host: the band
@@ -15,7 +16,13 @@ import type { WorkflowRunner } from "./use-workflow-run";
  * afresh, as the dialog's other hosts do. Never node state: the dialog
  * writes a map and its layer, nothing of the recipe.
  */
-export function CanvasResults({
+export function CanvasResults(props: Parameters<typeof Results>[0]) {
+  // A template's workflow has no runs, and its data no one's listing: the
+  // band has nothing to show there.
+  return useTemplateCanvas() ? null : <Results {...props} />;
+}
+
+function Results({
   graph,
   selected,
   tables,

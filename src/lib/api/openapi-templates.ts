@@ -70,8 +70,52 @@ export const TEMPLATES_SCHEMAS = {
         datasets: { type: "array", items: object({ dataset: text("A dataset of the template."), source: text("The source it came from."), made: text("How it was made, in a line.") }) },
         styling: { type: "array", items: { type: "string" }, description: "The styling choices, a line each." },
       }),
+      contents: { anyOf: [{ $ref: "#/components/schemas/TemplateContents" }, { type: "null" }],
+        description: "What the version holds, once it is installed on this server (shipped, or downloaded and whole by its record); null while it is not, " +
+          "or when its files do not read. POST /api/templates/{id}/fetch installs a listed version." },
     }),
-    description: "One template: its card and how it is made.",
+    description: "One template: its card, how it is made, and what its version holds once installed.",
+  },
+  TemplateDataset: {
+    ...object({
+      id: text("Its id as a template's dataset or bundled result, never a stored dataset's: no dataset operation answers it."),
+      name: text("The name the template's SQL and steps read it by."),
+      rowCount: { type: "integer", minimum: 0, description: "Its rows, as measured when the version was installed." },
+      geometryColumn: { type: ["string", "null"], description: "Its geometry column, or null for a table without geometry." },
+      geometryType: { type: ["string", "null"], description: "Its geometry type as measured, or null." },
+    }),
+    description: "A dataset of an installed template version, or a step's bundled result.",
+  },
+  TemplateContents: {
+    ...object({
+      mapId: text("The template map's id. GET /api/maps/{id} reads the map with its layers' SQL and styles, and the layer render and widget-value " +
+        "operations answer its layers, as for a map one may only view; nothing writes it."),
+      revision: text("The version's revision, from its archive's checksum; the same for as long as the version is installed."),
+      createdAt: { type: "string", format: "date-time", description: "When the template's map was made, as it was published." },
+      updatedAt: { type: "string", format: "date-time", description: "When the template's map last changed before it was published." },
+      datasets: { type: "array", items: { $ref: "#/components/schemas/TemplateDataset" }, description: "The template's own datasets." },
+      workflow: {
+        anyOf: [object({
+          name: text("The workflow's name."),
+          steps: { type: "array", minItems: 1, maxItems: TEMPLATE_STEPS_MAX, items: object({
+            id: text("The step's id in the template's workflow."),
+            operation: text("The operation it runs, by its id in the operation catalogue."),
+            parameters: { type: "object", description: "Its parameters as the workflow holds them, its output's name among them, as a workflow's step is defined." },
+            output: { $ref: "#/components/schemas/TemplateDataset" },
+            reads: { type: "array", items: { type: "string" }, description: "The names it reads: the template's datasets and earlier steps' outputs." },
+          }), description: "The steps in their order, each with the bundled result it came with as its output; a template's workflow never runs." },
+          layout: object({
+            steps: { type: "object", additionalProperties: { $ref: "#/components/schemas/LayoutPosition" }, description: "A position per step, keyed by step id." },
+            sources: { type: "object", additionalProperties: { $ref: "#/components/schemas/LayoutPosition" }, description: "A position per dataset read, keyed by its name." },
+            notes: { type: "array", items: { $ref: "#/components/schemas/LayoutNote" }, description: "The canvas's notes, in their order." },
+            updatedAt: { type: ["string", "null"], format: "date-time",
+              description: "When the arrangement was last written before the version was published; null for one with nothing placed, which the canvas arranges itself." },
+          }),
+        }), { type: "null" }],
+        description: "A workflow example's workflow: its steps with their parameters and its saved canvas arrangement; null for a map template.",
+      },
+    }),
+    description: "What an installed template version holds, read from this server: its map's id, its datasets and a workflow example's workflow.",
   },
   TemplateCatalogueState: {
     ...object({
@@ -184,13 +228,19 @@ export const TEMPLATES_PATHS = {
   }), security: AUTH_SECURITY } },
   "/api/templates/{id}": { get: { ...op({
     summary: "Read a template",
-    description: SIGNED_IN + "Answers one template's card, as the list draws it, and how it is made; sends nothing. " +
-      "An id no shipped, downloaded or listed template has answers 404 template_not_listed.",
+    description: SIGNED_IN + "Answers one template's card, as the list draws it, how it is made and, once its version is installed on this server, " +
+      "what that version holds: its map's id (read through GET /api/maps/{id}), its datasets as measured and a workflow example's steps with their " +
+      "parameters and its saved canvas arrangement. Sends nothing. Reads the version the query names, else the one its card takes now. " +
+      "An id no shipped, downloaded or listed template has, or a version that is neither installed nor the one the catalogue's last list names, " +
+      "answers 404 template_not_listed; a version that is not a whole number from 1, 400 invalid_request.",
     tag: "Templates", tool: "get_template", toolInput: { closed: true },
     display: { verb: "Read the template {subject}", subject: { resource: "templates", argument: "id", name: ["title"] } },
     effects: READ_ONLY, mcp: LOCAL_READ,
-    parameters: [ID_PARAM],
-    responses: { "200": jsonOk("#/components/schemas/TemplateDetail"), "401": ERROR_RESPONSE, "404": ERROR_RESPONSE, "503": ERROR_RESPONSE },
+    parameters: [ID_PARAM, { name: "version", in: "query", required: false, schema: { type: "integer", minimum: 1 },
+      description: "The version to read: one installed on this server, or the one the catalogue's last list names. Without it, the version " +
+        "its card takes now: the newest listed, unless the installed one is as new." }],
+    responses: { "200": jsonOk("#/components/schemas/TemplateDetail"), "400": ERROR_RESPONSE, "401": ERROR_RESPONSE, "404": ERROR_RESPONSE,
+      "503": ERROR_RESPONSE },
   }), security: AUTH_SECURITY } },
   "/api/templates/{id}/fetch": { post: { ...op({
     summary: "Fetch a template",

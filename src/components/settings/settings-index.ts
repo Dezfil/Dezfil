@@ -7,7 +7,7 @@ import type { CustomPalette } from "@/lib/metadata/palettes";
 import { LANDING_PAGES } from "@/components/auth/entry-settings";
 import { DEFAULTS_TABS, rowValueWords, type DefaultsTabId } from "./defaults-table";
 import type { InstanceRead } from "./instance-read";
-import { cardSetUp, DATA_CARDS, dataRowWords } from "./data-table";
+import { addressWords, cardSetUp, catalogueSwitchWords, dataRowWords, dataTabCards, isTemplatesCard, TEMPLATES_CARD } from "./data-table";
 import {
   BASEMAPS_CARD, BUILT_IN_META, builtInMeta, builtInRows, hostOf, libraryStyleRowId, offeredWords, SATELLITE_ADDRESS_ROW, SATELLITE_CARD,
   SATELLITE_CREDIT_ROW, satelliteAddressWords, SINGLE_MAP_ROW, switchOn,
@@ -130,14 +130,26 @@ function ruleCards(cards: readonly RuleCard[], read: InstanceRead): IndexCard[] 
 /** Data & services: each row the tab draws, by its label, its words and
  * its value as the card shows it. A service with no address is declared
  * as the tab draws it, its address row alone; an address row's value is
- * what the read discloses, never what its field holds. */
+ * what the read discloses, never what its field holds. The template
+ * catalogue's downloads are read when its card opens, never by a search,
+ * so their row is declared by its name and words alone. */
 function dataCards(read: InstanceRead): IndexCard[] {
-  return [...DATA_CARDS.map(card => {
+  return [...dataTabCards().map((card): IndexCard => {
+    if (isTemplatesCard(card)) return templatesCard(read);
     const rows = cardSetUp(card, read.settings) ? card.rows : card.rows.filter(row => row.kind === "address");
     return { id: card.id, title: card.title, keys: card.keys, rows: rows.map(row => ({
       id: row.id, label: row.label, keys: row.keys, value: dataRowWords(row, read.settings, read.services),
     })) };
   }), ...ruleCards([CONNECTIONS_CARD], read)];
+}
+
+function templatesCard(read: InstanceRead): IndexCard {
+  const { catalogue, address, downloads } = TEMPLATES_CARD;
+  return { id: TEMPLATES_CARD.id, title: TEMPLATES_CARD.title, keys: TEMPLATES_CARD.keys, rows: [
+    ...(read.settings[catalogue.key] ? [{ id: catalogue.id, label: catalogue.label, keys: catalogue.keys, value: catalogueSwitchWords(read.settings) }] : []),
+    { id: address.id, label: address.label, keys: address.keys, value: addressWords(address, read.settings[address.key]) },
+    { id: downloads.id, label: downloads.label, keys: downloads.keys },
+  ] };
 }
 
 /** Libraries: each basemap row by its name, what it says under it and

@@ -3,7 +3,7 @@ import { useRef, useState } from "react";
 import type { ProviderCache } from "@/lib/provider-caches";
 import { ErrorNote } from "@/components/ui/ErrorNote";
 import {
-  cardSetUp, DATA_CARDS, DATA_LABELS, governedNote, lockedLines, numberWords, pageRange, toApi, toPage,
+  cardSetUp, DATA_LABELS, dataTabCards, governedNote, isTemplatesCard, lockedLines, numberWords, pageRange, toApi, toPage,
   type DataCard, type DataRow, type LockedRow, type NumberRow,
 } from "./data-table";
 import { useInstanceRead, writeInstanceSettings, type InstanceRead, type ServicesRead } from "./instance-read";
@@ -11,6 +11,7 @@ import { inLabels } from "./limits-table";
 import { RuleCardView } from "./RuleCard";
 import { SaveUnit, type UnitControl, type UnitSnapshot } from "./save-unit";
 import { CONNECTIONS_CARD } from "./security-table";
+import { TemplatesCard } from "./TemplatesCard";
 import { serverSetState, unitControlFor, type ReadSetting } from "./server-set";
 import { ServiceAddressRow } from "./ServiceAddressRow";
 import { CacheRowView, ReleasesRowView, ServiceTest } from "./ServiceChecks";
@@ -24,12 +25,13 @@ import styles from "./DataTab.module.css";
 type Settings = InstanceRead["settings"];
 
 /** Data & services: the address finder, travel time, OpenStreetMap,
- * Overture, cloud storage, the private hosts the server may reach, and who
- * may add connections or import from links, as the configuration read
- * reports them. A service card's numbers are one save unit, kept as they
- * change and shown in the page's units; its address is its own form, kept
- * on Save; its Test and its cache answer at once. What the server's
- * environment decides is drawn locked with its variable. */
+ * Overture, cloud storage, the template catalogue, the private hosts the
+ * server may reach, and who may add connections or import from links, as
+ * the configuration read reports them. A service card's numbers are one
+ * save unit, kept as they change and shown in the page's units; its
+ * address is its own form, kept on Save; its Test and its cache answer at
+ * once. What the server's environment decides is drawn locked with its
+ * variable. */
 export function DataTab() {
   const { read, error, retry } = useInstanceRead();
   const [answered, setAnswered] = useState<InstanceRead | null>(null);
@@ -49,8 +51,10 @@ export function DataTab() {
   const onListed = (releases: number, newest: string) =>
     change(base => ({ ...base, overture: { listed: true, releases, newest, listedAt: new Date().toISOString() } }));
   return <>
-    {DATA_CARDS.map(card => <ServiceCardView key={card.id} card={card} read={read} now={now} services={services}
-      onAnswer={onAnswer} onCleared={onCleared} onListed={onListed} />)}
+    {dataTabCards().map(card => isTemplatesCard(card)
+      ? <TemplatesCard key={card.id} read={read} now={now} onAnswer={onAnswer} />
+      : <ServiceCardView key={card.id} card={card} read={read} now={now} services={services}
+        onAnswer={onAnswer} onCleared={onCleared} onListed={onListed} />)}
     <RuleCardView card={CONNECTIONS_CARD} settings={read.settings} />
   </>;
 }

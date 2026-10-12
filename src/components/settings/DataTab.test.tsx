@@ -84,6 +84,10 @@ beforeEach(() => {
       if (result && "code" in result) return Response.json({ error: { code: result.code, message: result.message } }, { status: result.status });
       return Response.json(result);
     }
+    if (url === "/api/templates" && method === "GET") {
+      return Response.json({ templates: [], catalogue: { state: "not_read", host: "https://github.com", folder: false, readAt: null, reason: null, status: null },
+        downloads: { versions: 0, bytes: 0 } });
+    }
     const cleared = /^\/api\/instance\/caches\?service=(\w+)$/.exec(url);
     if (cleared && method === "DELETE") {
       const cache = cleared[1] as "geocode" | "isochrone" | "overpass";
@@ -142,12 +146,13 @@ const answerLine = (scope: HostElement) => scope.querySelector("[data-answer]");
 const dialog = () => host.document.querySelector('[role="dialog"]');
 
 describe("Data & services", () => {
-  it("draws the seven cards with their rows and no other, at the read's values in the page's units", async () => {
+  it("draws the eight cards with their rows and no other, at the read's values in the page's units", async () => {
     pinned = { egressAllowlist: { value: ["10.20.0.0/16", "gis-db.internal"], source: "environment", locked: true } };
     await open();
-    expect(requests.map(request => request.url)).toEqual(["/api/instance/settings"]);
+    // The read, and the template list for the Templates card's downloads; both stay on this server.
+    expect(requests.map(request => request.url)).toEqual(["/api/instance/settings", "/api/templates"]);
     expect(cards().map(section => section.querySelector("h2")!.textContent)).toEqual([
-      "Address finder", "Travel time", "OpenStreetMap", "Overture Maps", "Cloud storage", "Private network", "Connections and imports",
+      "Address finder", "Travel time", "OpenStreetMap", "Overture Maps", "Cloud storage", "Templates", "Private network", "Connections and imports",
     ]);
     expect(labels("Address finder")).toEqual(["Address", "Gap between requests", "Answer time limit", "Keep found addresses for", "Cache"]);
     // Travel time has no address: Not set up, and its address row alone.
@@ -157,10 +162,11 @@ describe("Data & services", () => {
     expect(labels("OpenStreetMap")).toEqual(["Address", "Time budget per query", "Keep answers for", "Cache"]);
     expect(labels("Overture Maps")).toEqual(["Release list"]);
     expect(labels("Cloud storage")).toEqual(["S3 address", "Read with the server’s credentials"]);
+    expect(labels("Templates")).toEqual(["Catalogue", "Catalogue address", "Downloaded"]);
     expect(labels("Private network")).toEqual(["Hosts the server may reach"]);
     expect(labels("Connections and imports")).toEqual(["Who may add database connections", "Who may import from links"]);
     // A Test at the head of each service card; Overture's is Check now, in its row.
-    for (const title of ["Address finder", "OpenStreetMap", "Cloud storage"]) expect(buttons(head(title)), title).toEqual(["Test"]);
+    for (const title of ["Address finder", "OpenStreetMap", "Cloud storage", "Templates"]) expect(buttons(head(title)), title).toEqual(["Test"]);
     for (const title of ["Overture Maps", "Private network", "Connections and imports"]) expect(buttons(head(title)), title).toEqual([]);
     expect(buttons(row("Overture Maps", "Release list"))).toEqual(["Check now"]);
 
@@ -437,7 +443,8 @@ describe("the words of Data & services", () => {
     const said = (element: HostElement): string[] => element.childNodes.flatMap(node => node instanceof HostElement
       ? (node.getAttribute("aria-hidden") === "true" ? [] : said(node)) : [node.textContent.trim()]).filter(Boolean);
     const expected = new Set([
-      "Address finder", "Travel time", "OpenStreetMap", "Overture Maps", "Cloud storage", "Private network", "Connections and imports",
+      "Address finder", "Travel time", "OpenStreetMap", "Overture Maps", "Cloud storage", "Templates", "Private network", "Connections and imports",
+      "Catalogue", "In use", "Catalogue address", "Downloaded", "None", "Remove all", "https://github.com",
       "Address", "Gap between requests", "Answer time limit", "Keep found addresses for", "Keep areas for", "Time budget per query", "Keep answers for",
       "Cache", "Release list", "S3 address", "Read with the server’s credentials", "Hosts the server may reach",
       "Who may add database connections", "Who may import from links", "Everyone", "Admins only",

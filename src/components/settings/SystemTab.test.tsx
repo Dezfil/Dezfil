@@ -267,7 +267,7 @@ describe("System's Storage", () => {
     expect(byId("sys-tiles").textContent).toBe("Tile archives3.1 GB83 files");
     expect(byId("sys-caches").textContent).toBe("Service caches6.5 MB120 filesClear all");
     expect(byId("sys-thumbnails").textContent).toBe("Thumbnails84 MB38 files");
-    expect(byId("sys-templates").textContent).toBe("Templates4 MB9 files");
+    expect(byId("sys-templates").textContent).toBe("TemplatesCounts the downloads and the query engine’s copies of installed templates’ data.4 MB9 files");
     expect(byId("sys-metadata-size").textContent).toBe("Metadata database46 MB3 files");
     expect(byId("sys-other").textContent).toBe("Other40 KB2 files");
     expect(byId("sys-free").textContent).toBe("Free on the disk182 GB of 250 GB");

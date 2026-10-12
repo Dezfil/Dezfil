@@ -1,0 +1,393 @@
+/* A template opened: How it's made where the builder's inspector stands,
+   the reader's map or the view-only canvas beside it, Make a copy in the
+   header. Beside the panel the stage keeps the builder's edge
+   (`--stage-left` is untouched) and stands its control stack on the
+   right, as the reader's does. */
+:global(body[data-template-view]) {
+  --stage-stack-right: 48px;
+  --stage-stack-left: 0px;
+}
+
+/* ---- the header's one action, on the run chrome's treatment: a primary
+   button's shadow is the float step, as Run all's and Publish's are ---- */
+
+.copyAction {
+  font-family: var(--font-display);
+  font-weight: 600;
+  padding: 0 15px;
+  border-radius: var(--radius-control);
+  box-shadow: var(--shadow-float);
+}
+
+.copyAction svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* ---- the panel: the inspector's card, floating glass read beside the
+   map or the canvas as the inspector, the Tools drawer and the canvas's
+   pane are ---- */
+
+.panel {
+  position: fixed;
+  top: 62px;
+  left: calc(82px + var(--rail-shift));
+  bottom: var(--gutter);
+  width: 342px;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius-card);
+  overflow: hidden;
+  background: var(--surface-glass-panel-fill);
+  backdrop-filter: var(--surface-glass-panel-blur);
+  box-shadow: var(--surface-glass-panel-shadow);
+}
+
+@media (max-width: 1120px) {
+  /* Beside the map it narrows with the builder's inspector; the canvas's
+     pane keeps its width. */
+  .panel[data-beside="map"] {
+    width: 306px;
+  }
+}
+
+.panelHead {
+  flex: none;
+  padding: 14px 16px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.panelHead h2 {
+  margin-top: 4px;
+  font-family: var(--font-display);
+  font-size: var(--text-heading);
+  font-weight: 600;
+  color: var(--fg);
+}
+
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--text-meta);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+
+.eyebrow svg {
+  flex: none;
+  color: var(--accent);
+}
+
+.panelBody {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 2px 14px 14px;
+}
+
+/* ---- a foldable section ---- */
+
+.fold + .fold {
+  border-top: 1px solid var(--divider);
+}
+
+.foldHead {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 2px;
+  text-align: left;
+  font-size: var(--text-body);
+  font-weight: 600;
+  color: var(--fg);
+}
+
+.foldHead:hover {
+  color: var(--accent);
+}
+
+.count {
+  font-size: var(--text-meta);
+  font-weight: 500;
+  color: var(--fg-faint);
+}
+
+.chevron {
+  margin-left: auto;
+  display: inline-flex;
+  color: var(--fg-faint);
+  transition: transform var(--dur-micro) ease;
+}
+
+.chevron[data-open] {
+  transform: rotate(180deg);
+}
+
+.foldBody {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 0 2px 14px;
+}
+
+.about {
+  font-size: var(--text-body);
+  line-height: 1.55;
+  color: var(--fg-muted);
+  white-space: pre-line;
+}
+
+.quiet {
+  font-size: var(--text-label);
+  color: var(--fg-muted);
+}
+
+/* ---- the data ---- */
+
+.dataRow {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 11px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-panel);
+}
+
+.dataTop {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.dataTop b {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kindTile {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-item);
+  background: var(--bg-raised);
+  color: var(--fg-muted);
+}
+
+.kindTile svg {
+  width: 14px;
+  height: 14px;
+}
+
+.dataHow {
+  font-size: var(--text-label);
+  line-height: 1.45;
+  color: var(--fg-muted);
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: 62px minmax(0, 1fr);
+  gap: 3px 8px;
+}
+
+.facts dt {
+  padding-top: 1px;
+  font-size: var(--text-meta);
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--fg-faint);
+}
+
+.facts dd {
+  font-size: var(--text-label);
+  line-height: 1.4;
+  color: var(--fg-muted);
+  overflow-wrap: anywhere;
+}
+
+/* ---- the workflow in miniature ---- */
+
+.mini {
+  position: relative;
+  height: 104px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg);
+  overflow: hidden;
+}
+
+.mini svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.steps {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.steps li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.steps b {
+  font-size: var(--text-body);
+  font-weight: 600;
+  color: var(--fg);
+}
+
+.steps code {
+  font-family: var(--font-mono);
+  font-size: var(--text-meta);
+  color: var(--fg-faint);
+  overflow-wrap: anywhere;
+}
+
+/* ---- the layers and their SQL ---- */
+
+.layer {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.layer + .layer {
+  padding-top: 10px;
+  border-top: 1px solid var(--divider);
+}
+
+.layerHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.layerHead b {
+  min-width: 0;
+  font-size: var(--text-body);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.layerHead small {
+  flex: none;
+  margin-left: auto;
+  font-size: var(--text-meta);
+  color: var(--fg-muted);
+}
+
+/* The layer's drawn colours, the layer list's own spine. */
+.swatch {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  width: 9px;
+  height: 28px;
+  border-radius: var(--radius-spine);
+  border: 1px solid var(--swatch-border);
+  overflow: hidden;
+}
+
+.swatch i {
+  flex: 1;
+}
+
+.sql {
+  margin: 0;
+  padding: 8px 10px;
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  line-height: 1.5;
+  color: var(--fg);
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.styleLine {
+  font-size: var(--text-label);
+  line-height: 1.45;
+  color: var(--fg-muted);
+}
+
+/* ---- the styling choices ---- */
+
+.choices {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+}
+
+.choices li {
+  padding: 8px 0;
+  font-size: var(--text-label);
+  line-height: 1.45;
+  color: var(--fg-muted);
+  border-bottom: 1px solid var(--divider);
+}
+
+.choices li:last-child {
+  border-bottom: 0;
+}
+
+/* ---- what stands in while the template is not on the stage ---- */
+
+.fallback {
+  padding: 90px 24px 40px 110px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  color: var(--fg-muted);
+}
+
+.back {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--text-meta);
+  letter-spacing: 0.05em;
+  color: var(--fg-muted);
+}
+
+.back svg {
+  transform: rotate(90deg);
+}
+
+/* The map's own loading and failure, on the stage beside the panel. */
+.stageNote {
+  position: fixed;
+  top: 78px;
+  left: calc(var(--stage-left) + 16px);
+  right: calc(var(--stage-right) + 16px);
+  z-index: 5;
+  max-width: 420px;
+  color: var(--fg-muted);
+}
