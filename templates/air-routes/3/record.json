@@ -1,0 +1,56 @@
+{
+  "formatVersion": 1,
+  "id": "air-routes",
+  "version": 3,
+  "archive": {
+    "sha256": "58a09d6e9727e405912d1de385aada0883546ae7a834d4e315b170bddffb588d",
+    "size": 2440232
+  },
+  "origin": {
+    "kind": "shipped"
+  },
+  "files": {
+    "datasets/air_routes.parquet": {
+      "bytes": 343409,
+      "sha256": "a7f0fdeb209d2a9e4c701abceee8ee87b313c98c0db9bf1f8537ad12dd4c64d3"
+    },
+    "datasets/airports.parquet": {
+      "bytes": 147263,
+      "sha256": "fe7d322111848e591fe95b8f26f8ab880eb1d57f2bc6d1d75ab21e3cc92c8159"
+    },
+    "maps/the-world-s-air-routes.json": {
+      "bytes": 6844,
+      "sha256": "f09e36a46e23e0d9eb7197c095dad9e37811564d358cb7190e681eb1577e143a"
+    },
+    "pictures/dark.png": {
+      "bytes": 961921,
+      "sha256": "2238d596620d4efda9d3b18e933b20c9a671bb59be586ed303bce4bd5d2151e8"
+    },
+    "pictures/light.png": {
+      "bytes": 983448,
+      "sha256": "9b23d0a3f9ee8fe3319040478c436bf3242b71982c7728d120c4dfb3f5867933"
+    },
+    "project.json": {
+      "bytes": 1121,
+      "sha256": "3d902297b3cbd1232b818eb39f5b86045ef8ad765323bc4c518f001f559aaf48"
+    },
+    "template.json": {
+      "bytes": 2363,
+      "sha256": "32cb4e9c6c3ab8e932c17fad2b304ba4201f72127af0045d1e17d16fcf50382f"
+    }
+  },
+  "measured": {
+    "datasets/airports.parquet": {
+      "rowCount": 3257,
+      "geometryColumn": "geom",
+      "geometryType": "POINT",
+      "crsAssumed": false
+    },
+    "datasets/air_routes.parquet": {
+      "rowCount": 18930,
+      "geometryColumn": null,
+      "geometryType": null,
+      "crsAssumed": false
+    }
+  }
+}

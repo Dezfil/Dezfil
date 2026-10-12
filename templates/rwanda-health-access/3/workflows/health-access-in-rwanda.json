@@ -1,0 +1,160 @@
+{
+  "id": "4591b45c-55c8-42e4-a580-4a0f9c0a52d6",
+  "name": "Health access in Rwanda",
+  "origin": "workflow",
+  "home": "dezfil_templates",
+  "createdAt": "2026-10-12T19:06:41.563Z",
+  "updatedAt": "2026-10-12T19:06:41.687Z",
+  "steps": [
+    {
+      "id": "4825fada-2892-4125-8f42-a422bc9e1448",
+      "ordinal": 0,
+      "operation": "centroid",
+      "parameters": {
+        "input": "population_cells",
+        "name": "cell_centres"
+      },
+      "origin": null
+    },
+    {
+      "id": "f2bb771d-26fc-4113-aabc-2dcf0b4a0f19",
+      "ordinal": 1,
+      "operation": "sql_step",
+      "parameters": {
+        "sql": "SELECT c.h3,\n       c.population,\n       n.facility_name,\n       n.facility_type,\n       round(n.distance_m) AS nearest_distance_m,\n       c.geom\nFROM cell_centres AS c\nCROSS JOIN LATERAL (\n  SELECT f.facility_name,\n         f.facility_type,\n         ST_Distance_Spheroid(ST_Point2D(ST_Y(c.geom), ST_X(c.geom)), ST_Point2D(ST_Y(f.geom), ST_X(f.geom))) AS distance_m\n  FROM health_facilities AS f\n  ORDER BY distance_m\n  LIMIT 1\n) AS n",
+        "name": "nearest_facility"
+      },
+      "origin": null
+    },
+    {
+      "id": "81e238c3-d522-450c-ac7c-92920502b705",
+      "ordinal": 2,
+      "operation": "filter_rows",
+      "parameters": {
+        "input": "nearest_facility",
+        "field": "nearest_distance_m",
+        "comparison": "greater_than",
+        "value": "5000",
+        "name": "beyond_5km"
+      },
+      "origin": null
+    },
+    {
+      "id": "7fc48482-42e4-49b1-ad4a-f8d877af067b",
+      "ordinal": 3,
+      "operation": "spatial_join",
+      "parameters": {
+        "left": "districts",
+        "right": "cell_centres",
+        "predicate": "contains",
+        "carry": [
+          {
+            "aggregate": "sum",
+            "field": "population",
+            "as": "people"
+          }
+        ],
+        "name": "district_people"
+      },
+      "origin": null
+    },
+    {
+      "id": "0ca05dce-7bfe-4d00-924f-f072163ff65f",
+      "ordinal": 4,
+      "operation": "spatial_join",
+      "parameters": {
+        "left": "district_people",
+        "right": "beyond_5km",
+        "predicate": "contains",
+        "carry": [
+          {
+            "aggregate": "sum",
+            "field": "population",
+            "as": "people_beyond_5km"
+          }
+        ],
+        "name": "district_access"
+      },
+      "origin": null
+    },
+    {
+      "id": "87b680f1-289d-434e-bf95-b8acd85a62ca",
+      "ordinal": 5,
+      "operation": "sql_step",
+      "parameters": {
+        "sql": "SELECT district,\n       people,\n       coalesce(people_beyond_5km, 0) AS people_beyond_5km,\n       round(100.0 * coalesce(people_beyond_5km, 0) / people, 1) AS share_beyond_5km,\n       geom\nFROM district_access\nORDER BY share_beyond_5km DESC",
+        "name": "district_share"
+      },
+      "origin": null
+    }
+  ],
+  "layout": {
+    "editRevision": "19e4fdfe5626b207cfc1c73c45bfd9b2",
+    "lastChangedAt": "2026-10-12T19:06:41.687Z",
+    "lastChangedBy": {
+      "name": "Dezfil templates",
+      "sqlName": "dezfil_templates"
+    },
+    "steps": {
+      "0ca05dce-7bfe-4d00-924f-f072163ff65f": {
+        "x": 1140,
+        "y": 300
+      },
+      "4825fada-2892-4125-8f42-a422bc9e1448": {
+        "x": 300,
+        "y": 40
+      },
+      "7fc48482-42e4-49b1-ad4a-f8d877af067b": {
+        "x": 580,
+        "y": 420
+      },
+      "81e238c3-d522-450c-ac7c-92920502b705": {
+        "x": 860,
+        "y": 150
+      },
+      "87b680f1-289d-434e-bf95-b8acd85a62ca": {
+        "x": 1420,
+        "y": 300
+      },
+      "f2bb771d-26fc-4113-aabc-2dcf0b4a0f19": {
+        "x": 580,
+        "y": 150
+      }
+    },
+    "sources": {
+      "districts": {
+        "x": 20,
+        "y": 480
+      },
+      "health_facilities": {
+        "x": 20,
+        "y": 260
+      },
+      "population_cells": {
+        "x": 20,
+        "y": 40
+      }
+    },
+    "notes": [
+      {
+        "id": "note-distance",
+        "x": 860,
+        "y": 0,
+        "w": 300,
+        "h": 130,
+        "color": "yellow",
+        "text": "The distance is a straight line on the ellipsoid from the middle of each hexagon to the nearest facility, in metres. Roads and hills make the real journey longer."
+      },
+      {
+        "id": "note-share",
+        "x": 1420,
+        "y": 460,
+        "w": 300,
+        "h": 110,
+        "color": "blue",
+        "text": "The share is the district's people more than 5 km from a facility, out of all its people."
+      }
+    ],
+    "updatedAt": "2026-10-12T19:06:41.687Z"
+  }
+}

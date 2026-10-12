@@ -1,4 +1,17 @@
 {
   "formatVersion": 1,
-  "templates": []
+  "templates": [
+    {
+      "id": "earthquakes",
+      "version": 3
+    },
+    {
+      "id": "air-routes",
+      "version": 3
+    },
+    {
+      "id": "rwanda-health-access",
+      "version": 3
+    }
+  ]
 }

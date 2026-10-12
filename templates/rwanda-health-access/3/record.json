@@ -1,0 +1,130 @@
+{
+  "formatVersion": 1,
+  "id": "rwanda-health-access",
+  "version": 3,
+  "archive": {
+    "sha256": "3e6d04579def855925045433c793e3f85ac787fbd7dfcc9b5ab7e761c3a39b02",
+    "size": 4554974
+  },
+  "origin": {
+    "kind": "shipped"
+  },
+  "files": {
+    "datasets/districts.parquet": {
+      "bytes": 109307,
+      "sha256": "6d2b42b3d60916277c171b22924ca7add472667f94cf39fcd75bc0a304dab8cb"
+    },
+    "datasets/health_facilities.parquet": {
+      "bytes": 15821,
+      "sha256": "004cfcdfc645741b3939a8387bb83a5a1a7ae681545682859a627a732c934bf0"
+    },
+    "datasets/population_cells.parquet": {
+      "bytes": 1615304,
+      "sha256": "abeaa4229ac919b8180c1c2915f449adffd88bdabb8a6cf821cf5b28d3caf697"
+    },
+    "maps/health-access-in-rwanda.json": {
+      "bytes": 9188,
+      "sha256": "319a7d6789b531a36933e65b36e344b909cfb41871de35693dd6cd7dd62f55cf"
+    },
+    "pictures/dark.png": {
+      "bytes": 474720,
+      "sha256": "9922106f9f13cd1fbee2dd95f7c5512a218356c0583a11761ea462f79a38b1e8"
+    },
+    "pictures/light.png": {
+      "bytes": 569578,
+      "sha256": "23662645659a8ac4989dfe0a223456bef5a4d4c08a3ab3a67bbadfe950124c93"
+    },
+    "project.json": {
+      "bytes": 1667,
+      "sha256": "613571d4475d858e2cbe1473627b7c2c4f3f9e0a725dd51240d80531582c2a2b"
+    },
+    "results/0ca05dce-7bfe-4d00-924f-f072163ff65f.parquet": {
+      "bytes": 109915,
+      "sha256": "6410442cbc1863c49d5af79a88a0b6c90c724e0f1c2931caa38d4b210f23151a"
+    },
+    "results/4825fada-2892-4125-8f42-a422bc9e1448.parquet": {
+      "bytes": 596224,
+      "sha256": "0c1ca1fd8d46eca03fa4da51447ce3c9c45fe9e54eeb10fc8765097c0b858e5c"
+    },
+    "results/7fc48482-42e4-49b1-ad4a-f8d877af067b.parquet": {
+      "bytes": 109604,
+      "sha256": "3bb790e3206758215588ef3c8a4da016908630c0fbd79932436c04ffadcf93de"
+    },
+    "results/81e238c3-d522-450c-ac7c-92920502b705.parquet": {
+      "bytes": 89898,
+      "sha256": "03ba04d8ac0a14b6f90c744d28730debd25a1a63263a033373c7f34842499bad"
+    },
+    "results/87b680f1-289d-434e-bf95-b8acd85a62ca.parquet": {
+      "bytes": 110228,
+      "sha256": "4312ddc2048c081cb945b22f7dfa11ab98403d022451dd5b908f2231673ebe19"
+    },
+    "results/f2bb771d-26fc-4113-aabc-2dcf0b4a0f19.parquet": {
+      "bytes": 745641,
+      "sha256": "75d7be57c059423a22fdb10c79707cb35aa0ae7f14ddad6fed20f5ec39757014"
+    },
+    "template.json": {
+      "bytes": 4948,
+      "sha256": "d88ff594c7700ca7f6617c00342ee4b8df9323bf914e5d847f7d16eced4a9411"
+    },
+    "workflows/health-access-in-rwanda.json": {
+      "bytes": 4539,
+      "sha256": "dee43cad7e4835e3e7e393b4f261b1709903cf6df65e30d53d04cd0cc15590a9"
+    }
+  },
+  "measured": {
+    "datasets/districts.parquet": {
+      "rowCount": 30,
+      "geometryColumn": "geom",
+      "geometryType": "POLYGON",
+      "crsAssumed": false
+    },
+    "datasets/health_facilities.parquet": {
+      "rowCount": 572,
+      "geometryColumn": "geom",
+      "geometryType": "POINT",
+      "crsAssumed": false
+    },
+    "datasets/population_cells.parquet": {
+      "rowCount": 24764,
+      "geometryColumn": "geom",
+      "geometryType": "POLYGON",
+      "crsAssumed": false
+    },
+    "results/4825fada-2892-4125-8f42-a422bc9e1448.parquet": {
+      "rowCount": 24764,
+      "geometryColumn": "geom",
+      "geometryType": "POINT",
+      "crsAssumed": false
+    },
+    "results/f2bb771d-26fc-4113-aabc-2dcf0b4a0f19.parquet": {
+      "rowCount": 24764,
+      "geometryColumn": "geom",
+      "geometryType": "POINT",
+      "crsAssumed": false
+    },
+    "results/81e238c3-d522-450c-ac7c-92920502b705.parquet": {
+      "rowCount": 2715,
+      "geometryColumn": "geom",
+      "geometryType": "POINT",
+      "crsAssumed": false
+    },
+    "results/7fc48482-42e4-49b1-ad4a-f8d877af067b.parquet": {
+      "rowCount": 30,
+      "geometryColumn": "geom",
+      "geometryType": "POLYGON",
+      "crsAssumed": false
+    },
+    "results/0ca05dce-7bfe-4d00-924f-f072163ff65f.parquet": {
+      "rowCount": 30,
+      "geometryColumn": "geom",
+      "geometryType": "POLYGON",
+      "crsAssumed": false
+    },
+    "results/87b680f1-289d-434e-bf95-b8acd85a62ca.parquet": {
+      "rowCount": 30,
+      "geometryColumn": "geom",
+      "geometryType": "POLYGON",
+      "crsAssumed": false
+    }
+  }
+}

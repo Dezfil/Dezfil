@@ -1,0 +1,63 @@
+{
+  "formatVersion": 1,
+  "generator": "dezfil",
+  "exportedAt": "2026-10-12T19:07:24.855Z",
+  "exportedBy": {
+    "sqlName": "dezfil_templates"
+  },
+  "project": {
+    "name": "Health access in Rwanda",
+    "note": null
+  },
+  "contents": {
+    "maps": [
+      {
+        "id": "c18828e3-5d30-4404-87a3-49d30440dcd1",
+        "name": "Health access in Rwanda",
+        "file": "maps/health-access-in-rwanda.json"
+      }
+    ],
+    "workflows": [
+      {
+        "id": "4591b45c-55c8-42e4-a580-4a0f9c0a52d6",
+        "name": "Health access in Rwanda",
+        "file": "workflows/health-access-in-rwanda.json"
+      }
+    ],
+    "datasets": [
+      {
+        "id": "42915c6c-0577-46b0-9fba-ed09af83e419",
+        "name": "districts",
+        "qualifiedName": "districts",
+        "owner": {
+          "name": "Dezfil templates",
+          "sqlName": "dezfil_templates"
+        },
+        "file": "datasets/districts.parquet",
+        "format": "geoparquet"
+      },
+      {
+        "id": "9271f94f-7a1f-44fe-9209-6fbc1a57ba9d",
+        "name": "health_facilities",
+        "qualifiedName": "health_facilities",
+        "owner": {
+          "name": "Dezfil templates",
+          "sqlName": "dezfil_templates"
+        },
+        "file": "datasets/health_facilities.parquet",
+        "format": "geoparquet"
+      },
+      {
+        "id": "27405cd0-27a9-46f2-82fa-f551206c842f",
+        "name": "population_cells",
+        "qualifiedName": "population_cells",
+        "owner": {
+          "name": "Dezfil templates",
+          "sqlName": "dezfil_templates"
+        },
+        "file": "datasets/population_cells.parquet",
+        "format": "geoparquet"
+      }
+    ]
+  }
+}

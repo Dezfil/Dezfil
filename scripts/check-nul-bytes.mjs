@@ -28,6 +28,8 @@ const BINARY_EXTENSIONS = new Set([
   "webp",
   "woff",
   "woff2",
+  // The shipped templates' datasets (templates/) are GeoParquet files.
+  "parquet",
 ]);
 
 function trackedFiles() {

@@ -1,0 +1,46 @@
+{
+  "formatVersion": 1,
+  "generator": "dezfil",
+  "exportedAt": "2026-10-12T19:09:38.705Z",
+  "exportedBy": {
+    "sqlName": "dezfil_templates"
+  },
+  "project": {
+    "name": "Forty years of big earthquakes",
+    "note": null
+  },
+  "contents": {
+    "maps": [
+      {
+        "id": "d321c806-3a96-429f-bf2f-9e615a73f5c6",
+        "name": "Forty years of big earthquakes",
+        "file": "maps/forty-years-of-big-earthquakes.json"
+      }
+    ],
+    "workflows": [],
+    "datasets": [
+      {
+        "id": "33b27b79-45f8-46d6-bc7a-026910de13a6",
+        "name": "plate_boundaries",
+        "qualifiedName": "plate_boundaries",
+        "owner": {
+          "name": "Dezfil templates",
+          "sqlName": "dezfil_templates"
+        },
+        "file": "datasets/plate_boundaries.parquet",
+        "format": "geoparquet"
+      },
+      {
+        "id": "96839e97-e206-4abd-9e81-9a10e7b372c5",
+        "name": "earthquakes",
+        "qualifiedName": "earthquakes",
+        "owner": {
+          "name": "Dezfil templates",
+          "sqlName": "dezfil_templates"
+        },
+        "file": "datasets/earthquakes.parquet",
+        "format": "geoparquet"
+      }
+    ]
+  }
+}
