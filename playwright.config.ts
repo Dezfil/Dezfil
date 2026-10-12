@@ -1,9 +1,15 @@
 // Browser journey configuration. One journey, one browser, no retries:
 // flakiness must surface as failure with a trace, not be averaged away.
 // Target instance via DEZFIL_BASE_URL (default localhost).
-import { defineConfig, devices } from "@playwright/test";
+import { existsSync } from "node:fs";
+import { defineConfig, devices, webkit } from "@playwright/test";
 
 const baseURL = process.env.DEZFIL_BASE_URL ?? "http://localhost:3000";
+// The browsers that draw no bend under the Liquid panels run that journey's
+// fallback case and nothing else: Firefox, and WebKit where its build is
+// installed on this machine (where it is not, the case is unverified there).
+const fallback = { testMatch: /panel-looks\.spec\.ts$/, grep: /@fallback/ };
+const webkitInstalled = existsSync(webkit.executablePath());
 export default defineConfig({
   globalSetup: "./e2e/auth.setup.ts",
   testDir: "./e2e",
@@ -35,5 +41,9 @@ export default defineConfig({
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
   },
-  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+  projects: [
+    { name: "chromium", use: { ...devices["Desktop Chrome"] }, grepInvert: /@fallback/ },
+    { name: "firefox", use: { ...devices["Desktop Firefox"] }, ...fallback },
+    ...(webkitInstalled ? [{ name: "webkit", use: { ...devices["Desktop Safari"] }, ...fallback }] : []),
+  ],
 });

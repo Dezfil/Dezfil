@@ -1,7 +1,9 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import {
+  completionLook,
   editorLook,
   errorMarkExtensions,
   errorMarkField,
@@ -94,5 +96,38 @@ describe("the editor's look", () => {
     for (const px of [11, 12, 13, 14, 16]) {
       expect(look(editorLook({ textSize: px, wrap: px === 16 }))).toEqual({ sizes: [`${px}px`], wraps: px === 16 });
     }
+  });
+});
+
+describe("the completion list", () => {
+  /** The list's own rule as the editor injects it, by property. */
+  const list = () => {
+    const state = EditorState.create({ extensions: [completionLook] });
+    const css = state.facet(EditorView.styleModule).map((module) => module.getRules()).join("\n");
+    const rule = css.split("}").find((text) => /\.cm-tooltip\.cm-tooltip-autocomplete\s*\{/.test(text))!;
+    return { rule, declared: Object.fromEntries(rule.slice(rule.indexOf("{") + 1).split(";").map((part) => part.split(/:(.*)/s).map((bit) => bit.trim())).filter(([name]) => name)) };
+  };
+
+  it("is a menu: its ground, blur, edge and shadow are the menu role's, so a look restating the menus reaches it", () => {
+    expect(list().declared).toMatchObject({
+      "background-color": "var(--surface-menu-fill)",
+      "backdrop-filter": "var(--surface-menu-blur)",
+      border: "var(--surface-menu-edge)",
+      "box-shadow": "var(--surface-menu-shadow)",
+    });
+  });
+
+  it("types no lift, ground or edge of its own", () => {
+    const { declared } = list();
+    for (const property of ["background-color", "background", "backdrop-filter", "border", "border-color", "box-shadow"]) {
+      if (property in declared) expect(declared[property], property).toMatch(/^var\(--surface-menu-[a-z]+\)$/);
+    }
+  });
+
+  it("is the editor's own, and the rule the page's lens finds among the menus", () => {
+    expect(list().rule).toMatch(/var\(\s*--surface-menu-blur\s*[,)]/);
+    const editor = readFileSync("src/components/SqlEditor.tsx", "utf8");
+    expect(editor).toMatch(/^\s+completionLook,$/m);
+    expect(editor).not.toContain("cm-tooltip");
   });
 });

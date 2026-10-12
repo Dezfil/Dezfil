@@ -1,0 +1,131 @@
+/* ============================================================
+   Paper: opaque paper on every panel and card. While Panels is Paper,
+   the workspace root carries data-look-panels="paper" and the roles are
+   restated here, so every surface of a role follows:
+
+   - every panel and card is opaque, in a paper white a step below the
+     panel tone by day (4 % of the ground mixed in) and the raised step
+     by night, so the page has less glare; a card inside a panel steps
+     up to the panel tone (the hover tone by night);
+   - no blur anywhere and no edge line: the floating chrome, the side
+     panels, the map's panels and its buttons (each its own sheet) are
+     the same paper as the page; a role with a hairline keeps its width
+     in a transparent line, so nothing moves;
+   - one gentle two-layer shadow, a 1 px contact line and a soft lift, a
+     lighter one on page cards and a contact line alone inside panels;
+     the map's own frame takes the same lift;
+   - menus and dialogs are as shipped, and no rule here restates them;
+   - the lines inside panels and cards soften to 7 % ink by day and 8 %
+     by night. They are set on the body, not the root: the roles resolve
+     their edges on the root, so a menu and a dialog keep the shipped
+     line in both themes. Under More contrast the pick's stronger lines
+     win and this rule does not apply.
+
+   Paper also dresses the pictures of the other picks, which show the
+   person's look, and its own Panels picture. Every fill is opaque, so
+   a request for less transparency changes nothing here.
+   ============================================================ */
+
+:root[data-look-panels="paper"],
+:root[data-look-panels="paper"] [data-picture-color],
+:root[data-look-panels="paper"] [data-picture-contrast],
+:root[data-look-panels="paper"] [data-picture-corners],
+:root [data-picture-panels="paper"] {
+  /* What floats: the header card and its buttons, the side menu at rest */
+  --surface-glass-chrome-fill: color-mix(in oklab, var(--bg-panel) 96%, var(--bg));
+  --surface-glass-chrome-blur: none;
+  --surface-glass-chrome-edge: none;
+  --surface-glass-chrome-shadow:
+    0 1px 1px color-mix(in srgb, var(--shadow) 40%, transparent),
+    0 8px 24px -4px color-mix(in srgb, var(--shadow) 70%, transparent);
+
+  /* The side panels: the inspector, Tools, the Assistant */
+  --surface-glass-panel-fill: color-mix(in oklab, var(--bg-panel) 96%, var(--bg));
+  --surface-glass-panel-blur: none;
+  --surface-glass-panel-edge: none;
+  --surface-glass-panel-shadow:
+    0 1px 1px color-mix(in srgb, var(--shadow) 40%, transparent),
+    0 8px 24px -4px color-mix(in srgb, var(--shadow) 70%, transparent);
+
+  /* What is read over the map */
+  --surface-overlay-panel-fill: color-mix(in oklab, var(--bg-panel) 96%, var(--bg));
+  --surface-overlay-panel-blur: none;
+  --surface-overlay-panel-edge: none;
+  --surface-overlay-panel-shadow:
+    0 1px 1px color-mix(in srgb, var(--shadow) 40%, transparent),
+    0 8px 24px -4px color-mix(in srgb, var(--shadow) 70%, transparent);
+
+  /* The map's buttons, each its own sheet */
+  --surface-overlay-control-fill: color-mix(in oklab, var(--bg-panel) 96%, var(--bg));
+  --surface-overlay-control-blur: none;
+  --surface-overlay-control-edge: none;
+  --surface-overlay-control-shadow:
+    0 1px 1px color-mix(in srgb, var(--shadow) 40%, transparent),
+    0 8px 24px -4px color-mix(in srgb, var(--shadow) 70%, transparent);
+
+  /* Page cards: the lighter lift, the panels' lift on hover, no line under the pointer */
+  --surface-page-card-fill: color-mix(in oklab, var(--bg-panel) 96%, var(--bg));
+  --surface-page-card-blur: none;
+  --surface-page-card-edge: 1px solid transparent;
+  --surface-page-card-shadow:
+    0 1px 1px color-mix(in srgb, var(--shadow) 30%, transparent),
+    0 6px 20px -4px color-mix(in srgb, var(--shadow) 55%, transparent);
+  --surface-page-card-shadow-hover:
+    0 1px 1px color-mix(in srgb, var(--shadow) 40%, transparent),
+    0 8px 24px -4px color-mix(in srgb, var(--shadow) 70%, transparent);
+  --surface-page-card-edge-hover: 1px solid transparent;
+
+  /* A card inside a panel: the panel tone, a contact line, lifting to a
+     page card's lift and dragged at the panels', no line under the pointer
+     or around a card that makes something new */
+  --surface-inner-card-fill: var(--bg-panel);
+  --surface-inner-card-blur: none;
+  --surface-inner-card-edge: 1px solid transparent;
+  --surface-inner-card-shadow: 0 1px 2px color-mix(in srgb, var(--shadow) 40%, transparent);
+  --surface-inner-card-shadow-lifted:
+    0 1px 1px color-mix(in srgb, var(--shadow) 30%, transparent),
+    0 6px 20px -4px color-mix(in srgb, var(--shadow) 55%, transparent);
+  --surface-inner-card-shadow-dragged:
+    0 1px 1px color-mix(in srgb, var(--shadow) 40%, transparent),
+    0 8px 24px -4px color-mix(in srgb, var(--shadow) 70%, transparent);
+  --surface-inner-card-edge-hover: 1px solid transparent;
+  --surface-inner-card-edge-new: 1px dashed transparent;
+
+  /* The map's own frame */
+  --surface-stage-shadow:
+    0 1px 1px color-mix(in srgb, var(--shadow) 40%, transparent),
+    0 8px 24px -4px color-mix(in srgb, var(--shadow) 70%, transparent);
+}
+
+:root[data-theme="dark"][data-look-panels="paper"],
+:root[data-theme="dark"][data-look-panels="paper"] [data-picture-color],
+:root[data-theme="dark"][data-look-panels="paper"] [data-picture-contrast],
+:root[data-theme="dark"][data-look-panels="paper"] [data-picture-corners],
+:root[data-theme="dark"] [data-picture-panels="paper"] {
+  --surface-glass-chrome-fill: var(--bg-raised);
+  --surface-glass-chrome-shadow: 0 1px 1px rgba(0, 0, 0, 0.5), 0 10px 28px -4px rgba(0, 0, 0, 0.55);
+  --surface-glass-panel-fill: var(--bg-raised);
+  --surface-glass-panel-shadow: 0 1px 1px rgba(0, 0, 0, 0.5), 0 10px 28px -4px rgba(0, 0, 0, 0.55);
+  --surface-overlay-panel-fill: var(--bg-raised);
+  --surface-overlay-panel-shadow: 0 1px 1px rgba(0, 0, 0, 0.5), 0 10px 28px -4px rgba(0, 0, 0, 0.55);
+  --surface-overlay-control-fill: var(--bg-raised);
+  --surface-overlay-control-shadow: 0 1px 1px rgba(0, 0, 0, 0.5), 0 10px 28px -4px rgba(0, 0, 0, 0.55);
+  --surface-page-card-fill: var(--bg-raised);
+  --surface-page-card-shadow: 0 1px 1px rgba(0, 0, 0, 0.45), 0 8px 24px -4px rgba(0, 0, 0, 0.45);
+  --surface-page-card-shadow-hover: 0 1px 1px rgba(0, 0, 0, 0.5), 0 10px 28px -4px rgba(0, 0, 0, 0.55);
+  --surface-inner-card-fill: var(--bg-hover);
+  --surface-inner-card-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --surface-inner-card-shadow-lifted: 0 1px 1px rgba(0, 0, 0, 0.45), 0 8px 24px -4px rgba(0, 0, 0, 0.45);
+  --surface-inner-card-shadow-dragged: 0 1px 1px rgba(0, 0, 0, 0.5), 0 10px 28px -4px rgba(0, 0, 0, 0.55);
+  --surface-stage-shadow: 0 1px 1px rgba(0, 0, 0, 0.5), 0 10px 28px -4px rgba(0, 0, 0, 0.55);
+}
+
+/* ---- The lines inside panels and cards, on the body ---- */
+
+:root[data-look-panels="paper"]:not([data-look-contrast="more"]) body {
+  --border: color-mix(in srgb, var(--fg) 7%, transparent);
+}
+
+:root[data-theme="dark"][data-look-panels="paper"]:not([data-look-contrast="more"]) body {
+  --border: color-mix(in srgb, var(--fg) 8%, transparent);
+}

@@ -103,9 +103,17 @@ export interface FrameEvidence {
     pageScriptRan: boolean;
   } | null;
   frame: { t: number; look: LookAttributes; paintsBefore: string[] } | null;
+  /** Each surface the recorder was asked to read, at the first animation
+   * frame it was on the page: what it computed before that frame painted. */
+  members?: Record<string, MemberEvidence>;
   /** Paint timing, read once the page has loaded. */
   paints?: { name: string; startTime: number }[];
 }
+
+/** A surface as the browser computed it at the first frame it was there:
+ * the frame's number from the first, its time, its ground, blur and shadow,
+ * and the paint entries that existed then. */
+export interface MemberEvidence { frame: number; t: number; fill: string; blur: string; shadow: string; paintsBefore: string[] }
 
 type RecorderWindow = Window & { __lookFrames?: FrameEvidence };
 
@@ -117,10 +125,13 @@ type RecorderWindow = Window & { __lookFrames?: FrameEvidence };
  * is undone from the record (by its old value), so the record is the root
  * exactly as the parser created it from the served markup, whenever the
  * observer's delivery runs. The first animation frame is read too, with
- * the paint entries that existed at that moment.
+ * the paint entries that existed at that moment. `members` names surfaces
+ * by a selector each: every animation frame until each is found, the first
+ * element it matches is read (its computed ground, blur and shadow), so
+ * the record holds what it showed in the first frame it was on the page.
  */
-export async function installFrameRecorder(page: Page): Promise<void> {
-  await page.addInitScript(() => {
+export async function installFrameRecorder(page: Page, members: Record<string, string> = {}): Promise<void> {
+  await page.addInitScript((members: Record<string, string>) => {
     const read = (el: Element): Record<string, string> => {
       const out: Record<string, string> = {};
       for (const attr of Array.from(el.attributes)) if (attr.name.startsWith("data-look-")) out[attr.name] = attr.value;
@@ -172,14 +183,34 @@ export async function installFrameRecorder(page: Page): Promise<void> {
         paintsBefore: performance.getEntriesByType("paint").map((p) => p.name),
       };
     });
-  });
+    const found: Record<string, MemberEvidence> = {};
+    record.members = found;
+    let frame = 0;
+    const watch = () => {
+      frame += 1;
+      for (const [name, selector] of Object.entries(members)) {
+        if (found[name]) continue;
+        const el = document.querySelector(selector);
+        if (!el) continue;
+        const cs = getComputedStyle(el);
+        found[name] = {
+          frame, t: performance.now(), fill: cs.backgroundColor, blur: cs.getPropertyValue("backdrop-filter"), shadow: cs.boxShadow,
+          paintsBefore: performance.getEntriesByType("paint").map((p) => p.name),
+        };
+      }
+      if (Object.keys(found).length < Object.keys(members).length && frame < 600) requestAnimationFrame(watch);
+    };
+    if (Object.keys(members).length) requestAnimationFrame(watch);
+  }, members);
 }
 
 /** The recorder's evidence for the page's current document, once its first
- * animation frame has run and the page has painted, with the paint entries. */
-export async function frameEvidence(page: Page): Promise<FrameEvidence> {
-  await page.waitForFunction(() => (window as RecorderWindow).__lookFrames?.frame != null
-    && performance.getEntriesByType("paint").length > 0, undefined, { timeout: 15_000 });
+ * animation frame has run and the page has painted, with the paint entries;
+ * with `members`, once each of those surfaces has been read too. */
+export async function frameEvidence(page: Page, members: string[] = []): Promise<FrameEvidence> {
+  await page.waitForFunction((members) => (window as RecorderWindow).__lookFrames?.frame != null
+    && performance.getEntriesByType("paint").length > 0
+    && members.every((name) => (window as RecorderWindow).__lookFrames?.members?.[name] != null), members, { timeout: 15_000 });
   return page.evaluate(() => ({
     ...(window as RecorderWindow).__lookFrames!,
     paints: performance.getEntriesByType("paint").map((p) => ({ name: p.name, startTime: p.startTime })),

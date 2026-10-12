@@ -29,6 +29,11 @@
  *   default; it puts every control back to its default in one request,
  *   then offers Undo for a few seconds (held while focus or the pointer
  *   is on it), which writes the previous values back in one request.
+ * - A control can be out of sight while what the card shows rules it out
+ *   (a choice that applies only under another): it is kept and synced as
+ *   the rest are, but Reset neither counts it nor returns it. Reset takes
+ *   the controls in sight when it is pressed, and its Undo writes back
+ *   whole what it changed, a control it put out of sight included.
  * - A setting pinned by the server's environment joins none of this.
  */
 
@@ -65,6 +70,9 @@ export interface UnitControl {
   readonly locked?: boolean;
   /** What Reset to defaults returns it to. A control without one is not reset. */
   readonly defaultValue?: Value;
+  /** Out of sight while this holds over what the card shows: each value,
+   * or what is kept for one under a red line. */
+  readonly hidden?: (shown: Readonly<Record<string, Value>>) => boolean;
 }
 
 /** A write the server answered with a refusal, with its code. */
@@ -96,6 +104,8 @@ export interface UnitSnapshot {
   readonly dirty: boolean;
   /** The quiet action at the head's right. */
   readonly slot: "reset" | "undo" | null;
+  /** The controls out of sight now. */
+  readonly hidden: readonly string[];
   readonly undoLeaving: boolean;
   /** Where focus should go, once per seq. */
   readonly focus: UnitFocus | null;
@@ -337,11 +347,12 @@ export class SaveUnit {
     this.emit();
   }
 
-  /** Reset to defaults: every editable, unlocked control of the card, in
-   * one write, the response then setting what each shows (typed text in a
-   * field already saved at its default included). Undo writes back only
-   * what differed from the defaults: the rest was at its default already.
-   * A stepped number still settling is dropped, so it never lands after. */
+  /** Reset to defaults: every editable, unlocked control of the card in
+   * sight when it is pressed, in one write, the response then setting what
+   * each shows (typed text in a field already saved at its default
+   * included). Undo writes back only what differed from the defaults: the
+   * rest was at its default already. A stepped number still settling is
+   * dropped, so it never lands after. */
   reset(): void {
     if (this.slot() !== "reset") return;
     const patch: Patch = {}, previous: Patch = {};
@@ -473,8 +484,17 @@ export class SaveUnit {
     return control && !control.locked ? control : undefined;
   }
 
+  /** The controls Reset returns: editable, with a default, and in sight. */
   private resettable(): UnitControl[] {
-    return [...this.controls.values()].filter(control => !control.locked && control.defaultValue !== undefined);
+    const shown = this.shown();
+    return [...this.controls.values()].filter(control => !control.locked && control.defaultValue !== undefined && !control.hidden?.(shown));
+  }
+
+  /** What the card shows: each value, or what is kept for one under a red line. */
+  private shown(): Record<string, Value> {
+    const out = { ...this.values };
+    for (const key of Object.keys(this.errors)) out[key] = this.kept[key];
+    return out;
   }
 
   /** A person's change: the value shows, its red line goes, and so does
@@ -685,11 +705,13 @@ export class SaveUnit {
   }
 
   private build(): UnitSnapshot {
+    const shown = this.shown();
     const saveLine = [...this.controls.values()].some(control =>
       this.waitsForSave(control) && !same(control, this.values[control.key], this.kept[control.key]));
     return {
       values: { ...this.values }, kept: { ...this.kept }, errors: { ...this.errors }, saved: [...this.saved.keys()],
       note: this.note, busy: this.busy, saveLine, dirty: saveLine, slot: this.slot(),
+      hidden: [...this.controls.values()].filter(control => control.hidden?.(shown)).map(control => control.key),
       undoLeaving: !!this.offer?.leaving, focus: this.focus,
     };
   }

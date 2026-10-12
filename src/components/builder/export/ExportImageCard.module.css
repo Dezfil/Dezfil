@@ -104,7 +104,8 @@
   width: 46px;
   height: 8px;
   border-radius: var(--radius-pill);
-  background: var(--accent);
+  background: var(--surface-inner-card-mark);
+  backdrop-filter: var(--surface-inner-card-blur);
   box-shadow: var(--surface-inner-card-shadow);
   transition: transform var(--dur-micro) ease;
 }

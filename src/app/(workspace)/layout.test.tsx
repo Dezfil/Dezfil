@@ -71,6 +71,18 @@ describe("the workspace root", () => {
     expect(tag).not.toContain("data-look-corners");
   });
 
+  it("serves Panels with the kinds that are on as one word list under Liquid, and the kinds never while Glass or Paper", async () => {
+    preferences.mergeAccountLook("ada", { panels: "liquid", liquidMap: "off", liquidDialogs: "on" }, db);
+    const liquid = htmlTag(await workspaceDocument("ada"));
+    expect(liquid).toContain('data-look-panels="liquid"');
+    expect(liquid).toContain('data-look-liquid="chrome panels buttons dialogs"');
+    expect(liquid).not.toMatch(/data-look-liquid[A-Z]/i);
+    preferences.mergeAccountLook("ada", { panels: "paper" }, db);
+    const paper = await workspaceDocument("ada");
+    expect(paper.props.look).toEqual({ "data-look-panels": "paper" });
+    expect(htmlTag(paper)).not.toContain("data-look-liquid");
+  });
+
   it("serves no look attribute for an account that never picked, beside one that did", async () => {
     preferences.mergeAccountLook("ada", { color: "slate", font: "system" }, db);
     const document = await workspaceDocument("bea");

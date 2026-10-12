@@ -82,13 +82,29 @@ describe("export composition — one component, two hosts", () => {
   it("keeps Dezfil's default look on the nodes the download rasterizes", () => {
     // The download rasterizes the chrome layer and the standalone legend's
     // scale node with their computed styles, and the preview shows the
-    // same nodes: each carries the look's default scope, as the frame
-    // around them does (the frame's mono rule reads the UI face, so the
+    // same nodes: each carries the look's default scope, as the
+    // composition around them does (its mono rule reads the UI face, so the
     // scope must sit there too or the person's typeface reaches it).
     const source = read("src/components/builder/export/ExportComposition.tsx");
-    for (const marker of ["className={styles.frame}", "ref={chromeRef}", "ref={setLegendScaleEl}"]) {
+    for (const marker of ["className={styles.composition}", "ref={chromeRef}", "ref={setLegendScaleEl}"]) {
       expect(openingTag(source, marker), marker).toMatch(/\sdata-look-default=""/);
     }
+    // The frame around the composition is the card's preview: it carries no
+    // scope, so its corner and shadow take the person's look like the card's
+    // other surfaces, and it holds the composition alone, so nothing of the
+    // image sits outside the scope.
+    expect(openingTag(source, "className={styles.frame}")).not.toMatch(/data-look-default/);
+    const frameTag = openingTag(source, "className={styles.frame}");
+    const body = source.slice(source.indexOf(frameTag) + frameTag.length, source.lastIndexOf("</div>"));
+    const children = body.replace(/\{\/\*[\s\S]*?\*\/\}/g, "").trim();
+    expect(children.startsWith(openingTag(source, "className={styles.composition}")), "the composition is the frame's only child").toBe(true);
+    expect(children.endsWith("</div>")).toBe(true);
+    // The image's ground and mono face sit with the scope, never on the frame.
+    const css = read("src/components/builder/export/ExportComposition.module.css").replace(/\/\*[\s\S]*?\*\//g, "");
+    const rule = (selector: string) => new RegExp(`(^|\\})\\s*${selector.replace(/[.[\]]/g, "\\$&")}\\s*\\{([^}]*)\\}`).exec(css)?.[2] ?? "";
+    expect(rule(".frame")).not.toMatch(/background|--font-mono/);
+    expect(rule(".composition")).toMatch(/background:\s*var\(--bg-panel\)/);
+    expect(rule(".composition")).toMatch(/--font-mono:\s*var\(--font-ui\)/);
     // ...and those are the very nodes the card hands the download.
     const card = read("src/components/builder/export/ExportImageCard.tsx");
     expect(card).toMatch(/chrome: chromeRef\.current/);

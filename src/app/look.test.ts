@@ -28,7 +28,14 @@ function rules(css: string): Rule[] {
   return out;
 }
 
-const LOOK = rules(readFileSync("src/app/look.css", "utf8"));
+/** A conditional block, one level deep: an at-rule and the rules inside it. */
+const CONDITIONAL = /@(?:media|supports)[^{]*\{(?:[^{}]|\{[^{}]*\})*\}/g;
+const LOOK_CSS = readFileSync("src/app/look.css", "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+/** The one conditional rule, the stylesheet's named exception: when the
+ * computer asks for less transparency or more contrast, the glass fill
+ * goes opaque. Every other rule is keyed by the picks. */
+const OPAQUE_ON_REQUEST = "@media (prefers-reduced-transparency: reduce), (prefers-contrast: more)";
+const LOOK = rules(LOOK_CSS.replace(CONDITIONAL, ""));
 const GLOBALS = rules(readFileSync("src/app/globals.css", "utf8"));
 
 const DEFAULT_LIGHT = "[data-look-default]";
@@ -309,6 +316,22 @@ describe("the look stylesheet", () => {
       .filter(rule => rule.selector === ".rail" && /border-radius/.test(rule.body));
     expect(rail.length).toBe(1);
     expect(rail[0].body).toMatch(/border-radius:\s*var\(--radius-rail\)/);
+  });
+
+  it("makes the glass fill opaque on request, on the root, a published page's dark root and the pictures, never an image's default scope", () => {
+    const conditional = [...LOOK_CSS.matchAll(CONDITIONAL)].map(([block]) => block);
+    expect(conditional).toHaveLength(1);
+    const head = conditional[0].slice(0, conditional[0].indexOf("{")).trim().replace(/\s+/g, " ");
+    expect(head).toBe(OPAQUE_ON_REQUEST);
+    const inside = bodies(conditional[0].slice(conditional[0].indexOf("{") + 1, -1));
+    const scopes = [...new Set(inside.map(rule => rule.selector))];
+    expect(scopes).toEqual([":root", '[data-view-theme="dark"]', "[data-picture-color]", "[data-picture-contrast]",
+      "[data-picture-corners]", "[data-picture-panels]"]);
+    for (const rule of inside) expect([...declared(rule.body)], rule.selector).toEqual([["--fill-glass", "var(--bg-panel)"]]);
+    // Every element the roles' block is declared on but an image's default
+    // scope, whose own declaration keeps the image translucent as the default draws it.
+    const block = bodies(readFileSync("src/app/globals.css", "utf8")).filter(rule => /--surface-menu-shadow/.test(rule.body));
+    expect(block.map(rule => rule.selector).filter(selector => selector !== "[data-look-default]")).toEqual(scopes);
   });
 
   it("is loaded by the document after the global tokens it overrides", () => {

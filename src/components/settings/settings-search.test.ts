@@ -38,11 +38,11 @@ const index = (admin = true, overrides: Partial<IndexSources> = {}) => buildSear
 const paths = (hits: SearchHit[]) => hits.map(hitPath);
 
 describe("Appearance in the search", () => {
-  const rows = ["Color", "Contrast", "Background", "Typeface", "Corners", "Side menu"];
+  const rows = ["Color", "Contrast", "Panels", "Background", "Typeface", "Corners", "Side menu"];
   const appearance = (query: string, overrides: Partial<IndexSources> = {}, admin = true) =>
     searchSettings(index(admin, overrides), query).filter(hit => hitPath(hit).startsWith("You / Appearance · "));
 
-  it("finds each of the six rows by its label, as You / Appearance · Row, opening the tab on the row", () => {
+  it("finds each of the seven rows by its label, as You / Appearance · Row, opening the tab on the row", () => {
     for (const label of rows) {
       const hit = appearance(label.toLowerCase()).find(found => found.entry.kind === "row" && found.name === label);
       expect(hitPath(hit!), label).toBe(`You / Appearance · ${label}`);
@@ -58,15 +58,32 @@ describe("Appearance in the search", () => {
     expect(appearance("font family").map(hitPath)).toEqual(["You / Appearance · Typeface"]);
     expect(appearance("radius").map(hitPath)).toEqual(["You / Appearance · Corners"]);
     expect(appearance("sidebar").map(hitPath)).toEqual(["You / Appearance · Side menu"]);
+    for (const word of ["glass", "frosted", "liquid", "paper", "transparent", "blur", "solid"]) {
+      expect(appearance(word).map(hitPath), word).toContain("You / Appearance · Panels");
+    }
+    expect(appearance("frosted")[0].target).toEqual({ tab: "appearance", anchor: "set-panels" });
+  });
+
+  it("finds Panels by the name of a kind Liquid reaches, whatever is picked, and never the kinds' own row", () => {
+    for (const kind of ["Header and side menu", "Side panels", "On the map", "Map buttons", "Page cards", "Cards inside panels", "Menus and pop-overs", "Dialogs"]) {
+      const hits = appearance(kind.toLowerCase());
+      expect(hits.find(hit => hit.name === "Panels"), kind).toMatchObject({ target: { tab: "appearance", anchor: "set-panels" } });
+      expect(hits.map(hit => hit.name), kind).not.toContain("Liquid panels");
+    }
+    expect(appearance("menus and pop-overs").map(hitPath)).toEqual(["You / Appearance · Panels"]);
   });
 
   it("finds a row by the words of its current choice, and shows them", () => {
     expect(appearance("heather").map(hitPath)).toContain("You / Appearance · Color");
     const rail = appearance("icons only").find(hit => hit.name === "Side menu");
     expect(rail?.meta).toBe("Layout · Icons only");
-    // The card and the row share a name, so the row's line is its choice alone.
     expect(appearance("hex lattice", { look: { ...defaultLook(), background: "hex" } }).find(hit => hit.entry.kind === "row")?.meta)
-      .toBe("Hex lattice");
+      .toBe("Panels and background · Hex lattice");
+    expect(appearance("more contrast", { look: { ...defaultLook(), contrast: "more" } }).find(hit => hit.name === "Contrast")?.meta)
+      .toBe("Color and contrast · More contrast");
+    expect(appearance("liquid", { look: { ...defaultLook(), panels: "liquid" } }).find(hit => hit.name === "Panels")?.meta)
+      .toBe("Panels and background · Liquid");
+    expect(appearance("paper").find(hit => hit.name === "Panels")?.meta).toBe("Panels and background · Glass");
     expect(appearance("always open").find(hit => hit.name === "Side menu")).toBeUndefined();
   });
 

@@ -24,7 +24,8 @@
   padding: 10px;
   border-radius: var(--radius-lg);
   background: var(--surface-menu-fill);
-  border: 1px solid var(--border-strong);
+  backdrop-filter: var(--surface-menu-blur);
+  border: var(--surface-menu-edge-strong);
   box-shadow: var(--surface-menu-shadow);
   animation: picker-rise var(--dur-micro) var(--ease-entrance);
 }

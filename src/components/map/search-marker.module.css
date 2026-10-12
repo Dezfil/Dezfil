@@ -24,6 +24,7 @@
   padding: 3px 4px 3px 9px;
   border-radius: var(--radius);
   background: var(--surface-menu-fill);
+  backdrop-filter: var(--surface-menu-blur);
   border: var(--surface-menu-edge);
   box-shadow: var(--surface-menu-shadow);
   white-space: nowrap;

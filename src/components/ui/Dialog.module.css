@@ -22,6 +22,7 @@
   border-radius: var(--radius-card);
   border: var(--surface-dialog-edge);
   background: var(--surface-dialog-fill);
+  backdrop-filter: var(--surface-dialog-blur);
   box-shadow: var(--surface-dialog-shadow);
   /* The one intentional suppression in the app: this container
      takes programmatic focus on open as the modality anchor — it is not

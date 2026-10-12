@@ -31,28 +31,48 @@ const FILLS: Record<string, string> = {
 const HAIRLINE = "1px solid var(--border)";
 
 /** Each role's parts at the values the design names, both themes alike:
- * the theme supplies the tones. */
+ * the theme supplies the tones. Every role but the stage has a lens, how
+ * far its edge pulls the backdrop in, none in the shipped look; the
+ * overlay control's growth on hover, a page card's stronger line under the
+ * pointer, the menu's stronger edge and raised ground, and the inner
+ * card's bright knob, accent mark, stronger line under the pointer and the
+ * dashed line of a card that makes something new are today's values, so a
+ * look can restate them. */
 const ROLES: Record<string, Record<string, string>> = {
-  "glass-chrome": { fill: FILLS.glass, blur: STRENGTHS.glass, edge: "none", shadow: STEPS.float },
-  "glass-panel": { fill: FILLS.glass, blur: STRENGTHS.glass, edge: "none", shadow: STEPS.float, corner: "var(--radius-card)" },
-  "overlay-panel": { fill: FILLS.glass, blur: STRENGTHS.overlay, edge: "none", shadow: STEPS.overlay },
-  "overlay-control": { fill: FILLS.glass, blur: STRENGTHS.overlay, edge: "none", shadow: STEPS.float },
+  "glass-chrome": { fill: FILLS.glass, blur: STRENGTHS.glass, edge: "none", shadow: STEPS.float, lens: "0" },
+  "glass-panel": { fill: FILLS.glass, blur: STRENGTHS.glass, edge: "none", shadow: STEPS.float, corner: "var(--radius-card)", lens: "0" },
+  "overlay-panel": { fill: FILLS.glass, blur: STRENGTHS.overlay, edge: "none", shadow: STEPS.overlay, lens: "0" },
+  "overlay-control": { fill: FILLS.glass, blur: STRENGTHS.overlay, edge: "none", shadow: STEPS.float, lens: "0", grow: "scale(1.06)" },
   "page-card": {
     fill: "var(--bg-panel)", blur: "none", edge: HAIRLINE, shadow: STEPS.float, "shadow-hover": STEPS.deep,
-    corner: "var(--radius-card)",
+    "edge-hover": "1px solid var(--border-strong)", corner: "var(--radius-card)", lens: "0",
   },
   "inner-card": {
     fill: "var(--bg-panel)", blur: "none", edge: HAIRLINE, shadow: STEPS.hairline,
-    "shadow-lifted": STEPS.float, "shadow-dragged": STEPS.deep,
+    "shadow-lifted": STEPS.float, "shadow-dragged": STEPS.deep, lens: "0", knob: "#fff", mark: "var(--accent)",
+    "edge-hover": "1px solid var(--border-strong)", "edge-new": "1px dashed var(--border-strong)",
   },
-  menu: { fill: "var(--bg-panel)", blur: "none", edge: HAIRLINE, shadow: STEPS.lift },
-  dialog: { fill: "var(--bg-panel)", blur: "none", edge: HAIRLINE, shadow: STEPS.dialog, corner: "var(--radius-card)" },
+  menu: {
+    fill: "var(--bg-panel)", blur: "none", edge: HAIRLINE, shadow: STEPS.lift, lens: "0", "edge-strong": "1px solid var(--border-strong)",
+    "fill-raised": "var(--bg-raised)",
+  },
+  dialog: { fill: "var(--bg-panel)", blur: "none", edge: HAIRLINE, shadow: STEPS.dialog, corner: "var(--radius-card)", lens: "0" },
   stage: { fill: "transparent", blur: "none", edge: "none", shadow: STEPS.deep, corner: "var(--radius-card)" },
 };
 
 const VOCABULARY = /^--(shadow-[\w-]+|blur-[\w-]+|fill-[\w-]+|edge-[\w-]+|surface-[\w-]+)$/;
-/** The stylesheets that set tones: the shipped tokens, the look, the pictures. */
-const TOKEN_SHEETS = ["src/app/globals.css", "src/app/look.css", "src/components/settings/look-pictures.css"];
+/** The stylesheets that set tones or restate roles: the shipped tokens, the
+ * look, the pictures, the Panels looks. */
+const TOKEN_SHEETS = ["src/app/globals.css", "src/app/look.css", "src/components/settings/look-pictures.css", "src/app/look-liquid.css",
+  "src/app/look-paper.css"];
+/** A tone restated off the block's scopes on purpose, with its reason. */
+const TONES_OFF_SCOPE: { file: string; element: string; why: string }[] = [
+  { file: "src/app/look-paper.css", element: "body", why: "Paper's quieter lines: the roles keep the root's line, so a menu's and a dialog's edge stay as shipped" },
+];
+/** The look's stylesheets: they restate a role's parts and the fills for a
+ * look, and declare nothing else of the vocabulary. */
+const RESTATERS = ["src/app/look.css", "src/app/look-liquid.css", "src/app/look-paper.css"];
+const RESTATED = /^--(surface-[\w-]+|fill-[\w-]+)$/;
 
 type Rule = { selectors: string[]; tokens: Map<string, string> };
 
@@ -75,9 +95,10 @@ function resolve(tokens: Map<string, string>, token: string, depth = 0): string 
   return value.replace(/var\((--[\w-]+)\)/g, (whole, name: string) => (tokens.has(name) ? resolve(tokens, name, depth + 1) : whole));
 }
 
-/** The element a selector styles: the root, or its last compound. */
+/** The element a selector styles: the root, or its last compound (a `~=`
+ * inside an attribute is a match, not a combinator). */
 const target = (selector: string) => {
-  const last = selector.split(/\s*[\s>+~]\s*/).filter(Boolean).pop() ?? selector;
+  const last = selector.split(/\s*(?:[\s>+]|~(?!=))\s*/).filter(Boolean).pop() ?? selector;
   return last.startsWith(":root") ? ":root" : last;
 };
 
@@ -135,7 +156,23 @@ export function vocabularyProblems(sheets: Record<string, string>): string[] {
       if (!tones.length) continue;
       for (const selector of rule.selectors) {
         const element = target(selector);
+        if (TONES_OFF_SCOPE.some(entry => entry.file === file && entry.element === element)) continue;
         if (!covered(element)) problems.push(`${file}: ${selector} restates ${tones.join(", ")} on ${element}, outside the block's scopes`);
+      }
+    }
+  }
+
+  // A role restated anywhere but the root (a look's picture) is restated on
+  // an element the block is declared on, so every other picture of the
+  // same pick keeps the shipped roles whatever the root's look.
+  for (const [file, css] of Object.entries(sheets)) {
+    for (const rule of rules(css)) {
+      if (rule === block) continue;
+      const parts = [...rule.tokens.keys()].filter(token => token.startsWith("--surface-"));
+      if (!parts.length) continue;
+      for (const selector of rule.selectors) {
+        const element = target(selector);
+        if (!covered(element)) problems.push(`${file}: ${selector} restates ${parts.join(", ")} on ${element}, outside the block's scopes`);
       }
     }
   }
@@ -162,7 +199,22 @@ describe("the surface vocabulary", () => {
     const block = rules(SHEETS["src/app/globals.css"]).find(rule => rule.tokens.has("--surface-menu-shadow"))!;
     expect(block.selectors).toEqual(expect.arrayContaining([
       ":root", '[data-view-theme="dark"]', "[data-look-default]", "[data-picture-color]", "[data-picture-contrast]", "[data-picture-corners]",
+      "[data-picture-panels]",
     ]));
+  });
+
+  it("fails when the Panels pictures' scope is dropped while a look restates a role on its picture", () => {
+    // A look's picture restates the roles on the picture itself; the block
+    // declared there is what keeps the other pictures of Panels on the shipped roles.
+    const picture = ':root [data-picture-panels="liquid"] {\n  --surface-glass-chrome-blur: blur(9px);\n}\n';
+    const seeded = { ...SHEETS, "src/app/look-liquid.css": picture };
+    expect(vocabularyProblems(seeded)).toEqual([]);
+    const globals = SHEETS["src/app/globals.css"];
+    expect(globals).toContain("[data-picture-panels] {");
+    const dropped = globals.replace(",\n[data-picture-panels] {", " {");
+    expect(dropped).not.toBe(globals);
+    expect(vocabularyProblems({ ...seeded, "src/app/globals.css": dropped }))
+      .toContain('src/app/look-liquid.css: :root [data-picture-panels="liquid"] restates --surface-glass-chrome-blur on [data-picture-panels="liquid"], outside the block\'s scopes');
   });
 
   it("fails when a scope that restates tones is dropped from the block: an image's, then a published page's dark root", () => {
@@ -184,9 +236,11 @@ describe("the surface vocabulary", () => {
     expect(vocabularyProblems({ ...SHEETS, "src/app/globals.css": twice })).toContain("--shadow-float is declared 2 times");
   });
 
-  it("is declared by no other stylesheet: a surface reads its role and never makes its own", () => {
+  it("is declared by no other stylesheet: a surface reads its role and never makes its own; a look only restates roles and fills", () => {
     const own = stylesheets("src").filter(file => file !== "src/app/globals.css").flatMap(file =>
-      rules(read(file)).flatMap(rule => [...rule.tokens.keys()].filter(token => VOCABULARY.test(token)).map(token => `${file} ${rule.selectors.join(", ")} ${token}`)));
+      rules(read(file)).flatMap(rule => [...rule.tokens.keys()]
+        .filter(token => VOCABULARY.test(token) && !(RESTATERS.includes(file) && RESTATED.test(token)))
+        .map(token => `${file} ${rule.selectors.join(", ")} ${token}`)));
     expect(own).toEqual([]);
   });
 });

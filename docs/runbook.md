@@ -423,7 +423,10 @@ to that journey. Run the rest against a fresh scratch store with this flag unset
 against an already running instance: one worker, no retries, a 240-second
 per-test bound, traces retained on failure. The target comes from
 `DEZFIL_BASE_URL`, default `http://localhost:3000`. The first run on a
-machine needs `npx playwright install chromium`. The suite runs on your own
+machine needs `npx playwright install chromium firefox webkit`: Firefox and
+WebKit run only the Panels looks' fallback cases (their own projects in the
+Playwright config), and the WebKit project is left out where its build is
+not installed. The suite runs on your own
 machine only: the pipeline has no browser job, so nothing runs it for you.
 On a hosted runner it did not reliably finish inside the available time
 bound, the standalone build, the browser download, the tiler build and the
@@ -434,7 +437,11 @@ Subsets run by area: `npm run e2e:keyboard`, `e2e:layers`, `e2e:imports`,
 `e2e:sqlbridge`, `e2e:sqlconsole`, `e2e:draw`, `e2e:styling`,
 `e2e:recovery`, `e2e:lifecycle`, `e2e:theme`, `e2e:states`, `e2e:pixel`,
 `e2e:statepixels`, `e2e:wheelhousepixels`, `e2e:a11y-pixels`,
-`e2e:primitives`, `e2e:smoke`, `e2e:look`, `e2e:surfaces` (the surface
+`e2e:primitives`, `e2e:smoke`, `e2e:look` (the Appearance tab, an image
+keeping the default look, and the Panels looks on every kind of surface;
+`DEZFIL_PANEL_LOOKS_SEED` set to `typed-liquid`, `preview-lens`,
+`late-look` or `late-sheets` turns the steps its header names red),
+`e2e:surfaces` (the surface
 roles' computed values on every screen, both themes, and the blur drawn
 under the map card's glass; `DEZFIL_SURFACE_ROLES_SEED` set to
 `typed-shadow`, `typed-member`, `scope-forgets` or `light-tones` turns the

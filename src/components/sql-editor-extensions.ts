@@ -239,3 +239,44 @@ export function editorLook({
 }): Extension {
   return [textSizeTheme(textSize), ...(wrap ? [EditorView.lineWrapping] : [])];
 }
+
+/* ---------------------------------------------------------------- */
+/* The completion list                                               */
+/* ---------------------------------------------------------------- */
+
+/** The completion list in the app's own chrome. It is a menu, so it
+ * reads the menu role's ground, blur, edge and shadow, as every other menu
+ * does: a look that restates the menus restates it too. */
+export const completionLook: Extension = EditorView.theme({
+  ".cm-tooltip.cm-tooltip-autocomplete": {
+    backgroundColor: "var(--surface-menu-fill)",
+    backdropFilter: "var(--surface-menu-blur)",
+    border: "var(--surface-menu-edge)",
+    borderRadius: "10px",
+    boxShadow: "var(--surface-menu-shadow)",
+    padding: "4px",
+    // Completion lists code: the mono face, as the scroller has it.
+    font: "12px var(--font-mono)",
+  },
+  ".cm-tooltip.cm-tooltip-autocomplete > ul > li": {
+    padding: "4px 8px",
+    borderRadius: "6px",
+    color: "var(--fg)",
+  },
+  ".cm-tooltip.cm-tooltip-autocomplete > ul > li[aria-selected]": {
+    backgroundColor: "var(--accent-dim)",
+    color: "var(--fg)",
+  },
+  ".cm-completionDetail": {
+    fontFamily: "var(--font-ui)",
+    fontSize: "10.5px",
+    color: "var(--fg-faint)",
+    marginLeft: "12px",
+    fontStyle: "normal",
+  },
+  ".cm-completionMatchedText": {
+    textDecoration: "none",
+    color: "var(--accent-bright)",
+    fontWeight: "600",
+  },
+});

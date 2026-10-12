@@ -35,7 +35,7 @@
 
 .stageBtn:hover {
   color: var(--accent);
-  transform: scale(1.06);
+  transform: var(--surface-overlay-control-grow);
 }
 
 .stageBtn:active {

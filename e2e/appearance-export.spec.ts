@@ -14,7 +14,8 @@
 //   they show is the tolerance every later comparison is held to, and it
 //   must itself stay within a small fixed ceiling.
 // - Each pick off the default, set alone through the documented
-//   own-settings write, and then all of them together: the download
+//   own-settings write, then the two Panels looks (Liquid with every kind
+//   on, and Paper), and then all the other picks together: the download
 //   equals the default one, and the nodes the download rasterizes keep
 //   the computed styles they have under the default look, while the
 //   card's options take the person's.
@@ -25,9 +26,9 @@
 //   value of its own in its place is caught by the comparison with the
 //   clean download.
 // - The server's own image: rendered through the API under the person's
-//   look, it is the image rendered under the default look, by bytes or
-//   within the same ceiling; a render whose definition differs fails the
-//   same comparison. The render route's document carries no look. The
+//   look (every pick, then each Panels look), it is the image rendered
+//   under the default look, by bytes or within the same ceiling; a render
+//   whose definition differs fails the same comparison. The render route's document carries no look. The
 //   server renders with its own browser (DEZFIL_CHROMIUM_PATH) over a
 //   loopback basemap, so no image waits on a public tile host.
 //
@@ -52,10 +53,22 @@ import { patchMap, routeHouse, trackConsole } from "./support";
 import { startLoopbackBasemap } from "../scripts/loopback-basemap.mjs";
 
 type Look = Record<string, string>;
-const DEFAULTS: Look = { color: "kelp", contrast: "standard", font: "inter", background: "atlantic", corners: "rounded", rail: "hover" };
+/** The eight kinds Liquid can take, each a setting of its own, and the
+ * word each stands for on the root while Liquid is picked. */
+const KINDS: [string, string][] = [["liquidChrome", "chrome"], ["liquidPanels", "panels"], ["liquidMap", "map"], ["liquidButtons", "buttons"],
+  ["liquidCards", "cards"], ["liquidInner", "inner"], ["liquidMenus", "menus"], ["liquidDialogs", "dialogs"]];
+const DEFAULTS: Look = {
+  color: "kelp", contrast: "standard", font: "inter", background: "atlantic", corners: "rounded", rail: "hover", panels: "glass",
+  liquidChrome: "on", liquidPanels: "on", liquidMap: "on", liquidButtons: "on", liquidCards: "off", liquidInner: "off", liquidMenus: "off", liquidDialogs: "off",
+};
 /** Each pick off the default; together, the look compared last. */
 const PICKS: [string, string][] = [["color", "heather"], ["contrast", "more"], ["font", "system"], ["background", "graticule"], ["corners", "soft"], ["rail", "icons"]];
 const LOOK: Look = Object.fromEntries(PICKS);
+/** The two Panels looks off Glass: Liquid with every kind on, and Paper. */
+const PANEL_LOOKS: [string, Look][] = [
+  ["panels liquid, every kind on", { panels: "liquid", ...Object.fromEntries(KINDS.map(([key]) => [key, "on"])) }],
+  ["panels paper", { panels: "paper" }],
+];
 /** Heather's accent, light, as a token and as paint; Kelp's as the default scope restates it. */
 const HEATHER_ACCENT = "#6b4cad";
 const HEATHER_PAINT = "rgb(107, 76, 173)";
@@ -66,10 +79,19 @@ const KELP_ACCENT = "#0d7d5c";
 const TYPED_LEGEND_SHADOW = "0 4px 14px rgba(0, 0, 0, 0.5)";
 const TYPED_LEGEND_SHADOW_COMPUTED = "rgba(0, 0, 0, 0.5) 0px 4px 14px 0px";
 
-const attrs = (look: Look) => Object.fromEntries(Object.entries(look)
-  .filter(([key, value]) => DEFAULTS[key] !== value)
-  .map(([key, value]) => [`data-look-${key}`, value])
-  .sort(([a], [b]) => a.localeCompare(b)));
+/** The root's attributes for a look: one per pick off the default, and
+ * for Panels its pick and, while Liquid, the words of the kinds that are on. */
+const attrs = (look: Look) => {
+  const full = { ...DEFAULTS, ...look };
+  const kinds = new Set(KINDS.map(([key]) => key));
+  const out: [string, string][] = Object.entries(full)
+    .filter(([key, value]) => key !== "panels" && !kinds.has(key) && DEFAULTS[key] !== value)
+    .map(([key, value]) => [`data-look-${key}`, value]);
+  if (full.panels !== "glass") out.push(["data-look-panels", full.panels]);
+  const words = KINDS.filter(([key]) => full[key] === "on").map(([, word]) => word);
+  if (full.panels === "liquid" && words.length > 0) out.push(["data-look-liquid", words.join(" ")]);
+  return Object.fromEntries(out.sort(([a], [b]) => a.localeCompare(b)));
+};
 
 /** The builder frames the data on every open and, once the camera comes
  * to rest, sends the framed camera to be kept: an open is settled once
@@ -118,7 +140,9 @@ interface Styled { element: string; styles: Record<string, string> }
 function rasterizedStyles(page: Page): Promise<Styled[]> {
   return page.evaluate(() => {
     const frame = document.querySelector("[data-export-card] [data-export-composition]")!;
-    const roots = Array.from(frame.querySelectorAll<HTMLElement>("[data-look-default]"));
+    // The two rasterized nodes each carry the default scope inside the
+    // composition's own: the chrome layer and the standalone legend's scale.
+    const roots = Array.from(frame.querySelectorAll<HTMLElement>("[data-look-default] [data-look-default]"));
     const props = ["font-family", "font-size", "font-weight", "line-height", "letter-spacing", "color", "background-color",
       "border-top-color", "border-top-width", "border-top-left-radius", "box-shadow", "fill", "stroke", "opacity"];
     return roots.flatMap((root) => [root, ...Array.from(root.querySelectorAll<Element>("*"))]).map((el) => {
@@ -226,6 +250,10 @@ test.describe("an image keeps Dezfil's default look", () => {
         for (const [key, value] of PICKS) await underLook(`${key} ${value}`, { [key]: value });
       });
 
+      await test.step("each Panels look: the download and the rasterized nodes stay at the default", async () => {
+        for (const [label, look] of PANEL_LOOKS) await underLook(label, look);
+      });
+
       await test.step("every pick together: the download stays at the default while the card's options take the look", async () => {
         const options = await underLook("every pick", LOOK);
         console.log(`[options] ${JSON.stringify(options)}`);
@@ -278,13 +306,15 @@ test.describe("an image keeps Dezfil's default look", () => {
           };
           await setLook(person.api, DEFAULTS);
           const plain = await serverImage("the default look", SERVER_DEFINITION);
-          await setLook(person.api, LOOK);
-          const picked = await serverImage("every pick", SERVER_DEFINITION);
           expect([plain.readUInt32BE(16), plain.readUInt32BE(20)]).toEqual([960, 540]);
-          const result = await compare(page, plain, picked);
-          console.log(`[server] every pick against the default look: ${line(result)}`);
-          await test.info().attach("server image under every pick", { body: JSON.stringify(result, null, 2), contentType: "application/json" });
-          expect(withinCeiling(result), `the server's image under every pick (${line(result)})`).toBe(true);
+          for (const [label, look] of [["every pick", LOOK], ...PANEL_LOOKS] as [string, Look][]) {
+            await setLook(person.api, { ...DEFAULTS, ...look });
+            const picked = await serverImage(label, SERVER_DEFINITION);
+            const result = await compare(page, plain, picked);
+            console.log(`[server] ${label} against the default look: ${line(result)}`);
+            await test.info().attach(`server image under ${label}`, { body: JSON.stringify(result, null, 2), contentType: "application/json" });
+            expect.soft(withinCeiling(result), `the server's image under ${label} (${line(result)})`).toBe(true);
+          }
           // The same comparison fails over an image that is not the same one.
           const retitled = await serverImage("another title", { ...SERVER_DEFINITION, title: { text: "Another render", size: "m" } });
           const other = await compare(page, plain, retitled);

@@ -45,6 +45,7 @@
   z-index: 40;
   width: 300px;
   background: var(--surface-menu-fill);
+  backdrop-filter: var(--surface-menu-blur);
   border: var(--surface-menu-edge);
   border-radius: var(--radius-lg);
   padding: 12px;

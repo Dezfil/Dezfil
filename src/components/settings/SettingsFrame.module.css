@@ -49,6 +49,7 @@
   border-radius: var(--radius-card);
   border: var(--surface-page-card-edge);
   background: var(--surface-page-card-fill);
+  backdrop-filter: var(--surface-page-card-blur);
   box-shadow: var(--surface-page-card-shadow);
 }
 

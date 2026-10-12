@@ -57,15 +57,23 @@ admins have **General**, **Maps**, **Workflows & SQL**, **Publishing**,
 the column's foot; members see General alone, read-only.
 
 - **Appearance** is the person's own look: Color (Kelp, Harbor, Heather or
-  Slate), Contrast (Standard or More contrast), Background (Atlantic chart,
-  Plain, Graticule or Hex lattice), Typeface (Inter, or System for the
-  computer's own), Corners (Rounded or Soft) and Side menu (Opens on hover,
-  Always open or Icons only). A pick changes the page at once and is kept with
-  the account, so every other browser that account uses shows it from its next
-  page load, with no flash of the default first. The look is never shared and
-  never reaches a published page or an image of a map: those keep Dezfil's
-  default look. There is no instance-wide look, and the light and dark button in
-  the header stays a choice of each browser.
+  Slate), Contrast (Standard or More contrast), Panels (Glass, Liquid or
+  Paper), Background (Atlantic chart, Plain, Graticule or Hex lattice), Typeface
+  (Inter, or System for the computer's own), Corners (Rounded or Soft) and Side
+  menu (Opens on hover, Always open or Icons only). Glass is the frosted panels
+  Dezfil has always had; Paper makes them solid. While Liquid is picked, a
+  **Liquid panels** row switches which kinds of surface go liquid: Header and
+  side menu, Side panels, On the map and Map buttons are on at first; Page
+  cards, Cards inside panels, Menus and pop-overs and Dialogs are off. A kind
+  that is off stays Glass, and the switches are kept while Glass or Paper is
+  picked. Liquid bends the backdrop at a panel's edge in Chromium-based browsers
+  (Chrome, Edge and the like); Firefox and Safari show the same fills, blur,
+  light and shadow without the bend. A pick changes the page at once and is
+  kept with the account, so every other browser that account uses shows it from
+  its next page load, with no flash of the default first. The look is never
+  shared and never reaches a published page or an image of a map: those keep
+  Dezfil's default look. There is no instance-wide look, and the light and dark
+  button in the header stays a choice of each browser.
 - **General** holds the instance name, shown beside the wordmark and in browser
   titles, and the sign-in page: a message under its heading, who to ask about a
   lost password, and the page people open after signing in (Home, Projects, Maps,
@@ -127,7 +135,9 @@ Choices and numbers are kept as they change; typed text waits for Save. A card
 offers Reset to defaults while it differs from its defaults, then Undo for a few
 seconds. Appearance also offers **Reset to Dezfil's default** at the right of
 its heading while any pick differs, which returns every pick at once with the
-same Undo. Leaving a tab with unsaved typed text asks first.
+same Undo. A reset there returns the Liquid panels switches only while they are
+shown, and its Undo brings back everything it changed. Leaving a tab with
+unsaved typed text asks first.
 
 ## Leaving and deleting accounts
 

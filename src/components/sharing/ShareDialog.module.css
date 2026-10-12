@@ -182,6 +182,7 @@
   border: var(--surface-menu-edge);
   border-radius: var(--radius-lg);
   background: var(--surface-menu-fill);
+  backdrop-filter: var(--surface-menu-blur);
   box-shadow: var(--surface-menu-shadow);
 }
 
@@ -556,6 +557,7 @@
   border: var(--surface-menu-edge);
   border-radius: var(--radius-lg);
   background: var(--surface-menu-fill);
+  backdrop-filter: var(--surface-menu-blur);
   box-shadow: var(--surface-menu-shadow);
 }
 

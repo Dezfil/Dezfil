@@ -123,7 +123,7 @@ const ALLOWED = new Set([
   "src/components/SaveResultAsDataset.module.css :: .storedAs code",
   "src/components/SqlEditor.tsx :: fontFamily: \"var(--font-mono)\",",
   // The completion list: code, in the editor's own face.
-  "src/components/SqlEditor.tsx :: font: \"12px var(--font-mono)\",",
+  "src/components/sql-editor-extensions.ts :: font: \"12px var(--font-mono)\",",
   // The Data preview grid, extracted from the detail screen by 0199.
   "src/components/TablePreviewGrid.module.css :: .grid",
   // The panel's header names the dataset, an identifier; the
@@ -224,7 +224,7 @@ const ALLOWED = new Set([
   "src/components/builder/drawer/ParameterForm.module.css :: .number",
   "src/components/builder/drawer/ParameterForm.module.css :: .textarea",
   "src/components/builder/drawer/SuccessFace.module.css :: .table code",
-  "src/components/builder/export/ExportComposition.module.css :: .frame",
+  "src/components/builder/export/ExportComposition.module.css :: .composition",
   "src/components/builder/publish/PublishPopover.module.css :: .fieldName",
   "src/components/builder/publish/PublishPopover.module.css :: .snippet",
   "src/components/builder/publish/PublishPopover.module.css :: .url",

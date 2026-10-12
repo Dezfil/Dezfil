@@ -12,6 +12,13 @@
 .frame {
   position: relative;
   overflow: hidden;
+}
+
+/* Everything the frame holds, in Dezfil's default look: the image's ground
+ * and its mono face, which reads the UI face. */
+.composition {
+  position: absolute;
+  inset: 0;
   background: var(--bg-panel);
   --font-mono: var(--font-ui);
 }
@@ -21,6 +28,7 @@
 .frame[data-presentation] {
   border-radius: var(--radius-control);
   box-shadow: var(--surface-menu-shadow);
+  backdrop-filter: var(--surface-menu-blur);
 }
 
 .frame[data-busy] {

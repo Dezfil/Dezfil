@@ -1525,7 +1525,7 @@
     },
     {
       "name": "get_settings",
-      "description": "Workspace settings. The signed-in account's display name, per-screen view/sort preferences, how the SQL console's source list groups datasets and its look (color, contrast, typeface, background, corners and side menu), plus the instance name shown beside the wordmark and in browser titles (null when unnamed). Cookie or bearer authentication is required. Responses, including refusals, are private, no-store.",
+      "description": "Workspace settings. The signed-in account's display name, per-screen view/sort preferences, how the SQL console's source list groups datasets and its look (color, contrast, typeface, background, corners, side menu, panels, and which kinds of surface go liquid under the liquid panels), plus the instance name shown beside the wordmark and in browser titles (null when unnamed). Cookie or bearer authentication is required. Responses, including refusals, are private, no-store.",
       "input_schema": {
         "type": "object",
         "properties": {}
@@ -1713,6 +1713,88 @@
                 ],
                 "default": "hover",
                 "description": "Side menu. How the side menu opens: on a resting pointer or focus, always open with labels, or icons only."
+              },
+              "panels": {
+                "type": "string",
+                "enum": [
+                  "glass",
+                  "liquid",
+                  "paper"
+                ],
+                "default": "glass",
+                "description": "Panels. How cards and panels are drawn: frosted glass, liquid glass with a light on its rim, or opaque paper with no blur."
+              },
+              "liquidChrome": {
+                "type": "string",
+                "enum": [
+                  "on",
+                  "off"
+                ],
+                "default": "on",
+                "description": "Header and side menu. Under Liquid, whether the header card and its buttons, the search field, the side menu at rest, the save chip and the draw dock go liquid."
+              },
+              "liquidPanels": {
+                "type": "string",
+                "enum": [
+                  "on",
+                  "off"
+                ],
+                "default": "on",
+                "description": "Side panels. Under Liquid, whether the inspector, Tools, the Assistant and the SQL page's and canvas's panes go liquid."
+              },
+              "liquidMap": {
+                "type": "string",
+                "enum": [
+                  "on",
+                  "off"
+                ],
+                "default": "on",
+                "description": "On the map. Under Liquid, whether the legend, the status pill, the timeline, the readouts and notices over a map and the map's own frame go liquid."
+              },
+              "liquidButtons": {
+                "type": "string",
+                "enum": [
+                  "on",
+                  "off"
+                ],
+                "default": "on",
+                "description": "Map buttons. Under Liquid, whether the zoom and stage buttons, the mini-map's buttons and the small marks over cards and pictures go liquid."
+              },
+              "liquidCards": {
+                "type": "string",
+                "enum": [
+                  "off",
+                  "on"
+                ],
+                "default": "off",
+                "description": "Page cards. Under Liquid, whether the cards of the Maps, Data, Settings, SQL, connection and dataset pages go liquid."
+              },
+              "liquidInner": {
+                "type": "string",
+                "enum": [
+                  "off",
+                  "on"
+                ],
+                "default": "off",
+                "description": "Cards inside panels. Under Liquid, whether the layer cards, the node tiles, the pickable cards and the small controls on them go liquid."
+              },
+              "liquidMenus": {
+                "type": "string",
+                "enum": [
+                  "off",
+                  "on"
+                ],
+                "default": "off",
+                "description": "Menus and pop-overs. Under Liquid, whether every menu and picker, the map's tooltip and popup, the query drawer and the export card's preview frame go liquid."
+              },
+              "liquidDialogs": {
+                "type": "string",
+                "enum": [
+                  "off",
+                  "on"
+                ],
+                "default": "off",
+                "description": "Dialogs. Under Liquid, whether the dialogs go liquid."
               }
             }
           }

@@ -14,8 +14,11 @@ import { describe, expect, it } from "vitest";
 type Role =
   | "glass-chrome" | "glass-panel" | "overlay-panel" | "overlay-control" | "stage"
   | "page-card" | "inner-card" | "menu" | "dialog";
-type Part = "fill" | "blur" | "edge" | "shadow" | "corner" | "shadow-hover" | "shadow-lifted" | "shadow-dragged";
-type Member = { step: number; role: Role; file: string; selector: string; parts: Part[]; what: string };
+type Part = "fill" | "blur" | "edge" | "shadow" | "corner" | "shadow-hover" | "shadow-lifted" | "shadow-dragged"
+  | "grow" | "edge-strong" | "edge-hover" | "edge-new" | "knob" | "mark" | "fill-raised";
+/** A member's rule, or with `state` a rule restating some of its parts in
+ * a state of the member (hovered, chosen, dragged). */
+type Member = { step: number; role: Role; file: string; selector: string; parts: Part[]; what: string; state?: true };
 
 /** The steps, in the order the roles move. */
 const STEP = {
@@ -29,18 +32,29 @@ const C = "src/components/";
 const LAYOUT = "src/app/(workspace)/layout.module.css";
 const m = (step: number, role: Role, file: string, selector: string, parts: Part[], what: string): Member =>
   ({ step, role, file, selector, parts, what });
+const st = (step: number, role: Role, file: string, selector: string, parts: Part[], what: string): Member =>
+  ({ step, role, file, selector, parts, what, state: true });
 const GLASS: Part[] = ["fill", "blur", "shadow"];
-/** A card on the page draws its ground, its edge and its shadow from its
- * role, so a look that restates any of them reaches every card. */
-const CARD: Part[] = ["fill", "edge", "shadow"];
-/** Drawn on the role's ground with its shadow, the edge the member's own
- * or none: a chosen tab, entry or knob, a menu with a stronger edge, a
- * pictured card with no edge. */
+/** A card, menu or dialog draws its ground, its blur, its edge and its
+ * shadow from its role, so a look that restates any of them reaches it. */
+const FULL: Part[] = ["fill", "blur", "edge", "shadow"];
+/** The same, on the menu's stronger edge. */
+const STRONG: Part[] = ["fill", "blur", "edge-strong", "shadow"];
+/** A chosen tab, entry or knob: the role's ground, blur and shadow, and no edge. */
+const CHIP: Part[] = ["fill", "blur", "shadow"];
+/** Drawn on the role's ground with its shadow: a pictured surface. */
 const GROUND: Part[] = ["fill", "shadow"];
+/** A pictured card on the page. */
+const CARD: Part[] = ["fill", "edge", "shadow"];
 
 /** The roles with no edge: what floats as glass or over a map draws its
- * shape with the fill and the shadow alone. */
+ * shape with the fill and the shadow alone, in every look. */
 const EDGELESS: Role[] = ["glass-chrome", "glass-panel", "overlay-panel", "overlay-control"];
+
+/** What a member draws of its own in place of one of its role's parts, and
+ * why; the rest of the role it reads, so a look reaches it there. */
+type Own = { file: string; selector: string; part: "fill" | "blur" | "edge" | "shadow"; why: string };
+const CHOSEN_EDGE = "a chosen tab, entry or knob draws no edge";
 
 /** What reads a step, a strength or a tone directly instead of a role, held
  * to the exact value it writes once its step has moved: a primary button's
@@ -64,6 +78,10 @@ const WASHES = [
 export const DIRECT: Direct[] = [
   ...OPENED_RAIL.flatMap(selector => [
     { step: STEP.chrome, file: LAYOUT, selector, property: "background", value: "var(--bg-panel)", what: "the side rail opened over the page, solid" },
+    {
+      step: STEP.chrome, file: LAYOUT, selector, property: "backdrop-filter", value: "var(--blur-glass)",
+      what: "the side rail opened over the page keeps the glass strength, whatever a look makes of the rail at rest",
+    },
     {
       step: STEP.chrome, file: LAYOUT, selector, property: "box-shadow", value: "var(--shadow-lift), 16px 0 36px -18px var(--shadow)",
       what: "the side rail opened over the page: the lift and its one side layer",
@@ -109,7 +127,7 @@ export const MEMBERS: Member[] = [
   m(STEP.panel, "glass-panel", C + "workflow-canvas/WorkflowCanvas.module.css", ".pane", GLASS, "the workflow canvas's pane"),
   m(STEP.panel, "glass-panel", C + "workflow-canvas/WorkflowCanvas.module.css", ".inspector", GLASS, "the workflow canvas's inspector"),
   m(STEP.panel, "glass-panel", C + "builder/drawer/RecipeDrawer.module.css", ".drawer", GLASS, "the Tools drawer, and the Assistant pane that composes it"),
-  m(STEP.panel, "glass-panel", C + "builder/drawer/RecipeDrawer.module.css", '.drawer[data-overlay="true"]', ["shadow"], "the drawer and the pane overlaying the stage"),
+  st(STEP.panel, "glass-panel", C + "builder/drawer/RecipeDrawer.module.css", '.drawer[data-overlay="true"]', ["shadow"], "the drawer and the pane overlaying the stage"),
   m(STEP.panel, "glass-panel", C + "templates/TemplateView.module.css", ".panel", GLASS, "How it's made beside a template's map or canvas"),
   // Overlay panel: what is read over a map or the canvas
   m(STEP.overlay, "overlay-panel", C + "map/LegendPanel.module.css", ".legend", GLASS, "the legend"),
@@ -127,93 +145,96 @@ export const MEMBERS: Member[] = [
   m(STEP.overlay, "overlay-panel", C + "set-geometry/WorldInset.module.css", ".inset", ["shadow"], "the world inset over the set-geometry map"),
   // Overlay control: a control floating over a map, canvas or picture
   m(STEP.control, "overlay-control", C + "map/StageStack.module.css", ".stageBtn", GLASS, "the zoom and stage buttons"),
+  st(STEP.control, "overlay-control", C + "map/StageStack.module.css", ".stageBtn:hover", ["grow"], "the zoom and stage buttons growing on hover"),
   m(STEP.control, "overlay-control", C + "MiniMap.module.css", ".polyActions button", GLASS, "the mini-map's action buttons"),
   m(STEP.control, "overlay-control", C + "gallery.module.css", ".acts", GLASS, "a card's hover pill"),
   m(STEP.control, "overlay-control", C + "sharing/PeopleMarks.module.css", '.ownerPill[data-placement="corner"]', GLASS, "a card's owner mark"),
   m(STEP.control, "overlay-control", C + "projects/ProjectPicture.module.css", ".mark", GLASS, "a project picture's kind mark"),
   m(STEP.control, "overlay-control", C + "workflow-canvas/NoteNode.module.css", ".menu", GLASS, "the note's colour bar"),
-  // The stage
+  // The stage: the map card and the framed canvas, no fill of their own; a look restates only their shadow
   m(STEP.stage, "stage", C + "builder/MapBuilder.module.css", ".canvasCol", ["shadow"], "the map card"),
   m(STEP.stage, "stage", C + "workflow-canvas/WorkflowCanvas.module.css", '.host[data-view="framed"] .flowArea', ["shadow"], "the framed canvas"),
   // Page card: a card on a page
-  m(STEP.page, "page-card", C + "gallery.module.css", ".card", CARD, "the gallery card"),
-  m(STEP.page, "page-card", C + "gallery.module.css", ".card:hover", ["shadow-hover"], "the gallery card lifting on hover"),
-  m(STEP.page, "page-card", C + "gallery.module.css", ".listCard", CARD, "the gallery's list view card"),
-  m(STEP.page, "page-card", C + "settings/SettingsCard.module.css", ".card", CARD, "a Settings card"),
-  m(STEP.page, "page-card", C + "settings/SettingsFrame.module.css", ".column", CARD, "the Settings tab column"),
-  m(STEP.page, "page-card", C + "sql/SqlConsole.module.css", ".editorCard", CARD, "the SQL editor card"),
-  m(STEP.page, "page-card", C + "sql/SqlConsole.module.css", ".resultsCard", CARD, "the SQL results card"),
-  m(STEP.page, "page-card", C + "connections/ConnectionDetail.module.css", ".card", CARD, "the connection detail card"),
-  m(STEP.page, "page-card", C + "connections/NewConnectionScreen.module.css", ".card", CARD, "the new-connection card"),
-  m(STEP.page, "page-card", C + "set-geometry/SetGeometryPanel.module.css", ".dock", CARD, "the set-geometry panel"),
+  m(STEP.page, "page-card", C + "gallery.module.css", ".card", FULL, "the gallery card"),
+  st(STEP.page, "page-card", C + "gallery.module.css", ".card:hover", ["shadow-hover", "edge-hover"], "the gallery card lifting on hover"),
+  m(STEP.page, "page-card", C + "gallery.module.css", ".listCard", FULL, "the gallery's list view card"),
+  m(STEP.page, "page-card", C + "settings/SettingsCard.module.css", ".card", FULL, "a Settings card"),
+  m(STEP.page, "page-card", C + "settings/SettingsFrame.module.css", ".column", FULL, "the Settings tab column"),
+  m(STEP.page, "page-card", C + "sql/SqlConsole.module.css", ".editorCard", FULL, "the SQL editor card"),
+  m(STEP.page, "page-card", C + "sql/SqlConsole.module.css", ".resultsCard", FULL, "the SQL results card"),
+  m(STEP.page, "page-card", C + "connections/ConnectionDetail.module.css", ".card", FULL, "the connection detail card"),
+  m(STEP.page, "page-card", C + "connections/NewConnectionScreen.module.css", ".card", FULL, "the new-connection card"),
+  m(STEP.page, "page-card", C + "set-geometry/SetGeometryPanel.module.css", ".dock", FULL, "the set-geometry panel"),
   // Its ground is the map's raised tone under a map still loading, kept.
-  m(STEP.page, "page-card", C + "TablePreviewMap.module.css", ".pane", ["edge", "shadow"], "the dataset page's preview card"),
+  m(STEP.page, "page-card", C + "TablePreviewMap.module.css", ".pane", ["blur", "edge", "shadow"], "the dataset page's preview card"),
   // Inner card: a card inside a panel or card, and a control that carries a small shadow.
   // Its ground and edge are read wherever the member draws the panel tone
   // or the hairline today; a ground or edge of the member's own (a node
-  // tile's group colour, a slider thumb's white and accent ring, an accent
-  // grip or handle) stays its own.
-  m(STEP.inner, "inner-card", C + "builder/LayerList.module.css", ".card", CARD, "a layer card"),
-  m(STEP.inner, "inner-card", C + "builder/LayerList.module.css", ".floating", ["shadow-dragged"], "a layer card dragged"),
-  m(STEP.inner, "inner-card", C + "workflow-canvas/WorkflowCanvas.module.css", ".tBox", ["shadow"], "a node tile"),
-  m(STEP.inner, "inner-card", C + "workflow-canvas/WorkflowCanvas.module.css", ".member[data-sel] .tBox", ["shadow-lifted"], "a node tile selected"),
-  m(STEP.inner, "inner-card", C + "workflow-canvas/WorkflowCanvas.module.css", ".member[data-drag] .tBox", ["shadow-dragged"], "a node tile dragged"),
-  m(STEP.inner, "inner-card", C + "workflow-canvas/WorkflowCanvas.module.css", ".dragGhost", ["fill", "shadow-dragged"], "an operation dragged onto the canvas"),
-  m(STEP.inner, "inner-card", C + "AddToMapDialog.module.css", ".card, .newCard", ["fill", "edge"], "a pickable card in a dialog"),
-  m(STEP.inner, "inner-card", C + "AddToMapDialog.module.css", ".card:hover:not(:disabled), .newCard:hover:not(:disabled)", ["shadow-lifted"], "a pickable card in a dialog, on hover"),
-  m(STEP.inner, "inner-card", C + "QueryAreaPicker.module.css", ".cats button[data-active], .subs button[data-active]", GROUND, "a pickable card in a dialog, picked"),
-  m(STEP.inner, "inner-card", C + "AreaSemanticsToggle.module.css", ".seg button[data-active]", GROUND, "a segmented control's active tab"),
-  m(STEP.inner, "inner-card", C + "ui/Switch.module.css", ".switch::before", GROUND, "a switch's knob"),
-  m(STEP.inner, "inner-card", C + "ui/Slider.module.css", ".slider::-webkit-slider-thumb", ["shadow"], "a slider's thumb"),
-  m(STEP.inner, "inner-card", C + "ui/Slider.module.css", ".slider::-moz-range-thumb", ["shadow"], "a slider's thumb"),
-  m(STEP.inner, "inner-card", C + "builder/drawer/ParameterForm.module.css", '.modeBtn[aria-pressed="true"]', GROUND, "a segmented control's active tab"),
-  m(STEP.inner, "inner-card", C + "builder/style-panel/BreakBrush.module.css", ".thumb::-webkit-slider-thumb", GROUND, "the break brush's thumb"),
-  m(STEP.inner, "inner-card", C + "builder/style-panel/BreakBrush.module.css", ".thumb::-moz-range-thumb", GROUND, "the break brush's thumb"),
-  m(STEP.inner, "inner-card", C + "builder/export/ExportImageCard.module.css", ".frameSashGrip", ["shadow"], "a drag grip"),
-  m(STEP.inner, "inner-card", C + "MiniMap.module.css", ".handle", ["shadow"], "the mini-map's handles"),
-  m(STEP.inner, "inner-card", C + "MiniMap.module.css", ".measure", ["shadow"], "the mini-map's labels"),
-  m(STEP.inner, "inner-card", C + "connections/PostgisPane.module.css", '.segmented button[aria-pressed="true"]', GROUND, "a segmented control's active tab"),
-  m(STEP.inner, "inner-card", C + "workflow-canvas/ResultsBand.module.css", ".scopeBtn[data-on]", GROUND, "a segmented control's active tab"),
-  m(STEP.inner, "inner-card", C + "sql/SqlConsole.module.css", ".tabs button[data-on]", GROUND, "a segmented control's active tab"),
-  m(STEP.inner, "inner-card", C + "sql/SqlConsole.module.css", ".card", ["fill", "edge"], "a history card in the SQL pane"),
-  m(STEP.inner, "inner-card", C + "sql/SqlConsole.module.css", ".card:hover", ["shadow-lifted"], "a history card on hover"),
-  m(STEP.inner, "inner-card", C + "SourceNav.module.css", ".source[data-active]", GROUND, "a source rail's active entry"),
+  // tile's group colour, a slider thumb's accent ring, a handle's ring)
+  // stays its own, and the accent of a drag grip or handle is the mark part.
+  m(STEP.inner, "inner-card", C + "builder/LayerList.module.css", ".card", FULL, "a layer card"),
+  st(STEP.inner, "inner-card", C + "builder/LayerList.module.css", ".floating", ["shadow-dragged"], "a layer card dragged"),
+  m(STEP.inner, "inner-card", C + "workflow-canvas/WorkflowCanvas.module.css", ".tBox", ["fill", "blur", "shadow"], "a node tile"),
+  st(STEP.inner, "inner-card", C + "workflow-canvas/WorkflowCanvas.module.css", ".member[data-sel] .tBox", ["shadow-lifted"], "a node tile selected"),
+  st(STEP.inner, "inner-card", C + "workflow-canvas/WorkflowCanvas.module.css", ".member[data-drag] .tBox", ["shadow-dragged"], "a node tile dragged"),
+  m(STEP.inner, "inner-card", C + "workflow-canvas/WorkflowCanvas.module.css", ".dragGhost", ["fill", "blur", "shadow-dragged"], "an operation dragged onto the canvas"),
+  m(STEP.inner, "inner-card", C + "AddToMapDialog.module.css", ".card, .newCard", ["fill", "blur", "edge"], "a pickable card in a dialog"),
+  st(STEP.inner, "inner-card", C + "AddToMapDialog.module.css", ".card:hover:not(:disabled), .newCard:hover:not(:disabled)", ["shadow-lifted"], "a pickable card in a dialog, on hover"),
+  st(STEP.inner, "inner-card", C + "AddToMapDialog.module.css", ".newCard", ["edge-new"], "the card that makes a new map, its dashed line"),
+  m(STEP.inner, "inner-card", C + "QueryAreaPicker.module.css", ".cats button[data-active], .subs button[data-active]", CHIP, "a pickable card in a dialog, picked"),
+  m(STEP.inner, "inner-card", C + "AreaSemanticsToggle.module.css", ".seg button[data-active]", CHIP, "a segmented control's active tab"),
+  m(STEP.inner, "inner-card", C + "ui/Switch.module.css", ".switch::before", CHIP, "a switch's knob"),
+  m(STEP.inner, "inner-card", C + "ui/Slider.module.css", ".slider::-webkit-slider-thumb", ["knob", "blur", "shadow"], "a slider's thumb"),
+  m(STEP.inner, "inner-card", C + "ui/Slider.module.css", ".slider::-moz-range-thumb", ["knob", "blur", "shadow"], "a slider's thumb"),
+  m(STEP.inner, "inner-card", C + "builder/drawer/ParameterForm.module.css", '.modeBtn[aria-pressed="true"]', CHIP, "a segmented control's active tab"),
+  m(STEP.inner, "inner-card", C + "builder/style-panel/BreakBrush.module.css", ".thumb::-webkit-slider-thumb", CHIP, "the break brush's thumb"),
+  m(STEP.inner, "inner-card", C + "builder/style-panel/BreakBrush.module.css", ".thumb::-moz-range-thumb", CHIP, "the break brush's thumb"),
+  m(STEP.inner, "inner-card", C + "builder/export/ExportImageCard.module.css", ".frameSashGrip", ["mark", "blur", "shadow"], "a drag grip"),
+  m(STEP.inner, "inner-card", C + "MiniMap.module.css", ".handle", ["mark", "blur", "shadow"], "the mini-map's handles"),
+  m(STEP.inner, "inner-card", C + "MiniMap.module.css", ".measure", ["blur", "shadow"], "the mini-map's labels"),
+  m(STEP.inner, "inner-card", C + "connections/PostgisPane.module.css", '.segmented button[aria-pressed="true"]', CHIP, "a segmented control's active tab"),
+  m(STEP.inner, "inner-card", C + "workflow-canvas/ResultsBand.module.css", ".scopeBtn[data-on]", CHIP, "a segmented control's active tab"),
+  m(STEP.inner, "inner-card", C + "sql/SqlConsole.module.css", ".tabs button[data-on]", CHIP, "a segmented control's active tab"),
+  m(STEP.inner, "inner-card", C + "sql/SqlConsole.module.css", ".card", ["fill", "blur", "edge"], "a history card in the SQL pane"),
+  st(STEP.inner, "inner-card", C + "sql/SqlConsole.module.css", ".card:hover", ["shadow-lifted", "edge-hover"], "a history card on hover"),
+  m(STEP.inner, "inner-card", C + "SourceNav.module.css", ".source[data-active]", CHIP, "a source rail's active entry"),
   // Menu and pop-over: what opens over something and closes. Its ground and
   // edge are read wherever the member draws the panel tone or the hairline
-  // today; a stronger edge, the hint's hover tone and the map's raised
-  // tooltip, popup and failure notice stay their own.
+  // today; the stronger edge and the map's raised tooltip, popup and
+  // failure notice read their own two parts; the hint's hover tone and the
+  // export frame, whose ground is the image's, stay their own.
   ...([
-    [C + "ExportMenu.module.css", ".menu", CARD, "a menu"],
-    [C + "builder/LayerList.module.css", ".menu", CARD, "the layer menu"],
-    [C + "builder/assistant/ModelPicker.module.css", ".menu", GROUND, "the model picker"],
-    [C + "builder/export/ExportControl.module.css", ".menu", CARD, "the export menu"],
-    [C + "connections/ConnectionMenu.module.css", ".menu", CARD, "the connection menu"],
-    [C + "projects/ProjectHome.module.css", ".menu", CARD, "the project menu"],
-    [C + "scope/ScopeFilter.module.css", ".menu", CARD, "the scope filter"],
-    [C + "sharing/ShareDialog.module.css", ".results", CARD, "the share dialog's results"],
-    [C + "sharing/ShareDialog.module.css", ".menu", CARD, "the share dialog's menu"],
-    [C + "sql/SqlConsole.module.css", ".menu", GROUND, "the SQL page's menu"],
-    [C + "sql/SqlConsole.module.css", ".peek", GROUND, "the SQL peek"],
-    [C + "sql/SqlConsole.module.css", ".mapTip", GROUND, "the SQL map's tooltip"],
-    [C + "map/BasemapPicker.module.css", ".panel", GROUND, "the basemap picker"],
-    [C + "builder/FilterSection.module.css", ".picker", GROUND, "the filter pop-over"],
-    [C + "builder/publish/PublishControl.module.css", ".pop", CARD, "the publish pop-over"],
-    [C + "builder/search/SearchControl.module.css", ".panel", CARD, "the search results"],
-    [C + "workflow-canvas/InputPicker.module.css", ".pop", CARD, "the input picker"],
-    [C + "SaveResultAsDataset.module.css", ".panel", CARD, "the save result pop-over"],
-    [C + "gallery.module.css", ".tip", CARD, "the gallery's tip"],
-    [C + "ui/HintLayer.module.css", ".bubble", ["shadow"], "the kit's hint"],
-    [C + "map/search-marker.module.css", ".chip", CARD, "the search marker's name chip"],
-    [C + "QueryDrawer.module.css", ".drawer", ["fill", "blur", "edge", "shadow"], "the query drawer"],
-    [C + "QueryDrawer.module.css", ".drawer[data-accent]", ["shadow"], "the query drawer, accented"],
-    [C + "map/MapCanvas.module.css", ".tooltip", ["shadow"], "the map's tooltip"],
-    [C + "map/MapCanvas.module.css", ".popup", ["shadow"], "the map's popup"],
-    [C + "map/MapCanvas.module.css", ".webglFailureCard", ["shadow"], "the map's failure notice"],
-    [C + "TablePreviewMap.module.css", ".refusal", CARD, "the preview map's refusal plate"],
-    [C + "builder/export/ExportComposition.module.css", ".frame[data-presentation]", ["shadow"], "the export card's preview frame"],
+    [C + "ExportMenu.module.css", ".menu", FULL, "a menu"],
+    [C + "builder/LayerList.module.css", ".menu", FULL, "the layer menu"],
+    [C + "builder/assistant/ModelPicker.module.css", ".menu", STRONG, "the model picker"],
+    [C + "builder/export/ExportControl.module.css", ".menu", FULL, "the export menu"],
+    [C + "connections/ConnectionMenu.module.css", ".menu", FULL, "the connection menu"],
+    [C + "projects/ProjectHome.module.css", ".menu", FULL, "the project menu"],
+    [C + "scope/ScopeFilter.module.css", ".menu", FULL, "the scope filter"],
+    [C + "sharing/ShareDialog.module.css", ".results", FULL, "the share dialog's results"],
+    [C + "sharing/ShareDialog.module.css", ".menu", FULL, "the share dialog's menu"],
+    [C + "sql/SqlConsole.module.css", ".menu", STRONG, "the SQL page's menu"],
+    [C + "sql/SqlConsole.module.css", ".peek", STRONG, "the SQL peek"],
+    [C + "sql/SqlConsole.module.css", ".mapTip", STRONG, "the SQL map's tooltip"],
+    [C + "map/BasemapPicker.module.css", ".panel", STRONG, "the basemap picker"],
+    [C + "builder/FilterSection.module.css", ".picker", STRONG, "the filter pop-over"],
+    [C + "builder/publish/PublishControl.module.css", ".pop", FULL, "the publish pop-over"],
+    [C + "builder/search/SearchControl.module.css", ".panel", FULL, "the search results"],
+    [C + "workflow-canvas/InputPicker.module.css", ".pop", FULL, "the input picker"],
+    [C + "SaveResultAsDataset.module.css", ".panel", FULL, "the save result pop-over"],
+    [C + "gallery.module.css", ".tip", FULL, "the gallery's tip"],
+    [C + "ui/HintLayer.module.css", ".bubble", ["blur", "edge-strong", "shadow"], "the kit's hint"],
+    [C + "map/search-marker.module.css", ".chip", FULL, "the search marker's name chip"],
+    [C + "QueryDrawer.module.css", ".drawer", FULL, "the query drawer"],
+    [C + "map/MapCanvas.module.css", ".tooltip", ["fill-raised", "blur", "edge-strong", "shadow"], "the map's tooltip"],
+    [C + "map/MapCanvas.module.css", ".popup", ["fill-raised", "blur", "edge-strong", "shadow"], "the map's popup"],
+    [C + "map/MapCanvas.module.css", ".webglFailureCard", ["fill-raised", "blur", "edge-strong", "shadow"], "the map's failure notice"],
+    [C + "TablePreviewMap.module.css", ".refusal", FULL, "the preview map's refusal plate"],
+    [C + "builder/export/ExportComposition.module.css", ".frame[data-presentation]", ["blur", "shadow"], "the export card's preview frame"],
   ] as const).map(([file, selector, parts, what]) => m(STEP.menu, "menu", file, selector, [...parts], what)),
+  st(STEP.menu, "menu", C + "QueryDrawer.module.css", ".drawer[data-accent]", ["shadow"], "the query drawer, accented"),
   // Dialog
-  m(STEP.dialog, "dialog", C + "ui/Dialog.module.css", ".dialog", CARD, "every modal"),
+  m(STEP.dialog, "dialog", C + "ui/Dialog.module.css", ".dialog", FULL, "every modal"),
   // The Appearance tab's pictures, each reading the role it pictures: its
   // ground and edge where the picture draws them as the app does, so a
   // picture shows what the app does.
@@ -225,12 +246,84 @@ export const MEMBERS: Member[] = [
   m(STEP.pictures, "page-card", C + "settings/LookPictures.module.css", ".art .fnCard", GROUND, "pictured: a card on the page"),
   m(STEP.pictures, "page-card", C + "settings/LookPictures.module.css", ".art .crCard", CARD, "pictured: a card on the page"),
   m(STEP.pictures, "glass-chrome", C + "settings/LookPictures.module.css", ".art .smRail", GLASS, "pictured: the side rail at rest"),
+  m(STEP.pictures, "glass-chrome", C + "settings/LookPictures.module.css", ".art .pnHead", GLASS, "pictured: the header card over a map"),
+  m(STEP.pictures, "glass-chrome", C + "settings/LookPictures.module.css", ".art .pnRail", GLASS, "pictured: the side menu over a map"),
+  m(STEP.pictures, "overlay-panel", C + "settings/LookPictures.module.css", ".art .pnCard", GLASS, "pictured: a panel read over a map"),
   m(STEP.pictures, "menu", C + "settings/LookPictures.module.css", ".art .smHint", ["shadow"], "pictured: the kit's hint"),
 ];
 
-/** The property each part is read by. */
+/** The members that keep one of their role's parts as their own, named. */
+export const OWN: Own[] = [
+  { file: C + "set-geometry/WorldInset.module.css", selector: ".inset", part: "fill", why: "the inset is a picture of the world: its pixels are its ground" },
+  { file: C + "set-geometry/WorldInset.module.css", selector: ".inset", part: "blur", why: "nothing shows through a picture to blur" },
+  { file: C + "TablePreviewMap.module.css", selector: ".pane", part: "fill", why: "its ground is the map's raised tone, seen only while the map loads" },
+  { file: C + "workflow-canvas/WorkflowCanvas.module.css", selector: ".tBox", part: "edge", why: "a node tile's edge is its group's colour, what tells one group from another" },
+  { file: C + "workflow-canvas/WorkflowCanvas.module.css", selector: ".dragGhost", part: "edge", why: "the accent ring marks what is being dragged" },
+  { file: C + "AddToMapDialog.module.css", selector: ".card, .newCard", part: "shadow", why: "a pickable card rests flat and lifts on hover" },
+  { file: C + "sql/SqlConsole.module.css", selector: ".card", part: "shadow", why: "a history card rests flat and lifts on hover" },
+  ...([
+    [C + "QueryAreaPicker.module.css", ".cats button[data-active], .subs button[data-active]"],
+    [C + "AreaSemanticsToggle.module.css", ".seg button[data-active]"],
+    [C + "ui/Switch.module.css", ".switch::before"],
+    [C + "builder/drawer/ParameterForm.module.css", '.modeBtn[aria-pressed="true"]'],
+    [C + "connections/PostgisPane.module.css", '.segmented button[aria-pressed="true"]'],
+    [C + "workflow-canvas/ResultsBand.module.css", ".scopeBtn[data-on]"],
+    [C + "sql/SqlConsole.module.css", ".tabs button[data-on]"],
+    [C + "SourceNav.module.css", ".source[data-active]"],
+  ] as const).map(([file, selector]) => ({ file, selector, part: "edge" as const, why: CHOSEN_EDGE })),
+  { file: C + "builder/export/ExportImageCard.module.css", selector: ".frameSashGrip", part: "edge", why: "a drag grip draws no edge" },
+  ...[".slider::-webkit-slider-thumb", ".slider::-moz-range-thumb"].map(selector =>
+    ({ file: C + "ui/Slider.module.css", selector, part: "edge" as const, why: "the accent ring marks a slider's thumb" })),
+  ...[".thumb::-webkit-slider-thumb", ".thumb::-moz-range-thumb"].map(selector =>
+    ({ file: C + "builder/style-panel/BreakBrush.module.css", selector, part: "edge" as const, why: "the ink ring marks a break's handle" })),
+  { file: C + "MiniMap.module.css", selector: ".handle", part: "edge", why: "a handle's ring in the panel tone sets it off the map" },
+  { file: C + "MiniMap.module.css", selector: ".measure", part: "fill", why: "a measure carries its words in the accent's ink, which reads only on the accent" },
+  { file: C + "MiniMap.module.css", selector: ".measure", part: "edge", why: "a label pill draws no edge" },
+  { file: C + "ui/HintLayer.module.css", selector: ".bubble", part: "fill", why: "the hover tone tells a hint from a menu" },
+  { file: C + "builder/export/ExportComposition.module.css", selector: ".frame[data-presentation]", part: "fill", why: "the image's ground is the composition's, inside the default look" },
+  { file: C + "builder/export/ExportComposition.module.css", selector: ".frame[data-presentation]", part: "edge", why: "a frame around an image draws no edge" },
+];
+
+/** A part a member reads in place of another: the ground through a knob, a
+ * mark or the raised fill, the edge through the stronger one, the shadow
+ * through one of its states. */
+const STANDS_FOR: Record<"fill" | "blur" | "edge" | "shadow", Part[]> = {
+  fill: ["fill", "knob", "mark", "fill-raised"],
+  blur: ["blur"],
+  edge: ["edge", "edge-strong", "edge-hover", "edge-new"],
+  shadow: ["shadow", "shadow-lifted", "shadow-dragged", "shadow-hover"],
+};
+
+/** The parts a member of a role a look reaches reads, or names as its own:
+ * the ground, blur and shadow, and the edge where the role has one. */
+const owed = (role: Role): ("fill" | "blur" | "edge" | "shadow")[] =>
+  EDGELESS.includes(role) ? ["fill", "blur", "shadow"] : ["fill", "blur", "edge", "shadow"];
+
+/** What a member's rule misses of its role's parts; empty when it reads them
+ * all or names the rest as its own. The stage, a state and a picture are
+ * held to the parts they list. */
+export function fullSetProblems(members: readonly Member[], own: readonly Own[]): string[] {
+  const problems: string[] = [];
+  const named = (member: Member, part: string) => own.some(entry => entry.file === member.file && entry.selector === member.selector && entry.part === part);
+  for (const member of members) {
+    if (member.state || member.role === "stage" || member.step === STEP.pictures) continue;
+    for (const part of owed(member.role)) {
+      const reads = STANDS_FOR[part].some(read => member.parts.includes(read));
+      if (!reads && !named(member, part)) problems.push(`${member.file} ${member.selector} reads no ${part} of its role and names none of its own`);
+      if (reads && named(member, part)) problems.push(`${member.file} ${member.selector} reads its role's ${part} and also names one of its own`);
+    }
+  }
+  for (const entry of own) {
+    if (!members.some(member => member.file === entry.file && member.selector === entry.selector)) problems.push(`${entry.file} ${entry.selector} is not a member`);
+  }
+  return problems;
+}
+
+/** The property each part is read by: the ground through the background
+ * shorthand alone, so a look's fill (one colour, or a colour over a mix)
+ * replaces any image a member's state lays under it. */
 const PROPERTY: Record<Part, RegExp> = {
-  fill: /^background(-color)?$/,
+  fill: /^background$/,
   blur: /^(-webkit-)?backdrop-filter$/,
   edge: /^border$/,
   shadow: /^box-shadow$/,
@@ -238,6 +331,13 @@ const PROPERTY: Record<Part, RegExp> = {
   "shadow-hover": /^box-shadow$/,
   "shadow-lifted": /^box-shadow$/,
   "shadow-dragged": /^box-shadow$/,
+  grow: /^transform$/,
+  "edge-strong": /^border$/,
+  "edge-hover": /^border$/,
+  "edge-new": /^border$/,
+  knob: /^background$/,
+  mark: /^background$/,
+  "fill-raised": /^background$/,
 };
 
 /** The declarations of every rule written with exactly this selector list. */
@@ -336,6 +436,27 @@ describe("the members of each role", () => {
     expect(moved.flatMap(member => memberProblems(member, read(member.file)))).toEqual([]);
   });
 
+  it("read every part of their role a look can restate, or name the part they keep as their own", () => {
+    expect(fullSetProblems(MEMBERS, OWN)).toEqual([]);
+    // Every named part is one the member really draws itself: it reads no role there.
+    const stale = OWN.flatMap(entry => {
+      const member = MEMBERS.find(candidate => candidate.file === entry.file && candidate.selector === entry.selector)!;
+      const property = { fill: /^background$/, blur: /backdrop-filter$/, edge: /^border$/, shadow: /^box-shadow$/ }[entry.part];
+      return (declarations(read(member.file), member.selector) ?? [])
+        .filter(([name, value]) => property.test(name) && value.includes(`--surface-${member.role}-`))
+        .map(([name, value]) => `${entry.selector} names its ${entry.part} its own but reads ${name}: ${value}`);
+    });
+    expect(stale).toEqual([]);
+  });
+
+  it("fails a member whose table drops a part it owes, and a named part it also reads", () => {
+    const card = MEMBERS.find(member => member.selector === ".card" && member.file.endsWith("gallery.module.css"))!;
+    const dropped = MEMBERS.map(member => member === card ? { ...member, parts: member.parts.filter(part => part !== "blur") } : member);
+    expect(fullSetProblems(dropped, OWN)).toEqual([`${card.file} .card reads no blur of its role and names none of its own`]);
+    const doubled = [...OWN, { file: card.file, selector: ".card", part: "fill" as const, why: "seeded" }];
+    expect(fullSetProblems(MEMBERS, doubled)).toEqual([`${card.file} .card reads its role's fill and also names one of its own`]);
+  });
+
   it("read a step where they are a button or a named exception, once their step has moved", () => {
     const moved = DIRECT.filter(direct => direct.step <= MOVED_THROUGH);
     expect(moved.flatMap(direct => directProblems(direct, read(direct.file)))).toEqual([]);
@@ -364,6 +485,26 @@ describe("the members of each role", () => {
     expect(resolve(legend["box-shadow"])).toBe("0 8px 26px var(--shadow)");
     expect(legend["border-radius"]).toBe("var(--radius-legend)");
     expect(legend.border).toBeUndefined();
+  });
+
+  it("grow a stage button on hover, line a gallery card and a history card under the pointer, dash the card that makes a new map, edge the map's tooltip, popup and failure notice and light a slider's thumb from their roles, at today's values", () => {
+    const value = (file: string, selector: string, property: string) =>
+      resolveThroughBlock(Object.fromEntries(declarations(read(C + file), selector)!)[property]);
+    // Each as it was drawn before it read a role, written out here.
+    expect(value("map/StageStack.module.css", ".stageBtn:hover", "transform")).toBe("scale(1.06)");
+    // A gallery card under the pointer shows the stronger line it showed.
+    expect(value("gallery.module.css", ".card:hover", "border")).toBe("1px solid var(--border-strong)");
+    // So does a history card in the SQL pane, and the card that makes a new map keeps its dashed line.
+    expect(value("sql/SqlConsole.module.css", ".card:hover", "border")).toBe("1px solid var(--border-strong)");
+    expect(value("AddToMapDialog.module.css", ".newCard", "border")).toBe("1px dashed var(--border-strong)");
+    for (const selector of [".tooltip", ".popup", ".webglFailureCard"]) {
+      expect(value("map/MapCanvas.module.css", selector, "border"), selector).toBe("1px solid var(--border-strong)");
+    }
+    for (const selector of [".slider::-webkit-slider-thumb", ".slider::-moz-range-thumb"]) {
+      expect(value("ui/Slider.module.css", selector, "background"), selector).toBe("#fff");
+      // The accent ring marks the thumb: its own edge, never a role's.
+      expect(Object.fromEntries(declarations(read(C + "ui/Slider.module.css"), selector)!).border, selector).toBe("1.5px solid var(--accent)");
+    }
   });
 
   it("dress every dialog and its veil from the role and the veil's tokens at the values they had", () => {
@@ -459,6 +600,9 @@ describe("the members of each role", () => {
     expect(tile["border-radius"]).toBe("var(--radius-card)");
     expect(tile.border).toMatch(/var\(--gc,/);
     expect(tile.background).toMatch(/var\(--gc,/);
+    // Its ground is the inner card's fill under its group tint: today's colour to the digit.
+    expect(tile.background).toContain("var(--surface-inner-card-fill)");
+    expect(resolveThroughBlock(tile.background)).toBe("color-mix(in srgb, var(--gc, var(--fg-muted)) 12%, var(--bg-panel))");
     // Selected, the ring is drawn first, so it paints above the shadow as it did.
     expect(Object.fromEntries(declarations(canvas, ".member[data-sel] .tBox")!)["box-shadow"])
       .toBe("0 0 0 3px var(--accent-dim), var(--surface-inner-card-shadow-lifted)");
@@ -473,8 +617,9 @@ describe("the members of each role", () => {
         || (/backdrop-filter$/.test(property) && value !== "var(--surface-menu-blur)"))
       .map(([property, value]) => `${menu.selector} in ${menu.file}: ${property}: ${value}`))).toEqual([]);
     const canvas = read(C + "map/MapCanvas.module.css");
-    for (const selector of [".tooltip", ".popup"]) {
-      expect(Object.fromEntries(declarations(canvas, selector)!).background, selector).toBe("var(--bg-raised)");
+    for (const selector of [".tooltip", ".popup", ".webglFailureCard"]) {
+      expect(Object.fromEntries(declarations(canvas, selector)!).background, selector).toBe("var(--surface-menu-fill-raised)");
+      expect(resolveThroughBlock(Object.fromEntries(declarations(canvas, selector)!).background), selector).toBe("var(--bg-raised)");
     }
     // The accent ring is drawn first, so it paints above the shadow as it did.
     expect(Object.fromEntries(declarations(read(C + "QueryDrawer.module.css"), ".drawer[data-accent]")!)["box-shadow"])
@@ -501,6 +646,20 @@ describe("the members of each role", () => {
     expect(memberProblems(legend, moved.replace("}", "  border: 1px solid var(--border);\n}")))
       .toEqual([".legend draws an edge its role has none of: border: 1px solid var(--border)"]);
     expect(memberProblems(legend, moved.replace("}", "  border: 0;\n}"))).toEqual([]);
+    // A read dropped from the stylesheet, and a ground read through background-color.
+    expect(memberProblems(legend, moved.replace("  backdrop-filter: var(--surface-overlay-panel-blur);\n", "")))
+      .toEqual([".legend does not read var(--surface-overlay-panel-blur)"]);
+    expect(memberProblems(legend, moved.replace("background: var(", "background-color: var(")))
+      .toEqual([".legend does not read var(--surface-overlay-panel-fill)"]);
+  });
+
+  it("keep the side rail opened over the page at today's blur: the glass strength the rail at rest reads by default", () => {
+    if (STEP.chrome > MOVED_THROUGH) return;
+    const rest = Object.fromEntries(declarations(read(LAYOUT), ".rail")!);
+    expect(resolveThroughBlock(rest["backdrop-filter"])).toBe("blur(18px)");
+    for (const selector of OPENED_RAIL) {
+      expect(resolveThroughBlock(Object.fromEntries(declarations(read(LAYOUT), selector)!)["backdrop-filter"]), selector).toBe("blur(18px)");
+    }
   });
 
   it("fails a direct read that types its value or loses its side layer", () => {

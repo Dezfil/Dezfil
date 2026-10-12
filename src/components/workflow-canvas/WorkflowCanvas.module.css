@@ -87,7 +87,8 @@
   place-items: center;
   border: 1.5px solid color-mix(in srgb, var(--gc, var(--fg-muted)) 30%, transparent);
   border-radius: var(--radius-card);
-  background: color-mix(in srgb, var(--gc, var(--fg-muted)) 12%, var(--bg-panel));
+  background: color-mix(in srgb, var(--gc, var(--fg-muted)) 12%, var(--surface-inner-card-fill));
+  backdrop-filter: var(--surface-inner-card-blur);
   box-shadow: var(--surface-inner-card-shadow);
   transition:
     border-color var(--dur-micro),
@@ -926,6 +927,7 @@ button.tableRow {
   padding: 6px 10px;
   border-radius: var(--radius);
   background: var(--surface-inner-card-fill);
+  backdrop-filter: var(--surface-inner-card-blur);
   border: 1px solid var(--accent);
   color: var(--accent);
   font-size: var(--text-label);

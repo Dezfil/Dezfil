@@ -100,7 +100,12 @@ function rootRules(css: string, offset: number): Rule[] {
   }
   return out;
 }
-const RULES = [...rootRules(readFileSync("src/app/globals.css", "utf8"), 0), ...rootRules(readFileSync("src/app/look.css", "utf8"), 100_000)];
+/** The stylesheet as it applies when the computer asks for nothing: a
+ * conditional block (the opaque fill on request, reduced motion) dropped. */
+const unconditional = (css: string) =>
+  css.replace(/\/\*[\s\S]*?\*\//g, "").replace(/@(?:media|supports)[^{]*\{(?:[^{}]|\{[^{}]*\})*\}/g, "");
+const RULES = [...rootRules(unconditional(readFileSync("src/app/globals.css", "utf8")), 0),
+  ...rootRules(unconditional(readFileSync("src/app/look.css", "utf8")), 100_000)];
 const matches = (selector: string, root: Record<string, string>) =>
   [...selector.matchAll(/\[([\w-]+)="([^"]*)"\]/g)].every(([, name, value]) => root[name] === value);
 
