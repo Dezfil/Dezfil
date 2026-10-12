@@ -84,6 +84,10 @@ originating projects are listed here as they are used:
   @loaders.gl/mvt 4.4.5 browser worker is bundled at
   public/workers/loaders.gl-mvt-worker-4.4.5.js. Its bundled transitive
   material and full required notices are reproduced below.
+- deck.gl (MIT, © vis.gl contributors) — the overlap test every map label
+  shares adapts the collision filter's shader module from
+  @deck.gl/extensions 9.4 (src/components/map/label-collision.ts). The
+  file carries the upstream copyright and permission notice.
 
 Data-source logos shown in the Add data dialog identify the third-party
 services and datasets a table can be imported from (nominative use); the

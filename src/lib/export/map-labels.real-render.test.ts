@@ -46,6 +46,11 @@ import { decodePng, type DecodedImage } from "./png-codec";
  *   than the point, so a box writing depth would keep it from being drawn
  *   there and leave a hole of basemap. The label's own ink is transparent,
  *   so all there is to see is that ground.
+ * - **Two layers share one overlap test.** A third map labels the same
+ *   places twice: towns in blue, and in a layer above them the temperatures
+ *   Minard wrote beside them, in red, the two lists in the same order. At
+ *   each place one label is drawn, the upper layer's, with no blue anywhere
+ *   near it, not even faint; a town no temperature stands at still draws.
  *
  * Provisioning as the map check's real-render proofs:
  * DEZFIL_MAP_LOOK_RENDER names the standalone's port; DEZFIL_DATA_DIR is the
@@ -126,6 +131,17 @@ const PURPLE = [140, 40, 160] as const;
  * wide as its letters, a line tall, wholly above the point. */
 const STANDING = { label: "OOOOOOOO", size: 48 };
 
+/** The third map: towns, and above them temperatures, at the same places. */
+const CONTESTED = [
+  { x: 200, y: 160, town: "Studzianka", temperature: "-20°" },
+  { x: 512, y: 160, town: "Moscou", temperature: "0°" },
+  { x: 824, y: 160, town: "Molodeczno", temperature: "-24°" },
+];
+/** A town no temperature stands at. */
+const ALONE = { x: 512, y: 420, town: "Smolensk" };
+/** Any trace of blue over the neutral basemap, however faint. */
+const bluish = (r: number, g: number, b: number) => b - Math.max(r, g) > 12;
+
 const invisibleMarks = (label: LayerStyle["label"]): LayerStyle => ({
   fill: { type: "constant", color: rgba([0, 0, 0]) }, fillOpacity: 0,
   stroke: rgba([0, 0, 0]), strokeOpacity: 0, strokeWidth: 0, pointRadius: 1, opacity: 1,
@@ -138,6 +154,7 @@ describe.skipIf(!port)("labels in the server's image export", () => {
   let heldKey: unknown;
   let image: DecodedImage;
   let pitched: DecodedImage;
+  let twoLayers: DecodedImage;
   const revision = () => readDocumentRevision({ kind: "map", id: mapId })?.editRevision;
   const credential = () => delegateCredential(requireRequestAuth(authenticatedRequest()));
 
@@ -246,6 +263,36 @@ describe.skipIf(!port)("labels in the server's image export", () => {
     });
     if (pitchedResponse.status !== 200) throw new Error(`The image export answered ${pitchedResponse.status}: ${await pitchedResponse.text()}`);
     pitched = decodePng(new Uint8Array(await pitchedResponse.arrayBuffer()));
+
+    /** A flat map at the first one's camera, with these layers, exported. */
+    const flatMap = async (name: string, layers: { name: string; dataset: string; label: LayerStyle["label"] }[]) => {
+      const id = createMap(testAccountScope(), name).id;
+      const current = () => readDocumentRevision({ kind: "map", id })?.editRevision;
+      updateMap(testAccountScope(), id, {
+        viewport: { lng: LNG0, lat: LAT0, zoom: ZOOM, pitch: 0, bearing: 0 },
+        customBasemap: { url: basemap.styleUrl, name: "Loopback", attribution: [{ label: "Loopback fixture" }] },
+        legendCorner: "bottom-left",
+      }, { expectedRevision: current() });
+      for (const layer of layers) {
+        await createLayer(testAccountScope(), id, { name: layer.name, sql: `SELECT * FROM ${layer.dataset}`, style: invisibleMarks(layer.label) }, { expectedRevision: current() });
+      }
+      const answer = await fetch(`http://127.0.0.1:${port}/api/maps/${id}/export/image`, {
+        method: "POST",
+        headers: { authorization: `Bearer ${credential()}`, "content-type": "application/json" },
+        body: JSON.stringify({ definition: lookDefinition(mapWithLayers(testAccountScope(), id), "light") }),
+      });
+      if (answer.status !== 200) throw new Error(`The image export answered ${answer.status}: ${await answer.text()}`);
+      return decodePng(new Uint8Array(await answer.arrayBuffer()));
+    };
+    const plain = (color: readonly [number, number, number]) =>
+      ({ attribute: "text", size: 24, color: rgba(color), haloWidth: 0, haloColor: rgba([0, 0, 0], 0) });
+
+    const towns = await write("towns", [...CONTESTED.map((c) => point(c.x, c.y, { text: c.town })), point(ALONE.x, ALONE.y, { text: ALONE.town })]);
+    const temperatures = await write("temperatures", CONTESTED.map((c) => point(c.x, c.y, { text: c.temperature })));
+    twoLayers = await flatMap("Two labelled layers", [
+      { name: "Towns", dataset: towns, label: plain(BLUE) },
+      { name: "Temperatures", dataset: temperatures, label: plain(RED) },
+    ]);
   }, 180_000);
   afterAll(async () => {
     (process as unknown as Record<symbol, unknown>)[SIGNING_KEY] = heldKey;
@@ -295,6 +342,16 @@ describe.skipIf(!port)("labels in the server's image export", () => {
     expect(share({ x0: PITCHED.x + 220, y0: PITCHED.y - 40, x1: PITCHED.x + 320, y1: PITCHED.y - 8 }), "beside the box").toBeGreaterThan(0.95);
     // Behind the box, where its letters would be, the same ground.
     expect(share({ x0: PITCHED.x - 100, y0: PITCHED.y - 40, x1: PITCHED.x + 100, y1: PITCHED.y - 8 }), "behind the box").toBeGreaterThan(0.95);
+  });
+
+  it("draws one label where two layers label the same place, the upper layer's, and the lower's elsewhere", () => {
+    for (const c of CONTESTED) {
+      const around = box(c.x, c.y, 120, 26);
+      expect(pixels(twoLayers, around, near(RED)).length, c.temperature).toBeGreaterThan(40);
+      // No town drawn there, whole or faint: no ink of two labels on each other.
+      expect(pixels(twoLayers, around, bluish).length, c.town).toBe(0);
+    }
+    expect(pixels(twoLayers, box(ALONE.x, ALONE.y, 120, 26), near(BLUE)).length, ALONE.town).toBeGreaterThan(150);
   });
 
   it("draws labels in a proportional face: the i's well under half the M's width", () => {
