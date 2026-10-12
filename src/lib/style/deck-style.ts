@@ -300,7 +300,9 @@ export interface LabeledFeature extends GeoJsonFeature {
  * Per-feature label text. With an attribute, the text is that property's
  * value — numbers compactly formatted, same as the legend. With no
  * attribute (aggregated layers), the cell labels itself with `value`. Null
- * means "no label for this feature" and the feature is filtered out.
+ * means "no label for this feature" and the feature is filtered out: so
+ * does a value that is only blank space, which would draw nothing yet
+ * still take up a label's room on the map.
  */
 export function labelText(
   label: LabelStyle,
@@ -324,6 +326,8 @@ export function labelText(
     const raw = source ? f.properties?.[source] : f.properties?.value;
     if (raw === null || raw === undefined || raw === "") return null;
     const base = typeof raw === "number" ? formatCompact(raw) : String(raw);
+    // Checked before truncation, which would leave a long blank its ellipsis.
+    if (base.trim() === "") return null;
     return truncated(cased(base));
   };
 }

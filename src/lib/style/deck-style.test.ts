@@ -211,6 +211,18 @@ describe("labels", () => {
     expect(labelPosition({ properties: {}, geometry: null })).toBeNull();
   });
 
+  it("text that is only blank space is no label, whatever its length or case", () => {
+    for (const blank of [" ", "   ", "\t", "\n ", "\u00a0", "\u3000"]) {
+      expect(labelText(label)({ properties: { name: blank } }), JSON.stringify(blank)).toBeNull();
+      expect(labelText({ ...label, textCase: "upper" })({ properties: { name: blank } })).toBeNull();
+    }
+    // Cut short, a long blank would still leave its ellipsis to draw.
+    expect(labelText({ ...label, maxChars: 2 })({ properties: { name: "      " } })).toBeNull();
+    // Space inside or around real text is part of it.
+    expect(labelText(label)({ properties: { name: " Mitte " } })).toBe(" Mitte ");
+    expect(labelText(label)({ properties: { name: "Prenzlauer Berg" } })).toBe("Prenzlauer Berg");
+  });
+
   it("anchors points on themselves and everything else on __anchor", () => {
     expect(
       labelPosition({
