@@ -27,9 +27,10 @@
 .webglFailureCard {
   width: min(420px, 100%);
   padding: 18px 20px;
-  border: 1px solid var(--border-strong);
+  border: var(--surface-menu-edge-strong);
   border-radius: var(--radius);
-  background: var(--bg-raised);
+  background: var(--surface-menu-fill-raised);
+  backdrop-filter: var(--surface-menu-blur);
   box-shadow: var(--surface-menu-shadow);
 }
 
@@ -88,8 +89,9 @@
   position: absolute;
   z-index: 5;
   pointer-events: none;
-  background: var(--bg-raised);
-  border: 1px solid var(--border-strong);
+  background: var(--surface-menu-fill-raised);
+  backdrop-filter: var(--surface-menu-blur);
+  border: var(--surface-menu-edge-strong);
   border-radius: var(--radius);
   padding: 8px 10px;
   box-shadow: var(--surface-menu-shadow);
@@ -102,8 +104,9 @@
   position: absolute;
   z-index: 6;
   transform: translate(-50%, calc(-100% - 14px));
-  background: var(--bg-raised);
-  border: 1px solid var(--border-strong);
+  background: var(--surface-menu-fill-raised);
+  backdrop-filter: var(--surface-menu-blur);
+  border: var(--surface-menu-edge-strong);
   border-radius: var(--radius);
   padding: 9px 26px 8px 10px;
   box-shadow: var(--surface-menu-shadow);

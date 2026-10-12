@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { defaultLook, LOOK_KEYS, lookChoices, type Look, type LookKey } from "@/lib/look";
+import { defaultLook, LOOK_ATTRIBUTES, LOOK_KEYS, lookChoices, type Look, type LookKey } from "@/lib/look";
 import { FADE_MS, UNDO_MS, WriteRefusal, type UnitSnapshot } from "./save-unit";
-import { choiceLabel, LOOK_CARDS, LookReset, lookTab, LookWriter, lookUnit, shownLook, stampLook, unitKey } from "./look-tab";
+import { choiceLabel, LOOK_CARDS, LookReset, lookTab, LookWriter, lookUnit, PICTURE_PICKS, shownLook, stampLook, unitKey, type LookRow } from "./look-tab";
 
 /**
  * The Appearance tab's own logic: its cards and rows, one writer every
@@ -25,26 +25,49 @@ function fakeServer(initial: Partial<Look> = {}) {
 }
 const flush = () => vi.advanceTimersByTimeAsync(0);
 const HARBOR: Look = { ...defaultLook(), color: "harbor", rail: "icons" };
+/** The seven picks at Dezfil's default: what a reset returns while no kind is shown. */
+const PICKS_DEFAULT = { color: "kelp", contrast: "standard", font: "inter", background: "atlantic", corners: "rounded", rail: "hover", panels: "glass" };
+/** Liquid with two kinds away from their first values. */
+const LIQUID: Look = { ...HARBOR, panels: "liquid", liquidCards: "on", liquidChrome: "off" };
+const rowKeys = (row: LookRow) => row.kind === "kinds" ? row.kinds.map(kind => kind.key) : [row.key];
 
 beforeEach(() => { vi.useFakeTimers(); });
 afterEach(() => { vi.useRealTimers(); });
 
 describe("the cards and their rows", () => {
-  it("are the four cards in order with the six picks and no other, Color first", () => {
+  it("are the four cards in order with the seven picks and the kinds, Color first, Panels leading the second", () => {
     expect(LOOK_CARDS.map(card => [card.title, card.rows.map(row => row.label)])).toEqual([
       ["Color and contrast", ["Color", "Contrast"]],
-      ["Background", ["Background"]],
+      ["Panels and background", ["Panels", "Liquid panels", "Background"]],
       ["Text", ["Typeface"]],
       ["Layout", ["Corners", "Side menu"]],
     ]);
-    expect(LOOK_CARDS.flatMap(card => card.rows.map(row => row.key)).sort()).toEqual([...LOOK_KEYS].sort());
-    expect(new Set(LOOK_CARDS.flatMap(card => [card.id, ...card.rows.map(row => row.id)])).size).toBe(4 + 6);
+    // The second card keeps its address.
+    expect(LOOK_CARDS[1].id).toBe("appearance-background");
+    // Every pick is a row of pictures, and every kind a switch of the one row of kinds.
+    const rows = LOOK_CARDS.flatMap(card => card.rows);
+    expect(rows.flatMap(row => row.kind === "kinds" ? [] : [row.key]).sort()).toEqual([...PICTURE_PICKS].sort());
+    expect([...PICTURE_PICKS]).toEqual(["color", "contrast", "font", "background", "corners", "rail", "panels"]);
+    expect(rows.flatMap(rowKeys).sort()).toEqual([...LOOK_KEYS].sort());
+    expect(new Set(LOOK_CARDS.flatMap(card => [card.id, ...card.rows.map(row => row.id)])).size).toBe(4 + 8);
+  });
+
+  it("name the kinds in the person's words, in the order the root lists them", () => {
+    const kinds = LOOK_CARDS[1].rows[1];
+    expect(kinds.kind === "kinds" && kinds.id).toBe("set-liquid-panels");
+    expect(kinds.kind === "kinds" && kinds.kinds.map(kind => [kind.key, kind.label])).toEqual([
+      ["liquidChrome", "Header and side menu"], ["liquidPanels", "Side panels"], ["liquidMap", "On the map"], ["liquidButtons", "Map buttons"],
+      ["liquidCards", "Page cards"], ["liquidInner", "Cards inside panels"], ["liquidMenus", "Menus and pop-overs"], ["liquidDialogs", "Dialogs"],
+    ]);
   });
 
   it("name every choice in the product's words, and nothing the catalogue does not offer", () => {
     expect(lookChoices("background").map(value => choiceLabel("background", value))).toEqual(["Atlantic chart", "Plain", "Graticule", "Hex lattice"]);
     expect(lookChoices("rail").map(value => choiceLabel("rail", value))).toEqual(["Opens on hover", "Always open", "Icons only"]);
     expect(lookChoices("contrast").map(value => choiceLabel("contrast", value))).toEqual(["Standard", "More contrast"]);
+    expect(lookChoices("panels").map(value => choiceLabel("panels", value))).toEqual(["Glass", "Liquid", "Paper"]);
+    expect(lookChoices("liquidChrome").map(value => choiceLabel("liquidChrome", value))).toEqual(["On", "Off"]);
+    expect(lookChoices("liquidDialogs").map(value => choiceLabel("liquidDialogs", value))).toEqual(["Off", "On"]);
     for (const key of LOOK_KEYS) for (const value of lookChoices(key)) expect(choiceLabel(key, value), `${key}=${value}`).toMatch(/^[A-Z][a-z ]+$/);
   });
 });
@@ -62,6 +85,35 @@ describe("a card's writes", () => {
     expect(unit.snapshot.saved).toEqual(["look.color"]);
     unit.reset();
     expect(server.calls[1].patch).toEqual({ color: "kelp", contrast: "standard" });
+  });
+
+  it("return Panels, Background and the kinds shown when the card's Reset is pressed, never a kind out of sight", async () => {
+    // Paper, with two kinds switched under Liquid before: they are out of sight and stay stored.
+    const paper = fakeServer({ ...LIQUID, panels: "paper", background: "plain" });
+    const card = lookUnit(LOOK_CARDS[1], paper.stored(), new LookWriter(paper.send));
+    expect(card.snapshot.hidden).toEqual(["look.liquidChrome", "look.liquidPanels", "look.liquidMap", "look.liquidButtons",
+      "look.liquidCards", "look.liquidInner", "look.liquidMenus", "look.liquidDialogs"]);
+    card.reset();
+    expect(paper.calls[0].patch).toEqual({ panels: "glass", background: "atlantic" });
+    paper.calls[0].accept(); await flush();
+    expect(paper.stored()).toMatchObject({ liquidCards: "on", liquidChrome: "off" });
+    // Under Glass only a kind out of sight differs: the card offers no Reset.
+    const glass = lookUnit(LOOK_CARDS[1], { ...LIQUID, panels: "glass" }, new LookWriter(paper.send));
+    expect(glass.snapshot.slot).toBeNull();
+    // Liquid: every kind is shown, so the Reset returns them all, and Undo writes back whole what it changed.
+    const liquid = fakeServer(LIQUID);
+    const shown = lookUnit(LOOK_CARDS[1], liquid.stored(), new LookWriter(liquid.send));
+    expect(shown.snapshot.hidden).toEqual([]);
+    shown.reset();
+    expect(liquid.calls[0].patch).toEqual({ panels: "glass", background: "atlantic", liquidChrome: "on", liquidPanels: "on", liquidMap: "on",
+      liquidButtons: "on", liquidCards: "off", liquidInner: "off", liquidMenus: "off", liquidDialogs: "off" });
+    liquid.calls[0].accept(); await flush();
+    expect(shown.snapshot.hidden).toHaveLength(8);
+    shown.undo();
+    expect(liquid.calls[1].patch).toEqual({ panels: "liquid", liquidChrome: "off", liquidCards: "on" });
+    liquid.calls[1].accept(); await flush();
+    expect(liquid.stored()).toEqual(LIQUID);
+    expect(shown.snapshot.hidden).toEqual([]);
   });
 
   it("put a refusal naming a pick under its row, and keep nothing", async () => {
@@ -109,15 +161,26 @@ describe("what the page shows", () => {
 
   it("stamps the root with only the picks that differ, removing what no longer does", () => {
     const attributes = new Map<string, string>([["data-theme", "dark"], ["data-look-font", "system"]]);
+    const touched = new Set<string>();
     const root = {
-      setAttribute: (name: string, value: string) => attributes.set(name, value),
-      removeAttribute: (name: string) => attributes.delete(name),
+      setAttribute: (name: string, value: string) => { touched.add(name); attributes.set(name, value); },
+      removeAttribute: (name: string) => { touched.add(name); attributes.delete(name); },
       getAttribute: (name: string) => attributes.get(name) ?? null,
     } as unknown as Element;
     stampLook(root, HARBOR);
     expect(Object.fromEntries(attributes)).toEqual({ "data-theme": "dark", "data-look-color": "harbor", "data-look-rail": "icons" });
+    // Liquid: Panels, and the kinds that are on as one word list.
+    stampLook(root, { ...HARBOR, panels: "liquid", liquidMenus: "on", liquidMap: "off" });
+    expect(Object.fromEntries(attributes)).toEqual({ "data-theme": "dark", "data-look-color": "harbor", "data-look-rail": "icons",
+      "data-look-panels": "liquid", "data-look-liquid": "chrome panels buttons menus" });
+    // Paper keeps the kinds but stamps none of them.
+    stampLook(root, { ...HARBOR, panels: "paper", liquidMenus: "on" });
+    expect(Object.fromEntries(attributes)).toEqual({ "data-theme": "dark", "data-look-color": "harbor", "data-look-rail": "icons",
+      "data-look-panels": "paper" });
     stampLook(root, defaultLook());
     expect(Object.fromEntries(attributes)).toEqual({ "data-theme": "dark" });
+    // Only the look's own attributes are ever touched: never one per kind.
+    expect([...touched].filter(name => !(LOOK_ATTRIBUTES as readonly string[]).includes(name))).toEqual([]);
   });
 });
 
@@ -129,25 +192,50 @@ describe("Reset to Dezfil's default, and Undo", () => {
     return { server, kept, reset };
   }
 
-  it("shows only while a pick differs from the default", () => {
+  it("shows only while a pick, or a kind shown under Liquid, differs from the default", () => {
     const { reset } = tab();
     expect(reset.slot(defaultLook())).toBeNull();
     for (const key of LOOK_KEYS) {
       const one = { ...defaultLook(), [key]: lookChoices(key as LookKey)[1] };
-      expect(reset.slot(one), key).toBe("reset");
+      // A kind is out of sight under Glass and counts for nothing; under Liquid it is shown.
+      expect(reset.slot(one), key).toBe(key.startsWith("liquid") ? null : "reset");
+      if (key.startsWith("liquid")) expect(reset.slot({ ...one, panels: "liquid" }), key).toBe("reset");
     }
   });
 
   it("returns every pick in one write, hands what was kept to the cards, then offers Undo with focus on it", async () => {
     const { server, kept, reset } = tab();
     reset.reset(HARBOR);
-    expect(server.calls.map(call => call.patch)).toEqual([defaultLook()]);
+    expect(server.calls.map(call => call.patch)).toEqual([PICKS_DEFAULT]);
     expect(reset.snapshot.busy).toBe(true);
     expect(reset.slot(HARBOR)).toBe("reset");
     server.calls[0].accept(); await flush();
     expect(kept).toEqual([defaultLook()]);
     expect(reset.slot(defaultLook())).toBe("undo");
     expect(reset.snapshot.focus?.to).toBe("undo");
+  });
+
+  it("returns only what is shown when pressed: a kind out of sight under Paper stays stored, and Undo writes back the picks", async () => {
+    const PAPER = { ...LIQUID, panels: "paper" };
+    const { server, reset } = tab(PAPER);
+    reset.reset(PAPER);
+    expect(server.calls[0].patch).toEqual(PICKS_DEFAULT);
+    server.calls[0].accept(); await flush();
+    expect(server.stored()).toMatchObject({ liquidCards: "on", liquidChrome: "off" });
+    reset.undo();
+    expect(server.calls[1].patch).toEqual({ color: "harbor", rail: "icons", panels: "paper" });
+  });
+
+  it("returns the kinds shown under Liquid, and Undo writes back whole what it changed, the kinds it hid included", async () => {
+    const { server, kept, reset } = tab(LIQUID);
+    reset.reset(LIQUID);
+    expect(server.calls[0].patch).toEqual(defaultLook());
+    server.calls[0].accept(); await flush();
+    expect(reset.slot(defaultLook())).toBe("undo");
+    reset.undo();
+    expect(server.calls[1].patch).toEqual({ color: "harbor", rail: "icons", panels: "liquid", liquidCards: "on", liquidChrome: "off" });
+    server.calls[1].accept(); await flush();
+    expect(kept.at(-1)).toEqual(LIQUID);
   });
 
   it("writes the previous picks back in one write on Undo, then returns focus to the reset", async () => {
@@ -227,7 +315,7 @@ describe("Reset to Dezfil's default, and Undo", () => {
     server.calls[0].accept(); await flush();
     server.calls[1].accept(); await flush();
     await vi.advanceTimersByTimeAsync(0);
-    expect(server.calls.map(call => call.patch)).toEqual([{ color: "slate" }, defaultLook()]);
+    expect(server.calls.map(call => call.patch)).toEqual([{ color: "slate" }, PICKS_DEFAULT]);
     expect(server.stored()).toEqual(defaultLook());
     expect(shownLook(units.map(unit => unit.snapshot))).toEqual(defaultLook());
     expect(reset.slot(defaultLook())).toBe("undo");
@@ -243,7 +331,7 @@ describe("Reset to Dezfil's default, and Undo", () => {
     expect(reset.snapshot.note).toEqual({ message: "Dezfil could not reach the server.", retry: true });
     expect(reset.slot(HARBOR)).toBe("reset");
     reset.retry(HARBOR);
-    expect(server.calls[1].patch).toEqual(defaultLook());
+    expect(server.calls[1].patch).toEqual(PICKS_DEFAULT);
     server.calls[1].accept(); await flush();
     expect(reset.snapshot.note).toBeNull();
     expect(reset.slot(defaultLook())).toBe("undo");

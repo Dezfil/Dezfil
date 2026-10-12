@@ -602,6 +602,123 @@
   white-space: nowrap;
 }
 
+/* ---- Panels: the header card, the side menu and a card over a small
+   map, each on its role, so the map shows through as the pictured style
+   lets it (no bend in a picture) ---- */
+
+.pnMap {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.pnNight,
+:global(:root[data-theme="dark"]) .pnDay {
+  display: none;
+}
+
+:global(:root[data-theme="dark"]) .pnNight {
+  display: inline;
+}
+
+.art .pnHead {
+  position: absolute;
+  left: 10px;
+  top: 10px;
+  right: 30%;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px;
+  border-radius: var(--radius-control);
+  background: var(--surface-glass-chrome-fill);
+  backdrop-filter: var(--surface-glass-chrome-blur);
+  box-shadow: var(--surface-glass-chrome-shadow);
+}
+
+.art .pnHead > b {
+  font-family: var(--font-display);
+  font-size: var(--text-heading);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  color: var(--accent-bright);
+}
+
+.pnHead > i {
+  flex: 1;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--border-strong);
+}
+
+.art .pnRail {
+  position: absolute;
+  left: 10px;
+  top: 48px;
+  bottom: 10px;
+  width: 28px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding-top: 9px;
+  border-radius: var(--radius-control);
+  background: var(--surface-glass-chrome-fill);
+  backdrop-filter: var(--surface-glass-chrome-blur);
+  box-shadow: var(--surface-glass-chrome-shadow);
+}
+
+.pnRail > i {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-sm);
+  background: var(--fg-faint);
+}
+
+.pnRail > i[data-on] {
+  background: var(--accent);
+}
+
+.art .pnCard {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  width: 40%;
+  height: 42%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 7px;
+  padding: 0 12px;
+  border-radius: var(--radius-card);
+  background: var(--surface-overlay-panel-fill);
+  backdrop-filter: var(--surface-overlay-panel-blur);
+  box-shadow: var(--surface-overlay-panel-shadow);
+}
+
+.pnCard > b {
+  height: 6px;
+  width: 60%;
+  border-radius: 999px;
+  background: var(--fg-muted);
+}
+
+.pnCard > i {
+  height: 6px;
+  width: 100%;
+  border-radius: 999px;
+  background: var(--border-strong);
+}
+
+.pnCard > i + i {
+  width: 70%;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .art .smRail,
   .smRail b,

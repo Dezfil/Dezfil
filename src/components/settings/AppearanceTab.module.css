@@ -49,3 +49,28 @@
     min-height: 0;
   }
 }
+
+/* The kinds Liquid reaches: the shipped switch rows in four columns, two
+   on a narrower page and one on a phone. */
+.kinds {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, max-content));
+  column-gap: 28px;
+  row-gap: 10px;
+  padding-top: 2px;
+  font-size: var(--text-label);
+  font-weight: 500;
+  color: var(--fg);
+}
+
+@media (max-width: 1100px) {
+  .kinds {
+    grid-template-columns: repeat(2, minmax(0, max-content));
+  }
+}
+
+@media (max-width: 640px) {
+  .kinds {
+    grid-template-columns: minmax(0, max-content);
+  }
+}

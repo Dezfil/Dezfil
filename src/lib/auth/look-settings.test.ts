@@ -12,13 +12,17 @@ import { inviteAccount } from "./admin";
 import { redeemSignInLink } from "./links";
 
 /**
- * The look: six picks kept with one account, read and written through the
+ * The look: its picks and the kinds Liquid reaches, kept with one account, read and written through the
  * settings operations and their tools, beside the view preferences and the
  * grouping in the same document, and never seen by another account.
  */
 let db: Database, admin: Awaited<ReturnType<typeof createFirstAccount>>, member: typeof admin;
 const password = "field notebooks at dawn";
-const TODAY = { color: "kelp", contrast: "standard", font: "inter", background: "atlantic", corners: "rounded", rail: "hover" };
+const TODAY = {
+  color: "kelp", contrast: "standard", font: "inter", background: "atlantic", corners: "rounded", rail: "hover", panels: "glass",
+  liquidChrome: "on", liquidPanels: "on", liquidMap: "on", liquidButtons: "on",
+  liquidCards: "off", liquidInner: "off", liquidMenus: "off", liquidDialogs: "off",
+};
 beforeEach(async () => {
   db = metadata.open(":memory:"); vi.spyOn(metadata, "metadataDb").mockReturnValue(db);
   admin = await createFirstAccount({ name: "Admin", email: "admin@example.test", password }, db);
@@ -103,7 +107,7 @@ describe("the look through the generated tools", () => {
   const tools = () => new Map(buildTools().map(tool => [tool.name, tool]));
   type Schema = { type?: unknown; enum?: string[]; required?: string[]; additionalProperties?: unknown; properties?: Record<string, Schema> };
 
-  it("names the six picks, closed, with the catalogue's choices, on the update input and the read output", () => {
+  it("names the picks and the kinds, closed, with the catalogue's choices, on the update input and the read output", () => {
     const update = tools().get("update_settings")!, get = tools().get("get_settings")!;
     const input = (update.inputSchema.properties as Record<string, Schema>).look;
     expect(input.additionalProperties).toBe(false);
@@ -112,6 +116,9 @@ describe("the look through the generated tools", () => {
     expect(Object.fromEntries(Object.entries(input.properties!).map(([key, value]) => [key, value.enum]))).toEqual({
       color: ["kelp", "harbor", "heather", "slate"], contrast: ["standard", "more"], font: ["inter", "system"],
       background: ["atlantic", "plain", "graticule", "hex"], corners: ["rounded", "soft"], rail: ["hover", "open", "icons"],
+      panels: ["glass", "liquid", "paper"], liquidChrome: ["on", "off"], liquidPanels: ["on", "off"], liquidMap: ["on", "off"],
+      liquidButtons: ["on", "off"], liquidCards: ["off", "on"], liquidInner: ["off", "on"], liquidMenus: ["off", "on"],
+      liquidDialogs: ["off", "on"],
     });
     expect(JSON.stringify(get.outputSchema)).toContain('"look"');
   });
@@ -119,7 +126,7 @@ describe("the look through the generated tools", () => {
   it("refuses an unknown value or key before any call, and reads and writes a pick through the API", async () => {
     const update = tools().get("update_settings")!, get = tools().get("get_settings")!;
     const unused = vi.fn();
-    for (const look of [{ color: "teal" }, { glow: "on" }, { rail: null }]) {
+    for (const look of [{ color: "teal" }, { glow: "on" }, { rail: null }, { panels: "frosted" }, { liquidMenus: "maybe" }, { liquidChrome: true }]) {
       const refused = await executeTool(update, { look }, origin, unused as unknown as typeof fetch);
       expect(refused.ok, JSON.stringify(look)).toBe(false);
     }

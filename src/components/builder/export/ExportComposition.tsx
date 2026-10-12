@@ -197,11 +197,6 @@ export function ExportComposition({
     <div
       className={styles.frame}
       ref={frameRef}
-      // An image keeps Dezfil's default look whatever the person picked:
-      // the look's default scope puts every token a pick sets back at its
-      // theme's default, here and on the two nodes the download rasterizes
-      // below, so the preview, the file and the render route agree.
-      data-look-default=""
       style={
         {
           width,
@@ -225,116 +220,124 @@ export function ExportComposition({
           : undefined
       }
     >
-      <MapCanvas
-        basemapUrl={map.basemapUrl}
-        basemapLayers={map.basemapLayers}
-        basemapKind={map.basemapKind}
-        customBasemap={map.customBasemap}
-        layers={pinnedLayers}
-        markScale={width / REFERENCE_SPACE_WIDTH}
-        initialViewport={map.camera}
-        interactive={interactive}
-        onViewportChange={onViewportChange}
-        fallbackColor={map.fallbackColor}
-        liveFilters={map.liveFilters}
-        onCaptureHandle={onCaptureHandle}
-        onZoomHandle={onCameraHandle}
-        onReadiness={onReadiness}
-        onInitialWebGLFailure={onInitialWebGLFailure}
-      />
-      {/* Overlays are real DOM — the exact nodes the card's download
-          rasterizes and the route's screenshot captures. The rail carries
-          a docked legend; only a standalone legend leaves this layer. */}
-      <div ref={chromeRef} className={styles.chromeLayer} data-look-default="">
-        {widgets.length > 0 && (
-          <div inert className={styles.railHost}>
-            <div
-              className={styles.railScale}
-              style={{ "--rail-scale": railScale } as CSSProperties}
-            >
-              <WidgetRail
-                widgets={widgets}
-                widgetsOnlyRef={setWidgetStackEl}
-                values={values}
-                valuesState={valuesState}
-                selections={selections}
-                onToggleCategory={noop}
-                onBrush={noop}
+      {/* An image keeps Dezfil's default look whatever the person picked:
+          the look's default scope puts every token a pick sets back at its
+          theme's default, here on everything the frame holds and on the two
+          nodes the download rasterizes below, so the preview, the file and
+          the render route agree. The frame around it is the card's preview,
+          which takes the person's look like the card's other surfaces. */}
+      <div className={styles.composition} data-look-default="">
+        <MapCanvas
+          basemapUrl={map.basemapUrl}
+          basemapLayers={map.basemapLayers}
+          basemapKind={map.basemapKind}
+          customBasemap={map.customBasemap}
+          layers={pinnedLayers}
+          markScale={width / REFERENCE_SPACE_WIDTH}
+          initialViewport={map.camera}
+          interactive={interactive}
+          onViewportChange={onViewportChange}
+          fallbackColor={map.fallbackColor}
+          liveFilters={map.liveFilters}
+          onCaptureHandle={onCaptureHandle}
+          onZoomHandle={onCameraHandle}
+          onReadiness={onReadiness}
+          onInitialWebGLFailure={onInitialWebGLFailure}
+        />
+        {/* Overlays are real DOM — the exact nodes the card's download
+            rasterizes and the route's screenshot captures. The rail carries
+            a docked legend; only a standalone legend leaves this layer. */}
+        <div ref={chromeRef} className={styles.chromeLayer} data-look-default="">
+          {widgets.length > 0 && (
+            <div inert className={styles.railHost}>
+              <div
+                className={styles.railScale}
+                style={{ "--rail-scale": railScale } as CSSProperties}
               >
-                {legendDocked && (
-                  <div data-export-docked-legend>
-                    <LegendPanel
-                      layers={legendLayers}
-                      docked={legendPlacement.width === "rail"}
-                    />
-                  </div>
-                )}
-              </WidgetRail>
+                <WidgetRail
+                  widgets={widgets}
+                  widgetsOnlyRef={setWidgetStackEl}
+                  values={values}
+                  valuesState={valuesState}
+                  selections={selections}
+                  onToggleCategory={noop}
+                  onBrush={noop}
+                >
+                  {legendDocked && (
+                    <div data-export-docked-legend>
+                      <LegendPanel
+                        layers={legendLayers}
+                        docked={legendPlacement.width === "rail"}
+                      />
+                    </div>
+                  )}
+                </WidgetRail>
+              </div>
+            </div>
+          )}
+          {title && (
+            <div
+              className={styles.titleChip}
+              style={{ "--title-scale": titleScale } as CSSProperties}
+            >
+              {title.text}
+            </div>
+          )}
+          {/* Attribution is always burned in (D4): plain small text on
+              the map, no card, with the quiet mark. It takes a corner and
+              a step — and a floor, which is the one place an element
+              leaves the share rule, and only upward. */}
+          <div
+            className={styles.credit}
+            data-corner={creditCorner}
+            style={
+              {
+                "--credit-scale": creditScale(
+                  width,
+                  height,
+                  creditStep,
+                  outputWidth,
+                ),
+              } as CSSProperties
+            }
+          >
+            <BasemapCredit lines={attribution} />
+            <span className={styles.creditDot}>·</span>
+            <span className={styles.creditMark}>Made with Dezfil</span>
+          </div>
+          {failures && failures.length > 0 && (
+            <div className={styles.failures} role="note">
+              {failures.map((f) => (
+                <p key={f}>{f}</p>
+              ))}
+            </div>
+          )}
+        </div>
+        {/* The legend sits where the builder put it:
+            the in-preview corner drag retired — position is decided in the
+            builder, not at export time. */}
+        {legendPresent &&
+          (!legendDocked || legend.corner === "bottom-right") && (
+          <div
+            className={styles.legendCorner}
+            data-corner={legend.corner}
+            data-legend-placement-probe={legendDocked || undefined}
+            aria-hidden={legendDocked || undefined}
+            inert={legendDocked || undefined}
+            style={legendDocked ? { visibility: "hidden" } : undefined}
+          >
+            <div
+              ref={setLegendScaleEl}
+              className={styles.legendScale}
+              data-look-default=""
+              style={{ "--legend-scale": legendScale } as CSSProperties}
+              data-corner={legend.corner}
+            >
+              <LegendPanel layers={legendLayers} />
             </div>
           </div>
         )}
-        {title && (
-          <div
-            className={styles.titleChip}
-            style={{ "--title-scale": titleScale } as CSSProperties}
-          >
-            {title.text}
-          </div>
-        )}
-        {/* Attribution is always burned in (D4): plain small text on
-            the map, no card, with the quiet mark. It takes a corner and
-            a step — and a floor, which is the one place an element
-            leaves the share rule, and only upward. */}
-        <div
-          className={styles.credit}
-          data-corner={creditCorner}
-          style={
-            {
-              "--credit-scale": creditScale(
-                width,
-                height,
-                creditStep,
-                outputWidth,
-              ),
-            } as CSSProperties
-          }
-        >
-          <BasemapCredit lines={attribution} />
-          <span className={styles.creditDot}>·</span>
-          <span className={styles.creditMark}>Made with Dezfil</span>
-        </div>
-        {failures && failures.length > 0 && (
-          <div className={styles.failures} role="note">
-            {failures.map((f) => (
-              <p key={f}>{f}</p>
-            ))}
-          </div>
-        )}
       </div>
-      {/* The legend sits where the builder put it:
-          the in-preview corner drag retired — position is decided in the
-          builder, not at export time. */}
-      {legendPresent &&
-        (!legendDocked || legend.corner === "bottom-right") && (
-        <div
-          className={styles.legendCorner}
-          data-corner={legend.corner}
-          data-legend-placement-probe={legendDocked || undefined}
-          aria-hidden={legendDocked || undefined}
-          inert={legendDocked || undefined}
-          style={legendDocked ? { visibility: "hidden" } : undefined}
-        >
-          <div
-            ref={setLegendScaleEl}
-            className={styles.legendScale}
-            data-look-default=""
-            style={{ "--legend-scale": legendScale } as CSSProperties}
-            data-corner={legend.corner}
-          >
-            <LegendPanel layers={legendLayers} />
-          </div>
-        </div>
-      )}
     </div>
   );
 }

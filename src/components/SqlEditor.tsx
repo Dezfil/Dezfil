@@ -25,6 +25,7 @@ import {
 } from "./sql-editor-handle";
 import { startCompletion } from "@codemirror/autocomplete";
 import {
+  completionLook,
   editorLook,
   errorMarkExtensions,
   setErrorMark,
@@ -93,37 +94,6 @@ const editorTheme = EditorView.theme({
     backgroundColor: "color-mix(in srgb, var(--danger) 7%, transparent)",
   },
   ".cm-sqlErrorGutter": { color: "var(--danger)", fontWeight: "600" },
-  // Completion in the app's own chrome.
-  ".cm-tooltip.cm-tooltip-autocomplete": {
-    backgroundColor: "var(--bg-panel)",
-    border: "1px solid var(--border-strong)",
-    borderRadius: "10px",
-    boxShadow: "0 10px 30px var(--shadow)",
-    padding: "4px",
-    // Completion lists code: the mono face, as the scroller has it.
-    font: "12px var(--font-mono)",
-  },
-  ".cm-tooltip.cm-tooltip-autocomplete > ul > li": {
-    padding: "4px 8px",
-    borderRadius: "6px",
-    color: "var(--fg)",
-  },
-  ".cm-tooltip.cm-tooltip-autocomplete > ul > li[aria-selected]": {
-    backgroundColor: "var(--accent-dim)",
-    color: "var(--fg)",
-  },
-  ".cm-completionDetail": {
-    fontFamily: "var(--font-ui)",
-    fontSize: "10.5px",
-    color: "var(--fg-faint)",
-    marginLeft: "12px",
-    fontStyle: "normal",
-  },
-  ".cm-completionMatchedText": {
-    textDecoration: "none",
-    color: "var(--accent-bright)",
-    fontWeight: "600",
-  },
 });
 
 interface Props {
@@ -272,6 +242,7 @@ export default function SqlEditor({
           errorMarkExtensions(),
           syntaxHighlighting(highlight),
           editorTheme,
+          completionLook,
           EditorView.contentAttributes.of({
             "aria-label": latest.current.ariaLabel,
           }),

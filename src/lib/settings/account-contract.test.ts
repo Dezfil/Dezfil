@@ -27,8 +27,15 @@ const cases = [
   ["sourceGrouping", "person", "project"],
   ["look.color", "kelp", "harbor"], ["look.contrast", "standard", "more"], ["look.font", "inter", "system"],
   ["look.background", "atlantic", "hex"], ["look.corners", "rounded", "soft"], ["look.rail", "hover", "icons"],
+  ["look.panels", "glass", "liquid"], ["look.liquidChrome", "on", "off"], ["look.liquidPanels", "on", "off"],
+  ["look.liquidMap", "on", "off"], ["look.liquidButtons", "on", "off"], ["look.liquidCards", "off", "on"],
+  ["look.liquidInner", "off", "on"], ["look.liquidMenus", "off", "on"], ["look.liquidDialogs", "off", "on"],
 ];
-const TODAY = { color: "kelp", contrast: "standard", font: "inter", background: "atlantic", corners: "rounded", rail: "hover" };
+const TODAY = {
+  color: "kelp", contrast: "standard", font: "inter", background: "atlantic", corners: "rounded", rail: "hover", panels: "glass",
+  liquidChrome: "on", liquidPanels: "on", liquidMap: "on", liquidButtons: "on",
+  liquidCards: "off", liquidInner: "off", liquidMenus: "off", liquidDialogs: "off",
+};
 it.each(cases)("uses the %s definition for validation and both schema positions", async (key, rejected, accepted) => {
   const original = catalogue.settingDefinition;
   vi.spyOn(catalogue, "settingDefinition").mockImplementation(name => name === key

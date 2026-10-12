@@ -281,6 +281,7 @@
 
 .segmented button[aria-pressed="true"] {
   background: var(--surface-inner-card-fill);
+  backdrop-filter: var(--surface-inner-card-blur);
   box-shadow: var(--surface-inner-card-shadow);
   color: var(--fg);
 }

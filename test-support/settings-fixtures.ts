@@ -40,7 +40,9 @@ export const DEFAULTS = {
   "maps.view": "grid", "maps.sort": "edited", "data.view": "grid", "data.sort": "updated",
   "workflows.view": "grid", "workflows.sort": "edited", "projects.view": "grid", "projects.sort": "updated",
   sourceGrouping: "person", "look.color": "kelp", "look.contrast": "standard", "look.font": "inter",
-  "look.background": "atlantic", "look.corners": "rounded", "look.rail": "hover",
+  "look.background": "atlantic", "look.corners": "rounded", "look.rail": "hover", "look.panels": "glass",
+  "look.liquidChrome": "on", "look.liquidPanels": "on", "look.liquidMap": "on", "look.liquidButtons": "on",
+  "look.liquidCards": "off", "look.liquidInner": "off", "look.liquidMenus": "off", "look.liquidDialogs": "off",
   port: { rule: "runtime-port-or-request-origin" },
   extensionDir: { rule: "engine-default-extension-directory" },
 } as const;

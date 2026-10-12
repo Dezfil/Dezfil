@@ -364,6 +364,7 @@
 
 .modeBtn[aria-pressed="true"] {
   background: var(--surface-inner-card-fill);
+  backdrop-filter: var(--surface-inner-card-blur);
   color: var(--fg);
   font-weight: 600;
   box-shadow: var(--surface-inner-card-shadow);

@@ -140,6 +140,7 @@
   border-radius: var(--radius-card);
   overflow: hidden;
   background: var(--surface-page-card-fill);
+  backdrop-filter: var(--surface-page-card-blur);
   box-shadow: var(--surface-page-card-shadow);
 }
 
@@ -501,6 +502,7 @@
   border-radius: var(--radius-card);
   overflow: hidden;
   background: var(--surface-page-card-fill);
+  backdrop-filter: var(--surface-page-card-blur);
   box-shadow: var(--surface-page-card-shadow);
 }
 .resultsCard[data-busy] .resBody {
@@ -622,6 +624,7 @@
 }
 .tabs button[data-on] {
   background: var(--surface-inner-card-fill);
+  backdrop-filter: var(--surface-inner-card-blur);
   color: var(--fg);
   box-shadow: var(--surface-inner-card-shadow);
 }
@@ -794,7 +797,8 @@
   padding: 8px 10px;
   border-radius: var(--radius-box);
   background: var(--surface-menu-fill);
-  border: 1px solid var(--border-strong);
+  backdrop-filter: var(--surface-menu-blur);
+  border: var(--surface-menu-edge-strong);
   box-shadow: var(--surface-menu-shadow);
 }
 .peekValue {
@@ -848,7 +852,8 @@
   padding: 6px 9px;
   border-radius: var(--radius-row);
   background: var(--surface-menu-fill);
-  border: 1px solid var(--border-strong);
+  backdrop-filter: var(--surface-menu-blur);
+  border: var(--surface-menu-edge-strong);
   box-shadow: var(--surface-menu-shadow);
   font-size: var(--text-meta);
   color: var(--fg);
@@ -883,10 +888,11 @@
   cursor: pointer;
   border: var(--surface-inner-card-edge);
   background: var(--surface-inner-card-fill);
+  backdrop-filter: var(--surface-inner-card-blur);
   transition: border-color var(--dur-micro), box-shadow var(--dur-micro);
 }
 .card:hover {
-  border-color: var(--border-strong);
+  border: var(--surface-inner-card-edge-hover);
   box-shadow: var(--surface-inner-card-shadow-lifted);
 }
 .card:focus-visible {
@@ -1008,7 +1014,8 @@
   left: 0;
   min-width: 260px;
   background: var(--surface-menu-fill);
-  border: 1px solid var(--border-strong);
+  backdrop-filter: var(--surface-menu-blur);
+  border: var(--surface-menu-edge-strong);
   border-radius: var(--radius-box);
   box-shadow: var(--surface-menu-shadow);
   padding: 4px;

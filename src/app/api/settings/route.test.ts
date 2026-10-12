@@ -90,8 +90,12 @@ describe("view preferences per screen (workflows)", () => {
   });
 });
 
-describe("the look: six picks, read whole and written in part", () => {
-  const TODAY = { color: "kelp", contrast: "standard", font: "inter", background: "atlantic", corners: "rounded", rail: "hover" };
+describe("the look: its picks and kinds, read whole and written in part", () => {
+  const TODAY = {
+    color: "kelp", contrast: "standard", font: "inter", background: "atlantic", corners: "rounded", rail: "hover", panels: "glass",
+    liquidChrome: "on", liquidPanels: "on", liquidMap: "on", liquidButtons: "on",
+    liquidCards: "off", liquidInner: "off", liquidMenus: "off", liquidDialogs: "off",
+  };
   type Refusal = { error: { code: string; message: string } };
 
   it("reads every pick at its default for an account that never picked", async () => {
@@ -111,11 +115,24 @@ describe("the look: six picks, read whole and written in part", () => {
     expect(((await (await patch({ look: { color: "kelp" } })).json()) as Json).look).toEqual({ ...TODAY, rail: "icons", corners: "soft" });
   });
 
+  it("keeps Panels and the kinds like any pick, the kinds kept while Panels is not Liquid", async () => {
+    const liquid = await patch({ look: { panels: "liquid", liquidMenus: "on", liquidMap: "off" } });
+    expect(liquid.status).toBe(200);
+    expect(((await liquid.json()) as Json).look).toEqual({ ...TODAY, panels: "liquid", liquidMenus: "on", liquidMap: "off" });
+    const paper = await patch({ look: { panels: "paper" } });
+    expect(((await paper.json()) as Json).look).toEqual({ ...TODAY, panels: "paper", liquidMenus: "on", liquidMap: "off" });
+    closeMetadataDb();
+    expect(((await (await get()).json()) as Json).look).toEqual({ ...TODAY, panels: "paper", liquidMenus: "on", liquidMap: "off" });
+  });
+
   it.each([
     ["a value outside the pick's choices, naming the key", { color: "teal" }, "look.color: Expected one of: kelp, harbor, heather, slate."],
     ["a null value, naming the key", { rail: null }, "look.rail: Expected one of: hover, open, icons."],
+    ["a look this version does not offer, naming the key", { panels: "frosted" }, "look.panels: Expected one of: glass, liquid, paper."],
+    ["a kind outside its two choices, naming the key", { liquidMenus: "maybe" }, "look.liquidMenus: Expected one of: off, on."],
+    ["a kind written as a boolean, naming the key", { liquidChrome: true }, "look.liquidChrome: Expected one of: on, off."],
     ["an unknown key inside the slice, by its position", { glow: "on" },
-      "look: Unknown setting at position 2. Expected one of: color, contrast, font, background, corners, rail."],
+      "look: Unknown setting at position 2. Expected one of: color, contrast, font, background, corners, rail, panels, liquidChrome, liquidPanels, liquidMap, liquidButtons, liquidCards, liquidInner, liquidMenus, liquidDialogs."],
   ])("refuses %s, and stores nothing of a body that also changes the grouping", async (_label, look, message) => {
     expect((await patch({ look: { contrast: "more" } })).status).toBe(200);
     const before = await (await get()).json();
@@ -131,7 +148,7 @@ describe("the look: six picks, read whole and written in part", () => {
     expect(refused.status).toBe(400);
     const { message } = ((await refused.json()) as Refusal).error;
     expect(message).toBe("look.color: Expected one of: kelp, harbor, heather, slate. "
-      + "look: Unknown setting at position 2. Expected one of: color, contrast, font, background, corners, rail.");
+      + "look: Unknown setting at position 2. Expected one of: color, contrast, font, background, corners, rail, panels, liquidChrome, liquidPanels, liquidMap, liquidButtons, liquidCards, liquidInner, liquidMenus, liquidDialogs.");
     expect(message).not.toContain(key);
     expect(message).not.toContain("sk-live");
     expect(message).not.toContain(value);

@@ -1,0 +1,629 @@
+/* ============================================================
+   Liquid: the panels as liquid glass. While Panels is Liquid, the
+   workspace root carries data-look-liquid with a word for each kind of
+   surface the person has on (chrome panels map buttons cards inner
+   menus dialogs); a kind restates the parts of its roles here, so every
+   surface of those roles follows and a kind that is off stays Glass. No
+   rule names a component: a surface reads its role and nothing else.
+
+   The values, by day and by night, per role:
+   - the fill is the panel tone under a faint tint, folded into one
+     colour so a surface that mixes its ground from the fill still can:
+     thinnest on what floats and carries an icon, thicker on what is
+     read, thickest on a dialog;
+   - the blur is soft on the chrome (9 px), light on the buttons and the
+     cards inside panels (6 px), deeper on what is read (24 px);
+   - no edge line: a role with a hairline keeps its width in a
+     transparent line, so nothing moves when a kind is switched;
+   - the shadow carries the light on the rim as its first three layers,
+     drawn inside the edge: a bright line on the sides facing the light
+     (the upper left), a fainter one on the far side, a faint glow, then
+     the soft two-layer drop;
+   - the lens, how far a surface's edge pulls the backdrop in where the
+     browser can bend it, per role in px;
+   - a map button does not grow under the pointer, a slider's knob and a
+     drag grip take the inner card's fill, the map's tooltip and popup the
+     menu's.
+
+   Each kind also dresses the pictures of the other picks, which show the
+   person's look, and every role dresses the Liquid picture of Panels.
+   Where the browser draws no backdrop filter, or the computer asks for
+   less transparency or more contrast, every fill goes opaque at the same
+   tint while the light and the shadow stay.
+   ============================================================ */
+
+/* ---- Header and side menu: floating glass, chrome ---- */
+
+:root[data-look-liquid~="chrome"],
+:root[data-look-liquid~="chrome"] [data-picture-color],
+:root[data-look-liquid~="chrome"] [data-picture-contrast],
+:root[data-look-liquid~="chrome"] [data-picture-corners],
+:root [data-picture-panels="liquid"] {
+  --surface-glass-chrome-fill: color-mix(in srgb, #fff 12%, var(--bg-panel) 48.4%);
+  --surface-glass-chrome-blur: blur(9px);
+  --surface-glass-chrome-edge: none;
+  --surface-glass-chrome-shadow:
+    inset 1px 1px 0 rgba(255, 255, 255, 0.9),
+    inset -1px -1px 0 rgba(255, 255, 255, 0.405),
+    inset 0 0 14px rgba(255, 255, 255, 0.144),
+    0 1px 1px color-mix(in srgb, var(--shadow) 20%, transparent),
+    0 12px 32px -6px color-mix(in srgb, var(--shadow) 85%, transparent);
+  --surface-glass-chrome-lens: 20;
+}
+
+:root[data-theme="dark"][data-look-liquid~="chrome"],
+:root[data-theme="dark"][data-look-liquid~="chrome"] [data-picture-color],
+:root[data-theme="dark"][data-look-liquid~="chrome"] [data-picture-contrast],
+:root[data-theme="dark"][data-look-liquid~="chrome"] [data-picture-corners],
+:root[data-theme="dark"] [data-picture-panels="liquid"] {
+  --surface-glass-chrome-fill: color-mix(in srgb, #000 6%, var(--bg-panel) 51.7%);
+  --surface-glass-chrome-shadow:
+    inset 1px 1px 0 rgba(255, 255, 255, 0.42),
+    inset -1px -1px 0 rgba(255, 255, 255, 0.168),
+    inset 0 0 14px rgba(255, 255, 255, 0.067),
+    0 1px 1px rgba(0, 0, 0, 0.35),
+    0 14px 36px -6px rgba(0, 0, 0, 0.55);
+}
+
+/* ---- Side panels: floating glass, panel ---- */
+
+:root[data-look-liquid~="panels"],
+:root[data-look-liquid~="panels"] [data-picture-color],
+:root[data-look-liquid~="panels"] [data-picture-contrast],
+:root[data-look-liquid~="panels"] [data-picture-corners],
+:root [data-picture-panels="liquid"] {
+  --surface-glass-panel-fill: color-mix(in srgb, #fff 8%, var(--bg-panel) 82.8%);
+  --surface-glass-panel-blur: blur(24px);
+  --surface-glass-panel-edge: none;
+  --surface-glass-panel-shadow:
+    inset 1px 1px 0 rgba(255, 255, 255, 0.9),
+    inset -1px -1px 0 rgba(255, 255, 255, 0.405),
+    inset 0 0 14px rgba(255, 255, 255, 0.144),
+    0 1px 1px color-mix(in srgb, var(--shadow) 20%, transparent),
+    0 12px 32px -6px color-mix(in srgb, var(--shadow) 85%, transparent);
+  --surface-glass-panel-lens: 18;
+}
+
+:root[data-theme="dark"][data-look-liquid~="panels"],
+:root[data-theme="dark"][data-look-liquid~="panels"] [data-picture-color],
+:root[data-theme="dark"][data-look-liquid~="panels"] [data-picture-contrast],
+:root[data-theme="dark"][data-look-liquid~="panels"] [data-picture-corners],
+:root[data-theme="dark"] [data-picture-panels="liquid"] {
+  --surface-glass-panel-fill: color-mix(in srgb, #000 8%, var(--bg-panel) 71.76%);
+  --surface-glass-panel-shadow:
+    inset 1px 1px 0 rgba(255, 255, 255, 0.42),
+    inset -1px -1px 0 rgba(255, 255, 255, 0.168),
+    inset 0 0 14px rgba(255, 255, 255, 0.067),
+    0 1px 1px rgba(0, 0, 0, 0.35),
+    0 14px 36px -6px rgba(0, 0, 0, 0.55);
+}
+
+/* ---- On the map: the overlay panel, and the map's own frame ---- */
+
+:root[data-look-liquid~="map"],
+:root[data-look-liquid~="map"] [data-picture-color],
+:root[data-look-liquid~="map"] [data-picture-contrast],
+:root[data-look-liquid~="map"] [data-picture-corners],
+:root [data-picture-panels="liquid"] {
+  --surface-overlay-panel-fill: color-mix(in srgb, #fff 8%, var(--bg-panel) 82.8%);
+  --surface-overlay-panel-blur: blur(24px);
+  --surface-overlay-panel-edge: none;
+  --surface-overlay-panel-shadow:
+    inset 1px 1px 0 rgba(255, 255, 255, 0.9),
+    inset -1px -1px 0 rgba(255, 255, 255, 0.405),
+    inset 0 0 14px rgba(255, 255, 255, 0.144),
+    0 1px 1px color-mix(in srgb, var(--shadow) 20%, transparent),
+    0 12px 32px -6px color-mix(in srgb, var(--shadow) 85%, transparent);
+  --surface-overlay-panel-lens: 18;
+  --surface-stage-fill: transparent;
+  --surface-stage-blur: none;
+  --surface-stage-edge: none;
+  --surface-stage-shadow:
+    0 1px 1px color-mix(in srgb, var(--shadow) 20%, transparent),
+    0 12px 32px -6px color-mix(in srgb, var(--shadow) 85%, transparent);
+}
+
+:root[data-theme="dark"][data-look-liquid~="map"],
+:root[data-theme="dark"][data-look-liquid~="map"] [data-picture-color],
+:root[data-theme="dark"][data-look-liquid~="map"] [data-picture-contrast],
+:root[data-theme="dark"][data-look-liquid~="map"] [data-picture-corners],
+:root[data-theme="dark"] [data-picture-panels="liquid"] {
+  --surface-overlay-panel-fill: color-mix(in srgb, #000 8%, var(--bg-panel) 71.76%);
+  --surface-overlay-panel-shadow:
+    inset 1px 1px 0 rgba(255, 255, 255, 0.42),
+    inset -1px -1px 0 rgba(255, 255, 255, 0.168),
+    inset 0 0 14px rgba(255, 255, 255, 0.067),
+    0 1px 1px rgba(0, 0, 0, 0.35),
+    0 14px 36px -6px rgba(0, 0, 0, 0.55);
+  --surface-stage-shadow:
+    0 1px 1px rgba(0, 0, 0, 0.35),
+    0 14px 36px -6px rgba(0, 0, 0, 0.55);
+}
+
+/* ---- Map buttons: the overlay control, which no longer grows under the pointer ---- */
+
+:root[data-look-liquid~="buttons"],
+:root[data-look-liquid~="buttons"] [data-picture-color],
+:root[data-look-liquid~="buttons"] [data-picture-contrast],
+:root[data-look-liquid~="buttons"] [data-picture-corners],
+:root [data-picture-panels="liquid"] {
+  --surface-overlay-control-fill: color-mix(in srgb, #fff 12%, var(--bg-panel) 48.4%);
+  --surface-overlay-control-blur: blur(6px);
+  --surface-overlay-control-edge: none;
+  --surface-overlay-control-shadow:
+    inset 1px 1px 0 rgba(255, 255, 255, 0.9),
+    inset -1px -1px 0 rgba(255, 255, 255, 0.405),
+    inset 0 0 14px rgba(255, 255, 255, 0.144),
+    0 1px 1px color-mix(in srgb, var(--shadow) 20%, transparent),
+    0 6px 18px -4px color-mix(in srgb, var(--shadow) 80%, transparent);
+  --surface-overlay-control-lens: 12;
+  --surface-overlay-control-grow: none;
+}
+
+:root[data-theme="dark"][data-look-liquid~="buttons"],
+:root[data-theme="dark"][data-look-liquid~="buttons"] [data-picture-color],
+:root[data-theme="dark"][data-look-liquid~="buttons"] [data-picture-contrast],
+:root[data-theme="dark"][data-look-liquid~="buttons"] [data-picture-corners],
+:root[data-theme="dark"] [data-picture-panels="liquid"] {
+  --surface-overlay-control-fill: color-mix(in srgb, #000 6%, var(--bg-panel) 51.7%);
+  --surface-overlay-control-shadow:
+    inset 1px 1px 0 rgba(255, 255, 255, 0.42),
+    inset -1px -1px 0 rgba(255, 255, 255, 0.168),
+    inset 0 0 14px rgba(255, 255, 255, 0.067),
+    0 1px 1px rgba(0, 0, 0, 0.35),
+    0 6px 18px -4px rgba(0, 0, 0, 0.5);
+}
+
+/* ---- Page cards ---- */
+
+:root[data-look-liquid~="cards"],
+:root[data-look-liquid~="cards"] [data-picture-color],
+:root[data-look-liquid~="cards"] [data-picture-contrast],
+:root[data-look-liquid~="cards"] [data-picture-corners],
+:root [data-picture-panels="liquid"] {
+  --surface-page-card-fill: color-mix(in srgb, #fff 10%, var(--bg-panel) 63%);
+  --surface-page-card-blur: blur(14px);
+  --surface-page-card-edge: 1px solid transparent;
+  --surface-page-card-shadow:
+    inset 1px 1px 0 rgba(255, 255, 255, 0.9),
+    inset -1px -1px 0 rgba(255, 255, 255, 0.405),
+    inset 0 0 14px rgba(255, 255, 255, 0.144),
+    0 1px 2px color-mix(in srgb, var(--shadow) 30%, transparent),
+    0 8px 24px -6px color-mix(in srgb, var(--shadow) 60%, transparent);
+  --surface-page-card-shadow-hover:
+    inset 1px 1px 0 rgba(255, 255, 255, 0.9),
+    inset -1px -1px 0 rgba(255, 255, 255, 0.405),
+    inset 0 0 14px rgba(255, 255, 255, 0.144),
+    0 1px 1px color-mix(in srgb, var(--shadow) 20%, transparent),
+    0 12px 32px -6px color-mix(in srgb, var(--shadow) 85%, transparent);
+  --surface-page-card-edge-hover: 1px solid transparent;
+  --surface-page-card-lens: 14;
+}
+
+:root[data-theme="dark"][data-look-liquid~="cards"],
+:root[data-theme="dark"][data-look-liquid~="cards"] [data-picture-color],
+:root[data-theme="dark"][data-look-liquid~="cards"] [data-picture-contrast],
+:root[data-theme="dark"][data-look-liquid~="cards"] [data-picture-corners],
+:root[data-theme="dark"] [data-picture-panels="liquid"] {
+  --surface-page-card-fill: color-mix(in srgb, #000 6%, var(--bg-panel) 62.04%);
+  --surface-page-card-shadow:
+    inset 1px 1px 0 rgba(255, 255, 255, 0.42),
+    inset -1px -1px 0 rgba(255, 255, 255, 0.168),
+    inset 0 0 14px rgba(255, 255, 255, 0.067),
+    0 1px 2px rgba(0, 0, 0, 0.4),
+    0 8px 24px -6px rgba(0, 0, 0, 0.45);
+  --surface-page-card-shadow-hover:
+    inset 1px 1px 0 rgba(255, 255, 255, 0.42),
+    inset -1px -1px 0 rgba(255, 255, 255, 0.168),
+    inset 0 0 14px rgba(255, 255, 255, 0.067),
+    0 1px 1px rgba(0, 0, 0, 0.35),
+    0 14px 36px -6px rgba(0, 0, 0, 0.55);
+}
+
+/* ---- Cards inside panels: the inner card, its knob and its marks ---- */
+
+:root[data-look-liquid~="inner"],
+:root[data-look-liquid~="inner"] [data-picture-color],
+:root[data-look-liquid~="inner"] [data-picture-contrast],
+:root[data-look-liquid~="inner"] [data-picture-corners],
+:root [data-picture-panels="liquid"] {
+  --surface-inner-card-fill: color-mix(in srgb, #fff 10%, var(--bg-panel) 49.5%);
+  --surface-inner-card-blur: blur(6px);
+  --surface-inner-card-edge: 1px solid transparent;
+  --surface-inner-card-shadow:
+    inset 1px 1px 0 rgba(255, 255, 255, 0.9),
+    inset -1px -1px 0 rgba(255, 255, 255, 0.405),
+    inset 0 0 14px rgba(255, 255, 255, 0.144),
+    0 1px 2px color-mix(in srgb, var(--shadow) 40%, transparent),
+    0 4px 12px -4px color-mix(in srgb, var(--shadow) 50%, transparent);
+  --surface-inner-card-shadow-lifted:
+    inset 1px 1px 0 rgba(255, 255, 255, 0.9),
+    inset -1px -1px 0 rgba(255, 255, 255, 0.405),
+    inset 0 0 14px rgba(255, 255, 255, 0.144),
+    0 1px 1px color-mix(in srgb, var(--shadow) 20%, transparent),
+    0 12px 32px -6px color-mix(in srgb, var(--shadow) 85%, transparent);
+  --surface-inner-card-shadow-dragged:
+    inset 1px 1px 0 rgba(255, 255, 255, 0.9),
+    inset -1px -1px 0 rgba(255, 255, 255, 0.405),
+    inset 0 0 14px rgba(255, 255, 255, 0.144),
+    0 1px 1px color-mix(in srgb, var(--shadow) 20%, transparent),
+    0 12px 32px -6px color-mix(in srgb, var(--shadow) 85%, transparent);
+  --surface-inner-card-lens: 8;
+  --surface-inner-card-knob: color-mix(in srgb, #fff 10%, var(--bg-panel) 49.5%);
+  --surface-inner-card-mark: color-mix(in srgb, #fff 10%, var(--bg-panel) 49.5%);
+  --surface-inner-card-edge-hover: 1px solid transparent;
+  --surface-inner-card-edge-new: 1px dashed transparent;
+}
+
+:root[data-theme="dark"][data-look-liquid~="inner"],
+:root[data-theme="dark"][data-look-liquid~="inner"] [data-picture-color],
+:root[data-theme="dark"][data-look-liquid~="inner"] [data-picture-contrast],
+:root[data-theme="dark"][data-look-liquid~="inner"] [data-picture-corners],
+:root[data-theme="dark"] [data-picture-panels="liquid"] {
+  --surface-inner-card-fill: color-mix(in srgb, #fff 4%, var(--bg-hover) 52.8%);
+  --surface-inner-card-shadow:
+    inset 1px 1px 0 rgba(255, 255, 255, 0.42),
+    inset -1px -1px 0 rgba(255, 255, 255, 0.168),
+    inset 0 0 14px rgba(255, 255, 255, 0.067),
+    0 1px 2px rgba(0, 0, 0, 0.45),
+    0 4px 12px -4px rgba(0, 0, 0, 0.4);
+  --surface-inner-card-shadow-lifted:
+    inset 1px 1px 0 rgba(255, 255, 255, 0.42),
+    inset -1px -1px 0 rgba(255, 255, 255, 0.168),
+    inset 0 0 14px rgba(255, 255, 255, 0.067),
+    0 1px 1px rgba(0, 0, 0, 0.35),
+    0 14px 36px -6px rgba(0, 0, 0, 0.55);
+  --surface-inner-card-shadow-dragged:
+    inset 1px 1px 0 rgba(255, 255, 255, 0.42),
+    inset -1px -1px 0 rgba(255, 255, 255, 0.168),
+    inset 0 0 14px rgba(255, 255, 255, 0.067),
+    0 1px 1px rgba(0, 0, 0, 0.35),
+    0 14px 36px -6px rgba(0, 0, 0, 0.55);
+  --surface-inner-card-knob: color-mix(in srgb, #fff 4%, var(--bg-hover) 52.8%);
+  --surface-inner-card-mark: color-mix(in srgb, #fff 4%, var(--bg-hover) 52.8%);
+}
+
+/* ---- Menus and pop-overs ---- */
+
+:root[data-look-liquid~="menus"],
+:root[data-look-liquid~="menus"] [data-picture-color],
+:root[data-look-liquid~="menus"] [data-picture-contrast],
+:root[data-look-liquid~="menus"] [data-picture-corners],
+:root [data-picture-panels="liquid"] {
+  --surface-menu-fill: color-mix(in srgb, #fff 8%, var(--bg-panel) 82.8%);
+  --surface-menu-blur: blur(24px);
+  --surface-menu-edge: 1px solid transparent;
+  --surface-menu-shadow:
+    inset 1px 1px 0 rgba(255, 255, 255, 0.9),
+    inset -1px -1px 0 rgba(255, 255, 255, 0.405),
+    inset 0 0 14px rgba(255, 255, 255, 0.144),
+    0 1px 1px color-mix(in srgb, var(--shadow) 20%, transparent),
+    0 12px 32px -6px color-mix(in srgb, var(--shadow) 85%, transparent);
+  --surface-menu-lens: 14;
+  --surface-menu-edge-strong: 1px solid transparent;
+  --surface-menu-fill-raised: color-mix(in srgb, #fff 8%, var(--bg-panel) 82.8%);
+}
+
+:root[data-theme="dark"][data-look-liquid~="menus"],
+:root[data-theme="dark"][data-look-liquid~="menus"] [data-picture-color],
+:root[data-theme="dark"][data-look-liquid~="menus"] [data-picture-contrast],
+:root[data-theme="dark"][data-look-liquid~="menus"] [data-picture-corners],
+:root[data-theme="dark"] [data-picture-panels="liquid"] {
+  --surface-menu-fill: color-mix(in srgb, #000 8%, var(--bg-panel) 71.76%);
+  --surface-menu-shadow:
+    inset 1px 1px 0 rgba(255, 255, 255, 0.42),
+    inset -1px -1px 0 rgba(255, 255, 255, 0.168),
+    inset 0 0 14px rgba(255, 255, 255, 0.067),
+    0 1px 1px rgba(0, 0, 0, 0.35),
+    0 14px 36px -6px rgba(0, 0, 0, 0.55);
+  --surface-menu-fill-raised: color-mix(in srgb, #000 8%, var(--bg-panel) 71.76%);
+}
+
+/* ---- Dialogs (the veil behind them is the shipped one) ---- */
+
+:root[data-look-liquid~="dialogs"],
+:root[data-look-liquid~="dialogs"] [data-picture-color],
+:root[data-look-liquid~="dialogs"] [data-picture-contrast],
+:root[data-look-liquid~="dialogs"] [data-picture-corners],
+:root [data-picture-panels="liquid"] {
+  --surface-dialog-fill: color-mix(in srgb, #fff 8%, var(--bg-panel) 84.64%);
+  --surface-dialog-blur: blur(24px);
+  --surface-dialog-edge: 1px solid transparent;
+  --surface-dialog-shadow:
+    inset 1px 1px 0 rgba(255, 255, 255, 0.9),
+    inset -1px -1px 0 rgba(255, 255, 255, 0.405),
+    inset 0 0 14px rgba(255, 255, 255, 0.144),
+    0 1px 1px color-mix(in srgb, var(--shadow) 20%, transparent),
+    0 24px 64px -12px var(--shadow);
+  --surface-dialog-lens: 18;
+}
+
+:root[data-theme="dark"][data-look-liquid~="dialogs"],
+:root[data-theme="dark"][data-look-liquid~="dialogs"] [data-picture-color],
+:root[data-theme="dark"][data-look-liquid~="dialogs"] [data-picture-contrast],
+:root[data-theme="dark"][data-look-liquid~="dialogs"] [data-picture-corners],
+:root[data-theme="dark"] [data-picture-panels="liquid"] {
+  --surface-dialog-fill: color-mix(in srgb, #000 8%, var(--bg-panel) 73.6%);
+  --surface-dialog-shadow:
+    inset 1px 1px 0 rgba(255, 255, 255, 0.42),
+    inset -1px -1px 0 rgba(255, 255, 255, 0.168),
+    inset 0 0 14px rgba(255, 255, 255, 0.067),
+    0 1px 1px rgba(0, 0, 0, 0.4),
+    0 24px 64px -12px rgba(0, 0, 0, 0.7);
+}
+
+/* ---- Where no backdrop filter is drawn, the fills go opaque; the light and the shadow stay ---- */
+
+@supports not (backdrop-filter: blur(1px)) {
+  :root[data-look-liquid~="chrome"],
+  :root[data-look-liquid~="chrome"] [data-picture-color],
+  :root[data-look-liquid~="chrome"] [data-picture-contrast],
+  :root[data-look-liquid~="chrome"] [data-picture-corners],
+  :root [data-picture-panels="liquid"] {
+    --surface-glass-chrome-fill: color-mix(in srgb, #fff 12%, var(--bg-panel) 88%);
+  }
+
+  :root[data-theme="dark"][data-look-liquid~="chrome"],
+  :root[data-theme="dark"][data-look-liquid~="chrome"] [data-picture-color],
+  :root[data-theme="dark"][data-look-liquid~="chrome"] [data-picture-contrast],
+  :root[data-theme="dark"][data-look-liquid~="chrome"] [data-picture-corners],
+  :root[data-theme="dark"] [data-picture-panels="liquid"] {
+    --surface-glass-chrome-fill: color-mix(in srgb, #000 6%, var(--bg-panel) 94%);
+  }
+
+  :root[data-look-liquid~="panels"],
+  :root[data-look-liquid~="panels"] [data-picture-color],
+  :root[data-look-liquid~="panels"] [data-picture-contrast],
+  :root[data-look-liquid~="panels"] [data-picture-corners],
+  :root [data-picture-panels="liquid"] {
+    --surface-glass-panel-fill: color-mix(in srgb, #fff 8%, var(--bg-panel) 92%);
+  }
+
+  :root[data-theme="dark"][data-look-liquid~="panels"],
+  :root[data-theme="dark"][data-look-liquid~="panels"] [data-picture-color],
+  :root[data-theme="dark"][data-look-liquid~="panels"] [data-picture-contrast],
+  :root[data-theme="dark"][data-look-liquid~="panels"] [data-picture-corners],
+  :root[data-theme="dark"] [data-picture-panels="liquid"] {
+    --surface-glass-panel-fill: color-mix(in srgb, #000 8%, var(--bg-panel) 92%);
+  }
+
+  :root[data-look-liquid~="map"],
+  :root[data-look-liquid~="map"] [data-picture-color],
+  :root[data-look-liquid~="map"] [data-picture-contrast],
+  :root[data-look-liquid~="map"] [data-picture-corners],
+  :root [data-picture-panels="liquid"] {
+    --surface-overlay-panel-fill: color-mix(in srgb, #fff 8%, var(--bg-panel) 92%);
+  }
+
+  :root[data-theme="dark"][data-look-liquid~="map"],
+  :root[data-theme="dark"][data-look-liquid~="map"] [data-picture-color],
+  :root[data-theme="dark"][data-look-liquid~="map"] [data-picture-contrast],
+  :root[data-theme="dark"][data-look-liquid~="map"] [data-picture-corners],
+  :root[data-theme="dark"] [data-picture-panels="liquid"] {
+    --surface-overlay-panel-fill: color-mix(in srgb, #000 8%, var(--bg-panel) 92%);
+  }
+
+  :root[data-look-liquid~="buttons"],
+  :root[data-look-liquid~="buttons"] [data-picture-color],
+  :root[data-look-liquid~="buttons"] [data-picture-contrast],
+  :root[data-look-liquid~="buttons"] [data-picture-corners],
+  :root [data-picture-panels="liquid"] {
+    --surface-overlay-control-fill: color-mix(in srgb, #fff 12%, var(--bg-panel) 88%);
+  }
+
+  :root[data-theme="dark"][data-look-liquid~="buttons"],
+  :root[data-theme="dark"][data-look-liquid~="buttons"] [data-picture-color],
+  :root[data-theme="dark"][data-look-liquid~="buttons"] [data-picture-contrast],
+  :root[data-theme="dark"][data-look-liquid~="buttons"] [data-picture-corners],
+  :root[data-theme="dark"] [data-picture-panels="liquid"] {
+    --surface-overlay-control-fill: color-mix(in srgb, #000 6%, var(--bg-panel) 94%);
+  }
+
+  :root[data-look-liquid~="cards"],
+  :root[data-look-liquid~="cards"] [data-picture-color],
+  :root[data-look-liquid~="cards"] [data-picture-contrast],
+  :root[data-look-liquid~="cards"] [data-picture-corners],
+  :root [data-picture-panels="liquid"] {
+    --surface-page-card-fill: color-mix(in srgb, #fff 10%, var(--bg-panel) 90%);
+  }
+
+  :root[data-theme="dark"][data-look-liquid~="cards"],
+  :root[data-theme="dark"][data-look-liquid~="cards"] [data-picture-color],
+  :root[data-theme="dark"][data-look-liquid~="cards"] [data-picture-contrast],
+  :root[data-theme="dark"][data-look-liquid~="cards"] [data-picture-corners],
+  :root[data-theme="dark"] [data-picture-panels="liquid"] {
+    --surface-page-card-fill: color-mix(in srgb, #000 6%, var(--bg-panel) 94%);
+  }
+
+  :root[data-look-liquid~="inner"],
+  :root[data-look-liquid~="inner"] [data-picture-color],
+  :root[data-look-liquid~="inner"] [data-picture-contrast],
+  :root[data-look-liquid~="inner"] [data-picture-corners],
+  :root [data-picture-panels="liquid"] {
+    --surface-inner-card-fill: color-mix(in srgb, #fff 10%, var(--bg-panel) 90%);
+    --surface-inner-card-knob: color-mix(in srgb, #fff 10%, var(--bg-panel) 90%);
+    --surface-inner-card-mark: color-mix(in srgb, #fff 10%, var(--bg-panel) 90%);
+  }
+
+  :root[data-theme="dark"][data-look-liquid~="inner"],
+  :root[data-theme="dark"][data-look-liquid~="inner"] [data-picture-color],
+  :root[data-theme="dark"][data-look-liquid~="inner"] [data-picture-contrast],
+  :root[data-theme="dark"][data-look-liquid~="inner"] [data-picture-corners],
+  :root[data-theme="dark"] [data-picture-panels="liquid"] {
+    --surface-inner-card-fill: color-mix(in srgb, #fff 4%, var(--bg-hover) 96%);
+    --surface-inner-card-knob: color-mix(in srgb, #fff 4%, var(--bg-hover) 96%);
+    --surface-inner-card-mark: color-mix(in srgb, #fff 4%, var(--bg-hover) 96%);
+  }
+
+  :root[data-look-liquid~="menus"],
+  :root[data-look-liquid~="menus"] [data-picture-color],
+  :root[data-look-liquid~="menus"] [data-picture-contrast],
+  :root[data-look-liquid~="menus"] [data-picture-corners],
+  :root [data-picture-panels="liquid"] {
+    --surface-menu-fill: color-mix(in srgb, #fff 8%, var(--bg-panel) 92%);
+    --surface-menu-fill-raised: color-mix(in srgb, #fff 8%, var(--bg-panel) 92%);
+  }
+
+  :root[data-theme="dark"][data-look-liquid~="menus"],
+  :root[data-theme="dark"][data-look-liquid~="menus"] [data-picture-color],
+  :root[data-theme="dark"][data-look-liquid~="menus"] [data-picture-contrast],
+  :root[data-theme="dark"][data-look-liquid~="menus"] [data-picture-corners],
+  :root[data-theme="dark"] [data-picture-panels="liquid"] {
+    --surface-menu-fill: color-mix(in srgb, #000 8%, var(--bg-panel) 92%);
+    --surface-menu-fill-raised: color-mix(in srgb, #000 8%, var(--bg-panel) 92%);
+  }
+
+  :root[data-look-liquid~="dialogs"],
+  :root[data-look-liquid~="dialogs"] [data-picture-color],
+  :root[data-look-liquid~="dialogs"] [data-picture-contrast],
+  :root[data-look-liquid~="dialogs"] [data-picture-corners],
+  :root [data-picture-panels="liquid"] {
+    --surface-dialog-fill: color-mix(in srgb, #fff 8%, var(--bg-panel) 92%);
+  }
+
+  :root[data-theme="dark"][data-look-liquid~="dialogs"],
+  :root[data-theme="dark"][data-look-liquid~="dialogs"] [data-picture-color],
+  :root[data-theme="dark"][data-look-liquid~="dialogs"] [data-picture-contrast],
+  :root[data-theme="dark"][data-look-liquid~="dialogs"] [data-picture-corners],
+  :root[data-theme="dark"] [data-picture-panels="liquid"] {
+    --surface-dialog-fill: color-mix(in srgb, #000 8%, var(--bg-panel) 92%);
+  }
+}
+
+/* ---- When the computer asks for less transparency or more contrast, the fills go opaque; the light and the shadow stay ---- */
+
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  :root[data-look-liquid~="chrome"],
+  :root[data-look-liquid~="chrome"] [data-picture-color],
+  :root[data-look-liquid~="chrome"] [data-picture-contrast],
+  :root[data-look-liquid~="chrome"] [data-picture-corners],
+  :root [data-picture-panels="liquid"] {
+    --surface-glass-chrome-fill: color-mix(in srgb, #fff 12%, var(--bg-panel) 88%);
+  }
+
+  :root[data-theme="dark"][data-look-liquid~="chrome"],
+  :root[data-theme="dark"][data-look-liquid~="chrome"] [data-picture-color],
+  :root[data-theme="dark"][data-look-liquid~="chrome"] [data-picture-contrast],
+  :root[data-theme="dark"][data-look-liquid~="chrome"] [data-picture-corners],
+  :root[data-theme="dark"] [data-picture-panels="liquid"] {
+    --surface-glass-chrome-fill: color-mix(in srgb, #000 6%, var(--bg-panel) 94%);
+  }
+
+  :root[data-look-liquid~="panels"],
+  :root[data-look-liquid~="panels"] [data-picture-color],
+  :root[data-look-liquid~="panels"] [data-picture-contrast],
+  :root[data-look-liquid~="panels"] [data-picture-corners],
+  :root [data-picture-panels="liquid"] {
+    --surface-glass-panel-fill: color-mix(in srgb, #fff 8%, var(--bg-panel) 92%);
+  }
+
+  :root[data-theme="dark"][data-look-liquid~="panels"],
+  :root[data-theme="dark"][data-look-liquid~="panels"] [data-picture-color],
+  :root[data-theme="dark"][data-look-liquid~="panels"] [data-picture-contrast],
+  :root[data-theme="dark"][data-look-liquid~="panels"] [data-picture-corners],
+  :root[data-theme="dark"] [data-picture-panels="liquid"] {
+    --surface-glass-panel-fill: color-mix(in srgb, #000 8%, var(--bg-panel) 92%);
+  }
+
+  :root[data-look-liquid~="map"],
+  :root[data-look-liquid~="map"] [data-picture-color],
+  :root[data-look-liquid~="map"] [data-picture-contrast],
+  :root[data-look-liquid~="map"] [data-picture-corners],
+  :root [data-picture-panels="liquid"] {
+    --surface-overlay-panel-fill: color-mix(in srgb, #fff 8%, var(--bg-panel) 92%);
+  }
+
+  :root[data-theme="dark"][data-look-liquid~="map"],
+  :root[data-theme="dark"][data-look-liquid~="map"] [data-picture-color],
+  :root[data-theme="dark"][data-look-liquid~="map"] [data-picture-contrast],
+  :root[data-theme="dark"][data-look-liquid~="map"] [data-picture-corners],
+  :root[data-theme="dark"] [data-picture-panels="liquid"] {
+    --surface-overlay-panel-fill: color-mix(in srgb, #000 8%, var(--bg-panel) 92%);
+  }
+
+  :root[data-look-liquid~="buttons"],
+  :root[data-look-liquid~="buttons"] [data-picture-color],
+  :root[data-look-liquid~="buttons"] [data-picture-contrast],
+  :root[data-look-liquid~="buttons"] [data-picture-corners],
+  :root [data-picture-panels="liquid"] {
+    --surface-overlay-control-fill: color-mix(in srgb, #fff 12%, var(--bg-panel) 88%);
+  }
+
+  :root[data-theme="dark"][data-look-liquid~="buttons"],
+  :root[data-theme="dark"][data-look-liquid~="buttons"] [data-picture-color],
+  :root[data-theme="dark"][data-look-liquid~="buttons"] [data-picture-contrast],
+  :root[data-theme="dark"][data-look-liquid~="buttons"] [data-picture-corners],
+  :root[data-theme="dark"] [data-picture-panels="liquid"] {
+    --surface-overlay-control-fill: color-mix(in srgb, #000 6%, var(--bg-panel) 94%);
+  }
+
+  :root[data-look-liquid~="cards"],
+  :root[data-look-liquid~="cards"] [data-picture-color],
+  :root[data-look-liquid~="cards"] [data-picture-contrast],
+  :root[data-look-liquid~="cards"] [data-picture-corners],
+  :root [data-picture-panels="liquid"] {
+    --surface-page-card-fill: color-mix(in srgb, #fff 10%, var(--bg-panel) 90%);
+  }
+
+  :root[data-theme="dark"][data-look-liquid~="cards"],
+  :root[data-theme="dark"][data-look-liquid~="cards"] [data-picture-color],
+  :root[data-theme="dark"][data-look-liquid~="cards"] [data-picture-contrast],
+  :root[data-theme="dark"][data-look-liquid~="cards"] [data-picture-corners],
+  :root[data-theme="dark"] [data-picture-panels="liquid"] {
+    --surface-page-card-fill: color-mix(in srgb, #000 6%, var(--bg-panel) 94%);
+  }
+
+  :root[data-look-liquid~="inner"],
+  :root[data-look-liquid~="inner"] [data-picture-color],
+  :root[data-look-liquid~="inner"] [data-picture-contrast],
+  :root[data-look-liquid~="inner"] [data-picture-corners],
+  :root [data-picture-panels="liquid"] {
+    --surface-inner-card-fill: color-mix(in srgb, #fff 10%, var(--bg-panel) 90%);
+    --surface-inner-card-knob: color-mix(in srgb, #fff 10%, var(--bg-panel) 90%);
+    --surface-inner-card-mark: color-mix(in srgb, #fff 10%, var(--bg-panel) 90%);
+  }
+
+  :root[data-theme="dark"][data-look-liquid~="inner"],
+  :root[data-theme="dark"][data-look-liquid~="inner"] [data-picture-color],
+  :root[data-theme="dark"][data-look-liquid~="inner"] [data-picture-contrast],
+  :root[data-theme="dark"][data-look-liquid~="inner"] [data-picture-corners],
+  :root[data-theme="dark"] [data-picture-panels="liquid"] {
+    --surface-inner-card-fill: color-mix(in srgb, #fff 4%, var(--bg-hover) 96%);
+    --surface-inner-card-knob: color-mix(in srgb, #fff 4%, var(--bg-hover) 96%);
+    --surface-inner-card-mark: color-mix(in srgb, #fff 4%, var(--bg-hover) 96%);
+  }
+
+  :root[data-look-liquid~="menus"],
+  :root[data-look-liquid~="menus"] [data-picture-color],
+  :root[data-look-liquid~="menus"] [data-picture-contrast],
+  :root[data-look-liquid~="menus"] [data-picture-corners],
+  :root [data-picture-panels="liquid"] {
+    --surface-menu-fill: color-mix(in srgb, #fff 8%, var(--bg-panel) 92%);
+    --surface-menu-fill-raised: color-mix(in srgb, #fff 8%, var(--bg-panel) 92%);
+  }
+
+  :root[data-theme="dark"][data-look-liquid~="menus"],
+  :root[data-theme="dark"][data-look-liquid~="menus"] [data-picture-color],
+  :root[data-theme="dark"][data-look-liquid~="menus"] [data-picture-contrast],
+  :root[data-theme="dark"][data-look-liquid~="menus"] [data-picture-corners],
+  :root[data-theme="dark"] [data-picture-panels="liquid"] {
+    --surface-menu-fill: color-mix(in srgb, #000 8%, var(--bg-panel) 92%);
+    --surface-menu-fill-raised: color-mix(in srgb, #000 8%, var(--bg-panel) 92%);
+  }
+
+  :root[data-look-liquid~="dialogs"],
+  :root[data-look-liquid~="dialogs"] [data-picture-color],
+  :root[data-look-liquid~="dialogs"] [data-picture-contrast],
+  :root[data-look-liquid~="dialogs"] [data-picture-corners],
+  :root [data-picture-panels="liquid"] {
+    --surface-dialog-fill: color-mix(in srgb, #fff 8%, var(--bg-panel) 92%);
+  }
+
+  :root[data-theme="dark"][data-look-liquid~="dialogs"],
+  :root[data-theme="dark"][data-look-liquid~="dialogs"] [data-picture-color],
+  :root[data-theme="dark"][data-look-liquid~="dialogs"] [data-picture-contrast],
+  :root[data-theme="dark"][data-look-liquid~="dialogs"] [data-picture-corners],
+  :root[data-theme="dark"] [data-picture-panels="liquid"] {
+    --surface-dialog-fill: color-mix(in srgb, #000 8%, var(--bg-panel) 92%);
+  }
+}

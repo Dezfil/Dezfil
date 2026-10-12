@@ -72,6 +72,13 @@ originating projects are listed here as they are used:
 - React Flow, @xyflow/react 12 (MIT, © 2019–2026 webkid GmbH) — the
   workflow canvas base (src/components/workflow-canvas/), used as a
   dependency; not modified.
+- liquid-dom (MIT, © 2026 Andras Prifer;
+  https://github.com/AndrewPrifer/liquid-dom) — the lens of the Liquid
+  panels follows its maths: the signed distance field of a rounded
+  rectangle, the normal of its edge, a convex surface profile across a
+  bezel and the refraction of a ray entering it, baked here into a
+  displacement map (src/components/look/lens-maths.ts). The file carries
+  the upstream copyright and permission notice.
 - loaders.gl MVT parser worker (MIT, © vis.gl contributors and © 2015 Uber
   Technologies, Inc.) — the exact
   @loaders.gl/mvt 4.4.5 browser worker is bundled at

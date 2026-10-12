@@ -422,3 +422,22 @@
   --shadow: rgba(0, 0, 0, 0.4);
   --sheet: url("/shell-sheet-dark.svg");
 }
+
+/* ---- Opaque on request: when the computer asks for less transparency
+   or more contrast, the glass fill is the panel tone, so every surface
+   that reads it is solid while its shadow stays. Restated on every
+   element the surface roles are declared on, since each resolves the
+   fill for what is inside it: the root, a published page's dark root
+   and the pictures. Never an image's default scope: its own declaration
+   keeps an image as the default draws it ---- */
+
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  :root,
+  [data-view-theme="dark"],
+  [data-picture-color],
+  [data-picture-contrast],
+  [data-picture-corners],
+  [data-picture-panels] {
+    --fill-glass: var(--bg-panel);
+  }
+}

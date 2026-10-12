@@ -88,11 +88,13 @@ function tokenCards(tokens: readonly ApiToken[] | null): IndexCard[] {
 }
 
 /** Appearance's rows, by their labels, the words of each pick and the
- * words of the current choice once the look is read. */
+ * words of the current choice once the look is read. The kinds Liquid
+ * reaches are out of sight under the other choices, so they are found by
+ * their names through the Panels row, never as a row of their own. */
 function appearanceCards(look: Look | null): IndexCard[] {
-  return LOOK_CARDS.map(card => ({ id: card.id, title: card.title, rows: card.rows.map(row => ({
+  return LOOK_CARDS.map(card => ({ id: card.id, title: card.title, rows: card.rows.flatMap(row => row.kind === "kinds" ? [] : [{
     id: row.id, label: row.label, keys: row.keys, ...(look ? { value: choiceLabel(row.key, look[row.key]) } : {}),
-  })) }));
+  }]) }));
 }
 
 function generalCards(values: EntryValues): IndexCard[] {

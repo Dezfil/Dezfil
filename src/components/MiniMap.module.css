@@ -31,7 +31,8 @@
   width: 13px;
   height: 13px;
   border-radius: var(--radius-sm);
-  background: var(--accent);
+  background: var(--surface-inner-card-mark);
+  backdrop-filter: var(--surface-inner-card-blur);
   border: 2px solid var(--bg-panel);
   box-shadow: var(--surface-inner-card-shadow);
   pointer-events: auto;
@@ -100,6 +101,7 @@
   position: absolute;
   transform: translate(-50%, -50%);
   background: var(--accent);
+  backdrop-filter: var(--surface-inner-card-blur);
   color: var(--on-accent);
   font-family: var(--font-mono);
   font-size: 10.5px;

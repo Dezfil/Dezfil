@@ -93,8 +93,15 @@ describe("the look in the settings contract", () => {
   const CHOICES = {
     color: ["kelp", "harbor", "heather", "slate"], contrast: ["standard", "more"], font: ["inter", "system"],
     background: ["atlantic", "plain", "graticule", "hex"], corners: ["rounded", "soft"], rail: ["hover", "open", "icons"],
+    panels: ["glass", "liquid", "paper"], liquidChrome: ["on", "off"], liquidPanels: ["on", "off"], liquidMap: ["on", "off"],
+    liquidButtons: ["on", "off"], liquidCards: ["off", "on"], liquidInner: ["off", "on"], liquidMenus: ["off", "on"],
+    liquidDialogs: ["off", "on"],
   };
-  const DEFAULTS = { color: "kelp", contrast: "standard", font: "inter", background: "atlantic", corners: "rounded", rail: "hover" };
+  const DEFAULTS = {
+    color: "kelp", contrast: "standard", font: "inter", background: "atlantic", corners: "rounded", rail: "hover", panels: "glass",
+    liquidChrome: "on", liquidPanels: "on", liquidMap: "on", liquidButtons: "on",
+    liquidCards: "off", liquidInner: "off", liquidMenus: "off", liquidDialogs: "off",
+  };
   const picks = (look: Json) => {
     const properties = look.properties as Record<string, Json>;
     return {
