@@ -999,6 +999,23 @@ async function softUnder(page: Page, what: string, glass: Locator, fill: number)
   expect.soft(range(u), `under ${what} the stripes still show through (${range(u).toFixed(2)} of ${through.toFixed(1)})`).toBeGreaterThanOrEqual(0.08 * through);
 }
 
+/** Whether this browser's screenshots show a backdrop blur at all: a plain one
+ * over hard stripes, on a blank page of its own. Playwright's Firefox, for one,
+ * captures the stripes sharp under it. */
+async function drawsBackdropBlur(page: Page): Promise<boolean> {
+  const probe = await page.context().newPage();
+  try {
+    await probe.setContent(`<style>body{margin:0}.s{position:absolute;top:0;left:0;width:300px;height:80px;background:repeating-linear-gradient(90deg,#000 0 16px,#fff 16px 32px)}
+      .g{position:absolute;top:10px;left:60px;width:160px;height:60px;backdrop-filter:blur(6px)}</style><div class="s"></div><div class="g"></div>`);
+    await probe.waitForTimeout(300);
+    const row = await rowLuma(probe, 70, 40, 140);
+    console.log(`[control] a plain backdrop blur over stripes: largest step ${maxStep(row).toFixed(1)} of ${range(row).toFixed(1)}`);
+    return maxStep(row) < 0.5 * range(row);
+  } finally {
+    await probe.close();
+  }
+}
+
 /** The shift that best lays one stretch of a row over another, within a few pixels. */
 function bestShift(bent: number[], plain: number[], from: number, to: number): number {
   let best = 0;
@@ -1186,13 +1203,20 @@ test("@fallback where the bend is not drawn, a map button blurs and carries the 
       expect(problems(seen, liquidWant("overlay-control", "light"))).toEqual([]);
       expect(seen.lens, "no filter bends it").toBeNull();
       expect(seen.blur).toBe("blur(6px)");
-      // A blur the lens holds inline while a surface moves is the role's plain one; a filter is never among them.
-      expect(Object.entries(seen.inline).filter(([name, value]) => name.startsWith("--surface-") && value !== "blur(6px)"), "no lens set on it").toEqual([]);
+      // Where the bend is not drawn the lens writes the quiet inks stepped up and nothing else: no role blur, plain or bent.
+      expect.soft(seen.inline, "the button carries the ink step and nothing more").toEqual({ "--fg-muted": "var(--fg)", "--fg-faint": "color-mix(in srgb, var(--fg) 78%, transparent)" });
+      expect.soft((await traces(page)).inline.filter((trace) => trace.includes(": --surface-")), "no role blur held inline anywhere on the page").toEqual([]);
       expect(await page.locator("[data-panel-lens], filter[id^='dz-lens']").count(), "no filter on the page").toBe(0);
       for (const m of [headerCard, inspector, legend]) await expectMember(page, m, "light", { panels: "liquid", on: FIRST_WORDS }, browserName);
     });
     await test.step(`in ${browserName}, the map under the button is soft, and sharp beside it`, async () => {
-      await softUnder(page, "the Zoom out button", button, liquidFill("glass", "light")[3]);
+      if (await drawsBackdropBlur(page)) await softUnder(page, "the Zoom out button", button, liquidFill("glass", "light")[3]);
+      else {
+        // The control shows the screenshots cannot see any backdrop blur here, so the softness is not measured.
+        test.info().annotations.push({ type: "unverified", description: `${browserName}'s screenshots show no backdrop blur, not even a plain one: the map's softness under the button is not measured` });
+        await expect(button).toHaveCSS("backdrop-filter", "blur(6px)");
+      }
+      expect.soft((await traces(page)).inline.filter((trace) => trace.includes(": --surface-")), "no role blur held inline after the map has moved").toEqual([]);
     });
     expectQuiet(errors);
   } finally {

@@ -23,8 +23,9 @@ import { cornerFor, displacementField, shiftFor } from "./lens-maths";
  * animation or transition runs on it or on what carries it, it keeps the
  * plain blur, and it takes the bend again once it has rested. Chromium
  * draws an SVG filter inside a backdrop filter; elsewhere the blur shows
- * alone. On the chrome and the map's buttons the quiet inks step up to the
- * full ink in every browser. Stopped, it takes back every property it set
+ * alone, and nothing is held or watched for it. On the chrome and the map's
+ * buttons the quiet inks step up to the full ink in every browser, and
+ * where the bend is not drawn that is all it writes. Stopped, it takes back every property it set
  * and the filters it made, and touches nothing else.
  */
 
@@ -371,6 +372,8 @@ export function startPanelLens(doc: Document = document, options: PanelLensOptio
       put(html, entry, blurToken(role.role), plain);
       return;
     }
+    // Where the bend is not drawn, a member has nothing but the inks to be given.
+    if (!bend && !role.ink) { release(el); return; }
     // A member draws its role's blur as it reaches it (the root's, a bent
     // surface's around it, its own); a member whose own rules draw another
     // blur right now is left alone.
@@ -380,7 +383,7 @@ export function startPanelLens(doc: Document = document, options: PanelLensOptio
     if (!entry) {
       entry = { role, carrier, set: new Map(), filter: null, rect: null, timer: null };
       tracked.set(el, entry);
-      if (bend) resize?.observe(el);
+      resize?.observe(el);
     }
     if (role.ink) for (const [name, value] of Object.entries(INK_STEP)) put(html, entry, name, value);
     else for (const name of Object.keys(INK_STEP)) take(html, entry, name);
@@ -499,8 +502,9 @@ export function startPanelLens(doc: Document = document, options: PanelLensOptio
       if (!entry.carrier && (el === target || target.contains(el))) unsettle(el as HTMLElement, entry);
     }
   };
-  for (const type of MOTION_STARTS) doc.addEventListener(type, moved, true);
-  resize = typeof ResizeObserver === "function" ? new ResizeObserver(entries => {
+  // Motion and size only matter to a bend: where none is drawn they are not watched.
+  if (bend) for (const type of MOTION_STARTS) doc.addEventListener(type, moved, true);
+  resize = bend && typeof ResizeObserver === "function" ? new ResizeObserver(entries => {
     for (const { target } of entries) {
       const entry = tracked.get(target);
       if (!entry || entry.carrier || !entry.rect) continue;

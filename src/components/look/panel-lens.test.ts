@@ -294,15 +294,35 @@ describe("the bend", () => {
     expect(inline(menu)["--surface-menu-blur"]).toBe(bent);
   });
 
-  it("steps the inks up and bends nothing where the browser cannot draw the bend", () => {
+  it("steps the inks up and bends nothing where the browser cannot draw the bend, writing no blur while a surface moves or resizes", () => {
     liquid("chrome inner");
-    const head = make(doc.body, "head", { "data-reads": "glass-chrome" }, [200, 40]);
-    const layer = make(doc.body, "layer", { "data-reads": "inner-card" }, [220, 56]);
+    const slot = make(doc.body, "slot");
+    const head = make(slot, "head", { "data-reads": "glass-chrome" }, [200, 40]);
+    const layer = make(slot, "layer", { "data-reads": "inner-card" }, [220, 56]);
     const knob = make(layer, "switch");
     start(false);
     expect(inline(head)).toEqual(INK_STEP);
     expect(inline(layer)).toEqual({});
     expect(inline(knob)).toEqual({});
+    expect(defsOf()).toBeNull();
+    // An entrance on a surface, a slide of what carries both, a new size: nothing for the lens to hold or take back.
+    const event = (type: string, propertyName?: string) => Object.assign(new HostEvent(type, { bubbles: true }), { propertyName });
+    animations.set(head, [{ playState: "running" }]);
+    head.dispatchEvent(event("animationstart"));
+    animations.set(slot, [{ playState: "running", transitionProperty: "transform" }]);
+    slot.dispatchEvent(event("transitionrun", "transform"));
+    rects.set(layer, { left: 0, top: 0, width: 260, height: 56 });
+    for (const observer of sizes) observer.callback([{ target: layer }]);
+    expect(sizes, "no size is watched").toHaveLength(0);
+    expect(inline(head)).toEqual(INK_STEP);
+    expect(inline(layer)).toEqual({});
+    expect(inline(knob)).toEqual({});
+    animations.set(head, []);
+    animations.set(slot, []);
+    vi.advanceTimersByTime(SETTLE_MS * 2);
+    flush();
+    expect(inline(head)).toEqual(INK_STEP);
+    expect(inline(layer)).toEqual({});
     expect(defsOf()).toBeNull();
   });
 
