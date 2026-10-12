@@ -195,3 +195,30 @@ describe("labels wait for their face", () => {
     expect(font.labelFontReady()).toBe(true);
   });
 });
+
+describe("the document's fonts, as what waits on every font waits for them", () => {
+  it("settle when the font set does", async () => {
+    let ready!: () => void;
+    vi.stubGlobal("document", { documentElement: {}, fonts: { ...fontSet(), ready: new Promise<void>((resolve) => { ready = resolve; }) } });
+    const font = await fresh();
+    let settled = false;
+    void font.documentFontsSettled().then(() => { settled = true; });
+    await tick();
+    expect(settled).toBe(false);
+    ready();
+    await tick();
+    expect(settled).toBe(true);
+  });
+
+  it("are given up on after the labels' own bound when a face never answers, so nothing waits forever", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("document", { documentElement: {}, fonts: { ...fontSet(), ready: new Promise<void>(() => {}) } });
+    const font = await fresh();
+    let settled = false;
+    void font.documentFontsSettled().then(() => { settled = true; });
+    await vi.advanceTimersByTimeAsync(font.LABEL_FONT_WAIT_MS - 1);
+    expect(settled).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(settled).toBe(true);
+  });
+});

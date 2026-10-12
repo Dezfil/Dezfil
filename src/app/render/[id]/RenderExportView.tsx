@@ -27,7 +27,7 @@ import { buildCompositionMapInputs } from "@/components/builder/export/compositi
 import { renderExportLegendLayers } from "@/components/builder/export/render-export-legend";
 import type { AnswerState } from "@/components/widgets/dashboard-state";
 import { boundToSnapshot } from "./state-binding";
-import { useLabelFont } from "@/components/map/label-font";
+import { documentFontsSettled, useLabelFont } from "@/components/map/label-font";
 
 /**
  * The render route's view: assemble one map's stored state through the
@@ -40,7 +40,8 @@ import { useLabelFont } from "@/components/map/label-font";
  *
  * Readiness is declared on the root as data attributes the
  * driver waits for: every fetch final, the map idle with its committed
- * deck layers loaded, and the document's fonts ready. The composition
+ * deck layers loaded, and the document's fonts ready, or given up on after
+ * the label face's own bound when one never answers. The composition
  * mounts only once the label face has loaded, so the map's first build
  * draws its labels in it rather than readiness racing a rebuild. A missing or
  * invalid definition, or a map that does not exist, declares
@@ -415,7 +416,7 @@ export function RenderExportView({
   const [legendPlacementReady, setLegendPlacementReady] = useState(false);
   useEffect(() => {
     let cancelled = false;
-    void document.fonts.ready.then(() => {
+    void documentFontsSettled().then(() => {
       if (!cancelled) setFontsReady(true);
     });
     return () => {

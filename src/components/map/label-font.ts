@@ -130,6 +130,28 @@ function subscribe(listener: () => void): () => void {
   return () => listeners.delete(listener);
 }
 
+/**
+ * The document's fonts settled, or given up on after the labels' own bound.
+ * The labels' readiness starts every subset of their face loading, so one
+ * that never answers, even one no text on the page uses, would keep the
+ * whole font set pending for good. Whatever waits on every font (the
+ * server's image export) waits at most {@link LABEL_FONT_WAIT_MS} for it,
+ * and then goes on with what there is, as the labels do.
+ */
+export function documentFontsSettled(): Promise<void> {
+  const fonts = typeof document === "undefined" ? undefined : document.fonts;
+  if (!fonts?.ready) return Promise.resolve();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const bound = new Promise<void>((resolve) => {
+    timer = setTimeout(resolve, LABEL_FONT_WAIT_MS);
+  });
+  const settled = fonts.ready.then(
+    () => undefined,
+    () => undefined,
+  );
+  return Promise.race([settled, bound]).then(() => clearTimeout(timer));
+}
+
 /** Whether labels may draw yet; asks for the face on first use. */
 export function useLabelFontReady(): boolean {
   const isReady = useSyncExternalStore(subscribe, labelFontReady, () => false);
