@@ -32,6 +32,8 @@ export interface TiledLayerRuntime {
   interactive: boolean;
   markScale: number;
   windowing?: LiveWindowing | null;
+  /** The label face once it has loaded; tiles draw no labels before it. */
+  labelFont?: string | null;
 }
 
 /**
@@ -41,7 +43,7 @@ export interface TiledLayerRuntime {
  */
 export function createTiledLayer(
   layer: TiledLayerDefinition,
-  { interactive, markScale, windowing = null }: TiledLayerRuntime,
+  { interactive, markScale, windowing = null, labelFont = null }: TiledLayerRuntime,
 ): DeckLayer {
   const tiles = layer.tiles;
   if (!tiles?.url) {
@@ -78,16 +80,19 @@ export function createTiledLayer(
       ...deckUpdateTriggers(layer.style),
       ...(tiledExtrusion ? { getElevation: [tiledExtrusion] } : null),
       ...(windowing ? { getFilterValue: windowing.trigger } : null),
+      // Tiles already drawn take their labels once the face arrives.
+      ...(label ? { renderSubLayers: [labelFont] } : null),
     },
     // Tiled labels remain exempt from global thinning because each sublayer
     // only sees one tile.
-    ...(label && {
+    ...(label && labelFont && {
       renderSubLayers: mvtRenderSubLayers(
         label,
         (props) =>
           new GeoJsonLayer(
             props as ConstructorParameters<typeof GeoJsonLayer>[0],
           ),
+        labelFont,
       ),
     }),
   } as ConstructorParameters<typeof MVTLayer>[0]) as unknown as DeckLayer;

@@ -10,6 +10,8 @@ import {
 } from "@/lib/style/deck-style";
 
 import { collisionSizeScale } from "./label-thinning";
+import { formatCompact } from "@/lib/style/legend";
+import type { ClusterBubble } from "@/lib/cluster";
 
 /**
  * The measurement seam, inverted now that automatic collision IS the
@@ -39,7 +41,27 @@ function spikeMode(): "always-draw" | "cap300" | null {
  * text size arrives already pinned in `label.size`; the meters size is
  * ground-anchored and invariant by construction; and the halo rim is
  * relative to the glyph, so it follows the text wherever it goes.
+ *
+ * `fontFamily` is the label face, passed only once it has loaded (see
+ * `label-font.ts`): every text layer names it, so no label draws in the
+ * text library's own fixed-width default.
  */
+
+/**
+ * The overlap test's footprint for a label: its whole box, not its glyphs.
+ *
+ * The collision pass draws each label's footprint and then asks, at the
+ * label's anchor alone, whose footprint is there. Drawn from the glyphs, the
+ * footprint has holes wherever there is no ink, and a centred label's anchor
+ * often falls in one, the space in "Gatsibo · 21.4%": the label then finds
+ * no footprint of its own at its anchor and is culled, or faded where the
+ * hole's edge is near, with nothing else anywhere near it. A transparent
+ * background box fills the footprint; it draws nothing on the map.
+ */
+export const COLLISION_FOOTPRINT = {
+  background: true,
+  getBackgroundColor: [0, 0, 0, 0] as [number, number, number, number],
+};
 
 /** GPU windowing props for a live-filtered layer,
  * spread into each of its deck layers; `trigger` keys the accessor's
@@ -60,6 +82,7 @@ export function textSublayer(
   windowing?: LiveWindowing | null,
   opacity = 1,
   pixelScale = 1,
+  fontFamily?: string,
 ) {
   const spike = spikeMode();
   // Automatic collision culling: per-layer isolation via the collision group; survival priority
@@ -86,6 +109,7 @@ export function textSublayer(
       : windowingExtensions,
     ...(collide
       ? {
+          ...COLLISION_FOOTPRINT,
           collisionGroup: id,
           collisionTestProps: {
             sizeScale: collisionSizeScale(label.density),
@@ -101,6 +125,7 @@ export function textSublayer(
     // included (deck layers default to 1 unless told).
     opacity,
     ...deckLabelProps(label),
+    ...(fontFamily ? { fontFamily } : null),
     ...(cellMeters
       ? {
           sizeUnits: "meters" as const,
@@ -129,6 +154,7 @@ export function textSublayer(
 export function mvtRenderSubLayers<M>(
   label: LabelStyle,
   makeMarks: (props: Record<string, unknown>) => M,
+  fontFamily?: string,
 ): (props: {
   id: string;
   data: unknown;
@@ -151,8 +177,38 @@ export function mvtRenderSubLayers<M>(
         getPosition: (f: LabeledFeature) =>
           labelPosition(f) as [number, number],
         ...deckLabelProps(label),
+        ...(fontFamily ? { fontFamily } : null),
         updateTriggers: deckLabelTriggers(label),
       } as ConstructorParameters<typeof TextLayer<LabeledFeature>>[0]),
     ];
   };
+}
+
+/** The counts drawn on cluster bubbles: white on a dark rim in the label
+ * face, riding the layer's opacity like the bubbles they sit on. Extracted
+ * from MapCanvas when the label face reached it. */
+export function clusterCountSublayer(
+  id: string,
+  bubbles: ClusterBubble[],
+  markScale: number,
+  opacity: number,
+  countTrigger: unknown[],
+  fontFamily: string,
+) {
+  return new TextLayer<ClusterBubble>({
+    id,
+    data: bubbles.filter((b) => b.clusterId !== null),
+    getPosition: (b) => b.position,
+    getText: (b) => formatCompact(b.count),
+    getSize: 12 * markScale,
+    getColor: [255, 255, 255, 255],
+    outlineWidth: 2,
+    outlineColor: [15, 25, 20, 210],
+    fontSettings: { sdf: true },
+    fontFamily,
+    characterSet: "auto",
+    pickable: false,
+    opacity,
+    updateTriggers: { getText: countTrigger },
+  } as ConstructorParameters<typeof TextLayer<ClusterBubble>>[0]);
 }
