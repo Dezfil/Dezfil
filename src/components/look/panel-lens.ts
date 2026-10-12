@@ -412,6 +412,17 @@ export function startPanelLens(doc: Document = document, options: PanelLensOptio
       for (const el of Array.from(scope.querySelectorAll(selector))) visit(el);
     } catch { /* a selector this browser does not take */ }
   };
+  /** Place one element by the first role whose member or carrier it is now; one tracked
+   * that no longer matches is looked at again in its old role. */
+  function placeOne(el: Element) {
+    const matches = (selector: string) => { try { return el.matches(selector); } catch { return false; } };
+    for (const role of LENS_ROLES) {
+      if ((index.members.get(role.role) ?? []).some(matches)) { place(el, role, false); return; }
+      if ((index.carriers.get(role.role) ?? []).some(matches)) { place(el, role, true); return; }
+    }
+    const entry = tracked.get(el);
+    if (entry) place(el, entry.role, entry.carrier);
+  }
   /** Place every member and carrier at or under a node; let go of the tracked ones there that no longer match. */
   function sweep(scope: ParentNode & Partial<Pick<Element, "matches">>) {
     const seen = new Set<Element>();
@@ -447,13 +458,17 @@ export function startPanelLens(doc: Document = document, options: PanelLensOptio
     } else {
       const nodes = [...pending];
       pending.clear();
+      const around = new Set<Element>();
       for (const node of nodes) {
         if (!node.isConnected) continue;
         sweep(node as Element);
         // A surface around the node may read another blur now (a state that
-        // keys on what it holds, focus inside it).
-        for (const el of [...tracked.keys()]) {
-          if (el !== node && el.contains(node)) { const entry = tracked.get(el)!; place(el, entry.role, entry.carrier); }
+        // keys on what it holds, focus inside it), whether it is held now or
+        // was let go while that state lasted.
+        for (let el = node.parentElement; el && el !== root; el = el.parentElement) {
+          if (around.has(el)) break;
+          around.add(el);
+          placeOne(el);
         }
       }
       for (const el of [...tracked.keys()]) if (!el.isConnected) release(el);

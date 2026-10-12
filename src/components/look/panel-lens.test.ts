@@ -231,6 +231,24 @@ describe("the bend", () => {
     expect(filterIds()).toEqual([]);
   });
 
+  it("lets go of the rail while a link inside it has keyboard focus, and bends it and steps its inks up again once focus leaves", () => {
+    liquid("chrome");
+    const rail = make(doc.body, "rail", { "data-reads": "glass-chrome" }, [64, 600]);
+    const link = make(rail, "link");
+    start();
+    const lensed = { "--surface-glass-chrome-blur": 'url("#dz-lens-64x600-r12-b9-s16")', ...INK_STEP };
+    expect(inline(rail)).toEqual(lensed);
+    // Focus inside opens the rail, whose own rule then draws the glass strength.
+    rail.setAttribute("data-own-blur", "blur(18px)");
+    link.dispatchEvent(new HostEvent("focusin", { bubbles: true }));
+    flush();
+    expect(inline(rail)).toEqual({});
+    rail.removeAttribute("data-own-blur");
+    link.dispatchEvent(new HostEvent("focusout", { bubbles: true }));
+    flush();
+    expect(inline(rail)).toEqual(lensed);
+  });
+
   it("finds a member that joins the page, and one a stylesheet that joins names", () => {
     liquid("map menus");
     start();
