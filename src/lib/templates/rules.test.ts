@@ -262,6 +262,7 @@ describe("the open terms a template's data may be under", () => {
     ["the IMF's copyright and usage terms", "LicenseRef-IMF-Copyright-and-Usage"],
     ["the Copernicus data policy", "LicenseRef-Copernicus-Data-Policy"],
     ["Natural Earth's terms of use", "LicenseRef-Natural-Earth"],
+    ["Creative Commons Attribution 3.0 United States", "CC-BY-3.0-US"],
   ])("admits %s, as %s", async (_terms, licence) => {
     expect(await ruleFailed({ edit: underLicence(licence) })).toBeNull();
   });
