@@ -1,0 +1,284 @@
+{
+  "id": "d321c806-3a96-429f-bf2f-9e615a73f5c6",
+  "name": "Forty years of big earthquakes",
+  "viewport": {
+    "lng": 150,
+    "lat": 12,
+    "zoom": 1.35,
+    "pitch": 0,
+    "bearing": 0
+  },
+  "basemap": null,
+  "customBasemap": null,
+  "basemapLayers": null,
+  "note": null,
+  "legendCorner": "bottom-left",
+  "legendOrder": [
+    "921b9319-66c8-4e48-abcb-21f715e9156e",
+    "1685ce70-c6ee-4db2-b505-2c828c20e2d0"
+  ],
+  "timeline": {
+    "layerId": "921b9319-66c8-4e48-abcb-21f715e9156e",
+    "field": "time_utc",
+    "speed": 1
+  },
+  "widgets": [
+    {
+      "id": "widget-count",
+      "type": "formula",
+      "layerId": "921b9319-66c8-4e48-abcb-21f715e9156e",
+      "title": "Earthquakes",
+      "field": null,
+      "agg": "count",
+      "aggField": null,
+      "unit": null,
+      "note": "Magnitude 5 or more",
+      "format": "integer",
+      "visible": true
+    },
+    {
+      "id": "widget-magnitude",
+      "type": "histogram",
+      "layerId": "921b9319-66c8-4e48-abcb-21f715e9156e",
+      "title": "Magnitude",
+      "field": "magnitude",
+      "agg": "count",
+      "aggField": null,
+      "unit": null,
+      "note": null,
+      "format": null,
+      "visible": true
+    },
+    {
+      "id": "widget-depth",
+      "type": "category",
+      "layerId": "921b9319-66c8-4e48-abcb-21f715e9156e",
+      "title": "Depth",
+      "field": "depth_class",
+      "agg": "count",
+      "aggField": null,
+      "unit": null,
+      "note": null,
+      "format": null,
+      "visible": true
+    },
+    {
+      "id": "widget-sources",
+      "type": "note",
+      "layerId": null,
+      "title": "Sources",
+      "field": null,
+      "agg": "count",
+      "aggField": null,
+      "unit": null,
+      "note": "U.S. Geological Survey, ANSS Comprehensive Earthquake Catalog (ComCat). Licence: CC-PDDC. Credit: U.S. Geological Survey. Every earthquake of magnitude 5 or more, 1986 to 2025, as the catalogue held them on 2026-10-12. [earthquake.usgs.gov](https://earthquake.usgs.gov/earthquakes/search/)\n\nWorld tectonic plates and boundaries (PB2002), Peter Bird (2003), converted by Hugo Ahlenius, Nordpil. Licence: ODC-By-1.0. Credit: Hugo Ahlenius, Nordpil and Peter Bird. Bird, P. (2003), An updated digital model of plate boundaries, Geochemistry Geophysics Geosystems 4(3), 1027. [doi:10.1029/2001GC000252](https://doi.org/10.1029/2001GC000252)",
+      "format": null,
+      "visible": true
+    }
+  ],
+  "widgetsPublished": true,
+  "createdAt": "2026-10-12T19:07:58.463Z",
+  "updatedAt": "2026-10-12T19:07:58.571Z",
+  "editRevision": "11880e06524f15ee13edae8a30cba3ad",
+  "lastChangedAt": "2026-10-12T19:07:58.571Z",
+  "lastChangedBy": {
+    "name": "Dezfil templates",
+    "sqlName": "dezfil_templates"
+  },
+  "layers": [
+    {
+      "id": "1685ce70-c6ee-4db2-b505-2c828c20e2d0",
+      "mapId": "d321c806-3a96-429f-bf2f-9e615a73f5c6",
+      "name": "Plate boundaries",
+      "sql": "SELECT * FROM plate_boundaries",
+      "style": {
+        "fill": {
+          "type": "constant",
+          "color": {
+            "r": 18,
+            "g": 147,
+            "b": 154,
+            "a": 1
+          }
+        },
+        "fillOpacity": 0.72,
+        "stroke": {
+          "r": 18,
+          "g": 147,
+          "b": 154,
+          "a": 1
+        },
+        "strokeOpacity": 0.9,
+        "strokeWidth": 1.4,
+        "pointRadius": 3,
+        "opacity": 1,
+        "strokeBy": {
+          "type": "categorical",
+          "attribute": "boundary_type",
+          "palette": "bold",
+          "map": [
+            {
+              "value": "Other plate boundary",
+              "color": {
+                "r": 140,
+                "g": 144,
+                "b": 153,
+                "a": 1
+              }
+            },
+            {
+              "value": "Subduction zone",
+              "color": {
+                "r": 155,
+                "g": 107,
+                "b": 214,
+                "a": 1
+              }
+            }
+          ],
+          "other": {
+            "r": 120,
+            "g": 130,
+            "b": 150,
+            "a": 0.55
+          }
+        }
+      },
+      "visible": true,
+      "tooltip": [
+        "name",
+        "boundary_type",
+        "plate_a",
+        "plate_b"
+      ],
+      "popup": null,
+      "publishedFields": null,
+      "inLegend": true,
+      "viz": {
+        "type": "points"
+      },
+      "filters": [],
+      "legendTitle": "Plate boundaries",
+      "legendLabels": null,
+      "legendAttrs": null,
+      "ordinal": 0,
+      "createdAt": "2026-10-12T19:07:58.520Z",
+      "updatedAt": "2026-10-12T19:07:58.535Z",
+      "editRevision": "11880e06524f15ee13edae8a30cba3ad",
+      "lastChangedAt": "2026-10-12T19:07:58.571Z",
+      "lastChangedBy": {
+        "name": "Dezfil templates",
+        "sqlName": "dezfil_templates"
+      }
+    },
+    {
+      "id": "921b9319-66c8-4e48-abcb-21f715e9156e",
+      "mapId": "d321c806-3a96-429f-bf2f-9e615a73f5c6",
+      "name": "Earthquakes, magnitude 5 or more",
+      "sql": "SELECT * FROM earthquakes ORDER BY depth_km",
+      "style": {
+        "fill": {
+          "type": "categorical",
+          "attribute": "depth_class",
+          "palette": "bold",
+          "map": [
+            {
+              "value": "Shallow, under 70 km",
+              "color": {
+                "r": 232,
+                "g": 69,
+                "b": 44,
+                "a": 1
+              }
+            },
+            {
+              "value": "Intermediate, 70 to 300 km",
+              "color": {
+                "r": 242,
+                "g": 165,
+                "b": 26,
+                "a": 1
+              }
+            },
+            {
+              "value": "Deep, 300 km or more",
+              "color": {
+                "r": 47,
+                "g": 127,
+                "b": 216,
+                "a": 1
+              }
+            }
+          ],
+          "other": {
+            "r": 120,
+            "g": 130,
+            "b": 150,
+            "a": 0.55
+          }
+        },
+        "fillOpacity": 0.6,
+        "stroke": {
+          "r": 12,
+          "g": 16,
+          "b": 24,
+          "a": 1
+        },
+        "strokeOpacity": 0.85,
+        "strokeWidth": 0,
+        "pointRadius": 2,
+        "opacity": 1,
+        "pointRadiusBy": {
+          "attribute": "magnitude",
+          "domain": [
+            5,
+            9.1
+          ],
+          "range": [
+            0.6,
+            8
+          ]
+        }
+      },
+      "visible": true,
+      "tooltip": [
+        "place",
+        "magnitude",
+        "magnitude_type",
+        "depth_km",
+        "time_utc"
+      ],
+      "popup": null,
+      "publishedFields": null,
+      "inLegend": true,
+      "viz": {
+        "type": "points"
+      },
+      "filters": [
+        {
+          "field": "time_utc",
+          "kind": "timerange",
+          "min": null,
+          "max": null
+        }
+      ],
+      "legendTitle": "Earthquake depth",
+      "legendLabels": null,
+      "legendAttrs": null,
+      "ordinal": 1,
+      "createdAt": "2026-10-12T19:07:58.546Z",
+      "updatedAt": "2026-10-12T19:07:58.565Z",
+      "editRevision": "11880e06524f15ee13edae8a30cba3ad",
+      "lastChangedAt": "2026-10-12T19:07:58.571Z",
+      "lastChangedBy": {
+        "name": "Dezfil templates",
+        "sqlName": "dezfil_templates"
+      }
+    }
+  ],
+  "owner": {
+    "name": "Dezfil templates",
+    "sqlName": "dezfil_templates"
+  },
+  "home": "dezfil_templates"
+}

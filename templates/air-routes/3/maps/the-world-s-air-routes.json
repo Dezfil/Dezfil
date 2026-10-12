@@ -1,0 +1,260 @@
+{
+  "id": "c145b818-8fc5-4922-9513-ca55e621068f",
+  "name": "The world's air routes",
+  "viewport": {
+    "lng": 15,
+    "lat": 28,
+    "zoom": 1.35,
+    "pitch": 0,
+    "bearing": 0
+  },
+  "basemap": null,
+  "customBasemap": null,
+  "basemapLayers": null,
+  "note": null,
+  "legendCorner": "bottom-left",
+  "legendOrder": [
+    "7622dec5-bcba-40d8-b707-48d35c6393ff",
+    "eb25ea86-c1f5-4732-a3f2-7fecad56e047"
+  ],
+  "timeline": null,
+  "widgets": [
+    {
+      "id": "widget-pairs",
+      "type": "formula",
+      "layerId": "7622dec5-bcba-40d8-b707-48d35c6393ff",
+      "title": "Airport pairs",
+      "field": null,
+      "agg": "count",
+      "aggField": null,
+      "unit": null,
+      "note": "Joined by a nonstop route, June 2014",
+      "format": "integer",
+      "visible": true
+    },
+    {
+      "id": "widget-airlines",
+      "type": "category",
+      "layerId": "7622dec5-bcba-40d8-b707-48d35c6393ff",
+      "title": "Airlines flying the pair",
+      "field": "airline_band",
+      "agg": "count",
+      "aggField": null,
+      "unit": null,
+      "note": null,
+      "format": null,
+      "visible": true
+    },
+    {
+      "id": "widget-haul",
+      "type": "category",
+      "layerId": "7622dec5-bcba-40d8-b707-48d35c6393ff",
+      "title": "Haul, by great-circle distance",
+      "field": "haul",
+      "agg": "count",
+      "aggField": null,
+      "unit": null,
+      "note": null,
+      "format": null,
+      "visible": true
+    },
+    {
+      "id": "widget-scope",
+      "type": "category",
+      "layerId": "7622dec5-bcba-40d8-b707-48d35c6393ff",
+      "title": "Domestic or international",
+      "field": "scope",
+      "agg": "count",
+      "aggField": null,
+      "unit": null,
+      "note": null,
+      "format": null,
+      "visible": true
+    },
+    {
+      "id": "widget-sources",
+      "type": "note",
+      "layerId": null,
+      "title": "Sources",
+      "field": null,
+      "agg": "count",
+      "aggField": null,
+      "unit": null,
+      "note": "OpenFlights Airport and Route Databases. Licence: ODbL-1.0. Credit: OpenFlights.org. The route database as it stood in June 2014, when its third-party source stopped; airports as revised to 2019. Read from the publisher's repository on 2026-10-12. [openflights.org/data](https://openflights.org/data)",
+      "format": null,
+      "visible": true
+    }
+  ],
+  "widgetsPublished": true,
+  "createdAt": "2026-10-12T19:09:40.584Z",
+  "updatedAt": "2026-10-12T19:09:40.676Z",
+  "editRevision": "d21fe10a0ec7d2cc83f485818abb1a6d",
+  "lastChangedAt": "2026-10-12T19:09:40.676Z",
+  "lastChangedBy": {
+    "name": "Dezfil templates",
+    "sqlName": "dezfil_templates"
+  },
+  "layers": [
+    {
+      "id": "7622dec5-bcba-40d8-b707-48d35c6393ff",
+      "mapId": "c145b818-8fc5-4922-9513-ca55e621068f",
+      "name": "Air routes, June 2014",
+      "sql": "SELECT\n  busier_airport, other_airport, airlines, airline_band, distance_km, haul, scope,\n  ST_Point(busier_lon, busier_lat) AS busier_end,\n  ST_Point(\n    CASE\n      WHEN other_lon - busier_lon > 180 THEN other_lon - 360\n      WHEN other_lon - busier_lon < -180 THEN other_lon + 360\n      ELSE other_lon\n    END,\n    other_lat\n  ) AS other_end\nFROM air_routes\nORDER BY airlines, distance_km",
+      "style": {
+        "fill": {
+          "type": "constant",
+          "color": {
+            "r": 18,
+            "g": 147,
+            "b": 154,
+            "a": 1
+          }
+        },
+        "fillOpacity": 0.72,
+        "stroke": {
+          "r": 240,
+          "g": 138,
+          "b": 12,
+          "a": 1
+        },
+        "strokeOpacity": 0.38,
+        "strokeWidth": 0.5,
+        "pointRadius": 3,
+        "opacity": 1,
+        "strokeWidthBy": {
+          "attribute": "airlines",
+          "domain": [
+            1,
+            10
+          ],
+          "range": [
+            0.5,
+            3.5
+          ]
+        }
+      },
+      "visible": true,
+      "tooltip": [
+        "busier_airport",
+        "other_airport",
+        "airlines",
+        "distance_km",
+        "scope"
+      ],
+      "popup": null,
+      "publishedFields": null,
+      "inLegend": true,
+      "viz": {
+        "type": "arc",
+        "origin": {
+          "kind": "geometry",
+          "field": "busier_end"
+        },
+        "dest": {
+          "kind": "geometry",
+          "field": "other_end"
+        },
+        "height": 0.5,
+        "targetColor": {
+          "r": 34,
+          "g": 114,
+          "b": 218,
+          "a": 1
+        }
+      },
+      "filters": [],
+      "legendTitle": "Air routes, June 2014",
+      "legendLabels": [
+        "busier airport",
+        "other airport",
+        null
+      ],
+      "legendAttrs": {
+        "stroke": "airport pair",
+        "width": "airlines"
+      },
+      "ordinal": 0,
+      "createdAt": "2026-10-12T19:09:40.638Z",
+      "updatedAt": "2026-10-12T19:09:40.655Z",
+      "editRevision": "d21fe10a0ec7d2cc83f485818abb1a6d",
+      "lastChangedAt": "2026-10-12T19:09:40.676Z",
+      "lastChangedBy": {
+        "name": "Dezfil templates",
+        "sqlName": "dezfil_templates"
+      }
+    },
+    {
+      "id": "eb25ea86-c1f5-4732-a3f2-7fecad56e047",
+      "mapId": "c145b818-8fc5-4922-9513-ca55e621068f",
+      "name": "Airports",
+      "sql": "SELECT iata, name, city, country, destinations, geom FROM airports ORDER BY destinations",
+      "style": {
+        "fill": {
+          "type": "constant",
+          "color": {
+            "r": 255,
+            "g": 255,
+            "b": 255,
+            "a": 1
+          }
+        },
+        "fillOpacity": 0.9,
+        "stroke": {
+          "r": 27,
+          "g": 31,
+          "b": 39,
+          "a": 1
+        },
+        "strokeOpacity": 0.6,
+        "strokeWidth": 0.5,
+        "pointRadius": 1,
+        "opacity": 1,
+        "pointRadiusBy": {
+          "attribute": "destinations",
+          "domain": [
+            1,
+            248
+          ],
+          "range": [
+            0.8,
+            6
+          ]
+        }
+      },
+      "visible": true,
+      "tooltip": [
+        "iata",
+        "name",
+        "city",
+        "country",
+        "destinations"
+      ],
+      "popup": null,
+      "publishedFields": null,
+      "inLegend": true,
+      "viz": {
+        "type": "points"
+      },
+      "filters": [],
+      "legendTitle": "Airports",
+      "legendLabels": null,
+      "legendAttrs": {
+        "radius": "airports reached"
+      },
+      "ordinal": 1,
+      "createdAt": "2026-10-12T19:09:40.661Z",
+      "updatedAt": "2026-10-12T19:09:40.670Z",
+      "editRevision": "d21fe10a0ec7d2cc83f485818abb1a6d",
+      "lastChangedAt": "2026-10-12T19:09:40.676Z",
+      "lastChangedBy": {
+        "name": "Dezfil templates",
+        "sqlName": "dezfil_templates"
+      }
+    }
+  ],
+  "owner": {
+    "name": "Dezfil templates",
+    "sqlName": "dezfil_templates"
+  },
+  "home": "dezfil_templates"
+}

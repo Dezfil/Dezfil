@@ -1,0 +1,46 @@
+{
+  "formatVersion": 1,
+  "generator": "dezfil",
+  "exportedAt": "2026-10-12T19:11:19.165Z",
+  "exportedBy": {
+    "sqlName": "dezfil_templates"
+  },
+  "project": {
+    "name": "The world's air routes",
+    "note": null
+  },
+  "contents": {
+    "maps": [
+      {
+        "id": "c145b818-8fc5-4922-9513-ca55e621068f",
+        "name": "The world's air routes",
+        "file": "maps/the-world-s-air-routes.json"
+      }
+    ],
+    "workflows": [],
+    "datasets": [
+      {
+        "id": "2a56c43d-4fe9-46fc-acbf-e721c96a0ca5",
+        "name": "airports",
+        "qualifiedName": "airports",
+        "owner": {
+          "name": "Dezfil templates",
+          "sqlName": "dezfil_templates"
+        },
+        "file": "datasets/airports.parquet",
+        "format": "geoparquet"
+      },
+      {
+        "id": "19cad499-947b-42b3-84d8-1f1826617a79",
+        "name": "air_routes",
+        "qualifiedName": "air_routes",
+        "owner": {
+          "name": "Dezfil templates",
+          "sqlName": "dezfil_templates"
+        },
+        "file": "datasets/air_routes.parquet",
+        "format": "geoparquet"
+      }
+    ]
+  }
+}

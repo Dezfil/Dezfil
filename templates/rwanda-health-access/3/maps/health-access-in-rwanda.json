@@ -1,0 +1,313 @@
+{
+  "id": "c18828e3-5d30-4404-87a3-49d30440dcd1",
+  "name": "Health access in Rwanda",
+  "viewport": {
+    "lng": 29.88,
+    "lat": -1.94,
+    "zoom": 8.1,
+    "pitch": 0,
+    "bearing": 0
+  },
+  "basemap": null,
+  "customBasemap": null,
+  "basemapLayers": null,
+  "note": null,
+  "legendCorner": "bottom-left",
+  "legendOrder": [
+    "a57e4a9b-1f90-4e23-b525-37e19948d9f2",
+    "783f7654-d4a7-40c6-9e8f-b37d855b3c3f",
+    "24944782-c9e2-4fc0-be03-f8d237cd1fa8"
+  ],
+  "timeline": null,
+  "widgets": [
+    {
+      "id": "widget-distance",
+      "type": "category",
+      "layerId": "a57e4a9b-1f90-4e23-b525-37e19948d9f2",
+      "title": "People by distance",
+      "field": "distance",
+      "agg": "sum",
+      "aggField": "population",
+      "unit": null,
+      "note": null,
+      "format": null,
+      "visible": true
+    },
+    {
+      "id": "widget-far",
+      "type": "formula",
+      "layerId": "24944782-c9e2-4fc0-be03-f8d237cd1fa8",
+      "title": "More than 5 km away",
+      "field": "people_beyond_5km",
+      "agg": "sum",
+      "aggField": null,
+      "unit": null,
+      "note": "People, straight-line distance",
+      "format": "integer",
+      "visible": true
+    },
+    {
+      "id": "widget-facilities",
+      "type": "formula",
+      "layerId": "783f7654-d4a7-40c6-9e8f-b37d855b3c3f",
+      "title": "Public health facilities",
+      "field": null,
+      "agg": "count",
+      "aggField": null,
+      "unit": null,
+      "note": null,
+      "format": "integer",
+      "visible": true
+    },
+    {
+      "id": "widget-sources",
+      "type": "note",
+      "layerId": null,
+      "title": "Sources",
+      "field": null,
+      "agg": "count",
+      "aggField": null,
+      "unit": null,
+      "note": "Kontur Population: Rwanda, population density for 400m H3 hexagons. Licence: CC-BY-4.0. Credit: Kontur Population, Kontur Inc., via the Humanitarian Data Exchange. Release 2023-11-01. [data.humdata.org](https://data.humdata.org/dataset/kontur-population-rwanda)\n\nPublic health facilities in sub-Saharan Africa, Maina et al. (2019). Licence: CC0-1.0. Credit: Snow RW, Maina J, Ouma PO, Macharia PM, Alegana VA, Mitto B, et al. (2019). Public health facilities in sub Saharan Africa. figshare. doi:10.6084/m9.figshare.7725374.v1. [doi:10.1038/s41597-019-0142-2](https://doi.org/10.1038/s41597-019-0142-2)\n\ngeoBoundaries Rwanda districts (ADM2), from Open Data Rwanda. Licence: CC-BY-4.0. Credit: geoBoundaries (www.geoboundaries.org), Runfola et al. (2020); boundaries from Open Data Rwanda. [www.geoboundaries.org](https://www.geoboundaries.org)",
+      "format": null,
+      "visible": true
+    }
+  ],
+  "widgetsPublished": true,
+  "createdAt": "2026-10-12T19:06:42.717Z",
+  "updatedAt": "2026-10-12T19:06:42.797Z",
+  "editRevision": "b47b3a0d6a120818f1b06da63b8c72f1",
+  "lastChangedAt": "2026-10-12T19:06:42.797Z",
+  "lastChangedBy": {
+    "name": "Dezfil templates",
+    "sqlName": "dezfil_templates"
+  },
+  "layers": [
+    {
+      "id": "a57e4a9b-1f90-4e23-b525-37e19948d9f2",
+      "mapId": "c18828e3-5d30-4404-87a3-49d30440dcd1",
+      "name": "People by distance to the nearest facility",
+      "sql": "SELECT CASE\n         WHEN n.nearest_distance_m < 2000 THEN 'Under 2 km'\n         WHEN n.nearest_distance_m < 5000 THEN '2 to 5 km'\n         WHEN n.nearest_distance_m < 10000 THEN '5 to 10 km'\n         ELSE '10 km or more'\n       END AS distance,\n       round(n.nearest_distance_m / 1000, 1) AS km_to_facility,\n       c.population,\n       n.facility_name AS nearest_facility,\n       c.geom\nFROM population_cells AS c\nJOIN nearest_facility AS n ON n.h3 = c.h3",
+      "style": {
+        "fill": {
+          "type": "categorical",
+          "attribute": "distance",
+          "palette": "bold",
+          "map": [
+            {
+              "value": "Under 2 km",
+              "color": {
+                "r": 127,
+                "g": 200,
+                "b": 180,
+                "a": 1
+              }
+            },
+            {
+              "value": "2 to 5 km",
+              "color": {
+                "r": 232,
+                "g": 195,
+                "b": 90,
+                "a": 1
+              }
+            },
+            {
+              "value": "5 to 10 km",
+              "color": {
+                "r": 238,
+                "g": 125,
+                "b": 59,
+                "a": 1
+              }
+            },
+            {
+              "value": "10 km or more",
+              "color": {
+                "r": 200,
+                "g": 16,
+                "b": 46,
+                "a": 1
+              }
+            }
+          ],
+          "other": {
+            "r": 120,
+            "g": 130,
+            "b": 150,
+            "a": 0.55
+          }
+        },
+        "fillOpacity": 0.85,
+        "stroke": {
+          "r": 12,
+          "g": 16,
+          "b": 24,
+          "a": 1
+        },
+        "strokeOpacity": 0.85,
+        "strokeWidth": 0,
+        "pointRadius": 3,
+        "opacity": 1
+      },
+      "visible": true,
+      "tooltip": [
+        "distance",
+        "km_to_facility",
+        "population",
+        "nearest_facility"
+      ],
+      "popup": null,
+      "publishedFields": null,
+      "inLegend": true,
+      "viz": {
+        "type": "points"
+      },
+      "filters": [],
+      "legendTitle": "Straight-line distance to a public health facility",
+      "legendLabels": null,
+      "legendAttrs": null,
+      "ordinal": 0,
+      "createdAt": "2026-10-12T19:06:42.739Z",
+      "updatedAt": "2026-10-12T19:06:42.762Z",
+      "editRevision": "b47b3a0d6a120818f1b06da63b8c72f1",
+      "lastChangedAt": "2026-10-12T19:06:42.797Z",
+      "lastChangedBy": {
+        "name": "Dezfil templates",
+        "sqlName": "dezfil_templates"
+      }
+    },
+    {
+      "id": "783f7654-d4a7-40c6-9e8f-b37d855b3c3f",
+      "mapId": "c18828e3-5d30-4404-87a3-49d30440dcd1",
+      "name": "Public health facilities",
+      "sql": "SELECT facility_name, facility_type, ownership, geom FROM health_facilities",
+      "style": {
+        "fill": {
+          "type": "constant",
+          "color": {
+            "r": 29,
+            "g": 31,
+            "b": 36,
+            "a": 1
+          }
+        },
+        "fillOpacity": 0.9,
+        "stroke": {
+          "r": 255,
+          "g": 255,
+          "b": 255,
+          "a": 1
+        },
+        "strokeOpacity": 0.9,
+        "strokeWidth": 0.5,
+        "pointRadius": 1.5,
+        "opacity": 1
+      },
+      "visible": true,
+      "tooltip": [
+        "facility_name",
+        "facility_type",
+        "ownership"
+      ],
+      "popup": null,
+      "publishedFields": null,
+      "inLegend": true,
+      "viz": {
+        "type": "points"
+      },
+      "filters": [],
+      "legendTitle": "Public health facility",
+      "legendLabels": null,
+      "legendAttrs": null,
+      "ordinal": 1,
+      "createdAt": "2026-10-12T19:06:42.782Z",
+      "updatedAt": "2026-10-12T19:06:42.788Z",
+      "editRevision": "b47b3a0d6a120818f1b06da63b8c72f1",
+      "lastChangedAt": "2026-10-12T19:06:42.797Z",
+      "lastChangedBy": {
+        "name": "Dezfil templates",
+        "sqlName": "dezfil_templates"
+      }
+    },
+    {
+      "id": "24944782-c9e2-4fc0-be03-f8d237cd1fa8",
+      "mapId": "c18828e3-5d30-4404-87a3-49d30440dcd1",
+      "name": "Districts, share more than 5 km away",
+      "sql": "SELECT district, people, people_beyond_5km, share_beyond_5km, district || chr(10) || share_beyond_5km || '%' AS label, geom FROM district_share",
+      "style": {
+        "fill": {
+          "type": "constant",
+          "color": {
+            "r": 255,
+            "g": 255,
+            "b": 255,
+            "a": 0
+          }
+        },
+        "fillOpacity": 0,
+        "stroke": {
+          "r": 92,
+          "g": 99,
+          "b": 112,
+          "a": 1
+        },
+        "strokeOpacity": 0.9,
+        "strokeWidth": 1.2,
+        "pointRadius": 3,
+        "opacity": 1,
+        "label": {
+          "attribute": "label",
+          "size": 9,
+          "color": {
+            "r": 255,
+            "g": 255,
+            "b": 255,
+            "a": 1
+          },
+          "haloWidth": 1,
+          "haloColor": {
+            "r": 29,
+            "g": 31,
+            "b": 36,
+            "a": 0.85
+          },
+          "weight": "bold",
+          "density": 0.75,
+          "priorityField": "share_beyond_5km"
+        }
+      },
+      "visible": true,
+      "tooltip": [
+        "district",
+        "people",
+        "people_beyond_5km",
+        "share_beyond_5km"
+      ],
+      "popup": null,
+      "publishedFields": null,
+      "inLegend": true,
+      "viz": {
+        "type": "points"
+      },
+      "filters": [],
+      "legendTitle": "Districts",
+      "legendLabels": null,
+      "legendAttrs": null,
+      "ordinal": 2,
+      "createdAt": "2026-10-12T19:06:42.768Z",
+      "updatedAt": "2026-10-12T19:06:42.775Z",
+      "editRevision": "b47b3a0d6a120818f1b06da63b8c72f1",
+      "lastChangedAt": "2026-10-12T19:06:42.797Z",
+      "lastChangedBy": {
+        "name": "Dezfil templates",
+        "sqlName": "dezfil_templates"
+      }
+    }
+  ],
+  "owner": {
+    "name": "Dezfil templates",
+    "sqlName": "dezfil_templates"
+  },
+  "home": "dezfil_templates"
+}

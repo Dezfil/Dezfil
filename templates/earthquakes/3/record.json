@@ -1,0 +1,56 @@
+{
+  "formatVersion": 1,
+  "id": "earthquakes",
+  "version": 3,
+  "archive": {
+    "sha256": "fe37668cb6ee09b8d893f5610c5642cb40a6db85f6e0949056a8f2a0131bfbbe",
+    "size": 3958154
+  },
+  "origin": {
+    "kind": "shipped"
+  },
+  "files": {
+    "datasets/earthquakes.parquet": {
+      "bytes": 2774654,
+      "sha256": "cc10c3f2a2aba04a75450c7645e61bacb31103e8f79db4a9233b87e80c525e9c"
+    },
+    "datasets/plate_boundaries.parquet": {
+      "bytes": 84190,
+      "sha256": "2fdc1418a9d7d383a735653291688fa6d06153badeccbaaaf77f0590b1c8a301"
+    },
+    "maps/forty-years-of-big-earthquakes.json": {
+      "bytes": 7408,
+      "sha256": "2799eba9575f8b5232bf4fb538cb5b73566dc047bb702f35356f860969094f23"
+    },
+    "pictures/dark.png": {
+      "bytes": 535126,
+      "sha256": "e1bd5bad03b299138ffe426479dec000b184de9e2295422dbe0d0fc133ca2743"
+    },
+    "pictures/light.png": {
+      "bytes": 559835,
+      "sha256": "557a28a9f508b96a7294275317e08d557b2c5db79dfe3f34eebad529557c6c81"
+    },
+    "project.json": {
+      "bytes": 1172,
+      "sha256": "83f44855c9f04d27dbeda367851af3fbfe2452eb593f9973a4c44fd6c8b987ed"
+    },
+    "template.json": {
+      "bytes": 2514,
+      "sha256": "73e077e35b6360ee37c6436695d0388212ef42715780a6242720fdd2e37fa4a9"
+    }
+  },
+  "measured": {
+    "datasets/plate_boundaries.parquet": {
+      "rowCount": 241,
+      "geometryColumn": "geom",
+      "geometryType": "LINESTRING",
+      "crsAssumed": false
+    },
+    "datasets/earthquakes.parquet": {
+      "rowCount": 67510,
+      "geometryColumn": "geom",
+      "geometryType": "POINT",
+      "crsAssumed": false
+    }
+  }
+}
