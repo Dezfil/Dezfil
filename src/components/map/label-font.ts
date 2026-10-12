@@ -130,14 +130,19 @@ function subscribe(listener: () => void): () => void {
   return () => listeners.delete(listener);
 }
 
+/** Whether labels may draw yet; asks for the face on first use. */
+export function useLabelFontReady(): boolean {
+  const isReady = useSyncExternalStore(subscribe, labelFontReady, () => false);
+  useEffect(() => {
+    void loadLabelFont();
+  }, []);
+  return isReady;
+}
+
 /**
  * The label face once labels may draw, else null; asks for the face on
  * first use. A component keyed on it rebuilds its labels when it arrives.
  */
 export function useLabelFont(): string | null {
-  const isReady = useSyncExternalStore(subscribe, labelFontReady, () => false);
-  useEffect(() => {
-    void loadLabelFont();
-  }, []);
-  return isReady ? labelFontFamily() : null;
+  return useLabelFontReady() ? labelFontFamily() : null;
 }
