@@ -59,6 +59,8 @@ export const INK_STEP: Readonly<Record<string, string>> = {
 export const SETTLE_MS = 150;
 /** The smallest side a surface bends at, in px. */
 const SMALLEST = 8;
+/** How many drawn maps are kept for sizes that come back. */
+const MAPS_KEPT = 48;
 
 /* ---- Finding the members through the stylesheets ---- */
 
@@ -73,11 +75,31 @@ export interface RuleLike {
 export interface SheetLike { readonly cssRules: ArrayLike<RuleLike> }
 
 /** Per role: the selectors of its members, and the selectors of the
- * elements whose pseudo-element is a member. */
+ * elements whose pseudo-element is a member; and every attribute a rule's
+ * selector reads, so a change to any other attribute (a map's camera
+ * written at every step of a pan) is no reason to look again. */
 export interface LensIndex {
   readonly members: ReadonlyMap<string, readonly string[]>;
   readonly carriers: ReadonlyMap<string, readonly string[]>;
+  readonly attributes: ReadonlySet<string>;
 }
+
+/** The attributes read whatever the rules say: a class and an id, those the
+ * scopes left alone are named by, and those the browser's own rules key on. */
+const ALWAYS_READ = ["class", "id", "hidden", "open", ...LEFT_ALONE.map(scope => scope.slice(1, -1))];
+/** The states of an element a selector can read that an attribute sets. */
+const STATE_ATTRIBUTES: readonly [RegExp, readonly string[]][] = [
+  [/:(?:disabled|enabled)(?![\w-])/, ["disabled"]],
+  [/:(?:checked|default)(?![\w-])/, ["checked", "selected"]],
+  [/:popover-open(?![\w-])/, ["popover"]],
+  [/:(?:required|optional)(?![\w-])/, ["required"]],
+  [/:(?:read-only|read-write)(?![\w-])/, ["readonly", "contenteditable"]],
+  [/:placeholder-shown(?![\w-])/, ["placeholder", "value"]],
+  [/:(?:any-)?link(?![\w-])/, ["href"]],
+  [/:dir\(/, ["dir"]],
+  [/:lang\(/, ["lang"]],
+];
+const ATTRIBUTE_SELECTOR = /\[\s*(?:[\w-]*\|)?([\w-]+)/g;
 
 /** Split a selector list at its top-level commas. */
 export function splitSelectors(list: string): string[] {
@@ -126,6 +148,7 @@ function rulesOf(sheet: SheetLike): RuleLike[] {
  * passed over. */
 export function discoverMembers(sheets: Iterable<SheetLike>): LensIndex {
   const members = new Map<string, Set<string>>(), carriers = new Map<string, Set<string>>();
+  const attributes = new Set<string>(ALWAYS_READ);
   const reads = LENS_ROLES.map(({ role }) => ({ role, test: new RegExp(`var\\(\\s*--surface-${role}-blur\\s*[,)]`) }));
   const add = (map: Map<string, Set<string>>, role: string, selector: string) => {
     if (!map.has(role)) map.set(role, new Set());
@@ -137,6 +160,8 @@ export function discoverMembers(sheets: Iterable<SheetLike>): LensIndex {
       if (rule.cssRules) for (const inner of Array.from(rule.cssRules)) visit(inner);
       return;
     }
+    for (const [, name] of rule.selectorText.matchAll(ATTRIBUTE_SELECTOR)) attributes.add(name.toLowerCase());
+    for (const [state, names] of STATE_ATTRIBUTES) if (state.test(rule.selectorText)) for (const name of names) attributes.add(name);
     const text = rule.style?.cssText ?? "";
     const read = reads.find(({ test }) => test.test(text));
     if (!read) return;
@@ -153,7 +178,7 @@ export function discoverMembers(sheets: Iterable<SheetLike>): LensIndex {
   };
   for (const sheet of sheets) for (const rule of rulesOf(sheet)) visit(rule);
   const frozen = (map: Map<string, Set<string>>) => new Map([...map].map(([role, set]) => [role, [...set]]));
-  return { members: frozen(members), carriers: frozen(carriers) };
+  return { members: frozen(members), carriers: frozen(carriers), attributes };
 }
 
 /* ---- The bend ---- */
@@ -185,7 +210,8 @@ function canvasEncode(doc: Document) {
     const canvas = doc.createElement("canvas");
     canvas.width = width;
     canvas.height = height;
-    const context = canvas.getContext("2d");
+    // Kept in memory: reading it back never waits on the screen's own drawing.
+    const context = canvas.getContext("2d", { willReadFrequently: true });
     if (!context) return null;
     const image = context.createImageData(width, height);
     image.data.set(field);
@@ -232,7 +258,10 @@ export function startPanelLens(doc: Document = document, options: PanelLensOptio
   const root = doc.documentElement;
   const tracked = new Map<Element, Tracked>();
   const filters = new Map<string, Element>();
-  let index: LensIndex = { members: new Map(), carriers: new Map() };
+  let index: LensIndex = { members: new Map(), carriers: new Map(), attributes: new Set() };
+  /** The maps already drawn, by size and corner: a surface that comes back
+   * to a size it had (a status line as its text changes) takes its map again. */
+  const maps = new Map<string, string>();
   let fingerprint: string | null = null;
   let values: RootValues = { words: new Set(), blur: new Map(), lens: new Map() };
   let defs: Element | null = null;
@@ -289,8 +318,14 @@ export function startPanelLens(doc: Document = document, options: PanelLensOptio
   function filterFor(w: number, h: number, r: number, blur: number, shift: number): string | null {
     const id = `dz-lens-${w}x${h}-r${r}-b${blur}-s${shift}`.replace(/\./g, "_");
     if (filters.has(id)) return id;
-    const href = encode(displacementField(w, h, r), w, h);
-    if (!href) return null;
+    const shape = `${w}x${h}-r${r}`;
+    let href = maps.get(shape) ?? null;
+    if (href === null) {
+      href = encode(displacementField(w, h, r), w, h);
+      if (!href) return null;
+      maps.set(shape, href);
+      if (maps.size > MAPS_KEPT) maps.delete(maps.keys().next().value!);
+    }
     if (!defs) {
       const svg = doc.createElementNS(SVG, "svg");
       svg.setAttribute("data-panel-lens", "");
@@ -487,7 +522,8 @@ export function startPanelLens(doc: Document = document, options: PanelLensOptio
     for (const record of records) {
       if (ours(record.target)) continue;
       if (record.type === "attributes") {
-        if (record.attributeName === "style") continue;
+        // The lens's own writes, and an attribute no rule reads: nothing to look at again.
+        if (record.attributeName === "style" || !index.attributes.has(record.attributeName ?? "")) continue;
         pending.add(record.target);
         any = true;
       } else {

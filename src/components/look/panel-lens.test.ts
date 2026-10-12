@@ -167,6 +167,17 @@ describe("finding the members through the stylesheets", () => {
     expect(atRest(".a:hover .b:focus-within:not(:hover)")).toBe(".a .b:not(:hover)");
   });
 
+  it("names the attributes any rule's selector reads, and those a state of the browser reads, so a change to another one is no reason to look", () => {
+    const index = discoverMembers([
+      ...SHEETS(),
+      sheet(rule(".chip[aria-pressed='true'] > .dot", "color: red;"), rule("input:disabled, details:open", "opacity: 0.5;"), rule('[ data-side = "left" ]', "left: 0;")),
+    ]);
+    for (const name of ["data-expanded", "aria-pressed", "data-side", "disabled", "open", "class", "id", "data-look-default", "data-picture-panels"]) {
+      expect(index.attributes.has(name), name).toBe(true);
+    }
+    expect(index.attributes.has("data-map-camera")).toBe(false);
+  });
+
   it("reaches every kind the root can name", () => {
     expect(LENS_ROLES.map(role => role.word)).toEqual(["chrome", "panels", "map", "buttons", "cards", "inner", "menus", "dialogs"]);
     expect(LENS_ROLES.filter(role => role.ink).map(role => role.role)).toEqual(["glass-chrome", "overlay-control"]);
@@ -247,6 +258,68 @@ describe("the bend", () => {
     link.dispatchEvent(new HostEvent("focusout", { bubbles: true }));
     flush();
     expect(inline(rail)).toEqual(lensed);
+  });
+
+  it("does no work while the map pans: an attribute no rule reads changing under it, or a transition around no member", () => {
+    liquid("chrome map buttons");
+    const head = make(doc.body, "head", { "data-reads": "glass-chrome" }, [200, 40]);
+    const map = make(doc.body, "map");
+    const legend = make(map, "legend", { "data-reads": "overlay-panel" }, [160, 90]);
+    const canvas = make(map, "canvas");
+    const encode = vi.fn((_field: Uint8ClampedArray, w: number, h: number) => `data:map/${w}x${h}`);
+    startPanelLens(doc as unknown as Document, { bend: true, encode });
+    const before = { head: inline(head), legend: inline(legend), filters: filterIds() };
+    const reads = vi.fn(computed);
+    vi.stubGlobal("getComputedStyle", reads);
+    encode.mockClear();
+    // The camera written on the map's element at every step of a drag, and the map's own canvas easing.
+    for (let step = 0; step < 24; step += 1) {
+      map.setAttribute("data-map-camera", `13.4,52.5,${10 + step / 10}`);
+      bodyObserver().callback([{ type: "attributes", target: map, attributeName: "data-map-camera", addedNodes: [], removedNodes: [] }]);
+      canvas.dispatchEvent(Object.assign(new HostEvent("transitionrun", { bubbles: true }), { propertyName: "transform" }));
+    }
+    expect(frames).toHaveLength(0);
+    flush();
+    expect(reads).not.toHaveBeenCalled();
+    expect(encode).not.toHaveBeenCalled();
+    expect({ head: inline(head), legend: inline(legend), filters: filterIds() }).toEqual(before);
+  });
+
+  it("bakes a size once: a surface that grows and comes back takes its earlier map again", () => {
+    liquid("map");
+    const bar = make(doc.body, "legend", { "data-reads": "overlay-panel" }, [163, 32]);
+    const encode = vi.fn((_field: Uint8ClampedArray, w: number, h: number) => `data:map/${w}x${h}`);
+    startPanelLens(doc as unknown as Document, { bend: true, encode });
+    const resize = (width: number) => {
+      rects.set(bar, { left: 0, top: 0, width, height: 32 });
+      sizes[0].callback([{ target: bar }]);
+      vi.advanceTimersByTime(SETTLE_MS);
+      flush();
+    };
+    resize(268);
+    resize(163);
+    resize(268);
+    expect(inline(bar)["--surface-overlay-panel-blur"]).toBe('url("#dz-lens-268x32-r12-b24-s8")');
+    expect(encode.mock.calls.map(([, w, h]) => `${w}x${h}`)).toEqual(["163x32", "268x32"]);
+  });
+
+  it("draws a map on a canvas kept in memory, so making one never waits on the screen", () => {
+    liquid("menus");
+    make(doc.body, "menu", { "data-reads": "menu" }, [180, 120]);
+    const asked: unknown[][] = [];
+    const made = doc.createElement.bind(doc);
+    Object.assign(doc, {
+      createElement: (tag: string) => tag !== "canvas" ? made(tag) : {
+        width: 0, height: 0,
+        getContext: (...args: unknown[]) => {
+          asked.push(args);
+          return { createImageData: (w: number, h: number) => ({ data: new Uint8ClampedArray(w * h * 4) }), putImageData: () => undefined };
+        },
+        toDataURL: () => "data:image/png;base64,AA",
+      },
+    });
+    startPanelLens(doc as unknown as Document, { bend: true });
+    expect(asked).toEqual([["2d", { willReadFrequently: true }]]);
   });
 
   it("finds a member that joins the page, and one a stylesheet that joins names", () => {
