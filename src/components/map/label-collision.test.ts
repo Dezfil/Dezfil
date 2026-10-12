@@ -121,6 +121,37 @@ describe("the shared overlap test's rules", () => {
     expect(columns * rows).toBeLessThanOrEqual(1024);
   });
 
+  it("hides a label only where another label's footprint lies, never for a point no footprint was drawn on", () => {
+    // The shader's own rule, run as written: a point of the collision map,
+    // and the identity of the label reading it (its picking colour and its
+    // layer's tag in the alpha, each a step of 1/255).
+    const source = labelCollisionModule.vs;
+    const rule = /bool collision_contested\(vec4 found, vec4 identity\) \{([\s\S]*?)\n\}/.exec(source)?.[1];
+    const cleared = /const float COLLISION_CLEARED = ([^;]+);/.exec(source)?.[1];
+    expect(rule, "the rule").toBeDefined();
+    expect(cleared, "the cleared level").toBeDefined();
+    type Vec4 = { r: number; g: number; b: number; a: number };
+    const distance = (p: Vec4, q: Vec4) => Math.hypot(p.r - q.r, p.g - q.g, p.b - q.b, p.a - q.a);
+    const contested = new Function("found", "identity", "distance", "COLLISION_CLEARED", rule!) as (
+      found: Vec4, identity: Vec4, d: typeof distance, c: number,
+    ) => boolean;
+    const level = Number(new Function(`return ${cleared!.replace(/(\d)\.0\b/g, "$1")};`)());
+    const at = (r: number, g: number, b: number, a: number): Vec4 => ({ r: r / 255, g: g / 255, b: b / 255, a: a / 255 });
+    const reads = (found: Vec4, identity: Vec4) => contested(found, identity, distance, level);
+    const self = at(6, 0, 0, collisionTag({ place: 2, count: 3 }));
+    // The map is cleared to transparent black: no footprint there.
+    expect(reads(at(0, 0, 0, 0), self), "a cleared point").toBe(false);
+    expect(reads(self, self), "its own footprint").toBe(false);
+    expect(reads(at(7, 0, 0, self.a * 255), self), "another label in its layer").toBe(true);
+    expect(reads(at(6, 0, 0, collisionTag({ place: 0, count: 3 })), self), "the same index in another layer").toBe(true);
+    expect(reads(at(0, 1, 0, 1), self), "the faintest footprint: the first index, the first tag").toBe(true);
+    // Every layer's tag lies above the cleared level, so no footprint reads as cleared.
+    for (let place = 0; place < 300; place += 1) expect(collisionTag({ place, count: 300 }) / 255).toBeGreaterThan(level);
+    // And the sample loop hides a label through this rule alone.
+    expect(source).toMatch(/if \(collision_contested\(texture\(collision_texture, tex\), identity\)\) return false;/);
+    expect(source).not.toMatch(/collision_owns/);
+  });
+
   it("draws a label whole or not at all: nothing scales its ink by how much of it is clear", () => {
     const injected = Object.values(labelCollisionModule.inject)
       .map((i) => (typeof i === "string" ? i : i.injection))

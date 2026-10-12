@@ -63,7 +63,13 @@ import { decodePng, type DecodedImage } from "./png-codec";
  *   and at its middle, in a layer above it, a short one, both claiming no
  *   more than their boxes. The short one is drawn and the wide one is not:
  *   the overlap test reads the wide box at points close enough together
- *   that the short label's space cannot fall between them.
+ *   that the short label's space cannot fall between them. In the same map,
+ *   far from both, sixty-four narrow labels turned 45 degrees, each alone,
+ *   set a quarter of a pixel apart in where they fall, across and down, over
+ *   a square two pixels wide: every one is drawn, wherever its box falls on
+ *   the collision map's coarser grid. A point of a narrow, turned box can
+ *   fall on a spot of that grid just outside the box's own footprint, where
+ *   nothing was drawn; empty space must not hide the label.
  *
  * Provisioning as the map check's real-render proofs:
  * DEZFIL_MAP_LOOK_RENDER names the standalone's port; DEZFIL_DATA_DIR is the
@@ -166,6 +172,15 @@ const STEPS = [14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 40].map((below, i) => ({ 
 /** The fifth map: a label some 400 pixels wide, and a short one at its middle. */
 const LONG = { x: 512, y: 320, label: "WWWWWWWWWWWW" };
 const SHORT = { x: 512, y: 320, label: "0" };
+/** Narrow labels turned 45 degrees, each alone, set a quarter of a pixel
+ * apart in where they fall: eight steps across and eight down cover every
+ * place a label can fall on the collision map's two-pixel grid. */
+const TURNED = Array.from({ length: 64 }, (_, i) => ({
+  x: 52 + 60 * (i % 16) + 0.25 * (i % 8),
+  y: 60 + 40 * Math.floor(i / 16) + 0.25 * Math.floor(i / 8),
+}));
+/** Any trace of green over the neutral basemap. */
+const greenish = (r: number, g: number, b: number) => g - Math.max(r, b) > 30;
 
 const invisibleMarks = (label: LayerStyle["label"]): LayerStyle => ({
   fill: { type: "constant", color: rgba([0, 0, 0]) }, fillOpacity: 0,
@@ -334,9 +349,11 @@ describe.skipIf(!port)("labels in the server's image export", () => {
 
     const long = await write("long", [point(LONG.x, LONG.y, { text: LONG.label })]);
     const short = await write("short", [point(SHORT.x, SHORT.y, { text: SHORT.label })]);
+    const turned = await write("turned", TURNED.map((t) => point(t.x, t.y, { text: "l" })));
     wideAndShort = await flatMap("A wide label and a short one", [
       { name: "Wide", dataset: long, label: { ...plain(BLUE), density: 1 } },
       { name: "Short", dataset: short, label: { ...plain(RED), size: 14, weight: "bold", density: 1 } },
+      { name: "Turned", dataset: turned, label: { ...plain(GREEN), size: 12, rotation: 45, density: 1 } },
     ]);
   }, 180_000);
   afterAll(async () => {
@@ -428,6 +445,12 @@ describe.skipIf(!port)("labels in the server's image export", () => {
   it("hides a wide label whose middle a short, higher-ranked label takes", () => {
     expect(pixels(wideAndShort, box(SHORT.x, SHORT.y, 12, 12), near(RED)).length, SHORT.label).toBeGreaterThan(10);
     expect(pixels(wideAndShort, box(LONG.x, LONG.y, 240, 24), bluish).length, LONG.label).toBe(0);
+  });
+
+  it("draws every narrow turned label that stands alone, wherever it falls on the collision map", () => {
+    for (const [i, t] of TURNED.entries()) {
+      expect(pixels(wideAndShort, box(Math.round(t.x), Math.round(t.y), 10, 10), greenish).length, `turned label ${i}`).toBeGreaterThan(8);
+    }
   });
 
   it("draws labels in a proportional face: the i's well under half the M's width", () => {

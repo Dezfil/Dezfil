@@ -18,8 +18,12 @@
  *
  * A label is drawn whole or not at all. The test reads the label's own box,
  * as the text layer lays it out and draws it (its size, turn and offset), at
- * points spread over it a few pixels apart, and draws the label only if every
- * one of them is still its own. Two things it no longer does: look only around
+ * points spread over it a few pixels apart, and draws the label only if no
+ * other label's footprint lies at any of them. A point no footprint was drawn
+ * on counts as clear: the collision map is coarser than the screen, so a
+ * point near the edge of a narrow or turned box can fall just outside the
+ * box's own footprint there, and such a label once hid itself with nothing
+ * near it. Two things the test no longer does: look only around
  * the label's point, which a label beside its point does not cover and a label
  * above its point covers only on its edge, so such labels were culled or
  * faded with nothing near them; and turn the share of that look that was
@@ -156,11 +160,20 @@ const int COLLISION_COLUMNS = 128;
 const int COLLISION_ROWS = 8;
 const float COLLISION_SPACING = 4.0;
 
-// A label's identity in the collision map: its picking colour, its index in
-// its own layer, and its layer's tag in the alpha.
-bool collision_owns(vec2 tex, vec4 identity) {
-  vec4 found = texture(collision_texture, tex);
-  return dot(abs(found - identity), vec4(1.0)) < 0.001;
+// The collision map is cleared to transparent black, and every footprint
+// writes its layer's tag (1 to 255) into the alpha: a point below half a step
+// holds no footprint.
+const float COLLISION_CLEARED = 0.5 / 255.0;
+
+// Whether a point of the collision map holds another label's footprint. A
+// label's identity there is its picking colour (its index in its own layer)
+// and its layer's tag in the alpha. A point no footprint was drawn on is
+// contested by nothing: the map is coarser than the screen, so a point near
+// the edge of a narrow or turned box can fall on a texel just outside the
+// box's own footprint, and empty space must not hide the label.
+bool collision_contested(vec4 found, vec4 identity) {
+  if (found.a < COLLISION_CLEARED) return false;
+  return distance(found, identity) > 0.001;
 }
 
 vec2 collision_rotate(vec2 vertex, float degrees) {
@@ -170,8 +183,8 @@ vec2 collision_rotate(vec2 vertex, float degrees) {
   return mat2(c, -s, s, c) * vertex;
 }
 
-// Whether the collision map still holds the label all over its box, placed
-// as the text layer places it about its point (anchor, in clip space).
+// Whether no other label's footprint lies anywhere over the label's box,
+// placed as the text layer places it about its point (anchor, in clip space).
 bool collision_isVisible(vec4 anchor, vec4 identity) {
   float sizePixels = clamp(
     project_size_to_pixel(collision.size * collision.sizeScale, collision.sizeUnits),
@@ -199,7 +212,7 @@ bool collision_isVisible(vec4 anchor, vec4 identity) {
       point.xy += project_pixel_size_to_clipspace(pixels);
       vec2 tex = (1.0 + point.xy / point.w) / 2.0;
       if (any(lessThan(tex, margin)) || any(greaterThan(tex, 1.0 - margin))) continue;
-      if (!collision_owns(tex, identity)) return false;
+      if (collision_contested(texture(collision_texture, tex), identity)) return false;
     }
   }
   return true;
