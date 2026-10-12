@@ -162,6 +162,17 @@ describe("one overlap test for every label on a map", () => {
     expect(shown.props.collisionEnabled).toBe(true);
   });
 
+  it("reads each label's own box, as the text layer lays it out, in what draws its letters and its box", () => {
+    const layer = textSublayer("towns:labels", towns, { ...LABEL, anchor: "right", offsetX: 12 }, null, null, 1, 1, FACE, placed(0, 2));
+    const layout = (layer as unknown as { getBoundingRect: unknown }).getBoundingRect;
+    expect(typeof layout).toBe("function");
+    for (const id of ["background", "characters"] as const) {
+      const props = subLayerProps(layer, id) as { getCollisionBox?: unknown; updateTriggers: Record<string, unknown> };
+      expect(props.getCollisionBox, id).toBe(layout);
+      expect(props.updateTriggers.getCollisionBox, id).toBeDefined();
+    }
+  });
+
   it("stacks the label layers as the map draws them, the lowest first", () => {
     const stacks = labelStacks(["towns", "temperatures"]);
     expect(stacks.get("towns")).toEqual(placed(0, 2));

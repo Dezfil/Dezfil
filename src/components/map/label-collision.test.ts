@@ -1,6 +1,13 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { collisionPriority, collisionTag, labelCollisionUniforms } from "./label-collision";
+import { UNIT } from "@deck.gl/core";
+import {
+  LabelCollisionExtension,
+  collisionPriority,
+  collisionTag,
+  labelCollisionModule,
+  labelCollisionUniforms,
+} from "./label-collision";
 
 describe("the shared overlap test's rules", () => {
   it("gives each layer of a stack its own band, the upper above the lower, none past deck's range", () => {
@@ -32,6 +39,30 @@ describe("the shared overlap test's rules", () => {
     expect(drawn).toMatchObject({ enabled: true, sort: false, collision_texture: texture });
     const drawing = labelCollisionUniforms({ enabled: true, collisionFBO: { colorAttachments: [texture] }, drawToCollisionMap: true, dummyCollisionMap: dummy });
     expect(drawing).toMatchObject({ enabled: false, sort: true, collision_texture: dummy });
+  });
+
+  it("tests a label at the size, turn and offset it is drawn with", () => {
+    const set: { collision: Parameters<typeof labelCollisionUniforms>[0] }[] = [];
+    const layer = {
+      props: {
+        collisionTag: 3, getSize: 12, getAngle: 30, getPixelOffset: [12, -4],
+        sizeScale: 1, sizeUnits: "meters", sizeMinPixels: 2, sizeMaxPixels: 48, fontSize: 64,
+      },
+      setShaderModuleProps: (props: (typeof set)[number]) => set.push(props),
+    };
+    LabelCollisionExtension.prototype.draw.call(layer as never, { shaderModuleProps: {} });
+    expect(labelCollisionUniforms(set[0].collision)).toEqual({
+      tag: 3 / 255, size: 12, angle: 30, pixelOffset: [12, -4],
+      sizeScale: 1, sizeUnits: UNIT.meters, sizeMinPixels: 2, sizeMaxPixels: 48, fontSize: 64,
+    });
+  });
+
+  it("draws a label whole or not at all: nothing scales its ink by how much of it is clear", () => {
+    const injected = Object.values(labelCollisionModule.inject)
+      .map((i) => (typeof i === "string" ? i : i.injection))
+      .join("\n");
+    expect(injected).not.toMatch(/color\.a\s*\*=/);
+    expect(labelCollisionModule.vs).not.toMatch(/\bpow\(/);
   });
 
   it("carries deck.gl's notice, and NOTICE credits it", () => {

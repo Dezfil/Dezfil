@@ -57,13 +57,13 @@ function spikeMode(): "always-draw" | "cap300" | null {
 /**
  * The overlap test's footprint for a label: its whole box, not its glyphs.
  *
- * The collision pass draws each label's footprint and then asks, at the
- * label's anchor alone, whose footprint is there. Drawn from the glyphs, the
- * footprint has holes wherever there is no ink, and a centred label's anchor
- * often falls in one, the space in "Gatsibo · 21.4%": the label then finds
- * no footprint of its own at its anchor and is culled, or faded where the
- * hole's edge is near, with nothing else anywhere near it. A transparent
- * background box fills the footprint; it draws nothing on the map.
+ * The collision pass draws each label's footprint and then asks, all over
+ * the label's box, whose footprint is there (see label-collision.ts). Drawn
+ * from the glyphs, the footprint has holes wherever there is no ink, the
+ * space in "Gatsibo · 21.4%": the label would find no footprint of its own
+ * there and be culled with nothing else anywhere near it, and a higher-ranked
+ * label's holes would let others through. A transparent background box fills
+ * the footprint; it draws nothing on the map.
  *
  * Nor may it hide anything. A transparent box still writes depth where the
  * map is drawn, at the depth of the label's point, and on a pitched map the

@@ -51,6 +51,14 @@ import { decodePng, type DecodedImage } from "./png-codec";
  *   Minard wrote beside them, in red, the two lists in the same order. At
  *   each place one label is drawn, the upper layer's, with no blue anywhere
  *   near it, not even faint; a town no temperature stands at still draws.
+ * - **Whole or not at all, wherever the text sits.** A fourth map: a label
+ *   beside its point (its text starting a few pixels right of it) and one
+ *   above its point, each alone, must be drawn at full ink; the overlap test
+ *   once looked for a label at its point, which the first box does not hold
+ *   and the second holds only on its edge. And a row of labels each partly
+ *   under an upper layer's label, stepped a pixel further down each time
+ *   across the edge of that label's space: each is drawn at full ink or not
+ *   at all, never pale. One far enough below still draws.
  *
  * Provisioning as the map check's real-render proofs:
  * DEZFIL_MAP_LOOK_RENDER names the standalone's port; DEZFIL_DATA_DIR is the
@@ -142,6 +150,15 @@ const ALONE = { x: 512, y: 420, town: "Smolensk" };
 /** Any trace of blue over the neutral basemap, however faint. */
 const bluish = (r: number, g: number, b: number) => b - Math.max(r, g) > 12;
 
+/** The fourth map: a label whose text starts right of its point, and one
+ * standing above its point. */
+const BESIDE = { x: 150, y: 120, label: "Beside", offsetX: 12 };
+const ABOVE = { x: 150, y: 300, label: "Above" };
+/** Labels just under an upper layer's label (both at full density, so a
+ * label's space is its box), each a pixel further down; the last clear of it. */
+const HOLDER_Y = 400;
+const STEPS = [14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 40].map((below, i) => ({ x: 50 + 92 * i, below }));
+
 const invisibleMarks = (label: LayerStyle["label"]): LayerStyle => ({
   fill: { type: "constant", color: rgba([0, 0, 0]) }, fillOpacity: 0,
   stroke: rgba([0, 0, 0]), strokeOpacity: 0, strokeWidth: 0, pointRadius: 1, opacity: 1,
@@ -155,6 +172,7 @@ describe.skipIf(!port)("labels in the server's image export", () => {
   let image: DecodedImage;
   let pitched: DecodedImage;
   let twoLayers: DecodedImage;
+  let placement: DecodedImage;
   const revision = () => readDocumentRevision({ kind: "map", id: mapId })?.editRevision;
   const credential = () => delegateCredential(requireRequestAuth(authenticatedRequest()));
 
@@ -293,6 +311,17 @@ describe.skipIf(!port)("labels in the server's image export", () => {
       { name: "Towns", dataset: towns, label: plain(BLUE) },
       { name: "Temperatures", dataset: temperatures, label: plain(RED) },
     ]);
+
+    const partly = await write("partly", STEPS.map((s) => point(s.x, HOLDER_Y + s.below, { text: "MM" })));
+    const holders = await write("holders", STEPS.map((s) => point(s.x, HOLDER_Y, { text: "MM" })));
+    const beside = await write("beside", [point(BESIDE.x, BESIDE.y, { text: BESIDE.label })]);
+    const above = await write("above", [point(ABOVE.x, ABOVE.y, { text: ABOVE.label })]);
+    placement = await flatMap("Label placement", [
+      { name: "Partly", dataset: partly, label: { ...plain(BLUE), density: 1 } },
+      { name: "Holders", dataset: holders, label: { ...plain(RED), density: 1 } },
+      { name: "Beside", dataset: beside, label: { ...plain(GREEN), anchor: "right", offsetX: BESIDE.offsetX } },
+      { name: "Above", dataset: above, label: { ...plain(GREEN), anchor: "top" } },
+    ]);
   }, 180_000);
   afterAll(async () => {
     (process as unknown as Record<symbol, unknown>)[SIGNING_KEY] = heldKey;
@@ -352,6 +381,32 @@ describe.skipIf(!port)("labels in the server's image export", () => {
       expect(pixels(twoLayers, around, bluish).length, c.town).toBe(0);
     }
     expect(pixels(twoLayers, box(ALONE.x, ALONE.y, 120, 26), near(BLUE)).length, ALONE.town).toBeGreaterThan(150);
+  });
+
+  it("draws a label beside its point, and one above it, at full ink", () => {
+    // The text starts right of the point: its box lies wholly beside it.
+    const beside = pixels(placement, { x0: BESIDE.x, y0: BESIDE.y - 20, x1: BESIDE.x + 160, y1: BESIDE.y + 20 }, near(GREEN));
+    expect(beside.length).toBeGreaterThan(150);
+    expect(Math.min(...beside.map(([x]) => x))).toBeGreaterThanOrEqual(BESIDE.x + BESIDE.offsetX - 2);
+    // The text stands on the point: its box's lower edge is the point.
+    const above = pixels(placement, { x0: ABOVE.x - 80, y0: ABOVE.y - 34, x1: ABOVE.x + 80, y1: ABOVE.y + 4 }, near(GREEN));
+    expect(above.length).toBeGreaterThan(150);
+    expect(Math.max(...above.map(([, y]) => y))).toBeLessThanOrEqual(ABOVE.y + 2);
+  });
+
+  it("draws a partly contested label whole or not at all, never pale", () => {
+    for (const s of STEPS) {
+      // The upper layer's label is drawn whole.
+      expect(pixels(placement, box(s.x, HOLDER_Y, 40, 12), near(RED)).length, `holder over ${s.below}`).toBeGreaterThan(100);
+      // Below the holder's ink, the lower label's own rows.
+      const rows = { x0: s.x - 40, y0: HOLDER_Y + 11, x1: s.x + 40, y1: HOLDER_Y + s.below + 12 };
+      const whole = pixels(placement, rows, near(BLUE)).length;
+      const traced = pixels(placement, rows, bluish).length;
+      expect(whole > 30 || traced === 0, `${s.below} px below: ${whole} pixels at full ink of ${traced} tinted`).toBe(true);
+    }
+    // Clear of the holder's space, the lower label draws.
+    const clear = STEPS[STEPS.length - 1];
+    expect(pixels(placement, box(clear.x, HOLDER_Y + clear.below, 40, 12), near(BLUE)).length).toBeGreaterThan(100);
   });
 
   it("draws labels in a proportional face: the i's well under half the M's width", () => {
