@@ -57,6 +57,33 @@ describe("the shared overlap test's rules", () => {
     });
   });
 
+  it("reads a label's box at points close enough that no label's space fits between them, and boundedly many", () => {
+    // The grid the shader lays over a box, from its own constants: as many
+    // points as keep them the spacing apart, up to the caps, each at the
+    // middle of an equal cell.
+    const constant = (name: string) => Number(new RegExp(`${name} = ([0-9.]+)`).exec(labelCollisionModule.vs)?.[1]);
+    const spacing = constant("COLLISION_SPACING");
+    const columns = constant("COLLISION_COLUMNS");
+    const rows = constant("COLLISION_ROWS");
+    const points = (extent: number, cap: number) => {
+      const cells = Math.min(cap, Math.max(1, Math.ceil(extent / spacing)));
+      return Array.from({ length: cells }, (_, i) => ((i + 0.5) * extent) / cells);
+    };
+    const reaches = (at: number[], from: number, to: number) => at.some((p) => p >= from && p <= to);
+    // A centred box 384 pixels wide and a line tall: a space 4 pixels wide
+    // and tall anywhere over it holds a point, its middle included.
+    const across = points(384, columns);
+    const down = points(16, rows);
+    expect(reaches(across, 190, 194), "its middle").toBe(true);
+    for (let x = 0; x + 4 <= 384; x += 1) expect(reaches(across, x, x + 4), `across at ${x}`).toBe(true);
+    for (let y = 0; y + 4 <= 16; y += 1) expect(reaches(down, y, y + 4), `down at ${y}`).toBe(true);
+    // So does every box up to 512 pixels wide and 32 tall.
+    for (const extent of [8, 60, 200, 384, 512]) expect(Math.max(...points(extent, columns).map((p, i, all) => (i ? p - all[i - 1] : 2 * p)))).toBeLessThanOrEqual(4);
+    for (const extent of [8, 16, 24, 32]) expect(Math.max(...points(extent, rows).map((p, i, all) => (i ? p - all[i - 1] : 2 * p)))).toBeLessThanOrEqual(4);
+    // And no box asks for more than 1,024 points.
+    expect(columns * rows).toBeLessThanOrEqual(1024);
+  });
+
   it("draws a label whole or not at all: nothing scales its ink by how much of it is clear", () => {
     const injected = Object.values(labelCollisionModule.inject)
       .map((i) => (typeof i === "string" ? i : i.injection))

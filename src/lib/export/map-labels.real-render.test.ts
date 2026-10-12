@@ -59,6 +59,11 @@ import { decodePng, type DecodedImage } from "./png-codec";
  *   under an upper layer's label, stepped a pixel further down each time
  *   across the edge of that label's space: each is drawn at full ink or not
  *   at all, never pale. One far enough below still draws.
+ * - **A short label inside a wide one's box.** A fifth map: a wide label,
+ *   and at its middle, in a layer above it, a short one, both claiming no
+ *   more than their boxes. The short one is drawn and the wide one is not:
+ *   the overlap test reads the wide box at points close enough together
+ *   that the short label's space cannot fall between them.
  *
  * Provisioning as the map check's real-render proofs:
  * DEZFIL_MAP_LOOK_RENDER names the standalone's port; DEZFIL_DATA_DIR is the
@@ -158,6 +163,9 @@ const ABOVE = { x: 150, y: 300, label: "Above" };
  * label's space is its box), each a pixel further down; the last clear of it. */
 const HOLDER_Y = 400;
 const STEPS = [14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 40].map((below, i) => ({ x: 50 + 92 * i, below }));
+/** The fifth map: a label some 400 pixels wide, and a short one at its middle. */
+const LONG = { x: 512, y: 320, label: "WWWWWWWWWWWW" };
+const SHORT = { x: 512, y: 320, label: "0" };
 
 const invisibleMarks = (label: LayerStyle["label"]): LayerStyle => ({
   fill: { type: "constant", color: rgba([0, 0, 0]) }, fillOpacity: 0,
@@ -173,6 +181,7 @@ describe.skipIf(!port)("labels in the server's image export", () => {
   let pitched: DecodedImage;
   let twoLayers: DecodedImage;
   let placement: DecodedImage;
+  let wideAndShort: DecodedImage;
   const revision = () => readDocumentRevision({ kind: "map", id: mapId })?.editRevision;
   const credential = () => delegateCredential(requireRequestAuth(authenticatedRequest()));
 
@@ -322,6 +331,13 @@ describe.skipIf(!port)("labels in the server's image export", () => {
       { name: "Beside", dataset: beside, label: { ...plain(GREEN), anchor: "right", offsetX: BESIDE.offsetX } },
       { name: "Above", dataset: above, label: { ...plain(GREEN), anchor: "top" } },
     ]);
+
+    const long = await write("long", [point(LONG.x, LONG.y, { text: LONG.label })]);
+    const short = await write("short", [point(SHORT.x, SHORT.y, { text: SHORT.label })]);
+    wideAndShort = await flatMap("A wide label and a short one", [
+      { name: "Wide", dataset: long, label: { ...plain(BLUE), density: 1 } },
+      { name: "Short", dataset: short, label: { ...plain(RED), size: 14, weight: "bold", density: 1 } },
+    ]);
   }, 180_000);
   afterAll(async () => {
     (process as unknown as Record<symbol, unknown>)[SIGNING_KEY] = heldKey;
@@ -407,6 +423,11 @@ describe.skipIf(!port)("labels in the server's image export", () => {
     // Clear of the holder's space, the lower label draws.
     const clear = STEPS[STEPS.length - 1];
     expect(pixels(placement, box(clear.x, HOLDER_Y + clear.below, 40, 12), near(BLUE)).length).toBeGreaterThan(100);
+  });
+
+  it("hides a wide label whose middle a short, higher-ranked label takes", () => {
+    expect(pixels(wideAndShort, box(SHORT.x, SHORT.y, 12, 12), near(RED)).length, SHORT.label).toBeGreaterThan(10);
+    expect(pixels(wideAndShort, box(LONG.x, LONG.y, 240, 24), bluish).length, LONG.label).toBe(0);
   });
 
   it("draws labels in a proportional face: the i's well under half the M's width", () => {

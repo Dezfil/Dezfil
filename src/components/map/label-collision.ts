@@ -133,11 +133,14 @@ layout(std140) uniform collisionUniforms {
   vec2 pixelOffset;
 } collision;
 
-// At most this many points across a box and down it, and as many as keep
-// them this many pixels apart.
-const int COLLISION_COLUMNS = 16;
-const int COLLISION_ROWS = 4;
-const float COLLISION_SPACING = 6.0;
+// Points at most 4 pixels apart: any space at least that wide and tall that
+// another label claims over the box holds one (the collision map resolves 2
+// pixels on a plain screen, 1 on a dense one). A box up to 512 by 32 pixels
+// keeps that spacing; a larger one spreads its 128 by 8 points, so no box is
+// read at more than 1,024 points.
+const int COLLISION_COLUMNS = 128;
+const int COLLISION_ROWS = 8;
+const float COLLISION_SPACING = 4.0;
 
 // A label's identity in the collision map: its picking colour, its index in
 // its own layer, and its layer's tag in the alpha.
