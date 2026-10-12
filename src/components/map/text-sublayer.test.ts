@@ -1,4 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { _LayersPass as LayersPass, type Layer } from "@deck.gl/core";
+import { CollisionFilterExtension } from "@deck.gl/extensions";
 import type { LabelStyle } from "@/lib/style/style";
 import type { LabeledFeature } from "@/lib/style/deck-style";
 import type { ClusterBubble } from "@/lib/cluster";
@@ -43,6 +45,54 @@ describe("the overlap test's footprint", () => {
     vi.stubGlobal("window", { __DEZFIL_LABEL_SPIKE__: "always-draw" });
     const layer = textSublayer("districts:labels", [feature("Gatsibo")], LABEL, null, null, 1, 1, FACE);
     expect(layer.props.background).toBe(false);
+  });
+});
+
+/** The draw parameters deck's own passes give a layer with these props:
+ * the normal pass, and the collision pass the overlap test draws in,
+ * reached through the extension's own effect. */
+type ParameterPass = { getLayerParameters(layer: Layer, index: number, viewport: unknown): unknown };
+
+function passParameters(props: Record<string, unknown>) {
+  const device = { createTexture: () => ({}) } as never;
+  let effect: { setup(context: unknown): void; collisionFilterPass: ParameterPass } | undefined;
+  const extension = new CollisionFilterExtension();
+  extension.initializeState.call(
+    {
+      getAttributeManager: () => ({ add: () => undefined }),
+      context: { deck: { _addDefaultEffect: (added: typeof effect) => { effect = added; } } },
+    } as never,
+    {} as never,
+    extension,
+  );
+  effect!.setup({ device });
+  const layer = { props } as unknown as Layer;
+  return {
+    normal: (new LayersPass(device) as unknown as ParameterPass).getLayerParameters(layer, 0, null) as Record<string, unknown> | undefined,
+    collision: effect!.collisionFilterPass.getLayerParameters(layer, 0, null) as Record<string, unknown>,
+  };
+}
+
+/** A sublayer's props as the label layer hands them down. */
+const subLayerProps = (layer: ReturnType<typeof textSublayer>, id: "background" | "characters") =>
+  (layer as unknown as { getSubLayerProps(props: { id: string }): Record<string, unknown> }).getSubLayerProps({ id });
+
+describe("the footprint's box on the map", () => {
+  // Invisible, the box must hide nothing either: drawn writing depth, it
+  // would keep whatever is drawn after it and lies behind the label's point
+  // from showing through it on a pitched map.
+  it("writes no depth where the map is drawn, and still does where the overlap test draws", () => {
+    const layer = textSublayer("districts:labels", [feature("Gatsibo")], LABEL, null, null, 1, 1, FACE);
+    const box = passParameters(subLayerProps(layer, "background"));
+    expect(box.normal?.depthWriteEnabled).toBe(false);
+    expect(box.collision.depthWriteEnabled).toBe(true);
+  });
+
+  it("leaves the glyphs as they were: they keep their depth where they have ink", () => {
+    const layer = textSublayer("districts:labels", [feature("Gatsibo")], LABEL, null, null, 1, 1, FACE);
+    const glyphs = passParameters(subLayerProps(layer, "characters"));
+    expect(glyphs.normal?.depthWriteEnabled).toBeUndefined();
+    expect(glyphs.collision.depthWriteEnabled).toBe(true);
   });
 });
 

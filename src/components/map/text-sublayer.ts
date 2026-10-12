@@ -57,10 +57,19 @@ function spikeMode(): "always-draw" | "cap300" | null {
  * no footprint of its own at its anchor and is culled, or faded where the
  * hole's edge is near, with nothing else anywhere near it. A transparent
  * background box fills the footprint; it draws nothing on the map.
+ *
+ * Nor may it hide anything. A transparent box still writes depth where the
+ * map is drawn, at the depth of the label's point, and on a pitched map the
+ * ground behind that point lies farther away: a layer drawn after the label
+ * would then not be drawn there, leaving a box-shaped hole. So the box writes
+ * no depth on the map. The overlap test draws with its own parameters, depth
+ * included, so the footprint it reads is unchanged; the glyphs keep theirs.
+ * The box takes no other parameters from the label layer, which sets none.
  */
 export const COLLISION_FOOTPRINT = {
   background: true,
   getBackgroundColor: [0, 0, 0, 0] as [number, number, number, number],
+  _subLayerProps: { background: { parameters: { depthWriteEnabled: false } } },
 };
 
 /** GPU windowing props for a live-filtered layer,

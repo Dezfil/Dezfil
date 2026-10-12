@@ -24,7 +24,7 @@ import { decodePng, type DecodedImage } from "./png-codec";
  * loopback fixture. Every label stands alone, far from every other, so each
  * one must be drawn whole and at full strength.
  *
- * Three probes, each stated from the fixture alone:
+ * The probes, each stated from the fixture alone:
  *
  * - **A label whose middle is a gap.** "HHHH    HHHH" is symmetric, so its
  *   anchor falls between the two words in any face. The overlap test samples
@@ -40,6 +40,12 @@ import { decodePng, type DecodedImage } from "./png-codec";
  * - **Thinning still thins.** Two labels drawn over each other: the one
  *   ranked first is drawn, the other is not, so the footprint repair cannot
  *   pass by switching the overlap test off.
+ * - **The footprint hides nothing.** A second map, pitched, looks at a label
+ *   standing on its point with its box wholly above it, over ground a layer
+ *   drawn after it fills. On a pitched map that ground lies farther away
+ *   than the point, so a box writing depth would keep it from being drawn
+ *   there and leave a hole of basemap. The label's own ink is transparent,
+ *   so all there is to see is that ground.
  *
  * Provisioning as the map check's real-render proofs:
  * DEZFIL_MAP_LOOK_RENDER names the standalone's port; DEZFIL_DATA_DIR is the
@@ -113,6 +119,13 @@ const WIDE = { x: 700, y: 520, label: "MMMMMMMMMM" };
 const FIRST = { x: 260, y: 420, label: "WWWWWWWW", rank: 2 };
 const SECOND = { x: 330, y: 420, label: "WWWWWWWW", rank: 1 };
 
+/** The pitched map: its centre is the label's point, the image's centre. */
+const PITCHED = { zoom: 14, pitch: 60, x: 512, y: 320 };
+const PURPLE = [140, 40, 160] as const;
+/** The box of an eight-letter label at 48 pixels, standing on its point: as
+ * wide as its letters, a line tall, wholly above the point. */
+const STANDING = { label: "OOOOOOOO", size: 48 };
+
 const invisibleMarks = (label: LayerStyle["label"]): LayerStyle => ({
   fill: { type: "constant", color: rgba([0, 0, 0]) }, fillOpacity: 0,
   stroke: rgba([0, 0, 0]), strokeOpacity: 0, strokeWidth: 0, pointRadius: 1, opacity: 1,
@@ -124,6 +137,7 @@ describe.skipIf(!port)("labels in the server's image export", () => {
   let basemap: Awaited<ReturnType<typeof startLoopbackBasemap>>;
   let heldKey: unknown;
   let image: DecodedImage;
+  let pitched: DecodedImage;
   const revision = () => readDocumentRevision({ kind: "map", id: mapId })?.editRevision;
   const credential = () => delegateCredential(requireRequestAuth(authenticatedRequest()));
 
@@ -200,7 +214,39 @@ describe.skipIf(!port)("labels in the server's image export", () => {
     });
     if (response.status !== 200) throw new Error(`The image export answered ${response.status}: ${await response.text()}`);
     image = decodePng(new Uint8Array(await response.arrayBuffer()));
-  }, 120_000);
+
+    // The pitched map: the standing label first, the ground after it.
+    const standing = await write("standing", [{ type: "Feature", properties: { text: STANDING.label }, geometry: { type: "Point", coordinates: [LNG0, LAT0] } }]);
+    const ring = [[LNG0 - 0.05, LAT0], [LNG0 + 0.05, LAT0], [LNG0 + 0.05, LAT0 + 0.05], [LNG0 - 0.05, LAT0 + 0.05], [LNG0 - 0.05, LAT0]];
+    const ground = await write("ground", [{ type: "Feature", properties: {}, geometry: { type: "Polygon", coordinates: [ring] } }]);
+    const pitchedId = createMap(testAccountScope(), "Pitched labels").id;
+    const pitchedRevision = () => readDocumentRevision({ kind: "map", id: pitchedId })?.editRevision;
+    updateMap(testAccountScope(), pitchedId, {
+      viewport: { lng: LNG0, lat: LAT0, zoom: PITCHED.zoom, pitch: PITCHED.pitch, bearing: 0 },
+      customBasemap: { url: basemap.styleUrl, name: "Loopback", attribution: [{ label: "Loopback fixture" }] },
+      legendCorner: "bottom-left",
+    }, { expectedRevision: pitchedRevision() });
+    await createLayer(testAccountScope(), pitchedId, {
+      name: "Standing",
+      sql: `SELECT * FROM ${standing}`,
+      style: invisibleMarks({ attribute: "text", size: STANDING.size, color: rgba(BLUE, 0), haloWidth: 0, haloColor: rgba([0, 0, 0], 0), anchor: "top" }),
+    }, { expectedRevision: pitchedRevision() });
+    await createLayer(testAccountScope(), pitchedId, {
+      name: "Ground",
+      sql: `SELECT * FROM ${ground}`,
+      style: {
+        fill: { type: "constant", color: rgba(PURPLE) }, fillOpacity: 1,
+        stroke: rgba(PURPLE), strokeOpacity: 0, strokeWidth: 0, pointRadius: 4, opacity: 1,
+      },
+    }, { expectedRevision: pitchedRevision() });
+    const pitchedResponse = await fetch(`http://127.0.0.1:${port}/api/maps/${pitchedId}/export/image`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${credential()}`, "content-type": "application/json" },
+      body: JSON.stringify({ definition: lookDefinition(mapWithLayers(testAccountScope(), pitchedId), "light") }),
+    });
+    if (pitchedResponse.status !== 200) throw new Error(`The image export answered ${pitchedResponse.status}: ${await pitchedResponse.text()}`);
+    pitched = decodePng(new Uint8Array(await pitchedResponse.arrayBuffer()));
+  }, 180_000);
   afterAll(async () => {
     (process as unknown as Record<symbol, unknown>)[SIGNING_KEY] = heldKey;
     await basemap?.close();
@@ -238,6 +284,17 @@ describe.skipIf(!port)("labels in the server's image export", () => {
     expect(green.length).toBeGreaterThan(150);
     const xs = green.map(([x]) => x);
     expect(Math.abs((Math.min(...xs) + Math.max(...xs)) / 2 - FIRST.x)).toBeLessThan(6);
+  });
+
+  it("draws a later layer's ground through an invisible label box on a pitched map", () => {
+    const share = (region: Region) => {
+      const area = (region.x1 - region.x0) * (region.y1 - region.y0);
+      return pixels(pitched, region, near(PURPLE)).length / area;
+    };
+    // Beside the box the ground is drawn: a render, and the ground is there.
+    expect(share({ x0: PITCHED.x + 220, y0: PITCHED.y - 40, x1: PITCHED.x + 320, y1: PITCHED.y - 8 }), "beside the box").toBeGreaterThan(0.95);
+    // Behind the box, where its letters would be, the same ground.
+    expect(share({ x0: PITCHED.x - 100, y0: PITCHED.y - 40, x1: PITCHED.x + 100, y1: PITCHED.y - 8 }), "behind the box").toBeGreaterThan(0.95);
   });
 
   it("draws labels in a proportional face: the i's well under half the M's width", () => {
