@@ -13,12 +13,16 @@ import type { TemplateFacts } from "./format";
  * no-redistribution clause; anything else (a non-commercial or
  * no-derivatives licence, a proprietary one, a name this list does not
  * hold) is refused. A new source under a licence missing here joins the
- * list by a change that says why it qualifies.
+ * list by a change that says why it qualifies. One name is admitted by
+ * decision rather than by its terms alone, since its terms ask permission
+ * for commercial reuse; its line says so, and so does the credit of a
+ * template under it.
  *
  * Each name is SPDX's identifier where SPDX lists the terms. Open terms it
  * does not list (a city's open-data law, a national port of a Creative
- * Commons licence) take a `LicenseRef-` name, as SPDX writes a licence of
- * its own, with the terms and their address beside it.
+ * Commons licence, a publisher's or a programme's own terms) take a
+ * `LicenseRef-` name, as SPDX writes a licence of its own, with the terms
+ * and their address beside it.
  */
 export const REDISTRIBUTABLE_LICENCES: readonly string[] = [
   "CC0-1.0",
@@ -50,6 +54,14 @@ export const REDISTRIBUTABLE_LICENCES: readonly string[] = [
   "LicenseRef-NYC-Open-Data-Law",
   // Creative Commons Attribution 2.5 Argentina, a port SPDX does not list: https://creativecommons.org/licenses/by/2.5/ar/
   "LicenseRef-CC-BY-2.5-AR",
+  // The BSD 3-Clause licence, whose copyright notice, three conditions and disclaimer must travel with the data wherever it goes: https://opensource.org/license/bsd-3-clause
+  "BSD-3-Clause",
+  // The IMF's copyright and usage terms for its statistical data: copying, derivative works, publishing and distributing are allowed, and commercial reuse asks the IMF's permission (copyright@imf.org); admitted by decision, and a template under them says so in its credit: https://www.imf.org/en/About/copyright-and-terms
+  "LicenseRef-IMF-Copyright-and-Usage",
+  // The Copernicus data policy, Regulation (EU) 2021/696 and Delegated Regulation (EU) No 1159/2013: free, full and open access, reproduction, distribution, adaptation and combination worldwide with no commercial limit, the source named and any change stated; as the emergency mapping service applies it: https://mapping.emergency.copernicus.eu/terms-and-conditions/
+  "LicenseRef-Copernicus-Data-Policy",
+  // Natural Earth's terms of use: its map data is in the public domain, to use in any manner, modified or commercially: https://www.naturalearthdata.com/about/terms-of-use/
+  "LicenseRef-Natural-Earth",
 ];
 
 /** The first source whose licence the list does not admit, worded for the
