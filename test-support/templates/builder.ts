@@ -380,18 +380,24 @@ const manifest = (files: TemplateFiles) => files.documents.get(MANIFEST_FILE)!;
 const factSteps = (files: TemplateFiles) =>
   facts(files).steps as { id: string; operation: string; output: string; reads: string[] }[];
 
+/** An edit putting the first source under another licence, its credit
+ * note naming that licence in place of the fixture's. */
+export function underLicence(licence: string) {
+  return (files: TemplateFiles) => {
+    const sources = facts(files).sources as { licence: string }[];
+    sources[0].licence = licence;
+    const note = (map(files).widgets as Record<string, unknown>[]).find((w) => w.type === "note")!;
+    note.note = (note.note as string).replace(FIXTURE_SOURCES[0].licence, licence);
+  };
+}
+
 /**
  * Named seeds, each one fault of the admission's, for a test to build a
  * fixture that must be refused. Workflow seeds need a workflow example.
  */
 export const SEEDS = {
   /** A source under a non-commercial licence, credited as such. */
-  nonCommercialLicence: (files: TemplateFiles) => {
-    const sources = facts(files).sources as { licence: string }[];
-    sources[0].licence = "CC-BY-NC-4.0";
-    const note = (map(files).widgets as Record<string, unknown>[]).find((w) => w.type === "note")!;
-    note.note = (note.note as string).replace(FIXTURE_SOURCES[0].licence, "CC-BY-NC-4.0");
-  },
+  nonCommercialLicence: underLicence("CC-BY-NC-4.0"),
   /** A credit note naming one source of two. */
   missingCredit: (files: TemplateFiles) => {
     const note = (map(files).widgets as Record<string, unknown>[]).find((w) => w.type === "note")!;

@@ -14,6 +14,11 @@ import type { TemplateFacts } from "./format";
  * no-derivatives licence, a proprietary one, a name this list does not
  * hold) is refused. A new source under a licence missing here joins the
  * list by a change that says why it qualifies.
+ *
+ * Each name is SPDX's identifier where SPDX lists the terms. Open terms it
+ * does not list (a city's open-data law, a national port of a Creative
+ * Commons licence) take a `LicenseRef-` name, as SPDX writes a licence of
+ * its own, with the terms and their address beside it.
  */
 export const REDISTRIBUTABLE_LICENCES: readonly string[] = [
   "CC0-1.0",
@@ -39,6 +44,12 @@ export const REDISTRIBUTABLE_LICENCES: readonly string[] = [
   "CDLA-Permissive-1.0",
   "CDLA-Permissive-2.0",
   "CDLA-Sharing-1.0",
+  // The Public Domain Mark, for works free of known copyright such as old maps: https://creativecommons.org/publicdomain/mark/1.0/
+  "CC-PDM-1.0",
+  // New York City's open-data law, Administrative Code § 23-502(d), no licence or restriction on use; the code's text at https://nyc-laws.readthedocs.io/en/latest/nycadmincode/t23/c05/
+  "LicenseRef-NYC-Open-Data-Law",
+  // Creative Commons Attribution 2.5 Argentina, a port SPDX does not list: https://creativecommons.org/licenses/by/2.5/ar/
+  "LicenseRef-CC-BY-2.5-AR",
 ];
 
 /** The first source whose licence the list does not admit, worded for the

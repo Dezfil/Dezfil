@@ -12,12 +12,14 @@ import { SHIPPED_TEMPLATES_MAX_BYTES, TEMPLATE_ARCHIVE_MAX_BYTES, type TemplateF
 import { installTemplateArchive } from "./install";
 import { NOTICE_NONE_LINE, noticeProblems } from "./notice";
 import { TemplateRefusal, type TemplateRefusalCode } from "./refusals";
+import { REDISTRIBUTABLE_LICENCES } from "./rules";
 import { checkShippedSet, shippedTemplatesDir } from "./shipped";
 import {
   FIXTURE_SOURCES,
   SEEDS,
   buildTemplate,
   installFixture,
+  underLicence,
   writeShippedFolder,
   type TemplateFixtureOptions,
 } from "../../../test-support/templates/builder";
@@ -244,6 +246,26 @@ describe("the rules every template must meet", () => {
       },
     });
     expect(code).toBe("template_credit_missing");
+  });
+});
+
+describe("the open terms a template's data may be under", () => {
+  // Terms a decided template's data is published under that are no
+  // standard licence, each admitted by name and credited as such.
+  it.each([
+    ["New York City's open-data law", "LicenseRef-NYC-Open-Data-Law"],
+    ["Creative Commons Attribution 2.5 Argentina", "LicenseRef-CC-BY-2.5-AR"],
+    ["the Public Domain Mark", "CC-PDM-1.0"],
+  ])("admits %s, as %s", async (_terms, licence) => {
+    expect(await ruleFailed({ edit: underLicence(licence) })).toBeNull();
+  });
+
+  it.each(["CC-BY-NC-4.0", "CC-BY-NC-2.5", "CC-BY-NC-SA-2.5"])("still refuses a non-commercial licence, %s", async (licence) => {
+    expect(await ruleFailed({ edit: underLicence(licence) })).toBe("template_licence_refused");
+  });
+
+  it("holds no non-commercial or no-derivatives licence", () => {
+    expect(REDISTRIBUTABLE_LICENCES.filter((name) => /-(NC|ND)(-|$)/.test(name))).toEqual([]);
   });
 });
 
