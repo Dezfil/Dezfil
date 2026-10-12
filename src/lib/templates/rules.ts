@@ -31,6 +31,8 @@ export const REDISTRIBUTABLE_LICENCES: readonly string[] = [
   "CC-BY-2.0",
   "CC-BY-2.5",
   "CC-BY-3.0",
+  // Creative Commons Attribution 3.0 United States, the US port of the same attribution-only terms: https://creativecommons.org/licenses/by/3.0/us/
+  "CC-BY-3.0-US",
   "CC-BY-4.0",
   "CC-BY-SA-2.0",
   "CC-BY-SA-2.5",
