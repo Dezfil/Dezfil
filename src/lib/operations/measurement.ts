@@ -20,10 +20,10 @@ import { CANONICAL_CRS } from "@/lib/crs";
  * recorded.
  *
  * **The refusal has to be ours.** The engine does not object to a transform far
- * outside a zone: a point 113° away projects into it happily and returns a
- * plausible-looking coordinate, and so does one beyond the projection's own
- * latitude band. Nothing downstream will notice, which is why the coverage
- * check is made here, before any SQL is generated.
+ * from a projection's centre: a point 113° away projects happily and returns a
+ * plausible-looking coordinate whose distances are stretched past use. Nothing
+ * downstream will notice, which is why the width check is made here, before
+ * any SQL is generated.
  */
 
 export type MeasurementKind = "distance" | "area";
@@ -58,29 +58,103 @@ export interface MeasurementCrs {
  */
 export const GLOBAL_EQUAL_AREA = "EPSG:6933";
 
-/** UTM's own latitude band. Beyond it the zone is not defined. */
-const UTM_MAX_LATITUDE = 84;
-const UTM_MIN_LATITUDE = -80;
+/**
+ * The worst distance error a measurement may carry anywhere in its extent.
+ *
+ * One percent: a five-hundred-metre buffer drawn at most five metres off at
+ * the data's far edge, and exact along its middle. Past it the data is too
+ * wide for one projection to measure honestly, and the refusal says how to
+ * split it.
+ */
+export const MAX_DISTANCE_ERROR = 0.01;
 
-export function utmZone(lon: number): number {
-  return Math.min(60, Math.max(1, Math.floor((lon + 180) / 6) + 1));
+/** WGS 84's second eccentricity squared, from its flattening 1/298.257223563. */
+const WGS84_FLATTENING = 1 / 298.257223563;
+const WGS84_E2 = WGS84_FLATTENING * (2 - WGS84_FLATTENING);
+const WGS84_EP2 = WGS84_E2 / (1 - WGS84_E2);
+
+const radians = (degrees: number) => (degrees * Math.PI) / 180;
+
+/**
+ * The transverse Mercator's scale factor at a point, with a scale of one on
+ * the central meridian, on the WGS 84 ellipsoid.
+ *
+ * Snyder, *Map Projections: A Working Manual* (USGS Professional Paper 1395,
+ * 1987), formula 8-11. A distance measured near the point is longer than on
+ * the ground by this factor, so the factor less one is that distance's
+ * relative error. It grows away from the central meridian and towards the
+ * equator, where a degree of longitude is longest.
+ */
+export function transverseMercatorScale(latitude: number, offsetFromCentre: number): number {
+  const phi = radians(latitude);
+  const a = radians(offsetFromCentre) * Math.cos(phi);
+  const t = Math.tan(phi) ** 2;
+  const c = WGS84_EP2 * Math.cos(phi) ** 2;
+  return (
+    1 +
+    ((1 + c) * a ** 2) / 2 +
+    ((5 - 4 * t + 42 * c + 13 * c ** 2 - 28 * WGS84_EP2) * a ** 4) / 24 +
+    ((61 - 148 * t + 16 * t ** 2) * a ** 6) / 720
+  );
 }
 
-/** The band of longitudes a zone covers, in stored coordinates. */
-function zoneBand(zone: number): { west: number; east: number } {
-  const west = -180 + (zone - 1) * 6;
-  return { west, east: west + 6 };
+/** The latitude in an extent where a degree of longitude is longest: the
+ * equator when the extent reaches it, else its edge nearest the equator. */
+function widestLatitude(extent: Extent): number {
+  if (extent.minLat <= 0 && extent.maxLat >= 0) return 0;
+  return Math.min(Math.abs(extent.minLat), Math.abs(extent.maxLat));
 }
 
-function refuse(extent: Extent, reason: string): never {
-  throw new ApiError(
-    "measurement_crs_unavailable",
-    `This data spans ${reason}, and no local projection covers it, so a ` +
-      `distance measured over it would not be in ground metres. Its extent is ` +
-      `longitude ${extent.minLon.toFixed(4)} to ${extent.maxLon.toFixed(4)}, ` +
-      `latitude ${extent.minLat.toFixed(4)} to ${extent.maxLat.toFixed(4)}. ` +
-      `Split it by region and measure each part.`,
-    400,
+/**
+ * The worst relative distance error anywhere in an extent measured in the
+ * transverse Mercator centred on it: the scale factor at its widest point,
+ * which is its east or west edge at the latitude nearest the equator.
+ */
+export function worstDistanceError(extent: Extent): number {
+  const halfWidth = (extent.maxLon - extent.minLon) / 2;
+  return transverseMercatorScale(widestLatitude(extent), halfWidth) - 1;
+}
+
+/** The widest span of longitude, in degrees, that measures within the bound at
+ * this extent's latitudes: what each part of a split may span. */
+function widestHonestSpan(extent: Extent): number {
+  const latitude = widestLatitude(extent);
+  let low = 0;
+  let high = 90;
+  for (let step = 0; step < 50; step += 1) {
+    const middle = (low + high) / 2;
+    if (transverseMercatorScale(latitude, middle) - 1 <= MAX_DISTANCE_ERROR) low = middle;
+    else high = middle;
+  }
+  return 2 * low;
+}
+
+function where(extent: Extent): string {
+  return (
+    `Its extent is longitude ${extent.minLon.toFixed(4)} to ${extent.maxLon.toFixed(4)}, ` +
+    `latitude ${extent.minLat.toFixed(4)} to ${extent.maxLat.toFixed(4)}.`
+  );
+}
+
+function refuse(message: string): never {
+  throw new ApiError("measurement_crs_unavailable", message, 400);
+}
+
+/** The central meridian a measurement centres on, rounded so the recorded
+ * projection reads plainly and reproduces exactly. */
+function centralMeridian(extent: Extent): number {
+  return Math.round(((extent.minLon + extent.maxLon) / 2) * 1e6) / 1e6;
+}
+
+/**
+ * The transverse Mercator centred on a meridian, on the WGS 84 ellipsoid, in
+ * metres, with a scale of one along that meridian: a PROJ definition the
+ * engine transforms into directly and the output's provenance records.
+ */
+export function transverseMercatorAt(meridian: number): string {
+  return (
+    `+proj=tmerc +lat_0=0 +lon_0=${meridian} +k=1 +x_0=0 +y_0=0 ` +
+    `+datum=WGS84 +units=m +no_defs +type=crs`
   );
 }
 
@@ -89,14 +163,22 @@ function refuse(extent: Extent, reason: string): never {
  *
  * **An area is always measured in the global equal-area projection**, which is
  * what the plan's spike answered: measured against the ellipsoid, the global
- * projection is accurate to about 0.001 % at every latitude while a local UTM
- * zone drifts to 0.08 % — because UTM is conformal and preserves shape, not
- * area. Both outcomes were pre-ratified, so this is a measured result rather
- * than a decision taken here. One answer everywhere also means a dataset's area
- * does not change meaning when its extent grows across a zone boundary.
+ * projection is accurate to about 0.001 % at every latitude while a conformal
+ * local projection drifts to 0.08 %, because it preserves shape, not area.
+ * Both outcomes were pre-ratified, so this is a measured result rather than a
+ * decision taken here. One answer everywhere also means a dataset's area does
+ * not change meaning as its extent grows.
  *
- * **A distance takes the local zone or refuses.** No global projection
- * preserves distance everywhere, so there is nothing to fall back to.
+ * **A distance is measured in a transverse Mercator centred on the data's own
+ * extent**, so a city or a country measures wherever it lies: on a fixed
+ * zone's edge (Kigali on 30° E, London on 0°), across the equator, or near a
+ * pole. It is exact along the extent's middle meridian and longer than the
+ * ground towards the east and west edges, so it refuses only an extent too
+ * wide to measure honestly: one where a distance at the widest point would be
+ * off by more than {@link MAX_DISTANCE_ERROR}, and one that crosses the
+ * antimeridian, where the middle of its stored longitudes is the far side of
+ * the earth. No global projection preserves distance everywhere, so there is
+ * nothing to fall back to.
  */
 export function resolveMeasurementCrs(
   extent: Extent,
@@ -104,25 +186,36 @@ export function resolveMeasurementCrs(
 ): MeasurementCrs {
   if (kind === "area") return { crs: GLOBAL_EQUAL_AREA, local: false };
 
-  const fallback = (reason: string): MeasurementCrs => refuse(extent, reason);
-
-  if (extent.maxLat > UTM_MAX_LATITUDE || extent.minLat < UTM_MIN_LATITUDE) {
-    return fallback("latitudes outside the UTM band");
+  const width = extent.maxLon - extent.minLon;
+  if (extent.minLon < -180 || extent.maxLon > 180) {
+    refuse(
+      `This data crosses the antimeridian (longitude 180°), so no one ` +
+        `projection centred on it measures a distance in ground metres. ` +
+        `${where(extent)} Split it at longitude 180° and measure each side.`,
+    );
   }
-  // A dataset straddling the equator has no single hemisphere zone: the
-  // northern and southern halves of a zone are different projections.
-  if (extent.minLat < 0 && extent.maxLat > 0) {
-    return fallback("both hemispheres");
+  if (width > 180) {
+    refuse(
+      `This data spans ${width.toFixed(1)}° of longitude, more than half the ` +
+        `earth, so no one projection centred on it measures a distance in ` +
+        `ground metres. Data crossing the antimeridian (longitude 180°) is ` +
+        `stored like this too. ${where(extent)} Split it by region, at ` +
+        `longitude 180° where it crosses it, and measure each part.`,
+    );
   }
-
-  const zone = utmZone((extent.minLon + extent.maxLon) / 2);
-  const band = zoneBand(zone);
-  if (extent.minLon < band.west || extent.maxLon > band.east) {
-    return fallback("more than one UTM zone");
+  const error = worstDistanceError(extent);
+  if (error > MAX_DISTANCE_ERROR) {
+    refuse(
+      `This data spans ${width.toFixed(1)}° of longitude, too wide to ` +
+        `measure a distance over in one projection: at its widest point a ` +
+        `distance would be off by ${(error * 100).toFixed(2)} %, and the limit ` +
+        `is ${MAX_DISTANCE_ERROR * 100} %. ${where(extent)} Split it by ` +
+        `region into parts spanning at most ` +
+        `${(Math.floor(widestHonestSpan(extent) * 10) / 10).toFixed(1)}° of longitude each, ` +
+        `and measure each part.`,
+    );
   }
-
-  const northern = extent.maxLat >= 0;
-  return { crs: `EPSG:${(northern ? 32600 : 32700) + zone}`, local: true };
+  return { crs: transverseMercatorAt(centralMeridian(extent)), local: true };
 }
 
 /** Parse the engine's own extent text — `BOX(x1 y1, x2 y2)`, longitude first. */

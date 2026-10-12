@@ -13,7 +13,7 @@ import { materialize } from "./materialize";
 import { startRun } from "./run";
 import { startStepRun } from "./step-execution";
 import { laneSettled, resetLane } from "./lane";
-import { resolveMeasurementCrs } from "./measurement";
+import { resolveMeasurementCrs, transverseMercatorAt } from "./measurement";
 import { bufferSql } from "./metric-verbs";
 
 /**
@@ -301,7 +301,7 @@ describe("the same verbs run as recipe steps", () => {
     // And the step's output records where it measured, as a one-off's does.
     const measurement = getTableByName("step_ring")!.sourceParams
       ?.measurement as { crs?: Record<string, string> };
-    expect(measurement?.crs?.distance).toBe("EPSG:32633");
+    expect(measurement?.crs?.distance).toBe(transverseMercatorAt(13.405));
   }, 180_000);
 });
 
@@ -321,7 +321,7 @@ describe("a measurement is pinned to the data it was prepared for", () => {
         // Where it measured, as the lane records it — and J10 that is what
         // makes this refusal the measurement-flavoured one. A run that measured
         // nothing is told plainly that its input changed instead.
-        measurement: { crs: { distance: "EPSG:32633" }, fallback: false },
+        measurement: { crs: { distance: transverseMercatorAt(13.405) }, fallback: false },
         // What the run was compiled for, and not what it will find.
         requireBindings: { berlin: "tables/a-generation-that-is-gone.parquet" },
       }),

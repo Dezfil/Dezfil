@@ -44,11 +44,12 @@ export const JOB_PATHS = {
         "**Measurements are ground metres.** A buffer's radius and a " +
         "measured length are metres on the earth, at the latitude the " +
         "data occupies, never degrees or metres on a map " +
-        "projection. They are measured in a projection resolved from " +
-        "the data's own extent, and the output's provenance records " +
-        "which. Data spanning more than one local projection is " +
+        "projection. They are measured in a transverse Mercator " +
+        "centred on the data's own extent, every input counted, and " +
+        "the output's provenance records it. Data too wide for that to " +
+        "hold within 1 % everywhere, or crossing the antimeridian, is " +
         "**refused** for a distance with `measurement_crs_unavailable`, " +
-        "naming the extent it saw; an **area** over the same data " +
+        "naming its width and extent; an **area** over the same data " +
         "succeeds, because every area is measured in a global " +
         "equal-area projection. An input whose coordinate system was " +
         "assumed rather than declared is measured anyway and the answer " +

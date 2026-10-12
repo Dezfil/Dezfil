@@ -10,6 +10,7 @@ import { getTableByName, updateTableData } from "@/lib/metadata/tables";
 import { jobView } from "./job-view";
 import { startRun } from "./run";
 import { laneSettled, resetLane } from "./lane";
+import { transverseMercatorAt } from "./measurement";
 import { POST as runOperation } from "@/app/api/operations/run/route";
 
 /**
@@ -90,7 +91,7 @@ describe("recorded on the output", () => {
     // A conjunctive claim, so both halves are asserted: a record naming the
     // CRS but not the assumption would let a guessed measurement read as a
     // declared one.
-    expect(measurement?.crs?.distance).toBe("EPSG:32633");
+    expect(measurement?.crs?.distance).toBe(transverseMercatorAt(13.405));
     expect(measurement?.assumedCrs).toEqual(["guessed"]);
   }, 60_000);
 });

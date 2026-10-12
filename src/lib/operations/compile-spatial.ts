@@ -51,10 +51,10 @@ export async function compileSpatialJoin(
  *
  * `ST_Extent` is the *scalar* box of one geometry; `ST_Extent_Agg` is the
  * aggregate over many. Reading the scalar and taking the first row answered a
- * single feature's box, so a dataset spanning three UTM zones presented one,
- * ratified coverage refusal never fired, and every distance in that dataset
- * was measured in whichever zone the first row happened to fall in. Recorded
- * as; this is its repair.
+ * single feature's box, so a dataset spanning a continent presented one
+ * feature's, the width refusal never fired, and every distance in that
+ * dataset was measured in a projection centred on whichever feature came
+ * first. This reads the whole table's.
  *
  * The bounds are read as numbers rather than parsed out of text, because the
  * aggregate's text form is polygon WKT, not `BOX(…)` — a one-word substitution
