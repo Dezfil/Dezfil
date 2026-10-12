@@ -271,6 +271,42 @@ export function labelCollisionUniforms(opts?: CollisionModuleProps) {
   return uniforms;
 }
 
+/**
+ * The depth the collision map is drawn with. The map ranks labels by depth,
+ * and deck draws it at 16 bits: 65,536 steps for the whole −1000…1000, too
+ * few once several layers share it (eight layers of ten thousand labels each
+ * put neighbouring labels on the same step, and the later-drawn, lower-ranked
+ * one then wins). At 24 bits such a stack keeps a couple of hundred steps
+ * between neighbours.
+ */
+export const COLLISION_DEPTH_FORMAT = "depth24plus";
+
+interface CollisionDevice {
+  getDefaultCanvasContext(): unknown;
+  createTexture(props: { format?: string }): unknown;
+  createFramebuffer(props: unknown): unknown;
+}
+interface CollisionEffect {
+  createFBO(device: CollisionDevice, group: string): void;
+}
+
+/** deck's collision effect, drawing its maps at the deeper depth. */
+function deepened(effect: CollisionEffect): CollisionEffect {
+  const createFBO = effect.createFBO;
+  effect.createFBO = function (this: CollisionEffect, device, group) {
+    const deeper: CollisionDevice = {
+      getDefaultCanvasContext: () => device.getDefaultCanvasContext(),
+      createTexture: (props) =>
+        device.createTexture(
+          props.format === "depth16unorm" ? { ...props, format: COLLISION_DEPTH_FORMAT } : props,
+        ),
+      createFramebuffer: (props) => device.createFramebuffer(props),
+    };
+    return createFBO.call(this, deeper, group);
+  };
+  return effect;
+}
+
 /** Named as deck's own module, so the collision effect's props reach it. */
 export const labelCollisionModule = {
   name: "collision",
@@ -344,7 +380,23 @@ export class LabelCollisionExtension extends CollisionFilterExtension {
   }
 
   initializeState(this: Layer<LabelCollisionProps>, context: LayerContext, extension: this) {
-    CollisionFilterExtension.prototype.initializeState.call(this, context, extension);
+    // deck's own setup makes the collision effect; it reaches the map
+    // deepened. The first label layer registers it; deck keeps one.
+    const deck = this.context.deck as { _addDefaultEffect(effect: unknown): void } | undefined;
+    const setup = deck
+      ? Object.create(this, {
+          context: {
+            value: {
+              ...this.context,
+              deck: {
+                _addDefaultEffect: (effect: CollisionEffect) =>
+                  deck._addDefaultEffect(deepened(effect)),
+              },
+            },
+          },
+        })
+      : this;
+    CollisionFilterExtension.prototype.initializeState.call(setup, context, extension);
     const attributeManager = this.getAttributeManager();
     if (!attributeManager) return;
     attributeManager.add({

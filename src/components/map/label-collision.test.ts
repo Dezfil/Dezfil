@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { UNIT } from "@deck.gl/core";
 import {
+  LABEL_COLLISION_GROUP,
   LabelCollisionExtension,
   collisionPriority,
   collisionTag,
@@ -21,6 +22,42 @@ describe("the shared overlap test's rules", () => {
     }
     expect(bands[2][0]).toBeLessThan(1000);
     expect(bands[0][1]).toBeGreaterThan(-1000);
+  });
+
+  it("keeps the ranking at the depth the collision map is drawn with: eight layers of ten thousand labels", () => {
+    // The effect a label layer registers, and the depth it gives the map.
+    type Effect = { id: string; createFBO(device: unknown, group: string): void };
+    const effects: Effect[] = [];
+    const layer = {
+      getAttributeManager: () => ({ add: () => undefined }),
+      context: { deck: { _addDefaultEffect: (e: Effect) => { if (!effects.some((x) => x.id === e.id)) effects.push(e); } } },
+    };
+    LabelCollisionExtension.prototype.initializeState.call(layer as never, {} as never, new LabelCollisionExtension());
+    const formats: string[] = [];
+    const device = {
+      getDefaultCanvasContext: () => ({ canvas: { width: 8, height: 8 } }),
+      createTexture: (props: { format: string }) => { formats.push(props.format); return {}; },
+      createFramebuffer: (props: unknown) => props,
+    };
+    effects[0].createFBO(device, LABEL_COLLISION_GROUP);
+    const depth = formats.find((format) => format.startsWith("depth"))!;
+    const bits = ({ depth16unorm: 16, depth24plus: 24, "depth24plus-stencil8": 24, depth32float: 24 } as Record<string, number>)[depth];
+    // A priority's place in that depth: z = -0.001 × priority, mapped to 0…1.
+    const level = (priority: number) => Math.round((0.5 - 0.0005 * priority) * (2 ** bits - 1));
+    // Every label, the top layer's first rank first, must lie strictly in
+    // front of every label ranked below it.
+    const count = 8;
+    const cap = 10_000;
+    const ties: string[] = [];
+    let previous = -1;
+    for (let place = count - 1; place >= 0; place -= 1) {
+      for (let index = 0; index < cap; index += 1) {
+        const at = level(collisionPriority(index, cap, { place, count }));
+        if (at <= previous && ties.length < 3) ties.push(`layer ${place}, label ${index} (${depth})`);
+        previous = at;
+      }
+    }
+    expect(ties).toEqual([]);
   });
 
   it("tags neighbouring layers apart and never as an empty spot", () => {
