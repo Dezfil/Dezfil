@@ -25,9 +25,9 @@ import { laneSettled, resetLane } from "./lane";
  * right north–south at every latitude and wrong east–west by 1/cos(latitude).
  * The pair below is separated east–west, which is where that error lives.
  *
- * **A refusal that fires.** Data spanning more than one UTM zone has no local
- * projection, and the verb refuses with the documented code rather than
- * measuring in a projection that would answer a plausible wrong number.
+ * **A refusal that fires.** Data too wide for one projection to measure within
+ * a percent anywhere is refused with the documented code rather than measured
+ * in a projection that would answer a plausible wrong number.
  */
 
 let dir: string;
@@ -138,7 +138,7 @@ describe("a nearest join reports ground metres", () => {
     }, 60_000);
   }
 
-  it("refuses an extent that spans more than one zone", () => {
+  it("refuses an extent too wide for one projection", () => {
     // The refusal established, inherited rather than re-decided: an equal-area
     // projection would answer a plausible wrong distance, so a distance takes
     // a local projection or none at all.
@@ -152,7 +152,7 @@ describe("a nearest join reports ground metres", () => {
     // wide extent is refused is the half that is true and load-bearing.
     const wide = parseExtent("BOX(-60 10, 60 12)")!;
     expect(() => resolveMeasurementCrs(wide, "distance")).toThrowError(
-      /coordinate|zone|measurement/i,
+      /too wide to measure a distance/i,
     );
     let code: string | undefined;
     try {

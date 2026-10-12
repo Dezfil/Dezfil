@@ -37,9 +37,9 @@ const POINTS = [
   { name: "a", lon: 0.2, lat: 0.2, kind: "west", weight: 1 },
   { name: "b", lon: 0.4, lat: 0.4, kind: "west", weight: 2 },
   { name: "c", lon: 2.2, lat: 0.2, kind: "east", weight: 4 },
-  // Outside every polygon, and **inside the same UTM zone** as the rest: a
-  // measured verb over data spanning two zones is refused now that the extent
-  // is the dataset's ('s repair), and this fixture is about the verbs.
+  // Outside every polygon, and **near** the rest: a measured verb over data
+  // too wide for one projection is refused now that the extent is the
+  // dataset's, and this fixture is about the verbs.
   { name: "d", lon: 5.0, lat: 0.9, kind: "far", weight: 8 },
 ];
 
@@ -691,7 +691,7 @@ describe("what a verb refuses, it refuses at admission", () => {
     expect(error?.message).toMatch(/no geometry/i);
   });
 
-  it("refuses a measured verb over data spanning more than one zone", async () => {
+  it("refuses a measured verb over data too wide for one projection", async () => {
     // **End to end, through admission** — not at the strategy. Before repair
     // the extent came from the first row, so this refusal could not fire at
     // all; the fixture's first point is deliberately in-band and a later one
@@ -716,7 +716,9 @@ describe("what a verb refuses, it refuses at admission", () => {
       name: "x",
     });
     expect(error?.code).toBe("measurement_crs_unavailable");
-    expect(error?.message).toMatch(/more than one UTM zone/i);
+    // Both inputs count: 0.2° to 40° E, judged at 0.2° N, the latitude
+    // nearest the equator, where a degree of longitude is longest.
+    expect(error?.message).toMatch(/spans 39\.8° of longitude, too wide/i);
   }, 60_000);
 
   it("refuses a table whose geometry class the input does not accept", async () => {

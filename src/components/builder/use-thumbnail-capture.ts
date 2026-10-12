@@ -12,6 +12,7 @@ import type { BasemapLayers } from "@/lib/basemap-layers";
 import type { CustomBasemap } from "@/lib/metadata/maps";
 import { mapSqlRevision, type RevisionLayer } from "@/lib/map-sql-revision";
 import type { SnapshotCapture, SnapshotHandle } from "../map/capture";
+import { useLabelFontReady } from "../map/label-font";
 import { composeOverGround, renderOffscreenGround } from "../map/offscreen-ground";
 import { useSignedInSqlName } from "../sharing/signed-in";
 import {
@@ -54,12 +55,30 @@ export interface ThumbnailMapBasemap {
   basemapLayers: BasemapLayers | null;
 }
 
+/** A layer as a capture reads it: its SQL for the revision, and what
+ * decides whether it draws text in the label face. */
+export interface ThumbnailLayer extends RevisionLayer {
+  visible?: boolean;
+  style?: { label?: unknown };
+  viz?: { type: string; showCounts?: boolean };
+}
+
 /** The slice of the map record a capture reads: its basemap, the layers
  * whose SQL revision the images are sent with, and its owner, whose act a
  * browser capture is. */
 export interface ThumbnailMapState extends ThumbnailMapBasemap {
-  layers?: readonly RevisionLayer[];
+  layers?: readonly ThumbnailLayer[];
   owner?: { sqlName: string } | null;
+}
+
+/** Whether a map draws text in the label face: a visible layer's labels,
+ * or the counts on its cluster bubbles. */
+export function drawsLabelText(layers: readonly ThumbnailLayer[]): boolean {
+  return layers.some(
+    (l) =>
+      l.visible !== false &&
+      (!!l.style?.label || (l.viz?.type === "cluster" && l.viz.showCounts === true)),
+  );
 }
 
 /** Whether this builder takes the map's card images. A browser capture is
@@ -192,12 +211,18 @@ export function useThumbnailCapture(
     }, 2500);
   }, []);
 
+  // Labels and cluster counts wait for the face they draw in, and a capture
+  // taken before it arrives shows the map without them. So a map that draws
+  // such text is captured once more when the face arrives; for a map that
+  // draws none this stays false and nothing changes.
+  const labelTextDrawn = useLabelFontReady() && !!map && drawsLabelText(map.layers ?? []);
+
   // Anything that lands in map state or a layer render refreshes the
   // snapshot — including the initial load, so stale thumbnails heal on
   // open (behavior preserved verbatim from MapBuilder).
   useEffect(() => {
     if (map && captures) scheduleSnapshot();
-  }, [map, renders, captures, scheduleSnapshot]);
+  }, [map, renders, captures, scheduleSnapshot, labelTextDrawn]);
   // Unmount just drops a pending capture.
   useEffect(
     () => () => {

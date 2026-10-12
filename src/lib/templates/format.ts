@@ -63,7 +63,8 @@ export const TEMPLATE_STEPS_MAX = 50;
 export interface TemplateSource {
   /** Who published the data, as the credit names them. */
   name: string;
-  /** The licence's identifier, as SPDX writes it where it has one. */
+  /** The licence's identifier: SPDX's where it lists the terms, else a
+   * `LicenseRef-` name the template rules admit. */
   licence: string;
   /** The credit text the source asks for, word for word. */
   credit: string;

@@ -354,8 +354,8 @@ export const OPERATIONS: OperationDef[] = [
       "Grow each feature into the area within a given distance of it. The " +
       "distance is **ground metres** — five hundred metres from the feature " +
       "on the earth, at the latitude it actually occupies — measured in a " +
-      "projection resolved from the data's own extent. Data spanning more of " +
-      "the earth than any local projection covers is refused rather than " +
+      "transverse Mercator centred on the data's own extent. Data too wide " +
+      "for that to hold within one percent everywhere is refused rather than " +
       "measured wrongly.",
     inputs: [
       {

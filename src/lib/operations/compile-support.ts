@@ -248,11 +248,12 @@ export async function fields(
 /**
  * The extent a measured verb resolves its projection from.
  *
- * **Every input it will measure across, not the first one.** A left table
- * inside one UTM zone and a right table outside it were both transformed into
- * the left's zone, so the operation answered a plausible wrong distance where
- * it should have refused — the exact distortion coverage boundary exists to
- * prevent. Found at the cross-model review.
+ * **Every input it will measure across, not the first one.** A projection
+ * centred on the left table alone measures a right table far from it with a
+ * stretched scale, so the operation would answer a plausible wrong distance
+ * where it should have refused: the exact distortion the width bound exists
+ * to prevent. Every input counts toward the extent the projection centres on
+ * and the bound is checked against.
  */
 export async function crsFor(
   scope: DatasetScope,

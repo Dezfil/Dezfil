@@ -15,7 +15,6 @@ import {
   GeoJsonLayer,
   IconLayer,
   ScatterplotLayer,
-  TextLayer,
 } from "@deck.gl/layers";
 import { HeatmapLayer } from "@deck.gl/aggregation-layers";
 import { DataFilterExtension } from "@deck.gl/extensions";
@@ -54,12 +53,12 @@ import {
   sizeAccessor,
 } from "@/lib/style/deck-style";
 import { createLabelStore } from "./label-data";
-import { textSublayer, type LiveWindowing } from "./text-sublayer";
+import { clusterCountSublayer, textSublayer, type LiveWindowing } from "./text-sublayer";
+import { useLabelFont } from "./label-font";
 import { useLabelPreparation } from "./use-label-preparation";
 import type { LabelCount } from "../builder/style-panel/LabelSection";
 
 import { iconSource } from "./icon-source";
-import { formatCompact } from "@/lib/style/legend";
 import { sequentialColors, DEFAULT_SEQUENTIAL } from "@/lib/style/palettes";
 import type { HeatmapViz, LayerViz } from "@/lib/viz";
 import {
@@ -523,7 +522,8 @@ export function MapCanvas({
   }, []);
 
   // The deterministic thinning half lives in its own hook; counts flush
-  // after each build below.
+  // after each build below. Labels draw once their face has loaded.
+  const labelFont = useLabelFont();
   const { prepareLabels, flushLabelCounts, resetLabelCounts } =
     useLabelPreparation(
     labelStore,
@@ -549,7 +549,7 @@ export function MapCanvas({
           // on update triggers.
           const suffix = windowing ? ":windowed" : "";
           if (l.tiles?.url) {
-            return createTiledLayer(l, { interactive, markScale, windowing });
+            return createTiledLayer(l, { interactive, markScale, windowing, labelFont });
           }
           if (l.viz?.type === "heatmap") {
             // Density surface over the layer's points. Not pickable — a
@@ -703,23 +703,9 @@ export function MapCanvas({
                 getRadius: [maxCount, l.style.pointRadius, zoom],
               },
             } as unknown as ConstructorParameters<typeof ScatterplotLayer>[0]);
-            if (!cViz.showCounts) return bubbleLayer as unknown as DeckLayer;
-            const counts = new TextLayer({
-              id: `${l.id}:cluster-counts`,
-              data: bubbles.filter((b) => b.clusterId !== null),
-              getPosition: (b: ClusterBubble) => b.position,
-              getText: (b: ClusterBubble) => formatCompact(b.count),
-              getSize: 12 * markScale,
-              getColor: [255, 255, 255, 255],
-              outlineWidth: 2,
-              outlineColor: [15, 25, 20, 210],
-              fontSettings: { sdf: true },
-              characterSet: "auto",
-              pickable: false,
-              // Counts ride the layer's opacity like the bubbles they sit on.
-              opacity: layerOpacity(l.style.opacity),
-              updateTriggers: { getText: [zoom, rangesKey] },
-            } as unknown as ConstructorParameters<typeof TextLayer>[0]);
+            if (!cViz.showCounts || !labelFont) return bubbleLayer as unknown as DeckLayer;
+            const counts = clusterCountSublayer(`${l.id}:cluster-counts`, bubbles, markScale,
+              layerOpacity(l.style.opacity), [zoom, rangesKey], labelFont);
             return [
               bubbleLayer as unknown as DeckLayer,
               counts as unknown as DeckLayer,
@@ -775,7 +761,7 @@ export function MapCanvas({
             } as unknown as ConstructorParameters<typeof IconLayer>[0]);
             const iconLabel = l.style.label;
             const iconLabeled = iconLabel ? prepareLabels(l, iconLabel, windowing) : [];
-            return iconLabeled.length
+            return iconLabeled.length && labelFont
               ? [
                   icons as unknown as DeckLayer,
                   textSublayer(
@@ -786,6 +772,7 @@ export function MapCanvas({
                     windowing,
                     layerOpacity(l.style.opacity),
                     markScale,
+                    labelFont,
                   ) as unknown as DeckLayer,
                 ]
               : (icons as unknown as DeckLayer);
@@ -818,7 +805,7 @@ export function MapCanvas({
             } as unknown as ConstructorParameters<typeof ArcLayer>[0]);
             const odLabel = l.style.label;
             const odLabeled = odLabel ? prepareLabels(l, odLabel, windowing) : [];
-            return odLabeled.length
+            return odLabeled.length && labelFont
               ? [
                   arcs as unknown as DeckLayer,
                   textSublayer(
@@ -829,6 +816,7 @@ export function MapCanvas({
                     windowing,
                     layerOpacity(l.style.opacity),
                     markScale,
+                    labelFont,
                   ) as unknown as DeckLayer,
                 ]
               : (arcs as unknown as DeckLayer);
@@ -854,7 +842,7 @@ export function MapCanvas({
           } as ConstructorParameters<typeof GeoJsonLayer>[0]);
           const label = l.style.label;
           const labeled = label ? prepareLabels(l, label, windowing) : [];
-          return labeled.length
+          return labeled.length && labelFont
             ? [
                 marks as unknown as DeckLayer,
                 textSublayer(
@@ -865,6 +853,7 @@ export function MapCanvas({
                   windowing,
                   layerOpacity(l.style.opacity),
                   markScale,
+                  labelFont,
                 ) as unknown as DeckLayer,
               ]
             : (marks as unknown as DeckLayer);
@@ -872,7 +861,7 @@ export function MapCanvas({
       labelStore.sweep();
       return built;
     },
-    [interactive, prepareLabels, resetLabelCounts, labelStore, liveWindowing, markScale],
+    [interactive, prepareLabels, resetLabelCounts, labelStore, liveWindowing, markScale, labelFont],
   );
 
   const paddingKey = padding ? JSON.stringify(padding) : null;

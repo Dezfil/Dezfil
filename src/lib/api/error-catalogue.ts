@@ -123,7 +123,7 @@ export const ERROR_CATALOGUE: Record<ErrorCode, string> = {
   basemap_not_offered:
     "The basemap a map write or an undo or redo would put a map on is one this instance does not offer now: a style an admin hid, or, while style addresses on single maps are off, a style address the basemap library does not offer. It cannot be chosen anew. The refusal's setting field names the switch, as PATCH /api/instance/settings takes it. Nothing changed; a map already on that basemap keeps it, and Auto is always offered.",
   measurement_crs_unavailable:
-    "The data spans more of the earth than any local projection covers, so a distance measured over it would not be in ground metres. Split it by region and measure each part; an area over the same data succeeds and records the global projection it used.",
+    "The data is too wide to measure a distance over in ground metres: in a projection centred on it, a distance at its widest point would be off by more than 1 %, or it crosses the antimeridian. The message names its width and extent. Split it by region and measure each part; an area over the same data succeeds and records the global projection it used.",
   operation_superseded:
     "The step this run belonged to was changed or removed while it was working, so the run lost its authority to publish and wrote nothing. What it would have produced is no longer what the step means.",
   widget_layer_missing:

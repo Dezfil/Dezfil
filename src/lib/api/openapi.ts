@@ -1404,8 +1404,10 @@ export function buildOpenApiDocument() {
               type: "object",
               description:
                 "The CRS each kind of measurement happened in, keyed by kind. " +
-                "A distance is measured in a projection local to the data's " +
-                "own extent; an area in a global equal-area projection.",
+                "A distance is measured in a transverse Mercator centred on " +
+                "the data's own extent, recorded as its PROJ definition; an " +
+                "area in a global equal-area projection, recorded as its " +
+                "EPSG code.",
               additionalProperties: { type: "string" },
             },
             fallback: {

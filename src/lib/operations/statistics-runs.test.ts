@@ -10,6 +10,7 @@ import { getJob } from "@/lib/metadata/jobs";
 import { getTableByName } from "@/lib/metadata/tables";
 import { startRun } from "./run";
 import { laneSettled, resetLane } from "./lane";
+import { transverseMercatorAt } from "./measurement";
 
 /**
  * The statistics verbs run end to end.
@@ -242,8 +243,9 @@ describe("clustering, end to end", () => {
     const source = table.sourceParams as {
       measurement?: { crs: Record<string, string>; fallback: boolean; assumedCrs: string[] };
     };
-    // Berlin is UTM zone 33N, and a local zone means no fallback was needed.
-    expect(source.measurement?.crs.distance).toBe("EPSG:32633");
+    // Centred on the sightings' own extent, 13.4° to 13.9° E, and local, so
+    // no fallback was needed.
+    expect(source.measurement?.crs.distance).toBe(transverseMercatorAt(13.65));
     expect(source.measurement?.fallback).toBe(false);
     // The CSV path assumed WGS84 rather than reading a declaration, and the
     // record says which input that was — not merely that something was assumed.
@@ -275,7 +277,7 @@ describe("clustering, end to end", () => {
     // And the measurement it was prepared for is on the same object, which is
     // what makes a stale binding a measurement problem rather than a
     // bookkeeping one.
-    expect(compiled.measurement?.crs.distance).toContain("EPSG:326");
+    expect(compiled.measurement?.crs.distance).toBe(transverseMercatorAt(13.65));
   }, 120_000);
 
   it("refuses to publish against a generation it was not compiled for", async () => {
