@@ -69,6 +69,7 @@ import {
   type CollisionFilterExtensionProps,
 } from "@deck.gl/extensions";
 import { TextLayer } from "@deck.gl/layers";
+import type { LabelStyle } from "@/lib/style/style";
 
 /** The one collision map every label on a map draws into. */
 export const LABEL_COLLISION_GROUP = "labels";
@@ -103,6 +104,19 @@ export function collisionPriority(
   const band = 2000 / Math.max(1, stack.count);
   const top = -1000 + band * (stack.place + 1);
   return top - band * (0.01 + (0.98 * index) / Math.max(1, length));
+}
+
+/** Whether a label layer's labels show anything on the map: the layer is
+ * drawn at all, and its letters or its halo carry some ink. The collision
+ * map holds a label's box whatever its paint, so a label nobody can see
+ * would otherwise keep visible labels below it off the map. */
+export function labelShows(
+  label: Pick<LabelStyle, "color" | "haloWidth" | "haloColor">,
+  opacity: number,
+): boolean {
+  const ink = label.color.a > 0;
+  const halo = label.haloWidth > 0 && label.haloColor.a > 0;
+  return opacity > 0 && (ink || halo);
 }
 
 /** A label layer's tag in the collision map's alpha: 1 to 255, never 0

@@ -15,6 +15,7 @@ import {
   SOLE_LABEL_LAYER,
   collisionPriority,
   collisionTag,
+  labelShows,
   type LabelStack,
 } from "./label-collision";
 import { formatCompact } from "@/lib/style/legend";
@@ -107,9 +108,9 @@ export function textSublayer(
   // band comes from the RANK — the data arrives ranked (priority column descending, else feature
   // order), so the accessor maps the index into deck's supported −1000…1000 domain (raw column
   // values can be non-finite or out of range, which the extension clips out of the collision map
-  // entirely). Density maps monotonically to the tested footprint. A layer at opacity 0 is gone,
-  // so its labels take no part. The cap-300 harness arm runs WITHOUT collision — that is the
-  // fallback it measures.
+  // entirely). Density maps monotonically to the tested footprint. A label nobody can see (its
+  // layer at opacity 0, or neither ink nor halo) takes no part. The cap-300 harness arm runs
+  // WITHOUT collision — that is the fallback it measures.
   const collide = spike !== "always-draw" && spike !== "cap300";
   const drawn = spike === "cap300" ? data.slice(0, 300) : data;
   // Live-filter windowing carries its own `extensions`; compose, never let one spread overwrite the
@@ -131,7 +132,7 @@ export function textSublayer(
           ...COLLISION_FOOTPRINT,
           collisionGroup: LABEL_COLLISION_GROUP,
           collisionTag: collisionTag(stack),
-          collisionEnabled: opacity > 0,
+          collisionEnabled: labelShows(label, opacity),
           collisionTestProps: {
             sizeScale: collisionSizeScale(label.density),
           },

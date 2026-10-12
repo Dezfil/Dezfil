@@ -173,6 +173,19 @@ describe("one overlap test for every label on a map", () => {
     }
   });
 
+  it("keeps a label nobody can see out of it, whatever the layer's opacity", () => {
+    const clear = { r: 0, g: 0, b: 0, a: 0 };
+    const takesPart = (label: LabelStyle, opacity = 1) =>
+      thinned(textSublayer("ghosts:labels", towns, label, null, null, opacity, 1, FACE, placed(1, 2))).props.collisionEnabled;
+    // No ink and no halo: nothing on the map, nothing claimed.
+    expect(takesPart({ ...LABEL, color: clear, haloWidth: 0 }), "no ink, no halo").toBe(false);
+    expect(takesPart({ ...LABEL, color: clear, haloWidth: 1, haloColor: clear }), "no ink, a clear halo").toBe(false);
+    // Either one seen is a label to keep clear of.
+    expect(takesPart({ ...LABEL, color: clear }), "a halo alone").toBe(true);
+    expect(takesPart({ ...LABEL, haloWidth: 0 }), "ink alone").toBe(true);
+    expect(takesPart(LABEL, 0), "a layer at opacity 0").toBe(false);
+  });
+
   it("stacks the label layers as the map draws them, the lowest first", () => {
     const stacks = labelStacks(["towns", "temperatures"]);
     expect(stacks.get("towns")).toEqual(placed(0, 2));
