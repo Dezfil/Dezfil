@@ -250,22 +250,31 @@ describe("the rules every template must meet", () => {
 });
 
 describe("the open terms a template's data may be under", () => {
-  // Terms a decided template's data is published under that are no
-  // standard licence, each admitted by name and credited as such.
+  // Terms a decided template's data is published under beyond the common
+  // open-data licences, each admitted by name and credited as such: a
+  // licence written for code, the terms of a publisher or a programme, a
+  // national port, the mark for works out of copyright.
   it.each([
     ["New York City's open-data law", "LicenseRef-NYC-Open-Data-Law"],
     ["Creative Commons Attribution 2.5 Argentina", "LicenseRef-CC-BY-2.5-AR"],
     ["the Public Domain Mark", "CC-PDM-1.0"],
+    ["the BSD 3-Clause licence", "BSD-3-Clause"],
+    ["the IMF's copyright and usage terms", "LicenseRef-IMF-Copyright-and-Usage"],
+    ["the Copernicus data policy", "LicenseRef-Copernicus-Data-Policy"],
+    ["Natural Earth's terms of use", "LicenseRef-Natural-Earth"],
   ])("admits %s, as %s", async (_terms, licence) => {
     expect(await ruleFailed({ edit: underLicence(licence) })).toBeNull();
   });
 
-  it.each(["CC-BY-NC-4.0", "CC-BY-NC-2.5", "CC-BY-NC-SA-2.5"])("still refuses a non-commercial licence, %s", async (licence) => {
-    expect(await ruleFailed({ edit: underLicence(licence) })).toBe("template_licence_refused");
-  });
+  it.each(["CC-BY-NC-4.0", "CC-BY-NC-2.5", "CC-BY-NC-SA-2.5", "CC-BY-ND-4.0", "CC-BY-NC-ND-4.0", "NCGL-UK-2.0"])(
+    "still refuses a non-commercial or no-derivatives licence, %s",
+    async (licence) => {
+      expect(await ruleFailed({ edit: underLicence(licence) })).toBe("template_licence_refused");
+    },
+  );
 
   it("holds no non-commercial or no-derivatives licence", () => {
-    expect(REDISTRIBUTABLE_LICENCES.filter((name) => /-(NC|ND)(-|$)/.test(name))).toEqual([]);
+    expect(REDISTRIBUTABLE_LICENCES.filter((name) => /-(NC|ND)(-|$)|^NCGL-/.test(name))).toEqual([]);
   });
 });
 
