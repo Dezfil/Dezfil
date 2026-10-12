@@ -50,6 +50,12 @@ describe("labelableFeatures — membership", () => {
     expect(labelableFeatures(fc(features), style())).toHaveLength(0);
   });
 
+  it("drops a feature whose labelled value is only blank space: it draws nothing, so it takes no space", () => {
+    const features = [point({ name: "   " }), point({ name: "\t" }), point({ name: "\u00a0" }), point({ name: "Mitte" })];
+    const kept = labelableFeatures(fc(features), style());
+    expect(kept.map((f) => f.properties?.name)).toEqual(["Mitte"]);
+  });
+
   it("keeps a numeric zero — falsy, but a real value to label", () => {
     const kept = labelableFeatures(fc([point({ name: 0 })]), style());
     expect(kept).toHaveLength(1);

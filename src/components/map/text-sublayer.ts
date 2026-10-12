@@ -1,5 +1,4 @@
 import { TextLayer } from "@deck.gl/layers";
-import { CollisionFilterExtension } from "@deck.gl/extensions";
 import type { LabelStyle } from "@/lib/style/style";
 import {
   deckLabelProps,
@@ -10,6 +9,15 @@ import {
 } from "@/lib/style/deck-style";
 
 import { collisionSizeScale } from "./label-thinning";
+import {
+  LABEL_COLLISION_GROUP,
+  LabelCollisionExtension,
+  SOLE_LABEL_LAYER,
+  collisionPriority,
+  collisionTag,
+  labelShows,
+  type LabelStack,
+} from "./label-collision";
 import { formatCompact } from "@/lib/style/legend";
 import type { ClusterBubble } from "@/lib/cluster";
 
@@ -50,13 +58,13 @@ function spikeMode(): "always-draw" | "cap300" | null {
 /**
  * The overlap test's footprint for a label: its whole box, not its glyphs.
  *
- * The collision pass draws each label's footprint and then asks, at the
- * label's anchor alone, whose footprint is there. Drawn from the glyphs, the
- * footprint has holes wherever there is no ink, and a centred label's anchor
- * often falls in one, the space in "Gatsibo · 21.4%": the label then finds
- * no footprint of its own at its anchor and is culled, or faded where the
- * hole's edge is near, with nothing else anywhere near it. A transparent
- * background box fills the footprint; it draws nothing on the map.
+ * The collision pass draws each label's footprint and then asks, all over
+ * the label's box, whose footprint is there (see label-collision.ts). Drawn
+ * from the glyphs, the footprint has holes wherever there is no ink, the
+ * space in "Gatsibo · 21.4%": the label would find no footprint of its own
+ * there and be culled with nothing else anywhere near it, and a higher-ranked
+ * label's holes would let others through. A transparent background box fills
+ * the footprint; it draws nothing on the map.
  *
  * Nor may it hide anything. A transparent box still writes depth where the
  * map is drawn, at the depth of the label's point, and on a pitched map the
@@ -92,14 +100,17 @@ export function textSublayer(
   opacity = 1,
   pixelScale = 1,
   fontFamily?: string,
+  stack: LabelStack = SOLE_LABEL_LAYER,
 ) {
   const spike = spikeMode();
-  // Automatic collision culling: per-layer isolation via the collision group; survival priority
-  // comes from the RANK — the data arrives ranked (priority column descending, else feature order),
-  // so the accessor maps the index into deck's supported −1000…1000 domain (raw column values can
-  // be non-finite or out of range, which the extension clips out of the collision map entirely).
-  // Density maps monotonically to the tested footprint. The cap-300 harness arm runs WITHOUT
-  // collision — that is the fallback it measures.
+  // Automatic collision culling: every label layer on the map shares one test, its place in the
+  // stack giving it a band of the ranking (see label-collision.ts); survival priority inside the
+  // band comes from the RANK — the data arrives ranked (priority column descending, else feature
+  // order), so the accessor maps the index into deck's supported −1000…1000 domain (raw column
+  // values can be non-finite or out of range, which the extension clips out of the collision map
+  // entirely). Density maps monotonically to the tested footprint. A label nobody can see (its
+  // layer at opacity 0, or neither ink nor halo) takes no part. The cap-300 harness arm runs
+  // WITHOUT collision — that is the fallback it measures.
   const collide = spike !== "always-draw" && spike !== "cap300";
   const drawn = spike === "cap300" ? data.slice(0, 300) : data;
   // Live-filter windowing carries its own `extensions`; compose, never let one spread overwrite the
@@ -114,19 +125,21 @@ export function textSublayer(
     id,
     data: drawn,
     extensions: collide
-      ? [...windowingExtensions, new CollisionFilterExtension()]
+      ? [...windowingExtensions, new LabelCollisionExtension()]
       : windowingExtensions,
     ...(collide
       ? {
           ...COLLISION_FOOTPRINT,
-          collisionGroup: id,
+          collisionGroup: LABEL_COLLISION_GROUP,
+          collisionTag: collisionTag(stack),
+          collisionEnabled: labelShows(label, opacity),
           collisionTestProps: {
             sizeScale: collisionSizeScale(label.density),
           },
           getCollisionPriority: (
             _f: LabeledFeature,
             { index }: { index: number },
-          ) => 1000 - (index / Math.max(1, drawn.length)) * 2000,
+          ) => collisionPriority(index, drawn.length, stack),
         }
       : null),
     getPosition: (f) => labelPosition(f) as [number, number],
@@ -150,6 +163,7 @@ export function textSublayer(
     updateTriggers: {
       ...deckLabelTriggers(label),
       ...(windowing ? { getFilterValue: windowing.trigger } : null),
+      ...(collide ? { getCollisionPriority: [stack.place, stack.count] } : null),
     },
   } as ConstructorParameters<typeof TextLayer<LabeledFeature>>[0]);
 }

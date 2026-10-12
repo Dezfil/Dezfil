@@ -54,6 +54,7 @@ import {
 } from "@/lib/style/deck-style";
 import { createLabelStore } from "./label-data";
 import { clusterCountSublayer, textSublayer, type LiveWindowing } from "./text-sublayer";
+import { labelStacks } from "./label-collision";
 import { useLabelFont } from "./label-font";
 import { useLabelPreparation } from "./use-label-preparation";
 import type { LabelCount } from "../builder/style-panel/LabelSection";
@@ -535,8 +536,20 @@ export function MapCanvas({
     (rendered: RenderedLayer[]) => {
       // Reset counts: hidden or re-vized layers must not retain an old count.
       resetLabelCounts();
-      const built = rendered
-        .filter((l) => l.visible && (l.geojson || l.tiles?.url))
+      const shown = rendered.filter((l) => l.visible && (l.geojson || l.tiles?.url));
+      // Every label on the map takes part in one overlap test, ranked by its
+      // layer's place in the stack.
+      const stacks = labelStacks(shown.filter((l) => l.style.label).map((l) => l.id));
+      /** A layer's marks, with its labels above them when it has any. */
+      const withLabels = (l: RenderedLayer, marks: unknown, cellMeters: number | null | undefined,
+        windowing: LiveWindowing | null, suffix: string): DeckLayer | DeckLayer[] => {
+        const label = l.style.label;
+        const labeled = label ? prepareLabels(l, label, windowing) : [];
+        if (!label || !labeled.length || !labelFont) return marks as DeckLayer;
+        return [marks as DeckLayer, textSublayer(`${l.id}:labels${suffix}`, labeled, label, cellMeters, windowing,
+          layerOpacity(l.style.opacity), markScale, labelFont, stacks.get(l.id)) as unknown as DeckLayer];
+      };
+      const built = shown
         .flatMap((l): DeckLayer | DeckLayer[] => {
           const windowing = liveWindowing(l);
           // Extensions cannot be added to or removed from a live layer:
@@ -759,23 +772,7 @@ export function MapCanvas({
                 ...(windowing ? { getFilterValue: windowing.trigger } : null),
               },
             } as unknown as ConstructorParameters<typeof IconLayer>[0]);
-            const iconLabel = l.style.label;
-            const iconLabeled = iconLabel ? prepareLabels(l, iconLabel, windowing) : [];
-            return iconLabeled.length && labelFont
-              ? [
-                  icons as unknown as DeckLayer,
-                  textSublayer(
-                    `${l.id}:labels${suffix}`,
-                    iconLabeled,
-                    iconLabel!,
-                    null,
-                    windowing,
-                    layerOpacity(l.style.opacity),
-                    markScale,
-                    labelFont,
-                  ) as unknown as DeckLayer,
-                ]
-              : (icons as unknown as DeckLayer);
+            return withLabels(l, icons, null, windowing, suffix);
           }
           if (l.viz?.type === "arc" || l.viz?.type === "line") {
             // Origin→destination rows drawn as arcs; line is an arc of
@@ -803,23 +800,7 @@ export function MapCanvas({
                 ...(windowing ? { getFilterValue: windowing.trigger } : null),
               },
             } as unknown as ConstructorParameters<typeof ArcLayer>[0]);
-            const odLabel = l.style.label;
-            const odLabeled = odLabel ? prepareLabels(l, odLabel, windowing) : [];
-            return odLabeled.length && labelFont
-              ? [
-                  arcs as unknown as DeckLayer,
-                  textSublayer(
-                    `${l.id}:labels${suffix}`,
-                    odLabeled,
-                    odLabel!,
-                    null,
-                    windowing,
-                    layerOpacity(l.style.opacity),
-                    markScale,
-                    labelFont,
-                  ) as unknown as DeckLayer,
-                ]
-              : (arcs as unknown as DeckLayer);
+            return withLabels(l, arcs, null, windowing, suffix);
           }
           // Extrusion: cells rise by the viz elevation, simple polygons by
           // the style's height channel; null renders flat, exactly as
@@ -840,23 +821,7 @@ export function MapCanvas({
               ...(windowing ? { getFilterValue: windowing.trigger } : null),
             },
           } as ConstructorParameters<typeof GeoJsonLayer>[0]);
-          const label = l.style.label;
-          const labeled = label ? prepareLabels(l, label, windowing) : [];
-          return labeled.length && labelFont
-            ? [
-                marks as unknown as DeckLayer,
-                textSublayer(
-                  `${l.id}:labels${suffix}`,
-                  labeled,
-                  label!,
-                  cellLabelMeters(l.viz),
-                  windowing,
-                  layerOpacity(l.style.opacity),
-                  markScale,
-                  labelFont,
-                ) as unknown as DeckLayer,
-              ]
-            : (marks as unknown as DeckLayer);
+          return withLabels(l, marks, cellLabelMeters(l.viz), windowing, suffix);
         });
       labelStore.sweep();
       return built;

@@ -71,12 +71,17 @@ export function zoomAdmitsLabels(
   return label.zoomFloor == null || zoom >= label.zoomFloor;
 }
 
-/** Collision density → deck's collision test size scale: sparser
- * demands more empty space around each survivor. Monotonic by
- * construction — the spec's own criterion for the control. */
+/** Collision density → how much space a drawn label claims, as a scale
+ * of its own box: sparser demands more empty space around each survivor.
+ * Monotonic by construction — the spec's own criterion for the control.
+ * A label is drawn only where its whole box is clear of the space claimed
+ * by every label ranked above it, so the gap between two labels is half
+ * the claim's excess over the box: at the densest, 1, labels may touch
+ * and never overlap; at the default, a quarter of a label's size apart;
+ * at the sparsest, a whole label apart. */
 export function collisionSizeScale(density: number | undefined): number {
-  const d = density ?? 0.5;
-  return 4 - 3 * Math.min(1, Math.max(0, d));
+  const d = Math.min(1, Math.max(0, density ?? 0.5));
+  return 1 + 2 * (1 - d) ** 2;
 }
 
 /** Rank+cap memoized per data identity (the arrays labelStore hands out

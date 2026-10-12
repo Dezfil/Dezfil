@@ -10,6 +10,7 @@ import {
   mvtRenderSubLayers,
   textSublayer,
 } from "./text-sublayer";
+import { LABEL_COLLISION_GROUP, labelCollisionUniforms, labelStacks } from "./label-collision";
 
 /**
  * The label layers' two rules: the overlap test sees each label's whole box,
@@ -34,7 +35,7 @@ afterEach(() => {
 describe("the overlap test's footprint", () => {
   it("is the label's whole box, drawn transparent, wherever labels thin", () => {
     const layer = textSublayer("districts:labels", [feature("Gatsibo · 21.4%")], LABEL, null, null, 1, 1, FACE);
-    expect((layer.props as unknown as { collisionGroup?: string }).collisionGroup).toBe("districts:labels");
+    expect((layer.props as unknown as { collisionGroup?: string }).collisionGroup).toBe(LABEL_COLLISION_GROUP);
     expect(layer.props.background).toBe(true);
     // Nothing of it reaches the map: fully transparent.
     expect(COLLISION_FOOTPRINT.getBackgroundColor[3]).toBe(0);
@@ -93,6 +94,102 @@ describe("the footprint's box on the map", () => {
     const glyphs = passParameters(subLayerProps(layer, "characters"));
     expect(glyphs.normal?.depthWriteEnabled).toBeUndefined();
     expect(glyphs.collision.depthWriteEnabled).toBe(true);
+  });
+});
+
+/** A label layer's place among the map's label layers, the lowest first. */
+const placed = (place: number, count: number) => ({ place, count });
+type Thinned = { props: Record<string, unknown> & {
+  collisionGroup?: string;
+  collisionTag?: number;
+  collisionEnabled?: boolean;
+  getCollisionPriority(f: LabeledFeature, info: { index: number }): number;
+  updateTriggers: Record<string, unknown>;
+} };
+const thinned = (layer: ReturnType<typeof textSublayer>) => layer as unknown as Thinned;
+const ranks = (layer: ReturnType<typeof textSublayer>, count: number) =>
+  Array.from({ length: count }, (_, index) => thinned(layer).props.getCollisionPriority(feature(""), { index }));
+
+describe("one overlap test for every label on a map", () => {
+  // Napoleon's march: the towns in one layer, Minard's temperatures in a
+  // layer above it, over the same places.
+  const towns = [feature("Moscou"), feature("Smolensk"), feature("Studzianka")];
+  const temperatures = [feature("0°"), feature("-21°"), feature("-24°")];
+
+  it("puts every layer's labels in the same test, the upper layer's ranked above the lower's", () => {
+    const lower = thinned(textSublayer("towns:labels", towns, LABEL, null, null, 1, 1, FACE, placed(0, 2)));
+    const upper = thinned(textSublayer("temperatures:labels", temperatures, LABEL, null, null, 1, 1, FACE, placed(1, 2)));
+    expect(lower.props.collisionGroup).toBeDefined();
+    expect(upper.props.collisionGroup).toBe(lower.props.collisionGroup);
+    const below = ranks(lower as never, towns.length);
+    const above = ranks(upper as never, temperatures.length);
+    expect(Math.min(...above)).toBeGreaterThan(Math.max(...below));
+    // Inside a layer the label ranking still decides: the first label first.
+    for (const layer of [below, above]) {
+      expect(layer).toEqual([...layer].sort((a, b) => b - a));
+      expect(new Set(layer).size).toBe(layer.length);
+    }
+    // All inside the range the collision map's depth carries.
+    for (const rank of [...below, ...above]) {
+      expect(Math.abs(rank)).toBeLessThan(1000);
+    }
+  });
+
+  it("tells two layers' labels apart even where they hold the same place in their own layers", () => {
+    const lower = thinned(textSublayer("towns:labels", towns, LABEL, null, null, 1, 1, FACE, placed(0, 2)));
+    const upper = thinned(textSublayer("temperatures:labels", temperatures, LABEL, null, null, 1, 1, FACE, placed(1, 2)));
+    expect(lower.props.collisionTag).toBeGreaterThan(0);
+    expect(upper.props.collisionTag).toBeGreaterThan(0);
+    expect(upper.props.collisionTag).not.toBe(lower.props.collisionTag);
+    // The tag reaches what the overlap test draws and reads: both sublayers.
+    for (const id of ["background", "characters"] as const) {
+      expect(subLayerProps(upper as never, id).collisionTag).toBe(upper.props.collisionTag);
+    }
+    // And the shader, as the collision map's alpha.
+    expect(labelCollisionUniforms({ label: { tag: upper.props.collisionTag! } }).tag).toBe(upper.props.collisionTag! / 255);
+  });
+
+  it("re-ranks a layer's labels when its place in the stack changes", () => {
+    const trigger = (stack: { place: number; count: number }) =>
+      JSON.stringify(thinned(textSublayer("towns:labels", towns, LABEL, null, null, 1, 1, FACE, stack)).props.updateTriggers.getCollisionPriority);
+    expect(new Set([trigger(placed(0, 1)), trigger(placed(0, 2)), trigger(placed(1, 2))]).size).toBe(3);
+  });
+
+  it("keeps a layer drawn at opacity 0 out of it: a label nobody sees takes no one's place", () => {
+    const gone = thinned(textSublayer("towns:labels", towns, LABEL, null, null, 0, 1, FACE, placed(1, 2)));
+    const shown = thinned(textSublayer("towns:labels", towns, LABEL, null, null, 0.4, 1, FACE, placed(1, 2)));
+    expect(gone.props.collisionEnabled).toBe(false);
+    expect(shown.props.collisionEnabled).toBe(true);
+  });
+
+  it("reads each label's own box, as the text layer lays it out, in what draws its letters and its box", () => {
+    const layer = textSublayer("towns:labels", towns, { ...LABEL, anchor: "right", offsetX: 12 }, null, null, 1, 1, FACE, placed(0, 2));
+    const layout = (layer as unknown as { getBoundingRect: unknown }).getBoundingRect;
+    expect(typeof layout).toBe("function");
+    for (const id of ["background", "characters"] as const) {
+      const props = subLayerProps(layer, id) as { getCollisionBox?: unknown; updateTriggers: Record<string, unknown> };
+      expect(props.getCollisionBox, id).toBe(layout);
+      expect(props.updateTriggers.getCollisionBox, id).toBeDefined();
+    }
+  });
+
+  it("keeps a label nobody can see out of it, whatever the layer's opacity", () => {
+    const clear = { r: 0, g: 0, b: 0, a: 0 };
+    const takesPart = (label: LabelStyle, opacity = 1) =>
+      thinned(textSublayer("ghosts:labels", towns, label, null, null, opacity, 1, FACE, placed(1, 2))).props.collisionEnabled;
+    // No ink and no halo: nothing on the map, nothing claimed.
+    expect(takesPart({ ...LABEL, color: clear, haloWidth: 0 }), "no ink, no halo").toBe(false);
+    expect(takesPart({ ...LABEL, color: clear, haloWidth: 1, haloColor: clear }), "no ink, a clear halo").toBe(false);
+    // Either one seen is a label to keep clear of.
+    expect(takesPart({ ...LABEL, color: clear }), "a halo alone").toBe(true);
+    expect(takesPart({ ...LABEL, haloWidth: 0 }), "ink alone").toBe(true);
+    expect(takesPart(LABEL, 0), "a layer at opacity 0").toBe(false);
+  });
+
+  it("stacks the label layers as the map draws them, the lowest first", () => {
+    const stacks = labelStacks(["towns", "temperatures"]);
+    expect(stacks.get("towns")).toEqual(placed(0, 2));
+    expect(stacks.get("temperatures")).toEqual(placed(1, 2));
   });
 });
 

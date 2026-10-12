@@ -62,6 +62,20 @@ describe("label thinning pipeline", () => {
     expect(collisionSizeScale(undefined)).toBe(collisionSizeScale(0.5));
   });
 
+  it("density sets the gap a label's whole box keeps from the space claimed above it", () => {
+    // The gap is half the claim's excess over the box, in label sizes.
+    const gap = (d: number) => (collisionSizeScale(d) - 1) / 2;
+    // The densest: labels may touch, never overlap.
+    expect(gap(1)).toBe(0);
+    // The default: a quarter of a label apart; the sparsest: a whole one.
+    expect(gap(0.5)).toBe(0.25);
+    expect(gap(0)).toBe(1);
+    // Every step of the slider moves it.
+    for (const [denser, sparser] of [[1, 0.9], [0.9, 0.75], [0.75, 0.5], [0.5, 0.25], [0.25, 0]]) {
+      expect(gap(sparser)).toBeGreaterThan(gap(denser));
+    }
+  });
+
   it("priority reads numbers and numeric strings; everything else sinks", () => {
     expect(labelPriority(f("x", 7), "riders")).toBe(7);
     expect(labelPriority(f("x", "7"), "riders")).toBe(7);

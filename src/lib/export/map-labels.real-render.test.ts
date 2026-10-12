@@ -46,6 +46,30 @@ import { decodePng, type DecodedImage } from "./png-codec";
  *   than the point, so a box writing depth would keep it from being drawn
  *   there and leave a hole of basemap. The label's own ink is transparent,
  *   so all there is to see is that ground.
+ * - **Two layers share one overlap test.** A third map labels the same
+ *   places twice: towns in blue, and in a layer above them the temperatures
+ *   Minard wrote beside them, in red, the two lists in the same order. At
+ *   each place one label is drawn, the upper layer's, with no blue anywhere
+ *   near it, not even faint; a town no temperature stands at still draws.
+ * - **Whole or not at all, wherever the text sits.** A fourth map: a label
+ *   beside its point (its text starting a few pixels right of it) and one
+ *   above its point, each alone, must be drawn at full ink; the overlap test
+ *   once looked for a label at its point, which the first box does not hold
+ *   and the second holds only on its edge. And a row of labels each partly
+ *   under an upper layer's label, stepped a pixel further down each time
+ *   across the edge of that label's space: each is drawn at full ink or not
+ *   at all, never pale. One far enough below still draws.
+ * - **A short label inside a wide one's box.** A fifth map: a wide label,
+ *   and at its middle, in a layer above it, a short one, both claiming no
+ *   more than their boxes. The short one is drawn and the wide one is not:
+ *   the overlap test reads the wide box at points close enough together
+ *   that the short label's space cannot fall between them. In the same map,
+ *   far from both, sixty-four narrow labels turned 45 degrees, each alone,
+ *   set a quarter of a pixel apart in where they fall, across and down, over
+ *   a square two pixels wide: every one is drawn, wherever its box falls on
+ *   the collision map's coarser grid. A point of a narrow, turned box can
+ *   fall on a spot of that grid just outside the box's own footprint, where
+ *   nothing was drawn; empty space must not hide the label.
  *
  * Provisioning as the map check's real-render proofs:
  * DEZFIL_MAP_LOOK_RENDER names the standalone's port; DEZFIL_DATA_DIR is the
@@ -126,6 +150,38 @@ const PURPLE = [140, 40, 160] as const;
  * wide as its letters, a line tall, wholly above the point. */
 const STANDING = { label: "OOOOOOOO", size: 48 };
 
+/** The third map: towns, and above them temperatures, at the same places. */
+const CONTESTED = [
+  { x: 200, y: 160, town: "Studzianka", temperature: "-20°" },
+  { x: 512, y: 160, town: "Moscou", temperature: "0°" },
+  { x: 824, y: 160, town: "Molodeczno", temperature: "-24°" },
+];
+/** A town no temperature stands at. */
+const ALONE = { x: 512, y: 420, town: "Smolensk" };
+/** Any trace of blue over the neutral basemap, however faint. */
+const bluish = (r: number, g: number, b: number) => b - Math.max(r, g) > 12;
+
+/** The fourth map: a label whose text starts right of its point, and one
+ * standing above its point. */
+const BESIDE = { x: 150, y: 120, label: "Beside", offsetX: 12 };
+const ABOVE = { x: 150, y: 300, label: "Above" };
+/** Labels just under an upper layer's label (both at full density, so a
+ * label's space is its box), each a pixel further down; the last clear of it. */
+const HOLDER_Y = 400;
+const STEPS = [14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 40].map((below, i) => ({ x: 50 + 92 * i, below }));
+/** The fifth map: a label some 400 pixels wide, and a short one at its middle. */
+const LONG = { x: 512, y: 320, label: "WWWWWWWWWWWW" };
+const SHORT = { x: 512, y: 320, label: "0" };
+/** Narrow labels turned 45 degrees, each alone, set a quarter of a pixel
+ * apart in where they fall: eight steps across and eight down cover every
+ * place a label can fall on the collision map's two-pixel grid. */
+const TURNED = Array.from({ length: 64 }, (_, i) => ({
+  x: 52 + 60 * (i % 16) + 0.25 * (i % 8),
+  y: 60 + 40 * Math.floor(i / 16) + 0.25 * Math.floor(i / 8),
+}));
+/** Any trace of green over the neutral basemap. */
+const greenish = (r: number, g: number, b: number) => g - Math.max(r, b) > 30;
+
 const invisibleMarks = (label: LayerStyle["label"]): LayerStyle => ({
   fill: { type: "constant", color: rgba([0, 0, 0]) }, fillOpacity: 0,
   stroke: rgba([0, 0, 0]), strokeOpacity: 0, strokeWidth: 0, pointRadius: 1, opacity: 1,
@@ -138,6 +194,9 @@ describe.skipIf(!port)("labels in the server's image export", () => {
   let heldKey: unknown;
   let image: DecodedImage;
   let pitched: DecodedImage;
+  let twoLayers: DecodedImage;
+  let placement: DecodedImage;
+  let wideAndShort: DecodedImage;
   const revision = () => readDocumentRevision({ kind: "map", id: mapId })?.editRevision;
   const credential = () => delegateCredential(requireRequestAuth(authenticatedRequest()));
 
@@ -246,6 +305,56 @@ describe.skipIf(!port)("labels in the server's image export", () => {
     });
     if (pitchedResponse.status !== 200) throw new Error(`The image export answered ${pitchedResponse.status}: ${await pitchedResponse.text()}`);
     pitched = decodePng(new Uint8Array(await pitchedResponse.arrayBuffer()));
+
+    /** A flat map at the first one's camera, with these layers, exported. */
+    const flatMap = async (name: string, layers: { name: string; dataset: string; label: LayerStyle["label"] }[]) => {
+      const id = createMap(testAccountScope(), name).id;
+      const current = () => readDocumentRevision({ kind: "map", id })?.editRevision;
+      updateMap(testAccountScope(), id, {
+        viewport: { lng: LNG0, lat: LAT0, zoom: ZOOM, pitch: 0, bearing: 0 },
+        customBasemap: { url: basemap.styleUrl, name: "Loopback", attribution: [{ label: "Loopback fixture" }] },
+        legendCorner: "bottom-left",
+      }, { expectedRevision: current() });
+      for (const layer of layers) {
+        await createLayer(testAccountScope(), id, { name: layer.name, sql: `SELECT * FROM ${layer.dataset}`, style: invisibleMarks(layer.label) }, { expectedRevision: current() });
+      }
+      const answer = await fetch(`http://127.0.0.1:${port}/api/maps/${id}/export/image`, {
+        method: "POST",
+        headers: { authorization: `Bearer ${credential()}`, "content-type": "application/json" },
+        body: JSON.stringify({ definition: lookDefinition(mapWithLayers(testAccountScope(), id), "light") }),
+      });
+      if (answer.status !== 200) throw new Error(`The image export answered ${answer.status}: ${await answer.text()}`);
+      return decodePng(new Uint8Array(await answer.arrayBuffer()));
+    };
+    const plain = (color: readonly [number, number, number]) =>
+      ({ attribute: "text", size: 24, color: rgba(color), haloWidth: 0, haloColor: rgba([0, 0, 0], 0) });
+
+    const towns = await write("towns", [...CONTESTED.map((c) => point(c.x, c.y, { text: c.town })), point(ALONE.x, ALONE.y, { text: ALONE.town })]);
+    const temperatures = await write("temperatures", CONTESTED.map((c) => point(c.x, c.y, { text: c.temperature })));
+    twoLayers = await flatMap("Two labelled layers", [
+      { name: "Towns", dataset: towns, label: plain(BLUE) },
+      { name: "Temperatures", dataset: temperatures, label: plain(RED) },
+    ]);
+
+    const partly = await write("partly", STEPS.map((s) => point(s.x, HOLDER_Y + s.below, { text: "MM" })));
+    const holders = await write("holders", STEPS.map((s) => point(s.x, HOLDER_Y, { text: "MM" })));
+    const beside = await write("beside", [point(BESIDE.x, BESIDE.y, { text: BESIDE.label })]);
+    const above = await write("above", [point(ABOVE.x, ABOVE.y, { text: ABOVE.label })]);
+    placement = await flatMap("Label placement", [
+      { name: "Partly", dataset: partly, label: { ...plain(BLUE), density: 1 } },
+      { name: "Holders", dataset: holders, label: { ...plain(RED), density: 1 } },
+      { name: "Beside", dataset: beside, label: { ...plain(GREEN), anchor: "right", offsetX: BESIDE.offsetX } },
+      { name: "Above", dataset: above, label: { ...plain(GREEN), anchor: "top" } },
+    ]);
+
+    const long = await write("long", [point(LONG.x, LONG.y, { text: LONG.label })]);
+    const short = await write("short", [point(SHORT.x, SHORT.y, { text: SHORT.label })]);
+    const turned = await write("turned", TURNED.map((t) => point(t.x, t.y, { text: "l" })));
+    wideAndShort = await flatMap("A wide label and a short one", [
+      { name: "Wide", dataset: long, label: { ...plain(BLUE), density: 1 } },
+      { name: "Short", dataset: short, label: { ...plain(RED), size: 14, weight: "bold", density: 1 } },
+      { name: "Turned", dataset: turned, label: { ...plain(GREEN), size: 12, rotation: 45, density: 1 } },
+    ]);
   }, 180_000);
   afterAll(async () => {
     (process as unknown as Record<symbol, unknown>)[SIGNING_KEY] = heldKey;
@@ -295,6 +404,53 @@ describe.skipIf(!port)("labels in the server's image export", () => {
     expect(share({ x0: PITCHED.x + 220, y0: PITCHED.y - 40, x1: PITCHED.x + 320, y1: PITCHED.y - 8 }), "beside the box").toBeGreaterThan(0.95);
     // Behind the box, where its letters would be, the same ground.
     expect(share({ x0: PITCHED.x - 100, y0: PITCHED.y - 40, x1: PITCHED.x + 100, y1: PITCHED.y - 8 }), "behind the box").toBeGreaterThan(0.95);
+  });
+
+  it("draws one label where two layers label the same place, the upper layer's, and the lower's elsewhere", () => {
+    for (const c of CONTESTED) {
+      const around = box(c.x, c.y, 120, 26);
+      expect(pixels(twoLayers, around, near(RED)).length, c.temperature).toBeGreaterThan(40);
+      // No town drawn there, whole or faint: no ink of two labels on each other.
+      expect(pixels(twoLayers, around, bluish).length, c.town).toBe(0);
+    }
+    expect(pixels(twoLayers, box(ALONE.x, ALONE.y, 120, 26), near(BLUE)).length, ALONE.town).toBeGreaterThan(150);
+  });
+
+  it("draws a label beside its point, and one above it, at full ink", () => {
+    // The text starts right of the point: its box lies wholly beside it.
+    const beside = pixels(placement, { x0: BESIDE.x, y0: BESIDE.y - 20, x1: BESIDE.x + 160, y1: BESIDE.y + 20 }, near(GREEN));
+    expect(beside.length).toBeGreaterThan(150);
+    expect(Math.min(...beside.map(([x]) => x))).toBeGreaterThanOrEqual(BESIDE.x + BESIDE.offsetX - 2);
+    // The text stands on the point: its box's lower edge is the point.
+    const above = pixels(placement, { x0: ABOVE.x - 80, y0: ABOVE.y - 34, x1: ABOVE.x + 80, y1: ABOVE.y + 4 }, near(GREEN));
+    expect(above.length).toBeGreaterThan(150);
+    expect(Math.max(...above.map(([, y]) => y))).toBeLessThanOrEqual(ABOVE.y + 2);
+  });
+
+  it("draws a partly contested label whole or not at all, never pale", () => {
+    for (const s of STEPS) {
+      // The upper layer's label is drawn whole.
+      expect(pixels(placement, box(s.x, HOLDER_Y, 40, 12), near(RED)).length, `holder over ${s.below}`).toBeGreaterThan(100);
+      // Below the holder's ink, the lower label's own rows.
+      const rows = { x0: s.x - 40, y0: HOLDER_Y + 11, x1: s.x + 40, y1: HOLDER_Y + s.below + 12 };
+      const whole = pixels(placement, rows, near(BLUE)).length;
+      const traced = pixels(placement, rows, bluish).length;
+      expect(whole > 30 || traced === 0, `${s.below} px below: ${whole} pixels at full ink of ${traced} tinted`).toBe(true);
+    }
+    // Clear of the holder's space, the lower label draws.
+    const clear = STEPS[STEPS.length - 1];
+    expect(pixels(placement, box(clear.x, HOLDER_Y + clear.below, 40, 12), near(BLUE)).length).toBeGreaterThan(100);
+  });
+
+  it("hides a wide label whose middle a short, higher-ranked label takes", () => {
+    expect(pixels(wideAndShort, box(SHORT.x, SHORT.y, 12, 12), near(RED)).length, SHORT.label).toBeGreaterThan(10);
+    expect(pixels(wideAndShort, box(LONG.x, LONG.y, 240, 24), bluish).length, LONG.label).toBe(0);
+  });
+
+  it("draws every narrow turned label that stands alone, wherever it falls on the collision map", () => {
+    for (const [i, t] of TURNED.entries()) {
+      expect(pixels(wideAndShort, box(Math.round(t.x), Math.round(t.y), 10, 10), greenish).length, `turned label ${i}`).toBeGreaterThan(8);
+    }
   });
 
   it("draws labels in a proportional face: the i's well under half the M's width", () => {
