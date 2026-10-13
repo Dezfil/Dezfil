@@ -50,19 +50,6 @@
   gap: 14px;
 }
 
-/* Most section cards carry no action tray, so the time stays put on
-   hover (the gallery fades it to make room for one). */
-.grid .secCard:hover [class*="cardWhen"],
-.grid .secCard:focus-within [class*="cardWhen"] {
-  opacity: 1;
-}
-
-.pubAct {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
 .sharedTag {
   display: inline-flex;
   align-items: center;

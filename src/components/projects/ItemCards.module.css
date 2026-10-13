@@ -1,0 +1,18 @@
+/* A map's and a workflow's card, and the frame a dataset's card shares
+   with them. */
+
+/* Most item cards carry no action tray, so the time stays put on hover
+   (the gallery fades it to make room for one). The rule rides the card,
+   not a grid around it, so a card keeps it wherever it stands; the tag
+   in the selector outranks the gallery's own rule whichever stylesheet
+   loads first. */
+article.itemCard:hover [class*="cardWhen"],
+article.itemCard:focus-within [class*="cardWhen"] {
+  opacity: 1;
+}
+
+.pubAct {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}

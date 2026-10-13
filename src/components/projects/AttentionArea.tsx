@@ -1,6 +1,9 @@
 "use client";
 
 import { useMemo } from "react";
+import { OwnerPill } from "../sharing/PeopleMarks";
+import type { PersonLabel } from "../sharing/people";
+import { AsyncState } from "../ui/AsyncState";
 import { Button } from "../ui/Button";
 import { ErrorNote } from "../ui/ErrorNote";
 import { PlayIcon } from "../ui/icons";
@@ -19,8 +22,25 @@ import styles from "./ProjectHome.module.css";
  * The home's attention area: one row per member workflow the server
  * classifies as to-run-again, each Run naming its target and driving
  * the SAME planning-and-confirmation interaction the canvas owns —
- * never a second path.
+ * never a second path. Another host may ask for more, per row: the
+ * owner's pill on someone else's workflow, Run withheld until the read
+ * that says who may run it has answered, and runners that read no runs.
+ * The project home asks for none of it.
  */
+
+/** A Run waiting on the projects read: the pending line in its place
+ * meanwhile, the read's failure note with Try again when it failed. */
+export type WithheldRun =
+  | { status: "pending" }
+  | { status: "failed"; error: string; retry: () => void };
+
+/** A row as a host draws it. */
+export interface AttentionRowView extends AttentionRow {
+  /** Someone else's workflow: the owner's pill after its name. */
+  owner?: PersonLabel | null;
+  /** Run is not offered until the projects read answers. */
+  withheld?: WithheldRun | null;
+}
 
 function WarnIcon() {
   return (
@@ -43,11 +63,13 @@ function AttentionRun({
   workflow,
   opLabel,
   onChanged,
+  quiet,
 }: {
-  row: AttentionRow;
+  row: AttentionRowView;
   workflow: WorkflowListing;
   opLabel: (operation: string) => string;
   onChanged: () => Promise<boolean>;
+  quiet: boolean;
 }) {
   const ports = useMemo(
     () => ({
@@ -58,7 +80,7 @@ function AttentionRun({
     }),
     [onChanged],
   );
-  const runner = useWorkflowRun(row.id, ports);
+  const runner = useWorkflowRun(row.id, ports, undefined, quiet);
   const { confirm, refusal, confirming, askRun, confirmRun, closeConfirm, dismissRefusal } =
     useRunConfirm({ runner, onPlanChanged: onChanged });
 
@@ -81,16 +103,28 @@ function AttentionRun({
       <div className={styles.callout} data-attention={row.id}>
         <WarnIcon />
         <span>
-          <b>{row.name}</b> has {row.count} {nodeWord(row.count)} to run again
+          <b>{row.name}</b>
+          {row.owner && <OwnerPill owner={row.owner} placement="inline" />} has {row.count}{" "}
+          {nodeWord(row.count)} to run again
           {row.cause ? `: ${row.cause}` : ""}.
         </span>
-        <Button
-          variant="secondary"
-          onClick={() => void askRun(null)}
-          aria-label={`Run ${row.name}`}
-        >
-          <PlayIcon /> Run
-        </Button>
+        {row.withheld ? (
+          <AsyncState
+            state={row.withheld}
+            onRetry={row.withheld.status === "failed" ? row.withheld.retry : undefined}
+            pendingLabel="Reading your projects…"
+          >
+            {() => null}
+          </AsyncState>
+        ) : (
+          <Button
+            variant="secondary"
+            onClick={() => void askRun(null)}
+            aria-label={`Run ${row.name}`}
+          >
+            <PlayIcon /> Run
+          </Button>
+        )}
       </div>
       {refusal && (
         <ErrorNote
@@ -121,11 +155,14 @@ export function AttentionArea({
   workflows,
   opLabel,
   onChanged,
+  quiet = false,
 }: {
-  rows: AttentionRow[];
+  rows: AttentionRowView[];
   workflows: WorkflowListing[];
   opLabel: (operation: string) => string;
   onChanged: () => Promise<boolean>;
+  /** The rows' runners read no runs: Run alone is offered. */
+  quiet?: boolean;
 }) {
   if (rows.length === 0) return null;
   const byId = new Map(workflows.map((w) => [w.id, w]));
@@ -141,6 +178,7 @@ export function AttentionArea({
             workflow={workflow}
             opLabel={opLabel}
             onChanged={onChanged}
+            quiet={quiet}
           />
         );
       })}

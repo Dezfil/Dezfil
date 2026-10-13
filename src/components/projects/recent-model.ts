@@ -9,8 +9,10 @@ import { nodeWord, type WorkflowListing } from "../workflow-model";
  * the whole workspace, using general update time for maps and workflows
  * and imported or created time for datasets, this project's members excluded, builder-origin
  * recipes never counted. Someone else's work carries its owner, and only
- * the reader's own work is theirs to move or add, as in the picker. Pure:
- * the component only presents.
+ * the reader's own work is theirs to move or add, as in the picker. A
+ * host with no project leaves nothing out for being filed, and may ask
+ * for equal times to order the same whatever order the lists answered
+ * in. Pure: the component only presents.
  */
 
 /** `owner`: the owner of someone else's work, null on the reader's own. */
@@ -49,24 +51,40 @@ export function whereLine(where: string[]): string {
 const layers = (n: number) => `${n} layer${n === 1 ? "" : "s"}`;
 const rows = (n: number) => `${n.toLocaleString("en-US")} row${n === 1 ? "" : "s"}`;
 
+/** Identities a host leaves out, whatever their membership. */
+export type RecentExclusion = {
+  maps: ReadonlySet<string>;
+  workflows: ReadonlySet<string>;
+  tables: ReadonlySet<string>;
+};
+
+const NOTHING: RecentExclusion = { maps: new Set(), workflows: new Set(), tables: new Set() };
+
 export function recentItems(input: {
   maps: MapOverview[];
   workflows: WorkflowListing[];
   tables: TableListing[];
   /** This project: its members are excluded, by their own membership
-   * and by the home's member ids alike. */
-  projectId: string;
-  exclude: { maps: Set<string>; workflows: Set<string>; tables: Set<string> };
+   * and by the home's member ids alike. Without one, being filed leaves
+   * nothing out. */
+  projectId?: string;
+  exclude?: RecentExclusion;
   names: Map<string, string>;
   limit?: number;
   /** The signed-in person's SQL name; unknown, nothing is marked. */
   me?: string | null;
+  /** Equal times: "listed" (the default) keeps the order the lists
+   * answered in, maps before workflows before datasets; "total" orders
+   * them map, workflow, dataset, then the lower identity, the same
+   * whatever order the lists answered in. */
+  ties?: "listed" | "total";
 }): RecentItem[] {
-  const { names, projectId, me = null } = input;
+  const { names, projectId, me = null, exclude = NOTHING } = input;
   const ownerOf = (item: { owner?: PersonLabel | null }) => (ownedByOther(item.owner, me) ? item.owner : null);
+  const filedHere = (id: string | null) => projectId !== undefined && id === projectId;
   const items: RecentItem[] = [];
   for (const m of input.maps) {
-    if (m.projectId === projectId || input.exclude.maps.has(m.id)) continue;
+    if (filedHere(m.projectId) || exclude.maps.has(m.id)) continue;
     items.push({
       kind: "map",
       id: m.id,
@@ -79,7 +97,7 @@ export function recentItems(input: {
     });
   }
   for (const w of input.workflows) {
-    if (w.origin !== "workflow" || w.projectId === projectId || input.exclude.workflows.has(w.id)) continue;
+    if (w.origin !== "workflow" || filedHere(w.projectId) || exclude.workflows.has(w.id)) continue;
     items.push({
       kind: "workflow",
       id: w.id,
@@ -92,7 +110,7 @@ export function recentItems(input: {
     });
   }
   for (const t of input.tables) {
-    if (t.projectIds.includes(projectId) || input.exclude.tables.has(t.id)) continue;
+    if (t.projectIds.some((id) => filedHere(id)) || exclude.tables.has(t.id)) continue;
     items.push({
       kind: "dataset",
       id: t.id,
@@ -105,10 +123,20 @@ export function recentItems(input: {
     });
   }
   // Newest first across kinds; a tie keeps the ruled kind order, which
-  // is the order the items were pushed in (the sort is stable).
+  // is the order the items were pushed in (the sort is stable), unless
+  // the host asks for the total order.
+  const newest = (a: RecentItem, b: RecentItem) => b.time.localeCompare(a.time);
   return items
-    .sort((a, b) => b.time.localeCompare(a.time))
+    .sort(input.ties === "total" ? (a, b) => newest(a, b) || totalTie(a, b) : newest)
     .slice(0, input.limit ?? RECENT_LIMIT);
+}
+
+const KIND_ORDER: Record<RecentItem["kind"], number> = { map: 0, workflow: 1, dataset: 2 };
+
+/** Equal times in the total order: map, workflow, dataset, then the lower
+ * identity. */
+function totalTie(a: RecentItem, b: RecentItem): number {
+  return KIND_ORDER[a.kind] - KIND_ORDER[b.kind] || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
 }
 
 /** The card's heading: the instance by name, or plain when unnamed. */

@@ -127,6 +127,13 @@ class Runner implements WorkflowRunner {
     this.observation = new AbortController();
     return ++this.generation;
   }
+  /** Open for its screen: every setup of the effect that owns it, whether
+   * or not it reads, so a mount replayed by development's strict mode
+   * (setup, cleanup, setup) leaves it working. A start begun before the
+   * cleanup stays refused: the lifetime moved on. */
+  activate = () => {
+    this.disposed = false;
+  };
   dispose = () => {
     this.disposed = true;
     ++this.lifetime;
@@ -394,8 +401,8 @@ class Runner implements WorkflowRunner {
   };
 }
 
-/** `quiet`: a workflow with no runs to read (a template's), whose runs
- * list is never asked for. */
+/** `quiet`: a workflow whose runs list is never asked for (a template's,
+ * which has none; a row that only offers Run). It is opened all the same. */
 export function useWorkflowRun(id: string, ports: Ports, document?: WorkflowDocument, quiet = false): WorkflowRunner {
   const runner = useMemo(() => new Runner(id, ports, document), [id, document]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
@@ -404,6 +411,7 @@ export function useWorkflowRun(id: string, ports: Ports, document?: WorkflowDocu
   const [, bump] = useState(0);
   useEffect(() => runner.subscribe(() => bump((n) => n + 1)), [runner]);
   useEffect(() => {
+    runner.activate();
     if (!quiet) void runner.load();
     return runner.dispose;
   }, [runner, quiet]);
