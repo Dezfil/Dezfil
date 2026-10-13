@@ -46,6 +46,8 @@ const hosted = vi.hoisted(() => ({
     onClose: () => void;
   },
   queue: null as null | { projectId?: string | null; onSettled?: (report: unknown) => void; onFileImported?: () => void },
+  /** How often Home cleared the upload queue. */
+  resets: 0,
 }));
 vi.mock("../templates/TemplateCopyDialog", () => ({
   TemplateCopyDialog: ({ id }: { id: string }) => {
@@ -62,7 +64,7 @@ vi.mock("../AddDataDialog", () => ({
 vi.mock("../use-upload-queue", () => ({
   useUploadQueue: (options: NonNullable<typeof hosted.queue>) => {
     hosted.queue = options;
-    return { entries: [], settled: true, projectId: null, dismiss: () => 0, reset: () => {}, current: () => ({ settled: true }) };
+    return { entries: [], settled: true, projectId: null, dismiss: () => 0, reset: () => { hosted.resets += 1; }, current: () => ({ settled: true }) };
   },
 }));
 
@@ -150,6 +152,7 @@ beforeEach(() => {
   hosted.copying = [];
   hosted.addData = null;
   hosted.queue = null;
+  hosted.resets = 0;
   answers = {
     maps: [] as MapOverview[],
     workflows: { recipes: [] as WorkflowListing[] },
@@ -178,6 +181,8 @@ beforeEach(() => {
   });
   vi.stubGlobal("fetch", fetchSpy);
   host = installDomHost();
+  // An import's notice clears itself on the window's timer.
+  Object.assign(host.window, { setTimeout, clearTimeout });
   container = host.document.createElement("div");
   host.document.body.appendChild(container);
   root = createRoot(container as unknown as Element);
@@ -463,6 +468,49 @@ describe("Start", () => {
     await settle();
     expect(calls("/api/tables")).toHaveLength(3);
     expect(nav.push).not.toHaveBeenCalled();
+  });
+
+  it("says how an upload ended when Add data was closed during it, and clears the settled batch", async () => {
+    const notices = () => container.querySelectorAll('[role="status"]').map((n) => n.textContent);
+    const report = (over: Record<string, unknown>) => ({
+      files: 1, imported: 0, failed: 0, unconfirmed: 0, notStarted: 0, entries: [], tables: [], skips: [], dismissed: false, batch: 1, ...over,
+    });
+    await open();
+    // Open, the dialog keeps a batch that did not land cleanly, its notes
+    // readable there: nothing is said on Home, nothing cleared.
+    await press(start().querySelector('[data-start-action="add-data"]')!);
+    await act(async () => {
+      hosted.queue!.onSettled!(report({ files: 2, imported: 1, failed: 1, tables: [{ name: "stations" }], entries: [{ name: "stations.csv", state: "imported" }, { name: "broken.csv", state: "failed" }] }));
+    });
+    await settle();
+    expect(hosted.addData?.open).toBe(true);
+    expect(notices()).toEqual([]);
+    expect(hosted.resets).toBe(0);
+    // Closed during the next upload: its failure, its unconfirmed file and
+    // its skipped members are said on Home once it settles, and the
+    // settled batch is cleared so the next open starts fresh.
+    await act(async () => { hosted.addData!.onClose(); });
+    await settle();
+    expect(hosted.addData?.open).toBe(false);
+    await act(async () => {
+      hosted.queue!.onSettled!(report({
+        files: 3, imported: 1, failed: 1, unconfirmed: 1, tables: [{ name: "parcels" }],
+        entries: [{ name: "parcels.gpkg", state: "imported" }, { name: "roads.csv", state: "failed" }, { name: "rivers.zip", state: "unconfirmed" }],
+        skips: [{ source: "parcels.gpkg", layer: "styles", reason: "no geometry" }],
+      }));
+    });
+    await settle();
+    expect(notices()).toEqual([
+      "1 table ready. · roads.csv failed · rivers.zip unconfirmed, check the listing. Skipped 1 member: parcels.gpkg: styles (no geometry)",
+    ]);
+    expect(hosted.resets).toBe(1);
+    // A clean batch settling after the dialog closed is said too.
+    await act(async () => {
+      hosted.queue!.onSettled!(report({ imported: 1, tables: [{ name: "wells" }], entries: [{ name: "wells.csv", state: "imported" }] }));
+    });
+    await settle();
+    expect(notices()).toEqual(["wells is ready."]);
+    expect(hosted.resets).toBe(2);
   });
 
   it("opens the New workflow dialog for an unfiled workflow, then the canvas on it", async () => {
