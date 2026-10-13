@@ -1237,7 +1237,11 @@ scheme and host (null for a folder, with `folder: true`, never its path),
 hold: how many `versions` and the `bytes` their folders take. The
 **Templates** page, last in the side menu, draws one card per template from
 this list as soon as it answers and only then asks for the refresh below, so
-it never waits on the catalogue. `POST /api/templates/refresh` reads the catalogue
+it never waits on the catalogue. **Home** reads the same list beside it, for
+the template that leads a person with no work of their own and the templates
+below, and asks for the refresh the same way: once for each answer of the
+list, never while the catalogue is off or its saved address cannot be read.
+`POST /api/templates/refresh` reads the catalogue
 at the address in effect: its index (at most 1 MB) and then each listed
 template's two pictures in the index's order (at most 2 MB each, a picture
 past it refused alone, and 64 MB for the list, later entries drawn without
