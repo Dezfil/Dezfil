@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -728,8 +729,10 @@ describe("the rows to run again", () => {
     expect(calls("/api/recipes?origin=workflow")).toHaveLength(2);
     expect(row("w1")).toBeNull();
     expect(container.querySelector("[data-attention]")).toBeNull();
-    // Its runner stays to follow it, in an area that takes no room.
-    expect(container.querySelector("[data-attention-area]")?.style.display).toBe("none");
+    // Its runner stays to follow it, in an area that draws nothing, which
+    // its stylesheet gives no room.
+    expect(container.querySelector("[data-attention-area]")?.children).toEqual([]);
+    expect(readFileSync("src/components/projects/ProjectHome.module.css", "utf8")).toMatch(/\.attention:empty\s*\{\s*display:\s*none;/);
     // The run settles: Home reads the three lists and the lead's history again.
     poll.release({ run: SETTLED });
     await settle();
@@ -738,6 +741,34 @@ describe("the rows to run again", () => {
     expect(leadPlace().textContent).not.toContain("Never run");
     expect(leadPlace().textContent).toContain("ran ");
     // Settled and read again after it: the followed run is let go.
+    expect(container.querySelector("[data-attention-area]")).toBeNull();
+  });
+
+  it("bring a followed run back as its row when reading it fails, its failure in Run's place, and Try again follows it on to the settlement's re-read", async () => {
+    const before = { recipes: [wf("w1", { again: 2, changed: at(3) })] };
+    const during = { recipes: [{ ...wf("w1", { changed: at(3) }), summary: { nodes: 3, sources: 1, liveOutputs: 1, status: "in_progress", count: 1 } }] };
+    const after = { recipes: [wf("w1", { changed: at(3) })] };
+    answers.maps = [map("m1", { changed: at(5) })];
+    answers.workflows = inTurn(before, during, after);
+    answers.tables = inTurn([], [], [table("t1", { imported: at(9) })]);
+    // The first read of the run fails; the next answers it settled.
+    answers["run:r1"] = inTurn(failing("The run couldn't be read."), { run: SETTLED });
+    runsOf("w1");
+    await open();
+    await press(runButton("w1")!);
+    // The row left for the run under way; the read of the run failed: the
+    // row is back, named, the failure where Run stands, said once.
+    expect(row("w1")).not.toBeNull();
+    expect(row("w1")!.querySelector("b")?.textContent).toBe("Flow w1");
+    expect(runButton("w1")).toBeNull();
+    expect(alerts()).toEqual(["The run couldn't be read."]);
+    expect(calls("/api/recipes?origin=workflow")).toHaveLength(2);
+    // Try again follows the run on: it settles, and Home reads its lists again.
+    await press(row("w1")!.querySelectorAll("button").find((b) => b.textContent === "Try again")!);
+    expect([calls("/api/maps").length, calls("/api/recipes?origin=workflow").length, calls("/api/tables").length]).toEqual([3, 3, 3]);
+    expect(recentNames()).toEqual(["table_t1", "Flow w1"]);
+    expect(row("w1")).toBeNull();
+    expect(alerts()).toEqual([]);
     expect(container.querySelector("[data-attention-area]")).toBeNull();
   });
 

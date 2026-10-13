@@ -166,6 +166,11 @@
   gap: 10px;
 }
 
+/* Only runs followed after their rows left, drawing nothing: no room. */
+.attention:empty {
+  display: none;
+}
+
 .callout {
   display: flex;
   align-items: center;
