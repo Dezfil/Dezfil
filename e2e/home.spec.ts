@@ -212,18 +212,24 @@ async function tabTo(page: Page, target: Locator, what: string, most = 80): Prom
 async function heldAndArrived(page: Page, lead: "template" | "continue"): Promise<{ pending: Box[]; arrived: Box[] }> {
   const workflowsRead = /\/api\/recipes\?origin=workflow$/;
   // Every read of the workflows is held, a development build's second
-  // mount's included, and all are let go together.
+  // mount's included, and all are let go together, each exactly once:
+  // removing the route would itself let go of the reads it holds, so the
+  // held ones are continued first and only then is the route removed; a
+  // read arriving in between passes on.
   const held: Route[] = [];
+  let holding = true;
   await page.route(workflowsRead, (route) => {
-    held.push(route);
+    if (holding) held.push(route);
+    else void route.fallback();
   });
   await page.goto("/");
   await expect(page.locator('[data-lead="pending"]')).toBeVisible();
   await expect.poll(() => held.length).toBeGreaterThan(0);
   await atRest(page);
   const pending = [await box(leadPlace(page)), await box(start(page))];
+  holding = false;
+  for (const route of held.splice(0)) await route.continue();
   await page.unroute(workflowsRead);
-  for (const route of held) await route.continue();
   await expect(page.locator(`[data-lead="${lead}"]`)).toBeVisible();
   await atRest(page);
   return { pending, arrived: [await box(leadPlace(page)), await box(start(page))] };
