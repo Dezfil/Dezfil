@@ -139,7 +139,7 @@ const ALLOWED = new Set([
   // recent rows and the picker carry a dataset's name in the code face,
   // exactly as the Data Explorer's rows (home row moved with them).
   "src/components/projects/HomeSections.module.css :: .monoName",
-  "src/components/projects/EmptyHome.module.css :: .text b.mono",
+  "src/components/projects/RecentList.module.css :: .text b.mono",
   "src/components/projects/AddItemsDialog.module.css :: .text b.mono",
   // (reference page 14): the filing checklist's dataset names, the same
   // code-face rule.
