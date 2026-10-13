@@ -13,6 +13,7 @@ import {
   graphSteps,
   templatePictureAddress,
 } from "../templates/template-model";
+import templateStyles from "../templates/Templates.module.css";
 import { useTheme, type Theme } from "../theme";
 import { AsyncState } from "../ui/AsyncState";
 import { Button } from "../ui/Button";
@@ -119,8 +120,9 @@ export function LeadPlace({
 
 /** The first template, drawn wide: its picture across the card (a
  * workflow example's graph), the Template mark where an owner's pill would
- * sit, the place and the sources' names, the title as the section's
- * largest line, the question, two tags, then Open and Make a copy. */
+ * sit, the place, the title as the section's largest line, the question,
+ * two tags and the sources' names on the Templates card's credit line,
+ * then Open and Make a copy. */
 function TemplateLead({
   card,
   groupOf,
@@ -154,18 +156,8 @@ function TemplateLead({
           )}
         </div>
         <div className={styles.leadBody}>
-          <p className={styles.leadMeta}>
-            <span data-field="place">{card.place}</span>
-            {sources && (
-              <>
-                {" · "}
-                {/* The hint gives each source's credit and licence; the
-                    names alone do not say them. */}
-                <span data-field="sources" data-hint={creditInFull(card.sources)}>
-                  <span data-hint-ignore-text>{sources}</span>
-                </span>
-              </>
-            )}
+          <p className={styles.leadMeta} data-field="place">
+            {card.place}
           </p>
           <p className={styles.leadTitle} data-field="title">
             {card.title}
@@ -180,6 +172,14 @@ function TemplateLead({
               </span>
             ))}
           </div>
+          {sources && (
+            // The Templates card's credit line: the sources' names on one
+            // line, shortened when longer than it, their credits and
+            // licences in full in its hint, which the names do not say.
+            <p className={templateStyles.credit} data-field="sources" data-hint={creditInFull(card.sources)}>
+              <span data-hint-ignore-text>{sources}</span>
+            </p>
+          )}
         </div>
       </div>
       <span className={styles.mark} data-field="mark">

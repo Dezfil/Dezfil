@@ -314,6 +314,24 @@ test.describe("Home", () => {
   test("below the side-by-side width Start stands under the lead; at the narrow width nothing is cut off or scrolls sideways", async () => {
     const page = await fresh!.context.newPage();
     const errors = trackConsole(page);
+    // Just above the side-by-side step and on to the reference's windows,
+    // the template's words keep at least a Templates card's own words
+    // column (312px), the actions beside them or under them, never over.
+    for (const width of [910, 1000, 1100]) {
+      await page.setViewportSize({ width, height: 800 });
+      await openHome(page, "template");
+      const title = await box(leadPlace(page).locator('[data-field="title"]'));
+      const question = await box(leadPlace(page).locator('[data-field="question"]'));
+      expect(title.width, `${width} px: the words' column`).toBeGreaterThanOrEqual(312);
+      for (const name of [`Open ${list[0].title}`, `Make a copy of ${list[0].title}`]) {
+        const action = await box(leadPlace(page).getByRole("button", { name, exact: true }));
+        const beside = action.x >= title.x + title.width;
+        const under = action.y >= question.y + question.height;
+        expect(beside || under, `${width} px: ${name} stands beside the words or under them`).toBe(true);
+      }
+      await expectNothingSideways(page, `${width} × 800`);
+    }
+
     await page.setViewportSize(BELOW_BESIDE);
     await openHome(page, "template");
     await expectUnder(page, "860 × 800");

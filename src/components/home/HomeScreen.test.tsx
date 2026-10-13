@@ -286,6 +286,24 @@ describe("the lead", () => {
     expect(button("Open Harbour depths").getAttribute("data-variant")).not.toBe("primary");
   });
 
+  it("says the template's sources on a credit line of their own at the foot of its words, as a Templates card does, the credits in full in its hint", async () => {
+    await open();
+    const sources = leadPlace().querySelector('[data-field="sources"]')!;
+    // The place stands alone on its line.
+    expect(leadPlace().querySelector('[data-field="place"]')!.closest("p")!.textContent).toBe("Hamburg");
+    // The credit line is the last of the lead's words, after the tags.
+    const words = leadPlace().querySelector('[data-field="title"]')!.parentElement!;
+    expect(words.children.map((c) => c.getAttribute("data-field"))).toEqual(["place", "title", "question", "tags", "sources"]);
+    expect(sources.tagName).toBe("P");
+    expect(sources.textContent).toBe("Hamburg Port Authority · OpenStreetMap");
+    expect(sources.getAttribute("data-hint")).toBe(
+      "Soundings courtesy of the Hamburg Port Authority. (CC-BY-4.0) · © OpenStreetMap contributors (ODbL-1.0)",
+    );
+    // Drawn as a Templates card draws its credit line: the card below's.
+    const credit = shelf()!.querySelector('[data-template="trees"]')!.querySelector('[data-field="credit"]')!;
+    expect(sources.getAttribute("class")).toBe(credit.getAttribute("class"));
+  });
+
   it("opens the template's page from the card and from Open, and hands Make a copy its id", async () => {
     await open();
     await press(named("Open Harbour depths")[0]);
