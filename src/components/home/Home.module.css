@@ -19,3 +19,172 @@
   letter-spacing: -0.01em;
   line-height: 1.2;
 }
+
+/* A section: its row with the heading, then its content. */
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.secRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 22px;
+}
+
+.secRow h2 {
+  font-family: var(--font-display);
+  font-size: var(--text-heading);
+  font-weight: 600;
+}
+
+/* ---- the lead and Start ---- */
+
+/* The lead beside Start, Start as tall as the lead; below the width at
+   which both cannot stand, Start moves under the lead. */
+.leadRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 16px;
+  align-items: stretch;
+}
+
+.leadRow[data-beside="continue"] {
+  grid-template-columns: minmax(0, 1fr) 360px;
+}
+
+/* Nothing leads: Start alone, in one row under the welcome. */
+.leadRow[data-form="row"] {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (max-width: 900px) {
+  .leadRow,
+  .leadRow[data-beside="continue"] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* The lead's card fills its place whatever Start's height. */
+.section[data-lead] > article {
+  flex: 1;
+}
+
+/* The first template, drawn wide. */
+.leadCard {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.leadBody {
+  padding: 12px 18px 16px;
+  /* Room for the two actions, which stand at the body's right. */
+  padding-right: 250px;
+  border-top: 1px solid var(--border);
+}
+
+.leadMeta {
+  font-size: var(--text-meta);
+  font-weight: 500;
+  color: var(--fg-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The section's largest line, in the UI face: display stays for the
+   welcome. */
+.leadTitle {
+  margin-top: 2px;
+  font-size: var(--text-title);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+}
+
+.leadQuestion {
+  margin-top: 2px;
+  font-size: var(--text-label);
+  color: var(--fg-muted);
+}
+
+.leadActs {
+  position: absolute;
+  right: 18px;
+  bottom: 16px;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* The Template mark, where an owner's pill sits on someone else's card. */
+.mark {
+  position: absolute;
+  top: 9px;
+  left: 9px;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 24px;
+  padding: 0 9px 0 7px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-overlay-control-fill);
+  backdrop-filter: var(--surface-overlay-control-blur);
+  box-shadow: var(--surface-overlay-control-shadow);
+  color: var(--fg-muted);
+  font-size: var(--text-meta);
+  font-weight: 600;
+  /* A mark, not a control: a press goes to the card beneath. */
+  pointer-events: none;
+}
+
+.mark svg {
+  width: 13px;
+  height: 13px;
+  flex: none;
+  color: var(--accent);
+}
+
+/* The four start actions: two by two, stretched to the lead's height. */
+.startPair {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-auto-rows: 1fr;
+  gap: 12px;
+}
+
+.startRow {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 200px));
+  gap: 12px;
+}
+
+/* Open SQL is a link drawn as the same tile. */
+.startTile {
+  text-decoration: none;
+}
+
+/* At the narrow width the actions stand under the template's words, and
+   the row of four folds in two. */
+@media (max-width: 640px) {
+  .leadBody {
+    padding-right: 18px;
+  }
+
+  .leadActs {
+    position: static;
+    padding: 0 18px 16px;
+    flex-wrap: wrap;
+  }
+
+  .startRow {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

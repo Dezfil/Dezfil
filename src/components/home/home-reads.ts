@@ -6,6 +6,7 @@ import type { MapOverview, TableListing } from "../api";
 import { readRecipes } from "../api";
 import { readJson } from "../projects/home-read";
 import type { ProjectOverview } from "../projects/model";
+import { readLastRun, type LastRun } from "../projects/run-history";
 import type { HomeProject, HomeRead, HomeReads } from "./home-model";
 
 /**
@@ -125,4 +126,22 @@ export function useHomeReads(): HomeReadsHandle {
     [maps.reload, workflows.reload, tables.reload, projects.reload, templates.reload],
   );
   return { reads, retry, reload };
+}
+
+/** The leading workflow's newest run, read once when a workflow comes to
+ * lead (null when none leads); "pending" until that read answers, so the
+ * card shows the glyph and never "Never run" meanwhile. */
+export function useLeadHistory(workflowId: string | null): LastRun | "pending" {
+  const [answer, setAnswer] = useState<{ id: string; value: LastRun } | null>(null);
+  useEffect(() => {
+    if (workflowId === null) return;
+    let current = true;
+    void readLastRun(workflowId).then((value) => {
+      if (current) setAnswer({ id: workflowId, value });
+    });
+    return () => {
+      current = false;
+    };
+  }, [workflowId]);
+  return workflowId !== null && answer?.id === workflowId ? answer.value : "pending";
 }

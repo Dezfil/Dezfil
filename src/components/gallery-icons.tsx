@@ -148,6 +148,15 @@ export const IconData = () => (
   </Stroke>
 );
 
+/** A template's glyph: the rail's own compass for Templates, one glyph
+ * wherever a template is marked as one. */
+export const IconTemplate = () => (
+  <Stroke>
+    <circle cx="12" cy="12" r="9" />
+    <path d="m15.6 8.4-2.1 5.1-5.1 2.1 2.1-5.1 5.1-2.1Z" />
+  </Stroke>
+);
+
 export const IconCaret = () => (
   <Stroke>
     <path d="m6 9 6 6 6-6" />
