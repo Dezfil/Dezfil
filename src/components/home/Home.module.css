@@ -123,6 +123,16 @@
   flex: 1;
 }
 
+/* While the lead is read, or its read failed, the place keeps the height
+   of the card that most days arrives there: Continue's, its 226px
+   picture over the card's body. Start beside it and everything below
+   stay put when the card lands; the pending line or the failure note
+   sits at its top. */
+.leadHold {
+  flex: 1;
+  min-height: 307px;
+}
+
 /* The first template, drawn wide. */
 .leadCard {
   display: flex;

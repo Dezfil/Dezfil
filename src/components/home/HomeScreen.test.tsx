@@ -932,3 +932,282 @@ describe("the templates below", () => {
     expect(shelfCards()).toEqual(["trees", "storms", "c1"]);
   });
 });
+
+/* ---- what the screen reader hears ---- */
+
+/** The page's outline as the screen reader walks it, in document order:
+ * each heading with its level, each link and button by its name, each
+ * named mark, each live line; nothing under an aria-hidden subtree. A
+ * button's content is its name, so the walk does not enter it. */
+function outline(): string[] {
+  const out: string[] = [];
+  const nameOf = (e: HostElement) => e.getAttribute("aria-label") ?? e.textContent.trim();
+  const walk = (e: HostElement) => {
+    if (e.getAttribute("aria-hidden") === "true") return;
+    const tag = e.tagName.toLowerCase();
+    const role = e.getAttribute("role");
+    if (/^h[1-6]$/.test(tag)) {
+      out.push(`${tag} ${e.textContent}`);
+      return;
+    }
+    if (tag === "button") {
+      out.push(`button ${nameOf(e)}`);
+      return;
+    }
+    if (role === "link" || tag === "a") out.push(`link ${nameOf(e)}`);
+    else if (role === "img" && e.getAttribute("aria-label")) out.push(`img ${e.getAttribute("aria-label")}`);
+    else if (role === "status") out.push(`status ${e.textContent.trim()}`);
+    else if (role === "alert") out.push(`alert ${e.querySelector("p")?.textContent ?? ""}`);
+    for (const child of e.children) walk(child);
+  };
+  walk(container);
+  return out;
+}
+
+/** Each of Home's sections holds a heading or the line that stands for
+ * its content meanwhile: none is an empty region. */
+function emptySections(): number {
+  return container
+    .querySelectorAll("section")
+    .filter((s) => s.querySelector("h2") === null && s.querySelector('[role="status"]') === null && s.querySelector('[role="alert"]') === null)
+    .length;
+}
+
+const START = ["h2 Start", "button New map", "button Add data", "button New workflow", "link Open SQL"];
+const templateCard = (title: string) => [`link Open ${title}`, `button Open ${title}`, `button Make a copy of ${title}`];
+const FIVE = (): TemplateList => ({
+  ...TEMPLATES,
+  templates: [...TEMPLATES.templates, card("ferries", "Ferry lines"), card("parks", "Park access")],
+});
+
+describe("the tree Home gives the screen reader", () => {
+  it("in the fresh situation: the welcome, the template lead, Start, the templates below, and no Recent", async () => {
+    await open();
+    expect(outline()).toEqual([
+      "h1 Welcome, Ada",
+      "h2 Start with a template",
+      ...templateCard("Harbour depths"),
+      "h2 Or start your own", ...START.slice(1),
+      "h2 What Dezfil can do",
+      "link All templates",
+      ...templateCard("Street trees"),
+      ...templateCard("Storm tracks"),
+    ]);
+    expect(emptySections()).toBe(0);
+    expect(container.querySelector("[data-recent]")).toBeNull();
+  });
+
+  it("in the member's situation: Continue wearing its owner, Start, their Run, Recent under the instance's name, the next four templates", async () => {
+    instance.name = "Stadtwerke";
+    answers.maps = [map("m1", { changed: at(2) })];
+    answers.workflows = { recipes: [
+      wf("w2", { owner: BO, by: ADA, project: "p1", changed: at(5) }),
+      wf("w3", { owner: BO, project: "p1", again: 2, changed: at(3) }),
+    ] };
+    answers.tables = [table("t1", { imported: at(4) })];
+    answers.projects = [project("p1", "editor")];
+    answers.templates = FIVE();
+    await open();
+    expect(outline()).toEqual([
+      "h1 Welcome back, Ada",
+      "h2 Continue",
+      "link Open Flow w2",
+      "img Shared by Bo Brandt",
+      ...START,
+      "img Shared by Bo Brandt",
+      "button Run Flow w3",
+      "h2 Recent in Stadtwerke",
+      "link table_t1",
+      "link Flow w3, Bo Brandt",
+      "img Shared by Bo Brandt",
+      "link Map m1",
+      "h2 From the templates",
+      "link All 5 templates",
+      ...templateCard("Harbour depths"),
+      ...templateCard("Street trees"),
+      ...templateCard("Storm tracks"),
+      ...templateCard("Ferry lines"),
+    ]);
+    expect(emptySections()).toBe(0);
+  });
+
+  it("in the newcomer's situation: the template lead, Start, the shared work in Recent wearing its owners, four templates", async () => {
+    answers.maps = [map("m1", { owner: BO, project: "p1", changed: at(3) })];
+    answers.workflows = { recipes: [wf("w1", { owner: BO, project: "p1", changed: at(2) })] };
+    answers.projects = [project("p1", "viewer")];
+    answers.templates = FIVE();
+    await open();
+    expect(outline()).toEqual([
+      "h1 Welcome, Ada",
+      "h2 Start with a template",
+      ...templateCard("Harbour depths"),
+      "h2 Or start your own", ...START.slice(1),
+      "h2 Recent",
+      "link Map m1, Bo Brandt",
+      "img Shared by Bo Brandt",
+      "link Flow w1, Bo Brandt",
+      "img Shared by Bo Brandt",
+      "h2 From the templates",
+      "link All 5 templates",
+      ...templateCard("Street trees"),
+      ...templateCard("Storm tracks"),
+      ...templateCard("Ferry lines"),
+      ...templateCard("Park access"),
+    ]);
+    expect(emptySections()).toBe(0);
+  });
+
+  it("with nothing to lead: the welcome over Start alone, no other heading", async () => {
+    answers.templates = { ...TEMPLATES, templates: [] };
+    await open();
+    expect(outline()).toEqual(["h1 Welcome, Ada", ...START]);
+    expect(container.querySelectorAll("section")).toHaveLength(1);
+  });
+
+  it("while the lead is worked out, and after its read failed: no heading over the lead or the templates, the line that stands for each", async () => {
+    const workflows = held();
+    answers.workflows = workflows.answer;
+    await open();
+    expect(outline()).toEqual([
+      "h1 Welcome, Ada",
+      "status Loading…",
+      ...START,
+      "status Loading recent items…",
+      "status Reading the templates…",
+    ]);
+    expect(emptySections()).toBe(0);
+    workflows.fail();
+    await settle();
+    expect(outline()).toEqual([
+      "h1 Welcome, Ada",
+      "alert The workflows couldn't be read.",
+      "button Try again",
+      ...START,
+      // Recent cannot say there is nothing to list: the workflows did not
+      // answer. Its note is silent, the lead's announces.
+      "h2 Recent",
+      "button Try again",
+      // Nor can the templates below say the person reaches nothing.
+      "h2 From the templates",
+      "link All 3 templates",
+      ...templateCard("Harbour depths"),
+      ...templateCard("Street trees"),
+      ...templateCard("Storm tracks"),
+    ]);
+    expect(emptySections()).toBe(0);
+  });
+
+  it("with the templates read failed: their note and Try again, no heading for them", async () => {
+    answers.maps = [map("m1")];
+    answers.templates = failing("The templates couldn't be read.");
+    await open();
+    expect(outline()).toEqual([
+      "h1 Welcome back, Ada",
+      "h2 Continue",
+      "link Open Map m1",
+      ...START,
+      "alert The templates couldn't be read.",
+      "button Try again",
+    ]);
+    expect(emptySections()).toBe(0);
+  });
+});
+
+/* ---- each part's failure ---- */
+
+describe("a read that fails", () => {
+  /** Ada's own map, workflow and dataset, and the three shipped
+   * templates: every part has something to draw. */
+  function everything() {
+    answers.maps = [map("m1", { changed: at(5) })];
+    answers.workflows = { recipes: [wf("w1", { changed: at(3) })] };
+    answers.tables = [table("t1", { imported: at(4) })];
+  }
+  const noteFor = (message: string) =>
+    container.querySelectorAll("[data-tone]").find((n) => n.querySelector("p")?.textContent === message) ?? null;
+
+  it.each([
+    // The maps and the workflows decide the lead: their failure stands in
+    // its place, and the templates below take the first four.
+    // With no lead, Recent leaves nothing out.
+    ["maps", "The maps couldn't be read.", "[data-lead]", ["table_t1", "Flow w1"], ["harbour", "trees", "storms"]],
+    ["workflows", "The workflows couldn't be read.", "[data-lead]", ["Map m1", "table_t1"], ["harbour", "trees", "storms"]],
+    // The datasets and the templates fail in their own part alone.
+    ["tables", "The datasets couldn't be read.", "[data-recent]", ["Flow w1"], ["harbour", "trees", "storms"]],
+    ["templates", "The templates couldn't be read.", "[data-shelf]", ["table_t1", "Flow w1"], []],
+  ] as const)("says the %s read's failure in its part with Try again, draws the rest, and Try again restores it", async (read, message, part, recent, cards) => {
+    everything();
+    const answered = answers[read];
+    answers[read] = failing(message);
+    await open();
+    const note = noteFor(message)!;
+    expect(note).not.toBeNull();
+    expect(container.querySelector(part)!.contains(note)).toBe(true);
+    // The rest draws: Start, what Recent can list, the templates below.
+    expect(startActions()).toEqual(["New map", "Add data", "New workflow", "Open SQL"]);
+    expect(recentRows().map((r) => r.querySelector("[data-recent-name]")?.textContent)).toEqual(recent);
+    expect(shelfCards()).toEqual(cards);
+    answers[read] = answered;
+    await press(note.querySelectorAll("button").find((b) => b.textContent === "Try again")!);
+    expect(noteFor(message)).toBeNull();
+    expect(leadKind()).toBe("continue");
+    expect(named("Open Map m1")).toHaveLength(1);
+    expect(recentRows().map((r) => r.querySelector("[data-recent-name]")?.textContent)).toEqual(["table_t1", "Flow w1"]);
+    expect(shelfCards()).toEqual(["harbour", "trees", "storms"]);
+    expect(container.querySelector("[data-recent-failure]")).toBeNull();
+  });
+});
+
+/* ---- the lead's place while it waits ---- */
+
+describe("the lead's place while it is worked out", () => {
+  it("holds the pending line, then the failure note, inside the place that keeps the card's height", async () => {
+    const workflows = held();
+    answers.workflows = workflows.answer;
+    await open();
+    const hold = () => leadPlace().querySelector("[data-lead-hold]");
+    expect(hold()?.querySelector('[role="status"]')).not.toBeNull();
+    workflows.fail();
+    await settle();
+    expect(hold()?.querySelector('[role="alert"]')).not.toBeNull();
+    answers.workflows = { recipes: [] };
+    await press(hold()!.querySelectorAll("button").find((b) => b.textContent === "Try again")!);
+    expect(leadKind()).toBe("template");
+    expect(hold()).toBeNull();
+  });
+});
+
+/* ---- a picture that does not load ---- */
+
+describe("a picture that does not load", () => {
+  /** The chart-paper placeholder every picture stands on. */
+  const placeholders = (scope: HostElement) => scope.querySelectorAll("svg").filter((svg) => svg.getAttribute("viewBox") === "0 0 320 190");
+  async function failToLoad(img: HostElement) {
+    await act(async () => { img.dispatchEvent(new HostEvent("error")); });
+  }
+
+  it("leaves the placeholder on the template lead and on a template below", async () => {
+    await open();
+    for (const scope of [leadPlace(), shelf()!.querySelector('[data-template="trees"]')!]) {
+      const img = scope.querySelector("img")!;
+      expect(img).not.toBeNull();
+      expect(placeholders(scope)).toHaveLength(1);
+      await failToLoad(img);
+      expect(scope.querySelector("img")).toBeNull();
+      expect(placeholders(scope)).toHaveLength(1);
+    }
+  });
+
+  it("leaves the placeholder on Continue's picture and on a recent row's", async () => {
+    answers.maps = [map("m1", { changed: at(5) }), map("m2", { changed: at(4) })];
+    await open();
+    const row = recentRows()[0];
+    for (const scope of [leadPlace(), row]) {
+      const img = scope.querySelector("img")!;
+      expect(img.getAttribute("src")).toContain("/api/maps/");
+      await failToLoad(img);
+      expect(scope.querySelector("img")).toBeNull();
+      expect(placeholders(scope)).toHaveLength(1);
+    }
+  });
+});

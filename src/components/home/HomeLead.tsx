@@ -101,12 +101,16 @@ export function LeadPlace({
           {/* No heading until the lead is known: the row only keeps the
               place level with Start's. */}
           <div className={styles.secRow} aria-hidden />
-          <AsyncState
-            state={lead.kind === "failed" ? { status: "failed", error: lead.error } : { status: "pending" }}
-            onRetry={onRetry}
-          >
-            {() => null}
-          </AsyncState>
+          {/* The place keeps the card's height meanwhile, so Start beside
+              it and everything below stay put when the card arrives. */}
+          <div className={styles.leadHold} data-lead-hold>
+            <AsyncState
+              state={lead.kind === "failed" ? { status: "failed", error: lead.error } : { status: "pending" }}
+              onRetry={onRetry}
+            >
+              {() => null}
+            </AsyncState>
+          </div>
         </>
       )}
     </section>
