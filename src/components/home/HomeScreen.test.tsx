@@ -46,8 +46,11 @@ const hosted = vi.hoisted(() => ({
     onClose: () => void;
   },
   queue: null as null | { projectId?: string | null; onSettled?: (report: unknown) => void; onFileImported?: () => void },
-  /** How often Home cleared the upload queue. */
+  /** How often Home cleared the upload queue, and stopped its files not
+   * started; what the queue answers meanwhile. */
   resets: 0,
+  dismisses: 0,
+  upload: { settled: true, stopped: 0 },
 }));
 vi.mock("../templates/TemplateCopyDialog", () => ({
   TemplateCopyDialog: ({ id }: { id: string }) => {
@@ -64,7 +67,12 @@ vi.mock("../AddDataDialog", () => ({
 vi.mock("../use-upload-queue", () => ({
   useUploadQueue: (options: NonNullable<typeof hosted.queue>) => {
     hosted.queue = options;
-    return { entries: [], settled: true, projectId: null, dismiss: () => 0, reset: () => { hosted.resets += 1; }, current: () => ({ settled: true }) };
+    return {
+      entries: [], settled: hosted.upload.settled, projectId: null,
+      dismiss: () => { hosted.dismisses += 1; return hosted.upload.stopped; },
+      reset: () => { hosted.resets += 1; },
+      current: () => ({ settled: hosted.upload.settled }),
+    };
   },
 }));
 
@@ -153,6 +161,8 @@ beforeEach(() => {
   hosted.addData = null;
   hosted.queue = null;
   hosted.resets = 0;
+  hosted.dismisses = 0;
+  hosted.upload = { settled: true, stopped: 0 };
   answers = {
     maps: [] as MapOverview[],
     workflows: { recipes: [] as WorkflowListing[] },
@@ -508,6 +518,7 @@ describe("Start", () => {
     // Closed during the next upload: its failure, its unconfirmed file and
     // its skipped members are said on Home once it settles, and the
     // settled batch is cleared so the next open starts fresh.
+    hosted.upload = { settled: false, stopped: 0 };
     await act(async () => { hosted.addData!.onClose(); });
     await settle();
     expect(hosted.addData?.open).toBe(false);
@@ -530,6 +541,37 @@ describe("Start", () => {
     await settle();
     expect(notices()).toEqual(["wells is ready."]);
     expect(hosted.resets).toBe(2);
+  });
+
+  it("closes Add data as the Data page does: a settled batch cleared, the files not started stopped and said", async () => {
+    const notices = () => container.querySelectorAll('[role="status"]').map((n) => n.textContent);
+    const addData = () => start().querySelector('[data-start-action="add-data"]')!;
+    await open();
+    // A batch settled while open, its notes in the dialog: closing clears
+    // it, so the next open never shows them again.
+    await press(addData());
+    await act(async () => { hosted.addData!.onClose(); });
+    await settle();
+    expect(hosted.addData?.open).toBe(false);
+    expect([hosted.dismisses, hosted.resets]).toEqual([1, 1]);
+    expect(notices()).toEqual([]);
+    // Closed while a file uploads and two wait: the two are stopped and
+    // said; the running batch is not cleared.
+    await press(addData());
+    hosted.upload = { settled: false, stopped: 2 };
+    await act(async () => { hosted.addData!.onClose(); });
+    await settle();
+    expect([hosted.dismisses, hosted.resets]).toEqual([2, 1]);
+    expect(notices()).toEqual(["Stopped. 2 queued files were not started."]);
+    // A table landing from another source closes it the same way; one
+    // stopped file is said in the singular.
+    await press(addData());
+    hosted.upload = { settled: false, stopped: 1 };
+    await act(async () => { hosted.addData!.onTableCreated({ name: "stations" }); });
+    await settle();
+    expect(hosted.addData?.open).toBe(false);
+    expect([hosted.dismisses, hosted.resets]).toEqual([3, 1]);
+    expect(notices()).toEqual(["Stopped. 1 queued file was not started."]);
   });
 
   it("opens the New workflow dialog for an unfiled workflow, then the canvas on it", async () => {

@@ -107,6 +107,20 @@ export function HomeStart({
   useEffect(() => {
     queueRef.current = uploadQueue;
   });
+  // Every path that closes the dialog settles the queue as the Data page's
+  // close does: the files not started are stopped and said, and a settled
+  // batch is dropped, so the next open never shows its old notes.
+  const settleQueueForClose = useCallback(() => {
+    const queue = queueRef.current;
+    if (!queue) return;
+    const stopped = queue.dismiss();
+    if (stopped > 0) {
+      onNotice(
+        stopped === 1 ? "Stopped. 1 queued file was not started." : `Stopped. ${stopped} queued files were not started.`,
+      );
+    }
+    if (queue.current().settled) queue.reset();
+  }, [onNotice]);
 
   return (
     <section className={styles.section} data-start data-start-form={form}>
@@ -152,8 +166,12 @@ export function HomeStart({
         open={adding}
         projectId={null}
         projectName={null}
-        onClose={() => setAdding(false)}
+        onClose={() => {
+          settleQueueForClose();
+          setAdding(false);
+        }}
         onTableCreated={() => {
+          settleQueueForClose();
           setAdding(false);
           onDatasetsChanged();
         }}
