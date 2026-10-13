@@ -9,12 +9,14 @@ import { useSignedInLabel } from "../sharing/signed-in";
 import { useInstanceName } from "../shell/path-model";
 import { TemplateCopyDialog } from "../templates/TemplateCopyDialog";
 import { templateAddress } from "../templates/template-model";
+import { useTheme } from "../theme";
 import { ErrorNote } from "../ui/ErrorNote";
 import { useTransientNotice } from "../use-transient-notice";
 import { homeView, type HomeRunRow } from "./home-model";
 import { useHomeReads, useLeadHistory, useRereadAfterRun } from "./home-reads";
 import { LeadPlace } from "./HomeLead";
 import { HomeRecentSection } from "./HomeRecent";
+import { HomeShelfSection } from "./HomeShelf";
 import { HomeStart } from "./HomeStart";
 import styles from "./Home.module.css";
 
@@ -23,7 +25,8 @@ import styles from "./Home.module.css";
  * Every part comes from Home's model over the reads' answers, so the page
  * shows what an agent calling the same reads would work out: the welcome,
  * then the lead beside Start (or Start alone in one row when nothing
- * leads), the rows to run again the person may run, and Recent.
+ * leads), the rows to run again the person may run, Recent, and the
+ * templates below.
  */
 export function HomeScreen() {
   const router = useRouter();
@@ -39,6 +42,9 @@ export function HomeScreen() {
     (operation: string) => operations?.find((o) => o.id === operation)?.label ?? operation,
     [operations],
   );
+  // A workflow example's tools are named once the operations are read.
+  const labelOf = operations ? opLabel : null;
+  const { theme } = useTheme();
   const view = useMemo(
     () => homeView(reads, { name: label?.name ?? null, sqlName: label?.sqlName ?? null }),
     [reads, label],
@@ -115,6 +121,15 @@ export function HomeScreen() {
         projectsFailure={projectsFailure}
         retry={retry}
         announcedElsewhere={lead.kind === "failed" ? lead.reads[0] : null}
+      />
+      <HomeShelfSection
+        shelf={view.shelf}
+        theme={theme}
+        groupOf={groupOf}
+        labelOf={labelOf}
+        onRetry={retry.templates}
+        onOpen={(id) => router.push(templateAddress(id))}
+        onCopy={setCopying}
       />
       {copying ? <TemplateCopyDialog key={copying} id={copying} onClose={() => setCopying(null)} /> : null}
     </div>

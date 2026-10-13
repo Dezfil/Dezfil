@@ -287,13 +287,16 @@ export function reachesNothing(reads: Pick<HomeReads, "maps" | "workflows" | "ta
   );
 }
 
-/** Templates from the list in its order, the template lead left out (a
- * lead not yet chosen leaves nothing out): eight for a person who reaches
- * nothing yet, four otherwise, the same for everyone. */
+/** Templates from the list in its order, the template lead left out:
+ * eight for a person who reaches nothing yet, four otherwise, the same for
+ * everyone. While the lead is undecided the shelf waits too, since which
+ * template the lead takes, and so which are left, is not known yet; a lead
+ * that failed leaves nothing out. */
 export function homeShelf(reads: HomeReads, lead: HomeLead): HomeShelf {
   const { templates } = reads;
   if (templates.status === "pending") return { state: "pending" };
   if (templates.status === "failed") return { state: "failed", error: templates.error };
+  if (lead.kind === "pending") return { state: "pending" };
   const all = templates.value.templates;
   const rest = lead.kind === "template" ? all.filter((card) => card.id !== lead.card.id) : all;
   const fresh = reachesNothing(reads);

@@ -41,6 +41,50 @@
   font-weight: 600;
 }
 
+/* A section's mark, its faint count and its link to the whole list. */
+.secGlyph {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-sm);
+  background: var(--accent-wash);
+  color: var(--accent-bright);
+  flex: none;
+}
+
+.secGlyph svg {
+  width: 13px;
+  height: 13px;
+}
+
+.cnt {
+  color: var(--fg-faint);
+  font-size: var(--text-label);
+  font-variant-numeric: tabular-nums;
+}
+
+.secLink {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--text-label);
+  font-weight: 500;
+  color: var(--fg-muted);
+  white-space: nowrap;
+  text-decoration: none;
+}
+
+.secLink:hover {
+  color: var(--accent);
+}
+
+.secLink svg {
+  width: 12px;
+  height: 12px;
+}
+
 /* Recent stands as wide as the page, as the Showroom reference draws it;
    the empty project home keeps its narrower card. */
 .recent > [data-recent] {
@@ -192,5 +236,35 @@
 
   .startRow {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* ---- the templates below ---- */
+
+/* The Templates page's card, four to a row at the reference's windows
+   whatever the rail's width; fewer as the window narrows, one at the
+   galleries' narrow width. Only the row is Home's: the card is as it
+   ships. */
+.shelf {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+@media (max-width: 1100px) {
+  .shelf {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  .shelf {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 700px) {
+  .shelf {
+    grid-template-columns: minmax(0, 1fr);
   }
 }

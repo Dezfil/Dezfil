@@ -7,7 +7,7 @@ import { readRecipes } from "../api";
 import { readJson } from "../projects/home-read";
 import type { ProjectOverview } from "../projects/model";
 import { readLastRun, type LastRun } from "../projects/run-history";
-import type { HomeProject, HomeRead, HomeReads } from "./home-model";
+import { asksRefresh, type HomeProject, type HomeRead, type HomeReads } from "./home-model";
 
 /**
  * Home's reads, each list its own state as the signed-in account reads
@@ -16,7 +16,9 @@ import type { HomeProject, HomeRead, HomeReads } from "./home-model";
  * template list. A part draws as its own read answers, and Try again asks
  * that read alone again. Every attempt owns its answer: an older answer
  * that lands after a newer attempt began is dropped, so a slow first read
- * never overwrites a fresher one.
+ * never overwrites a fresher one. Once the template list answers, Home
+ * asks the server to read the catalogue, as the Templates page does, and
+ * the refresh's answer stands for that list.
  */
 
 export type HomeList = keyof HomeReads;
@@ -96,6 +98,46 @@ function useRead<T>(load: () => Promise<T>): {
   return { state, retry, reload };
 }
 
+/** The server reads the catalogue again (its own ten-minute rule bounds
+ * how often) and answers the list as it then stands; null when it did not
+ * answer one. Home says nothing about the catalogue: the Templates page
+ * says why it lists nothing, one link away. */
+async function refreshTemplates(): Promise<TemplateList | null> {
+  try {
+    const response = await fetch("/api/templates/refresh", { method: "POST", cache: "no-store" });
+    return response.ok ? ((await response.json()) as TemplateList) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** The template list as it stands: the list read's answer, then the
+ * refresh's answer for it. The refresh is asked once per answer of the
+ * list read, never while the catalogue is off or its saved address cannot
+ * be read, so a retried list asks again; an answer for a list that has
+ * since been read again is dropped. */
+function useTemplateList(listRead: HomeRead<TemplateList>): HomeRead<TemplateList> {
+  const [refreshed, setRefreshed] = useState<{ of: TemplateList; list: TemplateList } | null>(null);
+  const asked = asksRefresh(listRead) && listRead.status === "ready" ? listRead.value : null;
+  useEffect(() => {
+    if (asked === null) return;
+    let current = true;
+    void refreshTemplates().then((list) => {
+      if (current && list) setRefreshed({ of: asked, list });
+    });
+    return () => {
+      current = false;
+    };
+  }, [asked]);
+  return useMemo(
+    () =>
+      listRead.status === "ready" && refreshed?.of === listRead.value
+        ? { status: "ready", value: refreshed.list }
+        : listRead,
+    [listRead, refreshed],
+  );
+}
+
 export interface HomeReadsHandle {
   reads: HomeReads;
   /** Ask one list again, its part pending until the answer. */
@@ -111,15 +153,16 @@ export function useHomeReads(): HomeReadsHandle {
   const tables = useRead(LOADERS.tables);
   const projects = useRead(LOADERS.projects);
   const templates = useRead(LOADERS.templates);
+  const templateList = useTemplateList(templates.state);
   const reads = useMemo<HomeReads>(
     () => ({
       maps: maps.state,
       workflows: workflows.state,
       tables: tables.state,
       projects: projects.state,
-      templates: templates.state,
+      templates: templateList,
     }),
-    [maps.state, workflows.state, tables.state, projects.state, templates.state],
+    [maps.state, workflows.state, tables.state, projects.state, templateList],
   );
   const retry = useMemo(
     () => ({

@@ -217,6 +217,9 @@ const start = () => container.querySelector("[data-start]")!;
 const startActions = () => start().querySelectorAll("[data-start-action]").map((a) => a.textContent);
 const button = (name: string) => container.querySelectorAll("button").find((b) => b.getAttribute("aria-label") === name || b.textContent === name)!;
 const named = (name: string) => container.querySelectorAll("[aria-label]").filter((e) => e.getAttribute("aria-label") === name);
+const inLead = (name: string) => leadPlace().querySelectorAll("[aria-label]").filter((e) => e.getAttribute("aria-label") === name);
+const shelf = () => container.querySelector('[data-shelf="shown"]');
+const shelfCards = () => shelf()?.querySelectorAll("[data-template]").map((c) => c.getAttribute("data-template")) ?? [];
 
 /** A read answering only when the test releases it, or failing then. */
 function held() {
@@ -262,7 +265,7 @@ describe("the lead", () => {
   it("leads a person who reaches nothing with the first template, wide, its mark, place, sources, title, question, two tags and both actions", async () => {
     await open();
     expect(leadKind()).toBe("template");
-    expect(headings()).toEqual(["Start with a template", "Or start your own"]);
+    expect(headings()).toEqual(["Start with a template", "Or start your own", "What Dezfil can do"]);
     expect(field("mark")).toBe("Template");
     expect(field("place")).toBe("Hamburg");
     expect(field("sources")).toBe("Hamburg Port Authority · OpenStreetMap");
@@ -305,7 +308,7 @@ describe("the lead", () => {
     answers.maps = [map("m1")];
     await open();
     expect(leadKind()).toBe("continue");
-    expect(headings()).toEqual(["Continue", "Start"]);
+    expect(headings()).toEqual(["Continue", "Start", "From the templates"]);
     const card = named("Open Map m1")[0];
     expect(card.getAttribute("role")).toBe("link");
     // The picture is the card's sized strip, taller than a project home's 112.
@@ -380,6 +383,8 @@ describe("the lead waits for both the maps and the workflows", () => {
     expect(named("Open Map m1")).toEqual([]);
     expect(headings()).not.toContain("Start with a template");
     expect(headings()).not.toContain("Continue");
+    // The templates below wait with it: which one leads is not known yet.
+    expect(container.querySelector("[data-shelf]")?.getAttribute("data-shelf")).toBe("pending");
     expect(start().getAttribute("data-start-form")).toBe("pair");
     expect(startActions()).toEqual(["New map", "Add data", "New workflow", "Open SQL"]);
 
@@ -387,9 +392,11 @@ describe("the lead waits for both the maps and the workflows", () => {
     await settle();
     expect(leadKind()).toBe("failed");
     expect(leadPlace().querySelector('[role="alert"]')?.textContent).toContain("The workflows couldn't be read.");
-    expect(named("Open Harbour depths")).toEqual([]);
-    expect(named("Open Map m1")).toEqual([]);
+    expect(inLead("Open Harbour depths")).toEqual([]);
+    expect(inLead("Open Map m1")).toEqual([]);
     expect(startActions()).toEqual(["New map", "Add data", "New workflow", "Open SQL"]);
+    // The templates below stand, the first four of the list, none left out.
+    expect(shelfCards()).toEqual(["harbour", "trees", "storms"]);
 
     // Try again asks the workflows alone again, and the expected lead stands.
     answers.workflows = { recipes: [wf("w2", { changed: at(3) })] };
@@ -405,7 +412,7 @@ describe("the lead waits for both the maps and the workflows", () => {
     answers.workflows = () => Promise.resolve(Response.json({ error: { code: "internal", message: "The workflows couldn't be read." } }, { status: 500 }));
     await open();
     expect(leadKind()).toBe("failed");
-    expect(named("Open Harbour depths")).toEqual([]);
+    expect(inLead("Open Harbour depths")).toEqual([]);
     answers.workflows = { recipes: [] };
     await press(button("Try again"));
     expect(leadKind()).toBe("template");
@@ -769,5 +776,159 @@ describe("the leading workflow's run history", () => {
     expect(runsReads()).toHaveLength(2);
     expect(leadPlace().querySelector("[data-lead-history-failure]")).toBeNull();
     expect(leadPlace().textContent).toContain("ran ");
+  });
+});
+
+describe("the templates below", () => {
+  /** A template list as the server answers it: the shipped three first,
+   * then the catalogue's, the catalogue in `state`. */
+  function listOf(ids: string[], state: TemplateList["catalogue"]["state"] = "not_read", reason: TemplateList["catalogue"]["reason"] = null): TemplateList {
+    const shipped = new Map(TEMPLATES.templates.map((t) => [t.id, t]));
+    return {
+      templates: ids.map((id) => shipped.get(id) ?? card(id, `Catalogue ${id}`, { origin: "catalogue" })),
+      catalogue: { state, host: null, folder: true, readAt: null, reason, status: null },
+      downloads: { versions: 0, bytes: 0 },
+    };
+  }
+  const refreshes = () => calls("/api/templates/refresh", "POST");
+  /** The refresh the server is asked for, answering when the test says. */
+  function refreshHeld() {
+    const answer = held();
+    posts = (url) => (url === "/api/templates/refresh" ? answer.answer() : Promise.resolve(Response.json({ error: { code: "not_found", message: "Not found." } }, { status: 404 })));
+    return answer;
+  }
+  const countLine = () => shelf()?.querySelector("[data-shelf-count]")?.textContent ?? null;
+  const shelfLink = () => shelf()?.querySelector("[data-shelf-link]") ?? null;
+
+  it("shows a person who reaches nothing the other shipped templates under What Dezfil can do, with the count and the link to all", async () => {
+    await open();
+    expect(headings()).toEqual(["Start with a template", "Or start your own", "What Dezfil can do"]);
+    expect(shelfCards()).toEqual(["trees", "storms"]);
+    expect(countLine()).toBe("3 templates on open data");
+    expect(shelfLink()?.textContent).toBe("All templates");
+    expect(shelfLink()?.getAttribute("href")).toBe("/templates");
+    expect(container.querySelector("[data-recent]")).toBeNull();
+  });
+
+  it("opens a card's template and hands its Make a copy the template's id", async () => {
+    await open();
+    const trees = shelf()!.querySelector('[data-template="trees"]')!;
+    expect(trees.querySelectorAll("[aria-label]").map((e) => e.getAttribute("aria-label"))).toEqual([
+      "Open Street trees", "Open Street trees", "Make a copy of Street trees",
+    ]);
+    await press(trees.querySelectorAll("button").find((b) => b.getAttribute("aria-label") === "Open Street trees")!);
+    expect(nav.push).toHaveBeenLastCalledWith("/templates/trees");
+    await press(trees.querySelectorAll("button").find((b) => b.getAttribute("aria-label") === "Make a copy of Street trees")!);
+    expect(hosted.copying.at(-1)).toBe("trees");
+  });
+
+  it("steps back to From the templates, the link counting them all, once the person has work of their own", async () => {
+    answers.maps = [map("m1")];
+    await open();
+    expect(leadKind()).toBe("continue");
+    expect(headings()).toEqual(["Continue", "Start", "From the templates"]);
+    expect(shelfCards()).toEqual(["harbour", "trees", "storms"]);
+    expect(countLine()).toBeNull();
+    expect(shelfLink()?.textContent).toBe("All 3 templates");
+  });
+
+  it("waits while the lead is undecided, then draws without the template that leads", async () => {
+    const workflows = held();
+    answers.workflows = workflows.answer;
+    await open();
+    expect(container.querySelector("[data-shelf]")?.getAttribute("data-shelf")).toBe("pending");
+    expect(container.querySelectorAll("[data-template]")).toHaveLength(0);
+    workflows.release({ recipes: [] });
+    await settle();
+    expect(leadKind()).toBe("template");
+    expect(shelfCards()).toEqual(["trees", "storms"]);
+  });
+
+  it("is absent with no template beyond the lead", async () => {
+    answers.templates = { ...TEMPLATES, templates: [TEMPLATES.templates[0]] };
+    await open();
+    expect(leadKind()).toBe("template");
+    expect(container.querySelector("[data-shelf]")).toBeNull();
+    expect(headings()).toEqual(["Start with a template", "Or start your own"]);
+  });
+
+  it("says a failed template list with Try again, which brings the template lead and the shelf", async () => {
+    answers.templates = failing("The templates couldn't be read.");
+    await open();
+    const place = container.querySelector('[data-shelf="failed"]')!;
+    expect(place.querySelector('[role="alert"]')?.textContent).toContain("The templates couldn't be read.");
+    answers.templates = TEMPLATES;
+    await press(place.querySelectorAll("button").find((b) => b.textContent === "Try again")!);
+    expect(leadKind()).toBe("template");
+    expect(shelfCards()).toEqual(["trees", "storms"]);
+  });
+
+  it.each([
+    ["unchanged", ["harbour", "trees", "storms", "c1", "c2"], ["trees", "storms", "c1", "c2"], "5 templates on open data"],
+    ["smaller", ["harbour", "trees", "storms"], ["trees", "storms"], "3 templates on open data"],
+    ["larger", ["harbour", "trees", "storms", "c1", "c2", "c3", "c4", "c5", "c6", "c7"], ["trees", "storms", "c1", "c2", "c3", "c4", "c5", "c6"], "10 templates on open data"],
+  ])("draws before the catalogue answers, asks the refresh once, and redraws on its %s answer with the shipped lead unmoved", async (_kind, ids, cards, count) => {
+    answers.templates = listOf(["harbour", "trees", "storms", "c1", "c2"]);
+    const refresh = refreshHeld();
+    await open();
+    expect(shelfCards()).toEqual(["trees", "storms", "c1", "c2"]);
+    expect(countLine()).toBe("5 templates on open data");
+    expect(refreshes()).toHaveLength(1);
+    refresh.release(listOf(ids, "listed"));
+    await settle();
+    expect(field("title")).toBe("Harbour depths");
+    expect(shelfCards()).toEqual(cards);
+    expect(countLine()).toBe(count);
+    expect(refreshes()).toHaveLength(1);
+    expect(calls("/api/templates")).toHaveLength(1);
+  });
+
+  it("takes the template lead from the refresh's first listing answer when the list had none", async () => {
+    answers.templates = listOf([]);
+    const refresh = refreshHeld();
+    await open();
+    expect(leadKind()).toBeNull();
+    expect(start().getAttribute("data-start-form")).toBe("row");
+    expect(container.querySelector("[data-shelf]")).toBeNull();
+    refresh.release(listOf(["c1", "c2"], "listed"));
+    await settle();
+    expect(leadKind()).toBe("template");
+    expect(field("title")).toBe("Catalogue c1");
+    expect(shelfCards()).toEqual(["c2"]);
+    expect(countLine()).toBe("2 templates on open data");
+  });
+
+  it("keeps what the list said, and says nothing about the catalogue, when the refresh is refused", async () => {
+    answers.templates = listOf(["harbour", "trees", "storms"]);
+    const refresh = refreshHeld();
+    await open();
+    refresh.fail("The template catalogue could not be read.");
+    await settle();
+    expect(shelfCards()).toEqual(["trees", "storms"]);
+    expect(alerts()).toEqual([]);
+  });
+
+  it.each([
+    ["the catalogue is off", "off", null],
+    ["its saved address cannot be read", "refused", "service_address_unreadable"],
+  ] as const)("sends no refresh while %s", async (_why, state, reason) => {
+    answers.templates = listOf(["harbour", "trees", "storms"], state, reason);
+    refreshHeld();
+    await open();
+    expect(shelfCards()).toEqual(["trees", "storms"]);
+    expect(refreshes()).toEqual([]);
+  });
+
+  it("asks again when a failed list is read again", async () => {
+    answers.templates = failing("The templates couldn't be read.");
+    const refresh = refreshHeld();
+    await open();
+    expect(refreshes()).toEqual([]);
+    answers.templates = listOf(["harbour", "trees", "storms"]);
+    await press(container.querySelector('[data-shelf="failed"]')!.querySelectorAll("button").find((b) => b.textContent === "Try again")!);
+    expect(refreshes()).toHaveLength(1);
+    refresh.release(listOf(["harbour", "trees", "storms", "c1"], "listed"));
+    await settle();
+    expect(shelfCards()).toEqual(["trees", "storms", "c1"]);
   });
 });

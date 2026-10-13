@@ -507,10 +507,24 @@ describe("the templates below", () => {
     expect(v.shelf).toMatchObject({ heading: "From the templates" });
   });
 
-  it("stands while the lead waits, with nothing left out for a lead not yet chosen", () => {
+  it("waits while the lead waits, since which template the lead takes is not known yet", () => {
     const v = view({ workflows: PENDING, templates: ready(list(numbered(10))) });
     expect(leadWord(v.lead)).toBe("pending");
+    expect(v.shelf).toEqual({ state: "pending" });
+    expect(view({ maps: PENDING, templates: ready(list(numbered(10))) }).shelf).toEqual({ state: "pending" });
+  });
+
+  it("draws four from the top once the lead has failed, with nothing left out", () => {
+    const v = view({ workflows: failed("The workflows could not be read."), templates: ready(list(numbered(10))) });
+    expect(leadWord(v.lead)).toBe("failed");
     expect(shelfIds(v.shelf)).toEqual(["t01", "t02", "t03", "t04"]);
+    expect(v.shelf).toMatchObject({ heading: "From the templates", link: "All 10 templates" });
+  });
+
+  it("names the template list's failure even while the lead waits", () => {
+    expect(view({ workflows: PENDING, templates: failed("The templates could not be read.") }).shelf).toEqual({
+      state: "failed", error: "The templates could not be read.",
+    });
   });
 
   it("waits for the template list, and names its failure", () => {
