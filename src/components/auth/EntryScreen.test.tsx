@@ -141,6 +141,38 @@ describe("the shortest password", () => {
   });
 });
 
+describe("with the landing page left at its default", () => {
+  // The entry read answers the setting's default, Home, while nobody has
+  // chosen another page; each way in lands there.
+  it("lands Home after signing in", async () => {
+    await open("sign-in");
+    await type("Email", "ada@example.test");
+    await type("Password", "paper cranes at sunrise");
+    await submit();
+    expect(posted.map(post => post.url)).toEqual(["/api/auth/sign-in"]);
+    expect(replaced).toEqual(["https://dezfil.example/"]);
+  });
+
+  it("lands Home once the first account is made", async () => {
+    entry = { ...entry, setupRequired: true };
+    await open("setup");
+    await type("Name", "Ada");
+    await type("Email", "ada@example.test");
+    await type("Password", "paper cranes at sunrise");
+    await submit();
+    expect(posted.map(post => post.url)).toEqual(["/api/auth/setup"]);
+    expect(replaced).toEqual(["https://dezfil.example/"]);
+  });
+
+  it("lands Home once an invitation is redeemed", async () => {
+    await open("redeem");
+    await type("Password", "paper cranes at sunrise");
+    await submit();
+    expect(posted.map(post => post.url)).toEqual(["/api/auth/redeem"]);
+    expect(replaced).toEqual(["https://dezfil.example/"]);
+  });
+});
+
 describe("the first-account and invitation pages", () => {
   it("show no message and no forgot line, and land on the stored page once done", async () => {
     entry = { ...entry, setupRequired: true, signInMessage: "Use your work email.", lostPasswordContact: "the GIS team", landingPage: "projects" };

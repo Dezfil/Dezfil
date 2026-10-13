@@ -1,0 +1,292 @@
+/* Home, in the Showroom reference's composition: the welcome, then the
+   lead beside the start actions, then the rows to run again, Recent and
+   the templates below. The page scrolls as one; every surface is a
+   shipped one, and this sheet only places them. */
+
+.screen {
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+  min-width: 0;
+  padding-bottom: 24px;
+  /* Home's own width places the lead and Start, whatever the side
+     menu's. */
+  container: home / inline-size;
+}
+
+/* The welcome: the one display moment on a workspace page. */
+.welcome {
+  font-family: var(--font-display);
+  font-size: var(--text-hero);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+
+/* A section: its row with the heading, then its content. */
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.secRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 22px;
+}
+
+.secRow h2 {
+  font-family: var(--font-display);
+  font-size: var(--text-heading);
+  font-weight: 600;
+}
+
+/* A section's mark, its faint count and its link to the whole list. */
+.secGlyph {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-sm);
+  background: var(--accent-wash);
+  color: var(--accent-bright);
+  flex: none;
+}
+
+.secGlyph svg {
+  width: 13px;
+  height: 13px;
+}
+
+.cnt {
+  color: var(--fg-faint);
+  font-size: var(--text-label);
+  font-variant-numeric: tabular-nums;
+}
+
+.secLink {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--text-label);
+  font-weight: 500;
+  color: var(--fg-muted);
+  white-space: nowrap;
+  text-decoration: none;
+}
+
+.secLink:hover {
+  color: var(--accent);
+}
+
+.secLink svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* Recent stands as wide as the page, as the Showroom reference draws it;
+   the empty project home keeps its narrower card. */
+.recent > [data-recent] {
+  max-width: none;
+}
+
+/* ---- the lead and Start ---- */
+
+/* The lead beside Start, Start as tall as the lead; below the width at
+   which both cannot stand, Start moves under the lead. Home's own width
+   decides, so a side menu standing open moves it as a narrower window
+   does. */
+.leadRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 16px;
+  align-items: stretch;
+}
+
+.leadRow[data-beside="continue"] {
+  grid-template-columns: minmax(0, 1fr) 360px;
+}
+
+/* Nothing leads: Start alone, in one row under the welcome. */
+.leadRow[data-form="row"] {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@container home (max-width: 780px) {
+  .leadRow,
+  .leadRow[data-beside="continue"] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* The lead's card fills its place whatever Start's height. */
+.section[data-lead] > article {
+  flex: 1;
+}
+
+/* While the lead is read, or its read failed, the place keeps the height
+   of the card that most days arrives there: Continue's, its 226px
+   picture over the card's body. Start beside it and everything below
+   stay put when the card lands; the pending line or the failure note
+   sits at its top. */
+.leadHold {
+  flex: 1;
+  min-height: 307px;
+}
+
+/* The first template, drawn wide. Its own width decides where its
+   actions stand. */
+.leadCard {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  container: lead / inline-size;
+}
+
+.leadBody {
+  padding: 12px 18px 16px;
+  /* Room for the two actions, which stand at the body's right. */
+  padding-right: 250px;
+  border-top: 1px solid var(--border);
+}
+
+.leadMeta {
+  font-size: var(--text-meta);
+  font-weight: 500;
+  color: var(--fg-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The section's largest line, in the UI face: display stays for the
+   welcome. */
+.leadTitle {
+  margin-top: 2px;
+  font-size: var(--text-title);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+}
+
+.leadQuestion {
+  margin-top: 2px;
+  font-size: var(--text-label);
+  color: var(--fg-muted);
+}
+
+.leadActs {
+  position: absolute;
+  right: 18px;
+  bottom: 16px;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* The Template mark, where an owner's pill sits on someone else's card. */
+.mark {
+  position: absolute;
+  top: 9px;
+  left: 9px;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 24px;
+  padding: 0 9px 0 7px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-overlay-control-fill);
+  backdrop-filter: var(--surface-overlay-control-blur);
+  box-shadow: var(--surface-overlay-control-shadow);
+  color: var(--fg-muted);
+  font-size: var(--text-meta);
+  font-weight: 600;
+  /* A mark, not a control: a press goes to the card beneath. */
+  pointer-events: none;
+}
+
+.mark svg {
+  width: 13px;
+  height: 13px;
+  flex: none;
+  color: var(--accent);
+}
+
+/* The four start actions: two by two, stretched to the lead's height. */
+.startPair {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-auto-rows: 1fr;
+  gap: 12px;
+}
+
+.startRow {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 200px));
+  gap: 12px;
+}
+
+/* Open SQL is a link drawn as the same tile. */
+.startTile {
+  text-decoration: none;
+}
+
+/* Beside the actions the template's words keep at least a Templates
+   card's own words column, 312px: on a card narrower than that column,
+   the 18px and the 250px either side of it and the card's two edges, the
+   actions stand under the words, which then take the card's width. */
+@container lead (max-width: 581px) {
+  .leadBody {
+    padding-right: 18px;
+  }
+
+  .leadActs {
+    position: static;
+    padding: 0 18px 16px;
+    flex-wrap: wrap;
+  }
+}
+
+/* At the narrow width the row of four folds in two. */
+@media (max-width: 640px) {
+  .startRow {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* ---- the templates below ---- */
+
+/* The Templates page's card, four to a row at the reference's windows
+   whatever the rail's width; fewer as the window narrows, one at the
+   galleries' narrow width. Only the row is Home's: the card is as it
+   ships. */
+.shelf {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+@media (max-width: 1100px) {
+  .shelf {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  .shelf {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 700px) {
+  .shelf {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

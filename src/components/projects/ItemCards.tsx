@@ -65,11 +65,23 @@ export function CardLink({
   );
 }
 
-export function MapCard({ map: m, owner }: { map: MapOverview; owner: PersonLabel | null }) {
+/** The picture's height a project's home draws; another host may draw it
+ * taller. */
+const STRIP_HEIGHT = 112;
+
+export function MapCard({
+  map: m,
+  owner,
+  stripHeight = STRIP_HEIGHT,
+}: {
+  map: MapOverview;
+  owner: PersonLabel | null;
+  stripHeight?: number;
+}) {
   return (
     <CardFrame kind="map">
       <CardLink label={`Open ${m.name}`} href={`/maps/${m.id}`}>
-        <div className={gallery.strip} style={{ height: 112 }}>
+        <div className={gallery.strip} style={{ height: stripHeight }}>
           <MapStrip map={m} />
           <span className={gallery.overlay}>
             <b>
@@ -129,16 +141,21 @@ export function WorkflowCard({
   lastRun,
   groupOf,
   owner,
+  stripHeight = STRIP_HEIGHT,
 }: {
   owner: PersonLabel | null;
   workflow: WorkflowListing;
-  lastRun: string | null | "unreadable";
+  /** The newest run's start, null for none, "unreadable" when the history
+   * could not be read, "pending" while it is being read: the glyph alone
+   * until it answers, never "Never run". */
+  lastRun: string | null | "unreadable" | "pending";
   groupOf: (operation: string) => string | null;
+  stripHeight?: number;
 }) {
   return (
     <CardFrame kind="workflow">
       <CardLink label={`Open ${w.name}`} href={`/workflows/${w.id}`}>
-        <div className={gallery.strip} style={{ height: 112 }}>
+        <div className={gallery.strip} style={{ height: stripHeight }}>
           <WorkflowThumb steps={w.steps} groupOf={groupOf} />
           <span className={gallery.overlay}>
             <b>
@@ -171,7 +188,7 @@ export function WorkflowCard({
                   : undefined
               }
             >
-              {lastRunLabel(lastRun, formatRelativeTime)}
+              {lastRunLabel(lastRun === "pending" ? "unreadable" : lastRun, formatRelativeTime)}
             </span>
           </div>
         </div>

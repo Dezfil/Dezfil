@@ -116,8 +116,6 @@ const NAMED_EXCEPTIONS = {
     "Surface exception: the composition's own title line and failure note, drawn into an exported image with their own fill, so the image stays as it is",
   "src/components/builder/export/ExportComposition.module.css\tshadow\t0 8px 26px var(--shadow)":
     "Surface exception: the composition's own title line, its shadow drawn into an exported image",
-  "src/components/HomeScreen.module.css\tfill\tcolor-mix(in srgb, var(--bg-panel) 55%, transparent)":
-    "Surface exception: a tint, the start page's cards",
   "src/components/WorkflowFolder.module.css\tfill\tcolor-mix(in srgb, var(--bg-panel) 72%, transparent)":
     "Surface exception: a tint, the Data page's folder pane, a fold in the list",
   "src/components/WorkflowFolder.module.css\tfill\tcolor-mix(in srgb, var(--bg-raised) 60%, transparent)":

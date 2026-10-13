@@ -199,12 +199,19 @@ test("the core loop through the real UI", async ({ page, context }) => {
   });
 
   await test.step("the instance is ready", async () => {
-    // The root is the Home screen; the data hub lives at /data.
+    // The root is Home, the signed-in person's own page; the data hub
+    // lives at /data. Home greets the person by the first word of their
+    // display name, "Welcome back" once work of their own leads it.
     await page.goto("/");
     await expect(page.locator('[data-health="ready"]')).toBeVisible();
-    await expect(
-      page.getByRole("heading", { name: "Welcome to Dezfil" }),
-    ).toBeVisible();
+    const name = await page.evaluate(async () => {
+      const response = await fetch("/api/account");
+      return ((await response.json()) as { account: { name: string } }).account.name;
+    });
+    const first = name.trim().split(/\s+/)[0].replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+      new RegExp(`^Welcome(?: back)?, ${first}$`),
+    );
   });
 
   await test.step("an uploaded file becomes a table", async () => {

@@ -35,20 +35,31 @@ export type RecentRowForm =
     }
   | { kind: "opening" };
 
-/** The list card under its heading, with a hint beside the heading. */
+/** The list card under its heading, with a hint beside the heading. A
+ * page where the card is a section of its own names it a heading. */
 export function RecentCard({
   heading,
   hint,
+  asHeading = false,
   children,
 }: {
   heading: string;
   hint?: React.ReactNode;
+  /** The heading is the section's second-level heading, in the head's own
+   * look. */
+  asHeading?: boolean;
   children?: React.ReactNode;
 }) {
   return (
     <div className={`${gallery.listCard} ${styles.recentCard}`} data-recent>
       <div className={`${gallery.listHead} ${styles.recentHead}`}>
-        <span data-recent-heading>{heading}</span>
+        {asHeading ? (
+          <h2 className={styles.headHeading} data-recent-heading>
+            {heading}
+          </h2>
+        ) : (
+          <span data-recent-heading>{heading}</span>
+        )}
         {hint && <i data-recent-hint>{hint}</i>}
       </div>
       {children}
@@ -83,13 +94,18 @@ export function RecentRow({
   item,
   groupOf,
   form,
+  withholdWhere = false,
 }: {
   item: RecentItem;
   groupOf: (operation: string) => string | null;
   form: RecentRowForm;
+  /** Where the item lives is not known yet (the project names have not
+   * answered): the line says nothing of it rather than "not in a
+   * project". */
+  withholdWhere?: boolean;
 }) {
   return form.kind === "opening" ? (
-    <OpeningRow item={item} groupOf={groupOf} />
+    <OpeningRow item={item} groupOf={groupOf} withholdWhere={withholdWhere} />
   ) : (
     <FilingRow item={item} groupOf={groupOf} busyId={form.busyId} onAdd={form.onAdd} />
   );
@@ -99,9 +115,11 @@ export function RecentRow({
 function RowContent({
   item: it,
   groupOf,
+  withholdWhere = false,
 }: {
   item: RecentItem;
   groupOf: (operation: string) => string | null;
+  withholdWhere?: boolean;
 }) {
   return (
     <>
@@ -130,8 +148,12 @@ function RowContent({
           {it.owner && <OwnerPill owner={it.owner} placement="inline" />}
         </span>
         <small data-recent-meta>
-          <span data-recent-where>{whereLine(it.where)}</span>
-          <i>·</i>
+          {!withholdWhere && (
+            <>
+              <span data-recent-where>{whereLine(it.where)}</span>
+              <i>·</i>
+            </>
+          )}
           {it.fact}
           <i>·</i>
           {it.kind === "dataset" ? formatRelativeTime(it.time) : <LastChanged value={it.kind === "map" ? it.map : it.workflow} />}
@@ -180,9 +202,11 @@ function FilingRow({
 function OpeningRow({
   item: it,
   groupOf,
+  withholdWhere,
 }: {
   item: RecentItem;
   groupOf: (operation: string) => string | null;
+  withholdWhere: boolean;
 }) {
   const router = useRouter();
   const href = recentHref(it);
@@ -198,7 +222,7 @@ function OpeningRow({
         if (e.key === "Enter") router.push(href);
       }}
     >
-      <RowContent item={it} groupOf={groupOf} />
+      <RowContent item={it} groupOf={groupOf} withholdWhere={withholdWhere} />
     </div>
   );
 }

@@ -630,6 +630,24 @@ test.describe("census checks", () => {
         await page.keyboard.press("Escape");
       });
 
+      await test.step("Home families", async () => {
+        // The census's own map is this account's latest change, so it
+        // leads; the templates below are the shipped ones at least.
+        await page.goto("/");
+        const home = page.locator("[data-home]");
+        await expect(home.locator('[data-lead="continue"]')).toBeVisible();
+        await expect(home.locator('[data-shelf="shown"]')).toBeVisible();
+        // Tab starts after the welcome, so each stop is met in page order.
+        await home.locator("[data-welcome]").click();
+        await expectRing(page, home.locator('[data-lead="continue"] [role="link"]').first(), "Home's lead");
+        await expectRing(page, home.locator('[data-start-action="new-map"]'), "a start action");
+        await expectRing(page, home.locator("[data-recent-row]").first(), "a recent row");
+        const card = home.locator('[data-shelf="shown"] [data-template]').first();
+        await expectRing(page, card.locator('[role="link"]'), "a template's card");
+        await expectRing(page, card.getByRole("button", { name: /^Open / }), "a template's Open");
+        await expectRing(page, card.getByRole("button", { name: /^Make a copy of / }), "a template's Make a copy");
+      });
+
       await test.step("workflow canvas families", async () => {
         const id = await seedWorkflow(page);
         await seedOffArrangement(page, id);
