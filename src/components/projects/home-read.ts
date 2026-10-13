@@ -5,6 +5,7 @@ import type { MapOverview, TableListing } from "../api";
 import { readApiError, readRecipes } from "../api";
 import { serverUnreachable } from "../failure-copy";
 import { ProjectHomeReader, type HomeAction, type HomeField, type HomeSave } from "./home-reader";
+import { readLastRun, type LastRun } from "./run-history";
 import type { WorkflowListing } from "../workflow-model";
 
 /**
@@ -35,7 +36,7 @@ export interface HomeWorld {
   /** The newest recorded run's start per workflow: an ISO time, null
    * when none is recorded, "unreadable" when the history read failed —
    * never invented (the spec's most-recent-recorded-run fact). */
-  lastRuns: Map<string, string | null | "unreadable">;
+  lastRuns: Map<string, LastRun>;
 }
 
 export type HomeState =
@@ -91,21 +92,9 @@ export async function readHome(id: string): Promise<HomeState> {
         "load the projects",
       ),
     ]);
-    const lastRuns = new Map<string, string | null | "unreadable">(
+    const lastRuns = new Map<string, LastRun>(
       await Promise.all(
-        workflows.map(
-          async (w): Promise<[string, string | null | "unreadable"]> => {
-            try {
-              const body = await readJson<{ runs: { startedAt: string }[] }>(
-                `/api/recipes/${w.id}/runs`,
-                "read the runs",
-              );
-              return [w.id, body.runs[0]?.startedAt ?? null];
-            } catch {
-              return [w.id, "unreadable"];
-            }
-          },
-        ),
+        workflows.map(async (w): Promise<[string, LastRun]> => [w.id, await readLastRun(w.id)]),
       ),
     );
     return {
