@@ -600,6 +600,38 @@ describe("the rows to run again", () => {
     expect(calls("/api/recipes?origin=workflow")).toHaveLength(3);
   });
 
+  it("follow a run started here after its row leaves for the run in progress, and read the lists and the lead's history again once it settles", async () => {
+    const before = { recipes: [wf("w1", { again: 2, changed: at(3) })] };
+    // The read after the start finds the run under way: no longer one to
+    // run again, so the row leaves.
+    const during = { recipes: [{ ...wf("w1", { changed: at(3) }), summary: { nodes: 3, sources: 1, liveOutputs: 1, status: "in_progress", count: 1 } }] };
+    const after = { recipes: [wf("w1", { changed: at(3) })] };
+    answers.workflows = inTurn(before, during, after);
+    answers.tables = inTurn([], [], [table("t1", { imported: at(9) })]);
+    answers["runs:w1"] = inTurn({ runs: [] }, { runs: [] }, { runs: [{ startedAt: at(9) }] });
+    const poll = held();
+    answers["run:r1"] = poll.answer;
+    runsOf("w1");
+    await open();
+    expect(leadPlace().textContent).toContain("Never run");
+    await press(runButton("w1")!);
+    // Adopting the run read the lists again: the run is under way, the row gone.
+    expect(calls("/api/recipes?origin=workflow")).toHaveLength(2);
+    expect(row("w1")).toBeNull();
+    expect(container.querySelector("[data-attention]")).toBeNull();
+    // Its runner stays to follow it, in an area that takes no room.
+    expect(container.querySelector("[data-attention-area]")?.style.display).toBe("none");
+    // The run settles: Home reads the three lists and the lead's history again.
+    poll.release({ run: SETTLED });
+    await settle();
+    expect([calls("/api/maps").length, calls("/api/recipes?origin=workflow").length, calls("/api/tables").length]).toEqual([3, 3, 3]);
+    expect(recentNames()).toEqual(["table_t1"]);
+    expect(leadPlace().textContent).not.toContain("Never run");
+    expect(leadPlace().textContent).toContain("ran ");
+    // Settled and read again after it: the followed run is let go.
+    expect(container.querySelector("[data-attention-area]")).toBeNull();
+  });
+
   it("withhold Run on a shared row while the projects are read, then say their failure there, and Try again gives the editor's Run and takes the viewer's row away", async () => {
     answers.workflows = { recipes: [
       wf("w1", { again: 1, changed: at(2) }),

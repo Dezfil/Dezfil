@@ -55,6 +55,8 @@ export function HomeScreen() {
 
   // A run started from a row: the lists and the leading workflow's
   // history are read again after the run's notifications, once per turn.
+  // The run is followed to its settlement even once its row has left for
+  // the run in progress.
   const rereadAfterRun = useCallback(async () => {
     reloadHistory();
     const landed = await Promise.all([reload.maps(), reload.workflows(), reload.tables()]);
@@ -113,7 +115,7 @@ export function HomeScreen() {
           onError={setActionError}
         />
       </div>
-      <AttentionArea rows={runRows} workflows={workflows} opLabel={opLabel} onChanged={onRunChanged} quiet />
+      <AttentionArea rows={runRows} workflows={workflows} opLabel={opLabel} onChanged={onRunChanged} quiet followRuns />
       <HomeRecentSection
         recent={view.recent}
         instanceName={instanceName}

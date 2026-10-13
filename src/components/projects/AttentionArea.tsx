@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { OwnerPill } from "../sharing/PeopleMarks";
 import type { PersonLabel } from "../sharing/people";
 import { AsyncState } from "../ui/AsyncState";
@@ -66,29 +66,45 @@ function AttentionRun({
   opLabel,
   onChanged,
   quiet,
+  hidden,
+  onUnderWay,
 }: {
   row: AttentionRowView;
-  workflow: WorkflowListing;
+  /** The workflow as listed; null once it is no longer listed. */
+  workflow: WorkflowListing | null;
   opLabel: (operation: string) => string;
   onChanged: () => Promise<boolean>;
   quiet: boolean;
+  /** The row has left the list while its run is followed: the runner
+   * stays and draws nothing. */
+  hidden: boolean;
+  /** Told when a run here is taken up, and when it has settled. */
+  onUnderWay: ((id: string, underWay: boolean) => void) | null;
 }) {
+  const rowId = row.id;
   const ports = useMemo(
     () => ({
       settle: async () => null,
       onRecipeChanged: onChanged,
       onTablesChanged: onChanged,
-      onRunSeen: () => undefined,
+      // Said as the runner takes up the run, before the re-read it then
+      // asks for can answer, so the area keeps this row before it leaves.
+      onRunSeen: () => onUnderWay?.(rowId, true),
     }),
-    [onChanged],
+    [onChanged, onUnderWay, rowId],
   );
   const runner = useWorkflowRun(row.id, ports, undefined, quiet);
   const { confirm, refusal, confirming, askRun, confirmRun, closeConfirm, dismissRefusal } =
     useRunConfirm({ runner, onPlanChanged: onChanged });
+  // Settled, and read again after it: the run is no longer followed.
+  const idle = runner.state.phase === "idle";
+  useEffect(() => {
+    if (idle) onUnderWay?.(rowId, false);
+  }, [idle, onUnderWay, rowId]);
 
   const rows: PlanRow[] = useMemo(() => {
     if (!confirm) return [];
-    const steps = new Map(workflow.steps.map((s) => [s.id, s]));
+    const steps = new Map((workflow?.steps ?? []).map((s) => [s.id, s]));
     return confirm.plan.members.map((id) => {
       const step = steps.get(id);
       return {
@@ -100,6 +116,7 @@ function AttentionRun({
     });
   }, [confirm, workflow, opLabel]);
 
+  if (hidden) return null;
   return (
     <>
       <div className={styles.callout} data-attention={row.id}>
@@ -154,12 +171,28 @@ function AttentionRun({
   );
 }
 
+/** Which rows have a run under way, as their runners say. */
+function useRunsUnderWay(): [ReadonlySet<string>, (id: string, underWay: boolean) => void] {
+  const [ids, setIds] = useState<ReadonlySet<string>>(() => new Set());
+  const say = useCallback((id: string, underWay: boolean) => {
+    setIds((now) => {
+      if (now.has(id) === underWay) return now;
+      const next = new Set(now);
+      if (underWay) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  }, []);
+  return [ids, say];
+}
+
 export function AttentionArea({
   rows,
   workflows,
   opLabel,
   onChanged,
   quiet = false,
+  followRuns = false,
 }: {
   rows: AttentionRowView[];
   workflows: WorkflowListing[];
@@ -167,25 +200,41 @@ export function AttentionArea({
   onChanged: () => Promise<boolean>;
   /** The rows' runners read no runs: Run alone is offered. */
   quiet?: boolean;
+  /** A run started from a row is followed until it settles even after the
+   * row leaves the list (a run under way is no longer one to run again),
+   * so its settlement still asks the host to read again. */
+  followRuns?: boolean;
 }) {
-  if (rows.length === 0) return null;
+  const [underWay, sayUnderWay] = useRunsUnderWay();
   const byId = new Map(workflows.map((w) => [w.id, w]));
+  const drawn = rows.filter((row) => byId.has(row.id));
+  const shown = new Set(drawn.map((row) => row.id));
+  // A followed run whose row has left keeps its runner, drawing nothing,
+  // until the run settles.
+  const followed = followRuns ? [...underWay].filter((id) => !shown.has(id)) : [];
+  if (drawn.length === 0 && followed.length === 0) return null;
+  // One list, so a row that leaves while its run is followed keeps its
+  // place among the area's children, and so its runner.
+  const items = [
+    ...drawn.map((row) => ({ row, hidden: false })),
+    ...followed.map((id) => ({ row: { id, name: "", count: 0, cause: null }, hidden: true })),
+  ];
   return (
-    <div className={styles.attention}>
-      {rows.map((row) => {
-        const workflow = byId.get(row.id);
-        if (!workflow) return null;
-        return (
-          <AttentionRun
-            key={row.id}
-            row={row}
-            workflow={workflow}
-            opLabel={opLabel}
-            onChanged={onChanged}
-            quiet={quiet}
-          />
-        );
-      })}
+    // Only followed runs left: the area stays, so their runners do, but
+    // takes no room on the page.
+    <div className={styles.attention} data-attention-area style={drawn.length === 0 ? { display: "none" } : undefined}>
+      {items.map(({ row, hidden }) => (
+        <AttentionRun
+          key={row.id}
+          row={row}
+          workflow={byId.get(row.id) ?? null}
+          opLabel={opLabel}
+          onChanged={onChanged}
+          quiet={quiet}
+          hidden={hidden}
+          onUnderWay={followRuns ? sayUnderWay : null}
+        />
+      ))}
     </div>
   );
 }
