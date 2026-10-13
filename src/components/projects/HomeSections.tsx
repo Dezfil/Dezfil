@@ -4,10 +4,10 @@ import { LastChanged } from "../sharing/LastChanged";
 import { useRouter } from "next/navigation";
 import type { MapOverview, TableListing } from "../api";
 import { formatBytes, formatCompactCount, formatRelativeTime } from "../api";
-import { DataMotif, IconOpen, geometryFamilies } from "../gallery-icons";
+import { DataMotif, geometryFamilies } from "../gallery-icons";
 import { MapStrip } from "../MapStrip";
 import { GeometryChip, SourceChip, geometryChipLabel } from "../table-chips";
-import { nodeWord, sourceWord, type WorkflowListing } from "../workflow-model";
+import { nodeWord, type WorkflowListing } from "../workflow-model";
 import { WorkflowStatusChip } from "../WorkflowStatusChip";
 import { WorkflowThumb } from "../WorkflowThumb";
 import { KindIcon } from "./ProjectPicture";
@@ -15,7 +15,8 @@ import { OwnerPill } from "../sharing/PeopleMarks";
 import { ownedByOther, type PersonLabel } from "../sharing/people";
 import { useSignedInSqlName } from "../sharing/signed-in";
 import { datasetPageHref } from "../dataset-doors";
-import { lastRunCell, lastRunLabel, otherMembershipNames } from "./home-model";
+import { lastRunCell, otherMembershipNames } from "./home-model";
+import { CardFrame, CardLink, MapCard, PublishedLink, WorkflowCard } from "./ItemCards";
 import gallery from "../gallery.module.css";
 import styles from "./HomeSections.module.css";
 
@@ -76,149 +77,6 @@ function SectionHead({
   );
 }
 
-/** A card's link body: role=link, Enter opens (the shipped idiom). */
-function CardLink({
-  label,
-  href,
-  children,
-}: {
-  label: string;
-  href: string;
-  children: React.ReactNode;
-}) {
-  const router = useRouter();
-  return (
-    <div
-      role="link"
-      tabIndex={0}
-      aria-label={label}
-      className={gallery.cardLink}
-      onClick={() => router.push(href)}
-      onKeyDown={(e) => {
-        if (e.key === "Enter") router.push(href);
-      }}
-    >
-      {children}
-    </div>
-  );
-}
-
-function MapCard({ map: m, owner }: { map: MapOverview; owner: PersonLabel | null }) {
-  return (
-    <article className={`${gallery.card} ${styles.secCard}`} data-sec-card="map">
-      <CardLink label={`Open ${m.name}`} href={`/maps/${m.id}`}>
-        <div className={gallery.strip} style={{ height: 112 }}>
-          <MapStrip map={m} />
-          <span className={gallery.overlay}>
-            <b>
-              <span className={gallery.num}>{m.layerCount}</span>{" "}
-              layer{m.layerCount === 1 ? "" : "s"}
-            </b>
-          </span>
-        </div>
-        <div className={gallery.cardBody}>
-          <div className={gallery.cardTop}>
-            <span className={gallery.cardName} title={m.name}>
-              {m.name}
-            </span>
-            <span className={gallery.cardWhen}>
-              <LastChanged value={m} />
-            </span>
-          </div>
-          <div className={gallery.cardChips}>
-            <span
-              className={gallery.chip}
-              data-live={m.published ? true : undefined}
-            >
-              <i />
-              {m.published ? "Published" : "Draft"}
-            </span>
-          </div>
-        </div>
-      </CardLink>
-      {owner && <OwnerPill owner={owner} placement="corner" />}
-      {m.publishToken && (
-        <div className={gallery.acts}>
-          <PublishedLink map={m} />
-        </div>
-      )}
-    </article>
-  );
-}
-
-function PublishedLink({ map: m }: { map: MapOverview }) {
-  return (
-    <a
-      className={styles.pubAct}
-      href={`/v/${m.publishToken}`}
-      target="_blank"
-      rel="noreferrer"
-      data-hint="Open the published view"
-      aria-label={`Open the published view of ${m.name}`}
-      onClick={(e) => e.stopPropagation()}
-    >
-      <IconOpen />
-    </a>
-  );
-}
-
-function WorkflowCard({
-  workflow: w,
-  lastRun,
-  groupOf,
-  owner,
-}: {
-  owner: PersonLabel | null;
-  workflow: WorkflowListing;
-  lastRun: string | null | "unreadable";
-  groupOf: (operation: string) => string | null;
-}) {
-  return (
-    <article className={`${gallery.card} ${styles.secCard}`} data-sec-card="workflow">
-      <CardLink label={`Open ${w.name}`} href={`/workflows/${w.id}`}>
-        <div className={gallery.strip} style={{ height: 112 }}>
-          <WorkflowThumb steps={w.steps} groupOf={groupOf} />
-          <span className={gallery.overlay}>
-            <b>
-              <span className={gallery.num}>{w.summary.nodes}</span>{" "}
-              {nodeWord(w.summary.nodes)}
-              {w.summary.sources > 0 && (
-                <>
-                  {" · "}
-                  <span className={gallery.num}>{w.summary.sources}</span>{" "}
-                  {sourceWord(w.summary.sources)}
-                </>
-              )}
-            </b>
-          </span>
-        </div>
-        <div className={gallery.cardBody}>
-          <div className={gallery.cardTop}>
-            <span className={gallery.cardName} title={w.name}>
-              {w.name}
-            </span>
-            <span className={gallery.cardWhen}><LastChanged value={w} /></span>
-          </div>
-          <div className={gallery.cardChips}>
-            <WorkflowStatusChip summary={w.summary} />
-            <span
-              className={gallery.chip}
-              title={
-                lastRun === "unreadable"
-                  ? "The run history couldn't be read"
-                  : undefined
-              }
-            >
-              {lastRunLabel(lastRun, formatRelativeTime)}
-            </span>
-          </div>
-        </div>
-      </CardLink>
-      {owner && <OwnerPill owner={owner} placement="corner" />}
-    </article>
-  );
-}
-
 /** The Data page's card in the home's metric. */
 function DatasetCard({
   table: t,
@@ -230,7 +88,7 @@ function DatasetCard({
   owner: PersonLabel | null;
 }) {
   return (
-    <article className={`${gallery.card} ${styles.secCard}`} data-sec-card="dataset">
+    <CardFrame kind="dataset">
       <CardLink label={`Open ${t.name}`} href={datasetPageHref(t)}>
         <div className={gallery.strip} style={{ height: 112 }}>
           <DataMotif kinds={geometryFamilies(t.geometryType, t.geometryColumn)} />
@@ -264,7 +122,7 @@ function DatasetCard({
         </div>
       </CardLink>
       {owner && <OwnerPill owner={owner} placement="corner" />}
-    </article>
+    </CardFrame>
   );
 }
 
