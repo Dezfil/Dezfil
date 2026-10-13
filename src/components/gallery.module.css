@@ -308,6 +308,19 @@
   color: inherit;
 }
 
+/* The link fills a card that clips its overflow, so its focus ring stands
+   inside it, corners on the card's own; the picture across the top gives
+   way by the ring's width while the link has focus, since a positioned
+   picture may paint over its parent's ring. */
+.cardLink:focus-visible {
+  outline-offset: -2px;
+  border-radius: var(--radius-card);
+}
+
+.cardLink:focus-visible .strip {
+  clip-path: inset(2px 2px 0 2px round calc(var(--radius-card) - 2px) calc(var(--radius-card) - 2px) 0 0);
+}
+
 /* Preview strip: placeholder art behind, snapshot image above, fade over */
 .strip {
   position: relative;

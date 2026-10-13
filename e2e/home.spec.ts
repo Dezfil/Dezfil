@@ -198,12 +198,6 @@ async function tabThroughHome(page: Page, most = 80): Promise<{ stops: string[];
   return { stops, ringless, clipped };
 }
 
-/** Record, for eyes, the stops whose ring a clip cuts: the census's ring
- * is drawn there, but part of it may not show. */
-function noteClipped(clipped: string[]): void {
-  test.info().annotations.push({ type: "rings cut by a clip", description: clipped.length ? clipped.join("; ") : "none" });
-}
-
 /** Press Tab from where focus stands until the target holds it. */
 async function tabTo(page: Page, target: Locator, what: string, most = 80): Promise<void> {
   for (let i = 0; i < most; i += 1) {
@@ -344,7 +338,7 @@ test.describe("Home", () => {
     await page.setViewportSize(WINDOWS[0]);
     await openHome(page, "template");
     const { stops, ringless, clipped } = await tabThroughHome(page);
-    noteClipped(clipped);
+    expect(clipped, "no ring is cut by a clip").toEqual([]);
     expect(stops).toEqual([
       ...cardStops(list[0]),
       ...START_STOPS,
@@ -480,7 +474,7 @@ test.describe("Home", () => {
     const rows = await recentRows(page).evaluateAll((each) => each.map((row) => row.getAttribute("aria-label") ?? ""));
     expect([...rows].sort()).toEqual([...recentNames].sort());
     const { stops, ringless, clipped } = await tabThroughHome(page);
-    noteClipped(clipped);
+    expect(clipped, "no ring is cut by a clip").toEqual([]);
     expect(stops).toEqual([
       `link Open Home map ${TAG}`,
       ...START_STOPS,
