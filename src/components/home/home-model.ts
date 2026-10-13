@@ -289,14 +289,14 @@ export function reachesNothing(reads: Pick<HomeReads, "maps" | "workflows" | "ta
 
 /** Templates from the list in its order, the template lead left out:
  * eight for a person who reaches nothing yet, four otherwise, the same for
- * everyone. While the lead is undecided the shelf waits too, since which
- * template the lead takes, and so which are left, is not known yet; a lead
- * that failed leaves nothing out. */
+ * everyone. Drawn as soon as the list answers: while the lead is still
+ * worked out, or after its read failed, nothing is left out and the first
+ * four stand (eight need the three lists answered empty), redrawn once a
+ * template leads. */
 export function homeShelf(reads: HomeReads, lead: HomeLead): HomeShelf {
   const { templates } = reads;
   if (templates.status === "pending") return { state: "pending" };
   if (templates.status === "failed") return { state: "failed", error: templates.error };
-  if (lead.kind === "pending") return { state: "pending" };
   const all = templates.value.templates;
   const rest = lead.kind === "template" ? all.filter((card) => card.id !== lead.card.id) : all;
   const fresh = reachesNothing(reads);

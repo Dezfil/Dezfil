@@ -384,12 +384,13 @@ describe("the lead waits for both the maps and the workflows", () => {
     // Pending: the shipped pending line where the lead goes, no template, no Continue.
     expect(leadKind()).toBe("pending");
     expect(leadPlace().querySelector('[role="status"]')).not.toBeNull();
-    expect(named("Open Harbour depths")).toEqual([]);
+    expect(inLead("Open Harbour depths")).toEqual([]);
     expect(named("Open Map m1")).toEqual([]);
     expect(headings()).not.toContain("Start with a template");
     expect(headings()).not.toContain("Continue");
-    // The templates below wait with it: which one leads is not known yet.
-    expect(container.querySelector("[data-shelf]")?.getAttribute("data-shelf")).toBe("pending");
+    // The templates below stand meanwhile, the first four of the list,
+    // none left out until a lead is chosen.
+    expect(shelfCards()).toEqual(["harbour", "trees", "storms"]);
     expect(start().getAttribute("data-start-form")).toBe("pair");
     expect(startActions()).toEqual(["New map", "Add data", "New workflow", "Open SQL"]);
 
@@ -912,16 +913,19 @@ describe("the templates below", () => {
     expect(shelfLink()?.textContent).toBe("All 3 templates");
   });
 
-  it("waits while the lead is undecided, then draws without the template that leads", async () => {
+  it("stands while the lead is undecided, four from the top with none left out, then draws without the template that leads", async () => {
     const workflows = held();
     answers.workflows = workflows.answer;
     await open();
-    expect(container.querySelector("[data-shelf]")?.getAttribute("data-shelf")).toBe("pending");
-    expect(container.querySelectorAll("[data-template]")).toHaveLength(0);
+    expect(leadKind()).toBe("pending");
+    expect(shelfCards()).toEqual(["harbour", "trees", "storms"]);
+    expect(shelf()!.querySelector("h2")?.textContent).toBe("From the templates");
+    expect(shelfLink()?.textContent).toBe("All 3 templates");
     workflows.release({ recipes: [] });
     await settle();
     expect(leadKind()).toBe("template");
     expect(shelfCards()).toEqual(["trees", "storms"]);
+    expect(shelf()!.querySelector("h2")?.textContent).toBe("What Dezfil can do");
   });
 
   it("is absent with no template beyond the lead", async () => {
@@ -1144,7 +1148,7 @@ describe("the tree Home gives the screen reader", () => {
     expect(container.querySelectorAll("section")).toHaveLength(1);
   });
 
-  it("while the lead is worked out, and after its read failed: no heading over the lead or the templates, the line that stands for each", async () => {
+  it("while the lead is worked out, and after its read failed: no heading over the lead, the line that stands for it, the templates below standing", async () => {
     const workflows = held();
     answers.workflows = workflows.answer;
     await open();
@@ -1153,7 +1157,12 @@ describe("the tree Home gives the screen reader", () => {
       "status Loading…",
       ...START,
       "status Loading recent items…",
-      "status Reading the templates…",
+      // The templates below stand as soon as their list answers.
+      "h2 From the templates",
+      "link All 3 templates",
+      ...templateCard("Harbour depths"),
+      ...templateCard("Street trees"),
+      ...templateCard("Storm tracks"),
     ]);
     expect(emptySections()).toBe(0);
     workflows.fail();

@@ -507,11 +507,18 @@ describe("the templates below", () => {
     expect(v.shelf).toMatchObject({ heading: "From the templates" });
   });
 
-  it("waits while the lead waits, since which template the lead takes is not known yet", () => {
+  it("stands while the lead waits, four from the top with nothing left out, then leaves the lead out once it is chosen", () => {
     const v = view({ workflows: PENDING, templates: ready(list(numbered(10))) });
     expect(leadWord(v.lead)).toBe("pending");
-    expect(v.shelf).toEqual({ state: "pending" });
-    expect(view({ maps: PENDING, templates: ready(list(numbered(10))) }).shelf).toEqual({ state: "pending" });
+    expect(shelfIds(v.shelf)).toEqual(["t01", "t02", "t03", "t04"]);
+    expect(v.shelf).toMatchObject({ heading: "From the templates", countLine: null, link: "All 10 templates" });
+    expect(shelfIds(view({ maps: PENDING, templates: ready(list(numbered(10))) }).shelf)).toEqual(["t01", "t02", "t03", "t04"]);
+    // The three lists answer empty: the first template leads, and the
+    // next eight stand under the fresh words.
+    const chosen = view({ templates: ready(list(numbered(10))) });
+    expect(leadWord(chosen.lead)).toBe("template:t01");
+    expect(shelfIds(chosen.shelf)).toEqual(["t02", "t03", "t04", "t05", "t06", "t07", "t08", "t09"]);
+    expect(chosen.shelf).toMatchObject({ heading: "What Dezfil can do" });
   });
 
   it("draws four from the top once the lead has failed, with nothing left out", () => {
