@@ -29,10 +29,12 @@ import styles from "./ProjectHome.module.css";
  */
 
 /** A Run waiting on the projects read: the pending line in its place
- * meanwhile, the read's failure note with Try again when it failed. */
+ * meanwhile, the read's failure note with Try again when it failed. The
+ * note announces unless the host says the same failure is announced
+ * elsewhere on the page, so it is heard once. */
 export type WithheldRun =
   | { status: "pending" }
-  | { status: "failed"; error: string; retry: () => void };
+  | { status: "failed"; error: string; retry: () => void; announce?: boolean };
 
 /** A row as a host draws it. */
 export interface AttentionRowView extends AttentionRow {
@@ -108,12 +110,14 @@ function AttentionRun({
           {nodeWord(row.count)} to run again
           {row.cause ? `: ${row.cause}` : ""}.
         </span>
-        {row.withheld ? (
-          <AsyncState
-            state={row.withheld}
-            onRetry={row.withheld.status === "failed" ? row.withheld.retry : undefined}
-            pendingLabel="Reading your projects…"
-          >
+        {row.withheld?.status === "failed" ? (
+          <ErrorNote
+            message={row.withheld.error}
+            onRetry={row.withheld.retry}
+            announce={row.withheld.announce ?? true}
+          />
+        ) : row.withheld ? (
+          <AsyncState state={row.withheld} pendingLabel="Reading your projects…">
             {() => null}
           </AsyncState>
         ) : (

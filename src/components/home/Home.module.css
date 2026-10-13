@@ -41,6 +41,12 @@
   font-weight: 600;
 }
 
+/* Recent stands as wide as the page, as the Showroom reference draws it;
+   the empty project home keeps its narrower card. */
+.recent > [data-recent] {
+  max-width: none;
+}
+
 /* ---- the lead and Start ---- */
 
 /* The lead beside Start, Start as tall as the lead; below the width at

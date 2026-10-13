@@ -37,45 +37,60 @@ const LOADERS: { [K in HomeList]: () => Promise<HomeReads[K] extends HomeRead<in
 
 /** One read: its state, Try again (pending until the answer), and a quiet
  * re-read that keeps what is shown until its own answer lands; a quiet
- * re-read that fails leaves a shown answer in place. */
+ * re-read that fails leaves a shown answer in place. Each attempt answers
+ * whether the read landed, and follows a newer attempt that replaced it:
+ * an answer that was dropped says nothing about what is shown. */
 function useRead<T>(load: () => Promise<T>): {
   state: HomeRead<T>;
   retry: () => void;
-  reload: () => void;
+  reload: () => Promise<boolean>;
 } {
   const [state, setState] = useState<HomeRead<T>>({ status: "pending" });
   const latest = useRef(0);
+  const waiting = useRef(new Set<(landed: boolean) => void>());
+
+  const answer = useCallback((landed: boolean) => {
+    const waiters = waiting.current;
+    waiting.current = new Set();
+    for (const resolve of waiters) resolve(landed);
+  }, []);
 
   // Each attempt is numbered; only the newest one's answer is taken.
   const run = useCallback(
-    (quiet: boolean) => {
+    (quiet: boolean): Promise<boolean> => {
       latest.current += 1;
       const mine = latest.current;
+      const landed = new Promise<boolean>((resolve) => waiting.current.add(resolve));
       load().then(
         (value) => {
-          if (latest.current === mine) setState({ status: "ready", value });
+          if (latest.current !== mine) return;
+          setState({ status: "ready", value });
+          answer(true);
         },
         (cause: unknown) => {
           if (latest.current !== mine) return;
           const error = cause instanceof Error ? cause.message : "Something went wrong.";
           setState((shown) => (quiet && shown.status === "ready" ? shown : { status: "failed", error }));
+          answer(false);
         },
       );
+      return landed;
     },
-    [load],
+    [load, answer],
   );
 
   useEffect(() => {
-    run(false);
+    void run(false);
     // Leaving disowns whatever is in flight.
     return () => {
       latest.current += 1;
+      answer(false);
     };
-  }, [run]);
+  }, [run, answer]);
 
   const retry = useCallback(() => {
     setState({ status: "pending" });
-    run(false);
+    void run(false);
   }, [run]);
   const reload = useCallback(() => run(true), [run]);
   return { state, retry, reload };
@@ -85,8 +100,9 @@ export interface HomeReadsHandle {
   reads: HomeReads;
   /** Ask one list again, its part pending until the answer. */
   retry: Record<HomeList, () => void>;
-  /** Re-read one list quietly, what is shown staying until the answer. */
-  reload: Record<HomeList, () => void>;
+  /** Re-read one list quietly, what is shown staying until the answer;
+   * true when the read landed. */
+  reload: Record<HomeList, () => Promise<boolean>>;
 }
 
 export function useHomeReads(): HomeReadsHandle {
@@ -128,20 +144,83 @@ export function useHomeReads(): HomeReadsHandle {
   return { reads, retry, reload };
 }
 
-/** The leading workflow's newest run, read once when a workflow comes to
- * lead (null when none leads); "pending" until that read answers, so the
- * card shows the glyph and never "Never run" meanwhile. */
-export function useLeadHistory(workflowId: string | null): LastRun | "pending" {
+/** The leading workflow's newest run: read when a workflow comes to lead
+ * (nothing when none leads), "pending" until that read answers, so the
+ * card shows the glyph and never "Never run" meanwhile. Try again asks a
+ * failed read again, pending until it answers; a quiet re-read keeps what
+ * is shown until its own answer lands, and one that cannot read the
+ * history leaves a shown answer in place. An answer is taken only for the
+ * workflow that leads and from the newest attempt. */
+export interface LeadHistory {
+  lastRun: LastRun | "pending";
+  retry: () => void;
+  reload: () => void;
+}
+
+export function useLeadHistory(workflowId: string | null): LeadHistory {
   const [answer, setAnswer] = useState<{ id: string; value: LastRun } | null>(null);
+  const latest = useRef(0);
+  const leading = useRef(workflowId);
+  useEffect(() => {
+    leading.current = workflowId;
+  });
+
+  // One attempt at the history of `id`; only the newest attempt's answer
+  // is taken. Quiet, an answer that cannot read the history leaves a shown
+  // one in place.
+  const ask = useCallback((id: string, quiet: boolean) => {
+    latest.current += 1;
+    const mine = latest.current;
+    void readLastRun(id).then((value) => {
+      if (latest.current !== mine) return;
+      setAnswer((shown) => (quiet && value === "unreadable" && shown?.id === id ? shown : { id, value }));
+    });
+  }, []);
+
   useEffect(() => {
     if (workflowId === null) return;
-    let current = true;
-    void readLastRun(workflowId).then((value) => {
-      if (current) setAnswer({ id: workflowId, value });
-    });
+    ask(workflowId, false);
     return () => {
-      current = false;
+      latest.current += 1;
     };
-  }, [workflowId]);
-  return workflowId !== null && answer?.id === workflowId ? answer.value : "pending";
+  }, [workflowId, ask]);
+
+  const retry = useCallback(() => {
+    const id = leading.current;
+    if (id === null) return;
+    // Pending again, the glyph alone, until the answer.
+    setAnswer((shown) => (shown?.id === id ? null : shown));
+    ask(id, false);
+  }, [ask]);
+  const reload = useCallback(() => {
+    if (leading.current !== null) ask(leading.current, true);
+  }, [ask]);
+  const lastRun = workflowId !== null && answer?.id === workflowId ? answer.value : "pending";
+  return { lastRun, retry, reload };
+}
+
+/** What a run tells Home, made into Home's re-read. A run's runner
+ * notifies its recipe and its tables ports together as the run settles
+ * (and its recipe port alone as it adopts a run or as it progresses):
+ * the notifications of one turn share ONE re-read, begun after them, and
+ * never a read already in flight, which began before the change and so
+ * cannot answer for it. Answers whether the re-read landed. */
+export function useRereadAfterRun(reread: () => Promise<boolean>): () => Promise<boolean> {
+  const next = useRef<Promise<boolean> | null>(null);
+  const current = useRef(reread);
+  useEffect(() => {
+    current.current = reread;
+  });
+  return useCallback(() => {
+    if (next.current) return next.current;
+    const asked = new Promise<boolean>((resolve) => {
+      // Begun once this turn's notifications have all asked.
+      queueMicrotask(() => {
+        next.current = null;
+        current.current().then(resolve, () => resolve(false));
+      });
+    });
+    next.current = asked;
+    return asked;
+  }, []);
 }

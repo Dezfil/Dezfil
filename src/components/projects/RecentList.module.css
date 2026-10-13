@@ -16,6 +16,11 @@
   font-size: var(--text-label);
 }
 
+/* The heading of a page's Recent section, in the head's own type. */
+.headHeading {
+  font: inherit;
+}
+
 .recentHead i {
   font-style: italic;
   color: var(--fg-faint);

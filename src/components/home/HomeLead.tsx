@@ -16,6 +16,7 @@ import {
 import { useTheme, type Theme } from "../theme";
 import { AsyncState } from "../ui/AsyncState";
 import { Button } from "../ui/Button";
+import { ErrorNote } from "../ui/ErrorNote";
 import { DuplicateIcon, EyeIcon } from "../ui/icons";
 import { WorkflowThumb } from "../WorkflowThumb";
 import type { HomeLead } from "./home-model";
@@ -37,6 +38,7 @@ export function LeadPlace({
   lastRun,
   groupOf,
   onRetry,
+  onRetryHistory,
   onOpenTemplate,
   onCopyTemplate,
 }: {
@@ -46,6 +48,8 @@ export function LeadPlace({
   groupOf: (operation: string) => string | null;
   /** Ask the failed reads again. */
   onRetry: () => void;
+  /** Read the leading workflow's run history again. */
+  onRetryHistory: () => void;
   onOpenTemplate: (id: string) => void;
   onCopyTemplate: (id: string) => void;
 }) {
@@ -60,13 +64,24 @@ export function LeadPlace({
           {lead.item.kind === "map" ? (
             <MapCard map={lead.item.map} owner={lead.owner} stripHeight={LEAD_PICTURE} />
           ) : (
-            <WorkflowCard
-              workflow={lead.item.workflow}
-              owner={lead.owner}
-              lastRun={lastRun}
-              groupOf={groupOf}
-              stripHeight={LEAD_PICTURE}
-            />
+            <>
+              <WorkflowCard
+                workflow={lead.item.workflow}
+                owner={lead.owner}
+                lastRun={lastRun}
+                groupOf={groupOf}
+                stripHeight={LEAD_PICTURE}
+              />
+              {/* The card shows the glyph with its title; the retry stands
+                  under it, since the card is one link. */}
+              {lastRun === "unreadable" && (
+                <ErrorNote
+                  message="The run history couldn't be read."
+                  onRetry={onRetryHistory}
+                  data-lead-history-failure
+                />
+              )}
+            </>
           )}
         </>
       ) : lead.kind === "template" ? (
