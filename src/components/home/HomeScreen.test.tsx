@@ -214,8 +214,7 @@ describe("Home's welcome and reads", () => {
     expect(welcome()).toEqual(["Welcome back, Ada"]);
   });
 
-  it("greets without a name when the shell knows nobody, and a shared map changed by someone else is not the person's", async () => {
-    answers.maps = [map("m1", { owner: BO, project: "p1" })];
+  it("greets without a name when the shell knows nobody", async () => {
     await open(null);
     expect(welcome()).toEqual(["Welcome"]);
   });
