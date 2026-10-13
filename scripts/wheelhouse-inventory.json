@@ -97,49 +97,6 @@
     "count": 1
   },
   {
-    "file": "src/components/HomeScreen.module.css",
-    "rule": "duration",
-    "value": "0.15s",
-    "count": 3
-  },
-  {
-    "file": "src/components/HomeScreen.module.css",
-    "rule": "fill",
-    "value": "color-mix(in srgb, var(--bg-panel) 55%, transparent)",
-    "count": 1,
-    "exception": "Surface exception: a tint, the start page's cards"
-  },
-  {
-    "file": "src/components/HomeScreen.module.css",
-    "rule": "font-size",
-    "value": "10.5px",
-    "count": 1
-  },
-  {
-    "file": "src/components/HomeScreen.module.css",
-    "rule": "font-size",
-    "value": "14px",
-    "count": 2
-  },
-  {
-    "file": "src/components/HomeScreen.module.css",
-    "rule": "font-size",
-    "value": "16px",
-    "count": 1
-  },
-  {
-    "file": "src/components/HomeScreen.module.css",
-    "rule": "font-size",
-    "value": "9px",
-    "count": 1
-  },
-  {
-    "file": "src/components/HomeScreen.tsx",
-    "rule": "glyph",
-    "value": "\u25b6",
-    "count": 1
-  },
-  {
     "file": "src/components/MiniMap.module.css",
     "rule": "font-size",
     "value": "10.5px",

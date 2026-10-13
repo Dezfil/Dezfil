@@ -1,0 +1,21 @@
+/* Home, in the Showroom reference's composition: the welcome, then the
+   lead beside the start actions, then the rows to run again, Recent and
+   the templates below. The page scrolls as one; every surface is a
+   shipped one, and this sheet only places them. */
+
+.screen {
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+  min-width: 0;
+  padding-bottom: 24px;
+}
+
+/* The welcome: the one display moment on a workspace page. */
+.welcome {
+  font-family: var(--font-display);
+  font-size: var(--text-hero);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}

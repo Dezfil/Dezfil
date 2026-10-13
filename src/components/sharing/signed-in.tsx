@@ -31,3 +31,9 @@ export function SignedIn({
 export function useSignedInSqlName(): string | null {
   return useContext(SignedInContext)?.sqlName ?? null;
 }
+
+/** The signed-in person's display name and SQL name, as the shell read
+ * them, or null when unknown. */
+export function useSignedInLabel(): PersonLabel | null {
+  return useContext(SignedInContext);
+}
