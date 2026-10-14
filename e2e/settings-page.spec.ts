@@ -1,8 +1,8 @@
 // The Settings page in a browser: a limit kept as it is stepped, Reset to
 // defaults then Undo, the leave guard over a link, over back and over a
 // jump of several entries from the history list, a search hit landing on
-// its row, a member's column, and the sign-in page carrying what General
-// stores. Every journey here runs as the browser fixture's
+// its row, a member's column, the sign-in page carrying what General
+// stores, and no tab wider than a 600 px window. Every journey here runs as the browser fixture's
 // admin unless it says otherwise, and puts back what it changed.
 //
 // One journey needs a second instance: start it with
@@ -570,6 +570,34 @@ test.describe("the Settings page", () => {
         } finally { await context.close(); }
       }
     } finally { await browser.close(); }
+  });
+
+  test("at a 600 px window no tab is wider than the window, so the page never scrolls sideways", async ({ browser, baseURL }) => {
+    const context = await browser.newContext({ baseURL, storageState: ".claude/browser-auth.json", viewport: { width: 600, height: 900 } });
+    try {
+      await routeHouse(context);
+      const page = await context.newPage();
+      const errors = trackConsole(page);
+      await page.goto("/settings/account");
+      await expect(card(page, "Account")).toBeVisible();
+      const wide: Record<string, string[]> = {};
+      for (const [tab] of DRAWN) {
+        await openTab(page, tab);
+        const found = await page.evaluate(() => {
+          const width = document.documentElement.clientWidth;
+          const past = (el: Element) => el.getBoundingClientRect().right > width + 0.5;
+          // The outermost parts past the window's edge, each named by its
+          // tag, class and id, so a failure says what to let wrap or shrink.
+          const parts = [...document.querySelectorAll("main *")]
+            .filter(el => past(el) && el.parentElement !== null && !past(el.parentElement))
+            .map(el => `${el.tagName.toLowerCase()}${el.id ? "#" + el.id : ""}.${el.getAttribute("class") ?? ""} to ${Math.round(el.getBoundingClientRect().right)}px`);
+          return { over: document.documentElement.scrollWidth - width, parts };
+        });
+        if (found.over > 0) wide[tab] = [`${found.over}px wider`, ...found.parts];
+      }
+      expect(wide).toEqual({});
+      expectQuiet(errors);
+    } finally { await context.close(); }
   });
 
   test("every frame of a change of tab shows a tab drawn whole, the one leaving or the one opening, and no loading line", async ({ page, context, request }) => {

@@ -238,6 +238,8 @@ describe("System", () => {
     // A model credential's variable is named only by the server's code: the definition supplies it here.
     expect(cells("env-anthropic-api-key")).toEqual(["Anthropic credential", settingDefinition("anthropicApiKey").environment, "Set", "Environment"]);
     expect(cells("env-dezfil-remote-max-mb")).toEqual(["Largest link import", "DEZFIL_REMOTE_MAX_MB", "2,048 MB", "Default"]);
+    // A name may break after each underscore, and only there; its words read whole.
+    expect(byId("env-dezfil-query-timeout-s").querySelectorAll("td")[1].querySelectorAll("wbr").length).toBe(3);
   });
 
   it("draws a failed read as the error note with Try again", async () => {
@@ -441,5 +443,17 @@ describe("the Server settings table's wrapping", () => {
     expect(resolved("white-space", "variable")).toBe("nowrap");
     expect(resolved("white-space", "source")).toBe("nowrap");
     expect(resolved("overflow-wrap", "value")).toBe("anywhere");
+  });
+
+  // At a narrow window the four columns with whole names stood past the
+  // card and the page scrolled sideways: in a table too narrow for them, a
+  // name breaks at the underscores it is drawn with, never inside a word.
+  it("lets a variable's name break between its words only in a table too narrow for whole names", () => {
+    expect(/\.tableBox\s*\{[^}]*container:\s*server-settings \/ inline-size/.test(css)).toBe(true);
+    const narrow = /@container server-settings \(max-width: (\d+)px\)\s*\{\s*\.table \.variable\s*\{([^}]*)\}\s*\}/.exec(css);
+    expect(narrow, "the narrow table's rule").not.toBeNull();
+    expect(Number(narrow![1])).toBeGreaterThanOrEqual(510);
+    const declared = Object.fromEntries(narrow![2].split(";").map(part => part.split(":").map(side => side.trim())).filter(pair => pair[0]));
+    expect(declared).toEqual({ "white-space": "normal", "overflow-wrap": "normal", "word-break": "normal" });
   });
 });
