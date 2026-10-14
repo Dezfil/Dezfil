@@ -138,18 +138,13 @@ describe("a nearest join reports ground metres", () => {
     }, 60_000);
   }
 
-  it("refuses an extent too wide for one projection", () => {
+  it("refuses an extent too wide for one projection", async () => {
     // The refusal established, inherited rather than re-decided: an equal-area
     // projection would answer a plausible wrong distance, so a distance takes
     // a local projection or none at all.
     //
-    // **Asserted at the strategy, because the pipeline cannot reach it.** The
-    // extent every measured verb resolves against is read with the *scalar*
-    // `ST_Extent` and taken from the first row, so a dataset spanning 120° of
-    // longitude presents its first point's box and the refusal never fires
-    // (recorded and untriaged). Asserting the end-to-end refusal here would be
-    // a test of a mechanism that is currently unreachable; asserting that a
-    // wide extent is refused is the half that is true and load-bearing.
+    // The aggregate extent includes every row. Two individually local points
+    // 120 degrees apart must reach the same refusal through a real run.
     const wide = parseExtent("BOX(-60 10, 60 12)")!;
     expect(() => resolveMeasurementCrs(wide, "distance")).toThrowError(
       /too wide to measure a distance/i,
@@ -161,6 +156,18 @@ describe("a nearest join reports ground metres", () => {
       code = (error as { code?: string }).code;
     }
     expect(code).toBe("measurement_crs_unavailable");
+
+    const file = path.join(dir, "wide.geojson");
+    await writeFile(file, JSON.stringify({
+      type: "FeatureCollection",
+      features: [[-60, 10], [60, 12]].map(coordinates => ({
+        type: "Feature", properties: {}, geometry: { type: "Point", coordinates },
+      })),
+    }));
+    await ingestFile(testAccountScope(), file, "wide.geojson");
+    await expect(run("nearest_join", { left: "wide", right: "wide", name: "wide_nearest" }))
+      .rejects.toMatchObject({ code: "measurement_crs_unavailable" });
+
   });
 });
 

@@ -90,7 +90,7 @@ async function workflowPage() {
 async function pages(): Promise<[string, Element, unknown][]> {
   return [
     ["the builder's", await mapPage("pat"), MapBuilder],
-    ["the SQL console's", SqlPage() as Element, SqlConsole],
+    ["the SQL console's", await SqlPage() as Element, SqlConsole],
     ["a workflow's", await workflowPage(), WorkflowScreen],
   ];
 }
@@ -129,10 +129,10 @@ describe("the pages that open a screen", () => {
   });
 
   it("read the instance's defaults afresh each time one is served", async () => {
-    const before = handed(SqlPage() as Element, SqlConsole);
+    const before = handed(await SqlPage() as Element, SqlConsole);
     writeStoredSettings({ "sqlConsole.textSize": "14" }, db);
     expect(before?.["sqlConsole.textSize"]).toBe("12");
-    expect(handed(SqlPage() as Element, SqlConsole)?.["sqlConsole.textSize"]).toBe("14");
+    expect(handed(await SqlPage() as Element, SqlConsole)?.["sqlConsole.textSize"]).toBe("14");
   });
 
   it("hand the read-only map view none", async () => {

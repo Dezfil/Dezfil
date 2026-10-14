@@ -1,6 +1,6 @@
 {
   "count": 156,
-  "overall": "46b5e05d27431076e87acb9461c76517a5d096bc78c2619bebf3ab477676cbe6",
+  "overall": "1514538fee177372fd653fb82a257c828fbf6404f743185766659bab3f1d83e5",
   "tools": {
     "get_account": "bd37f5c2eb19d2ede33cb10152a53d49e4029a871d9950f51d3671001efdfb66",
     "update_account": "b86cdb20349d6871c516c495b13864a85908d41cb61203f76a3f7ea95c26ebbb",
@@ -26,7 +26,7 @@
     "set_basemap_style_offered": "b346da4a12ee0030fc720ce2e0220caf31a17773c6a6d79cefb6fd3d112a7b12",
     "remove_basemap_style": "ea30dd1272c8491cd0116b9e1ec07162d16e2ebcfb9f6257c49eb61d1fbaf2b3",
     "list_templates": "41967efb34055adbfe880eda824553cf0de234d6cd8666201f5b79bd22911080",
-    "refresh_templates": "eb7b9a3fadfb5c7d4206a9de83d569f29336a3b9c839d0f5bbe87376cb4c817e",
+    "refresh_templates": "3a21722281e4f260424188a4c449dc1338c7d92ae6605c856d6c449e73f85571",
     "remove_template_downloads": "e0aa6e967b08bf22041b998dfcd537abae4689455b1254b90a83a797796d6a3f",
     "get_template": "87be8d24d21d5cf5b74be573e575778161bf734ce200d74abdf3f4dda62e9430",
     "fetch_template": "55e9e722d10ee214c1d4c34759de225d590d730e14873a2b291402713ada384f",

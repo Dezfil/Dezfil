@@ -335,7 +335,7 @@ assistant can point the server at a folder.
 The server reads the catalogue only when the template list is refreshed, which
 the **Templates** page asks for each time it opens, and a template's own page
 when it names a template the server has not listed yet, at most once in ten
-minutes: the index (at most 1 MB), then each listed template's two pictures
+minutes after a successful read, or thirty seconds after a refused or failed read: the index (at most 1 MB), then each listed template's two pictures
 (at most 2 MB each, 64 MB for the list), through the
 egress check within `DEZFIL_REMOTE_TIMEOUT_S` and with no credential, so a
 catalogue on a private network needs `DEZFIL_EGRESS_ALLOWLIST` to name it.

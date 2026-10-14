@@ -12,7 +12,7 @@ import { limits } from "@/lib/limits";
 import { metadataDb } from "@/lib/metadata/db";
 import { openRemote, transportCode } from "@/lib/net/remote-fetch";
 import { addressOrigin } from "@/lib/settings/disclosure";
-import { downloadedSize, fetchTarget, noCredentialHop, requireCatalogueAt, withoutCredentials, type ListedEntry } from "./catalogue";
+import { downloadedSize, fetchTarget, noCredentialHop, requireCatalogueAt, TEMPLATE_USER_AGENT, withoutCredentials, type ListedEntry } from "./catalogue";
 import type { CatalogueInEffect } from "./catalogue-address";
 import { TEMPLATE_ARCHIVE_MAX_BYTES } from "./format";
 import { installTemplateArchive } from "./install";
@@ -124,7 +124,7 @@ function unreached(error: unknown, timedOut: ApiError): never {
 }
 
 /** Read the archive the entry names into `file`. */
-async function transfer(entry: ListedEntry, where: CatalogueInEffect, file: string): Promise<{ size: number; sha256: string }> {
+async function transfer(entry: Pick<ListedEntry, "archive" | "size">, where: CatalogueInEffect, file: string): Promise<{ size: number; sha256: string }> {
   if (where.kind === "folder") {
     const { size } = await stat(entry.archive);
     if (size > entry.size || size > TEMPLATE_ARCHIVE_MAX_BYTES) {
@@ -138,6 +138,7 @@ async function transfer(entry: ListedEntry, where: CatalogueInEffect, file: stri
       timeoutMs: limits.remoteTimeoutMs,
       timeoutError: () => timedOut,
       onRedirect: noCredentialHop,
+      headers: { "user-agent": TEMPLATE_USER_AGENT },
     });
     if (response.statusCode < 200 || response.statusCode >= 300) {
       response.body.destroy();
@@ -153,6 +154,23 @@ async function transfer(entry: ListedEntry, where: CatalogueInEffect, file: stri
   }
 }
 
+/** Transfer and verify release bytes before any archive member is read.
+ * Shared by catalogue downloads and the command that prepares shipped templates. */
+export async function transferTemplateArchive(
+  entry: Pick<ListedEntry, "archive" | "size" | "sha256">,
+  where: CatalogueInEffect,
+  file: string,
+): Promise<{ size: number; sha256: string }> {
+  const landed = await transfer(entry, where, file);
+  if (landed.size !== entry.size) {
+    refuse("template_checksum_mismatch", `The archive is ${landed.size} bytes; the catalogue's index declares ${entry.size}.`);
+  }
+  if (landed.sha256 !== entry.sha256) {
+    refuse("template_checksum_mismatch", "The archive's SHA-256 differs from the one the catalogue's index declares.");
+  }
+  return landed;
+}
+
 /** One download at its turn: the catalogue still where it was listed, then
  * transfer, check, install; the scratch goes. */
 async function download(scope: AccountScope, entry: ListedEntry, where: CatalogueInEffect, db: Database): Promise<FetchedTemplate> {
@@ -163,13 +181,7 @@ async function download(scope: AccountScope, entry: ListedEntry, where: Catalogu
   try {
     await mkdir(scratch, { recursive: true });
     const archive = path.join(scratch, "archive.zip");
-    const landed = await transfer(entry, where, archive);
-    if (landed.size !== entry.size) {
-      refuse("template_checksum_mismatch", `The archive is ${landed.size} bytes; the catalogue's index declares ${entry.size}.`);
-    }
-    if (landed.sha256 !== entry.sha256) {
-      refuse("template_checksum_mismatch", "The archive's SHA-256 differs from the one the catalogue's index declares.");
-    }
+    const landed = await transferTemplateArchive(entry, where, archive);
     await installTemplateArchive(scope, scratch, archive, { id, version, size: landed.size, sha256: landed.sha256 }, archiveOrigin(where));
     return { id, version, size: landed.size, downloaded: true };
   } finally {

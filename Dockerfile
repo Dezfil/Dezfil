@@ -45,8 +45,10 @@ ENV NODE_ENV=production \
 # libsqlite3-0 is tippecanoe's one runtime dependency beyond the base image.
 # Chromium renders server-side image exports by driving the app's own client
 # bundle. That is the accepted price of the one-container promise: roughly
-# 700 MB more for the browser stack, measured. ca-certificates is the
-# trust store its HTTPS basemap fetches need; fonts-liberation covers any
+# 700 MB more for the browser stack, measured. Chromium uses its own roots
+# and the node user's NSS stores. Node uses its bundled roots plus the PEM
+# file named by NODE_EXTRA_CA_CERTS. Private CAs need both client and
+# browser trust (docs/self-hosting.md). fonts-liberation covers any
 # text outside the app's self-hosted faces. The WebGL path runs software GL
 # through SwiftShader, which works in this base with no network.
 RUN apt-get update && apt-get install -y --no-install-recommends \

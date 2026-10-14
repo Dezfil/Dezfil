@@ -136,57 +136,59 @@ const PICTURE = /^pictures\/[a-z0-9-]{1,40}\.png$/;
 /** Characters a line of plain text never carries. */
 const CONTROL = /[\u0000-\u0008\u000b-\u001f\u007f]/;
 
-type Problem = string | null;
+interface FactsIssue { field: string; message: string }
+type Problem = FactsIssue | null;
+const factsIssueAt = (field: string, message: string): FactsIssue => ({ field, message });
 
 const isObject = (v: unknown): v is Record<string, unknown> =>
   typeof v === "object" && v !== null && !Array.isArray(v);
 
 /** Refuse keys the shape does not name: the facts are a closed shape. */
-function closed(value: Record<string, unknown>, keys: readonly string[], at: string): Problem {
+function closedFactsFields(value: Record<string, unknown>, keys: readonly string[], at: string): Problem {
   for (const key of Object.keys(value)) {
-    if (!keys.includes(key)) return `${at} has a field the format does not name: "${key}".`;
+    if (!keys.includes(key)) return factsIssueAt(at === "The facts" ? key : `${at}.${key}`, `${at} has a field the format does not name: "${key}".`);
   }
   return null;
 }
 
-function text(value: unknown, at: string, max: number, multiline = false): Problem {
-  if (typeof value !== "string" || value.trim() === "") return `${at} must be non-blank text.`;
-  if ([...value].length > max) return `${at} is longer than ${max} characters.`;
+function factsTextIssue(value: unknown, at: string, max: number, multiline = false): Problem {
+  if (typeof value !== "string" || value.trim() === "") return factsIssueAt(at, `${at} must be non-blank text.`);
+  if ([...value].length > max) return factsIssueAt(at, `${at} is longer than ${max} characters.`);
   if (CONTROL.test(value) || (!multiline && /[\r\n\t]/.test(value))) {
-    return `${at} holds a control character.`;
+    return factsIssueAt(at, `${at} holds a control character.`);
   }
   return null;
 }
 
-function list(value: unknown, at: string, min: number, max: number): Problem {
-  if (!Array.isArray(value)) return `${at} must be a list.`;
+function factsListIssue(value: unknown, at: string, min: number, max: number): Problem {
+  if (!Array.isArray(value)) return factsIssueAt(at, `${at} must be a list.`);
   if (value.length < min || value.length > max) {
-    return min === max
+    return factsIssueAt(at, min === max
       ? `${at} must hold exactly ${min}.`
-      : `${at} must hold ${min} to ${max} entries.`;
+      : `${at} must hold ${min} to ${max} entries.`);
   }
   return null;
 }
 
-function source(value: unknown, at: string): Problem {
-  if (!isObject(value)) return `${at} must be an object.`;
+function factsSourceIssue(value: unknown, at: string): Problem {
+  if (!isObject(value)) return factsIssueAt(at, `${at} must be an object.`);
   return (
-    closed(value, ["name", "licence", "credit"], at) ??
-    text(value.name, `${at}.name`, 120) ??
+    closedFactsFields(value, ["name", "licence", "credit"], at) ??
+    factsTextIssue(value.name, `${at}.name`, 120) ??
     (typeof value.licence === "string" && LICENCE.test(value.licence)
       ? null
-      : `${at}.licence must be a licence identifier such as CC-BY-4.0.`) ??
-    text(value.credit, `${at}.credit`, 300)
+      : factsIssueAt(`${at}.licence`, `${at}.licence must be a licence identifier such as CC-BY-4.0.`)) ??
+    factsTextIssue(value.credit, `${at}.credit`, 300)
   );
 }
 
-function datasetLine(value: unknown, at: string): Problem {
-  if (!isObject(value)) return `${at} must be an object.`;
+function factsDatasetLineIssue(value: unknown, at: string): Problem {
+  if (!isObject(value)) return factsIssueAt(at, `${at} must be an object.`);
   return (
-    closed(value, ["dataset", "source", "made"], at) ??
-    text(value.dataset, `${at}.dataset`, 120) ??
-    text(value.source, `${at}.source`, 120) ??
-    text(value.made, `${at}.made`, 300)
+    closedFactsFields(value, ["dataset", "source", "made"], at) ??
+    factsTextIssue(value.dataset, `${at}.dataset`, 120) ??
+    factsTextIssue(value.source, `${at}.source`, 120) ??
+    factsTextIssue(value.made, `${at}.made`, 300)
   );
 }
 
@@ -198,44 +200,44 @@ function datasetLine(value: unknown, at: string): Problem {
  * template lists none. Whether the list is the workflow's own is the
  * admission's to hold, against the workflow document.
  */
-function stepsProblem(value: Record<string, unknown>, datasets: ReadonlySet<string>): Problem {
-  if (value.kind !== "workflow") return "steps" in value ? "A map template's facts list no steps." : null;
-  if (!("steps" in value)) return "A workflow example's facts must list its steps.";
-  const steps = list(value.steps, "steps", 1, TEMPLATE_STEPS_MAX);
+function factsStepsIssue(value: Record<string, unknown>, datasets: ReadonlySet<string>): Problem {
+  if (value.kind !== "workflow") return "steps" in value ? factsIssueAt("steps", "A map template's facts list no steps.") : null;
+  if (!("steps" in value)) return factsIssueAt("steps", "A workflow example's facts must list its steps.");
+  const steps = factsListIssue(value.steps, "steps", 1, TEMPLATE_STEPS_MAX);
   if (steps) return steps;
   const keys = ["id", "operation", "output", "reads"] as const;
   const ids = new Set<string>();
   const outputs = new Set<string>();
   for (const [i, raw] of (value.steps as unknown[]).entries()) {
     const at = `steps[${i}]`;
-    if (!isObject(raw)) return `${at} must be an object.`;
-    const shape = closed(raw, keys, at);
+    if (!isObject(raw)) return factsIssueAt(at, `${at} must be an object.`);
+    const shape = closedFactsFields(raw, keys, at);
     if (shape) return shape;
     for (const key of keys) {
-      if (!(key in raw)) return `${at} has no "${key}".`;
+      if (!(key in raw)) return factsIssueAt(at === "The facts" ? key : `${at}.${key}`, `${at} has no "${key}".`);
     }
     if (typeof raw.id !== "string" || !TEMPLATE_PART_ID.test(raw.id)) {
-      return `${at}.id must be letters, digits, hyphens and underscores, at most 64 characters.`;
+      return factsIssueAt(`${at}.id`, `${at}.id must be letters, digits, hyphens and underscores, at most 64 characters.`);
     }
-    if (ids.has(raw.id)) return `steps names the step "${raw.id}" twice.`;
+    if (ids.has(raw.id)) return factsIssueAt(`${at}.id`, `steps names the step "${raw.id}" twice.`);
     if (typeof raw.operation !== "string" || !OPERATION.test(raw.operation)) {
-      return `${at}.operation must be an operation's id.`;
+      return factsIssueAt(`${at}.operation`, `${at}.operation must be an operation's id.`);
     }
     if (typeof raw.output !== "string" || !STORED_NAME.test(raw.output)) {
-      return `${at}.output must be a dataset name as one is stored.`;
+      return factsIssueAt(`${at}.output`, `${at}.output must be a dataset name as one is stored.`);
     }
     if (datasets.has(raw.output) || outputs.has(raw.output)) {
-      return `${at}.output names "${raw.output}", which a dataset or an earlier step already has.`;
+      return factsIssueAt(`${at}.output`, `${at}.output names "${raw.output}", which a dataset or an earlier step already has.`);
     }
-    const reads = list(raw.reads, `${at}.reads`, 0, 2 * TEMPLATE_STEPS_MAX);
+    const reads = factsListIssue(raw.reads, `${at}.reads`, 0, 2 * TEMPLATE_STEPS_MAX);
     if (reads) return reads;
     for (const read of raw.reads as unknown[]) {
-      if (typeof read !== "string" || !STORED_NAME.test(read)) return `${at}.reads must list names as they are stored.`;
+      if (typeof read !== "string" || !STORED_NAME.test(read)) return factsIssueAt(`${at}.reads`, `${at}.reads must list names as they are stored.`);
       if (!datasets.has(read) && !outputs.has(read)) {
-        return `${at}.reads names "${read}", which is neither a dataset of the template nor an earlier step's output.`;
+        return factsIssueAt(`${at}.reads`, `${at}.reads names "${read}", which is neither a dataset of the template nor an earlier step's output.`);
       }
     }
-    if (new Set(raw.reads as string[]).size !== (raw.reads as string[]).length) return `${at}.reads names one dataset twice.`;
+    if (new Set(raw.reads as string[]).size !== (raw.reads as string[]).length) return factsIssueAt(`${at}.reads`, `${at}.reads names one dataset twice.`);
     ids.add(raw.id);
     outputs.add(raw.output);
   }
@@ -249,88 +251,94 @@ function stepsProblem(value: Record<string, unknown>, datasets: ReadonlySet<stri
  * caller's to check first: a version this server does not read is a
  * refusal of its own, before its shape is judged.
  */
-export function factsProblem(value: unknown): Problem {
-  if (!isObject(value)) return "The facts must be a JSON object.";
+export function factsIssue(value: unknown): Problem {
+  if (!isObject(value)) return factsIssueAt("", "The facts must be a JSON object.");
   const keys = [
     "formatVersion", "id", "version", "kind", "title", "question", "place",
     "tags", "dataDate", "sources", "howMade", "pictures",
   ] as const;
-  const shape = closed(value, [...keys, "steps"], "The facts");
+  const shape = closedFactsFields(value, [...keys, "steps"], "The facts");
   if (shape) return shape;
   for (const key of keys) {
-    if (!(key in value)) return `The facts have no "${key}".`;
+    if (!(key in value)) return factsIssueAt(key, `The facts have no "${key}".`);
   }
   if (typeof value.id !== "string" || !ID.test(value.id)) {
-    return "id must be lowercase letters, digits and single hyphens, at most 64 characters.";
+    return factsIssueAt("id", "id must be lowercase letters, digits and single hyphens, at most 64 characters.");
   }
   if ((RESERVED_IDS as readonly string[]).includes(value.id)) {
-    return `id may not be ${RESERVED_IDS.join(" or ")}: the API's paths take those words.`;
+    return factsIssueAt("id", `id may not be ${RESERVED_IDS.join(" or ")}: the API's paths take those words.`);
   }
   if (!isTemplateVersion(value.version)) {
-    return "version must be a whole number from 1.";
+    return factsIssueAt("version", "version must be a whole number from 1.");
   }
   if (!(TEMPLATE_KINDS as readonly unknown[]).includes(value.kind)) {
-    return `kind must be one of ${TEMPLATE_KINDS.join(", ")}.`;
+    return factsIssueAt("kind", `kind must be one of ${TEMPLATE_KINDS.join(", ")}.`);
   }
   const words =
-    text(value.title, "title", 80) ??
-    text(value.question, "question", 200) ??
-    text(value.place, "place", 80);
+    factsTextIssue(value.title, "title", 80) ??
+    factsTextIssue(value.question, "question", 200) ??
+    factsTextIssue(value.place, "place", 80);
   if (words) return words;
-  const tags = list(value.tags, "tags", 1, 3);
+  const tags = factsListIssue(value.tags, "tags", 1, 3);
   if (tags) return tags;
   const tagList = value.tags as unknown[];
   for (const tag of tagList) {
     if (!(TEMPLATE_TAGS as readonly unknown[]).includes(tag)) {
-      return `tags may only be ${TEMPLATE_TAGS.join(", ")}.`;
+      return factsIssueAt("tags", `tags may only be ${TEMPLATE_TAGS.join(", ")}.`);
     }
   }
-  if (new Set(tagList).size !== tagList.length) return "tags names a tag twice.";
+  if (new Set(tagList).size !== tagList.length) return factsIssueAt("tags", "tags names a tag twice.");
   if (typeof value.dataDate !== "string" || !DATA_DATE.test(value.dataDate)) {
-    return "dataDate must be a year, a month or a day: 2024, 2024-05 or 2024-05-31.";
+    return factsIssueAt("dataDate", "dataDate must be a year, a month or a day: 2024, 2024-05 or 2024-05-31.");
   }
-  const sources = list(value.sources, "sources", 1, 12);
+  const sources = factsListIssue(value.sources, "sources", 1, 12);
   if (sources) return sources;
   const sourceList = value.sources as unknown[];
   for (const [i, s] of sourceList.entries()) {
-    const problem = source(s, `sources[${i}]`);
+    const problem = factsSourceIssue(s, `sources[${i}]`);
     if (problem) return problem;
   }
   const sourceNames = sourceList.map((s) => (s as TemplateSource).name);
-  if (new Set(sourceNames).size !== sourceNames.length) return "sources names a source twice.";
+  if (new Set(sourceNames).size !== sourceNames.length) return factsIssueAt("sources", "sources names a source twice.");
   const howMade = value.howMade;
-  if (!isObject(howMade)) return "howMade must be an object.";
+  if (!isObject(howMade)) return factsIssueAt("howMade", "howMade must be an object.");
   const made =
-    closed(howMade, ["question", "datasets", "styling"], "howMade") ??
-    text(howMade.question, "howMade.question", 2000, true) ??
-    list(howMade.datasets, "howMade.datasets", 1, 50) ??
-    list(howMade.styling, "howMade.styling", 1, 12);
+    closedFactsFields(howMade, ["question", "datasets", "styling"], "howMade") ??
+    factsTextIssue(howMade.question, "howMade.question", 2000, true) ??
+    factsListIssue(howMade.datasets, "howMade.datasets", 1, 50) ??
+    factsListIssue(howMade.styling, "howMade.styling", 1, 12);
   if (made) return made;
   for (const [i, line] of (howMade.datasets as unknown[]).entries()) {
-    const problem = datasetLine(line, `howMade.datasets[${i}]`);
+    const problem = factsDatasetLineIssue(line, `howMade.datasets[${i}]`);
     if (problem) return problem;
     if (!sourceNames.includes((line as TemplateDatasetLine).source)) {
-      return `howMade.datasets[${i}].source names no source of the template.`;
+      return factsIssueAt(`howMade.datasets[${i}].source`, `howMade.datasets[${i}].source names no source of the template.`);
     }
   }
   for (const [i, line] of (howMade.styling as unknown[]).entries()) {
-    const problem = text(line, `howMade.styling[${i}]`, 300);
+    const problem = factsTextIssue(line, `howMade.styling[${i}]`, 300);
     if (problem) return problem;
   }
-  const steps = stepsProblem(value, new Set((howMade.datasets as TemplateDatasetLine[]).map((line) => line.dataset)));
+  const steps = factsStepsIssue(value, new Set((howMade.datasets as TemplateDatasetLine[]).map((line) => line.dataset)));
   if (steps) return steps;
   const pictures = value.pictures;
-  if (!isObject(pictures)) return "pictures must name a file per theme.";
-  const pictureShape = closed(pictures, TEMPLATE_THEMES, "pictures");
+  if (!isObject(pictures)) return factsIssueAt("pictures", "pictures must name a file per theme.");
+  const pictureShape = closedFactsFields(pictures, TEMPLATE_THEMES, "pictures");
   if (pictureShape) return pictureShape;
   for (const theme of TEMPLATE_THEMES) {
     const file = pictures[theme];
     if (typeof file !== "string" || !PICTURE.test(file)) {
-      return `pictures.${theme} must name a PNG file under pictures/.`;
+      return factsIssueAt(`pictures.${theme}`, `pictures.${theme} must name a PNG file under pictures/.`);
     }
   }
-  if (pictures.light === pictures.dark) return "pictures names one file for both themes.";
+  if (pictures.light === pictures.dark) return factsIssueAt("pictures", "pictures names one file for both themes.");
   return null;
+}
+
+/** The existing document readers keep the full explanation. Catalogue
+ * diagnostics use factsIssue's field without disclosing document values. */
+export function factsProblem(value: unknown): string | null {
+  return factsIssue(value)?.message ?? null;
 }
 
 /** The catalogue's index: one entry per template, naming its newest

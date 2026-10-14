@@ -44,6 +44,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "journey:browser": "playwright test",
+    "templates:install": "node scripts/install-template.mjs",
     "admin:recover": "node scripts/admin-recover.mjs",
     "journey:recovery": "node scripts/recovery-journey.mjs",
     "probe:settings": "node scripts/settings-probe.mjs",
