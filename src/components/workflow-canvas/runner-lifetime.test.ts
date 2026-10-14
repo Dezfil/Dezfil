@@ -15,6 +15,7 @@ function setup() {
   const observation = () => ({ state: h.value.state, updates: h.updates, recipe: ports.onRecipeChanged.mock.calls.length, tables: ports.onTablesChanged.mock.calls.length, seen: ports.onRunSeen.mock.calls.length });
   return { w, h, ports, observation };
 }
+const outcomeOf = <T,>(p: Promise<T>) => { const out: { value: T | "pending" } = { value: "pending" }; void p.then((v) => { out.value = v; }); return out; };
 afterEach(() => { for (const h of harnesses.splice(0)) h.unmount(); vi.useRealTimers(); vi.unstubAllGlobals(); });
 
 describe("observation lifetime", () => {
@@ -58,6 +59,18 @@ describe("observation lifetime", () => {
     expect(c.w.calls.filter((x) => x.path.endsWith("/cancel"))).toHaveLength(0); // control
   });
 
+  it("a real unmount stays closed: a later read of the runs reopens nothing and a start sends nothing", async () => {
+    const c = setup(); c.w.pending("GET", list)[0].ok({ runs: [] }); await setImmediate();
+    c.h.unmount(); const before = c.observation();
+    const observed = outcomeOf(c.h.value.observe()); await setImmediate();
+    for (const late of c.w.pending("GET", list)) late.ok({ runs: [run] });
+    await setImmediate();
+    const outcome = outcomeOf(c.h.value.start({})); await setImmediate(); await setImmediate();
+    expect(c.w.calls.filter((x) => x.method === "POST")).toHaveLength(0);
+    expect(outcome.value).toMatchObject({ kind: "refused", code: "screen_closed" });
+    expect(observed.value).toBeNull(); expect(c.observation()).toEqual(before);
+  });
+
   it("quick setup cleanup setup ignores the first late list and keeps one observer", async () => {
     const c = setup(); const old = c.w.pending("GET", list)[0]; c.h.unmount(); c.h.remount();
     c.w.pending("GET", list)[1].ok({ runs: [run] }); await setImmediate(); old.ok({ runs: [run] }); await setImmediate();
@@ -78,8 +91,6 @@ describe("a quiet runner's lifetime", () => {
     const h = new HookHarness(() => useWorkflowRun("w", ports, undefined, true)); harnesses.push(h);
     return { w, h, ports };
   }
-  const outcomeOf = <T,>(p: Promise<T>) => { const out: { value: T | "pending" } = { value: "pending" }; void p.then((v) => { out.value = v; }); return out; };
-
   it("starts a run after the replay of its mount (setup, cleanup, setup)", async () => {
     const c = quiet(); c.h.unmount(); c.h.remount();
     const outcome = outcomeOf(c.h.value.start({})); await setImmediate();
