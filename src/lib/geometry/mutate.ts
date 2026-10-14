@@ -1,3 +1,5 @@
+import { withTrustedMutation } from "@/lib/trusted-mutation";
+import { currentTrustedOperation } from "@/lib/trusted-operation";
 import { registerAccountFile, removeAccountFile } from "@/lib/ingest/file-ownership";
 import type { AccountScope } from "@/lib/auth/scope";
 import path from "node:path";
@@ -30,6 +32,7 @@ export function geometryMutationResult(scope: AccountScope, table: DataTable, st
 export function publishGeometry(scope: AccountScope, table: DataTable, update: TableDataUpdate, extent: GeometryExtent) {
   const result = metadataDb().transaction(() => {
     assertGeometryGeneration(scope, table);
+    currentTrustedOperation()?.assertCanCommit();
     if (!updateOwnedTableData(scope, table, update)) throw new ApiError("input_changed", "The dataset changed. Inspect it again.", 409);
     const { geometryState, ...publicUpdate } = update;
     // Public readback is the committed result; internal ownership stays private.
@@ -38,19 +41,21 @@ export function publishGeometry(scope: AccountScope, table: DataTable, update: T
   postCommitCleanup(scope, table.name, path.join(dataDir(), table.file));
   return result;
 }
-export async function withGeometryMutation<T>(scope: AccountScope, name: string, expectedRevision: string, work: (table: DataTable, state: GeometryState | null) => Promise<T>): Promise<T> {
-  const table = requireGeometryTable(scope, name, expectedRevision);
-  const state = getGeometryState(table);
-  const unit = refreshUnit(scope, table);
-  try { beginRefresh(unit, name); }
-  catch (error) {
-    if (error instanceof ApiError && error.code === "refresh_in_flight") throw new ApiError("geometry_in_flight", "A geometry edit or refresh is already running for this dataset or import group.", 409);
-    throw error;
-  }
-  try { return await work(table, state); }
-  finally { endRefresh(unit); }
+export async function withGeometryMutation<T>(scope: AccountScope, name: string, expectedRevision: string, work: (table: DataTable, state: GeometryState | null) => Promise<T>, signal?: AbortSignal): Promise<T> {
+  return withTrustedMutation({ kind: "geometry-change", name: "Geometry change", signal }, async () => {
+    const table = requireGeometryTable(scope, name, expectedRevision);
+    const state = getGeometryState(table);
+    const unit = refreshUnit(scope, table);
+    try { beginRefresh(unit, name); }
+    catch (error) {
+      if (error instanceof ApiError && error.code === "refresh_in_flight") throw new ApiError("geometry_in_flight", "A geometry edit or refresh is already running for this dataset or import group.", 409);
+      throw error;
+    }
+    try { return await work(table, state); }
+    finally { endRefresh(unit); }
+  });
 }
-export function setGeometry(scope: AccountScope, name: string, expectedRevision: string, input: unknown) {
+export function setGeometry(scope: AccountScope, name: string, expectedRevision: string, input: unknown, signal?: AbortSignal) {
   return withGeometryMutation(scope, name, expectedRevision, async (table, state) => {
     const choice = parseGeometryChoice(input);
     const file = path.join("tables", `${randomUUID()}.parquet`), artifact = path.join(dataDir(), file);
@@ -59,6 +64,6 @@ export function setGeometry(scope: AccountScope, name: string, expectedRevision:
       const meta = await readGeometry(table, (conn, from) => buildGeometryArtifact(conn, from, artifact, table, state, choice));
       const { extent, ...facts } = meta;
       return publishGeometry(scope, table, { ...facts, file, importedAt: table.importedAt }, extent);
-    } catch (error) { await removeAccountFile(artifact, { force: true }); throw error; }
-  });
+    } catch (error) { currentTrustedOperation()?.refuse(error); await removeAccountFile(artifact, { force: true }); throw error; }
+  }, signal);
 }

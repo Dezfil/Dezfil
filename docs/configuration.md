@@ -445,7 +445,9 @@ the processing lifetime through commit. PostGIS connection tests, catalogue
 reads and previews use the query lifetime, with imports and refreshes under
 the processing lifetime. Every PostGIS attachment retains the 10-second connect
 limit and uses a 30-second source statement ceiling plus owned interruption.
-The source statement ceiling answers `408 query_timeout`.
+The source statement ceiling answers `408 query_timeout`. Geometry set and clear
+use one processing lifetime through preparation, revision checks and replacement,
+continue after departure, and retain the previous artifact on refusal.
 
 ## Open data providers
 

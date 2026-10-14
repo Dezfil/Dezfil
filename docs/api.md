@@ -2211,7 +2211,10 @@ lifetime. Every source attachment has a 30-second statement ceiling, a unique
 source identity and an interrupt owner. The 10-second connect limit remains;
 the source statement ceiling retains `408 query_timeout`. Teardown runs after
 native work drains, including a late attachment success after refusal. Other
-processing and render routes are not yet connected. Hardened query memory refusal remains
+processing and render routes are not yet connected. Geometry set and clear
+use the processing lifetime through preparation and revision-checked replacement.
+They continue after departure; expiry or resource refusal removes the candidate
+and retains the previous artifact. Hardened query memory refusal remains
 `400 query_memory_exceeded`, including template validation.
 
 <!-- error-catalogue:start -->
