@@ -18,8 +18,9 @@ import { SignedIn } from "./sharing/signed-in";
 const lists = vi.hoisted(() => ({ world: null as unknown }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), replace: vi.fn() }) }));
 vi.mock("@/components/theme", () => ({ useTheme: () => ({ theme: "light" }) }));
-vi.mock("./use-view-prefs", () => ({
-  useViewPrefs: () => ({ view: "grid", sort: "edited", setView: vi.fn(), setSort: vi.fn() }),
+vi.mock("./use-view-prefs", async (original) => ({
+  ...(await original<typeof import("./use-view-prefs")>()),
+  useViewPrefs: () => ({ view: "grid", sort: "edited", settled: true, setView: vi.fn(), setSort: vi.fn() }),
 }));
 vi.mock("./scope/use-scope", () => ({ useProjectScope: () => ({ scope: { kind: "all" }, setScope: vi.fn() }) }));
 vi.mock("./scope/use-scope-world", () => ({

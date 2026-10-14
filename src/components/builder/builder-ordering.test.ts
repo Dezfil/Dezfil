@@ -19,7 +19,7 @@ it("keeps queued opacity through the preceding map save and accepted opacity thr
     const editor = useBuilderMutations({ mapId: "map", map, setMap: next => {
       map = typeof next === "function" ? next(map)! : next!;
       shown.push(map.layers[0].style.opacity);
-    }, rendersRef: { current: {} }, setRenders() {}, setSelectedId() {}, refreshLayer: async () => {} });
+    }, rendersRef: { current: {} }, replaceRenders: async () => null, setSelectedId() {}, refreshLayer: async () => {} });
     const camera = useBuilderCamera("map", { current: null }, editor.track);
     return { editor, camera };
   });
@@ -66,7 +66,7 @@ it("orders real layer, map and history hooks with accepted field intent and inde
   let map = { id: "map", layers: [first, second], widgets: [], editRevision: "initial" } as unknown as MapWithLayers;
   const rendersRef = { current: {} };
   const harness = new HookHarness(() => {
-    const mutations = useBuilderMutations({ mapId: "map", map, setMap: (next) => { map = typeof next === "function" ? next(map) as MapWithLayers : next!; }, rendersRef, setRenders() {}, setSelectedId() {}, refreshLayer: async () => {} });
+    const mutations = useBuilderMutations({ mapId: "map", map, setMap: (next) => { map = typeof next === "function" ? next(map) as MapWithLayers : next!; }, rendersRef, replaceRenders: async () => null, setSelectedId() {}, refreshLayer: async () => {} });
     const camera = useBuilderCamera("map", { current: null }, mutations.track);
     return { ...mutations, camera };
   });

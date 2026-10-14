@@ -59,7 +59,7 @@ function Builder() {
   const [map, setMap] = useState<MapWithLayers | null>(initial);
   const [shown, setShown] = useState(true);
   const rendersRef = useRef({});
-  const editor = useBuilderMutations({ mapId: "m", map, setMap, rendersRef, setRenders() {}, setSelectedId() {}, refreshLayer: async () => {} });
+  const editor = useBuilderMutations({ mapId: "m", map, setMap, rendersRef, replaceRenders: async () => null, setSelectedId() {}, refreshLayer: async () => {} });
   const tab = useLegendTab({ ...editor, setMap });
   const legend = useLegendLayers({ map, renders: {}, legendLive: editor.legendLive, appearanceDrafts: {} });
   useEffect(() => { builderRef.current = { ...editor, legend }; });

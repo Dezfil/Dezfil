@@ -53,7 +53,7 @@ it("surfaces every map control failure, ignores held undo, and heals a silent ca
     const [preview, setPreview] = useState<MapWidget | null>(null);
     const rendersRef = useRef({});
     const viewportRef = useRef(null);
-    editor = useBuilderMutations({ mapId: "m", map, setMap, rendersRef, setRenders() {}, setSelectedId() {}, refreshLayer: async () => {} });
+    editor = useBuilderMutations({ mapId: "m", map, setMap, rendersRef, replaceRenders: async () => null, setSelectedId() {}, refreshLayer: async () => {} });
     camera = useBuilderCamera("m", viewportRef, editor.track);
     const widgets = useBuilderWidgets(map, preview);
     const actions = useWidgetListActions({ ...editor, ...widgets, map, setMap, setTab() {}, setWidgetFocus() {} });

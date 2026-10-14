@@ -14,7 +14,7 @@ it("keeps an assistant restyle between overlapping slider intents and measures q
   vi.stubGlobal("window", { addEventListener() {}, removeEventListener() {} });
   const layer = { id: "l", sql: "select 1", style: { opacity: 1, fill: "red" } };
   let map = { id: "m", layers: [layer], widgets: [], editRevision: "initial" } as unknown as MapWithLayers;
-  const harness = new HookHarness(() => useBuilderMutations({ mapId: "m", map, setMap: next => { map = typeof next === "function" ? next(map)! : next!; }, rendersRef: { current: {} }, setRenders() {}, setSelectedId() {}, refreshLayer: async () => {} }));
+  const harness = new HookHarness(() => useBuilderMutations({ mapId: "m", map, setMap: next => { map = typeof next === "function" ? next(map)! : next!; }, rendersRef: { current: {} }, replaceRenders: async () => null, setSelectedId() {}, refreshLayer: async () => {} }));
   const editor = harness.value; editor.serverMapRef.current = map; editor.sequence.accept(map);
   editor.authoritativeLayersRef.current = { l: map.layers[0] };
   const first = editor.patchLayer("l", { sql: "select 2" });

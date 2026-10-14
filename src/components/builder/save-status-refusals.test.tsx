@@ -40,7 +40,7 @@ it.each([
   function Builder() {
     const [map, setMap] = useState<MapWithLayers | null>(initial);
     const rendersRef = useRef({});
-    mutations = useBuilderMutations({ mapId: "m", map, setMap, rendersRef, setRenders() {}, setSelectedId() {}, refreshLayer: async () => {} });
+    mutations = useBuilderMutations({ mapId: "m", map, setMap, rendersRef, replaceRenders: async () => null, setSelectedId() {}, refreshLayer: async () => {} });
     const notice = useTransientNotice();
     session = useDrawSession({ request: mutations.request, mapId: "m", announce: notice.show,
       onLayerMinted() {}, refreshTable() {}, reloadSketches: async () => {}, onSelectionGone() {} });

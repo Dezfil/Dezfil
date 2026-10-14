@@ -25,7 +25,7 @@ function setup() {
   vi.stubGlobal("window", { addEventListener() {}, removeEventListener() {} });
   const clearAppearanceDraft = vi.fn();
   const h = new HookHarness(() => {
-    const editor = useBuilderMutations({ mapId: "m", map, setMap: next => { map = (typeof next === "function" ? next(map) : next)! as typeof initial; }, rendersRef: { current: {} }, setRenders() {}, setSelectedId() {}, refreshLayer: async () => {} });
+    const editor = useBuilderMutations({ mapId: "m", map, setMap: next => { map = (typeof next === "function" ? next(map) : next)! as typeof initial; }, rendersRef: { current: {} }, replaceRenders: async () => null, setSelectedId() {}, refreshLayer: async () => {} });
     return { ...editor, commit: useStyleAppearanceCommit({ ...editor, appearancePreviewVersionRef: { current: { a: 1, b: 1 } }, clearAppearanceDraft }) };
   });
   cleanups.push(() => h.unmount());

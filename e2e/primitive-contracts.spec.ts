@@ -67,23 +67,33 @@ test.describe("the primitive kit's contracts", () => {
     });
 
     await test.step("a failed read offers a retry that re-requests", async () => {
+      // Keep the fault armed until the retry: a development effect replay
+      // issues a second read that an abort-once stub would let through.
+      let failing = true;
       let attempts = 0;
+      let aborted = 0;
       await page.route("**/api/tables", async (route) => {
         attempts += 1;
-        if (attempts === 1) return route.abort("failed");
+        if (failing) {
+          aborted += 1;
+          return route.abort("failed");
+        }
         return route.continue();
       });
       await page.goto("/sql");
       const retry = page.getByRole("button", { name: "Try again" });
       await expect(retry).toBeVisible();
+      const before = attempts;
+      failing = false;
       await retry.click();
       // The second request is a fresh one, and its answer replaces the
       // failure rather than sitting beside it.
       await expect(retry).toBeHidden();
-      expect(attempts).toBeGreaterThanOrEqual(2);
+      expect(attempts).toBeGreaterThan(before);
       await page.unroute("**/api/tables");
-      // The browser's console shadow of the fault this step induced.
-      await consumeExpected(consoleErrors, /\/api\/tables/);
+      // The browser's console shadows of the faults this step induced.
+      for (let i = 0; i < aborted; i += 1)
+        await consumeExpected(consoleErrors, /\/api\/tables/);
     });
 
     await test.step("table detail's tabs answer arrows, Home and End", async () => {

@@ -142,6 +142,9 @@ export function PublishedView({
 
   // Bumped to refetch while tiles are preparing.
   const [pollTick, setPollTick] = useState(0);
+  // A refetch that fails leaves the view and the status as they were, so
+  // it is counted instead: the poll waits on every read, failed or not.
+  const [failedReads, setFailedReads] = useState(0);
   const framed = useRef(false);
 
   // The docked timeline, viewer side: everything a viewer does — scrub,
@@ -187,6 +190,10 @@ export function PublishedView({
 
   useEffect(() => {
     let cancelled = false;
+    const failedRead = () => {
+      setStatus((s) => (s === "ok" ? s : "error"));
+      setFailedReads((n) => n + 1);
+    };
     (async () => {
       try {
         const response = await fetch(
@@ -201,7 +208,7 @@ export function PublishedView({
           // page-level splash: one layer's failure never takes the view
           // down. Once the page reads ok it stays ok — only a load with
           // nothing on screen errors.
-          if (!cancelled) setStatus((s) => (s === "ok" ? s : "error"));
+          if (!cancelled) failedRead();
           return;
         }
         const data = (await response.json()) as ViewData;
@@ -263,7 +270,7 @@ export function PublishedView({
           }
         }
       } catch {
-        if (!cancelled) setStatus((s) => (s === "ok" ? s : "error"));
+        if (!cancelled) failedRead();
       }
     })();
     return () => {
@@ -292,7 +299,7 @@ export function PublishedView({
     if (status !== "ok" || preparing.length === 0) return;
     const timer = setTimeout(() => setPollTick((t) => t + 1), 5000);
     return () => clearTimeout(timer);
-  }, [status, preparing]);
+  }, [status, preparing, failedReads]);
 
   const renderedLayers: RenderedLayer[] = useMemo(
     () =>

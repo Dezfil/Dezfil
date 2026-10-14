@@ -53,10 +53,7 @@ import {
   RAIL_TABS,
   type RailTab,
 } from "./builder-shell-state";
-import {
-  fetchLayerRender,
-  type LayerRenderData,
-} from "./render-data";
+import { useLayerRenders } from "./use-layer-renders";
 import { useLayerSourceCoordinator } from "./use-layer-source-coordinator";
 import { AddLayerTrigger } from "./add-layer/AddLayerCatalog";
 import { CatalogHost } from "./add-layer/CatalogHost";
@@ -120,8 +117,10 @@ function BuilderEditor({
   // The detail response's membership — deliberately beside the shared
   // record, never on it (the published-shape exclusion).
   const [mapProjectId, setMapProjectId] = useState<string | null>(null);
-  const [renders, setRenders] = useState<Record<string, LayerRenderData>>({});
-  const rendersRef = useRef<Record<string, LayerRenderData>>({});
+  // Render answers, the tile poll and the one ordering rule every
+  // answer passes before it is shown (use-layer-renders.ts).
+  const { renders, rendersRef, refreshLayer, replaceRenders, removeRender } =
+    useLayerRenders();
   const [selectedId, setSelectedId] = useState<string | null>(initialLayerId);
   // Select mode's map half: a picked feature resolves to its owning
   // layer, which the armed picker answers — consumed or refused.
@@ -175,14 +174,8 @@ function BuilderEditor({
     mapLayerRef,
     map?.viewport ?? { lng: 0, lat: 0, zoom: 1 },
   );
-  const refreshLayer = useCallback(async (layerId: string) => {
-    const data = await fetchLayerRender(layerId);
-    rendersRef.current = { ...rendersRef.current, [layerId]: data };
-    setRenders((r) => ({ ...r, [layerId]: data }));
-  }, []);
-
   const mutations = useBuilderMutations({
-    mapId, map, setMap, rendersRef, setRenders, setSelectedId, refreshLayer,
+    mapId, map, setMap, rendersRef, replaceRenders, setSelectedId, refreshLayer,
   });
   const {
     history, edited, reloadKey, reload, authoritativeLayersRef, truthSeqRef,
@@ -276,25 +269,12 @@ function BuilderEditor({
         endQuerySliderPreview(layerId);
       }
     },
-    [authoritativeLayersRef, endQuerySliderPreview, reconcileQuerySliderPreview],
+    [authoritativeLayersRef, rendersRef, endQuerySliderPreview, reconcileQuerySliderPreview],
   );
 
   useBuilderReload({
-    mapId, mutations, recoverySeed, importFocusRef, setMap, setMapProjectId, rendersRef, setRenders, setFitBounds,
+    mapId, mutations, recoverySeed, importFocusRef, setMap, setMapProjectId, replaceRenders, setFitBounds,
   });
-
-  // Tiles prepare in the background: poll a preparing layer's render
-  // until it settles into ready (drawn) or failed (errored state).
-  useEffect(() => {
-    const preparing = Object.values(renders)
-      .filter((r) => r.ok && r.tiles?.state === "building")
-      .map((r) => r.layerId);
-    if (preparing.length === 0) return;
-    const timer = setTimeout(() => {
-      for (const id of preparing) void refreshLayer(id);
-    }, 2500);
-    return () => clearTimeout(timer);
-  }, [renders, refreshLayer]);
 
   // The Legend tab's write wiring lives in use-legend-tab since 0119.
   const legendTab = useLegendTab({
@@ -309,8 +289,8 @@ function BuilderEditor({
   // for the capture surface).
   const onSnapshotHandle = useThumbnailCapture(mapId, map, renders, { theme, basemapUrl, basemapOverrideUrl, basemaps });
 
-  // Undo/redo is its own serialized lane, with a generation fence so a
-  // superseded repaint never lands.
+  // Undo/redo is its own serialized lane; its repaint is a render
+  // replacement, so a superseded repaint never lands.
 
   // Direct manipulation: the corner a drag would drop in, and one-shot
   // focus requests from clicking overlay text on the canvas. The note
@@ -770,7 +750,7 @@ function BuilderEditor({
   });
 
   const { duplicateLayer, reorderLayers, deleteLayer } = useBuilderLayerActions({
-    mutations, draw, mapId, selectedId, setSelectedId, setMap, setRenders, rendersRef, refreshLayer,
+    mutations, draw, mapId, selectedId, setSelectedId, setMap, removeRender, refreshLayer,
   });
 
   if (failures.load && !map) {

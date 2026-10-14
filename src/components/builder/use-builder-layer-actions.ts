@@ -1,19 +1,19 @@
 "use client";
-import { useCallback, type Dispatch, type SetStateAction, type RefObject } from "react";
+import { useCallback, type Dispatch, type SetStateAction } from "react";
 import type { MapWithLayers, Layer } from "@/lib/metadata/maps";
 import type { HistoryAvailability } from "@/lib/metadata/history";
 import { readApiError } from "../api";
 import { drawState, setDrawSelection } from "./draw/draw-mode";
 import type { DrawIntegration } from "./draw/use-draw-integration";
 import type { useBuilderMutations } from "./use-builder-mutations";
-import type { LayerRenderData } from "./render-data";
 
-export function useBuilderLayerActions({ mutations, draw, mapId, selectedId, setSelectedId, setMap, setRenders, rendersRef, refreshLayer }: {
+export function useBuilderLayerActions({ mutations, draw, mapId, selectedId, setSelectedId, setMap, removeRender, refreshLayer }: {
   mutations: ReturnType<typeof useBuilderMutations>; draw: DrawIntegration; mapId: string;
   selectedId: string | null; setSelectedId: Dispatch<SetStateAction<string | null>>;
   setMap: Dispatch<SetStateAction<MapWithLayers | null>>;
-  setRenders: Dispatch<SetStateAction<Record<string, LayerRenderData>>>;
-  rendersRef: RefObject<Record<string, LayerRenderData>>;
+  /** The layer left the map: its render goes, and an answer still in
+   * flight for it can no longer bring it back. */
+  removeRender: (id: string) => void;
   refreshLayer: (id: string) => Promise<void>;
 }) {
   const { request, track, patchMap, fail, reload, clearFailure, authoritativeLayersRef, truthSeqRef,
@@ -155,12 +155,7 @@ export function useBuilderLayerActions({ mutations, draw, mapId, selectedId, set
             }
           : m,
       );
-      setRenders((r) => {
-        const next = { ...r };
-        delete next[layerId];
-        rendersRef.current = next;
-        return next;
-      });
+      removeRender(layerId);
       if (sketchTable) {
         if (drawState().selected?.layerId === layerId) setDrawSelection(null);
         void draw.reloadSketches();
@@ -177,7 +172,7 @@ export function useBuilderLayerActions({ mutations, draw, mapId, selectedId, set
       }
       edited();
     },
-    [draw, clearFailure, selectedId, truthSeqRef, layerRemovedAtRef, mapFieldEditedAtRef, layerConfirmedAtRef, authoritativeLayersRef, serverMapRef, edited, track, fail, reload, mapId, setHistory, request, rendersRef, setMap, setRenders, setSelectedId],
+    [draw, clearFailure, selectedId, truthSeqRef, layerRemovedAtRef, mapFieldEditedAtRef, layerConfirmedAtRef, authoritativeLayersRef, serverMapRef, edited, track, fail, reload, mapId, setHistory, request, removeRender, setMap, setSelectedId],
   );
 
   return { duplicateLayer, reorderLayers, deleteLayer };
