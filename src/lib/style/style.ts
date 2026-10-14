@@ -131,6 +131,12 @@ export type LabelAnchor = (typeof LABEL_ANCHORS)[number];
 export const LABEL_CASES = ["as-is", "upper", "lower"] as const;
 export type LabelCase = (typeof LABEL_CASES)[number];
 
+/** The neutral a data-driven colour gives a feature it cannot place: a
+ * categorical value outside the listed categories (the default `other`)
+ * and a missing value on a continuous ramp, which must never read as the
+ * ramp's lowest value. */
+export const NO_DATA_COLOR: RgbaColor = { r: 120, g: 130, b: 150, a: 0.55 };
+
 /** The historical halo color — what `halo: true` always painted; the
  * one-time read migration pins legacy maps to it exactly. */
 export const LEGACY_HALO_COLOR: RgbaColor = { r: 12, g: 16, b: 24, a: 0.8 };

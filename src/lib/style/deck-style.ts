@@ -6,6 +6,7 @@ import type {
   SizeScale,
   LabelStyle,
 } from "./style";
+import { NO_DATA_COLOR } from "./style";
 import { AGG_ELEV, type LayerViz, type OdViz } from "../viz";
 import { formatCompact } from "./legend";
 import { sampleRamp } from "./palettes";
@@ -91,9 +92,19 @@ export function continuousPosition(
   };
 }
 
+/** A feature's number for a data-driven channel, or null when it has none:
+ * absent, null, empty or not a number. Told apart before converting, since
+ * `Number(null)` and `Number("")` are 0. */
+function numericValue(raw: unknown): number | null {
+  if (raw === null || raw === undefined || raw === "") return null;
+  const v = typeof raw === "number" ? raw : Number(raw);
+  return Number.isFinite(v) ? v : null;
+}
+
 function continuousAccessor(
   fill: ContinuousFill,
   fillOpacity: number,
+  noData: RgbaColor,
 ): (f: GeoJsonFeature) => DeckColor {
   const position = continuousPosition(fill);
   const lut: DeckColor[] = Array.from({ length: RAMP_LUT_SIZE }, (_, i) =>
@@ -102,18 +113,21 @@ function continuousAccessor(
       fillOpacity,
     ),
   );
+  // A missing value is no value: the neutral, never the ramp's low end.
+  const missing = toDeck(noData, fillOpacity);
   return (f) => {
-    const raw = f.properties?.[fill.attribute];
-    const v = typeof raw === "number" ? raw : Number(raw);
-    if (!Number.isFinite(v)) return lut[0];
+    const v = numericValue(f.properties?.[fill.attribute]);
+    if (v === null) return missing;
     return lut[Math.round(position(v) * (RAMP_LUT_SIZE - 1))];
   };
 }
 
-/** Build a per-feature fill accessor from a fill paint (spec: data-driven fill). */
+/** Build a per-feature fill accessor from a fill paint (spec: data-driven fill).
+ * `noData` is what a continuous ramp draws for a missing value. */
 export function fillAccessor(
   fill: FillPaint,
   fillOpacity = 1,
+  noData: RgbaColor = NO_DATA_COLOR,
 ): DeckColor | ((f: GeoJsonFeature) => DeckColor) {
   if (fill.type === "constant") {
     return toDeck(fill.color, fillOpacity);
@@ -126,7 +140,7 @@ export function fillAccessor(
     return (f) => lookup.get(String(f.properties?.[fill.attribute])) ?? fallback;
   }
   if (fill.type === "continuous") {
-    return continuousAccessor(fill, fillOpacity);
+    return continuousAccessor(fill, fillOpacity, noData);
   }
   // quantile
   const colors = fill.colors.map((c) => toDeck(c, fillOpacity));
@@ -139,6 +153,18 @@ export function fillAccessor(
     while (i < breaks.length && v > breaks[i]) i++;
     return colors[Math.min(i, colors.length - 1)];
   };
+}
+
+/** The fill a glyph tints through. Glyphs tint at full colour alpha: the
+ * authored fill alpha is an area-mark convention the picker can't even
+ * edit, so the paint and the no-data colour are both made solid. */
+export function iconFillAccessor(
+  style: Pick<LayerStyle, "fill" | "fillOpacity">,
+): DeckColor | ((f: GeoJsonFeature) => DeckColor) {
+  return fillAccessor(opaqueFillPaint(style.fill), style.fillOpacity, {
+    ...NO_DATA_COLOR,
+    a: 1,
+  });
 }
 
 /**
