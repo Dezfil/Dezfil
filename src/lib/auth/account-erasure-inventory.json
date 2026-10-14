@@ -2965,6 +2965,11 @@
         "memory:password-admission"
       ]
     },
+    "memory:src/lib/auth/http.ts#SESSION_COOKIE": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
     "memory:src/lib/auth/ingress.mjs#installIngress.state": {
       "stores": [
         "memory:trusted-peer-policy"

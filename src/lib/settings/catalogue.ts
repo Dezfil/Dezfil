@@ -98,6 +98,7 @@ export const SETTING_CATALOGUE: readonly SettingDefinition[] = [
   deployment("dataDir", "DEZFIL_DATA_DIR", "path", "Data directory", "The single durable directory for tables, tiles and metadata.", { rule: "working-directory/data" }, "./data; /data in the container"),
   deployment("secretKey", "DEZFIL_SECRET_KEY", "secret", "Encryption key", "At-rest encryption key for stored credentials.", { rule: "key-file-or-generate" }, "generated"),
   deployment("trustedProxies", "DEZFIL_TRUSTED_PROXIES", "list", "Trusted proxies", "Socket peers allowed to supply forwarding information.", [], "unset"),
+  deployment("sessionCookie", "DEZFIL_SESSION_COOKIE", "text", "Session cookie name", "Browser session cookie name, derived from the listening port unless overridden.", { rule: "listening-port" }, "port-based"),
   deployment("egressAllowlist", "DEZFIL_EGRESS_ALLOWLIST", "list", "Allowed destinations", "Hosts, IPs or CIDRs permitted past the egress policy.", [], "unset"),
   deployment("objectStoreCredentials", "DEZFIL_OBJECT_STORE_CREDENTIALS", "boolean", "Object-store credentials", "Sign imports with the instance credential chain when enabled.", false, "off"),
   serviceAddress("s3Endpoint", "DEZFIL_S3_ENDPOINT", "S3 endpoint", "Custom S3-compatible endpoint for anonymous imports.", { rule: "aws-bucket-endpoint" }, "AWS"),

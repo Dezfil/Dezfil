@@ -21,7 +21,7 @@ export async function provisionJourney(base, account = journeyAccount) {
     body: JSON.stringify(setupRequired ? account : { email: account.email, password: account.password }),
   });
   assert.equal(signed.status, 200, 'fixture account signs in');
-  const cookie = signed.headers.getSetCookie().find(value => value.startsWith('dezfil_session='))?.split(';')[0];
+  const cookie = signed.headers.getSetCookie()[0]?.split(';')[0];
   assert.ok(cookie, 'sign-in issues a browser session');
   const identity = (await signed.json()).account;
   const issued = await fetch(`${origin}/api/account/tokens`, {

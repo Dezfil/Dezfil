@@ -13,6 +13,15 @@ The first person to finish setup becomes the admin. Bind the container port to
 loopback or restrict access at your proxy before opening the setup page. Once an
 account exists there is no open signup.
 
+Browsers share cookies across ports on the same host. Native instances on
+separate listening ports use separate session names automatically; port 3000
+keeps `dezfil_session`. For two containers served on the same host, set a distinct
+`DEZFIL_SESSION_COOKIE` on each, such as `dezfil_session_maps` and
+`dezfil_session_test`: both listen on port 3000 internally even when their
+published ports differ. The value must be a non-empty HTTP cookie-name token; names made of ASCII
+letters, digits and underscores work. Invalid names stop startup. Changing an instance's
+cookie name requires its browsers to sign in again.
+
 Admins invite people from Users. Dezfil sends no outbound mail: the admin copies
 and privately delivers a single-use invitation or reset link, valid for the
 instance's link lifetime, seven days unless an admin changes it on the

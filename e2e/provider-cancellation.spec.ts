@@ -16,7 +16,7 @@ test("caller-driven provider closure and current UI", async ({ page, context, ba
     const api = journeyApi(baseURL!, { token: credentials.token });
     const made = await api("POST", "/api/maps", { body: { name: "Provider browser fixture" } });
     expect(made.status).toBe(201); mapId = made.json.id;
-    await context.addCookies([{ name: "dezfil_session", value: credentials.cookie!.split("=").slice(1).join("="), url: baseURL!, httpOnly: true, sameSite: "Lax" }]);
+    await context.addCookies([{ name: credentials.cookie!.split("=")[0], value: credentials.cookie!.split("=").slice(1).join("="), url: baseURL!, httpOnly: true, sameSite: "Lax" }]);
     // Only basemap imagery is stubbed. Search and inspection use real app routes.
     await routeHouse(context, { basemapStyleStub: true });
     page.on("pageerror", error => errors.push(error.message));

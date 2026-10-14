@@ -7,7 +7,7 @@ describe("settings consumption inventory", () => {
   it("covers every deployment definition in both directions using actual reads", () => {
     const inventory = consumptionInventory(SETTING_CATALOGUE, sources());
     expect(consumptionProblems(SETTING_CATALOGUE, sources())).toEqual([]);
-    expect(inventory).toHaveLength(66); // Deployment settings and the two platform facts.
+    expect(inventory).toHaveLength(67); // Deployment settings and the two platform facts.
     expect(inventory.filter(row => row.consumers.some(c => c.kind === "resolver"))).toHaveLength(46);
     // Each service address is read through its resolver, in its service's
     // own module alone, never from the environment directly.
