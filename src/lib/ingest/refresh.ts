@@ -135,7 +135,9 @@ async function refreshOsmGroup(
   const promoted = Array.isArray(p.promoted)
     ? p.promoted.map(String)
     : ["name"];
+  currentTrustedOperation()?.enterStage("OpenStreetMap source preparation");
   const { response } = await fetchOverpass(p.ql, { bypassCache: true });
+  currentTrustedOperation()?.enterStage("geometry assembly");
   let split = assembleAndSplit(response, promoted);
   // Stored within-semantics re-apply on refresh — the recipe means the
   // same thing every time it runs.
@@ -202,6 +204,7 @@ async function refreshOsmGroup(
       }
     })();
   } catch (error) {
+    currentTrustedOperation()?.refuse(error);
     for (const c of candidates) await removeAccountFile(c.artifact, { force: true });
     throw error;
   }

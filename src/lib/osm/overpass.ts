@@ -1,3 +1,4 @@
+import { currentTrustedOperation, isTrustedOperationRefusal } from "@/lib/trusted-operation";
 import { beginProviderCacheWrite, providerCacheGeneration } from "@/lib/provider-cache-generation";
 import { createHash } from "node:crypto";
 import path from "node:path";
@@ -98,7 +99,7 @@ async function readCache(key: string): Promise<OverpassResponse | null> {
       await unlink(file).catch(() => {});
       return null;
     }
-    return JSON.parse(await readFile(file, "utf8")) as OverpassResponse;
+    return JSON.parse(await readFile(file, { encoding: "utf8", signal: currentTrustedOperation()?.signal })) as OverpassResponse;
   } catch {
     return null;
   }
@@ -152,7 +153,8 @@ async function writeCache(key: string, body: OverpassResponse, generation: numbe
   const finish = await beginProviderCacheWrite(generation, "overpass"); if (!finish) return;
   try {
     await mkdir(cacheDir(), { recursive: true });
-    await writeFile(path.join(cacheDir(), `${key}.json`), JSON.stringify(body));
+    currentTrustedOperation()?.assertCanCommit();
+    await writeFile(path.join(cacheDir(), `${key}.json`), JSON.stringify(body), { signal: currentTrustedOperation()?.signal });
     await maintainOverpassCache();
   } catch {
     /* A failed cache write never fails an import */
@@ -195,6 +197,7 @@ export function overpassDeadlineS(): number {
  */
 export function openOverpass(endpoint: string, ql: string, timeoutError: () => ApiError, deadlineS = overpassDeadlineS()): Promise<RemoteResponse> {
   return openRemote(endpoint, {
+    signal: currentTrustedOperation()?.signal,
     method: "POST",
     body: `data=${encodeURIComponent(ql)}`,
     headers: {
@@ -219,9 +222,11 @@ export async function fetchOverpass(
   const key = cacheKey(endpoint, ql);
   if (!options.bypassCache) {
     const cached = await readCache(key);
+    currentTrustedOperation()?.assertCanCommit();
     if (cached) return { response: cached, fromCache: true };
   }
 
+  currentTrustedOperation()?.assertCanCommit();
   const deadlineS = overpassDeadlineS();
   const pastDeadline = new ApiError(
     "remote_fetch_failed",
@@ -236,7 +241,8 @@ export async function fetchOverpass(
     // engine's other failures repeat the whole address, so only the
     // transport's code (a refused connection, a name that does not resolve)
     // travels.
-    if (error === pastDeadline || (error instanceof ApiError && error.code === "egress_blocked")) throw error;
+    currentTrustedOperation()?.assertCanCommit();
+    if (error === pastDeadline || (isTrustedOperationRefusal(error) && (!(error instanceof ApiError) || error.code !== "remote_fetch_failed"))) throw error;
     const code = transportCode(error);
     throw new ApiError(
       "remote_fetch_failed",
@@ -297,9 +303,11 @@ export async function fetchOverpass(
   } catch (error) {
     // The bound's refusal and the deadline name no address; a transfer cut
     // short says so without the transport's words.
-    if (error instanceof ApiError) throw error;
+    currentTrustedOperation()?.assertCanCommit();
+    if (isTrustedOperationRefusal(error)) throw error;
     throw new ApiError("remote_fetch_failed", `The Overpass endpoint ${origin} stopped sending its answer.`, 502);
   }
+  currentTrustedOperation()?.assertCanCommit();
   const answer = readOverpassAnswer(Buffer.concat(chunks).toString("utf8"));
   if (answer.kind === "not_json") {
     throw new ApiError(
@@ -324,6 +332,7 @@ export async function fetchOverpass(
     );
   }
 
+  currentTrustedOperation()?.assertCanCommit();
   await writeCache(key, answer.body, generation);
   return { response: answer.body, fromCache: false };
 }

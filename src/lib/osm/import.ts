@@ -1,3 +1,6 @@
+import { withTrustedOperation } from "@/lib/trusted-operation";
+import { withTrustedMutation } from "@/lib/trusted-mutation";
+import { currentTrustedOperation } from "@/lib/trusted-operation";
 import { settingRemedy } from "@/lib/settings/remedy";
 import { addressOrigin } from "@/lib/settings/disclosure";
 import { admitAccountWork } from "@/lib/auth/account-deletion-admission";
@@ -306,7 +309,10 @@ export async function buildClassArtifact(
   const tmp = path.join(tmpDir, `${randomUUID()}.geojson`);
   const owner = fileAccountId(artifact); if (owner) registerAccountFile(owner, tmp);
   try {
-    await writeFile(tmp, classDocument(features));
+    currentTrustedOperation()?.enterStage("geometry conversion");
+    const document = classDocument(features);
+    currentTrustedOperation()?.assertCanCommit();
+    await writeFile(tmp, document, { signal: currentTrustedOperation()?.signal });
     return await buildArtifact(tmp, `${cls}.geojson`, artifact);
   } finally {
     await removeAccountFile(tmp, { force: true });
@@ -326,20 +332,25 @@ export interface OsmFeaturePreview {
  * Overpass response from cache. */
 export async function previewOsm(
   request: OsmImportRequest,
+  signal?: AbortSignal,
 ): Promise<OsmFeaturePreview> {
-  const resolved = resolveOsmRequest(request);
-  const { response } = await fetchOverpass(resolved.finalQl);
-  let split = assembleAndSplit(response, resolved.promoted);
-  const within = withinShapeOf(resolved);
-  if (within) split = filterSplitWithin(split, within);
-  const all = [...split.points, ...split.lines, ...split.polygons];
-  const cap = limits.renderCapFeatures;
-  return {
-    geojson: { type: "FeatureCollection", features: all.slice(0, cap) },
-    featureCount: Math.min(all.length, cap),
-    truncated: all.length > cap,
-    cap,
-  };
+  return withTrustedOperation({ kind: "interactive-read", name: "OpenStreetMap preview", signal }, async operation => {
+    const resolved = resolveOsmRequest(request);
+    const { response } = await fetchOverpass(resolved.finalQl);
+    operation.enterStage("geometry assembly");
+    let split = assembleAndSplit(response, resolved.promoted);
+    const within = withinShapeOf(resolved);
+    if (within) split = filterSplitWithin(split, within);
+    operation.assertCanCommit();
+    const all = [...split.points, ...split.lines, ...split.polygons];
+    const cap = limits.renderCapFeatures;
+    return {
+      geojson: { type: "FeatureCollection", features: all.slice(0, cap) },
+      featureCount: Math.min(all.length, cap),
+      truncated: all.length > cap,
+      cap,
+    };
+  });
 }
 
 /** Import: fetch (cached), assemble, split, land one table per non-empty
@@ -347,102 +358,108 @@ export async function previewOsm(
 export async function importOsm(
   scope: AccountScope,
   request: OsmImportRequest,
+  signal?: AbortSignal,
 ): Promise<DataTable[]> {
-  const deletionWork = admitAccountWork([requireAccountScope(scope)]);
-  try {
-  requireAccountScope(scope);
-  const projectId = importProjectId(request.projectId);
-  if (projectId) requireFilingDestination(scope, projectId);
-  const resolved = resolveOsmRequest(request);
-  const { response } = await fetchOverpass(resolved.finalQl);
-  let split = assembleAndSplit(response, resolved.promoted);
-  const within = withinShapeOf(resolved);
-  if (within) split = filterSplitWithin(split, within);
-  if (split.total === 0) {
-    throw new ApiError(
-      "invalid_request",
-      "The query returned no features; nothing was imported. Widen the area or loosen the tags.",
-      422,
-    );
-  }
-
-  const group = randomUUID();
-
-  const created: DataTable[] = [];
-  // The class being built when a failure lands: its artifact exists but
-  // its table is not yet in `created`, so the unwind below must know
-  // it.
-  let inFlight: string | null = null;
-  try {
-    for (const cls of CLASSES) {
-      if (split[cls].length === 0) continue;
-      const id = randomUUID();
-      const relFile = path.join("tables", `${id}.parquet`);
-      const artifact = path.join(dataDir(), relFile);
-    registerAccountFile(scope.accountId, artifact);
-      inFlight = artifact;
-      const meta = await buildClassArtifact(split, cls, resolved.promoted, artifact);
-      // Derive-and-register is one synchronous step — no taken-names
-      // snapshot survives the artifact build above.
-      const record: Omit<DataTable, "name"> = {
-        id,
-        sourceFilename: `${resolved.stem}.osm`,
-        format: "geojson",
-        file: relFile,
-        geometryColumn: meta.geometryColumn,
-        geometryType: meta.geometryType,
-        crsAssumed: false,
-        headerSuspect: false,
-        rowCount: meta.rowCount,
-        createdAt: new Date().toISOString(),
-        source: "osm",
-        sourceParams: {
-          ql: resolved.finalQl,
-          ...(resolved.bbox ? { bbox: resolved.bbox } : {}),
-          ...(resolved.ring ? { ring: resolved.ring } : {}),
-          ...(resolved.geometry ? { geometry: resolved.geometry } : {}),
-          semantics: resolved.semantics,
-          ...(resolved.selectors.length > 0
-            ? {
-                selectors: resolved.selectors.map((s) =>
-                  s.value ? `${s.key}=${s.value}` : s.key,
-                ),
-              }
-            : {}),
-          // The server reached, as scheme and host: the address may carry
-          // a key in its user information, path or query.
-          endpoint: addressOrigin(overpassEndpoint()),
-          group,
-          class: cls,
-          promoted: resolved.promoted,
-        },
-        importedAt: new Date().toISOString(),
-      };
-      // Registration and membership commit together per class: a filing
-      // failure rolls this class's registration back.
-      const db = metadataDb();
-      created.push(
-        db.transaction(() => {
-          const table = registerTable(scope, record, `${resolved.stem}_${cls}`, db);
-          if (projectId) fileOwnedTable(scope, table.id, projectId, db);
-          return table;
-        })(),
+  return withTrustedMutation({ kind: "import", name: "OpenStreetMap import", signal }, async operation => {
+    const deletionWork = admitAccountWork([requireAccountScope(scope)]);
+    try {
+    requireAccountScope(scope);
+    const projectId = importProjectId(request.projectId);
+    if (projectId) requireFilingDestination(scope, projectId);
+    const resolved = resolveOsmRequest(request);
+    const { response } = await fetchOverpass(resolved.finalQl);
+    operation.enterStage("geometry assembly");
+    let split = assembleAndSplit(response, resolved.promoted);
+    const within = withinShapeOf(resolved);
+    if (within) split = filterSplitWithin(split, within);
+    if (split.total === 0) {
+      throw new ApiError(
+        "invalid_request",
+        "The query returned no features; nothing was imported. Widen the area or loosen the tags.",
+        422,
       );
-      inFlight = null;
     }
-    return created;
-  } catch (error) {
-    // All-or-nothing: unwind anything this import already registered —
-    // and the in-flight class's artifact, which no registry row names.
-    for (const t of created) {
-      metadataDb().prepare("DELETE FROM data_tables WHERE id = ? AND owner_id = ?").run(t.id, scope.accountId);
-      await removeAccountFile(path.join(dataDir(), t.file), { force: true });
-    }
-    if (inFlight) await removeAccountFile(inFlight, { force: true });
-    throw error;
-  }
 
-  } finally { deletionWork.release(); }
+    const group = randomUUID();
+
+    const created: DataTable[] = [];
+    // The class being built when a failure lands: its artifact exists but
+    // its table is not yet in `created`, so the unwind below must know
+    // it.
+    let inFlight: string | null = null;
+    try {
+      for (const cls of CLASSES) {
+        if (split[cls].length === 0) continue;
+        const id = randomUUID();
+        const relFile = path.join("tables", `${id}.parquet`);
+        const artifact = path.join(dataDir(), relFile);
+      registerAccountFile(scope.accountId, artifact);
+        inFlight = artifact;
+        const meta = await buildClassArtifact(split, cls, resolved.promoted, artifact);
+        // Derive-and-register is one synchronous step — no taken-names
+        // snapshot survives the artifact build above.
+        const record: Omit<DataTable, "name"> = {
+          id,
+          sourceFilename: `${resolved.stem}.osm`,
+          format: "geojson",
+          file: relFile,
+          geometryColumn: meta.geometryColumn,
+          geometryType: meta.geometryType,
+          crsAssumed: false,
+          headerSuspect: false,
+          rowCount: meta.rowCount,
+          createdAt: new Date().toISOString(),
+          source: "osm",
+          sourceParams: {
+            ql: resolved.finalQl,
+            ...(resolved.bbox ? { bbox: resolved.bbox } : {}),
+            ...(resolved.ring ? { ring: resolved.ring } : {}),
+            ...(resolved.geometry ? { geometry: resolved.geometry } : {}),
+            semantics: resolved.semantics,
+            ...(resolved.selectors.length > 0
+              ? {
+                  selectors: resolved.selectors.map((s) =>
+                    s.value ? `${s.key}=${s.value}` : s.key,
+                  ),
+                }
+              : {}),
+            // The server reached, as scheme and host: the address may carry
+            // a key in its user information, path or query.
+            endpoint: addressOrigin(overpassEndpoint()),
+            group,
+            class: cls,
+            promoted: resolved.promoted,
+          },
+          importedAt: new Date().toISOString(),
+        };
+        // Registration and membership commit together per class: a filing
+        // failure rolls this class's registration back.
+        const db = metadataDb();
+        created.push(
+          db.transaction(() => {
+            operation.assertCanCommit();
+            const table = registerTable(scope, record, `${resolved.stem}_${cls}`, db);
+            if (projectId) fileOwnedTable(scope, table.id, projectId, db);
+            return table;
+          })(),
+        );
+        inFlight = null;
+      }
+      return created;
+    } catch (error) {
+      operation.refuse(error);
+      // All-or-nothing: unwind anything this import already registered —
+      // and the in-flight class's artifact, which no registry row names.
+      for (const t of created) {
+        metadataDb().prepare("DELETE FROM data_tables WHERE id = ? AND owner_id = ?").run(t.id, scope.accountId);
+        await removeAccountFile(path.join(dataDir(), t.file), { force: true });
+      }
+      if (inFlight) await removeAccountFile(inFlight, { force: true });
+      throw error;
+    }
+
+    } finally { deletionWork.release(); }
+  });
 }
 
 /** Every member of an import group, by any member's group id. */

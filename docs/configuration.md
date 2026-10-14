@@ -429,12 +429,15 @@ behavior and [the API guide](api.md#request-bounds) for exact refusals.
 
 Trusted engine memory and Bytes drawn per layer are exposed for configuration;
 their enforcement is not yet active. File and archive import processing, link
-and object-store imports, and URL refreshes use the Data processing time limit
+and object-store imports, URL refreshes, and OpenStreetMap imports and refreshes
+use the Data processing time limit
 through preparation and commit. Accepted processing continues after departure;
 expiry removes candidates and leaves previously committed data intact. Reception
 and other processing families are not yet connected. Dataset and geometry inspection, catalogue reads, dataset map
 features and projection lookup now share one admitted Query time limit through
 preparation and reads, and cancel when the last interested caller leaves.
+OpenStreetMap previews use the same query lifetime through source preparation
+and geometry assembly, retaining the existing Overpass time and size limits.
 
 ## Open data providers
 
