@@ -23,8 +23,7 @@ import {
 import { listOwnedTables, tableNamesOf } from "@/lib/metadata/owned-tables";
 import type { Database } from "better-sqlite3";
 import { findOperation } from "./catalog";
-import { rewriteTableReferences } from "./sql-references";
-import { stepReads } from "./step-reads";
+import { copyReadsAgree, readCopySql, rewriteCopySql, wordsOf } from "./copy-references";
 
 /**
  * Duplicating a recipe.
@@ -108,8 +107,12 @@ export async function duplicateRecipe(scope: AccountScope, sourceId: string): Pr
   const standing = recipeStanding(sourceId, db);
   const home = standing?.homeId ?? standing?.ownerId ?? null;
   const taken = takenNames(scope, db, home);
+  // Fresh outputs must not capture a local SQL name, including a WITH name.
+  for (const step of steps) wordsOf(step.parameters, taken);
   const renamed = new Map<string, string>();
+  const inputs: Map<string, string>[] = [];
   const planned: PlannedStep[] = steps.map((step) => {
+    inputs.push(new Map(renamed));
     const parameters: Record<string, unknown> = { ...step.parameters };
     const operation = findOperation(step.operation);
     for (const input of operation.inputs) {
@@ -119,10 +122,7 @@ export async function duplicateRecipe(scope: AccountScope, sourceId: string): Pr
       if (to) parameters[input.name] = to;
     }
     if (typeof parameters.sql === "string") {
-      parameters.sql = rewriteTableReferences(
-        parameters.sql,
-        (name) => renamed.get(name) ?? null,
-      );
+      parameters.sql = rewriteCopySql(parameters.sql, renamed);
     }
     const declared = declaredName(step.parameters);
     if (declared) {
@@ -138,25 +138,13 @@ export async function duplicateRecipe(scope: AccountScope, sourceId: string): Pr
   //    original read, with the copy's names where the original's stood.
   for (let i = 0; i < steps.length; i++) {
     if (typeof planned[i].parameters.sql !== "string") continue;
-    const original = await stepReads(scope, {
-      operation: steps[i].operation,
-      parameters: steps[i].parameters,
-      proposedParameters: null,
-    }).catch(() => null);
-    // SQL the parser cannot read is copied as it is: the copy refuses to run
-    // it exactly as the original does, and says why.
-    if (original === null) continue;
-    const copied = await stepReads(scope, {
-      operation: planned[i].operation,
-      parameters: planned[i].parameters,
-      proposedParameters: null,
-    }).catch(() => null);
-    const expected = new Set(original.map((n) => renamed.get(n) ?? n));
-    const got = new Set(copied ?? []);
-    const same =
-      copied !== null &&
-      expected.size === got.size &&
-      [...expected].every((n) => got.has(n));
+    const originalSql = String(steps[i].parameters.sql);
+    const original = await readCopySql(scope, originalSql);
+    // An incomplete definition stays incomplete in the copy.
+    if (original === null) { planned[i].parameters.sql = originalSql; continue; }
+    const text = String(planned[i].parameters.sql);
+    const copied = text === originalSql ? original : await readCopySql(scope, text);
+    const same = copyReadsAgree(original, copied, inputs[i]);
     if (!same) {
       throw new ApiError(
         "invalid_request",

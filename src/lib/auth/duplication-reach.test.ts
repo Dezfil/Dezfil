@@ -151,7 +151,7 @@ describe("duplicating a workflow under reach", () => {
     expect(recipe).toMatchObject({ name: "Survey copy", owner: { name: account, sqlName: account }, home: "ada", projectId });
     const steps = listSteps(recipe.id).map((step) => step.parameters as { sql: string; name: string });
     expect(steps[0]).toEqual({ sql: "SELECT * FROM roads", name: "staged_copy" });
-    expect(steps[1].sql).toBe("SELECT * FROM staged_copy");
+    expect(steps[1].sql).toBe("SELECT * FROM staged_copy AS staged");
   });
 
   it("refuses a non-member exactly as a workflow that never existed, creating nothing", async () => {

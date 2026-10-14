@@ -699,7 +699,7 @@ describe("editing and removing through the surface", () => {
     expect(cSteps.map((s) => s.condition)).toEqual(["never_run", "never_run", "never_run", "never_run"]);
     // Reads redirected: by named input, and by SQL table reference only.
     expect((cSteps[1].parameters as Json).input).toBe("dup_one_copy");
-    expect((cSteps[2].parameters as Json).sql).toBe("SELECT *, 'dup_one' AS tag FROM dup_one_copy -- dup_one\nWHERE name <> 'dup_one'");
+    expect((cSteps[2].parameters as Json).sql).toBe("SELECT *, 'dup_one' AS tag FROM dup_one_copy AS dup_one -- dup_one\nWHERE name <> 'dup_one'");
     expect(cSteps[2].reads).toEqual(["dup_one_copy"]);
     expect((cSteps[3].parameters as Json).sql).toBe("SELECT count(*) AS c FROM query_table('dup_one_copy')");
     expect(cSteps[3].reads).toEqual(["dup_one_copy"]);
