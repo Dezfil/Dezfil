@@ -112,3 +112,41 @@ it("waits for admitted work to release its slot even when its job is already ter
     expect(getCascade(run.id)).toBeNull(); expect(getTableByName("slow_output")).toBeNull();
   } finally { release(); }
 });
+
+it.each(["all", "single", "cancelled"] as const)("refuses the %s start when deletion wins its response read", async mode => {
+  const scope = testAccountScope(), recipe = createRecipe(scope, "Removed before the start response");
+  const step = addStep(recipe.id, { operation: "sql_step", parameters: { sql: expensive, name: "slow_output" } });
+  const scoped = await import("@/lib/metadata/owned-cascades"), read = scoped.getCascade;
+  const errors = vi.spyOn(console, "error"), warnings = vi.spyOn(console, "warn");
+  let removedId: string | undefined;
+  vi.spyOn(scoped, "getCascade").mockImplementation((...args) => {
+    const before = read(...args);
+    if (!removedId && before?.recipeId === recipe.id) {
+      expect(before.outcome).toBe(mode === "cancelled" ? "cancelled" : null);
+      expect(before.members[0].state).toBe(mode === "all" ? "pending" : mode === "single" ? "running" : "failed");
+      removedId = before.id; runs.push(before.id);
+      expect(deleteRecipe(recipe.id)).toBe(true);
+    }
+    return read(...args);
+  });
+  if (mode === "cancelled") {
+    const execution = await import("./step-execution"), start = execution.startStepRun;
+    vi.spyOn(execution, "startStepRun").mockImplementation(async (...args) => {
+      const job = await start(...args);
+      scoped.raiseCancelFence(scope, args[2]!.cascadeId!);
+      return job;
+    });
+  }
+  const expectedRevision = readDocumentRevision({ kind: "workflow", id: recipe.id })!.editRevision;
+  const starting = mode === "all" ? startCascade(scope, { recipeId: recipe.id, expectedRevision })
+    : startSingleRun(scope, recipe.id, step.id, { expectedRevision });
+  await expect(starting).rejects.toMatchObject({ code: "not_found", status: 404 });
+  expect(removedId).toBeDefined();
+  await cascadeSettled(removedId!);
+  expect(getCascade(removedId!)).toBeNull();
+  const jobs = listJobs();
+  if (mode !== "all") expect(jobs).toHaveLength(1);
+  expect(jobs.every(job => job.state === "cancelled" && !isExecuting(job.id))).toBe(true);
+  expect(getTableByName("slow_output")).toBeNull();
+  expect(errors).not.toHaveBeenCalled(); expect(warnings).not.toHaveBeenCalled();
+});
