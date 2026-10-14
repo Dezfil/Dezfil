@@ -272,7 +272,7 @@ it("keeps an export's slot until the browser process of a launch that failed has
 it("never ends another launch's browser: a launch that fails after a later one started on the same relay port leaves it running", async () => {
   // Both launches are handed one relay port, as a port freed and taken
   // again would be; the first launch never starts its browser.
-  vi.mocked(relayModule.startRenderRelay).mockImplementation(async () => ({ port: 43_999, refused: false, settleAdmissions: async () => {}, close() {} }));
+  vi.mocked(relayModule.startRenderRelay).mockImplementation(async () => ({ port: 43_999, refused: false, settleAdmissions: async () => {}, abandon: vi.fn<relayModule.RenderRelay["abandon"]>(), close() {} }));
   const context = { appOrigin: "http://127.0.0.1:3216", deadline: Date.now() + 10_000, requestBoundMs: 1_000 };
   let giveUp!: (error: Error) => void;
   const started: ReturnType<typeof spawn>[] = [];

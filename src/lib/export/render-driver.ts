@@ -6,7 +6,7 @@ import { startRenderRelay, type RenderRelay } from "./render-relay";
 import { renderProxyFlags } from "./render-proxy";
 import { renderRequestHeaders } from "./render-credentials";
 import { admitRenderRequest } from "./render-guard";
-import { stalledExternalRequests } from "./render-stall";
+import { RenderRequestLedger } from "./render-stall";
 import { resolveMapScale, type ExportImageDefinition } from "./image-definition";
 
 /** The minimal driver surface the renderer needs — injectable so the
@@ -55,8 +55,8 @@ export interface RenderBrowser {
   }): Promise<
     | {
         png: Uint8Array;
-        /** The hosts of requests abandoned past the per-request budget
-         * one entry per request; absent or empty when none. */
+        /** One host entry per abandonment. A request can be cut repeatedly
+         * if no terminal event arrives; absent or empty when none. */
         abandoned?: string[];
         /** What the render page declares it consumed, on its root once
          * ready: the state the image is attributed to, read from the
@@ -176,20 +176,18 @@ export async function puppeteerDriver(): Promise<RenderDriver> {
         let authenticationFailed = false;
         // Every admitted request in flight, with its start and host: an
         // external one that outlives the per-request budget is abandoned
-        // — the page goes offline for an instant so the stalled fetch
-        // fails, the map settles and the route's own readiness fires —
-        // and the hosts are reported, one entry per request.
-        const inflight = new Map<
-          object,
-          { started: number; host: string; external: boolean }
-        >();
+        // by ending the relay's sockets, including worker fetches, so
+        // the map settles and the route's own readiness fires,
+        // and the hosts are reported, one entry per abandonment. Requests
+        // without a terminal event stay armed for another cut.
+        const inflight = new RenderRequestLedger();
         const abandoned: string[] = [];
         // Admission verdicts still pending when the page settles: a late
         // refusal must still beat readiness, so the screenshot waits for
         // them.
         const verdicts = new Set<Promise<unknown>>();
-        page.on("requestfinished", (r) => inflight.delete(r));
-        page.on("requestfailed", (r) => inflight.delete(r));
+        page.on("requestfinished", (r) => inflight.finish(r));
+        page.on("requestfailed", (r) => inflight.finish(r));
         await page.setRequestInterception(true);
         page.on("request", (request) => {
           // Timed from the moment the page made it:
@@ -197,9 +195,9 @@ export async function puppeteerDriver(): Promise<RenderDriver> {
           try {
             const parsed = new URL(request.url());
             if (parsed.protocol === "http:" || parsed.protocol === "https:") {
-              inflight.set(request, {
+              inflight.start(request, {
                 started: Date.now(),
-                host: parsed.hostname,
+                host: parsed.hostname.replace(/^\[|\]$/g, ""),
                 external: parsed.origin !== appOrigin,
               });
             }
@@ -263,9 +261,14 @@ export async function puppeteerDriver(): Promise<RenderDriver> {
         // The per-request bound: every request is timed on its own from
         // the moment it was made; when an external one has outlived the
         // budget and no younger external request has been in flight for
-        // the grace, the stalled ones are abandoned together — the page
-        // goes offline for an instant and its own stop aborts what it can
-        // — each counted and said, once, at the moment. App-origin
+        // the grace, every external request in flight has its socket ended
+        // through the relay, including worker fetches. Only hosts of requests
+        // that outlived the bound since their start or last abandonment are
+        // remembered and refused for this render; younger hosts can re-dial.
+        // Requests without a terminal event stay armed and trigger another
+        // cut after another bound.
+        // The page's offline flip and stop remain for main-thread requests.
+        // Each abandonment is counted and logged. App-origin
         // requests keep the export budget as their bound: a stall on the
         // instance's own road is the coded timeout, never a cut
         // composition.
@@ -275,23 +278,15 @@ export async function puppeteerDriver(): Promise<RenderDriver> {
         );
         const watchdog = setInterval(() => {
           if (flipping) return;
-          const cut = stalledExternalRequests(
-            inflight.entries(),
-            Date.now(),
-            requestBoundMs,
-          );
-          if (cut.length === 0) return;
+          const { cutHosts, stalledHosts } = inflight.abandon(Date.now(), requestBoundMs);
+          if (cutHosts.length === 0) return;
           flipping = true;
-          const cutHosts: string[] = [];
-          for (const key of cut) {
-            cutHosts.push(inflight.get(key)!.host);
-            inflight.delete(key);
-          }
           abandoned.push(...cutHosts);
           console.warn(
             `[export] map ${mapId}: ${cutHosts.length} request(s) abandoned past ` +
               `${Math.round(requestBoundMs / 1000)}s: ${[...new Set(cutHosts)].join(", ")}`,
           );
+          relay.abandon(stalledHosts);
           void page
             .setOfflineMode(true)
             .then(() => page.setOfflineMode(false))

@@ -39,7 +39,7 @@ const MAP_LOOK_RENDER = {
     image: { type: "object", required: ["width", "height", "bytes"], properties: { width: { type: "integer" }, height: { type: "integer" }, bytes: { type: "integer" } }, description: "The size the image was answered at and its byte count." },
     source: { type: "object", required: ["width", "height"], properties: { width: { type: "integer" }, height: { type: "integer" } }, description: "The settled render's size, from which smaller sizes are derived." },
     attribution: { type: "string", description: "The basemap credit the render carried." },
-    composition: { type: "object", required: ["failures", "abandoned"], properties: { failures: { type: "array", items: { type: "string" }, description: "Truthful failures composed into the image: a failed layer, failed widget values." }, abandoned: { type: "array", items: { type: "string" }, description: "Hosts of external requests abandoned past the per-request budget." } } },
+    composition: { type: "object", required: ["failures", "abandoned"], properties: { failures: { type: "array", items: { type: "string" }, description: "Truthful failures composed into the image: a failed layer, failed widget values." }, abandoned: { type: "array", items: { type: "string" }, description: "One host entry per external request abandonment, including repeated cuts of requests with no terminal event." } } },
     elapsedMs: { type: "integer" },
   },
 } as const;
