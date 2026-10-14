@@ -256,11 +256,12 @@ copy, never with two servers writing the same directory. The
 ## Private certificate authorities for image exports
 
 Save-time HTTPS checks and Chromium image exports need separate trust setup.
-Node's checks can read the system CA bundle at
-`/etc/ssl/certs/ca-certificates.crt`; include your private root there and set
-`NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt` when starting the
-container. Chromium uses its own roots and the `node` user's NSS store, so
-adding the root to the system bundle alone does not make exports trust it.
+Mount your private root PEM read-only into the container at
+`/trust/private-root.pem` and start it with
+`NODE_EXTRA_CA_CERTS=/trust/private-root.pem`. Keep the mount and environment
+setting in the container configuration so they survive recreation. Node then
+trusts its bundled roots plus that file. Chromium uses its own roots and the
+`node` user's NSS stores, which need the same private root separately.
 
 Provision two NSS SQL stores on the host with `certutil` (from NSS tools),
 using the same root PEM in each:
