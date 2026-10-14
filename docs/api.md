@@ -1430,7 +1430,7 @@ server-side, so filesystem paths and engine text stay out of responses
 The complete catalogue is published two ways in the same document: as the
 enum of the `Error` schema, and as `x-error-codes` at the top level, which
 maps every code to a sentence explaining what it means
-(`src/lib/api/error-catalogue.ts`). There are **135** codes. Clients should
+(`src/lib/api/error-catalogue.ts`). There are **139** codes. Clients should
 branch on codes, never on prose.
 
 One status is unusual: a client that abandons an in-flight evaluation gets
@@ -2183,6 +2183,14 @@ The table is checked against `x-error-codes` and the Error schema. Codes are sta
 messages below describe the meaning, and operation-specific details may refine the
 response message. Branch on the code.
 
+The resource refusal statuses are also published as `x-resource-error-statuses`:
+`engine_memory_exceeded` is 422, `data_processing_timeout` and `upload_stalled`
+are 408, and `render_bytes_exceeded` is 422 on readers that refuse the request.
+An errored-layer envelope keeps its route's normal HTTP status. These codes
+are reserved by the trusted-operation lifetime; source and render routes have
+not yet been connected to that lifetime. Hardened query memory refusal remains
+`400 query_memory_exceeded`, including template validation.
+
 <!-- error-catalogue:start -->
 | Code | Meaning |
 |---|---|
@@ -2238,6 +2246,10 @@ response message. Branch on the code.
 | `sql_rejected` | The SQL was not an accepted read-only query. |
 | `sql_error` | The SQL failed to parse or execute. |
 | `query_timeout` | The query exceeded the configured timeout. |
+| `engine_memory_exceeded` | Trusted data work exceeded its shared memory or scratch budget. Reduce the work, or raise DEZFIL_TRUSTED_MEMORY_MB and restart. |
+| `data_processing_timeout` | Data processing exceeded its admitted time limit. An admin can change Data processing time limit for new work. |
+| `upload_stalled` | The upload sent no body bytes for 60 seconds. Retry the upload. |
+| `render_bytes_exceeded` | The layer exceeds the configured uncompressed inline answer byte limit. |
 | `query_memory_exceeded` | The query exceeded the configured engine memory budget for user SQL. |
 | `query_result_too_large` | The result is too large to return: more than 32 MB in total, or one non-geometry value over 2 MB. Select fewer rows or columns, or shorten the value. |
 | `tile_build_timeout` | A tile-build stage exceeded the configured tile-build timeout. |

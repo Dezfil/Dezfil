@@ -74,6 +74,10 @@ export const ERROR_CATALOGUE: Record<ErrorCode, string> = {
   sql_rejected: "The SQL was not an accepted read-only query.",
   sql_error: "The SQL failed to parse or execute.",
   query_timeout: "The query exceeded the configured timeout.",
+  engine_memory_exceeded: "Trusted data work exceeded its shared memory or scratch budget. Reduce the work, or raise DEZFIL_TRUSTED_MEMORY_MB and restart.",
+  data_processing_timeout: "Data processing exceeded its admitted time limit. An admin can change Data processing time limit for new work.",
+  upload_stalled: "The upload sent no body bytes for 60 seconds. Retry the upload.",
+  render_bytes_exceeded: "The layer exceeds the configured uncompressed inline answer byte limit.",
   query_memory_exceeded:
     "The query exceeded the configured engine memory budget for user SQL.",
   query_result_too_large:
@@ -228,3 +232,11 @@ export function publishedMessage(code: string): string {
     ? ERROR_CATALOGUE[code as ErrorCode]
     : ERROR_CATALOGUE.internal;
 }
+
+/** HTTP refusal statuses; errored-layer envelopes keep their successful HTTP status. */
+export const RESOURCE_ERROR_STATUSES = {
+  engine_memory_exceeded: 422,
+  data_processing_timeout: 408,
+  upload_stalled: 408,
+  render_bytes_exceeded: 422,
+} as const satisfies Partial<Record<ErrorCode, number>>;
