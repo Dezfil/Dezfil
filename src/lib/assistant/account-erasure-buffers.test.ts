@@ -62,10 +62,10 @@ it("waits for held provider promises and drops unread stream buffers, revisions 
   const scopes = [testAccountScope(undefined, "target"), testAccountScope(undefined, "control")];
   const holds = scopes.map(() => Promise.withResolvers<ProviderReply>()), entered = scopes.map(() => Promise.withResolvers<void>());
   const revisions = scopes.map(() => { const r = new AssistantRevisions(); r.observe("/api/maps/private-map", { editRevision: "private-revision", layers: [{ id: "private-layer" }] }); return r; });
-  const requests = scopes.map(() => new AbortController());
+  const requests = scopes.map(() => new Request("http://instance.test/api/assistant/messages"));
   const responses = scopes.map((scope, i) => {
     const run = assistantRuns.reserve(scope); assistantRuns.bind(scope, run.id, {});
-    const control = executionControl(scope, run.id, requests[i].signal);
+    const control = executionControl(scope, run.id, requests[i]);
     const provider: ModelProvider = { id: "held", model: "held", exchange() { return { send(_text, options) { options?.onTextDelta?.("queued private text"); entered[i].resolve(); return holds[i].promise; }, async continueWith() { return holds[i].promise; } }; } };
     return runStream(scope, runAssistant(provider, { message: "private input", history: [] }, { scope, revisions: revisions[i], baseUrl: "http://unused.invalid", runId: run.id, signal: control.signal }), run.id, control);
   });

@@ -15,7 +15,7 @@ export async function cleanupProbe(mode, base, db, state, fetchImpl = fetch) {
       ...(body === undefined ? {} : { body: JSON.stringify(body) }), redirect: 'manual', signal: AbortSignal.timeout(30_000) });
     const json = await response.json(); checks++;
     assert.equal(response.headers.get('cache-control'), 'private, no-store');
-    return { status: response.status, json, cookie: response.headers.getSetCookie().find(value => value.startsWith('dezfil_session='))?.split(';')[0] };
+    return { status: response.status, json, cookie: response.headers.getSetCookie()[0]?.split(';')[0] };
   };
   if (mode === 'prepare') {
     const entry = await send('GET', '/api/auth/entry'); assert.equal(entry.status, 200); assert.equal(entry.json.setupRequired, true, 'use a fresh store');

@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { dataDir } from "@/lib/config";
+import { sessionCookieName } from "@/lib/auth/session-cookie";
 import { assistantAvailability, allowedModels, DEFAULT_MODELS } from "@/lib/assistant/config";
 import { readModelCatalogue } from "@/lib/assistant/model-catalogue";
 import { defaultOfferMode } from "@/lib/assistant/offer";
@@ -24,6 +25,7 @@ export function readDeploymentSetting(definition: SettingDefinition) {
     value = locked && variableMayNameFolder(definition) && !isWebAddress(raw!) ? { set: true, folder: true }
       : typeof value === "string" || value === null ? discloseAddress(value, refusesUserInformation(definition)) : value;
   } else if (definition.key === "dataDir") value = dataDir();
+  else if (definition.key === "sessionCookie") value = sessionCookieName();
   else if (definition.key === "assistantAutoCheck") value = !locked || !["0", "false", "off"].includes(raw!.trim().toLowerCase());
   else if (definition.key === "objectStoreCredentials") value = ["1", "true", "yes"].includes(raw?.toLowerCase() ?? "");
   else if (definition.key === "assistantOffer") {

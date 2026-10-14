@@ -8,8 +8,9 @@ import { authenticateBearer } from "./delegation";
 import { requireIngress, type Ingress } from "./ingress.mjs";
 import { AuthError, AuthenticationCancelled } from "./errors";
 import { securitySettings } from "./security-settings";
+import { sessionCookieName } from "./session-cookie";
 
-export const SESSION_COOKIE = "dezfil_session";
+export const SESSION_COOKIE = sessionCookieName();
 /** The account this instance's own pages expect, sent on their every request. */
 const ACCOUNT_HEADER = "x-dezfil-account";
 export function privateResponse<T extends Response>(response: T): T {

@@ -425,7 +425,7 @@ async function main() {
       const names = copy.steps.map((s) => s.parameters.name);
       if (names.join(",") !== `${one}_copy,${two}_copy`)
         fail("the copy's outputs were not renamed to free names", names.join(","));
-      if (copy.steps[1].parameters.sql !== `SELECT count(*) AS n FROM ${one}_copy`)
+      if (copy.steps[1].parameters.sql !== `SELECT count(*) AS n FROM ${one}_copy AS ${one}`)
         fail("the copy's second step still reads the original's output", copy.steps[1].parameters.sql);
       if (copy.steps.some((s) => s.condition !== "never_run" || s.output !== null))
         fail("the copy carries run history", JSON.stringify(copy.steps.map((s) => s.condition)));

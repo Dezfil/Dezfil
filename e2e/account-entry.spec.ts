@@ -1,10 +1,17 @@
 import { randomUUID } from "node:crypto";
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
 
 // Run on a new isolated instance, bypassing shared global account provisioning.
 const firstRun = process.env.DEZFIL_E2E_FIRST_RUN === "1";
 const email = "entry-browser@example.test";
 const password = "field notebooks at dawn";
+
+async function storedSession(page: Page) {
+  const response = await page.request.get("/api/auth/session");
+  expect(response.status()).toBe(200);
+  const name = response.headers()["set-cookie"].split("=")[0];
+  return (await page.context().cookies()).find(cookie => cookie.name === name)!;
+}
 
 test.use({ storageState: { cookies: [], origins: [] } });
 
@@ -36,7 +43,7 @@ test.describe("account entry", () => {
     const session = await page.request.get("/api/auth/session");
     expect(session.status()).toBe(200);
     expect((await session.json()).account).toMatchObject({ name: "Browser fixture", email, isAdmin: true, isOriginal: true });
-    const stored = (await page.context().cookies()).find(cookie => cookie.name === "dezfil_session");
+    const stored = await storedSession(page);
     expect(stored).toMatchObject({ httpOnly: true, sameSite: "Lax", secure: baseURL!.startsWith("https:") });
   });
 
@@ -54,7 +61,7 @@ test.describe("account entry", () => {
     await page.getByLabel("Password", { exact: true }).fill(password);
     await page.getByRole("button", { name: "Sign in", exact: true }).click();
     await expect(page).toHaveURL(new URL("/", baseURL).href);
-    const cookie = (await page.context().cookies()).find(value => value.name === "dezfil_session")!;
+    const cookie = await storedSession(page);
     const rail = page.getByRole("navigation", { name: "Product navigation" });
     await expect(rail.getByRole("link", { name: "Users", exact: true })).toHaveCount(1);
     await expect(rail.locator('[data-health="ready"]')).toHaveCount(1);
@@ -89,7 +96,7 @@ test.describe("account entry", () => {
     ]);
     await expect(page.getByRole("button", { name: "List view", exact: true })).toHaveAttribute("data-on", "true");
     const original = (await (await page.request.get("/api/auth/session")).json()).account.id;
-    const cookie = (await page.context().cookies()).find(value => value.name === "dezfil_session")!;
+    const cookie = await storedSession(page);
     const invitation = await page.request.post("/api/users", { headers: { origin: new URL(baseURL!).origin },
       data: { name: "Link recipient", email: `recipient-${randomUUID()}@example.test` } });
     expect(invitation.status()).toBe(201);
