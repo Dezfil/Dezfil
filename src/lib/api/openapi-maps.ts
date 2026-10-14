@@ -452,8 +452,8 @@ export const MAP_RENDER_PATHS = {
         "render_unavailable; health is unaffected. When an external " +
         "request outlives its bound, the request burst has settled and " +
         "no app-origin request remains in flight, the relay ends its " +
-        "current sockets and refuses re-dials to the cut hosts for this " +
-        "render. Requests without a terminal event stay armed for another " +
+        "current sockets and refuses re-dials only to the stalled hosts for " +
+        "this render. Requests without a terminal event stay armed for another " +
         "cut after the same bound. The page's offline flip and stop follow " +
         "each cut; the whole render budget still applies. An image response " +
         "carries x-dezfil-export-abandoned with the abandonment count and " +

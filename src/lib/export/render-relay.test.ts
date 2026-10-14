@@ -222,3 +222,29 @@ it.each([
   expect(target.contacts).toBe(2);
   expect(fresh.refused).toBe(false);
 });
+
+it.each([
+  { remembered: "::1", retried: "::1", frame: "ipv6" },
+  { remembered: "0:0:0:0:0:0:0:1", retried: "::1", frame: "domain" },
+  { remembered: "[::1]", retried: "0:0:0:0:0:0:0:1", frame: "domain" },
+] as const)("refuses the $frame form of abandoned IPv6 $remembered while another address dials", async ({ remembered, retried, frame }) => {
+  vi.stubEnv("DEZFIL_EGRESS_ALLOWLIST", "::1,127.0.0.1");
+  const target = await network.target("::1");
+  const other = await network.target("127.0.0.1");
+  await network.live(target);
+  const resolve = vi.fn(async () => ["::1"]);
+  const relay = await start({ resolve });
+  relay.abandon([remembered]);
+
+  const retry = await network.client(relay.port);
+  retry.socket.write(socksRequest(retried, target.port, frame));
+  expect((await retry.read(12))[3]).toBe(4);
+  expect(target.contacts).toBe(0);
+  expect(resolve).not.toHaveBeenCalled();
+  expect(relay.refused).toBe(false);
+
+  const next = await network.client(relay.port);
+  next.socket.write(Buffer.concat([socksRequest(other.host, other.port, "ipv4"), Buffer.from("other")]));
+  expect((await next.read(17)).subarray(12).toString()).toBe("other");
+  expect(other.contacts).toBe(1);
+});

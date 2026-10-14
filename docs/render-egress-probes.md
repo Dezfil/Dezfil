@@ -364,10 +364,12 @@ map check and export roads. Each case holds the first viewport tile; all other
 vector tiles return an empty protobuf body. The check uses its own request bound
 and budget; the export uses its default request bound and budget. The cut ends
 current relay sockets, reaching worker fetches as well as page fetches, before
-the page's offline flip and stop. The relay remembers the cut hosts
-case-insensitively and refuses their re-dials with SOCKS reply 4 before admission
-or dialing, for this render only. Its listener and connections to other hosts
-remain available. Requests with no terminal event stay armed and trigger another
+the page's offline flip and stop. The relay remembers only hosts whose requests
+outlived the bound since their start or last abandonment. It matches names case-insensitively and IPv6 literals
+in their compressed, lowercase form without brackets, refusing re-dials with
+SOCKS reply 4 before admission or dialing for this render only. Younger requests
+also have their sockets ended, but their hosts can re-dial. The listener remains
+available. Requests with no terminal event stay armed and trigger another
 cut after the same request bound, normally 10 seconds for a check and 20 seconds
 for an export. Previously abandoned requests receive no new arrival grace;
 app-origin requests still hold the cut. Each cut is logged and counted again.

@@ -68,18 +68,22 @@ it("waits for a connection verdict that outlives capture", async () => {
   await expect(renderMapImage(testAccountScope(), input)).rejects.toMatchObject({ status: 502, code: "render_failed", message: refusal });
 });
 
-it.each([1, 2])("cuts a request %i times through the relay before the page flip and stop", async (cuts) => {
+it.each([
+  { cuts: 1, hostname: "tiles.example.org", host: "tiles.example.org" },
+  { cuts: 2, hostname: "tiles.example.org", host: "tiles.example.org" },
+  { cuts: 1, hostname: "[2001:db8::1]", host: "2001:db8::1" },
+])("cuts $hostname $cuts times through the relay before the page flip and stop", async ({ cuts, hostname, host }) => {
   vi.useFakeTimers();
   vi.spyOn(console, "warn").mockImplementation(() => {});
   page.goto.mockImplementation(async () => {
     const onRequest = page.on.mock.calls.find(([event]) => event === "request")![1];
-    onRequest({ id: "tile", url: () => "https://tiles.example.org/held.pbf", headers: () => ({}), continue: vi.fn(), abort: vi.fn() });
+    onRequest({ id: "tile", url: () => `https://${hostname}/held.pbf`, headers: () => ({}), continue: vi.fn(), abort: vi.fn() });
   });
   page.waitForFunction.mockImplementation(async () => { await vi.advanceTimersByTimeAsync(cuts * 20_000 + 5_000); });
   const credential = delegateCredential(requireRequestAuth(authenticatedRequest()));
   const result = await renderMapImage(testAccountScope(), { ...input, credential });
-  expect(result.abandoned).toEqual(Array(cuts).fill("tiles.example.org"));
-  expect(abandonRelay.mock.calls).toEqual(Array.from({ length: cuts }, () => [["tiles.example.org"]]));
+  expect(result.abandoned).toEqual(Array(cuts).fill(host));
+  expect(abandonRelay.mock.calls).toEqual(Array.from({ length: cuts }, () => [[host]]));
   for (let i = 0; i < cuts; i++) {
     expect(abandonRelay.mock.invocationCallOrder[i]).toBeLessThan(page.setOfflineMode.mock.invocationCallOrder[i * 2]);
   }
@@ -88,4 +92,23 @@ it.each([1, 2])("cuts a request %i times through the relay before the page flip 
   vi.stubGlobal("window", { stop });
   try { for (let i = 0; i < cuts; i++) page.evaluate.mock.calls[i][0](); } finally { vi.unstubAllGlobals(); }
   expect(stop).toHaveBeenCalledTimes(cuts);
+});
+
+it("counts every cut request but refuses only a host whose request outlived the bound", async () => {
+  vi.useFakeTimers();
+  vi.spyOn(console, "warn").mockImplementation(() => {});
+  const request = (host: string) => {
+    const onRequest = page.on.mock.calls.find(([event]) => event === "request")![1];
+    onRequest({ id: host, url: () => `https://${host}/tile`, headers: () => ({}), continue: vi.fn(), abort: vi.fn() });
+  };
+  page.goto.mockImplementation(async () => { request("stalled.test"); });
+  page.waitForFunction.mockImplementation(async () => {
+    await vi.advanceTimersByTimeAsync(18_000);
+    request("young.test");
+    await vi.advanceTimersByTimeAsync(7_000);
+  });
+  const credential = delegateCredential(requireRequestAuth(authenticatedRequest()));
+  const result = await renderMapImage(testAccountScope(), { ...input, credential });
+  expect(result.abandoned).toEqual(["stalled.test", "young.test"]);
+  expect(abandonRelay.mock.calls).toEqual([[["stalled.test"]]]);
 });

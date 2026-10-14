@@ -197,7 +197,7 @@ export async function puppeteerDriver(): Promise<RenderDriver> {
             if (parsed.protocol === "http:" || parsed.protocol === "https:") {
               inflight.start(request, {
                 started: Date.now(),
-                host: parsed.hostname,
+                host: parsed.hostname.replace(/^\[|\]$/g, ""),
                 external: parsed.origin !== appOrigin,
               });
             }
@@ -261,10 +261,12 @@ export async function puppeteerDriver(): Promise<RenderDriver> {
         // The per-request bound: every request is timed on its own from
         // the moment it was made; when an external one has outlived the
         // budget and no younger external request has been in flight for
-        // the grace, the stalled ones are abandoned together through the
-        // relay, which also reaches worker fetches and refuses re-dials
-        // to the cut hosts for this render. Requests without a terminal
-        // event stay armed and trigger another cut after another bound.
+        // the grace, every external request in flight has its socket ended
+        // through the relay, including worker fetches. Only hosts of requests
+        // that outlived the bound since their start or last abandonment are
+        // remembered and refused for this render; younger hosts can re-dial.
+        // Requests without a terminal event stay armed and trigger another
+        // cut after another bound.
         // The page's offline flip and stop remain for main-thread requests.
         // Each abandonment is counted and logged. App-origin
         // requests keep the export budget as their bound: a stall on the
@@ -276,7 +278,7 @@ export async function puppeteerDriver(): Promise<RenderDriver> {
         );
         const watchdog = setInterval(() => {
           if (flipping) return;
-          const cutHosts = inflight.abandon(Date.now(), requestBoundMs);
+          const { cutHosts, stalledHosts } = inflight.abandon(Date.now(), requestBoundMs);
           if (cutHosts.length === 0) return;
           flipping = true;
           abandoned.push(...cutHosts);
@@ -284,7 +286,7 @@ export async function puppeteerDriver(): Promise<RenderDriver> {
             `[export] map ${mapId}: ${cutHosts.length} request(s) abandoned past ` +
               `${Math.round(requestBoundMs / 1000)}s: ${[...new Set(cutHosts)].join(", ")}`,
           );
-          relay.abandon(cutHosts);
+          relay.abandon(stalledHosts);
           void page
             .setOfflineMode(true)
             .then(() => page.setOfflineMode(false))

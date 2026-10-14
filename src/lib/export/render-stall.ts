@@ -60,12 +60,15 @@ export class RenderRequestLedger {
     this.requests.delete(requestKey(request));
   }
 
-  abandon(now: number, boundMs: number): string[] {
-    return stalledExternalRequests(this.requests.entries(), now, boundMs).map((key) => {
+  abandon(now: number, boundMs: number): { cutHosts: string[]; stalledHosts: string[] } {
+    const cutHosts: string[] = [], stalledHosts: string[] = [];
+    for (const key of stalledExternalRequests(this.requests.entries(), now, boundMs)) {
       const request = this.requests.get(key)!;
+      cutHosts.push(request.host);
+      if (requestOutlivedBound(request, now, boundMs)) stalledHosts.push(request.host);
       this.requests.set(key, { ...request, abandonedAt: now });
-      return request.host;
-    });
+    }
+    return { cutHosts, stalledHosts };
   }
 }
 
@@ -75,12 +78,12 @@ export class RenderRequestLedger {
  * request is younger than the grace, and no app-origin request is still
  * in flight. Previously abandoned requests do not get another grace.
  * A stall on the instance's own road is the coded timeout, never a cut
- * composition, so
- * an app-origin request in flight holds the decision off entirely. The
- * external ones go together because the relay ends all current sockets,
- * including worker fetches, and refuses re-dials to their hosts for this
- * render. The page's offline flip and stop follow. A request that still
- * has no terminal event after another bound triggers another cut.
+ * composition, so an app-origin request holds the decision off entirely.
+ * External requests go together because the relay ends all current sockets,
+ * including worker fetches. Only hosts whose requests outlived the bound
+ * are remembered for re-dial refusal; younger hosts can reconnect. The
+ * page's offline flip and stop follow. A request that still has no terminal
+ * event after another bound triggers another cut.
  */
 export function stalledExternalRequests<K>(
   inflight: Iterable<[K, InflightRequest]>,
@@ -91,7 +94,11 @@ export function stalledExternalRequests<K>(
   const entries = [...inflight];
   if (entries.some(([, m]) => !m.external)) return [];
   const external = entries.filter(([, m]) => m.external);
-  if (!external.some(([, m]) => now - (m.abandonedAt ?? m.started) > boundMs)) return [];
+  if (!external.some(([, m]) => requestOutlivedBound(m, now, boundMs))) return [];
   if (external.some(([, m]) => m.abandonedAt === undefined && now - m.started < graceMs)) return [];
   return external.map(([key]) => key);
+}
+
+function requestOutlivedBound(request: InflightRequest, now: number, boundMs: number): boolean {
+  return now - (request.abandonedAt ?? request.started) > boundMs;
 }

@@ -83,8 +83,8 @@ export const limits = {
   /** The bound on an external render request (default 20 s). Once the
    * request burst settles and no app request is in flight, the relay
    * abandons its current sockets, including worker fetches, and refuses
-   * re-dials to the cut hosts for this render. A request with no terminal
-   * event stays armed for another cut after the same bound. The page's
+   * re-dials only to the stalled hosts for this render. A request with no
+   * terminal event stays armed for another cut after the same bound. The page's
    * offline flip and stop follow each cut. The whole render budget still
    * applies, and app-origin requests retain it as their only bound. */
   get exportRequestTimeoutMs(): number {

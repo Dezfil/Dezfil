@@ -495,7 +495,7 @@ headless browser inside the container.
 |---|---|---|---|
 | `DEZFIL_CHROMIUM_PATH` | `/usr/bin/chromium` | The headless browser binary. The image bakes one in and sets this variable. | Restart |
 | `DEZFIL_EXPORT_RENDER_TIMEOUT_S` | `90` | Budget for one render, queue wait included. | App (live) or restart |
-| `DEZFIL_EXPORT_REQUEST_TIMEOUT_S` | `20` | Bound on an external render request. After the request burst settles and app-origin requests finish, the relay ends its current sockets, including worker fetches, and refuses re-dials to the cut hosts for the rest of that render. Requests with no terminal event stay armed for another cut after the same bound. The response reports the abandonment count and hosts, counting repeated cuts again. App-origin requests retain the whole render budget. | Restart |
+| `DEZFIL_EXPORT_REQUEST_TIMEOUT_S` | `20` | Bound on an external render request. After the request burst settles and app-origin requests finish, the relay ends its current sockets, including worker fetches, and refuses re-dials only to the stalled hosts for the rest of that render. Requests with no terminal event stay armed for another cut after the same bound. The response reports the abandonment count and hosts, counting repeated cuts again. App-origin requests retain the whole render budget. | Restart |
 | `DEZFIL_EXPORT_RENDER_CONCURRENCY` | `2` | Concurrent renders. Software rendering is CPU-expensive, so work past the cap waits inside the budget. | App (live) or restart |
 
 ## Geocoding
