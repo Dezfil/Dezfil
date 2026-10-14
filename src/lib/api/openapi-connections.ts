@@ -8,7 +8,8 @@ import { op, jsonOk, pathParam } from "./openapi-helpers";
 
 const PROTECTION_INPUT_CONTRACT =
   " Both string forms refuse unsupported protection requests before source contact or " +
-  "explicit-field overrides. Every occurrence is checked, with case-insensitive inventory " +
+  "explicit-field overrides. Nonempty options, service and min_protocol_version are refused. " +
+  "Every occurrence is checked, with case-insensitive inventory " +
   "names; encoding, repeats and URI fragments cannot hide a refusal. HTTP 400 invalid_request: " +
   "This connection string uses the unsupported protection parameter channel_binding; " +
   "Dezfil supports connection fields and SSL required or not required. The first refused " +
