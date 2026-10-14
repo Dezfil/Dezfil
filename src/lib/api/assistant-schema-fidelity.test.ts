@@ -264,6 +264,14 @@ describe("the served catalogue contract", () => {
     }
   });
 
+  it("rejects unpublished fields added to an actual assistant status response", async () => {
+    const served = await (await openApiRead()).json();
+    const definitions = served.components.schemas;
+    const actual = await (await dispatchAssistantTestRoute(new Request(`${origin}/api/assistant`))).json();
+    expect(validateAgainstSchema(actual, definitions.AssistantStatus, "$", definitions)).toEqual([]);
+    expect(validateAgainstSchema({ ...actual, unpublished: true }, definitions.AssistantStatus, "$", definitions)).not.toEqual([]);
+  });
+
   it("rejects invalid source/state combinations and conditional reason shapes", async () => {
     const served = await (await openApiRead()).json();
     const definitions = served.components.schemas;

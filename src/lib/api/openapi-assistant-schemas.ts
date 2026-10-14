@@ -112,6 +112,7 @@ export const ASSISTANT_SCHEMAS = {
   },
         AssistantStatus: {
           type: "object",
+          additionalProperties: false,
           properties: {
             enabled: { type: "boolean" },
             reason: { type: "string", description: "Present when disabled." },
