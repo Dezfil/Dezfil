@@ -222,6 +222,11 @@
       "rule": "Erase target conversations, receipts, confirmations, turn buffers, provider exchanges and revision trackers after in-flight work settles. Preserve other accounts retained work.",
       "fixture": "memory:src/lib/assistant/edit-revisions.ts#AssistantRevisions.revisions"
     },
+    "memory:src/lib/assistant/execution-control.ts#executionControl.retainedRequest": {
+      "action": "erase",
+      "rule": "Release the request and its account credentials when execution detaches or account work drains. Preserve other accounts live requests.",
+      "fixture": "memory:src/lib/assistant/execution-control.ts#executionControl.retainedRequest"
+    },
     "memory:src/lib/assistant/execution-control.ts#executionControl.signal": {
       "action": "erase",
       "rule": "Erase target conversations, receipts, confirmations, turn buffers, provider exchanges and revision trackers after in-flight work settles. Preserve other accounts retained work.",
@@ -2838,6 +2843,11 @@
     "memory:src/lib/assistant/edit-revisions.ts#AssistantRevisions.revisions": {
       "stores": [
         "memory:src/lib/assistant/edit-revisions.ts#AssistantRevisions.revisions"
+      ]
+    },
+    "memory:src/lib/assistant/execution-control.ts#executionControl.retainedRequest": {
+      "stores": [
+        "memory:src/lib/assistant/execution-control.ts#executionControl.retainedRequest"
       ]
     },
     "memory:src/lib/assistant/execution-control.ts#executionControl.signal": {
