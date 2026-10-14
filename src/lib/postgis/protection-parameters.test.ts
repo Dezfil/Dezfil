@@ -26,6 +26,9 @@ import { resetSecretKeyCache } from "@/lib/secrets";
 // Independent examples, including every ignored/absent control. Never import
 // the production policy: an omitted production entry must fail this matrix.
 const inventory: [string, string[], string[]][] = [
+  ["options", ["-c default_transaction_read_only=on", "-c role=reader", "-c row_security=on", "-c statement_timeout=1000"], []],
+  ["service", ["restricted"], []],
+  ["min_protocol_version", ["TLSv1.2"], []],
   ["channel_binding", ["require", "surprise", "PREFER"], ["prefer", "disable"]],
   ["ssl_min_protocol_version", ["TLSv1.2"], []],
   ["ssl_max_protocol_version", ["TLSv1.3"], []],

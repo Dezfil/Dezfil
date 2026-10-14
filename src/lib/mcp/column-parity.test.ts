@@ -8,12 +8,12 @@ import {
   Client,
   StreamableHTTPClientTransport,
 } from "@modelcontextprotocol/client";
-import { closeMetadataDb } from "@/lib/metadata/db";
+import { closeMetadataDb, metadataDb } from "@/lib/metadata/db";
 import { resetQueryInstance } from "@/lib/duckdb";
 import { ingestFile } from "@/lib/ingest/ingest";
 import { createMap } from "@/lib/map-service";
 import { createLayer } from "@/lib/layer-service";
-import { PATCH as layerRoute } from "@/app/api/layers/[id]/route";
+import { GET as readLayerRoute, PATCH as layerRoute } from "@/app/api/layers/[id]/route";
 import { buildMcpFetchHandler } from "./handler";
 
 /**
@@ -71,7 +71,8 @@ beforeEach(async () => {
       if (pathname === "/api/mcp") return handler.fetch(request);
       const layerMatch = /^\/api\/layers\/([^/]+)$/.exec(pathname);
       if (layerMatch) {
-        return layerRoute(testAccountRequest(request), {
+        const route = request.method === "GET" ? readLayerRoute : layerRoute;
+        return route(testAccountRequest(request), {
           params: Promise.resolve({ id: layerMatch[1] }),
         });
       }
@@ -128,3 +129,20 @@ describe("column refusal parity", () => {
     expect(body.error.message).toBe(viaMcp.error?.message);
   }, 30_000);
 });
+
+it("returns a stored legacy style through the closed tool output schema", async () => {
+  const layer = readEditLayer(layerId)!;
+  metadataDb().prepare("UPDATE layers SET style = ? WHERE id = ?").run(
+    JSON.stringify({ ...layer.style, undefined: 4 }), layerId,
+  );
+  const client = new Client({ name: "style-read", version: "0.0.0" });
+  await client.connect(new StreamableHTTPClientTransport(new URL("http://localhost:3000/api/mcp")));
+  try {
+    const result = await client.callTool({ name: "get_layer", arguments: { id: layerId } });
+    expect(result.isError, JSON.stringify(result.content)).not.toBe(true);
+    expect(result.structuredContent).toMatchObject({ result: { style: layer.style } });
+    expect(result.structuredContent).not.toHaveProperty("result.style.undefined");
+  } finally {
+    await client.close();
+  }
+}, 30_000);

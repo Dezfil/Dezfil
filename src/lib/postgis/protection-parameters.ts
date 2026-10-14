@@ -2,6 +2,9 @@
  * Empty values remain absent. All other nonempty values for these keys
  * are refused; nothing in this inventory is forwarded to libpq. */
 const IGNORED_VALUES: Record<string, readonly string[]> = {
+  options: [],
+  service: [],
+  min_protocol_version: [],
   channel_binding: ["prefer", "disable"],
   ssl_min_protocol_version: [],
   ssl_max_protocol_version: [],

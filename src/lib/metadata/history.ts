@@ -29,7 +29,7 @@ export interface HistoryStep {
   before: HistoryImage | null;
   /** The changed fields as stored after the step; null for a delete. */
   after: HistoryImage | null;
-  /** Steps sharing a group undo/redo as one (an assistant turn). */
+  /** Only consecutive edits sharing this group and the same actor undo/redo as one. */
   groupId: string | null;
   createdAt: string;
 }

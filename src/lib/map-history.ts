@@ -170,12 +170,12 @@ async function applyHistory(
   return { ...accepted.map, history: await presentHistory(scope, id, accepted.history) };
 }
 
-/** Revert the newest step — or the whole group an assistant turn wrote. */
+/** Revert the latest step. Only consecutive edits in one group by the same actor undo together. */
 export function undoChange(scope: AccountScope, id: string, opts: { expectedRevision?: unknown } = {}): Promise<MapWithHistory> {
   return applyHistory(scope, id, "undo", opts.expectedRevision);
 }
 
-/** Re-apply the newest undone step (or group). */
+/** Re-apply the most recently undone step. Only consecutive edits in one group by the same actor redo together. */
 export function redoChange(scope: AccountScope, id: string, opts: { expectedRevision?: unknown } = {}): Promise<MapWithHistory> {
   return applyHistory(scope, id, "redo", opts.expectedRevision);
 }

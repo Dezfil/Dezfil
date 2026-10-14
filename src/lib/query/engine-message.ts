@@ -87,8 +87,13 @@ export const DATASET_READ_MESSAGE = "The query's dataset could not be read.";
 const FAILED_QUERY_MESSAGE = "The query could not be completed.";
 const ENGINE_PREFIX = /^(?:Catalog|Binder|Parser|Conversion|Invalid(?: Input| Type)?|IO|Permission|Not implemented|Internal|Transaction|Constraint|Serialization|Connection|Syntax|Type) Error:/i;
 const ABSENT_TABLE = /(?:Catalog Error:\s*)?(?:Table|Schema|Catalog) with name [\s\S]*? does not exist[!.]?/i;
-const FILE_DIAGNOSTIC = /(?:\b(?:IO|Permission) Error:|\b(?:parquet|read_parquet|magic bytes|No files found|failed to open file|cannot open file)\b)/i;
+const FILE_DIAGNOSTIC = /(?:\b(?:IO|Permission) Error:|\b(?:(?:not a|invalid|too small to be a) parquet file|parquet (?:reader|file)|magic bytes|No files found|failed to open file|cannot open file)\b)/i;
+const QUOTED_PARQUET_PATH = /(["'])[^"'\r\n]*[\\/][^"'\r\n]*\.parquet\1/i;
 const PRIVATE_PATH = /(?:^|[\s"'(:])(?:\/(?!\s)|[a-z]:[\\/]|\\\\|~[\\/])[^\s"')]+/i;
+
+function fileDiagnostic(message: string): boolean {
+  return FILE_DIAGNOSTIC.test(message) || QUOTED_PARQUET_PATH.test(message);
+}
 
 const AMBIGUOUS_TABLE = /^((?:Binder Error: )?)Ambiguous reference to table "([\s\S]*?)" \((?:use: |duplicate alias )[\s\S]*\)$/;
 const LOCAL_QUALIFIER = /^(?:"?(?:temp|memory)"?\.)?"?main"?\./i;
@@ -111,7 +116,7 @@ export function safeEngineMessage(message: string): string {
   const quoted = stripStatementQuote(message);
   if (ABSENT_TABLE.test(quoted)) return UNKNOWN_TABLE_MESSAGE;
   const diagnosis = ambiguousTable(quoted) ?? quoted;
-  if (FILE_DIAGNOSTIC.test(diagnosis)) return DATASET_READ_MESSAGE;
+  if (fileDiagnostic(diagnosis)) return DATASET_READ_MESSAGE;
   const withoutSuggestions = diagnosis.split(/\n\s*(?:Did you mean\b|Candidate (?:bindings|functions)\s*:|Candidates\s*:)/i, 1)[0].trimEnd();
   if (PRIVATE_PATH.test(withoutSuggestions) || /\bInternal Error:|__dezfil_|Stack Trace:/i.test(withoutSuggestions)) return FAILED_QUERY_MESSAGE;
   return withoutSuggestions;
@@ -125,7 +130,7 @@ export function engineRefusal(error: unknown): ApiError | null {
   if (projection) return projection;
   if (!(error instanceof Error)) return null;
   const message = stripStatementQuote(error.message);
-  return ABSENT_TABLE.test(message) || FILE_DIAGNOSTIC.test(message)
+  return ABSENT_TABLE.test(message) || fileDiagnostic(message)
     ? new ApiError("sql_error", safeEngineMessage(message), 400) : null;
 }
 

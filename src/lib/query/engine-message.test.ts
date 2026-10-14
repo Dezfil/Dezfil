@@ -140,3 +140,42 @@ describe("safe query failures", () => {
     expect((error as InstanceType<typeof ApiError>).extra).toEqual({ position: { line: 2, column: 3 } });
   });
 });
+
+it.each([
+  'Binder Error: Referenced column "parquet" not found in FROM clause!',
+  'Binder Error: Referenced table "parquet" not found!',
+  'Binder Error: Referenced column "read_parquet" not found in FROM clause!',
+  'Binder Error: Referenced column "x.parquet" not found in FROM clause!',
+])("keeps input diagnostics that name a file-format identifier: %s", async message => {
+  const { safeEngineMessage, engineRefusal } = await import("./engine-message");
+  expect(safeEngineMessage(message)).toBe(message);
+  expect(engineRefusal(new Error(message))).toBeNull();
+});
+
+it.each([
+  'IO Error: Cannot open file "hidden.parquet"',
+  'Permission Error: access denied',
+  'Invalid Input Error: No magic bytes at end of file "hidden"',
+  'Invalid Input Error: File "hidden" too small to be a Parquet file',
+  'Invalid Input Error: No files found that match the pattern "hidden"',
+  'Invalid Input Error: failed to open file "hidden"',
+  'Invalid Input Error: cannot open file "hidden"',
+])("keeps reader failures sanitized: %s", async message => {
+  const { safeEngineMessage, engineRefusal, DATASET_READ_MESSAGE } = await import("./engine-message");
+  expect(safeEngineMessage(message)).toBe(DATASET_READ_MESSAGE);
+  expect(engineRefusal(new Error(message))).toMatchObject({ code: "sql_error", message: DATASET_READ_MESSAGE });
+});
+
+
+it.each([
+  "'/private/data/tables/x.parquet'",
+  '"/private/data/my tables/x.parquet"',
+  "'tables/x.parquet'",
+  String.raw`'C:\private\tables\x.parquet'`,
+  String.raw`"\\private\tables\x.parquet"`,
+])("classifies a quoted parquet path as a reader failure: %s", async quotedPath => {
+  const { safeEngineMessage, engineRefusal, DATASET_READ_MESSAGE } = await import("./engine-message");
+  const message = `Invalid Input Error: Footer length error in file ${quotedPath}`;
+  expect(safeEngineMessage(message)).toBe(DATASET_READ_MESSAGE);
+  expect(engineRefusal(new Error(message))).toMatchObject({ code: "sql_error", message: DATASET_READ_MESSAGE });
+});

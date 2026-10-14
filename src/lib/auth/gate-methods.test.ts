@@ -25,12 +25,13 @@ it("refuses wrong methods against the contract for every concrete API path witho
     expect(allowed, path).toContain("OPTIONS");
     if (allowed.includes("GET")) expect(allowed, path).toContain("HEAD");
     const url = path.replaceAll(/\{[^}]+\}/g, "fixture");
-    const wrong = ["PUT", "PATCH", "DELETE", "POST", "GET"].find(method => !allowed.includes(method))!;
-    const response = gateRequest(request(url + "?ignored=1", wrong));
-    expect(response.status, path).toBe(405);
-    expect(response.headers.get("allow")?.split(", ").sort(), path).toEqual(allowed);
-    expect(response.headers.get("x-middleware-next")).toBeNull();
-    expect(await response.json()).toEqual({ error: { code: "method_not_allowed", message: "This method is not allowed for this path." } });
+    for (const wrong of ["PUT", "PATCH", "DELETE", "POST", "GET"].filter(method => !allowed.includes(method))) {
+      const response = gateRequest(request(url + "?ignored=1", wrong));
+      expect(response.status, path).toBe(405);
+      expect(response.headers.get("allow")?.split(", ").sort(), path).toEqual(allowed);
+      expect(response.headers.get("x-middleware-next")).toBeNull();
+      expect(await response.json()).toEqual({ error: { code: "method_not_allowed", message: "This method is not allowed for this path." } });
+    }
     const options = gateRequest(request(url, "OPTIONS"));
     expect(options.status).toBe(204);
     expect(options.headers.get("allow")?.split(", ").sort()).toEqual(allowed);

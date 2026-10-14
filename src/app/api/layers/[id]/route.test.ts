@@ -4,13 +4,13 @@ import { testAccountScope, testAccountRequest } from "@/lib/test-support/account
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { closeMetadataDb } from "@/lib/metadata/db";
+import { closeMetadataDb, metadataDb } from "@/lib/metadata/db";
 import { resetQueryInstance } from "@/lib/duckdb";
 import { ingestFile } from "@/lib/ingest/ingest";
 import { createMap } from "@/lib/map-service";
 import { createLayer } from "@/lib/layer-service";
 import { MAX_FIELD_LIST } from "@/lib/column-validation";
-import { PATCH } from "./route";
+import { GET, PATCH } from "./route";
 
 /**
  * The layer route's list caps: the column-list surfaces refuse entries
@@ -121,4 +121,38 @@ describe("custom icon markup at the layer gate", () => {
     }, readEditRevision({ kind: "map", id: readEditLayer(layerId)!.mapId })!.editRevision!);
     expect(hostile.status).toBe(400);
   });
+});
+
+it.each(["undefined", "fillOpactiy", "constructor"])("refuses an unknown style key %s without storing any edit", async key => {
+  const before = readEditLayer(layerId)!;
+  const revision = readEditRevision({ kind: "map", id: before.mapId })!.editRevision!;
+  const response = await patch({ name: "Must not land", style: { ...before.style, [key]: 1 } }, revision);
+  expect(response.status).toBe(400);
+  expect(await response.json()).toEqual({ error: { code: "invalid_request", message: `The style is not valid: Unknown style key: ${key}.` } });
+  expect(readEditLayer(layerId)).toEqual(before);
+  expect(readEditRevision({ kind: "map", id: before.mapId })!.editRevision).toBe(revision);
+});
+
+it("accepts a full style edit after reading a layer with a legacy unknown key", async () => {
+  const before = readEditLayer(layerId)!;
+  const revision = readEditRevision({ kind: "map", id: before.mapId })!.editRevision!;
+  const stored = JSON.stringify({ ...before.style, undefined: 4 });
+  const db = metadataDb();
+  db.prepare("UPDATE layers SET style = ? WHERE id = ?").run(stored, layerId);
+  const storedStyle = () => (db.prepare("SELECT style FROM layers WHERE id = ?").get(layerId) as { style: string }).style;
+
+  const read = await GET(testAccountRequest(new Request(`http://test/api/layers/${layerId}`)), {
+    params: Promise.resolve({ id: layerId }),
+  });
+  expect(read.status).toBe(200);
+  const layer = await read.json();
+  expect(storedStyle()).toBe(stored);
+  expect(readEditRevision({ kind: "map", id: before.mapId })!.editRevision).toBe(revision);
+
+  const style = { ...layer.style, opacity: 0.5 };
+  const response = await patch({ style }, revision);
+  expect(response.status, await response.clone().text()).toBe(200);
+  expect(layer.style).not.toHaveProperty("undefined");
+  expect(readEditLayer(layerId)!.style).toEqual(style);
+  expect(JSON.parse(storedStyle())).toEqual(style);
 });

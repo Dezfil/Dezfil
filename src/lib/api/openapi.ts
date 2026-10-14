@@ -2296,6 +2296,7 @@ export function buildOpenApiDocument() {
         },
         Style: {
           type: "object",
+          additionalProperties: false,
           description:
             "A layer's full visual definition. Constant channels plus " +
             "data-driven ones: `strokeBy` drives the outline " +

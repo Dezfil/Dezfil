@@ -1172,7 +1172,9 @@ including strings previously accepted with these options silently omitted:
 | String parameter | Treatment of nonempty values |
 | --- | --- |
 | `channel_binding`, `gssencmode` | Refuse except `prefer` and `disable`, which are ignored. |
-| `ssl_min_protocol_version`, `ssl_max_protocol_version` | Refuse custom TLS bounds. |
+| `options` | Refuse session settings that the connection cannot honor. |
+| `service` | Refuse service-file selection. |
+| `min_protocol_version`, `ssl_min_protocol_version`, `ssl_max_protocol_version` | Refuse custom TLS bounds. |
 | `sslrootcert` | Refuse supplied trust, including paths with `sslmode=require` and `system`, even when encryption is opportunistic. |
 | `sslcrl`, `sslcrldir` | Refuse supplied revocation policy. |
 | `sslcert`, `sslkey`, `sslpassword` | Refuse supplied certificate credentials. |
