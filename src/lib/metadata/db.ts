@@ -2,6 +2,7 @@ import Database from "better-sqlite3";
 import path from "node:path";
 import { mkdirSync } from "node:fs";
 import { dataDir } from "@/lib/config";
+import { enableWal } from "./busy";
 import { MIGRATIONS } from "./migrations";
 import { allocateSqlNames, type SqlNameIdentity } from "./sql-names";
 import { IDENTITIES_MIGRATION, rebuildIdentities } from "./migrations-identities";
@@ -36,7 +37,7 @@ export function metadataDb(): Database.Database {
 export function open(file: string): Database.Database {
   const db = new Database(file);
   try {
-    db.pragma("journal_mode = WAL");
+    enableWal(db);
     db.pragma("foreign_keys = ON");
     migrate(db);
     observeSettingsStore(db);
@@ -52,16 +53,22 @@ export function migrate(db: Database.Database): void {
   // them as SQL functions, so one derivation serves upgrade and creation.
   db.function("allocate_sql_names", { deterministic: true }, (accounts: unknown) =>
     JSON.stringify(allocateSqlNames(JSON.parse(String(accounts)) as SqlNameIdentity[])));
-  const applied = db.pragma("user_version", { simple: true }) as number;
-  for (let v = applied; v < MIGRATIONS.length; v++) {
-    if (MIGRATIONS[v] === IDENTITIES_MIGRATION) {
-      rebuildIdentities(db, MIGRATIONS[v], v + 1);
-      continue;
-    }
-    db.transaction(() => {
-      db.exec(MIGRATIONS[v]);
-      db.pragma(`user_version = ${v + 1}`);
-    })();
+  for (;;) {
+    const next = db.transaction(() => {
+      // Read only after admission to the write transaction. Another opener
+      // may have advanced any number of migrations while this one waited.
+      const applied = db.pragma("user_version", { simple: true }) as number;
+      if (applied >= MIGRATIONS.length) return null;
+      if (MIGRATIONS[applied] !== IDENTITIES_MIGRATION) {
+        db.exec(MIGRATIONS[applied]);
+        db.pragma(`user_version = ${applied + 1}`);
+      }
+      return applied;
+    }).immediate();
+    if (next === null) return;
+    // Foreign-key enforcement must change outside a transaction. The rebuild
+    // acquires its own write lock and rechecks the version before doing work.
+    if (MIGRATIONS[next] === IDENTITIES_MIGRATION) rebuildIdentities(db, MIGRATIONS[next], next + 1);
   }
 }
 

@@ -41,6 +41,7 @@ export function rebuildIdentities(db: Database, sql: string, version: number): v
     db.pragma("foreign_keys = OFF");
     db.pragma("legacy_alter_table = ON");
     db.transaction(() => {
+      if ((db.pragma("user_version", { simple: true }) as number) >= version) return;
       const before = schema(db);
       db.exec(sql);
       for (const entry of before) {
