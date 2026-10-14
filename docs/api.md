@@ -497,8 +497,8 @@ browser lands on the page `landingPage` names (`/projects`, `/maps`,
 signed-in visit to the setup or sign-in page redirects to Home; the invitation
 page opens whether or not someone is signed in. Responses are private, no-store.
 
-`PATCH /api/instance/settings` changes only submitted editable keys, sixty-nine
-of them: the fourteen Limits numbers; the services' eight numbers
+`PATCH /api/instance/settings` changes only submitted editable keys, seventy
+of them: the fifteen Limits numbers; the services' eight numbers
 `geocodePaceMs`, `geocodeRequestTimeoutS`, `geocodeMatchCacheHours`,
 `isochronePaceMs`, `isochroneRequestTimeoutS`, `isochroneCacheHours`,
 `overpassTimeoutS` and `overpassCacheHours`, in their variables' units; the four
@@ -552,6 +552,19 @@ password, publication or connection that exists changes with it. Text is trimmed
 280 for the message, 120 for the contact). Empty text clears the stored value and reports
 the default source. The generated tool input accepts the same whitespace
 padding through a string pattern. The answer is the same configuration document as the read.
+
+`dataProcessingTimeoutS` (Data processing time limit) defaults to 3600 seconds.
+The settings API accepts whole seconds from 60 to 21600; null resets it.
+A stored value applies live to newly admitted work. `trustedMemoryMb`
+(Trusted engine memory, 3072 engine MB) and `renderCapBytes` (Bytes drawn per
+layer, 134217728 bytes or 128 MiB) are fixed and reject writes, including null.
+Their variables are `DEZFIL_TRUSTED_MEMORY_MB`,
+`DEZFIL_DATA_PROCESSING_TIMEOUT_S` and `DEZFIL_RENDER_CAP_BYTES`: non-empty
+overrides lock the corresponding row and require restart. Trusted scratch
+is derived at four times trusted memory, with no separate setting. The byte
+value describes a complete uncompressed UTF-8 JSON inline answer, envelope
+included, with equality admitted. These three settings are exposed for
+configuration; their processing and render enforcement is not yet active.
 
 The admin and the complete body are checked inside one immediate transaction
 against the committed configuration. Any refusal or failure rolls back the

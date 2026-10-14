@@ -152,6 +152,9 @@ export const INSTANCE_SETTINGS_PATHS = {
       "is unset, and as the variable's, with the stored credit as storedValue, while it is set. " +
       "The template catalogue's address (templatesCatalogueUrl) reads as a service address does; while DEZFIL_TEMPLATES_CATALOGUE names a folder on this " +
       "server instead of an http or https address, it reads as set with folder true, and the folder's path is never given. " +
+      "Trusted engine memory (trustedMemoryMb) defaults to 3072 MB and Bytes drawn per layer (renderCapBytes) to 134217728 bytes; both are deployment-controlled and reject writes. " +
+      "Data processing time limit (dataProcessingTimeoutS) defaults to 3600 seconds, accepts stored whole seconds from 60 to 21600, and resets with null. " +
+      "These resource settings are exposed for configuration; their processing and render enforcement is not yet active. " +
       "The built-in documentedDefault stays as documented, including any path. " +
       "Contextual defaults carry a rule when there is no single address or value. The read generates no key, writes no configuration file, " +
       "contacts no service and initializes no engine. Capacities report admitted geocode rows and travel-time origins per run, " +

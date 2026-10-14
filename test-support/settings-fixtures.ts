@@ -1,10 +1,10 @@
 /** Independent defaults and stored-write boundaries for the configuration contract. */
 export const DEFAULTS = {
-  uploadMaxMb: 5120, remoteMaxMb: 2048, remoteTimeoutS: 300,
+  uploadMaxMb: 5120, dataProcessingTimeoutS: 3600, remoteMaxMb: 2048, remoteTimeoutS: 300,
   overtureMaxKm2: 25000, osmMaxKm2: 10000, overpassTimeoutS: 60,
   overpassMaxsizeMb: 512, overpassCacheHours: 24, overpassCacheMb: 2048,
-  queryTimeoutS: 60, queryMemoryMb: 2048, previewRows: 1000,
-  renderCapFeatures: 250000, sliderPreviewRows: 50000, publishFreshnessS: 30,
+  queryTimeoutS: 60, queryMemoryMb: 2048, trustedMemoryMb: 3072, previewRows: 1000,
+  renderCapFeatures: 250000, renderCapBytes: 134217728, sliderPreviewRows: 50000, publishFreshnessS: 30,
   tileBuildTimeoutS: 600, exportRenderTimeoutS: 90, exportRequestTimeoutS: 20,
   exportRenderConcurrency: 2, toolAttachmentMaxMb: 32, assistantStepBudget: 20,
   assistantLookTimeoutS: 30, assistantLookRetention: 256, assistantLookRetentionMb: 96,
@@ -50,6 +50,7 @@ export const DEFAULTS = {
 
 export const EDITABLE_NUMBERS = {
   uploadMaxMb: { kind: "integer", min: 1, max: 102400 },
+  dataProcessingTimeoutS: { kind: "integer", min: 60, max: 21600 },
   remoteMaxMb: { kind: "integer", min: 1, max: 102400 },
   remoteTimeoutS: { kind: "integer", min: 10, max: 3600 },
   osmMaxKm2: { kind: "integer", min: 1, max: 1000000 },

@@ -110,7 +110,7 @@ or set-and-unreadable state, and a stored address never comes back as stored. Th
 private, no-store responses apply to direct API calls and tool calls.
 
 `update_instance_settings` calls `PATCH /api/instance/settings` with the closed
-editable-key input, sixty-nine keys: the fourteen Limits numbers, the services'
+editable-key input, seventy keys: the fifteen Limits numbers, the services'
 eight numbers (the address finder's and travel time's gap, answer time limit and
 freshness, OpenStreetMap's time budget and freshness), the four service
 addresses (`geocoderUrl`, `isochroneUrl`, `overpassUrl`, `s3Endpoint`), the

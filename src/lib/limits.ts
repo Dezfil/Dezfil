@@ -6,6 +6,10 @@ export const limits = {
   get uploadMaxBytes(): number {
     return resolveNumber("uploadMaxMb") * 1024 * 1024;
   },
+  /** Admitted reception or processing budget, in milliseconds. */
+  get dataProcessingTimeoutMs(): number {
+    return resolveNumber("dataProcessingTimeoutS") * 1000;
+  },
   /** Remote-import download cap in bytes (default 2 GB). Deliberately below
    * the upload cap: remote fetches run unattended and object-store reads
    * can only be size-checked coarsely. */
@@ -52,6 +56,10 @@ export const limits = {
   get queryMemoryMb(): number {
     return resolveNumber("queryMemoryMb");
   },
+  /** Shared trusted-engine memory, in engine MB. */
+  get trustedMemoryMb(): number {
+    return resolveNumber("trustedMemoryMb");
+  },
   /** Result preview row cap (default 1,000). */
   get previewRows(): number {
     return resolveNumber("previewRows");
@@ -59,6 +67,10 @@ export const limits = {
   /** Per-layer render cap in features (default 250,000). */
   get renderCapFeatures(): number {
     return resolveNumber("renderCapFeatures");
+  },
+  /** Complete uncompressed inline answer ceiling, in UTF-8 bytes. */
+  get renderCapBytes(): number {
+    return resolveNumber("renderCapBytes");
   },
   /** Source-point cap for responsive slider previews. Unlike the
    * render cap, this bounds transfer and interactive re-aggregation work. */

@@ -7,6 +7,7 @@ import { expect, vi } from "vitest";
 import type { Database } from "better-sqlite3";
 import { writeStoredSettings } from "../src/lib/settings/store";
 import { testAccountScope } from "../src/lib/test-support/accounts";
+import { limits } from "../src/lib/limits";
 import { receiveUpload } from "../src/lib/ingest/receive";
 import { resolveRemoteSource } from "../src/lib/ingest/remote";
 import * as network from "../src/lib/net/remote-fetch";
@@ -75,6 +76,12 @@ function publicWindow(key: "publicRateLimit" | "publicTileRateLimit"): Probe {
 /** Independent boundary observations, keyed by the consumption inventory's setting.
  * These call operations, never the resolver or the configuration read. */
 export const numericConsumerProbes: Record<string, Probe> = {
+  dataProcessingTimeoutS: db => {
+    writeStoredSettings({ dataProcessingTimeoutS: 120 }, db);
+    expect(limits.dataProcessingTimeoutMs).toBe(120_000);
+    writeStoredSettings({ dataProcessingTimeoutS: null }, db);
+    expect(limits.dataProcessingTimeoutMs).toBe(3_600_000);
+  },
   uploadMaxMb: async db => {
     const request = () => {
       const form = new FormData(); form.set("file", new File([payload], "large.csv"));

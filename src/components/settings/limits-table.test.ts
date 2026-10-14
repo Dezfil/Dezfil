@@ -32,7 +32,7 @@ describe("the Limits label table against the read", () => {
     const drawn = limitsSettingRows().map(row => row.key);
     expect(new Set(drawn).size).toBe(drawn.length);
     expect(drawn.filter(key => settings[key]?.editable).sort()).toEqual(editable.sort());
-    expect(editable).toHaveLength(14);
+    expect(editable).toHaveLength(15);
     for (const key of drawn) expect(settings[key]?.kind).toBe("number");
   });
 
@@ -52,7 +52,7 @@ describe("the Limits label table against the read", () => {
   it("draws the feature cap as the server's, with its variable, and the largest image from the read's own fact", () => {
     const answer = read();
     const fixed = limitsSettingRows().filter(row => !answer.settings[row.key].editable);
-    expect(fixed.map(row => [row.key, row.label])).toEqual([["renderCapFeatures", "Features drawn per layer"]]);
+    expect(fixed.map(row => [row.key, row.label])).toEqual([["renderCapFeatures", "Features drawn per layer"], ["renderCapBytes", "Bytes drawn per layer"]]);
     expect(answer.settings.renderCapFeatures.environment).toBe("DEZFIL_RENDER_CAP_FEATURES");
     const image = LIMITS_CARDS.flatMap(card => card.rows).filter(row => row.kind === "image");
     expect(image.map(row => row.label)).toEqual(["Largest image"]);
@@ -61,8 +61,8 @@ describe("the Limits label table against the read", () => {
 
   it("lays out the five cards in the order and under the labels the page shows", () => {
     expect(LIMITS_CARDS.map(card => [card.title, card.rows.map(row => row.label)])).toEqual([
-      ["Imports", ["Largest upload", "Largest link import", "Link import time limit", "OpenStreetMap area", "Overture area"]],
-      ["Queries", ["Query time limit", "Rows shown in results", "Features drawn per layer"]],
+      ["Imports", ["Largest upload", "Data processing time limit", "Largest link import", "Link import time limit", "OpenStreetMap area", "Overture area"]],
+      ["Queries", ["Query time limit", "Rows shown in results", "Features drawn per layer", "Bytes drawn per layer"]],
       ["Tools", ["Tools running at once", "Tools waiting", "Time limit per tool run", "Geocode addresses", "Travel-time area"]],
       ["Image export", ["Largest image", "Images at once", "Time limit per image"]],
       ["Public requests", ["Requests per visitor", "Tile requests per visitor"]],
@@ -82,8 +82,8 @@ describe("the units the page shows", () => {
     const shown = LIMITS_CARDS.map(card => [card.title, card.rows.flatMap(row =>
       row.kind === "setting" ? [shownUnit(row.key, settings[row.key].unit)] : row.kind === "image" ? [row.unit] : [])]);
     expect(shown).toEqual([
-      ["Imports", ["MB", "MB", "seconds", "km²", "km²"]],
-      ["Queries", ["seconds", "rows", "features"]],
+      ["Imports", ["MB", "seconds", "MB", "seconds", "km²", "km²"]],
+      ["Queries", ["seconds", "rows", "features", "bytes"]],
       ["Tools", ["", "", "seconds"]],
       ["Image export", ["px per side", "", "seconds"]],
       ["Public requests", ["every 10 seconds", "every 10 seconds"]],

@@ -17,6 +17,7 @@ const integer = (min: number, max: number) => ({ kind: "integer", min, max } as 
  * milliseconds, an answer limit in seconds, freshness in hours. */
 export const NUMERIC_SETTINGS = [
   numeric("uploadMaxMb", "DEZFIL_UPLOAD_MAX_MB", "Largest upload", "Size cap for one uploaded file.", 5120, "MB", integer(1, 102400)),
+  numeric("dataProcessingTimeoutS", "DEZFIL_DATA_PROCESSING_TIMEOUT_S", "Data processing time limit", "Admitted budget for upload reception and trusted data processing, separately.", 3600, "seconds", integer(60, 21600)),
   numeric("remoteMaxMb", "DEZFIL_REMOTE_MAX_MB", "Largest link import", "Size cap for a URL or object-store import.", 2048, "MB", integer(1, 102400)),
   numeric("remoteTimeoutS", "DEZFIL_REMOTE_TIMEOUT_S", "Link import time limit", "Budget for the complete remote exchange, including the body.", 300, "seconds", integer(10, 3600)),
   numeric("overtureMaxKm2", "DEZFIL_OVERTURE_MAX_KM2", "Overture area", "Places area budget; other themes scale by density.", 25000, "km²", integer(1, 1000000)),
@@ -25,10 +26,12 @@ export const NUMERIC_SETTINGS = [
   numeric("overpassMaxsizeMb", "DEZFIL_OVERPASS_MAXSIZE_MB", "Overpass response budget", "Response budget sent to Overpass; twice this aborts locally.", 512, "MB"),
   numeric("overpassCacheHours", "DEZFIL_OVERPASS_CACHE_H", "Overpass cache freshness", "How long an Overpass response stays fresh.", 24, "hours", integer(1, 720)),
   numeric("overpassCacheMb", "DEZFIL_OVERPASS_CACHE_MB", "Overpass cache size", "Cache size budget, evicted oldest first.", 2048, "MB"),
-  numeric("queryTimeoutS", "DEZFIL_QUERY_TIMEOUT_S", "Query time limit", "Default bounded evaluation budget for user SQL.", 60, "seconds", integer(5, 600)),
+  numeric("queryTimeoutS", "DEZFIL_QUERY_TIMEOUT_S", "Query time limit", "Admitted budget for user SQL and interactive trusted reads.", 60, "seconds", integer(5, 600)),
   numeric("queryMemoryMb", "DEZFIL_QUERY_MEMORY_MB", "Engine memory", "Shared memory budget of the hardened query instance.", 2048, "MB"),
+  numeric("trustedMemoryMb", "DEZFIL_TRUSTED_MEMORY_MB", "Trusted engine memory", "Shared memory budget of the trusted engine; scratch allowance is four times this value.", 3072, "MB"),
   numeric("previewRows", "DEZFIL_PREVIEW_ROWS", "Rows shown in results", "Row cap for result previews.", 1000, "rows", integer(10, 100000)),
   numeric("renderCapFeatures", "DEZFIL_RENDER_CAP_FEATURES", "Features drawn per layer", "Feature cap for rendering and the point-layer tile threshold.", 250000, "features"),
+  numeric("renderCapBytes", "DEZFIL_RENDER_CAP_BYTES", "Bytes drawn per layer", "Complete uncompressed UTF-8 JSON byte ceiling for each inline layer answer.", 134217728, "bytes", undefined, "positive-integer"),
   numeric("sliderPreviewRows", "DEZFIL_SLIDER_PREVIEW_ROWS", "Slider preview rows", "Source points transferred for interactive slider previews.", 50000, "rows"),
   numeric("publishFreshnessS", "DEZFIL_PUBLISH_FRESHNESS_S", "Published freshness", "Cache window for published views.", 30, "seconds"),
   numeric("tileBuildTimeoutS", "DEZFIL_TILE_BUILD_TIMEOUT_S", "Tile build time limit", "Time budget for each background tile-build stage.", 600, "seconds"),

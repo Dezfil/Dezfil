@@ -97,10 +97,14 @@ describe("Limits", () => {
     await open();
     expect(requests.map(request => request.url)).toEqual(["/api/instance/settings"]);
     expect(cards().map(section => section.querySelector("h2")!.textContent)).toEqual(["Imports", "Queries", "Tools", "Image export", "Public requests"]);
+    expect(field("Data processing time limit").value).toBe("3600");
+    expect([field("Data processing time limit").getAttribute("min"), field("Data processing time limit").getAttribute("max")]).toEqual(["60", "21600"]);
+    expect(field("Bytes drawn per layer").value).toBe("134,217,728 bytes");
+    expect(field("Bytes drawn per layer").disabled).toBe(true);
     expect(field("Query time limit").value).toBe("60");
     expect([field("Query time limit").getAttribute("min"), field("Query time limit").getAttribute("max")]).toEqual(["5", "600"]);
     expect(row("Query time limit").textContent).toContain("seconds");
-    expect(row("Query time limit").textContent).toContain("Also applies to published maps.");
+    expect(row("Query time limit").textContent).toContain("Also applies to inspection, previews and published maps.");
     expect([field("Tools waiting").getAttribute("min"), field("Tools waiting").getAttribute("max")]).toEqual(["1", "200"]);
     // A count has no unit after it, and a rate window reads as the page says it.
     expect(row("Tools running at once").textContent).toBe("Tools running at onceThey share the query engine’s memory.");
@@ -110,7 +114,7 @@ describe("Limits", () => {
     expect(row("Tile requests per visitor").textContent).toBe("Tile requests per visitorevery 10 seconds");
     expect(row("OpenStreetMap area").textContent).toContain("km²");
     const editable = container.querySelectorAll("input").filter(input => !input.disabled);
-    expect(editable).toHaveLength(14);
+    expect(editable).toHaveLength(15);
     expect(editable.every(input => input.getAttribute("type") === "number")).toBe(true);
   });
 

@@ -1,6 +1,7 @@
 /** Frozen consumer units and parsing expectations, independent of the definitions. */
 export const LIMIT_FIXTURES = [
   ["uploadMaxBytes", "uploadMaxMb", "DEZFIL_UPLOAD_MAX_MB", 5120, 1048576, "positive"],
+  ["dataProcessingTimeoutMs", "dataProcessingTimeoutS", "DEZFIL_DATA_PROCESSING_TIMEOUT_S", 3600, 1000, "positive"],
   ["remoteMaxBytes", "remoteMaxMb", "DEZFIL_REMOTE_MAX_MB", 2048, 1048576, "positive"],
   ["remoteTimeoutMs", "remoteTimeoutS", "DEZFIL_REMOTE_TIMEOUT_S", 300, 1000, "positive"],
   ["overtureMaxKm2", "overtureMaxKm2", "DEZFIL_OVERTURE_MAX_KM2", 25000, 1, "positive"],
@@ -11,8 +12,10 @@ export const LIMIT_FIXTURES = [
   ["overpassCacheMb", "overpassCacheMb", "DEZFIL_OVERPASS_CACHE_MB", 2048, 1, "positive"],
   ["queryTimeoutMs", "queryTimeoutS", "DEZFIL_QUERY_TIMEOUT_S", 60, 1000, "positive"],
   ["queryMemoryMb", "queryMemoryMb", "DEZFIL_QUERY_MEMORY_MB", 2048, 1, "positive"],
+  ["trustedMemoryMb", "trustedMemoryMb", "DEZFIL_TRUSTED_MEMORY_MB", 3072, 1, "positive"],
   ["previewRows", "previewRows", "DEZFIL_PREVIEW_ROWS", 1000, 1, "positive"],
   ["renderCapFeatures", "renderCapFeatures", "DEZFIL_RENDER_CAP_FEATURES", 250000, 1, "positive"],
+  ["renderCapBytes", "renderCapBytes", "DEZFIL_RENDER_CAP_BYTES", 134217728, 1, "integer"],
   ["sliderPreviewRows", "sliderPreviewRows", "DEZFIL_SLIDER_PREVIEW_ROWS", 50000, 1, "positive"],
   ["publishFreshnessS", "publishFreshnessS", "DEZFIL_PUBLISH_FRESHNESS_S", 30, 1, "positive"],
   ["tileBuildTimeoutMs", "tileBuildTimeoutS", "DEZFIL_TILE_BUILD_TIMEOUT_S", 600, 1000, "positive"],
