@@ -502,7 +502,14 @@ describe("no credential on any request", () => {
     const list = await refreshCatalogue(f.db);
     expect(list.templates[0].picture).toBe("kept");
     expect(catalogue.requests).toHaveLength(3);
-    for (const request of catalogue.requests) expect(request.headers.authorization).toBeUndefined();
+    for (const request of catalogue.requests) {
+      expect(request.headers["user-agent"]).toBe("Dezfil-templates/1.0 (+https://dezfil.io)");
+      expect(request.headers.authorization).toBeUndefined();
+      expect(request.headers.cookie).toBeUndefined();
+      expect(request.headers["proxy-authorization"]).toBeUndefined();
+      expect(request.headers.from).toBeUndefined();
+    }
+    expect(JSON.stringify(catalogue.requests)).not.toMatch(/seed-user|SEEDED-KEY-0005/);
     expect(JSON.stringify(list)).not.toContain("SEEDED-KEY-0005");
   });
 

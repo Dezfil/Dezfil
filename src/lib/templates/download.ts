@@ -12,7 +12,7 @@ import { limits } from "@/lib/limits";
 import { metadataDb } from "@/lib/metadata/db";
 import { openRemote, transportCode } from "@/lib/net/remote-fetch";
 import { addressOrigin } from "@/lib/settings/disclosure";
-import { downloadedSize, fetchTarget, noCredentialHop, requireCatalogueAt, withoutCredentials, type ListedEntry } from "./catalogue";
+import { downloadedSize, fetchTarget, noCredentialHop, requireCatalogueAt, TEMPLATE_USER_AGENT, withoutCredentials, type ListedEntry } from "./catalogue";
 import type { CatalogueInEffect } from "./catalogue-address";
 import { TEMPLATE_ARCHIVE_MAX_BYTES } from "./format";
 import { installTemplateArchive } from "./install";
@@ -138,7 +138,7 @@ async function transfer(entry: Pick<ListedEntry, "archive" | "size">, where: Cat
       timeoutMs: limits.remoteTimeoutMs,
       timeoutError: () => timedOut,
       onRedirect: noCredentialHop,
-      headers: { "user-agent": "Dezfil-templates/1.0 (+https://dezfil.io)" },
+      headers: { "user-agent": TEMPLATE_USER_AGENT },
     });
     if (response.statusCode < 200 || response.statusCode >= 300) {
       response.body.destroy();

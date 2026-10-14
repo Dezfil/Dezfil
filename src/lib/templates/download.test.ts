@@ -218,6 +218,8 @@ describe("the hops", () => {
     expect(catalogue.requestsFor(`/assets/${MAP_ID}-1.zip`, "second")).toHaveLength(1);
     expect(catalogue.requests.length).toBeGreaterThan(2);
     for (const request of catalogue.requests) {
+      expect(request.headers["user-agent"], `${request.host} ${request.path}`).toBe("Dezfil-templates/1.0 (+https://dezfil.io)");
+      expect(request.headers.from, `${request.host} ${request.path}`).toBeUndefined();
       expect(request.headers.authorization, `${request.host} ${request.path}`).toBeUndefined();
       expect(request.headers.cookie, `${request.host} ${request.path}`).toBeUndefined();
       expect(request.headers["proxy-authorization"], `${request.host} ${request.path}`).toBeUndefined();

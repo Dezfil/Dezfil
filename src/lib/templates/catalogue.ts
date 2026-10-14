@@ -53,6 +53,9 @@ import { templateContents } from "./view";
  * installed one.
  */
 
+/** The public identity shared by catalogue and archive requests. */
+export const TEMPLATE_USER_AGENT = "Dezfil-templates/1.0 (+https://dezfil.io)";
+
 /** How long a read answers before a refresh reads again. */
 export const REFRESH_WINDOW_MS = 10 * 60 * 1000;
 /** Page views refresh automatically; failures retry soon without a fetch per view. */
@@ -321,6 +324,7 @@ async function fetchCapped(
     return { kind: "bytes", bytes: await readFile(address) };
   }
   const response = await openRemote(withoutCredentials(new URL(address)).toString(), {
+    headers: { "user-agent": TEMPLATE_USER_AGENT },
     timeoutMs: Math.max(1, deadlineAt - Date.now()),
     timeoutError,
     onRedirect: noCredentialHop,
