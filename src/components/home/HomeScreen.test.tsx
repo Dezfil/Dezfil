@@ -531,8 +531,9 @@ describe("Start", () => {
       }));
     });
     await settle();
-    expect(notices()).toEqual([
-      "1 table ready. · roads.csv failed · rivers.zip unconfirmed, check the listing. Skipped 1 member: parcels.gpkg: styles (no geometry)",
+    expect(notices()).toEqual([]);
+    expect(container.querySelectorAll('[role="alert"]').map((n) => [n.getAttribute("data-tone"), n.querySelector("p")?.textContent])).toEqual([
+      ["warn", "1 table ready. · roads.csv could not be imported · rivers.zip unconfirmed, check the listing. Skipped 1 member: parcels.gpkg: styles (no geometry)"],
     ]);
     expect(hosted.resets).toBe(1);
     // A clean batch settling after the dialog closed is said too.
@@ -542,6 +543,36 @@ describe("Start", () => {
     await settle();
     expect(notices()).toEqual(["wells is ready."]);
     expect(hosted.resets).toBe(2);
+  });
+
+  it("says a settled upload in the look of its outcome: all done as a success, all failed as a failure, some of each as a warning", async () => {
+    // The notice's look: the success notice, or the failure note in its tone.
+    const shown = () => [
+      ...container.querySelectorAll('[role="status"]').map((n) => ["success", n.textContent]),
+      ...container.querySelectorAll('[role="alert"]').map((n) => [n.getAttribute("data-tone"), n.querySelector("p")?.textContent]),
+    ];
+    const report = (over: Record<string, unknown>) => ({
+      files: 1, imported: 0, failed: 0, unconfirmed: 0, notStarted: 0, entries: [], tables: [], skips: [], dismissed: false, batch: 1, ...over,
+    });
+    await open();
+    await act(async () => {
+      hosted.queue!.onSettled!(report({ failed: 1, entries: [{ name: "roads.csv", state: "failed", error: "The file is empty." }] }));
+    });
+    await settle();
+    expect(shown()).toEqual([["danger", "roads.csv could not be imported: The file is empty"]]);
+    await act(async () => {
+      hosted.queue!.onSettled!(report({
+        files: 2, imported: 1, failed: 1, tables: [{ name: "wells" }],
+        entries: [{ name: "wells.csv", state: "imported" }, { name: "roads.csv", state: "failed", error: "The file is empty." }],
+      }));
+    });
+    await settle();
+    expect(shown()).toEqual([["warn", "1 table ready. · roads.csv could not be imported: The file is empty"]]);
+    await act(async () => {
+      hosted.queue!.onSettled!(report({ imported: 1, tables: [{ name: "wells" }], entries: [{ name: "wells.csv", state: "imported" }] }));
+    });
+    await settle();
+    expect(shown()).toEqual([["success", "wells is ready."]]);
   });
 
   it("closes Add data as the Data page does: a settled batch cleared, the files not started stopped and said", async () => {

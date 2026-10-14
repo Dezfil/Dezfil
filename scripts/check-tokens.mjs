@@ -181,10 +181,13 @@ export function checkTree(root) {
     )
     .sort((a, b) =>
       a.file === b.file
-        ? a.token.localeCompare(b.token)
-        : a.file.localeCompare(b.file),
+        ? byCodePoint(a.token, b.token)
+        : byCodePoint(a.file, b.file),
     );
 }
+
+// Match the stored inventory independent of the host locale.
+const byCodePoint = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
 
 const keyOf = (row) => [row.file, row.token].join("\t");
 
@@ -198,8 +201,8 @@ export function toRows(findings) {
   }
   return [...rows.values()].sort((a, b) =>
     a.file === b.file
-      ? a.token.localeCompare(b.token)
-      : a.file.localeCompare(b.file),
+      ? byCodePoint(a.token, b.token)
+      : byCodePoint(a.file, b.file),
   );
 }
 

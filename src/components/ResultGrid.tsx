@@ -21,6 +21,9 @@ export function ResultGrid({
   const rows =
     maxRows !== undefined ? result.preview.slice(0, maxRows) : result.preview;
   const truncated = result.previewTruncated || rows.length < result.rowCount;
+  // Own properties only: a row without a column named like something the
+  // prototype carries (`__proto__`, `constructor`) shows the empty glyph.
+  const cellOf = (row: Readonly<Record<string, unknown>>, name: string) => (Object.hasOwn(row, name) ? row[name] : undefined);
   return (
     <div className={styles.result} data-fill={fill || undefined}>
       <div className={styles.resultMeta}>
@@ -55,15 +58,18 @@ export function ResultGrid({
             <tbody>
               {rows.map((row, i) => (
                 <tr key={i}>
-                  {result.columns.map((c) => (
-                    <td key={c.name} title={String(row[c.name] ?? "")}>
-                      {row[c.name] === null || row[c.name] === undefined ? (
-                        <span className={styles.nullCell}>∅</span>
-                      ) : (
-                        String(row[c.name])
-                      )}
-                    </td>
-                  ))}
+                  {result.columns.map((c) => {
+                    const value = cellOf(row, c.name);
+                    return (
+                      <td key={c.name} title={String(value ?? "")}>
+                        {value === null || value === undefined ? (
+                          <span className={styles.nullCell}>∅</span>
+                        ) : (
+                          String(value)
+                        )}
+                      </td>
+                    );
+                  })}
                 </tr>
               ))}
             </tbody>

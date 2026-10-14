@@ -22,6 +22,7 @@ import {
   TEMPLATE_PICTURE_MAX_BYTES,
   TEMPLATE_THEMES,
   factsProblem,
+  factsIssue,
   type TemplateFacts,
   type TemplateTheme,
 } from "./format";
@@ -39,8 +40,8 @@ import { templateContents } from "./view";
  * The list is local: the shipped set and the downloaded versions, read from
  * disk on every call, and the last list the catalogue answered, kept in
  * this process with the address it was read from. Only a refresh reaches
- * the catalogue, at most once in ten minutes: a refresh inside the window
- * sends nothing, and one while a read is under way joins it. The index and
+ * the catalogue, at most once in ten minutes after success, or thirty
+ * seconds after failure: a refresh inside the window sends nothing, and one while a read is under way joins it. The index and
  * the pictures go through the outbound engine under the egress check,
  * within the link import's time bound, with no credential on any request;
  * the kept list is replaced only when a new read is whole, and a read that
@@ -52,8 +53,13 @@ import { templateContents } from "./view";
  * installed one.
  */
 
+/** The public identity shared by catalogue and archive requests. */
+export const TEMPLATE_USER_AGENT = "Dezfil-templates/1.0 (+https://dezfil.io)";
+
 /** How long a read answers before a refresh reads again. */
 export const REFRESH_WINDOW_MS = 10 * 60 * 1000;
+/** Page views refresh automatically; failures retry soon without a fetch per view. */
+export const REFUSAL_WINDOW_MS = 30 * 1000;
 /** The most bytes of pictures one kept list holds; entries past it are
  * drawn without one. */
 export const PICTURES_TOTAL_BYTES = 64 * 1024 * 1024;
@@ -208,6 +214,18 @@ function resolveEntryAddress(value: unknown, where: Where, at: string): string {
   return file;
 }
 
+/** Bound an echoed name after escaping, without splitting a character or escape. */
+function diagnosticName(value: string): string {
+  const max = 120;
+  let shown = "";
+  for (const character of value) {
+    const escaped = JSON.stringify(character).slice(1, -1);
+    if (shown.length + escaped.length > max - 3) return shown + "...";
+    shown += escaped;
+  }
+  return shown;
+}
+
 /**
  * Parse an index this server reads: its format, one entry per template id
  * with facts the format admits, a size within the archive bound, a SHA-256
@@ -223,31 +241,32 @@ export function parseIndex(text: string, where: Where): Omit<ListedEntry, "pictu
   } catch {
     return refuse("template_index_invalid", "The catalogue's index is not JSON.");
   }
-  if (!isObject(raw) || Object.keys(raw).some((k) => k !== "formatVersion" && k !== "templates")) {
-    refuse("template_index_invalid", "The catalogue's index must be an object with formatVersion and templates.");
-  }
+  if (!isObject(raw)) refuse("template_index_invalid", "The catalogue's index must be an object with formatVersion and templates.");
+  const extra = Object.keys(raw).find(k => k !== "formatVersion" && k !== "templates");
+  if (extra !== undefined) refuse("template_index_invalid", `The catalogue's index field "${diagnosticName(extra)}" is not allowed.`);
   if (raw.formatVersion !== CATALOGUE_FORMAT_VERSION) {
-    refuse("template_index_invalid", `The catalogue's index is in format ${String(raw.formatVersion)}; this server reads format ${CATALOGUE_FORMAT_VERSION}.`);
+    refuse("template_index_invalid", "The catalogue's index field formatVersion is not supported.");
   }
   if (!Array.isArray(raw.templates)) refuse("template_index_invalid", "The catalogue's index must list its templates.");
   const entries: Omit<ListedEntry, "picture">[] = [];
   const ids = new Set<string>();
   for (const [i, entry] of (raw.templates as unknown[]).entries()) {
-    const at = `templates[${i}]`;
-    if (!isObject(entry)) refuse("template_index_invalid", `${at} must be an object.`);
+    if (!isObject(entry)) refuse("template_index_invalid", `templates[${i}] must be an object.`);
+    const id = isObject(entry.facts) && typeof entry.facts.id === "string" ? entry.facts.id : null;
+    const at = `templates[${i}]${id === null ? "" : ` (id "${diagnosticName(id)}")`}`;
     const keys = ["facts", "size", "sha256", "archive", "pictures"];
-    if (Object.keys(entry).some((k) => !keys.includes(k)) || keys.some((k) => !(k in entry))) {
-      refuse("template_index_invalid", `${at} holds exactly ${keys.join(", ")}.`);
-    }
+    const field = Object.keys(entry).find(k => !keys.includes(k)) ?? keys.find(k => !(k in entry));
+    if (field !== undefined) refuse("template_index_invalid", `${at}.${diagnosticName(field)} is invalid.`);
     const facts = entry.facts;
     if (isObject(facts) && Number.isSafeInteger(facts.formatVersion) && (facts.formatVersion as number) > TEMPLATE_FORMAT_VERSION) continue;
-    if (!isObject(facts) || facts.formatVersion !== TEMPLATE_FORMAT_VERSION) {
-      refuse("template_index_invalid", `${at}.facts must be in the template format this server reads.`);
+    if (!isObject(facts)) refuse("template_index_invalid", `${at}.facts must be an object.`);
+    if (facts.formatVersion !== TEMPLATE_FORMAT_VERSION) {
+      refuse("template_index_invalid", `${at}.facts.formatVersion must be in the template format this server reads.`);
     }
-    const problem = factsProblem(facts);
-    if (problem) refuse("template_index_invalid", `${at}.facts: ${problem}`);
+    const problem = factsIssue(facts);
+    if (problem) refuse("template_index_invalid", `${at}.facts.${diagnosticName(problem.field)} is invalid.`);
     const read = facts as unknown as TemplateFacts;
-    if (ids.has(read.id)) refuse("template_index_repeats_id", `The catalogue's index lists "${read.id}" twice.`);
+    if (ids.has(read.id)) refuse("template_index_repeats_id", `${at}.facts.id repeats an earlier entry.`);
     ids.add(read.id);
     if (!Number.isSafeInteger(entry.size) || (entry.size as number) < 1 || (entry.size as number) > TEMPLATE_ARCHIVE_MAX_BYTES) {
       refuse("template_index_invalid", `${at}.size must be the archive's size in bytes, at most ${TEMPLATE_ARCHIVE_MAX_BYTES}.`);
@@ -317,6 +336,7 @@ async function fetchCapped(
     return { kind: "bytes", bytes: await readFile(address) };
   }
   const response = await openRemote(withoutCredentials(new URL(address)).toString(), {
+    headers: { "user-agent": TEMPLATE_USER_AGENT },
     timeoutMs: Math.max(1, deadlineAt - Date.now()),
     timeoutError,
     onRedirect: noCredentialHop,
@@ -355,6 +375,7 @@ interface Read {
   reason: CatalogueRefusal | null;
   status: number | null;
   entries: ListedEntry[];
+  message?: string;
 }
 
 export interface RefreshOptions {
@@ -377,7 +398,13 @@ async function readCatalogue(where: Where, key: string, startedAt: number, pictu
     index = await readIndex(where, deadlineAt, timeoutError);
   } catch (error) {
     if (error === timedOut) return failedRead(key, startedAt, "slow");
-    if (error instanceof TemplateRefusal) return failedRead(key, startedAt, "refused", error.code as CatalogueRefusal);
+    if (error instanceof TemplateRefusal) {
+      console.error(`[templates] ${error.code}: ${error.message}`);
+      return {
+        ...failedRead(key, startedAt, "refused", error.code as CatalogueRefusal),
+        ...(error.code === "template_index_invalid" ? { message: error.message } : {}),
+      };
+    }
     if (error instanceof ApiError && error.code === "egress_blocked") return failedRead(key, startedAt, "refused", "egress_blocked");
     return failedRead(key, startedAt, "unreachable");
   }
@@ -486,7 +513,10 @@ function stateOf(now: Now): CatalogueState {
   }
   const kept = holder.kept;
   if (!kept || kept.key !== now.key) return { state: "not_read", host: now.host, folder: now.folder, readAt: null, reason: null, status: null };
-  return { state: kept.state, host: now.host, folder: now.folder, readAt: new Date(kept.startedAt).toISOString(), reason: kept.reason, status: kept.status };
+  return {
+    state: kept.state, host: now.host, folder: now.folder, readAt: new Date(kept.startedAt).toISOString(), reason: kept.reason, status: kept.status,
+    ...(kept.message === undefined ? {} : { message: kept.message }),
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -596,7 +626,7 @@ export async function readTemplate(id: string, db: Database = metadataDb(), vers
  * One template for its own address, which may be shared before this process
  * has read the catalogue: as the read of one answers, except that an id it
  * does not know, while the catalogue is in use, has the catalogue read first
- * on the refresh's own road (under its ten-minute rule, so a list read a
+ * on the refresh's own road (under its success or failure window, so a list read a
  * moment ago answers and nothing is sent; off, or at a saved address the
  * key no longer opens, nothing is sent at all). Not listed then either, it
  * is not listed. An id no template can have reads nothing.
@@ -648,7 +678,7 @@ export async function refreshCatalogue(db: Database = metadataDb(), options: Ref
   const reading = holder.reading;
   if (reading && reading.key === now.key && reading.epoch === holder.epoch) {
     await reading.promise;
-  } else if (!(holder.kept && holder.kept.key === now.key && startedAt - holder.kept.startedAt < REFRESH_WINDOW_MS)) {
+  } else if (!(holder.kept && holder.kept.key === now.key && startedAt - holder.kept.startedAt < (["listed", "empty"].includes(holder.kept.state) ? REFRESH_WINDOW_MS : REFUSAL_WINDOW_MS))) {
     const epoch = holder.epoch;
     const promise = readCatalogue(now.where, now.key, startedAt, options.pictureTotal ?? PICTURES_TOTAL_BYTES).then((read) => {
       // Kept only while still current: the same switch and address, seen

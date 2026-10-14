@@ -1,7 +1,10 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore — plain-JS CI script, no declaration file on purpose.
 import {
+  checkTree,
+  toRows,
   definitionsIn,
   judge,
   scriptDefinitionCredits,
@@ -138,4 +141,21 @@ describe("the inventory ratchet", () => {
       "STALE: old.module.css - --old listed x1, found x0 (heal the inventory in the same change)",
     ]);
   });
+});
+
+it("regenerates the current tree's token inventory byte for byte without writing it", () => {
+  // The stored inventory is empty today; the fixture below guards comparator order.
+  expect(JSON.stringify(toRows(checkTree(process.cwd())), null, 2) + "\n")
+    .toBe(readFileSync("scripts/token-inventory.json", "utf8"));
+});
+
+it("orders regenerated token rows by code point across filenames and token names", () => {
+  const findings = [
+    { file: "builder/a.module.css", token: "--z", line: 1 },
+    { file: "AddDataDialog.module.css", token: "--a", line: 1 },
+    { file: "AddDataDialog.module.css", token: "--Z", line: 1 },
+  ];
+  expect(toRows(findings).map((row: { file: string; token: string }) => `${row.file}:${row.token}`)).toEqual([
+    "AddDataDialog.module.css:--Z", "AddDataDialog.module.css:--a", "builder/a.module.css:--z",
+  ]);
 });

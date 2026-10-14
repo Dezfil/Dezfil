@@ -1,6 +1,7 @@
 import { blobDisplayText, stringByteLength } from "./budget-string";
 import { DuckDBListVector, DuckDBStructVector, DuckDBVariantValue, DuckDBStructValue, VARIANT, JsonDuckDBValueConverter, type DuckDBVector } from "@duckdb/node-api";
 import { jsonBytes, type CellBudget } from "./result-budget";
+import { setOwn } from "./set-own";
 
 /** A variant's public getItem decodes its entire tree. Flatten containers in
  * the engine instead, retaining scalar type tags and lengths from that same
@@ -51,7 +52,7 @@ export function decodeVariant(vector: DuckDBVector, index: number, budget: CellB
       for (let i = 0; i < count; i++) {
         budget.take(Number(nodes.entryVectorAt(2).getItem(cursor)) + 1);
         const key = nodes.entryVectorAt(3).getItem(cursor) as string;
-        result[key] = next(true);
+        setOwn(result, key, next(true));
       }
       return result;
     }

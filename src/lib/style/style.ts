@@ -131,6 +131,12 @@ export type LabelAnchor = (typeof LABEL_ANCHORS)[number];
 export const LABEL_CASES = ["as-is", "upper", "lower"] as const;
 export type LabelCase = (typeof LABEL_CASES)[number];
 
+/** The neutral a data-driven colour gives a feature it cannot place: a
+ * categorical value outside the listed categories (the default `other`)
+ * and a missing value on a continuous ramp, which must never read as the
+ * ramp's lowest value. */
+export const NO_DATA_COLOR: RgbaColor = { r: 120, g: 130, b: 150, a: 0.55 };
+
 /** The historical halo color — what `halo: true` always painted; the
  * one-time read migration pins legacy maps to it exactly. */
 export const LEGACY_HALO_COLOR: RgbaColor = { r: 12, g: 16, b: 24, a: 0.8 };
@@ -138,6 +144,10 @@ export const LEGACY_HALO_COLOR: RgbaColor = { r: 12, g: 16, b: 24, a: 0.8 };
 /** Domains for the label properties (validated field by field). */
 export const LABEL_OFFSET_MAX = 50;
 export const LABEL_ROTATION_MAX = 180;
+/** The widest halo rim. The renderer draws the rim relative to the glyph's
+ * distance field, so a width passes through as given; past 1 is what carries
+ * a label over busy, saturated fills. */
+export const LABEL_HALO_WIDTH_MAX = 3;
 export const LABEL_MAX_CHARS = { min: 1, max: 80 } as const;
 export const LABEL_CAP = { min: 1, max: 10_000 } as const;
 
@@ -147,9 +157,9 @@ export interface LabelStyle {
   /** Text size in pixels. */
   size: number;
   color: RgbaColor;
-  /** Halo rim width, 0–1 (the renderer's honorable range; 0 = none).
-   * Replaced the legacy boolean: stored `halo: true` reads as 1 with
-   * the historical color, `false` as 0. */
+  /** Halo rim width, 0 to LABEL_HALO_WIDTH_MAX (0 = none). Replaced the
+   * legacy boolean: stored `halo: true` reads as 1 with the historical
+   * color, `false` as 0. */
   haloWidth: number;
   haloColor: RgbaColor;
   /** Absent reads as "normal". */
@@ -381,16 +391,16 @@ function labelProblem(value: unknown): string | null {
   if (!isColor(l.color)) return "label needs a valid color.";
   if (l.halo !== undefined)
     return (
-      "label.halo has been replaced: send label.haloWidth (0 to 1) and " +
+      `label.halo has been replaced: send label.haloWidth (0 to ${LABEL_HALO_WIDTH_MAX}) and ` +
       "label.haloColor. Stored maps migrate on read."
     );
   if (
     typeof l.haloWidth !== "number" ||
     !Number.isFinite(l.haloWidth) ||
     l.haloWidth < 0 ||
-    l.haloWidth > 1
+    l.haloWidth > LABEL_HALO_WIDTH_MAX
   )
-    return "label.haloWidth must be a number, 0 to 1 (0 = no halo).";
+    return `label.haloWidth must be a number, 0 to ${LABEL_HALO_WIDTH_MAX} (0 = no halo).`;
   if (!isColor(l.haloColor)) return "label.haloColor must be a valid color.";
   if (
     l.weight !== undefined &&

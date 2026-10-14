@@ -3,6 +3,7 @@ import {
   fileSoftOutcomes,
   importBatchNotice,
   unlayeredFiles,
+  uploadBatchNotice,
 } from "./use-layer-source-coordinator";
 
 /** The one-notice batch contract. */
@@ -103,5 +104,38 @@ describe("unlayeredFiles and fileSoftOutcomes", () => {
       "pts: adding the layer failed",
       "zones: the layer could not be confirmed; the map reloaded, nothing was retried",
     ]);
+  });
+});
+
+/** A settled upload batch in the builder: the files said with the same
+ * words and in the same tone as on Home and the Data page. */
+describe("uploadBatchNotice", () => {
+  type Report = Parameters<typeof uploadBatchNotice>[0];
+  const entry = (name: string, state: Report["entries"][number]["state"], error: string | null = null) =>
+    ({ id: 0, name, state, progress: 1, error });
+  const report = (entries: Report["entries"]): Report => {
+    const count = (state: string) => entries.filter((e) => e.state === state).length;
+    return {
+      files: entries.length, imported: count("imported"), failed: count("failed"), unconfirmed: count("unconfirmed"),
+      notStarted: count("not-started"), entries, tables: [], skips: [], dismissed: false, batch: 1,
+    };
+  };
+
+  it("says a lone failed file could not be imported, with its reason, as a failure", () => {
+    expect(uploadBatchNotice(report([entry("roads.csv", "failed", "The file is empty.")]), "")).toEqual({
+      text: "roads.csv could not be imported: The file is empty", tone: "danger",
+    });
+    expect(uploadBatchNotice(report([entry("a.csv", "failed", "x"), entry("b.csv", "failed", "y")]), "")).toEqual({
+      text: "2 files could not be imported (a.csv, b.csv)", tone: "danger",
+    });
+  });
+
+  it("says a batch with some files added and some failed as a warning, and a whole one as a success", () => {
+    expect(uploadBatchNotice(report([entry("wells.csv", "imported"), entry("roads.csv", "failed", "No rows.")]), "Added wells to this map")).toEqual({
+      text: "Added wells to this map · roads.csv could not be imported: No rows", tone: "warn",
+    });
+    expect(uploadBatchNotice(report([entry("wells.csv", "imported")]), "Added wells to this map")).toEqual({
+      text: "Added wells to this map", tone: "ok",
+    });
   });
 });

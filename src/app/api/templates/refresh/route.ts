@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { authFailure, privateResponse, requireRequestAuth } from "@/lib/auth/http";
 import { refreshCatalogue } from "@/lib/templates/catalogue";
 
-/** Read the template catalogue again, under the ten-minute rule. */
+/** Read the template catalogue again, under its success or failure retry window. */
 export async function POST(request: Request) {
   try {
     requireRequestAuth(request);

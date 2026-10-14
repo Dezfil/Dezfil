@@ -1,6 +1,6 @@
 {
   "count": 156,
-  "overall": "11618de7fc9e8f17577a8db612713d0c44b7a2cd3ce4c0a0094de59b2b968426",
+  "overall": "b432a25d3dcf742d7ef034d8b9dfc66f33dbb5ad73dc61f0118fe9fe3d44de0b",
   "tools": {
     "get_account": "bd37f5c2eb19d2ede33cb10152a53d49e4029a871d9950f51d3671001efdfb66",
     "update_account": "b86cdb20349d6871c516c495b13864a85908d41cb61203f76a3f7ea95c26ebbb",
@@ -26,7 +26,7 @@
     "set_basemap_style_offered": "b346da4a12ee0030fc720ce2e0220caf31a17773c6a6d79cefb6fd3d112a7b12",
     "remove_basemap_style": "ea30dd1272c8491cd0116b9e1ec07162d16e2ebcfb9f6257c49eb61d1fbaf2b3",
     "list_templates": "41967efb34055adbfe880eda824553cf0de234d6cd8666201f5b79bd22911080",
-    "refresh_templates": "eb7b9a3fadfb5c7d4206a9de83d569f29336a3b9c839d0f5bbe87376cb4c817e",
+    "refresh_templates": "3a21722281e4f260424188a4c449dc1338c7d92ae6605c856d6c449e73f85571",
     "remove_template_downloads": "e0aa6e967b08bf22041b998dfcd537abae4689455b1254b90a83a797796d6a3f",
     "get_template": "87be8d24d21d5cf5b74be573e575778161bf734ce200d74abdf3f4dda62e9430",
     "fetch_template": "55e9e722d10ee214c1d4c34759de225d590d730e14873a2b291402713ada384f",
@@ -135,9 +135,9 @@
     "delete_sketch_feature": "3b7c8e0b50171c2f16de15ea7d322070c75f9054b677bc4c423f0f47eec92c03",
     "delete_sketch": "35b97c469fdd1fba8c3535b3fdd80d16ec9a1c52a7e05996c3ecee18dbdb629c",
     "list_layers": "d105476759ba806d498e2ee49537bd7b33dc37a04fad86df73ef1f73395b2811",
-    "create_layer": "fd5cd38b63b7e0a4b296762d2782317410de325e3b29fc576c6f6cde8f0d7998",
+    "create_layer": "772ef7dcd86f2cf1b4a12c2f8f681c243edd634198a3c07b7d62a85423dbc107",
     "get_layer": "1f86290a00064cc7cb43f34492800f861502359f50c8187b1159d7e7878cc4b9",
-    "update_layer": "72cd6516fbf2ccf1f55010850087de1c1a7bc77485135ad551f12c18dfcdeadf",
+    "update_layer": "3ea08632db780b18779ea68a9e17d7038d41f74d14c3396b175ef1778a571a98",
     "delete_layer": "d048d818bbfbc989af8ed7b13459eb8199df31ee80950e6459f2344a13ff6b64",
     "duplicate_layer": "d0180afea53f399b40d1fd31c02a3381a6f706e17ed33aa1dd37e38a8daef38d",
     "layer_extent": "c60e1c3aa3eb9895935b37cdc72cfa413ceeb6c977773a57f3a4d493e13a93f3",
