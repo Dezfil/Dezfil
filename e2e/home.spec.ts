@@ -1,5 +1,6 @@
 // Home in a browser: where the lead, Start and the templates below stand at
-// the two windows the page is drawn for and as the window narrows, nothing
+// the two windows the page is drawn for and as the window narrows or the
+// side menu stands open, no template card narrower than its floor, nothing
 // scrolling sideways or standing past the window's edge; the whole Tab
 // order of a fresh account's Home and of a busy one's, every stop drawing
 // the focus ring, Enter opening a card and a row; a copy made from the
@@ -133,6 +134,25 @@ function shelfRows(page: Page): Promise<string[][]> {
 /** In rows of `per`, the ids in the list's order. */
 const inRows = (cards: TemplateCard[], per: number) =>
   Array.from({ length: Math.ceil(cards.length / per) }, (_, i) => cards.slice(i * per, i * per + per).map((t) => t.id));
+
+/** The narrowest a template card below is drawn: the shelf takes a column
+ * away before a card would draw narrower. */
+const CARD_FLOOR = 270;
+
+/** How many templates stand in a row at the windows the page is drawn
+ * for: four, except at 1280 with the side menu standing open, where Home
+ * is too narrow for four cards of the floor's width. */
+const perRow = (width: number, rail: "hover" | "open") => (rail === "open" && width === 1280 ? 3 : 4);
+
+/** Each template card below: its width, and whether its title is cut. */
+function shelfCards(page: Page): Promise<{ title: string; width: number; cut: boolean }[]> {
+  return page.locator('[data-shelf="shown"] [data-template]').evaluateAll((cards) =>
+    cards.map((card) => {
+      const title = card.querySelector('[data-field="title"]') as HTMLElement | null;
+      return { title: title?.textContent ?? "", width: card.getBoundingClientRect().width, cut: !!title && title.scrollWidth > title.clientWidth };
+    }),
+  );
+}
 
 /** Nothing scrolls sideways, and no part of Home stands past the window's
  * edges: the page, its sections and cards, the start actions, the rows,
@@ -279,7 +299,7 @@ test.describe("Home", () => {
     await closeAll([fresh, busy]);
   });
 
-  test("a fresh account: the template lead beside Start at both windows, eight templates in two rows of four, nothing sideways", async () => {
+  test("a fresh account: the template lead beside Start at both windows, eight templates four to a row (three with the side menu open at 1280), nothing sideways", async () => {
     const page = await fresh!.context.newPage();
     const errors = trackConsole(page);
     for (const rail of ["hover", "open"] as const) {
@@ -298,7 +318,13 @@ test.describe("Home", () => {
         await expectBeside(page, what);
         await expect(page.locator('[data-shelf="shown"] h2')).toHaveText("What Dezfil can do");
         await expect(page.locator("[data-shelf-count]")).toHaveText(`${list.length} templates on open data`);
-        expect(await shelfRows(page), `${what}: the next eight, four to a row`).toEqual(inRows(list.slice(1, 9), 4));
+        expect(await shelfRows(page), `${what}: the next eight, ${perRow(window.width, rail)} to a row`).toEqual(inRows(list.slice(1, 9), perRow(window.width, rail)));
+        const cards = await shelfCards(page);
+        expect(cards.filter((card) => card.width < CARD_FLOOR - 0.5), `${what}: no card narrower than ${CARD_FLOOR} px`).toEqual([]);
+        test.info().annotations.push({
+          type: "titles cut below",
+          description: `${what}: cards ${Math.round(cards[0].width)} px; ${cards.filter((card) => card.cut).map((card) => card.title).join(", ") || "none"}`,
+        });
         await expect(page.locator("[data-recent]")).toHaveCount(0);
         await expectNothingSideways(page, what);
       }
@@ -338,6 +364,25 @@ test.describe("Home", () => {
       }
       await expectNothingSideways(page, `${width} × 800`);
     }
+
+    // Just above the window's old step, the templates below take a column
+    // away rather than draw narrower than the floor, with the side menu
+    // at rest (three to a row) or standing open (two).
+    for (const [rail, per] of [["hover", 3], ["open", 2]] as const) {
+      await setLook(fresh!.api, { rail });
+      await page.setViewportSize({ width: 1101, height: 800 });
+      await openHome(page, "template");
+      const what = `1101 × 800, rail ${rail}`;
+      expect(await shelfRows(page), `${what}: ${per} to a row`).toEqual(inRows(list.slice(1, 9), per));
+      const cards = await shelfCards(page);
+      expect(cards.filter((card) => card.width < CARD_FLOOR - 0.5), `${what}: no card narrower than ${CARD_FLOOR} px`).toEqual([]);
+      test.info().annotations.push({
+        type: "titles cut below",
+        description: `${what}: cards ${Math.round(cards[0].width)} px; ${cards.filter((card) => card.cut).map((card) => card.title).join(", ") || "none"}`,
+      });
+      await expectNothingSideways(page, what);
+    }
+    await setLook(fresh!.api, { rail: "hover" });
 
     await page.setViewportSize(BELOW_BESIDE);
     await openHome(page, "template");
@@ -387,7 +432,7 @@ test.describe("Home", () => {
     expectQuiet(errors);
   });
 
-  test("a copy made from the templates below lands, then leads Home with its workflow and datasets in Recent; four templates in one row at both windows", async () => {
+  test("a copy made from the templates below lands, then leads Home with its workflow and datasets in Recent; four templates in one row at both windows (three to a row with the side menu open at 1280)", async () => {
     const page = await fresh!.context.newPage();
     const errors = trackConsole(page);
     await page.setViewportSize(WINDOWS[0]);
@@ -444,7 +489,7 @@ test.describe("Home", () => {
         await expectBeside(page, what);
         await expect(page.locator('[data-shelf="shown"] h2')).toHaveText("From the templates");
         await expect(page.locator("[data-shelf-link]")).toHaveText(`All ${list.length} templates`);
-        expect(await shelfRows(page), `${what}: four in one row`).toEqual([list.slice(0, 4).map((t) => t.id)]);
+        expect(await shelfRows(page), `${what}: four, ${perRow(window.width, rail)} to a row`).toEqual(inRows(list.slice(0, 4), perRow(window.width, rail)));
         await expectNothingSideways(page, what);
       }
     }
