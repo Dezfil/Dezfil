@@ -1,3 +1,5 @@
+import { withTrustedMutation } from "@/lib/trusted-mutation";
+import { currentTrustedOperation } from "@/lib/trusted-operation";
 import { admitAccountWork } from "@/lib/auth/account-deletion-admission";
 import { registerAccountFile, removeAccountFile } from "@/lib/ingest/file-ownership";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
@@ -74,6 +76,7 @@ export interface RefreshOptions {
   /** Overture only: move the stored recipe to this release ("latest" allowed)
    * before re-running — an explicit choice, never implicit. */
   release?: string;
+  signal?: AbortSignal;
 }
 
 /** Post-commit cleanup is best-effort: the committed swap is the
@@ -174,7 +177,8 @@ async function refreshOsmGroup(
     // rolls the whole group swap back (spec: races leave no residue).
     db.transaction(() => {
       for (const c of candidates) {
-        const swapped = updateOwnedTableData(
+        currentTrustedOperation()?.assertCanCommit();
+    const swapped = updateOwnedTableData(
           scope,
           { name: c.member.name, id: c.member.id, file: c.member.file },
           {
@@ -224,20 +228,22 @@ export async function refreshTable(
   name: string,
   options: RefreshOptions = {},
 ): Promise<DataTable> {
-  const deletionWork = admitAccountWork([requireAccountScope(scope)]);
-  try {
-  const table = requireTable(scope, name);
-  // Single-flight per provenance unit: the claim happens before the first
-  // await, so a second caller can never start a second build.
-  const unit = refreshUnit(scope, table);
-  beginRefresh(unit, name);
-  try {
-    return await performRefresh(scope, table, name, options);
-  } finally {
-    endRefresh(unit);
-  }
+  return withTrustedMutation({ kind: "refresh", name: "Dataset refresh", signal: options.signal }, async () => {
+    const deletionWork = admitAccountWork([requireAccountScope(scope)]);
+    try {
+    const table = requireTable(scope, name);
+    // Single-flight per provenance unit: the claim happens before the first
+    // await, so a second caller can never start a second build.
+    const unit = refreshUnit(scope, table);
+    beginRefresh(unit, name);
+    try {
+      return await performRefresh(scope, table, name, options);
+    } finally {
+      endRefresh(unit);
+    }
 
-  } finally { deletionWork.release(); }
+    } finally { deletionWork.release(); }
+  });
 }
 
 async function performRefresh(
@@ -386,6 +392,7 @@ async function performRefresh(
     // statement, so provenance can never claim data the refresh failed to
     // produce — and data can never lose the recipe that produced it.
     now = new Date().toISOString();
+    currentTrustedOperation()?.assertCanCommit();
     const swapped = updateOwnedTableData(
       scope,
       { name, id: table.id, file: table.file },
@@ -413,6 +420,7 @@ async function performRefresh(
       );
     }
   } catch (error) {
+    currentTrustedOperation()?.refuse(error);
     await removeAccountFile(artifact, { force: true });
     throw error;
   }

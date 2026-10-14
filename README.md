@@ -232,9 +232,12 @@ templates, as [Templates](docs/configuration.md#templates) says.
 | `DEZFIL_TEST_DERIVATION_LOG` | unset | Test preload only: NDJSON destination for native derivation starts, completions and admission occupancy. Required by `scripts/derivation-observer.mjs`; no effect without that preload. | Restart |
 | `DEZFIL_TEST_EXTENSION_REPOSITORY` | unset | Tests only: a loopback extension repository the engine that runs people's SQL installs from, so a test that lets it install an extension reaches a fixture that records the request, never the internet. Never set in a deployment. | Restart |
 
-Trusted engine memory, Data processing time limit and Bytes drawn per layer
-are exposed for configuration; their processing and render enforcement is
-not yet active.
+Dataset and geometry inspection use the Query time limit. File, archive, link
+and object-store imports and refreshes use the Data processing time limit;
+[the configuration guide](docs/configuration.md#upload-and-remote-import)
+describes the operation families. Upload reception has not yet adopted that
+limit. Trusted engine memory and Bytes drawn per layer are exposed for
+configuration; their enforcement is not yet active.
 
 JSON admission has fixed outer byte tiers: 65,536 bytes for authentication
 entry, Account, Users, instance settings and the three anonymous published POSTs; 16,777,216 for

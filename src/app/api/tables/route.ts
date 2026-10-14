@@ -43,7 +43,7 @@ async function upload(request: Request) {
         source: "upload",
         sourceParams: null,
         projectId: projectId ?? null,
-      }, undefined, budget);
+      }, undefined, budget, request.signal);
       const filed = {
         ...result,
         tables: result.tables.map((t) => ({

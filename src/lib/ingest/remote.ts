@@ -1,3 +1,5 @@
+import { withTrustedMutation } from "@/lib/trusted-mutation";
+import { currentTrustedOperation, isTrustedOperationRefusal } from "@/lib/trusted-operation";
 import { settingRemedy } from "@/lib/settings/remedy";
 import { resolveServiceAddress } from "@/lib/settings/service-address";
 import { admitAccountWork } from "@/lib/auth/account-deletion-admission";
@@ -90,6 +92,7 @@ async function downloadHttp(url: string, tmpPath: string, budget: IngestBudget, 
   let response: Awaited<ReturnType<typeof openRemote>>;
   try {
     response = await openRemote(url, {
+      signal: currentTrustedOperation()?.signal,
       timeoutMs: budget.remoteTimeoutMs,
       timeoutError: () =>
         new ApiError(
@@ -141,9 +144,10 @@ async function downloadHttp(url: string, tmpPath: string, budget: IngestBudget, 
     },
   });
   try {
-    await pipeline(response.body, counter, createWriteStream(tmpPath));
+    await pipeline(response.body, counter, createWriteStream(tmpPath), { signal: currentTrustedOperation()?.signal });
   } catch (error) {
-    if (error instanceof ApiError) throw error;
+    currentTrustedOperation()?.assertCanCommit();
+    if (isTrustedOperationRefusal(error)) throw error;
     throw new ApiError(
       "remote_fetch_failed",
       `The download from ${shown} was interrupted${
@@ -163,6 +167,7 @@ async function ensureObjectStoreSupport(
   try {
     await conn.run(`INSTALL ${extension}; LOAD ${extension};`);
   } catch (error) {
+    if (isTrustedOperationRefusal(error)) throw error;
     throw new ApiError(
       "remote_fetch_failed",
       `Reading ${scheme}// URLs needs the DuckDB ${extension} extension, which could not be loaded${
@@ -179,7 +184,8 @@ async function ensureObjectStoreSupport(
       await conn.run(
         `CREATE SECRET IF NOT EXISTS dezfil_s3 (TYPE s3, PROVIDER credential_chain)`,
       );
-    } catch {
+    } catch (error) {
+      if (isTrustedOperationRefusal(error)) throw error;
       /* Aws extension unavailable — anonymous access still works */
     }
   }
@@ -188,7 +194,7 @@ async function ensureObjectStoreSupport(
 /** Map a DuckDB read failure on a remote source to an honest error. */
 function mapObjectStoreError(url: string, error: unknown): never {
   const message = error instanceof Error ? error.message : String(error);
-  if (error instanceof ApiError && error.code !== "malformed_file") throw error;
+  if (isTrustedOperationRefusal(error) && (!(error instanceof ApiError) || error.code !== "malformed_file")) throw error;
   if (
     /HTTP|40[0-9]|50[0-9]|Connection|resolve|timed? ?out|credential|Access Denied|No files found/i.test(
       message,
@@ -286,9 +292,11 @@ async function downloadToScratch(
   await mkdir(tmpDir, { recursive: true });
   const tmpPath = path.join(tmpDir, `${randomUUID()}${path.extname(filename)}`);
   if (accountId) registerAccountFile(accountId, tmpPath);
+  currentTrustedOperation()?.defer(() => removeAccountFile(tmpPath, { force: true }));
   try {
     await downloadHttp(url, tmpPath, budget, shown);
   } catch (error) {
+    currentTrustedOperation()?.refuse(error);
     await removeAccountFile(tmpPath, { force: true });
     throw error;
   }
@@ -358,6 +366,7 @@ async function probeObjectSize(ref: RemoteRef): Promise<number | null> {
   const address = translateObjectUrl(ref);
   try {
     const response = await openRemote(address, {
+      signal: currentTrustedOperation()?.signal,
       method: "HEAD",
       timeoutMs: 10_000,
     });
@@ -365,7 +374,9 @@ async function probeObjectSize(ref: RemoteRef): Promise<number | null> {
     if (response.statusCode < 200 || response.statusCode >= 300) return null;
     const length = Number(response.headers["content-length"] ?? NaN);
     return Number.isFinite(length) ? length : null;
-  } catch {
+  } catch (error) {
+    currentTrustedOperation()?.assertCanCommit();
+    if (isTrustedOperationRefusal(error) && (!(error instanceof ApiError) || !["remote_fetch_failed", "egress_blocked"].includes(error.code))) throw error;
     return null;
   }
 }
@@ -403,6 +414,7 @@ async function resolveCredentialedObjectSource(
     `${randomUUID()}${path.extname(ref.filename)}`,
   );
   if (accountId) registerAccountFile(accountId, tmpPath);
+  currentTrustedOperation()?.defer(() => removeAccountFile(tmpPath, { force: true }));
   try {
     const blob = await withConnection(async (conn) => {
       await ensureObjectStoreSupport(conn, ref.scheme);
@@ -439,6 +451,7 @@ async function resolveCredentialedObjectSource(
       cleanup: () => removeAccountFile(tmpPath, { force: true }),
     };
   } catch (error) {
+    currentTrustedOperation()?.refuse(error);
     await removeAccountFile(tmpPath, { force: true });
     throw error;
   }
@@ -455,28 +468,31 @@ export async function importFromUrl(
   url: string,
   requestedName?: string,
   projectId?: string | null,
+  signal?: AbortSignal,
 ): Promise<IngestResult> {
-  const deletionWork = admitAccountWork([requireAccountScope(scope)]);
-  try {
-  requireAccountScope(scope);
-  requireRule(scope.accountId, "imports.links");
-  if (projectId) requireFilingDestination(scope, projectId);
-  const source = await resolveRemoteSource(url, scope.accountId);
-  try {
-    return await ingestSource(
-      scope,
-      source.sourcePath,
-      source.filename,
-      { source: "url", sourceParams: { url }, projectId },
-      requestedName,
-      source.budget,
-    );
-  } catch (error) {
-    if (source.sourcePath === url) mapObjectStoreError(url, error);
-    throw error;
-  } finally {
-    await source.cleanup();
-  }
+  return withTrustedMutation({ kind: "import", name: "Link import", signal }, async () => {
+    const deletionWork = admitAccountWork([requireAccountScope(scope)]);
+    try {
+    requireAccountScope(scope);
+    requireRule(scope.accountId, "imports.links");
+    if (projectId) requireFilingDestination(scope, projectId);
+    const source = await resolveRemoteSource(url, scope.accountId);
+    try {
+      return await ingestSource(
+        scope,
+        source.sourcePath,
+        source.filename,
+        { source: "url", sourceParams: { url }, projectId },
+        requestedName,
+        source.budget,
+      );
+    } catch (error) {
+      if (source.sourcePath === url) mapObjectStoreError(url, error);
+      throw error;
+    } finally {
+      await source.cleanup();
+    }
 
-  } finally { deletionWork.release(); }
+    } finally { deletionWork.release(); }
+  });
 }

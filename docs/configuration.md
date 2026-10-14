@@ -427,9 +427,12 @@ behavior and [the API guide](api.md#request-bounds) for exact refusals.
 | `DEZFIL_S3_ENDPOINT` | AWS | S3-compatible endpoint for anonymous `s3://` imports, addressed path-style. | App (live) or restart |
 | `DEZFIL_TEMPLATES_CATALOGUE` | `https://github.com/Dezfil/templates/releases/latest/download/index.json` | The template catalogue's index, read by the server; see [Templates](#templates). The variable alone may name a folder on the server instead, read as files under the same checks and never disclosed by its path. | App (live) or restart |
 
-Trusted engine memory, Data processing time limit and Bytes drawn per layer
-are exposed for configuration; their processing and render enforcement is
-not yet active. Dataset and geometry inspection, catalogue reads, dataset map
+Trusted engine memory and Bytes drawn per layer are exposed for configuration;
+their enforcement is not yet active. File and archive import processing, link
+and object-store imports, and URL refreshes use the Data processing time limit
+through preparation and commit. Accepted processing continues after departure;
+expiry removes candidates and leaves previously committed data intact. Reception
+and other processing families are not yet connected. Dataset and geometry inspection, catalogue reads, dataset map
 features and projection lookup now share one admitted Query time limit through
 preparation and reads, and cancel when the last interested caller leaves.
 

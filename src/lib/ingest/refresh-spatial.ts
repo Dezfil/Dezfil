@@ -1,3 +1,4 @@
+import { currentTrustedOperation } from "@/lib/trusted-operation";
 import { registerAccountFile, removeAccountFile } from "@/lib/ingest/file-ownership";
 import type { AccountScope } from "@/lib/auth/scope";
 import { requireOwnedResource } from "@/lib/auth/owned-resource";
@@ -106,6 +107,7 @@ export async function refreshUrlSpatial(
     // A member deleted mid-refresh must stay deleted: one silent
     // zero-match rolls the whole swap back.
     db.transaction(() => {
+      currentTrustedOperation()?.assertCanCommit();
       for (const c of candidates) {
         const swapped = updateOwnedTableData(
           scope,
@@ -136,6 +138,7 @@ export async function refreshUrlSpatial(
       }
     })();
   } catch (error) {
+    currentTrustedOperation()?.refuse(error);
     for (const c of candidates) await removeAccountFile(c.artifact, { force: true });
     throw error;
   } finally {

@@ -1,3 +1,5 @@
+import { withTrustedMutation } from "@/lib/trusted-mutation";
+import { isTrustedOperationRefusal } from "@/lib/trusted-operation";
 import { admitAccountWork } from "@/lib/auth/account-deletion-admission";
 import { registerAccountFile, removeAccountFile } from "@/lib/ingest/file-ownership";
 import { requireFilingDestination } from "@/lib/auth/reach";
@@ -85,6 +87,7 @@ export async function buildArtifact(
         `COPY (${plan.select}) TO ${lit(artifact)} (FORMAT PARQUET)`,
       );
     } catch (error) {
+      if (isTrustedOperationRefusal(error)) throw error;
       throw new ApiError(
         "malformed_file",
         `The file could not be read as ${format}: ${
@@ -220,54 +223,59 @@ export async function ingestFile(
   originalFilename: string,
   provenance: IngestProvenance = { source: "upload", sourceParams: null },
   requestedName?: string,
+  signal?: AbortSignal,
 ): Promise<DataTable> {
-  const deletionWork = admitAccountWork([requireAccountScope(scope)]);
-  try {
-  requireAccountScope(scope);
-  if (provenance?.projectId) requireFilingDestination(scope, provenance.projectId);
-  const format = detectFormat(originalFilename);
-  const id = randomUUID();
-  const relFile = path.join("tables", `${id}.parquet`);
-  const artifact = path.join(dataDir(), relFile);
-    registerAccountFile(scope.accountId, artifact);
+  return withTrustedMutation({ kind: "import", name: "File import", signal }, async operation => {
+    const deletionWork = admitAccountWork([requireAccountScope(scope)]);
+    try {
+    requireAccountScope(scope);
+    if (provenance?.projectId) requireFilingDestination(scope, provenance.projectId);
+    const format = detectFormat(originalFilename);
+    const id = randomUUID();
+    const relFile = path.join("tables", `${id}.parquet`);
+    const artifact = path.join(dataDir(), relFile);
+      registerAccountFile(scope.accountId, artifact);
 
-  try {
-    const meta = await buildArtifact(sourcePath, originalFilename, artifact);
+    try {
+      const meta = await buildArtifact(sourcePath, originalFilename, artifact);
 
-    // Derive-and-register is one synchronous step; the project
-    // membership commits in the same transaction, so a membership
-    // failure leaves no registered table behind.
-    const db = metadataDb();
-    return db.transaction(() => {
-      requireLinkImportRule(scope, provenance, db);
-      const table = registerTable(
-        scope,
-        {
-          id,
-          sourceFilename: originalFilename,
-          format,
-          file: relFile,
-          geometryColumn: meta.geometryColumn,
-          geometryType: meta.geometryType,
-          crsAssumed: meta.crsAssumed,
-          headerSuspect: meta.headerSuspect,
-          ...geometryEvidence(meta),
-          rowCount: meta.rowCount,
-          createdAt: new Date().toISOString(),
-          source: provenance.source,
-          sourceParams: provenance.sourceParams,
-          importedAt: new Date().toISOString(),
-        },
-        requestedName ?? originalFilename,
-        db,
-      );
-      if (provenance.projectId) fileOwnedTable(scope, table.id, provenance.projectId, db);
-      return table;
-    })();
-  } catch (error) {
-    await removeAccountFile(artifact, { force: true });
-    throw error;
-  }
+      // Derive-and-register is one synchronous step; the project
+      // membership commits in the same transaction, so a membership
+      // failure leaves no registered table behind.
+      const db = metadataDb();
+      return db.transaction(() => {
+        requireLinkImportRule(scope, provenance, db);
+        operation.assertCanCommit();
+        const table = registerTable(
+          scope,
+          {
+            id,
+            sourceFilename: originalFilename,
+            format,
+            file: relFile,
+            geometryColumn: meta.geometryColumn,
+            geometryType: meta.geometryType,
+            crsAssumed: meta.crsAssumed,
+            headerSuspect: meta.headerSuspect,
+            ...geometryEvidence(meta),
+            rowCount: meta.rowCount,
+            createdAt: new Date().toISOString(),
+            source: provenance.source,
+            sourceParams: provenance.sourceParams,
+            importedAt: new Date().toISOString(),
+          },
+          requestedName ?? originalFilename,
+          db,
+        );
+        if (provenance.projectId) fileOwnedTable(scope, table.id, provenance.projectId, db);
+        return table;
+      })();
+    } catch (error) {
+      operation.refuse(error);
+      await removeAccountFile(artifact, { force: true });
+      throw error;
+    }
 
-  } finally { deletionWork.release(); }
+    } finally { deletionWork.release(); }
+  });
 }

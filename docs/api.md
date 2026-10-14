@@ -564,7 +564,8 @@ overrides lock the corresponding row and require restart. Trusted scratch
 is derived at four times trusted memory, with no separate setting. The byte
 value describes a complete uncompressed UTF-8 JSON inline answer, envelope
 included, with equality admitted. These three settings are exposed for
-configuration; their processing and render enforcement is not yet active.
+configuration. File and link imports and refreshes use the processing limit;
+reception, other processing families and render enforcement are not yet active.
 
 The admin and the complete body are checked inside one immediate transaction
 against the committed configuration. Any refusal or failure rolls back the
@@ -2191,7 +2192,13 @@ and projection lookup use one Query time limit through preparation and all
 reads. Caller departure cancels them; a shared inspection continues while
 another caller remains interested, under its original deadline. Their trusted
 engine failures preserve `422 engine_memory_exceeded`; deadlines keep
-`408 query_timeout`. Other source and render routes are not yet connected. Hardened query memory refusal remains
+`408 query_timeout`. File and archive import processing, link and object-store imports, and URL
+refreshes use one Data processing time limit through source preparation, every
+artifact and commit. Accepted processing continues after caller departure.
+Expiry refuses the commit with `408 data_processing_timeout`; new artifacts
+are removed and a refused refresh retains its previous data. Link download
+limits and their existing refusals remain in force. Other source and render
+routes are not yet connected. Hardened query memory refusal remains
 `400 query_memory_exceeded`, including template validation.
 
 <!-- error-catalogue:start -->
