@@ -16,6 +16,10 @@ next-env.d.ts
 # root: an unanchored data/ also swallows the /data app route
 /data/
 
+# interrupted shipped-template installs, staged beside their target
+/templates.lock
+/.templates-install-*
+
 # test data
 /test-data/
 

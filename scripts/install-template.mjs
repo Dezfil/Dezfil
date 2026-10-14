@@ -3,11 +3,12 @@ import path from "node:path";
 import { parseArgs } from "node:util";
 import { templateSource } from "./template-source.mjs";
 
-const usage = "Usage: npm run templates:install -- ARCHIVE --sha256 HASH --size BYTES [--target templates]";
+const usage = "Usage: npm run templates:install -- ARCHIVE --sha256 HASH --size BYTES [--target templates] [--allow-downgrade]";
 
 async function main() {
   const { values, positionals } = parseArgs({ allowPositionals: true, options: {
     sha256: { type: "string" }, size: { type: "string" }, target: { type: "string", default: "templates" },
+    "allow-downgrade": { type: "boolean", default: false },
   } });
   const size = Number(values.size);
   if (positionals.length !== 1 || !/^[0-9a-f]{64}$/.test(values.sha256 ?? "") || !Number.isSafeInteger(size) || size < 1) throw new Error(usage);
@@ -22,7 +23,7 @@ async function main() {
   await mkdir(parent, { recursive: true });
   const lock = target + ".lock";
   await mkdir(lock).catch(error => {
-    if (error.code === "EEXIST") throw new Error("Another template install owns the target lock.");
+    if (error.code === "EEXIST") throw new Error(`Another template install owns the target lock: ${lock}`);
     throw error;
   });
   let scratch, closeStore, resetEngine, loader;
@@ -50,8 +51,12 @@ async function main() {
     const { admitted: { facts } } = await readTemplateArchive(archive, path.join(scratch, "inspect"));
     const present = await stat(target).then(() => true, error => { if (error.code !== "ENOENT") throw error; return false; });
     const index = present ? await readShippedIndex(target) : { formatVersion: 1, templates: [] };
-    if (index.templates.some(entry => entry.id === facts.id && entry.version === facts.version)) {
+    const shipped = index.templates.find(entry => entry.id === facts.id);
+    if (shipped?.version === facts.version) {
       throw new Error(`${facts.id} version ${facts.version} is already shipped. Released versions are immutable.`);
+    }
+    if (shipped && facts.version < shipped.version && !values["allow-downgrade"]) {
+      throw new Error(`${facts.id} version ${facts.version} is older than shipped version ${shipped.version}. Use --allow-downgrade to replace it explicitly.`);
     }
     const db = metadataDb();
     const account = insertAccount({ id: "template-builder", name: "Template builder", email: "templates@example.invalid",

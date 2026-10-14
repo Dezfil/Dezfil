@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
-import { mkdtemp, readdir, readFile, rm, symlink } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, rm, symlink } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
 import { afterAll, beforeAll, expect, it } from "vitest";
@@ -20,10 +20,10 @@ beforeAll(async () => {
 });
 afterAll(async () => { resetQueryInstance(); await rm(root, { recursive: true, force: true }); });
 
-async function install(template: BuiltTemplate, target: string, source = template.archive, sha256 = template.sha256) {
+async function install(template: BuiltTemplate, target: string, source = template.archive, sha256 = template.sha256, options: string[] = []) {
   try {
     const result = await execute(process.execPath, ["scripts/install-template.mjs", source,
-      "--sha256", sha256, "--size", String(template.size), "--target", target], {
+      "--sha256", sha256, "--size", String(template.size), "--target", target, ...options], {
       cwd: process.cwd(), timeout: 20_000,
       env: { ...process.env, DEZFIL_EGRESS_ALLOWLIST: "localhost,127.0.0.1" },
     });
@@ -117,4 +117,53 @@ it("refuses a linked target without changing the folder it points to", async () 
   expect(result.stderr).toContain("symbolic links");
   expect(await readFile(path.join(original, "index.json"))).toEqual(before);
   expect((await readInstalledVersion(path.join(original, good.facts.id, "1"))).record.archive.sha256).toBe(good.sha256);
+});
+
+async function shippedFiles(target: string) {
+  const entries = await readdir(target, { recursive: true, withFileTypes: true });
+  const files = entries.filter(entry => entry.isFile()).map(entry => path.relative(target, path.join(entry.parentPath, entry.name))).sort();
+  return Promise.all(files.map(async file => [file, (await readFile(path.join(target, file))).toString("base64")]));
+}
+
+it("refuses an older release with both versions and leaves every shipped file unchanged", async () => {
+  const target = path.join(root, "no-downgrade");
+  const first = await install(newer, target);
+  expect(first.ok, first.stderr).toBe(true);
+  const before = await shippedFiles(target);
+  const result = await install(good, target);
+  expect(result.ok).toBe(false);
+  expect(result.stderr).toContain(`${good.facts.id} version 1 is older than shipped version 2`);
+  expect(result.stderr).toContain("--allow-downgrade");
+  expect(await shippedFiles(target)).toEqual(before);
+  expect((await readdir(root)).filter(name => name.includes("install-") || name.endsWith(".lock"))).toEqual([]);
+});
+
+it("allows an explicit downgrade while still refusing the same immutable version", async () => {
+  const target = path.join(root, "explicit-downgrade");
+  const first = await install(newer, target);
+  expect(first.ok, first.stderr).toBe(true);
+  const result = await install(good, target, good.archive, good.sha256, ["--allow-downgrade"]);
+  expect(result.ok, result.stderr).toBe(true);
+  expect(result.stdout).toContain(`${good.facts.id} version 1`);
+  expect(await readShippedIndex(target)).toEqual({ formatVersion: 1, templates: [{ id: good.facts.id, version: 1 }] });
+  expect((await readInstalledVersion(path.join(target, good.facts.id, "1"))).record.archive.sha256).toBe(good.sha256);
+  expect(existsSync(path.join(target, good.facts.id, "2"))).toBe(false);
+  const before = await shippedFiles(target);
+  const repeated = await install(good, target, good.archive, good.sha256, ["--allow-downgrade"]);
+  expect(repeated.ok).toBe(false);
+  expect(repeated.stderr).toContain("already shipped");
+  expect(await shippedFiles(target)).toEqual(before);
+});
+
+it("names an occupied lock without removing it or writing a target", async () => {
+  const target = path.join(root, "locked");
+  const lock = target + ".lock";
+  await mkdir(lock);
+  try {
+    const result = await install(good, target);
+    expect(result.ok).toBe(false);
+    expect(result.stderr).toContain(`Another template install owns the target lock: ${lock}`);
+    expect(existsSync(lock)).toBe(true);
+    expect(existsSync(target)).toBe(false);
+  } finally { await rm(lock, { recursive: true }); }
 });

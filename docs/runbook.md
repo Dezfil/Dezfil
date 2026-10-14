@@ -1613,7 +1613,9 @@ release; `--target folder` selects a destination instead of `templates/`.
 The command uses the product's transfer verification, archive and dataset
 readers, binding checks and shipped-set validation in a temporary instance,
 then publishes the complete `<id>/<version>/` folder and `index.json` together.
-A newer version replaces that id's shipped version; installing the same version
-again is refused because released versions are immutable. A refused install
-leaves the existing set unchanged. URL requests use
+A newer version replaces that id's shipped version; an older one replaces it
+only with `--allow-downgrade`. Installing the same version again is refused
+because released versions are immutable. A refused install leaves the existing
+set unchanged. Remote transfers are bounded by `DEZFIL_REMOTE_TIMEOUT_S`
+(300 seconds by default). URL requests use
 `Dezfil-templates/1.0 (+https://dezfil.io)` and carry no account credentials.
