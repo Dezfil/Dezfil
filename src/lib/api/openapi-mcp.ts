@@ -16,8 +16,9 @@ export const changeGroupParam = {
   required: false,
   schema: { type: "string", pattern: "^[\\w-]{1,64}$" },
   description:
-    "Optional group marker: mutations sharing a value form one step on " +
-    "the map's undo timeline and undo/redo together. The in-product " +
+    "Optional group marker: consecutive edits in a group form a step on " +
+    "the map's undo timeline, and an edit from outside the group between them starts a new one. " +
+    "One turn can span several steps. Grouping never crosses actors. The in-product " +
     "assistant stamps each turn automatically; any agent may group its " +
     "own related edits the same way.",
 };
@@ -68,8 +69,9 @@ export const HISTORY_PATHS = {
         post: op(mapChildren(mapAccess({
           summary: "Redo the newest undone change",
           description:
-            "Re-applies the most recently undone change (or grouped turn), " +
-            "exactly as it was stored. Any fresh edit after an undo " +
+            "Re-applies the most recently undone step exactly as it was stored. " +
+            "Consecutive edits in a group form a step, and an edit from outside the group between them starts a new one. " +
+            "One turn can span several steps. Grouping never crosses actors. Any fresh edit after an undo " +
             "discards the redo branch. Returns a fresh editRevision, never an older token even when values match. " +
             "409 invalid_request when there is nothing to redo, or 409 stale_revision when the seen revision is no longer current, including during SQL admission. " +
             "A replay that would change a publication setting (the widget " +

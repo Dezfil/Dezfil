@@ -7,6 +7,7 @@ import path from "node:path";
 import { closeMetadataDb } from "@/lib/metadata/db";
 import { resetQueryInstance } from "@/lib/duckdb";
 import { createMap } from "@/lib/map-service";
+import { changeGroupParam } from "@/lib/api/openapi-mcp";
 import { CHANGE_GROUP_HEADER } from "@/lib/api/change-group";
 import { buildTools } from "@/lib/tools/tools";
 import { corePrompt } from "./core-prompt";
@@ -113,6 +114,11 @@ describe("the boundary the map's history gives", () => {
     // One undo took the group's later edit alone: its earlier rename stands,
     // so a turn's edits are not one step and a whole group is not one step.
     expect(await readMap(split.id)).toMatchObject({ name: "Manual", legendCorner: null });
+    const redone = await call(`/api/maps/${split.id}/redo`, { method: "POST", headers: {
+      "X-Edit-Revision": readEditRevision({ kind: "map", id: split.id })!.editRevision!,
+    } });
+    expect(redone.status).toBe(200);
+    expect(await readMap(split.id)).toMatchObject({ name: "Manual", legendCorner: "top-right" });
   });
 });
 
@@ -148,4 +154,15 @@ describe("the words the model reads", () => {
       "claims what the history refuses: one undo reverts a whole change group",
     ]);
   });
+});
+
+
+it("redo and the grouping header state the measured step boundary", () => {
+  const redo = buildTools().find(tool => tool.name === "redo_change")!.description;
+  for (const text of [redo, changeGroupParam.description]) {
+    expect.soft(text.toLowerCase()).toContain("consecutive edits in a group form a step");
+    expect.soft(text).toContain("an edit from outside the group between them starts a new one");
+    expect.soft(text).not.toMatch(/or grouped turn|mutations sharing a value form one step/i);
+  }
+  expect.soft(redo).toContain("most recently undone step");
 });
