@@ -1,3 +1,4 @@
+import { createReadStream } from "node:fs";
 import type { DuckDBConnection } from "@duckdb/node-api";
 import { trustedH3Ready } from "@/lib/duckdb";
 import { COORDINATE_PAIRS, isNumericCsvType, suspectCsvHeader, type CsvColumn } from "./csv-geometry";
@@ -47,6 +48,13 @@ export async function withBlankCoordinateFacts(
 }
 
 export async function planCsvSource(conn: DuckDBConnection, sourcePath: string) {
+  // The reader synthesizes a column for empty input. Require actual CSV
+  // content, while preserving header-only tables and their column names.
+  let hasContent = false;
+  for await (const chunk of createReadStream(sourcePath, { encoding: "utf8" })) {
+    if (/[^\r\n]/.test(chunk)) { hasContent = true; break; }
+  }
+  if (!hasContent) throw new Error("The CSV contains no header or data.");
   const from = `read_csv(${lit(sourcePath)})`;
   const described = (await conn.runAndReadAll(`DESCRIBE SELECT * FROM ${from}`)).getRowObjects();
   const columns = await withBlankCoordinateFacts(conn, from, described.map(c => ({

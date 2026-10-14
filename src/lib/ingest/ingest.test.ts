@@ -553,6 +553,18 @@ describe("ingestFile", () => {
     expect(listTables()).toHaveLength(1);
   });
 
+  it.each(["", "\n", "\r\n\n\r\n"])("refuses an empty CSV before creating durable state (%j)", async csv => {
+    const src = path.join(dir, "empty.csv");
+    const artifact = path.join(dir, "empty.parquet");
+    await writeFile(src, csv);
+    const { buildArtifact } = await import("./ingest");
+    await expect(buildArtifact(src, "empty.csv", artifact)).rejects.toMatchObject({ code: "malformed_file", status: 422 });
+    await expect(readFile(artifact)).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(ingestFile(testAccountScope(), src, "empty.csv")).rejects.toMatchObject({ code: "malformed_file", status: 422 });
+    expect(listTables()).toEqual([]);
+    expect(await readdir(path.join(process.env.DEZFIL_DATA_DIR!, "tables")).catch(() => [])).toEqual([]);
+  });
+
   it("rejects a corrupt file and leaves no partial state", async () => {
     const src = path.join(dir, "broken.geojson");
     await writeFile(src, "this is not json {{{");
