@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore — plain-JS CI script, no declaration file on purpose.
 import {
+  sweepTree,
   sweepStyles,
   sweepGlyphs,
   sweepOutline,
@@ -508,4 +509,9 @@ describe("sweepSpecimen", () => {
     const page = ["<!-- wheelhouse:allow — for the line above only -->", "<span>◇</span>"].join("\n");
     expect(rules(sweepSpecimen(page, "p.html"))).toEqual(["specimen-glyph"]);
   });
+});
+
+it("regenerates the current tree's style inventory byte for byte without writing it", () => {
+  expect(inventoryText(toRows(sweepTree(process.cwd()))))
+    .toBe(readFileSync("scripts/wheelhouse-inventory.json", "utf8"));
 });
