@@ -245,4 +245,8 @@ describe("labels", () => {
     expect(on.characterSet).toBe("auto");
     expect(deckLabelProps({ ...label, haloWidth: 0, haloColor: { r: 12, g: 16, b: 24, a: 0.8 } }).outlineWidth).toBe(0);
   });
+
+  it("draws the widest halo as given, unclamped", () => {
+    expect(deckLabelProps({ ...label, haloWidth: 3 }).outlineWidth).toBe(3);
+  });
 });

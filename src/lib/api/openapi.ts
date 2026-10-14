@@ -2378,8 +2378,8 @@ export function buildOpenApiDocument() {
                 haloWidth: {
                   type: "number",
                   description:
-                    "Halo rim behind the text, 0 (none) to 1 (full — the " +
-                    "renderer saturates there). Replaced the legacy " +
+                    "Halo rim behind the text, 0 (none) to 3 (widest). " +
+                    "Replaced the legacy " +
                     "`halo` boolean: stored maps migrate on " +
                     "read; writes stating the boolean answer " +
                     "invalid_request.",
