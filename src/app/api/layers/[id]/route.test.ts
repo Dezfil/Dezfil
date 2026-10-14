@@ -122,3 +122,13 @@ describe("custom icon markup at the layer gate", () => {
     expect(hostile.status).toBe(400);
   });
 });
+
+it.each(["undefined", "fillOpactiy", "constructor"])("refuses an unknown style key %s without storing any edit", async key => {
+  const before = readEditLayer(layerId)!;
+  const revision = readEditRevision({ kind: "map", id: before.mapId })!.editRevision!;
+  const response = await patch({ name: "Must not land", style: { ...before.style, [key]: 1 } }, revision);
+  expect(response.status).toBe(400);
+  expect(await response.json()).toEqual({ error: { code: "invalid_request", message: `The style is not valid: Unknown style key: ${key}.` } });
+  expect(readEditLayer(layerId)).toEqual(before);
+  expect(readEditRevision({ kind: "map", id: before.mapId })!.editRevision).toBe(revision);
+});

@@ -4792,6 +4792,7 @@
           },
           "style": {
             "type": "object",
+            "additionalProperties": false,
             "description": "A layer's full visual definition. Constant channels plus data-driven ones: `strokeBy` drives the outline color like `fill` drives the fill; `pointRadiusBy` and `strokeWidthBy` drive the sizes. Absent data-driven members mean the constant siblings apply.",
             "properties": {
               "fill": {
@@ -5226,6 +5227,7 @@
           },
           "style": {
             "type": "object",
+            "additionalProperties": false,
             "description": "A layer's full visual definition. Constant channels plus data-driven ones: `strokeBy` drives the outline color like `fill` drives the fill; `pointRadiusBy` and `strokeWidthBy` drive the sizes. Absent data-driven members mean the constant siblings apply.",
             "properties": {
               "fill": {

@@ -201,6 +201,12 @@ export interface LayerStyle {
   label?: LabelStyle;
 }
 
+const STYLE_KEYS: Record<keyof LayerStyle, true> = {
+  fill: true, fillOpacity: true, stroke: true, strokeOpacity: true,
+  strokeWidth: true, pointRadius: true, opacity: true, strokeBy: true,
+  pointRadiusBy: true, strokeWidthBy: true, heightBy: true, label: true,
+};
+
 /** Solid — the default stroke translucency lives in strokeOpacity. */
 export const DEFAULT_STROKE: RgbaColor = { r: 12, g: 16, b: 24, a: 1 };
 
@@ -314,6 +320,8 @@ export function isValidStyle(value: unknown): value is LayerStyle {
 export function styleProblem(value: unknown): string | null {
   if (!value || typeof value !== "object") return "Expected a style object.";
   const s = value as Record<string, unknown>;
+  const unknown = Object.keys(s).find(key => !Object.hasOwn(STYLE_KEYS, key));
+  if (unknown !== undefined) return `Unknown style key: ${unknown}.`;
   if (!isColor(s.stroke)) return "stroke must be a color.";
   if (!isFinitePositive(s.strokeWidth))
     return "strokeWidth must be a non-negative number.";
