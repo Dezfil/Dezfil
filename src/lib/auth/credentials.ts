@@ -135,7 +135,7 @@ export function createApiToken(context: AuthContext, name: string, db: Database 
 export function listApiTokens(context: AuthContext, db: Database = metadataDb(), now?: number) {
   maintainCredentials(db, now);
   now ??= Date.now();
-  return db.transaction(() => listAccountTokens(requireCurrentActor(context, db, now).id, db)).immediate();
+  return db.transaction(() => listAccountTokens(requireCurrentActor(context, db, now).id, db))();
 }
 
 export function revokeApiToken(context: AuthContext, id: string, db: Database = metadataDb(), now?: number): void {

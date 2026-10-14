@@ -5,7 +5,9 @@ import { afterEach, beforeEach, expect, it } from "vitest";
 import { open } from "@/lib/metadata/db";
 import { insertAccount } from "@/lib/metadata/accounts";
 import { insertSession, insertToken } from "@/lib/metadata/auth-credentials";
-import { authenticateSession, authenticateToken, requireCurrentActor, secretHash } from "./credentials";
+import { authenticateSession, authenticateToken, requireCurrentActor, listApiTokens, secretHash } from "./credentials";
+import { adminAccounts } from "./admin";
+import { activateSettingsStore } from "@/lib/settings/store";
 import { maintainCredentials } from "./credential-maintenance";
 
 let directory: string, db: Database.Database, writer: Database.Database;
@@ -15,7 +17,7 @@ beforeEach(() => {
   const file = path.join(directory, "metadata.sqlite");
   db = open(file); writer = new Database(file);
   for (const status of ["active", "deactivated"] as const) insertAccount({ id: status, name: status,
-    email: `${status}@example.test`, passwordHash: null, isAdmin: false, status, now: new Date(start).toISOString() }, db);
+    email: `${status}@example.test`, passwordHash: null, isAdmin: status === "active", status, now: new Date(start).toISOString() }, db);
   for (const id of ["live", "expired", "revoked", "inactive"]) {
     const common = { id, account_id: id === "inactive" ? "deactivated" : "active", secret_hash: secretHash(id),
       created_at: start, last_used_at: start, revoked_at: id === "revoked" ? start : null,
@@ -70,4 +72,14 @@ it("defers a cold cleanup pass without blocking authentication or losing its wor
   writer.exec("ROLLBACK");
   expect(maintainCredentials(db, start + 51)?.removed.sessions).toBe(1);
   expect(db.prepare("SELECT id FROM auth_sessions WHERE id = 'old'").get()).toBeUndefined();
+});
+
+it.each(["tokens", "users"] as const)("reads %s without a write lock", kind => {
+  const context = authenticateSession("live", db, start)!;
+  writer.exec("BEGIN IMMEDIATE");
+  const began = performance.now();
+  const result = kind === "tokens" ? listApiTokens(context, db, start + 50) : adminAccounts(context, db, start + 50);
+  expect(result.map(row => row.id).sort()).toEqual(kind === "tokens" ? ["expired", "live", "revoked"] : ["active", "deactivated"]);
+  activateSettingsStore(db);
+  expect(performance.now() - began).toBeLessThan(500);
 });
