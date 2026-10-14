@@ -454,11 +454,10 @@ export const MAP_RENDER_PATHS = {
         "no app-origin request remains in flight, the relay ends its " +
         "current sockets and refuses re-dials only to the stalled hosts for " +
         "this render. Requests without a terminal event stay armed for another " +
-        "cut after the same bound. The page's offline flip and stop follow " +
-        "each cut; the whole render budget still applies. An image response " +
-        "carries x-dezfil-export-abandoned with the abandonment count and " +
-        "hosts (never paths), counting repeated cuts again. The server " +
-        "log names each abandonment as it happens.",
+        "cut after the same bound. The whole render budget still applies. " +
+        "An image response carries x-dezfil-export-abandoned with the " +
+        "abandonment count and hosts (never paths), counting repeated cuts " +
+        "again. The server log names each abandonment as it happens.",
       tag: "Maps",
       tool: "export_map_image", mcp: REMOTE_READ,
       toolOutput: { binary: { representation: "attachment", nativeImage: false } },
