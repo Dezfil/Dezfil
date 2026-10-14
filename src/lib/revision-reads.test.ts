@@ -1,3 +1,4 @@
+import { EDIT_REVISION_HEADER } from "@/lib/edit-basis";
 import { readFilingRevisions } from "@/lib/test-support/edit-basis";
 import { getStep as readEditStep } from "@/lib/metadata/recipes";
 import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
@@ -97,9 +98,15 @@ it.each(["step", "workflow"])("keeps a reached workflow readable when a %s disap
   const get = () => GET(testAccountRequest(new Request(`http://instance.test/api/recipes/${recipe.id}`), db), { params: Promise.resolve({ id: recipe.id }) });
   const pending = get();
   await waiting;
-  const { removeStep, deleteRecipe } = await import("./metadata/owned-recipes");
-  if (removed === "step") removeStep(scope, step.id, db, { expectedRevision: before.editRevision });
-  else deleteRecipe(scope, recipe.id, db, { expectedRevision: before.editRevision });
+  const { deleteRecipe } = await import("./metadata/owned-recipes");
+  if (removed === "step") {
+    const { DELETE } = await import("@/app/api/recipes/[id]/steps/[stepId]/route");
+    const response = await DELETE(testAccountRequest(new Request(`http://instance.test/api/recipes/${recipe.id}/steps/${step.id}`, {
+      method: "DELETE", headers: { [EDIT_REVISION_HEADER]: before.editRevision! },
+    }), db), { params: Promise.resolve({ id: recipe.id, stepId: step.id }) });
+    expect(response.status).toBe(200);
+    expect(readEditStep(step.id, db)).toBeNull();
+  } else deleteRecipe(scope, recipe.id, db, { expectedRevision: before.editRevision });
   release();
   const response = await pending;
   expect(response.status).toBe(removed === "step" ? 200 : 404);
