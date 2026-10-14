@@ -80,9 +80,9 @@ export async function executeQuery(
       // its CRS in parentheses. GEOMETRY_TYPE is a different type — the
       // enum a geometry's kind is reported in, a text value the text
       // functions do not take — and the former prefix match wrapped it
-      // into a binder error.
+      // into a binder error. Lists and fixed arrays also keep their own type.
       const geometryColumns = columns
-        .filter((c) => c.type === "GEOMETRY" || c.type.startsWith("GEOMETRY("))
+        .filter((c) => /^GEOMETRY(?:\(.*\))?$/.test(c.type))
         .map((c) => c.name);
       const textOf = encoding === "geojson" ? "ST_AsGeoJSON" : "ST_AsText";
       const replace = geometryColumns.length

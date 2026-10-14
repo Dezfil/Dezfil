@@ -59,6 +59,18 @@ describe("executeQuery", () => {
     expect(String(result.preview[0].geometry)).toMatch(/^POINT \(/);
   });
 
+  it.each(["wkt", "geojson"] as const)("previews geometry lists and fixed arrays beside scalar geometry (%s)", async geometry => {
+    const result = await executeQuery(testAccountScope(),
+      "SELECT [geometry, NULL] AS shapes, [geometry]::GEOMETRY[1] AS fixed, geometry FROM stations LIMIT 1",
+      { geometry },
+    );
+    expect(result.columns[0].type).toBe("GEOMETRY('EPSG:4326')[]");
+    expect(result.preview[0].shapes).toEqual([expect.any(String), null]);
+    expect(result.preview[0].fixed).toEqual([expect.any(String)]);
+    expect(result.preview[0].geometry).toEqual(geometry === "geojson"
+      ? { type: "Point", coordinates: [13.41, 52.52] } : "POINT (13.41 52.52)");
+  });
+
   it("previews the geometry-type enum as its text, not as geometry", async () => {
     const result = await executeQuery(testAccountScope(),
       "SELECT ST_GeometryType(geometry) AS kind FROM stations LIMIT 1",
