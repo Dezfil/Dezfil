@@ -21,6 +21,8 @@ import {
 import type { DataTable } from "./api";
 import styles from "./MiniMap.module.css";
 import attribution from "./map/maplibre-attribution.module.css";
+import previewMap from "./map/FeaturePreviewMap.module.css";
+import { attemptTablePreviewWebGLMap } from "./map/table-preview-webgl";
 
 export interface MiniViewport {
   lng: number;
@@ -162,6 +164,10 @@ export function MiniMap({
   const [spaceHeld, setSpaceHeld] = useState(false);
   const [picked, setPicked] = useState<Picked | null>(null);
   const [ready, setReady] = useState(false);
+  // A browser that cannot start the renderer: the mini map says so in its
+  // own place instead of throwing out of its effect and taking the dialog
+  // and the page with it.
+  const [webglFailure, setWebglFailure] = useState<string | null>(null);
   // Screen-space projections of the committed ring, refreshed on map moves.
   const [screenPoints, setScreenPoints] = useState<{ x: number; y: number }[]>(
     [],
@@ -436,18 +442,27 @@ export function MiniMap({
 
   useEffect(() => {
     if (!containerRef.current) return;
-    const map = new maplibregl.Map({
-      container: containerRef.current,
-      style: builtInBasemapUrl(theme === "dark" ? "dark" : "light"),
-      center: initialViewport
-        ? [initialViewport.lng, initialViewport.lat]
-        : [10, 30],
-      zoom: initialViewport?.zoom ?? 1.2,
-      ...maplibregl.MAP_RENDERER_OPTIONS,
-      attributionControl: { compact: true },
-      dragRotate: false,
-      pitchWithRotate: false,
-    });
+    const attempted = attemptTablePreviewWebGLMap(
+      containerRef.current,
+      () =>
+        new maplibregl.Map({
+          container: containerRef.current!,
+          style: builtInBasemapUrl(theme === "dark" ? "dark" : "light"),
+          center: initialViewport
+            ? [initialViewport.lng, initialViewport.lat]
+            : [10, 30],
+          zoom: initialViewport?.zoom ?? 1.2,
+          ...maplibregl.MAP_RENDERER_OPTIONS,
+          attributionControl: { compact: true },
+          dragRotate: false,
+          pitchWithRotate: false,
+        }),
+    );
+    if (!attempted.ok) {
+      setWebglFailure(attempted.message);
+      return;
+    }
+    const map = attempted.value;
     map.doubleClickZoom.disable();
     mapRef.current = map;
     // The compact attribution starts expanded and only collapses on the
@@ -868,6 +883,24 @@ export function MiniMap({
                   : "Click to add points · Esc starts over · Space pans"
                 : "Enter or right-click to finish · Esc starts over"
               : "Drag corners to adjust · double-click one to remove";
+
+  // Without a map there is nothing to select on: the note alone.
+  if (webglFailure) {
+    return (
+      <div className={styles.wrap}>
+        <div
+          className={`${previewMap.notice} ${previewMap.webglFailure}`}
+          role="alert"
+          data-mini-map-webgl-failed=""
+        >
+          <div>
+            <strong>WebGL is unavailable</strong>
+            <p>{webglFailure}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div

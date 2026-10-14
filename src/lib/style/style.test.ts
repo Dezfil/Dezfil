@@ -802,6 +802,21 @@ describe("the halo migration and label domains", () => {
     ).toContain("label.halo has been replaced");
   });
 
+  it("a halo width takes 0 to 3; above 3 is refused, naming the range", () => {
+    const style = defaultStyle("POINT");
+    const haloColor = { r: 12, g: 16, b: 24, a: 0.8 };
+    for (const haloWidth of [0, 1, 2.5, 3]) {
+      expect(styleProblem({ ...style, label: { ...base, haloWidth, haloColor } })).toBeNull();
+    }
+    for (const haloWidth of [3.01, 4, -0.1]) {
+      expect(styleProblem({ ...style, label: { ...base, haloWidth, haloColor } })).toBe(
+        "label.haloWidth must be a number, 0 to 3 (0 = no halo).",
+      );
+    }
+    // A stored width of 3 reads back as given.
+    expect(normalizeStyle({ ...style, label: { ...base, haloWidth: 3, haloColor } }).label?.haloWidth).toBe(3);
+  });
+
   it("validates each new domain with its field-specific wording", () => {
     const good = {
       ...base,
@@ -811,7 +826,7 @@ describe("the halo migration and label domains", () => {
     const style = defaultStyle("POINT");
     expect(styleProblem({ ...style, label: good })).toBeNull();
     const cases: [Partial<Record<string, unknown>>, string][] = [
-      [{ haloWidth: 1.5 }, "label.haloWidth"],
+      [{ haloWidth: 3.5 }, "label.haloWidth"],
       [{ haloColor: "red" }, "label.haloColor"],
       [{ weight: "heavy" }, "label.weight"],
       [{ anchor: "middle" }, "label.anchor"],

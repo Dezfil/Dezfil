@@ -12,6 +12,7 @@ import { skippedNotice } from "../skipped-members";
 import { PlusIcon } from "../ui/icons";
 import { uploadSettleNotice } from "../upload-settle-notice";
 import { useUploadQueue, type UploadQueue } from "../use-upload-queue";
+import type { NoticeTone } from "../use-transient-notice";
 import styles from "./Home.module.css";
 
 /**
@@ -40,7 +41,7 @@ export function HomeStart({
   /** A dataset may have landed: Home re-reads the datasets. */
   onDatasetsChanged: () => void;
   /** An import's outcome, as the other hosts of Add data say it. */
-  onNotice: (text: string | null) => void;
+  onNotice: (text: string | null, tone?: NoticeTone) => void;
   onError: (message: string) => void;
 }) {
   const router = useRouter();
@@ -87,7 +88,7 @@ export function HomeStart({
     onListingStale: onDatasetsChanged,
     onSettled: (report) => {
       onDatasetsChanged();
-      const { text, clean } = uploadSettleNotice(report);
+      const { text, clean, tone } = uploadSettleNotice(report);
       if (addingRef.current) {
         // A batch that landed whole closes the dialog with its outcome;
         // anything else keeps it open, its notes readable there.
@@ -97,9 +98,9 @@ export function HomeStart({
         }
       } else {
         // Closed during the upload: the outcome is said on Home, the only
-        // account of it now, and the settled batch is dropped so the next
-        // open starts fresh.
-        onNotice(text);
+        // account of it now, in the look of how it went, and the settled
+        // batch is dropped so the next open starts fresh.
+        onNotice(text, tone);
         queueRef.current?.reset();
       }
     },

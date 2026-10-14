@@ -4,6 +4,7 @@ import { decodeGeoJSON, geojsonProjection } from "./budget-geojson";
 import { DuckDBListVector, DuckDBStructVector, JsonDuckDBValueConverter, type DuckDBConnection, type DuckDBVector } from "@duckdb/node-api";
 import { budgetProjection, quoteIdent, type Projection } from "./budget-projection";
 import { CellBudget, jsonBytes, type ResultBudget } from "./result-budget";
+import { setOwn } from "./set-own";
 
 function decode(vector: DuckDBVector, index: number, projection: Projection, budget: CellBudget): unknown {
   if (projection.kind === "variant") return decodeVariant(vector, index, budget);
@@ -39,7 +40,7 @@ function decode(vector: DuckDBVector, index: number, projection: Projection, bud
     for (let i = 0; i < projection.names!.length; i++) {
       const name = projection.names![i];
       budget.take(jsonBytes(name) + 1);
-      result[name] = decode(fields.entryVectorAt(i), index, projection.children![i], budget);
+      setOwn(result, name, decode(fields.entryVectorAt(i), index, projection.children![i], budget));
     }
     return result;
   }
@@ -82,7 +83,7 @@ export async function readBudgetedRows(conn: DuckDBConnection, sql: string, budg
         const row: Record<string, unknown> = {};
         for (let c = 0; c < keys.length; c++) {
           budget.take(shape ? shape.keyBytes(keys[c]) : jsonBytes(keys[c]) + 1);
-          row[keys[c]] = decode(chunk.getColumnVector(c), r, projections[c], new CellBudget(budget, geometryColumns.has(names[c])));
+          setOwn(row, keys[c], decode(chunk.getColumnVector(c), r, projections[c], new CellBudget(budget, geometryColumns.has(names[c]))));
         }
         rows.push(row);
       }

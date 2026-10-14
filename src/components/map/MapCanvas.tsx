@@ -44,12 +44,11 @@ import {
   deckUpdateTriggers,
   extrusionScale,
   extrusionProps,
-  fillAccessor,
   cellLabelMeters,
+  iconFillAccessor,
   layerOpacity,
   odLayerProps,
   odUpdateTriggers,
-  opaqueFillPaint,
   sizeAccessor,
 } from "@/lib/style/deck-style";
 import { createLabelStore } from "./label-data";
@@ -741,12 +740,7 @@ export function MapCanvas({
             const sizeBy = l.style.pointRadiusBy
               ? sizeAccessor(l.style.pointRadiusBy, "sqrt")
               : null;
-            // Glyphs tint at full color alpha — the authored fill alpha is
-            // an area-mark convention the picker can't even edit.
-            const fill = fillAccessor(
-              opaqueFillPaint(l.style.fill),
-              l.style.fillOpacity,
-            );
+            const fill = iconFillAccessor(l.style);
             // Once per layer — deck evaluates getIcon per datum.
             const source = iconSource(glyph, customSvg);
             const icons = new IconLayer({

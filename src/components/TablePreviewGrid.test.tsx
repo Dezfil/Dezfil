@@ -24,6 +24,18 @@ describe("the dataset page's Data preview grid", () => {
     expect(html).not.toContain(">undefined<");
     expect(html).toContain('title=""');
   });
+  it("a column named __proto__ or constructor shows the row's own value, and a row without one shows the empty glyph, never what the prototype carries", () => {
+    const inherited = [{ name: "__proto__", type: "VARCHAR" }, { name: "constructor", type: "VARCHAR" }];
+    // Rows arrive as parsed JSON, which keeps either name as an own key.
+    const own = renderToStaticMarkup(<TablePreviewGrid columns={inherited} rows={[JSON.parse('{"__proto__":"north","constructor":"Ada"}')]} />);
+    expect(own).toContain('title="north"');
+    expect(own).toContain(">north<");
+    expect(own).toContain(">Ada<");
+    const missing = renderToStaticMarkup(<TablePreviewGrid columns={inherited} rows={[{}]} />);
+    expect(missing.match(/∅/g)).toHaveLength(2);
+    expect(missing).not.toContain("[object Object]");
+    expect(missing).not.toContain("function Object");
+  });
 });
 
 describe("the grid while the set-geometry panel is open", () => {

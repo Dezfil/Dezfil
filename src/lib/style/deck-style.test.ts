@@ -40,6 +40,15 @@ describe("sizeAccessor", () => {
     expect(size({ properties: null })).toBe(4);
   });
 
+  it("draws a null or empty value smallest too, never as 0 on a domain that reaches past it", () => {
+    for (const domain of [[-100, -10], [-50, 50]] as [number, number][]) {
+      const size = sizeAccessor({ ...scale, domain }, "sqrt");
+      expect(size(f(null)), String(domain)).toBe(4);
+      expect(size(f("")), String(domain)).toBe(4);
+    }
+    expect(sizeAccessor({ ...scale, domain: [-50, 50] }, "linear")(f(null))).toBe(4);
+  });
+
   it("keeps order on negative domains and collapses to smallest on a flat one", () => {
     const negative = sizeAccessor(
       { ...scale, domain: [-100, -10] },
@@ -244,5 +253,9 @@ describe("labels", () => {
     expect(on.fontSettings).toEqual({ sdf: true });
     expect(on.characterSet).toBe("auto");
     expect(deckLabelProps({ ...label, haloWidth: 0, haloColor: { r: 12, g: 16, b: 24, a: 0.8 } }).outlineWidth).toBe(0);
+  });
+
+  it("draws the widest halo as given, unclamped", () => {
+    expect(deckLabelProps({ ...label, haloWidth: 3 }).outlineWidth).toBe(3);
   });
 });

@@ -3,7 +3,6 @@
 import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useOperations } from "../builder/drawer/use-operations";
-import gallery from "../gallery.module.css";
 import { AttentionArea, type AttentionRowView } from "../projects/AttentionArea";
 import { useSignedInLabel } from "../sharing/signed-in";
 import { useInstanceName } from "../shell/path-model";
@@ -12,6 +11,7 @@ import { templateAddress } from "../templates/template-model";
 import { useTheme } from "../theme";
 import { ErrorNote } from "../ui/ErrorNote";
 import { useTransientNotice } from "../use-transient-notice";
+import { TransientNotice } from "../TransientNotice";
 import { homeView, type HomeRunRow } from "./home-model";
 import { useHomeReads, useLeadHistory, useRereadAfterRun } from "./home-reads";
 import { LeadPlace } from "./HomeLead";
@@ -77,7 +77,7 @@ export function HomeScreen() {
     () => (reads.workflows.status === "ready" ? [...reads.workflows.value] : []),
     [reads.workflows],
   );
-  const { notice, show: showNotice } = useTransientNotice();
+  const { notice, tone: noticeTone, show: showNotice } = useTransientNotice();
   const [actionError, setActionError] = useState<string | null>(null);
   const [copying, setCopying] = useState<string | null>(null);
   // Beside a lead, or one still being worked out, Start stands two by two;
@@ -90,11 +90,7 @@ export function HomeScreen() {
         {view.welcome}
       </h1>
       {actionError && <ErrorNote message={actionError} onDismiss={() => setActionError(null)} />}
-      {notice && (
-        <div className={gallery.notice} role="status">
-          {notice}
-        </div>
-      )}
+      <TransientNotice notice={notice} tone={noticeTone} onDismiss={() => showNotice(null)} />
       <div className={styles.leadRow} data-form={form} data-beside={lead.kind}>
         <LeadPlace
           lead={lead}

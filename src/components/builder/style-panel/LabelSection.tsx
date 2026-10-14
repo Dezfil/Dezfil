@@ -5,6 +5,7 @@ import {
   LABEL_ANCHORS,
   LABEL_CASES,
   LABEL_CAP,
+  LABEL_HALO_WIDTH_MAX,
   LABEL_MAX_CHARS,
   LABEL_OFFSET_MAX,
   LABEL_ROTATION_MAX,
@@ -140,7 +141,7 @@ export function LabelSection({
             label="Halo width"
             value={label.haloWidth}
             min={0}
-            max={1}
+            max={LABEL_HALO_WIDTH_MAX}
             step={0.05}
             {...sliderHandlers("haloWidth")}
           />

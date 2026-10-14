@@ -10,6 +10,7 @@ import { niceBreaks } from "./nice-breaks";
 // Re-exported so break consumers (and tests) keep one import site.
 export { niceBreaks } from "./nice-breaks";
 import type { ContinuousFill, FillPaint, RgbaColor, SizeScale } from "./style";
+import { NO_DATA_COLOR } from "./style";
 import {
   sequentialColors,
   categoricalColors,
@@ -325,7 +326,7 @@ export async function classifyFill(
       );
     }
     const colors = categoricalColors(values.length, palette, reversed);
-    const other = { r: 120, g: 130, b: 150, a: 0.55 };
+    const other = { ...NO_DATA_COLOR };
     return {
       type: "categorical" as const,
       attribute,
