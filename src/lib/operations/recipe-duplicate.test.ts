@@ -39,3 +39,19 @@ it("refuses a rename that would strand a schema-qualified column before writing 
   await expect(duplicateRecipe(scope, source.id)).rejects.toMatchObject({ code: "invalid_request" });
   expect(listRecipes(db).map(recipe => recipe.id)).toEqual([source.id]);
 });
+
+it("keeps rewritten output bindings when a copied SQL step is unfinished", async () => {
+  const scope = testAccountScope(db), source = createRecipe(scope, "Source", db);
+  addStep(source.id, { operation: "sql_step", parameters: { sql: "SELECT 7 AS x", name: "a" } }, db);
+  addStep(source.id, { operation: "sql_step", parameters: { sql: "SELECT a.x FROM a WHERE", name: "b" } }, db);
+  const copy = await duplicateRecipe(scope, source.id);
+  const [producer, consumer] = listSteps(copy.id, db);
+  expect(consumer.parameters.sql).toBe("SELECT a.x FROM a_copy AS a WHERE");
+  const engine = await DuckDBInstance.create(":memory:"), conn = await engine.connect();
+  try {
+    await conn.run("CREATE TABLE a AS SELECT 99 AS x");
+    await conn.run(`CREATE TABLE "${producer.parameters.name}" AS ${producer.parameters.sql}`);
+    const result = await conn.runAndReadAll(`${consumer.parameters.sql} a.x > 0`);
+    expect(result.getRowObjectsJson()).toEqual([{ x: 7 }]);
+  } finally { conn.closeSync(); engine.closeSync(); }
+});

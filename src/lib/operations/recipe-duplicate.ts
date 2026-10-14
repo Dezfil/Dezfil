@@ -140,8 +140,8 @@ export async function duplicateRecipe(scope: AccountScope, sourceId: string): Pr
     if (typeof planned[i].parameters.sql !== "string") continue;
     const originalSql = String(steps[i].parameters.sql);
     const original = await readCopySql(scope, originalSql);
-    // An incomplete definition stays incomplete in the copy.
-    if (original === null) { planned[i].parameters.sql = originalSql; continue; }
+    // Keep renamed bindings even while the definition is incomplete.
+    if (original === null) continue;
     const text = String(planned[i].parameters.sql);
     const copied = text === originalSql ? original : await readCopySql(scope, text);
     const same = copyReadsAgree(original, copied, inputs[i]);
