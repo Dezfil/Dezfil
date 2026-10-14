@@ -150,3 +150,25 @@ it("native GeoParquet replay uses fresh raw bytes and refuses a newly declared c
   await expect(refreshTable(testAccountScope(), t.name)).rejects.toMatchObject({ code: "geometry_choice_invalid", extra: { issues: [{ code: "conflicting_crs" }] } });
   expect(getTableByName(t.name)).toEqual(fresh);
 });
+
+it.each(["", "\n\r\n", " \t\n  "])("refuses empty fresh CSV content before replaying a stored geometry choice (%j)", async csv => {
+  remote = 'payload,x,y\n"POINT (1 2)",10,20\n';
+  const table = (await importFromUrl(testAccountScope(), "https://fixture.test/empty.csv")).tables[0];
+  await setGeometry(testAccountScope(), table.name, geometryRevision(table), { format: "pair", columns: ["x", "y"] });
+  await retirementsSettled();
+  const before = getTableByName(table.name)!;
+  const geometry = await inspectGeometry(testAccountScope(), table.name);
+  const tablesDir = path.join(process.env.DEZFIL_DATA_DIR!, "tables");
+  const inventory = await readdir(tablesDir);
+  const artifact = await readFile(path.join(process.env.DEZFIL_DATA_DIR!, before.file));
+
+  remote = csv;
+  await expect(refreshTable(testAccountScope(), table.name)).rejects.toMatchObject({
+    code: "malformed_file", status: 422,
+    message: "The file could not be read as csv: The CSV contains no header or data.",
+  });
+  expect(getTableByName(table.name)).toEqual(before);
+  expect(await inspectGeometry(testAccountScope(), table.name)).toEqual(geometry);
+  expect(await readdir(tablesDir)).toEqual(inventory);
+  expect(await readFile(path.join(process.env.DEZFIL_DATA_DIR!, before.file))).toEqual(artifact);
+});

@@ -19,6 +19,7 @@ import {
 import { metadataDb } from "@/lib/metadata/db";
 import { fileOwnedTable } from "@/lib/metadata/owned-tables";
 import { geometryColumnOfSelect, planSource } from "./file-source";
+import { requireCsvContent } from "./csv-content";
 import { replayFileGeometry, type GeometryReplay } from "@/lib/geometry/replay";
 import type { GeometryStorage } from "@/lib/geometry/state";
 import { ident, lit } from "./sql";
@@ -70,6 +71,7 @@ export async function buildArtifact(
   replay?: GeometryReplay,
 ): Promise<ArtifactMeta> {
   const format = detectFormat(filenameForFormat);
+  if (format === "csv") await requireCsvContent(sourcePath);
   await mkdir(path.dirname(artifact), { recursive: true });
 
   return withConnection(async (conn) => {
