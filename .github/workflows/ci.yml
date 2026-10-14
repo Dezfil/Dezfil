@@ -64,7 +64,12 @@ jobs:
           echo "$HOME/tippecanoe-bin" >> "$GITHUB_PATH"
           "$HOME/tippecanoe-bin/tippecanoe" --version
       - run: npm run lint
+      # A clean type check of this tree needs about 2.5 GB of heap (5,250
+      # files, 600,000 types). Node's default on the runner is smaller, so
+      # the step died out of memory on every run since early October.
       - run: npm run typecheck
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
       # A NUL byte makes git and grep treat a source file as binary: it
       # disappears from text search and from reviewable diffs.
       - run: npm run lint:hygiene
