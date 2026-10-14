@@ -385,6 +385,7 @@ export function RenderExportView({
       failures,
       legendLayers,
       basemap: {
+        key: m.basemap,
         url: eff.url,
         kind: eff.kind,
         custom: eff.custom,
@@ -501,6 +502,8 @@ export function RenderExportView({
         map={buildCompositionMapInputs({
           definitionBasemapLayers: def.basemapLayers,
           storedBasemapLayers: stage.basemap.layers,
+          basemapKey: stage.basemap.key,
+          appearance: def.appearance,
           basemapUrl: stage.basemap.url,
           basemapKind: stage.basemap.kind,
           customBasemap: stage.basemap.custom,

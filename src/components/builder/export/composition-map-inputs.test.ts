@@ -17,6 +17,8 @@ function assembled(
   return buildCompositionMapInputs({
     definitionBasemapLayers,
     storedBasemapLayers: storedHidden,
+    basemapKey: null,
+    appearance: "light",
     basemapUrl: "/style.json",
     basemapKind: "vector",
     fallbackColor: "#fff",
