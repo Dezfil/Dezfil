@@ -29,9 +29,16 @@ import { renderRequestBoundMs } from "./render-stall";
  * Provisioning: DEZFIL_STALLED_TILES_RENDER names a production standalone's
  * port; DEZFIL_DATA_DIR is the directory both share; DEZFIL_CHROMIUM_PATH
  * points at a headless shell; DEZFIL_EGRESS_ALLOWLIST admits 127.0.0.1.
- * Skipped without the port.
+ * DEZFIL_RENDER_DELEGATION_KEY is the same 64 hexadecimal digits in both
+ * processes. From the repository root, launch the provisioned standalone:
+ * PORT="$DEZFIL_STALLED_TILES_RENDER" HOSTNAME=127.0.0.1 node
+ * --import="data:text/javascript,process[Symbol.for('dezfil.session-delegation-key')]=Buffer.from(process.env.DEZFIL_RENDER_DELEGATION_KEY,'hex')"
+ * --import=./scripts/ingress-preload.mjs .next/standalone/server.js
+ * (Join those three lines into one command.) Skipped without the port;
+ * setup refuses a missing key or a standalone that rejects the credential.
  */
 const port = process.env.DEZFIL_STALLED_TILES_RENDER;
+const SIGNING_KEY = Symbol.for("dezfil.session-delegation-key");
 
 /** One opaque pixel, the answer to every tile but the held one. */
 const ONE_PX = Buffer.from(
@@ -41,8 +48,8 @@ const ONE_PX = Buffer.from(
 
 /** A raster style whose first viewport tile is held open for ever. A
  * prefetched parent that never arrives does not hold the map's idle; only
- * a tile the viewport needs does, which is what the stall is about
- * (learned in ` `). Without the CORS header the style fails to load and
+ * a tile the viewport needs does, which is what the stall is about.
+ * Without the CORS header the style fails to load and
  * the page settles on its offline fallback, which is a different case. */
 async function startStallingBasemap() {
   const held: ServerResponse[] = [];
@@ -84,10 +91,17 @@ async function startStallingBasemap() {
 describe.skipIf(!port)("the check outlives a stalled tile host", () => {
   let mapId: string;
   let basemap: Awaited<ReturnType<typeof startStallingBasemap>>;
+  let restoreKey: (() => void) | undefined;
 
   beforeAll(async () => {
     const dir = process.env.DEZFIL_DATA_DIR;
     if (!dir) throw new Error("DEZFIL_DATA_DIR must name the directory the standalone shares");
+    const key = process.env.DEZFIL_RENDER_DELEGATION_KEY ?? "";
+    if (!/^[0-9a-f]{64}$/i.test(key)) throw new Error("DEZFIL_RENDER_DELEGATION_KEY must carry the standalone's render signing key, 64 hexadecimal digits");
+    const slots = process as unknown as Record<symbol, unknown>;
+    const heldKey = slots[SIGNING_KEY];
+    restoreKey = () => { if (heldKey === undefined) delete slots[SIGNING_KEY]; else slots[SIGNING_KEY] = heldKey; };
+    slots[SIGNING_KEY] = Buffer.from(key, "hex");
     vi.stubEnv("PORT", port!);
     closeMetadataDb(); resetQueryInstance();
     basemap = await startStallingBasemap();
@@ -103,9 +117,17 @@ describe.skipIf(!port)("the check outlives a stalled tile host", () => {
       customBasemap: { url: basemap.styleUrl, name: "Stalling tiles", attribution: [{ label: "Stall fixture" }] },
     }, { expectedRevision: readEditRevision({ kind: "map", id: mapId })?.editRevision });
     await createLayer(testAccountScope(), mapId, { name: "Point", sql: `SELECT * FROM ${table.name}`, style: { fill: { type: "constant", color: { r: 26, g: 93, b: 74, a: 1 } }, fillOpacity: 1, stroke: { r: 0, g: 0, b: 0, a: 1 }, strokeOpacity: 1, strokeWidth: 0, pointRadius: 10, opacity: 1 } }, { expectedRevision: readEditRevision({ kind: "map", id: mapId })?.editRevision });
+    const accepted = await fetch(`http://127.0.0.1:${port}/api/maps/${mapId}`, {
+      headers: { authorization: `Bearer ${delegateCredential(requireRequestAuth(authenticatedRequest()))}` },
+      redirect: "manual",
+    });
+    if (accepted.status !== 200) throw new Error(`The standalone on port ${port} refused this process's render credential (${accepted.status}): start it with the same DEZFIL_RENDER_DELEGATION_KEY`);
   }, 120_000);
 
-  afterAll(async () => { await basemap?.close(); vi.unstubAllEnvs(); });
+  afterAll(async () => {
+    restoreKey?.();
+    try { await basemap?.close(); } finally { vi.unstubAllEnvs(); }
+  });
 
   it("answers an image naming the abandoned host, inside the check's own budget", async () => {
     const budget = limits.assistantLookTimeoutMs;

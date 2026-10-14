@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { limits } from "@/lib/limits";
 import {
   renderRequestBoundMs,
+  RenderRequestLedger,
   stalledExternalRequests,
   STALL_GRACE_MS,
   type InflightRequest,
@@ -22,6 +23,51 @@ const own = (started: number): InflightRequest => ({
   started,
   host: "127.0.0.1",
   external: false,
+});
+
+describe("request accounting", () => {
+  const now = 100_000;
+
+  it("two starts under one network id and one finish leave no ghost holding the cut", () => {
+    const ledger = new RenderRequestLedger();
+    ledger.start({ id: "tile" }, tile(0));
+    ledger.start({ id: "font" }, own(0));
+    const secondPause = { id: "font" };
+    ledger.start(secondPause, own(10));
+    ledger.finish(secondPause);
+    expect(ledger.abandon(now, 10_000)).toEqual(["tiles.example.org"]);
+    expect(ledger.abandon(now, 10_000)).toEqual([]);
+  });
+
+  it("a distinct outstanding app request still holds the cut", () => {
+    const ledger = new RenderRequestLedger();
+    ledger.start({ id: "tile" }, tile(0));
+    ledger.start({ id: "font-1" }, own(0));
+    ledger.start({ id: "font-2" }, own(0));
+    ledger.finish({ id: "font-1" });
+    expect(ledger.abandon(now, 10_000)).toEqual([]);
+    ledger.finish({ id: "font-2" });
+    expect(ledger.abandon(now, 10_000)).toEqual(["tiles.example.org"]);
+  });
+
+  it("keeps the first start time when a request is paused again", () => {
+    const ledger = new RenderRequestLedger();
+    ledger.start({ id: "tile" }, tile(0));
+    ledger.start({ id: "tile" }, tile(now - 1));
+    expect(ledger.abandon(now, 10_000)).toEqual(["tiles.example.org"]);
+  });
+
+  it("keeps requests without a network id separate until their own finish", () => {
+    const ledger = new RenderRequestLedger();
+    const first = {}, second = {};
+    ledger.start({ id: "tile" }, tile(0));
+    ledger.start(first, own(0));
+    ledger.start(second, own(0));
+    ledger.finish(first);
+    expect(ledger.abandon(now, 10_000)).toEqual([]);
+    ledger.finish(second);
+    expect(ledger.abandon(now, 10_000)).toEqual(["tiles.example.org"]);
+  });
 });
 
 describe("the per-request bound", () => {

@@ -35,6 +35,37 @@ export interface InflightRequest {
   external: boolean;
 }
 
+function requestKey(request: object): object | string {
+  // Puppeteer marks HTTPRequest.id internal in its public types. It is the
+  // network id shared by repeated pauses of one request, which can produce
+  // distinct objects but only one finish. If absent, retain object identity:
+  // unrelated requests must never be merged by URL or an undefined key.
+  const id = (request as { readonly id?: unknown }).id;
+  return typeof id === "string" && id.length > 0 ? id : request;
+}
+
+/** Bookkeeping shared by request events and the stall watchdog. */
+export class RenderRequestLedger {
+  private readonly requests = new Map<object | string, InflightRequest>();
+
+  start(request: object, metadata: InflightRequest): void {
+    const key = requestKey(request);
+    if (!this.requests.has(key)) this.requests.set(key, metadata);
+  }
+
+  finish(request: object): void {
+    this.requests.delete(requestKey(request));
+  }
+
+  abandon(now: number, boundMs: number): string[] {
+    return stalledExternalRequests(this.requests.entries(), now, boundMs).map((key) => {
+      const host = this.requests.get(key)!.host;
+      this.requests.delete(key);
+      return host;
+    });
+  }
+}
+
 /**
  * Which requests are abandoned at this moment: every external one, when
  * one of them has outlived the bound, none of them is younger than the
