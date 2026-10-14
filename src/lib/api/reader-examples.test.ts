@@ -36,7 +36,7 @@ it.each(["docs/api.md", "docs/mcp.md"])("executes %s with two accepted writes an
   const source = example(file);
   const run = (code: string) => new AsyncFunction("base", "token", "fetch", code)(base, token, fetch);
   await run(source);
-  const maps = mapsOverview(testAccountScope(db));
+  const maps = await mapsOverview(testAccountScope(db));
   expect(maps).toHaveLength(1); expect(maps[0]).toMatchObject({ name: "Survey map", basemap: "light" });
   const withoutRevision = source.replaceAll('"X-Edit-Revision": current.editRevision', '"X-Edit-Revision": ""').replaceAll('expected_revision: current.editRevision', 'expected_revision: ""');
   expect(withoutRevision).not.toBe(source);

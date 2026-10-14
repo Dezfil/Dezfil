@@ -70,6 +70,18 @@ export async function imageInputs(image: string, bytes: Uint8Array): Promise<Art
   }
 }
 
+/** The inputs this image's evidence records, read without the image: what
+ * a listing judges the image by. Serving reads the bytes and holds the
+ * evidence to them (imageInputs), so evidence of other bytes still
+ * leaves the image unattributed where it is served. */
+export async function recordedInputs(image: string): Promise<ArtifactInputs | null> {
+  try {
+    return parseInputs((JSON.parse(await readFile(evidencePath(image), "utf8")) as { inputs?: unknown }).inputs);
+  } catch {
+    return null;
+  }
+}
+
 export async function removeImageEvidence(image: string): Promise<void> {
   await observeDeletionCleanup(() => rm(evidencePath(image), { force: true }));
 }

@@ -28,7 +28,7 @@ it("pairs reached maps, lists, children and publication with safe covered-change
   const expected = { editRevision: facts.editRevision, lastChangedAt: facts.lastChangedAt,
     lastChangedBy: { name: scope.accountId, sqlName: "test_account" } };
   expect(readMap(scope, map.id)).toMatchObject(expected);
-  expect(mapsOverview(scope)[0]).toMatchObject(expected);
+  expect((await mapsOverview(scope))[0]).toMatchObject(expected);
   const response = await getLayer(testAccountRequest(new Request(`http://instance.test/api/layers/${layer.id}`), db), { params: Promise.resolve({ id: layer.id }) });
   expect(await response.json()).toMatchObject(expected);
   expect(getPublicationState(scope, map.id)).toMatchObject(expected);

@@ -123,5 +123,5 @@ export async function projectMembers(scope: AccountScope, id: string): Promise<P
   );
   const tables = await listTablesWithSize(scope, id);
   requireProject(scope, id);
-  return { maps: mapsOverview(scope, id), recipes, tables };
+  return { maps: await mapsOverview(scope, id), recipes, tables };
 }
