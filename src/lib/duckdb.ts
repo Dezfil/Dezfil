@@ -1,3 +1,5 @@
+import { currentTrustedOperation, isTrustedOperationRefusal } from "./trusted-operation";
+import { runTrustedConnection, trustedEngineError } from "./trusted-connection";
 import { registerQueryStore } from "./query/retained";
 import { registerCrsValidator } from "./query/projection-policy";
 import type { DatasetScope } from "@/lib/query/access";
@@ -86,6 +88,7 @@ async function loadSpatial(conn: DuckDBConnection, install = true): Promise<void
   try {
     await conn.run("LOAD spatial");
   } catch (error) {
+    if (isTrustedOperationRefusal(error)) throw error;
     if (!install) {
       // Not installed is the one failure said as such; a file that is
       // there but will not load stays the engine's own error.
@@ -320,11 +323,15 @@ export async function withConnection<T>(
   fn: (conn: DuckDBConnection) => Promise<T>,
 ): Promise<T> {
   const release = holdConnection();
-  let conn: DuckDBConnection | undefined;
+  const operation = currentTrustedOperation();
   try {
-    const instance = await getInstance(); conn = await instance.connect();
-    await loadSpatial(conn); return await fn(conn);
-  } finally { conn?.disconnectSync(); release(); }
+    operation?.assertCanCommit();
+    const instance = await getInstance();
+    operation?.assertCanCommit();
+    const conn = await instance.connect();
+    return await runTrustedConnection(conn, async guarded => { await loadSpatial(guarded); return fn(guarded); }, operation);
+  } catch (error) { throw trustedEngineError(error, operation); }
+  finally { release(); }
 }
 
 /**

@@ -1,3 +1,4 @@
+import { withTrustedOperation } from "@/lib/trusted-operation";
 import type { DuckDBConnection } from "@duckdb/node-api";
 import { ApiError } from "@/lib/api/errors";
 import { GEOMETRY_PROJECTION_NAMES } from "@/lib/geometry-evidence";
@@ -23,16 +24,18 @@ export async function projectionSupported(conn: DuckDBConnection, epsg: number):
     throw error;
   }
 }
-export async function listProjections(query?: string) {
-  let resolved: ReturnType<typeof entry> | null = null;
-  if (query !== undefined) {
-    if (!/^(?:EPSG:)?[0-9]+$/i.test(query)) throw new ApiError("invalid_request", "Enter a numeric EPSG code.", 400);
-    const epsg = Number(query.replace(/^EPSG:/i, ""));
-    if (!Number.isSafeInteger(epsg) || epsg <= 0) throw new ApiError("invalid_request", "Enter a positive EPSG code.", 400);
-    if (!await withConnection(conn => projectionSupported(conn, epsg))) {
-      throw new ApiError("geometry_choice_invalid", `EPSG:${epsg} cannot be transformed to WGS 84.`, 422);
+export async function listProjections(query?: string, signal?: AbortSignal) {
+  return withTrustedOperation({ kind: "interactive-read", name: "Projection lookup", signal }, async () => {
+    let resolved: ReturnType<typeof entry> | null = null;
+    if (query !== undefined) {
+      if (!/^(?:EPSG:)?[0-9]+$/i.test(query)) throw new ApiError("invalid_request", "Enter a numeric EPSG code.", 400);
+      const epsg = Number(query.replace(/^EPSG:/i, ""));
+      if (!Number.isSafeInteger(epsg) || epsg <= 0) throw new ApiError("invalid_request", "Enter a positive EPSG code.", 400);
+      if (!await withConnection(conn => projectionSupported(conn, epsg))) {
+        throw new ApiError("geometry_choice_invalid", `EPSG:${epsg} cannot be transformed to WGS 84.`, 422);
+      }
+      resolved = entry(epsg);
     }
-    resolved = entry(epsg);
-  }
-  return { projections: CURATED.map(entry), resolved };
+    return { projections: CURATED.map(entry), resolved };
+  });
 }

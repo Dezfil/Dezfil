@@ -13,6 +13,6 @@ export async function POST(request: Request, { params }: Params) {
     // A preview of a geometry change: the owner's, like the change itself.
     const name = requireOwnDataset(scope, (await params).name).table.name;
     const { expectedRevision, choice } = await geometryRequest(request);
-    return NextResponse.json(await previewGeometry(scope, name, expectedRevision, choice));
+    return NextResponse.json(await previewGeometry(scope, name, expectedRevision, choice, request.signal));
   } catch (error) { return errorResponse(error); }
 }

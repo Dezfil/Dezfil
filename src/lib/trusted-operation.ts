@@ -25,6 +25,10 @@ export interface TrustedOperationOptions {
   signal?: AbortSignal;
   /** An already captured budget, for the reception-to-processing handoff. */
   budgetMs?: number;
+  /** A shared child keeps the original absolute deadline and admitted limit. */
+  deadline?: number;
+  /** Interests are parent-operation signals; stop when none still needs this child. */
+  shared?: boolean;
 }
 
 /** Keep every already-coded refusal intact through source-specific wrappers,
@@ -70,7 +74,7 @@ export class TrustedOperation {
   get decidedAt(): number | null { return this.decisionTime; }
   get settlementDeadline(): number | null { return this.decisionTime === null ? null : this.decisionTime + TRUSTED_SETTLEMENT_MS; }
   private readonly controller = new AbortController();
-  private readonly policy: (typeof TRUSTED_OPERATION_POLICIES)[TrustedOperationKind];
+  private readonly policy: { budget: "query" | "processing"; departure: "cancel" | "continue" };
   private readonly stopped = Promise.withResolvers<never>();
   private readonly settlement = Promise.withResolvers<void>();
   private readonly drain = Promise.withResolvers<void>();
@@ -90,10 +94,11 @@ export class TrustedOperation {
 
   constructor(options: TrustedOperationOptions) {
     this.kind = options.kind; this.name = options.name;
-    this.policy = TRUSTED_OPERATION_POLICIES[options.kind];
+    this.policy = { ...TRUSTED_OPERATION_POLICIES[options.kind], ...(options.shared ? { departure: "cancel" as const } : {}) };
     this.budgetMs = options.budgetMs ?? (this.policy.budget === "query" ? limits.queryTimeoutMs : limits.dataProcessingTimeoutMs);
     if (!Number.isFinite(this.budgetMs) || this.budgetMs <= 0) throw new RangeError("An operation budget must be positive and finite.");
-    this.deadline = this.admittedAt + this.budgetMs;
+    if (options.deadline !== undefined && !Number.isFinite(options.deadline)) throw new RangeError("An operation deadline must be finite.");
+    this.deadline = Math.min(this.admittedAt + this.budgetMs, options.deadline ?? Infinity);
     this.stage = options.kind === "upload-reception" ? "reception" : this.policy.budget;
     this.remedy = settingRemedy(this.policy.budget === "query" ? "queryTimeoutS" : "dataProcessingTimeoutS");
     this.signal = this.controller.signal;

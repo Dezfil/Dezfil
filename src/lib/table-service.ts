@@ -1,3 +1,4 @@
+import { withTrustedOperation } from "@/lib/trusted-operation";
 import { copyFileWork, bindDeletionInputs } from "@/lib/auth/account-deletion-work";
 import { registerAccountFile, removeAccountFile } from "@/lib/ingest/file-ownership";
 import { readBudgetedRows } from "@/lib/query/budget-reader";
@@ -119,70 +120,73 @@ export function requireTable(scope: AccountScope, name: string): DataTable {
 /** Schema plus a row preview (spec: Upload — schema, row count, preview),
  * for the caller's own dataset by its bare name, or any dataset they reach by
  * its qualified name or identifier. */
-export async function inspectTable(scope: AccountScope, name: string): Promise<TableInspection> {
-  return inspectDataset(scope, addressDataset(scope, name));
+export async function inspectTable(scope: AccountScope, name: string, signal?: AbortSignal): Promise<TableInspection> {
+  return inspectDataset(scope, addressDataset(scope, name), signal);
 }
 
 /** A reached dataset's inspection, as its reader may see it: its origin
  * bounded, its recorded inputs resolved within the reader's reach, its
  * memberships in the projects the reader reaches. */
-export async function inspectDataset(scope: AccountScope, reached: ReachedTable): Promise<TableInspection> {
-  const table = reached.table;
-  const inputs = resolveInputs(scope, table);
-  const artifact = path.join(dataDir(), table.file);
+export async function inspectDataset(scope: AccountScope, reached: ReachedTable, signal?: AbortSignal): Promise<TableInspection> {
+  return withTrustedOperation({ kind: "interactive-read", name: "Dataset inspection", signal }, async operation => {
+    const table = reached.table;
+    const inputs = resolveInputs(scope, table);
+    const artifact = path.join(dataDir(), table.file);
 
-  // A tracked artifact reader: retirement waits for this pass.
-  return trackInflight(
-    withConnection(async (conn) => {
-      const { from } = await artifactRelation(
-        conn,
-        artifact,
-        table.geometryColumn,
-      );
-      // Legacy MIXED rows predate the family-collapse rules: a table of
-      // POLYGON + MULTIPOLYGON is polygons. Determine the final envelope
-      // before decoding preview values; persist the repair after admission.
-      let geometryType = table.geometryType;
-      if (geometryType === "MIXED" && table.geometryColumn) {
-        const typed = await conn.runAndReadAll(
-          `SELECT DISTINCT ST_GeometryType(${ident(table.geometryColumn)}) AS t
-         FROM ${from} LIMIT 5`,
+    // A tracked artifact reader: retirement waits for this pass.
+    return trackInflight(
+      withConnection(async (conn) => {
+        const { from } = await artifactRelation(
+          conn,
+          artifact,
+          table.geometryColumn,
         );
-        geometryType = collapseGeometryTypes(
-          typed.getRowObjects().map((r) => String(r.t)),
-        );
-      }
-      const envelope = {
-        ...presentDataset(scope, reached),
-        geometryType,
-        columns: [], preview: [],
-        sizeBytes: await artifactSize(table),
-        projectIds: reachedTableProjectIds(scope).get(table.id) ?? [],
-        inputs,
-      };
-      const budget = new ResultBudget();
-      budget.take(jsonBytes(envelope));
-      // Schema entries count toward the answer, not as preview cells.
-      const columns = await readBudgetedRows(conn,
-        `SELECT column_name AS name, column_type AS type FROM (DESCRIBE SELECT * FROM ${from})`,
-        budget, new Set(["name", "type"]),
-      ) as { name: string; type: string }[];
+        // Legacy MIXED rows predate the family-collapse rules: a table of
+        // POLYGON + MULTIPOLYGON is polygons. Determine the final envelope
+        // before decoding preview values; persist the repair after admission.
+        let geometryType = table.geometryType;
+        if (geometryType === "MIXED" && table.geometryColumn) {
+          const typed = await conn.runAndReadAll(
+            `SELECT DISTINCT ST_GeometryType(${ident(table.geometryColumn)}) AS t
+           FROM ${from} LIMIT 5`,
+          );
+          geometryType = collapseGeometryTypes(
+            typed.getRowObjects().map((r) => String(r.t)),
+          );
+        }
+        const envelope = {
+          ...presentDataset(scope, reached),
+          geometryType,
+          columns: [], preview: [],
+          sizeBytes: await artifactSize(table),
+          projectIds: reachedTableProjectIds(scope).get(table.id) ?? [],
+          inputs,
+        };
+        const budget = new ResultBudget();
+        budget.take(jsonBytes(envelope));
+        // Schema entries count toward the answer, not as preview cells.
+        const columns = await readBudgetedRows(conn,
+          `SELECT column_name AS name, column_type AS type FROM (DESCRIBE SELECT * FROM ${from})`,
+          budget, new Set(["name", "type"]),
+        ) as { name: string; type: string }[];
 
-      // Geometry previews as WKT, not raw WKB bytes.
-      const replace = table.geometryColumn
-        ? ` REPLACE (ST_AsText(${ident(table.geometryColumn)}) AS ${ident(table.geometryColumn)})`
-        : "";
-      const nativeGeometry = new Set(columns.filter(c => c.name === table.geometryColumn &&
-        (c.type === "GEOMETRY" || c.type.startsWith("GEOMETRY("))).map(c => c.name));
-      const preview = await readBudgetedRows(conn,
-        `SELECT *${replace} FROM ${from} LIMIT ${INSPECT_PREVIEW_ROWS}`, budget, nativeGeometry);
+        // Geometry previews as WKT, not raw WKB bytes.
+        const replace = table.geometryColumn
+          ? ` REPLACE (ST_AsText(${ident(table.geometryColumn)}) AS ${ident(table.geometryColumn)})`
+          : "";
+        const nativeGeometry = new Set(columns.filter(c => c.name === table.geometryColumn &&
+          (c.type === "GEOMETRY" || c.type.startsWith("GEOMETRY("))).map(c => c.name));
+        const preview = await readBudgetedRows(conn,
+          `SELECT *${replace} FROM ${from} LIMIT ${INSPECT_PREVIEW_ROWS}`, budget, nativeGeometry);
 
-      if (geometryType !== table.geometryType) {
-        updateOwnedTableGeometryType(scope, table, geometryType);
-      }
-      return { ...envelope, geometryType, columns, preview };
-    }),
-  );
+        if (geometryType !== table.geometryType) {
+          operation.assertCanCommit();
+          updateOwnedTableGeometryType(scope, table, geometryType);
+        }
+        return { ...envelope, geometryType, columns, preview };
+      }),
+    );
+  });
 }
 
 export interface TableFeaturesResult {
@@ -209,57 +213,59 @@ export interface TableFeaturesResult {
 export async function tableFeatures(
   scope: AccountScope,
   name: string,
-  opts: { sample?: boolean } = {},
+  opts: { sample?: boolean; signal?: AbortSignal } = {},
 ): Promise<TableFeaturesResult> {
-  const table = addressDataset(scope, name).table;
-  if (!table.geometryColumn) {
-    return {
-      ok: false,
-      name,
-      geometryType: null,
-      reason: "This table has no geometry column.",
-    };
-  }
-  const overCap = table.rowCount > limits.renderCapFeatures;
-  if (overCap && !opts.sample) {
-    return {
-      ok: false,
-      name,
-      geometryType: table.geometryType,
-      reason: `${table.rowCount.toLocaleString()} features is over the render cap of ${limits.renderCapFeatures.toLocaleString()}, too many to draw here.`,
-    };
-  }
-  const artifact = path.join(dataDir(), table.file);
-  const geom = ident(table.geometryColumn);
-  // A tracked artifact reader: retirement waits for this pass.
-  return trackInflight(
-    withConnection(async (conn) => {
-      const { from } = await artifactRelation(
-        conn,
-        artifact,
-        table.geometryColumn,
-      );
-      const rows = await conn.runAndReadAll(
-        `SELECT ST_AsGeoJSON(${geom}) AS geometry
-       FROM ${from} WHERE ${geom} IS NOT NULL
-       ${overCap ? `LIMIT ${limits.renderCapFeatures}` : ""}`,
-      );
-      const features = rows.getRowObjects().map((r, i) => ({
-        type: "Feature",
-        id: i,
-        geometry: JSON.parse(String(r.geometry)) as unknown,
-        properties: { __table: name, __fid: i },
-      }));
+  return withTrustedOperation({ kind: "interactive-read", name: "Dataset map preview", signal: opts.signal }, async () => {
+    const table = addressDataset(scope, name).table;
+    if (!table.geometryColumn) {
       return {
-        ok: true,
+        ok: false,
+        name,
+        geometryType: null,
+        reason: "This table has no geometry column.",
+      };
+    }
+    const overCap = table.rowCount > limits.renderCapFeatures;
+    if (overCap && !opts.sample) {
+      return {
+        ok: false,
         name,
         geometryType: table.geometryType,
-        featureCount: features.length,
-        ...(overCap ? { sampled: true, totalCount: table.rowCount } : {}),
-        geojson: { type: "FeatureCollection", features },
+        reason: `${table.rowCount.toLocaleString()} features is over the render cap of ${limits.renderCapFeatures.toLocaleString()}, too many to draw here.`,
       };
-    }),
-  );
+    }
+    const artifact = path.join(dataDir(), table.file);
+    const geom = ident(table.geometryColumn);
+    // A tracked artifact reader: retirement waits for this pass.
+    return trackInflight(
+      withConnection(async (conn) => {
+        const { from } = await artifactRelation(
+          conn,
+          artifact,
+          table.geometryColumn,
+        );
+        const rows = await conn.runAndReadAll(
+          `SELECT ST_AsGeoJSON(${geom}) AS geometry
+         FROM ${from} WHERE ${geom} IS NOT NULL
+         ${overCap ? `LIMIT ${limits.renderCapFeatures}` : ""}`,
+        );
+        const features = rows.getRowObjects().map((r, i) => ({
+          type: "Feature",
+          id: i,
+          geometry: JSON.parse(String(r.geometry)) as unknown,
+          properties: { __table: name, __fid: i },
+        }));
+        return {
+          ok: true,
+          name,
+          geometryType: table.geometryType,
+          featureCount: features.length,
+          ...(overCap ? { sampled: true, totalCount: table.rowCount } : {}),
+          geojson: { type: "FeatureCollection", features },
+        };
+      }),
+    );
+  });
 }
 
 export const EXPORT_FORMATS = ["geoparquet", "geojson", "csv"] as const;

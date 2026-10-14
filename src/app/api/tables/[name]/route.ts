@@ -10,7 +10,7 @@ export async function GET(_request: Request, { params }: Params) {
   try {
     const scope = requireRequestScope(_request);
     const { name } = await params;
-    return NextResponse.json(await inspectTable(scope, name));
+    return NextResponse.json(await inspectTable(scope, name, _request.signal));
   } catch (error) {
     return errorResponse(error);
   }

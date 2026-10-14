@@ -429,7 +429,9 @@ behavior and [the API guide](api.md#request-bounds) for exact refusals.
 
 Trusted engine memory, Data processing time limit and Bytes drawn per layer
 are exposed for configuration; their processing and render enforcement is
-not yet active.
+not yet active. Dataset and geometry inspection, catalogue reads, dataset map
+features and projection lookup now share one admitted Query time limit through
+preparation and reads, and cancel when the last interested caller leaves.
 
 ## Open data providers
 

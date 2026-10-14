@@ -7,6 +7,6 @@ export async function GET(request: Request) {
   try {
     requireRequestAuth(request);
     const epsg = geometryQuery(request, ["epsg"]).get("epsg");
-    return privateResponse(NextResponse.json(await listProjections(epsg ?? undefined)));
+    return privateResponse(NextResponse.json(await listProjections(epsg ?? undefined, request.signal)));
   } catch (error) { return authFailure(error); }
 }

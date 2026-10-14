@@ -816,6 +816,10 @@
     "memory:template-versions": {
       "action": "retain",
       "rule": "Keep each installed template version as last read from its folder, by its id and version, while its record and the shipped index are the files they were, and the reader the map and query modules ask through. They hold a public template's documents and no account identity or content."
+    },
+    "memory:trusted-operation-context": {
+      "action": "retain",
+      "rule": "Keep the async context carrier. Per-operation state and stop hooks live until owned work settles; the carrier holds no retained results or account-indexed cache."
     }
   },
   "tables": {
@@ -6075,6 +6079,171 @@
       ],
       "roots": [
         "tables/*.parquet"
+      ]
+    },
+    "memory:src/lib/trusted-h3.ts#pending": {
+      "stores": [
+        "memory:engine-extensions"
+      ]
+    },
+    "memory:src/lib/trusted-operation.ts#context": {
+      "stores": [
+        "memory:trusted-operation-context"
+      ]
+    },
+    "memory:src/lib/trusted-operation.ts#TrustedOperation.admittedAt": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/trusted-operation.ts#TrustedOperation.budgetMs": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/trusted-operation.ts#TrustedOperation.cleanupErrors": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/trusted-operation.ts#TrustedOperation.cleanups": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/trusted-operation.ts#TrustedOperation.complete": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/trusted-operation.ts#TrustedOperation.controller": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/trusted-operation.ts#TrustedOperation.deadline": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/trusted-operation.ts#TrustedOperation.deadlineTimer": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/trusted-operation.ts#TrustedOperation.decisionTime": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/trusted-operation.ts#TrustedOperation.drain": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/trusted-operation.ts#TrustedOperation.drained": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/trusted-operation.ts#TrustedOperation.failure": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/trusted-operation.ts#TrustedOperation.interests": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/trusted-operation.ts#TrustedOperation.join.left": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/trusted-operation.ts#TrustedOperation.kind": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/trusted-operation.ts#TrustedOperation.name": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/trusted-operation.ts#TrustedOperation.policy": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/trusted-operation.ts#TrustedOperation.remedy": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/trusted-operation.ts#TrustedOperation.settled": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/trusted-operation.ts#TrustedOperation.settlement": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/trusted-operation.ts#TrustedOperation.settlementTimer": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/trusted-operation.ts#TrustedOperation.signal": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/trusted-operation.ts#TrustedOperation.stage": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/trusted-operation.ts#TrustedOperation.started": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/trusted-operation.ts#TrustedOperation.stopHooks": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/trusted-operation.ts#TrustedOperation.stopped": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/trusted-operation.ts#TrustedSettlementOverdue.allowanceMs": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/trusted-shared.ts#sharedTrustedWork.complete": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/trusted-shared.ts#sharedTrustedWork.first": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/trusted-shared.ts#sharedTrustedWork.operation": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/trusted-shared.ts#sharedTrustedWork.value": {
+      "stores": [
+        "memory:request-closures"
       ]
     }
   },

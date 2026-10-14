@@ -1,3 +1,4 @@
+import { isTrustedOperationRefusal } from "@/lib/trusted-operation";
 import type { DuckDBConnection } from "@duckdb/node-api";
 import type { GeometryCandidate, GeometryFormat, GeometryRecord } from "@/lib/geometry-evidence";
 import { geometryColumnName, orderedNameMatches, type CsvColumn } from "./csv-geometry";
@@ -47,7 +48,10 @@ async function reading(
       await conn.runAndReadAll(`SELECT ST_Transform(ST_Point(0, 0), ${lit(`EPSG:${crs.srid}`)}, 'EPSG:4326', always_xy := true)`);
       const srid = lit(`EPSG:${crs.srid}`);
       place = (geometry) => `TRY(ST_Transform(${geometry}, ${srid}, 'EPSG:4326', always_xy := true))`;
-    } catch { reasons.push("untransformable-crs"); }
+    } catch (error) {
+      if (isTrustedOperationRefusal(error)) throw error;
+      reasons.push("untransformable-crs");
+    }
   }
   const geometry = place ? place(decode) : decode;
   const full = (await conn.runAndReadAll(placementStatsSql(from, present, decode, place))).getRowObjects()[0];

@@ -18,7 +18,7 @@ export async function GET(request: Request, { params }: Params) {
     // ?sample=1: over-cap tables draw a capped subset instead of refusing
     // — the dataset detail's map preview opts in.
     const sample = new URL(request.url).searchParams.get("sample") === "1";
-    return NextResponse.json(await tableFeatures(scope, name, { sample }));
+    return NextResponse.json(await tableFeatures(scope, name, { sample, signal: request.signal }));
   } catch (error) {
     return errorResponse(error);
   }

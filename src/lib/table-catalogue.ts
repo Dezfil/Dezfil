@@ -1,6 +1,7 @@
+import { withTrustedOperation } from "@/lib/trusted-operation";
 import type { AccountScope } from "@/lib/auth/scope";
 import path from "node:path";
-import { ApiError, EvaluationCancelled } from "@/lib/api/errors";
+import { ApiError } from "@/lib/api/errors";
 import { dataDir } from "@/lib/config";
 import { withConnection } from "@/lib/duckdb";
 import { catalogueRecords, type CatalogueQuery } from "@/lib/metadata/table-catalogue";
@@ -49,16 +50,13 @@ export function parseCatalogueQuery(url: URL): CatalogueQuery {
  * not use artifactRelation's row probe or inspection's preview/healing path.
  */
 export async function readTableCatalogue(scope: AccountScope, query: CatalogueQuery, signal?: AbortSignal): Promise<TableCatalogue> {
-  if (signal?.aborted) throw new EvaluationCancelled();
-  const { records, total, more } = catalogueRecords(scope, query);
-  const memberships = reachedTableProjectIds(scope);
-  return trackInflight(withConnection(async (conn) => {
-    const abort = () => conn.interrupt();
-    signal?.addEventListener("abort", abort, { once: true });
-    try {
+  return withTrustedOperation({ kind: "interactive-read", name: "Dataset catalogue", signal }, async operation => {
+    const { records, total, more } = catalogueRecords(scope, query);
+    const memberships = reachedTableProjectIds(scope);
+    return trackInflight(withConnection(async (conn) => {
       const tables: CatalogueTable[] = [];
       for (const record of records) {
-        if (signal?.aborted) throw new EvaluationCancelled();
+        operation.assertCanCommit();
         const artifact = path.join(dataDir(), record.file).replace(/'/g, "''");
         await conn.run(`CREATE OR REPLACE TEMP VIEW catalogue_schema AS SELECT * FROM read_parquet('${artifact}')`);
         const count = await conn.runAndReadAll("SELECT COUNT(*) AS count FROM pragma_table_info('catalogue_schema')");
@@ -77,6 +75,6 @@ export async function readTableCatalogue(scope: AccountScope, query: CatalogueQu
       const result = { tables, total, nextAfter: more ? tables.at(-1)!.qualifiedName : null };
       if (Buffer.byteLength(JSON.stringify(result)) > CATALOGUE_MAX_BYTES) throw new ApiError("catalogue_too_large", "The schema page exceeds 96 KiB. Request fewer tables or columns.", 422);
       return result;
-    } finally { signal?.removeEventListener("abort", abort); }
-  }));
+    }));
+  });
 }

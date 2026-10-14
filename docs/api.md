@@ -2186,9 +2186,12 @@ response message. Branch on the code.
 The resource refusal statuses are also published as `x-resource-error-statuses`:
 `engine_memory_exceeded` is 422, `data_processing_timeout` and `upload_stalled`
 are 408, and `render_bytes_exceeded` is 422 on readers that refuse the request.
-An errored-layer envelope keeps its route's normal HTTP status. These codes
-are reserved by the trusted-operation lifetime; source and render routes have
-not yet been connected to that lifetime. Hardened query memory refusal remains
+An errored-layer envelope keeps its route's normal HTTP status. Dataset inspection, catalogue, map features, geometry inspection and preview,
+and projection lookup use one Query time limit through preparation and all
+reads. Caller departure cancels them; a shared inspection continues while
+another caller remains interested, under its original deadline. Their trusted
+engine failures preserve `422 engine_memory_exceeded`; deadlines keep
+`408 query_timeout`. Other source and render routes are not yet connected. Hardened query memory refusal remains
 `400 query_memory_exceeded`, including template validation.
 
 <!-- error-catalogue:start -->
