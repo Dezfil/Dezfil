@@ -7,6 +7,9 @@ export interface RenderRelay {
   readonly refused: boolean;
   /** Pending policy decisions also count if the page abandoned their request. */
   settleAdmissions(): Promise<void>;
+  /** Destroy current sockets and refuse re-dials to these hosts for this
+   * render. The listener and dials to other hosts remain available. */
+  abandon(hosts: readonly string[]): void;
   /** Synchronously revokes dialing and destroys every owned socket. */
   close(): void;
 }
@@ -23,6 +26,9 @@ export interface RenderRelayOptions {
  * the same destination policy; this grants no local-client exclusivity. */
 export async function startRenderRelay(options: RenderRelayOptions): Promise<RenderRelay> {
   const sockets = new Set<Socket>();
+  // Match the admission policy's case-insensitive host names. This memory
+  // belongs only to this render; a fresh relay starts with no abandoned hosts.
+  const abandonedHosts = new Set<string>();
   const admissions = new Set<Promise<unknown>>();
   const timers = new Set<ReturnType<typeof setTimeout>>();
   let closed = false;
@@ -52,6 +58,12 @@ export async function startRenderRelay(options: RenderRelayOptions): Promise<Ren
       // A peer need not finish its half of the close to release our resources.
     };
     const connect = async ({ host, port }: SocksTarget, rest: Buffer) => {
+      if (abandonedHosts.has(host.toLowerCase())) {
+        // Host unreachable, not an egress-policy denial. Fail retries before
+        // admission or dialing, including retries invisible to page events.
+        fail(4);
+        return;
+      }
       const admission = await admitRenderHost(host, options.resolve);
       if (closed) return;
       if (admission.verdict !== "allow") {
@@ -119,6 +131,10 @@ export async function startRenderRelay(options: RenderRelayOptions): Promise<Ren
     };
     client.on("data", onData);
   });
+  const abandon = (hosts: readonly string[]) => {
+    for (const host of hosts) abandonedHosts.add(host.toLowerCase());
+    for (const socket of sockets) socket.destroy();
+  };
   const close = () => {
     if (closed) return;
     closed = true;
@@ -126,7 +142,7 @@ export async function startRenderRelay(options: RenderRelayOptions): Promise<Ren
     for (const id of timers) clearTimeout(id);
     timers.clear();
     server.close();
-    for (const socket of sockets) socket.destroy();
+    abandon([]);
   };
   server.on("error", close);
   timer(close, options.deadline - Date.now());
@@ -146,7 +162,7 @@ export async function startRenderRelay(options: RenderRelayOptions): Promise<Ren
     const address = server.address();
     if (!address || typeof address === "string") throw Error("Render relay has no address");
     return {
-      port: address.port, get refused() { return refused; }, close,
+      port: address.port, get refused() { return refused; }, close, abandon,
       async settleAdmissions() {
         while (!closed && admissions.size) await Promise.allSettled([...admissions]);
       },

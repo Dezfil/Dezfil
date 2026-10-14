@@ -449,13 +449,16 @@ export const MAP_RENDER_PATHS = {
         "cap; renders stored map state — visible layers, stored " +
         "filters — never builder-transient selections. Without a " +
         "browser on the instance the operation answers " +
-        "render_unavailable; health is unaffected. A request the " +
-        "page makes that outlives the per-request budget " +
-        "is abandoned so the render can settle: the image is still " +
-        "produced and the answer carries x-dezfil-export-abandoned " +
-        "with the count and the hosts of the abandoned requests " +
-        "(hosts only, never a path); the server log names the " +
-        "abandonment as it happens.",
+        "render_unavailable; health is unaffected. When an external " +
+        "request outlives its bound, the request burst has settled and " +
+        "no app-origin request remains in flight, the relay ends its " +
+        "current sockets and refuses re-dials to the cut hosts for this " +
+        "render. Requests without a terminal event stay armed for another " +
+        "cut after the same bound. The page's offline flip and stop follow " +
+        "each cut; the whole render budget still applies. An image response " +
+        "carries x-dezfil-export-abandoned with the abandonment count and " +
+        "hosts (never paths), counting repeated cuts again. The server " +
+        "log names each abandonment as it happens.",
       tag: "Maps",
       tool: "export_map_image", mcp: REMOTE_READ,
       toolOutput: { binary: { representation: "attachment", nativeImage: false } },

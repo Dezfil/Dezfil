@@ -80,10 +80,13 @@ export const limits = {
   get exportRenderTimeoutMs(): number {
     return resolveNumber("exportRenderTimeoutS") * 1000;
   },
-  /** The bound on any one request the render page makes (default 20 s):
-   * a request past it is abandoned so the page can settle, and the
-   * export still answers — one stalled external tile no longer costs
-   * the whole render budget. */
+  /** The bound on an external render request (default 20 s). Once the
+   * request burst settles and no app request is in flight, the relay
+   * abandons its current sockets, including worker fetches, and refuses
+   * re-dials to the cut hosts for this render. A request with no terminal
+   * event stays armed for another cut after the same bound. The page's
+   * offline flip and stop follow each cut. The whole render budget still
+   * applies, and app-origin requests retain it as their only bound. */
   get exportRequestTimeoutMs(): number {
     return resolveNumber("exportRequestTimeoutS") * 1000;
   },

@@ -316,7 +316,7 @@ describe("renderMapImage — bounds and lifecycle", () => {
     }
   });
 
-  it("carries the abandoned requests the driver reports, one entry per request", async () => {
+  it("carries each abandonment the driver reports, including repeated hosts", async () => {
     const { browser } = browserStub({
       render: async () => ({
         png: PNG,

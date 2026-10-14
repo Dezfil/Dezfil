@@ -2,12 +2,16 @@ import * as metadata from "@/lib/metadata/db";
 import puppeteer from "puppeteer-core";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { testAccountScope } from "@/lib/test-support/accounts";
+import { delegateCredential } from "@/lib/auth/delegation";
+import { requireRequestAuth } from "@/lib/auth/http";
+import { authenticatedRequest } from "@/lib/assistant/testing/account";
 import { renderMapImage, renderQueueState } from "./render-image";
-import { startRenderRelay } from "./render-relay";
+import { startRenderRelay, type RenderRelay } from "./render-relay";
 import type { ExportImageDefinition } from "./image-definition";
 
 vi.mock("puppeteer-core", () => ({ default: { launch: vi.fn() } }));
 vi.mock("./render-relay", () => ({ startRenderRelay: vi.fn() }));
+vi.mock("./render-guard", () => ({ admitRenderRequest: vi.fn(async () => "allow") }));
 let db: ReturnType<typeof metadata.open>;
 const definition: ExportImageDefinition = { viewport: { lng: 0, lat: 0, zoom: 2, pitch: 0, bearing: 0 }, size: { width: 64, height: 64 }, mapScale: 1,
   legend: { visible: false, corner: "top-right", size: "m" }, widgets: [], title: null, appearance: "light" };
@@ -15,18 +19,20 @@ const input = { mapId: "map", definition, baseUrl: "http://127.0.0.1:3216", cred
 const refusal = "The map reaches an address this instance's egress policy denies (private and internal ranges). The image was not produced.";
 let denied: boolean;
 const closeRelay = vi.fn();
+const abandonRelay = vi.fn<RenderRelay["abandon"]>();
 const page = {
   on: vi.fn(), setRequestInterception: vi.fn(), setViewport: vi.fn(), evaluateOnNewDocument: vi.fn(), goto: vi.fn(),
-  waitForFunction: vi.fn(), evaluate: vi.fn(), screenshot: vi.fn(),
+  waitForFunction: vi.fn(), evaluate: vi.fn(), screenshot: vi.fn(), setOfflineMode: vi.fn(),
 };
 beforeEach(() => {
   vi.resetAllMocks(); denied = false;
   db = metadata.open(":memory:"); vi.spyOn(metadata, "metadataDb").mockReturnValue(db);
-  vi.mocked(startRenderRelay).mockResolvedValue({ port: 43127, get refused() { return denied; }, close: closeRelay, settleAdmissions: async () => {} });
+  vi.mocked(startRenderRelay).mockResolvedValue({ port: 43127, get refused() { return denied; }, close: closeRelay, abandon: abandonRelay, settleAdmissions: async () => {} });
+  page.setOfflineMode.mockResolvedValue(undefined);
   page.screenshot.mockResolvedValue(new Uint8Array([137, 80, 78, 71]));
   vi.mocked(puppeteer.launch).mockResolvedValue({ newPage: async () => page, close: async () => {}, process: () => null } as never);
 });
-afterEach(() => { vi.restoreAllMocks(); db.close(); });
+afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); db.close(); });
 
 it("starts the relay before browser launch with an exact scheme/host/port exception", async () => {
   await renderMapImage(testAccountScope(), input);
@@ -57,7 +63,29 @@ it("without a policy refusal a failed style can still produce the page's dead-st
   await expect(renderMapImage(testAccountScope(), input)).resolves.toHaveProperty("png");
 });
 it("waits for a connection verdict that outlives capture", async () => {
-  vi.mocked(startRenderRelay).mockResolvedValue({ port: 43127, get refused() { return denied; }, close: closeRelay,
+  vi.mocked(startRenderRelay).mockResolvedValue({ port: 43127, get refused() { return denied; }, close: closeRelay, abandon: abandonRelay,
     settleAdmissions: async () => { denied = true; } } as Awaited<ReturnType<typeof startRenderRelay>>);
   await expect(renderMapImage(testAccountScope(), input)).rejects.toMatchObject({ status: 502, code: "render_failed", message: refusal });
+});
+
+it.each([1, 2])("cuts a request %i times through the relay before the page flip and stop", async (cuts) => {
+  vi.useFakeTimers();
+  vi.spyOn(console, "warn").mockImplementation(() => {});
+  page.goto.mockImplementation(async () => {
+    const onRequest = page.on.mock.calls.find(([event]) => event === "request")![1];
+    onRequest({ id: "tile", url: () => "https://tiles.example.org/held.pbf", headers: () => ({}), continue: vi.fn(), abort: vi.fn() });
+  });
+  page.waitForFunction.mockImplementation(async () => { await vi.advanceTimersByTimeAsync(cuts * 20_000 + 5_000); });
+  const credential = delegateCredential(requireRequestAuth(authenticatedRequest()));
+  const result = await renderMapImage(testAccountScope(), { ...input, credential });
+  expect(result.abandoned).toEqual(Array(cuts).fill("tiles.example.org"));
+  expect(abandonRelay.mock.calls).toEqual(Array.from({ length: cuts }, () => [["tiles.example.org"]]));
+  for (let i = 0; i < cuts; i++) {
+    expect(abandonRelay.mock.invocationCallOrder[i]).toBeLessThan(page.setOfflineMode.mock.invocationCallOrder[i * 2]);
+  }
+  expect(page.setOfflineMode.mock.calls).toEqual(Array.from({ length: cuts }, () => [[true], [false]]).flat());
+  const stop = vi.fn();
+  vi.stubGlobal("window", { stop });
+  try { for (let i = 0; i < cuts; i++) page.evaluate.mock.calls[i][0](); } finally { vi.unstubAllGlobals(); }
+  expect(stop).toHaveBeenCalledTimes(cuts);
 });

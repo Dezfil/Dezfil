@@ -33,6 +33,8 @@ export interface InflightRequest {
   started: number;
   host: string;
   external: boolean;
+  /** The last cut, if this request has not yet finished or failed. */
+  abandonedAt?: number;
 }
 
 function requestKey(request: object): object | string {
@@ -44,7 +46,8 @@ function requestKey(request: object): object | string {
   return typeof id === "string" && id.length > 0 ? id : request;
 }
 
-/** Bookkeeping shared by request events and the stall watchdog. */
+/** Bookkeeping shared by request events and the stall watchdog. Abandoned
+ * requests stay armed because transparent retries can emit no new start. */
 export class RenderRequestLedger {
   private readonly requests = new Map<object | string, InflightRequest>();
 
@@ -59,21 +62,25 @@ export class RenderRequestLedger {
 
   abandon(now: number, boundMs: number): string[] {
     return stalledExternalRequests(this.requests.entries(), now, boundMs).map((key) => {
-      const host = this.requests.get(key)!.host;
-      this.requests.delete(key);
-      return host;
+      const request = this.requests.get(key)!;
+      this.requests.set(key, { ...request, abandonedAt: now });
+      return request.host;
     });
   }
 }
 
 /**
  * Which requests are abandoned at this moment: every external one, when
- * one of them has outlived the bound, none of them is younger than the
- * grace, and no app-origin request is still in flight. A stall on the
- * instance's own road is the coded timeout, never a cut composition, so
+ * one of them has outlived the bound since its start or last cut, no new
+ * request is younger than the grace, and no app-origin request is still
+ * in flight. Previously abandoned requests do not get another grace.
+ * A stall on the instance's own road is the coded timeout, never a cut
+ * composition, so
  * an app-origin request in flight holds the decision off entirely. The
- * external ones go together because the page is taken offline for an
- * instant to end them.
+ * external ones go together because the relay ends all current sockets,
+ * including worker fetches, and refuses re-dials to their hosts for this
+ * render. The page's offline flip and stop follow. A request that still
+ * has no terminal event after another bound triggers another cut.
  */
 export function stalledExternalRequests<K>(
   inflight: Iterable<[K, InflightRequest]>,
@@ -84,7 +91,7 @@ export function stalledExternalRequests<K>(
   const entries = [...inflight];
   if (entries.some(([, m]) => !m.external)) return [];
   const external = entries.filter(([, m]) => m.external);
-  if (!external.some(([, m]) => now - m.started > boundMs)) return [];
-  if (external.some(([, m]) => now - m.started < graceMs)) return [];
+  if (!external.some(([, m]) => now - (m.abandonedAt ?? m.started) > boundMs)) return [];
+  if (external.some(([, m]) => m.abandonedAt === undefined && now - m.started < graceMs)) return [];
   return external.map(([key]) => key);
 }

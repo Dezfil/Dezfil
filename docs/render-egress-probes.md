@@ -359,8 +359,23 @@ credential before rendering. A non-200 response fails immediately and names
 `DEZFIL_RENDER_DELEGATION_KEY`, rather than waiting out the render budget on a
 sign-in page. The ephemeral basemap listener is removed by the fixture; the
 runner stops the standalone and removes the scratch store. Green is a complete
-image naming the abandoned host inside the existing check budget. Neither control
-starts an application, container or network for the runner.
+image naming the abandoned host for both raster and vector tiles, on both the
+map check and export roads. Each case holds the first viewport tile; all other
+vector tiles return an empty protobuf body. The check uses its own request bound
+and budget; the export uses its default request bound and budget. The cut ends
+current relay sockets, reaching worker fetches as well as page fetches, before
+the page's offline flip and stop. The relay remembers the cut hosts
+case-insensitively and refuses their re-dials with SOCKS reply 4 before admission
+or dialing, for this render only. Its listener and connections to other hosts
+remain available. Requests with no terminal event stay armed and trigger another
+cut after the same request bound, normally 10 seconds for a check and 20 seconds
+for an export. Previously abandoned requests receive no new arrival grace;
+app-origin requests still hold the cut. Each cut is logged and counted again.
+These HTTP/1.1 fixtures establish stalled-tile settlement; they do not exercise
+transparent retries on reused HTTP/2 connections. That behavior requires an
+outside render with a controlled TLS response hold; the product has no hold
+switch.
+Neither control starts an application, container or network for the runner.
 
 The outside-observed relay gate passed all 42 assertions: public/rebinding
 browser-DNS absence, rebinding listener silence and exact policy answers for both

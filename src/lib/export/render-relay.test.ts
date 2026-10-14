@@ -148,3 +148,77 @@ it("two relays own independent listeners and connections", async () => {
   two.socket.write("still alive"); expect((await two.read(23)).subarray(12).toString()).toBe("still alive");
   expect(b.refused).toBe(false); await network.assertClosed(a.port);
 });
+
+it("abandons open tunnels and incomplete handshakes but accepts another host", async () => {
+  vi.stubEnv("DEZFIL_EGRESS_ALLOWLIST", "echo.test,other.test");
+  const target = await network.target();
+  const resolve = vi.fn(async () => ["127.0.0.1"]);
+  const relay = await start({ resolve });
+  const open = await network.client(relay.port);
+  open.socket.write(Buffer.concat([socksRequest("echo.test", target.port), Buffer.from("before")]));
+  expect((await open.read(18)).subarray(12).toString()).toBe("before");
+  const incomplete = await network.client(relay.port);
+  incomplete.socket.write(Buffer.from([5, 1, 0]));
+  await incomplete.read(2);
+
+  relay.abandon(["echo.test"]);
+  await until(() => open.closed && incomplete.closed && target.active.size === 0);
+  const next = await network.client(relay.port);
+  next.socket.write(Buffer.concat([socksRequest("other.test", target.port), Buffer.from("after")]));
+  expect((await next.read(17)).subarray(12).toString()).toBe("after");
+  expect(target.contacts).toBe(2);
+  expect(resolve).toHaveBeenCalledTimes(2);
+  expect(relay.refused).toBe(false);
+});
+
+it("an abandoned admission cannot dial late and still records a policy refusal", async () => {
+  vi.stubEnv("DEZFIL_EGRESS_ALLOWLIST", "");
+  const pending = deferred<string[]>(), resolving = deferred<void>();
+  const target = await network.target();
+  const relay = await start({ resolve: async () => { resolving.resolve(); return pending.promise; } });
+  const client = await network.client(relay.port);
+  client.socket.write(socksRequest("held.test", target.port));
+  await resolving.promise;
+  relay.abandon(["held.test"]);
+  await until(() => client.closed);
+  pending.resolve(["127.0.0.1"]);
+  await relay.settleAdmissions();
+  expect(target.contacts).toBe(0);
+  expect(relay.refused).toBe(true);
+});
+
+it.each([
+  ["ECHO.TEST", "echo.test"],
+  ["echo.test", "EcHo.TeSt"],
+])("refuses re-dials to abandoned %s as %s before admission without affecting another render", async (abandonedHost, retriedHost) => {
+  vi.stubEnv("DEZFIL_EGRESS_ALLOWLIST", "echo.test,other.test");
+  const target = await network.target();
+  const resolve = vi.fn(async () => ["127.0.0.1"]);
+  const relay = await start({ resolve });
+  const original = await network.client(relay.port);
+  original.socket.write(socksRequest("echo.test", target.port));
+  expect((await original.read(12))[3]).toBe(0);
+  relay.abandon([abandonedHost]);
+  await until(() => original.closed && target.active.size === 0);
+  target.reset(); resolve.mockClear();
+
+  const retry = await network.client(relay.port);
+  retry.socket.write(socksRequest(retriedHost, target.port));
+  expect((await retry.read(12))[3]).toBe(4);
+  expect(resolve).not.toHaveBeenCalled();
+  expect(target.contacts).toBe(0);
+  expect(relay.refused).toBe(false);
+
+  const other = await network.client(relay.port);
+  other.socket.write(Buffer.concat([socksRequest("other.test", target.port), Buffer.from("other")]));
+  expect((await other.read(17)).subarray(12).toString()).toBe("other");
+  expect(resolve).toHaveBeenCalledExactlyOnceWith("other.test");
+  expect(target.contacts).toBe(1);
+
+  const fresh = await start({ resolve });
+  const nextRender = await network.client(fresh.port);
+  nextRender.socket.write(Buffer.concat([socksRequest("echo.test", target.port), Buffer.from("fresh")]));
+  expect((await nextRender.read(17)).subarray(12).toString()).toBe("fresh");
+  expect(target.contacts).toBe(2);
+  expect(fresh.refused).toBe(false);
+});

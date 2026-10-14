@@ -68,6 +68,37 @@ describe("request accounting", () => {
     ledger.finish(second);
     expect(ledger.abandon(now, 10_000)).toEqual(["tiles.example.org"]);
   });
+
+  it.each([10_000, 20_000, 1])("cuts a silent retry again after another %i ms bound", (bound) => {
+    const ledger = new RenderRequestLedger();
+    ledger.start({ id: "tile" }, tile(0));
+    const firstCut = Math.max(bound, STALL_GRACE_MS) + 1;
+    expect(ledger.abandon(firstCut, bound)).toEqual(["tiles.example.org"]);
+    expect(ledger.abandon(firstCut + bound, bound)).toEqual([]);
+    const secondCut = firstCut + bound + 1;
+    expect(ledger.abandon(secondCut, bound)).toEqual(["tiles.example.org"]);
+    expect(ledger.abandon(secondCut + bound, bound)).toEqual([]);
+    expect(ledger.abandon(secondCut + bound + 1, bound)).toEqual(["tiles.example.org"]);
+  });
+
+  it("a terminal event clears an abandoned request under the same network id", () => {
+    const ledger = new RenderRequestLedger();
+    ledger.start({ id: "tile" }, tile(0));
+    expect(ledger.abandon(now, 10_000)).toEqual(["tiles.example.org"]);
+    ledger.finish({ id: "tile" });
+    expect(ledger.abandon(now + 10_001, 10_000)).toEqual([]);
+  });
+
+  it("another pause preserves the re-arm and app requests still hold the cut", () => {
+    const ledger = new RenderRequestLedger();
+    ledger.start({ id: "tile" }, tile(0));
+    expect(ledger.abandon(now, 10_000)).toEqual(["tiles.example.org"]);
+    ledger.start({ id: "tile" }, tile(now + 10_000));
+    ledger.start({ id: "app" }, own(now));
+    expect(ledger.abandon(now + 10_001, 10_000)).toEqual([]);
+    ledger.finish({ id: "app" });
+    expect(ledger.abandon(now + 10_001, 10_000)).toEqual(["tiles.example.org"]);
+  });
 });
 
 describe("the per-request bound", () => {
