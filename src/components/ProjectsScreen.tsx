@@ -47,7 +47,7 @@ import { PeopleChip } from "./sharing/PeopleMarks";
 import { peopleMark } from "./sharing/people";
 import { ShareDialog } from "./sharing/ShareDialog";
 import { useProjectPeople } from "./sharing/use-project-people";
-import { useViewPrefs } from "./use-view-prefs";
+import { untilViewSettled, useViewPrefs } from "./use-view-prefs";
 import gallery from "./gallery.module.css";
 import styles from "./ProjectsScreen.module.css";
 
@@ -80,7 +80,7 @@ export function ProjectsScreen() {
   const [query, setQuery] = useState("");
   // Remembered through the workspace settings like the sibling lists:
   // read once on load, written on change.
-  const { view, sort, setView, setSort } = useViewPrefs<ProjectsSort>(
+  const { view, sort, settled, setView, setSort } = useViewPrefs<ProjectsSort>(
     "projects",
     "updated",
     PROJECT_SORTS,
@@ -481,7 +481,7 @@ export function ProjectsScreen() {
           </label>
           <div className={gallery.viewToggle} role="group" aria-label="View">
             <button
-              data-on={view === "grid" || undefined}
+              data-on={(settled && view === "grid") || undefined}
               data-hint="Grid view"
               aria-label="Grid view"
               onClick={() => setView("grid")}
@@ -489,7 +489,7 @@ export function ProjectsScreen() {
               <IconGrid />
             </button>
             <button
-              data-on={view === "list" || undefined}
+              data-on={(settled && view === "list") || undefined}
               data-hint="List view"
               aria-label="List view"
               onClick={() => setView("list")}
@@ -502,7 +502,7 @@ export function ProjectsScreen() {
 
       <div className={gallery.scroller}>
         <AsyncState
-          state={state}
+          state={untilViewSettled(state, settled)}
           onRetry={retry}
           pendingLabel="Reading your projects…"
         >

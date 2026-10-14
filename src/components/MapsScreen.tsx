@@ -21,7 +21,7 @@ import { MapStrip } from "./MapStrip";
 import { AddToProjectDialog } from "./projects/AddToProjectDialog";
 import { actionLabel } from "./projects/add-model";
 import { useTheme } from "@/components/theme";
-import { useViewPrefs } from "./use-view-prefs";
+import { untilViewSettled, useViewPrefs } from "./use-view-prefs";
 import { ListHeading } from "./ListHeading";
 import { ScopeFilter } from "./scope/ScopeFilter";
 import { headingLine, scopeRows, tileSubLine, unreachedProjects } from "./scope/model";
@@ -146,7 +146,7 @@ export function MapsScreen() {
   const [creating, setCreating] = useState(false);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
-  const { view, sort, setView, setSort } = useViewPrefs<MapsSort>(
+  const { view, sort, settled, setView, setSort } = useViewPrefs<MapsSort>(
     "maps",
     "edited",
     MAPS_SORTS,
@@ -543,7 +543,7 @@ export function MapsScreen() {
           </label>
           <div className={gallery.viewToggle} role="group" aria-label="View">
             <button
-              data-on={view === "grid" || undefined}
+              data-on={(settled && view === "grid") || undefined}
               data-hint="Grid view"
               aria-label="Grid view"
               onClick={() => setView("grid")}
@@ -551,7 +551,7 @@ export function MapsScreen() {
               <IconGrid />
             </button>
             <button
-              data-on={view === "list" || undefined}
+              data-on={(settled && view === "list") || undefined}
               data-hint="List view"
               aria-label="List view"
               onClick={() => setView("list")}
@@ -564,7 +564,7 @@ export function MapsScreen() {
 
       <div className={gallery.scroller}>
       <AsyncState
-        state={listState}
+        state={untilViewSettled(listState, settled)}
         onRetry={retry}
         pendingLabel="Reading your maps…"
       >

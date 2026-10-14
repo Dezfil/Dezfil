@@ -22,8 +22,9 @@ const view = vi.hoisted(() => ({ value: "grid" as "grid" | "list", peopleAsked: 
 const spies = vi.hoisted(() => ({ push: vi.fn(), invalidateProjects: vi.fn(), refresh: vi.fn(async () => {}) }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: spies.push }) }));
 vi.mock("./builder/drawer/use-operations", () => ({ useOperations: () => ({ operations: [] }) }));
-vi.mock("./use-view-prefs", () => ({
-  useViewPrefs: () => ({ view: view.value, sort: "updated", setView: vi.fn(), setSort: vi.fn() }),
+vi.mock("./use-view-prefs", async (original) => ({
+  ...(await original<typeof import("./use-view-prefs")>()),
+  useViewPrefs: () => ({ view: view.value, sort: "updated", settled: true, setView: vi.fn(), setSort: vi.fn() }),
 }));
 vi.mock("./shell/use-project-name", () => ({ invalidateProjects: spies.invalidateProjects }));
 vi.mock("./sharing/use-project-people", async (original) => ({

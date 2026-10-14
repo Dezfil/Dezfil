@@ -19,8 +19,9 @@ const lists = vi.hoisted(() => ({ view: "grid" as "grid" | "list", world: null a
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), replace: vi.fn() }) }));
 vi.mock("@/components/theme", () => ({ useTheme: () => ({ theme: "light" }) }));
 vi.mock("./builder/drawer/use-operations", () => ({ useOperations: () => ({ operations: [] }) }));
-vi.mock("./use-view-prefs", () => ({
-  useViewPrefs: () => ({ view: lists.view, sort: "edited", setView: vi.fn(), setSort: vi.fn() }),
+vi.mock("./use-view-prefs", async (original) => ({
+  ...(await original<typeof import("./use-view-prefs")>()),
+  useViewPrefs: () => ({ view: lists.view, sort: "edited", settled: true, setView: vi.fn(), setSort: vi.fn() }),
 }));
 vi.mock("./scope/use-scope", () => ({ useProjectScope: () => ({ scope: { kind: "all" }, setScope: vi.fn() }) }));
 vi.mock("./scope/use-scope-world", () => ({
