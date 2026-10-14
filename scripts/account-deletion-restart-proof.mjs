@@ -65,7 +65,7 @@ try {
       db.prepare("INSERT INTO data_tables(id,name,format,file,row_count,created_at,owner_id) VALUES(?, 'same_dataset','parquet',?,1,'time',?)").run(`dataset-${name}`, file, owner.id);
     }
     db.prepare("UPDATE accounts SET status='deactivated' WHERE id=?").run(target.id); db.close();
-    const secret = /dezfil_session=([^;]+)/.exec(admin.cookie)?.[1]; assert.ok(secret, 'admin session');
+    const secret = admin.cookie?.slice(admin.cookie.indexOf("=") + 1); assert.ok(secret, 'admin session');
     const accepted = await ipc({ command: 'accept', accountId: target.id, secret });
     assert.equal(accepted.state, 'pending');
     const journalFile = path.join(directory, 'account-deletions', `${accepted.id}.json`);

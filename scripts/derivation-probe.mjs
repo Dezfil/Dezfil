@@ -29,7 +29,7 @@ export async function derivationProbe(base, { stateLog, requestImpl = publicatio
     if (result.status === 503) assertAuthenticationBusy(result);
     else assert.ok(result.status === 200 || result.status === 409 && result.json.error.code === 'setup_complete');
   }
-  cookie = accepted.headers['set-cookie']?.find(value => value.startsWith('dezfil_session='))?.split(';')[0]; assert.ok(cookie);
+  cookie = accepted.headers['set-cookie']?.[0]?.split(';')[0]; assert.ok(cookie);
   const token = await requestImpl(base, '/api/account/tokens', { method: 'POST', headers: { origin: base, cookie, 'content-type': 'application/json', 'x-forwarded-for': '198.18.254.1' }, body: JSON.stringify({ name: 'Derivation probe' }) });
   assert.equal(token.status, 201); authorization = `Bearer ${token.json.secret}`;
   const signIn = (tag, email = account.email, source) => send(tag, 'POST', '/api/auth/sign-in', { email, password: account.password }, false, source);

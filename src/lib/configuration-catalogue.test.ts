@@ -43,7 +43,7 @@ function check(file?: string, mutate?: (text: string) => string) {
 it("checks both real documents against the catalogue and retains the script wiring check", () => {
   const result = check();
   expect(result.status, result.output).toBe(0);
-  expect(result.output).toContain("64 deployment settings");
+  expect(result.output).toContain("65 deployment settings");
   expect(result.output).toContain("4 test-wiring names");
   expect(result.output).toContain("18 instance defaults");
   expect(result.output).toContain("12 rules");

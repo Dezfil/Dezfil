@@ -65,7 +65,7 @@ async function api(method, route, body, credential, revision) {
     origin: base, "content-type": "application/json", ...(credential ?? {}), ...(revision ? { "X-Edit-Revision": revision } : {}),
   }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
   const json = await response.json().catch(() => null);
-  return { status: response.status, json, cookie: response.headers.getSetCookie().find(value => value.startsWith("dezfil_session="))?.split(";")[0] };
+  return { status: response.status, json, cookie: response.headers.getSetCookie()[0]?.split(";")[0] };
 }
 function recover(oneOff = false) {
   const args = ["npm", "run", "--silent", "admin:recover", "--", "--data-dir", mode === "container" ? "/data" : scratch, "--origin", base];

@@ -83,7 +83,7 @@ it("sends the instance origin on the anonymous setup-closure check", async () =>
   expect(seen[1].headers.get("origin")).toBe(base);
 });
 
-it.each([true, false])("provisions through real entry/session/token contracts (setup=%s)", async setupRequired => {
+it.each([true, false].flatMap(setupRequired => ["dezfil_session", "dezfil_session_3650", "map_session"].map(name => ({ setupRequired, name }))))("provisions through real entry/session/token contracts (setup=$setupRequired, cookie=$name)", async ({ setupRequired, name }) => {
   const { provisionJourney, journeyAccount } = await import("../../../scripts/journey-auth.mjs");
   const seen: Request[] = [];
   vi.stubGlobal("fetch", async (input: string, init?: RequestInit) => {
@@ -96,14 +96,14 @@ it.each([true, false])("provisions through real entry/session/token contracts (s
     if (path === `/api/auth/${setupRequired ? "setup" : "sign-in"}`) {
       expect(request.headers.get("origin")).toBe("http://instance.test");
       expect(await request.json()).toEqual(setupRequired ? journeyAccount : { email: journeyAccount.email, password: journeyAccount.password });
-      return Response.json({ account: { id: "first" } }, { status: 200, headers: { "set-cookie": "dezfil_session=fixture-cookie; HttpOnly; Path=/" } });
+      return Response.json({ account: { id: "first" } }, { status: 200, headers: { "set-cookie": `${name}=fixture-cookie; HttpOnly; Path=/` } });
     }
     expect(path).toBe("/api/account/tokens");
-    expect(request.headers.get("cookie")).toBe("dezfil_session=fixture-cookie");
+    expect(request.headers.get("cookie")).toBe(`${name}=fixture-cookie`);
     expect(request.headers.get("origin")).toBe("http://instance.test");
     return Response.json({ id: "token", secret: "fixture-token" }, { status: 201 });
   });
   const result = await provisionJourney("http://instance.test");
-  expect(result).toMatchObject({ account: { id: "first" }, token: "fixture-token", cookie: "dezfil_session=fixture-cookie", setupRequired });
+  expect(result).toMatchObject({ account: { id: "first" }, token: "fixture-token", cookie: `${name}=fixture-cookie`, setupRequired });
   expect(seen).toHaveLength(3);
 });

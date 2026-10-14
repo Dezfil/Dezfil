@@ -4,7 +4,7 @@ import { READ_ONLY, resource, writes } from "./operation-metadata";
 export const AUTH_SECURITY = [{ CookieSession: [] }, { BearerToken: [] }];
 const accountPrecondition = " Optional X-Dezfil-Account asserts the credential's expected account ID. A mismatch returns 401 authentication_required before dispatch. This transport precondition never supplies identity or changes ownership.";
 export const AUTH_SECURITY_SCHEMES = {
-  CookieSession: { type: "apiKey", in: "cookie", name: "dezfil_session", description: "HttpOnly, SameSite=Lax session. Secure over HTTPS. Lasts the instance's session length, security.sessionDays, thirty days by default; each use renews it by the length stored then." + accountPrecondition },
+  CookieSession: { type: "apiKey", in: "cookie", name: "dezfil_session", description: "HttpOnly, SameSite=Lax session. Secure over HTTPS. On a listening port other than 3000 the name carries the port suffix, and DEZFIL_SESSION_COOKIE sets the name. Lasts the instance's session length, security.sessionDays, thirty days by default; each use renews it by the length stored then." + accountPrecondition },
   BearerToken: { type: "http", scheme: "bearer", description: "An account's API token. Its current account status and privileges are checked on every request; once a token's expiry passes it is refused with token_expired." + accountPrecondition },
 };
 const body = (properties: Record<string, unknown>, required = Object.keys(properties)) => ({

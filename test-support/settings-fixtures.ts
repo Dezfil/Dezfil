@@ -15,6 +15,7 @@ export const DEFAULTS = {
   operationQueueMax: 20, operationHistoryPerSubject: 20, publicRateLimit: 60,
   publicTileRateLimit: 600, dataDir: { rule: "working-directory/data" },
   secretKey: { rule: "key-file-or-generate" }, trustedProxies: [], egressAllowlist: [],
+  sessionCookie: { rule: "listening-port" },
   objectStoreCredentials: false, s3Endpoint: { rule: "aws-bucket-endpoint" },
   overpassUrl: "https://overpass-api.de/api/interpreter", overtureS3Endpoint: null,
   tippecanoe: "tippecanoe", basemapUrl: { rule: "built-in-basemap-for-theme" },

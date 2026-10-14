@@ -391,6 +391,7 @@ not native chunks, JavaScript object overhead, heap or RSS.
 | Variable | Default | Effect | Changed by |
 |---|---|---|---|
 | `DEZFIL_TRUSTED_PROXIES` | unset | Comma-separated IP addresses or CIDRs of reverse proxy socket peers. Only these peers may supply forwarding information. Configure proxies to replace host/protocol/port forwarding fields and append the actual client address; direct clients' forwarding headers are discarded. | Restart |
+| `DEZFIL_SESSION_COOKIE` | port-based | Session cookie name: `dezfil_session` on listening port 3000, otherwise `dezfil_session_<port>`. Overrides the name for containers sharing a host. Must be a non-empty HTTP cookie-name token; invalid values stop startup. | Restart |
 
 ## Request body admission
 
