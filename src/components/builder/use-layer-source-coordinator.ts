@@ -7,7 +7,8 @@ import type { Layer } from "@/lib/metadata/maps";
 import type { Bounds } from "@/lib/geo-bounds";
 import type { DataTable } from "../api";
 import { readApiError } from "../api";
-import { useTransientNotice } from "../use-transient-notice";
+import { useTransientNotice, type NoticeTone } from "../use-transient-notice";
+import { failedFilesClause, settleTone } from "../upload-settle-notice";
 import { withSkips, type SkippedMember } from "../skipped-members";
 import {
   useUploadQueue,
@@ -47,6 +48,41 @@ export function importBatchNotice(parts: {
     );
   }
   return bits.join(" · ");
+}
+
+/** A settled file batch's one notice in the builder: the layer outcomes,
+ * then the files by name, because the catalog may already be closed and
+ * this notice is then the only account. The failed files are worded and
+ * the batch is toned as on every other page that settles a batch. Pure,
+ * for the tests. */
+export function uploadBatchNotice(
+  report: SettleReport,
+  layers: string,
+): { text: string; tone: NoticeTone } {
+  const bits = [layers].filter((t) => t !== "");
+  const named = (state: string) =>
+    report.entries
+      .filter((e) => e.state === state)
+      .map((e) => e.name)
+      .join(", ");
+  const failed = failedFilesClause(report);
+  if (failed !== null) bits.push(failed);
+  if (report.unconfirmed > 0) {
+    bits.push(`${named("unconfirmed")} unconfirmed, datasets re-read`);
+  }
+  if (report.notStarted > 0) {
+    bits.push(`${report.notStarted} not started`);
+  }
+  const text = withSkips(
+    bits.join(" · "),
+    report.skips.length
+      ? report.skips.map(({ source, layer, reason }) => ({
+          layer: `${source}: ${layer}`,
+          reason,
+        }))
+      : null,
+  );
+  return { text, tone: settleTone(report) };
 }
 
 /** One local file's layer-domain outcome in an upload batch:
@@ -233,8 +269,13 @@ export function useLayerSourceCoordinator({
   );
 
   // One transient notice channel for import and source-edit outcomes.
-  const { notice: importNotice, show: showImportNotice } =
-    useTransientNotice();
+  const {
+    notice: importText,
+    tone: importTone,
+    show: showImportNotice,
+  } = useTransientNotice();
+  const importNotice =
+    importText === null ? null : { text: importText, tone: importTone };
   // Skipped container members — composed via withSkips.
   const pendingSkipsRef = useRef<SkippedMember[] | null>(null);
   const setPendingSkips = useCallback((skipped: SkippedMember[]) => {
@@ -572,44 +613,17 @@ export function useLayerSourceCoordinator({
         focus.bounds = null;
         if (focus.timer) window.clearTimeout(focus.timer);
       }
-      const bits = [
+      const { text, tone } = uploadBatchNotice(
+        report,
         importBatchNotice({
           created: acc.created.map((l) => l.name),
           nonSpatial: acc.nonSpatial,
           failed: acc.layerFailed,
           unconfirmed: acc.layerUnconfirmed,
         }),
-      ].filter((t) => t !== "");
-      // Outcomes named by file: the catalog may already
-      // be closed, and this notice is then the only account.
-      const named = (state: string) =>
-        report.entries
-          .filter((e) => e.state === state)
-          .map((e) => e.name)
-          .join(", ");
-      if (report.failed > 0) {
-        bits.push(
-          report.failed === 1
-            ? `${named("failed")} failed`
-            : `${report.failed} files failed (${named("failed")})`,
-        );
-      }
-      if (report.unconfirmed > 0) {
-        bits.push(`${named("unconfirmed")} unconfirmed, datasets re-read`);
-      }
-      if (report.notStarted > 0) {
-        bits.push(`${report.notStarted} not started`);
-      }
-      const text = withSkips(
-        bits.join(" · "),
-        report.skips.length
-          ? report.skips.map(({ source, layer, reason }) => ({
-              layer: `${source}: ${layer}`,
-              reason,
-            }))
-          : null,
       );
-      if (text !== "") showImportNotice(text);
+      // The builder's notice channel keeps its four seconds, in any tone.
+      if (text !== "") showImportNotice(text, tone, false);
       const clean =
         report.failed === 0 &&
         report.unconfirmed === 0 &&

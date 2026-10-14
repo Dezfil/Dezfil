@@ -15,6 +15,7 @@ import { WarnIcon, XIcon } from "@/components/ui/icons";
 import { AddDataDialog } from "@/components/AddDataDialog";
 import { skippedNotice } from "@/components/skipped-members";
 import { uploadSettleNotice } from "@/components/upload-settle-notice";
+import type { NoticeTone } from "@/components/use-transient-notice";
 import { useUploadQueue, type UploadQueue } from "@/components/use-upload-queue";
 import { RuledConnectionForm } from "./RuledConnectionForm";
 import { contributePath, releasePath } from "@/components/shell/path-model";
@@ -70,7 +71,9 @@ export function ConnectionDetail({ id }: { id: string }) {
   const [testingError, setTestingError] = useState<string | null>(null);
   const [refreshStates, setRefreshStates] = useState<Record<string, RefreshState>>({});
   const [refreshingAll, setRefreshingAll] = useState(false);
-  const [notice, setNotice] = useState<string | null>(null);
+  // A plain sentence is said quietly; a settled upload carries its tone,
+  // and a warning or failure takes the failure note.
+  const [notice, setNotice] = useState<string | { text: string; tone: NoticeTone } | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   // Import tables opens the Add data dialog HERE: no
   // navigation, and closing it leaves this page current. The file batch is
@@ -114,14 +117,14 @@ export function ConnectionDetail({ id }: { id: string }) {
   }, []);
   const uploadQueue = useUploadQueue({
     onSettled: (report) => {
-      const { text, clean } = uploadSettleNotice(report);
+      const { text, clean, tone } = uploadSettleNotice(report);
       if (addOpenRef.current) {
         if (clean) {
           setAddOpen(false);
           setNotice(text);
         }
       } else {
-        setNotice(text);
+        setNotice(text === null ? null : { text, tone });
         uploadQueueRef.current?.reset();
       }
     },
@@ -341,7 +344,11 @@ export function ConnectionDetail({ id }: { id: string }) {
       {testingError ? (
         <ErrorNote message={testingError} onDismiss={() => setTestingError(null)} />
       ) : null}
-      {notice ? <p className={styles.notice} role="status">{notice}</p> : null}
+      {notice === null ? null : typeof notice === "string" || notice.tone === "ok" ? (
+        <p className={styles.notice} role="status">{typeof notice === "string" ? notice : notice.text}</p>
+      ) : (
+        <ErrorNote tone={notice.tone} message={notice.text} onDismiss={() => setNotice(null)} />
+      )}
 
       <div className={styles.detailGrid}>
         <div className={styles.mainColumn}>

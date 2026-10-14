@@ -9,6 +9,7 @@ import { DrawOverlay } from "./draw/DrawOverlay";
 import { closeDraw, openDraw } from "./draw/draw-mode";
 import type { useDrawIntegration } from "./draw/use-draw-integration";
 import type { CameraHandle } from "../map/camera-handle";
+import type { NoticeTone } from "../use-transient-notice";
 import { CompressIcon, ExpandIcon, FitIcon, PencilIcon } from "../ui/icons";
 import {
   SAVE_STATUS_EXIT_MS,
@@ -59,8 +60,9 @@ export function BuilderStageControls({
   /** The four-second notice channel: imports,
    * partial outcomes and failures, skipped members, stopped files,
    * dismissed PostGIS outcomes, source-edit confirmations, and drawing
-   * confirmations, refusals and failures. */
-  notice: string | null;
+   * confirmations, refusals and failures. A settled upload carries its
+   * tone; a warning or failure reads in the chip's failure tone. */
+  notice: string | { text: string; tone: NoticeTone } | null;
 }) {
   // The exit the header span had for free, because it kept its literal
   // mounted: the line is marked off the moment the counter settles, and
@@ -130,7 +132,12 @@ export function BuilderStageControls({
             },
             {
               key: "notice",
-              message: notice === null ? null : { text: notice },
+              message:
+                notice === null
+                  ? null
+                  : typeof notice === "string"
+                    ? { text: notice }
+                    : { text: notice.text, ...(notice.tone === "ok" ? {} : { tone: "bad" as const }) },
               announce: true,
             },
           ]}
