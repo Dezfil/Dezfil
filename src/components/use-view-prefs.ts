@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { ViewPrefs } from "@/lib/metadata/settings";
 
 type View = "grid" | "list";
@@ -17,6 +17,9 @@ export function useViewPrefs<Sort extends string>(
 ) {
   const [view, setViewState] = useState<View>("grid");
   const [sort, setSortState] = useState<Sort>(defaultSort);
+  // A field the person set before the stored answer arrived keeps their
+  // value; the field they left alone still takes the stored one.
+  const chosen = useRef({ view: false, sort: false });
 
   useEffect(() => {
     let cancelled = false;
@@ -27,9 +30,12 @@ export function useViewPrefs<Sort extends string>(
         const body = (await response.json()) as { viewPrefs?: ViewPrefs };
         const prefs = body.viewPrefs?.[screen];
         if (cancelled || !prefs) return;
-        if (prefs.view === "grid" || prefs.view === "list")
+        if (
+          !chosen.current.view &&
+          (prefs.view === "grid" || prefs.view === "list")
+        )
           setViewState(prefs.view);
-        if (validSorts.includes(prefs.sort as Sort))
+        if (!chosen.current.sort && validSorts.includes(prefs.sort as Sort))
           setSortState(prefs.sort as Sort);
       } catch {
         // Defaults are fine; preferences are a nicety, never a blocker.
@@ -55,6 +61,7 @@ export function useViewPrefs<Sort extends string>(
 
   const setView = useCallback(
     (v: View) => {
+      chosen.current.view = true;
       setViewState(v);
       persist({ view: v });
     },
@@ -63,6 +70,7 @@ export function useViewPrefs<Sort extends string>(
 
   const setSort = useCallback(
     (s: Sort) => {
+      chosen.current.sort = true;
       setSortState(s);
       persist({ sort: s });
     },
