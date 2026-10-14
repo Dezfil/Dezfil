@@ -157,9 +157,14 @@ describe("the image's credit, drawn on the map", () => {
     expect(drawn("light", null).credit).toEqual(LIGHT);
   });
 
+  it("reads against Streets as against Light, since Streets is a light style in both themes", () => {
+    expect(drawn("dark", "streets").credit).toEqual(LIGHT);
+    expect(drawn("light", "streets").credit).toEqual(LIGHT);
+  });
+
   it("keeps the image's theme over a style with no tone of its own, a custom one included whatever key it was on", () => {
-    expect(drawn("dark", "streets").credit).toEqual(DARK);
     expect(drawn("light", "satellite").credit).toEqual(LIGHT);
+    expect(drawn("dark", "satellite").credit).toEqual(DARK);
     expect(drawn("dark", "light", true).credit).toEqual(DARK);
     expect(drawn("light", "dark", true).credit).toEqual(LIGHT);
   });

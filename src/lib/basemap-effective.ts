@@ -36,16 +36,18 @@ export interface EffectiveBasemap {
 /** Whether the basemap a map draws is light or dark, for what is drawn
  * straight onto it with no card of its own, so it reads against the map
  * rather than the page. The Dark and Light styles are the two tones
- * themselves, and Auto follows the theme. A custom style wins over the key
- * it was put on; it, Streets, Satellite and a deployment's own style carry
- * no tone here, so they take the theme's. */
+ * themselves, Streets is a light style in both themes, and Auto follows the
+ * theme. A custom style wins over the key it was put on; it, Satellite and
+ * a deployment's own style carry no tone here, so they take the theme's. */
 export function basemapTone(args: {
   key: BasemapKey | null;
   /** Whether a custom style is drawn, which wins over the key. */
   custom: boolean;
   theme: "light" | "dark";
 }): "light" | "dark" {
-  if (!args.custom && (args.key === "dark" || args.key === "light")) return args.key;
+  if (args.custom) return args.theme;
+  if (args.key === "dark" || args.key === "light") return args.key;
+  if (args.key === "streets") return "light";
   return args.theme;
 }
 
