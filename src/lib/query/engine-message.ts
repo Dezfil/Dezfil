@@ -87,7 +87,7 @@ export const DATASET_READ_MESSAGE = "The query's dataset could not be read.";
 const FAILED_QUERY_MESSAGE = "The query could not be completed.";
 const ENGINE_PREFIX = /^(?:Catalog|Binder|Parser|Conversion|Invalid(?: Input| Type)?|IO|Permission|Not implemented|Internal|Transaction|Constraint|Serialization|Connection|Syntax|Type) Error:/i;
 const ABSENT_TABLE = /(?:Catalog Error:\s*)?(?:Table|Schema|Catalog) with name [\s\S]*? does not exist[!.]?/i;
-const FILE_DIAGNOSTIC = /(?:\b(?:IO|Permission) Error:|\b(?:parquet|read_parquet|magic bytes|No files found|failed to open file|cannot open file)\b)/i;
+const FILE_DIAGNOSTIC = /(?:\b(?:IO|Permission) Error:|\b(?:(?:not a|invalid|too small to be a) parquet file|parquet (?:reader|file)|magic bytes|No files found|failed to open file|cannot open file)\b)/i;
 const PRIVATE_PATH = /(?:^|[\s"'(:])(?:\/(?!\s)|[a-z]:[\\/]|\\\\|~[\\/])[^\s"')]+/i;
 
 const AMBIGUOUS_TABLE = /^((?:Binder Error: )?)Ambiguous reference to table "([\s\S]*?)" \((?:use: |duplicate alias )[\s\S]*\)$/;
