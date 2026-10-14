@@ -866,9 +866,9 @@ the [host guide](self-hosting.md#leaving-and-deleting-accounts) gives measured p
 and space requirements. A failed compaction remains unfinished and safe to retry.
 Completion also waits for prepared files to settle or expire and cleanup to finish.
 Recorded dataset inputs identify foreign card images, tiles and private prepared
-copies for erasure; existing unattributed card images owned by others remain. Runs
-of workflows deleted before their owner's account no longer have a workflow owner
-and remain, with Deleted account as starter. Copies outside the instance, including
+copies for erasure; existing unattributed card images owned by others remain. Deleting
+a workflow removes its run records while its output datasets remain. Copies outside
+the instance, including
 downloaded files and a database a connection wrote to, are not reached.
 
 **Directory.** `GET /api/accounts/search?q=` is how a signed-in person finds

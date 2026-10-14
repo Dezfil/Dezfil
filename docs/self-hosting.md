@@ -201,8 +201,8 @@ Deletion has these copy and attribution limits:
 
 - Other people's derived datasets remain theirs permanently. Their SQL, lineage,
   run records and stored run sentences can retain dataset names, artifact identities
-  and personal text. Runs of workflows deleted before their owner's account have
-  no remaining workflow owner and stay, showing **Deleted account** as their starter.
+  and personal text. Deleting a workflow removes its run records while its output
+  datasets remain.
 - Already issued private copies keep their existing lifetime. Completion waits for
   prepared files to settle or expire and for observed cleanup. Recorded input
   evidence removes affected card images, tiles, retained renders and prepared files,

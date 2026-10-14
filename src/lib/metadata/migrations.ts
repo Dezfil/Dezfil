@@ -503,4 +503,8 @@ export const MIGRATIONS: string[] = [
      position INTEGER NOT NULL,
      created_at TEXT NOT NULL
    );`,
+  // Earlier workflow deletions left runs without an owning workflow. Their
+  // members cascade away; datasets and independently owned jobs stay intact.
+  `DELETE FROM cascade_runs WHERE NOT EXISTS
+    (SELECT 1 FROM recipes WHERE recipes.id = cascade_runs.recipe_id);`,
 ];

@@ -139,15 +139,14 @@ export const RECIPE_PATHS = {
     delete: op(workflowAccess({
       summary: "Delete a recipe",
       description:
-        "**The datasets its steps produced remain in the workspace.** A " +
-        "recipe records how they were made; it does not own them. That " +
-        "is what this confirmation is for — a user expecting the tables " +
-        "to go with it has been told the wrong thing.",
+        "Deletes the workflow, its steps, lineage and run records. " +
+        "**The datasets its steps produced remain in the workspace.** " +
+        "A recipe records how they were made; it does not own them.",
       tag: "Recipes",
       tool: "delete_recipe", mcp: LOCAL_DELETE,
       display: {"verb": "Deleted the workflow {subject}", "subject": {"resource": "recipes", "argument": "id"}},
       effects: writes(resource("recipes", "id"), resource("projects")),
-      confirmation: {"target": "Delete {target}?", "consequence": "This deletes the workflow. Its output datasets remain in the workspace.", "subject": {"path": "/api/recipes/{id}", "argument": "id", "name": "recipe.name"}},
+      confirmation: {"target": "Delete {target}?", "consequence": "This deletes the workflow and its run records. Its output datasets remain in the workspace.", "subject": {"path": "/api/recipes/{id}", "argument": "id", "name": "recipe.name"}},
       confirm: true,
       parameters: [editRevisionParam, pathParam("id", "Recipe id.")],
       responses: { ...editRevisionResponses,

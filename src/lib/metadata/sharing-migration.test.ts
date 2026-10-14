@@ -114,7 +114,9 @@ describe("the project-sharing migration entry", () => {
     const before = rows();
     reopen();
     expect(db.pragma("user_version", { simple: true })).toBe(MIGRATIONS.length);
-    expect(rows()).toEqual(before);
+    expect(before.cascade_runs).toContainEqual(expect.objectContaining({ id: "orphan-run" }));
+    expect(rows()).toEqual({ ...before, cascade_runs: before.cascade_runs.filter((row: unknown) =>
+      (row as { id: string }).id !== "orphan-run") });
     expect(db.pragma("foreign_key_check")).toEqual([]);
     expect(column("SELECT id, sql_name FROM accounts ORDER BY created_at")).toEqual([
       { id: "first", sql_name: "ada_lovelace" }, { id: "second", sql_name: "ada_lovelace2" },
@@ -124,7 +126,7 @@ describe("the project-sharing migration entry", () => {
       expect(column(`SELECT id FROM ${table} WHERE home_account_id IS NOT owner_id OR home_account_id IS NULL`), table).toEqual([]);
     }
     expect(column("SELECT id, initiator_id FROM cascade_runs ORDER BY id")).toEqual([
-      { id: "orphan-run", initiator_id: null }, { id: "run", initiator_id: "first" },
+      { id: "run", initiator_id: "first" },
     ]);
     expect(column("SELECT id, runner_id FROM lineage_edges")).toEqual([{ id: "edge", runner_id: "first" }]);
     expect(column("SELECT * FROM step_runner_outputs")).toEqual([{
@@ -144,7 +146,9 @@ describe("the project-sharing migration entry", () => {
     populate(null, null);
     const before = rows();
     reopen();
-    expect(rows()).toEqual(before);
+    expect(before.cascade_runs).toContainEqual(expect.objectContaining({ id: "orphan-run" }));
+    expect(rows()).toEqual({ ...before, cascade_runs: before.cascade_runs.filter((row: unknown) =>
+      (row as { id: string }).id !== "orphan-run") });
     for (const sql of ["SELECT DISTINCT home_account_id AS v FROM maps", "SELECT DISTINCT home_account_id AS v FROM recipes",
       "SELECT DISTINCT initiator_id AS v FROM cascade_runs", "SELECT DISTINCT runner_id AS v FROM lineage_edges"]) {
       expect(column(sql), sql).toEqual([{ v: null }]);
@@ -157,7 +161,7 @@ describe("the project-sharing migration entry", () => {
       expect(column(`SELECT DISTINCT owner_id, home_account_id FROM ${table}`), table).toEqual([{ owner_id: id, home_account_id: id }]);
     }
     expect(column("SELECT id, initiator_id FROM cascade_runs ORDER BY id")).toEqual([
-      { id: "orphan-run", initiator_id: null }, { id: "run", initiator_id: id },
+      { id: "run", initiator_id: id },
     ]);
     expect(column("SELECT runner_id FROM lineage_edges")).toEqual([{ runner_id: id }]);
     expect(column("SELECT step_id, runner_id, output_table_id, job_id, run_id FROM step_runner_outputs"))
