@@ -1,7 +1,7 @@
 import { withFixtureRevision } from "@/lib/test-support/edit-basis";
 import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import type { Database } from "better-sqlite3";
-import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as metadata from "@/lib/metadata/db";
 import { testAccountRequest, testAccountScope } from "@/lib/test-support/accounts";
 import { socketRequest } from "@/lib/assistant/testing/socket-request";
@@ -12,9 +12,10 @@ import { requireRequestAuth } from "./http";
 import { createApiToken } from "./credentials";
 
 const effects = vi.hoisted(() => ({ inspect: vi.fn(async () => ({ url: "https://styles.example.test/style.json", name: null, attribution: [] })),
-  thumbnail: vi.fn(async () => {}), tiles: vi.fn(async () => {}) }));
+  thumbnail: vi.fn(async () => {}), tiles: vi.fn(async () => {}),
+  served: vi.fn<(scope: unknown, mapIds: readonly string[]) => Promise<Set<string>>>(async () => new Set<string>()) }));
 vi.mock("@/lib/basemap-custom", () => ({ resolveCustomBasemapWrite: effects.inspect }));
-vi.mock("@/lib/map-thumbnails", () => ({ prepareThumbnailRemoval: () => effects.thumbnail, removeThumbnail: effects.thumbnail, copyThumbnail: effects.thumbnail, servedThumbnails: async () => new Set<string>() }));
+vi.mock("@/lib/map-thumbnails", () => ({ prepareThumbnailRemoval: () => effects.thumbnail, removeThumbnail: effects.thumbnail, copyThumbnail: effects.thumbnail, servedThumbnails: effects.served }));
 vi.mock("@/lib/tiles/build", () => ({ removeTileArtifacts: effects.tiles }));
 
 let db: Database;
@@ -194,6 +195,51 @@ it("requires explicit service scopes and refuses hidden map identities before an
   expect(effects.inspect).not.toHaveBeenCalled();
   expect(effects.thumbnail).not.toHaveBeenCalled();
   expect(effects.tiles).not.toHaveBeenCalled();
+});
+
+describe("the listing rechecks access after its picture reads", () => {
+  let shared: string;
+  const removeBob = () => { db.prepare("DELETE FROM project_people WHERE project_id = ? AND account_id = 'bob'").run(projects.alice); };
+  beforeEach(() => {
+    shared = createMap(testAccountScope(db, "alice"), "Shared alice", projects.alice).id;
+    db.prepare("INSERT INTO project_people VALUES (?, ?, ?, 'time')").run(projects.alice, "bob", "viewer");
+  });
+  /** Lists while the picture reads are held open, runs `meanwhile`, then lets them answer every map pictured. */
+  async function heldListing(account: string, project: string | undefined, meanwhile: () => void) {
+    const { mapsOverview } = await import("@/lib/map-service");
+    const gate = Promise.withResolvers<void>();
+    let reading = false;
+    effects.served.mockImplementationOnce(async (_scope, mapIds) => { reading = true; await gate.promise; return new Set(mapIds); });
+    const listing = mapsOverview(testAccountScope(db, account), project);
+    expect(reading).toBe(true);
+    meanwhile();
+    gate.resolve();
+    return listing;
+  }
+
+  it("leaves out a shared map whose membership is revoked while the pictures are read", async () => {
+    const { mapsOverview } = await import("@/lib/map-service");
+    expect((await mapsOverview(testAccountScope(db, "bob"))).map(m => m.id).sort()).toEqual([shared, ids.bob].sort());
+    expect(await heldListing("bob", undefined, removeBob)).toEqual([
+      expect.objectContaining({ id: ids.bob, name: "Private bob", layerCount: 1, hasThumbnail: true }),
+    ]);
+  });
+
+  it("refuses a project narrowing whose project became unreachable meanwhile, as a fresh listing does", async () => {
+    const { mapsOverview } = await import("@/lib/map-service");
+    expect((await mapsOverview(testAccountScope(db, "bob"), projects.alice)).map(m => m.id)).toEqual([shared]);
+    await expect(heldListing("bob", projects.alice, removeBob)).rejects.toMatchObject({ code: "not_found", status: 404 });
+    await expect(mapsOverview(testAccountScope(db, "bob"), projects.alice)).rejects.toMatchObject({ code: "not_found", status: 404 });
+  });
+
+  it("refuses an account deactivated while the pictures are read, whether or not it lists anything", async () => {
+    testAccountScope(db, "empty");
+    for (const account of ["alice", "empty"]) {
+      await expect(heldListing(account, undefined, () => {
+        db.prepare("UPDATE accounts SET status = 'deactivated' WHERE id = ?").run(account);
+      }), account).rejects.toMatchObject({ code: "authentication_required", status: 401 });
+    }
+  });
 });
 
 it("filters ownership before parsing hidden map and layer content", async () => {
