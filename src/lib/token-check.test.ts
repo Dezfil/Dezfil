@@ -144,6 +144,7 @@ describe("the inventory ratchet", () => {
 });
 
 it("regenerates the current tree's token inventory byte for byte without writing it", () => {
+  // The stored inventory is empty today; the fixture below guards comparator order.
   expect(JSON.stringify(toRows(checkTree(process.cwd())), null, 2) + "\n")
     .toBe(readFileSync("scripts/token-inventory.json", "utf8"));
 });
