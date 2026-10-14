@@ -1,3 +1,4 @@
+import { withTrustedOperation } from "@/lib/trusted-operation";
 import { metadataDb } from "../metadata/db";
 import { documentFacts, type DocumentFacts } from "../metadata/document-facts";
 import { requireReachable } from "@/lib/auth/reach";
@@ -69,73 +70,80 @@ function absOf(rel: string): string {
   return path.join(dataDir(), rel);
 }
 
-export async function readFeatures(abs: string): Promise<StoredSketchFeature[]> {
-  return withConnection(async (conn) => {
-    // An emptied sketch's artifact reads its geometry column back as BLOB
-    // (no rows, no GeoParquet metadata), and ST_AsGeoJSON(BLOB) is a
-    // binder error — so the zero-row case answers before geometry binds.
-    const counted = await conn.runAndReadAll(
-      `SELECT count(*) AS n FROM read_parquet(${lit(abs)})`,
-    );
-    if (Number(counted.getRowObjects()[0].n) === 0) return [];
-    const rows = await conn.runAndReadAll(
-      `SELECT feature_id, kind, CAST(ST_AsGeoJSON(geom) AS VARCHAR) AS gj
-       FROM read_parquet(${lit(abs)}) WHERE feature_id IS NOT NULL`,
-    );
-    return rows.getRowObjects().map((r) => ({
-      id: String(r.feature_id),
-      kind: String(r.kind) as SketchKind,
-      geometry: JSON.parse(String(r.gj)) as SketchGeometry,
-    }));
+export async function readFeatures(abs: string, signal?: AbortSignal): Promise<StoredSketchFeature[]> {
+  return withTrustedOperation({ kind: "interactive-read", name: "Sketch read", signal }, async () => {
+    return withConnection(async (conn) => {
+      // An emptied sketch's artifact reads its geometry column back as BLOB
+      // (no rows, no GeoParquet metadata), and ST_AsGeoJSON(BLOB) is a
+      // binder error — so the zero-row case answers before geometry binds.
+      const counted = await conn.runAndReadAll(
+        `SELECT count(*) AS n FROM read_parquet(${lit(abs)})`,
+      );
+      if (Number(counted.getRowObjects()[0].n) === 0) return [];
+      const rows = await conn.runAndReadAll(
+        `SELECT feature_id, kind, CAST(ST_AsGeoJSON(geom) AS VARCHAR) AS gj
+         FROM read_parquet(${lit(abs)}) WHERE feature_id IS NOT NULL`,
+      );
+      return rows.getRowObjects().map((r) => ({
+        id: String(r.feature_id),
+        kind: String(r.kind) as SketchKind,
+        geometry: JSON.parse(String(r.gj)) as SketchGeometry,
+      }));
+    });
   });
 }
 
 export function listFeatures(
   scope: AccountScope,
   name: string,
+  signal?: AbortSignal,
 ): Promise<StoredSketchFeature[]> {
-  // Register before capture; protection spans both count and geometry opens.
-  return trackInflight(Promise.resolve().then(() => {
-    const table = readableSketch(scope, name);
-    return readFeatures(absOf(table.file));
-  }));
+  return withTrustedOperation({ kind: "interactive-read", name: "Sketch read", signal }, async () => {
+    // Register before capture; protection spans both count and geometry opens.
+    return trackInflight(Promise.resolve().then(() => {
+      const table = readableSketch(scope, name);
+      return readFeatures(absOf(table.file));
+    }));
+  });
 }
 
 /** The caller's own sketch datasets drawn on a map they reach: never another
  * person's, whoever the map belongs to. */
-export function mapSketches(scope: AccountScope, mapId: string): Promise<SketchSummary[]> {
-  requireReachable(scope, "map", mapId);
-  // One registry snapshot and one tracked lifetime for the whole traversal.
-  return trackInflight(Promise.resolve().then(async () => {
-    const { tables, facts } = metadataDb().transaction(() => ({
-      facts: documentFacts({ kind: "map", id: mapId }),
-      tables: listOwnedTables(scope).filter(t => t.source === "sketch" && ownerOf(t).mapId === mapId),
-    }))();
-    const summaries: SketchSummary[] = [];
-    for (const table of tables) {
-      const counts: Partial<Record<SketchKind, number>> = {};
-      if (table.rowCount > 0) {
-        await withConnection(async (conn) => {
-          const rows = await conn.runAndReadAll(
-            `SELECT kind, count(*) AS n FROM read_parquet(${lit(absOf(table.file))})
-             WHERE kind IS NOT NULL GROUP BY kind`,
-          );
-          for (const r of rows.getRowObjects())
-            counts[String(r.kind) as SketchKind] = Number(r.n);
+export function mapSketches(scope: AccountScope, mapId: string, signal?: AbortSignal): Promise<SketchSummary[]> {
+  return withTrustedOperation({ kind: "interactive-read", name: "Sketch read", signal }, async () => {
+    requireReachable(scope, "map", mapId);
+    // One registry snapshot and one tracked lifetime for the whole traversal.
+    return trackInflight(Promise.resolve().then(async () => {
+      const { tables, facts } = metadataDb().transaction(() => ({
+        facts: documentFacts({ kind: "map", id: mapId }),
+        tables: listOwnedTables(scope).filter(t => t.source === "sketch" && ownerOf(t).mapId === mapId),
+      }))();
+      const summaries: SketchSummary[] = [];
+      for (const table of tables) {
+        const counts: Partial<Record<SketchKind, number>> = {};
+        if (table.rowCount > 0) {
+          await withConnection(async (conn) => {
+            const rows = await conn.runAndReadAll(
+              `SELECT kind, count(*) AS n FROM read_parquet(${lit(absOf(table.file))})
+               WHERE kind IS NOT NULL GROUP BY kind`,
+            );
+            for (const r of rows.getRowObjects())
+              counts[String(r.kind) as SketchKind] = Number(r.n);
+          });
+        }
+        summaries.push({
+          ...facts,
+          table: table.name,
+          tableId: table.id,
+          mapId,
+          layerId: ownerOf(table).layerId,
+          rowCount: table.rowCount,
+          counts,
         });
       }
-      summaries.push({
-        ...facts,
-        table: table.name,
-        tableId: table.id,
-        mapId,
-        layerId: ownerOf(table).layerId,
-        rowCount: table.rowCount,
-        counts,
-      });
-    }
-    requireReachable(scope, "map", mapId);
-    return summaries;
-  }));
+      requireReachable(scope, "map", mapId);
+      return summaries;
+    }));
+  });
 }
 

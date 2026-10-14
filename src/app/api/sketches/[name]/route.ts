@@ -15,7 +15,7 @@ export async function DELETE(_request: Request, { params }: Params) {
   try {
     const scope = requireRequestScope(_request);
     const { name } = await params;
-    return NextResponse.json(await cascadeDeleteSketch(scope, name));
+    return NextResponse.json(await cascadeDeleteSketch(scope, name, "dataset", { signal: _request.signal }));
   } catch (error) {
     return errorResponse(error);
   }

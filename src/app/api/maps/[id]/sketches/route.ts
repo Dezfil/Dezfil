@@ -14,7 +14,7 @@ export async function GET(_request: Request, { params }: Params) {
     const scope = requireRequestScope(_request);
     const { id } = await params;
     requireMap(scope, id);
-    return NextResponse.json(await mapSketches(scope, id));
+    return NextResponse.json(await mapSketches(scope, id, _request.signal));
   } catch (error) {
     return errorResponse(error);
   }
@@ -36,7 +36,7 @@ export async function POST(request: Request, { params }: Params) {
       if (error instanceof ApiError) throw error;
       throw new ApiError("invalid_request", "Expected a JSON body.", 400);
     }
-    const created = await createSketch(scope, id, body.feature, { expectedRevision: request.headers.get("X-Edit-Revision") });
+    const created = await createSketch(scope, id, body.feature, { expectedRevision: request.headers.get("X-Edit-Revision"), signal: request.signal });
     return NextResponse.json(
       {
         editRevision: created.editRevision,

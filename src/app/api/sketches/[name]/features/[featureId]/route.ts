@@ -34,6 +34,7 @@ export async function PATCH(request: Request, { params }: Params) {
       featureId,
       body.vertexIndex,
       body.position,
+      request.signal,
     );
     return NextResponse.json({ rowCount: result.rowCount });
   } catch (error) {
@@ -46,7 +47,7 @@ export async function DELETE(_request: Request, { params }: Params) {
   try {
     const scope = requireRequestScope(_request);
     const { name, featureId } = await params;
-    const result = await deleteFeature(scope, name, featureId);
+    const result = await deleteFeature(scope, name, featureId, _request.signal);
     return NextResponse.json({ rowCount: result.rowCount });
   } catch (error) {
     return errorResponse(error);

@@ -447,7 +447,11 @@ the processing lifetime. Every PostGIS attachment retains the 10-second connect
 limit and uses a 30-second source statement ceiling plus owned interruption.
 The source statement ceiling answers `408 query_timeout`. Geometry set and clear
 use one processing lifetime through preparation, revision checks and replacement,
-continue after departure, and retain the previous artifact on refusal.
+continue after departure, and retain the previous artifact on refusal. Sketch
+feature reads and map summaries share the query lifetime; sketch changes keep
+one processing deadline through queue waiting, reads, conversion and commit.
+Accepted changes continue after departure. An expired queued change cannot
+write later or let a successor bypass an active predecessor.
 
 ## Open data providers
 
