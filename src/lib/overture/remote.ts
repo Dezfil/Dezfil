@@ -1,3 +1,4 @@
+import { isTrustedOperationRefusal } from "@/lib/trusted-operation";
 import { ApiError } from "@/lib/api/errors";
 import { OVERTURE_BUCKET, OVERTURE_REGION } from "./bucket";
 
@@ -29,6 +30,7 @@ export async function ensureOvertureSupport(
          TYPE s3, REGION ${lit(OVERTURE_REGION)}, SCOPE ${lit(`s3://${OVERTURE_BUCKET}`)}${seamOpts})`,
     );
   } catch (error) {
+    if (isTrustedOperationRefusal(error)) throw error;
     throw new ApiError(
       "remote_fetch_failed",
       `Overture reads need the DuckDB httpfs extension, which could not be loaded${
@@ -40,7 +42,7 @@ export async function ensureOvertureSupport(
 }
 
 export function mapOvertureError(error: unknown): never {
-  if (error instanceof ApiError) throw error;
+  if (isTrustedOperationRefusal(error)) throw error;
   const message = error instanceof Error ? error.message : String(error);
   if (
     /HTTP|40[0-9]|50[0-9]|Connection|resolve|timed? ?out|No files found|Unable to connect/i.test(

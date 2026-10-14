@@ -429,7 +429,7 @@ behavior and [the API guide](api.md#request-bounds) for exact refusals.
 
 Trusted engine memory and Bytes drawn per layer are exposed for configuration;
 their enforcement is not yet active. File and archive import processing, link
-and object-store imports, URL refreshes, and OpenStreetMap imports and refreshes
+and object-store imports, URL refreshes, and OpenStreetMap and Overture imports and refreshes
 use the Data processing time limit
 through preparation and commit. Accepted processing continues after departure;
 expiry removes candidates and leaves previously committed data intact. Reception
@@ -438,6 +438,10 @@ features and projection lookup now share one admitted Query time limit through
 preparation and reads, and cancel when the last interested caller leaves.
 OpenStreetMap previews use the same query lifetime through source preparation
 and geometry assembly, retaining the existing Overpass time and size limits.
+Overture release discovery, divisions, counts and previews also use the query
+lifetime, including scope preparation. Shared division reads retain the original
+deadline while callers can leave independently; imports and refreshes inherit
+the processing lifetime through commit.
 
 ## Open data providers
 

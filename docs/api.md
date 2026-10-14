@@ -564,7 +564,7 @@ overrides lock the corresponding row and require restart. Trusted scratch
 is derived at four times trusted memory, with no separate setting. The byte
 value describes a complete uncompressed UTF-8 JSON inline answer, envelope
 included, with equality admitted. These three settings are exposed for
-configuration. File, link and OpenStreetMap imports and refreshes use the processing limit;
+configuration. File, link, OpenStreetMap and Overture imports and refreshes use the processing limit;
 reception, other processing families and render enforcement are not yet active.
 
 The admin and the complete body are checked inside one immediate transaction
@@ -2201,7 +2201,11 @@ limits and their existing refusals remain in force. OpenStreetMap previews
 use the query lifetime through the Overpass response and geometry assembly;
 imports and group refreshes use the processing lifetime across all classes.
 Overpass time, response-size and area refusals keep their existing codes.
-Other source and render routes are not yet connected. Hardened query memory refusal remains
+Overture release discovery, division reads, counts and previews use the query
+lifetime, including scope preparation. Imports and refreshes use the processing
+lifetime through the artifact commit. Shared division reads retain the first
+deadline and stop after their last interested caller leaves. Area and feature
+limits retain their existing refusals. Other source and render routes are not yet connected. Hardened query memory refusal remains
 `400 query_memory_exceeded`, including template validation.
 
 <!-- error-catalogue:start -->

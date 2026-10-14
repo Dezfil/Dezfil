@@ -1,3 +1,4 @@
+import { withTrustedOperation } from "@/lib/trusted-operation";
 import { NextResponse } from "next/server";
 import { errorResponse, ApiError } from "@/lib/api/errors";
 import {
@@ -13,6 +14,7 @@ import {
  * names — the evidence-bearing level picker. */
 export async function GET(request: Request) {
   try {
+    return await withTrustedOperation({ kind: "interactive-read", name: "Overture read", signal: request.signal }, async () => {
     const url = new URL(request.url);
     const country = url.searchParams.get("country") ?? "";
     if (!/^[A-Za-z]{2}$/.test(country)) {
@@ -36,6 +38,7 @@ export async function GET(request: Request) {
       release: resolved,
       country: country.toUpperCase(),
       levels: aggregateLevels(index),
+    });
     });
   } catch (error) {
     return errorResponse(error);
