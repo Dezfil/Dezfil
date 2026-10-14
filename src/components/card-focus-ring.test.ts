@@ -10,11 +10,14 @@ import { readFileSync } from "node:fs";
  * ring (solid, at least 2px) and stands inside the link instead, its
  * corners following the card's, and the picture across the top leaves the
  * ring's band free while the link has focus, since a positioned picture
- * may paint over its parent's ring.
+ * may paint over its parent's ring. The link fills its card's whole box,
+ * so on a card the row stretches taller than its words the ring still
+ * runs along the card's foot, its lower corners the card's.
  */
 
 const GLOBALS = readFileSync("src/app/globals.css", "utf8");
 const GALLERY = readFileSync("src/components/gallery.module.css", "utf8");
+const HOME = readFileSync("src/components/home/Home.module.css", "utf8");
 
 /** The declarations of the first rule whose selector list is exactly
  * `selector`, or null when the stylesheet has none. */
@@ -75,6 +78,18 @@ describe("a gallery card's focus ring", () => {
     // The ring's outer edge takes the link's radius; the card's clip is its
     // inner edge, one hairline in, so the same radius stands inside it.
     expect(cardLinkRing().radius).toBe("var(--radius-card)");
+  });
+
+  it("fills the card's whole box, on a card the row stretches taller than its words too", () => {
+    // The galleries' rows stretch their cards to the row's height, which
+    // makes a card's height definite, so the link's full height is the
+    // card's.
+    for (const [sheet, selector] of [[GALLERY, ".grid"], [GALLERY, ".dataGrid"], [HOME, ".shelf"]] as const) {
+      const grid = rule(sheet, selector);
+      expect(grid?.display ?? "grid", `${selector} lays its cards out as a grid`).toBe("grid");
+      expect(["stretch", "normal", undefined], `${selector} stretches its cards`).toContain(grid?.["align-items"]);
+    }
+    expect(rule(GALLERY, ".cardLink")?.height).toBe("100%");
   });
 
   it("is left free by the picture across the top while the link has focus", () => {

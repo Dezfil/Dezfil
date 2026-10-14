@@ -159,14 +159,16 @@ async function expectNothingSideways(page: Page, what: string): Promise<void> {
 
 /** Tab from the welcome through Home: each stop as its role and name, the
  * stops that do not draw the census's ring (reached by keyboard,
- * :focus-visible, a solid outline at least 2px wide), and the stops whose
- * ring an ancestor's clip cuts off on some side, until focus leaves Home.
+ * :focus-visible, a solid outline at least 2px wide), the stops whose
+ * ring an ancestor's clip cuts off on some side, and the card links whose
+ * ring stops short of their card's box, until focus leaves Home.
  * Clicking the welcome makes it where Tab starts from. */
-async function tabThroughHome(page: Page, most = 80): Promise<{ stops: string[]; ringless: string[]; clipped: string[] }> {
+async function tabThroughHome(page: Page, most = 80): Promise<{ stops: string[]; ringless: string[]; clipped: string[]; short: string[] }> {
   await page.locator("[data-welcome]").click();
   const stops: string[] = [];
   const ringless: string[] = [];
   const clipped: string[] = [];
+  const short: string[] = [];
   for (let i = 0; i < most; i += 1) {
     await page.keyboard.press("Tab");
     const stop = await page.evaluate(() => {
@@ -188,14 +190,19 @@ async function tabThroughHome(page: Page, most = 80): Promise<{ stops: string[];
         const inner = { left: c.left + a.clientLeft, top: c.top + a.clientTop, right: c.left + a.clientLeft + a.clientWidth, bottom: c.top + a.clientTop + a.clientHeight };
         cut = r.left - reach < inner.left - 0.5 || r.top - reach < inner.top - 0.5 || r.right + reach > inner.right + 0.5 || r.bottom + reach > inner.bottom + 0.5;
       }
-      return { stop: `${role} ${name}`, ring, cut };
+      // A card's link: its ring follows the card's box inside the card's
+      // edge, the row's stretch included, by how far its foot stops short.
+      const card = el.parentElement?.tagName === "ARTICLE" ? el.parentElement : null;
+      const gap = card ? card.getBoundingClientRect().top + card.clientTop + card.clientHeight - r.bottom : 0;
+      return { stop: `${role} ${name}`, ring, cut, gap };
     });
     if (stop === null) break;
     stops.push(stop.stop);
     if (!stop.ring) ringless.push(stop.stop);
     if (stop.cut) clipped.push(stop.stop);
+    if (stop.gap > 0.5) short.push(`${stop.stop}: ${Math.round(stop.gap)} px short`);
   }
-  return { stops, ringless, clipped };
+  return { stops, ringless, clipped, short };
 }
 
 /** Press Tab from where focus stands until the target holds it. */
@@ -361,8 +368,9 @@ test.describe("Home", () => {
     const errors = trackConsole(page);
     await page.setViewportSize(WINDOWS[0]);
     await openHome(page, "template");
-    const { stops, ringless, clipped } = await tabThroughHome(page);
+    const { stops, ringless, clipped, short } = await tabThroughHome(page);
     expect(clipped, "no ring is cut by a clip").toEqual([]);
+    expect(short, "every card's ring runs down to its card's foot").toEqual([]);
     expect(stops).toEqual([
       ...cardStops(list[0]),
       ...START_STOPS,
@@ -497,8 +505,9 @@ test.describe("Home", () => {
     expect(headings.slice(4)).toEqual(["From the templates"]);
     const rows = await recentRows(page).evaluateAll((each) => each.map((row) => row.getAttribute("aria-label") ?? ""));
     expect([...rows].sort()).toEqual([...recentNames].sort());
-    const { stops, ringless, clipped } = await tabThroughHome(page);
+    const { stops, ringless, clipped, short } = await tabThroughHome(page);
     expect(clipped, "no ring is cut by a clip").toEqual([]);
+    expect(short, "every card's ring runs down to its card's foot").toEqual([]);
     expect(stops).toEqual([
       `link Open Home map ${TAG}`,
       ...START_STOPS,
