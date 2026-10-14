@@ -398,6 +398,14 @@
       "rule": "Drain target render waiters and active launches; preserve other accounts work and non-content capacity counters.",
       "fixture": "memory:src/lib/export/render-image.ts#waiters"
     },
+    "memory:src/lib/export/render-relay.ts#startRenderRelay.abandonedHosts": {
+      "action": "retain",
+      "rule": "Per-render set of normalized stalled host names created by startRenderRelay to refuse reconnects. It ends with the render; account erasure drains target render work before completion."
+    },
+    "memory:src/lib/export/render-stall.ts#RenderRequestLedger.requests": {
+      "action": "retain",
+      "rule": "Per-render request records created by the browser driver, keyed by request identity with host, start time, external-origin flag and last abandonment time. Finished requests are removed; remaining records end with the render. Account erasure drains target render work before completion."
+    },
     "memory:provider-scheduling": {
       "action": "retain",
       "rule": "Keep non-content endpoint scheduling or source rate budgets. Target work closures must settle before completion."
@@ -3135,6 +3143,11 @@
         "memory:src/lib/export/render-drive.ts#launches"
       ]
     },
+    "memory:src/lib/export/render-relay.ts#startRenderRelay.abandonedHosts": {
+      "stores": [
+        "memory:src/lib/export/render-relay.ts#startRenderRelay.abandonedHosts"
+      ]
+    },
     "memory:src/lib/export/render-relay.ts#startRenderRelay.admissions": {
       "stores": [
         "memory:request-closures"
@@ -3183,6 +3196,11 @@
     "memory:src/lib/export/render-socks.ts#SocksHandshake.length": {
       "stores": [
         "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/export/render-stall.ts#RenderRequestLedger.requests": {
+      "stores": [
+        "memory:src/lib/export/render-stall.ts#RenderRequestLedger.requests"
       ]
     },
     "memory:src/lib/geocode/limiter.ts#endpoints": {
