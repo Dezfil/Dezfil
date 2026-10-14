@@ -1,5 +1,7 @@
 "use client";
 
+import { tableReference } from "@/components/sql/sql-draft";
+
 import { useCallback, useRef, useState } from "react";
 import { editHeaders } from "@/lib/edit-basis";
 import { useEditorRequest } from "../../document-editor-context";
@@ -234,7 +236,7 @@ export function useAuthorStep({
                 // console names it; the server carries it into the map's home.
                 body: JSON.stringify({
                   name: step.displayName,
-                  sql: `SELECT * FROM ${settled.output.name}`,
+                  sql: `SELECT * FROM ${tableReference(settled.output.name)}`,
                   writtenIn: { kind: "console" },
                 }),
               }),

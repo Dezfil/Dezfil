@@ -5,15 +5,15 @@ import { DocumentSequence } from "../../document-sequence";
 import { useAuthorStep, type AuthorStepPort } from "./use-author-step";
 import type { RecipeSummary } from "./recipe-model";
 
-it("chains accepted workflow bases and lands its result through the builder sequence", async () => {
+it.each([["output", "output"], ["order", '"order"']])("lands %s through the builder sequence with a valid SQL reference", async (name, reference) => {
   const calls: { path: string; headers: Headers }[] = [];
   const fetcher = vi.spyOn(globalThis, "fetch").mockImplementation(async (path, init) => {
     calls.push({ path: String(path), headers: new Headers(init?.headers) });
     if (path === "/api/recipes") return Response.json({ recipe: { id: "r", editRevision: "created" } });
     if (path === "/api/recipes/r/steps") return Response.json({ step: { id: "s" }, editRevision: "step-added" });
     if (path === "/api/recipes/r/steps/s/run") return Response.json({ run: { id: "run", members: [{ jobId: "job" }] } });
-    if (path === "/api/operations/runs/job") return Response.json({ run: { state: "succeeded", output: { id: "data", name: "output" } } });
-    if (path === "/api/tables/output") return Response.json({ geometryColumn: "geometry", rowCount: 1 });
+    if (path === "/api/operations/runs/job") return Response.json({ run: { state: "succeeded", output: { id: "data", name } } });
+    if (path === `/api/tables/${name}`) return Response.json({ geometryColumn: "geometry", rowCount: 1 });
     throw new Error(`Unsequenced write: ${path}`);
   });
   const request = vi.fn<typeof fetch>(async () => Response.json({ id: "layer", editRevision: "landed" }));
@@ -25,6 +25,7 @@ it("chains accepted workflow bases and lands its result through the builder sequ
     expect(calls.find(c => c.path === "/api/recipes/r/steps")?.headers.get("X-Edit-Revision")).toBe("created");
     expect(calls.find(c => c.path.endsWith("/s/run"))?.headers.get("X-Edit-Revision")).toBe("step-added");
     expect(request).toHaveBeenCalledWith("/api/maps/map/layers", expect.objectContaining({ method: "POST" }));
+    expect(JSON.parse(String(request.mock.calls[0][1]?.body)).sql).toBe(`SELECT * FROM ${reference}`);
     expect(result?.layerId).toBe("layer");
   } finally { fetcher.mockRestore(); }
 });

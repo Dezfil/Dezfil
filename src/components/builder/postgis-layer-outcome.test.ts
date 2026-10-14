@@ -76,6 +76,12 @@ describe("the PostGIS single-table layer outcome", () => {
     });
   });
 
+  it.each([["order", '"order"'], ["places", "places"]])("quotes the imported reference %s when needed", async (name, reference) => {
+    const request = vi.fn<typeof fetch>(async () => Response.json(layer()));
+    await createPostgisLayerFromTable("map-1", { ...table(), name }, request);
+    expect(JSON.parse(String(request.mock.calls[0][1]?.body)).sql).toBe(`SELECT * FROM ${reference}`);
+  });
+
   it("keeps an attribute-only snapshot without attempting a layer", async () => {
     const request = vi.fn();
     await expect(

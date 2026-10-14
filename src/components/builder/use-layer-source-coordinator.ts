@@ -1,5 +1,7 @@
 "use client";
 
+import { tableReference } from "@/components/sql/sql-draft";
+
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Layer } from "@/lib/metadata/maps";
 import type { Bounds } from "@/lib/geo-bounds";
@@ -132,7 +134,7 @@ export async function createPostgisLayerFromTable(
       // names it and carried into the map's home by the server.
       body: JSON.stringify({
         name: table.name,
-        sql: `SELECT * FROM ${table.name}`,
+        sql: `SELECT * FROM ${tableReference(table.name)}`,
         writtenIn: { kind: "console" },
       }),
     });
@@ -307,7 +309,7 @@ export function useLayerSourceCoordinator({
             headers: { "content-type": "application/json" },
             body: JSON.stringify({
               name: table.name,
-              sql: `SELECT * FROM ${table.name}`,
+              sql: `SELECT * FROM ${tableReference(table.name)}`,
               writtenIn: { kind: "console" },
             }),
           });
