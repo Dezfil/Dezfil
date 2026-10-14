@@ -429,7 +429,7 @@ behavior and [the API guide](api.md#request-bounds) for exact refusals.
 
 Trusted engine memory and Bytes drawn per layer are exposed for configuration;
 their enforcement is not yet active. File and archive import processing, link
-and object-store imports, URL refreshes, and OpenStreetMap and Overture imports and refreshes
+and object-store imports, URL refreshes, and OpenStreetMap, Overture and PostGIS imports and refreshes
 use the Data processing time limit
 through preparation and commit. Accepted processing continues after departure;
 expiry removes candidates and leaves previously committed data intact. Reception
@@ -441,7 +441,11 @@ and geometry assembly, retaining the existing Overpass time and size limits.
 Overture release discovery, divisions, counts and previews also use the query
 lifetime, including scope preparation. Shared division reads retain the original
 deadline while callers can leave independently; imports and refreshes inherit
-the processing lifetime through commit.
+the processing lifetime through commit. PostGIS connection tests, catalogue
+reads and previews use the query lifetime, with imports and refreshes under
+the processing lifetime. Every PostGIS attachment retains the 10-second connect
+limit and uses a 30-second source statement ceiling plus owned interruption.
+The source statement ceiling answers `408 query_timeout`.
 
 ## Open data providers
 

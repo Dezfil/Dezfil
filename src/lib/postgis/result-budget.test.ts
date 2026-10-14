@@ -3,7 +3,7 @@ import { DuckDBConnection, DuckDBResult, DuckDBVarCharVector } from "@duckdb/nod
 import { withConnection } from "@/lib/duckdb";
 import { setupGeometryTest, cleanupGeometryTest } from "@/lib/test-support/geometry";
 import { geometryOfBytes } from "@/lib/test-support/budget-geometry";
-import { PgPreviewOwner } from "./preview-owner";
+import { PgSourceOwner } from "./source-owner";
 
 const fixture = vi.hoisted(() => ({ sql: "SELECT 1 AS v", columns: [{ name: "v", udt: "text" }], source: "" }));
 vi.mock("./access", async importOriginal => ({
@@ -11,7 +11,7 @@ vi.mock("./access", async importOriginal => ({
   readConnectionHealth: async () => ({ serverVersion: "fixture", postgisVersion: "fixture" }),
   fetchColumns: async () => fixture.columns,
   withPg: async (_target: unknown, work: Parameters<typeof import("./access").withPg>[1], options: { signal?: AbortSignal }) => withConnection(async conn => {
-    const owner = new PgPreviewOwner(options.signal);
+    const owner = new PgSourceOwner(options.signal);
     try { return await work(owner.bind(conn), select => { fixture.source = select; return `(${fixture.sql} LIMIT 5)`; }); }
     finally { owner.drainComplete(); }
   }),

@@ -140,7 +140,7 @@ describe("actual preview route owns its attachment", () => {
     expect((await pending).status).toBe(499);
     expect(getConnection(testAccountScope(), target.id)?.status).toBe("never_checked");
   });
-  it("carries a unique preview identity and ceiling in source startup options only for previews", async () => {
+  it("carries a unique preview identity and ceiling in source startup options for every operation", async () => {
     const connections = [connection(), connection(), connection(), connection(), connection()];
     fixture.acquire.mockImplementation(async () => connections.shift());
     const captured = [...connections];
@@ -152,15 +152,15 @@ describe("actual preview route owns its attachment", () => {
       expect(attach).toMatch(/application_name=''dezfil_preview_[a-f0-9]+''/);
     }
     expect(attachments[0].match(/application_name=([^ ]+)/)?.[0]).not.toBe(attachments[1].match(/application_name=([^ ]+)/)?.[0]);
-    for (const attach of attachments.slice(2)) { expect(attach).not.toContain("statement_timeout"); expect(attach).not.toContain("dezfil_preview_"); }
+    for (const attach of attachments.slice(2)) { expect(attach).toContain("statement_timeout=30000"); expect(attach).toMatch(/application_name=''dezfil_source_[a-f0-9]+''/); }
   });
 });
 
-import { PgPreviewOwner } from "./preview-owner";
+import { PgSourceOwner } from "./source-owner";
 import { EvaluationCancelled } from "@/lib/api/errors";
 it.each(["prepare", "stream", "fetchChunk"] as const)("owns late native %s completion through departure", async stage => {
   const wait = deferred(); const entered = deferred();
-  const controller = new AbortController(); const owner = new PgPreviewOwner(controller.signal);
+  const controller = new AbortController(); const owner = new PgSourceOwner(controller.signal);
   const destroySync = vi.fn();
   const hold = async (where: string) => { if (stage === where) { entered.resolve(); await wait.promise; } };
   const result = { fetchChunk: vi.fn(async () => { await hold("fetchChunk"); return null; }) };
@@ -182,7 +182,7 @@ it.each(["prepare", "stream", "fetchChunk"] as const)("owns late native %s compl
   } finally { wait.resolve(); await pending; owner.drainComplete(); }
 });
 it("classifies a source timeout raised while fetching a native chunk", async () => {
-  const owner = new PgPreviewOwner();
+  const owner = new PgSourceOwner();
   const conn = { stream: async () => ({ fetchChunk: async () => { throw new Error("ERROR: canceling statement due to statement timeout"); } }) };
   const stream = await owner.bind(conn as unknown as DuckDBConnection).stream("SELECT 1");
   await expect(stream.fetchChunk()).rejects.toMatchObject({ code: "query_timeout", status: 408 });

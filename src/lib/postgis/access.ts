@@ -1,8 +1,11 @@
+import { withTrustedMutation } from "@/lib/trusted-mutation";
+import { isTrustedOperationRefusal } from "@/lib/trusted-operation";
+import { trustedNativeConnection, endTrustedConnectionWork, trustedEngineError } from "@/lib/trusted-connection";
 import { randomUUID } from "node:crypto";
 import { ApiError } from "@/lib/api/errors";
 import { withConnection } from "@/lib/duckdb";
 import { resolveAllowed } from "@/lib/net/egress";
-import { PgPreviewOwner, previewSourceError } from "./preview-owner";
+import { PgSourceOwner, previewSourceError } from "./source-owner";
 import type { PgConnection } from "@/lib/metadata/connections";
 
 /**
@@ -27,7 +30,7 @@ function libpqEscape(value: string): string {
 export function attachString(
   target: ConnectionTarget,
   hostaddr?: string,
-  previewIdentity?: string,
+  sourceIdentity?: string,
 ): string {
   return [
     `host=${libpqEscape(target.host)}`,
@@ -43,11 +46,9 @@ export function attachString(
     // Fail fast instead of hanging on unreachable hosts.
     `connect_timeout=10`,
     // Source startup options are inherited by every connection the attachment
-    // opens, including extension work connections. Ordinary callers omit them.
-    ...(previewIdentity ? [
-      `application_name=${libpqEscape(previewIdentity)}`,
-      `options=${libpqEscape("-c statement_timeout=30000")}`,
-    ] : []),
+    // opens, including extension work connections.
+    ...(sourceIdentity ? [`application_name=${libpqEscape(sourceIdentity)}`] : []),
+    `options=${libpqEscape("-c statement_timeout=30000")}`,
   ].join(" ");
 }
 
@@ -83,69 +84,75 @@ export async function withPg<T>(
     conn: import("@duckdb/node-api").DuckDBConnection,
     passthrough: (sql: string) => string,
   ) => Promise<T>,
-  preview?: { signal?: AbortSignal },
+  options: { signal?: AbortSignal; preview?: boolean } = {},
 ): Promise<T> {
-  const owner = preview ? new PgPreviewOwner(preview.signal) : undefined;
-  owner?.check();
-  // Egress policy first: a blocked destination is rejected before
-  // anything is loaded or contacted, with the one uniform error — this
-  // endpoint must not act as an internal port scanner.
-  let hostaddr: string;
-  try {
-    [hostaddr] = await resolveAllowed(target.host);
-  } catch (error) {
-    owner?.check();
-    if (error instanceof ApiError) throw error;
-    throw new ApiError(
-      "connection_failed",
-      "The server is unreachable. Check host, port, and network.",
-      502,
-    );
-  }
-  owner?.check();
-  const identity = randomUUID().replace(/-/g, "");
-  const alias = `pg_${identity}`;
-  return withConnection(async (conn) => {
-    owner?.check();
-    const guarded = owner?.bind(conn) ?? conn;
-    let attached = false;
+  return withTrustedMutation({ kind: "interactive-read", name: "PostGIS source", signal: options.signal }, async operation => {
+    const owner = new PgSourceOwner(operation.signal);
+    owner.check();
+    // Egress policy first: a blocked destination is rejected before
+    // anything is loaded or contacted, with the one uniform error — this
+    // endpoint must not act as an internal port scanner.
+    let hostaddr: string;
     try {
-      try {
-        await guarded.run("INSTALL postgres; LOAD postgres;");
-      } catch (error) {
-        owner?.check();
-        throw new ApiError(
-          "connection_failed",
-          `The DuckDB postgres extension could not be loaded${
-            error instanceof Error ? `: ${error.message}` : ""
-          }`,
-          502,
-        );
-      }
-      owner?.check();
-      try {
-        // Mark a successful native ATTACH before testing departure: a late
-        // success still owns a catalogue that must be detached.
-        await conn.run(
-          `ATTACH ${sqlLit(attachString(target, hostaddr, owner ? `dezfil_preview_${identity}` : undefined))} AS ${alias} (TYPE postgres, READ_ONLY)`,
-        );
-        attached = true;
-      } catch (error) {
-        owner?.check();
-        const classified = owner ? previewSourceError(error) : error;
-        if (classified instanceof ApiError) throw classified;
-        mapAttachError(classified);
-      }
-      owner?.check();
-      const passthrough = (sql: string) =>
-        `postgres_query(${sqlLit(alias)}, ${sqlLit(sql)})`;
-      const result = await fn(guarded, passthrough);
-      owner?.check();
-      return result;
-    } finally {
-      owner?.drainComplete();
-      if (attached) await conn.run(`DETACH ${alias}`).catch(() => {});
+      [hostaddr] = await resolveAllowed(target.host);
+    } catch (error) {
+      owner.check();
+      if (isTrustedOperationRefusal(error)) throw error;
+      throw new ApiError(
+        "connection_failed",
+        "The server is unreachable. Check host, port, and network.",
+        502,
+      );
     }
+    owner.check();
+    const identity = randomUUID().replace(/-/g, "");
+    const alias = `pg_${identity}`;
+    return withConnection(async (conn) => {
+      owner.check();
+      const native = trustedNativeConnection(conn);
+      const guarded = owner.bind(native);
+      let attached = false;
+      try {
+        try {
+          await guarded.run("INSTALL postgres; LOAD postgres;");
+        } catch (error) {
+          owner.check();
+          const classified = trustedEngineError(error);
+          if (isTrustedOperationRefusal(classified)) throw classified;
+          throw new ApiError(
+            "connection_failed",
+            `The DuckDB postgres extension could not be loaded${
+              error instanceof Error ? `: ${error.message}` : ""
+            }`,
+            502,
+          );
+        }
+        owner.check();
+        try {
+          // Mark a successful native ATTACH before testing departure: a late
+          // success still owns a catalogue that must be detached.
+          await native.run(
+            `ATTACH ${sqlLit(attachString(target, hostaddr, options.preview ? `dezfil_preview_${identity}` : `dezfil_source_${identity}`))} AS ${alias} (TYPE postgres, READ_ONLY)`,
+          );
+          attached = true;
+        } catch (error) {
+          owner.check();
+          const classified = previewSourceError(trustedEngineError(error));
+          if (isTrustedOperationRefusal(classified)) throw classified;
+          mapAttachError(classified);
+        }
+        owner.check();
+        const passthrough = (sql: string) =>
+          `postgres_query(${sqlLit(alias)}, ${sqlLit(sql)})`;
+        const result = await fn(guarded, passthrough);
+        owner.check();
+        return result;
+      } finally {
+        owner.drainComplete();
+        const cleanup = endTrustedConnectionWork(conn);
+        if (attached) await cleanup.run(`DETACH ${alias}`);
+      }
+    });
   });
 }
 
@@ -176,8 +183,9 @@ export async function readConnectionHealth(
 /** Test a connection: reachability, auth, and PostGIS presence. */
 export async function testConnection(
   target: ConnectionTarget,
+  signal?: AbortSignal,
 ): Promise<ConnectionHealth> {
-  return withPg(target, readConnectionHealth);
+  return withPg(target, readConnectionHealth, { signal });
 }
 
 export interface RemoteTable {
@@ -203,6 +211,7 @@ export interface RemoteTable {
  * then attribute-only — both importable (joins are the point). */
 export async function browseRemoteTables(
   target: ConnectionTarget,
+  signal?: AbortSignal,
 ): Promise<{ tables: RemoteTable[]; health: ConnectionHealth }> {
   return withPg(target, async (conn, passthrough) => {
     const health = await readConnectionHealth(conn, passthrough);
@@ -300,13 +309,14 @@ export async function browseRemoteTables(
       },
     );
     return { tables, health };
-  });
+  }, { signal });
 }
 
 export async function listRemoteTables(
   target: ConnectionTarget,
+  signal?: AbortSignal,
 ): Promise<RemoteTable[]> {
-  return (await browseRemoteTables(target)).tables;
+  return (await browseRemoteTables(target, signal)).tables;
 }
 
 /** Conservative validation for the optional attribute filter — it executes

@@ -3434,11 +3434,6 @@
         "memory:public-geography-catalogues"
       ]
     },
-    "memory:src/lib/postgis/preview-owner.ts#PgPreviewOwner.stopInterrupting": {
-      "stores": [
-        "memory:request-closures"
-      ]
-    },
     "memory:src/lib/publish/publication-resolution.ts#cache": {
       "stores": [
         "memory:src/lib/publish/publication-resolution.ts#cache"
@@ -6244,6 +6239,21 @@
     "memory:src/lib/trusted-shared.ts#sharedTrustedWork.value": {
       "stores": [
         "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/postgis/source-owner.ts#PgSourceOwner.operation": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/postgis/source-owner.ts#PgSourceOwner.stopInterrupting": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/trusted-connection.ts#connectionOwners": {
+      "stores": [
+        "memory:src/lib/duckdb.ts#leases"
       ]
     }
   },

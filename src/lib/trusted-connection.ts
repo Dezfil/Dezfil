@@ -1,6 +1,18 @@
 import type { DuckDBConnection } from "@duckdb/node-api";
 import { currentTrustedOperation, isTrustedOperationRefusal, trustedMemoryRefusal, type TrustedOperation } from "./trusted-operation";
 
+const connectionOwners = new WeakMap<DuckDBConnection, { native: DuckDBConnection; stop?: () => void }>();
+/** Source attachment owners mark a late ATTACH before checking its outcome. */
+export function trustedNativeConnection(conn: DuckDBConnection): DuckDBConnection {
+  return connectionOwners.get(conn)?.native ?? conn;
+}
+/** End cancellable work before native teardown, which must also run after refusal. */
+export function endTrustedConnectionWork(conn: DuckDBConnection): DuckDBConnection {
+  const owner = connectionOwners.get(conn);
+  owner?.stop?.();
+  return owner?.native ?? conn;
+}
+
 /** Translate at the native boundary, before a format-specific catch can
  * mistake resource exhaustion for an unreadable source. */
 export function trustedEngineError(error: unknown, operation = currentTrustedOperation()): unknown {
@@ -32,8 +44,9 @@ export async function runTrustedConnection<T>(conn: DuckDBConnection, work: (con
       };
     },
   }) : conn;
+  connectionOwners.set(guarded, { native: conn, stop });
   try { operation?.assertCanCommit(); return await work(guarded); }
   // Domain errors may still need the owning caller's format-specific translation.
   catch (error) { const mapped = trustedEngineError(error, operation); if (operation && mapped !== error) operation.refuse(mapped); operation?.assertCanCommit(); throw mapped; }
-  finally { stop?.(); conn.disconnectSync(); }
+  finally { stop?.(); connectionOwners.delete(guarded); conn.disconnectSync(); }
 }

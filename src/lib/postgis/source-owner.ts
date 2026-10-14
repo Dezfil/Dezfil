@@ -1,3 +1,5 @@
+import { currentTrustedOperation, isTrustedOperationRefusal } from "@/lib/trusted-operation";
+import { trustedEngineError } from "@/lib/trusted-connection";
 import type { DuckDBConnection } from "@duckdb/node-api";
 import { ApiError, EvaluationCancelled } from "@/lib/api/errors";
 
@@ -16,20 +18,23 @@ export function previewSourceError(error: unknown): unknown {
   return error;
 }
 
-/** Only a preview opts into this owner. Native work drains before DETACH, and
+/** Each source attachment owns its native work through DETACH, and
  * interrupts stop before teardown so cleanup cannot interrupt itself. */
-export class PgPreviewOwner {
+export class PgSourceOwner {
+  private readonly operation = currentTrustedOperation();
   private stopInterrupting?: () => void;
   constructor(readonly signal?: AbortSignal) {}
 
-  check(): void { assertPreviewActive(this.signal); }
+  check(): void { this.operation?.assertCanCommit(); assertPreviewActive(this.signal); }
 
   async query<T>(work: () => Promise<T>, discard?: (value: T) => void): Promise<T> {
     this.check();
     let result: T;
     try { result = await work(); } catch (error) {
       this.check();
-      throw previewSourceError(error);
+      const classified = previewSourceError(trustedEngineError(error));
+      if (isTrustedOperationRefusal(classified)) this.operation?.refuse(classified);
+      throw classified;
     }
     try { this.check(); } catch (error) { discard?.(result); throw error; }
     return result;

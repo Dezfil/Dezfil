@@ -7,6 +7,6 @@ type Params = { params: Promise<{ id: string }> };
 export async function POST(request: Request, { params }: Params) {
   try {
     const scope = requireRequestScope(request);
-    return NextResponse.json(await testSavedConnection(scope, (await params).id));
+    return NextResponse.json(await testSavedConnection(scope, (await params).id, request.signal));
   } catch (error) { return errorResponse(error); }
 }

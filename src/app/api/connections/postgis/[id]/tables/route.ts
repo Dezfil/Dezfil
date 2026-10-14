@@ -7,6 +7,6 @@ type Params = { params: Promise<{ id: string }> };
 export async function GET(request: Request, { params }: Params) {
   try {
     const scope = requireRequestScope(request);
-    return NextResponse.json(await browseConnection(scope, (await params).id));
+    return NextResponse.json(await browseConnection(scope, (await params).id, request.signal));
   } catch (error) { return errorResponse(error); }
 }

@@ -9,7 +9,7 @@ export async function PATCH(request: Request, { params }: Params) {
   try {
     const scope = requireRequestScope(request);
     const { id } = await params;
-    return NextResponse.json(await editConnection(scope, id, await largeJsonValue(request, () => null)));
+    return NextResponse.json(await editConnection(scope, id, await largeJsonValue(request, () => null), request.signal));
   } catch (error) { return errorResponse(error); }
 }
 /** Imported snapshots retain their owner and data after connection deletion. */
