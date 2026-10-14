@@ -16,10 +16,12 @@ it("accepts every published style member used by clients", () => {
   const schema = buildOpenApiDocument().components.schemas.Style;
   expect(Object.keys(style).sort()).toEqual(Object.keys(schema.properties).sort());
   expect(styleProblem(style)).toBeNull();
+  expect(normalizeStyle(style)).toEqual(style);
   expect(schema.additionalProperties).toBe(false);
 });
 
-it("keeps existing unknown members when reading a stored style", () => {
+it("drops unknown members on read without changing the stored style", () => {
   const stored = { ...defaultStyle("POINT"), undefined: 4 };
-  expect(normalizeStyle(stored)).toHaveProperty("undefined", 4);
+  expect(normalizeStyle(stored)).toEqual(defaultStyle("POINT"));
+  expect(stored).toHaveProperty("undefined", 4);
 });

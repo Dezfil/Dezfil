@@ -263,7 +263,9 @@ function paintAlphaScaled(paint: FillPaint, factor: number): FillPaint {
  * max alpha is 1.
  */
 export function normalizeStyle(value: unknown): LayerStyle {
-  const s = value as LayerStyle;
+  const s = Object.fromEntries(
+    Object.entries(value as LayerStyle).filter(([key]) => Object.hasOwn(STYLE_KEYS, key)),
+  ) as unknown as LayerStyle;
   let fill = s.fill;
   let fillOpacity = typeof s.fillOpacity === "number" ? s.fillOpacity : 1;
   const fillA = fill ? paintAlphaMax(fill) : 1;
