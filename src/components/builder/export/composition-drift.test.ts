@@ -77,6 +77,22 @@ describe("export composition — one component, two hosts", () => {
         /buildCompositionMapInputs\(/,
       );
     }
+    // The credit's tone is decided there from the map's stored key and the
+    // image's appearance: each host hands over its own copy of both.
+    const call = (source: string) => {
+      const start = source.indexOf("buildCompositionMapInputs({");
+      let depth = 0;
+      for (let i = start; i < source.length; i++) {
+        if (source[i] === "(") depth++;
+        else if (source[i] === ")" && --depth === 0) return source.slice(start, i + 1);
+      }
+      throw new Error("no end to the assembler call");
+    };
+    expect(call(card)).toMatch(/\bbasemapKey: stage\.map\.basemap,/);
+    expect(call(card)).toMatch(/\bappearance: stage\.appearance,/);
+    expect(call(route)).toMatch(/\bbasemapKey: stage\.basemap\.key,/);
+    expect(call(route)).toMatch(/\bappearance: def\.appearance,/);
+    expect(route).toMatch(/\bkey: m\.basemap,/);
   });
 
   it("keeps Dezfil's default look on the nodes the download rasterizes", () => {

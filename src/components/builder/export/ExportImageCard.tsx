@@ -511,6 +511,8 @@ export function ExportImageCard({
                     map={buildCompositionMapInputs({
                       definitionBasemapLayers: def.basemapLayers,
                       storedBasemapLayers: stage.basemapLayers,
+                      basemapKey: stage.map.basemap,
+                      appearance: stage.appearance,
                       basemapUrl: stage.basemapUrl,
                       basemapKind: stage.basemapKind,
                       customBasemap: stage.map.customBasemap !== null,

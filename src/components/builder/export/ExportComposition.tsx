@@ -73,6 +73,9 @@ export interface CompositionMapInputs {
   /** The style is the map's custom URL — its dead-style
    * wording differs from the offline chip's. */
   customBasemap?: boolean;
+  /** Whether the basemap drawn is light or dark: the credit, which has no
+   * card of its own, takes this tone's default look. */
+  basemapTone: "light" | "dark";
   fallbackColor: string;
   layers: RenderedLayer[];
   liveFilters: Record<string, LiveDim[]> | null;
@@ -286,24 +289,28 @@ export function ExportComposition({
           {/* Attribution is always burned in (D4): plain small text on
               the map, no card, with the quiet mark. It takes a corner and
               a step — and a floor, which is the one place an element
-              leaves the share rule, and only upward. */}
-          <div
-            className={styles.credit}
-            data-corner={creditCorner}
-            style={
-              {
-                "--credit-scale": creditScale(
-                  width,
-                  height,
-                  creditStep,
-                  outputWidth,
-                ),
-              } as CSSProperties
-            }
-          >
-            <BasemapCredit lines={attribution} />
-            <span className={styles.creditDot}>·</span>
-            <span className={styles.creditMark}>Made with Dezfil</span>
+              leaves the share rule, and only upward. Having no card, it
+              takes the default look of the basemap's tone rather than the
+              image's theme, so it reads against the map it sits on. */}
+          <div data-look-default={map.basemapTone}>
+            <div
+              className={styles.credit}
+              data-corner={creditCorner}
+              style={
+                {
+                  "--credit-scale": creditScale(
+                    width,
+                    height,
+                    creditStep,
+                    outputWidth,
+                  ),
+                } as CSSProperties
+              }
+            >
+              <BasemapCredit lines={attribution} />
+              <span className={styles.creditDot}>·</span>
+              <span className={styles.creditMark}>Made with Dezfil</span>
+            </div>
           </div>
           {failures && failures.length > 0 && (
             <div className={styles.failures} role="note">

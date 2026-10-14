@@ -352,7 +352,10 @@
    outside it take the person's look. It also restates the text the page
    sets on its body: the body computes its colour and face from the
    person's tokens and an element inherits the computed value, so these
-   read the scope's own tokens instead, in either theme ---- */
+   read the scope's own tokens instead, in either theme. An empty scope
+   takes the page's theme; one that names a theme keeps that theme's
+   default on any page, for what an image draws straight onto its map
+   with no card of its own, which follows the map's tone ---- */
 
 [data-look-default] {
   color: var(--fg);
@@ -401,7 +404,8 @@
   --sheet-repeat: no-repeat;
 }
 
-:root[data-theme="dark"] [data-look-default] {
+:root[data-theme="dark"] [data-look-default=""],
+:root [data-look-default="dark"] {
   --bg: #0b0e14;
   --bg-panel: #10141d;
   --bg-raised: #151b27;
