@@ -27,7 +27,7 @@ export async function evaluateGeometry(conn: DuckDBConnection, from: string, cho
   }
   const epsg = crs.srid ?? 4326;
   if (issues.length === 0 && !await projectionSupported(conn, epsg)) issues.push({ code: "unsupported_projection", message: `EPSG:${epsg} cannot be transformed to WGS 84.` });
-  let decode = native ? ident(choice.columns[0]) : decoderSql(choice.format, choice.columns, true);
+  let decode = native ? ident(choice.columns[0]) : decoderSql(choice.format, choice.columns);
   if (choice.format === "h3" && !native && !await trustedH3Ready()) {
     issues.push({ code: "h3_unavailable", message: "H3 validation is unavailable on this instance." });
     decode = "NULL::GEOMETRY";

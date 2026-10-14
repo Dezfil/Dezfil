@@ -13,16 +13,15 @@ export function declarationSql(format: GeometryFormat, column: string): string {
   return `CASE WHEN (TRY_CAST('0x' || (${word(3)}) AS UBIGINT) & 536870912) != 0 THEN TRY_CAST('0x' || (${word(11)}) AS BIGINT) END`;
 }
 
-export function decoderSql(format: GeometryFormat, columns: string[], guardEmptyWkb = false): string {
+export function decoderSql(format: GeometryFormat, columns: string[]): string {
   const col = ident(columns[0]);
   const text = `CAST(${col} AS VARCHAR)`;
   switch (format) {
     case "wkt": return `TRY(ST_GeomFromText(${text}))`;
     case "geojson": return `TRY(ST_GeomFromGeoJSON(${text}))`;
     case "wkb": {
-      // guards the engine's empty-binary failure on the explicit/stored
-      // roads. Automatic upload behavior is outside this piece's scope.
-      const binary = guardEmptyWkb ? `from_hex(nullif(trim(${text}), ''))` : `from_hex(trim(${text}))`;
+      // Empty binary input can invalidate the engine, even inside TRY.
+      const binary = `from_hex(nullif(trim(${text}), ''))`;
       return `TRY(ST_GeomFromWKB(${binary}))`;
     }
     case "h3":

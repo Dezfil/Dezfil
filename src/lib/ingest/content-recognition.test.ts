@@ -231,6 +231,15 @@ describe("content recognition through the CSV reader", () => {
     expect(data.slice(-2).map(r => r.shape)).toEqual([null, null]);
   });
 
+  it("automatic WKB decoding keeps blank and whitespace tail cells as missing geometry", async () => {
+    const { meta, data } = await convert(["payload", "label"], [
+      ...Array.from({ length: 1000 }, () => [wkb, "a"]),
+      ["", "blank"], ["   ", "spaces"], [null, "missing"],
+    ]);
+    expect(meta).toMatchObject({ rowCount: 1003, geometryType: "POINT", geometryRecord: { format: "wkb", unreadableCount: 1 } });
+    expect(data.slice(-3).map(row => row.shape)).toEqual([null, null, null]);
+  });
+
   it("mixed geometry classification and full extent survive the content road", async () => {
     const { meta, artifact } = await convert(["payload", "label"], [["POINT (1 2)", "a"], ["LINESTRING (100 60, 120 70)", "b"]]);
     expect(meta.geometryType).toBe("POINT+LINESTRING");

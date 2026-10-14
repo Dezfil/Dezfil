@@ -20,9 +20,9 @@ export interface ContentRecognition {
 
 async function reading(
   conn: DuckDBConnection, from: string, sample: string, columns: string[],
-  format: GeometryFormat, rule: GeometryCandidate["rule"], guardEmptyWkb = false,
+  format: GeometryFormat, rule: GeometryCandidate["rule"],
 ): Promise<Reading | null> {
-  const decode = decoderSql(format, columns, guardEmptyWkb);
+  const decode = decoderSql(format, columns);
   const present = presentSql(columns);
   const stats = (relation: string) => `SELECT count(*) n, count(*) FILTER (WHERE ${present}) non_null,
     count(*) FILTER (WHERE ${decode} IS NOT NULL) readable FROM ${relation}`;
@@ -73,7 +73,6 @@ export async function recognizeCsvContent(
   from: string,
   columns: readonly CsvColumn[],
   h3Ready: () => Promise<boolean>,
-  guardEmptyWkb = false,
 ): Promise<ContentRecognition> {
   // A connection-local bounded snapshot preserves the first 1,000 reader rows.
   // Reserved temporary names never collide with source column identifiers.
@@ -84,7 +83,7 @@ export async function recognizeCsvContent(
     const rows = (await conn.runAndReadAll(`SELECT * FROM ${sample}`)).getRowObjects() as Record<string, unknown>[];
     const readings: Reading[] = [];
     for (const match of orderedNameMatches(columns)) {
-      const r = await reading(conn, from, sample, match.columns, match.format, match.rule, guardEmptyWkb);
+      const r = await reading(conn, from, sample, match.columns, match.format, match.rule);
       if (r) readings.push(r);
     }
     const hints: GeometryCandidate[] = [];
@@ -102,7 +101,7 @@ export async function recognizeCsvContent(
           });
           continue;
         }
-        const r = await reading(conn, from, sample, [column.name], format, "content", guardEmptyWkb);
+        const r = await reading(conn, from, sample, [column.name], format, "content");
         if (r) readings.push(r);
       }
     }
@@ -137,7 +136,7 @@ export async function recognizeStoredContent(
   conn: DuckDBConnection, from: string, columns: readonly CsvColumn[],
   h3Ready: () => Promise<boolean>, current: { format: GeometryFormat; columns: string[] } | null,
 ): Promise<GeometryCandidate[]> {
-  const result = await recognizeCsvContent(conn, from, columns, h3Ready, true);
+  const result = await recognizeCsvContent(conn, from, columns, h3Ready);
   return result.geometryCandidates.map(c => ({
     ...c, sourceRetained: true,
     applied: current !== null && c.format === current.format &&
