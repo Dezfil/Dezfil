@@ -650,6 +650,45 @@ describe("catalogue author diagnostics and recovery", () => {
   });
 
   it.each([
+    ["long", "a".repeat(5000), "a".repeat(117) + "..."],
+    ["escaped", "\n".repeat(5000), "\\n".repeat(58) + "..."],
+  ])("bounds %s ids identically in the public message and log", async (_name, id, shown) => {
+    await catalogue.publish([A1], { edit: value => { value.templates[0].facts.id = id; } });
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    const message = `templates[0] (id "${shown}").facts.id is invalid.`;
+    expect((await refreshCatalogue(f.db)).catalogue.message).toBe(message);
+    expect(log).toHaveBeenCalledWith(`[templates] template_index_invalid: ${message}`);
+  });
+
+  it.each(["index", "entry", "facts", "source"])("bounds an unknown %s field in the message and log", async level => {
+    const field = "q".repeat(5000);
+    await catalogue.publish([A1], { edit: value => {
+      const entry = value.templates[0];
+      const target = level === "index" ? value : level === "entry" ? entry : level === "facts" ? entry.facts : entry.facts.sources[0];
+      (target as unknown as Record<string, unknown>)[field] = "private-value";
+    } });
+    const at = 'templates[0] (id "harbour-stations")';
+    const shown = "q".repeat(117) + "...";
+    const message = level === "index" ? `The catalogue's index field "${shown}" is not allowed.`
+      : level === "entry" ? `${at}.${shown} is invalid.`
+      : level === "facts" ? `${at}.facts.${shown} is invalid.`
+      : `${at}.facts.sources[0].${"q".repeat(106)}... is invalid.`;
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    expect((await refreshCatalogue(f.db)).catalogue.message).toBe(message);
+    expect(log).toHaveBeenCalledWith(`[templates] template_index_invalid: ${message}`);
+  });
+
+  it.each(["archive", "unexpected"])("uses the same field shape for an invalid entry's %s", async field => {
+    await catalogue.publish([A1], { edit: value => {
+      const entry = value.templates[0] as unknown as Record<string, unknown>;
+      if (field === "archive") delete entry.archive;
+      else entry[field] = "private-value";
+    } });
+    const message = `templates[0] (id "harbour-stations").${field} is invalid.`;
+    expect((await refreshCatalogue(f.db)).catalogue.message).toBe(message);
+  });
+
+  it.each([
     ["title", (facts: Record<string, unknown>) => { delete facts.title; }],
     ["extra", (facts: Record<string, unknown>) => { facts.extra = "private-value"; }],
     ["sources[0].credit", (facts: Record<string, unknown>) => { (facts.sources as Record<string, unknown>[])[0].credit = {}; }],

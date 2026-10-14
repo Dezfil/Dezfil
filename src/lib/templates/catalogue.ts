@@ -214,6 +214,18 @@ function resolveEntryAddress(value: unknown, where: Where, at: string): string {
   return file;
 }
 
+/** Bound an echoed name after escaping, without splitting a character or escape. */
+function diagnosticName(value: string): string {
+  const max = 120;
+  let shown = "";
+  for (const character of value) {
+    const escaped = JSON.stringify(character).slice(1, -1);
+    if (shown.length + escaped.length > max - 3) return shown + "...";
+    shown += escaped;
+  }
+  return shown;
+}
+
 /**
  * Parse an index this server reads: its format, one entry per template id
  * with facts the format admits, a size within the archive bound, a SHA-256
@@ -231,7 +243,7 @@ export function parseIndex(text: string, where: Where): Omit<ListedEntry, "pictu
   }
   if (!isObject(raw)) refuse("template_index_invalid", "The catalogue's index must be an object with formatVersion and templates.");
   const extra = Object.keys(raw).find(k => k !== "formatVersion" && k !== "templates");
-  if (extra !== undefined) refuse("template_index_invalid", `The catalogue's index field ${JSON.stringify(extra)} is not allowed.`);
+  if (extra !== undefined) refuse("template_index_invalid", `The catalogue's index field "${diagnosticName(extra)}" is not allowed.`);
   if (raw.formatVersion !== CATALOGUE_FORMAT_VERSION) {
     refuse("template_index_invalid", "The catalogue's index field formatVersion is not supported.");
   }
@@ -241,10 +253,10 @@ export function parseIndex(text: string, where: Where): Omit<ListedEntry, "pictu
   for (const [i, entry] of (raw.templates as unknown[]).entries()) {
     if (!isObject(entry)) refuse("template_index_invalid", `templates[${i}] must be an object.`);
     const id = isObject(entry.facts) && typeof entry.facts.id === "string" ? entry.facts.id : null;
-    const at = `templates[${i}]${id === null ? "" : ` (id ${JSON.stringify(id)})`}`;
+    const at = `templates[${i}]${id === null ? "" : ` (id "${diagnosticName(id)}")`}`;
     const keys = ["facts", "size", "sha256", "archive", "pictures"];
     const field = Object.keys(entry).find(k => !keys.includes(k)) ?? keys.find(k => !(k in entry));
-    if (field !== undefined) refuse("template_index_invalid", `${at}[${JSON.stringify(field)}] is missing or not allowed.`);
+    if (field !== undefined) refuse("template_index_invalid", `${at}.${diagnosticName(field)} is invalid.`);
     const facts = entry.facts;
     if (isObject(facts) && Number.isSafeInteger(facts.formatVersion) && (facts.formatVersion as number) > TEMPLATE_FORMAT_VERSION) continue;
     if (!isObject(facts)) refuse("template_index_invalid", `${at}.facts must be an object.`);
@@ -252,7 +264,7 @@ export function parseIndex(text: string, where: Where): Omit<ListedEntry, "pictu
       refuse("template_index_invalid", `${at}.facts.formatVersion must be in the template format this server reads.`);
     }
     const problem = factsIssue(facts);
-    if (problem) refuse("template_index_invalid", `${at}.facts.${JSON.stringify(problem.field).slice(1, -1)} is invalid.`);
+    if (problem) refuse("template_index_invalid", `${at}.facts.${diagnosticName(problem.field)} is invalid.`);
     const read = facts as unknown as TemplateFacts;
     if (ids.has(read.id)) refuse("template_index_repeats_id", `${at}.facts.id repeats an earlier entry.`);
     ids.add(read.id);

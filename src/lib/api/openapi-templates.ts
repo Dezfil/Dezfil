@@ -133,7 +133,7 @@ export const TEMPLATES_SCHEMAS = {
           "Null unless the state is refused." },
       status: { type: ["integer", "null"], minimum: 100, maximum: 599, description: "The status the catalogue answered with; null unless the reason is status." },
     }, {
-      message: text("Only for template_index_invalid, a plain-text reason naming the first offending field and its entry’s zero-based position and id when available, without other index values."),
+      message: text("Only for template_index_invalid, a plain-text reason naming the first offending field and its entry's zero-based position and id when available, with names limited to 120 characters and no other index values."),
     }),
     description: "Where the template catalogue stands for this list.",
   },

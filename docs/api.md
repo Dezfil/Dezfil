@@ -1244,9 +1244,9 @@ scheme and host (null for a folder, with `folder: true`, never its path),
 `template_index_invalid`, `template_index_repeats_id` or
 `template_address_outside`). Only `template_index_invalid` carries an optional
 plain-text `catalogue.message`: the same reason as the server log, naming the
-first offending field and its entry’s zero-based position and id when available,
-without other index values. `downloads` says what the downloaded templates
-hold: how many `versions` and the `bytes` their folders take. The
+first offending field and its entry's zero-based position and id when available,
+with names limited to 120 characters and no other index values. `downloads`
+says what the downloaded templates hold: how many `versions` and the `bytes` their folders take. The
 **Templates** page, last in the side menu, draws one card per template from
 this list as soon as it answers and only then asks for the refresh below, so
 it never waits on the catalogue. **Home** reads the same list beside it, for
