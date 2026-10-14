@@ -1,7 +1,7 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import path from "node:path";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { closeMetadataDb, metadataDb } from "@/lib/metadata/db";
+import { closeMetadataDb, metadataDb, MIGRATIONS } from "@/lib/metadata/db";
 import { addStep, createRecipe, deleteRecipe, getStep } from "@/lib/metadata/recipes";
 import { createCascade, getCascade } from "@/lib/metadata/cascades";
 import { readDocumentRevision } from "@/lib/metadata/revisions";
@@ -42,7 +42,9 @@ it.each(["delete", "upgrade"])("removes workflow runs and members on %s while th
   else {
     // The old deletion left its runs behind. Its schema is otherwise unchanged.
     db.prepare("DELETE FROM recipes WHERE id = ?").run(recipe.id);
-    db.pragma("user_version = 49");
+    const cleanup = MIGRATIONS.findIndex(sql => /DELETE FROM cascade_runs WHERE NOT EXISTS/.test(sql));
+    expect(cleanup).toBeGreaterThanOrEqual(0);
+    db.pragma(`user_version = ${cleanup}`);
     expect(getCascade(run.id)).not.toBeNull();
     closeMetadataDb();
   }
