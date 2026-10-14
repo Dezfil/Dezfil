@@ -8,6 +8,8 @@ import { authenticatedRequest } from "@/lib/assistant/testing/account";
 import { renderMapImage, renderQueueState } from "./render-image";
 import { startRenderRelay, type RenderRelay } from "./render-relay";
 import type { ExportImageDefinition } from "./image-definition";
+import { puppeteerDriver } from "./render-driver";
+import { settleRenderTiles } from "./render-settle";
 
 vi.mock("puppeteer-core", () => ({ default: { launch: vi.fn() } }));
 vi.mock("./render-relay", () => ({ startRenderRelay: vi.fn() }));
@@ -29,6 +31,7 @@ beforeEach(() => {
   db = metadata.open(":memory:"); vi.spyOn(metadata, "metadataDb").mockReturnValue(db);
   vi.mocked(startRenderRelay).mockResolvedValue({ port: 43127, get refused() { return denied; }, close: closeRelay, abandon: abandonRelay, settleAdmissions: async () => {} });
   page.setOfflineMode.mockResolvedValue(undefined);
+  page.evaluate.mockResolvedValue(undefined);
   page.screenshot.mockResolvedValue(new Uint8Array([137, 80, 78, 71]));
   vi.mocked(puppeteer.launch).mockResolvedValue({ newPage: async () => page, close: async () => {}, process: () => null } as never);
 });
@@ -90,7 +93,8 @@ it.each([
   expect(page.setOfflineMode.mock.calls).toEqual(Array.from({ length: cuts }, () => [[true], [false]]).flat());
   const stop = vi.fn();
   vi.stubGlobal("window", { stop });
-  try { for (let i = 0; i < cuts; i++) page.evaluate.mock.calls[i][0](); } finally { vi.unstubAllGlobals(); }
+  const stops = page.evaluate.mock.calls.filter(([fn]) => fn !== settleRenderTiles);
+  try { for (let i = 0; i < cuts; i++) stops[i][0](); } finally { vi.unstubAllGlobals(); }
   expect(stop).toHaveBeenCalledTimes(cuts);
 });
 
@@ -111,4 +115,37 @@ it("counts every cut request but refuses only a host whose request outlived the 
   const result = await renderMapImage(testAccountScope(), { ...input, credential });
   expect(result.abandoned).toEqual(["stalled.test", "young.test"]);
   expect(abandonRelay.mock.calls).toEqual([[["stalled.test"]]]);
+});
+
+it("tells the page to settle tiles at the first cut, never before or again", async () => {
+  vi.useFakeTimers();
+  vi.spyOn(console, "warn").mockImplementation(() => {});
+  const settle = vi.fn();
+  const dataset = Object.defineProperty({}, "exportTilesSettled", { set: settle });
+  vi.stubGlobal("document", { documentElement: { dataset }, querySelector: () => null });
+  vi.stubGlobal("window", { stop: vi.fn() });
+  page.evaluate.mockImplementation(async fn => fn());
+  page.goto.mockImplementation(async () => {
+    const onRequest = page.on.mock.calls.find(([event]) => event === "request")![1];
+    onRequest({ id: "tile", url: () => "https://tiles.example.org/held.pbf", headers: () => ({}), continue: vi.fn(), abort: vi.fn() });
+  });
+  page.waitForFunction.mockImplementation(async () => {
+    await vi.advanceTimersByTimeAsync(20_000);
+    expect(abandonRelay).not.toHaveBeenCalled();
+    expect(settle).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(500);
+    expect(abandonRelay).toHaveBeenCalledOnce();
+    expect(settle).toHaveBeenCalledExactlyOnceWith("true");
+    await vi.advanceTimersByTimeAsync(20_500);
+    expect(abandonRelay).toHaveBeenCalledTimes(2);
+    expect(settle).toHaveBeenCalledOnce();
+  });
+  try {
+    const credential = delegateCredential(requireRequestAuth(authenticatedRequest()));
+    const deadline = Date.now() + 90_000;
+    const browser = await (await puppeteerDriver()).launch("unused", [], { appOrigin: input.baseUrl, deadline, requestBoundMs: 20_000 });
+    try {
+      await browser.render({ url: input.baseUrl + "/render/map", credential, definition, width: 64, height: 64, deadline, requestBoundMs: 20_000 });
+    } finally { await browser.close(); }
+  } finally { vi.unstubAllGlobals(); }
 });

@@ -18,6 +18,7 @@ import { lookAtMap, lookDefinition } from "./map-look";
 import { renderMapImage } from "./render-image";
 import { decodePng } from "./png-codec";
 import { renderRequestBoundMs } from "./render-stall";
+import puppeteer from "puppeteer-core";
 
 /**
  * A basemap's first viewport tile never answers. Raster tiles exercise
@@ -50,8 +51,9 @@ const ONE_PX = Buffer.from(
  * a tile the viewport needs does, which is what the stall is about.
  * Without the CORS header the style fails to load and
  * the page settles on its offline fallback, which is a different case. */
-async function startStallingBasemap(kind: "raster" | "vector") {
+async function startStallingBasemap(kind: "raster" | "vector", holdSocket: boolean) {
   const held: ServerResponse[] = [];
+  const received = new Set<string>();
   let served = 0;
   let tiles = "";
   const cors = { "access-control-allow-origin": "*", "cache-control": "no-store" };
@@ -73,7 +75,8 @@ async function startStallingBasemap(kind: "raster" | "vector") {
     }
     if (url.pathname.startsWith("/tiles/")) {
       served += 1;
-      if (held.length === 0 && Number(url.pathname.split("/")[2]) >= 10) { held.push(res); return; }
+      received.add(url.pathname);
+      if (holdSocket && held.length === 0 && Number(url.pathname.split("/")[2]) >= 10) { held.push(res); return; }
       res.writeHead(200, { "content-type": kind === "vector" ? "application/x-protobuf" : "image/png", ...cors });
       res.end(kind === "vector" ? Buffer.alloc(0) : ONE_PX);
       return;
@@ -88,19 +91,26 @@ async function startStallingBasemap(kind: "raster" | "vector") {
     styleUrl: `http://127.0.0.1:${address.port}/style.json`,
     heldCount: () => held.length,
     servedCount: () => served,
+    received: (url: string) => received.has(new URL(url).pathname),
     async close() { for (const response of held) response.destroy(); await new Promise((r) => server.close(r)); },
   };
 }
 
 describe.skipIf(!port).each([
-  { kind: "raster", road: "check" },
-  { kind: "vector", road: "check" },
-  { kind: "raster", road: "export" },
-  { kind: "vector", road: "export" },
-] as const)("$road outlives a stalled $kind tile host", ({ kind, road }) => {
+  { kind: "raster", road: "check", stall: "socket" },
+  { kind: "vector", road: "check", stall: "socket" },
+  { kind: "raster", road: "export", stall: "socket" },
+  { kind: "vector", road: "export", stall: "socket" },
+  { kind: "vector", road: "check", stall: "never-started" },
+  { kind: "vector", road: "export", stall: "never-started" },
+] as const)("$road outlives a stalled $kind tile ($stall)", ({ kind, road, stall }) => {
   let mapId: string;
   let basemap: Awaited<ReturnType<typeof startStallingBasemap>>;
   let restoreKey: (() => void) | undefined;
+  let strandedUrl = "";
+  let continued = 0;
+  let terminal = 0;
+  let terminalAtCapture: number | undefined;
 
   beforeAll(async () => {
     const dir = process.env.DEZFIL_DATA_DIR;
@@ -113,7 +123,46 @@ describe.skipIf(!port).each([
     slots[SIGNING_KEY] = Buffer.from(key, "hex");
     vi.stubEnv("PORT", port!);
     closeMetadataDb(); resetQueryInstance();
-    basemap = await startStallingBasemap(kind);
+    basemap = await startStallingBasemap(kind, stall === "socket");
+    if (stall === "never-started") {
+      // Model the outcome of a stranded worker request: the driver's
+      // admission still runs, but continue resolves without starting the
+      // fetch. No relay socket exists for this tile, and window.stop does
+      // not end a worker's pending fetch. Assert both facts below so a
+      // socket cut or cancellation cannot accidentally make this green.
+      // Red seed: comment out `void page.evaluate(settleRenderTiles).catch(() => {});`
+      // in src/lib/export/render-driver.ts. Both never-started cases must
+      // then exhaust their render budget. The worker attachment race itself
+      // is deliberately not forced here.
+      const launch = puppeteer.launch.bind(puppeteer);
+      vi.spyOn(puppeteer, "launch").mockImplementation(async options => {
+        const browser = await launch(options);
+        const newPage = browser.newPage.bind(browser);
+        vi.spyOn(browser, "newPage").mockImplementation(async () => {
+          const page = await newPage();
+          page.on("request", request => {
+            const url = new URL(request.url());
+            if (!strandedUrl && url.origin === new URL(basemap.styleUrl).origin &&
+                url.pathname.startsWith("/tiles/") && Number(url.pathname.split("/")[2]) >= 10) {
+              strandedUrl = request.url();
+            }
+            if (request.url() === strandedUrl) {
+              vi.spyOn(request, "continue").mockImplementation(async () => { continued++; });
+            }
+          });
+          const ended = (request: { url(): string }) => { if (request.url() === strandedUrl) terminal++; };
+          page.on("requestfinished", ended);
+          page.on("requestfailed", ended);
+          const screenshot = page.screenshot.bind(page);
+          vi.spyOn(page, "screenshot").mockImplementation(async options => {
+            terminalAtCapture = terminal;
+            return screenshot(options);
+          });
+          return page;
+        });
+        return browser;
+      });
+    }
     await mkdir(path.join(dir, "fixtures"), { recursive: true });
     const file = path.join(dir, "fixtures", `stall-${Date.now().toString(36)}.geojson`);
     await writeFile(file, JSON.stringify({ type: "FeatureCollection", features: [
@@ -134,6 +183,7 @@ describe.skipIf(!port).each([
   }, 120_000);
 
   afterAll(async () => {
+    vi.restoreAllMocks();
     restoreKey?.();
     try { await basemap?.close(); } finally { vi.unstubAllEnvs(); }
   });
@@ -158,9 +208,15 @@ describe.skipIf(!port).each([
       kind, road, budgetMs: budget, boundMs: bound, wallMs: elapsed,
       image: `${decoded.width}x${decoded.height}`, bytes: result.png.byteLength,
       abandoned: result.abandoned,
-      heldTiles: basemap.heldCount(), servedTiles: basemap.servedCount(),
+      stall, heldTiles: basemap.heldCount(), servedTiles: basemap.servedCount(), continued, terminalAtCapture,
     }));
-    expect(basemap.heldCount()).toBe(1);
+    if (stall === "never-started") {
+      expect(strandedUrl).not.toBe("");
+      expect(continued).toBeGreaterThan(0);
+      expect(terminalAtCapture).toBe(0);
+      expect(basemap.received(strandedUrl)).toBe(false);
+      expect(basemap.heldCount()).toBe(0);
+    } else expect(basemap.heldCount()).toBe(1);
     expect(basemap.servedCount()).toBeGreaterThan(1);
     expect(result.abandoned).toContain("127.0.0.1");
     // Allow ten seconds after the bound for the grace, socket abandonment,
