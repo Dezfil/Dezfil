@@ -48,6 +48,17 @@ it("walks flat list offsets across rows, empty values and nulls", async () => {
   } finally { conn.disconnectSync(); db.closeSync(); }
 });
 
+it("keeps a column or struct field named like a prototype member as the row's own value", async () => {
+  const db = await DuckDBInstance.create(":memory:");
+  const conn = await db.connect();
+  try {
+    const rows = await readBudgetedRows(conn, `SELECT * FROM (VALUES ('north', 'Ada', {'__proto__': 1}), (NULL, NULL, NULL)) t("__proto__", "constructor", s)`, new ResultBudget());
+    expect(JSON.stringify(rows)).toBe('[{"__proto__":"north","constructor":"Ada","s":{"__proto__":1}},{"__proto__":null,"constructor":null,"s":null}]');
+    for (const row of rows) expect(Object.getPrototypeOf(row)).toBe(Object.prototype);
+    expect(JSON.stringify(await readBudgetedRows(conn, `SELECT {'__proto__': 2}::VARIANT AS v`, new ResultBudget()))).toBe('[{"v":{"__proto__":2}}]');
+  } finally { conn.disconnectSync(); db.closeSync(); }
+});
+
 it.each([
   '{"type":"MultiPolygon","coordinates":[[[[0.5,0.5],[1.5,0.5],[0.5,1.5],[0.5,0.5]]]]}',
   '{"type":"GeometryCollection","geometries":[{"type":"Point","coordinates":[0.5,1.5]},{"type":"LineString","coordinates":[[0.5,0.5],[1.5,1.5]]}]}',
