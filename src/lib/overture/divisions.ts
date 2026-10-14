@@ -177,7 +177,7 @@ class PromiseCache<V> {
       return hit;
     }
     const entry = produce().catch((error) => {
-      this.map.delete(key);
+      if (this.map.get(key) === entry) this.map.delete(key);
       throw error;
     });
     this.map.set(key, entry);
