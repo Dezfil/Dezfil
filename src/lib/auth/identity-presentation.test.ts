@@ -5,6 +5,7 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { closeMetadataDb, metadataDb } from "@/lib/metadata/db";
 import { resetQueryInstance } from "@/lib/duckdb";
+import { boundedEvaluation } from "@/lib/query/bounded";
 import { ingestFile } from "@/lib/ingest/ingest";
 import { addStep, createRecipe } from "@/lib/metadata/recipes";
 import { fileRecipe } from "@/lib/metadata/projects";
@@ -12,7 +13,7 @@ import { createMap } from "@/lib/map-service";
 import { createLayer } from "@/lib/layer-service";
 import { mapDependencies } from "@/lib/map-dependencies";
 import { workflowDependencies } from "@/lib/recipe-dependencies";
-import { cascadeSettled, startSingleRun } from "@/lib/operations/cascade";
+import { cascadeSettled, startSingleRun, startCascade, readCascade } from "@/lib/operations/cascade";
 import { laneSettled, resetLane } from "@/lib/operations/lane";
 import { duplicateRecipe } from "@/lib/operations/recipe-duplicate";
 import { readRecipe } from "@/lib/operations/recipe-view";
@@ -132,7 +133,14 @@ describe("duplication and provenance by identity", () => {
     const copy = await duplicateRecipe(scopes.bob, B);
     const sql = metadataDb().prepare("SELECT parameters FROM recipe_steps WHERE recipe_id = ? ORDER BY ordinal").all(copy.id)
       .map((row) => JSON.parse((row as { parameters: string }).parameters).sql);
-    expect(sql).toEqual(["SELECT * FROM stations", "SELECT * FROM staged_copy UNION ALL SELECT * FROM ada.staged"]);
+    expect(sql).toEqual(["SELECT * FROM stations", "SELECT * FROM staged_copy AS staged UNION ALL SELECT * FROM ada.staged"]);
+    const copiedRun = await startCascade(scopes.bob, { recipeId: copy.id,
+      expectedRevision: readEditRevision({ kind: "workflow", id: copy.id })!.editRevision });
+    await cascadeSettled(copiedRun.id);
+    expect(readCascade(scopes.bob, copiedRun.id).outcome).toBe("completed");
+    const rows = await boundedEvaluation(async conn =>
+      (await conn.runAndReadAll("SELECT sentinel FROM both_copy ORDER BY sentinel")).getRowObjectsJson(), { scope: scopes.bob });
+    expect(rows).toEqual([{ sentinel: "ada roads" }, { sentinel: "bob stations" }]);
   }, 60_000);
 
   it("records a result's inputs by identity and resolves them so", async () => {
