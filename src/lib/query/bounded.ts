@@ -1,3 +1,4 @@
+import { currentTrustedOperation } from "@/lib/trusted-operation";
 import { settingRemedy } from "@/lib/settings/remedy";
 import { inDelegatedDeletionWork, inDeletionWork } from "@/lib/auth/account-deletion-work";
 import { authorityOf } from "./context";
@@ -128,7 +129,11 @@ async function runBoundedEvaluation<T>(
   fn: (conn: DuckDBConnection, bounds: EvaluationBounds) => Promise<T>,
   options: EvaluationOptions,
 ): Promise<T> {
-  const { signal, scope } = options ?? {};
+  const { scope } = options ?? {};
+  // A preparation read retains its own query budget inside the admitted lifetime.
+  const parent = currentTrustedOperation();
+  const signal = parent?.signal ?? options?.signal;
+  parent?.assertCanCommit();
   requireDatasetScope(scope);
   if (signal?.aborted) throw new EvaluationCancelled();
   // Whatever this evaluation binds is evidence for the artifacts being
@@ -160,9 +165,10 @@ async function runBoundedEvaluation<T>(
       clearTimeout(timer);
       signal?.removeEventListener("abort", onAbort);
     });
-  }).catch((error: unknown) => {
+  }).catch(async (error: unknown) => {
     staging.release();
-    connecting.then((late) => late.disconnectSync()).catch(() => {}).finally(() => admission.release());
+    const drained = connecting.then((late) => late.disconnectSync()).catch(() => {}).finally(() => admission.release());
+    if (parent) await drained;
     throw error;
   });
 
@@ -207,7 +213,7 @@ async function runBoundedEvaluation<T>(
       prepAbandoned = true;
       conn.interrupt();
       const drain = setInterval(() => conn.interrupt(), REINTERRUPT_MS);
-      registration
+      const drained = registration
         .finally(() => {
           clearInterval(drain);
           conn.disconnectSync();
@@ -215,6 +221,8 @@ async function runBoundedEvaluation<T>(
           admission.release();
         })
         .catch(() => {});
+      // Owned preparation keeps its files until this native reader has drained.
+      if (parent) await drained;
       throw error;
     }
 

@@ -23,7 +23,7 @@ export async function GET(request: Request, { params }: Params) {
     }
     const table = addressDataset(scope, name).table;
     return await streamPrivateCopy(scope, [{ table: "data_tables", id: table.id }],
-      () => exportTable(scope, name, format), request.signal);
+      () => exportTable(scope, name, format, request.signal), request.signal);
   } catch (error) {
     return errorResponse(error);
   }

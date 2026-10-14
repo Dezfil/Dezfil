@@ -1,13 +1,14 @@
+import { withTrustedMutation } from "@/lib/trusted-mutation";
+import { currentTrustedOperation, isTrustedOperationRefusal } from "@/lib/trusted-operation";
+import { ownedArchive } from "./owned-archive";
 import { copyFileWork, bindDeletionInputs, observeDeletionCleanup } from "@/lib/auth/account-deletion-work";
 import { registerAccountFile, removeAccountFile } from "@/lib/ingest/file-ownership";
 import { AuthError } from "@/lib/auth/errors";
 import type { AccountScope } from "@/lib/auth/scope";
 import { canReach, requireReachable } from "@/lib/auth/reach";
-import { createWriteStream } from "node:fs";
 import { mkdir, readdir, stat } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
-import { ZipFile } from "yazl";
 import { ApiError } from "@/lib/api/errors";
 import { dataDir } from "@/lib/config";
 import { listReachableTables } from "@/lib/metadata/owned-tables";
@@ -230,7 +231,11 @@ async function assembleProjectExportWork(
   const staged = path.join(stagingDir, `${randomUUID()}.zip`);
   registerAccountFile(scope.accountId, staged);
 
-  const zip = new ZipFile();
+  const operation = currentTrustedOperation()!;
+  const archive = ownedArchive(operation);
+  operation.defer(() => archive.close());
+  operation.defer(async () => { if (operation.signal.aborted) await removeAccountFile(staged, { force: true }); });
+  const zip = archive.zip;
   const json = (value: unknown) =>
     Buffer.from(JSON.stringify(value, null, 2) + "\n");
   zip.addBuffer(json(manifest), `${root}/project.json`);
@@ -259,7 +264,7 @@ async function assembleProjectExportWork(
         // Byte for byte the stored artifact; yazl reads it during the
         // pipe, and a vanished or replaced file fails the whole
         // assembly (a refusal), never a silently thinner archive.
-        zip.addFile(path.join(dataDir(), t.file), entry);
+        await archive.addFile(path.join(dataDir(), t.file), entry);
         continue;
       }
       let converted: Awaited<ReturnType<typeof exportTable>>;
@@ -267,7 +272,7 @@ async function assembleProjectExportWork(
         // Addressed by identity: never a same-named dataset of the caller's.
         converted = await exportTable(scope, t.id, effective);
       } catch (e) {
-        if (e instanceof AuthError || (e instanceof ApiError && e.code === "not_found")) throw e;
+        if (e instanceof AuthError || isTrustedOperationRefusal(e)) throw e;
         throw new ApiError(
           "export_failed",
           `The dataset "${t.qualifiedName}" could not be written as ` +
@@ -278,20 +283,11 @@ async function assembleProjectExportWork(
         );
       }
       conversions.push(converted);
-      zip.addFile(converted.path, entry);
+      await archive.addFile(converted.path, entry);
     }
 
     // A tracked pass: artifact retirement waits for assembly.
-    await trackInflight(
-      new Promise<void>((resolve, reject) => {
-        const out = createWriteStream(staged);
-        out.on("error", reject);
-        out.on("close", resolve);
-        zip.outputStream.on("error", reject);
-        zip.outputStream.pipe(out);
-        zip.end();
-      }),
-    );
+    await trackInflight(archive.finish(staged));
     await cleanConversions();
     const { size } = await stat(staged);
     requireProject(scope, projectId);
@@ -300,26 +296,32 @@ async function assembleProjectExportWork(
       ...workflowDocs.map((w) => ({ kind: "workflow" as const, id: w.id, name: w.name })),
       ...chosenTables.map((t) => ({ kind: "dataset" as const, id: t.id, name: t.qualifiedName })),
     ]);
+    operation.assertCanCommit();
     return { path: staged, filename: `${base}.zip`, size };
   } catch (e) {
+    const refusal = isTrustedOperationRefusal(e) || e instanceof AuthError ? e : new ApiError(
+      "export_failed",
+      `The archive could not be assembled: ${e instanceof Error ? e.message : "unknown failure"}`,
+      500,
+    );
+    operation.refuse(refusal);
+    await archive.close();
     await observeDeletionCleanup(async () => {
       await removeAccountFile(staged, { force: true });
       await cleanConversions();
     });
-    if (e instanceof ApiError || e instanceof AuthError) throw e;
-    throw new ApiError(
-      "export_failed",
-      `The archive could not be assembled: ${
-        e instanceof Error ? e.message : "unknown failure"
-      }`,
-      500,
-    );
+    throw refusal;
   }
 }
 
-export function assembleProjectExport(scope: AccountScope, projectId: string, selection: ProjectExportSelection): Promise<PreparedProjectExport> {
-  return copyFileWork(scope, [{ table: "projects", id: projectId }], async () => {
+export function assembleProjectExport(scope: AccountScope, projectId: string, selection: ProjectExportSelection, signal?: AbortSignal): Promise<PreparedProjectExport> {
+  return withTrustedMutation({ kind: "export", name: "Project export", signal }, async operation => {
+  const result = await copyFileWork(scope, [{ table: "projects", id: projectId }], async () => {
     const file = await assembleProjectExportWork(scope, projectId, selection);
     return { ...file, cleanup: () => removeAccountFile(file.path, { force: true }) };
+  });
+  operation.defer(async () => { if (operation.signal.aborted) await result.cleanup(); });
+  operation.assertCanCommit();
+  return result;
   });
 }

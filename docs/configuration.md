@@ -451,7 +451,10 @@ continue after departure, and retain the previous artifact on refusal. Sketch
 feature reads and map summaries share the query lifetime; sketch changes keep
 one processing deadline through queue waiting, reads, conversion and commit.
 Accepted changes continue after departure. An expired queued change cannot
-write later or let a successor bypass an active predecessor.
+write later or let a successor bypass an active predecessor. Dataset conversion
+and project export use the processing limit, cancel on departure, and clean
+temporary conversions and unfinished archives. All conversions in a project
+export inherit one deadline.
 
 ## Open data providers
 

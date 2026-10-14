@@ -2218,7 +2218,10 @@ and retains the previous artifact. Sketch feature reads and map summaries use
 one query lifetime. Sketch changes retain a processing deadline through queue
 waiting, inherited reads, conversion and identity-checked replacement. An expired
 queued writer leaves without bypassing its predecessor; accepted changes
-continue after caller departure. Hardened query memory refusal remains
+continue after caller departure. Dataset conversions and project exports use
+the processing limit and cancel on departure. All conversions and archive
+assembly inside a project export share its original deadline; failed exports
+remove converted files and the staged archive, retaining source artifacts. Hardened query memory refusal remains
 `400 query_memory_exceeded`, including template validation.
 
 <!-- error-catalogue:start -->

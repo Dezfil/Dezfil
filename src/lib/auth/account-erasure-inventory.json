@@ -3723,14 +3723,6 @@
         "exports"
       ]
     },
-    "writer:src/lib/export/project-export.ts#assembleProjectExportWork.out:createWriteStream": {
-      "stores": [
-        "file:exports"
-      ],
-      "roots": [
-        "exports/*.zip"
-      ]
-    },
     "writer:src/lib/geocode/cache.ts#writeAnswer:mkdir": {
       "stores": [
         "file:geocode"
@@ -4951,11 +4943,6 @@
       ]
     },
     "memory:src/app/api/projects/[id]/export/route.ts#POST.file": {
-      "stores": [
-        "memory:request-closures"
-      ]
-    },
-    "memory:src/lib/export/project-export.ts#assembleProjectExport.file": {
       "stores": [
         "memory:request-closures"
       ]
@@ -6254,6 +6241,49 @@
     "memory:src/lib/trusted-connection.ts#connectionOwners": {
       "stores": [
         "memory:src/lib/duckdb.ts#leases"
+      ]
+    },
+    "memory:src/lib/export/owned-archive.ts#ownedArchive.closing": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/export/owned-archive.ts#ownedArchive.complete": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/export/owned-archive.ts#ownedArchive.failure": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/export/owned-archive.ts#ownedArchive.readers": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/export/owned-archive.ts#ownedArchive.stop": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/export/owned-archive.ts#ownedArchive.zip": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/export/project-export.ts#assembleProjectExport.result.file": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "writer:src/lib/export/project-export.ts#assembleProjectExportWork:archive.finish": {
+      "stores": [
+        "file:exports"
+      ],
+      "roots": [
+        "exports/*.zip"
       ]
     }
   },

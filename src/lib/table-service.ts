@@ -1,3 +1,4 @@
+import { withTrustedMutation } from "@/lib/trusted-mutation";
 import { withTrustedOperation } from "@/lib/trusted-operation";
 import { copyFileWork, bindDeletionInputs } from "@/lib/auth/account-deletion-work";
 import { registerAccountFile, removeAccountFile } from "@/lib/ingest/file-ownership";
@@ -405,4 +406,11 @@ export async function removeTable(scope: AccountScope, address: string): Promise
   retireArtifact(path.join(dataDir(), table.file));
 }
 
-export function exportTable(scope: AccountScope, name: string, format: ExportFormat): Promise<TableExport> { return copyFileWork(scope, [{ table: "data_tables", id: addressDataset(scope, name).table.id }], () => exportTableWork(scope, name, format)); }
+export function exportTable(scope: AccountScope, name: string, format: ExportFormat, signal?: AbortSignal): Promise<TableExport> {
+  return withTrustedMutation({ kind: "export", name: "Dataset export", signal }, async operation => {
+    const file = await copyFileWork(scope, [{ table: "data_tables", id: addressDataset(scope, name).table.id }], () => exportTableWork(scope, name, format));
+    operation.defer(async () => { if (operation.signal.aborted) await file.cleanup(); });
+    operation.assertCanCommit();
+    return file;
+  });
+}
