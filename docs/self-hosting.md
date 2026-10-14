@@ -253,6 +253,33 @@ after the backup is not in the restore. Test the restore on an isolated port and
 copy, never with two servers writing the same directory. The
 [runbook](runbook.md#full-backup-and-restore) gives checkout and volume commands.
 
+## Private certificate authorities for image exports
+
+Save-time HTTPS checks and Chromium image exports need separate trust setup.
+Node's checks can read the system CA bundle at
+`/etc/ssl/certs/ca-certificates.crt`; include your private root there and set
+`NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt` when starting the
+container. Chromium uses its own roots and the `node` user's NSS store, so
+adding the root to the system bundle alone does not make exports trust it.
+
+Provision two NSS SQL stores on the host with `certutil` (from NSS tools),
+using the same root PEM in each:
+
+```sh
+for store in legacy-nss current-nss; do
+  mkdir -p "$store"
+  NSS_TRUST_TYPE=NSS certutil -N -d "sql:$store" --empty-password
+  NSS_TRUST_TYPE=NSS certutil -A -d "sql:$store" -n 'Private root' -t 'C,,' -i private-root.pem
+done
+```
+
+Mount `legacy-nss` at `/home/node/.pki/nssdb` and `current-nss` at
+`/home/node/.local/share/pki/nssdb`, with the directories and their files
+readable and writable by the container's `node` user. Both locations cover
+Chromium's older and newer Linux store paths. `NSS_TRUST_TYPE=NSS` writes
+trust records compatible with the image's NSS version. Configure both Node
+and browser trust before restarting the container; this needs no image change.
+
 ## Server-side render destinations
 
 Image exports and map checks launch a fresh Chromium browser. Page requests
