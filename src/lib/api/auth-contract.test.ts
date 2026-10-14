@@ -12,6 +12,7 @@ it("documents each authentication operation with matching security and a deliber
     expect(doc.paths).toHaveProperty(path);
   }
   expect(doc.components.securitySchemes.CookieSession).toMatchObject({ in: "cookie", name: "dezfil_session" });
+  expect(doc.components.securitySchemes.CookieSession.description).toContain("On a listening port other than 3000 the name carries the port suffix, and DEZFIL_SESSION_COOKIE sets the name.");
   expect(doc.components.securitySchemes.BearerToken).toMatchObject({ type: "http", scheme: "bearer" });
   for (const scheme of Object.values(doc.components.securitySchemes)) {
     expect(scheme.description).toContain("X-Dezfil-Account");

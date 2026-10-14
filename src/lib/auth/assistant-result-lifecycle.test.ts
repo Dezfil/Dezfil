@@ -69,7 +69,7 @@ it.each(["reply", "delta"])("drains deactivation during a provider %s without st
       return { text: "late private text", toolCalls: [{ id: "late", name: "create_map", args: { name: "Must not happen" } }] };
     }, continueWith: vi.fn(),
   }) };
-  const control = executionControl(scope, run.id, new AbortController().signal);
+  const control = executionControl(scope, run.id, new Request("http://instance.test/api/assistant/messages"));
   const response = runStream(scope, runAssistant(provider, { message: "Work", history: [] }, { scope, runId: run.id, baseUrl: "http://instance.test", fetchImpl: dispatch, signal: control.signal }), run.id, control);
   const reading = response.text();
   try {

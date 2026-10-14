@@ -132,7 +132,7 @@ export async function POST(request: Request) {
         );
       }
       claimedRun = parked.runId;
-      if (claimedRun) { assistantRuns.resume(scope, claimedRun, approved ? "approved" : "declined"); control = executionControl(scope, claimedRun, request.signal); }
+      if (claimedRun) { assistantRuns.resume(scope, claimedRun, approved ? "approved" : "declined"); control = executionControl(scope, claimedRun, request); }
       return privateResponse(runStream(scope,
         resumeAssistant(parked, approved, {
           grounding, revisions,
@@ -171,7 +171,7 @@ export async function POST(request: Request) {
     // What this run asked for, recorded before any provider request
     // exists: a run that fails before an answer still says it.
     assistantRuns.bindChoice(scope, runId, choice);
-    control = executionControl(scope, runId, request.signal);
+    control = executionControl(scope, runId, request);
     const grounding = await loadGrounding(context, baseUrl, fetchImpl, control.signal, observeRevision);
     requireCurrentActor(actor);
     // The implicit decline: the client abandons the shown confirmation

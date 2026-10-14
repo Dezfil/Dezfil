@@ -6,6 +6,7 @@ import { accountScope, type AccountScope } from "@/lib/auth/scope";
 import { socketRequest } from "@/lib/assistant/testing/socket-request";
 import type { EditBasis } from "@/lib/edit-basis";
 import { fixtureHeaders } from "../../../scripts/revision-fixtures.mjs";
+import { SESSION_COOKIE } from "@/lib/auth/http";
 
 /** Explicit authenticated fixture for tests that create private resources. */
 export function testAccountScope(db: Database = metadataDb(), id = "test-account"): AccountScope {
@@ -17,7 +18,7 @@ export function testAccountScope(db: Database = metadataDb(), id = "test-account
 export function testAccountRequest(request: Request, db: Database = metadataDb(), id = "test-account", basis?: EditBasis): Request {
   const session = testSession(db, id);
   const headers = new Headers(fixtureHeaders(basis, request.headers));
-  headers.set("cookie", `dezfil_session=${session.secret}`);
+  headers.set("cookie", `${SESSION_COOKIE}=${session.secret}`);
   headers.set("origin", new URL(request.url).origin);
   return socketRequest(new Request(request, { headers }));
 }

@@ -11,6 +11,17 @@ afterEach(() => { vi.restoreAllMocks(); vi.unstubAllEnvs(); });
 const read = (key: string) => readDeploymentSetting(settingDefinition(key));
 
 it.each([
+  ["3000", undefined, "dezfil_session"],
+  ["3650", undefined, "dezfil_session_3650"],
+  ["3000", "map_session", "map_session"],
+  ["3650", "map_session", "map_session"],
+])("reports the effective session cookie on port %s with override %s", (port, override, expected) => {
+  vi.stubEnv("PORT", port);
+  vi.stubEnv("DEZFIL_SESSION_COOKIE", override);
+  expect(read("sessionCookie")).toMatchObject({ value: expected, source: override ? "environment" : "default", locked: !!override });
+});
+
+it.each([
   [undefined, false], ["", false], ["1", true], ["true", true], ["TRUE", true],
   ["yes", true], ["YES", true], [" true ", false], ["0", false], ["off", false], ["invalid", false],
 ] as const)("matches object-store credential opt-in for %j", (raw, expected) => {
