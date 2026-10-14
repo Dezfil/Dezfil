@@ -141,10 +141,8 @@ const CURSOR_NOTES = {
     "census: correct - a div, not a control",
   "src/components/workflow-canvas/WorkflowCanvas.module.css\tcursor\tspan.chip":
     "census: correct - the span form of the chip carries no handler",
-  "src/components/UploadZone.module.css\tcursor\t.zone[data-busy=\"true\"]":
-    "census: recorded - the busy zone still opens the file picker",
-  "src/components/sql/SqlConsole.module.css\tcursor\t.grid td":
-    "census: recorded - the cells are focusable and clickable",
+  "src/components/sql/SqlConsole.module.css\tcursor\t.grid td.rn":
+    "census: correct - the row number carries no handler, beside the cells a click opens",
 };
 
 /** Every declaration in a CSS text as {prop, value, line}. */

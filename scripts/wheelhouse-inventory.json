@@ -290,13 +290,6 @@
   },
   {
     "file": "src/components/UploadZone.module.css",
-    "rule": "cursor",
-    "value": ".zone[data-busy=\"true\"]",
-    "count": 1,
-    "exception": "census: recorded - the busy zone still opens the file picker"
-  },
-  {
-    "file": "src/components/UploadZone.module.css",
     "rule": "duration",
     "value": "0.15s",
     "count": 1
@@ -644,9 +637,9 @@
   {
     "file": "src/components/sql/SqlConsole.module.css",
     "rule": "cursor",
-    "value": ".grid td",
+    "value": ".grid td.rn",
     "count": 1,
-    "exception": "census: recorded - the cells are focusable and clickable"
+    "exception": "census: correct - the row number carries no handler, beside the cells a click opens"
   },
   {
     "file": "src/components/sql/SqlConsole.module.css",
