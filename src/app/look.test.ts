@@ -39,8 +39,11 @@ const LOOK = rules(LOOK_CSS.replace(CONDITIONAL, ""));
 const GLOBALS = rules(readFileSync("src/app/globals.css", "utf8"));
 
 const DEFAULT_LIGHT = "[data-look-default]";
-const DEFAULT_DARK = ':root[data-theme="dark"] [data-look-default]';
-const isDefaultScope = (rule: Rule) => rule.selector === DEFAULT_LIGHT || rule.selector === DEFAULT_DARK;
+const DEFAULT_DARK = ':root[data-theme="dark"] [data-look-default=""]';
+/** A scope that names the dark theme keeps it on a light page; one naming
+ * the light theme is reached by the light scope alone. */
+const DEFAULT_NAMED_DARK = ':root [data-look-default="dark"]';
+const isDefaultScope = (rule: Rule) => [DEFAULT_LIGHT, DEFAULT_DARK, DEFAULT_NAMED_DARK].includes(rule.selector);
 const pickRules = LOOK.filter(rule => !isDefaultScope(rule));
 const isDark = (rule: Rule) => rule.selector.includes('[data-theme="dark"]');
 
@@ -239,6 +242,8 @@ describe("the look stylesheet", () => {
     expect(names(dark)).toEqual(set.filter(token => GLOBAL_DARK.tokens.has(token)));
     for (const token of set) expect(light.tokens.get(token), token).toBe(GLOBAL_LIGHT.tokens.get(token));
     for (const token of names(dark)) expect(dark.tokens.get(token), token).toBe(GLOBAL_DARK.tokens.get(token));
+    // A scope naming the dark theme is the same declaration, not a copy that could drift.
+    expect(LOOK.find(rule => rule.selector === DEFAULT_NAMED_DARK)?.tokens).toBe(dark.tokens);
   });
 
   it("restates in the default scope every inherited text property the page sets on its body, in both themes", () => {
