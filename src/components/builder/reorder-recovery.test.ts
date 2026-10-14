@@ -22,8 +22,8 @@ it.each(["lost", "stale"])("a %s reorder keeps its banner and rolls back only an
   });
   const setMap: React.Dispatch<React.SetStateAction<MapWithLayers | null>> = next => { map = (typeof next === "function" ? next(map) : next)!; };
   const h = new HookHarness(() => {
-    const mutations = useBuilderMutations({ mapId: "m", map, setMap, rendersRef: { current: {} }, setRenders() {}, setSelectedId() {}, refreshLayer: async () => {} });
-    const actions = useBuilderLayerActions({ mutations, draw: {} as never, mapId: "m", selectedId: null, setSelectedId() {}, setMap, setRenders() {}, rendersRef: { current: {} }, refreshLayer: async () => {} });
+    const mutations = useBuilderMutations({ mapId: "m", map, setMap, rendersRef: { current: {} }, replaceRenders: async () => null, setSelectedId() {}, refreshLayer: async () => {} });
+    const actions = useBuilderLayerActions({ mutations, draw: {} as never, mapId: "m", selectedId: null, setSelectedId() {}, setMap, removeRender() {}, refreshLayer: async () => {} });
     return { ...mutations, ...actions };
   });
   cleanups.push(() => h.unmount());

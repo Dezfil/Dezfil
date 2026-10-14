@@ -6,7 +6,8 @@ import { historyControl, type SharedHistory as HistoryAvailability } from "./sha
 import type { Bounds } from "@/lib/geo-bounds";
 import { readApiError } from "../api";
 import type { LegendLiveText } from "./LegendTab";
-import { fetchLayerRender, renderBounds, type LayerRenderData } from "./render-data";
+import { renderBounds, type LayerRenderData } from "./render-data";
+import type { ReplaceRenders } from "./use-layer-renders";
 import { useMutationLane } from "./use-mutation-lane";
 import { useMapHistory } from "./use-map-history";
 
@@ -18,13 +19,13 @@ type StateSetter<T> = Dispatch<SetStateAction<T>>;
 
 /** Shared truth for saves, history and the assistant's whole-map resync. */
 export function useBuilderMutations({
-  mapId, map, setMap, rendersRef, setRenders, setSelectedId, refreshLayer,
+  mapId, map, setMap, rendersRef, replaceRenders, setSelectedId, refreshLayer,
 }: {
   mapId: string;
   map: MapWithLayers | null;
   setMap: StateSetter<MapWithLayers | null>;
   rendersRef: React.RefObject<Record<string, LayerRenderData>>;
-  setRenders: StateSetter<Record<string, LayerRenderData>>;
+  replaceRenders: ReplaceRenders;
   setSelectedId: StateSetter<string | null>;
   refreshLayer: (layerId: string) => Promise<void>;
 }) {
@@ -188,11 +189,12 @@ export function useBuilderMutations({
     const body = await response.json() as MapWithLayers;
     applyMapResponse(body, false, truthSeqRef.current);
     edited();
-    await Promise.all(body.layers.map((layer) => refreshLayer(layer.id)));
-  }), [sequence, mapId, applyMapResponse, refreshLayer, edited]);
+    // The accepted document replaces the map, layers it removed included.
+    await replaceRenders(body.layers.map((layer) => layer.id));
+  }), [sequence, mapId, applyMapResponse, replaceRenders, edited]);
 
-  // Undo/redo — extracted to use-map-history.ts at the touch; the queue,
-  // the generation fence and the keyboard binding live there unchanged.
+  // Undo/redo — extracted to use-map-history.ts at the touch; the queue
+  // and the keyboard binding live there.
   const { applyHistory } = useMapHistory({
     mapId,
     sequence,
@@ -207,8 +209,7 @@ export function useBuilderMutations({
       return historyControl(facts, direction, undefined, sequence.stale || sequence.pending).disabled ? null : facts.editRevision ?? null;
     },
     setSelectedId,
-    rendersRef,
-    setRenders,
+    replaceRenders,
   });
 
   return {
@@ -222,7 +223,7 @@ export function useBuilderMutations({
 
 /** Loading after assistant mutations uses the same response fences as edits. */
 export function useBuilderReload({
-  mapId, mutations, recoverySeed, importFocusRef, setMap, setMapProjectId, rendersRef, setRenders, setFitBounds,
+  mapId, mutations, recoverySeed, importFocusRef, setMap, setMapProjectId, replaceRenders, setFitBounds,
 }: {
   mapId: string;
   mutations: ReturnType<typeof useBuilderMutations>;
@@ -230,8 +231,7 @@ export function useBuilderReload({
   importFocusRef: React.RefObject<{ active: boolean }>;
   setMap: StateSetter<MapWithLayers | null>;
   setMapProjectId: StateSetter<string | null>;
-  rendersRef: React.RefObject<Record<string, LayerRenderData>>;
-  setRenders: StateSetter<Record<string, LayerRenderData>>;
+  replaceRenders: ReplaceRenders;
   setFitBounds: StateSetter<Bounds | null>;
 }) {
   const {
@@ -292,21 +292,17 @@ export function useBuilderReload({
             if (facts.editRevision === sequence.revision) setHistory(facts);
           }
         });
-        const entries = await Promise.all(
-          body.layers.map(
-            async (l) => [l.id, recoverySeed?.renders[l.id] ?? await fetchLayerRender(l.id)] as const,
-          ),
+        const answers = await replaceRenders(
+          body.layers.map((l) => l.id),
+          { seed: recoverySeed?.renders, cancelled: () => cancelled },
         );
-        if (cancelled) return;
-        const nextRenders = Object.fromEntries(entries);
-        rendersRef.current = nextRenders;
-        setRenders(nextRenders);
+        if (!answers) return;
         // Frame the data once it has loaded (spec: fit-to-bounds on the data
         // extent). Done here in the load handler, not a reactive effect.
         // During an import's focus window the camera belongs to the newly
         // added layers — no global reframe.
         if (!importFocusRef.current.active) {
-          const b = renderBounds(entries.map(([, r]) => r));
+          const b = renderBounds(Object.values(answers));
           if (b) setFitBounds([...b] as Bounds);
         }
       } catch (e) {
@@ -317,6 +313,6 @@ export function useBuilderReload({
     return () => {
       cancelled = true;
     };
-  }, [sequence, mapId, reloadKey, recoverySeed, clearFailure, fail, importFocusRef, truthSeqRef, authoritativeLayersRef, layerConfirmedAtRef, layerRemovedAtRef, mapFieldEditedAtRef, reloadEpochRef, mapAppliedAtRef, serverMapRef, setMap, setMapProjectId, setHistory, rendersRef, setRenders, setFitBounds]);
+  }, [sequence, mapId, reloadKey, recoverySeed, clearFailure, fail, importFocusRef, truthSeqRef, authoritativeLayersRef, layerConfirmedAtRef, layerRemovedAtRef, mapFieldEditedAtRef, reloadEpochRef, mapAppliedAtRef, serverMapRef, setMap, setMapProjectId, setHistory, replaceRenders, setFitBounds]);
 
 }

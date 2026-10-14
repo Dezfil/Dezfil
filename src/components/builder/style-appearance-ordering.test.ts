@@ -16,7 +16,7 @@ it("keeps the latest document revision and attribution when another layer's gest
   let map = { id: "m", layers: [layer, { ...layer, id: "b" }], ...oldFacts } as unknown as MapWithLayers;
   const clearAppearanceDraft = vi.fn();
   const h = new HookHarness(() => {
-    const editor = useBuilderMutations({ mapId: "m", map, setMap: next => { map = typeof next === "function" ? next(map)! : next!; }, rendersRef: { current: {} }, setRenders() {}, setSelectedId() {}, refreshLayer: async () => {} });
+    const editor = useBuilderMutations({ mapId: "m", map, setMap: next => { map = typeof next === "function" ? next(map)! : next!; }, rendersRef: { current: {} }, replaceRenders: async () => null, setSelectedId() {}, refreshLayer: async () => {} });
     return { editor, commit: useStyleAppearanceCommit({ ...editor, appearancePreviewVersionRef: { current: { a: 1 } }, clearAppearanceDraft }) };
   });
   const { editor, commit } = h.value;
@@ -57,7 +57,7 @@ it("queues a reset to the original opacity behind the outstanding gesture", asyn
   const appearancePreviewVersionRef = { current: { a: 1 } };
   const clearAppearanceDraft = vi.fn();
   const h = new HookHarness(() => {
-    const editor = useBuilderMutations({ mapId: "m", map, setMap: next => { map = typeof next === "function" ? next(map)! : next!; }, rendersRef: { current: {} }, setRenders() {}, setSelectedId() {}, refreshLayer: async () => {} });
+    const editor = useBuilderMutations({ mapId: "m", map, setMap: next => { map = typeof next === "function" ? next(map)! : next!; }, rendersRef: { current: {} }, replaceRenders: async () => null, setSelectedId() {}, refreshLayer: async () => {} });
     return { editor, commit: useStyleAppearanceCommit({ ...editor, appearancePreviewVersionRef, clearAppearanceDraft }) };
   });
   const { editor, commit } = h.value;
