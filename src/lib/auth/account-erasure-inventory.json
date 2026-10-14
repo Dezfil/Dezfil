@@ -5910,22 +5910,6 @@
         "tmp/template-*"
       ]
     },
-    "writer:src/lib/templates/home.ts#stageOwn:copyFile": {
-      "stores": [
-        "file:tables"
-      ],
-      "roots": [
-        "tables/template-*.parquet"
-      ]
-    },
-    "writer:src/lib/templates/home.ts#stageTemplateArtifact:copyFile": {
-      "stores": [
-        "file:tables"
-      ],
-      "roots": [
-        "tables/template-*-*.partial"
-      ]
-    },
     "writer:src/lib/templates/home.ts#stageTemplateArtifact:rename": {
       "stores": [
         "file:tables"
@@ -5933,15 +5917,6 @@
       "roots": [
         "*",
         "tables/template-*-*.partial"
-      ]
-    },
-    "writer:src/lib/templates/install.ts#installTemplateArchive:rename": {
-      "stores": [
-        "file:templates",
-        "file:tmp"
-      ],
-      "roots": [
-        "templates/*/*"
       ]
     },
     "writer:src/lib/templates/resident.ts#residentTemplate.resident:read": {
@@ -6061,6 +6036,61 @@
       ],
       "roots": [
         "tables/*.parquet"
+      ]
+    },
+    "memory:src/lib/export/owned-archive.ts#ownedArchive.closing": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/export/owned-archive.ts#ownedArchive.complete": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/export/owned-archive.ts#ownedArchive.failure": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/export/owned-archive.ts#ownedArchive.readers": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/export/owned-archive.ts#ownedArchive.stop": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/export/owned-archive.ts#ownedArchive.zip": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/export/project-export.ts#assembleProjectExport.result.file": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/postgis/source-owner.ts#PgSourceOwner.operation": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/postgis/source-owner.ts#PgSourceOwner.stopInterrupting": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/templates/download.ts#enqueue.{ running, result }": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/trusted-connection.ts#connectionOwners": {
+      "stores": [
+        "memory:src/lib/duckdb.ts#leases"
       ]
     },
     "memory:src/lib/trusted-h3.ts#pending": {
@@ -6228,62 +6258,37 @@
         "memory:request-closures"
       ]
     },
-    "memory:src/lib/postgis/source-owner.ts#PgSourceOwner.operation": {
-      "stores": [
-        "memory:request-closures"
-      ]
-    },
-    "memory:src/lib/postgis/source-owner.ts#PgSourceOwner.stopInterrupting": {
-      "stores": [
-        "memory:request-closures"
-      ]
-    },
-    "memory:src/lib/trusted-connection.ts#connectionOwners": {
-      "stores": [
-        "memory:src/lib/duckdb.ts#leases"
-      ]
-    },
-    "memory:src/lib/export/owned-archive.ts#ownedArchive.closing": {
-      "stores": [
-        "memory:request-closures"
-      ]
-    },
-    "memory:src/lib/export/owned-archive.ts#ownedArchive.complete": {
-      "stores": [
-        "memory:request-closures"
-      ]
-    },
-    "memory:src/lib/export/owned-archive.ts#ownedArchive.failure": {
-      "stores": [
-        "memory:request-closures"
-      ]
-    },
-    "memory:src/lib/export/owned-archive.ts#ownedArchive.readers": {
-      "stores": [
-        "memory:request-closures"
-      ]
-    },
-    "memory:src/lib/export/owned-archive.ts#ownedArchive.stop": {
-      "stores": [
-        "memory:request-closures"
-      ]
-    },
-    "memory:src/lib/export/owned-archive.ts#ownedArchive.zip": {
-      "stores": [
-        "memory:request-closures"
-      ]
-    },
-    "memory:src/lib/export/project-export.ts#assembleProjectExport.result.file": {
-      "stores": [
-        "memory:request-closures"
-      ]
-    },
     "writer:src/lib/export/project-export.ts#assembleProjectExportWork:archive.finish": {
       "stores": [
         "file:exports"
       ],
       "roots": [
         "exports/*.zip"
+      ]
+    },
+    "writer:src/lib/templates/home.ts#stageOwn:copyTemplateFile": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "tables/template-*.parquet"
+      ]
+    },
+    "writer:src/lib/templates/home.ts#stageTemplateArtifact:copyTemplateFile": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "tables/template-*-*.partial"
+      ]
+    },
+    "writer:src/lib/templates/install.ts#installTemplateArchive:renameSync": {
+      "stores": [
+        "file:templates",
+        "file:tmp"
+      ],
+      "roots": [
+        "templates/*/*"
       ]
     }
   },

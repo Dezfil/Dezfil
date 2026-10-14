@@ -36,7 +36,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const scope = requireRequestScope(request);
     const { id } = await params;
     const version = await requestedVersion(request);
-    return privateResponse(NextResponse.json(await fetchTemplate(scope, id, version)));
+    return privateResponse(NextResponse.json(await fetchTemplate(scope, id, version, undefined, request.signal)));
   } catch (error) {
     return authFailure(error instanceof TemplateRefusal ? installRefusalError(error) : error);
   }

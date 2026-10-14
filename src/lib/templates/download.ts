@@ -1,3 +1,7 @@
+import { currentTrustedOperation } from "@/lib/trusted-operation";
+import { withTrustedMutation } from "@/lib/trusted-mutation";
+import { sharedTrustedWork } from "@/lib/trusted-shared";
+import { trustedQueueTurn } from "@/lib/trusted-queue";
 import type { Database } from "better-sqlite3";
 import { createHash, randomUUID } from "node:crypto";
 import { createReadStream, createWriteStream } from "node:fs";
@@ -17,7 +21,7 @@ import type { CatalogueInEffect } from "./catalogue-address";
 import { TEMPLATE_ARCHIVE_MAX_BYTES } from "./format";
 import { installTemplateArchive } from "./install";
 import type { InstalledOrigin } from "./installed";
-import { refuse, TemplateRefusal } from "./refusals";
+import { preserveTemplateResourceRefusal, refuse, TemplateRefusal } from "./refusals";
 
 /**
  * Downloading a listed version, once.
@@ -64,7 +68,7 @@ export interface DownloadSeam {
 
 interface Downloads {
   /** The download of each version, in flight or queued, by `<id>@<version>`. */
-  byKey: Map<string, Promise<FetchedTemplate>>;
+  byKey: Map<string, ReturnType<typeof sharedTrustedWork<FetchedTemplate>>>;
   /** The end of the queue: the next download starts after it settles. */
   tail: Promise<void>;
   seam: DownloadSeam;
@@ -107,13 +111,14 @@ async function land(body: Readable, file: string, declared: number): Promise<{ s
       done(null, chunk);
     },
   });
-  await pipeline(body, count, createWriteStream(file, { flags: "wx" }));
+  await pipeline(body, count, createWriteStream(file, { flags: "wx" }), { signal: currentTrustedOperation()?.signal });
   return { size, sha256: hash.digest("hex") };
 }
 
 /** A download's own words for the outbound engine's failures: never the
  * address, which the catalogue setting discloses as scheme and host. */
 function unreached(error: unknown, timedOut: ApiError): never {
+  preserveTemplateResourceRefusal(error);
   if (error === timedOut) throw error;
   if (error instanceof ApiError && error.code === "remote_fetch_failed") {
     const code = transportCode(error);
@@ -135,6 +140,7 @@ async function transfer(entry: Pick<ListedEntry, "archive" | "size">, where: Cat
   const timedOut = new ApiError("remote_timeout", "The template's archive did not arrive within the link import's time bound.", 504);
   try {
     const response = await openRemote(withoutCredentials(new URL(entry.archive)).toString(), {
+      signal: currentTrustedOperation()?.signal,
       timeoutMs: limits.remoteTimeoutMs,
       timeoutError: () => timedOut,
       onRedirect: noCredentialHop,
@@ -161,7 +167,9 @@ export async function transferTemplateArchive(
   where: CatalogueInEffect,
   file: string,
 ): Promise<{ size: number; sha256: string }> {
+  currentTrustedOperation()?.enterStage("archive transfer");
   const landed = await transfer(entry, where, file);
+  currentTrustedOperation()?.assertCanCommit();
   if (landed.size !== entry.size) {
     refuse("template_checksum_mismatch", `The archive is ${landed.size} bytes; the catalogue's index declares ${entry.size}.`);
   }
@@ -176,6 +184,7 @@ export async function transferTemplateArchive(
 async function download(scope: AccountScope, entry: ListedEntry, where: CatalogueInEffect, db: Database): Promise<FetchedTemplate> {
   const { id, version } = entry.facts;
   await downloads.seam.transfer?.(keyOf(id, version));
+  currentTrustedOperation()?.enterStage("template download");
   requireCatalogueAt(where, db);
   const scratch = path.join(ingestScratchDir(), `template-${randomUUID()}`);
   try {
@@ -192,9 +201,9 @@ async function download(scope: AccountScope, entry: ListedEntry, where: Catalogu
 /** Queue a download, or other work on the downloaded versions, behind
  * every one before it. */
 function enqueue<T>(work: () => Promise<T>): Promise<T> {
-  const turn = downloads.tail.then(work);
-  downloads.tail = turn.then(() => {}, () => {});
-  return turn;
+  const { running, result } = trustedQueueTurn(downloads.tail, work);
+  downloads.tail = running.then(() => {}, () => {});
+  return result;
 }
 
 /** Run `work` in a turn of its own among the downloads: no download
@@ -214,26 +223,33 @@ export async function fetchTemplate(
   id: string,
   version: number | null,
   db: Database = metadataDb(),
+  signal?: AbortSignal,
 ): Promise<FetchedTemplate> {
-  const target = await fetchTarget(id, version, db);
-  if (target.kind === "installed") return { id, version: target.version, size: target.size, downloaded: false };
-  const { entry, where } = target;
-  const key = keyOf(id, entry.facts.version);
-  const joined = downloads.byKey.get(key);
-  if (joined) {
-    downloads.seam.entered?.(key);
-    return joined;
-  }
-  const work = (async (): Promise<FetchedTemplate> => {
-    // Asked once more now that this caller holds the version's place: a
-    // download of it that ended after the first look has installed it.
-    const size = await downloadedSize(id, entry.facts.version);
-    if (size !== null) return { id, version: entry.facts.version, size, downloaded: false };
-    downloads.seam.entered?.(key);
-    return enqueue(() => download(scope, entry, where, db));
-  })();
-  downloads.byKey.set(key, work);
-  const settled = () => { if (downloads.byKey.get(key) === work) downloads.byKey.delete(key); };
-  work.then(settled, settled);
-  return work;
+  return withTrustedMutation({ kind: "template-install", name: "Template installation", signal }, async operation => {
+    const target = await fetchTarget(id, version, db);
+    operation.enterStage("template preparation");
+    if (target.kind === "installed") return { id, version: target.version, size: target.size, downloaded: false };
+    const { entry, where } = target;
+    const key = keyOf(id, entry.facts.version);
+    const joined = downloads.byKey.get(key);
+    if (joined) {
+      downloads.seam.entered?.(key);
+      operation.defer(() => joined.drained);
+      return joined.join();
+    }
+    const work = sharedTrustedWork({ kind: "template-install", name: "Template download" }, async (): Promise<FetchedTemplate> => {
+      // Asked once more now that this caller holds the version's place: a
+      // download of it that ended after the first look has installed it.
+      const size = await downloadedSize(id, entry.facts.version);
+      currentTrustedOperation()?.assertCanCommit();
+      if (size !== null) return { id, version: entry.facts.version, size, downloaded: false };
+      downloads.seam.entered?.(key);
+      return enqueue(() => download(scope, entry, where, db));
+    });
+    downloads.byKey.set(key, work);
+    const settled = () => { if (downloads.byKey.get(key) === work) downloads.byKey.delete(key); };
+    work.value.then(settled, settled);
+    operation.defer(() => work.drained);
+    return work.join();
+  });
 }

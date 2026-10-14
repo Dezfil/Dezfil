@@ -1,3 +1,4 @@
+import { currentTrustedOperation } from "@/lib/trusted-operation";
 import { ApiError } from "@/lib/api/errors";
 import type { AccountScope } from "@/lib/auth/scope";
 import { filterRefs, listRefs, styleRefs, vizRefs, widgetRefs, type ColumnRef } from "@/lib/column-validation";
@@ -6,14 +7,14 @@ import { assertWritableRefs } from "@/lib/layer-write-refs";
 import { compileOperation } from "@/lib/operations/compile";
 import { dryRun } from "@/lib/operations/materialize";
 import { stepReads } from "@/lib/operations/step-reads";
-import { boundedEvaluation, isBoundedOutcome } from "@/lib/query/bounded";
+import { boundedEvaluation } from "@/lib/query/bounded";
 import type { EvaluationContext, TemplateHome } from "@/lib/query/context";
 import { DatasetUnavailable } from "@/lib/query/engine-message";
 import { isAggregated } from "@/lib/viz";
 import type { AdmittedTemplate } from "./admission";
 import { templateMapEvaluation, templateStepEvaluation } from "./home";
 import { plainReferenceProblem } from "./plain-references";
-import { refuse } from "./refusals";
+import { preserveTemplateResourceRefusal, refuse } from "./refusals";
 import { drawnFeatures, templateRenderCap } from "./render-cap";
 
 /**
@@ -49,10 +50,14 @@ function outside(where: string, written: string): never {
  * outcome and passes as it is. */
 async function underRoad<T>(where: string, work: () => Promise<T>): Promise<T> {
   try {
-    return await work();
+    currentTrustedOperation()?.enterStage("template validation");
+    const value = await work();
+    currentTrustedOperation()?.assertCanCommit();
+    return value;
   } catch (error) {
+    preserveTemplateResourceRefusal(error);
     if (error instanceof DatasetUnavailable) outside(where, error.written);
-    if (error instanceof ApiError && !isBoundedOutcome(error)) refuse("template_invalid", `${where}: ${error.message}`);
+    if (error instanceof ApiError) refuse("template_invalid", `${where}: ${error.message}`);
     throw error;
   }
 }
@@ -156,6 +161,7 @@ export async function admitTemplateBindings(
   home: TemplateHome,
   signal?: AbortSignal,
 ): Promise<void> {
+  signal = currentTrustedOperation()?.signal ?? signal;
   await admitSteps(scope, admitted, home, signal);
   await admitLayers(scope, admitted, home, signal);
 }

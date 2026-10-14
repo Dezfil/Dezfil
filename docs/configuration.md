@@ -432,8 +432,8 @@ their enforcement is not yet active. File and archive import processing, link
 and object-store imports, URL refreshes, and OpenStreetMap, Overture and PostGIS imports and refreshes
 use the Data processing time limit
 through preparation and commit. Accepted processing continues after departure;
-expiry removes candidates and leaves previously committed data intact. Reception
-and other processing families are not yet connected. Dataset and geometry inspection, catalogue reads, dataset map
+expiry removes candidates and leaves previously committed data intact. Upload
+reception has not yet adopted this limit. Dataset and geometry inspection, catalogue reads, dataset map
 features and projection lookup now share one admitted Query time limit through
 preparation and reads, and cancel when the last interested caller leaves.
 OpenStreetMap previews use the same query lifetime through source preparation
@@ -454,7 +454,12 @@ Accepted changes continue after departure. An expired queued change cannot
 write later or let a successor bypass an active predecessor. Dataset conversion
 and project export use the processing limit, cancel on departure, and clean
 temporary conversions and unfinished archives. All conversions in a project
-export inherit one deadline.
+export inherit one deadline. Template download, preparation, validation and
+installation also share one processing deadline, including queue waiting and
+shared downloads. Later callers do not extend it; accepted installation continues
+after departure. Hardened template validation keeps its own query and memory
+limits. The release install command retains the complete shipped-set check and
+removes its owned scratch and lock on refusal.
 
 ## Open data providers
 

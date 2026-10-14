@@ -1,4 +1,5 @@
-import { cp, lstat, mkdir, mkdtemp, rename, rm, stat, writeFile } from "node:fs/promises";
+import { renameSync } from "node:fs";
+import { lstat, mkdir, mkdtemp, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { parseArgs } from "node:util";
 import { templateSource } from "./template-source.mjs";
@@ -28,6 +29,17 @@ async function main() {
   });
   let scratch, closeStore, resetEngine, loader;
   let preserveScratch = false;
+  let cleaned = false;
+  const cleanup = async () => {
+    if (cleaned) return;
+    cleaned = true;
+    try { await resetEngine?.(); }
+    finally {
+      closeStore?.(); loader?.deregister();
+      try { if (scratch && !preserveScratch) await rm(scratch, { recursive: true, force: true }); }
+      finally { await rm(lock, { recursive: true, force: true }); }
+    }
+  };
   try {
     scratch = await mkdtemp(path.join(parent, `.${path.basename(target)}-install-`));
     // An install owns its whole temporary instance and never opens an operator's data.
@@ -44,60 +56,67 @@ async function main() {
     const { installTemplateArchive } = await import("../src/lib/templates/install.ts");
     const { readShippedIndex, checkShippedSet } = await import("../src/lib/templates/shipped.ts");
     const { TEMPLATE_ARCHIVE_MAX_BYTES } = await import("../src/lib/templates/format.ts");
-    if (size > TEMPLATE_ARCHIVE_MAX_BYTES) throw new Error("template_archive_too_large: The release exceeds the template archive bound.");
-    const archive = path.join(scratch, "archive.zip");
-    await transferTemplateArchive({ archive: remote ? input : path.resolve(input), size, sha256: values.sha256 },
-      remote ? { kind: "address", address: input, source: "environment" } : { kind: "folder", folder: path.dirname(path.resolve(input)), source: "environment" }, archive);
-    const { admitted: { facts } } = await readTemplateArchive(archive, path.join(scratch, "inspect"));
-    const present = await stat(target).then(() => true, error => { if (error.code !== "ENOENT") throw error; return false; });
-    const index = present ? await readShippedIndex(target) : { formatVersion: 1, templates: [] };
-    const shipped = index.templates.find(entry => entry.id === facts.id);
-    if (shipped?.version === facts.version) {
-      throw new Error(`${facts.id} version ${facts.version} is already shipped. Released versions are immutable.`);
-    }
-    if (shipped && facts.version < shipped.version && !values["allow-downgrade"]) {
-      throw new Error(`${facts.id} version ${facts.version} is older than shipped version ${shipped.version}. Use --allow-downgrade to replace it explicitly.`);
-    }
-    const db = metadataDb();
-    const account = insertAccount({ id: "template-builder", name: "Template builder", email: "templates@example.invalid",
-      passwordHash: null, status: "active", isAdmin: false, now: new Date().toISOString() }, db);
-    const session = issueSession(account, db, Date.now());
-    const scope = accountScope(authenticateSession(session.secret, db), db);
-    const installed = await installTemplateArchive(scope, scratch, archive,
-      { id: facts.id, version: facts.version, size, sha256: values.sha256 }, { kind: "shipped" });
-    const staged = path.join(scratch, "shipped");
-    if (present) await cp(target, staged, { recursive: true, filter: async source => {
-      if ((await lstat(source)).isSymbolicLink()) throw new Error("The shipped target must not contain symbolic links.");
-      return true;
-    } });
-    else await mkdir(staged);
-    await rm(path.join(staged, facts.id), { recursive: true, force: true });
-    await mkdir(path.join(staged, facts.id));
-    await rename(installed.folder, path.join(staged, facts.id, String(facts.version)));
-    const previous = index.templates.findIndex(entry => entry.id === facts.id);
-    const entry = { id: facts.id, version: facts.version };
-    if (previous < 0) index.templates.push(entry); else index.templates[previous] = entry;
-    await writeFile(path.join(staged, "index.json"), JSON.stringify(index, null, 2) + "\n");
-    const check = await checkShippedSet(scope, staged);
-    if (check.problems.length) throw new Error(check.problems.join("\n"));
-    const backup = path.join(scratch, "previous");
-    if (present) await rename(target, backup);
-    try { await rename(staged, target); }
-    catch (error) {
-      if (present) {
-        try { await rename(backup, target); }
-        catch (rollback) { preserveScratch = true; throw new AggregateError([error, rollback], `Restore the previous templates from ${backup}.`); }
+    const { withTrustedMutation } = await import("../src/lib/trusted-mutation.ts");
+    const { copyTemplateFile } = await import("../src/lib/templates/files.ts");
+    await withTrustedMutation({ kind: "template-install", name: "Shipped template installation" }, async operation => {
+      operation.defer(cleanup);
+      if (size > TEMPLATE_ARCHIVE_MAX_BYTES) throw new Error("template_archive_too_large: The release exceeds the template archive bound.");
+      const archive = path.join(scratch, "archive.zip");
+      await transferTemplateArchive({ archive: remote ? input : path.resolve(input), size, sha256: values.sha256 },
+        remote ? { kind: "address", address: input, source: "environment" } : { kind: "folder", folder: path.dirname(path.resolve(input)), source: "environment" }, archive);
+      const { admitted: { facts } } = await readTemplateArchive(archive, path.join(scratch, "inspect"));
+      const present = await stat(target).then(() => true, error => { if (error.code !== "ENOENT") throw error; return false; });
+      const index = present ? await readShippedIndex(target) : { formatVersion: 1, templates: [] };
+      const shipped = index.templates.find(entry => entry.id === facts.id);
+      if (shipped?.version === facts.version) {
+        throw new Error(`${facts.id} version ${facts.version} is already shipped. Released versions are immutable.`);
       }
-      throw error;
-    }
-    console.log(`Installed ${facts.id} version ${facts.version} into ${target}`);
+      if (shipped && facts.version < shipped.version && !values["allow-downgrade"]) {
+        throw new Error(`${facts.id} version ${facts.version} is older than shipped version ${shipped.version}. Use --allow-downgrade to replace it explicitly.`);
+      }
+      const db = metadataDb();
+      const account = insertAccount({ id: "template-builder", name: "Template builder", email: "templates@example.invalid",
+        passwordHash: null, status: "active", isAdmin: false, now: new Date().toISOString() }, db);
+      const session = issueSession(account, db, Date.now());
+      const scope = accountScope(authenticateSession(session.secret, db), db);
+      const installed = await installTemplateArchive(scope, scratch, archive,
+        { id: facts.id, version: facts.version, size, sha256: values.sha256 }, { kind: "shipped" });
+      const staged = path.join(scratch, "shipped");
+      const copyTree = async (source, destination) => {
+        operation.enterStage("shipped template copy");
+        const entry = await lstat(source);
+        if (entry.isSymbolicLink()) throw new Error("The shipped target must not contain symbolic links.");
+        if (entry.isDirectory()) {
+          await mkdir(destination);
+          for (const name of await readdir(source)) await copyTree(path.join(source, name), path.join(destination, name));
+        } else await copyTemplateFile(source, destination);
+      };
+      if (present) await copyTree(target, staged);
+      else await mkdir(staged);
+      await rm(path.join(staged, facts.id), { recursive: true, force: true });
+      await mkdir(path.join(staged, facts.id));
+      await rename(installed.folder, path.join(staged, facts.id, String(facts.version)));
+      const previous = index.templates.findIndex(entry => entry.id === facts.id);
+      const entry = { id: facts.id, version: facts.version };
+      if (previous < 0) index.templates.push(entry); else index.templates[previous] = entry;
+      await writeFile(path.join(staged, "index.json"), JSON.stringify(index, null, 2) + "\n");
+      const check = await checkShippedSet(scope, staged);
+      if (check.problems.length) throw new Error(check.problems.join("\n"));
+      const backup = path.join(scratch, "previous");
+      operation.assertCanCommit();
+      if (present) renameSync(target, backup);
+      try { operation.assertCanCommit(); renameSync(staged, target); }
+      catch (error) {
+        if (present) {
+          try { renameSync(backup, target); }
+          catch (rollback) { preserveScratch = true; throw new AggregateError([error, rollback], `Restore the previous templates from ${backup}.`); }
+        }
+        throw error;
+      }
+      console.log(`Installed ${facts.id} version ${facts.version} into ${target}`);
+    });
   } finally {
-    try { await resetEngine?.(); }
-    finally {
-      closeStore?.(); loader?.deregister();
-      try { if (scratch && !preserveScratch) await rm(scratch, { recursive: true, force: true }); }
-      finally { await rm(lock, { recursive: true, force: true }); }
-    }
+    await cleanup();
   }
 }
 

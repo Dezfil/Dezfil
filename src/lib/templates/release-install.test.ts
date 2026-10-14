@@ -20,12 +20,12 @@ beforeAll(async () => {
 });
 afterAll(async () => { resetQueryInstance(); await rm(root, { recursive: true, force: true }); });
 
-async function install(template: BuiltTemplate, target: string, source = template.archive, sha256 = template.sha256, options: string[] = []) {
+async function install(template: BuiltTemplate, target: string, source = template.archive, sha256 = template.sha256, options: string[] = [], environment: Record<string, string> = {}) {
   try {
     const result = await execute(process.execPath, ["scripts/install-template.mjs", source,
       "--sha256", sha256, "--size", String(template.size), "--target", target, ...options], {
       cwd: process.cwd(), timeout: 20_000,
-      env: { ...process.env, DEZFIL_EGRESS_ALLOWLIST: "localhost,127.0.0.1" },
+      env: { ...process.env, DEZFIL_EGRESS_ALLOWLIST: "localhost,127.0.0.1", ...environment },
     });
     return { ...result, ok: true };
   } catch (error) {
@@ -166,4 +166,19 @@ it("names an occupied lock without removing it or writing a target", async () =>
     expect(existsSync(lock)).toBe(true);
     expect(existsSync(target)).toBe(false);
   } finally { await rm(lock, { recursive: true }); }
+});
+
+it("the release command bounds a stalled archive and removes its owned scratch and lock", async () => {
+  const catalogue = await startLoopbackCatalogue();
+  const target = path.join(root, "stalled");
+  try {
+    const index = await catalogue.publish([good]);
+    const url = new URL(index.templates[0].archive, catalogue.indexUrl);
+    catalogue.stall(url.pathname);
+    const result = await install(good, target, url.href, good.sha256, [], { DEZFIL_DATA_PROCESSING_TIMEOUT_S: "1" });
+    expect(result.ok).toBe(false);
+    expect(result.stderr).toContain("data_processing_timeout");
+    expect(existsSync(target)).toBe(false);
+    expect((await readdir(root)).filter(name => name.includes("install-") || name.endsWith(".lock"))).toEqual([]);
+  } finally { await catalogue.close(); }
 });
