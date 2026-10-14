@@ -325,12 +325,17 @@ test("dismissal mid-batch: queued files never start, the in-flight outcome lands
 
   release();
   // The in-flight file's outcome lands OUTSIDE the closed host, NAMED
-  // by file, with the not-started account.
-  const outcome = page.getByRole("status");
-  await expect(outcome).toContainText(`${inflight}.geojson failed`, {
-    timeout: 30_000,
-  });
+  // by file, with the not-started account. A batch that only partly
+  // landed reads as a warning, not as the success line.
+  const outcome = page
+    .getByRole("alert")
+    .filter({ hasText: "could not be imported" });
+  await expect(outcome).toContainText(
+    `${inflight}.geojson could not be imported`,
+    { timeout: 30_000 },
+  );
   await expect(outcome).toContainText("1 not started");
+  await expect(outcome).toHaveAttribute("data-tone", "warn");
   await expect
     .poll(async () => tableNames(page))
     .toEqual(expect.arrayContaining([landed]));
