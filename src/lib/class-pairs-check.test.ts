@@ -125,6 +125,47 @@ describe("the sweep", () => {
     expect(found.map(brief).sort()).toEqual(["SAME | .x | .stack | position", "SAME | .v | .u | flex"].sort());
   });
 
+  it("reads the element an arrow function returns without braces, as it reads one in parentheses or a block", () => {
+    const found = results({
+      ...STACK,
+      "a.module.css": ".x { position: absolute; }\n",
+      "b.module.css": ".y { position: relative; }\n",
+      "Bare.tsx": 'import a from "./a.module.css";\nimport b from "./b.module.css";\nexport const Bare = () => <div className={`${a.x} ${b.y}`} />;\n',
+      "Paren.tsx": 'import a from "./a.module.css";\nimport b from "./b.module.css";\nexport const Paren = () => (<span className={`${a.x} ${b.y}`} />);\n',
+      "Block.tsx": 'import a from "./a.module.css";\nimport b from "./b.module.css";\nexport const Block = () => { return <i className={`${a.x} ${b.y}`} />; };\n',
+      "Place.tsx": 'import a from "./a.module.css";\nimport { Stack } from "./Stack";\nexport const Place = () => <Stack className={a.x} />;\n',
+    });
+    expect(found.map(brief).sort()).toEqual(["FINDING | .x | .stack | position", "FINDING | .x | .y | position"]);
+    expect(found.find((r) => r.b.cls === "y")?.sites).toEqual(["src/Bare.tsx:3 <div>", "src/Block.tsx:3 <i>", "src/Paren.tsx:3 <span>"]);
+    expect(found.find((r) => r.b.cls === "stack")?.sites).toEqual(["src/Place.tsx:3 <Stack className> -> src/Stack.tsx:3 <div>"]);
+  });
+
+  it("compares the classes two props put on one element, handed in directly or passed on by a wrapper", () => {
+    const found = results({
+      "box.module.css": ".box { color: red; }\n",
+      "Box.tsx":
+        'import s from "./box.module.css";\n' +
+        "export function Box({ first, second }: { first?: string; second?: string }) {\n" +
+        '  return <div className={[s.box, first, second].join(" ")} />;\n' +
+        "}\n",
+      "a.module.css": ".x { position: absolute; }\n",
+      "b.module.css": ".y { position: relative; }\n",
+      "Wrap.tsx":
+        'import b from "./b.module.css";\nimport { Box } from "./Box";\n' +
+        "export function Wrap({ className }: { className?: string }) {\n" +
+        "  return <Box first={className} second={b.y} />;\n" +
+        "}\n",
+      "Use.tsx":
+        'import a from "./a.module.css";\nimport b from "./b.module.css";\nimport { Box } from "./Box";\nimport { Wrap } from "./Wrap";\n' +
+        "export function Use() {\n  return <>\n    <Box first={a.x} second={b.y} />\n    <Wrap className={a.x} />\n  </>;\n}\n",
+    });
+    expect(found.map(brief)).toEqual(["FINDING | .x | .y | position"]);
+    expect(found[0].sites).toEqual([
+      "src/Use.tsx:7 <Box first second> -> src/Box.tsx:3 <div>",
+      "src/Use.tsx:8 <Wrap className> -> src/Wrap.tsx:4 <Box> -> src/Box.tsx:3 <div>",
+    ]);
+  });
+
   it("follows a class that composes another module's class", () => {
     const found = results({
       "base.module.css": ".section { padding: 12px; }\n",

@@ -619,7 +619,9 @@ function readComponents(root, file) {
       }
       ts.forEachChild(node, visit);
     };
-    ts.forEachChild(body, visit);
+    // The body itself first: an arrow function without braces returns its
+    // element as its body.
+    visit(body);
   };
 
   for (const [name, { fn }] of components) {
@@ -682,6 +684,15 @@ export function sweep(root) {
     return imported ? definition(imported.file, imported.name) : null;
   };
 
+  /** One landing's class set with every prop a call hands the component put
+   * in its place at once, since props merged onto one element stand there
+   * together; each prop's alternatives multiply. */
+  const fill = (alt, supplied) => {
+    const given = alt.filter((t) => t.startsWith("p\t") && supplied.has(t.slice(2)));
+    const own = alt.filter((t) => !given.includes(t));
+    return product([[own], ...given.map((t) => supplied.get(t.slice(2)))]);
+  };
+
   /** Where a prop handed to a component lands: each element alternative's
    * own module classes and the props still unbound there, with the path. */
   const memo = new Map();
@@ -703,11 +714,12 @@ export function sweep(root) {
         if (!callee) continue;
         const via = [...call.props].filter(([, list]) => list.some((alt) => alt.includes("p\t" + prop))).map(([name]) => name);
         if (call.spread && !bound.has(prop) && !call.props.has(prop)) via.push(prop);
+        // A prop passed on through a rest spread keeps its name, so the
+        // landing's token for it already stands for this component's prop.
         for (const name of via) {
           for (const inner of landingsOf(callee, name, depth + 1)) {
-            const passed = call.props.get(name) ?? [["p\t" + prop]];
-            for (const p of passed) {
-              out.push({ alt: [...new Set([...inner.alt.filter((t) => t !== "p\t" + name), ...p])], at: [`${target.file}:${call.line} <${call.tag}>`, ...inner.at] });
+            for (const alt of fill(inner.alt, call.props)) {
+              out.push({ alt, at: [`${target.file}:${call.line} <${call.tag}>`, ...inner.at] });
             }
           }
         }
@@ -726,11 +738,16 @@ export function sweep(root) {
     for (const call of info.calls) {
       const callee = calleeOf(info, call.tag);
       if (!callee) continue;
-      for (const [prop, passed] of call.props) {
+      // A landing two props reach is read once, named after both.
+      const seen = new Set();
+      for (const prop of call.props.keys()) {
         for (const inner of landingsOf(callee, prop)) {
-          for (const p of passed) {
-            elements.push({ alt: [...new Set([...inner.alt.filter((t) => t !== "p\t" + prop), ...p])], at: [`${info.file}:${call.line} <${call.tag} ${prop}>`, ...inner.at] });
-          }
+          const names = [...call.props.keys()].filter((name) => inner.alt.includes("p\t" + name));
+          const at = [`${info.file}:${call.line} <${call.tag} ${(names.length ? names : [prop]).join(" ")}>`, ...inner.at];
+          const key = at.join(" -> ") + "\n" + [...inner.alt].sort().join("\n");
+          if (seen.has(key)) continue;
+          seen.add(key);
+          for (const alt of fill(inner.alt, call.props)) elements.push({ alt, at });
         }
       }
     }
