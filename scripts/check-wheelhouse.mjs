@@ -141,8 +141,6 @@ const CURSOR_NOTES = {
     "census: correct - a div, not a control",
   "src/components/workflow-canvas/WorkflowCanvas.module.css\tcursor\tspan.chip":
     "census: correct - the span form of the chip carries no handler",
-  "src/components/builder/export/ExportControl.module.css\tcursor\t.menu .door[data-static]":
-    "census: dead - nothing in src sets data-static ; heal by removing the rule and this row together",
   "src/components/UploadZone.module.css\tcursor\t.zone[data-busy=\"true\"]":
     "census: recorded - the busy zone still opens the file picker",
   "src/components/sql/SqlConsole.module.css\tcursor\t.grid td":

@@ -542,13 +542,6 @@
     "exception": "Surface exception: the composition's own title line, its shadow drawn into an exported image"
   },
   {
-    "file": "src/components/builder/export/ExportControl.module.css",
-    "rule": "cursor",
-    "value": ".menu .door[data-static]",
-    "count": 1,
-    "exception": "census: dead - nothing in src sets data-static ; heal by removing the rule and this row together"
-  },
-  {
     "file": "src/components/builder/panel.module.css",
     "rule": "font-size",
     "value": "12.5px",
