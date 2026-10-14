@@ -72,7 +72,7 @@ export function previewAccountDeletion(context: AuthContext, accountId: string, 
   return db.transaction(() => {
     const { actor, account, pending } = deletionEligibility(context, accountId, db);
     return pending ? { id: pending.id, state: pending.state } : snapshot(account!, actor.id, db);
-  }).immediate();
+  })();
 }
 
 /** No journal, accepted state or cleanup is created before this callback

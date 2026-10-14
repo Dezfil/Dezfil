@@ -52,5 +52,5 @@ export function readInstanceSettings(context: AuthContext, db: Database = metada
       parts: readPartStates({ imagesAtOnce: numbers.exportRenderConcurrency.value, metadataFile: db.name }),
       // The basemap library, hidden styles included.
       basemapStyles: listLibraryStyles(db) };
-  }).immediate();
+  })();
 }
