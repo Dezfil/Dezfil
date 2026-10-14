@@ -23,8 +23,9 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: doors.push, replace: vi.fn() }),
   usePathname: () => "/data",
 }));
-vi.mock("./use-view-prefs", () => ({
-  useViewPrefs: () => ({ view: doors.view, sort: "updated", setView: vi.fn(), setSort: vi.fn() }),
+vi.mock("./use-view-prefs", async (original) => ({
+  ...(await original<typeof import("./use-view-prefs")>()),
+  useViewPrefs: () => ({ view: doors.view, sort: "updated", settled: true, setView: vi.fn(), setSort: vi.fn() }),
 }));
 vi.mock("./scope/use-scope", () => ({ useProjectScope: () => ({ scope: { kind: "all" }, setScope: vi.fn() }) }));
 vi.mock("./scope/use-scope-world", () => ({

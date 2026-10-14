@@ -17,7 +17,7 @@ function setup() {
   let map = { id: "m", name: "Map", basemap: "dark", layers: [], widgets: [], editRevision: "seen" } as unknown as MapWithLayers;
   const setMap = (next: React.SetStateAction<MapWithLayers | null>) => { map = (typeof next === "function" ? next(map) : next)!; };
   const h = new HookHarness(() => {
-    const editor = useBuilderMutations({ mapId: "m", map, setMap, rendersRef: { current: {} }, setRenders() {}, setSelectedId() {}, refreshLayer: async () => {} });
+    const editor = useBuilderMutations({ mapId: "m", map, setMap, rendersRef: { current: {} }, replaceRenders: async () => null, setSelectedId() {}, refreshLayer: async () => {} });
     const widgets = useBuilderWidgets(map, null);
     const actions = useWidgetListActions({ ...editor, ...widgets, map, setMap, setTab() {}, setWidgetFocus() {} });
     return { ...editor, ...widgets, add: (text: string) => actions.apply([...map.widgets, note(text)]) };

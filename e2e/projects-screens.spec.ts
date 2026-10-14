@@ -673,10 +673,11 @@ test("the Projects list and the project home", async ({
   });
 
   await test.step("a failed record read offers a retry, distinct from missing", async () => {
+    // Keep the fault armed until the retry: a development effect replay
+    // issues a second read that an abort-once stub would let through.
     let failing = true;
     await context.route(`**/api/projects/${p2}`, async (route) => {
       if (failing && route.request().method() === "GET") {
-        failing = false;
         await route.abort();
         return;
       }
@@ -685,8 +686,12 @@ test("the Projects list and the project home", async ({
     await page.goto(`/projects/${p2}`);
     const retry = page.getByRole("button", { name: "Try again" });
     await expect(retry).toBeVisible();
-    // Not the missing state, and no stale content around it.
-    await expect(page.getByText(/No project with id/)).toHaveCount(0);
+    // Not the missing state (the not-found sentence a missing project
+    // answers with), and no stale content around it.
+    await expect(
+      page.getByText("The requested resource was not found.", { exact: true }),
+    ).toHaveCount(0);
+    failing = false;
     await retry.click();
     await expect(page.getByRole("heading", { name: P2 })).toBeVisible();
     await context.unroute(`**/api/projects/${p2}`);

@@ -11,7 +11,7 @@ it("keeps refused SQL and queued legend and style edits while halting every cove
   vi.stubGlobal("window", { addEventListener() {}, removeEventListener() {} });
   const first = { id: "a", sql: "old", legendTitle: "old", style: { opacity: 1 } } as unknown as Layer;
   let map = { id: "map", layers: [first], editRevision: "seen" } as unknown as MapWithLayers;
-  const h = new HookHarness(() => useBuilderMutations({ mapId: "map", map, setMap: next => { map = typeof next === "function" ? next(map)! : next!; }, rendersRef: { current: {} }, setRenders() {}, setSelectedId() {}, refreshLayer: async () => {} }));
+  const h = new HookHarness(() => useBuilderMutations({ mapId: "map", map, setMap: next => { map = typeof next === "function" ? next(map)! : next!; }, rendersRef: { current: {} }, replaceRenders: async () => null, setSelectedId() {}, refreshLayer: async () => {} }));
   const e = h.value; e.serverMapRef.current = map; e.authoritativeLayersRef.current = { a: first }; e.sequence.accept(map);
   const sql = e.patchLayer("a", { sql: "refused SQL" });
   const legend = e.patchLayer("a", { legendTitle: "kept title" });
@@ -36,7 +36,7 @@ it("does not replay an undisclosed history target while an edit waits", async ()
   vi.stubGlobal("window", { addEventListener() {}, removeEventListener() {} });
   let map = { id: "map", layers: [], editRevision: "seen" } as unknown as MapWithLayers;
   const refs = { current: {} };
-  const h = new HookHarness(() => useBuilderMutations({ mapId: "map", map, setMap: next => { map = typeof next === "function" ? next(map)! : next!; }, rendersRef: refs, setRenders() {}, setSelectedId() {}, refreshLayer: async () => {} }));
+  const h = new HookHarness(() => useBuilderMutations({ mapId: "map", map, setMap: next => { map = typeof next === "function" ? next(map)! : next!; }, rendersRef: refs, replaceRenders: async () => null, setSelectedId() {}, refreshLayer: async () => {} }));
   const e = h.value; e.serverMapRef.current = map; e.sequence.accept(map);
   e.setHistory({ canUndo: true, canRedo: false, editRevision: "seen", undoTarget: { eligible: true, reason: null, steps: [] } });
   const patch = e.patchMap({ name: "mine" });

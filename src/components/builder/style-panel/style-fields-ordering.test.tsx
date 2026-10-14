@@ -39,7 +39,7 @@ function mountFields(tooltip: string[] | null = null, type: "hexbin" | "points" 
   }
   function Builder() {
     const [map, setMap] = useState<MapWithLayers | null>(initial);
-    editor = useBuilderMutations({ mapId: "map", map, setMap, rendersRef: { current: {} }, setRenders() {}, setSelectedId() {}, refreshLayer: async () => {} });
+    editor = useBuilderMutations({ mapId: "map", map, setMap, rendersRef: { current: {} }, replaceRenders: async () => null, setSelectedId() {}, refreshLayer: async () => {} });
     if (!editor.sequence.revision) {
       editor.sequence.accept(initial);
       editor.serverMapRef.current = initial;

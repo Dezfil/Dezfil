@@ -11,7 +11,7 @@ it("keeps failed opacity visible after fill saves and retires it only after an o
   vi.stubGlobal("window", { addEventListener() {}, removeEventListener() {} });
   const layer = { id: "a", sql: "SELECT 1", style: { opacity: 1, fill: "red" } };
   let map = { id: "m", layers: [layer], editRevision: "initial" } as unknown as MapWithLayers;
-  const h = new HookHarness(() => useBuilderMutations({ mapId: "m", map, setMap: next => { map = typeof next === "function" ? next(map)! : next!; }, rendersRef: { current: {} }, setRenders() {}, setSelectedId() {}, refreshLayer: async () => {} }));
+  const h = new HookHarness(() => useBuilderMutations({ mapId: "m", map, setMap: next => { map = typeof next === "function" ? next(map)! : next!; }, rendersRef: { current: {} }, replaceRenders: async () => null, setSelectedId() {}, refreshLayer: async () => {} }));
   const editor = h.value;
   editor.serverMapRef.current = map; editor.authoritativeLayersRef.current = { a: map.layers[0] }; editor.sequence.accept(map);
   const opacity = editor.patchLayer("a", { style: { opacity: 0.5, fill: "red" } });
@@ -49,7 +49,7 @@ it("takes refused SQL off the screen at its refusal, then lands its correction a
   vi.stubGlobal("window", { addEventListener() {}, removeEventListener() {} });
   const layer = { id: "a", sql: "SELECT 1", legendTitle: "original", style: { opacity: 1 } };
   let map = { id: "m", layers: [layer, { ...layer, id: "b" }], editRevision: "initial" } as unknown as MapWithLayers;
-  const h = new HookHarness(() => useBuilderMutations({ mapId: "m", map, setMap: next => { map = typeof next === "function" ? next(map)! : next!; }, rendersRef: { current: {} }, setRenders() {}, setSelectedId() {}, refreshLayer: async () => {} }));
+  const h = new HookHarness(() => useBuilderMutations({ mapId: "m", map, setMap: next => { map = typeof next === "function" ? next(map)! : next!; }, rendersRef: { current: {} }, replaceRenders: async () => null, setSelectedId() {}, refreshLayer: async () => {} }));
   const editor = h.value;
   editor.serverMapRef.current = map; editor.authoritativeLayersRef.current = Object.fromEntries(map.layers.map(l => [l.id, l])); editor.sequence.accept(map);
   // A refusal stores nothing: the whole refused write leaves the map, while

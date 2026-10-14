@@ -51,7 +51,7 @@ import {
 import { useGridColumns } from "./use-grid-columns";
 import type { WorkflowListing } from "./workflow-model";
 import folderStyles from "./WorkflowFolder.module.css";
-import { useViewPrefs } from "./use-view-prefs";
+import { untilViewSettled, useViewPrefs } from "./use-view-prefs";
 import { AsyncState } from "./ui/AsyncState";
 import { ErrorNote } from "./ui/ErrorNote";
 import { AddToProjectDialog } from "./projects/AddToProjectDialog";
@@ -167,7 +167,7 @@ export function TablesScreen({
   const [filedNote, setFiledNote] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<SourceFilter>("all");
-  const { view, sort, setView, setSort } = useViewPrefs<DataSort>(
+  const { view, sort, settled, setView, setSort } = useViewPrefs<DataSort>(
     "data",
     "updated",
     DATA_SORTS,
@@ -702,7 +702,7 @@ export function TablesScreen({
           </label>
           <div className={gallery.viewToggle} role="group" aria-label="View">
             <button
-              data-on={view === "grid" || undefined}
+              data-on={(settled && view === "grid") || undefined}
               data-hint="Grid view"
               aria-label="Grid view"
               onClick={() => setView("grid")}
@@ -710,7 +710,7 @@ export function TablesScreen({
               <IconGrid />
             </button>
             <button
-              data-on={view === "list" || undefined}
+              data-on={(settled && view === "list") || undefined}
               data-hint="List view"
               aria-label="List view"
               onClick={() => setView("list")}
@@ -723,7 +723,7 @@ export function TablesScreen({
 
       <div className={gallery.scroller}>
         <AsyncState
-          state={listState}
+          state={untilViewSettled(listState, settled)}
           onRetry={retry}
           pendingLabel="Reading your tables…"
         >

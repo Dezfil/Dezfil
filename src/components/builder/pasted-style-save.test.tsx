@@ -84,7 +84,7 @@ async function mount(start: MapWithLayers = initial, offered: LibraryStyleOffer[
     const rendersRef = useRef({});
     const mapRef = useRef<MapWithLayers | null>(map);
     const cameraRef = useRef<CameraHandle | null>(null);
-    const editor = useBuilderMutations({ mapId: "m", map, setMap, rendersRef, setRenders() {}, setSelectedId() {}, refreshLayer: async () => {} });
+    const editor = useBuilderMutations({ mapId: "m", map, setMap, rendersRef, replaceRenders: async () => null, setSelectedId() {}, refreshLayer: async () => {} });
     builder.editor = editor;
     const { sequence, serverMapRef } = editor;
     useEffect(() => { sequence.accept(start); serverMapRef.current = start; }, [sequence, serverMapRef]);

@@ -12,7 +12,7 @@ function setup() {
   vi.stubGlobal("window", { addEventListener() {}, removeEventListener() {} });
   const initial = { id: "m", name: "Map", basemap: "light", basemapLayers: null, layers: [], widgets: [], editRevision: "seen" } as unknown as MapWithLayers;
   let map = initial;
-  const h = new HookHarness(() => useBuilderMutations({ mapId: "m", map, setMap: next => { map = (typeof next === "function" ? next(map) : next)!; }, rendersRef: { current: {} }, setRenders() {}, setSelectedId() {}, refreshLayer: async () => {} }));
+  const h = new HookHarness(() => useBuilderMutations({ mapId: "m", map, setMap: next => { map = (typeof next === "function" ? next(map) : next)!; }, rendersRef: { current: {} }, replaceRenders: async () => null, setSelectedId() {}, refreshLayer: async () => {} }));
   cleanups.push(() => h.unmount());
   h.value.serverMapRef.current = initial; h.value.sequence.accept(initial);
   return { w, h, initial, shown: () => map };

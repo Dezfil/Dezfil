@@ -31,7 +31,7 @@ function setup(legendAttrs: Record<string, string | null> | null = null) {
     const setMap = (next: MapWithLayers | null | ((current: MapWithLayers | null) => MapWithLayers | null)) => {
       map = (typeof next === "function" ? next(map) : next)! as typeof initial;
     };
-    const editor = useBuilderMutations({ mapId: "m", map, setMap, rendersRef: { current: {} }, setRenders() {}, setSelectedId() {}, refreshLayer: async () => {} });
+    const editor = useBuilderMutations({ mapId: "m", map, setMap, rendersRef: { current: {} }, replaceRenders: async () => null, setSelectedId() {}, refreshLayer: async () => {} });
     const tab = useLegendTab({ ...editor, setMap });
     const legend = useLegendLayers({ map, renders: {}, legendLive: editor.legendLive, appearanceDrafts: {} });
     return { ...editor, tab, legend };

@@ -16,7 +16,7 @@ import {
   IconSearch,
   IconTrash,
 } from "./gallery-icons";
-import { useViewPrefs } from "./use-view-prefs";
+import { untilViewSettled, useViewPrefs } from "./use-view-prefs";
 import { ProjectTag } from "./MapsScreen";
 import { ScopeFilter } from "./scope/ScopeFilter";
 import { ListHeading } from "./ListHeading";
@@ -104,7 +104,7 @@ export function WorkflowsScreen() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<WorkflowsFilter>("all");
-  const { view, sort, setView, setSort } = useViewPrefs<WorkflowsSort>(
+  const { view, sort, settled, setView, setSort } = useViewPrefs<WorkflowsSort>(
     "workflows",
     "edited",
     WORKFLOW_SORTS,
@@ -467,7 +467,7 @@ export function WorkflowsScreen() {
           </label>
           <div className={gallery.viewToggle} role="group" aria-label="View">
             <button
-              data-on={view === "grid" || undefined}
+              data-on={(settled && view === "grid") || undefined}
               data-hint="Grid view"
               aria-label="Grid view"
               onClick={() => setView("grid")}
@@ -475,7 +475,7 @@ export function WorkflowsScreen() {
               <IconGrid />
             </button>
             <button
-              data-on={view === "list" || undefined}
+              data-on={(settled && view === "list") || undefined}
               data-hint="List view"
               aria-label="List view"
               onClick={() => setView("list")}
@@ -488,7 +488,7 @@ export function WorkflowsScreen() {
 
       <div className={gallery.scroller}>
         <AsyncState
-          state={listState}
+          state={untilViewSettled(listState, settled)}
           onRetry={retry}
           pendingLabel="Reading your workflows…"
         >
