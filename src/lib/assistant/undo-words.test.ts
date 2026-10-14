@@ -166,3 +166,21 @@ it("redo and the grouping header state the measured step boundary", () => {
   }
   expect.soft(redo).toContain("most recently undone step");
 });
+
+it.each([
+  ["src/lib/map-history.ts", "export function undoChange", "latest step"],
+  ["src/lib/map-history.ts", "export function redoChange", "most recently undone step"],
+  ["src/lib/metadata/history.ts", "groupId: string | null", "undo/redo"],
+])("history comments state the measured grouping boundary at %s %s", (file, declaration, action) => {
+  const source = readFileSync(file, "utf8");
+  const at = source.indexOf(declaration);
+  expect(at).toBeGreaterThan(-1);
+  const preceding = source.slice(0, at).trimEnd();
+  const comment = preceding.slice(preceding.lastIndexOf("/**"));
+  expect(comment).toMatch(/\*\/$/);
+  expect.soft(comment).toContain(action);
+  expect.soft(comment).toMatch(/consecutive edits/i);
+  expect.soft(comment).toMatch(/same actor/i);
+  expect.soft(comment).toMatch(/(?:one|same|this) group/i);
+  expect.soft(comment).not.toMatch(/whole group|\(or group\)|an assistant turn/i);
+});
