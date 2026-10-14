@@ -55,11 +55,11 @@ it("retains each live request through a major collection and releases it at deta
   expect.soft(second.reference.deref()).toBeDefined();
   expect(assistantWorkForTests(first.scope.accountId).cleanups).toBe(1);
   second.control.detach();
+  second.controller.abort();
+  expect(second.control.signal.aborted).toBe(false);
   await collect();
   expect(second.reference.deref()).toBeUndefined();
   expect(assistantWorkForTests(first.scope.accountId).cleanups).toBe(0);
-  second.controller.abort();
-  expect(second.control.signal.aborted).toBe(false);
 });
 
 it("observes an already departed request and detaches idempotently", () => {
