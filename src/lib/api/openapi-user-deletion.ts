@@ -29,11 +29,11 @@ export const USER_DELETION_PATHS = {
     tag: "Accounts", tool: "preview_user_deletion", effects: READ_ONLY, mcp: LOCAL_READ, display: { verb: "Read a deletion preview" },
     parameters: [pathParam("id", "The other account to preview.")], responses: { "200": jsonOk("#/components/schemas/AccountDeletionPreviewResult"), ...errors } }), security: AUTH_SECURITY } },
   "/api/users/deletions/{id}": { get: { ...op({ summary: "Read user deletion status", description: privacy +
-    "Returns pending or needs-retry for unfinished deletion. No stage, failure detail or content is exposed. Completed identifiers return 404 not_found because their temporary records have been removed; after an accepted response, clients may refresh list_users to reconcile a missing identifier. A missing identifier without prior acceptance is not proof that an account was deleted.",
+    "Returns pending or needs-retry for unfinished deletion. An unreadable deletion record returns 409 deletion_unreadable and remains untouched. No stage, failure detail or content is exposed. Completed identifiers return 404 not_found because their temporary records have been removed; after an accepted response, clients may refresh list_users to reconcile a missing identifier. A missing identifier without prior acceptance is not proof that an account was deleted.",
     tag: "Accounts", tool: "get_user_deletion", effects: READ_ONLY, mcp: LOCAL_READ, display: { verb: "Read account deletion status" },
     parameters: [pathParam("id", "The accepted deletion identifier, not an account id.")], responses: { "200": jsonOk("#/components/schemas/AccountDeletionStatus"), ...errors } }), security: AUTH_SECURITY } },
   "/api/users/deletions/{id}/finish": { post: { ...op({ summary: "Finish deleting a user", description: privacy + hostLimits +
-    "Resumes the accepted deletion, including after restart, without changing its identifier or repeating completed dissolution. Concurrent requests join the same work. Completed identifiers return 404 not_found.",
+    "Resumes the accepted deletion, including after restart, without changing its identifier or repeating completed dissolution. Concurrent requests join the same work. An unreadable record returns 409 deletion_unreadable without changing any files. Completed identifiers return 404 not_found.",
     tag: "Accounts", tool: "finish_user_deletion", effects, mcp: LOCAL_DELETE, confirm: true, display: { verb: "Continued account deletion" },
     confirmation: { target: "Finish deleting this account?", consequence, subject: { path: "/api/users", argument: "id", name: "account.name", collection: "deletions", identity: "id" } },
     parameters: [pathParam("id", "The accepted deletion identifier, not an account id.")], responses: result }), security: AUTH_SECURITY } },
@@ -41,8 +41,10 @@ export const USER_DELETION_PATHS = {
 const identity = { type: "object", additionalProperties: false, properties: { id: { type: "string" }, name: { type: "string" }, email: { type: "string" } }, required: ["id", "name", "email"] };
 export const USER_DELETION_SCHEMAS = {
   AccountDeletionStatus: { type: "object", additionalProperties: false, properties: { id: { type: "string" }, state: { type: "string", enum: ["pending", "needs-retry", "completed"] } }, required: ["id", "state"] },
-  PendingAccountDeletion: { type: "object", additionalProperties: false, properties: { id: { type: "string" }, state: { type: "string", enum: ["pending", "needs-retry"] },
+  PendingAccountDeletion: { oneOf: [{ type: "object", additionalProperties: false, properties: { id: { type: "string" }, state: { type: "string", enum: ["pending", "needs-retry"] },
     account: { ...identity, properties: { ...identity.properties, isAdmin: { type: "boolean" } }, required: [...identity.required, "isAdmin"] } }, required: ["id", "state", "account"] },
+    { type: "object", additionalProperties: false, properties: { id: { type: "string" }, state: { type: "string", const: "unreadable" } }, required: ["id", "state"] },
+  ] },
   AccountDeletionPreview: { type: "object", additionalProperties: false, properties: { account: identity, invited: { type: "boolean" },
     totals: { type: "object", additionalProperties: false, properties: Object.fromEntries(["maps", "datasets", "workflows", "projects", "connections", "publishedLinks"].map(key => [key, { type: "integer", minimum: 0 }])), required: ["maps", "datasets", "workflows", "projects", "connections", "publishedLinks"] },
     people: { type: "integer", minimum: 0 }, confirmation: { type: "string", pattern: "^[a-f0-9]{64}$" } }, required: ["account", "invited", "totals", "people", "confirmation"] },

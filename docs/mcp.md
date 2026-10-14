@@ -292,6 +292,10 @@ its run records while its output datasets remain. Copies outside the instance,
 including downloads and databases written
 through connections, are not reached. Backup restoration can revive credentials.
 
+`list_users` includes unreadable deletion records as `{ id, state: "unreadable" }`
+without an account identity. `get_user_deletion` and `finish_user_deletion`
+refuse that identifier with `deletion_unreadable`; other administration continues.
+
 A project's people generate `list_project_people`, `set_project_person` and
 `remove_project_person`. Anyone who reaches the project reads them; the two
 changes are the project owner's and declare confirmation, since each changes

@@ -69,13 +69,13 @@ it.each(["credentials", "rows", "projects", "files", "derivatives", "memory", "p
   expect(() => journals.readDeletionJournal(accepted.id)).toThrow();
   expect(metadataDb().prepare("SELECT * FROM accounts WHERE id='target'").get()).toEqual({ id: "target", sql_name: "target", status: "deleted", name: null, email: null, password_hash: null, is_admin: null, created_at: null, updated_at: null, last_sign_in_at: null });
 });
-it("recovers acceptance and sweeps unaccepted and partial journals before serving", async () => {
+it("recovers acceptance and removes readable unaccepted journals while keeping partial files", async () => {
   const accepted = acceptAccountDeletion(actor!, "target", () => {});
   const folder = path.join(directory, "account-deletions"), journal = JSON.parse(readFileSync(path.join(folder, `${accepted.id}.json`), "utf8"));
   const orphan = { ...journal, id: "11111111-1111-4111-8111-111111111111", accountId: "control" };
   writeFileSync(path.join(folder, `${orphan.id}.json`), JSON.stringify(orphan)); writeFileSync(path.join(folder, "partial.tmp"), "partial profile");
   closeMetadataDb(); journals.discoverAccountDeletions(metadataDb());
-  expect(readdirSync(folder)).toEqual([`${accepted.id}.json`]);
+  expect(readdirSync(folder).sort()).toEqual([`${accepted.id}.json`, "partial.tmp"].sort());
   expect(pendingAccountDeletion("target")).toMatchObject({ id: accepted.id, state: "needs-retry" });
   expect(await finishAccountDeletion(actor!, accepted.id)).toEqual({ id: accepted.id, state: "completed" });
 });
