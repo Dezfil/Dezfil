@@ -78,7 +78,7 @@ export function deletionJournals(): (DeletionJournal | UnreadableDeletionJournal
   try { names = readdirSync(folder()); } catch (error) { if ((error as NodeJS.ErrnoException).code === "ENOENT") return []; throw error; }
   return names.filter(name => name.endsWith(".json")).flatMap((name): (DeletionJournal | UnreadableDeletionJournal)[] => {
     const id = name.slice(0, -5);
-    if (!validId(id)) return [{ id, state: "unreadable" }];
+    if (!validId(id)) return [];
     try { return [readDeletionJournal(id)]; }
     catch (error) {
       if (error instanceof AuthError && error.code === "not_found") return [];
@@ -105,7 +105,7 @@ export function discardPreparedJournal(id: string): void {
 }
 /** Startup only: no deletion is executed here. Accepted work is made visible
  * for continuation; readable rolled-back preparations disappear. Unreadable
- * journals and interrupted temporary files remain for repair. */
+ * records remain for repair; interrupted temporary writes are discarded. */
 export function discoverAccountDeletions(db: Database = metadataDb()): void {
   for (const journal of deletionJournals()) {
     if (journal.state === "unreadable") continue;
@@ -114,5 +114,8 @@ export function discoverAccountDeletions(db: Database = metadataDb()): void {
       writeDeletionJournal({ ...journal, state: "needs-retry" });
     } else removeDeletionJournal(journal.id);
   }
+  let names: string[];
+  try { names = readdirSync(folder()); } catch (error) { if ((error as NodeJS.ErrnoException).code === "ENOENT") return; throw error; }
+  for (const name of names) if (name.endsWith(".tmp")) unlinkSync(path.join(folder(), name));
   try { emptyFolder(); } catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
 }

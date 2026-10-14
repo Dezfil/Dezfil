@@ -26,8 +26,9 @@ it("exposes deletion through the shared tool catalogue with erasure consequences
 it("accepts an unreadable deletion with only its identifier through the generated output schema", async () => {
   const tool = buildTools().find(tool => tool.name === "list_users")!;
   const schema = fromJsonSchema(tool.rawOutputSchema as Parameters<typeof fromJsonSchema>[0]);
-  const result = { users: [], deletions: [{ id: "stuck", state: "unreadable" }] };
+  const result = { users: [], deletions: [{ id: "11111111-1111-4111-8111-111111111111", state: "unreadable" }] };
   expect((await schema["~standard"].validate(result)).issues).toBeUndefined();
-  expect((await schema["~standard"].validate({ ...result, deletions: [{ id: "stuck", state: "pending" }] })).issues).toBeDefined();
+  expect((await schema["~standard"].validate({ users: [], deletions: [{ id: "private-notes", state: "unreadable" }] })).issues).toBeDefined();
+  expect((await schema["~standard"].validate({ ...result, deletions: [{ id: "11111111-1111-4111-8111-111111111111", state: "pending" }] })).issues).toBeDefined();
   expect((await schema["~standard"].validate({ ...result, deletions: [{ ...result.deletions[0], account: { name: "invented" } }] })).issues).toBeDefined();
 });

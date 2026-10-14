@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { closeMetadataDb, metadataDb } from "@/lib/metadata/db";
@@ -59,13 +59,16 @@ it("refuses status and continuation of the unreadable deletion with a private co
   expect(readFileSync(file, "utf8")).toBe("null");
 });
 
-it("preserves unreadable files on discovery while recovering readable work", () => {
+it("preserves unreadable records and removes interrupted writes on discovery", () => {
   writeFileSync(file, "{");
   const partial = path.join(directory, "account-deletions", `${control}.json.tmp`);
   writeFileSync(partial, "unreadable interrupted write");
+  const randomPartial = `${file}.11111111-1111-4111-8111-111111111111.tmp`;
+  writeFileSync(randomPartial, "partial write");
   expect(() => discoverAccountDeletions()).not.toThrow();
   expect(readFileSync(file, "utf8")).toBe("{");
-  expect(readFileSync(partial, "utf8")).toBe("unreadable interrupted write");
+  expect(existsSync(partial)).toBe(false);
+  expect(existsSync(randomPartial)).toBe(false);
   expect(readDeletionJournal(control).state).toBe("needs-retry");
 });
 
@@ -89,4 +92,18 @@ it("skips an unreadable reservation even after the account profile has been eras
   expect(deletionReservesEmail("target@example.test")).toBe(true);
   writeFileSync(file, "{");
   expect(() => requireAvailableEmail("target@example.test", null, metadataDb())).not.toThrow();
+});
+
+
+it("ignores foreign JSON names without exposing or deleting them", async () => {
+  const foreign = path.join(directory, "account-deletions", "private-notes.json");
+  writeFileSync(foreign, "foreign contents");
+  writeFileSync(file, "{");
+  const response = await users(request("/api/users"));
+  expect(response.status).toBe(200);
+  const body = await response.json();
+  expect(body.deletions.map((entry: { id: string }) => entry.id).sort()).toEqual([id, control].sort());
+  discoverAccountDeletions();
+  expect(readFileSync(foreign, "utf8")).toBe("foreign contents");
+  expect(readFileSync(file, "utf8")).toBe("{");
 });

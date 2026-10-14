@@ -871,11 +871,11 @@ a workflow removes its run records while its output datasets remain. Copies outs
 the instance, including
 downloaded files and a database a connection wrote to, are not reached.
 
-An unreadable deletion journal appears in the Users deletions list as
+An unreadable deletion record appears in the Users deletions list as
 `{ id, state: "unreadable" }`, with no account details. Status and continuation
 return `409 deletion_unreadable` for that identifier. Other Users reads,
-invitations and access changes continue. Startup preserves unreadable journals
-and interrupted temporary files. Unreadable journals reserve no email; the
+invitations and access changes continue. Startup preserves unreadable deletion records
+and removes interrupted temporary writes. Unreadable records reserve no email; the
 account row still reserves it until profile erasure, before final compaction.
 
 **Directory.** `GET /api/accounts/search?q=` is how a signed-in person finds

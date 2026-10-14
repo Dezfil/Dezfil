@@ -4999,6 +4999,22 @@
         "account-deletions/*.json"
       ]
     },
+    "location:src/lib/auth/account-deletion-journal.ts#discoverAccountDeletions:folder": {
+      "stores": [
+        "file:account-deletion-journals"
+      ],
+      "roots": [
+        "account-deletions"
+      ]
+    },
+    "location:src/lib/auth/account-deletion-journal.ts#discoverAccountDeletions:path.join": {
+      "stores": [
+        "file:account-deletion-journals"
+      ],
+      "roots": [
+        "account-deletions/*"
+      ]
+    },
     "location:src/lib/auth/account-deletion-journal.ts#emptyFolder:dataDir": {
       "stores": [
         "file:account-deletion-journals"

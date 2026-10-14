@@ -43,7 +43,7 @@ export const USER_DELETION_SCHEMAS = {
   AccountDeletionStatus: { type: "object", additionalProperties: false, properties: { id: { type: "string" }, state: { type: "string", enum: ["pending", "needs-retry", "completed"] } }, required: ["id", "state"] },
   PendingAccountDeletion: { oneOf: [{ type: "object", additionalProperties: false, properties: { id: { type: "string" }, state: { type: "string", enum: ["pending", "needs-retry"] },
     account: { ...identity, properties: { ...identity.properties, isAdmin: { type: "boolean" } }, required: [...identity.required, "isAdmin"] } }, required: ["id", "state", "account"] },
-    { type: "object", additionalProperties: false, properties: { id: { type: "string" }, state: { type: "string", const: "unreadable" } }, required: ["id", "state"] },
+    { type: "object", additionalProperties: false, properties: { id: { type: "string", pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, state: { type: "string", const: "unreadable" } }, required: ["id", "state"] },
   ] },
   AccountDeletionPreview: { type: "object", additionalProperties: false, properties: { account: identity, invited: { type: "boolean" },
     totals: { type: "object", additionalProperties: false, properties: Object.fromEntries(["maps", "datasets", "workflows", "projects", "connections", "publishedLinks"].map(key => [key, { type: "integer", minimum: 0 }])), required: ["maps", "datasets", "workflows", "projects", "connections", "publishedLinks"] },
