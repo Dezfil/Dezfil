@@ -185,10 +185,12 @@ const READINESS_POLL_MS = 200;
  * committed deck layer set fully loaded. The commitment check is
  * generation-aware by construction — the initially empty deck state can
  * never read as ready when layers are expected, because the caller's
- * expected count gates it. After the render driver's first cut, pending
- * basemap tiles no longer hold readiness: within one poll (200 ms), request
- * a paint of the available content and wait for that paint instead. This
- * covers tiles on any host or thread without reloading a source.
+ * expected count gates it. After the render driver's settle signal, replace
+ * the whole basemap-load condition (style JSON, sprite, glyphs and tiles):
+ * within one poll (200 ms), request a paint of the available content and
+ * wait for that paint instead. loaded() cannot remain beside painted,
+ * because the same pending tile also holds loaded() false and would stall
+ * readiness again. This covers any host or thread without reloading a source.
  * Lives here so MapCanvas carries one call,
  * not the wiring. Returns a disposer for the poll. */
 export function wireCaptureHandles(opts: {

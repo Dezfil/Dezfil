@@ -215,6 +215,7 @@ describe.skipIf(!port).each([
       expect(continued).toBeGreaterThan(0);
       expect(terminalAtCapture).toBe(0);
       expect(basemap.received(strandedUrl)).toBe(false);
+      // Fixture guard: this branch disables socket holding.
       expect(basemap.heldCount()).toBe(0);
     } else expect(basemap.heldCount()).toBe(1);
     expect(basemap.servedCount()).toBeGreaterThan(1);
