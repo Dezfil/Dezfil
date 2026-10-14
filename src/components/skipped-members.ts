@@ -37,10 +37,14 @@ export function attributedSkippedNotice(skipped: AttributedSkip[]): string {
 }
 
 /** The builder's whisper is last-wins, so each created table's notice
- * carries the import's skips with it instead of erasing them. */
+ * carries the import's skips with it instead of erasing them. The two
+ * read as two sentences: a notice that already ends one gets no second
+ * stop, and an empty one leaves the skips alone. */
 export function withSkips(
   text: string,
   skipped: SkippedMember[] | null,
 ): string {
-  return skipped?.length ? `${text}. ${skippedNotice(skipped)}` : text;
+  if (!skipped?.length) return text;
+  if (text === "") return skippedNotice(skipped);
+  return `${text}${/[.!?]$/.test(text) ? "" : "."} ${skippedNotice(skipped)}`;
 }

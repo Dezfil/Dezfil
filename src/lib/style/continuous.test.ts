@@ -18,7 +18,9 @@ import {
   continuousPosition,
   opaqueFillPaint,
 } from "./deck-style";
+import { deckLayerProps, iconFillAccessor } from "./deck-style";
 import { legendFor } from "./legend";
+import { createTiledLayer } from "@/components/map/tiled-layer";
 
 const c = (r: number, g: number, b: number, a = 0.82): RgbaColor => ({
   r,
@@ -168,15 +170,55 @@ describe("continuous accessor", () => {
     expect(pos(60)).toBeCloseTo(0.75, 2);
   });
 
-  it("draws missing and non-numeric values at the low end", () => {
+  it("draws a numeric string by its number, and a value of 0 at its place on the ramp", () => {
     const a = fillAccessor(ramp(), 1);
-    expect(rgb(a, undefined)).toEqual(rgb(a, 0));
-    expect(rgb(a, "not a number")).toEqual(rgb(a, 0));
+    expect(rgb(a, "100")).toEqual(rgb(a, 100));
+    expect(rgb(a, 0)).toEqual([0, 0, 0]);
   });
 
   it("collapsed domains draw the low end instead of dividing by zero", () => {
     const a = fillAccessor(ramp({ domain: [5, 5] }), 1);
     expect(rgb(a, 5)).toEqual(rgb(a, 99));
+  });
+});
+
+describe("a missing value on a continuous ramp", () => {
+  // The neutral the product gives a value a data-driven colour cannot
+  // place, at its own alpha: never a colour of the ramp.
+  const noData = (opacity = 1) => [120, 130, 150, Math.round(0.55 * opacity * 255)];
+  const feature = (v: unknown) => ({ properties: { pop: v } });
+  type Accessor = (f: { properties: Record<string, unknown> }) => number[];
+
+  it("draws in the no-data colour, not the ramp's first colour, whether null, absent, empty or not a number", () => {
+    const a = fillAccessor(ramp(), 1) as Accessor;
+    for (const v of [null, undefined, "", "not a number", Number.NaN]) {
+      expect(a(feature(v)), String(v)).toEqual(noData());
+    }
+    expect(a({ properties: {} })).toEqual(noData());
+    expect(a(feature(0))).toEqual([0, 0, 0, Math.round(0.82 * 255)]);
+    // Not read as 0 either: on a ramp around 0 a null is not its middle.
+    const around = fillAccessor(ramp({ domain: [-10, 10] }), 1) as Accessor;
+    expect(around(feature(null))).toEqual(noData());
+    // The fill opacity applies to it as it does to the ramp.
+    expect((fillAccessor(ramp(), 0.5) as Accessor)(feature(null))).toEqual(noData(0.5));
+  });
+
+  it("is drawn so by the layer's fill and outline, on a tiled layer too, and by a glyph at full colour", () => {
+    const style: LayerStyle = { ...defaultStyle("POLYGON"), fill: ramp(), strokeBy: ramp(), fillOpacity: 1, strokeOpacity: 1 };
+    const props = deckLayerProps(style);
+    expect((props.getFillColor as Accessor)(feature(null))).toEqual(noData());
+    expect((props.getLineColor as Accessor)(feature(null))).toEqual(noData());
+    const tiled = createTiledLayer(
+      { id: "trips", style, viz: { type: "points" }, tiles: { url: "/api/layers/trips/tiles/{z}/{x}/{y}", minZoom: 2, maxZoom: 14 } },
+      { interactive: false, markScale: 1 },
+    );
+    const tiledProps = tiled.props as unknown as { getFillColor: Accessor; getLineColor: Accessor };
+    expect(tiledProps.getFillColor(feature(null))).toEqual(noData());
+    expect(tiledProps.getLineColor(feature(null))).toEqual(noData());
+    // A glyph tints at full colour alpha, the no-data colour included.
+    const glyph = iconFillAccessor(style) as Accessor;
+    expect(glyph(feature(null))).toEqual([120, 130, 150, 255]);
+    expect(glyph(feature(100))).toEqual([200, 200, 200, 255]);
   });
 });
 

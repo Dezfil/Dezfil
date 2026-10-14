@@ -96,6 +96,12 @@ export class HostNode {
     child.parentNode = null;
     return child;
   }
+  /** Empty the node, then take the given children, as a renderer clears a
+   * canvas it could not start. */
+  replaceChildren(...children: HostNode[]): void {
+    for (const child of [...this.childNodes]) this.removeChild(child);
+    for (const child of children) this.appendChild(child);
+  }
   /** Leave the tree, as the dialog's host does when it closes. */
   remove(): void { this.parentNode?.removeChild(this); }
   contains(node: HostNode | null): boolean {

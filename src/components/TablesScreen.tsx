@@ -18,6 +18,7 @@ import {
 } from "./api";
 import { AddDataDialog } from "./AddDataDialog";
 import { useTransientNotice } from "./use-transient-notice";
+import { TransientNotice } from "./TransientNotice";
 import { skippedNotice } from "./skipped-members";
 import { uploadSettleNotice } from "./upload-settle-notice";
 import { useUploadQueue, type UploadQueue } from "./use-upload-queue";
@@ -253,7 +254,7 @@ export function TablesScreen({
 
   // The post-import notice outlives the dialog: the first created table
   // closes and unmounts it, so the skips land here.
-  const { notice: importNotice, show: showImportNotice } = useTransientNotice();
+  const { notice: importNotice, tone: importTone, show: showImportNotice } = useTransientNotice();
   // A skip notice says more than a success one and must not be overwritten
   // by it. The import reports skips first, then each created table — and a
   // GeoPackage lands several, so the flag is cleared when the next import
@@ -305,7 +306,7 @@ export function TablesScreen({
     // An unconfirmed outcome re-reads the authoritative listing.
     onListingStale: () => void refreshListing(),
     onSettled: (report) => {
-      const { text, clean } = uploadSettleNotice(report);
+      const { text, clean, tone } = uploadSettleNotice(report);
       if (dialogOpenRef.current) {
         // An all-successful batch closes the host with one whole-batch
         // outcome; anything else keeps it open with its notes readable.
@@ -315,9 +316,9 @@ export function TablesScreen({
         }
       } else {
         // The host was dismissed mid-batch: the outcome still lands,
-        // outside the closed dialog, and the settled
-        // batch is dropped so the next open starts fresh.
-        showImportNotice(text);
+        // outside the closed dialog, in the look of how it went, and the
+        // settled batch is dropped so the next open starts fresh.
+        showImportNotice(text, tone);
         uploadQueueRef.current?.reset();
       }
     },
@@ -584,11 +585,11 @@ export function TablesScreen({
           onDismiss={() => setActionError(null)}
         />
       )}
-      {importNotice && (
-        <div className={gallery.notice} role="status">
-          {importNotice}
-        </div>
-      )}
+      <TransientNotice
+        notice={importNotice}
+        tone={importTone}
+        onDismiss={() => showImportNotice(null)}
+      />
       {workflowsState.status === "failed" && !workflowsNoteDismissed && (
         <ErrorNote
           tone="warn"

@@ -31,6 +31,9 @@ export function TablePreviewGrid({
   // Own properties only: a column named like something the prototype
   // carries (`__proto__`, `constructor`) gets no tag it was not given.
   const tagOf = (name: string) => (Object.hasOwn(tags, name) ? tags[name] : undefined);
+  // The same for a cell: a row without the column shows the empty glyph,
+  // never what the prototype carries under that name.
+  const cellOf = (row: Readonly<Record<string, unknown>>, name: string) => (Object.hasOwn(row, name) ? row[name] : undefined);
   return (
     <div className={styles.gridWrap}>
       <table className={styles.grid}>
@@ -48,20 +51,23 @@ export function TablePreviewGrid({
         <tbody>
           {rows.map((row, i) => (
             <tr key={i} data-bad={marks?.[i] || undefined}>
-              {columns.map((c) => (
-                <td
-                  key={c.name}
-                  title={String(row[c.name] ?? "")}
-                  data-pick={tagOf(c.name) !== undefined || undefined}
-                  data-bad={(marks?.[i] && tagOf(c.name) !== undefined) || undefined}
-                >
-                  {row[c.name] === null || row[c.name] === undefined ? (
-                    <span className={styles.nullCell}>∅</span>
-                  ) : (
-                    String(row[c.name])
-                  )}
-                </td>
-              ))}
+              {columns.map((c) => {
+                const value = cellOf(row, c.name);
+                return (
+                  <td
+                    key={c.name}
+                    title={String(value ?? "")}
+                    data-pick={tagOf(c.name) !== undefined || undefined}
+                    data-bad={(marks?.[i] && tagOf(c.name) !== undefined) || undefined}
+                  >
+                    {value === null || value === undefined ? (
+                      <span className={styles.nullCell}>∅</span>
+                    ) : (
+                      String(value)
+                    )}
+                  </td>
+                );
+              })}
             </tr>
           ))}
         </tbody>
