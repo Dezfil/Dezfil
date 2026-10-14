@@ -16,6 +16,7 @@ import { buildTemplate, installFixture, writeShippedFolder, type BuiltTemplate }
 import { startLoopbackCatalogue, writeFolderCatalogue, type LoopbackCatalogue } from "../../../test-support/templates/catalogue";
 import type { TemplateCard, TemplateList } from "./card";
 import {
+  parseIndex,
   listTemplates,
   readTemplate,
   REFRESH_WINDOW_MS,
@@ -295,6 +296,7 @@ describe("each state of the catalogue, the shipped and downloaded templates list
       : await refreshCatalogue(f.db);
     expect(ids(list.templates)).toEqual(["quiet-park@1", "busy-stations@1"]);
     expect(list.catalogue).toMatchObject({ status: null, ...expected });
+    expect(list.catalogue).not.toHaveProperty("message");
     expect(catalogue.requests).toHaveLength(requests);
     expect(await listTemplates(f.db)).toEqual(list);
   });
@@ -335,6 +337,7 @@ describe("the index's refusals, each coded and refusing it whole", () => {
     const list = await refreshCatalogue(f.db);
     expect(ids(list.templates)).toEqual(["quiet-park@1"]);
     expect(list.catalogue).toMatchObject({ state: "refused", reason, status: null });
+    if (reason !== "template_index_invalid") expect(list.catalogue).not.toHaveProperty("message");
     expect(picturePaths()).toEqual([]);
   });
 
@@ -344,7 +347,9 @@ describe("the index's refusals, each coded and refusing it whole", () => {
     resetCatalogueForTests();
     const index: CatalogueIndex = { formatVersion: 1, templates: [] };
     catalogue.serve(`/${CATALOGUE_INDEX_FILE}`, JSON.stringify(index) + " ".repeat(TEMPLATE_INDEX_MAX_BYTES), { type: "application/json" });
-    expect((await refreshCatalogue(f.db)).catalogue).toMatchObject({ state: "refused", reason: "template_index_too_large" });
+    const tooLarge = (await refreshCatalogue(f.db)).catalogue;
+    expect(tooLarge).toMatchObject({ state: "refused", reason: "template_index_too_large" });
+    expect(tooLarge).not.toHaveProperty("message");
   });
 
   it("leaves out an entry in a newer template format and lists the rest", async () => {
@@ -405,12 +410,12 @@ describe("the ten-minute rule", () => {
     expect(indexRequests()).toBe(2);
   });
 
-  it("holds a failed read for the window too", async () => {
+  it("holds a failed read only for the short retry window", async () => {
     catalogue.status(`/${CATALOGUE_INDEX_FILE}`, 500);
     const at = Date.now();
     await refreshCatalogue(f.db, { now: at });
     await catalogue.publish([A1]);
-    expect((await refreshCatalogue(f.db, { now: at + 60_000 })).catalogue).toMatchObject({ state: "refused", status: 500 });
+    expect((await refreshCatalogue(f.db, { now: at + 29_999 })).catalogue).toMatchObject({ state: "refused", status: 500 });
     expect(indexRequests()).toBe(1);
   });
 
@@ -605,5 +610,67 @@ describe("what the list never gives", () => {
     expect(JSON.stringify(list)).not.toMatch(/SEEDED-KEY-0005|index\.json|archives\//);
     const detail = await readTemplate("harbour-stations", f.db);
     expect(JSON.stringify(detail)).not.toMatch(/SEEDED-KEY-0005|archives\/|pictures\//);
+  });
+});
+
+describe("catalogue author diagnostics and recovery", () => {
+  it("names the first offending entry, its id and field without echoing its value", async () => {
+    const index = await catalogue.publish([A1, B1, C1], { edit: value => {
+      value.templates[1].facts.version = "private-value" as unknown as number;
+      value.templates[2].facts.title = "";
+    } });
+    expect(() => parseIndex(JSON.stringify(index), { kind: "folder", folder: dir, source: "environment" }))
+      .toThrow('templates[1] (id "busy-stations").facts.version');
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    const list = await refreshCatalogue(f.db);
+    const message = 'templates[1] (id "busy-stations").facts.version is invalid.';
+    expect(list.catalogue).toMatchObject({ state: "refused", reason: "template_index_invalid", message });
+    expect(log).toHaveBeenCalledWith(`[templates] template_index_invalid: ${message}`);
+    expect(await listTemplates(f.db)).toEqual(list);
+    const schemas = buildOpenApiDocument().components.schemas as Record<string, Record<string, unknown>>;
+    expect(validateAgainstSchema(list, schemas.TemplateList, "$", schemas)).toEqual([]);
+    expect(schemas.TemplateCatalogueState.required).not.toContain("message");
+  });
+
+  it("names the entry position and field when the entry has no id", async () => {
+    await catalogue.publish([A1], { edit: value => { delete (value.templates[0].facts as Partial<typeof A1.facts>).id; } });
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    const message = "templates[0].facts.id is invalid.";
+    expect((await refreshCatalogue(f.db)).catalogue).toMatchObject({ reason: "template_index_invalid", message });
+    expect(log).toHaveBeenCalledWith(`[templates] template_index_invalid: ${message}`);
+    switchOff();
+    expect((await listTemplates(f.db)).catalogue).not.toHaveProperty("message");
+  });
+
+  it.each([
+    ["title", (facts: Record<string, unknown>) => { delete facts.title; }],
+    ["extra", (facts: Record<string, unknown>) => { facts.extra = "private-value"; }],
+    ["sources[0].credit", (facts: Record<string, unknown>) => { (facts.sources as Record<string, unknown>[])[0].credit = {}; }],
+    ["steps[1].reads", (facts: Record<string, unknown>) => { (facts.steps as Record<string, unknown>[])[1].reads = ["private_value"]; }],
+    ["steps[1].id", (facts: Record<string, unknown>) => { (facts.steps as Record<string, unknown>[])[1].id = (facts.steps as Record<string, unknown>[])[0].id; }],
+  ] as const)("names facts.%s without other index values", async (field, edit) => {
+    const index = await catalogue.publish([A1, B1], { edit: value => edit(value.templates[1].facts as unknown as Record<string, unknown>) });
+    let message = "";
+    try { parseIndex(JSON.stringify(index), { kind: "folder", folder: dir, source: "environment" }); }
+    catch (error) { message = (error as Error).message; }
+    expect(message).toBe(`templates[1] (id "busy-stations").facts.${field} is invalid.`);
+  });
+
+  it.each(["invalid", "status", "missing"])("rereads a repaired %s index after a short refusal window", async kind => {
+    const at = Date.now();
+    if (kind === "invalid") catalogue.serve(`/${CATALOGUE_INDEX_FILE}`, "{}", { type: "application/json" });
+    if (kind === "status") catalogue.status(`/${CATALOGUE_INDEX_FILE}`, 500);
+    if (kind === "missing") {
+      vi.stubEnv("DEZFIL_TEMPLATES_CATALOGUE", path.join(dir, "repaired"));
+    }
+    await refreshCatalogue(f.db, { now: at });
+    if (kind === "missing") await writeFolderCatalogue(path.join(dir, "repaired"), [A1]);
+    else await catalogue.publish([A1]);
+    expect((await refreshCatalogue(f.db, { now: at + 29_999 })).catalogue.state).not.toBe("listed");
+    const repaired = await refreshCatalogue(f.db, { now: at + 30_000 });
+    expect(repaired.catalogue.state).toBe("listed");
+    expect(repaired.catalogue).not.toHaveProperty("message");
+    const schemas = buildOpenApiDocument().components.schemas as Record<string, Record<string, unknown>>;
+    expect(validateAgainstSchema(repaired, schemas.TemplateList, "$", schemas)).toEqual([]);
   });
 });

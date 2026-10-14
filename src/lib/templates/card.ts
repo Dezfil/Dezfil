@@ -45,6 +45,8 @@ export interface CatalogueState {
   reason: CatalogueRefusal | null;
   /** The status the catalogue answered with; null unless the reason is status. */
   status: number | null;
+  /** Only for an invalid index: its first offending entry and field, without other values. */
+  message?: string;
 }
 
 /** Whether a card's picture can be read: kept (shipped and downloaded

@@ -12,8 +12,8 @@ import { READ_ONLY, REACHES_OUTSIDE, resource, writes } from "./operation-metada
  * account.
  */
 
-const object = <T extends Record<string, unknown>>(properties: T) => ({
-  type: "object", properties, required: Object.keys(properties), additionalProperties: false,
+const object = <T extends Record<string, unknown>>(properties: T, optional: Record<string, unknown> = {}) => ({
+  type: "object", properties: { ...properties, ...optional }, required: Object.keys(properties), additionalProperties: false,
 });
 const text = (description: string) => ({ type: "string", description });
 
@@ -132,6 +132,8 @@ export const TEMPLATES_SCHEMAS = {
           "template_index_repeats_id (an id twice) or template_address_outside (an archive or picture address outside the catalogue's origin or folder). " +
           "Null unless the state is refused." },
       status: { type: ["integer", "null"], minimum: 100, maximum: 599, description: "The status the catalogue answered with; null unless the reason is status." },
+    }, {
+      message: text("Only for template_index_invalid, a plain-text reason naming the first offending field and its entry’s zero-based position and id when available, without other index values."),
     }),
     description: "Where the template catalogue stands for this list.",
   },
@@ -188,7 +190,7 @@ export const TEMPLATES_PATHS = {
     description: SIGNED_IN + "Cookie requests require the same trusted Origin; a bearer token calls directly. " +
       "Reads the catalogue's index at the address in effect (templatesCatalogueUrl, or the folder DEZFIL_TEMPLATES_CATALOGUE names), then each listed " +
       "template's pictures in the index's order, at most 2 MB each and 64 MB for the list, through the egress check, redirects included, within the link " +
-      "import's time bound (DEZFIL_REMOTE_TIMEOUT_S), with no credential on any request. At most once in ten minutes: inside that window it sends nothing " +
+      "import's time bound (DEZFIL_REMOTE_TIMEOUT_S), with no credential on any request. At most once in ten minutes after a successful read, or thirty seconds after a refused or failed read: inside that window it sends nothing " +
       "and answers the list kept; while a read is under way it joins it. The list kept is replaced only once a new read is whole, and a read finishing " +
       "after the address or the switch changed is discarded. Refused, sending nothing: 409 templates_catalogue_off while an admin has turned the " +
       "catalogue off, and 400 service_address_unreadable for a saved address the instance's key no longer opens. A catalogue that fails answers the " +

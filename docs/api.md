@@ -1242,7 +1242,10 @@ scheme and host (null for a folder, with `folder: true`, never its path),
 `readAt`, and for a refusal its `reason` (`status` with the `status`,
 `egress_blocked`, `service_address_unreadable`, `template_index_too_large`,
 `template_index_invalid`, `template_index_repeats_id` or
-`template_address_outside`). `downloads` says what the downloaded templates
+`template_address_outside`). Only `template_index_invalid` carries an optional
+plain-text `catalogue.message`: the same reason as the server log, naming the
+first offending field and its entry’s zero-based position and id when available,
+without other index values. `downloads` says what the downloaded templates
 hold: how many `versions` and the `bytes` their folders take. The
 **Templates** page, last in the side menu, draws one card per template from
 this list as soon as it answers and only then asks for the refresh below, so
@@ -1256,7 +1259,7 @@ template's two pictures in the index's order (at most 2 MB each, a picture
 past it refused alone, and 64 MB for the list, later entries drawn without
 one), through the egress check, redirects included, within the link import's
 time bound, with no credential on any request. It reads at most once in ten
-minutes, answering the kept list inside that window and joining a read under
+minutes after a successful read, or thirty seconds after a refused or failed read, answering the kept list inside that window and joining a read under
 way; the kept list is replaced only once a new read is whole, and a read that
 finishes after the address or the switch changed is discarded. While an admin
 has turned the catalogue off it is refused with 409 `templates_catalogue_off`
