@@ -187,9 +187,8 @@ export function sizeAccessor(
   const w0 = warp(scale.domain[0]);
   const w1 = warp(scale.domain[1]);
   return (f) => {
-    const raw = f.properties?.[scale.attribute];
-    const v = typeof raw === "number" ? raw : Number(raw);
-    if (!Number.isFinite(v)) return r0;
+    const v = numericValue(f.properties?.[scale.attribute]);
+    if (v === null) return r0;
     if (w1 === w0) return r0; // collapsed domain: no information, smallest mark
     const t = Math.min(1, Math.max(0, (warp(v) - w0) / (w1 - w0)));
     return r0 + (r1 - r0) * t;
