@@ -866,10 +866,17 @@ the [host guide](self-hosting.md#leaving-and-deleting-accounts) gives measured p
 and space requirements. A failed compaction remains unfinished and safe to retry.
 Completion also waits for prepared files to settle or expire and cleanup to finish.
 Recorded dataset inputs identify foreign card images, tiles and private prepared
-copies for erasure; existing unattributed card images owned by others remain. Runs
-of workflows deleted before their owner's account no longer have a workflow owner
-and remain, with Deleted account as starter. Copies outside the instance, including
+copies for erasure; existing unattributed card images owned by others remain. Deleting
+a workflow removes its run records while its output datasets remain. Copies outside
+the instance, including
 downloaded files and a database a connection wrote to, are not reached.
+
+An unreadable deletion record appears in the Users deletions list as
+`{ id, state: "unreadable" }`, with no account details. Status and continuation
+return `409 deletion_unreadable` for that identifier. Other Users reads,
+invitations and access changes continue. Startup preserves unreadable deletion records
+and removes interrupted temporary writes. Unreadable records reserve no email; the
+account row still reserves it until profile erasure, before final compaction.
 
 **Directory.** `GET /api/accounts/search?q=` is how a signed-in person finds
 someone to share a project with, and the one deliberate exception to
@@ -1405,7 +1412,7 @@ server-side, so filesystem paths and engine text stay out of responses
 The complete catalogue is published two ways in the same document: as the
 enum of the `Error` schema, and as `x-error-codes` at the top level, which
 maps every code to a sentence explaining what it means
-(`src/lib/api/error-catalogue.ts`). There are **134** codes. Clients should
+(`src/lib/api/error-catalogue.ts`). There are **135** codes. Clients should
 branch on codes, never on prose.
 
 One status is unusual: a client that abandons an in-flight evaluation gets
@@ -2173,6 +2180,7 @@ response message. Branch on the code.
 | `self_change_refused` | Another admin must change your admin flag, deactivate your account or delete it. |
 | `account_not_deactivated` | Deactivate this account before deleting it. |
 | `deletion_in_progress` | This account is being deleted and cannot be reactivated. |
+| `deletion_unreadable` | This deletion record cannot be read. Its files remain unchanged. Restore a readable record before continuing this deletion. |
 | `deletion_changed` | This account or its work has changed. Review a fresh deletion preview before confirming. |
 | `last_admin` | Keep at least one active admin. |
 | `forbidden` | This request is not permitted for the current account or origin: an admin-only request, a cookie request from another origin, or a change to something the account can view but cannot make. A refused change has no effect. |

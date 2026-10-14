@@ -287,10 +287,14 @@ Finishing deletion rewrites the metadata store and pauses all responses. The
 and the required data-volume and temporary-filesystem space; a failed compaction
 remains unfinished and safe to retry. Completion waits for prepared-copy settlement
 or expiry and cleanup. Recorded dataset inputs identify affected foreign derivatives;
-existing unattributed card images owned by others remain. Runs whose workflows were
-already deleted have no remaining workflow owner and stay with Deleted account as
-starter. Copies outside the instance, including downloads and databases written
+existing unattributed card images owned by others remain. Deleting a workflow removes
+its run records while its output datasets remain. Copies outside the instance,
+including downloads and databases written
 through connections, are not reached. Backup restoration can revive credentials.
+
+`list_users` includes unreadable deletion records as `{ id, state: "unreadable" }`
+without an account identity. `get_user_deletion` and `finish_user_deletion`
+refuse that identifier with `deletion_unreadable`; other administration continues.
 
 A project's people generate `list_project_people`, `set_project_person` and
 `remove_project_person`. Anyone who reaches the project reads them; the two

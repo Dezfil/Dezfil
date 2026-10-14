@@ -166,7 +166,14 @@ it("requires ownership at workflow services and rolls back mixed references", as
 it.each(["add", "edit", "duplicate", "read"])("refuses a late workflow %s after account deactivation", async operation => {
   const scope = testAccountScope(db, "alice");
   const before = snapshot();
-  effects.reads.mockImplementationOnce(async () => { db.prepare("UPDATE accounts SET status = 'deactivated' WHERE id = 'alice'").run(); return []; });
+  const deactivate = () => { db.prepare("UPDATE accounts SET status = 'deactivated' WHERE id = 'alice'").run(); };
+  if (operation === "duplicate") {
+    const references = await import("@/lib/operations/copy-references");
+    const read = references.readCopySql;
+    vi.spyOn(references, "readCopySql").mockImplementationOnce(async (...args) => {
+      const result = await read(...args); deactivate(); return result;
+    });
+  } else effects.reads.mockImplementationOnce(async () => { deactivate(); return []; });
   if (operation === "duplicate") {
     const { duplicateRecipe } = await import("@/lib/operations/recipe-duplicate");
     await expect(duplicateRecipe(scope, recipes.alice)).rejects.toMatchObject({ status: 401 });

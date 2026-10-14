@@ -23,7 +23,7 @@ function makeLink(accountId: string, kind: "invite" | "reset", db: Database, now
 }
 
 export function adminAccounts(context: AuthContext, db: Database = metadataDb(), now = Date.now()) {
-  return db.transaction(() => { requireAdmin(context, db, now); return listAccounts(db); }).immediate();
+  return db.transaction(() => { requireAdmin(context, db, now); return listAccounts(db); })();
 }
 
 export function inviteAccount(context: AuthContext, input: { name: string; email: string; isAdmin?: boolean },

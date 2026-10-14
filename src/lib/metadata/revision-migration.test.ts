@@ -91,7 +91,9 @@ describe("document revision migration", () => {
     expect(MIGRATIONS.length).toBeGreaterThanOrEqual(ENTRY + 1);
     const before = rows();
     reopen();
-    expect(rows()).toEqual(before);
+    expect(before.cascade_runs).toContainEqual(expect.objectContaining({ id: "orphan" }));
+    expect(rows()).toEqual({ ...before, cascade_runs: before.cascade_runs.filter((row: unknown) =>
+      (row as { id: string }).id !== "orphan") });
     const revisions = [];
     for (const table of ["maps", "recipes"]) {
       const records = db.prepare(`SELECT edit_revision, last_changed_at, last_changed_by FROM ${table}`).all();
@@ -112,7 +114,6 @@ describe("document revision migration", () => {
     // stored initiator, including the prior adoption, without inventing one.
     expect(db.prepare("SELECT id, initiator_id, admitted_executable_revision FROM cascade_runs ORDER BY id").all()).toEqual([
       { id: "adopted", initiator_id: "ada", admitted_executable_revision: null },
-      { id: "orphan", initiator_id: null, admitted_executable_revision: null },
       { id: "run", initiator_id: "bea", admitted_executable_revision: null },
     ]);
     expect(db.pragma("foreign_key_check")).toEqual([]);

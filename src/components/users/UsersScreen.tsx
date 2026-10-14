@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import type { Account } from "@/lib/metadata/accounts";
-import type { PendingDeletion } from "@/lib/auth/account-deletion-status";
+import type { PendingDeletion, ReadablePendingDeletion } from "@/lib/auth/account-deletion-status";
 import { ListHeading } from "@/components/ListHeading";
 import { IconSearch } from "@/components/gallery-icons";
 import { ErrorNote } from "@/components/ui/ErrorNote";
@@ -38,14 +38,14 @@ export function UsersScreen() {
     // Dialog cleanup has released inertness and its opener may now be gone.
     if (focusSearch.current && !deleting) { focusSearch.current = false; search.current?.focus(); }
   });
-  function deleted(account: PendingDeletion["account"], status: DeletionStatus) {
+  function deleted(account: ReadablePendingDeletion["account"], status: DeletionStatus) {
     setData(current => current ? { ...current, users: current.users.filter(user => user.id !== account.id),
       deletions: [...current.deletions.filter(value => value.id !== status.id),
         ...(status.state === "completed" ? [] : [{ id: status.id, state: status.state, account }])] } : null);
     setDeleting(null); setHandOver(null); setOpen(null); focusSearch.current = true;
     if (status.state === "completed") show(`${account.name}: deleted`);
   }
-  async function finish(value: PendingDeletion) {
+  async function finish(value: ReadablePendingDeletion) {
     if (finishing.current) return;
     finishing.current = true; setBusy(true); setError(null);
     try { deleted(value.account, await finishDeletion(value.id)); }
@@ -74,7 +74,8 @@ export function UsersScreen() {
     finally { setBusy(false); }
   }
   const matches = (user: { name: string; email: string }) => `${user.name} ${user.email}`.toLowerCase().includes(query.trim().toLowerCase());
-  const pending = data?.deletions ?? [];
+  const pending = data?.deletions.filter((value): value is ReadablePendingDeletion => value.state !== "unreadable") ?? [];
+  const unreadable = data?.deletions.filter(value => value.state === "unreadable") ?? [];
   const shown = data?.users.filter(user => !pending.some(value => value.account.id === user.id) && matches(user)) ?? [];
   const shownPending = pending.filter(value => matches(value.account));
   const active = shown.filter(user => user.status !== "deactivated"), deactivated = shown.filter(user => user.status === "deactivated");
@@ -92,6 +93,7 @@ export function UsersScreen() {
       message={`${value.account.name}’s account could not be deleted completely. It stays closed: nobody can sign in to it or open its work.`}>
       <Button disabled={busy} onClick={() => void finish(value)}>Finish deleting</Button>
     </ErrorNote>)}
+    {unreadable.map(value => <p key={value.id} className={styles.notice}>Deletion {value.id} cannot be read.</p>)}
     {notice && <p className={styles.notice} role="status">{notice}</p>}
     <div className={gallery.toolbar}><label className={gallery.search}><IconSearch /><input ref={search} aria-label="Search users"
       placeholder="Search users…" value={query} onChange={event => setQuery(event.target.value)} /><kbd>/</kbd></label></div>

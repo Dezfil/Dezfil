@@ -254,13 +254,13 @@ export function renameRecipe(
   return true;
 }
 
-/** Deleting a recipe removes its steps and their edges. **Its outputs survive**
- * they are ordinary datasets, and a recipe is the record of how they were
- * made, not their owner (E6). Nothing here touches `data_tables`. The
+/** Deleting a recipe removes its runs, steps and their edges. Its outputs
+ * survive as ordinary datasets. Nothing here touches `data_tables`. The
  * project it leaves advances its clock. */
 export function deleteRecipe(id: string, db: Database = metadataDb()): boolean {
   return db.transaction(() => {
     touchProjectsOf({ recipeId: id }, db);
+    db.prepare("DELETE FROM cascade_runs WHERE recipe_id = ?").run(id);
     return db.prepare(`DELETE FROM recipes WHERE id = ?`).run(id).changes > 0;
   })();
 }

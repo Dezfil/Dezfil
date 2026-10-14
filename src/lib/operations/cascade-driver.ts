@@ -7,6 +7,7 @@ import { getJob, type OperationJob } from "@/lib/metadata/owned-jobs";
 import { isTerminal } from "@/lib/metadata/jobs";
 import { markAndSignalRunCancellation, pruneRunCancellation, waitForRunCancellation, type RunCancellation } from "./run";
 import { startStepRun } from "./step-execution";
+import { waitForCascadeMember } from "./cascade-wait";
 import * as lane from "./lane";
 
 /** Which steps each member depends on, confined to the members themselves. */
@@ -70,6 +71,14 @@ async function drainAdmittedJobs(
   return jobs;
 }
 
+/** A removed parent has nothing left to record. Signal even a pruned or
+ * already-terminal job, whose execution slot can still be winding down. */
+async function drainRemovedCascade(scope: AccountScope, admitted: Map<string, string>): Promise<void> {
+  for (const jobId of admitted.values()) lane.cancel(jobId);
+  await drainAdmittedJobs(scope, admitted);
+  await Promise.all([...admitted.values()].map(jobId => lane.jobSettled(jobId)));
+}
+
 /** Record one drained coordinator failure from fresh durable reads. */
 function recordFailedCascade(
   scope: AccountScope,
@@ -77,12 +86,12 @@ function recordFailedCascade(
   members: { stepId: string }[],
   admitted: Map<string, string>,
   drained: Map<string, OperationJob>,
-): void {
+): boolean {
   // Only after the engine is drained does the durable parent move. Successful
   // publications already wrote their member and output atomically; every other
   // admitted job is described from its terminal record.
   const current = getCascade(scope, cascadeId);
-  if (!current) throw new Error(`Cascade ${cascadeId} disappeared during failure settlement.`);
+  if (!current) return false; // Deletion won while admitted jobs were draining.
   for (const member of members) {
     const jobId = admitted.get(member.stepId);
     const job = (jobId ? getJob(scope, jobId) : null) ?? drained.get(member.stepId);
@@ -107,6 +116,7 @@ function recordFailedCascade(
     });
   }
   finishCascade(scope, cascadeId, "failed", new Date().toISOString());
+  return true;
 }
 
 /** Drain once, then make one bounded fresh-read recording re-attempt. */
@@ -119,7 +129,9 @@ export async function settleCoordinatorFailure(
   const drained = await drainAdmittedJobs(scope, admitted);
   for (let attempt = 0; attempt < 2; attempt += 1) {
     try {
-      recordFailedCascade(scope, cascadeId, members, admitted, drained);
+      if (!recordFailedCascade(scope, cascadeId, members, admitted, drained)) {
+        await drainRemovedCascade(scope, admitted);
+      }
       return;
     } catch (error) {
       if (attempt === 1) throw error;
@@ -247,9 +259,12 @@ export async function driveCascade(
 
       if (inflight.size === 0) break;
 
-      const finished = await Promise.race(inflight.values());
+      const finished = await waitForCascadeMember(scope, cascadeId, inflight.values());
+      if (finished === null) { await drainRemovedCascade(scope, admitted); return; }
       inflight.delete(finished);
-      const jobId = getCascade(scope, cascadeId)!.members.find(
+      const current = getCascade(scope, cascadeId);
+      if (!current) { await drainRemovedCascade(scope, admitted); return; }
+      const jobId = current.members.find(
         (m) => m.stepId === finished,
       )!.jobId;
       // The attempt stays with the run: copied now, while the job is
@@ -263,7 +278,9 @@ export async function driveCascade(
       // between settlement and this read. So the job is consulted only for a
       // member the publication did *not* claim — which is exactly the failed,
       // cancelled and interrupted cases, none of which wrote one.
-      const published = getCascade(scope, cascadeId)!.members.find(
+      const fresh = getCascade(scope, cascadeId);
+      if (!fresh) { await drainRemovedCascade(scope, admitted); return; }
+      const published = fresh.members.find(
         (m) => m.stepId === finished,
       )!;
       if (published.state === "succeeded") {
@@ -306,6 +323,10 @@ export async function driveCascade(
     // bounded recording retry is exhausted, restart owns the active record.
     try {
       if (await settleInactiveCascade(cascadeId, admitted)) return;
+      if (error instanceof ApiError && error.code === "not_found" && !getCascade(scope, cascadeId)) {
+        await drainRemovedCascade(scope, admitted);
+        return;
+      }
       console.error(`[operations] cascade ${cascadeId} failed to drive:`, error);
       await settleCoordinatorFailure(scope, cascadeId, members, admitted);
     } catch (settlementError) {
@@ -320,4 +341,3 @@ export async function driveCascade(
     }
   }
 }
-

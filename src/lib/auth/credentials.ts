@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { Database } from "better-sqlite3";
+import { sqliteBusy, withBusyTimeout } from "@/lib/metadata/busy";
 import { metadataDb } from "@/lib/metadata/db";
 import { getAccount, type Account } from "@/lib/metadata/accounts";
 import { insertSession, insertToken, listAccountTokens, revokeAccountToken, sessionByHash,
@@ -30,6 +31,18 @@ export function issueSession(account: Account, db: Database, now: number) {
   return { account, secret, expiresAt };
 }
 
+/** Renewal is optional bookkeeping. Never queue a request behind a writer:
+ * try immediately, then authenticate a coherent read without extending it.
+ * Mutations still recheck the actor inside their own write transaction. */
+function authenticateWithRenewal(db: Database, read: (renew: boolean) => AuthContext | null): AuthContext | null {
+  try {
+    return withBusyTimeout(db, 0, () => db.transaction(() => read(true)).immediate());
+  } catch (error) {
+    if (!sqliteBusy(error)) throw error;
+    return db.transaction(() => read(false))();
+  }
+}
+
 /** A session is judged by the expiry it holds, never by its last use, so
  * storing a shorter length ends no session: its next use renews it by the
  * length stored now. */
@@ -37,14 +50,14 @@ export function authenticateSession(secret: string | null, db: Database = metada
   if (!secret) return null;
   maintainCredentials(db, now);
   now ??= Date.now();
-  return db.transaction(() => {
+  return authenticateWithRenewal(db, renew => {
     const record = sessionByHash(secretHash(secret), db);
     const account = record && getAccount(record.account_id, db);
     if (!record || !account || record.revoked_at !== null || record.expires_at <= now || account.status !== "active") return null;
-    db.prepare("UPDATE auth_sessions SET last_used_at = ?, expires_at = ? WHERE id = ?")
+    if (renew) db.prepare("UPDATE auth_sessions SET last_used_at = ?, expires_at = ? WHERE id = ?")
       .run(now, now + securitySettings(db).sessionMs, record.id);
     return { account, credential: { kind: "session" as const, id: record.id } };
-  }).immediate();
+  });
 }
 
 /** Only an expiry a token carries is compared: one made under Never has none
@@ -63,14 +76,14 @@ export function authenticateToken(secret: string | null, db: Database = metadata
   if (!secret) return null;
   maintainCredentials(db, now);
   now ??= Date.now();
-  return db.transaction(() => {
+  return authenticateWithRenewal(db, renew => {
     const record = tokenByHash(secretHash(secret), db);
     const account = record && getAccount(record.account_id, db);
     if (!record || !account || record.revoked_at !== null || account.status !== "active") return null;
     if (tokenExpired(record, now)) throw expiredToken();
-    db.prepare("UPDATE auth_tokens SET last_used_at = ? WHERE id = ?").run(now, record.id);
+    if (renew) db.prepare("UPDATE auth_tokens SET last_used_at = ? WHERE id = ?").run(now, record.id);
     return { account, credential: { kind: "token" as const, id: record.id } };
-  }).immediate();
+  });
 }
 
 /** Services call this again under their write transaction; contexts are not authority. */
@@ -122,7 +135,7 @@ export function createApiToken(context: AuthContext, name: string, db: Database 
 export function listApiTokens(context: AuthContext, db: Database = metadataDb(), now?: number) {
   maintainCredentials(db, now);
   now ??= Date.now();
-  return db.transaction(() => listAccountTokens(requireCurrentActor(context, db, now).id, db)).immediate();
+  return db.transaction(() => listAccountTokens(requireCurrentActor(context, db, now).id, db))();
 }
 
 export function revokeApiToken(context: AuthContext, id: string, db: Database = metadataDb(), now?: number): void {

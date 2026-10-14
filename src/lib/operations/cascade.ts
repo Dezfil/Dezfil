@@ -208,6 +208,12 @@ export async function planCascade(scope: AccountScope, request: CascadeRequest):
  */
 export interface StartedRun extends CascadeRun { editRevision: string }
 
+function readStartedRun(scope: AccountScope, started: StartedRun): StartedRun {
+  const current = getCascade(scope, started.id);
+  if (!current) throw resourceAbsent();
+  return { ...current, editRevision: started.editRevision };
+}
+
 export function recordUnderLock(scope: AccountScope, recipeId: string, kind: CascadeKind, members: MemberIdentity[], expectedRevision: unknown): StartedRun {
   const db = metadataDb();
   return db.transaction(() => {
@@ -252,7 +258,7 @@ export async function startCascade(scope: AccountScope, request: CascadeRequest)
   // exactly as a run does. An unhandled rejection here would kill the process,
   // so the drive itself never throws.
   void drive;
-  return { ...getCascade(scope, cascade.id)!, editRevision: cascade.editRevision };
+  return readStartedRun(scope, cascade);
 }
 
 /** What blocks a member: the nearest member it depends on that did not succeed. */
@@ -329,12 +335,12 @@ export async function startSingleRun(scope: AccountScope, recipeId: string, step
           stoppedBy: "cancelled",
         });
         finishCascade(scope, cascade.id, "cancelled", new Date().toISOString());
-        resolveStarted({ ...getCascade(scope, cascade.id)!, editRevision: cascade.editRevision });
+        resolveStarted(readStartedRun(scope, cascade));
         return;
       }
 
       setMember(scope, cascade.id, stepId, { state: "running", jobId: job.id });
-      resolveStarted({ ...getCascade(scope, cascade.id)!, editRevision: cascade.editRevision });
+      resolveStarted(readStartedRun(scope, cascade));
       const graph: Graph = new Map([[stepId, []]]);
       await driveCascade(scope, cascade.id, [identity], graph, { stepId, jobId: job.id });
     })

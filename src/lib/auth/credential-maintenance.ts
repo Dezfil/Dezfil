@@ -1,4 +1,5 @@
 import type { Database } from "better-sqlite3";
+import { sqliteBusy, withBusyTimeout } from "@/lib/metadata/busy";
 import { metadataDb } from "@/lib/metadata/db";
 import { credentialKinds, credentialPage, CREDENTIAL_PAGE_SIZE, removeExpiredCredentials, type CredentialKind } from "@/lib/metadata/credential-maintenance";
 
@@ -14,19 +15,28 @@ export function credentialMaintenance() {
     if (db.inTransaction) return null;
     const now = clock();
     if (!cursors && completedAt !== undefined && now < completedAt + CREDENTIAL_SWEEP_INTERVAL_MS) return null;
-    const next: Cursors = { ...(cursors ?? { sessions: undefined, links: undefined, tokens: undefined }) };
-    const examined = { sessions: 0, links: 0, tokens: 0 }, removed = { ...examined };
-    for (const kind of credentialKinds) {
-      if (next[kind] === null) continue;
-      const ids = credentialPage(db, kind, next[kind]);
-      examined[kind] = ids.length;
-      removed[kind] = removeExpiredCredentials(db, kind, ids, clock());
-      next[kind] = ids.length < CREDENTIAL_PAGE_SIZE ? null : ids.at(-1);
+    // Housekeeping cannot hold up authentication or an authority read. Leave
+    // the cursor where it was when another writer owns the store.
+    try {
+      return withBusyTimeout(db, 0, () => {
+        const next: Cursors = { ...(cursors ?? { sessions: undefined, links: undefined, tokens: undefined }) };
+        const examined = { sessions: 0, links: 0, tokens: 0 }, removed = { ...examined };
+        for (const kind of credentialKinds) {
+          if (next[kind] === null) continue;
+          const ids = credentialPage(db, kind, next[kind]);
+          examined[kind] = ids.length;
+          removed[kind] = removeExpiredCredentials(db, kind, ids, clock());
+          next[kind] = ids.length < CREDENTIAL_PAGE_SIZE ? null : ids.at(-1);
+        }
+        const complete = credentialKinds.every(kind => next[kind] === null);
+        cursors = complete ? undefined : next;
+        if (complete) completedAt = clock();
+        return { examined, removed, complete };
+      });
+    } catch (error) {
+      if (!sqliteBusy(error)) throw error;
+      return null;
     }
-    const complete = credentialKinds.every(kind => next[kind] === null);
-    cursors = complete ? undefined : next;
-    if (complete) completedAt = clock();
-    return { examined, removed, complete };
   };
 }
 

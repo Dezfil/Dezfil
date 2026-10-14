@@ -5063,7 +5063,7 @@
         "account-deletions/*.json"
       ]
     },
-    "location:src/lib/auth/account-deletion-journal.ts#readDeletionJournal:journalPath": {
+    "location:src/lib/auth/account-deletion-journal.ts#readDeletionJournal.file:journalPath": {
       "stores": [
         "file:account-deletion-journals"
       ],

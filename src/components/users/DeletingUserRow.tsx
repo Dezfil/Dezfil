@@ -1,13 +1,13 @@
 "use client";
 import { useId } from "react";
-import type { PendingDeletion } from "@/lib/auth/account-deletion-status";
+import type { ReadablePendingDeletion } from "@/lib/auth/account-deletion-status";
 import { Button } from "../ui/Button";
 import { StatusDot } from "../ui/Status";
 import { ChevronIcon } from "../ui/icons";
 import styles from "./UsersScreen.module.css";
 
 export function DeletingUserRow({ value, open, busy, onToggle, onFinish }: {
-  value: PendingDeletion; open: boolean; busy: boolean; onToggle: () => void; onFinish: () => void;
+  value: ReadablePendingDeletion; open: boolean; busy: boolean; onToggle: () => void; onFinish: () => void;
 }) {
   const id = useId(), { account, state } = value;
   return <div className={styles.row} data-open={open || undefined} data-off data-deletion={state}>

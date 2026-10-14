@@ -325,7 +325,7 @@ describe("a store from before the library", () => {
     try {
       const file = path.join(directory, "metadata.sqlite");
       const entry = metadata.MIGRATIONS.findIndex(sql => /CREATE TABLE basemap_styles/.test(sql));
-      expect(entry).toBe(metadata.MIGRATIONS.length - 1);
+      expect(entry).toBeGreaterThanOrEqual(0);
       const old = new BetterSqlite(file);
       old.pragma("journal_mode = WAL"); old.pragma("foreign_keys = ON");
       old.function("allocate_sql_names", { deterministic: true }, (accounts: unknown) =>
@@ -334,6 +334,7 @@ describe("a store from before the library", () => {
         if (metadata.MIGRATIONS[version] === IDENTITIES_MIGRATION) { rebuildIdentities(old, metadata.MIGRATIONS[version], version + 1); continue; }
         old.exec(metadata.MIGRATIONS[version]); old.pragma(`user_version = ${version + 1}`);
       }
+      expect(old.pragma("user_version", { simple: true })).toBe(entry);
       expect(old.prepare("SELECT name FROM sqlite_master WHERE name = 'basemap_styles'").get()).toBeUndefined();
       old.close();
 

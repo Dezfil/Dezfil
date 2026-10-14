@@ -1,3 +1,4 @@
+import { fromJsonSchema } from "@modelcontextprotocol/server";
 import { expect, it } from "vitest";
 import { buildTools } from "@/lib/tools/tools";
 import { buildOpenApiDocument } from "./openapi";
@@ -20,4 +21,14 @@ it("exposes deletion through the shared tool catalogue with erasure consequences
   const deletion = tools.find(t => t.name === "delete_user")!;
   expect(deletion.bodyKeys.sort()).toEqual(["confirm", "confirmation", "email"]);
   expect(JSON.stringify(deletion.rawOutputSchema)).toContain("needs-retry");
+});
+
+it("accepts an unreadable deletion with only its identifier through the generated output schema", async () => {
+  const tool = buildTools().find(tool => tool.name === "list_users")!;
+  const schema = fromJsonSchema(tool.rawOutputSchema as Parameters<typeof fromJsonSchema>[0]);
+  const result = { users: [], deletions: [{ id: "11111111-1111-4111-8111-111111111111", state: "unreadable" }] };
+  expect((await schema["~standard"].validate(result)).issues).toBeUndefined();
+  expect((await schema["~standard"].validate({ users: [], deletions: [{ id: "private-notes", state: "unreadable" }] })).issues).toBeDefined();
+  expect((await schema["~standard"].validate({ ...result, deletions: [{ id: "11111111-1111-4111-8111-111111111111", state: "pending" }] })).issues).toBeDefined();
+  expect((await schema["~standard"].validate({ ...result, deletions: [{ ...result.deletions[0], account: { name: "invented" } }] })).issues).toBeDefined();
 });

@@ -80,3 +80,13 @@ it("never turns a failed continuation into a completion notice", async () => {
   expect(host.document.body.textContent).toContain("Deletion unfinished");
   expect(host.document.body.textContent).toContain("Could not finish.");
 });
+
+it("shows an unreadable deletion by identifier without hiding unrelated users", async () => {
+  entries = [{ id: "stuck-deletion", state: "unreadable" }];
+  await mount();
+  expect(host.document.body.textContent).toContain("Deletion stuck-deletion cannot be read.");
+  expect(host.document.body.textContent).toContain("Cy Marsh");
+  const invite = host.document.querySelectorAll("button").find(value => value.textContent.trim() === "Invite")!;
+  expect(invite.disabled).toBe(false);
+  expect(host.document.body.textContent).not.toContain("Finish deleting");
+});
