@@ -178,7 +178,7 @@ export async function puppeteerDriver(): Promise<RenderDriver> {
         // Every admitted request in flight, with its start and host: an
         // external one that outlives the per-request budget is abandoned
         // by ending the relay's sockets, including worker fetches. The
-        // first cut also settles tiles that never reached a socket,
+        // page is told at every cut to settle tiles that never reached a socket,
         // and the hosts are reported, one entry per abandonment. Requests
         // without a terminal event stay armed for another cut.
         const inflight = new RenderRequestLedger();
@@ -288,9 +288,7 @@ export async function puppeteerDriver(): Promise<RenderDriver> {
               `${Math.round(requestBoundMs / 1000)}s: ${[...new Set(cutHosts)].join(", ")}`,
           );
           relay.abandon(stalledHosts);
-          if (abandoned.length === cutHosts.length) {
-            void page.evaluate(settleRenderTiles).catch(() => {});
-          }
+          void page.evaluate(settleRenderTiles).catch(() => {});
           void page
             .setOfflineMode(true)
             .then(() => page.setOfflineMode(false))

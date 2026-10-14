@@ -117,7 +117,7 @@ it("counts every cut request but refuses only a host whose request outlived the 
   expect(abandonRelay.mock.calls).toEqual([[["stalled.test"]]]);
 });
 
-it("tells the page to settle tiles at the first cut, never before or again", async () => {
+it("tells the page to settle tiles at every cut, never before", async () => {
   vi.useFakeTimers();
   vi.spyOn(console, "warn").mockImplementation(() => {});
   const settle = vi.fn();
@@ -138,7 +138,8 @@ it("tells the page to settle tiles at the first cut, never before or again", asy
     expect(settle).toHaveBeenCalledExactlyOnceWith("true");
     await vi.advanceTimersByTimeAsync(20_500);
     expect(abandonRelay).toHaveBeenCalledTimes(2);
-    expect(settle).toHaveBeenCalledOnce();
+    expect(settle).toHaveBeenCalledTimes(2);
+    expect(settle).toHaveBeenLastCalledWith("true");
   });
   try {
     const credential = delegateCredential(requireRequestAuth(authenticatedRequest()));

@@ -1,5 +1,5 @@
-/** Executed in the render document at its first request cut. Keep this
- * self-contained for serialization into the page, and retain the signal
+/** Executed in the render document at every request cut. The signal is
+ * idempotent. Keep this self-contained for serialization, and retain it
  * if the map has not mounted yet. It never cancels or restarts a fetch. */
 export function settleRenderTiles(): void {
   document.documentElement.dataset.exportTilesSettled = "true";
