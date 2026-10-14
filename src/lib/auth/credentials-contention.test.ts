@@ -5,7 +5,7 @@ import { afterEach, beforeEach, expect, it } from "vitest";
 import { open } from "@/lib/metadata/db";
 import { insertAccount } from "@/lib/metadata/accounts";
 import { insertSession, insertToken } from "@/lib/metadata/auth-credentials";
-import { authenticateSession, authenticateToken, secretHash } from "./credentials";
+import { authenticateSession, authenticateToken, requireCurrentActor, secretHash } from "./credentials";
 import { maintainCredentials } from "./credential-maintenance";
 
 let directory: string, db: Database.Database, writer: Database.Database;
@@ -54,4 +54,20 @@ it("does not swallow a storage error unrelated to contention", () => {
   db.exec("CREATE TRIGGER reject_renewal BEFORE UPDATE ON auth_sessions BEGIN SELECT RAISE(ABORT, 'renewal failed'); END");
   expect(() => authenticateSession("live", db, start + 1)).toThrow("renewal failed");
   expect(db.pragma("busy_timeout", { simple: true })).toBe(5000);
+});
+
+it("defers a cold cleanup pass without blocking authentication or losing its work", () => {
+  insertSession({ id: "old", account_id: "active", secret_hash: secretHash("old"), created_at: 0,
+    last_used_at: 0, expires_at: start - 2 * 86_400_000, revoked_at: null }, db);
+  writer.exec("BEGIN IMMEDIATE");
+  const began = performance.now();
+  expect(maintainCredentials(db, start + 50)).toBeNull();
+  const context = authenticateSession("live", db, start + 50);
+  expect(requireCurrentActor(context, db, start + 50).id).toBe("active");
+  expect(performance.now() - began).toBeLessThan(500);
+  expect(db.prepare("SELECT id FROM auth_sessions WHERE id = 'old'").get()).toEqual({ id: "old" });
+  expect(db.pragma("busy_timeout", { simple: true })).toBe(5000);
+  writer.exec("ROLLBACK");
+  expect(maintainCredentials(db, start + 51)?.removed.sessions).toBe(1);
+  expect(db.prepare("SELECT id FROM auth_sessions WHERE id = 'old'").get()).toBeUndefined();
 });
