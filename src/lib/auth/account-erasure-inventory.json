@@ -6394,7 +6394,7 @@
         "engine-spill"
       ]
     },
-    "writer:src/lib/sketch/read.ts#listFeatures:readFeatures": {
+    "writer:src/lib/sketch/read.ts#listFeatures:readFeatureAnswer": {
       "stores": [
         "file:trusted-spill"
       ],

@@ -16,23 +16,23 @@
   },
   "openaiRequest": {
     "file": "openai-request.json",
-    "sha256": "db3bed21a1abd17bd6ed077c1390a083d9265b9932a89c0c5d4680141d23c743"
+    "sha256": "ceba9304f3fd6182034aac808dbdd24b988595ac6281cbeefed3bcc0295ed1cc"
   },
   "openaiToolDefinitions": {
     "file": "openai-tool-definitions.json",
-    "sha256": "c675dd7a47c56e484469531215ddbbba69b7a83c4d9ba98543748ebab1075d78"
+    "sha256": "057b45848d9dc30f63bdc4c82ac98b09f92d55e9b533cdfcb55d2b088de0bb8c"
   },
   "anthropicRequest": {
     "file": "anthropic-request.json",
-    "sha256": "2bd1d0763cc8683ced1eb7e8e0fbf35e3671615bd500eaef03e89dbace7ad882"
+    "sha256": "f87482b1f84c6aa8c2cd3039e1dcc4c61180e39134545c454653fe346c9d32fc"
   },
   "anthropicToolDefinitions": {
     "file": "anthropic-tool-definitions.json",
-    "sha256": "a0c2be099d49a9459afa49af72dfecbb31276139841d850cb8b80fc592cf96b4"
+    "sha256": "93bf6eadcd6f34ac6b2f362750bb4ce299d2bd392c728fa68b6ca786b1ef3df7"
   },
   "mcpListing": {
     "file": "mcp-tools-list.json",
-    "sha256": "01689d7ed8e52a0ff8015d1d16731ecc03f9ec07547e4da8019d288e60b35371"
+    "sha256": "65d8d056df22d112432030e5cf9041bc689f4eff2df22f39826448cc69f8cd64"
   },
   "identities": {
     "file": "identities.json",

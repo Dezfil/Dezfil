@@ -251,7 +251,8 @@ same way; over the limit, the whole dataset or the sample asked for answers
 answers `422 render_bytes_exceeded` with no partial preview, and the layer
 still draws when the slider settles. An Overture or OpenStreetMap Run Query
 preview over the limit answers `422 render_bytes_exceeded` the same way; the
-import is not held to it. Sketch features do not apply it yet.
+import is not held to it. A sketch's features read over the limit answers
+`422 render_bytes_exceeded` too; changes to the sketch are not held to it.
 
 JSON admission has fixed outer byte tiers: 65,536 bytes for authentication
 entry, Account, Users, instance settings and the three anonymous published POSTs; 16,777,216 for

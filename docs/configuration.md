@@ -456,7 +456,10 @@ features and its `truncated` flag, and over the limit answers
 it. An OpenStreetMap Run Query preview counts its features the same way while
 they are assembled, keeping its order (points, then lines, then polygons), the
 render cap and `truncated`, and stops assembling once the preview is over the
-limit or complete. Sketch features do not apply it yet. File and
+limit or complete. A sketch's features read (`GET /api/sketches/{name}/features`)
+counts its complete answer the same way and over the limit answers
+`422 render_bytes_exceeded`; the reads a change to the sketch makes are not
+held to it, so a sketch too large to read whole can still be changed. File and
 archive import processing, link and object-store imports, URL refreshes, and OpenStreetMap, Overture and PostGIS imports and refreshes
 use the Data processing time limit
 through preparation and commit. Accepted processing continues after departure;

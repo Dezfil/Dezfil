@@ -4,7 +4,7 @@ import { ownedCreationOp } from "./openapi-owned-creation";
 import { SKETCH_ROW_COUNT_RESPONSE } from "./openapi-tool-responses";
 import { LOCAL_ADD, LOCAL_DELETE, LOCAL_READ, LOCAL_REPLACE } from "./operation-mcp";
 import { READ_ONLY, writes, resource } from "./operation-metadata";
-import { op, pathParam } from "./openapi-helpers";
+import { op, pathParam, ERROR_RESPONSE } from "./openapi-helpers";
 
 export const SKETCH_PATHS = {
   "/api/maps/{id}/sketches": {
@@ -135,7 +135,11 @@ export const SKETCH_PATHS = {
       summary: "Read a sketch's drawn features",
       description:
         "Every drawn feature with its stable id, kind and geometry " +
-        "— the identity the select tool and vertex handles use.",
+        "— the identity the select tool and vertex handles use. The " +
+        "answer, envelope included, is bounded by Bytes drawn per layer " +
+        "(renderCapBytes), counted as it is built; above it the read " +
+        "answers 422 render_bytes_exceeded with no partial result. " +
+        "Changes to the sketch are not held to that limit.",
       tag: "Sketches",
       tool: "get_sketch_features", mcp: LOCAL_READ,
       display: {"verb": "Read the features of the sketch {subject}", "subject": {"resource": "tables", "argument": "name"}},
@@ -154,6 +158,7 @@ export const SKETCH_PATHS = {
             },
           },
         },
+        "422": ERROR_RESPONSE,
       },
     })),
     post: op(datasetAccess({
