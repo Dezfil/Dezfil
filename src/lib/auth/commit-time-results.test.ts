@@ -110,7 +110,7 @@ describe("a prepared layer download, claimed", () => {
     expect(await claimed.json()).toEqual({ error: { code: "invalid_request", message: "This prepared download is no longer available." } });
     const status = await download("bob", `__ui_status=${ticket}`);
     expect(await status.json()).toEqual({ status: "failed" });
-    await new Promise((resolve) => setTimeout(resolve, 20));
+    await layerDownloadTickets.settlePrepared();
     expect((await readdir(tileScratchDir())).filter((name) => name.startsWith("export-"))).toEqual([]);
   });
 
