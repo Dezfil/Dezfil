@@ -2780,6 +2780,21 @@
         "memory:immutable-configuration"
       ]
     },
+    "memory:src/lib/api/openapi-satellite.ts#PUBLISHED_SATELLITE_PATHS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-satellite.ts#SATELLITE_TILE_PARAMETERS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-satellite.ts#SATELLITE_TILE_RESPONSES": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
     "memory:src/lib/api/openapi-recipe-schemas.ts#RECIPE_DEPENDENCY_SCHEMAS": {
       "stores": [
         "memory:immutable-configuration"
@@ -3041,6 +3056,16 @@
       ]
     },
     "memory:src/lib/basemap.ts#BASEMAPS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/picture-credit.ts#BUILT_IN_PICTURE_BASEMAPS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/picture-credit.ts#BUILT_IN_URLS": {
       "stores": [
         "memory:immutable-configuration"
       ]

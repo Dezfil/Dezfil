@@ -253,14 +253,15 @@ const unavailable = (message: string, status = 502) => new ApiError("imagery_una
  */
 export const EGRESS_REFUSED_HEADER = "x-dezfil-egress-refused";
 
-/** The relay's refusals that are the outbound policy's. */
-const egressRefusals = new WeakSet<ApiError>();
+/** The relay's refusal where the outbound policy refused the imagery's
+ * address: the same coded refusal, told apart by its class. */
+class ImageryEgressRefusal extends ApiError {}
 
 /** A failed tile's answer, as `answer` makes it of the error, marked where
  * the outbound policy refused the imagery's address. */
 export function tileFailure(error: unknown, answer: (error: unknown) => Response): Response {
   const response = answer(error);
-  if (error instanceof ApiError && egressRefusals.has(error)) response.headers.set(EGRESS_REFUSED_HEADER, "imagery");
+  if (error instanceof ImageryEgressRefusal) response.headers.set(EGRESS_REFUSED_HEADER, "imagery");
   return response;
 }
 
@@ -324,9 +325,8 @@ export async function relaySatelliteTile(
     // The caller left: coded as an abandonment, with no address in it.
     if (error instanceof ApiError && error.code === "remote_fetch_abandoned") throw error;
     if (error instanceof ApiError && error.code === "egress_blocked") {
-      const refusal = unavailable("The satellite imagery's tile address is one this instance's egress policy refuses.");
-      egressRefusals.add(refusal);
-      throw refusal;
+      throw new ImageryEgressRefusal("imagery_unavailable",
+        "The satellite imagery's tile address is one this instance's egress policy refuses.", 502);
     }
     // Whatever else stopped the exchange (a refused connection, a name
     // that does not resolve, an answer cut short) is said without its
