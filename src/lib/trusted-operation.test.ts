@@ -7,6 +7,7 @@ import {
   admitTrustedOperation, currentTrustedOperation, isLifetimeOutcome, isTrustedOperationRefusal,
   trustedMemoryRefusal, withTrustedOperation, TrustedSettlementOverdue,
 } from "./trusted-operation";
+import { withTrustedMutation } from "./trusted-mutation";
 
 beforeEach(() => { vi.useFakeTimers(); });
 afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllEnvs(); });
@@ -271,7 +272,8 @@ it("keeps a resolved success while its cleanup crosses the deadline", async () =
   expect(vi.getTimerCount()).toBe(0);
 });
 
-it.each([true, false])("keeps a committed success when a cleanup fails, reporting the failure through settlement (marked=%s)", async marked => {
+it.each([true, false])("keeps a committed success when a cleanup fails, reporting the failure through settlement and the log (marked=%s)", async marked => {
+  const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
   const op = admitTrustedOperation({ kind: "import", name: "Link import", budgetMs: 100_000 });
   const later = vi.fn();
   op.defer(later); op.defer(() => { throw new Error("rm failed"); });
@@ -280,7 +282,33 @@ it.each([true, false])("keeps a committed success when a cleanup fails, reportin
   expect(answer).toEqual({ value: "registered" });
   expect((await settlement).error).toMatchObject({ message: "Link import cleanup failed." });
   expect(later).toHaveBeenCalledOnce();
+  expect(warn).toHaveBeenCalledOnce();
+  expect(warn).toHaveBeenCalledWith("Trusted import cleanup failed after its commit",
+    expect.objectContaining({ message: "Link import cleanup failed.", errors: [expect.objectContaining({ message: "rm failed" })] }));
   await op.drained;
+});
+
+it("logs a committed mutation's cleanup failure once and answers with its value", async () => {
+  const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+  const answer = await observed(withTrustedMutation({ kind: "sketch-change", name: "Sketch change" }, async operation => {
+    operation.defer(() => { throw new Error("tile removal failed"); });
+    operation.markCommitted();
+    return "saved";
+  }));
+  expect(answer).toEqual({ value: "saved" });
+  expect(warn).toHaveBeenCalledOnce();
+  expect(warn).toHaveBeenCalledWith("Trusted sketch-change cleanup failed after its commit", expect.objectContaining({ message: "Sketch change cleanup failed." }));
+});
+
+it("leaves a refused operation's cleanup failure to its refusal and writes no commit line", async () => {
+  const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+  const op = read(); const source = held();
+  op.defer(() => { throw new Error("Cleanup failed"); });
+  const result = observed(op.run(() => source.promise));
+  await vi.advanceTimersByTimeAsync(1000);
+  expect((await result).error).toMatchObject({ code: "query_timeout" });
+  source.resolve(); await op.drained;
+  expect(warn).not.toHaveBeenCalled();
 });
 
 it("control: a committed success whose cleanup does not fail resolves and settles", async () => {

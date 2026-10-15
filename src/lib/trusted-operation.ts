@@ -264,9 +264,10 @@ export class TrustedOperation {
   run<T>(work: (operation: TrustedOperation) => Promise<T>): Promise<T> {
     if (this.started) throw new Error("An operation runs only once.");
     this.started = true;
+    let answered = false;
     const running = Promise.resolve().then(() => this.within(work)).then(value => {
       // Resolved work is a success whatever its cleanup does afterwards.
-      this.commit(); return value;
+      this.commit(); answered = true; return value;
     }, error => {
       this.refuse(error); throw this.decidedAt !== null ? this.failure : error;
     });
@@ -283,8 +284,10 @@ export class TrustedOperation {
       if (this.cleanupErrors.length) {
         const error = new AggregateError(this.cleanupErrors, `${this.name} cleanup failed.`, { cause: this.failure });
         this.settlement.reject(error); this.drain.resolve();
-        // Committed work keeps its answer; the failure is reported through settled.
+        // Committed work keeps its answer; the failure is reported through
+        // settled and, since no caller sees it, in the server log.
         if (this.commitTime === null) throw error;
+        if (answered) console.warn(`Trusted ${this.kind} cleanup failed after its commit`, error);
         return;
       }
       this.settlement.resolve(); this.drain.resolve();
