@@ -774,6 +774,27 @@ export const MAP_SCHEMAS = {
               "has drew a dataset beyond the caller's reach. A card asks " +
               "for the image only when this is true.",
           },
+          thumbnailBasemap: {
+            type: ["object", "null"],
+            description:
+              "The basemap that card image was drawn on, recorded when the " +
+              "image was saved: the style's address, its kind, whether the " +
+              "map's own style (a library or single-map style) drew it " +
+              "rather than one of the instance's, and the credit it " +
+              "claimed then. A page of card images credits their basemaps " +
+              "from it, so an image keeps its credit when the map, the " +
+              "imagery or the instance's styles change, until the map is " +
+              "captured again. Null while hasThumbnail is false, and for an " +
+              "image saved before images recorded it, which is credited by " +
+              "the map's basemap now.",
+            properties: {
+              url: { type: "string" },
+              kind: { type: "string", enum: ["vector", "imagery"] },
+              custom: { type: "boolean" },
+              attribution: { $ref: "#/components/schemas/BasemapAttribution" },
+            },
+            required: ["url", "kind", "custom", "attribution"],
+          },
         },
       },
       { $ref: "#/components/schemas/MapPresence" },

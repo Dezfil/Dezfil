@@ -32,7 +32,7 @@
   },
   "mcpListing": {
     "file": "mcp-tools-list.json",
-    "sha256": "da3cf3c49a757c0224c797a51aa1491f256b4d841db4c11656eccdaaa03e7291"
+    "sha256": "547fd58c9c3ead43bea8251da14300dc1f2996fcef339c47607246e989191ecf"
   },
   "identities": {
     "file": "identities.json",

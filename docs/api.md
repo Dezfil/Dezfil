@@ -1851,9 +1851,14 @@ another build (one being swapped in). A card image is served to a reader who
 reaches the map and every dataset it drew; any other image is passed over like
 a missing one, so the reader gets the card's placeholder `404`. A map's
 listing entry says by the same rule whether there is an image the caller is
-served (`hasThumbnail`), so a card asks for one only then. An image is
-copied into a duplicate only when the duplicator may be served it, a themed
-pair only whole. A published link is served an archive, and a held view of
+served (`hasThumbnail`), so a card asks for one only then. Each image also
+records the basemap it was drawn on as it was saved, with that style's credit,
+and the entry carries it (`thumbnailBasemap`): a page of card images credits
+what each image drew, whatever the map, the imagery or the instance's styles
+do until the map is captured again. It is null for an image saved before
+images recorded it, which is credited by the map's basemap now. An image is
+copied into a duplicate, with what it recorded, only when the duplicator may
+be served it, a themed pair only whole. A published link is served an archive, and a held view of
 itself, only while the map's owner can still reach what it drew, and an
 archive or view that read the catalogue only within what the map names.
 Unattributed artifacts are the map's current owner's alone, so a transfer

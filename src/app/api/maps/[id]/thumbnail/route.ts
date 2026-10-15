@@ -11,7 +11,7 @@ import {
   saveThumbnail,
   type ThumbnailTheme,
 } from "@/lib/map-thumbnails";
-import { captureInputs } from "@/lib/thumbnail-evidence";
+import { captureBasemap, captureInputs } from "@/lib/thumbnail-evidence";
 import { isMapSqlRevision } from "@/lib/map-sql-revision";
 
 type Params = { params: Promise<{ id: string }> };
@@ -77,7 +77,8 @@ function revisionOf(request: Request): string | null {
  * theme and a cycle, one of a themed pair: held (202) until the partner
  * arrives under the same cycle, then published together (204). Each image
  * is stamped with what the map's SQL draws at the revision the capture saw,
- * or kept unattributed when that revision is missing or has moved. */
+ * or kept unattributed when that revision is missing or has moved, and with
+ * the basemap the map stands on as it is saved, which its credit names. */
 export async function PUT(request: Request, { params }: Params) {
   try {
     const scope = requireRequestScope(request);
@@ -112,13 +113,14 @@ export async function PUT(request: Request, { params }: Params) {
     }
     const revision = revisionOf(request);
     const inputs = await captureInputs(scope, id, revision);
+    const basemap = captureBasemap(id, theme);
     if (theme) {
-      const outcome = await saveThemedThumbnail(scope, id, theme, cycle!, body, inputs);
+      const outcome = await saveThemedThumbnail(scope, id, theme, cycle!, body, inputs, basemap);
       return new NextResponse(null, {
         status: outcome === "held" ? 202 : 204,
       });
     }
-    await saveThumbnail(scope, id, body, inputs);
+    await saveThumbnail(scope, id, body, inputs, basemap);
     return new NextResponse(null, { status: 204 });
   } catch (error) {
     return errorResponse(error);

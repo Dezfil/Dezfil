@@ -16,7 +16,16 @@ import {
 } from "node:fs/promises";
 import { dataDir } from "@/lib/config";
 import type { ArtifactInputs } from "@/lib/query/evaluation-inputs";
-import { evidencedImages, imageInputs, recordedInputs, removeImageEvidence, writeImageEvidence } from "./thumbnail-evidence";
+import type { DrawnBasemap } from "./picture-credit";
+import {
+  evidencedImages,
+  imageEvidence,
+  imageInputs,
+  recordedEvidence,
+  removeImageEvidence,
+  writeImageEvidence,
+  type ImageEvidence,
+} from "./thumbnail-evidence";
 
 /**
  * Map thumbnails: PNGs per map, captured by the builder after edits
@@ -41,8 +50,9 @@ import { evidencedImages, imageInputs, recordedInputs, removeImageEvidence, writ
  * Every mutation of one map's images runs under that map's own turn, so two cycles cannot interleave. Writes land through
  * a temporary file and a rename (the ` ` class).
  *
- * Each image carries the evidence of what it drew (thumbnail-evidence.ts),
- * written before the image and removed with it. Captures are the map
+ * Each image carries the evidence of what it drew and the basemap it was
+ * drawn on (thumbnail-evidence.ts), written before the image and removed
+ * with it. Captures are the map
  * owner's; an image is served, and copied into a duplicate, only for
  * someone who reaches the map and can now reach every dataset it drew, an
  * unattributed image for the map's owner alone.
@@ -227,12 +237,14 @@ async function expireHeld(
 
 /** The single image: published at once under its historical name, and
  * the map returns to one image. `inputs` is what the image drew, or null
- * for an unattributed image. */
+ * for an unattributed image; `basemap` the basemap it was drawn on, or
+ * null when none is known. */
 export function saveThumbnail(
   scope: AccountScope,
   mapId: string,
   bytes: Uint8Array,
   inputs: ArtifactInputs | null = null,
+  basemap: DrawnBasemap | null = null,
 ): Promise<void> {
   requireOwnMap(scope, mapId);
   const lease = admitResourceWork(scope, [{ table: "maps", id: mapId }]);
@@ -242,21 +254,21 @@ export function saveThumbnail(
   return inDeletionWork(lease, () => inThumbnailTurn(mapId, async () => {
     authorize();
     const single = path.basename(thumbnailPath(mapId));
-    await writeImageCandidate(single, thumbnailPath(mapId), bytes, inputs, authorize);
+    await writeImageCandidate(single, thumbnailPath(mapId), bytes, { inputs, basemap }, authorize);
     await rm(thumbnailManifestPath(mapId), { force: true });
     await retireUnreferenced(mapId, null, true);
   })).finally(() => lease.release());
 }
 
-async function writeImageCandidate(image: string, target: string, bytes: Uint8Array, inputs: ArtifactInputs | null, authorize: () => void) {
+async function writeImageCandidate(image: string, target: string, bytes: Uint8Array, evidence: ImageEvidence, authorize: () => void) {
   let previous: Buffer | undefined;
   try { previous = await readFile(target); } catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
-  const previousInputs = previous ? await imageInputs(image, previous) : null;
+  const previousEvidence = previous ? await imageEvidence(image, previous) : null;
   try {
-    await writeImageEvidence(image, bytes, inputs, authorize);
+    await writeImageEvidence(image, bytes, evidence, authorize);
     await writeAtomically(target, bytes, authorize);
   } catch (error) {
-    if (previous) await writeImageEvidence(image, previous, previousInputs);
+    if (previous) await writeImageEvidence(image, previous, previousEvidence!);
     else await removeImageEvidence(image);
     throw error;
   }
@@ -274,6 +286,7 @@ export function saveThemedThumbnail(
   cycle: string,
   bytes: Uint8Array,
   inputs: ArtifactInputs | null = null,
+  basemap: DrawnBasemap | null = null,
 ): Promise<"held" | "published"> {
   requireOwnMap(scope, mapId);
   const lease = admitResourceWork(scope, [{ table: "maps", id: mapId }]);
@@ -286,7 +299,7 @@ export function saveThemedThumbnail(
     authorize();
     await expireHeld(mapId, previous);
     const own = thumbnailSetFile(mapId, cycle, theme);
-    await writeImageCandidate(own, inDir(own), bytes, inputs, authorize);
+    await writeImageCandidate(own, inDir(own), bytes, { inputs, basemap }, authorize);
     const partner = thumbnailSetFile(mapId, cycle, otherTheme(theme));
     const paired = await exists(inDir(partner));
     authorize();
@@ -340,30 +353,33 @@ export async function readThumbnail(
 
 /**
  * Which of these maps the reader would be served a card image of now, so
- * a card asks for an image only when there is one. One read of the
+ * a card asks for an image only when there is one, each with the basemap
+ * that image was drawn on (null when none was recorded). One read of the
  * directory, then each map's published set and single image as
- * readThumbnail would try them, judged by the inputs their evidence
- * records rather than by reading the images: an image whose evidence
- * names other bytes (a write that failed halfway) may be counted and
- * then answer the placeholder, as before.
+ * readThumbnail would try them, judged by what their evidence records
+ * rather than by reading the images: an image whose evidence names other
+ * bytes (a write that failed halfway) may be counted and then answer the
+ * placeholder, as before. The two images of a set stand on the same
+ * basemap's credit, so either names it.
  */
-export async function servedThumbnails(scope: AccountScope, mapIds: readonly string[]): Promise<Set<string>> {
+export async function servedThumbnails(scope: AccountScope, mapIds: readonly string[]): Promise<Map<string, DrawnBasemap | null>> {
   let names: Set<string>;
   try {
     names = new Set(await readdir(thumbnailsDir()));
   } catch {
-    return new Set();
+    return new Map();
   }
-  const served = await Promise.all(mapIds.map(async (mapId) => {
+  const served = await Promise.all(mapIds.map(async (mapId): Promise<[string, DrawnBasemap | null] | null> => {
     const set = names.has(path.basename(thumbnailManifestPath(mapId))) ? await readSet(mapId) : null;
     const files = [set?.light, set?.dark, path.basename(thumbnailPath(mapId))]
       .filter((name): name is string => name !== undefined && names.has(name));
     for (const name of files) {
-      if (servableTo(scope, mapId, await recordedInputs(name))) return mapId;
+      const evidence = await recordedEvidence(name);
+      if (servableTo(scope, mapId, evidence.inputs)) return [mapId, evidence.basemap];
     }
     return null;
   }));
-  return new Set(served.filter((mapId): mapId is string => mapId !== null));
+  return new Map(served.filter((entry): entry is [string, DrawnBasemap | null] => entry !== null));
 }
 
 /** Every image the map has, published or held. */
@@ -393,7 +409,7 @@ export function removeThumbnail(scope: AccountScope, mapId: string): Promise<voi
 }
 
 /** A duplicated map keeps its look until its first capture, each image with
- * the evidence of what it drew: the copy keeps the original's SQL and home.
+ * the evidence of what it drew and was drawn on: the copy keeps the original's SQL and home.
  * An image is copied only when the duplicator may be served it now, a
  * themed pair only whole; otherwise the copy starts without it. Lock both
  * parents in stable order, so a queued destination write cannot interleave
@@ -408,9 +424,9 @@ export function copyThumbnail(scope: AccountScope, from: string, to: string): Pr
     let single: Buffer | undefined;
     try { single = await readFile(thumbnailPath(from)); } catch { /* No single image. */ }
     authorize();
-    const singleInputs = single ? await imageInputs(path.basename(thumbnailPath(from)), single) : null;
-    if (single && servableTo(scope, from, singleInputs)) {
-      await writeImageEvidence(path.basename(thumbnailPath(to)), single, singleInputs);
+    const singleEvidence = single ? await imageEvidence(path.basename(thumbnailPath(from)), single) : null;
+    if (single && singleEvidence && servableTo(scope, from, singleEvidence.inputs)) {
+      await writeImageEvidence(path.basename(thumbnailPath(to)), single, singleEvidence);
       await writeAtomically(thumbnailPath(to), single, authorize);
     }
     const set = await readSet(from);
@@ -423,11 +439,11 @@ export function copyThumbnail(scope: AccountScope, from: string, to: string): Pr
     const light = await readFile(inDir(set.light));
     authorize();
     const dark = await readFile(inDir(set.dark));
-    const lightInputs = await imageInputs(set.light, light);
-    const darkInputs = await imageInputs(set.dark, dark);
-    if (!servableTo(scope, from, lightInputs) || !servableTo(scope, from, darkInputs)) return;
-    await writeImageEvidence(copied.light, light, lightInputs);
-    await writeImageEvidence(copied.dark, dark, darkInputs);
+    const lightEvidence = await imageEvidence(set.light, light);
+    const darkEvidence = await imageEvidence(set.dark, dark);
+    if (!servableTo(scope, from, lightEvidence.inputs) || !servableTo(scope, from, darkEvidence.inputs)) return;
+    await writeImageEvidence(copied.light, light, lightEvidence);
+    await writeImageEvidence(copied.dark, dark, darkEvidence);
     await writeAtomically(inDir(copied.light), light, authorize);
     await writeAtomically(inDir(copied.dark), dark, authorize);
     await writeAtomically(thumbnailManifestPath(to), JSON.stringify(copied), authorize);

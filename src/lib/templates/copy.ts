@@ -19,7 +19,7 @@ import { insertTable } from "@/lib/metadata/tables";
 import { takenNames } from "@/lib/operations/recipe-duplicate";
 import { projectMembers, projectOverview, type ProjectMembers, type ProjectOverview } from "@/lib/project-service";
 import { trackInflight } from "@/lib/query/inflight";
-import { captureInputs, currentMapRevision } from "@/lib/thumbnail-evidence";
+import { captureBasemap, captureInputs, currentMapRevision } from "@/lib/thumbnail-evidence";
 import type { AdmittedMap, AdmittedWorkflow } from "./admission";
 import { copySource, type CopySource } from "./catalogue";
 import { copyDatasetFile, removeCopiedArtifacts, type CopiedArtifact } from "./copy-artifacts";
@@ -300,7 +300,9 @@ async function savePictures(scope: AccountScope, made: Made): Promise<void> {
   try {
     const inputs = await captureInputs(scope, made.mapId, currentMapRevision(made.mapId));
     const cycle = randomBytes(12).toString("hex");
-    for (const theme of TEMPLATE_THEMES) await saveThemedThumbnail(scope, made.mapId, theme, cycle, made.pictures[theme], inputs);
+    for (const theme of TEMPLATE_THEMES) {
+      await saveThemedThumbnail(scope, made.mapId, theme, cycle, made.pictures[theme], inputs, captureBasemap(made.mapId, theme));
+    }
   } catch {
     // The copy is whole without its card images; the first capture draws them.
   }

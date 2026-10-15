@@ -2,17 +2,21 @@
  * The credit for a page of map pictures. Each picture is a snapshot of a
  * map drawn on its basemap, and the small pictures have no room for the
  * open map's credit, so a page that shows them credits their basemaps on
- * one line. Each map's credit is named through the one effective-basemap
- * lookup the builder credits the open map with: the built-in styles'
- * line, Satellite's configured credit, a library or a single map's own
- * style by its saved credit, the deployment's own style by the credit it
- * configured. A map with no picture shows chart paper, drawn on no
- * basemap, and credits nothing. Dependency-free beyond the basemap
- * domain: reaches the client bundle.
+ * one line. Each picture is credited by the basemap it was drawn on, as
+ * the server recorded it when the picture was saved, so a picture keeps
+ * its credit whatever its map, the imagery or the instance's styles do
+ * until the map is pictured again. A picture saved before pictures
+ * recorded it has no record, and its credit is named through the one
+ * effective-basemap lookup the builder credits the open map with, as
+ * every picture's was: the built-in styles' line, Satellite's configured
+ * credit, a library or a single map's own style by its saved credit, the
+ * deployment's own style by the credit it configured. A map with no
+ * picture shows chart paper, drawn on no basemap, and credits nothing.
+ * Dependency-free beyond the basemap domain: reaches the client bundle.
  */
 
 import { BASEMAPS, type AttributionLine, type BasemapKey, type BasemapStyle } from "./basemap";
-import { effectiveBasemap } from "./basemap-effective";
+import { effectiveBasemap, type EffectiveBasemap } from "./basemap-effective";
 import type { CustomBasemap } from "./metadata/maps";
 
 /** What a page knows of the instance's basemaps, as the server reads it:
@@ -33,12 +37,19 @@ export const BUILT_IN_PICTURE_BASEMAPS: PictureBasemaps = {
   overrideAttribution: [],
 };
 
-/** A map as a listing carries it: its basemap, and whether it has a
- * picture the viewer is served. */
+/** The basemap a picture was drawn on, as recorded when it was saved: the
+ * style's address, its kind, whether the map's own style drew it rather
+ * than one of the instance's, and the credit it claimed then. */
+export type DrawnBasemap = Pick<EffectiveBasemap, "url" | "kind" | "custom" | "attribution">;
+
+/** A map as a listing carries it: its basemap, whether it has a picture
+ * the viewer is served, and the basemap that picture was drawn on (none
+ * recorded for a picture saved before pictures recorded it). */
 export interface PicturedMap {
   basemap: BasemapKey | null;
   customBasemap: CustomBasemap | null;
   hasThumbnail: boolean;
+  thumbnailBasemap?: DrawnBasemap | null;
 }
 
 /** The order the credits stand in, whatever order the page lists its
@@ -62,7 +73,9 @@ export function picturesCredit(
   const credits = maps
     .filter((m) => m.hasThumbnail)
     .map((m) => {
-      const drawn = effectiveBasemap({
+      // A picture saved before pictures recorded the basemap they were
+      // drawn on has no record: it is credited by its map's basemap now.
+      const drawn = m.thumbnailBasemap ?? effectiveBasemap({
         key: m.basemap,
         custom: m.customBasemap,
         theme,

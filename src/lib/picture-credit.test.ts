@@ -59,6 +59,15 @@ describe("the line for a page of map pictures", () => {
     expect(named([...maps].reverse()).map((line) => line.label)).toEqual(expected);
   });
 
+  it("credits a picture by the basemap recorded with it, and one saved before pictures recorded it by its map's basemap now", () => {
+    const drawnOnA = { url: SATELLITE_STYLE_URL, kind: "imagery" as const, custom: false, attribution: [{ label: "© Provider A" }] };
+    expect(named([{ ...pictured("dark"), thumbnailBasemap: drawnOnA }])).toEqual([{ label: "© Provider A" }]);
+    expect(named([{ ...pictured("satellite"), thumbnailBasemap: null }])).toEqual([{ label: "© Imagery Provider" }]);
+    // In the one order: the built-in styles, then the imagery.
+    expect(named([{ ...pictured("dark"), thumbnailBasemap: drawnOnA }, pictured(null)]).map((line) => line.label))
+      .toEqual(["© OpenMapTiles", "© OpenStreetMap", "© Provider A"]);
+  });
+
   it("credits an Auto map under the deployment's own style with the credit that style configured, and nothing without one", () => {
     const pinned: PictureBasemaps = { ...WITH_SATELLITE, overrideUrl: "https://tiles.internal/style.json", overrideAttribution: [{ label: "© Internal Tiles" }] };
     expect(named([pictured(null), pictured("light")], pinned).map((line) => line.label))

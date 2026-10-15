@@ -1532,7 +1532,7 @@
         "thumbnails/*"
       ]
     },
-    "location:src/lib/map-thumbnails.ts#copyThumbnail.singleInputs:thumbnailPath": {
+    "location:src/lib/map-thumbnails.ts#copyThumbnail.singleEvidence:thumbnailPath": {
       "stores": [
         "file:thumbnails"
       ],
@@ -2251,15 +2251,7 @@
         "artifact-inputs/thumbnails/*.json"
       ]
     },
-    "location:src/lib/thumbnail-evidence.ts#imageInputs.parsed:evidencePath": {
-      "stores": [
-        "file:thumbnail-inputs"
-      ],
-      "roots": [
-        "artifact-inputs/thumbnails/*.json"
-      ]
-    },
-    "location:src/lib/thumbnail-evidence.ts#recordedInputs:evidencePath": {
+    "location:src/lib/thumbnail-evidence.ts#readEvidence.parsed:evidencePath": {
       "stores": [
         "file:thumbnail-inputs"
       ],
