@@ -162,7 +162,10 @@ limit only by reading it up to the limit, so that outcome is remembered for
 the answer it was read for: the layer, its effective query, the fields it
 carries, its envelope, the data its evaluation read and the limit. The
 builder's poll while tiles build, a reload or a published view then takes
-the same road without reading again (`src/lib/render-over-limit.ts`).
+the same road without reading again, for thirty seconds from the read that
+found the excess; asking again does not extend that, so a query that reads
+the clock and has come to fit is drawn again within half a minute
+(`src/lib/render-over-limit.ts`).
 
 Feature properties carry the columns their audience reads, one policy per
 audience over shared primitives (`src/lib/field-dependencies.ts`): a builder

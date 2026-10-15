@@ -148,6 +148,42 @@ describe("a layer over the byte limit", () => {
     expect(changed).toMatchObject({ ok: true, mode: "inline", featureCount: 1 });
   });
 
+  it("reads a query that reads the clock again once the refusal's lifetime has passed, not before", async () => {
+    process.env.DEZFIL_RENDER_CAP_BYTES = "1024";
+    // Unchanged query, unchanged data: every row until a moment just
+    // ahead, one row after it.
+    const start = Date.now();
+    const shrinks = start + 1500;
+    const layer = await layerOn({
+      viz: { type: "heatmap", radiusPx: 30, intensity: 1, weight: "id" },
+      sql: `SELECT id, kind, payload, geometry FROM points WHERE id < CASE WHEN epoch_ms(now()) < ${shrinks} THEN 40 ELSE 1 END`,
+    });
+    // The memory's clock is controlled; the engine's is the real one.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      vi.setSystemTime(start);
+      const count = inlineReads();
+      const [refused, first] = await count(() => render(layer));
+      expect(refused.error?.code).toBe("render_bytes_exceeded");
+      expect(first).toBe(1);
+
+      await new Promise((resolve) => setTimeout(resolve, Math.max(0, shrinks - (performance.timeOrigin + performance.now())) + 100));
+      // Within the lifetime the refusal still saves the read, though the
+      // answer would now fit; asking again does not extend it.
+      vi.setSystemTime(start + 29_999);
+      const [stale, second] = await count(() => render(layer));
+      expect(stale).toEqual(refused);
+      expect(second).toBe(0);
+
+      vi.setSystemTime(start + 30_000);
+      const [fresh, third] = await count(() => render(layer));
+      expect(fresh).toMatchObject({ ok: true, mode: "inline", featureCount: 1 });
+      expect(third).toBe(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("keeps the published reader and the builder apart", async () => {
     process.env.DEZFIL_RENDER_CAP_BYTES = "1024";
     const layer = await layerOn({ viz: { type: "heatmap", radiusPx: 30, intensity: 1, weight: "id" } });

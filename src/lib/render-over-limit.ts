@@ -15,12 +15,23 @@ import { inputsKey, type ArtifactInputs } from "@/lib/query/evaluation-inputs";
  * tile archive keys its freshness) and the limit. Anything that could
  * change the answer is a different key, read afresh. Only refusals are
  * remembered; an answer that fits is read every time, as it is drawn.
+ *
+ * A query can also change its answer with none of that changing: one that
+ * reads the clock (now(), a time window) or draws random rows returns
+ * less later. So a refusal is remembered for a fixed time from the read
+ * that found it, and asking again does not extend it. Thirty seconds
+ * spares a dozen of the builder's polls, 2.5 s apart, and the renders a
+ * reload or a published view makes around them, while an answer that has
+ * come to fit is drawn again within half a minute.
  */
 
-/** The most answers remembered; the oldest is forgotten first. */
+/** The most answers remembered; the oldest read is forgotten first. */
 const CAPACITY = 256;
+/** How long a refusal is remembered from the read that found it. */
+const LIFETIME_MS = 30_000;
 
-const remembered = new Map<string, true>();
+/** Each remembered refusal, by its key, with when it was read. */
+const remembered = new Map<string, number>();
 
 export interface OverLimitAnswer {
   layerId: string;
@@ -41,19 +52,22 @@ function keyOf(answer: OverLimitAnswer): string {
   return `${answer.layerId}\u0000${digest}`;
 }
 
-/** Whether this answer was read before and refused at this limit. */
+/** Whether this answer was read and refused at this limit within the
+ * lifetime. A clock that went back counts as the lifetime passed. */
 export function knownOverLimit(answer: OverLimitAnswer): boolean {
   const key = keyOf(answer);
-  if (!remembered.has(key)) return false;
+  const read = remembered.get(key);
+  if (read === undefined) return false;
+  const age = Date.now() - read;
+  if (age >= 0 && age < LIFETIME_MS) return true;
   remembered.delete(key);
-  remembered.set(key, true);
-  return true;
+  return false;
 }
 
 export function rememberOverLimit(answer: OverLimitAnswer): void {
   const key = keyOf(answer);
   remembered.delete(key);
-  remembered.set(key, true);
+  remembered.set(key, Date.now());
   while (remembered.size > CAPACITY) remembered.delete(remembered.keys().next().value!);
 }
 

@@ -301,8 +301,9 @@ export async function layerAnswer(
     // The answer is built while it is read, under Bytes drawn per layer:
     // an answer over the limit is refused before it is complete, never
     // after (see query/render-features). Null is that refusal. A refusal
-    // is remembered for this exact answer, so asking again (a tile poll,
-    // a reload) takes the road without reading up to the limit again.
+    // is remembered for this exact answer for half a minute from the read,
+    // so asking again within it (a tile poll, a reload) takes the road
+    // without reading up to the limit again.
     const inline = async () => {
       const answer: OverLimitAnswer = {
         layerId: layer.id,
