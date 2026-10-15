@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { admitAccountWork, type AccountWorkLease } from "@/lib/auth/account-deletion-admission";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
+import { BASEMAPS, type BasemapKey } from "@/lib/basemap";
 import { saveThemedThumbnail } from "@/lib/map-thumbnails";
 import { metadataDb } from "@/lib/metadata/db";
 import { insertLayer, insertMap } from "@/lib/metadata/maps";
@@ -17,9 +18,10 @@ import { createRecipe } from "@/lib/metadata/recipes";
 import { readDocumentRevision, recordDocumentBatch } from "@/lib/metadata/revisions";
 import { insertTable } from "@/lib/metadata/tables";
 import { takenNames } from "@/lib/operations/recipe-duplicate";
+import type { DrawnBasemap } from "@/lib/picture-credit";
 import { projectMembers, projectOverview, type ProjectMembers, type ProjectOverview } from "@/lib/project-service";
 import { trackInflight } from "@/lib/query/inflight";
-import { captureBasemap, captureInputs, currentMapRevision } from "@/lib/thumbnail-evidence";
+import { captureInputs, currentMapRevision } from "@/lib/thumbnail-evidence";
 import type { AdmittedMap, AdmittedWorkflow } from "./admission";
 import { copySource, type CopySource } from "./catalogue";
 import { copyDatasetFile, removeCopiedArtifacts, type CopiedArtifact } from "./copy-artifacts";
@@ -64,9 +66,9 @@ import { refuse } from "./refusals";
  *
  * The card images are saved after the commit, through the map's own
  * thumbnail road, which needs the map to exist and be the caller's: the
- * template's pictures, with evidence naming the copied datasets. A failure
- * there leaves the copy whole and its card on the placeholder until the
- * map's first capture.
+ * template's pictures, with evidence naming the copied datasets and the
+ * basemap the template drew them on. A failure there leaves the copy whole
+ * and its card on the placeholder until the map's first capture.
  */
 
 export interface CopyRequest {
@@ -106,6 +108,8 @@ interface Made {
   projectId: string;
   mapId: string;
   pictures: Record<TemplateTheme, Buffer>;
+  /** The basemap the template's map is on, which its pictures were drawn on. */
+  basemap: BasemapKey | null;
 }
 
 function provenance(facts: TemplateFacts, note: string | null, now: string): string {
@@ -209,7 +213,7 @@ const sameNames = (a: LandedNames, b: LandedNames) => a.size === b.size && [...a
 
 /** Everything the copy writes, inside its one transaction, the project
  * first. */
-function writeCopy(scope: AccountScope, accountId: string, planned: Planned, db: Database): Omit<Made, "pictures"> {
+function writeCopy(scope: AccountScope, accountId: string, planned: Planned, db: Database): Omit<Made, "pictures" | "basemap"> {
   const { installed: { admitted, record }, references, members, copied, landed } = planned;
   // Taken again here, under the transaction: what another copy committed
   // since the names were checked is among them now.
@@ -280,7 +284,7 @@ async function makeCopy(scope: AccountScope, accountId: string, source: CopySour
           lease.assertCommit();
           return writeCopy(scope, accountId, planned, db);
         }, db)).immediate();
-        return { ...made, pictures };
+        return { ...made, pictures, basemap: admitted.map.basemap };
       } catch (error) {
         if (!(error instanceof NamesMoved) || attempt === NAME_ATTEMPTS) throw error;
         landed = error.landed;
@@ -293,15 +297,33 @@ async function makeCopy(scope: AccountScope, accountId: string, source: CopySour
   }
 }
 
+/**
+ * The basemap a template's picture was drawn on, recorded with it. The
+ * pictures are saved as they came rather than drawn here, so they keep the
+ * credit of what they were drawn on, not this instance's basemap, whose
+ * deployment may set a style of its own. A template names no basemap
+ * beyond its map's key: on Auto or a built-in style it was drawn on the
+ * built-in style for the picture's theme, with the built-in credit. On
+ * Satellite it names no imagery and no credit, so its pictures record none
+ * and are credited by the copied map's basemap, as a picture with no
+ * record is.
+ */
+function templatePictureBasemap(key: BasemapKey | null, theme: TemplateTheme): DrawnBasemap | null {
+  if (key === "satellite") return null;
+  const style = BASEMAPS.find((b) => b.key === (key ?? theme))!;
+  return { url: style.url, kind: style.kind, custom: false, attribution: style.attribution };
+}
+
 /** The card images, after the commit: the template's pictures as the
- * map's themed pair, with evidence naming what its layers bind. A failure
- * leaves the copy as it is, its card on the placeholder. */
+ * map's themed pair, with evidence naming what its layers bind and the
+ * basemap they were drawn on. A failure leaves the copy as it is, its card
+ * on the placeholder. */
 async function savePictures(scope: AccountScope, made: Made): Promise<void> {
   try {
     const inputs = await captureInputs(scope, made.mapId, currentMapRevision(made.mapId));
     const cycle = randomBytes(12).toString("hex");
     for (const theme of TEMPLATE_THEMES) {
-      await saveThemedThumbnail(scope, made.mapId, theme, cycle, made.pictures[theme], inputs, captureBasemap(made.mapId, theme));
+      await saveThemedThumbnail(scope, made.mapId, theme, cycle, made.pictures[theme], inputs, templatePictureBasemap(made.basemap, theme));
     }
   } catch {
     // The copy is whole without its card images; the first capture draws them.

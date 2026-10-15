@@ -1381,7 +1381,11 @@ download stays installed. A copied dataset's `source` is `template`, with
 the template's `id` and `version` in its `sourceParams`; it is never
 refreshed. The map's card images
 are the template's pictures, saved after the copy with evidence naming the
-copied datasets; when they cannot be saved the copy stands and its card
+copied datasets and the basemap the template drew them on: for a template on
+Auto or a built-in style, that built-in style with the built-in credit,
+whatever style this instance's deployment sets; for a template on Satellite,
+none, since the template names no imagery, so they are credited by the map's
+basemap now. When they cannot be saved the copy stands and its card
 shows the placeholder until the map's first capture. It answers 201
 `{ project, members }`, the project as `GET /api/projects/{id}` reads it with
 its members, and `Location` naming the project. Refused, coded, with nothing
@@ -1855,8 +1859,9 @@ served (`hasThumbnail`), so a card asks for one only then. Each image also
 records the basemap it was drawn on as it was saved, with that style's credit,
 and the entry carries it (`thumbnailBasemap`): a page of card images credits
 what each image drew, whatever the map, the imagery or the instance's styles
-do until the map is captured again. It is null for an image saved before
-images recorded it, which is credited by the map's basemap now. An image is
+do until the map is captured again. It is null for an image that recorded
+none, one saved before images recorded it or a Satellite template's picture,
+which is credited by the map's basemap now. An image is
 copied into a duplicate, with what it recorded, only when the duplicator may
 be served it, a themed pair only whole. A published link is served an archive, and a held view of
 itself, only while the map's owner can still reach what it drew, and an

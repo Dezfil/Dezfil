@@ -784,9 +784,11 @@ export const MAP_SCHEMAS = {
               "claimed then. A page of card images credits their basemaps " +
               "from it, so an image keeps its credit when the map, the " +
               "imagery or the instance's styles change, until the map is " +
-              "captured again. Null while hasThumbnail is false, and for an " +
-              "image saved before images recorded it, which is credited by " +
-              "the map's basemap now.",
+              "captured again. Null while hasThumbnail is false, and for " +
+              "an image that recorded none (one saved before images " +
+              "recorded it, or a picture of a template on Satellite, whose " +
+              "template names no imagery), which is credited by the map's " +
+              "basemap now.",
             properties: {
               url: { type: "string" },
               kind: { type: "string", enum: ["vector", "imagery"] },
