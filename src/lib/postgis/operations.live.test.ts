@@ -43,7 +43,8 @@ describe.skipIf(!url)(url ? "live source operation ownership" : "SKIP: DEZFIL_TE
   it.each(kinds)("%s applies its departure policy while the source is held", async kind => { await exercise(kind, true); }, 100_000);
   async function exercise(kind: typeof kinds[number], depart: boolean) {
     const scope = testAccountScope(), id = randomUUID(), lock = randomInt(1, 2 ** 30);
-    const values = resolveCreateConnectionInput({ name: `Held ${kind}`, url: fixtureUrl(url!, "disable") });
+    // Both sets share one data folder, and a connection name is unique per owner.
+    const values = resolveCreateConnectionInput({ name: `Held ${kind} ${depart ? "through departure" : "to expiry"}`, url: fixtureUrl(url!, "disable") });
     insertConnection(scope, { id, ...values, ...(kind === "edit" ? { password: "not-the-fixture-password" } : {}) });
     const recipe = { connectionId: id, schema, table: "normal" };
     const previous = kind === "refresh" ? await importPostgis(scope, recipe) : null;
