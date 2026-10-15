@@ -657,7 +657,6 @@ function BuilderEditor({
     map,
     patchMap,
     patchLayer,
-    refreshLayer,
     preview: live.preview,
   });
   // The status pill delays its entry while a timeline is docked (review

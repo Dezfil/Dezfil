@@ -2543,7 +2543,10 @@ export function buildOpenApiDocument() {
             geojson: {
               type: "object",
               description:
-                "Inline GeoJSON. Non-point features carry a reserved " +
+                "Inline GeoJSON. Feature properties are the columns the " +
+                "audience reads: on a builder render, what the layer and " +
+                "its map use; on a published render, the effective " +
+                "published field set. Non-point features carry a reserved " +
                 "__anchor property — an interior [lng, lat] that labels " +
                 "anchor on; it never shows in tooltips or " +
                 "pop-ups.",

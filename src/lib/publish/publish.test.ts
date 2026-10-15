@@ -383,6 +383,7 @@ describe("published-field projection", () => {
     const clustered = await updateLayer(testAccountScope(), layer.id, {
       tooltip: ["name"],
       popup: [],
+      publishedFields: ["riders"],
       viz: { type: "cluster", radiusPx: 64, color: "fixed", showCounts: true },
     }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     const published = {
@@ -393,10 +394,11 @@ describe("published-field projection", () => {
     const reader = await renderLayerWithSelections(testAccountScope(), clustered, [], undefined, {
       published,
     });
-    expect(keysOf(reader)).toEqual(["name"]);
-    // The builder's settle preview keeps the full row.
+    expect(keysOf(reader)).toEqual(["riders"]);
+    // The builder's settle preview carries the layer's own fields: the
+    // published override is the reader's alone.
     const builder = await renderLayerWithSelections(testAccountScope(), clustered, []);
-    expect(keysOf(builder)).toContain("secret");
+    expect(keysOf(builder)).toEqual(["name"]);
   });
 
   it("aggregated layers are unchanged: computed columns only", async () => {
@@ -431,6 +433,8 @@ describe("published-field projection", () => {
     expect(publishedFieldsFor(updated, context, columns)).toEqual(["riders"]);
     // Automatic interactions keep the existing rule's picks.
     expect(privateLayerFields({ ...updated, popup: null }, context, columns)).toEqual(columns);
+    // And the builder render carries exactly that set.
+    expect(keysOf(await renderLayer(testAccountScope(), updated, undefined, { tileAccess: privateTileAccess(testAccountScope(), updated.id) }))).toEqual(["name"]);
   });
 
   it("an errored render ships explicit interaction lists empty (round two)", async () => {

@@ -86,16 +86,25 @@ beforeAll(async () => {
   X1 = await buildTemplate(path.join(built, "x1"), { id: "stray-roads", edit: SEEDS.layerReferenceOutside });
   // The stations layer with more live filters than the canvas takes, the
   // last a time range on the field the map's timeline docks: the docked
-  // one is delegated in place of the fourth range.
+  // one is delegated in place of the fourth range. Its interaction lists
+  // are empty and a widget reads its names, so what its render carries is
+  // what the template's own map reads.
   D1 = await buildTemplate(path.join(built, "d1"), {
     id: "docked-stations",
     edit: (files) => {
       const map = files.documents.get("maps/map.json")!;
       const layers = map.layers as Record<string, unknown>[];
       const wide = { field: "riders", kind: "range", min: 0, max: 1000 };
-      layers.find((layer) => layer.id === "layer-stations")!.filters = [wide, wide, wide, wide,
+      const stations = layers.find((layer) => layer.id === "layer-stations")!;
+      stations.filters = [wide, wide, wide, wide,
         { field: "opened", kind: "timerange", min: "2021-01-01", max: null }];
+      stations.tooltip = [];
+      stations.popup = [];
       map.timeline = { layerId: "layer-stations", field: "opened", speed: 1 };
+      (map.widgets as Record<string, unknown>[]).push({
+        id: "widget-names", type: "category", layerId: "layer-stations", title: "Names", field: "name",
+        agg: "count", aggField: null, unit: null, note: null, format: null, visible: true,
+      });
     },
   });
 });
@@ -283,6 +292,9 @@ describe("the map's reader roads", () => {
     // drawn; read as undocked, it would be applied here, leaving two.
     const render = await call("GET", `/api/layers/${docked}/render`, byCookie());
     expect(render.body).toMatchObject({ ok: true, mode: "inline", featureCount: 6, liveFiltered: true });
+    // It carries what the template's map reads of it: the widget's names,
+    // the delegated ranges and the docked field, and nothing else.
+    expect(Object.keys(featuresOf(render.body)[0].properties)).toEqual(["name", "riders", "opened"]);
   });
 
   it("render every layer inline, and answer the widgets, an extent and the search, the same by cookie and token", async () => {

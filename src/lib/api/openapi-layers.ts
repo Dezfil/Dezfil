@@ -231,7 +231,14 @@ export const LAYER_QUERY_PATHS = {
         "vector tiles instead (mode: tiled): tiles are prepared in the " +
         "background — poll while `tiles.state` is `building`; when " +
         "`ready`, `tiles.url` is a {z}/{x}/{y} template and bounds/zoom " +
-        "range describe the archive. The inline answer, envelope " +
+        "range describe the archive. Inline feature properties are the " +
+        "columns the layer and its map read: its style, label and " +
+        "label-priority fields, the filters the canvas applies, the docked " +
+        "timeline's field, the fields of the map's widgets on it, its " +
+        "explicit tooltip and pop-up fields or, while either list is " +
+        "automatic, the first eight columns, and a drawn sketch's " +
+        "feature_id and kind; other columns stay out, and the published " +
+        "field list plays no part. The inline answer, envelope " +
         "included, is bounded by Bytes drawn per layer (renderCapBytes), " +
         "counted as it is built; above it the layer answers the errored " +
         "state render_bytes_exceeded. Errored states (deleted table, " +

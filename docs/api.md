@@ -989,9 +989,24 @@ with `writtenIn`, and is carried into the map's home before it is stored (see
 `GET /api/layers/{id}/render` is what the canvas draws, for everyone who
 reaches the map. Its inline answer is bounded by Bytes drawn per layer
 (`renderCapBytes`), counted over the complete JSON as it is built; a larger
-one answers the errored layer `render_bytes_exceeded` instead. `GET /api/layers/{id}/tiles/{z}/{x}/{y}` serves a tiled
-layer's archive to a reader who can reach every dataset it recorded drawing,
-and answers `not_found` (404) otherwise. A reader beyond the current archive's
+one answers the errored layer `render_bytes_exceeded` instead.
+
+**Render properties compatibility change.** An inline layer render's feature
+properties are the columns the layer and its map read, not every column of
+the result: the style, label and label-priority fields, the fields of the
+filters the canvas applies, the docked timeline's field, the fields of the
+map's widgets on the layer (shown or hidden), the explicit tooltip and pop-up
+fields or, while either list is automatic, the first eight columns as the
+automatic rule picks them, and a drawn sketch's `feature_id` and `kind`. The
+author's published field list plays no part here. Geometry, rows, their order
+and aggregation results are unchanged, and aggregated layers still carry
+exactly their computed columns. A caller that needs every column reads the
+rows with `POST /api/query` or downloads them. Published renders keep the
+published field set, and tiled layers keep the archive's.
+
+`GET /api/layers/{id}/tiles/{z}/{x}/{y}` serves a tiled layer's archive to a
+reader who can reach every dataset it recorded drawing, and answers
+`not_found` (404) otherwise. A reader beyond the current archive's
 reach whose own render succeeds has tiles prepared in their own reach.
 `GET /api/layers/{id}/fields` and `.../fields/{field}` describe columns and
 their statistics, and `POST /api/layers/{id}/fill` and `.../scale` compute a

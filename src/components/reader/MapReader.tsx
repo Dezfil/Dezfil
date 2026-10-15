@@ -201,7 +201,6 @@ export function ReaderStage({
     map,
     patchMap: keepStored,
     patchLayer: keepLayer,
-    refreshLayer,
     preview: stage.live.preview,
   });
   const bar = timeline.bar

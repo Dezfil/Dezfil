@@ -94,12 +94,21 @@ export function readTemplateLayer(scope: AccountScope, id: string): Layer & Docu
   return layer as Layer & DocumentFacts;
 }
 
+/** The map-level state a template layer's render reads, by the map's id:
+ * the docked timeline and the widgets, under the template's layer ids;
+ * null when no installed version answers. */
+export function templateMapContext(mapId: string): Pick<TemplateMapRead, "timeline" | "widgets"> | null {
+  const ref = parseTemplateDocumentId(mapId);
+  const resident = ref?.kind === "map" ? residentTemplate(ref.template, ref.version) : null;
+  if (!resident) return null;
+  const { timeline, widgets } = templateMapAnswer(resident);
+  return { timeline, widgets };
+}
+
 /** The docked timeline of a template's map, by the map's id, for the
  * render's split of live filters; null when no installed version answers. */
 export function templateMapTimeline(mapId: string): TemplateMapRead["timeline"] {
-  const ref = parseTemplateDocumentId(mapId);
-  const resident = ref?.kind === "map" ? residentTemplate(ref.template, ref.version) : null;
-  return resident ? templateMapAnswer(resident).timeline : null;
+  return templateMapContext(mapId)?.timeline ?? null;
 }
 
 /** The absent refusal for a template's id, on a road that answers nothing of

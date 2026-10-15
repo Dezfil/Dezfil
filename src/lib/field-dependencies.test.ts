@@ -2,11 +2,13 @@ import { describe, expect, it } from "vitest";
 import {
   autoInteractionFields,
   hasInteraction,
+  privateFieldNeeds,
   privateLayerFields,
   publishedLayerFields,
   publishedSignature,
   tileArchiveFields,
   tileArchiveSignature,
+  widensPrivateFields,
   type FieldLayerConfig,
   type PublishedMapContext,
 } from "@/lib/field-dependencies";
@@ -223,5 +225,34 @@ describe("the private policy", () => {
         expect(autoInteractionFields(narrowed)).toEqual(autoInteractionFields(COLUMNS));
       }
     }
+  });
+});
+
+describe("what an edit adds to the private policy's needs", () => {
+  const needs = (layer: Partial<FieldLayerConfig>, map: Partial<PublishedMapContext> = {}) =>
+    privateFieldNeeds({ ...base, ...layer }, { ...empty, ...map });
+  const widens = (before: ReturnType<typeof needs>, after: ReturnType<typeof needs>) => widensPrivateFields(before, after);
+  const quiet = { tooltip: [], popup: [] };
+
+  it("widens on a newly read field in every family", () => {
+    expect(widens(needs(quiet), needs({ ...quiet, style: rich }))).toBe(true);
+    expect(widens(needs({ ...quiet, style: rich }), needs({ ...quiet, style: { ...rich, label: { ...rich.label!, priorityField: "k" } } }))).toBe(true);
+    expect(widens(needs(quiet), needs({ tooltip: ["a"], popup: [] }))).toBe(true);
+    expect(widens(needs(quiet), needs(quiet, { widgets }))).toBe(true);
+    expect(widens(needs(quiet), needs(quiet, { timeline }))).toBe(true);
+    expect(widens(needs(quiet), needs({ ...quiet, filters }))).toBe(true);
+  });
+
+  it("widens when interactions turn automatic, whose fields depend on the result", () => {
+    expect(widens(needs(quiet), needs({ tooltip: [], popup: null }))).toBe(true);
+    expect(widens(needs({ tooltip: null, popup: [] }), needs({ tooltip: null, popup: null }))).toBe(false);
+  });
+
+  it("never widens on an edit that only drops or keeps what is read", () => {
+    expect(widens(needs({ tooltip: ["a", "b"], popup: [] }), needs({ tooltip: ["a"], popup: [] }))).toBe(false);
+    expect(widens(needs({ ...quiet, style: rich }), needs(quiet))).toBe(false);
+    expect(widens(needs(quiet, { widgets }), needs(quiet, { widgets: widgets.map((w) => ({ ...w, title: "Renamed" })) }))).toBe(false);
+    // The published override is the reader's alone.
+    expect(widens(needs(quiet), needs({ ...quiet, publishedFields: ["j"] }))).toBe(false);
   });
 });

@@ -158,6 +158,13 @@ point layer switches to a tiled render instead (`src/lib/layer-service.ts`).
 Aggregations and heatmaps do not: past the cap they answer a coded error
 naming the bound, because silently sampling an aggregate would be a lie.
 
+Feature properties carry the columns their audience reads, one policy per
+audience over shared primitives (`src/lib/field-dependencies.ts`): a builder
+render carries what the layer and its map use, a published render the
+publication's field set, and a tile archive, which serves both, the published
+set. An edit that makes a builder layer read a field its last render lacks
+asks for the render again (`src/components/builder/render-field-refresh.ts`).
+
 A tile build runs in two stages (`src/lib/tiles/build.ts`). The effective
 query is exported to newline-delimited GeoJSON in the scratch directory, the
 one writable spot the hardened engine has. Then the tile builder turns that

@@ -38,8 +38,10 @@ export interface PinnedPopup {
   entries: [string, unknown][];
 }
 
-/** The clicked feature's stable identity, when its layer projects one
- * sketch rows carry feature_id and kind as real columns. */
+/** The clicked feature's stable identity, when its layer projects one:
+ * sketch rows carry feature_id and kind as real columns, and a builder
+ * render keeps both whatever the layer's interaction lists, so a drawn
+ * shape stays selectable with nothing to show on hover or click. */
 export interface PickedFeature {
   featureId: string | null;
   kind: string | null;

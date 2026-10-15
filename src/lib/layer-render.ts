@@ -14,6 +14,7 @@ import { publishedFieldsFor, type PublishedMapContext } from "./publish/publishe
 import { renderCapRefusal, templateRenderCapRefusal } from "./layer-render-copy";
 import { isTemplateDocumentId } from "./templates/ids";
 import { renderFilters } from "./layer-render-filters";
+import { privateRenderFields } from "./layer-render-fields";
 import { layerEvaluation } from "./query/context";
 import { buildInlineAnswer } from "./query/render-features";
 
@@ -87,8 +88,8 @@ function renderGeometryType(types: string[]): LayerRenderGeometryType {
 
 /** Options for a published-audience render: with the map's
  * context supplied, feature properties carry exactly the layer's effective
- * published field set. Absent — every builder lane — properties carry every
- * non-geometry column, as always. */
+ * published field set. Absent (every builder lane), properties carry what
+ * the layer and its map read, by the private field policy. */
 export interface RenderLayerOpts {
   published?: PublishedMapContext;
   tileAccess?: TileAccess;
@@ -143,13 +144,20 @@ export async function renderLayer(
           ? OD_GEOMETRY
           : rawGeomCol.name;
       const geom = ident(geomName);
-      // Properties carry every non-geometry column — additional geometry
-      // columns (O→D endpoints and beyond) stay out of tooltips. A
-      // published-audience render narrows to the effective published
-      // field set instead; aggregated results are already exactly their
-      // computed columns on every audience.
+      // Properties carry the non-geometry columns the audience reads —
+      // additional geometry columns (O→D endpoints and beyond) stay out of
+      // tooltips. A builder render carries what the layer and its map use
+      // (the private policy); a published-audience render carries the
+      // effective published field set. Aggregated results are exactly
+      // their computed columns on every audience.
       const nonGeometry = columns.filter(
         (c) => !c.type.startsWith("GEOMETRY"),
+      );
+      const names = nonGeometry.map((c) => c.name);
+      const carried = new Set(
+        opts.published
+          ? publishedFieldsFor(layer, opts.published, names)
+          : privateRenderFields(layer, names),
       );
       const propsCols = aggregated
         ? [
@@ -161,18 +169,7 @@ export async function renderLayer(
               ? [{ name: AGG_ELEV }]
               : []),
           ]
-        : opts.published
-          ? (() => {
-              const effective = new Set(
-                publishedFieldsFor(
-                  layer,
-                  opts.published,
-                  nonGeometry.map((c) => c.name),
-                ),
-              );
-              return nonGeometry.filter((c) => effective.has(c.name));
-            })()
-          : nonGeometry;
+        : nonGeometry.filter((c) => carried.has(c.name));
       const publishedFields = opts.published
         ? { publishedFields: propsCols.map((c) => c.name) }
         : null;
@@ -212,7 +209,7 @@ export async function renderLayer(
             layer,
             filters,
             rawGeomCol,
-            nonGeometry.map((c) => c.name),
+            names,
             featureCount,
             geometryType,
             { liveFiltered, published: opts.published !== undefined, tileAccess: opts.tileAccess, inputs: recordedInputs(conn) },

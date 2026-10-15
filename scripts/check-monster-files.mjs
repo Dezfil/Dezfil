@@ -18,9 +18,10 @@ const CEILINGS = {
   // undo/redo coordination, the draw integration, the legend corners, the
   // Add layer catalog mount, the stage controls, the assistant wiring, the
   // helper composition, the effective-basemap derivation, the shared
-  // map, legend and widget presentation, and the render answers with the
-  // tile poll.
-  "src/components/builder/MapBuilder.tsx": 1056,
+  // map, legend and widget presentation, the render answers with the
+  // tile poll, and the timeline dock's render refreshes (now the mutation
+  // lane's).
+  "src/components/builder/MapBuilder.tsx": 1055,
   // The map canvas. Extractions so far: capture, the text sublayer, the
   // basemap content-group lifecycle, tiled-layer construction, pointer
   // interaction, camera constraints, the shared paint readout, overlay

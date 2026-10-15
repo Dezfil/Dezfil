@@ -186,6 +186,51 @@ function sketchIdentity(columns: string[]): string[] {
     : [];
 }
 
+/** What the private policy needs from a layer's result, before the
+ * result's columns are known: the fields it names, and whether automatic
+ * interactions add the first fields of the result. */
+export interface PrivateFieldNeeds {
+  names: Set<string>;
+  automatic: boolean;
+}
+
+/** The private policy's needs under a layer's configuration and its map. */
+export function privateFieldNeeds(
+  layer: FieldLayerConfig,
+  map: PrivateMapContext,
+): PrivateFieldNeeds {
+  if (isAggregated(layer.viz)) {
+    return { names: new Set(computedFields(layer.viz)), automatic: false };
+  }
+  const interactive = hasInteraction(layer.viz);
+  const names = new Set<string>([
+    ...(interactive ? [...(layer.tooltip ?? []), ...(layer.popup ?? [])] : []),
+    ...liveFilterFields(layer, map.timeline),
+    ...layerWidgetFields(layer.id, map.widgets),
+  ]);
+  for (const field of styleChannelAttributes(layer.style, layer.viz)) {
+    if (field) names.add(field);
+  }
+  const docked = dockedTimelineField(layer.id, map.timeline);
+  if (docked) names.add(docked);
+  return {
+    names,
+    automatic: interactive && (layer.tooltip === null || layer.popup === null),
+  };
+}
+
+/** Whether a render built under `before` may lack a field `after` reads:
+ * a newly named field, or automatic interactions where there were none. A
+ * change that only drops needs never does. */
+export function widensPrivateFields(
+  before: PrivateFieldNeeds,
+  after: PrivateFieldNeeds,
+): boolean {
+  if (after.automatic && !before.automatic) return true;
+  for (const name of after.names) if (!before.names.has(name)) return true;
+  return false;
+}
+
 /**
  * The private policy: the fields the builder's own map reads from this
  * layer, in result order. Its style channels and labels, the filters the
@@ -199,18 +244,13 @@ export function privateLayerFields(
   map: PrivateMapContext,
   columns: string[],
 ): string[] {
-  if (isAggregated(layer.viz)) return computedFields(layer.viz);
+  const needs = privateFieldNeeds(layer, map);
+  if (isAggregated(layer.viz)) return [...needs.names];
   const wanted = new Set<string>([
-    ...interactionFields(layer, columns),
-    ...liveFilterFields(layer, map.timeline),
-    ...layerWidgetFields(layer.id, map.widgets),
+    ...needs.names,
+    ...(needs.automatic ? autoInteractionFields(columns) : []),
     ...sketchIdentity(columns),
   ]);
-  for (const field of styleChannelAttributes(layer.style, layer.viz)) {
-    if (field) wanted.add(field);
-  }
-  const docked = dockedTimelineField(layer.id, map.timeline);
-  if (docked) wanted.add(docked);
   return columns.filter((c) => wanted.has(c));
 }
 
