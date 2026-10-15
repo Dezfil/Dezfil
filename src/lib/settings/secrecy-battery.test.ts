@@ -738,7 +738,7 @@ describe("a service address carrying a key", () => {
       const view = await publishedRoute(socketRequest(new Request(`${BASE}/api/published/${token}`)), { params: Promise.resolve({ token }) });
       const text = await view.text();
       expect(view.status, text).toBe(200);
-      expect(JSON.parse(text).basemapUrl).toBe(SATELLITE_STYLE_URL);
+      expect(JSON.parse(text).basemapUrl).toBe(`/api/published/${token}/basemaps/satellite`);
       searched("a publication of a map on Satellite, assembled afresh", text);
     } finally { vi.stubEnv(VARIABLE.satelliteUrl, undefined); }
   });

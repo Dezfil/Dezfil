@@ -107,7 +107,8 @@ it("shares the same state after another route bundle loads the module", async ()
 it("documents provenance refusal on every anonymous published operation", async () => {
   const { buildOpenApiDocument } = await import("@/lib/api/openapi");
   const operations = Object.entries(buildOpenApiDocument().paths).filter(([path]) => path.startsWith("/api/published/"));
-  expect(operations).toHaveLength(5);
+  // The view, its tiles, render, extent, widget values, and the satellite style and its tiles.
+  expect(operations).toHaveLength(7);
   for (const [, methods] of operations) for (const [method, operation] of Object.entries(methods)) {
     if (!["get", "post"].includes(method)) continue;
     const description = operation as { description: string; responses: Record<string, { description: string }> };

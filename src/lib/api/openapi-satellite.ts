@@ -1,5 +1,8 @@
 import { SATELLITE_MAX_ZOOM } from "@/lib/basemap";
-import { ERROR_RESPONSE, pathParam } from "./openapi-helpers";
+import { TOKEN_LENGTH } from "@/lib/publish/token";
+import { ERROR_RESPONSE, op, pathParam } from "./openapi-helpers";
+import { publicationAccess } from "./openapi-publications";
+import { READ_ONLY } from "./operation-metadata";
 
 /** What every satellite tile operation says of how a tile comes back. */
 export const SATELLITE_TILE_DESCRIPTION =
@@ -16,9 +19,13 @@ export const SATELLITE_TILE_DESCRIPTION =
   "tile is stored. Every failure upstream answers imagery_unavailable, " +
   "whose message says what went wrong and never the tile address or its " +
   "key; a template carrying a user name or password is not drawn and " +
-  "answers the same. An instance that configures no imagery answers 404 " +
-  "as the style does; a stored template the instance's key no longer " +
-  "opens is refused with service_address_unreadable. Private, no-store.";
+  "answers the same. Private, no-store.";
+
+/** How the signed-in style and its tiles answer an instance with no imagery. */
+export const SATELLITE_TILE_SIGNED_IN =
+  "An instance that configures no imagery answers 404 as the style does; a " +
+  "stored template the instance's key no longer opens is refused with " +
+  "service_address_unreadable.";
 
 export const SATELLITE_TILE_PARAMETERS = [
   pathParam("z", `Tile zoom, 0 to ${SATELLITE_MAX_ZOOM}.`),
@@ -40,4 +47,65 @@ export const SATELLITE_TILE_RESPONSES = {
   "404": { description: "No imagery is configured." },
   "502": ERROR_RESPONSE,
   "504": ERROR_RESPONSE,
+};
+
+const READER_SCOPE =
+  "Served under the publish token only while the publication resolves, as " +
+  "its layer tiles are: a revoked or unknown token answers the same clean " +
+  "not_found, and so does a publication whose reader is not shown " +
+  "Satellite (the map is not on it, and its basemap switcher is off or no " +
+  "longer offers it). An instance with no imagery to draw now, none " +
+  "configured or a stored template its key no longer opens, answers 404 as " +
+  "the signed-in style does while none is configured.";
+
+/** The satellite style and its tiles as a published map's reader reaches
+ * them, under the publication's own token. */
+export const PUBLISHED_SATELLITE_PATHS = {
+  "/api/published/{token}/basemaps/satellite": {
+    get: op(publicationAccess({
+      summary: "The imagery style of a published map",
+      description:
+        "The imagery style for a published page's reader, who is not signed " +
+        "in: the signed-in style's document, its raster source naming this " +
+        "publication's own tile address, " +
+        "`/api/published/{token}/basemaps/satellite/tiles/{z}/{x}/{y}`, never " +
+        "the configured tile template. The published view's basemapUrl and the " +
+        "page's basemap switcher name this address. In the view budget. " +
+        READER_SCOPE + " Private, no-store.",
+      tag: "Publish",
+      tool: false,
+      effects: READ_ONLY,
+      parameters: [pathParam("token", `Publish token (${TOKEN_LENGTH} characters).`)],
+      responses: {
+        "200": {
+          description: "The style document.",
+          content: { "application/json": { schema: { type: "object", additionalProperties: true } } },
+        },
+        "404": {
+          description: "The publication is not current or does not show Satellite (not_found), or no imagery is configured.",
+          content: ERROR_RESPONSE.content,
+        },
+      },
+    })),
+  },
+  "/api/published/{token}/basemaps/satellite/tiles/{z}/{x}/{y}": {
+    get: op(publicationAccess({
+      summary: "One imagery tile of a published map",
+      description:
+        `${SATELLITE_TILE_DESCRIPTION} In the tile budget. ${READER_SCOPE} The ` +
+        "token is checked again once the tile has come, so a publication " +
+        "revoked meanwhile passes nothing back.",
+      tag: "Publish",
+      tool: false,
+      effects: READ_ONLY,
+      parameters: [pathParam("token", `Publish token (${TOKEN_LENGTH} characters).`), ...SATELLITE_TILE_PARAMETERS],
+      responses: {
+        ...SATELLITE_TILE_RESPONSES,
+        "404": {
+          description: "The publication is not current or does not show Satellite (not_found), or no imagery is configured.",
+          content: ERROR_RESPONSE.content,
+        },
+      },
+    })),
+  },
 };

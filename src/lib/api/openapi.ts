@@ -3,7 +3,7 @@ import { withAutomaticMethods } from "./openapi-methods";
 import { DOCUMENT_FACT_PROPERTIES, DOCUMENT_FACT_SCHEMA, EDIT_REVISION_SCHEMA } from "./openapi-document-facts";
 import { SQL_POLICY, SQL_QUERY } from "./openapi-sql";
 import { PUBLICATION_ADMIN_PATHS, publicationAccess } from "./openapi-publications";
-import { SATELLITE_TILE_DESCRIPTION, SATELLITE_TILE_PARAMETERS, SATELLITE_TILE_RESPONSES } from "./openapi-satellite";
+import { PUBLISHED_SATELLITE_PATHS, SATELLITE_TILE_DESCRIPTION, SATELLITE_TILE_PARAMETERS, SATELLITE_TILE_RESPONSES, SATELLITE_TILE_SIGNED_IN } from "./openapi-satellite";
 import { resultAccess } from "./openapi-result-access";
 import { JOB_PATHS } from "./openapi-jobs";
 import { withRequestPolicy } from "./openapi-request-policy";
@@ -199,7 +199,8 @@ export function buildOpenApiDocument() {
             "configures none answers 404 and offers no imagery basemap. A " +
             "stored template the instance's key no longer opens is refused " +
             "with service_address_unreadable, never answered with another " +
-            "style. Private, no-store.",
+            "style. A published page's reader has the publication's own " +
+            "style address. Private, no-store.",
           tag: "System",
           tool: false,
           effects: READ_ONLY,
@@ -221,9 +222,10 @@ export function buildOpenApiDocument() {
       "/api/basemaps/satellite/tiles/{z}/{x}/{y}": {
         get: op({
           summary: "One tile of the configured imagery",
-          description: SATELLITE_TILE_DESCRIPTION +
-            " Signed-in accounts only; an anonymous request is refused and " +
-            "asks the imagery nothing.",
+          description: `${SATELLITE_TILE_DESCRIPTION} ${SATELLITE_TILE_SIGNED_IN} ` +
+            "Signed-in accounts only; an anonymous request is refused and " +
+            "asks the imagery nothing. A published page's reader has the " +
+            "publication's own tile address.",
           tag: "System",
           tool: false,
           effects: READ_ONLY,
@@ -856,6 +858,7 @@ export function buildOpenApiDocument() {
           },
         })),
       },
+      ...PUBLISHED_SATELLITE_PATHS,
     },
     components: {
       securitySchemes: AUTH_SECURITY_SCHEMES,

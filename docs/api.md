@@ -24,7 +24,7 @@ every documented operation must have a route, and every call the interface
 makes must hit a documented path (`src/lib/api/parity.test.ts`). The
 description cannot drift from the server.
 
-Measured from the current source: **143 paths, 404 operations, 187 named component schemas.** Operations include supported automatic HEAD and OPTIONS.
+Measured from the current source: **145 paths, 410 operations, 187 named component schemas.** Operations include supported automatic HEAD and OPTIONS.
 `npm run lint:contract-docs` measures these numbers and checks the catalogue below
 against the contract; changing only the reader-facing text fails the gate.
 
@@ -133,8 +133,9 @@ The coverage check matches enforced limits, error codes, descriptions and
 ## Anonymous published budgets
 
 Anonymous published API reads use verified ingress sources. View, widget-values,
-render and extent share 60 requests per ten seconds across tokens; tiles have
-600 in their separate bucket, with the existing configuration overrides.
+render, extent and the satellite style share 60 requests per ten seconds across
+tokens; tiles, the satellite tiles among them, have 600 in their separate
+bucket, with the existing configuration overrides.
 Unknown tokens are charged before resolution. Across both buckets, at most
 10,000 source entries are retained. Traffic sweeps expired windows at most once
 per second; between sweeps, a new source at capacity evicts the least recently

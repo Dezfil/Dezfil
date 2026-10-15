@@ -85,6 +85,10 @@ describe("tool parity", () => {
       // mechanic, exactly like the query one below; agents call the
       // POST directly.
       "GET /api/projects/{id}/export",
+      // A published page's own imagery style and its tiles: renderer
+      // assets under the token, as the layer tiles are.
+      "GET /api/published/{token}/basemaps/satellite",
+      "GET /api/published/{token}/basemaps/satellite/tiles/{z}/{x}/{y}",
       "GET /api/published/{token}/tiles/{layerId}/{z}/{x}/{y}",
       // The query-result download's redeem half is the page's
       // native-stream mechanic; agents call the POST directly.

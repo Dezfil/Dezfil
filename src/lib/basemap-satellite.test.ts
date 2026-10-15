@@ -183,9 +183,9 @@ describe("the satellite imagery while it is set up", () => {
     }
     await refusedAnonymously();
     expect(await builder()).toEqual({ url: SATELLITE_STYLE_URL, kind: "imagery" });
-    // A published page's reader is anonymous: its style is this route, which
-    // refuses them, so the page draws its data on the plain fallback.
-    expect(await publication(token)).toEqual({ url: SATELLITE_STYLE_URL, kind: "imagery", credit: [{ label: CREDIT }] });
+    // A published page's reader is anonymous: its style is the
+    // publication's own address, which answers them.
+    expect(await publication(token)).toEqual({ url: `/api/published/${token}/basemaps/satellite`, kind: "imagery", credit: [{ label: CREDIT }] });
   });
 });
 
@@ -231,7 +231,7 @@ describe("the satellite imagery removed, then set again", () => {
     expect(again.body.sources.satellite).toMatchObject({ tiles: [TILES], attribution: CREDIT });
     expectNoSeed(again.text);
     expect(await builder()).toEqual({ url: SATELLITE_STYLE_URL, kind: "imagery" });
-    expect(await publication(token)).toEqual({ url: SATELLITE_STYLE_URL, kind: "imagery", credit: [{ label: CREDIT }] });
+    expect(await publication(token)).toEqual({ url: `/api/published/${token}/basemaps/satellite`, kind: "imagery", credit: [{ label: CREDIT }] });
     await refusedAnonymously();
   });
 });

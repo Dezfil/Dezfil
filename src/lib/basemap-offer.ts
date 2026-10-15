@@ -6,6 +6,7 @@ import {
   BUILT_IN_ATTRIBUTION,
   OFFERED_SETTING,
   SINGLE_MAP_STYLES_SETTING,
+  readerStyleUrl,
   type AttributionLine,
   type BasemapKey,
   type BasemapKind,
@@ -57,6 +58,13 @@ export function offeredBasemaps(db: Database = metadataDb()): BasemapStyle[] {
 export function basemapChoices(db: Database = metadataDb()): BasemapStyle[] {
   const offered = offeredSwitches(db);
   return drawingBasemaps(db).map((b) => ({ ...b, offered: offered[b.key] }));
+}
+
+/** The same list as a publication's reader reaches each style: Satellite
+ * at the publication's own address, which answers a reader who is not
+ * signed in. */
+export function readerBasemapChoices(token: string, db: Database = metadataDb()): BasemapStyle[] {
+  return basemapChoices(db).map((b) => ({ ...b, url: readerStyleUrl(b.url, token) }));
 }
 
 /** The deployment's own style, if set: it pins Auto maps in both themes. */

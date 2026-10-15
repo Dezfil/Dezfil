@@ -1,6 +1,6 @@
 {
   "count": 156,
-  "overall": "b5e2a7924962e3c2e6702f2dd9888e6a87175f0ef69f7158302b15ee9bbe3f38",
+  "overall": "a51d1664d6b76f09ab6664cf3c64b57f5501ef7dd0daa70d9fdfa964a05f17da",
   "tools": {
     "get_account": "f9449c42bd1f10ea7744e222cc62614d4a204d733c1126e6dcc7d958fb005cb1",
     "update_account": "70a14b66d198e2ac3c94bf8c358fd680c4a98319aa920c054b9c26c72f2f07ff",
@@ -156,7 +156,7 @@
     "get_published_fields": "d6d74916ce1da4eb5383875af5556fc6dd0212636aa144ef991ef39809bb957d",
     "revoke_inactive_publication": "0f7c0395aaec779f94f9189a6cb3d351e2e95d719b82e870f2e22f9ac681bd91",
     "read_table_catalogue": "bae674e1bb1c0947feba85709e3b94de8531c393991a2ea9ac6655c0f9e3817d",
-    "view_published_map": "6d44b652a0f9b943325dad1a4189b856a911e7b0f2691cb7e49e111a2a59f145",
-    "published_layer_extent": "390c297aa431f9d58af39b860ccbbcbe0ec12cb56fdd0ee7dc342ac32099b912"
+    "view_published_map": "87ad7f57c8c0684e84a02a4c8e08ddab091c6cc00da3940bb88a75e451828b97",
+    "published_layer_extent": "985ff6b03caa98e59fe28c0cd98a3040b7e03464d1858da94529a2c14571a796"
   }
 }

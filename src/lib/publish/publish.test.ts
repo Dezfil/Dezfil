@@ -241,7 +241,7 @@ describe("freshness bound", () => {
     try {
       updateMap(testAccountScope(), map.id, { basemap: "satellite" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
       const after = await getPublishedView(token, t0 + 31_000);
-      expect(after?.basemapUrl).toBe("/api/basemaps/satellite");
+      expect(after?.basemapUrl).toBe(`/api/published/${token}/basemaps/satellite`);
       expect(after?.basemapKind).toBe("imagery");
       expect(after?.basemapAttribution?.[0]?.label).toBe(
         "© Imagery Provider",

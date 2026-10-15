@@ -8,13 +8,23 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 // can answer publicly at save and privately at use.
 const dns = vi.hoisted(() => ({ lookup: vi.fn() }));
 vi.mock("node:dns/promises", () => ({ lookup: dns.lookup }));
+vi.mock("@/components/viewer/PublishedView", () => ({ PublishedView: () => null }));
 
+import type { ReactElement } from "react";
+import { NextRequest } from "next/server";
+import PublishedPage from "@/app/v/[token]/page";
+import { gateRequest } from "@/lib/auth/gate";
 import * as metadata from "@/lib/metadata/db";
+import { readDocumentRevision } from "@/lib/metadata/revisions";
+import { publishMap, resetPublishCache, unpublishMap, type PublishSettings } from "@/lib/publish/publish-service";
+import { resetRateLimits } from "@/lib/publish/rate-limit";
 import { socketRequest } from "@/lib/assistant/testing/socket-request";
 import { encodePng } from "@/lib/export/png-codec";
 import { resetSecretKeyCache } from "@/lib/secrets";
 import { testAccountRequest, testAccountScope } from "@/lib/test-support/accounts";
 import { tokenFor } from "@/lib/test-support/rule-roads";
+import type { BasemapStyle } from "./basemap";
+import { createMap, updateMap } from "./map-service";
 
 /**
  * The satellite imagery through the instance. The style a browser loads
@@ -62,6 +72,7 @@ beforeEach(async () => {
   tokens = { member: tokenFor(db, "member") };
   asked = [];
   answer = healthy;
+  resetPublishCache(); resetRateLimits();
   fixture = createServer((req, res) => { asked.push({ url: req.url ?? "", headers: req.headers }); answer(req, res); });
   await new Promise<void>((resolve) => fixture.listen(0, "127.0.0.1", resolve));
   port = (fixture.address() as AddressInfo).port;
@@ -69,7 +80,7 @@ beforeEach(async () => {
   vi.stubEnv("DEZFIL_SATELLITE_ATTRIBUTION", CREDIT);
 });
 afterEach(async () => {
-  vi.restoreAllMocks(); vi.unstubAllEnvs(); resetSecretKeyCache();
+  vi.restoreAllMocks(); vi.unstubAllEnvs(); resetSecretKeyCache(); resetPublishCache();
   fixture.closeAllConnections();
   await new Promise((resolve) => fixture.close(resolve));
   if (db.open) db.close();
@@ -297,5 +308,150 @@ describe("an upstream failure", () => {
     await expect(relaySatelliteTile({ z: 3, x: 4, y: 2 }, { timeoutMs: 150 }))
       .rejects.toMatchObject({ code: "imagery_unavailable", status: 504 });
     expect(asked).toHaveLength(1);
+  });
+});
+
+/** A member's map on a basemap, published with its reader controls. */
+async function publishOn(basemap: "satellite" | "dark", settings: PublishSettings = {}): Promise<{ mapId: string; token: string }> {
+  const scope = testAccountScope(db, "member");
+  const revision = () => ({ expectedRevision: readDocumentRevision({ kind: "map", id: mapId }, db)?.editRevision });
+  const mapId = createMap(scope, "Harbour from above").id;
+  updateMap(scope, mapId, { basemap }, revision());
+  const { token } = publishMap(scope, mapId, { theme: "dark", ...settings }, revision());
+  return { mapId, token };
+}
+const unpublish = (mapId: string) => unpublishMap(testAccountScope(db, "member"), mapId,
+  { expectedRevision: readDocumentRevision({ kind: "map", id: mapId }, db)?.editRevision });
+const readerStyle = (token: string) => `/api/published/${token}/basemaps/satellite`;
+const readerTile = (token: string, z = 3, x = 4, y = 2) => `${readerStyle(token)}/tiles/${z}/${x}/${y}`;
+/** What the reader page hands the published view: its default style and its basemap list. */
+async function readerPage(token: string) {
+  const page = await PublishedPage({ params: Promise.resolve({ token }), searchParams: Promise.resolve({}) }) as
+    ReactElement<{ children: ReactElement<{ basemapUrl: string; basemaps: BasemapStyle[] }> }>;
+  return page.props.children.props;
+}
+const notAvailable = { error: { code: "not_found", message: "This map is not available." } };
+
+describe("a published map's reader", () => {
+  it("gets the satellite style and its tiles through the publication's own addresses, with none of the template", async () => {
+    const { token } = await publishOn("satellite");
+    const view = await call(`/api/published/${token}`, "anonymous");
+    expect(view.status, view.text).toBe(200);
+    expect((view.body as { basemapUrl: string }).basemapUrl).toBe(readerStyle(token));
+    expectNoTemplate("the published view", view);
+    // The reader page's list: Satellite at the publication's address, every other style as it was.
+    const page = await readerPage(token);
+    expect(page.basemaps.map((b) => [b.key, b.url])).toEqual([
+      ["dark", "https://tiles.openfreemap.org/styles/dark"],
+      ["light", "https://tiles.openfreemap.org/styles/positron"],
+      ["streets", "https://tiles.openfreemap.org/styles/liberty"],
+      ["satellite", readerStyle(token)],
+    ]);
+    const style = await call(readerStyle(token), "anonymous");
+    expect(style.status, style.text).toBe(200);
+    expect(style.headers.get("cache-control")).toBe("private, no-store");
+    expect((style.body as { sources: { satellite: unknown } }).sources.satellite).toEqual({ type: "raster",
+      tiles: [`/api/published/${token}/basemaps/satellite/tiles/{z}/{x}/{y}`], tileSize: 256, maxzoom: 19, attribution: CREDIT });
+    expectNoTemplate("the reader's style", style);
+    const [tiles] = (style.body as { sources: { satellite: { tiles: string[] } } }).sources.satellite.tiles;
+    const tile = await call(tiles.replace("{z}", "3").replace("{x}", "4").replace("{y}", "2"), "anonymous");
+    expect(tile.status, tile.text).toBe(200);
+    expect(tile.headers.get("content-type")).toBe("image/png");
+    expect(tile.headers.get("cache-control")).toBe("private, no-store");
+    expect(tile.bytes.equals(TILE)).toBe(true);
+    expectNoTemplate("the reader's tile", tile);
+    expect(asked.map((a) => a.url)).toEqual([`/${SEEDS[0]}/3/4/2.png?key=${SEEDS[1]}`]);
+    // The signed-in addresses still refuse a reader who is not signed in.
+    for (const pathname of [STYLE, "/api/basemaps/satellite/tiles/3/4/2"]) expect((await call(pathname, "anonymous")).status, pathname).toBe(401);
+  });
+
+  it("is refused the style and the tile of a revoked or unknown publication as its layer tiles are, the imagery asked nothing", async () => {
+    const { mapId, token } = await publishOn("satellite");
+    expect((await call(readerStyle(token), "anonymous")).status).toBe(200);
+    unpublish(mapId);
+    resetPublishCache();
+    for (const gone of [token, "u".repeat(22)]) {
+      // The published layer tiles' own refusal, for the same token.
+      const layerTile = await call(`/api/published/${gone}/tiles/L/0/0/0`, "anonymous");
+      expect(layerTile.body).toEqual(notAvailable);
+      for (const pathname of [readerStyle(gone), readerTile(gone)]) {
+        const refused = await call(pathname, "anonymous");
+        expect(refused.status, pathname).toBe(404);
+        expect(refused.body, pathname).toEqual(layerTile.body);
+        expect(refused.headers.get("cache-control")).toBe("private, no-store");
+      }
+    }
+    expect(asked).toEqual([]);
+  });
+
+  it("is refused a tile whose publication is revoked while the imagery answers", async () => {
+    const { mapId, token } = await publishOn("satellite");
+    answer = (req, res) => { unpublish(mapId); healthy(req, res); };
+    const tile = await call(readerTile(token), "anonymous");
+    expect(tile.status).toBe(404);
+    expect(tile.body).toEqual(notAvailable);
+    expect(asked).toHaveLength(1);
+  });
+
+  it("is served the imagery only where the publication's reader can see it: on the map's own style, or offered in its switcher", async () => {
+    const offered = await publishOn("dark");
+    const closed = await publishOn("dark", { viewerControls: { basemap: false } });
+    const own = await publishOn("satellite", { viewerControls: { basemap: false } });
+    const served = async (token: string) => (await call(readerStyle(token), "anonymous")).status === 200 &&
+      (await call(readerTile(token), "anonymous")).status === 200;
+    expect(await served(offered.token), "offered in the switcher").toBe(true);
+    expect(await served(own.token), "the map's own style").toBe(true);
+    asked = [];
+    for (const pathname of [readerStyle(closed.token), readerTile(closed.token)]) {
+      const refused = await call(pathname, "anonymous");
+      expect(refused.status, pathname).toBe(404);
+      expect(refused.body, pathname).toEqual({ error: { code: "not_found", message: expect.any(String) } });
+    }
+    // An admin hides Satellite: a map on it keeps drawing it, the switcher no longer offers it.
+    const save = await call("/api/instance/settings", "admin", { method: "PATCH",
+      headers: { "content-type": "application/json" }, body: JSON.stringify({ "basemaps.satellite": false }) });
+    expect(save.status, save.text).toBe(200);
+    resetPublishCache();
+    expect(await served(own.token), "the map's own style, hidden").toBe(true);
+    asked = [];
+    expect((await call(readerStyle(offered.token), "anonymous")).status, "hidden from the switcher").toBe(404);
+    expect((await call(readerTile(offered.token), "anonymous")).status, "hidden from the switcher").toBe(404);
+    expect(asked).toEqual([]);
+  });
+
+  it("answers as the instance does now while no imagery is configured", async () => {
+    const { token } = await publishOn("satellite");
+    vi.stubEnv("DEZFIL_SATELLITE_URL", undefined);
+    resetPublishCache();
+    for (const pathname of [readerStyle(token), readerTile(token)]) {
+      const none = await call(pathname, "anonymous");
+      expect(none.status, pathname).toBe(404);
+      expect(none.body, pathname).toEqual({ error: "No satellite imagery is configured on this instance." });
+    }
+    expect(asked).toEqual([]);
+  });
+
+  it("is refused a tile address outside the imagery before anything is asked", async () => {
+    const { token } = await publishOn("satellite");
+    for (const [z, x, y] of [[20, 0, 0], [3, 8, 0]] as const) {
+      const tile = await call(readerTile(token, z, x, y), "anonymous");
+      expect(tile.status).toBe(400);
+      expect(tile.body).toEqual({ error: { code: "invalid_request", message: expect.any(String) } });
+    }
+    expect(asked).toEqual([]);
+  });
+
+  it("reaches the reader's addresses without signing in, by GET and HEAD alone, and is refused without the ingress provenance", async () => {
+    const { token } = await publishOn("satellite");
+    const gate = (pathname: string, method: string) => gateRequest(new NextRequest(socketRequest(new Request(`${ORIGIN}${pathname}`, { method }))));
+    for (const pathname of [readerStyle(token), readerTile(token)]) {
+      for (const method of ["GET", "HEAD"]) expect(gate(pathname, method).headers.get("x-middleware-next"), `${method} ${pathname}`).toBe("1");
+      expect(gate(pathname, "POST").status, `POST ${pathname}`).toBe(401);
+    }
+    expect(gate("/api/basemaps/satellite/tiles/3/4/2", "GET").status).toBe(401);
+    const route = await import("@/app/api/published/[token]/basemaps/satellite/route");
+    const unstamped = await route.GET(new Request(`${ORIGIN}${readerStyle(token)}`), { params: Promise.resolve({ token }) });
+    expect(unstamped.status).toBe(503);
+    expect(await unstamped.json()).toEqual({ error: { code: "ingress_unavailable", message: expect.any(String) } });
   });
 });

@@ -144,6 +144,19 @@ export function satelliteTilesUrl(styleUrl: string): string {
   return `${styleUrl}/tiles/{z}/{x}/{y}`;
 }
 
+/** The satellite style a published page's reader loads: the same imagery
+ * under that publication's own address, so a reader who is not signed in
+ * draws it, and it stops with the publication. */
+export function publishedSatelliteStyleUrl(token: string): string {
+  return `/api/published/${encodeURIComponent(token)}/basemaps/satellite`;
+}
+
+/** A style address as a publication's reader reaches it: the satellite
+ * style under the publication's own address, every other unchanged. */
+export function readerStyleUrl(url: string, token: string): string {
+  return url === SATELLITE_STYLE_URL ? publishedSatelliteStyleUrl(token) : url;
+}
+
 /** A built-in style's own address. */
 export function builtInBasemapUrl(key: "dark" | "light" | "streets"): string {
   return BASEMAPS.find((b) => b.key === key)!.url;
