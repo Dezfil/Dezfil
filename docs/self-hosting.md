@@ -507,8 +507,9 @@ Behind an untrusted proxy, readers share its socket budget by design; forwarded
 headers cannot separate it. Missing or forged provenance answers private,
 no-store 503 `ingress_unavailable`, “The instance cannot serve published maps
 yet.”, before reading a body or resolving a token. Malformed wire provenance
-still answers 400. The viewer page is outside these API budgets; IPv6 address
-rotation is not bounded by this policy.
+still answers 400. The viewer page is outside these API budgets. Rotating
+IPv6 addresses inside one /64 is bounded by that /64's budget; rotating them
+across many /64s, or across a client's own larger prefix, is not.
 
 Password derivation admission is shared across the server process: two active,
 six ordinary plus two reserved protected waiters, and a five-second maximum
