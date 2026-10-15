@@ -1,6 +1,6 @@
 {
   "count": 156,
-  "overall": "b5f6253b21964edb5102f3b56f363fa35286c1b792d0a5b3d120a5573c2be12d",
+  "overall": "02e7d818bfea6af2b06070b3a2da9da05144ea6e3d22355772f853391f09ff7d",
   "tools": {
     "get_account": "bd37f5c2eb19d2ede33cb10152a53d49e4029a871d9950f51d3671001efdfb66",
     "update_account": "b86cdb20349d6871c516c495b13864a85908d41cb61203f76a3f7ea95c26ebbb",
@@ -16,7 +16,7 @@
     "update_user_access": "822b5de734d8a658e84399ccc55d57cb4f26405a04052c16e79216eefbb21da4",
     "delete_user": "4f923ec540aff974f3f3c2dad19c4b480e9557857850a01cf5d86f01462e6212",
     "issue_user_sign_in_link": "fee26d37e3d8e9fdef5fef4e3dd709ed289d0ddcdbd38aa8da186aa4c5f1592a",
-    "get_instance_settings": "a44b73f2d85e4c5508bbbc7be6d4afda074ec2347307ec06fc84b4fcaf332940",
+    "get_instance_settings": "198e6b8cd2e8bc5a287f01d4c321acb575e040a8bcb2d121488a383008988694",
     "update_instance_settings": "6524bb9ae9bf0e21283bccbee77edd7524bc0cfcbdd31c130f29e097508df1d0",
     "clear_service_caches": "750729bddf6b0c41e61229b4dc0f9f4b2709664b9db1e8da1afbcefac533cb34",
     "test_service": "b9f11cb502d848def314db1646030b1c463483953c82c6fa6e3da7ad48772a35",
@@ -49,7 +49,7 @@
     "import_table_from_url": "5a7068dabc179164f1ddb43dee8153af621bed139be736cdcca544a79abe2184",
     "import_table_from_overture": "eb84f563c34a5ceb9dd7b286f56b2d05bd511cf9ba323cc104e89a5fb51d1c15",
     "preview_overture_import": "413d3a63eaef57a59974ff19498a47de715ed2b028853b4a25e671fa61b73831",
-    "run_overture_query": "ce987afdcd3e085cea25d878527ca584259ca7f9ce584b12b82969059cb89a3b",
+    "run_overture_query": "f50a0d93ff6c920837d17b50c091188672c96d9aa96612f4fd99291d1badd60d",
     "list_overture_countries": "d37233a552aa73abf33137f378fa3762d788cdc6137da1cb4a304edc338cf7c7",
     "list_overture_division_levels": "05c27f0d0e6d03e52cbf146bfffc08985be01107fb80bfc2a80da168a4d125ea",
     "list_overture_states": "26aad59104f0cdf53c288fad231af599a767b7d0bb28deb16f7940faf483dc2c",

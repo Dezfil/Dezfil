@@ -24,6 +24,7 @@ import {
 } from "./catalogue";
 import { latestOvertureRelease, isValidRelease } from "./releases";
 import { ensureOvertureSupport, mapOvertureError } from "./remote";
+import { overturePreviewAnswer, type FeaturePreview } from "./preview-answer";
 import {
   aggregateLevels,
   countryDivisionIndex,
@@ -485,16 +486,12 @@ export async function countOvertureLevels(
   });
 }
 
-export interface FeaturePreview {
-  geojson: { type: "FeatureCollection"; features: unknown[] };
-  featureCount: number;
-  truncated: boolean;
-  cap: number;
-}
+export type { FeaturePreview } from "./preview-answer";
 
 /** Run Query: the features an import with these params
  * would land, as GeoJSON for the dialog map — same resolution, same
- * filters, capped by the render cap with truncation stated. */
+ * filters, capped by the render cap with truncation stated, and built
+ * under Bytes drawn per layer: over it the preview is refused whole. */
 export async function previewOvertureFeatures(
   params: OvertureImportParams,
   signal?: AbortSignal,
@@ -502,29 +499,11 @@ export async function previewOvertureFeatures(
   return withTrustedOperation({ kind: "interactive-read", name: "Overture read", signal }, async () => {
     const selection = await resolveSelection(params);
     const cap = limits.renderCapFeatures;
+    const bytes = limits.renderCapBytes;
     return withConnection(async (conn) => {
       await ensureOvertureSupport(conn);
       try {
-        const rows = await conn.runAndReadAll(
-          buildOverturePreview(selection, cap),
-        );
-        const all = rows.getRowObjects() as { geometry: unknown }[];
-        const truncated = all.length > cap;
-        const features = all
-          .slice(0, cap)
-          .filter((r) => r.geometry !== null && r.geometry !== undefined)
-          .map((r, i) => ({
-            type: "Feature",
-            id: i,
-            geometry: JSON.parse(String(r.geometry)) as unknown,
-            properties: {},
-          }));
-        return {
-          geojson: { type: "FeatureCollection", features },
-          featureCount: features.length,
-          truncated,
-          cap,
-        };
+        return await overturePreviewAnswer(conn, buildOverturePreview(selection, cap), cap, bytes);
       } catch (error) {
         mapOvertureError(error);
       }

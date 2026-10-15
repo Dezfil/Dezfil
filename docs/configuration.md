@@ -449,8 +449,11 @@ over the limit, the whole dataset or the sample asked for answers `ok: false`
 with a reason and no features. A slider preview counts its answer the same
 way and over the limit answers `422 render_bytes_exceeded` with no partial
 preview; the builder stops asking for that preview until the layer's source
-changes, and the layer still draws when the slider settles. Overture,
-OpenStreetMap and sketch features do not apply it yet. File and
+changes, and the layer still draws when the slider settles. An Overture Run
+Query preview counts its answer the same way, keeping the render cap's first
+features and its `truncated` flag, and over the limit answers
+`422 render_bytes_exceeded` with no partial preview; the import is not held to
+it. OpenStreetMap and sketch features do not apply it yet. File and
 archive import processing, link and object-store imports, URL refreshes, and OpenStreetMap, Overture and PostGIS imports and refreshes
 use the Data processing time limit
 through preparation and commit. Accepted processing continues after departure;

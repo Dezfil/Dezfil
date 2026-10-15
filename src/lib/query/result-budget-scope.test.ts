@@ -12,7 +12,7 @@ import { readDocumentRevision } from "@/lib/metadata/revisions";
 import { ResultBudget } from "./result-budget";
 import { previewOvertureFeatures } from "@/lib/overture/import";
 vi.mock("@/lib/overture/remote", async original => ({ ...await original<typeof import("@/lib/overture/remote")>(), ensureOvertureSupport: async () => {} }));
-vi.mock("@/lib/overture/query", async original => ({ ...await original<typeof import("@/lib/overture/query")>(), buildOverturePreview: () => "SELECT ST_AsGeoJSON(ST_Point(1,2)) AS geometry" }));
+vi.mock("@/lib/overture/query", async original => ({ ...await original<typeof import("@/lib/overture/query")>(), buildOverturePreview: () => "SELECT ST_Point(1,2) AS geometry" }));
 let dir: string;
 beforeEach(async () => { dir = await setupGeometryTest(); resetPublishCache(); });
 afterEach(async () => { vi.restoreAllMocks(); resetPublishCache(); await cleanupGeometryTest(dir); });
