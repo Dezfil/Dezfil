@@ -3,7 +3,9 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 // The engine's own lookup, answered by a fixture resolver: the one name
 // the imagery may take here answers as the step says, every other name
 // does not resolve. The renderer's guard and relay run in this process,
-// so the render asks this resolver too, and the browser resolves nothing.
+// so a page reaching for a host asks this resolver too, and the browser
+// resolves nothing. The imagery's tiles are fetched by the standalone,
+// which resolves with its own.
 const dns = vi.hoisted(() => ({ answer: [] as { address: string; family: number }[], asked: [] as string[] }));
 vi.mock("node:dns/promises", () => ({
   lookup: async (name: string) => {
@@ -33,7 +35,7 @@ import { decodePng, encodePng, type DecodedImage } from "./png-codec";
 /**
  * The server's image of a map on Satellite as an admin sets the imagery
  * up, as the instance's key changes under it, as the admin removes it and
- * sets it again, and as its tile host turns private after the save.
+ * sets it again, and as its tile host cannot be reached at use.
  *
  * Proved through the real render road on a map on Satellite with a solid
  * point layer at the centre: the imagery is a loopback tile fixture painting
@@ -42,16 +44,24 @@ import { decodePng, encodePng, type DecodedImage } from "./png-codec";
  * across most of it; once the template is removed, or stored under a key
  * the instance no longer holds, the map keeps its choice and the image is
  * the default style's gray, the imagery asked for nothing; set again, the
- * imagery is back. A tile host a fixture resolver answers publicly at save
- * and privately at use is refused by the renderer's egress check: the
- * image is not produced and the export answers the egress refusal, the
- * imagery asked for nothing.
+ * imagery is back. The page draws the imagery from the instance's own tile
+ * address, which the standalone answers from the template: the imagery
+ * style names no part of the template, the fixture sends no cross-origin
+ * permission (a page fetching it directly would draw nothing), and every
+ * tile it serves is asked by the server, never by the browser. A tile host
+ * that answers publicly at save and does not resolve at use draws no
+ * imagery, the image still made: the renderer never reached for the host,
+ * and the imagery was asked nothing. The egress check the instance's tile
+ * fetch takes at use is proved where that fetch runs, in the satellite
+ * tile tests.
  *
  * Provisioning, as the map check's other real-render tests: the port of a
  * production standalone sharing this process's data directory in
  * DEZFIL_MAP_LOOK_RENDER (skipped without it), DEZFIL_DATA_DIR,
  * DEZFIL_CHROMIUM_PATH at a headless Chromium, DEZFIL_EGRESS_ALLOWLIST
- * admitting 127.0.0.1 in both processes, DEZFIL_RENDER_DELEGATION_KEY and
+ * admitting 127.0.0.1 in both processes (the template is stored through
+ * the save-time check here, and the standalone fetches its tiles),
+ * DEZFIL_RENDER_DELEGATION_KEY and
  * DEZFIL_SECRET_KEY handed to both, and the standalone's DEZFIL_BASEMAP_URL
  * at the loopback gray style, so a map falling to the default fetches
  * nothing public; the setup refuses to start otherwise.
@@ -71,7 +81,6 @@ const IMAGERY = [196, 72, 48] as const;
 /** The loopback default style's every tile. */
 const GRAY = [240, 240, 240] as const;
 const TILE = encodePng({ width: 1, height: 1, rgba: new Uint8Array([...IMAGERY, 255]) });
-const EGRESS_REFUSAL = "The map reaches an address this instance's egress policy denies (private and internal ranges). The image was not produced.";
 const solid = (c: readonly [number, number, number], radius: number) => ({ fill: { type: "constant" as const, color: { r: c[0], g: c[1], b: c[2], a: 1 } }, fillOpacity: 1, stroke: { r: 0, g: 0, b: 0, a: 1 }, strokeOpacity: 1, strokeWidth: 0, pointRadius: radius, opacity: 1 });
 const near = (v: number, t: number) => Math.abs(v - t) <= 16;
 const isColour = (c: readonly [number, number, number]) => (r: number, g: number, b: number) => near(r, c[0]) && near(g, c[1]) && near(b, c[2]);
@@ -99,6 +108,8 @@ async function change(patch: Record<string, unknown>) {
 describe.skipIf(!port)("the server's image of a map on Satellite as the imagery is set, unreadable, removed and set again", () => {
   let mapId: string;
   let imagery: Server; let tiles = 0; let imageryPort = 0;
+  /** The user agent of every tile request the fixture served. */
+  const askedBy: string[] = [];
   let heldKey: unknown; let changed = false;
   const instanceKey = process.env.DEZFIL_SECRET_KEY;
   const credential = () => delegateCredential(requireRequestAuth(authenticatedRequest()));
@@ -117,7 +128,9 @@ describe.skipIf(!port)("the server's image of a map on Satellite as the imagery 
     imagery = createServer((req, res) => {
       if (req.method === "GET" && /^\/tiles\/\d+\/\d+\/\d+\.png$/.test(req.url ?? "")) {
         tiles += 1;
-        res.writeHead(200, { "content-type": "image/png", "access-control-allow-origin": "*", "cache-control": "no-store" });
+        askedBy.push(req.headers["user-agent"] ?? "");
+        // No cross-origin permission: only the instance's own fetch draws it.
+        res.writeHead(200, { "content-type": "image/png", "cache-control": "no-store" });
         res.end(Buffer.from(TILE));
         return;
       }
@@ -165,12 +178,20 @@ describe.skipIf(!port)("the server's image of a map on Satellite as the imagery 
     const response = await fetch(`http://127.0.0.1:${port}/api/basemaps/satellite`, { headers: { authorization: `Bearer ${credential()}` } });
     return { status: response.status, body: await response.json() as Record<string, unknown> };
   };
+  /** The style served, naming the instance's own tile address and no part of the template. */
+  const servedStyle = async () => {
+    const style = await imageryStyle();
+    expect(style.status).toBe(200);
+    expect((style.body as { sources: { satellite: { tiles: string[] } } }).sources.satellite.tiles).toEqual(["/api/basemaps/satellite/tiles/{z}/{x}/{y}"]);
+    expect(JSON.stringify(style.body)).not.toContain(`:${imageryPort}`);
+  };
   const mapRecord = () => metadataDb().prepare("SELECT basemap FROM maps WHERE id = ?").get(mapId);
   const imageryDrawn = (shot: Awaited<ReturnType<typeof look>>) => {
     expect(shot.result.composition.failures).toEqual([]);
     expect(count(shot.decoded, isColour(KELP), { x: 512, y: 320, r: 22 }), "the layer's mark at the centre").toBeGreaterThan(120);
     expect(count(shot.decoded, isColour(IMAGERY)), "the imagery across most of the image").toBeGreaterThan(1024 * 640 * 0.6);
     expect(shot.asked, "the imagery fixture served the tiles").toBeGreaterThan(0);
+    expect(askedBy.filter((agent) => /HeadlessChrome|Mozilla/.test(agent)), "tiles asked by the browser").toEqual([]);
   };
   // The default style's gray to within rounding: the offline fallback's
   // light ground is near it, and a map still pointed at the imagery style
@@ -185,7 +206,7 @@ describe.skipIf(!port)("the server's image of a map on Satellite as the imagery 
   };
 
   it("draws the imagery under the layer while a readable template is set", async () => {
-    expect((await imageryStyle()).status).toBe(200);
+    await servedStyle();
     imageryDrawn(await look("set"));
   }, 60_000);
 
@@ -210,21 +231,22 @@ describe.skipIf(!port)("the server's image of a map on Satellite as the imagery 
 
   it("draws the imagery again once a template is set again", async () => {
     await change({ satelliteUrl: template() });
-    expect((await imageryStyle()).status).toBe(200);
+    await servedStyle();
     imageryDrawn(await look("set-again"));
   }, 60_000);
 
-  it("refuses the image of a map at a tile host answered publicly at save and privately at use, with the renderer's egress refusal, the imagery asked for nothing", async () => {
+  it("draws no imagery from a tile host answered publicly at save that does not resolve at use, the renderer never reaching for it and the imagery asked for nothing", async () => {
     dns.answer = [{ address: "203.0.113.10", family: 4 }];
     await change({ satelliteUrl: template("imagery.fixture.test") });
     expect(dns.asked).toContain("imagery.fixture.test");
-    dns.answer = [{ address: "10.0.0.7", family: 4 }];
+    dns.answer = [];
     dns.asked = [];
-    const before = tiles;
-    await expect(lookAtMap(testAccountScope(), { mapId, credential: credential(), baseUrl: `http://127.0.0.1:${port}` }))
-      .rejects.toMatchObject({ code: "render_failed", message: EGRESS_REFUSAL });
-    // The guard asked the resolver at use, and nothing reached the imagery.
-    expect(dns.asked).toContain("imagery.fixture.test");
-    expect(tiles - before).toBe(0);
+    await servedStyle();
+    const shot = await look("unreachable");
+    expect(count(shot.decoded, isColour(KELP), { x: 512, y: 320, r: 22 }), "the layer's mark at the centre").toBeGreaterThan(120);
+    expect(count(shot.decoded, isColour(IMAGERY)), "no imagery").toBe(0);
+    expect(shot.asked, "the imagery fixture asked for nothing").toBe(0);
+    // The page asked the instance for its tiles, never the tile host.
+    expect(dns.asked).not.toContain("imagery.fixture.test");
   }, 60_000);
 });

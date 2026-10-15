@@ -122,19 +122,23 @@ describe("the configured satellite basemap", () => {
     expect(resolveBasemapUrl("satellite")).toBe(SATELLITE_STYLE_URL);
   });
 
-  it("serves the template and credit in effect as the style document", () => {
+  it("serves the credit in effect as the style document, its tiles at the instance's own address and never the template", () => {
     configure();
     const style = satelliteStyleDocument() as { version: number; layers: { type: string }[];
       sources: { satellite: { type: string; tiles: string[]; attribution: string } } };
     expect(style.version).toBe(8);
-    expect(style.sources.satellite).toMatchObject({ type: "raster", tiles: [TEMPLATE], attribution: "© Imagery Provider" });
+    expect(style.sources.satellite).toMatchObject({ type: "raster", tiles: ["/api/basemaps/satellite/tiles/{z}/{x}/{y}"], attribution: "© Imagery Provider" });
     expect(style.layers.map((l) => l.type)).toContain("raster");
+    expect(JSON.stringify(style)).not.toContain("imagery.example");
+    // Served under another address, the tiles follow that address.
+    expect((satelliteStyleDocument("/api/published/T/basemaps/satellite") as { sources: { satellite: { tiles: string[] } } })
+      .sources.satellite.tiles).toEqual(["/api/published/T/basemaps/satellite/tiles/{z}/{x}/{y}"]);
   });
 
   it("appears once an admin stores a template, with the stored credit, a set variable winning each", () => {
     writeStoredSettings({ satelliteUrl: TEMPLATE, satelliteAttribution: "© Stored Provider" }, db);
     expect(satelliteBasemap()?.attribution).toEqual([{ label: "© Stored Provider" }]);
-    expect((satelliteStyleDocument() as { sources: { satellite: { tiles: string[] } } }).sources.satellite.tiles).toEqual([TEMPLATE]);
+    expect((satelliteStyleDocument() as { sources: { satellite: { tiles: string[] } } }).sources.satellite.tiles).toEqual(["/api/basemaps/satellite/tiles/{z}/{x}/{y}"]);
     vi.stubEnv("DEZFIL_SATELLITE_ATTRIBUTION", " © Variable Provider ");
     expect(satelliteBasemap()?.attribution).toEqual([{ label: "© Variable Provider" }]);
   });

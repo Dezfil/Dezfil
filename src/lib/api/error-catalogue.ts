@@ -43,6 +43,8 @@ export const ERROR_CATALOGUE: Record<ErrorCode, string> = {
     "The remote fetch exceeded the configured remote time bound.",
   egress_blocked:
     "The destination address is blocked by the egress policy (loopback, private, link-local, or metadata space); the configured allowlist admits exceptions.",
+  imagery_unavailable:
+    "The satellite imagery did not answer a tile the instance relays with one: it could not be reached, its address is refused by the egress policy, it answered an error, too slowly, past the size bound or with something other than a raster image, or its tile address carries a user name or password and is not drawn. The message says which, never the tile address or its key.",
   area_too_large:
     "The selected area exceeds the import budget for the chosen theme.",
   name_taken:

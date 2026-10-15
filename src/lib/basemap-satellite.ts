@@ -5,16 +5,19 @@ import { resolveServiceAddress } from "@/lib/settings/service-address";
 import { readStoredSettings } from "@/lib/settings/store";
 import {
   BASEMAP_FALLBACKS,
+  SATELLITE_MAX_ZOOM,
   SATELLITE_STYLE_URL,
+  satelliteTilesUrl,
   type AttributionLine,
   type BasemapStyle,
 } from "./basemap";
 
 /**
  * The satellite imagery in effect, for the server alone: the tile template
- * may carry a key, so it never travels to the browser as a value, only
- * inside the style document signed-in browsers and the server's renderer
- * load.
+ * may carry a key, so it never leaves the server. The style document a
+ * browser or the server's renderer loads names the instance's own tile
+ * address, and the server fetches each tile from the template and passes
+ * it back (`basemap-satellite-tiles.ts`).
  *
  * The template and its credit are each set by their variable or stored by
  * an admin beside it, a set variable winning. The template is read through
@@ -60,11 +63,14 @@ export function satelliteBasemap(db: Database = metadataDb()): BasemapStyle | nu
   };
 }
 
-/** The MapLibre style document served for the imagery, or null while none
- * is set. Throws the coded unreadable refusal, never a default. */
-export function satelliteStyleDocument(db: Database = metadataDb()): Record<string, unknown> | null {
-  const tiles = satelliteTileUrl(db);
-  if (!tiles) return null;
+/** The MapLibre style document served for the imagery at a style address,
+ * its tiles under that address, or null while no template is set. Throws
+ * the coded unreadable refusal, never a default. */
+export function satelliteStyleDocument(
+  styleUrl: string = SATELLITE_STYLE_URL,
+  db: Database = metadataDb(),
+): Record<string, unknown> | null {
+  if (!satelliteTileUrl(db)) return null;
   const credit = satelliteAttribution(db)[0]?.label;
   return {
     version: 8,
@@ -72,9 +78,9 @@ export function satelliteStyleDocument(db: Database = metadataDb()): Record<stri
     sources: {
       satellite: {
         type: "raster",
-        tiles: [tiles],
+        tiles: [satelliteTilesUrl(styleUrl)],
         tileSize: 256,
-        maxzoom: 19,
+        maxzoom: SATELLITE_MAX_ZOOM,
         ...(credit ? { attribution: credit } : {}),
       },
     },

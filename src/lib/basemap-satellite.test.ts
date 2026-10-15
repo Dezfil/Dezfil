@@ -3,8 +3,8 @@ import type { ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // The engine's own lookup, answered by a fixture resolver: the template's
-// host is public at save. Nothing here reaches it; the imagery is only
-// composed, never fetched.
+// host is public at save. Nothing here reaches it; the tiles the instance
+// relays are fetched in the relay's own tests.
 const dns = vi.hoisted(() => ({ lookup: vi.fn() }));
 vi.mock("node:dns/promises", () => ({ lookup: dns.lookup }));
 vi.mock("@/components/builder/MapBuilder", () => ({ MapBuilder: () => null }));
@@ -38,13 +38,13 @@ import { createMap, readMap, updateMap } from "./map-service";
  * read's offer, the builder's canvas, a publication assembled afresh and
  * the imagery style itself.
  *
- * The imagery style carries the whole template, key included, so it
- * answers signed-in requests only: an anonymous one, a published page's
- * reader among them, is refused with no part of it. A stored template the
- * key no longer opens is refused by its coded refusal, never by another
- * style, and Satellite leaves every list until it is saved again. Removing
- * it takes Satellite out of every list while every map on it keeps the
- * choice and draws the deployment default, until a template is set again.
+ * The imagery style names the instance's own tile address, never the
+ * template, whose key stays on the server. It answers signed-in requests
+ * only: an anonymous one is refused. A stored template the key no longer
+ * opens is refused by its coded refusal, never by another style, and
+ * Satellite leaves every list until it is saved again. Removing it takes
+ * Satellite out of every list while every map on it keeps the choice and
+ * draws the deployment default, until a template is set again.
  */
 
 const ORIGIN = "http://instance.test";
@@ -155,6 +155,9 @@ async function setUp(): Promise<string> {
   return (published.body as { token: string }).token;
 }
 
+/** The tile address a signed-in browser is handed: the instance's own. */
+const TILES = "/api/basemaps/satellite/tiles/{z}/{x}/{y}";
+
 /** The anonymous refusal: the sign-in it asks for, and no part of the template. */
 async function refusedAnonymously() {
   const anonymous = await imagery("anonymous");
@@ -166,7 +169,7 @@ async function refusedAnonymously() {
 }
 
 describe("the satellite imagery while it is set up", () => {
-  it("gives signed-in readers the whole template in the imagery style, refuses an anonymous one any part of it, and draws a map on Satellite in the builder and afresh", async () => {
+  it("gives signed-in readers the imagery style at the instance's own tile address with none of the template, refuses an anonymous one, and draws a map on Satellite in the builder and afresh", async () => {
     const token = await setUp();
     expect(await card()).toEqual({ template: { set: true, origin: "https://imagery.example" }, credit: CREDIT });
     expect(await offer()).toContain("satellite");
@@ -174,7 +177,9 @@ describe("the satellite imagery while it is set up", () => {
       const style = await imagery(as);
       expect(style.status, as).toBe(200);
       expect(style.cache).toBe("private, no-store");
-      expect(style.body.sources.satellite).toMatchObject({ type: "raster", tiles: [TEMPLATE], attribution: CREDIT });
+      expect(style.body.sources.satellite).toMatchObject({ type: "raster", tiles: [TILES], attribution: CREDIT });
+      expectNoSeed(style.text);
+      expect(style.text, as).not.toContain("imagery.example");
     }
     await refusedAnonymously();
     expect(await builder()).toEqual({ url: SATELLITE_STYLE_URL, kind: "imagery" });
@@ -205,7 +210,7 @@ describe("the satellite imagery once the instance's key changed", () => {
 });
 
 describe("the satellite imagery removed, then set again", () => {
-  it("keeps every map's choice and draws it on the default style in the builder and afresh, serves no imagery style, keeps the credit; once set again, imagery for signed-in readers", async () => {
+  it("keeps every map's choice and draws it on the default style in the builder and afresh, serves no imagery style, keeps the credit; once set again, imagery for signed-in readers at the instance's tile address", async () => {
     const token = await setUp();
     await change({ satelliteUrl: null });
     expect(await card()).toEqual({ template: { set: false }, credit: CREDIT });
@@ -223,7 +228,8 @@ describe("the satellite imagery removed, then set again", () => {
     expect(await offer()).toContain("satellite");
     const again = await imagery("member");
     expect(again.status).toBe(200);
-    expect(again.body.sources.satellite).toMatchObject({ tiles: [TEMPLATE], attribution: CREDIT });
+    expect(again.body.sources.satellite).toMatchObject({ tiles: [TILES], attribution: CREDIT });
+    expectNoSeed(again.text);
     expect(await builder()).toEqual({ url: SATELLITE_STYLE_URL, kind: "imagery" });
     expect(await publication(token)).toEqual({ url: SATELLITE_STYLE_URL, kind: "imagery", credit: [{ label: CREDIT }] });
     await refusedAnonymously();

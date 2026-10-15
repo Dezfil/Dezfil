@@ -73,10 +73,11 @@ describe("tool parity", () => {
       // Entry and session exchange belong to the caller transport.
       "GET /api/auth/entry",
       "GET /api/auth/session",
-      // The configured imagery style is a renderer asset, like the tile
-      // endpoints below: an agent reads the basemap offer from the
-      // configuration, never the style document.
+      // The configured imagery style and its tiles are renderer assets,
+      // like the tile endpoints below: an agent reads the basemap offer
+      // from the configuration, never the style document or its tiles.
       "GET /api/basemaps/satellite",
+      "GET /api/basemaps/satellite/tiles/{z}/{x}/{y}",
       "GET /api/layers/{id}/slider-preview",
       "GET /api/layers/{id}/tiles/{z}/{x}/{y}",
       "GET /api/maps/{id}/thumbnail",

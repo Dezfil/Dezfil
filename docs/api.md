@@ -24,7 +24,7 @@ every documented operation must have a route, and every call the interface
 makes must hit a documented path (`src/lib/api/parity.test.ts`). The
 description cannot drift from the server.
 
-Measured from the current source: **142 paths, 401 operations, 187 named component schemas.** Operations include supported automatic HEAD and OPTIONS.
+Measured from the current source: **143 paths, 404 operations, 187 named component schemas.** Operations include supported automatic HEAD and OPTIONS.
 `npm run lint:contract-docs` measures these numbers and checks the catalogue below
 against the contract; changing only the reader-facing text fails the gate.
 
@@ -1417,7 +1417,7 @@ server-side, so filesystem paths and engine text stay out of responses
 The complete catalogue is published two ways in the same document: as the
 enum of the `Error` schema, and as `x-error-codes` at the top level, which
 maps every code to a sentence explaining what it means
-(`src/lib/api/error-catalogue.ts`). There are **135** codes. Clients should
+(`src/lib/api/error-catalogue.ts`). There are **136** codes. Clients should
 branch on codes, never on prose.
 
 One status is unusual: a client that abandons an in-flight evaluation gets
@@ -2208,6 +2208,7 @@ response message. Branch on the code.
 | `remote_too_large` | The remote file exceeds the configured remote size cap. |
 | `remote_timeout` | The remote fetch exceeded the configured remote time bound. |
 | `egress_blocked` | The destination address is blocked by the egress policy (loopback, private, link-local, or metadata space); the configured allowlist admits exceptions. |
+| `imagery_unavailable` | The satellite imagery did not answer a tile the instance relays with one: it could not be reached, its address is refused by the egress policy, it answered an error, too slowly, past the size bound or with something other than a raster image, or its tile address carries a user name or password and is not drawn. The message says which, never the tile address or its key. |
 | `area_too_large` | The selected area exceeds the import budget for the chosen theme. |
 | `name_taken` | A table of that name already exists. Operations never replace or rename around an existing table. Choose another name. |
 | `not_refreshable` | The table has no re-runnable remote source, so it cannot be refreshed. |

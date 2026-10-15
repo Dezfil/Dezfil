@@ -716,15 +716,17 @@ describe("a service address carrying a key", () => {
     } finally { vi.stubEnv(VARIABLE.templatesCatalogueUrl, undefined); }
   });
 
-  it("the imagery style whole for a signed-in request alone, refused to an anonymous one; a publication of a map on Satellite assembled afresh", async () => {
+  it("the imagery style for a signed-in request alone, naming the instance's tile address and none of the template, refused to an anonymous one; a publication of a map on Satellite assembled afresh", async () => {
     // The tile template's key in all three places, by the variable: a save
     // refuses its user information.
     vi.stubEnv(VARIABLE.satelliteUrl, address("satelliteUrl", { user: true }));
     try {
       const style = await ask("GET", SATELLITE_STYLE_URL);
       expect(style.status, style.text).toBe(200);
-      // The one place the template is whole: a browser drawing the imagery loads it.
-      expect(leaks(style.text)).toEqual(expect.arrayContaining([...SAVED]));
+      // The browser drawing the imagery is handed the instance's own tile
+      // address: the template stays on the server, which fetches the tiles.
+      expect(style.body.sources.satellite.tiles).toEqual([`${SATELLITE_STYLE_URL}/tiles/{z}/{x}/{y}`]);
+      searched("the imagery style a signed-in browser loads", style.text);
       const anonymous = await imageryRoute(socketRequest(new Request(`${BASE}${SATELLITE_STYLE_URL}`)));
       expect(anonymous.status).toBe(401);
       searched("the imagery style refused to an anonymous request", await anonymous.text());
