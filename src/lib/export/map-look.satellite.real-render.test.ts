@@ -53,7 +53,11 @@ import { decodePng, encodePng, type DecodedImage } from "./png-codec";
  * a fixture resolver answers publicly at save and privately at use is
  * refused by the export's egress check of the imagery's host: the image is
  * not produced and the export answers the egress refusal, the imagery
- * asked for nothing.
+ * asked for nothing. A tile host that passes that check and redirects its
+ * tiles to a private address is refused by the standalone's relay while
+ * the image renders: its refusal carries the outbound policy's mark, and
+ * the export answers the same refusal rather than an image without its
+ * imagery.
  *
  * Provisioning, as the map check's other real-render tests: the port of a
  * production standalone sharing this process's data directory in
@@ -108,7 +112,7 @@ async function change(patch: Record<string, unknown>) {
 
 describe.skipIf(!port)("the server's image of a map on Satellite as the imagery is set, unreadable, removed and set again", () => {
   let mapId: string;
-  let imagery: Server; let tiles = 0; let imageryPort = 0;
+  let imagery: Server; let tiles = 0; let redirects = 0; let imageryPort = 0;
   /** The user agent of every tile request the fixture served. */
   const askedBy: string[] = [];
   let heldKey: unknown; let changed = false;
@@ -133,6 +137,13 @@ describe.skipIf(!port)("the server's image of a map on Satellite as the imagery 
         // No cross-origin permission: only the instance's own fetch draws it.
         res.writeHead(200, { "content-type": "image/png", "cache-control": "no-store" });
         res.end(Buffer.from(TILE));
+        return;
+      }
+      if (req.method === "GET" && /^\/redirect\/\d+\/\d+\/\d+\.png$/.test(req.url ?? "")) {
+        // Sent on to a private address, which the outbound policy refuses.
+        redirects += 1;
+        res.writeHead(302, { location: `http://10.0.0.7${(req.url ?? "").replace("/redirect/", "/tiles/")}` });
+        res.end();
         return;
       }
       res.writeHead(404); res.end();
@@ -248,5 +259,16 @@ describe.skipIf(!port)("the server's image of a map on Satellite as the imagery 
     // The export asked the resolver at use, and nothing reached the imagery.
     expect(dns.asked).toContain("imagery.fixture.test");
     expect(tiles - before).toBe(0);
+  }, 60_000);
+
+  it("refuses the image of a map whose imagery redirects its tiles to an address the outbound policy refuses, with the renderer's egress refusal", async () => {
+    await change({ satelliteUrl: `http://127.0.0.1:${imageryPort}/redirect/{z}/{x}/{y}.png` });
+    const before = { tiles, redirects };
+    await expect(lookAtMap(testAccountScope(), { mapId, credential: credential(), baseUrl: `http://127.0.0.1:${port}` }))
+      .rejects.toMatchObject({ code: "render_failed", message: EGRESS_REFUSAL });
+    // The host passed the check before the render, its tiles were asked and
+    // redirected, and nothing was asked at the address they were sent to.
+    expect(redirects - before.redirects, "tiles asked and redirected").toBeGreaterThan(0);
+    expect(tiles - before.tiles).toBe(0);
   }, 60_000);
 });

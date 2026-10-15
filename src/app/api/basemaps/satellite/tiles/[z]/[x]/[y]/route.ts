@@ -4,6 +4,7 @@ import {
   noImageryResponse,
   readTileCoordinate,
   relaySatelliteTile,
+  tileFailure,
   tileResponse,
 } from "@/lib/basemap-satellite-tiles";
 
@@ -13,9 +14,10 @@ type Params = { params: Promise<{ z: string; x: string; y: string }> };
  * One tile of the configured imagery, for a signed-in browser drawing the
  * imagery style: fetched now by the server from the tile template and
  * passed back, so the template and its key stay here. Only the tile's z, x
- * and y reach the template, refused before anything is asked unless each
- * is a whole number inside the zoom's range. An instance with no imagery
- * answers as the style does.
+ * and y, and @2x after y, reach the template, refused before anything is
+ * asked unless each is a whole number inside the zoom's range. An instance with no imagery
+ * answers as the style does; a refusal by the outbound policy carries its
+ * mark, which an image render reads.
  */
 export async function GET(request: Request, { params }: Params) {
   try {
@@ -25,5 +27,5 @@ export async function GET(request: Request, { params }: Params) {
     if (!tile) throw invalidTile();
     const relayed = await relaySatelliteTile(tile, { signal: request.signal });
     return relayed ? tileResponse(relayed) : noImageryResponse();
-  } catch (error) { return authFailure(error); }
+  } catch (error) { return tileFailure(error, authFailure); }
 }

@@ -5,6 +5,7 @@ import {
   noImageryResponse,
   readTileCoordinate,
   relaySatelliteTile,
+  tileFailure,
   tileResponse,
 } from "@/lib/basemap-satellite-tiles";
 import { requirePublishedSatellite } from "@/lib/publish/published-satellite";
@@ -30,6 +31,6 @@ export async function GET(request: Request, { params }: Params) {
     if (!relayed || requirePublishedSatellite(token) === "none") return noImageryResponse();
     return tileResponse(relayed);
   } catch (error) {
-    return privateResponse(errorResponse(error));
+    return tileFailure(error, (failure) => privateResponse(errorResponse(failure)));
   }
 }

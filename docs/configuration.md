@@ -309,7 +309,9 @@ restricted to browser origins or referrers needs that restriction lifted, and
 a limit the provider sets per address counts all of this instance's viewers
 together. An image export of a map on Satellite checks the template's host
 against the egress policy before it starts and, when the policy refuses it,
-answers `render_failed` rather than make the image without its imagery.
+answers `render_failed` rather than make the image without its imagery; a
+tile the policy refuses while the image renders, at a redirect or at another
+host the template names, refuses the image the same way.
 
 The saved palettes are listed on the same tab, each with its colors, and added
 or deleted there through `/api/palettes`, as in the builder. Deleting one

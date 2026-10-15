@@ -726,7 +726,9 @@ seconds and reads at most 4 MiB; only a whole PNG, JPEG, GIF, WebP or AVIF
 image passes back, with the type its bytes are, and no tile is kept. Every
 failure upstream answers `imagery_unavailable` (502, or 504 past the time
 limit), whose message says what went wrong and never the tile address or its
-key. With no imagery configured the styles and the tiles answer 404. Every
+key; where the egress policy refused the imagery's address, at its host or at
+a redirect, the 502 carries `X-Dezfil-Egress-Refused: imagery`, which an image
+export reads to refuse its image rather than make it without the imagery. With no imagery configured the styles and the tiles answer 404. Every
 answer is private, no-store. None of the four is a tool: an agent reads the
 basemap offer from `GET /api/config`.
 

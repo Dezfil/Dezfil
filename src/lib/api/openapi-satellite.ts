@@ -49,7 +49,18 @@ export const SATELLITE_TILE_RESPONSES = {
   },
   "400": ERROR_RESPONSE,
   "404": { description: "No imagery is configured." },
-  "502": ERROR_RESPONSE,
+  "502": {
+    ...ERROR_RESPONSE,
+    description: "imagery_unavailable: the imagery failed, or this instance's egress policy refused its address.",
+    headers: {
+      "X-Dezfil-Egress-Refused": {
+        description: "imagery where the egress policy refused the imagery's address, at its host or at a " +
+          "redirect; absent for every other failure. An image export that meets it refuses its image " +
+          "rather than make it without the imagery.",
+        schema: { type: "string", const: "imagery" },
+      },
+    },
+  },
   "504": ERROR_RESPONSE,
 };
 

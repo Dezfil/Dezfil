@@ -29,7 +29,8 @@ import { fillTileTemplate, type TileScheme } from "./tile-template";
  * no tile is written anywhere. Every failure upstream is one coded
  * refusal whose words say what went wrong and never where: the engine's
  * own failures name the address, so none of their words is passed on, and
- * nothing here writes to the log.
+ * nothing here writes to the log. A refusal by the outbound policy carries
+ * a mark beside its words, so an image render refuses its image.
  *
  * The satellite imagery's Test asks for its fixed tile through the same
  * request step and reads it under the same bound.
@@ -242,6 +243,49 @@ export interface RelayedTile { bytes: Buffer; type: string }
 const unavailable = (message: string, status = 502) => new ApiError("imagery_unavailable", message, status);
 
 /**
+ * The mark on a tile's refusal where the outbound policy refused the
+ * imagery's address, at its host or at a redirect. A render's browser asks
+ * the instance's own tile address, which it admits as the app's, so it sees
+ * only a tile that failed and would make the image without its imagery;
+ * the renderer reads this mark on its own answers from the instance and
+ * refuses the image, as it refuses a style reaching a refused address
+ * (render-driver.ts). It says nothing the refusal's words do not.
+ */
+export const EGRESS_REFUSED_HEADER = "x-dezfil-egress-refused";
+
+/** The relay's refusals that are the outbound policy's. */
+const egressRefusals = new WeakSet<ApiError>();
+
+/** A failed tile's answer, as `answer` makes it of the error, marked where
+ * the outbound policy refused the imagery's address. */
+export function tileFailure(error: unknown, answer: (error: unknown) => Response): Response {
+  const response = answer(error);
+  if (error instanceof ApiError && egressRefusals.has(error)) response.headers.set(EGRESS_REFUSED_HEADER, "imagery");
+  return response;
+}
+
+/** The instance's own satellite tile addresses, signed-in and published. */
+const SATELLITE_TILE_PATH = /^\/api\/(?:published\/[^/]+\/)?basemaps\/satellite\/tiles\/[^/]+\/[^/]+\/[^/]+$/;
+
+/** Whether an answer a render's page received is this relay's refusal by
+ * the outbound policy: from the instance's own origin, at one of its
+ * satellite tile addresses, a 502 carrying the mark. An answer from
+ * anywhere else says nothing here, whatever it carries. */
+export function relayRefusedEgress(
+  answer: { url: string; status: number; headers: Record<string, string> },
+  appOrigin: string,
+): boolean {
+  let url: URL;
+  try {
+    url = new URL(answer.url);
+  } catch {
+    return false;
+  }
+  return url.origin === appOrigin && SATELLITE_TILE_PATH.test(url.pathname) &&
+    answer.status === 502 && answer.headers[EGRESS_REFUSED_HEADER] === "imagery";
+}
+
+/**
  * One tile of the imagery in effect, fetched now, or null while no
  * template is set. A stored template the instance's key no longer opens
  * throws its coded refusal, as the style does. A template carrying a user
@@ -280,7 +324,9 @@ export async function relaySatelliteTile(
     // The caller left: coded as an abandonment, with no address in it.
     if (error instanceof ApiError && error.code === "remote_fetch_abandoned") throw error;
     if (error instanceof ApiError && error.code === "egress_blocked") {
-      throw unavailable("The satellite imagery's tile address is one this instance's egress policy refuses.");
+      const refusal = unavailable("The satellite imagery's tile address is one this instance's egress policy refuses.");
+      egressRefusals.add(refusal);
+      throw refusal;
     }
     // Whatever else stopped the exchange (a refused connection, a name
     // that does not resolve, an answer cut short) is said without its

@@ -11,11 +11,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const dns = vi.hoisted(() => ({ lookup: vi.fn() }));
 vi.mock("node:dns/promises", () => ({ lookup: dns.lookup }));
 vi.mock("@/components/viewer/PublishedView", () => ({ PublishedView: () => null }));
+// The renderer's own driver runs over a browser that launches no Chromium.
+vi.mock("puppeteer-core", () => ({ default: { launch: vi.fn() } }));
 
 import type { ReactElement } from "react";
 import { NextRequest } from "next/server";
+import puppeteer from "puppeteer-core";
 import PublishedPage from "@/app/v/[token]/page";
 import { gateRequest } from "@/lib/auth/gate";
+import { delegateCredential } from "@/lib/auth/delegation";
+import { requireRequestAuth } from "@/lib/auth/http";
 import * as metadata from "@/lib/metadata/db";
 import { readDocumentRevision } from "@/lib/metadata/revisions";
 import { publishMap, resetPublishCache, unpublishMap, type PublishSettings } from "@/lib/publish/publish-service";
@@ -28,7 +33,7 @@ import { tokenFor } from "@/lib/test-support/rule-roads";
 import { initialDefinition } from "@/lib/export/image-definition";
 import { renderMapImage, type RenderDriver } from "@/lib/export/render-image";
 import { satelliteTilesUrl, type BasemapStyle } from "./basemap";
-import { readTileCoordinate, tileAddress } from "./basemap-satellite-tiles";
+import { readTileCoordinate, relayRefusedEgress, tileAddress } from "./basemap-satellite-tiles";
 import { createMap, updateMap } from "./map-service";
 
 /**
@@ -308,28 +313,28 @@ describe("an upstream failure", () => {
   };
 
   it.each([
-    ["an error status", echo(500, "text/html"), 502],
-    ["a refusal of the key", echo(403, "image/png"), 502],
-    ["a page in place of a tile", echo(200, "text/html"), 502],
-    ["a page claiming to be an image", echo(200, "image/png"), 502],
+    ["an error status", echo(500, "text/html"), 502, false],
+    ["a refusal of the key", echo(403, "image/png"), 502, false],
+    ["a page in place of a tile", echo(200, "text/html"), 502, false],
+    ["a page claiming to be an image", echo(200, "image/png"), 502, false],
     ["a picture a browser would run", (_req: IncomingMessage, res: ServerResponse) => {
       res.writeHead(200, { "content-type": "image/svg+xml" });
       res.end('<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>');
-    }, 502],
+    }, 502, false],
     ["a whole image past the size bound", (_req: IncomingMessage, res: ServerResponse) => {
       res.writeHead(200, { "content-type": "image/png" });
       res.end(oversized());
-    }, 502],
+    }, 502, false],
     ["an answer cut short", (_req: IncomingMessage, res: ServerResponse) => {
       res.writeHead(200, { "content-type": "image/png", "content-length": String(TILE.length * 2) });
       res.write(TILE.subarray(0, 20));
       res.destroy();
-    }, 502],
+    }, 502, false],
     ["a redirect into blocked space", (_req: IncomingMessage, res: ServerResponse) => {
       res.writeHead(302, { location: `http://10.0.0.7/${SEEDS[0]}/3/4/2.png?key=${SEEDS[1]}` });
       res.end();
-    }, 502],
-  ])("answers the coded refusal for %s, its words, headers and the log free of the template and its key", async (_what, handler, status) => {
+    }, 502, true],
+  ])("answers the coded refusal for %s, its words, headers and the log free of the template and its key", async (_what, handler, status, marked) => {
     answer = handler as Handler;
     const logs = (["log", "info", "warn", "error", "debug"] as const).map((level) => vi.spyOn(console, level));
     const tile = await call("/api/basemaps/satellite/tiles/3/4/2", "member");
@@ -338,6 +343,8 @@ describe("an upstream failure", () => {
     expect(tile.headers.get("content-type")).toMatch(/^application\/json/);
     expect(tile.headers.get("cache-control")).toBe("private, no-store");
     expect(tile.headers.get("set-cookie")).toBeNull();
+    // Only a refusal by the outbound policy carries its mark.
+    expect(tile.headers.get("x-dezfil-egress-refused"), "the outbound policy's mark").toBe(marked ? "imagery" : null);
     expectNoTemplate("the refusal", tile);
     for (const spy of logs) for (const args of spy.mock.calls) expectNoTemplate("the log", { text: args.map(String).join(" "), headers: new Headers() });
     expect(asked).toHaveLength(1);
@@ -349,6 +356,7 @@ describe("an upstream failure", () => {
     const tile = await call("/api/basemaps/satellite/tiles/3/4/2", "member");
     expect(tile.status).toBe(502);
     expect(tile.body).toEqual(refusal);
+    expect(tile.headers.get("x-dezfil-egress-refused"), "no refusal of the outbound policy's").toBeNull();
     expectNoTemplate("the refusal", tile);
     fixture = createServer(() => {});
   });
@@ -363,6 +371,7 @@ describe("an upstream failure", () => {
     const tile = await call("/api/basemaps/satellite/tiles/3/4/2", "member");
     expect(tile.status).toBe(502);
     expect(tile.body).toEqual(refusal);
+    expect(tile.headers.get("x-dezfil-egress-refused"), "the outbound policy's mark").toBe("imagery");
     expectNoTemplate("the refusal", tile);
     // The name was looked up at use, and nothing reached the address it gave.
     expect(dns.lookup.mock.calls.map((args) => args[0])).toContain("imagery.fixture.test");
@@ -449,6 +458,16 @@ describe("a published map's reader", () => {
       }
     }
     expect(asked).toEqual([]);
+  });
+
+  it("is answered a tile the outbound policy refuses with the policy's mark, as a signed-in browser is", async () => {
+    const { token } = await publishOn("satellite");
+    answer = (_req, res) => { res.writeHead(302, { location: `http://10.0.0.7/${SEEDS[0]}/3/4/2.png` }); res.end(); };
+    const tile = await call(readerTile(token), "anonymous");
+    expect(tile.status).toBe(502);
+    expect(tile.body).toEqual(refusal);
+    expect(tile.headers.get("x-dezfil-egress-refused")).toBe("imagery");
+    expectNoTemplate("the reader's refusal", tile);
   });
 
   it("is refused a tile whose publication is revoked while the imagery answers", async () => {
@@ -577,5 +596,93 @@ describe("an image export of a map on Satellite", () => {
     await storeTemplate("unresolved");
     await exportOf(satellite);
     expect(launches, "a dead name is no refusal, as before").toBe(3);
+  });
+
+  /**
+   * The renderer's own driver, as an export runs it, over a browser that
+   * launches no Chromium: its page asks for the render route, then for each
+   * address `asks` names. The instance's own addresses are answered by the
+   * shipped routes, with the headers the driver let the request carry; any
+   * other by `elsewhere`. Each answer reaches the driver as the page's
+   * response, as Chromium reports it.
+   */
+  function pageAsking(
+    asks: (origin: string) => string[],
+    elsewhere: (url: string) => { status: number; headers: Record<string, string> } = () => ({ status: 200, headers: {} }),
+  ) {
+    const listeners = new Map<string, ((value: unknown) => void)[]>();
+    const emit = (event: string, value: unknown) => { for (const listener of listeners.get(event) ?? []) listener(value); };
+    const page = {
+      on: (event: string, listener: (value: unknown) => void) => { listeners.set(event, [...(listeners.get(event) ?? []), listener]); },
+      setRequestInterception: async () => {}, setViewport: async () => {}, evaluateOnNewDocument: async () => {},
+      setOfflineMode: async () => {}, waitForFunction: async () => {}, evaluate: async () => undefined,
+      screenshot: async () => new Uint8Array([0x89, 0x50, 0x4e, 0x47]),
+      goto: async (url: string) => {
+        const origin = new URL(url).origin;
+        for (const address of [url, ...asks(origin)]) {
+          const sent = await new Promise<Record<string, string> | null>((resolve) => emit("request", {
+            url: () => address, headers: () => ({}), redirectChain: () => [],
+            continue: async (overrides?: { headers?: Record<string, string> }) => resolve(overrides?.headers ?? {}),
+            abort: async () => resolve(null),
+          }));
+          if (sent === null || address === url) continue;
+          const answered = new URL(address).origin === origin
+            ? await call(new URL(address).pathname, "anonymous", { headers: sent }).then((a) => ({ status: a.status, headers: Object.fromEntries(a.headers) }))
+            : elsewhere(address);
+          emit("response", { url: () => address, status: () => answered.status, headers: () => answered.headers });
+        }
+      },
+    };
+    vi.mocked(puppeteer.launch).mockResolvedValue({ newPage: async () => page, close: async () => {}, process: () => null } as never);
+  }
+  /** An export of the map as the product makes it: its own driver, the
+   * member's render credential. */
+  const exportThroughDriver = (mapId: string) => renderMapImage(testAccountScope(db, "member"), {
+    mapId, definition: definition(), baseUrl: "http://127.0.0.1:3620",
+    credential: delegateCredential(requireRequestAuth(testAccountRequest(new Request(`${ORIGIN}/api/config`), db, "member"), db), db) });
+  const imageryTile = (origin: string) => [`${origin}/api/basemaps/satellite/tiles/3/4/2`];
+  const redirectIntoBlockedSpace: Handler = (_req, res) => {
+    res.writeHead(302, { location: `http://10.0.0.7/${SEEDS[0]}/3/4/2.png?key=${SEEDS[1]}` });
+    res.end();
+  };
+
+  it("is refused with the egress refusal when the imagery redirects a tile to an address the outbound policy refuses, the image not made", async () => {
+    const id = mapOn("satellite");
+    answer = redirectIntoBlockedSpace;
+    pageAsking(imageryTile);
+    // The imagery's host passes the check before the render: only the
+    // redirect, which the relay follows, reaches the refused address.
+    await expect(exportThroughDriver(id)).rejects.toMatchObject({ code: "render_failed", status: 502, message: EGRESS_REFUSAL });
+    expect(asked, "the imagery was asked once and redirected").toHaveLength(1);
+  });
+
+  it("makes the image where the imagery answers, where it fails otherwise, and where another host's answer carries the mark", async () => {
+    const id = mapOn("satellite");
+    pageAsking(imageryTile);
+    await expect(exportThroughDriver(id)).resolves.toHaveProperty("png");
+    expect(asked).toHaveLength(1);
+    answer = (_req, res) => { res.writeHead(500); res.end(); };
+    await expect(exportThroughDriver(id), "a tile that failed is no refusal").resolves.toHaveProperty("png");
+    pageAsking(() => ["https://tiles.example.test/api/basemaps/satellite/tiles/3/4/2"],
+      () => ({ status: 502, headers: { "x-dezfil-egress-refused": "imagery" } }));
+    await expect(exportThroughDriver(id), "the mark on another host's answer").resolves.toHaveProperty("png");
+  });
+
+  it("takes the mark only from the instance's own satellite tile addresses, on their refusal", () => {
+    const app = "http://127.0.0.1:3620";
+    const marked = { "x-dezfil-egress-refused": "imagery" };
+    expect(relayRefusedEgress({ url: `${app}/api/basemaps/satellite/tiles/3/4/2`, status: 502, headers: marked }, app)).toBe(true);
+    expect(relayRefusedEgress({ url: `${app}/api/published/T/basemaps/satellite/tiles/3/4/2@2x`, status: 502, headers: marked }, app)).toBe(true);
+    const unmarked: [string, number, Record<string, string>][] = [
+      ["https://tiles.example.test/api/basemaps/satellite/tiles/3/4/2", 502, marked],
+      ["http://127.0.0.1:3621/api/basemaps/satellite/tiles/3/4/2", 502, marked],
+      [`${app}/api/layers/L/tiles/3/4/2`, 502, marked],
+      [`${app}/api/basemaps/satellite`, 502, marked],
+      [`${app}/api/basemaps/satellite/tiles/3/4/2`, 504, marked],
+      [`${app}/api/basemaps/satellite/tiles/3/4/2`, 502, {}],
+      [`${app}/api/basemaps/satellite/tiles/3/4/2`, 502, { "x-dezfil-egress-refused": "other" }],
+      ["not an address", 502, marked],
+    ];
+    for (const [url, status, headers] of unmarked) expect(relayRefusedEgress({ url, status, headers }, app), `${url} ${status}`).toBe(false);
   });
 });
