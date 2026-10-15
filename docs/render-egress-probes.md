@@ -360,9 +360,20 @@ credential before rendering. A non-200 response fails immediately and names
 sign-in page. The ephemeral basemap listener is removed by the fixture; the
 runner stops the standalone and removes the scratch store. Green is a complete
 image naming the abandoned host for both raster and vector tiles, on both the
-map check and export roads. Each case holds the first viewport tile; all other
-vector tiles return an empty protobuf body. The check uses its own request bound
-and budget; the export uses its default request bound and budget. The cut ends
+map check and export roads. Four socket cases hold the first viewport tile; all
+other vector tiles return an empty protobuf body. Two additional `never-started`
+vector cases, one per road, model a stranded first z12 tile request: the driver's
+admitted continue resolves without starting the fetch, so there is no socket and
+no terminal event. Green for these cases means the first cut's settle signal
+produces the image naming the abandoned host within the bound plus ten seconds
+and before the road's budget, while the tile never reaches the server and has no
+terminal event before capture. Seed red by commenting out
+`void page.evaluate(settleRenderTiles).catch(() => {});` in
+`src/lib/export/render-driver.ts`; both `never-started` cases must then exhaust
+their render budgets.
+
+The check uses its own request bound and budget; the export uses its default
+request bound and budget. The cut ends
 current relay sockets, reaching worker fetches as well as page fetches, before
 the page's offline flip and stop. The relay remembers only hosts whose requests
 outlived the bound since their start or last abandonment. It matches names case-insensitively and IPv6 literals

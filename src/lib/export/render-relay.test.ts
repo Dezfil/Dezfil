@@ -60,6 +60,17 @@ it.each(["ipv4", "ipv6", "domain"] as const)("checks a local client's %s literal
   expect(target.contacts).toBe(0); expect(resolve).not.toHaveBeenCalled(); expect(relay.refused).toBe(true);
 });
 
+it("answers a zone-scoped IPv6 CONNECT with an admission denial", async () => {
+  vi.stubEnv("DEZFIL_EGRESS_ALLOWLIST", "");
+  const resolve = vi.fn(async () => ["203.0.113.7"]);
+  const relay = await start({ resolve });
+  const client = await network.client(relay.port);
+  client.socket.write(socksRequest("fe80::1%eth0", 443));
+  expect((await client.read(12))[3]).toBe(2);
+  expect(relay.refused).toBe(true);
+  expect(resolve).not.toHaveBeenCalled();
+});
+
 it("refuses a mixed answer without contacting even its admitted first address", async () => {
   vi.stubEnv("DEZFIL_EGRESS_ALLOWLIST", "::1");
   const target = await network.target("::1"); await network.live(target);
