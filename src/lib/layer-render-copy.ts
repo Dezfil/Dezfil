@@ -37,6 +37,12 @@ export function templateRenderCapRefusal(featureCount: number, capFeatures: numb
   return `This layer has ${featureCount.toLocaleString()} features, over the render cap of ${capFeatures.toLocaleString()}. A template draws within the cap; make a copy to draw all of it.`;
 }
 
+/** A slider preview over the byte limit: nothing previews, and the layer
+ * draws its settled answer once the slider is released. */
+export function sliderPreviewBytesRefusal(limit: number): string {
+  return `This layer's preview is larger than ${limit.toLocaleString("en-US")} bytes, the limit for one layer drawn in the map, so the map shows the change when you let go.`;
+}
+
 /** A template's layer over the byte limit: as over the cap, a copy tiles. */
 export function templateRenderBytesRefusal(limit: number): string {
   return `${overByteLimit(limit)}. A template draws within the limit; make a copy to draw all of it.`;

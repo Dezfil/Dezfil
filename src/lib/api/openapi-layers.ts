@@ -7,7 +7,7 @@ import { layerAccess } from "./openapi-layer-access";
 import { LOCAL_ADD, LOCAL_DELETE, LOCAL_READ, LOCAL_REPLACE } from "./operation-mcp";
 import { changeGroupParam } from "./openapi-mcp";
 import { READ_ONLY, writes, resource, recorded } from "./operation-metadata";
-import { op, jsonOk, pathParam } from "./openapi-helpers";
+import { op, jsonOk, pathParam, ERROR_RESPONSE } from "./openapi-helpers";
 
 export const LAYER_RESOURCE_PATHS = {
   "/api/maps/{id}/layers": {
@@ -297,13 +297,18 @@ export const LAYER_QUERY_PATHS = {
         "filters are applied; range/time filters are left for the " +
         "client so a slider can narrow and widen. The response says " +
         "whether it is exact or a stable bounded subset. It never " +
-        "changes the layer or its history and is not published.",
+        "changes the layer or its history and is not published. The " +
+        "answer, envelope included, is bounded by Bytes drawn per layer " +
+        "(renderCapBytes), counted as it is built; above it the read " +
+        "answers 422 render_bytes_exceeded with no partial preview, and " +
+        "the layer's own render is unaffected.",
       tag: "Layers",
       tool: false,
       effects: READ_ONLY,
       parameters: [pathParam("id", "Layer id.")],
       responses: {
         "200": jsonOk("#/components/schemas/SliderPreviewData"),
+        "422": ERROR_RESPONSE,
       },
     })),
   },

@@ -9,6 +9,9 @@ import { limits } from "./limits";
 import type { Layer } from "./metadata/maps";
 import type { SliderPreviewData } from "./slider-preview";
 import { layerEvaluation } from "./query/context";
+import { buildInlineAnswer } from "./query/render-features";
+import { ApiError } from "./api/errors";
+import { sliderPreviewBytesRefusal } from "./layer-render-copy";
 
 function ident(s: string): string {
   return `"${s.replace(/"/g, '""')}"`;
@@ -69,7 +72,10 @@ function sliderPreviewFieldNames(layer: Layer): Set<string> {
  * Geometry input used while a human manipulates a query-shaping slider.
  * Range/time filters are intentionally omitted so a local preview can widen as
  * well as narrow; discrete filters remain server-applied. Above the dedicated
- * input budget, a hash-ordered subset stays stable across requests.
+ * input budget, a hash-ordered subset stays stable across requests. The
+ * answer is built under Bytes drawn per layer as it is read; over it, the
+ * preview is refused whole (422 render_bytes_exceeded), and the layer's own
+ * render, evaluated when the slider settles, is unaffected.
  */
 export async function sliderPreviewData(
   scope: DatasetScope,
@@ -93,45 +99,44 @@ export async function sliderPreviewData(
       ? `${geom} IS NOT NULL`
       : `${geom} IS NOT NULL AND ST_GeometryType(${geom}) = 'POINT'`;
   const budget = limits.sliderPreviewRows;
+  const bytes = limits.renderCapBytes;
 
-  return boundedEvaluation(async (conn) => {
+  return boundedEvaluation(async (conn, bounds) => {
     const source = `(${filteredSql(await namedSql(conn, layer.sql), filters)}) AS q`;
     const counted = await conn.runAndReadAll(
       `SELECT count(*) AS n FROM ${source} WHERE ${geometryPredicate}`,
     );
     const sourceCount = Number(counted.getRowObjects()[0]?.n ?? 0);
     const exact = sourceCount <= budget;
-    const props = fields.length
-      ? `to_json({${fields
-          .map(
-            (field) =>
-              `'${field.name.replace(/'/g, "''")}': ${ident(field.name)}`,
-          )
-          .join(", ")}})`
-      : `'{}'`;
     const hashArgs = [
       `ST_AsWKB(${geom})`,
       ...fields.map((field) => ident(field.name)),
     ].join(", ");
-    const sampled = await conn.runAndReadAll(
-      `SELECT ST_AsGeoJSON(${geom}) AS geometry, ${props} AS props
+    const sampled = `(SELECT ${[geom, ...fields.map((field) => ident(field.name))].join(", ")}
        FROM ${source} WHERE ${geometryPredicate}
        ${exact ? "" : `ORDER BY hash(${hashArgs})`}
-       LIMIT ${budget}`,
-    );
-    const features = sampled.getRowObjects().map((row) => ({
-      type: "Feature",
-      geometry: JSON.parse(String(row.geometry)),
-      properties: JSON.parse(String(row.props)),
-    }));
-    return {
-      layerId: layer.id,
-      exact,
-      sourceCount,
-      sampledCount: features.length,
-      budget,
-      fields,
-      geojson: { type: "FeatureCollection", features },
-    };
+       LIMIT ${budget}) AS q`;
+    try {
+      return await buildInlineAnswer(
+        conn,
+        { from: sampled, geometry: geom, properties: fields.map((field) => field.name), anchors: false },
+        (features, count) => ({
+          layerId: layer.id,
+          exact,
+          sourceCount,
+          sampledCount: count,
+          budget,
+          fields,
+          geojson: { type: "FeatureCollection", features },
+        }),
+        bytes,
+        bounds.interrupted,
+      );
+    } catch (error) {
+      if (error instanceof ApiError && error.code === "render_bytes_exceeded") {
+        throw new ApiError("render_bytes_exceeded", sliderPreviewBytesRefusal(bytes), 422);
+      }
+      throw error;
+    }
   }, { scope, signal });
 }

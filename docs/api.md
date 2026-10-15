@@ -1017,7 +1017,11 @@ complete answer against Bytes drawn per layer too, each with its own outcome
 above it. `GET /api/tables/{name}/features` answers `ok: false` with a
 `reason` and no features when the dataset's answer, or the sample asked for
 with `sample=1`, exceeds the limit; it used to answer every feature within
-the render cap whatever their size.
+the render cap whatever their size. `GET /api/layers/{id}/slider-preview`
+answers `422 render_bytes_exceeded` with no partial preview when its complete
+answer exceeds the limit; it used to answer every sampled point whatever
+their size. The layer's own render, evaluated when the slider settles, is
+unaffected.
 
 `GET /api/layers/{id}/tiles/{z}/{x}/{y}` serves a tiled layer's archive to a
 reader who can reach every dataset it recorded drawing, and answers
@@ -2267,8 +2271,10 @@ the render cap: tiles for a points layer, its live filters applied in the
 query for a layer the canvas filters, and otherwise the errored-layer envelope
 `render_bytes_exceeded`. Dataset map features count their answer the same
 way; over the limit, the whole dataset or the sample asked for answers
-`ok: false` with a reason and no features. Slider previews, Overture,
-OpenStreetMap and sketch features do not apply it yet. Geometry set and clear
+`ok: false` with a reason and no features. A slider preview over the limit
+answers `422 render_bytes_exceeded` with no partial preview; the layer's own
+render is unaffected. Overture, OpenStreetMap and sketch features do not apply
+it yet. Geometry set and clear
 use the processing lifetime through preparation and revision-checked replacement.
 They continue after departure; expiry or resource refusal removes the candidate
 and retains the previous artifact. Sketch feature reads and map summaries use
