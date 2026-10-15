@@ -1,3 +1,4 @@
+import { purgeQueryStores } from "@/lib/query/retained";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { DuckDBInstance, type DuckDBConnection } from "@duckdb/node-api";
 import { mkdtemp, mkdir, writeFile, readdir, rm } from "node:fs/promises";
@@ -29,10 +30,13 @@ beforeEach(async () => {
   dir = await mkdtemp(path.join(scratchRoot, "overture-case-")); vi.stubEnv("DEZFIL_DATA_DIR", dir); closeMetadataDb(); testAccountScope(); resetDivisionCaches(); resetReleaseCache();
   vi.resetAllMocks(); vi.spyOn(limits, "queryTimeoutMs", "get").mockReturnValue(100); vi.spyOn(limits, "dataProcessingTimeoutMs", "get").mockReturnValue(200);
   conn.run.mockImplementation(async () => { remember(); }); conn.runAndReadAll.mockImplementation(async () => { remember(); return rows(); });
-  vi.spyOn(DuckDBInstance, "create").mockResolvedValue({ connect: async () => conn as unknown as DuckDBConnection } as DuckDBInstance);
+  vi.spyOn(DuckDBInstance, "create").mockImplementation(async () => ({
+    connect: vi.fn().mockResolvedValueOnce({ run: vi.fn().mockResolvedValue(undefined), disconnectSync: vi.fn() }).mockResolvedValue(conn as unknown as DuckDBConnection),
+    closeSync: vi.fn(),
+  }) as unknown as DuckDBInstance);
   vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "performance"] });
 });
-afterEach(async () => { await Promise.all([...owners].map(o => o.drained)); owners.clear(); vi.useRealTimers(); vi.restoreAllMocks(); closeMetadataDb(); vi.unstubAllEnvs(); await rm(dir, { recursive: true, force: true }); });
+afterEach(async () => { await Promise.all([...owners].map(o => o.drained)); owners.clear(); await purgeQueryStores(); vi.useRealTimers(); vi.restoreAllMocks(); closeMetadataDb(); vi.unstubAllEnvs(); await rm(dir, { recursive: true, force: true }); });
 const countries = (signal?: AbortSignal) => (listDivisionCountries as (r: string, s?: AbortSignal) => ReturnType<typeof listDivisionCountries>)(params.release, signal);
 const build = async (_params: OvertureImportParams, artifact: string) => { remember(); await mkdir(path.dirname(artifact), { recursive: true }); await writeFile(artifact, "candidate"); return meta; };
 it("shared divisions retain the first deadline after one reader departs", async () => {

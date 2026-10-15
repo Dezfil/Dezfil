@@ -1,3 +1,4 @@
+import { purgeQueryStores } from "@/lib/query/retained";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { DuckDBConnection, DuckDBInstance } from "@duckdb/node-api";
 import { DuckDBInstance as NativeInstance } from "@duckdb/node-api";
@@ -17,9 +18,12 @@ beforeEach(() => {
   vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "performance"] });
   conn.run.mockResolvedValue(undefined); conn.runAndReadAll.mockResolvedValue({});
   connect.mockResolvedValue(conn);
-  vi.spyOn(NativeInstance, "create").mockResolvedValue({ connect } as unknown as DuckDBInstance);
+  vi.spyOn(NativeInstance, "create").mockImplementation(async () => ({
+    connect: vi.fn().mockResolvedValueOnce({ run: vi.fn().mockResolvedValue(undefined), disconnectSync: vi.fn() }).mockImplementation(connect),
+    closeSync: vi.fn(),
+  }) as unknown as DuckDBInstance);
 });
-afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); vi.clearAllMocks(); });
+afterEach(async () => { await purgeQueryStores(); vi.useRealTimers(); vi.restoreAllMocks(); vi.clearAllMocks(); });
 const flush = () => vi.advanceTimersByTimeAsync(0);
 
 it("expires projection preparation before a late connection can run statements", async () => {

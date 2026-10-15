@@ -828,6 +828,11 @@
     "memory:trusted-operation-context": {
       "action": "retain",
       "rule": "Keep the async context carrier. Per-operation state and stop hooks live until owned work settles; the carrier holds no retained results or account-indexed cache."
+    },
+    "file:trusted-spill": {
+      "action": "purge",
+      "rule": "After native work drains, close the shared trusted instance and remove all its transient spill. Remove abandoned spill at engine startup. Durable artifacts and unrelated temporary work remain.",
+      "fixture": "file:trusted-spill"
     }
   },
   "tables": {
@@ -3069,11 +3074,6 @@
         "memory:engine-extensions"
       ]
     },
-    "memory:src/lib/duckdb.ts#instancePromise": {
-      "stores": [
-        "memory:src/lib/duckdb.ts#instancePromise"
-      ]
-    },
     "memory:src/lib/duckdb.ts#queryCatalogGeneration": {
       "stores": [
         "memory:src/lib/duckdb.ts#queryCatalogGeneration"
@@ -4645,21 +4645,6 @@
     "memory:src/lib/tiles/serve.ts#reads": {
       "stores": [
         "memory:src/lib/tiles/serve.ts#reads"
-      ]
-    },
-    "memory:src/lib/duckdb.ts#nativeInstances": {
-      "stores": [
-        "memory:src/lib/duckdb.ts#nativeInstances"
-      ]
-    },
-    "memory:src/lib/duckdb.ts#nativeCreating": {
-      "stores": [
-        "memory:src/lib/duckdb.ts#nativeCreating"
-      ]
-    },
-    "memory:src/lib/duckdb.ts#leases": {
-      "stores": [
-        "memory:src/lib/duckdb.ts#leases"
       ]
     },
     "memory:src/lib/geometry/inspection-cache.ts#inspectionCache.pending": {
@@ -6340,6 +6325,82 @@
       "roots": [
         "templates/*/*"
       ]
+    },
+    "location:src/lib/duckdb.ts#getInstance.attempt:dataDir": {
+      "stores": [
+        "file:trusted-spill"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "location:src/lib/duckdb.ts#getInstance.attempt:path.join": {
+      "stores": [
+        "file:trusted-spill"
+      ],
+      "roots": [
+        "engine-spill"
+      ]
+    },
+    "memory:src/lib/duckdb.ts#nativeState": {
+      "stores": [
+        "memory:src/lib/duckdb.ts#instancePromise"
+      ]
+    },
+    "memory:src/lib/duckdb.ts#nativeState.creating": {
+      "stores": [
+        "memory:src/lib/duckdb.ts#nativeCreating"
+      ]
+    },
+    "memory:src/lib/duckdb.ts#nativeState.instances": {
+      "stores": [
+        "memory:src/lib/duckdb.ts#nativeInstances"
+      ]
+    },
+    "memory:src/lib/duckdb.ts#nativeState.leases": {
+      "stores": [
+        "memory:src/lib/duckdb.ts#leases"
+      ]
+    },
+    "writer:src/lib/duckdb.ts#getInstance.attempt:createTrustedInstance": {
+      "stores": [
+        "file:trusted-spill"
+      ],
+      "roots": [
+        "engine-spill"
+      ]
+    },
+    "writer:src/lib/sketch/read.ts#listFeatures:readFeatures": {
+      "stores": [
+        "file:trusted-spill"
+      ],
+      "roots": [
+        "*"
+      ]
+    },
+    "writer:src/lib/sketch/store.ts#mutate.features:readFeatures": {
+      "stores": [
+        "file:trusted-spill"
+      ],
+      "roots": [
+        "*"
+      ]
+    },
+    "location:src/lib/duckdb.ts#clear:dataDir": {
+      "stores": [
+        "file:trusted-spill"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "location:src/lib/duckdb.ts#clear:path.join": {
+      "stores": [
+        "file:trusted-spill"
+      ],
+      "roots": [
+        "engine-spill"
+      ]
     }
   },
   "files": {
@@ -6396,6 +6457,9 @@
     ],
     "file:templates": [
       "templates/**"
+    ],
+    "file:trusted-spill": [
+      "engine-spill/**"
     ]
   },
   "accountReferences": {

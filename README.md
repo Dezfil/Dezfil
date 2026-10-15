@@ -236,8 +236,11 @@ Dataset and geometry inspection use the Query time limit. File, archive, link
 and object-store imports and refreshes use the Data processing time limit;
 [the configuration guide](docs/configuration.md#upload-and-remote-import)
 describes the operation families. Upload reception has not yet adopted that
-limit. Trusted engine memory and Bytes drawn per layer are exposed for
-configuration; their enforcement is not yet active.
+limit. Trusted work shares the configured engine memory and a dedicated
+`engine-spill/` allowance of four times that value. A restart clears only that
+spill directory. Exhaustion answers `422 engine_memory_exceeded`, naming
+memory or scratch and the deployment remedy. Bytes drawn per layer is exposed
+for configuration; its enforcement is not yet active.
 
 JSON admission has fixed outer byte tiers: 65,536 bytes for authentication
 entry, Account, Users, instance settings and the three anonymous published POSTs; 16,777,216 for

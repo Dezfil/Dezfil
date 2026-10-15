@@ -1,3 +1,4 @@
+import { createTrustedInstance } from "./trusted-storage";
 import { currentTrustedOperation, isTrustedOperationRefusal } from "./trusted-operation";
 import { runTrustedConnection, trustedEngineError } from "./trusted-connection";
 import { registerQueryStore } from "./query/retained";
@@ -8,6 +9,7 @@ import {
   type DuckDBConnection,
 } from "@duckdb/node-api";
 import path from "node:path";
+import { rmSync } from "node:fs";
 import { dataDir } from "@/lib/config";
 import { loadTrustedH3 } from "./trusted-h3";
 import { limits } from "@/lib/limits";
@@ -27,12 +29,23 @@ import { ensureTileDirs, tileScratchDir } from "@/lib/tiles/paths";
  * extension directory is used and installs on demand.
  */
 
-let instancePromise: Promise<DuckDBInstance> | null = null;
+// Server bundles share native ownership as well as the trusted memory budget.
+// Separate instances would each receive the full allowance and reuse the same
+// spill directory while another bundle was still reading it.
+interface NativeLifetimes {
+  trusted: Promise<DuckDBInstance> | null;
+  instances: Set<WeakRef<DuckDBInstance>>;
+  creating: Set<Promise<DuckDBInstance>>;
+  leases: Set<ReturnType<typeof Promise.withResolvers<void>>>;
+}
+const nativeKey = Symbol.for("dezfil.native-engine-lifetimes");
+const nativeHost = process as typeof process & { [nativeKey]?: NativeLifetimes };
+const nativeState = nativeHost[nativeKey] ??= { trusted: null, instances: new Set(), creating: new Set(), leases: new Set() };
 let queryInstancePromise: Promise<DuckDBInstance> | null = null;
 
-const nativeInstances = new Set<WeakRef<DuckDBInstance>>();
-const nativeCreating = new Set<Promise<DuckDBInstance>>();
-const leases = new Set<ReturnType<typeof Promise.withResolvers<void>>>();
+const nativeInstances = nativeState.instances;
+const nativeCreating = nativeState.creating;
+const leases = nativeState.leases;
 function watchInstance(promise: Promise<DuckDBInstance>): Promise<DuckDBInstance> {
   nativeCreating.add(promise);
   void promise.then(instance => { nativeInstances.add(new WeakRef(instance)); nativeCreating.delete(promise); }, () => nativeCreating.delete(promise));
@@ -51,7 +64,8 @@ registerQueryStore({
   busy: () => nativeCreating.size > 0 || leases.size > 0,
   clear() {
     for (const ref of nativeInstances) { ref.deref()?.closeSync(); nativeInstances.delete(ref); }
-    instancePromise = null; queryInstancePromise = null; queryCatalogGeneration++;
+    rmSync(path.join(dataDir(), "engine-spill"), { recursive: true, force: true });
+    nativeState.trusted = null; queryInstancePromise = null; queryCatalogGeneration++;
     connectionGenerations = new WeakMap();
   },
 });
@@ -180,14 +194,14 @@ async function loadJson(conn: DuckDBConnection, install = true): Promise<boolean
 }
 
 function getInstance(): Promise<DuckDBInstance> {
-  if (!instancePromise) {
-    const attempt = watchInstance(DuckDBInstance.create(":memory:", baseConfig())).catch((error) => {
-      if (instancePromise === attempt) instancePromise = null;
+  if (!nativeState.trusted) {
+    const attempt = watchInstance(createTrustedInstance(baseConfig(), path.join(dataDir(), "engine-spill"), limits.trustedMemoryMb)).catch((error) => {
+      if (nativeState.trusted === attempt) nativeState.trusted = null;
       throw error;
     });
-    instancePromise = attempt;
+    nativeState.trusted = attempt;
   }
-  return instancePromise;
+  return nativeState.trusted;
 }
 
 /** Optional ingest capability, separate from the hardened instance's flag.
@@ -354,5 +368,5 @@ export async function connectQueryInstance({ install = true }: { install?: boole
   } catch (error) { release(); throw error; }
 }
 
-export function engineStateForTests() { return { trusted: instancePromise !== null, hardened: queryInstancePromise !== null, creating: nativeCreating.size, leases: leases.size, instances: [...nativeInstances].filter(ref => ref.deref()).length }; }
+export function engineStateForTests() { return { trusted: nativeState.trusted !== null, hardened: queryInstancePromise !== null, creating: nativeCreating.size, leases: leases.size, instances: [...nativeInstances].filter(ref => ref.deref()).length }; }
 export function connectionStampForTests(conn: DuckDBConnection): boolean { return connectionGenerations.has(conn); }

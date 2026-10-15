@@ -1,3 +1,4 @@
+import { purgeQueryStores } from "@/lib/query/retained";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { DuckDBInstance, type DuckDBConnection } from "@duckdb/node-api";
 import { mkdtemp, mkdir, writeFile, readdir, rm } from "node:fs/promises";
@@ -31,10 +32,13 @@ beforeEach(async () => {
   vi.resetAllMocks(); vi.spyOn(limits, "queryTimeoutMs", "get").mockReturnValue(100); vi.spyOn(limits, "dataProcessingTimeoutMs", "get").mockReturnValue(200);
   vi.spyOn(egress, "resolveAllowed").mockImplementation(async () => { remember(); return ["192.0.2.1"]; });
   conn.run.mockImplementation(async () => { remember(); }); conn.runAndReadAll.mockImplementation(async sql => { remember(); return { getRowObjects: () => sql.includes("information_schema.columns") ? [{ column_name: "id", udt_name: "int4" }] : [{ v: "source" }] }; });
-  vi.spyOn(DuckDBInstance, "create").mockResolvedValue({ connect: async () => conn as unknown as DuckDBConnection } as DuckDBInstance);
+  vi.spyOn(DuckDBInstance, "create").mockImplementation(async () => ({
+    connect: vi.fn().mockResolvedValueOnce({ run: vi.fn().mockResolvedValue(undefined), disconnectSync: vi.fn() }).mockResolvedValue(conn as unknown as DuckDBConnection),
+    closeSync: vi.fn(),
+  }) as unknown as DuckDBInstance);
   vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval", "performance"] });
 });
-afterEach(async () => { await Promise.all([...owners].map(o => o.drained)); owners.clear(); vi.useRealTimers(); vi.restoreAllMocks(); closeMetadataDb(); resetSecretKeyCache(); vi.unstubAllEnvs(); await rm(dir, { recursive: true, force: true }); });
+afterEach(async () => { await Promise.all([...owners].map(o => o.drained)); owners.clear(); await purgeQueryStores(); vi.useRealTimers(); vi.restoreAllMocks(); closeMetadataDb(); resetSecretKeyCache(); vi.unstubAllEnvs(); await rm(dir, { recursive: true, force: true }); });
 const read = (signal?: AbortSignal) => (testConnection as (t: typeof target, s?: AbortSignal) => ReturnType<typeof testConnection>)(target, signal);
 const build = async (_target: ConnectionTarget, _recipe: PostgisRecipe, artifact: string) => { remember(); await mkdir(path.dirname(artifact), { recursive: true }); await writeFile(artifact, "candidate"); return meta; };
 it.each(["departure", "deadline"])("%s during DNS starts no native work", async reason => {

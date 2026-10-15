@@ -427,8 +427,14 @@ behavior and [the API guide](api.md#request-bounds) for exact refusals.
 | `DEZFIL_S3_ENDPOINT` | AWS | S3-compatible endpoint for anonymous `s3://` imports, addressed path-style. | App (live) or restart |
 | `DEZFIL_TEMPLATES_CATALOGUE` | `https://github.com/Dezfil/templates/releases/latest/download/index.json` | The template catalogue's index, read by the server; see [Templates](#templates). The variable alone may name a folder on the server instead, read as files under the same checks and never disclosed by its path. | App (live) or restart |
 
-Trusted engine memory and Bytes drawn per layer are exposed for configuration;
-their enforcement is not yet active. File and archive import processing, link
+Trusted work shares the configured engine memory (3072 MB by default) and
+spill storage under `engine-spill/` in the data directory, capped at four times
+that memory (12288 MB by default). Restart removes abandoned spill without
+touching tables, metadata, tiles or other temporary work. Memory or scratch
+exhaustion answers `422 engine_memory_exceeded`, naming the work, shared budget
+and `DEZFIL_TRUSTED_MEMORY_MB` remedy. These are engine budgets within the
+supported 8 GiB container profile, not a whole-process memory ceiling.
+Bytes drawn per layer is exposed for configuration; its enforcement is not yet active. File and archive import processing, link
 and object-store imports, URL refreshes, and OpenStreetMap, Overture and PostGIS imports and refreshes
 use the Data processing time limit
 through preparation and commit. Accepted processing continues after departure;

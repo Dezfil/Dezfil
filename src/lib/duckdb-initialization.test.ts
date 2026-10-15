@@ -98,7 +98,7 @@ async function assertHardening() {
 }
 
 beforeEach(async () => {
-  root = await mkdtemp(path.join(process.cwd(), ".tmp-engine-"));
+  root = await mkdtemp(path.join(process.env.DEZFIL_DATA_DIR!, "engine-"));
   vi.stubEnv("DEZFIL_DATA_DIR", path.join(root, "data"));
   vi.resetModules();
   engine = await import("./duckdb");
@@ -106,6 +106,7 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
+  await (await import("./query/retained")).purgeQueryStores();
   // Release real native handles even when the pre-repair assertion fails.
   for (const instance of instances.splice(0)) {
     for (const conn of instance.connections) {
@@ -149,7 +150,7 @@ describe.each<Lane>(["trusted", "hardened"])("%s initialization", (lane) => {
     expect(create).toHaveBeenCalledTimes(2);
     expect(instances).toHaveLength(1);
     expect(instances[0].close).not.toHaveBeenCalled();
-    expect(instances[0].connections).toHaveLength(lane === "trusted" ? 8 : 9);
+    expect(instances[0].connections).toHaveLength(9);
     for (const conn of instances[0].connections) expect(conn.disconnect).toHaveBeenCalledTimes(1);
   });
 

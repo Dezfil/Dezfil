@@ -561,11 +561,15 @@ layer, 134217728 bytes or 128 MiB) are fixed and reject writes, including null.
 Their variables are `DEZFIL_TRUSTED_MEMORY_MB`,
 `DEZFIL_DATA_PROCESSING_TIMEOUT_S` and `DEZFIL_RENDER_CAP_BYTES`: non-empty
 overrides lock the corresponding row and require restart. Trusted scratch
-is derived at four times trusted memory, with no separate setting. The byte
+is enforced at four times trusted memory, with no separate setting. All trusted
+work shares one engine memory budget and one dedicated `engine-spill/` directory;
+restart clears abandoned spill there. Exhaustion answers `422 engine_memory_exceeded`,
+naming memory or scratch and `DEZFIL_TRUSTED_MEMORY_MB`. The byte
 value describes a complete uncompressed UTF-8 JSON inline answer, envelope
 included, with equality admitted. These three settings are exposed for
 configuration. File, link, OpenStreetMap, Overture and PostGIS imports and refreshes use the processing limit;
-reception, other processing families and render enforcement are not yet active.
+reception and render enforcement are not yet active. Geometry and sketch changes,
+template installation and export conversion also use the processing limit.
 
 The admin and the complete body are checked inside one immediate transaction
 against the committed configuration. Any refusal or failure rolls back the
