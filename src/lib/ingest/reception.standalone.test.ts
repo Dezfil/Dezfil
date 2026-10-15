@@ -24,14 +24,19 @@ describe.skipIf(!port)("production upload reception", () => {
     expect(response.status, await response.text()).toBe(200);
   }
   function start(target = "/api/tables", maximum = 65000, agent?: Agent) {
-    const started = performance.now();
+    const started = performance.now(), test = expect.getState().currentTestName;
     const completed = Promise.withResolvers<Answer>();
     let done = false;
     const req = httpRequest(`${base}${target}`, { method: "POST", agent, headers: { authorization, "content-type": "multipart/form-data; boundary=receive", "transfer-encoding": "chunked" } }, res => {
       let text = ""; res.setEncoding("utf8"); res.on("data", chunk => { text += chunk; }); res.on("error", completed.reject);
       res.on("end", () => {
         done = true;
-        try { completed.resolve({ status: res.statusCode!, json: JSON.parse(text), elapsed: performance.now() - started }); }
+        try {
+          const answer = { status: res.statusCode!, json: JSON.parse(text), elapsed: performance.now() - started };
+          // The measured answer time per case, for the record of a run.
+          console.info(JSON.stringify({ test, target, status: answer.status, code: answer.json.error?.code ?? null, elapsedMs: Math.round(answer.elapsed) }));
+          completed.resolve(answer);
+        }
         catch { completed.reject(new Error(`Non-JSON response (${res.statusCode}): ${text.slice(0, 200)}`)); }
       });
     });

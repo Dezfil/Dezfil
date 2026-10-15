@@ -1,5 +1,5 @@
 import { createServer, request as httpRequest, Agent, type Server, type ClientRequest } from "node:http";
-import type { AddressInfo } from "node:net";
+import { connect, type AddressInfo } from "node:net";
 import { mkdtemp, readdir, rm, stat } from "node:fs/promises";
 import path from "node:path";
 import { NextRequestAdapter } from "next/dist/server/web/spec-extension/adapters/next-request";
@@ -199,7 +199,37 @@ it("delivers the first refusal within one second even while application cleanup 
   expect(await client.result).toMatchObject({ status: 413, body: { error: { code: "upload_too_large", message: "The size cap was reached." } } });
   // The delayed handler cannot replace or append to the decided answer.
   expect(() => answer.writeHead(500).end("late failure")).not.toThrow();
-  await vi.advanceTimersByTimeAsync(4000); expect(socket.destroyed).toBe(true);
+  socket.destroy();
+});
+
+it("closes a refused connection within the delivery bound when the peer keeps its side open", async () => {
+  installIngress(); const decided = Promise.withResolvers<void>();
+  let socket!: import("node:net").Socket;
+  const server = createServer(incoming => {
+    socket = incoming.socket;
+    nativeUploadReception(180000, "Settings > Limits", () => {})!
+      .refuse(Object.assign(new Error("The size cap was reached."), { status: 413, code: "upload_too_large" }));
+    decided.resolve();
+  });
+  servers.push(server); await new Promise<void>(resolve => server.listen(0, "127.0.0.1", resolve));
+  // This peer neither finishes its body nor closes its side when the answer ends.
+  const peer = connect({ port: (server.address() as AddressInfo).port, host: "127.0.0.1", allowHalfOpen: true });
+  let text = "", ended = false, closed = false, serverClosed = false;
+  peer.on("data", chunk => { text += chunk.toString("latin1"); });
+  peer.on("end", () => { ended = true; }); peer.on("close", () => { closed = true; }); peer.on("error", () => {});
+  peer.write("POST /api/tables HTTP/1.1\r\nHost: instance.test\r\nContent-Type: multipart/form-data; boundary=reception\r\nTransfer-Encoding: chunked\r\n\r\n");
+  try {
+    await decided.promise; socket.once("close", () => { serverClosed = true; });
+    await vi.advanceTimersByTimeAsync(1000);
+    for (let attempt = 0; attempt < 200 && !ended; attempt++) await pause();
+    expect(text).toMatch(/^HTTP\/1\.1 413 /); expect(text.toLowerCase()).toContain("connection: close");
+    // The answer ended the server's side, and the peer's side stays open.
+    await vi.advanceTimersByTimeAsync(3999); await pause(20);
+    expect(ended).toBe(true); expect(socket.destroyed).toBe(false); expect(closed).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
+    for (let attempt = 0; attempt < 200 && !serverClosed; attempt++) await pause();
+    expect(socket.destroyed).toBe(true); expect(serverClosed).toBe(true);
+  } finally { peer.destroy(); }
 });
 
 it("keeps application cancellation bodyless while file cleanup is delayed", async () => {
