@@ -253,7 +253,24 @@ test("edges, states, the stage, the minimap, the pane, failures, emptiness and f
     await expect(src).toHaveAttribute("data-missing", "true");
     await expect(src).toContainText("missing");
     await expect(page.locator(".react-flow__edge g[data-broken]")).toHaveCount(1);
-    await expect(member(page, `${gone}_reader`)).toHaveAttribute("data-state", "cannot run");
+    // Drawn, not only counted: the broken link leaves the missing tile's
+    // right side and reaches its reader's left. The missing tile's port is
+    // out of sight but keeps its box, where the library measures the
+    // link's end; a port with no box puts that end at the canvas's corner.
+    const reader = member(page, `${gone}_reader`);
+    const brokenLink = async () => {
+      const [from, to, link] = await Promise.all([
+        src.locator("[data-v='badge']").boundingBox(),
+        reader.locator("[data-v='badge']").boundingBox(),
+        page.locator(".react-flow__edge g[data-broken] path.react-flow__edge-path").boundingBox(),
+      ]);
+      if (!from || !to || !link || link.width === 0) return "no path";
+      const leaves = Math.abs(link.x - (from.x + from.width)) <= 24, reaches = Math.abs(link.x + link.width - to.x) <= 24;
+      return leaves && reaches ? "tile to tile" : `${Math.round(link.x)} to ${Math.round(link.x + link.width)}, tiles end ${Math.round(from.x + from.width)} and start ${Math.round(to.x)}`;
+    };
+    await expect.poll(brokenLink, { timeout: 10_000 }).toBe("tile to tile");
+    await expect(src.locator(".react-flow__handle:visible")).toHaveCount(0);
+    await expect(reader).toHaveAttribute("data-state", "cannot run");
     await expect(member(page, `${table}_failing`)).toHaveAttribute("data-state", "run failed");
     await expect(page.getByRole("group", { name: /cannot run/ }).first()).toBeVisible();
   });

@@ -263,29 +263,33 @@
 
 /* ---- the templates below ---- */
 
-/* The Templates page's card, four to a row at the reference's windows
-   whatever the rail's width; fewer as the window narrows, one at the
-   galleries' narrow width. Only the row is Home's: the card is as it
-   ships. */
+/* The Templates page's card, as many to a row as Home's own width holds
+   without drawing one narrower than 270px, about the card the Showroom
+   reference draws four to a row at a 1280px window, the narrowest window
+   Home is drawn for. Four at the reference's windows with the side menu
+   at rest; a column fewer as Home narrows, whether the window narrows or
+   the side menu stands open. Each step is where one more column would
+   bring the cards under 270px with the 16px gaps between them. Only the
+   row is Home's: the card is as it ships. */
 .shelf {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 16px;
 }
 
-@media (max-width: 1100px) {
+@container home (max-width: 1127px) {
   .shelf {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
-@media (max-width: 900px) {
+@container home (max-width: 841px) {
   .shelf {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
-@media (max-width: 700px) {
+@container home (max-width: 555px) {
   .shelf {
     grid-template-columns: minmax(0, 1fr);
   }

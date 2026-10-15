@@ -71,7 +71,7 @@ describe("maps", () => {
       name: "Stations",
       sql: "SELECT * FROM stations",
     }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
-    const overview = mapsOverview(testAccountScope()).find((m) => m.id === map.id);
+    const overview = (await mapsOverview(testAccountScope())).find((m) => m.id === map.id);
     expect(overview?.layerCount).toBe(1);
     expect(overview?.layerColors).toHaveLength(1);
     expect(overview?.layerColors[0]).toMatch(/^rgba\(/);

@@ -7,14 +7,15 @@ import { mapPresence } from "@/lib/reach-presence";
 import { importProjectId, projectScope } from "@/lib/project-scope";
 
 /** List the maps the caller reaches (their own, and every map filed in a
- * project they own or belong to), each with its layer count, colors, owner
- * and SQL home. `?project=<id>` narrows to that project's, `?project=none`
- * to the caller's own unfiled maps; an unknown or unreachable project
- * answers not found. */
+ * project they own or belong to), each with its layer count, colors,
+ * owner, SQL home and whether it has a card image the caller is served.
+ * `?project=<id>` narrows to that project's, `?project=none` to the
+ * caller's own unfiled maps; an unknown or unreachable project answers
+ * not found. */
 export async function GET(request: Request) {
   try {
     const scope = requireRequestScope(request);
-    return NextResponse.json(mapsOverview(scope, projectScope(request)));
+    return NextResponse.json(await mapsOverview(scope, projectScope(request)));
   } catch (error) {
     return errorResponse(error);
   }

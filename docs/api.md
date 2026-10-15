@@ -1821,7 +1821,9 @@ served to a reader who can reach every dataset it drew; a tile request
 otherwise answers `not_found`, as does one for an archive whose evidence names
 another build (one being swapped in). A card image is served to a reader who
 reaches the map and every dataset it drew; any other image is passed over like
-a missing one, so the reader gets the card's placeholder `404`. An image is
+a missing one, so the reader gets the card's placeholder `404`. A map's
+listing entry says by the same rule whether there is an image the caller is
+served (`hasThumbnail`), so a card asks for one only then. An image is
 copied into a duplicate only when the duplicator may be served it, a themed
 pair only whole. A published link is served an archive, and a held view of
 itself, only while the map's owner can still reach what it drew, and an

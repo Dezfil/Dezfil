@@ -16,7 +16,7 @@ import {
 } from "node:fs/promises";
 import { dataDir } from "@/lib/config";
 import type { ArtifactInputs } from "@/lib/query/evaluation-inputs";
-import { evidencedImages, imageInputs, removeImageEvidence, writeImageEvidence } from "./thumbnail-evidence";
+import { evidencedImages, imageInputs, recordedInputs, removeImageEvidence, writeImageEvidence } from "./thumbnail-evidence";
 
 /**
  * Map thumbnails: PNGs per map, captured by the builder after edits
@@ -336,6 +336,34 @@ export async function readThumbnail(
   }
   requireMap(scope, mapId);
   return null;
+}
+
+/**
+ * Which of these maps the reader would be served a card image of now, so
+ * a card asks for an image only when there is one. One read of the
+ * directory, then each map's published set and single image as
+ * readThumbnail would try them, judged by the inputs their evidence
+ * records rather than by reading the images: an image whose evidence
+ * names other bytes (a write that failed halfway) may be counted and
+ * then answer the placeholder, as before.
+ */
+export async function servedThumbnails(scope: AccountScope, mapIds: readonly string[]): Promise<Set<string>> {
+  let names: Set<string>;
+  try {
+    names = new Set(await readdir(thumbnailsDir()));
+  } catch {
+    return new Set();
+  }
+  const served = await Promise.all(mapIds.map(async (mapId) => {
+    const set = names.has(path.basename(thumbnailManifestPath(mapId))) ? await readSet(mapId) : null;
+    const files = [set?.light, set?.dark, path.basename(thumbnailPath(mapId))]
+      .filter((name): name is string => name !== undefined && names.has(name));
+    for (const name of files) {
+      if (servableTo(scope, mapId, await recordedInputs(name))) return mapId;
+    }
+    return null;
+  }));
+  return new Set(served.filter((mapId): mapId is string => mapId !== null));
 }
 
 /** Every image the map has, published or held. */

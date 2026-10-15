@@ -25,8 +25,10 @@ export const allowedErrorPatterns: { pattern: RegExp; url?: RegExp; reason: stri
   {
     pattern: /\/api\/maps\/[^/]+\/thumbnail/,
     reason:
-      "A map with no snapshot 404s its thumbnail by design —" +
-      "the card shows its placeholder; the browser still logs the 404.",
+      "A card asks for its map's snapshot only when the maps listing says " +
+      "there is one it is served; one removed or withheld between that " +
+      "listing and the read still 404s to the placeholder, and the browser " +
+      "logs the 404.",
   },
   {
     pattern: /status of 422/,

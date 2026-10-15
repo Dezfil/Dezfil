@@ -4,7 +4,7 @@ import { LastChanged } from "../sharing/LastChanged";
 import { useRouter } from "next/navigation";
 import type { MapOverview } from "../api";
 import { formatRelativeTime } from "../api";
-import { IconOpen } from "../gallery-icons";
+import { IconOpen, MapPlaceholder } from "../gallery-icons";
 import { MapStrip } from "../MapStrip";
 import { nodeWord, sourceWord, type WorkflowListing } from "../workflow-model";
 import { WorkflowStatusChip } from "../WorkflowStatusChip";
@@ -156,7 +156,9 @@ export function WorkflowCard({
     <CardFrame kind="workflow">
       <CardLink label={`Open ${w.name}`} href={`/workflows/${w.id}`}>
         <div className={gallery.strip} style={{ height: stripHeight }}>
-          <WorkflowThumb steps={w.steps} groupOf={groupOf} />
+          {/* No nodes, no graph to draw: the chart-paper placeholder an
+              empty map's card shows, not a blank picture. */}
+          {w.steps.length > 0 ? <WorkflowThumb steps={w.steps} groupOf={groupOf} /> : <MapPlaceholder />}
           <span className={gallery.overlay}>
             <b>
               <span className={gallery.num}>{w.summary.nodes}</span>{" "}

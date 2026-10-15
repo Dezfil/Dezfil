@@ -144,7 +144,8 @@ export const MAP_RESOURCE_PATHS = {
         "reader may not be served (one that drew a dataset beyond their " +
         "reach, or an unattributed one read by anyone but the owner) is " +
         "passed over like a missing one; when none is left the answer is " +
-        "the same 404 as for a map with no image at all.",
+        "the same 404 as for a map with no image at all. The maps " +
+        "listing's `hasThumbnail` says beforehand whether there is one.",
       tag: "Maps",
       // UI sugar, not a map capability — outside the agent tool set.
       tool: false,
@@ -763,6 +764,15 @@ export const MAP_SCHEMAS = {
             description:
               "One representative CSS color per layer, in draw " +
               "order — what the maps screen renders as layer dots.",
+          },
+          hasThumbnail: {
+            type: "boolean",
+            description:
+              "Whether the map has a card image the caller is served: " +
+              "GET /api/maps/{id}/thumbnail answers one. False until the " +
+              "builder first captures the map, and while every image it " +
+              "has drew a dataset beyond the caller's reach. A card asks " +
+              "for the image only when this is true.",
           },
         },
       },
