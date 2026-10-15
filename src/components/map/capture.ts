@@ -1,5 +1,6 @@
 import type * as maplibregl from "maplibre-gl";
 import type { MapLibreOverlay } from "@deck.gl/maplibre";
+import { renderTilesSettled } from "@/lib/export/render-settle";
 
 /**
  * Canvas capture for the map surface — extracted from MapCanvas (the
@@ -184,7 +185,13 @@ const READINESS_POLL_MS = 200;
  * committed deck layer set fully loaded. The commitment check is
  * generation-aware by construction — the initially empty deck state can
  * never read as ready when layers are expected, because the caller's
- * expected count gates it. Lives here so MapCanvas carries one call,
+ * expected count gates it. After the render driver's settle signal, replace
+ * the whole basemap-load condition (style JSON, sprite, glyphs and tiles):
+ * within one poll (200 ms), request a paint of the available content and
+ * wait for that paint instead. loaded() cannot remain beside painted,
+ * because the same pending tile also holds loaded() false and would stall
+ * readiness again. This covers any host or thread without reloading a source.
+ * Lives here so MapCanvas carries one call,
  * not the wiring. Returns a disposer for the poll. */
 export function wireCaptureHandles(opts: {
   instance: maplibregl.Map;
@@ -211,13 +218,20 @@ export function wireCaptureHandles(opts: {
   if (!opts.onReadiness) return () => {};
   const loaded = layersLoadedProbe(opts.deckLayers);
   let last: boolean | null = null;
+  let settling = false;
+  let painted = false;
+  const onSettledPaint = () => { painted = true; evaluate(); };
   const evaluate = () => {
+    if (!settling && renderTilesSettled()) {
+      settling = true;
+      opts.instance.once("render", onSettledPaint);
+      opts.instance.triggerRepaint();
+    }
     const committed =
       opts.deckLayers().length >= (opts.expectedLayerCount?.() ?? 0);
     const ready =
-      opts.instance.loaded() &&
+      (settling ? painted : opts.instance.loaded() && opts.instance.areTilesLoaded()) &&
       !opts.instance.isMoving() &&
-      opts.instance.areTilesLoaded() &&
       committed &&
       loaded();
     if (ready !== last) {
@@ -231,6 +245,7 @@ export function wireCaptureHandles(opts: {
   return () => {
     clearInterval(timer);
     opts.instance.off("idle", evaluate);
+    opts.instance.off("render", onSettledPaint);
   };
 }
 

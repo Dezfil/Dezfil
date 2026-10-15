@@ -88,7 +88,8 @@ as the catalogue documents it.
 Two classes are deliberately outside the check: test-local seams
 (`DEZFIL_TEST_*` read only by test files in `src/`, and `DEZFIL_BASE_URL`) and
 platform plumbing (`NODE_ENV`, `PORT`, `HOSTNAME`, `NEXT_RUNTIME`, `TZ`, `CI`,
-`PATH`, `DUCKDB_EXTENSION_DIR`). Both are listed at the end of this page.
+`PATH`, `DUCKDB_EXTENSION_DIR`, `UV_THREADPOOL_SIZE`). Both are listed at the
+end of this page.
 
 ## Instance defaults
 
@@ -281,7 +282,10 @@ The satellite imagery's tile address and credit are `satelliteUrl` and
 `DEZFIL_SATELLITE_URL` and `DEZFIL_SATELLITE_ATTRIBUTION` under
 [Rendering and tiles](#rendering-and-tiles); a set variable wins and locks its
 row, which then shows locked, naming the variable. The tile address is an
-address holding `{z}`, `{x}` and `{y}`, at most 2,048 characters, kept as
+address holding `{z}`, `{x}` and `{y}`, at most 2,048 characters; the server
+fills it for each tile as MapLibre fills a raster template, so `{ratio}`
+(`@2x` for a high-density screen, else nothing), `{quadkey}`, `{prefix}` and
+`{bbox-epsg-3857}` are filled too. It is kept as
 [Service addresses and numbers](#service-addresses-and-numbers) describes:
 write-only, encrypted with the instance's key, read back as its scheme and host
 alone, and refused at save where the egress policy would refuse it now. Unlike
@@ -294,6 +298,21 @@ drawn; the tab says so under the tile address. The credit is text of at most
 Satellite leaves every basemap picker; a map on Satellite keeps its choice and
 draws the default style until an address is saved again. The tab's Test
 fetches one fixed low-zoom tile at the address in effect.
+
+The tile address never reaches a browser. The imagery style names the
+instance's own tile address, and the server fetches each tile from the
+template and passes it back; a published map's readers, who are not signed in,
+reach the same imagery through the publication's own addresses while it is
+published. Only a tile's zoom, column and row go to the template, through the
+egress policy, within ten seconds and 4 MiB, and no tile is kept. The imagery
+provider therefore sees this server's requests, not each viewer's: a key
+restricted to browser origins or referrers needs that restriction lifted, and
+a limit the provider sets per address counts all of this instance's viewers
+together. An image export of a map on Satellite checks the template's host
+against the egress policy before it starts and, when the policy refuses it,
+answers `render_failed` rather than make the image without its imagery; a
+tile the policy refuses while the image renders, at a redirect or at another
+host the template names, refuses the image the same way.
 
 The saved palettes are listed on the same tab, each with its colors, and added
 or deleted there through `/api/palettes`, as in the builder. Deleting one
@@ -428,7 +447,7 @@ behavior and [the API guide](api.md#request-bounds) for exact refusals.
 | `DEZFIL_DATA_PROCESSING_TIMEOUT_S` | `3600` | Data processing time limit, in seconds, for reception and processing separately. Stored whole seconds from 60 to 21600 apply to newly admitted work; reset with null. A non-empty deployment override locks the row. | App (live) or restart |
 | `DEZFIL_REMOTE_MAX_MB` | `2048` | Size cap for one remote import (URL or object store). Deliberately below the upload cap: remote fetches run unattended. | App (live) or restart |
 | `DEZFIL_REMOTE_TIMEOUT_S` | `300` | Time bound for one whole remote fetch, redirects and body included. | App (live) or restart |
-| `DEZFIL_EGRESS_ALLOWLIST` | unset | Comma-separated hosts, IPs, or CIDRs the server may fetch for a user despite the egress policy. By default loopback, private-network, link-local, and cloud-metadata destinations are refused for every request the policy governs: imports and refreshes from web addresses, cloud storage links read without the server's credentials, database connections, the address finder and place search, travel time, OpenStreetMap, the Overture release list, custom basemap styles, map image exports, the satellite imagery's Test and the template catalogue (`src/lib/net/egress.ts`). A loopback Overpass or Overture fixture needs it too. | Restart |
+| `DEZFIL_EGRESS_ALLOWLIST` | unset | Comma-separated hosts, IPs, or CIDRs the server may fetch for a user despite the egress policy. By default loopback, private-network, link-local, and cloud-metadata destinations are refused for every request the policy governs: imports and refreshes from web addresses, cloud storage links read without the server's credentials, database connections, the address finder and place search, travel time, OpenStreetMap, the Overture release list, custom basemap styles, map image exports, the satellite imagery, the satellite imagery's Test and the template catalogue (`src/lib/net/egress.ts`). A loopback Overpass or Overture fixture needs it too. | Restart |
 | `DEZFIL_OBJECT_STORE_CREDENTIALS` | off | `1`, `true`, or `yes` signs `s3://`, `gs://`, and `az://` imports with the instance's own credential chain. Off, object-store reads are anonymous, so a user can only read what the public can (`src/lib/ingest/remote.ts`). | Restart |
 | `DEZFIL_S3_ENDPOINT` | AWS | S3-compatible endpoint for anonymous `s3://` imports, addressed path-style. | App (live) or restart |
 | `DEZFIL_TEMPLATES_CATALOGUE` | `https://github.com/Dezfil/templates/releases/latest/download/index.json` | The template catalogue's index, read by the server; see [Templates](#templates). The variable alone may name a folder on the server instead, read as files under the same checks and never disclosed by its path. | App (live) or restart |
@@ -482,9 +501,11 @@ with a fresh processing deadline after the complete file reaches disk. A setting
 change during receipt changes neither budget. No body byte for 60 seconds,
 including before the first byte, answers `408 upload_stalled`; continuous progress
 past the reception deadline answers `408 data_processing_timeout`, naming
-reception and the admitted limit. The first refusal wins. Refusals are sent
+reception and the admitted limit. The first refusal wins, except that a caller
+leaving after an interrupted body is answered as departed. Refusals are sent
 without draining the remaining body, with a one-second fallback for delayed
-cleanup and a five-second connection-close bound. Incomplete reception cancels
+cleanup and a five-second connection-close bound while the body is still
+arriving; a refused request whose body arrived completely keeps its connection. Incomplete reception cancels
 on departure and removes its partial file. Other request bodies retain a
 300-second receive limit (`408 request_timeout`), and headers retain 60 seconds.
 The native server's clock is above these application deadlines, including a
@@ -498,11 +519,25 @@ and geometry assembly, retaining the existing Overpass time and size limits.
 Overture release discovery, divisions, counts and previews also use the query
 lifetime, including scope preparation. Shared division reads retain the original
 deadline while callers can leave independently; imports and refreshes inherit
-the processing lifetime through commit. PostGIS connection tests, catalogue
+the processing lifetime through commit. Committed work answers with its success
+even when the scratch cleanup after it outlasts the limit. PostGIS connection tests, catalogue
 reads and previews use the query lifetime, with imports and refreshes under
 the processing lifetime. Every PostGIS attachment retains the 10-second connect
-limit and uses a 30-second source statement ceiling plus owned interruption.
-The source statement ceiling answers `408 query_timeout`. Geometry set and clear
+limit and owned interruption. Imports and refreshes give their source statements
+a ceiling of the processing time left when the source is attached, and a source
+that outlasts the limit answers `408 data_processing_timeout`. Previews keep a
+30-second source statement ceiling; connection checks and catalogue reads keep
+it too, or take the Query time left when the source is attached if that is
+less. Both answer `408 query_timeout`. A refusal (the time limit, a departure
+that cancels the work, or a resource refusal) cancels the attachment's running
+statements on the source through a short-lived second connection under the same
+role, with a 5-second connect limit, so source work settles within the 35-second
+allowance even when its statement started late; the ceiling stays as the
+backstop, and a failed cancellation is logged. A source statement blocked on
+the server holds one of the runtime's workers, so at most three quarters of
+that pool (`UV_THREADPOOL_SIZE`, 4 unless set, so 3 at once) may be out on
+PostGIS sources; the rest wait their turn within their own time limit, and a
+worker stays free for the cancellation and the rest of the server. Geometry set and clear
 use one processing lifetime through preparation, revision checks and replacement,
 continue after departure, and retain the previous artifact on refusal. Sketch
 feature reads and map summaries share the query lifetime; sketch changes keep
@@ -535,7 +570,7 @@ removes its owned scratch and lock on refusal.
 
 | Variable | Default | Effect | Changed by |
 |---|---|---|---|
-| `DEZFIL_QUERY_TIMEOUT_S` | `60` | Timeout for any evaluation of user SQL: the SQL workspace, layer rendering, and published views alike. | App (live) or restart |
+| `DEZFIL_QUERY_TIMEOUT_S` | `60` | Time limit for any evaluation of user SQL (the SQL workspace, layer rendering and published views) and for the interactive reads beside it: dataset, geometry and sketch reads, catalogue reads, projection lookup, OpenStreetMap, Overture and PostGIS previews, and PostGIS connection checks. | App (live) or restart |
 | `DEZFIL_QUERY_MEMORY_MB` | `2048` | Memory budget of the hardened read-only engine instance, shared by every query on it. A query past it fails with a coded error and the instance keeps serving. | Restart |
 | `DEZFIL_TRUSTED_MEMORY_MB` | `3072` | Trusted engine memory, in engine MB, shared across trusted work. Dedicated scratch allowance is four times this value. Fixed without an override; locked with one. Shown on System beside hardened engine memory. | Restart |
 | `DEZFIL_PREVIEW_ROWS` | `1000` | Rows returned in a query or preview result. | App (live) or restart |
@@ -551,7 +586,7 @@ removes its owned scratch and lock on refusal.
 | `DEZFIL_TIPPECANOE` | `tippecanoe` | Path to the tile-building binary (`src/lib/tiles/tiler.ts`). The image installs it on the path. | Restart |
 | `DEZFIL_BASEMAP_URL` | built-in styles | A MapLibre style URL that replaces the built-in basemap and pins it in both themes, for instances with no internet access (`src/lib/basemap.ts`). | Restart |
 | `DEZFIL_BASEMAP_ATTRIBUTION` | unset | Credit line shown on maps that use `DEZFIL_BASEMAP_URL`. Unset, no credit is shown for the override: the built-in credit would name a provider that is not serving the tiles. | Restart |
-| `DEZFIL_SATELLITE_URL` | unset | Raster tile URL template (`{z}/{y}/{x}`) for satellite imagery, with your own key or token in its path or query. No imagery ships with the app; unset and with no tile address stored on the **Libraries** tab, no imagery basemap is offered at all. A template with a user name or password in it is not drawn, because browsers do not load tiles from such an address; the **Libraries** tab says so under the tile address. | App (live) or restart |
+| `DEZFIL_SATELLITE_URL` | unset | Raster tile URL template (`{z}/{y}/{x}`) for satellite imagery, with your own key or token in its path or query. The template stays on the server: browsers, a published map's readers among them, load the tiles through the instance, which fetches each one from it. No imagery ships with the app; unset and with no tile address stored on the **Libraries** tab, no imagery basemap is offered at all. A template with a user name or password in it is not drawn; the **Libraries** tab says so under the tile address. | App (live) or restart |
 | `DEZFIL_SATELLITE_ATTRIBUTION` | unset | Credit line the imagery provider requires, shown on every map using it and stored with anything published from one. An admin can store it on the **Libraries** tab instead. | App (live) or restart |
 
 ## Publishing
@@ -665,6 +700,7 @@ self-hoster, and the README check excludes them by name.
 | `PATH` | the system | The program search path. A tile builder or an image renderer whose setting names a program rather than a path is looked up there. |
 | `DUCKDB_EXTENSION_DIR` | image sets `/app/duckdb-extensions` | The baked engine extension bundle. Overriding it defeats the offline guarantee. |
 | `NEXT_TELEMETRY_DISABLED` | image sets `1` | Turns off the framework's own telemetry during build and at runtime. |
+| `UV_THREADPOOL_SIZE` | the runtime, 4 unless set before start | The runtime's worker pool, shared by engine calls, file system work and password hashing. PostGIS source calls may hold at most three quarters of it at once (at least one), so blocked source reads always leave a worker for their cancellation and for the rest of the server. Raising it raises that share. |
 | `TZ`, `CI` | environment | Excluded by name from the README check; the code does not read them as settings. |
 
 ## Test and development wiring

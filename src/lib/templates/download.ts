@@ -187,15 +187,14 @@ async function download(scope: AccountScope, entry: ListedEntry, where: Catalogu
   currentTrustedOperation()?.enterStage("template download");
   requireCatalogueAt(where, db);
   const scratch = path.join(ingestScratchDir(), `template-${randomUUID()}`);
-  try {
-    await mkdir(scratch, { recursive: true });
-    const archive = path.join(scratch, "archive.zip");
-    const landed = await transferTemplateArchive(entry, where, archive);
-    await installTemplateArchive(scope, scratch, archive, { id, version, size: landed.size, sha256: landed.sha256 }, archiveOrigin(where));
-    return { id, version, size: landed.size, downloaded: true };
-  } finally {
-    await rm(scratch, { recursive: true, force: true });
-  }
+  // The scratch goes whatever happened, on the download's cleanup path: once
+  // the version is installed, a failed removal is logged, never answered.
+  currentTrustedOperation()?.defer(() => rm(scratch, { recursive: true, force: true }));
+  await mkdir(scratch, { recursive: true });
+  const archive = path.join(scratch, "archive.zip");
+  const landed = await transferTemplateArchive(entry, where, archive);
+  await installTemplateArchive(scope, scratch, archive, { id, version, size: landed.size, sha256: landed.sha256 }, archiveOrigin(where));
+  return { id, version, size: landed.size, downloaded: true };
 }
 
 /** Queue a download, or other work on the downloaded versions, behind
@@ -237,6 +236,8 @@ export async function fetchTemplate(
       operation.defer(() => joined.drained);
       return joined.join();
     }
+    // The installed version is every waiting caller's whole result, so its
+    // commit is theirs.
     const work = sharedTrustedWork({ kind: "template-install", name: "Template download" }, async (): Promise<FetchedTemplate> => {
       // Asked once more now that this caller holds the version's place: a
       // download of it that ended after the first look has installed it.
@@ -245,7 +246,7 @@ export async function fetchTemplate(
       if (size !== null) return { id, version: entry.facts.version, size, downloaded: false };
       downloads.seam.entered?.(key);
       return enqueue(() => download(scope, entry, where, db));
-    });
+    }, { commitsJoiners: true });
     downloads.byKey.set(key, work);
     const settled = () => { if (downloads.byKey.get(key) === work) downloads.byKey.delete(key); };
     work.value.then(settled, settled);

@@ -4,9 +4,10 @@ import { ERROR_CATALOGUE, RESOURCE_ERROR_STATUSES } from "./api/error-catalogue"
 import { buildOpenApiDocument } from "./api/openapi";
 import { limits } from "./limits";
 import {
-  admitTrustedOperation, currentTrustedOperation, isTrustedOperationRefusal,
-  trustedMemoryRefusal, withTrustedOperation, TrustedSettlementOverdue,
+  admitTrustedOperation, currentTrustedOperation, isLifetimeOutcome, isTrustedOperationRefusal,
+  trustedMemoryRefusal, withTrustedOperation, TrustedSettlementOverdue, type TrustedOperation,
 } from "./trusted-operation";
+import { withTrustedMutation } from "./trusted-mutation";
 
 beforeEach(() => { vi.useFakeTimers(); });
 afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllEnvs(); });
@@ -69,20 +70,20 @@ it("does not leak an inherited operation into unrelated asynchronous work", asyn
   first.resolve(); await running; await op.settled;
 });
 
-it("snapshots settings at admission and gives reception and processing separate clocks", async () => {
+it("snapshots settings at admission and gives a handed-over budget a fresh deadline", async () => {
   let configured = 60_000;
   vi.spyOn(limits, "dataProcessingTimeoutMs", "get").mockImplementation(() => configured);
-  const reception = admitTrustedOperation({ kind: "upload-reception", name: "Upload" });
-  await reception.run(async () => { await vi.advanceTimersByTimeAsync(1000); configured = 120_000; });
-  const processing = admitTrustedOperation({ kind: "import", name: "Upload", budgetMs: reception.budgetMs });
+  const earlier = admitTrustedOperation({ kind: "import", name: "Upload" });
+  await earlier.run(async () => { await vi.advanceTimersByTimeAsync(1000); configured = 120_000; });
+  const processing = admitTrustedOperation({ kind: "import", name: "Upload", budgetMs: earlier.budgetMs });
   const next = admitTrustedOperation({ kind: "import", name: "Next import" });
   expect(processing.budgetMs).toBe(60_000);
-  expect(processing.deadline).toBe(reception.deadline + 1000);
+  expect(processing.deadline).toBe(earlier.deadline + 1000);
   expect(next.budgetMs).toBe(120_000);
   await processing.run(async () => {}); await next.run(async () => {});
 });
 
-it.each(["interactive-read", "export", "upload-reception"] as const)("cancels %s at last departure and owns cleanup through settlement", async kind => {
+it.each(["interactive-read", "export"] as const)("cancels %s at last departure and owns cleanup through settlement", async kind => {
   const caller = new AbortController();
   const op = admitTrustedOperation({ kind, name: "Work", signal: caller.signal, budgetMs: 60_000 });
   const source = held(), cleanup = held();
@@ -258,17 +259,152 @@ it("releases successful ownership, listeners and clocks, and forbids reuse", asy
   expect(() => op.run(async () => {})).toThrow(/once/);
 });
 
-it("keeps the admitted deadline active while successful work releases its resources", async () => {
+it("keeps a resolved success while its cleanup crosses the deadline", async () => {
   const op = read(); const cleanup = held();
   op.defer(() => cleanup.promise);
   const result = observed(op.run(async () => "ready"));
   await vi.advanceTimersByTimeAsync(1000);
-  const refusedBeforeCleanup = op.signal.aborted;
+  const refusedDuringCleanup = op.signal.aborted;
   cleanup.resolve();
   const answer = await result; await op.settled;
-  expect(refusedBeforeCleanup).toBe(true);
-  expect(answer).toMatchObject({ error: { code: "query_timeout" } });
+  expect(refusedDuringCleanup).toBe(false);
+  expect(answer).toEqual({ value: "ready" });
   expect(vi.getTimerCount()).toBe(0);
+});
+
+it.each([true, false])("keeps a committed success when a cleanup fails, reporting the failure through settlement and the log (marked=%s)", async marked => {
+  const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+  const op = admitTrustedOperation({ kind: "import", name: "Link import", budgetMs: 100_000 });
+  const later = vi.fn();
+  op.defer(later); op.defer(() => { throw new Error("rm failed"); });
+  const settlement = observed(op.settled);
+  const answer = await observed(op.run(async () => { if (marked) op.markCommitted(); return "registered"; }));
+  expect(answer).toEqual({ value: "registered" });
+  expect((await settlement).error).toMatchObject({ message: "Link import cleanup failed." });
+  expect(later).toHaveBeenCalledOnce();
+  expect(warn).toHaveBeenCalledOnce();
+  expect(warn).toHaveBeenCalledWith("Trusted import cleanup failed after its commit",
+    expect.objectContaining({ message: "Link import cleanup failed.", errors: [expect.objectContaining({ message: "rm failed" })] }));
+  await op.drained;
+});
+
+it("logs a committed mutation's cleanup failure once and answers with its value", async () => {
+  const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+  const answer = await observed(withTrustedMutation({ kind: "sketch-change", name: "Sketch change" }, async operation => {
+    operation.defer(() => { throw new Error("tile removal failed"); });
+    operation.markCommitted();
+    return "saved";
+  }));
+  expect(answer).toEqual({ value: "saved" });
+  expect(warn).toHaveBeenCalledOnce();
+  expect(warn).toHaveBeenCalledWith("Trusted sketch-change cleanup failed after its commit", expect.objectContaining({ message: "Sketch change cleanup failed." }));
+});
+
+it("leaves a refused operation's cleanup failure to its refusal and writes no commit line", async () => {
+  const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+  const op = read(); const source = held();
+  op.defer(() => { throw new Error("Cleanup failed"); });
+  const result = observed(op.run(() => source.promise));
+  await vi.advanceTimersByTimeAsync(1000);
+  expect((await result).error).toMatchObject({ code: "query_timeout" });
+  source.resolve(); await op.drained;
+  expect(warn).not.toHaveBeenCalled();
+});
+
+it("control: a committed success whose cleanup does not fail resolves and settles", async () => {
+  const op = admitTrustedOperation({ kind: "import", name: "Link import", budgetMs: 100_000 });
+  op.defer(() => {});
+  expect(await observed(op.run(async () => { op.markCommitted(); return "registered"; }))).toEqual({ value: "registered" });
+  await expect(op.settled).resolves.toBeUndefined();
+});
+
+it("keeps a committed success through later work, the deadline and departure", async () => {
+  const caller = new AbortController();
+  const op = admitTrustedOperation({ kind: "export", name: "Dataset export", signal: caller.signal, budgetMs: 1000 });
+  const result = observed(op.run(async () => {
+    op.assertCanCommit(); op.markCommitted();
+    await vi.advanceTimersByTimeAsync(2000); caller.abort();
+    op.assertCanCommit();
+    return "written";
+  }));
+  expect(await result).toEqual({ value: "written" });
+  await op.settled;
+  expect(op.decidedAt).toBeNull(); expect(op.signal.aborted).toBe(false);
+});
+
+it("reports cleanup overdue after a commit separately from the success", async () => {
+  vi.spyOn(console, "warn").mockImplementation(() => {});
+  const op = read(); const cleanup = held();
+  op.defer(() => cleanup.promise);
+  const result = observed(op.run(async () => "ready"));
+  const settlement = observed(op.settled);
+  await vi.advanceTimersByTimeAsync(35_000);
+  expect((await settlement).error).toBeInstanceOf(TrustedSettlementOverdue);
+  expect((await settlement).error).toMatchObject({ message: expect.stringContaining("of its commit") });
+  cleanup.resolve();
+  expect(await result).toEqual({ value: "ready" });
+  await op.drained; expect(vi.getTimerCount()).toBe(0);
+});
+
+it.each([true, false])("answers a committed value at the settlement allowance while its cleanup is held, and keeps owning that cleanup (mutation=%s)", async mutation => {
+  const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+  const cleanup = held(); let cleaned = false;
+  let op: TrustedOperation | undefined;
+  const work = async (operation: TrustedOperation) => {
+    op = operation;
+    operation.defer(async () => { await cleanup.promise; cleaned = true; });
+    operation.markCommitted(); return "registered";
+  };
+  const options = { kind: "import" as const, name: "Link import", budgetMs: 100_000 };
+  let answer: { value?: string; error?: unknown } | undefined;
+  void observed(mutation ? withTrustedMutation(options, work) : admitTrustedOperation(options).run(work)).then(result => { answer = result; });
+  await vi.advanceTimersByTimeAsync(0);
+  let drained = false; void op!.drained.then(() => { drained = true; });
+  const settlement = observed(op!.settled);
+  await vi.advanceTimersByTimeAsync(34_999);
+  expect(answer).toBeUndefined();
+  expect(warn).not.toHaveBeenCalled();
+  await vi.advanceTimersByTimeAsync(1);
+  // Answered at the allowance, before the held cleanup is released.
+  expect(answer).toEqual({ value: "registered" });
+  expect(cleaned).toBe(false); expect(drained).toBe(false);
+  expect(warn).toHaveBeenCalledOnce();
+  expect(warn).toHaveBeenCalledWith("Trusted import cleanup overdue after its commit", expect.any(TrustedSettlementOverdue));
+  expect((await settlement).error).toBeInstanceOf(TrustedSettlementOverdue);
+  // The operation still owns the cleanup: it drains only when the cleanup does.
+  await vi.advanceTimersByTimeAsync(60_000);
+  expect(drained).toBe(false);
+  cleanup.resolve(); await op!.drained;
+  expect(cleaned).toBe(true);
+  expect(warn).toHaveBeenCalledOnce();
+  expect(vi.getTimerCount()).toBe(0);
+});
+
+it("control: a committed value whose cleanup finishes inside the allowance waits for it and logs nothing", async () => {
+  const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+  const op = admitTrustedOperation({ kind: "import", name: "Link import", budgetMs: 100_000 });
+  const cleanup = held(); let cleaned = false;
+  op.defer(async () => { await cleanup.promise; cleaned = true; });
+  let answer: { value?: string } | undefined;
+  void observed(op.run(async () => { op.markCommitted(); return "registered"; })).then(result => { answer = result; });
+  await vi.advanceTimersByTimeAsync(34_000);
+  expect(answer).toBeUndefined();
+  cleanup.resolve(); await op.drained;
+  await vi.advanceTimersByTimeAsync(0);
+  expect(answer).toEqual({ value: "registered" }); expect(cleaned).toBe(true);
+  expect(warn).not.toHaveBeenCalled();
+});
+
+it("does not commit refused work, and an error after a commit is still the work's own", async () => {
+  const refused = read(); const source = held();
+  const answer = observed(refused.run(() => source.promise));
+  await vi.advanceTimersByTimeAsync(1000);
+  refused.markCommitted();
+  expect((await answer).error).toMatchObject({ code: "query_timeout" });
+  source.resolve(); await refused.settled;
+  const failing = read(); const broken = new Error("Post-commit bookkeeping failed.");
+  await expect(failing.run(async () => { failing.markCommitted(); throw broken; })).rejects.toBe(broken);
+  await failing.settled;
 });
 
 it("runs a newly acquired resource's stop hook even after refusal", async () => {
@@ -323,6 +459,45 @@ it("preserves a nested typed refusal even if a wrapper catches it and attempts a
   });
   await expect(result).rejects.toBe(failure); await op.settled;
   expect(commit).not.toHaveBeenCalled();
+});
+
+it("leaves an ordinary nested error to the wrapper that translates it", async () => {
+  const translated = new ApiError("not_refreshable", "The stored recipe no longer resolves.", 409);
+  const op = admitTrustedOperation({ kind: "refresh", name: "Dataset refresh", budgetMs: 1000 });
+  const result = op.run(async () => {
+    try {
+      await withTrustedOperation({ kind: "interactive-read", name: "Source read" }, async () => {
+        throw new ApiError("not_found", "Table public.roads has no columns or does not exist.", 404);
+      });
+    } catch { throw translated; }
+  });
+  await expect(result).rejects.toBe(translated); await op.settled;
+  expect(op.signal.reason).toBe(translated);
+});
+
+it("decides at once in a helper's catch only for a lifetime outcome", async () => {
+  const op = read(); const source = held(); const result = observed(op.run(() => source.promise));
+  op.refuseIfFinal(new ApiError("malformed_file", "Unreadable.", 422));
+  expect(op.decidedAt).toBeNull(); expect(op.signal.aborted).toBe(false);
+  const memory = trustedMemoryRefusal("Dataset inspection", "memory", 3072);
+  op.refuseIfFinal(memory);
+  expect((await result).error).toBe(memory);
+  source.resolve(); await op.settled;
+});
+
+it.each([
+  ["a departure", new EvaluationCancelled(), true], ["the query limit", new ApiError("query_timeout", "Limit", 408), true],
+  ["the processing limit", new ApiError("data_processing_timeout", "Limit", 408), true],
+  ["a source time limit", new ApiError("remote_timeout", "Source limit", 504), true],
+  ["engine memory", new ApiError("engine_memory_exceeded", "Memory", 422), true],
+  ["hardened memory", new ApiError("query_memory_exceeded", "Hardened", 400), true],
+  ["a missing table", new ApiError("not_found", "Missing", 404), false],
+  ["unreadable data", new ApiError("malformed_file", "Unreadable", 422), false],
+  ["a refused fetch", new ApiError("remote_fetch_failed", "Refused", 502), false],
+  ["a size cap", new ApiError("upload_too_large", "Too large", 413), false],
+  ["uncoded text naming a code", new Error("query_timeout"), false],
+] as const)("classes %s as a lifetime outcome: %s", (_label, error, expected) => {
+  expect(isLifetimeOutcome(error)).toBe(expected);
 });
 
 it("does not let a detached stop hook interrupt a released resource", async () => {

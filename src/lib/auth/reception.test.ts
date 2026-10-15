@@ -1,5 +1,5 @@
 import { createServer, request as httpRequest, Agent, type Server, type ClientRequest } from "node:http";
-import type { AddressInfo } from "node:net";
+import { connect, type AddressInfo } from "node:net";
 import { mkdtemp, readdir, rm, stat } from "node:fs/promises";
 import path from "node:path";
 import { NextRequestAdapter } from "next/dist/server/web/spec-extension/adapters/next-request";
@@ -140,6 +140,38 @@ it("reuses a completely received connection and keeps simultaneous ordinary requ
   } finally { agent.destroy(); }
 });
 
+it.each([
+  ["accepted", prefix + "lon,lat\n1,2\n" + ending, 201],
+  ["refused for the wrong field", '--reception\r\nContent-Disposition: form-data; name="other"; filename="points.csv"\r\n\r\nlon,lat\n1,2\n\r\n--reception--\r\n', 400],
+  ["refused as too large", prefix + "x".repeat(70000) + ending, 413],
+  ["refused as not multipart", "{}", 400],
+] as const)("keeps a completely received connection reusable after an upload %s", async (_outcome, body, status) => {
+  const { server, port } = await serve(); const agent = new Agent({ keepAlive: true, maxSockets: 1 });
+  const connections: import("node:net").Socket[] = [];
+  server.on("connection", socket => connections.push(socket));
+  try {
+    const first = send(port, "/api/tables", "POST", agent); first.req.end(body);
+    expect((await first.result).status).toBe(status);
+    await pause(20);
+    // Repeated outcomes on the one connection leave its listeners as they were.
+    const listeners = [connections[0].listenerCount("close")];
+    for (let repeat = 0; repeat < 4; repeat++) {
+      const again = send(port, "/api/tables", "POST", agent); again.req.end(body);
+      expect((await again.result).status).toBe(status);
+      await pause(20);
+      expect(again.req.socket).toBe(first.req.socket);
+      listeners.push(connections[0].listenerCount("close"));
+    }
+    expect(connections).toHaveLength(1);
+    expect(listeners).toEqual(listeners.map(() => listeners[0]));
+    const second = send(port, "/api/tables", "POST", agent); second.req.write(prefix + "lon,lat\n"); await bytesOnDisk(8);
+    expect(second.req.socket).toBe(first.req.socket);
+    // The next upload on that connection outlives the refusal delivery bound.
+    await vi.advanceTimersByTimeAsync(5000); await pause(20);
+    second.req.end("1,2\n" + ending); expect((await second.result).status).toBe(201);
+  } finally { agent.destroy(); }
+});
+
 it("raises the server clock for a deployment override above the stored range", async () => {
   vi.spyOn(limits, "dataProcessingTimeoutMs", "get").mockReturnValue(30_000_000);
   const { server, port, admitted } = await serve(); const client = send(port); await admitted;
@@ -180,7 +212,37 @@ it("delivers the first refusal within one second even while application cleanup 
   expect(await client.result).toMatchObject({ status: 413, body: { error: { code: "upload_too_large", message: "The size cap was reached." } } });
   // The delayed handler cannot replace or append to the decided answer.
   expect(() => answer.writeHead(500).end("late failure")).not.toThrow();
-  await vi.advanceTimersByTimeAsync(4000); expect(socket.destroyed).toBe(true);
+  socket.destroy();
+});
+
+it("closes a refused connection within the delivery bound when the peer keeps its side open", async () => {
+  installIngress(); const decided = Promise.withResolvers<void>();
+  let socket!: import("node:net").Socket;
+  const server = createServer(incoming => {
+    socket = incoming.socket;
+    nativeUploadReception(180000, "Settings > Limits", () => {})!
+      .refuse(Object.assign(new Error("The size cap was reached."), { status: 413, code: "upload_too_large" }));
+    decided.resolve();
+  });
+  servers.push(server); await new Promise<void>(resolve => server.listen(0, "127.0.0.1", resolve));
+  // This peer neither finishes its body nor closes its side when the answer ends.
+  const peer = connect({ port: (server.address() as AddressInfo).port, host: "127.0.0.1", allowHalfOpen: true });
+  let text = "", ended = false, closed = false, serverClosed = false;
+  peer.on("data", chunk => { text += chunk.toString("latin1"); });
+  peer.on("end", () => { ended = true; }); peer.on("close", () => { closed = true; }); peer.on("error", () => {});
+  peer.write("POST /api/tables HTTP/1.1\r\nHost: instance.test\r\nContent-Type: multipart/form-data; boundary=reception\r\nTransfer-Encoding: chunked\r\n\r\n");
+  try {
+    await decided.promise; socket.once("close", () => { serverClosed = true; });
+    await vi.advanceTimersByTimeAsync(1000);
+    for (let attempt = 0; attempt < 200 && !ended; attempt++) await pause();
+    expect(text).toMatch(/^HTTP\/1\.1 413 /); expect(text.toLowerCase()).toContain("connection: close");
+    // The answer ended the server's side, and the peer's side stays open.
+    await vi.advanceTimersByTimeAsync(3999); await pause(20);
+    expect(ended).toBe(true); expect(socket.destroyed).toBe(false); expect(closed).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
+    for (let attempt = 0; attempt < 200 && !serverClosed; attempt++) await pause();
+    expect(socket.destroyed).toBe(true); expect(serverClosed).toBe(true);
+  } finally { peer.destroy(); }
 });
 
 it("keeps application cancellation bodyless while file cleanup is delayed", async () => {

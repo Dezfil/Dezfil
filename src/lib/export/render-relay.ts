@@ -176,5 +176,7 @@ export async function startRenderRelay(options: RenderRelayOptions): Promise<Ren
 
 function relayHostKey(host: string): string {
   const bare = host.replace(/^\[|\]$/g, "");
-  return isIP(bare) === 6 ? new URL(`http://[${bare}]/`).hostname.slice(1, -1) : bare.toLowerCase();
+  // URL syntax rejects zone identifiers accepted by isIP. Strip the zone
+  // only for this key; admission still receives the original address.
+  return isIP(bare) === 6 ? new URL(`http://[${bare.split("%", 1)[0]}]/`).hostname.slice(1, -1) : bare.toLowerCase();
 }

@@ -26,6 +26,12 @@ export async function register() {
     // durable Overpass cache is deliberately not touched.
     const { cleanIngestScratch } = await import("@/lib/ingest/scratch");
     await cleanIngestScratch();
+    // A crashed trusted engine's spill, up to four times its memory budget,
+    // would otherwise stay until the first trusted work starts an engine. No
+    // engine runs yet, so the whole directory goes.
+    const { rm } = await import("node:fs/promises");
+    const path = await import("node:path");
+    await rm(path.join(dataDir(), "engine-spill"), { recursive: true, force: true });
     const { cleanAbandonedDeletionCandidates } = await import("@/lib/auth/account-deletion-candidate-recovery");
     await cleanAbandonedDeletionCandidates();
     // Artifact files no registered table references — stranded by a crash

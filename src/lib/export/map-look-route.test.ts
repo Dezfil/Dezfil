@@ -25,7 +25,7 @@ function driverOf(render: () => Promise<{ png: Uint8Array; consumed?: string }>)
   const driver: RenderDriver = { launch: async () => { counts.launches += 1; return { render: async () => { counts.renders += 1; return render(); }, close: async () => {}, kill: () => {} }; } };
   return { driver, counts };
 }
-const consumed = (mapId: string) => JSON.stringify({ map: mapId, layers: [], legend: { visible: false, corner: "bottom-left", order: [] }, widgets: [], attribution: "© OpenMapTiles © OpenStreetMap contributors", failures: [] });
+const consumed = (mapId: string) => JSON.stringify({ map: mapId, layers: [], legend: { visible: false, corner: "bottom-left", order: [] }, widgets: [], attribution: "© OpenMapTiles © OpenStreetMap", failures: [] });
 const request = (body: unknown) => new Request("http://127.0.0.1:3300/api/maps/look", { method: "POST", headers: { "content-type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
 
 let dir: string; let mapId: string;
@@ -78,7 +78,7 @@ describe("1a and 1d: the answer", () => {
     const body = await response.json() as { render: Record<string, unknown>; image: { content_type: string; width: number; height: number; bytes: number; content_base64: string } };
     expect(Buffer.from(body.image.content_base64, "base64").equals(Buffer.from(PNG))).toBe(true);
     expect(body.image).toMatchObject({ content_type: "image/png", width: 1024, height: 640, bytes: PNG.byteLength });
-    expect(body.render).toMatchObject({ mapId, mapName: "Route look", appearance: "light", source: { width: 1024, height: 640 }, image: { width: 1024, height: 640, bytes: PNG.byteLength }, attribution: "© OpenMapTiles © OpenStreetMap contributors", composition: { failures: [], abandoned: [] } });
+    expect(body.render).toMatchObject({ mapId, mapName: "Route look", appearance: "light", source: { width: 1024, height: 640 }, image: { width: 1024, height: 640, bytes: PNG.byteLength }, attribution: "© OpenMapTiles © OpenStreetMap", composition: { failures: [], abandoned: [] } });
     expect(body.render.state).toMatchObject({ map: mapId, appearance: "light", layers: [], widgets: [] });
     expect(JSON.stringify(body.render)).not.toContain(body.image.content_base64.slice(0, 32));
     expect(typeof body.render.id).toBe("string");

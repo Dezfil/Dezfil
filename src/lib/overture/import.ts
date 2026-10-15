@@ -559,14 +559,16 @@ export async function importOverture(
       // membership commits with it.
       const db = metadataDb();
 
-      return db.transaction(() => {
+      const registered = db.transaction(() => {
         operation.assertCanCommit();
         const table = registerTable(scope, record, requestedName ?? `overture_${params.theme}`, db);
         if (projectId) fileOwnedTable(scope, table.id, projectId, db);
         return table;
       })();
+      operation.markCommitted();
+      return registered;
     } catch (error) {
-      operation.refuse(error);
+      operation.refuseIfFinal(error);
       await removeAccountFile(artifact, { force: true });
       throw error;
     }

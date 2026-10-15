@@ -148,3 +148,21 @@ it("purges the populated shared spill store after native drainage while keeping 
     },
   }, purgeQueryStores);
 });
+
+it("removes spill a crashed engine left behind at boot, before any trusted work", async () => {
+  const cache = path.join(directory, "cache", "overpass", "entry.json");
+  mkdirSync(path.dirname(cache), { recursive: true }); writeFileSync(cache, "{}");
+  mkdirSync(path.join(directory, "engine-spill"));
+  writeFileSync(path.join(directory, "engine-spill", "abandoned.tmp"), Buffer.alloc(1024));
+  const previous = process.env.NEXT_RUNTIME;
+  process.env.NEXT_RUNTIME = "nodejs";
+  try {
+    const { register } = await import("@/instrumentation");
+    await register();
+  } finally {
+    if (previous === undefined) delete process.env.NEXT_RUNTIME;
+    else process.env.NEXT_RUNTIME = previous;
+  }
+  expect(readdirSync(directory)).not.toContain("engine-spill");
+  expect(readFileSync(cache, "utf8")).toBe("{}");
+});

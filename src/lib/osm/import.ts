@@ -441,9 +441,10 @@ export async function importOsm(
         );
         inFlight = null;
       }
+      operation.markCommitted();
       return created;
     } catch (error) {
-      operation.refuse(error);
+      operation.refuseIfFinal(error);
       // All-or-nothing: unwind anything this import already registered —
       // and the in-flight class's artifact, which no registry row names.
       for (const t of created) {

@@ -29,6 +29,6 @@ export function clearGeometry(scope: AccountScope, name: string, expectedRevisio
         geometryRecord: null, geometryCandidates: [],
         geometryState: { mode: "cleared", choice: null, outputColumn: null, sourceRetained: true },
       }, null);
-    } catch (error) { currentTrustedOperation()?.refuse(error); await removeAccountFile(artifact, { force: true }); throw error; }
+    } catch (error) { currentTrustedOperation()?.refuseIfFinal(error); await removeAccountFile(artifact, { force: true }); throw error; }
   }, signal);
 }

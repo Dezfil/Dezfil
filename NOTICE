@@ -10,6 +10,11 @@ originating projects are listed here as they are used:
 - MapLibre GL JS 6.11.2 (BSD-3-Clause, © 2023 MapLibre contributors) —
   unmodified ESM worker and shared chunk in public/workers/maplibre-gl-6.11.2/.
   Their upstream license headers are retained; the full license follows below.
+  The filling of a raster tile template for one tile (CanonicalTileID.url and
+  its helpers in src/tile/tile_id.ts) is adapted in src/lib/tile-template.ts,
+  which carries the upstream notice; the tile's bounding box there is
+  MapLibre's inlining of @mapbox/whoots-js (ISC, © 2017 Mapbox), whose notice
+  the file carries too.
 - kepler.gl (MIT, © Uber Technologies / OpenJS Foundation) — layer color
   cycle, "Global Warming", "Sunrise", "Viz Sequential", "Ice & Fire", and
   "Viz Qualitative" palettes (src/lib/style/palettes.ts).

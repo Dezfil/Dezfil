@@ -5,6 +5,7 @@ import * as metadata from "@/lib/metadata/db";
 import { testAccountScope } from "@/lib/test-support/accounts";
 import { shareProject } from "@/lib/test-support/sharing";
 import type { AccountScope } from "@/lib/auth/scope";
+import type { PictureBasemaps } from "@/lib/picture-credit";
 
 /**
  * The project home's page asks the server, once, whether the reader may file
@@ -38,6 +39,21 @@ describe("the project home's page", () => {
     expect(await files("ada")).toBe(true);
     expect(await files("bo")).toBe(true);
     expect(await files("cy")).toBe(false);
+  });
+
+  it("hands the home every style the instance draws, Satellite with its configured credit, for the pictures' line", async () => {
+    vi.stubEnv("DEZFIL_SATELLITE_URL", "https://imagery.example/tiles/{z}/{y}/{x}?key=PAGE-KEY");
+    vi.stubEnv("DEZFIL_SATELLITE_ATTRIBUTION", "© Imagery Provider");
+    try {
+      page.scope = scopes.ada;
+      const { default: ProjectPage } = await import("./page");
+      const element = (await ProjectPage({ params: Promise.resolve({ id: "P" }) })) as ReactElement<{ pictureBasemaps: PictureBasemaps }>;
+      const { basemaps } = element.props.pictureBasemaps;
+      expect(basemaps.map((b) => b.key)).toEqual(["dark", "light", "streets", "satellite"]);
+      expect(basemaps.find((b) => b.key === "satellite")!.attribution).toEqual([{ label: "© Imagery Provider" }]);
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 
   it("lets nobody file into a project whose owner is deactivated", async () => {

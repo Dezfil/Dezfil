@@ -7,6 +7,14 @@ const OPAQUE_ACCESS_EXCEPTIONS: readonly { file: string; reason: string }[] = [
     file: "src/lib/ingest/fixtures/receive-lifetime.mjs",
     reason: "Node-only test fixture loads busboy and the built bundle; its product sources are scanned directly.",
   },
+  {
+    file: "src/lib/basemap-satellite-tiles.test.ts",
+    reason: "Test loads MapLibre's own tile-address source to compare the relay's addresses against; MapLibre's package exports no such class, so it is reached by its file path.",
+  },
+  {
+    file: "src/lib/tile-template.test.ts",
+    reason: "Test loads MapLibre's own tile-address source to compare the template's filling against; MapLibre's package exports no such class, so it is reached by its file path.",
+  },
 ];
 
 function errorsNeedingReview(errors: string[]): string[] {
@@ -38,6 +46,9 @@ describe("MVT-only source inventory", () => {
     "src/lib/receive-lifetime.mjs",
     "src/lib/ingest/fixtures/second-lifetime.mjs",
     "src/lib/ingest/fixtures/receive-lifetime.mjs.ts",
+    // The product modules beside the two excepted tests.
+    "src/lib/basemap-satellite-tiles.ts",
+    "src/lib/tile-template.ts",
   ])("keeps a seeded opaque access outside the named exception red: %s", (file) => {
     const found = inspectSource(file, "require(modulePath);");
     expect(errorsNeedingReview(found.errors)).toEqual([

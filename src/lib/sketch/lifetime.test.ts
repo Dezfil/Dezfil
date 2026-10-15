@@ -13,6 +13,9 @@ import { createMap } from "@/lib/map-service";
 import { retirementsSettled } from "@/lib/ingest/retire";
 import * as ingest from "@/lib/ingest/ingest";
 import * as reader from "./read";
+import * as ownership from "@/lib/ingest/file-ownership";
+import * as tiles from "@/lib/tiles/build";
+import { existsSync } from "node:fs";
 import { createSketch, appendFeature, deleteFeature, moveVertex, cascadeDeleteSketch, serializeSketchMutation } from "./store";
 
 const scratchRoot = process.env.DEZFIL_DATA_DIR ?? "/tmp";
@@ -75,4 +78,34 @@ it("native memory after writing a new sketch leaves no candidate or metadata", a
   const map = createMap(testAccountScope(), "Drawing"), original = DuckDBConnection.prototype.runAndReadAll;
   vi.spyOn(DuckDBConnection.prototype, "runAndReadAll").mockImplementation(async function (this: DuckDBConnection, sql, ...args) { remember(); const result = await original.call(this, sql, ...args); if (sql.trim().startsWith("COPY")) throw new Error("Out of Memory Error: could not allocate block"); return result; });
   await expect(createSketch(testAccountScope(), map.id, point, { expectedRevision: revision(map.id) })).rejects.toMatchObject({ code: "engine_memory_exceeded" }); expect(listTables()).toEqual([]); expect(await readdir(path.join(dir, "tables"))).toEqual([]);
+});
+it("a committed change answers its success when its replaced artifact cannot be retired, logs it once, and keeps the new artifact", async () => {
+  const { table } = await seed();
+  const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+  const original = ownership.registerAccountFile;
+  vi.spyOn(ownership, "registerAccountFile").mockImplementation((account, file, directory) => {
+    if (path.basename(String(file)) === path.basename(table.file)) throw new Error("EIO: the ownership record could not be written");
+    return original(account, file, directory);
+  });
+  const answer = await appendFeature(testAccountScope(), table.name, point).then(value => ({ value }), error => ({ error }));
+  expect(answer).toMatchObject({ value: { rowCount: 2 } });
+  expect(warn).toHaveBeenCalledOnce();
+  expect(warn).toHaveBeenCalledWith("Trusted sketch-change cleanup failed after its commit",
+    expect.objectContaining({ errors: [expect.objectContaining({ message: expect.stringContaining("EIO") })] }));
+  const now = getTableByName(table.name)!;
+  expect(now.rowCount).toBe(2); expect(now.file).not.toBe(table.file);
+  expect(existsSync(path.join(dir, now.file))).toBe(true);
+});
+it("a committed cascade answers its success when removing tile artifacts fails, logs it once, and still retires the artifact", async () => {
+  const { table, layerId } = await seed();
+  const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+  vi.spyOn(tiles, "removeTileArtifacts").mockRejectedValue(new Error("EBUSY: the tile archive could not be removed"));
+  const answer = await cascadeDeleteSketch(testAccountScope(), table.name).then(value => ({ value }), error => ({ error }));
+  expect(answer).toMatchObject({ value: { layerId } });
+  expect(getTableByName(table.name)).toBeFalsy();
+  expect(warn).toHaveBeenCalledOnce();
+  expect(warn).toHaveBeenCalledWith("Trusted sketch-change cleanup failed after its commit",
+    expect.objectContaining({ errors: [expect.objectContaining({ message: expect.stringContaining("EBUSY") })] }));
+  await retirementsSettled();
+  expect(existsSync(path.join(dir, table.file))).toBe(false);
 });

@@ -1,5 +1,5 @@
 import { AsyncLocalStorage } from "node:async_hooks";
-import { ApiError, EvaluationCancelled } from "./api/errors";
+import { ApiError, EvaluationCancelled, type ErrorCode } from "./api/errors";
 import { RESOURCE_ERROR_STATUSES } from "./api/error-catalogue";
 import { limits } from "./limits";
 import { settingRemedy } from "./settings/remedy";
@@ -9,7 +9,6 @@ export const TRUSTED_SETTLEMENT_MS = 35_000;
 /** The operation, rather than a connection or nested helper, owns the policy. */
 export const TRUSTED_OPERATION_POLICIES = {
   "interactive-read": { budget: "query", departure: "cancel" },
-  "upload-reception": { budget: "processing", departure: "cancel" },
   export: { budget: "processing", departure: "cancel" },
   import: { budget: "processing", departure: "continue" },
   refresh: { budget: "processing", departure: "continue" },
@@ -37,6 +36,20 @@ export function isTrustedOperationRefusal(error: unknown): error is ApiError | E
   return error instanceof ApiError || error instanceof EvaluationCancelled;
 }
 
+const LIFETIME_OUTCOMES: ReadonlySet<ErrorCode> = new Set<ErrorCode>([
+  "query_timeout", "data_processing_timeout", "request_timeout", "upload_stalled", "remote_timeout",
+  "operation_timeout", "render_timeout", "tile_build_timeout", "engine_memory_exceeded", "query_memory_exceeded",
+]);
+
+/** Outcomes that end the whole operation whatever a wrapper makes of them
+ * later: its deadline and every shorter time limit, a departed caller, and
+ * engine memory or scratch. Any other error belongs to the code that catches
+ * it, which may translate it, as a refresh does with a source table that is
+ * gone; it becomes the operation's outcome only by reaching its root. */
+export function isLifetimeOutcome(error: unknown): error is ApiError | EvaluationCancelled {
+  return error instanceof EvaluationCancelled || (error instanceof ApiError && LIFETIME_OUTCOMES.has(error.code));
+}
+
 export function trustedMemoryRefusal(name: string, resource: "memory" | "scratch", memoryMb = limits.trustedMemoryMb): ApiError {
   const budget = resource === "scratch" ? memoryMb * 4 : memoryMb;
   return new ApiError("engine_memory_exceeded",
@@ -45,11 +58,12 @@ export function trustedMemoryRefusal(name: string, resource: "memory" | "scratch
 }
 
 /** An overdue settlement is an owner failure, never a replacement for the
- * refusal already returned. The owner can still await drained for late cleanup. */
+ * refusal or success already returned. The owner can still await drained for
+ * late cleanup. */
 export class TrustedSettlementOverdue extends Error {
   readonly allowanceMs = TRUSTED_SETTLEMENT_MS;
-  constructor(name: string, cause: unknown) {
-    super(`${name} did not settle within ${TRUSTED_SETTLEMENT_MS / 1000} s of its refusal.`, { cause });
+  constructor(name: string, cause: unknown, after: "refusal" | "commit" = "refusal") {
+    super(`${name} did not settle within ${TRUSTED_SETTLEMENT_MS / 1000} s of its ${after}.`, { cause });
   }
 }
 
@@ -71,13 +85,18 @@ export class TrustedOperation {
   readonly kind: TrustedOperationKind;
   readonly name: string;
   private decisionTime: number | null = null;
+  private commitTime: number | null = null;
   get decidedAt(): number | null { return this.decisionTime; }
+  /** Whether the last interested caller's departure refuses this work. */
+  get cancelsOnDeparture(): boolean { return this.policy.departure === "cancel"; }
   get settlementDeadline(): number | null { return this.decisionTime === null ? null : this.decisionTime + TRUSTED_SETTLEMENT_MS; }
   private readonly controller = new AbortController();
   private readonly policy: { budget: "query" | "processing"; departure: "cancel" | "continue" };
   private readonly stopped = Promise.withResolvers<never>();
   private readonly settlement = Promise.withResolvers<void>();
   private readonly drain = Promise.withResolvers<void>();
+  /** Resolves when committed work's cleanup outlasts the settlement allowance. */
+  private readonly commitOverdue = Promise.withResolvers<TrustedSettlementOverdue>();
   readonly settled = this.settlement.promise;
   readonly drained = this.drain.promise;
   private failure: unknown;
@@ -91,6 +110,7 @@ export class TrustedOperation {
   private readonly stopHooks = new Set<() => void>();
   private readonly cleanups: (() => void | Promise<void>)[] = [];
   private readonly cleanupErrors: unknown[] = [];
+  private readonly commitListeners = new Set<() => void>();
 
   constructor(options: TrustedOperationOptions) {
     this.kind = options.kind; this.name = options.name;
@@ -99,7 +119,7 @@ export class TrustedOperation {
     if (!Number.isFinite(this.budgetMs) || this.budgetMs <= 0) throw new RangeError("An operation budget must be positive and finite.");
     if (options.deadline !== undefined && !Number.isFinite(options.deadline)) throw new RangeError("An operation deadline must be finite.");
     this.deadline = Math.min(this.admittedAt + this.budgetMs, options.deadline ?? Infinity);
-    this.stage = options.kind === "upload-reception" ? "reception" : this.policy.budget;
+    this.stage = this.policy.budget;
     this.remedy = settingRemedy(this.policy.budget === "query" ? "queryTimeoutS" : "dataProcessingTimeoutS");
     this.signal = this.controller.signal;
     observe(this.stopped.promise); observe(this.settled);
@@ -124,7 +144,7 @@ export class TrustedOperation {
   private check(): void {
     if (this.decidedAt !== null) throw this.failure;
     if (this.complete) throw new Error("This operation has settled.");
-    if (performance.now() >= this.deadline) { this.refuse(this.timeout()); throw this.failure; }
+    if (this.commitTime === null && performance.now() >= this.deadline) { this.refuse(this.timeout()); throw this.failure; }
   }
 
   /** Call immediately before the synchronous commit, after all asynchronous
@@ -169,9 +189,14 @@ export class TrustedOperation {
     try { stop(); } catch (error) { this.cleanupErrors.push(error); }
   }
 
-  /** First decision wins, including coded refusals from a shorter boundary. */
+  /** For a catch block that rethrows: a lifetime outcome ends the operation
+   * now, and any other error is left to the caller to translate. */
+  refuseIfFinal(error: unknown): void { if (isLifetimeOutcome(error)) this.refuse(error); }
+
+  /** First decision wins, including coded refusals from a shorter boundary.
+   * Committed work has already decided: its answer is the success. */
   refuse(error: unknown): void {
-    if (this.decidedAt !== null || this.complete) return;
+    if (this.decidedAt !== null || this.complete || this.commitTime !== null) return;
     this.failure = error;
     this.decisionTime = performance.now();
     clearTimeout(this.deadlineTimer);
@@ -185,15 +210,56 @@ export class TrustedOperation {
     this.stopHooks.clear();
   }
 
+  /** For a source that enforces this operation's remaining time itself: its
+   * expiry is this operation's own time limit. Decides the operation with
+   * that refusal and returns the answer to throw. */
+  refuseAtDeadline(): unknown {
+    const refusal = this.timeout(); this.refuse(refusal);
+    return this.decidedAt !== null ? this.failure : refusal;
+  }
+
+  /** Call right after the work's final synchronous commit. From then on the
+   * answer is that success: the deadline is disarmed, and no later deadline,
+   * departure or refusal can replace it. The remaining cleanup is still owned
+   * until it drains. The answer waits for it within the settlement allowance
+   * and no longer; an overdue one is reported through settled and logged
+   * once, never through the answer. Callers waiting on this work as shared
+   * work are committed with it. */
+  markCommitted(): void {
+    if (!this.commit()) return;
+    for (const listener of this.commitListeners) listener();
+    this.commitListeners.clear();
+  }
+
+  /** Runs the listener when this work commits, at once if it already has. */
+  onCommitted(listener: () => void): () => void {
+    if (this.commitTime !== null) { listener(); return () => {}; }
+    this.commitListeners.add(listener);
+    return () => { this.commitListeners.delete(listener); };
+  }
+
+  private commit(): boolean {
+    if (this.commitTime !== null || this.decidedAt !== null || this.complete) return false;
+    this.commitTime = performance.now();
+    clearTimeout(this.deadlineTimer);
+    this.settlementTimer = setTimeout(() => {
+      const overdue = new TrustedSettlementOverdue(this.name, undefined, "commit");
+      this.settlement.reject(overdue); this.commitOverdue.resolve(overdue);
+    }, TRUSTED_SETTLEMENT_MS);
+    this.settlementTimer.unref?.();
+    return true;
+  }
+
   /** Nested helpers keep the original owner even when they request a read
-   * policy inside an accepted mutation, or are handed its departed signal. */
+   * policy inside an accepted mutation, or are handed its departed signal.
+   * Only a lifetime outcome decides here; the root decides anything else. */
   async within<T>(work: (operation: TrustedOperation) => Promise<T>): Promise<T> {
     this.check();
     try {
       const value = await context.run(this, () => work(this));
       this.check(); return value;
     } catch (error) {
-      if (isTrustedOperationRefusal(error)) this.refuse(error);
+      this.refuseIfFinal(error);
       if (this.decidedAt !== null) throw this.failure;
       throw error;
     }
@@ -202,8 +268,12 @@ export class TrustedOperation {
   run<T>(work: (operation: TrustedOperation) => Promise<T>): Promise<T> {
     if (this.started) throw new Error("An operation runs only once.");
     this.started = true;
-    const running = Promise.resolve().then(() => this.within(work)).catch(error => {
-      this.refuse(error); throw this.failure;
+    let answered = false;
+    const running = Promise.resolve().then(() => this.within(work)).then(value => {
+      // Resolved work is a success whatever its cleanup does afterwards.
+      this.commit(); answered = true; return value;
+    }, error => {
+      this.refuse(error); throw this.decidedAt !== null ? this.failure : error;
     });
     const finished = running.finally(async () => {
       // A cleanup failure must not prevent another resource from being released.
@@ -211,18 +281,34 @@ export class TrustedOperation {
         try { await this.cleanups.pop()!(); } catch (error) { this.cleanupErrors.push(error); }
       }
       for (const detach of this.interests) detach();
-      this.stopHooks.clear();
+      this.stopHooks.clear(); this.commitListeners.clear();
       clearTimeout(this.deadlineTimer);
       clearTimeout(this.settlementTimer);
       this.complete = true;
       if (this.cleanupErrors.length) {
         const error = new AggregateError(this.cleanupErrors, `${this.name} cleanup failed.`, { cause: this.failure });
-        this.settlement.reject(error); this.drain.resolve(); throw error;
+        this.settlement.reject(error); this.drain.resolve();
+        // Committed work keeps its answer; the failure is reported through
+        // settled and, since no caller sees it, in the server log.
+        if (this.commitTime === null) throw error;
+        if (answered) console.warn(`Trusted ${this.kind} cleanup failed after its commit`, error);
+        return;
       }
       this.settlement.resolve(); this.drain.resolve();
     });
     observe(finished);
-    return Promise.race([finished, this.stopped.promise]);
+    // A committed value waits for its cleanup, but no longer than the
+    // settlement allowance: the caller gets the success then, the overdue
+    // cleanup is logged once, since no caller sees it, and the operation
+    // keeps owning that cleanup until drained.
+    const answer = running.then(value => Promise.race([
+      finished.then(() => value),
+      this.commitOverdue.promise.then(overdue => {
+        console.warn(`Trusted ${this.kind} cleanup overdue after its commit`, overdue);
+        return value;
+      }),
+    ]));
+    return Promise.race([answer, this.stopped.promise]);
   }
 }
 

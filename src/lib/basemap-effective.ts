@@ -7,8 +7,10 @@
  * the deployment override pins it. Custom kind reads as vector so the
  * group toggles stay live for whatever groups the loaded style actually
  * yields; custom credit is the saved snapshot, never the OpenFreeMap
- * fallback. Dependency-free beyond the basemap domain — reaches the
- * client bundle.
+ * fallback. A key the instance does not draw (Satellite removed, or its
+ * template unreadable) draws the deployment default and claims that
+ * default's credit, as the server credits it. Dependency-free beyond the
+ * basemap domain — reaches the client bundle.
  */
 
 import {
@@ -51,6 +53,13 @@ export function basemapTone(args: {
   return args.theme;
 }
 
+/** The deployment default's credit: the deployment style's configured
+ * credit when it sets one (none configured claims nothing), else the
+ * built-in credit. */
+function defaultCredit(overrideUrl: string | null, overrideAttribution: AttributionLine[] | undefined): AttributionLine[] {
+  return overrideUrl ? (overrideAttribution ?? []) : BUILT_IN_ATTRIBUTION;
+}
+
 export function effectiveBasemap(args: {
   key: BasemapKey | null;
   custom: CustomBasemap | null;
@@ -84,7 +93,7 @@ export function effectiveBasemap(args: {
     return {
       url: chosen?.url ?? defaultUrl,
       kind: chosen?.kind ?? "vector",
-      attribution: chosen?.attribution ?? [],
+      attribution: chosen?.attribution ?? defaultCredit(overrideUrl, args.overrideAttribution),
       custom: false,
       followsTheme: false,
     };
@@ -94,9 +103,7 @@ export function effectiveBasemap(args: {
       overrideUrl ??
       (basemaps.find((b) => b.key === theme)?.url ?? defaultUrl),
     kind: "vector",
-    attribution: overrideUrl
-      ? (args.overrideAttribution ?? [])
-      : BUILT_IN_ATTRIBUTION,
+    attribution: defaultCredit(overrideUrl, args.overrideAttribution),
     custom: false,
     followsTheme: overrideUrl === null,
   };

@@ -203,8 +203,9 @@ async function refreshOsmGroup(
         }
       }
     })();
+    currentTrustedOperation()?.markCommitted();
   } catch (error) {
-    currentTrustedOperation()?.refuse(error);
+    currentTrustedOperation()?.refuseIfFinal(error);
     for (const c of candidates) await removeAccountFile(c.artifact, { force: true });
     throw error;
   }
@@ -231,9 +232,11 @@ export async function refreshTable(
   name: string,
   options: RefreshOptions = {},
 ): Promise<DataTable> {
-  return withTrustedMutation({ kind: "refresh", name: "Dataset refresh", signal: options.signal }, async () => {
+  return withTrustedMutation({ kind: "refresh", name: "Dataset refresh", signal: options.signal }, async operation => {
     const deletionWork = admitAccountWork([requireAccountScope(scope)]);
-    try {
+    // Downloads and extraction folders are removed on the operation's cleanup
+    // path. The account's work is released after them, the last cleanup to run.
+    operation.defer(() => deletionWork.release());
     const table = requireTable(scope, name);
     // Single-flight per provenance unit: the claim happens before the first
     // await, so a second caller can never start a second build.
@@ -244,8 +247,6 @@ export async function refreshTable(
     } finally {
       endRefresh(unit);
     }
-
-    } finally { deletionWork.release(); }
   });
 }
 
@@ -422,8 +423,9 @@ async function performRefresh(
         404,
       );
     }
+    currentTrustedOperation()?.markCommitted();
   } catch (error) {
-    currentTrustedOperation()?.refuse(error);
+    currentTrustedOperation()?.refuseIfFinal(error);
     await removeAccountFile(artifact, { force: true });
     throw error;
   }

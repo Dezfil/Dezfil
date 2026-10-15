@@ -38,6 +38,7 @@ export function publishGeometry(scope: AccountScope, table: DataTable, update: T
     // Public readback is the committed result; internal ownership stays private.
     return geometryMutationResult(scope, { ...table, ...publicUpdate, ...geometryEvidence(update) }, geometryState ?? null, extent);
   })();
+  currentTrustedOperation()?.markCommitted();
   postCommitCleanup(scope, table.name, path.join(dataDir(), table.file));
   return result;
 }
@@ -64,6 +65,6 @@ export function setGeometry(scope: AccountScope, name: string, expectedRevision:
       const meta = await readGeometry(table, (conn, from) => buildGeometryArtifact(conn, from, artifact, table, state, choice));
       const { extent, ...facts } = meta;
       return publishGeometry(scope, table, { ...facts, file, importedAt: table.importedAt }, extent);
-    } catch (error) { currentTrustedOperation()?.refuse(error); await removeAccountFile(artifact, { force: true }); throw error; }
+    } catch (error) { currentTrustedOperation()?.refuseIfFinal(error); await removeAccountFile(artifact, { force: true }); throw error; }
   }, signal);
 }

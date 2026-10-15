@@ -4,10 +4,15 @@ import { mkdtempSync, rmSync } from "node:fs";
 import path from "node:path";
 import { INTEGER, type DuckDBConnection } from "@duckdb/node-api";
 
-const fixture = vi.hoisted(() => ({ acquire: vi.fn(), resolve: vi.fn() }));
+const fixture = vi.hoisted(() => ({ acquire: vi.fn(), resolve: vi.fn(), side: vi.fn(), sides: [] as string[][] }));
 vi.mock("@/lib/duckdb", () => ({ withConnection: async (work: (conn: DuckDBConnection) => Promise<unknown>) => {
   const conn = await fixture.acquire();
   try { return await work(conn); } finally { conn.disconnectSync(); }
+}, withSideConnection: async (work: (conn: DuckDBConnection) => Promise<unknown>) => {
+  // The connection outside the operation that cancels a held statement on the source.
+  await fixture.side();
+  const sql: string[] = []; fixture.sides.push(sql);
+  return work({ run: async (statement: string) => { sql.push(statement); return {}; } } as unknown as DuckDBConnection);
 } }));
 vi.mock("@/lib/net/egress", () => ({ resolveAllowed: (...args: unknown[]) => fixture.resolve(...args) }));
 import { POST } from "@/app/api/connections/postgis/[id]/preview/route";
@@ -62,6 +67,7 @@ beforeEach(() => {
   closeMetadataDb(); resetSecretKeyCache(); insertConnection(testAccountScope(), target);
   fixture.acquire.mockReset().mockImplementation(async () => connection());
   fixture.resolve.mockReset().mockResolvedValue(["192.0.2.1"]);
+  fixture.side.mockReset(); fixture.sides.length = 0;
 });
 afterEach(() => { closeMetadataDb(); resetSecretKeyCache(); vi.unstubAllEnvs(); rmSync(dir, { recursive: true, force: true }); });
 
@@ -96,14 +102,46 @@ describe("actual preview route owns its attachment", () => {
       expect(conn.interrupt).toHaveBeenCalled();
       expect(conn.disconnectSync).not.toHaveBeenCalled();
       expect(conn.stages).not.toContain("detach");
+      if (stage === "load" || stage === "attach") expect(fixture.side).not.toHaveBeenCalled();
+      else {
+        // The held statement is cancelled on the source from another
+        // connection, without waiting for the blocked one.
+        await vi.waitFor(() => expect(fixture.sides[0]?.some(sql => sql.includes("pg_cancel_backend"))).toBe(true));
+        const identity = conn.sql.find(sql => sql.startsWith("ATTACH "))!.match(/application_name=''(dezfil_preview_[a-f0-9]+)''/)![1];
+        const [load, attach, cancel] = fixture.sides[0];
+        expect(load).toBe("LOAD postgres");
+        expect(attach).toMatch(/application_name=''dezfil_cancel_[a-f0-9]+''/);
+        expect(attach).toContain("connect_timeout=5");
+        expect(attach).toContain("statement_timeout=5000");
+        expect(cancel).toContain(`left(application_name, ${identity.length}) = ''${identity}''`);
+        expect(cancel).toContain("pid <> pg_backend_pid()");
+        expect(conn.stages).not.toContain("detach");
+      }
       conn.release.resolve();
       const response = await pending;
       expect(response.status).toBe(499); expect(await response.text()).toBe("");
       expect(conn.stages.slice(conn.stages.indexOf(stage) + 1)).toEqual(stage === "load" ? [] : ["detach"]);
       expect(conn.disconnectSync).toHaveBeenCalledOnce();
       expect(getConnection(testAccountScope(), target.id)?.status).toBe("never_checked");
+      // The cancelling attachment is detached before the operation settles.
+      for (const sql of fixture.sides) expect(sql.at(-1)).toMatch(/^DETACH pg_cancel_[a-f0-9]+$/);
     },
   );
+  it("keeps the departure's answer when the cancellation on the source fails, and logs it", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const conn = connection("rows"); fixture.acquire.mockResolvedValue(conn);
+      fixture.side.mockRejectedValue(new Error("Unable to connect to Postgres at host=db.example.org password=fixture-only"));
+      const controller = new AbortController(); const pending = preview(controller);
+      await conn.entered.promise; controller.abort();
+      await vi.waitFor(() => expect(warn).toHaveBeenCalledOnce());
+      conn.release.resolve();
+      const response = await pending;
+      expect(response.status).toBe(499); expect(await response.text()).toBe("");
+      expect(String(warn.mock.calls[0])).not.toContain("fixture-only");
+      expect(warn).toHaveBeenCalledOnce();
+    } finally { warn.mockRestore(); }
+  });
   it("discards a result when departure occurs during teardown", async () => {
     const conn = connection("detach"); fixture.acquire.mockResolvedValue(conn);
     const controller = new AbortController(); const pending = preview(controller);
@@ -122,6 +160,11 @@ describe("actual preview route owns its attachment", () => {
     expect(first.interrupt).toHaveBeenCalled();
     first.release.resolve(); expect((await pending).status).toBe(499);
     expect(first.disconnectSync).toHaveBeenCalledOnce(); expect(second.disconnectSync).toHaveBeenCalledOnce();
+    // Only the departing attachment's statements are cancelled on the source.
+    const identity = (c: ReturnType<typeof connection>) => c.sql.find(sql => sql.startsWith("ATTACH "))!.match(/application_name=''(dezfil_preview_[a-f0-9]+)''/)![1];
+    expect(fixture.sides).toHaveLength(1);
+    expect(fixture.sides[0].join("\n")).toContain(identity(first));
+    expect(fixture.sides[0].join("\n")).not.toContain(identity(second));
   });
   it.each(["attach", "version", "extension", "columns", "rows"] as Stage[])(
     "classifies the source ceiling during %s as 408 without recording failure", async (stage) => {

@@ -123,7 +123,7 @@ export function MapPresentation({
   // object a ref to the compiler.
   const {
     setTimelineDockEl,
-    setBottomCornerEl,
+    setBottomLeftCornerEl,
     setBottomRightCornerEl,
     setWidgetStackEl,
     setCreditEl,
@@ -200,7 +200,7 @@ export function MapPresentation({
             onDrop={legend?.onDrop}
             onTextClick={legend?.onTextClick}
             onLabelEdit={legend?.onLabelEdit}
-            bottomLeftRef={setBottomCornerEl}
+            bottomLeftRef={setBottomLeftCornerEl}
             bottomRightRef={setBottomRightCornerEl}
             cornerLift={stage.cornerLift}
             creditLift={stage.creditLift}
@@ -279,6 +279,7 @@ export function MapPresentation({
             records={stage.widgetRecords}
             recordsState={stage.dash.valuesState}
             credit={stage.creditEl}
+            legend={stage.bottomLeftCornerEl}
           />
         )}
       </div>

@@ -50,6 +50,7 @@ export async function createConnection(scope: AccountScope, input: unknown, sign
       operation.assertCanCommit();
       return insertConnection(scope, candidate, db);
     }).immediate();
+    operation.markCommitted();
     recordConnectionHealth(scope, connection.id, health);
     return requireConnection(scope, connection.id);
   });
@@ -72,6 +73,7 @@ export async function editConnection(scope: AccountScope, id: string, input: unk
       operation.assertCanCommit();
       updateConnection(scope, id, values, db);
     }).immediate();
+    operation.markCommitted();
     recordConnectionHealth(scope, id, health);
     return requireConnection(scope, id);
   });

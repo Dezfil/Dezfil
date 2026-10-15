@@ -349,6 +349,20 @@ export async function withConnection<T>(
 }
 
 /**
+ * A trusted-instance connection that belongs to no operation, for the short
+ * work a refused operation still needs done, such as cancelling its source
+ * statements on the server: that refusal does not refuse this work too. It
+ * loads nothing, and its caller bounds it.
+ */
+export async function withSideConnection<T>(fn: (conn: DuckDBConnection) => Promise<T>): Promise<T> {
+  const release = holdConnection();
+  try {
+    const conn = await (await getInstance()).connect();
+    try { return await fn(conn); } finally { conn.disconnectSync(); }
+  } finally { release(); }
+}
+
+/**
  * Hand out a hardened-instance connection whose lifecycle the caller owns.
  * Product code reaches this through the bounded-evaluation boundary
  * (query/bounded) — the one door for user SQL, which defers the release

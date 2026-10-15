@@ -27,7 +27,7 @@ async function main() {
     if (error.code === "EEXIST") throw new Error(`Another template install owns the target lock: ${lock}`);
     throw error;
   });
-  let scratch, closeStore, resetEngine, loader;
+  let scratch, closeStore, resetEngine, loader, owner;
   let preserveScratch = false;
   let cleaned = false;
   const cleanup = async () => {
@@ -59,6 +59,7 @@ async function main() {
     const { withTrustedMutation } = await import("../src/lib/trusted-mutation.ts");
     const { copyTemplateFile } = await import("../src/lib/templates/files.ts");
     await withTrustedMutation({ kind: "template-install", name: "Shipped template installation" }, async operation => {
+      owner = operation;
       operation.defer(cleanup);
       if (size > TEMPLATE_ARCHIVE_MAX_BYTES) throw new Error("template_archive_too_large: The release exceeds the template archive bound.");
       const archive = path.join(scratch, "archive.zip");
@@ -79,8 +80,9 @@ async function main() {
         passwordHash: null, status: "active", isAdmin: false, now: new Date().toISOString() }, db);
       const session = issueSession(account, db, Date.now());
       const scope = accountScope(authenticateSession(session.secret, db), db);
+      // The command commits only when the shipped set is in place, below.
       const installed = await installTemplateArchive(scope, scratch, archive,
-        { id: facts.id, version: facts.version, size, sha256: values.sha256 }, { kind: "shipped" });
+        { id: facts.id, version: facts.version, size, sha256: values.sha256 }, { kind: "shipped" }, { commit: false });
       const staged = path.join(scratch, "shipped");
       const copyTree = async (source, destination) => {
         operation.enterStage("shipped template copy");
@@ -113,9 +115,14 @@ async function main() {
         }
         throw error;
       }
+      operation.markCommitted();
       console.log(`Installed ${facts.id} version ${facts.version} into ${target}`);
     });
   } finally {
+    // A committed install is answered within the settlement allowance even
+    // when its cleanup runs longer. The command still ends only once that
+    // cleanup has finished, so it never exits holding the lock or scratch.
+    await owner?.drained;
     await cleanup();
   }
 }
