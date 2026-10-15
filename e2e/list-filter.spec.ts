@@ -719,11 +719,11 @@ test("Data: imports under a project scope join it, said on the tile and in the d
 
     await test.step("the tile names the scope like the Maps tile (12-A)", async () => {
       // The view preference is workspace-global (the test above ends in
-      // list view): the populated presentations need the grid.
-      const gridView = async () => {
-        const grid = page.getByRole("button", { name: "Grid view", exact: true });
-        if ((await grid.count()) > 0) await grid.click();
-      };
+      // list view): the populated presentations need the grid. The view
+      // toggle renders with the screen, which can arrive after the page's
+      // load event, so the click waits for it rather than counting it.
+      const gridView = () =>
+        page.getByRole("button", { name: "Grid view", exact: true }).click();
       await page.goto(`/data?project=${pd}`);
       // Resolved-empty presentation: the project holds no dataset yet.
       await expect
