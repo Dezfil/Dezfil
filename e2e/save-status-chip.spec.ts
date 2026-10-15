@@ -675,7 +675,7 @@ test("the workflow: every producer speaks at the chip, with its own tone, hold a
       return route.continue();
     });
     await canvasPaneOf(page).getByRole("tab", { name: /^Sources/ }).click();
-    await canvasPaneOf(page).getByRole("button", { name: "Add data" }).click();
+    await canvasPaneOf(page).getByRole("button", { name: "Add data", exact: true }).click();
     await expect(page.getByRole("dialog", { name: "Add data" })).toBeVisible();
     const csv = (n: string) => ({
       name: `${n}.csv`,

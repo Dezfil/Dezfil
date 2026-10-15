@@ -48,6 +48,16 @@ test("the workflows list: create, open, rename, facts, filters, view, duplicate,
   await page.goto("/workflows");
   await seedCsv(page, table, "name,lon,lat\nalex,13.41,52.52\nzoo,13.33,52.51\n");
   const chainId = await createChain(page);
+  // The list's view is stored for the account, and other journeys change
+  // it: the case starts from the grid it reads cards from.
+  await page.evaluate(async () => {
+    const r = await fetch("/api/settings", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ viewPrefs: { workflows: { view: "grid" } } }),
+    });
+    if (!r.ok) throw new Error(await r.text());
+  });
   await page.reload();
 
   await test.step("a card wears the API's facts: nodes, sources, and the status chip", async () => {
@@ -103,7 +113,11 @@ test("the workflows list: create, open, rename, facts, filters, view, duplicate,
 
   await test.step("the view is remembered across a reload", async () => {
     await page.goto("/workflows");
+    // The choice is stored by a write the click starts; a reload before it
+    // lands reads the stored grid back.
+    const stored = page.waitForResponse((r) => new URL(r.url()).pathname === "/api/settings" && r.request().method() === "PATCH");
     await page.getByRole("button", { name: "List view" }).click();
+    expect((await stored).ok()).toBe(true);
     await page.reload();
     await expect(page.getByRole("button", { name: "List view" })).toHaveAttribute("data-on", "true");
     await page.getByRole("button", { name: "Grid view" }).click();
