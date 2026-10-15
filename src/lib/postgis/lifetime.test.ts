@@ -84,6 +84,14 @@ it("a refused refresh retains its previous artifact and resource identity", asyn
   conn.run.mockImplementation(async sql => { remember(); if (sql.startsWith("COPY")) throw new Error("Out of Memory Error: could not allocate block"); });
   await expect(refreshTable(testAccountScope(), table.name)).rejects.toMatchObject({ code: "engine_memory_exceeded" }); expect(listTables()[0].file).toBe(table.file);
 });
+it("a refresh whose stored relation no longer resolves keeps the recipe refusal through the source operation", async () => {
+  const table = await importPostgis(testAccountScope(), recipe, build);
+  const connectionBefore = getConnection(testAccountScope(), target.id);
+  conn.runAndReadAll.mockImplementation(async sql => { remember(); return { getRowObjects: () => sql.includes("information_schema.columns") ? [] : [{ v: "moved" }] }; });
+  await expect(refreshTable(testAccountScope(), table.name)).rejects.toMatchObject({ code: "not_refreshable", status: 409,
+    message: 'The stored recipe for "public.attrs" no longer resolves on this connection. The previous snapshot data is unchanged.' });
+  expect(listTables()[0].file).toBe(table.file); expect(getConnection(testAccountScope(), target.id)).toEqual(connectionBefore);
+});
 it("expiry during native teardown does not interrupt its own cleanup", async () => {
   const entered = Promise.withResolvers<void>(), release = Promise.withResolvers<void>();
   conn.run.mockImplementation(async sql => { remember(); if (sql.startsWith("DETACH")) { entered.resolve(); await release.promise; } });

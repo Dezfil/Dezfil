@@ -74,12 +74,17 @@ export interface PostgisArtifactMeta extends ArtifactMeta {
 
 /** Produce and measure the artifact for a recipe — shared by first import
  * and refresh. Geometry columns arrive as WKB and are rebuilt as geometry
- * before the artifact is written. */
+ * before the artifact is written. A caller re-running a stored recipe
+ * passes its own refusal for a relation that no longer resolves. It must be
+ * raised here: the source work runs inside the caller's operation, which
+ * keeps the first coded refusal it sees, so a translation made after the
+ * source returns would never be the answer. */
 export async function buildPostgisArtifact(
   target: ConnectionTarget,
   recipe: PostgisRecipe,
   artifact: string,
   observeHealth?: (health: ConnectionHealth) => void,
+  unresolved?: () => ApiError,
 ): Promise<PostgisArtifactMeta> {
   await mkdir(path.dirname(artifact), { recursive: true });
   return withPg(target, async (conn, passthrough) => {
@@ -91,6 +96,7 @@ export async function buildPostgisArtifact(
       recipe.schema,
       recipe.table,
     );
+    if (columns.length === 0 && unresolved) throw unresolved();
     const select = composeImportSelect(
       recipe.schema,
       recipe.table,

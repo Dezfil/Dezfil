@@ -313,6 +313,9 @@ async function performRefresh(
         const connectionId = required.connection.id;
         let observedHealth: ConnectionHealth | null = null;
         let completedHealth: ConnectionHealth;
+        // Raised by the source work where it finds the relation gone (see
+        // buildPostgisArtifact): a translation after it returns comes too late.
+        const unresolved = `The stored recipe for "${p.schema}.${p.table}" no longer resolves on this connection. The previous snapshot data is unchanged.`;
         try {
           const built = await buildPostgisArtifact(
             target,
@@ -327,15 +330,15 @@ async function performRefresh(
             (health) => {
               observedHealth = health;
             },
+            () => new ApiError("not_refreshable", unresolved, 409),
           );
           meta = built;
           completedHealth = built.connectionHealth;
         } catch (error) {
           requireOwnedResource(scope, "connection", connectionId);
-          if (error instanceof ApiError && error.code === "not_found") {
-            const message = `The stored recipe for "${p.schema}.${p.table}" no longer resolves on this connection. The previous snapshot data is unchanged.`;
-            throw new ApiError("not_refreshable", message, 409);
-          }
+          // A recipe that no longer resolves says nothing about the
+          // connection, so its stored status stays as it was.
+          if (error instanceof ApiError && error.code === "not_refreshable") throw error;
           if (isConnectionLevelFailure(error)) {
             recordConnectionFailure(scope, connectionId, error);
           } else if (observedHealth) {
