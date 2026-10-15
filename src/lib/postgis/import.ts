@@ -251,13 +251,15 @@ export async function importPostgis(
       // membership commits with it.
       const db = metadataDb();
 
-      return db.transaction(() => {
+      const registered = db.transaction(() => {
         requireOwnedResource(scope, "connection", recipe.connectionId, db);
         operation.assertCanCommit();
         const table = registerTable(scope, record, requestedName ?? recipe.table, db);
         if (projectId) fileOwnedTable(scope, table.id, projectId, db);
         return table;
       })();
+      operation.markCommitted();
+      return registered;
     } catch (error) {
       operation.refuseIfFinal(error);
       await removeAccountFile(artifact, { force: true });

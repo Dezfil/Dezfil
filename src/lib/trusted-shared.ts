@@ -18,6 +18,9 @@ export function sharedTrustedWork<T>(options: Pick<TrustedOperationOptions, "kin
       let leave: (() => void) | undefined;
       if (first) first = false;
       else if (!complete) leave = operation.join(currentTrustedOperation()?.signal);
+      // Work that commits answers every caller waiting on it with its success.
+      const joiner = currentTrustedOperation();
+      const committed = joiner ? operation.onCommitted(() => joiner.markCommitted()) : undefined;
       const signal = currentTrustedOperation()?.signal;
       let abort: (() => void) | undefined;
       const stopped = new Promise<never>((_resolve, reject) => {
@@ -28,6 +31,7 @@ export function sharedTrustedWork<T>(options: Pick<TrustedOperationOptions, "kin
       });
       return Promise.race([value, stopped]).finally(() => {
         if (abort) signal?.removeEventListener("abort", abort);
+        committed?.();
         leave?.();
       });
     },

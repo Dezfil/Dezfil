@@ -460,7 +460,8 @@ and geometry assembly, retaining the existing Overpass time and size limits.
 Overture release discovery, divisions, counts and previews also use the query
 lifetime, including scope preparation. Shared division reads retain the original
 deadline while callers can leave independently; imports and refreshes inherit
-the processing lifetime through commit. PostGIS connection tests, catalogue
+the processing lifetime through commit. Committed work answers with its success
+even when the scratch cleanup after it outlasts the limit. PostGIS connection tests, catalogue
 reads and previews use the query lifetime, with imports and refreshes under
 the processing lifetime. Every PostGIS attachment retains the 10-second connect
 limit and uses a 30-second source statement ceiling plus owned interruption.

@@ -258,17 +258,56 @@ it("releases successful ownership, listeners and clocks, and forbids reuse", asy
   expect(() => op.run(async () => {})).toThrow(/once/);
 });
 
-it("keeps the admitted deadline active while successful work releases its resources", async () => {
+it("keeps a resolved success while its cleanup crosses the deadline", async () => {
   const op = read(); const cleanup = held();
   op.defer(() => cleanup.promise);
   const result = observed(op.run(async () => "ready"));
   await vi.advanceTimersByTimeAsync(1000);
-  const refusedBeforeCleanup = op.signal.aborted;
+  const refusedDuringCleanup = op.signal.aborted;
   cleanup.resolve();
   const answer = await result; await op.settled;
-  expect(refusedBeforeCleanup).toBe(true);
-  expect(answer).toMatchObject({ error: { code: "query_timeout" } });
+  expect(refusedDuringCleanup).toBe(false);
+  expect(answer).toEqual({ value: "ready" });
   expect(vi.getTimerCount()).toBe(0);
+});
+
+it("keeps a committed success through later work, the deadline and departure", async () => {
+  const caller = new AbortController();
+  const op = admitTrustedOperation({ kind: "export", name: "Dataset export", signal: caller.signal, budgetMs: 1000 });
+  const result = observed(op.run(async () => {
+    op.assertCanCommit(); op.markCommitted();
+    await vi.advanceTimersByTimeAsync(2000); caller.abort();
+    op.assertCanCommit();
+    return "written";
+  }));
+  expect(await result).toEqual({ value: "written" });
+  await op.settled;
+  expect(op.decidedAt).toBeNull(); expect(op.signal.aborted).toBe(false);
+});
+
+it("reports cleanup overdue after a commit separately from the success", async () => {
+  const op = read(); const cleanup = held();
+  op.defer(() => cleanup.promise);
+  const result = observed(op.run(async () => "ready"));
+  const settlement = observed(op.settled);
+  await vi.advanceTimersByTimeAsync(35_000);
+  expect((await settlement).error).toBeInstanceOf(TrustedSettlementOverdue);
+  expect((await settlement).error).toMatchObject({ message: expect.stringContaining("of its commit") });
+  cleanup.resolve();
+  expect(await result).toEqual({ value: "ready" });
+  await op.drained; expect(vi.getTimerCount()).toBe(0);
+});
+
+it("does not commit refused work, and an error after a commit is still the work's own", async () => {
+  const refused = read(); const source = held();
+  const answer = observed(refused.run(() => source.promise));
+  await vi.advanceTimersByTimeAsync(1000);
+  refused.markCommitted();
+  expect((await answer).error).toMatchObject({ code: "query_timeout" });
+  source.resolve(); await refused.settled;
+  const failing = read(); const broken = new Error("Post-commit bookkeeping failed.");
+  await expect(failing.run(async () => { failing.markCommitted(); throw broken; })).rejects.toBe(broken);
+  await failing.settled;
 });
 
 it("runs a newly acquired resource's stop hook even after refusal", async () => {

@@ -144,6 +144,7 @@ export async function installTemplateArchive(
       await rmdir(parent).catch(() => {});
       throw error;
     }
+    operation.markCommitted();
     return { ...checked, folder: target, admitted: { ...checked.admitted, folder: target } };
   });
 }

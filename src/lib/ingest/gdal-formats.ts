@@ -427,6 +427,7 @@ export async function ingestSpatialFile(
             }
             return out;
           })();
+          operation.markCommitted();
           return { tables, skipped };
         } catch (error) {
           operation.refuseIfFinal(error);

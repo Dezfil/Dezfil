@@ -59,3 +59,23 @@ it("shared processing work stops when its last parent refuses, even before the d
   await vi.advanceTimersByTimeAsync(0); parent.refuse(new Error("Source no longer needed")); await work;
   expect(sharedOwner?.signal.aborted).toBe(true); held.resolve(); await parent.drained;
 });
+
+it("commits every caller waiting on shared work when that work commits", async () => {
+  const parent = admitTrustedOperation({ kind: "template-install", name: "Template installation", budgetMs: 100 });
+  const cleanup = Promise.withResolvers<void>();
+  const result = parent.run(async () => {
+    const shared = sharedTrustedWork({ kind: "template-install", name: "Template download" }, async () => {
+      currentTrustedOperation()!.markCommitted();
+      // The scratch removal after the version is in place.
+      await cleanup.promise;
+      return "installed";
+    });
+    return shared.join();
+  });
+  await vi.advanceTimersByTimeAsync(150);
+  const refusedDuringCleanup = parent.signal.aborted;
+  cleanup.resolve();
+  await expect(result).resolves.toBe("installed");
+  expect(refusedDuringCleanup).toBe(false);
+  await parent.settled;
+});

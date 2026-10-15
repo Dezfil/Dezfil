@@ -290,6 +290,7 @@ export async function createSketch(
           editRevision: documentFacts({ kind: "map", id: mapId }, db).editRevision,
         };
       })();
+      operation.markCommitted();
       return { ...created, featureId: stored.id };
     } catch (error) {
       currentTrustedOperation()?.refuseIfFinal(error);
@@ -352,6 +353,7 @@ async function mutate(
             `"${name}" was deleted or replaced while this change was in flight; nothing was written.`,
             409,
           );
+        operation.markCommitted();
         registerAccountFile(scope.accountId, fresh.file);
         retireArtifact(absOf(fresh.file));
         return {
@@ -571,6 +573,7 @@ export async function cascadeDeleteSketch(scope: AccountScope, name: string, fro
         deleteOwnedTable(scope, fresh, db);
         return { mapId, layerId, ...(mapId ? { editRevision: documentFacts({ kind: "map", id: mapId }, db).editRevision } : {}) };
       })();
+      operation.markCommitted();
       for (const dependent of new Set([...(layerId ? [layerId] : []), ...dependents]))
         await removeTileArtifacts(dependent);
       await dropTableView(scope, fresh.name).catch((error: unknown) => {

@@ -445,6 +445,7 @@ export async function importOsm(
         );
         inFlight = null;
       }
+      operation.markCommitted();
       return created;
     } catch (error) {
       operation.refuseIfFinal(error);

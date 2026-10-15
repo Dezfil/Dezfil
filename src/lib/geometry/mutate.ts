@@ -38,6 +38,7 @@ export function publishGeometry(scope: AccountScope, table: DataTable, update: T
     // Public readback is the committed result; internal ownership stays private.
     return geometryMutationResult(scope, { ...table, ...publicUpdate, ...geometryEvidence(update) }, geometryState ?? null, extent);
   })();
+  currentTrustedOperation()?.markCommitted();
   postCommitCleanup(scope, table.name, path.join(dataDir(), table.file));
   return result;
 }

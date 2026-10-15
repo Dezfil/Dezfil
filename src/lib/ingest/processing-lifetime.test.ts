@@ -11,6 +11,7 @@ import { currentTrustedOperation } from "@/lib/trusted-operation";
 import * as engine from "@/lib/duckdb";
 import * as remoteFetch from "@/lib/net/remote-fetch";
 import * as ingest from "./ingest";
+import * as ownership from "./file-ownership";
 import * as csv from "./csv-content";
 import { ingestSource } from "./gdal-formats";
 import { importFromUrl } from "./remote";
@@ -118,6 +119,20 @@ it("processing expiry aborts a stalled link body and removes its scratch file", 
   const stopped = body.destroyed; body.end("name,value\na,1\n");
   expect(await result).toMatchObject({ code: "data_processing_timeout" });
   expect(stopped).toBe(true); expect(await readdir(path.join(dir, "tmp"))).toEqual([]);
+});
+
+it("a committed link import stays a success when its source cleanup crosses the deadline", async () => {
+  serveCsv();
+  const original = ownership.removeAccountFile;
+  let crossed = false;
+  vi.spyOn(ownership, "removeAccountFile").mockImplementation(async (file, options) => {
+    // The downloaded source is removed after the dataset is registered.
+    if (!crossed && listTables().length > 0 && String(file).includes(`${path.sep}tmp${path.sep}`)) { crossed = true; await vi.advanceTimersByTimeAsync(101); }
+    return original(file, options);
+  });
+  const result = await importFromUrl(testAccountScope(), "https://example.test/plain.csv");
+  expect(crossed).toBe(true);
+  expect(result.tables.map(t => t.name)).toEqual(["plain"]); expect(listTables().map(t => t.name)).toEqual(["plain"]);
 });
 
 it.each(["support", "credentials", "blob"])("credentialed object %s preparation preserves memory identity", async stage => {

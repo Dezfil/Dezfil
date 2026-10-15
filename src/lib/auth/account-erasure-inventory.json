@@ -6162,6 +6162,16 @@
         "memory:request-closures"
       ]
     },
+    "memory:src/lib/trusted-operation.ts#TrustedOperation.commitListeners": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/trusted-operation.ts#TrustedOperation.commitTime": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
     "memory:src/lib/trusted-operation.ts#TrustedOperation.complete": {
       "stores": [
         "memory:request-closures"

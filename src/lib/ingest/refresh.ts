@@ -203,6 +203,7 @@ async function refreshOsmGroup(
         }
       }
     })();
+    currentTrustedOperation()?.markCommitted();
   } catch (error) {
     currentTrustedOperation()?.refuseIfFinal(error);
     for (const c of candidates) await removeAccountFile(c.artifact, { force: true });
@@ -422,6 +423,7 @@ async function performRefresh(
         404,
       );
     }
+    currentTrustedOperation()?.markCommitted();
   } catch (error) {
     currentTrustedOperation()?.refuseIfFinal(error);
     await removeAccountFile(artifact, { force: true });

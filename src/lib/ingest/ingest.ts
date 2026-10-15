@@ -243,7 +243,7 @@ export async function ingestFile(
       // membership commits in the same transaction, so a membership
       // failure leaves no registered table behind.
       const db = metadataDb();
-      return db.transaction(() => {
+      const registered = db.transaction(() => {
         requireLinkImportRule(scope, provenance, db);
         operation.assertCanCommit();
         const table = registerTable(
@@ -270,6 +270,8 @@ export async function ingestFile(
         if (provenance.projectId) fileOwnedTable(scope, table.id, provenance.projectId, db);
         return table;
       })();
+      operation.markCommitted();
+      return registered;
     } catch (error) {
       operation.refuseIfFinal(error);
       await removeAccountFile(artifact, { force: true });
