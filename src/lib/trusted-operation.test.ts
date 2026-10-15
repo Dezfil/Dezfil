@@ -5,7 +5,7 @@ import { buildOpenApiDocument } from "./api/openapi";
 import { limits } from "./limits";
 import {
   admitTrustedOperation, currentTrustedOperation, isLifetimeOutcome, isTrustedOperationRefusal,
-  trustedMemoryRefusal, withTrustedOperation, TrustedSettlementOverdue,
+  trustedMemoryRefusal, withTrustedOperation, TrustedSettlementOverdue, type TrustedOperation,
 } from "./trusted-operation";
 import { withTrustedMutation } from "./trusted-mutation";
 
@@ -333,6 +333,7 @@ it("keeps a committed success through later work, the deadline and departure", a
 });
 
 it("reports cleanup overdue after a commit separately from the success", async () => {
+  vi.spyOn(console, "warn").mockImplementation(() => {});
   const op = read(); const cleanup = held();
   op.defer(() => cleanup.promise);
   const result = observed(op.run(async () => "ready"));
@@ -343,6 +344,55 @@ it("reports cleanup overdue after a commit separately from the success", async (
   cleanup.resolve();
   expect(await result).toEqual({ value: "ready" });
   await op.drained; expect(vi.getTimerCount()).toBe(0);
+});
+
+it.each([true, false])("answers a committed value at the settlement allowance while its cleanup is held, and keeps owning that cleanup (mutation=%s)", async mutation => {
+  const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+  const cleanup = held(); let cleaned = false;
+  let op: TrustedOperation | undefined;
+  const work = async (operation: TrustedOperation) => {
+    op = operation;
+    operation.defer(async () => { await cleanup.promise; cleaned = true; });
+    operation.markCommitted(); return "registered";
+  };
+  const options = { kind: "import" as const, name: "Link import", budgetMs: 100_000 };
+  let answer: { value?: string; error?: unknown } | undefined;
+  void observed(mutation ? withTrustedMutation(options, work) : admitTrustedOperation(options).run(work)).then(result => { answer = result; });
+  await vi.advanceTimersByTimeAsync(0);
+  let drained = false; void op!.drained.then(() => { drained = true; });
+  const settlement = observed(op!.settled);
+  await vi.advanceTimersByTimeAsync(34_999);
+  expect(answer).toBeUndefined();
+  expect(warn).not.toHaveBeenCalled();
+  await vi.advanceTimersByTimeAsync(1);
+  // Answered at the allowance, before the held cleanup is released.
+  expect(answer).toEqual({ value: "registered" });
+  expect(cleaned).toBe(false); expect(drained).toBe(false);
+  expect(warn).toHaveBeenCalledOnce();
+  expect(warn).toHaveBeenCalledWith("Trusted import cleanup overdue after its commit", expect.any(TrustedSettlementOverdue));
+  expect((await settlement).error).toBeInstanceOf(TrustedSettlementOverdue);
+  // The operation still owns the cleanup: it drains only when the cleanup does.
+  await vi.advanceTimersByTimeAsync(60_000);
+  expect(drained).toBe(false);
+  cleanup.resolve(); await op!.drained;
+  expect(cleaned).toBe(true);
+  expect(warn).toHaveBeenCalledOnce();
+  expect(vi.getTimerCount()).toBe(0);
+});
+
+it("control: a committed value whose cleanup finishes inside the allowance waits for it and logs nothing", async () => {
+  const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+  const op = admitTrustedOperation({ kind: "import", name: "Link import", budgetMs: 100_000 });
+  const cleanup = held(); let cleaned = false;
+  op.defer(async () => { await cleanup.promise; cleaned = true; });
+  let answer: { value?: string } | undefined;
+  void observed(op.run(async () => { op.markCommitted(); return "registered"; })).then(result => { answer = result; });
+  await vi.advanceTimersByTimeAsync(34_000);
+  expect(answer).toBeUndefined();
+  cleanup.resolve(); await op.drained;
+  await vi.advanceTimersByTimeAsync(0);
+  expect(answer).toEqual({ value: "registered" }); expect(cleaned).toBe(true);
+  expect(warn).not.toHaveBeenCalled();
 });
 
 it("does not commit refused work, and an error after a commit is still the work's own", async () => {

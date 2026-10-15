@@ -195,3 +195,16 @@ it("keeps the command's deadline after the archive is installed and refuses a st
   expect(existsSync(target)).toBe(false);
   expect((await readdir(root)).filter(name => name.includes("install-") || name.endsWith(".lock"))).toEqual([]);
 });
+
+it("ends the command only once a committed install's overdue cleanup has finished", async () => {
+  const target = path.join(root, "slow-cleanup");
+  const preload = ["--import", path.resolve("test-support/templates/install-cleanup-preload.mjs")];
+  const result = await install(good, target, good.archive, good.sha256, [], {}, preload);
+  expect(result.ok, result.stderr).toBe(true);
+  // The install was answered before its cleanup finished ...
+  expect(result.stderr).toContain("Trusted template-install cleanup overdue after its commit");
+  // ... and the command still waited for that cleanup, lock and scratch included.
+  expect(result.stderr).toContain("Engine reset finished.");
+  expect(await readShippedIndex(target)).toEqual({ formatVersion: 1, templates: [{ id: good.facts.id, version: good.facts.version }] });
+  expect((await readdir(root)).filter(name => name.includes("install-") || name.endsWith(".lock"))).toEqual([]);
+});

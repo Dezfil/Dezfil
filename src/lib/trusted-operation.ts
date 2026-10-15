@@ -95,6 +95,8 @@ export class TrustedOperation {
   private readonly stopped = Promise.withResolvers<never>();
   private readonly settlement = Promise.withResolvers<void>();
   private readonly drain = Promise.withResolvers<void>();
+  /** Resolves when committed work's cleanup outlasts the settlement allowance. */
+  private readonly commitOverdue = Promise.withResolvers<TrustedSettlementOverdue>();
   readonly settled = this.settlement.promise;
   readonly drained = this.drain.promise;
   private failure: unknown;
@@ -219,9 +221,10 @@ export class TrustedOperation {
   /** Call right after the work's final synchronous commit. From then on the
    * answer is that success: the deadline is disarmed, and no later deadline,
    * departure or refusal can replace it. The remaining cleanup is still owned
-   * and bounded by the settlement allowance; an overdue one is reported
-   * through settled, never through the answer. Callers waiting on this work
-   * as shared work are committed with it. */
+   * until it drains. The answer waits for it within the settlement allowance
+   * and no longer; an overdue one is reported through settled and logged
+   * once, never through the answer. Callers waiting on this work as shared
+   * work are committed with it. */
   markCommitted(): void {
     if (!this.commit()) return;
     for (const listener of this.commitListeners) listener();
@@ -240,7 +243,8 @@ export class TrustedOperation {
     this.commitTime = performance.now();
     clearTimeout(this.deadlineTimer);
     this.settlementTimer = setTimeout(() => {
-      this.settlement.reject(new TrustedSettlementOverdue(this.name, undefined, "commit"));
+      const overdue = new TrustedSettlementOverdue(this.name, undefined, "commit");
+      this.settlement.reject(overdue); this.commitOverdue.resolve(overdue);
     }, TRUSTED_SETTLEMENT_MS);
     this.settlementTimer.unref?.();
     return true;
@@ -293,7 +297,18 @@ export class TrustedOperation {
       this.settlement.resolve(); this.drain.resolve();
     });
     observe(finished);
-    return Promise.race([finished, this.stopped.promise]);
+    // A committed value waits for its cleanup, but no longer than the
+    // settlement allowance: the caller gets the success then, the overdue
+    // cleanup is logged once, since no caller sees it, and the operation
+    // keeps owning that cleanup until drained.
+    const answer = running.then(value => Promise.race([
+      finished.then(() => value),
+      this.commitOverdue.promise.then(overdue => {
+        console.warn(`Trusted ${this.kind} cleanup overdue after its commit`, overdue);
+        return value;
+      }),
+    ]));
+    return Promise.race([answer, this.stopped.promise]);
   }
 }
 
