@@ -2419,7 +2419,7 @@ remove converted files and the staged archive, retaining source artifacts. Harde
 | `data_processing_timeout` | Data processing exceeded its admitted time limit. An admin can change Data processing time limit for new work. |
 | `request_timeout` | The request body was not received within 300 s. |
 | `upload_stalled` | The upload sent no body bytes for 60 seconds. Retry the upload. |
-| `render_bytes_exceeded` | The layer exceeds the configured uncompressed inline answer byte limit. |
+| `render_bytes_exceeded` | The features to draw exceed the configured byte limit. |
 | `query_memory_exceeded` | The query exceeded the configured engine memory budget for user SQL. |
 | `query_result_too_large` | The result is too large to return: more than 32 MB in total, or one non-geometry value over 2 MB. Select fewer rows or columns, or shorten the value. |
 | `tile_build_timeout` | A tile-build stage exceeded the configured tile-build timeout. |

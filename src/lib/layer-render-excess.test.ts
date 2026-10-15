@@ -162,7 +162,9 @@ describe("a published reader over the byte limit", () => {
     const { layer, token } = await published({
       viz: { type: "cluster", radiusPx: 64, color: "fixed", showCounts: true },
     });
-    const sentence = publishedMessage("render_bytes_exceeded");
+    // One sentence true for every reader that answers the code, naming none.
+    const sentence = "The features to draw exceed the configured byte limit.";
+    expect(publishedMessage("render_bytes_exceeded")).toBe(sentence);
     const first = (await getPublishedView(token, Date.now()))!.layers[0].render;
     expect(first).toEqual({ layerId: layer.id, ok: false, error: { code: "render_bytes_exceeded", message: sentence } });
 

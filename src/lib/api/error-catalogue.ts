@@ -78,7 +78,7 @@ export const ERROR_CATALOGUE: Record<ErrorCode, string> = {
   data_processing_timeout: "Data processing exceeded its admitted time limit. An admin can change Data processing time limit for new work.",
   request_timeout: "The request body was not received within 300 s.",
   upload_stalled: "The upload sent no body bytes for 60 seconds. Retry the upload.",
-  render_bytes_exceeded: "The layer exceeds the configured uncompressed inline answer byte limit.",
+  render_bytes_exceeded: "The features to draw exceed the configured byte limit.",
   query_memory_exceeded:
     "The query exceeded the configured engine memory budget for user SQL.",
   query_result_too_large:
