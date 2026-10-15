@@ -3,10 +3,12 @@ import { NextResponse } from "next/server";
 import { ApiError } from "@/lib/api/errors";
 import { privateResponse } from "@/lib/auth/http";
 import { USER_AGENT } from "@/lib/geocode/endpoint";
+import { getMap } from "@/lib/metadata/map-queries";
+import { resolveAllowed } from "@/lib/net/egress";
 import { openRemote, type OpenRemoteOptions, type RemoteResponse } from "@/lib/net/remote-fetch";
 import { carriesUserInformation } from "@/lib/settings/disclosure";
 import { SATELLITE_MAX_ZOOM } from "./basemap";
-import { satelliteTileUrl } from "./basemap-satellite";
+import { satelliteBasemap, satelliteTileUrl } from "./basemap-satellite";
 
 /**
  * The satellite imagery's tiles, fetched by the server and passed back, so
@@ -268,6 +270,39 @@ export async function relaySatelliteTile(
     // that does not resolve, an answer cut short) is said without its
     // words, which may repeat the address.
     throw unavailable("The satellite imagery could not be reached.");
+  }
+}
+
+/**
+ * The host an image of this map would draw its imagery from, or null when
+ * it draws none. The renderer asks the instance's own tile address, which
+ * it admits as the app's, so a host the egress policy refuses would only
+ * come back as tiles that failed and the image would be made without its
+ * basemap; an export asks `imageryHostRefused` of this host first and
+ * refuses instead, as it refuses a map whose style reaches a refused
+ * address.
+ */
+export function imageryHostOf(mapId: string): string | null {
+  const map = getMap(mapId);
+  if (!map || map.customBasemap || map.basemap !== "satellite" || !satelliteBasemap()) return null;
+  const template = satelliteTileUrl();
+  if (!template || carriesUserInformation(template)) return null;
+  try {
+    return new URL(tileAddress(template, { z: 0, x: 0, y: 0 })).hostname;
+  } catch {
+    return null;
+  }
+}
+
+/** Whether the egress policy refuses the imagery's host now, admitted as
+ * the relay's fetch admits it at connect. A name that does not resolve is
+ * not a refusal here, as it is not for a custom style. */
+export async function imageryHostRefused(host: string): Promise<boolean> {
+  try {
+    await resolveAllowed(host);
+    return false;
+  } catch (error) {
+    return error instanceof ApiError && error.code === "egress_blocked";
   }
 }
 

@@ -4,7 +4,8 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 // the imagery may take here answers as the step says, every other name
 // does not resolve. The renderer's guard and relay run in this process,
 // so a page reaching for a host asks this resolver too, and the browser
-// resolves nothing. The imagery's tiles are fetched by the standalone,
+// resolves nothing; so does the export's check of the imagery's host
+// before the render. The imagery's tiles are fetched by the standalone,
 // which resolves with its own.
 const dns = vi.hoisted(() => ({ answer: [] as { address: string; family: number }[], asked: [] as string[] }));
 vi.mock("node:dns/promises", () => ({
@@ -35,7 +36,7 @@ import { decodePng, encodePng, type DecodedImage } from "./png-codec";
 /**
  * The server's image of a map on Satellite as an admin sets the imagery
  * up, as the instance's key changes under it, as the admin removes it and
- * sets it again, and as its tile host cannot be reached at use.
+ * sets it again, and as its tile host turns private after the save.
  *
  * Proved through the real render road on a map on Satellite with a solid
  * point layer at the centre: the imagery is a loopback tile fixture painting
@@ -49,11 +50,10 @@ import { decodePng, encodePng, type DecodedImage } from "./png-codec";
  * style names no part of the template, the fixture sends no cross-origin
  * permission (a page fetching it directly would draw nothing), and every
  * tile it serves is asked by the server, never by the browser. A tile host
- * that answers publicly at save and does not resolve at use draws no
- * imagery, the image still made: the renderer never reached for the host,
- * and the imagery was asked nothing. The egress check the instance's tile
- * fetch takes at use is proved where that fetch runs, in the satellite
- * tile tests.
+ * a fixture resolver answers publicly at save and privately at use is
+ * refused by the export's egress check of the imagery's host: the image is
+ * not produced and the export answers the egress refusal, the imagery
+ * asked for nothing.
  *
  * Provisioning, as the map check's other real-render tests: the port of a
  * production standalone sharing this process's data directory in
@@ -81,6 +81,7 @@ const IMAGERY = [196, 72, 48] as const;
 /** The loopback default style's every tile. */
 const GRAY = [240, 240, 240] as const;
 const TILE = encodePng({ width: 1, height: 1, rgba: new Uint8Array([...IMAGERY, 255]) });
+const EGRESS_REFUSAL = "The map reaches an address this instance's egress policy denies (private and internal ranges). The image was not produced.";
 const solid = (c: readonly [number, number, number], radius: number) => ({ fill: { type: "constant" as const, color: { r: c[0], g: c[1], b: c[2], a: 1 } }, fillOpacity: 1, stroke: { r: 0, g: 0, b: 0, a: 1 }, strokeOpacity: 1, strokeWidth: 0, pointRadius: radius, opacity: 1 });
 const near = (v: number, t: number) => Math.abs(v - t) <= 16;
 const isColour = (c: readonly [number, number, number]) => (r: number, g: number, b: number) => near(r, c[0]) && near(g, c[1]) && near(b, c[2]);
@@ -235,18 +236,17 @@ describe.skipIf(!port)("the server's image of a map on Satellite as the imagery 
     imageryDrawn(await look("set-again"));
   }, 60_000);
 
-  it("draws no imagery from a tile host answered publicly at save that does not resolve at use, the renderer never reaching for it and the imagery asked for nothing", async () => {
+  it("refuses the image of a map at a tile host answered publicly at save and privately at use, with the renderer's egress refusal, the imagery asked for nothing", async () => {
     dns.answer = [{ address: "203.0.113.10", family: 4 }];
     await change({ satelliteUrl: template("imagery.fixture.test") });
     expect(dns.asked).toContain("imagery.fixture.test");
-    dns.answer = [];
+    dns.answer = [{ address: "10.0.0.7", family: 4 }];
     dns.asked = [];
-    await servedStyle();
-    const shot = await look("unreachable");
-    expect(count(shot.decoded, isColour(KELP), { x: 512, y: 320, r: 22 }), "the layer's mark at the centre").toBeGreaterThan(120);
-    expect(count(shot.decoded, isColour(IMAGERY)), "no imagery").toBe(0);
-    expect(shot.asked, "the imagery fixture asked for nothing").toBe(0);
-    // The page asked the instance for its tiles, never the tile host.
-    expect(dns.asked).not.toContain("imagery.fixture.test");
+    const before = tiles;
+    await expect(lookAtMap(testAccountScope(), { mapId, credential: credential(), baseUrl: `http://127.0.0.1:${port}` }))
+      .rejects.toMatchObject({ code: "render_failed", message: EGRESS_REFUSAL });
+    // The export asked the resolver at use, and nothing reached the imagery.
+    expect(dns.asked).toContain("imagery.fixture.test");
+    expect(tiles - before).toBe(0);
   }, 60_000);
 });

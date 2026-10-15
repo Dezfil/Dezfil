@@ -307,6 +307,9 @@ existing hostname, IP and CIDR exceptions: an allowlisted hostname remains
 trusted whatever it resolves to. Ordinary public destinations remain available.
 A policy denial returns the shipped `render_failed` refusal without a PNG;
 ordinary DNS or transport failure retains the data-only dead-basemap state.
+Satellite tiles come through the app's own origin, so a map on Satellite has
+its tile template's host checked against the policy before the browser starts,
+and a denial there returns the same refusal.
 Relay startup failure returns the generic render failure and never launches a
 direct browser as a fallback. Queue-inclusive budgets and cancellation still
 apply, and relay sockets/listeners are owned by the render's cleanup.

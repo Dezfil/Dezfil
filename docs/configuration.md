@@ -304,7 +304,9 @@ egress policy, within ten seconds and 4 MiB, and no tile is kept. The imagery
 provider therefore sees this server's requests, not each viewer's: a key
 restricted to browser origins or referrers needs that restriction lifted, and
 a limit the provider sets per address counts all of this instance's viewers
-together.
+together. An image export of a map on Satellite checks the template's host
+against the egress policy before it starts and, when the policy refuses it,
+answers `render_failed` rather than make the image without its imagery.
 
 The saved palettes are listed on the same tab, each with its colors, and added
 or deleted there through `/api/palettes`, as in the builder. Deleting one

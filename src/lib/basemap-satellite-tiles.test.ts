@@ -23,6 +23,8 @@ import { encodePng } from "@/lib/export/png-codec";
 import { resetSecretKeyCache } from "@/lib/secrets";
 import { testAccountRequest, testAccountScope } from "@/lib/test-support/accounts";
 import { tokenFor } from "@/lib/test-support/rule-roads";
+import { initialDefinition } from "@/lib/export/image-definition";
+import { renderMapImage, type RenderDriver } from "@/lib/export/render-image";
 import type { BasemapStyle } from "./basemap";
 import { createMap, updateMap } from "./map-service";
 
@@ -453,5 +455,62 @@ describe("a published map's reader", () => {
     const unstamped = await route.GET(new Request(`${ORIGIN}${readerStyle(token)}`), { params: Promise.resolve({ token }) });
     expect(unstamped.status).toBe(503);
     expect(await unstamped.json()).toEqual({ error: { code: "ingress_unavailable", message: expect.any(String) } });
+  });
+});
+
+describe("an image export of a map on Satellite", () => {
+  const EGRESS_REFUSAL = "The map reaches an address this instance's egress policy denies (private and internal ranges). The image was not produced.";
+  const definition = () => initialDefinition({ appearance: "light", camera: { lng: 13.4, lat: 52.5, zoom: 11 }, canvasWidth: 1200,
+    legendPresent: false, legendCorner: null, visibleWidgetIds: [], basemapLayers: null }, { width: 1920, scale: 1 });
+  let launches = 0;
+  const driver: RenderDriver = { launch: async () => {
+    launches += 1;
+    return { render: async () => ({ png: new Uint8Array([0x89, 0x50, 0x4e, 0x47]) }), close: async () => {}, kill: () => {} };
+  } };
+  const exportOf = (mapId: string) => renderMapImage(testAccountScope(db, "member"), {
+    mapId, definition: definition(), credential: "fixture-render-credential", baseUrl: "http://127.0.0.1:3620", driver });
+  /** A member's map on a basemap, unpublished. */
+  const mapOn = (basemap: "satellite" | "dark") => {
+    const scope = testAccountScope(db, "member");
+    const id = createMap(scope, "Harbour from above").id;
+    updateMap(scope, id, { basemap }, { expectedRevision: readDocumentRevision({ kind: "map", id }, db)?.editRevision });
+    return id;
+  };
+  /** The tile host stored while it answers publicly, then answering as `atUse` says. */
+  async function storeTemplate(atUse: { address: string; family: number }[] | "unresolved") {
+    vi.stubEnv("DEZFIL_SATELLITE_URL", undefined);
+    dns.lookup.mockReset();
+    dns.lookup.mockResolvedValue([{ address: "203.0.113.10", family: 4 }]);
+    const save = await call("/api/instance/settings", "admin", { method: "PATCH",
+      headers: { "content-type": "application/json" }, body: JSON.stringify({ satelliteUrl: template("imagery.fixture.test") }) });
+    expect(save.status, save.text).toBe(200);
+    dns.lookup.mockReset();
+    if (atUse === "unresolved") dns.lookup.mockRejectedValue(Object.assign(new Error("getaddrinfo ENOTFOUND imagery.fixture.test"), { code: "ENOTFOUND" }));
+    else dns.lookup.mockResolvedValue(atUse);
+  }
+  beforeEach(() => { launches = 0; });
+
+  it("is refused with the egress refusal before any render when the outbound policy refuses the imagery's host, the imagery asked nothing", async () => {
+    const id = mapOn("satellite");
+    await storeTemplate([{ address: "10.0.0.7", family: 4 }]);
+    await expect(exportOf(id)).rejects.toMatchObject({ code: "render_failed", status: 502, message: EGRESS_REFUSAL });
+    expect(launches, "no browser launched").toBe(0);
+    expect(dns.lookup.mock.calls.map((args) => args[0])).toContain("imagery.fixture.test");
+    expect(asked).toEqual([]);
+  });
+
+  it("renders while the policy admits the host, where the host does not resolve, and for a map not on Satellite", async () => {
+    const satellite = mapOn("satellite");
+    const dark = mapOn("dark");
+    await storeTemplate([{ address: "203.0.113.10", family: 4 }]);
+    await exportOf(satellite);
+    expect(launches).toBe(1);
+    dns.lookup.mockReset();
+    dns.lookup.mockResolvedValue([{ address: "10.0.0.7", family: 4 }]);
+    await exportOf(dark);
+    expect(launches, "a map not on Satellite asks nothing of the imagery's host").toBe(2);
+    await storeTemplate("unresolved");
+    await exportOf(satellite);
+    expect(launches, "a dead name is no refusal, as before").toBe(3);
   });
 });
