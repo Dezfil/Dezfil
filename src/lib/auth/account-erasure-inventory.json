@@ -886,6 +886,14 @@
         "."
       ]
     },
+    "location:src/instrumentation.ts#register:path.join": {
+      "stores": [
+        "file:trusted-spill"
+      ],
+      "roots": [
+        "engine-spill"
+      ]
+    },
     "location:src/lib/assistant/model-catalogue.ts#readModelCatalogue:dataDir": {
       "stores": [
         "file:assistant-models"
