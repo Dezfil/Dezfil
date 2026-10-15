@@ -470,9 +470,13 @@ export async function importFromUrl(
   projectId?: string | null,
   signal?: AbortSignal,
 ): Promise<IngestResult> {
-  return withTrustedMutation({ kind: "import", name: "Link import", signal }, async () => {
+  return withTrustedMutation({ kind: "import", name: "Link import", signal }, async operation => {
     const deletionWork = admitAccountWork([requireAccountScope(scope)]);
-    try {
+    // The downloaded source is removed on the operation's cleanup path, where
+    // a failure after the dataset is registered is logged rather than
+    // answered. The account's work is released after that removal, the last
+    // cleanup to run.
+    operation.defer(() => deletionWork.release());
     requireAccountScope(scope);
     requireRule(scope.accountId, "imports.links");
     if (projectId) requireFilingDestination(scope, projectId);
@@ -489,10 +493,6 @@ export async function importFromUrl(
     } catch (error) {
       if (source.sourcePath === url) mapObjectStoreError(url, error);
       throw error;
-    } finally {
-      await source.cleanup();
     }
-
-    } finally { deletionWork.release(); }
   });
 }

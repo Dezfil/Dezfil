@@ -187,15 +187,14 @@ async function download(scope: AccountScope, entry: ListedEntry, where: Catalogu
   currentTrustedOperation()?.enterStage("template download");
   requireCatalogueAt(where, db);
   const scratch = path.join(ingestScratchDir(), `template-${randomUUID()}`);
-  try {
-    await mkdir(scratch, { recursive: true });
-    const archive = path.join(scratch, "archive.zip");
-    const landed = await transferTemplateArchive(entry, where, archive);
-    await installTemplateArchive(scope, scratch, archive, { id, version, size: landed.size, sha256: landed.sha256 }, archiveOrigin(where));
-    return { id, version, size: landed.size, downloaded: true };
-  } finally {
-    await rm(scratch, { recursive: true, force: true });
-  }
+  // The scratch goes whatever happened, on the download's cleanup path: once
+  // the version is installed, a failed removal is logged, never answered.
+  currentTrustedOperation()?.defer(() => rm(scratch, { recursive: true, force: true }));
+  await mkdir(scratch, { recursive: true });
+  const archive = path.join(scratch, "archive.zip");
+  const landed = await transferTemplateArchive(entry, where, archive);
+  await installTemplateArchive(scope, scratch, archive, { id, version, size: landed.size, sha256: landed.sha256 }, archiveOrigin(where));
+  return { id, version, size: landed.size, downloaded: true };
 }
 
 /** Queue a download, or other work on the downloaded versions, behind

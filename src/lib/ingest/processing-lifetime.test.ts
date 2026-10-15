@@ -135,6 +135,26 @@ it("a committed link import stays a success when its source cleanup crosses the 
   expect(result.tables.map(t => t.name)).toEqual(["plain"]); expect(listTables().map(t => t.name)).toEqual(["plain"]);
 });
 
+it("a committed link import answers its success when removing its download fails, logs it once, and a retry adds no second dataset", async () => {
+  serveCsv();
+  const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+  const original = ownership.removeAccountFile;
+  vi.spyOn(ownership, "removeAccountFile").mockImplementation(async (file, options) => {
+    // Removing the downloaded source fails once the dataset is registered.
+    if (listTables().length > 0 && String(file).includes(`${path.sep}tmp${path.sep}`)) throw new Error("EBUSY: the downloaded source could not be removed");
+    return original(file, options);
+  });
+  const url = "https://example.test/plain.csv";
+  const first = await importFromUrl(testAccountScope(), url).then(value => ({ value }), error => ({ error }));
+  // A client retries a link import whose answer was an error.
+  if ("error" in first) await importFromUrl(testAccountScope(), url).catch(() => undefined);
+  expect(first).toMatchObject({ value: { tables: [{ name: "plain" }] } });
+  expect(warn).toHaveBeenCalledOnce();
+  expect(warn).toHaveBeenCalledWith("Trusted import cleanup failed after its commit",
+    expect.objectContaining({ errors: [expect.objectContaining({ message: expect.stringContaining("EBUSY") })] }));
+  expect(listTables().filter(t => t.sourceParams?.url === url)).toHaveLength(1);
+});
+
 it.each(["support", "credentials", "blob"])("credentialed object %s preparation preserves memory identity", async stage => {
   vi.stubEnv("DEZFIL_OBJECT_STORE_CREDENTIALS", "1");
   vi.spyOn(remoteFetch, "openRemote").mockResolvedValue({ statusCode: 200, headers: {}, body: Readable.from([]), finalUrl: "https://example.test/file.geojson" } as unknown as remoteFetch.RemoteResponse);

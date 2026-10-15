@@ -354,8 +354,10 @@ async function mutate(
             409,
           );
         operation.markCommitted();
-        registerAccountFile(scope.accountId, fresh.file);
-        retireArtifact(absOf(fresh.file));
+        // The replaced artifact retires on the operation's cleanup path: a
+        // failure there is logged, never answered, and never touches the
+        // artifact just committed.
+        operation.defer(() => { registerAccountFile(scope.accountId, fresh.file); retireArtifact(absOf(fresh.file)); });
         return {
           table: {
             ...fresh,
@@ -574,17 +576,20 @@ export async function cascadeDeleteSketch(scope: AccountScope, name: string, fro
         return { mapId, layerId, ...(mapId ? { editRevision: documentFacts({ kind: "map", id: mapId }, db).editRevision } : {}) };
       })();
       operation.markCommitted();
-      for (const dependent of new Set([...(layerId ? [layerId] : []), ...dependents]))
-        await removeTileArtifacts(dependent);
-      await dropTableView(scope, fresh.name).catch((error: unknown) => {
+      // What follows the commit runs on the operation's cleanup path, last
+      // deferred first: tile artifacts, then the view, then the artifact's
+      // retirement. A failed step is logged, never answered, and does not
+      // stop the others.
+      operation.defer(() => { registerAccountFile(scope.accountId, fresh.file); retireArtifact(absOf(fresh.file)); });
+      operation.defer(() => dropTableView(scope, fresh.name).catch((error: unknown) => {
         console.warn(
           `sketch cascade: view drop failed for ${fresh.name}: ${
             error instanceof Error ? error.message : String(error)
           }`,
         );
-      });
-      registerAccountFile(scope.accountId, fresh.file);
-      retireArtifact(absOf(fresh.file));
+      }));
+      for (const dependent of new Set([...(layerId ? [layerId] : []), ...dependents]))
+        operation.defer(() => removeTileArtifacts(dependent));
       return { layerId, mapId, ...(editRevision ? { editRevision } : {}) };
     });
   });
