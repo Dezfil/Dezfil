@@ -15,7 +15,7 @@ let bundle: string;
 beforeAll(async () => {
   bundle = await mkdtemp(path.join(process.cwd(), ".tmp-upload-"));
   const files = [
-    "src/lib/ingest/receive.ts", "src/lib/ingest/budget.ts", "src/lib/ingest/file-ownership.ts", "src/lib/config.ts", "src/lib/limits.ts",
+    "src/lib/auth/reception.mjs", "src/lib/ingest/receive.ts", "src/lib/ingest/budget.ts", "src/lib/ingest/file-ownership.ts", "src/lib/config.ts", "src/lib/limits.ts",
     "src/lib/settings/resolver.ts", "src/lib/settings/remedy.ts", "src/lib/settings/catalogue.ts", "src/lib/settings/numeric.ts",
     "src/lib/settings/instance-defaults.ts", "src/lib/settings/instance-security.ts", "src/lib/settings/types.ts", "src/lib/settings/state.ts",
     "src/lib/api/errors.ts", "src/lib/api/error-catalogue.ts", "src/lib/auth/errors.ts",
@@ -40,14 +40,14 @@ beforeAll(async () => {
     ["src/lib/auth/reach.ts", "exports.requireFilingDestination = () => { throw new Error('unexpected project lookup'); };"],
     ["src/lib/table-service.ts", "exports.listTablesWithSize = () => [];"],
   ]);
-  const output = (file: string) => path.join(bundle, file.replace(/\.ts$/, ".cjs"));
+  const output = (file: string) => path.join(bundle, file.replace(/\.(?:ts|mjs)$/, ".cjs"));
   for (const [file, contents] of mocks) {
     await mkdir(path.dirname(output(file)), { recursive: true });
     await writeFile(output(file), contents);
   }
   for (const file of files) {
     const source = (await readFile(file, "utf8")).replace(/from "([^"]+)"/g, (match, specifier: string) => {
-      const dependency = specifier.startsWith("@/") ? `src/${specifier.slice(2)}.ts`
+      const dependency = specifier.startsWith("@/") ? `src/${specifier.slice(2)}${specifier.endsWith(".mjs") ? "" : ".ts"}`
         : specifier.startsWith(".") ? path.join(path.dirname(file), `${specifier}.ts`) : null;
       if (!dependency) return match;
       if (!files.includes(dependency) && !mocks.has(dependency)) {
@@ -89,7 +89,7 @@ for (const boundary of ["receiver", "route"] as const) {
       ["abort-delayed-close", 499, null],
       ["abort-delayed-cancel", 499, null],
       ["abort-and-source-error", 499, null],
-      ["source-error-then-abort-delayed-close", 499, null],
+      ["source-error-then-abort-delayed-close", 400, "invalid_request"],
       ["write-error", 500, "internal"],
       ["flush-error", 500, "internal"],
       ["size-limit", 413, "upload_too_large"],

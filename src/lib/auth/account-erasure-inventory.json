@@ -833,6 +833,10 @@
       "action": "purge",
       "rule": "After native work drains, close the shared trusted instance and remove all its transient spill. Remove abandoned spill at engine startup. Durable artifacts and unrelated temporary work remain.",
       "fixture": "file:trusted-spill"
+    },
+    "memory:native-reception-context": {
+      "action": "retain",
+      "rule": "Keep the async context carrier shared by ingress and bundled request handlers. Each reception owner holds only request-local clocks, readers and refusal delivery until its work settles; no account-indexed cache or retained result is held."
     }
   },
   "tables": {
@@ -6400,6 +6404,86 @@
       ],
       "roots": [
         "engine-spill"
+      ]
+    },
+    "memory:src/lib/auth/reception.mjs#context": {
+      "stores": [
+        "memory:native-reception-context"
+      ]
+    },
+    "memory:src/lib/auth/reception.mjs#createUploadClock.complete": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/auth/reception.mjs#createUploadClock.failure": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/auth/reception.mjs#createUploadClock.stall": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/auth/reception.mjs#createUploadClock.timer": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/auth/reception.mjs#installReception.answered": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/auth/reception.mjs#installReception.clock": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/auth/reception.mjs#installReception.closing": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/auth/reception.mjs#installReception.delivery": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/auth/reception.mjs#installReception.failure": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/auth/reception.mjs#installReception.listener": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/auth/reception.mjs#installReception.received": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/auth/reception.mjs#installReception.stops": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/auth/reception.mjs#receptionIterator.failure": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/auth/reception.mjs#receptionIterator.stopped": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/auth/reception.mjs#receptionIterator.waiting": {
+      "stores": [
+        "memory:request-closures"
       ]
     }
   },

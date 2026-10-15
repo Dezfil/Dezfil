@@ -33,6 +33,11 @@ export const TABLE_COLLECTION_PATHS = {
         "GeoParquet, GeoJSON, CSV, Shapefile (as .zip), GeoPackage, " +
         "and KML/KMZ. A container holding several spatial layers " +
         "creates one table per layer; the answer enumerates them. " +
+        "Reception and processing each get the Data processing time limit captured when receiving begins, with separate deadlines. " +
+        "Changing the setting during receipt changes neither budget. No body byte for 60 seconds, including before the first byte, " +
+        "answers 408 upload_stalled. Reception or processing expiry answers 408 data_processing_timeout, naming the work and admitted limit. " +
+        "The first refusal is delivered without waiting for another byte or draining the body; the refused connection closes within five seconds. " +
+        "Incomplete reception cancels on departure and removes its partial file. Complete uploads continue processing after departure. " +
         CSV_GEOMETRY_DESCRIPTION + " " + MCP_UPLOAD_BODY_GUIDANCE,
       tag: "Tables",
       tool: "upload_table", mcp: LOCAL_ADD,

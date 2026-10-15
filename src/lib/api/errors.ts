@@ -56,6 +56,7 @@ export type ErrorCode =
   | "query_timeout"
   | "engine_memory_exceeded"
   | "data_processing_timeout"
+  | "request_timeout"
   | "upload_stalled"
   | "render_bytes_exceeded"
   | "query_memory_exceeded"

@@ -76,6 +76,7 @@ export const ERROR_CATALOGUE: Record<ErrorCode, string> = {
   query_timeout: "The query exceeded the configured timeout.",
   engine_memory_exceeded: "Trusted data work exceeded its shared memory or scratch budget. Reduce the work, or raise DEZFIL_TRUSTED_MEMORY_MB and restart.",
   data_processing_timeout: "Data processing exceeded its admitted time limit. An admin can change Data processing time limit for new work.",
+  request_timeout: "The request body was not received within 300 s.",
   upload_stalled: "The upload sent no body bytes for 60 seconds. Retry the upload.",
   render_bytes_exceeded: "The layer exceeds the configured uncompressed inline answer byte limit.",
   query_memory_exceeded:
@@ -238,5 +239,6 @@ export const RESOURCE_ERROR_STATUSES = {
   engine_memory_exceeded: 422,
   data_processing_timeout: 408,
   upload_stalled: 408,
+  request_timeout: 408,
   render_bytes_exceeded: 422,
 } as const satisfies Partial<Record<ErrorCode, number>>;

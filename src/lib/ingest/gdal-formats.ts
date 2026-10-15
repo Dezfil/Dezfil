@@ -468,7 +468,7 @@ export async function ingestSource(
   budget: IngestBudget = captureIngestBudget(),
   signal?: AbortSignal,
 ): Promise<IngestResult> {
-  return withTrustedMutation({ kind: "import", name: "File import", signal }, async () => {
+  return withTrustedMutation({ kind: "import", name: "File import", signal, budgetMs: budget.dataProcessingTimeoutMs }, async () => {
     requireAccountScope(scope);
     if (provenance?.projectId) requireFilingDestination(scope, provenance.projectId);
     const format = detectFormat(originalFilename);

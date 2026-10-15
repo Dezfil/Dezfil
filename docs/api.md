@@ -568,7 +568,7 @@ naming memory or scratch and `DEZFIL_TRUSTED_MEMORY_MB`. The byte
 value describes a complete uncompressed UTF-8 JSON inline answer, envelope
 included, with equality admitted. These three settings are exposed for
 configuration. File, link, OpenStreetMap, Overture and PostGIS imports and refreshes use the processing limit;
-reception and render enforcement are not yet active. Geometry and sketch changes,
+Upload reception uses the same admitted value with its own deadline; render enforcement is not yet active. Geometry and sketch changes,
 template installation and export conversion also use the processing limit.
 
 The admin and the complete body are checked inside one immediate transaction
@@ -1435,7 +1435,7 @@ server-side, so filesystem paths and engine text stay out of responses
 The complete catalogue is published two ways in the same document: as the
 enum of the `Error` schema, and as `x-error-codes` at the top level, which
 maps every code to a sentence explaining what it means
-(`src/lib/api/error-catalogue.ts`). There are **139** codes. Clients should
+(`src/lib/api/error-catalogue.ts`). There are **140** codes. Clients should
 branch on codes, never on prose.
 
 One status is unusual: a client that abandons an in-flight evaluation gets
@@ -2184,6 +2184,17 @@ current = await request("PATCH", path, { name: "Survey map" });
 current = await request("PATCH", path, { basemap: "light" });
 ```
 
+Upload reception and processing have separate deadlines with the value captured
+when reception begins. A change to Data processing time limit during receipt
+changes neither. Reception expiry answers `408 data_processing_timeout`, naming
+reception and the admitted seconds. Sixty seconds without a body byte, including
+before the first byte, answers `408 upload_stalled`. A decided refusal keeps its
+code through cancellation and is delivered without waiting for another byte;
+the native ingress closes the refused connection within five seconds and removes
+partial reception files. Fully received uploads continue processing after caller
+departure. Other request bodies retain a 300-second receive deadline
+(`408 request_timeout`); the header limit remains 60 seconds.
+
 ## Error catalogue
 
 The table is checked against `x-error-codes` and the Error schema. Codes are stable;
@@ -2191,7 +2202,7 @@ messages below describe the meaning, and operation-specific details may refine t
 response message. Branch on the code.
 
 The resource refusal statuses are also published as `x-resource-error-statuses`:
-`engine_memory_exceeded` is 422, `data_processing_timeout` and `upload_stalled`
+`engine_memory_exceeded` is 422, `data_processing_timeout`, `upload_stalled` and `request_timeout`
 are 408, and `render_bytes_exceeded` is 422 on readers that refuse the request.
 An errored-layer envelope keeps its route's normal HTTP status. Dataset inspection, catalogue, map features, geometry inspection and preview,
 and projection lookup use one Query time limit through preparation and all
@@ -2216,8 +2227,8 @@ and previews use the query lifetime; imports and refreshes use the processing
 lifetime. Every source attachment has a 30-second statement ceiling, a unique
 source identity and an interrupt owner. The 10-second connect limit remains;
 the source statement ceiling retains `408 query_timeout`. Teardown runs after
-native work drains, including a late attachment success after refusal. Other
-processing and render routes are not yet connected. Geometry set and clear
+native work drains, including a late attachment success after refusal. Render
+byte enforcement is not yet active. Geometry set and clear
 use the processing lifetime through preparation and revision-checked replacement.
 They continue after departure; expiry or resource refusal removes the candidate
 and retains the previous artifact. Sketch feature reads and map summaries use
@@ -2287,6 +2298,7 @@ remove converted files and the staged archive, retaining source artifacts. Harde
 | `query_timeout` | The query exceeded the configured timeout. |
 | `engine_memory_exceeded` | Trusted data work exceeded its shared memory or scratch budget. Reduce the work, or raise DEZFIL_TRUSTED_MEMORY_MB and restart. |
 | `data_processing_timeout` | Data processing exceeded its admitted time limit. An admin can change Data processing time limit for new work. |
+| `request_timeout` | The request body was not received within 300 s. |
 | `upload_stalled` | The upload sent no body bytes for 60 seconds. Retry the upload. |
 | `render_bytes_exceeded` | The layer exceeds the configured uncompressed inline answer byte limit. |
 | `query_memory_exceeded` | The query exceeded the configured engine memory budget for user SQL. |

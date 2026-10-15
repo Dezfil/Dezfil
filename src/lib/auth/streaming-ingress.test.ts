@@ -1,7 +1,6 @@
-import { IncomingMessage, createServer, type Server } from "node:http";
+import { IncomingMessage, ServerResponse, createServer, type Server } from "node:http";
 import { connect, type AddressInfo, type Socket } from "node:net";
 import { mkdtemp, readdir, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import path from "node:path";
 import { Duplex } from "node:stream";
 import { NextRequestAdapter } from "next/dist/server/web/spec-extension/adapters/next-request";
@@ -54,18 +53,19 @@ async function sendAllThenAsk(port: number, target: string, contentType: string,
   return { statuses: statuses(), text };
 }
 
-it.each(["widget-values", "render/layer", "extent/layer"])("answers the %s refusal, discards the unread remainder and serves the next request on the connection", async suffix => {
+it.each(["widget-values", "render/layer", "extent/layer"])("answers the %s refusal, closes the unread connection within the delivery bound", async suffix => {
   const port = await serve(publishedJsonBody);
   const { statuses, text } = await sendAllThenAsk(port, `/api/published/token/${suffix}`, "application/json", Array<Buffer>(16).fill(Buffer.alloc(65_536, " ")));
   expect(text).toContain('{"code":"request_body_too_large"}');
-  expect(statuses).toEqual([413, 200]);
+  expect(statuses).toEqual([413]);
+  expect(text.toLowerCase()).toContain("connection: close");
 });
 
-it("answers the multipart file-limit refusal, discards the unread remainder and serves the next request on the connection", async () => {
+it("answers the multipart file-limit refusal, closes the unread connection within the delivery bound", async () => {
   const { receiveUpload } = await import("@/lib/ingest/receive");
   const { limits } = await import("@/lib/limits");
   vi.spyOn(limits, "uploadMaxBytes", "get").mockReturnValue(65_536);
-  const data = await mkdtemp(path.join(tmpdir(), "streaming-ingress-"));
+  const data = await mkdtemp(path.join(process.env.DEZFIL_DATA_DIR!, "streaming-ingress-"));
   vi.stubEnv("DEZFIL_DATA_DIR", data);
   try {
     const port = await serve(receiveUpload);
@@ -75,7 +75,8 @@ it("answers the multipart file-limit refusal, discards the unread remainder and 
       Buffer.from("\r\n--fixture--\r\n"),
     ]);
     expect(text).toContain('{"code":"upload_too_large"}');
-    expect(statuses).toEqual([413, 200]);
+    expect(statuses).toEqual([413]);
+  expect(text.toLowerCase()).toContain("connection: close");
     expect(await readdir(path.join(data, "tmp"))).toEqual([]);
   } finally { vi.unstubAllEnvs(); await rm(data, { recursive: true, force: true }); }
 });
@@ -106,7 +107,7 @@ it.each([
   ["/api/tables/extra", "POST"], ["/api/recipes", "POST"], ["/api/auth/sign-in", "POST"],
   ["/api/published/token/render/layer/extra", "POST"], ["/api/published/token/%72ender/layer", "POST"],
   ["/api/published/token/widget-values", "PUT"],
-])("keeps native iterator ownership outside streaming POST admission: %s %s", (pathname, method) => {
+])("owns cancellable reception for every ordinary request class: %s %s", (pathname, method) => {
   installIngress();
   const socket = new Duplex({ read() {}, write(_chunk, _encoding, callback) { callback(); } });
   Object.defineProperty(socket, "remoteAddress", { value: "127.0.0.1" });
@@ -114,8 +115,9 @@ it.each([
   incoming.url = pathname; incoming.method = method;
   incoming.headers = { host: "instance.test" }; incoming.rawHeaders = ["host", "instance.test"];
   const iterator = incoming[Symbol.asyncIterator];
+  const outgoing = new ServerResponse(incoming);
   try {
-    createServer(() => {}).emit("request", incoming);
-    expect(incoming[Symbol.asyncIterator]).toBe(iterator);
-  } finally { incoming.destroy(); socket.destroy(); }
+    createServer(() => {}).emit("request", incoming, outgoing);
+    expect(incoming[Symbol.asyncIterator]).not.toBe(iterator);
+  } finally { outgoing.emit("finish"); incoming.destroy(); socket.destroy(); }
 });

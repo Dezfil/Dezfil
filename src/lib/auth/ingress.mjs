@@ -1,3 +1,4 @@
+import { installReception, SERVER_RECEIVE_MS, withNativeReception } from "./reception.mjs";
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { Server as HttpServer } from "node:http";
 import { Server as HttpsServer } from "node:https";
@@ -5,6 +6,7 @@ import { BlockList, isIP } from "node:net";
 
 const STATE = Symbol.for("dezfil.socket-provenance");
 const STAMPED = Symbol("socket-provenance");
+const RECEPTION = Symbol("native-reception");
 const HEADER = "x-dezfil-ingress";
 const FORWARDING = ["forwarded", "x-forwarded-for", "x-forwarded-host", "x-forwarded-proto", "x-forwarded-port", HEADER];
 
@@ -126,12 +128,13 @@ export function installIngress() {
   for (const Server of [HttpServer, HttpsServer]) {
     const emit = Server.prototype.emit;
     Server.prototype.emit = function (event, ...args) {
+      if (event === "connection") this.requestTimeout = Math.max(this.requestTimeout, SERVER_RECEIVE_MS);
       const request = args[0];
       if (["request", "upgrade", "checkContinue", "checkExpectation"].includes(event) && !request[STAMPED]) {
         // The platform Request cannot carry TRACE, so the framework fails with
         // a logged 500 before any method dispatch. Answer it here, unread.
         if (request.method === "TRACE" && event !== "upgrade") {
-          args[1].writeHead(400, { "cache-control": "private, no-store", "content-length": "0" }); args[1].end();
+          args[1].writeHead(400, { "cache-control": "private, no-store", "content-length": "0", connection: "close" }); args[1].end();
           return true;
         }
         try {
@@ -149,30 +152,21 @@ export function installIngress() {
           const raw = request.rawHeaders;
           request.rawHeaders = raw.flatMap((value, index) => index % 2 === 0 && !FORWARDING.includes(value.toLowerCase()) ? [value, raw[index + 1]] : []);
           for (const name of FORWARDING) request.rawHeaders.push(name, headers[name]);
-          // These POST bodies reach the handler without the framework's copy,
-          // so a handler can refuse one it has only partly read. Node discards
-          // a body nobody touched, but not one a reader abandoned: the socket
-          // is then never read again, and the connection stalls until the
-          // keep-alive timeout resets it, losing any request queued behind.
-          // A request destroyed by the default iterator cannot be read on, so
-          // end only the iterator on refusal and, once the answer is written,
-          // let the remainder flow to nowhere. Nothing is copied or stored;
-          // the server's request and keep-alive timeouts still bound it.
           const pathname = new URL(request.url ?? "/", view.origin).pathname;
-          if (request.method === "POST" && typeof request.iterator === "function" &&
-              /^\/api\/(?:tables|published\/[^/]+\/(?:widget-values|(?:render|extent)\/[^/]+))\/?$/.test(pathname)) {
-            request[Symbol.asyncIterator] = function () { return this.iterator({ destroyOnReturn: false }); };
-            if (event !== "upgrade") args[1].once("finish", () => { if (!request.readableEnded) request.resume(); });
+          if (event !== "upgrade") {
+            const upload = request.method === "POST" && /^\/api\/tables\/?$/.test(pathname);
+            request[RECEPTION] = installReception(this, request, args[1], upload);
           }
           request[STAMPED] = true;
         } catch {
           const response = args[1];
           if (event === "upgrade") response.end("HTTP/1.1 400 Bad Request\r\nCache-Control: private, no-store\r\nConnection: close\r\nContent-Length: 0\r\n\r\n");
-          else { response.writeHead(400, { "cache-control": "private, no-store", "content-type": "application/json" }); response.end('{"error":{"code":"invalid_request","message":"Invalid request provenance."}}'); }
+          else { response.writeHead(400, { "cache-control": "private, no-store", "content-type": "application/json", connection: "close" }); response.end('{"error":{"code":"invalid_request","message":"Invalid request provenance."}}'); }
           return true;
         }
       }
-      return emit.call(this, event, ...args);
+      const reception = request?.[RECEPTION];
+      return reception ? withNativeReception(reception, () => emit.call(this, event, ...args)) : emit.call(this, event, ...args);
     };
   }
 }

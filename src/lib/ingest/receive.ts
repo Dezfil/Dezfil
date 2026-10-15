@@ -1,3 +1,4 @@
+import { createUploadClock, nativeUploadReception, type UploadReception, type ReceptionRefusal } from "@/lib/auth/reception.mjs";
 import { settingRemedy } from "@/lib/settings/remedy";
 import { registerAccountFile, removeAccountFile } from "./file-ownership";
 import Busboy from "busboy";
@@ -33,15 +34,15 @@ export async function receiveUpload(request: Request, accountId?: string): Promi
     500,
   );
   let failure: ApiError | EvaluationCancelled | undefined;
+  let reception: UploadReception | undefined = undefined;
   const streams = new Set<Readable | Writable>();
   // These promises always fulfill: each rejection is owned immediately,
   // with the initiating refusal retained separately from cancellation fallout.
   const work: Promise<void>[] = [];
   const fail = (error: ApiError | EvaluationCancelled) => {
-    if (!failure || (error instanceof EvaluationCancelled &&
-      failure instanceof ApiError && failure.status === 400)) {
-      failure = error;
-    }
+    if (!failure) failure = error;
+    reception?.refuse(failure instanceof EvaluationCancelled
+      ? Object.assign(new Error(failure.message), { code: null, status: 499 }) : failure);
     // Busboy can be inside a file/limit callback. Let that parser turn
     // finish before destruction changes its active file stream.
     // Destroy with the reason: the parser may already have ended a stream
@@ -68,6 +69,12 @@ export async function receiveUpload(request: Request, accountId?: string): Promi
   };
   const abort = () => fail(new EvaluationCancelled());
   request.signal.addEventListener("abort", abort, { once: true });
+
+  const receptionFailure = (error: ReceptionRefusal) => fail(error.status === 499 ? new EvaluationCancelled()
+    : error instanceof ApiError ? error : new ApiError(error.code as import("@/lib/api/errors").ErrorCode, error.message, error.status));
+  const remedy = settingRemedy("dataProcessingTimeoutS");
+  reception = nativeUploadReception(budget.dataProcessingTimeoutMs, remedy, receptionFailure)
+    ?? createUploadClock(budget.dataProcessingTimeoutMs, remedy, receptionFailure);
 
   let tmpPath: string | undefined;
   let filename: string | undefined;
@@ -143,6 +150,8 @@ export async function receiveUpload(request: Request, accountId?: string): Promi
         "request, and repeat the request for a batch.",
       400,
     )));
+    source.on("data", () => reception?.progress());
+    source.once("end", () => reception?.endBody());
     await observe(pipeline(source, bb), interrupted);
     // The feed has stopped creating parts. This also waits for destruction
     // and source cancellation, which pipeline rejection alone may precede.
@@ -163,6 +172,7 @@ export async function receiveUpload(request: Request, accountId?: string): Promi
     if (tmpPath) await removeAccountFile(tmpPath, { force: true });
     throw failure;
   } finally {
+    reception.complete();
     request.signal.removeEventListener("abort", abort);
   }
 }

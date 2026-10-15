@@ -235,8 +235,9 @@ templates, as [Templates](docs/configuration.md#templates) says.
 Dataset and geometry inspection use the Query time limit. File, archive, link
 and object-store imports and refreshes use the Data processing time limit;
 [the configuration guide](docs/configuration.md#upload-and-remote-import)
-describes the operation families. Upload reception has not yet adopted that
-limit. Trusted work shares the configured engine memory and a dedicated
+describes the operation families. Upload reception and processing each keep
+the limit admitted when reception began. A 60-second body stall answers
+`408 upload_stalled`; reception expiry answers `408 data_processing_timeout`. Trusted work shares the configured engine memory and a dedicated
 `engine-spill/` allowance of four times that value. A restart clears only that
 spill directory. Exhaustion answers `422 engine_memory_exceeded`, naming
 memory or scratch and the deployment remedy. Bytes drawn per layer is exposed

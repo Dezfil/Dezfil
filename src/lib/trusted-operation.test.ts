@@ -356,6 +356,6 @@ it("does not truncate a large deployment deadline to a one millisecond timer", a
 it("publishes resource codes and HTTP statuses in the served contract", () => {
   const doc = buildOpenApiDocument();
   expect(doc["x-resource-error-statuses"]).toEqual({ engine_memory_exceeded: 422,
-    data_processing_timeout: 408, upload_stalled: 408, render_bytes_exceeded: 422 });
+    data_processing_timeout: 408, upload_stalled: 408, request_timeout: 408, render_bytes_exceeded: 422 });
   for (const code of Object.keys(RESOURCE_ERROR_STATUSES)) expect(doc["x-error-codes"]).toHaveProperty(code);
 });

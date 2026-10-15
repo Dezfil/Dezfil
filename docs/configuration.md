@@ -439,7 +439,20 @@ and object-store imports, URL refreshes, and OpenStreetMap, Overture and PostGIS
 use the Data processing time limit
 through preparation and commit. Accepted processing continues after departure;
 expiry removes candidates and leaves previously committed data intact. Upload
-reception has not yet adopted this limit. Dataset and geometry inspection, catalogue reads, dataset map
+reception and processing each get the same limit captured when receiving begins,
+with a fresh processing deadline after the complete file reaches disk. A settings
+change during receipt changes neither budget. No body byte for 60 seconds,
+including before the first byte, answers `408 upload_stalled`; continuous progress
+past the reception deadline answers `408 data_processing_timeout`, naming
+reception and the admitted limit. The first refusal wins. Refusals are sent
+without draining the remaining body, with a one-second fallback for delayed
+cleanup and a five-second connection-close bound. Incomplete reception cancels
+on departure and removes its partial file. Other request bodies retain a
+300-second receive limit (`408 request_timeout`), and headers retain 60 seconds.
+The native server's clock is above these application deadlines, including a
+larger deployment override. Fully received requests can reuse their connection.
+The upload surface shows application refusal messages; a lost connection or an
+intermediary response remains an unconfirmed transport outcome. Dataset and geometry inspection, catalogue reads, dataset map
 features and projection lookup now share one admitted Query time limit through
 preparation and reads, and cancel when the last interested caller leaves.
 OpenStreetMap previews use the same query lifetime through source preparation
@@ -648,3 +661,51 @@ select an optional arm or name an output file. They are local to the file
 that reads them and are not part of the settings surface. The README check
 does not see them, because it scans non-test source files under `src` and only `DEZFIL_TEST_*`
 reads in helper scripts and in those source files.
+
+
+## Production upload reception check
+
+| Probe | Port variable | Meaning |
+|---|---|---|
+| Upload reception | `DEZFIL_UPLOAD_RECEPTION_PORT` | Test process only. Port of a running production standalone sharing its fresh scratch data directory with the test. Unset skips the matrix. |
+
+Build the production standalone, copy its static assets, and start it with the
+native ingress preload. Use a disposable directory, with no upload-size or
+processing-time environment override: the tests change those settings through
+the authenticated API. The fixture creates an admin credential in that directory.
+From the repository root, in one terminal:
+
+```sh
+export DEZFIL_DATA_DIR=$(mktemp -d /tmp/dezfil-test-upload-reception-XXXXXX)
+npm run build
+mkdir -p .next/standalone/.next
+cp -R .next/static .next/standalone/.next/
+cp -R public .next/standalone/
+PORT=3100 HOSTNAME=127.0.0.1 node --import=./scripts/ingress-preload.mjs .next/standalone/server.js
+```
+
+In another terminal, set `DEZFIL_DATA_DIR` to that same fresh path, then run:
+
+```sh
+DEZFIL_UPLOAD_RECEPTION_PORT=3100 npx vitest run src/lib/ingest/reception.standalone.test.ts
+```
+
+The six cases take about eleven minutes: a 22 MiB CSV over 350 seconds succeeds
+with every row while an ordinary request times out at 300 seconds; first-byte
+and mid-body silence answer within 65 seconds; a size refusal reaches a silent
+sender within 60 seconds; continuous progress reaches its admitted deadline;
+and a 120-second admission survives a change to 60 seconds, followed by reuse of
+the completed connection. Each test asserts its status, code and timing bounds,
+partial-file cleanup and recovery where applicable. Stop the server before
+removing its scratch directory.
+
+For an exact failing seed, change `UPLOAD_STALL_MS = 60_000` to
+`UPLOAD_STALL_MS = 120_000` in `src/lib/auth/reception.mjs`, rebuild and restart
+with a fresh directory, then run the matrix with `-t 'first-byte or mid-body'`.
+Both silence cases must fail their 65-second response guard. Restore the constant
+and rebuild before collecting passing results.
+
+The browser refusal surface is covered separately by
+`npx playwright test e2e/upload-refusal.spec.ts` on a provisioned instance. It
+injects the three typed application refusals and then performs a real recovery
+upload. The native matrix establishes the corresponding server behavior.

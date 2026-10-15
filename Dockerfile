@@ -70,7 +70,7 @@ COPY --from=build --chown=node:node /app/templates ./templates
 COPY --from=build --chown=node:node /app/public ./public
 # The socket provenance preload runs before the unchanged standalone launcher.
 COPY --from=build --chown=node:node /app/scripts/ingress-preload.mjs /app/scripts/preload-options.mjs ./scripts/
-COPY --from=build --chown=node:node /app/src/lib/auth/ingress.mjs ./src/lib/auth/ingress.mjs
+COPY --from=build --chown=node:node /app/src/lib/auth/ingress.mjs /app/src/lib/auth/reception.mjs ./src/lib/auth/
 # Local recovery runs without the server or a TypeScript loader.
 COPY --from=build --chown=node:node /app/scripts/admin-recover.mjs ./scripts/admin-recover.mjs
 COPY --from=build --chown=node:node /app/src/lib/auth/link-issuance.mjs ./src/lib/auth/link-issuance.mjs

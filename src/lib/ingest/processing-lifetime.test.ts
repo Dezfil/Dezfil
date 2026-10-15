@@ -151,3 +151,33 @@ it("archive extraction is inside processing and expiry removes its prepared file
   const scratch = path.join(dir, "tmp");
   expect(await readdir(scratch).catch(() => [])).toEqual([]);
 });
+
+it("hands the reception snapshot to a fresh processing deadline despite a settings change and departure", async () => {
+  const { receiveUpload } = await import("./receive");
+  const { removeAccountFile } = await import("./file-ownership");
+  const caller = new AbortController();
+  let held!: ReadableStreamDefaultController<Uint8Array>;
+  const body = new ReadableStream<Uint8Array>({ start(controller) {
+    controller.enqueue(new TextEncoder().encode('--handoff\r\nContent-Disposition: form-data; name="file"; filename="plain.csv"\r\n\r\nname,value\na,1\n'));
+    held = controller;
+  } });
+  const receiving = receiveUpload(new Request("http://instance.test/api/tables", {
+    method: "POST", headers: { "content-type": "multipart/form-data; boundary=handoff" }, body, signal: caller.signal,
+    duplex: "half",
+  } as RequestInit));
+  await vi.advanceTimersByTimeAsync(80);
+  vi.spyOn(limits, "dataProcessingTimeoutMs", "get").mockReturnValue(1);
+  held.enqueue(new TextEncoder().encode("\r\n--handoff--\r\n")); held.close();
+  const received = await receiving;
+  expect(received.budget.dataProcessingTimeoutMs).toBe(100);
+  caller.abort();
+  const original = csv.requireCsvContent;
+  vi.spyOn(csv, "requireCsvContent").mockImplementation(async (...args) => {
+    const owner = remember(); expect(owner?.budgetMs).toBe(100); expect(owner?.deadline).toBe(180);
+    await vi.advanceTimersByTimeAsync(50); return original(...args);
+  });
+  try {
+    const result = await ingestSource(testAccountScope(), received.tmpPath, received.filename, undefined, undefined, received.budget, caller.signal);
+    expect(result.tables).toHaveLength(1);
+  } finally { await removeAccountFile(received.tmpPath); }
+});
