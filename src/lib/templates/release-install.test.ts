@@ -185,8 +185,9 @@ it("the release command bounds a stalled archive and removes its owned scratch a
 
 it("keeps the command's deadline after the archive is installed and refuses a stalled shipped-set check", async () => {
   const target = path.join(root, "stalled-check");
-  const preload = ["--import", path.resolve("test-support/templates/stall-shipped-check.mjs")];
-  const result = await install(good, target, good.archive, good.sha256, [], { DEZFIL_DATA_PROCESSING_TIMEOUT_S: "1" }, preload);
+  const preload = ["--import", path.resolve("test-support/templates/shipped-check-preload.mjs")];
+  // Enough of a limit that the install before the check finishes well inside it.
+  const result = await install(good, target, good.archive, good.sha256, [], { DEZFIL_DATA_PROCESSING_TIMEOUT_S: "3" }, preload);
   // The archive install finished within the limit, and the check was reached before it ran out.
   const left = Number(/Shipped-set check entered with (-?\d+) ms left/.exec(result.stderr)?.[1]);
   expect(left, result.stderr).toBeGreaterThan(0);
