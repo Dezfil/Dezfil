@@ -17,9 +17,11 @@ describe("BasemapCredit", () => {
       <BasemapCredit lines={basemapCreditIn(BASEMAPS, "dark")} />,
     );
     expect(html).toContain(
-      '<a href="https://www.openstreetmap.org/copyright"',
+      '<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap</a>',
     );
-    expect(html).toContain("OpenStreetMap contributors</a>");
+    expect(html).toContain(
+      '<a href="https://openmaptiles.org" target="_blank" rel="noreferrer">© OpenMapTiles</a>',
+    );
   });
 
   it("renders the configured credit under a deployment override", () => {

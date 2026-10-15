@@ -38,7 +38,7 @@ import { decodePng, encodePng, type DecodedImage } from "./png-codec";
  * DEZFIL_MAP_LOOK_RENDER (skipped without it), DEZFIL_DATA_DIR,
  * DEZFIL_CHROMIUM_PATH at a headless Chromium, DEZFIL_EGRESS_ALLOWLIST
  * admitting 127.0.0.1 in both processes (the template is stored through
- * the save-time check, and the renderer fetches its tiles), and
+ * the save-time check, and the standalone fetches its tiles), and
  * DEZFIL_RENDER_DELEGATION_KEY handed to both as those headers say. One
  * more: the standalone's DEZFIL_BASEMAP_URL at a loopback style, so a map
  * that falls to the deployment default draws a loopback style, never a
@@ -126,7 +126,8 @@ describe.skipIf(!port)("the server's image of a map on a style an admin hid", ()
     imagery = createServer((req, res) => {
       if (req.method === "GET" && /^\/tiles\/\d+\/\d+\/\d+\.png$/.test(req.url ?? "")) {
         tiles += 1;
-        res.writeHead(200, { "content-type": "image/png", "access-control-allow-origin": "*", "cache-control": "no-store" });
+        // No cross-origin permission: only the instance's own fetch draws it.
+        res.writeHead(200, { "content-type": "image/png", "cache-control": "no-store" });
         res.end(Buffer.from(TILE));
         return;
       }

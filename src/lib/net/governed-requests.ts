@@ -27,6 +27,7 @@ export const GOVERNED_REQUESTS: readonly GovernedRequest[] = [
   { label: "The Overture release list", modules: ["src/lib/overture/releases.ts"] },
   { label: "Custom basemap styles", modules: ["src/lib/net/inspect-style.ts"] },
   { label: "Map image exports", modules: ["src/lib/export/render-address.ts"] },
-  { label: "The satellite imagery's Test", modules: ["src/lib/settings/service-tests.ts"] },
+  { label: "The satellite imagery", modules: ["src/lib/basemap-satellite-tiles.ts"] },
+  { label: "The satellite imagery's Test", modules: ["src/lib/basemap-satellite-tiles.ts"] },
   { label: "The template catalogue", modules: ["src/lib/templates/catalogue.ts", "src/lib/templates/download.ts"] },
 ];

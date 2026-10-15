@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { effectiveBasemap } from "./basemap-effective";
-import { BASEMAPS } from "./basemap";
+import { BASEMAPS, BUILT_IN_ATTRIBUTION } from "./basemap";
 
 const custom = {
   url: "https://styles.example/dark.json",
@@ -53,10 +53,16 @@ describe("effective basemap", () => {
     expect(satellite.custom).toBe(false);
   });
 
-  it("an imagery key the instance does not configure reads as the default", () => {
+  it("an imagery key the instance does not configure reads as the default, with the default's credit", () => {
     const satellite = effectiveBasemap({ ...base, key: "satellite" });
     expect(satellite.url).toBe(base.defaultUrl);
     expect(satellite.kind).toBe("vector");
+    expect(satellite.attribution).toEqual(BUILT_IN_ATTRIBUTION);
+    // A deployment's own style is the default: its configured credit, or none.
+    const own = "https://pin.test/s.json";
+    const pinned = { ...base, key: "satellite" as const, overrideUrl: own, defaultUrl: own };
+    expect(effectiveBasemap({ ...pinned, overrideAttribution: [{ label: "© Pin" }] })).toMatchObject({ url: own, kind: "vector", attribution: [{ label: "© Pin" }] });
+    expect(effectiveBasemap(pinned)).toMatchObject({ url: own, kind: "vector", attribution: [] });
   });
 
   it("Auto follows the theme unless the deployment override pins it", () => {

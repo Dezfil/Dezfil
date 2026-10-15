@@ -18,6 +18,9 @@ const SATELLITE: BasemapStyle = { key: "satellite", label: "Satellite", url: SAT
   attribution: [{ label: "© Imagery Provider" }] };
 const marked = (hidden: string[]) =>
   [...BASEMAPS, SATELLITE].map((b) => ({ ...b, offered: !hidden.includes(b.key) }));
+/** The note under the previews, which are captures of the built-in styles:
+ * their credit in the words the open map's corner uses. */
+const PREVIEWS = "Previews: © OpenMapTiles · © OpenStreetMap";
 
 describe("the builder's basemap panel", () => {
   const cards = (basemaps: BasemapStyle[]) =>
@@ -33,6 +36,15 @@ describe("the builder's basemap panel", () => {
 
   it("draws no card for a hidden style, the map's own included", () => {
     expect(cards(marked(["streets", "satellite"]))).toEqual(["Auto", "Dark", "Light"]);
+  });
+
+  it("credits the previews in the built-in credit's words", () => {
+    const html = renderToStaticMarkup(
+      <BasemapPanel active="streets" custom={null} onSaveCustom={async () => true} onRemoveCustom={() => {}}
+        groupsPresent={null} overridden={false} basemaps={marked([])} onPick={() => {}} layerToggles={null}
+        onToggleGroup={() => {}} statusPillVisible onToggleStatusPill={() => {}} />,
+    ).replace(/<!-- -->/g, "");
+    expect(html).toContain(`>${PREVIEWS}</p>`);
   });
 });
 
@@ -63,5 +75,10 @@ describe("the published reader's basemap switcher", () => {
 
   it("draws no card for a hidden style, the map's own included", async () => {
     expect(await opened(marked(["streets", "satellite"]))).toEqual(["Auto", "Dark", "Light"]);
+  });
+
+  it("credits the previews in the built-in credit's words", async () => {
+    await opened(marked([]));
+    expect(container.querySelectorAll("p").map((p) => p.textContent)).toContain(PREVIEWS);
   });
 });

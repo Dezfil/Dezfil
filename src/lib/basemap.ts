@@ -13,6 +13,8 @@
  * outside a publication keep null's original meaning, the deployment default.
  */
 
+import type { TileScheme } from "./tile-template";
+
 export const BASEMAP_KEYS = [
   "dark",
   "light",
@@ -46,16 +48,22 @@ export interface BasemapStyle {
 /** The credit for every vector style and the deployment default.
  * OpenFreeMap's own terms make naming them optional ("You do not need to
  * display the OpenFreeMap part"), so the line stays lean: the required
- * OpenMapTiles and OpenStreetMap credits only. */
+ * OpenMapTiles and OpenStreetMap credits only, each in its short form. */
 export const BUILT_IN_ATTRIBUTION: AttributionLine[] = [
   { label: "© OpenMapTiles", href: "https://openmaptiles.org" },
-  // The OpenStreetMap credit has to be followable: their guidance asks
-  // for a link to the copyright page, so a bare label is not a credit.
+  // The OpenStreetMap credit has to be followable: their guidance accepts
+  // "© OpenStreetMap" as written while the licence stays one step away,
+  // so the short form links to the copyright page.
   {
-    label: "OpenStreetMap contributors",
+    label: "© OpenStreetMap",
     href: "https://www.openstreetmap.org/copyright",
   },
 ];
+
+/** The built-in credit as one line of words, for a note crediting
+ * pictures of the built-in styles: the same words as the open map's
+ * corner, read from the one credit so the two cannot drift apart. */
+export const BUILT_IN_CREDIT_TEXT = BUILT_IN_ATTRIBUTION.map((line) => line.label).join(" · ");
 
 export const BASEMAPS: BasemapStyle[] = [
   {
@@ -124,13 +132,44 @@ export function isBasemapKey(value: unknown): value is BasemapKey {
  * Satellite imagery is configured, never shipped: no imagery service is
  * free to point an unknown number of installs at, so an instance that
  * wants one supplies a raster tile template carrying its own key, plus
- * the credit that provider requires. The style itself is served from the
- * instance, so every basemap stays URL-shaped. The template and the
- * credit in effect, and the lists of styles an instance draws and offers,
- * are the server's to read (`basemap-satellite.ts`, `basemap-offer.ts`):
- * this module reaches the browser and reads no configuration.
+ * the credit that provider requires. The style is served from the
+ * instance, so every basemap stays URL-shaped, and so are its tiles: the
+ * style names the instance's own tile address, and the server fetches
+ * each tile from the template and passes it back, so the template and its
+ * key never reach a browser. The template and the credit in effect, and
+ * the lists of styles an instance draws and offers, are the server's to
+ * read (`basemap-satellite.ts`, `basemap-offer.ts`): this module reaches
+ * the browser and reads no configuration.
  */
 export const SATELLITE_STYLE_URL = "/api/basemaps/satellite";
+
+/** The deepest zoom the imagery is asked for: the style's source stops
+ * there and draws deeper zooms from it, so no deeper tile is relayed. */
+export const SATELLITE_MAX_ZOOM = 19;
+
+/** How the imagery style's source counts its rows, which MapLibre fills
+ * the relay's tile address by and the relay fills the template by. */
+export const SATELLITE_TILE_SCHEME: TileScheme = "xyz";
+
+/** The tile address under a satellite style address. MapLibre fills
+ * `{ratio}` with `@2x` past one device pixel to the CSS pixel, and the
+ * relay passes it on to the template's own `{ratio}`. */
+export function satelliteTilesUrl(styleUrl: string): string {
+  return `${styleUrl}/tiles/{z}/{x}/{y}{ratio}`;
+}
+
+/** The satellite style a published page's reader loads: the same imagery
+ * under that publication's own address, so a reader who is not signed in
+ * draws it, and it stops with the publication. */
+export function publishedSatelliteStyleUrl(token: string): string {
+  return `/api/published/${encodeURIComponent(token)}/basemaps/satellite`;
+}
+
+/** A style address as a publication's reader reaches it: the satellite
+ * style under the publication's own address, every other unchanged. */
+export function readerStyleUrl(url: string, token: string): string {
+  return url === SATELLITE_STYLE_URL ? publishedSatelliteStyleUrl(token) : url;
+}
 
 /** A built-in style's own address. */
 export function builtInBasemapUrl(key: "dark" | "light" | "streets"): string {

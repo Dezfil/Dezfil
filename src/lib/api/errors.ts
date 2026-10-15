@@ -21,6 +21,8 @@ export type ErrorCode =
   | "remote_too_large"
   | "remote_timeout"
   | "egress_blocked"
+  /** The satellite imagery did not answer a relayed tile with one. */
+  | "imagery_unavailable"
   | "area_too_large"
   | "name_taken"
   /** A map's dependency read could not be completed: a

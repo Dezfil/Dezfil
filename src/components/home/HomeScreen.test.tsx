@@ -1181,6 +1181,8 @@ function emptySections(): number {
 
 const START = ["h2 Start", "button New map", "button Add data", "button New workflow", "link Open SQL"];
 const templateCard = (title: string) => [`link Open ${title}`, `button Open ${title}`, `button Make a copy of ${title}`];
+/** The line at Home's foot crediting the basemaps under its map pictures. */
+const PICTURE_CREDIT = ["link © OpenMapTiles", "link © OpenStreetMap"];
 const FIVE = (): TemplateList => ({
   ...TEMPLATES,
   templates: [...TEMPLATES.templates, card("ferries", "Ferry lines"), card("parks", "Park access")],
@@ -1233,6 +1235,7 @@ describe("the tree Home gives the screen reader", () => {
       ...templateCard("Street trees"),
       ...templateCard("Storm tracks"),
       ...templateCard("Ferry lines"),
+      ...PICTURE_CREDIT,
     ]);
     expect(emptySections()).toBe(0);
   });
@@ -1259,6 +1262,7 @@ describe("the tree Home gives the screen reader", () => {
       ...templateCard("Storm tracks"),
       ...templateCard("Ferry lines"),
       ...templateCard("Park access"),
+      ...PICTURE_CREDIT,
     ]);
     expect(emptySections()).toBe(0);
   });
@@ -1319,6 +1323,7 @@ describe("the tree Home gives the screen reader", () => {
       ...START,
       "alert The templates couldn't be read.",
       "button Try again",
+      ...PICTURE_CREDIT,
     ]);
     expect(emptySections()).toBe(0);
   });
@@ -1420,5 +1425,55 @@ describe("a picture that does not load", () => {
       expect(scope.querySelector("img")).toBeNull();
       expect(placeholders(scope)).toHaveLength(1);
     }
+  });
+});
+
+/* ---- the line for the pictures ---- */
+
+describe("the line crediting Home's map pictures", () => {
+  const SATELLITE = { key: "satellite" as const, label: "Satellite", url: "/api/basemaps/satellite", kind: "imagery" as const, attribution: [{ label: "© Imagery Provider" }] };
+  const pictures = {
+    basemaps: [
+      { key: "dark" as const, label: "Dark", url: "https://tiles.openfreemap.org/styles/dark", kind: "vector" as const, attribution: [{ label: "© OpenMapTiles", href: "https://openmaptiles.org" }, { label: "© OpenStreetMap", href: "https://www.openstreetmap.org/copyright" }] },
+      SATELLITE,
+    ],
+    defaultUrl: "https://tiles.openfreemap.org/styles/dark", overrideUrl: null, overrideAttribution: [],
+  };
+  const on = (m: MapOverview, basemap: string | null, hasThumbnail = true) => ({ ...m, basemap, customBasemap: null, hasThumbnail }) as MapOverview;
+  const credits = () => container.querySelectorAll("[data-picture-credit]");
+  async function openWithPictures() {
+    await act(async () => root.render(<SignedIn account={ADA}><HomeScreen pictureBasemaps={pictures} /></SignedIn>));
+    await settle();
+  }
+
+  it("stands at Home's foot and names the basemaps under the lead's picture and Recent's, each once", async () => {
+    answers.maps = [on(map("m1", { changed: at(5) }), null), on(map("m2", { changed: at(4) }), "satellite"), on(map("m3", { changed: at(3) }), "dark")];
+    await openWithPictures();
+    expect(credits()).toHaveLength(1);
+    const [line] = credits();
+    const home = container.querySelector("[data-home]")!;
+    expect(line.parentElement).toBe(home);
+    expect(home.childNodes.at(-1)).toBe(line);
+    expect(line.textContent).toBe("Map previews:© OpenMapTiles·© OpenStreetMap·© Imagery Provider");
+    expect(line.querySelectorAll("a").map((a) => a.getAttribute("href")))
+      .toEqual(["https://openmaptiles.org", "https://www.openstreetmap.org/copyright"]);
+  });
+
+  it("names only what a picture was drawn on: a map on chart paper credits nothing", async () => {
+    answers.maps = [on(map("m1", { changed: at(5) }), "dark"), on(map("m2", { changed: at(4) }), "satellite", false)];
+    await openWithPictures();
+    expect(credits()[0].textContent).toBe("Map previews:© OpenMapTiles·© OpenStreetMap");
+  });
+
+  it("carries no line when no map picture is on the page, the templates' own credits standing alone", async () => {
+    await openWithPictures();
+    expect(leadKind()).toBe("template");
+    expect(shelfCards().length).toBeGreaterThan(0);
+    expect(credits()).toHaveLength(0);
+    answers.maps = [on(map("m1", { changed: at(5) }), null, false)];
+    act(() => root.unmount());
+    root = createRoot(container as unknown as Element);
+    await openWithPictures();
+    expect(credits()).toHaveLength(0);
   });
 });

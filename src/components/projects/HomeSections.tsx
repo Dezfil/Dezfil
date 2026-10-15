@@ -17,6 +17,8 @@ import { useSignedInSqlName } from "../sharing/signed-in";
 import { datasetPageHref } from "../dataset-doors";
 import { lastRunCell, otherMembershipNames } from "./home-model";
 import { CardFrame, CardLink, MapCard, PublishedLink, WorkflowCard } from "./ItemCards";
+import { PictureCredit } from "../PictureCredit";
+import type { PictureBasemaps } from "@/lib/picture-credit";
 import gallery from "../gallery.module.css";
 import styles from "./HomeSections.module.css";
 
@@ -135,6 +137,7 @@ export function HomeSections({
   lastRuns,
   view,
   groupOf,
+  pictureBasemaps,
 }: {
   projectId: string;
   maps: MapOverview[];
@@ -145,6 +148,9 @@ export function HomeSections({
   lastRuns: LastRuns;
   view: HomeView;
   groupOf: (operation: string) => string | null;
+  /** The instance's basemaps, which the line for the map pictures
+   * credits. */
+  pictureBasemaps?: PictureBasemaps;
 }) {
   const router = useRouter();
   // Someone else's item in the project is marked with its owner.
@@ -215,6 +221,7 @@ export function HomeSections({
                   )}
                 </div>
               ))}
+              <PictureCredit maps={maps} basemaps={pictureBasemaps} placement="foot" />
             </div>
           )}
         </section>
@@ -359,6 +366,10 @@ export function HomeSections({
           )}
         </section>
       )}
+
+      {/* The home's foot in cards; the list carries the line as the Maps
+          list card's foot row. */}
+      {view === "cards" && <PictureCredit maps={maps} basemaps={pictureBasemaps} placement="page" />}
     </>
   );
 }

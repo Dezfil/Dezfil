@@ -24,7 +24,7 @@ every documented operation must have a route, and every call the interface
 makes must hit a documented path (`src/lib/api/parity.test.ts`). The
 description cannot drift from the server.
 
-Measured from the current source: **142 paths, 401 operations, 187 named component schemas.** Operations include supported automatic HEAD and OPTIONS.
+Measured from the current source: **145 paths, 410 operations, 187 named component schemas.** Operations include supported automatic HEAD and OPTIONS.
 `npm run lint:contract-docs` measures these numbers and checks the catalogue below
 against the contract; changing only the reader-facing text fails the gate.
 
@@ -133,8 +133,9 @@ The coverage check matches enforced limits, error codes, descriptions and
 ## Anonymous published budgets
 
 Anonymous published API reads use verified ingress sources. View, widget-values,
-render and extent share 60 requests per ten seconds across tokens; tiles have
-600 in their separate bucket, with the existing configuration overrides.
+render, extent and the satellite style share 60 requests per ten seconds across
+tokens; tiles, the satellite tiles among them, have 600 in their separate
+bucket, with the existing configuration overrides.
 Unknown tokens are charged before resolution. Across both buckets, at most
 10,000 source entries are retained. Traffic sweeps expired windows at most once
 per second; between sweeps, a new source at capacity evicts the least recently
@@ -460,8 +461,7 @@ and one an admin stored reads as `{ set: true, origin }`, or as set and
 unreadable once the instance's encryption key no longer opens it. The satellite
 tile template in effect, stored or set by `DEZFIL_SATELLITE_URL`, reads as
 `{ set: true, origin, userInformation: true }` while it carries a user name or
-password, never given: no browser loads tiles from it, so the imagery is not
-drawn. With
+password, never given: the instance draws no imagery from it. With
 neither a stored address nor a variable, the address finder and travel time
 read `{ set: false }`, OpenStreetMap the public Overpass server's origin and the
 S3 address the rule `aws-bucket-endpoint`, Amazon S3's own addresses.
@@ -704,6 +704,33 @@ one created by another account. Deleting a palette keeps existing layer colors.
 A map's own styles and custom basemap belong to the map and follow its reach;
 admin status adds nothing. Model and geocoder credentials are server settings;
 catalogue responses never return their secret values.
+
+**Satellite imagery.** `GET /api/basemaps/satellite` is the configured
+imagery's MapLibre style for a signed-in account. Its raster source names this
+instance's own tile address, `GET /api/basemaps/satellite/tiles/{z}/{x}/{y}{ratio}`,
+never the configured tile template: the server fetches each tile from the
+template and passes it back, so the template and a key in it stay on the
+server. A published page's reader, who is not signed in, has the publication's
+own pair, `GET /api/published/{token}/basemaps/satellite` and its tiles under
+it, which the published view's `basemapUrl` and the page's basemap switcher
+name. They answer while the publication is current and its page can show
+Satellite (the map is on it, or its basemap switcher is on and offers it), and
+a revoked or unknown token is refused as the layer tiles refuse it. Only the
+tile's z, x and y reach the template, as whole numbers inside the zoom's range
+(z from 0 to 19, x and y below 2 to the power of z), the row followed by `@2x`
+for a high-density tile or by nothing, refused with `invalid_request` before
+anything is sent; nothing else of the request goes with them. The template is
+filled from these as MapLibre fills a raster template: `{z}`, `{x}`, `{y}`,
+`{ratio}`, `{quadkey}`, `{prefix}` and `{bbox-epsg-3857}`. The fetch takes the egress policy at every hop, waits at most ten
+seconds and reads at most 4 MiB; only a whole PNG, JPEG, GIF, WebP or AVIF
+image passes back, with the type its bytes are, and no tile is kept. Every
+failure upstream answers `imagery_unavailable` (502, or 504 past the time
+limit), whose message says what went wrong and never the tile address or its
+key; where the egress policy refused the imagery's address, at its host or at
+a redirect, the 502 carries `X-Dezfil-Egress-Refused: imagery`, which an image
+export reads to refuse its image rather than make it without the imagery. With no imagery configured the styles and the tiles answer 404. Every
+answer is private, no-store. None of the four is a tool: an agent reads the
+basemap offer from `GET /api/config`.
 
 **Settings compatibility change.** `/api/settings` now requires authentication
 and returns `401` for missing or invalid credentials. `displayName` and
@@ -981,7 +1008,8 @@ downloads the layer's rows.
 **Publish.** `POST /api/maps/{id}/publish` mints a token,
 `GET /api/maps/{id}/publish` reads the current publication, and `DELETE`
 revokes it. The anonymous side is `GET /api/published/{token}` plus tiles,
-render, extent and widget-value calls scoped to that token, which only ever
+the satellite style and its tiles, render, extent and widget-value calls
+scoped to that token, which only ever
 expose the fields the publication declared
 (`GET /api/maps/{id}/published-fields`). A published map evaluates in its
 SQL home with its current owner's reach, restricted to the datasets its own
@@ -1353,7 +1381,11 @@ download stays installed. A copied dataset's `source` is `template`, with
 the template's `id` and `version` in its `sourceParams`; it is never
 refreshed. The map's card images
 are the template's pictures, saved after the copy with evidence naming the
-copied datasets; when they cannot be saved the copy stands and its card
+copied datasets and the basemap the template drew them on: for a template on
+Auto or a built-in style, that built-in style with the built-in credit,
+whatever style this instance's deployment sets; for a template on Satellite,
+none, since the template names no imagery, so they are credited by the map's
+basemap now. When they cannot be saved the copy stands and its card
 shows the placeholder until the map's first capture. It answers 201
 `{ project, members }`, the project as `GET /api/projects/{id}` reads it with
 its members, and `Location` naming the project. Refused, coded, with nothing
@@ -1417,7 +1449,7 @@ server-side, so filesystem paths and engine text stay out of responses
 The complete catalogue is published two ways in the same document: as the
 enum of the `Error` schema, and as `x-error-codes` at the top level, which
 maps every code to a sentence explaining what it means
-(`src/lib/api/error-catalogue.ts`). There are **135** codes. Clients should
+(`src/lib/api/error-catalogue.ts`). There are **136** codes. Clients should
 branch on codes, never on prose.
 
 One status is unusual: a client that abandons an in-flight evaluation gets
@@ -1823,9 +1855,15 @@ another build (one being swapped in). A card image is served to a reader who
 reaches the map and every dataset it drew; any other image is passed over like
 a missing one, so the reader gets the card's placeholder `404`. A map's
 listing entry says by the same rule whether there is an image the caller is
-served (`hasThumbnail`), so a card asks for one only then. An image is
-copied into a duplicate only when the duplicator may be served it, a themed
-pair only whole. A published link is served an archive, and a held view of
+served (`hasThumbnail`), so a card asks for one only then. Each image also
+records the basemap it was drawn on as it was saved, with that style's credit,
+and the entry carries it (`thumbnailBasemap`): a page of card images credits
+what each image drew, whatever the map, the imagery or the instance's styles
+do until the map is captured again. It is null for an image that recorded
+none, one saved before images recorded it or a Satellite template's picture,
+which is credited by the map's basemap now. An image is
+copied into a duplicate, with what it recorded, only when the duplicator may
+be served it, a themed pair only whole. A published link is served an archive, and a held view of
 itself, only while the map's owner can still reach what it drew, and an
 archive or view that read the catalogue only within what the map names.
 Unattributed artifacts are the map's current owner's alone, so a transfer
@@ -2208,6 +2246,7 @@ response message. Branch on the code.
 | `remote_too_large` | The remote file exceeds the configured remote size cap. |
 | `remote_timeout` | The remote fetch exceeded the configured remote time bound. |
 | `egress_blocked` | The destination address is blocked by the egress policy (loopback, private, link-local, or metadata space); the configured allowlist admits exceptions. |
+| `imagery_unavailable` | The satellite imagery did not answer a tile the instance relays with one: it could not be reached, its address is refused by the egress policy, it answered an error, too slowly, past the size bound or with something other than a raster image, or its tile address carries a user name or password and is not drawn. The message says which, never the tile address or its key. |
 | `area_too_large` | The selected area exceeds the import budget for the chosen theme. |
 | `name_taken` | A table of that name already exists. Operations never replace or rename around an existing table. Choose another name. |
 | `not_refreshable` | The table has no re-runnable remote source, so it cannot be refreshed. |

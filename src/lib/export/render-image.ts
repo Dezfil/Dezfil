@@ -2,13 +2,14 @@ import { admitResourceWork, inDeletionWork, registerRenderDeletionWork } from "@
 import { drainAccountRenders } from "./render-work";
 import { trackRenderWork } from "./render-work";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
-import { EvaluationCancelled } from "@/lib/api/errors";
+import { ApiError, EvaluationCancelled } from "@/lib/api/errors";
+import { imageryHostOf, imageryHostRefused } from "@/lib/basemap-satellite-tiles";
 import { limits } from "@/lib/limits";
 import { onCommittedSettings } from "@/lib/settings/state";
 import { renderRequestBoundMs } from "./render-stall";
 import { driveLaunches, driveRender, renderTimeout, type RenderBudget, type RenderImageResult } from "./render-drive";
 import { RENDER_CHECK_DEFINITION, RENDER_CHECK_PATH } from "./render-check";
-import type { RenderDriver } from "./render-driver";
+import { EGRESS_REFUSAL, type RenderDriver } from "./render-driver";
 export type { RenderBrowser, RenderDriver } from "./render-driver";
 export type { RenderImageResult } from "./render-drive";
 import type { ExportImageDefinition } from "./image-definition";
@@ -79,6 +80,18 @@ function takeSlotNow(): boolean {
   return true;
 }
 
+/** A step before the queue, held to the same budget and caller. */
+function withinBudget<T>(step: Promise<T>, deadline: number, signal: AbortSignal | undefined, budget: RenderBudget): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const done = () => { clearTimeout(timer); signal?.removeEventListener("abort", onAbort); };
+    const onAbort = () => { done(); reject(new EvaluationCancelled()); };
+    const timer = setTimeout(() => { done(); reject(renderTimeout(budget)); }, Math.max(deadline - Date.now(), 1));
+    signal?.addEventListener("abort", onAbort, { once: true });
+    if (signal?.aborted) { onAbort(); return; }
+    step.then((value) => { done(); resolve(value); }, (error: unknown) => { done(); reject(error); });
+  });
+}
+
 export interface RenderImageInput {
   mapId: string;
   definition: ExportImageDefinition;
@@ -111,13 +124,22 @@ async function performRenderMapImage(
   scope: AccountScope,
   input: RenderImageInput,
 ): Promise<RenderImageResult> {
-  // Asked again at every phase: before the queue, after the slot, after the
-  // launch and after the render.
+  // Asked again at every phase: before the imagery's check and the queue,
+  // after the slot, after the launch and after the render.
   const stand = () => { requireAccountScope(scope); input.standing?.(); };
   stand();
   const budget: RenderBudget = { timeoutMs: input.budgetMs ?? limits.exportRenderTimeoutMs, check: input.budgetMs !== undefined };
   const requestBoundMs = renderRequestBoundMs(input.budgetMs);
   const deadline = Date.now() + budget.timeoutMs;
+  // Imagery is checked only for a map that draws it, so every other image
+  // joins the queue at once.
+  const imageryHost = imageryHostOf(input.mapId);
+  if (imageryHost !== null) {
+    if (await withinBudget(imageryHostRefused(imageryHost), deadline, input.signal, budget)) {
+      throw new ApiError("render_failed", EGRESS_REFUSAL, 502);
+    }
+    stand();
+  }
   await acquireSlot(deadline, input.signal, budget);
   // A launch given up on at the budget may still be starting when the
   // export answers: the slot stays held until it has ended.

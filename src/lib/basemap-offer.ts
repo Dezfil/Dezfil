@@ -6,12 +6,14 @@ import {
   BUILT_IN_ATTRIBUTION,
   OFFERED_SETTING,
   SINGLE_MAP_STYLES_SETTING,
+  readerStyleUrl,
   type AttributionLine,
   type BasemapKey,
   type BasemapKind,
   type BasemapStyle,
 } from "./basemap";
 import { satelliteBasemap } from "./basemap-satellite";
+import type { PictureBasemaps } from "./picture-credit";
 
 /**
  * Which basemaps this instance draws and which it offers, for the server
@@ -59,6 +61,13 @@ export function basemapChoices(db: Database = metadataDb()): BasemapStyle[] {
   return drawingBasemaps(db).map((b) => ({ ...b, offered: offered[b.key] }));
 }
 
+/** The same list as a publication's reader reaches each style: Satellite
+ * at the publication's own address, which answers a reader who is not
+ * signed in. */
+export function readerBasemapChoices(token: string, db: Database = metadataDb()): BasemapStyle[] {
+  return basemapChoices(db).map((b) => ({ ...b, url: readerStyleUrl(b.url, token) }));
+}
+
 /** The deployment's own style, if set: it pins Auto maps in both themes. */
 export function basemapOverrideUrl(): string | null {
   return process.env.DEZFIL_BASEMAP_URL || null;
@@ -78,6 +87,18 @@ export function basemapUrl(): string {
 export function basemapOverrideAttribution(): AttributionLine[] {
   const text = process.env.DEZFIL_BASEMAP_ATTRIBUTION?.trim();
   return text ? [{ label: text }] : [];
+}
+
+/** What a page of map pictures credits their basemaps from: every style
+ * a map may be drawn on, hidden ones too, since a picture stays drawn on
+ * whatever its map is on, and the deployment's own style with its credit. */
+export function pictureBasemaps(db: Database = metadataDb()): PictureBasemaps {
+  return {
+    basemaps: drawingBasemaps(db),
+    defaultUrl: basemapUrl(),
+    overrideUrl: basemapOverrideUrl(),
+    overrideAttribution: basemapOverrideAttribution(),
+  };
 }
 
 /** A map's drawn basemap: its explicit choice while the drawing list has

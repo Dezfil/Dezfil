@@ -162,8 +162,10 @@ describe("the instance's chip beside the wordmark", () => {
 describe("the Home address", () => {
   it.each([["an admin", "ada"], ["a member", "bo"], ["a viewer", "viv"]])("opens Home for %s", async (_who, account) => {
     who.account = account;
-    const page = (await HomePage()) as ReactElement;
+    const page = (await HomePage()) as ReactElement<{ pictureBasemaps: { basemaps: { key: string }[] } }>;
     expect(page.type).toBe(HomeScreen);
+    // The instance's styles, for the line crediting the pictures' basemaps.
+    expect(page.props.pictureBasemaps.basemaps.map((b) => b.key)).toEqual(["dark", "light", "streets"]);
   });
 
   it("sends an anonymous request to sign in", async () => {

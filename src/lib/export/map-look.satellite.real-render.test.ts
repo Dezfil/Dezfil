@@ -3,7 +3,10 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 // The engine's own lookup, answered by a fixture resolver: the one name
 // the imagery may take here answers as the step says, every other name
 // does not resolve. The renderer's guard and relay run in this process,
-// so the render asks this resolver too, and the browser resolves nothing.
+// so a page reaching for a host asks this resolver too, and the browser
+// resolves nothing; so does the export's check of the imagery's host
+// before the render. The imagery's tiles are fetched by the standalone,
+// which resolves with its own.
 const dns = vi.hoisted(() => ({ answer: [] as { address: string; family: number }[], asked: [] as string[] }));
 vi.mock("node:dns/promises", () => ({
   lookup: async (name: string) => {
@@ -42,16 +45,27 @@ import { decodePng, encodePng, type DecodedImage } from "./png-codec";
  * across most of it; once the template is removed, or stored under a key
  * the instance no longer holds, the map keeps its choice and the image is
  * the default style's gray, the imagery asked for nothing; set again, the
- * imagery is back. A tile host a fixture resolver answers publicly at save
- * and privately at use is refused by the renderer's egress check: the
- * image is not produced and the export answers the egress refusal, the
- * imagery asked for nothing.
+ * imagery is back. The page draws the imagery from the instance's own tile
+ * address, which the standalone answers from the template: the imagery
+ * style names no part of the template, the fixture sends no cross-origin
+ * permission (a page fetching it directly would draw nothing), and every
+ * tile it serves is asked by the server, never by the browser. A tile host
+ * a fixture resolver answers publicly at save and privately at use is
+ * refused by the export's egress check of the imagery's host: the image is
+ * not produced and the export answers the egress refusal, the imagery
+ * asked for nothing. A tile host that passes that check and redirects its
+ * tiles to a private address is refused by the standalone's relay while
+ * the image renders: its refusal carries the outbound policy's mark, and
+ * the export answers the same refusal rather than an image without its
+ * imagery.
  *
  * Provisioning, as the map check's other real-render tests: the port of a
  * production standalone sharing this process's data directory in
  * DEZFIL_MAP_LOOK_RENDER (skipped without it), DEZFIL_DATA_DIR,
  * DEZFIL_CHROMIUM_PATH at a headless Chromium, DEZFIL_EGRESS_ALLOWLIST
- * admitting 127.0.0.1 in both processes, DEZFIL_RENDER_DELEGATION_KEY and
+ * admitting 127.0.0.1 in both processes (the template is stored through
+ * the save-time check here, and the standalone fetches its tiles),
+ * DEZFIL_RENDER_DELEGATION_KEY and
  * DEZFIL_SECRET_KEY handed to both, and the standalone's DEZFIL_BASEMAP_URL
  * at the loopback gray style, so a map falling to the default fetches
  * nothing public; the setup refuses to start otherwise.
@@ -98,7 +112,9 @@ async function change(patch: Record<string, unknown>) {
 
 describe.skipIf(!port)("the server's image of a map on Satellite as the imagery is set, unreadable, removed and set again", () => {
   let mapId: string;
-  let imagery: Server; let tiles = 0; let imageryPort = 0;
+  let imagery: Server; let tiles = 0; let redirects = 0; let imageryPort = 0;
+  /** The user agent of every tile request the fixture served. */
+  const askedBy: string[] = [];
   let heldKey: unknown; let changed = false;
   const instanceKey = process.env.DEZFIL_SECRET_KEY;
   const credential = () => delegateCredential(requireRequestAuth(authenticatedRequest()));
@@ -117,8 +133,17 @@ describe.skipIf(!port)("the server's image of a map on Satellite as the imagery 
     imagery = createServer((req, res) => {
       if (req.method === "GET" && /^\/tiles\/\d+\/\d+\/\d+\.png$/.test(req.url ?? "")) {
         tiles += 1;
-        res.writeHead(200, { "content-type": "image/png", "access-control-allow-origin": "*", "cache-control": "no-store" });
+        askedBy.push(req.headers["user-agent"] ?? "");
+        // No cross-origin permission: only the instance's own fetch draws it.
+        res.writeHead(200, { "content-type": "image/png", "cache-control": "no-store" });
         res.end(Buffer.from(TILE));
+        return;
+      }
+      if (req.method === "GET" && /^\/redirect\/\d+\/\d+\/\d+\.png$/.test(req.url ?? "")) {
+        // Sent on to a private address, which the outbound policy refuses.
+        redirects += 1;
+        res.writeHead(302, { location: `http://10.0.0.7${(req.url ?? "").replace("/redirect/", "/tiles/")}` });
+        res.end();
         return;
       }
       res.writeHead(404); res.end();
@@ -165,12 +190,20 @@ describe.skipIf(!port)("the server's image of a map on Satellite as the imagery 
     const response = await fetch(`http://127.0.0.1:${port}/api/basemaps/satellite`, { headers: { authorization: `Bearer ${credential()}` } });
     return { status: response.status, body: await response.json() as Record<string, unknown> };
   };
+  /** The style served, naming the instance's own tile address and no part of the template. */
+  const servedStyle = async () => {
+    const style = await imageryStyle();
+    expect(style.status).toBe(200);
+    expect((style.body as { sources: { satellite: { tiles: string[] } } }).sources.satellite.tiles).toEqual(["/api/basemaps/satellite/tiles/{z}/{x}/{y}{ratio}"]);
+    expect(JSON.stringify(style.body)).not.toContain(`:${imageryPort}`);
+  };
   const mapRecord = () => metadataDb().prepare("SELECT basemap FROM maps WHERE id = ?").get(mapId);
   const imageryDrawn = (shot: Awaited<ReturnType<typeof look>>) => {
     expect(shot.result.composition.failures).toEqual([]);
     expect(count(shot.decoded, isColour(KELP), { x: 512, y: 320, r: 22 }), "the layer's mark at the centre").toBeGreaterThan(120);
     expect(count(shot.decoded, isColour(IMAGERY)), "the imagery across most of the image").toBeGreaterThan(1024 * 640 * 0.6);
     expect(shot.asked, "the imagery fixture served the tiles").toBeGreaterThan(0);
+    expect(askedBy.filter((agent) => /HeadlessChrome|Mozilla/.test(agent)), "tiles asked by the browser").toEqual([]);
   };
   // The default style's gray to within rounding: the offline fallback's
   // light ground is near it, and a map still pointed at the imagery style
@@ -185,7 +218,7 @@ describe.skipIf(!port)("the server's image of a map on Satellite as the imagery 
   };
 
   it("draws the imagery under the layer while a readable template is set", async () => {
-    expect((await imageryStyle()).status).toBe(200);
+    await servedStyle();
     imageryDrawn(await look("set"));
   }, 60_000);
 
@@ -210,7 +243,7 @@ describe.skipIf(!port)("the server's image of a map on Satellite as the imagery 
 
   it("draws the imagery again once a template is set again", async () => {
     await change({ satelliteUrl: template() });
-    expect((await imageryStyle()).status).toBe(200);
+    await servedStyle();
     imageryDrawn(await look("set-again"));
   }, 60_000);
 
@@ -223,8 +256,19 @@ describe.skipIf(!port)("the server's image of a map on Satellite as the imagery 
     const before = tiles;
     await expect(lookAtMap(testAccountScope(), { mapId, credential: credential(), baseUrl: `http://127.0.0.1:${port}` }))
       .rejects.toMatchObject({ code: "render_failed", message: EGRESS_REFUSAL });
-    // The guard asked the resolver at use, and nothing reached the imagery.
+    // The export asked the resolver at use, and nothing reached the imagery.
     expect(dns.asked).toContain("imagery.fixture.test");
     expect(tiles - before).toBe(0);
+  }, 60_000);
+
+  it("refuses the image of a map whose imagery redirects its tiles to an address the outbound policy refuses, with the renderer's egress refusal", async () => {
+    await change({ satelliteUrl: `http://127.0.0.1:${imageryPort}/redirect/{z}/{x}/{y}.png` });
+    const before = { tiles, redirects };
+    await expect(lookAtMap(testAccountScope(), { mapId, credential: credential(), baseUrl: `http://127.0.0.1:${port}` }))
+      .rejects.toMatchObject({ code: "render_failed", message: EGRESS_REFUSAL });
+    // The host passed the check before the render, its tiles were asked and
+    // redirected, and nothing was asked at the address they were sent to.
+    expect(redirects - before.redirects, "tiles asked and redirected").toBeGreaterThan(0);
+    expect(tiles - before.tiles).toBe(0);
   }, 60_000);
 });
