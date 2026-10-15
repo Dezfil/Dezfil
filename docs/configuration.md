@@ -295,6 +295,17 @@ Satellite leaves every basemap picker; a map on Satellite keeps its choice and
 draws the default style until an address is saved again. The tab's Test
 fetches one fixed low-zoom tile at the address in effect.
 
+The tile address never reaches a browser. The imagery style names the
+instance's own tile address, and the server fetches each tile from the
+template and passes it back; a published map's readers, who are not signed in,
+reach the same imagery through the publication's own addresses while it is
+published. Only a tile's zoom, column and row go to the template, through the
+egress policy, within ten seconds and 4 MiB, and no tile is kept. The imagery
+provider therefore sees this server's requests, not each viewer's: a key
+restricted to browser origins or referrers needs that restriction lifted, and
+a limit the provider sets per address counts all of this instance's viewers
+together.
+
 The saved palettes are listed on the same tab, each with its colors, and added
 or deleted there through `/api/palettes`, as in the builder. Deleting one
 keeps the colors of every layer classified with it.
@@ -421,7 +432,7 @@ behavior and [the API guide](api.md#request-bounds) for exact refusals.
 | `DEZFIL_UPLOAD_MAX_MB` | `5120` | Size cap for one uploaded file. | App (live) or restart |
 | `DEZFIL_REMOTE_MAX_MB` | `2048` | Size cap for one remote import (URL or object store). Deliberately below the upload cap: remote fetches run unattended. | App (live) or restart |
 | `DEZFIL_REMOTE_TIMEOUT_S` | `300` | Time bound for one whole remote fetch, redirects and body included. | App (live) or restart |
-| `DEZFIL_EGRESS_ALLOWLIST` | unset | Comma-separated hosts, IPs, or CIDRs the server may fetch for a user despite the egress policy. By default loopback, private-network, link-local, and cloud-metadata destinations are refused for every request the policy governs: imports and refreshes from web addresses, cloud storage links read without the server's credentials, database connections, the address finder and place search, travel time, OpenStreetMap, the Overture release list, custom basemap styles, map image exports, the satellite imagery's Test and the template catalogue (`src/lib/net/egress.ts`). A loopback Overpass or Overture fixture needs it too. | Restart |
+| `DEZFIL_EGRESS_ALLOWLIST` | unset | Comma-separated hosts, IPs, or CIDRs the server may fetch for a user despite the egress policy. By default loopback, private-network, link-local, and cloud-metadata destinations are refused for every request the policy governs: imports and refreshes from web addresses, cloud storage links read without the server's credentials, database connections, the address finder and place search, travel time, OpenStreetMap, the Overture release list, custom basemap styles, map image exports, the satellite imagery, the satellite imagery's Test and the template catalogue (`src/lib/net/egress.ts`). A loopback Overpass or Overture fixture needs it too. | Restart |
 | `DEZFIL_OBJECT_STORE_CREDENTIALS` | off | `1`, `true`, or `yes` signs `s3://`, `gs://`, and `az://` imports with the instance's own credential chain. Off, object-store reads are anonymous, so a user can only read what the public can (`src/lib/ingest/remote.ts`). | Restart |
 | `DEZFIL_S3_ENDPOINT` | AWS | S3-compatible endpoint for anonymous `s3://` imports, addressed path-style. | App (live) or restart |
 | `DEZFIL_TEMPLATES_CATALOGUE` | `https://github.com/Dezfil/templates/releases/latest/download/index.json` | The template catalogue's index, read by the server; see [Templates](#templates). The variable alone may name a folder on the server instead, read as files under the same checks and never disclosed by its path. | App (live) or restart |
@@ -457,7 +468,7 @@ behavior and [the API guide](api.md#request-bounds) for exact refusals.
 | `DEZFIL_TIPPECANOE` | `tippecanoe` | Path to the tile-building binary (`src/lib/tiles/tiler.ts`). The image installs it on the path. | Restart |
 | `DEZFIL_BASEMAP_URL` | built-in styles | A MapLibre style URL that replaces the built-in basemap and pins it in both themes, for instances with no internet access (`src/lib/basemap.ts`). | Restart |
 | `DEZFIL_BASEMAP_ATTRIBUTION` | unset | Credit line shown on maps that use `DEZFIL_BASEMAP_URL`. Unset, no credit is shown for the override: the built-in credit would name a provider that is not serving the tiles. | Restart |
-| `DEZFIL_SATELLITE_URL` | unset | Raster tile URL template (`{z}/{y}/{x}`) for satellite imagery, with your own key or token in its path or query. No imagery ships with the app; unset and with no tile address stored on the **Libraries** tab, no imagery basemap is offered at all. A template with a user name or password in it is not drawn, because browsers do not load tiles from such an address; the **Libraries** tab says so under the tile address. | App (live) or restart |
+| `DEZFIL_SATELLITE_URL` | unset | Raster tile URL template (`{z}/{y}/{x}`) for satellite imagery, with your own key or token in its path or query. The template stays on the server: browsers, a published map's readers among them, load the tiles through the instance, which fetches each one from it. No imagery ships with the app; unset and with no tile address stored on the **Libraries** tab, no imagery basemap is offered at all. A template with a user name or password in it is not drawn; the **Libraries** tab says so under the tile address. | App (live) or restart |
 | `DEZFIL_SATELLITE_ATTRIBUTION` | unset | Credit line the imagery provider requires, shown on every map using it and stored with anything published from one. An admin can store it on the **Libraries** tab instead. | App (live) or restart |
 
 ## Publishing

@@ -340,7 +340,7 @@ shell history and out of version control, the way you would any other secret.
 
 ## What leaves the instance
 
-Four flows send data off the machine. Three are off until you configure them. One is
+Five flows send data off the machine. Four are off until you configure them. One is
 on by default.
 
 | Recipient | What is sent | When |
@@ -349,6 +349,7 @@ on by default.
 | The configured AI provider | the conversation, the instance grounding, tool results, and map images | only once a key is configured |
 | The configured geocoder | place-search queries, and for the batch operation the address column | only once its URL is set |
 | The configured travel-time service | origin coordinates and travel parameters | only once its URL is set |
+| The configured satellite imagery | tile requests from this server, carrying your key and never a viewer's address | only once a tile template is set |
 
 Notes worth having before you switch any of them on:
 
@@ -361,9 +362,13 @@ Notes worth having before you switch any of them on:
   bundled, so no imagery basemap is offered until you configure a tile template, your
   own key or token, and the attribution string your provider requires. That credit is
   then shown on every map that uses the imagery and travels with anything published
-  from one. Check your provider's terms cover the way your instance will be used;
-  several of the well-known imagery services require a subscription for anything
-  beyond evaluation, and some free ones are non-commercial only.
+  from one. The template and its key stay on your server: the instance fetches the
+  tiles and passes them on, so no viewer's browser, a published map's readers
+  included, contacts the provider, and a key restricted to browser origins or
+  referrers needs that restriction lifted. Check your provider's terms cover the way
+  your instance will be used; several of the well-known imagery services require a
+  subscription for anything beyond evaluation, and some free ones are non-commercial
+  only.
 - **The geocoder** receives whatever the user typed, and for the batch operation the
   whole address column of a table. A public geocoding service is a third party
   receiving your addresses, and the public instance of the common one asks that you

@@ -461,8 +461,7 @@ and one an admin stored reads as `{ set: true, origin }`, or as set and
 unreadable once the instance's encryption key no longer opens it. The satellite
 tile template in effect, stored or set by `DEZFIL_SATELLITE_URL`, reads as
 `{ set: true, origin, userInformation: true }` while it carries a user name or
-password, never given: no browser loads tiles from it, so the imagery is not
-drawn. With
+password, never given: the instance draws no imagery from it. With
 neither a stored address nor a variable, the address finder and travel time
 read `{ set: false }`, OpenStreetMap the public Overpass server's origin and the
 S3 address the rule `aws-bucket-endpoint`, Amazon S3's own addresses.
@@ -705,6 +704,29 @@ one created by another account. Deleting a palette keeps existing layer colors.
 A map's own styles and custom basemap belong to the map and follow its reach;
 admin status adds nothing. Model and geocoder credentials are server settings;
 catalogue responses never return their secret values.
+
+**Satellite imagery.** `GET /api/basemaps/satellite` is the configured
+imagery's MapLibre style for a signed-in account. Its raster source names this
+instance's own tile address, `GET /api/basemaps/satellite/tiles/{z}/{x}/{y}`,
+never the configured tile template: the server fetches each tile from the
+template and passes it back, so the template and a key in it stay on the
+server. A published page's reader, who is not signed in, has the publication's
+own pair, `GET /api/published/{token}/basemaps/satellite` and its tiles under
+it, which the published view's `basemapUrl` and the page's basemap switcher
+name. They answer while the publication is current and its page can show
+Satellite (the map is on it, or its basemap switcher is on and offers it), and
+a revoked or unknown token is refused as the layer tiles refuse it. Only the
+tile's z, x and y reach the template, as whole numbers inside the zoom's range
+(z from 0 to 19, x and y below 2 to the power of z), refused with
+`invalid_request` before anything is sent; nothing else of the request goes
+with them. The fetch takes the egress policy at every hop, waits at most ten
+seconds and reads at most 4 MiB; only a whole PNG, JPEG, GIF, WebP or AVIF
+image passes back, with the type its bytes are, and no tile is kept. Every
+failure upstream answers `imagery_unavailable` (502, or 504 past the time
+limit), whose message says what went wrong and never the tile address or its
+key. With no imagery configured the styles and the tiles answer 404. Every
+answer is private, no-store. None of the four is a tool: an agent reads the
+basemap offer from `GET /api/config`.
 
 **Settings compatibility change.** `/api/settings` now requires authentication
 and returns `401` for missing or invalid credentials. `displayName` and
@@ -982,7 +1004,8 @@ downloads the layer's rows.
 **Publish.** `POST /api/maps/{id}/publish` mints a token,
 `GET /api/maps/{id}/publish` reads the current publication, and `DELETE`
 revokes it. The anonymous side is `GET /api/published/{token}` plus tiles,
-render, extent and widget-value calls scoped to that token, which only ever
+the satellite style and its tiles, render, extent and widget-value calls
+scoped to that token, which only ever
 expose the fields the publication declared
 (`GET /api/maps/{id}/published-fields`). A published map evaluates in its
 SQL home with its current owner's reach, restricted to the datasets its own
