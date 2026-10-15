@@ -347,111 +347,98 @@ export async function ingestSpatialFile(
     requireAccountScope(scope);
     if (provenance?.projectId) requireFilingDestination(scope, provenance.projectId);
     const format = detectFormat(originalFilename) as GdalFormat;
+    // The extraction folder is removed on the operation's cleanup path (see
+    // prepareSource), never inline after the commit: a removal that stalled
+    // or failed there would hold or replace the committed answer.
     const prepared = await prepareSource(format, sourcePath, originalFilename, scope.accountId, budget);
-    try {
-      return await withConnection(async (conn) => {
-        const { spatial, skipped } = await enumerateLayers(
-          conn,
+    return withConnection(async (conn) => {
+      const { spatial, skipped } = await enumerateLayers(
+        conn,
+        format,
+        prepared,
+      );
+      if (spatial.length === 0) {
+        const named = skipped.map((s) => `"${s.layer}"`).join(", ");
+        throw malformed(
           format,
-          prepared,
-        );
-        if (spatial.length === 0) {
-          const named = skipped.map((s) => `"${s.layer}"`).join(", ");
-          throw malformed(
-            format,
-            `the file contains no spatial layers${named ? ` (skipped: ${named})` : ""}`,
-          );
-        }
-
-        const base = requestedName?.trim() || originalFilename;
-        const group = spatial.length > 1 ? randomUUID() : null;
-        const built: {
-          layer: SpatialLayer;
-          id: string;
-          relFile: string;
-          artifact: string;
-          meta: import("./ingest").ArtifactMeta;
-          desired: string;
-        }[] = [];
-        try {
-          for (const layer of spatial) {
-            const id = randomUUID();
-            const relFile = path.join("tables", `${id}.parquet`);
-            const artifact = path.join(dataDir(), relFile);
-      registerAccountFile(scope.accountId, artifact);
-            const meta = await buildLayerArtifact(conn, format, layer, artifact);
-            built.push({
-              layer,
-              id,
-              relFile,
-              artifact,
-              meta,
-              desired: group ? `${base.replace(/\.[^.]*$/, "")}_${layer.name}` : base,
-            });
-          }
-
-          const db = metadataDb();
-          const now = new Date().toISOString();
-          const tables = db.transaction(() => {
-            requireLinkImportRule(scope, provenance, db);
-            operation.assertCanCommit();
-            const out: DataTable[] = [];
-            for (const b of built) {
-              const record: DataTable = {
-                id: b.id,
-                name: deriveTableName(b.desired, ownedTableNames(scope, db)),
-                sourceFilename: originalFilename,
-                format,
-                file: b.relFile,
-                geometryColumn: b.meta.geometryColumn,
-                geometryType: b.meta.geometryType,
-                crsAssumed: b.meta.crsAssumed,
-                // Container formats are never the CSV road.
-                headerSuspect: false,
-                rowCount: b.meta.rowCount,
-                createdAt: now,
-                source: provenance.source,
-                sourceParams: {
-                  ...(provenance.sourceParams ?? {}),
-                  layer: b.layer.name,
-                  ...(group ? { group } : {}),
-                },
-                importedAt: now,
-              };
-              insertTable(scope, record, db);
-              // Every table of a container files together — one
-              // membership failure rolls the whole group's registration
-              // back, the road's own atomicity.
-              if (provenance.projectId) fileOwnedTable(scope, record.id, provenance.projectId, db);
-              out.push(record);
-            }
-            return out;
-          })();
-          operation.markCommitted();
-          return { tables, skipped };
-        } catch (error) {
-          operation.refuseIfFinal(error);
-          // No partial state, extended to groups: every artifact this import
-          // built goes before the error surfaces.
-          for (const b of built) await removeAccountFile(b.artifact, { force: true });
-          throw error;
-        }
-      });
-    } finally {
-      // Best-effort: by the time this runs the tables may already be
-      // committed, and a cleanup stumble must not turn that success into a
-      // failure answer. The boot sweep collects strays.
-      if (prepared.scratchDir) {
-        await removeAccountFile(prepared.scratchDir, { recursive: true, force: true }).catch(
-          (error: unknown) =>
-            console.warn(
-              `ingest scratch cleanup failed for ${prepared.scratchDir}: ${
-                error instanceof Error ? error.message : String(error)
-              }`,
-            ),
+          `the file contains no spatial layers${named ? ` (skipped: ${named})` : ""}`,
         );
       }
-    }
+
+      const base = requestedName?.trim() || originalFilename;
+      const group = spatial.length > 1 ? randomUUID() : null;
+      const built: {
+        layer: SpatialLayer;
+        id: string;
+        relFile: string;
+        artifact: string;
+        meta: import("./ingest").ArtifactMeta;
+        desired: string;
+      }[] = [];
+      try {
+        for (const layer of spatial) {
+          const id = randomUUID();
+          const relFile = path.join("tables", `${id}.parquet`);
+          const artifact = path.join(dataDir(), relFile);
+    registerAccountFile(scope.accountId, artifact);
+          const meta = await buildLayerArtifact(conn, format, layer, artifact);
+          built.push({
+            layer,
+            id,
+            relFile,
+            artifact,
+            meta,
+            desired: group ? `${base.replace(/\.[^.]*$/, "")}_${layer.name}` : base,
+          });
+        }
+
+        const db = metadataDb();
+        const now = new Date().toISOString();
+        const tables = db.transaction(() => {
+          requireLinkImportRule(scope, provenance, db);
+          operation.assertCanCommit();
+          const out: DataTable[] = [];
+          for (const b of built) {
+            const record: DataTable = {
+              id: b.id,
+              name: deriveTableName(b.desired, ownedTableNames(scope, db)),
+              sourceFilename: originalFilename,
+              format,
+              file: b.relFile,
+              geometryColumn: b.meta.geometryColumn,
+              geometryType: b.meta.geometryType,
+              crsAssumed: b.meta.crsAssumed,
+              // Container formats are never the CSV road.
+              headerSuspect: false,
+              rowCount: b.meta.rowCount,
+              createdAt: now,
+              source: provenance.source,
+              sourceParams: {
+                ...(provenance.sourceParams ?? {}),
+                layer: b.layer.name,
+                ...(group ? { group } : {}),
+              },
+              importedAt: now,
+            };
+            insertTable(scope, record, db);
+            // Every table of a container files together — one
+            // membership failure rolls the whole group's registration
+            // back, the road's own atomicity.
+            if (provenance.projectId) fileOwnedTable(scope, record.id, provenance.projectId, db);
+            out.push(record);
+          }
+          return out;
+        })();
+        operation.markCommitted();
+        return { tables, skipped };
+      } catch (error) {
+        operation.refuseIfFinal(error);
+        // No partial state, extended to groups: every artifact this import
+        // built goes before the error surfaces.
+        for (const b of built) await removeAccountFile(b.artifact, { force: true });
+        throw error;
+      }
+    });
   });
 }
 
