@@ -147,7 +147,10 @@ it.each(["timeout", "cancellation"])("%s during launch closes the relay and kill
   const error = await pending;
   if (ending === "timeout") expect(error).toMatchObject({ code: "render_timeout" });
   else expect(error).toBeInstanceOf(EvaluationCancelled);
-  await network.assertClosed(port);
+  // The relay closes on its own timer at the deadline the timeout answered
+  // on, so it may still listen the instant that answer arrives; a
+  // cancellation closes it before the caller hears.
+  await network.assertClosed(port, ending === "timeout" ? 1_000 : 0);
   const browser = rawBrowser(); late.resolve(browser); await until(() => browser.kill.mock.calls.length === 1);
   expect(renderQueueState()).toEqual({ active: 0, waiting: 0 });
 });
