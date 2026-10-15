@@ -1404,8 +1404,11 @@ return fetch(`/api/layers/${layerId}`, { headers: { "X-Edit-Revision": shown.edi
     );
     await page.mouse.up();
     await expect.poll(() => recoveryPatches).toBe(1);
-    const recoveredStart = await startThumb.getAttribute("aria-valuenow");
-    expect(recoveredStart).not.toBeNull();
+    // A time bound is stored to the second, and once the save lands the
+    // handle shows the stored bound; until then it holds the released
+    // position, fractional milliseconds and all.
+    const released = Number(await startThumb.getAttribute("aria-valuenow"));
+    const recoveredStart = String(Math.floor(released / 1000) * 1000);
     await expect
       .poll(async () => {
         const min = (await readBuilderLayer(page, tableName)).filters?.find(
@@ -1417,6 +1420,7 @@ return fetch(`/api/layers/${layerId}`, { headers: { "X-Edit-Revision": shown.edi
       })
       .toBe(Number(recoveredStart));
     await saveSettled(page);
+    await expect(startThumb).toHaveAttribute("aria-valuenow", recoveredStart);
     page.off("request", recoveryCounter);
 
     // One undo crosses the accepted recovery gesture, not the aborted one.
@@ -1432,7 +1436,7 @@ return fetch(`/api/layers/${layerId}`, { headers: { "X-Edit-Revision": shown.edi
       .toBe(true);
     await redoReady(page);
     await page.keyboard.press("ControlOrMeta+Shift+Z");
-    await expect(startThumb).toHaveAttribute("aria-valuenow", recoveredStart!);
+    await expect(startThumb).toHaveAttribute("aria-valuenow", recoveredStart);
     await saveSettled(page);
 
     // Play: the window sweeps — the readout visibly moves — and pausing
