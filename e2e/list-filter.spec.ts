@@ -315,8 +315,13 @@ test("the list filter across Maps, Workflows and Data", async ({
     await expect(subline(page)).toContainText(`in ${PA}`);
     await page.reload();
     await expect(subline(page)).toContainText(`in ${PA}`);
+    // An unknown project and one the caller does not reach answer alike,
+    // so the refusal does not say which.
+    const absent = page
+      .getByRole("alert")
+      .getByText("The requested resource was not found.");
     await page.goto("/maps?project=ghost-id");
-    await expect(page.getByText(/No project with id/)).toBeVisible();
+    await expect(absent).toBeVisible();
     await expect(page.getByRole("button", { name: "Try again" })).toBeVisible();
     await expect(page.getByText(M2)).toHaveCount(0);
     await page.goto("/maps?project=");
@@ -331,7 +336,7 @@ test("the list filter across Maps, Workflows and Data", async ({
     await expect(subline(page)).toContainText(`in Doomed ${runId}`);
     await api(page, "DELETE", `/api/projects/${doomed}`);
     await page.reload();
-    await expect(page.getByText(/No project with id/)).toBeVisible();
+    await expect(absent).toBeVisible();
     await expect(page.getByText(M2)).toHaveCount(0);
   });
 
