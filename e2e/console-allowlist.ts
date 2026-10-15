@@ -30,16 +30,6 @@ export const allowedErrorPatterns: { pattern: RegExp; url?: RegExp; reason: stri
       "listing and the read still 404s to the placeholder, and the browser " +
       "logs the 404.",
   },
-  {
-    pattern: /status of 422/,
-    url: /\/api\/tables\/[^/]+\/geometry\/preview$/,
-    reason:
-      "Reopening Set geometry on a dataset whose geometry source is no " +
-      "longer stored sends the preview the API" +
-      "refuses with 422 source_unavailable: that sentence is the refusal the " +
-      "panel shows, and only the API may word it, so the request is " +
-      "the product working; the browser still logs the 422.",
-  },
 ];
 
 function firstUrlIn(text: string): string | undefined {

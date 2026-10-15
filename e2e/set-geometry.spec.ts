@@ -683,7 +683,8 @@ test.describe("set geometry", () => {
     await expect(applyButton(page)).toBeDisabled();
     await expect(dock(page).getByLabel("Column")).toHaveValue("geometry");
     await attach(page, info, "consumed-refused");
-    clean(errors);
+    // The refusal of a second change is the preview's 422 source_unavailable, logged by the browser.
+    clean(errors, [{ status: 422, url: new RegExp(`/api/tables/${name}/geometry/preview$`) }]);
     await context.close();
   });
 
@@ -798,7 +799,8 @@ test.describe("set geometry", () => {
     await expect(dock(page).getByRole("alert")).toContainText("The original geometry source is no longer stored. A further change is unavailable.");
     await expect(applyButton(page)).toBeDisabled();
     await attach(page, info, "native-refused");
-    clean(errors);
+    // The refusal of a second change is the preview's 422 source_unavailable, logged by the browser.
+    clean(errors, [{ status: 422, url: new RegExp(`/api/tables/${name}/geometry/preview$`) }]);
     await context.close();
   });
 });
