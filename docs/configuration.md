@@ -88,7 +88,8 @@ as the catalogue documents it.
 Two classes are deliberately outside the check: test-local seams
 (`DEZFIL_TEST_*` read only by test files in `src/`, and `DEZFIL_BASE_URL`) and
 platform plumbing (`NODE_ENV`, `PORT`, `HOSTNAME`, `NEXT_RUNTIME`, `TZ`, `CI`,
-`PATH`, `DUCKDB_EXTENSION_DIR`). Both are listed at the end of this page.
+`PATH`, `DUCKDB_EXTENSION_DIR`, `UV_THREADPOOL_SIZE`). Both are listed at the
+end of this page.
 
 ## Instance defaults
 
@@ -494,7 +495,11 @@ that cancels the work, or a resource refusal) cancels the attachment's running
 statements on the source through a short-lived second connection under the same
 role, with a 5-second connect limit, so source work settles within the 35-second
 allowance even when its statement started late; the ceiling stays as the
-backstop, and a failed cancellation is logged. Geometry set and clear
+backstop, and a failed cancellation is logged. A source statement blocked on
+the server holds one of the runtime's workers, so at most three quarters of
+that pool (`UV_THREADPOOL_SIZE`, 4 unless set, so 3 at once) may be out on
+PostGIS sources; the rest wait their turn within their own time limit, and a
+worker stays free for the cancellation and the rest of the server. Geometry set and clear
 use one processing lifetime through preparation, revision checks and replacement,
 continue after departure, and retain the previous artifact on refusal. Sketch
 feature reads and map summaries share the query lifetime; sketch changes keep
@@ -653,6 +658,7 @@ self-hoster, and the README check excludes them by name.
 | `PATH` | the system | The program search path. A tile builder or an image renderer whose setting names a program rather than a path is looked up there. |
 | `DUCKDB_EXTENSION_DIR` | image sets `/app/duckdb-extensions` | The baked engine extension bundle. Overriding it defeats the offline guarantee. |
 | `NEXT_TELEMETRY_DISABLED` | image sets `1` | Turns off the framework's own telemetry during build and at runtime. |
+| `UV_THREADPOOL_SIZE` | the runtime, 4 unless set before start | The runtime's worker pool, shared by engine calls, file system work and password hashing. PostGIS source calls may hold at most three quarters of it at once (at least one), so blocked source reads always leave a worker for their cancellation and for the rest of the server. Raising it raises that share. |
 | `TZ`, `CI` | environment | Excluded by name from the README check; the code does not read them as settings. |
 
 ## Test and development wiring

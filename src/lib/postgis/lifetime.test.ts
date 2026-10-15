@@ -16,6 +16,7 @@ import * as egress from "@/lib/net/egress";
 import { withPg, testConnection, browseRemoteTables, type ConnectionTarget } from "./access";
 import { importPostgis, type PostgisRecipe } from "./import";
 import { createConnection, editConnection, testSavedConnection, browseConnection } from "./connection-service";
+import { sourceSlots } from "./source-slots";
 
 const scratchRoot = process.env.DEZFIL_DATA_DIR ?? "/tmp";
 const target = { id: "source", name: "Source", host: "source.example", port: 5432, database: "gis", username: "reader", password: "fixture-only", ssl: false };
@@ -120,4 +121,24 @@ it("expiry during native teardown does not interrupt its own cleanup", async () 
   const work = read().catch(e => e); await entered.promise; await vi.advanceTimersByTimeAsync(101);
   const interrupted = conn.interrupt.mock.calls.length; release.resolve();
   expect(await work).toMatchObject({ code: "query_timeout" }); expect(interrupted).toBe(0); expect(conn.disconnectSync).toHaveBeenCalledOnce();
+});
+it.each(["departure", "deadline"])("a source call that finds every slot taken waits inside its lifetime, and %s there refuses it before it reaches the source", async reason => {
+  const slots = sourceSlots(), caller = new AbortController();
+  const held = await Promise.all(Array.from({ length: slots.limit }, () => slots.acquire()));
+  const sourceCalls = () => conn.run.mock.calls.map(([sql]) => String(sql)).filter(sql => /^(INSTALL postgres|ATTACH|DETACH)/.test(sql));
+  let outcome: unknown;
+  try {
+    const work = read(caller.signal).catch(error => error); await flush();
+    expect(slots.state()).toEqual({ active: slots.limit, waiting: 1 });
+    if (reason === "departure") caller.abort(); else await vi.advanceTimersByTimeAsync(101);
+    outcome = await work;
+    // The wait left the queue and no source statement started, so there was nothing to cancel.
+    expect(slots.state()).toEqual({ active: slots.limit, waiting: 0 });
+    expect(sourceCalls()).toEqual([]);
+  } finally { for (const release of held) release(); }
+  if (reason === "departure") expect(outcome).toBeInstanceOf(EvaluationCancelled); else expect(outcome).toMatchObject({ code: "query_timeout" });
+  // A free slot lets the next read reach the source, and hands its slots back.
+  await expect(read()).resolves.toMatchObject({ serverVersion: "source" });
+  expect(sourceCalls().map(sql => sql.split(" ")[0])).toEqual(["INSTALL", "ATTACH", "DETACH"]);
+  expect(slots.state()).toEqual({ active: 0, waiting: 0 });
 });

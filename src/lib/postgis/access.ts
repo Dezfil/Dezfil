@@ -179,9 +179,10 @@ export async function withPg<T>(
           // Mark a successful native ATTACH before testing departure: a late
           // success still owns a catalogue that must be detached.
           const sourceIdentity = preview ? `dezfil_preview_${identity}` : `dezfil_source_${identity}`;
-          await native.run(
+          // The ceiling is the time left once the attachment has its slot.
+          await owner.attach(() => native.run(
             `ATTACH ${sqlLit(attachString(target, hostaddr, sourceIdentity, owner.attachmentCeiling()))} AS ${alias} (TYPE postgres, READ_ONLY)`,
-          );
+          ));
           attached = true;
           owner.cancelOnServer(sourceCancellation(target, hostaddr, sourceIdentity));
         } catch (error) {

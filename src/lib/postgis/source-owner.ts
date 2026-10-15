@@ -2,6 +2,7 @@ import { currentTrustedOperation, type TrustedOperation } from "@/lib/trusted-op
 import { trustedEngineError } from "@/lib/trusted-connection";
 import type { DuckDBConnection } from "@duckdb/node-api";
 import { ApiError, EvaluationCancelled } from "@/lib/api/errors";
+import { sourceSlots } from "./source-slots";
 
 export function assertPreviewActive(signal?: AbortSignal): void {
   if (signal?.aborted) throw new EvaluationCancelled();
@@ -95,20 +96,36 @@ export class PgSourceOwner {
 
   check(): void { this.operation?.assertCanCommit(); assertPreviewActive(this.signal); }
 
+  /** Waits for a free source call slot (see source-slots) inside the
+   * operation's lifetime: its refusal while waiting answers as usual, and the
+   * wait is not a source statement, so nothing is cancelled for it. */
+  private async slot(): Promise<() => void> {
+    try { return await sourceSlots().acquire(this.signal); }
+    catch (error) { this.check(); throw error; }
+  }
+
+  /** The attachment itself reaches the source too, so it takes a slot. */
+  async attach<T>(work: () => Promise<T>): Promise<T> {
+    this.check();
+    const release = await this.slot();
+    try { return await work(); } finally { release(); }
+  }
+
   async query<T>(work: () => Promise<T>, discard?: (value: T) => void): Promise<T> {
     this.check();
+    const release = await this.slot();
     let result: T;
     // Counted while the native call is out, so a refusal knows whether a
     // statement may be running on the server.
     this.running += 1;
     try { result = await work(); } catch (error) {
-      this.running -= 1;
+      this.running -= 1; release();
       this.check();
       const classified = this.classify(error);
       this.operation?.refuseIfFinal(classified);
       throw classified;
     }
-    this.running -= 1;
+    this.running -= 1; release();
     try { this.check(); } catch (error) { discard?.(result); throw error; }
     return result;
   }

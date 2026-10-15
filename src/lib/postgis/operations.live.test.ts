@@ -1,11 +1,12 @@
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { DuckDBConnection } from "@duckdb/node-api";
-import { randomInt, randomUUID } from "node:crypto";
-import { mkdtemp, rm } from "node:fs/promises";
+import { pbkdf2, randomInt, randomUUID } from "node:crypto";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { setTimeout as delay } from "node:timers/promises";
 import { currentTrustedOperation } from "@/lib/trusted-operation";
 import { limits } from "@/lib/limits";
+import { engineStateForTests } from "@/lib/duckdb";
 import { ApiError, EvaluationCancelled } from "@/lib/api/errors";
 import { closeMetadataDb } from "@/lib/metadata/db";
 import { insertConnection, getConnection } from "@/lib/metadata/connections";
@@ -18,6 +19,7 @@ import { importPostgis } from "./import";
 import { previewPostgis } from "./preview";
 import { resolveCreateConnectionInput } from "./connection-input";
 import { fixtureUrl, openSource, pgLiteral, watchAttachments, type SourceFixture } from "./live-source-fixture";
+import { sourceCallLimit, workerPoolSize } from "./source-slots";
 
 const scratchRoot = process.env.DEZFIL_DATA_DIR ?? "/tmp";
 const url = process.env.DEZFIL_TEST_PG_URL;
@@ -109,6 +111,83 @@ describe.skipIf(!url)(url ? "live source operation ownership" : "SKIP: DEZFIL_TE
       slowRead.mockRestore(); watch.restore(); processingLimit.mockRestore();
     }
   }, 200_000);
+  // A source statement blocked on the server holds one of the runtime's
+  // workers until the server answers, and the cancellation that ends it needs
+  // a worker too, as does the rest of the server. With more late-blocked
+  // imports and refreshes than the pool has workers, every one must still be
+  // cancelled at its expiry and settle within the allowance, while cheap work
+  // on the pool keeps running.
+  it("cancels more late-blocked imports and refreshes than the worker pool has workers, and other pool work keeps running", async () => {
+    const scope = testAccountScope(), id = randomUUID(), lock = randomInt(1, 2 ** 30), tag = randomUUID().replace(/-/g, "");
+    const count = workerPoolSize() + 1, refreshes = Math.floor(count / 2), limit = sourceCallLimit();
+    // Each attachment's first statement lasts until one moment longer than the
+    // allowance after the start, so a read that blocks after it would outlast
+    // the allowance on its own ceiling; one that starts after that moment
+    // returns at once. The limit leaves a few seconds to reach the read.
+    const sleepS = 38, processingMs = 42_000;
+    insertConnection(scope, { id, ...resolveCreateConnectionInput({ name: "Saturated pool", url: fixtureUrl(url!, "disable") }) });
+    await source.exec(`CREATE FUNCTION ${schema}.held_${tag}() RETURNS integer LANGUAGE plpgsql AS $fn$ BEGIN PERFORM pg_advisory_xact_lock(${lock}::bigint); RETURN 7; END $fn$`);
+    await source.exec(`CREATE VIEW ${schema}.late_${tag} AS SELECT ${schema}.held_${tag}() AS id`);
+    await source.exec(`CREATE TABLE ${schema}.until_${tag} (at timestamptz)`);
+    await source.exec(`CREATE FUNCTION ${schema}.slow_${tag}() RETURNS text LANGUAGE plpgsql VOLATILE AS $fn$ BEGIN PERFORM pg_sleep(GREATEST(0, EXTRACT(EPOCH FROM ((SELECT at FROM ${schema}.until_${tag}) - clock_timestamp())))); RETURN version(); END $fn$`);
+    const recipe = { connectionId: id, schema, table: `late_${tag}` };
+    const previous: string[] = [];
+    for (let index = 0; index < refreshes; index++) previous.push((await importPostgis(scope, recipe)).name);
+    const before = listTables().map(t => t.file).sort();
+    const probeFile = path.join(scratch, `probe-${tag}.txt`); await writeFile(probeFile, "probe");
+    const holder = await openSource(url!); const watch = watchAttachments();
+    const nativeRead = DuckDBConnection.prototype.runAndReadAll;
+    const slowRead = vi.spyOn(DuckDBConnection.prototype, "runAndReadAll").mockImplementation(function (this: DuckDBConnection, sql, ...args) {
+      return nativeRead.call(this, sql.includes("postgres_query") && sql.includes("SELECT version() AS v") ? sql.replace("SELECT version() AS v", `SELECT ${schema}.slow_${tag}() AS v`) : sql, ...args);
+    });
+    const processingLimit = vi.spyOn(limits, "dataProcessingTimeoutMs", "get").mockReturnValue(processingMs);
+    const outcomes: unknown[] = [];
+    let pending: Promise<unknown> | undefined, measured = false;
+    const identities = () => watch.attempts.flatMap(attempt => attempt.identity ? [attempt.identity] : []);
+    const backends = async () => (await source.query("SELECT application_name, state FROM pg_stat_activity WHERE starts_with(application_name, 'dezfil_source_')"))
+      .filter(backend => identities().some(identity => String(backend.application_name).startsWith(identity)));
+    try {
+      await holder.conn.run("BEGIN TRANSACTION"); await holder.query(`SELECT pg_advisory_xact_lock(${lock}::bigint)::text AS held`);
+      await source.exec(`INSERT INTO ${schema}.until_${tag} SELECT clock_timestamp() + make_interval(secs => ${sleepS})`);
+      // Every operation is admitted here, so none expires before this.
+      const expiry = performance.now() + processingMs;
+      const work = Array.from({ length: count }, (_, index) => index < refreshes ? refreshTable(scope, previous[index]) : importPostgis(scope, recipe));
+      pending = Promise.all(work.map(operation => operation.then(value => value, error => error).then(outcome => { outcomes.push(outcome); })));
+      // After the first statements, while the reads that follow them block, before the expiry.
+      await delay(Math.max(0, expiry - processingMs + (sleepS + 2) * 1000 - performance.now()));
+      expect(outcomes).toHaveLength(0);
+      const probeStarted = performance.now();
+      const probeMs = await Promise.race([
+        Promise.all([
+          new Promise<void>((resolve, reject) => pbkdf2("password", "salt", 1, 32, "sha256", error => error ? reject(error) : resolve())),
+          readFile(probeFile),
+        ]).then(() => performance.now() - probeStarted),
+        delay(3_000).then(() => null),
+      ]);
+      expect.soft(probeMs, "A cheap task on the worker pool waited behind the blocked source calls").not.toBeNull();
+      expect.soft(outcomes, "An operation answered before the probe finished").toHaveLength(0);
+      // As many source calls are out on the server as the bound allows, and no more.
+      const active = (await backends()).filter(backend => backend.state === "active").length;
+      expect.soft(active).toBe(limit);
+      await until(async () => outcomes.length === count, processingMs + 60_000, "The operations never answered");
+      for (const outcome of outcomes) expect(outcome).toMatchObject({ code: "data_processing_timeout", status: 408 });
+      // Every attachment's backends and every engine lease, the cancellations'
+      // own included, are gone within the allowance after the expiry.
+      await until(async () => (await backends()).length === 0 && engineStateForTests().leases === 0, Math.max(0, expiry + 35_000 - performance.now()), "Source backends or engine leases survived the settlement allowance after expiry");
+      const settledMs = performance.now() - expiry;
+      expect(settledMs).toBeLessThanOrEqual(35_000);
+      expect(watch.attempts.length).toBeGreaterThan(0);
+      for (const attempt of watch.attempts) expect(attempt.released).toBe(true);
+      expect(listTables().map(t => t.file).sort()).toEqual(before);
+      measured = true;
+      console.info(JSON.stringify({ workerPool: workerPoolSize(), sourceCallLimit: limit, operations: count, refreshes, probeMs: probeMs === null ? null : Math.round(probeMs), activeAtProbe: active, settledAfterExpiryMs: Math.round(settledMs), ceilingsMs: watch.attempts.map(attempt => Number(attempt.timeout)) }));
+    } finally {
+      await holder.conn.run("ROLLBACK").catch(() => {}); await holder.close();
+      if (!measured) for (const identity of identities()) await source.query(`SELECT pg_terminate_backend(pid) AS terminated FROM pg_stat_activity WHERE starts_with(application_name, ${pgLiteral(identity)})`).catch(() => {});
+      if (pending) await until(async () => outcomes.length === count, 120_000, "Source work did not answer after emergency fixture cleanup");
+      slowRead.mockRestore(); watch.restore(); processingLimit.mockRestore();
+    }
+  }, 300_000);
   async function exercise(kind: typeof kinds[number], depart: boolean) {
     const scope = testAccountScope(), id = randomUUID(), lock = randomInt(1, 2 ** 30);
     // Both sets share one data folder, and a connection name is unique per owner.

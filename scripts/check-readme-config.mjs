@@ -11,8 +11,11 @@
 //   - platform/image plumbing that is not an operator tunable: NODE_ENV,
 //     PORT, HOSTNAME, NEXT_RUNTIME (runtime-provided), PATH (the system's
 //     program search path, read to find a configured program given by
-//     name), and DUCKDB_EXTENSION_DIR (set by the Dockerfile to the baked
-//     bundle; overriding it defeats the offline guarantee).
+//     name), DUCKDB_EXTENSION_DIR (set by the Dockerfile to the baked
+//     bundle; overriding it defeats the offline guarantee) and
+//     UV_THREADPOOL_SIZE (the runtime's own worker pool size, which the
+//     runtime reads; the server reads it only to size the share PostGIS
+//     source calls may take).
 // Script DEZFIL_TEST_* reads are documented too: the image observers are
 // part of the reproducible operator recipes. So is a DEZFIL_TEST_* seam the
 // server code itself reads (process.env, outside test files): it is test
@@ -40,7 +43,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { settingsSource } from "./settings-source.mjs";
 
-const PLATFORM = new Set(["NODE_ENV", "PORT", "HOSTNAME", "NEXT_RUNTIME", "TZ", "CI", "PATH", "DUCKDB_EXTENSION_DIR"]);
+const PLATFORM = new Set(["NODE_ENV", "PORT", "HOSTNAME", "NEXT_RUNTIME", "TZ", "CI", "PATH", "DUCKDB_EXTENSION_DIR", "UV_THREADPOOL_SIZE"]);
 const DOCUMENTED_PLATFORM = new Set([...PLATFORM, "NEXT_TELEMETRY_DISABLED"]);
 
 const EXCLUDED = (name) =>

@@ -6162,6 +6162,21 @@
         "memory:request-closures"
       ]
     },
+    "memory:src/lib/postgis/source-slots.ts#createSourceSlots.active": {
+      "stores": [
+        "memory:provider-scheduling"
+      ]
+    },
+    "memory:src/lib/postgis/source-slots.ts#createSourceSlots.hold.released": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/postgis/source-slots.ts#createSourceSlots.waiting": {
+      "stores": [
+        "memory:provider-scheduling"
+      ]
+    },
     "memory:src/lib/templates/download.ts#enqueue.{ running, result }": {
       "stores": [
         "memory:request-closures"

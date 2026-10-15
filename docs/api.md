@@ -2277,7 +2277,11 @@ resource refusal), that attachment's statements are cancelled on the source
 through a short-lived second connection with a 5-second connect limit, using the
 connection's own role, so source work settles within the 35-second allowance
 even when its statement started late. The ceiling remains the backstop if the
-cancellation fails, which is logged. The
+cancellation fails, which is logged. At most three quarters of the server's
+worker pool (3 calls at the runtime's default) may be out on PostGIS sources at
+once, so blocked source reads always leave a worker for the cancellation and
+the rest of the server; further source calls wait within their own time limit,
+and a refusal while waiting answers as usual. The
 10-second connect limit remains. Teardown runs after
 native work drains, including a late attachment success after refusal. Render
 byte enforcement is not yet active. Geometry set and clear
