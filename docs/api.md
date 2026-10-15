@@ -2229,10 +2229,11 @@ limits retain their existing refusals. PostGIS connection tests, catalogue reads
 and previews use the query lifetime; imports and refreshes use the processing
 lifetime. Every source attachment has a statement ceiling, a unique source
 identity and an interrupt owner. Imports and refreshes give their source
-statements the rest of the processing time and answer `408
-data_processing_timeout` when a source outlasts it. Previews keep a 30-second
-ceiling; connection checks and catalogue reads keep it too, or take the rest of
-the Query time limit when less is left. Both answer `408 query_timeout`. The
+statements the processing time left when the source is attached and answer
+`408 data_processing_timeout` when a source outlasts it. Previews keep a
+30-second ceiling; connection checks and catalogue reads keep it too, or take
+the Query time left when the source is attached if that is less. Both answer
+`408 query_timeout`. The
 10-second connect limit remains. Teardown runs after
 native work drains, including a late attachment success after refusal. Render
 byte enforcement is not yet active. Geometry set and clear
