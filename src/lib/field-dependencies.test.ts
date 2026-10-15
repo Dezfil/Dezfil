@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { fieldEntries } from "@/components/map/canvas-pointer";
 import {
   autoInteractionFields,
   hasInteraction,
@@ -215,6 +216,18 @@ describe("the private policy", () => {
 
   it("carries an aggregation's computed columns", () => {
     expect(own({ viz: { type: "grid", cellKm: 5, aggregate: { fn: "count" } } })).toEqual(["value", "count"]);
+  });
+
+  it("carries the automatic fields the canvas shows over the full answer, numeric names first as it lists them", () => {
+    // The canvas lists a feature's properties in their object's order,
+    // integer-like names first, not in the query's column order.
+    const columns = ["a", "b", "c", "d", "e", "f", "g", "h", "1"];
+    const wire = (names: string[]) => JSON.parse(JSON.stringify(Object.fromEntries(names.map((name) => [name, name])))) as Record<string, unknown>;
+    const shown = (names: string[]) => fieldEntries(wire(names), null, false).map(([name]) => name);
+    expect(shown(columns)).toEqual(["1", "a", "b", "c", "d", "e", "f", "g"]);
+    const narrowed = own({}, {}, columns);
+    expect(shown(narrowed)).toEqual(shown(columns));
+    expect(narrowed).toEqual(["a", "b", "c", "d", "e", "f", "g", "1"]);
   });
 
   it("shows the same automatic fields over the narrowed wire as over the full one", () => {
