@@ -15,7 +15,8 @@ import type { AdmittedTemplate } from "./admission";
 import { templateMapEvaluation, templateStepEvaluation } from "./home";
 import { plainReferenceProblem } from "./plain-references";
 import { preserveTemplateResourceRefusal, refuse } from "./refusals";
-import { drawnFeatures, templateRenderCap } from "./render-cap";
+import { drawnFeatures, templateLayerRender, templateRenderBytes, templateRenderCap } from "./render-cap";
+import { templateMapLayers } from "./map-read";
 
 /**
  * The second stage of a template's admission: its documents against its
@@ -30,7 +31,8 @@ import { drawnFeatures, templateRenderCap } from "./render-cap";
  * of the map draws a geometry from its SQL, and every column its style,
  * look, filters, tooltip, pop-up and published fields name, and every
  * column its widgets and the timeline read, is in its result, by the layer
- * and map writes' own checks, and draws within the render cap's default
+ * and map writes' own checks, and draws within the defaults of the render
+ * cap and of Bytes drawn per layer, rendered as its view will render it
  * (`render-cap.ts`). The home holds the version's datasets and
  * bundled results and nothing of anyone's, so a reference to a person's
  * dataset, or another template's, binds nothing: that is the reference
@@ -120,6 +122,9 @@ async function admitSteps(scope: AccountScope, admitted: AdmittedTemplate, home:
 async function admitLayers(scope: AccountScope, admitted: AdmittedTemplate, home: TemplateHome, signal?: AbortSignal): Promise<void> {
   const { map } = admitted;
   const evaluation = templateMapEvaluation(scope, home);
+  // The layers as the version's view will render them, under its ids.
+  const viewed = templateMapLayers(home.template, home.version, map, { createdAt: "", updatedAt: "" });
+  const context = { timeline: viewed.timeline, widgets: viewed.widgets };
   for (const [i, layer] of map.layers.entries()) {
     const where = `The map's layer ${i + 1} ("${layer.name}")`;
     await underRoad(where, () => inspectLayerGeometry(evaluation, layer.sql, signal));
@@ -147,6 +152,12 @@ async function admitLayers(scope: AccountScope, admitted: AdmittedTemplate, home
       refuse("template_invalid", `${where} draws ${drawn.toLocaleString()} features, over the render cap of ${cap.toLocaleString()}. ` +
         "A template's layer draws within the cap, its large data as an aggregation or a slice.");
     }
+    const render = await underRoad(where, () => templateLayerRender(evaluation, viewed.layers[i], context, signal));
+    if (render.error?.code === "render_bytes_exceeded") {
+      refuse("template_invalid", `${where} draws more than ${templateRenderBytes().toLocaleString()} bytes, the limit for one layer drawn in the map. ` +
+        "A template's layer draws within the limit, its large data as an aggregation or a slice.");
+    }
+    if (render.error) refuse("template_invalid", `${where}: ${render.error.message}`);
   }
 }
 

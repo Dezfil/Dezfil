@@ -1,6 +1,6 @@
 {
   "count": 156,
-  "overall": "155b6f7be8ba36076e81903c102887eb34567d8faff61878d0a6636362f1e469",
+  "overall": "b1bdf268c014aaf37786779f801b759da4a7bb35eef65ef4545a8d069124f5f2",
   "tools": {
     "get_account": "1d39e185a29991c180c5357ee693fb43d368491d0c799a0e52600ca88d32baa8",
     "update_account": "1d58af3260a6581ebaf68dbd67d94671d696509451d7ac08c21462b333f88ac2",
@@ -29,7 +29,7 @@
     "refresh_templates": "65e433e8bf7f605ba49725f0b6583570a3c1080f05b76b179836ecda825cb700",
     "remove_template_downloads": "b50239a0e2b5271b42abc4d9225b42bff0ed253c274ae98533b5962c958dca75",
     "get_template": "d7ee62b900ed8c5df570ad30bffd602a5c749ddd2e41a48014d284aae6b316a6",
-    "fetch_template": "d470f4823487c0e56835a659803f3f303f3e498208e5e658442f40fd4f128a50",
+    "fetch_template": "509eee1eb37bd75ba78fa71caddf841c388693a1e0cd795994c35acd6a70203e",
     "copy_template": "58bf21b6e5a5b72e54462e496ffa37da801e3478292767271f25d05553450c49",
     "inspect_table_geometry": "50b44ed9b748ce58124e837fb33b380ff8056cf1f966c51e782ea269e426ec84",
     "set_table_geometry": "761ecc11cb38425745ab272bfe1913be176254f33ce2dfe4873357d5f33215fd",

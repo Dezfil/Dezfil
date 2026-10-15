@@ -1033,6 +1033,15 @@ and the imports are unchanged. `GET /api/sketches/{name}/features` (the
 complete answer exceeds the limit; it used to answer every drawn feature
 whatever their size. Appending, moving a vertex and deleting are unchanged.
 
+**Template admission compatibility change.** A template version's layers are
+now held to Bytes drawn per layer's default, 134,217,728 bytes, as well as to
+the render cap's, each counted as the version's view renders it (its result,
+the properties its map's widgets and timeline read, and the fallback to every
+filter applied on the server), whatever this instance sets. A layer over it is
+refused with `422 template_invalid` naming the limit, where it used to be
+admitted. A version installed before is not checked again: it opens and
+copies, and any excess shows in its layer's render.
+
 `GET /api/layers/{id}/tiles/{z}/{x}/{y}` serves a tiled layer's archive to a
 reader who can reach every dataset it recorded drawing, and answers
 `not_found` (404) otherwise. A reader beyond the current archive's
@@ -1361,7 +1370,10 @@ documents are, every dataset and bundled result read through the upload's
 reader (what it measured is recorded), every layer's SQL, columns, widgets
 and timeline and every step bound to the template's own data and the results
 of earlier steps, nothing else, a workflow example's step list in its facts
-the workflow's own, what each step reads included; and only then moved into place under the data
+the workflow's own, what each step reads included, each layer drawing within
+the defaults of the render cap and of Bytes drawn per layer as its view
+renders it, whatever this instance sets (`template_invalid` names the limit);
+and only then moved into place under the data
 folder's `templates/<id>/<version>/`. Two calls for one version download it
 once, and downloads run one at a time on this instance; a download waiting
 its turn when an admin turns the catalogue off or moves it sends nothing. A
@@ -2433,7 +2445,7 @@ remove converted files and the staged archive, retaining source artifacts. Harde
 | `template_entry_escapes` | A member of a template's archive names a path outside its folder. |
 | `template_members_mismatch` | A template's documents name a member it does not hold, or it holds a member nothing names. |
 | `template_format_unsupported` | A template is in a format version this server does not read. |
-| `template_invalid` | A template's document fails the rules a client's document is held to, one of its layers or steps does not bind to the template's own data as a client's would or names one of its datasets other than as a plain table reference (inside a string or a table function's argument, or qualified by a schema), or a layer draws more than the render cap's default. |
+| `template_invalid` | A template's document fails the rules a client's document is held to, one of its layers or steps does not bind to the template's own data as a client's would or names one of its datasets other than as a plain table reference (inside a string or a table function's argument, or qualified by a schema), or a layer draws more than the default of the render cap or of Bytes drawn per layer. |
 | `template_forbidden` | A template carries a publication, token, connection, service address or setting, which no template may. |
 | `template_picture_too_large` | A template's map picture is larger than its 2 MB bound. |
 | `template_licence_refused` | A template's data is under a licence that does not allow redistribution. |

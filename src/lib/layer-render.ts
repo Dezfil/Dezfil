@@ -15,6 +15,7 @@ import { renderCapRefusal, templateRenderBytesRefusal, templateRenderCapRefusal 
 import { isTemplateDocumentId } from "./templates/ids";
 import { renderFilters } from "./layer-render-filters";
 import { privateRenderFields } from "./layer-render-fields";
+import type { PrivateMapContext } from "./field-dependencies";
 import { layerEvaluation } from "./query/context";
 import { buildInlineAnswer } from "./query/render-features";
 import { renderBytesExceeded } from "./query/render-budget";
@@ -88,6 +89,14 @@ function renderGeometryType(types: string[]): LayerRenderGeometryType {
     : "MIXED";
 }
 
+/** The limits a render draws within. */
+export interface RenderLimits {
+  /** Features drawn per layer (the render cap). */
+  features: number;
+  /** Bytes drawn per layer. */
+  bytes: number;
+}
+
 /** Options for a published-audience render: with the map's
  * context supplied, feature properties carry exactly the layer's effective
  * published field set. Absent (every builder lane), properties carry what
@@ -95,6 +104,12 @@ function renderGeometryType(types: string[]): LayerRenderGeometryType {
 export interface RenderLayerOpts {
   published?: PublishedMapContext;
   tileAccess?: TileAccess;
+  /** The map's timeline and widgets, given rather than read from the
+   * layer's map: a template being admitted has no map to read yet. */
+  context?: PrivateMapContext;
+  /** The limits to draw within, given rather than this instance's: a
+   * template's admission holds every instance to the defaults. */
+  limits?: RenderLimits;
 }
 
 /**
@@ -109,204 +124,10 @@ export async function renderLayer(
   signal?: AbortSignal,
   opts: RenderLayerOpts = {},
 ): Promise<LayerRenderData> {
+  // A map no one can read is the caller's refusal, never an errored layer.
   scope = layerEvaluation(scope, layer);
   try {
-    return await boundedEvaluation(async (conn, bounds) => {
-      const compiledSql = await namedSql(conn, layer.sql);
-      const aggregated = isAggregated(layer.viz);
-      const rawSub = `(${wrappable(compiledSql)}) AS q`;
-      const described = await conn.runAndReadAll(
-        `DESCRIBE SELECT * FROM ${rawSub}`,
-      );
-      const columns = (
-        described.getRowObjects() as unknown as {
-          column_name: string;
-          column_type: string;
-        }[]
-      ).map((c) => ({ name: c.column_name, type: c.column_type }));
-      const rawGeomCol = columns.find((c) => c.type.startsWith("GEOMETRY"));
-      if (!rawGeomCol) {
-        return errored(
-          layer.id,
-          "invalid_request",
-          "This layer's query no longer returns a geometry column.",
-        );
-      }
-
-      // The effective query is the layer's SQL refined by its filters, then
-      // aggregated by its viz. Live filters stay out of the query and ship
-      // to the client instead — the cap applies to what is actually drawn,
-      // which for a live-filtered layer is the undelegated result (the dock
-      // decision, generalized).
-      let filters = renderFilters(layer);
-      let liveFiltered = filters.length !== layer.filters.length;
-      const od = isOdViz(layer.viz);
-      const geomName = aggregated
-        ? "geometry"
-        : od
-          ? OD_GEOMETRY
-          : rawGeomCol.name;
-      const geom = ident(geomName);
-      // Properties carry the non-geometry columns the audience reads —
-      // additional geometry columns (O→D endpoints and beyond) stay out of
-      // tooltips. A builder render carries what the layer and its map use
-      // (the private policy); a published-audience render carries the
-      // effective published field set. Aggregated results are exactly
-      // their computed columns on every audience.
-      const nonGeometry = columns.filter(
-        (c) => !c.type.startsWith("GEOMETRY"),
-      );
-      const names = nonGeometry.map((c) => c.name);
-      const carried = new Set(
-        opts.published
-          ? publishedFieldsFor(layer, opts.published, names)
-          : privateRenderFields(layer, names),
-      );
-      const propsCols = aggregated
-        ? [
-            { name: "value" },
-            { name: "count" },
-            // The reserved extrusion value rides along when configured;
-            // the canvas keeps it out of tooltips.
-            ...(isAggregated(layer.viz) && layer.viz.elevation
-              ? [{ name: AGG_ELEV }]
-              : []),
-          ]
-        : nonGeometry.filter((c) => carried.has(c.name));
-      const publishedFields = opts.published
-        ? { publishedFields: propsCols.map((c) => c.name) }
-        : null;
-      const subFor = (fs: LayerFilter[]) =>
-        `(${effectiveSql(
-          { sql: compiledSql, filters: fs, viz: layer.viz },
-          rawGeomCol.name,
-        )}) AS q`;
-      const summarize = async (s: string) => {
-        const counted = await conn.runAndReadAll(
-          `SELECT ST_GeometryType(${geom}) AS geometry_type, count(*) AS n
-           FROM ${s} WHERE ${geom} IS NOT NULL GROUP BY 1`,
-        );
-        const rows = counted.getRowObjects() as unknown as {
-          geometry_type: string;
-          n: bigint | number;
-        }[];
-        return {
-          featureCount: rows.reduce((sum, row) => sum + Number(row.n), 0),
-          geometryType: renderGeometryType(
-            rows.map((row) => String(row.geometry_type)),
-          ),
-        };
-      };
-
-      let sub = subFor(filters);
-      let { featureCount, geometryType } = await summarize(sub);
-      // A template's layer has no tile road: it draws within the limits or
-      // answers their refusal, and its copy tiles as any map does.
-      const template = isTemplateDocumentId(layer.id);
-      const tileable = layer.viz.type === "points" && !template;
-      // Simple features over a limit switch to tiles — live filtering rides
-      // the tiles. `overBytes` names the byte limit when the count fits.
-      const tiles = (overBytes?: number) =>
-        tiledRender(
-          layer,
-          filters,
-          rawGeomCol,
-          names,
-          featureCount,
-          geometryType,
-          {
-            liveFiltered,
-            published: opts.published !== undefined,
-            tileAccess: opts.tileAccess,
-            inputs: recordedInputs(conn),
-            ...(overBytes === undefined ? null : { overBytes }),
-          },
-        );
-      // A layer whose undelegated result cannot ship falls back to every
-      // filter in SQL: correct results, settled on release, just not live.
-      const applyEveryFilter = async () => {
-        filters = layer.filters;
-        liveFiltered = false;
-        sub = subFor(filters);
-        ({ featureCount, geometryType } = await summarize(sub));
-      };
-      if (featureCount > limits.renderCapFeatures) {
-        if (tileable) return tiles();
-        if (liveFiltered) await applyEveryFilter();
-      }
-      if (featureCount > limits.renderCapFeatures) {
-        // The cap error remains for what still cannot render: an over-cap
-        // aggregation, the heatmap, which draws raw points by design, and
-        // the O→D types, which apply to the standard rendering path only.
-        return errored(
-          layer.id,
-          "render_cap_exceeded",
-          template && layer.viz.type === "points"
-            ? templateRenderCapRefusal(featureCount, limits.renderCapFeatures)
-            : renderCapRefusal(
-                { aggregated, od, vizType: layer.viz.type },
-                featureCount,
-                limits.renderCapFeatures,
-              ),
-        );
-      }
-
-      // The answer is built while it is read, under Bytes drawn per layer:
-      // an answer over the limit is refused before it is complete, never
-      // after (see query/render-features). Null is that refusal. A refusal
-      // is remembered for this exact answer, so asking again (a tile poll,
-      // a reload) takes the road without reading up to the limit again.
-      const inline = async () => {
-        const answer: OverLimitAnswer = {
-          layerId: layer.id,
-          from: sub,
-          properties: propsCols.map((c) => c.name),
-          envelope: [geometryType, liveFiltered, publishedFields],
-          inputs: recordedInputs(conn),
-          limit: limits.renderCapBytes,
-        };
-        if (knownOverLimit(answer)) return null;
-        try {
-          return await buildInlineAnswer(
-            conn,
-            { from: sub, geometry: geom, properties: propsCols.map((c) => c.name) },
-            (features, count) => ({
-              layerId: layer.id,
-              ok: true,
-              mode: "inline" as const,
-              geojson: { type: "FeatureCollection", features },
-              featureCount: count,
-              geometryType,
-              ...(liveFiltered ? { liveFiltered } : null),
-              ...publishedFields,
-            }),
-            limits.renderCapBytes,
-            bounds.interrupted,
-          );
-        } catch (error) {
-          if (!(error instanceof ApiError && error.code === "render_bytes_exceeded")) throw error;
-          rememberOverLimit(answer);
-          return null;
-        }
-      };
-      const drawn = await inline();
-      if (drawn) return drawn;
-      // Over the byte limit with the count within its cap, a layer takes
-      // the road it takes over the cap.
-      if (tileable) return tiles(limits.renderCapBytes);
-      if (liveFiltered) {
-        await applyEveryFilter();
-        const settled = await inline();
-        if (settled) return settled;
-      }
-      return errored(
-        layer.id,
-        "render_bytes_exceeded",
-        template && layer.viz.type === "points"
-          ? templateRenderBytesRefusal(limits.renderCapBytes)
-          : renderBytesExceeded(limits.renderCapBytes).message,
-      );
-    }, { signal, scope });
+    return await layerAnswer(scope, layer, signal, opts);
   } catch (error) {
     // A departed caller gets nothing, not an errored layer: the envelope
     // is for states a viewer will look at, and nobody is looking.
@@ -319,4 +140,218 @@ export async function renderLayer(
         : "The layer could not render.",
     );
   }
+}
+
+/**
+ * A layer's render as `renderLayer` answers it, with what the evaluation
+ * itself refuses (the engine's errors, a deadline, the memory budget, a
+ * dataset no longer there) thrown rather than turned into an errored layer,
+ * for a caller that answers them itself. The render's own decisions (no
+ * geometry, over the render cap or the byte limit) are still errored
+ * layers.
+ */
+export async function layerAnswer(
+  scope: DatasetScope,
+  layer: Layer,
+  signal?: AbortSignal,
+  opts: RenderLayerOpts = {},
+): Promise<LayerRenderData> {
+  scope = layerEvaluation(scope, layer);
+  const caps: RenderLimits = opts.limits ?? { features: limits.renderCapFeatures, bytes: limits.renderCapBytes };
+  return boundedEvaluation(async (conn, bounds) => {
+    const compiledSql = await namedSql(conn, layer.sql);
+    const aggregated = isAggregated(layer.viz);
+    const rawSub = `(${wrappable(compiledSql)}) AS q`;
+    const described = await conn.runAndReadAll(
+      `DESCRIBE SELECT * FROM ${rawSub}`,
+    );
+    const columns = (
+      described.getRowObjects() as unknown as {
+        column_name: string;
+        column_type: string;
+      }[]
+    ).map((c) => ({ name: c.column_name, type: c.column_type }));
+    const rawGeomCol = columns.find((c) => c.type.startsWith("GEOMETRY"));
+    if (!rawGeomCol) {
+      return errored(
+        layer.id,
+        "invalid_request",
+        "This layer's query no longer returns a geometry column.",
+      );
+    }
+
+    // The effective query is the layer's SQL refined by its filters, then
+    // aggregated by its viz. Live filters stay out of the query and ship
+    // to the client instead — the cap applies to what is actually drawn,
+    // which for a live-filtered layer is the undelegated result (the dock
+    // decision, generalized).
+    let filters = renderFilters(layer, opts.context?.timeline);
+    let liveFiltered = filters.length !== layer.filters.length;
+    const od = isOdViz(layer.viz);
+    const geomName = aggregated
+      ? "geometry"
+      : od
+        ? OD_GEOMETRY
+        : rawGeomCol.name;
+    const geom = ident(geomName);
+    // Properties carry the non-geometry columns the audience reads —
+    // additional geometry columns (O→D endpoints and beyond) stay out of
+    // tooltips. A builder render carries what the layer and its map use
+    // (the private policy); a published-audience render carries the
+    // effective published field set. Aggregated results are exactly
+    // their computed columns on every audience.
+    const nonGeometry = columns.filter(
+      (c) => !c.type.startsWith("GEOMETRY"),
+    );
+    const names = nonGeometry.map((c) => c.name);
+    const carried = new Set(
+      opts.published
+        ? publishedFieldsFor(layer, opts.published, names)
+        : privateRenderFields(layer, names, opts.context),
+    );
+    const propsCols = aggregated
+      ? [
+          { name: "value" },
+          { name: "count" },
+          // The reserved extrusion value rides along when configured;
+          // the canvas keeps it out of tooltips.
+          ...(isAggregated(layer.viz) && layer.viz.elevation
+            ? [{ name: AGG_ELEV }]
+            : []),
+        ]
+      : nonGeometry.filter((c) => carried.has(c.name));
+    const publishedFields = opts.published
+      ? { publishedFields: propsCols.map((c) => c.name) }
+      : null;
+    const subFor = (fs: LayerFilter[]) =>
+      `(${effectiveSql(
+        { sql: compiledSql, filters: fs, viz: layer.viz },
+        rawGeomCol.name,
+      )}) AS q`;
+    const summarize = async (s: string) => {
+      const counted = await conn.runAndReadAll(
+        `SELECT ST_GeometryType(${geom}) AS geometry_type, count(*) AS n
+         FROM ${s} WHERE ${geom} IS NOT NULL GROUP BY 1`,
+      );
+      const rows = counted.getRowObjects() as unknown as {
+        geometry_type: string;
+        n: bigint | number;
+      }[];
+      return {
+        featureCount: rows.reduce((sum, row) => sum + Number(row.n), 0),
+        geometryType: renderGeometryType(
+          rows.map((row) => String(row.geometry_type)),
+        ),
+      };
+    };
+
+    let sub = subFor(filters);
+    let { featureCount, geometryType } = await summarize(sub);
+    // A template's layer has no tile road: it draws within the limits or
+    // answers their refusal, and its copy tiles as any map does.
+    const template = isTemplateDocumentId(layer.id);
+    const tileable = layer.viz.type === "points" && !template;
+    // Simple features over a limit switch to tiles — live filtering rides
+    // the tiles. `overBytes` names the byte limit when the count fits.
+    const tiles = (overBytes?: number) =>
+      tiledRender(
+        layer,
+        filters,
+        rawGeomCol,
+        names,
+        featureCount,
+        geometryType,
+        {
+          liveFiltered,
+          published: opts.published !== undefined,
+          tileAccess: opts.tileAccess,
+          inputs: recordedInputs(conn),
+          ...(overBytes === undefined ? null : { overBytes }),
+        },
+      );
+    // A layer whose undelegated result cannot ship falls back to every
+    // filter in SQL: correct results, settled on release, just not live.
+    const applyEveryFilter = async () => {
+      filters = layer.filters;
+      liveFiltered = false;
+      sub = subFor(filters);
+      ({ featureCount, geometryType } = await summarize(sub));
+    };
+    if (featureCount > caps.features) {
+      if (tileable) return tiles();
+      if (liveFiltered) await applyEveryFilter();
+    }
+    if (featureCount > caps.features) {
+      // The cap error remains for what still cannot render: an over-cap
+      // aggregation, the heatmap, which draws raw points by design, and
+      // the O→D types, which apply to the standard rendering path only.
+      return errored(
+        layer.id,
+        "render_cap_exceeded",
+        template && layer.viz.type === "points"
+          ? templateRenderCapRefusal(featureCount, caps.features)
+          : renderCapRefusal(
+              { aggregated, od, vizType: layer.viz.type },
+              featureCount,
+              caps.features,
+            ),
+      );
+    }
+
+    // The answer is built while it is read, under Bytes drawn per layer:
+    // an answer over the limit is refused before it is complete, never
+    // after (see query/render-features). Null is that refusal. A refusal
+    // is remembered for this exact answer, so asking again (a tile poll,
+    // a reload) takes the road without reading up to the limit again.
+    const inline = async () => {
+      const answer: OverLimitAnswer = {
+        layerId: layer.id,
+        from: sub,
+        properties: propsCols.map((c) => c.name),
+        envelope: [geometryType, liveFiltered, publishedFields],
+        inputs: recordedInputs(conn),
+        limit: caps.bytes,
+      };
+      if (knownOverLimit(answer)) return null;
+      try {
+        return await buildInlineAnswer(
+          conn,
+          { from: sub, geometry: geom, properties: propsCols.map((c) => c.name) },
+          (features, count) => ({
+            layerId: layer.id,
+            ok: true,
+            mode: "inline" as const,
+            geojson: { type: "FeatureCollection", features },
+            featureCount: count,
+            geometryType,
+            ...(liveFiltered ? { liveFiltered } : null),
+            ...publishedFields,
+          }),
+          caps.bytes,
+          bounds.interrupted,
+        );
+      } catch (error) {
+        if (!(error instanceof ApiError && error.code === "render_bytes_exceeded")) throw error;
+        rememberOverLimit(answer);
+        return null;
+      }
+    };
+    const drawn = await inline();
+    if (drawn) return drawn;
+    // Over the byte limit with the count within its cap, a layer takes
+    // the road it takes over the cap.
+    if (tileable) return tiles(caps.bytes);
+    if (liveFiltered) {
+      await applyEveryFilter();
+      const settled = await inline();
+      if (settled) return settled;
+    }
+    return errored(
+      layer.id,
+      "render_bytes_exceeded",
+      template && layer.viz.type === "points"
+        ? templateRenderBytesRefusal(caps.bytes)
+        : renderBytesExceeded(caps.bytes).message,
+    );
+  }, { signal, scope });
 }

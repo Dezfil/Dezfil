@@ -459,7 +459,13 @@ render cap and `truncated`, and stops assembling once the preview is over the
 limit or complete. A sketch's features read (`GET /api/sketches/{name}/features`)
 counts its complete answer the same way and over the limit answers
 `422 render_bytes_exceeded`; the reads a change to the sketch makes are not
-held to it, so a sketch too large to read whole can still be changed. File and
+held to it, so a sketch too large to read whole can still be changed. A
+template version is admitted only if each layer of its map draws within the
+defaults of the render cap (250,000 features) and of Bytes drawn per layer
+(134,217,728 bytes), counted as its view renders it, whatever this instance
+sets; a layer over either answers `422 template_invalid` naming the limit. A
+version installed before opens and copies as it is, and any excess shows in its
+layer's render. File and
 archive import processing, link and object-store imports, URL refreshes, and OpenStreetMap, Overture and PostGIS imports and refreshes
 use the Data processing time limit
 through preparation and commit. Accepted processing continues after departure;

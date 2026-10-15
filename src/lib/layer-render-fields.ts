@@ -11,7 +11,8 @@ function privateContextOf(mapId: string): PrivateMapContext {
 }
 
 /** The properties a layer's private (builder) render carries: what the
- * layer and its map read, by the private policy, in result order. */
-export function privateRenderFields(layer: Layer, columns: string[]): string[] {
-  return privateLayerFields(layer, privateContextOf(layer.mapId), columns);
+ * layer and its map read, by the private policy, in result order. The map's
+ * state is read from its map unless `context` gives it. */
+export function privateRenderFields(layer: Layer, columns: string[], context?: PrivateMapContext): string[] {
+  return privateLayerFields(layer, context ?? privateContextOf(layer.mapId), columns);
 }

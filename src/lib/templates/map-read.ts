@@ -5,6 +5,7 @@ import type { Layer, MapWithLayers } from "@/lib/metadata/maps";
 import type { MapPresence } from "@/lib/reach-presence";
 import { isTemplateDocumentId, parseTemplateDocumentId, templateDocumentId } from "./ids";
 import { residentTemplate, type ResidentTemplate } from "./resident";
+import type { AdmittedMap } from "./map-document";
 
 /**
  * A template's map and its layers as the map and layer reads answer them,
@@ -29,21 +30,34 @@ function factsOf(resident: ResidentTemplate): DocumentFacts {
   return { editRevision: resident.record.archive.sha256.slice(0, 32), lastChangedAt: null, lastChangedBy: null };
 }
 
+/** A version's map as its reads name it: each layer under its template
+ * layer id on the template's map, and the timeline and widgets naming
+ * layers by those ids. The admission of a version not yet installed reads
+ * its layers this way too, so it renders them as its view will. */
+export function templateMapLayers(
+  template: string,
+  version: number,
+  map: AdmittedMap,
+  times: { createdAt: string; updatedAt: string },
+): { mapId: string; layers: Layer[]; timeline: TemplateMapRead["timeline"]; widgets: TemplateMapRead["widgets"] } {
+  const mapId = templateDocumentId({ template, version, kind: "map" });
+  const layerId = (part: string) => templateDocumentId({ template, version, kind: "layer", part });
+  return {
+    mapId,
+    layers: map.layers.map((layer, ordinal) => ({ ...layer, id: layerId(layer.id), mapId, ordinal, ...times })),
+    timeline: map.timeline ? { ...map.timeline, layerId: layerId(map.timeline.layerId) } : null,
+    widgets: map.widgets.map((widget) => (widget.layerId === null ? { ...widget } : { ...widget, layerId: layerId(widget.layerId) })),
+  };
+}
+
 /** The map of an installed version, as every map read answers a map. */
 export function templateMapAnswer(resident: ResidentTemplate): TemplateMapRead {
   const { id: template, version, map } = resident;
-  const mapId = templateDocumentId({ template, version, kind: "map" });
+  const { mapId, layers: read, timeline, widgets } =
+    templateMapLayers(template, version, map, { createdAt: resident.createdAt, updatedAt: resident.updatedAt });
   const layerId = (part: string) => templateDocumentId({ template, version, kind: "layer", part });
   const facts = factsOf(resident);
-  const layers: (Layer & DocumentFacts)[] = map.layers.map((layer, ordinal) => ({
-    ...layer,
-    id: layerId(layer.id),
-    mapId,
-    ordinal,
-    createdAt: resident.createdAt,
-    updatedAt: resident.updatedAt,
-    ...facts,
-  }));
+  const layers: (Layer & DocumentFacts)[] = read.map((layer) => ({ ...layer, ...facts }));
   return {
     id: mapId,
     name: map.name,
@@ -54,8 +68,8 @@ export function templateMapAnswer(resident: ResidentTemplate): TemplateMapRead {
     note: null,
     legendCorner: map.legendCorner,
     legendOrder: map.legendOrder?.map(layerId) ?? null,
-    timeline: map.timeline ? { ...map.timeline, layerId: layerId(map.timeline.layerId) } : null,
-    widgets: map.widgets.map((widget) => (widget.layerId === null ? { ...widget } : { ...widget, layerId: layerId(widget.layerId) })),
+    timeline,
+    widgets,
     widgetsPublished: map.widgetsPublished,
     publishToken: null,
     publishedAt: null,
