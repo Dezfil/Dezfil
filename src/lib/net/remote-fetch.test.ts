@@ -20,7 +20,7 @@ async function serve(handler: Handler): Promise<{
   const server = createServer(handler);
   let count = 0;
   server.on("connection", () => count++);
-  await new Promise<void>((resolve) => server.listen(0, () => resolve()));
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", () => resolve()));
   servers.push(server);
   return {
     port: (server.address() as AddressInfo).port,

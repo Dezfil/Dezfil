@@ -258,7 +258,7 @@ beforeEach(async () => {
     res.writeHead(200, { "content-type": "application/json" });
     res.end(JSON.stringify(fixture));
   });
-  await new Promise<void>((resolve) => server.listen(0, () => resolve()));
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", () => resolve()));
   process.env.DEZFIL_OVERPASS_URL = `http://127.0.0.1:${(server.address() as AddressInfo).port}/api/interpreter`;
   // The fixture lives on loopback, which the egress check refuses unless
   // the allowlist names it, as an administrator's would.

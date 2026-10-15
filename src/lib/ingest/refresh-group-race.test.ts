@@ -67,7 +67,7 @@ beforeEach(async () => {
       res.end(JSON.stringify(OVERPASS_PAYLOAD));
     })();
   });
-  await new Promise<void>((resolve) => server.listen(0, () => resolve()));
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", () => resolve()));
   const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
   process.env.DEZFIL_OVERPASS_URL = `${base}/overpass`;
 });
