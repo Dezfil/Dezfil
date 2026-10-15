@@ -1,5 +1,4 @@
 import { existsSync } from "node:fs";
-import { limits } from "@/lib/limits";
 import { resolvePublication } from "@/lib/publish/publication-scope";
 import { getTileRecord } from "@/lib/metadata/tiles";
 import { renderFilters } from "@/lib/layer-service";
@@ -55,12 +54,17 @@ export function currentPublishedTile(
     }),
     currentInputs(recorded),
   );
+  // An archive is only ever minted by a render that took the tile road,
+  // over the feature cap or over Bytes drawn per layer. The second cannot
+  // be read off the record without evaluating the answer, so a current,
+  // ready archive is served whatever its count: it carries the published
+  // field set of the current query over the current data, which is what
+  // the publication's own answer for the layer would carry.
   if (
     !record ||
     record.state !== "ready" ||
     record.fingerprint !== fingerprint ||
     record.featureCount === null ||
-    record.featureCount <= limits.renderCapFeatures ||
     !record.builtAt ||
     !existsSync(tileArchivePath(layerId))
   ) {

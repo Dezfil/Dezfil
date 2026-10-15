@@ -297,6 +297,24 @@ describe("the map's reader roads", () => {
     expect(Object.keys(featuresOf(render.body)[0].properties)).toEqual(["name", "riders", "opened"]);
   });
 
+  it("answer a layer over the byte limit with its refusal and the copy's remedy, never with tiles", async () => {
+    process.env.DEZFIL_RENDER_CAP_BYTES = "256";
+    try {
+      const render = await call("GET", `/api/layers/${STATIONS}/render`, byCookie());
+      expect(render.status).toBe(200);
+      expect(render.body).toEqual({
+        layerId: STATIONS,
+        ok: false,
+        error: {
+          code: "render_bytes_exceeded",
+          message: "This layer's answer is larger than 256 bytes, the limit for one layer drawn in the map. A template draws within the limit; make a copy to draw all of it.",
+        },
+      });
+    } finally {
+      delete process.env.DEZFIL_RENDER_CAP_BYTES;
+    }
+  });
+
   it("render every layer inline, and answer the widgets, an extent and the search, the same by cookie and token", async () => {
     for (const headers of [byCookie(), byToken()]) {
       const stations = await call("GET", `/api/layers/${STATIONS}/render`, headers);

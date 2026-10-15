@@ -2538,7 +2538,8 @@ export function buildOpenApiDocument() {
               enum: ["inline", "tiled"],
               description:
                 "inline carries the GeoJSON itself; tiled points at served " +
-                "vector tiles (a points-viz result over the render cap).",
+                "vector tiles (a points-viz result over the render cap or " +
+                "Bytes drawn per layer).",
             },
             geojson: {
               type: "object",

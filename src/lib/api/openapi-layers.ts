@@ -240,11 +240,15 @@ export const LAYER_QUERY_PATHS = {
         "feature_id and kind; other columns stay out, and the published " +
         "field list plays no part. The inline answer, envelope " +
         "included, is bounded by Bytes drawn per layer (renderCapBytes), " +
-        "counted as it is built; above it the layer answers the errored " +
-        "state render_bytes_exceeded. Errored states (deleted table, " +
-        "failed build, missing tiler, an aggregation over the cap, an " +
-        "answer over the byte limit) are returned as data, not an HTTP " +
-        "error.",
+        "counted as it is built. Above it the layer takes the road it " +
+        "takes over the cap: a points-viz result is served as tiles, a " +
+        "result shipped without its live filters has them applied in " +
+        "the query and is answered inline if that fits, and anything " +
+        "else answers the errored state render_bytes_exceeded. A " +
+        "template's layer has no tile road. Errored states (deleted " +
+        "table, failed build, missing tiler, an aggregation over the " +
+        "cap, an answer over the byte limit) are returned as data, not " +
+        "an HTTP error.",
       tag: "Layers",
       tool: "render_layer", mcp: LOCAL_READ,
       display: {"verb": "Rendered the layer {subject}", "subject": {"resource": "layers", "argument": "id"}},

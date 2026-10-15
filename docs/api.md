@@ -988,8 +988,16 @@ with `writtenIn`, and is carried into the map's home before it is stored (see
 "Carrying SQL between contexts" below).
 `GET /api/layers/{id}/render` is what the canvas draws, for everyone who
 reaches the map. Its inline answer is bounded by Bytes drawn per layer
-(`renderCapBytes`), counted over the complete JSON as it is built; a larger
-one answers the errored layer `render_bytes_exceeded` instead.
+(`renderCapBytes`), counted over the complete JSON as it is built. A larger
+one takes the road a layer takes over the render cap: a points layer is
+served as tiles (`mode: "tiled"`; a missing tile builder answers
+`tiler_unavailable` naming the byte limit, a failing one `tile_build_failed`),
+a layer shipped without its live filters has them applied in the query and is
+answered inline if that fits, and anything else answers the errored layer
+`render_bytes_exceeded`. A template's layer has no tile road; a points
+layer's refusal there says that a copy draws all of it. A published reader,
+initially and under a selection, is told only the catalogue's sentence for
+the code.
 
 **Render properties compatibility change.** An inline layer render's feature
 properties are the columns the layer and its map read, not every column of
@@ -2246,9 +2254,11 @@ source identity and an interrupt owner. The 10-second connect limit remains;
 the source statement ceiling retains `408 query_timeout`. Teardown runs after
 native work drains, including a late attachment success after refusal. Layer
 renders count their complete inline answer against Bytes drawn per layer while
-it is read; an answer that would exceed it is refused before it is complete
-and answers the errored-layer envelope `render_bytes_exceeded`, with no
-ceiling for a single value. Dataset map features, slider previews, Overture,
+it is read, with no ceiling for a single value; an answer that would exceed it
+is stopped before it is complete, and the layer takes the road it takes over
+the render cap: tiles for a points layer, its live filters applied in the
+query for a layer the canvas filters, and otherwise the errored-layer envelope
+`render_bytes_exceeded`. Dataset map features, slider previews, Overture,
 OpenStreetMap and sketch features do not apply it yet. Geometry set and clear
 use the processing lifetime through preparation and revision-checked replacement.
 They continue after departure; expiry or resource refusal removes the candidate

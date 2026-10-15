@@ -10,7 +10,8 @@ import { requireTileAccess, type TileAccess } from "./access";
 import type { ArtifactInputs } from "@/lib/query/evaluation-inputs";
 
 /**
- * The tiled render response for an over-cap simple-features layer: report
+ * The tiled render response for a simple-features layer over the feature
+ * cap, or over Bytes drawn per layer (`overBytes` names that limit): report
  * the build state for the layer's current effective query, kicking a build
  * off when tiles are missing or stale. A failed build is an errored layer;
  * a missing tiler degrades the same way h3 does.
@@ -22,14 +23,14 @@ export async function tiledRender(
   nonGeometryColumns: string[],
   featureCount: number,
   geometryType: LayerRenderGeometryType,
-  opts: { liveFiltered?: boolean; published?: boolean; tileAccess?: TileAccess; inputs?: ArtifactInputs } = {},
+  opts: { liveFiltered?: boolean; published?: boolean; tileAccess?: TileAccess; inputs?: ArtifactInputs; overBytes?: number } = {},
 ): Promise<LayerRenderData> {
   requireTileAccess(opts.tileAccess, layer.id);
   if (!(await tilerAvailable())) {
     return errored(
       layer.id,
       "tiler_unavailable",
-      tilerUnavailable(featureCount),
+      tilerUnavailable(featureCount, opts.overBytes),
     );
   }
   // One shared archive serves builder and published routes, built with the

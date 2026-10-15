@@ -438,11 +438,14 @@ A layer render (ordinary, template, selection or published, and the layer
 results image exports and the map check draw) builds its inline answer under
 Bytes drawn per layer: the complete uncompressed UTF-8 JSON, geometry,
 properties, label anchors and envelope, is counted while it is read, and an
-answer that would exceed the limit is refused before it is complete, with the
-errored-layer envelope `render_bytes_exceeded`. No single value has a ceiling
-of its own. Dataset map features, slider previews, Overture, OpenStreetMap and
-sketch features do not apply it yet. File and archive import processing, link
-and object-store imports, URL refreshes, and OpenStreetMap, Overture and PostGIS imports and refreshes
+answer that would exceed the limit is stopped before it is complete. The layer
+then takes the road it takes over the render cap: a points layer draws as
+tiles (outside templates, which have no tile road), a layer the canvas filters
+live has its filters applied in the query and draws if that fits, and anything
+else answers the errored-layer envelope `render_bytes_exceeded`. No single
+value has a ceiling of its own. Dataset map features, slider previews,
+Overture, OpenStreetMap and sketch features do not apply it yet. File and
+archive import processing, link and object-store imports, URL refreshes, and OpenStreetMap, Overture and PostGIS imports and refreshes
 use the Data processing time limit
 through preparation and commit. Accepted processing continues after departure;
 expiry removes candidates and leaves previously committed data intact. Upload

@@ -702,9 +702,9 @@ that could, or use the image.
 certificate authority bundle and the extensions come over HTTPS: install
 `ca-certificates` before running the installer there.
 
-**A layer over the render cap reports a missing tiler.** `tippecanoe` is
-not on `PATH`. Install it or set `DEZFIL_TIPPECANOE`. Everything below the
-cap keeps working without it.
+**A layer over the render cap or Bytes drawn per layer reports a missing
+tiler.** `tippecanoe` is not on `PATH`. Install it or set `DEZFIL_TIPPECANOE`.
+Everything within both limits keeps working without it.
 
 **A browser run fails instead of skipping.** Check the required provisioning
 on the server process, not the test process: a missing render cap override,

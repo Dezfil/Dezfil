@@ -11,12 +11,13 @@ import { effectiveSql, wrappable, OD_GEOMETRY } from "./query/compile";
 import type { Layer } from "./metadata/maps";
 import { AGG_ELEV, isAggregated, isOdViz, type LayerFilter } from "./viz";
 import { publishedFieldsFor, type PublishedMapContext } from "./publish/published-fields";
-import { renderCapRefusal, templateRenderCapRefusal } from "./layer-render-copy";
+import { renderCapRefusal, templateRenderBytesRefusal, templateRenderCapRefusal } from "./layer-render-copy";
 import { isTemplateDocumentId } from "./templates/ids";
 import { renderFilters } from "./layer-render-filters";
 import { privateRenderFields } from "./layer-render-fields";
 import { layerEvaluation } from "./query/context";
 import { buildInlineAnswer } from "./query/render-features";
+import { renderBytesExceeded } from "./query/render-budget";
 
 function ident(s: string): string { return `"${s.replace(/"/g, '""')}"`; }
 
@@ -97,8 +98,9 @@ export interface RenderLayerOpts {
 
 /**
  * Render data for one layer. Failures are returned, not thrown: a layer whose
- * table was deleted (or whose result exceeds the render cap) enters a visible
- * errored state while the rest of the map keeps working (spec: Layers).
+ * table was deleted (or whose result exceeds the render cap or the byte limit
+ * where no other road carries it) enters a visible errored state while the
+ * rest of the map keeps working.
  */
 export async function renderLayer(
   scope: DatasetScope,
@@ -196,35 +198,40 @@ export async function renderLayer(
       };
 
       let sub = subFor(filters);
-      let summary = await summarize(sub);
-      let { featureCount, geometryType } = summary;
-      // A template's layer has no tile road: it draws within the cap or
-      // answers the cap refusal, and its copy tiles as any map does.
+      let { featureCount, geometryType } = await summarize(sub);
+      // A template's layer has no tile road: it draws within the limits or
+      // answers their refusal, and its copy tiles as any map does.
       const template = isTemplateDocumentId(layer.id);
+      const tileable = layer.viz.type === "points" && !template;
+      // Simple features over a limit switch to tiles — live filtering rides
+      // the tiles. `overBytes` names the byte limit when the count fits.
+      const tiles = (overBytes?: number) =>
+        tiledRender(
+          layer,
+          filters,
+          rawGeomCol,
+          names,
+          featureCount,
+          geometryType,
+          {
+            liveFiltered,
+            published: opts.published !== undefined,
+            tileAccess: opts.tileAccess,
+            inputs: recordedInputs(conn),
+            ...(overBytes === undefined ? null : { overBytes }),
+          },
+        );
+      // A layer whose undelegated result cannot ship falls back to every
+      // filter in SQL: correct results, settled on release, just not live.
+      const applyEveryFilter = async () => {
+        filters = layer.filters;
+        liveFiltered = false;
+        sub = subFor(filters);
+        ({ featureCount, geometryType } = await summarize(sub));
+      };
       if (featureCount > limits.renderCapFeatures) {
-        // Simple features over the cap switch to tiles — live filtering
-        // rides the tiles.
-        if (layer.viz.type === "points" && !template) {
-          return tiledRender(
-            layer,
-            filters,
-            rawGeomCol,
-            names,
-            featureCount,
-            geometryType,
-            { liveFiltered, published: opts.published !== undefined, tileAccess: opts.tileAccess, inputs: recordedInputs(conn) },
-          );
-        }
-        // A heatmap whose undelegated result cannot ship falls back to
-        // every filter in SQL: correct results, settled on release,
-        // just not live.
-        if (liveFiltered) {
-          filters = layer.filters;
-          liveFiltered = false;
-          sub = subFor(filters);
-          summary = await summarize(sub);
-          ({ featureCount, geometryType } = summary);
-        }
+        if (tileable) return tiles();
+        if (liveFiltered) await applyEveryFilter();
       }
       if (featureCount > limits.renderCapFeatures) {
         // The cap error remains for what still cannot render: an over-cap
@@ -245,22 +252,46 @@ export async function renderLayer(
 
       // The answer is built while it is read, under Bytes drawn per layer:
       // an answer over the limit is refused before it is complete, never
-      // after (see query/render-features).
-      return await buildInlineAnswer(
-        conn,
-        { from: sub, geometry: geom, properties: propsCols.map((c) => c.name) },
-        (features, count) => ({
-          layerId: layer.id,
-          ok: true,
-          mode: "inline" as const,
-          geojson: { type: "FeatureCollection", features },
-          featureCount: count,
-          geometryType,
-          ...(liveFiltered ? { liveFiltered } : null),
-          ...publishedFields,
-        }),
-        limits.renderCapBytes,
-        bounds.interrupted,
+      // after (see query/render-features). Null is that refusal.
+      const inline = async () => {
+        try {
+          return await buildInlineAnswer(
+            conn,
+            { from: sub, geometry: geom, properties: propsCols.map((c) => c.name) },
+            (features, count) => ({
+              layerId: layer.id,
+              ok: true,
+              mode: "inline" as const,
+              geojson: { type: "FeatureCollection", features },
+              featureCount: count,
+              geometryType,
+              ...(liveFiltered ? { liveFiltered } : null),
+              ...publishedFields,
+            }),
+            limits.renderCapBytes,
+            bounds.interrupted,
+          );
+        } catch (error) {
+          if (error instanceof ApiError && error.code === "render_bytes_exceeded") return null;
+          throw error;
+        }
+      };
+      const drawn = await inline();
+      if (drawn) return drawn;
+      // Over the byte limit with the count within its cap, a layer takes
+      // the road it takes over the cap.
+      if (tileable) return tiles(limits.renderCapBytes);
+      if (liveFiltered) {
+        await applyEveryFilter();
+        const settled = await inline();
+        if (settled) return settled;
+      }
+      return errored(
+        layer.id,
+        "render_bytes_exceeded",
+        template && layer.viz.type === "points"
+          ? templateRenderBytesRefusal(limits.renderCapBytes)
+          : renderBytesExceeded(limits.renderCapBytes).message,
       );
     }, { signal, scope });
   } catch (error) {

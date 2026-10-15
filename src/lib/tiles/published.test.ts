@@ -117,7 +117,7 @@ describe("current published tile eligibility", () => {
     expect(currentPublishedTile(token, layerId, version)).toBeNull();
   });
 
-  it("rejects a superseded server result, an inline artifact, and an old URL", async () => {
+  it("rejects a superseded server result and an old URL, and serves a current archive whatever its count", async () => {
     const version = String(Date.parse(builtAt));
     expect(currentPublishedTile(token, layerId, "1")).toBeNull();
 
@@ -129,8 +129,10 @@ describe("current published tile eligibility", () => {
     expect(currentPublishedTile(token, layerId, version)).toBeNull();
 
     await updateLayer(testAccountScope(), layerId, { filters: [] }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layerId)?.mapId ?? "missing") })?.editRevision });
+    // An archive minted over the byte limit counts no more features than
+    // the cap: current and ready, it is served like any other.
     seedRecord(10);
-    expect(currentPublishedTile(token, layerId, version)).toBeNull();
+    expect(currentPublishedTile(token, layerId, version)).not.toBeNull();
   });
 
   it("uses current publication ownership on every check", () => {

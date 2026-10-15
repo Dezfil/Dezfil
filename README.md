@@ -241,10 +241,12 @@ the limit admitted when reception began. A 60-second body stall answers
 `engine-spill/` allowance of four times that value. A restart clears only that
 spill directory. Exhaustion answers `422 engine_memory_exceeded`, naming
 memory or scratch and the deployment remedy. A layer render builds its answer
-under Bytes drawn per layer: one that would exceed it is refused before it is
-complete and answers the errored layer `render_bytes_exceeded`. Dataset map
-features, slider previews, Overture, OpenStreetMap and sketch features do not
-apply it yet.
+under Bytes drawn per layer and stops one that would exceed it before it is
+complete. The layer then takes the road it takes over the render cap: a points
+layer draws as tiles, a layer the canvas filters live has its filters applied
+in the query and draws if that fits, and anything else answers the errored
+layer `render_bytes_exceeded`. Dataset map features, slider previews,
+Overture, OpenStreetMap and sketch features do not apply it yet.
 
 JSON admission has fixed outer byte tiers: 65,536 bytes for authentication
 entry, Account, Users, instance settings and the three anonymous published POSTs; 16,777,216 for
@@ -450,7 +452,8 @@ Operational recipes for running an instance live in
 Tiled rendering of large layers shells out to
 [tippecanoe](https://github.com/felt/tippecanoe) (`brew install tippecanoe`
 on macOS; build from source on Linux). Without it everything else works —
-only layers over the render cap report the missing tiler. The Docker image
+only points layers over the render cap or Bytes drawn per layer report the
+missing tiler. The Docker image
 bakes it in.
 
 ## How this project is built
