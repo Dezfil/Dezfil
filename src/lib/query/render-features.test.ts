@@ -107,6 +107,28 @@ describe("inline answers built under Bytes drawn per layer", () => {
     expect(point.properties.j).toEqual({ a: { z: [1, Infinity, 123456789012345678901234567890, 0] }, b: "é/", c: null, d: [true, false] });
   });
 
+  it("counts JSON documents inside lists, maps, arrays, tuples and unions exactly", async () => {
+    // Repeated names, escapes, a number the parser respells, a JSON text,
+    // empty and missing documents, at every depth a document can sit.
+    const nested = `(SELECT ST_GeomFromText(wkt) AS geometry, * EXCLUDE (wkt) FROM (VALUES
+      ('POINT (1 2)',
+        ['{"a":"x\\u0001","a":[1,"two"],"b":"é\\/😀\\u00e9"}'::JSON, NULL, '[]'::JSON, '"just text"'::JSON, '{"q":1,"q":2}'::JSON],
+        MAP {'k"é': '{"z":[1.0,-0,1E400],"z":{"w":null}}'::JSON, 'n': NULL::JSON},
+        [{'j': '[true,false,null]'::JSON, 'n': 1}],
+        [['{"deep":["\\u00e9"]}'::JSON], [], NULL],
+        ['{"r":1}'::JSON, '[2]'::JSON]::JSON[2],
+        [union_value(j := '{"u":"w"}'::JSON)::UNION(j JSON, n INTEGER)]),
+      ('LINESTRING (0 0, 1 1)', [], MAP {}, [], [], NULL, []),
+      ('POINT (3 4)', NULL, NULL, NULL, NULL, NULL, NULL)
+    ) AS v(wkt, jl, jm, js, jn, ja, ju)) AS q`;
+    const answer = await exactly({ from: nested, geometry: quoteIdent("geometry"), properties: await columns(nested) });
+    const [first, second] = answer.geojson.features;
+    expect(first.properties.jl).toEqual([{ a: [1, "two"], b: "é/😀é" }, null, [], "just text", { q: 2 }]);
+    expect(first.properties.jm).toEqual({ 'k"é': { z: { w: null } }, n: null });
+    expect(first.properties.jn).toEqual([[{ deep: ["é"] }], [], null]);
+    expect(second.properties).toMatchObject({ jl: [], jm: {}, jn: [] });
+  });
+
   it("counts large decimal geometry and an empty property set exactly", async () => {
     const ring = Array.from({ length: 4000 }, (_, i) => `${(Math.cos(i / 637) * 10.123456789).toFixed(9)} ${(Math.sin(i / 637) * 5.5).toFixed(9)}`);
     const from = `(SELECT ST_GeomFromText('POLYGON ((${[...ring, ring[0]].join(", ")}))') AS geometry) AS q`;
@@ -155,15 +177,16 @@ describe("inline answers built under Bytes drawn per layer", () => {
 /**
  * Early refusal, observed at the boundary where native data becomes
  * JavaScript: the rows fetched from the engine (a completed feature needs
- * its row), the longest text converted from native storage, and whether the
- * complete answer was ever serialized. A refusal counts as early only when
- * all three stay bounded; resource figures alone could not tell a late
- * refusal from an early one.
+ * its row), the text converted from native storage (the longest one and
+ * all of it), the longest text parsed, and whether the complete answer was
+ * ever serialized. A refusal counts as early only when all of them stay
+ * bounded; resource figures alone could not tell a late refusal from an
+ * early one.
  */
-interface Observed { refused: boolean; rows: number; longestText: number; serialized: number }
+interface Observed { refused: boolean; rows: number; longestText: number; converted: number; longestParse: number; serialized: number }
 
 async function observe(run: () => Promise<unknown>): Promise<Observed> {
-  const seen: Observed = { refused: false, rows: 0, longestText: 0, serialized: 0 };
+  const seen: Observed = { refused: false, rows: 0, longestText: 0, converted: 0, longestParse: 0, serialized: 0 };
   const fetch = DuckDBResult.prototype.fetchChunk;
   vi.spyOn(DuckDBResult.prototype, "fetchChunk").mockImplementation(async function (this: DuckDBResult) {
     const chunk = await fetch.call(this);
@@ -173,8 +196,16 @@ async function observe(run: () => Promise<unknown>): Promise<Observed> {
   const item = DuckDBVarCharVector.prototype.getItem;
   vi.spyOn(DuckDBVarCharVector.prototype, "getItem").mockImplementation(function (this: DuckDBVarCharVector, index: number) {
     const text = item.call(this, index);
-    if (text !== null) seen.longestText = Math.max(seen.longestText, Buffer.byteLength(text));
+    if (text !== null) {
+      seen.longestText = Math.max(seen.longestText, Buffer.byteLength(text));
+      seen.converted += Buffer.byteLength(text);
+    }
     return text;
+  });
+  const parse = JSON.parse;
+  vi.spyOn(JSON, "parse").mockImplementation(function (text: string, ...rest: unknown[]) {
+    if (typeof text === "string") seen.longestParse = Math.max(seen.longestParse, text.length);
+    return (parse as (...args: unknown[]) => unknown)(text, ...rest);
   });
   const stringify = JSON.stringify;
   vi.spyOn(JSON, "stringify").mockImplementation(function (value: unknown, ...rest: unknown[]) {
@@ -190,8 +221,11 @@ async function observe(run: () => Promise<unknown>): Promise<Observed> {
 
 const LIMIT = 1_048_576;
 /** Refused within the chunk that crossed the limit, no text over the limit
- * converted, and no complete answer serialized. */
-const refusedEarly = (o: Observed) => o.refused && o.rows <= 2048 && o.longestText <= LIMIT && o.serialized === 0;
+ * converted or parsed, no more text converted in all than the answer could
+ * hold (an eighth over, for the names of the nodes a document is walked
+ * by), and no complete answer serialized. */
+const refusedEarly = (o: Observed) => o.refused && o.rows <= 2048 && o.longestText <= LIMIT && o.longestParse <= LIMIT
+  && o.converted <= LIMIT + LIMIT / 8 && o.serialized === 0;
 
 /** The deliberately late control: the same rows, properties and envelope,
  * built without incremental checks, then refused by its serialized length. */
@@ -231,5 +265,61 @@ describe("an oversized answer is refused before it is built", () => {
     const early = await observe(() => buildInlineAnswer(conn, small, compose, LIMIT));
     const late = await observe(() => lateRefusal(small));
     expect(early.refused || late.refused).toBe(false);
+  });
+});
+
+describe("a JSON document inside a list or a map is refused before it is converted", () => {
+  /** One feature whose one property holds a document of about 4 MiB, four
+   * times the limit, in 4,096 members or items of 1 KiB each. */
+  const documentIn = (holder: (doc: string) => string, document: string): InlineRows => ({
+    from: `(SELECT ST_Point(0, 0) AS geometry, ${holder("doc")} AS docs FROM (SELECT ${document} AS doc FROM range(4096) t(i))) AS q`,
+    geometry: quoteIdent("geometry"),
+    properties: ["docs"],
+  });
+  const object = "json_group_object('member ' || i, repeat('x', 1024))";
+  const array = "json_group_array(repeat('x', 1024))";
+  const inList = (doc: string) => `[${doc}]`;
+  const inMap = (doc: string) => `MAP {'doc': ${doc}}`;
+  const cases = [
+    ["an object in a list", documentIn(inList, object)],
+    ["an array in a list", documentIn(inList, array)],
+    ["an object in a map", documentIn(inMap, object)],
+    ["an array in a map", documentIn(inMap, array)],
+  ] as const;
+
+  it.each(cases)("%s: refused early, while the late control is not", async (_, rows) => {
+    const early = await observe(() => buildInlineAnswer(conn, rows, compose, LIMIT));
+    const late = await observe(() => lateRefusal(rows));
+    expect(early).toMatchObject({ refused: true, serialized: 0 });
+    expect(refusedEarly(early)).toBe(true);
+    expect(early.longestText).toBeLessThan(2048);
+    // The control returns the same refusal, and fails the proof: it
+    // converted the whole document before measuring it.
+    expect(late.refused).toBe(true);
+    expect(refusedEarly(late)).toBe(false);
+    expect(late.converted).toBeGreaterThan(3 * LIMIT);
+  });
+
+  it.each(cases)("%s: admitted at exactly its size", async (_, rows) => {
+    const answer = await exactly(rows);
+    expect(answer.featureCount).toBe(1);
+  });
+
+  it("admits a document of the same size outside a list at exactly its size", async () => {
+    const answer = await exactly(documentIn((doc) => doc, object));
+    expect(Object.keys(answer.geojson.features[0].properties.docs as object)).toHaveLength(4096);
+  });
+
+  it("counts a repeated name's last value only, without converting the values it replaces", async () => {
+    const rows: InlineRows = {
+      from: `(SELECT ST_Point(0, 0) AS geometry, [('{"a":"' || repeat('x', 1048576) || '","b":{"c":1,"c":2},"a":1}')::JSON] AS docs) AS q`,
+      geometry: quoteIdent("geometry"),
+      properties: ["docs"],
+    };
+    const answer = await exactly(rows);
+    expect(answer.geojson.features[0].properties.docs).toEqual([{ a: 1, b: { c: 2 } }]);
+    const seen = await observe(() => buildInlineAnswer(conn, rows, compose, Buffer.byteLength(JSON.stringify(answer), "utf8")));
+    expect(seen.refused).toBe(false);
+    expect(seen.longestText).toBeLessThan(1024);
   });
 });

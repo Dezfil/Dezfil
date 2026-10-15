@@ -19,9 +19,11 @@ import { setOwn } from "./set-own";
  * their JSON spelling is normalized by the parser (1.0 becomes 1), and each
  * is a short token. Integers, floating values and booleans are read as the
  * engine holds them: the engine writes a double's shortest exact spelling,
- * so the parsed text and the native value are the same number. A JSON document inside a list or map cannot be walked
- * there (the engine runs no subquery inside a list function), so it is read
- * as one text and counted once parsed; anywhere else it is walked.
+ * so the parsed text and the native value are the same number. The engine
+ * runs no subquery inside a list function, and a document is walked by
+ * one, so a list or map that holds a JSON document anywhere inside it reads
+ * its items through a subquery over them instead: its documents are walked
+ * like any other, and none is converted whole before it is counted.
  */
 export type RenderValue =
   | { kind: "text" | "json" | "tree" | "number"; sql: string }
@@ -31,42 +33,67 @@ export type RenderValue =
   | { kind: "union"; sql: string; tags: readonly string[]; members: readonly RenderValue[] };
 
 /** A to_json text with its exact length when it is a JSON string, which the
- * parser and the serializer reproduce byte for byte. Other texts (numbers,
- * booleans, a document's members) are counted once parsed. */
+ * parser and the serializer reproduce byte for byte. The other texts, the
+ * spelling of a decimal or a wide integer, are short and counted once
+ * parsed. */
 function jsonText(expression: string): string {
   const text = `CAST(to_json(${expression}) AS VARCHAR)`;
   return `struct_pack(bytes := CASE WHEN starts_with(${text}, '"') THEN strlen(${text}) END, text := ${text})`;
 }
 
-/** A JSON document's nodes in document order. A member whose name repeats
- * in its object is marked: JSON.parse keeps the first position and the last
- * value, so the decoder reserves the first, reads the last and skips the
- * rest without converting them. */
+/** A JSON document's nodes in document order, each with its parent, and
+ * whether any object in it repeats a member name. Partitioning, grouping or
+ * joining the nodes inside this per-value subquery keys that work by the
+ * whole document, which exhausts the engine's memory on a document of a few
+ * megabytes, so the engine only lists them. The decoder finds each node's
+ * members by their parent, and only where a name repeats does it look over
+ * an object's member names first: JSON.parse keeps the first position and
+ * the last value, so the decoder reserves the first, reads the last and
+ * skips the rest without converting them. */
 function treeProjection(expression: string): string {
-  return `(WITH __dezfil_render_nodes AS (
-      SELECT id, parent, key, type, atom,
-        id = min(id) OVER (PARTITION BY parent, key) AS first,
-        id = max(id) OVER (PARTITION BY parent, key) AS last
-      FROM json_tree(${expression})
-    ), __dezfil_render_members AS (
-      SELECT parent, count(*) AS members FROM __dezfil_render_nodes GROUP BY parent
-    ) SELECT list(struct_pack(
-      type := n.type,
-      members := coalesce(m.members, 0),
-      first := n.first,
-      last := n.last,
-      key_bytes := ${stringByteLength("n.key")},
-      key := n.key,
-      bytes := CASE WHEN n.type IN ('VARCHAR', 'BOOLEAN') THEN strlen(CAST(n.atom AS VARCHAR)) WHEN n.type = 'NULL' THEN 4 END,
-      atom := CAST(n.atom AS VARCHAR)
-    ) ORDER BY n.id)
-    FROM __dezfil_render_nodes n LEFT JOIN __dezfil_render_members m ON m.parent = n.id)`;
+  return `(SELECT struct_pack(
+      repeated := coalesce(count(n.key) > list_unique(list(hash(n.parent, n.key)) FILTER (WHERE n.key IS NOT NULL)), false),
+      nodes := list(struct_pack(
+        type := n.type,
+        id := CAST(n.id AS DOUBLE),
+        parent := CAST(n.parent AS DOUBLE),
+        key_bytes := ${stringByteLength("n.key")},
+        key := n.key,
+        bytes := CASE WHEN n.type IN ('VARCHAR', 'BOOLEAN') THEN strlen(CAST(n.atom AS VARCHAR)) WHEN n.type = 'NULL' THEN 4 END,
+        atom := CAST(n.atom AS VARCHAR)
+      ) ORDER BY n.id))
+    FROM json_tree(${expression}) AS n)`;
 }
 
-export function renderValueProjection(expression: string, type: DuckDBType, depth = 0, inList = false): RenderValue {
+/** Whether a value of this type holds a JSON document anywhere inside it. */
+function holdsJson(type: DuckDBType): boolean {
+  if (type.typeId === DuckDBTypeId.VARCHAR) return type.alias === "JSON";
+  switch (type.typeId) {
+    case DuckDBTypeId.LIST:
+    case DuckDBTypeId.ARRAY:
+    case DuckDBTypeId.MAP:
+      return holdsJson(type.valueType);
+    case DuckDBTypeId.STRUCT:
+      return type.entryTypes.some(holdsJson);
+    case DuckDBTypeId.UNION:
+      return type.memberTypes.some(holdsJson);
+    default:
+      return false;
+  }
+}
+
+/** A list's items, each projected by `item` over `child`, in order, read
+ * through a subquery rather than a list function so that a document among
+ * them can be walked. An empty list stays empty. */
+function walkedItems(list: string, child: string, depth: number, item: string): string {
+  const place = `__dezfil_render_place_${depth}`;
+  return `coalesce((SELECT list(${item} ORDER BY ${place}) FROM unnest(${list}) WITH ORDINALITY AS __dezfil_render_items_${depth}(${child}, ${place})), [])`;
+}
+
+export function renderValueProjection(expression: string, type: DuckDBType, depth = 0): RenderValue {
   const nullable = (sql: string) => `CASE WHEN ${expression} IS NULL THEN NULL ELSE ${sql} END`;
   if (type.typeId === DuckDBTypeId.VARCHAR && type.alias === "JSON") {
-    return inList ? { kind: "json", sql: nullable(jsonText(expression)) } : { kind: "tree", sql: nullable(`struct_pack(nodes := ${treeProjection(expression)})`) };
+    return { kind: "tree", sql: nullable(treeProjection(expression)) };
   }
   // Spatial aliases such as POINT_2D have STRUCT/LIST storage, but their
   // nominal SQL type does not bind struct_extract/list_transform directly.
@@ -78,30 +105,34 @@ export function renderValueProjection(expression: string, type: DuckDBType, dept
   switch (type.typeId) {
     case DuckDBTypeId.LIST:
     case DuckDBTypeId.ARRAY: {
-      const item = renderValueProjection(child, type.valueType, depth + 1, true);
-      return { kind: "list", sql: nullable(`struct_pack(items := list_transform(${expression}, ${child} -> ${item.sql}))`), item };
+      const item = renderValueProjection(child, type.valueType, depth + 1);
+      // A fixed-size array becomes a list for the subquery to unnest.
+      const items = holdsJson(type.valueType)
+        ? walkedItems(type.typeId === DuckDBTypeId.ARRAY ? `list_transform(${expression}, ${child} -> ${child})` : expression, child, depth, item.sql)
+        : `list_transform(${expression}, ${child} -> ${item.sql})`;
+      return { kind: "list", sql: nullable(`struct_pack(items := ${items})`), item };
     }
     case DuckDBTypeId.STRUCT: {
       // An unnamed tuple serializes every field under the empty name; the
       // parser keeps the last. Named fields are unique.
       const indices = type.entryNames.map((_, i) => i).filter(i => type.entryNames.lastIndexOf(type.entryNames[i]) === i);
       const fields = indices.map(i => renderValueProjection(type.entryNames[i]
-        ? `${expression}.${quoteIdent(type.entryNames[i])}` : `struct_extract(${expression}, ${i + 1})`, type.entryTypes[i], depth + 1, inList));
+        ? `${expression}.${quoteIdent(type.entryNames[i])}` : `struct_extract(${expression}, ${i + 1})`, type.entryTypes[i], depth + 1));
       return { kind: "struct", sql: nullable(`struct_pack(${fields.map((f, i) => `v${i} := ${f.sql}`).join(", ")})`), names: indices.map(i => type.entryNames[i]), fields };
     }
     case DuckDBTypeId.MAP: {
       // to_json names each member by its key's text, which the engine
       // quotes where a nested or binary key could otherwise read as another.
       const key = `CAST(${child}.key AS VARCHAR)`;
-      const value = renderValueProjection(`${child}.value`, type.valueType, depth + 1, true);
-      return {
-        kind: "map",
-        sql: nullable(`struct_pack(items := list_transform(map_entries(${expression}), ${child} -> struct_pack(key_bytes := ${stringByteLength(key)}, key := ${key}, value := ${value.sql})))`),
-        value,
-      };
+      const value = renderValueProjection(`${child}.value`, type.valueType, depth + 1);
+      const entry = `struct_pack(key_bytes := ${stringByteLength(key)}, key := ${key}, value := ${value.sql})`;
+      const items = holdsJson(type.valueType)
+        ? walkedItems(`map_entries(${expression})`, child, depth, entry)
+        : `list_transform(map_entries(${expression}), ${child} -> ${entry})`;
+      return { kind: "map", sql: nullable(`struct_pack(items := ${items})`), value };
     }
     case DuckDBTypeId.UNION: {
-      const members = type.memberTypes.map((t, i) => renderValueProjection(`union_extract(${expression}, '${type.memberTags[i].replaceAll("'", "''")}')`, t, depth + 1, inList));
+      const members = type.memberTypes.map((t, i) => renderValueProjection(`union_extract(${expression}, '${type.memberTags[i].replaceAll("'", "''")}')`, t, depth + 1));
       return {
         kind: "union",
         sql: nullable(`struct_pack(tag := CASE union_tag(${expression}) ${type.memberTags.map((tag, i) => `WHEN '${tag.replaceAll("'", "''")}' THEN ${i}`).join(" ")} END, ${members.map((m, i) => `v${i} := ${m.sql}`).join(", ")})`),
@@ -196,30 +227,47 @@ export function decodeRenderValue(vector: DuckDBVector, index: number, value: Re
       return result;
     }
     case "tree":
-      return decodeTree(cell.entryVectorAt(0) as DuckDBListVector, index, budget);
+      return decodeTree(cell, index, budget);
   }
 }
 
-function decodeTree(list: DuckDBListVector, index: number, budget: ByteBudget): unknown {
+function decodeTree(tree: DuckDBStructVector, index: number, budget: ByteBudget): unknown {
+  const repeated = tree.entryVectorAt(0).getItem(index) === true;
+  const list = tree.entryVectorAt(1) as DuckDBListVector;
   const nodes = list.childVector as DuckDBStructVector;
-  const [types, members, firsts, lasts, keyBytes, keys, bytes, atoms] = Array.from({ length: 8 }, (_, i) => nodes.entryVectorAt(i));
+  const [types, ids, parents, keyBytes, keys, bytes, atoms] = Array.from({ length: 7 }, (_, i) => nodes.entryVectorAt(i));
+  const end = list.getEntryOffset(index) + list.getEntryLength(index);
   let cursor = list.getEntryOffset(index);
+  // Document order numbers a node's descendants after it and before
+  // anything that follows it, so its subtree is the run of nodes whose
+  // parent is it or a later node.
+  const within = (row: number, container: number) => row < end && (parents.getItem(row) as number) >= container;
   const skip = (): void => {
-    const count = Number(members.getItem(cursor++));
-    for (let i = 0; i < count; i++) skip();
+    const own = ids.getItem(cursor++) as number;
+    while (within(cursor, own)) cursor++;
+  };
+  // Whether each member of the object is the first and the last of its name.
+  const occurrences = (container: number): { first: boolean; last: boolean }[] => {
+    const names: string[] = [];
+    for (let row = cursor; within(row, container); row++) {
+      if (parents.getItem(row) === container) names.push(keys.getItem(row) as string);
+    }
+    const firstAt = new Map<string, number>(), lastAt = new Map<string, number>();
+    names.forEach((name, i) => { if (!firstAt.has(name)) firstAt.set(name, i); lastAt.set(name, i); });
+    return names.map((name, i) => ({ first: firstAt.get(name) === i, last: lastAt.get(name) === i }));
   };
   const next = (): unknown => {
     const row = cursor++;
     const type = types.getItem(row) as string;
-    const count = Number(members.getItem(row));
     if (type === "OBJECT") {
+      const own = ids.getItem(row) as number;
       budget.take(2);
+      const marks = repeated ? occurrences(own) : null;
       const result: Record<string, unknown> = {};
       let shown = 0;
-      for (let i = 0; i < count; i++) {
+      for (let i = 0; within(cursor, own); i++) {
         const member = cursor;
-        const first = firsts.getItem(member) === true;
-        const last = lasts.getItem(member) === true;
+        const { first, last } = marks ? marks[i] : { first: true, last: true };
         if (first) budget.take((shown++ ? 1 : 0) + Number(keyBytes.getItem(member)) + 1);
         const key = keys.getItem(member) as string;
         // The first of repeated names holds the member's place; the last
@@ -230,9 +278,13 @@ function decodeTree(list: DuckDBListVector, index: number, budget: ByteBudget): 
       return result;
     }
     if (type === "ARRAY") {
-      budget.take(2 + Math.max(0, count - 1));
+      const own = ids.getItem(row) as number;
+      budget.take(2);
       const result: unknown[] = [];
-      for (let i = 0; i < count; i++) result.push(next());
+      while (within(cursor, own)) {
+        if (result.length) budget.take(1);
+        result.push(next());
+      }
       return result;
     }
     const known = bytes.getItem(row);
