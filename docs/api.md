@@ -1012,6 +1012,13 @@ exactly their computed columns. A caller that needs every column reads the
 rows with `POST /api/query` or downloads them. Published renders keep the
 published field set, and tiled layers keep the archive's.
 
+**Feature reads compatibility change.** Reads that draw features count their
+complete answer against Bytes drawn per layer too, each with its own outcome
+above it. `GET /api/tables/{name}/features` answers `ok: false` with a
+`reason` and no features when the dataset's answer, or the sample asked for
+with `sample=1`, exceeds the limit; it used to answer every feature within
+the render cap whatever their size.
+
 `GET /api/layers/{id}/tiles/{z}/{x}/{y}` serves a tiled layer's archive to a
 reader who can reach every dataset it recorded drawing, and answers
 `not_found` (404) otherwise. A reader beyond the current archive's
@@ -2258,7 +2265,9 @@ it is read, with no ceiling for a single value; an answer that would exceed it
 is stopped before it is complete, and the layer takes the road it takes over
 the render cap: tiles for a points layer, its live filters applied in the
 query for a layer the canvas filters, and otherwise the errored-layer envelope
-`render_bytes_exceeded`. Dataset map features, slider previews, Overture,
+`render_bytes_exceeded`. Dataset map features count their answer the same
+way; over the limit, the whole dataset or the sample asked for answers
+`ok: false` with a reason and no features. Slider previews, Overture,
 OpenStreetMap and sketch features do not apply it yet. Geometry set and clear
 use the processing lifetime through preparation and revision-checked replacement.
 They continue after departure; expiry or resource refusal removes the candidate

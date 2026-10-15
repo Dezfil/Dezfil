@@ -245,8 +245,10 @@ under Bytes drawn per layer and stops one that would exceed it before it is
 complete. The layer then takes the road it takes over the render cap: a points
 layer draws as tiles, a layer the canvas filters live has its filters applied
 in the query and draws if that fits, and anything else answers the errored
-layer `render_bytes_exceeded`. Dataset map features, slider previews,
-Overture, OpenStreetMap and sketch features do not apply it yet.
+layer `render_bytes_exceeded`. Dataset map features count their answer the
+same way; over the limit, the whole dataset or the sample asked for answers
+`ok: false` with a reason and no features. Slider previews, Overture,
+OpenStreetMap and sketch features do not apply it yet.
 
 JSON admission has fixed outer byte tiers: 65,536 bytes for authentication
 entry, Account, Users, instance settings and the three anonymous published POSTs; 16,777,216 for

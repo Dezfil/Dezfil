@@ -22,7 +22,31 @@ export interface InlineRows {
   geometry: string;
   /** The property columns in answer order. */
   properties: readonly string[];
+  /** Whether each non-point feature carries its label anchor. Layer
+   * renders do, by default; other answers pass `false`. */
+  anchors?: boolean;
 }
+
+/**
+ * One row while its feature is built. Each part is charged to the answer's
+ * budget as it is read, before the value it measures is converted; the
+ * feature's own members around them are the builder's to charge.
+ */
+export interface InlineRow {
+  /** The feature's position in the answer, from zero. */
+  readonly index: number;
+  readonly budget: ByteBudget;
+  /** The row's geometry as GeoJSON, charged. */
+  geometry(): unknown;
+  /** A non-point geometry's label anchor, not charged: whoever carries it
+   * charges it. Undefined for a point, or without anchors. */
+  anchor(): unknown;
+  /** The value of property column `c`, by its position, charged. */
+  value(c: number): unknown;
+}
+
+/** Builds one feature of an answer from its row. */
+export type FeatureBuilder<F> = (row: InlineRow) => F;
 
 /** The reserved property that carries a non-point feature's label anchor. */
 const ANCHOR = "__anchor";
@@ -32,19 +56,58 @@ const FEATURE_BYTES = jsonBytes({ type: "Feature", geometry: null, properties: n
 const UNCOUNTED: ByteBudget = { take() {} };
 
 /**
- * Reads a layer's features while its answer is built, admitting every byte
- * of the eventual JSON against the budget before the value it measures is
+ * A layer's feature: its geometry and the property columns, with the label
+ * anchor of a non-point feature under the reserved name unless a column of
+ * that name holds its place.
+ */
+export function layerFeature(rows: InlineRows): FeatureBuilder<InlineFeature> {
+  const anchorAt = rows.properties.indexOf(ANCHOR);
+  return (row) => {
+    const { budget } = row;
+    budget.take(FEATURE_BYTES);
+    const geometry = row.geometry();
+    // Labels anchor non-point features on an interior point computed in
+    // the engine; a client centroid lands outside concave shapes. A column
+    // of the same name gives its place to the anchor.
+    const anchor = row.anchor();
+    const entries = rows.properties.length + (anchor !== undefined && anchorAt < 0 ? 1 : 0);
+    budget.take(2 + Math.max(0, entries - 1));
+    const properties: Record<string, unknown> = {};
+    for (let c = 0; c < rows.properties.length; c++) {
+      const name = rows.properties[c];
+      budget.take(jsonBytes(name) + 1);
+      if (c === anchorAt && anchor !== undefined) {
+        budget.take(jsonBytes(anchor));
+        setOwn(properties, name, anchor);
+      } else {
+        setOwn(properties, name, row.value(c));
+      }
+    }
+    if (anchor !== undefined && anchorAt < 0) {
+      budget.take(jsonBytes(ANCHOR) + 1 + jsonBytes(anchor));
+      setOwn(properties, ANCHOR, anchor);
+    }
+    return { type: "Feature", geometry, properties };
+  };
+}
+
+/**
+ * Reads an answer's features while it is built, admitting every byte of
+ * the eventual JSON against the budget before the value it measures is
  * converted. Rows stream from the engine one chunk at a time, so an answer
  * over the limit stops within the chunk that crosses it, and one oversized
  * value is refused while it is still native. Nothing is returned until
- * every feature is admitted.
+ * every feature is admitted. With `take`, at most that many features are
+ * read, and `more` says whether the rows held another.
  */
-async function readInlineFeatures(
+async function readInlineFeatures<F>(
   conn: DuckDBConnection,
   rows: InlineRows,
   budget: ByteBudget,
   interrupted: () => boolean,
-): Promise<InlineFeature[]> {
+  feature: FeatureBuilder<F>,
+  take: number,
+): Promise<{ features: F[]; more: boolean }> {
   const width = 1 + rows.properties.length;
   const source = `SELECT ${rows.geometry}${rows.properties.map(name => `, ${quoteIdent(name)}`).join("")}
     FROM ${rows.from} WHERE ${rows.geometry} IS NOT NULL`;
@@ -54,6 +117,9 @@ async function readInlineFeatures(
     values = rows.properties.map((_, i) => renderValueProjection(quoteIdent(column(i + 1)), prepared.columnType(i + 1)));
   } finally { prepared.destroySync(); }
   const g = quoteIdent(column(0));
+  const anchored = rows.anchors !== false
+    ? `CASE WHEN ST_GeometryType(${g}) = 'POINT' THEN NULL ELSE ST_PointOnSurface(${g}) END`
+    : "CAST(NULL AS GEOMETRY)";
   // Positional names keep generated columns apart from any the layer's SQL
   // returns. The rows are evaluated once; each projection reads them.
   const query = `WITH __dezfil_render_rows(${Array.from({ length: width }, (_, i) => quoteIdent(column(i))).join(", ")}) AS MATERIALIZED (${source})
@@ -67,10 +133,9 @@ async function readInlineFeatures(
     FROM (SELECT *,
         ${g} AS __dezfil_render_shape,
         CASE WHEN ${plainPoint(g)} THEN NULL ELSE regexp_replace(CAST(ST_AsGeoJSON(${g}) AS VARCHAR), '\\.0([,\\]])', '\\1', 'g') END AS __dezfil_render_text,
-        CASE WHEN ST_GeometryType(${g}) = 'POINT' THEN NULL ELSE ST_PointOnSurface(${g}) END AS __dezfil_render_anchor
+        ${anchored} AS __dezfil_render_anchor
       FROM __dezfil_render_rows)`;
-  const anchorAt = rows.properties.indexOf(ANCHOR);
-  const features: InlineFeature[] = [];
+  const features: F[] = [];
   try {
     const result = await conn.stream(query);
     while (true) {
@@ -80,33 +145,19 @@ async function readInlineFeatures(
       if (!chunk || chunk.rowCount === 0) break;
       const [points, plain, respelled, anchorPoints, anchors] = Array.from({ length: 5 }, (_, i) => chunk.getColumnVector(i));
       for (let r = 0; r < chunk.rowCount; r++) {
-        budget.take((features.length ? 1 : 0) + FEATURE_BYTES);
-        const geometry = readGeometry(points, plain, respelled, r, budget);
-        // Labels anchor non-point features on an interior point computed
-        // here; a client centroid lands outside concave shapes. A column of
-        // the same name gives its place to the anchor.
-        const anchor = (readGeometry(anchorPoints, null, anchors, r, UNCOUNTED) as { coordinates: unknown } | null)?.coordinates;
-        const entries = rows.properties.length + (anchor !== undefined && anchorAt < 0 ? 1 : 0);
-        budget.take(2 + Math.max(0, entries - 1));
-        const properties: Record<string, unknown> = {};
-        for (let c = 0; c < rows.properties.length; c++) {
-          const name = rows.properties[c];
-          budget.take(jsonBytes(name) + 1);
-          if (c === anchorAt && anchor !== undefined) {
-            budget.take(jsonBytes(anchor));
-            setOwn(properties, name, anchor);
-          } else {
-            setOwn(properties, name, decodeRenderValue(chunk.getColumnVector(c + 5), r, values[c], budget));
-          }
-        }
-        if (anchor !== undefined && anchorAt < 0) {
-          budget.take(jsonBytes(ANCHOR) + 1 + jsonBytes(anchor));
-          setOwn(properties, ANCHOR, anchor);
-        }
-        features.push({ type: "Feature", geometry, properties });
+        if (features.length === take) return { features, more: true };
+        const index = features.length;
+        budget.take(index ? 1 : 0);
+        features.push(feature({
+          index,
+          budget,
+          geometry: () => readGeometry(points, plain, respelled, r, budget),
+          anchor: () => (readGeometry(anchorPoints, null, anchors, r, UNCOUNTED) as { coordinates: unknown } | null)?.coordinates,
+          value: (c) => decodeRenderValue(chunk.getColumnVector(c + 5), r, values[c], budget),
+        }));
       }
     }
-    return features;
+    return { features, more: false };
   } catch (error) { conn.interrupt(); throw error; }
 }
 
@@ -150,24 +201,35 @@ function column(i: number): string {
   return `__dezfil_render_${i}`;
 }
 
+/** How an answer's features are built, when not as a layer's. */
+export interface InlineShape<F> {
+  /** Builds each feature; a layer's feature by default. */
+  feature?: FeatureBuilder<F>;
+  /** At most this many features; `compose` learns whether the rows held
+   * more. Unlimited by default. */
+  take?: number;
+}
+
 /**
  * Builds a complete inline answer under Bytes drawn per layer. `compose`
- * shapes the answer around its features and their count; its envelope is
- * admitted first, at a count of zero, and the count's own length once the
- * features are known, so the admitted total is exactly the answer's
- * serialized length.
+ * shapes the answer around its features, their count and whether `take`
+ * left rows unread; its smallest envelope is admitted first, at a count of
+ * zero, and the rest once the features are known, so the admitted total is
+ * exactly the answer's serialized length.
  */
-export async function buildInlineAnswer<T>(
+export async function buildInlineAnswer<T, F = InlineFeature>(
   conn: DuckDBConnection,
   rows: InlineRows,
-  compose: (features: InlineFeature[], count: number) => T,
+  compose: (features: F[], count: number, more: boolean) => T,
   limit: number,
   interrupted: () => boolean = () => false,
+  shape: InlineShape<F> = {},
 ): Promise<T> {
   const budget = new RenderBudget(limit);
-  const envelope = jsonBytes(compose([], 0));
+  const envelope = Math.min(jsonBytes(compose([], 0, false)), jsonBytes(compose([], 0, true)));
   budget.take(envelope);
-  const features = await readInlineFeatures(conn, rows, budget, interrupted);
-  budget.take(jsonBytes(compose([], features.length)) - envelope);
-  return compose(features, features.length);
+  const feature = shape.feature ?? (layerFeature(rows) as unknown as FeatureBuilder<F>);
+  const { features, more } = await readInlineFeatures(conn, rows, budget, interrupted, feature, shape.take ?? Number.POSITIVE_INFINITY);
+  budget.take(jsonBytes(compose([], features.length, more)) - envelope);
+  return compose(features, features.length, more);
 }

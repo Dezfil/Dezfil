@@ -1,6 +1,6 @@
 {
   "count": 156,
-  "overall": "47cf1bff2dd1343eff43450b590541f0cb81ce98dfcbddf676f791abfce85bc7",
+  "overall": "39f5269f80f9c2f6fe9fe923130e62ad033061bb98e4d75d37e052969f346d64",
   "tools": {
     "get_account": "f9449c42bd1f10ea7744e222cc62614d4a204d733c1126e6dcc7d958fb005cb1",
     "update_account": "70a14b66d198e2ac3c94bf8c358fd680c4a98319aa920c054b9c26c72f2f07ff",
@@ -16,7 +16,7 @@
     "update_user_access": "896a0f37c4a297e4c8790f34c955f5861f0b1b3363af4a7474ec11c92f502454",
     "delete_user": "3c56016c5f399d7dbdcd6ec3e9202950996f3487a2a86e9b566550fef86c0549",
     "issue_user_sign_in_link": "d5e09e3840dee2918a1c81cb7173075336aeec9e2e907aa7674e5effc644c9c3",
-    "get_instance_settings": "01a1494a0fd0eed05d6f50fa398f5a0f6bbc91e98c58dee4e1af7bf364a10974",
+    "get_instance_settings": "e4dd282f0c85e1b2969cba590e61b55f24041697815a315a8c884046ef60e03b",
     "update_instance_settings": "e306393e21272d3cd156b87845085fda699be73aa5ea4a522be98fdc775028cc",
     "clear_service_caches": "497f3d1cbde3d33e31e78aa6457bde2235bd8e914336a4834f039e7581d36dd1",
     "test_service": "935afce4f45d0623b0105b1bad129ed551c690cdc5d1336f08407c8a02804412",
@@ -67,7 +67,7 @@
     "list_postgis_snapshots": "9b43c2573ed061a4367bf7962c70e06c84f111af7fe4b22eea8de1bb9aa05727",
     "import_table_from_postgis": "af50ef1460f0a5ee5285eaf6c5cdf21064185e42282b4dff861a09dd7b1d87c0",
     "refresh_table": "292e03bc2e3e85e45203eb77755484e80ab4152da5224e67ed6657cd96b3c414",
-    "get_table_features": "072b8e643fab4570f7d27e7e2a7e9ccb86435319509bb0ef0e7b4dbb89af98f3",
+    "get_table_features": "e0a13d191bf047743e646a96ccfce66a8e3d477332a7a8c59b33ac311dc3e2b6",
     "inspect_table": "41f1f1b5d966b8d1cd91b314c798743850d588b4587186f82078496dc043a711",
     "delete_table": "07997eac8a72214879325f94dd725b24215c68a3aafe3357f20dbd13dd2101d0",
     "list_operations": "a743c5bc277eae1228447b9adecda3fbadddfefc28a832e2f6f1bbe08b56010d",

@@ -129,10 +129,12 @@ export const TABLE_RESOURCE_PATHS = {
         "The table's features as a GeoJSON FeatureCollection, for " +
         "drawing it as a reference layer (the import dialog's map " +
         "legend and Select from Layer use this). A table that cannot " +
-        "draw — no geometry column, or more features than the render " +
-        "cap — returns ok:false with a plain-language reason instead " +
-        "of an error. With sample=1 an over-cap table draws its first " +
-        "cap-many features and flags the response as sampled.",
+        "draw — no geometry column, more features than the render " +
+        "cap, or a complete uncompressed answer over Bytes drawn per " +
+        "layer — returns ok:false with a plain-language reason and no " +
+        "features instead of an error. With sample=1 an over-cap table " +
+        "draws its first cap-many features and flags the response as " +
+        "sampled, unless that sample is itself over the byte limit.",
       tag: "Tables",
       tool: "get_table_features", mcp: LOCAL_READ,
       display: {"verb": "Read the features of the dataset {subject}", "subject": {"resource": "tables", "argument": "name"}},
@@ -147,7 +149,8 @@ export const TABLE_RESOURCE_PATHS = {
           schema: { type: "string", enum: ["1"] },
           description:
             "Draw a capped subset of an over-cap table instead of " +
-            "refusing; the response carries sampled + totalCount.",
+            "refusing; the response carries sampled + totalCount. A " +
+            "sample over Bytes drawn per layer is still refused.",
         },
       ],
       responses: {

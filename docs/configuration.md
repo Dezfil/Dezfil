@@ -443,8 +443,11 @@ then takes the road it takes over the render cap: a points layer draws as
 tiles (outside templates, which have no tile road), a layer the canvas filters
 live has its filters applied in the query and draws if that fits, and anything
 else answers the errored-layer envelope `render_bytes_exceeded`. No single
-value has a ceiling of its own. Dataset map features, slider previews,
-Overture, OpenStreetMap and sketch features do not apply it yet. File and
+value has a ceiling of its own. Dataset map features (the dialog map's
+reference layer and the dataset detail's map) count their answer the same way;
+over the limit, the whole dataset or the sample asked for answers `ok: false`
+with a reason and no features. Slider previews, Overture, OpenStreetMap and
+sketch features do not apply it yet. File and
 archive import processing, link and object-store imports, URL refreshes, and OpenStreetMap, Overture and PostGIS imports and refreshes
 use the Data processing time limit
 through preparation and commit. Accepted processing continues after departure;
