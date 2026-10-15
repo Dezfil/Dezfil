@@ -79,8 +79,9 @@ async function main() {
         passwordHash: null, status: "active", isAdmin: false, now: new Date().toISOString() }, db);
       const session = issueSession(account, db, Date.now());
       const scope = accountScope(authenticateSession(session.secret, db), db);
+      // The command commits only when the shipped set is in place, below.
       const installed = await installTemplateArchive(scope, scratch, archive,
-        { id: facts.id, version: facts.version, size, sha256: values.sha256 }, { kind: "shipped" });
+        { id: facts.id, version: facts.version, size, sha256: values.sha256 }, { kind: "shipped" }, { commit: false });
       const staged = path.join(scratch, "shipped");
       const copyTree = async (source, destination) => {
         operation.enterStage("shipped template copy");
@@ -113,6 +114,7 @@ async function main() {
         }
         throw error;
       }
+      operation.markCommitted();
       console.log(`Installed ${facts.id} version ${facts.version} into ${target}`);
     });
   } finally {

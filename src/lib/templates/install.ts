@@ -78,7 +78,9 @@ async function readDatasets(
 /**
  * Install the archive at `archive` (inside `scratch`, a folder the caller
  * owns and removes) as `expected`'s version, from `origin`. Answers the
- * installed version, read back whole against its record.
+ * installed version, read back whole against its record. The rename that
+ * puts it in place commits the operation, unless the caller has more to do
+ * before its own commit (`commit: false`).
  */
 export async function installTemplateArchive(
   scope: AccountScope,
@@ -86,7 +88,7 @@ export async function installTemplateArchive(
   archive: string,
   expected: ExpectedVersion,
   origin: InstalledOrigin,
-  signal?: AbortSignal,
+  { signal, commit = true }: { signal?: AbortSignal; commit?: boolean } = {},
 ): Promise<InstalledVersion> {
   return withTrustedMutation({ kind: "template-install", name: "Template installation", signal }, async operation => {
     const read = await readTemplateArchive(archive, path.join(scratch, "unpacked"), `${expected.id}-${expected.version}.zip`);
@@ -144,7 +146,7 @@ export async function installTemplateArchive(
       await rmdir(parent).catch(() => {});
       throw error;
     }
-    operation.markCommitted();
+    if (commit) operation.markCommitted();
     return { ...checked, folder: target, admitted: { ...checked.admitted, folder: target } };
   });
 }
