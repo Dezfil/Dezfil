@@ -1553,7 +1553,7 @@
         "thumbnails/*"
       ]
     },
-    "location:src/lib/map-thumbnails.ts#copyThumbnail.singleInputs:thumbnailPath": {
+    "location:src/lib/map-thumbnails.ts#copyThumbnail.singleEvidence:thumbnailPath": {
       "stores": [
         "file:thumbnails"
       ],
@@ -2272,15 +2272,7 @@
         "artifact-inputs/thumbnails/*.json"
       ]
     },
-    "location:src/lib/thumbnail-evidence.ts#imageInputs.parsed:evidencePath": {
-      "stores": [
-        "file:thumbnail-inputs"
-      ],
-      "roots": [
-        "artifact-inputs/thumbnails/*.json"
-      ]
-    },
-    "location:src/lib/thumbnail-evidence.ts#recordedInputs:evidencePath": {
+    "location:src/lib/thumbnail-evidence.ts#readEvidence.parsed:evidencePath": {
       "stores": [
         "file:thumbnail-inputs"
       ],
@@ -2801,6 +2793,21 @@
         "memory:immutable-configuration"
       ]
     },
+    "memory:src/lib/api/openapi-satellite.ts#PUBLISHED_SATELLITE_PATHS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-satellite.ts#SATELLITE_TILE_PARAMETERS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-satellite.ts#SATELLITE_TILE_RESPONSES": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
     "memory:src/lib/api/openapi-recipe-schemas.ts#RECIPE_DEPENDENCY_SCHEMAS": {
       "stores": [
         "memory:immutable-configuration"
@@ -3062,6 +3069,16 @@
       ]
     },
     "memory:src/lib/basemap.ts#BASEMAPS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/picture-credit.ts#BUILT_IN_PICTURE_BASEMAPS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/picture-credit.ts#BUILT_IN_URLS": {
       "stores": [
         "memory:immutable-configuration"
       ]

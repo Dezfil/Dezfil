@@ -19,7 +19,7 @@ import {
   layerFieldStats,
   type LayerRenderData,
 } from "@/lib/layer-service";
-import type { BasemapKey, BasemapKind, AttributionLine } from "@/lib/basemap";
+import { readerStyleUrl, type BasemapKey, type BasemapKind, type AttributionLine } from "@/lib/basemap";
 import {
   autoBasemapUrlForTheme,
   basemapFollowsTheme,
@@ -230,11 +230,13 @@ async function assemblePublishedView(
     name: map.name,
     viewport: map.viewport,
     theme,
+    // The reader is not signed in: a style the instance serves itself
+    // (Satellite) is named at this publication's own address.
     basemapUrl: custom
       ? custom.url
       : followsTheme
         ? autoBasemapUrlForTheme(theme)
-        : resolveBasemapUrl(map.basemap),
+        : readerStyleUrl(resolveBasemapUrl(map.basemap), token),
     basemapForTheme: followsTheme
       ? {
           light: autoBasemapUrlForTheme("light"),

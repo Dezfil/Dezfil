@@ -52,6 +52,13 @@ describe("the built-in basemaps", () => {
     expect(osm!.href).toBe("https://www.openstreetmap.org/copyright");
   });
 
+  it("credits both in the short form, each a link: OpenMapTiles to its site, OpenStreetMap to its licence", () => {
+    expect(BUILT_IN_ATTRIBUTION).toEqual([
+      { label: "© OpenMapTiles", href: "https://openmaptiles.org" },
+      { label: "© OpenStreetMap", href: "https://www.openstreetmap.org/copyright" },
+    ]);
+  });
+
   it("gives each built-in style its own address", () => {
     expect(builtInBasemapUrl("dark")).toBe(BASEMAPS[0].url);
     expect(builtInBasemapUrl("light")).toContain("positron");

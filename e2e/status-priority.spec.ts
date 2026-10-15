@@ -6,7 +6,9 @@
 // narrowing the stage walks the visible set through every priority
 // boundary — pitch out first, then bbox, then records, then zoom, coords
 // last, then no pill at all — with survivors in today's order and no
-// item ever clipped.
+// item ever clipped. The map's legend stands in the lower-left corner, in
+// the pill's band, and the pill never covers it at any step: it drops
+// items rather than widen over the card, as it does beside the credit.
 //
 // Environment: the documented gate (isolated server, fresh data dir).
 // Run with DEZFIL_BASE_URL at the server.
@@ -27,7 +29,13 @@ const FIXTURES_DIR = path.join(__dirname, "fixtures");
 const runId = Date.now().toString(36);
 const stations = `statusbar_${runId}`;
 
-const WIDE = { width: 1440, height: 900 };
+// The widest step must hold all five beside the legend card. Measured on
+// a production build: the five-item pill is about 570 px, and the band
+// between the card and the credit (16 px daylight each side) is about
+// 706 px at 1600 but 546 px at 1440, where pitch drops. The slack covers
+// readout values and font metrics that differ between machines; the walk
+// below still passes through 1440 and every step under it.
+const WIDE = { width: 1600, height: 900 };
 
 const BAR = "[data-status-bar]";
 const ITEMS: Record<string, string> = {
@@ -37,6 +45,8 @@ const ITEMS: Record<string, string> = {
   pitch: `${BAR} :text-is("Pitch")`,
   bbox: `${BAR} button[data-hint="Copy bounding box"]`,
 };
+/** The legend card as the builder draws it in the lower-left corner. */
+const LEGEND = '[data-corner="bottom-left"] [data-map-legend]';
 /** Today's document order — survivors must keep it. */
 const DOC_ORDER = ["records", "coords", "zoom", "pitch", "bbox"];
 /** The ruled drop order, first-out first. */
@@ -70,6 +80,27 @@ async function expectNoClipping(page: Page) {
   expect(overflow).toBeLessThanOrEqual(1);
 }
 
+/** The pill's box never intersects the legend card's. */
+async function expectClearOfLegend(page: Page) {
+  if ((await page.locator(BAR).count()) === 0) return;
+  const bar = await page.locator(BAR).boundingBox();
+  if (!bar) return;
+  // The card must be there to be cleared: a missing legend would make
+  // this check pass on nothing.
+  expect(await page.locator(LEGEND).count(), "one legend card in the lower-left corner").toBe(1);
+  const card = await page.locator(LEGEND).boundingBox();
+  expect(card, "the legend card is drawn in the lower-left corner").not.toBeNull();
+  const overlaps =
+    bar.x < card!.x + card!.width &&
+    card!.x < bar.x + bar.width &&
+    bar.y < card!.y + card!.height &&
+    card!.y < bar.y + bar.height;
+  expect(
+    overlaps,
+    `the pill ${JSON.stringify(bar)} must not intersect the legend card ${JSON.stringify(card)}`,
+  ).toBe(false);
+}
+
 test.use({ viewport: WIDE });
 
 test("the pill drops items whole, in priority order, at every boundary", async ({
@@ -95,7 +126,10 @@ test("the pill drops items whole, in priority order, at every boundary", async (
     ).json()) as { layers: { id: string }[] };
     return map.layers[0].id;
   }, mapId);
+  // The legend in the lower-left corner, said rather than inherited from
+  // the instance default, so the band the pill shares with it is given.
   await patchMap(page, mapId, {
+    legendCorner: "bottom-left",
     widgets: [
       {
         id: `w-${runId}`,
@@ -114,6 +148,7 @@ test("the pill drops items whole, in priority order, at every boundary", async (
   });
   await page.goto(`/maps/${mapId}`);
   await expect(page.locator(BAR)).toBeVisible();
+  await expect(page.locator(LEGEND)).toBeVisible();
 
   // The pill renders before the camera handle exists — a tilt click into
   // a null handle is a silent no-op. Zoom showing a number is the camera
@@ -127,6 +162,7 @@ test("the pill drops items whole, in priority order, at every boundary", async (
   // All five at full width, in document order.
   await expect.poll(() => visibleSet(page)).toEqual(DOC_ORDER);
   await expectNoClipping(page);
+  await expectClearOfLegend(page);
 
   // For every size 0–5, the only legal composition: the document-ordered
   // survivors after the ruled drops.
@@ -154,6 +190,7 @@ test("the pill drops items whole, in priority order, at every boundary", async (
     expect(now.join()).toBe(legal.get(now.length));
     sizesSeen.add(now.length);
     await expectNoClipping(page);
+    await expectClearOfLegend(page);
   }
   expect([...sizesSeen].sort()).toEqual([0, 1, 2, 3, 4, 5]);
 

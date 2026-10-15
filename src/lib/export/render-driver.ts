@@ -2,6 +2,7 @@ import type { ChildProcess } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { subscribe, unsubscribe } from "node:diagnostics_channel";
 import { ApiError, EvaluationCancelled } from "@/lib/api/errors";
+import { relayRefusedEgress } from "@/lib/basemap-satellite-tiles";
 import { startRenderRelay, type RenderRelay } from "./render-relay";
 import { renderProxyFlags } from "./render-proxy";
 import { renderRequestHeaders } from "./render-credentials";
@@ -37,7 +38,9 @@ export interface RenderLaunchContext {
  * cannot refuse to end, so only one the system never reaps outlasts it. */
 export const BROWSER_EXIT_BOUND_MS = 1_000;
 
-const EGRESS_REFUSAL = "The map reaches an address this instance's egress " +
+/** Why an image whose map reaches an address the egress policy refuses
+ * was not made. */
+export const EGRESS_REFUSAL = "The map reaches an address this instance's egress " +
   "policy denies (private and internal ranges). The image was not produced.";
 
 export interface RenderBrowser {
@@ -189,6 +192,16 @@ export async function puppeteerDriver(): Promise<RenderDriver> {
         const verdicts = new Set<Promise<unknown>>();
         page.on("requestfinished", (r) => inflight.finish(r));
         page.on("requestfailed", (r) => inflight.finish(r));
+        // The instance's satellite tiles are fetched by the instance, which
+        // the gate admits as the app's: a refusal by the outbound policy
+        // there, at the imagery's host or at a redirect, reaches the page
+        // as a tile that failed. The relay marks that refusal, and its mark
+        // on the instance's own answer is taken as a refused request.
+        page.on("response", (response) => {
+          if (relayRefusedEgress({ url: response.url(), status: response.status(), headers: response.headers() }, appOrigin)) {
+            refused.push(response.url());
+          }
+        });
         await page.setRequestInterception(true);
         page.on("request", (request) => {
           // Timed from the moment the page made it:

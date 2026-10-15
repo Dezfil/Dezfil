@@ -1,0 +1,24 @@
+/* The line crediting a page's map pictures: quiet, the meta step in faint
+   ink, its credits links where they have one. */
+.page {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: var(--text-meta);
+  color: var(--fg-faint);
+}
+
+.page a:hover {
+  color: var(--fg-muted);
+}
+
+/* In a list view, the list card's foot row: the row the Data table's
+   manifest draws. It overlaps the last row by its own rule, so a row that
+   keeps its bottom rule and one that does not both meet it in one line;
+   positioned, it is drawn over the row it overlaps. */
+.foot {
+  composes: manifest from "./gallery.module.css";
+  position: relative;
+  margin-top: -1px;
+}

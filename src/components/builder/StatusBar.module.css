@@ -4,8 +4,9 @@
 .bar {
   position: absolute;
   left: 50%;
-  /* Centred; slid left by the measured amount when the basemap credit
-     would otherwise sit under its right end. */
+  /* Centred; slid by the measured amount when the basemap credit would
+     otherwise sit under its right end (left) or a lower-left legend card
+     under its left end (right, a negative shift). */
   transform: translateX(calc(-50% - var(--pill-shift, 0px)));
   bottom: 16px;
   z-index: 5;

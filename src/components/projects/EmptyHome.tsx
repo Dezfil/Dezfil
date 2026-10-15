@@ -10,6 +10,8 @@ import { KindIcon } from "./ProjectPicture";
 import type { CatalogueState } from "./home-read";
 import { recentHeading, recentItems, type RecentItem } from "./recent-model";
 import { RecentCard, RecentRow, RecentStateRow } from "./RecentList";
+import { PictureCredit } from "../PictureCredit";
+import type { PictureBasemaps } from "@/lib/picture-credit";
 import styles from "./EmptyHome.module.css";
 
 /**
@@ -37,6 +39,7 @@ export function EmptyHome({
   onNewWorkflow,
   onAddData,
   onRetryCatalogue,
+  pictureBasemaps,
 }: {
   projectId: string;
   projectName: string;
@@ -54,6 +57,9 @@ export function EmptyHome({
   onNewWorkflow: () => void;
   onAddData: () => void;
   onRetryCatalogue: () => void;
+  /** The instance's basemaps, which the line for the rows' map pictures
+   * credits. */
+  pictureBasemaps?: PictureBasemaps;
 }) {
   const me = useSignedInSqlName();
   const items = useMemo(
@@ -64,6 +70,7 @@ export function EmptyHome({
     [catalogue, projectId, exclude, names, me],
   );
   const hasRows = catalogue.status === "ready" && items.length > 0;
+  const pictured = useMemo(() => items.flatMap((it) => (it.kind === "map" ? [it.map] : [])), [items]);
 
   return (
     <>
@@ -112,6 +119,7 @@ export function EmptyHome({
           />
         ))}
       </RecentCard>
+      <PictureCredit maps={pictured} basemaps={pictureBasemaps} placement="page" />
     </>
   );
 }

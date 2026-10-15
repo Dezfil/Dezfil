@@ -13,7 +13,7 @@ import { createApiToken } from "./credentials";
 
 const effects = vi.hoisted(() => ({ inspect: vi.fn(async () => ({ url: "https://styles.example.test/style.json", name: null, attribution: [] })),
   thumbnail: vi.fn(async () => {}), tiles: vi.fn(async () => {}),
-  served: vi.fn<(scope: unknown, mapIds: readonly string[]) => Promise<Set<string>>>(async () => new Set<string>()) }));
+  served: vi.fn<(scope: unknown, mapIds: readonly string[]) => Promise<Map<string, null>>>(async () => new Map<string, null>()) }));
 vi.mock("@/lib/basemap-custom", () => ({ resolveCustomBasemapWrite: effects.inspect }));
 vi.mock("@/lib/map-thumbnails", () => ({ prepareThumbnailRemoval: () => effects.thumbnail, removeThumbnail: effects.thumbnail, copyThumbnail: effects.thumbnail, servedThumbnails: effects.served }));
 vi.mock("@/lib/tiles/build", () => ({ removeTileArtifacts: effects.tiles }));
@@ -209,7 +209,7 @@ describe("the listing rechecks access after its picture reads", () => {
     const { mapsOverview } = await import("@/lib/map-service");
     const gate = Promise.withResolvers<void>();
     let reading = false;
-    effects.served.mockImplementationOnce(async (_scope, mapIds) => { reading = true; await gate.promise; return new Set(mapIds); });
+    effects.served.mockImplementationOnce(async (_scope, mapIds) => { reading = true; await gate.promise; return new Map(mapIds.map((id) => [id, null])); });
     const listing = mapsOverview(testAccountScope(db, account), project);
     expect(reading).toBe(true);
     meanwhile();

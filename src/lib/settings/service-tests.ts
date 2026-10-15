@@ -3,6 +3,7 @@ import type { IncomingHttpHeaders } from "node:http";
 import { ApiError } from "@/lib/api/errors";
 import { requireAdmin } from "@/lib/auth/admin";
 import { satelliteTileUrl } from "@/lib/basemap-satellite";
+import { openSatelliteTile, readTile, tileImageType, TILE_WAIT_MS } from "@/lib/basemap-satellite-tiles";
 import type { AuthContext } from "@/lib/auth/credentials";
 import { configuredEndpoint } from "@/lib/geocode/endpoint";
 import { readAnswerBody, requestGeocoder } from "@/lib/geocode/provider";
@@ -11,7 +12,6 @@ import { configuredIsochroneEndpoint } from "@/lib/isochrone/endpoint";
 import { isNoRouteAnswer, readIsochroneBody, requestIsochrone } from "@/lib/isochrone/provider";
 import { metadataDb } from "@/lib/metadata/db";
 import { readCapped } from "@/lib/net/read-capped";
-import { openRemote } from "@/lib/net/remote-fetch";
 import { openOverpass, overpassEndpoint, readOverpassAnswer } from "@/lib/osm/overpass";
 import { keepReleaseList, sendReleaseListing } from "@/lib/overture/releases";
 import { testCatalogue } from "@/lib/templates/catalogue";
@@ -26,10 +26,11 @@ import type { ServiceTestAnswer, TestedService } from "./service-test-answer";
  * nothing, except that Overture's Test keeps the release list it finds, as
  * Check now does. A second Test of a service while one runs gets the same
  * answer from the same request. The satellite imagery's Test asks its tile
- * template for one fixed low-zoom tile through the same outbound engine and
- * egress check, under its own ten seconds, as a browser drawing the imagery
- * asks for any tile, and reads the tile whole within them: it passes only on
- * an image complete for its format, timed when the last byte arrived. The
+ * template for one fixed low-zoom tile through the request step the
+ * instance relays every tile with (the outbound engine and egress check),
+ * under the same ten seconds, and reads the tile whole within them under
+ * the same size bound: it passes only on an image complete for its format,
+ * timed when the last byte arrived. The
  * template catalogue's Test reads its index as a refresh does, within the
  * link import's time bound, and keeps nothing; while the catalogue is off it
  * is refused and sends nothing.
@@ -53,13 +54,6 @@ const ANSWER_BYTES = 64 * 1024;
 /** The satellite imagery's fixed tile: zoom 3, over Europe, which every
  * imagery service draws. */
 export const TEST_TILE = { z: 3, x: 4, y: 2 };
-/** How long the satellite imagery's Test waits for its tile, whole. */
-const TILE_TEST_MS = 10_000;
-/** The most of a tile's answer that is read. A 512-pixel tile's raw RGBA
- * bitmap is 1 MiB; four times that holds any tile of the five formats,
- * stored uncompressed or not, and an answer past it is no tile a browser
- * draws. One Test runs at a time, so this is also its memory's bound. */
-const TILE_MAX_BYTES = 4 * 1024 * 1024;
 
 const passed = (service: Exclude<TestedService, "overture" | "templates">, milliseconds: number): ServiceTestAnswer =>
   ({ service, result: "passed", milliseconds });
@@ -81,142 +75,6 @@ function closing(response: { body: { destroy(): void } }, answer: ServiceTestAns
 const s3Headers = (headers: IncomingHttpHeaders) => typeof headers["x-amz-request-id"] === "string";
 const s3Body = (text: string | null) =>
   text !== null && /^\s*(<\?xml[^>]*\?>\s*)?<(Error>[\s\S]*<Code>|ListAllMyBucketsResult[\s>])/.test(text);
-
-/** The fixed tile's address under a template: its three placeholders filled. */
-const tileAddress = (template: string) =>
-  template.split("{z}").join(String(TEST_TILE.z)).split("{x}").join(String(TEST_TILE.x)).split("{y}").join(String(TEST_TILE.y));
-
-/** A tile's answer to its end, or null past the size bound: a length
- * declared past it is closed unread, a stream is cut where it passes it. A
- * stream that stalls is ended by the exchange's own deadline. */
-async function readTile(response: { headers: IncomingHttpHeaders; body: NodeJS.ReadableStream & { destroy(): void } }): Promise<Buffer | null> {
-  if (Number(response.headers["content-length"]) > TILE_MAX_BYTES) {
-    response.body.destroy();
-    return null;
-  }
-  const chunks: Buffer[] = [];
-  let total = 0;
-  for await (const chunk of response.body as AsyncIterable<Buffer>) {
-    total += chunk.length;
-    if (total > TILE_MAX_BYTES) {
-      response.body.destroy();
-      return null;
-    }
-    chunks.push(chunk);
-  }
-  return Buffer.concat(chunks, total);
-}
-
-/** Whether the bytes are a whole image a browser draws as a tile, whatever
- * the answer's type says: each format to its end marker, or to the length
- * it declares, as the format allows. Bytes after that end are not read. */
-const isWholeImage = (bytes: Buffer): boolean =>
-  wholePng(bytes) || wholeJpeg(bytes) || wholeGif(bytes) || wholeWebp(bytes) || wholeAvif(bytes);
-
-const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
-
-/** A PNG: its header chunk first, image data, and its end chunk, each chunk
- * whole at the length it declares. */
-function wholePng(b: Buffer): boolean {
-  if (b.length < 8 || !b.subarray(0, 8).equals(PNG_SIGNATURE)) return false;
-  let at = 8, data = false;
-  while (at + 12 <= b.length) {
-    const length = b.readUInt32BE(at), type = b.toString("latin1", at + 4, at + 8);
-    if (length > 0x7fffffff || at + 12 + length > b.length) return false;
-    if (at === 8 && type !== "IHDR") return false;
-    if (type === "IDAT") data = true;
-    if (type === "IEND") return data;
-    at += 12 + length;
-  }
-  return false;
-}
-
-/** A JPEG: its segments at their declared lengths, a scan's coded data to
- * the next marker, and the end-of-image marker after at least one scan. */
-function wholeJpeg(b: Buffer): boolean {
-  if (b.length < 4 || b[0] !== 0xff || b[1] !== 0xd8) return false;
-  let at = 2, scanned = false;
-  const restart = (marker: number) => marker >= 0xd0 && marker <= 0xd7;
-  while (at + 1 < b.length) {
-    if (b[at] !== 0xff) return false;
-    const marker = b[at + 1];
-    if (marker === 0xff) { at += 1; continue; } // a fill byte before a marker
-    if (marker === 0xd9) return scanned;
-    if (restart(marker) || marker === 0x01) { at += 2; continue; }
-    if (at + 4 > b.length) return false;
-    const length = b.readUInt16BE(at + 2);
-    if (length < 2) return false;
-    at += 2 + length;
-    if (marker === 0xda) {
-      scanned = true;
-      // Coded data runs to the next marker: a 0xFF that is neither a
-      // stuffed zero nor a restart.
-      while (at + 1 < b.length && !(b[at] === 0xff && b[at + 1] !== 0x00 && !restart(b[at + 1]))) at += 1;
-    }
-  }
-  return false;
-}
-
-/** A GIF: its blocks, each whole, up to the trailer after at least one image. */
-function wholeGif(b: Buffer): boolean {
-  if (b.length < 13 || !/^GIF8[79]a$/.test(b.toString("latin1", 0, 6))) return false;
-  const table = (flags: number) => (flags & 0x80 ? 3 * 2 ** ((flags & 0x07) + 1) : 0);
-  let at = 13 + table(b[10]), image = false;
-  // Data sub-blocks, each led by its size, up to the empty one.
-  const subBlocks = () => {
-    while (at < b.length) {
-      const size = b[at];
-      at += 1 + size;
-      if (size === 0) return true;
-    }
-    return false;
-  };
-  while (at < b.length) {
-    const block = b[at];
-    if (block === 0x3b) return image;
-    if (block === 0x21) {
-      at += 2;
-      if (!subBlocks()) return false;
-    } else if (block === 0x2c) {
-      if (at + 10 > b.length) return false;
-      // The descriptor, its own color table, the code size, then the data.
-      at += 10 + table(b[at + 9]) + 1;
-      if (!subBlocks()) return false;
-      image = true;
-    } else return false;
-  }
-  return false;
-}
-
-/** A WebP: the length its RIFF header declares, its first chunk an image
- * whole inside it. */
-function wholeWebp(b: Buffer): boolean {
-  if (b.length < 20 || b.toString("latin1", 0, 4) !== "RIFF" || b.toString("latin1", 8, 12) !== "WEBP") return false;
-  const end = 8 + b.readUInt32LE(4);
-  return /^VP8[ LX]$/.test(b.toString("latin1", 12, 16)) && end <= b.length && 20 + b.readUInt32LE(16) <= end;
-}
-
-/** An AVIF: its boxes whole at the lengths they declare, up to its
- * metadata and its image data (a box declared to run to the end runs to
- * the answer's end). */
-function wholeAvif(b: Buffer): boolean {
-  if (b.length < 12 || b.toString("latin1", 4, 8) !== "ftyp" || !/^avi[fs]$/.test(b.toString("latin1", 8, 12))) return false;
-  const seen = new Set<string>();
-  let at = 0;
-  while (at + 8 <= b.length) {
-    let size = b.readUInt32BE(at), header = 8;
-    if (size === 1) {
-      if (at + 16 > b.length) return false;
-      size = Number(b.readBigUInt64BE(at + 8));
-      header = 16;
-    } else if (size === 0) size = b.length - at;
-    if (size < header || at + size > b.length) return false;
-    seen.add(b.toString("latin1", at + 4, at + 8));
-    if (seen.has("meta") && seen.has("mdat")) return true;
-    at += size;
-  }
-  return false;
-}
 
 const TESTS: Record<TestedService, (deadline: () => ApiError) => Promise<ServiceTestAnswer>> = {
   async geocode(deadline) {
@@ -277,12 +135,12 @@ const TESTS: Record<TestedService, (deadline: () => ApiError) => Promise<Service
     const template = satelliteTileUrl();
     if (!template) return notSetUp("satellite");
     const started = Date.now();
-    const response = await openRemote(tileAddress(template), { timeoutMs: TILE_TEST_MS, timeoutError: deadline });
+    const response = await openSatelliteTile(template, TEST_TILE, { timeoutMs: TILE_WAIT_MS, timeoutError: deadline });
     if (response.statusCode < 200 || response.statusCode >= 300) return closing(response, answeredWith("satellite", response.statusCode));
     // The whole tile, under the same deadline: its time is its arrival.
     const tile = await readTile(response);
     const milliseconds = Date.now() - started;
-    return tile !== null && isWholeImage(tile) ? passed("satellite", milliseconds) : unexpected("satellite");
+    return tile !== null && tileImageType(tile) !== null ? passed("satellite", milliseconds) : unexpected("satellite");
   },
 
   templates: deadline => testCatalogue(deadline),

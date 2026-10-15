@@ -189,6 +189,13 @@ export function useMapPresentation({
     useState<HTMLElement | null>(null);
   const [widgetStackEl, setWidgetStackEl] = useState<HTMLElement | null>(null);
   const [creditEl, setCreditEl] = useState<HTMLElement | null>(null);
+  const [bottomLeftCornerEl, setBottomLeftEl] = useState<HTMLElement | null>(
+    null,
+  );
+  const setBottomLeftCornerEl = useCallback((node: HTMLElement | null) => {
+    setBottomCornerEl(node);
+    setBottomLeftEl(node);
+  }, []);
   const setBottomRightCornerEl = useCallback((node: HTMLElement | null) => {
     setBottomCornerEl(node);
     setLegendCandidateEl(node);
@@ -377,12 +384,15 @@ export function useMapPresentation({
     cornerLift,
     creditLift,
     setTimelineDockEl,
-    setBottomCornerEl,
+    setBottomLeftCornerEl,
     setBottomRightCornerEl,
     setWidgetStackEl,
     setCreditEl,
     /** The credit's element: the status pill keeps clear of it. */
     creditEl,
+    /** The lower-left corner, a legend's when one stands there: the
+     * status pill keeps clear of it too. */
+    bottomLeftCornerEl,
     statusChannel,
     statusPillHidden,
   };

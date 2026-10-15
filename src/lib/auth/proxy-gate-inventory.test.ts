@@ -17,6 +17,8 @@ const publicOperations = new Set([
   "GET /api/health", "GET /api/auth/entry", "POST /api/auth/setup", "POST /api/auth/sign-in", "POST /api/auth/redeem",
   "GET /api/published/{token}", "POST /api/published/{token}/extent/{layerId}", "POST /api/published/{token}/widget-values",
   "POST /api/published/{token}/render/{layerId}", "GET /api/published/{token}/tiles/{layerId}/{z}/{x}/{y}",
+  // A published page's satellite style and its tiles, under the token, as its layer tiles are.
+  "GET /api/published/{token}/basemaps/satellite", "GET /api/published/{token}/basemaps/satellite/tiles/{z}/{x}/{y}",
 ]);
 const routes = implementedRoutes();
 const protectedRoutes = routes.filter(route => !publicOperations.has(`${route.method.toUpperCase()} ${route.path}`));
@@ -87,11 +89,11 @@ it("allows only explicit anonymous methods and data-free assets, even with an in
     const pathname = template.replaceAll(/\{[^}]+\}/g, "fixture");
     expect.soft(gateRequest(input(pathname, method)).headers.get("x-middleware-next"), key).toBe("1");
   }
-  for (const pathname of ["/api/health", "/api/published/token", "/api/published/token/widget-values", "/v/token", "/v", "/v/token/extra", "/_next/static/chunks/app.js", "/maki/marker.svg"]) {
+  for (const pathname of ["/api/health", "/api/published/token", "/api/published/token/widget-values", "/api/published/token/basemaps/satellite", "/api/published/token/basemaps/satellite/tiles/1/2/3", "/v/token", "/v", "/v/token/extra", "/_next/static/chunks/app.js", "/maki/marker.svg"]) {
     const response = gateRequest(input(pathname, "DELETE"));
     expect.soft(response.headers.get("x-middleware-next"), pathname).toBeNull();
   }
-  for (const pathname of ["/vault", "/viewer/token", "/render", "/render/token/extra", "/api/published/token/authoring", "/api/published/token/widget-values/extra", "/api/unknown.svg", "/maki/private.svg", "/workers/private.js", "/_next/server/private.js", "/_next/hmr"]) {
+  for (const pathname of ["/vault", "/viewer/token", "/render", "/render/token/extra", "/api/published/token/authoring", "/api/published/token/widget-values/extra", "/api/published/token/basemaps/streets", "/api/published/token/basemaps/satellite/extra", "/api/published/token/basemaps/satellite/tiles/1/2", "/api/published/token/basemaps/satellite/tiles/1/2/3/4", "/api/unknown.svg", "/maki/private.svg", "/workers/private.js", "/_next/server/private.js", "/_next/hmr"]) {
     expect.soft(gateRequest(input(pathname)).headers.get("x-middleware-next"), pathname).toBeNull();
   }
 });

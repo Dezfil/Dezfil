@@ -1,7 +1,7 @@
 import { resolvePublication } from "@/lib/publish/publication-scope";
 import { notFound } from "next/navigation";
 import { PublishedView } from "@/components/viewer/PublishedView";
-import { basemapChoices, basemapUrl } from "@/lib/basemap-offer";
+import { basemapUrl, readerBasemapChoices } from "@/lib/basemap-offer";
 import { getPublishedThemeByToken } from "@/lib/metadata/maps";
 
 export default async function PublishedPage({
@@ -25,12 +25,14 @@ export default async function PublishedPage({
   // is no pre-paint script to overlay a remembered choice, and no hydration
   // mismatch to suppress. Unavailable tokens are refused before rendering.
   const authored = getPublishedThemeByToken(token) ?? "dark";
+  // The reader is not signed in: the styles this instance serves itself
+  // (Satellite) are handed down at the publication's own address.
   return (
     <div data-published-view data-view-theme={authored}>
       <PublishedView
         token={token}
         basemapUrl={basemapUrl()}
-        basemaps={basemapChoices()}
+        basemaps={readerBasemapChoices(token)}
         embedded={embed === "1"}
       />
     </div>

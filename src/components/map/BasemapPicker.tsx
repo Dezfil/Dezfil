@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useId, useRef, useState } from "react";
-import { BASEMAPS, offeredOnly, type BasemapKey, type BasemapStyle } from "@/lib/basemap";
+import { BASEMAPS, BUILT_IN_CREDIT_TEXT, offeredOnly, type BasemapKey, type BasemapStyle } from "@/lib/basemap";
 import { LayersIcon } from "../ui/icons";
 import { popoverTriggerProps, usePopoverDismiss } from "../ui/Popover";
 import { BasemapThumb } from "./BasemapThumb";
@@ -106,7 +106,7 @@ export function BasemapPicker({
               map's own footer only covers the style in use, so the picker
               carries its own line. */}
           <p className={styles.thumbCredit}>
-            Previews: © OpenMapTiles, OpenStreetMap
+            Previews: {BUILT_IN_CREDIT_TEXT}
           </p>
         </div>
       )}

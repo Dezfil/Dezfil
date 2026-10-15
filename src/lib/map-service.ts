@@ -14,6 +14,7 @@ import { mapPresencesOf, type Presence } from "@/lib/reach-presence";
 import { randomUUID } from "node:crypto";
 import { ApiError } from "@/lib/api/errors";
 import { removeTileArtifacts } from "@/lib/tiles/build";
+import type { DrawnBasemap } from "@/lib/picture-credit";
 import { prepareThumbnailRemoval, servedThumbnails } from "@/lib/map-thumbnails";
 import { invalidatePublishedToken } from "@/lib/publish/publish-service";
 import { isValidTimeline } from "@/lib/timeline";
@@ -201,7 +202,8 @@ export function allMaps(scope: AccountScope): MapRecord[] {
 
 /** A listed map plus what its card needs: how many layers it
  * has and one representative color per layer, in draw order, whether it
- * has a card image the caller is served — and, the
+ * has a card image the caller is served and the basemap that image was
+ * drawn on (null when none was recorded) — and, the
  * project it is in (null = not in one), its owner and its SQL home. The
  * reference is deliberately not on MapRecord, so the published snapshot's
  * revision never observes a membership change. */
@@ -209,6 +211,7 @@ export interface MapOverview extends MapRecord, Presence, DocumentFacts {
   layerCount: number;
   layerColors: string[];
   hasThumbnail: boolean;
+  thumbnailBasemap: DrawnBasemap | null;
 }
 
 function cssColor(c: { r: number; g: number; b: number; a: number }): string {
@@ -233,11 +236,11 @@ export async function mapsOverview(scope: AccountScope, project?: string | "none
     if (project && project !== "none") requireReachable(scope, "project", project);
     return maps
       .filter((m) => canReach(scope, "map", m.id))
-      .map((m) => ({ ...m, hasThumbnail: pictured.has(m.id) }));
+      .map((m) => ({ ...m, hasThumbnail: pictured.has(m.id), thumbnailBasemap: pictured.get(m.id) ?? null }));
   })();
 }
 
-function listedMaps(scope: AccountScope, project?: string | "none"): Omit<MapOverview, "hasThumbnail">[] {
+function listedMaps(scope: AccountScope, project?: string | "none"): Omit<MapOverview, "hasThumbnail" | "thumbnailBasemap">[] {
   // An unknown or unreachable project refuses — a silently empty list
   // would read as an empty project.
   return metadataDb().transaction(() => {

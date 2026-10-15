@@ -14,6 +14,7 @@ import {
   drawingBasemaps,
   offeredBasemaps,
   offeredSwitches,
+  pictureBasemaps,
   resolveBasemapAttribution,
   resolveBasemapKind,
   resolveBasemapUrl,
@@ -122,19 +123,23 @@ describe("the configured satellite basemap", () => {
     expect(resolveBasemapUrl("satellite")).toBe(SATELLITE_STYLE_URL);
   });
 
-  it("serves the template and credit in effect as the style document", () => {
+  it("serves the credit in effect as the style document, its tiles at the instance's own address and never the template", () => {
     configure();
     const style = satelliteStyleDocument() as { version: number; layers: { type: string }[];
       sources: { satellite: { type: string; tiles: string[]; attribution: string } } };
     expect(style.version).toBe(8);
-    expect(style.sources.satellite).toMatchObject({ type: "raster", tiles: [TEMPLATE], attribution: "© Imagery Provider" });
+    expect(style.sources.satellite).toMatchObject({ type: "raster", tiles: ["/api/basemaps/satellite/tiles/{z}/{x}/{y}{ratio}"], scheme: "xyz", attribution: "© Imagery Provider" });
     expect(style.layers.map((l) => l.type)).toContain("raster");
+    expect(JSON.stringify(style)).not.toContain("imagery.example");
+    // Served under another address, the tiles follow that address.
+    expect((satelliteStyleDocument("/api/published/T/basemaps/satellite") as { sources: { satellite: { tiles: string[] } } })
+      .sources.satellite.tiles).toEqual(["/api/published/T/basemaps/satellite/tiles/{z}/{x}/{y}{ratio}"]);
   });
 
   it("appears once an admin stores a template, with the stored credit, a set variable winning each", () => {
     writeStoredSettings({ satelliteUrl: TEMPLATE, satelliteAttribution: "© Stored Provider" }, db);
     expect(satelliteBasemap()?.attribution).toEqual([{ label: "© Stored Provider" }]);
-    expect((satelliteStyleDocument() as { sources: { satellite: { tiles: string[] } } }).sources.satellite.tiles).toEqual([TEMPLATE]);
+    expect((satelliteStyleDocument() as { sources: { satellite: { tiles: string[] } } }).sources.satellite.tiles).toEqual(["/api/basemaps/satellite/tiles/{z}/{x}/{y}{ratio}"]);
     vi.stubEnv("DEZFIL_SATELLITE_ATTRIBUTION", " © Variable Provider ");
     expect(satelliteBasemap()?.attribution).toEqual([{ label: "© Variable Provider" }]);
   });
@@ -146,6 +151,28 @@ describe("the configured satellite basemap", () => {
     expect(satelliteBasemap()).toBeNull();
     expect(keys(drawingBasemaps())).toEqual(["dark", "light", "streets"]);
     expect(() => satelliteStyleDocument()).toThrow(expect.objectContaining({ code: "service_address_unreadable" }));
+  });
+});
+
+describe("what a page of map pictures is handed", () => {
+  it("holds every style drawn, hidden ones too, Satellite with its credit, and never the tile template", () => {
+    configure();
+    writeStoredSettings({ "basemaps.satellite": false }, db);
+    const handed = pictureBasemaps();
+    expect(keys(handed.basemaps)).toEqual(["dark", "light", "streets", "satellite"]);
+    expect(handed.basemaps.find((b) => b.key === "satellite")!.attribution).toEqual([{ label: "© Imagery Provider" }]);
+    expect(handed).toMatchObject({ defaultUrl: BASEMAPS[0].url, overrideUrl: null, overrideAttribution: [] });
+    expect(JSON.stringify(handed)).not.toContain("SEEDED-KEY");
+  });
+
+  it("holds the deployment's own style with the credit it configured", () => {
+    vi.stubEnv("DEZFIL_BASEMAP_URL", "https://tiles.internal/style.json");
+    vi.stubEnv("DEZFIL_BASEMAP_ATTRIBUTION", "© Internal Tiles");
+    expect(pictureBasemaps()).toMatchObject({
+      defaultUrl: "https://tiles.internal/style.json",
+      overrideUrl: "https://tiles.internal/style.json",
+      overrideAttribution: [{ label: "© Internal Tiles" }],
+    });
   });
 });
 

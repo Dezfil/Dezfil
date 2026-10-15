@@ -21,6 +21,8 @@ export function isAnonymousOperation(pathname: string, method: string): boolean 
   if (/^\/api\/published\/[^/]+\/(?:extent|render)\/[^/]+$/.test(pathname) ||
       /^\/api\/published\/[^/]+\/widget-values$/.test(pathname)) return method === "POST";
   if (/^\/api\/published\/[^/]+\/tiles\/[^/]+\/[^/]+\/[^/]+\/[^/]+$/.test(pathname)) return method === "GET" || method === "HEAD";
+  // A published page's satellite style and its tiles, under the token.
+  if (/^\/api\/published\/[^/]+\/basemaps\/satellite(?:\/tiles\/[^/]+\/[^/]+\/[^/]+)?$/.test(pathname)) return method === "GET" || method === "HEAD";
   return false;
 }
 
