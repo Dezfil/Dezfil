@@ -159,7 +159,7 @@ listed sites are read by admins alone, through `GET /api/instance/settings`.
 | `security.sessionDays` | `1`, `7`, `30`, `90`, in days | `30` | Each session from its next use: a session keeps the expiry it holds and its next use renews it by this length, so no save signs anyone out. |
 | `security.linkDays` | `1`, `3`, `7`, `14`, in days | `7` | Invitation and reset links issued after the save; a link keeps the lifetime it was issued with. Command-line recovery links keep fifteen minutes. |
 | `security.failedPerAccount` | A whole number from 3 to 100 | `5` | The next sign-in attempt: failed sign-ins for one account within a fixed fifteen minutes before its next attempt pauses. The next current-password check too: wrong current passwords on that account's password and email changes, counted apart from sign-ins, before its next check pauses. Never above `security.failedPerAddress`. |
-| `security.failedPerAddress` | A whole number from 10 to 1000 | `20` | The next sign-in attempt: failed sign-ins from one network address within the same fifteen minutes; every IPv6 address of one /64 counts as one address. Never below `security.failedPerAccount`. |
+| `security.failedPerAddress` | A whole number from 10 to 1000 | `20` | The next sign-in attempt: failed sign-ins from one network address within the same fifteen minutes; every IPv6 address of one /64 counts as one address, except that an address in the NAT64 prefix `64:ff9b::/96` counts as the IPv4 address it carries. Never below `security.failedPerAccount`. |
 | `security.passwordMin` | A whole number from 8 to 64, in characters | `8` | A password set after the save: at an invitation's or a reset's redemption, or a password change. The first account takes 8, and passwords set earlier keep signing in. |
 | `tokens.create` | `everyone`, `admins` | `everyone` | The next API token created. Tokens made earlier keep working. |
 | `tokens.expiry` | `never`, `30d`, `90d`, `1y` | `never` | Tokens created after the save, counted from their creation; a token keeps the expiry it was created with. |
@@ -570,8 +570,9 @@ entry. The bound holds either way. Eviction starts a fresh window. Readers behin
 untrusted proxy share its socket budget; trusted chains use the nearest
 untrusted hop. An IPv6 source is charged with its whole /64, so a host cannot step around a
 budget by taking a fresh address from its prefix; an IPv4 source, IPv4-mapped
-spellings included, is charged alone. The verified source itself stays the
-full address. See [self-hosting](self-hosting.md) for provenance refusals and scope.
+spellings included, is charged alone, and so is an IPv4 client reaching the
+instance through the NAT64 prefix `64:ff9b::/96`, charged as the IPv4 address
+it carries. The verified source itself stays the full address. See [self-hosting](self-hosting.md) for provenance refusals and scope.
 
 Password derivation admission is shared across the server process: two active,
 six ordinary plus two reserved protected waiters, and a five-second maximum

@@ -16,7 +16,8 @@ export async function withLoginLimit<T>(email: string, source: string, operation
   db: Database = metadataDb(), clock: () => number = Date.now): Promise<T> {
   const now = clock();
   const accountKey = `account:${secretHash(normalizeEmail(email))}`;
-  // An IPv6 source shares its address budget with the rest of its /64.
+  // An IPv6 source shares its address budget with the rest of its /64; a
+  // NAT64 source is charged as the IPv4 client it carries.
   const sourceKey = `source:${secretHash(accountingSource(source))}`;
   const reservations = db.transaction(() => {
     // Read inside the reservation on every attempt, so a lowered count pauses

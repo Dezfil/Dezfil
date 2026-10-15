@@ -284,7 +284,9 @@ entry. The bound holds either way. Eviction starts a fresh window. Readers behin
 untrusted proxy share its socket budget; trusted chains use the nearest
 untrusted hop. An IPv6 source is charged with its whole /64, so a host cannot
 step around a budget by taking a fresh address from its prefix; an IPv4 source,
-IPv4-mapped spellings included, is charged alone. The verified source itself
+IPv4-mapped spellings included, is charged alone, and so is an IPv4 client
+reaching the instance through the NAT64 prefix `64:ff9b::/96`, charged as the
+IPv4 address it carries. The verified source itself
 stays the full address. Missing or forged provenance refuses with private, no-store
 503 `ingress_unavailable` before body work or token resolution. See
 [self-hosting](docs/self-hosting.md) for provenance refusals and scope.

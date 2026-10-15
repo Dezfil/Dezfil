@@ -489,7 +489,10 @@ requests. Please slow down.” No new retry-header guarantee applies.
 Direct socket sources have independent budgets, except that every address of
 one IPv6 /64 shares one budget, so a host cannot step around it with fresh
 addresses from its prefix; equivalent IPv4 and mapped IPv4 addresses share
-one. Only the charge is grouped: the verified source stays the full address. A trusted proxy chain uses the nearest untrusted hop.
+one, and an address in the NAT64 prefix `64:ff9b::/96` shares the budget of
+the IPv4 address it carries, so clients behind one translator stay apart. The
+local-use prefix `64:ff9b:1::/48` does not say where its IPv4 client sits and
+is grouped by /64. Only the charge is grouped: the verified source stays the full address. A trusted proxy chain uses the nearest untrusted hop.
 Behind an untrusted proxy, readers share its socket budget by design; forwarded
 headers cannot separate it. Missing or forged provenance answers private,
 no-store 503 `ingress_unavailable`, “The instance cannot serve published maps

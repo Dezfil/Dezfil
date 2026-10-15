@@ -5,7 +5,8 @@ import { rateLimit, tileMaxPerWindow } from "./rate-limit";
 
 /** Verify source before reading a body or resolving even an unknown token.
  * The budget is charged to the source's accounting identity: an IPv6 source
- * shares one budget with its /64. */
+ * shares one budget with its /64, and a NAT64 source is charged as the IPv4
+ * client it carries. */
 export function admitPublishedRequest(request: Pick<Request, "headers">, bucket: "pub" | "tile" = "pub"): void {
   let source: string;
   try { source = requireIngress(request.headers).source; }

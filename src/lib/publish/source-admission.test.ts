@@ -167,6 +167,21 @@ it.each([[lanes[0], "DEZFIL_PUBLIC_RATE_LIMIT"], [lanes[4], "DEZFIL_PUBLIC_TILE_
     expect(rateLimitEntryCount()).toBe(4);
   });
 
+it.each([[lanes[0], "DEZFIL_PUBLIC_RATE_LIMIT"], [lanes[4], "DEZFIL_PUBLIC_TILE_RATE_LIMIT"]] as const)(
+  "charges a NAT64 source to the IPv4 client it carries, not to the translator's /64: $1", async (lane, variable) => {
+    vi.stubEnv(variable, "2");
+    const from = (peer: string) => call(lane, socketRequest(request(lane, "unknown"), peer));
+    // One client, spelled through the translator and directly, shares one budget.
+    expect((await from("64:ff9b::192.0.2.1")).status).toBe(404);
+    expect((await from("192.0.2.1")).status).toBe(404);
+    expect((await from("64:ff9b::c000:201")).status).toBe(429);
+    // Another client behind the same translator keeps its own.
+    expect((await from("64:ff9b::192.0.2.2")).status).toBe(404);
+    expect((await from("64:ff9b::192.0.2.2")).status).toBe(404);
+    expect((await from("192.0.2.2")).status).toBe(429);
+    expect(rateLimitEntryCount()).toBe(2);
+  });
+
 it("leaves the verified source the full IPv6 address; only the charge is grouped", () => {
   const req = socketRequest(request(lanes[0], "unknown"), "2001:db8:0:1:a:b:c:d");
   expect(requireIngress(req.headers).source).toBe("2001:db8:0:1:a:b:c:d");

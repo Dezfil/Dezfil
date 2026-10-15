@@ -188,6 +188,16 @@ it("counts failed sign-ins from every address of an IPv6 /64 against one address
   await expect(attempt("fresh@example.test", "192.0.2.1", allowed)).resolves.toBe("signed in");
 });
 
+it("counts failed sign-ins through a NAT64 translator against the IPv4 client's budget, not the translator's /64", async () => {
+  for (let index = 0; index < LOGIN_SOURCE_LIMIT; index++) await fail(`person${index}@example.test`, index % 2 ? "64:ff9b::c000:201" : "64:ff9b::192.0.2.1");
+  // Another client behind the same translator is not paused; the same
+  // client reaching the instance directly is.
+  await expect(attempt("fresh@example.test", "64:ff9b::192.0.2.2", allowed)).resolves.toBe("signed in");
+  await expect(attempt("fresh@example.test", "192.0.2.1")).rejects.toMatchObject({ code: "rate_limited" });
+  expect(db.prepare("SELECT failures FROM auth_login_limits WHERE bucket = ?").get(`source:${secretHash("192.0.2.1")}`))
+    .toEqual({ failures: LOGIN_SOURCE_LIMIT });
+});
+
 it("keeps IPv4 sources, mapped or not, in their own address budgets", async () => {
   for (let index = 0; index < LOGIN_SOURCE_LIMIT; index++) await fail(`person${index}@example.test`, index % 2 ? "::ffff:192.0.2.1" : "192.0.2.1");
   await expect(attempt("fresh@example.test", "192.0.2.1")).rejects.toMatchObject({ code: "rate_limited" });
