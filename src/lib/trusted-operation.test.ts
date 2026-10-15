@@ -271,6 +271,25 @@ it("keeps a resolved success while its cleanup crosses the deadline", async () =
   expect(vi.getTimerCount()).toBe(0);
 });
 
+it.each([true, false])("keeps a committed success when a cleanup fails, reporting the failure through settlement (marked=%s)", async marked => {
+  const op = admitTrustedOperation({ kind: "import", name: "Link import", budgetMs: 100_000 });
+  const later = vi.fn();
+  op.defer(later); op.defer(() => { throw new Error("rm failed"); });
+  const settlement = observed(op.settled);
+  const answer = await observed(op.run(async () => { if (marked) op.markCommitted(); return "registered"; }));
+  expect(answer).toEqual({ value: "registered" });
+  expect((await settlement).error).toMatchObject({ message: "Link import cleanup failed." });
+  expect(later).toHaveBeenCalledOnce();
+  await op.drained;
+});
+
+it("control: a committed success whose cleanup does not fail resolves and settles", async () => {
+  const op = admitTrustedOperation({ kind: "import", name: "Link import", budgetMs: 100_000 });
+  op.defer(() => {});
+  expect(await observed(op.run(async () => { op.markCommitted(); return "registered"; }))).toEqual({ value: "registered" });
+  await expect(op.settled).resolves.toBeUndefined();
+});
+
 it("keeps a committed success through later work, the deadline and departure", async () => {
   const caller = new AbortController();
   const op = admitTrustedOperation({ kind: "export", name: "Dataset export", signal: caller.signal, budgetMs: 1000 });

@@ -282,7 +282,10 @@ export class TrustedOperation {
       this.complete = true;
       if (this.cleanupErrors.length) {
         const error = new AggregateError(this.cleanupErrors, `${this.name} cleanup failed.`, { cause: this.failure });
-        this.settlement.reject(error); this.drain.resolve(); throw error;
+        this.settlement.reject(error); this.drain.resolve();
+        // Committed work keeps its answer; the failure is reported through settled.
+        if (this.commitTime === null) throw error;
+        return;
       }
       this.settlement.resolve(); this.drain.resolve();
     });
