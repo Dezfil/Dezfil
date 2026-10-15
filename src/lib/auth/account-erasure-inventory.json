@@ -6117,6 +6117,11 @@
         "memory:request-closures"
       ]
     },
+    "memory:src/lib/postgis/source-owner.ts#PgSourceOwner.ownDeadline": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
     "memory:src/lib/postgis/source-owner.ts#PgSourceOwner.stopInterrupting": {
       "stores": [
         "memory:request-closures"

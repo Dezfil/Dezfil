@@ -465,8 +465,11 @@ the processing lifetime through commit. Committed work answers with its success
 even when the scratch cleanup after it outlasts the limit. PostGIS connection tests, catalogue
 reads and previews use the query lifetime, with imports and refreshes under
 the processing lifetime. Every PostGIS attachment retains the 10-second connect
-limit and uses a 30-second source statement ceiling plus owned interruption.
-The source statement ceiling answers `408 query_timeout`. Geometry set and clear
+limit and owned interruption. Imports and refreshes give their source statements
+the rest of the processing time, and a source that outlasts it answers
+`408 data_processing_timeout`. Previews keep a 30-second source statement
+ceiling; connection checks and catalogue reads keep it too, or take the rest of
+the Query time limit when less is left. Both answer `408 query_timeout`. Geometry set and clear
 use one processing lifetime through preparation, revision checks and replacement,
 continue after departure, and retain the previous artifact on refusal. Sketch
 feature reads and map summaries share the query lifetime; sketch changes keep

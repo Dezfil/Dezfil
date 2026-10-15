@@ -5,7 +5,7 @@ import { randomUUID } from "node:crypto";
 import { ApiError } from "@/lib/api/errors";
 import { withConnection } from "@/lib/duckdb";
 import { resolveAllowed } from "@/lib/net/egress";
-import { PgSourceOwner, previewSourceError } from "./source-owner";
+import { PgSourceOwner, SOURCE_STATEMENT_MS } from "./source-owner";
 import type { PgConnection } from "@/lib/metadata/connections";
 
 /**
@@ -31,6 +31,7 @@ export function attachString(
   target: ConnectionTarget,
   hostaddr?: string,
   sourceIdentity?: string,
+  statementMs: number = SOURCE_STATEMENT_MS,
 ): string {
   return [
     `host=${libpqEscape(target.host)}`,
@@ -48,7 +49,7 @@ export function attachString(
     // Source startup options are inherited by every connection the attachment
     // opens, including extension work connections.
     ...(sourceIdentity ? [`application_name=${libpqEscape(sourceIdentity)}`] : []),
-    `options=${libpqEscape("-c statement_timeout=30000")}`,
+    `options=${libpqEscape(`-c statement_timeout=${statementMs}`)}`,
   ].join(" ");
 }
 
@@ -87,7 +88,8 @@ export async function withPg<T>(
   options: { signal?: AbortSignal; preview?: boolean } = {},
 ): Promise<T> {
   return withTrustedMutation({ kind: "interactive-read", name: "PostGIS source", signal: options.signal }, async operation => {
-    const owner = new PgSourceOwner(operation.signal);
+    const preview = options.preview ?? false;
+    const owner = new PgSourceOwner(operation.signal, preview);
     owner.check();
     // Egress policy first: a blocked destination is rejected before
     // anything is loaded or contacted, with the one uniform error — this
@@ -132,12 +134,12 @@ export async function withPg<T>(
           // Mark a successful native ATTACH before testing departure: a late
           // success still owns a catalogue that must be detached.
           await native.run(
-            `ATTACH ${sqlLit(attachString(target, hostaddr, options.preview ? `dezfil_preview_${identity}` : `dezfil_source_${identity}`))} AS ${alias} (TYPE postgres, READ_ONLY)`,
+            `ATTACH ${sqlLit(attachString(target, hostaddr, preview ? `dezfil_preview_${identity}` : `dezfil_source_${identity}`, owner.attachmentCeiling()))} AS ${alias} (TYPE postgres, READ_ONLY)`,
           );
           attached = true;
         } catch (error) {
           owner.check();
-          const classified = previewSourceError(trustedEngineError(error));
+          const classified = owner.classify(error);
           if (isTrustedOperationRefusal(classified)) throw classified;
           mapAttachError(classified);
         }

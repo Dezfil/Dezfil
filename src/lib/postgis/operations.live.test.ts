@@ -26,6 +26,8 @@ async function until(predicate: () => Promise<boolean>, milliseconds: number, me
   while (performance.now() - started <= milliseconds) { if (await predicate()) return; await delay(100); }
   throw new Error(message);
 }
+/** How Postgres shows a millisecond setting: in the largest unit that divides it. */
+const shownDuration = (ms: number) => ms % 60_000 === 0 ? `${ms / 60_000}min` : ms % 1000 === 0 ? `${ms / 1000}s` : `${ms}ms`;
 const kinds = ["create", "edit", "test", "catalogue", "preview", "import", "refresh"] as const;
 describe.skipIf(!url)(url ? "live source operation ownership" : "SKIP: DEZFIL_TEST_PG_URL is missing (all-operation source ownership, docs/runbook.md)", () => {
   let source: SourceFixture, scratch: string;
@@ -41,6 +43,20 @@ describe.skipIf(!url)(url ? "live source operation ownership" : "SKIP: DEZFIL_TE
   }, 30_000);
   it.each(kinds)("%s settles blocked source work after expiry and retains committed artifacts", async kind => { await exercise(kind, false); }, 100_000);
   it.each(kinds)("%s applies its departure policy while the source is held", async kind => { await exercise(kind, true); }, 100_000);
+  it("imports a source whose transfer outlasts the preview ceiling at the default limits", async () => {
+    const scope = testAccountScope(), id = randomUUID();
+    insertConnection(scope, { id, ...resolveCreateConnectionInput({ name: "Slow transfer", url: fixtureUrl(url!, "disable") }) });
+    // The one row takes 31 s to produce: past the 30 s preview ceiling, well
+    // inside the default processing limit of an import.
+    await source.exec(`CREATE FUNCTION ${schema}.slow_id() RETURNS integer LANGUAGE sql VOLATILE AS $fn$ SELECT pg_sleep(31); SELECT 7 $fn$`);
+    await source.exec(`CREATE VIEW ${schema}.slow AS SELECT ${schema}.slow_id() AS id`);
+    const watch = watchAttachments();
+    try {
+      const table = await importPostgis(scope, { connectionId: id, schema, table: "slow" });
+      expect(table.rowCount).toBe(1);
+      expect(Number(watch.attempts[0].timeout)).toBeGreaterThan(31_000);
+    } finally { watch.restore(); }
+  }, 120_000);
   async function exercise(kind: typeof kinds[number], depart: boolean) {
     const scope = testAccountScope(), id = randomUUID(), lock = randomInt(1, 2 ** 30);
     // Both sets share one data folder, and a connection name is unique per owner.
@@ -79,9 +95,14 @@ describe.skipIf(!url)(url ? "live source operation ownership" : "SKIP: DEZFIL_TE
       pending = work.then(value => { outcome = value; finished = true; }, error => { outcome = error; finished = true; });
       await until(async () => { identity = watch.attempts[0]?.identity; return !!identity && (await owned()).some(b => b.wait_event_type === "Lock"); }, 8_000, "Source statement never reached its held state");
       expect(identity).toMatch(/^dezfil_(source|preview)_[a-f0-9]{32}$/);
-      expect(watch.attempts[0].timeout).toBe("30000");
+      // A preview, and other work that cancels on departure with more than 30 s
+      // left, keep the 30 s source ceiling; otherwise it is what is left of the limit.
+      const ceiling = Number(watch.attempts[0].timeout);
+      if (kind === "preview" || (depart && !processing)) expect(ceiling).toBe(30_000);
+      else { expect(ceiling).toBeGreaterThan(0); expect(ceiling).toBeLessThanOrEqual(depart ? 60_000 : 10_000); }
       const waiting = (await owned()).filter(b => b.wait_event_type === "Lock"); expect(waiting.length).toBeGreaterThan(0);
-      expect(waiting.map(b => b.application_name)).toEqual(waiting.map(() => `${identity}_t30s`));
+      // The source reports the ceiling it enforces on the held statement.
+      expect(waiting.map(b => b.application_name)).toEqual(waiting.map(() => `${identity}_t${shownDuration(ceiling)}`));
       const started = performance.now();
       if (depart) controller.abort();
       if (depart && processing) {

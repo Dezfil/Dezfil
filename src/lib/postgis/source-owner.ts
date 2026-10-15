@@ -1,4 +1,4 @@
-import { currentTrustedOperation } from "@/lib/trusted-operation";
+import { currentTrustedOperation, type TrustedOperation } from "@/lib/trusted-operation";
 import { trustedEngineError } from "@/lib/trusted-connection";
 import type { DuckDBConnection } from "@duckdb/node-api";
 import { ApiError, EvaluationCancelled } from "@/lib/api/errors";
@@ -7,12 +7,33 @@ export function assertPreviewActive(signal?: AbortSignal): void {
   if (signal?.aborted) throw new EvaluationCancelled();
 }
 
+/** The source's own statement ceiling for previews and other interactive work. */
+export const SOURCE_STATEMENT_MS = 30_000;
+
+/** The statement ceiling a source attachment opened now carries, and whether
+ * it is the operation's own remaining time. Accepted processing continues
+ * after departure, so it takes all of its remaining time. Work that cancels on
+ * departure keeps the 30 s ceiling at most: the native interrupt does not
+ * reach a read blocked on the server, so only the ceiling ends that read
+ * within the settlement allowance after the caller leaves. A preview keeps
+ * its 30 s ceiling. */
+export function sourceStatementCeiling(preview: boolean, operation?: TrustedOperation): { ms: number; ownDeadline: boolean } {
+  if (preview || !operation) return { ms: SOURCE_STATEMENT_MS, ownDeadline: false };
+  const remaining = Math.max(1, Math.ceil(operation.deadline - performance.now()));
+  if (!operation.cancelsOnDeparture || remaining <= SOURCE_STATEMENT_MS) return { ms: remaining, ownDeadline: true };
+  return { ms: SOURCE_STATEMENT_MS, ownDeadline: false };
+}
+
 /** Translate the source's statement ceiling before connection/filter wrappers
- * erase its cause. Never return the engine message, which can contain secrets. */
-export function previewSourceError(error: unknown): unknown {
+ * erase its cause. A ceiling that is the operation's remaining time answers
+ * as that operation's own time limit, so processing answers
+ * data_processing_timeout; the 30 s ceiling answers that the source query
+ * took too long. Never return the engine message, which can contain secrets. */
+export function sourceError(error: unknown, ownDeadline?: TrustedOperation): unknown {
   if (error instanceof ApiError || error instanceof EvaluationCancelled) return error;
   const message = error instanceof Error ? error.message : "";
   if (/(?:^|:\s*|\n\s*)ERROR:\s+canceling statement due to statement timeout\b/i.test(message)) {
+    if (ownDeadline) return ownDeadline.refuseAtDeadline();
     return new ApiError("query_timeout", "The PostGIS source query took too long.", 408);
   }
   return error;
@@ -23,7 +44,20 @@ export function previewSourceError(error: unknown): unknown {
 export class PgSourceOwner {
   private readonly operation = currentTrustedOperation();
   private stopInterrupting?: () => void;
-  constructor(readonly signal?: AbortSignal) {}
+  private ownDeadline = false;
+  constructor(readonly signal?: AbortSignal, private readonly preview = false) {}
+
+  /** The statement ceiling for the attachment this owner opens now. */
+  attachmentCeiling(): number {
+    const ceiling = sourceStatementCeiling(this.preview, this.operation);
+    this.ownDeadline = ceiling.ownDeadline;
+    return ceiling.ms;
+  }
+
+  /** The source error as this owner's answer, see sourceError. */
+  classify(error: unknown): unknown {
+    return sourceError(trustedEngineError(error), this.ownDeadline ? this.operation : undefined);
+  }
 
   check(): void { this.operation?.assertCanCommit(); assertPreviewActive(this.signal); }
 
@@ -32,7 +66,7 @@ export class PgSourceOwner {
     let result: T;
     try { result = await work(); } catch (error) {
       this.check();
-      const classified = previewSourceError(trustedEngineError(error));
+      const classified = this.classify(error);
       this.operation?.refuseIfFinal(classified);
       throw classified;
     }

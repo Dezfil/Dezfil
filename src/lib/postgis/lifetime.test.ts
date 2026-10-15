@@ -46,12 +46,18 @@ it.each(["departure", "deadline"])("%s during DNS starts no native work", async 
   const work = read(caller.signal).catch(e => e); await flush(); if (reason === "departure") caller.abort(); else await vi.advanceTimersByTimeAsync(101); held.resolve(["192.0.2.1"]); await flush();
   const outcome = await work; if (reason === "departure") expect(outcome).toBeInstanceOf(EvaluationCancelled); else expect(outcome).toMatchObject({ code: "query_timeout" }); expect(conn.run).not.toHaveBeenCalled();
 });
-it("every source attachment carries a statement ceiling and independent identity", async () => {
+it("every source attachment takes its statement ceiling from its operation's remaining time, with an independent identity", async () => {
   await read(); await browseRemoteTables(target); await withPg(target, async () => {});
+  vi.mocked(egress.resolveAllowed).mockImplementationOnce(async () => { remember(); await vi.advanceTimersByTimeAsync(40); return ["192.0.2.1"]; });
+  await read();
+  conn.run.mockImplementation(async sql => { remember(); if (sql.startsWith("COPY")) throw new Error("Out of Memory Error: could not allocate block"); });
+  await expect(importPostgis(testAccountScope(), recipe)).rejects.toMatchObject({ code: "engine_memory_exceeded" });
   const attaches = conn.run.mock.calls.map(([sql]) => String(sql)).filter(sql => sql.startsWith("ATTACH"));
-  expect(attaches).toHaveLength(3);
-  for (const sql of attaches) { expect(sql).toContain("statement_timeout=30000"); expect(sql).toContain("connect_timeout=10"); expect(sql).toMatch(/application_name=''dezfil_source_[a-f0-9]{32}''/); }
-  expect(new Set(attaches.map(sql => sql.match(/application_name=([^ ]+)/)?.[0])).size).toBe(3);
+  expect(attaches).toHaveLength(5);
+  // Reads have 100 ms here and imports 200 ms; the fourth read spent 40 ms resolving its host.
+  expect(attaches.map(sql => sql.match(/statement_timeout=(\d+)/)?.[1])).toEqual(["100", "100", "100", "60", "200"]);
+  for (const sql of attaches) { expect(sql).toContain("connect_timeout=10"); expect(sql).toMatch(/application_name=''dezfil_source_[a-f0-9]{32}''/); }
+  expect(new Set(attaches.map(sql => sql.match(/application_name=([^ ]+)/)?.[0])).size).toBe(5);
 });
 it("a late successful attachment is detached after expiry without running source queries", async () => {
   conn.run.mockImplementation(async sql => { remember(); if (sql.startsWith("ATTACH")) await vi.advanceTimersByTimeAsync(101); });
@@ -63,9 +69,25 @@ it.each(["INSTALL postgres", "ATTACH", "COPY"])("native memory at %s keeps its i
   await expect(importPostgis(testAccountScope(), recipe)).rejects.toMatchObject({ code: "engine_memory_exceeded", status: 422 }); expect(listTables()).toEqual([]);
   expect(getConnection(testAccountScope(), target.id)?.lastCheckError).toBeNull();
 });
-it("source timeout during processing preserves its refusal through the import wrapper", async () => {
+it("work that cancels on departure keeps the 30 s source ceiling when more time is left, and processing takes all of it", async () => {
+  vi.spyOn(limits, "queryTimeoutMs", "get").mockReturnValue(60_000); vi.spyOn(limits, "dataProcessingTimeoutMs", "get").mockReturnValue(3_600_000);
+  conn.runAndReadAll.mockImplementation(async () => { throw new Error("IO Error: source query failed: ERROR:  canceling statement due to statement timeout\n"); });
+  await expect(read()).rejects.toMatchObject({ code: "query_timeout", status: 408, message: "The PostGIS source query took too long." });
+  conn.runAndReadAll.mockImplementation(async sql => ({ getRowObjects: () => sql.includes("information_schema.columns") ? [{ column_name: "id", udt_name: "int4" }] : [{ v: "source" }] }));
+  conn.run.mockImplementation(async sql => { if (sql.startsWith("COPY")) throw new Error("Out of Memory Error: could not allocate block"); });
+  await expect(importPostgis(testAccountScope(), recipe)).rejects.toMatchObject({ code: "engine_memory_exceeded" });
+  const attaches = conn.run.mock.calls.map(([sql]) => String(sql)).filter(sql => sql.startsWith("ATTACH"));
+  expect(attaches.map(sql => sql.match(/statement_timeout=(\d+)/)?.[1])).toEqual(["30000", "3600000"]);
+});
+it("a source timeout during processing answers the import's own time limit through the import wrapper", async () => {
   conn.run.mockImplementation(async sql => { if (sql.startsWith("COPY")) throw new Error("ERROR: canceling statement due to statement timeout"); });
-  await expect(importPostgis(testAccountScope(), recipe)).rejects.toMatchObject({ code: "query_timeout", status: 408 });
+  await expect(importPostgis(testAccountScope(), recipe)).rejects.toMatchObject({ code: "data_processing_timeout", status: 408,
+    message: expect.stringContaining("PostGIS import exceeded the 0.2 s processing time limit.") });
+});
+it("a source timeout during an interactive read answers the read's own time limit", async () => {
+  conn.runAndReadAll.mockImplementation(async () => { throw new Error("IO Error: source query failed: ERROR:  canceling statement due to statement timeout\n"); });
+  await expect(read()).rejects.toMatchObject({ code: "query_timeout", status: 408,
+    message: expect.stringContaining("PostGIS source exceeded the 0.1 s query time limit.") });
 });
 it.each(["create", "edit", "test", "catalogue"])("%s includes preparation and refuses a late metadata commit", async kind => {
   vi.mocked(egress.resolveAllowed).mockImplementation(async () => { remember(); await vi.advanceTimersByTimeAsync(101); return ["192.0.2.1"]; });

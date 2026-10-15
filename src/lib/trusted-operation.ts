@@ -88,6 +88,8 @@ export class TrustedOperation {
   private decisionTime: number | null = null;
   private commitTime: number | null = null;
   get decidedAt(): number | null { return this.decisionTime; }
+  /** Whether the last interested caller's departure refuses this work. */
+  get cancelsOnDeparture(): boolean { return this.policy.departure === "cancel"; }
   get settlementDeadline(): number | null { return this.decisionTime === null ? null : this.decisionTime + TRUSTED_SETTLEMENT_MS; }
   private readonly controller = new AbortController();
   private readonly policy: { budget: "query" | "processing"; departure: "cancel" | "continue" };
@@ -205,6 +207,14 @@ export class TrustedOperation {
     this.controller.abort(error);
     for (const stop of this.stopHooks) this.stopResource(stop);
     this.stopHooks.clear();
+  }
+
+  /** For a source that enforces this operation's remaining time itself: its
+   * expiry is this operation's own time limit. Decides the operation with
+   * that refusal and returns the answer to throw. */
+  refuseAtDeadline(): unknown {
+    const refusal = this.timeout(); this.refuse(refusal);
+    return this.decidedAt !== null ? this.failure : refusal;
   }
 
   /** Call right after the work's final synchronous commit. From then on the
