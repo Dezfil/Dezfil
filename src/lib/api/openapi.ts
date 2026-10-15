@@ -191,7 +191,7 @@ export function buildOpenApiDocument() {
             "A MapLibre style document for the imagery this instance " +
             "configures, with the provider's credit. Its raster source names " +
             "this instance's own tile address, " +
-            "`/api/basemaps/satellite/tiles/{z}/{x}/{y}`, never the " +
+            "`/api/basemaps/satellite/tiles/{z}/{x}/{y}{ratio}`, never the " +
             "configured tile template: the server fetches each tile from the " +
             "template, so the template and a key in it never leave the server. " +
             "It answers signed-in accounts only; an anonymous request is " +

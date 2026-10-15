@@ -128,18 +128,18 @@ describe("the configured satellite basemap", () => {
     const style = satelliteStyleDocument() as { version: number; layers: { type: string }[];
       sources: { satellite: { type: string; tiles: string[]; attribution: string } } };
     expect(style.version).toBe(8);
-    expect(style.sources.satellite).toMatchObject({ type: "raster", tiles: ["/api/basemaps/satellite/tiles/{z}/{x}/{y}"], attribution: "© Imagery Provider" });
+    expect(style.sources.satellite).toMatchObject({ type: "raster", tiles: ["/api/basemaps/satellite/tiles/{z}/{x}/{y}{ratio}"], scheme: "xyz", attribution: "© Imagery Provider" });
     expect(style.layers.map((l) => l.type)).toContain("raster");
     expect(JSON.stringify(style)).not.toContain("imagery.example");
     // Served under another address, the tiles follow that address.
     expect((satelliteStyleDocument("/api/published/T/basemaps/satellite") as { sources: { satellite: { tiles: string[] } } })
-      .sources.satellite.tiles).toEqual(["/api/published/T/basemaps/satellite/tiles/{z}/{x}/{y}"]);
+      .sources.satellite.tiles).toEqual(["/api/published/T/basemaps/satellite/tiles/{z}/{x}/{y}{ratio}"]);
   });
 
   it("appears once an admin stores a template, with the stored credit, a set variable winning each", () => {
     writeStoredSettings({ satelliteUrl: TEMPLATE, satelliteAttribution: "© Stored Provider" }, db);
     expect(satelliteBasemap()?.attribution).toEqual([{ label: "© Stored Provider" }]);
-    expect((satelliteStyleDocument() as { sources: { satellite: { tiles: string[] } } }).sources.satellite.tiles).toEqual(["/api/basemaps/satellite/tiles/{z}/{x}/{y}"]);
+    expect((satelliteStyleDocument() as { sources: { satellite: { tiles: string[] } } }).sources.satellite.tiles).toEqual(["/api/basemaps/satellite/tiles/{z}/{x}/{y}{ratio}"]);
     vi.stubEnv("DEZFIL_SATELLITE_ATTRIBUTION", " © Variable Provider ");
     expect(satelliteBasemap()?.attribution).toEqual([{ label: "© Variable Provider" }]);
   });

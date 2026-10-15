@@ -156,7 +156,7 @@ async function setUp(): Promise<string> {
 }
 
 /** The tile address a signed-in browser is handed: the instance's own. */
-const TILES = "/api/basemaps/satellite/tiles/{z}/{x}/{y}";
+const TILES = "/api/basemaps/satellite/tiles/{z}/{x}/{y}{ratio}";
 
 /** The anonymous refusal: the sign-in it asks for, and no part of the template. */
 async function refusedAnonymously() {

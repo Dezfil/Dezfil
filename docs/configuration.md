@@ -281,7 +281,10 @@ The satellite imagery's tile address and credit are `satelliteUrl` and
 `DEZFIL_SATELLITE_URL` and `DEZFIL_SATELLITE_ATTRIBUTION` under
 [Rendering and tiles](#rendering-and-tiles); a set variable wins and locks its
 row, which then shows locked, naming the variable. The tile address is an
-address holding `{z}`, `{x}` and `{y}`, at most 2,048 characters, kept as
+address holding `{z}`, `{x}` and `{y}`, at most 2,048 characters; the server
+fills it for each tile as MapLibre fills a raster template, so `{ratio}`
+(`@2x` for a high-density screen, else nothing), `{quadkey}`, `{prefix}` and
+`{bbox-epsg-3857}` are filled too. It is kept as
 [Service addresses and numbers](#service-addresses-and-numbers) describes:
 write-only, encrypted with the instance's key, read back as its scheme and host
 alone, and refused at save where the egress policy would refuse it now. Unlike

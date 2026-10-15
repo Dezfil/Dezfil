@@ -1,7 +1,9 @@
 /// <reference types="vite/client" />
 import type { Database } from "better-sqlite3";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
+import { createRequire } from "node:module";
 import type { AddressInfo } from "node:net";
+import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // The engine's own lookup, answered by a fixture resolver, so a tile host
@@ -25,7 +27,8 @@ import { testAccountRequest, testAccountScope } from "@/lib/test-support/account
 import { tokenFor } from "@/lib/test-support/rule-roads";
 import { initialDefinition } from "@/lib/export/image-definition";
 import { renderMapImage, type RenderDriver } from "@/lib/export/render-image";
-import type { BasemapStyle } from "./basemap";
+import { satelliteTilesUrl, type BasemapStyle } from "./basemap";
+import { readTileCoordinate, tileAddress } from "./basemap-satellite-tiles";
 import { createMap, updateMap } from "./map-service";
 
 /**
@@ -145,7 +148,7 @@ describe("the satellite style a signed-in browser loads", () => {
       const style = await call(STYLE, as);
       expect(style.status, as).toBe(200);
       expect((style.body as { sources: { satellite: unknown } }).sources.satellite)
-        .toEqual({ type: "raster", tiles: ["/api/basemaps/satellite/tiles/{z}/{x}/{y}"], tileSize: 256, maxzoom: 19, attribution: CREDIT });
+        .toEqual({ type: "raster", tiles: ["/api/basemaps/satellite/tiles/{z}/{x}/{y}{ratio}"], scheme: "xyz", tileSize: 256, maxzoom: 19, attribution: CREDIT });
       expectNoTemplate(`the style for ${as}`, style);
     }
     expect(asked).toEqual([]);
@@ -179,8 +182,8 @@ describe("a satellite tile for a signed-in browser", () => {
 
   it("the style's tile address is the one that answers", async () => {
     const style = await call(STYLE, "member");
-    const [tiles] = (style.body as { sources: { satellite: { tiles: string[] } } }).sources.satellite.tiles;
-    const tile = await call(tiles.replace("{z}", "0").replace("{x}", "0").replace("{y}", "0"), "member");
+    const { tiles, scheme } = (style.body as { sources: { satellite: { tiles: string[]; scheme: string } } }).sources.satellite;
+    const tile = await call((await maplibreTile(0, 0, 0)).url(tiles, 1, scheme), "member");
     expect(tile.status).toBe(200);
     expect(asked.map((a) => a.url)).toEqual([`/${SEEDS[0]}/0/0/0.png?key=${SEEDS[1]}`]);
   });
@@ -206,6 +209,13 @@ describe("a satellite tile for a signed-in browser", () => {
     ["a padded number", "%201", "0", "0"],
     ["an empty part", "3", "4", "%20"],
     ["a placeholder", "{z}", "0", "0"],
+    ["a pixel ratio other than @2x", "3", "4", "2@3x"],
+    ["a pixel ratio in capitals", "3", "4", "2@2X"],
+    ["a pixel ratio alone", "3", "4", "@2x"],
+    ["a pixel ratio twice", "3", "4", "2@2x@2x"],
+    ["a pixel ratio after the column", "3", "4@2x", "2"],
+    ["a pixel ratio after the zoom", "3@2x", "4", "2"],
+    ["a pixel ratio placeholder left unfilled", "3", "4", "2{ratio}"],
   ])("refuses %s without asking the imagery", async (_what, z, x, y) => {
     const tile = await call(`/api/basemaps/satellite/tiles/${z}/${x}/${y}`, "member");
     expect(tile.status).toBe(400);
@@ -231,6 +241,61 @@ describe("a satellite tile for a signed-in browser", () => {
     expect(tile.body).toEqual(refusal);
     expectNoTemplate("the refusal", tile);
     expect(asked).toEqual([]);
+  });
+});
+
+/** MapLibre's own tile, whose `url` is what its raster source fills a
+ * tile template with for every tile it asks: read from the installed
+ * package's source, so the relay is held to the function itself rather
+ * than to a restatement of it. */
+type MapLibreTile = { url(urls: string[], pixelRatio: number, scheme?: string): string };
+async function maplibreTile(z: number, x: number, y: number): Promise<MapLibreTile> {
+  const dir = dirname(createRequire(import.meta.url).resolve("maplibre-gl/package.json"));
+  const { CanonicalTileID } = await import(/* @vite-ignore */ join(dir, "src/tile/tile_id.ts")) as
+    { CanonicalTileID: new (z: number, x: number, y: number) => MapLibreTile };
+  return new CanonicalTileID(z, x, y);
+}
+/** Tiles at the corners and inside of their zooms, the deepest included. */
+const SAMPLE_TILES = [[0, 0, 0], [1, 1, 0], [3, 4, 2], [7, 100, 37], [12, 2200, 1343], [19, 524287, 0], [19, 280001, 170003]] as const;
+
+describe("a tile template's placeholders", () => {
+  it.each([
+    ["z, x and y", "{z}/{x}/{y}.png"],
+    ["the pixel ratio", "{z}/{x}/{y}{ratio}.png"],
+    ["the quadkey", "q/{quadkey}.jpeg"],
+    ["the prefix", "{prefix}/{z}/{x}/{y}.png"],
+    ["the bounding box, in the query", "wms?bbox={bbox-epsg-3857}&width=256"],
+    ["every one together, twice", "{prefix}/{z}-{x}-{y}{ratio}/{quadkey}/{z}?bbox={bbox-epsg-3857}&q={quadkey}&r={ratio}"],
+  ])("asks the imagery for the address MapLibre fills with %s, at either pixel ratio", async (_what, path) => {
+    const imagery = `http://127.0.0.1:${port}/${SEEDS[0]}/${path}${path.includes("?") ? "&" : "?"}key=${SEEDS[1]}`;
+    vi.stubEnv("DEZFIL_SATELLITE_URL", imagery);
+    const style = await call(STYLE, "member");
+    const source = (style.body as { sources: { satellite: { tiles: string[]; scheme?: string } } }).sources.satellite;
+    for (const [z, x, y] of SAMPLE_TILES) for (const ratio of [1, 2]) {
+      asked = [];
+      const tile = await maplibreTile(z, x, y);
+      // The address MapLibre asks of the instance, from the style it is handed...
+      const relayed = await call(tile.url(source.tiles, ratio, source.scheme), "member");
+      expect(relayed.status, `${z}/${x}/${y} at ${ratio}`).toBe(200);
+      // ...is answered from the address it asked of the imagery when it was
+      // handed the template itself.
+      const direct = new URL(tile.url([imagery], ratio, source.scheme));
+      expect(asked.map((a) => a.url), `${z}/${x}/${y} at ${ratio}`).toEqual([direct.pathname + direct.search]);
+    }
+  });
+
+  it("fills the template by the scheme the style's source declares, counting the rows of a TMS source as MapLibre does", async () => {
+    const template = "https://imagery.example/{z}/{x}/{y}{ratio}/{quadkey}/{prefix}.png?bbox={bbox-epsg-3857}";
+    const relay = satelliteTilesUrl(STYLE);
+    for (const scheme of ["xyz", "tms"] as const) for (const [z, x, y] of SAMPLE_TILES) for (const ratio of [1, 2]) {
+      const tile = await maplibreTile(z, x, y);
+      // The parts of the relay's own address, as MapLibre fills it for this source.
+      const [zs, xs, ys] = tile.url([relay], ratio, scheme).slice(`${STYLE}/tiles/`.length).split("/");
+      const requested = readTileCoordinate(zs, xs, ys);
+      expect(requested, `${scheme} ${z}/${x}/${y} at ${ratio}`).not.toBeNull();
+      expect(tileAddress(template, requested!, scheme), `${scheme} ${z}/${x}/${y} at ${ratio}`)
+        .toBe(tile.url([template], ratio, scheme));
+    }
   });
 });
 
@@ -353,10 +418,10 @@ describe("a published map's reader", () => {
     expect(style.status, style.text).toBe(200);
     expect(style.headers.get("cache-control")).toBe("private, no-store");
     expect((style.body as { sources: { satellite: unknown } }).sources.satellite).toEqual({ type: "raster",
-      tiles: [`/api/published/${token}/basemaps/satellite/tiles/{z}/{x}/{y}`], tileSize: 256, maxzoom: 19, attribution: CREDIT });
+      tiles: [`/api/published/${token}/basemaps/satellite/tiles/{z}/{x}/{y}{ratio}`], scheme: "xyz", tileSize: 256, maxzoom: 19, attribution: CREDIT });
     expectNoTemplate("the reader's style", style);
-    const [tiles] = (style.body as { sources: { satellite: { tiles: string[] } } }).sources.satellite.tiles;
-    const tile = await call(tiles.replace("{z}", "3").replace("{x}", "4").replace("{y}", "2"), "anonymous");
+    const { tiles, scheme } = (style.body as { sources: { satellite: { tiles: string[]; scheme: string } } }).sources.satellite;
+    const tile = await call((await maplibreTile(3, 4, 2)).url(tiles, 2, scheme), "anonymous");
     expect(tile.status, tile.text).toBe(200);
     expect(tile.headers.get("content-type")).toBe("image/png");
     expect(tile.headers.get("cache-control")).toBe("private, no-store");

@@ -183,7 +183,7 @@ describe.skipIf(!port)("the server's image of a map on Satellite as the imagery 
   const servedStyle = async () => {
     const style = await imageryStyle();
     expect(style.status).toBe(200);
-    expect((style.body as { sources: { satellite: { tiles: string[] } } }).sources.satellite.tiles).toEqual(["/api/basemaps/satellite/tiles/{z}/{x}/{y}"]);
+    expect((style.body as { sources: { satellite: { tiles: string[] } } }).sources.satellite.tiles).toEqual(["/api/basemaps/satellite/tiles/{z}/{x}/{y}{ratio}"]);
     expect(JSON.stringify(style.body)).not.toContain(`:${imageryPort}`);
   };
   const mapRecord = () => metadataDb().prepare("SELECT basemap FROM maps WHERE id = ?").get(mapId);

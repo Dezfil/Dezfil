@@ -7,6 +7,7 @@ import {
   BASEMAP_FALLBACKS,
   SATELLITE_MAX_ZOOM,
   SATELLITE_STYLE_URL,
+  SATELLITE_TILE_SCHEME,
   satelliteTilesUrl,
   type AttributionLine,
   type BasemapStyle,
@@ -79,6 +80,7 @@ export function satelliteStyleDocument(
       satellite: {
         type: "raster",
         tiles: [satelliteTilesUrl(styleUrl)],
+        scheme: SATELLITE_TILE_SCHEME,
         tileSize: 256,
         maxzoom: SATELLITE_MAX_ZOOM,
         ...(credit ? { attribution: credit } : {}),

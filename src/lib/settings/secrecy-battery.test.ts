@@ -725,7 +725,7 @@ describe("a service address carrying a key", () => {
       expect(style.status, style.text).toBe(200);
       // The browser drawing the imagery is handed the instance's own tile
       // address: the template stays on the server, which fetches the tiles.
-      expect(style.body.sources.satellite.tiles).toEqual([`${SATELLITE_STYLE_URL}/tiles/{z}/{x}/{y}`]);
+      expect(style.body.sources.satellite.tiles).toEqual([`${SATELLITE_STYLE_URL}/tiles/{z}/{x}/{y}{ratio}`]);
       searched("the imagery style a signed-in browser loads", style.text);
       const anonymous = await imageryRoute(socketRequest(new Request(`${BASE}${SATELLITE_STYLE_URL}`)));
       expect(anonymous.status).toBe(401);

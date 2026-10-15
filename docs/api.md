@@ -707,7 +707,7 @@ catalogue responses never return their secret values.
 
 **Satellite imagery.** `GET /api/basemaps/satellite` is the configured
 imagery's MapLibre style for a signed-in account. Its raster source names this
-instance's own tile address, `GET /api/basemaps/satellite/tiles/{z}/{x}/{y}`,
+instance's own tile address, `GET /api/basemaps/satellite/tiles/{z}/{x}/{y}{ratio}`,
 never the configured tile template: the server fetches each tile from the
 template and passes it back, so the template and a key in it stay on the
 server. A published page's reader, who is not signed in, has the publication's
@@ -717,9 +717,11 @@ name. They answer while the publication is current and its page can show
 Satellite (the map is on it, or its basemap switcher is on and offers it), and
 a revoked or unknown token is refused as the layer tiles refuse it. Only the
 tile's z, x and y reach the template, as whole numbers inside the zoom's range
-(z from 0 to 19, x and y below 2 to the power of z), refused with
-`invalid_request` before anything is sent; nothing else of the request goes
-with them. The fetch takes the egress policy at every hop, waits at most ten
+(z from 0 to 19, x and y below 2 to the power of z), the row followed by `@2x`
+for a high-density tile or by nothing, refused with `invalid_request` before
+anything is sent; nothing else of the request goes with them. The template is
+filled from these as MapLibre fills a raster template: `{z}`, `{x}`, `{y}`,
+`{ratio}`, `{quadkey}`, `{prefix}` and `{bbox-epsg-3857}`. The fetch takes the egress policy at every hop, waits at most ten
 seconds and reads at most 4 MiB; only a whole PNG, JPEG, GIF, WebP or AVIF
 image passes back, with the type its bytes are, and no tile is kept. Every
 failure upstream answers `imagery_unavailable` (502, or 504 past the time

@@ -7,8 +7,9 @@ import { getMap } from "@/lib/metadata/map-queries";
 import { resolveAllowed } from "@/lib/net/egress";
 import { openRemote, type OpenRemoteOptions, type RemoteResponse } from "@/lib/net/remote-fetch";
 import { carriesUserInformation } from "@/lib/settings/disclosure";
-import { SATELLITE_MAX_ZOOM } from "./basemap";
+import { SATELLITE_MAX_ZOOM, SATELLITE_TILE_SCHEME } from "./basemap";
 import { satelliteBasemap, satelliteTileUrl } from "./basemap-satellite";
+import { fillTileTemplate, type TileScheme } from "./tile-template";
 
 /**
  * The satellite imagery's tiles, fetched by the server and passed back, so
@@ -18,8 +19,10 @@ import { satelliteBasemap, satelliteTileUrl } from "./basemap-satellite";
  *
  * Not a way out to anywhere else: the only part of a request that reaches
  * the template is the tile's z, x and y, whole numbers inside the zoom's
- * range, checked before anything is sent; no query, header or credential
- * of the caller goes with them. The fetch takes the outbound engine every
+ * range, and `@2x` after y or nothing, checked before anything is sent;
+ * the template is filled from these alone, as MapLibre fills it
+ * (`tile-template.ts`), and no query, header or credential of the caller
+ * goes with them. The fetch takes the outbound engine every
  * user-directed fetch takes, so the egress policy admits each hop at
  * connect, under its own time bound and a size bound, and only a whole
  * raster image comes back, with the type its bytes are. Nothing is kept:
@@ -32,17 +35,25 @@ import { satelliteBasemap, satelliteTileUrl } from "./basemap-satellite";
  * request step and reads it under the same bound.
  */
 
-export interface TileCoordinate { z: number; x: number; y: number }
+/** A tile as the relay's own address names it: its z, x and y, the row
+ * counted as the style's source counts it, and the pixel ratio MapLibre
+ * wrote after it (2 for `@2x`, else 1). */
+export interface TileCoordinate { z: number; x: number; y: number; ratio?: 1 | 2 }
 
 /** A part of a tile's address: a whole number in plain decimal, no sign,
  * no leading zero. */
 const WHOLE = /^(?:0|[1-9][0-9]{0,6})$/;
 
+/** The row part: a whole number, and `@2x` after it or nothing. */
+const ROW = /^(0|[1-9][0-9]{0,6})(@2x)?$/;
+
 /** A tile's z, x and y as the address gives them, or null unless each is a
- * whole number inside the zoom's range. */
+ * whole number inside the zoom's range, the row followed by `@2x` or by
+ * nothing. */
 export function readTileCoordinate(z: string, x: string, y: string): TileCoordinate | null {
-  if (!WHOLE.test(z) || !WHOLE.test(x) || !WHOLE.test(y)) return null;
-  const tile = { z: Number(z), x: Number(x), y: Number(y) };
+  const row = ROW.exec(y);
+  if (!WHOLE.test(z) || !WHOLE.test(x) || !row) return null;
+  const tile: TileCoordinate = { z: Number(z), x: Number(x), y: Number(row[1]), ratio: row[2] ? 2 : 1 };
   if (tile.z > SATELLITE_MAX_ZOOM) return null;
   const span = 2 ** tile.z;
   return tile.x < span && tile.y < span ? tile : null;
@@ -51,12 +62,17 @@ export function readTileCoordinate(z: string, x: string, y: string): TileCoordin
 /** The refusal of a tile address outside the imagery. */
 export function invalidTile(): ApiError {
   return new ApiError("invalid_request",
-    `A tile's z, x and y are whole numbers: z from 0 to ${SATELLITE_MAX_ZOOM}, and x and y below 2 to the power of z.`, 400);
+    `A tile's z, x and y are whole numbers: z from 0 to ${SATELLITE_MAX_ZOOM}, and x and y below 2 to the power of z, the row followed by @2x or by nothing.`, 400);
 }
 
-/** A tile's address under a template: its three placeholders filled. */
-export function tileAddress(template: string, tile: TileCoordinate): string {
-  return template.split("{z}").join(String(tile.z)).split("{x}").join(String(tile.x)).split("{y}").join(String(tile.y));
+/** A tile's address under the imagery's template: filled as MapLibre
+ * would have filled it, handed the template where it was handed the
+ * relay's address. MapLibre counted the relay's row by the source's
+ * scheme, so the tile is read back by that scheme and the template filled
+ * by it, with the pixel ratio MapLibre asked at. */
+export function tileAddress(template: string, tile: TileCoordinate, scheme: TileScheme = SATELLITE_TILE_SCHEME): string {
+  const y = scheme === "tms" ? Math.pow(2, tile.z) - tile.y - 1 : tile.y;
+  return fillTileTemplate(template, { z: tile.z, x: tile.x, y }, tile.ratio ?? 1, scheme);
 }
 
 /** Ask the imagery for one tile at its template, through the outbound

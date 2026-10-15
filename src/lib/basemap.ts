@@ -13,6 +13,8 @@
  * outside a publication keep null's original meaning, the deployment default.
  */
 
+import type { TileScheme } from "./tile-template";
+
 export const BASEMAP_KEYS = [
   "dark",
   "light",
@@ -145,9 +147,15 @@ export const SATELLITE_STYLE_URL = "/api/basemaps/satellite";
  * there and draws deeper zooms from it, so no deeper tile is relayed. */
 export const SATELLITE_MAX_ZOOM = 19;
 
-/** The tile address under a satellite style address. */
+/** How the imagery style's source counts its rows, which MapLibre fills
+ * the relay's tile address by and the relay fills the template by. */
+export const SATELLITE_TILE_SCHEME: TileScheme = "xyz";
+
+/** The tile address under a satellite style address. MapLibre fills
+ * `{ratio}` with `@2x` past one device pixel to the CSS pixel, and the
+ * relay passes it on to the template's own `{ratio}`. */
 export function satelliteTilesUrl(styleUrl: string): string {
-  return `${styleUrl}/tiles/{z}/{x}/{y}`;
+  return `${styleUrl}/tiles/{z}/{x}/{y}{ratio}`;
 }
 
 /** The satellite style a published page's reader loads: the same imagery

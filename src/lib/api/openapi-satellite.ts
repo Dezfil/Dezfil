@@ -11,8 +11,12 @@ export const SATELLITE_TILE_DESCRIPTION =
   "leave the server. Use the tile address the imagery style names. Only " +
   "the tile's z, x and y reach the template, each a whole number in plain " +
   `decimal, z from 0 to ${SATELLITE_MAX_ZOOM} and x and y below 2 to the ` +
-  "power of z; anything else is refused with invalid_request before the " +
-  "imagery is asked. No query, header or credential of the request goes " +
+  "power of z, the row followed by @2x for a high-density tile or by " +
+  "nothing; anything else is refused with invalid_request before the " +
+  "imagery is asked. The template is filled from these alone as MapLibre " +
+  "fills a raster template: {z}, {x}, {y} (counted by the style source's " +
+  "scheme), {ratio} (@2x or nothing), {quadkey}, {prefix} and " +
+  "{bbox-epsg-3857}. No query, header or credential of the request goes " +
   "with them. The fetch takes the egress policy at every hop, waits at " +
   "most ten seconds and reads at most 4 MiB; only a whole PNG, JPEG, GIF, " +
   "WebP or AVIF image passes back, with the type its bytes are, and no " +
@@ -30,7 +34,7 @@ export const SATELLITE_TILE_SIGNED_IN =
 export const SATELLITE_TILE_PARAMETERS = [
   pathParam("z", `Tile zoom, 0 to ${SATELLITE_MAX_ZOOM}.`),
   pathParam("x", "Tile column, below 2 to the power of z."),
-  pathParam("y", "Tile row, below 2 to the power of z."),
+  pathParam("y", "Tile row, below 2 to the power of z, followed by @2x for a high-density tile."),
 ];
 
 const image = { schema: { type: "string", format: "binary" } };
@@ -68,7 +72,7 @@ export const PUBLISHED_SATELLITE_PATHS = {
         "The imagery style for a published page's reader, who is not signed " +
         "in: the signed-in style's document, its raster source naming this " +
         "publication's own tile address, " +
-        "`/api/published/{token}/basemaps/satellite/tiles/{z}/{x}/{y}`, never " +
+        "`/api/published/{token}/basemaps/satellite/tiles/{z}/{x}/{y}{ratio}`, never " +
         "the configured tile template. The published view's basemapUrl and the " +
         "page's basemap switcher name this address. In the view budget. " +
         READER_SCOPE + " Private, no-store.",
