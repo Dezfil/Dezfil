@@ -40,7 +40,7 @@ export async function runTrustedConnection<T>(conn: DuckDBConnection, work: (con
           catch (error) { if (key === "prepare") answer.destroySync(); throw error; }
           return answer;
         }
-        catch (error) { const mapped = trustedEngineError(error, operation); if (isTrustedOperationRefusal(mapped)) operation.refuse(mapped); operation.assertCanCommit(); throw mapped; }
+        catch (error) { const mapped = trustedEngineError(error, operation); operation.refuseIfFinal(mapped); operation.assertCanCommit(); throw mapped; }
       };
     },
   }) : conn;

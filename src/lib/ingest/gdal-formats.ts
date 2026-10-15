@@ -429,7 +429,7 @@ export async function ingestSpatialFile(
           })();
           return { tables, skipped };
         } catch (error) {
-          operation.refuse(error);
+          operation.refuseIfFinal(error);
           // No partial state, extended to groups: every artifact this import
           // built goes before the error surfaces.
           for (const b of built) await removeAccountFile(b.artifact, { force: true });

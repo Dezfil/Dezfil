@@ -135,7 +135,7 @@ async function writeArtifact(
     });
     return { rel, abs };
   } catch (error) {
-    currentTrustedOperation()?.refuse(error);
+    currentTrustedOperation()?.refuseIfFinal(error);
     await removeAccountFile(abs, { force: true });
     throw error;
   }
@@ -292,7 +292,7 @@ export async function createSketch(
       })();
       return { ...created, featureId: stored.id };
     } catch (error) {
-      currentTrustedOperation()?.refuse(error);
+      currentTrustedOperation()?.refuseIfFinal(error);
       await removeAccountFile(abs, { force: true });
       throw error;
     }
@@ -365,7 +365,7 @@ async function mutate(
           rowCount: meta.rowCount,
         };
       } catch (error) {
-        currentTrustedOperation()?.refuse(error);
+        currentTrustedOperation()?.refuseIfFinal(error);
         await removeAccountFile(abs, { force: true });
         throw error;
       }

@@ -1,5 +1,5 @@
 import { AsyncLocalStorage } from "node:async_hooks";
-import { ApiError, EvaluationCancelled } from "./api/errors";
+import { ApiError, EvaluationCancelled, type ErrorCode } from "./api/errors";
 import { RESOURCE_ERROR_STATUSES } from "./api/error-catalogue";
 import { limits } from "./limits";
 import { settingRemedy } from "./settings/remedy";
@@ -35,6 +35,20 @@ export interface TrustedOperationOptions {
  * including shorter source limits and hardened-engine validation failures. */
 export function isTrustedOperationRefusal(error: unknown): error is ApiError | EvaluationCancelled {
   return error instanceof ApiError || error instanceof EvaluationCancelled;
+}
+
+const LIFETIME_OUTCOMES: ReadonlySet<ErrorCode> = new Set<ErrorCode>([
+  "query_timeout", "data_processing_timeout", "request_timeout", "upload_stalled", "remote_timeout",
+  "operation_timeout", "render_timeout", "tile_build_timeout", "engine_memory_exceeded", "query_memory_exceeded",
+]);
+
+/** Outcomes that end the whole operation whatever a wrapper makes of them
+ * later: its deadline and every shorter time limit, a departed caller, and
+ * engine memory or scratch. Any other error belongs to the code that catches
+ * it, which may translate it, as a refresh does with a source table that is
+ * gone; it becomes the operation's outcome only by reaching its root. */
+export function isLifetimeOutcome(error: unknown): error is ApiError | EvaluationCancelled {
+  return error instanceof EvaluationCancelled || (error instanceof ApiError && LIFETIME_OUTCOMES.has(error.code));
 }
 
 export function trustedMemoryRefusal(name: string, resource: "memory" | "scratch", memoryMb = limits.trustedMemoryMb): ApiError {
@@ -169,6 +183,10 @@ export class TrustedOperation {
     try { stop(); } catch (error) { this.cleanupErrors.push(error); }
   }
 
+  /** For a catch block that rethrows: a lifetime outcome ends the operation
+   * now, and any other error is left to the caller to translate. */
+  refuseIfFinal(error: unknown): void { if (isLifetimeOutcome(error)) this.refuse(error); }
+
   /** First decision wins, including coded refusals from a shorter boundary. */
   refuse(error: unknown): void {
     if (this.decidedAt !== null || this.complete) return;
@@ -186,14 +204,15 @@ export class TrustedOperation {
   }
 
   /** Nested helpers keep the original owner even when they request a read
-   * policy inside an accepted mutation, or are handed its departed signal. */
+   * policy inside an accepted mutation, or are handed its departed signal.
+   * Only a lifetime outcome decides here; the root decides anything else. */
   async within<T>(work: (operation: TrustedOperation) => Promise<T>): Promise<T> {
     this.check();
     try {
       const value = await context.run(this, () => work(this));
       this.check(); return value;
     } catch (error) {
-      if (isTrustedOperationRefusal(error)) this.refuse(error);
+      this.refuseIfFinal(error);
       if (this.decidedAt !== null) throw this.failure;
       throw error;
     }

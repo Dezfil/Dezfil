@@ -296,7 +296,7 @@ async function downloadToScratch(
   try {
     await downloadHttp(url, tmpPath, budget, shown);
   } catch (error) {
-    currentTrustedOperation()?.refuse(error);
+    currentTrustedOperation()?.refuseIfFinal(error);
     await removeAccountFile(tmpPath, { force: true });
     throw error;
   }
@@ -451,7 +451,7 @@ async function resolveCredentialedObjectSource(
       cleanup: () => removeAccountFile(tmpPath, { force: true }),
     };
   } catch (error) {
-    currentTrustedOperation()?.refuse(error);
+    currentTrustedOperation()?.refuseIfFinal(error);
     await removeAccountFile(tmpPath, { force: true });
     throw error;
   }

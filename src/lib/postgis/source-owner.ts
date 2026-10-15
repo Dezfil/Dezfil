@@ -1,4 +1,4 @@
-import { currentTrustedOperation, isTrustedOperationRefusal } from "@/lib/trusted-operation";
+import { currentTrustedOperation } from "@/lib/trusted-operation";
 import { trustedEngineError } from "@/lib/trusted-connection";
 import type { DuckDBConnection } from "@duckdb/node-api";
 import { ApiError, EvaluationCancelled } from "@/lib/api/errors";
@@ -33,7 +33,7 @@ export class PgSourceOwner {
     try { result = await work(); } catch (error) {
       this.check();
       const classified = previewSourceError(trustedEngineError(error));
-      if (isTrustedOperationRefusal(classified)) this.operation?.refuse(classified);
+      this.operation?.refuseIfFinal(classified);
       throw classified;
     }
     try { this.check(); } catch (error) { discard?.(result); throw error; }

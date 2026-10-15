@@ -4,7 +4,7 @@ import { ERROR_CATALOGUE, RESOURCE_ERROR_STATUSES } from "./api/error-catalogue"
 import { buildOpenApiDocument } from "./api/openapi";
 import { limits } from "./limits";
 import {
-  admitTrustedOperation, currentTrustedOperation, isTrustedOperationRefusal,
+  admitTrustedOperation, currentTrustedOperation, isLifetimeOutcome, isTrustedOperationRefusal,
   trustedMemoryRefusal, withTrustedOperation, TrustedSettlementOverdue,
 } from "./trusted-operation";
 
@@ -323,6 +323,45 @@ it("preserves a nested typed refusal even if a wrapper catches it and attempts a
   });
   await expect(result).rejects.toBe(failure); await op.settled;
   expect(commit).not.toHaveBeenCalled();
+});
+
+it("leaves an ordinary nested error to the wrapper that translates it", async () => {
+  const translated = new ApiError("not_refreshable", "The stored recipe no longer resolves.", 409);
+  const op = admitTrustedOperation({ kind: "refresh", name: "Dataset refresh", budgetMs: 1000 });
+  const result = op.run(async () => {
+    try {
+      await withTrustedOperation({ kind: "interactive-read", name: "Source read" }, async () => {
+        throw new ApiError("not_found", "Table public.roads has no columns or does not exist.", 404);
+      });
+    } catch { throw translated; }
+  });
+  await expect(result).rejects.toBe(translated); await op.settled;
+  expect(op.signal.reason).toBe(translated);
+});
+
+it("decides at once in a helper's catch only for a lifetime outcome", async () => {
+  const op = read(); const source = held(); const result = observed(op.run(() => source.promise));
+  op.refuseIfFinal(new ApiError("malformed_file", "Unreadable.", 422));
+  expect(op.decidedAt).toBeNull(); expect(op.signal.aborted).toBe(false);
+  const memory = trustedMemoryRefusal("Dataset inspection", "memory", 3072);
+  op.refuseIfFinal(memory);
+  expect((await result).error).toBe(memory);
+  source.resolve(); await op.settled;
+});
+
+it.each([
+  ["a departure", new EvaluationCancelled(), true], ["the query limit", new ApiError("query_timeout", "Limit", 408), true],
+  ["the processing limit", new ApiError("data_processing_timeout", "Limit", 408), true],
+  ["a source time limit", new ApiError("remote_timeout", "Source limit", 504), true],
+  ["engine memory", new ApiError("engine_memory_exceeded", "Memory", 422), true],
+  ["hardened memory", new ApiError("query_memory_exceeded", "Hardened", 400), true],
+  ["a missing table", new ApiError("not_found", "Missing", 404), false],
+  ["unreadable data", new ApiError("malformed_file", "Unreadable", 422), false],
+  ["a refused fetch", new ApiError("remote_fetch_failed", "Refused", 502), false],
+  ["a size cap", new ApiError("upload_too_large", "Too large", 413), false],
+  ["uncoded text naming a code", new Error("query_timeout"), false],
+] as const)("classes %s as a lifetime outcome: %s", (_label, error, expected) => {
+  expect(isLifetimeOutcome(error)).toBe(expected);
 });
 
 it("does not let a detached stop hook interrupt a released resource", async () => {

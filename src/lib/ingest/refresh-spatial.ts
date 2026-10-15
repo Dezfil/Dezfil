@@ -138,7 +138,7 @@ export async function refreshUrlSpatial(
       }
     })();
   } catch (error) {
-    currentTrustedOperation()?.refuse(error);
+    currentTrustedOperation()?.refuseIfFinal(error);
     for (const c of candidates) await removeAccountFile(c.artifact, { force: true });
     throw error;
   } finally {

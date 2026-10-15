@@ -134,14 +134,17 @@ describe("PostGIS refresh status", () => {
       postgisVersion: "3.4.3",
     });
     const connectionBefore = getConnection(testAccountScope(), "c1");
-    // The build raises the caller's refusal where it finds the relation gone.
     buildPostgisArtifact.mockImplementation(
-      async (_target, _recipe, _artifact, observeHealth, unresolved: () => ApiError) => {
+      async (_target, _recipe, _artifact, observeHealth) => {
         observeHealth({
           serverVersion: "PostgreSQL 17.1",
           postgisVersion: "3.5.0",
         });
-        throw unresolved();
+        throw new ApiError(
+          "not_found",
+          "Table public.roads has no columns or does not exist.",
+          404,
+        );
       },
     );
     await expect(refreshTable(testAccountScope(), "roads")).rejects.toMatchObject({

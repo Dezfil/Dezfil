@@ -587,7 +587,7 @@ export async function importOverture(
         return table;
       })();
     } catch (error) {
-      operation.refuse(error);
+      operation.refuseIfFinal(error);
       await removeAccountFile(artifact, { force: true });
       throw error;
     }
