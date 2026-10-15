@@ -33,7 +33,7 @@ import { artifactRelation } from "@/lib/query/artifact-relation";
 import { datasetMapAnswer } from "@/lib/dataset-map-features";
 import { removeTileArtifacts } from "@/lib/tiles/build";
 
-import { INSPECT_PREVIEW_ROWS } from "./table-preview-limit";
+import { INSPECT_PREVIEW_ROWS, previewExcerpt } from "./table-preview-limit";
 
 export interface TableInspection extends DataTable, DatasetPresence {
   columns: { name: string; type: string }[];
@@ -172,10 +172,14 @@ export async function inspectDataset(scope: AccountScope, reached: ReachedTable,
           budget, new Set(["name", "type"]),
         ) as { name: string; type: string }[];
 
-        // Geometry previews as WKT, not raw WKB bytes.
-        const replace = table.geometryColumn
-          ? ` REPLACE (ST_AsText(${ident(table.geometryColumn)}) AS ${ident(table.geometryColumn)})`
-          : "";
+        // Geometry previews as WKT, not raw WKB bytes. Text and that WKT show
+        // excerpts, as the geometry grid does; other values, additional
+        // geometry columns, the schema and the stored data stay whole.
+        const excerpts = [
+          ...(table.geometryColumn ? [`${previewExcerpt(`ST_AsText(${ident(table.geometryColumn)})`)} AS ${ident(table.geometryColumn)}`] : []),
+          ...columns.filter(c => c.type === "VARCHAR" && c.name !== table.geometryColumn).map(c => `${previewExcerpt(ident(c.name))} AS ${ident(c.name)}`),
+        ];
+        const replace = excerpts.length ? ` REPLACE (${excerpts.join(", ")})` : "";
         const nativeGeometry = new Set(columns.filter(c => c.name === table.geometryColumn &&
           (c.type === "GEOMETRY" || c.type.startsWith("GEOMETRY("))).map(c => c.name));
         const preview = await readBudgetedRows(conn,

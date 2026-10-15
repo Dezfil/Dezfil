@@ -17,6 +17,10 @@ import { createLayer, renderLayer } from "./layer-service";
 import { exportQueryResult, exportLayerResult } from "./export/layer-export";
 import { GET, DELETE } from "@/app/api/tables/[name]/route";
 import { GET as download } from "@/app/api/tables/[name]/export/route";
+import { POST as query } from "@/app/api/query/route";
+import { getJob } from "@/lib/metadata/jobs";
+import { startRun } from "@/lib/operations/run";
+import { laneSettled, resetLane } from "@/lib/operations/lane";
 
 const sentence = "The result is too large to return: more than 32 MB in total, or one non-geometry value over 2 MB. Select fewer rows or columns, or shorten the value.";
 const refusal = { code: "query_result_too_large", status: 422, message: sentence, extra: {} };
@@ -46,6 +50,10 @@ const inspect = (name: string) => inspectTable(testAccountScope(), name);
 const params = (name: string) => ({ params: Promise.resolve({ name }) });
 const request = (name: string, suffix = "", method = "GET") => testAccountRequest(new Request(`http://test/api/tables/${name}${suffix}`, { method }));
 const outcome = (answer: Promise<unknown>) => answer.then(() => null, error => error);
+const excerpt = (text: string) => text.repeat(512) + "…";
+/** The stored artifact's own value, read whole beside the inspection. */
+const stored = (target: string, column: string) => withConnection(async conn =>
+  (await conn.runAndReadAll(`SELECT length(${column}) AS characters FROM read_parquet('${target.replaceAll("'", "''")}')`)).getRowObjects()[0].characters);
 
 async function measure(bytes: AsyncIterable<Uint8Array>) {
   let size = 0, lines = 0, xs = 0;
@@ -84,13 +92,27 @@ describe("dataset inspection result budget", () => {
     }
   });
 
-  it.each([-1, 0, 1])("applies the non-geometry cell ceiling including quotes (%s)", async delta => {
-    await seed("cell", `SELECT repeat('x', ${2097150 + delta}) AS geometry`, 1);
+  it.each([-1, 0, 1])("applies the non-geometry cell ceiling to a value it does not excerpt, including brackets and quotes (%s)", async delta => {
+    await seed("cell", `SELECT [repeat('x', ${2097148 + delta})] AS geometry`, 1);
     if (delta > 0) expect(await outcome(inspect("cell"))).toMatchObject(refusal);
     else expect(Buffer.byteLength(JSON.stringify((await inspect("cell")).preview[0].geometry))).toBe(2097152 + delta);
   });
 
-  it("checks native lengths before decoding an oversized value and releases inspection", async () => {
+  it("keeps a 512-character text value whole and cuts 513 to its first 512 characters and an ellipsis", async () => {
+    await seed("edges", "SELECT repeat('a', 512) AS exact, repeat('b', 513) AS over, repeat('é', 513) AS accented, repeat(chr(128512), 513) AS astral, repeat(chr(10), 513) AS escaped, 'short' AS plain, 7 AS number, NULL::VARCHAR AS missing", 1);
+    expect((await inspect("edges")).preview).toEqual([{ exact: "a".repeat(512), over: excerpt("b"), accented: excerpt("é"), astral: excerpt("\u{1F600}"), escaped: excerpt("\n"), plain: "short", number: 7, missing: null }]);
+  });
+
+  it("answers a formerly refused 3 MiB text inspection with its excerpt and leaves the stored value whole", async () => {
+    const target = await seed("long_text", "SELECT 1 AS id, repeat('x', 3145728) AS payload", 1);
+    const answer = await inspect("long_text");
+    expect(answer.preview).toEqual([{ id: 1, payload: excerpt("x") }]);
+    expect(answer.columns).toEqual([{ name: "id", type: "INTEGER" }, { name: "payload", type: "VARCHAR" }]);
+    expect(answer.rowCount).toBe(1);
+    expect(Number(await stored(target, "payload"))).toBe(3145728);
+  });
+
+  it("excerpts text in the engine, so a long value is never decoded whole, and releases inspection", async () => {
     await seed("late", "SELECT repeat('x', 2097151) AS value, repeat('y', 100000) AS later", 1);
     const decoded: number[] = [];
     const original = DuckDBVarCharVector.prototype.getItem;
@@ -100,13 +122,14 @@ describe("dataset inspection result budget", () => {
       return value;
     });
     const released = vi.spyOn(DuckDBConnection.prototype, "disconnectSync");
-    expect(await outcome(inspect("late"))).toMatchObject(refusal);
+    expect((await inspect("late")).preview).toEqual([{ value: excerpt("x"), later: excerpt("y") }]);
     expect(decoded).toEqual([]);
     expect(released).toHaveBeenCalledTimes(1);
   });
 
   it("stops at the crossing result value without fetching again and releases inspection", async () => {
-    await seed("forty", "SELECT repeat('x', 1000000) AS payload FROM range(40)", 40);
+    // Text is excerpted; a list keeps its value whole, so forty still overflow.
+    await seed("forty", "SELECT [repeat('x', 1000000)] AS payload FROM range(40)", 40);
     const decoded: number[] = [];
     const original = DuckDBVarCharVector.prototype.getItem;
     vi.spyOn(DuckDBVarCharVector.prototype, "getItem").mockImplementation(function (this: DuckDBVarCharVector, index) {
@@ -125,38 +148,49 @@ describe("dataset inspection result budget", () => {
     expect((await inspect("narrow")).preview).toEqual([{ answer: 42 }]);
   });
 
-  it.each(["repeat('é', 1048576)", "repeat(chr(10), 1048576)", "[repeat('x', 1100000), repeat('y', 1100000)]", "{'value': repeat('x', 2097141)}"])("counts multibyte, escaped and nested cell bytes: %s", async expression => {
+  it.each([["repeat('é', 1048576)", "é"], ["repeat(chr(10), 1048576)", "\n"]])("cuts long multibyte and escaped text on characters: %s", async (expression, character) => {
+    await seed("represented", `SELECT ${expression} AS value`, 1);
+    expect((await inspect("represented")).preview).toEqual([{ value: excerpt(character) }]);
+  });
+
+  it.each(["[repeat('x', 1100000), repeat('y', 1100000)]", "{'value': repeat('x', 2097141)}", "[repeat('é', 1048576)]", "[repeat(chr(10), 1048576)]"])("still refuses an oversized nested value whole: %s", async expression => {
     await seed("represented", `SELECT ${expression} AS value`, 1);
     expect(await outcome(inspect("represented"))).toMatchObject(refusal);
   });
 
-  it("admits native WKT coastline controls in the fifty-row window", async () => {
+  it("excerpts the registered geometry column's WKT in the fifty-row window, leaving its facts and stored geometry whole", async () => {
     for (const bytes of [10_151_576, 6_138_709]) {
-      await seed(`coast_${bytes}`, `SELECT ${geometryOfBytes(bytes)} AS coast`, 1, "coast");
+      const target = await seed(`coast_${bytes}`, `SELECT ${geometryOfBytes(bytes)} AS coast`, 1, "coast");
       const answer = await inspect(`coast_${bytes}`);
-      expect(answer.preview).toHaveLength(1);
-      expect(String(answer.preview[0].coast)).toMatch(/^LINESTRING/);
-      expect(Buffer.byteLength(JSON.stringify(answer.preview[0].coast))).toBeGreaterThan(2_097_152);
-      expect(Buffer.byteLength(JSON.stringify(answer))).toBeLessThan(33_554_432);
+      const whole = await withConnection(async conn => String((await conn.runAndReadAll(`SELECT ST_AsText(coast) AS wkt FROM read_parquet('${target.replaceAll("'", "''")}')`)).getRowObjects()[0].wkt));
+      expect(whole.length).toBeGreaterThan(2_097_152);
+      expect(answer.preview).toEqual([{ coast: whole.slice(0, 512) + "…" }]);
+      expect(answer).toMatchObject({ geometryColumn: "coast", geometryType: "LINESTRING", rowCount: 1 });
     }
     await seed("countries", countryGeometryRows(), 258, "coast");
     const countries = await inspect("countries");
     expect(countries.rowCount).toBe(258); expect(countries.preview).toHaveLength(50);
-    expect(String(countries.preview[0].coast)).toMatch(/^LINESTRING/);
+    expect(String(countries.preview[0].coast)).toMatch(/^LINESTRING.{502}…$/s);
   });
 
-  it("refuses complete WKT geometry overflow while keeping the geometry cell exemption", async () => {
+  it("answers a formerly refused complete WKT overflow with its excerpts, while dataset map features stay whole", async () => {
     await seed("geometry_overflow", `SELECT ${geometryOfBytes(10_151_576)} AS coast FROM range(4)`, 4, "coast");
-    expect(await outcome(inspect("geometry_overflow"))).toMatchObject(refusal);
+    const answer = await inspect("geometry_overflow");
+    expect(answer.preview).toHaveLength(4);
+    for (const row of answer.preview) expect(String(row.coast)).toMatch(/^LINESTRING.{502}…$/s);
     const features = await tableFeatures(testAccountScope(), "geometry_overflow");
     expect(features.ok).toBe(true);
     expect(features.featureCount).toBe(4);
     expect(Buffer.byteLength(JSON.stringify(features))).toBeGreaterThan(33_554_432);
   });
 
-  it("does not exempt an unregistered native geometry column", async () => {
+  it("does not exempt or excerpt an unregistered native geometry column", async () => {
     await seed("secondary", `SELECT ST_Point(0,0) AS geometry, ${geometryOfBytes(3_000_000)} AS other`, 1, "geometry");
     expect(await outcome(inspect("secondary"))).toMatchObject(refusal);
+    await seed("secondary_short", `SELECT ST_Point(0,0) AS geometry, ${geometryOfBytes(4_000)} AS other`, 1, "geometry");
+    const other = (await inspect("secondary_short")).preview[0].other;
+    expect(Buffer.byteLength(JSON.stringify(other))).toBeGreaterThan(2_000);
+    expect(JSON.stringify(other)).not.toContain("…");
   });
 
   it("retains legacy geometry-family healing and its final envelope value", async () => {
@@ -167,7 +201,7 @@ describe("dataset inspection result budget", () => {
   });
 
   it("reserves the healed geometry family before decoding the final preview value", async () => {
-    await seed("healed", "SELECT ST_Point(1,2) AS geometry, repeat('x', 1000000) AS payload FROM range(33)", 33, "geometry");
+    await seed("healed", "SELECT ST_Point(1,2) AS geometry, [repeat('x', 1000000)] AS payload FROM range(33)", 33, "geometry");
     metadataDb().prepare("UPDATE data_tables SET geometry_type = 'POINT' WHERE id = 'healed'").run();
     const base = Buffer.byteLength(JSON.stringify(await inspect("healed")));
     metadataDb().prepare("UPDATE data_tables SET geometry_type = 'MIXED', source_filename = ? WHERE id = 'healed'").run("m".repeat(33_554_432 - base + 1));
@@ -193,9 +227,15 @@ describe("dataset inspection result budget", () => {
     expect(answer.owner).toEqual({ name: "test-account", sqlName: "test_account" });
   });
 
-  it("keeps layer admission/render, complete downloads, Data listing and owner deletion separate from refused inspection", async () => {
+  it("keeps the SQL console's own refusal, layer admission/render, complete downloads, Data listing and owner deletion apart from inspection excerpts", async () => {
     const artifact = await seed("wide", "SELECT range AS id, repeat('x', 2097153) AS payload, ST_Point(0,0) AS geometry FROM range(20)", 20, "geometry");
-    expect(await outcome(inspect("wide"))).toMatchObject(refusal);
+    const inspection = await inspect("wide");
+    expect(inspection.preview).toHaveLength(20);
+    for (const row of inspection.preview) expect(row.payload).toBe(excerpt("x"));
+    // Another bounded reader of the same values keeps its contract: no excerpt.
+    const sqlConsole = await query(testAccountRequest(new Request("http://test/api/query", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ sql: "SELECT payload FROM wide LIMIT 1" }) })));
+    expect(sqlConsole.status).toBe(422);
+    expect(await sqlConsole.json()).toEqual({ error: { code: "query_result_too_large", message: sentence } });
     const map = createMap(testAccountScope(), "wide");
     const layer = await createLayer(testAccountScope(), map.id, { name: "wide", sql: "SELECT * FROM wide" }, { expectedRevision: readDocumentRevision({ kind: "map", id: map.id })!.editRevision });
     const rendered = await renderLayer(testAccountScope(), layer);
@@ -217,4 +257,22 @@ describe("dataset inspection result budget", () => {
     await retirementsSettled();
     expect(listTables()).toEqual([]); await expect(access(artifact)).rejects.toThrow();
   });
+
+  it("lets a tool run read its output's inspection afterwards, with the stored output unchanged", async () => {
+    await seed("tool_input", "SELECT 1 AS id, repeat('x', 3145728) AS payload, ST_Point(0,0) AS geometry", 1, "geometry");
+    resetLane();
+    try {
+      const job = await startRun(testAccountScope(), { operation: "sql_step", parameters: { sql: "SELECT * FROM tool_input", name: "tool_output" } });
+      await laneSettled();
+      expect(getJob(job.id)).toMatchObject({ state: "succeeded", errorCode: null, outputName: "tool_output" });
+    } finally { resetLane(); }
+    // The drawer reads the output's inspection for its geometry column.
+    const response = await GET(request("tool_output"), params("tool_output"));
+    expect(response.status).toBe(200);
+    const answer = await response.json();
+    expect(answer).toMatchObject({ geometryColumn: "geometry", rowCount: 1 });
+    expect(answer.preview).toEqual([{ id: 1, payload: excerpt("x"), geometry: "POINT (0 0)" }]);
+    const output = listTables().find(table => table.name === "tool_output")!;
+    expect(Number(await stored(path.join(process.env.DEZFIL_DATA_DIR!, output.file), "payload"))).toBe(3145728);
+  }, 60000);
 });

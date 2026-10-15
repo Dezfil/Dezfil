@@ -1581,9 +1581,18 @@ rather than on the page:
 - Dataset inspection (`GET /api/tables/{name}`) uses the same fixed 32 MiB
   complete-answer and 2 MiB non-geometry-cell ceilings for its fifty-row
   preview. Its registered native geometry column is emitted as WKT and counts
-  toward the result ceiling only. All metadata, schema, ownership, project
-  memberships and resolved inputs count in the same answer. An oversized
-  inspection returns the same 422 catalogue refusal with no partial data.
+  toward the result ceiling only. Preview text values, and that WKT, longer
+  than 512 characters show their first 512 characters followed by "…",
+  counted in characters as geometry-choice preview's grid counts them, before
+  either ceiling applies. Other value types, nested values, additional native
+  geometry columns, the schema, row counts, geometry facts and the stored data
+  are never excerpted, and the other bounded readers keep their contracts. All
+  metadata, schema, ownership, project memberships and resolved inputs count
+  in the same answer. An inspection that still exceeds a ceiling returns the
+  same 422 catalogue refusal with no partial data.
+  **Inspection excerpt compatibility change.** Preview text and registered WKT
+  used to arrive whole, and one text value over 2 MiB refused the inspection;
+  they now arrive as excerpts, and such an inspection answers.
   A refused dataset inspection prevents its detail and docked set-geometry
   panel from opening. It also blocks tool column pickers, SQL schema inventory
   and completion, workflow dataset reads and facts, and automatic layer addition

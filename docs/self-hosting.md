@@ -412,7 +412,13 @@ query execution or result projection, including geometry decoding. Layer
 renders, dataset map features, slider and Overture previews,
 published views, statistics, classification, widgets and value search retain
 their existing limits. SQL, table and layer file exports still stream complete
-results above both ceilings. A refused dataset inspection prevents its detail and docked set-geometry
+results above both ceilings. Dataset inspection shows text values, and the WKT
+of its registered geometry column, longer than 512 characters as their first
+512 characters and an ellipsis, as geometry-choice preview does. Other values,
+nested values, additional geometry columns, the schema, row counts and the
+stored data stay whole, and SQL console/SQL previews and the PostGIS preview do
+not excerpt, so long text alone no longer refuses an inspection. An inspection that still exceeds a
+ceiling, with a nested value over 2 MiB for example, prevents its detail and docked set-geometry
 panel from opening. It also blocks tool column pickers, SQL schema inventory
 and completion, workflow dataset reads and facts, and automatic layer addition
 after a tool run. The tool run can report failure even though the dataset has

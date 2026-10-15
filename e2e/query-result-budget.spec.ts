@@ -1,10 +1,11 @@
 // Run against a provisioned instance. The console and inspection use actual
-// oversized results; Add data exercises its existing failed-preview place
+// oversized results; inspection shows long text as an excerpt, so its refused
+// case holds the text in a list. Add data exercises its existing failed-preview place
 // with the exact real-route refusal captured by the console request.
 import { test, expect, type Page } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import { routeHouse } from "./support";
-import { datasetBudgetSQL } from "../test-support/result-budget-browser.mjs";
+import { datasetBudgetSQL, nestedBudgetSQL } from "../test-support/result-budget-browser.mjs";
 
 const sentence = "The result is too large to return: more than 32 MB in total, or one non-geometry value over 2 MB. Select fewer rows or columns, or shorten the value.";
 const sql = "SELECT repeat('x', 1000000) AS payload FROM range(40)";
@@ -45,11 +46,11 @@ test("console refusal settles, retains SQL and admits a narrower retry", async (
   await typeSql(page, "SELECT 42 AS answer"); await page.getByRole("button", { name: "Run query", exact: true }).click();
   await expect(page.getByRole("cell", { name: "42", exact: true })).toBeVisible(); await expect(note).toHaveCount(0);
 });
-test("refused dataset inspection shows the sentence and cannot open its geometry panel", async ({ page, context }) => {
+test("long text inspection opens with its excerpt; refused inspection shows the sentence and cannot open its geometry panel", async ({ page, context }) => {
   await routeHouse(context);
-  for (const size of [2, 2097151]) {
+  for (const [fixture, fits] of [[datasetBudgetSQL(2), true], [datasetBudgetSQL(2097151), true], [nestedBudgetSQL(2097151), false]] as const) {
     const name = `budget_${randomUUID().replaceAll("-", "")}`;
-    const file = await page.request.post("/api/query/export", { data: { sql: datasetBudgetSQL(size), format: "geoparquet" } });
+    const file = await page.request.post("/api/query/export", { data: { sql: fixture, format: "geoparquet" } });
     expect(file.status()).toBe(200);
     const uploaded = await page.request.post("/api/tables", { multipart: { file: { name: `${name}.parquet`, mimeType: "application/octet-stream", buffer: await file.body() } } });
     expect(uploaded.status()).toBe(201); const table = await uploaded.json();
@@ -58,10 +59,10 @@ test("refused dataset inspection shows the sentence and cannot open its geometry
       for (const suffix of ["", "?geometry=set"]) {
         const response = page.waitForResponse(r => new URL(r.url()).pathname === `/api/tables/${encodeURIComponent(table.name)}` && r.request().method() === "GET");
         await page.goto(`/tables/${encodeURIComponent(table.name)}${suffix}`);
-        expect((await response).status()).toBe(size === 2 ? 200 : 422);
+        expect((await response).status()).toBe(fits ? 200 : 422);
         const panel = page.locator("[data-set-geometry-panel]");
         const door = page.locator('[data-set-geometry-door="primary"]');
-        if (size === 2) {
+        if (fits) {
           await expect(door).toBeVisible();
           if (!suffix) {
             await expect(panel).toHaveCount(0);
