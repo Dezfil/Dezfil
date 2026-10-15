@@ -40,7 +40,12 @@ export async function receiveUpload(request: Request, accountId?: string): Promi
   // with the initiating refusal retained separately from cancellation fallout.
   const work: Promise<void>[] = [];
   const fail = (error: ApiError | EvaluationCancelled) => {
-    if (!failure) failure = error;
+    // The first refusal wins, except that a caller who leaves after an
+    // interrupted body is answered as departed: that interruption was
+    // probably the departure itself. Time and size refusals stay first.
+    if (!failure || (error instanceof EvaluationCancelled && failure instanceof ApiError && failure.status === 400)) {
+      failure = error;
+    }
     reception?.refuse(failure instanceof EvaluationCancelled
       ? Object.assign(new Error(failure.message), { code: null, status: 499 }) : failure);
     // Busboy can be inside a file/limit callback. Let that parser turn

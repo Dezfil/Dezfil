@@ -89,7 +89,7 @@ for (const boundary of ["receiver", "route"] as const) {
       ["abort-delayed-close", 499, null],
       ["abort-delayed-cancel", 499, null],
       ["abort-and-source-error", 499, null],
-      ["source-error-then-abort-delayed-close", 400, "invalid_request"],
+      ["source-error-then-abort-delayed-close", 499, null],
       ["write-error", 500, "internal"],
       ["flush-error", 500, "internal"],
       ["size-limit", 413, "upload_too_large"],

@@ -444,7 +444,8 @@ with a fresh processing deadline after the complete file reaches disk. A setting
 change during receipt changes neither budget. No body byte for 60 seconds,
 including before the first byte, answers `408 upload_stalled`; continuous progress
 past the reception deadline answers `408 data_processing_timeout`, naming
-reception and the admitted limit. The first refusal wins. Refusals are sent
+reception and the admitted limit. The first refusal wins, except that a caller
+leaving after an interrupted body is answered as departed. Refusals are sent
 without draining the remaining body, with a one-second fallback for delayed
 cleanup and a five-second connection-close bound while the body is still
 arriving; a refused request whose body arrived completely keeps its connection. Incomplete reception cancels

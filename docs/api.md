@@ -2188,8 +2188,10 @@ Upload reception and processing have separate deadlines with the value captured
 when reception begins. A change to Data processing time limit during receipt
 changes neither. Reception expiry answers `408 data_processing_timeout`, naming
 reception and the admitted seconds. Sixty seconds without a body byte, including
-before the first byte, answers `408 upload_stalled`. A decided refusal keeps its
-code through cancellation and is delivered without waiting for another byte;
+before the first byte, answers `408 upload_stalled`. A decided time or size
+refusal keeps its code through cancellation, while a caller who leaves after an
+interrupted body is answered as departed. A refusal is delivered without waiting
+for another byte;
 the native ingress closes a connection whose body was still arriving within five
 seconds, keeps a completely received one for reuse, and removes partial
 reception files. Fully received uploads continue processing after caller
