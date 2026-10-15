@@ -1670,9 +1670,15 @@ return fetch(`/api/layers/${layerId}`, { headers: { "X-Edit-Revision": shown.edi
         { timeout: 20_000 },
       )
       .toBeGreaterThan(30);
+    // The status pill sheds readouts whole when its band between the
+    // legend card and the basemap credit runs short, pitch first. At this
+    // window the band holds four; the readout is read with room for five.
+    const viewport = page.viewportSize()!;
+    await page.setViewportSize({ width: 1600, height: viewport.height });
     await expect(
       page.locator("[data-status-bar]").getByText("Pitch", { exact: true }),
     ).toBeVisible();
+    await page.setViewportSize(viewport);
 
     // Extrude hex bins on a fresh scratch layer (the stress layer is long
     // deleted, and the fixture layer carries the docked timeline): the
