@@ -503,7 +503,7 @@ removes its owned scratch and lock on refusal.
 
 | Variable | Default | Effect | Changed by |
 |---|---|---|---|
-| `DEZFIL_QUERY_TIMEOUT_S` | `60` | Timeout for any evaluation of user SQL: the SQL workspace, layer rendering, and published views alike. | App (live) or restart |
+| `DEZFIL_QUERY_TIMEOUT_S` | `60` | Time limit for any evaluation of user SQL (the SQL workspace, layer rendering and published views) and for the interactive reads beside it: dataset, geometry and sketch reads, catalogue reads, projection lookup, OpenStreetMap, Overture and PostGIS previews, and PostGIS connection checks. | App (live) or restart |
 | `DEZFIL_QUERY_MEMORY_MB` | `2048` | Memory budget of the hardened read-only engine instance, shared by every query on it. A query past it fails with a coded error and the instance keeps serving. | Restart |
 | `DEZFIL_TRUSTED_MEMORY_MB` | `3072` | Trusted engine memory, in engine MB, shared across trusted work. Dedicated scratch allowance is four times this value. Fixed without an override; locked with one. Shown on System beside hardened engine memory. | Restart |
 | `DEZFIL_PREVIEW_ROWS` | `1000` | Rows returned in a query or preview result. | App (live) or restart |

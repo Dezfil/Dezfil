@@ -178,7 +178,7 @@ templates, as [Templates](docs/configuration.md#templates) says.
 | `DEZFIL_OVERPASS_CACHE_H` | `24` | How long a cached Overpass response stays fresh, in hours. | App (live) or restart |
 | `DEZFIL_OSM_MAX_KM2` | `10000` | OSM import area budget, in km². | App (live) or restart |
 | `DEZFIL_OVERTURE_MAX_KM2` | `25000` | Overture import area budget for the places theme, in km²; the other themes scale from it. | App (live) or restart |
-| `DEZFIL_QUERY_TIMEOUT_S` | `60` | Read-only query timeout, in seconds. It bounds every evaluation of user SQL — builder and published views alike — not just the SQL workspace. | App (live) or restart |
+| `DEZFIL_QUERY_TIMEOUT_S` | `60` | Query time limit, in seconds. It bounds every evaluation of user SQL (the SQL workspace, builder layers and published views) and the interactive reads beside it: dataset, geometry and sketch reads, catalogue reads, projection lookup, OpenStreetMap, Overture and PostGIS previews, and PostGIS connection checks. | App (live) or restart |
 | `DEZFIL_QUERY_MEMORY_MB` | `2048` | Engine memory budget for user SQL, shared by all queries on the hardened instance. A query pushed over it fails with a coded error; the instance keeps serving. | Restart |
 | `DEZFIL_TRUSTED_MEMORY_MB` | `3072` | Trusted engine memory, in engine MB, shared across trusted work. Dedicated scratch allowance is four times this value. Fixed without an override; locked with one. Shown on System beside hardened engine memory. | Restart |
 | `DEZFIL_PREVIEW_ROWS` | `1000` | Rows returned in a query/preview result. | App (live) or restart |
