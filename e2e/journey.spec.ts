@@ -54,6 +54,14 @@ const isCameraOnlyWrite = (req: { postData(): string | null }) => {
   }
 };
 
+// An undo is one queued step: its request, its answer, then its layers'
+// render replacement. Until that settles the history buttons read
+// disabled, and a redo chord pressed meanwhile is refused as a press on
+// the disabled button would be. A click waits for its button; a chord
+// does not, so the chord waits for Redo to come back.
+const redoReady = (page: Page) =>
+  expect(page.getByRole("button", { name: /^Redo/ })).toBeEnabled();
+
 // Pixel-equality polls clip inside the map card's 22px border-radius:
 // the card's own clipped-corner antialiasing is not byte-stable across
 // separately composited frames, and the curve is a structural edge of
@@ -358,6 +366,7 @@ test("the core loop through the real UI", async ({ page, context }) => {
     await expect(legend).toBeVisible();
     await expect.poll(async () => legend.locator("li").count()).toBe(0);
     // Redo through the keyboard chord — the other half of the surface.
+    await redoReady(page);
     await page.keyboard.press("ControlOrMeta+Shift+Z");
     await expect
       .poll(async () => legend.locator("li").count())
@@ -509,6 +518,7 @@ test("the core loop through the real UI", async ({ page, context }) => {
     const releasedOpacity = await opacity.inputValue();
     await page.getByRole("button", { name: "Undo" }).click();
     await expect(opacity).toHaveValue("1");
+    await redoReady(page);
     await page.keyboard.press("ControlOrMeta+Shift+Z");
     await expect(opacity).toHaveValue(releasedOpacity);
 
@@ -565,6 +575,7 @@ test("the core loop through the real UI", async ({ page, context }) => {
         timeout: 30_000,
       })
       .toBe(true);
+    await redoReady(page);
     await page.keyboard.press("ControlOrMeta+Shift+Z");
     await expect(opacity).toHaveValue(responseLostOpacity);
     await expect
@@ -744,6 +755,7 @@ test("the core loop through the real UI", async ({ page, context }) => {
 
     await page.getByRole("button", { name: "Undo" }).click();
     await expect(radius).toHaveValue("30");
+    await redoReady(page);
     await page.keyboard.press("ControlOrMeta+Shift+Z");
     await expect(radius).toHaveValue(releasedRadius);
 
@@ -903,6 +915,7 @@ test("the core loop through the real UI", async ({ page, context }) => {
     page.off("request", counter);
     await page.getByRole("button", { name: "Undo" }).click();
     await expect(cellSize).toHaveValue(defaultCellPosition);
+    await redoReady(page);
     await page.keyboard.press("ControlOrMeta+Shift+Z");
     await expect(cellSize).toHaveValue(releasedCellSize);
     await saveSettled(page);
@@ -944,7 +957,6 @@ test("the core loop through the real UI", async ({ page, context }) => {
       .toBe(true);
     await page.mouse.up();
     await expect.poll(() => patches).toBe(1);
-    await expect.poll(() => refetches).toBe(1);
     await expect(
       page.getByText(/layer save could not be confirmed/i),
     ).toBeVisible();
@@ -953,6 +965,10 @@ test("the core loop through the real UI", async ({ page, context }) => {
       .poll(async () => (await mapShot()).equals(allCells), { timeout: 30_000 })
       .toBe(true);
     await expect(page.getByText("Approximate preview")).toHaveCount(0);
+    // A save that never reached the server is retired against the map's
+    // own read: the exact cells come back from the render already held,
+    // with no render request.
+    expect(refetches).toBe(0);
     const afterFailure = await readBuilderLayer(page, tableName);
     expect(afterFailure.viz.fill?.breaks).toEqual(beforeBreaks);
     await consumeTransportAbort(consoleErrors);
@@ -1414,6 +1430,7 @@ return fetch(`/api/layers/${layerId}`, { headers: { "X-Edit-Revision": shown.edi
         timeout: 30_000,
       })
       .toBe(true);
+    await redoReady(page);
     await page.keyboard.press("ControlOrMeta+Shift+Z");
     await expect(startThumb).toHaveAttribute("aria-valuenow", recoveredStart!);
     await saveSettled(page);
