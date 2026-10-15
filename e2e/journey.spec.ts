@@ -280,7 +280,11 @@ test("the core loop through the real UI", async ({ page, context }) => {
       `SELECT * FROM ${tableName} ORDER BY riders DESC;`,
     );
     await page.getByRole("button", { name: "Run query" }).click();
-    await expect(page.getByText("4 rows")).toBeVisible();
+    // The result's own count: the assistant, where one is configured,
+    // repeats it with the run's time in its context line.
+    await expect(
+      page.getByRole("region", { name: "Results" }).getByText("4 rows", { exact: true }),
+    ).toBeVisible();
     // The result grid itself, not just the meta line.
     await expect(
       page.getByRole("cell", { name: "Hauptbahnhof" }),
