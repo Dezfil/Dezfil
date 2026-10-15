@@ -558,6 +558,11 @@
       "rule": "Drain evaluations and leased connections, clear retained mounts, catalog views and input state before completion.",
       "fixture": "memory:src/lib/query/views.ts#mounted"
     },
+    "memory:src/lib/render-over-limit.ts#remembered": {
+      "action": "purge",
+      "rule": "Forget every remembered over-limit layer answer, so no outcome read from erased layers or data survives.",
+      "fixture": "memory:src/lib/render-over-limit.ts#remembered"
+    },
     "memory:cached-secret-key": {
       "action": "retain",
       "rule": "Keep the cached instance key."
@@ -3576,6 +3581,11 @@
     "memory:src/lib/query/views.ts#mounted": {
       "stores": [
         "memory:src/lib/query/views.ts#mounted"
+      ]
+    },
+    "memory:src/lib/render-over-limit.ts#remembered": {
+      "stores": [
+        "memory:src/lib/render-over-limit.ts#remembered"
       ]
     },
     "memory:src/lib/search/provider.ts#INVALID": {

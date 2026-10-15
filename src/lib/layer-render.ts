@@ -18,6 +18,7 @@ import { privateRenderFields } from "./layer-render-fields";
 import { layerEvaluation } from "./query/context";
 import { buildInlineAnswer } from "./query/render-features";
 import { renderBytesExceeded } from "./query/render-budget";
+import { knownOverLimit, rememberOverLimit, type OverLimitAnswer } from "./render-over-limit";
 
 function ident(s: string): string { return `"${s.replace(/"/g, '""')}"`; }
 
@@ -252,8 +253,19 @@ export async function renderLayer(
 
       // The answer is built while it is read, under Bytes drawn per layer:
       // an answer over the limit is refused before it is complete, never
-      // after (see query/render-features). Null is that refusal.
+      // after (see query/render-features). Null is that refusal. A refusal
+      // is remembered for this exact answer, so asking again (a tile poll,
+      // a reload) takes the road without reading up to the limit again.
       const inline = async () => {
+        const answer: OverLimitAnswer = {
+          layerId: layer.id,
+          from: sub,
+          properties: propsCols.map((c) => c.name),
+          envelope: [geometryType, liveFiltered, publishedFields],
+          inputs: recordedInputs(conn),
+          limit: limits.renderCapBytes,
+        };
+        if (knownOverLimit(answer)) return null;
         try {
           return await buildInlineAnswer(
             conn,
@@ -272,8 +284,9 @@ export async function renderLayer(
             bounds.interrupted,
           );
         } catch (error) {
-          if (error instanceof ApiError && error.code === "render_bytes_exceeded") return null;
-          throw error;
+          if (!(error instanceof ApiError && error.code === "render_bytes_exceeded")) throw error;
+          rememberOverLimit(answer);
+          return null;
         }
       };
       const drawn = await inline();

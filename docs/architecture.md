@@ -157,7 +157,12 @@ complete (`src/lib/query/render-features.ts`). Over the cap or over the byte
 limit, a simple point layer switches to a tiled render instead
 (`src/lib/layer-render.ts`). Aggregations and heatmaps do not: past either
 bound they answer a coded error naming it, because silently sampling an
-aggregate would be a lie.
+aggregate would be a lie. A layer learns that its answer is over the byte
+limit only by reading it up to the limit, so that outcome is remembered for
+the answer it was read for: the layer, its effective query, the fields it
+carries, its envelope, the data its evaluation read and the limit. The
+builder's poll while tiles build, a reload or a published view then takes
+the same road without reading again (`src/lib/render-over-limit.ts`).
 
 Feature properties carry the columns their audience reads, one policy per
 audience over shared primitives (`src/lib/field-dependencies.ts`): a builder
