@@ -119,6 +119,21 @@ their existing 16 MiB bound, required or optional empty-body behavior and
 `assistant_submission_too_large`. Multipart uploads and binary thumbnails
 are separate body classes.
 
+`PUT /api/maps/{id}/thumbnail` accepts a PNG of at most 4 MiB (4,194,304
+bytes), counted as the bytes arrive. A larger declared length is refused
+before reading, and a body that crosses the bound is refused on the chunk that
+crosses it, without reading the rest: `413 request_body_too_large` with "The
+snapshot must be a PNG of at most 4 MB." An empty body keeps `400
+invalid_request` with the same sentence, and a body that is not a PNG keeps
+`400 invalid_request` with "The body is not a PNG." As for the JSON readers,
+this is a handler bound: on this framework-matched path the framework's own
+body copy comes first.
+
+**Snapshot size compatibility change.** An oversized snapshot used to be read
+whole and refused with `400 invalid_request`; it is now refused with `413
+request_body_too_large` and the same sentence. The bound and the other
+refusals are unchanged.
+
 Body policy coverage uses the TypeScript receiver type and resolved calls,
 including aliases and helper parameters. Raw Request body members are confined
 to `src/lib/api/bounded-body.ts` (JSON bytes),

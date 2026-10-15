@@ -135,3 +135,73 @@ describe("PUT and GET /api/maps/{id}/thumbnail by theme", () => {
     expect(await get("", mapId)).toEqual({ status: 200, tag: "single" });
   });
 });
+
+describe("PUT /api/maps/{id}/thumbnail size bound", () => {
+  const MiB = 1024 * 1024;
+  const SENTENCE = "The snapshot must be a PNG of at most 4 MB.";
+  /** A PNG-headed body of `size` bytes in 256 KiB pulls, recording how far it was read. */
+  function pngStream(size: number, magic = PNG_MAGIC) {
+    const seen = { bytes: 0, cancelled: false };
+    const stream = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        if (seen.bytes >= size) { controller.close(); return; }
+        const chunk = new Uint8Array(Math.min(256 * 1024, size - seen.bytes));
+        if (seen.bytes === 0) chunk.set(magic);
+        seen.bytes += chunk.byteLength;
+        controller.enqueue(chunk);
+      },
+      cancel() { seen.cancelled = true; },
+    }, { highWaterMark: 0 });
+    return { seen, stream };
+  }
+  async function putStream(stream: ReadableStream<Uint8Array>) {
+    return PUT(
+      testAccountRequest(new Request(`http://test/api/maps/${mapId}/thumbnail`, {
+        method: "PUT", headers: { "content-type": "image/png" }, body: stream, duplex: "half",
+      } as RequestInit)),
+      params(mapId),
+    );
+  }
+
+  it("accepts a PNG of exactly 4 MiB", async () => {
+    const body = pngStream(4 * MiB);
+    expect((await putStream(body.stream)).status).toBe(204);
+    const stored = await GET(testAccountRequest(new Request(`http://test/api/maps/${mapId}/thumbnail`)), params(mapId));
+    expect(stored.status).toBe(200);
+    expect((await stored.arrayBuffer()).byteLength).toBe(4 * MiB);
+  });
+
+  it("refuses one byte more with 413 and the sentence, without reading the rest of the body", async () => {
+    const body = pngStream(64 * MiB + 1);
+    const response = await putStream(body.stream);
+    expect(response.status).toBe(413);
+    expect(await response.json()).toEqual({ error: { code: "request_body_too_large", message: SENTENCE } });
+    // The sender's 60 MiB beyond the bound were never asked for.
+    expect(body.seen.bytes).toBeLessThan(5 * MiB);
+    expect(body.seen.cancelled).toBe(true);
+    expect((await get("")).status).toBe(404);
+  });
+
+  it("refuses a declared length past the bound before reading the body", async () => {
+    const body = pngStream(5 * MiB);
+    const response = await PUT(
+      testAccountRequest(new Request(`http://test/api/maps/${mapId}/thumbnail`, {
+        method: "PUT", headers: { "content-type": "image/png", "content-length": String(4 * MiB + 1) }, body: body.stream, duplex: "half",
+      } as RequestInit)),
+      params(mapId),
+    );
+    expect(response.status).toBe(413);
+    expect((await response.json()).error).toEqual({ code: "request_body_too_large", message: SENTENCE });
+    expect(body.seen.bytes).toBeLessThan(MiB);
+  });
+
+  it("keeps the validation refusal for a non-PNG body at the admitted size and for an empty body", async () => {
+    const notPng = await putStream(pngStream(4 * MiB, [1, 2, 3, 4, 5, 6, 7, 8]).stream);
+    expect(notPng.status).toBe(400);
+    expect(await notPng.json()).toEqual({ error: { code: "invalid_request", message: "The body is not a PNG." } });
+    const empty = await put("", new Uint8Array(0) as Uint8Array<ArrayBuffer>);
+    expect(empty.status).toBe(400);
+    expect(await empty.json()).toEqual({ error: { code: "invalid_request", message: SENTENCE } });
+    expect((await get("")).status).toBe(404);
+  });
+});
