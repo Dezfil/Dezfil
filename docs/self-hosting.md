@@ -478,8 +478,10 @@ used entry. The bound holds either way. Eviction grants a fresh window.
 Window expiry permits retry; a refusal remains 429 `rate_limited`, “Too many
 requests. Please slow down.” No new retry-header guarantee applies.
 
-Direct socket sources have independent budgets; equivalent IPv4 and mapped
-IPv4 addresses share one. A trusted proxy chain uses the nearest untrusted hop.
+Direct socket sources have independent budgets, except that every address of
+one IPv6 /64 shares one budget, so a host cannot step around it with fresh
+addresses from its prefix; equivalent IPv4 and mapped IPv4 addresses share
+one. Only the charge is grouped: the verified source stays the full address. A trusted proxy chain uses the nearest untrusted hop.
 Behind an untrusted proxy, readers share its socket budget by design; forwarded
 headers cannot separate it. Missing or forged provenance answers private,
 no-store 503 `ingress_unavailable`, “The instance cannot serve published maps
