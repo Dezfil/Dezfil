@@ -61,8 +61,10 @@
      the canvas pane's source rows): the reference's kit had it, the app's
      vocabulary did not until, so the tiles drew on nothing. */
   --accent-wash: #e2f2ec;
-  --warn: #a8651c;
-  --warn-dim: rgba(168, 101, 28, 0.12);
+  /* Dark enough that a warning's words read at 4.5:1 on its own dim fill
+     over a panel, not only on the panel itself. */
+  --warn: #975a19;
+  --warn-dim: rgba(151, 90, 25, 0.12);
   --danger: #bb4434;
   --danger-dim: rgba(187, 68, 52, 0.1);
   --focus: #0d7d5c;

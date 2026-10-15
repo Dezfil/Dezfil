@@ -8,6 +8,8 @@
   gap: 10px;
 }
 
+/* A click opens the file picker whether or not a batch is running (a
+   pick joins the batch), so the zone keeps the pointer while busy. */
 .zone {
   flex: 1;
   min-height: 200px;
@@ -53,10 +55,6 @@
   border-color: var(--accent);
   background-color: var(--accent-dim);
   transform: scale(1.004);
-}
-
-.zone[data-busy="true"] {
-  cursor: default;
 }
 
 .prompt {

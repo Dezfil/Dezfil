@@ -296,12 +296,16 @@
   border: var(--surface-page-card-edge-hover);
 }
 
+/* The link fills its card's whole box: a row stretches a card to its
+   tallest neighbour's height, and the link's focus ring then follows the
+   card down to its foot rather than stopping under the words. */
 .cardLink {
   display: block;
   color: inherit;
   cursor: pointer;
   text-align: left;
   width: 100%;
+  height: 100%;
 }
 
 .cardLink:hover {

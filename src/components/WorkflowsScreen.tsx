@@ -15,6 +15,7 @@ import {
   IconOpen,
   IconSearch,
   IconTrash,
+  MapPlaceholder,
 } from "./gallery-icons";
 import { untilViewSettled, useViewPrefs } from "./use-view-prefs";
 import { ProjectTag } from "./MapsScreen";
@@ -516,7 +517,13 @@ export function WorkflowsScreen() {
                         }}
                       >
                         <div className={gallery.strip} style={{ height: 148 }}>
-                          <WorkflowThumb steps={w.steps} groupOf={groupOf} />
+                          {/* No nodes, no graph to draw: the chart-paper
+                              placeholder an empty map's card shows. */}
+                          {w.steps.length > 0 ? (
+                            <WorkflowThumb steps={w.steps} groupOf={groupOf} />
+                          ) : (
+                            <MapPlaceholder />
+                          )}
                           <span className={gallery.overlay}>
                             <b>
                               <span className={gallery.num}>
@@ -580,11 +587,15 @@ export function WorkflowsScreen() {
                         <span
                           className={`${gallery.colThumb} ${gallery.rowThumb}`}
                         >
-                          <WorkflowThumb
-                            steps={w.steps}
-                            groupOf={groupOf}
-                            compact
-                          />
+                          {w.steps.length > 0 ? (
+                            <WorkflowThumb
+                              steps={w.steps}
+                              groupOf={groupOf}
+                              compact
+                            />
+                          ) : (
+                            <MapPlaceholder />
+                          )}
                         </span>
                         <span className={gallery.colName}>
                           <span className={gallery.rowName}>{w.name}</span>

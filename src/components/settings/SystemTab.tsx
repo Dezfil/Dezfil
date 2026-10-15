@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { ErrorNote } from "@/components/ui/ErrorNote";
 import { PARTS } from "@/lib/system/part-test-answer";
 import type { PartStates } from "@/lib/system/part-states";
@@ -108,17 +108,27 @@ function Source({ source }: { source: SettingSource }) {
   return <ValueText muted>{source.kind === "environment" ? "Environment" : source.kind === "default" ? "Default" : "Stored"}</ValueText>;
 }
 
+/** A variable's name with a place to break after each underscore, taken
+ * only where the table is too narrow for whole names; a copy of it reads
+ * the name unchanged. */
+function VariableName({ name }: { name: string }) {
+  const parts = name.split("_");
+  return <>{parts.map((part, i) => <Fragment key={i}>{part}{i < parts.length - 1 && <>_<wbr /></>}</Fragment>)}</>;
+}
+
 function ServerSettingsCard({ read }: { read: InstanceRead }) {
   return <SettingsCard id="system-settings" title="Server settings" headingId="system-settings-heading">
     <Note>Values from the environment change when the server restarts.</Note>
-    <table className={styles.table}>
-      <thead><tr><th scope="col">Setting</th><th scope="col">Variable</th><th scope="col">Value</th><th scope="col">Source</th></tr></thead>
-      <tbody>{serverSettingsRows(read).map(row => <tr key={row.key} id={row.id}>
-        <td className={styles.setting}>{row.label}</td>
-        <td className={styles.variable}><ValueText mono>{row.variable}</ValueText></td>
-        <td><Shown value={row.value} /></td>
-        <td className={styles.source}><Source source={row.source} /></td>
-      </tr>)}</tbody>
-    </table>
+    <div className={styles.tableBox}>
+      <table className={styles.table}>
+        <thead><tr><th scope="col">Setting</th><th scope="col">Variable</th><th scope="col">Value</th><th scope="col">Source</th></tr></thead>
+        <tbody>{serverSettingsRows(read).map(row => <tr key={row.key} id={row.id}>
+          <td className={styles.setting}>{row.label}</td>
+          <td className={styles.variable}><ValueText mono><VariableName name={row.variable} /></ValueText></td>
+          <td><Shown value={row.value} /></td>
+          <td className={styles.source}><Source source={row.source} /></td>
+        </tr>)}</tbody>
+      </table>
+    </div>
   </SettingsCard>;
 }

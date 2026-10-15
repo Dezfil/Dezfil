@@ -202,6 +202,38 @@ describe("retained artifacts are served by what they drew", () => {
     expect(Buffer.from((await image("ada")).bytes).toString("latin1")).toContain("late");
   });
 
+  it("says in the maps listing whether the image read serves the caller one", async () => {
+    const listed = async (account: string, target: MapRecord) =>
+      ((await call(account, () => import("@/app/api/maps/route"), "/api/maps", {})).body as { id: string; hasThumbnail: unknown }[])
+        .find((m) => m.id === target.id)?.hasThumbnail;
+    const agree = async (expected: Record<string, boolean>, target: MapRecord = map) => {
+      for (const [account, served] of Object.entries(expected)) {
+        expect((await image(account, target)).status, `${account}'s image read`).toBe(served ? 200 : 404);
+        expect(await listed(account, target), `${account}'s listing`).toBe(served);
+      }
+    };
+    // Never captured: nobody is served an image, and the listing says so.
+    await agree({ ada: false, bob: false, cyd: false });
+    await capture("roads");
+    await agree({ ada: true, bob: true, cyd: true });
+    // Withdrawn from the project: the members' read answers the placeholder.
+    unfileDataset("P", tables.roads.id);
+    await agree({ ada: true, bob: false, cyd: false });
+    // A card image made before images recorded what they drew is the
+    // owner's alone.
+    const older = createMap(scopes.ada, "Older", "P");
+    await writeFile(thumbnailPath(older.id), png("legacy"));
+    await agree({ ada: true, bob: false, cyd: false }, older);
+    // A themed pair counts once it is published, never while one theme is held.
+    const themed = createMap(scopes.ada, "Themed", "P");
+    const put = (theme: string) => call("ada", route.thumbnail,
+      `/api/maps/${themed.id}/thumbnail?revision=${revision(themed)}&theme=${theme}&cycle=c1`, { id: themed.id }, "PUT", png(theme));
+    expect((await put("light")).status).toBe(202);
+    await agree({ ada: false, bob: false }, themed);
+    expect((await put("dark")).status).toBe(204);
+    await agree({ ada: true, bob: true }, themed);
+  });
+
   it("copies an image into someone's own map only while they may be served it", async () => {
     const bobs = createMap(scopes.bob, "Bob's own");
     await capture("roads");

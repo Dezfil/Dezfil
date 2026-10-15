@@ -1676,6 +1676,30 @@
         "thumbnails/*.png"
       ]
     },
+    "location:src/lib/map-thumbnails.ts#servedThumbnails:thumbnailsDir": {
+      "stores": [
+        "file:thumbnails"
+      ],
+      "roots": [
+        "thumbnails"
+      ]
+    },
+    "location:src/lib/map-thumbnails.ts#servedThumbnails.served.files:thumbnailPath": {
+      "stores": [
+        "file:thumbnails"
+      ],
+      "roots": [
+        "thumbnails/*.png"
+      ]
+    },
+    "location:src/lib/map-thumbnails.ts#servedThumbnails.served.set:thumbnailManifestPath": {
+      "stores": [
+        "file:thumbnails"
+      ],
+      "roots": [
+        "thumbnails/*.json"
+      ]
+    },
     "location:src/lib/map-thumbnails.ts#themedFiles:thumbnailsDir": {
       "stores": [
         "file:thumbnails"
@@ -2228,6 +2252,14 @@
       ]
     },
     "location:src/lib/thumbnail-evidence.ts#imageInputs.parsed:evidencePath": {
+      "stores": [
+        "file:thumbnail-inputs"
+      ],
+      "roots": [
+        "artifact-inputs/thumbnails/*.json"
+      ]
+    },
+    "location:src/lib/thumbnail-evidence.ts#recordedInputs:evidencePath": {
       "stores": [
         "file:thumbnail-inputs"
       ],

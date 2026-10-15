@@ -354,8 +354,12 @@
   border-color: var(--accent);
 }
 
+/* A missing table's port is out of sight and out of reach but keeps its
+   box: its broken link is measured from there, and a port with no box puts
+   that end at the canvas's corner (as for a locked canvas, below). */
 .member .port[data-off] {
-  display: none;
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .member .sqlSide {

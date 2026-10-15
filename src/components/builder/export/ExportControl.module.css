@@ -57,13 +57,6 @@
     color var(--dur-micro) ease;
 }
 
-/* The Data door names what follows rather than opening anything: its
- * list is already below it. A static row, so it never reads as a
- * control that does nothing. */
-.menu .door[data-static] {
-  cursor: default;
-}
-
 .menu .door:hover,
 .menu button.door:hover,
 .menu button.door:focus-visible {
