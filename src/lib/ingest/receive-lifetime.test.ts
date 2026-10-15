@@ -27,12 +27,16 @@ beforeAll(async () => {
     // No account work is admitted in this receiver fixture. Still run and await
     // the real ownership cleanup; deletion-lease retention is proven separately.
     ["src/lib/auth/account-deletion-work.ts", "exports.observeDeletionCleanup = (cleanup) => cleanup();"],
+    // The import owns the received file and removes it when it settles.
     ["src/lib/ingest/gdal-formats.ts", `
       const fs = require("node:fs/promises");
+      const { removeAccountFile } = require("./file-ownership.cjs");
       exports.calls = [];
-      exports.ingestSource = async (_scope, target, filename) => {
-        exports.calls.push({ filename, bytes: await fs.readFile(target, "utf8") });
-        return { tables: [{ id: "fixture-table", name: filename }] };
+      exports.ingestUpload = async (_scope, upload) => {
+        try {
+          exports.calls.push({ filename: upload.filename, bytes: await fs.readFile(upload.tmpPath, "utf8") });
+          return { tables: [{ id: "fixture-table", name: upload.filename }] };
+        } finally { await removeAccountFile(upload.tmpPath, { force: true }); }
       };
       exports.toIngestResponse = (result) => result;
     `],

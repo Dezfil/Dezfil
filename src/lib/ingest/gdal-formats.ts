@@ -1,6 +1,7 @@
 import { withTrustedMutation } from "@/lib/trusted-mutation";
-import { currentTrustedOperation, isTrustedOperationRefusal } from "@/lib/trusted-operation";
+import { currentTrustedOperation, isTrustedOperationRefusal, type TrustedOperationOptions } from "@/lib/trusted-operation";
 import { captureIngestBudget, type IngestBudget } from "./budget";
+import type { ReceivedUpload } from "./receive";
 import { registerAccountFile, removeAccountFile } from "@/lib/ingest/file-ownership";
 import { ownedTableNames, listOwnedTables } from "@/lib/metadata/owned-tables";
 import { requireFilingDestination } from "@/lib/auth/reach";
@@ -442,6 +443,11 @@ export async function ingestSpatialFile(
   });
 }
 
+/** A file import's operation, on whichever road admits it first. */
+function fileImport(budget: IngestBudget, signal?: AbortSignal): TrustedOperationOptions {
+  return { kind: "import", name: "File import", signal, budgetMs: budget.dataProcessingTimeoutMs };
+}
+
 /**
  * The one ingest entry both roads call (formats behave identically
  * across upload and URL import): container formats fan out, everything
@@ -456,7 +462,7 @@ export async function ingestSource(
   budget: IngestBudget = captureIngestBudget(),
   signal?: AbortSignal,
 ): Promise<IngestResult> {
-  return withTrustedMutation({ kind: "import", name: "File import", signal, budgetMs: budget.dataProcessingTimeoutMs }, async () => {
+  return withTrustedMutation(fileImport(budget, signal), async () => {
     requireAccountScope(scope);
     if (provenance?.projectId) requireFilingDestination(scope, provenance.projectId);
     const format = detectFormat(originalFilename);
@@ -478,6 +484,28 @@ export async function ingestSource(
       requestedName,
     );
     return { tables: [table], skipped: [] };
+  });
+}
+
+/**
+ * Import a received upload. The import owns the received file from here and
+ * removes it on its cleanup path, never inline after the commit: a removal
+ * that failed there would replace the committed answer, so a retry would add
+ * a second dataset, and one that stalled would hold the answer.
+ */
+export async function ingestUpload(
+  scope: AccountScope,
+  upload: ReceivedUpload,
+  provenance: IngestProvenance,
+  signal?: AbortSignal,
+): Promise<IngestResult> {
+  return withTrustedMutation(fileImport(upload.budget, signal), async operation => {
+    try {
+      return await ingestSource(scope, upload.tmpPath, upload.filename, provenance, undefined, upload.budget, signal);
+    } finally {
+      // Registered after the import's own cleanup, so it runs first.
+      operation.defer(() => removeAccountFile(upload.tmpPath, { force: true }));
+    }
   });
 }
 
