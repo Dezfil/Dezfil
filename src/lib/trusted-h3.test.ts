@@ -1,6 +1,6 @@
 import { expect, it, vi } from "vitest";
 import type { DuckDBInstance } from "@duckdb/node-api";
-import { withTrustedOperation } from "./trusted-operation";
+import { admitTrustedOperation, withTrustedOperation } from "./trusted-operation";
 import { loadTrustedH3 } from "./trusted-h3";
 
 it("failed trusted H3 installation is attempted once across concurrent and later ingests", async () => {
@@ -34,4 +34,23 @@ it("optional H3 preparation preserves a trusted memory refusal instead of report
   expect(run).toHaveBeenCalledTimes(1);
   await new Promise<void>(resolve => setImmediate(resolve));
   expect(disconnectSync).toHaveBeenCalledOnce();
+});
+
+it("a later caller of the loaded H3 extension keeps its own deadline", async () => {
+  const instance = { connect: vi.fn().mockResolvedValue({ run: vi.fn().mockResolvedValue(undefined), disconnectSync: vi.fn() }) } as unknown as DuckDBInstance;
+  expect(await loadTrustedH3(instance)).toBe(true);
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "performance"] });
+  try {
+    // A CSV import whose sample looks like H3 cells, after H3 was loaded once.
+    const op = admitTrustedOperation({ kind: "import", name: "File import", budgetMs: 100 });
+    let committed = false;
+    const result = op.run(async () => {
+      expect(await loadTrustedH3(instance)).toBe(true);
+      await vi.advanceTimersByTimeAsync(5000);
+      op.assertCanCommit(); committed = true;
+    }).then(value => ({ value }), error => ({ error }));
+    expect(await result).toEqual({ error: expect.objectContaining({ code: "data_processing_timeout" }) });
+    expect(committed).toBe(false);
+    await op.settled;
+  } finally { vi.useRealTimers(); }
 });

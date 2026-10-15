@@ -237,6 +237,8 @@ export async function fetchTemplate(
       operation.defer(() => joined.drained);
       return joined.join();
     }
+    // The installed version is every waiting caller's whole result, so its
+    // commit is theirs.
     const work = sharedTrustedWork({ kind: "template-install", name: "Template download" }, async (): Promise<FetchedTemplate> => {
       // Asked once more now that this caller holds the version's place: a
       // download of it that ended after the first look has installed it.
@@ -245,7 +247,7 @@ export async function fetchTemplate(
       if (size !== null) return { id, version: entry.facts.version, size, downloaded: false };
       downloads.seam.entered?.(key);
       return enqueue(() => download(scope, entry, where, db));
-    });
+    }, { commitsJoiners: true });
     downloads.byKey.set(key, work);
     const settled = () => { if (downloads.byKey.get(key) === work) downloads.byKey.delete(key); };
     work.value.then(settled, settled);
