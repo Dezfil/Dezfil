@@ -58,9 +58,13 @@ const openAddData = async (page: Page) => {
 async function openPostgisForm(page: Page) {
   const dialog = await openAddData(page);
   await dialog.getByText("PostGIS", { exact: true }).first().click();
+  // With no saved connection the pane opens on the form; with one it lists
+  // them first. Which one is known only once the pane has loaded.
+  const form = page.getByText("Connect a PostGIS database");
   const newConn = page.getByRole("button", { name: /New connection/ });
-  if (await newConn.isVisible().catch(() => false)) await newConn.click();
-  await expect(page.getByText("Connect a PostGIS database")).toBeVisible();
+  await expect(form.or(newConn).first()).toBeVisible();
+  if (await newConn.isVisible()) await newConn.click();
+  await expect(form).toBeVisible();
 }
 
 async function fillPostgisForm(
