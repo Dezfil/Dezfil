@@ -194,7 +194,7 @@ beforeEach(async () => {
   server.on("connection", (socket) => {
     held.push(socket);
   });
-  await new Promise<void>((resolve) => server.listen(0, () => resolve()));
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", () => resolve()));
   base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
   process.env.DEZFIL_ISOCHRONE_URL = `${base}?key=SECRETTOKEN`;
   await importFromUrl(testAccountScope(), `${base}/origins.csv`, "origins");

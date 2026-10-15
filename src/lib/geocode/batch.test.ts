@@ -46,7 +46,7 @@ async function provider(
     res.writeHead(200, { "content-type": "application/json" });
     res.end(JSON.stringify(answerFor(q)));
   });
-  await new Promise<void>((resolve) => server.listen(0, () => resolve()));
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", () => resolve()));
   servers.push(server);
   return (server.address() as AddressInfo).port;
 }

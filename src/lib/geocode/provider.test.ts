@@ -40,7 +40,7 @@ async function provider(
     asked.push(new URL(req.url ?? "", "http://x").searchParams.get("q") ?? "");
     handler(req, res);
   });
-  await new Promise<void>((resolve) => server.listen(0, () => resolve()));
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", () => resolve()));
   servers.push(server);
   return { port: (server.address() as AddressInfo).port, asked };
 }
