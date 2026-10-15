@@ -2,10 +2,11 @@ import { withTrustedMutation } from "@/lib/trusted-mutation";
 import { isTrustedOperationRefusal } from "@/lib/trusted-operation";
 import { trustedNativeConnection, endTrustedConnectionWork, trustedEngineError } from "@/lib/trusted-connection";
 import { randomUUID } from "node:crypto";
+import { setTimeout as delay } from "node:timers/promises";
 import { ApiError } from "@/lib/api/errors";
-import { withConnection } from "@/lib/duckdb";
+import { withConnection, withSideConnection } from "@/lib/duckdb";
 import { resolveAllowed } from "@/lib/net/egress";
-import { PgSourceOwner, SOURCE_STATEMENT_MS } from "./source-owner";
+import { PgSourceOwner, SOURCE_STATEMENT_MS, type SourceCancellation } from "./source-owner";
 import type { PgConnection } from "@/lib/metadata/connections";
 
 /**
@@ -32,6 +33,7 @@ export function attachString(
   hostaddr?: string,
   sourceIdentity?: string,
   statementMs: number = SOURCE_STATEMENT_MS,
+  connectS = 10,
 ): string {
   return [
     `host=${libpqEscape(target.host)}`,
@@ -45,7 +47,7 @@ export function attachString(
     `password=${libpqEscape(target.password)}`,
     `sslmode=${target.ssl ? "require" : "prefer"}`,
     // Fail fast instead of hanging on unreachable hosts.
-    `connect_timeout=10`,
+    `connect_timeout=${connectS}`,
     // Source startup options are inherited by every connection the attachment
     // opens, including extension work connections.
     ...(sourceIdentity ? [`application_name=${libpqEscape(sourceIdentity)}`] : []),
@@ -76,6 +78,49 @@ function mapAttachError(error: unknown): never {
         ? "The server is unreachable. Check host, port, and network."
         : "The connection failed while accessing the source.";
   throw new ApiError("connection_failed", friendly, 502);
+}
+
+/** The cancelling attachment's own connect limit and statement ceiling, the
+ * pause between its tries, and how long it keeps trying: a statement can reach
+ * the server just after a try. Together they stay inside the 35 s settlement
+ * allowance. */
+const CANCEL_CONNECT_S = 5;
+const CANCEL_STATEMENT_MS = 5_000;
+const CANCEL_RETRY_MS = 250;
+const CANCEL_WINDOW_MS = 20_000;
+
+/**
+ * Cancel the statements one attachment runs on the source, through a
+ * short-lived attachment of its own on a connection outside the refused
+ * operation, so nothing waits on the blocked connection. It reaches the
+ * address the attachment was vetted for, with the same credentials and TLS
+ * mode, and asks the server to cancel only active backends whose application
+ * name begins with that attachment's unique identity. Its own identity
+ * begins differently, so it never matches itself, and the server lets a role
+ * cancel only its own backends. It repeats while the attachment's native call
+ * is out, within its window, and always detaches.
+ */
+function sourceCancellation(target: ConnectionTarget, hostaddr: string, sourceIdentity: string): SourceCancellation {
+  return running => withSideConnection(async conn => {
+    const own = randomUUID().replace(/-/g, "");
+    const alias = `pg_cancel_${own}`;
+    await conn.run("LOAD postgres");
+    await conn.run(
+      `ATTACH ${sqlLit(attachString(target, hostaddr, `dezfil_cancel_${own}`, CANCEL_STATEMENT_MS, CANCEL_CONNECT_S))} AS ${alias} (TYPE postgres, READ_ONLY)`,
+    );
+    try {
+      const cancel = `SELECT pg_cancel_backend(pid) AS cancelled FROM pg_stat_activity WHERE left(application_name, ${sourceIdentity.length}) = ${sqlLit(sourceIdentity)} AND pid <> pg_backend_pid() AND state = 'active'`;
+      const until = performance.now() + CANCEL_WINDOW_MS;
+      for (;;) {
+        await conn.run(`SELECT * FROM postgres_query(${sqlLit(alias)}, ${sqlLit(cancel)})`);
+        if (!running() || performance.now() >= until) break;
+        await delay(CANCEL_RETRY_MS);
+        if (!running()) break;
+      }
+    } finally {
+      await conn.run(`DETACH ${alias}`);
+    }
+  });
 }
 
 /** Attach read-only, run work, always detach. */
@@ -133,10 +178,12 @@ export async function withPg<T>(
         try {
           // Mark a successful native ATTACH before testing departure: a late
           // success still owns a catalogue that must be detached.
+          const sourceIdentity = preview ? `dezfil_preview_${identity}` : `dezfil_source_${identity}`;
           await native.run(
-            `ATTACH ${sqlLit(attachString(target, hostaddr, preview ? `dezfil_preview_${identity}` : `dezfil_source_${identity}`, owner.attachmentCeiling()))} AS ${alias} (TYPE postgres, READ_ONLY)`,
+            `ATTACH ${sqlLit(attachString(target, hostaddr, sourceIdentity, owner.attachmentCeiling()))} AS ${alias} (TYPE postgres, READ_ONLY)`,
           );
           attached = true;
+          owner.cancelOnServer(sourceCancellation(target, hostaddr, sourceIdentity));
         } catch (error) {
           owner.check();
           const classified = owner.classify(error);
@@ -152,7 +199,8 @@ export async function withPg<T>(
       } finally {
         owner.drainComplete();
         const cleanup = endTrustedConnectionWork(conn);
-        if (attached) await cleanup.run(`DETACH ${alias}`);
+        try { if (attached) await cleanup.run(`DETACH ${alias}`); }
+        finally { await owner.cancellationSettled(); }
       }
     });
   });

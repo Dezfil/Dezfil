@@ -6120,12 +6120,22 @@
         "memory:request-closures"
       ]
     },
+    "memory:src/lib/postgis/source-owner.ts#PgSourceOwner.cancelling": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
     "memory:src/lib/postgis/source-owner.ts#PgSourceOwner.operation": {
       "stores": [
         "memory:request-closures"
       ]
     },
     "memory:src/lib/postgis/source-owner.ts#PgSourceOwner.ownDeadline": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/postgis/source-owner.ts#PgSourceOwner.running": {
       "stores": [
         "memory:request-closures"
       ]

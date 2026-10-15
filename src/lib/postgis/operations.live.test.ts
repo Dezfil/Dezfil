@@ -57,6 +57,58 @@ describe.skipIf(!url)(url ? "live source operation ownership" : "SKIP: DEZFIL_TE
       expect(Number(watch.attempts[0].timeout)).toBeGreaterThan(31_000);
     } finally { watch.restore(); }
   }, 120_000);
+  // The source ceiling is the time left when the source is attached, so a
+  // statement that starts after the attachment has spent time could outlast
+  // the expiry by that time. More than the 35 s allowance is spent first here,
+  // so only a cancellation at the expiry settles the blocked read in time.
+  it.each(["import", "refresh"] as const)("%s settles a read that blocks after the attachment spent time, within the allowance after expiry", async kind => {
+    const scope = testAccountScope(), id = randomUUID(), lock = randomInt(1, 2 ** 30), tag = randomUUID().replace(/-/g, "");
+    insertConnection(scope, { id, ...resolveCreateConnectionInput({ name: `Late block ${kind}`, url: fixtureUrl(url!, "disable") }) });
+    await source.exec(`CREATE FUNCTION ${schema}.held_${tag}() RETURNS integer LANGUAGE plpgsql AS $fn$ BEGIN PERFORM pg_advisory_xact_lock(${lock}::bigint); RETURN 7; END $fn$`);
+    await source.exec(`CREATE VIEW ${schema}.late_${tag} AS SELECT ${schema}.held_${tag}() AS id`);
+    await source.exec(`CREATE FUNCTION ${schema}.slow_${tag}() RETURNS text LANGUAGE sql VOLATILE AS $fn$ SELECT pg_sleep(40); SELECT version() $fn$`);
+    const recipe = { connectionId: id, schema, table: `late_${tag}` };
+    const previous = kind === "refresh" ? await importPostgis(scope, recipe) : null;
+    const before = listTables().map(t => t.file).sort();
+    const holder = await openSource(url!); const watch = watchAttachments();
+    let operation: ReturnType<typeof currentTrustedOperation>;
+    const nativeRead = DuckDBConnection.prototype.runAndReadAll;
+    // The first statement on the attachment takes 40 s of the 45 s limit; the
+    // import read after it then blocks on a lock the fixture holds.
+    const slowRead = vi.spyOn(DuckDBConnection.prototype, "runAndReadAll").mockImplementation(function (this: DuckDBConnection, sql, ...args) {
+      if (sql.includes("SELECT version() AS v")) operation = currentTrustedOperation();
+      return nativeRead.call(this, sql.includes("postgres_query") && sql.includes("SELECT version() AS v") ? sql.replace("SELECT version() AS v", `SELECT ${schema}.slow_${tag}() AS v`) : sql, ...args);
+    });
+    const processingLimit = vi.spyOn(limits, "dataProcessingTimeoutMs", "get").mockReturnValue(45_000);
+    let pending: Promise<unknown> | undefined, finished = false, outcome: unknown, identity: string | undefined, measured = false;
+    const owned = () => source.query(`SELECT pid, wait_event_type FROM pg_stat_activity WHERE starts_with(application_name, ${pgLiteral(identity!)})`);
+    try {
+      await holder.conn.run("BEGIN TRANSACTION"); await holder.query(`SELECT pg_advisory_xact_lock(${lock}::bigint)::text AS held`);
+      const work = kind === "import" ? importPostgis(scope, recipe) : refreshTable(scope, previous!.name);
+      pending = work.then(value => { outcome = value; finished = true; }, error => { outcome = error; finished = true; });
+      await until(async () => { identity = watch.attempts[0]?.identity; return !!identity && (await owned()).some(b => b.wait_event_type === "Lock"); }, 60_000, "The import read never reached its held state");
+      const ceiling = Number(watch.attempts[0].timeout);
+      expect(ceiling).toBeGreaterThan(40_000);
+      await until(async () => finished, 60_000, "The operation never answered");
+      expect(outcome).toMatchObject({ code: "data_processing_timeout", status: 408 });
+      const decidedAt = operation!.decidedAt!;
+      expect(decidedAt).not.toBeNull();
+      // The held read started about 40 s after the attachment, so its own
+      // ceiling alone would end it about 40 s after the expiry.
+      await until(async () => (await owned()).length === 0, Math.max(0, decidedAt + 35_000 - performance.now()), "Source backends survived the settlement allowance after expiry");
+      const settledMs = performance.now() - decidedAt;
+      expect(settledMs).toBeLessThanOrEqual(35_000);
+      expect(watch.attempts[0].released).toBe(true);
+      expect(listTables().map(t => t.file).sort()).toEqual(before);
+      measured = true;
+      console.info(JSON.stringify({ operation: kind, lateBlock: true, ceilingMs: ceiling, settledAfterExpiryMs: Math.round(settledMs), backendsRemaining: 0, outcome: outcome instanceof ApiError ? outcome.code : "other" }));
+    } finally {
+      await holder.conn.run("ROLLBACK").catch(() => {}); await holder.close();
+      if (!measured && identity) await source.query(`SELECT pg_terminate_backend(pid) AS terminated FROM pg_stat_activity WHERE starts_with(application_name, ${pgLiteral(identity)})`).catch(() => {});
+      if (pending) await until(async () => finished, 60_000, "Source work did not settle after emergency fixture cleanup");
+      slowRead.mockRestore(); watch.restore(); processingLimit.mockRestore();
+    }
+  }, 200_000);
   async function exercise(kind: typeof kinds[number], depart: boolean) {
     const scope = testAccountScope(), id = randomUUID(), lock = randomInt(1, 2 ** 30);
     // Both sets share one data folder, and a connection name is unique per owner.
@@ -112,6 +164,9 @@ describe.skipIf(!url)(url ? "live source operation ownership" : "SKIP: DEZFIL_TE
       }
       await until(async () => finished && (await owned()).length === 0, depart ? 35_000 : 45_000, "Operation or source backends survived the settlement allowance");
       const elapsedMs = performance.now() - started;
+      // A departure that cancels the work cancels its held statement on the
+      // server too, rather than leaving it to the 30 s source ceiling.
+      if (depart && !processing) expect(elapsedMs).toBeLessThan(15_000);
       expect(watch.attempts[0].released).toBe(true);
       if (depart && processing) { expect(outcome).not.toBeInstanceOf(Error); expect(listTables().some(t => t.sourceParams?.connectionId === id)).toBe(true); }
       else {

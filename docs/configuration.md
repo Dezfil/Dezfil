@@ -467,11 +467,16 @@ even when the scratch cleanup after it outlasts the limit. PostGIS connection te
 reads and previews use the query lifetime, with imports and refreshes under
 the processing lifetime. Every PostGIS attachment retains the 10-second connect
 limit and owned interruption. Imports and refreshes give their source statements
-the processing time left when the source is attached, and a source that
-outlasts it answers `408 data_processing_timeout`. Previews keep a 30-second
-source statement ceiling; connection checks and catalogue reads keep it too, or
-take the Query time left when the source is attached if that is less. Both
-answer `408 query_timeout`. Geometry set and clear
+a ceiling of the processing time left when the source is attached, and a source
+that outlasts the limit answers `408 data_processing_timeout`. Previews keep a
+30-second source statement ceiling; connection checks and catalogue reads keep
+it too, or take the Query time left when the source is attached if that is
+less. Both answer `408 query_timeout`. A refusal (the time limit, a departure
+that cancels the work, or a resource refusal) cancels the attachment's running
+statements on the source through a short-lived second connection under the same
+role, with a 5-second connect limit, so source work settles within the 35-second
+allowance even when its statement started late; the ceiling stays as the
+backstop, and a failed cancellation is logged. Geometry set and clear
 use one processing lifetime through preparation, revision checks and replacement,
 continue after departure, and retain the previous artifact on refusal. Sketch
 feature reads and map summaries share the query lifetime; sketch changes keep

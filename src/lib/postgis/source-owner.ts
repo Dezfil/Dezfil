@@ -13,10 +13,10 @@ export const SOURCE_STATEMENT_MS = 30_000;
 /** The statement ceiling a source attachment opened now carries, and whether
  * it is the operation's own remaining time. Accepted processing continues
  * after departure, so it takes all of its remaining time. Work that cancels on
- * departure keeps the 30 s ceiling at most: the native interrupt does not
- * reach a read blocked on the server, so only the ceiling ends that read
- * within the settlement allowance after the caller leaves. A preview keeps
- * its 30 s ceiling. */
+ * departure keeps the 30 s ceiling at most. A refusal cancels the statement on
+ * the server (see cancelOnServer); the ceiling is the backstop when that
+ * cancellation cannot reach the source, since the native interrupt does not
+ * reach a read blocked there. A preview keeps its 30 s ceiling. */
 export function sourceStatementCeiling(preview: boolean, operation?: TrustedOperation): { ms: number; ownDeadline: boolean } {
   if (preview || !operation) return { ms: SOURCE_STATEMENT_MS, ownDeadline: false };
   const remaining = Math.max(1, Math.ceil(operation.deadline - performance.now()));
@@ -39,13 +39,47 @@ export function sourceError(error: unknown, ownDeadline?: TrustedOperation): unk
   return error;
 }
 
+/** Cancels an attachment's statements on the server while `running` says one
+ * of its native calls has not returned. */
+export type SourceCancellation = (running: () => boolean) => Promise<void>;
+
 /** Each source attachment owns its native work through DETACH, and
  * interrupts stop before teardown so cleanup cannot interrupt itself. */
 export class PgSourceOwner {
   private readonly operation = currentTrustedOperation();
   private stopInterrupting?: () => void;
   private ownDeadline = false;
+  private running = 0;
+  private cancelling?: Promise<void>;
   constructor(readonly signal?: AbortSignal, private readonly preview = false) {}
+
+  /** Once the source is attached: a refusal of the operation (its expiry, a
+   * departure that cancels it, a resource refusal) cancels the statement the
+   * attachment is running on the server. The native interrupt does not reach
+   * a read blocked there, and the statement ceiling was fixed at attachment,
+   * so a statement that started later would otherwise outlast the refusal by
+   * the time already spent. The ceiling stays as the backstop: a failed
+   * cancellation is logged, never answered. */
+  cancelOnServer(cancel: SourceCancellation): void {
+    const signal = this.signal;
+    if (!signal) return;
+    const start = () => {
+      if (this.cancelling || this.running === 0) return;
+      // Started on a later turn, so even a synchronous failure is caught here
+      // rather than thrown into the abort that decided the operation.
+      this.cancelling = Promise.resolve().then(() => cancel(() => this.running > 0)).catch(() => {
+        // The engine's message can repeat the connection string; say only what failed.
+        console.warn("A PostGIS source cancellation failed; the source statement ceiling still ends the work.");
+      });
+    };
+    const stop = this.stopInterrupting;
+    signal.addEventListener("abort", start, { once: true });
+    if (signal.aborted) start();
+    this.stopInterrupting = () => { signal.removeEventListener("abort", start); stop?.(); };
+  }
+
+  /** The cancellation started for this attachment, settled; never rejects. */
+  cancellationSettled(): Promise<void> { return this.cancelling ?? Promise.resolve(); }
 
   /** The statement ceiling for the attachment this owner opens now. */
   attachmentCeiling(): number {
@@ -64,12 +98,17 @@ export class PgSourceOwner {
   async query<T>(work: () => Promise<T>, discard?: (value: T) => void): Promise<T> {
     this.check();
     let result: T;
+    // Counted while the native call is out, so a refusal knows whether a
+    // statement may be running on the server.
+    this.running += 1;
     try { result = await work(); } catch (error) {
+      this.running -= 1;
       this.check();
       const classified = this.classify(error);
       this.operation?.refuseIfFinal(classified);
       throw classified;
     }
+    this.running -= 1;
     try { this.check(); } catch (error) { discard?.(result); throw error; }
     return result;
   }
