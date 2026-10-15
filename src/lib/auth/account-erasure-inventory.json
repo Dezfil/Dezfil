@@ -3243,6 +3243,11 @@
         "memory:src/lib/export/render-stall.ts#RenderRequestLedger.requests"
       ]
     },
+    "memory:src/lib/field-dependencies.ts#AUTO_STRIPPED": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
     "memory:src/lib/geocode/limiter.ts#endpoints": {
       "stores": [
         "memory:provider-scheduling"
@@ -3491,11 +3496,6 @@
     "memory:src/lib/publish/publication-resolution.ts#cache": {
       "stores": [
         "memory:src/lib/publish/publication-resolution.ts#cache"
-      ]
-    },
-    "memory:src/lib/publish/published-fields.ts#AUTO_STRIPPED": {
-      "stores": [
-        "memory:immutable-configuration"
       ]
     },
     "memory:src/lib/publish/rate-limit.ts#windows": {

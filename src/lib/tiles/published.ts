@@ -3,7 +3,7 @@ import { limits } from "@/lib/limits";
 import { resolvePublication } from "@/lib/publish/publication-scope";
 import { getTileRecord } from "@/lib/metadata/tiles";
 import { renderFilters } from "@/lib/layer-service";
-import { publishedFieldsSignature } from "@/lib/publish/published-fields";
+import { tileArchiveSignature } from "@/lib/field-dependencies";
 import { tileFingerprint } from "./build";
 import { tileArchivePath } from "./paths";
 import { tileArchiveInputs } from "./evidence";
@@ -48,7 +48,7 @@ export function currentPublishedTile(
   const fingerprint = tileFingerprint(
     layer.sql,
     renderFilters(layer, snapshot.map.timeline),
-    publishedFieldsSignature(layer, {
+    tileArchiveSignature(layer, {
       timeline: snapshot.map.timeline,
       widgets: snapshot.map.widgets,
       widgetsPublished: snapshot.map.widgetsPublished,

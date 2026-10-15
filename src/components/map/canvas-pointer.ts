@@ -1,7 +1,7 @@
 import type * as maplibregl from "maplibre-gl";
 import type { PickingInfo } from "@deck.gl/core";
 import type { MutableRefObject } from "react";
-import { AUTO_TOOLTIP_FIELDS } from "@/lib/publish/published-fields";
+import { AUTO_TOOLTIP_FIELDS } from "@/lib/field-dependencies";
 import { formatCompact } from "@/lib/style/legend";
 import { pickOwner } from "./pick-owner";
 import type { RenderedLayer } from "./MapCanvas";

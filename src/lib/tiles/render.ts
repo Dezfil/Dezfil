@@ -1,7 +1,7 @@
 import type { LayerRenderData, LayerRenderGeometryType } from "@/lib/layer-service";
 import { getMap, type Layer } from "@/lib/metadata/maps";
 import type { LayerFilter } from "@/lib/viz";
-import { publishedFieldsFor, publishedFieldsSignature, type PublishedMapContext } from "@/lib/publish/published-fields";
+import { tileArchiveFields, tileArchiveSignature, type PublishedMapContext } from "@/lib/field-dependencies";
 import { tilerUnavailable } from "@/lib/layer-render-copy";
 import { ensureTiles } from "./build";
 import { tilerAvailable } from "./tiler";
@@ -33,10 +33,10 @@ export async function tiledRender(
     );
   }
   // One shared archive serves builder and published routes, built with the
-  // effective published field set — resolved here against the map's own
-  // context, whichever audience triggered the build. The signature folds
-  // into the fingerprint; the published tile authorization recomputes it
-  // from the same inputs.
+  // shared archive's field policy (the published set), resolved here
+  // against the map's own context, whichever audience triggered the build.
+  // The signature folds into the fingerprint; the published tile
+  // authorization recomputes it from the same inputs.
   const mapRecord = getMap(layer.mapId);
   const context: PublishedMapContext = mapRecord
     ? {
@@ -45,7 +45,7 @@ export async function tiledRender(
         widgetsPublished: mapRecord.widgetsPublished,
       }
     : { timeline: null, widgets: [], widgetsPublished: false };
-  const archiveColumns = publishedFieldsFor(layer, context, nonGeometryColumns);
+  const archiveColumns = tileArchiveFields(layer, context, nonGeometryColumns);
   const status = ensureTiles(opts.tileAccess!, {
     layerId: layer.id,
     sql: layer.sql,
@@ -54,7 +54,7 @@ export async function tiledRender(
     filters,
     geometryColumn: geometryColumn.name,
     columns: archiveColumns,
-    projection: publishedFieldsSignature(layer, context),
+    projection: tileArchiveSignature(layer, context),
     // The identities the render's own evaluation bound decide freshness.
     inputs: opts.inputs,
   });
