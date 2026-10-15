@@ -2,6 +2,7 @@
 
 import {
   BASEMAPS,
+  BUILT_IN_CREDIT_TEXT,
   offeredOnly,
   type BasemapKey,
   type BasemapStyle,
@@ -149,7 +150,7 @@ export function BasemapPanel({
       {/* The previews are captures of the styles themselves, and the
           map's footer only credits the style in use. */}
       <p className={styles.thumbCredit}>
-        Previews: © OpenMapTiles, OpenStreetMap
+        Previews: {BUILT_IN_CREDIT_TEXT}
       </p>
       <div className={styles.groupSection} data-inert={!groupsApply}>
         <h3 className={`${panel.sectionLabel} ${styles.groupTitle}`}>Map layers</h3>

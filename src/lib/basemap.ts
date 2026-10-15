@@ -58,6 +58,11 @@ export const BUILT_IN_ATTRIBUTION: AttributionLine[] = [
   },
 ];
 
+/** The built-in credit as one line of words, for a note crediting
+ * pictures of the built-in styles: the same words as the open map's
+ * corner, read from the one credit so the two cannot drift apart. */
+export const BUILT_IN_CREDIT_TEXT = BUILT_IN_ATTRIBUTION.map((line) => line.label).join(" · ");
+
 export const BASEMAPS: BasemapStyle[] = [
   {
     key: "dark",
