@@ -2,7 +2,8 @@
    a kind's size in Storage likewise, the quiet reason or file count
    beside them, the provider's chip, and the server's
    settings table, where a variable's name and a source never break inside
-   a word and a setting's name wraps only between its words. */
+   a word and a setting's name wraps only between its words; in a card too
+   narrow for whole names, a variable's name breaks at its underscores. */
 
 .state {
   display: inline-flex;
@@ -62,6 +63,13 @@
   white-space: nowrap;
 }
 
+/* The table's own box, which names its width so the table can step on
+   the room the card gives it. */
+.tableBox {
+  width: 100%;
+  container: server-settings / inline-size;
+}
+
 .table {
   width: 100%;
   border-collapse: collapse;
@@ -96,6 +104,17 @@
 .variable,
 .source {
   white-space: nowrap;
+}
+
+/* Whole names beside the other three columns need about 510px; below 560px
+   a variable's name breaks at its underscores, never inside a word, so the
+   table stays inside its card and the page never scrolls sideways. */
+@container server-settings (max-width: 560px) {
+  .table .variable {
+    white-space: normal;
+    overflow-wrap: normal;
+    word-break: normal;
+  }
 }
 
 .link {

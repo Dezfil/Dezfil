@@ -8,13 +8,13 @@ import { requireAllowedStyleAddress, requireOfferedBasemap, requireOfferedLibrar
 export { requireMap, mapWithLayers, readMap, requireMapFor, mapWithLayersFor, requireOwnMap, ownMapWithLayers, ownsMap } from "./map-access";
 export { mapHistory, undoChange, redoChange, type MapWithHistory } from "./map-history";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
-import { mayFileInto, requireFilingDestination, requirePermitted, requireReachable } from "@/lib/auth/reach";
+import { canReach, mayFileInto, requireFilingDestination, requirePermitted, requireReachable } from "@/lib/auth/reach";
 import { listReachableMaps } from "@/lib/metadata/map-queries";
 import { mapPresencesOf, type Presence } from "@/lib/reach-presence";
 import { randomUUID } from "node:crypto";
 import { ApiError } from "@/lib/api/errors";
 import { removeTileArtifacts } from "@/lib/tiles/build";
-import { prepareThumbnailRemoval } from "@/lib/map-thumbnails";
+import { prepareThumbnailRemoval, servedThumbnails } from "@/lib/map-thumbnails";
 import { invalidatePublishedToken } from "@/lib/publish/publish-service";
 import { isValidTimeline } from "@/lib/timeline";
 import { isValidWidgets } from "@/lib/widgets";
@@ -200,13 +200,15 @@ export function allMaps(scope: AccountScope): MapRecord[] {
 }
 
 /** A listed map plus what its card needs: how many layers it
- * has and one representative color per layer, in draw order — and, the
+ * has and one representative color per layer, in draw order, whether it
+ * has a card image the caller is served — and, the
  * project it is in (null = not in one), its owner and its SQL home. The
  * reference is deliberately not on MapRecord, so the published snapshot's
  * revision never observes a membership change. */
 export interface MapOverview extends MapRecord, Presence, DocumentFacts {
   layerCount: number;
   layerColors: string[];
+  hasThumbnail: boolean;
 }
 
 function cssColor(c: { r: number; g: number; b: number; a: number }): string {
@@ -220,7 +222,22 @@ function cssColor(c: { r: number; g: number; b: number; a: number }): string {
  * are filed nowhere. One still filed in a project its owner no longer
  * reaches names that project and is not none.
  */
-export function mapsOverview(scope: AccountScope, project?: string | "none"): MapOverview[] {
+export async function mapsOverview(scope: AccountScope, project?: string | "none"): Promise<MapOverview[]> {
+  const maps = listedMaps(scope, project);
+  const pictured = await servedThumbnails(scope, maps.map((m) => m.id));
+  // The picture reads await files, so access is checked again after them,
+  // as an image read does: an account deactivated or a project left
+  // meanwhile refuses as before, and a map no longer reached drops out.
+  return metadataDb().transaction(() => {
+    requireAccountScope(scope);
+    if (project && project !== "none") requireReachable(scope, "project", project);
+    return maps
+      .filter((m) => canReach(scope, "map", m.id))
+      .map((m) => ({ ...m, hasThumbnail: pictured.has(m.id) }));
+  })();
+}
+
+function listedMaps(scope: AccountScope, project?: string | "none"): Omit<MapOverview, "hasThumbnail">[] {
   // An unknown or unreachable project refuses — a silently empty list
   // would read as an empty project.
   return metadataDb().transaction(() => {

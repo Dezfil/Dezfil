@@ -16,7 +16,8 @@ import { MapCard, WorkflowCard } from "./ItemCards";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
 vi.mock("../MapStrip", () => ({ MapStrip: () => null }));
-vi.mock("../WorkflowThumb", () => ({ WorkflowThumb: () => null }));
+vi.mock("../WorkflowThumb", () => ({ WorkflowThumb: () => <i data-graph="" /> }));
+vi.mock("../gallery-icons", async (original) => ({ ...await original<object>(), MapPlaceholder: () => <i data-placeholder="" /> }));
 
 const AT = "2026-10-02T14:00:00Z";
 const ada = { name: "Ada Okafor", sqlName: "ada" };
@@ -69,4 +70,20 @@ it.each(["hover", "focus-within"])("keeps a lone card's time under :%s, outranki
       expect(keep.some((k) => outranks(specificity(k.selector), specificity(f.selector)))).toBe(true);
     }
   }
+});
+
+it.each([
+  ["no nodes", "placeholder", { steps: [], summary: { ...flow.summary, nodes: 0 } }],
+  ["nodes", "graph", { steps: [{ id: "s" }] }],
+])("a workflow card with %s draws the %s in its picture", async (_, drawn, shape) => {
+  await act(async () => {
+    root.render(
+      <SignedIn account={ada}>
+        <WorkflowCard workflow={{ ...flow, ...shape } as WorkflowListing} lastRun={null} groupOf={() => null} owner={null} />
+      </SignedIn>,
+    );
+  });
+  const strip = container.querySelectorAll("div").find((d) => d.className.includes("strip"))!;
+  expect(strip.querySelectorAll("[data-placeholder]").length, "the placeholder").toBe(drawn === "placeholder" ? 1 : 0);
+  expect(strip.querySelectorAll("[data-graph]").length, "the graph").toBe(drawn === "graph" ? 1 : 0);
 });

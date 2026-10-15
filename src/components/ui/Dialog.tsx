@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import styles from "./Dialog.module.css";
 
@@ -12,7 +12,10 @@ import styles from "./Dialog.module.css";
  * catalog had the whole contract — locally, in its own copy. This owns it
  * once: an accessible name, initial focus inside, Tab and Shift+Tab
  * containment, the background inert while open, Escape, and focus returned
- * to whatever opened the dialog.
+ * to whatever opened the dialog, or, when the confirmed action removed it
+ * (a card's own Delete), to the page's main heading, else its main region,
+ * never to the document. Focus also stays inside while a control holding
+ * it is disabled in flight, and returns to it if a refusal re-enables it.
  *
  * The dialog portals to its own body-level host, and that is what makes
  * inertness real: marking body-level siblings only disables the background
@@ -57,10 +60,20 @@ export function Dialog({
     return () => host.remove();
   }, [host]);
 
+  // The control inside that last took focus, and one that lost focus by
+  // turning disabled, waiting to have it back.
+  const lastFocused = useRef<HTMLElement | null>(null);
+  const parked = useRef<HTMLElement | null>(null);
+
   useEffect(() => {
     if (!host) return;
     const opener = document.activeElement as HTMLElement | null;
-    dialogRef.current?.focus();
+    const card = dialogRef.current;
+    const onFocusIn = (e: Event) => {
+      lastFocused.current = e.target as HTMLElement;
+    };
+    card?.addEventListener("focusin", onFocusIn);
+    card?.focus();
     const marked: Element[] = [];
     for (const child of Array.from(document.body.children)) {
       if (child === host || child.hasAttribute("inert")) continue;
@@ -68,10 +81,44 @@ export function Dialog({
       marked.push(child);
     }
     return () => {
+      card?.removeEventListener("focusin", onFocusIn);
       for (const el of marked) el.removeAttribute("inert");
-      opener?.focus();
+      if (!takesFocus(opener)) landOnPage();
     };
   }, [host]);
+
+  // A disabled control cannot hold focus: a browser drops it on the
+  // document, behind the modal, at once or after the render. Every render
+  // that leaves the focused control (or the last one focused, when focus
+  // already went) disabled moves focus to the dialog itself, and a render
+  // that enables it again while focus still waits there gives it back.
+  useLayoutEffect(() => {
+    const card = dialogRef.current;
+    if (!card) return;
+    const active = document.activeElement as HTMLElement | null;
+    if (active && active !== card && card.contains(active)) {
+      if (!isDisabled(active)) {
+        parked.current = null;
+        return;
+      }
+      parked.current = active;
+      card.focus();
+      return;
+    }
+    if (active === card || !card.contains(active)) {
+      const last = lastFocused.current;
+      if (active !== card && last && last !== card && card.contains(last) && isDisabled(last)) {
+        parked.current = last;
+        card.focus();
+        return;
+      }
+      const control = parked.current;
+      if (control && card.contains(control) && !isDisabled(control)) {
+        parked.current = null;
+        control.focus();
+      }
+    }
+  });
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -137,4 +184,34 @@ export function Dialog({
     </div>,
     host,
   );
+}
+
+function isDisabled(el: HTMLElement): boolean {
+  return (el as HTMLButtonElement).disabled === true;
+}
+
+/** Focus the element if it is still on the page and takes focus. */
+function takesFocus(el: HTMLElement | null): boolean {
+  if (!el || !el.isConnected) return false;
+  el.focus();
+  return document.activeElement === el;
+}
+
+/** Where focus lands when its opener is gone: the main region's heading,
+ * else the region itself, focusable for this landing only. */
+function landOnPage() {
+  const main = document.querySelector<HTMLElement>("main");
+  const target = main?.querySelector<HTMLElement>("h1") ?? main;
+  if (!target) return;
+  if (target.hasAttribute("tabindex")) {
+    target.focus();
+    return;
+  }
+  target.setAttribute("tabindex", "-1");
+  target.focus();
+  if (document.activeElement === target) {
+    target.addEventListener("blur", () => target.removeAttribute("tabindex"), { once: true });
+  } else {
+    target.removeAttribute("tabindex");
+  }
 }

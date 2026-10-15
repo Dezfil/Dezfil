@@ -333,18 +333,51 @@ Its two ephemeral trap listeners, map and API token are removed in `finally`;
 the maintainer owns the app and its store. Green includes successful
 cookie/token renders and looks, no credentials on either external redirect hop,
 and the existing anonymous/revoked-call denials. For the stalled-tile control,
-provision a separate standalone on 3217 sharing a fresh `DEZFIL_DATA_DIR` with the
-test, with the same loopback allowlist and Chromium executable, then run:
+provision a separate production standalone sharing a fresh data directory and
+render signing key with the test. From the repository root, with the standalone's
+static assets already provisioned, run:
 
 ```sh
-DEZFIL_DATA_DIR="$RENDER_CONTROL_DATA_DIR" DEZFIL_STALLED_TILES_RENDER=3217 DEZFIL_CHROMIUM_PATH=/usr/bin/chromium DEZFIL_EGRESS_ALLOWLIST=127.0.0.1 npm test -- src/lib/export/map-look.stalled-tiles.test.ts
+export DEZFIL_DATA_DIR=$(mktemp -d /tmp/dezfil-test-XXXXXX)
+export DEZFIL_RENDER_DELEGATION_KEY=$(openssl rand -hex 32)
+export DEZFIL_STALLED_TILES_RENDER=3217
+export DEZFIL_CHROMIUM_PATH=/usr/bin/chromium
+export DEZFIL_EGRESS_ALLOWLIST=127.0.0.1
+PORT="$DEZFIL_STALLED_TILES_RENDER" HOSTNAME=127.0.0.1 node \
+  --import="data:text/javascript,process[Symbol.for('dezfil.session-delegation-key')]=Buffer.from(process.env.DEZFIL_RENDER_DELEGATION_KEY,'hex')" \
+  --import=./scripts/ingress-preload.mjs .next/standalone/server.js
 ```
 
-Set `RENDER_CONTROL_DATA_DIR=$(mktemp -d /tmp/dezfil-test-XXXXXX)` before starting
-that dedicated standalone. Its ephemeral basemap listener is removed by the
-fixture; the runner removes the standalone and scratch store. Green is a complete
-image naming the abandoned host inside the existing check budget. Neither control
-starts an application, container or network for the runner.
+In another shell with those same exported values, run:
+
+```sh
+npm test -- src/lib/export/map-look.stalled-tiles.test.ts
+```
+
+The setup refuses a missing key and probes the standalone with a delegated
+credential before rendering. A non-200 response fails immediately and names
+`DEZFIL_RENDER_DELEGATION_KEY`, rather than waiting out the render budget on a
+sign-in page. The ephemeral basemap listener is removed by the fixture; the
+runner stops the standalone and removes the scratch store. Green is a complete
+image naming the abandoned host for both raster and vector tiles, on both the
+map check and export roads. Each case holds the first viewport tile; all other
+vector tiles return an empty protobuf body. The check uses its own request bound
+and budget; the export uses its default request bound and budget. The cut ends
+current relay sockets, reaching worker fetches as well as page fetches, before
+the page's offline flip and stop. The relay remembers only hosts whose requests
+outlived the bound since their start or last abandonment. It matches names case-insensitively and IPv6 literals
+in their compressed, lowercase form without brackets, refusing re-dials with
+SOCKS reply 4 before admission or dialing for this render only. Younger requests
+also have their sockets ended, but their hosts can re-dial. The listener remains
+available. Requests with no terminal event stay armed and trigger another
+cut after the same request bound, normally 10 seconds for a check and 20 seconds
+for an export. Previously abandoned requests receive no new arrival grace;
+app-origin requests still hold the cut. Each cut is logged and counted again.
+These HTTP/1.1 fixtures establish stalled-tile settlement; they do not exercise
+transparent retries on reused HTTP/2 connections. That behavior requires an
+outside render with a controlled TLS response hold; the product has no hold
+switch.
+Neither control starts an application, container or network for the runner.
 
 The outside-observed relay gate passed all 42 assertions: public/rebinding
 browser-DNS absence, rebinding listener silence and exact policy answers for both

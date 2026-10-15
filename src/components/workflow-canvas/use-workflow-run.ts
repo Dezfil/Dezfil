@@ -192,9 +192,11 @@ class Runner implements WorkflowRunner {
     return !!m && (m.state === "pending" || m.state === "running");
   };
 
-  /** The runs list, and the run in flight found in it. */
+  /** The runs list, and the run in flight found in it. Only the effect's
+   * setup opens the runner: a read asked for after a real unmount reads
+   * nothing and leaves it closed, so no later start goes through. */
   load = async () => {
-    this.disposed = false;
+    if (this.disposed) return null;
     const gen = this.beginObservation();
     const result = await call(`/api/recipes/${this.id}/runs`, { method: "GET", signal: this.observation?.signal }, "read the workflow's runs");
     if (gen !== this.generation) return null;

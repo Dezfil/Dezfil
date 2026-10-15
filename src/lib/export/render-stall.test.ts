@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { limits } from "@/lib/limits";
 import {
   renderRequestBoundMs,
+  RenderRequestLedger,
   stalledExternalRequests,
   STALL_GRACE_MS,
   type InflightRequest,
@@ -22,6 +23,100 @@ const own = (started: number): InflightRequest => ({
   started,
   host: "127.0.0.1",
   external: false,
+});
+
+describe("request accounting", () => {
+  const now = 100_000;
+
+  it("two starts under one network id and one finish leave no ghost holding the cut", () => {
+    const ledger = new RenderRequestLedger();
+    ledger.start({ id: "tile" }, tile(0));
+    ledger.start({ id: "font" }, own(0));
+    const secondPause = { id: "font" };
+    ledger.start(secondPause, own(10));
+    ledger.finish(secondPause);
+    expect(ledger.abandon(now, 10_000).cutHosts).toEqual(["tiles.example.org"]);
+    expect(ledger.abandon(now, 10_000).cutHosts).toEqual([]);
+  });
+
+  it("a distinct outstanding app request still holds the cut", () => {
+    const ledger = new RenderRequestLedger();
+    ledger.start({ id: "tile" }, tile(0));
+    ledger.start({ id: "font-1" }, own(0));
+    ledger.start({ id: "font-2" }, own(0));
+    ledger.finish({ id: "font-1" });
+    expect(ledger.abandon(now, 10_000).cutHosts).toEqual([]);
+    ledger.finish({ id: "font-2" });
+    expect(ledger.abandon(now, 10_000).cutHosts).toEqual(["tiles.example.org"]);
+  });
+
+  it("keeps the first start time when a request is paused again", () => {
+    const ledger = new RenderRequestLedger();
+    ledger.start({ id: "tile" }, tile(0));
+    ledger.start({ id: "tile" }, tile(now - 1));
+    expect(ledger.abandon(now, 10_000).cutHosts).toEqual(["tiles.example.org"]);
+  });
+
+  it("keeps requests without a network id separate until their own finish", () => {
+    const ledger = new RenderRequestLedger();
+    const first = {}, second = {};
+    ledger.start({ id: "tile" }, tile(0));
+    ledger.start(first, own(0));
+    ledger.start(second, own(0));
+    ledger.finish(first);
+    expect(ledger.abandon(now, 10_000).cutHosts).toEqual([]);
+    ledger.finish(second);
+    expect(ledger.abandon(now, 10_000).cutHosts).toEqual(["tiles.example.org"]);
+  });
+
+  it.each([10_000, 20_000, 1])("cuts a silent retry again after another %i ms bound", (bound) => {
+    const ledger = new RenderRequestLedger();
+    ledger.start({ id: "tile" }, tile(0));
+    const firstCut = Math.max(bound, STALL_GRACE_MS) + 1;
+    expect(ledger.abandon(firstCut, bound).cutHosts).toEqual(["tiles.example.org"]);
+    expect(ledger.abandon(firstCut + bound, bound).cutHosts).toEqual([]);
+    const secondCut = firstCut + bound + 1;
+    expect(ledger.abandon(secondCut, bound).cutHosts).toEqual(["tiles.example.org"]);
+    expect(ledger.abandon(secondCut + bound, bound).cutHosts).toEqual([]);
+    expect(ledger.abandon(secondCut + bound + 1, bound).cutHosts).toEqual(["tiles.example.org"]);
+  });
+
+  it("cuts a young host without remembering it, then times each re-arm from its last cut", () => {
+    const ledger = new RenderRequestLedger();
+    ledger.start({ id: "stalled" }, tile(0, "stalled.test"));
+    ledger.start({ id: "young" }, tile(8_000, "young.test"));
+    expect(ledger.abandon(11_000, 10_000)).toEqual({
+      cutHosts: ["stalled.test", "young.test"], stalledHosts: ["stalled.test"],
+    });
+    ledger.start({ id: "another" }, tile(0, "another.test"));
+    expect(ledger.abandon(12_000, 10_000)).toEqual({
+      cutHosts: ["stalled.test", "young.test", "another.test"], stalledHosts: ["another.test"],
+    });
+    expect(ledger.abandon(22_000, 10_000)).toEqual({ cutHosts: [], stalledHosts: [] });
+    expect(ledger.abandon(22_001, 10_000)).toEqual({
+      cutHosts: ["stalled.test", "young.test", "another.test"],
+      stalledHosts: ["stalled.test", "young.test", "another.test"],
+    });
+  });
+
+  it("a terminal event clears an abandoned request under the same network id", () => {
+    const ledger = new RenderRequestLedger();
+    ledger.start({ id: "tile" }, tile(0));
+    expect(ledger.abandon(now, 10_000).cutHosts).toEqual(["tiles.example.org"]);
+    ledger.finish({ id: "tile" });
+    expect(ledger.abandon(now + 10_001, 10_000).cutHosts).toEqual([]);
+  });
+
+  it("another pause preserves the re-arm and app requests still hold the cut", () => {
+    const ledger = new RenderRequestLedger();
+    ledger.start({ id: "tile" }, tile(0));
+    expect(ledger.abandon(now, 10_000).cutHosts).toEqual(["tiles.example.org"]);
+    ledger.start({ id: "tile" }, tile(now + 10_000));
+    ledger.start({ id: "app" }, own(now));
+    expect(ledger.abandon(now + 10_001, 10_000).cutHosts).toEqual([]);
+    ledger.finish({ id: "app" });
+    expect(ledger.abandon(now + 10_001, 10_000).cutHosts).toEqual(["tiles.example.org"]);
+  });
 });
 
 describe("the per-request bound", () => {

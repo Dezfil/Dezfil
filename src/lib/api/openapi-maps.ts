@@ -144,7 +144,8 @@ export const MAP_RESOURCE_PATHS = {
         "reader may not be served (one that drew a dataset beyond their " +
         "reach, or an unattributed one read by anyone but the owner) is " +
         "passed over like a missing one; when none is left the answer is " +
-        "the same 404 as for a map with no image at all.",
+        "the same 404 as for a map with no image at all. The maps " +
+        "listing's `hasThumbnail` says beforehand whether there is one.",
       tag: "Maps",
       // UI sugar, not a map capability — outside the agent tool set.
       tool: false,
@@ -449,13 +450,15 @@ export const MAP_RENDER_PATHS = {
         "cap; renders stored map state — visible layers, stored " +
         "filters — never builder-transient selections. Without a " +
         "browser on the instance the operation answers " +
-        "render_unavailable; health is unaffected. A request the " +
-        "page makes that outlives the per-request budget " +
-        "is abandoned so the render can settle: the image is still " +
-        "produced and the answer carries x-dezfil-export-abandoned " +
-        "with the count and the hosts of the abandoned requests " +
-        "(hosts only, never a path); the server log names the " +
-        "abandonment as it happens.",
+        "render_unavailable; health is unaffected. When an external " +
+        "request outlives its bound, the request burst has settled and " +
+        "no app-origin request remains in flight, the relay ends its " +
+        "current sockets and refuses re-dials only to the stalled hosts for " +
+        "this render. Requests without a terminal event stay armed for another " +
+        "cut after the same bound. The whole render budget still applies. " +
+        "An image response carries x-dezfil-export-abandoned with the " +
+        "abandonment count and hosts (never paths), counting repeated cuts " +
+        "again. The server log names each abandonment as it happens.",
       tag: "Maps",
       tool: "export_map_image", mcp: REMOTE_READ,
       toolOutput: { binary: { representation: "attachment", nativeImage: false } },
@@ -761,6 +764,15 @@ export const MAP_SCHEMAS = {
             description:
               "One representative CSS color per layer, in draw " +
               "order — what the maps screen renders as layer dots.",
+          },
+          hasThumbnail: {
+            type: "boolean",
+            description:
+              "Whether the map has a card image the caller is served: " +
+              "GET /api/maps/{id}/thumbnail answers one. False until the " +
+              "builder first captures the map, and while every image it " +
+              "has drew a dataset beyond the caller's reach. A card asks " +
+              "for the image only when this is true.",
           },
         },
       },

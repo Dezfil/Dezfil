@@ -58,7 +58,7 @@ export interface CheckFacts {
   source: { width: number; height: number };
   attribution: string;
   failures: string[];
-  /** Hosts of external requests abandoned past the per-request budget, one entry per request. */
+  /** One host entry per external request abandonment, including repeated cuts. */
   abandoned: string[];
 }
 

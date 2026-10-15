@@ -13,6 +13,7 @@ import { provisionJourney } from "./journey-auth.mjs";
 // Usage: node /probes/offline-export-probe.mjs [--tiled|--expect-unavailable]
 import { decodePng, countColored } from "./png-probe.mjs";
 import { captureBasis, fixtureHeaders } from "./revision-fixtures.mjs";
+import { RENDER_POINT_STYLE, MIN_POINT_PIXELS } from "./render-point-fixture.mjs";
 
 const base = process.env.DEZFIL_BASE_URL ?? "http://127.0.0.1:3000";
 const authenticatedFetch = (await provisionJourney(base)).fetch;
@@ -61,6 +62,7 @@ const layerRes = await authenticatedFetch(`${base}/api/maps/${mapId}/layers`, {
   headers: fixtureHeaders(captureBasis(map), { "content-type": "application/json" }),
   body: JSON.stringify({
     name: "probe",
+    style: RENDER_POINT_STYLE,
     sql: expectTiled
       ? `SELECT
            ST_Point(
@@ -132,7 +134,7 @@ if (img.width !== 640 || img.height !== 360) {
   fail("export dimensions wrong", `${img.width}×${img.height}`);
 }
 const colored = countColored(img);
-if (colored < 200) {
+if (colored < MIN_POINT_PIXELS) {
   fail("no data pixels in the offline export", `colored=${colored}`);
 }
 console.log(

@@ -101,8 +101,8 @@ export function renderTimeout(budget: RenderBudget): ApiError {
 
 export interface RenderImageResult {
   png: Uint8Array;
-  /** The hosts of requests abandoned past the per-request budget (spec
-   * one entry per request; empty when every request answered. */
+  /** One host entry per abandonment, including repeated cuts of a request
+   * with no terminal event; empty when every request answered. */
   abandoned: string[];
   /** The render page's declaration of what it consumed, when it made one. */
   consumed?: string;

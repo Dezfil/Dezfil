@@ -737,6 +737,8 @@
 .grid th[data-geom] .thType {
   color: var(--accent-bright);
 }
+/* A value cell opens its peek on a click, so it takes the pointer; the
+   row's number opens nothing and keeps the arrow. */
 .grid td {
   padding: 4px 12px;
   border-bottom: 1px solid var(--border);
@@ -745,6 +747,9 @@
   overflow: hidden;
   text-overflow: ellipsis;
   color: var(--fg);
+  cursor: pointer;
+}
+.grid td.rn {
   cursor: default;
 }
 .grid td[data-kind="number"] {

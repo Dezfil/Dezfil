@@ -33,16 +33,57 @@ export interface InflightRequest {
   started: number;
   host: string;
   external: boolean;
+  /** The last cut, if this request has not yet finished or failed. */
+  abandonedAt?: number;
+}
+
+function requestKey(request: object): object | string {
+  // Puppeteer marks HTTPRequest.id internal in its public types. It is the
+  // network id shared by repeated pauses of one request, which can produce
+  // distinct objects but only one finish. If absent, retain object identity:
+  // unrelated requests must never be merged by URL or an undefined key.
+  const id = (request as { readonly id?: unknown }).id;
+  return typeof id === "string" && id.length > 0 ? id : request;
+}
+
+/** Bookkeeping shared by request events and the stall watchdog. Abandoned
+ * requests stay armed because transparent retries can emit no new start. */
+export class RenderRequestLedger {
+  private readonly requests = new Map<object | string, InflightRequest>();
+
+  start(request: object, metadata: InflightRequest): void {
+    const key = requestKey(request);
+    if (!this.requests.has(key)) this.requests.set(key, metadata);
+  }
+
+  finish(request: object): void {
+    this.requests.delete(requestKey(request));
+  }
+
+  abandon(now: number, boundMs: number): { cutHosts: string[]; stalledHosts: string[] } {
+    const cutHosts: string[] = [], stalledHosts: string[] = [];
+    for (const key of stalledExternalRequests(this.requests.entries(), now, boundMs)) {
+      const request = this.requests.get(key)!;
+      cutHosts.push(request.host);
+      if (requestOutlivedBound(request, now, boundMs)) stalledHosts.push(request.host);
+      this.requests.set(key, { ...request, abandonedAt: now });
+    }
+    return { cutHosts, stalledHosts };
+  }
 }
 
 /**
  * Which requests are abandoned at this moment: every external one, when
- * one of them has outlived the bound, none of them is younger than the
- * grace, and no app-origin request is still in flight. A stall on the
- * instance's own road is the coded timeout, never a cut composition, so
- * an app-origin request in flight holds the decision off entirely. The
- * external ones go together because the page is taken offline for an
- * instant to end them.
+ * one of them has outlived the bound since its start or last cut, no new
+ * request is younger than the grace, and no app-origin request is still
+ * in flight. Previously abandoned requests do not get another grace.
+ * A stall on the instance's own road is the coded timeout, never a cut
+ * composition, so an app-origin request holds the decision off entirely.
+ * External requests go together because the relay ends all current sockets,
+ * including worker fetches. Only hosts whose requests outlived the bound
+ * are remembered for re-dial refusal; younger hosts can reconnect. The
+ * page's offline flip and stop follow. A request that still has no terminal
+ * event after another bound triggers another cut.
  */
 export function stalledExternalRequests<K>(
   inflight: Iterable<[K, InflightRequest]>,
@@ -53,7 +94,11 @@ export function stalledExternalRequests<K>(
   const entries = [...inflight];
   if (entries.some(([, m]) => !m.external)) return [];
   const external = entries.filter(([, m]) => m.external);
-  if (!external.some(([, m]) => now - m.started > boundMs)) return [];
-  if (external.some(([, m]) => now - m.started < graceMs)) return [];
+  if (!external.some(([, m]) => requestOutlivedBound(m, now, boundMs))) return [];
+  if (external.some(([, m]) => m.abandonedAt === undefined && now - m.started < graceMs)) return [];
   return external.map(([key]) => key);
+}
+
+function requestOutlivedBound(request: InflightRequest, now: number, boundMs: number): boolean {
+  return now - (request.abandonedAt ?? request.started) > boundMs;
 }

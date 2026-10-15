@@ -1,4 +1,4 @@
-import { createServer, Socket } from "node:net";
+import { createServer, isIP, Socket } from "node:net";
 import { admitRenderHost, type RenderResolver } from "./render-address";
 import { SocksHandshake, SocksProtocolError, socksReply, type SocksTarget } from "./render-socks";
 
@@ -7,6 +7,10 @@ export interface RenderRelay {
   readonly refused: boolean;
   /** Pending policy decisions also count if the page abandoned their request. */
   settleAdmissions(): Promise<void>;
+  /** Destroy all current sockets, but remember only the supplied stalled
+   * hosts for re-dial refusal in this render. Other hosts and the listener
+   * remain available. IPv6 spellings share one canonical host key. */
+  abandon(hosts: readonly string[]): void;
   /** Synchronously revokes dialing and destroys every owned socket. */
   close(): void;
 }
@@ -23,6 +27,9 @@ export interface RenderRelayOptions {
  * the same destination policy; this grants no local-client exclusivity. */
 export async function startRenderRelay(options: RenderRelayOptions): Promise<RenderRelay> {
   const sockets = new Set<Socket>();
+  // Match names case-insensitively and IPv6 literals across URL and SOCKS
+  // spellings. A fresh render starts with no abandoned hosts.
+  const abandonedHosts = new Set<string>();
   const admissions = new Set<Promise<unknown>>();
   const timers = new Set<ReturnType<typeof setTimeout>>();
   let closed = false;
@@ -52,6 +59,12 @@ export async function startRenderRelay(options: RenderRelayOptions): Promise<Ren
       // A peer need not finish its half of the close to release our resources.
     };
     const connect = async ({ host, port }: SocksTarget, rest: Buffer) => {
+      if (abandonedHosts.has(relayHostKey(host))) {
+        // Host unreachable, not an egress-policy denial. Fail retries before
+        // admission or dialing, including retries invisible to page events.
+        fail(4);
+        return;
+      }
       const admission = await admitRenderHost(host, options.resolve);
       if (closed) return;
       if (admission.verdict !== "allow") {
@@ -119,6 +132,10 @@ export async function startRenderRelay(options: RenderRelayOptions): Promise<Ren
     };
     client.on("data", onData);
   });
+  const abandon = (hosts: readonly string[]) => {
+    for (const host of hosts) abandonedHosts.add(relayHostKey(host));
+    for (const socket of sockets) socket.destroy();
+  };
   const close = () => {
     if (closed) return;
     closed = true;
@@ -126,7 +143,7 @@ export async function startRenderRelay(options: RenderRelayOptions): Promise<Ren
     for (const id of timers) clearTimeout(id);
     timers.clear();
     server.close();
-    for (const socket of sockets) socket.destroy();
+    abandon([]);
   };
   server.on("error", close);
   timer(close, options.deadline - Date.now());
@@ -146,7 +163,7 @@ export async function startRenderRelay(options: RenderRelayOptions): Promise<Ren
     const address = server.address();
     if (!address || typeof address === "string") throw Error("Render relay has no address");
     return {
-      port: address.port, get refused() { return refused; }, close,
+      port: address.port, get refused() { return refused; }, close, abandon,
       async settleAdmissions() {
         while (!closed && admissions.size) await Promise.allSettled([...admissions]);
       },
@@ -155,4 +172,9 @@ export async function startRenderRelay(options: RenderRelayOptions): Promise<Ren
     close();
     throw error;
   }
+}
+
+function relayHostKey(host: string): string {
+  const bare = host.replace(/^\[|\]$/g, "");
+  return isIP(bare) === 6 ? new URL(`http://[${bare}]/`).hostname.slice(1, -1) : bare.toLowerCase();
 }
