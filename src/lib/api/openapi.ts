@@ -2574,7 +2574,8 @@ export function buildOpenApiDocument() {
                 "Present when ok is false: why the layer cannot render " +
                 "right now. code is one of the documented error codes " +
                 "(query_timeout, sql_error, render_cap_exceeded, " +
-                "tiler_unavailable, tile_build_failed, …) and is what " +
+                "render_bytes_exceeded, tiler_unavailable, " +
+                "tile_build_failed, …) and is what " +
                 "truth surfaces present; message carries the " +
                 "detail. Both builder and published viewer show an " +
                 "errored layer as a visible failed state, never as " +

@@ -568,7 +568,7 @@ naming memory or scratch and `DEZFIL_TRUSTED_MEMORY_MB`. The byte
 value describes a complete uncompressed UTF-8 JSON inline answer, envelope
 included, with equality admitted. These three settings are exposed for
 configuration. File, link, OpenStreetMap, Overture and PostGIS imports and refreshes use the processing limit;
-Upload reception uses the same admitted value with its own deadline; render enforcement is not yet active. Geometry and sketch changes,
+Upload reception uses the same admitted value with its own deadline. Layer renders apply the byte value (below); geometry and sketch changes,
 template installation and export conversion also use the processing limit.
 
 The admin and the complete body are checked inside one immediate transaction
@@ -987,7 +987,9 @@ caller's console, a dataset's "Add to a map", another map, a workflow) says so
 with `writtenIn`, and is carried into the map's home before it is stored (see
 "Carrying SQL between contexts" below).
 `GET /api/layers/{id}/render` is what the canvas draws, for everyone who
-reaches the map; `GET /api/layers/{id}/tiles/{z}/{x}/{y}` serves a tiled
+reaches the map. Its inline answer is bounded by Bytes drawn per layer
+(`renderCapBytes`), counted over the complete JSON as it is built; a larger
+one answers the errored layer `render_bytes_exceeded` instead. `GET /api/layers/{id}/tiles/{z}/{x}/{y}` serves a tiled
 layer's archive to a reader who can reach every dataset it recorded drawing,
 and answers `not_found` (404) otherwise. A reader beyond the current archive's
 reach whose own render succeeds has tiles prepared in their own reach.
@@ -2227,8 +2229,12 @@ and previews use the query lifetime; imports and refreshes use the processing
 lifetime. Every source attachment has a 30-second statement ceiling, a unique
 source identity and an interrupt owner. The 10-second connect limit remains;
 the source statement ceiling retains `408 query_timeout`. Teardown runs after
-native work drains, including a late attachment success after refusal. Render
-byte enforcement is not yet active. Geometry set and clear
+native work drains, including a late attachment success after refusal. Layer
+renders count their complete inline answer against Bytes drawn per layer while
+it is read; an answer that would exceed it is refused before it is complete
+and answers the errored-layer envelope `render_bytes_exceeded`, with no
+ceiling for a single value. Dataset map features, slider previews, Overture,
+OpenStreetMap and sketch features do not apply it yet. Geometry set and clear
 use the processing lifetime through preparation and revision-checked replacement.
 They continue after departure; expiry or resource refusal removes the candidate
 and retains the previous artifact. Sketch feature reads and map summaries use

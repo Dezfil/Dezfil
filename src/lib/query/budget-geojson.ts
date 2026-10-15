@@ -1,5 +1,5 @@
 import { DuckDBListVector, DuckDBStructVector, type DuckDBVector } from "@duckdb/node-api";
-import { jsonBytes, type CellBudget } from "./result-budget";
+import { jsonBytes, type ByteBudget } from "./result-budget";
 
 /** Keep coordinates native until admitted. Parsing GeoJSON in the engine as
  * doubles matches JSON.parse's number conversion, including exponent spelling
@@ -42,7 +42,7 @@ export function geojsonProjection(expression: string): string {
     objects := ${coordinateProjection(`CASE WHEN NOT (${integerJSON}) THEN ${expression} END`)}) END FROM __dezfil_geometry)`;
 }
 
-function coordinates(vector: DuckDBVector, index: number, depth: number, budget: CellBudget): unknown {
+function coordinates(vector: DuckDBVector, index: number, depth: number, budget: ByteBudget): unknown {
   if (depth === 0) {
     const number = vector.getItem(index) as number | null;
     budget.take(jsonBytes(number));
@@ -57,7 +57,7 @@ function coordinates(vector: DuckDBVector, index: number, depth: number, budget:
   return values;
 }
 
-export function decodeGeoJSON(vector: DuckDBVector, index: number, budget: CellBudget): unknown {
+export function decodeGeoJSON(vector: DuckDBVector, index: number, budget: ByteBudget): unknown {
   const cell = vector as DuckDBStructVector;
   if (!cell.isItemValid(index)) { budget.take(4); return null; }
   const bytes = cell.entryVectorAt(0).getItem(index);

@@ -1,6 +1,6 @@
 {
   "count": 156,
-  "overall": "2ad5f3c53b20b6d1cac260f372dc7feb22f47d6dac043afc8f0553238861880a",
+  "overall": "28fb2aadf4f7d80688ee3ba4f8ed1f5d68259fc0e423a766c90ee462b28aafee",
   "tools": {
     "get_account": "1d39e185a29991c180c5357ee693fb43d368491d0c799a0e52600ca88d32baa8",
     "update_account": "1d58af3260a6581ebaf68dbd67d94671d696509451d7ac08c21462b333f88ac2",
@@ -16,7 +16,7 @@
     "update_user_access": "b6ff5ebde601518cd40d339d2f2cbb1a7833e66c5802c830bce1daa8eba2e05a",
     "delete_user": "2e7c773d1adbf131370592a03c08c827f6f074ae70bd6a6e3e25826c694596aa",
     "issue_user_sign_in_link": "820719ea846a13310453ef272afd8f36a0cb3787b4a879690dc149c0b9a7ee90",
-    "get_instance_settings": "e074a4f5e7504b1f5e34e4535424009f2d695492373a8ab2b6a571cb2906aef8",
+    "get_instance_settings": "d0670eaad4dad05d176412cc983cb137ca65d15fbbad3b107c7e37c27faab524",
     "update_instance_settings": "7460543ad75603664a2e4ddac419d2868a3c24236af18110e7e9594b259a894c",
     "clear_service_caches": "b21e79095a28774eb6eb24ee95a0d2674a9bcf806897a3195e98318605c08b25",
     "test_service": "627e319b6c33cd2d6ec81d04859a2b7df0d699fe99ebd1ad77479d8da66753c3",
@@ -145,7 +145,7 @@
     "read_map_look_image": "b67f3517f61738b0d1a30593aa9b0574c24da8a9a5d9d59fc26cd752e0d0b063",
     "export_map_image": "e2e12f28eb2b2f260f12cef27e14665c3fd4962b2192a832236bef1d8e3d5df7",
     "export_layer_data": "a6b6e7a2ab8d7188705945137a8872cf8d1a61f8853a60818b2e7cc601882feb",
-    "render_layer": "3593dab537f065fc309d8340cad015e8afbc2aeaf66339947f56854c964791bc",
+    "render_layer": "4110c2e32190a174ffa7e7d9b78f1e559e859dd18febbebf1ee9ec7b110705ee",
     "list_layer_fields": "3fa87f34d23f6ade3503ee8d78bb41ad51338028d9cc63150e26fc63181dd5fd",
     "get_field_stats": "d2fded2b36afe7119db9d3a5abefcbd74a57ed662e215fb10dffd3e5dbae870c",
     "compute_fill": "0eb3485ef9e930b5b131b210166ddcd31d43c93f148ffefd4d304f3023d1d3f8",

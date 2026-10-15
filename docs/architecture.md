@@ -151,7 +151,9 @@ recomputed from the statement, its filters and its visualization each time.
 
 ## Large layers become tiles
 
-Under the render cap a layer answers as inline features. Over it, a simple
+Under the render cap a layer answers as inline features, built while they
+are read so that an answer over Bytes drawn per layer is refused before it is
+complete (`src/lib/query/render-features.ts`). Over the cap, a simple
 point layer switches to a tiled render instead (`src/lib/layer-service.ts`).
 Aggregations and heatmaps do not: past the cap they answer a coded error
 naming the bound, because silently sampling an aggregate would be a lie.

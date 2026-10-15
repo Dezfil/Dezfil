@@ -5324,6 +5324,16 @@
         "memory:immutable-configuration"
       ]
     },
+    "memory:src/lib/query/render-budget.ts#RenderBudget.used": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/query/render-features.ts#UNCOUNTED": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
     "memory:src/lib/query/result-budget.ts#CellBudget.used": {
       "stores": [
         "memory:request-closures"

@@ -1,6 +1,6 @@
 import { blobDisplayText, stringByteLength } from "./budget-string";
 import { DuckDBListVector, DuckDBStructVector, DuckDBVariantValue, DuckDBStructValue, VARIANT, JsonDuckDBValueConverter, type DuckDBVector } from "@duckdb/node-api";
-import { jsonBytes, type CellBudget } from "./result-budget";
+import { jsonBytes, type ByteBudget } from "./result-budget";
 import { setOwn } from "./set-own";
 
 /** A variant's public getItem decodes its entire tree. Flatten containers in
@@ -33,7 +33,7 @@ export function variantProjection(expression: string): string {
   ) ORDER BY p) FROM nodes)`;
 }
 
-export function decodeVariant(vector: DuckDBVector, index: number, budget: CellBudget): unknown {
+export function decodeVariant(vector: DuckDBVector, index: number, budget: ByteBudget): unknown {
   const list = vector as DuckDBListVector;
   const nodes = list.childVector as DuckDBStructVector;
   let cursor = list.getEntryOffset(index);

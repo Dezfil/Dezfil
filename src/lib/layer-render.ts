@@ -15,6 +15,7 @@ import { renderCapRefusal, templateRenderCapRefusal } from "./layer-render-copy"
 import { isTemplateDocumentId } from "./templates/ids";
 import { renderFilters } from "./layer-render-filters";
 import { layerEvaluation } from "./query/context";
+import { buildInlineAnswer } from "./query/render-features";
 
 function ident(s: string): string { return `"${s.replace(/"/g, '""')}"`; }
 
@@ -106,7 +107,7 @@ export async function renderLayer(
 ): Promise<LayerRenderData> {
   scope = layerEvaluation(scope, layer);
   try {
-    return await boundedEvaluation(async (conn) => {
+    return await boundedEvaluation(async (conn, bounds) => {
       const compiledSql = await namedSql(conn, layer.sql);
       const aggregated = isAggregated(layer.viz);
       const rawSub = `(${wrappable(compiledSql)}) AS q`;
@@ -245,49 +246,25 @@ export async function renderLayer(
         );
       }
 
-      const propsStruct = propsCols.length
-        ? `to_json({${propsCols
-            .map((c) => `'${c.name.replace(/'/g, "''")}': ${ident(c.name)}`)
-            .join(", ")}})`
-        : `'{}'`;
-      // Labels anchor non-point features on a server-computed interior
-      // point — a client centroid lands outside concave shapes. Delivered
-      // as the reserved __anchor property; the canvas keeps it out of
-      // tooltips and pop-ups.
-      const anchor = `CASE WHEN ST_GeometryType(${geom}) = 'POINT' THEN NULL
-              ELSE ST_AsGeoJSON(ST_PointOnSurface(${geom})) END`;
-      const geo = await conn.runAndReadAll(
-        `SELECT ST_AsGeoJSON(${geom}) AS geometry, ${propsStruct} AS props,
-                ${anchor} AS anchor
-         FROM ${sub} WHERE ${geom} IS NOT NULL`,
+      // The answer is built while it is read, under Bytes drawn per layer:
+      // an answer over the limit is refused before it is complete, never
+      // after (see query/render-features).
+      return await buildInlineAnswer(
+        conn,
+        { from: sub, geometry: geom, properties: propsCols.map((c) => c.name) },
+        (features, count) => ({
+          layerId: layer.id,
+          ok: true,
+          mode: "inline" as const,
+          geojson: { type: "FeatureCollection", features },
+          featureCount: count,
+          geometryType,
+          ...(liveFiltered ? { liveFiltered } : null),
+          ...publishedFields,
+        }),
+        limits.renderCapBytes,
+        bounds.interrupted,
       );
-      const features = geo.getRowObjects().map((r) => {
-        const properties = JSON.parse(String(r.props)) as Record<
-          string,
-          unknown
-        >;
-        if (r.anchor != null) {
-          properties.__anchor = (
-            JSON.parse(String(r.anchor)) as { coordinates: [number, number] }
-          ).coordinates;
-        }
-        return {
-          type: "Feature",
-          geometry: JSON.parse(String(r.geometry)),
-          properties,
-        };
-      });
-
-      return {
-        layerId: layer.id,
-        ok: true,
-        mode: "inline" as const,
-        geojson: { type: "FeatureCollection", features },
-        featureCount: features.length,
-        geometryType,
-        ...(liveFiltered ? { liveFiltered } : null),
-        ...publishedFields,
-      };
     }, { signal, scope });
   } catch (error) {
     // A departed caller gets nothing, not an errored layer: the envelope

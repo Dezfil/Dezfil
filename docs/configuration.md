@@ -434,7 +434,14 @@ touching tables, metadata, tiles or other temporary work. Memory or scratch
 exhaustion answers `422 engine_memory_exceeded`, naming the work, shared budget
 and `DEZFIL_TRUSTED_MEMORY_MB` remedy. These are engine budgets within the
 supported 8 GiB container profile, not a whole-process memory ceiling.
-Bytes drawn per layer is exposed for configuration; its enforcement is not yet active. File and archive import processing, link
+A layer render (ordinary, template, selection or published, and the layer
+results image exports and the map check draw) builds its inline answer under
+Bytes drawn per layer: the complete uncompressed UTF-8 JSON, geometry,
+properties, label anchors and envelope, is counted while it is read, and an
+answer that would exceed the limit is refused before it is complete, with the
+errored-layer envelope `render_bytes_exceeded`. No single value has a ceiling
+of its own. Dataset map features, slider previews, Overture, OpenStreetMap and
+sketch features do not apply it yet. File and archive import processing, link
 and object-store imports, URL refreshes, and OpenStreetMap, Overture and PostGIS imports and refreshes
 use the Data processing time limit
 through preparation and commit. Accepted processing continues after departure;

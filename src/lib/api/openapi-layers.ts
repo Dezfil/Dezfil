@@ -231,9 +231,13 @@ export const LAYER_QUERY_PATHS = {
         "vector tiles instead (mode: tiled): tiles are prepared in the " +
         "background — poll while `tiles.state` is `building`; when " +
         "`ready`, `tiles.url` is a {z}/{x}/{y} template and bounds/zoom " +
-        "range describe the archive. Errored states (deleted table, " +
-        "failed build, missing tiler, an aggregation over the cap) are " +
-        "returned as data, not an HTTP error.",
+        "range describe the archive. The inline answer, envelope " +
+        "included, is bounded by Bytes drawn per layer (renderCapBytes), " +
+        "counted as it is built; above it the layer answers the errored " +
+        "state render_bytes_exceeded. Errored states (deleted table, " +
+        "failed build, missing tiler, an aggregation over the cap, an " +
+        "answer over the byte limit) are returned as data, not an HTTP " +
+        "error.",
       tag: "Layers",
       tool: "render_layer", mcp: LOCAL_READ,
       display: {"verb": "Rendered the layer {subject}", "subject": {"resource": "layers", "argument": "id"}},

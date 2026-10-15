@@ -28,6 +28,11 @@ export function jsonBytes(value: unknown): number {
   return JSON.stringify(value).length;
 }
 
+/** What the native decoders charge as they admit each serialized byte. */
+export interface ByteBudget {
+  take(bytes: number): void;
+}
+
 /** One complete REST answer, including its envelope. Readers opt in explicitly. */
 export class ResultBudget {
   private used = 0;

@@ -240,8 +240,11 @@ the limit admitted when reception began. A 60-second body stall answers
 `408 upload_stalled`; reception expiry answers `408 data_processing_timeout`. Trusted work shares the configured engine memory and a dedicated
 `engine-spill/` allowance of four times that value. A restart clears only that
 spill directory. Exhaustion answers `422 engine_memory_exceeded`, naming
-memory or scratch and the deployment remedy. Bytes drawn per layer is exposed
-for configuration; its enforcement is not yet active.
+memory or scratch and the deployment remedy. A layer render builds its answer
+under Bytes drawn per layer: one that would exceed it is refused before it is
+complete and answers the errored layer `render_bytes_exceeded`. Dataset map
+features, slider previews, Overture, OpenStreetMap and sketch features do not
+apply it yet.
 
 JSON admission has fixed outer byte tiers: 65,536 bytes for authentication
 entry, Account, Users, instance settings and the three anonymous published POSTs; 16,777,216 for
