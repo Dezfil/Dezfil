@@ -1024,8 +1024,11 @@ their size. The layer's own render, evaluated when the slider settles, is
 unaffected. `POST /api/imports/overture/preview` (the `run_overture_query`
 tool) answers `422 render_bytes_exceeded` with no partial preview when its
 complete answer exceeds the limit; it used to answer the render cap's first
-features whatever their size. The cap, `truncated` and the import are
-unchanged.
+features whatever their size. `POST /api/imports/osm/preview` (the
+`run_osm_query` tool) does the same, counting its features while they are
+assembled; it used to assemble the whole response and answer the render
+cap's first features whatever their size. The cap, the order, `truncated`
+and the imports are unchanged.
 
 `GET /api/layers/{id}/tiles/{z}/{x}/{y}` serves a tiled layer's archive to a
 reader who can reach every dataset it recorded drawing, and answers
@@ -2277,8 +2280,9 @@ query for a layer the canvas filters, and otherwise the errored-layer envelope
 way; over the limit, the whole dataset or the sample asked for answers
 `ok: false` with a reason and no features. A slider preview over the limit
 answers `422 render_bytes_exceeded` with no partial preview; the layer's own
-render is unaffected. An Overture Run Query preview over the limit answers
-`422 render_bytes_exceeded` with no partial preview. OpenStreetMap and sketch
+render is unaffected. An Overture or OpenStreetMap Run Query preview over the
+limit answers `422 render_bytes_exceeded` with no partial preview; an
+OpenStreetMap preview is counted while its features are assembled. Sketch
 features do not apply it yet. Geometry set and clear
 use the processing lifetime through preparation and revision-checked replacement.
 They continue after departure; expiry or resource refusal removes the candidate

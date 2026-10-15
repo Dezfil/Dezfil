@@ -49,6 +49,7 @@ import {
   type PolygonalGeometry,
 } from "@/lib/geo-shape";
 import { fetchOverpass, overpassEndpoint } from "./overpass";
+import { osmPreviewAnswer, type OsmFeaturePreview } from "./preview-answer";
 import {
   assembleAndSplit,
   classDocument,
@@ -319,17 +320,14 @@ export async function buildClassArtifact(
   }
 }
 
-export interface OsmFeaturePreview {
-  geojson: { type: "FeatureCollection"; features: unknown[] };
-  featureCount: number;
-  truncated: boolean;
-  cap: number;
-}
+export type { OsmFeaturePreview } from "./preview-answer";
 
 /** Run Query: fetch (cached), assemble, apply the within
  * filter — exactly the import pipeline — and return the features for the
- * dialog map instead of landing tables. A following import re-serves the
- * Overpass response from cache. */
+ * dialog map instead of landing tables. The features are placed and
+ * counted against Bytes drawn per layer while they are assembled, so a
+ * preview over it is refused before the collection exists. A following
+ * import re-serves the Overpass response from cache. */
 export async function previewOsm(
   request: OsmImportRequest,
   signal?: AbortSignal,
@@ -338,18 +336,16 @@ export async function previewOsm(
     const resolved = resolveOsmRequest(request);
     const { response } = await fetchOverpass(resolved.finalQl);
     operation.enterStage("geometry assembly");
-    let split = assembleAndSplit(response, resolved.promoted);
-    const within = withinShapeOf(resolved);
-    if (within) split = filterSplitWithin(split, within);
+    const preview = osmPreviewAnswer(
+      response,
+      resolved.promoted,
+      withinShapeOf(resolved),
+      limits.renderCapFeatures,
+      limits.renderCapBytes,
+      () => operation.assertCanCommit(),
+    );
     operation.assertCanCommit();
-    const all = [...split.points, ...split.lines, ...split.polygons];
-    const cap = limits.renderCapFeatures;
-    return {
-      geojson: { type: "FeatureCollection", features: all.slice(0, cap) },
-      featureCount: Math.min(all.length, cap),
-      truncated: all.length > cap,
-      cap,
-    };
+    return preview;
   });
 }
 

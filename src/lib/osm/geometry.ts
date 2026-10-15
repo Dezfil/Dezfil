@@ -47,6 +47,36 @@ function classOf(geometryType: string): GeometryClass | null {
   }
 }
 
+/** One assembled feature as the import lands it: its geometry class and
+ * its properties shaped to the stable schema; null for a feature without
+ * a geometry of the three classes. */
+export function shapeFeature(
+  feature: { id?: unknown; properties?: Record<string, unknown> | null; geometry?: { type: string } | null },
+  promoted: string[],
+): { cls: GeometryClass; shaped: ShapedFeature } | null {
+  if (!feature.geometry) return null;
+  const cls = classOf(feature.geometry.type);
+  if (!cls) return null;
+
+  const props = feature.properties ?? {};
+  const tags =
+    props.tags && typeof props.tags === "object"
+      ? (props.tags as Record<string, unknown>)
+      : {};
+
+  const shaped: Record<string, string | null> = {
+    osm_id: String(feature.id ?? props.id ?? ""),
+    osm_type: typeof props.type === "string" ? props.type : null,
+  };
+  for (const key of promoted) {
+    const value = tags[key];
+    shaped[key] = value === undefined || value === null ? null : String(value);
+  }
+  shaped.tags = JSON.stringify(tags);
+
+  return { cls, shaped: { type: "Feature", properties: shaped, geometry: feature.geometry } };
+}
+
 /** Assemble an Overpass JSON response and split it by geometry class. */
 export function assembleAndSplit(
   overpassJson: unknown,
@@ -56,31 +86,9 @@ export function assembleAndSplit(
   const result: SplitResult = { points: [], lines: [], polygons: [], total: 0 };
 
   for (const feature of collection.features) {
-    if (!feature.geometry) continue;
-    const cls = classOf(feature.geometry.type);
-    if (!cls) continue;
-
-    const props = feature.properties ?? {};
-    const tags =
-      props.tags && typeof props.tags === "object"
-        ? (props.tags as Record<string, unknown>)
-        : {};
-
-    const shaped: Record<string, string | null> = {
-      osm_id: String(feature.id ?? props.id ?? ""),
-      osm_type: typeof props.type === "string" ? props.type : null,
-    };
-    for (const key of promoted) {
-      const value = tags[key];
-      shaped[key] = value === undefined || value === null ? null : String(value);
-    }
-    shaped.tags = JSON.stringify(tags);
-
-    result[cls].push({
-      type: "Feature",
-      properties: shaped,
-      geometry: feature.geometry,
-    });
+    const one = shapeFeature(feature, promoted);
+    if (!one) continue;
+    result[one.cls].push(one.shaped);
     result.total += 1;
   }
   return result;
