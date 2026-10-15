@@ -27,8 +27,8 @@ import { resetPublishCache } from "@/lib/publish/publication-resolution";
 import { resetSecretKeyCache } from "@/lib/secrets";
 import { testAccountRequest, testAccountScope } from "@/lib/test-support/accounts";
 import { callAs, tokenFor } from "@/lib/test-support/rule-roads";
-import { BASEMAPS, SATELLITE_STYLE_URL, type BasemapStyle } from "./basemap";
-import { effectiveBasemap } from "./basemap-effective";
+import { builderBasemap } from "@/components/builder/builder-basemap";
+import { BASEMAPS, BUILT_IN_ATTRIBUTION, SATELLITE_STYLE_URL, type AttributionLine, type BasemapStyle } from "./basemap";
 import { createMap, readMap, updateMap } from "./map-service";
 
 /**
@@ -36,7 +36,9 @@ import { createMap, readMap, updateMap } from "./map-service";
  * changes under it and as an admin removes it, seen from every place it
  * shows: the configuration read (the Satellite card's state), the runtime
  * read's offer, the builder's canvas, a publication assembled afresh and
- * the imagery style itself.
+ * the imagery style itself. A map whose Satellite is not drawn draws the
+ * deployment default and credits it, in the builder's corner as in a
+ * publication.
  *
  * The imagery style names the instance's own tile address, never the
  * template, whose key stays on the server. It answers signed-in requests
@@ -54,7 +56,9 @@ const TEMPLATE = `https://imagery.example/${SEEDS[0]}/{z}/{x}/{y}.jpg?key=${SEED
 const CREDIT = "© Imagery Provider";
 const DEFAULT_STYLE = BASEMAPS[0].url;
 
-type Element = ReactElement<{ basemaps: BasemapStyle[]; basemapUrl: string; basemapOverrideUrl: string | null; children?: Element }>;
+type Element = ReactElement<{
+  basemaps: BasemapStyle[]; basemapUrl: string; basemapOverrideUrl: string | null; basemapOverrideAttribution: AttributionLine[]; children?: Element;
+}>;
 
 let db: Database;
 let tokens: Record<"admin" | "member", string>;
@@ -120,16 +124,16 @@ async function offer(): Promise<string[]> {
   expectNoSeed(read.text);
   return (read.body.basemaps as { key: string }[]).map(b => b.key);
 }
-/** What the builder's canvas draws for the map: the page's own lists, through the canvas's derivation. */
+/** What the builder's canvas draws for the map and credits in its corner: the page's own lists, through the builder's derivation. */
 async function builder() {
   who.account = "member";
   let element = (await MapPage({ params: Promise.resolve({ id: mapId }), searchParams: Promise.resolve({}) })) as Element | undefined;
   while (element && element.type !== MapBuilder) element = element.props.children;
   expect(element, "the builder").toBeDefined();
-  const { basemaps, basemapUrl, basemapOverrideUrl } = element!.props;
-  const drawn = effectiveBasemap({ key: readMap(testAccountScope(db, "member"), mapId).basemap, custom: null, theme: "dark",
-    overrideUrl: basemapOverrideUrl, defaultUrl: basemapUrl, basemaps });
-  return { url: drawn.url, kind: drawn.kind };
+  const { basemaps, basemapUrl, basemapOverrideUrl, basemapOverrideAttribution } = element!.props;
+  const drawn = builderBasemap(readMap(testAccountScope(db, "member"), mapId),
+    { theme: "dark", basemapUrl, basemapOverrideUrl, basemapOverrideAttribution, basemaps });
+  return { url: drawn.url, kind: drawn.kind, credit: drawn.attribution };
 }
 /** A publication of the map assembled afresh, read as its anonymous reader reads it. */
 async function publication(token: string) {
@@ -182,7 +186,7 @@ describe("the satellite imagery while it is set up", () => {
       expect(style.text, as).not.toContain("imagery.example");
     }
     await refusedAnonymously();
-    expect(await builder()).toEqual({ url: SATELLITE_STYLE_URL, kind: "imagery" });
+    expect(await builder()).toEqual({ url: SATELLITE_STYLE_URL, kind: "imagery", credit: [{ label: CREDIT }] });
     // A published page's reader is anonymous: its style is the
     // publication's own address, which answers them.
     expect(await publication(token)).toEqual({ url: `/api/published/${token}/basemaps/satellite`, kind: "imagery", credit: [{ label: CREDIT }] });
@@ -196,8 +200,8 @@ describe("the satellite imagery once the instance's key changed", () => {
     expect((await card()).template).toEqual({ set: true, unreadable: true });
     expect(await offer()).not.toContain("satellite");
     expect(readMap(testAccountScope(db, "member"), mapId).basemap).toBe("satellite");
-    expect(await builder()).toEqual({ url: DEFAULT_STYLE, kind: "vector" });
-    expect(await publication(token)).toMatchObject({ url: DEFAULT_STYLE, kind: "vector" });
+    expect(await builder()).toEqual({ url: DEFAULT_STYLE, kind: "vector", credit: BUILT_IN_ATTRIBUTION });
+    expect(await publication(token)).toEqual({ url: DEFAULT_STYLE, kind: "vector", credit: BUILT_IN_ATTRIBUTION });
     for (const as of ["member", "member-token", "admin"] as const) {
       const refused = await imagery(as);
       expect(refused.status, as).toBe(400);
@@ -216,8 +220,16 @@ describe("the satellite imagery removed, then set again", () => {
     expect(await card()).toEqual({ template: { set: false }, credit: CREDIT });
     expect(await offer()).not.toContain("satellite");
     expect(readMap(testAccountScope(db, "member"), mapId).basemap).toBe("satellite");
-    expect(await builder()).toEqual({ url: DEFAULT_STYLE, kind: "vector" });
-    expect(await publication(token)).toMatchObject({ url: DEFAULT_STYLE, kind: "vector" });
+    expect(await builder()).toEqual({ url: DEFAULT_STYLE, kind: "vector", credit: BUILT_IN_ATTRIBUTION });
+    expect(await publication(token)).toEqual({ url: DEFAULT_STYLE, kind: "vector", credit: BUILT_IN_ATTRIBUTION });
+    // A deployment that sets its own style draws it in Satellite's place, with the credit it configures.
+    vi.stubEnv("DEZFIL_BASEMAP_URL", "https://styles.example/own-style.json");
+    vi.stubEnv("DEZFIL_BASEMAP_ATTRIBUTION", "© Deployment Maps");
+    const own = { url: "https://styles.example/own-style.json", kind: "vector", credit: [{ label: "© Deployment Maps" }] };
+    expect(await builder()).toEqual(own);
+    expect(await publication(token)).toEqual(own);
+    vi.stubEnv("DEZFIL_BASEMAP_URL", undefined);
+    vi.stubEnv("DEZFIL_BASEMAP_ATTRIBUTION", undefined);
     const none = await imagery("member");
     expect(none.status).toBe(404);
     expect(none.cache).toBe("private, no-store");
@@ -230,7 +242,7 @@ describe("the satellite imagery removed, then set again", () => {
     expect(again.status).toBe(200);
     expect(again.body.sources.satellite).toMatchObject({ tiles: [TILES], attribution: CREDIT });
     expectNoSeed(again.text);
-    expect(await builder()).toEqual({ url: SATELLITE_STYLE_URL, kind: "imagery" });
+    expect(await builder()).toEqual({ url: SATELLITE_STYLE_URL, kind: "imagery", credit: [{ label: CREDIT }] });
     expect(await publication(token)).toEqual({ url: `/api/published/${token}/basemaps/satellite`, kind: "imagery", credit: [{ label: CREDIT }] });
     await refusedAnonymously();
   });

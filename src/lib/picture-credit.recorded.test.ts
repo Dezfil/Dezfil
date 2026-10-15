@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GET as listMaps } from "@/app/api/maps/route";
 import { PUT as savePicture } from "@/app/api/maps/[id]/thumbnail/route";
 import { POST as duplicate } from "@/app/api/maps/[id]/duplicate/route";
+import { BASEMAPS, BUILT_IN_ATTRIBUTION } from "@/lib/basemap";
 import { pictureBasemaps } from "@/lib/basemap-offer";
 import { createMap, updateMap } from "@/lib/map-service";
 import { closeMetadataDb } from "@/lib/metadata/db";
@@ -119,6 +120,24 @@ describe("the credit of a map's picture", () => {
     await picture(id, "?theme=dark&cycle=c1");
     moveTo(id, "satellite");
     expect(await line("dark")).toEqual([OMT, OSM]);
+  });
+
+  it("names the style drawn in Satellite's place for a Satellite map pictured while no imagery is set up", async () => {
+    const id = mapOn("satellite");
+    vi.stubEnv("DEZFIL_SATELLITE_URL", undefined);
+    const recorded = async () => (await listing()).find((map) => map.id === id)!.thumbnailBasemap;
+    // The deployment default: the built-in dark style, with the built-in credit.
+    await picture(id);
+    expect(await recorded()).toEqual({ url: BASEMAPS[0].url, kind: "vector", custom: false, attribution: BUILT_IN_ATTRIBUTION });
+    expect(await line()).toEqual([OMT, OSM]);
+    // A deployment that sets its own style draws it there, with the credit it configures.
+    vi.stubEnv("DEZFIL_BASEMAP_URL", "https://styles.example/own-style.json");
+    vi.stubEnv("DEZFIL_BASEMAP_ATTRIBUTION", "© Deployment Maps");
+    await picture(id);
+    expect(await recorded()).toEqual({
+      url: "https://styles.example/own-style.json", kind: "vector", custom: false, attribution: [{ label: "© Deployment Maps" }],
+    });
+    expect(await line()).toEqual(["© Deployment Maps"]);
   });
 
   it("follows the map's basemap now for a picture saved before pictures recorded it", async () => {
