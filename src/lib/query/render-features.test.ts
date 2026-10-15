@@ -224,14 +224,14 @@ const LIMIT = 1_048_576;
  * converted or parsed, no more text converted in all than the answer could
  * hold (an eighth over, for the names of the nodes a document is walked
  * by), and no complete answer serialized. */
-const refusedEarly = (o: Observed) => o.refused && o.rows <= 2048 && o.longestText <= LIMIT && o.longestParse <= LIMIT
-  && o.converted <= LIMIT + LIMIT / 8 && o.serialized === 0;
+const refusedEarly = (o: Observed, limit = LIMIT) => o.refused && o.rows <= 2048 && o.longestText <= limit && o.longestParse <= limit
+  && o.converted <= limit + limit / 8 && o.serialized === 0;
 
 /** The deliberately late control: the same rows, properties and envelope,
  * built without incremental checks, then refused by its serialized length. */
-async function lateRefusal(rows: InlineRows) {
+async function lateRefusal(rows: InlineRows, limit = LIMIT) {
   const answer = await buildInlineAnswer(conn, rows, compose, Number.MAX_SAFE_INTEGER);
-  if (Buffer.byteLength(JSON.stringify(answer), "utf8") > LIMIT) throw renderBytesExceeded(LIMIT);
+  if (Buffer.byteLength(JSON.stringify(answer), "utf8") > limit) throw renderBytesExceeded(limit);
   return answer;
 }
 
@@ -321,5 +321,57 @@ describe("a JSON document inside a list or a map is refused before it is convert
     const seen = await observe(() => buildInlineAnswer(conn, rows, compose, Buffer.byteLength(JSON.stringify(answer), "utf8")));
     expect(seen.refused).toBe(false);
     expect(seen.longestText).toBeLessThan(1024);
+  });
+});
+
+describe("a document whose names repeat is charged name by name before they are converted", () => {
+  const holders = [["at the top level", (doc: string) => doc], ["inside a list", (doc: string) => `[${doc}]`]] as const;
+  const rowsOf = (document: string): InlineRows => ({
+    from: `(SELECT ST_Point(0, 0) AS geometry, ${document} AS docs) AS q`,
+    geometry: quoteIdent("geometry"),
+    properties: ["docs"],
+  });
+
+  it.each(holders)("%s: a 1 MiB name before a repeated short name is refused unconverted under 64 KiB", async (_, holder) => {
+    const limit = 65_536;
+    const rows = rowsOf(holder(`('{"' || repeat('k', 1048576) || '":1,"x":1,"x":2}')::JSON`));
+    const early = await observe(() => buildInlineAnswer(conn, rows, compose, limit));
+    expect(early).toMatchObject({ refused: true, serialized: 0 });
+    expect(refusedEarly(early, limit)).toBe(true);
+    expect(early.longestText).toBeLessThan(1024);
+    // The control converts the name whole before measuring the answer.
+    const late = await observe(() => lateRefusal(rows, limit));
+    expect(late.refused).toBe(true);
+    expect(refusedEarly(late, limit)).toBe(false);
+    expect(late.longestText).toBeGreaterThanOrEqual(1_048_576);
+  });
+
+  it.each(holders)("%s: 4,096 distinct 1 KiB names before a repeated name are refused once the names counted pass the limit", async (_, holder) => {
+    const doc = `(SELECT ('{' || string_agg('"m' || lpad(i::VARCHAR, 4, '0') || repeat('k', 1019) || '":' || i, ',' ORDER BY i) || ',"x":1,"x":2}')::JSON FROM range(4096) t(i))`;
+    const rows = rowsOf(holder(doc));
+    const early = await observe(() => buildInlineAnswer(conn, rows, compose, LIMIT));
+    expect(early).toMatchObject({ refused: true, serialized: 0 });
+    expect(refusedEarly(early)).toBe(true);
+    expect(early.longestText).toBeLessThan(2048);
+    const late = await observe(() => lateRefusal(rows));
+    expect(late.refused).toBe(true);
+    expect(refusedEarly(late)).toBe(false);
+    expect(late.converted).toBeGreaterThan(4 * LIMIT);
+  });
+
+  it.each(holders)("%s: admitted at exactly its size, refused one byte under, each name converted once", async (_, holder) => {
+    // A long name once, same-length names that differ, repeated names with
+    // the first place and the last value, an escaped name, and a nested
+    // object whose names repeat.
+    const rows = rowsOf(holder(`('{"' || repeat('k', 400000) || '":1,"ab":1,"cd":[1,2],"ab":{"z":1,"z":"two"},"é\\"":null,"x":1,"x":"last"}')::JSON`));
+    const answer = await exactly(rows);
+    const docs = answer.geojson.features[0].properties.docs;
+    expect(Array.isArray(docs) ? docs[0] : docs).toMatchObject({ ab: { z: "two" }, cd: [1, 2], 'é"': null, x: "last" });
+    const bytes = Buffer.byteLength(JSON.stringify(answer), "utf8");
+    const admitted = await observe(() => buildInlineAnswer(conn, rows, compose, bytes));
+    expect(admitted.refused).toBe(false);
+    expect(admitted.converted).toBeLessThanOrEqual(bytes + bytes / 8);
+    const refused = await observe(() => buildInlineAnswer(conn, rows, compose, bytes - 1));
+    expect(refusedEarly(refused, bytes - 1)).toBe(true);
   });
 });

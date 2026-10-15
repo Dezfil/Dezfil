@@ -246,15 +246,36 @@ function decodeTree(tree: DuckDBStructVector, index: number, budget: ByteBudget)
     const own = ids.getItem(cursor++) as number;
     while (within(cursor, own)) cursor++;
   };
-  // Whether each member of the object is the first and the last of its name.
-  const occurrences = (container: number): { first: boolean; last: boolean }[] => {
-    const names: string[] = [];
+  // Each member's name, and whether it is the last of its name, for an
+  // object whose names may repeat. Every distinct name is charged here, in
+  // order, before the object's values: a name whose length no earlier
+  // distinct name has cannot repeat one, so it is charged before its text
+  // is converted; one that shares a length is converted first, no longer
+  // than a name already charged, and charged if it is new. A repeat keeps
+  // the text of its first occurrence, so no name is held twice.
+  const members = (container: number): { name: string; last: boolean }[] => {
+    const marks: { name: string; last: boolean }[] = [];
+    const named = new Map<string, { name: string; at: number }>();
+    const lengths = new Set<number>();
     for (let row = cursor; within(row, container); row++) {
-      if (parents.getItem(row) === container) names.push(keys.getItem(row) as string);
+      if (parents.getItem(row) !== container) continue;
+      const length = Number(keyBytes.getItem(row));
+      const charge = () => { budget.take((named.size ? 1 : 0) + length + 1); lengths.add(length); };
+      const unseen = !lengths.has(length);
+      if (unseen) charge();
+      const text = keys.getItem(row) as string;
+      const earlier = named.get(text);
+      if (earlier) {
+        marks[earlier.at].last = false;
+        earlier.at = marks.length;
+        marks.push({ name: earlier.name, last: true });
+        continue;
+      }
+      if (!unseen) charge();
+      named.set(text, { name: text, at: marks.length });
+      marks.push({ name: text, last: true });
     }
-    const firstAt = new Map<string, number>(), lastAt = new Map<string, number>();
-    names.forEach((name, i) => { if (!firstAt.has(name)) firstAt.set(name, i); lastAt.set(name, i); });
-    return names.map((name, i) => ({ first: firstAt.get(name) === i, last: lastAt.get(name) === i }));
+    return marks;
   };
   const next = (): unknown => {
     const row = cursor++;
@@ -262,18 +283,19 @@ function decodeTree(tree: DuckDBStructVector, index: number, budget: ByteBudget)
     if (type === "OBJECT") {
       const own = ids.getItem(row) as number;
       budget.take(2);
-      const marks = repeated ? occurrences(own) : null;
+      const marks = repeated ? members(own) : null;
       const result: Record<string, unknown> = {};
-      let shown = 0;
       for (let i = 0; within(cursor, own); i++) {
-        const member = cursor;
-        const { first, last } = marks ? marks[i] : { first: true, last: true };
-        if (first) budget.take((shown++ ? 1 : 0) + Number(keyBytes.getItem(member)) + 1);
-        const key = keys.getItem(member) as string;
+        if (!marks) {
+          budget.take((i ? 1 : 0) + Number(keyBytes.getItem(cursor)) + 1);
+          setOwn(result, keys.getItem(cursor) as string, next());
+          continue;
+        }
         // The first of repeated names holds the member's place; the last
         // supplies its value; those between are skipped unread.
-        if (!last) { setOwn(result, key, undefined); skip(); continue; }
-        setOwn(result, key, next());
+        const { name, last } = marks[i];
+        if (!last) { setOwn(result, name, undefined); skip(); continue; }
+        setOwn(result, name, next());
       }
       return result;
     }
