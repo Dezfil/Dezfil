@@ -2190,8 +2190,9 @@ changes neither. Reception expiry answers `408 data_processing_timeout`, naming
 reception and the admitted seconds. Sixty seconds without a body byte, including
 before the first byte, answers `408 upload_stalled`. A decided refusal keeps its
 code through cancellation and is delivered without waiting for another byte;
-the native ingress closes the refused connection within five seconds and removes
-partial reception files. Fully received uploads continue processing after caller
+the native ingress closes a connection whose body was still arriving within five
+seconds, keeps a completely received one for reuse, and removes partial
+reception files. Fully received uploads continue processing after caller
 departure. Other request bodies retain a 300-second receive deadline
 (`408 request_timeout`); the header limit remains 60 seconds.
 

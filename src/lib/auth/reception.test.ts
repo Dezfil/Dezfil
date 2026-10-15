@@ -140,6 +140,25 @@ it("reuses a completely received connection and keeps simultaneous ordinary requ
   } finally { agent.destroy(); }
 });
 
+it.each([
+  ["accepted", prefix + "lon,lat\n1,2\n" + ending, 201],
+  ["refused for the wrong field", '--reception\r\nContent-Disposition: form-data; name="other"; filename="points.csv"\r\n\r\nlon,lat\n1,2\n\r\n--reception--\r\n', 400],
+  ["refused as too large", prefix + "x".repeat(70000) + ending, 413],
+  ["refused as not multipart", "{}", 400],
+] as const)("keeps a completely received connection reusable after an upload %s", async (_outcome, body, status) => {
+  const { port } = await serve(); const agent = new Agent({ keepAlive: true, maxSockets: 1 });
+  try {
+    const first = send(port, "/api/tables", "POST", agent); first.req.end(body);
+    expect((await first.result).status).toBe(status);
+    await pause(20);
+    const second = send(port, "/api/tables", "POST", agent); second.req.write(prefix + "lon,lat\n"); await bytesOnDisk(8);
+    expect(second.req.socket).toBe(first.req.socket);
+    // The next upload on that connection outlives the refusal delivery bound.
+    await vi.advanceTimersByTimeAsync(5000); await pause(20);
+    second.req.end("1,2\n" + ending); expect((await second.result).status).toBe(201);
+  } finally { agent.destroy(); }
+});
+
 it("raises the server clock for a deployment override above the stored range", async () => {
   vi.spyOn(limits, "dataProcessingTimeoutMs", "get").mockReturnValue(30_000_000);
   const { server, port, admitted } = await serve(); const client = send(port); await admitted;

@@ -446,7 +446,8 @@ including before the first byte, answers `408 upload_stalled`; continuous progre
 past the reception deadline answers `408 data_processing_timeout`, naming
 reception and the admitted limit. The first refusal wins. Refusals are sent
 without draining the remaining body, with a one-second fallback for delayed
-cleanup and a five-second connection-close bound. Incomplete reception cancels
+cleanup and a five-second connection-close bound while the body is still
+arriving; a refused request whose body arrived completely keeps its connection. Incomplete reception cancels
 on departure and removes its partial file. Other request bodies retain a
 300-second receive limit (`408 request_timeout`), and headers retain 60 seconds.
 The native server's clock is above these application deadlines, including a

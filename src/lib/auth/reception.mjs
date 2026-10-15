@@ -136,8 +136,12 @@ export function installReception(server, request, response, upload) {
     // A delayed filesystem cancellation cannot delay the wire indefinitely.
     delivery ??= setTimeout(deliver, 1_000);
     delivery.unref?.();
-    closing ??= setTimeout(() => socket.destroy(), REFUSAL_DELIVERY_MS);
-    closing.unref?.();
+    // A completely received request keeps its connection for the next one;
+    // only a body still arriving is cut after the delivery bound.
+    if (!bodyComplete()) {
+      closing ??= setTimeout(() => socket.destroy(), REFUSAL_DELIVERY_MS);
+      closing.unref?.();
+    }
   }
   const push = request.push;
   request.push = function (chunk, ...args) {
