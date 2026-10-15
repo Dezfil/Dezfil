@@ -8,6 +8,8 @@ import type { Database } from "better-sqlite3";
 import { writeStoredSettings } from "../src/lib/settings/store";
 import { testAccountScope } from "../src/lib/test-support/accounts";
 import { receiveUpload } from "../src/lib/ingest/receive";
+import { captureIngestBudget } from "../src/lib/ingest/budget";
+import { withTrustedOperation } from "../src/lib/trusted-operation";
 import { resolveRemoteSource } from "../src/lib/ingest/remote";
 import * as network from "../src/lib/net/remote-fetch";
 import * as engine from "../src/lib/duckdb";
@@ -75,6 +77,18 @@ function publicWindow(key: "publicRateLimit" | "publicTileRateLimit"): Probe {
 /** Independent boundary observations, keyed by the consumption inventory's setting.
  * These call operations, never the resolver or the configuration read. */
 export const numericConsumerProbes: Record<string, Probe> = {
+  dataProcessingTimeoutS: async db => {
+    // An upload captures the stored limit, and admitted processing is refused at it.
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date", "performance"] });
+    writeStoredSettings({ dataProcessingTimeoutS: 120 }, db);
+    expect(captureIngestBudget().dataProcessingTimeoutMs).toBe(120_000);
+    const held = Promise.withResolvers<void>();
+    const pending = withTrustedOperation({ kind: "import", name: "Probe import" }, () => held.promise);
+    try { await deadline(pending, 120_000, "data_processing_timeout"); }
+    finally { held.resolve(); await pending.catch(() => {}); }
+    writeStoredSettings({ dataProcessingTimeoutS: null }, db);
+    expect(captureIngestBudget().dataProcessingTimeoutMs).toBe(3_600_000);
+  },
   uploadMaxMb: async db => {
     const request = () => {
       const form = new FormData(); form.set("file", new File([payload], "large.csv"));

@@ -2,7 +2,7 @@ import { largeJsonValue } from "@/lib/api/json-body";
 import { requireRequestScope } from "@/lib/auth/scope-http";
 import { NextResponse } from "next/server";
 import { errorResponse } from "@/lib/api/errors";
-import { assertPreviewActive } from "@/lib/postgis/preview-owner";
+import { assertPreviewActive } from "@/lib/postgis/source-owner";
 import { previewPostgis } from "@/lib/postgis/preview";
 
 type Params = { params: Promise<{ id: string }> };

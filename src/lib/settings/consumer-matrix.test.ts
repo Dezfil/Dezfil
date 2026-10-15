@@ -42,8 +42,8 @@ afterEach(() => { resetQueryInstance(); resetLane(); resetRateLimits(); vi.useRe
 describe("editable numeric consumer matrix", () => {
   it("covers every editable deployment setting and every inventoried consumer", () => {
     coverage();
-    expect(inventory).toHaveLength(22);
-    expect(inventory.flatMap(row => row.consumers)).toHaveLength(22);
+    expect(inventory).toHaveLength(23);
+    expect(inventory.flatMap(row => row.consumers)).toHaveLength(23);
   });
   it("rejects an additional consumer with no observation in the matrix", () => {
     expect(() => coverage({ ...sources, "src/lib/extra-consumer.ts":

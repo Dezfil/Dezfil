@@ -33,15 +33,15 @@ it("exposes a closed update input and refuses unknown arguments before HTTP disp
     instanceName: { type: ["string", "null"], pattern: "^\\s*[\\s\\S]{0,80}\\s*$" }, landingPage: { enum: ["home", "projects", "maps", "workflows", "data", "sql", null] },
     "newMap.zoom": { type: ["number", "null"], minimum: 0, maximum: 22 }, "newLayer.pointOpacity": { type: ["integer", "null"], minimum: 10, maximum: 100 },
     "sqlConsole.lineWrap": { type: ["boolean", "null"] }, "imageExport.shape": { enum: ["16:9", "4:3", "1:1", null] } });
-  // The fourteen limits, the four General rows, the eighteen defaults for new
+  // The fifteen limits, the four General rows, the eighteen defaults for new
   // things, the twelve sign-in, token, publishing, connection and import
   // rows, the four service addresses and the services' eight numbers, the
   // five basemap switches, the satellite imagery's template and credit, and
   // the template catalogue's switch and address.
-  expect(Object.keys(tool.inputSchema.properties)).toHaveLength(69);
+  expect(Object.keys(tool.inputSchema.properties)).toHaveLength(70);
   expect(tool.inputSchema.properties).toMatchObject({ geocodePaceMs: { type: ["integer", "null"], minimum: 0, maximum: 60_000 },
     geocodeMatchCacheHours: { type: ["integer", "null"], minimum: 24, maximum: 8_760 }, overpassCacheHours: { type: ["integer", "null"], minimum: 1, maximum: 720 } });
-  for (const key of ["secretKey", "basemapUrl", "renderCapFeatures", "sourceGrouping"]) expect(tool.inputSchema.properties).not.toHaveProperty(key);
+  for (const key of ["secretKey", "basemapUrl", "renderCapFeatures", "renderCapBytes", "trustedMemoryMb", "sourceGrouping"]) expect(tool.inputSchema.properties).not.toHaveProperty(key);
   expect(tool.inputSchema.properties).toMatchObject({ "basemaps.streets": { type: ["boolean", "null"] },
     satelliteAttribution: { type: ["string", "null"], pattern: "^\\s*[\\s\\S]{0,160}\\s*$" }, satelliteUrl: { type: ["string", "null"] },
     "templates.catalogue": { type: ["boolean", "null"] }, templatesCatalogueUrl: { type: ["string", "null"] } });
@@ -52,6 +52,7 @@ it("exposes a closed update input and refuses unknown arguments before HTTP disp
 });
 
 it.each([
+  ["dataProcessingTimeoutS", 59, 60], ["dataProcessingTimeoutS", 21601, 21600], ["dataProcessingTimeoutS", 60.5, 60],
   ["newMap.basemap", "terrain", "streets"], ["imageExport.shape", "2:1", "16:9"], ["sqlConsole.textSize", 12, "14"],
   ["newMap.zoom", 23, 22], ["newMap.latitude", -90, -85], ["newLayer.lineWidth", 0.25, 0.5],
   ["newLayer.pointOpacity", 72.5, 73], ["sqlConsole.lineWrap", "on", true],

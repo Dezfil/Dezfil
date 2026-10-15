@@ -1,3 +1,4 @@
+import { currentTrustedOperation, isTrustedOperationRefusal } from "@/lib/trusted-operation";
 import { settingRemedy } from "@/lib/settings/remedy";
 import { createReadStream, createWriteStream } from "node:fs";
 import { mkdir, open, stat } from "node:fs/promises";
@@ -326,6 +327,7 @@ export async function extractArchive(
   const handle = await open(zipPath, "r");
   try {
     for (const entry of entries) {
+      currentTrustedOperation()?.assertCanCommit();
       // The local header's own name/extra lengths decide where data starts.
       const local = Buffer.alloc(30);
       await handle.read(local, 0, 30, entry.localHeaderOffset);
@@ -351,7 +353,7 @@ export async function extractArchive(
             `entry "${entry.name}" declares content but stores none`,
           );
         }
-        await pipeline([], createWriteStream(target));
+        await pipeline([], createWriteStream(target), { signal: currentTrustedOperation()?.signal });
         files.push(entry.name);
         continue;
       }
@@ -368,6 +370,7 @@ export async function extractArchive(
           createInflateRaw(),
           verifier,
           createWriteStream(target),
+          { signal: currentTrustedOperation()?.signal },
         );
       } else {
         if (entry.compressedSize !== entry.uncompressedSize) {
@@ -376,12 +379,13 @@ export async function extractArchive(
             `entry "${entry.name}" has inconsistent stored sizes`,
           );
         }
-        await pipeline(compressed, verifier, createWriteStream(target));
+        await pipeline(compressed, verifier, createWriteStream(target), { signal: currentTrustedOperation()?.signal });
       }
       files.push(entry.name);
     }
   } catch (error) {
-    if (error instanceof ApiError) throw error;
+    currentTrustedOperation()?.assertCanCommit();
+    if (isTrustedOperationRefusal(error)) throw error;
     throw malformed(
       displayName,
       error instanceof Error ? error.message : "unreadable archive",

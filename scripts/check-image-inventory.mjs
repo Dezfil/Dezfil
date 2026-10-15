@@ -36,7 +36,7 @@ export function templatesPresence(lines) {
 export const MVT_WORKER_REPO_PATH =
   "public/workers/loaders.gl-mvt-worker-4.4.5.js";
 export const INGRESS_REPO_PATHS = [
-  "scripts/ingress-preload.mjs", "scripts/preload-options.mjs", "src/lib/auth/ingress.mjs",
+  "scripts/ingress-preload.mjs", "scripts/preload-options.mjs", "src/lib/auth/ingress.mjs", "src/lib/auth/reception.mjs",
 ];
 export function ingressPresence(lines) {
   const present = new Set(lines.map(line => line.trim()));

@@ -1,3 +1,6 @@
+import { createTrustedInstance } from "./trusted-storage";
+import { currentTrustedOperation, isTrustedOperationRefusal } from "./trusted-operation";
+import { runTrustedConnection, trustedEngineError } from "./trusted-connection";
 import { registerQueryStore } from "./query/retained";
 import { registerCrsValidator } from "./query/projection-policy";
 import type { DatasetScope } from "@/lib/query/access";
@@ -6,6 +9,7 @@ import {
   type DuckDBConnection,
 } from "@duckdb/node-api";
 import path from "node:path";
+import { rmSync } from "node:fs";
 import { dataDir } from "@/lib/config";
 import { loadTrustedH3 } from "./trusted-h3";
 import { limits } from "@/lib/limits";
@@ -25,12 +29,23 @@ import { ensureTileDirs, tileScratchDir } from "@/lib/tiles/paths";
  * extension directory is used and installs on demand.
  */
 
-let instancePromise: Promise<DuckDBInstance> | null = null;
+// Server bundles share native ownership as well as the trusted memory budget.
+// Separate instances would each receive the full allowance and reuse the same
+// spill directory while another bundle was still reading it.
+interface NativeLifetimes {
+  trusted: Promise<DuckDBInstance> | null;
+  instances: Set<WeakRef<DuckDBInstance>>;
+  creating: Set<Promise<DuckDBInstance>>;
+  leases: Set<ReturnType<typeof Promise.withResolvers<void>>>;
+}
+const nativeKey = Symbol.for("dezfil.native-engine-lifetimes");
+const nativeHost = process as typeof process & { [nativeKey]?: NativeLifetimes };
+const nativeState = nativeHost[nativeKey] ??= { trusted: null, instances: new Set(), creating: new Set(), leases: new Set() };
 let queryInstancePromise: Promise<DuckDBInstance> | null = null;
 
-const nativeInstances = new Set<WeakRef<DuckDBInstance>>();
-const nativeCreating = new Set<Promise<DuckDBInstance>>();
-const leases = new Set<ReturnType<typeof Promise.withResolvers<void>>>();
+const nativeInstances = nativeState.instances;
+const nativeCreating = nativeState.creating;
+const leases = nativeState.leases;
 function watchInstance(promise: Promise<DuckDBInstance>): Promise<DuckDBInstance> {
   nativeCreating.add(promise);
   void promise.then(instance => { nativeInstances.add(new WeakRef(instance)); nativeCreating.delete(promise); }, () => nativeCreating.delete(promise));
@@ -49,7 +64,8 @@ registerQueryStore({
   busy: () => nativeCreating.size > 0 || leases.size > 0,
   clear() {
     for (const ref of nativeInstances) { ref.deref()?.closeSync(); nativeInstances.delete(ref); }
-    instancePromise = null; queryInstancePromise = null; queryCatalogGeneration++;
+    rmSync(path.join(dataDir(), "engine-spill"), { recursive: true, force: true });
+    nativeState.trusted = null; queryInstancePromise = null; queryCatalogGeneration++;
     connectionGenerations = new WeakMap();
   },
 });
@@ -86,6 +102,7 @@ async function loadSpatial(conn: DuckDBConnection, install = true): Promise<void
   try {
     await conn.run("LOAD spatial");
   } catch (error) {
+    if (isTrustedOperationRefusal(error)) throw error;
     if (!install) {
       // Not installed is the one failure said as such; a file that is
       // there but will not load stays the engine's own error.
@@ -177,14 +194,14 @@ async function loadJson(conn: DuckDBConnection, install = true): Promise<boolean
 }
 
 function getInstance(): Promise<DuckDBInstance> {
-  if (!instancePromise) {
-    const attempt = watchInstance(DuckDBInstance.create(":memory:", baseConfig())).catch((error) => {
-      if (instancePromise === attempt) instancePromise = null;
+  if (!nativeState.trusted) {
+    const attempt = watchInstance(createTrustedInstance(baseConfig(), path.join(dataDir(), "engine-spill"), limits.trustedMemoryMb)).catch((error) => {
+      if (nativeState.trusted === attempt) nativeState.trusted = null;
       throw error;
     });
-    instancePromise = attempt;
+    nativeState.trusted = attempt;
   }
-  return instancePromise;
+  return nativeState.trusted;
 }
 
 /** Optional ingest capability, separate from the hardened instance's flag.
@@ -320,11 +337,29 @@ export async function withConnection<T>(
   fn: (conn: DuckDBConnection) => Promise<T>,
 ): Promise<T> {
   const release = holdConnection();
-  let conn: DuckDBConnection | undefined;
+  const operation = currentTrustedOperation();
   try {
-    const instance = await getInstance(); conn = await instance.connect();
-    await loadSpatial(conn); return await fn(conn);
-  } finally { conn?.disconnectSync(); release(); }
+    operation?.assertCanCommit();
+    const instance = await getInstance();
+    operation?.assertCanCommit();
+    const conn = await instance.connect();
+    return await runTrustedConnection(conn, async guarded => { await loadSpatial(guarded); return fn(guarded); }, operation);
+  } catch (error) { throw trustedEngineError(error, operation); }
+  finally { release(); }
+}
+
+/**
+ * A trusted-instance connection that belongs to no operation, for the short
+ * work a refused operation still needs done, such as cancelling its source
+ * statements on the server: that refusal does not refuse this work too. It
+ * loads nothing, and its caller bounds it.
+ */
+export async function withSideConnection<T>(fn: (conn: DuckDBConnection) => Promise<T>): Promise<T> {
+  const release = holdConnection();
+  try {
+    const conn = await (await getInstance()).connect();
+    try { return await fn(conn); } finally { conn.disconnectSync(); }
+  } finally { release(); }
 }
 
 /**
@@ -347,5 +382,5 @@ export async function connectQueryInstance({ install = true }: { install?: boole
   } catch (error) { release(); throw error; }
 }
 
-export function engineStateForTests() { return { trusted: instancePromise !== null, hardened: queryInstancePromise !== null, creating: nativeCreating.size, leases: leases.size, instances: [...nativeInstances].filter(ref => ref.deref()).length }; }
+export function engineStateForTests() { return { trusted: nativeState.trusted !== null, hardened: queryInstancePromise !== null, creating: nativeCreating.size, leases: leases.size, instances: [...nativeInstances].filter(ref => ref.deref()).length }; }
 export function connectionStampForTests(conn: DuckDBConnection): boolean { return connectionGenerations.has(conn); }

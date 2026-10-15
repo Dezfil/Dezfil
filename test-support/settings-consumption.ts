@@ -10,10 +10,11 @@ export interface Consumption {
   name: string;
 }
 type Sources = Record<string, string>;
-/** Platform plumbing, never an operator setting: what the runtime sets, and
+/** Platform plumbing, never an operator setting: what the runtime sets,
  * PATH, the system's program search path, read to find a configured
- * program given by name. */
-const plumbing = new Set(["NODE_ENV", "HOSTNAME", "NEXT_RUNTIME", "TZ", "CI", "PATH"]);
+ * program given by name, and UV_THREADPOOL_SIZE, the runtime's own worker
+ * pool size, read only to size the share PostGIS source calls may take. */
+const plumbing = new Set(["NODE_ENV", "HOSTNAME", "NEXT_RUNTIME", "TZ", "CI", "PATH", "UV_THREADPOOL_SIZE"]);
 /** The settings readers a consumer imports, by module: the numbers' and
  * switches' resolver, and the service addresses' resolver. */
 const RESOLVERS: Record<string, readonly string[]> = {

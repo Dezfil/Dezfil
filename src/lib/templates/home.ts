@@ -1,6 +1,7 @@
-import { createHash, randomUUID } from "node:crypto";
-import { createReadStream } from "node:fs";
-import { copyFile, link, mkdir, rename, rm, stat } from "node:fs/promises";
+import { currentTrustedOperation } from "@/lib/trusted-operation";
+import { copyTemplateFile, templateFileDigest } from "./files";
+import { randomUUID } from "node:crypto";
+import { link, mkdir, rename, rm, stat } from "node:fs/promises";
 import path from "node:path";
 import type { AccountScope } from "@/lib/auth/scope";
 import { dataDir } from "@/lib/config";
@@ -39,12 +40,6 @@ import { refuse } from "./refusals";
  * else, the caller's own datasets included.
  */
 
-async function fileDigest(file: string): Promise<string> {
-  const hash = createHash("sha256");
-  for await (const chunk of createReadStream(file)) hash.update(chunk as Buffer);
-  return hash.digest("hex");
-}
-
 export { templateArtifactName };
 
 /** Make a template's file present in the engine's artifact directory under
@@ -54,6 +49,7 @@ export { templateArtifactName };
  * to be held to it here, before it is made present: a file of other bytes
  * is then refused as differing from its record, and nothing is staged. */
 export async function stageTemplateArtifact(file: string, sha256: string, { verify = false }: { verify?: boolean } = {}): Promise<string> {
+  currentTrustedOperation()?.enterStage("template artifact");
   const relative = templateArtifactName(sha256);
   const target = path.join(dataDir(), relative);
   try {
@@ -62,7 +58,7 @@ export async function stageTemplateArtifact(file: string, sha256: string, { veri
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
   }
-  if (verify && (await fileDigest(file)) !== sha256) {
+  if (verify && (await templateFileDigest(file)) !== sha256) {
     refuse("template_record_mismatch", `The member "${path.basename(file)}" differs from its record.`);
   }
   await mkdir(path.dirname(target), { recursive: true });
@@ -71,8 +67,9 @@ export async function stageTemplateArtifact(file: string, sha256: string, { veri
     try {
       await link(file, partial);
     } catch {
-      await copyFile(file, partial);
+      await copyTemplateFile(file, partial);
     }
+    currentTrustedOperation()?.assertCanCommit();
     await rename(partial, target);
   } finally {
     await rm(partial, { force: true });
@@ -99,13 +96,17 @@ export interface PreparedHome {
 async function stageOwn(file: string): Promise<string> {
   const relative = `tables/template-${randomUUID()}.parquet`;
   const target = path.join(dataDir(), relative);
-  await mkdir(path.dirname(target), { recursive: true });
   try {
-    await link(file, target);
-  } catch {
-    await copyFile(file, target);
+    currentTrustedOperation()?.enterStage("template staging");
+    await mkdir(path.dirname(target), { recursive: true });
+    try { await link(file, target); }
+    catch { await copyTemplateFile(file, target); }
+    currentTrustedOperation()?.assertCanCommit();
+    return relative;
+  } catch (error) {
+    await rm(target, { force: true });
+    throw error;
   }
-  return relative;
 }
 
 /** Prepare a version's home: every dataset and bundled result made present
@@ -117,6 +118,7 @@ export async function prepareTemplateHome(source: HomeSource, { own = false }: {
   const release = async () => {
     for (const relative of staged.splice(0)) await rm(path.join(dataDir(), relative), { force: true });
   };
+  if (own) currentTrustedOperation()?.defer(release);
   const mount = async (member: string, kind: "dataset" | "result", part: string, name: string): Promise<TemplateMount> => {
     const file = source.record.files[member];
     const measured = source.record.measured[member];

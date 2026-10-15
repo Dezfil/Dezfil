@@ -1,3 +1,4 @@
+import { withTrustedOperation } from "@/lib/trusted-operation";
 import { largeJsonValue } from "@/lib/api/json-body";
 import { NextResponse } from "next/server";
 import { errorResponse, ApiError } from "@/lib/api/errors";
@@ -13,6 +14,7 @@ import {
  * every level's scoped count in one call instead of a single number. */
 export async function POST(request: Request) {
   try {
+    return await withTrustedOperation({ kind: "interactive-read", name: "Overture read", signal: request.signal }, async () => {
     const body = (await largeJsonValue(request, () => null)) as Record<
       string,
       unknown
@@ -46,6 +48,7 @@ export async function POST(request: Request) {
     }
     const { count, query } = await countOverture(params);
     return NextResponse.json({ count, query });
+    });
   } catch (error) {
     return errorResponse(error);
   }

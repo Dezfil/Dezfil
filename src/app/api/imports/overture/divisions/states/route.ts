@@ -1,3 +1,4 @@
+import { withTrustedOperation } from "@/lib/trusted-operation";
 import { NextResponse } from "next/server";
 import { errorResponse, ApiError } from "@/lib/api/errors";
 import { countryDivisionIndex } from "@/lib/overture/divisions";
@@ -10,6 +11,7 @@ import {
  * picker. Empty when the country has no region level. */
 export async function GET(request: Request) {
   try {
+    return await withTrustedOperation({ kind: "interactive-read", name: "Overture read", signal: request.signal }, async () => {
     const url = new URL(request.url);
     const country = url.searchParams.get("country") ?? "";
     if (!/^[A-Za-z]{2}$/.test(country)) {
@@ -34,6 +36,7 @@ export async function GET(request: Request) {
       .map((r) => ({ code: r.region as string, name: r.name, bbox: r.bbox }))
       .sort((a, b) => a.name.localeCompare(b.name, "en"));
     return NextResponse.json({ release: resolved, states });
+    });
   } catch (error) {
     return errorResponse(error);
   }

@@ -32,7 +32,7 @@ export async function POST(request: Request, { params }: Params) {
     const refreshed = await refreshTable(
       scope,
       name,
-      body?.release ? { release: body.release } : {},
+      { ...(body?.release ? { release: body.release } : {}), signal: request.signal },
     );
     // A refresh keeps the identity, so the memberships it kept ride the
     // answer like every Table-shaped response.

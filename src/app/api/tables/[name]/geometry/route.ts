@@ -16,7 +16,7 @@ export async function GET(request: Request, { params }: Params) {
   try {
     const scope = requireRequestScope(request);
     geometryQuery(request, []);
-    return NextResponse.json(await inspectGeometry(scope, await ownName(scope, params)));
+    return NextResponse.json(await inspectGeometry(scope, await ownName(scope, params), request.signal));
   } catch (error) { return errorResponse(error); }
 }
 export async function PUT(request: Request, { params }: Params) {
@@ -25,7 +25,7 @@ export async function PUT(request: Request, { params }: Params) {
     geometryQuery(request, []);
     const name = await ownName(scope, params);
     const { expectedRevision, choice } = await geometryRequest(request);
-    return NextResponse.json(await setGeometry(scope, name, expectedRevision, choice));
+    return NextResponse.json(await setGeometry(scope, name, expectedRevision, choice, request.signal));
   } catch (error) { return errorResponse(error); }
 }
 export async function DELETE(request: Request, { params }: Params) {
@@ -33,6 +33,6 @@ export async function DELETE(request: Request, { params }: Params) {
     const scope = requireRequestScope(request);
     const name = await ownName(scope, params);
     const revision = requiredGeometryRevision(geometryQuery(request, ["expectedRevision"]).get("expectedRevision"));
-    return NextResponse.json(await clearGeometry(scope, name, revision));
+    return NextResponse.json(await clearGeometry(scope, name, revision, request.signal));
   } catch (error) { return errorResponse(error); }
 }

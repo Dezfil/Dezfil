@@ -824,6 +824,19 @@
     "memory:template-versions": {
       "action": "retain",
       "rule": "Keep each installed template version as last read from its folder, by its id and version, while its record and the shipped index are the files they were, and the reader the map and query modules ask through. They hold a public template's documents and no account identity or content."
+    },
+    "memory:trusted-operation-context": {
+      "action": "retain",
+      "rule": "Keep the async context carrier. Per-operation state and stop hooks live until owned work settles; the carrier holds no retained results or account-indexed cache."
+    },
+    "file:trusted-spill": {
+      "action": "purge",
+      "rule": "After native work drains, close the shared trusted instance and remove all its transient spill. Remove abandoned spill at engine startup. Durable artifacts and unrelated temporary work remain.",
+      "fixture": "file:trusted-spill"
+    },
+    "memory:native-reception-context": {
+      "action": "retain",
+      "rule": "Keep the async context carrier shared by ingress and bundled request handlers. Each reception owner holds only request-local clocks, readers and refusal delivery until its work settles; no account-indexed cache or retained result is held."
     }
   },
   "tables": {
@@ -871,6 +884,14 @@
       ],
       "roots": [
         "."
+      ]
+    },
+    "location:src/instrumentation.ts#register:path.join": {
+      "stores": [
+        "file:trusted-spill"
+      ],
+      "roots": [
+        "engine-spill"
       ]
     },
     "location:src/lib/assistant/model-catalogue.ts#readModelCatalogue:dataDir": {
@@ -3082,11 +3103,6 @@
         "memory:engine-extensions"
       ]
     },
-    "memory:src/lib/duckdb.ts#instancePromise": {
-      "stores": [
-        "memory:src/lib/duckdb.ts#instancePromise"
-      ]
-    },
     "memory:src/lib/duckdb.ts#queryCatalogGeneration": {
       "stores": [
         "memory:src/lib/duckdb.ts#queryCatalogGeneration"
@@ -3497,11 +3513,6 @@
         "memory:public-geography-catalogues"
       ]
     },
-    "memory:src/lib/postgis/preview-owner.ts#PgPreviewOwner.stopInterrupting": {
-      "stores": [
-        "memory:request-closures"
-      ]
-    },
     "memory:src/lib/publish/publication-resolution.ts#cache": {
       "stores": [
         "memory:src/lib/publish/publication-resolution.ts#cache"
@@ -3789,14 +3800,6 @@
       ],
       "roots": [
         "exports"
-      ]
-    },
-    "writer:src/lib/export/project-export.ts#assembleProjectExportWork.out:createWriteStream": {
-      "stores": [
-        "file:exports"
-      ],
-      "roots": [
-        "exports/*.zip"
       ]
     },
     "writer:src/lib/geocode/cache.ts#writeAnswer:mkdir": {
@@ -4673,21 +4676,6 @@
         "memory:src/lib/tiles/serve.ts#reads"
       ]
     },
-    "memory:src/lib/duckdb.ts#nativeInstances": {
-      "stores": [
-        "memory:src/lib/duckdb.ts#nativeInstances"
-      ]
-    },
-    "memory:src/lib/duckdb.ts#nativeCreating": {
-      "stores": [
-        "memory:src/lib/duckdb.ts#nativeCreating"
-      ]
-    },
-    "memory:src/lib/duckdb.ts#leases": {
-      "stores": [
-        "memory:src/lib/duckdb.ts#leases"
-      ]
-    },
     "memory:src/lib/geometry/inspection-cache.ts#inspectionCache.pending": {
       "stores": [
         "memory:src/lib/geometry/inspection-cache.ts#inspectionCache.pending"
@@ -5019,11 +5007,6 @@
       ]
     },
     "memory:src/app/api/projects/[id]/export/route.ts#POST.file": {
-      "stores": [
-        "memory:request-closures"
-      ]
-    },
-    "memory:src/lib/export/project-export.ts#assembleProjectExport.file": {
       "stores": [
         "memory:request-closures"
       ]
@@ -5991,22 +5974,6 @@
         "tmp/template-*"
       ]
     },
-    "writer:src/lib/templates/home.ts#stageOwn:copyFile": {
-      "stores": [
-        "file:tables"
-      ],
-      "roots": [
-        "tables/template-*.parquet"
-      ]
-    },
-    "writer:src/lib/templates/home.ts#stageTemplateArtifact:copyFile": {
-      "stores": [
-        "file:tables"
-      ],
-      "roots": [
-        "tables/template-*-*.partial"
-      ]
-    },
     "writer:src/lib/templates/home.ts#stageTemplateArtifact:rename": {
       "stores": [
         "file:tables"
@@ -6014,15 +5981,6 @@
       "roots": [
         "*",
         "tables/template-*-*.partial"
-      ]
-    },
-    "writer:src/lib/templates/install.ts#installTemplateArchive:rename": {
-      "stores": [
-        "file:templates",
-        "file:tmp"
-      ],
-      "roots": [
-        "templates/*/*"
       ]
     },
     "writer:src/lib/templates/resident.ts#residentTemplate.resident:read": {
@@ -6143,6 +6101,460 @@
       "roots": [
         "tables/*.parquet"
       ]
+    },
+    "memory:src/lib/export/owned-archive.ts#ownedArchive.closing": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/export/owned-archive.ts#ownedArchive.complete": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/export/owned-archive.ts#ownedArchive.failure": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/export/owned-archive.ts#ownedArchive.readers": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/export/owned-archive.ts#ownedArchive.stop": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/export/owned-archive.ts#ownedArchive.zip": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/export/project-export.ts#assembleProjectExport.result.file": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/postgis/source-owner.ts#PgSourceOwner.cancelling": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/postgis/source-owner.ts#PgSourceOwner.operation": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/postgis/source-owner.ts#PgSourceOwner.ownDeadline": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/postgis/source-owner.ts#PgSourceOwner.running": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/postgis/source-owner.ts#PgSourceOwner.stopInterrupting": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/postgis/source-slots.ts#createSourceSlots.active": {
+      "stores": [
+        "memory:provider-scheduling"
+      ]
+    },
+    "memory:src/lib/postgis/source-slots.ts#createSourceSlots.hold.released": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/postgis/source-slots.ts#createSourceSlots.waiting": {
+      "stores": [
+        "memory:provider-scheduling"
+      ]
+    },
+    "memory:src/lib/templates/download.ts#enqueue.{ running, result }": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/trusted-connection.ts#connectionOwners": {
+      "stores": [
+        "memory:src/lib/duckdb.ts#leases"
+      ]
+    },
+    "memory:src/lib/trusted-h3.ts#pending": {
+      "stores": [
+        "memory:engine-extensions"
+      ]
+    },
+    "memory:src/lib/trusted-operation.ts#context": {
+      "stores": [
+        "memory:trusted-operation-context"
+      ]
+    },
+    "memory:src/lib/trusted-operation.ts#TrustedOperation.admittedAt": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/trusted-operation.ts#TrustedOperation.budgetMs": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/trusted-operation.ts#TrustedOperation.cleanupErrors": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/trusted-operation.ts#TrustedOperation.cleanups": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/trusted-operation.ts#TrustedOperation.commitListeners": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/trusted-operation.ts#TrustedOperation.commitOverdue": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/trusted-operation.ts#TrustedOperation.commitTime": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/trusted-operation.ts#TrustedOperation.complete": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/trusted-operation.ts#TrustedOperation.controller": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/trusted-operation.ts#TrustedOperation.deadline": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/trusted-operation.ts#TrustedOperation.deadlineTimer": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/trusted-operation.ts#TrustedOperation.decisionTime": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/trusted-operation.ts#TrustedOperation.drain": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/trusted-operation.ts#TrustedOperation.drained": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/trusted-operation.ts#TrustedOperation.failure": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/trusted-operation.ts#TrustedOperation.interests": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/trusted-operation.ts#TrustedOperation.join.left": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/trusted-operation.ts#TrustedOperation.kind": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/trusted-operation.ts#TrustedOperation.name": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/trusted-operation.ts#TrustedOperation.policy": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/trusted-operation.ts#TrustedOperation.remedy": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/trusted-operation.ts#TrustedOperation.settled": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/trusted-operation.ts#TrustedOperation.settlement": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/trusted-operation.ts#TrustedOperation.settlementTimer": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/trusted-operation.ts#TrustedOperation.signal": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/trusted-operation.ts#TrustedOperation.stage": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/trusted-operation.ts#TrustedOperation.started": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/trusted-operation.ts#TrustedOperation.stopHooks": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/trusted-operation.ts#TrustedOperation.stopped": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/trusted-operation.ts#TrustedSettlementOverdue.allowanceMs": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/trusted-shared.ts#sharedTrustedWork.complete": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/trusted-shared.ts#sharedTrustedWork.first": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/trusted-shared.ts#sharedTrustedWork.operation": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/trusted-shared.ts#sharedTrustedWork.value": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "writer:src/lib/export/project-export.ts#assembleProjectExportWork:archive.finish": {
+      "stores": [
+        "file:exports"
+      ],
+      "roots": [
+        "exports/*.zip"
+      ]
+    },
+    "writer:src/lib/templates/home.ts#stageOwn:copyTemplateFile": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "tables/template-*.parquet"
+      ]
+    },
+    "writer:src/lib/templates/home.ts#stageTemplateArtifact:copyTemplateFile": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "tables/template-*-*.partial"
+      ]
+    },
+    "writer:src/lib/templates/install.ts#installTemplateArchive:renameSync": {
+      "stores": [
+        "file:templates",
+        "file:tmp"
+      ],
+      "roots": [
+        "templates/*/*"
+      ]
+    },
+    "location:src/lib/duckdb.ts#getInstance.attempt:dataDir": {
+      "stores": [
+        "file:trusted-spill"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "location:src/lib/duckdb.ts#getInstance.attempt:path.join": {
+      "stores": [
+        "file:trusted-spill"
+      ],
+      "roots": [
+        "engine-spill"
+      ]
+    },
+    "memory:src/lib/duckdb.ts#nativeState": {
+      "stores": [
+        "memory:src/lib/duckdb.ts#instancePromise"
+      ]
+    },
+    "memory:src/lib/duckdb.ts#nativeState.creating": {
+      "stores": [
+        "memory:src/lib/duckdb.ts#nativeCreating"
+      ]
+    },
+    "memory:src/lib/duckdb.ts#nativeState.instances": {
+      "stores": [
+        "memory:src/lib/duckdb.ts#nativeInstances"
+      ]
+    },
+    "memory:src/lib/duckdb.ts#nativeState.leases": {
+      "stores": [
+        "memory:src/lib/duckdb.ts#leases"
+      ]
+    },
+    "writer:src/lib/duckdb.ts#getInstance.attempt:createTrustedInstance": {
+      "stores": [
+        "file:trusted-spill"
+      ],
+      "roots": [
+        "engine-spill"
+      ]
+    },
+    "writer:src/lib/sketch/read.ts#listFeatures:readFeatures": {
+      "stores": [
+        "file:trusted-spill"
+      ],
+      "roots": [
+        "*"
+      ]
+    },
+    "writer:src/lib/sketch/store.ts#mutate.features:readFeatures": {
+      "stores": [
+        "file:trusted-spill"
+      ],
+      "roots": [
+        "*"
+      ]
+    },
+    "location:src/lib/duckdb.ts#clear:dataDir": {
+      "stores": [
+        "file:trusted-spill"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "location:src/lib/duckdb.ts#clear:path.join": {
+      "stores": [
+        "file:trusted-spill"
+      ],
+      "roots": [
+        "engine-spill"
+      ]
+    },
+    "memory:src/lib/auth/reception.mjs#context": {
+      "stores": [
+        "memory:native-reception-context"
+      ]
+    },
+    "memory:src/lib/auth/reception.mjs#createUploadClock.complete": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/auth/reception.mjs#createUploadClock.failure": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/auth/reception.mjs#createUploadClock.stall": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/auth/reception.mjs#createUploadClock.timer": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/auth/reception.mjs#installReception.answered": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/auth/reception.mjs#installReception.clock": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/auth/reception.mjs#installReception.closing": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/auth/reception.mjs#installReception.delivery": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/auth/reception.mjs#installReception.failure": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/auth/reception.mjs#installReception.listener": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/auth/reception.mjs#installReception.received": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/auth/reception.mjs#installReception.stops": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/auth/reception.mjs#receptionIterator.failure": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/auth/reception.mjs#receptionIterator.stopped": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/auth/reception.mjs#receptionIterator.waiting": {
+      "stores": [
+        "memory:request-closures"
+      ]
     }
   },
   "files": {
@@ -6199,6 +6611,9 @@
     ],
     "file:templates": [
       "templates/**"
+    ],
+    "file:trusted-spill": [
+      "engine-spill/**"
     ]
   },
   "accountReferences": {

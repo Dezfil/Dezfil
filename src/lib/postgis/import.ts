@@ -1,3 +1,5 @@
+import { withTrustedMutation } from "@/lib/trusted-mutation";
+import { isTrustedOperationRefusal } from "@/lib/trusted-operation";
 import { admitAccountWork } from "@/lib/auth/account-deletion-admission";
 import { registerAccountFile, removeAccountFile } from "@/lib/ingest/file-ownership";
 import { resourceAbsent, requireOwnedResource } from "@/lib/auth/owned-resource";
@@ -110,6 +112,7 @@ export async function buildPostgisArtifact(
         `COPY (SELECT *${replace} FROM ${passthrough(select)}) TO ${lit(artifact)} (FORMAT PARQUET)`,
       );
     } catch (error) {
+      if (isTrustedOperationRefusal(error)) throw error;
       throw new ApiError(
         "malformed_file",
         `The table could not be read from PostGIS: ${
@@ -187,74 +190,82 @@ export async function importPostgis(
   scope: AccountScope,
   request: PostgisImportRequest,
   build: typeof buildPostgisArtifact = buildPostgisArtifact,
+  signal?: AbortSignal,
 ): Promise<DataTable> {
-  const deletionWork = admitAccountWork([requireAccountScope(scope)]);
-  try {
-  requireAccountScope(scope);
-  const projectId = importProjectId(request.projectId);
-  if (projectId) requireFilingDestination(scope, projectId);
-  const { recipe, requestedName } = resolvePostgisRequest(request);
-  requireOwnedResource(scope, "connection", recipe.connectionId);
-  const { connection, target } = requireTarget(scope, recipe.connectionId);
-
-  const id = randomUUID();
-  const relFile = path.join("tables", `${id}.parquet`);
-  const artifact = path.join(dataDir(), relFile);
-    registerAccountFile(scope.accountId, artifact);
-  let meta: PostgisArtifactMeta;
-  let observedHealth: ConnectionHealth | null = null;
-  try {
-    meta = await build(target, recipe, artifact, (health) => {
-      observedHealth = health;
-    });
-  } catch (error) {
-    await removeAccountFile(artifact, { force: true });
+  return withTrustedMutation({ kind: "import", name: "PostGIS import", signal }, async operation => {
+    const deletionWork = admitAccountWork([requireAccountScope(scope)]);
+    try {
+    requireAccountScope(scope);
+    const projectId = importProjectId(request.projectId);
+    if (projectId) requireFilingDestination(scope, projectId);
+    const { recipe, requestedName } = resolvePostgisRequest(request);
     requireOwnedResource(scope, "connection", recipe.connectionId);
-    if (isConnectionLevelFailure(error)) {
-      recordConnectionFailure(scope, recipe.connectionId, error);
-    } else if (observedHealth) {
-      recordConnectionHealth(scope, recipe.connectionId, observedHealth);
+    const { connection, target } = requireTarget(scope, recipe.connectionId);
+
+    const id = randomUUID();
+    const relFile = path.join("tables", `${id}.parquet`);
+    const artifact = path.join(dataDir(), relFile);
+      registerAccountFile(scope.accountId, artifact);
+    let meta: PostgisArtifactMeta;
+    let observedHealth: ConnectionHealth | null = null;
+    try {
+      meta = await build(target, recipe, artifact, (health) => {
+        observedHealth = health;
+      });
+    } catch (error) {
+      operation.refuseIfFinal(error);
+      await removeAccountFile(artifact, { force: true });
+      requireOwnedResource(scope, "connection", recipe.connectionId);
+      if (isConnectionLevelFailure(error)) {
+        recordConnectionFailure(scope, recipe.connectionId, error);
+      } else if (observedHealth) {
+        recordConnectionHealth(scope, recipe.connectionId, observedHealth);
+      }
+      throw error;
     }
-    throw error;
-  }
-  try {
-    recordConnectionHealth(scope, recipe.connectionId, meta.connectionHealth);
-    const record: Omit<DataTable, "name"> = {
-      id,
-      sourceFilename: `${recipe.schema}.${recipe.table}`,
-      format: "geoparquet",
-      file: relFile,
-      geometryColumn: meta.geometryColumn,
-      geometryType: meta.geometryType,
-      crsAssumed: false,
-      headerSuspect: false,
-      rowCount: meta.rowCount,
-      createdAt: new Date().toISOString(),
-      source: "postgis",
-      sourceParams: {
-        connectionId: recipe.connectionId,
-        connectionName: connection.name,
-        schema: recipe.schema,
-        table: recipe.table,
-        ...(recipe.filter ? { filter: recipe.filter } : {}),
-        ...(recipe.limit !== undefined ? { limit: recipe.limit } : {}),
-      },
-      importedAt: new Date().toISOString(),
-    };
-    // Derive-and-register in one synchronous step; the project
-    // membership commits with it.
-    const db = metadataDb();
+    try {
+      recordConnectionHealth(scope, recipe.connectionId, meta.connectionHealth);
+      const record: Omit<DataTable, "name"> = {
+        id,
+        sourceFilename: `${recipe.schema}.${recipe.table}`,
+        format: "geoparquet",
+        file: relFile,
+        geometryColumn: meta.geometryColumn,
+        geometryType: meta.geometryType,
+        crsAssumed: false,
+        headerSuspect: false,
+        rowCount: meta.rowCount,
+        createdAt: new Date().toISOString(),
+        source: "postgis",
+        sourceParams: {
+          connectionId: recipe.connectionId,
+          connectionName: connection.name,
+          schema: recipe.schema,
+          table: recipe.table,
+          ...(recipe.filter ? { filter: recipe.filter } : {}),
+          ...(recipe.limit !== undefined ? { limit: recipe.limit } : {}),
+        },
+        importedAt: new Date().toISOString(),
+      };
+      // Derive-and-register in one synchronous step; the project
+      // membership commits with it.
+      const db = metadataDb();
 
-    return db.transaction(() => {
-      requireOwnedResource(scope, "connection", recipe.connectionId, db);
-      const table = registerTable(scope, record, requestedName ?? recipe.table, db);
-      if (projectId) fileOwnedTable(scope, table.id, projectId, db);
-      return table;
-    })();
-  } catch (error) {
-    await removeAccountFile(artifact, { force: true });
-    throw error;
-  }
+      const registered = db.transaction(() => {
+        requireOwnedResource(scope, "connection", recipe.connectionId, db);
+        operation.assertCanCommit();
+        const table = registerTable(scope, record, requestedName ?? recipe.table, db);
+        if (projectId) fileOwnedTable(scope, table.id, projectId, db);
+        return table;
+      })();
+      operation.markCommitted();
+      return registered;
+    } catch (error) {
+      operation.refuseIfFinal(error);
+      await removeAccountFile(artifact, { force: true });
+      throw error;
+    }
 
-  } finally { deletionWork.release(); }
+    } finally { deletionWork.release(); }
+  });
 }

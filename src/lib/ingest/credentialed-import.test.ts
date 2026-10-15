@@ -40,6 +40,12 @@ let origin: string;
 /** A store answering HEAD, GET and ranged GET for the objects it holds. */
 function answer(req: IncomingMessage, res: ServerResponse) {
   asked.push(`${req.method} ${req.url}`);
+  // A private bucket: the store refuses every request without credentials.
+  if (req.url?.startsWith("/private/")) {
+    res.writeHead(403);
+    res.end("<Error><Code>AccessDenied</Code></Error>");
+    return;
+  }
   const body = objects.get(req.url ?? "");
   if (!body) {
     res.writeHead(404);
@@ -118,4 +124,25 @@ it.each([
   expect(asked).toContain(`HEAD /bucket/${object}`);
   expect(asked.some((request) => request.startsWith(`GET /bucket/${object}`))).toBe(true);
   expect(asked.every((request) => request.endsWith(`/bucket/${object}`))).toBe(true);
+});
+
+it("answers a private object read in place as a failed fetch with the credentials remedy", async () => {
+  const outcome = await importFromUrl(testAccountScope(), "s3://private/points.parquet").catch((error: unknown) => error);
+  expect(outcome).toMatchObject({
+    code: "remote_fetch_failed",
+    status: 502,
+    message: expect.stringContaining("Private buckets need credentials configured in the server environment."),
+  });
+  expect(listTables()).toEqual([]);
+});
+
+it("keeps the credentialed-reads remedy when the anonymous road is refused", async () => {
+  vi.stubEnv("DEZFIL_OBJECT_STORE_CREDENTIALS", "false");
+  const outcome = await importFromUrl(testAccountScope(), "s3://private/points.geojson").catch((error: unknown) => error);
+  expect(outcome).toMatchObject({
+    code: "remote_fetch_failed",
+    status: 502,
+    message: expect.stringContaining("If this is a private bucket, credentialed reads can be enabled with DEZFIL_OBJECT_STORE_CREDENTIALS."),
+  });
+  expect(listTables()).toEqual([]);
 });

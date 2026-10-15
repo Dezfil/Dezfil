@@ -1,4 +1,8 @@
-import { copyFile, mkdir, rename, rmdir } from "node:fs/promises";
+import { renameSync } from "node:fs";
+import { currentTrustedOperation } from "@/lib/trusted-operation";
+import { withTrustedMutation } from "@/lib/trusted-mutation";
+import { copyTemplateFile } from "./files";
+import { mkdir, rmdir } from "node:fs/promises";
 import path from "node:path";
 import { ApiError } from "@/lib/api/errors";
 import type { AccountScope } from "@/lib/auth/scope";
@@ -15,7 +19,7 @@ import {
   type InstalledOrigin,
   type InstalledVersion,
 } from "./installed";
-import { refuse } from "./refusals";
+import { preserveTemplateResourceRefusal, refuse } from "./refusals";
 
 /**
  * Installing a template's archive once its bytes are on this server and
@@ -50,10 +54,12 @@ async function readDatasets(
 ): Promise<Record<string, DatasetMeasurement>> {
   const measured: Record<string, DatasetMeasurement> = {};
   for (const { member, label } of members) {
+    currentTrustedOperation()?.enterStage("template dataset");
     let meta;
     try {
       meta = await buildArtifact(path.join(unpacked, member), path.basename(member), path.join(version, member));
     } catch (error) {
+      preserveTemplateResourceRefusal(error);
       // The reader's own message may quote the file it read, which is a
       // path on this server: the refusal names the member instead.
       if (error instanceof ApiError) refuse("template_malformed", `${label} could not be read as GeoParquet.`);
@@ -72,7 +78,9 @@ async function readDatasets(
 /**
  * Install the archive at `archive` (inside `scratch`, a folder the caller
  * owns and removes) as `expected`'s version, from `origin`. Answers the
- * installed version, read back whole against its record.
+ * installed version, read back whole against its record. The rename that
+ * puts it in place commits the operation, unless the caller has more to do
+ * before its own commit (`commit: false`).
  */
 export async function installTemplateArchive(
   scope: AccountScope,
@@ -80,52 +88,65 @@ export async function installTemplateArchive(
   archive: string,
   expected: ExpectedVersion,
   origin: InstalledOrigin,
+  { signal, commit = true }: { signal?: AbortSignal; commit?: boolean } = {},
 ): Promise<InstalledVersion> {
-  const read = await readTemplateArchive(archive, path.join(scratch, "unpacked"), `${expected.id}-${expected.version}.zip`);
-  const { facts } = read.admitted;
-  if (facts.id !== expected.id || facts.version !== expected.version) {
-    refuse("template_invalid", `The archive holds ${facts.id} version ${facts.version}, and the catalogue lists it as ${expected.id} version ${expected.version}.`);
-  }
+  return withTrustedMutation({ kind: "template-install", name: "Template installation", signal }, async operation => {
+    const read = await readTemplateArchive(archive, path.join(scratch, "unpacked"), `${expected.id}-${expected.version}.zip`);
+    const { facts } = read.admitted;
+    if (facts.id !== expected.id || facts.version !== expected.version) {
+      refuse("template_invalid", `The archive holds ${facts.id} version ${facts.version}, and the catalogue lists it as ${expected.id} version ${expected.version}.`);
+    }
 
-  // The version as it will be installed: the documents and pictures as the
-  // archive holds them, every dataset and result as the reader wrote it.
-  const version = path.join(scratch, "version");
-  const data = [
-    ...read.admitted.datasets.map((d) => ({ member: d.file, label: `The dataset "${d.name}"` })),
-    ...(read.admitted.workflow?.steps ?? []).map((s) => ({ member: s.result, label: `The result of the step "${s.id}"` })),
-  ];
-  const isData = new Set(data.map((d) => d.member));
-  for (const member of read.admitted.members.keys()) {
-    if (isData.has(member)) continue;
-    await mkdir(path.dirname(path.join(version, member)), { recursive: true });
-    await copyFile(path.join(read.folder, member), path.join(version, member));
-  }
-  const measured = await readDatasets(read.folder, version, data);
-  const admitted = await admitTemplateFolder(version);
-  const record = await writeInstalledRecord(admitted, { archive: { sha256: expected.sha256, size: expected.size }, origin, measured });
-  const prepared = await prepareTemplateHome({ admitted, record }, { own: true });
-  try {
-    await admitTemplateBindings(scope, admitted, prepared.home);
-  } finally {
-    await prepared.release();
-  }
+    // The version as it will be installed: the documents and pictures as the
+    // archive holds them, every dataset and result as the reader wrote it.
+    const version = path.join(scratch, "version");
+    const data = [
+      ...read.admitted.datasets.map((d) => ({ member: d.file, label: `The dataset "${d.name}"` })),
+      ...(read.admitted.workflow?.steps ?? []).map((s) => ({ member: s.result, label: `The result of the step "${s.id}"` })),
+    ];
+    const isData = new Set(data.map((d) => d.member));
+    for (const member of read.admitted.members.keys()) {
+      if (isData.has(member)) continue;
+      await mkdir(path.dirname(path.join(version, member)), { recursive: true });
+      await copyTemplateFile(path.join(read.folder, member), path.join(version, member));
+    }
+    const measured = await readDatasets(read.folder, version, data);
+    const admitted = await admitTemplateFolder(version);
+    const record = await writeInstalledRecord(admitted, { archive: { sha256: expected.sha256, size: expected.size }, origin, measured });
+    const prepared = await prepareTemplateHome({ admitted, record }, { own: true });
+    try {
+      await admitTemplateBindings(scope, admitted, prepared.home);
+    } finally {
+      await prepared.release();
+    }
 
-  // Into place in one rename. A folder already there is one the caller
-  // found not to be an installed version (no record, or not this one's):
-  // it is moved aside into the scratch, and the scratch goes with it.
-  const target = path.join(downloadedTemplatesDir(), facts.id, String(facts.version));
-  const parent = path.dirname(target);
-  await mkdir(parent, { recursive: true });
-  try {
-    await rename(target, path.join(scratch, "replaced"));
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
-  }
-  try {
-    await rename(version, target);
-  } catch (error) {
-    await rmdir(parent).catch(() => {});
-    throw error;
-  }
-  return readInstalledVersion(target);
+    const checked = await readInstalledVersion(version);
+
+    // Into place in one rename. A folder already there is one the caller
+    // found not to be an installed version (no record, or not this one's):
+    // it is moved aside into the scratch, and the scratch goes with it.
+    const target = path.join(downloadedTemplatesDir(), facts.id, String(facts.version));
+    const parent = path.dirname(target);
+    operation.assertCanCommit();
+    await mkdir(parent, { recursive: true });
+    const replaced = path.join(scratch, "replaced");
+    let moved = false;
+    try {
+      operation.assertCanCommit();
+      try {
+        renameSync(target, replaced);
+        moved = true;
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+      }
+      operation.assertCanCommit();
+      renameSync(version, target);
+    } catch (error) {
+      if (moved) renameSync(replaced, target);
+      await rmdir(parent).catch(() => {});
+      throw error;
+    }
+    if (commit) operation.markCommitted();
+    return { ...checked, folder: target, admitted: { ...checked.admitted, folder: target } };
+  });
 }

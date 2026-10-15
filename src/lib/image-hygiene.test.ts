@@ -380,3 +380,9 @@ describe("offline extension check", () => {
     expect(output).toContain("FAIL");
   }, 30_000);
 });
+
+it("requires the native reception dependency beside the ingress preload", () => {
+  expect(ingressPresence([
+    "f /app/scripts/ingress-preload.mjs", "f /app/scripts/preload-options.mjs", "f /app/src/lib/auth/ingress.mjs",
+  ])).toEqual(["MISSING: /app/src/lib/auth/reception.mjs"]);
+});

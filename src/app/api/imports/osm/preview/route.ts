@@ -28,7 +28,7 @@ export async function POST(request: Request) {
         geometry: body.geometry,
         semantics: body.semantics,
         name: body.name,
-      }),
+      }, request.signal),
     );
   } catch (error) {
     return errorResponse(error);

@@ -1,3 +1,4 @@
+import { currentTrustedOperation } from "@/lib/trusted-operation";
 import { registerAccountFile, removeAccountFile } from "@/lib/ingest/file-ownership";
 import type { AccountScope } from "@/lib/auth/scope";
 import { requireOwnedResource } from "@/lib/auth/owned-resource";
@@ -60,7 +61,6 @@ export async function refreshUrlSpatial(
 
   const format = requested.format as GdalFormat;
   const source = await resolveRemoteSource(url, scope.accountId);
-  let prepared: Awaited<ReturnType<typeof prepareSource>> | null = null;
   const candidates: {
     member: DataTable;
     relFile: string;
@@ -69,9 +69,9 @@ export async function refreshUrlSpatial(
   }[] = [];
   let now = "";
   try {
-    prepared = await prepareSource(format, source.sourcePath, source.filename, scope.accountId, source.budget);
+    const prepared = await prepareSource(format, source.sourcePath, source.filename, scope.accountId, source.budget);
     await withConnection(async (conn) => {
-      const { spatial } = await enumerateLayers(conn, format, prepared!);
+      const { spatial } = await enumerateLayers(conn, format, prepared);
       for (const member of members) {
         const layerName = String(member.sourceParams!.layer);
         // Validated against fresh enumeration — never read blind (the
@@ -106,6 +106,7 @@ export async function refreshUrlSpatial(
     // A member deleted mid-refresh must stay deleted: one silent
     // zero-match rolls the whole swap back.
     db.transaction(() => {
+      currentTrustedOperation()?.assertCanCommit();
       for (const c of candidates) {
         const swapped = updateOwnedTableData(
           scope,
@@ -135,30 +136,16 @@ export async function refreshUrlSpatial(
         }
       }
     })();
+    currentTrustedOperation()?.markCommitted();
   } catch (error) {
+    currentTrustedOperation()?.refuseIfFinal(error);
     for (const c of candidates) await removeAccountFile(c.artifact, { force: true });
     throw error;
-  } finally {
-    // Best-effort: the swap may already be committed — a cleanup stumble
-    // is logged, never a failure answer.
-    if (prepared?.scratchDir) {
-      await removeAccountFile(prepared.scratchDir, { recursive: true, force: true }).catch(
-        (error: unknown) =>
-          console.warn(
-            `refresh scratch cleanup failed: ${
-              error instanceof Error ? error.message : String(error)
-            }`,
-          ),
-      );
-    }
-    await source.cleanup().catch((error: unknown) =>
-      console.warn(
-        `refresh source cleanup failed: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
-      ),
-    );
   }
+  // The extraction folder and the downloaded file are removed on the
+  // operation's cleanup path (see prepareSource and resolveRemoteSource),
+  // never inline after the swap: a removal that stalled or failed there would
+  // hold or replace the committed answer.
 
   for (const c of candidates) {
     postCommitCleanup(scope, c.member.name, path.join(dataDir(), c.member.file));

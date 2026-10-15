@@ -1,5 +1,5 @@
-import { createHash } from "node:crypto";
-import { createReadStream } from "node:fs";
+import { currentTrustedOperation } from "@/lib/trusted-operation";
+import { templateFileDigest } from "./files";
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { admitTemplateFolder, type AdmittedTemplate } from "./admission";
@@ -12,7 +12,7 @@ import {
   type InstalledOrigin,
   type InstalledRecord,
 } from "./record";
-import { refuse, TemplateRefusal } from "./refusals";
+import { preserveTemplateResourceRefusal, refuse, TemplateRefusal } from "./refusals";
 
 export {
   downloadedTemplatesDir,
@@ -45,9 +45,7 @@ export interface InstalledVersion {
 }
 
 export async function fileSha256(file: string): Promise<string> {
-  const hash = createHash("sha256");
-  for await (const chunk of createReadStream(file)) hash.update(chunk as Buffer);
-  return hash.digest("hex");
+  return templateFileDigest(file);
 }
 
 function mismatch(message: string): never {
@@ -98,7 +96,8 @@ export async function writeInstalledRecord(
   };
   const problem = recordProblem(record);
   if (problem) throw new Error(problem);
-  await writeFile(path.join(admitted.folder, RECORD_FILE), JSON.stringify(record, null, 2) + "\n");
+  currentTrustedOperation()?.assertCanCommit();
+  await writeFile(path.join(admitted.folder, RECORD_FILE), JSON.stringify(record, null, 2) + "\n", { signal: currentTrustedOperation()?.signal });
   return record;
 }
 
@@ -108,10 +107,12 @@ export async function writeInstalledRecord(
  * through the first stage again. A coded refusal names the first fault.
  */
 export async function readInstalledVersion(folder: string): Promise<InstalledVersion> {
+  currentTrustedOperation()?.enterStage("installed template");
   let text: string;
   try {
-    text = await readFile(path.join(folder, RECORD_FILE), "utf8");
-  } catch {
+    text = await readFile(path.join(folder, RECORD_FILE), { encoding: "utf8", signal: currentTrustedOperation()?.signal });
+  } catch (error) {
+    preserveTemplateResourceRefusal(error);
     return mismatch("The installed version has no record.");
   }
   if (Buffer.byteLength(text) > TEMPLATE_DOCUMENT_MAX_BYTES) mismatch("The installed version's record is larger than a document may be.");

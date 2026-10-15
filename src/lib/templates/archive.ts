@@ -1,3 +1,4 @@
+import { currentTrustedOperation } from "@/lib/trusted-operation";
 import { mkdir, readdir, rm, stat } from "node:fs/promises";
 import path from "node:path";
 import { ApiError } from "@/lib/api/errors";
@@ -5,7 +6,7 @@ import { expandedSize, extractArchive, listArchive } from "@/lib/ingest/containe
 import { limits } from "@/lib/limits";
 import { admitTemplateFolder, type AdmittedTemplate } from "./admission";
 import { TEMPLATE_ARCHIVE_MAX_BYTES } from "./format";
-import { refuse, TemplateRefusal } from "./refusals";
+import { preserveTemplateResourceRefusal, refuse, TemplateRefusal } from "./refusals";
 
 /**
  * Reading a template archive: the only place that opens one.
@@ -43,6 +44,7 @@ export async function readTemplateArchive(
   destination: string,
   displayName = path.basename(archive),
 ): Promise<ReadTemplate> {
+  currentTrustedOperation()?.enterStage("template archive");
   // Never someone else's folder: the destination is created here, so a
   // refusal may remove it whole.
   await stat(destination).then(
@@ -59,6 +61,7 @@ export async function readTemplateArchive(
     try {
       listing = await listArchive(archive, displayName);
     } catch (error) {
+      preserveTemplateResourceRefusal(error);
       if (error instanceof ApiError) refuse("template_malformed", error.message);
       throw error;
     }
@@ -89,6 +92,7 @@ export async function readTemplateArchive(
     try {
       await extractArchive(archive, destination, displayName, cap);
     } catch (error) {
+      preserveTemplateResourceRefusal(error);
       if (error instanceof ApiError) {
         if (error.code === "archive_too_large") refuse("template_unpacked_too_large", error.message);
         refuse("template_malformed", error.message);
@@ -102,7 +106,9 @@ export async function readTemplateArchive(
       refuse("template_malformed", "The archive must hold one folder named <name>.dezfil, as a project export does.");
     }
     const folder = path.join(destination, root);
+    currentTrustedOperation()?.enterStage("template documents");
     const admitted = await admitTemplateFolder(folder);
+    currentTrustedOperation()?.assertCanCommit();
     return { folder, admitted, archiveBytes: size, unpackedBytes };
   } catch (error) {
     await rm(destination, { recursive: true, force: true });

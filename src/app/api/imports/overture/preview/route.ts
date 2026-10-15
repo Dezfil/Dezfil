@@ -1,3 +1,4 @@
+import { withTrustedOperation } from "@/lib/trusted-operation";
 import { largeJsonValue } from "@/lib/api/json-body";
 import { NextResponse } from "next/server";
 import { errorResponse, ApiError } from "@/lib/api/errors";
@@ -11,6 +12,7 @@ import {
  * truncation stated — so a selection can be seen before it is imported. */
 export async function POST(request: Request) {
   try {
+    return await withTrustedOperation({ kind: "interactive-read", name: "Overture read", signal: request.signal }, async () => {
     const body = (await largeJsonValue(request, () => null)) as Record<
       string,
       unknown
@@ -32,6 +34,7 @@ export async function POST(request: Request) {
       category: body.category,
     });
     return NextResponse.json(await previewOvertureFeatures(params));
+    });
   } catch (error) {
     return errorResponse(error);
   }

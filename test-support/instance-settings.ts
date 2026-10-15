@@ -9,8 +9,8 @@ import { authenticateSession, createApiToken, issueSession } from "../src/lib/au
 import { socketRequest } from "../src/lib/assistant/testing/socket-request";
 
 export function instanceSettingsFixture() {
+  const root = process.env.DEZFIL_DATA_DIR ?? path.join(process.cwd(), ".claude/test-data");
   for (const definition of SETTING_CATALOGUE) if (definition.environment) vi.stubEnv(definition.environment, undefined);
-  const root = path.join(process.cwd(), ".claude/test-data");
   mkdirSync(root, { recursive: true });
   const dir = mkdtempSync(path.join(root, "instance-read-"));
   vi.stubEnv("DEZFIL_DATA_DIR", dir);

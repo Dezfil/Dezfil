@@ -1,3 +1,4 @@
+import { withTrustedOperation } from "@/lib/trusted-operation";
 import { NextResponse } from "next/server";
 import { errorResponse, ApiError } from "@/lib/api/errors";
 import {
@@ -13,6 +14,7 @@ import {
  * scope; names come from the division data itself, never a geocoder. */
 export async function GET(request: Request) {
   try {
+    return await withTrustedOperation({ kind: "interactive-read", name: "Overture read", signal: request.signal }, async () => {
     const url = new URL(request.url);
     const country = url.searchParams.get("country") ?? "";
     if (!/^[A-Za-z]{2}$/.test(country)) {
@@ -45,6 +47,7 @@ export async function GET(request: Request) {
       bbox: m.bbox,
     }));
     return NextResponse.json({ release: resolved, matches });
+    });
   } catch (error) {
     return errorResponse(error);
   }

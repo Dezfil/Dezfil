@@ -190,4 +190,33 @@ describe("receiveUpload — the singular contract", () => {
       delete process.env.DEZFIL_UPLOAD_MAX_MB;
     }
   });
+
+  it("keeps the size refusal when the caller leaves after it", async () => {
+    process.env.DEZFIL_UPLOAD_MAX_MB = "1";
+    const caller = new AbortController();
+    const head = '--keep\r\nContent-Disposition: form-data; name="file"; filename="big.csv"\r\n\r\n';
+    // The sender is still sending when the cap is reached, and never finishes.
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) { controller.enqueue(new TextEncoder().encode(head + "x".repeat(2 * 1024 * 1024))); },
+    });
+    // The destination is still being torn down after the refusal when the caller leaves.
+    const tearingDown = Promise.withResolvers<void>(), release = Promise.withResolvers<void>();
+    factory = () => new Writable({
+      write(_chunk, _encoding, callback) { callback(); },
+      destroy(error, callback) { tearingDown.resolve(); void release.promise.then(() => callback(error)); },
+    });
+    try {
+      const request = new Request("http://dezfil.test/api/tables", {
+        method: "POST", body, signal: caller.signal, duplex: "half",
+        headers: { "content-type": "multipart/form-data; boundary=keep" },
+      } as RequestInit);
+      const outcome = receiveUpload(request).catch((error: unknown) => error);
+      await tearingDown.promise;
+      caller.abort(); release.resolve();
+      expect(await outcome).toMatchObject({ code: "upload_too_large", status: 413 });
+      await expect(readdir(path.join(dir, "data", "tmp"))).resolves.toEqual([]);
+    } finally {
+      delete process.env.DEZFIL_UPLOAD_MAX_MB;
+    }
+  });
 });

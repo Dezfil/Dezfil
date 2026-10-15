@@ -20,12 +20,12 @@ beforeAll(async () => {
 });
 afterAll(async () => { resetQueryInstance(); await rm(root, { recursive: true, force: true }); });
 
-async function install(template: BuiltTemplate, target: string, source = template.archive, sha256 = template.sha256, options: string[] = []) {
+async function install(template: BuiltTemplate, target: string, source = template.archive, sha256 = template.sha256, options: string[] = [], environment: Record<string, string> = {}, preload: string[] = []) {
   try {
-    const result = await execute(process.execPath, ["scripts/install-template.mjs", source,
+    const result = await execute(process.execPath, [...preload, "scripts/install-template.mjs", source,
       "--sha256", sha256, "--size", String(template.size), "--target", target, ...options], {
       cwd: process.cwd(), timeout: 20_000,
-      env: { ...process.env, DEZFIL_EGRESS_ALLOWLIST: "localhost,127.0.0.1" },
+      env: { ...process.env, DEZFIL_EGRESS_ALLOWLIST: "localhost,127.0.0.1", ...environment },
     });
     return { ...result, ok: true };
   } catch (error) {
@@ -166,4 +166,46 @@ it("names an occupied lock without removing it or writing a target", async () =>
     expect(existsSync(lock)).toBe(true);
     expect(existsSync(target)).toBe(false);
   } finally { await rm(lock, { recursive: true }); }
+});
+
+it("the release command bounds a stalled archive and removes its owned scratch and lock", async () => {
+  const catalogue = await startLoopbackCatalogue();
+  const target = path.join(root, "stalled");
+  try {
+    const index = await catalogue.publish([good]);
+    const url = new URL(index.templates[0].archive, catalogue.indexUrl);
+    catalogue.stall(url.pathname);
+    const result = await install(good, target, url.href, good.sha256, [], { DEZFIL_DATA_PROCESSING_TIMEOUT_S: "1" });
+    expect(result.ok).toBe(false);
+    expect(result.stderr).toContain("data_processing_timeout");
+    expect(existsSync(target)).toBe(false);
+    expect((await readdir(root)).filter(name => name.includes("install-") || name.endsWith(".lock"))).toEqual([]);
+  } finally { await catalogue.close(); }
+});
+
+it("keeps the command's deadline after the archive is installed and refuses a stalled shipped-set check", async () => {
+  const target = path.join(root, "stalled-check");
+  const preload = ["--import", path.resolve("test-support/templates/shipped-check-preload.mjs")];
+  // Enough of a limit that the install before the check finishes well inside it.
+  const result = await install(good, target, good.archive, good.sha256, [], { DEZFIL_DATA_PROCESSING_TIMEOUT_S: "3" }, preload);
+  // The archive install finished within the limit, and the check was reached before it ran out.
+  const left = Number(/Shipped-set check entered with (-?\d+) ms left/.exec(result.stderr)?.[1]);
+  expect(left, result.stderr).toBeGreaterThan(0);
+  expect(result.ok).toBe(false);
+  expect(result.stderr).toContain("data_processing_timeout");
+  expect(existsSync(target)).toBe(false);
+  expect((await readdir(root)).filter(name => name.includes("install-") || name.endsWith(".lock"))).toEqual([]);
+});
+
+it("ends the command only once a committed install's overdue cleanup has finished", async () => {
+  const target = path.join(root, "slow-cleanup");
+  const preload = ["--import", path.resolve("test-support/templates/install-cleanup-preload.mjs")];
+  const result = await install(good, target, good.archive, good.sha256, [], {}, preload);
+  expect(result.ok, result.stderr).toBe(true);
+  // The install was answered before its cleanup finished ...
+  expect(result.stderr).toContain("Trusted template-install cleanup overdue after its commit");
+  // ... and the command still waited for that cleanup, lock and scratch included.
+  expect(result.stderr).toContain("Engine reset finished.");
+  expect(await readShippedIndex(target)).toEqual({ formatVersion: 1, templates: [{ id: good.facts.id, version: good.facts.version }] });
+  expect((await readdir(root)).filter(name => name.includes("install-") || name.endsWith(".lock"))).toEqual([]);
 });

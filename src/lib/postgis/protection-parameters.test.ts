@@ -125,7 +125,8 @@ for (const [form, string] of Object.entries(forms)) {
             expect(attachments).toHaveLength(1);
             expect(attachments[0][0]).toContain("hostaddr=''2001:4860:4860::8888''");
             expect(attachments[0][0]).toContain(operation === "create" ? "sslmode=require " : "sslmode=prefer ");
-            expect(attachments[0][0]).not.toContain(`${name}=`);
+            if (name === "options") expect(String(attachments[0][0]).match(/options=''([^']+)''/)?.[1]).toBe("-c statement_timeout=30000");
+            else expect(attachments[0][0]).not.toContain(`${name}=`);
           });
         }
         if (rejected.length) {

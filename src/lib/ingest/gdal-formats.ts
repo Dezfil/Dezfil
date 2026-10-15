@@ -1,3 +1,5 @@
+import { withTrustedMutation } from "@/lib/trusted-mutation";
+import { currentTrustedOperation, isTrustedOperationRefusal } from "@/lib/trusted-operation";
 import { captureIngestBudget, type IngestBudget } from "./budget";
 import { registerAccountFile, removeAccountFile } from "@/lib/ingest/file-ownership";
 import { ownedTableNames, listOwnedTables } from "@/lib/metadata/owned-tables";
@@ -106,6 +108,7 @@ export async function prepareSource(
   const scratchDir = path.join(ingestScratchDir(), randomUUID());
   if (accountId) registerAccountFile(accountId, scratchDir, true);
   await mkdir(scratchDir, { recursive: true });
+  currentTrustedOperation()?.defer(() => removeAccountFile(scratchDir, { recursive: true, force: true }));
   try {
     const { files } = await extractArchive(sourcePath, scratchDir, filename, budget.uploadMaxBytes);
 
@@ -168,6 +171,7 @@ async function enumerateDataset(
     );
     rows = read.getRowObjects() as Record<string, unknown>[];
   } catch (error) {
+    if (isTrustedOperationRefusal(error)) throw error;
     throw malformed(
       format,
       error instanceof Error ? error.message : "unreadable file",
@@ -301,7 +305,8 @@ export async function buildLayerArtifact(
     }
     await conn.run(`COPY (${select}) TO ${lit(artifact)} (FORMAT PARQUET)`);
   } catch (error) {
-    if (error instanceof ApiError) throw error;
+    await removeAccountFile(artifact, { force: true });
+    if (isTrustedOperationRefusal(error)) throw error;
     throw malformed(
       format,
       error instanceof Error ? error.message : "unknown parse error",
@@ -336,13 +341,17 @@ export async function ingestSpatialFile(
   provenance: IngestProvenance = { source: "upload", sourceParams: null },
   requestedName?: string,
   budget: IngestBudget = captureIngestBudget(),
+  signal?: AbortSignal,
 ): Promise<IngestResult> {
-  requireAccountScope(scope);
-  if (provenance?.projectId) requireFilingDestination(scope, provenance.projectId);
-  const format = detectFormat(originalFilename) as GdalFormat;
-  const prepared = await prepareSource(format, sourcePath, originalFilename, scope.accountId, budget);
-  try {
-    return await withConnection(async (conn) => {
+  return withTrustedMutation({ kind: "import", name: "Spatial file import", signal }, async operation => {
+    requireAccountScope(scope);
+    if (provenance?.projectId) requireFilingDestination(scope, provenance.projectId);
+    const format = detectFormat(originalFilename) as GdalFormat;
+    // The extraction folder is removed on the operation's cleanup path (see
+    // prepareSource), never inline after the commit: a removal that stalled
+    // or failed there would hold or replace the committed answer.
+    const prepared = await prepareSource(format, sourcePath, originalFilename, scope.accountId, budget);
+    return withConnection(async (conn) => {
       const { spatial, skipped } = await enumerateLayers(
         conn,
         format,
@@ -387,6 +396,7 @@ export async function ingestSpatialFile(
         const now = new Date().toISOString();
         const tables = db.transaction(() => {
           requireLinkImportRule(scope, provenance, db);
+          operation.assertCanCommit();
           const out: DataTable[] = [];
           for (const b of built) {
             const record: DataTable = {
@@ -419,29 +429,17 @@ export async function ingestSpatialFile(
           }
           return out;
         })();
+        operation.markCommitted();
         return { tables, skipped };
       } catch (error) {
+        operation.refuseIfFinal(error);
         // No partial state, extended to groups: every artifact this import
         // built goes before the error surfaces.
         for (const b of built) await removeAccountFile(b.artifact, { force: true });
         throw error;
       }
     });
-  } finally {
-    // Best-effort: by the time this runs the tables may already be
-    // committed, and a cleanup stumble must not turn that success into a
-    // failure answer. The boot sweep collects strays.
-    if (prepared.scratchDir) {
-      await removeAccountFile(prepared.scratchDir, { recursive: true, force: true }).catch(
-        (error: unknown) =>
-          console.warn(
-            `ingest scratch cleanup failed for ${prepared.scratchDir}: ${
-              error instanceof Error ? error.message : String(error)
-            }`,
-          ),
-      );
-    }
-  }
+  });
 }
 
 /**
@@ -456,28 +454,31 @@ export async function ingestSource(
   provenance?: IngestProvenance,
   requestedName?: string,
   budget: IngestBudget = captureIngestBudget(),
+  signal?: AbortSignal,
 ): Promise<IngestResult> {
-  requireAccountScope(scope);
-  if (provenance?.projectId) requireFilingDestination(scope, provenance.projectId);
-  const format = detectFormat(originalFilename);
-  if (isGdalFormat(format)) {
-    return ingestSpatialFile(
+  return withTrustedMutation({ kind: "import", name: "File import", signal, budgetMs: budget.dataProcessingTimeoutMs }, async () => {
+    requireAccountScope(scope);
+    if (provenance?.projectId) requireFilingDestination(scope, provenance.projectId);
+    const format = detectFormat(originalFilename);
+    if (isGdalFormat(format)) {
+      return ingestSpatialFile(
+        scope,
+        sourcePath,
+        originalFilename,
+        provenance,
+        requestedName,
+        budget,
+      );
+    }
+    const table = await ingestFile(
       scope,
       sourcePath,
       originalFilename,
       provenance,
       requestedName,
-      budget,
     );
-  }
-  const table = await ingestFile(
-    scope,
-    sourcePath,
-    originalFilename,
-    provenance,
-    requestedName,
-  );
-  return { tables: [table], skipped: [] };
+    return { tables: [table], skipped: [] };
+  });
 }
 
 /**

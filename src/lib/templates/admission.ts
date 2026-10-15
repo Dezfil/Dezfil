@@ -1,3 +1,4 @@
+import { currentTrustedOperation } from "@/lib/trusted-operation";
 import { lstat, readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { PROJECT_EXPORT_FORMAT_VERSION } from "@/lib/export/project-export";
@@ -115,6 +116,7 @@ async function listMembers(folder: string): Promise<Map<string, number>> {
   const members = new Map<string, number>();
   const walk = async (dir: string, prefix: string) => {
     for (const entry of await readdir(dir, { withFileTypes: true })) {
+      currentTrustedOperation()?.enterStage("template members");
       const rel = prefix ? `${prefix}/${entry.name}` : entry.name;
       const full = path.join(dir, entry.name);
       if (entry.isDirectory()) {
@@ -143,7 +145,7 @@ async function readDocument(
   if (size > TEMPLATE_DOCUMENT_MAX_BYTES) {
     invalid(`The document "${member}" is larger than a template document may be.`);
   }
-  const text = await readFile(path.join(folder, member), "utf8");
+  const text = await readFile(path.join(folder, member), { encoding: "utf8", signal: currentTrustedOperation()?.signal });
   try {
     return JSON.parse(text);
   } catch {

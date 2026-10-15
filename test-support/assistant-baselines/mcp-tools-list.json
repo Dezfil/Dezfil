@@ -1,6 +1,6 @@
 {
   "count": 156,
-  "overall": "ce452652ef64e2cc8a48d85be72555fe02a6eae1e0ff409c56cd764f4ce23daa",
+  "overall": "a173fd8bb0f9e2bafd88bfe6344272ffec619e3aa3a3ab8260fe7fd309f4db57",
   "tools": {
     "get_account": "1d39e185a29991c180c5357ee693fb43d368491d0c799a0e52600ca88d32baa8",
     "update_account": "1d58af3260a6581ebaf68dbd67d94671d696509451d7ac08c21462b333f88ac2",
@@ -16,8 +16,8 @@
     "update_user_access": "b6ff5ebde601518cd40d339d2f2cbb1a7833e66c5802c830bce1daa8eba2e05a",
     "delete_user": "2e7c773d1adbf131370592a03c08c827f6f074ae70bd6a6e3e25826c694596aa",
     "issue_user_sign_in_link": "820719ea846a13310453ef272afd8f36a0cb3787b4a879690dc149c0b9a7ee90",
-    "get_instance_settings": "82c5222d293b5b56caa82255ff79b0a7e4540e0a80e4e89ff62e3ea50ec29aab",
-    "update_instance_settings": "ae92e94479ec4bbbd7eca7196b7ae16209e508afb4b365cc84ab0af04f8354e9",
+    "get_instance_settings": "e074a4f5e7504b1f5e34e4535424009f2d695492373a8ab2b6a571cb2906aef8",
+    "update_instance_settings": "7460543ad75603664a2e4ddac419d2868a3c24236af18110e7e9594b259a894c",
     "clear_service_caches": "b21e79095a28774eb6eb24ee95a0d2674a9bcf806897a3195e98318605c08b25",
     "test_service": "627e319b6c33cd2d6ec81d04859a2b7df0d699fe99ebd1ad77479d8da66753c3",
     "read_storage": "42b0ae1dc5cde11b6d009ced59d8378746efaeb483a807f13edcf08c1f5e90d3",
@@ -45,7 +45,7 @@
     "update_settings": "643eb3a51aca09093cbd7422a431eb787e4d97f65d6e4abad1332c01c953ad1c",
     "get_api_description": "0fac71e9c96dabc1065eb7b8aade08ee385987e5431c3da05196cc36f5d7d340",
     "list_tables": "1bcbecd1c716315c74e481a7856459e54bfddd5921be277ea0d382a44f986309",
-    "upload_table": "3dabdb0614967c464640d2a817bc15782724067b954281bebbcf65eb4d4572db",
+    "upload_table": "8aa0e04f0b557257481939ec79fc6c7be8e15b545fc576229b4addaa34ab0620",
     "import_table_from_url": "bf79d6d12281a1e4bb13aba699364ca19c4f501fde169ae878412dce33903f29",
     "import_table_from_overture": "a4d4b2f7c8ed016c9a516d640e4301aef01de0dd6f9600c13024a251fecb33b6",
     "preview_overture_import": "8e415d9e8ea5abaf92080d6502005cac847c5a335df968488b4298d7e196530e",

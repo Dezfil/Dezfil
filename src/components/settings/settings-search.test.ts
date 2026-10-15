@@ -174,10 +174,10 @@ describe("what the search finds", () => {
     expect(hits.indexOf("Instance / Limits · Time limit per tool run")).toBeLessThan(hits.indexOf("Instance / Limits · Query time limit"));
     // A keyword alone: the tabs' order, then the rows' order within a tab.
     const rows = paths(searchSettings(index(), "timeout"));
-    expect(rows.slice(0, 6)).toEqual(["Instance / Data & services · Answer time limit", "Instance / Data & services · Time budget per query",
-      "Instance / Limits · Link import time limit", "Instance / Limits · Query time limit",
+    expect(rows.slice(0, 7)).toEqual(["Instance / Data & services · Answer time limit", "Instance / Data & services · Time budget per query",
+      "Instance / Limits · Data processing time limit", "Instance / Limits · Link import time limit", "Instance / Limits · Query time limit",
       "Instance / Limits · Time limit per tool run", "Instance / Limits · Time limit per image"]);
-    expect(rows.slice(6).every(path => path.startsWith("Instance / System · "))).toBe(true);
+    expect(rows.slice(7).every(path => path.startsWith("Instance / System · "))).toBe(true);
   });
 
   it("finds nothing for words no setting holds", () => {

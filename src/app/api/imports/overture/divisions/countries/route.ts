@@ -1,3 +1,4 @@
+import { withTrustedOperation } from "@/lib/trusted-operation";
 import { NextResponse } from "next/server";
 import { errorResponse, ApiError } from "@/lib/api/errors";
 import { listDivisionCountries } from "@/lib/overture/divisions";
@@ -10,6 +11,7 @@ import {
  * */
 export async function GET(request: Request) {
   try {
+    return await withTrustedOperation({ kind: "interactive-read", name: "Overture read", signal: request.signal }, async () => {
     const url = new URL(request.url);
     const release = url.searchParams.get("release") ?? "";
     if (release && !isValidRelease(release)) {
@@ -22,6 +24,7 @@ export async function GET(request: Request) {
     const resolved = release || (await latestOvertureRelease());
     const countries = await listDivisionCountries(resolved);
     return NextResponse.json({ release: resolved, countries });
+    });
   } catch (error) {
     return errorResponse(error);
   }

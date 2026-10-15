@@ -1,3 +1,5 @@
+import { withTrustedMutation } from "@/lib/trusted-mutation";
+import { withTrustedOperation } from "@/lib/trusted-operation";
 import { settingRemedy } from "@/lib/settings/remedy";
 import { admitAccountWork } from "@/lib/auth/account-deletion-admission";
 import { registerAccountFile, removeAccountFile } from "@/lib/ingest/file-ownership";
@@ -388,20 +390,23 @@ export async function buildOvertureArtifact(
  * dev mode shows the real thing even for fetched scope polygons. */
 export async function countOverture(
   params: OvertureImportParams,
+  signal?: AbortSignal,
 ): Promise<{ count: number; query: string }> {
-  const selection = await resolveSelection(params);
-  return withConnection(async (conn) => {
-    await ensureOvertureSupport(conn);
-    try {
-      const present = await presentColumns(conn, params.theme, params.release);
-      const counted = await conn.runAndReadAll(buildOvertureCount(selection));
-      return {
-        count: Number(counted.getRowObjects()[0].n),
-        query: buildOvertureQuery(selection, present),
-      };
-    } catch (error) {
-      mapOvertureError(error);
-    }
+  return withTrustedOperation({ kind: "interactive-read", name: "Overture read", signal }, async () => {
+    const selection = await resolveSelection(params);
+    return withConnection(async (conn) => {
+      await ensureOvertureSupport(conn);
+      try {
+        const present = await presentColumns(conn, params.theme, params.release);
+        const counted = await conn.runAndReadAll(buildOvertureCount(selection));
+        return {
+          count: Number(counted.getRowObjects()[0].n),
+          query: buildOvertureQuery(selection, present),
+        };
+      } catch (error) {
+        mapOvertureError(error);
+      }
+    });
   });
 }
 
@@ -427,53 +432,56 @@ function listItems(value: unknown): unknown[] {
  * only exists server-side. */
 export async function countOvertureLevels(
   params: OvertureImportParams,
+  signal?: AbortSignal,
 ): Promise<{ levels: DivisionLevel[]; query?: string }> {
-  if (params.theme !== "divisions") {
-    throw new ApiError(
-      "invalid_request",
-      "Per-level counts apply to the divisions theme only.",
-      400,
-    );
-  }
-  const { scope } = params;
-  if (scope.type === "country" || scope.type === "state") {
-    const code = scope.code.toUpperCase();
-    const index = await countryDivisionIndex(
-      params.release,
-      scope.type === "country" ? code : code.slice(0, 2),
-    );
-    const rows =
-      scope.type === "country"
-        ? index
-        : index.filter((r) => r.region === code);
-    return { levels: aggregateLevels(rows) };
-  }
-  const selection = await resolveSelection(params);
-  return withConnection(async (conn) => {
-    await ensureOvertureSupport(conn);
-    try {
-      const grouped = await conn.runAndReadAll(
-        buildOvertureLevelCounts(selection),
+  return withTrustedOperation({ kind: "interactive-read", name: "Overture read", signal }, async () => {
+    if (params.theme !== "divisions") {
+      throw new ApiError(
+        "invalid_request",
+        "Per-level counts apply to the divisions theme only.",
+        400,
       );
-      const levels = (
-        grouped.getRowObjects() as {
-          subtype: unknown;
-          n: unknown;
-          samples: unknown;
-        }[]
-      )
-        .map((r) => ({
-          subtype: String(r.subtype),
-          label: subtypeLabel(String(r.subtype)),
-          count: Number(r.n),
-          samples: listItems(r.samples).map((s) => String(s)),
-        }))
-        .sort((a, b) => subtypeOrder(a.subtype) - subtypeOrder(b.subtype));
-      const present = await presentColumns(conn, params.theme, params.release);
-      return { levels, query: buildOvertureQuery(selection, present) };
-    } catch (error) {
-      mapOvertureError(error);
     }
+    const { scope } = params;
+    if (scope.type === "country" || scope.type === "state") {
+      const code = scope.code.toUpperCase();
+      const index = await countryDivisionIndex(
+        params.release,
+        scope.type === "country" ? code : code.slice(0, 2),
+      );
+      const rows =
+        scope.type === "country"
+          ? index
+          : index.filter((r) => r.region === code);
+      return { levels: aggregateLevels(rows) };
+    }
+    const selection = await resolveSelection(params);
+    return withConnection(async (conn) => {
+      await ensureOvertureSupport(conn);
+      try {
+        const grouped = await conn.runAndReadAll(
+          buildOvertureLevelCounts(selection),
+        );
+        const levels = (
+          grouped.getRowObjects() as {
+            subtype: unknown;
+            n: unknown;
+            samples: unknown;
+          }[]
+        )
+          .map((r) => ({
+            subtype: String(r.subtype),
+            label: subtypeLabel(String(r.subtype)),
+            count: Number(r.n),
+            samples: listItems(r.samples).map((s) => String(s)),
+          }))
+          .sort((a, b) => subtypeOrder(a.subtype) - subtypeOrder(b.subtype));
+        const present = await presentColumns(conn, params.theme, params.release);
+        return { levels, query: buildOvertureQuery(selection, present) };
+      } catch (error) {
+        mapOvertureError(error);
+      }
+    });
   });
 }
 
@@ -489,35 +497,38 @@ export interface FeaturePreview {
  * filters, capped by the render cap with truncation stated. */
 export async function previewOvertureFeatures(
   params: OvertureImportParams,
+  signal?: AbortSignal,
 ): Promise<FeaturePreview> {
-  const selection = await resolveSelection(params);
-  const cap = limits.renderCapFeatures;
-  return withConnection(async (conn) => {
-    await ensureOvertureSupport(conn);
-    try {
-      const rows = await conn.runAndReadAll(
-        buildOverturePreview(selection, cap),
-      );
-      const all = rows.getRowObjects() as { geometry: unknown }[];
-      const truncated = all.length > cap;
-      const features = all
-        .slice(0, cap)
-        .filter((r) => r.geometry !== null && r.geometry !== undefined)
-        .map((r, i) => ({
-          type: "Feature",
-          id: i,
-          geometry: JSON.parse(String(r.geometry)) as unknown,
-          properties: {},
-        }));
-      return {
-        geojson: { type: "FeatureCollection", features },
-        featureCount: features.length,
-        truncated,
-        cap,
-      };
-    } catch (error) {
-      mapOvertureError(error);
-    }
+  return withTrustedOperation({ kind: "interactive-read", name: "Overture read", signal }, async () => {
+    const selection = await resolveSelection(params);
+    const cap = limits.renderCapFeatures;
+    return withConnection(async (conn) => {
+      await ensureOvertureSupport(conn);
+      try {
+        const rows = await conn.runAndReadAll(
+          buildOverturePreview(selection, cap),
+        );
+        const all = rows.getRowObjects() as { geometry: unknown }[];
+        const truncated = all.length > cap;
+        const features = all
+          .slice(0, cap)
+          .filter((r) => r.geometry !== null && r.geometry !== undefined)
+          .map((r, i) => ({
+            type: "Feature",
+            id: i,
+            geometry: JSON.parse(String(r.geometry)) as unknown,
+            properties: {},
+          }));
+        return {
+          geojson: { type: "FeatureCollection", features },
+          featureCount: features.length,
+          truncated,
+          cap,
+        };
+      } catch (error) {
+        mapOvertureError(error);
+      }
+    });
   });
 }
 
@@ -527,55 +538,62 @@ export async function importOverture(
   scope: AccountScope,
   request: OvertureImportRequest,
   build: typeof buildOvertureArtifact = buildOvertureArtifact,
+  signal?: AbortSignal,
 ): Promise<DataTable> {
-  const deletionWork = admitAccountWork([requireAccountScope(scope)]);
-  try {
-  requireAccountScope(scope);
-  const projectId = importProjectId(request.projectId);
-  if (projectId) requireFilingDestination(scope, projectId);
-  const { requestedName, ...params } = await resolveOvertureParams(request);
-  const id = randomUUID();
-  const relFile = path.join("tables", `${id}.parquet`);
-  const artifact = path.join(dataDir(), relFile);
-    registerAccountFile(scope.accountId, artifact);
+  return withTrustedMutation({ kind: "import", name: "Overture import", signal }, async operation => {
+    const deletionWork = admitAccountWork([requireAccountScope(scope)]);
+    try {
+    requireAccountScope(scope);
+    const projectId = importProjectId(request.projectId);
+    if (projectId) requireFilingDestination(scope, projectId);
+    const { requestedName, ...params } = await resolveOvertureParams(request);
+    const id = randomUUID();
+    const relFile = path.join("tables", `${id}.parquet`);
+    const artifact = path.join(dataDir(), relFile);
+      registerAccountFile(scope.accountId, artifact);
 
-  try {
-    const meta = await build(params, artifact);
-    const record: Omit<DataTable, "name"> = {
-      id,
-      sourceFilename: `overture_${params.theme}`,
-      format: "geoparquet",
-      file: relFile,
-      geometryColumn: meta.geometryColumn,
-      geometryType: meta.geometryType,
-      crsAssumed: false,
-      headerSuspect: false,
-      rowCount: meta.rowCount,
-      createdAt: new Date().toISOString(),
-      source: "overture",
-      sourceParams: {
-        theme: params.theme,
-        scope: params.scope,
-        semantics: params.semantics,
-        release: params.release,
-        ...(params.level ? { level: params.level } : {}),
-        ...(params.category ? { category: params.category } : {}),
-      },
-      importedAt: new Date().toISOString(),
-    };
-    // Derive-and-register in one synchronous step; the project
-    // membership commits with it.
-    const db = metadataDb();
+    try {
+      const meta = await build(params, artifact);
+      const record: Omit<DataTable, "name"> = {
+        id,
+        sourceFilename: `overture_${params.theme}`,
+        format: "geoparquet",
+        file: relFile,
+        geometryColumn: meta.geometryColumn,
+        geometryType: meta.geometryType,
+        crsAssumed: false,
+        headerSuspect: false,
+        rowCount: meta.rowCount,
+        createdAt: new Date().toISOString(),
+        source: "overture",
+        sourceParams: {
+          theme: params.theme,
+          scope: params.scope,
+          semantics: params.semantics,
+          release: params.release,
+          ...(params.level ? { level: params.level } : {}),
+          ...(params.category ? { category: params.category } : {}),
+        },
+        importedAt: new Date().toISOString(),
+      };
+      // Derive-and-register in one synchronous step; the project
+      // membership commits with it.
+      const db = metadataDb();
 
-    return db.transaction(() => {
-      const table = registerTable(scope, record, requestedName ?? `overture_${params.theme}`, db);
-      if (projectId) fileOwnedTable(scope, table.id, projectId, db);
-      return table;
-    })();
-  } catch (error) {
-    await removeAccountFile(artifact, { force: true });
-    throw error;
-  }
+      const registered = db.transaction(() => {
+        operation.assertCanCommit();
+        const table = registerTable(scope, record, requestedName ?? `overture_${params.theme}`, db);
+        if (projectId) fileOwnedTable(scope, table.id, projectId, db);
+        return table;
+      })();
+      operation.markCommitted();
+      return registered;
+    } catch (error) {
+      operation.refuseIfFinal(error);
+      await removeAccountFile(artifact, { force: true });
+      throw error;
+    }
 
-  } finally { deletionWork.release(); }
+    } finally { deletionWork.release(); }
+  });
 }

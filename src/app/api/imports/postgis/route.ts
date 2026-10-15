@@ -33,7 +33,7 @@ export async function POST(request: Request) {
       filter: body.filter,
       limit: body.limit,
       projectId,
-    });
+    }, undefined, request.signal);
     return NextResponse.json(
       { ...table, projectIds: projectId ? [projectId] : [] },
       { status: 201 },

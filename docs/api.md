@@ -497,8 +497,8 @@ browser lands on the page `landingPage` names (`/projects`, `/maps`,
 signed-in visit to the setup or sign-in page redirects to Home; the invitation
 page opens whether or not someone is signed in. Responses are private, no-store.
 
-`PATCH /api/instance/settings` changes only submitted editable keys, sixty-nine
-of them: the fourteen Limits numbers; the services' eight numbers
+`PATCH /api/instance/settings` changes only submitted editable keys, seventy
+of them: the fifteen Limits numbers; the services' eight numbers
 `geocodePaceMs`, `geocodeRequestTimeoutS`, `geocodeMatchCacheHours`,
 `isochronePaceMs`, `isochroneRequestTimeoutS`, `isochroneCacheHours`,
 `overpassTimeoutS` and `overpassCacheHours`, in their variables' units; the four
@@ -552,6 +552,24 @@ password, publication or connection that exists changes with it. Text is trimmed
 280 for the message, 120 for the contact). Empty text clears the stored value and reports
 the default source. The generated tool input accepts the same whitespace
 padding through a string pattern. The answer is the same configuration document as the read.
+
+`dataProcessingTimeoutS` (Data processing time limit) defaults to 3600 seconds.
+The settings API accepts whole seconds from 60 to 21600; null resets it.
+A stored value applies live to newly admitted work. `trustedMemoryMb`
+(Trusted engine memory, 3072 engine MB) and `renderCapBytes` (Bytes drawn per
+layer, 134217728 bytes or 128 MiB) are fixed and reject writes, including null.
+Their variables are `DEZFIL_TRUSTED_MEMORY_MB`,
+`DEZFIL_DATA_PROCESSING_TIMEOUT_S` and `DEZFIL_RENDER_CAP_BYTES`: non-empty
+overrides lock the corresponding row and require restart. Trusted scratch
+is enforced at four times trusted memory, with no separate setting. All trusted
+work shares one engine memory budget and one dedicated `engine-spill/` directory;
+restart clears abandoned spill there. Exhaustion answers `422 engine_memory_exceeded`,
+naming memory or scratch and `DEZFIL_TRUSTED_MEMORY_MB`. The byte
+value describes a complete uncompressed UTF-8 JSON inline answer, envelope
+included, with equality admitted. These three settings are exposed for
+configuration. File, link, OpenStreetMap, Overture and PostGIS imports and refreshes use the processing limit;
+Upload reception uses the same admitted value with its own deadline; render enforcement is not yet active. Geometry and sketch changes,
+template installation and export conversion also use the processing limit.
 
 The admin and the complete body are checked inside one immediate transaction
 against the committed configuration. Any refusal or failure rolls back the
@@ -1449,7 +1467,7 @@ server-side, so filesystem paths and engine text stay out of responses
 The complete catalogue is published two ways in the same document: as the
 enum of the `Error` schema, and as `x-error-codes` at the top level, which
 maps every code to a sentence explaining what it means
-(`src/lib/api/error-catalogue.ts`). There are **136** codes. Clients should
+(`src/lib/api/error-catalogue.ts`). There are **141** codes. Clients should
 branch on codes, never on prose.
 
 One status is unusual: a client that abandons an in-flight evaluation gets
@@ -2204,11 +2222,80 @@ current = await request("PATCH", path, { name: "Survey map" });
 current = await request("PATCH", path, { basemap: "light" });
 ```
 
+Upload reception and processing have separate deadlines with the value captured
+when reception begins. A change to Data processing time limit during receipt
+changes neither. Reception expiry answers `408 data_processing_timeout`, naming
+reception and the admitted seconds. Sixty seconds without a body byte, including
+before the first byte, answers `408 upload_stalled`. A decided time or size
+refusal keeps its code through cancellation, while a caller who leaves after an
+interrupted body is answered as departed. A refusal is delivered without waiting
+for another byte;
+the native ingress closes a connection whose body was still arriving within five
+seconds, keeps a completely received one for reuse, and removes partial
+reception files. Fully received uploads continue processing after caller
+departure. Other request bodies retain a 300-second receive deadline
+(`408 request_timeout`); the header limit remains 60 seconds.
+
 ## Error catalogue
 
 The table is checked against `x-error-codes` and the Error schema. Codes are stable;
 messages below describe the meaning, and operation-specific details may refine the
 response message. Branch on the code.
+
+The resource refusal statuses are also published as `x-resource-error-statuses`:
+`engine_memory_exceeded` is 422, `data_processing_timeout`, `upload_stalled` and `request_timeout`
+are 408, and `render_bytes_exceeded` is 422 on readers that refuse the request.
+An errored-layer envelope keeps its route's normal HTTP status. Dataset inspection, catalogue, map features, geometry inspection and preview,
+and projection lookup use one Query time limit through preparation and all
+reads. Caller departure cancels them; a shared inspection continues while
+another caller remains interested, under its original deadline. Their trusted
+engine failures preserve `422 engine_memory_exceeded`; deadlines keep
+`408 query_timeout`. File and archive import processing, link and object-store imports, and URL
+refreshes use one Data processing time limit through source preparation, every
+artifact and commit. Accepted processing continues after caller departure.
+Expiry refuses the commit with `408 data_processing_timeout`; new artifacts
+are removed and a refused refresh retains its previous data. Link download
+limits and their existing refusals remain in force. OpenStreetMap previews
+use the query lifetime through the Overpass response and geometry assembly;
+imports and group refreshes use the processing lifetime across all classes.
+Overpass time, response-size and area refusals keep their existing codes.
+Overture release discovery, division reads, counts and previews use the query
+lifetime, including scope preparation. Imports and refreshes use the processing
+lifetime through the artifact commit. Shared division reads retain the first
+deadline and stop after their last interested caller leaves. Area and feature
+limits retain their existing refusals. PostGIS connection tests, catalogue reads
+and previews use the query lifetime; imports and refreshes use the processing
+lifetime. Every source attachment has a statement ceiling, a unique source
+identity and an interrupt owner. Imports and refreshes give their source
+statements a ceiling of the processing time left when the source is attached
+and answer `408 data_processing_timeout` when a source outlasts the limit.
+Previews keep a 30-second ceiling; connection checks and catalogue reads keep it
+too, or take the Query time left when the source is attached if that is less.
+Both answer `408 query_timeout`. When an operation is refused while one of its
+source statements runs (its time limit, a departure that cancels it, or a
+resource refusal), that attachment's statements are cancelled on the source
+through a short-lived second connection with a 5-second connect limit, using the
+connection's own role, so source work settles within the 35-second allowance
+even when its statement started late. The ceiling remains the backstop if the
+cancellation fails, which is logged. At most three quarters of the server's
+worker pool (3 calls at the runtime's default) may be out on PostGIS sources at
+once, so blocked source reads always leave a worker for the cancellation and
+the rest of the server; further source calls wait within their own time limit,
+and a refusal while waiting answers as usual. The
+10-second connect limit remains. Teardown runs after
+native work drains, including a late attachment success after refusal. Render
+byte enforcement is not yet active. Geometry set and clear
+use the processing lifetime through preparation and revision-checked replacement.
+They continue after departure; expiry or resource refusal removes the candidate
+and retains the previous artifact. Sketch feature reads and map summaries use
+one query lifetime. Sketch changes retain a processing deadline through queue
+waiting, inherited reads, conversion and identity-checked replacement. An expired
+queued writer leaves without bypassing its predecessor; accepted changes
+continue after caller departure. Dataset conversions and project exports use
+the processing limit and cancel on departure. All conversions and archive
+assembly inside a project export share its original deadline; failed exports
+remove converted files and the staged archive, retaining source artifacts. Hardened query memory refusal remains
+`400 query_memory_exceeded`, including template validation.
 
 <!-- error-catalogue:start -->
 | Code | Meaning |
@@ -2266,6 +2353,11 @@ response message. Branch on the code.
 | `sql_rejected` | The SQL was not an accepted read-only query. |
 | `sql_error` | The SQL failed to parse or execute. |
 | `query_timeout` | The query exceeded the configured timeout. |
+| `engine_memory_exceeded` | Trusted data work exceeded its shared memory or scratch budget. Reduce the work, or raise DEZFIL_TRUSTED_MEMORY_MB and restart. |
+| `data_processing_timeout` | Data processing exceeded its admitted time limit. An admin can change Data processing time limit for new work. |
+| `request_timeout` | The request body was not received within 300 s. |
+| `upload_stalled` | The upload sent no body bytes for 60 seconds. Retry the upload. |
+| `render_bytes_exceeded` | The layer exceeds the configured uncompressed inline answer byte limit. |
 | `query_memory_exceeded` | The query exceeded the configured engine memory budget for user SQL. |
 | `query_result_too_large` | The result is too large to return: more than 32 MB in total, or one non-geometry value over 2 MB. Select fewer rows or columns, or shorten the value. |
 | `tile_build_timeout` | A tile-build stage exceeded the configured tile-build timeout. |

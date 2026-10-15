@@ -1,9 +1,10 @@
+import { withTrustedMutation } from "@/lib/trusted-mutation";
 import { readBudgetedRows } from "@/lib/query/budget-reader";
 import { ResultBudget, jsonBytes } from "@/lib/query/result-budget";
 import type { AccountScope } from "@/lib/auth/scope";
 import { requireOwnedResource } from "@/lib/auth/owned-resource";
 import { ApiError, EvaluationCancelled } from "@/lib/api/errors";
-import { assertPreviewActive } from "./preview-owner";
+import { assertPreviewActive } from "./source-owner";
 import type { RemoteColumn } from "./access";
 import {
   assertFilterSafe,
@@ -121,7 +122,7 @@ function composePreviewSelect(
  * deliberately substitutes a stable sentence instead of relaying internals. */
 export function previewReadError(error: unknown): ApiError {
   if (error instanceof EvaluationCancelled) throw error;
-  if (error instanceof ApiError && (error.code === "query_timeout" || error.code === "query_result_too_large")) return error;
+  if (error instanceof ApiError && (error.code === "query_timeout" || error.code === "query_result_too_large" || error.code === "engine_memory_exceeded" || error.code === "data_processing_timeout")) return error;
   return new ApiError(
     "malformed_file",
     "The preview could not be read from PostGIS. Check the filter expression.",
@@ -170,7 +171,7 @@ export async function buildPostgisPreview(
     } catch (error) {
       throw previewReadError(error);
     }
-  }, { signal });
+  }, { signal, preview: true });
 }
 
 /** Preview a saved connection. A read: success, a source
@@ -184,16 +185,18 @@ export async function previewPostgis(
   build: typeof buildPostgisPreview = buildPostgisPreview,
   signal?: AbortSignal,
 ): Promise<Omit<PostgisPreviewResult, "connectionHealth">> {
-  assertPreviewActive(signal);
-  const request = resolvePostgisPreviewRequest(input);
-  const { target } = requireTarget(scope, connectionId);
-  let result: PostgisPreviewResult;
-  try {
-    result = await build(target, request, undefined, signal);
+  return withTrustedMutation({ kind: "interactive-read", name: "PostGIS preview", signal }, async () => {
     assertPreviewActive(signal);
-    requireOwnedResource(scope, "connection", connectionId);
-  } catch (caught) {
-    throw signal?.aborted ? new EvaluationCancelled() : caught;
-  }
-  return { columns: result.columns, rows: result.rows };
+    const request = resolvePostgisPreviewRequest(input);
+    const { target } = requireTarget(scope, connectionId);
+    let result: PostgisPreviewResult;
+    try {
+      result = await build(target, request, undefined, signal);
+      assertPreviewActive(signal);
+      requireOwnedResource(scope, "connection", connectionId);
+    } catch (caught) {
+      throw signal?.aborted ? new EvaluationCancelled() : caught;
+    }
+    return { columns: result.columns, rows: result.rows };
+  });
 }

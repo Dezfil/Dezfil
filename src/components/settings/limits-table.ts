@@ -41,6 +41,7 @@ const EVERY_10_SECONDS = { unit: "every 10 seconds" };
 export const LIMITS_CARDS: readonly LimitsCard[] = [
   { id: "limits-imports", title: "Imports", keys: "import upload size file", rows: [
     setting("uploadMaxMb", "set-largest-upload", "Largest upload", "file size upload zip archive"),
+    setting("dataProcessingTimeoutS", "set-data-processing-time", "Data processing time limit", "upload reception import refresh geometry sketch export timeout"),
     setting("remoteMaxMb", "set-largest-link-import", "Largest link import", "url remote download s3 object store size"),
     setting("remoteTimeoutS", "set-link-import-time", "Link import time limit", "url remote download timeout"),
     setting("osmMaxKm2", "set-osm-area", "OpenStreetMap area", "osm overpass area budget km2 square kilometres"),
@@ -48,10 +49,11 @@ export const LIMITS_CARDS: readonly LimitsCard[] = [
       { meta: "For places. Buildings and addresses get a fifth of it." }),
   ] },
   { id: "limits-queries", title: "Queries", keys: "sql query engine", rows: [
-    setting("queryTimeoutS", "set-query-time", "Query time limit", "timeout sql layer render", { meta: "Also applies to published maps." }),
+    setting("queryTimeoutS", "set-query-time", "Query time limit", "timeout sql layer render", { meta: "Also applies to inspection, previews and published maps." }),
     setting("previewRows", "set-preview-rows", "Rows shown in results", "preview rows result table sql"),
     setting("renderCapFeatures", "set-render-cap", "Features drawn per layer", "render cap features layer map points tiles",
       { meta: "Past this, point layers switch to tiles." }),
+    setting("renderCapBytes", "set-render-bytes", "Bytes drawn per layer", "render bytes layer json uncompressed"),
   ] },
   { id: "limits-tools", title: "Tools", keys: "operations tools workflow run", rows: [
     setting("operationConcurrency", "set-tools-at-once", "Tools running at once", "concurrency operations parallel lane",

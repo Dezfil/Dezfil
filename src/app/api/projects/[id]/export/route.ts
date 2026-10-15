@@ -72,10 +72,10 @@ export async function POST(request: Request, { params }: Params) {
       datasetFormat: datasetFormatOf(body.datasetFormat),
     };
     if (body.prepare !== true) return await streamPrivateCopy(scope, [{ table: "projects", id }], async () => {
-      const file = await assembleProjectExport(scope, id, selection);
+      const file = await assembleProjectExport(scope, id, selection, request.signal);
       return { ...file, contentType: "application/zip", cleanup: () => removeAccountFile(file.path, { force: true }) };
     }, request.signal);
-    const prepared = await assembleProjectExport(scope, id, selection);
+    const prepared = await assembleProjectExport(scope, id, selection, request.signal);
     const { ticket, key } = createProjectExportTicket(scope, id, prepared);
     return NextResponse.json({
       ticket,

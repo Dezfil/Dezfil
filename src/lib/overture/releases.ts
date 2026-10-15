@@ -1,3 +1,5 @@
+import { withTrustedOperation } from "@/lib/trusted-operation";
+import { currentTrustedOperation, isTrustedOperationRefusal } from "@/lib/trusted-operation";
 import { ApiError } from "@/lib/api/errors";
 import { readCapped } from "@/lib/net/read-capped";
 import { openRemote } from "@/lib/net/remote-fetch";
@@ -59,13 +61,18 @@ function listingFailed(detail: string): ApiError {
  * listing and Overture's Test send through here.
  */
 export async function sendReleaseListing(timeoutError: () => ApiError): Promise<{ statusCode: number; releases: string[] }> {
-  const response = await openRemote(listUrl(), { timeoutMs: LISTING_TIMEOUT_MS, timeoutError });
-  if (response.statusCode !== 200) {
-    response.body.destroy();
-    return { statusCode: response.statusCode, releases: [] };
-  }
-  const text = await readCapped(response.body, LISTING_MAX_BYTES);
-  return { statusCode: 200, releases: text === null ? [] : parseReleaseListing(text) };
+  const read = async () => {
+    const response = await openRemote(listUrl(), { timeoutMs: LISTING_TIMEOUT_MS, timeoutError, signal: currentTrustedOperation()?.signal });
+    if (response.statusCode !== 200) {
+      response.body.destroy();
+      return { statusCode: response.statusCode, releases: [] };
+    }
+    const text = await readCapped(response.body, LISTING_MAX_BYTES);
+    currentTrustedOperation()?.assertCanCommit();
+    return { statusCode: 200, releases: text === null ? [] : parseReleaseListing(text) };
+  };
+  // The caller may handle an outage with a fallback before deciding its outcome.
+  return currentTrustedOperation() ? read() : withTrustedOperation({ kind: "interactive-read", name: "Overture releases" }, read);
 }
 
 /**
@@ -86,11 +93,14 @@ export async function requestReleaseListing(): Promise<string[]> {
  * kept list. An outage gives the pinned fallback; the egress check's refusal
  * is passed on.
  */
-export async function listOvertureReleases(options: { refresh?: boolean } = {}): Promise<string[]> {
-  if (!options.refresh && cache && Date.now() - cache.at < CACHE_TTL_MS) return cache.releases;
-  return requestReleaseListing().then(keepReleaseList, (error: unknown) => {
-    if (error instanceof ApiError && error.code === "egress_blocked") throw error;
-    return FALLBACK_RELEASES;
+export async function listOvertureReleases(options: { refresh?: boolean; signal?: AbortSignal } = {}): Promise<string[]> {
+  return withTrustedOperation({ kind: "interactive-read", name: "Overture releases", signal: options.signal }, async () => {
+    if (!options.refresh && cache && Date.now() - cache.at < CACHE_TTL_MS) return cache.releases;
+    return requestReleaseListing().then(keepReleaseList, (error: unknown) => {
+      currentTrustedOperation()?.assertCanCommit();
+      if (isTrustedOperationRefusal(error) && (!(error instanceof ApiError) || error.code !== "remote_fetch_failed")) throw error;
+      return FALLBACK_RELEASES;
+    });
   });
 }
 

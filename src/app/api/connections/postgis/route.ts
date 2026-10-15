@@ -15,6 +15,6 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const scope = requireRequestScope(request);
-    return NextResponse.json(await createConnection(scope, await largeJsonValue(request, () => null)), { status: 201 });
+    return NextResponse.json(await createConnection(scope, await largeJsonValue(request, () => null), request.signal), { status: 201 });
   } catch (error) { return errorResponse(error); }
 }

@@ -34,7 +34,7 @@ export async function POST(request: Request) {
       semantics: body.semantics,
       name: body.name,
       projectId,
-    });
+    }, request.signal);
     return NextResponse.json(
       {
         tables: tables.map((t) => ({

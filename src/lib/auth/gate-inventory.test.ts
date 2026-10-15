@@ -123,7 +123,7 @@ it("answers TRACE in the product ingress before a handler or body read", () => {
       try {
         new Server().on(event, reached).emit(event, incoming, response);
         expect(response.statusCode).toBe(400);
-        expect(head).toHaveBeenCalledExactlyOnceWith(400, { "cache-control": "private, no-store", "content-length": "0" });
+        expect(head).toHaveBeenCalledExactlyOnceWith(400, { "cache-control": "private, no-store", "content-length": "0", connection: "close" });
         expect(end).toHaveBeenCalledExactlyOnceWith();
         expect(reached).not.toHaveBeenCalled(); expect(read).not.toHaveBeenCalled();
       } finally { incoming.destroy(); socket.destroy(); }

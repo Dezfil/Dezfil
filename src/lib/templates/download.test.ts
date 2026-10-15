@@ -33,7 +33,7 @@ import * as shipped from "./shipped-index";
 /** A disk that fills under a download: each write the file named takes is
  * accepted, held in a buffer that is full at once (so the writer waits to
  * drain), and then fails as a full device fails it, after the call. */
-const disk = vi.hoisted(() => ({ full: null as ((file: string) => boolean) | null }));
+const disk = vi.hoisted(() => ({ full: null as ((file: string) => boolean) | null, stuck: null as ((file: string) => boolean) | null }));
 vi.mock("node:fs", async (importOriginal) => {
   const actual = await importOriginal<typeof import("node:fs")>();
   const createWriteStream = ((file, options) => {
@@ -46,6 +46,15 @@ vi.mock("node:fs", async (importOriginal) => {
     return stream;
   }) as typeof actual.createWriteStream;
   return { ...actual, default: { ...actual, createWriteStream }, createWriteStream };
+});
+/** A folder the disk will not let go of: removing the one named fails. */
+vi.mock("node:fs/promises", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("node:fs/promises")>();
+  const rm = (async (file, options) => {
+    if (disk.stuck?.(String(file))) throw Object.assign(new Error(`EBUSY: resource busy or locked, rmdir '${String(file)}'`), { code: "EBUSY" });
+    return actual.rm(file, options);
+  }) as typeof actual.rm;
+  return { ...actual, default: { ...actual, rm }, rm };
 });
 
 /**
@@ -92,6 +101,7 @@ beforeEach(async () => {
 });
 afterEach(async () => {
   disk.full = null;
+  disk.stuck = null;
   setDownloadSeamForTests(null);
   await catalogue.close();
   resetCatalogueForTests();
@@ -206,6 +216,29 @@ describe("two fetches of one version", () => {
     expect(await fetchAs(MAP_ID)).toEqual({ id: MAP_ID, version: 1, size: A1.size, downloaded: true });
     expect((await readInstalledVersion(versionFolder(MAP_ID, 1))).record.origin).toEqual({ kind: "folder" });
     expect(catalogue.requests).toEqual([]);
+  });
+});
+
+describe("a scratch folder that cannot be removed after the install", () => {
+  it("answers the installed version, logs the failure once, and leaves the version installed", async () => {
+    await catalogue.publish([A1]);
+    await refresh();
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const scratch = (file: string) => path.dirname(file) === ingestScratchDir() && path.basename(file).startsWith("template-");
+    disk.stuck = scratch;
+    try {
+      const answer = await fetchAs(MAP_ID).then(value => ({ value }), error => ({ error }));
+      expect(answer).toEqual({ value: { id: MAP_ID, version: 1, size: A1.size, downloaded: true } });
+      expect(warn).toHaveBeenCalledOnce();
+      expect(warn).toHaveBeenCalledWith("Trusted template-install cleanup failed after its commit",
+        expect.objectContaining({ errors: [expect.objectContaining({ code: "EBUSY" })] }));
+      expect((await readInstalledVersion(versionFolder(MAP_ID, 1))).record).toMatchObject({ id: MAP_ID, version: 1 });
+    } finally {
+      disk.stuck = null; warn.mockRestore();
+      for (const name of await readdir(ingestScratchDir()).catch(() => [])) {
+        if (scratch(path.join(ingestScratchDir(), name))) await rm(path.join(ingestScratchDir(), name), { recursive: true, force: true });
+      }
+    }
   });
 });
 

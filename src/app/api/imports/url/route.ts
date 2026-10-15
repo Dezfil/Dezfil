@@ -33,7 +33,7 @@ export async function POST(request: Request) {
     // contacted.
     const projectId = importProjectId((body as { projectId?: unknown }).projectId);
     if (projectId) requireFilingDestination(scope, projectId);
-    const result = await importFromUrl(scope, body.url, body.name, projectId);
+    const result = await importFromUrl(scope, body.url, body.name, projectId, request.signal);
     const filed = {
       ...result,
       tables: result.tables.map((t) => ({

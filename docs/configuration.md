@@ -88,7 +88,8 @@ as the catalogue documents it.
 Two classes are deliberately outside the check: test-local seams
 (`DEZFIL_TEST_*` read only by test files in `src/`, and `DEZFIL_BASE_URL`) and
 platform plumbing (`NODE_ENV`, `PORT`, `HOSTNAME`, `NEXT_RUNTIME`, `TZ`, `CI`,
-`PATH`, `DUCKDB_EXTENSION_DIR`). Both are listed at the end of this page.
+`PATH`, `DUCKDB_EXTENSION_DIR`, `UV_THREADPOOL_SIZE`). Both are listed at the
+end of this page.
 
 ## Instance defaults
 
@@ -437,12 +438,82 @@ behavior and [the API guide](api.md#request-bounds) for exact refusals.
 | Variable | Default | Effect | Changed by |
 |---|---|---|---|
 | `DEZFIL_UPLOAD_MAX_MB` | `5120` | Size cap for one uploaded file. | App (live) or restart |
+| `DEZFIL_DATA_PROCESSING_TIMEOUT_S` | `3600` | Data processing time limit, in seconds, for reception and processing separately. Stored whole seconds from 60 to 21600 apply to newly admitted work; reset with null. A non-empty deployment override locks the row. | App (live) or restart |
 | `DEZFIL_REMOTE_MAX_MB` | `2048` | Size cap for one remote import (URL or object store). Deliberately below the upload cap: remote fetches run unattended. | App (live) or restart |
 | `DEZFIL_REMOTE_TIMEOUT_S` | `300` | Time bound for one whole remote fetch, redirects and body included. | App (live) or restart |
 | `DEZFIL_EGRESS_ALLOWLIST` | unset | Comma-separated hosts, IPs, or CIDRs the server may fetch for a user despite the egress policy. By default loopback, private-network, link-local, and cloud-metadata destinations are refused for every request the policy governs: imports and refreshes from web addresses, cloud storage links read without the server's credentials, database connections, the address finder and place search, travel time, OpenStreetMap, the Overture release list, custom basemap styles, map image exports, the satellite imagery, the satellite imagery's Test and the template catalogue (`src/lib/net/egress.ts`). A loopback Overpass or Overture fixture needs it too. | Restart |
 | `DEZFIL_OBJECT_STORE_CREDENTIALS` | off | `1`, `true`, or `yes` signs `s3://`, `gs://`, and `az://` imports with the instance's own credential chain. Off, object-store reads are anonymous, so a user can only read what the public can (`src/lib/ingest/remote.ts`). | Restart |
 | `DEZFIL_S3_ENDPOINT` | AWS | S3-compatible endpoint for anonymous `s3://` imports, addressed path-style. | App (live) or restart |
 | `DEZFIL_TEMPLATES_CATALOGUE` | `https://github.com/Dezfil/templates/releases/latest/download/index.json` | The template catalogue's index, read by the server; see [Templates](#templates). The variable alone may name a folder on the server instead, read as files under the same checks and never disclosed by its path. | App (live) or restart |
+
+Trusted work shares the configured engine memory (3072 MB by default) and
+spill storage under `engine-spill/` in the data directory, capped at four times
+that memory (12288 MB by default). Restart removes abandoned spill without
+touching tables, metadata, tiles or other temporary work. Memory or scratch
+exhaustion answers `422 engine_memory_exceeded`, naming the work, shared budget
+and `DEZFIL_TRUSTED_MEMORY_MB` remedy. These are engine budgets within the
+supported 8 GiB container profile, not a whole-process memory ceiling.
+Bytes drawn per layer is exposed for configuration; its enforcement is not yet active. File and archive import processing, link
+and object-store imports, URL refreshes, and OpenStreetMap, Overture and PostGIS imports and refreshes
+use the Data processing time limit
+through preparation and commit. Accepted processing continues after departure;
+expiry removes candidates and leaves previously committed data intact. Upload
+reception and processing each get the same limit captured when receiving begins,
+with a fresh processing deadline after the complete file reaches disk. A settings
+change during receipt changes neither budget. No body byte for 60 seconds,
+including before the first byte, answers `408 upload_stalled`; continuous progress
+past the reception deadline answers `408 data_processing_timeout`, naming
+reception and the admitted limit. The first refusal wins, except that a caller
+leaving after an interrupted body is answered as departed. Refusals are sent
+without draining the remaining body, with a one-second fallback for delayed
+cleanup and a five-second connection-close bound while the body is still
+arriving; a refused request whose body arrived completely keeps its connection. Incomplete reception cancels
+on departure and removes its partial file. Other request bodies retain a
+300-second receive limit (`408 request_timeout`), and headers retain 60 seconds.
+The native server's clock is above these application deadlines, including a
+larger deployment override. Fully received requests can reuse their connection.
+The upload surface shows application refusal messages; a lost connection or an
+intermediary response remains an unconfirmed transport outcome. Dataset and geometry inspection, catalogue reads, dataset map
+features and projection lookup now share one admitted Query time limit through
+preparation and reads, and cancel when the last interested caller leaves.
+OpenStreetMap previews use the same query lifetime through source preparation
+and geometry assembly, retaining the existing Overpass time and size limits.
+Overture release discovery, divisions, counts and previews also use the query
+lifetime, including scope preparation. Shared division reads retain the original
+deadline while callers can leave independently; imports and refreshes inherit
+the processing lifetime through commit. Committed work answers with its success
+even when the scratch cleanup after it outlasts the limit. PostGIS connection tests, catalogue
+reads and previews use the query lifetime, with imports and refreshes under
+the processing lifetime. Every PostGIS attachment retains the 10-second connect
+limit and owned interruption. Imports and refreshes give their source statements
+a ceiling of the processing time left when the source is attached, and a source
+that outlasts the limit answers `408 data_processing_timeout`. Previews keep a
+30-second source statement ceiling; connection checks and catalogue reads keep
+it too, or take the Query time left when the source is attached if that is
+less. Both answer `408 query_timeout`. A refusal (the time limit, a departure
+that cancels the work, or a resource refusal) cancels the attachment's running
+statements on the source through a short-lived second connection under the same
+role, with a 5-second connect limit, so source work settles within the 35-second
+allowance even when its statement started late; the ceiling stays as the
+backstop, and a failed cancellation is logged. A source statement blocked on
+the server holds one of the runtime's workers, so at most three quarters of
+that pool (`UV_THREADPOOL_SIZE`, 4 unless set, so 3 at once) may be out on
+PostGIS sources; the rest wait their turn within their own time limit, and a
+worker stays free for the cancellation and the rest of the server. Geometry set and clear
+use one processing lifetime through preparation, revision checks and replacement,
+continue after departure, and retain the previous artifact on refusal. Sketch
+feature reads and map summaries share the query lifetime; sketch changes keep
+one processing deadline through queue waiting, reads, conversion and commit.
+Accepted changes continue after departure. An expired queued change cannot
+write later or let a successor bypass an active predecessor. Dataset conversion
+and project export use the processing limit, cancel on departure, and clean
+temporary conversions and unfinished archives. All conversions in a project
+export inherit one deadline. Template download, preparation, validation and
+installation also share one processing deadline, including queue waiting and
+shared downloads. Later callers do not extend it; accepted installation continues
+after departure. Hardened template validation keeps its own query and memory
+limits. The release install command retains the complete shipped-set check and
+removes its owned scratch and lock on refusal.
 
 ## Open data providers
 
@@ -461,8 +532,9 @@ behavior and [the API guide](api.md#request-bounds) for exact refusals.
 
 | Variable | Default | Effect | Changed by |
 |---|---|---|---|
-| `DEZFIL_QUERY_TIMEOUT_S` | `60` | Timeout for any evaluation of user SQL: the SQL workspace, layer rendering, and published views alike. | App (live) or restart |
+| `DEZFIL_QUERY_TIMEOUT_S` | `60` | Time limit for any evaluation of user SQL (the SQL workspace, layer rendering and published views) and for the interactive reads beside it: dataset, geometry and sketch reads, catalogue reads, projection lookup, OpenStreetMap, Overture and PostGIS previews, and PostGIS connection checks. | App (live) or restart |
 | `DEZFIL_QUERY_MEMORY_MB` | `2048` | Memory budget of the hardened read-only engine instance, shared by every query on it. A query past it fails with a coded error and the instance keeps serving. | Restart |
+| `DEZFIL_TRUSTED_MEMORY_MB` | `3072` | Trusted engine memory, in engine MB, shared across trusted work. Dedicated scratch allowance is four times this value. Fixed without an override; locked with one. Shown on System beside hardened engine memory. | Restart |
 | `DEZFIL_PREVIEW_ROWS` | `1000` | Rows returned in a query or preview result. | App (live) or restart |
 | `DEZFIL_SLIDER_PREVIEW_ROWS` | `50000` | Source points transferred for an interactive slider preview. | Restart |
 
@@ -471,6 +543,7 @@ behavior and [the API guide](api.md#request-bounds) for exact refusals.
 | Variable | Default | Effect | Changed by |
 |---|---|---|---|
 | `DEZFIL_RENDER_CAP_FEATURES` | `250000` | Features a single layer renders before the API asks for a limit or an aggregation instead. | Restart |
+| `DEZFIL_RENDER_CAP_BYTES` | `134217728` | Bytes drawn per layer (128 MiB): each complete uncompressed UTF-8 JSON inline answer, including its envelope. Equality is admitted. Fixed without an override; locked with one. Shown on Limits > Queries. | Restart |
 | `DEZFIL_TILE_BUILD_TIMEOUT_S` | `600` | Timeout for each stage of a background tile build. | Restart |
 | `DEZFIL_TIPPECANOE` | `tippecanoe` | Path to the tile-building binary (`src/lib/tiles/tiler.ts`). The image installs it on the path. | Restart |
 | `DEZFIL_BASEMAP_URL` | built-in styles | A MapLibre style URL that replaces the built-in basemap and pins it in both themes, for instances with no internet access (`src/lib/basemap.ts`). | Restart |
@@ -585,6 +658,7 @@ self-hoster, and the README check excludes them by name.
 | `PATH` | the system | The program search path. A tile builder or an image renderer whose setting names a program rather than a path is looked up there. |
 | `DUCKDB_EXTENSION_DIR` | image sets `/app/duckdb-extensions` | The baked engine extension bundle. Overriding it defeats the offline guarantee. |
 | `NEXT_TELEMETRY_DISABLED` | image sets `1` | Turns off the framework's own telemetry during build and at runtime. |
+| `UV_THREADPOOL_SIZE` | the runtime, 4 unless set before start | The runtime's worker pool, shared by engine calls, file system work and password hashing. PostGIS source calls may hold at most three quarters of it at once (at least one), so blocked source reads always leave a worker for their cancellation and for the rest of the server. Raising it raises that share. |
 | `TZ`, `CI` | environment | Excluded by name from the README check; the code does not read them as settings. |
 
 ## Test and development wiring
@@ -623,3 +697,51 @@ select an optional arm or name an output file. They are local to the file
 that reads them and are not part of the settings surface. The README check
 does not see them, because it scans non-test source files under `src` and only `DEZFIL_TEST_*`
 reads in helper scripts and in those source files.
+
+
+## Production upload reception check
+
+| Probe | Port variable | Meaning |
+|---|---|---|
+| Upload reception | `DEZFIL_UPLOAD_RECEPTION_PORT` | Test process only. Port of a running production standalone sharing its fresh scratch data directory with the test. Unset skips the matrix. |
+
+Build the production standalone, copy its static assets, and start it with the
+native ingress preload. Use a disposable directory, with no upload-size or
+processing-time environment override: the tests change those settings through
+the authenticated API. The fixture creates an admin credential in that directory.
+From the repository root, in one terminal:
+
+```sh
+export DEZFIL_DATA_DIR=$(mktemp -d /tmp/dezfil-test-upload-reception-XXXXXX)
+npm run build
+mkdir -p .next/standalone/.next
+cp -R .next/static .next/standalone/.next/
+cp -R public .next/standalone/
+PORT=3100 HOSTNAME=127.0.0.1 node --import=./scripts/ingress-preload.mjs .next/standalone/server.js
+```
+
+In another terminal, set `DEZFIL_DATA_DIR` to that same fresh path, then run:
+
+```sh
+DEZFIL_UPLOAD_RECEPTION_PORT=3100 npx vitest run src/lib/ingest/reception.standalone.test.ts
+```
+
+The six cases take about eleven minutes: a 22 MiB CSV over 350 seconds succeeds
+with every row while an ordinary request times out at 300 seconds; first-byte
+and mid-body silence answer within 65 seconds; a size refusal reaches a silent
+sender within 60 seconds; continuous progress reaches its admitted deadline;
+and a 120-second admission survives a change to 60 seconds, followed by reuse of
+the completed connection. Each test asserts its status, code and timing bounds,
+partial-file cleanup and recovery where applicable. Stop the server before
+removing its scratch directory.
+
+For an exact failing seed, change `UPLOAD_STALL_MS = 60_000` to
+`UPLOAD_STALL_MS = 120_000` in `src/lib/auth/reception.mjs`, rebuild and restart
+with a fresh directory, then run the matrix with `-t 'first-byte or mid-body'`.
+Both silence cases must fail their 65-second response guard. Restore the constant
+and rebuild before collecting passing results.
+
+The browser refusal surface is covered separately by
+`npx playwright test e2e/upload-refusal.spec.ts` on a provisioned instance. It
+injects the three typed application refusals and then performs a real recovery
+upload. The native matrix establishes the corresponding server behavior.

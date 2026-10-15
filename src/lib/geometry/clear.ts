@@ -1,3 +1,4 @@
+import { currentTrustedOperation } from "@/lib/trusted-operation";
 import { registerAccountFile, removeAccountFile } from "@/lib/ingest/file-ownership";
 import type { AccountScope } from "@/lib/auth/scope";
 import path from "node:path";
@@ -9,7 +10,7 @@ import { geometryColumns, readGeometry } from "./read";
 import { geometryOwnership, sourceUnavailable } from "./ownership";
 import { geometryMutationResult, publishGeometry, withGeometryMutation } from "./mutate";
 
-export function clearGeometry(scope: AccountScope, name: string, expectedRevision: string) {
+export function clearGeometry(scope: AccountScope, name: string, expectedRevision: string, signal?: AbortSignal) {
   return withGeometryMutation(scope, name, expectedRevision, async (table, state) => {
     if (!table.geometryColumn) return geometryMutationResult(scope, table, state, null);
     const file = path.join("tables", `${randomUUID()}.parquet`), artifact = path.join(dataDir(), file);
@@ -28,6 +29,6 @@ export function clearGeometry(scope: AccountScope, name: string, expectedRevisio
         geometryRecord: null, geometryCandidates: [],
         geometryState: { mode: "cleared", choice: null, outputColumn: null, sourceRetained: true },
       }, null);
-    } catch (error) { await removeAccountFile(artifact, { force: true }); throw error; }
-  });
+    } catch (error) { currentTrustedOperation()?.refuseIfFinal(error); await removeAccountFile(artifact, { force: true }); throw error; }
+  }, signal);
 }

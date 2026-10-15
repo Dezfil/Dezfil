@@ -31,7 +31,7 @@ import { GEOMETRY_RESOURCE_PATHS } from "./openapi-geometry-resource";
 import { GEOMETRY_RESOURCE_SCHEMAS } from "./openapi-geometry-schemas";
 import { GEOMETRY_EVIDENCE_SCHEMAS } from "./openapi-geometry";
 import { CAMERA_BOUNDS } from "@/lib/map-runtime-limits";
-import { ERROR_CATALOGUE } from "./error-catalogue";
+import { ERROR_CATALOGUE, RESOURCE_ERROR_STATUSES } from "./error-catalogue";
 import { TOKEN_LENGTH } from "@/lib/publish/token";
 import { EXPORT_IMAGE_DEFINITION_SCHEMA } from "@/lib/export/image-definition";
 import { TABLE_COLLECTION_PATHS, TABLE_RESOURCE_PATHS, TABLE_SCHEMAS, TABLE_INSPECTION_SCHEMAS } from "./openapi-tables";
@@ -2884,5 +2884,6 @@ export function buildOpenApiDocument() {
       },
     },
     "x-error-codes": ERROR_CATALOGUE,
+    "x-resource-error-statuses": RESOURCE_ERROR_STATUSES,
   }));
 }

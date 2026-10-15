@@ -1,4 +1,5 @@
-import { ApiError } from "@/lib/api/errors";
+import { currentTrustedOperation } from "@/lib/trusted-operation";
+import { ApiError, EvaluationCancelled } from "@/lib/api/errors";
 
 /**
  * The coded refusals of a template's admission. Each names one class of
@@ -85,4 +86,13 @@ const TOO_LARGE: readonly TemplateRefusalCode[] = ["template_archive_too_large",
 export function installRefusalError(refusal: TemplateRefusal): ApiError {
   if (INDEX_REFUSALS.includes(refusal.code)) throw new Error(`The index's refusal ${refusal.code} is not an install's.`);
   return new ApiError(refusal.code as InstallRefusalCode, refusal.message, TOO_LARGE.includes(refusal.code) ? 413 : 422);
+}
+
+/** Resource outcomes keep their identity through template shape checks. */
+export function preserveTemplateResourceRefusal(error: unknown): void {
+  const resource = (value: unknown) => value instanceof EvaluationCancelled ||
+    (value instanceof ApiError && ["query_timeout", "query_memory_exceeded", "engine_memory_exceeded", "data_processing_timeout"].includes(value.code));
+  const reason = currentTrustedOperation()?.signal.reason;
+  if (resource(reason)) throw reason;
+  if (resource(error)) throw error;
 }

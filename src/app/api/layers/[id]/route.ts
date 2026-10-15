@@ -68,7 +68,7 @@ export async function DELETE(request: Request, { params }: Params) {
     requireDocumentRevision(scope, { kind: "map", id: layer.mapId, expectedRevision: request.headers.get("X-Edit-Revision") });
     const owned = sketchOwnedByLayer(scope, id);
     if (owned) {
-      return NextResponse.json(await cascadeDeleteSketch(scope, owned.name, "layer", { expectedRevision: request.headers.get("X-Edit-Revision") }));
+      return NextResponse.json(await cascadeDeleteSketch(scope, owned.name, "layer", { expectedRevision: request.headers.get("X-Edit-Revision"), signal: request.signal }));
     }
     return NextResponse.json(await removeLayer(scope, id, { expectedRevision: request.headers.get("X-Edit-Revision"), groupId: changeGroupOf(request) }));
   } catch (error) {

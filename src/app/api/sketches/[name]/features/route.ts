@@ -11,7 +11,7 @@ export async function GET(_request: Request, { params }: Params) {
   try {
     const scope = requireRequestScope(_request);
     const { name } = await params;
-    return NextResponse.json({ features: await listFeatures(scope, name) });
+    return NextResponse.json({ features: await listFeatures(scope, name, _request.signal) });
   } catch (error) {
     return errorResponse(error);
   }
@@ -29,7 +29,7 @@ export async function POST(request: Request, { params }: Params) {
       if (error instanceof ApiError) throw error;
       throw new ApiError("invalid_request", "Expected a JSON body.", 400);
     }
-    const result = await appendFeature(scope, name, body.feature);
+    const result = await appendFeature(scope, name, body.feature, request.signal);
     return NextResponse.json(
       { featureId: result.featureId, rowCount: result.rowCount },
       { status: 201 },
