@@ -14,6 +14,7 @@ import {
   drawingBasemaps,
   offeredBasemaps,
   offeredSwitches,
+  pictureBasemaps,
   resolveBasemapAttribution,
   resolveBasemapKind,
   resolveBasemapUrl,
@@ -150,6 +151,28 @@ describe("the configured satellite basemap", () => {
     expect(satelliteBasemap()).toBeNull();
     expect(keys(drawingBasemaps())).toEqual(["dark", "light", "streets"]);
     expect(() => satelliteStyleDocument()).toThrow(expect.objectContaining({ code: "service_address_unreadable" }));
+  });
+});
+
+describe("what a page of map pictures is handed", () => {
+  it("holds every style drawn, hidden ones too, Satellite with its credit, and never the tile template", () => {
+    configure();
+    writeStoredSettings({ "basemaps.satellite": false }, db);
+    const handed = pictureBasemaps();
+    expect(keys(handed.basemaps)).toEqual(["dark", "light", "streets", "satellite"]);
+    expect(handed.basemaps.find((b) => b.key === "satellite")!.attribution).toEqual([{ label: "© Imagery Provider" }]);
+    expect(handed).toMatchObject({ defaultUrl: BASEMAPS[0].url, overrideUrl: null, overrideAttribution: [] });
+    expect(JSON.stringify(handed)).not.toContain("SEEDED-KEY");
+  });
+
+  it("holds the deployment's own style with the credit it configured", () => {
+    vi.stubEnv("DEZFIL_BASEMAP_URL", "https://tiles.internal/style.json");
+    vi.stubEnv("DEZFIL_BASEMAP_ATTRIBUTION", "© Internal Tiles");
+    expect(pictureBasemaps()).toMatchObject({
+      defaultUrl: "https://tiles.internal/style.json",
+      overrideUrl: "https://tiles.internal/style.json",
+      overrideAttribution: [{ label: "© Internal Tiles" }],
+    });
   });
 });
 

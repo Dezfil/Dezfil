@@ -337,6 +337,17 @@ export interface HomeView {
   shelf: HomeShelf;
 }
 
+/** The maps whose pictures Home shows: the lead's, when a map of the
+ * person's leads, then Recent's maps. A template's picture is the
+ * template's, credited on its own card, and is not one of them. */
+export function homePictures(view: Pick<HomeView, "lead" | "recent">): MapOverview[] {
+  const lead = view.lead.kind === "continue" && view.lead.item.kind === "map" ? [view.lead.item.map] : [];
+  const recent = view.recent.state === "shown"
+    ? view.recent.items.flatMap((item) => (item.kind === "map" ? [item.map] : []))
+    : [];
+  return [...lead, ...recent];
+}
+
 export function homeView(reads: HomeReads, reader: HomeReader): HomeView {
   const me = reader.sqlName;
   const lead = homeLead(reads, me);

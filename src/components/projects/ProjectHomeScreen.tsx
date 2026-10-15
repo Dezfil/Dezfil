@@ -31,6 +31,7 @@ import { ExportProjectDialog } from "./ExportProjectDialog";
 import { HomeSections, type HomeView } from "./HomeSections";
 import { KindIcon } from "./ProjectPicture";
 import { ProjectCrumbTail } from "../shell/ProjectCrumbTail";
+import type { PictureBasemaps } from "@/lib/picture-credit";
 import { PlainCrumbTail } from "../shell/PlainCrumbTail";
 import { RoleLine } from "../sharing/PeopleMarks";
 import { MembersLine } from "../sharing/MembersLine";
@@ -73,23 +74,27 @@ function ProjectPath({ name }: { name: string }) {
   return null;
 }
 
-export function ProjectHomeScreen({ id, files }: {
+export function ProjectHomeScreen({ id, files, pictureBasemaps }: {
   id: string;
   /** Whether the reader may file their own work into the project now, as
    * the server's reach kernel answered for the page: its owner or an
    * Editor, while its owner is active. */
   files: boolean;
+  /** The instance's basemaps, which the line for the map pictures
+   * credits. */
+  pictureBasemaps?: PictureBasemaps;
 }) {
   const home = useProjectHome(id);
   // Keep the reader across route changes to reject departed responses, while
   // drafts, dialogs and busy flags are local to the displayed project visit.
-  return <ProjectHomeVisit key={id} id={id} home={home} files={files} />;
+  return <ProjectHomeVisit key={id} id={id} home={home} files={files} pictureBasemaps={pictureBasemaps} />;
 }
 
-function ProjectHomeVisit({ id, home, files }: {
+function ProjectHomeVisit({ id, home, files, pictureBasemaps }: {
   id: string;
   home: ReturnType<typeof useProjectHome>;
   files: boolean;
+  pictureBasemaps?: PictureBasemaps;
 }) {
   const router = useRouter();
   const me = useSignedInSqlName();
@@ -599,6 +604,7 @@ function ProjectHomeVisit({ id, home, files }: {
             lastRuns={lastRuns}
             view={view}
             groupOf={groupOf}
+            pictureBasemaps={pictureBasemaps}
           />
         ) : !files ? (
           <p className={gallery.empty}>This project is empty.</p>
@@ -618,6 +624,7 @@ function ProjectHomeVisit({ id, home, files }: {
             onNewWorkflow={() => setNaming(true)}
             onAddData={() => setAddingData(true)}
             onRetryCatalogue={catalogue.retry}
+            pictureBasemaps={pictureBasemaps}
           />
         )}
       </div>

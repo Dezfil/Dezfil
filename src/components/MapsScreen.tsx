@@ -18,6 +18,7 @@ import {
   IconTrash,
 } from "./gallery-icons";
 import { MapStrip } from "./MapStrip";
+import { PictureCredit } from "./PictureCredit";
 import { AddToProjectDialog } from "./projects/AddToProjectDialog";
 import { actionLabel } from "./projects/add-model";
 import { useTheme } from "@/components/theme";
@@ -37,6 +38,7 @@ import { useRuleRefusal } from "./use-instance-rules";
 import gallery from "./gallery.module.css";
 import styles from "./MapsScreen.module.css";
 import { serverUnreachable } from "./failure-copy";
+import type { PictureBasemaps } from "@/lib/picture-credit";
 
 type Filter = "all" | "published" | "drafts";
 export type MapsSort = "edited" | "created" | "name";
@@ -112,7 +114,12 @@ export function ProjectTag({
   );
 }
 
-export function MapsScreen() {
+export function MapsScreen({
+  pictureBasemaps,
+}: {
+  /** The instance's basemaps, which the line under the pictures credits. */
+  pictureBasemaps?: PictureBasemaps;
+} = {}) {
   const router = useRouter();
   const { theme } = useTheme();
   // Someone else's map is marked with its owner and keeps only what reads
@@ -686,6 +693,7 @@ export function MapsScreen() {
               </span>
             </div>
           ))}
+          <PictureCredit maps={shown} basemaps={pictureBasemaps} placement="foot" />
         </div>
       )}
 
@@ -722,6 +730,11 @@ export function MapsScreen() {
       )}
       </AsyncState>
       </div>
+      {/* Under the scroller, so the grid's line stands whatever the
+          scroll; the list carries it as its card's foot row. */}
+      {shown && settled && view === "grid" && (
+        <PictureCredit maps={shown} basemaps={pictureBasemaps} placement="page" />
+      )}
 
       {filing && (
         <AddToProjectDialog

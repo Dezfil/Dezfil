@@ -13,6 +13,7 @@ import {
   type BasemapStyle,
 } from "./basemap";
 import { satelliteBasemap } from "./basemap-satellite";
+import type { PictureBasemaps } from "./picture-credit";
 
 /**
  * Which basemaps this instance draws and which it offers, for the server
@@ -86,6 +87,18 @@ export function basemapUrl(): string {
 export function basemapOverrideAttribution(): AttributionLine[] {
   const text = process.env.DEZFIL_BASEMAP_ATTRIBUTION?.trim();
   return text ? [{ label: text }] : [];
+}
+
+/** What a page of map pictures credits their basemaps from: every style
+ * a map may be drawn on, hidden ones too, since a picture stays drawn on
+ * whatever its map is on, and the deployment's own style with its credit. */
+export function pictureBasemaps(db: Database = metadataDb()): PictureBasemaps {
+  return {
+    basemaps: drawingBasemaps(db),
+    defaultUrl: basemapUrl(),
+    overrideUrl: basemapOverrideUrl(),
+    overrideAttribution: basemapOverrideAttribution(),
+  };
 }
 
 /** A map's drawn basemap: its explicit choice while the drawing list has

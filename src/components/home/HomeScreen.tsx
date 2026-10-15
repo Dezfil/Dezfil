@@ -12,7 +12,9 @@ import { useTheme } from "../theme";
 import { ErrorNote } from "../ui/ErrorNote";
 import { useTransientNotice } from "../use-transient-notice";
 import { TransientNotice } from "../TransientNotice";
-import { homeView, type HomeRunRow } from "./home-model";
+import { PictureCredit } from "../PictureCredit";
+import type { PictureBasemaps } from "@/lib/picture-credit";
+import { homePictures, homeView, type HomeRunRow } from "./home-model";
 import { useHomeReads, useLeadHistory, useRereadAfterRun } from "./home-reads";
 import { LeadPlace } from "./HomeLead";
 import { HomeRecentSection } from "./HomeRecent";
@@ -28,7 +30,12 @@ import styles from "./Home.module.css";
  * leads), the rows to run again the person may run, Recent, and the
  * templates below.
  */
-export function HomeScreen() {
+export function HomeScreen({
+  pictureBasemaps,
+}: {
+  /** The instance's basemaps, which the line at Home's foot credits. */
+  pictureBasemaps?: PictureBasemaps;
+} = {}) {
   const router = useRouter();
   const label = useSignedInLabel();
   const instanceName = useInstanceName();
@@ -50,6 +57,7 @@ export function HomeScreen() {
     [reads, label],
   );
   const { lead } = view;
+  const pictured = useMemo(() => homePictures(view), [view]);
   const history = useLeadHistory(lead.kind === "continue" && lead.item.kind === "workflow" ? lead.item.id : null);
   const { reload: reloadHistory } = history;
 
@@ -129,6 +137,7 @@ export function HomeScreen() {
         onOpen={(id) => router.push(templateAddress(id))}
         onCopy={setCopying}
       />
+      <PictureCredit maps={pictured} basemaps={pictureBasemaps} placement="page" />
       {copying ? <TemplateCopyDialog key={copying} id={copying} onClose={() => setCopying(null)} /> : null}
     </div>
   );
