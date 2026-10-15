@@ -11,6 +11,7 @@ import { issueSession, requireCurrentActor, type AuthContext } from "./credentia
 import { DUMMY_PASSWORD_HASH, hashPassword, PASSWORD_FLOOR, validatePassword, verifyPassword } from "./passwords";
 import { adoptLegacyPreferences } from "./adoption";
 import { securitySettings } from "./security-settings";
+import { withPasswordCheckLimit } from "./password-check-limits";
 
 /** Call under the write transaction, after authorizing the caller. */
 export function requireAvailableEmail(email: string, exceptId: string | null, db: Database, admin = false): void {
@@ -25,12 +26,17 @@ export function requireAvailableEmail(email: string, exceptId: string | null, db
   }
 }
 
-async function checkCurrentPassword(accountId: string, password: string | undefined, db: Database, signal?: AbortSignal) {
-  const hash = accountPasswordHash(accountId, db);
-  const valid = await verifyPassword(password ?? "", hash ?? DUMMY_PASSWORD_HASH, { class: "protected", signal });
-  requireAuthenticationWanted(signal);
-  if (!hash || !valid) throw new AuthError("current_password_required", "Enter your current password.", 403);
-  return hash;
+/** Each check counts against the account's current-password allowance. */
+function checkCurrentPassword(accountId: string, password: string | undefined, db: Database, signal?: AbortSignal) {
+  return withPasswordCheckLimit(accountId, async onStart => {
+    const hash = accountPasswordHash(accountId, db);
+    let started = false;
+    const valid = await verifyPassword(password ?? "", hash ?? DUMMY_PASSWORD_HASH,
+      { class: "protected", signal, onStart: () => { started = true; onStart(); } });
+    requireAuthenticationWanted(signal, started);
+    if (!hash || !valid) throw new AuthError("current_password_required", "Enter your current password.", 403);
+    return hash;
+  }, signal, db);
 }
 
 function requireUnchangedPassword(accountId: string, hash: string, db: Database): void {

@@ -17,7 +17,7 @@
     },
     "table:auth_login_limits": {
       "action": "erase",
-      "rule": "Remove the target current-email bucket and every unbound email bucket, including former emails. Keep other current-account buckets and source budgets. Held reservations cannot recreate removed rows.",
+      "rule": "Remove the target current-email bucket, the target current-password bucket and every unbound email bucket, including former emails. Keep other current-account buckets, other accounts' current-password buckets and source budgets. Held reservations cannot recreate removed rows.",
       "fixture": "table:auth_login_limits"
     },
     "table:auth_sessions": {
@@ -2564,6 +2564,11 @@
       ]
     },
     "memory:src/lib/api/openapi-account.ts#ACCOUNT_SCHEMAS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-account.ts#CHECK_LIMITED_RESPONSE": {
       "stores": [
         "memory:immutable-configuration"
       ]

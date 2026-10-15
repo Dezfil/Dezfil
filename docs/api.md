@@ -784,6 +784,26 @@ identity. `POST /api/account/password` takes `currentPassword` and `password`,
 preserves the calling browser session, ends other sessions and leaves tokens
 valid. A bearer caller has no browser session to preserve.
 
+Current-password checks on both operations share one allowance per account,
+counted apart from sign-in: `security.failedPerAccount` (five by default)
+failures within a fixed fifteen minutes, across every session and token of the
+account. Request validation comes first, so a malformed body or a password
+change without a required field stays `400 invalid_request` and counts
+nothing. A missing or incorrect current password answers `403
+current_password_required` and counts, an email change that omits it included.
+A busy refusal (`503 authentication_busy`), failing password work and a caller
+who leaves before the check starts count nothing; a caller who leaves after it
+starts counts no failure, but its place stays taken until the window ends.
+Concurrent checks never exceed what is left. Past the count, a check answers
+`429 rate_limited` with "Too many wrong current passwords. Try again later.",
+`Retry-After`, `error.retryAfter` and `error.retryAt`, before any password
+work. A correct current password clears this count and leaves sign-in's as it
+was; a successful sign-in clears only its own.
+
+**Current-password compatibility change.** These checks had no failure limit:
+any number could be tried, and an account could keep protected password work
+busy with them. They now answer `429 rate_limited` past the allowance above.
+
 Every account read (`/api/account`, `/api/auth/session` and an admin's
 `/api/users`) carries `sqlName`, the account's SQL name: three to thirty-two
 characters, a lower-case letter first, then lower-case letters, digits and

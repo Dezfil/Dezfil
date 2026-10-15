@@ -5,6 +5,7 @@ import { insertAccount, normalizeEmail } from "@/lib/metadata/accounts";
 import { eraseAccountCredentials } from "@/lib/metadata/account-erasure";
 import { secretHash } from "./credentials";
 import { withLoginLimit } from "./login-limits";
+import { withPasswordCheckLimit } from "./password-check-limits";
 import { AuthError } from "./errors";
 import { erasureInventory } from "./account-erasure-inventory";
 import { proveErasure, type ErasureProbe } from "../../../test-support/account-erasure-proof";
@@ -29,6 +30,7 @@ beforeEach(() => {
         .run(`${tag}-${kind}`, id, kind, `${tag}-${kind}-hash`, state === "expired" ? 2 : 99999999, state === "consumed" ? 3 : null, state === "revoked" ? 3 : null);
     }
     db.prepare("INSERT INTO auth_login_limits VALUES (?, 1000, 2, 0)").run(key(`${id}@example.test`));
+    db.prepare("INSERT INTO auth_login_limits VALUES (?, 1000, 3, 1)").run(`check:${id}`);
   }
   for (const email of ["former@example.test", "orphan@example.test"]) db.prepare("INSERT INTO auth_login_limits VALUES (?, 1000, 1, 0)").run(key(email));
   db.prepare("INSERT INTO auth_login_limits VALUES (?, 1000, 7, 0)").run(`source:${secretHash("192.0.2.1")}`);
@@ -43,7 +45,7 @@ it.each(["active", "deactivated", "invited", "deleted", "missing"])("refuses %s 
 });
 it("erases populated credential states, preferences and computed current/former/orphan buckets while preserving other accounts and source budgets", async () => {
   db.exec("UPDATE accounts SET status = 'deleting' WHERE id = 'target'");
-  const erasedKeys = ["target", "former", "orphan"].map(id => key(`${id}@example.test`));
+  const erasedKeys = [...["target", "former", "orphan"].map(id => key(`${id}@example.test`)), "check:target"];
   const probes: Record<string, ErasureProbe> = Object.fromEntries(tables.map(table => [`table:${table}`, {
     populate() {}, dispose() {}, observe() {
       const target = (r: Record<string, unknown>) => table === "auth_login_limits" ? erasedKeys.includes(String(r.bucket)) : r.account_id === "target";
@@ -58,6 +60,20 @@ it("erases populated credential states, preferences and computed current/former/
   expect(() => db.prepare("UPDATE accounts SET email = 'target@example.test' WHERE id = 'control'").run()).toThrow();
   eraseAccountCredentials("target", db);
   expect(rows("accounts")).toEqual(expected);
+});
+it.each(["success", "failure", "refund"])("a held %s current-password check cannot recreate the erased allowance", async outcome => {
+  let release!: () => void;
+  const held = new Promise<void>(resolve => { release = resolve; });
+  const attempt = withPasswordCheckLimit("target", async () => {
+    await held;
+    if (outcome === "failure") throw new AuthError("current_password_required", "Enter your current password.", 403);
+    if (outcome === "refund") throw new Error("unavailable");
+  }, undefined, db, () => 1000);
+  db.exec("UPDATE accounts SET status = 'deleting' WHERE id = 'target'");
+  eraseAccountCredentials("target", db);
+  release(); await Promise.allSettled([attempt]);
+  expect(db.prepare("SELECT * FROM auth_login_limits WHERE bucket = 'check:target'").get()).toBeUndefined();
+  expect(db.prepare("SELECT failures, pending FROM auth_login_limits WHERE bucket = 'check:control'").get()).toEqual({ failures: 3, pending: 1 });
 });
 it.each(["success", "failure", "refund"])("held %s reservations cannot recreate erased email buckets, and preserve source accounting", async outcome => {
   let release!: () => void;

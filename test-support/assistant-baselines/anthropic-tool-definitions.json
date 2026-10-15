@@ -1,10 +1,10 @@
 {
   "count": 156,
-  "overall": "32526da14fafc58eda13038ceb24804f5131739294cf1cb82c60b98024b2e614",
+  "overall": "ccb8286759b484aa218e8c4f89e36824f90c0c9c4edc2f34a62ffa6d536689a7",
   "tools": {
     "get_account": "f9449c42bd1f10ea7744e222cc62614d4a204d733c1126e6dcc7d958fb005cb1",
-    "update_account": "70a14b66d198e2ac3c94bf8c358fd680c4a98319aa920c054b9c26c72f2f07ff",
-    "change_password": "453c16247debce7ebd9edb6f781074f8730bec19775684d1017a06a0b6a8571f",
+    "update_account": "9074c8b3e4d9dd0d5085ea1b419e99c713eb84f540cb0e0f6bf45ad5fde370de",
+    "change_password": "1c477e46edbe1e8c7baa5944590a0063a263997cb828af7cb7ccd3f3172b6d69",
     "list_api_tokens": "9e390c0e39aab6579b0dcff6b3866550fa9f88828799baf87071050530a64a29",
     "create_api_token": "00f81f195e1d008852ad134257957c92920ba942c01e9bce54b700557a57d461",
     "revoke_api_token": "ccab9ef45e86eb5220652d17e65700398f7bd5f0648301be0f8a24573f4ed8ed",
@@ -17,7 +17,7 @@
     "delete_user": "3c56016c5f399d7dbdcd6ec3e9202950996f3487a2a86e9b566550fef86c0549",
     "issue_user_sign_in_link": "d5e09e3840dee2918a1c81cb7173075336aeec9e2e907aa7674e5effc644c9c3",
     "get_instance_settings": "25c137a946632610e156bafabc71d30b18f09065a8aa5ef2c5179bc248d55645",
-    "update_instance_settings": "e306393e21272d3cd156b87845085fda699be73aa5ea4a522be98fdc775028cc",
+    "update_instance_settings": "9f82e87910344e9686a0da89120dee8760956a5bd9249b99e232bf86e50d60a7",
     "clear_service_caches": "497f3d1cbde3d33e31e78aa6457bde2235bd8e914336a4834f039e7581d36dd1",
     "test_service": "935afce4f45d0623b0105b1bad129ed551c690cdc5d1336f08407c8a02804412",
     "read_storage": "7cb626587f80e0a9b525f411f67e6a0e69cbac6eef1bb20c42ae5ad8dead6f64",

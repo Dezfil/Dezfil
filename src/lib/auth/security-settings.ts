@@ -14,7 +14,8 @@ export interface SecuritySettings {
   readonly sessionMs: number;
   /** An invitation's or an admin reset link's lifetime from its issue. */
   readonly linkMs: number;
-  /** Failed sign-ins for one account within the window before its next attempt pauses. */
+  /** Failed sign-ins for one account within the window before its next attempt
+   * pauses; separately, failed current-password checks before its next check pauses. */
   readonly failedPerAccount: number;
   /** Failed sign-ins from one address within the window before its next attempt pauses. */
   readonly failedPerAddress: number;

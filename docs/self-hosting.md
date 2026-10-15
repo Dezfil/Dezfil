@@ -129,7 +129,9 @@ the column's foot; members see General alone, read-only.
 - **Security** holds sign-in (how long people stay signed in, how long invite
   and reset links last, failed sign-ins per account and per address before a
   pause, and the shortest password) and API tokens (who may create them and
-  when new ones expire). No save signs anyone out or changes a link, token or
+  when new ones expire). The count per account also pauses an account's
+  password and email changes after that many wrong current passwords, counted
+  apart from its sign-ins. No save signs anyone out or changes a link, token or
   password that already exists; each applies from the next session use, link,
   sign-in attempt, password or token. Who may add database connections and who
   may import from links are on Data & services;

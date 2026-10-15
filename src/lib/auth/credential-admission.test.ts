@@ -80,8 +80,11 @@ it.each(entries.flatMap(kind => ["queued", "running"].map(phase => ({ kind, phas
   abort.abort(); await flush();
   expect((await result).status).toBe(499);
   expect(rows(store)).toEqual(before);
+  // Sign-in keeps the source's place after started work; a current-password
+  // check keeps the account's; a queued departure keeps neither.
   expect(budgets()).toEqual(kind === "known" || kind === "dummy"
-    ? [{ failures: 0, pending: 0 }, { failures: 0, pending: phase === "running" ? 1 : 0 }] : []);
+    ? [{ failures: 0, pending: 0 }, { failures: 0, pending: phase === "running" ? 1 : 0 }]
+    : kind === "profile" || kind === "password" ? [{ failures: 0, pending: phase === "running" ? 1 : 0 }] : []);
   // Native cancellation never releases a running slot or admits extra work.
   expect(state().active).toBe(phase === "queued" ? 2 : 1);
   expect(state().ordinary).toHaveLength(0); expect(state().protected).toHaveLength(0);
