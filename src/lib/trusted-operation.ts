@@ -9,7 +9,6 @@ export const TRUSTED_SETTLEMENT_MS = 35_000;
 /** The operation, rather than a connection or nested helper, owns the policy. */
 export const TRUSTED_OPERATION_POLICIES = {
   "interactive-read": { budget: "query", departure: "cancel" },
-  "upload-reception": { budget: "processing", departure: "cancel" },
   export: { budget: "processing", departure: "cancel" },
   import: { budget: "processing", departure: "continue" },
   refresh: { budget: "processing", departure: "continue" },
@@ -118,7 +117,7 @@ export class TrustedOperation {
     if (!Number.isFinite(this.budgetMs) || this.budgetMs <= 0) throw new RangeError("An operation budget must be positive and finite.");
     if (options.deadline !== undefined && !Number.isFinite(options.deadline)) throw new RangeError("An operation deadline must be finite.");
     this.deadline = Math.min(this.admittedAt + this.budgetMs, options.deadline ?? Infinity);
-    this.stage = options.kind === "upload-reception" ? "reception" : this.policy.budget;
+    this.stage = this.policy.budget;
     this.remedy = settingRemedy(this.policy.budget === "query" ? "queryTimeoutS" : "dataProcessingTimeoutS");
     this.signal = this.controller.signal;
     observe(this.stopped.promise); observe(this.settled);

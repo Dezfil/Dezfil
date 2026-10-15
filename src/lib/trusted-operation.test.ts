@@ -69,20 +69,20 @@ it("does not leak an inherited operation into unrelated asynchronous work", asyn
   first.resolve(); await running; await op.settled;
 });
 
-it("snapshots settings at admission and gives reception and processing separate clocks", async () => {
+it("snapshots settings at admission and gives a handed-over budget a fresh deadline", async () => {
   let configured = 60_000;
   vi.spyOn(limits, "dataProcessingTimeoutMs", "get").mockImplementation(() => configured);
-  const reception = admitTrustedOperation({ kind: "upload-reception", name: "Upload" });
-  await reception.run(async () => { await vi.advanceTimersByTimeAsync(1000); configured = 120_000; });
-  const processing = admitTrustedOperation({ kind: "import", name: "Upload", budgetMs: reception.budgetMs });
+  const earlier = admitTrustedOperation({ kind: "import", name: "Upload" });
+  await earlier.run(async () => { await vi.advanceTimersByTimeAsync(1000); configured = 120_000; });
+  const processing = admitTrustedOperation({ kind: "import", name: "Upload", budgetMs: earlier.budgetMs });
   const next = admitTrustedOperation({ kind: "import", name: "Next import" });
   expect(processing.budgetMs).toBe(60_000);
-  expect(processing.deadline).toBe(reception.deadline + 1000);
+  expect(processing.deadline).toBe(earlier.deadline + 1000);
   expect(next.budgetMs).toBe(120_000);
   await processing.run(async () => {}); await next.run(async () => {});
 });
 
-it.each(["interactive-read", "export", "upload-reception"] as const)("cancels %s at last departure and owns cleanup through settlement", async kind => {
+it.each(["interactive-read", "export"] as const)("cancels %s at last departure and owns cleanup through settlement", async kind => {
   const caller = new AbortController();
   const op = admitTrustedOperation({ kind, name: "Work", signal: caller.signal, budgetMs: 60_000 });
   const source = held(), cleanup = held();
