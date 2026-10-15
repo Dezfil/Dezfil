@@ -164,7 +164,10 @@ export function installReception(server, request, response, upload) {
   response.once("close", () => { if (!response.writableFinished && !received) abort(); clear(); stopReaders();  });
   const closed = () => { clearTimeout(closing); };
   socket.once("close", closed);
-  response.once("finish", () => { if (bodyComplete() && !failure) socket.removeListener("close", closed); });
+  // A reused connection carries the next request: once a completely received
+  // request's response finishes with no delayed close pending, accepted or
+  // refused, this request no longer needs to hear the connection close.
+  response.once("finish", () => { if (bodyComplete() && closing === undefined) socket.removeListener("close", closed); });
   return {
     admit(budgetMs, remedy, onRefusal) {
       if (!upload) return undefined;

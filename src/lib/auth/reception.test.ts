@@ -146,11 +146,24 @@ it.each([
   ["refused as too large", prefix + "x".repeat(70000) + ending, 413],
   ["refused as not multipart", "{}", 400],
 ] as const)("keeps a completely received connection reusable after an upload %s", async (_outcome, body, status) => {
-  const { port } = await serve(); const agent = new Agent({ keepAlive: true, maxSockets: 1 });
+  const { server, port } = await serve(); const agent = new Agent({ keepAlive: true, maxSockets: 1 });
+  const connections: import("node:net").Socket[] = [];
+  server.on("connection", socket => connections.push(socket));
   try {
     const first = send(port, "/api/tables", "POST", agent); first.req.end(body);
     expect((await first.result).status).toBe(status);
     await pause(20);
+    // Repeated outcomes on the one connection leave its listeners as they were.
+    const listeners = [connections[0].listenerCount("close")];
+    for (let repeat = 0; repeat < 4; repeat++) {
+      const again = send(port, "/api/tables", "POST", agent); again.req.end(body);
+      expect((await again.result).status).toBe(status);
+      await pause(20);
+      expect(again.req.socket).toBe(first.req.socket);
+      listeners.push(connections[0].listenerCount("close"));
+    }
+    expect(connections).toHaveLength(1);
+    expect(listeners).toEqual(listeners.map(() => listeners[0]));
     const second = send(port, "/api/tables", "POST", agent); second.req.write(prefix + "lon,lat\n"); await bytesOnDisk(8);
     expect(second.req.socket).toBe(first.req.socket);
     // The next upload on that connection outlives the refusal delivery bound.
