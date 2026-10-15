@@ -487,8 +487,10 @@ test("PostGIS: connect, browse, snapshot — real and end-to-end (live-gated)", 
     await page
       .getByRole("button", { name: "Test & save connection", exact: true })
       .click();
-    // The catalogue lists the seeded table with its geometry and rows.
-    const row = page.getByRole("button", { name: /^e2estations.*table/i });
+    // The catalogue lists the seeded table by its name and its row
+    // estimate, which reads "not analyzed" until the server has analyzed
+    // a table this new.
+    const row = page.getByRole("button", { name: /^e2estations (not analyzed|~[\d,]+ rows)$/ });
     await expect(row).toBeVisible({ timeout: 30_000 });
     await row.click();
   });
@@ -499,7 +501,8 @@ test("PostGIS: connect, browse, snapshot — real and end-to-end (live-gated)", 
       .locator("input")
       .fill(snapshotName);
     await page
-      .getByRole("button", { name: "Import e2estations" })
+      .getByRole("dialog", { name: "Add data" })
+      .getByRole("button", { name: "Import", exact: true })
       .click();
     await expect(
       page.getByRole("heading", { name: `Imported as ${snapshotName}` }),
