@@ -46,13 +46,14 @@ export interface BasemapStyle {
 /** The credit for every vector style and the deployment default.
  * OpenFreeMap's own terms make naming them optional ("You do not need to
  * display the OpenFreeMap part"), so the line stays lean: the required
- * OpenMapTiles and OpenStreetMap credits only. */
+ * OpenMapTiles and OpenStreetMap credits only, each in its short form. */
 export const BUILT_IN_ATTRIBUTION: AttributionLine[] = [
   { label: "© OpenMapTiles", href: "https://openmaptiles.org" },
-  // The OpenStreetMap credit has to be followable: their guidance asks
-  // for a link to the copyright page, so a bare label is not a credit.
+  // The OpenStreetMap credit has to be followable: their guidance accepts
+  // "© OpenStreetMap" as written while the licence stays one step away,
+  // so the short form links to the copyright page.
   {
-    label: "OpenStreetMap contributors",
+    label: "© OpenStreetMap",
     href: "https://www.openstreetmap.org/copyright",
   },
 ];

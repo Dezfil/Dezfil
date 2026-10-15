@@ -232,7 +232,7 @@ describe("freshness bound", () => {
     expect(before?.basemapKind).toBe("vector");
     expect(before?.basemapAttribution?.map((l) => l.label)).toEqual([
       "© OpenMapTiles",
-      "OpenStreetMap contributors",
+      "© OpenStreetMap",
     ]);
 
     process.env.DEZFIL_SATELLITE_URL =

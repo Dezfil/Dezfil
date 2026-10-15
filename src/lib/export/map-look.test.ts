@@ -83,7 +83,7 @@ const creditPresent = (png: Buffer) => {
 interface Consumed { map: string; updatedAt: string; layers: { id: string; filters: unknown }[]; legend: { visible: boolean; corner: string; order: string[] }; widgets: string[]; attribution: string }
 function consumedOf(mapId: string): Consumed {
   const m = mapWithLayers(testAccountScope(), mapId);
-  return { map: m.id, updatedAt: m.updatedAt, layers: m.layers.filter((l) => l.visible).map((l) => ({ id: l.id, filters: l.filters })), legend: { visible: true, corner: m.legendCorner ?? "bottom-left", order: m.layers.map((l) => l.id) }, widgets: m.widgets.filter((w) => w.visible).map((w) => w.id), attribution: "© OpenMapTiles © OpenStreetMap contributors" };
+  return { map: m.id, updatedAt: m.updatedAt, layers: m.layers.filter((l) => l.visible).map((l) => ({ id: l.id, filters: l.filters })), legend: { visible: true, corner: m.legendCorner ?? "bottom-left", order: m.layers.map((l) => l.id) }, widgets: m.widgets.filter((w) => w.visible).map((w) => w.id), attribution: "© OpenMapTiles © OpenStreetMap" };
 }
 function driverOf(render: RenderBrowser["render"], counts = { launches: 0, renders: 0, killed: 0 }): { driver: RenderDriver; counts: typeof counts } {
   const driver: RenderDriver = { launch: async () => { counts.launches += 1; return { render: async (input) => { counts.renders += 1; return render(input); }, close: async () => {}, kill: () => { counts.killed += 1; } }; } };
@@ -149,7 +149,7 @@ describe("1f and 1g: one settled render, derived downwards at each exact boundar
     for (const noise of [0.1, 0.45]) {
       const { driver } = answering(pngFixture(LOOK_SOURCE.width, LOOK_SOURCE.height, noise, noise === 0.1 ? LOOK_IMAGE_MAX_BYTES + 1 : undefined), mapId);
       const result = await lookAtMap(testAccountScope(), { mapId, credential: "fixture-render-credential", baseUrl: base, driver });
-      expect(result.attribution).toBe("© OpenMapTiles © OpenStreetMap contributors");
+      expect(result.attribution).toBe("© OpenMapTiles © OpenStreetMap");
     }
   });
 });
