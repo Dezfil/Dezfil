@@ -125,6 +125,22 @@ function pointInRing(
   return inside;
 }
 
+/** Whether one coordinate lies in the shape, its boundary included. */
+export function pointWithin(lng: number, lat: number, shape: WithinShape): boolean {
+  if ("bbox" in shape) {
+    const [w, s, e, n] = shape.bbox;
+    return lng >= w && lng <= e && lat >= s && lat <= n;
+  }
+  if ("parts" in shape) {
+    return shape.parts.some(
+      (part) =>
+        pointInRing(lng, lat, part.outer) &&
+        !part.holes.some((hole) => pointInRing(lng, lat, hole)),
+    );
+  }
+  return pointInRing(lng, lat, shape.ring);
+}
+
 function coordsWithin(coords: unknown, shape: WithinShape): boolean {
   if (
     Array.isArray(coords) &&
@@ -133,18 +149,7 @@ function coordsWithin(coords: unknown, shape: WithinShape): boolean {
     typeof coords[1] === "number"
   ) {
     const [lng, lat] = coords as [number, number];
-    if ("bbox" in shape) {
-      const [w, s, e, n] = shape.bbox;
-      return lng >= w && lng <= e && lat >= s && lat <= n;
-    }
-    if ("parts" in shape) {
-      return shape.parts.some(
-        (part) =>
-          pointInRing(lng, lat, part.outer) &&
-          !part.holes.some((hole) => pointInRing(lng, lat, hole)),
-      );
-    }
-    return pointInRing(lng, lat, shape.ring);
+    return pointWithin(lng, lat, shape);
   }
   if (Array.isArray(coords)) {
     return coords.every((c) => coordsWithin(c, shape));

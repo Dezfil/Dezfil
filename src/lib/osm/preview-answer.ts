@@ -3,6 +3,7 @@ import { ApiError } from "@/lib/api/errors";
 import { RenderBudget } from "@/lib/query/render-budget";
 import { jsonBytes } from "@/lib/query/result-budget";
 import { featureWithin, shapeFeature, type ShapedFeature, type WithinShape } from "./geometry";
+import { certainlyTooLarge } from "./preview-bound";
 
 /** A Run Query result: the features the matching import would land, the
  * points first, then the lines, then the polygons, capped by the render cap
@@ -45,6 +46,9 @@ function osmBytesRefusal(limit: number): ApiError {
  * more features are known to exist; a polygon that does not fit is let go
  * at once, and refuses the preview only if it would have been in it. Over
  * the limit the preview is refused whole with 422 render_bytes_exceeded.
+ * Before any of that, one element the answer would certainly carry and
+ * that cannot fit on its own refuses the preview unassembled (see
+ * preview-bound).
  */
 export function osmPreviewAnswer(
   response: unknown,
@@ -64,6 +68,8 @@ export function osmPreviewAnswer(
   try {
     const envelope = Math.min(jsonBytes(compose([], 0, false)), jsonBytes(compose([], 0, true)));
     budget.take(envelope);
+    check();
+    if (certainlyTooLarge(response, within, cap, limit - envelope)) throw osmBytesRefusal(limit);
 
     // Points and lines in the answer, counted.
     const placed: ShapedFeature[] = [];

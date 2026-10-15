@@ -2345,7 +2345,9 @@ way; over the limit, the whole dataset or the sample asked for answers
 answers `422 render_bytes_exceeded` with no partial preview; the layer's own
 render is unaffected. An Overture or OpenStreetMap Run Query preview over the
 limit answers `422 render_bytes_exceeded` with no partial preview; an
-OpenStreetMap preview is counted while its features are assembled. A sketch's
+OpenStreetMap preview is counted while its features are assembled, and one
+element it would certainly carry that is over the limit on its own refuses it
+before anything is assembled. A sketch's
 features read over the limit answers `422 render_bytes_exceeded`; changes to
 the sketch are not held to it. Geometry set and clear
 use the processing lifetime through preparation and revision-checked replacement.
