@@ -6,6 +6,7 @@ import { registerAccountFile, removeAccountFile } from "@/lib/ingest/file-owners
 import { ownedTableNames, listOwnedTables } from "@/lib/metadata/owned-tables";
 import { requireFilingDestination } from "@/lib/auth/reach";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
+import { admitAccountWork } from "@/lib/auth/account-deletion-admission";
 import { replayGeometryRelation, type GeometryReplay } from "@/lib/geometry/replay";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
@@ -345,7 +346,10 @@ export async function ingestSpatialFile(
   signal?: AbortSignal,
 ): Promise<IngestResult> {
   return withTrustedMutation({ kind: "import", name: "Spatial file import", signal }, async operation => {
-    requireAccountScope(scope);
+    const deletionWork = admitAccountWork([requireAccountScope(scope)]);
+    // The account's work is released after the import's removals, the last
+    // cleanup to run.
+    operation.defer(() => deletionWork.release());
     if (provenance?.projectId) requireFilingDestination(scope, provenance.projectId);
     const format = detectFormat(originalFilename) as GdalFormat;
     // The extraction folder is removed on the operation's cleanup path (see
@@ -503,7 +507,8 @@ export async function ingestUpload(
     try {
       return await ingestSource(scope, upload.tmpPath, upload.filename, provenance, undefined, upload.budget, signal);
     } finally {
-      // Registered after the import's own cleanup, so it runs first.
+      // Registered after the import's own cleanup, so it runs first, while
+      // a spatial import still holds the account's work.
       operation.defer(() => removeAccountFile(upload.tmpPath, { force: true }));
     }
   });

@@ -286,9 +286,8 @@ it.each(["upload", "link"] as const)("a committed spatial import (%s) answers at
     expect(warn).toHaveBeenCalledOnce();
     expect(warn).toHaveBeenCalledWith("Trusted import cleanup overdue after its commit", expect.any(TrustedSettlementOverdue));
     expect(drained).toBe(false); expect(removal.removed()).toBe(false);
-    // A link import keeps the account's work until the removal has run; an
-    // upload holds none on this road.
-    expect(accountReleased).toBe(road === "upload");
+    // Either road keeps the account's work until the removal has run.
+    expect(accountReleased).toBe(false);
   } finally { removal.release(); }
   await operation.drained;
   expect(removal.removed()).toBe(true); expect(existsSync(folder)).toBe(false);
@@ -390,4 +389,27 @@ it("a committed upload answers 201 at the settlement allowance while its receive
   await operation.drained;
   expect(removal.removed()).toBe(true); expect(existsSync(file)).toBe(false);
   expect(warn).toHaveBeenCalledOnce();
+});
+
+it("a spatial upload keeps the account's work until its received file and its extraction folder are removed", async () => {
+  vi.spyOn(console, "warn").mockImplementation(() => {});
+  const prepared = rememberPreparation();
+  const removal = holdRemoval((file, options) => receivedFile(file, options) && listTables().length > 0);
+  const scope = testAccountScope();
+  let answer: Response | undefined;
+  void upload(uploadRequest(kmz(), "points.kmz")).then(response => { answer = response; });
+  const file = await removal.reached;
+  const operation = prepared[0]!;
+  // An account deletion starts draining the account's work now.
+  let accountReleased = false; void drainAccountWork(scope.accountId!).then(() => { accountReleased = true; });
+  try {
+    await vi.advanceTimersByTimeAsync(35_000);
+    expect(answer?.status).toBe(201);
+    expect(accountReleased).toBe(false);
+  } finally { removal.release(); }
+  await operation.drained;
+  expect(removal.removed()).toBe(true); expect(existsSync(file)).toBe(false);
+  expect(await readdir(path.join(dir, "tmp"))).toEqual([]);
+  await drainAccountWork(scope.accountId!);
+  expect(accountReleased).toBe(true);
 });
