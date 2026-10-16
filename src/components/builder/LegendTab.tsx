@@ -17,7 +17,8 @@ import panel from "./panel.module.css";
 import styles from "./LegendTab.module.css";
 
 /** In-progress legend text: mirrored to the canvas legend on
- * every keystroke; persistence still happens on blur. */
+ * every keystroke; persistence still happens on blur. A field sent as
+ * `undefined` leaves the live text: the legend draws its stored text. */
 export interface LegendLiveText {
   legendTitle?: string | null;
   legendLabels?: (string | null)[] | null;
@@ -413,31 +414,30 @@ function LegendEditor({
     // echo lands (a recovered read is authoritative), which also drops
     // the canvas mirror of the draft the author is still typing —
     // republish a kept draft so the canvas legend keeps showing exactly
-    // what the editor shows, after an external change too. Every other
-    // field agrees with committed text, which the canvas falls back to
-    // on its own.
-    if (typedTitle) {
-      onLive(layer.id, { legendTitle: title.trim() || null });
-    } else if (typedSlot !== -1) {
-      onLive(layer.id, {
-        legendLabels: labelsValue(
-          slots.map((_, i) =>
-            i === typedSlot ? (labels[i] ?? "") : (layer.legendLabels?.[i] ?? ""),
-          ),
+    // what the editor shows, after an external change too. A field that
+    // took the stored text leaves the live text, so keystrokes typed and
+    // erased back to the older stored text are not drawn over the new.
+    const live: LegendLiveText = {};
+    if (typedTitle) live.legendTitle = title.trim() || null;
+    else if (titleChanged || external) live.legendTitle = undefined;
+    if (typedSlot !== -1) {
+      live.legendLabels = labelsValue(
+        slots.map((_, i) =>
+          i === typedSlot ? (labels[i] ?? "") : (layer.legendLabels?.[i] ?? ""),
         ),
-      });
-    } else if (typedChannel) {
-      onLive(layer.id, {
-        legendAttrs: attrsValue(
-          Object.fromEntries(
-            channels.map((c) => [
-              c.key,
-              c.key === typedChannel ? (attrs[c.key] ?? "") : committedAttr(c.key),
-            ]),
-          ),
+      );
+    } else if (labelsChanged || external) live.legendLabels = undefined;
+    if (typedChannel) {
+      live.legendAttrs = attrsValue(
+        Object.fromEntries(
+          channels.map((c) => [
+            c.key,
+            c.key === typedChannel ? (attrs[c.key] ?? "") : committedAttr(c.key),
+          ]),
         ),
-      });
-    }
+      );
+    } else if (attrsChanged || external) live.legendAttrs = undefined;
+    if (Object.keys(live).length) onLive(layer.id, live);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [committedJson]);
 
