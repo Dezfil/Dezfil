@@ -10,8 +10,8 @@ import {
   IconPeople,
   IconRename,
   IconSearch,
-  IconTrash,
 } from "./gallery-icons";
+import { CardDelete } from "./CardDelete";
 import { invalidateProjects } from "./shell/use-project-name";
 import {
   ProjectCard,
@@ -88,7 +88,6 @@ export function ProjectsScreen() {
   const [draftName, setDraftName] = useState<string | null>(null);
   const [nameProblem, setNameProblem] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
-  const [confirmId, setConfirmId] = useState<string | null>(null);
   const [exporting, setExporting] = useState<{ id: string; name: string } | null>(null);
   const [exportNote, setExportNote] = useState<string | null>(departureNotice);
   useEffect(() => clearDeparture(), [clearDeparture]);
@@ -285,7 +284,6 @@ export function ProjectsScreen() {
         );
       } finally {
         setDeletingId(null);
-        setConfirmId(null);
       }
     },
     [mutate, refresh],
@@ -321,7 +319,6 @@ export function ProjectsScreen() {
     );
 
   const acts = (p: ProjectOverview, rowStyle: string) => {
-    const armed = confirmId === p.id;
     // Members export what they can read or end their own grant.
     const owned = !p.role || p.role === "owner";
     return (
@@ -376,25 +373,14 @@ export function ProjectsScreen() {
           </button>
         )}
         {owned && (
-          <button
-            className={gallery.deleteAct}
-            data-confirm={armed || undefined}
-            data-hint={armed ? undefined : "Delete project"}
-            aria-label={
-              armed
-                ? `Really delete ${p.name}? Its members stay, unfiled`
-                : `Delete ${p.name}`
-            }
+          <CardDelete
+            label={`Delete ${p.name}`}
+            armedLabel={`Really delete ${p.name}? Its members stay, unfiled`}
+            hint="Delete project"
+            question="Delete? Members stay"
             disabled={deletingId === p.id}
-            onClick={(e) => {
-              e.stopPropagation();
-              if (armed) void deleteProject(p.id);
-              else setConfirmId(p.id);
-            }}
-            onBlur={() => setConfirmId(null)}
-          >
-            {armed ? "Delete? Members stay" : <IconTrash />}
-          </button>
+            onConfirm={() => deleteProject(p.id)}
+          />
         )}
       </span>
     );

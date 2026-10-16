@@ -160,7 +160,6 @@ export function TablesScreen({
   const [postgisDoor, setPostgisDoor] = useState<string | null>(
     initialPostgisConnectionId,
   );
-  const [confirmName, setConfirmName] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [addToMap, setAddToMap] = useState<string | null>(null);
   // Filing: the same dialog Maps opens, over a dataset.
@@ -374,7 +373,6 @@ export function TablesScreen({
         setActionError(serverUnreachable("delete the table"));
       } finally {
         setDeleting(null);
-        setConfirmName(null);
       }
     },
     [
@@ -454,12 +452,11 @@ export function TablesScreen({
     };
   }, [tables]);
 
-  // The quick actions' state stays the screen's (the two-press delete,
-  // the add-to-map dialog); the card and row render it (extraction,
-  // behaviour-preserving).
+  // The quick actions' state stays the screen's (the deletion in flight,
+  // the add-to-map dialog); the card and row render it, and the delete's
+  // two presses are the shared in-place control's.
   const actionsFor = (t: TableListing): TableActionsProps => ({
     table: t,
-    confirming: confirmName === t.name,
     deleting: deleting === t.name,
     // Every door addresses the dataset by the name its reader types, so
     // someone else's same-named dataset never opens one's own.
@@ -467,11 +464,7 @@ export function TablesScreen({
     onQuery: () => router.push(datasetQueryHref(t)),
     onAddToMap: () => setAddToMap(t.qualifiedName),
     onFile: () => setFiling(t),
-    onDeletePress: () => {
-      if (confirmName === t.name) void remove(t);
-      else setConfirmName(t.name);
-    },
-    onDeleteBlur: () => setConfirmName(null),
+    onDelete: () => remove(t),
   });
 
   return (

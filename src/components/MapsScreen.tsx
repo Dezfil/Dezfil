@@ -15,8 +15,8 @@ import {
   IconOpen,
   IconPublish,
   IconSearch,
-  IconTrash,
 } from "./gallery-icons";
+import { CardDelete } from "./CardDelete";
 import { MapStrip } from "./MapStrip";
 import { PictureCredit } from "./PictureCredit";
 import { AddToProjectDialog } from "./projects/AddToProjectDialog";
@@ -158,8 +158,6 @@ export function MapsScreen({
     "edited",
     MAPS_SORTS,
   );
-  // Per-card delete: first click arms, second deletes.
-  const [confirmId, setConfirmId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -223,7 +221,6 @@ export function MapsScreen({
       );
     } finally {
       setDeletingId(null);
-      setConfirmId(null);
     }
   }, [mutate]);
 
@@ -391,27 +388,15 @@ export function MapsScreen({
         </button>
       ) : null}
       {mine && (
-        <button
-          className={gallery.deleteAct}
-          data-confirm={confirmId === m.id || undefined}
+        <CardDelete
+          label={`Delete ${m.name}`}
+          armedLabel={`Confirm deleting ${m.name}`}
+          hint="Delete map"
+          armedHint="Click again to delete permanently"
+          question="Delete?"
           disabled={deletingId === m.id}
-          data-hint={
-            confirmId === m.id ? "Click again to delete permanently" : "Delete map"
-          }
-          aria-label={
-            confirmId === m.id
-              ? `Confirm deleting ${m.name}`
-              : `Delete ${m.name}`
-          }
-          onClick={(e) => {
-            e.stopPropagation();
-            if (confirmId === m.id) void deleteMap(m);
-            else setConfirmId(m.id);
-          }}
-          onBlur={() => setConfirmId(null)}
-        >
-          {confirmId === m.id ? "Delete?" : <IconTrash />}
-        </button>
+          onConfirm={() => deleteMap(m)}
+        />
       )}
     </span>
     );

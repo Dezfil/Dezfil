@@ -136,8 +136,8 @@ describe("the Data list's card and row", () => {
       source: "upload", createdAt: "2026-09-01T00:00:00Z", importedAt: null,
     }) as unknown as TableListing;
   const actions = (t: TableListing): TableActionsProps => ({
-    table: t, confirming: false, deleting: false, onOpen: vi.fn(), onQuery: vi.fn(), onAddToMap: vi.fn(),
-    onFile: vi.fn(), onDeletePress: vi.fn(), onDeleteBlur: vi.fn(),
+    table: t, deleting: false, onOpen: vi.fn(), onQuery: vi.fn(), onAddToMap: vi.fn(),
+    onFile: vi.fn(), onDelete: vi.fn(),
   });
 
   it("marks Ada's dataset in the card's corner and drops filing and deleting", () => {

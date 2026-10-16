@@ -14,9 +14,9 @@ import {
   IconList,
   IconOpen,
   IconSearch,
-  IconTrash,
   MapPlaceholder,
 } from "./gallery-icons";
+import { CardDelete } from "./CardDelete";
 import { untilViewSettled, useViewPrefs } from "./use-view-prefs";
 import { ProjectTag } from "./MapsScreen";
 import { ScopeFilter } from "./scope/ScopeFilter";
@@ -110,8 +110,6 @@ export function WorkflowsScreen() {
     "edited",
     WORKFLOW_SORTS,
   );
-  // Per-card delete, as maps: first click arms, second deletes.
-  const [confirmId, setConfirmId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   // Filing: the same dialog Maps opens, over a workflow.
   const [filing, setFiling] = useState<WorkflowListing | null>(null);
@@ -166,7 +164,6 @@ export function WorkflowsScreen() {
     async (item: WorkflowListing) => {
       const { id } = item;
       setBusyId(id);
-      setConfirmId(null);
       try {
         const response = await fetch(`/api/recipes/${id}`, {
           method: "DELETE",
@@ -215,7 +212,6 @@ export function WorkflowsScreen() {
     withOpen: boolean,
   ) => {
     const live = w.summary.liveOutputs;
-    const armed = confirmId === w.id;
     const mine = othersOwner(w) === null;
     return (
       <span className={rowStyle}>
@@ -255,27 +251,19 @@ export function WorkflowsScreen() {
           <IconDuplicate />
         </button>
         {mine && (
-          <button
-            className={gallery.deleteAct}
-            data-confirm={armed || undefined}
-            disabled={busyId === w.id}
-            data-hint={
-              armed
-                ? live > 0
-                  ? `Click again to delete. Its ${live} ${datasetWord(live)} stay in Data.`
-                  : "Click again to delete. It has no datasets that would stay."
-                : "Delete workflow"
+          <CardDelete
+            label={`Delete ${w.name}`}
+            armedLabel={`Confirm deleting ${w.name}`}
+            hint="Delete workflow"
+            armedHint={
+              live > 0
+                ? `Click again to delete. Its ${live} ${datasetWord(live)} stay in Data.`
+                : "Click again to delete. It has no datasets that would stay."
             }
-            aria-label={armed ? `Confirm deleting ${w.name}` : `Delete ${w.name}`}
-            onClick={(e) => {
-              e.stopPropagation();
-              if (armed) void deleteWorkflow(w);
-              else setConfirmId(w.id);
-            }}
-            onBlur={() => setConfirmId(null)}
-          >
-            {armed ? `Delete? ${live} stay` : <IconTrash />}
-          </button>
+            question={`Delete? ${live} stay`}
+            disabled={busyId === w.id}
+            onConfirm={() => deleteWorkflow(w)}
+          />
         )}
       </span>
     );
