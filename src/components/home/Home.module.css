@@ -269,12 +269,23 @@
    Home is drawn for. Four at the reference's windows with the side menu
    at rest; a column fewer as Home narrows, whether the window narrows or
    the side menu stands open. Each step is where one more column would
-   bring the cards under 270px with the 16px gaps between them. Only the
-   row is Home's: the card is as it ships. */
+   bring the cards under 270px with the 16px gaps between them. The row
+   is Home's, and the card is as it ships but for its title. */
 .shelf {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 16px;
+}
+
+/* On cards this narrow the longest titles would end in an ellipsis beside
+   the date, so the title takes a second line here and the row's cards
+   grow with it. */
+.shelf [data-field="title"] {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  white-space: normal;
+  overflow: hidden;
 }
 
 @container home (max-width: 1127px) {

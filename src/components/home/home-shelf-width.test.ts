@@ -92,3 +92,31 @@ describe("the templates below on Home", () => {
     expect(shelfAt(1280, railOpen).count).toBeLessThan(shelfAt(1280, 0).count);
   });
 });
+
+describe("a template's title on Home's shelf", () => {
+  // The Templates page's card holds its title to one line; on Home's
+  // narrower cards the longest titles would end in an ellipsis beside the
+  // date, so the shelf gives the title a second line and the card's height
+  // follows. Read from the stylesheets, as the widths above are.
+  const GALLERY = readFileSync("src/components/gallery.module.css", "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+  const cardName = /(?:^|\})\s*\.cardName\s*{([^}]*)}/.exec(GALLERY);
+  const title = /(?:^|\})\s*(\.shelf\s+\[data-field="title"\])\s*{([^}]*)}/.exec(HOME);
+  const decl = (body: string, prop: string) => new RegExp(`(?:^|;|\\s)${prop}:\\s*([^;]+)`).exec(body)?.[1].trim() ?? null;
+
+  it("takes two lines there, ending in an ellipsis only past the second", () => {
+    expect(title, "a rule for the title inside the shelf").not.toBeNull();
+    const body = title![2];
+    expect(decl(body, "white-space")).toBe("normal");
+    expect(decl(body, "-webkit-line-clamp")).toBe("2");
+    expect(decl(body, "display")).toBe("-webkit-box");
+    expect(decl(body, "-webkit-box-orient")).toBe("vertical");
+    expect(decl(body, "overflow")).toBe("hidden");
+  });
+
+  it("outranks the card's one-line rule by its selector, so no file order decides it", () => {
+    expect(cardName, "the card's own title rule").not.toBeNull();
+    expect(decl(cardName![1], "white-space")).toBe("nowrap");
+    // One class against a class and an attribute.
+    expect(title![1]).toMatch(/^\.shelf\s+\[data-field="title"\]$/);
+  });
+});
