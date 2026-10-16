@@ -21,19 +21,21 @@ let host: ReturnType<typeof installDomHost>;
 let container: HostElement;
 let root: ReturnType<typeof createRoot>;
 let settle: () => void;
+let confirmed: number;
 
 beforeEach(() => {
   host = installDomHost();
   container = host.document.createElement("div");
   host.document.body.appendChild(container);
   root = createRoot(container as unknown as Element);
+  confirmed = 0;
 });
 afterEach(() => {
   act(() => root.unmount());
   host.uninstall();
 });
 
-const onConfirm = () => new Promise<void>((resolve) => { settle = resolve; });
+const onConfirm = () => { confirmed += 1; return new Promise<void>((resolve) => { settle = resolve; }); };
 
 function draw(items: string[], inFlight: string | null = null) {
   act(() =>
@@ -119,6 +121,28 @@ describe("a card's in-place delete", () => {
     draw(["b"]);
     await act(async () => settle());
     expect(active()).toBe(host.document.body);
+  });
+
+  it("disarms one card's delete when another is armed, though no blur left it, and leaves focus where it is", async () => {
+    // A pointer click that does not focus the button (as some browsers'
+    // do not) never blurs the first: arming the second must disarm it.
+    draw(["a", "b"]);
+    const a = button("Delete a")!;
+    act(() => a.click());
+    expect(a.getAttribute("aria-label")).toBe("Confirm deleting a");
+    const b = button("Delete b")!;
+    b.focus();
+    act(() => b.click());
+    expect(b.getAttribute("aria-label")).toBe("Confirm deleting b");
+    expect(a.getAttribute("aria-label")).toBe("Delete a");
+    expect(a.hasAttribute("data-confirm")).toBe(false);
+    expect(a.textContent).not.toContain("Delete?");
+    expect(active()).toBe(b);
+    // Back on the first, one press arms it again and deletes nothing.
+    act(() => a.click());
+    expect(confirmed).toBe(0);
+    expect(a.getAttribute("aria-label")).toBe("Confirm deleting a");
+    expect(b.getAttribute("aria-label")).toBe("Delete b");
   });
 
   it("gives focus back to the button and disarms it when the deletion fails", async () => {

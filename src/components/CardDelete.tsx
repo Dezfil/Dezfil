@@ -15,6 +15,11 @@ import gallery from "./gallery.module.css";
  * gone, focus moves to the next card's delete, else the previous card's,
  * else the list's heading. A deletion that fails leaves the card, and
  * focus returns to the button if the in-flight disabling dropped it.
+ *
+ * One delete is armed at a time on the page: arming another disarms it.
+ * Leaving the button is not enough for that, since a browser whose pointer
+ * clicks do not focus a button never blurs it, and an armed delete left
+ * behind another would delete on one press.
  */
 export function CardDelete({
   label,
@@ -40,6 +45,17 @@ export function CardDelete({
 }) {
   const [armed, setArmed] = useState(false);
   const ref = useRef<HTMLButtonElement>(null);
+  // This control's entry while it is the one armed.
+  const self = useRef<Armed>({ disarm: () => setArmed(false) });
+  const arm = () => {
+    if (armedNow && armedNow !== self.current) armedNow.disarm();
+    armedNow = self.current;
+    setArmed(true);
+  };
+  const disarm = () => {
+    if (armedNow === self.current) armedNow = null;
+    setArmed(false);
+  };
   // Set by a confirming press made with focus on this button: every
   // card's delete, in page order, as they stood at that press.
   const peers = useRef<HTMLElement[] | null>(null);
@@ -60,7 +76,9 @@ export function CardDelete({
   // and a landing made during it would be undone.
   useEffect(() => {
     const button = ref.current;
+    const entry = self.current;
     return () => {
+      if (armedNow === entry) armedNow = null;
       if (button && peers.current && focusLost(button)) land(button, peers.current);
     };
   }, []);
@@ -77,7 +95,7 @@ export function CardDelete({
       onClick={(e) => {
         e.stopPropagation();
         if (!armed) {
-          setArmed(true);
+          arm();
           return;
         }
         const button = e.currentTarget;
@@ -85,14 +103,18 @@ export function CardDelete({
           document.activeElement === button
             ? Array.from(document.querySelectorAll<HTMLElement>("[data-card-delete]"))
             : null;
-        void Promise.resolve(onConfirm()).finally(() => setArmed(false));
+        void Promise.resolve(onConfirm()).finally(disarm);
       }}
-      onBlur={() => setArmed(false)}
+      onBlur={disarm}
     >
       {armed ? question : <IconTrash />}
     </button>
   );
 }
+
+type Armed = { disarm: () => void };
+/** The page's one armed delete, if any. */
+let armedNow: Armed | null = null;
 
 /** Focus is still on the button, or the page dropped it. */
 function focusLost(button: HTMLElement): boolean {
