@@ -163,7 +163,7 @@ export const CRS_DOOR_TIP_ACTION = "Click to choose the projection.";
 
 /** The assumed-CRS chip. On the dataset page alone it is a door:
  * given `onOpen`, it carries the caret the chips use for a door,
- * shows the drawn tooltip on hover and focus, and opens the panel with the
+ * shows the drawn tooltip on hover and keyboard focus, and opens the panel with the
  * projection field marked. Cards and rows pass nothing and keep the
  * shipped chip. */
 export function CrsChip({ table, onOpen }: { table: DataTable; onOpen?: () => void }) {
