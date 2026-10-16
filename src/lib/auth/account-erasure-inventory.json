@@ -448,6 +448,10 @@
       "rule": "Invalidate history and layer admission caches, including weak holders of saved input bindings.",
       "fixture": "memory:src/lib/layer-admission.ts#updateAdmissions"
     },
+    "memory:src/lib/map-thumbnails.ts#begun": {
+      "action": "retain",
+      "rule": "Keep the process-wide count of thumbnail mutation turns begun on any map, by which a read that overlapped one is taken again inside its map's turn. It holds one number and no map, account identity or content."
+    },
     "memory:src/lib/map-thumbnails.ts#turns": {
       "action": "purge",
       "rule": "Drain every current thumbnail mutation before scanning its final input evidence. Independent writes finish normally and their bytes remain.",
@@ -1590,15 +1594,7 @@
         "thumbnails"
       ]
     },
-    "location:src/lib/map-thumbnails.ts#readSet.parsed:thumbnailManifestPath": {
-      "stores": [
-        "file:thumbnails"
-      ],
-      "roots": [
-        "thumbnails/*.json"
-      ]
-    },
-    "location:src/lib/map-thumbnails.ts#readThumbnail.order:inDir": {
+    "location:src/lib/map-thumbnails.ts#moveAside:inDir": {
       "stores": [
         "file:thumbnails"
       ],
@@ -1606,12 +1602,36 @@
         "thumbnails/*"
       ]
     },
-    "location:src/lib/map-thumbnails.ts#readThumbnail.single:thumbnailPath": {
+    "location:src/lib/map-thumbnails.ts#moveAside:thumbnailManifestPath": {
+      "stores": [
+        "file:thumbnails"
+      ],
+      "roots": [
+        "thumbnails/*.json"
+      ]
+    },
+    "location:src/lib/map-thumbnails.ts#readPublished.order:inDir": {
+      "stores": [
+        "file:thumbnails"
+      ],
+      "roots": [
+        "thumbnails/*"
+      ]
+    },
+    "location:src/lib/map-thumbnails.ts#readPublished.single:thumbnailPath": {
       "stores": [
         "file:thumbnails"
       ],
       "roots": [
         "thumbnails/*.png"
+      ]
+    },
+    "location:src/lib/map-thumbnails.ts#readSet.parsed:thumbnailManifestPath": {
+      "stores": [
+        "file:thumbnails"
+      ],
+      "roots": [
+        "thumbnails/*.json"
       ]
     },
     "location:src/lib/map-thumbnails.ts#removeImage:inDir": {
@@ -3403,6 +3423,11 @@
         "memory:browser-presentation"
       ]
     },
+    "memory:src/lib/map-thumbnails.ts#begun": {
+      "stores": [
+        "memory:src/lib/map-thumbnails.ts#begun"
+      ]
+    },
     "memory:src/lib/map-thumbnails.ts#turns": {
       "stores": [
         "memory:src/lib/map-thumbnails.ts#turns"
@@ -4151,6 +4176,15 @@
         "thumbnails/*",
         "thumbnails/*.json",
         "thumbnails/*.png"
+      ]
+    },
+    "writer:src/lib/map-thumbnails.ts#moveAside:writeAtomically": {
+      "stores": [
+        "file:thumbnails"
+      ],
+      "roots": [
+        "thumbnails/*",
+        "thumbnails/*.json"
       ]
     },
     "writer:src/lib/map-thumbnails.ts#saveThemedThumbnail:writeAtomically": {
