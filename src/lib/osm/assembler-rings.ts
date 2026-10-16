@@ -12,7 +12,7 @@
  * next run. Two ends meet only when both are present and name the same
  * node.
  */
-export function joinRuns<V>(ways: readonly (readonly V[])[], key: (vertex: V) => string): V[][] {
+export function joinRuns<V>(ways: readonly (readonly V[])[], key: (vertex: V) => string | number): V[][] {
   const meets = (a: V | undefined, b: V | undefined) => a !== undefined && b !== undefined && key(a) === key(b);
   const pending = ways.slice();
   const runs: V[][] = [];

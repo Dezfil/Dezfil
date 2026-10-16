@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { limits } from "@/lib/limits";
+import { overpassResponse } from "@/lib/test-support/overpass-responses";
 import { assembleAndSplit, filterSplitWithin, type WithinShape } from "./geometry";
 import { osmPreviewAnswer, type OsmFeaturePreview } from "./preview-answer";
 import { previewOsm } from "./import";
@@ -15,16 +16,24 @@ import { previewOsm } from "./import";
  * it whole with 422 render_bytes_exceeded.
  */
 
-/** Features the assembler handed over, and whether it is running now, so
- * that a read of a raw coordinate can be told apart as construction. */
-const assembled = vi.hoisted(() => ({ features: 0, running: false }));
+/** Features the assembler handed over, the largest geometry it built for
+ * one, and whether it is running now, so that a read of a raw coordinate
+ * can be told apart as construction. */
+const assembled = vi.hoisted(() => ({ features: 0, widest: 0, running: false }));
 vi.mock("osmtogeojson", async (original) => {
   const real = (await original<{ default: (...args: unknown[]) => unknown }>()).default;
   return {
     default: (data: unknown, options: unknown, each?: (feature: unknown) => void) => {
       assembled.running = true;
       try {
-        if (each) return real(data, options, (feature: unknown) => { assembled.features++; each(feature); });
+        if (each) {
+          return real(data, options, (feature: unknown) => {
+            assembled.features++;
+            const geometry = (feature as { geometry?: unknown }).geometry;
+            assembled.widest = Math.max(assembled.widest, Buffer.byteLength(JSON.stringify(geometry) ?? "", "utf8"));
+            each(feature);
+          });
+        }
         const collection = real(data, options) as { features: unknown[] };
         assembled.features += collection.features.length;
         return collection;
@@ -40,6 +49,7 @@ vi.mock("./overpass", async (original) => ({ ...(await original<typeof import(".
 afterEach(() => {
   vi.restoreAllMocks();
   assembled.features = 0;
+  assembled.widest = 0;
   assembled.running = false;
   fetchOverpass.mockReset();
   delete process.env.DEZFIL_RENDER_CAP_BYTES;
@@ -52,7 +62,7 @@ const path = (points: [number, number][]) => points.map(([lon, lat]) => ({ lat, 
 /** A way; a ring that closes on its first point closes on its first node. */
 const way = (id: number, points: [number, number][], tags: Record<string, string>): Element => {
   const closed = points.length > 3 && points[0].every((v, i) => v === points[points.length - 1][i]);
-  const nodes = points.map((_, i) => id * 1000 + (closed && i === points.length - 1 ? 0 : i));
+  const nodes = points.map((_, i) => id * 1_000_000 + (closed && i === points.length - 1 ? 0 : i));
   return { type: "way", id, nodes, geometry: path(points), tags };
 };
 const ring = (x: number, y: number, size: number, vertices = 4): [number, number][] => {
@@ -184,11 +194,13 @@ describe("an OpenStreetMap preview is decided before the collection is assembled
   });
 });
 
+
 /**
  * Construction is observed on the raw element itself: every read of a
  * vertex's coordinates while the assembler runs (it reads both of each
  * vertex to build its pair), apart from the reads outside it, and every
- * serialization of its tags.
+ * serialization of its tags; and on what the assembler hands over, the
+ * largest geometry it built for one feature.
  */
 interface Watched { coordinates: number; measured: number; tags: number }
 const watching = (): Watched => ({ coordinates: 0, measured: 0, tags: 0 });
@@ -208,79 +220,125 @@ function watchTags(tags: object, seen: Watched) {
   });
 }
 
-/**
- * One element too large for the answer on its own is refused before the
- * assembler builds it: a refusal is early only when the assembler read
- * none of its coordinates and its tags were never serialized.
- */
-describe("an element too large on its own is refused before it is assembled", () => {
-  const LIMIT = 65_536;
-  const long = (n: number) => Array.from({ length: n }, (_, i): [number, number] => [13.3 + i * 1e-6, 52.4 + (i % 2) * 1e-4]);
-  const streets = (n: number, first: number) => Array.from({ length: n }, (_, i) => way(first + i, [[13.3, 52.4], [13.31, 52.41]], { highway: "service" }));
+const LIMIT = 65_536;
+const long = (n: number) => Array.from({ length: n }, (_, i): [number, number] => [13.3 + i * 1e-6, 52.4 + (i % 2) * 1e-4]);
+/** Coordinates as OpenStreetMap stores them, to seven decimals. */
+const precise = (n: number) => Array.from({ length: n }, (_, i): [number, number] =>
+  [Math.round((13.4049538 + i * 0.0000123) * 1e7) / 1e7, Math.round((52.5200066 + (i % 7) * 0.0000037) * 1e7) / 1e7]);
+const streets = (n: number, first: number) => Array.from({ length: n }, (_, i) => way(first + i, [[13.3, 52.4], [13.31, 52.41]], { highway: "service" }));
+/** Twelve thousand control characters, seven bytes each in the answer. */
+const CONTROL = "\u0001".repeat(12000);
 
-  /** Each case builds a fresh response around one oversized element. */
-  const cases: [string, (seen: Watched) => { response: { version: number; elements: Element[] }; tags: object }][] = [
+/** The preview route's answer for a response under the byte limit. */
+async function preview(response: unknown, cap?: number) {
+  fetchOverpass.mockImplementation(async () => ({ response, fromCache: true }));
+  process.env.DEZFIL_RENDER_CAP_BYTES = String(LIMIT);
+  if (cap !== undefined) process.env.DEZFIL_RENDER_CAP_FEATURES = String(cap);
+  return previewOsm({ ql: "nwr; out geom;", name: "source" });
+}
+
+/** The deliberately late control: the same response assembled under no
+ * limit, then refused by its serialized length. */
+function lateRefusal(response: unknown, cap: number = limits.renderCapFeatures) {
+  const preview = osmPreviewAnswer(response, PROMOTED, null, cap, Number.MAX_SAFE_INTEGER, () => {});
+  if (bytesOf(preview) > LIMIT) throw new Error("refused late");
+  return preview;
+}
+
+interface Made { response: { version: number; elements: Element[] }; tags: object; vertices: number; cap?: number }
+
+/**
+ * One element too large for the answer on its own is never assembled:
+ * the assembler reads none of its coordinates and builds no geometry the
+ * size of the limit, and its tags are never serialized. It is measured
+ * from the raw response, each coordinate read once.
+ */
+describe("an element too large on its own is refused without being assembled", () => {
+  const cases: [string, (seen: Watched) => Made][] = [
     ["one 50,000-vertex way", (seen) => {
       const tags = { highway: "primary" };
       const element = { ...way(1, long(50000), tags), geometry: watchedPath(long(50000), seen) };
-      return { response: { version: 0.6, elements: [element, ...streets(20000, 2)] }, tags };
+      return { response: { version: 0.6, elements: [element, ...streets(20000, 2)] }, tags, vertices: 50000 };
     }],
     ["one multipolygon with a 50,000-vertex ring", (seen) => {
       const tags = { type: "multipolygon", landuse: "forest", name: "Wood" };
       const element = { type: "relation", id: 9, tags, members: [{ type: "way", ref: 90, role: "outer", geometry: watchedPath(ring(13.3, 52.4, 0.05, 50000), seen) }] };
-      return { response: { version: 0.6, elements: [element, ...streets(200, 2)] }, tags };
+      return { response: { version: 0.6, elements: [element, ...streets(200, 2)] }, tags, vertices: 50001 };
     }],
     ["one node with tags over the limit", () => {
       const tags = { amenity: "bench", inscription: "x".repeat(70000) };
-      return { response: { version: 0.6, elements: [node(1, 13.3, 52.4, tags), ...Array.from({ length: 200 }, (_, i) => node(2 + i, 13.31, 52.41))] }, tags };
+      return { response: { version: 0.6, elements: [node(1, 13.3, 52.4, tags), ...Array.from({ length: 200 }, (_, i) => node(2 + i, 13.31, 52.41))] }, tags, vertices: 0 };
+    }],
+    ["one 5,000-vertex way at the precision OpenStreetMap stores", (seen) => {
+      const tags = { highway: "primary" };
+      const element = { ...way(1, precise(5000), tags), geometry: watchedPath(precise(5000), seen) };
+      return { response: { version: 0.6, elements: [element, ...streets(20, 2)] }, tags, vertices: 5000 };
+    }],
+    ["one way tagged with 12,000 control characters", (seen) => {
+      const tags = { highway: "service", note: CONTROL };
+      const points: [number, number][] = [[13.3, 52.4], [13.31, 52.41]];
+      const element = { ...way(1, points, tags), geometry: watchedPath(points, seen) };
+      return { response: { version: 0.6, elements: [element, ...streets(20, 2)] }, tags, vertices: 2 };
+    }],
+    ["one node tagged with 12,000 control characters", () => {
+      const tags = { amenity: "bench", note: CONTROL };
+      return { response: { version: 0.6, elements: [node(1, 13.3, 52.4, tags), node(2, 13.31, 52.41)] }, tags, vertices: 0 };
+    }],
+    ["the first of two ways under a cap of one", (seen) => {
+      const tags = { highway: "primary" };
+      const element = { ...way(1, precise(5000), tags), geometry: watchedPath(precise(5000), seen) };
+      return { response: { version: 0.6, elements: [element, ...streets(1, 2)] }, tags, vertices: 5000, cap: 1 };
     }],
   ];
-
-  /** The deliberately late control: the same response assembled without
-   * the early decision, then refused by its serialized length. */
-  function lateRefusal(response: unknown) {
-    const preview = osmPreviewAnswer(response, PROMOTED, null, limits.renderCapFeatures, Number.MAX_SAFE_INTEGER, () => {});
-    if (bytesOf(preview) > LIMIT) throw new Error("refused late");
-    return preview;
-  }
 
   it.each(cases)("%s: refused unassembled, while the late control is not", async (_name, make) => {
     const early = watching();
     const built = make(early);
     watchTags(built.tags, early);
-    fetchOverpass.mockImplementation(async () => ({ response: built.response, fromCache: true }));
-    process.env.DEZFIL_RENDER_CAP_BYTES = String(LIMIT);
-    await expect(previewOsm({ ql: "nwr; out geom;", name: "source" })).rejects.toMatchObject({ code: "render_bytes_exceeded", message: expect.stringMatching(SENTENCE) });
+    await expect(preview(built.response, built.cap)).rejects.toMatchObject({ code: "render_bytes_exceeded", message: expect.stringMatching(SENTENCE) });
     expect(early).toMatchObject({ coordinates: 0, tags: 0 });
-    expect(assembled.features).toBe(0);
+    expect(early.measured).toBeLessThanOrEqual(2 * built.vertices);
+    expect(assembled.widest).toBeLessThan(LIMIT);
     vi.restoreAllMocks();
 
     const late = watching();
     const control = make(late);
     watchTags(control.tags, late);
-    expect(() => lateRefusal(control.response)).toThrow("refused late");
+    expect(() => lateRefusal(control.response, control.cap)).toThrow("refused late");
     expect(late.tags).toBeGreaterThan(0);
-    if (_name !== "one node with tags over the limit") expect(late.coordinates).toBeGreaterThanOrEqual(100000);
+    expect(late.coordinates).toBeGreaterThanOrEqual(2 * control.vertices);
   });
 
-  it("admits an element whose bound is just under the limit at exactly its size", () => {
-    // Every pair is as short as a pair can be, so the bound is within the
-    // feature's own members of its size.
-    const minimal = Array.from({ length: 50000 }, (_, i): [number, number] => [i % 2, 0]);
-    const response = { version: 0.6, elements: [way(1, minimal, { highway: "primary" })] };
-    const before = previous(response, null, limits.renderCapFeatures);
+  it("admits an element at exactly its size, and refuses it unassembled one byte under", () => {
+    // Under a cap of one with a street after it, the answer is the way
+    // alone and truncated: its smallest envelope.
+    const points = precise(3000);
+    const tags = { highway: "primary", name: "Quote \" backslash \\ tab \t", note: CONTROL.slice(0, 2000) };
+    const make = (seen: Watched) => ({ version: 0.6, elements: [{ ...way(1, points, tags), geometry: watchedPath(points, seen) }, ...streets(1, 2)] });
+    const before = previous(make(watching()), null, 1);
+    expect(before).toMatchObject({ featureCount: 1, truncated: true });
     const limit = bytesOf(before);
-    expect(limit - (6 * 50000 - 1)).toBeLessThan(400);
-    expect(answer(response, null, limits.renderCapFeatures, limit)).toEqual(before);
-    expect(() => answer(response, null, limits.renderCapFeatures, limit - 1)).toThrow(SENTENCE);
+    expect(limit).toBeGreaterThan(LIMIT);
+    const at = watching();
+    expect(osmPreviewAnswer(make(at), PROMOTED, null, 1, limit, () => {})).toEqual(before);
+    expect(at.coordinates).toBeGreaterThanOrEqual(2 * 3000);
+
+    const under = watching();
+    watchTags(tags, under);
+    expect(() => osmPreviewAnswer(make(under), PROMOTED, null, 1, limit - 1, () => {})).toThrow(SENTENCE);
+    expect(under).toMatchObject({ coordinates: 0, tags: 0 });
+    expect(under.measured).toBeLessThanOrEqual(2 * 3000);
   });
 
-  it("answers as before when the area leaves the oversized element out", () => {
-    const response = { version: 0.6, elements: [way(1, long(50000), { highway: "primary" }), ...streets(3, 2)] };
+  it("answers as before, without assembling it, when the area leaves the oversized element out", () => {
+    const make = (seen: Watched) => ({ version: 0.6, elements: [{ ...way(1, long(50000), { highway: "primary" }), geometry: watchedPath(long(50000), seen) }, ...streets(3, 2)] });
     const area: WithinShape = { bbox: [13.29, 52.39, 13.32, 52.42] };
-    const before = previous(response, area, limits.renderCapFeatures);
+    const before = previous(make(watching()), area, limits.renderCapFeatures);
     expect(before.featureCount).toBe(3);
-    expect(answer(response, area, limits.renderCapFeatures, LIMIT)).toEqual(before);
+    const seen = watching();
+    expect(osmPreviewAnswer(make(seen), PROMOTED, area, limits.renderCapFeatures, LIMIT, () => {})).toEqual(before);
+    expect(seen.coordinates).toBe(0);
+    expect(assembled.widest).toBeLessThan(LIMIT);
   });
 
   it("answers as before when later lines push the oversized polygon out", () => {
@@ -294,12 +352,54 @@ describe("an element too large on its own is refused before it is assembled", ()
 });
 
 /**
+ * An element too large for the answer that the cap leaves out does not
+ * refuse the preview and is never assembled: the answer is byte for byte
+ * the one the whole response gives.
+ */
+describe("an element too large on its own beyond the cap", () => {
+  const short = (id: number) => way(id, [[13.3, 52.4], [13.31, 52.41]], { highway: "service" });
+  const cases: [string, number, (seen: Watched) => Made][] = [
+    ["a way after the line that fills a cap of one", 1, (seen) => {
+      const tags = { highway: "primary", note: CONTROL };
+      const element = { ...way(1, precise(5000), tags), geometry: watchedPath(precise(5000), seen) };
+      return { response: { version: 0.6, elements: [short(2), element] }, tags, vertices: 5000 };
+    }],
+    ["a multipolygon after the point and the line that fill a cap of two", 2, (seen) => {
+      const tags = { type: "multipolygon", landuse: "forest", name: "Wood" };
+      const element = { type: "relation", id: 9, tags, members: [{ type: "way", ref: 90, role: "outer", geometry: watchedPath(ring(13.3, 52.4, 0.05, 50000), seen) }] };
+      return { response: { version: 0.6, elements: [node(1, 13.3, 52.4), element, short(2)] }, tags, vertices: 50001 };
+    }],
+    ["a building after the line that fills a cap of one", 1, (seen) => {
+      const tags = { building: "yes", name: "Hall" };
+      const points = ring(13.3, 52.4, 0.01, 5000);
+      const element = { ...way(1, points, tags), geometry: watchedPath(points, seen) };
+      return { response: { version: 0.6, elements: [short(2), element] }, tags, vertices: 5001 };
+    }],
+    ["a node after the point that fills a cap of one", 1, () => {
+      const tags = { amenity: "bench", note: CONTROL };
+      return { response: { version: 0.6, elements: [node(1, 13.3, 52.4), node(2, 13.31, 52.41, tags)] }, tags, vertices: 0 };
+    }],
+  ];
+
+  it.each(cases)("%s: admitted, never assembled, and the answer it gave before", (_name, cap, make) => {
+    const before = previous(make(watching()).response, null, cap);
+    expect(before.truncated).toBe(true);
+    const seen = watching();
+    const built = make(seen);
+    watchTags(built.tags, seen);
+    const answered = osmPreviewAnswer(built.response, PROMOTED, null, cap, LIMIT, () => {});
+    expect(JSON.stringify(answered)).toBe(JSON.stringify(before));
+    expect(seen).toMatchObject({ coordinates: 0, tags: 0 });
+    expect(assembled.widest).toBeLessThan(LIMIT);
+  });
+});
+
+/**
  * A relation counts against the limit only when the assembler makes a
  * feature of it: an outer ring of fewer than four nodes is discarded, and
  * a relation left without a ring makes none, however large its tags.
  */
 describe("a multipolygon whose rings the assembler discards", () => {
-  const LIMIT = 65_536;
   const forest = (members: Element[], note: string): Element =>
     ({ type: "relation", id: 9, tags: { type: "multipolygon", landuse: "forest", note }, members });
   const outer = (ref: number, geometry: unknown[]): Element => ({ type: "way", ref, role: "outer", geometry });
@@ -327,9 +427,7 @@ describe("a multipolygon whose rings the assembler discards", () => {
     const early = watching();
     const built = make(early);
     watchTags(built.tags, early);
-    fetchOverpass.mockImplementation(async () => ({ response: built.response, fromCache: true }));
-    process.env.DEZFIL_RENDER_CAP_BYTES = String(LIMIT);
-    await expect(previewOsm({ ql: "nwr; out geom;", name: "source" })).rejects.toMatchObject({ code: "render_bytes_exceeded", message: expect.stringMatching(SENTENCE) });
+    await expect(preview(built.response)).rejects.toMatchObject({ code: "render_bytes_exceeded", message: expect.stringMatching(SENTENCE) });
     expect(early).toMatchObject({ coordinates: 0, tags: 0 });
     vi.restoreAllMocks();
 
@@ -337,9 +435,42 @@ describe("a multipolygon whose rings the assembler discards", () => {
     const late = watching();
     const control = make(late);
     watchTags(control.tags, late);
-    const preview = osmPreviewAnswer(control.response, PROMOTED, null, limits.renderCapFeatures, Number.MAX_SAFE_INTEGER, () => {});
-    expect(bytesOf(preview)).toBeGreaterThan(LIMIT);
+    const preview_ = osmPreviewAnswer(control.response, PROMOTED, null, limits.renderCapFeatures, Number.MAX_SAFE_INTEGER, () => {});
+    expect(bytesOf(preview_)).toBeGreaterThan(LIMIT);
     expect(late.coordinates).toBeGreaterThan(0);
     expect(late.tags).toBeGreaterThan(0);
+  });
+});
+
+/**
+ * Over responses of every shape Overpass writes, at every cap and at
+ * limits at and around the sizes of the answer and of single features,
+ * the preview answers what the whole response answers, or refuses it
+ * whole exactly when that answer is over the limit; and the assembler
+ * builds no geometry larger than the answer has room for.
+ */
+describe("an OpenStreetMap preview of responses of every shape", () => {
+  const envelope = (cap: number) => Math.min(...[false, true].map((truncated) =>
+    Buffer.byteLength(JSON.stringify({ geojson: { type: "FeatureCollection", features: [] }, featureCount: 0, truncated, cap }), "utf8")));
+
+  it.each(Array.from({ length: 24 }, (_, i) => i + 1))("answers what the whole response answers, building nothing too large: response %i", (seed) => {
+    const response = overpassResponse(seed);
+    for (const within of [null, { bbox: [13.4, 52.4, 13.5, 52.6] } as WithinShape]) {
+      const all = previous(response, within, Number.MAX_SAFE_INTEGER);
+      const sizes = all.geojson.features.map((feature) => Buffer.byteLength(JSON.stringify(feature), "utf8")).sort((a, b) => a - b);
+      const picked = [sizes[0], sizes[Math.floor(sizes.length / 2)], sizes[sizes.length - 1]].filter((size) => size !== undefined);
+      for (const cap of [...new Set([0, 1, 3, Math.floor(all.featureCount / 2), all.featureCount, limits.renderCapFeatures])]) {
+        const before = previous(response, within, cap);
+        const exact = bytesOf(before);
+        const room = (limit: number) => limit - envelope(cap);
+        for (const limit of [exact, exact - 1, ...picked.flatMap((size) => [size + envelope(cap), size + envelope(cap) - 1])]) {
+          const where = `${within ? "an area" : "no area"}, cap ${cap}, limit ${limit}`;
+          assembled.widest = 0;
+          if (exact <= limit) expect(answer(response, within, cap, limit), where).toEqual(before);
+          else expect(() => answer(response, within, cap, limit), where).toThrow(SENTENCE);
+          expect(assembled.widest, where).toBeLessThanOrEqual(Math.max(room(limit), 1024));
+        }
+      }
+    }
   });
 });

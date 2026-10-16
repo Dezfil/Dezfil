@@ -2,8 +2,9 @@ import osmtogeojson from "osmtogeojson";
 import { ApiError } from "@/lib/api/errors";
 import { RenderBudget } from "@/lib/query/render-budget";
 import { jsonBytes } from "@/lib/query/result-budget";
-import { featureWithin, shapeFeature, type ShapedFeature, type WithinShape } from "./geometry";
-import { certainlyTooLarge } from "./preview-bound";
+import { featureBytes } from "./feature-bytes";
+import { featureClass, featureWithin, shapeFeature, type BuiltFeature, type ShapedFeature, type WithinShape } from "./geometry";
+import { planPreview } from "./preview-plan";
 
 /** A Run Query result: the features the matching import would land, the
  * points first, then the lines, then the polygons, capped by the render cap
@@ -41,14 +42,16 @@ function osmBytesRefusal(limit: number): ApiError {
  * held only while it can still be in the answer and still fits beside what
  * is counted: a later line can push it out, never pull an earlier one in.
  * The count is exact: every byte of the eventual JSON, envelope included,
- * and equality is admitted. Assembly stops as soon as a placed point or
+ * and equality is admitted. A feature is measured before any of it is
+ * serialized, its tags counted with their escaping, and serialized only
+ * once it is in the answer. Assembly stops as soon as a placed point or
  * line takes the answer over the limit, or once the answer is complete and
  * more features are known to exist; a polygon that does not fit is let go
  * at once, and refuses the preview only if it would have been in it. Over
  * the limit the preview is refused whole with 422 render_bytes_exceeded.
- * Before any of that, one element the answer would certainly carry and
- * that cannot fit on its own refuses the preview unassembled (see
- * preview-bound).
+ * A line or polygon too large for the answer on its own is never built:
+ * it comes from a stand-in that carries its measured size (see
+ * preview-plan), and is placed by that size.
  */
 export function osmPreviewAnswer(
   response: unknown,
@@ -69,13 +72,13 @@ export function osmPreviewAnswer(
     const envelope = Math.min(jsonBytes(compose([], 0, false)), jsonBytes(compose([], 0, true)));
     budget.take(envelope);
     check();
-    if (certainlyTooLarge(response, within, cap, limit - envelope)) throw osmBytesRefusal(limit);
+    const plan = planPreview(response, promoted, within, limit - envelope);
 
     // Points and lines in the answer, counted.
     const placed: ShapedFeature[] = [];
     // The polygons that can still be in the answer and fit, in order, with
     // their own bytes; their separators are counted as they would be now.
-    const held: { feature: ShapedFeature; bytes: number }[] = [];
+    const held: { feature: BuiltFeature; bytes: number }[] = [];
     let heldBytes = 0;
     let polygons = 0;
     // The first polygon that could be in the answer but did not fit.
@@ -99,16 +102,18 @@ export function osmPreviewAnswer(
 
     try {
       // Each feature is handed over as it is built; none is kept.
-      osmtogeojson(response, { flatProperties: false }, (built) => {
+      osmtogeojson(plan.response, { flatProperties: false }, (built) => {
         check();
-        const one = shapeFeature(built, promoted);
-        if (!one || (within && !featureWithin(one.shaped, within))) return;
-        if (one.cls === "polygons") {
+        if (plan.added(built)) return;
+        const cls = featureClass(built);
+        if (!cls || (within && !featureWithin(built, within))) return;
+        const size = () => plan.sized(built) ?? featureBytes(built, promoted);
+        if (cls === "polygons") {
           const index = polygons++;
           if (placed.length + index >= cap) more = true;
           else if (index === held.length && index < overflow) {
-            const bytes = jsonBytes(one.shaped);
-            held.push({ feature: one.shaped, bytes });
+            const bytes = size();
+            held.push({ feature: built, bytes });
             heldBytes += bytes;
             if (!fits()) {
               heldBytes -= held.pop()!.bytes;
@@ -118,8 +123,8 @@ export function osmPreviewAnswer(
         } else if (placed.length >= cap) {
           more = true;
         } else {
-          budget.take((placed.length ? 1 : 0) + jsonBytes(one.shaped));
-          placed.push(one.shaped);
+          budget.take((placed.length ? 1 : 0) + size());
+          placed.push(shapeFeature(built, promoted)!.shaped);
         }
         settle();
       });
@@ -132,7 +137,7 @@ export function osmPreviewAnswer(
     const features = [...placed];
     for (const { feature, bytes } of held.slice(0, inAnswer)) {
       budget.take((features.length ? 1 : 0) + bytes);
-      features.push(feature);
+      features.push(shapeFeature(feature, promoted)!.shaped);
     }
     const truncated = more || polygons > inAnswer;
     budget.take(jsonBytes(compose([], features.length, truncated)) - envelope);

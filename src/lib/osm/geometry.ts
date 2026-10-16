@@ -47,23 +47,36 @@ function classOf(geometryType: string): GeometryClass | null {
   }
 }
 
-/** One assembled feature as the import lands it: its geometry class and
- * its properties shaped to the stable schema; null for a feature without
- * a geometry of the three classes. */
-export function shapeFeature(
-  feature: { id?: unknown; properties?: Record<string, unknown> | null; geometry?: { type: string } | null },
-  promoted: string[],
-): { cls: GeometryClass; shaped: ShapedFeature } | null {
-  if (!feature.geometry) return null;
-  const cls = classOf(feature.geometry.type);
-  if (!cls) return null;
+/** A feature as the assembler hands it over. */
+export interface BuiltFeature {
+  id?: unknown;
+  properties?: Record<string, unknown> | null;
+  geometry?: { type: string } | null;
+}
 
+/** The geometry class a built feature lands in; null for a feature
+ * without a geometry of the three classes. */
+export function featureClass(feature: BuiltFeature): GeometryClass | null {
+  return feature.geometry ? classOf(feature.geometry.type) : null;
+}
+
+/** The OSM tags a built feature carries. */
+export function featureTags(feature: BuiltFeature): Record<string, unknown> {
   const props = feature.properties ?? {};
-  const tags =
-    props.tags && typeof props.tags === "object"
-      ? (props.tags as Record<string, unknown>)
-      : {};
+  return props.tags && typeof props.tags === "object"
+    ? (props.tags as Record<string, unknown>)
+    : {};
+}
 
+/** A built feature's properties shaped to the stable schema, carrying
+ * the given text as its stringified tags. */
+export function shapeProperties(
+  feature: BuiltFeature,
+  promoted: string[],
+  tagsText: string,
+): Record<string, string | null> {
+  const props = feature.properties ?? {};
+  const tags = featureTags(feature);
   const shaped: Record<string, string | null> = {
     osm_id: String(feature.id ?? props.id ?? ""),
     osm_type: typeof props.type === "string" ? props.type : null,
@@ -72,8 +85,20 @@ export function shapeFeature(
     const value = tags[key];
     shaped[key] = value === undefined || value === null ? null : String(value);
   }
-  shaped.tags = JSON.stringify(tags);
+  shaped.tags = tagsText;
+  return shaped;
+}
 
+/** One assembled feature as the import lands it: its geometry class and
+ * its properties shaped to the stable schema; null for a feature without
+ * a geometry of the three classes. */
+export function shapeFeature(
+  feature: BuiltFeature,
+  promoted: string[],
+): { cls: GeometryClass; shaped: ShapedFeature } | null {
+  const cls = featureClass(feature);
+  if (!cls) return null;
+  const shaped = shapeProperties(feature, promoted, JSON.stringify(featureTags(feature)));
   return { cls, shaped: { type: "Feature", properties: shaped, geometry: feature.geometry } };
 }
 
@@ -162,10 +187,10 @@ function coordsWithin(coords: unknown, shape: WithinShape): boolean {
  * and polygons against a concave drawn ring it is the standard
  * vertex-containment approximation. */
 export function featureWithin(
-  feature: ShapedFeature,
+  feature: { geometry?: unknown },
   shape: WithinShape,
 ): boolean {
-  const geometry = feature.geometry as { coordinates?: unknown } | null;
+  const geometry = feature.geometry as { coordinates?: unknown } | null | undefined;
   if (!geometry || geometry.coordinates === undefined) return false;
   return coordsWithin(geometry.coordinates, shape);
 }
