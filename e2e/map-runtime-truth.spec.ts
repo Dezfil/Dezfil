@@ -436,20 +436,19 @@ test("narrow zoom-24 framing refuses Image without blocking Data and recovers tr
     await expect(page.getByText("1 features").first()).toBeVisible({
       timeout: 30_000,
     });
-    await expect(zoomReadout(page)).toHaveText("15.00", {
-      timeout: 30_000,
-    });
     await expect.poll(readStoredZoom).toBeCloseTo(15, 2);
     await expect.poll(canvasWidth).toBeLessThan(720);
 
+    // At this width the status pill, kept clear of the legend card, has
+    // room for the coordinates alone, so the zoom is read where each step
+    // saves it: one step in from the opening camera stores 16.
     const zoomIn = page.getByRole("button", { name: "Zoom in" });
     for (let zoom = 16; zoom <= 24; zoom += 1) {
       const arrived = mapSaveArrived(page);
       await zoomIn.click();
       await arrived;
-      await expect(zoomReadout(page)).toHaveText(zoom.toFixed(2));
+      await expect.poll(readStoredZoom).toBeCloseTo(zoom, 2);
     }
-    await expect.poll(readStoredZoom).toBeCloseTo(24, 2);
   });
 
   await test.step("Image refuses before composition while the same menu downloads CSV", async () => {
@@ -506,7 +505,6 @@ test("narrow zoom-24 framing refuses Image without blocking Data and recovers tr
     const arrived = mapSaveArrived(page);
     await page.getByRole("button", { name: "Zoom out" }).click();
     await arrived;
-    await expect(zoomReadout(page)).toHaveText("23.00");
     await expect.poll(readStoredZoom).toBeCloseTo(23, 2);
 
     await openExportWithKeyboard();
