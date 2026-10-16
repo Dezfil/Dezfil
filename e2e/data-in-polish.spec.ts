@@ -35,8 +35,21 @@ const zone = (page: Page) =>
 
 async function hoverStyle(target: Locator) {
   await target.hover();
-  // Let the transition settle before reading.
-  await target.page().waitForTimeout(350);
+  // Read once the hover's own transitions have finished: a fixed wait can
+  // sample one mid-way when frames run late. Reading the running
+  // animations flushes the style, so a transition the hover just started
+  // is counted.
+  await expect
+    .poll(() =>
+      target.evaluate(
+        (el) =>
+          el
+            .getAnimations()
+            .filter((a) => a instanceof CSSTransition && a.playState === "running")
+            .length,
+      ),
+    )
+    .toBe(0);
   return target.evaluate((el) => {
     const style = window.getComputedStyle(el);
     return {
