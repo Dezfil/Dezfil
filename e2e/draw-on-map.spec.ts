@@ -81,8 +81,11 @@ test.describe("draw on the map", () => {
     await page.mouse.click(900, 300);
     await page.mouse.click(800, 450);
     await page.keyboard.press("Enter");
+    // The card in the Layers panel; the assistant's context line, hidden
+    // while its pane is closed, names the selected layer too.
+    const layersPanel = page.getByRole("tabpanel", { name: "Layers" });
     await expect(
-      page.getByText("Sketch", { exact: true }).first(),
+      layersPanel.getByText("Sketch", { exact: true }).first(),
     ).toBeVisible({ timeout: 20_000 });
     await expect
       .poll(async () => (await mapSketches(page, mapId))[0]?.rowCount, {
@@ -171,11 +174,11 @@ test.describe("draw on the map", () => {
     await expect
       .poll(async () => (await mapSketches(page, mapId))[0]?.rowCount)
       .toBe(0);
-    await expect(page.getByText("Sketch", { exact: true }).first()).toBeVisible();
+    await expect(layersPanel.getByText("Sketch", { exact: true }).first()).toBeVisible();
 
     // The owner's menu names the cascade; confirming leaves nothing —
     // no layer, no dataset.
-    await page.getByText("Sketch", { exact: true }).first().click();
+    await layersPanel.getByText("Sketch", { exact: true }).first().click();
     await page.getByRole("button", { name: "Layer menu" }).first().click();
     await page
       .getByRole("menuitem", { name: "Delete layer + dataset…" })
@@ -183,9 +186,10 @@ test.describe("draw on the map", () => {
     await page
       .getByRole("menuitem", { name: /^Delete “Sketch” and draw_journey_/ })
       .click();
-    await expect(page.getByText("Sketch", { exact: true })).toHaveCount(0, {
+    await expect(layersPanel.getByText("Sketch", { exact: true })).toHaveCount(0, {
       timeout: 15_000,
     });
+    await expect(page.getByRole("button", { name: "Edit legend title, Sketch" })).toHaveCount(0);
     await expect
       .poll(async () => (await mapSketches(page, mapId)).length, {
         timeout: 15_000,
