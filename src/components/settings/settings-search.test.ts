@@ -116,7 +116,7 @@ describe("what the search finds", () => {
     expect(paths(searchSettings(index(), "DEZFIL_GEOCODER_URL"))).toEqual(["Instance / System · Address finder"]);
     expect(paths(searchSettings(index(), "geocoder.example"))).toContain("Instance / System · Address finder");
     expect(paths(searchSettings(index(), "ada_okafor"))).toEqual(["You / Account · SQL name"]);
-    expect(paths(searchSettings(index(), "laptop"))).toEqual(["You / Tokens · Laptop CLI"]);
+    expect(paths(searchSettings(index(), "laptop"))).toEqual(["You / API & MCP · Laptop CLI"]);
   });
 
   it("finds each part on System's Status by its name, its program and its state, as its row shows it before a Test", () => {
@@ -381,7 +381,7 @@ describe("what the fields on screen hold now", () => {
     expect(paths(searchSettings(built, "lovelace"))).toEqual(["You / Account · Display name"]);
     expect(searchSettings(built, "lovelace")[0].meta).toBe("Account · Ada Lovelace");
     expect(searchSettings(built, "badge")[0].meta).toBe("Sign-in · Bring your badge.");
-    expect(paths(searchSettings(built, "nightly"))).toEqual(["You / Tokens · Token name"]);
+    expect(paths(searchSettings(built, "nightly"))).toEqual(["You / API & MCP · Token name"]);
     // The served text no longer stands for a field that holds other text now.
     expect(paths(searchSettings(built, "work email"))).not.toContain("Instance / General · Message");
     // A row no field registered keeps its served value.
@@ -503,5 +503,18 @@ describe("Security and Public links in the search", () => {
   it("declares nothing of them until the configuration read has answered", () => {
     const unread = index(true, { instance: null });
     expect(unread.filter(entry => entry.tab === "security").map(entry => entry.kind)).toEqual(["tab"]);
+  });
+});
+
+describe("the MCP server card in the search", () => {
+  it("finds the card and its rows on API & MCP, for an admin and a member, and lands on each", () => {
+    for (const admin of [true, false]) {
+      const card = searchSettings(index(admin), "mcp server").find(hit => hit.entry.kind === "card" && hit.name === "MCP server");
+      expect(card?.target).toEqual({ tab: "tokens", anchor: "mcp" });
+      expect(searchSettings(index(admin), "codex").map(hit => [hitPath(hit), hit.target]))
+        .toContainEqual(["You / API & MCP · MCP client", { tab: "tokens", anchor: "set-mcp-client" }]);
+      expect(searchSettings(index(admin), "check connection").map(hit => [hitPath(hit), hit.target]))
+        .toContainEqual(["You / API & MCP · Check connection", { tab: "tokens", anchor: "mcp-check" }]);
+    }
   });
 });

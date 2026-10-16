@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { expect, it } from "vitest";
 import { WorkspaceCard } from "./settings/WorkspaceCard";
 import { TokensCard } from "./settings/TokensCard";
-import { McpSection } from "./McpSection";
+import { McpCard } from "./settings/McpCard";
 
 it("describes the shipped instance settings without promising existing sharing later", () => {
   const html = renderToStaticMarkup(<WorkspaceCard name="Atlas" admin={false} />);
@@ -13,7 +13,7 @@ it("describes the shipped instance settings without promising existing sharing l
 });
 it("names token reach and the limit of the browser connection check", () => {
   expect(renderToStaticMarkup(<TokensCard admin={false} />)).toContain("Tokens use your current access, including shared projects.");
-  const html = renderToStaticMarkup(<McpSection />);
+  const html = renderToStaticMarkup(<McpCard />);
   expect(html).toContain("This checks your browser session.");
   expect(html).toContain("API contract and edit revisions");
 });

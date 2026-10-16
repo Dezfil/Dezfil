@@ -1,16 +1,22 @@
 import { test, expect } from '@playwright/test';
 
-for (const theme of ['light', 'dark']) test(`Developer guide: ${theme}, copy, keyboard, held check and retry`, async ({ page, context, request }) => {
+for (const theme of ['light', 'dark']) test(`MCP server card in Settings: ${theme}, copy, keyboard, held check and retry`, async ({ page, context, request }) => {
   await context.grantPermissions(['clipboard-read', 'clipboard-write']);
   await page.addInitScript(theme => localStorage.setItem('dezfil-theme', theme), theme);
   const description = await (await request.get('/api/openapi.json')).json();
   const expectedCount = Object.values(description.paths).flatMap(item => Object.entries(item as Record<string, Record<string, unknown>>)).filter(([method, operation]) => /^(get|post|put|patch|delete)$/.test(method) && operation['x-tool'] !== false).length;
-  await page.goto('/developer');
+  await page.goto('/settings/tokens');
   const card = page.getByRole('region', { name: 'MCP server' });
   await expect(card).toBeVisible();
+  // The tab holds the tokens first, then the MCP server card.
+  await expect(page.locator('[data-tab="tokens"] > section')).toHaveCount(2);
+  expect(await page.locator('[data-tab="tokens"] > section').evaluateAll(sections => sections.map(section => section.id))).toEqual(['tokens', 'mcp']);
   const endpoint = new URL('/api/mcp', page.url()).href;
   await expect(card.getByText(endpoint, { exact: true })).toBeVisible();
-  await expect(card.getByRole('link', { name: 'API / MCP token in Settings' })).toHaveAttribute('href', '/settings#tokens-heading');
+  await expect(card.getByText('Create a token in the card above.', { exact: false })).toBeVisible();
+  await expect(card.locator('a[href^="/settings"]')).toHaveCount(0);
+  await expect(card.getByRole('link', { name: 'API reference', exact: true })).toHaveAttribute('href', '/developer');
+  await expect(card.getByRole('link', { name: 'API contract and edit revisions', exact: true })).toHaveAttribute('href', '/api/openapi.json');
   const selector = card.getByLabel('MCP client');
   await card.getByRole('link', { name: 'Client documentation' }).focus();
   await page.keyboard.press('Shift+Tab');

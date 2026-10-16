@@ -1,0 +1,36 @@
+/* The MCP server card's own parts; the card, its notes, field and
+   actions are the Settings card's. The endpoint and the configuration
+   are literal code. */
+
+.endpoint {
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  color: var(--accent);
+  background: var(--accent-dim);
+  border-radius: var(--radius);
+  padding: 6px 10px;
+  overflow-wrap: anywhere;
+}
+
+.configuration {
+  width: 100%;
+  box-sizing: border-box;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  padding: 12px;
+  background: var(--bg-raised);
+  border-radius: var(--radius);
+  color: var(--fg);
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+}
+
+.status {
+  color: var(--fg-muted);
+  font-size: var(--text-label);
+}
+
+.status[data-failed] {
+  color: var(--danger);
+}

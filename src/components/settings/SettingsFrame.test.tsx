@@ -150,7 +150,7 @@ describe("the Settings frame", () => {
     expect(column().getAttribute("aria-label")).toBe("Settings");
     expect(columnLinks()).toEqual([
       { text: "Account", href: "/settings/account" },
-      { text: "Tokens", href: "/settings/tokens" },
+      { text: "API & MCP", href: "/settings/tokens" },
       { text: "Appearance", href: "/settings/appearance" },
       { text: "General", href: "/settings/general" },
       { text: "Maps", href: "/settings/maps" },
@@ -196,9 +196,9 @@ describe("the Settings frame", () => {
     expect(readLastTab()).toBe("libraries");
   });
 
-  it("shows a member Account, Tokens, Appearance and General only, and never makes the configuration read", async () => {
+  it("shows a member Account, API & MCP, Appearance and General only, and never makes the configuration read", async () => {
     await open("/settings/general", "", "member");
-    expect(columnLinks().map(link => link.text)).toEqual(["Account", "Tokens", "Appearance", "General"]);
+    expect(columnLinks().map(link => link.text)).toEqual(["Account", "API & MCP", "Appearance", "General"]);
     expect(requests).not.toContain("/api/instance/settings");
     expect(requests.every(url => !url.startsWith("/api/instance"))).toBe(true);
   });
@@ -214,7 +214,7 @@ describe("the Settings frame", () => {
       expect(byId("account")?.tagName).toBe("SECTION");
       expect(column().querySelectorAll('a[aria-current="page"]').map(a => a.textContent)).toEqual(["Account"]);
     }
-    expect(columnLinks().map(link => link.text)).toEqual(["Account", "Tokens", "Appearance", "General"]);
+    expect(columnLinks().map(link => link.text)).toEqual(["Account", "API & MCP", "Appearance", "General"]);
     for (const id of ["card-new-maps", "card-workflow-canvas", "publishing-export", "set-minimap", "set-export-width", "set-basemap",
       "data-geocoder", "set-geocoder-address", "data-who", "card-basemaps", "card-satellite", "card-palettes", "set-custom-styles"]) expect(byId(id)).toBeNull();
     expect(requests.every(url => !url.startsWith("/api/instance"))).toBe(true);
@@ -225,7 +225,18 @@ describe("the Settings frame", () => {
   it("marks the tab on screen in the column", async () => {
     await open("/settings/tokens");
     const current = column().querySelectorAll('a[aria-current="page"]');
-    expect(current.map(a => a.textContent)).toEqual(["Tokens"]);
+    expect(current.map(a => a.textContent)).toEqual(["API & MCP"]);
+  });
+
+  it("draws the tokens card, then the MCP server card, on API & MCP", async () => {
+    await open("/settings/tokens");
+    expect(tabContent().querySelectorAll("section").map(section => section.getAttribute("id"))).toEqual(["tokens", "mcp"]);
+  });
+
+  it("lands the API reference page's link on the MCP server card", async () => {
+    await open("/settings/tokens", "#mcp-heading");
+    expect(byId("mcp-heading")!.closest("section")!.hasAttribute("data-marked")).toBe(true);
+    expect(scrolled).toEqual(["mcp"]);
   });
 
   it("keeps the shipped cards rendering inside their tabs", async () => {
@@ -256,7 +267,7 @@ describe("the Settings frame", () => {
     expect(scrolled).toContain("password");
   });
 
-  it("lands the shipped tokens link on the Tokens heading", async () => {
+  it("lands the shipped tokens link on the tokens heading", async () => {
     await open("/settings", "#tokens-heading");
     expect(nav.replace).toHaveBeenCalledWith("/settings/tokens#tokens-heading", { scroll: false });
     const card = byId("tokens-heading")!.closest("section")!;
@@ -501,7 +512,7 @@ describe("leaving a tab with unsaved text", () => {
   it("asks before the column leaves a tab with unsaved typed text, naming the card, and leaves only when told", async () => {
     await open("/settings/account");
     await type("Display name", "Ada Lovelace");
-    const held = await click(link("Tokens"));
+    const held = await click(link("API & MCP"));
     expect(held.defaultPrevented).toBe(true);
     expect(dialog()?.querySelector("h2")?.textContent).toBe("Discard unsaved changes?");
     expect(dialog()?.textContent).toContain("Account has changes that are not saved.");
@@ -509,7 +520,7 @@ describe("leaving a tab with unsaved text", () => {
     expect(dialog()).toBeNull();
     expect(nav.push).not.toHaveBeenCalled();
     expect(byId("account")).not.toBeNull();
-    await click(link("Tokens"));
+    await click(link("API & MCP"));
     await answer("Discard changes");
     // The extra entry the unsaved text added goes first, then the link.
     expect(browser.steps).toEqual([-1]);
@@ -558,7 +569,7 @@ describe("leaving a tab with unsaved text", () => {
 
   it("never asks when nothing typed is unsaved", async () => {
     await open("/settings/account");
-    expect((await click(link("Tokens"))).defaultPrevented).toBe(false);
+    expect((await click(link("API & MCP"))).defaultPrevented).toBe(false);
     expect(dialog()).toBeNull();
   });
 

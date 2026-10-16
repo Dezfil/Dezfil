@@ -1,11 +1,6 @@
 import { DocsScreen } from "@/components/DocsScreen";
-import { McpSection } from "@/components/McpSection";
 
-export default function DeveloperPage() {
-  return (
-    <>
-      <McpSection />
-      <DocsScreen />
-    </>
-  );
+/** The API reference: human-readable pages over the OpenAPI description. */
+export default function ApiReferencePage() {
+  return <DocsScreen />;
 }

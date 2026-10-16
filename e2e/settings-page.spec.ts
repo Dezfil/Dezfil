@@ -42,7 +42,7 @@ function expectQuiet(errors: ConsoleError[]): void {
  * pane's id, with what is on screen once the tab has drawn whole. */
 const DRAWN: readonly (readonly [label: string, pane: string, parts: readonly string[]])[] = [
   ["Account", "account", ["#account"]],
-  ["Tokens", "tokens", ["#tokens li"]],
+  ["API & MCP", "tokens", ["#tokens li", "#mcp"]],
   ["Appearance", "appearance", ["#set-side-menu"]],
   ["General", "general", ["#card-sign-in"]],
   // Each draws every card at once when its read lands: the last card stands for the tab.
@@ -310,10 +310,10 @@ test.describe("the Settings page", () => {
     const errors = trackConsole(page);
     await restore(request, ["signInMessage"]);
     try {
-      // Three entries of one document: Account, Tokens, General.
+      // Three entries of one document: Account, API & MCP, General.
       await page.goto("/settings/account");
       await expect(card(page, "Account")).toBeVisible();
-      await column(page).getByRole("link", { name: "Tokens", exact: true }).click();
+      await column(page).getByRole("link", { name: "API & MCP", exact: true }).click();
       await expect(page).toHaveURL(new URL("/settings/tokens", baseURL).href);
       await column(page).getByRole("link", { name: "General", exact: true }).click();
       await expect(page).toHaveURL(new URL("/settings/general", baseURL).href);
@@ -322,7 +322,7 @@ test.describe("the Settings page", () => {
       await message.fill("Words that were never saved");
       await expect(signIn.getByRole("button", { name: "Save", exact: true })).toBeVisible();
 
-      // A jump from the history list past Tokens to Account: the page asks and stays.
+      // A jump from the history list past API & MCP to Account: the page asks and stays.
       await page.evaluate(() => history.go(-3));
       await expect(leaving(page)).toContainText("Sign-in has changes that are not saved.");
       await expect(message).toHaveValue("Words that were never saved");
@@ -406,7 +406,7 @@ test.describe("the Settings page", () => {
     expectQuiet(errors);
   });
 
-  test("a member's column holds Account, Tokens, Appearance and General only, the admins' tabs' addresses open Account, and the search finds nothing beyond them", async ({ browser, request, baseURL }) => {
+  test("a member's column holds Account, API & MCP, Appearance and General only, the admins' tabs' addresses open Account, and the search finds nothing beyond them", async ({ browser, request, baseURL }) => {
     const people: Person[] = [];
     try {
       const member = await invitePerson(browser, request, baseURL!, "Member", runTag());
@@ -419,7 +419,7 @@ test.describe("the Settings page", () => {
       page.on("request", sent => { if (new URL(sent.url()).pathname === SETTINGS) configurationReads.push(sent.url()); });
       await page.goto("/settings/general");
       const links = column(page).getByRole("link");
-      await expect(links).toHaveText(["Account", "Tokens", "Appearance", "General"]);
+      await expect(links).toHaveText(["Account", "API & MCP", "Appearance", "General"]);
       await expect(column(page).getByRole("link", { name: "Users" })).toHaveCount(0);
       await expect(card(page, "Instance").getByLabel("Instance name", { exact: true })).toBeDisabled();
       await expect(card(page, "Instance")).toContainText("Only admins can change the instance name.");
@@ -440,7 +440,7 @@ test.describe("the Settings page", () => {
         await page.goto(address);
         await expect(page).toHaveURL(new URL("/settings/account", baseURL).href);
         await expect(card(page, "Account")).toBeVisible();
-        await expect(column(page).getByRole("link")).toHaveText(["Account", "Tokens", "Appearance", "General"]);
+        await expect(column(page).getByRole("link")).toHaveText(["Account", "API & MCP", "Appearance", "General"]);
       }
 
       const field = page.getByRole("searchbox", { name: "Search settings" });

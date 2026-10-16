@@ -99,9 +99,9 @@ const ALLOWED = new Set([
   // show in their locked field.
   "src/components/settings/DataTab.module.css :: .addressField",
   "src/components/settings/SettingRows.module.css :: .lockedField [data-mono]",
-  "src/components/McpSection.module.css :: .endpoint",
+  "src/components/settings/McpCard.module.css :: .endpoint",
   // per-client commands and configuration are literal code.
-  "src/components/McpSection.module.css :: .configuration",
+  "src/components/settings/McpCard.module.css :: .configuration",
   "src/components/MiniMap.module.css :: .measure",
   "src/components/OsmPane.module.css :: .chip",
   "src/components/OsmPane.module.css :: .chips input",
