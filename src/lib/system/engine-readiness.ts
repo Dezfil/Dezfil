@@ -37,9 +37,13 @@ const retry = { at: Number.NEGATIVE_INFINITY, pending: false };
 export async function queryEngineAnswers(): Promise<boolean> {
   const standing = queryEngineStanding();
   if (standing === "none") return true;
-  // Until readiness's own start settles, the last start is still a failed one.
-  if (retry.pending) return false;
+  // Where the engine stands decides first: a running engine is asked
+  // whatever readiness's own start is doing, since that start's connection
+  // can still be queued after the engine is up.
   if (standing !== "failed") return probe(false);
+  // While readiness's own start of a failed engine is under way, the engine
+  // is still a failed one; nothing more is started or joined meanwhile.
+  if (retry.pending) return false;
   if (Date.now() - retry.at < ENGINE_RETRY_MS) return false;
   retry.at = Date.now();
   retry.pending = true;

@@ -3,7 +3,7 @@ import { existsSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
 import path from "node:path";
 import { DuckDBConnection, DuckDBInstance } from "@duckdb/node-api";
-import { connectQueryInstance, resetQueryInstance } from "@/lib/duckdb";
+import { connectQueryInstance, queryEngineStanding, resetQueryInstance } from "@/lib/duckdb";
 import { GET } from "./route";
 
 // Engine failure-injection tests. HTTP provenance has its own suite.
@@ -107,6 +107,38 @@ describe("readiness and the query engine", () => {
     let answer = await readiness();
     for (let i = 0; i < 20 && answer.status !== 200; i++) answer = await readiness();
     expect(answer).toEqual({ status: 200, body: { status: "ready" } });
+    expect(started).toHaveBeenCalledTimes(2);
+  });
+
+  it("reads a recovered engine as running while readiness's own connection is still queued", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const failing = { now: true };
+    const started = starts(failing);
+    await failedStart();
+    failing.now = false;
+    // The first connection the started engine hands out, readiness's own,
+    // waits behind other work; the start's own setup connection does not.
+    const queued = Promise.withResolvers<void>();
+    onTestFinished(() => queued.resolve());
+    const connect = DuckDBInstance.prototype.connect;
+    let hold = true;
+    vi.spyOn(DuckDBInstance.prototype, "connect").mockImplementation(function (this: DuckDBInstance) {
+      if (hold && queryEngineStanding() === "running") {
+        hold = false;
+        return queued.promise.then(() => connect.call(this));
+      }
+      return connect.call(this);
+    });
+    // Readiness starts the failed engine again; the start succeeds, but its
+    // connection is still queued when the limit passes.
+    expectUnready(await readiness());
+    expect(started).toHaveBeenCalledTimes(2);
+    expect(queryEngineStanding()).toBe("running");
+    // A query is served meanwhile.
+    (await connectQueryInstance()).disconnectSync();
+    // The engine is running, so readiness asks it, whatever its own
+    // queued connection is doing.
+    expect(await readiness()).toEqual({ status: 200, body: { status: "ready" } });
     expect(started).toHaveBeenCalledTimes(2);
   });
 
