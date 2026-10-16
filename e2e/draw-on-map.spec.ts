@@ -64,6 +64,7 @@ test.describe("draw on the map", () => {
     await page.goto("/");
     const mapId = await createMap(page, `Draw journey ${runId}`);
     await page.goto(`/maps/${mapId}`);
+    await basemapSettled(page);
 
     // The pencil is the last stage control; it opens the dock.
     const pencil = page.getByRole("button", { name: "Draw", exact: true });
@@ -507,6 +508,12 @@ async function cameraSettled(page: Page, startZoom: number) {
     .toBe(true);
 }
 
+/** Third-party hosts are blocked, so the builder falls back to its offline
+ * basemap. That style swap rebuilds the map, and a shape drawn across it
+ * can be lost; the fallback's notice says it has happened. */
+const basemapSettled = (page: Page) =>
+  expect(page.getByText("basemap offline · data only")).toBeVisible({ timeout: 30_000 });
+
 /** The mark's rendered box against the drawn extent, edge by edge. */
 async function expectMarkOver(page: Page, extent: Extent, label: string) {
   const mark = page.locator(SELECTION_MARK);
@@ -547,6 +554,7 @@ for (const kind of Object.keys(KIND_NAME) as SketchKind[]) {
       viewport: { lng: 13.4, lat: 52.52, zoom: 12 },
     });
     await page.goto(`/maps/${mapId}`);
+    await basemapSettled(page);
     const pencil = page.getByRole("button", { name: "Draw", exact: true });
     await expect(pencil).toBeVisible({ timeout: 30_000 });
     await pencil.click();
