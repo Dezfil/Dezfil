@@ -41,6 +41,7 @@ import {
   MAP_SHOT_INSET,
   addLayer,
   createMap,
+  mapSaveArrived,
   mapShot,
   routeHouse,
   saveSettled,
@@ -110,16 +111,19 @@ const holdChip = (page: Page, open: boolean) =>
     }
   }, open);
 
-/** Wait until two consecutive shots agree: the byte-exact comparisons
- * below are only meaningful over a map that has stopped moving, and the
- * chip's own entrance and exit transitions have to finish inside this too. */
+/** Wait until two shots taken an interval apart agree: the byte-exact
+ * comparisons below are only meaningful over a map that has stopped
+ * moving, and the chip's own entrance and exit transitions have to finish
+ * inside this too. The first shot is only the reference, so no shot is
+ * compared with one taken at once: two shots a moment apart agree over a
+ * stage that has not begun to draw as readily as over a finished one. */
 async function settle(page: Page, shot: () => Promise<Buffer>): Promise<void> {
-  let previous = await shot();
+  let previous: Buffer | null = null;
   await expect
     .poll(
       async () => {
         const next = await shot();
-        const same = next.equals(previous);
+        const same = previous !== null && next.equals(previous);
         previous = next;
         return same;
       },
@@ -140,11 +144,18 @@ test("the map shot cannot see the stage's save status chip", async ({
   await seedCsv(page, tableName, CSV);
   const mapId = await createMap(page, `chip shot ${runId}`);
   await addLayer(page, mapId, tableName, `SELECT * FROM ${tableName}`);
+  // Opening the map draws the layer, frames its data and saves that
+  // camera, and the save raises the stage's chip, which the control shot
+  // sees. The comparisons start once the canvas has painted and that save
+  // has landed; the settle then outlasts the chip's exit.
+  const framed = mapSaveArrived(page);
   await page.goto(`/maps/${mapId}`);
   await expect(
     page.getByRole("button", { name: new RegExp(`^${tableName}`) }),
   ).toBeVisible({ timeout: 30_000 });
   await expect(page.locator("[data-save-status-chip]")).toHaveCount(1);
+  await expect(page.locator("[data-camera-painted]")).toHaveAttribute("data-camera-painted", "true");
+  await framed;
   await saveSettled(page);
   await settle(page, () => controlShot(page));
 
