@@ -107,10 +107,13 @@ async function expectPaneAtRowEnd(page: Page, id: string) {
     const grid = pane.parentElement!;
     const cells = Array.from(grid.children).filter((el) => !el.matches("[data-folder-pane]"));
     const before = cells.filter((el) => el.compareDocumentPosition(pane) & Node.DOCUMENT_POSITION_FOLLOWING);
-    const prev = before[before.length - 1].getBoundingClientRect();
-    const folder = document.querySelector(`[data-folder-card="${id}"]`)!.getBoundingClientRect();
+    const prevCell = before[before.length - 1] as HTMLElement;
+    const prev = prevCell.getBoundingClientRect();
+    const folderCell = document.querySelector(`[data-folder-card="${id}"]`) as HTMLElement;
     const p = pane.getBoundingClientRect();
-    return { prevTop: prev.top, prevRight: prev.right, prevBottom: prev.bottom, prevWidth: prev.width, folderTop: folder.top, gridRight: grid.getBoundingClientRect().right, paneTop: p.top };
+    // The rows compare layout positions: a card under the pointer lifts on
+    // hover, and the folder was just clicked.
+    return { prevTop: prevCell.offsetTop, prevRight: prev.right, prevBottom: prev.bottom, prevWidth: prev.width, folderTop: folderCell.offsetTop, gridRight: grid.getBoundingClientRect().right, paneTop: p.top };
   }, id);
   // On the folder's row…
   expect(Math.abs(g.prevTop - g.folderTop)).toBeLessThan(2);
