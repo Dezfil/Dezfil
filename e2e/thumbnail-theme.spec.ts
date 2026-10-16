@@ -20,6 +20,7 @@ import {
   seedCsv,
   trackConsole,
 } from "./support";
+import { mapSqlRevision } from "../src/lib/map-sql-revision";
 import { isAllowedConsoleError } from "./console-allowlist";
 
 const runId = Date.now().toString(36);
@@ -301,7 +302,8 @@ test.describe("card images by theme", () => {
     await page.goto("/maps");
     await seedCsv(page, `${tableName}_s`, readFileSync(path.join(FIXTURES_DIR, "stations.csv"), "utf8"));
     const mapId = await createMap(page, `Streets ${runId}`);
-    const layerId = await addLayer(page, mapId, "stations", `SELECT * FROM "${tableName}_s"`);
+    const sql = `SELECT * FROM "${tableName}_s"`;
+    const layerId = await addLayer(page, mapId, "stations", sql);
     await patchLayer(page, layerId, {
       style: {
         fill: { type: "constant", color: { r: KELP[0], g: KELP[1], b: KELP[2], a: 1 } },
@@ -321,7 +323,10 @@ test.describe("card images by theme", () => {
     // the floor between grounds is ten seconds, a stubbed ground settles
     // at once.
     await page.waitForTimeout(12_000);
-    expect(writes.every((w) => w.query === "" && w.status === 204)).toBe(true);
+    // One image for both themes: no theme and no cycle, only the SQL
+    // revision of the map the builder held when it drew the image.
+    const query = `?revision=${mapSqlRevision([{ id: layerId, sql }])}`;
+    expect(writes.filter((w) => w.query !== query || w.status !== 204)).toEqual([]);
     const light = await thumbnail(page, mapId, "?theme=light");
     const dark = await thumbnail(page, mapId, "?theme=dark");
     const plain = await thumbnail(page, mapId, "");

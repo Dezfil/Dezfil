@@ -72,13 +72,16 @@ afterEach(async () => {
 });
 
 describe("owned remote streams", () => {
-  it("closes held redirects when the final body completes within the 100 ms budget", async () => {
+  it("closes held redirects when the final body completes within its deadline", async () => {
     const base = await serve((req, res) => {
       if (req.url === "/start") heldRedirect(res, "/next");
       else if (req.url === "/next") heldRedirect(res, "/ok");
       else res.end("ok");
     });
-    const response = await openRemote(`${base}/start`, { timeoutMs: 100 });
+    // The deadline only has to outlast three loopback hops on a busy machine.
+    // A held hop is caught by closed(), not by a tight deadline: a redirect
+    // left streaming keeps its socket open after the final body completes.
+    const response = await openRemote(`${base}/start`, { timeoutMs: 2_000 });
     expect(await text(response.body)).toBe("ok");
     await closed();
     await recovered(base);

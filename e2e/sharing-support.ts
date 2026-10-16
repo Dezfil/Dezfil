@@ -3,10 +3,9 @@ import { captureBasis, fixtureHeaders } from "../scripts/revision-fixtures.mjs";
 // Each spec makes its own people, invited by the browser fixture's admin with
 // a tag no other spec uses, so specs share one scratch store without meeting.
 import { randomUUID } from "node:crypto";
-import { expect, type APIRequestContext, type Browser, type BrowserContext } from "@playwright/test";
+import { expect, type APIRequestContext, type APIResponse, type Browser, type BrowserContext, type Page } from "@playwright/test";
 
 export const PASSWORD = "field notebooks at dawn";
-export const NOT_FOUND = "The requested resource was not found.";
 export const PERMISSION = { error: { code: "forbidden", message: "You can view this but cannot make this change." } };
 
 export interface Person {
@@ -16,6 +15,13 @@ export interface Person {
   sqlName: string;
   context: BrowserContext;
   api: APIRequestContext;
+}
+
+/** The workspace's page for an address it cannot show. Another account's
+ * map or workflow gets the same page as one that does not exist. */
+export async function expectNotFoundPage(page: Page): Promise<void> {
+  await expect(page.getByRole("heading", { name: "Page not found", exact: true })).toBeVisible();
+  await expect(page.getByText("Nothing is at this address.", { exact: true })).toBeVisible();
 }
 
 /** A tag for this spec's run: its people, projects and datasets carry it. */
@@ -32,9 +38,17 @@ export async function invitePerson(browser: Browser, admin: APIRequestContext, b
   const link = new URL((await invitation.json()).signInUrl);
   const origin = new URL(baseURL).origin;
   const context = await browser.newContext({ baseURL, storageState: { cookies: [], origins: [] }, extraHTTPHeaders: { origin } });
-  const redeemed = await context.request.post("/api/auth/redeem", {
-    data: { secret: new URLSearchParams(link.hash.slice(1)).get("secret"), password: PASSWORD },
-  });
+  const secret = new URLSearchParams(link.hash.slice(1)).get("secret");
+  // Specs invite several people at once, and the server hashes only a few
+  // passwords at a time: the rest are answered busy, the link unspent, with
+  // how long to wait. A busy answer is waited out, a bounded number of times.
+  let redeemed: APIResponse;
+  for (let attempt = 1; ; attempt++) {
+    redeemed = await context.request.post("/api/auth/redeem", { data: { secret, password: PASSWORD } });
+    if (redeemed.status() !== 503 || attempt === 10) break;
+    expect((await redeemed.json()).error.code).toBe("authentication_busy");
+    await new Promise((resolve) => setTimeout(resolve, Number(redeemed.headers()["retry-after"]) * 1000));
+  }
   expect(redeemed.status()).toBe(200);
   const account = (await (await context.request.get("/api/account")).json()).account;
   expect(account.sqlName).toBe(`${first.toLowerCase()}_${tag}`);

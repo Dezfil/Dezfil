@@ -563,7 +563,15 @@ test.describe("Home", () => {
     ]);
     expect(ringless, "every stop draws the ring").toEqual([]);
 
+    // The walk ended by tabbing out of the page. A click on the welcome gives
+    // the page focus back but does not always move where Tab goes on from,
+    // and then Tab bounces at the page's edge a varying number of times
+    // before it comes in at the top. So the way to the row starts from
+    // Home's first stop.
     await page.locator("[data-welcome]").click();
+    const lead = page.getByRole("link", { name: `Open Home map ${TAG}`, exact: true });
+    await lead.focus();
+    await expect(lead).toBeFocused();
     await tabTo(page, page.locator('[data-recent-row="workflow"]'), "the workflow's row");
     await page.keyboard.press("Enter");
     await expect(page).toHaveURL(new RegExp(`/workflows/${record.recipes[0]}$`));
