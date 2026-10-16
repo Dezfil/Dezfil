@@ -23,7 +23,7 @@ export interface SettingsTab {
 
 export const SETTINGS_TABS: readonly SettingsTab[] = [
   { id: "account", label: "Account", group: "you", adminOnly: false },
-  { id: "tokens", label: "Tokens", group: "you", adminOnly: false },
+  { id: "tokens", label: "API & MCP", group: "you", adminOnly: false },
   { id: "appearance", label: "Appearance", group: "you", adminOnly: false },
   { id: "general", label: "General", group: "instance", adminOnly: false },
   { id: "maps", label: "Maps", group: "instance", adminOnly: true },

@@ -170,7 +170,7 @@ test.describe("account entry", () => {
       await account.getByRole("button", { name: "Save", exact: true }).click();
       await expect(account.getByRole("status")).toHaveText("Saved");
       expect((await anonymous.post("/api/auth/sign-in", { headers: { origin }, data: { email, password } })).status()).toBe(401);
-      await column.getByRole("link", { name: "Tokens", exact: true }).click();
+      await column.getByRole("link", { name: "API & MCP", exact: true }).click();
       await expect(page).toHaveURL(new URL("/settings/tokens", baseURL).href);
       await tokens.getByLabel("Token name").fill("Browser CLI");
       await tokens.getByRole("button", { name: "Create token" }).click();
@@ -205,7 +205,7 @@ test.describe("account entry", () => {
       expect((await page.request.get("/api/account")).status()).toBe(200);
       expect((await other.get("/api/account")).status()).toBe(401);
       expect((await anonymous.get("/api/account", { headers: bearer })).status()).toBe(200);
-      await column.getByRole("link", { name: "Tokens", exact: true }).click();
+      await column.getByRole("link", { name: "API & MCP", exact: true }).click();
       await tokens.getByRole("button", { name: "Revoke Browser CLI" }).click();
       const confirmation = page.getByRole("dialog", { name: "Revoke Browser CLI" });
       await confirmation.getByRole("button", { name: "Revoke token", exact: true }).click();

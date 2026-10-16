@@ -6,6 +6,7 @@ import { DISPLAY_NAME_EVENT } from "@/components/UserBadge";
 import { ErrorNote } from "@/components/ui/ErrorNote";
 import { AccountCard } from "./AccountCard";
 import { TokensCard } from "./TokensCard";
+import { McpCard } from "./McpCard";
 import { AppearanceTab } from "./AppearanceTab";
 import { GeneralTab } from "./GeneralTab";
 import { MapsTab } from "./MapsTab";
@@ -276,13 +277,14 @@ function Pending({ children }: { children: ReactNode }) {
   return late ? children : null;
 }
 
-/** What each tab draws. Account, Tokens and Appearance hold the person's
- * own cards; General, Maps, Workflows & SQL, Publishing, Limits and
- * System draw from the configuration read. */
+/** What each tab draws. Account, API & MCP and Appearance hold the
+ * person's own cards (API & MCP: the tokens, then the MCP server card);
+ * General, Maps, Workflows & SQL, Publishing, Limits and System draw from
+ * the configuration read. */
 function TabContent({ tab, loaded }: { tab: SettingsTabId; loaded: Loaded }) {
   switch (tab) {
     case "account": return <AccountCard account={loaded.account} />;
-    case "tokens": return <TokensCard admin={loaded.account.isAdmin} />;
+    case "tokens": return <><TokensCard admin={loaded.account.isAdmin} /><McpCard /></>;
     case "appearance": return <AppearanceTab />;
     case "general": return <GeneralTab admin={loaded.account.isAdmin} />;
     case "maps": return <MapsTab />;

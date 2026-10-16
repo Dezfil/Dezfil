@@ -70,7 +70,7 @@ describe("the three places agree, and none reads as a ground distance", () => {
     expect(publishedDescription()).not.toMatch(/approximately \d|about 1\.2 km/i);
   });
 
-  it("says it on the developer docs page a human actually reads", () => {
+  it("says it on the API reference page a human actually reads", () => {
     // Not "the page imports the document": the page renders endpoint and
     // operation descriptions, **not** schema fields, so the published
     // parameter description never reached a reader. Asserting the import

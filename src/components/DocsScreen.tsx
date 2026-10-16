@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { buildOpenApiDocument } from "@/lib/api/openapi";
 import { ERROR_CATALOGUE } from "@/lib/api/error-catalogue";
 import { OPERATIONS } from "@/lib/operations/catalog";
@@ -34,12 +35,15 @@ export function DocsScreen() {
   return (
     <div className={styles.screen}>
       <div className={styles.heading}>
-        <h1>API</h1>
+        <h1>API reference</h1>
         <p>{doc.info.description}</p>
         <div className={styles.links}>
           <a href="/api/openapi.json" className={styles.specLink}>
             OpenAPI description (JSON) <ExternalIcon />
           </a>
+          <Link href="/settings/tokens#mcp-heading" className={styles.specLink}>
+            Set up an MCP client
+          </Link>
         </div>
       </div>
 

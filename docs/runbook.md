@@ -712,8 +712,8 @@ regenerate when the change to the rendered surface is intended, or when the
 renderer moved under an unchanged surface.
 
 **The API description.** There is no emit step: the document is built at
-request time and served at `/api/openapi.json`, with human-readable pages at
-`/developer`. The API journey asserts it is served and well formed.
+request time and served at `/api/openapi.json`, with the human-readable API
+reference at `/developer`. The API journey asserts it is served and well formed.
 
 **The frozen assistant baselines.** The committed captures under
 `test-support/assistant-baselines/` are read back whole by the unit suite

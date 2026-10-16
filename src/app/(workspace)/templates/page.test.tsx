@@ -11,7 +11,7 @@ import WorkspaceLayout from "../layout";
 import TemplatesPage from "./page";
 
 /**
- * The Templates entry: the rail lists it last, after Developer, in the one
+ * The Templates entry: the rail lists it last, after SQL, in the one
  * rail every signed-in account's workspace mounts, a member's and an
  * admin's alike; its address opens the page for both, and an anonymous
  * request is sent to sign in instead.
@@ -53,11 +53,11 @@ function elements(node: ReactNode): ReactElement[] {
 }
 
 describe("the rail's Templates entry", () => {
-  it("lists Templates last among the sections, right after Developer, and marks it on its own address", () => {
+  it("lists Templates last among the sections, right after SQL, and marks it on its own address", () => {
     const html = renderToStaticMarkup(<NavLinks />);
     const hrefs = [...html.matchAll(/href="([^"]+)"/g)].map((match) => match[1]);
-    expect(hrefs.slice(-2)).toEqual(["/developer", "/templates"]);
-    expect(hrefs).toHaveLength(9);
+    expect(hrefs.slice(-2)).toEqual(["/sql", "/templates"]);
+    expect(hrefs).toHaveLength(8);
     const active = [...html.matchAll(/<a [^>]*data-active="true"[^>]*>/g)].map((match) => match[0]);
     expect(active).toHaveLength(1);
     expect(active[0]).toContain('href="/templates"');

@@ -4,7 +4,7 @@ import { buildOpenApiDocument } from "./openapi";
 /**
  * The settings surface's documented contract. Parity only proves the
  * route exists; these prove the instance name is documented the way the
- * Developer page shows it — the operation's own description (the page
+ * API reference page shows it — the operation's own description (the page
  * renders descriptions, not schema internals) — and that the wire shape
  * names null as the unnamed state.
  */

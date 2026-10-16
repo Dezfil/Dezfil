@@ -2,7 +2,7 @@ import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/cli
 export const MCP_CHECK_DEADLINE_MS = 10_000;
 export const MCP_CHECK_TIMEOUT = 'The connection check did not finish within 10 seconds.';
 export const MCP_CHECK_FAILED = 'This browser could not connect to the MCP endpoint. You can try again.';
-/** Read-only protocol operation usable independently of the Developer card.
+/** Read-only protocol operation usable independently of the MCP card in Settings.
  * A whole-check deadline owns initialization, pagination and held responses.
  */
 export async function checkMcpConnection(endpoint: string, fetcher: typeof fetch = fetch): Promise<number> {

@@ -443,9 +443,9 @@ describe("what the search never finds", () => {
       expect(lines()).toEqual([]);
     }
     await find("new token");
-    expect(lines()).not.toContain("You / Tokens · New token");
+    expect(lines()).not.toContain("You / API & MCP · New token");
     await find("build server");
-    expect(lines()[0]).toBe("You / Tokens · Build server");
+    expect(lines()[0]).toBe("You / API & MCP · Build server");
     expect(metas()[0]).toBe("API / MCP tokens · Never used");
   });
 });

@@ -17,7 +17,7 @@ const nextConfig: NextConfig = {
   // next dev would otherwise write its own block into AGENTS.md whenever it
   // detects a coding agent; the brief in that file is maintained by hand.
   agentRules: false,
-  // The API docs live under Developer; the old path still resolves.
+  // The API reference lives at /developer; the old path still resolves.
   async redirects() {
     return [
       { source: "/docs", destination: "/developer", permanent: false },

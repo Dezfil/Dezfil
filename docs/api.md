@@ -14,8 +14,9 @@ server uses.
 - `GET /api/openapi.json` on a running instance returns the OpenAPI 3.1
   document. It is the authoritative reference for every path, parameter,
   request body, response schema, and error code.
-- `/developer` on a running instance is the human-facing page and links to
-  the same document.
+- `/developer` on a running instance is the human-readable API reference
+  and links to the same document. It has no entry in the side menu; the MCP
+  server card in Settings links to it.
 
 The document is hand-written in `src/lib/api/openapi.ts` and its sibling
 modules, and a check in the test suite compares it against the implemented

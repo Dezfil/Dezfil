@@ -10,16 +10,16 @@ describe("the Settings column", () => {
   it("shows an admin You and Instance whole, what new things start with between General and Data & services with Libraries after Maps, Data & services between Publishing and Limits, Security between Limits and System, with Users at its foot", () => {
     expect(shape(true)).toEqual({
       groups: [
-        ["You", ["Account", "Tokens", "Appearance"]],
+        ["You", ["Account", "API & MCP", "Appearance"]],
         ["Instance", ["General", "Maps", "Libraries", "Workflows & SQL", "Publishing", "Data & services", "Limits", "Security", "System"]],
       ],
       users: true,
     });
   });
 
-  it("shows a member Account, Tokens, Appearance and General only, and no Users link", () => {
+  it("shows a member Account, API & MCP, Appearance and General only, and no Users link", () => {
     expect(shape(false)).toEqual({
-      groups: [["You", ["Account", "Tokens", "Appearance"]], ["Instance", ["General"]]],
+      groups: [["You", ["Account", "API & MCP", "Appearance"]], ["Instance", ["General"]]],
       users: false,
     });
   });

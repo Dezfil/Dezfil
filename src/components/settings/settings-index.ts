@@ -84,6 +84,9 @@ function tokenCards(tokens: readonly ApiToken[] | null): IndexCard[] {
     { id: "tokens-secret", label: "New token", secret: true },
     // A token is found by its name and its state, never by anything else its record holds.
     ...(tokens ?? []).map(token => ({ id: `token-${token.id}`, label: token.name, value: tokenState(token) })),
+  ] }, { id: "mcp", title: "MCP server", keys: "mcp server endpoint client connect setup configuration", rows: [
+    { id: "set-mcp-client", label: "MCP client", keys: "claude code desktop codex cursor configuration copy" },
+    { id: "mcp-check", label: "Check connection", keys: "test connection tools" },
   ] }];
 }
 
