@@ -218,6 +218,69 @@ test.describe("draw on the map", () => {
     ).toEqual([]);
   });
 
+  test("the pencil waits for the map, so a shape drawn the moment the builder opens is kept", async ({
+    page,
+    context,
+  }) => {
+    const consoleErrors = trackConsole(page);
+    // The map canvas arrives in a script of its own after the builder's
+    // frame, so the stage controls show before there is a map to place a
+    // shape on: a polygon drawn in that window was dropped, with no
+    // request and no word. The script is held here, as a slow connection
+    // or a busy machine holds it.
+    let release!: () => void;
+    const canvasScript = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let held = 0;
+    await routeHouse(context, {
+      handler: async (route) => {
+        const url = new URL(route.request().url());
+        if (!url.pathname.startsWith("/_next/static/") || !url.pathname.endsWith(".js"))
+          return false;
+        const response = await route.fetch();
+        const body = await response.text();
+        // The canvas's own failure marker names its script, whatever
+        // the build calls the file.
+        if (body.includes("data-map-webgl-failed")) {
+          held += 1;
+          await canvasScript;
+        }
+        await route.fulfill({ response, body });
+        return true;
+      },
+    });
+    await page.goto("/");
+    const mapId = await createMap(page, `Draw early ${runId}`);
+    // The held script delays the load event, so the page is taken as
+    // soon as its document is in.
+    await page.goto(`/maps/${mapId}`, { waitUntil: "domcontentloaded" });
+    const pencil = page.getByRole("button", { name: "Draw", exact: true });
+    await expect(pencil).toBeVisible({ timeout: 30_000 });
+    await expect.poll(() => held, { timeout: 15_000 }).toBeGreaterThan(0);
+    await expect(page.locator("canvas")).toHaveCount(0);
+    await expect(pencil, "no map yet, so no drawing session").toBeDisabled();
+
+    release();
+    await expect(pencil).toBeEnabled({ timeout: 30_000 });
+    await pencil.click();
+    const dock = page.getByRole("toolbar", { name: "Draw tools" });
+    await dock.getByRole("button", { name: "Draw a polygon" }).click();
+    await page.mouse.click(700, 300);
+    await page.mouse.click(900, 300);
+    await page.mouse.click(800, 450);
+    await page.keyboard.press("Enter");
+    await expect
+      .poll(async () => (await mapSketches(page, mapId))[0]?.rowCount ?? 0, {
+        timeout: 15_000,
+      })
+      .toBe(1);
+
+    expect(
+      consoleErrors.filter((e) => !isAllowedConsoleError(e.text, e.url)),
+    ).toEqual([]);
+  });
+
   test("the published view carries no draw affordance", async ({
     page,
     context,
