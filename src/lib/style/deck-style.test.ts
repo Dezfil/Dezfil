@@ -4,12 +4,14 @@ import {
   deckUpdateTriggers,
   deckLabelProps,
   fillAccessor,
+  iconFillAccessor,
   opaqueFillPaint,
   sizeAccessor,
   labelText,
   labelPosition,
 } from "./deck-style";
 import { defaultStyle } from "./defaults";
+import { paintLegend } from "./legend";
 import type { FillPaint, LabelStyle, SizeScale } from "./style";
 
 const scale: SizeScale = { attribute: "pop", domain: [0, 100], range: [4, 28] };
@@ -119,21 +121,50 @@ describe("deckLayerProps channels", () => {
 });
 
 describe("fillAccessor fallbacks", () => {
-  it("keeps first-class behavior for ramp fills with missing values", () => {
-    const ramp: FillPaint = {
-      type: "quantile",
-      attribute: "v",
-      palette: "global_warming",
-      breaks: [10],
-      colors: [
-        { r: 1, g: 1, b: 1, a: 1 },
-        { r: 2, g: 2, b: 2, a: 1 },
-      ],
-    };
-    const fill = fillAccessor(ramp) as (x: unknown) => number[];
+  const ramp: FillPaint = {
+    type: "quantile",
+    attribute: "v",
+    palette: "global_warming",
+    breaks: [10],
+    colors: [
+      { r: 1, g: 1, b: 1, a: 1 },
+      { r: 2, g: 2, b: 2, a: 1 },
+    ],
+  };
+  // The neutral a continuous colour gives a missing value, at its own alpha.
+  const noData = (opacity = 1) => [120, 130, 150, Math.round(0.55 * opacity * 255)];
+  type Accessor = (x: unknown) => number[];
+
+  it("classes the values a classed fill can place, 0 and numeric strings included", () => {
+    const fill = fillAccessor(ramp) as Accessor;
     expect(fill({ properties: { v: 5 } })[0]).toBe(1);
     expect(fill({ properties: { v: 50 } })[0]).toBe(2);
-    expect(fill({ properties: {} })[0]).toBe(1);
+    expect(fill({ properties: { v: 0 } })[0]).toBe(1);
+    expect(fill({ properties: { v: "50" } })[0]).toBe(2);
+  });
+
+  it("draws a missing value in the no-data colour, never in a class, as a continuous colour does", () => {
+    const fill = fillAccessor(ramp) as Accessor;
+    for (const v of [null, undefined, "", "not a number", Number.NaN]) {
+      expect(fill({ properties: { v } }), String(v)).toEqual(noData());
+    }
+    expect(fill({ properties: {} })).toEqual(noData());
+    expect(fill({ properties: null })).toEqual(noData());
+    // Not read as 0 either: with classes around 0 a null is not the upper one.
+    const around = fillAccessor({ ...ramp, breaks: [-10] }) as Accessor;
+    expect(around({ properties: { v: null } })).toEqual(noData());
+    expect((fillAccessor(ramp, 0.5) as Accessor)({ properties: { v: null } })).toEqual(noData(0.5));
+    // So no class the legend lists describes what a missing value draws.
+    const rows = paintLegend(ramp)!.entries.map((e) => [e.color.r, e.color.g, e.color.b]);
+    expect(rows).not.toContainEqual(fill({ properties: { v: null } }).slice(0, 3));
+  });
+
+  it("draws a missing value so on the outline, and solid on a glyph", () => {
+    const style = { ...defaultStyle("POINT"), fill: ramp, strokeBy: ramp, fillOpacity: 1, strokeOpacity: 1 };
+    const props = deckLayerProps(style);
+    expect((props.getFillColor as Accessor)({ properties: { v: null } })).toEqual(noData());
+    expect((props.getLineColor as Accessor)({ properties: { v: null } })).toEqual(noData());
+    expect((iconFillAccessor(style) as Accessor)({ properties: { v: null } })).toEqual([120, 130, 150, 255]);
   });
 });
 
