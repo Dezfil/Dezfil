@@ -69,12 +69,6 @@ const LINKS = [
     icon: <path d="m8 9-4 3 4 3M16 9l4 3-4 3M13 6l-2 12" />,
   },
   {
-    href: "/developer",
-    label: "Developer",
-    match: (p: string) => p.startsWith("/developer"),
-    icon: <path d="M3.5 5h17v14h-17zM7.5 9.5l3 2.5-3 2.5M13 15h4" />,
-  },
-  {
     href: "/templates",
     label: "Templates",
     match: (p: string) => p.startsWith("/templates"),
@@ -157,6 +151,15 @@ export function RailSettingsLink() {
   return <RailLink link={SETTINGS} pathname={pathname} />;
 }
 
+/* A section with no rail entry: the API reference, reached from the MCP
+   card in Settings and from the docs. It names the page's breadcrumb and
+   browser title; no rail entry is marked on it. */
+const API_REFERENCE = {
+  href: "/developer",
+  label: "API reference",
+  match: (p: string) => p === "/developer" || p.startsWith("/developer/"),
+};
+
 export function RailUsersLink() {
   return <RailLink link={USERS} pathname={usePathname()} />;
 }
@@ -165,7 +168,7 @@ export function RailUsersLink() {
  * lookup): the shell's breadcrumb and the browser title read one table. */
 export function sectionFor(pathname: string): { href: string; label: string } {
   return (
-    [...LINKS, USERS, SETTINGS].find((l) => l.href !== "/" && l.match(pathname)) ??
+    [...LINKS, USERS, SETTINGS, API_REFERENCE].find((l) => l.href !== "/" && l.match(pathname)) ??
     LINKS[0]
   );
 }

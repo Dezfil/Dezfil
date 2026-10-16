@@ -5,7 +5,7 @@ import { ERROR_CATALOGUE } from "./error-catalogue";
 /**
  * The served contract is a public surface three times over: the JSON
  * document, the generated agent tool descriptions built from it, and the
- * rendered developer page. Nothing in it may cite an internal document
+ * rendered API reference page. Nothing in it may cite an internal document
  * that the published repository does not ship, because such a citation
  * resolves to nothing for every reader who meets it.
  *

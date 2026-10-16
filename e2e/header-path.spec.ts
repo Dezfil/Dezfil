@@ -193,7 +193,7 @@ test("the path, the titles, the instance name and the re-measure", async ({
       // an object page, never repeating its section.
       [`/connections/${CONN_ID}`, `${connection.name} · ${tail}`],
       ["/sql", `SQL · ${tail}`],
-      ["/developer", `Developer · ${tail}`],
+      ["/developer", `API reference · ${tail}`],
       ["/settings", `Settings · ${tail}`],
       [`/maps/${filedMapId}`, `${MAP_FILED} · ${PROJECT_A} · ${tail}`],
       [`/maps/${unfiledMapId}`, `${MAP_UNFILED} · ${tail}`],

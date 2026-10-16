@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Account } from "@/lib/metadata/accounts";
 import { AccountRailView } from "./AccountRail";
 import { UserBadge } from "./UserBadge";
-import { sectionFor } from "./NavLinks";
+import { NavLinks, sectionFor } from "./NavLinks";
 import { conversation, LOCATOR_KEY } from "./builder/assistant/conversation-store";
 import { SQL_KEYS, readStored, writeStored } from "./sql/sql-storage";
 import { openPrivateState } from "./auth/private-state";
@@ -37,6 +37,12 @@ describe("the account rail", () => {
   });
   it("recognizes the Users destination for the breadcrumb and browser title", () => {
     expect(sectionFor("/users")).toMatchObject({ href: "/users", label: "Users" });
+  });
+  it("names the API reference page for the breadcrumb and browser title, with no rail entry", () => {
+    expect(sectionFor("/developer")).toMatchObject({ href: "/developer", label: "API reference" });
+    const rail = renderToStaticMarkup(<NavLinks />);
+    expect(rail).not.toContain('href="/developer"');
+    expect(rail).not.toContain("Developer");
   });
   it("reveals Users only for a loaded admin beside Settings", () => {
     const admin = renderToStaticMarkup(<AccountRailView account={account} />);

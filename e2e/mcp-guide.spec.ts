@@ -68,3 +68,15 @@ for (const theme of ['light', 'dark']) test(`MCP server card in Settings: ${them
   expect(productCalls).toEqual([]); expect(toolCalls).toEqual([]);
   await card.screenshot({ path: `test-results/mcp-guide-${theme}.png` });
 });
+
+test('the API reference page has no MCP card, its own name, the old docs address, and a way to the card', async ({ page }) => {
+  await page.goto('/docs');
+  await expect(page).toHaveURL(/\/developer$/);
+  await expect(page.getByRole('heading', { level: 1, name: 'API reference' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'MCP server' })).toHaveCount(0);
+  // No rail entry for it: the only way back in the shell is its own breadcrumb.
+  await expect(page.getByRole('link', { name: 'Developer', exact: true })).toHaveCount(0);
+  await page.getByRole('link', { name: 'Set up an MCP client', exact: true }).click();
+  await expect(page).toHaveURL(/\/settings\/tokens#mcp-heading$/);
+  await expect(page.getByRole('region', { name: 'MCP server' })).toBeInViewport();
+});
