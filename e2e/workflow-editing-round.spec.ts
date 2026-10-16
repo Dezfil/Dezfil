@@ -353,7 +353,10 @@ test("copy and paste: the item against the recipe, the diagonal, a second workfl
     expect(parsed.kind).toBe("node");
     expect(parsed.operation).toBe("buffer");
     expect(parsed.parameters).toEqual(step.parameters);
-    expect(Object.keys(parsed).sort()).toEqual(["kind", "operation", "parameters", "dezfil-canvas-item"]);
+    // The workflow its values were written in, so a paste elsewhere can
+    // carry them over.
+    expect(parsed.source).toBe(w.id);
+    expect(Object.keys(parsed).sort()).toEqual(["dezfil-canvas-item", "kind", "operation", "parameters", "source"]);
   });
 
   let firstPaste = "";
