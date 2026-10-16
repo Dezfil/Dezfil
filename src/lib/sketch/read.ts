@@ -14,6 +14,8 @@ import { addressDataset, requireOwnDataset } from "@/lib/dataset-address";
 import { getOwnedTableByName } from "@/lib/metadata/owned-tables";
 import { trackInflight } from "@/lib/query/inflight";
 import type { SketchFeature, SketchGeometry, SketchKind } from "./geometry";
+import { sketchFeatureAnswer } from "./feature-answer";
+import { limits } from "@/lib/limits";
 
 export interface StoredSketchFeature extends SketchFeature {
   id: string;
@@ -93,6 +95,18 @@ export async function readFeatures(abs: string, signal?: AbortSignal): Promise<S
   });
 }
 
+/** The features as the features read answers them, bounded by Bytes drawn
+ * per layer. Changes read through `readFeatures`, which is not: a sketch
+ * too large to read whole can still be changed. */
+async function readFeatureAnswer(abs: string): Promise<StoredSketchFeature[]> {
+  return withConnection(async (conn) => {
+    const counted = await conn.runAndReadAll(
+      `SELECT count(*) AS n FROM read_parquet(${lit(abs)})`,
+    );
+    return sketchFeatureAnswer(conn, abs, Number(counted.getRowObjects()[0].n), limits.renderCapBytes);
+  });
+}
+
 export function listFeatures(
   scope: AccountScope,
   name: string,
@@ -102,7 +116,7 @@ export function listFeatures(
     // Register before capture; protection spans both count and geometry opens.
     return trackInflight(Promise.resolve().then(() => {
       const table = readableSketch(scope, name);
-      return readFeatures(absOf(table.file));
+      return readFeatureAnswer(absOf(table.file));
     }));
   });
 }

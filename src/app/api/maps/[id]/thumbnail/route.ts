@@ -1,4 +1,4 @@
-import { thumbnailBody } from "@/lib/api/thumbnail-body";
+import { emptySnapshot, thumbnailBody } from "@/lib/api/thumbnail-body";
 import { requireRequestScope } from "@/lib/auth/scope-http";
 import { NextResponse } from "next/server";
 import { ApiError, errorResponse } from "@/lib/api/errors";
@@ -15,9 +15,6 @@ import { captureBasemap, captureInputs } from "@/lib/thumbnail-evidence";
 import { isMapSqlRevision } from "@/lib/map-sql-revision";
 
 type Params = { params: Promise<{ id: string }> };
-
-/** Far above any honest capture; a backstop, not a budget. */
-const THUMBNAIL_MAX_BYTES = 4 * 1024 * 1024;
 
 const PNG_MAGIC = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
 
@@ -101,13 +98,7 @@ export async function PUT(request: Request, { params }: Params) {
       );
     }
     const body = await thumbnailBody(request);
-    if (body.byteLength === 0 || body.byteLength > THUMBNAIL_MAX_BYTES) {
-      throw new ApiError(
-        "invalid_request",
-        `The snapshot must be a PNG of at most ${THUMBNAIL_MAX_BYTES / (1024 * 1024)} MB.`,
-        400,
-      );
-    }
+    if (body.byteLength === 0) throw emptySnapshot();
     if (!PNG_MAGIC.every((byte, i) => body[i] === byte)) {
       throw new ApiError("invalid_request", "The body is not a PNG.", 400);
     }

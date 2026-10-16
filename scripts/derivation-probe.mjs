@@ -44,7 +44,9 @@ export async function derivationProbe(base, { stateLog, requestImpl = publicatio
   }
   const ordinary = Array.from({ length: 40 }, (_, i) => ({ tag: `ordinary-${i}`, known: i % 2 === 0, source: `198.18.1.${i + 1}` }));
   const work = ordinary.map(item => signIn(item.tag, item.known ? account.email : `unknown${item.tag}@example.test`, item.source));
-  const checks = Array.from({ length: 8 }, (_, i) => send(`protected-${i}`, 'PATCH', '/api/account', profileBody, true));
+  // One account's current-password checks are held to its failure allowance
+  // (five by default) even while they succeed, so the burst stays within it.
+  const checks = Array.from({ length: 5 }, (_, i) => send(`protected-${i}`, 'PATCH', '/api/account', profileBody, true));
   const redemptions = links.map((secret, i) => send(`redeem-${i}`, 'POST', '/api/auth/redeem', { secret, password: account.password }));
   const [ordinaryResults, protectedResults, redeemedResults] = await Promise.all([Promise.all(work), Promise.all(checks), Promise.all(redemptions)]);
   for (const [i, result] of ordinaryResults.entries()) {

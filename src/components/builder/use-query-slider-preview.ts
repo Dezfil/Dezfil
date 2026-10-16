@@ -9,7 +9,7 @@ import type {
   SliderPreviewWork,
   SliderPreviewWorkResult,
 } from "@/lib/slider-preview";
-import { readApiError } from "../api";
+import { readApiFailure } from "../api";
 
 export interface QuerySliderDraft extends SliderPreviewResult {
   viz: LayerViz;
@@ -28,6 +28,11 @@ interface CachedSource {
   key: string;
   data?: SliderPreviewData;
   pending?: Promise<SliderPreviewData | null>;
+  /** The server refused this source's preview as larger than Bytes drawn
+   * per layer. Asking again on every pointer move would read it again for
+   * the same refusal, so nothing previews until the source changes; the
+   * layer's own render still follows the settled slider. */
+  refused?: true;
 }
 
 interface QueuedWork {
@@ -140,10 +145,16 @@ export function useQuerySliderPreview({
       const cached = sourcesRef.current[layer.id];
       if (cached?.key === key && cached.data) return cached.data;
       if (cached?.key === key && cached.pending) return cached.pending;
+      if (cached?.key === key && cached.refused) return null;
       const pending = (async () => {
+        let refused = false;
         try {
           const response = await fetch(`/api/layers/${layer.id}/slider-preview`);
-          if (!response.ok) throw new Error(await readApiError(response));
+          if (!response.ok) {
+            const failure = await readApiFailure(response);
+            refused = failure.code === "render_bytes_exceeded";
+            throw new Error(failure.message);
+          }
           const data = (await response.json()) as SliderPreviewData;
           const current = sourcesRef.current[layer.id];
           if (current?.key === key) {
@@ -155,7 +166,8 @@ export function useQuerySliderPreview({
             error instanceof Error ? error.message : "Preview data failed.";
           onError(message);
           if (sourcesRef.current[layer.id]?.key === key) {
-            delete sourcesRef.current[layer.id];
+            if (refused) sourcesRef.current[layer.id] = { key, refused: true };
+            else delete sourcesRef.current[layer.id];
           }
           return null;
         }

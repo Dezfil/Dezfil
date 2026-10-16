@@ -2558,12 +2558,16 @@ export function buildOpenApiDocument() {
               enum: ["inline", "tiled"],
               description:
                 "inline carries the GeoJSON itself; tiled points at served " +
-                "vector tiles (a points-viz result over the render cap).",
+                "vector tiles (a points-viz result over the render cap or " +
+                "Bytes drawn per layer).",
             },
             geojson: {
               type: "object",
               description:
-                "Inline GeoJSON. Non-point features carry a reserved " +
+                "Inline GeoJSON. Feature properties are the columns the " +
+                "audience reads: on a builder render, what the layer and " +
+                "its map use; on a published render, the effective " +
+                "published field set. Non-point features carry a reserved " +
                 "__anchor property — an interior [lng, lat] that labels " +
                 "anchor on; it never shows in tooltips or " +
                 "pop-ups.",
@@ -2594,7 +2598,8 @@ export function buildOpenApiDocument() {
                 "Present when ok is false: why the layer cannot render " +
                 "right now. code is one of the documented error codes " +
                 "(query_timeout, sql_error, render_cap_exceeded, " +
-                "tiler_unavailable, tile_build_failed, …) and is what " +
+                "render_bytes_exceeded, tiler_unavailable, " +
+                "tile_build_failed, …) and is what " +
                 "truth surfaces present; message carries the " +
                 "detail. Both builder and published viewer show an " +
                 "errored layer as a visible failed state, never as " +

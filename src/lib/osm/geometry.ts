@@ -47,6 +47,61 @@ function classOf(geometryType: string): GeometryClass | null {
   }
 }
 
+/** A feature as the assembler hands it over. */
+export interface BuiltFeature {
+  id?: unknown;
+  properties?: Record<string, unknown> | null;
+  geometry?: { type: string } | null;
+}
+
+/** The geometry class a built feature lands in; null for a feature
+ * without a geometry of the three classes. */
+export function featureClass(feature: BuiltFeature): GeometryClass | null {
+  return feature.geometry ? classOf(feature.geometry.type) : null;
+}
+
+/** The OSM tags a built feature carries. */
+export function featureTags(feature: BuiltFeature): Record<string, unknown> {
+  const props = feature.properties ?? {};
+  return props.tags && typeof props.tags === "object"
+    ? (props.tags as Record<string, unknown>)
+    : {};
+}
+
+/** A built feature's properties shaped to the stable schema, carrying
+ * the given text as its stringified tags. */
+export function shapeProperties(
+  feature: BuiltFeature,
+  promoted: string[],
+  tagsText: string,
+): Record<string, string | null> {
+  const props = feature.properties ?? {};
+  const tags = featureTags(feature);
+  const shaped: Record<string, string | null> = {
+    osm_id: String(feature.id ?? props.id ?? ""),
+    osm_type: typeof props.type === "string" ? props.type : null,
+  };
+  for (const key of promoted) {
+    const value = tags[key];
+    shaped[key] = value === undefined || value === null ? null : String(value);
+  }
+  shaped.tags = tagsText;
+  return shaped;
+}
+
+/** One assembled feature as the import lands it: its geometry class and
+ * its properties shaped to the stable schema; null for a feature without
+ * a geometry of the three classes. */
+export function shapeFeature(
+  feature: BuiltFeature,
+  promoted: string[],
+): { cls: GeometryClass; shaped: ShapedFeature } | null {
+  const cls = featureClass(feature);
+  if (!cls) return null;
+  const shaped = shapeProperties(feature, promoted, JSON.stringify(featureTags(feature)));
+  return { cls, shaped: { type: "Feature", properties: shaped, geometry: feature.geometry } };
+}
+
 /** Assemble an Overpass JSON response and split it by geometry class. */
 export function assembleAndSplit(
   overpassJson: unknown,
@@ -56,31 +111,9 @@ export function assembleAndSplit(
   const result: SplitResult = { points: [], lines: [], polygons: [], total: 0 };
 
   for (const feature of collection.features) {
-    if (!feature.geometry) continue;
-    const cls = classOf(feature.geometry.type);
-    if (!cls) continue;
-
-    const props = feature.properties ?? {};
-    const tags =
-      props.tags && typeof props.tags === "object"
-        ? (props.tags as Record<string, unknown>)
-        : {};
-
-    const shaped: Record<string, string | null> = {
-      osm_id: String(feature.id ?? props.id ?? ""),
-      osm_type: typeof props.type === "string" ? props.type : null,
-    };
-    for (const key of promoted) {
-      const value = tags[key];
-      shaped[key] = value === undefined || value === null ? null : String(value);
-    }
-    shaped.tags = JSON.stringify(tags);
-
-    result[cls].push({
-      type: "Feature",
-      properties: shaped,
-      geometry: feature.geometry,
-    });
+    const one = shapeFeature(feature, promoted);
+    if (!one) continue;
+    result[one.cls].push(one.shaped);
     result.total += 1;
   }
   return result;
@@ -117,6 +150,22 @@ function pointInRing(
   return inside;
 }
 
+/** Whether one coordinate lies in the shape, its boundary included. */
+export function pointWithin(lng: number, lat: number, shape: WithinShape): boolean {
+  if ("bbox" in shape) {
+    const [w, s, e, n] = shape.bbox;
+    return lng >= w && lng <= e && lat >= s && lat <= n;
+  }
+  if ("parts" in shape) {
+    return shape.parts.some(
+      (part) =>
+        pointInRing(lng, lat, part.outer) &&
+        !part.holes.some((hole) => pointInRing(lng, lat, hole)),
+    );
+  }
+  return pointInRing(lng, lat, shape.ring);
+}
+
 function coordsWithin(coords: unknown, shape: WithinShape): boolean {
   if (
     Array.isArray(coords) &&
@@ -125,18 +174,7 @@ function coordsWithin(coords: unknown, shape: WithinShape): boolean {
     typeof coords[1] === "number"
   ) {
     const [lng, lat] = coords as [number, number];
-    if ("bbox" in shape) {
-      const [w, s, e, n] = shape.bbox;
-      return lng >= w && lng <= e && lat >= s && lat <= n;
-    }
-    if ("parts" in shape) {
-      return shape.parts.some(
-        (part) =>
-          pointInRing(lng, lat, part.outer) &&
-          !part.holes.some((hole) => pointInRing(lng, lat, hole)),
-      );
-    }
-    return pointInRing(lng, lat, shape.ring);
+    return pointWithin(lng, lat, shape);
   }
   if (Array.isArray(coords)) {
     return coords.every((c) => coordsWithin(c, shape));
@@ -149,10 +187,10 @@ function coordsWithin(coords: unknown, shape: WithinShape): boolean {
  * and polygons against a concave drawn ring it is the standard
  * vertex-containment approximation. */
 export function featureWithin(
-  feature: ShapedFeature,
+  feature: { geometry?: unknown },
   shape: WithinShape,
 ): boolean {
-  const geometry = feature.geometry as { coordinates?: unknown } | null;
+  const geometry = feature.geometry as { coordinates?: unknown } | null | undefined;
   if (!geometry || geometry.coordinates === undefined) return false;
   return coordsWithin(geometry.coordinates, shape);
 }

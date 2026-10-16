@@ -119,6 +119,21 @@ their existing 16 MiB bound, required or optional empty-body behavior and
 `assistant_submission_too_large`. Multipart uploads and binary thumbnails
 are separate body classes.
 
+`PUT /api/maps/{id}/thumbnail` accepts a PNG of at most 4 MiB (4,194,304
+bytes), counted as the bytes arrive. A larger declared length is refused
+before reading, and a body that crosses the bound is refused on the chunk that
+crosses it, without reading the rest: `413 request_body_too_large` with "The
+snapshot must be a PNG of at most 4 MB." An empty body keeps `400
+invalid_request` with the same sentence, and a body that is not a PNG keeps
+`400 invalid_request` with "The body is not a PNG." As for the JSON readers,
+this is a handler bound: on this framework-matched path the framework's own
+body copy comes first.
+
+**Snapshot size compatibility change.** An oversized snapshot used to be read
+whole and refused with `400 invalid_request`; it is now refused with `413
+request_body_too_large` and the same sentence. The bound and the other
+refusals are unchanged.
+
 Body policy coverage uses the TypeScript receiver type and resolved calls,
 including aliases and helper parameters. Raw Request body members are confined
 to `src/lib/api/bounded-body.ts` (JSON bytes),
@@ -143,14 +158,20 @@ used entry. The bound holds either way. Eviction grants a fresh window.
 Window expiry permits retry; a refusal remains 429 `rate_limited`, “Too many
 requests. Please slow down.” No new retry-header guarantee applies.
 
-Direct socket sources have independent budgets; equivalent IPv4 and mapped
-IPv4 addresses share one. A trusted proxy chain uses the nearest untrusted hop.
+Direct socket sources have independent budgets, except that every address of
+one IPv6 /64 shares one budget, so a host cannot step around it with fresh
+addresses from its prefix; equivalent IPv4 and mapped IPv4 addresses share
+one, and an address in the NAT64 prefix `64:ff9b::/96` shares the budget of
+the IPv4 address it carries, so clients behind one translator stay apart. The
+local-use prefix `64:ff9b:1::/48` does not say where its IPv4 client sits and
+is grouped by /64. Only the charge is grouped: the verified source stays the full address. A trusted proxy chain uses the nearest untrusted hop.
 Behind an untrusted proxy, readers share its socket budget by design; forwarded
 headers cannot separate it. Missing or forged provenance answers private,
 no-store 503 `ingress_unavailable`, “The instance cannot serve published maps
 yet.”, before reading a body or resolving a token. Malformed wire provenance
-still answers 400. The viewer page is outside these API budgets; IPv6 address
-rotation is not bounded by this policy.
+still answers 400. The viewer page is outside these API budgets. Rotating
+IPv6 addresses inside one /64 is bounded by that /64's budget; rotating them
+across many /64s, or across a client's own larger prefix, is not.
 
 ## Ownership and sharing
 
@@ -568,7 +589,7 @@ naming memory or scratch and `DEZFIL_TRUSTED_MEMORY_MB`. The byte
 value describes a complete uncompressed UTF-8 JSON inline answer, envelope
 included, with equality admitted. These three settings are exposed for
 configuration. File, link, OpenStreetMap, Overture and PostGIS imports and refreshes use the processing limit;
-Upload reception uses the same admitted value with its own deadline; render enforcement is not yet active. Geometry and sketch changes,
+Upload reception uses the same admitted value with its own deadline. Layer renders apply the byte value (below); geometry and sketch changes,
 template installation and export conversion also use the processing limit.
 
 The admin and the complete body are checked inside one immediate transaction
@@ -781,6 +802,9 @@ starts refund both reservations. Cancellation after derivation starts retains th
 source reservation against its per-address budget (`security.failedPerAddress`,
 twenty by default) until the fifteen-minute window expires, refunds the account reservation and adds no failures, preserving
 the clean-source exception.
+The per-address budget counts every IPv6 address of one /64 as one address and
+an IPv4 source alone, whether mapped, reaching the instance through the NAT64
+prefix `64:ff9b::/96`, or neither; the verified source stays the full address.
 A fourth simultaneous protected caller is refused at once and may retry
 immediately without a login lockout; the response retains its one-second retry
 advice. Cancellation removes waiting work; running native work owns its slot
@@ -796,6 +820,26 @@ profile. A name change needs no password; changing email requires
 identity. `POST /api/account/password` takes `currentPassword` and `password`,
 preserves the calling browser session, ends other sessions and leaves tokens
 valid. A bearer caller has no browser session to preserve.
+
+Current-password checks on both operations share one allowance per account,
+counted apart from sign-in: `security.failedPerAccount` (five by default)
+failures within a fixed fifteen minutes, across every session and token of the
+account. Request validation comes first, so a malformed body or a password
+change without a required field stays `400 invalid_request` and counts
+nothing. A missing or incorrect current password answers `403
+current_password_required` and counts, an email change that omits it included.
+A busy refusal (`503 authentication_busy`), failing password work and a caller
+who leaves before the check starts count nothing; a caller who leaves after it
+starts counts no failure, but its place stays taken until the window ends.
+Concurrent checks never exceed what is left. Past the count, a check answers
+`429 rate_limited` with "Too many wrong current passwords. Try again later.",
+`Retry-After`, `error.retryAfter` and `error.retryAt`, before any password
+work. A correct current password clears this count and leaves sign-in's as it
+was; a successful sign-in clears only its own.
+
+**Current-password compatibility change.** These checks had no failure limit:
+any number could be tried, and an account could keep protected password work
+busy with them. They now answer `429 rate_limited` past the allowance above.
 
 Every account read (`/api/account`, `/api/auth/session` and an admin's
 `/api/users`) carries `sqlName`, the account's SQL name: three to thirty-two
@@ -1019,9 +1063,64 @@ caller's console, a dataset's "Add to a map", another map, a workflow) says so
 with `writtenIn`, and is carried into the map's home before it is stored (see
 "Carrying SQL between contexts" below).
 `GET /api/layers/{id}/render` is what the canvas draws, for everyone who
-reaches the map; `GET /api/layers/{id}/tiles/{z}/{x}/{y}` serves a tiled
-layer's archive to a reader who can reach every dataset it recorded drawing,
-and answers `not_found` (404) otherwise. A reader beyond the current archive's
+reaches the map. Its inline answer is bounded by Bytes drawn per layer
+(`renderCapBytes`), counted over the complete JSON as it is built. A larger
+one takes the road a layer takes over the render cap: a points layer is
+served as tiles (`mode: "tiled"`; a missing tile builder answers
+`tiler_unavailable` naming the byte limit, a failing one `tile_build_failed`),
+a layer shipped without its live filters has them applied in the query and is
+answered inline if that fits, and anything else answers the errored layer
+`render_bytes_exceeded`. A template's layer has no tile road; a points
+layer's refusal there says that a copy draws all of it. A published reader,
+initially and under a selection, is told only the catalogue's sentence for
+the code.
+
+**Render properties compatibility change.** An inline layer render's feature
+properties are the columns the layer and its map read, not every column of
+the result: the style, label and label-priority fields, the fields of the
+filters the canvas applies, the docked timeline's field, the fields of the
+map's widgets on the layer (shown or hidden), the explicit tooltip and pop-up
+fields or, while either list is automatic, the first eight columns as the
+automatic rule picks them, and a drawn sketch's `feature_id` and `kind`. The
+author's published field list plays no part here. Geometry, rows, their order
+and aggregation results are unchanged, and aggregated layers still carry
+exactly their computed columns. A caller that needs every column reads the
+rows with `POST /api/query` or downloads them. Published renders keep the
+published field set, and tiled layers keep the archive's.
+
+**Feature reads compatibility change.** Reads that draw features count their
+complete answer against Bytes drawn per layer too, each with its own outcome
+above it. `GET /api/tables/{name}/features` answers `ok: false` with a
+`reason` and no features when the dataset's answer, or the sample asked for
+with `sample=1`, exceeds the limit; it used to answer every feature within
+the render cap whatever their size. `GET /api/layers/{id}/slider-preview`
+answers `422 render_bytes_exceeded` with no partial preview when its complete
+answer exceeds the limit; it used to answer every sampled point whatever
+their size. The layer's own render, evaluated when the slider settles, is
+unaffected. `POST /api/imports/overture/preview` (the `run_overture_query`
+tool) answers `422 render_bytes_exceeded` with no partial preview when its
+complete answer exceeds the limit; it used to answer the render cap's first
+features whatever their size. `POST /api/imports/osm/preview` (the
+`run_osm_query` tool) does the same, counting its features while they are
+assembled; it used to assemble the whole response and answer the render
+cap's first features whatever their size. The cap, the order, `truncated`
+and the imports are unchanged. `GET /api/sketches/{name}/features` (the
+`get_sketch_features` tool) answers `422 render_bytes_exceeded` when its
+complete answer exceeds the limit; it used to answer every drawn feature
+whatever their size. Appending, moving a vertex and deleting are unchanged.
+
+**Template admission compatibility change.** A template version's layers are
+now held to Bytes drawn per layer's default, 134,217,728 bytes, as well as to
+the render cap's, each counted as the version's view renders it (its result,
+the properties its map's widgets and timeline read, and the fallback to every
+filter applied on the server), whatever this instance sets. A layer over it is
+refused with `422 template_invalid` naming the limit, where it used to be
+admitted. A version installed before is not checked again: it opens and
+copies, and any excess shows in its layer's render.
+
+`GET /api/layers/{id}/tiles/{z}/{x}/{y}` serves a tiled layer's archive to a
+reader who can reach every dataset it recorded drawing, and answers
+`not_found` (404) otherwise. A reader beyond the current archive's
 reach whose own render succeeds has tiles prepared in their own reach.
 `GET /api/layers/{id}/fields` and `.../fields/{field}` describe columns and
 their statistics, and `POST /api/layers/{id}/fill` and `.../scale` compute a
@@ -1348,7 +1447,10 @@ documents are, every dataset and bundled result read through the upload's
 reader (what it measured is recorded), every layer's SQL, columns, widgets
 and timeline and every step bound to the template's own data and the results
 of earlier steps, nothing else, a workflow example's step list in its facts
-the workflow's own, what each step reads included; and only then moved into place under the data
+the workflow's own, what each step reads included, each layer drawing within
+the defaults of the render cap and of Bytes drawn per layer as its view
+renders it, whatever this instance sets (`template_invalid` names the limit);
+and only then moved into place under the data
 folder's `templates/<id>/<version>/`. Two calls for one version download it
 once, and downloads run one at a time on this instance; a download waiting
 its turn when an admin turns the catalogue off or moves it sends nothing. A
@@ -1521,9 +1623,18 @@ rather than on the page:
 - Dataset inspection (`GET /api/tables/{name}`) uses the same fixed 32 MiB
   complete-answer and 2 MiB non-geometry-cell ceilings for its fifty-row
   preview. Its registered native geometry column is emitted as WKT and counts
-  toward the result ceiling only. All metadata, schema, ownership, project
-  memberships and resolved inputs count in the same answer. An oversized
-  inspection returns the same 422 catalogue refusal with no partial data.
+  toward the result ceiling only. Preview text values, and that WKT, longer
+  than 512 characters show their first 512 characters followed by "…",
+  counted in characters as geometry-choice preview's grid counts them, before
+  either ceiling applies. Other value types, nested values, additional native
+  geometry columns, the schema, row counts, geometry facts and the stored data
+  are never excerpted, and the other bounded readers keep their contracts. All
+  metadata, schema, ownership, project memberships and resolved inputs count
+  in the same answer. An inspection that still exceeds a ceiling returns the
+  same 422 catalogue refusal with no partial data.
+  **Inspection excerpt compatibility change.** Preview text and registered WKT
+  used to arrive whole, and one text value over 2 MiB refused the inspection;
+  they now arrive as excerpts, and such an inspection answers.
   A refused dataset inspection prevents its detail and docked set-geometry
   panel from opening. It also blocks tool column pickers, SQL schema inventory
   and completion, workflow dataset reads and facts, and automatic layer addition
@@ -2288,8 +2399,23 @@ once, so blocked source reads always leave a worker for the cancellation and
 the rest of the server; further source calls wait within their own time limit,
 and a refusal while waiting answers as usual. The
 10-second connect limit remains. Teardown runs after
-native work drains, including a late attachment success after refusal. Render
-byte enforcement is not yet active. Geometry set and clear
+native work drains, including a late attachment success after refusal. Layer
+renders count their complete inline answer against Bytes drawn per layer while
+it is read, with no ceiling for a single value; an answer that would exceed it
+is stopped before it is complete, and the layer takes the road it takes over
+the render cap: tiles for a points layer, its live filters applied in the
+query for a layer the canvas filters, and otherwise the errored-layer envelope
+`render_bytes_exceeded`. Dataset map features count their answer the same
+way; over the limit, the whole dataset or the sample asked for answers
+`ok: false` with a reason and no features. A slider preview over the limit
+answers `422 render_bytes_exceeded` with no partial preview; the layer's own
+render is unaffected. An Overture or OpenStreetMap Run Query preview over the
+limit answers `422 render_bytes_exceeded` with no partial preview; an
+OpenStreetMap preview is counted while its features are assembled, and one
+element it would certainly carry that is over the limit on its own refuses it
+before anything is assembled. A sketch's
+features read over the limit answers `422 render_bytes_exceeded`; changes to
+the sketch are not held to it. Geometry set and clear
 use the processing lifetime through preparation and revision-checked replacement.
 They continue after departure; expiry or resource refusal removes the candidate
 and retains the previous artifact. Sketch feature reads and map summaries use
@@ -2362,7 +2488,7 @@ remove converted files and the staged archive, retaining source artifacts. Harde
 | `data_processing_timeout` | Data processing exceeded its admitted time limit. An admin can change Data processing time limit for new work. |
 | `request_timeout` | The request body was not received within 300 s. |
 | `upload_stalled` | The upload sent no body bytes for 60 seconds. Retry the upload. |
-| `render_bytes_exceeded` | The layer exceeds the configured uncompressed inline answer byte limit. |
+| `render_bytes_exceeded` | The features to draw exceed the configured byte limit. |
 | `query_memory_exceeded` | The query exceeded the configured engine memory budget for user SQL. |
 | `query_result_too_large` | The result is too large to return: more than 32 MB in total, or one non-geometry value over 2 MB. Select fewer rows or columns, or shorten the value. |
 | `tile_build_timeout` | A tile-build stage exceeded the configured tile-build timeout. |
@@ -2436,7 +2562,7 @@ remove converted files and the staged archive, retaining source artifacts. Harde
 | `template_entry_escapes` | A member of a template's archive names a path outside its folder. |
 | `template_members_mismatch` | A template's documents name a member it does not hold, or it holds a member nothing names. |
 | `template_format_unsupported` | A template is in a format version this server does not read. |
-| `template_invalid` | A template's document fails the rules a client's document is held to, one of its layers or steps does not bind to the template's own data as a client's would or names one of its datasets other than as a plain table reference (inside a string or a table function's argument, or qualified by a schema), or a layer draws more than the render cap's default. |
+| `template_invalid` | A template's document fails the rules a client's document is held to, one of its layers or steps does not bind to the template's own data as a client's would or names one of its datasets other than as a plain table reference (inside a string or a table function's argument, or qualified by a schema), or a layer draws more than the default of the render cap or of Bytes drawn per layer. |
 | `template_forbidden` | A template carries a publication, token, connection, service address or setting, which no template may. |
 | `template_picture_too_large` | A template's map picture is larger than its 2 MB bound. |
 | `template_licence_refused` | A template's data is under a licence that does not allow redistribution. |

@@ -3,7 +3,7 @@ import { datasetAccess } from "./openapi-dataset-access";
 import { ownedCreationOp } from "./openapi-owned-creation";
 import { REMOTE_ADD, REMOTE_READ } from "./operation-mcp";
 import { READ_ONLY, writes, resource } from "./operation-metadata";
-import { op, jsonOk } from "./openapi-helpers";
+import { op, jsonOk, ERROR_RESPONSE } from "./openapi-helpers";
 
 export const IMPORT_PATHS = {
   "/api/imports/url": {
@@ -250,7 +250,10 @@ export const IMPORT_PATHS = {
         "run and returns the matching features as GeoJSON — capped " +
         "by the render cap with truncation stated — so a selection " +
         "can be inspected on a map before importing (the dialog's " +
-        "Run Query button).",
+        "Run Query button). The answer, envelope included, is bounded " +
+        "by Bytes drawn per layer (renderCapBytes), counted as it is " +
+        "built; above it the preview answers 422 render_bytes_exceeded " +
+        "with no partial result. The import is not held to that limit.",
       tag: "Tables",
       tool: "run_overture_query", mcp: REMOTE_READ,
       display: {"verb": "Ran an Overture query"},
@@ -289,6 +292,7 @@ export const IMPORT_PATHS = {
             },
           },
         },
+        "422": ERROR_RESPONSE,
       },
     }),
   },
@@ -662,7 +666,11 @@ export const IMPORT_PATHS = {
         "body would run — same assembly and within filter — and " +
         "returns the features as GeoJSON, capped by the render cap. " +
         "The response is served from the query cache when possible, " +
-        "and a following import reuses it.",
+        "and a following import reuses it. The answer, envelope " +
+        "included, is bounded by Bytes drawn per layer " +
+        "(renderCapBytes), counted while the features are assembled; " +
+        "above it the preview answers 422 render_bytes_exceeded with no " +
+        "partial result. The import is not held to that limit.",
       tag: "Tables",
       tool: "run_osm_query", mcp: REMOTE_READ,
       display: {"verb": "Ran an OpenStreetMap query"},
@@ -722,6 +730,7 @@ export const IMPORT_PATHS = {
             },
           },
         },
+        "422": ERROR_RESPONSE,
       },
     }),
   },
@@ -819,7 +828,8 @@ export const IMPORT_SCHEMAS = {
     type: "object",
     description:
       "A Run Query result: the features the matching " +
-      "import would land, capped by the render cap.",
+      "import would land, capped by the render cap and bounded by " +
+      "Bytes drawn per layer.",
     properties: {
       geojson: {
         type: "object",

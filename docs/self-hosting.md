@@ -129,7 +129,9 @@ the column's foot; members see General alone, read-only.
 - **Security** holds sign-in (how long people stay signed in, how long invite
   and reset links last, failed sign-ins per account and per address before a
   pause, and the shortest password) and API tokens (who may create them and
-  when new ones expire). No save signs anyone out or changes a link, token or
+  when new ones expire). The count per account also pauses an account's
+  password and email changes after that many wrong current passwords, counted
+  apart from its sign-ins. No save signs anyone out or changes a link, token or
   password that already exists; each applies from the next session use, link,
   sign-in attempt, password or token. Who may add database connections and who
   may import from links are on Data & services;
@@ -420,7 +422,13 @@ query execution or result projection, including geometry decoding. Layer
 renders, dataset map features, slider and Overture previews,
 published views, statistics, classification, widgets and value search retain
 their existing limits. SQL, table and layer file exports still stream complete
-results above both ceilings. A refused dataset inspection prevents its detail and docked set-geometry
+results above both ceilings. Dataset inspection shows text values, and the WKT
+of its registered geometry column, longer than 512 characters as their first
+512 characters and an ellipsis, as geometry-choice preview does. Other values,
+nested values, additional geometry columns, the schema, row counts and the
+stored data stay whole, and SQL console/SQL previews and the PostGIS preview do
+not excerpt, so long text alone no longer refuses an inspection. An inspection that still exceeds a
+ceiling, with a nested value over 2 MiB for example, prevents its detail and docked set-geometry
 panel from opening. It also blocks tool column pickers, SQL schema inventory
 and completion, workflow dataset reads and facts, and automatic layer addition
 after a tool run. The tool run can report failure even though the dataset has
@@ -488,14 +496,20 @@ used entry. The bound holds either way. Eviction grants a fresh window.
 Window expiry permits retry; a refusal remains 429 `rate_limited`, “Too many
 requests. Please slow down.” No new retry-header guarantee applies.
 
-Direct socket sources have independent budgets; equivalent IPv4 and mapped
-IPv4 addresses share one. A trusted proxy chain uses the nearest untrusted hop.
+Direct socket sources have independent budgets, except that every address of
+one IPv6 /64 shares one budget, so a host cannot step around it with fresh
+addresses from its prefix; equivalent IPv4 and mapped IPv4 addresses share
+one, and an address in the NAT64 prefix `64:ff9b::/96` shares the budget of
+the IPv4 address it carries, so clients behind one translator stay apart. The
+local-use prefix `64:ff9b:1::/48` does not say where its IPv4 client sits and
+is grouped by /64. Only the charge is grouped: the verified source stays the full address. A trusted proxy chain uses the nearest untrusted hop.
 Behind an untrusted proxy, readers share its socket budget by design; forwarded
 headers cannot separate it. Missing or forged provenance answers private,
 no-store 503 `ingress_unavailable`, “The instance cannot serve published maps
 yet.”, before reading a body or resolving a token. Malformed wire provenance
-still answers 400. The viewer page is outside these API budgets; IPv6 address
-rotation is not bounded by this policy.
+still answers 400. The viewer page is outside these API budgets. Rotating
+IPv6 addresses inside one /64 is bounded by that /64's budget; rotating them
+across many /64s, or across a client's own larger prefix, is not.
 
 Password derivation admission is shared across the server process: two active,
 six ordinary plus two reserved protected waiters, and a five-second maximum

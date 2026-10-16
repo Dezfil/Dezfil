@@ -30,9 +30,10 @@ import { retireArtifact } from "@/lib/ingest/retire";
 import { trackInflight } from "@/lib/query/inflight";
 import { dropTableView } from "@/lib/query/views";
 import { artifactRelation } from "@/lib/query/artifact-relation";
+import { datasetMapAnswer } from "@/lib/dataset-map-features";
 import { removeTileArtifacts } from "@/lib/tiles/build";
 
-import { INSPECT_PREVIEW_ROWS } from "./table-preview-limit";
+import { INSPECT_PREVIEW_ROWS, previewExcerpt } from "./table-preview-limit";
 
 export interface TableInspection extends DataTable, DatasetPresence {
   columns: { name: string; type: string }[];
@@ -171,10 +172,14 @@ export async function inspectDataset(scope: AccountScope, reached: ReachedTable,
           budget, new Set(["name", "type"]),
         ) as { name: string; type: string }[];
 
-        // Geometry previews as WKT, not raw WKB bytes.
-        const replace = table.geometryColumn
-          ? ` REPLACE (ST_AsText(${ident(table.geometryColumn)}) AS ${ident(table.geometryColumn)})`
-          : "";
+        // Geometry previews as WKT, not raw WKB bytes. Text and that WKT show
+        // excerpts, as the geometry grid does; other values, additional
+        // geometry columns, the schema and the stored data stay whole.
+        const excerpts = [
+          ...(table.geometryColumn ? [`${previewExcerpt(`ST_AsText(${ident(table.geometryColumn)})`)} AS ${ident(table.geometryColumn)}`] : []),
+          ...columns.filter(c => c.type === "VARCHAR" && c.name !== table.geometryColumn).map(c => `${previewExcerpt(ident(c.name))} AS ${ident(c.name)}`),
+        ];
+        const replace = excerpts.length ? ` REPLACE (${excerpts.join(", ")})` : "";
         const nativeGeometry = new Set(columns.filter(c => c.name === table.geometryColumn &&
           (c.type === "GEOMETRY" || c.type.startsWith("GEOMETRY("))).map(c => c.name));
         const preview = await readBudgetedRows(conn,
@@ -206,11 +211,12 @@ export interface TableFeaturesResult {
 }
 
 /** A table's features as GeoJSON for the dialog map — the
- * layer legend and Select from Layer read this. No geometry or over the
- * render cap returns ok:false with a reason, not an HTTP error, so the
- * legend can say so and the rest keeps working. With `sample`, an over-cap
- * table draws its first cap-many features instead of refusing (the dataset
- * detail's map preview). */
+ * layer legend and Select from Layer read this. No geometry, over the
+ * render cap, or over Bytes drawn per layer returns ok:false with a reason
+ * and no features, not an HTTP error, so the legend can say so and the rest
+ * keeps working. With `sample`, an over-cap table draws its first cap-many
+ * features instead of refusing (the dataset detail's map preview), unless
+ * those are over the byte limit. */
 export async function tableFeatures(
   scope: AccountScope,
   name: string,
@@ -245,25 +251,14 @@ export async function tableFeatures(
           artifact,
           table.geometryColumn,
         );
-        const rows = await conn.runAndReadAll(
-          `SELECT ST_AsGeoJSON(${geom}) AS geometry
-         FROM ${from} WHERE ${geom} IS NOT NULL
-         ${overCap ? `LIMIT ${limits.renderCapFeatures}` : ""}`,
+        return datasetMapAnswer(
+          conn,
+          from,
+          geom,
+          { name, geometryType: table.geometryType, rowCount: table.rowCount },
+          overCap ? limits.renderCapFeatures : null,
+          limits.renderCapBytes,
         );
-        const features = rows.getRowObjects().map((r, i) => ({
-          type: "Feature",
-          id: i,
-          geometry: JSON.parse(String(r.geometry)) as unknown,
-          properties: { __table: name, __fid: i },
-        }));
-        return {
-          ok: true,
-          name,
-          geometryType: table.geometryType,
-          featureCount: features.length,
-          ...(overCap ? { sampled: true, totalCount: table.rowCount } : {}),
-          geojson: { type: "FeatureCollection", features },
-        };
       }),
     );
   });

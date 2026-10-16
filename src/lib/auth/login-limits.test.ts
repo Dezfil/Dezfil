@@ -176,3 +176,32 @@ it("refuses sign-in without the preload rather than falling back to submitted fo
   await expect(signInFromRequest(request, "person@example.test", "anything", db)).rejects.toMatchObject({ code: "ingress_unavailable" });
   expect(db.prepare("SELECT * FROM auth_sessions").all()).toEqual([]);
 });
+
+it("counts failed sign-ins from every address of an IPv6 /64 against one address budget", async () => {
+  const sources = Array.from({ length: LOGIN_SOURCE_LIMIT }, (_, index) => `2001:db8:0:1::${(index + 1).toString(16)}`);
+  for (const [index, source] of sources.entries()) await fail(`person${index}@example.test`, source);
+  expect(db.prepare("SELECT failures FROM auth_login_limits WHERE bucket = ?").get(`source:${secretHash("2001:db8:0:1::/64")}`))
+    .toEqual({ failures: LOGIN_SOURCE_LIMIT });
+  // A fresh address in that /64 is paused; the next /64 and an IPv4 source are not.
+  await expect(attempt("fresh@example.test", "2001:db8:0:1:ffff::1")).rejects.toMatchObject({ code: "rate_limited" });
+  await expect(attempt("fresh@example.test", "2001:db8:0:2::1", allowed)).resolves.toBe("signed in");
+  await expect(attempt("fresh@example.test", "192.0.2.1", allowed)).resolves.toBe("signed in");
+});
+
+it("counts failed sign-ins through a NAT64 translator against the IPv4 client's budget, not the translator's /64", async () => {
+  for (let index = 0; index < LOGIN_SOURCE_LIMIT; index++) await fail(`person${index}@example.test`, index % 2 ? "64:ff9b::c000:201" : "64:ff9b::192.0.2.1");
+  // Another client behind the same translator is not paused; the same
+  // client reaching the instance directly is.
+  await expect(attempt("fresh@example.test", "64:ff9b::192.0.2.2", allowed)).resolves.toBe("signed in");
+  await expect(attempt("fresh@example.test", "192.0.2.1")).rejects.toMatchObject({ code: "rate_limited" });
+  expect(db.prepare("SELECT failures FROM auth_login_limits WHERE bucket = ?").get(`source:${secretHash("192.0.2.1")}`))
+    .toEqual({ failures: LOGIN_SOURCE_LIMIT });
+});
+
+it("keeps IPv4 sources, mapped or not, in their own address budgets", async () => {
+  for (let index = 0; index < LOGIN_SOURCE_LIMIT; index++) await fail(`person${index}@example.test`, index % 2 ? "::ffff:192.0.2.1" : "192.0.2.1");
+  await expect(attempt("fresh@example.test", "192.0.2.1")).rejects.toMatchObject({ code: "rate_limited" });
+  await expect(attempt("fresh@example.test", "::ffff:c000:201")).rejects.toMatchObject({ code: "rate_limited" });
+  await expect(attempt("fresh@example.test", "192.0.2.2", allowed)).resolves.toBe("signed in");
+});
+

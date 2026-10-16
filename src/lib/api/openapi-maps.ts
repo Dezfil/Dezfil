@@ -9,7 +9,7 @@ import { authenticatedOp } from "./openapi-authenticated";
 import { LOCAL_ADD, LOCAL_DELETE, LOCAL_READ, LOCAL_REPLACE, MAP_LOOK, REMOTE_READ, REMOTE_REPLACE } from "./operation-mcp";
 import { changeGroupParam } from "./openapi-mcp";
 import { READ_ONLY, writes, resource, recorded } from "./operation-metadata";
-import { op, jsonOk, pathParam } from "./openapi-helpers";
+import { ERROR_RESPONSE, op, jsonOk, pathParam } from "./openapi-helpers";
 import { PROJECT_SCOPE_PARAM } from "./openapi-projects";
 
 /** A card image's theme: a map whose basemap follows the
@@ -162,8 +162,11 @@ export const MAP_RESOURCE_PATHS = {
     put: op(mapChildren(mapAccess({
       summary: "Store a map's snapshot",
       description:
-        "A PNG body, at most 4 MB — captured by the builder after " +
-        "edits settle. Without a theme the body is the map's " +
+        "A PNG body, at most 4 MB (4,194,304 bytes), captured by the " +
+        "builder after edits settle. A larger body is refused with " +
+        "`413 request_body_too_large` without reading the rest of it; an " +
+        "empty or non-PNG body is refused with `400 invalid_request`. " +
+        "Without a theme the body is the map's " +
         "one image and replaces whatever it had. With a theme and a " +
         "cycle the body is one half of a themed pair: it is " +
         "held until the other theme arrives under the same cycle, and " +
@@ -215,6 +218,8 @@ export const MAP_RESOURCE_PATHS = {
             "Held: a themed snapshot waiting for its partner under the " +
             "same cycle. The map's images are unchanged.",
         },
+        "400": { ...ERROR_RESPONSE, description: "An empty or non-PNG body, or a malformed theme, cycle or revision (invalid_request)." },
+        "413": { ...ERROR_RESPONSE, description: "A body larger than 4 MB, refused without reading the rest of it (request_body_too_large)." },
       },
     }))),
   },

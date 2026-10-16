@@ -9,22 +9,25 @@ const body = (properties: Record<string, unknown>, required = Object.keys(proper
   "x-byte-limit": 65_536, required: true, content: { "application/json": { schema: { type: "object", additionalProperties: false, properties, required, ...extra } } },
 });
 const currentPassword = { type: "string", writeOnly: true, description: "Your current password." };
+const CHECK_ALLOWANCE = "Current-password checks on password and email changes share one allowance per account, apart from sign-in accounting: the Failed sign-ins per account count (security.failedPerAccount, five by default) within a fixed fifteen minutes. Missing or incorrect current passwords count; busy refusals, failing password work and a caller who leaves before the check starts do not; a caller who leaves after it starts keeps that place taken until the window ends. Concurrent checks never exceed what is left. Past the count, checks return rate_limited with Retry-After, retryAfter seconds and retryAt (ISO timestamp) before any password work. A correct current password clears this count and leaves sign-in's untouched; a sign-in clears only its own. ";
+const CHECK_LIMITED_RESPONSE = { ...ERROR_RESPONSE, description: "rate_limited: too many wrong current passwords for this account within the window.",
+  headers: { "Retry-After": { description: "Seconds until another check is permitted.", schema: { type: "integer", minimum: 1 } } } };
 const ownSubject = { path: "/api/account", argument: "", name: "account.name" };
 export const ACCOUNT_PATHS = {
   "/api/account": {
     get: { ...op({ summary: "Read your account", description: privacy + "Returns only the authenticated account's profile. No password or credential material is returned.",
       tag: "Accounts", tool: "get_account", effects: READ_ONLY, mcp: LOCAL_READ, display: { verb: "Read your account" },
       responses: { "200": jsonOk("#/components/schemas/AccountSession"), ...errors } }), security: AUTH_SECURITY },
-    patch: { ...op({ summary: "Update your account", description: DERIVATION_ADMISSION + privacy + "Changes only your own name or email. An email change requires currentPassword and replaces the sign-in email. Duplicate emails return email_taken, regardless of case or surrounding whitespace. Missing or incorrect current passwords return current_password_required. The complete patch is validated before any write; account identity, role and status cannot be submitted.",
+    patch: { ...op({ summary: "Update your account", description: DERIVATION_ADMISSION + privacy + "Changes only your own name or email. An email change requires currentPassword and replaces the sign-in email. Duplicate emails return email_taken, regardless of case or surrounding whitespace. Missing or incorrect current passwords return current_password_required. " + CHECK_ALLOWANCE + "The complete patch is validated before any write; account identity, role and status cannot be submitted.",
       tag: "Accounts", tool: "update_account", effects: writes(resource("accounts")), mcp: LOCAL_REPLACE, display: { verb: "Updated your account" },
       requestBody: body({ name: { type: "string", minLength: 1, maxLength: 80 }, email: { type: "string" }, currentPassword }, [], { anyOf: [{ required: ["name"] }, { required: ["email"] }] }),
-      responses: { "200": jsonOk("#/components/schemas/AccountSession"), ...errors, "503": AUTHENTICATION_BUSY_RESPONSE, "409": ERROR_RESPONSE } }), security: AUTH_SECURITY },
+      responses: { "200": jsonOk("#/components/schemas/AccountSession"), ...errors, "429": CHECK_LIMITED_RESPONSE, "503": AUTHENTICATION_BUSY_RESPONSE, "409": ERROR_RESPONSE } }), security: AUTH_SECURITY },
   },
-  "/api/account/password": { post: { ...op({ summary: "Change your password", description: DERIVATION_ADMISSION + privacy + "Requires currentPassword. The new password needs at least eight characters and cannot be very common; no character classes are required. Wrong current passwords return current_password_required; weak new passwords return weak_password. Keeps the calling browser session, ends your other sessions and leaves API tokens valid. A bearer caller has no browser session to preserve.",
+  "/api/account/password": { post: { ...op({ summary: "Change your password", description: DERIVATION_ADMISSION + privacy + "Requires currentPassword. The new password needs at least eight characters and cannot be very common; no character classes are required. Wrong current passwords return current_password_required; weak new passwords return weak_password. " + CHECK_ALLOWANCE + "Keeps the calling browser session, ends your other sessions and leaves API tokens valid. A bearer caller has no browser session to preserve.",
     tag: "Accounts", tool: "change_password", effects: writes(resource("accounts")), mcp: LOCAL_REPLACE, display: { verb: "Changed your password" }, confirm: true,
     confirmation: { target: "Change your password?", consequence: "Your other browser sessions will end. API tokens stay valid.", subject: ownSubject },
     requestBody: body({ currentPassword, password: { type: "string", minLength: 8, writeOnly: true } }),
-    responses: { "200": jsonOk("#/components/schemas/PasswordChanged"), ...errors, "503": AUTHENTICATION_BUSY_RESPONSE } }), security: AUTH_SECURITY } },
+    responses: { "200": jsonOk("#/components/schemas/PasswordChanged"), ...errors, "429": CHECK_LIMITED_RESPONSE, "503": AUTHENTICATION_BUSY_RESPONSE } }), security: AUTH_SECURITY } },
   "/api/account/tokens": {
     get: { ...op({ summary: "List your API tokens", description: privacy + "Lists only your own tokens, including revoked and expired ones, each with when it expires. Secrets and hashes are never returned.",
       tag: "Accounts", tool: "list_api_tokens", effects: READ_ONLY, mcp: LOCAL_READ, display: { verb: "Read your API tokens" },

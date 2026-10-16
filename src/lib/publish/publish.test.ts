@@ -15,8 +15,10 @@ import {
   removeMap,
   updateMap,
 } from "@/lib/map-service";
-import { setPublishedTheme } from "@/lib/metadata/maps";
-import { createLayer, renderLayer, updateLayer } from "@/lib/layer-service";
+import { getMap, setPublishedTheme } from "@/lib/metadata/maps";
+import { privateLayerFields } from "@/lib/field-dependencies";
+import { publishedFieldsFor } from "./published-fields";
+import { baseFields, createLayer, renderLayer, updateLayer } from "@/lib/layer-service";
 import {
   computeWidgetValues,
   renderLayerWithSelections,
@@ -381,6 +383,7 @@ describe("published-field projection", () => {
     const clustered = await updateLayer(testAccountScope(), layer.id, {
       tooltip: ["name"],
       popup: [],
+      publishedFields: ["riders"],
       viz: { type: "cluster", radiusPx: 64, color: "fixed", showCounts: true },
     }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     const published = {
@@ -391,10 +394,11 @@ describe("published-field projection", () => {
     const reader = await renderLayerWithSelections(testAccountScope(), clustered, [], undefined, {
       published,
     });
-    expect(keysOf(reader)).toEqual(["name"]);
-    // The builder's settle preview keeps the full row.
+    expect(keysOf(reader)).toEqual(["riders"]);
+    // The builder's settle preview carries the layer's own fields: the
+    // published override is the reader's alone.
     const builder = await renderLayerWithSelections(testAccountScope(), clustered, []);
-    expect(keysOf(builder)).toContain("secret");
+    expect(keysOf(builder)).toEqual(["name"]);
   });
 
   it("aggregated layers are unchanged: computed columns only", async () => {
@@ -413,13 +417,24 @@ describe("published-field projection", () => {
     ]);
   });
 
-  it("the builder render still carries every column", async () => {
-    const { layer } = await wideMap();
+  it("the builder's fields are the layer's own use, never the published override", async () => {
+    const { map, layer } = await wideMap();
     const updated = await updateLayer(testAccountScope(), layer.id, {
       tooltip: ["name"],
+      popup: [],
       publishedFields: ["riders"],
     }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
-    expect(keysOf(await renderLayer(testAccountScope(), updated, undefined, { tileAccess: privateTileAccess(testAccountScope(), (updated).id) }))).toContain("secret");
+    const context = getMap(map.id)!;
+    const columns = (await baseFields(testAccountScope(), updated)).map((f) => f.name);
+    expect(columns).toEqual(["name", "secret", "riders", "lon", "lat"]);
+    // The unused column stays home and the override adds nothing: the
+    // published reader's set is a different policy over the same columns.
+    expect(privateLayerFields(updated, context, columns)).toEqual(["name"]);
+    expect(publishedFieldsFor(updated, context, columns)).toEqual(["riders"]);
+    // Automatic interactions keep the existing rule's picks.
+    expect(privateLayerFields({ ...updated, popup: null }, context, columns)).toEqual(columns);
+    // And the builder render carries exactly that set.
+    expect(keysOf(await renderLayer(testAccountScope(), updated, undefined, { tileAccess: privateTileAccess(testAccountScope(), updated.id) }))).toEqual(["name"]);
   });
 
   it("an errored render ships explicit interaction lists empty (round two)", async () => {

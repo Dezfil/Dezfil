@@ -129,10 +129,12 @@ export const TABLE_RESOURCE_PATHS = {
         "The table's features as a GeoJSON FeatureCollection, for " +
         "drawing it as a reference layer (the import dialog's map " +
         "legend and Select from Layer use this). A table that cannot " +
-        "draw — no geometry column, or more features than the render " +
-        "cap — returns ok:false with a plain-language reason instead " +
-        "of an error. With sample=1 an over-cap table draws its first " +
-        "cap-many features and flags the response as sampled.",
+        "draw — no geometry column, more features than the render " +
+        "cap, or a complete uncompressed answer over Bytes drawn per " +
+        "layer — returns ok:false with a plain-language reason and no " +
+        "features instead of an error. With sample=1 an over-cap table " +
+        "draws its first cap-many features and flags the response as " +
+        "sampled, unless that sample is itself over the byte limit.",
       tag: "Tables",
       tool: "get_table_features", mcp: LOCAL_READ,
       display: {"verb": "Read the features of the dataset {subject}", "subject": {"resource": "tables", "argument": "name"}},
@@ -147,7 +149,8 @@ export const TABLE_RESOURCE_PATHS = {
           schema: { type: "string", enum: ["1"] },
           description:
             "Draw a capped subset of an over-cap table instead of " +
-            "refusing; the response carries sampled + totalCount.",
+            "refusing; the response carries sampled + totalCount. A " +
+            "sample over Bytes drawn per layer is still refused.",
         },
       ],
       responses: {
@@ -237,7 +240,7 @@ export const TABLE_RESOURCE_PATHS = {
   "/api/tables/{name}": {
     get: op(datasetAccess({
       summary: "Inspect a table",
-      description: "Schema, row count, and a fifty-row preview. The complete uncompressed UTF-8 JSON answer, including metadata, schema and envelope, is limited to 33,554,432 bytes (32 MiB); a non-geometry column value, including nested values and escaping, to 2,097,152 bytes (2 MiB). Equality is admitted. Only the registered native geometry column, emitted as WKT, is exempt from the cell ceiling. Exceeding either bound refuses the whole inspection with HTTP 422 query_result_too_large, without partial data. The limits have no setting and do not apply to layer reads, dataset map features, file exports or owner deletion. A refused inspection leaves the dataset detail and its set-geometry panel unavailable.",
+      description: "Schema, row count, and a fifty-row preview. Preview text values, and the registered geometry column's WKT, longer than 512 characters show their first 512 characters followed by an ellipsis (…); other values, nested values, additional geometry columns, the schema, the row count and the stored data are never excerpted. The complete uncompressed UTF-8 JSON answer, including metadata, schema and envelope, is limited to 33,554,432 bytes (32 MiB); a non-geometry column value after excerpts, including nested values and escaping, to 2,097,152 bytes (2 MiB). Equality is admitted. Only the registered native geometry column, emitted as WKT, is exempt from the cell ceiling. Exceeding either bound refuses the whole inspection with HTTP 422 query_result_too_large, without partial data. The limits have no setting and do not apply to layer reads, dataset map features, file exports or owner deletion. A refused inspection leaves the dataset detail and its set-geometry panel unavailable.",
       tag: "Tables",
       tool: "inspect_table", mcp: LOCAL_READ,
       display: {"verb": "Inspected the dataset {subject}", "subject": {"resource": "tables", "argument": "name"}},

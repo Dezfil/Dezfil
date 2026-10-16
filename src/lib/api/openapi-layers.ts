@@ -7,7 +7,7 @@ import { layerAccess } from "./openapi-layer-access";
 import { LOCAL_ADD, LOCAL_DELETE, LOCAL_READ, LOCAL_REPLACE } from "./operation-mcp";
 import { changeGroupParam } from "./openapi-mcp";
 import { READ_ONLY, writes, resource, recorded } from "./operation-metadata";
-import { op, jsonOk, pathParam } from "./openapi-helpers";
+import { op, jsonOk, pathParam, ERROR_RESPONSE } from "./openapi-helpers";
 
 export const LAYER_RESOURCE_PATHS = {
   "/api/maps/{id}/layers": {
@@ -231,9 +231,24 @@ export const LAYER_QUERY_PATHS = {
         "vector tiles instead (mode: tiled): tiles are prepared in the " +
         "background — poll while `tiles.state` is `building`; when " +
         "`ready`, `tiles.url` is a {z}/{x}/{y} template and bounds/zoom " +
-        "range describe the archive. Errored states (deleted table, " +
-        "failed build, missing tiler, an aggregation over the cap) are " +
-        "returned as data, not an HTTP error.",
+        "range describe the archive. Inline feature properties are the " +
+        "columns the layer and its map read: its style, label and " +
+        "label-priority fields, the filters the canvas applies, the docked " +
+        "timeline's field, the fields of the map's widgets on it, its " +
+        "explicit tooltip and pop-up fields or, while either list is " +
+        "automatic, the first eight columns, and a drawn sketch's " +
+        "feature_id and kind; other columns stay out, and the published " +
+        "field list plays no part. The inline answer, envelope " +
+        "included, is bounded by Bytes drawn per layer (renderCapBytes), " +
+        "counted as it is built. Above it the layer takes the road it " +
+        "takes over the cap: a points-viz result is served as tiles, a " +
+        "result shipped without its live filters has them applied in " +
+        "the query and is answered inline if that fits, and anything " +
+        "else answers the errored state render_bytes_exceeded. A " +
+        "template's layer has no tile road. Errored states (deleted " +
+        "table, failed build, missing tiler, an aggregation over the " +
+        "cap, an answer over the byte limit) are returned as data, not " +
+        "an HTTP error.",
       tag: "Layers",
       tool: "render_layer", mcp: LOCAL_READ,
       display: {"verb": "Rendered the layer {subject}", "subject": {"resource": "layers", "argument": "id"}},
@@ -282,13 +297,18 @@ export const LAYER_QUERY_PATHS = {
         "filters are applied; range/time filters are left for the " +
         "client so a slider can narrow and widen. The response says " +
         "whether it is exact or a stable bounded subset. It never " +
-        "changes the layer or its history and is not published.",
+        "changes the layer or its history and is not published. The " +
+        "answer, envelope included, is bounded by Bytes drawn per layer " +
+        "(renderCapBytes), counted as it is built; above it the read " +
+        "answers 422 render_bytes_exceeded with no partial preview, and " +
+        "the layer's own render is unaffected.",
       tag: "Layers",
       tool: false,
       effects: READ_ONLY,
       parameters: [pathParam("id", "Layer id.")],
       responses: {
         "200": jsonOk("#/components/schemas/SliderPreviewData"),
+        "422": ERROR_RESPONSE,
       },
     })),
   },

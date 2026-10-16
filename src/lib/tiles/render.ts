@@ -1,7 +1,7 @@
 import type { LayerRenderData, LayerRenderGeometryType } from "@/lib/layer-service";
 import { getMap, type Layer } from "@/lib/metadata/maps";
 import type { LayerFilter } from "@/lib/viz";
-import { publishedFieldsFor, publishedFieldsSignature, type PublishedMapContext } from "@/lib/publish/published-fields";
+import { tileArchiveFields, tileArchiveSignature, type PublishedMapContext } from "@/lib/field-dependencies";
 import { tilerUnavailable } from "@/lib/layer-render-copy";
 import { ensureTiles } from "./build";
 import { tilerAvailable } from "./tiler";
@@ -10,7 +10,8 @@ import { requireTileAccess, type TileAccess } from "./access";
 import type { ArtifactInputs } from "@/lib/query/evaluation-inputs";
 
 /**
- * The tiled render response for an over-cap simple-features layer: report
+ * The tiled render response for a simple-features layer over the feature
+ * cap, or over Bytes drawn per layer (`overBytes` names that limit): report
  * the build state for the layer's current effective query, kicking a build
  * off when tiles are missing or stale. A failed build is an errored layer;
  * a missing tiler degrades the same way h3 does.
@@ -22,21 +23,21 @@ export async function tiledRender(
   nonGeometryColumns: string[],
   featureCount: number,
   geometryType: LayerRenderGeometryType,
-  opts: { liveFiltered?: boolean; published?: boolean; tileAccess?: TileAccess; inputs?: ArtifactInputs } = {},
+  opts: { liveFiltered?: boolean; published?: boolean; tileAccess?: TileAccess; inputs?: ArtifactInputs; overBytes?: number } = {},
 ): Promise<LayerRenderData> {
   requireTileAccess(opts.tileAccess, layer.id);
   if (!(await tilerAvailable())) {
     return errored(
       layer.id,
       "tiler_unavailable",
-      tilerUnavailable(featureCount),
+      tilerUnavailable(featureCount, opts.overBytes),
     );
   }
   // One shared archive serves builder and published routes, built with the
-  // effective published field set — resolved here against the map's own
-  // context, whichever audience triggered the build. The signature folds
-  // into the fingerprint; the published tile authorization recomputes it
-  // from the same inputs.
+  // shared archive's field policy (the published set), resolved here
+  // against the map's own context, whichever audience triggered the build.
+  // The signature folds into the fingerprint; the published tile
+  // authorization recomputes it from the same inputs.
   const mapRecord = getMap(layer.mapId);
   const context: PublishedMapContext = mapRecord
     ? {
@@ -45,7 +46,7 @@ export async function tiledRender(
         widgetsPublished: mapRecord.widgetsPublished,
       }
     : { timeline: null, widgets: [], widgetsPublished: false };
-  const archiveColumns = publishedFieldsFor(layer, context, nonGeometryColumns);
+  const archiveColumns = tileArchiveFields(layer, context, nonGeometryColumns);
   const status = ensureTiles(opts.tileAccess!, {
     layerId: layer.id,
     sql: layer.sql,
@@ -54,7 +55,7 @@ export async function tiledRender(
     filters,
     geometryColumn: geometryColumn.name,
     columns: archiveColumns,
-    projection: publishedFieldsSignature(layer, context),
+    projection: tileArchiveSignature(layer, context),
     // The identities the render's own evaluation bound decide freshness.
     inputs: opts.inputs,
   });

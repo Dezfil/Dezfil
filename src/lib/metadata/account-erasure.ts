@@ -19,6 +19,8 @@ export function eraseAccountCredentials(accountId: string, db: Database): void {
     const retained = emails.map(({ email }) => `account:${createHash("sha256").update(normalizeEmail(email)).digest("hex")}`);
     db.prepare(`DELETE FROM auth_login_limits WHERE bucket LIKE 'account:%'
       AND bucket NOT IN (SELECT value FROM json_each(?))`).run(JSON.stringify(retained));
+    // The account's own current-password allowance.
+    db.prepare("DELETE FROM auth_login_limits WHERE bucket = ?").run(`check:${accountId}`);
     for (const table of ["auth_sessions", "auth_tokens", "auth_links", "account_preferences"]) {
       db.prepare(`DELETE FROM ${table} WHERE account_id = ?`).run(accountId);
     }

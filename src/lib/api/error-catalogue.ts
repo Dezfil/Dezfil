@@ -80,7 +80,7 @@ export const ERROR_CATALOGUE: Record<ErrorCode, string> = {
   data_processing_timeout: "Data processing exceeded its admitted time limit. An admin can change Data processing time limit for new work.",
   request_timeout: "The request body was not received within 300 s.",
   upload_stalled: "The upload sent no body bytes for 60 seconds. Retry the upload.",
-  render_bytes_exceeded: "The layer exceeds the configured uncompressed inline answer byte limit.",
+  render_bytes_exceeded: "The features to draw exceed the configured byte limit.",
   query_memory_exceeded:
     "The query exceeded the configured engine memory budget for user SQL.",
   query_result_too_large:
@@ -206,7 +206,7 @@ export const ERROR_CATALOGUE: Record<ErrorCode, string> = {
   template_format_unsupported:
     "A template is in a format version this server does not read.",
   template_invalid:
-    "A template's document fails the rules a client's document is held to, one of its layers or steps does not bind to the template's own data as a client's would or names one of its datasets other than as a plain table reference (inside a string or a table function's argument, or qualified by a schema), or a layer draws more than the render cap's default.",
+    "A template's document fails the rules a client's document is held to, one of its layers or steps does not bind to the template's own data as a client's would or names one of its datasets other than as a plain table reference (inside a string or a table function's argument, or qualified by a schema), or a layer draws more than the default of the render cap or of Bytes drawn per layer.",
   template_forbidden:
     "A template carries a publication, token, connection, service address or setting, which no template may.",
   template_picture_too_large:

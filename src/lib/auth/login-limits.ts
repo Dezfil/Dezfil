@@ -2,7 +2,8 @@ import type { Database } from "better-sqlite3";
 import { metadataDb } from "@/lib/metadata/db";
 import { normalizeEmail } from "@/lib/metadata/accounts";
 import { signIn } from "./accounts";
-import { normalizeAddress, requireIngress } from "./ingress.mjs";
+import { requireIngress } from "./ingress.mjs";
+import { accountingSource } from "./source-group";
 import { secretHash } from "./credentials";
 import { AuthError, AuthenticationCancelled } from "./errors";
 import { securitySettings } from "./security-settings";
@@ -15,7 +16,9 @@ export async function withLoginLimit<T>(email: string, source: string, operation
   db: Database = metadataDb(), clock: () => number = Date.now): Promise<T> {
   const now = clock();
   const accountKey = `account:${secretHash(normalizeEmail(email))}`;
-  const sourceKey = `source:${secretHash(normalizeAddress(source))}`;
+  // An IPv6 source shares its address budget with the rest of its /64; a
+  // NAT64 source is charged as the IPv4 client it carries.
+  const sourceKey = `source:${secretHash(accountingSource(source))}`;
   const reservations = db.transaction(() => {
     // Read inside the reservation on every attempt, so a lowered count pauses
     // the next attempt and a raised one admits it, with no restart.

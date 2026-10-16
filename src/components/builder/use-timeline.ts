@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { MapWithLayers } from "@/lib/metadata/maps";
 import type { FieldStats } from "@/lib/layer-service";
 import { isAggregated } from "@/lib/viz";
-import { liveFilters } from "@/lib/live-filters";
 import {
   timeToMs,
   msToBound,
@@ -19,7 +18,9 @@ import {
  * live window moves through the live-filter preview (canvas enforcement
  * lives there now), and turns a settled window into exactly one filter
  * write with the render refetch skipped — docked data does not depend on
- * the window.
+ * the window. Docking and undocking are map writes: the mutation lane
+ * renders again the layers whose delegated filters shift or whose render
+ * lacks the docked field, once the write is accepted or recovered.
  */
 
 export interface TimelineBarState {
@@ -45,7 +46,6 @@ export function useTimeline({
   map,
   patchMap,
   patchLayer,
-  refreshLayer,
   preview,
 }: {
   map: MapWithLayers | null;
@@ -55,7 +55,6 @@ export function useTimeline({
     body: Record<string, unknown>,
     opts?: { skipRefresh?: boolean },
   ) => Promise<unknown | null>;
-  refreshLayer: (layerId: string) => Promise<void>;
   /** The live-filter preview channel: playback and widget
    * drags move the docked dimension through it. */
   preview: (layerId: string, field: string, range: [number, number]) => void;
@@ -132,53 +131,20 @@ export function useTimeline({
     [resolved, preview],
   );
 
-  // Since a time filter is live docked or not, so a dock move usually
-  // changes nothing the server ships. The exception: past the slot cap the
-  // dock guarantee reshuffles which filters stay in SQL — refresh exactly
-  // the layers whose delegated set actually shifts.
-  const dockShifts = useCallback(
-    (layerId: string, prevField: string | null, nextField: string | null) => {
-      const layer = map?.layers.find((l) => l.id === layerId);
-      if (!layer) return false;
-      const a = liveFilters(layer.viz, layer.filters, prevField);
-      const b = liveFilters(layer.viz, layer.filters, nextField);
-      return a.length !== b.length || a.some((f, i) => f !== b[i]);
-    },
-    [map],
-  );
-
+  // A time filter is live docked or not, so a dock move usually changes
+  // nothing the server ships. The exceptions (past the slot cap the dock
+  // guarantee reshuffles which filters stay in SQL; a docked field the
+  // layer's render was built without) are the mutation lane's to refresh.
   const dock = useCallback(
     (layerId: string, field: string) => {
-      const previous = map?.timeline ?? null;
-      void patchMap({ timeline: { layerId, field } }).then((ok) => {
-        if (!ok) return;
-        const prevField =
-          previous && previous.layerId === layerId ? previous.field : null;
-        if (dockShifts(layerId, prevField, field)) void refreshLayer(layerId);
-        if (
-          previous &&
-          previous.layerId !== layerId &&
-          dockShifts(previous.layerId, previous.field, null)
-        ) {
-          void refreshLayer(previous.layerId);
-        }
-      });
+      void patchMap({ timeline: { layerId, field } });
     },
-    [map, patchMap, refreshLayer, dockShifts],
+    [patchMap],
   );
 
   const undock = useCallback(() => {
-    const previous = map?.timeline ?? null;
-    void patchMap({ timeline: null }).then((ok) => {
-      if (
-        ok &&
-        previous &&
-        dockShifts(previous.layerId, previous.field, null)
-      ) {
-        void refreshLayer(previous.layerId);
-      }
-    });
-  }, [map, patchMap, refreshLayer, dockShifts]);
+    void patchMap({ timeline: null });
+  }, [patchMap]);
 
   const bar = useMemo<TimelineBarState | null>(() => {
     if (!resolved || !stats || stats.key !== statsKey) return null;

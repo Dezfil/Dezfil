@@ -240,8 +240,22 @@ the limit admitted when reception began. A 60-second body stall answers
 `408 upload_stalled`; reception expiry answers `408 data_processing_timeout`. Trusted work shares the configured engine memory and a dedicated
 `engine-spill/` allowance of four times that value. A restart clears only that
 spill directory. Exhaustion answers `422 engine_memory_exceeded`, naming
-memory or scratch and the deployment remedy. Bytes drawn per layer is exposed
-for configuration; its enforcement is not yet active.
+memory or scratch and the deployment remedy. A layer render builds its answer
+under Bytes drawn per layer and stops one that would exceed it before it is
+complete. The layer then takes the road it takes over the render cap: a points
+layer draws as tiles, a layer the canvas filters live has its filters applied
+in the query and draws if that fits, and anything else answers the errored
+layer `render_bytes_exceeded`. Dataset map features count their answer the
+same way; over the limit, the whole dataset or the sample asked for answers
+`ok: false` with a reason and no features. A slider preview over the limit
+answers `422 render_bytes_exceeded` with no partial preview, and the layer
+still draws when the slider settles. An Overture or OpenStreetMap Run Query
+preview over the limit answers `422 render_bytes_exceeded` the same way; the
+import is not held to it. A sketch's features read over the limit answers
+`422 render_bytes_exceeded` too; changes to the sketch are not held to it. A
+new template version's layers must draw within the default limits, whatever
+this instance sets (`422 template_invalid` names the limit); one installed
+before opens and copies as it is.
 
 JSON admission has fixed outer byte tiers: 65,536 bytes for authentication
 entry, Account, Users, instance settings and the three anonymous published POSTs; 16,777,216 for
@@ -268,7 +282,12 @@ retain at most 10,000 entries. Traffic sweeps expired windows at most once per
 second; between sweeps, a new source at capacity evicts the least recently used
 entry. The bound holds either way. Eviction starts a fresh window. Readers behind an
 untrusted proxy share its socket budget; trusted chains use the nearest
-untrusted hop. Missing or forged provenance refuses with private, no-store
+untrusted hop. An IPv6 source is charged with its whole /64, so a host cannot
+step around a budget by taking a fresh address from its prefix; an IPv4 source,
+IPv4-mapped spellings included, is charged alone, and so is an IPv4 client
+reaching the instance through the NAT64 prefix `64:ff9b::/96`, charged as the
+IPv4 address it carries. The verified source itself
+stays the full address. Missing or forged provenance refuses with private, no-store
 503 `ingress_unavailable` before body work or token resolution. See
 [self-hosting](docs/self-hosting.md) for provenance refusals and scope.
 
@@ -376,7 +395,13 @@ query execution or result projection, including geometry decoding. Layer
 renders, dataset map features, slider and Overture previews,
 published views, statistics, classification, widgets and value search retain
 their existing limits. SQL, table and layer file exports still stream complete
-results above both ceilings. A refused dataset inspection prevents its detail and docked set-geometry
+results above both ceilings. Dataset inspection shows text values, and the WKT
+of its registered geometry column, longer than 512 characters as their first
+512 characters and an ellipsis, as geometry-choice preview does. Other values,
+nested values, additional geometry columns, the schema, row counts and the
+stored data stay whole, and SQL console/SQL previews and the PostGIS preview do
+not excerpt, so long text alone no longer refuses an inspection. An inspection that still exceeds a
+ceiling, with a nested value over 2 MiB for example, prevents its detail and docked set-geometry
 panel from opening. It also blocks tool column pickers, SQL schema inventory
 and completion, workflow dataset reads and facts, and automatic layer addition
 after a tool run. The tool run can report failure even though the dataset has
@@ -447,7 +472,8 @@ Operational recipes for running an instance live in
 Tiled rendering of large layers shells out to
 [tippecanoe](https://github.com/felt/tippecanoe) (`brew install tippecanoe`
 on macOS; build from source on Linux). Without it everything else works —
-only layers over the render cap report the missing tiler. The Docker image
+only points layers over the render cap or Bytes drawn per layer report the
+missing tiler. The Docker image
 bakes it in.
 
 ## How this project is built

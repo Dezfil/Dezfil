@@ -1,10 +1,12 @@
 import { withTrustedMutation } from "@/lib/trusted-mutation";
-import { currentTrustedOperation, isTrustedOperationRefusal } from "@/lib/trusted-operation";
+import { currentTrustedOperation, isTrustedOperationRefusal, type TrustedOperationOptions } from "@/lib/trusted-operation";
 import { captureIngestBudget, type IngestBudget } from "./budget";
+import type { ReceivedUpload } from "./receive";
 import { registerAccountFile, removeAccountFile } from "@/lib/ingest/file-ownership";
 import { ownedTableNames, listOwnedTables } from "@/lib/metadata/owned-tables";
 import { requireFilingDestination } from "@/lib/auth/reach";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
+import { admitAccountWork } from "@/lib/auth/account-deletion-admission";
 import { replayGeometryRelation, type GeometryReplay } from "@/lib/geometry/replay";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
@@ -344,7 +346,10 @@ export async function ingestSpatialFile(
   signal?: AbortSignal,
 ): Promise<IngestResult> {
   return withTrustedMutation({ kind: "import", name: "Spatial file import", signal }, async operation => {
-    requireAccountScope(scope);
+    const deletionWork = admitAccountWork([requireAccountScope(scope)]);
+    // The account's work is released after the import's removals, the last
+    // cleanup to run.
+    operation.defer(() => deletionWork.release());
     if (provenance?.projectId) requireFilingDestination(scope, provenance.projectId);
     const format = detectFormat(originalFilename) as GdalFormat;
     // The extraction folder is removed on the operation's cleanup path (see
@@ -442,6 +447,11 @@ export async function ingestSpatialFile(
   });
 }
 
+/** A file import's operation, on whichever road admits it first. */
+function fileImport(budget: IngestBudget, signal?: AbortSignal): TrustedOperationOptions {
+  return { kind: "import", name: "File import", signal, budgetMs: budget.dataProcessingTimeoutMs };
+}
+
 /**
  * The one ingest entry both roads call (formats behave identically
  * across upload and URL import): container formats fan out, everything
@@ -456,7 +466,7 @@ export async function ingestSource(
   budget: IngestBudget = captureIngestBudget(),
   signal?: AbortSignal,
 ): Promise<IngestResult> {
-  return withTrustedMutation({ kind: "import", name: "File import", signal, budgetMs: budget.dataProcessingTimeoutMs }, async () => {
+  return withTrustedMutation(fileImport(budget, signal), async () => {
     requireAccountScope(scope);
     if (provenance?.projectId) requireFilingDestination(scope, provenance.projectId);
     const format = detectFormat(originalFilename);
@@ -478,6 +488,29 @@ export async function ingestSource(
       requestedName,
     );
     return { tables: [table], skipped: [] };
+  });
+}
+
+/**
+ * Import a received upload. The import owns the received file from here and
+ * removes it on its cleanup path, never inline after the commit: a removal
+ * that failed there would replace the committed answer, so a retry would add
+ * a second dataset, and one that stalled would hold the answer.
+ */
+export async function ingestUpload(
+  scope: AccountScope,
+  upload: ReceivedUpload,
+  provenance: IngestProvenance,
+  signal?: AbortSignal,
+): Promise<IngestResult> {
+  return withTrustedMutation(fileImport(upload.budget, signal), async operation => {
+    try {
+      return await ingestSource(scope, upload.tmpPath, upload.filename, provenance, undefined, upload.budget, signal);
+    } finally {
+      // Registered after the import's own cleanup, so it runs first, while
+      // a spatial import still holds the account's work.
+      operation.defer(() => removeAccountFile(upload.tmpPath, { force: true }));
+    }
   });
 }
 

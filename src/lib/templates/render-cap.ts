@@ -5,17 +5,23 @@ import { effectiveSql, OD_GEOMETRY, wrappable } from "@/lib/query/compile";
 import { namedSql } from "@/lib/query/named-sql";
 import { NUMERIC_SETTINGS } from "@/lib/settings/numeric";
 import { isAggregated, isOdViz, type LayerFilter, type LayerViz } from "@/lib/viz";
+import type { PrivateMapContext } from "@/lib/field-dependencies";
+import { layerAnswer, type LayerRenderData } from "@/lib/layer-render";
+import type { Layer } from "@/lib/metadata/maps";
 
 /**
- * A template's layers and the render cap.
+ * A template's layers and the render limits.
  *
  * A template's layer has no tile road, so its read-only view draws it
- * inline or answers the cap refusal. Every layer of a template is held at
- * admission to the render cap's default, not to this instance's value:
- * the rule is the same for every instance, a template admitted anywhere
- * draws inline wherever the cap is left at its default, and an admin who
- * sets a lower cap sees the view's refusal for a larger layer rather than
- * the template refused. Large data goes in as an aggregation or a slice.
+ * inline or answers the limit's refusal. Every layer of a template is held
+ * at admission to the defaults of the render cap and of Bytes drawn per
+ * layer, not to this instance's values: the rule is the same for every
+ * instance, a template admitted anywhere draws inline wherever the limits
+ * are left at their defaults, and a lower limit set on an instance shows as
+ * the view's refusal for a larger layer rather than the template refused.
+ * A version installed before stays as it is: it opens and copies, and any
+ * excess shows in its layer's render. Large data goes in as an aggregation
+ * or a slice.
  *
  * The count is the render's: the layer's SQL refined by the filters the
  * render applies on the server, aggregated by its look, counting the rows
@@ -27,6 +33,28 @@ import { isAggregated, isOdViz, type LayerFilter, type LayerViz } from "@/lib/vi
 /** The render cap's default, in features. */
 export function templateRenderCap(): number {
   return NUMERIC_SETTINGS.find((setting) => setting.key === "renderCapFeatures")!.defaultValue;
+}
+
+/** Bytes drawn per layer's default. */
+export function templateRenderBytes(): number {
+  return NUMERIC_SETTINGS.find((setting) => setting.key === "renderCapBytes")!.defaultValue;
+}
+
+/**
+ * The layer's render as its view will answer it, under the defaults of the
+ * render cap and Bytes drawn per layer rather than this instance's values:
+ * the same result, properties and filter fallback, with the map's timeline
+ * and widgets given, since the version being admitted has no map to read
+ * yet. Its answer is built under the byte limit and let go; what matters is
+ * whether it drew. A refusal of the evaluation itself is thrown.
+ */
+export function templateLayerRender(
+  scope: DatasetScope,
+  layer: Layer,
+  context: PrivateMapContext,
+  signal?: AbortSignal,
+): Promise<LayerRenderData> {
+  return layerAnswer(scope, layer, signal, { context, limits: { features: templateRenderCap(), bytes: templateRenderBytes() } });
 }
 
 const ident = (name: string) => `"${name.replace(/"/g, '""')}"`;

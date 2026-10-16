@@ -201,15 +201,16 @@ export function buildOvertureCount(selection: OvertureSelection): string {
 }
 
 /** The Run Query preview: the same filters the import
- * would run, returning geometry for the dialog map. One row over the cap
- * is requested so truncation is a fact, not a guess. */
+ * would run, returning the native geometry for the dialog map, which is
+ * converted only as the preview is counted. One feature over the cap is
+ * requested so truncation is a fact, not a guess. */
 export function buildOverturePreview(
   selection: OvertureSelection,
   cap: number,
 ): string {
   const read = overtureReadExpr(selection.theme, selection.release);
   const where = overtureWhereClauses(selection);
-  return `SELECT ST_AsGeoJSON(geometry) AS geometry FROM ${read} WHERE ${where.join(" AND ")} LIMIT ${cap + 1}`;
+  return `SELECT geometry FROM ${read} WHERE ${[...where, "geometry IS NOT NULL"].join(" AND ")} LIMIT ${cap + 1}`;
 }
 
 /** Scoped per-level counts for the divisions theme: one grouped

@@ -35,7 +35,7 @@ export const INSTANCE_SECURITY_SETTINGS = [
     "How long an invitation or a password reset link stays valid. A link keeps the lifetime it was issued with.",
     "7", choice("1", "3", "7", "14"), "days"),
   row("security.failedPerAccount", "admin", "Failed sign-ins per account",
-    "Failed sign-ins for one account, within a fixed 15 minutes, before its next attempt pauses. Never above the count per address.",
+    "Failed sign-ins for one account, within a fixed 15 minutes, before its next attempt pauses. Wrong current passwords on password and email changes pause those changes at the same count, counted apart. Never above the count per address.",
     5, integer(3, 100), "per 15 minutes"),
   row("security.failedPerAddress", "admin", "Failed sign-ins per address",
     "Failed sign-ins from one network address, within a fixed 15 minutes, before its next attempt pauses. Never below the count per account.",

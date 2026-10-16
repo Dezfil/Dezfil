@@ -21,5 +21,12 @@ declare module "osmtogeojson" {
     data: unknown,
     options?: OsmToGeoJsonOptions,
   ): GeoJsonFeatureCollection;
+  /** With a callback, each feature is handed over as it is built and none
+   * is kept; polygons are already wound. */
+  function osmtogeojson(
+    data: unknown,
+    options: OsmToGeoJsonOptions,
+    featureCallback: (feature: GeoJsonFeature) => void,
+  ): true;
   export default osmtogeojson;
 }

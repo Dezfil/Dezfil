@@ -19,6 +19,7 @@ import { collectInputs, inputCollectionsForTests, foldEvaluation, noteCatalogue,
 import { registerTableViews } from "./views";
 import { trackInflight, readersForTests } from "./inflight";
 import { eraseAccountQueryState } from "./account-erasure-query";
+import { rememberOverLimit, overLimitLayersForTests } from "@/lib/render-over-limit";
 import { erasureInventory } from "@/lib/auth/account-erasure-inventory";
 import { proveErasure, type ErasureProbe } from "../../../test-support/account-erasure-proof";
 const root = process.env.DEZFIL_DATA_DIR!; let directory: string;
@@ -30,8 +31,10 @@ it("purges populated publication, inspection and input-collection stores, includ
   const source = path.join(directory, "in.csv"); await writeFile(source, "label,lon,lat\nprivate sentinel,1,2\n");
   const tables = await Promise.all(scopes.map(s => ingestFile(s, source, "same.csv")));
   const maps = scopes.map(s => createMap(s, "Same"));
+  const layerIds: string[] = [];
   for (let i = 0; i < 2; i++) {
-    await createLayer(scopes[i], maps[i].id, { name: "Same", sql: "SELECT * FROM same" }, { expectedRevision: revision(maps[i].id) });
+    layerIds.push((await createLayer(scopes[i], maps[i].id, { name: "Same", sql: "SELECT * FROM same" }, { expectedRevision: revision(maps[i].id) })).id);
+    rememberOverLimit({ layerId: layerIds[i], from: "(SELECT * FROM same) AS q", properties: ["label"], envelope: [], inputs: { datasets: [{ id: tables[i].id, file: tables[i].file }], catalogue: false }, limit: 1024 });
     metadataDb().prepare("UPDATE maps SET publish_token = ? WHERE id = ?").run(`token-${i}`, maps[i].id);
     await inspectGeometry(scopes[i], "same");
     await resolvePublishedView(`token-${i}`, 1, async () => ({ name: `retained-${i}` }) as unknown as PublishedView);
@@ -70,6 +73,7 @@ it("purges populated publication, inspection and input-collection stores, includ
     "query/evaluation-inputs.ts#collecting": () => collectors.map(c => [...c[0].entries.keys()]) as [string[], string[]],
     "query/evaluation-inputs.ts#collections": () => inputCollectionsForTests() ? [["target collection"], ["control collection"]] : [[], []],
     "query/inflight.ts#inflight": () => readersForTests() ? [["target reader"], ["control reader"]] : [[], []],
+    "render-over-limit.ts#remembered": () => layerIds.map(id => overLimitLayersForTests().filter(k => k === id)) as [string[], string[]],
   };
   const probes: Record<string, ErasureProbe> = Object.fromEntries(Object.entries(observations).map(([suffix, observe]) => [`memory:src/lib/${suffix}`, { populate() {}, dispose() {}, observe() { const [target, control] = observe(); return { target, control, outsideControl: outsideControl() }; } }]));
   const stores = Object.fromEntries(Object.keys(probes).map(id => [id, erasureInventory.stores[id as keyof typeof erasureInventory.stores]]));

@@ -13,6 +13,7 @@ import "@/lib/publish/publication-resolution";
 import "@/lib/geometry/service";
 import "@/lib/history-admission-cache";
 import "@/lib/layer-admission";
+import "@/lib/render-over-limit";
 export async function eraseAccountQueryState(accountId: string, db: Database): Promise<void> {
   db.transaction(() => requireDeletingAccount(accountId, db)).immediate();
   await purgeQueryStores();

@@ -17,7 +17,7 @@
     },
     "table:auth_login_limits": {
       "action": "erase",
-      "rule": "Remove the target current-email bucket and every unbound email bucket, including former emails. Keep other current-account buckets and source budgets. Held reservations cannot recreate removed rows.",
+      "rule": "Remove the target current-email bucket, the target current-password bucket and every unbound email bucket, including former emails. Keep other current-account buckets, other accounts' current-password buckets and source budgets. Held reservations cannot recreate removed rows.",
       "fixture": "table:auth_login_limits"
     },
     "table:auth_sessions": {
@@ -557,6 +557,11 @@
       "action": "purge",
       "rule": "Drain evaluations and leased connections, clear retained mounts, catalog views and input state before completion.",
       "fixture": "memory:src/lib/query/views.ts#mounted"
+    },
+    "memory:src/lib/render-over-limit.ts#remembered": {
+      "action": "purge",
+      "rule": "Forget every remembered over-limit layer answer, so no outcome read from erased layers or data survives.",
+      "fixture": "memory:src/lib/render-over-limit.ts#remembered"
     },
     "memory:cached-secret-key": {
       "action": "retain",
@@ -2563,6 +2568,11 @@
         "memory:immutable-configuration"
       ]
     },
+    "memory:src/lib/api/openapi-account.ts#CHECK_LIMITED_RESPONSE": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
     "memory:src/lib/api/openapi-account.ts#errors": {
       "stores": [
         "memory:immutable-configuration"
@@ -3268,6 +3278,11 @@
         "memory:src/lib/export/render-stall.ts#RenderRequestLedger.requests"
       ]
     },
+    "memory:src/lib/field-dependencies.ts#AUTO_STRIPPED": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
     "memory:src/lib/geocode/limiter.ts#endpoints": {
       "stores": [
         "memory:provider-scheduling"
@@ -3483,6 +3498,146 @@
         "memory:immutable-configuration"
       ]
     },
+    "memory:src/lib/osm/preview-plan.ts#standInPlan": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/osm/preview-plan.ts#standInPlan.appended": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/osm/preview-plan.ts#standInPlan.areaIds": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/osm/preview-plan.ts#standInPlan.areas": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/osm/preview-plan.ts#standInPlan.before": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/osm/preview-plan.ts#standInPlan.carriers": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/osm/preview-plan.ts#standInPlan.copies": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/osm/preview-plan.ts#standInPlan.copy": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/osm/preview-plan.ts#standInPlan.drawn": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/osm/preview-plan.ts#standInPlan.element": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/osm/preview-plan.ts#standInPlan.elements": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/osm/preview-plan.ts#standInPlan.given": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/osm/preview-plan.ts#standInPlan.giver": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/osm/preview-plan.ts#standInPlan.i": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/osm/preview-plan.ts#standInPlan.id": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/osm/preview-plan.ts#standInPlan.kept": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/osm/preview-plan.ts#standInPlan.lines": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/osm/preview-plan.ts#standInPlan.marking": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/osm/preview-plan.ts#standInPlan.ownLine": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/osm/preview-plan.ts#standInPlan.relationKeys": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/osm/preview-plan.ts#standInPlan.removed": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/osm/preview-plan.ts#standInPlan.replaced": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/osm/preview-plan.ts#standInPlan.set": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/osm/preview-plan.ts#standInPlan.slots": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/osm/preview-plan.ts#standInPlan.standIns": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/osm/preview-plan.ts#standInPlan.stood": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/osm/preview-plan.ts#standInPlan.unused": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/osm/preview-plan.ts#standInPlan.whole": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
     "memory:src/lib/overture/divisions.ts#CITY_SEARCH_SUBTYPES": {
       "stores": [
         "memory:public-geography-catalogues"
@@ -3516,11 +3671,6 @@
     "memory:src/lib/publish/publication-resolution.ts#cache": {
       "stores": [
         "memory:src/lib/publish/publication-resolution.ts#cache"
-      ]
-    },
-    "memory:src/lib/publish/published-fields.ts#AUTO_STRIPPED": {
-      "stores": [
-        "memory:immutable-configuration"
       ]
     },
     "memory:src/lib/publish/rate-limit.ts#windows": {
@@ -3601,6 +3751,11 @@
     "memory:src/lib/query/views.ts#mounted": {
       "stores": [
         "memory:src/lib/query/views.ts#mounted"
+      ]
+    },
+    "memory:src/lib/render-over-limit.ts#remembered": {
+      "stores": [
+        "memory:src/lib/render-over-limit.ts#remembered"
       ]
     },
     "memory:src/lib/search/provider.ts#INVALID": {
@@ -5349,6 +5504,16 @@
         "memory:immutable-configuration"
       ]
     },
+    "memory:src/lib/query/render-budget.ts#RenderBudget.used": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/query/render-features.ts#UNCOUNTED": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
     "memory:src/lib/query/result-budget.ts#CellBudget.used": {
       "stores": [
         "memory:request-closures"
@@ -6444,7 +6609,7 @@
         "engine-spill"
       ]
     },
-    "writer:src/lib/sketch/read.ts#listFeatures:readFeatures": {
+    "writer:src/lib/sketch/read.ts#listFeatures:readFeatureAnswer": {
       "stores": [
         "file:trusted-spill"
       ],

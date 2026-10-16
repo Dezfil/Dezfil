@@ -18,6 +18,7 @@ import { BuilderDrafts } from "./builder-drafts";
 import { confirmsLayerPatch, confirmsMapPatch } from "./map-save-recovery";
 import { withoutRefusedLayerWrite, withoutRefusedMapWrite } from "./refused-write";
 import { DocumentSequence, patchIntent } from "../document-sequence";
+import { layerEditNeedsRender, mapEditRenders } from "./render-field-refresh";
 
 /** Who raised a failure — and therefore who owns clearing it. */
 export const FAILURE_LANES = [
@@ -83,8 +84,9 @@ export function useMutationLane({
    * in step with it (newest-wins). */
   map: MapWithLayers | null;
   setMap: Dispatch<SetStateAction<MapWithLayers | null>>;
-  /** Layer render data by id — patchLayer consults it to decide whether
-   * an edit reshapes a tiled archive's projection. */
+  /** Layer render data by id — the lanes consult it to decide whether an
+   * edit reshapes a tiled archive's projection or needs a field an inline
+   * render lacks. */
   rendersRef: RefObject<Record<string, LayerRenderData>>;
   authoritativeLayersRef: RefObject<Record<string, Layer>>;
   truthSeqRef: RefObject<number>;
@@ -272,6 +274,14 @@ export function useMutationLane({
         const epoch = reloadEpochRef.current;
         const revision = sequence.revision;
         const before = serverMapRef.current;
+        // A widget or timeline edit can make a layer read a field its render
+        // was built without, or shift which filters the canvas applies:
+        // those layers ask again once the edit is accepted.
+        const refreshRenders = async (applied: MapWithLayers) => {
+          await Promise.all(
+            mapEditRenders(before, applied, rendersRef.current).map((id) => refreshLayer(id)),
+          );
+        };
         const rollback = () => {
           if (sequence.stale || reloadEpochRef.current !== epoch) return;
           // An outage is not a stale refusal. Retire only the failed gesture
@@ -300,6 +310,7 @@ export function useMutationLane({
             if (confirmsMapPatch(before, opts.adopt ? opts.adopt(body, current) : body, current)) {
               drafts.accepted(ticket, before);
               applyMapResponse(current, true, sentAt);
+              await refreshRenders(current);
             } else if (currentRevision === revision) {
               // The unchanged basis proves this request never landed.
               // Drop only its optimistic intent; later gestures remain.
@@ -359,6 +370,7 @@ export function useMutationLane({
         }
         drafts.accepted(ticket, serverMapRef.current);
         applyMapResponse(updated, true, sentAt);
+        await refreshRenders(updated);
         return true;
       });
       return result;
@@ -374,6 +386,8 @@ export function useMutationLane({
       clearFailure,
       fail,
       reloadEpochRef,
+      refreshLayer,
+      rendersRef,
       serverMapRef,
       truthSeqRef,
     ],
@@ -472,13 +486,19 @@ export function useMutationLane({
           body.filters !== undefined ||
           // On a tiled layer, interaction, published-field, and style
           // edits reshape the archive's projection — refetch so the
-          // rebuild kicks and the canvas converges. Inline renders are
-          // untouched by these fields.
+          // rebuild kicks and the canvas converges.
           (rendersRef.current[layerId]?.tiles !== undefined &&
             (body.tooltip !== undefined ||
               body.popup !== undefined ||
               body.publishedFields !== undefined ||
               body.style !== undefined));
+        // An inline render carries only the fields the layer reads, so an
+        // edit that makes it read another asks again even where the query
+        // is unchanged and the caller skips the refetch (a heatmap weight,
+        // a delegated filter, a label or tooltip field).
+        const refreshes =
+          (!opts.skipRefresh && changesRender) ||
+          layerEditNeedsRender(current, { ...current, ...body } as Layer, serverMapRef.current, rendersRef.current[layerId]);
         const recover = async (cause: unknown): Promise<null> => {
           const detail = cause instanceof Error ? cause.message : "Network failure.";
           fail(lane, `The layer save could not be confirmed. ${detail}`);
@@ -493,7 +513,7 @@ export function useMutationLane({
             if (confirmsLayerPatch(before, layerId, body, recovered)) {
               drafts.accepted(ticket, before);
               applyMapResponse(recovered, true, sentAt);
-              if (!opts.skipRefresh && changesRender) await refreshLayer(layerId);
+              if (refreshes) await refreshLayer(layerId);
             } else if (currentRevision === revision) {
               // Only this failed gesture is gone. Other layers and later
               // gestures still own their drafts and failure notices.
@@ -547,8 +567,9 @@ export function useMutationLane({
         syncAuthoritativeLayer(updated, true);
         // Anything that changes the effective query needs fresh render data —
         // except a settled timeline window, whose caller skips the refetch:
-        // docked data does not depend on the window.
-        if (!opts.skipRefresh && changesRender) {
+        // docked data does not depend on the window. So does a field the
+        // last render was built without.
+        if (refreshes) {
           await refreshLayer(layerId);
         }
         return updated;

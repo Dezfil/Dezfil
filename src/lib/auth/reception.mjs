@@ -153,16 +153,30 @@ export function installReception(server, request, response, upload) {
   const abort = () => decide(refusal(null, "The caller left.", 499));
   request.once("aborted", abort);
   // The owner observes native cancellation even when no iterator was opened.
-  request.on("error", error => {
+  const observe = error => {
     if (request.aborted || error.code === "ECONNRESET") abort();
     else decide(refusal("invalid_request", "The request body was interrupted.", 400));
-  });
+  };
+  request.on("error", observe);
+  // The framework's proxy puts its buffered copy of the body back by copying
+  // that stream's listener table and teardown onto the request, which drops
+  // the observer above and reports every later destroy, listened for or not.
+  // When the caller leaves before the answer finishes, the server destroys the
+  // request as the socket closes and reports the departure on the next tick.
+  // Claim only that departure; anything else stays as visible as it was.
+  const departed = error => {
+    if (error?.code !== "ECONNRESET") throw error;
+    abort();
+  };
   response.once("finish", () => {
     clear(); stopReaders();
     if (!bodyComplete()) closeConnection();
   });
   response.once("close", () => { if (!response.writableFinished && !received) abort(); clear(); stopReaders();  });
-  const closed = () => { clearTimeout(closing); };
+  const closed = () => {
+    clearTimeout(closing);
+    if (!request.listeners("error").includes(observe)) request.on("error", departed);
+  };
   socket.once("close", closed);
   // A reused connection carries the next request: once a completely received
   // request's response finishes with no delayed close pending, accepted or

@@ -1,7 +1,7 @@
 import type * as maplibregl from "maplibre-gl";
 import type { PickingInfo } from "@deck.gl/core";
 import type { MutableRefObject } from "react";
-import { AUTO_TOOLTIP_FIELDS } from "@/lib/publish/published-fields";
+import { AUTO_TOOLTIP_FIELDS } from "@/lib/field-dependencies";
 import { formatCompact } from "@/lib/style/legend";
 import { pickOwner } from "./pick-owner";
 import type { RenderedLayer } from "./MapCanvas";
@@ -38,8 +38,10 @@ export interface PinnedPopup {
   entries: [string, unknown][];
 }
 
-/** The clicked feature's stable identity, when its layer projects one
- * sketch rows carry feature_id and kind as real columns. */
+/** The clicked feature's stable identity, when its layer projects one:
+ * sketch rows carry feature_id and kind as real columns, and a builder
+ * render keeps both whatever the layer's interaction lists, so a drawn
+ * shape stays selectable with nothing to show on hover or click. */
 export interface PickedFeature {
   featureId: string | null;
   kind: string | null;

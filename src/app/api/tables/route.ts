@@ -1,11 +1,10 @@
-import { removeAccountFile } from "@/lib/ingest/file-ownership";
 import { withRouteGate, gateOnly, gateHead } from "@/lib/auth/route-gate";
 import { requireRequestScope } from "@/lib/auth/scope-http";
 import { requireFilingDestination } from "@/lib/auth/reach";
 import { NextResponse } from "next/server";
 import { ApiError, errorResponse } from "@/lib/api/errors";
 import { receiveUpload } from "@/lib/ingest/receive";
-import { ingestSource, toIngestResponse } from "@/lib/ingest/gdal-formats";
+import { ingestUpload, toIngestResponse } from "@/lib/ingest/gdal-formats";
 import { listTablesWithSize } from "@/lib/table-service";
 import { projectScope } from "@/lib/project-scope";
 
@@ -37,24 +36,21 @@ async function upload(request: Request) {
       );
     }
     if (projectId) requireFilingDestination(scope, projectId);
-    const { tmpPath, filename, budget } = await receiveUpload(request, scope.accountId);
-    try {
-      const result = await ingestSource(scope, tmpPath, filename, {
-        source: "upload",
-        sourceParams: null,
-        projectId: projectId ?? null,
-      }, undefined, budget, request.signal);
-      const filed = {
-        ...result,
-        tables: result.tables.map((t) => ({
-          ...t,
-          projectIds: projectId ? [projectId] : [],
-        })),
-      };
-      return NextResponse.json(toIngestResponse(filed), { status: 201 });
-    } finally {
-      await removeAccountFile(tmpPath, { force: true });
-    }
+    // The import owns the received file and removes it when it settles.
+    const received = await receiveUpload(request, scope.accountId);
+    const result = await ingestUpload(scope, received, {
+      source: "upload",
+      sourceParams: null,
+      projectId: projectId ?? null,
+    }, request.signal);
+    const filed = {
+      ...result,
+      tables: result.tables.map((t) => ({
+        ...t,
+        projectIds: projectId ? [projectId] : [],
+      })),
+    };
+    return NextResponse.json(toIngestResponse(filed), { status: 201 });
   } catch (error) {
     return errorResponse(error);
   }

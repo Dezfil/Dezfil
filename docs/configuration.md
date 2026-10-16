@@ -159,8 +159,8 @@ listed sites are read by admins alone, through `GET /api/instance/settings`.
 |---|---|---|---|
 | `security.sessionDays` | `1`, `7`, `30`, `90`, in days | `30` | Each session from its next use: a session keeps the expiry it holds and its next use renews it by this length, so no save signs anyone out. |
 | `security.linkDays` | `1`, `3`, `7`, `14`, in days | `7` | Invitation and reset links issued after the save; a link keeps the lifetime it was issued with. Command-line recovery links keep fifteen minutes. |
-| `security.failedPerAccount` | A whole number from 3 to 100 | `5` | The next sign-in attempt: failed sign-ins for one account within a fixed fifteen minutes before its next attempt pauses. Never above `security.failedPerAddress`. |
-| `security.failedPerAddress` | A whole number from 10 to 1000 | `20` | The next sign-in attempt: failed sign-ins from one network address within the same fifteen minutes. Never below `security.failedPerAccount`. |
+| `security.failedPerAccount` | A whole number from 3 to 100 | `5` | The next sign-in attempt: failed sign-ins for one account within a fixed fifteen minutes before its next attempt pauses. The next current-password check too: wrong current passwords on that account's password and email changes, counted apart from sign-ins, before its next check pauses. Never above `security.failedPerAddress`. |
+| `security.failedPerAddress` | A whole number from 10 to 1000 | `20` | The next sign-in attempt: failed sign-ins from one network address within the same fifteen minutes; every IPv6 address of one /64 counts as one address, except that an address in the NAT64 prefix `64:ff9b::/96` counts as the IPv4 address it carries. Never below `security.failedPerAccount`. |
 | `security.passwordMin` | A whole number from 8 to 64, in characters | `8` | A password set after the save: at an invitation's or a reset's redemption, or a password change. The first account takes 8, and passwords set earlier keep signing in. |
 | `tokens.create` | `everyone`, `admins` | `everyone` | The next API token created. Tokens made earlier keep working. |
 | `tokens.expiry` | `never`, `30d`, `90d`, `1y` | `never` | Tokens created after the save, counted from their creation; a token keeps the expiry it was created with. |
@@ -393,7 +393,13 @@ query execution or result projection, including geometry decoding. Layer
 renders, dataset map features, slider and Overture previews,
 published views, statistics, classification, widgets and value search retain
 their existing limits. SQL, table and layer file exports still stream complete
-results above both ceilings. A refused dataset inspection prevents its detail and docked set-geometry
+results above both ceilings. Dataset inspection shows text values, and the WKT
+of its registered geometry column, longer than 512 characters as their first
+512 characters and an ellipsis, as geometry-choice preview does. Other values,
+nested values, additional geometry columns, the schema, row counts and the
+stored data stay whole, and SQL console/SQL previews and the PostGIS preview do
+not excerpt, so long text alone no longer refuses an inspection. An inspection that still exceeds a
+ceiling, with a nested value over 2 MiB for example, prevents its detail and docked set-geometry
 panel from opening. It also blocks tool column pickers, SQL schema inventory
 and completion, workflow dataset reads and facts, and automatic layer addition
 after a tool run. The tool run can report failure even though the dataset has
@@ -457,8 +463,40 @@ touching tables, metadata, tiles or other temporary work. Memory or scratch
 exhaustion answers `422 engine_memory_exceeded`, naming the work, shared budget
 and `DEZFIL_TRUSTED_MEMORY_MB` remedy. These are engine budgets within the
 supported 8 GiB container profile, not a whole-process memory ceiling.
-Bytes drawn per layer is exposed for configuration; its enforcement is not yet active. File and archive import processing, link
-and object-store imports, URL refreshes, and OpenStreetMap, Overture and PostGIS imports and refreshes
+A layer render (ordinary, template, selection or published, and the layer
+results image exports and the map check draw) builds its inline answer under
+Bytes drawn per layer: the complete uncompressed UTF-8 JSON, geometry,
+properties, label anchors and envelope, is counted while it is read, and an
+answer that would exceed the limit is stopped before it is complete. The layer
+then takes the road it takes over the render cap: a points layer draws as
+tiles (outside templates, which have no tile road), a layer the canvas filters
+live has its filters applied in the query and draws if that fits, and anything
+else answers the errored-layer envelope `render_bytes_exceeded`. No single
+value has a ceiling of its own. Dataset map features (the dialog map's
+reference layer and the dataset detail's map) count their answer the same way;
+over the limit, the whole dataset or the sample asked for answers `ok: false`
+with a reason and no features. A slider preview counts its answer the same
+way and over the limit answers `422 render_bytes_exceeded` with no partial
+preview; the builder stops asking for that preview until the layer's source
+changes, and the layer still draws when the slider settles. An Overture Run
+Query preview counts its answer the same way, keeping the render cap's first
+features and its `truncated` flag, and over the limit answers
+`422 render_bytes_exceeded` with no partial preview; the import is not held to
+it. An OpenStreetMap Run Query preview counts its features the same way while
+they are assembled, keeping its order (points, then lines, then polygons), the
+render cap and `truncated`, and stops assembling once the preview is over the
+limit or complete; one element the preview would certainly carry that is over
+the limit on its own refuses it before anything is assembled. A sketch's features read (`GET /api/sketches/{name}/features`)
+counts its complete answer the same way and over the limit answers
+`422 render_bytes_exceeded`; the reads a change to the sketch makes are not
+held to it, so a sketch too large to read whole can still be changed. A
+template version is admitted only if each layer of its map draws within the
+defaults of the render cap (250,000 features) and of Bytes drawn per layer
+(134,217,728 bytes), counted as its view renders it, whatever this instance
+sets; a layer over either answers `422 template_invalid` naming the limit. A
+version installed before opens and copies as it is, and any excess shows in its
+layer's render. File and
+archive import processing, link and object-store imports, URL refreshes, and OpenStreetMap, Overture and PostGIS imports and refreshes
 use the Data processing time limit
 through preparation and commit. Accepted processing continues after departure;
 expiry removes candidates and leaves previously committed data intact. Upload
@@ -569,7 +607,11 @@ retain at most 10,000 entries. Traffic sweeps expired windows at most once per
 second; between sweeps, a new source at capacity evicts the least recently used
 entry. The bound holds either way. Eviction starts a fresh window. Readers behind an
 untrusted proxy share its socket budget; trusted chains use the nearest
-untrusted hop. See [self-hosting](self-hosting.md) for provenance refusals and scope.
+untrusted hop. An IPv6 source is charged with its whole /64, so a host cannot step around a
+budget by taking a fresh address from its prefix; an IPv4 source, IPv4-mapped
+spellings included, is charged alone, and so is an IPv4 client reaching the
+instance through the NAT64 prefix `64:ff9b::/96`, charged as the IPv4 address
+it carries. The verified source itself stays the full address. See [self-hosting](self-hosting.md) for provenance refusals and scope.
 
 Password derivation admission is shared across the server process: two active,
 six ordinary plus two reserved protected waiters, and a five-second maximum
@@ -749,3 +791,46 @@ The browser refusal surface is covered separately by
 `npx playwright test e2e/upload-refusal.spec.ts` on a provisioned instance. It
 injects the three typed application refusals and then performs a real recovery
 upload. The native matrix establishes the corresponding server behavior.
+
+
+## Production abandonment check
+
+| Probe | Variable | Meaning |
+|---|---|---|
+| Abandonment | `DEZFIL_ABANDONMENT_PORT` | Test process only. Port of a running production standalone sharing its fresh scratch data directory with the test. Unset skips the check. |
+| Abandonment | `DEZFIL_ABANDONMENT_LOG` | Test process only. The file the standalone writes its output to. Each case reads what it added. |
+
+Build and copy the standalone as for the upload reception check, then start it
+with the unexpected-error control preload as well, writing its output to a file:
+
+```sh
+export DEZFIL_DATA_DIR=$(mktemp -d /tmp/dezfil-test-abandonment-XXXXXX)
+PORT=3101 HOSTNAME=127.0.0.1 node --import=./scripts/ingress-preload.mjs \
+  --import=./scripts/abandonment-control.mjs .next/standalone/server.js > "$DEZFIL_DATA_DIR.log" 2>&1
+```
+
+In another terminal, with `DEZFIL_DATA_DIR` set to that same fresh path:
+
+```sh
+DEZFIL_ABANDONMENT_PORT=3101 DEZFIL_ABANDONMENT_LOG="$DEZFIL_DATA_DIR.log" \
+  npx vitest run src/lib/auth/abandonment.standalone.test.ts
+```
+
+The five cases take about twenty seconds. In three of them, one connection that
+never reads asks for answers far larger than its socket can buffer, then sends
+a request the proxy refuses itself (a POST, PATCH or DELETE without
+credentials), and leaves before that refusal finishes. In the fourth, a caller
+leaves in the middle of a request body; the framework logs that departure once
+as a handled `Error: aborted`. None of the four may add an `uncaughtException:`
+or `unhandledRejection:` line, and a readiness check and an authenticated list
+must both answer within 5 seconds afterwards. The fifth is the control: after
+its caller leaves, the preload reports a failure that is not a departure on a
+marked request, and that failure must appear once as `uncaughtException:`, with
+no departure beside it. Stop the server before removing its scratch directory
+and output file.
+
+For an exact failing seed, delete the `request.on("error", departed)` call in
+`src/lib/auth/reception.mjs` and restart the server: the three refusal cases
+fail with `uncaughtException: Error: aborted`, and the control fails with that
+departure beside its own failure. Restore the call and restart before collecting
+passing results.

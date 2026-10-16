@@ -510,7 +510,9 @@ describe("feature scopes and level counts", () => {
       },
       2000,
     );
-    expect(sql).toContain("ST_AsGeoJSON(geometry)");
+    // The native geometry, converted only as the preview is counted.
+    expect(sql).toMatch(/^SELECT geometry FROM /);
+    expect(sql).toContain("geometry IS NOT NULL");
     expect(sql).toContain(`region = 'DE-BE'`);
     expect(sql).toContain(`subtype = 'locality'`);
     expect(sql).toContain("LIMIT 2001");

@@ -101,9 +101,12 @@ function retirementObserver() {
 function holdArtifact(file: string, reader: Reader, stage: Stage, label: string) {
   const hold = readHold(label);
   const original = DuckDBConnection.prototype.runAndReadAll;
+  const prepare = DuckDBConnection.prototype.prepare;
   let held = false;
   let opens = 0;
-  vi.spyOn(DuckDBConnection.prototype, "runAndReadAll").mockImplementation(async function (this: DuckDBConnection, sql, ...args) {
+  // An open is a read of the file by the reader under test, whether it reads
+  // the answer whole or prepares the one it streams.
+  const open = async (sql: string) => {
     if (readerScope.getStore() && sql.includes(file)) {
       opens++;
       const target = reader === "summary" || (stage === "before artifact" ? opens === 1 : opens === 2);
@@ -114,7 +117,14 @@ function holdArtifact(file: string, reader: Reader, stage: Stage, label: string)
         await hold.engage();
       }
     }
+  };
+  vi.spyOn(DuckDBConnection.prototype, "runAndReadAll").mockImplementation(async function (this: DuckDBConnection, sql, ...args) {
+    await open(sql);
     return original.call(this, sql, ...args);
+  });
+  vi.spyOn(DuckDBConnection.prototype, "prepare").mockImplementation(async function (this: DuckDBConnection, sql) {
+    await open(sql);
+    return prepare.call(this, sql);
   });
   return hold;
 }

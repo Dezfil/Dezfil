@@ -79,10 +79,16 @@ it("requires service scopes and validates both copy parents before filesystem wo
 it("rechecks activity after the upload body arrives", async () => {
   const { PUT } = await import("@/app/api/maps/[id]/thumbnail/route");
   const request = input("alice", maps.alice, "PUT");
-  vi.spyOn(request, "arrayBuffer").mockImplementation(async () => {
-    db.prepare("UPDATE accounts SET status = 'deactivated' WHERE id = 'alice'").run();
-    return Uint8Array.from([...png, 2]).buffer;
-  });
+  // The account is deactivated while the body is still arriving.
+  const chunks = [Uint8Array.from(png), Uint8Array.from([2])];
+  vi.spyOn(request, "body", "get").mockReturnValue(new ReadableStream<Uint8Array>({
+    pull(controller) {
+      const chunk = chunks.shift();
+      if (!chunk) { controller.close(); return; }
+      if (!chunks.length) db.prepare("UPDATE accounts SET status = 'deactivated' WHERE id = 'alice'").run();
+      controller.enqueue(chunk);
+    },
+  }) as ReadableStream<Uint8Array<ArrayBuffer>>);
   const before = await snapshot();
   expect((await PUT(request, { params: Promise.resolve({ id: maps.alice }) })).status).toBe(401);
   expect(await snapshot()).toEqual(before); expect(effects.io).not.toHaveBeenCalled();

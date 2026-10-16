@@ -151,10 +151,28 @@ recomputed from the statement, its filters and its visualization each time.
 
 ## Large layers become tiles
 
-Under the render cap a layer answers as inline features. Over it, a simple
-point layer switches to a tiled render instead (`src/lib/layer-service.ts`).
-Aggregations and heatmaps do not: past the cap they answer a coded error
-naming the bound, because silently sampling an aggregate would be a lie.
+Under the render cap a layer answers as inline features, built while they
+are read so that an answer over Bytes drawn per layer is stopped before it is
+complete (`src/lib/query/render-features.ts`). Over the cap or over the byte
+limit, a simple point layer switches to a tiled render instead
+(`src/lib/layer-render.ts`). Aggregations and heatmaps do not: past either
+bound they answer a coded error naming it, because silently sampling an
+aggregate would be a lie. A layer learns that its answer is over the byte
+limit only by reading it up to the limit, so that outcome is remembered for
+the answer it was read for: the layer, its effective query, the fields it
+carries, its envelope, the data its evaluation read and the limit. The
+builder's poll while tiles build, a reload or a published view then takes
+the same road without reading again, for thirty seconds from the read that
+found the excess; asking again does not extend that, so a query that reads
+the clock and has come to fit is drawn again within half a minute
+(`src/lib/render-over-limit.ts`).
+
+Feature properties carry the columns their audience reads, one policy per
+audience over shared primitives (`src/lib/field-dependencies.ts`): a builder
+render carries what the layer and its map use, a published render the
+publication's field set, and a tile archive, which serves both, the published
+set. An edit that makes a builder layer read a field its last render lacks
+asks for the render again (`src/components/builder/render-field-refresh.ts`).
 
 A tile build runs in two stages (`src/lib/tiles/build.ts`). The effective
 query is exported to newline-delimited GeoJSON in the scratch directory, the

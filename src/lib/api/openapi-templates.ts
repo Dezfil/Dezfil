@@ -253,7 +253,8 @@ export const TEMPLATES_PATHS = {
       "archive is read from its address through the egress check, redirects included, within the link import's time bound (DEZFIL_REMOTE_TIMEOUT_S), " +
       "with no credential on any request, or from the catalogue's folder; its size and SHA-256 are checked against the index; then it is unpacked " +
       "and admitted as a client's documents are, every dataset read through the upload's reader, every layer and step bound to the template's own " +
-      "data and nothing else; and only then is it installed. Two calls for one version download it once, and downloads run one at a time on this " +
+      "data and nothing else, each layer drawing within the defaults of the render cap and of Bytes drawn per layer as its view renders it, " +
+      "whatever this instance sets (template_invalid names the limit); and only then is it installed. Two calls for one version download it once, and downloads run one at a time on this " +
       "instance. A version installed before stays as it is. Refused, coded, leaving nothing installed: 404 template_not_listed for a version neither " +
       "installed nor listed; 409 templates_catalogue_off while an admin has turned the catalogue off; 400 service_address_unreadable for a saved " +
       "address the instance's key no longer opens; 413 template_archive_too_large (over the declared size or 150 MB), template_unpacked_too_large or " +

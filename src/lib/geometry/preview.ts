@@ -1,7 +1,7 @@
 import { readBudgetedRows } from "@/lib/query/budget-reader";
 import { jsonBytes, type ResultBudget } from "@/lib/query/result-budget";
 import type { DuckDBConnection } from "@duckdb/node-api";
-import { INSPECT_PREVIEW_ROWS } from "@/lib/table-preview-limit";
+import { INSPECT_PREVIEW_ROWS, previewExcerpt } from "@/lib/table-preview-limit";
 import { collapseGeometryTypes } from "@/lib/ingest/ingest";
 import { ident } from "@/lib/ingest/sql";
 import type { EvaluatedGeometry } from "./evaluate";
@@ -26,7 +26,7 @@ export async function sampleGeometry(conn: DuckDBConnection, e: EvaluatedGeometr
   const originals = columns.map(c => {
     const value = c.type.startsWith("GEOMETRY") ? `ST_AsText(${ident(c.name)})` : ident(c.name);
     return c.type.startsWith("GEOMETRY") || c.type === "VARCHAR"
-      ? `CASE WHEN length(${value}) > 512 THEN left(${value}, 512) || '…' ELSE ${value} END AS ${ident(c.name)}` : value;
+      ? `${previewExcerpt(value)} AS ${ident(c.name)}` : value;
   });
   // Preview only: a small fraction of the geometry's span keeps its outline
   // while removing detail the preview map cannot use. Bounds and row verdicts

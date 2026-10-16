@@ -749,9 +749,9 @@ that could, or use the image.
 certificate authority bundle and the extensions come over HTTPS: install
 `ca-certificates` before running the installer there.
 
-**A layer over the render cap reports a missing tiler.** `tippecanoe` is
-not on `PATH`. Install it or set `DEZFIL_TIPPECANOE`. Everything below the
-cap keeps working without it.
+**A layer over the render cap or Bytes drawn per layer reports a missing
+tiler.** `tippecanoe` is not on `PATH`. Install it or set `DEZFIL_TIPPECANOE`.
+Everything within both limits keeps working without it.
 
 **A browser run fails instead of skipping.** Check the required provisioning
 on the server process, not the test process: a missing render cap override,
@@ -1549,8 +1549,10 @@ DEZFIL_DATA_DIR=$(mktemp -d /tmp/dezfil-browser-XXXXXX) \
 
 Expect 30-120 seconds. The console uses a real refused query, finds code and
 sentence in its existing error note, checks that busy ends and SQL remains,
-then runs a narrower successful query. A real oversized dataset inspection
-shows the sentence, with no detail/set-geometry content. Add data receives
+then runs a narrower successful query. A dataset with one long text value
+opens with its excerpt and its set-geometry panel, and a real oversized dataset
+inspection, its long text held in a list, shows the sentence, with no
+detail/set-geometry content. Add data receives
 the exact real-route refusal through its browser fixture and displays it in
 its existing geometry preview error place. That last arm proves UI
 propagation; the served probe proves the geometry reader itself. No new

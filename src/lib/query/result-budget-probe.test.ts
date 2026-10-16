@@ -4,11 +4,11 @@ import { dispatchAssistantTestRoute } from "@/lib/assistant/testing/route-dispat
 import { boundary, probeClient } from "../../../scripts/result-budget-client.mjs";
 import { geometrySQL, countriesSQL, quickAdmission } from "../../../scripts/result-budget-readers.mjs";
 import { withConnection } from "@/lib/duckdb";
-import { datasetBudgetSQL } from "../../../test-support/result-budget-browser.mjs";
+import { datasetBudgetSQL, nestedBudgetSQL } from "../../../test-support/result-budget-browser.mjs";
 let dir: string;
 beforeEach(async () => { dir = await setupGeometryTest(); });
 afterEach(async () => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); vi.restoreAllMocks(); await cleanupGeometryTest(dir); });
-it("uploads geometry-free browser fixtures on both sides of inspection refusal", async () => {
+it("uploads geometry-free browser fixtures: short and long text answer, a long list refuses", async () => {
   vi.stubEnv("DEZFIL_PROBE_TOKEN", "fixture");
   vi.stubGlobal("fetch", async (input: RequestInfo | URL, init?: RequestInit) => {
     const request = input instanceof Request ? input : new Request(String(input), init);
@@ -17,12 +17,12 @@ it("uploads geometry-free browser fixtures on both sides of inspection refusal",
   });
   const client = await probeClient("http://localhost:3307", "dataset-browser-control");
   try {
-    for (const size of [2, 2097151]) {
-      const table = await client.upload(datasetBudgetSQL(size));
+    for (const [sql, preview] of [[datasetBudgetSQL(2), [{ payload: "xx" }]], [datasetBudgetSQL(2097151), [{ payload: "x".repeat(512) + "…" }]], [nestedBudgetSQL(2097151), null]] as const) {
+      const table = await client.upload(sql);
       expect(table.geometryColumn).toBeNull();
       const answer = await client.read(`/api/tables/${table.name}`);
-      if (size > 2) client.refused(answer);
-      else expect(client.fitting(answer).preview).toEqual([{ payload: "xx" }]);
+      if (preview) expect(client.fitting(answer).preview).toEqual(preview);
+      else client.refused(answer);
     }
   } finally { await client.cleanup(); }
 });

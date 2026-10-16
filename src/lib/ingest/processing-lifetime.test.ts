@@ -4,7 +4,7 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import { PassThrough, Readable } from "node:stream";
 import { DuckDBConnection } from "@duckdb/node-api";
-import { testAccountScope } from "@/lib/test-support/accounts";
+import { testAccountRequest, testAccountScope } from "@/lib/test-support/accounts";
 import { closeMetadataDb } from "@/lib/metadata/db";
 import { listTables } from "@/lib/metadata/tables";
 import { limits } from "@/lib/limits";
@@ -19,6 +19,7 @@ import { ingestSource } from "./gdal-formats";
 import { importFromUrl } from "./remote";
 import { refreshTable } from "./refresh";
 import * as archive from "./container";
+import { POST as upload } from "@/app/api/tables/route";
 import { buildZip } from "../../../test-support/zip";
 import { buildKml } from "../../../test-support/kml";
 import { buildGpkg } from "../../../test-support/gpkg";
@@ -224,18 +225,34 @@ function serveKmz(bytes: Buffer) {
   vi.spyOn(remoteFetch, "openRemote").mockImplementation(async () =>
     ({ statusCode: 200, headers: {}, finalUrl: "https://example.test/points.kmz", body: Readable.from([bytes]) }) as unknown as remoteFetch.RemoteResponse);
 }
-/** Holds the first removal of an extraction folder that starts once the work
- * has committed, until released. */
-function holdExtractionRemoval(committed: () => boolean) {
+type Removal = Parameters<typeof ownership.removeAccountFile>[1];
+/** Holds the first removal that matches, until released. */
+function holdRemoval(matches: (file: string, options: Removal) => boolean) {
   const reached = Promise.withResolvers<string>(), release = Promise.withResolvers<void>();
   const original = ownership.removeAccountFile;
   let held = false, removed = false;
   vi.spyOn(ownership, "removeAccountFile").mockImplementation(async (file, options) => {
-    if (held || !options?.recursive || !committed()) return original(file, options);
+    if (held || !matches(String(file), options)) return original(file, options);
     held = true; reached.resolve(String(file)); await release.promise;
     const value = await original(file, options); removed = true; return value;
   });
   return { reached: reached.promise, release: () => release.resolve(), removed: () => removed };
+}
+/** Holds the first removal of an extraction folder that starts once the work
+ * has committed, until released. */
+const holdExtractionRemoval = (committed: () => boolean) => holdRemoval((_file, options) => !!options?.recursive && committed());
+/** An upload's received file: a plain file directly in the scratch folder. */
+const receivedFile = (file: string, options: Removal) => !options?.recursive && path.dirname(file) === path.join(dir, "tmp");
+function uploadRequest(bytes: string | Uint8Array, filename: string) {
+  const form = new FormData(); form.set("file", new File([typeof bytes === "string" ? bytes : new Uint8Array(bytes)], filename));
+  return testAccountRequest(new Request("http://instance.test/api/tables", { method: "POST", body: form }));
+}
+/** The operation that reads a delimited file's content, the root of the work. */
+function rememberContentRead() {
+  const original = csv.requireCsvContent;
+  const read: ReturnType<typeof remember>[] = [];
+  vi.spyOn(csv, "requireCsvContent").mockImplementation(async (...args) => { read.push(remember()); return original(...args); });
+  return read;
 }
 /** The operation that prepares the archive, the root of the work. */
 function rememberPreparation() {
@@ -269,9 +286,8 @@ it.each(["upload", "link"] as const)("a committed spatial import (%s) answers at
     expect(warn).toHaveBeenCalledOnce();
     expect(warn).toHaveBeenCalledWith("Trusted import cleanup overdue after its commit", expect.any(TrustedSettlementOverdue));
     expect(drained).toBe(false); expect(removal.removed()).toBe(false);
-    // A link import keeps the account's work until the removal has run; an
-    // upload holds none on this road.
-    expect(accountReleased).toBe(road === "upload");
+    // Either road keeps the account's work until the removal has run.
+    expect(accountReleased).toBe(false);
   } finally { removal.release(); }
   await operation.drained;
   expect(removal.removed()).toBe(true); expect(existsSync(folder)).toBe(false);
@@ -328,4 +344,72 @@ it.each(["import", "refresh"] as const)("a spatial %s whose extraction folder ca
   expect(warn).toHaveBeenCalledOnce();
   expect(warn).toHaveBeenCalledWith(`Trusted ${kind} cleanup failed after its commit`,
     expect.objectContaining({ errors: [expect.objectContaining({ message: expect.stringContaining("EBUSY") })] }));
+});
+
+it("a committed upload answers 201 when removing its received file fails, logs that once, and a retry adds no second dataset", async () => {
+  const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+  vi.spyOn(console, "error").mockImplementation(() => {});
+  rememberContentRead();
+  const original = ownership.removeAccountFile;
+  vi.spyOn(ownership, "removeAccountFile").mockImplementation(async (file, options) => {
+    // Removing the received file fails once the dataset is registered.
+    if (listTables().length > 0 && receivedFile(String(file), options)) throw new Error("EBUSY: the received file could not be removed");
+    return original(file, options);
+  });
+  const first = await upload(uploadRequest("name,value\na,1\n", "plain.csv"));
+  // A client retries an upload whose answer was an error.
+  if (first.status !== 201) await upload(uploadRequest("name,value\na,1\n", "plain.csv"));
+  expect(first.status).toBe(201);
+  expect(warn).toHaveBeenCalledOnce();
+  expect(warn).toHaveBeenCalledWith("Trusted import cleanup failed after its commit",
+    expect.objectContaining({ errors: [expect.objectContaining({ message: expect.stringContaining("EBUSY") })] }));
+  expect(listTables()).toHaveLength(1);
+});
+
+it("a committed upload answers 201 at the settlement allowance while its received file's removal is held, logs that once and drains after the release", async () => {
+  const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+  const read = rememberContentRead();
+  const removal = holdRemoval((file, options) => receivedFile(file, options) && listTables().length > 0);
+  let answer: Response | undefined;
+  void upload(uploadRequest("name,value\na,1\n", "plain.csv")).then(response => { answer = response; });
+  const file = await removal.reached;
+  const operation = read[0]!;
+  let drained = false; void operation.drained.then(() => { drained = true; });
+  try {
+    await vi.advanceTimersByTimeAsync(34_999);
+    expect(answer).toBeUndefined();
+    await vi.advanceTimersByTimeAsync(1);
+    // Answered at the allowance, while the removal is still held.
+    expect(answer?.status).toBe(201);
+    expect(listTables()).toHaveLength(1);
+    expect(warn).toHaveBeenCalledOnce();
+    expect(warn).toHaveBeenCalledWith("Trusted import cleanup overdue after its commit", expect.any(TrustedSettlementOverdue));
+    expect(drained).toBe(false); expect(removal.removed()).toBe(false);
+  } finally { removal.release(); }
+  await operation.drained;
+  expect(removal.removed()).toBe(true); expect(existsSync(file)).toBe(false);
+  expect(warn).toHaveBeenCalledOnce();
+});
+
+it("a spatial upload keeps the account's work until its received file and its extraction folder are removed", async () => {
+  vi.spyOn(console, "warn").mockImplementation(() => {});
+  const prepared = rememberPreparation();
+  const removal = holdRemoval((file, options) => receivedFile(file, options) && listTables().length > 0);
+  const scope = testAccountScope();
+  let answer: Response | undefined;
+  void upload(uploadRequest(kmz(), "points.kmz")).then(response => { answer = response; });
+  const file = await removal.reached;
+  const operation = prepared[0]!;
+  // An account deletion starts draining the account's work now.
+  let accountReleased = false; void drainAccountWork(scope.accountId!).then(() => { accountReleased = true; });
+  try {
+    await vi.advanceTimersByTimeAsync(35_000);
+    expect(answer?.status).toBe(201);
+    expect(accountReleased).toBe(false);
+  } finally { removal.release(); }
+  await operation.drained;
+  expect(removal.removed()).toBe(true); expect(existsSync(file)).toBe(false);
+  expect(await readdir(path.join(dir, "tmp"))).toEqual([]);
+  await drainAccountWork(scope.accountId!);
+  expect(accountReleased).toBe(true);
 });

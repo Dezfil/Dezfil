@@ -44,7 +44,8 @@ function localReaders(client) {
 }
 
 async function cellBoundaries(client, reader) {
-  // Arrays keep geometry-choice's scalar excerpts out of the boundary oracle.
+  // Arrays keep inspection's and geometry-choice's scalar excerpts out of the
+  // boundary oracle.
   // The cell's independently measured JSON includes its brackets and quotes.
   for (const delta of [-1, 0, 1]) {
     const answer = await reader.read(select(`ARRAY[repeat('x', ${cellBytes - 4 + delta})] AS v`));
@@ -121,8 +122,14 @@ export async function fourReaders(client) {
         assert.equal(sizes.reduce((a, b) => a + b, 0), 12395238); assert.equal(Math.max(...sizes), 1573724);
         assert.equal(countries.rowCount, 258); assert.equal(countries.previewTruncated, false);
       }
-      client.refused(await read(`SELECT ${geometrySQL(10151576)} AS geometry FROM ${reader.postgres ? 'generate_series(1,4)' : 'range(4)'}`));
-      console.log(`confirmed: ${reader.name} served cell/result boundaries, fitting controls and complete geometry refusal`);
+      const overflow = await read(`SELECT ${geometrySQL(10151576)} AS geometry FROM ${reader.postgres ? 'generate_series(1,4)' : 'range(4)'}`);
+      if (reader.name === 'inspection') {
+        // Inspection shows the registered geometry's WKT as an excerpt.
+        const rows = reader.rows(client.fitting(overflow));
+        assert.equal(rows.length, 4);
+        for (const row of rows) assert.match(row.geometry, /^MULTIPOINT.{502}…$/s);
+      } else client.refused(overflow);
+      console.log(`confirmed: ${reader.name} served cell/result boundaries, fitting controls and complete geometry ${reader.name === 'inspection' ? 'excerpts' : 'refusal'}`);
     }
     for (const kind of ['geometry', 'geography']) {
       client.fitting(await source.preview(`SELECT ST_SetSRID(${geometrySQL(6138709)},4326)::${kind} AS geometry`));
@@ -135,7 +142,9 @@ async function completeExports(client) {
   const sql = "SELECT i::INTEGER AS id, repeat('x', 2097153) AS payload, ST_Point(0,0) AS geometry FROM range(20) t(i)";
   const table = await client.upload(`SELECT * REPLACE (ST_AsWKB(geometry) AS geometry) FROM (${sql}) q`, 'exports');
   const tablePath = `/api/tables/${encodeURIComponent(table.name)}`;
-  client.refused(await client.read(tablePath));
+  // Inspection answers with excerpts; every export below stays complete.
+  const inspection = client.fitting(await client.read(tablePath));
+  assert.equal(inspection.preview[0].payload, `${'x'.repeat(512)}…`);
   const map = await client.read('/api/maps', { name: `Budget exports ${table.id}` });
   assert.equal(map.status, 201); const mapPath = `/api/maps/${map.body.id}`;
   // Map deletion has a revision precondition; use its current revision in
