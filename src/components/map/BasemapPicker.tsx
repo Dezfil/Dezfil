@@ -2,6 +2,7 @@
 
 import { useCallback, useId, useRef, useState } from "react";
 import { BASEMAPS, BUILT_IN_CREDIT_TEXT, offeredOnly, type BasemapKey, type BasemapStyle } from "@/lib/basemap";
+import { IMAGERY_MISSING_NOTE, imageryMissing } from "@/lib/basemap-effective";
 import { LayersIcon } from "../ui/icons";
 import { popoverTriggerProps, usePopoverDismiss } from "../ui/Popover";
 import { BasemapThumb } from "./BasemapThumb";
@@ -100,7 +101,9 @@ export function BasemapPicker({
                 "for this visit; reload to return."
               : active === null && pinned
                 ? "Auto uses this instance's own style in both themes."
-                : "Your choice lasts for this visit."}
+                : imageryMissing({ key: active, custom, basemaps })
+                  ? IMAGERY_MISSING_NOTE
+                  : "Your choice lasts for this visit."}
           </p>
           {/* The previews are captures of the styles themselves, and the
               map's own footer only covers the style in use, so the picker

@@ -296,7 +296,8 @@ stored before saves refused it, reads with `userInformation: true` and is not
 drawn; the tab says so under the tile address. The credit is text of at most
 160 characters. Without a readable tile address
 Satellite leaves every basemap picker; a map on Satellite keeps its choice and
-draws the default style until an address is saved again. The tab's Test
+draws the default style, credited as that style, until an address is saved
+again, and the map's basemap picker says so. The tab's Test
 fetches one fixed low-zoom tile at the address in effect.
 
 The tile address never reaches a browser. The imagery style names the

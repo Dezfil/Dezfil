@@ -53,6 +53,23 @@ export function basemapTone(args: {
   return args.theme;
 }
 
+/** What a basemap picker says on a map on Satellite where this instance
+ * draws no imagery (none set up, or its template unreadable): the map is
+ * drawn on the deployment default instead, and credited as that default. */
+export const IMAGERY_MISSING_NOTE =
+  "No satellite imagery is available on this instance, so this map shows the default style.";
+
+/** Whether a map's choice is Satellite while this instance draws no
+ * imagery. A style hidden from the pickers is still drawn, so it counts as
+ * there; a custom style wins over the key, so under one nothing is missing. */
+export function imageryMissing(args: {
+  key: BasemapKey | null;
+  custom: boolean;
+  basemaps: BasemapStyle[];
+}): boolean {
+  return !args.custom && args.key === "satellite" && !args.basemaps.some((b) => b.key === "satellite");
+}
+
 /** The deployment default's credit: the deployment style's configured
  * credit when it sets one (none configured claims nothing), else the
  * built-in credit. */
