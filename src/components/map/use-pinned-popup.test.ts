@@ -71,7 +71,7 @@ function canvas(initial: RenderedLayer[]) {
     pinnedRef: h.value.pinnedRef,
     layersRef: { get current() { return layers; } },
     markScaleRef: { current: 1 },
-    onFeaturePickRef: { current: null },
+    onFeaturePickRef: { current: undefined },
     setHover: () => {},
     setPinned: (value) => { h.value.setPinned(value); h.render(); },
   });
