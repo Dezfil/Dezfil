@@ -361,6 +361,9 @@ test("drop-anywhere carries every dropped file into a running batch", async ({
   const consoleErrors = trackConsole(page);
   await routeHouse(context);
   await page.goto("/data");
+  // The Data screen renders inside a suspense boundary and can arrive
+  // after the load event; the drop goes to it once its heading is there.
+  await expect(page.getByRole("heading", { level: 1, name: "Data" })).toBeVisible();
 
   const dropA = `mub6a_${runId}`;
   const dropB = `mub6b_${runId}`;
