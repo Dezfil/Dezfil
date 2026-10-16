@@ -102,46 +102,48 @@ const CANCEL_WINDOW_MS = 20_000;
  * credentials and TLS mode, and asks the server to cancel only active
  * backends whose application name begins with that attachment's unique
  * identity. Its own identity begins differently, so it never matches itself,
- * and the server lets a role cancel only its own backends. An address is
- * attached once per cancellation and dropped for the rest of it once its
- * attachment or a cancel through it fails, so an unreachable address costs
- * one connect limit, not one per try; the cancellation fails only when no
- * address is left. It repeats while the attachment's native call is out,
- * within its window, and always detaches what it attached.
+ * and the server lets a role cancel only its own backends. Each address is
+ * attached once per cancellation and cancelled through at once, so a later
+ * address that hangs at connect never delays the first cancel; it is dropped
+ * for the rest of the cancellation once its attachment or a cancel through it
+ * fails, and the cancellation fails only when no address answered. One window,
+ * from the cancellation's start, bounds the attachments and the tries alike:
+ * no further address is tried once it has passed or the attachment's native
+ * call has returned. It repeats while that call is out, within the window, and
+ * always detaches what it attached.
  */
 function sourceCancellation(target: ConnectionTarget, hostaddr: readonly string[], sourceIdentity: string): SourceCancellation {
   return running => withSideConnection(async conn => {
+    const until = performance.now() + CANCEL_WINDOW_MS;
     await conn.run("LOAD postgres");
+    const cancel = `SELECT pg_cancel_backend(pid) AS cancelled FROM pg_stat_activity WHERE left(application_name, ${sourceIdentity.length}) = ${sqlLit(sourceIdentity)} AND pid <> pg_backend_pid() AND state = 'active'`;
     const attached: string[] = [];
-    let failure: unknown;
+    let live: string[] = [], failure: unknown;
+    const cancelThrough = async (alias: string) => {
+      try { await conn.run(`SELECT * FROM postgres_query(${sqlLit(alias)}, ${sqlLit(cancel)})`); return true; }
+      catch (error) { failure ??= error; return false; }
+    };
     try {
-      for (const address of hostaddr) {
+      for (const [index, address] of hostaddr.entries()) {
+        if (index > 0 && (!running() || performance.now() >= until)) break;
         const own = randomUUID().replace(/-/g, "");
         const alias = `pg_cancel_${own}`;
         try {
           await conn.run(
             `ATTACH ${sqlLit(attachString(target, address, `dezfil_cancel_${own}`, CANCEL_STATEMENT_MS, CANCEL_CONNECT_S))} AS ${alias} (TYPE postgres, READ_ONLY)`,
           );
-          attached.push(alias);
-        } catch (error) { failure ??= error; }
+        } catch (error) { failure ??= error; continue; }
+        attached.push(alias);
+        if (await cancelThrough(alias)) live.push(alias);
       }
-      const cancel = `SELECT pg_cancel_backend(pid) AS cancelled FROM pg_stat_activity WHERE left(application_name, ${sourceIdentity.length}) = ${sqlLit(sourceIdentity)} AND pid <> pg_backend_pid() AND state = 'active'`;
-      if (!attached.length) throw failure;
-      const until = performance.now() + CANCEL_WINDOW_MS;
-      let live = attached;
       for (;;) {
-        const answered: string[] = [];
-        for (const alias of live) {
-          try {
-            await conn.run(`SELECT * FROM postgres_query(${sqlLit(alias)}, ${sqlLit(cancel)})`);
-            answered.push(alias);
-          } catch (error) { failure ??= error; }
-        }
-        live = answered;
         if (!live.length) throw failure;
         if (!running() || performance.now() >= until) break;
         await delay(CANCEL_RETRY_MS);
         if (!running()) break;
+        const answered: string[] = [];
+        for (const alias of live) if (await cancelThrough(alias)) answered.push(alias);
+        live = answered;
       }
     } finally {
       await detachEach(conn, attached);

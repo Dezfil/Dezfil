@@ -196,6 +196,35 @@ describe("actual preview route owns its attachment", () => {
       expect(warn).not.toHaveBeenCalled();
     } finally { warn.mockRestore(); }
   });
+  it("cancels through the first address at once and keeps every attempt inside one window", async () => {
+    // Every address after the first hangs to its 5 s connect limit and fails;
+    // the clock moves by that limit instead of the test waiting it out.
+    const addresses = Array.from({ length: 8 }, (_, index) => `192.0.2.${index + 1}`);
+    fixture.resolve.mockResolvedValue(addresses);
+    const now = performance.now.bind(performance); let skew = 0;
+    const clock = vi.spyOn(performance, "now").mockImplementation(() => now() + skew);
+    fixture.sideRun.mockImplementation(async (statement: string) => {
+      if (statement.startsWith("ATTACH ") && !statement.includes("hostaddr=''192.0.2.1''")) { skew += 5_000; throw new Error("timeout expired"); }
+    });
+    const conn = connection("version"); fixture.acquire.mockResolvedValue(conn);
+    const controller = new AbortController(); const pending = preview(controller);
+    try {
+      await conn.entered.promise;
+      const started = performance.now(); controller.abort();
+      await vi.waitFor(() => expect(cancelledThrough(fixture.sides[0] ?? []).length).toBeGreaterThan(0));
+      const sql = fixture.sides[0], attaches = sql.filter(statement => statement.startsWith("ATTACH "));
+      expect(attaches[0]).toContain("hostaddr=''192.0.2.1''");
+      // The first cancel went out before any later address was tried.
+      expect(sql.findIndex(statement => statement.includes("pg_cancel_backend"))).toBeLessThan(attaches.length > 1 ? sql.indexOf(attaches[1]) : sql.length);
+      await vi.waitFor(() => expect(sql.some(statement => statement.startsWith("DETACH "))).toBe(true), { timeout: 5_000 });
+      // The statement still runs, so only the window ends the cancellation:
+      // within it plus one connect limit, with the addresses past it untried.
+      expect(performance.now() - started).toBeLessThanOrEqual(20_000 + 5_000);
+      expect(sql.filter(statement => statement.startsWith("ATTACH ")).length).toBeLessThan(addresses.length);
+      expect(sql.filter(statement => statement.startsWith("DETACH "))).toEqual([`DETACH ${sideAttachments(sql)[0].alias}`]);
+    } finally { conn.release.resolve(); clock.mockRestore(); }
+    expect((await pending).status).toBe(499);
+  });
   it("keeps the departure's answer when the cancellation on the source fails, and logs it", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     try {
