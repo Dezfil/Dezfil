@@ -516,9 +516,12 @@ export function useMutationLane({
               if (refreshes) await refreshLayer(layerId);
             } else if (currentRevision === revision) {
               // Only this failed gesture is gone. Other layers and later
-              // gestures still own their drafts and failure notices.
+              // gestures still own their drafts and failure notices. Its
+              // legend text leaves the legend as a refused save's does.
               drafts.discard(ticket);
               applyMapResponse(recovered, false, sentAt);
+              const truth = serverMapRef.current ? drafts.apply(serverMapRef.current) : null;
+              retireLegendLive(layerId, body, truth?.layers.find((layer) => layer.id === layerId));
             }
           } catch { /* An unknown outcome keeps its draft and accepted basis. */ }
           return null;

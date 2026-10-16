@@ -125,3 +125,48 @@ it("keeps a variable name typed since a refused one on the legend, and the store
   expect(legendItems(c.h.render().legend)[0]?.attrs).toEqual({ fill: "Stored fill", radius: "Typed radius" });
   expect(c.h.value.legendLive.a?.legendAttrs).toEqual({ fill: "Stored fill", radius: "Typed radius" });
 });
+
+/** The map as the server reads it back, at the revision the editor last saw. */
+const readBack = (layer: Record<string, unknown>) => ({ id: "m", name: "Map", editRevision: "seen", legendOrder: null, layers: [layer] });
+
+it("takes a legend title whose answer was lost off the drawn legend once the map read back shows it was not stored", async () => {
+  const c = setup();
+  c.type("Lost title");
+  c.save("Lost title");
+  expect(c.drawnTitle()).toBe("Lost title");
+  c.w.pending("PATCH", "/api/layers/a")[0].cut();
+  await c.w.settle();
+  c.w.pending("GET", "/api/maps/m")[0].ok(readBack(c.stored));
+  await c.w.settle();
+  expect(c.map().layers[0].legendTitle).toBe("Stored title");
+  expect(c.drawnTitle(), "the legend kept text the server never stored").toBe("Stored title");
+  expect(c.h.value.legendLive.a?.legendTitle).toBeUndefined();
+});
+
+it("keeps a variable name typed since a lost one on the legend, and the stored one where the read back shows the lost one was not stored", async () => {
+  const c = setup({ fill: "Stored fill" });
+  c.h.value.onLegendLive("a", { legendAttrs: { fill: "Lost fill" } });
+  c.h.value.tab.onAttrs("a", { fill: "Lost fill" });
+  c.h.render();
+  // Typed since, not saved yet.
+  c.h.value.onLegendLive("a", { legendAttrs: { fill: "Lost fill", radius: "Typed radius" } });
+  c.h.render();
+  c.w.pending("PATCH", "/api/layers/a")[0].cut();
+  await c.w.settle();
+  c.w.pending("GET", "/api/maps/m")[0].ok(readBack(c.stored));
+  await c.w.settle();
+  expect(legendItems(c.h.render().legend)[0]?.attrs, "the legend kept a name the server never stored").toEqual({ fill: "Stored fill", radius: "Typed radius" });
+  expect(c.h.value.legendLive.a?.legendAttrs).toEqual({ fill: "Stored fill", radius: "Typed radius" });
+});
+
+it("keeps a lost legend title drawn once the map read back shows it stored", async () => {
+  const c = setup();
+  c.type("Lost title");
+  c.save("Lost title");
+  c.w.pending("PATCH", "/api/layers/a")[0].cut();
+  await c.w.settle();
+  c.w.pending("GET", "/api/maps/m")[0].ok({ ...readBack({ ...c.stored, legendTitle: "Lost title" }), editRevision: "stored" });
+  await c.w.settle();
+  expect(c.map().layers[0].legendTitle).toBe("Lost title");
+  expect(c.drawnTitle()).toBe("Lost title");
+});
