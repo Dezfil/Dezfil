@@ -465,9 +465,11 @@ Published render selections remain at 65,536 bytes even within their semantic
 filter counts; the viewer's twelve selections of fifty long values fit.
 
 The canonical spellings of the anonymous published widget-values, render and
-extent POST paths bypass the framework proxy. Encoded-slash spellings can still
-match the proxy and incur its body copy. Their handlers admit at most 65,536 bytes and refuse excess
-before parsing; empty bodies retain their existing defaults. All dispatchable
+extent POST paths, and of the three authentication entry POSTs (setup, sign-in
+and sign-in link redemption), bypass the framework proxy. Percent-encoded
+spellings can still match the proxy and incur its body copy. Their handlers
+admit at most 65,536 bytes and refuse excess before parsing; the published
+paths' empty bodies retain their existing defaults. All dispatchable
 methods on excluded paths retain their method-specific request gate. `TRACE`,
 which no handler can receive, is answered with an empty 400 on every path before
 its body is read.
@@ -479,12 +481,11 @@ The framework proxy copy limit is 17 MiB (previously 10 MiB), so complete workfl
 requests, including their over-limit refusal boundary, reach their readers.
 On paths still matched by the proxy, the framework drains and copies the body
 before the request gate runs, including for anonymous callers. The 17 MiB copy
-is bounded storage, not early wire admission. Authentication entry POSTs remain
-on that path. Configure a fronting reverse proxy's own request-size limit to
-bound this pre-gate copy further, allowing the upload size you intend to serve
-on `/api/tables`.
+is bounded storage, not early wire admission. Configure a fronting reverse
+proxy's own request-size limit to bound this pre-gate copy further, allowing
+the upload size you intend to serve on `/api/tables`.
 
-When one of these four paths refuses a request part-way through its body, the
+When one of these seven paths refuses a request part-way through its body, the
 answer is sent at once. The instance then receives and discards the rest of that
 request, storing nothing, so the connection stays usable; the server's request
 and keep-alive timeouts bound it. A fronting proxy's request-size limit stops

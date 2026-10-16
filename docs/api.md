@@ -92,7 +92,8 @@ is cancelled without retaining it or pulling again. On framework-matched paths
 this is a handler guarantee: the framework may already have drained and copied
 up to its 17 MiB limit before the gate, including anonymous callers. Canonical
 spellings of the excluded public widget-values, render and extent POST paths
-additionally refuse before a large wire body completes. Multipart uploads at the
+and of the three authentication entry POSTs additionally refuse before a large
+wire body completes. Multipart uploads at the
 canonical `/api/tables` path stream to disk without the framework copy, under
 their file and archive limits. A reverse proxy's own request-size limit bounds the matched
 paths' residual copy further; see [self-hosting](self-hosting.md).

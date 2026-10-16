@@ -6,7 +6,8 @@ import { setTimeout as delay } from 'node:timers/promises';
 export const SMALL_LIMIT = 65_536;
 export const WIRE_SLACK = 16_384;
 export const LARGE_SENDER = 4 * 1024 * 1024;
-export const excludedPaths = ['/api/tables', '/api/published/missing/widget-values', '/api/published/missing/render/layer', '/api/published/missing/extent/layer'];
+export const excludedPaths = ['/api/tables', '/api/published/missing/widget-values', '/api/published/missing/render/layer', '/api/published/missing/extent/layer',
+  '/api/auth/sign-in', '/api/auth/setup', '/api/auth/redeem'];
 
 /** Exact-sized CSV with independently known rows, emitted in at most 64 KiB chunks. */
 export function csvFixture(bytes) {

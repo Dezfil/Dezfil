@@ -270,9 +270,9 @@ The fixed `experimental.proxyClientMaxBodySize` in `next.config.ts` is
 17 MiB (17,825,792 bytes), allowing the 16 MiB JSON boundary to reach its reader.
 Matched paths still drain and copy up to that limit before the gate, including
 anonymous callers. A fronting reverse proxy's own request-size limit bounds
-that residual copy further. Canonical spellings of `/api/tables` and the public
-widget-values, render and extent POST paths bypass the copy and preserve their
-handler-side gates. The native door returns an
+that residual copy further. Canonical spellings of `/api/tables`, the public
+widget-values, render and extent POST paths and the three authentication entry
+POSTs bypass the copy and preserve their handler-side gates. The native door returns an
 empty 400 for `TRACE`. See [self-hosting](docs/self-hosting.md) for the wire
 behavior and [the API guide](docs/api.md#request-bounds) for exact refusals.
 

@@ -69,8 +69,10 @@ export async function transportProbe(base, { serverLog, fileLimitOnly = false } 
     }
     assert.deepEqual((await api('GET', '/api/recipes')).json, before, 'workflow refusals create nothing');
     for (const route of excludedPaths.slice(1)) for (const declared of [true, false]) {
+      // An entry post is admitted only from the instance's own origin.
+      const entry = route.startsWith('/api/auth/') ? { origin: new URL(base).origin } : {};
       const result = await exchange(base + route, {
-        headers: { 'content-type': 'application/json', ...(declared ? { 'content-length': String(LARGE_SENDER) } : {}) },
+        headers: { 'content-type': 'application/json', ...entry, ...(declared ? { 'content-length': String(LARGE_SENDER) } : {}) },
         headersOnly: declared, timeoutMs: 10_000, paceMs: 25,
         chunks: (function* () { for (let i = 0; i < LARGE_SENDER; i += 4096) yield Buffer.alloc(4096, ' '); })(),
       });
