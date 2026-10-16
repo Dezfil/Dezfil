@@ -192,7 +192,10 @@ export const MAP_RESOURCE_PATHS = {
           description:
             "The capture cycle a themed snapshot belongs to; required " +
             "with a theme, refused without one. Two writes carrying " +
-            "the same cycle and different themes form one pair.",
+            "the same cycle and different themes form one pair. A " +
+            "cycle publishes once: a write naming the cycle of the " +
+            "pair the map shows is held, and starts that cycle's pair " +
+            "again.",
         },
         {
           name: "revision",
