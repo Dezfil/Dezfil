@@ -404,3 +404,38 @@ describe("a number literal in a document is refused before it is converted", () 
     await exactly(rowsOf(holder(`'{"n":1.0}'::JSON`)));
   });
 });
+
+describe("a typed value spelled as a long number is refused before it is converted", () => {
+  const valueOf = (expression: string): InlineRows => ({
+    from: `(SELECT ST_Point(0, 0) AS geometry, ${expression} AS n) AS q`,
+    geometry: quoteIdent("geometry"),
+    properties: ["n"],
+  });
+
+  it("refuses a 20,000-digit whole number under 4 KiB unconverted, and counts wide decimals exactly", async () => {
+    const limit = 4096;
+    // An arbitrary-precision integer serializes as a number literal of
+    // every digit, which parses to Infinity and serializes as null.
+    const rows = valueOf(`CAST(repeat('9', 20000) AS BIGNUM)`);
+    const early = await observe(() => buildInlineAnswer(conn, rows, compose, limit));
+    expect(early).toMatchObject({ refused: true, serialized: 0 });
+    expect(refusedEarly(early, limit)).toBe(true);
+    expect(early.longestText).toBeLessThan(1024);
+    expect(early.longestParse).toBeLessThan(1024);
+    // The control converts and parses the literal whole before measuring.
+    const late = await observe(() => lateRefusal(rows, limit));
+    expect(refusedEarly(late, limit)).toBe(false);
+    expect(late.longestParse).toBeGreaterThanOrEqual(20_000);
+    // A decimal's widest spelling, read last at exactly the limit, and a
+    // whole number of 41 digits with room behind it, are admitted at what
+    // they serialize to.
+    const decimal = await exactly(valueOf(`(-1)::DECIMAL(38,37)`));
+    expect(decimal.geojson.features[0].properties.n).toBe(-1);
+    const wide = await exactly({
+      from: `(SELECT ST_Point(0, 0) AS geometry, CAST(repeat('9', 41) AS BIGNUM) AS n, repeat('s', 256) AS s) AS q`,
+      geometry: quoteIdent("geometry"),
+      properties: ["n", "s"],
+    });
+    expect(wide.geojson.features[0].properties.n).toBe(1e41);
+  });
+});

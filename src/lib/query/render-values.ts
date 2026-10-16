@@ -18,9 +18,10 @@ import { setOwn } from "./set-own";
  * walked node by node, its repeated member names resolved as JSON.parse
  * resolves them. Only numbers are converted first and counted after:
  * their JSON spelling is normalized by the parser (1.0 becomes 1), and a
- * short token is harmless to convert; a document's number literal longer
- * than any number's spelling must first fit what the budget has left, as
- * its text, so an enormous literal is refused before it is converted.
+ * short token is harmless to convert; a number spelled longer than any
+ * bounded type's (a document's literal, an arbitrary-precision integer)
+ * must first fit what the budget has left, as its text, so an enormous one
+ * is refused before it is converted.
  * Integers, floating values and booleans are read as the engine holds
  * them: the engine writes a double's shortest exact spelling, so the parsed
  * text and the native value are the same number. The engine runs no
@@ -37,12 +38,12 @@ export type RenderValue =
   | { kind: "union"; sql: string; tags: readonly string[]; members: readonly RenderValue[] };
 
 /** A to_json text with its exact length when it is a JSON string, which the
- * parser and the serializer reproduce byte for byte. The other texts, the
- * spelling of a decimal or a wide integer, are short and counted once
- * parsed. */
+ * parser and the serializer reproduce byte for byte, and its length as
+ * written. The other texts spell a number: a decimal's is short, and is
+ * counted once parsed; an arbitrary-precision integer's has every digit. */
 function jsonText(expression: string): string {
   const text = `CAST(to_json(${expression}) AS VARCHAR)`;
-  return `struct_pack(bytes := CASE WHEN starts_with(${text}, '"') THEN strlen(${text}) END, text := ${text})`;
+  return `struct_pack(bytes := CASE WHEN starts_with(${text}, '"') THEN strlen(${text}) END, spelled := strlen(${text}), text := ${text})`;
 }
 
 /** A JSON document's nodes in document order, each with its parent, and
@@ -168,13 +169,16 @@ export function renderValueProjection(expression: string, type: DuckDBType, dept
   }
 }
 
-/** The longest JSON spelling a number has, as in -0.0000012345678901234567. */
-const NUMBER_SPELLING = 25;
+/** The longest number the engine spells for a bounded type: a 38-digit
+ * decimal with its sign and point. A JavaScript number's own spelling is
+ * shorter, at most 25 bytes, as in -0.0000012345678901234567. */
+const NUMBER_SPELLING = 40;
 
 /** A number's text is converted before the length it serializes to is
- * known. A text no longer than a number's spelling is a short token; a
- * longer one, which only an unbounded literal has, must fit what is left
- * before it is converted, though only what it serializes to is charged. */
+ * known. A text no longer than a bounded number's spelling is a short
+ * token; a longer one, which only an unbounded literal or integer has,
+ * must fit what is left before it is converted, though only what it
+ * serializes to is charged. */
 function admitNumberText(length: number, budget: RenderBudget): void {
   if (length > NUMBER_SPELLING) budget.admit(length);
 }
@@ -199,7 +203,8 @@ export function decodeRenderValue(vector: DuckDBVector, index: number, value: Re
     case "json": {
       const bytes = cell.entryVectorAt(0).getItem(index);
       if (bytes !== null) budget.take(Number(bytes));
-      const parsed: unknown = JSON.parse(cell.entryVectorAt(1).getItem(index) as string);
+      else admitNumberText(Number(cell.entryVectorAt(1).getItem(index)), budget);
+      const parsed: unknown = JSON.parse(cell.entryVectorAt(2).getItem(index) as string);
       if (bytes === null) budget.take(jsonBytes(parsed));
       return parsed;
     }

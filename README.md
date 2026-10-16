@@ -183,7 +183,7 @@ templates, as [Templates](docs/configuration.md#templates) says.
 | `DEZFIL_TRUSTED_MEMORY_MB` | `3072` | Trusted engine memory, in engine MB, shared across trusted work. Dedicated scratch allowance is four times this value. Fixed without an override; locked with one. Shown on System beside hardened engine memory. | Restart |
 | `DEZFIL_PREVIEW_ROWS` | `1000` | Rows returned in a query/preview result. | App (live) or restart |
 | `DEZFIL_RENDER_CAP_FEATURES` | `250000` | Max features a single layer renders before asking for a LIMIT or aggregation. | Restart |
-| `DEZFIL_RENDER_CAP_BYTES` | `134217728` | Bytes drawn per layer (128 MiB): each complete uncompressed UTF-8 JSON inline answer, including its envelope. Equality is admitted. A number literal in a JSON value that is longer than any number's spelling must also fit, as its text, in what is left when it is read. Fixed without an override; locked with one. Shown on Limits > Queries. | Restart |
+| `DEZFIL_RENDER_CAP_BYTES` | `134217728` | Bytes drawn per layer (128 MiB): each complete uncompressed UTF-8 JSON inline answer, including its envelope. Equality is admitted. A number written with more than 40 characters (a long literal in a JSON value, an arbitrary-precision integer) must also fit, as its text, in what is left when it is read. Fixed without an override; locked with one. Shown on Limits > Queries. | Restart |
 | `DEZFIL_SLIDER_PREVIEW_ROWS` | `50000` | Max source points transferred for an interactive slider preview. | Restart |
 | `DEZFIL_PUBLISH_FRESHNESS_S` | `30` | How stale a published view may be — its cache window. | Restart |
 | `DEZFIL_TILE_BUILD_TIMEOUT_S` | `600` | Timeout for each stage of a background tile build. | Restart |
