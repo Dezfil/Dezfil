@@ -41,17 +41,25 @@ type Props = ReactFlowProps<FlowNode, ReadFlowEdge> & {
   view: "full" | "framed"; panel: boolean; reserve: number; helperRight: number;
   locked: boolean; noteMode: boolean;
   noteActions: ComponentProps<typeof NoteActionsContext.Provider>["value"];
-  whisper: Whisper | null; children: ReactNode;
+  whisper: Whisper | null;
+  /** The stage's controls, drawn before the nodes. */
+  controls: ReactNode;
+  children: ReactNode;
 };
 
 /** Stage and node presentation, separate from editor ordering and history. */
-export function WorkflowStage({ view, panel, reserve, helperRight, locked, noteMode, noteActions, whisper, children, ...flowProps }: Props) {
+export function WorkflowStage({ view, panel, reserve, helperRight, locked, noteMode, noteActions, whisper, controls, children, ...flowProps }: Props) {
   const recovery = useCanvasRecovery();
   const [opening] = useState(flowProps.nodes ?? []);
   const accepted = recovery.stale ? recovery.document?.layout ?? null : null;
   const saved = accepted ? withOpeningPositions(accepted, opening) : null;
   const nodes = markUnsavedNodes(flowProps.nodes ?? [], saved);
   return <>
+    {/* The controls come first in the page's order, which is the order Tab
+        walks: from the last of them, the lock, the next press reaches a
+        node instead of leaving the canvas. They are positioned over the
+        canvas, so their place here moves nothing on screen. */}
+    {controls}
     <NoteActionsContext.Provider value={noteActions}>
         <ReactFlow<FlowNode, ReadFlowEdge>
           {...flowProps}
