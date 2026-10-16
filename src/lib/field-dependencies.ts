@@ -30,9 +30,9 @@ import type { MapWidget } from "@/lib/widgets";
  * Every policy keeps result order: the automatic interaction rule slices
  * the first fields of whatever wire it runs over, and a subset in result
  * order that contains those first fields slices to the same ones. The
- * canvas lists a feature's properties in its object's key order, which
- * puts integer-like names first, so the private policy picks its
- * automatic fields in that order.
+ * private and published policies pick the automatic fields in that order
+ * too, so a builder and a reader are carried the same ones whatever the
+ * columns are named.
  */
 
 /** Automatic tooltip picks the first few properties. One constant for the
@@ -234,22 +234,13 @@ export function widensPrivateFields(
   return false;
 }
 
-/** The order the canvas lists a feature's properties in: an object's own
- * keys, integer-like names first in ascending order, then the rest as they
- * were set. */
-function wireKeyOrder(columns: string[]): string[] {
-  const keys: Record<string, true> = Object.create(null);
-  for (const column of columns) keys[column] = true;
-  return Object.keys(keys);
-}
-
 /**
  * The private policy: the fields the builder's own map reads from this
  * layer, in result order. Its style channels and labels, the filters the
  * canvas applies, the docked timeline, every widget on the layer, the
  * interaction fields (automatic ones by the existing rule, over the
- * full answer in the order the canvas lists it) and a drawn sketch's
- * identity. The published override plays no part.
+ * full answer in result order, as the published policy picks them) and a
+ * drawn sketch's identity. The published override plays no part.
  * Aggregations carry their computed columns, as on every audience.
  */
 export function privateLayerFields(
@@ -261,7 +252,7 @@ export function privateLayerFields(
   if (isAggregated(layer.viz)) return [...needs.names];
   const wanted = new Set<string>([
     ...needs.names,
-    ...(needs.automatic ? autoInteractionFields(wireKeyOrder(columns)) : []),
+    ...(needs.automatic ? autoInteractionFields(columns) : []),
     ...sketchIdentity(columns),
   ]);
   return columns.filter((c) => wanted.has(c));

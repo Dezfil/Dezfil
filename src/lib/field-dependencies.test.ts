@@ -218,16 +218,19 @@ describe("the private policy", () => {
     expect(own({ viz: { type: "grid", cellKm: 5, aggregate: { fn: "count" } } })).toEqual(["value", "count"]);
   });
 
-  it("carries the automatic fields the canvas shows over the full answer, numeric names first as it lists them", () => {
-    // The canvas lists a feature's properties in their object's order,
-    // integer-like names first, not in the query's column order.
+  it("carries the automatic fields a published view carries, the first eight in result order, with an integer-like name past them", () => {
+    // An object lists integer-like names first, so the order the canvas
+    // would list the whole answer in is not the result's. Both audiences
+    // pick in the result's, and the canvas then shows the same fields to
+    // the builder and to a reader.
     const columns = ["a", "b", "c", "d", "e", "f", "g", "h", "1"];
     const wire = (names: string[]) => JSON.parse(JSON.stringify(Object.fromEntries(names.map((name) => [name, name])))) as Record<string, unknown>;
     const shown = (names: string[]) => fieldEntries(wire(names), null, false).map(([name]) => name);
-    expect(shown(columns)).toEqual(["1", "a", "b", "c", "d", "e", "f", "g"]);
-    const narrowed = own({}, {}, columns);
-    expect(shown(narrowed)).toEqual(shown(columns));
-    expect(narrowed).toEqual(["a", "b", "c", "d", "e", "f", "g", "1"]);
+    const builder = own({}, {}, columns);
+    const reader = publishedLayerFields(base, empty, columns);
+    expect(reader).toEqual(["a", "b", "c", "d", "e", "f", "g", "h"]);
+    expect(builder).toEqual(reader);
+    expect(shown(builder)).toEqual(shown(reader));
   });
 
   it("shows the same automatic fields over the narrowed wire as over the full one", () => {
