@@ -93,6 +93,19 @@ originating projects are listed here as they are used:
   shares adapts the collision filter's shader module from
   @deck.gl/extensions 9.4 (src/components/map/label-collision.ts). The
   file carries the upstream copyright and permission notice.
+- osmtogeojson 3.0.0-beta.5 (MIT, © 2013 Martin Raifer) — the
+  OpenStreetMap preview reproduces how it assembles features, so that it
+  can measure one without building it: the joining of member ways into
+  rings and lines (`join`, src/lib/osm/assembler-rings.ts), the
+  assignment of an inner ring to the first outer ring holding any of its
+  nodes with its point-in-polygon test (`findOuter`,
+  src/lib/osm/preview-plan.ts), and its rules and default list of tags
+  that say nothing of an element (src/lib/osm/assembler-model.ts). Each
+  file carries its copyright and permission notice. The joining and the
+  inner-ring assignment are osmtogeojson's adaptation of the iD editor
+  (ISC, © the iD contributors; https://github.com/openstreetmap/iD),
+  relation.js and geo.js, whose notice the first two files carry too.
+  osmtogeojson itself is a dependency, used unmodified.
 
 Data-source logos shown in the Add data dialog identify the third-party
 services and datasets a table can be imported from (nominative use); the

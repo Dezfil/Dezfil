@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import osmtogeojson from "osmtogeojson";
 import { describe, expect, it } from "vitest";
 import { jsonBytes } from "@/lib/query/result-budget";
@@ -108,5 +109,29 @@ describe("the stand-ins of a preview", () => {
       ],
     };
     expect(planPreview(response, PROMOTED, null, 0).response).toBe(response);
+  });
+});
+
+describe("the code the preview adapts from osmtogeojson and the iD editor", () => {
+  // Comment prefixes and line breaks fall away, so a wrapped line still reads as one.
+  const flat = (path: string) => readFileSync(path, "utf8").replace(/\n\s*\*\s?/g, " ").replace(/\s+/g, " ");
+
+  it("carries their notices, and NOTICE credits them", () => {
+    for (const file of ["assembler-rings.ts", "preview-plan.ts", "assembler-model.ts"]) {
+      const source = flat(`src/lib/osm/${file}`);
+      expect(source, file).toContain("osmtogeojson 3.0.0-beta.5");
+      expect(source, file).toContain("Copyright (c) 2013 Martin Raifer");
+      expect(source, file).toContain("The above copyright notice and this permission notice shall be included in all copies");
+    }
+    for (const file of ["assembler-rings.ts", "preview-plan.ts"]) {
+      const source = flat(`src/lib/osm/${file}`);
+      expect(source, file).toContain("the iD editor's relation.js");
+      expect(source, file).toContain("iD is licensed under the ISC License, its copyright held by the iD contributors");
+      expect(source, file).toContain("above copyright notice and this permission notice appear in all copies");
+    }
+    const notice = flat("NOTICE");
+    expect(notice).toMatch(
+      /osmtogeojson 3\.0\.0-beta\.5 \(MIT, © 2013 Martin Raifer\)[\s\S]*?src\/lib\/osm\/assembler-rings\.ts[\s\S]*?src\/lib\/osm\/preview-plan\.ts[\s\S]*?src\/lib\/osm\/assembler-model\.ts[\s\S]*?iD editor \(ISC, © the iD contributors/,
+    );
   });
 });
