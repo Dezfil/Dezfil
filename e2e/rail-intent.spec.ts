@@ -522,9 +522,11 @@ test("a navigation the rail did not start, landing on the builder while a dwell 
   //
   // The transition has to land inside the 100ms dwell to be the case at
   // all, so the builder's route response is fetched at once and HELD
-  // until the pointer has armed the dwell, then released: the commit
-  // then follows within a few tens of milliseconds. The case measures
-  // that and fails naming the harness if the commit came late.
+  // until the pointer has armed the dwell, then released; and the page's
+  // timers are paused from just before the pointer arms the dwell until
+  // the push has committed, so the dwell cannot fire first however long
+  // the commit takes on a busy machine.
+  await page.clock.install();
   let release!: () => void;
   const gate = new Promise<void>((resolve) => {
     release = resolve;
@@ -559,16 +561,18 @@ test("a navigation the rail did not start, landing on the builder while a dwell 
     .getByRole("button", { name: `Open ${name} in the builder`, exact: true })
     .click();
   await expect.poll(() => held, { timeout: 5000 }).toBeGreaterThan(0);
+  // ...the page's timers stop...
+  await page.clock.pauseAt((await page.evaluate(() => Date.now())) + DWELL_MS);
   // ...the pointer arms the gallery's dwell in the right third...
   await page.mouse.move(x, y);
-  const armedAt = Date.now();
   // ...and the navigation commits, inside the dwell.
   release();
   await page.waitForURL(new RegExp(`/maps/${mapId}$`));
   expect(
-    Date.now() - armedAt,
-    "the navigation committed inside the armed dwell",
-  ).toBeLessThan(DWELL_MS);
+    Math.round((await railBox(page)).width),
+    "the dwell had not fired when the navigation committed",
+  ).toBe(COLLAPSED);
+  await page.clock.resume();
 
   // The builder: the pointer is in the corridor; the dwell that was armed
   // on the gallery must not open the rail here.
