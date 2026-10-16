@@ -36,9 +36,15 @@ test("the layer menu opened after a filter edit stays open on the first press", 
   const addFilter = row.getByRole("button", { name: "+ Add filter", exact: true });
   await expect(addFilter).toBeVisible({ timeout: 20_000 });
   await addFilter.click();
+  // The new filter's own save lands first: a bound typed before its answer
+  // is put back to the column's range when that answer arrives.
+  const added = page.waitForResponse((r) => r.request().method() === "PATCH" && new URL(r.url()).pathname === `/api/layers/${targetId}`
+    && r.request().postDataJSON()?.filters?.some((f: { field: string }) => f.field === "riders"));
   await row.getByRole("button", { name: /riders/ }).last().click();
+  expect((await added).ok()).toBe(true);
+  await saveSettled(page);
   const maximum = row.getByRole("spinbutton", { name: "riders maximum", exact: true });
-  await expect(maximum).toBeEditable();
+  await expect(maximum).toHaveValue("99");
   const saved = page.waitForResponse((r) => r.request().method() === "PATCH" && new URL(r.url()).pathname === `/api/layers/${targetId}`
     && r.request().postDataJSON()?.filters?.some((f: { field: string; max: number }) => f.field === "riders" && f.max === 49));
   await maximum.fill("49");
