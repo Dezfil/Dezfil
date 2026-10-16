@@ -239,10 +239,12 @@ test("the tiled road reaches the reader, and its failure classes present specifi
   await test.step("the builder shows the tiled progression for the over-cap layer", async () => {
     await page.goto(`/maps/${mapId}`);
     const row = page.getByRole("button", { name: new RegExp(`^${layerName}`) });
-    await expect(row).toContainText(/preparing tiles|tiled/, {
+    // The layer's own name ends in "tiled": the row's state is read from
+    // its count line ("2,401 features · tiled") or the building badge.
+    await expect(row).toContainText(/preparing tiles…|features · tiled/, {
       timeout: 30_000,
     });
-    await expect(row).toContainText("tiled", { timeout: 60_000 });
+    await expect(row).toContainText("features · tiled", { timeout: 60_000 });
     await saveSettled(page);
     const deck = page.locator("canvas#deckgl-overlay");
     await expect(deck).toBeVisible();
