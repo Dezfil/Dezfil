@@ -157,7 +157,7 @@ test("the field find, re-staged: a no-layer file holds the catalog open, named",
   expect(unexpected).toEqual([]);
 });
 
-test("a single no-geometry file also holds the catalog; the Data screen still closes", async ({
+test("a single no-geometry file also holds the catalog; the Data screen lands it and offers column matching", async ({
   page,
   context,
 }) => {
@@ -176,17 +176,22 @@ test("a single no-geometry file also holds the catalog; the Data screen still cl
   await expect(catalog).toBeVisible();
   await page.keyboard.press("Escape");
 
-  // Data screen: the same shape closes at settlement — a table
-  // is that host's finished product.
+  // Data screen: a table is that host's finished product, and it lands at
+  // once. An attribute table has no strong geometry match, so the column
+  // matching step opens for it; closing the dialog closes the step plain,
+  // and the table stays as it landed, without geometry.
   await page.goto("/data");
   await page.getByRole("button", { name: "Add data" }).first().click();
-  await expect(page.getByRole("dialog", { name: "Add data" })).toBeVisible();
+  const addData = page.getByRole("dialog", { name: "Add data" });
+  await expect(addData).toBeVisible();
   const dataSide = `so2data_${runId}`;
   await page.locator('input[type="file"]').setInputFiles([attrCsv(dataSide)]);
-  await expect(page.getByRole("dialog", { name: "Add data" })).toHaveCount(
-    0,
-    { timeout: 30_000 },
-  );
+  await expect(addData.locator("[data-column-matching]")).toBeVisible({
+    timeout: 30_000,
+  });
+  await expect(addData).toContainText(`${dataSide}.csv`);
+  await page.keyboard.press("Escape");
+  await expect(addData).toHaveCount(0);
   await expect(page.getByRole("status")).toContainText(
     `${dataSide} is ready.`,
   );

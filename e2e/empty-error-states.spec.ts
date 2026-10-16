@@ -337,7 +337,10 @@ test("zero-row results and the deleted-table degradation are designed states", a
     await expect(page.getByText("sql_error")).toBeVisible({
       timeout: 30_000,
     });
-    await expect(page.getByText(/Referenced column/)).toBeVisible();
+    // In the results' error note; the assistant's context line repeats it.
+    await expect(
+      page.getByRole("region", { name: "Results" }).getByText(/Referenced column/),
+    ).toBeVisible();
     // …but the internal probe rewrite stays out of the sentence.
     await expect(page.getByText(/LINE \d+:/)).toHaveCount(0);
     await expect(page.getByText(/DESCRIBE/)).toHaveCount(0);

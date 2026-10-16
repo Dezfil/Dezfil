@@ -179,6 +179,9 @@ test.describe("column matching", () => {
     const errors = trackConsole(page);
     await routeHouse(context);
     await page.goto("/data");
+    // The Data screen renders inside a suspense boundary and can arrive
+    // after the load event; the drop goes to it once its heading is there.
+    await expect(page.getByRole("heading", { level: 1, name: "Data" })).toBeVisible();
     const [a, b] = [T("d1"), T("d2")];
     // The first upload's answer is delivered the instant the server has
     // it, with no delay the test adds: the

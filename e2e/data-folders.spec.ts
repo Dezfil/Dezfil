@@ -107,10 +107,13 @@ async function expectPaneAtRowEnd(page: Page, id: string) {
     const grid = pane.parentElement!;
     const cells = Array.from(grid.children).filter((el) => !el.matches("[data-folder-pane]"));
     const before = cells.filter((el) => el.compareDocumentPosition(pane) & Node.DOCUMENT_POSITION_FOLLOWING);
-    const prev = before[before.length - 1].getBoundingClientRect();
-    const folder = document.querySelector(`[data-folder-card="${id}"]`)!.getBoundingClientRect();
+    const prevCell = before[before.length - 1] as HTMLElement;
+    const prev = prevCell.getBoundingClientRect();
+    const folderCell = document.querySelector(`[data-folder-card="${id}"]`) as HTMLElement;
     const p = pane.getBoundingClientRect();
-    return { prevTop: prev.top, prevRight: prev.right, prevBottom: prev.bottom, prevWidth: prev.width, folderTop: folder.top, gridRight: grid.getBoundingClientRect().right, paneTop: p.top };
+    // The rows compare layout positions: a card under the pointer lifts on
+    // hover, and the folder was just clicked.
+    return { prevTop: prevCell.offsetTop, prevRight: prev.right, prevBottom: prev.bottom, prevWidth: prev.width, folderTop: folderCell.offsetTop, gridRight: grid.getBoundingClientRect().right, paneTop: p.top };
   }, id);
   // On the folder's row…
   expect(Math.abs(g.prevTop - g.folderTop)).toBeLessThan(2);
@@ -309,6 +312,10 @@ test("folders: the fold, the facts, opening, sorting, search, filters, identity"
   });
 
   await test.step("sort keys over folders and tables; search by workflow name and by output name", async () => {
+    // The tables land first and the folders fold in once the workflows
+    // list answers: the order is read only once both folders are there.
+    await expect(folderCard(page, ids.folder)).toBeVisible();
+    await expect(folderCard(page, ids.second)).toBeVisible();
     const names = () =>
       page.locator("[data-table-card], [data-folder-card]").evaluateAll((els) =>
         els.map((el) => el.getAttribute("data-table-card") ?? `folder:${el.getAttribute("data-folder-card")}`),
@@ -479,6 +486,9 @@ test("delete inside a folder updates its facts and state; the last deletion remo
   const consoleErrors = trackConsole(page);
   await openData(page);
   await page.getByLabel("Sort tables").selectOption("name");
+  // The count is read once the listing is in: the folder card shows only
+  // after the tables and the workflows have both landed.
+  await expect(folderCard(page, ids.folder)).toBeVisible();
   const all = await allChipCount(page);
   await activator(page, ids.folder).click();
   const inPane = (name: string) => pane(page, ids.folder).locator(`[data-table-card="${name}"]`);

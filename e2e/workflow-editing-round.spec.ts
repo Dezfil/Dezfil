@@ -353,7 +353,10 @@ test("copy and paste: the item against the recipe, the diagonal, a second workfl
     expect(parsed.kind).toBe("node");
     expect(parsed.operation).toBe("buffer");
     expect(parsed.parameters).toEqual(step.parameters);
-    expect(Object.keys(parsed).sort()).toEqual(["kind", "operation", "parameters", "dezfil-canvas-item"]);
+    // The workflow its values were written in, so a paste elsewhere can
+    // carry them over.
+    expect(parsed.source).toBe(w.id);
+    expect(Object.keys(parsed).sort()).toEqual(["dezfil-canvas-item", "kind", "operation", "parameters", "source"]);
   });
 
   let firstPaste = "";
@@ -397,9 +400,9 @@ test("copy and paste: the item against the recipe, the diagonal, a second workfl
     await expect(member(page, `${points}_buffer_2`)).toHaveAttribute("data-sel", "true");
   });
 
-  await test.step("a second workflow: a producer of the name, a workspace table, a missing source", async () => {
+  await test.step("a second workflow: an output not yet made is refused, a workspace table, a missing source", async () => {
     const w2 = await newRecipe(page, `Editing round target ${runId}`);
-    // A producer of the Buffer's output name, unrun: the pasted Filter rows reads it.
+    // A producer of the Buffer's output name here, unrun.
     await addStep(page, w2, "buffer", { input: points, distance: 5, name: w.bufName });
     await page.goto(`/workflows/${w.id}`);
     await settled(page);
@@ -410,13 +413,14 @@ test("copy and paste: the item against the recipe, the diagonal, a second workfl
     await page.goto(`/workflows/${w2}`);
     await settled(page);
     await page.locator("[data-flow-area]").focus();
+    // The pasted Filter rows reads an output of the workflow it was copied
+    // in. Carried into another workflow, that name means the dataset the
+    // output last made for this account, never a producer of the same name
+    // here; the Buffer has never run, so there is nothing to carry and the
+    // paste is refused, saying so, with nothing added.
     await page.keyboard.press("ControlOrMeta+v");
-    await expect.poll(async () => (await readRecipe(page, w2)).steps.length).toBe(2);
-    const filtered = (await readRecipe(page, w2)).steps.find((s) => s.operation === "filter_rows")!;
-    expect(filtered.parameters.input).toBe(w.bufName);
-    // The producer here answers to the name: no missing source for it, a member instead.
-    await expect(page.locator(`[data-node][data-kind="node"][data-name="${w.bufName}"]`)).toHaveCount(1);
-    await expect(page.locator(`[data-node][data-kind="source"][data-name="${w.bufName}"]`)).toHaveCount(0);
+    await expect(notice(page)).toContainText(`The dataset "${w.bufName}" is a workflow output you have not produced yet`);
+    expect((await readRecipe(page, w2)).steps.length).toBe(1);
     // A workspace table: the first Buffer pasted here reads the points table as a source tile.
     await page.goto(`/workflows/${w.id}`);
     await settled(page);
@@ -427,7 +431,7 @@ test("copy and paste: the item against the recipe, the diagonal, a second workfl
     await settled(page);
     await page.locator("[data-flow-area]").focus();
     await page.keyboard.press("ControlOrMeta+v");
-    await expect.poll(async () => (await readRecipe(page, w2)).steps.length).toBe(3);
+    await expect.poll(async () => (await readRecipe(page, w2)).steps.length).toBe(2);
     await expect(page.locator(`[data-node][data-kind="source"][data-name="${points}"]`)).toHaveCount(1);
     // A missing source: the node that names the vanished table pastes with the dashed tile.
     await page.goto(`/workflows/${w.id}`);
@@ -446,7 +450,7 @@ test("copy and paste: the item against the recipe, the diagonal, a second workfl
     await settled(page);
     await page.locator("[data-flow-area]").focus();
     await page.keyboard.press("ControlOrMeta+v");
-    await expect.poll(async () => (await readRecipe(page, w2)).steps.length).toBe(4);
+    await expect.poll(async () => (await readRecipe(page, w2)).steps.length).toBe(3);
     await expect(page.locator(`[data-node][data-kind="source"][data-missing][data-name="${MISSING}"]`)).toHaveCount(1);
   });
 

@@ -433,7 +433,8 @@ test("the add-to-project dialog end to end", async ({
     // the dialog stays with its selections, nothing changed.
     await api(page, "DELETE", `/api/projects/${doomed}`);
     await dialog.getByRole("button", { name: /^Add \d+ item/ }).click();
-    await expect(dialog.getByText(/No project with id/)).toBeVisible();
+    // A project the caller cannot reach answers like a missing one.
+    await expect(dialog.getByText("The requested resource was not found.", { exact: true })).toBeVisible();
     await expect(dialog).toBeVisible();
     const map2 = (await api(page, "GET", `/api/maps/${map2Id}`)) as {
       projectId: string | null;
@@ -540,9 +541,12 @@ test("the add-to-project dialog end to end", async ({
           .getByRole("checkbox"),
       ).toBeChecked();
     }
-    await expect(dialog).toContainText("Workflow · 4 datasets");
-    // The workflow never carries producers — not even its own.
-    await expect(dialog).not.toContainText("workflow · ");
+    // The workflow never carries producers — not even its own: no
+    // producers section, and the count names no workflow beside the
+    // datasets. (The destination list's project counts can name
+    // workflows; they are other projects', not this move's.)
+    await expect(dialog.locator("[data-producers]")).toHaveCount(0);
+    await expect(dialog.getByText("Workflow · 4 datasets", { exact: true })).toBeVisible();
     const currentRow = dialog.locator("label").filter({ hasText: PB }).first();
     await expect(currentRow.getByRole("radio")).toBeDisabled();
   });
@@ -627,7 +631,7 @@ test("the add-to-project dialog end to end", async ({
       .getByRole("button", { name: /^Add \d+ item/ })
       .click();
     await expect(
-      page.getByRole("dialog").getByText(/No project with id/),
+      page.getByRole("dialog").getByText("The requested resource was not found.", { exact: true }),
     ).toBeVisible();
     await page.keyboard.press("Escape");
     const wf = (await api(page, "GET", `/api/recipes/${wfId}`)) as {

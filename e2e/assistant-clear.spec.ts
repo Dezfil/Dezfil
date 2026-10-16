@@ -12,7 +12,7 @@
 import { test, expect, type Page } from "@playwright/test";
 import { assistantProviderFixture } from "./assistant-provider-fixture";
 import { assistantToolHarness, harnessTarget } from "./assistant-tool-harness";
-import { routeHouse } from "./support";
+import { mapSaveArrived, routeHouse } from "./support";
 import { api, composer, onBuilder, pane, seed, sendAndIdentify } from "./assistant-turn-support";
 
 /** Everything the page asks the instance for, from arming to disarming:
@@ -23,6 +23,9 @@ function pageRequests(page: Page) {
   const seen: string[] = [];
   const listen = (request: { url: () => string; method: () => string }) => {
     const url = new URL(request.url());
+    // The builder's card image is written on its own timer, 2.5 s after
+    // the map last drew, whatever the pane does; it is not a dispatch.
+    if (request.method() === "PUT" && /^\/api\/maps\/[^/]+\/thumbnail$/.test(url.pathname)) return;
     if (url.pathname.startsWith("/api/")) seen.push(`${request.method()} ${url.pathname}`);
   };
   page.on("request", listen);
@@ -204,7 +207,9 @@ test.describe("what clearing leaves alone", () => {
 
     // A map edit, so the undo history has a step to lose.
     const undo = page.getByRole("button", { name: /^Undo/ });
+    const zoomed = mapSaveArrived(page);
     await page.getByRole("button", { name: "Zoom in", exact: true }).click();
+    await zoomed;
     await oneTurn(page, "Say something", "Something.");
     await mapQuiet(page, mapId);
     const before = {

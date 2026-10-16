@@ -85,7 +85,8 @@ test("a project's Viewer reads the owner's datasets beside their own in the cons
       await expect(sources(other).getByRole("button", { name: roads, exact: true })).toBeVisible({ timeout: 15_000 });
       await expect(sources(other).getByRole("button", { name: `${ada.sqlName}.${roads}`, exact: true })).toHaveCount(0);
       await runSql(other, `SELECT sentinel FROM ${ada.sqlName}.${roads}`);
-      await expect(other.getByText("The query refers to an unknown table.", { exact: false })).toBeVisible({ timeout: 20_000 });
+      // The console's own error note; the assistant's context line repeats it.
+      await expect(other.getByRole("region", { name: "Results" }).getByText("The query refers to an unknown table.", { exact: false })).toBeVisible({ timeout: 20_000 });
       await expect(other.getByRole("cell", { name: "ada_roads", exact: true })).toHaveCount(0);
     });
   } finally {

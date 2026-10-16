@@ -279,7 +279,7 @@ test.describe("the message's representation, by turn identity", () => {
     expect(provider.captures).toHaveLength(1);
   });
 
-  test("a rejected unbound submission: no provider call, the reservation released, the not-started note and the draft restored", async ({ page }) => {
+  test("a rejected unbound submission: no provider call, the reservation released, the refusal's reason and the draft restored", async ({ page }) => {
     const { mapId } = await seed(page);
     await onBuilder(page, mapId);
     const released: string[] = [];
@@ -288,7 +288,10 @@ test.describe("the message's representation, by turn identity", () => {
     provider.replies.push({ text: "Never sent." });
     await composer(page).fill("Refuse me");
     await sendButton(page).click();
-    await expect(pane(page).getByText("The message wasn't started. You can send it again.", { exact: false })).toBeVisible();
+    // The route said why it refused, and that reason stands: the generic
+    // not-started note is for a submission nothing explained.
+    await expect(pane(page).getByText("The submission was refused before any work.", { exact: true })).toBeVisible();
+    await expect(pane(page).getByText("The message wasn't started.", { exact: false })).toHaveCount(0);
     await expect(composer(page)).toHaveValue("Refuse me");
     await expect(pane(page).locator("[data-turn-message]")).toHaveCount(0);
     expect(released.length, "the unused reservation was released").toBe(1);

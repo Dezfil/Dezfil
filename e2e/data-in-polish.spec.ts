@@ -35,8 +35,21 @@ const zone = (page: Page) =>
 
 async function hoverStyle(target: Locator) {
   await target.hover();
-  // Let the transition settle before reading.
-  await target.page().waitForTimeout(350);
+  // Read once the hover's own transitions have finished: a fixed wait can
+  // sample one mid-way when frames run late. Reading the running
+  // animations flushes the style, so a transition the hover just started
+  // is counted.
+  await expect
+    .poll(() =>
+      target.evaluate(
+        (el) =>
+          el
+            .getAnimations()
+            .filter((a) => a instanceof CSSTransition && a.playState === "running")
+            .length,
+      ),
+    )
+    .toBe(0);
   return target.evaluate((el) => {
     const style = window.getComputedStyle(el);
     return {
@@ -146,6 +159,9 @@ test("the zone's hover answers like the gallery ghost, both dialogs, both themes
         .getByRole("button", { name: "Switch between dark and light theme" })
         .click();
     }
+    // The ghost is the grid's first tile; the view preference is shared,
+    // and another case may have left the list.
+    await page.getByRole("button", { name: "Grid view", exact: true }).click();
     const ghost = page.getByRole("button", {
       name: "New map Start from a blank map",
     });
