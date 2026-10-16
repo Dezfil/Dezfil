@@ -17,9 +17,13 @@ import { previewOsm } from "./import";
  */
 
 /** Features the assembler handed over, the largest geometry it built for
- * one, and whether it is running now, so that a read of a raw coordinate
- * can be told apart as construction. */
-const assembled = vi.hoisted(() => ({ features: 0, widest: 0, running: false }));
+ * one and for each feature id, and whether it is running now, so that a
+ * read of a raw coordinate can be told apart as construction. Every call
+ * counts, the preview plan's own included: it asks the assembler whether
+ * a closed way's tags make it a polygon by assembling a ring of three
+ * nodes carrying them, one feature per closed way it measures, so a count
+ * of features under a small limit includes those. */
+const assembled = vi.hoisted(() => ({ features: 0, widest: 0, sizes: new Map<string, number>(), running: false }));
 vi.mock("osmtogeojson", async (original) => {
   const real = (await original<{ default: (...args: unknown[]) => unknown }>()).default;
   return {
@@ -29,8 +33,10 @@ vi.mock("osmtogeojson", async (original) => {
         if (each) {
           return real(data, options, (feature: unknown) => {
             assembled.features++;
-            const geometry = (feature as { geometry?: unknown }).geometry;
-            assembled.widest = Math.max(assembled.widest, Buffer.byteLength(JSON.stringify(geometry) ?? "", "utf8"));
+            const { id, geometry } = feature as { id?: unknown; geometry?: unknown };
+            const size = Buffer.byteLength(JSON.stringify(geometry) ?? "", "utf8");
+            assembled.widest = Math.max(assembled.widest, size);
+            assembled.sizes.set(String(id), Math.max(assembled.sizes.get(String(id)) ?? 0, size));
             each(feature);
           });
         }
@@ -50,6 +56,7 @@ afterEach(() => {
   vi.restoreAllMocks();
   assembled.features = 0;
   assembled.widest = 0;
+  assembled.sizes.clear();
   assembled.running = false;
   fetchOverpass.mockReset();
   delete process.env.DEZFIL_RENDER_CAP_BYTES;
@@ -472,5 +479,76 @@ describe("an OpenStreetMap preview of responses of every shape", () => {
         }
       }
     }
+  });
+});
+
+/**
+ * A way too large on its own that a relation the preview assembles whole
+ * also reads by reference is still assembled small: the relation reads a
+ * whole copy of it, and the answers are the ones the whole response gives.
+ */
+describe("an oversized way that a relation assembled whole also reads", () => {
+  // An area with a hole. The way runs around the hole, every node of it in
+  // the area; the relation's inner ring lies in the hole, so whether the
+  // relation lies in the area turns on its inner ring, and it is assembled
+  // whole.
+  const AREA: WithinShape = { parts: [{
+    outer: [[13.2, 52.3], [13.6, 52.3], [13.6, 52.7], [13.2, 52.7], [13.2, 52.3]],
+    holes: [[[13.39, 52.49], [13.41, 52.49], [13.41, 52.51], [13.39, 52.51], [13.39, 52.49]]],
+  }] };
+  const around = (n: number, size: number) => ring(13.4, 52.5, size, n).slice(0, -1)
+    .map(([lon, lat]): [number, number] => [Math.round(lon * 1e7) / 1e7, Math.round(lat * 1e7) / 1e7]);
+  const make = (seen: Watched) => {
+    const points = around(5000, 0.05);
+    const tags = { highway: "primary", name: "Ring road" };
+    const road = { type: "way", id: 1, nodes: points.map((_, i) => 1000 + i), geometry: watchedPath(points, seen), tags };
+    const wood = { type: "relation", id: 9, tags: { type: "multipolygon", landuse: "forest", name: "Wood" }, members: [
+      { type: "way", ref: 1, role: "outer" },
+      { type: "way", ref: 2, role: "inner", geometry: path([...around(6, 0.005), around(6, 0.005)[0]]) },
+    ] };
+    return { response: { version: 0.6, elements: [road, wood] }, tags };
+  };
+
+  it.each([
+    ["in the answer", limits.renderCapFeatures],
+    ["beyond a cap of none", 0],
+  ])("%s: the way's own line is assembled small and the answer is the one before", (_name, cap) => {
+    const before = previous(make(watching()).response, AREA, cap);
+    const seen = watching();
+    const built = make(seen);
+    watchTags(built.tags, seen);
+    const run = () => osmPreviewAnswer(built.response, PROMOTED, AREA, cap, LIMIT, () => {});
+    if (bytesOf(before) > LIMIT) expect(run).toThrow(SENTENCE);
+    else expect(JSON.stringify(run())).toBe(JSON.stringify(before));
+    // The relation, assembled whole, reads each coordinate once; the way's
+    // own line is built from a few nodes, and its tags never serialized.
+    expect(assembled.sizes.get("way/1")).toBeLessThanOrEqual(1024);
+    expect(assembled.sizes.get("relation/9")).toBeGreaterThan(LIMIT);
+    expect(seen.coordinates).toBeLessThanOrEqual(2 * 5000);
+    expect(seen.tags).toBe(0);
+  });
+
+  /** A building whose tags pass the limit, the outer way by reference of
+   * a multipolygon that fits, given with its geometry or by node elements
+   * that follow it. */
+  const building = (skeleton: boolean): Element[] => {
+    const points = around(12, 0.002);
+    const ids = [...points.map((_, i) => 5000 + i), 5000];
+    const tags = { building: "yes", note: "x".repeat(70000) };
+    const hall: Element = { type: "way", id: 1, nodes: ids, tags };
+    if (!skeleton) hall.geometry = path([...points, points[0]]);
+    const yard = { type: "relation", id: 9, tags: { type: "multipolygon", landuse: "grass", name: "Yard" }, members: [{ type: "way", ref: 1, role: "outer" }] };
+    const nodes = skeleton ? points.map(([lon, lat], i) => ({ type: "node", id: 5000 + i, lat, lon })) : [];
+    return [hall, yard, ...nodes];
+  };
+
+  it.each([["with its geometry", false], ["by node elements", true]])("a multipolygon that fits reads a whole copy of an oversized building given %s", (_name, skeleton) => {
+    const response = { version: 0.6, elements: building(skeleton as boolean) };
+    // The multipolygon comes first and fills a cap of one; the building is
+    // left out.
+    const before = previous(response, null, 1);
+    expect(before).toMatchObject({ featureCount: 1, truncated: true });
+    expect(JSON.stringify(answer(response, null, 1, LIMIT))).toBe(JSON.stringify(before));
+    expect(() => answer(response, null, 2, LIMIT)).toThrow(SENTENCE);
   });
 });

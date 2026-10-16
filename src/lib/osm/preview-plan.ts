@@ -37,16 +37,20 @@ import { pointWithin, type BuiltFeature, type WithinShape } from "./geometry";
  *   the area.
  * A way read only by stood-in features is reduced in place, keeping too
  * every node another way names and every node the assembler may draw as a
- * point of its own. A relation stood in for that reads a way a feature
- * which fits also reads gets its own reduced copy of that way; a way's
- * own line reads it whole, no larger than the feature that fits.
+ * point of its own. So is a way whose own line is stood in for: a
+ * relation that is not, and reads the way, reads a whole copy of it
+ * instead. A relation stood in for that reads a way another feature also
+ * reads gets its own reduced copy of that way.
  *
  * Assembled whole, as before: responses of a shape Overpass does not
  * write, a node whose position differs from one element to the next, a
  * feature the preview could not tell apart from another when it comes
  * back, a multipolygon drawn only from inner rings or one whose inner
  * rings alone decide whether it lies in the area, and a relation whose
- * copy would leave a way it alone marks as skipped drawn on its own.
+ * copy would leave a way it alone marks as skipped drawn on its own. A
+ * member's way that the assembler draws as a line of its own, which a
+ * relation not stood in for also reads, is read whole by that line's
+ * stand-in.
  */
 export interface PreviewPlan {
   /** The response the assembler is given. */
@@ -433,14 +437,19 @@ function marked(tags: unknown, bytes: number): Raw {
 }
 
 function standInPlan(response: unknown, model: AssemblerModel, store: NodeStore, proposed: StandIn[]): PreviewPlan {
-  // A way read only by stood-in features is reduced in place. A relation
-  // stood in for that reads a way something else also reads gets its own
-  // reduced copy instead; the way itself is then no longer marked skipped
-  // by that relation, so a relation whose way would lose its only such
-  // mark is assembled whole, which may leave further ways to copy.
+  // A way read only by stood-in features is reduced in place, and so is a
+  // way whose own line is stood in for: a relation not stood in for that
+  // reads it reads a whole copy instead. A relation stood in for that
+  // reads a way something else also reads gets its own reduced copy; the
+  // way itself is then no longer marked skipped by that relation, so a
+  // relation whose way would lose its only such mark is assembled whole,
+  // which may leave further ways to copy.
   let standIns = proposed;
   let stood = new Set<ModelFeature>();
-  const reducible = (way: TableWay) => way.users.every((user) => stood.has(user));
+  const ownLine = new Map<TableWay, ModelFeature>();
+  for (const feature of model.features) if (feature.kind === "way") ownLine.set(feature.way!, feature);
+  const reducible = (way: TableWay) =>
+    way.users.every((user) => stood.has(user)) || (way.kind === "way" && stood.has(ownLine.get(way)!));
   // Whether the relation that gives a member's way to others reads it
   // through a copy, and so gives it no longer.
   const giver = (way: TableWay) =>
@@ -483,7 +492,21 @@ function standInPlan(response: unknown, model: AssemblerModel, store: NodeStore,
   const entries = (way: TableWay, set: Set<number>, length = way.length) =>
     Array.from({ length }, (_, i) => (set.has(i) ? copyAt(way, i) : null));
 
-  // The positions each way read only by stood-in features keeps.
+  // Ids no element of the response uses, for the copies.
+  const relationKeys = new Set(model.relations.map((relation) => relation.key));
+  let unused = 0;
+  const fresh = (taken: (id: number) => boolean) => {
+    do unused--; while (taken(unused));
+    return unused;
+  };
+  const wayTaken = (id: number) => model.table.has(String(id)) || model.table.has(FULL_GEOMETRY + id);
+  const relationTaken = (id: number) => relationKeys.has(String(id));
+
+  const appended: Raw[] = [];
+  // A copy no relation marks as skipped draws a line of its own.
+  const drawn = new Set<number>();
+
+  // The positions each way reduced in place keeps.
   const kept = new Map<TableWay, Set<number>>();
   for (const [way, base] of store.base) {
     if (!reducible(way)) continue;
@@ -506,6 +529,30 @@ function standInPlan(response: unknown, model: AssemblerModel, store: NodeStore,
     }
   }
 
+  // A relation not stood in for reads a whole copy of a way reduced in
+  // place: the same nodes, given the same way, without tags, after
+  // everything the assembler would draw. Being without tags, the copy is
+  // marked skipped by the relation that reads it, or draws a line of its
+  // own that the preview leaves out; the way itself, which has a line of
+  // its own, was marked by no relation.
+  const whole = new Set<TableWay>();
+  for (const way of kept.keys()) {
+    const readers = way.users.filter((user) => !stood.has(user));
+    if (readers.length === 0) continue;
+    const id = fresh(wayTaken);
+    const copy: Raw = { type: "way", id };
+    if (way.raw.nodes !== undefined) copy.nodes = way.raw.nodes;
+    if (way.raw.geometry !== undefined) copy.geometry = way.raw.geometry;
+    appended.push(copy);
+    drawn.add(id);
+    whole.add(way);
+    for (const reader of readers) {
+      for (const { way: read, index } of reader.members) {
+        if (read === way) slotsOf(reader.relation!)[index] = [{ ...reader.relation!.members![index], ref: id }];
+      }
+    }
+  }
+
   // A node no way names any longer would be drawn as a point of its own:
   // the node elements that give it go too.
   const removed = new Set<Raw>();
@@ -513,20 +560,10 @@ function standInPlan(response: unknown, model: AssemblerModel, store: NodeStore,
     if (facts.point || facts.nodes.length === 0) continue;
     const named = [...facts.ways].some((way) => {
       const set = kept.get(way);
-      return !set || (way.raw.nodes as number[]).some((n, i) => n === id && set.has(i));
+      return !set || whole.has(way) || (way.raw.nodes as number[]).some((n, i) => n === id && set.has(i));
     });
     if (!named) for (const node of facts.nodes) removed.add(node);
   }
-
-  // Ids no element of the response uses, for the copies.
-  const relationKeys = new Set(model.relations.map((relation) => relation.key));
-  let unused = 0;
-  const fresh = (taken: (id: number) => boolean) => {
-    do unused--; while (taken(unused));
-    return unused;
-  };
-  const wayTaken = (id: number) => model.table.has(String(id)) || model.table.has(FULL_GEOMETRY + id);
-  const relationTaken = (id: number) => relationKeys.has(String(id));
 
   // The reduced copies, for every way a stood-in relation reads that is
   // not reduced in place. A copy of a way element comes last, after
@@ -536,13 +573,10 @@ function standInPlan(response: unknown, model: AssemblerModel, store: NodeStore,
   // own just ahead, with no tags and so drawing nothing, when the way is
   // skipped and its place among the ways does not matter; otherwise by
   // the area itself, under a role its rings do not read.
-  const appended: Raw[] = [];
   const before = new Map<Raw, Raw[]>();
   const given = new Set<TableWay>();
   const carriers = new Map<StandIn, Raw>();
   const areaIds = new Map<StandIn, string>();
-  // A copy no relation marks as skipped draws a line of its own.
-  const drawn = new Set<number>();
   for (const standIn of standIns) {
     const { feature, keeps } = standIn;
     const relation = feature.relation;
