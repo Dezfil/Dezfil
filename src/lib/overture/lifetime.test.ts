@@ -7,6 +7,7 @@ import { Readable } from "node:stream";
 import { ApiError, EvaluationCancelled } from "@/lib/api/errors";
 import { limits } from "@/lib/limits";
 import { currentTrustedOperation, withTrustedOperation } from "@/lib/trusted-operation";
+import { drainAccountWork } from "@/lib/auth/account-deletion-admission";
 import { closeMetadataDb } from "@/lib/metadata/db";
 import { listTables } from "@/lib/metadata/tables";
 import { testAccountScope } from "@/lib/test-support/accounts";
@@ -91,4 +92,26 @@ it("refresh preserves native memory identity and the previous artifact", async (
   conn.run.mockImplementation(async sql => { remember(); if (sql.includes("httpfs")) throw new Error("Out of Memory Error: could not allocate block"); });
   await expect(refreshTable(testAccountScope(), table.name)).rejects.toMatchObject({ code: "engine_memory_exceeded" });
   expect(listTables()[0].file).toBe(table.file); expect(await readdir(path.join(dir, "tables"))).toEqual([path.basename(table.file)]);
+});
+it("an import keeps the account's work until a removal left to its cleanup path has run", async () => {
+  const reached = Promise.withResolvers<void>(), release = Promise.withResolvers<void>();
+  let operation: ReturnType<typeof remember>, removed = false;
+  const scope = testAccountScope();
+  const work = importOverture(scope, params, async (...args) => {
+    // The build leaves a removal to the operation's cleanup path, held until released.
+    operation = remember(); operation!.defer(async () => { reached.resolve(); await release.promise; removed = true; });
+    return build(...args);
+  });
+  await reached.promise;
+  // An account deletion starts draining the account's work now.
+  let accountReleased = false; void drainAccountWork(scope.accountId!).then(() => { accountReleased = true; });
+  try {
+    await flush();
+    expect(accountReleased).toBe(false);
+  } finally { release.resolve(); }
+  expect(await work).toMatchObject({ source: "overture" });
+  await operation!.drained;
+  expect(removed).toBe(true);
+  await drainAccountWork(scope.accountId!);
+  expect(accountReleased).toBe(true);
 });

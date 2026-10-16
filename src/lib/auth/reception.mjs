@@ -77,6 +77,28 @@ export function receptionIterator(request, stops) {
   };
 }
 
+const connectionClose = Symbol("connection-close");
+/** Hears the close of a request's connection. A kept-alive connection can
+ * carry many requests at once, and a listener each would pass Node's limit
+ * of ten and log a leak warning, so the connection holds one listener that
+ * calls every request still hearing it. Returns the request's release; the
+ * last release removes the connection's listener. */
+function hearClose(socket, heard) {
+  let hearing = socket[connectionClose];
+  if (!hearing) {
+    const requests = new Set();
+    const dispatch = () => { socket[connectionClose] = undefined; for (const request of requests) request(); };
+    hearing = socket[connectionClose] = { requests, dispatch };
+    socket.once("close", dispatch);
+  }
+  hearing.requests.add(heard);
+  return () => {
+    if (!hearing.requests.delete(heard) || hearing.requests.size || socket[connectionClose] !== hearing) return;
+    socket[connectionClose] = undefined;
+    socket.removeListener("close", hearing.dispatch);
+  };
+}
+
 export function nativeUploadReception(budgetMs, remedy, onRefusal) {
   return context.getStore()?.admit(budgetMs, remedy, onRefusal);
 }
@@ -177,11 +199,11 @@ export function installReception(server, request, response, upload) {
     clearTimeout(closing);
     if (!request.listeners("error").includes(observe)) request.on("error", departed);
   };
-  socket.once("close", closed);
+  const stopHearing = hearClose(socket, closed);
   // A reused connection carries the next request: once a completely received
   // request's response finishes with no delayed close pending, accepted or
   // refused, this request no longer needs to hear the connection close.
-  response.once("finish", () => { if (bodyComplete() && closing === undefined) socket.removeListener("close", closed); });
+  response.once("finish", () => { if (bodyComplete() && closing === undefined) stopHearing(); });
   return {
     admit(budgetMs, remedy, onRefusal) {
       if (!upload) return undefined;

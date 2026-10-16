@@ -6,6 +6,7 @@ import path from "node:path";
 import { limits } from "@/lib/limits";
 import { EvaluationCancelled } from "@/lib/api/errors";
 import { currentTrustedOperation } from "@/lib/trusted-operation";
+import { drainAccountWork } from "@/lib/auth/account-deletion-admission";
 import { closeMetadataDb } from "@/lib/metadata/db";
 import { listTables } from "@/lib/metadata/tables";
 import { insertConnection, getConnection } from "@/lib/metadata/connections";
@@ -141,4 +142,26 @@ it.each(["departure", "deadline"])("a source call that finds every slot taken wa
   await expect(read()).resolves.toMatchObject({ serverVersion: "source" });
   expect(sourceCalls().map(sql => sql.split(" ")[0])).toEqual(["INSTALL", "ATTACH", "DETACH"]);
   expect(slots.state()).toEqual({ active: 0, waiting: 0 });
+});
+it("an import keeps the account's work until a removal left to its cleanup path has run", async () => {
+  const reached = Promise.withResolvers<void>(), release = Promise.withResolvers<void>();
+  let operation: ReturnType<typeof remember>, removed = false;
+  const scope = testAccountScope();
+  const work = importPostgis(scope, recipe, async (...args: Parameters<typeof build>) => {
+    // The build leaves a removal to the operation's cleanup path, held until released.
+    operation = remember(); operation!.defer(async () => { reached.resolve(); await release.promise; removed = true; });
+    return build(...args);
+  });
+  await reached.promise;
+  // An account deletion starts draining the account's work now.
+  let accountReleased = false; void drainAccountWork(scope.accountId!).then(() => { accountReleased = true; });
+  try {
+    await flush();
+    expect(accountReleased).toBe(false);
+  } finally { release.resolve(); }
+  expect(await work).toMatchObject({ source: "postgis" });
+  await operation!.drained;
+  expect(removed).toBe(true);
+  await drainAccountWork(scope.accountId!);
+  expect(accountReleased).toBe(true);
 });

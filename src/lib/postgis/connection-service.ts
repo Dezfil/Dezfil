@@ -6,10 +6,10 @@ import { requireRule } from "@/lib/auth/instance-rules";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { requireOwnedResource, resourceAbsent } from "@/lib/auth/owned-resource";
 import { metadataDb } from "@/lib/metadata/db";
-import { getConnection, insertConnection, renameConnection, updateConnection, deleteConnection } from "@/lib/metadata/connections";
+import { getConnection, insertConnection, renameConnection, updateConnection, deleteConnection, type PgConnection } from "@/lib/metadata/connections";
 import { listPostgisSnapshots } from "@/lib/metadata/tables";
 import { reachedTableProjectIds } from "@/lib/metadata/owned-tables";
-import { testConnection, browseRemoteTables } from "./access";
+import { testConnection, browseRemoteTables, type ConnectionHealth } from "./access";
 import { ConnectionInputError, connectionEndpointsEqual, resolveCreateConnectionInput, resolveUpdateConnectionInput, type ConnectionEndpoint } from "./connection-input";
 import { requireTarget } from "./import";
 import { recordConnectionFailure, recordConnectionHealth } from "./status";
@@ -28,6 +28,16 @@ export function requireConnection(scope: AccountScope, id: string) {
   const connection = getConnection(scope, id);
   if (!connection) throw resourceAbsent();
   return connection;
+}
+/** A stored connection is the answer. Recording its health and reading it
+ * back are bookkeeping after the write: a failure there is logged once and
+ * leaves the answer what was written, since an error for a stored connection
+ * would have a client retry a create that already happened. */
+function answerStored(scope: AccountScope, written: PgConnection, health: ConnectionHealth): PgConnection {
+  try { recordConnectionHealth(scope, written.id, health); }
+  catch (error) { console.warn("A stored PostGIS connection's health could not be recorded", error); }
+  try { return requireConnection(scope, written.id); }
+  catch (error) { console.warn("A stored PostGIS connection could not be read back", error); return written; }
 }
 /** Pointing a connection at another host, port or database reaches a new
  * source, as adding one does; its name, user, password and encryption do not. */
@@ -51,8 +61,7 @@ export async function createConnection(scope: AccountScope, input: unknown, sign
       return insertConnection(scope, candidate, db);
     }).immediate();
     operation.markCommitted();
-    recordConnectionHealth(scope, connection.id, health);
-    return requireConnection(scope, connection.id);
+    return answerStored(scope, connection, health);
   });
 }
 export async function editConnection(scope: AccountScope, id: string, input: unknown, signal?: AbortSignal) {
@@ -67,15 +76,16 @@ export async function editConnection(scope: AccountScope, id: string, input: unk
     }
     const health = await testConnection(values);
     const db = metadataDb();
-    db.transaction(() => {
+    const written = db.transaction(() => {
       const stored = getConnection(scope, id, db);
       if (stored && pointsElsewhere(stored, values)) requireRule(scope.accountId, "connections.create", db);
       operation.assertCanCommit();
-      updateConnection(scope, id, values, db);
+      const updated = updateConnection(scope, id, values, db);
+      if (!updated) throw resourceAbsent();
+      return updated;
     }).immediate();
     operation.markCommitted();
-    recordConnectionHealth(scope, id, health);
-    return requireConnection(scope, id);
+    return answerStored(scope, written, health);
   });
 }
 export function removeConnection(scope: AccountScope, id: string): void {

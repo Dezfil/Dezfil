@@ -227,7 +227,9 @@ export async function ingestFile(
 ): Promise<DataTable> {
   return withTrustedMutation({ kind: "import", name: "File import", signal }, async operation => {
     const deletionWork = admitAccountWork([requireAccountScope(scope)]);
-    try {
+    // The account's work is released after the operation's removals, an
+    // upload's received file among them, the last cleanup to run.
+    operation.defer(() => deletionWork.release());
     requireAccountScope(scope);
     if (provenance?.projectId) requireFilingDestination(scope, provenance.projectId);
     const format = detectFormat(originalFilename);
@@ -277,7 +279,5 @@ export async function ingestFile(
       await removeAccountFile(artifact, { force: true });
       throw error;
     }
-
-    } finally { deletionWork.release(); }
   });
 }

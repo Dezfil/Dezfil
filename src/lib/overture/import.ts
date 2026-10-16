@@ -521,7 +521,9 @@ export async function importOverture(
 ): Promise<DataTable> {
   return withTrustedMutation({ kind: "import", name: "Overture import", signal }, async operation => {
     const deletionWork = admitAccountWork([requireAccountScope(scope)]);
-    try {
+    // The account's work is released after the operation's removals, the
+    // last cleanup to run.
+    operation.defer(() => deletionWork.release());
     requireAccountScope(scope);
     const projectId = importProjectId(request.projectId);
     if (projectId) requireFilingDestination(scope, projectId);
@@ -572,7 +574,5 @@ export async function importOverture(
       await removeAccountFile(artifact, { force: true });
       throw error;
     }
-
-    } finally { deletionWork.release(); }
   });
 }

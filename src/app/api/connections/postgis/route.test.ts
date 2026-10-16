@@ -18,8 +18,11 @@ import {
   connectionPassword,
   getConnection,
   insertConnection,
+  listConnections,
   recordConnectionCheck,
 } from "@/lib/metadata/connections";
+import * as connections from "@/lib/metadata/connections";
+import * as status from "@/lib/postgis/status";
 import { ApiError } from "@/lib/api/errors";
 import { resetSecretKeyCache } from "@/lib/secrets";
 import { insertTable } from "@/lib/metadata/tables";
@@ -503,4 +506,99 @@ describe("POST /api/connections/postgis validation", () => {
     const body = (await response.json()) as { snapshots: Array<{ name: string }> };
     expect(body.snapshots.map((snapshot) => snapshot.name)).toEqual(["owned"]);
   });
+});
+
+describe("a connection whose bookkeeping fails after it is stored", () => {
+  const values = {
+    name: "City",
+    host: "db.example.org",
+    port: 5432,
+    database: "gis",
+    username: "reader",
+    password: "entered-value",
+    ssl: true,
+  };
+  const busy = () => new Error("SQLITE_BUSY: database is locked");
+
+  beforeEach(() => {
+    dir = mkdtempSync(path.join(process.cwd(), ".tmp-test-"));
+    process.env.DEZFIL_DATA_DIR = path.join(dir, "data");
+    closeMetadataDb();
+    resetSecretKeyCache();
+    testConnection.mockReset();
+    browseRemoteTables.mockReset();
+    testConnection.mockResolvedValue({
+      serverVersion: "PostgreSQL 16.4",
+      postgisVersion: "3.4.3",
+    });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    closeMetadataDb();
+    resetSecretKeyCache();
+    delete process.env.DEZFIL_DATA_DIR;
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it("answers a create whose health cannot be recorded with the stored connection, logs that once, and a retry stores no second one", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(status, "recordConnectionHealth").mockImplementation(() => {
+      throw busy();
+    });
+
+    const first = await POST(testAccountRequest(request(values)));
+    // A client retries a create whose answer was an error. Its first name
+    // is already taken by the stored connection, so it names it anew.
+    if (first.status !== 201) await POST(testAccountRequest(request({ ...values, name: "City again" })));
+
+    expect(first.status).toBe(201);
+    const stored = listConnections(testAccountScope());
+    expect(stored).toHaveLength(1);
+    expect(await first.json()).toMatchObject({ id: stored[0].id, name: "City", host: "db.example.org" });
+    expect(warn).toHaveBeenCalledOnce();
+    expect(warn).toHaveBeenCalledWith(
+      "A stored PostGIS connection's health could not be recorded",
+      expect.objectContaining({ message: expect.stringContaining("SQLITE_BUSY") }),
+    );
+  });
+
+  it.each(["its health recording", "reading it back"] as const)(
+    "answers an edit when %s fails after it is stored, with the edited values stored",
+    async (failing) => {
+      insertConnection(testAccountScope(), { id: "c1", ...values, password: "stored-value" });
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      vi.spyOn(console, "error").mockImplementation(() => {});
+      if (failing === "its health recording") {
+        vi.spyOn(status, "recordConnectionHealth").mockImplementation(() => {
+          throw busy();
+        });
+      } else {
+        const read = connections.getConnection;
+        let failed = false;
+        vi.spyOn(connections, "getConnection").mockImplementation((...args) => {
+          const found = read(...args);
+          // The first read that sees the edited row fails.
+          if (!failed && found?.host === "edited.example.org") {
+            failed = true;
+            throw busy();
+          }
+          return found;
+        });
+      }
+
+      const response = await PATCH(
+        testAccountRequest(request({ host: "edited.example.org", password: "edited-value" })),
+        { params: Promise.resolve({ id: "c1" }) },
+      );
+
+      expect(response.status).toBe(200);
+      expect(await response.json()).toMatchObject({ id: "c1", name: "City", host: "edited.example.org" });
+      expect(getConnection(testAccountScope(), "c1")).toMatchObject({ host: "edited.example.org" });
+      expect(connectionPassword(testAccountScope(), "c1")).toBe("edited-value");
+      expect(listConnections(testAccountScope())).toHaveLength(1);
+      expect(warn).toHaveBeenCalledOnce();
+    },
+  );
 });
