@@ -35,6 +35,8 @@ interface Connection {
 interface Snapshot {
   id: string;
   name: string;
+  /** The name its reader types; for the caller's own table, its name. */
+  qualifiedName: string;
   sourceFilename: null;
   format: "geoparquet";
   file: string;
@@ -72,6 +74,7 @@ const connected = (overrides: Partial<Connection> = {}): Connection => ({
 const roads = (overrides: Partial<Snapshot> = {}): Snapshot => ({
   id: "t-roads",
   name: "roads_snapshot",
+  qualifiedName: overrides.name ?? "roads_snapshot",
   sourceFilename: null,
   format: "geoparquet",
   file: "tables/roads_snapshot.parquet",
