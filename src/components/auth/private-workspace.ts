@@ -30,7 +30,16 @@ export function watchPrivateWorkspace(accountId: string, ready: (value: boolean)
     conceal(); document.title = "Dezfil"; lifetime.abort(); closePrivateState(); ready(false);
     window.location.replace(window.location.href);
   };
-  const guarded = privateFetch(accountId, window.location.origin, transport, lifetime.signal, reload);
+  /** A Back or Forward nobody keeps, or one a page let go: the document
+   * reloads at the address the browser shows. Nothing is torn down first,
+   * because a page holding unsaved work may have the browser ask before
+   * leaving, and a person who answers Stay keeps the page as it was and
+   * can still step again. The page hides as the document goes (pagehide). */
+  const traverse = () => {
+    if (stopped) return;
+    window.location.replace(window.location.href);
+  };
+  const guarded =privateFetch(accountId, window.location.origin, transport, lifetime.signal, reload);
   window.fetch = guarded;
   /** Read the session; a changed or ended account ends the document, a
    * matching one shows it and hands on the steps held for it. `hide`
@@ -71,7 +80,7 @@ export function watchPrivateWorkspace(accountId: string, ready: (value: boolean)
   // workspace's effect runs before the app router's), so it is the one
   // place a step can be stopped before the router restores a route.
   //
-  // Every step is stopped here. One nobody keeps or takes ends the
+  // Every step is stopped here. One nobody keeps or takes reloads the
   // document, so the router never starts restoring a route the reload
   // throws away. One kept or taken stays in this document, so it waits
   // for a fresh read of the session, as on focus: when the read names
@@ -85,12 +94,12 @@ export function watchPrivateWorkspace(accountId: string, ready: (value: boolean)
     const take = traversalTaker();
     const kept = !take && traversalKept();
     event.stopImmediatePropagation();
-    if (!take && !kept) { reload(); return; }
+    if (!take && !kept) { traverse(); return; }
     held.push(take ? () => take(event) : () => replay(event));
     grace ??= setTimeout(() => { grace = null; if (held.length && !stopped) conceal(); }, TRAVERSAL_GRACE_MS);
     void check(false);
   };
-  const withdraw = endTraversalsWith(reload);
+  const withdraw = endTraversalsWith(traverse);
   const channel = typeof BroadcastChannel === "undefined" ? null : new BroadcastChannel(ACCOUNT_CHANGED_EVENT);
   channel?.addEventListener("message", reload);
   window.addEventListener("storage", storage);
