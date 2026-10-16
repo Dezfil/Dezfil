@@ -120,17 +120,38 @@ async function overlapPoint(page: Page, a: string, b: string) {
 /** A click on a note where the note is on top: the preferred spot first
  * (its lower right by default), else the first of a grid over its box
  * whose top element is this note, clear of the stage, a tile, a later
- * note, the floating pane and a panel. Throws when no such spot exists. */
+ * note, the floating pane and a panel. Fails when none appears within five
+ * seconds. */
 async function noteSpot(page: Page, id: string, fx = 0.8, fy = 0.8) {
-  const box = (await noteEl(page, id).boundingBox())!;
-  const candidates = [{ x: box.x + box.width * fx, y: box.y + box.height * fy }];
-  for (let gy = 0.1; gy <= 0.9; gy += 0.1) for (let gx = 0.1; gx <= 0.9; gx += 0.1) candidates.push({ x: box.x + box.width * gx, y: box.y + box.height * gy });
-  const found = await page.evaluate(
-    ({ points, id }) => points.find((p) => document.elementFromPoint(p.x, p.y)?.closest("[data-note]")?.getAttribute("data-note-id") === id) ?? null,
-    { points: candidates, id },
-  );
-  if (!found) throw new Error(`no spot on note ${id} is clear`);
-  return found;
+  // The box is read where the points are tried, once the note has held
+  // still for two frames: a view change moves the canvas after the library
+  // measures it, and something passing over the note (a closing menu, a
+  // note being dropped) clears again. Asked again until a bound, so only a
+  // note that stays covered fails.
+  let found: { x: number; y: number } | null = null;
+  await expect
+    .poll(
+      async () =>
+        (found = await page.evaluate(
+          async ({ id, fx, fy }) => {
+            const note = document.querySelector(`[data-note][data-note-id="${id}"]`);
+            if (!note) return null;
+            const frame = () => new Promise((resolve) => requestAnimationFrame(resolve));
+            const before = note.getBoundingClientRect();
+            await frame();
+            await frame();
+            const box = note.getBoundingClientRect();
+            if (box.x !== before.x || box.y !== before.y || box.width !== before.width || box.height !== before.height) return null;
+            const points = [{ x: box.x + box.width * fx, y: box.y + box.height * fy }];
+            for (let gy = 1; gy <= 9; gy++) for (let gx = 1; gx <= 9; gx++) points.push({ x: box.x + (box.width * gx) / 10, y: box.y + (box.height * gy) / 10 });
+            return points.find((p) => document.elementFromPoint(p.x, p.y)?.closest("[data-note]")?.getAttribute("data-note-id") === id) ?? null;
+          },
+          { id, fx, fy },
+        )),
+      { message: `a clear spot on note ${id}`, timeout: 5_000 },
+    )
+    .not.toBeNull();
+  return found!;
 }
 async function clickNote(page: Page, id: string, fx = 0.8, fy = 0.8) {
   const at = await noteSpot(page, id, fx, fy);

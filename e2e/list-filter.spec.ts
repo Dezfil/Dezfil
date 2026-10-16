@@ -315,8 +315,13 @@ test("the list filter across Maps, Workflows and Data", async ({
     await expect(subline(page)).toContainText(`in ${PA}`);
     await page.reload();
     await expect(subline(page)).toContainText(`in ${PA}`);
+    // An unknown project and one the caller does not reach answer alike,
+    // so the refusal does not say which.
+    const absent = page
+      .getByRole("alert")
+      .getByText("The requested resource was not found.");
     await page.goto("/maps?project=ghost-id");
-    await expect(page.getByText(/No project with id/)).toBeVisible();
+    await expect(absent).toBeVisible();
     await expect(page.getByRole("button", { name: "Try again" })).toBeVisible();
     await expect(page.getByText(M2)).toHaveCount(0);
     await page.goto("/maps?project=");
@@ -331,7 +336,7 @@ test("the list filter across Maps, Workflows and Data", async ({
     await expect(subline(page)).toContainText(`in Doomed ${runId}`);
     await api(page, "DELETE", `/api/projects/${doomed}`);
     await page.reload();
-    await expect(page.getByText(/No project with id/)).toBeVisible();
+    await expect(absent).toBeVisible();
     await expect(page.getByText(M2)).toHaveCount(0);
   });
 
@@ -714,11 +719,11 @@ test("Data: imports under a project scope join it, said on the tile and in the d
 
     await test.step("the tile names the scope like the Maps tile (12-A)", async () => {
       // The view preference is workspace-global (the test above ends in
-      // list view): the populated presentations need the grid.
-      const gridView = async () => {
-        const grid = page.getByRole("button", { name: "Grid view", exact: true });
-        if ((await grid.count()) > 0) await grid.click();
-      };
+      // list view): the populated presentations need the grid. The view
+      // toggle renders with the screen, which can arrive after the page's
+      // load event, so the click waits for it rather than counting it.
+      const gridView = () =>
+        page.getByRole("button", { name: "Grid view", exact: true }).click();
       await page.goto(`/data?project=${pd}`);
       // Resolved-empty presentation: the project holds no dataset yet.
       await expect

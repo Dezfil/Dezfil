@@ -56,14 +56,25 @@ export class RelaySockets {
     client.socket.write("live"); expect((await client.read(4)).toString()).toBe("live");
     client.socket.destroy(); await until(() => target.active.size === 0); target.reset();
   }
-  async assertClosed(port: number) {
+  /** Refused now, or, given `withinMs`, by then: a listener that closes on
+   * its own timer at the deadline the caller answered on may still be
+   * open the instant the answer arrives. */
+  async assertClosed(port: number, withinMs = 0) {
+    const end = Date.now() + withinMs;
+    let outcome = await this.probe(port);
+    while (outcome !== "ECONNREFUSED" && Date.now() < end) {
+      await new Promise(r => setTimeout(r, 5));
+      outcome = await this.probe(port);
+    }
+    expect(outcome).toBe("ECONNREFUSED");
+  }
+  private async probe(port: number) {
     const socket = this.own(createConnection({ port, host: "127.0.0.1" }));
-    const outcome = await new Promise<string>(resolve => {
+    return await new Promise<string>(resolve => {
       const timer = setTimeout(() => { socket.destroy(); resolve("timeout"); }, 500);
       socket.once("error", (error: NodeJS.ErrnoException) => { clearTimeout(timer); resolve(error.code ?? "unknown"); });
       socket.once("connect", () => { clearTimeout(timer); socket.destroy(); resolve("connected"); });
     });
-    expect(outcome).toBe("ECONNREFUSED");
   }
   async close() {
     for (const socket of this.sockets) socket.destroy();

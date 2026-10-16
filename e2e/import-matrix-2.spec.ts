@@ -58,9 +58,13 @@ const openAddData = async (page: Page) => {
 async function openPostgisForm(page: Page) {
   const dialog = await openAddData(page);
   await dialog.getByText("PostGIS", { exact: true }).first().click();
+  // With no saved connection the pane opens on the form; with one it lists
+  // them first. Which one is known only once the pane has loaded.
+  const form = page.getByText("Connect a PostGIS database");
   const newConn = page.getByRole("button", { name: /New connection/ });
-  if (await newConn.isVisible().catch(() => false)) await newConn.click();
-  await expect(page.getByText("Connect a PostGIS database")).toBeVisible();
+  await expect(form.or(newConn).first()).toBeVisible();
+  if (await newConn.isVisible()) await newConn.click();
+  await expect(form).toBeVisible();
 }
 
 async function fillPostgisForm(
@@ -487,8 +491,10 @@ test("PostGIS: connect, browse, snapshot — real and end-to-end (live-gated)", 
     await page
       .getByRole("button", { name: "Test & save connection", exact: true })
       .click();
-    // The catalogue lists the seeded table with its geometry and rows.
-    const row = page.getByRole("button", { name: /^e2estations.*table/i });
+    // The catalogue lists the seeded table by its name and its row
+    // estimate, which reads "not analyzed" until the server has analyzed
+    // a table this new.
+    const row = page.getByRole("button", { name: /^e2estations (not analyzed|~[\d,]+ rows)$/ });
     await expect(row).toBeVisible({ timeout: 30_000 });
     await row.click();
   });
@@ -499,7 +505,8 @@ test("PostGIS: connect, browse, snapshot — real and end-to-end (live-gated)", 
       .locator("input")
       .fill(snapshotName);
     await page
-      .getByRole("button", { name: "Import e2estations" })
+      .getByRole("dialog", { name: "Add data" })
+      .getByRole("button", { name: "Import", exact: true })
       .click();
     await expect(
       page.getByRole("heading", { name: `Imported as ${snapshotName}` }),
