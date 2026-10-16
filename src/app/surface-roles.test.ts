@@ -37,7 +37,10 @@ const HAIRLINE = "1px solid var(--border)";
  * pointer, the menu's stronger edge and raised ground, and the inner
  * card's bright knob, accent mark, stronger line under the pointer and the
  * dashed line of a card that makes something new are today's values, so a
- * look can restate them. */
+ * look can restate them. A block inside a panel and a card over the map are
+ * the solid surfaces they drew before they read a role: the raised or the
+ * panel tone, the hairline, no shadow, and no blur or lens for the block,
+ * which lies on its panel. */
 const ROLES: Record<string, Record<string, string>> = {
   "glass-chrome": { fill: FILLS.glass, blur: STRENGTHS.glass, edge: "none", shadow: STEPS.float, lens: "0" },
   "glass-panel": { fill: FILLS.glass, blur: STRENGTHS.glass, edge: "none", shadow: STEPS.float, corner: "var(--radius-card)", lens: "0" },
@@ -57,6 +60,8 @@ const ROLES: Record<string, Record<string, string>> = {
     "fill-raised": "var(--bg-raised)",
   },
   dialog: { fill: "var(--bg-panel)", blur: "none", edge: HAIRLINE, shadow: STEPS.dialog, corner: "var(--radius-card)", lens: "0" },
+  block: { fill: "var(--bg-raised)", "fill-panel": "var(--bg-panel)", edge: HAIRLINE, shadow: "none" },
+  "map-card": { fill: "var(--bg-panel)", blur: "none", edge: HAIRLINE, shadow: "none", lens: "0" },
   stage: { fill: "transparent", blur: "none", edge: "none", shadow: STEPS.deep, corner: "var(--radius-card)" },
 };
 
@@ -68,6 +73,13 @@ const TOKEN_SHEETS = ["src/app/globals.css", "src/app/look.css", "src/components
 /** A tone restated off the block's scopes on purpose, with its reason. */
 const TONES_OFF_SCOPE: { file: string; element: string; why: string }[] = [
   { file: "src/app/look-paper.css", element: "body", why: "Paper's quieter lines: the roles keep the root's line, so a menu's and a dialog's edge stay as shipped" },
+];
+/** A role's part restated off the block's scopes on purpose, with its reason. */
+const PARTS_OFF_SCOPE: { file: string; element: string; parts: string[]; why: string }[] = [
+  {
+    file: "src/app/look-paper.css", element: "body", parts: ["--surface-block-edge", "--surface-map-card-edge"],
+    why: "a block's and a map card's line resolved again where Paper softens the lines, so they keep the softer line they drew",
+  },
 ];
 /** The look's stylesheets: they restate a role's parts and the fills for a
  * look, and declare nothing else of the vocabulary. */
@@ -172,7 +184,9 @@ export function vocabularyProblems(sheets: Record<string, string>): string[] {
       if (!parts.length) continue;
       for (const selector of rule.selectors) {
         const element = target(selector);
-        if (!covered(element)) problems.push(`${file}: ${selector} restates ${parts.join(", ")} on ${element}, outside the block's scopes`);
+        const named = PARTS_OFF_SCOPE.find(entry => entry.file === file && entry.element === element);
+        const off = parts.filter(part => !named?.parts.includes(part));
+        if (off.length && !covered(element)) problems.push(`${file}: ${selector} restates ${off.join(", ")} on ${element}, outside the block's scopes`);
       }
     }
   }
@@ -191,7 +205,7 @@ function stylesheets(dir: string): string[] {
 }
 
 describe("the surface vocabulary", () => {
-  it("is one block of six steps, three strengths, three fills and nine roles at their named values, on every element that restates a tone it reads", () => {
+  it("is one block of six steps, three strengths, three fills and eleven roles at their named values, on every element that restates a tone it reads", () => {
     expect(vocabularyProblems(SHEETS)).toEqual([]);
   });
 

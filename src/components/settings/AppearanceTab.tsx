@@ -4,11 +4,10 @@ import { lookChoices, normalizeLook, type Look } from "@/lib/look";
 import { Button } from "@/components/ui/Button";
 import { ErrorNote } from "@/components/ui/ErrorNote";
 import { RerunIcon } from "@/components/ui/icons";
-import { SwitchRow } from "@/components/ui/Switch";
 import { useSignedInSqlName } from "@/components/sharing/signed-in";
 import { accountRequest, failureMessage, settingsWrite } from "./api";
 import {
-  choiceLabel, LOOK_CARDS, LookReset, shownLook, unitKey, type KindsRow, type LookCard, type LookResetSnapshot, type LookSend, type PictureRow,
+  choiceLabel, LOOK_CARDS, LookReset, shownLook, unitKey, type LookCard, type LookResetSnapshot, type LookSend, type PictureRow,
 } from "./look-tab";
 import { lookSession, openLookSession, type LookSession } from "./look-session";
 import { LookPicture } from "./LookPictures";
@@ -26,9 +25,7 @@ const send: LookSend = patch => settingsWrite<{ look?: unknown }>(OWN_SETTINGS, 
 
 /**
  * Appearance: the person's look, four cards of picture rows over the
- * own-settings read and write, and under Panels, while Liquid is shown,
- * the kinds of surface it reaches as switches. A pick or a switch changes
- * the page at once (the document's root carries it, as the served page
+ * own-settings read and write. A pick changes the page at once (the document's root carries it, as the served page
  * does) and is kept at once; a refused one returns the page to what is
  * kept, even when the answer comes after the tab was left: the look's
  * writes belong to the workspace's session for the account, which the tab
@@ -118,9 +115,7 @@ function LookCardView({ card, unit, snapshot, onNewer }: { card: LookCard; unit:
   useUnitFocus(root, snapshot.focus);
   return <SettingsCard ref={root} id={card.id} title={card.title} headingId={`${card.id}-heading`}
     head={<ResetSlot unit={unit} card={snapshot} onReset={onNewer} />}>
-    <Rows>{card.rows.map(row => row.kind === "kinds"
-      ? <KindsRowView key={row.id} row={row} unit={unit} snapshot={snapshot} onNewer={onNewer} />
-      : <PictureRowView key={row.id} row={row} unit={unit} snapshot={snapshot} onNewer={onNewer} />)}</Rows>
+    <Rows>{card.rows.map(row => <PictureRowView key={row.id} row={row} unit={unit} snapshot={snapshot} onNewer={onNewer} />)}</Rows>
     {snapshot.note && <ErrorNote message={snapshot.note.message} onRetry={snapshot.note.retry ? () => unit.retry() : undefined} onDismiss={() => unit.dismiss()} />}
   </SettingsCard>;
 }
@@ -135,19 +130,3 @@ function PictureRowView({ row, unit, snapshot, onNewer }: RowProps<PictureRow>) 
   </SettingRow>;
 }
 
-/** The kinds as switches, one Saved for the row, drawn only while they are in sight. */
-function KindsRowView({ row, unit, snapshot, onNewer }: RowProps<KindsRow>) {
-  const keys = row.kinds.map(kind => unitKey(kind.key));
-  if (keys.every(key => snapshot.hidden.includes(key))) return null;
-  const error = keys.map(key => snapshot.errors[key]).find(Boolean);
-  return <SettingRow id={row.id} label={row.label} stack mark={keys.some(key => snapshot.saved.includes(key)) ? <SavedMark /> : null}>
-    <div className={styles.kinds}>
-      {row.kinds.map(kind => {
-        const key = unitKey(kind.key);
-        return <SwitchRow key={key} label={kind.label} checked={snapshot.values[key] === "on"}
-          onChange={event => { onNewer(); unit.choose(key, event.target.checked ? "on" : "off"); }} />;
-      })}
-    </div>
-    {error && <RowError id={`${row.id}-error`}>{error}</RowError>}
-  </SettingRow>;
-}

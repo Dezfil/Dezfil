@@ -81,8 +81,9 @@
   gap: 6px;
   padding: 8px 9px;
   border-radius: var(--radius);
-  border: 1px solid var(--border);
-  background: var(--bg-raised);
+  border: var(--surface-block-edge);
+  background: var(--surface-block-fill);
+  box-shadow: var(--surface-block-shadow);
 }
 
 .row {

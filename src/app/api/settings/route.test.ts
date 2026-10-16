@@ -1,19 +1,19 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm } from "node:fs/promises";
 import path from "node:path";
-import { closeMetadataDb } from "@/lib/metadata/db";
+import { closeMetadataDb, metadataDb } from "@/lib/metadata/db";
 import { GET, PATCH } from "./route";
 import { createFirstAccount } from "@/lib/auth/accounts";
 import { socketRequest } from "@/lib/assistant/testing/socket-request";
 
-let dir: string, secret: string;
+let dir: string, secret: string, accountId: string;
 const runDataDir = process.env.DEZFIL_DATA_DIR!;
 
 beforeEach(async () => {
   dir = await mkdtemp(path.join(runDataDir, "settings-"));
   process.env.DEZFIL_DATA_DIR = path.join(dir, "data");
   closeMetadataDb();
-  secret = (await createFirstAccount({ name: "Ada", email: "ada@example.test", password: "field notebooks at dawn" })).secret;
+  ({ secret, account: { id: accountId } } = await createFirstAccount({ name: "Ada", email: "ada@example.test", password: "field notebooks at dawn" }));
 });
 
 afterEach(async () => {
@@ -90,13 +90,14 @@ describe("view preferences per screen (workflows)", () => {
   });
 });
 
-describe("the look: its picks and kinds, read whole and written in part", () => {
+describe("the look: its picks, read whole and written in part", () => {
   const TODAY = {
     color: "kelp", contrast: "standard", font: "inter", background: "atlantic", corners: "rounded", rail: "hover", panels: "glass",
-    liquidChrome: "on", liquidPanels: "on", liquidMap: "on", liquidButtons: "on",
-    liquidCards: "off", liquidInner: "off", liquidMenus: "off", liquidDialogs: "off",
   };
+  const PICKS = "color, contrast, font, background, corners, rail, panels";
   type Refusal = { error: { code: string; message: string } };
+  const storedLook = () => (JSON.parse((metadataDb().prepare("SELECT view_prefs FROM account_preferences WHERE account_id = ?")
+    .get(accountId) as { view_prefs: string }).view_prefs) as Json).look;
 
   it("reads every pick at its default for an account that never picked", async () => {
     const read = (await (await get()).json()) as Json;
@@ -115,24 +116,27 @@ describe("the look: its picks and kinds, read whole and written in part", () => 
     expect(((await (await patch({ look: { color: "kelp" } })).json()) as Json).look).toEqual({ ...TODAY, rail: "icons", corners: "soft" });
   });
 
-  it("keeps Panels and the kinds like any pick, the kinds kept while Panels is not Liquid", async () => {
-    const liquid = await patch({ look: { panels: "liquid", liquidMenus: "on", liquidMap: "off" } });
-    expect(liquid.status).toBe(200);
-    expect(((await liquid.json()) as Json).look).toEqual({ ...TODAY, panels: "liquid", liquidMenus: "on", liquidMap: "off" });
+  it("keeps Panels like any pick, and reads a kind of surface an account kept from before as nothing, leaving it stored", async () => {
+    // Liquid once reached a chosen set of surfaces, each kept with the
+    // account; such a value may still be stored, and is no longer read.
+    metadataDb().prepare("UPDATE account_preferences SET view_prefs = ? WHERE account_id = ?")
+      .run(JSON.stringify({ look: { panels: "liquid", liquidMenus: "on", liquidMap: "off" } }), accountId);
+    expect(((await (await get()).json()) as Json).look).toEqual({ ...TODAY, panels: "liquid" });
     const paper = await patch({ look: { panels: "paper" } });
-    expect(((await paper.json()) as Json).look).toEqual({ ...TODAY, panels: "paper", liquidMenus: "on", liquidMap: "off" });
+    expect(paper.status).toBe(200);
+    expect(((await paper.json()) as Json).look).toEqual({ ...TODAY, panels: "paper" });
     closeMetadataDb();
-    expect(((await (await get()).json()) as Json).look).toEqual({ ...TODAY, panels: "paper", liquidMenus: "on", liquidMap: "off" });
+    expect(((await (await get()).json()) as Json).look).toEqual({ ...TODAY, panels: "paper" });
+    expect(storedLook()).toEqual({ panels: "paper", liquidMenus: "on", liquidMap: "off" });
   });
 
   it.each([
     ["a value outside the pick's choices, naming the key", { color: "teal" }, "look.color: Expected one of: kelp, harbor, heather, slate."],
     ["a null value, naming the key", { rail: null }, "look.rail: Expected one of: hover, open, icons."],
     ["a look this version does not offer, naming the key", { panels: "frosted" }, "look.panels: Expected one of: glass, liquid, paper."],
-    ["a kind outside its two choices, naming the key", { liquidMenus: "maybe" }, "look.liquidMenus: Expected one of: off, on."],
-    ["a kind written as a boolean, naming the key", { liquidChrome: true }, "look.liquidChrome: Expected one of: on, off."],
-    ["an unknown key inside the slice, by its position", { glow: "on" },
-      "look: Unknown setting at position 2. Expected one of: color, contrast, font, background, corners, rail, panels, liquidChrome, liquidPanels, liquidMap, liquidButtons, liquidCards, liquidInner, liquidMenus, liquidDialogs."],
+    ["an unknown key inside the slice, by its position", { glow: "on" }, `look: Unknown setting at position 2. Expected one of: ${PICKS}.`],
+    ["a kind of surface Liquid no longer has, as an unknown key by its position", { liquidCards: "on" },
+      `look: Unknown setting at position 2. Expected one of: ${PICKS}.`],
   ])("refuses %s, and stores nothing of a body that also changes the grouping", async (_label, look, message) => {
     expect((await patch({ look: { contrast: "more" } })).status).toBe(200);
     const before = await (await get()).json();
@@ -147,8 +151,7 @@ describe("the look: its picks and kinds, read whole and written in part", () => 
     const refused = await patch({ look: { color: "teal", [key]: value } });
     expect(refused.status).toBe(400);
     const { message } = ((await refused.json()) as Refusal).error;
-    expect(message).toBe("look.color: Expected one of: kelp, harbor, heather, slate. "
-      + "look: Unknown setting at position 2. Expected one of: color, contrast, font, background, corners, rail, panels, liquidChrome, liquidPanels, liquidMap, liquidButtons, liquidCards, liquidInner, liquidMenus, liquidDialogs.");
+    expect(message).toBe(`look.color: Expected one of: kelp, harbor, heather, slate. look: Unknown setting at position 2. Expected one of: ${PICKS}.`);
     expect(message).not.toContain(key);
     expect(message).not.toContain("sk-live");
     expect(message).not.toContain(value);

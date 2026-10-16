@@ -443,17 +443,16 @@ plus the shared instance name. Only admins may change the instance name.
 `sourceGrouping` is how the SQL console's source list groups datasets for
 the caller, `person` (their own, then each other person's) until they choose
 `project`; the read always carries it, and it is one account's alone.
-`look` is the caller's look, fifteen picks with the first choice the default:
+`look` is the caller's look, seven picks with the first choice the default:
 `color` (`kelp`, `harbor`, `heather`, `slate`), `contrast` (`standard`,
 `more`), `font` (`inter`, `system`), `background` (`atlantic`, `plain`,
 `graticule`, `hex`), `corners` (`rounded`, `soft`), `rail` (`hover`,
-`open`, `icons`), `panels` (`glass`, `liquid`, `paper`), and the eight kinds
-of surface the liquid panels reach, each `on` or `off`: `liquidChrome`,
-`liquidPanels`, `liquidMap` and `liquidButtons` (`on` first), `liquidCards`,
-`liquidInner`, `liquidMenus` and `liquidDialogs` (`off` first). The kinds
-are kept while `panels` is another choice and apply only while it is
-`liquid`. The read always carries all fifteen, a kept value this version
-no longer offers reading as its default without being rewritten; a patch
+`open`, `icons`) and `panels` (`glass`, `liquid`, `paper`); `liquid` makes
+every card and panel liquid alike. The eight `liquid…` keys an earlier
+version took are gone: a patch naming one is refused as an unknown key, and
+a value kept from then is left stored and never read. The read always
+carries all seven, a kept value this version no longer offers reading as
+its default without being rewritten; a patch
 takes any of them and leaves the rest as they are. There is no `null`: a
 pick returns to the default when its first choice is sent. Inside `look`
 nothing unknown is tolerated: a `look` that is not an object, a value outside

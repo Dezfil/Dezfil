@@ -30,9 +30,9 @@ import type { MapWidget } from "@/lib/widgets";
  * Every policy keeps result order: the automatic interaction rule slices
  * the first fields of whatever wire it runs over, and a subset in result
  * order that contains those first fields slices to the same ones. The
- * canvas lists a feature's properties in its object's key order, which
- * puts integer-like names first, so the private policy picks its
- * automatic fields in that order.
+ * private and published policies pick the automatic fields in that order
+ * too, so a builder and a reader are carried the same ones whatever the
+ * columns are named.
  */
 
 /** Automatic tooltip picks the first few properties. One constant for the
@@ -234,13 +234,27 @@ export function widensPrivateFields(
   return false;
 }
 
-/** The order the canvas lists a feature's properties in: an object's own
- * keys, integer-like names first in ascending order, then the rest as they
- * were set. */
-function wireKeyOrder(columns: string[]): string[] {
-  const keys: Record<string, true> = Object.create(null);
-  for (const column of columns) keys[column] = true;
-  return Object.keys(keys);
+/** Whether an object lists a name ahead of the names set before it, as it
+ * does an integer-like one. */
+function listedFirst(name: string): boolean {
+  return /^(0|[1-9]\d*)$/.test(name) && Number(name) < 2 ** 32 - 1;
+}
+
+/** Whether a render built under `before` shows other automatic fields than
+ * one built under `after`. The canvas lists a feature's properties
+ * integer-like names first, so such a field, carried for another reason
+ * beside the automatic ones, is shown ahead of them; once it is no longer
+ * read, a new render leaves it out and shows the field it pushed out. A
+ * field listed after the automatic ones changes nothing they show. */
+export function shiftsAutomaticFields(
+  before: PrivateFieldNeeds,
+  after: PrivateFieldNeeds,
+): boolean {
+  if (!after.automatic) return false;
+  for (const name of before.names) {
+    if (!after.names.has(name) && listedFirst(name)) return true;
+  }
+  return false;
 }
 
 /**
@@ -248,8 +262,8 @@ function wireKeyOrder(columns: string[]): string[] {
  * layer, in result order. Its style channels and labels, the filters the
  * canvas applies, the docked timeline, every widget on the layer, the
  * interaction fields (automatic ones by the existing rule, over the
- * full answer in the order the canvas lists it) and a drawn sketch's
- * identity. The published override plays no part.
+ * full answer in result order, as the published policy picks them) and a
+ * drawn sketch's identity. The published override plays no part.
  * Aggregations carry their computed columns, as on every audience.
  */
 export function privateLayerFields(
@@ -261,7 +275,7 @@ export function privateLayerFields(
   if (isAggregated(layer.viz)) return [...needs.names];
   const wanted = new Set<string>([
     ...needs.names,
-    ...(needs.automatic ? autoInteractionFields(wireKeyOrder(columns)) : []),
+    ...(needs.automatic ? autoInteractionFields(columns) : []),
     ...sketchIdentity(columns),
   ]);
   return columns.filter((c) => wanted.has(c));

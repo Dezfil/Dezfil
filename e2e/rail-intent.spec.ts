@@ -19,11 +19,19 @@
 //   width and collapses on leave, and keyboard focus expands with no
 //   dwell.
 //
-// The dwell is short, so the harness measures its own conditions rather
-// than assuming them: pages are opened to a quiet main thread, crossings
-// time their own round trips, and the watched windows must have been
-// observed continuously. A case that cannot meet its condition fails
-// naming the harness, never the rail.
+// The dwell is short, shorter than the harness takes to drive a crossing
+// on a busy machine, so the cases that time a gesture stop the page's
+// clock around it rather than racing it: a crossing then takes no page
+// time at all however long its moves take, and a rest is moved on to the
+// dwell explicitly. The dwell is a timer the page's clock owns; the
+// rail's width transition and the frames it is drawn in run on real
+// time, so a timer that fires still shows as width. The widths a gesture
+// renders are recorded by a ResizeObserver, which keeps no timer of its
+// own and so watches on while the page's clock is stopped. What is left
+// to the harness is that the rail can hear the pointer before the first
+// move, and the cases wait for that rather than for a quiet machine; a
+// case that cannot meet a condition of its own fails naming the harness,
+// never the rail.
 //
 // Environment: the documented gate (isolated server, fresh data dir).
 // Run with DEZFIL_BASE_URL at the server.
@@ -35,31 +43,21 @@ import { createMap, routeHouse, trackConsole } from "./support";
 const VIEWPORT = { width: 1440, height: 900 };
 const COLLAPSED = 54;
 const EXPANDED = 210;
-/** The dwell, stated as a setting (RailShell): the crossings below must
- * complete inside it, and each measures its own harness time against it
- * so a slow harness names itself rather than the product. */
+/** The dwell, stated as a setting (RailShell). A rest is moved on to one
+ * millisecond short of it, where the rail must still be collapsed, and
+ * then past it, where it must open. */
 const DWELL_MS = 100;
 /** A pause safely past the dwell plus the width transition. */
 const SETTLE_MS = 1100;
+/** Real time for a timer that fired to show as width: the shell's
+ * re-render, then the transition's first frames, which in headless move
+ * the width 40 to 60ms after the attribute flips and well past 100px by
+ * 80ms. */
+const SHOW_MS = 400;
 /** A point inside the left two-thirds (which end at 36px of the 54px). */
 const LEFT_ZONE_X = 18;
 /** A point inside the right third (past 36px = 2/3 of the collapsed 54px). */
 const RIGHT_THIRD_X = 44;
-/** How long after arrival the rail must still be collapsed: inside the
- * dwell with room for timer jitter, and far enough into an undwelled
- * animation that it could not still read as collapsed. Measured on a
- * seeded zero dwell: the attribute flips within 6ms of arrival but the
- * rendered width holds at 54 until the transition's first frame, 40 to
- * 60ms later in headless, and reads 109px or more by 80ms; with the real
- * dwell the width first moves at 113ms or later. */
-const ON_ENTRY_WINDOW_MS = 80;
-/** How long a crossing is watched for a flicker: past the dwell and the
- * whole expansion animation, so a timer that fired late shows too. */
-const CROSSING_WATCH_MS = 500;
-/** The widest gap a watched window may have between two samples and still
- * count as observed: a stall longer than this could hide a state change
- * behind the window's last sample. */
-const MAX_SAMPLE_GAP_MS = 20;
 
 const rail = (page: Page) =>
   page.locator('nav[aria-label="Product navigation"]');
@@ -78,32 +76,36 @@ async function expectRailWidth(page: Page, width: number) {
     .toBe(width);
 }
 
-/** Wait for the page's main thread to be quiet, measured rather than
- * assumed: while a page hydrates or a map initialises, one pointer round
- * trip can cost 40ms or more, a sweep made of such trips could not cross
- * the hot zone inside the dwell, and a stall inside a watched window
- * defers the very state change the window is meant to see. So probe
- * moves far from the rail until three trips in a row are cheap. */
-async function awaitQuiet(page: Page) {
-  const deadline = Date.now() + 10_000;
-  let quiet = 0;
-  while (quiet < 3 && Date.now() < deadline) {
-    const t = Date.now();
-    await page.mouse.move(1200, 500 + (quiet % 2));
-    quiet = Date.now() - t < 20 ? quiet + 1 : 0;
-  }
-  expect(quiet, "the page's main thread went quiet").toBe(3);
+/** Ready for the pointer: the pointer parked far from the rail, and the
+ * rail's pointer handler attached (read from the props record React keeps
+ * on the element once it has hydrated it). A move that lands before then
+ * arms nothing, and a resting pointer sends no second move, so the case
+ * would read a product that never answered. */
+async function readyForPointer(page: Page) {
+  await page.mouse.move(1200, 500);
+  await expect
+    .poll(() =>
+      rail(page).evaluate((nav) => {
+        const props = Object.keys(nav).find((k) => k.startsWith("__reactProps$"));
+        return (
+          props !== undefined &&
+          typeof (nav as unknown as Record<string, { onPointerMove?: unknown }>)[props]
+            .onPointerMove === "function"
+        );
+      }),
+    )
+    .toBe(true);
 }
 
-/** A workspace page, opened and quiet. */
+/** A workspace page, opened and ready for the pointer. */
 async function openPage(page: Page, path: string) {
   await page.goto(path);
-  await awaitQuiet(page);
+  await readyForPointer(page);
 }
 
 /** The builder: a fresh map, opened, its panel strip mounted, its map
- * canvas up, and quiet. The house route policy keeps the basemap off the
- * network. */
+ * canvas up, and ready for the pointer. The house route policy keeps the
+ * basemap off the network. */
 async function openBuilder(
   page: Page,
   context: BrowserContext,
@@ -118,125 +120,92 @@ async function openBuilder(
     page.getByRole("tablist", { name: "Builder panels" }),
   ).toBeVisible();
   await expect(page.locator("canvas").first()).toBeVisible();
-  await awaitQuiet(page);
+  await readyForPointer(page);
   return mapId;
 }
 
-type Watch = { seen: boolean; last: number; gap: number; widths: number[] };
-type Armed = Window & { __railWatch?: Promise<Watch> };
-
-/** Arm an in-page watcher on the rail: from its next pointermove, sample
- * the rail's box width every millisecond or so through `windowMs`, in
- * the page's own clock, recording the widest gap between samples. Armed
- * and awaited BEFORE the move that should trip it, so the move cannot be
- * dispatched first; collected after. */
-async function armWatch(page: Page, windowMs: number) {
-  await rail(page).evaluate((nav, windowMs) => {
-    (window as Armed).__railWatch = new Promise<Watch>((resolve) => {
-      let t0: number | null = null;
-      let prev: number | null = null;
-      let gap = 0;
-      let last = 0;
-      const widths: number[] = [];
-      nav.addEventListener(
-        "pointermove",
-        () => {
-          if (t0 === null) {
-            t0 = performance.now();
-            // Arrival is the first point of the window: the gap to the
-            // first sample counts, or a stall there would hide the whole
-            // window behind one late sample.
-            prev = t0;
-          }
-        },
-        { capture: true, once: true },
-      );
-      const started = performance.now();
-      const tick = () => {
-        const now = performance.now();
-        if (t0 !== null) {
-          last = now - t0;
-          if (prev !== null) gap = Math.max(gap, now - prev);
-          prev = now;
-          widths.push(nav.getBoundingClientRect().width);
-          if (last >= windowMs)
-            return resolve({ seen: true, last, gap, widths });
-        } else if (now - started > 3000) {
-          return resolve({ seen: false, last, gap, widths });
-        }
-        setTimeout(tick, 1);
-      };
-      tick();
-    });
-  }, windowMs);
+/** Stop the page's clock (installed by the case before it opened the
+ * page). From here no timer the page sets fires until the case moves page
+ * time on itself. The clock only moves forward, so it stops a second
+ * ahead of the page's own reading, which covers the round trip between
+ * the two; the pointer is parked off the rail, so no dwell is armed for
+ * that second to fire. */
+async function stopPageTime(page: Page) {
+  const now = await page.evaluate(() => Date.now());
+  await page.clock.pauseAt(now + 1000);
 }
 
-/** Collect the armed watcher and require that its window was actually
- * seen: the pointer arrived, the whole window elapsed, and no stall
- * inside it, from arrival on, could have hidden a state change behind
- * the last sample. */
-async function collectWatch(page: Page, windowMs: number) {
-  const { seen, last, gap, widths } = await page.evaluate(
-    () => (window as Armed).__railWatch!,
-  );
-  expect(seen, "the rail received the pointer").toBe(true);
-  expect(last, "the window after arrival was observed").toBeGreaterThanOrEqual(
-    windowMs,
-  );
-  expect(
-    gap,
-    `the window was continuously observed (widest gap ${gap.toFixed(1)}ms)`,
-  ).toBeLessThan(MAX_SAMPLE_GAP_MS);
-  return widths;
+type Watched = Window & { __railWidest?: number };
+
+/** From here on, record the widest the rail is rendered. A ResizeObserver
+ * is told every box size the rail is drawn at, with no timer of its own,
+ * so it keeps watching while the page's clock is stopped, and a widening
+ * too brief for a later read to catch is still recorded. */
+async function watchRailWidth(page: Page) {
+  await rail(page).evaluate((nav) => {
+    const w = window as Watched;
+    w.__railWidest = nav.getBoundingClientRect().width;
+    new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const width = entry.borderBoxSize[0]?.inlineSize ?? entry.contentRect.width;
+        w.__railWidest = Math.max(w.__railWidest ?? 0, width);
+      }
+    }).observe(nav);
+  });
 }
 
-/** Come to rest at (x, y) and watch the rail from the pointer's arrival
- * through `windowMs`: every sample must still be collapsed. One read
- * straight after the move cannot show a dwell — the first millisecond of
- * an animation leaves the width at 54 too — so the window is observed
- * in-page; it is well inside the dwell, and an animation with no dwell
- * is visibly wider long before it ends. */
-async function restOnAndExpectCollapsedThrough(
-  page: Page,
-  x: number,
-  y: number,
-  windowMs: number,
-) {
-  await armWatch(page, windowMs);
+const railWidest = (page: Page) =>
+  page.evaluate(() => Math.round((window as Watched).__railWidest ?? Number.NaN));
+
+/** Come to rest at (x, y) with the page's clock stopped, then move page
+ * time on to one millisecond short of the dwell: the rail has not begun
+ * to widen, whatever real time passes. The last millisecond opens it. */
+async function restAndExpectDwell(page: Page, x: number, y: number) {
+  await stopPageTime(page);
+  await watchRailWidth(page);
   await page.mouse.move(x, y);
-  const widths = await collectWatch(page, windowMs);
+  await page.clock.runFor(DWELL_MS - 1);
+  await page.waitForTimeout(SHOW_MS);
   expect(
-    Math.round(Math.max(...widths)),
-    `collapsed through ${windowMs}ms after arrival (${widths.length} samples)`,
+    await railWidest(page),
+    `collapsed through ${DWELL_MS - 1}ms of rest`,
   ).toBe(COLLAPSED);
+  await page.clock.runFor(1);
+  await expectRailWidth(page, EXPANDED);
+  await page.clock.resume();
 }
 
-/** Sweep the pointer from `from` to `to` in `steps` interpolated moves and
- * watch the rail from its first pointermove through `watchMs`: it must
- * never have been wider than collapsed. A crossing that leaves the rail
- * collapses it again on leave, so a dwell that fired mid-crossing would
- * show only as a flicker a sample taken after the sweep can miss; the
- * watcher samples through it. Each step is a round trip of its own, so
- * the sweep also times itself against the dwell. */
+/** Sweep the pointer from `from` to `to` in `steps` interpolated moves,
+ * each `stepPauseMs` of real time apart, with the page's clock stopped:
+ * for the rail the whole crossing takes no time, so its dwell cannot
+ * elapse inside it however slowly the harness moves. Then page time moves
+ * well past the dwell, where a timer the crossing armed and failed to
+ * cancel fires, and on in real time through the settle: the rail must
+ * never have been drawn wider than collapsed. */
 async function crossAndExpectNeverWider(
   page: Page,
   from: { x: number; y: number },
   to: { x: number; y: number },
   steps: number,
-  watchMs: number,
+  stepPauseMs = 0,
 ) {
   await page.mouse.move(from.x, from.y);
-  await armWatch(page, watchMs);
-  const sweepStart = Date.now();
-  await page.mouse.move(to.x, to.y, { steps });
+  await stopPageTime(page);
+  await watchRailWidth(page);
+  for (let i = 1; i <= steps; i += 1) {
+    await page.mouse.move(
+      from.x + ((to.x - from.x) * i) / steps,
+      from.y + ((to.y - from.y) * i) / steps,
+    );
+    if (stepPauseMs > 0) await page.waitForTimeout(stepPauseMs);
+  }
+  await page.clock.runFor(DWELL_MS * 10);
+  await page.waitForTimeout(SHOW_MS);
+  await page.clock.resume();
+  await page.waitForTimeout(SETTLE_MS);
   expect(
-    Date.now() - sweepStart,
-    "the harness crossed inside the dwell",
-  ).toBeLessThan(DWELL_MS);
-  const widths = await collectWatch(page, watchMs);
-  expect(
-    Math.round(Math.max(...widths)),
-    `never wider than collapsed through ${watchMs}ms after arrival`,
+    await railWidest(page),
+    "never drawn wider than collapsed, through the crossing and the settle",
   ).toBeLessThanOrEqual(COLLAPSED + 1);
 }
 
@@ -250,6 +219,7 @@ test("on the builder, a pointer crossing into the right third (the corridor) nev
   context,
 }) => {
   const consoleErrors = trackConsole(page);
+  await page.clock.install();
   await openBuilder(page, context, "Rail corridor");
   const box = await railBox(page);
   const midY = box.y + box.height / 2;
@@ -257,24 +227,17 @@ test("on the builder, a pointer crossing into the right third (the corridor) nev
   // Cross the hot zone left-to-right in one interpolated sweep and come
   // to rest in the right third, as a pointer heading for the inspector
   // card does: three steps, two of them in the zone — a hand crosses
-  // 36px in that order of time. Leaving the hot zone cancels the armed
+  // 36px well inside the dwell. Leaving the hot zone cancels the armed
   // timer; a timer that survived the exit would still fire and visibly
-  // widen the rail (expansion is state, not :hover), so the watched
-  // window and the sampling after it are what prove the cancel.
+  // widen the rail (expansion is state, not :hover), so the page time
+  // moved on after the crossing and the watch through the settle are
+  // what prove the cancel.
   await crossAndExpectNeverWider(
     page,
     { x: box.x - 8, y: midY },
     { x: box.x + COLLAPSED - 6, y: midY },
     3,
-    CROSSING_WATCH_MS,
   );
-  const start = Date.now();
-  while (Date.now() - start < SETTLE_MS) {
-    expect(Math.round((await railBox(page)).width)).toBeLessThanOrEqual(
-      COLLAPSED + 1,
-    );
-    await page.waitForTimeout(80);
-  }
 
   expect(
     consoleErrors.filter((e) => !isAllowedConsoleError(e.text, e.url)),
@@ -285,21 +248,14 @@ test("on the builder, resting on the left two-thirds expands after the dwell, ne
   page,
   context,
 }) => {
+  await page.clock.install();
   await openBuilder(page, context, "Rail hot zone");
   const box = await railBox(page);
   const midY = box.y + box.height / 2;
 
-  // Through the first stretch after entry the rail has not begun to move
-  // — entry alone must not expand it.
-  await restOnAndExpectCollapsedThrough(
-    page,
-    box.x + LEFT_ZONE_X,
-    midY,
-    ON_ENTRY_WINDOW_MS,
-  );
-
-  // Remaining there opens it.
-  await expectRailWidth(page, EXPANDED);
+  // Until the dwell has passed the rail has not begun to move — entry
+  // alone must not expand it — and remaining there opens it.
+  await restAndExpectDwell(page, box.x + LEFT_ZONE_X, midY);
 });
 
 test("on the builder, the right third never expands the rail, but its links still activate", async ({
@@ -351,7 +307,7 @@ test("on every page (run on the gallery), an expanded rail retains the pointer a
 test("on every page (run on the gallery), keyboard focus expands the rail without any pointer", async ({
   page,
 }) => {
-  // The quiet probe parks the pointer far from the rail, so only focus
+  // Opening the page parks the pointer far from the rail, so only focus
   // can expand it.
   await openPage(page, "/maps");
 
@@ -375,54 +331,43 @@ test("on every page (run on the gallery), keyboard focus expands the rail withou
 test("off the builder (the maps gallery): resting on the right third expands after the dwell, never on entry", async ({
   page,
 }) => {
+  await page.clock.install();
   await openPage(page, "/maps");
   const box = await railBox(page);
   const midY = box.y + box.height / 2;
 
-  // Through the first stretch after entry the rail has not begun to
-  // move: the wider zone changes where a rest counts, not whether it
-  // must be a rest.
-  await restOnAndExpectCollapsedThrough(
-    page,
-    box.x + RIGHT_THIRD_X,
-    midY,
-    ON_ENTRY_WINDOW_MS,
-  );
-
-  // Remaining there opens it — the reading `main` cannot give, where
-  // the right third is inert on every page.
-  await expectRailWidth(page, EXPANDED);
+  // Until the dwell has passed the rail has not begun to move: the wider
+  // zone changes where a rest counts, not whether it must be a rest.
+  // Remaining there opens it — the reading `main` cannot give, where the
+  // right third is inert on every page.
+  await restAndExpectDwell(page, box.x + RIGHT_THIRD_X, midY);
 });
 
 test("off the builder (the data explorer, reached through the rail): the right third expands after the dwell", async ({
   page,
 }) => {
+  await page.clock.install();
   await openPage(page, "/maps");
   const box = await railBox(page);
   const midY = box.y + box.height / 2;
 
   // Reach the second page the ordinary way, through the rail's own link
-  // (a client navigation); the quiet probe then parks the pointer clear
-  // of the rail, so the reading below starts from a collapsed rail with
-  // no armed dwell.
+  // (a client navigation); the pointer is then parked clear of the rail,
+  // so the reading below starts from a collapsed rail with no armed
+  // dwell.
   await rail(page).getByRole("link", { name: /data/i }).first().click();
   await expect(page).toHaveURL(/\/data/);
-  await awaitQuiet(page);
+  await readyForPointer(page);
   await expectRailWidth(page, COLLAPSED);
 
-  await restOnAndExpectCollapsedThrough(
-    page,
-    box.x + RIGHT_THIRD_X,
-    midY,
-    ON_ENTRY_WINDOW_MS,
-  );
-  await expectRailWidth(page, EXPANDED);
+  await restAndExpectDwell(page, box.x + RIGHT_THIRD_X, midY);
 });
 
 test("off the builder (the maps gallery): a pointer crossing the whole rail never expands it", async ({
   page,
 }) => {
   const consoleErrors = trackConsole(page);
+  await page.clock.install();
   await openPage(page, "/maps");
   const box = await railBox(page);
   const midY = box.y + box.height / 2;
@@ -430,22 +375,15 @@ test("off the builder (the maps gallery): a pointer crossing the whole rail neve
   // Cross the rail and LEAVE it on the far side, all inside the dwell:
   // with the whole rail hot there is no inert third to come to rest in,
   // so the crossing must exit the rail entirely, as a pointer heading
-  // for the page does. Leaving cancels the armed timer; the watched
-  // window and the sampling after it are what prove the cancel.
+  // for the page does. Leaving cancels the armed timer; the page time
+  // moved on after the crossing and the watch through the settle are
+  // what prove the cancel.
   await crossAndExpectNeverWider(
     page,
     { x: box.x - 8, y: midY },
     { x: box.x + COLLAPSED + 40, y: midY },
     4,
-    CROSSING_WATCH_MS,
   );
-  const start = Date.now();
-  while (Date.now() - start < SETTLE_MS) {
-    expect(Math.round((await railBox(page)).width)).toBeLessThanOrEqual(
-      COLLAPSED + 1,
-    );
-    await page.waitForTimeout(80);
-  }
 
   expect(
     consoleErrors.filter((e) => !isAllowedConsoleError(e.text, e.url)),
@@ -549,7 +487,7 @@ test("a navigation the rail did not start, landing on the builder while a dwell 
   // the rail's own link, and quiet.
   await rail(page).getByRole("link", { name: /maps/i }).first().click();
   await expect(page).toHaveURL(/\/maps$/);
-  await awaitQuiet(page);
+  await readyForPointer(page);
   await expectRailWidth(page, COLLAPSED);
   const box = await railBox(page);
   const x = box.x + RIGHT_THIRD_X;
@@ -583,35 +521,36 @@ test("a navigation the rail did not start, landing on the builder while a dwell 
   await expectRailWidth(page, EXPANDED);
 });
 
-test("harness: a watched window names a stall between the pointer's arrival and its first sample", async ({
+test("harness: a crossing far slower than the dwell is still a crossing for the rail, and the watch sees a widening", async ({
   page,
 }) => {
-  // the continuity guard measured gaps between samples only,
-  // so a stall after arrival but before the first sample was invisible
-  // — the watcher reported the window seen with one sample taken after
-  // the stall, and the same stall that hid the window would have
-  // postponed the animation it was meant to catch. The reproduction: a
-  // listener registered after the watcher's, so it runs once arrival is
-  // timed, blocks the main thread past the whole window. The guard must
-  // refuse that window.
+  // Under load the harness's own crossing took 220 to 251ms of real time
+  // against a 100ms dwell. With the page's clock stopped that cannot
+  // matter: here each step of the crossing is a whole dwell of real time
+  // apart, and the rail must still read it as a crossing. Were the dwell
+  // ever moved to a timer the page's clock does not own, this case fails
+  // naming the harness, not the rail.
+  await page.clock.install();
   await openPage(page, "/maps");
   const box = await railBox(page);
   const midY = box.y + box.height / 2;
-  await armWatch(page, ON_ENTRY_WINDOW_MS);
-  await rail(page).evaluate((nav, stallMs) => {
-    nav.addEventListener(
-      "pointermove",
-      () => {
-        const until = performance.now() + stallMs;
-        while (performance.now() < until) {
-          /* the seeded stall */
-        }
-      },
-      { capture: true, once: true },
-    );
-  }, ON_ENTRY_WINDOW_MS + 10);
-  await page.mouse.move(box.x + RIGHT_THIRD_X, midY);
-  await expect(collectWatch(page, ON_ENTRY_WINDOW_MS)).rejects.toThrow(
-    /continuously observed/,
+  await crossAndExpectNeverWider(
+    page,
+    { x: box.x - 8, y: midY },
+    { x: box.x + COLLAPSED + 40, y: midY },
+    4,
+    DWELL_MS,
   );
+
+  // The watch is not blind: a widening the rail did not make is recorded.
+  await watchRailWidth(page);
+  await rail(page).evaluate((nav) => {
+    nav.style.width = "120px";
+  });
+  await expect
+    .poll(() => railWidest(page), { timeout: 3000 })
+    .toBeGreaterThan(COLLAPSED + 1);
+  await rail(page).evaluate((nav) => {
+    nav.style.width = "";
+  });
 });

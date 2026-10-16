@@ -1,10 +1,10 @@
-import { LIQUID_KINDS, LOOK_ATTRIBUTES } from "@/lib/look";
+import { LOOK_ATTRIBUTES } from "@/lib/look";
 import { cornerFor, displacementField, shiftFor } from "./lens-maths";
 
 /**
- * The bend of the liquid panels: while Panels is Liquid, every surface of a
- * kind that is on pulls the backdrop in at its edge, where the browser can
- * draw it. The look's stylesheets give each role its fill, blur, light and
+ * The bend of the liquid panels: while Panels is Liquid, every surface that
+ * draws a role's blur pulls the backdrop in at its edge, where the browser
+ * can draw it. The look's stylesheets give each role its fill, blur, light and
  * shadow on the first frame in every browser; this adds what CSS cannot:
  * a displacement map baked for each surface's size, handed to it through
  * its own role's blur, so the surface's rules still decide whether that
@@ -23,37 +23,22 @@ import { cornerFor, displacementField, shiftFor } from "./lens-maths";
  * animation or transition runs on it or on what carries it, it keeps the
  * plain blur, and it takes the bend again once it has rested. Chromium
  * draws an SVG filter inside a backdrop filter; elsewhere the blur shows
- * alone, and nothing is held or watched for it. On the chrome and the map's
- * buttons the quiet inks step up to the full ink in every browser, and
- * where the bend is not drawn that is all it writes. Stopped, it takes back every property it set
- * and the filters it made, and touches nothing else.
+ * alone, and nothing is held, watched or written for it. Stopped, it takes
+ * back every property it set and the filters it made, and touches nothing
+ * else.
  */
 
-/** The roles a kind makes liquid, the word the root names the kind by, and
- * whether its quiet inks step up. The stage is the map's own frame: it has
- * no ground to bend. */
-const ROLE_OF_KIND: Readonly<Record<string, { role: string; ink: boolean }>> = {
-  chrome: { role: "glass-chrome", ink: true },
-  panels: { role: "glass-panel", ink: false },
-  map: { role: "overlay-panel", ink: false },
-  buttons: { role: "overlay-control", ink: true },
-  cards: { role: "page-card", ink: false },
-  inner: { role: "inner-card", ink: false },
-  menus: { role: "menu", ink: false },
-  dialogs: { role: "dialog", ink: false },
-};
-export interface LensRole { readonly role: string; readonly word: string; readonly ink: boolean }
-export const LENS_ROLES: readonly LensRole[] = LIQUID_KINDS.map(([, word]) => ({ word, ...ROLE_OF_KIND[word] }));
+/** The roles that bend under Liquid: every role that draws a blur. The
+ * stage is the map's own frame and the block lies inside a panel: neither
+ * has a backdrop of its own to bend. */
+export interface LensRole { readonly role: string }
+export const LENS_ROLES: readonly LensRole[] = ["glass-chrome", "glass-panel", "overlay-panel", "overlay-control",
+  "map-card", "page-card", "inner-card", "menu", "dialog"].map(role => ({ role }));
 
 /** Where the shipped look holds whatever the root's look is: an image's
  * default scope and the pictures of the picks. */
 export const LEFT_ALONE = ["[data-look-default]", "[data-picture-color]", "[data-picture-contrast]", "[data-picture-corners]", "[data-picture-panels]"];
 
-/** The quiet inks on the chrome and the map's buttons, stepped up. */
-export const INK_STEP: Readonly<Record<string, string>> = {
-  "--fg-muted": "var(--fg)",
-  "--fg-faint": "color-mix(in srgb, var(--fg) 78%, transparent)",
-};
 
 /** How long a surface rests before it takes the bend again, in ms. */
 export const SETTLE_MS = 150;
@@ -246,10 +231,10 @@ interface Tracked {
   timer: ReturnType<typeof setTimeout> | null;
 }
 
-interface RootValues { readonly words: ReadonlySet<string>; readonly blur: ReadonlyMap<string, string>; readonly lens: ReadonlyMap<string, number> }
+interface RootValues { readonly on: boolean; readonly blur: ReadonlyMap<string, string>; readonly lens: ReadonlyMap<string, number> }
 
 /**
- * Start the bend over a document. It reads the root's kinds, finds the
+ * Start the bend over a document. It reads the root's look, finds the
  * members, and keeps them as the page changes, at most once a frame.
  */
 export function startPanelLens(doc: Document = document, options: PanelLensOptions = {}): PanelLens {
@@ -263,7 +248,7 @@ export function startPanelLens(doc: Document = document, options: PanelLensOptio
    * to a size it had (a status line as its text changes) takes its map again. */
   const maps = new Map<string, string>();
   let fingerprint: string | null = null;
-  let values: RootValues = { words: new Set(), blur: new Map(), lens: new Map() };
+  let values: RootValues = { on: false, blur: new Map(), lens: new Map() };
   let defs: Element | null = null;
   let resize: ResizeObserver | null = null;
   let frame: number | null = null;
@@ -273,13 +258,13 @@ export function startPanelLens(doc: Document = document, options: PanelLensOptio
 
   function readRoot(): RootValues {
     const style = getComputedStyle(root);
-    const words = new Set(root.getAttribute("data-look-panels") === "liquid" ? (root.getAttribute("data-look-liquid") ?? "").split(/\s+/).filter(Boolean) : []);
+    const on = root.getAttribute("data-look-panels") === "liquid";
     const blur = new Map<string, string>(), lens = new Map<string, number>();
     for (const { role } of LENS_ROLES) {
       blur.set(role, style.getPropertyValue(blurToken(role)).trim());
       lens.set(role, parseFloat(style.getPropertyValue(`--surface-${role}-lens`)) || 0);
     }
-    return { words, blur, lens };
+    return { on, blur, lens };
   }
 
   function sheets(): SheetLike[] {
@@ -393,22 +378,19 @@ export function startPanelLens(doc: Document = document, options: PanelLensOptio
     }, SETTLE_MS);
   }
 
-  /** Give one member, or one carrier of a member pseudo-element, what its kind asks for now. */
+  /** Give one member, or one carrier of a member pseudo-element, what the look asks for now. */
   function place(el: Element, role: LensRole, carrier: boolean) {
     const html = el as HTMLElement;
-    if (!values.words.has(role.word) || leftAlone(el)) { release(el); return; }
+    if (!values.on || !bend || leftAlone(el)) { release(el); return; }
     let entry = tracked.get(el);
     if (entry && (entry.role !== role || entry.carrier !== carrier)) { release(el); entry = undefined; }
     const plain = values.blur.get(role.role) ?? "";
     if (carrier) {
-      if (!bend) { release(el); return; }
       entry ??= { role, carrier, set: new Map(), filter: null, rect: null, timer: null };
       tracked.set(el, entry);
       put(html, entry, blurToken(role.role), plain);
       return;
     }
-    // Where the bend is not drawn, a member has nothing but the inks to be given.
-    if (!bend && !role.ink) { release(el); return; }
     // A member draws its role's blur as it reaches it (the root's, a bent
     // surface's around it, its own); a member whose own rules draw another
     // blur right now is left alone.
@@ -420,9 +402,6 @@ export function startPanelLens(doc: Document = document, options: PanelLensOptio
       tracked.set(el, entry);
       resize?.observe(el);
     }
-    if (role.ink) for (const [name, value] of Object.entries(INK_STEP)) put(html, entry, name, value);
-    else for (const name of Object.keys(INK_STEP)) take(html, entry, name);
-    if (!bend) return;
     // Still settling: the plain blur holds until it has rested.
     if (entry.timer) return;
     if (moving(el)) { unsettle(html, entry); return; }
@@ -591,20 +570,20 @@ export function startPanelLens(doc: Document = document, options: PanelLensOptio
 
 /**
  * Keep the bend in step with the root's look: started while Panels is
- * Liquid with a kind on, looked at again when a kind or the theme changes,
- * stopped otherwise. Returns what stops it for good.
+ * Liquid, looked at again when another pick or the theme changes, stopped
+ * otherwise. Returns what stops it for good.
  */
 export function watchPanelLens(doc: Document = document, options: PanelLensOptions = {}): () => void {
   const root = doc.documentElement;
   let lens: PanelLens | null = null;
   const sync = () => {
-    const on = root.getAttribute("data-look-panels") === "liquid" && Boolean(root.getAttribute("data-look-liquid")?.trim());
+    const on = root.getAttribute("data-look-panels") === "liquid";
     if (on && lens) lens.refresh();
     else if (on) lens = startPanelLens(doc, options);
     else if (lens) { lens.stop(); lens = null; }
   };
   const observer = new MutationObserver(sync);
-  // The look's picks and the theme: a kind, a corner or a tone the bend reads.
+  // The look's picks and the theme: a corner or a tone the bend reads.
   observer.observe(root, { attributes: true, attributeFilter: [...LOOK_ATTRIBUTES, "data-theme"] });
   sync();
   return () => { observer.disconnect(); lens?.stop(); lens = null; };

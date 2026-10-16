@@ -12,10 +12,10 @@ import { describe, expect, it } from "vitest";
  */
 
 type Role =
-  | "glass-chrome" | "glass-panel" | "overlay-panel" | "overlay-control" | "stage"
-  | "page-card" | "inner-card" | "menu" | "dialog";
+  | "glass-chrome" | "glass-panel" | "overlay-panel" | "overlay-control" | "map-card" | "stage"
+  | "page-card" | "inner-card" | "block" | "menu" | "dialog";
 type Part = "fill" | "blur" | "edge" | "shadow" | "corner" | "shadow-hover" | "shadow-lifted" | "shadow-dragged"
-  | "grow" | "edge-strong" | "edge-hover" | "edge-new" | "knob" | "mark" | "fill-raised";
+  | "grow" | "edge-strong" | "edge-hover" | "edge-new" | "knob" | "mark" | "fill-raised" | "fill-panel";
 /** A member's rule, or with `state` a rule restating some of its parts in
  * a state of the member (hovered, chosen, dragged). */
 type Member = { step: number; role: Role; file: string; selector: string; parts: Part[]; what: string; state?: true };
@@ -23,10 +23,11 @@ type Member = { step: number; role: Role; file: string; selector: string; parts:
 /** The steps, in the order the roles move. */
 const STEP = {
   chrome: 4, panel: 5, overlay: 6, control: 7, stage: 8, page: 9, inner: 10, menu: 11, dialog: 12, veil: 12, wash: 12, pictures: 12,
+  block: 13, mapCard: 13,
 } as const;
 
 /** The last step whose members read their role. */
-const MOVED_THROUGH = 12;
+const MOVED_THROUGH = 13;
 
 const C = "src/components/";
 const LAYOUT = "src/app/(workspace)/layout.module.css";
@@ -50,6 +51,12 @@ const CARD: Part[] = ["fill", "edge", "shadow"];
 /** The roles with no edge: what floats as glass or over a map draws its
  * shape with the fill and the shadow alone, in every look. */
 const EDGELESS: Role[] = ["glass-chrome", "glass-panel", "overlay-panel", "overlay-control"];
+/** The roles with no blur: a block lies inside a panel, which shows it
+ * nothing but the panel's own fill to blur. */
+const BLURLESS: Role[] = ["block"];
+/** A block drawn on the raised tone, and one drawn on the panel tone. */
+const BLOCK: Part[] = ["fill", "edge", "shadow"];
+const BLOCK_PANEL: Part[] = ["fill-panel", "edge", "shadow"];
 
 /** What a member draws of its own in place of one of its role's parts, and
  * why; the rest of the role it reads, so a look reaches it there. */
@@ -198,6 +205,30 @@ export const MEMBERS: Member[] = [
   m(STEP.inner, "inner-card", C + "sql/SqlConsole.module.css", ".card", ["fill", "blur", "edge"], "a history card in the SQL pane"),
   st(STEP.inner, "inner-card", C + "sql/SqlConsole.module.css", ".card:hover", ["shadow-lifted", "edge-hover"], "a history card on hover"),
   m(STEP.inner, "inner-card", C + "SourceNav.module.css", ".source[data-active]", CHIP, "a source rail's active entry"),
+  // Block: a block inside a panel, on the raised tone or the panel tone,
+  // with the hairline and no shadow of its own today. Fields, selects,
+  // code, segmented tracks and the dashed actions that add something stay
+  // their own: a field is where a person types.
+  ...([
+    [C + "builder/StylePanel.module.css", ".segment", BLOCK_PANEL, "a visualization's tile in the inspector"],
+    [C + "builder/PaletteControl.module.css", ".head", BLOCK, "the palette's row"],
+    [C + "builder/FilterSection.module.css", ".filter", BLOCK, "a filter's card"],
+    [C + "builder/LegendTab.module.css", ".item", BLOCK, "a legend entry in the legend tab"],
+    [C + "builder/WidgetsTab.module.css", ".row", BLOCK_PANEL, "a widget's row in the widgets tab"],
+    [C + "builder/WidgetsTab.module.css", ".typeTile", BLOCK_PANEL, "a widget kind's tile"],
+    [C + "builder/BasemapPanel.module.css", ".card", BLOCK, "a basemap's card"],
+    [C + "builder/CustomBasemapSection.module.css", ".form", BLOCK, "the custom basemap's form"],
+    [C + "builder/drawer/ParameterForm.module.css", ".picker", BLOCK, "a tool's dataset picker"],
+    [C + "builder/drawer/ParameterForm.module.css", ".result", BLOCK, "a tool's result block"],
+    [C + "builder/AssistantPanel.module.css", ".user", ["fill", "shadow"], "the person's own message to the Assistant"],
+    [C + "builder/AssistantPanel.module.css", ".action", BLOCK, "an action the Assistant took"],
+    [C + "builder/AssistantPanel.module.css", ".proposal", BLOCK, "a change the Assistant proposes"],
+    [C + "builder/assistant/TalkingAbout.module.css", ".chip", BLOCK, "what the Assistant is talking about"],
+    [C + "builder/assistant/ModelPicker.module.css", ".chip", BLOCK, "the Assistant's model chip"],
+  ] as const).map(([file, selector, parts, what]) => m(STEP.block, "block", file, selector, [...parts], what)),
+  // Map card: a card floating over a map on the panel tone, with the hairline and no shadow today.
+  m(STEP.mapCard, "map-card", C + "widgets/Widgets.module.css", ".card", FULL, "a widget's card over the map"),
+  m(STEP.mapCard, "map-card", C + "widgets/Widgets.module.css", ".menu", FULL, "a widget card's menu"),
   // Menu and pop-over: what opens over something and closes. Its ground and
   // edge are read wherever the member draws the panel tone or the hairline
   // today; the stronger edge and the map's raised tooltip, popup and
@@ -261,6 +292,7 @@ export const OWN: Own[] = [
   { file: C + "workflow-canvas/WorkflowCanvas.module.css", selector: ".dragGhost", part: "edge", why: "the accent ring marks what is being dragged" },
   { file: C + "AddToMapDialog.module.css", selector: ".card, .newCard", part: "shadow", why: "a pickable card rests flat and lifts on hover" },
   { file: C + "sql/SqlConsole.module.css", selector: ".card", part: "shadow", why: "a history card rests flat and lifts on hover" },
+  { file: C + "builder/AssistantPanel.module.css", selector: ".user", part: "edge", why: "the person's own message draws no line around it" },
   ...([
     [C + "QueryAreaPicker.module.css", ".cats button[data-active], .subs button[data-active]"],
     [C + "AreaSemanticsToggle.module.css", ".seg button[data-active]"],
@@ -288,7 +320,7 @@ export const OWN: Own[] = [
  * mark or the raised fill, the edge through the stronger one, the shadow
  * through one of its states. */
 const STANDS_FOR: Record<"fill" | "blur" | "edge" | "shadow", Part[]> = {
-  fill: ["fill", "knob", "mark", "fill-raised"],
+  fill: ["fill", "knob", "mark", "fill-raised", "fill-panel"],
   blur: ["blur"],
   edge: ["edge", "edge-strong", "edge-hover", "edge-new"],
   shadow: ["shadow", "shadow-lifted", "shadow-dragged", "shadow-hover"],
@@ -297,7 +329,8 @@ const STANDS_FOR: Record<"fill" | "blur" | "edge" | "shadow", Part[]> = {
 /** The parts a member of a role a look reaches reads, or names as its own:
  * the ground, blur and shadow, and the edge where the role has one. */
 const owed = (role: Role): ("fill" | "blur" | "edge" | "shadow")[] =>
-  EDGELESS.includes(role) ? ["fill", "blur", "shadow"] : ["fill", "blur", "edge", "shadow"];
+  (EDGELESS.includes(role) ? ["fill", "blur", "shadow"] as const : ["fill", "blur", "edge", "shadow"] as const)
+    .filter(part => part !== "blur" || !BLURLESS.includes(role));
 
 /** What a member's rule misses of its role's parts; empty when it reads them
  * all or names the rest as its own. The stage, a state and a picture are
@@ -338,6 +371,7 @@ const PROPERTY: Record<Part, RegExp> = {
   knob: /^background$/,
   mark: /^background$/,
   "fill-raised": /^background$/,
+  "fill-panel": /^background$/,
 };
 
 /** The declarations of every rule written with exactly this selector list. */
@@ -427,7 +461,8 @@ describe("the members of each role", () => {
     const keys = MEMBERS.map(member => `${member.file} ${member.selector}`);
     expect(keys.filter((key, i) => keys.indexOf(key) !== i)).toEqual([]);
     // Every role has members, and the frame runs in the roles' order.
-    const roles: Role[] = ["glass-chrome", "glass-panel", "overlay-panel", "overlay-control", "stage", "page-card", "inner-card", "menu", "dialog"];
+    const roles: Role[] = ["glass-chrome", "glass-panel", "overlay-panel", "overlay-control", "map-card", "stage", "page-card", "inner-card", "block",
+      "menu", "dialog"];
     for (const role of roles) expect(MEMBERS.some(member => member.role === role), role).toBe(true);
   });
 
@@ -504,6 +539,20 @@ describe("the members of each role", () => {
       expect(value("ui/Slider.module.css", selector, "background"), selector).toBe("#fff");
       // The accent ring marks the thumb: its own edge, never a role's.
       expect(Object.fromEntries(declarations(read(C + "ui/Slider.module.css"), selector)!).border, selector).toBe("1.5px solid var(--accent)");
+    }
+  });
+
+  it("draw the blocks inside panels and the widget cards over the map from their roles at the values they had", () => {
+    if (STEP.block > MOVED_THROUGH) return;
+    // Each as it was drawn before it read a role, written out here: the raised or the panel tone, the hairline, no shadow, no blur.
+    for (const member of MEMBERS.filter(candidate => candidate.role === "block" || candidate.role === "map-card")) {
+      const drawn = Object.fromEntries(declarations(read(member.file), member.selector)!);
+      const tone = member.parts.includes("fill") && member.role === "block" ? "var(--bg-raised)" : "var(--bg-panel)";
+      expect(resolveThroughBlock(drawn.background), member.selector).toBe(tone);
+      expect(resolveThroughBlock(drawn["box-shadow"]), member.selector).toBe("none");
+      if (member.parts.includes("edge")) expect(resolveThroughBlock(drawn.border), member.selector).toBe("1px solid var(--border)");
+      if (member.role === "map-card") expect(resolveThroughBlock(drawn["backdrop-filter"]), member.selector).toBe("none");
+      else expect(drawn["backdrop-filter"], member.selector).toBeUndefined();
     }
   });
 

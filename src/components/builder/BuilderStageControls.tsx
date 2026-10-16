@@ -106,12 +106,17 @@ export function BuilderStageControls({
             onClick={() => onMapFull((f) => !f)}
           />
           {/* Draw: last in the stack, builder only — toggling opens the
-            dock and starts a session. */}
+            dock and starts a session. It waits for the map's camera: the
+            stage shows before the canvas has loaded, and the overlay
+            places every shape through the camera, so a shape drawn
+            without one was dropped unsaved and unannounced. An open
+            session can always be finished. */}
           <StageButton
             action={draw.mode.open ? "Finish drawing" : "Draw"}
             icon={<PencilIcon />}
             aria-pressed={draw.mode.open}
             data-active={draw.mode.open || undefined}
+            disabled={!draw.mode.open && drawCamera === null}
             onClick={() => (draw.mode.open ? closeDraw() : openDraw())}
           />
         </StageStack>

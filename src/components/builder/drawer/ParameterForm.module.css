@@ -150,9 +150,10 @@
   flex-direction: column;
   gap: 6px;
   padding: 6px;
-  border: 1px solid var(--border);
+  border: var(--surface-block-edge);
   border-radius: var(--radius-control);
-  background: var(--bg-raised);
+  background: var(--surface-block-fill);
+  box-shadow: var(--surface-block-shadow);
 }
 
 /* The scrolling half of Search (field round): the modes and the field
@@ -279,9 +280,10 @@
   flex-direction: column;
   gap: 10px;
   padding: 10px;
-  border: 1px solid var(--border);
+  border: var(--surface-block-edge);
   border-radius: var(--radius-control);
-  background: var(--bg-raised);
+  background: var(--surface-block-fill);
+  box-shadow: var(--surface-block-shadow);
 }
 
 /* Why Run is disabled — beside the button rather than in the error

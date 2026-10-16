@@ -184,7 +184,6 @@ const VOCABULARY = /^--(shadow|blur|fill|edge|surface)-/;
 /** What the Panels pictures draw with: the header card and the side menu
  * on the chrome's role, the card over the map on the overlay panel's. */
 const PANELS_PARTS = ["glass-chrome", "overlay-panel"].flatMap(role => ["fill", "blur", "edge", "shadow"].map(part => `--surface-${role}-${part}`));
-const EVERY_KIND = "chrome panels map buttons cards inner menus dialogs";
 
 /** A token as the browser resolves it on the root, or on a Panels picture
  * of `value` inside it, under a request or none: the vocabulary's own
@@ -205,15 +204,13 @@ function panelsToken(rules: Rule[], token: string, root: Record<string, string>,
 function panelsProblems(rules: Rule[]): string[] {
   const problems: string[] = [];
   const looks: Record<string, string>[] = [
-    {}, { "data-look-panels": "liquid", "data-look-liquid": EVERY_KIND }, { "data-look-panels": "liquid", "data-look-liquid": "cards menus" },
-    { "data-look-panels": "paper" },
+    {}, { "data-look-panels": "liquid" }, { "data-look-panels": "paper" },
   ];
   for (const theme of ["", "dark"]) for (const look of looks) for (const request of [false, true]) {
     const root = { ...look, ...(theme ? { "data-theme": theme } : {}) };
     for (const value of lookChoices("panels")) {
       const page: Record<string, string> = { ...(theme ? { "data-theme": theme } : {}) };
       if (value !== "glass") page["data-look-panels"] = value;
-      if (value === "liquid") page["data-look-liquid"] = EVERY_KIND;
       for (const token of PANELS_PARTS) {
         const shown = panelsToken(rules, token, root, request, value), expected = panelsToken(rules, token, page, request, null);
         if (shown !== expected) problems.push(`${value} under ${JSON.stringify(root)}${request ? " asked for less transparency" : ""}: ${token} is ${shown}, not ${expected}`);
@@ -231,12 +228,12 @@ describe("the Panels pictures", () => {
   it("show Glass under Liquid, and Liquid and Paper under Glass, at those looks' values", () => {
     const rules = lookRules();
     const on = (root: Record<string, string>, value: string, token: string) => panelsToken(rules, token, root, false, value);
-    const liquid = { "data-look-panels": "liquid", "data-look-liquid": EVERY_KIND };
+    const liquid = { "data-look-panels": "liquid" };
     expect(on(liquid, "glass", "--surface-glass-chrome-fill")).toBe("color-mix(in srgb, var(--bg-panel) 93%, transparent)");
     expect(on(liquid, "glass", "--surface-glass-chrome-blur")).toBe("blur(18px)");
     expect(on(liquid, "glass", "--surface-overlay-panel-shadow")).toBe("0 8px 26px var(--shadow)");
-    expect(on({}, "liquid", "--surface-glass-chrome-fill")).toBe("color-mix(in srgb, #fff 12%, var(--bg-panel) 48.4%)");
-    expect(on({}, "liquid", "--surface-glass-chrome-blur")).toBe("blur(9px)");
+    expect(on({}, "liquid", "--surface-glass-chrome-fill")).toBe("color-mix(in srgb, #fff 8%, var(--bg-panel) 82.8%)");
+    expect(on({}, "liquid", "--surface-glass-chrome-blur")).toBe("blur(24px)");
     expect(on({}, "liquid", "--surface-overlay-panel-fill")).toBe("color-mix(in srgb, #fff 8%, var(--bg-panel) 82.8%)");
     expect(on({ "data-theme": "dark" }, "liquid", "--surface-overlay-panel-fill")).toBe("color-mix(in srgb, #000 8%, var(--bg-panel) 71.76%)");
     expect(on({}, "liquid", "--surface-glass-chrome-shadow")).toMatch(/^inset 1px 1px 0 rgba\(255, 255, 255, 0\.9\), /);
@@ -250,7 +247,7 @@ describe("the Panels pictures", () => {
     const dropped = globals.replace(",\n[data-picture-panels] {", " {");
     expect(dropped).not.toBe(globals);
     expect(panelsProblems(lookRules({ "src/app/globals.css": dropped })).join("\n"))
-      .toMatch(/^glass under \{"data-look-panels":"liquid","data-look-liquid":"chrome panels map buttons cards inner menus dialogs"\}: --surface-glass-chrome-fill is color-mix\(in srgb, #fff 12%/m);
+      .toMatch(/^glass under \{"data-look-panels":"liquid"\}: --surface-glass-chrome-fill is color-mix\(in srgb, #fff 8%/m);
   });
 
   it("draw the header card, the side menu and a card over a small map in data colours, each reading its role", () => {

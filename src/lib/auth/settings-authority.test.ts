@@ -65,9 +65,7 @@ it("projects the caller and ignores submitted identity when writing only their n
     { "x-account-id": admin.account.id, "x-account-admin": "true" });
   expect(response.status).toBe(200);
   expect(await response.json()).toEqual({ displayName: "My new name", instanceName: "Field atlas", viewPrefs: { maps: { view: "grid", sort: "name" }, data: { sort: "size" } },
-    sourceGrouping: "person", look: { color: "kelp", contrast: "standard", font: "inter", background: "atlantic", corners: "rounded", rail: "hover", panels: "glass",
-      liquidChrome: "on", liquidPanels: "on", liquidMap: "on", liquidButtons: "on",
-      liquidCards: "off", liquidInner: "off", liquidMenus: "off", liquidDialogs: "off" } });
+    sourceGrouping: "person", look: { color: "kelp", contrast: "standard", font: "inter", background: "atlantic", corners: "rounded", rail: "hover", panels: "glass" } });
   expect(getAccount(admin.account.id, db)?.name).toBe("Admin");
   expect(accountViewPrefs(admin.account.id, db)).toEqual({ maps: { view: "list", sort: "name" } });
   expect(instanceName(db)).toBe("Field atlas");

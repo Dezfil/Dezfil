@@ -67,6 +67,24 @@ async function hoverStyle(target: Locator) {
 async function settledDialogBox(
   dialog: Locator,
 ): Promise<{ width: number; height: number }> {
+  // A view change resizes the dialog through its own width and height
+  // transitions, and a transition only starts moving on the page's next
+  // rendered frame. While a pane mounts its map the page can render no
+  // frame for longer than the poll below waits between reads, so two
+  // reads of the old size looked settled. Wait for the dialog's
+  // transitions to end first: reading them flushes the style, so one the
+  // view change has just created is counted, moving or not.
+  await expect
+    .poll(() =>
+      dialog.evaluate(
+        (el) =>
+          el
+            .getAnimations()
+            .filter((a) => a instanceof CSSTransition && a.playState === "running")
+            .length,
+      ),
+    )
+    .toBe(0);
   let last = "";
   await expect
     .poll(async () => {

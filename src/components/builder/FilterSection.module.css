@@ -11,9 +11,10 @@
   flex-direction: column;
   gap: 8px;
   padding: 8px 9px;
-  border: 1px solid var(--border);
+  border: var(--surface-block-edge);
   border-radius: var(--radius);
-  background: var(--bg-raised);
+  background: var(--surface-block-fill);
+  box-shadow: var(--surface-block-shadow);
 }
 
 .filterHead {

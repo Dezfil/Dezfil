@@ -2,7 +2,9 @@ import { liveFilters } from "@/lib/live-filters";
 import {
   dockedTimelineField,
   privateFieldNeeds,
+  shiftsAutomaticFields,
   widensPrivateFields,
+  type PrivateFieldNeeds,
   type PrivateMapContext,
 } from "@/lib/field-dependencies";
 import type { Layer, MapWithLayers } from "@/lib/metadata/maps";
@@ -18,12 +20,20 @@ import type { LayerRenderData } from "./render-data";
  *
  * The comparison is between the accepted state before the edit and after
  * it. A render shown for the earlier state carries what that state needed,
- * an edit that only drops needs leaves it sufficient, and one that adds a
- * need asks again, so what is shown always carries what the accepted state
- * reads once its newest answer lands.
+ * and one that adds a need asks again, so what is shown always carries what
+ * the accepted state reads once its newest answer lands. An edit that only
+ * drops needs leaves it sufficient, except where automatic interactions
+ * would show other fields over a new render: then it asks again too, so
+ * the tooltip shows what a reload would.
  */
 
 const NO_MAP: PrivateMapContext = { timeline: null, widgets: [] };
+
+/** Whether a render built under `before` no longer shows what one built
+ * under `after` would. */
+function outdated(before: PrivateFieldNeeds, after: PrivateFieldNeeds): boolean {
+  return widensPrivateFields(before, after) || shiftsAutomaticFields(before, after);
+}
 
 /** A render shown inline. A layer with no render has nothing shown to be
  * short of a field: the builder asks for every layer's first render after
@@ -33,8 +43,9 @@ function inline(render: LayerRenderData | undefined): boolean {
 }
 
 /** Whether a layer edit makes an inline layer read a field its last render
- * may lack: a style channel, a label or its priority, an interaction field
- * or automatic interactions, a filter the canvas applies. */
+ * may lack (a style channel, a label or its priority, an interaction field
+ * or automatic interactions, a filter the canvas applies), or changes what
+ * its automatic interactions show. */
 export function layerEditNeedsRender(
   before: Layer,
   after: Layer,
@@ -43,7 +54,7 @@ export function layerEditNeedsRender(
 ): boolean {
   if (!inline(render)) return false;
   const context = map ?? NO_MAP;
-  return widensPrivateFields(
+  return outdated(
     privateFieldNeeds(before, context),
     privateFieldNeeds(after, context),
   );
@@ -53,8 +64,8 @@ export function layerEditNeedsRender(
  * The layers a map edit needs to render again, in map order. A timeline
  * dock that shifts which filters the canvas applies changes the query of
  * any layer, tiled or inline; a widget or timeline edit that makes an
- * inline layer read a field its last render may lack changes what its
- * features must carry.
+ * inline layer read a field its last render may lack, or changes what its
+ * automatic interactions show, changes what its features must carry.
  */
 export function mapEditRenders(
   before: PrivateMapContext | null,
@@ -70,7 +81,7 @@ export function mapEditRenders(
       if (was.length !== is.length || was.some((filter, i) => filter !== is[i])) return true;
       return (
         inline(renders[layer.id]) &&
-        widensPrivateFields(privateFieldNeeds(layer, prior), privateFieldNeeds(layer, after))
+        outdated(privateFieldNeeds(layer, prior), privateFieldNeeds(layer, after))
       );
     })
     .map((layer) => layer.id);

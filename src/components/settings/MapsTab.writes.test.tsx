@@ -16,13 +16,18 @@ import { SAVED_HOLD_MS, SETTLE_MS } from "./save-unit";
  * the card's own check refuses never leaves the card, and nothing the card
  * sends is refused, whether the fields are typed key by key or set whole
  * with no input type (as a browser tool may set them, which the field
- * reads as steps).
+ * reads as steps). Each step is judged once every request it started has
+ * been answered and drawn, however long the route takes to answer, and a
+ * case's requests are recorded in its own list, so an answer that comes
+ * late can neither be missed by its step nor counted by the next case.
  */
 
 interface Sent { readonly method: string; readonly body: Record<string, unknown> | null; readonly status: number; readonly refusal: string | null }
 
 let fixture: ReturnType<typeof instanceSettingsFixture>;
 let sent: Sent[];
+/** The requests on their way, each settled once its answer is recorded. */
+let flights: Set<Promise<unknown>>;
 let host: ReturnType<typeof installDomHost>;
 let root: ReturnType<typeof createRoot>;
 let container: HostElement;
@@ -30,8 +35,9 @@ let container: HostElement;
 beforeEach(() => {
   fixture = instanceSettingsFixture();
   activateSettingsStore(fixture.db);
-  sent = [];
-  vi.stubGlobal("fetch", vi.fn(async (url: string, init: RequestInit = {}) => {
+  const log: Sent[] = sent = [];
+  const onTheirWay = flights = new Set<Promise<unknown>>();
+  const answer = async (url: string, init: RequestInit) => {
     const method = init.method ?? "GET";
     if (url !== "/api/instance/settings") return Response.json({ error: { code: "not_found", message: "Not found." } }, { status: 404 });
     const request = socketRequest(new Request(`http://instance.test${url}`, {
@@ -40,15 +46,25 @@ beforeEach(() => {
     }));
     const response = await (method === "PATCH" ? PATCH(request) : GET(request));
     const refusal = response.ok ? null : (await response.clone().json()).error.message as string;
-    sent.push({ method, body: init.body ? JSON.parse(String(init.body)) : null, status: response.status, refusal });
+    log.push({ method, body: init.body ? JSON.parse(String(init.body)) : null, status: response.status, refusal });
     return response;
+  };
+  vi.stubGlobal("fetch", vi.fn((url: string, init: RequestInit = {}) => {
+    const flight = answer(url, init);
+    const landed = flight.then(() => undefined, () => undefined);
+    onTheirWay.add(landed);
+    void landed.then(() => onTheirWay.delete(landed));
+    return flight;
   }));
   host = installDomHost();
   container = host.document.createElement("div");
   host.document.body.appendChild(container);
   root = createRoot(container as unknown as Element);
 });
-afterEach(() => {
+afterEach(async () => {
+  // A case that failed with a request on its way lets it land before the
+  // fixture closes, into that case's own list.
+  await act(async () => { await Promise.all([...flights]); });
   act(() => root.unmount());
   host.uninstall();
   fixture.close();
@@ -57,10 +73,19 @@ afterEach(() => {
 async function settle() {
   for (let i = 0; i < 4; i += 1) await act(async () => { await new Promise(resolve => setTimeout(resolve, 0)); });
 }
-/** Long enough for stepped numbers to settle and be sent. */
+/** Until no request is on its way and every answer has been drawn: an
+ * answer can start the card's next write, which is waited for in turn. */
+async function answered() {
+  await settle();
+  while (flights.size) {
+    await act(async () => { await Promise.all([...flights]); });
+    await settle();
+  }
+}
+/** Long enough for stepped numbers to settle, then until what they sent is answered. */
 async function settleSteps() {
   await act(async () => { await new Promise(resolve => setTimeout(resolve, SETTLE_MS + 30)); });
-  await settle();
+  await answered();
 }
 const card = (title: string) => container.querySelectorAll("section").find(section => section.querySelector("h2")?.textContent === title)!;
 const row = (label: string) => container.querySelector(`[id="${container.querySelectorAll("b").find(b => b.textContent === label)!.id.replace(/-label$/, "")}"]`)!;
@@ -100,13 +125,13 @@ describe.each([
 ] as const)("the Maps tab's requests, its fields %s", (_how, enterText) => {
   it("sends nothing for a zoom its check refuses, and nothing it sends is refused, through a locator click, a Reset and an Undo", async () => {
     await act(async () => root.render(<MapsTab />));
-    await settle();
+    await answered();
     expect(sent.map(request => [request.method, request.status])).toEqual([["GET", 200]]);
 
     // The latitude, entered and left: kept exactly.
     await enterText("Latitude", "51.5074");
     await leave("Latitude");
-    await settle();
+    await answered();
     expect(writes().map(request => request.body)).toEqual([{ "newMap.latitude": 51.5074 }]);
     expect(stored()["newMap.latitude"]).toBe(51.5074);
     expect(saved("Starting view")).toEqual(["Saved"]);
@@ -117,7 +142,7 @@ describe.each([
     // The zoom, entered as 30, then Enter, then leaving the field: refused by the card, never sent.
     await enterText("Zoom", "30");
     await enter("Zoom");
-    await settle();
+    await answered();
     await leave("Zoom");
     await settleSteps();
     expect(writes().map(request => [request.body, request.status, request.refusal])).toEqual([[{ "newMap.latitude": 51.5074 }, 200, null]]);
@@ -129,19 +154,19 @@ describe.each([
 
     // A click on the locator while the zoom field still holds 30: latitude and longitude alone.
     await clickLocator(0.75, 51.5);
-    await settle();
+    await answered();
     expect(writes().map(request => request.body).slice(1)).toEqual([{ "newMap.latitude": 51.5, "newMap.longitude": 90 }]);
     expect(field("Zoom").value).toBe("30");
     expect(row("Starting view").textContent).toContain("Zoom: Enter a number from 0 to 22.");
 
     // The card's Reset, then its Undo.
     await press(card("New maps"), "Reset to defaults");
-    await settle();
+    await answered();
     expect(writes()[2].body).toEqual({ "newMap.basemap": null, "newMap.latitude": null, "newMap.longitude": null, "newMap.zoom": null });
     expect(field("Zoom").value).toBe("1.3");
     expect(row("Starting view").textContent).not.toContain("Enter a number");
     await press(card("New maps"), "Undo");
-    await settle();
+    await answered();
     expect(writes()[3].body).toEqual({ "newMap.latitude": 51.5, "newMap.longitude": 90 });
 
     // Every request: the route accepted each, and none carried a zoom of 30.
