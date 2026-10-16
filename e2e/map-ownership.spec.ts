@@ -1,6 +1,7 @@
 import { readThenWriteRequestSetup } from "./edit-basis";
 import { randomUUID } from "node:crypto";
 import { test, expect, type BrowserContext } from "@playwright/test";
+import { expectNotFoundPage } from "./sharing-support";
 
 test("two ordinary accounts and an admin keep map lists and copied map URLs private", async ({ browser, request, baseURL }) => {
   const origin = new URL(baseURL!).origin;
@@ -60,10 +61,10 @@ test("two ordinary accounts and an admin keep map lists and copied map URLs priv
           expect(await hiddenChild.json()).toEqual(await absentChild.json());
         }
         await page.goto(`/maps/${other.id}`);
-        await expect(page.getByText("The requested resource was not found.", { exact: true })).toBeVisible();
+        await expectNotFoundPage(page);
         await expect(page.getByText(other.name, { exact: true })).toHaveCount(0);
         await page.goto("/maps/absent-map");
-        await expect(page.getByText("The requested resource was not found.", { exact: true })).toBeVisible();
+        await expectNotFoundPage(page);
         await page.goto("/maps");
       }
       for (let j = 0; j < contexts.length; j++) {

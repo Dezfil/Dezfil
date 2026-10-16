@@ -6,7 +6,7 @@
 // non-member meets none of it. Run against a fresh scratch instance.
 import { test, expect, type Page } from "@playwright/test";
 import { routeHouse } from "./support";
-import { closeAll, createMapWithLayer, createProject, expectAbsentAlike, invitePerson, NOT_FOUND, PERMISSION, runTag, share, uploadSentinel, type Person } from "./sharing-support";
+import { closeAll, createMapWithLayer, createProject, expectAbsentAlike, expectNotFoundPage, invitePerson, PERMISSION, runTag, share, uploadSentinel, type Person } from "./sharing-support";
 
 const ownerPill = (page: Page, person: Person) => page.getByRole("img", { name: `Shared by ${person.name}`, exact: true });
 
@@ -95,7 +95,7 @@ test("an Editor and a Viewer see the shared project as theirs to use, never to o
       await expectAbsentAlike(nia.api, `/api/maps/${map.id}`, "/api/maps/absent-map");
       const page = await nia.context.newPage();
       await page.goto(`/maps/${map.id}`);
-      await expect(page.getByText(NOT_FOUND, { exact: true })).toBeVisible();
+      await expectNotFoundPage(page);
       await expect(page.getByText(mapName, { exact: true })).toHaveCount(0);
       await page.goto("/maps");
       await expect(page.getByRole("button", { name: "New map", exact: true }).first()).toBeVisible();

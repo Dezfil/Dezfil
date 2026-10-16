@@ -3,10 +3,9 @@ import { captureBasis, fixtureHeaders } from "../scripts/revision-fixtures.mjs";
 // Each spec makes its own people, invited by the browser fixture's admin with
 // a tag no other spec uses, so specs share one scratch store without meeting.
 import { randomUUID } from "node:crypto";
-import { expect, type APIRequestContext, type APIResponse, type Browser, type BrowserContext } from "@playwright/test";
+import { expect, type APIRequestContext, type APIResponse, type Browser, type BrowserContext, type Page } from "@playwright/test";
 
 export const PASSWORD = "field notebooks at dawn";
-export const NOT_FOUND = "The requested resource was not found.";
 export const PERMISSION = { error: { code: "forbidden", message: "You can view this but cannot make this change." } };
 
 export interface Person {
@@ -16,6 +15,13 @@ export interface Person {
   sqlName: string;
   context: BrowserContext;
   api: APIRequestContext;
+}
+
+/** The workspace's page for an address it cannot show. Another account's
+ * map or workflow gets the same page as one that does not exist. */
+export async function expectNotFoundPage(page: Page): Promise<void> {
+  await expect(page.getByRole("heading", { name: "Page not found", exact: true })).toBeVisible();
+  await expect(page.getByText("Nothing is at this address.", { exact: true })).toBeVisible();
 }
 
 /** A tag for this spec's run: its people, projects and datasets carry it. */

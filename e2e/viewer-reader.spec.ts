@@ -9,7 +9,7 @@ import { readThenWriteRequestSetup } from "./edit-basis";
 // against a fresh scratch instance.
 import { test, expect, type Page, type Request } from "@playwright/test";
 import { routeHouse } from "./support";
-import { closeAll, createMapWithLayer, createProject, invitePerson, NOT_FOUND, PERMISSION, runTag, share, uploadSentinel, type Person } from "./sharing-support";
+import { closeAll, createMapWithLayer, createProject, expectNotFoundPage, invitePerson, PERMISSION, runTag, share, uploadSentinel, type Person } from "./sharing-support";
 
 const WRITES = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 /** Every request the page sends that could change something on the server. */
@@ -123,7 +123,7 @@ test("a Viewer reads the shared map and workflow and can change nothing", async 
       const page = await nia.context.newPage();
       for (const url of [`/maps/${map.id}`, `/workflows/${recipe}`]) {
         await page.goto(url);
-        await expect(page.getByText(NOT_FOUND, { exact: true })).toBeVisible();
+        await expectNotFoundPage(page);
         await expect(page.getByText(mapName, { exact: true })).toHaveCount(0);
       }
     });
