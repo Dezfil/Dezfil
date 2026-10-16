@@ -2,8 +2,7 @@
    the gallery's card with the operation colour in its strip, an outline
    while open, its pane at the end of the row, and its row in the list. */
 
-.folder .strip,
-.strip {
+.folder .strip {
   background: color-mix(in srgb, var(--source-operation) 9%, var(--bg-raised));
 }
 

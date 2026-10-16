@@ -354,7 +354,7 @@
   height: 18px;
 }
 
-.stopRemove:disabled {
+.editorRow .stopRemove:disabled {
   opacity: 0.4;
 }
 

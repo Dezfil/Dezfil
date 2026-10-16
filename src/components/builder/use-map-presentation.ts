@@ -36,6 +36,7 @@ import type { QuerySliderDraft } from "./use-query-slider-preview";
 import { useBuilderWidgets } from "./use-builder-widgets";
 import { useCameraState } from "./use-camera-state";
 import { useLegendLayers } from "./use-legend-layers";
+import { draftedStyle } from "./style-draft";
 import { useLiveFilters } from "./use-live-filters";
 
 /**
@@ -196,9 +197,13 @@ export function useMapPresentation({
     setBottomCornerEl(node);
     setBottomLeftEl(node);
   }, []);
+  const [bottomRightCornerEl, setBottomRightEl] = useState<HTMLElement | null>(
+    null,
+  );
   const setBottomRightCornerEl = useCallback((node: HTMLElement | null) => {
     setBottomCornerEl(node);
     setLegendCandidateEl(node);
+    setBottomRightEl(node);
   }, []);
   // A docked bottom-right candidate is the hidden corner itself. Its lift
   // only repositions that probe for placement measurement; the visible
@@ -217,7 +222,7 @@ export function useMapPresentation({
       const preview = sliderDrafts[l.id];
       const appearance = appearanceDrafts[l.id];
       const viz = appearance?.viz ?? preview?.viz ?? l.viz;
-      const layerStyle = appearance?.style ?? l.style;
+      const layerStyle = draftedStyle(l.style, appearance);
       const tiles =
         !preview &&
         r?.ok && r.mode === "tiled" && r.tiles?.state === "ready" && r.tiles.url
@@ -393,6 +398,9 @@ export function useMapPresentation({
     /** The lower-left corner, a legend's when one stands there: the
      * status pill keeps clear of it too. */
     bottomLeftCornerEl,
+    /** The lower-right corner, above the credit: the pill keeps clear of a
+     * legend standing there as well. */
+    bottomRightCornerEl,
     statusChannel,
     statusPillHidden,
   };

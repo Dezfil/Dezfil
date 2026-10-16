@@ -50,6 +50,7 @@ npm run lint:stage-edge # nothing development-only reaches a production build
 npm run lint:wheelhouse # the design system's vocabulary
 npm run lint:tokens
 npm run lint:icons
+npm run lint:class-pairs # no tie between two stylesheets left to load order
 npm run lint:specimen   # the design specimen page is regenerated
 npm run lint:plugin     # the shipped plugin manifests
 ```

@@ -52,7 +52,7 @@ import { SETTING_CATALOGUE } from "./catalogue";
  * query. Here one is set from the page, by the variable, through the
  * generated tool and through the embedded assistant, and then searched for
  * in everything the server says or keeps afterwards. A save refuses a
- * template carrying user information (no browser loads tiles from it), so
+ * template carrying user information (no imagery is drawn from it), so
  * the template's key is saved in its path and query, its user information
  * given on each of those roads and refused, and set by the variable alone,
  * which carries it to every sink the template reaches (the reads, the
@@ -550,9 +550,9 @@ describe("a service address carrying a key", () => {
     const failed = await ask("POST", "/api/instance/services/geocode/test");
     expect(failed.body, failed.text).toMatchObject({ service: "geocode", result: "failed", reason: "status", status: 503 });
     searched("a failed Test's answer", failed.text);
-    // The tile template's key in its user information too, by the variable:
-    // a save refuses it there.
-    vi.stubEnv(VARIABLE.satelliteUrl, address("satelliteUrl", { fault: "down", user: true }));
+    // The tile template's key in its path and query, by the variable: one
+    // in its user information is refused before any request (below).
+    vi.stubEnv(VARIABLE.satelliteUrl, address("satelliteUrl", { fault: "down" }));
     try {
       const imageryDown = await ask("POST", "/api/instance/services/satellite/test");
       expect(imageryDown.body, imageryDown.text).toMatchObject({ service: "satellite", result: "failed", reason: "status", status: 503 });
@@ -678,7 +678,10 @@ describe("a service address carrying a key", () => {
       searched("the locked refusal", locked.text);
       for (const service of ["geocode", "satellite"]) {
         const tested = await ask("POST", `/api/instance/services/${service}/test`);
-        expect(tested.body, tested.text).toMatchObject({ service, result: "passed" });
+        // The tile template carries user information, so its Test is refused as a save is, sending nothing.
+        expect(tested.body, tested.text).toEqual(service === "satellite"
+          ? { service, result: "failed", reason: "refused", message: USER_INFORMATION_REFUSED }
+          : { service, result: "passed", milliseconds: expect.any(Number) });
         searched(`a ${service} Test under the variable`, tested.text);
       }
       const { view } = await run("geocode_addresses", { input: "addresses", column: "address", name: "located_by_variable" });
@@ -717,9 +720,17 @@ describe("a service address carrying a key", () => {
   });
 
   it("the imagery style for a signed-in request alone, naming the instance's tile address and none of the template, refused to an anonymous one; a publication of a map on Satellite assembled afresh", async () => {
-    // The tile template's key in all three places, by the variable: a save
-    // refuses its user information.
+    // The tile template's key in its user information too, by the variable
+    // (a save refuses it there): such a template counts as no imagery, so
+    // no style is served for it, and its answer holds none of the key.
     vi.stubEnv(VARIABLE.satelliteUrl, address("satelliteUrl", { user: true }));
+    try {
+      const none = await ask("GET", SATELLITE_STYLE_URL);
+      expect(none.status, none.text).toBe(404);
+      searched("the imagery style's answer for a template with user information", none.text);
+    } finally { vi.stubEnv(VARIABLE.satelliteUrl, undefined); }
+    // The key in the template's path and query, by the variable.
+    vi.stubEnv(VARIABLE.satelliteUrl, address("satelliteUrl"));
     try {
       const style = await ask("GET", SATELLITE_STYLE_URL);
       expect(style.status, style.text).toBe(200);

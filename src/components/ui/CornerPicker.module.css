@@ -3,31 +3,39 @@
    reference: variant D ("Quadrant tiles") of the
    the corner-picker options deck. */
 
-.frame {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 7px;
-  width: 100%;
+@layer base, kit;
+
+@layer kit {
+  .frame {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 7px;
+    width: 100%;
+  }
 }
 
-.corner {
-  position: relative;
-  height: 44px;
-  padding: 0;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--bg-panel);
-  cursor: pointer;
-  transition: var(--dur-micro);
+@layer kit {
+  .corner {
+    position: relative;
+    height: 44px;
+    padding: 0;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--bg-panel);
+    cursor: pointer;
+    transition: var(--dur-micro);
+  }
 }
 
-.pip {
-  position: absolute;
-  width: 12px;
-  height: 9px;
-  border-radius: var(--radius-sm);
-  background: var(--border-strong);
-  transition: var(--dur-micro);
+@layer kit {
+  .pip {
+    position: absolute;
+    width: 12px;
+    height: 9px;
+    border-radius: var(--radius-sm);
+    background: var(--border-strong);
+    transition: var(--dur-micro);
+  }
 }
 
 .pip[data-corner="top-left"] {

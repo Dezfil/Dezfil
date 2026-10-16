@@ -504,8 +504,8 @@ of them: the fifteen Limits numbers; the services' eight numbers
 `overpassTimeoutS` and `overpassCacheHours`, in their variables' units; the four
 service addresses `geocoderUrl`, `isochroneUrl`, `overpassUrl` and
 `s3Endpoint`; the satellite imagery's tile address `satelliteUrl`, which must
-hold `{z}`, `{x}` and `{y}` and carry no user name or password (a browser cannot
-load tiles from such an address, so the key belongs in the path or the query,
+hold `{z}`, `{x}` and `{y}` and carry no user name or password (the imagery is
+not drawn from such an address, so the key belongs in the path or the query,
 and the refusal says so), and its credit `satelliteAttribution`, at most 160
 characters; the five basemap switches `basemaps.dark`, `basemaps.light`,
 `basemaps.streets`, `basemaps.satellite` and `basemaps.singleMapStyles`, each
@@ -616,7 +616,9 @@ refused with 409 `templates_catalogue_off` and sends nothing.
 It answers `{ service, result: "passed", milliseconds }`, Overture
 `{ service, result: "passed", releases, newest }`, the template catalogue
 `{ service, result: "passed", templates, milliseconds }`, or `result: "failed"` with
-one `reason`: `not_set_up`, `refused` (with the check's sentence as `message`),
+one `reason`: `not_set_up`, `refused` (with the refusal's sentence as `message`:
+the egress check's, or for a satellite tile template carrying a user name or
+password the one a save refuses it with, nothing sent),
 `unreachable`, `timed_out`, `status` (with the `status` answered) or
 `unexpected_answer`; never a body, an address or a key. It changes no setting
 and reads or writes no cache, except that the Overture Test keeps the release
@@ -746,7 +748,10 @@ failure upstream answers `imagery_unavailable` (502, or 504 past the time
 limit), whose message says what went wrong and never the tile address or its
 key; where the egress policy refused the imagery's address, at its host or at
 a redirect, the 502 carries `X-Dezfil-Egress-Refused: imagery`, which an image
-export reads to refuse its image rather than make it without the imagery. With no imagery configured the styles and the tiles answer 404. Every
+export reads to refuse its image rather than make it without the imagery. With no imagery configured the styles and the tiles answer 404; a tile
+template carrying a user name or password counts as none for the styles and
+the basemap offer, while a signed-in tile request answers it with
+`imagery_unavailable` without asking it. Every
 answer is private, no-store. None of the four is a tool: an agent reads the
 basemap offer from `GET /api/config`.
 

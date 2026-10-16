@@ -374,8 +374,14 @@
 /* wheelhouse:feed tokens-surface end */
 
 /* --- reset --- */
-*, *::before, *::after { box-sizing: border-box; }
-* { margin: 0; padding: 0; }
+/* The app's cascade layers, in its order: the element resets sit in
+   `base`, under the kit's own single-class rules in `kit`, as they do in
+   src/app/globals.css, so the fed kit below draws as it ships. */
+@layer base, kit;
+@layer base {
+  *, *::before, *::after { box-sizing: border-box; }
+  * { margin: 0; padding: 0; }
+}
 html { scroll-behavior: smooth; }
 body {
   background: var(--bg);
@@ -394,13 +400,17 @@ body {
 ::selection { background: color-mix(in srgb, var(--accent) 30%, transparent); }
 a { color: var(--accent); text-decoration: none; }
 a:hover { color: var(--accent-bright); }
-button { font: inherit; color: inherit; background: none; border: none; cursor: pointer; }
+@layer base {
+  button { font: inherit; color: inherit; background: none; border: none; cursor: pointer; }
+}
 /* The next three are copied from the app's own global reset in
    src/app/globals.css, values included — the page shows the focus ring and
    the scrollbar the product actually renders. Their 2px and 5px are the
    shipped ones and stay off the radius family here on purpose; every radius
    the page invents for itself is on family below. */
-:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 2px; } /* wheelhouse:allow — copied verbatim from src/app/globals.css: the page shows the ring and scrollbar the product renders */
+@layer base {
+  :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 2px; } /* wheelhouse:allow — copied verbatim from src/app/globals.css: the page shows the ring and scrollbar the product renders */
+}
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 5px; border: 2px solid var(--bg); } /* wheelhouse:allow — copied verbatim from src/app/globals.css: the page shows the ring and scrollbar the product renders */
 ::-webkit-scrollbar-track { background: transparent; }
@@ -817,18 +827,24 @@ code, .mono { font-family: var(--font-mono); }
 /* --- AsyncState.module.css (fed verbatim, namespaced) --- */
 /* The four states, presented. */
 
-.kit-asyncstate-pending {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0;
-  color: var(--fg-muted);
-  font-size: var(--text-label);
+@layer base, kit;
+
+@layer kit {
+  .kit-asyncstate-pending {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    color: var(--fg-muted);
+    font-size: var(--text-label);
+  }
 }
 
-.kit-asyncstate-empty {
-  color: var(--fg-muted);
-  font-size: var(--text-label);
+@layer kit {
+  .kit-asyncstate-empty {
+    color: var(--fg-muted);
+    font-size: var(--text-label);
+  }
 }
 
 /* --- Button.module.css (fed verbatim, namespaced) --- */
@@ -836,20 +852,24 @@ code, .mono { font-family: var(--font-mono); }
    flat accent — beside secondary, quiet and destructive, in the two
    ratified size tiers. Everything here is on rulebook tokens. */
 
-.kit-button-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  flex-shrink: 0;
-  border-radius: var(--radius);
-  font-family: var(--font-ui);
-  font-weight: 600;
-  white-space: nowrap;
-  transition:
-    background var(--dur-micro) ease,
-    color var(--dur-micro) ease,
-    border-color var(--dur-micro) ease;
+@layer base, kit;
+
+@layer kit {
+  .kit-button-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    flex-shrink: 0;
+    border-radius: var(--radius);
+    font-family: var(--font-ui);
+    font-weight: 600;
+    white-space: nowrap;
+    transition:
+      background var(--dur-micro) ease,
+      color var(--dur-micro) ease,
+      border-color var(--dur-micro) ease;
+  }
 }
 
 /* Size tiers. Chrome is the app's 38px metric; compact is the dense
@@ -930,31 +950,39 @@ code, .mono { font-family: var(--font-mono); }
    reference: variant D ("Quadrant tiles") of the
    the corner-picker options deck. */
 
-.kit-cornerpicker-frame {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 7px;
-  width: 100%;
+@layer base, kit;
+
+@layer kit {
+  .kit-cornerpicker-frame {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 7px;
+    width: 100%;
+  }
 }
 
-.kit-cornerpicker-corner {
-  position: relative;
-  height: 44px;
-  padding: 0;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--bg-panel);
-  cursor: pointer;
-  transition: var(--dur-micro);
+@layer kit {
+  .kit-cornerpicker-corner {
+    position: relative;
+    height: 44px;
+    padding: 0;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--bg-panel);
+    cursor: pointer;
+    transition: var(--dur-micro);
+  }
 }
 
-.kit-cornerpicker-pip {
-  position: absolute;
-  width: 12px;
-  height: 9px;
-  border-radius: var(--radius-sm);
-  background: var(--border-strong);
-  transition: var(--dur-micro);
+@layer kit {
+  .kit-cornerpicker-pip {
+    position: absolute;
+    width: 12px;
+    height: 9px;
+    border-radius: var(--radius-sm);
+    background: var(--border-strong);
+    transition: var(--dur-micro);
+  }
 }
 
 .kit-cornerpicker-pip[data-corner="top-left"] {
@@ -1001,37 +1029,43 @@ code, .mono { font-family: var(--font-mono); }
    and card for themselves; this is the one they share. Entrance is on the
    motion family. */
 
-.kit-dialog-scrim {
-  position: fixed;
-  inset: 0;
-  z-index: 120;
-  display: grid;
-  place-items: center;
-  padding: 24px;
-  background: var(--fill-veil);
-  backdrop-filter: var(--blur-veil);
-  animation: scrim-in var(--dur-entrance) ease backwards;
+@layer base, kit;
+
+@layer kit {
+  .kit-dialog-scrim {
+    position: fixed;
+    inset: 0;
+    z-index: 120;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+    background: var(--fill-veil);
+    backdrop-filter: var(--blur-veil);
+    animation: scrim-in var(--dur-entrance) ease backwards;
+  }
 }
 
-.kit-dialog-dialog {
-  width: min(760px, 100%);
-  max-height: min(560px, calc(100vh - 48px));
-  display: flex;
-  overflow: hidden;
-  border-radius: var(--radius-card);
-  border: var(--surface-dialog-edge);
-  background: var(--surface-dialog-fill);
-  backdrop-filter: var(--surface-dialog-blur);
-  box-shadow: var(--surface-dialog-shadow);
-  /* The one intentional suppression in the app: this container
-     takes programmatic focus on open as the modality anchor — it is not
-     an interactive control, and a ring here would dress the whole card.
-     Every control inside keeps the global focus-visible ring. */
-  outline: none;
-  animation: dialog-in var(--dur-entrance) var(--ease-panel) backwards;
-  transition:
-    width 0.25s var(--ease-panel),
-    height 0.25s var(--ease-panel);
+@layer kit {
+  .kit-dialog-dialog {
+    width: min(760px, 100%);
+    max-height: min(560px, calc(100vh - 48px));
+    display: flex;
+    overflow: hidden;
+    border-radius: var(--radius-card);
+    border: var(--surface-dialog-edge);
+    background: var(--surface-dialog-fill);
+    backdrop-filter: var(--surface-dialog-blur);
+    box-shadow: var(--surface-dialog-shadow);
+    /* The one intentional suppression in the app: this container
+       takes programmatic focus on open as the modality anchor — it is not
+       an interactive control, and a ring here would dress the whole card.
+       Every control inside keeps the global focus-visible ring. */
+    outline: none;
+    animation: dialog-in var(--dur-entrance) var(--ease-panel) backwards;
+    transition:
+      width 0.25s var(--ease-panel),
+      height 0.25s var(--ease-panel);
+  }
 }
 
 @keyframes scrim-in {
@@ -1053,18 +1087,22 @@ code, .mono { font-family: var(--font-mono); }
    felt debug-grade. A human sentence leads; anything
    technical is collapsed behind a disclosure. */
 
-.kit-errornote-note {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  padding: 9px 10px;
-  border-radius: var(--radius);
-  border: 1px solid color-mix(in srgb, var(--danger) 35%, transparent);
-  background: var(--danger-dim);
-  color: var(--danger);
-  font-family: var(--font-ui);
-  font-size: var(--text-label);
-  line-height: 1.5;
+@layer base, kit;
+
+@layer kit {
+  .kit-errornote-note {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 9px 10px;
+    border-radius: var(--radius);
+    border: 1px solid color-mix(in srgb, var(--danger) 35%, transparent);
+    background: var(--danger-dim);
+    color: var(--danger);
+    font-family: var(--font-ui);
+    font-size: var(--text-label);
+    line-height: 1.5;
+  }
 }
 
 .kit-errornote-note[data-tone="warn"] {
@@ -1073,22 +1111,28 @@ code, .mono { font-family: var(--font-mono); }
   color: var(--warn);
 }
 
-.kit-errornote-body {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+@layer kit {
+  .kit-errornote-body {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
 }
 
-.kit-errornote-message {
-  margin: 0;
+@layer kit {
+  .kit-errornote-message {
+    margin: 0;
+  }
 }
 
-.kit-errornote-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+@layer kit {
+  .kit-errornote-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
 }
 
 /* The disclosure. Closed by default: the engine's words are for the reader
@@ -1118,23 +1162,27 @@ code, .mono { font-family: var(--font-mono); }
   transform: rotate(90deg);
 }
 
-.kit-errornote-detailText {
-  margin-top: 6px;
-  padding: 7px 8px;
-  border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--fg) 6%, transparent);
-  color: var(--fg-muted);
-  font-family: var(--font-mono);
-  font-size: var(--text-meta);
-  line-height: 1.5;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
+@layer kit {
+  .kit-errornote-detailText {
+    margin-top: 6px;
+    padding: 7px 8px;
+    border-radius: var(--radius-sm);
+    background: color-mix(in srgb, var(--fg) 6%, transparent);
+    color: var(--fg-muted);
+    font-family: var(--font-mono);
+    font-size: var(--text-meta);
+    line-height: 1.5;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
 }
 
-.kit-errornote-dismiss {
-  flex: none;
-  margin: -1px -2px 0 0;
-  color: inherit;
+@layer kit {
+  .kit-errornote-dismiss {
+    flex: none;
+    margin: -1px -2px 0 0;
+    color: inherit;
+  }
 }
 
 /* --- Field.module.css (fed verbatim, namespaced) --- */
@@ -1143,17 +1191,21 @@ code, .mono { font-family: var(--font-mono); }
    global :focus-visible ring is never suppressed — the 28 local
    `outline: none` rules are what this replaces. */
 
-.kit-field-field {
-  width: 100%;
-  min-width: 0;
-  padding: 0 9px;
-  color: var(--fg);
-  background: var(--bg-panel);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  font-family: var(--font-ui);
-  font-size: var(--text-label);
-  transition: border-color var(--dur-micro) ease;
+@layer base, kit;
+
+@layer kit {
+  .kit-field-field {
+    width: 100%;
+    min-width: 0;
+    padding: 0 9px;
+    color: var(--fg);
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-family: var(--font-ui);
+    font-size: var(--text-label);
+    transition: border-color var(--dur-micro) ease;
+  }
 }
 
 .kit-field-field[data-size="chrome"] {
@@ -1199,14 +1251,16 @@ select.kit-field-field {
    semantics, keyboard and form behaviour untouched — and a drawn box
    stands in for its OS artwork. */
 
-.kit-field-check {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-  cursor: pointer;
-  color: var(--fg);
-  font-size: var(--text-label);
+@layer kit {
+  .kit-field-check {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    cursor: pointer;
+    color: var(--fg);
+    font-size: var(--text-label);
+  }
 }
 
 .kit-field-check[data-disabled="true"] {
@@ -1214,37 +1268,43 @@ select.kit-field-field {
   color: var(--fg-muted);
 }
 
-.kit-field-checkWrap {
-  position: relative;
-  display: inline-flex;
-  flex: none;
-  width: 15px;
-  height: 15px;
+@layer kit {
+  .kit-field-checkWrap {
+    position: relative;
+    display: inline-flex;
+    flex: none;
+    width: 15px;
+    height: 15px;
+  }
 }
 
 /* The real control, invisible but present: it keeps the pointer target,
    the keyboard behaviour and the accessibility tree. */
-.kit-field-checkInput {
-  position: absolute;
-  inset: 0;
-  margin: 0;
-  opacity: 0;
-  cursor: inherit;
+@layer kit {
+  .kit-field-checkInput {
+    position: absolute;
+    inset: 0;
+    margin: 0;
+    opacity: 0;
+    cursor: inherit;
+  }
 }
 
-.kit-field-checkBox {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  border: 1.5px solid var(--border-strong);
-  border-radius: var(--radius-sm);
-  background: var(--bg-panel);
-  color: transparent;
-  transition:
-    background var(--dur-micro) ease,
-    border-color var(--dur-micro) ease,
-    color var(--dur-micro) ease;
+@layer kit {
+  .kit-field-checkBox {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    border: 1.5px solid var(--border-strong);
+    border-radius: var(--radius-sm);
+    background: var(--bg-panel);
+    color: transparent;
+    transition:
+      background var(--dur-micro) ease,
+      border-color var(--dur-micro) ease,
+      color var(--dur-micro) ease;
+  }
 }
 
 .kit-field-checkInput:checked + .kit-field-checkBox {
@@ -1290,27 +1350,31 @@ select.kit-field-field {
 /* The one tooltip's bubble: the treatment the layer-card
    hints established, floated free of any clipping host. */
 
-.kit-hintlayer-bubble {
-  position: fixed;
-  /* Above every surface a hint can serve — dialogs included (their
-     scrim sits at 120; the smoke caught the bubble painting underneath
-     it). A tooltip that loses a stacking fight is invisible exactly
-     where a disabled reason needs it. */
-  z-index: 200;
-  max-width: 340px;
-  background: var(--bg-hover);
-  backdrop-filter: var(--surface-menu-blur);
-  color: var(--fg);
-  font-family: var(--font-ui);
-  font-size: 11px;
-  font-weight: 500;
-  line-height: 1.35;
-  padding: 5px 8px;
-  border: var(--surface-menu-edge-strong);
-  border-radius: var(--radius-sm);
-  box-shadow: var(--surface-menu-shadow);
-  pointer-events: none;
-  animation: hint-in var(--dur-micro) ease;
+@layer base, kit;
+
+@layer kit {
+  .kit-hintlayer-bubble {
+    position: fixed;
+    /* Above every surface a hint can serve — dialogs included (their
+       scrim sits at 120; the smoke caught the bubble painting underneath
+       it). A tooltip that loses a stacking fight is invisible exactly
+       where a disabled reason needs it. */
+    z-index: 200;
+    max-width: 340px;
+    background: var(--bg-hover);
+    backdrop-filter: var(--surface-menu-blur);
+    color: var(--fg);
+    font-family: var(--font-ui);
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 1.35;
+    padding: 5px 8px;
+    border: var(--surface-menu-edge-strong);
+    border-radius: var(--radius-sm);
+    box-shadow: var(--surface-menu-shadow);
+    pointer-events: none;
+    animation: hint-in var(--dur-micro) ease;
+  }
 }
 
 .kit-hintlayer-bubble[data-above] {
@@ -1344,17 +1408,21 @@ select.kit-field-field {
    deliberate exception: it contributes no look at all, so the builder's
    glass header and stage buttons keep theirs. */
 
-.kit-iconbutton-iconBtn {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: none;
-  padding: 0;
-  transition:
-    color var(--dur-micro) ease,
-    background var(--dur-micro) ease,
-    opacity var(--dur-micro) ease;
+@layer base, kit;
+
+@layer kit {
+  .kit-iconbutton-iconBtn {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    padding: 0;
+    transition:
+      color var(--dur-micro) ease,
+      background var(--dur-micro) ease,
+      opacity var(--dur-micro) ease;
+  }
 }
 
 /* The hit-area contract. The target's own box reaches the floor —
@@ -1362,9 +1430,11 @@ select.kit-field-field {
    below it, which is a hit area you cannot measure and a contract you
    cannot check. Adopters keep their visual size by setting width/height;
    the min then grows the box itself, and the drawn icon is untouched. */
-.kit-iconbutton-iconBtn {
-  min-width: var(--hit-area);
-  min-height: var(--hit-area);
+@layer kit {
+  .kit-iconbutton-iconBtn {
+    min-width: var(--hit-area);
+    min-height: var(--hit-area);
+  }
 }
 
 .kit-iconbutton-iconBtn:not([data-tone="chrome"]) {
@@ -1431,9 +1501,13 @@ select.kit-field-field {
    else — an adopter's trigger keeps its own look — but the 24px contract
    is not the adopter's to opt out of. */
 
-.kit-menu-trigger {
-  min-width: var(--hit-area);
-  min-height: var(--hit-area);
+@layer base, kit;
+
+@layer kit {
+  .kit-menu-trigger {
+    min-width: var(--hit-area);
+    min-height: var(--hit-area);
+  }
 }
 
 /* --- SaveStatusChip.module.css (fed verbatim, namespaced) --- */
@@ -1451,51 +1525,57 @@ select.kit-field-field {
 
    The chip owns its box; each host owns the corner's placement, the same
    division StageStack, BasemapCredit and TimelineBar keep. */
-.kit-savestatuschip-corner {
-  position: absolute;
-  z-index: 5;
-  pointer-events: none;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
+
+@layer base, kit;
+@layer kit {
+  .kit-savestatuschip-corner {
+    position: absolute;
+    z-index: 5;
+    pointer-events: none;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+  }
 }
 
-.kit-savestatuschip-chip {
-  --chip-out: calc(var(--dur-panel) + var(--dur-micro));
-  pointer-events: auto;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  box-sizing: border-box;
-  padding: 0;
-  overflow: hidden;
-  /* NOT the pill token. The token resolves to
-     half the box's height, so on a wrapped message the corners curve far
-     enough in to clip the first and last rows — 18.2 px at a 78 px chip,
-     against 12 px of inset. Capped, the ends of a single band still round
-     to a stadium (the used radius clamps to 15 px at 30 px tall, exactly
-     the pill's), and a taller chip keeps its corners clear of every row. */
-  border-radius: var(--radius-card);
-  background: var(--surface-glass-chrome-fill);
-  backdrop-filter: var(--surface-glass-chrome-blur);
-  box-shadow: var(--surface-glass-chrome-shadow);
-  /* A message must not lose its tail off the stage's edge: the header span this chip replaced had no white-space
-     rule and wrapped, and a long import outcome's tail is exactly the
-     part naming what went wrong. The host's corner bounds the width, and
-     the measure is the canvas notice's own 520 px; a single unbroken
-     token breaks rather than escapes. */
-  max-width: min(520px, 100%);
-  white-space: normal;
-  overflow-wrap: anywhere;
-  user-select: none;
-  opacity: 0;
-  visibility: hidden;
-  /* The chip keeps no height of its own: its lines carry the box, and
-     deferring theirs defers the pill's. */
-  transition:
-    opacity var(--dur-micro) ease var(--dur-panel),
-    visibility 0s var(--chip-out),
-    padding 0s var(--chip-out);
+@layer kit {
+  .kit-savestatuschip-chip {
+    --chip-out: calc(var(--dur-panel) + var(--dur-micro));
+    pointer-events: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    box-sizing: border-box;
+    padding: 0;
+    overflow: hidden;
+    /* NOT the pill token. The token resolves to
+       half the box's height, so on a wrapped message the corners curve far
+       enough in to clip the first and last rows — 18.2 px at a 78 px chip,
+       against 12 px of inset. Capped, the ends of a single band still round
+       to a stadium (the used radius clamps to 15 px at 30 px tall, exactly
+       the pill's), and a taller chip keeps its corners clear of every row. */
+    border-radius: var(--radius-card);
+    background: var(--surface-glass-chrome-fill);
+    backdrop-filter: var(--surface-glass-chrome-blur);
+    box-shadow: var(--surface-glass-chrome-shadow);
+    /* A message must not lose its tail off the stage's edge: the header span this chip replaced had no white-space
+       rule and wrapped, and a long import outcome's tail is exactly the
+       part naming what went wrong. The host's corner bounds the width, and
+       the measure is the canvas notice's own 520 px; a single unbroken
+       token breaks rather than escapes. */
+    max-width: min(520px, 100%);
+    white-space: normal;
+    overflow-wrap: anywhere;
+    user-select: none;
+    opacity: 0;
+    visibility: hidden;
+    /* The chip keeps no height of its own: its lines carry the box, and
+       deferring theirs defers the pill's. */
+    transition:
+      opacity var(--dur-micro) ease var(--dur-panel),
+      visibility 0s var(--chip-out),
+      padding 0s var(--chip-out);
+  }
 }
 
 /* The entrance is the reference's, not the shipped spans': the chip
@@ -1516,28 +1596,30 @@ select.kit-field-field {
    the instant the line went off and clip the words the exit hold is
    there to keep readable. Fractions interpolate, so the zero-duration
    delay actually defers, and nothing caps how tall a message may grow. */
-.kit-savestatuschip-line {
-  display: grid;
-  grid-template-rows: 0fr;
-  min-width: 0;
-  /* The band's own padding sits here, not on the text inside it: a grid
-     item stretched to a zero row still keeps its padding, which left a
-     collapsed line 12 px tall and a resting chip 24 px of invisible box.
-     On the line it collapses with the row, on the same deferred beat. */
-  padding: 0;
-  font-family: var(--font-ui);
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--warn);
-  opacity: 0;
-  visibility: hidden;
-  transition:
-    opacity var(--dur-micro) ease var(--dur-panel),
-    visibility 0s var(--chip-out),
-    grid-template-rows 0s var(--chip-out),
-    padding 0s var(--chip-out);
+@layer kit {
+  .kit-savestatuschip-line {
+    display: grid;
+    grid-template-rows: 0fr;
+    min-width: 0;
+    /* The band's own padding sits here, not on the text inside it: a grid
+       item stretched to a zero row still keeps its padding, which left a
+       collapsed line 12 px tall and a resting chip 24 px of invisible box.
+       On the line it collapses with the row, on the same deferred beat. */
+    padding: 0;
+    font-family: var(--font-ui);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--warn);
+    opacity: 0;
+    visibility: hidden;
+    transition:
+      opacity var(--dur-micro) ease var(--dur-panel),
+      visibility 0s var(--chip-out),
+      grid-template-rows 0s var(--chip-out),
+      padding 0s var(--chip-out);
+  }
 }
 
 .kit-savestatuschip-line[data-on] {
@@ -1557,25 +1639,29 @@ select.kit-field-field {
 /* The band itself: the reference's 30 px for a message that fits one
    line (18 px of leading inside 6 px above and below), and as many bands
    as a wrapped one needs. */
-.kit-savestatuschip-lineText {
-  min-height: 0;
-  overflow: hidden;
-  display: flex;
-  align-items: center;
-  line-height: 18px;
+@layer kit {
+  .kit-savestatuschip-lineText {
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    line-height: 18px;
+  }
 }
 
 /* The chip's one action: Retry after a failed layout or recipe save. */
-.kit-savestatuschip-action {
-  margin-left: 8px;
-  font-family: var(--font-ui);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0;
-  text-transform: none;
-  color: var(--accent);
-  text-decoration: underline;
-  text-underline-offset: 2px;
+@layer kit {
+  .kit-savestatuschip-action {
+    margin-left: 8px;
+    font-family: var(--font-ui);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--accent);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
 }
 
 .kit-savestatuschip-action:hover {
@@ -1601,14 +1687,18 @@ select.kit-field-field {
    It is the inner card's knob, so a look that restates the role reaches
    it; its accent ring is the thumb's own. */
 
-.kit-slider-slider {
-  flex: 1;
-  height: 22px;
-  appearance: none;
-  -webkit-appearance: none;
-  background: none;
-  cursor: pointer;
-  --track: color-mix(in srgb, var(--fg) 16%, transparent);
+@layer base, kit;
+
+@layer kit {
+  .kit-slider-slider {
+    flex: 1;
+    height: 22px;
+    appearance: none;
+    -webkit-appearance: none;
+    background: none;
+    cursor: pointer;
+    --track: color-mix(in srgb, var(--fg) 16%, transparent);
+  }
 }
 
 .kit-slider-slider::-webkit-slider-runnable-track {
@@ -1664,18 +1754,24 @@ select.kit-field-field {
 /* --- Status.module.css (fed verbatim, namespaced) --- */
 /* Progress and status. */
 
-.kit-status-track {
-  height: 4px;
-  border-radius: var(--radius-pill);
-  background: var(--bg-hover);
-  overflow: hidden;
+@layer base, kit;
+
+@layer kit {
+  .kit-status-track {
+    height: 4px;
+    border-radius: var(--radius-pill);
+    background: var(--bg-hover);
+    overflow: hidden;
+  }
 }
 
-.kit-status-bar {
-  height: 100%;
-  border-radius: var(--radius-pill);
-  background: var(--accent);
-  transition: width var(--dur-micro) linear;
+@layer kit {
+  .kit-status-bar {
+    height: 100%;
+    border-radius: var(--radius-pill);
+    background: var(--accent);
+    transition: width var(--dur-micro) linear;
+  }
 }
 
 .kit-status-bar[data-indeterminate] {
@@ -1693,12 +1789,14 @@ select.kit-field-field {
 }
 
 /* The dot's meaning is its text; the mark is decoration beside it. */
-.kit-status-dot {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  color: var(--fg-muted);
-  font-size: var(--text-meta);
+@layer kit {
+  .kit-status-dot {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    color: var(--fg-muted);
+    font-size: var(--text-meta);
+  }
 }
 
 .kit-status-dot::before {
@@ -1714,8 +1812,10 @@ select.kit-field-field {
   background: var(--health-ok);
 }
 
-.kit-status-dotText {
-  white-space: nowrap;
+@layer kit {
+  .kit-status-dotText {
+    white-space: nowrap;
+  }
 }
 
 /* --- Switch.module.css (fed verbatim, namespaced) --- */
@@ -1725,16 +1825,20 @@ select.kit-field-field {
    working. Visual reference:
    the builder-styles reference. */
 
-.kit-switch-switch {
-  appearance: none;
-  width: 36px;
-  height: 24px;
-  margin: 0;
-  border: 0;
-  background: transparent;
-  position: relative;
-  cursor: pointer;
-  flex: none;
+@layer base, kit;
+
+@layer kit {
+  .kit-switch-switch {
+    appearance: none;
+    width: 36px;
+    height: 24px;
+    margin: 0;
+    border: 0;
+    background: transparent;
+    position: relative;
+    cursor: pointer;
+    flex: none;
+  }
 }
 
 .kit-switch-switch::after {
@@ -1787,11 +1891,13 @@ select.kit-field-field {
 
 /* The wrapped-label shape (the kit checkbox's manner): label text beside
    the track, one click target. */
-.kit-switch-row {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
+@layer kit {
+  .kit-switch-row {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+  }
 }
 
 .kit-switch-row:has(.kit-switch-switch:disabled) {
@@ -1829,10 +1935,14 @@ select.kit-field-field {
    Behaviour is the full keyboard model: roles with real panel linkage,
    one tab stop per strip, arrows plus Home and End. */
 
-.kit-tabs-tabs {
-  display: flex;
-  gap: 2px;
-  flex-shrink: 0;
+@layer base, kit;
+
+@layer kit {
+  .kit-tabs-tabs {
+    display: flex;
+    gap: 2px;
+    flex-shrink: 0;
+  }
 }
 
 /* An even strip: every tab takes the same share of the row. Surfaces whose
@@ -1843,27 +1953,31 @@ select.kit-field-field {
   grid-auto-columns: 1fr;
 }
 
-.kit-tabs-tab {
-  position: relative;
-  height: 36px;
-  padding: 0 12px;
-  border-radius: var(--radius);
-  font-family: var(--font-ui);
-  font-size: var(--text-body);
-  font-weight: 500;
-  color: var(--fg-muted);
-  white-space: nowrap;
-  transition:
-    color var(--dur-micro) ease,
-    background var(--dur-micro) ease;
+@layer kit {
+  .kit-tabs-tab {
+    position: relative;
+    height: 36px;
+    padding: 0 12px;
+    border-radius: var(--radius);
+    font-family: var(--font-ui);
+    font-size: var(--text-body);
+    font-weight: 500;
+    color: var(--fg-muted);
+    white-space: nowrap;
+    transition:
+      color var(--dur-micro) ease,
+      background var(--dur-micro) ease;
+  }
 }
 
 /* A tab may carry a mark beside its word. */
-.kit-tabs-tab {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
+@layer kit {
+  .kit-tabs-tab {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+  }
 }
 
 .kit-tabs-tab svg {

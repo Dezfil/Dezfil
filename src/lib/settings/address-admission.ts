@@ -5,9 +5,19 @@ import { carriesUserInformation } from "./disclosure";
 import { lockedEnvironment } from "./resolver";
 import { validateStoredValue } from "./validation";
 
-/** Why a tile template carrying user information is refused at save. */
+/** Why a tile template carrying user information is refused at save: the
+ * instance relays the imagery from the server and draws none from such an
+ * address, so the key goes where the template already carries it. */
 export const USER_INFORMATION_REFUSED =
-  "A browser cannot load tiles from an address that carries a user name or password; put the key in the path or the query.";
+  "Satellite imagery is not drawn from an address that carries a user name or password; put the key in the path or the query.";
+
+/** The tile template's own rule, wherever the template is used: one carrying
+ * a user name or password is refused at save, its Test is refused before any
+ * request with the same sentence, and it counts as no imagery. Null while
+ * the template may be used. */
+export function tileTemplateRefusal(template: string): string | null {
+  return carriesUserInformation(template) ? USER_INFORMATION_REFUSED : null;
+}
 
 /**
  * The save-time check on a stored address (a service's, or the satellite
@@ -21,9 +31,9 @@ export const USER_INFORMATION_REFUSED =
  * addresses resolve there, is refused unless the deployment's allowlist
  * names it by name or range. A name that does not resolve now is kept: a
  * save refuses blocked space, not an outage, and every use checks again on
- * the address it connects to. The lookup is the engine's own. A tile
- * template browsers load is refused here too, before any lookup, when it
- * carries user information: no browser loads tiles from such an address.
+ * the address it connects to. The lookup is the engine's own. The
+ * imagery's tile template is refused here too, before any lookup, when it
+ * carries user information: the imagery is not drawn from such an address.
  * One stored before, or set by its variable, has no save to refuse; its
  * read says so. Scheme and length, a locked key and every other refusal
  * stay the change operation's.
@@ -45,8 +55,9 @@ export async function admitServiceAddresses(input: unknown): Promise<AddressAdmi
     const validated = validateStoredValue(definition, value);
     if (!validated.ok || typeof validated.value !== "string") continue;
     checked.set(key, validated.value);
-    if (write.userInformation === "refused" && carriesUserInformation(validated.value)) {
-      refusals.push(`${key}: ${USER_INFORMATION_REFUSED}`);
+    const templateRefusal = write.userInformation === "refused" ? tileTemplateRefusal(validated.value) : null;
+    if (templateRefusal) {
+      refusals.push(`${key}: ${templateRefusal}`);
       continue;
     }
     const refusal = await egressRefusal(withDigits(validated.value, write.placeholders ?? []));

@@ -20,7 +20,8 @@ import type { PictureBasemaps } from "./picture-credit";
  * alone: both read the store and the deployment's configuration.
  *
  * The drawing list is every style a map may be on and still be drawn: the
- * three built in, and Satellite while imagery is set up and readable. A map
+ * three built in, and Satellite while imagery is set up, readable and free
+ * of a user name or password in its template. A map
  * on a key the list lacks draws the deployment default. The offer is the
  * drawing list less the styles an admin hid: what a person may choose. Only
  * the surfaces where a basemap is chosen take the offer (the builder's

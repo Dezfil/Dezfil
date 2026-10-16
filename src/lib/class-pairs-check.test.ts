@@ -175,3 +175,41 @@ describe("the sweep", () => {
     expect(found.map((r) => [r.kind, r.composed])).toEqual([["FINDING", true]]);
   });
 });
+
+describe("cascade layers", () => {
+  // The app's layer order, named in its global sheet before its first layer.
+  const GLOBALS = { "app/globals.css": ":root { --x: 1px; }\n@layer base, kit;\n@layer base {\n  button { color: inherit; }\n}\n" };
+  const LAYERED = {
+    ...GLOBALS,
+    "stack.module.css": "/* A shared component. */\n@layer base, kit;\n@layer kit {\n  .stack { position: relative; color: red; }\n}\n.stack:hover { opacity: 0.5; }\n",
+    "Stack.tsx": STACK["Stack.tsx"],
+  };
+  const use = 'import p from "./place.module.css";\nimport { Stack } from "./Stack";\nexport function Use() { return <Stack className={p.anchor} />; }\n';
+
+  it("leaves a pair to the layers when one rule is in a layer and the other is not, since the unlayered rule wins whatever the file order", () => {
+    const found = results({ ...LAYERED, "place.module.css": ".anchor { position: absolute; color: blue; }\n", "Use.tsx": use });
+    expect(found.map(brief)).toEqual([]);
+  });
+
+  it("still finds two rules tied inside the same layer", () => {
+    const found = results({
+      ...LAYERED,
+      "place.module.css": "@layer base, kit;\n@layer kit {\n  .anchor { position: absolute; }\n}\n",
+      "Use.tsx": use,
+    });
+    expect(found.map(brief)).toEqual(["FINDING | .anchor | .stack | position"]);
+  });
+
+  it("finds a stylesheet that opens a layer before naming the app's layer order, which would let file order pick the layers' order", () => {
+    const root = tree({
+      ...GLOBALS,
+      "stack.module.css": "@layer kit {\n  .stack { position: relative; }\n}\n",
+      "late.module.css": "@layer kit {\n  .y { color: blue; }\n}\n@layer base, kit;\n",
+      "kept.module.css": "@layer base, kit;\n@layer kit {\n  .z { color: green; }\n}\n",
+      "after.module.css": ".x { color: red; }\n@layer base, kit;\n@layer kit {\n  .w { color: blue; }\n}\n",
+      "other.module.css": "@layer kit, base;\n@layer kit {\n  .v { color: blue; }\n}\n",
+      "Stack.tsx": STACK["Stack.tsx"],
+    });
+    expect(sweep(root).unordered).toEqual(["src/late.module.css", "src/other.module.css", "src/stack.module.css"]);
+  });
+});

@@ -1,27 +1,31 @@
 /* The one tooltip's bubble: the treatment the layer-card
    hints established, floated free of any clipping host. */
 
-.bubble {
-  position: fixed;
-  /* Above every surface a hint can serve — dialogs included (their
-     scrim sits at 120; the smoke caught the bubble painting underneath
-     it). A tooltip that loses a stacking fight is invisible exactly
-     where a disabled reason needs it. */
-  z-index: 200;
-  max-width: 340px;
-  background: var(--bg-hover);
-  backdrop-filter: var(--surface-menu-blur);
-  color: var(--fg);
-  font-family: var(--font-ui);
-  font-size: 11px;
-  font-weight: 500;
-  line-height: 1.35;
-  padding: 5px 8px;
-  border: var(--surface-menu-edge-strong);
-  border-radius: var(--radius-sm);
-  box-shadow: var(--surface-menu-shadow);
-  pointer-events: none;
-  animation: hint-in var(--dur-micro) ease;
+@layer base, kit;
+
+@layer kit {
+  .bubble {
+    position: fixed;
+    /* Above every surface a hint can serve — dialogs included (their
+       scrim sits at 120; the smoke caught the bubble painting underneath
+       it). A tooltip that loses a stacking fight is invisible exactly
+       where a disabled reason needs it. */
+    z-index: 200;
+    max-width: 340px;
+    background: var(--bg-hover);
+    backdrop-filter: var(--surface-menu-blur);
+    color: var(--fg);
+    font-family: var(--font-ui);
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 1.35;
+    padding: 5px 8px;
+    border: var(--surface-menu-edge-strong);
+    border-radius: var(--radius-sm);
+    box-shadow: var(--surface-menu-shadow);
+    pointer-events: none;
+    animation: hint-in var(--dur-micro) ease;
+  }
 }
 
 .bubble[data-above] {

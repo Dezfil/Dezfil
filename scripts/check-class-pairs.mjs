@@ -35,13 +35,23 @@
  * CONDITIONAL; one whose values agree as SAME, which file order cannot
  * change. Neither fails the run.
  *
+ * Cascade layers decide before specificity and file order do: a rule
+ * outside every layer beats a layered one, and two layers keep the order
+ * the app names in its global sheet (`@layer base, kit;` in
+ * src/app/globals.css). So a pair whose two rules sit in different
+ * layers, or one in a layer and one outside, is left to the layers. That
+ * holds only while the order is named before any layer opens, whichever
+ * stylesheet loads first, so a stylesheet that opens a layer without
+ * first naming the same order fails the run too.
+ *
  * Not seen: class names built at run time (`styles[name]`), classes from
  * global stylesheets, a component reached through anything but a named
  * import or its own file, and props passed through more than six
  * components.
  *
  * Usage: node scripts/check-class-pairs.mjs [rootDir] [--all] [--json]
- *   exits 1 when there is a finding; --all also prints the SAME pairs;
+ *   exits 1 when there is a finding or a stylesheet out of layer order;
+ *   --all also prints the SAME pairs;
  *   --json prints the result as JSON.
  */
 import { readFileSync, readdirSync, statSync, existsSync } from "node:fs";
@@ -344,6 +354,36 @@ function agree(a, b) {
   return viaB !== null && viaB === a.value;
 }
 
+/** The cascade layer a rule's at-rules put it in, or "" outside every layer. */
+const layerOf = (context) => [...context.matchAll(/@layer ([-\w.]+)/g)].pop()?.[1] ?? "";
+/** A rule's at-rules without its layer: the conditions it applies under. */
+const unlayered = (context) => context.replace(/\s*@layer [-\w.]+/g, "").trim();
+
+/** The layer order a stylesheet names before it opens its first layer, or
+ * null. */
+function namedOrder(css) {
+  const text = blank(css);
+  const m = /@layer\s+([-\w.,\s]+);/.exec(text);
+  const opens = text.search(/@layer\s+[-\w.]+\s*\{/);
+  if (!m || (opens >= 0 && opens < m.index)) return null;
+  return m[1].split(",").map((name) => name.trim()).join(", ");
+}
+
+/** Stylesheets that open a layer without first naming the app's layer
+ * order (the one src/app/globals.css names before its own first layer). */
+function unorderedSheets(root, files) {
+  const globals = path.join(root, "src/app/globals.css");
+  const order = existsSync(globals) ? namedOrder(readFileSync(globals, "utf8")) : null;
+  const sheets = existsSync(globals) ? ["src/app/globals.css", ...files] : files;
+  return sheets
+    .filter((file) => {
+      const css = blank(readFileSync(path.join(root, file), "utf8"));
+      if (!/@layer\s+[-\w.]+\s*\{/.test(css)) return false;
+      return order === null || namedOrder(css) !== order;
+    })
+    .sort();
+}
+
 /** Every module stylesheet's rules by class, and what each class composes. */
 function readStylesheets(root, files) {
   const byClass = new Map();
@@ -357,7 +397,8 @@ function readStylesheets(root, files) {
           if (!byClass.has(key)) byClass.set(key, []);
           byClass.get(key).push({
             selector,
-            context: rule.context,
+            context: unlayered(rule.context),
+            layer: layerOf(rule.context),
             line: rule.line,
             decls: rule.decls.filter((d) => d.prop !== "composes"),
             specificity: subject.specificity,
@@ -794,6 +835,7 @@ export function sweep(root) {
     for (const ra of rulesA) {
       for (const rb of rulesB) {
         if (cmp(ra.specificity, rb.specificity) !== 0) continue;
+        if (ra.layer !== rb.layer) continue;
         const always = ra.ancestors === "" && rb.ancestors === "" && ra.state === rb.state && ra.context === rb.context;
         const props = [];
         let differ = false;
@@ -820,7 +862,8 @@ export function sweep(root) {
   const order = { FINDING: 0, CONDITIONAL: 1, SAME: 2 };
   results.sort((x, y) => order[x.kind] - order[y.kind] || (x.a.file + x.a.cls + x.b.file + x.b.cls).localeCompare(y.a.file + y.a.cls + y.b.file + y.b.cls, "en"));
   const dynamic = [...files.values()].reduce((n, f) => n + f.dynamic, 0);
-  return { results, stats: { sheets: sheetFiles.length, components: componentFiles.length, elements: elements.length, pairs: pairs.size, dynamic } };
+  const unordered = unorderedSheets(root, sheetFiles);
+  return { results, unordered, stats: { sheets: sheetFiles.length, components: componentFiles.length, elements: elements.length, pairs: pairs.size, dynamic } };
 }
 
 function describe(r) {
@@ -838,19 +881,22 @@ if (isMain) {
   const args = process.argv.slice(2);
   const root = args.find((a) => !a.startsWith("--")) ?? process.cwd();
   const started = performance.now();
-  const { results, stats } = sweep(root);
+  const { results, unordered, stats } = sweep(root);
   const ms = Math.round(performance.now() - started);
   const findings = results.filter((r) => r.kind === "FINDING");
+  const failed = findings.length > 0 || unordered.length > 0;
   if (args.includes("--json")) {
-    console.log(JSON.stringify({ stats: { ...stats, ms }, results }, null, 2));
+    console.log(JSON.stringify({ stats: { ...stats, ms }, results, unordered }, null, 2));
   } else {
     for (const r of results.filter((x) => x.kind !== "SAME" || args.includes("--all"))) console.log(describe(r) + "\n");
+    for (const file of unordered) console.log(`LAYER ORDER: ${file} opens a cascade layer before naming the order src/app/globals.css names first\n`);
     const count = (kind) => results.filter((r) => r.kind === kind).length;
     console.log(
-      `${findings.length ? "FAIL" : "PASS"} - ${count("FINDING")} finding(s), ${count("CONDITIONAL")} conditional, ${count("SAME")} same-value; ` +
+      `${failed ? "FAIL" : "PASS"} - ${count("FINDING")} finding(s), ${count("CONDITIONAL")} conditional, ${count("SAME")} same-value` +
+        `${unordered.length ? `, ${unordered.length} stylesheet(s) out of layer order` : ""}; ` +
         `${stats.pairs} class pair(s) over ${stats.elements} element class set(s) in ${stats.components} component files and ${stats.sheets} stylesheets` +
         `${stats.dynamic ? `, ${stats.dynamic} class name(s) built at run time not read` : ""}; ${ms} ms`,
     );
   }
-  process.exit(findings.length ? 1 : 0);
+  process.exit(failed ? 1 : 0);
 }

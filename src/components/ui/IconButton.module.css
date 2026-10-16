@@ -10,17 +10,21 @@
    deliberate exception: it contributes no look at all, so the builder's
    glass header and stage buttons keep theirs. */
 
-.iconBtn {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: none;
-  padding: 0;
-  transition:
-    color var(--dur-micro) ease,
-    background var(--dur-micro) ease,
-    opacity var(--dur-micro) ease;
+@layer base, kit;
+
+@layer kit {
+  .iconBtn {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    padding: 0;
+    transition:
+      color var(--dur-micro) ease,
+      background var(--dur-micro) ease,
+      opacity var(--dur-micro) ease;
+  }
 }
 
 /* The hit-area contract. The target's own box reaches the floor —
@@ -28,9 +32,11 @@
    below it, which is a hit area you cannot measure and a contract you
    cannot check. Adopters keep their visual size by setting width/height;
    the min then grows the box itself, and the drawn icon is untouched. */
-.iconBtn {
-  min-width: var(--hit-area);
-  min-height: var(--hit-area);
+@layer kit {
+  .iconBtn {
+    min-width: var(--hit-area);
+    min-height: var(--hit-area);
+  }
 }
 
 .iconBtn:not([data-tone="chrome"]) {

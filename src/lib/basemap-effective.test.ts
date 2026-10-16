@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { effectiveBasemap } from "./basemap-effective";
+import { effectiveBasemap, imageryMissing } from "./basemap-effective";
 import { BASEMAPS, BUILT_IN_ATTRIBUTION } from "./basemap";
 
 const custom = {
@@ -63,6 +63,18 @@ describe("effective basemap", () => {
     const pinned = { ...base, key: "satellite" as const, overrideUrl: own, defaultUrl: own };
     expect(effectiveBasemap({ ...pinned, overrideAttribution: [{ label: "© Pin" }] })).toMatchObject({ url: own, kind: "vector", attribution: [{ label: "© Pin" }] });
     expect(effectiveBasemap(pinned)).toMatchObject({ url: own, kind: "vector", attribution: [] });
+  });
+
+  it("tells a Satellite map with no imagery from one whose imagery is drawn, hidden or not, and from a map under its own style", () => {
+    const imagery = { key: "satellite" as const, label: "Satellite", url: "/api/basemaps/satellite", kind: "imagery" as const, attribution: [] };
+    expect(imageryMissing({ key: "satellite", custom: false, basemaps: BASEMAPS })).toBe(true);
+    // What the picker says agrees with what is drawn and credited.
+    expect(effectiveBasemap({ ...base, key: "satellite", basemaps: BASEMAPS })).toMatchObject({ url: base.defaultUrl, attribution: BUILT_IN_ATTRIBUTION });
+    expect(imageryMissing({ key: "satellite", custom: false, basemaps: [...BASEMAPS, imagery] })).toBe(false);
+    expect(imageryMissing({ key: "satellite", custom: false, basemaps: [...BASEMAPS, { ...imagery, offered: false }] })).toBe(false);
+    expect(imageryMissing({ key: "satellite", custom: true, basemaps: BASEMAPS })).toBe(false);
+    expect(imageryMissing({ key: "streets", custom: false, basemaps: BASEMAPS })).toBe(false);
+    expect(imageryMissing({ key: null, custom: false, basemaps: BASEMAPS })).toBe(false);
   });
 
   it("Auto follows the theme unless the deployment override pins it", () => {

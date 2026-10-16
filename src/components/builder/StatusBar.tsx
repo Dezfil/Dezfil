@@ -38,6 +38,8 @@ interface Props {
   credit?: HTMLElement | null;
   /** The legend's lower-left corner, which the pill keeps clear of too. */
   legend?: HTMLElement | null;
+  /** The legend's lower-right corner, above the credit: kept clear of too. */
+  legendRight?: HTMLElement | null;
 }
 
 /** Which readout just copied, and whether the clipboard cooperated. */
@@ -54,10 +56,10 @@ const FLASH_MS = 1400;
  *
  * When width runs out the pill drops items whole, lowest priority first:
  * pitch, then bbox, then records, then zoom — coords survives last, and
- * the pill vanishes entirely rather than clip. Beside the basemap credit
- * it slides left in its band rather than cover it, beside a lower-left
- * legend card it slides right, and the room between the two is the width
- * it has. The probe row below holds every present item at natural size,
+ * the pill vanishes entirely rather than clip. Beside the basemap credit,
+ * or a lower-right legend card standing above it, it slides left in its
+ * band rather than cover them, beside a lower-left legend card it slides
+ * right, and the room between the two sides is the width it has. The probe row below holds every present item at natural size,
  * invisibly, so capacity is measured independently of what is shown.
  */
 export function StatusBar({
@@ -66,6 +68,7 @@ export function StatusBar({
   recordsState = { status: "current", error: null },
   credit = null,
   legend = null,
+  legendRight = null,
 }: Props) {
   const status = useSyncExternalStore(
     channel.subscribe,
@@ -100,7 +103,7 @@ export function StatusBar({
     ...(pitchPresent ? (["pitch"] as const) : []),
     "bbox",
   ];
-  const { probeRef, itemRef, visible, shift } = useStatusPriority(present, credit, legend);
+  const { probeRef, itemRef, visible, shift } = useStatusPriority(present, credit, legend, legendRight);
 
   const value = (key: "coords" | "bbox", text: string | null) =>
     flash?.key === key ? (

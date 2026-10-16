@@ -14,6 +14,7 @@ import {
   type BasemapLayerGroup,
   type BasemapLayers,
 } from "@/lib/basemap-layers";
+import { IMAGERY_MISSING_NOTE, imageryMissing } from "@/lib/basemap-effective";
 import type { CustomBasemap } from "@/lib/metadata/maps";
 import { CustomBasemapSection } from "./CustomBasemapSection";
 import { BasemapThumb } from "../map/BasemapThumb";
@@ -146,6 +147,8 @@ export function BasemapPanel({
         </p>
       ) : active === null && overridden ? (
         <p className={styles.note}>This deployment pins its own style.</p>
+      ) : imageryMissing({ key: active, custom: custom !== null, basemaps }) ? (
+        <p className={styles.note}>{IMAGERY_MISSING_NOTE}</p>
       ) : null}
       {/* The previews are captures of the styles themselves, and the
           map's footer only credits the style in use. */}

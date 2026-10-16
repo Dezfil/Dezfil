@@ -28,6 +28,7 @@ import { resetSecretKeyCache } from "@/lib/secrets";
 import { testAccountRequest, testAccountScope } from "@/lib/test-support/accounts";
 import { callAs, tokenFor } from "@/lib/test-support/rule-roads";
 import { builderBasemap } from "@/components/builder/builder-basemap";
+import { imageryMissing } from "./basemap-effective";
 import { BASEMAPS, BUILT_IN_ATTRIBUTION, SATELLITE_STYLE_URL, type AttributionLine, type BasemapStyle } from "./basemap";
 import { createMap, readMap, updateMap } from "./map-service";
 
@@ -50,7 +51,7 @@ import { createMap, readMap, updateMap } from "./map-service";
  */
 
 const ORIGIN = "http://instance.test";
-const SEEDS = ["SEEDED-KEY-0006-PATH", "SEEDED-KEY-0006-QUERY"];
+const SEEDS = ["SEEDED-KEY-0006-PATH", "SEEDED-KEY-0006-QUERY", "SEEDED-KEY-0006-USER"];
 // The key in the path and the query: a save refuses one in the user information.
 const TEMPLATE = `https://imagery.example/${SEEDS[0]}/{z}/{x}/{y}.jpg?key=${SEEDS[1]}`;
 const CREDIT = "© Imagery Provider";
@@ -124,13 +125,17 @@ async function offer(): Promise<string[]> {
   expectNoSeed(read.text);
   return (read.body.basemaps as { key: string }[]).map(b => b.key);
 }
-/** What the builder's canvas draws for the map and credits in its corner: the page's own lists, through the builder's derivation. */
-async function builder() {
+/** The builder the map page renders, with the lists the page hands it. */
+async function builderProps() {
   who.account = "member";
   let element = (await MapPage({ params: Promise.resolve({ id: mapId }), searchParams: Promise.resolve({}) })) as Element | undefined;
   while (element && element.type !== MapBuilder) element = element.props.children;
   expect(element, "the builder").toBeDefined();
-  const { basemaps, basemapUrl, basemapOverrideUrl, basemapOverrideAttribution } = element!.props;
+  return element!.props;
+}
+/** What the builder's canvas draws for the map and credits in its corner: the page's own lists, through the builder's derivation. */
+async function builder() {
+  const { basemaps, basemapUrl, basemapOverrideUrl, basemapOverrideAttribution } = await builderProps();
   const drawn = builderBasemap(readMap(testAccountScope(db, "member"), mapId),
     { theme: "dark", basemapUrl, basemapOverrideUrl, basemapOverrideAttribution, basemaps });
   return { url: drawn.url, kind: drawn.kind, credit: drawn.attribution };
@@ -245,5 +250,28 @@ describe("the satellite imagery removed, then set again", () => {
     expect(await builder()).toEqual({ url: SATELLITE_STYLE_URL, kind: "imagery", credit: [{ label: CREDIT }] });
     expect(await publication(token)).toEqual({ url: `/api/published/${token}/basemaps/satellite`, kind: "imagery", credit: [{ label: CREDIT }] });
     await refusedAnonymously();
+  });
+});
+
+describe("a tile template set by the variable with a user name or password", () => {
+  it("counts as no imagery: Satellite leaves the offer and the drawing list, a map on it draws and credits the default style and its picker says so, and no imagery style is served", async () => {
+    const token = await setUp();
+    // A save refuses user information; the variable has no save, and wins over the stored template.
+    vi.stubEnv("DEZFIL_SATELLITE_URL", TEMPLATE.replace("https://", `https://${SEEDS[2]}@`));
+    expect((await card()).template).toEqual({ set: true, origin: "https://imagery.example", userInformation: true });
+    expect(await offer()).not.toContain("satellite");
+    expect(readMap(testAccountScope(db, "member"), mapId).basemap).toBe("satellite");
+    expect(await builder()).toEqual({ url: DEFAULT_STYLE, kind: "vector", credit: BUILT_IN_ATTRIBUTION });
+    // The picker's note follows the lists the page hands the builder.
+    expect(imageryMissing({ key: "satellite", custom: false, basemaps: (await builderProps()).basemaps })).toBe(true);
+    expect(await publication(token)).toEqual({ url: DEFAULT_STYLE, kind: "vector", credit: BUILT_IN_ATTRIBUTION });
+    const none = await imagery("member");
+    expect(none.status).toBe(404);
+    expectNoSeed(none.text);
+    await refusedAnonymously();
+    // Without the user information the same template is the imagery again.
+    vi.stubEnv("DEZFIL_SATELLITE_URL", TEMPLATE);
+    expect(await offer()).toContain("satellite");
+    expect(await builder()).toEqual({ url: SATELLITE_STYLE_URL, kind: "imagery", credit: [{ label: CREDIT }] });
   });
 });

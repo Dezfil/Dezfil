@@ -1,17 +1,23 @@
 /* Progress and status. */
 
-.track {
-  height: 4px;
-  border-radius: var(--radius-pill);
-  background: var(--bg-hover);
-  overflow: hidden;
+@layer base, kit;
+
+@layer kit {
+  .track {
+    height: 4px;
+    border-radius: var(--radius-pill);
+    background: var(--bg-hover);
+    overflow: hidden;
+  }
 }
 
-.bar {
-  height: 100%;
-  border-radius: var(--radius-pill);
-  background: var(--accent);
-  transition: width var(--dur-micro) linear;
+@layer kit {
+  .bar {
+    height: 100%;
+    border-radius: var(--radius-pill);
+    background: var(--accent);
+    transition: width var(--dur-micro) linear;
+  }
 }
 
 .bar[data-indeterminate] {
@@ -29,12 +35,14 @@
 }
 
 /* The dot's meaning is its text; the mark is decoration beside it. */
-.dot {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  color: var(--fg-muted);
-  font-size: var(--text-meta);
+@layer kit {
+  .dot {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    color: var(--fg-muted);
+    font-size: var(--text-meta);
+  }
 }
 
 .dot::before {
@@ -50,6 +58,8 @@
   background: var(--health-ok);
 }
 
-.dotText {
-  white-space: nowrap;
+@layer kit {
+  .dotText {
+    white-space: nowrap;
+  }
 }

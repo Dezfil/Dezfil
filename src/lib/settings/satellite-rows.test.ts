@@ -21,7 +21,7 @@ import { instanceSettingsFixture } from "../../../test-support/instance-settings
  * The rows Libraries draws: the five basemap switches, stored with no
  * variable; the satellite imagery's tile template, stored beside its
  * variable on the service addresses' rules, refused at save without its
- * placeholders, carrying user information (no browser loads tiles from
+ * placeholders, carrying user information (no imagery is drawn from
  * such an address) or where the egress policy would refuse a tile request
  * to it; and its credit, stored beside its variable as text.
  */
@@ -167,7 +167,7 @@ describe("the tile template at save", () => {
 
 /** A template on a public name whose key is in its user information too. */
 const withUser = (user: string, host = "imagery.example") => `https://${user}@${host}/${SEEDS[1]}/{z}/{x}/{y}.jpg?key=${SEEDS[2]}`;
-const CREDENTIALS = "satelliteUrl: A browser cannot load tiles from an address that carries a user name or password; put the key in the path or the query.";
+const CREDENTIALS = "satelliteUrl: Satellite imagery is not drawn from an address that carries a user name or password; put the key in the path or the query.";
 
 describe("a tile template carrying user information", () => {
   it.each([
