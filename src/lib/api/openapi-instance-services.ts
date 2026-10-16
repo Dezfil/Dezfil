@@ -49,7 +49,7 @@ export const INSTANCE_SERVICES_SCHEMAS = {
   ServiceTestAnswer: {
     description: "A service's Test: passed, with the milliseconds the service took to answer (Overture: how many releases its listing names and the newest; " +
       "templates: how many templates the catalogue's index lists, with the milliseconds), " +
-      "or failed with one reason: not_set_up (no address), refused (the egress rules refused it; message is the check's sentence), unreachable (nothing answered), " +
+      "or failed with one reason: not_set_up (no address), refused (the egress rules refused it, or the satellite tile template carries a user name or password; message is the refusal's sentence), unreachable (nothing answered), " +
       "timed_out (no answer within the service's time limit), status (an answer with that status) or unexpected_answer (an answer, but not as the service gives one). " +
       "Never the service's body, its address or a key.",
     oneOf: [
@@ -61,7 +61,7 @@ export const INSTANCE_SERVICES_SCHEMAS = {
       object({ service: { const: "overture" }, result: { const: "passed" },
         releases: { type: "integer", minimum: 1, description: "How many releases the listing names; kept as the list the Overture pane offers." },
         newest: { type: "string", description: "The newest release." } }),
-      object({ service: tested, result: failed, reason: { const: "refused" }, message: { type: "string", description: "The egress check's sentence." } }),
+      object({ service: tested, result: failed, reason: { const: "refused" }, message: { type: "string", description: "The refusal's sentence: the egress check's, or the one a save refuses a satellite tile template carrying a user name or password with." } }),
       object({ service: tested, result: failed, reason: { const: "status" }, status: { type: "integer", minimum: 100, maximum: 599, description: "The status the service answered with." } }),
       object({ service: tested, result: failed, reason: { type: "string", enum: ["not_set_up", "unreachable", "timed_out", "unexpected_answer"] } }),
     ],
@@ -94,7 +94,8 @@ export const INSTANCE_SERVICES_PATHS = {
       "Sends the service one fixed request at its address in effect, never one given here: geocode (the address finder) one search for a fixed place, " +
       "isochrone (travel time) one area on foot round a fixed point for the shortest band, overpass (OpenStreetMap) the smallest Overpass query, " +
       "overture a listing of the releases, s3 one request to the S3 address's root without credentials, satellite one fixed low-zoom tile " +
-      "(zoom 3, x 4, y 2) at the imagery's tile template within 10 seconds, passing when the answer is an image, templates the template catalogue's index, " +
+      "(zoom 3, x 4, y 2) at the imagery's tile template within 10 seconds, passing when the answer is an image (a template carrying a user name or password " +
+      "is refused, with the sentence a save refuses it with, and nothing is sent), templates the template catalogue's index, " +
       "read as a refresh reads it within the link import's time bound (DEZFIL_REMOTE_TIMEOUT_S), or from the folder DEZFIL_TEMPLATES_CATALOGUE names, " +
       "passing with how many templates it lists, an index this server would refuse being unexpected_answer. It goes the way the service's own requests go: " +
       "through the egress check, redirects included, and after the gap between requests for the address finder and travel time. " +

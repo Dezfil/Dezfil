@@ -298,7 +298,9 @@ drawn; the tab says so under the tile address. The credit is text of at most
 Satellite leaves every basemap picker; a map on Satellite keeps its choice and
 draws the default style, credited as that style, until an address is saved
 again, and the map's basemap picker says so. The tab's Test
-fetches one fixed low-zoom tile at the address in effect.
+fetches one fixed low-zoom tile at the address in effect; one carrying a user
+name or password is refused there too, with the save's sentence and nothing
+sent.
 
 The tile address never reaches a browser. The imagery style names the
 instance's own tile address, and the server fetches each tile from the

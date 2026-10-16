@@ -616,7 +616,9 @@ refused with 409 `templates_catalogue_off` and sends nothing.
 It answers `{ service, result: "passed", milliseconds }`, Overture
 `{ service, result: "passed", releases, newest }`, the template catalogue
 `{ service, result: "passed", templates, milliseconds }`, or `result: "failed"` with
-one `reason`: `not_set_up`, `refused` (with the check's sentence as `message`),
+one `reason`: `not_set_up`, `refused` (with the refusal's sentence as `message`:
+the egress check's, or for a satellite tile template carrying a user name or
+password the one a save refuses it with, nothing sent),
 `unreachable`, `timed_out`, `status` (with the `status` answered) or
 `unexpected_answer`; never a body, an address or a key. It changes no setting
 and reads or writes no cache, except that the Overture Test keeps the release

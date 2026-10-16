@@ -11,6 +11,14 @@ import { validateStoredValue } from "./validation";
 export const USER_INFORMATION_REFUSED =
   "Satellite imagery is not drawn from an address that carries a user name or password; put the key in the path or the query.";
 
+/** The tile template's own rule, wherever the template is used: one carrying
+ * a user name or password is refused at save, its Test is refused before any
+ * request with the same sentence, and it counts as no imagery. Null while
+ * the template may be used. */
+export function tileTemplateRefusal(template: string): string | null {
+  return carriesUserInformation(template) ? USER_INFORMATION_REFUSED : null;
+}
+
 /**
  * The save-time check on a stored address (a service's, or the satellite
  * imagery's tile template), made before the change operation's write
@@ -47,8 +55,9 @@ export async function admitServiceAddresses(input: unknown): Promise<AddressAdmi
     const validated = validateStoredValue(definition, value);
     if (!validated.ok || typeof validated.value !== "string") continue;
     checked.set(key, validated.value);
-    if (write.userInformation === "refused" && carriesUserInformation(validated.value)) {
-      refusals.push(`${key}: ${USER_INFORMATION_REFUSED}`);
+    const templateRefusal = write.userInformation === "refused" ? tileTemplateRefusal(validated.value) : null;
+    if (templateRefusal) {
+      refusals.push(`${key}: ${templateRefusal}`);
       continue;
     }
     const refusal = await egressRefusal(withDigits(validated.value, write.placeholders ?? []));

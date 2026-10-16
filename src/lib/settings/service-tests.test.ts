@@ -26,6 +26,7 @@ import { resetIsochroneLimiter } from "@/lib/isochrone/limiter";
 import { egressBlockedError } from "@/lib/net/egress";
 import { keptReleaseList, resetReleaseCache } from "@/lib/overture/releases";
 import { resetSecretKeyCache } from "@/lib/secrets";
+import { USER_INFORMATION_REFUSED } from "@/lib/settings/address-admission";
 import { TEST_PLACE, TEST_POINT, TEST_TILE } from "@/lib/settings/service-tests";
 import { keepRequestsOnThisMachine } from "@/lib/test-support/outside-requests";
 import { testAccountScope } from "@/lib/test-support/accounts";
@@ -264,14 +265,19 @@ describe("each Test passes against its healthy service", () => {
     }
   });
 
-  it("sends the satellite template's user information as the tile request's credentials, as the S3 address's", async () => {
+  it.each([
+    ["a user name and a password", "SEEDED-KEY-0001-USER:SEEDED-KEY-0001-PASS"],
+    ["a user name alone", "SEEDED-KEY-0001-USER"],
+    ["a password alone", ":SEEDED-KEY-0001-PASS"],
+  ])("refuses a satellite template carrying %s with the sentence a save refuses it with, sending nothing", async (_what, user) => {
+    // The imagery is not drawn from such a template, so its Test asks nothing of it either.
     const port = (fixtures[0].address() as AddressInfo).port;
-    vi.stubEnv("DEZFIL_SATELLITE_URL", `http://SEEDED-KEY-0001-USER:SEEDED-KEY-0001-PASS@127.0.0.1:${port}${TEMPLATE_PATH}`);
+    vi.stubEnv("DEZFIL_SATELLITE_URL", `http://${user}@127.0.0.1:${port}${TEMPLATE_PATH}`);
     const received: { target?: string; credential?: string }[] = [];
     answer = (service, req, res) => { received.push({ target: req.url, credential: req.headers.authorization }); HEALTHY[service](req, res); };
-    expect((await runTest("satellite")).body).toEqual({ service: "satellite", result: "passed", milliseconds: expect.any(Number) });
-    expect(received).toEqual([{ target: `${tilePath()}?key=SEEDED-KEY-0001-QUERY`,
-      credential: `Basic ${Buffer.from("SEEDED-KEY-0001-USER:SEEDED-KEY-0001-PASS").toString("base64")}` }]);
+    expect((await runTest("satellite")).body).toEqual({ service: "satellite", result: "failed", reason: "refused", message: USER_INFORMATION_REFUSED });
+    expect(received).toEqual([]);
+    expect(asked).toEqual([]);
   });
 
   it("follows the satellite imagery's redirect to its tile, and refuses one into blocked space before contact", async () => {

@@ -5,6 +5,7 @@ import { requireAdmin } from "@/lib/auth/admin";
 import { satelliteTileUrl } from "@/lib/basemap-satellite";
 import { openSatelliteTile, readTile, tileImageType, TILE_WAIT_MS } from "@/lib/basemap-satellite-tiles";
 import type { AuthContext } from "@/lib/auth/credentials";
+import { tileTemplateRefusal } from "@/lib/settings/address-admission";
 import { configuredEndpoint } from "@/lib/geocode/endpoint";
 import { readAnswerBody, requestGeocoder } from "@/lib/geocode/provider";
 import { openS3AddressRoot } from "@/lib/ingest/remote";
@@ -30,7 +31,9 @@ import type { ServiceTestAnswer, TestedService } from "./service-test-answer";
  * instance relays every tile with (the outbound engine and egress check),
  * under the same ten seconds, and reads the tile whole within them under
  * the same size bound: it passes only on an image complete for its format,
- * timed when the last byte arrived. The
+ * timed when the last byte arrived. A template carrying a user name or
+ * password is refused before any request, with the sentence a save refuses
+ * it with. The
  * template catalogue's Test reads its index as a refresh does, within the
  * link import's time bound, and keeps nothing; while the catalogue is off it
  * is refused and sends nothing.
@@ -134,6 +137,10 @@ const TESTS: Record<TestedService, (deadline: () => ApiError) => Promise<Service
     // the key no longer opens refuses, as the imagery style does.
     const template = satelliteTileUrl();
     if (!template) return notSetUp("satellite");
+    // The template's own rule, as a save applies it: one with a user name
+    // or password is not drawn, so nothing is asked of it here either.
+    const refusal = tileTemplateRefusal(template);
+    if (refusal) return { service: "satellite", result: "failed", reason: "refused", message: refusal };
     const started = Date.now();
     const response = await openSatelliteTile(template, TEST_TILE, { timeoutMs: TILE_WAIT_MS, timeoutError: deadline });
     if (response.statusCode < 200 || response.statusCode >= 300) return closing(response, answeredWith("satellite", response.statusCode));

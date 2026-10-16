@@ -12,8 +12,8 @@
 export const TESTED_SERVICES = ["geocode", "isochrone", "overpass", "overture", "s3", "satellite", "templates"] as const;
 export type TestedService = typeof TESTED_SERVICES[number];
 
-/** Why a Test failed: no address; the egress rules refused it (with the
- * check's sentence); nothing answered; no answer within the time limit; an
+/** Why a Test failed: no address; the egress rules, or the satellite tile
+ * template's own rule, refused it (with the refusal's sentence); nothing answered; no answer within the time limit; an
  * answer with a status (and its number); an answer, but not as the service
  * gives one. */
 export const TEST_FAILURES = ["not_set_up", "refused", "unreachable", "timed_out", "status", "unexpected_answer"] as const;

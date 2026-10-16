@@ -550,9 +550,9 @@ describe("a service address carrying a key", () => {
     const failed = await ask("POST", "/api/instance/services/geocode/test");
     expect(failed.body, failed.text).toMatchObject({ service: "geocode", result: "failed", reason: "status", status: 503 });
     searched("a failed Test's answer", failed.text);
-    // The tile template's key in its user information too, by the variable:
-    // a save refuses it there.
-    vi.stubEnv(VARIABLE.satelliteUrl, address("satelliteUrl", { fault: "down", user: true }));
+    // The tile template's key in its path and query, by the variable: one
+    // in its user information is refused before any request (below).
+    vi.stubEnv(VARIABLE.satelliteUrl, address("satelliteUrl", { fault: "down" }));
     try {
       const imageryDown = await ask("POST", "/api/instance/services/satellite/test");
       expect(imageryDown.body, imageryDown.text).toMatchObject({ service: "satellite", result: "failed", reason: "status", status: 503 });
@@ -678,7 +678,10 @@ describe("a service address carrying a key", () => {
       searched("the locked refusal", locked.text);
       for (const service of ["geocode", "satellite"]) {
         const tested = await ask("POST", `/api/instance/services/${service}/test`);
-        expect(tested.body, tested.text).toMatchObject({ service, result: "passed" });
+        // The tile template carries user information, so its Test is refused as a save is, sending nothing.
+        expect(tested.body, tested.text).toEqual(service === "satellite"
+          ? { service, result: "failed", reason: "refused", message: USER_INFORMATION_REFUSED }
+          : { service, result: "passed", milliseconds: expect.any(Number) });
         searched(`a ${service} Test under the variable`, tested.text);
       }
       const { view } = await run("geocode_addresses", { input: "addresses", column: "address", name: "located_by_variable" });
