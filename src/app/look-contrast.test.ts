@@ -5,12 +5,17 @@ import { lookChoices } from "@/lib/look";
 /**
  * Readability under the Panels looks. Every surface that carries words
  * keeps a fill strong enough that its quiet ink reads at 4.5:1 or better
- * over the strictest place it can sit, in each of the four Colors and both
+ * over the strictest data colour below, in each of the four Colors and both
  * themes, under Liquid and under Paper: computed here
  * from the fills the looks' stylesheets declare and the tones the page
  * declares, the backdrop unblurred, as a person's eye would meet it at the
  * worst spot, in the quiet ink the page's body takes under that look (Liquid
  * steps it toward the ink). The numbers are printed for the record.
+ *
+ * Liquid's fill is clear by choice, so it is not held over a map that runs
+ * against the theme: a uniform black area by day (a dark basemap, satellite
+ * imagery, the dark end of a grey ramp) or a white one by night. There its
+ * text reads at about 3:1, and Glass and Paper keep their panels firm.
  */
 
 type RGBA = [number, number, number, number];
@@ -162,8 +167,9 @@ function colour(value: string, scope: Map<string, string>, depth = 0): RGBA {
 
 /* ---- where each surface is read, and with which ink ---- */
 
-/** The strictest backdrops, unblurred: the darkest data class by day and
- * the brightest by night; a page's ground and a pattern line on it. */
+/** The strictest backdrops held, unblurred: the darkest class of the vivid
+ * palette by day and its brightest by night (not a black or white area, see
+ * above); a page's ground and a pattern line on it. */
 const CELL: Record<Theme, string> = { light: "#7f3c8d", dark: "#f2b701" };
 const LINE = "color-mix(in srgb, var(--fg) 22%, transparent)";
 const VEIL = "color-mix(in srgb, var(--fg) 32%, transparent)";

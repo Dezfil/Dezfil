@@ -75,7 +75,10 @@ the column's foot; members see General alone, read-only.
   side menu, the side panels, everything over the map, the map's buttons, the
   page cards, the cards and blocks inside panels, menus and dialogs. The map
   shows through, and the quieter grey text is darkened so it still reads over
-  it. Text fields and selects stay solid. Liquid bends the backdrop at a panel's edge in
+  most maps. Over a very dark map in the light theme (a dark basemap or
+  satellite imagery), or a very light one in the dark theme, text in the
+  panels reads less well; Glass and Paper keep them firm. Text fields and
+  selects stay solid. Liquid bends the backdrop at a panel's edge in
   Chromium-based browsers (Chrome, Edge and the like); Firefox and Safari show
   the same fills, blur, light and shadow without the bend. A pick changes the page at once and is
   kept with the account, so every other browser that account uses shows it from
