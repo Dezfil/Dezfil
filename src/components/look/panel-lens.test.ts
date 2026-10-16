@@ -3,14 +3,14 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { HostElement, HostEvent, installDomHost, type HostDocument } from "../testing/dom-host";
 import {
-  atRest, discoverMembers, INK_STEP, LENS_ROLES, SETTLE_MS, splitSelectors, startPanelLens, watchPanelLens,
+  atRest, discoverMembers, LENS_ROLES, SETTLE_MS, splitSelectors, startPanelLens, watchPanelLens,
   type PanelLens, type RuleLike, type SheetLike,
 } from "./panel-lens";
 
 /**
  * The bend of the liquid panels over a stored document tree: the members
- * found through stylesheets, what each is given while its kind is on, what
- * is left alone, the settle while a surface resizes or moves, and the stop.
+ * found through stylesheets, what each is given under Liquid, what is
+ * left alone, the settle while a surface resizes or moves, and the stop.
  * The browser's part is played by hand here and named as such: a member's
  * computed blur is its own rule's (a `data-own-blur` attribute stands for a
  * rule drawing another blur), else its role's blur as the nearest inline
@@ -21,7 +21,8 @@ import {
 const rule = (selectorText: string, cssText: string): RuleLike => ({ selectorText, style: { cssText } });
 const sheet = (...rules: RuleLike[]): SheetLike => ({ cssRules: rules });
 
-/** The roles' values on the root while Liquid's kinds are on. */
+/** The roles' values on the root, each its own, so a read is seen to come
+ * from the member's own role: the bend reads whatever the look gives. */
 const ROOT: Record<string, string> = {
   "--surface-glass-chrome-blur": "blur(9px)", "--surface-glass-chrome-lens": "20",
   "--surface-glass-panel-blur": "blur(24px)", "--surface-glass-panel-lens": "18",
@@ -102,9 +103,8 @@ const encode = (_field: Uint8ClampedArray, w: number, h: number) => `data:map/${
 const defsOf = () => doc.body.children.find(child => child.hasAttribute("data-panel-lens")) ?? null;
 const filterIds = () => (defsOf()?.descendants() ?? []).filter(node => node.localName === "filter").map(node => node.getAttribute("id"));
 
-function liquid(words: string) {
+function liquid() {
   doc.documentElement.setAttribute("data-look-panels", "liquid");
-  doc.documentElement.setAttribute("data-look-liquid", words);
 }
 
 beforeEach(() => {
@@ -178,24 +178,24 @@ describe("finding the members through the stylesheets", () => {
     expect(index.attributes.has("data-map-camera")).toBe(false);
   });
 
-  it("reaches every kind the root can name", () => {
-    expect(LENS_ROLES.map(role => role.word)).toEqual(["chrome", "panels", "map", "buttons", "cards", "inner", "menus", "dialogs"]);
-    expect(LENS_ROLES.filter(role => role.ink).map(role => role.role)).toEqual(["glass-chrome", "overlay-control"]);
+  it("reaches every role that draws a blur, and neither the map's frame nor a block inside a panel", () => {
+    expect(LENS_ROLES.map(role => role.role)).toEqual(["glass-chrome", "glass-panel", "overlay-panel", "overlay-control",
+      "map-card", "page-card", "inner-card", "menu", "dialog"]);
   });
 });
 
 describe("the bend", () => {
-  it("bends each member of a kind that is on through its role's blur, at its size, steps the chrome's inks up, and leaves a kind that is off alone", () => {
-    liquid("chrome menus");
+  it("bends every member through its role's blur, at its size, and writes nothing else on it", () => {
+    liquid();
     const head = make(doc.body, "head", { "data-reads": "glass-chrome" }, [200, 40]);
     const menu = make(doc.body, "menu", { "data-reads": "menu", "data-radius": "8px" }, [180, 120]);
     const card = make(doc.body, "card", { "data-reads": "page-card" }, [300, 200]);
     start();
     // A quarter of the header's 40 px side caps its 20 px lens at 10; the menu pulls its 14.
-    expect(inline(head)).toEqual({ "--surface-glass-chrome-blur": 'url("#dz-lens-200x40-r12-b9-s10")', ...INK_STEP });
+    expect(inline(head)).toEqual({ "--surface-glass-chrome-blur": 'url("#dz-lens-200x40-r12-b9-s10")' });
     expect(inline(menu)).toEqual({ "--surface-menu-blur": 'url("#dz-lens-180x120-r8-b24-s14")' });
-    expect(inline(card)).toEqual({});
-    expect(filterIds()).toEqual(["dz-lens-200x40-r12-b9-s10", "dz-lens-180x120-r8-b24-s14"]);
+    expect(inline(card)).toEqual({ "--surface-page-card-blur": 'url("#dz-lens-300x200-r12-b14-s14")' });
+    expect(filterIds().sort()).toEqual(["dz-lens-180x120-r8-b24-s14", "dz-lens-200x40-r12-b9-s10", "dz-lens-300x200-r12-b14-s14"]);
     // A menu opened inside a bent menu takes its own bend, never the one around it.
     const submenu = make(menu, "menu", { "data-reads": "menu", "data-radius": "8px" }, [120, 80]);
     bodyObserver().callback([{ type: "childList", target: menu, addedNodes: [submenu], removedNodes: [] }]);
@@ -211,7 +211,7 @@ describe("the bend", () => {
   });
 
   it("leaves alone a member inside an image's default look or a picture, and holds a pseudo-element's carrier at the plain blur inside a bent card", () => {
-    liquid("menus inner");
+    liquid();
     const image = make(doc.body, "frame", { "data-look-default": "" });
     const inImage = make(image, "menu", { "data-reads": "menu" }, [180, 120]);
     const picture = make(doc.body, "box", { "data-picture-panels": "liquid" });
@@ -227,14 +227,14 @@ describe("the bend", () => {
   });
 
   it("lets go of a member whose own rules draw another blur, and takes it up again when they stop", () => {
-    liquid("chrome");
+    liquid();
     const rail = make(doc.body, "rail", { "data-reads": "glass-chrome", "data-own-blur": "blur(18px)" }, [64, 600]);
     start();
     expect(inline(rail)).toEqual({});
     rail.removeAttribute("data-own-blur");
     bodyObserver().callback([{ type: "attributes", target: rail, attributeName: "data-expanded", addedNodes: [], removedNodes: [] }]);
     flush();
-    expect(inline(rail)).toEqual({ "--surface-glass-chrome-blur": 'url("#dz-lens-64x600-r12-b9-s16")', ...INK_STEP });
+    expect(inline(rail)).toEqual({ "--surface-glass-chrome-blur": 'url("#dz-lens-64x600-r12-b9-s16")' });
     rail.setAttribute("data-own-blur", "blur(18px)");
     bodyObserver().callback([{ type: "attributes", target: rail, attributeName: "data-expanded", addedNodes: [], removedNodes: [] }]);
     flush();
@@ -242,12 +242,12 @@ describe("the bend", () => {
     expect(filterIds()).toEqual([]);
   });
 
-  it("lets go of the rail while a link inside it has keyboard focus, and bends it and steps its inks up again once focus leaves", () => {
-    liquid("chrome");
+  it("lets go of the rail while a link inside it has keyboard focus, and bends it again once focus leaves", () => {
+    liquid();
     const rail = make(doc.body, "rail", { "data-reads": "glass-chrome" }, [64, 600]);
     const link = make(rail, "link");
     start();
-    const lensed = { "--surface-glass-chrome-blur": 'url("#dz-lens-64x600-r12-b9-s16")', ...INK_STEP };
+    const lensed = { "--surface-glass-chrome-blur": 'url("#dz-lens-64x600-r12-b9-s16")' };
     expect(inline(rail)).toEqual(lensed);
     // Focus inside opens the rail, whose own rule then draws the glass strength.
     rail.setAttribute("data-own-blur", "blur(18px)");
@@ -261,7 +261,7 @@ describe("the bend", () => {
   });
 
   it("does no work while the map pans: an attribute no rule reads changing under it, or a transition around no member", () => {
-    liquid("chrome map buttons");
+    liquid();
     const head = make(doc.body, "head", { "data-reads": "glass-chrome" }, [200, 40]);
     const map = make(doc.body, "map");
     const legend = make(map, "legend", { "data-reads": "overlay-panel" }, [160, 90]);
@@ -286,7 +286,7 @@ describe("the bend", () => {
   });
 
   it("bakes a size once: a surface that grows and comes back takes its earlier map again", () => {
-    liquid("map");
+    liquid();
     const bar = make(doc.body, "legend", { "data-reads": "overlay-panel" }, [163, 32]);
     const encode = vi.fn((_field: Uint8ClampedArray, w: number, h: number) => `data:map/${w}x${h}`);
     startPanelLens(doc as unknown as Document, { bend: true, encode });
@@ -304,7 +304,7 @@ describe("the bend", () => {
   });
 
   it("draws a map on a canvas kept in memory, so making one never waits on the screen", () => {
-    liquid("menus");
+    liquid();
     make(doc.body, "menu", { "data-reads": "menu" }, [180, 120]);
     const asked: unknown[][] = [];
     const made = doc.createElement.bind(doc);
@@ -323,7 +323,7 @@ describe("the bend", () => {
   });
 
   it("finds a member that joins the page, and one a stylesheet that joins names", () => {
-    liquid("map menus");
+    liquid();
     start();
     const legend = make(doc.body, "legend", { "data-reads": "overlay-panel" }, [160, 90]);
     bodyObserver().callback([{ type: "childList", target: doc.body, addedNodes: [legend], removedNodes: [] }]);
@@ -341,7 +341,7 @@ describe("the bend", () => {
   });
 
   it("holds the plain blur while a surface changes size, and bends at its new size once it has rested", () => {
-    liquid("panels");
+    liquid();
     const pane = make(doc.body, "pane", { "data-reads": "glass-panel" }, [320, 700]);
     Object.assign(doc, { styleSheets: [sheet(rule(".pane", "backdrop-filter: var(--surface-glass-panel-blur);"))] });
     start();
@@ -358,7 +358,7 @@ describe("the bend", () => {
   });
 
   it("holds the plain blur while a transition or animation moves the surface or what carries it, and not while one only changes a colour", () => {
-    liquid("menus");
+    liquid();
     const drawer = make(doc.body, "slot");
     const menu = make(drawer, "menu", { "data-reads": "menu" }, [300, 200]);
     start();
@@ -385,14 +385,14 @@ describe("the bend", () => {
     expect(inline(menu)["--surface-menu-blur"]).toBe(bent);
   });
 
-  it("steps the inks up and bends nothing where the browser cannot draw the bend, writing no blur while a surface moves or resizes", () => {
-    liquid("chrome inner");
+  it("writes nothing where the browser cannot draw the bend, and holds nothing while a surface moves or resizes", () => {
+    liquid();
     const slot = make(doc.body, "slot");
     const head = make(slot, "head", { "data-reads": "glass-chrome" }, [200, 40]);
     const layer = make(slot, "layer", { "data-reads": "inner-card" }, [220, 56]);
     const knob = make(layer, "switch");
     start(false);
-    expect(inline(head)).toEqual(INK_STEP);
+    expect(inline(head)).toEqual({});
     expect(inline(layer)).toEqual({});
     expect(inline(knob)).toEqual({});
     expect(defsOf()).toBeNull();
@@ -405,20 +405,20 @@ describe("the bend", () => {
     rects.set(layer, { left: 0, top: 0, width: 260, height: 56 });
     for (const observer of sizes) observer.callback([{ target: layer }]);
     expect(sizes, "no size is watched").toHaveLength(0);
-    expect(inline(head)).toEqual(INK_STEP);
+    expect(inline(head)).toEqual({});
     expect(inline(layer)).toEqual({});
     expect(inline(knob)).toEqual({});
     animations.set(head, []);
     animations.set(slot, []);
     vi.advanceTimersByTime(SETTLE_MS * 2);
     flush();
-    expect(inline(head)).toEqual(INK_STEP);
+    expect(inline(head)).toEqual({});
     expect(inline(layer)).toEqual({});
     expect(defsOf()).toBeNull();
   });
 
   it("stops leaving no trace: no inline property, no filter, no observer and no listener", () => {
-    liquid("chrome panels map buttons cards inner menus dialogs");
+    liquid();
     const head = make(doc.body, "head", { "data-reads": "glass-chrome" }, [200, 40]);
     const menu = make(doc.body, "menu", { "data-reads": "menu" }, [180, 120]);
     const layer = make(doc.body, "layer", { "data-reads": "inner-card" }, [220, 56]);
@@ -442,25 +442,26 @@ describe("the bend", () => {
 });
 
 describe("keeping the bend in step with the look", () => {
-  it("starts with Liquid and a kind on, follows a kind switched off, and stops when Panels leaves Liquid", () => {
+  it("starts with Liquid, follows a change of theme, and stops when Panels leaves Liquid", () => {
     const head = make(doc.body, "head", { "data-reads": "glass-chrome" }, [200, 40]);
     const menu = make(doc.body, "menu", { "data-reads": "menu" }, [180, 120]);
     const stop = watchPanelLens(doc as unknown as Document, { bend: true, encode });
     const rootObserver = observers.find(observer => observer.target === doc.documentElement)!;
     expect(inline(head)).toEqual({});
-    liquid("chrome menus");
+    liquid();
     rootObserver.callback([]);
     expect(Object.keys(inline(head))).toContain("--surface-glass-chrome-blur");
     expect(Object.keys(inline(menu))).toContain("--surface-menu-blur");
+    // A kinds attribute an earlier version stamped changes nothing.
     doc.documentElement.setAttribute("data-look-liquid", "chrome");
     rootObserver.callback([]);
     flush();
-    expect(inline(menu)).toEqual({});
-    expect(filterIds()).toEqual(["dz-lens-200x40-r12-b9-s10"]);
-    doc.documentElement.setAttribute("data-look-panels", "glass");
+    expect(Object.keys(inline(menu))).toContain("--surface-menu-blur");
     doc.documentElement.removeAttribute("data-look-liquid");
+    doc.documentElement.setAttribute("data-look-panels", "glass");
     rootObserver.callback([]);
     expect(inline(head)).toEqual({});
+    expect(inline(menu)).toEqual({});
     expect(defsOf()).toBeNull();
     stop();
     expect(observers.every(observer => observer.disconnected)).toBe(true);

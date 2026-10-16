@@ -1,12 +1,12 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { LIQUID_KINDS, lookChoices } from "@/lib/look";
+import { lookChoices } from "@/lib/look";
 
 /**
  * Readability under the Panels looks. Every surface that carries words
  * keeps a fill strong enough that its quiet ink reads at 4.5:1 or better
  * over the strictest place it can sit, in each of the four Colors and both
- * themes, under Liquid with every kind on and under Paper: computed here
+ * themes, under Liquid and under Paper: computed here
  * from the fills the looks' stylesheets declare and the tones the page
  * declares, the backdrop unblurred, as a person's eye would meet it at the
  * worst spot. The numbers are printed for the record.
@@ -61,12 +61,10 @@ function tones(color: string, theme: Theme): Map<string, string> {
   return new Map(layers.flatMap(layer => [...layer]));
 }
 
-/** A look's restated roles on the root, with every kind on for Liquid, over the shipped block. */
+/** A look's restated roles on the root, over the shipped block. */
 function restated(look: Look, theme: Theme, liquidCss: string, paperCss: string): Map<string, string> {
   const dark = theme === "dark" ? '[data-theme="dark"]' : "";
-  const keys = look === "liquid"
-    ? LIQUID_KINDS.map(([, word]) => `[data-look-liquid~="${word}"]`)
-    : ['[data-look-panels="paper"]'];
+  const keys = [`[data-look-panels="${look}"]`];
   const sheet = rules(look === "liquid" ? liquidCss : paperCss);
   const light = keys.map(key => tokensOf(sheet, `:root${key}`));
   const night = theme === "dark" ? keys.map(key => tokensOf(sheet, `:root${dark}${key}`)) : [];
@@ -170,16 +168,18 @@ const LINE = "color-mix(in srgb, var(--fg) 22%, transparent)";
 const VEIL = "color-mix(in srgb, var(--fg) 32%, transparent)";
 
 type Backdrop = "cell" | "veil" | "ground" | "inspector";
-/** Every surface a role draws that carries words, where it can sit, and the
- * ink it is read in (the chrome and the map's buttons step their quiet
- * ink up to the full ink under Liquid). */
-const SURFACES: { role: string; part: string; over: Backdrop[]; stepped?: true }[] = [
-  { role: "glass-chrome", part: "fill", over: ["cell"], stepped: true },
+/** Every surface a role draws that carries words and where it can sit;
+ * each is read in the quiet ink, which no look steps up. */
+const SURFACES: { role: string; part: string; over: Backdrop[] }[] = [
+  { role: "glass-chrome", part: "fill", over: ["cell"] },
   { role: "glass-panel", part: "fill", over: ["cell"] },
   { role: "overlay-panel", part: "fill", over: ["cell"] },
-  { role: "overlay-control", part: "fill", over: ["cell"], stepped: true },
+  { role: "overlay-control", part: "fill", over: ["cell"] },
+  { role: "map-card", part: "fill", over: ["cell"] },
   { role: "page-card", part: "fill", over: ["ground"] },
   { role: "inner-card", part: "fill", over: ["inspector"] },
+  { role: "block", part: "fill", over: ["inspector"] },
+  { role: "block", part: "fill-panel", over: ["inspector"] },
   { role: "menu", part: "fill", over: ["cell"] },
   { role: "menu", part: "fill-raised", over: ["cell"] },
   { role: "dialog", part: "fill", over: ["veil"] },
@@ -205,7 +205,7 @@ function readings(liquidCss = LIQUID_CSS, paperCss = PAPER_CSS): Reading[] {
       inspector: [over(fill("glass-panel", "fill"), cell)],
     };
     for (const surface of SURFACES) {
-      const ink = at(surface.stepped && look === "liquid" ? "var(--fg)" : "var(--fg-muted)");
+      const ink = at("var(--fg-muted)");
       const ground = fill(surface.role, surface.part);
       const ratio = Math.min(...surface.over.flatMap(name => backdrops[name]).map(backdrop => contrast(ink, over(ground, backdrop))));
       out.push({ look, color, theme, surface: `${surface.role} ${surface.part}`, ratio, alpha: ground[3] });
@@ -234,11 +234,11 @@ describe("readability under the Panels looks", () => {
   it("reads Kelp's numbers as the design measured them", () => {
     const kelp = (look: Look, theme: Theme, surface: string) =>
       Number(readings().find(reading => reading.look === look && reading.color === "kelp" && reading.theme === theme && reading.surface === surface)!.ratio.toFixed(2));
-    // The full ink on the chrome, the read panels, a page card over a line, an inner card over the inspector, a dialog over the veil.
-    expect([kelp("liquid", "light", "glass-chrome fill"), kelp("liquid", "light", "glass-panel fill"), kelp("liquid", "light", "page-card fill"),
-      kelp("liquid", "light", "inner-card fill"), kelp("liquid", "light", "dialog fill")]).toEqual([6.9, 4.59, 4.62, 5, 4.69]);
-    expect([kelp("liquid", "dark", "glass-chrome fill"), kelp("liquid", "dark", "glass-panel fill"), kelp("liquid", "dark", "page-card fill"),
-      kelp("liquid", "dark", "inner-card fill"), kelp("liquid", "dark", "dialog fill")]).toEqual([5.79, 4.9, 6.38, 5.08, 4.94]);
+    // The one fill read in the quiet ink: on the chrome and the read panels over a cell, a page card over a line, an
+    // inner card and a block over the inspector, a dialog over the veil.
+    const surfaces = ["glass-chrome fill", "glass-panel fill", "page-card fill", "inner-card fill", "block fill", "dialog fill"];
+    expect(surfaces.map(surface => kelp("liquid", "light", surface))).toEqual([4.59, 4.59, 5.05, 5.22, 5.22, 4.55]);
+    expect(surfaces.map(surface => kelp("liquid", "dark", surface))).toEqual([4.9, 4.9, 6.78, 6.95, 6.95, 4.69]);
   });
 
   it("finds every fill Paper declares opaque, and every fill Liquid declares on request", () => {

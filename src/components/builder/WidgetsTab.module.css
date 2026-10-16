@@ -9,10 +9,10 @@
 }
 
 .row {
-  border: 1px solid var(--border);
+  border: var(--surface-block-edge);
   border-radius: var(--radius-control);
-  background: var(--bg-panel);
-  box-shadow: var(--shadow);
+  background: var(--surface-block-fill-panel);
+  box-shadow: var(--surface-block-shadow);
   margin-bottom: 8px;
   overflow: hidden;
 }
@@ -153,8 +153,9 @@
   gap: 3px;
   font: 500 11px var(--font-ui);
   color: var(--fg-muted);
-  border: 1px solid var(--border);
-  background: var(--bg-panel);
+  border: var(--surface-block-edge);
+  background: var(--surface-block-fill-panel);
+  box-shadow: var(--surface-block-shadow);
   border-radius: var(--radius-tile);
   padding: 8px 2px 7px;
   text-align: center;

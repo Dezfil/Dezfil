@@ -3,33 +3,27 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { open } from "@/lib/metadata/db";
 import { insertAccount } from "@/lib/metadata/accounts";
 import { accountLook } from "@/lib/metadata/account-preferences";
-import { defaultLook, LIQUID_KINDS, LOOK_ATTRIBUTES, LOOK_KEYS, lookAttributes, lookChoices, normalizeLook } from "./look";
+import { defaultLook, LOOK_ATTRIBUTES, LOOK_KEYS, lookAttributes, lookChoices, normalizeLook } from "./look";
 
 /** Today's look, written out rather than derived, so the module's own
  * reading of the catalogue cannot stand on both sides of a comparison:
- * the six picks, Panels on Glass, and the eight kinds Liquid reaches with
- * the first four on. */
+ * the six picks and Panels on Glass. */
 const TODAY = {
   color: "kelp", contrast: "standard", font: "inter", background: "atlantic", corners: "rounded", rail: "hover", panels: "glass",
-  liquidChrome: "on", liquidPanels: "on", liquidMap: "on", liquidButtons: "on",
-  liquidCards: "off", liquidInner: "off", liquidMenus: "off", liquidDialogs: "off",
 };
-const KINDS = ["liquidChrome", "liquidPanels", "liquidMap", "liquidButtons", "liquidCards", "liquidInner", "liquidMenus", "liquidDialogs"];
-const EVERY_KIND = Object.fromEntries(KINDS.map(key => [key, "on"]));
-const NO_KIND = Object.fromEntries(KINDS.map(key => [key, "off"]));
+/** The kinds of surface an earlier version let Liquid reach one by one,
+ * which an account may still keep. */
+const RETIRED_KINDS = ["liquidChrome", "liquidPanels", "liquidMap", "liquidButtons", "liquidCards", "liquidInner", "liquidMenus", "liquidDialogs"];
+const EVERY_KIND = Object.fromEntries(RETIRED_KINDS.map(key => [key, "on"]));
+const NO_KIND = Object.fromEntries(RETIRED_KINDS.map(key => [key, "off"]));
 
 describe("the look's picks and Dezfil's default", () => {
-  it("names the picks and the kinds, each offering the catalogue's choices with today's value first", () => {
-    expect([...LOOK_KEYS]).toEqual(["color", "contrast", "font", "background", "corners", "rail", "panels", ...KINDS]);
+  it("names the seven picks, each offering the catalogue's choices with today's value first", () => {
+    expect([...LOOK_KEYS]).toEqual(["color", "contrast", "font", "background", "corners", "rail", "panels"]);
     expect(defaultLook()).toEqual(TODAY);
     for (const key of LOOK_KEYS) expect(lookChoices(key)[0]).toBe(TODAY[key]);
     expect(lookChoices("background")).toEqual(["atlantic", "plain", "graticule", "hex"]);
     expect(lookChoices("panels")).toEqual(["glass", "liquid", "paper"]);
-    expect(lookChoices("liquidChrome")).toEqual(["on", "off"]);
-    expect(lookChoices("liquidDialogs")).toEqual(["off", "on"]);
-    // Each kind with the word the root names it by, in the kinds' order.
-    expect(LIQUID_KINDS.map(([key, word]) => `${key}=${word}`)).toEqual(["liquidChrome=chrome", "liquidPanels=panels", "liquidMap=map",
-      "liquidButtons=buttons", "liquidCards=cards", "liquidInner=inner", "liquidMenus=menus", "liquidDialogs=dialogs"]);
   });
 });
 
@@ -41,8 +35,7 @@ describe("reading a stored look", () => {
 
   it("keeps every pick the version offers and fills the missing ones with their defaults", () => {
     expect(normalizeLook({ color: "harbor", rail: "icons" })).toEqual({ ...TODAY, color: "harbor", rail: "icons" });
-    const every = { color: "slate", contrast: "more", font: "system", background: "hex", corners: "soft", rail: "open",
-      panels: "paper", ...NO_KIND, liquidCards: "on" };
+    const every = { color: "slate", contrast: "more", font: "system", background: "hex", corners: "soft", rail: "open", panels: "paper" };
     expect(normalizeLook(every)).toEqual(every);
   });
 
@@ -50,14 +43,16 @@ describe("reading a stored look", () => {
     expect(normalizeLook({ color: "teal", contrast: "MORE", font: 1, background: "contours", corners: ["soft"], rail: "" }))
       .toEqual(TODAY);
     expect(normalizeLook({ color: "heather", background: "soundings" })).toEqual({ ...TODAY, color: "heather" });
-    // A retired look, and a kind written as a boolean or a word it never offered.
-    expect(normalizeLook({ panels: "frosted", liquidMenus: true, liquidMap: "maybe", liquidChrome: 0 })).toEqual(TODAY);
-    expect(normalizeLook({ panels: "paper", liquidDialogs: "yes" })).toEqual({ ...TODAY, panels: "paper" });
+    // A retired look.
+    expect(normalizeLook({ panels: "frosted" })).toEqual(TODAY);
   });
 
   it("drops picks this version does not have and never reads an inherited value", () => {
     const read = normalizeLook({ color: "slate", density: "compact", glow: "on", liquidAll: "on" });
     expect(read).toEqual({ ...TODAY, color: "slate" });
+    // The kinds an earlier version kept, every one of them on or off, are no pick of this one.
+    expect(normalizeLook({ panels: "liquid", ...NO_KIND })).toEqual({ ...TODAY, panels: "liquid" });
+    expect(normalizeLook({ panels: "liquid", ...EVERY_KIND })).toEqual({ ...TODAY, panels: "liquid" });
     expect(Object.keys(read).sort()).toEqual([...LOOK_KEYS].sort());
     expect(normalizeLook(Object.create({ color: "harbor" }))).toEqual(TODAY);
   });
@@ -80,31 +75,22 @@ describe("the root's attributes", () => {
 
   it("never carry a value the version does not offer", () => {
     expect(lookAttributes({ ...TODAY, color: "teal\" onload=\"x", rail: "open" })).toEqual({ "data-look-rail": "open" });
-    expect(lookAttributes({ ...TODAY, panels: "frosted", liquidMenus: "maybe" })).toEqual({});
+    expect(lookAttributes({ ...TODAY, panels: "frosted" })).toEqual({});
   });
 
-  it("name Panels when it is not Glass, and under Liquid the kinds that are on as one word list in the kinds' order", () => {
-    expect(lookAttributes({ ...TODAY, panels: "liquid" })).toEqual({ "data-look-panels": "liquid", "data-look-liquid": "chrome panels map buttons" });
-    // The order is the kinds', never the order the look was written in.
-    const backwards = Object.fromEntries(Object.entries({ ...TODAY, panels: "liquid", ...EVERY_KIND }).reverse());
-    expect(lookAttributes(backwards)).toEqual({ "data-look-panels": "liquid", "data-look-liquid": "chrome panels map buttons cards inner menus dialogs" });
-    expect(lookAttributes({ ...TODAY, panels: "liquid", ...NO_KIND, liquidMenus: "on", liquidCards: "on" }))
-      .toEqual({ "data-look-panels": "liquid", "data-look-liquid": "cards menus" });
-    // No kind on: Panels alone, and no empty word list.
-    expect(lookAttributes({ ...TODAY, panels: "liquid", ...NO_KIND })).toEqual({ "data-look-panels": "liquid" });
+  it("name Panels when it is not Glass, Liquid by its pick alone whatever kinds an account still keeps", () => {
+    expect(lookAttributes({ ...TODAY, panels: "liquid" })).toEqual({ "data-look-panels": "liquid" });
+    expect(lookAttributes({ ...TODAY, panels: "liquid", ...NO_KIND } as Record<string, unknown>)).toEqual({ "data-look-panels": "liquid" });
+    expect(lookAttributes({ ...TODAY, panels: "liquid", ...EVERY_KIND } as Record<string, unknown>)).toEqual({ "data-look-panels": "liquid" });
+    expect(lookAttributes({ ...TODAY, panels: "paper", ...EVERY_KIND } as Record<string, unknown>)).toEqual({ "data-look-panels": "paper" });
+    expect(lookAttributes({ ...TODAY, ...EVERY_KIND } as Record<string, unknown>)).toEqual({});
   });
 
-  it("carry nothing for the kinds while Panels is Glass or Paper: they are kept, never stamped", () => {
-    expect(lookAttributes({ ...TODAY, ...EVERY_KIND })).toEqual({});
-    expect(lookAttributes({ ...TODAY, ...NO_KIND, liquidDialogs: "on" })).toEqual({});
-    expect(lookAttributes({ ...TODAY, panels: "paper", ...EVERY_KIND })).toEqual({ "data-look-panels": "paper" });
-  });
-
-  it("are drawn from one fixed list, a single attribute standing for every kind", () => {
+  it("are drawn from one fixed list, one attribute per pick", () => {
     expect([...LOOK_ATTRIBUTES]).toEqual(["data-look-color", "data-look-contrast", "data-look-font", "data-look-background",
-      "data-look-corners", "data-look-rail", "data-look-panels", "data-look-liquid"]);
+      "data-look-corners", "data-look-rail", "data-look-panels"]);
     const every = lookAttributes({ color: "slate", contrast: "more", font: "system", background: "hex", corners: "soft", rail: "open",
-      panels: "liquid", ...EVERY_KIND });
+      panels: "liquid" });
     expect(Object.keys(every)).toEqual([...LOOK_ATTRIBUTES]);
   });
 });
@@ -129,8 +115,8 @@ describe("one account's look from its preferences", () => {
     expect(accountLook("bea", db)).toEqual(TODAY);
   });
 
-  it("reads the kept picks, a retired value as its default, and writes nothing back", () => {
-    keep("ada", { maps: { view: "list" }, look: { color: "heather", background: "contours", rail: "open" } });
+  it("reads the kept picks, a retired value as its default, a retired kind as nothing, and writes nothing back", () => {
+    keep("ada", { maps: { view: "list" }, look: { color: "heather", background: "contours", rail: "open", ...NO_KIND } });
     const before = preferences("ada");
     expect(accountLook("ada", db)).toEqual({ ...TODAY, color: "heather", rail: "open" });
     expect(preferences("ada")).toEqual(before);

@@ -12,7 +12,7 @@ import { LeaveGuard } from "./leave-guard";
 const DEFAULTS: Record<string, Value> = {
   landingPage: "home", signInMessage: "", lostPasswordContact: "", queryTimeoutS: 60, operationTimeoutS: 600, previewRows: 1000,
   "newLayer.lineWidth": 2, "newLayer.pointOpacity": 72, "sqlConsole.lineWrap": false,
-  panels: "glass", liquidCards: "off", liquidMenus: "off",
+  mode: "simple", detail: "off", hints: "off",
 };
 
 function fakeServer(initial: Record<string, Value> = {}, report: (key: string, value: Value) => Value = (_, value) => value) {
@@ -1020,68 +1020,68 @@ describe("a choice that waits for the card's Save", () => {
 });
 
 describe("a control out of sight", () => {
-  // The kinds show only while the card shows Liquid for its Panels.
-  const away = (shown: Readonly<Record<string, Value>>) => shown.panels !== "liquid";
-  const kinds: UnitControl[] = [
-    { key: "liquidCards", kind: "choice", defaultValue: "off", row: "kinds", hidden: away },
-    { key: "liquidMenus", kind: "choice", defaultValue: "off", row: "kinds", hidden: away },
+  // Two options that show only while the card shows Advanced for its Mode.
+  const away = (shown: Readonly<Record<string, Value>>) => shown.mode !== "advanced";
+  const options: UnitControl[] = [
+    { key: "detail", kind: "choice", defaultValue: "off", row: "options", hidden: away },
+    { key: "hints", kind: "choice", defaultValue: "off", row: "options", hidden: away },
   ];
-  function panels(server = fakeServer()) {
+  function display(server = fakeServer()) {
     return new SaveUnit({
-      title: "Panels", controls: [{ key: "panels", kind: "choice", defaultValue: "glass" }, ...kinds], write: server.write,
-      kept: { panels: server.stored.panels, liquidCards: server.stored.liquidCards, liquidMenus: server.stored.liquidMenus },
+      title: "Display", controls: [{ key: "mode", kind: "choice", defaultValue: "simple" }, ...options], write: server.write,
+      kept: { mode: server.stored.mode, detail: server.stored.detail, hints: server.stored.hints },
     });
   }
 
   it("is out of sight while its rule holds over what the card shows, from the moment a pick changes it", async () => {
-    const server = fakeServer({ panels: "paper", liquidCards: "on" }), unit = panels(server);
-    expect(unit.snapshot.hidden).toEqual(["liquidCards", "liquidMenus"]);
-    unit.choose("panels", "liquid");
+    const server = fakeServer({ mode: "compact", detail: "on" }), unit = display(server);
+    expect(unit.snapshot.hidden).toEqual(["detail", "hints"]);
+    unit.choose("mode", "advanced");
     expect(unit.snapshot.hidden).toEqual([]);
-    expect(unit.snapshot.values).toEqual({ panels: "liquid", liquidCards: "on", liquidMenus: "off" });
-    // A refusal naming the pick: the card shows what is kept for it, and the kinds go with it.
-    server.calls[0].refuse("invalid_request", "panels: Expected one of glass, paper."); await flush();
-    expect(unit.snapshot.errors).toEqual({ panels: "Expected one of glass, paper." });
-    expect(unit.snapshot.hidden).toEqual(["liquidCards", "liquidMenus"]);
+    expect(unit.snapshot.values).toEqual({ mode: "advanced", detail: "on", hints: "off" });
+    // A refusal naming the pick: the card shows what is kept for it, and the options go with it.
+    server.calls[0].refuse("invalid_request", "mode: Expected one of simple, compact."); await flush();
+    expect(unit.snapshot.errors).toEqual({ mode: "Expected one of simple, compact." });
+    expect(unit.snapshot.hidden).toEqual(["detail", "hints"]);
   });
 
   it("is kept and synced with the rest while out of sight", async () => {
-    const server = fakeServer({ panels: "paper" }), unit = panels(server);
-    unit.sync({ panels: "glass", liquidCards: "on" });
-    expect(unit.snapshot.kept).toEqual({ panels: "glass", liquidCards: "on", liquidMenus: "off" });
-    expect(unit.snapshot.values).toEqual({ panels: "glass", liquidCards: "on", liquidMenus: "off" });
-    expect(unit.snapshot.hidden).toEqual(["liquidCards", "liquidMenus"]);
+    const server = fakeServer({ mode: "compact" }), unit = display(server);
+    unit.sync({ mode: "simple", detail: "on" });
+    expect(unit.snapshot.kept).toEqual({ mode: "simple", detail: "on", hints: "off" });
+    expect(unit.snapshot.values).toEqual({ mode: "simple", detail: "on", hints: "off" });
+    expect(unit.snapshot.hidden).toEqual(["detail", "hints"]);
   });
 
-  it("is never counted for the card's Reset nor returned by it, so a kind out of sight stays stored", async () => {
-    const server = fakeServer({ liquidCards: "on" }), unit = panels(server);
-    // Only a kind out of sight differs from its default: there is nothing to reset.
+  it("is never counted for the card's Reset nor returned by it, so an option out of sight stays stored", async () => {
+    const server = fakeServer({ detail: "on" }), unit = display(server);
+    // Only an option out of sight differs from its default: there is nothing to reset.
     expect(unit.snapshot.slot).toBeNull();
-    unit.choose("panels", "paper");
+    unit.choose("mode", "compact");
     server.calls[0].accept(); await flush();
     expect(unit.snapshot.slot).toBe("reset");
     unit.reset();
-    expect(server.calls[1].patch).toEqual({ panels: null });
+    expect(server.calls[1].patch).toEqual({ mode: null });
     server.calls[1].accept(); await flush();
-    expect(server.stored.liquidCards).toBe("on");
-    expect(unit.snapshot.kept).toEqual({ panels: "glass", liquidCards: "on", liquidMenus: "off" });
+    expect(server.stored.detail).toBe("on");
+    expect(unit.snapshot.kept).toEqual({ mode: "simple", detail: "on", hints: "off" });
     unit.undo();
-    expect(server.calls[2].patch).toEqual({ panels: "paper" });
+    expect(server.calls[2].patch).toEqual({ mode: "compact" });
   });
 
-  it("takes the keys shown when Reset is pressed, and Undo writes back whole what that Reset changed, the kinds it hid included", async () => {
-    const server = fakeServer({ panels: "liquid", liquidCards: "on" }), unit = panels(server);
+  it("takes the keys shown when Reset is pressed, and Undo writes back whole what that Reset changed, the options it hid included", async () => {
+    const server = fakeServer({ mode: "advanced", detail: "on" }), unit = display(server);
     expect(unit.snapshot.slot).toBe("reset");
     unit.reset();
-    expect(server.calls[0].patch).toEqual({ panels: null, liquidCards: null, liquidMenus: null });
+    expect(server.calls[0].patch).toEqual({ mode: null, detail: null, hints: null });
     server.calls[0].accept(); await flush();
-    // Glass again: the kinds are out of sight, and Undo is offered for what the Reset changed.
-    expect(unit.snapshot.hidden).toEqual(["liquidCards", "liquidMenus"]);
+    // Simple again: the options are out of sight, and Undo is offered for what the Reset changed.
+    expect(unit.snapshot.hidden).toEqual(["detail", "hints"]);
     expect(unit.snapshot.slot).toBe("undo");
     unit.undo();
-    expect(server.calls[1].patch).toEqual({ panels: "liquid", liquidCards: "on" });
+    expect(server.calls[1].patch).toEqual({ mode: "advanced", detail: "on" });
     server.calls[1].accept(); await flush();
     expect(unit.snapshot.hidden).toEqual([]);
-    expect(unit.snapshot.values).toEqual({ panels: "liquid", liquidCards: "on", liquidMenus: "off" });
+    expect(unit.snapshot.values).toEqual({ mode: "advanced", detail: "on", hints: "off" });
   });
 });
