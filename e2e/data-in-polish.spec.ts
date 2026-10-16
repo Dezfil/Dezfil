@@ -320,7 +320,7 @@ test("the populated grid opens with the Add-data ghost — render-only, first ce
 }) => {
   const consoleErrors = trackConsole(page);
   await seedMap(page);
-  // Two grid rows minimum (273px cells): seed enough sibling tables.
+  // A full first row beside the ghost (273px cells): seed enough sibling tables.
   await page.goto("/maps");
   for (let i = 0; i < 5; i += 1) {
     await seedFile(
@@ -342,8 +342,12 @@ test("the populated grid opens with the Add-data ghost — render-only, first ce
   await expect(ghost).toBeVisible();
 
   // First cell, and a cell-sized one. Same-row equality is stretch and
-  // proves nothing: the honest check compares the ghost's row
-  // against a row WITHOUT the ghost, so the grid must have two rows.
+  // proves nothing, and a later row is no yardstick either: a card that
+  // carries a warning chip wraps it onto a second line, so whichever row
+  // the shared sort puts it in stands taller. The ghost's row is held to
+  // what its own cards need instead: each card's height with the row's
+  // stretch lifted. Layout offsets, not boxes: the cards' entrance
+  // animation moves them while they settle.
   expect(
     await grid.evaluate((el) => el.firstElementChild?.tagName),
   ).toBe("BUTTON");
@@ -351,22 +355,24 @@ test("the populated grid opens with the Add-data ghost — render-only, first ce
     .poll(async () => grid.locator("article").count())
     .toBeGreaterThanOrEqual(5); // 273px cells at 1440: rows wrap past four
   const ghostBox = (await ghost.boundingBox())!;
-  const rows = await grid
-    .locator("article")
-    .evaluateAll((els) =>
-      els.map((el) => {
-        const box = el.getBoundingClientRect();
-        return { top: Math.round(box.y), height: Math.round(box.height) };
-      }),
-    );
-  const firstRowTop = Math.min(...rows.map((r) => r.top));
-  const laterRow = rows.find((r) => r.top > firstRowTop + 10);
-  expect(laterRow, "a second grid row exists to compare against").toBeTruthy();
-  const firstRowHeight = rows.find((r) => r.top === firstRowTop)!.height;
-  // The ghost's row is no taller than an unaffected row, and the ghost
-  // fills its row like any cell.
-  expect(firstRowHeight - laterRow!.height).toBeLessThanOrEqual(2);
-  expect(Math.abs(ghostBox.height - firstRowHeight)).toBeLessThanOrEqual(2);
+  const firstRow = await grid.evaluate((el) => {
+    const [head, ...cells] = Array.from(el.children) as HTMLElement[];
+    const beside = cells.filter((cell) => cell.offsetTop === head.offsetTop);
+    const needs = beside.map((cell) => {
+      const was = cell.style.alignSelf;
+      cell.style.alignSelf = "start";
+      const natural = cell.offsetHeight;
+      cell.style.alignSelf = was;
+      return natural;
+    });
+    const height = Math.max(...[head, ...beside].map((cell) => cell.offsetHeight));
+    return { height, needs };
+  });
+  expect(firstRow.needs.length, "cards share the ghost's row").toBeGreaterThan(0);
+  // The ghost's row is no taller than its tallest card needs, and the
+  // ghost fills its row like any cell.
+  expect(firstRow.height - Math.max(...firstRow.needs)).toBeLessThanOrEqual(2);
+  expect(Math.abs(ghostBox.height - firstRow.height)).toBeLessThanOrEqual(2);
 
   // The header keeps its exact, distinct name — one match only.
   expect(
