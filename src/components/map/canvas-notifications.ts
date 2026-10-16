@@ -28,6 +28,26 @@ export function attachCanvasMotion(
   instance.on("dragstart", dragstart);
   instance.on("dragend", dragend);
 
+  // A press that began on the map and is released anywhere else (over the
+  // inspector, a card, the map's own controls) must end the gesture. The
+  // map's mouse handlers end it only on a release over the map itself:
+  // the release it hears on the document goes to a handler none of them
+  // has, so the gesture stayed open, painted but unsaved, until the
+  // pointer next moved. Hand that release to the map as its own.
+  const surface = instance.getCanvasContainer();
+  let pressed = false;
+  const press = () => {
+    pressed = true;
+  };
+  const release = (e: MouseEvent) => {
+    if (!e.isTrusted || !pressed) return;
+    pressed = false;
+    if (e.target instanceof Node && surface.contains(e.target)) return;
+    surface.dispatchEvent(new MouseEvent("mouseup", e));
+  };
+  surface.addEventListener("mousedown", press);
+  surface.ownerDocument.addEventListener("mouseup", release);
+
   // Cluster layers re-form at integer zoom steps, at the logical
   // zoom.
   const syncClusterZoom = () => {
@@ -49,6 +69,8 @@ export function attachCanvasMotion(
     dispose: () => {
       instance.off("dragstart", dragstart);
       instance.off("dragend", dragend);
+      surface.removeEventListener("mousedown", press);
+      surface.ownerDocument.removeEventListener("mouseup", release);
       instance.off("zoom", syncClusterZoom);
     },
   };

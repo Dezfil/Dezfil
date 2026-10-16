@@ -131,6 +131,19 @@ test("zoom to layer frames that layer, and stays available when hidden", async (
     return body.viewport;
   };
 
+  // The builder frames the data once it has loaded and saves that camera.
+  // Wait that save out, or the movement poll below can pass on it rather
+  // than on the drag.
+  await expect
+    .poll(async () => {
+      const first = await viewport();
+      await page.waitForTimeout(1000);
+      const again = await viewport();
+      const framed = first.lng !== 0 || first.lat !== 40 || first.zoom !== 1.3;
+      return framed && JSON.stringify(first) === JSON.stringify(again);
+    }, { timeout: 30_000 })
+    .toBe(true);
+
   // Move the camera somewhere else first, so "zoom moved it back" is a
   // claim that can fail. Without this the test passes even if the action
   // is a complete no-op.
@@ -138,9 +151,16 @@ test("zoom to layer frames that layer, and stays available when hidden", async (
   const box = await canvas.boundingBox();
   if (!box) throw new Error("no canvas");
   const before = await viewport();
+  const release = { x: box.x + box.width * 0.25, y: box.y + box.height * 0.25 };
+  // The drag ends over the inspector, not the map: a release there must
+  // end the gesture and save the camera like one over the map.
+  expect(
+    await page.evaluate(({ x, y }) => !!document.elementFromPoint(x, y)?.closest(".maplibregl-canvas-container"), release),
+    "the release point is over the map; the drag no longer ends over the inspector",
+  ).toBe(false);
   await page.mouse.move(box.x + box.width * 0.6, box.y + box.height * 0.5);
   await page.mouse.down();
-  await page.mouse.move(box.x + box.width * 0.25, box.y + box.height * 0.25, {
+  await page.mouse.move(release.x, release.y, {
     steps: 14,
   });
   await page.mouse.up();
