@@ -1,7 +1,7 @@
 "use client";
 
 import { membershipBody } from "./filing-intent";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { formatRelativeTime, readApiError } from "../api";
@@ -18,7 +18,7 @@ import { AddDataDialog } from "../AddDataDialog";
 import { NewWorkflowDialog } from "../NewWorkflowDialog";
 import { skippedNotice } from "../skipped-members";
 import { uploadSettleNotice } from "../upload-settle-notice";
-import { useUploadQueue } from "../use-upload-queue";
+import { useUploadQueue, type UploadQueue } from "../use-upload-queue";
 import { Dialog } from "../ui/Dialog";
 import { ErrorNote } from "../ui/ErrorNote";
 import { Menu, MenuItem } from "../ui/Menu";
@@ -163,6 +163,7 @@ function ProjectHomeVisit({ id, home, files, pictureBasemaps }: {
   );
   // Imports made from this home land in this project (the queue captures
   // the scope per admitted batch; the dialog's panes carry it too).
+  const uploadQueueRef = useRef<UploadQueue | null>(null);
   const uploadQueue = useUploadQueue({
     projectId: id,
     onFileImported: () => void confirmMembership(),
@@ -171,12 +172,39 @@ function ProjectHomeVisit({ id, home, files, pictureBasemaps }: {
     // the dialog's current state when a batch settles.
     onSettled: (report) => {
       const { text, clean } = uploadSettleNotice(report);
-      if (addingData && clean) {
-        setAddingData(false);
+      if (addingData) {
+        // A batch that landed whole closes the dialog with its outcome;
+        // anything else keeps it open, its notes readable there.
+        if (clean) {
+          setAddingData(false);
+          setExportNote(text);
+        }
+      } else {
+        // Closed during the upload: the outcome is said here, the only
+        // account of it now, and the settled batch is dropped so the next
+        // open starts fresh.
         setExportNote(text);
+        uploadQueueRef.current?.reset();
       }
     },
   });
+  useEffect(() => {
+    uploadQueueRef.current = uploadQueue;
+  });
+  // Every path that closes the dialog settles the queue as the Data page's
+  // close does: the files not started are stopped and said, and a settled
+  // batch is dropped, so the next open never shows its old notes.
+  const settleQueueForClose = useCallback(() => {
+    const queue = uploadQueueRef.current;
+    if (!queue) return;
+    const stopped = queue.dismiss();
+    if (stopped > 0) {
+      setExportNote(
+        stopped === 1 ? "Stopped. 1 queued file was not started." : `Stopped. ${stopped} queued files were not started.`,
+      );
+    }
+    if (queue.current().settled) queue.reset();
+  }, []);
   const attention = useMemo(
     () => (world ? attentionRows(world.workflows) : []),
     [world],
@@ -592,6 +620,7 @@ function ProjectHomeVisit({ id, home, files, pictureBasemaps }: {
             workflows={workflows}
             opLabel={opLabel}
             onChanged={confirmMembership}
+            followRuns
           />
         )}
         {hasContent ? (
@@ -658,9 +687,13 @@ function ProjectHomeVisit({ id, home, files, pictureBasemaps }: {
         open={addingData}
         projectId={id}
         projectName={world?.record.name ?? null}
-        onClose={() => setAddingData(false)}
+        onClose={() => {
+          settleQueueForClose();
+          setAddingData(false);
+        }}
         onTableCreated={() => {
           if (!ownsAction(renderedAction)) return;
+          settleQueueForClose();
           setAddingData(false);
           void confirmMembership();
         }}

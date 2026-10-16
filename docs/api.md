@@ -25,7 +25,7 @@ every documented operation must have a route, and every call the interface
 makes must hit a documented path (`src/lib/api/parity.test.ts`). The
 description cannot drift from the server.
 
-Measured from the current source: **145 paths, 410 operations, 187 named component schemas.** Operations include supported automatic HEAD and OPTIONS.
+Measured from the current source: **145 paths, 410 operations, 188 named component schemas.** Operations include supported automatic HEAD and OPTIONS.
 `npm run lint:contract-docs` measures these numbers and checks the catalogue below
 against the contract; changing only the reader-facing text fails the gate.
 
@@ -937,7 +937,9 @@ Deactivation remains the way to keep shared work. A response is `200` with
 `{id, state: "completed"}` only when cleanup has finished, or `202` with
 `state: "pending"` or `"needs-retry"`. Repeating acceptance returns the same
 unfinished deletion without restarting it. `GET /api/users/deletions/{id}`
-reads unfinished state; `POST /api/users/deletions/{id}/finish` resumes the
+reads unfinished state; while pending it also carries `admittedReads`, the
+reads admitted before the deletion that it still waits on to settle.
+`POST /api/users/deletions/{id}/finish` resumes the
 same deletion, including after restart. Concurrent continuation joins the
 same work. All require current admin authority and private responses.
 `GET /api/users` adds `deletions`, a separate array of unfinished reservations

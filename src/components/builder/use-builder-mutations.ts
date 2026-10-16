@@ -92,12 +92,21 @@ export function useBuilderMutations({
 
   // In-progress Legend-tab text, mirrored to the canvas legend on every
   // keystroke; a layer's entry clears when its save echoes back, at which
-  // point persisted and live text agree anyway.
+  // point persisted and live text agree anyway. A field sent undefined
+  // leaves the entry, and an entry left empty goes.
   const [legendLive, setLegendLive] = useState<Record<string, LegendLiveText>>(
     {},
   );
   const onLegendLive = useCallback((id: string, text: LegendLiveText) => {
-    setLegendLive((prev) => ({ ...prev, [id]: { ...prev[id], ...text } }));
+    setLegendLive((prev) => {
+      const merged: Record<string, unknown> = { ...prev[id], ...text };
+      for (const key of Object.keys(merged)) if (merged[key] === undefined) delete merged[key];
+      if (Object.keys(merged).length) return { ...prev, [id]: merged as LegendLiveText };
+      if (!(id in prev)) return prev;
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
   }, []);
   // A recovered read is authoritative for live text too: the lane
   // discards an entry that was waiting for a lost response rather than

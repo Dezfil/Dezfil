@@ -264,6 +264,35 @@ it.each([
   expect(w.pending("PATCH", "/api/layers/a"), "leaving the field sent the refused text again").toEqual([]);
 });
 
+it.each([
+  { name: TITLE, how: "exactly", typed: "Typed title", back: "Stored title", change: { legendTitle: "Elsewhere" }, text: "Elsewhere", legend: { title: "Elsewhere" } },
+  { name: TITLE, how: "but for trailing spaces", typed: "Typed title", back: "Stored title  ", change: { legendTitle: "Elsewhere" }, text: "Elsewhere", legend: { title: "Elsewhere" } },
+  { name: FILL, how: "exactly", typed: "Typed fill", back: "Stored fill", change: { legendAttrs: { fill: "Elsewhere fill" } }, text: "Elsewhere fill", legend: { attrs: { fill: "Elsewhere fill" } } },
+  { name: label(2), how: "exactly", typed: "Typed two", back: "", change: { legendLabels: [null, "Elsewhere two", null] }, text: "Elsewhere two", legend: { labels: [null, "Elsewhere two", null] } },
+])("draws a change from elsewhere on the legend once the text typed in $name is erased back to the stored text $how", async ({ name, typed, back, change, text, legend }) => {
+  await type(name, typed);
+  await type(name, back);
+  await changedElsewhere(change);
+  await leave(name);
+  expect(field(name).value).toBe(text);
+  expect(drawn(), "the legend kept the erased keystrokes over the stored change").toMatchObject(legend);
+  expect(builderRef.current.legendLive.a, "live text outlived the field it mirrored").toBeUndefined();
+  expect(w.pending("PATCH", "/api/layers/a")).toEqual([]);
+});
+
+it.each([
+  { name: TITLE, typed: "Typed title", back: "Stored title", change: { legendTitle: "Elsewhere" }, legend: { title: "Elsewhere" } },
+  { name: FILL, typed: "Typed fill", back: "Stored fill", change: { legendAttrs: { fill: "Elsewhere fill" } }, legend: { attrs: { fill: "Elsewhere fill" } } },
+  { name: label(2), typed: "Typed two", back: "", change: { legendLabels: [null, "Elsewhere two", null] }, legend: { labels: [null, "Elsewhere two", null] } },
+])("draws a change from elsewhere on the legend after $name was typed, erased back and left unsaved", async ({ name, typed, back, change, legend }) => {
+  await type(name, typed);
+  await type(name, back);
+  await leave(name);
+  expect(w.pending("PATCH", "/api/layers/a")).toEqual([]);
+  await changedElsewhere(change);
+  expect(drawn(), "the legend kept the erased keystrokes over the stored change").toMatchObject(legend);
+});
+
 it("sets a field not being typed in to a change from elsewhere that left its own text alone", async () => {
   // Trailing spaces save as nothing new: the field keeps them, unsaved.
   await type(FILL, "Stored fill  ");

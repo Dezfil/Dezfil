@@ -71,7 +71,8 @@ it.each(["session", "token"])("carries pending, retry, list recovery and complet
   const response = await remove(request("/api/users/target", "DELETE", body, headers), params());
   expect(response.status).toBe(202); const accepted = await response.json(); expect(accepted.state).toBe("pending");
   const lookup = () => status(request(`/api/users/deletions/${accepted.id}`, "GET", undefined, headers), params(accepted.id));
-  expect(await (await lookup()).json()).toEqual(accepted);
+  // The status also says the read admitted before the deletion is still held.
+  expect(await (await lookup()).json()).toEqual({ ...accepted, admittedReads: 1 });
   expect(await (await remove(request("/api/users/target", "DELETE", body, headers), params())).json()).toEqual(accepted);
   expect(await (await preview(request("/api/users/target/deletion-preview", "GET", undefined, headers), params())).json()).toEqual(accepted);
   expect(() => changeAccountAccess(admin, "target", { status: "active" })).toThrow(expect.objectContaining({ code: "deletion_in_progress" }));

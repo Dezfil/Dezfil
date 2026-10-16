@@ -3,6 +3,7 @@ import { requireAdmin } from "./admin";
 import type { AuthContext } from "./credentials";
 import { deletionJournals, readDeletionJournal, type UnreadableDeletionJournal } from "./account-deletion-journal";
 import type { DeletionStatus } from "./account-deletion";
+import { admittedReads } from "./account-deletion-admission";
 
 export interface ReadablePendingDeletion {
   id: string; state: "pending" | "needs-retry";
@@ -20,5 +21,8 @@ export function listAccountDeletions(context: AuthContext): PendingDeletion[] {
 export function accountDeletionStatus(context: AuthContext, id: string): DeletionStatus {
   requireAdmin(context, metadataDb(), Date.now());
   const journal = readDeletionJournal(id);
-  return { id: journal.id, state: journal.state };
+  // A pending deletion may be waiting on reads admitted before it.
+  return journal.state === "pending"
+    ? { id: journal.id, state: journal.state, admittedReads: admittedReads(journal.accountId) }
+    : { id: journal.id, state: journal.state };
 }

@@ -54,7 +54,26 @@ export function admitAccountWork(accounts: readonly (string | null)[], db: Datab
   return lease;
 }
 
+/** How many pieces of admitted work bound to the account are still held:
+ * what a deletion's first stage waits on. */
+export function admittedReads(accountId: string, db: Database = metadataDb()): number {
+  return [...holder.work].filter(w => w.database === db.name && w.accounts.has(accountId)).length;
+}
+
+/** A drain still waiting after this long says so in the server log, once:
+ * a consumer that never releases its lease keeps a deletion pending for
+ * ever, and nothing else would tell. */
+const DRAIN_LOGGED_AFTER_MS = 60_000;
+
 export async function drainAccountWork(accountId: string, db: Database = metadataDb()): Promise<void> {
+  const overdue = setTimeout(() => {
+    const count = admittedReads(accountId, db);
+    if (count > 0) console.warn(`Account deletion has waited ${DRAIN_LOGGED_AFTER_MS / 1000} s for ${count} admitted ${count === 1 ? "read" : "reads"} to settle`);
+  }, DRAIN_LOGGED_AFTER_MS);
+  try { await drainUntilSettled(accountId, db); } finally { clearTimeout(overdue); }
+}
+
+async function drainUntilSettled(accountId: string, db: Database): Promise<void> {
   for (;;) {
     const work = [...holder.work].filter(w => w.database === db.name && w.accounts.has(accountId));
     if (!work.length) return;

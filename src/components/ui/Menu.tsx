@@ -26,8 +26,8 @@ const MenuClose = createContext<() => void>(() => {});
  * The contract: the trigger states haspopup and expanded; a keyboard
  * opening puts focus on the first item; arrows move; Escape closes and
  * returns focus to the trigger; an outside pointer closes without taking
- * focus away from whatever was clicked; scrolling or resizing closes rather
- * than leaving a menu stranded from its trigger.
+ * focus away from whatever was clicked; a scroll that moves the trigger, or
+ * a resize, closes rather than leaving a menu stranded from its trigger.
  *
  * The menu portals out because cards clip their overflow and lift on hover,
  * and a transform hijacks fixed descendants. `portalTarget` exists for the
@@ -82,6 +82,8 @@ export function Menu({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLSpanElement>(null);
   const focusFirst = useRef(false);
+  /** Where the trigger stood when the menu was last placed. */
+  const placedFrom = useRef<{ top: number; left: number } | null>(null);
 
   const close = useCallback(() => {
     setOpen(false);
@@ -113,6 +115,7 @@ export function Menu({
     const menu = menuRef.current;
     if (!rect || !menu) return;
     const { width, height } = menu.getBoundingClientRect();
+    placedFrom.current = { top: rect.top, left: rect.left };
     const room = {
       below: window.innerHeight - rect.bottom - 14,
       above: rect.top - 14,
@@ -177,17 +180,27 @@ export function Menu({
       // was wheeled.
       const node = e.target as Node | null;
       if (node && menuRef.current?.contains(node)) return;
+      // Only a scroll that moved the trigger strands the menu. The scroll
+      // that brought a trigger into view can be delivered a frame after
+      // the press that opened the menu, and a scroll elsewhere on the page
+      // moves nothing here: neither may close it.
+      const rect = triggerRef.current?.getBoundingClientRect();
+      const from = placedFrom.current;
+      if (rect && from && Math.abs(rect.top - from.top) < 1 && Math.abs(rect.left - from.left) < 1) return;
       close();
     };
+    // A resize closes whatever the trigger did: the menu's place and its
+    // height were measured for the window as it was.
+    const onResize = () => close();
     document.addEventListener("pointerdown", onPointerDown);
     document.addEventListener("keydown", onKeyDown, true);
     window.addEventListener("scroll", onScroll, true);
-    window.addEventListener("resize", onScroll);
+    window.addEventListener("resize", onResize);
     return () => {
       document.removeEventListener("pointerdown", onPointerDown);
       document.removeEventListener("keydown", onKeyDown, true);
       window.removeEventListener("scroll", onScroll, true);
-      window.removeEventListener("resize", onScroll);
+      window.removeEventListener("resize", onResize);
     };
   }, [open, close, closeToTrigger]);
 

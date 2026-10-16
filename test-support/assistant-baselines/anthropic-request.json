@@ -121,7 +121,7 @@
     },
     {
       "name": "get_user_deletion",
-      "description": "Read user deletion status. Requires a current admin account through a cookie session or bearer token. Cookie mutations require the same trusted Origin. Responses, including refusals, are private, no-store. Returns pending or needs-retry for unfinished deletion. An unreadable deletion record returns 409 deletion_unreadable and remains untouched. No stage, failure detail or content is exposed. Completed identifiers return 404 not_found because their temporary records have been removed; after an accepted response, clients may refresh list_users to reconcile a missing identifier. A missing identifier without prior acceptance is not proof that an account was deleted.",
+      "description": "Read user deletion status. Requires a current admin account through a cookie session or bearer token. Cookie mutations require the same trusted Origin. Responses, including refusals, are private, no-store. Returns pending or needs-retry for unfinished deletion. A pending deletion also carries admittedReads, the reads admitted before it that it still waits on: erasure starts once they settle, and a count that stays above zero means a reader has not let go. An unreadable deletion record returns 409 deletion_unreadable and remains untouched. No stage, failure detail or content is exposed. Completed identifiers return 404 not_found because their temporary records have been removed; after an accepted response, clients may refresh list_users to reconcile a missing identifier. A missing identifier without prior acceptance is not proof that an account was deleted.",
       "input_schema": {
         "type": "object",
         "properties": {

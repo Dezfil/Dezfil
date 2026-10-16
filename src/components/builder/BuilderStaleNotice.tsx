@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ErrorNote } from "../ui/ErrorNote";
 import { Button } from "../ui/Button";
 import { DISCARD_MESSAGE, STALE_MESSAGE } from "../document-sequence";
@@ -12,13 +12,19 @@ export function BuilderStaleNotice({ mutations, onRecovered }: { mutations: Retu
   const [confirm, setConfirm] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  useUnsavedNavigation(mutations.stale);
+  const [leaving, setLeaving] = useState(false);
+  useUnsavedNavigation(mutations.stale && !leaving);
+  // Ended access is not recovered in place: past the confirm step the page
+  // reloads. The unsaved-work guard lets go first (an effect's cleanup runs
+  // before any effect starts), so the browser does not ask a second time.
+  useEffect(() => { if (leaving) window.location.reload(); }, [leaving]);
   if (!mutations.stale) return null;
   const map = mutations.savedMap;
   const draft = map ? mutations.drafts.apply(map) : null;
   const sql = draft?.layers.filter(layer => mutations.drafts.hasLayer(layer.id)).map(layer => layer.sql).join("\n\n") ?? "";
   const legend = draft?.layers.filter(layer => mutations.drafts.hasLayer(layer.id) || mutations.legendLive[layer.id]).map(layer => mutations.legendLive[layer.id]?.legendTitle ?? layer.legendTitle ?? "").join("\n") ?? "";
   async function reload() {
+    if (mutations.sequence.accessLost) { setBusy(true); setLeaving(true); return; }
     if (!map) return;
     setBusy(true); setError(null);
     try { const seed = await readBuilderRecovery(map.id); mutations.sequence.dispose(); onRecovered?.(seed); }

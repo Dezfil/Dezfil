@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { TRAVERSAL_GRACE_MS, watchPrivateWorkspace } from "./private-workspace";
 import { keepTraversals, letTraversalGo, takeTraversals } from "./kept-traversals";
-import { ACCOUNT_STORAGE_KEY, accountChanged, openPrivateState } from "./private-state";
+import { ACCOUNT_STORAGE_KEY, accountChanged, openPrivateState, privateStateOpen } from "./private-state";
 import { readStored, SQL_KEYS, writeStored } from "../sql/sql-storage";
 import { conversation, LOCATOR_KEY } from "../builder/assistant/conversation-store";
 import { contributePath, pathObjectFor } from "../shell/path-model";
@@ -44,7 +44,7 @@ it("mounts only after a fresh identity read, preserves same-account reload draft
   expect(localStorage.getItem("dezfil:private-style")).toBeNull();
   expect(win.location.replace).toHaveBeenCalledWith(win.location.href);
 });
-it.each(["storage", "popstate", "pageshow"])("conceals and reloads a %s restore instead of reusing private state", async kind => {
+it.each(["storage", "pageshow"])("conceals and reloads a %s restore instead of reusing private state", async kind => {
   const ready = vi.fn(); dispose = watchPrivateWorkspace("alice", ready); await flush();
   const event = new Event(kind);
   if (kind === "storage") Object.defineProperty(event, "key", { value: ACCOUNT_STORAGE_KEY });
@@ -53,6 +53,26 @@ it.each(["storage", "popstate", "pageshow"])("conceals and reloads a %s restore 
   expect(doc.documentElement.hidden).toBe(true); expect(ready).toHaveBeenLastCalledWith(false);
   expect(win.location.replace).toHaveBeenCalledWith("http://instance.test/maps/copied-id");
   await expect(win.fetch("/api/maps")).rejects.toMatchObject({ name: "AbortError" });
+});
+it("leaves the page shown and working when the reload a Back or Forward starts is cancelled at the leave prompt, and hides it only as the document goes", async () => {
+  const ready = vi.fn(); dispose = watchPrivateWorkspace("alice", ready); await flush();
+  // The browser asks before leaving a page holding unsaved work; Stay
+  // cancels the reload, which the stub's replace stands for by doing nothing.
+  win.dispatchEvent(new Event("popstate"));
+  expect(win.location.replace).toHaveBeenCalledWith("http://instance.test/maps/copied-id");
+  expect(doc.documentElement.hidden).toBe(false);
+  expect(ready).toHaveBeenLastCalledWith(true); expect(ready).not.toHaveBeenCalledWith(false);
+  expect(doc.title).toBe("Alice's map");
+  expect(privateStateOpen()).toBe(true);
+  await expect(win.fetch("/api/maps")).resolves.toBeInstanceOf(Response);
+  // The page still answers the next Back or Forward, and a step a page lets go.
+  win.dispatchEvent(new Event("popstate"));
+  expect(letTraversalGo()).toBe(true);
+  expect(win.location.replace).toHaveBeenCalledTimes(3);
+  expect(doc.documentElement.hidden).toBe(false);
+  // The reload goes ahead: the page hides as the document goes.
+  win.dispatchEvent(new Event("pagehide"));
+  expect(doc.documentElement.hidden).toBe(true);
 });
 it("keeps a Back or Forward the page on screen claims, and reloads every other one", async () => {
   const ready = vi.fn(); dispose = watchPrivateWorkspace("alice", ready); await flush();
@@ -65,6 +85,7 @@ it("keeps a Back or Forward the page on screen claims, and reloads every other o
     keeping = false;
     win.dispatchEvent(new Event("popstate"));
     expect(win.location.replace).toHaveBeenCalledWith("http://instance.test/maps/copied-id");
+    win.dispatchEvent(new Event("pagehide"));
     expect(doc.documentElement.hidden).toBe(true);
   } finally { letGo(); }
 });
@@ -77,7 +98,10 @@ it("stops a plain Back or Forward before the router hears it, then reloads, so n
     win.dispatchEvent(new Event("popstate"));
     expect(router).not.toHaveBeenCalled();
     expect(win.location.replace).toHaveBeenCalledWith("http://instance.test/maps/copied-id");
-    expect(doc.documentElement.hidden).toBe(true); expect(ready).toHaveBeenLastCalledWith(false);
+    // The page hides as the document goes, with no private request outliving it.
+    win.dispatchEvent(new Event("pagehide"));
+    expect(doc.documentElement.hidden).toBe(true); expect(doc.title).toBe("Dezfil");
+    await expect(win.fetch("/api/maps")).rejects.toMatchObject({ name: "AbortError" });
   } finally { win.removeEventListener("popstate", router); }
 });
 /** A session read the test answers by hand, after the workspace's first one. */
@@ -240,7 +264,8 @@ it("ends the document on a step a page took and lets go, and offers that only wh
   const ready = vi.fn(); dispose = watchPrivateWorkspace("alice", ready); await flush();
   expect(letTraversalGo()).toBe(true);
   expect(win.location.replace).toHaveBeenCalledWith("http://instance.test/maps/copied-id");
-  expect(doc.documentElement.hidden).toBe(true); expect(ready).toHaveBeenLastCalledWith(false);
+  win.dispatchEvent(new Event("pagehide"));
+  expect(doc.documentElement.hidden).toBe(true);
   dispose(); dispose = undefined;
   expect(letTraversalGo()).toBe(false);
   expect(win.location.replace).toHaveBeenCalledOnce();

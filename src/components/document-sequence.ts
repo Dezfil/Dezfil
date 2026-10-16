@@ -3,6 +3,32 @@ import { editHeaders } from "@/lib/edit-basis";
 export const STALE_MESSAGE = "This item has changed. Reload it before trying again.";
 export const DISCARD_MESSAGE = "Reload discards your unsaved values. Copy what you want to keep first.";
 
+/** Whether a write changes the publication: the publish operations, or one
+ * of the two publication settings that travel through ordinary edits, a
+ * map's widget publication toggle and a layer's published fields. All of
+ * it is the map owner's alone, whatever an editor's standing. */
+function changesPublication(path: string, body: unknown): boolean {
+  if (/\/publish(?:[?#]|$)/.test(path)) return true;
+  if (typeof body !== "string") return false;
+  try {
+    const fields: unknown = JSON.parse(body);
+    return !!fields && typeof fields === "object" &&
+      (Object.hasOwn(fields, "widgetsPublished") || Object.hasOwn(fields, "publishedFields"));
+  } catch { return false; }
+}
+
+/** A write refused because the person can no longer change this document:
+ * it is no longer theirs to reach (removed from its project, or gone), or
+ * no longer theirs to change (made a Viewer, or its owner deactivated).
+ * Every later write would meet the same refusal. A change to the
+ * publication is refused to an editor whose editing stands, so its refusal
+ * says nothing about the editor's access; a read that finds nothing is not
+ * a refused write. */
+function accessEnded(status: number, code: unknown, method: string, path: string, body: unknown): boolean {
+  if (method === "GET" || changesPublication(path, body)) return false;
+  return (status === 403 && code === "forbidden") || (status === 404 && code === "not_found");
+}
+
 /** One editor lifetime and one accepted revision. Camera persistence never
  * enters this sequence. Work builds its payload only when its turn starts. */
 export class DocumentSequence {
@@ -13,22 +39,35 @@ export class DocumentSequence {
   private closed = false;
   get disposed() { return this.closed; }
   stale = false;
+  /** Whether a halt came from access ending rather than a stale revision.
+   * Reading the document again in place cannot recover that, so the
+   * editor's Reload reloads the page and the server decides what the
+   * person may now see. */
+  accessLost = false;
   private listeners = new Set<() => void>();
   subscribe = (listener: () => void) => { this.listeners.add(listener); return () => { this.listeners.delete(listener); }; };
   snapshot = () => this.stale;
-  halt() { this.stale = true; this.listeners.forEach((listener) => listener()); }
-  /** Refused work keeps its old basis until an explicit discard installs a new editor. */
-  async observe(response: Response) {
-    if (response.status === 409) {
+  halt(accessLost = false) {
+    if (accessLost) this.accessLost = true;
+    this.stale = true; this.listeners.forEach((listener) => listener());
+  }
+  /** Refused work keeps its old basis until an explicit discard installs a
+   * new editor. A stale revision halts the sequence, and so does a write
+   * refused because access has ended. */
+  async observe(response: Response, method = "GET", path = "", sent?: unknown) {
+    if (response.status === 409 || response.status === 403 || response.status === 404) {
       const body = await response.clone().json().catch(() => null);
-      if (body?.error?.code === "stale_revision") this.halt();
+      const code = body?.error?.code;
+      if (response.status === 409 && code === "stale_revision") this.halt();
+      else if (accessEnded(response.status, code, method, path, sent)) this.halt(true);
     }
     return response;
   }
   refusal() { return Response.json({ error: { code: "stale_revision", message: STALE_MESSAGE } }, { status: 409 }); }
   writeFetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     if (this.stale || this.closed) return this.refusal();
-    return this.observe(await fetch(input, { ...init, headers: this.headers(init?.headers) }));
+    const path = typeof input === "string" ? input : input instanceof URL ? input.pathname : input.url;
+    return this.observe(await fetch(input, { ...init, headers: this.headers(init?.headers) }), init?.method ?? "GET", path, init?.body);
   };
   constructor(readonly documentId?: string) {}
   revision: string | null = null;

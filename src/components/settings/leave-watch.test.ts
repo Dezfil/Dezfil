@@ -585,9 +585,10 @@ describe("held by the private workspace", () => {
       await reads();
       await answer(true);
       expect(browser.win.location.replace).toHaveBeenCalledWith(`${ORIGIN}/maps`);
-      expect(browser.doc.documentElement.hidden).toBe(true);
-      expect(ready).toHaveBeenLastCalledWith(false);
       expect(browser.unload().defaultPrevented).toBe(false);
+      // The page hides as the document goes.
+      browser.win.dispatchEvent(new Event("pagehide"));
+      expect(browser.doc.documentElement.hidden).toBe(true);
     } finally { letKeep(); letTake(); page.stop(); stopWorkspace(); }
   });
 

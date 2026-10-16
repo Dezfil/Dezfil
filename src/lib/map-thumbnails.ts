@@ -80,10 +80,24 @@ const PENDING_TTL_MS = 2 * 60_000;
 
 /** One turn at a time per map: every mutation queues behind the last. */
 const turnsKey = Symbol.for("dezfil.thumbnail-turns");
-const turnsHost = globalThis as typeof globalThis & { [turnsKey]?: Map<string, Promise<unknown>> };
+const begunKey = Symbol.for("dezfil.thumbnail-turns-begun");
+const turnsHost = globalThis as typeof globalThis & {
+  [turnsKey]?: Map<string, Promise<unknown>>;
+  [begunKey]?: { count: number };
+};
 const turns = turnsHost[turnsKey] ??= new Map<string, Promise<unknown>>();
+/** Mutation turns begun on any map: a read that saw none begin, and none
+ * pending on its map, saw no mutation while it ran. */
+const begun = turnsHost[begunKey] ??= { count: 0 };
 
-export async function inThumbnailTurn<T>(mapId: string, work: () => Promise<T>): Promise<T> {
+export function inThumbnailTurn<T>(mapId: string, work: () => Promise<T>): Promise<T> {
+  return queueTurn(mapId, () => {
+    begun.count += 1;
+    return work();
+  });
+}
+
+async function queueTurn<T>(mapId: string, work: () => Promise<T>): Promise<T> {
   const previous = turns.get(mapId) ?? Promise.resolve();
   const mine = previous.catch(() => undefined).then(work);
   turns.set(mapId, mine);
@@ -275,6 +289,40 @@ async function writeImageCandidate(image: string, target: string, bytes: Uint8Ar
 }
 
 /**
+ * A cycle publishes once. A write under the cycle of the published pair
+ * would overwrite a file the live manifest names, so the pair first
+ * moves to fresh names by the same switch, bytes and evidence unchanged,
+ * and the write is then held like any other. A failure before the
+ * switch leaves the pair where it was; a pair already missing a file
+ * has nothing whole to keep and stays as it is.
+ */
+async function moveAside(mapId: string, set: ThumbnailSet, authorize: () => void): Promise<ThumbnailSet> {
+  const images: Partial<Record<ThumbnailTheme, Buffer>> = {};
+  for (const theme of THUMBNAIL_THEMES) {
+    try {
+      images[theme] = await readFile(inDir(set[theme]));
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") return set;
+      throw error;
+    }
+  }
+  const cycle = randomBytes(12).toString("hex");
+  const moved: ThumbnailSet = {
+    light: thumbnailSetFile(mapId, cycle, "light"),
+    dark: thumbnailSetFile(mapId, cycle, "dark"),
+  };
+  for (const theme of THUMBNAIL_THEMES) {
+    const bytes = images[theme]!;
+    await writeImageEvidence(moved[theme], bytes, await imageEvidence(set[theme], bytes), authorize);
+    await writeAtomically(inDir(moved[theme]), bytes, authorize);
+  }
+  await writeAtomically(thumbnailManifestPath(mapId), JSON.stringify(moved), authorize);
+  await removeImage(set.light);
+  await removeImage(set.dark);
+  return moved;
+}
+
+/**
  * One theme's image under a cycle. Held until the other theme arrives
  * under the same cycle; the pair is then published as one set by the
  * manifest switch, and everything the map had before is retired.
@@ -295,10 +343,13 @@ export function saveThemedThumbnail(
   catch (error) { lease.release(); throw error; }
   return inDeletionWork(lease, () => inThumbnailTurn(mapId, async () => {
     authorize();
-    const previous = await readSet(mapId);
-    authorize();
-    await expireHeld(mapId, previous);
     const own = thumbnailSetFile(mapId, cycle, theme);
+    let previous = await readSet(mapId);
+    authorize();
+    if (previous && (previous.light === own || previous.dark === own)) {
+      previous = await moveAside(mapId, previous, authorize);
+    }
+    await expireHeld(mapId, previous);
     await writeImageCandidate(own, inDir(own), bytes, { inputs, basemap }, authorize);
     const partner = thumbnailSetFile(mapId, cycle, otherTheme(theme));
     const paired = await exists(inDir(partner));
@@ -327,8 +378,27 @@ export function saveThemedThumbnail(
  * as it always did). An image the reader may not be served is passed
  * over like a missing one. Null when nothing is left — the route
  * refuses, the card draws its placeholder.
+ *
+ * Reads do not queue behind captures. A publication retires the files
+ * the previous manifest named, so a read that overlapped a mutation may
+ * hold names that are gone; it is taken again inside the map's turn,
+ * where nothing can move under it.
  */
 export async function readThumbnail(
+  scope: AccountScope,
+  mapId: string,
+  theme?: ThumbnailTheme | null,
+): Promise<Buffer | null> {
+  requireMap(scope, mapId);
+  const before = begun.count;
+  if (!turns.has(mapId)) {
+    const bytes = await readPublished(scope, mapId, theme);
+    if (begun.count === before && !turns.has(mapId)) return bytes;
+  }
+  return queueTurn(mapId, () => readPublished(scope, mapId, theme));
+}
+
+async function readPublished(
   scope: AccountScope,
   mapId: string,
   theme?: ThumbnailTheme | null,

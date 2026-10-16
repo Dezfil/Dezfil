@@ -4,8 +4,8 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import {
   type FeaturePickHandler,
   type HoverInfo,
-  type PinnedPopup,
 } from "./canvas-pointer";
+import { usePinnedPopup } from "./use-pinned-popup";
 import * as maplibregl from "@/lib/maplibre";
 import type { MapLibreOverlay } from "@deck.gl/maplibre";
 import { attachCanvasOverlay } from "./canvas-overlay";
@@ -384,11 +384,7 @@ export function MapCanvas({
     null,
   );
   const [hover, setHover] = useState<HoverInfo | null>(null);
-  const [pinned, setPinned] = useState<PinnedPopup | null>(null);
-  const pinnedRef = useRef<PinnedPopup | null>(null);
-  useEffect(() => {
-    pinnedRef.current = pinned;
-  }, [pinned]);
+  const { pinned, setPinned, pinnedRef } = usePinnedPopup(layers);
   // The basemap style lifecycle — swap, offline fallback, reactive
   // recolor — lives in its own module.
   const { basemapFailed, attach: attachBasemapStyle } = useBasemapStyle(
@@ -1172,16 +1168,6 @@ export function MapCanvas({
   // Camera and marker requests: own modules; fit contract unchanged.
   useCameraRequests({ mapRef: map, fitBounds, flyTo, timelineOpenRef });
   useSearchMarker(map, searchMarker, onSearchMarkerDismiss);
-
-  // Escape closes the pinned pop-up, viewer and builder alike.
-  useEffect(() => {
-    if (!pinned) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setPinned(null);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [pinned]);
 
   return (
     <div className={styles.wrap}>

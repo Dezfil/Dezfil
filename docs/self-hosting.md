@@ -171,7 +171,9 @@ No handover or undelete is provided.
 
 Pending and needs-retry mean unfinished. The account and its work remain
 inaccessible, its email stays reserved, and Users offers **Finish deleting**, also
-after restart. Use the same deletion identifier through the API or MCP. Completion
+after restart. A pending deletion first waits for the reads admitted before it to
+settle: Users shows how many it still waits on, and the server log says so once a
+wait has lasted a minute. Use the same deletion identifier through the API or MCP. Completion
 frees the email and removes the temporary deletion record; a subsequent status
 read returns not found. Deleting the original profile never reopens setup or
 adoption. Remaining admins can use this version's packaged local recovery command.

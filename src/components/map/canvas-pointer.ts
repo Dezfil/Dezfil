@@ -36,6 +36,9 @@ export interface PinnedPopup {
   layerId: string;
   index: number;
   entries: [string, unknown][];
+  /** The feature's stable identity, when its layer projects one (a drawn
+   * shape's id): the card ends when no feature with it is left. */
+  featureId?: string;
 }
 
 /** The clicked feature's stable identity, when its layer projects one:
@@ -253,6 +256,7 @@ export function pointerHandlers(ctx: PointerContext): {
     }
     setHover(null);
     const [x, y] = clampToView(instance, info.x, info.y);
+    const featureId = object.properties?.feature_id;
     setPinned({
       lng: coord[0],
       lat: coord[1],
@@ -261,6 +265,7 @@ export function pointerHandlers(ctx: PointerContext): {
       layerId: layerId ?? "",
       index: info.index,
       entries,
+      ...(typeof featureId === "string" ? { featureId } : {}),
     });
   };
 

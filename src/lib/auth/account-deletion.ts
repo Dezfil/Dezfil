@@ -18,7 +18,11 @@ import { requireAdmin } from "./admin";
 import type { AuthContext } from "./credentials";
 import { deletionEligibility } from "./account-deletion-eligibility";
 
-export interface DeletionStatus { id: string; state: "pending" | "needs-retry" | "completed" }
+export interface DeletionStatus {
+  id: string; state: "pending" | "needs-retry" | "completed";
+  /** On a pending deletion's status: the reads admitted before it that it still waits on. */
+  admittedReads?: number;
+}
 const key = Symbol.for("dezfil.account-deletion-continuations");
 const host = process as typeof process & { [key]?: {
   running: Map<string, Promise<DeletionStatus>>; prepared: Map<string, Promise<void>>;
