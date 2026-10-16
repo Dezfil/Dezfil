@@ -7,7 +7,7 @@
 // and the looks' own numbers; the page's tokens are never the expected side.
 //
 // Liquid's recipe, the same on every role in a theme: the panel tone under a
-// faint tint as one fill, a 24 px blur, the light on the rim, and a drop that
+// faint tint as one clear fill, a 6 px blur, the light on the rim, and a drop that
 // says only how high the surface sits (a contact drop inside a panel, one
 // floating drop, a higher one on hover and on a dialog). A block inside a
 // panel takes the fill, the light and the contact drop with no blur; the
@@ -29,7 +29,9 @@
 //   card at rest and hovered), and so do the blocks inside panels (a legend
 //   tab entry, a widget row, a basemap card, the Tools' picker and result)
 //   and the widget card over the map, the blocks with no backdrop filter.
-//   The header's and a map button's quiet text read at Glass's ink.
+//   Under Liquid the header's and a map button's quiet text read at the
+//   stepped ink (85 % of the way from the quiet ink to the full ink); under
+//   Glass at the quiet ink.
 // - Paper: every role at Paper's values, the Assistant pane with the side
 //   panels, each map button its own sheet, menus and dialogs as shipped,
 //   the blocks and the widget card at Glass's grounds, the lines inside a
@@ -152,16 +154,19 @@ const step = (name: keyof typeof STEP, theme: Theme): Layer => {
   return layer(0, y, blur, 0, thin(TONES[theme].shadow, share));
 };
 
-/* Liquid: one recipe. The panel tone under a faint tint folded into one
- * fill (white at 8 % over the panel tone at 82.8 % by day, black at 8 %
- * over it at 71.76 % by night, the panel tone at 92 % where a fill must be
- * opaque), the light on the rim drawn inside the edge, then a two-layer
- * drop by height. */
-function liquidFill(theme: Theme, opaque = false): RGBA {
+/* Liquid: one clear recipe. The panel tone under a faint tint folded into
+ * one fill (white at 10 % over the panel tone at 36 % by day, black at 6 %
+ * over it at 50 % by night; a dialog, over its veil, at 40 % by day; at 8 %
+ * over 92 % where a fill must be opaque), the light on the rim drawn inside
+ * the edge, then a two-layer drop by height. */
+function liquidFill(theme: Theme, opaque = false, dialog = false): RGBA {
   const { panel } = TONES[theme];
-  return theme === "light" ? mix([WHITE, 0.08], [panel, opaque ? 0.92 : 0.828]) : mix([BLACK, 0.08], [panel, opaque ? 0.92 : 0.7176]);
+  if (opaque) return mix([theme === "light" ? WHITE : BLACK, 0.08], [panel, 0.92]);
+  return theme === "light" ? mix([WHITE, 0.1], [panel, dialog ? 0.4 : 0.36]) : mix([BLACK, 0.06], [panel, 0.5]);
 }
-const LIQUID_BLUR = "blur(24px)";
+const LIQUID_BLUR = "blur(6px)";
+/** Under Liquid the quiet ink steps 85 % of the way to the full ink. */
+const stepped = (theme: Theme): RGBA => mix([TONES[theme].ink, 0.85], [TONES[theme].muted, 0.15]);
 const RIM: Record<Theme, Layer[]> = {
   light: [layer(1, 1, 0, 0, [255, 255, 255, 0.9], true), layer(-1, -1, 0, 0, [255, 255, 255, 0.405], true), layer(0, 0, 14, 0, [255, 255, 255, 0.144], true)],
   dark: [layer(1, 1, 0, 0, [255, 255, 255, 0.42], true), layer(-1, -1, 0, 0, [255, 255, 255, 0.168], true), layer(0, 0, 14, 0, [255, 255, 255, 0.067], true)],
@@ -240,7 +245,7 @@ function liquidWant(role: Role, theme: Theme, opaque = false): Want {
     case "map-card": case "page-card": case "menu": return { fill, blur: LIQUID_BLUR, edge: clearLine, shadows: lit("float", theme) };
     case "inner-card": return { fill, blur: LIQUID_BLUR, edge: clearLine, shadows: lit("contact", theme) };
     case "block": return { fill, blur: "none", edge: clearLine, shadows: lit("contact", theme) };
-    case "dialog": return { fill, blur: LIQUID_BLUR, edge: clearLine, shadows: lit("high", theme) };
+    case "dialog": return { fill: liquidFill(theme, opaque, true), blur: LIQUID_BLUR, edge: clearLine, shadows: lit("high", theme) };
     case "stage": return { fill: CLEAR, blur: "none", edge: null, shadows: liquidDrop("float", theme) };
   }
 }
@@ -274,16 +279,16 @@ const SEED = process.env.DEZFIL_PANEL_LOOKS_SEED ?? "";
 const SEEDS = ["", "typed-liquid", "preview-lens", "late-look", "late-sheets"];
 if (!SEEDS.includes(SEED)) throw new Error(`DEZFIL_PANEL_LOOKS_SEED=${SEED} names no seed; known: ${SEEDS.filter(Boolean).join(", ")}`);
 const css = (c: RGBA) => `rgba(${c.slice(0, 3).map((v) => v.toFixed(2)).join(", ")}, ${c[3].toFixed(4)})`;
-/** Under Liquid the legend typing a Liquid of its own by hand: a thinner fill
- * (white at 12 % over the panel tone at 48.4 % by day, black at 6 % over it at
- * 51.7 % by night) and a 9 px blur, the recipe's light and drop kept. */
+/** Under Liquid the legend typing a Liquid of its own by hand: a firmer fill
+ * (white at 8 % over the panel tone at 82.8 % by day, black at 8 % over it at
+ * 71.76 % by night) and a 24 px blur, the recipe's light and drop kept. */
 function typedLiquid(): string {
   return (["light", "dark"] as Theme[]).map((theme) => {
     const { panel } = TONES[theme];
-    const fill = theme === "light" ? mix([WHITE, 0.12], [panel, 0.484]) : mix([BLACK, 0.06], [panel, 0.517]);
+    const fill = theme === "light" ? mix([WHITE, 0.08], [panel, 0.828]) : mix([BLACK, 0.08], [panel, 0.7176]);
     const root = theme === "dark" ? ':root[data-theme="dark"]' : ':root:not([data-theme="dark"])';
     return `${root}[data-look-panels="liquid"] [data-map-legend]:not([data-look-default] [data-map-legend]) {
-      background-color: ${css(fill)} !important; backdrop-filter: blur(9px) !important; }`;
+      background-color: ${css(fill)} !important; backdrop-filter: blur(24px) !important; }`;
   }).join("\n");
 }
 
@@ -796,14 +801,16 @@ for (const theme of THEMES) {
         await expect(widgetCard.at(page)).toBeVisible({ timeout: 30_000 });
         await readBuilder(page, theme, LIQUID, "the builder", [widgetCard]);
       });
-      await test.step(`the header's and a map button's quiet text read at Glass's ink (${theme})`, async () => {
-        const muted = `rgb(${TONES[theme].muted.slice(0, 3).join(", ")})`;
+      await test.step(`the header's and a map button's quiet text read at the stepped ink (${theme})`, async () => {
+        const want = stepped(theme);
         await expect(crumbLink(page)).toBeVisible();
-        await expect(crumbLink(page), "the header's breadcrumb link").toHaveCSS("color", muted);
-        await expect(zoomIn.at(page), "the map's Zoom in button").toHaveCSS("color", muted);
-        const stepped = await page.evaluate(() => Array.from(document.querySelectorAll<HTMLElement>("[style]"))
+        for (const [name, el] of [["the header's breadcrumb link", crumbLink(page)], ["the map's Zoom in button", zoomIn.at(page)]] as const) {
+          const seen = await el.evaluate((node) => getComputedStyle(node).color);
+          expect(sameColour(colour(seen), want), `${name}: ${seen}, want ${fmt(want)}`).toBe(true);
+        }
+        const own = await page.evaluate(() => Array.from(document.querySelectorAll<HTMLElement>("[style]"))
           .filter((el) => /--fg-/.test(el.style.cssText)).map((el) => `${el.tagName.toLowerCase()}: ${el.style.cssText}`));
-        expect(stepped, "no element carries a quiet ink of its own").toEqual([]);
+        expect(own, "no element carries a quiet ink of its own").toEqual([]);
       });
       await test.step(`the blocks inside the inspector's tabs and the Tools drawer: the fill, the light and the contact drop, no blur (${theme})`, async () => {
         await readBlocks(page, person.api, theme, LIQUID, "the builder");
@@ -992,6 +999,8 @@ for (const theme of THEMES) {
         await expect.poll(() => traces(page), { message: "the builder after Glass" }).toEqual(NO_TRACE);
         expect(await boxes(page, onBuilder), "the builder's boxes after Glass").toEqual(builderBefore);
         for (const m of BUILDER) await expectMember(page, m, theme, GLASS, "the builder after Glass");
+        const crumb = await crumbLink(page).evaluate((node) => getComputedStyle(node).color);
+        expect(sameColour(colour(crumb), TONES[theme].muted), `the header's quiet text after Glass: ${crumb}`).toBe(true);
       });
       expectQuiet(errors);
     } finally {
@@ -1003,7 +1012,7 @@ for (const theme of THEMES) {
 // ---- the bend ----
 
 /** Bring the stripes in until each is 20 to 40 pixels wide, the pointer off
- * the stack: wide enough that the recipe's 24 px blur leaves them a contrast
+ * the stack: wide enough that the recipe's blur leaves them a contrast
  * to soften and to bend. */
 async function stripesIn(page: Page): Promise<void> {
   const card = (await mapCard.at(page).boundingBox())!;
@@ -1154,7 +1163,7 @@ test("the bend in Chromium: a map button's backdrop pulled inward across its bez
     await stripesIn(page);
     const button = page.getByRole("button", { name: "Zoom out", exact: true });
 
-    await test.step("the Zoom out button is bent at its size, its rim lit on the sides facing the light, its quiet ink as under Glass", async () => {
+    await test.step("the Zoom out button is bent at its size, its rim lit on the sides facing the light, its quiet ink stepped", async () => {
       const box = (await button.boundingBox())!;
       await expect.poll(async () => (await readEl(button)).lens?.size, { message: "the button is drawn through a filter of its size" })
         .toBe(`${Math.round(box.width)}x${Math.round(box.height)}`);
@@ -1164,7 +1173,7 @@ test("the bend in Chromium: a map button's backdrop pulled inward across its bez
       expect([first.inset, first.x, first.y], "the bright line faces the upper left").toEqual([true, 1, 1]);
       expect([far.inset, far.x, far.y], "the fainter one the far side").toEqual([true, -1, -1]);
       expect(Object.keys(seen.inline), "the button carries the bend's blur and nothing more").toEqual(["--surface-overlay-control-blur"]);
-      expect(sameColour(colour(seen.color), TONES.light.muted), `the button's ink ${seen.color}`).toBe(true);
+      expect(sameColour(colour(seen.color), stepped("light")), `the button's ink ${seen.color}`).toBe(true);
     });
 
     await test.step("across its bezel the stripes are pulled inward, read with the button's own fill taken off, against the same filter with its pull set to none", async () => {
@@ -1256,14 +1265,14 @@ test("the bend in Chromium: a map button's backdrop pulled inward across its bez
     await test.step("the inspector resized keeps its blur throughout and takes the bend for its new size once settled", async () => {
       const selector = "[data-builder-pane]";
       const before = (await readEl(inspector.at(page))).lens;
-      expect(before?.blur, "the inspector is bent before the resize").toBe("blur(24px)");
+      expect(before?.blur, "the inspector is bent before the resize").toBe(LIQUID_BLUR);
       const frames = await sampleFrames(page, selector, 1_500, () => page.setViewportSize({ width: 1280, height: 600 }));
       const after = (await inspector.at(page).boundingBox())!;
       const size = `${Math.round(after.width)}x${Math.round(after.height)}`;
       await test.info().attach("the inspector's frames through a resize", { body: JSON.stringify(frames), contentType: "application/json" });
       expect(frames.length, "frames were read").toBeGreaterThan(10);
       expect(frames.filter((f) => f.blur === "none" || f.lens === "missing"), "never without its blur").toEqual([]);
-      expect(frames.every((f) => (f.lens ?? f.blur) === "blur(24px)"), "always the panels' blur, bent or plain").toBe(true);
+      expect(frames.every((f) => (f.lens ?? f.blur) === LIQUID_BLUR), "always the panels' blur, bent or plain").toBe(true);
       expect(size, "the harness: the inspector changed size").not.toBe(before?.size);
       expect(frames.some((f) => f.lens === null), "plain while it changed size").toBe(true);
       await expect.poll(async () => (await readEl(inspector.at(page))).lens?.size, { message: "bent for its new size once settled" }).toBe(size);
@@ -1281,7 +1290,7 @@ test("the bend in Chromium: a map button's backdrop pulled inward across its bez
       await test.info().attach("the query drawer's frames as it slides in", { body: JSON.stringify(frames), contentType: "application/json" });
       expect(frames.length, "frames were read").toBeGreaterThan(10);
       expect(new Set(frames.map((f) => f.size)).size, "one size throughout").toBe(1);
-      expect(frames.every((f) => (f.lens ?? f.blur) === "blur(24px)"), "always the menus' blur, bent or plain").toBe(true);
+      expect(frames.every((f) => (f.lens ?? f.blur) === LIQUID_BLUR), "always the menus' blur, bent or plain").toBe(true);
       expect(frames.slice(0, 5).every((f) => f.lens === null), "plain while it slides in").toBe(true);
       const drawer = page.locator(selector);
       const box = (await drawer.boundingBox())!;
@@ -1315,7 +1324,7 @@ test("@fallback where the bend is not drawn, a map button blurs and carries the 
       expect(seen.blur).toBe(LIQUID_BLUR);
       // Where the bend is not drawn the lens writes nothing at all: no role blur, plain or bent, and no ink of its own.
       expect.soft(seen.inline, "the button carries nothing inline").toEqual({});
-      expect(sameColour(colour(seen.color), TONES.light.muted), `the button's ink ${seen.color}`).toBe(true);
+      expect(sameColour(colour(seen.color), stepped("light")), `the button's ink ${seen.color}`).toBe(true);
       expect.soft((await traces(page)).inline, "nothing held inline anywhere on the page").toEqual([]);
       expect(await page.locator("[data-panel-lens], filter[id^='dz-lens']").count(), "no filter on the page").toBe(0);
       for (const m of [headerCard, inspector, legend]) await expectMember(page, m, "light", LIQUID, browserName);
