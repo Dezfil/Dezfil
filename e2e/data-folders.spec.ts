@@ -312,6 +312,10 @@ test("folders: the fold, the facts, opening, sorting, search, filters, identity"
   });
 
   await test.step("sort keys over folders and tables; search by workflow name and by output name", async () => {
+    // The tables land first and the folders fold in once the workflows
+    // list answers: the order is read only once both folders are there.
+    await expect(folderCard(page, ids.folder)).toBeVisible();
+    await expect(folderCard(page, ids.second)).toBeVisible();
     const names = () =>
       page.locator("[data-table-card], [data-folder-card]").evaluateAll((els) =>
         els.map((el) => el.getAttribute("data-table-card") ?? `folder:${el.getAttribute("data-folder-card")}`),
