@@ -46,8 +46,8 @@ claude plugin install dezfil@dezfil-local --scope user
 ```
 
 If this client already has the standalone `dezfil` connection added from
-Dezfil's Developer guide, remove that standalone entry as part of the
-transition:
+the MCP server card in Dezfil's Settings, remove that standalone entry as
+part of the transition:
 
 ```sh
 claude mcp remove dezfil
@@ -65,8 +65,8 @@ codex plugin marketplace add "$HOME/dezfil-local"
 codex plugin add dezfil@dezfil-local
 ```
 
-If the Developer guide previously added the standalone `dezfil` entry in
-this client, remove it during the transition:
+If the MCP server card's configuration previously added the standalone
+`dezfil` entry in this client, remove it during the transition:
 
 ```sh
 codex mcp remove dezfil

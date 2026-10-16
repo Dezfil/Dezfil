@@ -393,10 +393,11 @@ problems get their own codes rather than a generic error:
 
 ## Connecting a client
 
-The `/developer` page on a running instance generates the configuration for
-the instance you are looking at. The same text is produced by
-`src/lib/mcp/client-guide.ts`. Create an API / MCP token in Settings and set
-`DEZFIL_API_TOKEN` in the environment that launches your client. The copied
+The MCP server card in Settings, on the API & MCP tab of a running instance,
+generates the configuration for the instance you are looking at. The same text
+is produced by `src/lib/mcp/client-guide.ts`. Create a token on the same tab,
+in the card above it, and set `DEZFIL_API_TOKEN` in the environment that
+launches your client. The copied
 configuration stores only a reference to this variable. Restart the client
 after setting it. No account password or token belongs in a prompt or tool
 argument. A token lasts as long as the instance's rule for new tokens said when
@@ -441,7 +442,7 @@ by [Claude Code](https://code.claude.com/docs/en/mcp),
 [Codex](https://developers.openai.com/codex/mcp) and
 [Cursor](https://cursor.com/docs/mcp). The
 [remote connector setup](https://support.claude.com/en/articles/11175166-get-started-with-custom-connectors-using-remote-mcp)
-describes the Desktop connection. The Developer page's connection check uses
+describes the Desktop connection. The card's connection check uses
 your browser session; it does not test another client's environment or token.
 
 ## The plugin package

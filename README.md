@@ -319,8 +319,8 @@ string already in `secret.key`.
 
 ## API
 
-The whole product is an API the UI merely calls. Human-readable docs are at
-`/developer` on a running instance; the machine-readable OpenAPI description is at
+The whole product is an API the UI merely calls. The human-readable API reference
+is at `/developer` on a running instance; the machine-readable OpenAPI description is at
 `/api/openapi.json`; both require sign-in or an API token. Cookie mutations
 require an Origin matching the instance; bearer requests use the token alone.
 `scripts/journey.mjs <base-url>` provisions an account on a scratch instance and drives the entire
@@ -333,14 +333,14 @@ Claude Code and Codex CLI can install the self-contained
 [Dezfil plugin](plugins/dezfil/README.md) from a checkout. It bundles the
 MCP connection, a Dezfil skill and compact cartography and DuckDB spatial
 references. Choose the instance address when preparing the local package.
-Create an API / MCP token in Settings and set `DEZFIL_API_TOKEN` in the
-client's environment. The package stores a reference, never the token value.
+Create a token in Settings, on the API & MCP tab, and set `DEZFIL_API_TOKEN`
+in the client's environment. The package stores a reference, never the token value.
 
 Two ways to drive Dezfil with AI, both operating that same documented API:
 
 - **MCP** — `/api/mcp` uses Streamable HTTP and derives its tools, input/output
   schemas and consequence facts from OpenAPI. Deliberate exclusions are declared
-  in that document. The Developer page supplies Claude Code, Codex and Cursor
+  in that document. The MCP server card in Settings, on the API & MCP tab, supplies Claude Code, Codex and Cursor
   token configurations for the visible instance, marks Claude Desktop's remote
   connector unsupported for this setup, and checks the browser's MCP connection.
   Each client uses an account token and its current privileges. The client brings its model;
