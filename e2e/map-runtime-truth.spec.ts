@@ -117,7 +117,7 @@ test("initial WebGL failure stays map-local and tells both export roads the trut
     await expect(alert).toHaveRole("alert");
     await expect(alert).toContainText("WebGL is unavailable");
     await expect(alert).toContainText(/Reload.*browser|hardware acceleration/i);
-    await expect(page.getByText(`WebGL truth ${runId}`)).toBeVisible();
+    await expect(page.getByRole("button", { name: `WebGL truth ${runId}`, exact: true })).toBeVisible();
 
     const search = page.getByPlaceholder("Search map & places");
     await search.fill("still usable");

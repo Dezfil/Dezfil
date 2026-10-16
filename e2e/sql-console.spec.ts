@@ -142,7 +142,7 @@ test("the SQL console end to end", async ({ page, context }) => {
     await row.hover();
     await row.getByRole("button", { name: "Open as SQL", exact: true }).click();
     await expect(page.locator(".cm-content")).toContainText(`FROM ${spatial}`);
-    await expect(page.getByText(/^\d+ rows|rows$/).first()).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByRole("region", { name: "Results", exact: true }).getByText(/^[\d,]+ rows$/)).toBeVisible({ timeout: 20_000 });
     await expect(page.getByText("edited")).toHaveCount(0);
     // A result carries none of the preview treatment.
     const results = page.getByRole("region", { name: "Results" });
@@ -161,11 +161,12 @@ test("the SQL console end to end", async ({ page, context }) => {
     await page.locator(".cm-content").click();
     await page.keyboard.press("End");
     await page.keyboard.type(" -- mine");
-    await expect(page.getByText("edited")).toBeVisible();
+    // The editor's own mark; the assistant's context line reads "3 lines, edited".
+    await expect(page.getByText("edited", { exact: true })).toBeVisible();
     await page.locator(`[data-name="${spatial}"]`).hover();
     await page.locator(`[data-name="${spatial}"]`).getByRole("button", { name: "Open as SQL", exact: true }).click();
     await expect(page.locator(".cm-content")).toContainText(`FROM ${spatial}`);
-    await expect(page.getByText(/^\d+ rows|rows$/).first()).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByRole("region", { name: "Results", exact: true }).getByText(/^[\d,]+ rows$/)).toBeVisible({ timeout: 20_000 });
     let text = await editorText(page);
     expect(text).not.toContain("-- mine");
     expect(text.replace(/\s+/g, " ").trim()).toBe(`SELECT * FROM ${spatial} LIMIT 100;`);
