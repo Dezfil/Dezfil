@@ -2,6 +2,7 @@
 
 import { useSyncExternalStore } from "react";
 import { onPrivateReset } from "../../auth/private-state";
+import { pinnedPopupOpen } from "../../map/use-pinned-popup";
 import {
   armedPickLabel,
   disarmPick,
@@ -18,8 +19,9 @@ import {
  * two keyboard contracts:
  *
  * - **Escape unwinds one level per press**: uncommitted
- *   draft, then armed tool, then the dock. The draft lives in the
- *   overlay, which registers its cancel here so the ladder stays one
+ *   draft, then armed tool, then the dock. With nothing armed or
+ *   selected, a pinned map pop-up closes before the dock. The draft lives
+ *   in the overlay, which registers its cancel here so the ladder stays one
  *   handler. Registered in the CAPTURE phase — the house pattern, with
  *   pick-mode's recorded reason — and yielding to an armed pick-mode,
  *   whose own capture-phase Escape owns that press.
@@ -115,6 +117,9 @@ function onKeydown(e: KeyboardEvent) {
     // An armed pick-mode owns this press — its own capture handler
     // disarms; the next press reaches this ladder.
     if (armedPickLabel() !== null) return;
+    // With no tool armed (so no draft) and nothing selected, a pinned map
+    // pop-up closes before the dock does: the press goes on to the canvas.
+    if (state.tool === null && state.selected === null && pinnedPopupOpen()) return;
     e.preventDefault();
     e.stopPropagation();
     if (cancelDraft?.()) return;
