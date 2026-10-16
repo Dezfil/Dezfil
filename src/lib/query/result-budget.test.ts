@@ -233,7 +233,11 @@ describe("SQL result byte budget", () => {
 
   it("decodes a large decimal collection exactly through the collection projection", async () => {
     process.env.DEZFIL_QUERY_MEMORY_MB = "512";
-    const sql = `SELECT ST_Collect([${geometryOfBytes(2_097_200)}, ST_Point(1.5, 2.5)]) AS g`;
+    // Past the cell ceiling with few, long decimal points: the collection walk's
+    // time grows with the square of the point count, so the same bytes in short
+    // points took seconds alone and past a minute in a loaded full suite.
+    const line = "ST_GeomFromText('LINESTRING (' || repeat('-179.12345678901235 -89.12345678901234,', 51150) || '0.5 0.5)')";
+    const sql = `SELECT ST_Collect([${line}, ST_Point(1.5, 2.5)]) AS g`;
     const expected = await withConnection(async conn => JSON.parse(String((await conn.runAndReadAll(`SELECT ST_AsGeoJSON(g) AS g FROM (${sql}) q`)).getRowObjects()[0].g)));
     let decoded = false;
     const original = DuckDBDoubleVector.prototype.getItem;
@@ -244,7 +248,7 @@ describe("SQL result byte budget", () => {
     expect(answer.preview).toEqual([{ g: expected }]);
     expect(expected.type).toBe("GeometryCollection");
     expect(expected.geometries).toHaveLength(2);
-    expect(Buffer.byteLength(JSON.stringify(answer.preview[0].g))).toBe(2_097_286);
+    expect(Buffer.byteLength(JSON.stringify(answer.preview[0].g))).toBe(2_097_283);
     expect(decoded).toBe(true);
   }, 60_000);
 
