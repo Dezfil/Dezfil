@@ -127,6 +127,19 @@ describe("actual preview route owns its attachment", () => {
       for (const sql of fixture.sides) expect(sql.at(-1)).toMatch(/^DETACH pg_cancel_[a-f0-9]+$/);
     },
   );
+  it("cancels through every address the attachment was handed, in the same order", async () => {
+    fixture.resolve.mockResolvedValue(["::1", "127.0.0.1"]);
+    const conn = connection("version"); fixture.acquire.mockResolvedValue(conn);
+    const controller = new AbortController(); const pending = preview(controller);
+    await conn.entered.promise; controller.abort();
+    await vi.waitFor(() => expect(fixture.sides[0]?.some(sql => sql.includes("pg_cancel_backend"))).toBe(true));
+    for (const attach of [conn.sql.find(sql => sql.startsWith("ATTACH "))!, fixture.sides[0][1]]) {
+      expect(attach).toContain("host=''db.example.org,db.example.org''");
+      expect(attach).toContain("hostaddr=''::1,127.0.0.1''");
+    }
+    conn.release.resolve();
+    expect((await pending).status).toBe(499);
+  });
   it("keeps the departure's answer when the cancellation on the source fails, and logs it", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     try {

@@ -30,17 +30,20 @@ function libpqEscape(value: string): string {
 
 export function attachString(
   target: ConnectionTarget,
-  hostaddr?: string,
+  hostaddr?: string | readonly string[],
   sourceIdentity?: string,
   statementMs: number = SOURCE_STATEMENT_MS,
   connectS = 10,
 ): string {
+  // The vetted addresses from the egress policy, in resolution order: libpq
+  // connects to hostaddr while host keeps naming the server for auth/TLS, so
+  // the approved address is the connected address. Given several, libpq
+  // tries each in turn (one host entry per address) until one accepts, as it
+  // would for the name itself on a dual-stack host.
+  const addresses = !hostaddr ? [] : typeof hostaddr === "string" ? [hostaddr] : hostaddr;
   return [
-    `host=${libpqEscape(target.host)}`,
-    // The vetted address from the egress policy: libpq connects to
-    // hostaddr while host keeps naming the server for auth/TLS, so the
-    // approved address is the connected address.
-    ...(hostaddr ? [`hostaddr=${libpqEscape(hostaddr)}`] : []),
+    `host=${libpqEscape(addresses.length > 1 ? addresses.map(() => target.host).join(",") : target.host)}`,
+    ...(addresses.length ? [`hostaddr=${libpqEscape(addresses.join(","))}`] : []),
     `port=${target.port}`,
     `dbname=${libpqEscape(target.database)}`,
     `user=${libpqEscape(target.username)}`,
@@ -93,14 +96,15 @@ const CANCEL_WINDOW_MS = 20_000;
  * Cancel the statements one attachment runs on the source, through a
  * short-lived attachment of its own on a connection outside the refused
  * operation, so nothing waits on the blocked connection. It reaches the
- * address the attachment was vetted for, with the same credentials and TLS
- * mode, and asks the server to cancel only active backends whose application
- * name begins with that attachment's unique identity. Its own identity
- * begins differently, so it never matches itself, and the server lets a role
- * cancel only its own backends. It repeats while the attachment's native call
- * is out, within its window, and always detaches.
+ * addresses the attachment was vetted for, in the same order, with the same
+ * credentials and TLS mode, and asks the server to cancel only active
+ * backends whose application name begins with that attachment's unique
+ * identity. Its own identity begins differently, so it never matches itself,
+ * and the server lets a role cancel only its own backends. It repeats while
+ * the attachment's native call is out, within its window, and always
+ * detaches.
  */
-function sourceCancellation(target: ConnectionTarget, hostaddr: string, sourceIdentity: string): SourceCancellation {
+function sourceCancellation(target: ConnectionTarget, hostaddr: readonly string[], sourceIdentity: string): SourceCancellation {
   return running => withSideConnection(async conn => {
     const own = randomUUID().replace(/-/g, "");
     const alias = `pg_cancel_${own}`;
@@ -139,9 +143,9 @@ export async function withPg<T>(
     // Egress policy first: a blocked destination is rejected before
     // anything is loaded or contacted, with the one uniform error — this
     // endpoint must not act as an internal port scanner.
-    let hostaddr: string;
+    let hostaddr: string[];
     try {
-      [hostaddr] = await resolveAllowed(target.host);
+      hostaddr = await resolveAllowed(target.host);
     } catch (error) {
       owner.check();
       if (isTrustedOperationRefusal(error)) throw error;
