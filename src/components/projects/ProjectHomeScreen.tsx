@@ -592,6 +592,7 @@ function ProjectHomeVisit({ id, home, files, pictureBasemaps }: {
             workflows={workflows}
             opLabel={opLabel}
             onChanged={confirmMembership}
+            followRuns
           />
         )}
         {hasContent ? (
