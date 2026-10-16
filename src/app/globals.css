@@ -477,6 +477,23 @@ button:disabled {
   /* The dashed line of a card that makes something new */
   --surface-inner-card-edge-new: 1px dashed var(--border-strong);
 
+  /* Block: a block drawn inside a panel on the raised tone or the panel
+     tone, with the hairline and no shadow of its own (a tile, an entry, a
+     message, a result); solid unless a look makes it otherwise */
+  --surface-block-fill: var(--bg-raised);
+  --surface-block-fill-panel: var(--bg-panel);
+  --surface-block-edge: var(--edge-hairline);
+  --surface-block-shadow: none;
+
+  /* Map card: a card floating over a map on the panel tone, with the
+     hairline and no shadow (a widget card and its menu); solid unless a
+     look makes it otherwise */
+  --surface-map-card-fill: var(--bg-panel);
+  --surface-map-card-blur: none;
+  --surface-map-card-edge: var(--edge-hairline);
+  --surface-map-card-shadow: none;
+  --surface-map-card-lens: 0;
+
   /* Menu and pop-over: what opens over something and closes; solid
      unless a look makes it otherwise */
   --surface-menu-fill: var(--bg-panel);

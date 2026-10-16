@@ -1,5 +1,5 @@
 // The surface roles, read off the running page: every card and panel takes
-// one of nine roles, and each role holds its fill, blur, edge, corner and
+// one of eleven roles, and each role holds its fill, blur, edge, corner and
 // shadow in one place. This journey reads what the browser computes for a
 // member of every role on the screens a person meets (the builder and its
 // full screen, a published page, Maps, Data, Projects, Settings, the SQL
@@ -14,6 +14,11 @@
 //   Tools drawer and the Assistant open docked and overlaying, the
 //   Settings cards and column as page cards, the map's buttons as glass in
 //   the builder, in full screen and on a published page.
+// - The blocks inside the builder's panels (a legend entry in the Legend
+//   tab, a widget's row, a basemap's card, a tool's picker and result) lie
+//   on the raised or the panel tone with the hairline and no shadow, and
+//   the widget card over the map is the panel tone with the hairline, no
+//   blur and no shadow.
 // - Every glass and overlay surface computes its blur, never none; the five
 //   surfaces the workflow page's own blur check names are among them.
 // - The blur is drawn, not only computed: a hard edge of a drawn layer goes
@@ -30,7 +35,7 @@
 //   every role that reads it, through the role.
 //
 // A role with no member on a screen is said so in the test's annotations,
-// never passed over: every screen accounts for all nine roles.
+// never passed over: every screen accounts for all eleven roles.
 //
 // Seeds, each switched by DEZFIL_SURFACE_ROLES_SEED and each expected to
 // turn named steps red (unset it for green):
@@ -67,6 +72,7 @@ import {
   FIXTURES_DIR,
   addLayer,
   patchLayer,
+  patchMap,
   publishMap,
   routeHouse,
   seedCsv,
@@ -79,22 +85,23 @@ import {
 type Theme = "light" | "dark";
 type Step = "hairline" | "float" | "overlay" | "lift" | "deep" | "dialog";
 type Role =
-  | "glass-chrome" | "glass-panel" | "overlay-panel" | "overlay-control"
-  | "page-card" | "inner-card" | "menu" | "dialog" | "stage";
+  | "glass-chrome" | "glass-panel" | "overlay-panel" | "overlay-control" | "map-card"
+  | "page-card" | "inner-card" | "block" | "menu" | "dialog" | "stage";
 /** A role, or one of the surfaces that stay their own by name. */
 type Kind = Role | "veil" | "rail-opened" | "credit";
 
 const ROLES: Role[] = [
-  "glass-chrome", "glass-panel", "overlay-panel", "overlay-control",
-  "page-card", "inner-card", "menu", "dialog", "stage",
+  "glass-chrome", "glass-panel", "overlay-panel", "overlay-control", "map-card",
+  "page-card", "inner-card", "block", "menu", "dialog", "stage",
 ];
 
 /** Each theme's tones, as the shipped light and night palettes state them:
- * the panel, the page's ground, the ink, the hairline border and the
- * shadow tone. The roles hold no tone of their own; the theme supplies it. */
-const TONES: Record<Theme, { panel: number[]; ground: number[]; ink: number[]; border: number[]; shadow: RGBA }> = {
-  light: { panel: [255, 255, 255], ground: [237, 241, 236], ink: [36, 50, 48], border: [226, 231, 225], shadow: [36, 50, 48, 0.16] },
-  dark: { panel: [16, 20, 29], ground: [11, 14, 20], ink: [233, 236, 243], border: [34, 42, 59], shadow: [0, 0, 0, 0.4] },
+ * the panel, the raised step, the page's ground, the ink, the hairline
+ * border and the shadow tone. The roles hold no tone of their own; the
+ * theme supplies it. */
+const TONES: Record<Theme, { panel: number[]; raised: number[]; ground: number[]; ink: number[]; border: number[]; shadow: RGBA }> = {
+  light: { panel: [255, 255, 255], raised: [246, 248, 245], ground: [237, 241, 236], ink: [36, 50, 48], border: [226, 231, 225], shadow: [36, 50, 48, 0.16] },
+  dark: { panel: [16, 20, 29], raised: [21, 27, 39], ground: [11, 14, 20], ink: [233, 236, 243], border: [34, 42, 59], shadow: [0, 0, 0, 0.4] },
 };
 
 /** The six shadow steps: y offset, blur, and the share of the shadow tone
@@ -108,17 +115,21 @@ const STEPS: Record<Step, [y: number, blur: number, share: number]> = {
   dialog: [30, 80, 1],
 };
 
-/** The roles' values after the move: how much of the panel tone the fill
- * is (0.93 the glass level, 1 solid, 0 no fill of its own), the background
- * blur, whether the edge is the hairline (else none), the shadow step, and
- * the corner where the role has one (else each member keeps its own). */
-const ROLE_VALUES: Record<Role, { fill: number; blur: string; edge: boolean; shadow: Step; corner?: string }> = {
+/** The roles' values after the move: how much of the tone the fill is
+ * (0.93 the glass level, 1 solid, 0 no fill of its own) and which tone (the
+ * panel's, or the raised step), the background blur, whether the edge is
+ * the hairline (else none), the shadow step (or none), and the corner where
+ * the role has one (else each member keeps its own). */
+const ROLE_VALUES: Record<Role, { fill: number; tone?: "raised"; blur: string; edge: boolean; shadow: Step | null; corner?: string }> = {
   "glass-chrome": { fill: 0.93, blur: "blur(18px)", edge: false, shadow: "float" },
   "glass-panel": { fill: 0.93, blur: "blur(18px)", edge: false, shadow: "float", corner: "20px" },
   "overlay-panel": { fill: 0.93, blur: "blur(8px)", edge: false, shadow: "overlay" },
   "overlay-control": { fill: 0.93, blur: "blur(8px)", edge: false, shadow: "float" },
+  "map-card": { fill: 1, blur: "none", edge: true, shadow: null },
   "page-card": { fill: 1, blur: "none", edge: true, shadow: "float", corner: "20px" },
   "inner-card": { fill: 1, blur: "none", edge: true, shadow: "hairline" },
+  // A block on the panel tone says so (see `panelTone`).
+  block: { fill: 1, tone: "raised", blur: "none", edge: true, shadow: null },
   menu: { fill: 1, blur: "none", edge: true, shadow: "lift" },
   dialog: { fill: 1, blur: "none", edge: true, shadow: "dialog", corner: "20px" },
   stage: { fill: 0, blur: "none", edge: false, shadow: "deep", corner: "20px" },
@@ -260,6 +271,8 @@ interface Member {
   own?: Part[];
   /** Inside an image's default scope: never follows a look. */
   image?: true;
+  /** A block drawn on the panel tone where its role's ground is the raised step. */
+  panelTone?: true;
 }
 
 /** What a member must compute: its role's values in the theme, a
@@ -273,12 +286,13 @@ function want(m: Member, theme: Theme, restated?: Restatement): Want {
   } else if (m.kind === "credit") w = { fill: [...t.ground, CREDIT.fill] as RGBA, blur: CREDIT.blur };
   else {
     const r = ROLE_VALUES[m.kind];
+    const tone = r.tone === "raised" && !m.panelTone ? t.raised : t.panel;
     w = {
-      fill: r.fill === 0 ? [0, 0, 0, 0] : ([...t.panel, r.fill] as RGBA),
+      fill: r.fill === 0 ? [0, 0, 0, 0] : ([...tone, r.fill] as RGBA),
       blur: r.blur,
       edge: r.edge ? { width: "1px", colour: [...t.border, 1] as RGBA } : null,
       corner: m.corner ?? r.corner,
-      shadows: [stepLayer(r.shadow, theme)],
+      shadows: r.shadow ? [stepLayer(r.shadow, theme)] : [],
     };
     if (restated && !m.image && restated.roles.includes(m.kind)) w = { ...w, ...restated.follows };
   }
@@ -393,6 +407,53 @@ const layerCard: Member = {
   kind: "inner-card", what: "a layer card, not selected", corner: CORNER.lg,
   at: (p) => p.locator('[data-layer-list] li[data-selected="false"]').first(),
 };
+const widgetCard: Member = {
+  kind: "map-card", what: "the widget card over the map", corner: CORNER.legend,
+  at: (p) => p.locator("[data-widget-rail] [data-widget-card]").first(),
+};
+
+/** Open one of the inspector's tabs, the pointer off every card after. */
+async function inspectorTab(page: Page, name: string): Promise<void> {
+  await page.getByRole("tablist", { name: "Builder panels" }).getByRole("tab", { name, exact: true }).click();
+  await page.mouse.move(5, 5);
+}
+
+/** The blocks inside the builder's panels, each read where it stands: a
+ * legend entry in the Legend tab, a widget's row in the Widgets tab, a
+ * basemap's card not in use (the one in use takes the accent as its own),
+ * and a tool's picker and result in the Tools drawer. The inspector is
+ * left on its Layers tab with a layer selected. */
+async function readBlocks(page: Page, theme: Theme, where: string): Promise<void> {
+  await inspectorTab(page, "Legend");
+  await expectMember({ kind: "block", what: "a legend entry in the Legend tab", corner: CORNER.base, at: (p) => p.locator("[data-builder-pane] [data-legend-row]").first() }, page, theme, where);
+  await inspectorTab(page, "Widgets");
+  await expectMember({
+    kind: "block", what: "a widget's row in the Widgets tab", corner: CORNER.control, panelTone: true,
+    at: (p) => p.locator("[data-builder-pane] [data-widget-row]:not([data-expanded])").first(),
+  }, page, theme, where);
+  await inspectorTab(page, "Basemap");
+  await expectMember({
+    kind: "block", what: "a basemap's card not in use", corner: CORNER.lg,
+    at: (p) => p.locator('[data-builder-pane] button[class*="BasemapPanel-module"][class*="__card"][data-active="false"]').first(),
+  }, page, theme, where);
+  await inspectorTab(page, "Layers");
+  if ((await page.locator('[data-layer-list] li[data-selected="true"]').count()) === 0) await page.locator("[data-layer-list] [data-layer-select]").first().click();
+  const drawer = page.locator("[data-recipe-drawer]");
+  if (!(await drawer.isVisible())) await page.locator("[data-tools-control]").click();
+  await page.locator("[data-operation='buffer']").click();
+  await expect(page.locator("[data-parameter-form]")).toBeVisible();
+  await page.mouse.move(5, 5);
+  await expectMember({ kind: "block", what: "a tool's result block", corner: CORNER.control, at: (p) => p.locator("[data-recipe-drawer] [data-result-section]") }, page, theme, where);
+  // The input arrives filled from the selected layer; Change opens its picker.
+  await page.locator("[data-recipe-drawer] [data-input-change]").first().click();
+  await page.mouse.move(5, 5);
+  await expectMember({
+    kind: "block", what: "a tool's input picker", corner: CORNER.control,
+    at: (p) => p.locator("[data-recipe-drawer] [data-parameter-form] input[type='search']").first().locator("xpath=.."),
+  }, page, theme, where);
+  await page.locator("[data-tools-control]").click();
+  await expect(drawer).toBeHidden();
+}
 
 // ---- the fixtures ----
 
@@ -410,8 +471,9 @@ async function post(page: Page, url: string, body: unknown): Promise<Record<stri
 }
 
 /** A project holding a map with two layers (the stripes, styled by band,
- * and the stations), and the two datasets under them. */
-async function seed(page: Page, tag: string, withPoints = true): Promise<Fixture> {
+ * and the stations), and the two datasets under them; with `widget`, a
+ * histogram of the stations' riders over the map. */
+async function seed(page: Page, tag: string, withPoints = true, widget = false): Promise<Fixture> {
   await page.goto("/maps");
   const bands = (await seedFile(page, `sr_${runId}_${tag}_bands.geojson`, stripesGeoJson(), "application/geo+json")).name;
   const points = withPoints
@@ -423,7 +485,14 @@ async function seed(page: Page, tag: string, withPoints = true): Promise<Fixture
   const mapId = (await post(page, "/api/maps", { name: mapName, projectId })).id as string;
   const bandsLayer = await addLayer(page, mapId, "bands", `SELECT * FROM "${bands}"`);
   await patchLayer(page, bandsLayer, { style: STRIPES_STYLE });
-  if (withPoints) await addLayer(page, mapId, "stations", `SELECT * FROM "${points}"`);
+  if (withPoints) {
+    const stations = await addLayer(page, mapId, "stations", `SELECT * FROM "${points}"`);
+    if (widget) {
+      await patchMap(page, mapId, {
+        widgets: [{ id: "w-riders", type: "histogram", layerId: stations, title: "Riders", field: "riders", agg: "count", aggField: null, unit: null, note: null, format: null, visible: true }],
+      });
+    }
+  }
   return { mapId, mapName, projectName, bands, points };
 }
 
@@ -459,14 +528,16 @@ for (const theme of THEMES) {
     const errors = trackConsole(page);
     await routeHouse(context, { basemapStyleStub: true });
     await useTheme(page, theme);
-    const fx = await seed(page, `${theme}_builder`);
+    const fx = await seed(page, `${theme}_builder`, true, true);
     await openBuilder(page, fx.mapId);
     await expectDefaultLook(page, theme);
+    await expect(widgetCard.at(page)).toBeVisible({ timeout: 30_000 });
 
     await readScreen(page, theme, "the builder", [
-      headerCard, exportButton, themeButton, inspector, legend, statusPill, zoomIn, fullscreenButton(false), mapCard(CORNER.card), layerCard,
+      headerCard, exportButton, themeButton, inspector, legend, statusPill, zoomIn, fullscreenButton(false), mapCard(CORNER.card), layerCard, widgetCard,
     ], {
       "page-card": "no card stands on the builder's page",
+      block: "the blocks lie in the inspector's other tabs and the Tools drawer, read below",
       menu: "menus open from a trigger and are read below",
       dialog: "the export dialog is read below",
     });
@@ -499,8 +570,10 @@ for (const theme of THEMES) {
     ], {
       "glass-chrome": "the header is read on the builder above",
       "overlay-control": "the map's buttons are read on the builder above",
+      "map-card": "the widget card is read on the builder above",
       "page-card": "no card stands on the builder's page",
       "inner-card": "the layer cards are read on the builder above",
+      block: "the blocks are read on the builder below",
       menu: "read above, opened from its trigger",
       stage: "the map card is read on the builder above",
     });
@@ -512,11 +585,18 @@ for (const theme of THEMES) {
     // In full screen the map card opens to the screen's edges, its corner
     // squared as before; its shadow stays the stage's.
     await readScreen(page, theme, "the builder in full screen", [
-      headerCard, exportButton, inspector, legend, statusPill, zoomIn, fullscreenButton(true), mapCard("0px"), layerCard,
+      headerCard, exportButton, inspector, legend, statusPill, zoomIn, fullscreenButton(true), mapCard("0px"), layerCard, widgetCard,
     ], {
       "page-card": "no card stands on the builder's page",
+      block: "the blocks are read on the docked builder below",
       menu: "menus are read on the docked builder above",
       dialog: "the export dialog is read above",
+    });
+    await page.getByRole("button", { name: "Exit fullscreen map", exact: true }).click();
+    await expect(page.locator("body")).not.toHaveAttribute("data-map-full", /.*/);
+
+    await test.step(`the blocks inside the inspector's tabs and the Tools drawer each lie on their tone with the hairline and no shadow (${theme})`, async () => {
+      await readBlocks(page, theme, "the builder");
     });
     expectNoConsoleErrors(errors);
   });
@@ -567,7 +647,9 @@ for (const theme of THEMES) {
     const notHere = {
       "glass-panel": "no pane floats on this page",
       "overlay-panel": "nothing is read over a map or canvas here",
+      "map-card": "no card floats over a map here",
       "inner-card": "no card sits inside a card here",
+      block: "no panel holds a block here",
       menu: "no menu is open at rest",
       dialog: "no dialog is open at rest",
       stage: "no map card or canvas here",
@@ -689,6 +771,8 @@ for (const theme of THEMES) {
       { kind: "overlay-panel", what: "the map readout", corner: CORNER.base, at: readout },
     ], {
       "overlay-control": "the results map carries no floating control",
+      "map-card": "the results map carries no widget card",
+      block: "the SQL page's panes hold no block",
       menu: "no menu is open at rest; menus are read on the builder",
       dialog: "no dialog is open at rest",
       stage: "the results map sits inside its card, with no stage",
@@ -807,6 +891,8 @@ for (const theme of THEMES) {
       { kind: "inner-card", what: "a node tile at rest", corner: CORNER.card, own: ["fill", "edge"], at: restingTile },
     ], {
       "page-card": "no card stands on the canvas",
+      "map-card": "no card floats over the canvas or its map",
+      block: "the canvas's panes hold no block",
       menu: "no menu is open at rest; menus are read on the builder",
       dialog: "the run's confirmation is read below",
       stage: "the framed canvas is read below, in the framed view",
@@ -858,8 +944,10 @@ for (const theme of THEMES) {
     ], {
       "glass-chrome": "a published page carries no workspace chrome",
       "glass-panel": "no pane floats on a published page",
+      "map-card": "the published fixture carries no widget",
       "page-card": "no card stands on a published page",
       "inner-card": "no card sits inside a card here",
+      block: "no panel holds a block on a published page",
       menu: "no menu is open at rest",
       dialog: "no dialog is open at rest",
       stage: "the published map fills the page, with no map card",

@@ -343,6 +343,23 @@
   /* The dashed line of a card that makes something new */
   --surface-inner-card-edge-new: 1px dashed var(--border-strong);
 
+  /* Block: a block drawn inside a panel on the raised tone or the panel
+     tone, with the hairline and no shadow of its own (a tile, an entry, a
+     message, a result); solid unless a look makes it otherwise */
+  --surface-block-fill: var(--bg-raised);
+  --surface-block-fill-panel: var(--bg-panel);
+  --surface-block-edge: var(--edge-hairline);
+  --surface-block-shadow: none;
+
+  /* Map card: a card floating over a map on the panel tone, with the
+     hairline and no shadow (a widget card and its menu); solid unless a
+     look makes it otherwise */
+  --surface-map-card-fill: var(--bg-panel);
+  --surface-map-card-blur: none;
+  --surface-map-card-edge: var(--edge-hairline);
+  --surface-map-card-shadow: none;
+  --surface-map-card-lens: 0;
+
   /* Menu and pop-over: what opens over something and closes; solid
      unless a look makes it otherwise */
   --surface-menu-fill: var(--bg-panel);
@@ -2928,8 +2945,10 @@ var SURFACE_ROLES = [
   {"key":"overlay-control","nm":"Overlay control","what":"A control floating over a map, canvas or picture: the zoom and stage buttons, the mini-map's actions, a card's hover pill and owner mark, a note's colour bar.","fill":"var(--fill-glass)","blur":"var(--blur-overlay)","edge":"none","corner":null,"shadow":"var(--shadow-float)","states":[]},
   {"key":"page-card","nm":"Page card","what":"A card on a page: the gallery cards, the Settings cards and column, the SQL editor and results, the connection cards, the set-geometry panel. A gallery card lifts on hover.","fill":"var(--bg-panel)","blur":"none","edge":"var(--edge-hairline)","corner":"var(--radius-card)","shadow":"var(--shadow-float)","states":[{"nm":"hover","v":"var(--shadow-deep)"}]},
   {"key":"inner-card","nm":"Inner card","what":"A card inside a panel or card, and a control that carries a small shadow: the layer cards, the node tiles, the pickable cards in dialogs, a switch's knob, a slider's thumb. Corners as each has them.","fill":"var(--bg-panel)","blur":"none","edge":"var(--edge-hairline)","corner":null,"shadow":"var(--shadow-hairline)","states":[{"nm":"lifted","v":"var(--shadow-float)"},{"nm":"dragged","v":"var(--shadow-deep)"}]},
-  {"key":"menu","nm":"Menu and pop-over","what":"What opens over something and closes: every menu, picker and pop-over, the map's tooltip and popup, the hint, the SQL peek, the map's failure notice. Solid in every look; corners as each has them.","fill":"var(--bg-panel)","blur":"none","edge":"var(--edge-hairline)","corner":null,"shadow":"var(--shadow-lift)","states":[]},
-  {"key":"dialog","nm":"Dialog","what":"Every modal, over its veil. Solid in every look.","fill":"var(--bg-panel)","blur":"none","edge":"var(--edge-hairline)","corner":"var(--radius-card)","shadow":"var(--shadow-dialog)","states":[]},
+  {"key":"block","nm":"Block","what":"A block inside a panel on the raised or the panel tone, with the hairline: a visualization's tile, a filter's card, a legend entry, a widget's row, a basemap's card, a tool's result, the person's own message to the Assistant. No blur of its own, lying on its panel; solid unless a look makes it otherwise.","fill":"var(--bg-raised)","blur":"none","edge":"var(--edge-hairline)","corner":null,"shadow":"none","states":[]},
+  {"key":"map-card","nm":"Map card","what":"A card floating over a map on the panel tone, with the hairline: a widget's card and its menu. Solid unless a look makes it otherwise.","fill":"var(--bg-panel)","blur":"none","edge":"var(--edge-hairline)","corner":null,"shadow":"none","states":[]},
+  {"key":"menu","nm":"Menu and pop-over","what":"What opens over something and closes: every menu, picker and pop-over, the map's tooltip and popup, the hint, the SQL peek, the map's failure notice. Solid unless a look makes it otherwise; corners as each has them.","fill":"var(--bg-panel)","blur":"none","edge":"var(--edge-hairline)","corner":null,"shadow":"var(--shadow-lift)","states":[]},
+  {"key":"dialog","nm":"Dialog","what":"Every modal, over its veil. Solid unless a look makes it otherwise.","fill":"var(--bg-panel)","blur":"none","edge":"var(--edge-hairline)","corner":"var(--radius-card)","shadow":"var(--shadow-dialog)","states":[]},
   {"key":"stage","nm":"The stage","what":"The map card and the framed canvas: no fill of its own, the deep shadow; the framed canvas keeps its edge.","fill":"transparent","blur":"none","edge":"none","corner":"var(--radius-card)","shadow":"var(--shadow-deep)","states":[]}
 ];
 /* wheelhouse:feed surface-plate end */

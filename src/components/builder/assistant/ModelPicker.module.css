@@ -17,8 +17,9 @@
   height: 26px;
   padding: 0 8px;
   border-radius: var(--radius-pill);
-  background: var(--bg-raised);
-  border: 1px solid var(--border);
+  background: var(--surface-block-fill);
+  box-shadow: var(--surface-block-shadow);
+  border: var(--surface-block-edge);
   font-size: var(--text-meta);
   color: var(--fg-muted);
   max-width: 100%;
