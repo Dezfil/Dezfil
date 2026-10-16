@@ -3,8 +3,10 @@ import type { Database } from "better-sqlite3";
 import { unstable_doesMiddlewareMatch } from "next/experimental/testing/server";
 import { IncomingMessage, Server, ServerResponse } from "node:http";
 import type { Socket } from "node:net";
-import { Duplex } from "node:stream";
+import { Duplex, Readable } from "node:stream";
+import { getCloneableBody } from "next/dist/server/body-streams";
 import { installIngress } from "./ingress.mjs";
+import { gateRequest } from "./gate";
 import * as metadata from "@/lib/metadata/db";
 import { socketRequest } from "@/lib/assistant/testing/socket-request";
 import { createFirstAccount } from "./accounts";
@@ -15,6 +17,9 @@ import * as tables from "@/app/api/tables/route";
 import * as widgets from "@/app/api/published/[token]/widget-values/route";
 import * as render from "@/app/api/published/[token]/render/[layerId]/route";
 import * as extent from "@/app/api/published/[token]/extent/[layerId]/route";
+import * as signIn from "@/app/api/auth/sign-in/route";
+import * as setup from "@/app/api/auth/setup/route";
+import * as redeem from "@/app/api/auth/redeem/route";
 
 const origin = "http://instance.test";
 // The router invokes the proxy if either spelling matches, in both server modes.
@@ -35,18 +40,62 @@ const excluded = [
   { path: "/api/published/fixture/widget-values", handlers: widgets, allowed: ["OPTIONS", "POST"] },
   { path: "/api/published/fixture/render/fixture", handlers: render, allowed: ["OPTIONS", "POST"] },
   { path: "/api/published/fixture/extent/fixture", handlers: extent, allowed: ["OPTIONS", "POST"] },
+  { path: "/api/auth/sign-in", handlers: signIn, allowed: ["OPTIONS", "POST"] },
+  { path: "/api/auth/setup", handlers: setup, allowed: ["OPTIONS", "POST"] },
+  { path: "/api/auth/redeem", handlers: redeem, allowed: ["OPTIONS", "POST"] },
 ];
+// Posts any caller may send: the handler's own gate admits them anonymously.
+const anonymousPost = (path: string) => path.startsWith("/api/published/") || path.startsWith("/api/auth/");
 let db: Database;
 beforeEach(() => { db = metadata.open(":memory:"); vi.spyOn(metadata, "metadataDb").mockReturnValue(db); });
 afterEach(() => { vi.restoreAllMocks(); db.close(); });
 const input = (path: string, method: string, headers: Record<string, string> = {}) => socketRequest(new Request(origin + path, { method, headers: { origin, ...headers } }));
 
-it("excludes exactly the streaming upload path and admits the full workflow tier to dispatch", () => {
+it("excludes exactly the streaming upload and entry paths and admits the full workflow tier to dispatch", () => {
   for (const { path: url } of excluded) expect(routerMatches({ config, nextConfig, url })).toBe(false);
-  for (const url of ["/api/tables/id", "/api/tables-extra", "/api/auth/sign-in", "/api/recipes"]) {
+  for (const url of ["/api/tables/id", "/api/tables-extra", "/api/auth/sign-out", "/api/auth/session", "/api/recipes"]) {
     expect(routerMatches({ config, nextConfig, url }), url).toBe(true);
   }
   expect(nextConfig.experimental?.proxyClientMaxBodySize).toBe(17 * 1024 * 1024);
+});
+
+// The bytes a caller can make the instance take off the wire before its post
+// is answered. Where the router runs the proxy, the framework copies the body
+// for it and holds the answer until the whole body has arrived; elsewhere the
+// handler reads what its own bound admits and answers.
+const LARGE_POST = 4 * 1024 * 1024;
+async function bytesTakenBeforeAnswer(path: string, post: (request: Request) => Promise<Response>, headers: Record<string, string>) {
+  let taken = 0;
+  const body = (counted: boolean) => Readable.from((function* () {
+    for (let sent = 0; sent < LARGE_POST; sent += 4096) { if (counted) taken += 4096; yield Buffer.alloc(4096, 32); }
+  })(), { objectMode: false, highWaterMark: 4096 });
+  const request = (stream: Readable) => socketRequest(new Request(origin + path, {
+    method: "POST", headers: { "content-type": "application/json", ...headers }, body: Readable.toWeb(stream) as ReadableStream, duplex: "half",
+  } as RequestInit));
+  let wire = body(true);
+  if (routerMatches({ config, nextConfig, url: path })) {
+    const copy = getCloneableBody(wire as never, nextConfig.experimental?.proxyClientMaxBodySize as number);
+    const gate = gateRequest(request(copy.cloneBodyStream()));
+    await copy.finalize();
+    if (gate.headers.get("x-middleware-next") !== "1") return { status: gate.status, taken };
+    // The route then reads the copy the framework kept: the same bytes, none
+    // of them still on the wire.
+    wire = body(false);
+  }
+  const response = await post(request(wire));
+  return { status: response.status, taken };
+}
+
+it.each([
+  ["same-origin", { origin }, 413],
+  ["cross-site", { origin: "https://elsewhere.test" }, 403],
+] as const)("answers a large anonymous %s entry post having taken at most its handler's bound", async (_label, headers, status) => {
+  for (const [path, handlers] of [["/api/auth/sign-in", signIn], ["/api/auth/setup", setup], ["/api/auth/redeem", redeem]] as const) {
+    const answer = await bytesTakenBeforeAnswer(path, handlers.POST, headers);
+    expect.soft(answer.status, path).toBe(status);
+    // The 64 KiB handler bound plus a few 4 KiB chunks of read-ahead.
+    expect.soft(answer.taken, path).toBeLessThanOrEqual(65_536 + 4 * 4096);
+  }
 });
 
 it("exports all dispatchable methods on each excluded path", () => {
@@ -63,7 +112,7 @@ it.each(["anonymous", "invalid", "revoked-token", "revoked-cookie"])("gates actu
   }
   const before = db.serialize();
   for (const { path, handlers } of excluded) for (const method of methods) {
-    if (path.startsWith("/api/published/") && method === "POST") continue;
+    if (anonymousPost(path) && method === "POST") continue;
     const request = input(path, method, headers);
     const body = vi.spyOn(request, "body", "get");
     const handler = (handlers as unknown as Record<string, (request: Request) => Promise<Response>>)[method];
@@ -195,7 +244,8 @@ it("holds one closed exclusion inventory against the literal compiled matcher an
   for (const url of ["/api/%74ables", "/api/tables.json", "/api/tables/extra", "/api/tables-extra",
     "/api/published/token", "/api/published/token/render", "/api/published/token/render/id/extra",
     "/api/published/token/widget-values/extra", "/api/published/token/tiles/layer/0/0/0",
-    "/api/published/token/%72ender/id", "/api/auth/setup", "/api/auth/sign-in", "/api/auth/redeem",
+    "/api/published/token/%72ender/id", "/api/auth/sign-out", "/api/auth/session", "/api/auth/entry",
+    "/api/auth/sign-in/extra", "/api/auth/sign-inx", "/api/auth/%73etup", "/api/auth/setup.json",
     "/api/published/t%2Foken/widget-values", "/api/published/%74oken/render/l%2Fayer"]) {
     expect(routerMatches({ config, nextConfig, url }), url).toBe(true);
   }

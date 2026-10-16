@@ -143,7 +143,7 @@ it.each(["reader", "projection"])("refuses %s file SQL through every private SQL
  ]) await expect(result()).rejects.toMatchObject({ code: "sql_rejected" });
  expect(await renderLayer(scope(), saved)).toMatchObject({ ok: false, error: { code: "sql_rejected" } });
  await expect(layerExtent(scope(), saved)).rejects.toMatchObject({ code: "sql_rejected" });
- expect(await searchValues(scope(), [{ layerId: layer.id, layerName: layer.name, sql: consumerSql }], "owned")).toEqual([]);
+ expect((await searchValues(scope(), [{ layerId: layer.id, layerName: layer.name, sql: consumerSql }], "owned")).values).toEqual([]);
  const { computeWidgetValues } = await import("@/lib/widget-service");
  const widgets = [{ id: "count", type: "formula" as const, layerId: saved.id, title: "Count", field: null, agg: "count" as const, aggField: null, unit: null, note: null, format: null, visible: true }];
  expect(await computeWidgetValues(scope(), { ...map, widgets }, [saved], [])).toMatchObject({ widgets: [{ id: "count", errorCode: "sql_rejected" }] });

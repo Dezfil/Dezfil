@@ -85,7 +85,7 @@ it("carries account scope through classification, fields, extent, preview, searc
     expect(await layerFieldStats(scope, layer, "sentinel")).toMatchObject({ values: [owner] });
     expect(await layerExtent(scope, layer)).toMatchObject({ kind: "extent", box: [1, 2, 1, 2] });
     expect(await sliderPreviewData(scope, layer)).toMatchObject({ sourceCount: 1 });
-    expect(await searchValues(scope, [{ layerId: layer.id, layerName: layer.name, sql }], owner)).toMatchObject([{ value: owner }]);
+    expect((await searchValues(scope, [{ layerId: layer.id, layerName: layer.name, sql }], owner)).values).toMatchObject([{ value: owner }]);
     for (const result of [await exportLayerResult(scope, layer, "csv"), await exportQueryResult(scope, sql, "csv")]) {
       try { expect(await readFile(result.path, "utf8")).toContain(owner); } finally { await result.cleanup(); }
     }

@@ -14,6 +14,7 @@ import { ApiError, EvaluationCancelled, type ErrorCode } from "@/lib/api/errors"
 import type { Layer, MapRecord } from "@/lib/metadata/maps";
 import { isAggregated, type LayerFilter } from "@/lib/viz";
 import { mapEvaluation } from "@/lib/query/context";
+import { cappedText, cappedValue } from "@/lib/query/value-ceiling";
 import {
   selectionFilter,
   selectionFilters,
@@ -134,17 +135,21 @@ async function categoryValue(
   const col = ident(widget.field!);
   const rank = aggExpr(widget.agg, widget.aggField);
   const from = sub(layer.sql, [...layer.filters, ...constrained]);
-  // NULL categories are dropped, matching aggregate semantics.
+  // NULL categories are dropped, matching aggregate semantics. Each
+  // category answered is held to the per-value ceiling; the one read past
+  // them only says that the rest rolls up.
+  const text = `CAST(${col} AS VARCHAR)`;
   const reader = await conn.runAndReadAll(
-    await namedSql(conn, `SELECT CAST(${col} AS VARCHAR) AS v, ${rank} AS n FROM ${from}
+    await namedSql(conn, `SELECT ${cappedText(text, "v")}, ${rank} AS n FROM ${from}
      WHERE ${col} IS NOT NULL
-     GROUP BY 1 ORDER BY n DESC NULLS LAST, v LIMIT ${CATEGORY_TOP_N + 1}`),
+     GROUP BY ${text} ORDER BY n DESC NULLS LAST, ${text} LIMIT ${CATEGORY_TOP_N + 1}`),
   );
   const rows = reader
     .getRowObjects()
-    .map((r) => ({ value: String(r.v), n: Number(r.n) }))
-    .filter((r) => Number.isFinite(r.n));
-  const categories = rows.slice(0, CATEGORY_TOP_N);
+    .filter((r) => Number.isFinite(Number(r.n)));
+  const categories = rows
+    .slice(0, CATEGORY_TOP_N)
+    .map((r) => ({ value: cappedValue(r, "v"), n: Number(r.n) }));
   let other: number | null = null;
   if (rows.length > CATEGORY_TOP_N) {
     const list = categories

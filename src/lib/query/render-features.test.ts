@@ -324,13 +324,15 @@ describe("a JSON document inside a list or a map is refused before it is convert
   });
 });
 
+/** A document read at the top level, and walked inside a list. */
+const holders = [["at the top level", (doc: string) => doc], ["inside a list", (doc: string) => `[${doc}]`]] as const;
+const rowsOf = (document: string): InlineRows => ({
+  from: `(SELECT ST_Point(0, 0) AS geometry, ${document} AS docs) AS q`,
+  geometry: quoteIdent("geometry"),
+  properties: ["docs"],
+});
+
 describe("a document whose names repeat is charged name by name before they are converted", () => {
-  const holders = [["at the top level", (doc: string) => doc], ["inside a list", (doc: string) => `[${doc}]`]] as const;
-  const rowsOf = (document: string): InlineRows => ({
-    from: `(SELECT ST_Point(0, 0) AS geometry, ${document} AS docs) AS q`,
-    geometry: quoteIdent("geometry"),
-    properties: ["docs"],
-  });
 
   it.each(holders)("%s: a 1 MiB name before a repeated short name is refused unconverted under 64 KiB", async (_, holder) => {
     const limit = 65_536;
@@ -373,5 +375,67 @@ describe("a document whose names repeat is charged name by name before they are 
     expect(admitted.converted).toBeLessThanOrEqual(bytes + bytes / 8);
     const refused = await observe(() => buildInlineAnswer(conn, rows, compose, bytes - 1));
     expect(refusedEarly(refused, bytes - 1)).toBe(true);
+  });
+});
+
+describe("a number literal in a document is refused before it is converted", () => {
+  it.each(holders)("%s: a 1 MiB number literal is refused unconverted under 64 KiB, while one that fits is counted exactly", async (_, holder) => {
+    const limit = 65_536;
+    // The literal parses to Infinity, which serializes as null: its text
+    // is all the cost, and the text is what the budget must see first.
+    const rows = rowsOf(holder(`('{"n":[1.0,' || repeat('9', 1048576) || ']}')::JSON`));
+    const early = await observe(() => buildInlineAnswer(conn, rows, compose, limit));
+    expect(early).toMatchObject({ refused: true, serialized: 0 });
+    expect(refusedEarly(early, limit)).toBe(true);
+    expect(early.longestText).toBeLessThan(1024);
+    expect(early.longestParse).toBeLessThan(1024);
+    // The control converts and parses the literal whole before measuring.
+    const late = await observe(() => lateRefusal(rows, limit));
+    expect(refusedEarly(late, limit)).toBe(false);
+    expect(late.longestParse).toBeGreaterThanOrEqual(1_048_576);
+    // A long literal whose text fits what is left, and short ones the
+    // parser respells, are counted at what they serialize to.
+    const fits = rowsOf(holder(`('{"n":[' || repeat('7', 4096) || ',1.0,-0,1E400,2.5e-7,100000.0],"s":"' || repeat('s', 8192) || '"}')::JSON`));
+    const answer = await exactly(fits);
+    const docs = answer.geojson.features[0].properties.docs;
+    expect(Array.isArray(docs) ? docs[0] : docs).toEqual({ n: [Infinity, 1, 0, Infinity, 2.5e-7, 100000], s: "s".repeat(8192) });
+    // A short token is converted first, so one read last, when only its
+    // own serialized byte is left, is still admitted at exactly its size.
+    await exactly(rowsOf(holder(`'{"n":1.0}'::JSON`)));
+  });
+});
+
+describe("a typed value spelled as a long number is refused before it is converted", () => {
+  const valueOf = (expression: string): InlineRows => ({
+    from: `(SELECT ST_Point(0, 0) AS geometry, ${expression} AS n) AS q`,
+    geometry: quoteIdent("geometry"),
+    properties: ["n"],
+  });
+
+  it("refuses a 20,000-digit whole number under 4 KiB unconverted, and counts wide decimals exactly", async () => {
+    const limit = 4096;
+    // An arbitrary-precision integer serializes as a number literal of
+    // every digit, which parses to Infinity and serializes as null.
+    const rows = valueOf(`CAST(repeat('9', 20000) AS BIGNUM)`);
+    const early = await observe(() => buildInlineAnswer(conn, rows, compose, limit));
+    expect(early).toMatchObject({ refused: true, serialized: 0 });
+    expect(refusedEarly(early, limit)).toBe(true);
+    expect(early.longestText).toBeLessThan(1024);
+    expect(early.longestParse).toBeLessThan(1024);
+    // The control converts and parses the literal whole before measuring.
+    const late = await observe(() => lateRefusal(rows, limit));
+    expect(refusedEarly(late, limit)).toBe(false);
+    expect(late.longestParse).toBeGreaterThanOrEqual(20_000);
+    // A decimal's widest spelling, read last at exactly the limit, and a
+    // whole number of 41 digits with room behind it, are admitted at what
+    // they serialize to.
+    const decimal = await exactly(valueOf(`(-1)::DECIMAL(38,37)`));
+    expect(decimal.geojson.features[0].properties.n).toBe(-1);
+    const wide = await exactly({
+      from: `(SELECT ST_Point(0, 0) AS geometry, CAST(repeat('9', 41) AS BIGNUM) AS n, repeat('s', 256) AS s) AS q`,
+      geometry: quoteIdent("geometry"),
+      properties: ["n", "s"],
+    });
+    expect(wide.geojson.features[0].properties.n).toBe(1e41);
   });
 });

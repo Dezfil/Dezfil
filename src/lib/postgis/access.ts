@@ -30,17 +30,20 @@ function libpqEscape(value: string): string {
 
 export function attachString(
   target: ConnectionTarget,
-  hostaddr?: string,
+  hostaddr?: string | readonly string[],
   sourceIdentity?: string,
   statementMs: number = SOURCE_STATEMENT_MS,
   connectS = 10,
 ): string {
+  // The vetted addresses from the egress policy, in resolution order: libpq
+  // connects to hostaddr while host keeps naming the server for auth/TLS, so
+  // the approved address is the connected address. Given several, libpq
+  // tries each in turn (one host entry per address) until one accepts, as it
+  // would for the name itself on a dual-stack host.
+  const addresses = !hostaddr ? [] : typeof hostaddr === "string" ? [hostaddr] : hostaddr;
   return [
-    `host=${libpqEscape(target.host)}`,
-    // The vetted address from the egress policy: libpq connects to
-    // hostaddr while host keeps naming the server for auth/TLS, so the
-    // approved address is the connected address.
-    ...(hostaddr ? [`hostaddr=${libpqEscape(hostaddr)}`] : []),
+    `host=${libpqEscape(addresses.length > 1 ? addresses.map(() => target.host).join(",") : target.host)}`,
+    ...(addresses.length ? [`hostaddr=${libpqEscape(addresses.join(","))}`] : []),
     `port=${target.port}`,
     `dbname=${libpqEscape(target.database)}`,
     `user=${libpqEscape(target.username)}`,
@@ -90,37 +93,72 @@ const CANCEL_RETRY_MS = 250;
 const CANCEL_WINDOW_MS = 20_000;
 
 /**
- * Cancel the statements one attachment runs on the source, through a
- * short-lived attachment of its own on a connection outside the refused
- * operation, so nothing waits on the blocked connection. It reaches the
- * address the attachment was vetted for, with the same credentials and TLS
- * mode, and asks the server to cancel only active backends whose application
- * name begins with that attachment's unique identity. Its own identity
- * begins differently, so it never matches itself, and the server lets a role
- * cancel only its own backends. It repeats while the attachment's native call
- * is out, within its window, and always detaches.
+ * Cancel the statements one attachment runs on the source, through
+ * short-lived attachments of its own on a connection outside the refused
+ * operation, so nothing waits on the blocked connection. It reaches each
+ * address the attachment was vetted for on its own, in the same order: given
+ * the whole list, libpq would stop at the first address that answers, which
+ * need not be the server the attachment fell back to. Each uses the same
+ * credentials and TLS mode, and asks the server to cancel only active
+ * backends whose application name begins with that attachment's unique
+ * identity. Its own identity begins differently, so it never matches itself,
+ * and the server lets a role cancel only its own backends. Each address is
+ * attached once per cancellation and cancelled through at once, so a later
+ * address that hangs at connect never delays the first cancel; it is dropped
+ * for the rest of the cancellation once its attachment or a cancel through it
+ * fails, and the cancellation fails only when no address answered. One window,
+ * from the cancellation's start, bounds the attachments and the tries alike:
+ * no further address is tried once it has passed or the attachment's native
+ * call has returned. It repeats while that call is out, within the window, and
+ * always detaches what it attached.
  */
-function sourceCancellation(target: ConnectionTarget, hostaddr: string, sourceIdentity: string): SourceCancellation {
+function sourceCancellation(target: ConnectionTarget, hostaddr: readonly string[], sourceIdentity: string): SourceCancellation {
   return running => withSideConnection(async conn => {
-    const own = randomUUID().replace(/-/g, "");
-    const alias = `pg_cancel_${own}`;
+    const until = performance.now() + CANCEL_WINDOW_MS;
     await conn.run("LOAD postgres");
-    await conn.run(
-      `ATTACH ${sqlLit(attachString(target, hostaddr, `dezfil_cancel_${own}`, CANCEL_STATEMENT_MS, CANCEL_CONNECT_S))} AS ${alias} (TYPE postgres, READ_ONLY)`,
-    );
+    const cancel = `SELECT pg_cancel_backend(pid) AS cancelled FROM pg_stat_activity WHERE left(application_name, ${sourceIdentity.length}) = ${sqlLit(sourceIdentity)} AND pid <> pg_backend_pid() AND state = 'active'`;
+    const attached: string[] = [];
+    let live: string[] = [], failure: unknown;
+    const cancelThrough = async (alias: string) => {
+      try { await conn.run(`SELECT * FROM postgres_query(${sqlLit(alias)}, ${sqlLit(cancel)})`); return true; }
+      catch (error) { failure ??= error; return false; }
+    };
     try {
-      const cancel = `SELECT pg_cancel_backend(pid) AS cancelled FROM pg_stat_activity WHERE left(application_name, ${sourceIdentity.length}) = ${sqlLit(sourceIdentity)} AND pid <> pg_backend_pid() AND state = 'active'`;
-      const until = performance.now() + CANCEL_WINDOW_MS;
+      for (const [index, address] of hostaddr.entries()) {
+        if (index > 0 && (!running() || performance.now() >= until)) break;
+        const own = randomUUID().replace(/-/g, "");
+        const alias = `pg_cancel_${own}`;
+        try {
+          await conn.run(
+            `ATTACH ${sqlLit(attachString(target, address, `dezfil_cancel_${own}`, CANCEL_STATEMENT_MS, CANCEL_CONNECT_S))} AS ${alias} (TYPE postgres, READ_ONLY)`,
+          );
+        } catch (error) { failure ??= error; continue; }
+        attached.push(alias);
+        if (await cancelThrough(alias)) live.push(alias);
+      }
       for (;;) {
-        await conn.run(`SELECT * FROM postgres_query(${sqlLit(alias)}, ${sqlLit(cancel)})`);
+        if (!live.length) throw failure;
         if (!running() || performance.now() >= until) break;
         await delay(CANCEL_RETRY_MS);
         if (!running()) break;
+        const answered: string[] = [];
+        for (const alias of live) if (await cancelThrough(alias)) answered.push(alias);
+        live = answered;
       }
     } finally {
-      await conn.run(`DETACH ${alias}`);
+      await detachEach(conn, attached);
     }
   });
+}
+
+/** Detach every alias, each regardless of the others; the first failure
+ * is reported once all have been tried. */
+async function detachEach(conn: Pick<import("@duckdb/node-api").DuckDBConnection, "run">, aliases: readonly string[]): Promise<void> {
+  let failure: { error: unknown } | undefined;
+  for (const alias of aliases) {
+    try { await conn.run(`DETACH ${alias}`); } catch (error) { failure ??= { error }; }
+  }
+  if (failure) throw failure.error;
 }
 
 /** Attach read-only, run work, always detach. */
@@ -139,9 +177,9 @@ export async function withPg<T>(
     // Egress policy first: a blocked destination is rejected before
     // anything is loaded or contacted, with the one uniform error — this
     // endpoint must not act as an internal port scanner.
-    let hostaddr: string;
+    let hostaddr: string[];
     try {
-      [hostaddr] = await resolveAllowed(target.host);
+      hostaddr = await resolveAllowed(target.host);
     } catch (error) {
       owner.check();
       if (isTrustedOperationRefusal(error)) throw error;

@@ -4,7 +4,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import path from "node:path";
 import { INTEGER, type DuckDBConnection } from "@duckdb/node-api";
 
-const fixture = vi.hoisted(() => ({ acquire: vi.fn(), resolve: vi.fn(), side: vi.fn(), sides: [] as string[][] }));
+const fixture = vi.hoisted(() => ({ acquire: vi.fn(), resolve: vi.fn(), side: vi.fn(), sideRun: vi.fn(), sides: [] as string[][] }));
 vi.mock("@/lib/duckdb", () => ({ withConnection: async (work: (conn: DuckDBConnection) => Promise<unknown>) => {
   const conn = await fixture.acquire();
   try { return await work(conn); } finally { conn.disconnectSync(); }
@@ -12,7 +12,7 @@ vi.mock("@/lib/duckdb", () => ({ withConnection: async (work: (conn: DuckDBConne
   // The connection outside the operation that cancels a held statement on the source.
   await fixture.side();
   const sql: string[] = []; fixture.sides.push(sql);
-  return work({ run: async (statement: string) => { sql.push(statement); return {}; } } as unknown as DuckDBConnection);
+  return work({ run: async (statement: string) => { sql.push(statement); await fixture.sideRun(statement); return {}; } } as unknown as DuckDBConnection);
 } }));
 vi.mock("@/lib/net/egress", () => ({ resolveAllowed: (...args: unknown[]) => fixture.resolve(...args) }));
 import { POST } from "@/app/api/connections/postgis/[id]/preview/route";
@@ -67,7 +67,7 @@ beforeEach(() => {
   closeMetadataDb(); resetSecretKeyCache(); insertConnection(testAccountScope(), target);
   fixture.acquire.mockReset().mockImplementation(async () => connection());
   fixture.resolve.mockReset().mockResolvedValue(["192.0.2.1"]);
-  fixture.side.mockReset(); fixture.sides.length = 0;
+  fixture.side.mockReset(); fixture.sideRun.mockReset(); fixture.sides.length = 0;
 });
 afterEach(() => { closeMetadataDb(); resetSecretKeyCache(); vi.unstubAllEnvs(); rmSync(dir, { recursive: true, force: true }); });
 
@@ -127,6 +127,104 @@ describe("actual preview route owns its attachment", () => {
       for (const sql of fixture.sides) expect(sql.at(-1)).toMatch(/^DETACH pg_cancel_[a-f0-9]+$/);
     },
   );
+  // libpq stops at the first address that answers, which need not be the
+  // server the attachment fell back to: each address is cancelled on its own.
+  const sideAttachments = (sql: string[]) => sql.filter(statement => statement.startsWith("ATTACH ")).map(statement => ({
+    statement, alias: statement.match(/ AS (pg_cancel_[a-f0-9]+) /)![1],
+  }));
+  const cancelledThrough = (sql: string[]) => sql.filter(statement => statement.includes("pg_cancel_backend")).map(statement => statement.match(/postgres_query\('(pg_cancel_[a-f0-9]+)'/)![1]);
+  it("cancels on every address the attachment was handed, each through its own attachment", async () => {
+    fixture.resolve.mockResolvedValue(["::1", "127.0.0.1"]);
+    const conn = connection("version"); fixture.acquire.mockResolvedValue(conn);
+    const controller = new AbortController(); const pending = preview(controller);
+    let attached: ReturnType<typeof sideAttachments> = [];
+    try {
+      await conn.entered.promise; controller.abort();
+      await vi.waitFor(() => expect(new Set(cancelledThrough(fixture.sides[0] ?? [])).size).toBe(2));
+      const main = conn.sql.find(sql => sql.startsWith("ATTACH "))!;
+      expect(main).toContain("host=''db.example.org,db.example.org''");
+      expect(main).toContain("hostaddr=''::1,127.0.0.1''");
+      attached = sideAttachments(fixture.sides[0]);
+      expect(attached.map(({ statement }) => statement.match(/hostaddr=''([^']+)''/)![1])).toEqual(["::1", "127.0.0.1"]);
+      for (const { statement } of attached) expect(statement).toContain("host=''db.example.org'' ");
+      expect(new Set(cancelledThrough(fixture.sides[0]))).toEqual(new Set(attached.map(({ alias }) => alias)));
+    } finally { conn.release.resolve(); }
+    expect((await pending).status).toBe(499);
+    expect(fixture.sides[0].filter(sql => sql.startsWith("DETACH ")).sort()).toEqual(attached.map(({ alias }) => `DETACH ${alias}`).sort());
+  });
+  it("skips an address whose cancelling attachment fails and still cancels through the others", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      fixture.resolve.mockResolvedValue(["::1", "127.0.0.1"]);
+      fixture.sideRun.mockImplementation(async (statement: string) => {
+        if (statement.startsWith("ATTACH ") && statement.includes("hostaddr=''::1''")) throw new Error("connection to server at \"::1\" failed: Connection refused");
+      });
+      const conn = connection("version"); fixture.acquire.mockResolvedValue(conn);
+      const controller = new AbortController(); const pending = preview(controller);
+      let reached: ReturnType<typeof sideAttachments>[number] | undefined;
+      try {
+        await conn.entered.promise; controller.abort();
+        await vi.waitFor(() => expect(cancelledThrough(fixture.sides[0] ?? []).length).toBeGreaterThan(0));
+        reached = sideAttachments(fixture.sides[0]).find(({ statement }) => statement.includes("hostaddr=''127.0.0.1''"));
+        expect(reached).toBeDefined();
+        expect(new Set(cancelledThrough(fixture.sides[0]))).toEqual(new Set([reached!.alias]));
+      } finally { conn.release.resolve(); }
+      expect((await pending).status).toBe(499);
+      expect(fixture.sides[0].filter(sql => sql.startsWith("DETACH "))).toEqual([`DETACH ${reached!.alias}`]);
+      expect(warn).not.toHaveBeenCalled();
+    } finally { warn.mockRestore(); }
+  });
+  it("drops an address once a cancel through it fails and keeps trying the others", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      fixture.resolve.mockResolvedValue(["::1", "127.0.0.1"]);
+      let failing: string | undefined;
+      fixture.sideRun.mockImplementation(async (statement: string) => {
+        if (statement.startsWith("ATTACH ") && statement.includes("hostaddr=''::1''")) failing = statement.match(/ AS (pg_cancel_[a-f0-9]+) /)![1];
+        if (failing && statement.includes(`postgres_query('${failing}'`)) throw new Error("server closed the connection unexpectedly");
+      });
+      const conn = connection("version"); fixture.acquire.mockResolvedValue(conn);
+      const controller = new AbortController(); const pending = preview(controller);
+      try {
+        await conn.entered.promise; controller.abort();
+        const other = () => cancelledThrough(fixture.sides[0] ?? []).filter(alias => alias !== failing);
+        await vi.waitFor(() => expect(other().length).toBeGreaterThanOrEqual(3));
+        expect(cancelledThrough(fixture.sides[0]).filter(alias => alias === failing)).toHaveLength(1);
+      } finally { conn.release.resolve(); }
+      expect((await pending).status).toBe(499);
+      expect(fixture.sides[0].filter(sql => sql.startsWith("DETACH "))).toHaveLength(2);
+      expect(warn).not.toHaveBeenCalled();
+    } finally { warn.mockRestore(); }
+  });
+  it("cancels through the first address at once and keeps every attempt inside one window", async () => {
+    // Every address after the first hangs to its 5 s connect limit and fails;
+    // the clock moves by that limit instead of the test waiting it out.
+    const addresses = Array.from({ length: 8 }, (_, index) => `192.0.2.${index + 1}`);
+    fixture.resolve.mockResolvedValue(addresses);
+    const now = performance.now.bind(performance); let skew = 0;
+    const clock = vi.spyOn(performance, "now").mockImplementation(() => now() + skew);
+    fixture.sideRun.mockImplementation(async (statement: string) => {
+      if (statement.startsWith("ATTACH ") && !statement.includes("hostaddr=''192.0.2.1''")) { skew += 5_000; throw new Error("timeout expired"); }
+    });
+    const conn = connection("version"); fixture.acquire.mockResolvedValue(conn);
+    const controller = new AbortController(); const pending = preview(controller);
+    try {
+      await conn.entered.promise;
+      const started = performance.now(); controller.abort();
+      await vi.waitFor(() => expect(cancelledThrough(fixture.sides[0] ?? []).length).toBeGreaterThan(0));
+      const sql = fixture.sides[0], attaches = sql.filter(statement => statement.startsWith("ATTACH "));
+      expect(attaches[0]).toContain("hostaddr=''192.0.2.1''");
+      // The first cancel went out before any later address was tried.
+      expect(sql.findIndex(statement => statement.includes("pg_cancel_backend"))).toBeLessThan(attaches.length > 1 ? sql.indexOf(attaches[1]) : sql.length);
+      await vi.waitFor(() => expect(sql.some(statement => statement.startsWith("DETACH "))).toBe(true), { timeout: 5_000 });
+      // The statement still runs, so only the window ends the cancellation:
+      // within it plus one connect limit, with the addresses past it untried.
+      expect(performance.now() - started).toBeLessThanOrEqual(20_000 + 5_000);
+      expect(sql.filter(statement => statement.startsWith("ATTACH ")).length).toBeLessThan(addresses.length);
+      expect(sql.filter(statement => statement.startsWith("DETACH "))).toEqual([`DETACH ${sideAttachments(sql)[0].alias}`]);
+    } finally { conn.release.resolve(); clock.mockRestore(); }
+    expect((await pending).status).toBe(499);
+  });
   it("keeps the departure's answer when the cancellation on the source fails, and logs it", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     try {
