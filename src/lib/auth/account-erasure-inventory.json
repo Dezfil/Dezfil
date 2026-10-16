@@ -6666,6 +6666,16 @@
         "memory:request-closures"
       ]
     },
+    "memory:src/lib/auth/reception.mjs#hearClose.hearing": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/auth/reception.mjs#hearClose.requests": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
     "memory:src/lib/auth/reception.mjs#installReception.answered": {
       "stores": [
         "memory:request-closures"
@@ -6697,6 +6707,11 @@
       ]
     },
     "memory:src/lib/auth/reception.mjs#installReception.received": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/auth/reception.mjs#installReception.stopHearing": {
       "stores": [
         "memory:request-closures"
       ]
