@@ -196,9 +196,13 @@ export function useMapPresentation({
     setBottomCornerEl(node);
     setBottomLeftEl(node);
   }, []);
+  const [bottomRightCornerEl, setBottomRightEl] = useState<HTMLElement | null>(
+    null,
+  );
   const setBottomRightCornerEl = useCallback((node: HTMLElement | null) => {
     setBottomCornerEl(node);
     setLegendCandidateEl(node);
+    setBottomRightEl(node);
   }, []);
   // A docked bottom-right candidate is the hidden corner itself. Its lift
   // only repositions that probe for placement measurement; the visible
@@ -393,6 +397,9 @@ export function useMapPresentation({
     /** The lower-left corner, a legend's when one stands there: the
      * status pill keeps clear of it too. */
     bottomLeftCornerEl,
+    /** The lower-right corner, above the credit: the pill keeps clear of a
+     * legend standing there as well. */
+    bottomRightCornerEl,
     statusChannel,
     statusPillHidden,
   };
