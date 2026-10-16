@@ -569,24 +569,29 @@ test("the scoped catalog end to end", async ({ page, context }) => {
     // Seed one tool output the builder's own way: a buffer step, run.
     const outcome = await page.evaluate(
       async ({ input, name }) => {
-        const post = async (path: string, body: unknown) =>
+        const post = async (path: string, body: unknown, revision?: string) =>
           (
             await fetch(path, {
               method: "POST",
-              headers: { "content-type": "application/json" },
+              headers: {
+                "content-type": "application/json",
+                ...(revision ? { "X-Edit-Revision": revision } : {}),
+              },
               body: JSON.stringify(body),
             })
           ).json();
-        const { recipe } = (await post("/api/recipes", {
+        const { recipe, editRevision } = (await post("/api/recipes", {
           name: `${name}_wf`,
         })) as {
           recipe: { id: string };
+          editRevision: string;
         };
         (window as unknown as { __alsRecipe: string }).__alsRecipe = recipe.id;
+        // A step is added against the revision the workflow was read at.
         const { step } = (await post(`/api/recipes/${recipe.id}/steps`, {
           operation: "buffer",
           parameters: { input, distance: 10, name },
-        })) as { step: { id: string } };
+        }, editRevision)) as { step: { id: string } };
         const { run } = (await (
           await (async function readThenWriteWorkflowSetup() { const basis = await (await fetch(`/api/recipes/${recipe.id}`)).json(); return fetch(`/api/recipes/${recipe.id}/steps/${step.id}/run`, { headers: { "X-Edit-Revision": basis.editRevision },
             method: "POST",
