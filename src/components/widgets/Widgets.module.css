@@ -50,10 +50,11 @@
 .card {
   flex: none;
   position: relative;
-  background: var(--bg-panel);
-  border: 1px solid var(--border);
+  background: var(--surface-map-card-fill);
+  backdrop-filter: var(--surface-map-card-blur);
+  border: var(--surface-map-card-edge);
   border-radius: var(--radius-legend);
-  box-shadow: var(--shadow);
+  box-shadow: var(--surface-map-card-shadow);
   padding: 12px 14px;
 }
 
@@ -145,10 +146,11 @@
   min-width: 150px;
   display: flex;
   flex-direction: column;
-  background: var(--bg-panel);
-  border: 1px solid var(--border);
+  background: var(--surface-map-card-fill);
+  backdrop-filter: var(--surface-map-card-blur);
+  border: var(--surface-map-card-edge);
   border-radius: var(--radius-box);
-  box-shadow: var(--shadow);
+  box-shadow: var(--surface-map-card-shadow);
   padding: 4px;
 }
 

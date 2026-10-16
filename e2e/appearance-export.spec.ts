@@ -14,11 +14,11 @@
 //   they show is the tolerance every later comparison is held to, and it
 //   must itself stay within a small fixed ceiling.
 // - Each pick off the default, set alone through the documented
-//   own-settings write, then the two Panels looks (Liquid with every kind
-//   on, and Paper), and then all the other picks together: the download
-//   equals the default one, and the nodes the download rasterizes keep
-//   the computed styles they have under the default look, while the
-//   card's options take the person's.
+//   own-settings write, then the two Panels looks (Liquid and Paper), and
+//   then all the other picks together: the download equals the default
+//   one, and the nodes the download rasterizes keep the computed styles
+//   they have under the default look, while the card's options take the
+//   person's.
 // - The red: the person's Color leaked into the composition's scope by an
 //   injected style fails the same comparison that holds for that Color.
 //   So does a shadow typed by hand on the composition's legend under the
@@ -53,22 +53,14 @@ import { patchMap, routeHouse, trackConsole } from "./support";
 import { startLoopbackBasemap } from "../scripts/loopback-basemap.mjs";
 
 type Look = Record<string, string>;
-/** The eight kinds Liquid can take, each a setting of its own, and the
- * word each stands for on the root while Liquid is picked. */
-const KINDS: [string, string][] = [["liquidChrome", "chrome"], ["liquidPanels", "panels"], ["liquidMap", "map"], ["liquidButtons", "buttons"],
-  ["liquidCards", "cards"], ["liquidInner", "inner"], ["liquidMenus", "menus"], ["liquidDialogs", "dialogs"]];
 const DEFAULTS: Look = {
   color: "kelp", contrast: "standard", font: "inter", background: "atlantic", corners: "rounded", rail: "hover", panels: "glass",
-  liquidChrome: "on", liquidPanels: "on", liquidMap: "on", liquidButtons: "on", liquidCards: "off", liquidInner: "off", liquidMenus: "off", liquidDialogs: "off",
 };
 /** Each pick off the default; together, the look compared last. */
 const PICKS: [string, string][] = [["color", "heather"], ["contrast", "more"], ["font", "system"], ["background", "graticule"], ["corners", "soft"], ["rail", "icons"]];
 const LOOK: Look = Object.fromEntries(PICKS);
-/** The two Panels looks off Glass: Liquid with every kind on, and Paper. */
-const PANEL_LOOKS: [string, Look][] = [
-  ["panels liquid, every kind on", { panels: "liquid", ...Object.fromEntries(KINDS.map(([key]) => [key, "on"])) }],
-  ["panels paper", { panels: "paper" }],
-];
+/** The two Panels looks off Glass: Liquid and Paper. */
+const PANEL_LOOKS: [string, Look][] = [["panels liquid", { panels: "liquid" }], ["panels paper", { panels: "paper" }]];
 /** Heather's accent, light, as a token and as paint; Kelp's as the default scope restates it. */
 const HEATHER_ACCENT = "#6b4cad";
 const HEATHER_PAINT = "rgb(107, 76, 173)";
@@ -79,17 +71,12 @@ const KELP_ACCENT = "#0d7d5c";
 const TYPED_LEGEND_SHADOW = "0 4px 14px rgba(0, 0, 0, 0.5)";
 const TYPED_LEGEND_SHADOW_COMPUTED = "rgba(0, 0, 0, 0.5) 0px 4px 14px 0px";
 
-/** The root's attributes for a look: one per pick off the default, and
- * for Panels its pick and, while Liquid, the words of the kinds that are on. */
+/** The root's attributes for a look: one per pick off the default, Panels's among them. */
 const attrs = (look: Look) => {
   const full = { ...DEFAULTS, ...look };
-  const kinds = new Set(KINDS.map(([key]) => key));
   const out: [string, string][] = Object.entries(full)
-    .filter(([key, value]) => key !== "panels" && !kinds.has(key) && DEFAULTS[key] !== value)
+    .filter(([key, value]) => DEFAULTS[key] !== value)
     .map(([key, value]) => [`data-look-${key}`, value]);
-  if (full.panels !== "glass") out.push(["data-look-panels", full.panels]);
-  const words = KINDS.filter(([key]) => full[key] === "on").map(([, word]) => word);
-  if (full.panels === "liquid" && words.length > 0) out.push(["data-look-liquid", words.join(" ")]);
   return Object.fromEntries(out.sort(([a], [b]) => a.localeCompare(b)));
 };
 

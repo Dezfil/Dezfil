@@ -70,14 +70,13 @@ the column's foot; members see General alone, read-only.
   Paper), Background (Atlantic chart, Plain, Graticule or Hex lattice), Typeface
   (Inter, or System for the computer's own), Corners (Rounded or Soft) and Side
   menu (Opens on hover, Always open or Icons only). Glass is the frosted panels
-  Dezfil has always had; Paper makes them solid. While Liquid is picked, a
-  **Liquid panels** row switches which kinds of surface go liquid: Header and
-  side menu, Side panels, On the map and Map buttons are on at first; Page
-  cards, Cards inside panels, Menus and pop-overs and Dialogs are off. A kind
-  that is off stays Glass, and the switches are kept while Glass or Paper is
-  picked. Liquid bends the backdrop at a panel's edge in Chromium-based browsers
-  (Chrome, Edge and the like); Firefox and Safari show the same fills, blur,
-  light and shadow without the bend. A pick changes the page at once and is
+  Dezfil has always had; Paper makes them solid. Liquid makes every card and
+  panel the same liquid glass with a light on its rim: the header and side
+  menu, the side panels, everything over the map, the map's buttons, the page
+  cards, the cards and blocks inside panels, menus and dialogs. Text fields
+  and selects stay solid. Liquid bends the backdrop at a panel's edge in
+  Chromium-based browsers (Chrome, Edge and the like); Firefox and Safari show
+  the same fills, blur, light and shadow without the bend. A pick changes the page at once and is
   kept with the account, so every other browser that account uses shows it from
   its next page load, with no flash of the default first. The look is never
   shared and never reaches a published page or an image of a map: those keep
@@ -146,8 +145,7 @@ Choices and numbers are kept as they change; typed text waits for Save. A card
 offers Reset to defaults while it differs from its defaults, then Undo for a few
 seconds. Appearance also offers **Reset to Dezfil's default** at the right of
 its heading while any pick differs, which returns every pick at once with the
-same Undo. A reset there returns the Liquid panels switches only while they are
-shown, and its Undo brings back everything it changed. Leaving a tab with
+same Undo, which brings back everything the reset changed. Leaving a tab with
 unsaved typed text asks first.
 
 ## Leaving and deleting accounts

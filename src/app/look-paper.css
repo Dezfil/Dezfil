@@ -18,8 +18,11 @@
    - the lines inside panels and cards soften to 7 % ink by day and 8 %
      by night. They are set on the body, not the root: the roles resolve
      their edges on the root, so a menu and a dialog keep the shipped
-     line in both themes. Under More contrast the pick's stronger lines
-     win and this rule does not apply.
+     line in both themes. The blocks inside panels and the cards over the
+     map draw the line around them from their roles, so their edges are
+     resolved again on the body and keep the softer line they had. Under
+     More contrast the pick's stronger lines win and this rule does not
+     apply.
 
    Paper also dresses the pictures of the other picks, which show the
    person's look, and its own Panels picture. Every fill is opaque, so
@@ -124,6 +127,8 @@
 
 :root[data-look-panels="paper"]:not([data-look-contrast="more"]) body {
   --border: color-mix(in srgb, var(--fg) 7%, transparent);
+  --surface-block-edge: 1px solid var(--border);
+  --surface-map-card-edge: 1px solid var(--border);
 }
 
 :root[data-theme="dark"][data-look-panels="paper"]:not([data-look-contrast="more"]) body {

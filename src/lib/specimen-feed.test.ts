@@ -164,13 +164,21 @@ describe("surfacePlate", () => {
     expect(() => surfacePlate(surfaceBlock(SHEET), { ...NOTES, stage: { nm: "The stage", what: "The map card." } })).toThrow(/stage/);
     const noBlur = SHEET.replace("  --surface-menu-blur: none;\n", "");
     expect(() => surfacePlate(surfaceBlock(noBlur), NOTES)).toThrow(/menu states no blur/);
+    // Only a role its words say lies on a panel goes without a blur, and it shows none.
+    const onPanel = surfacePlate(surfaceBlock(noBlur), { ...NOTES, menu: { ...NOTES.menu, onPanel: true } });
+    expect(onPanel.roles[1].blur).toBe("none");
+    const noFill = SHEET.replace("  --surface-menu-fill: var(--bg-panel);\n", "");
+    expect(noFill).not.toBe(SHEET);
+    expect(() => surfacePlate(surfaceBlock(noFill), { ...NOTES, menu: { ...NOTES.menu, onPanel: true } })).toThrow(/menu states no fill/);
   });
 
-  it("draws the shipped tokens' nine roles and six steps, each role with its words", () => {
+  it("draws the shipped tokens' eleven roles and six steps, each role with its words", () => {
     const plate = surfacePlate(surfaceBlock(readFileSync("src/app/globals.css", "utf8")));
     expect(plate.roles.map((r: { key: string }) => r.key)).toEqual([
-      "glass-chrome", "glass-panel", "overlay-panel", "overlay-control", "page-card", "inner-card", "menu", "dialog", "stage",
+      "glass-chrome", "glass-panel", "overlay-panel", "overlay-control", "page-card", "inner-card", "block", "map-card", "menu", "dialog", "stage",
     ]);
+    // The block lies on its panel: it states no blur and shows none.
+    expect(plate.roles.find((r: { key: string }) => r.key === "block")?.blur).toBe("none");
     expect(plate.steps.shadow.map((s: { nm: string }) => s.nm)).toEqual(["hairline", "float", "overlay", "lift", "deep", "dialog"]);
     for (const role of plate.roles) expect(role.nm.length * role.what.length).toBeGreaterThan(0);
   });

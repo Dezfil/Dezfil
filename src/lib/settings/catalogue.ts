@@ -80,19 +80,6 @@ export function isLibrarySwitch(definition: { readonly key: string; readonly sco
 }
 const OFFERED = "where a basemap is chosen: the builder's picker, a published page's switcher and the Maps tab. " +
   "Off, choosing it anew is refused; a map already on it keeps it.";
-/** The kinds of surface Liquid reaches, in the person's words, with what
- * each covers and whether it starts on. */
-const LIQUID_KIND_SETTINGS: readonly (readonly [key: string, label: string, purpose: string, first: "on" | "off"])[] = [
-  ["liquidChrome", "Header and side menu", "the header card and its buttons, the search field, the side menu at rest, the save chip and the draw dock", "on"],
-  ["liquidPanels", "Side panels", "the inspector, Tools, the Assistant and the SQL page's and canvas's panes", "on"],
-  ["liquidMap", "On the map", "the legend, the status pill, the timeline, the readouts and notices over a map and the map's own frame", "on"],
-  ["liquidButtons", "Map buttons", "the zoom and stage buttons, the mini-map's buttons and the small marks over cards and pictures", "on"],
-  ["liquidCards", "Page cards", "the cards of the Maps, Data, Settings, SQL, connection and dataset pages", "off"],
-  ["liquidInner", "Cards inside panels", "the layer cards, the node tiles, the pickable cards and the small controls on them", "off"],
-  ["liquidMenus", "Menus and pop-overs", "every menu and picker, the map's tooltip and popup, the query drawer and the export card's preview frame", "off"],
-  ["liquidDialogs", "Dialogs", "the dialogs", "off"],
-];
-
 export const SETTING_CATALOGUE: readonly SettingDefinition[] = [
   ...NUMERIC_SETTINGS,
   deployment("assistantAutoCheck", "DEZFIL_ASSISTANT_AUTO_CHECK", "boolean", "Automatic map check", "Check the rendered map after an assistant turn changes it.", true, "on"),
@@ -156,10 +143,6 @@ export const SETTING_CATALOGUE: readonly SettingDefinition[] = [
     "hover", choice("hover", "open", "icons"), "account"),
   stored("look.panels", "Panels", "How cards and panels are drawn: frosted glass, liquid glass with a light on its rim, or opaque paper with no blur.",
     "glass", choice("glass", "liquid", "paper"), "account"),
-  // The kinds of surface Liquid reaches, each on or off and kept while
-  // another look is picked: the first four on, the rest off.
-  ...LIQUID_KIND_SETTINGS.map(([key, label, purpose, first]) =>
-    stored(`look.${key}`, label, `Under Liquid, whether ${purpose} go liquid.`, first, first === "on" ? choice("on", "off") : choice("off", "on"), "account")),
   { ...deployment("port", "PORT", "text", "Listening port", "Port used by the server and its internal API calls.", { rule: "runtime-port-or-request-origin" }, "3000 in the container"), scope: "platform", changedBy: "platform" },
   { ...deployment("extensionDir", "DUCKDB_EXTENSION_DIR", "path", "Engine extensions", "Location of the baked offline extension bundle.", { rule: "engine-default-extension-directory" }, "/app/duckdb-extensions in the container"), scope: "platform", changedBy: "platform" },
 ];

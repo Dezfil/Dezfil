@@ -58,6 +58,9 @@ async function workspaceDocument(account: string) {
 const htmlTag = (element: ReactElement) => /<html[^>]*>/.exec(renderToStaticMarkup(element))![0];
 const damage = (account: string) => db.prepare(
   "INSERT INTO account_preferences (account_id, view_prefs, updated_at) VALUES (?, ?, 'damaged')").run(account, "{\"look\": {");
+/** A look kept by an earlier version, written as that version stored it. */
+const kept = (account: string, look: Record<string, string>) => db.prepare(
+  "INSERT INTO account_preferences (account_id, view_prefs, updated_at) VALUES (?, ?, 'kept')").run(account, JSON.stringify({ look }));
 
 describe("the workspace root", () => {
   it("serves the signed-in account's look on <html>, only the picks that differ from the default", async () => {
@@ -71,12 +74,14 @@ describe("the workspace root", () => {
     expect(tag).not.toContain("data-look-corners");
   });
 
-  it("serves Panels with the kinds that are on as one word list under Liquid, and the kinds never while Glass or Paper", async () => {
-    preferences.mergeAccountLook("ada", { panels: "liquid", liquidMap: "off", liquidDialogs: "on" }, db);
-    const liquid = htmlTag(await workspaceDocument("ada"));
-    expect(liquid).toContain('data-look-panels="liquid"');
-    expect(liquid).toContain('data-look-liquid="chrome panels buttons dialogs"');
-    expect(liquid).not.toMatch(/data-look-liquid[A-Z]/i);
+  it("serves Liquid as the Panels pick alone, and a kind of surface an account kept from before stamps nothing", async () => {
+    // Liquid once reached a chosen set of surfaces, each kept with the
+    // account; such a value may still be stored, and is no longer read.
+    kept("ada", { panels: "liquid", liquidMap: "off", liquidDialogs: "on" });
+    const liquid = await workspaceDocument("ada");
+    expect(liquid.props.look).toEqual({ "data-look-panels": "liquid" });
+    expect(htmlTag(liquid)).toContain('data-look-panels="liquid"');
+    expect(htmlTag(liquid)).not.toContain("data-look-liquid");
     preferences.mergeAccountLook("ada", { panels: "paper" }, db);
     const paper = await workspaceDocument("ada");
     expect(paper.props.look).toEqual({ "data-look-panels": "paper" });
