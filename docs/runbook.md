@@ -440,6 +440,19 @@ bound, the standalone build, the browser download, the tiler build and the
 extension install all landing before the first test started, so there is no
 job to fix rather than a job that times out.
 
+A whole-set run, or any run whose result is kept as evidence, needs four
+things the variables do not give it. A fresh scratch store: a store grown
+over a night of runs makes small loads miss their comparison bounds. A
+model configured on the instance, a placeholder key behind the loopback
+allow-list is enough (`DEZFIL_AI_PROVIDER=openai OPENAI_API_KEY=placeholder`,
+nothing leaves the machine): the pane cases need the Assistant composer to
+exist. An otherwise idle machine: the cases that measure time fail under
+load and are then recorded as flakes. And one Playwright run at a time per
+worktree: every run from a worktree shares its `.claude/browser-auth.json`,
+and cookies ignore ports, so two runs against two instances sign each
+other out. The pixel baselines were cut on a production standalone; cut
+and compare them there.
+
 Subsets run by area: `npm run e2e:keyboard`, `e2e:layers`, `e2e:imports`,
 `e2e:sqlbridge`, `e2e:sqlconsole`, `e2e:draw`, `e2e:styling`,
 `e2e:recovery`, `e2e:lifecycle`, `e2e:theme`, `e2e:states`, `e2e:pixel`,
