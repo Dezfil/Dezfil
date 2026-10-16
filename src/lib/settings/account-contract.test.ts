@@ -27,14 +27,10 @@ const cases = [
   ["sourceGrouping", "person", "project"],
   ["look.color", "kelp", "harbor"], ["look.contrast", "standard", "more"], ["look.font", "inter", "system"],
   ["look.background", "atlantic", "hex"], ["look.corners", "rounded", "soft"], ["look.rail", "hover", "icons"],
-  ["look.panels", "glass", "liquid"], ["look.liquidChrome", "on", "off"], ["look.liquidPanels", "on", "off"],
-  ["look.liquidMap", "on", "off"], ["look.liquidButtons", "on", "off"], ["look.liquidCards", "off", "on"],
-  ["look.liquidInner", "off", "on"], ["look.liquidMenus", "off", "on"], ["look.liquidDialogs", "off", "on"],
+  ["look.panels", "glass", "liquid"],
 ];
 const TODAY = {
   color: "kelp", contrast: "standard", font: "inter", background: "atlantic", corners: "rounded", rail: "hover", panels: "glass",
-  liquidChrome: "on", liquidPanels: "on", liquidMap: "on", liquidButtons: "on",
-  liquidCards: "off", liquidInner: "off", liquidMenus: "off", liquidDialogs: "off",
 };
 it.each(cases)("uses the %s definition for validation and both schema positions", async (key, rejected, accepted) => {
   const original = catalogue.settingDefinition;
@@ -57,6 +53,21 @@ it.each(cases)("uses the %s definition for validation and both schema positions"
       : field ? properties.viewPrefs.properties[screen as "maps"].properties[field as "view"] : properties.sourceGrouping;
     expect(choice.enum).toEqual([accepted]);
   }
+});
+
+it("names the seven picks in both schema positions and refuses a kind of surface Liquid once reached before any write", async () => {
+  const contract = settingsContract();
+  const bodySchema = contract.paths["/api/settings"].patch.requestBody as {
+    content: { "application/json": { schema: { properties: typeof contract.schemas.WorkspaceSettings.properties } } };
+  };
+  for (const properties of [contract.schemas.WorkspaceSettings.properties, bodySchema.content["application/json"].schema.properties]) {
+    expect(Object.keys(properties.look.properties)).toEqual(Object.keys(TODAY));
+  }
+  const before = await read("alice");
+  for (const kind of ["liquidChrome", "liquidCards", "liquidDialogs"]) {
+    expect((await patch("alice", { displayName: "Must not land", look: { panels: "liquid", [kind]: "on" } })).status, kind).toBe(400);
+  }
+  expect(await read("alice")).toEqual(before);
 });
 
 it("keeps the complete legacy document and isolates each account's merged preferences", async () => {

@@ -1,6 +1,6 @@
 {
   "count": 156,
-  "overall": "64a5e729cae76d14f4e6c0ccad7fc4959316720d8455e1f38f98a6c504709ef1",
+  "overall": "62c52c7fae60fc1e959011b3bf1d306a093a1ac71cd3c844d5e14019f5102af9",
   "tools": {
     "get_account": "f9449c42bd1f10ea7744e222cc62614d4a204d733c1126e6dcc7d958fb005cb1",
     "update_account": "9074c8b3e4d9dd0d5085ea1b419e99c713eb84f540cb0e0f6bf45ad5fde370de",
@@ -41,8 +41,8 @@
     "list_palettes": "d873a552c5c3243362a95e5b62137935e4c184f5a7e019e6d19a4bc0f2a11a10",
     "create_palette": "93808a5c47e7166ab0406ab4f1f20eb202a272719051421ed907a343e6286ea7",
     "delete_palette": "0e29294c77ecf3869d0473ecc303988fa3fe63011007eed74c00decc47e5f33d",
-    "get_settings": "f6f78dc03688c1f0110252dc082ed89284f5ee19908bd22cbe91ccbda6c36d01",
-    "update_settings": "73e595acb8c2899ec9d68b659e47fcb4911c452738d68bc08c32f8cc08e7c8c0",
+    "get_settings": "8a4c2557a7e78cd7b6b24d4a0d6189d8e8dfa4fc5e89a02d556182ae745156f5",
+    "update_settings": "c55a3cc0ea9816f23e3734e0afd3b0c10cf5c5817fb0e3d709c38378f5bd2476",
     "get_api_description": "3a41d95f1eedd6e4b14610419780e0d29ec392bd2fcbe1a462451708e6ca735a",
     "list_tables": "e2fc96f995fb2d8eb20227aac0a8655e743109c8d856085fb10e7524b1ea99b2",
     "upload_table": "60c8cb9499269ac946596ce9a4eae3c32f7709c1994e0bf0b22419de0cc75d73",

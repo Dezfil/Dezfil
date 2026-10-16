@@ -78,6 +78,10 @@ const ROLE_NOTES = {
     nm: "Overlay control",
     what: "A control floating over a map, canvas or picture: the zoom and stage buttons, the mini-map's actions, a card's hover pill and owner mark, a note's colour bar.",
   },
+  "map-card": {
+    nm: "Map card",
+    what: "A card floating over a map on the panel tone, with the hairline: a widget's card and its menu. Solid unless a look makes it otherwise.",
+  },
   "page-card": {
     nm: "Page card",
     what: "A card on a page: the gallery cards, the Settings cards and column, the SQL editor and results, the connection cards, the set-geometry panel. A gallery card lifts on hover.",
@@ -86,13 +90,18 @@ const ROLE_NOTES = {
     nm: "Inner card",
     what: "A card inside a panel or card, and a control that carries a small shadow: the layer cards, the node tiles, the pickable cards in dialogs, a switch's knob, a slider's thumb. Corners as each has them.",
   },
+  block: {
+    nm: "Block",
+    what: "A block inside a panel on the raised or the panel tone, with the hairline: a visualization's tile, a filter's card, a legend entry, a widget's row, a basemap's card, a tool's result, the person's own message to the Assistant. No blur of its own, lying on its panel; solid unless a look makes it otherwise.",
+    onPanel: true,
+  },
   menu: {
     nm: "Menu and pop-over",
-    what: "What opens over something and closes: every menu, picker and pop-over, the map's tooltip and popup, the hint, the SQL peek, the map's failure notice. Solid in every look; corners as each has them.",
+    what: "What opens over something and closes: every menu, picker and pop-over, the map's tooltip and popup, the hint, the SQL peek, the map's failure notice. Solid unless a look makes it otherwise; corners as each has them.",
   },
   dialog: {
     nm: "Dialog",
-    what: "Every modal, over its veil. Solid in every look.",
+    what: "Every modal, over its veil. Solid unless a look makes it otherwise.",
   },
   stage: {
     nm: "The stage",
@@ -136,7 +145,7 @@ export function surfaceBlock(css) {
  * its five parts as the block states them (a role without a corner of its
  * own keeps each surface's) and the shadows its states take.
  * @param {{ tokens: Map<string, string> }} block
- * @param {Record<string, { nm: string, what: string }>} [notes]
+ * @param {Record<string, { nm: string, what: string, onPanel?: boolean }>} [notes]
  */
 export function surfacePlate(block, notes = ROLE_NOTES) {
   const steps = { shadow: [], blur: [], fill: [], edge: [] };
@@ -161,7 +170,9 @@ export function surfacePlate(block, notes = ROLE_NOTES) {
   return {
     steps,
     roles: [...roles].map(([key, { parts, states }]) => {
-      for (const name of ["fill", "blur", "edge", "shadow"]) {
+      // A role its words say lies on a panel has no blur of its own and shows
+      // none; every other role states all four parts.
+      for (const name of notes[key].onPanel ? ["fill", "edge", "shadow"] : ["fill", "blur", "edge", "shadow"]) {
         if (!(name in parts)) throw new Error("the role " + key + " states no " + name);
       }
       return {
@@ -169,7 +180,7 @@ export function surfacePlate(block, notes = ROLE_NOTES) {
         nm: notes[key].nm,
         what: notes[key].what,
         fill: parts.fill,
-        blur: parts.blur,
+        blur: parts.blur ?? "none",
         edge: parts.edge,
         corner: parts.corner ?? null,
         shadow: parts.shadow,

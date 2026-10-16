@@ -73,7 +73,8 @@
 .user {
   white-space: pre-wrap;
   padding: 7px 9px;
-  background: var(--bg-raised);
+  background: var(--surface-block-fill);
+  box-shadow: var(--surface-block-shadow);
   color: var(--fg);
   align-self: flex-end;
   max-width: 92%;
@@ -154,9 +155,10 @@
 }
 
 .action {
-  border: 1px solid var(--border);
+  border: var(--surface-block-edge);
   border-radius: var(--radius);
-  background: var(--bg-raised);
+  background: var(--surface-block-fill);
+  box-shadow: var(--surface-block-shadow);
   padding: 6px 8px;
 }
 
@@ -698,9 +700,10 @@
 
 .proposal {
   margin: 4px 0;
-  border: 1px solid var(--border);
+  border: var(--surface-block-edge);
   border-radius: var(--radius);
-  background: var(--bg-raised);
+  background: var(--surface-block-fill);
+  box-shadow: var(--surface-block-shadow);
   overflow: hidden;
 }
 

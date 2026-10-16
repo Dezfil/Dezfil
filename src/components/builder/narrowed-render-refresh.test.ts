@@ -245,6 +245,45 @@ it("asks nothing for an edit that only stops reading a field", async () => {
   h.unmount();
 });
 
+// With automatic interactions the canvas shows the first fields of what a
+// feature carries, listed integer-like names first. A field named "1" read
+// for another reason is carried beside the first eight result columns and
+// shown ahead of them, so no longer reading it changes what the automatic
+// tooltip shows and the layer asks again.
+const columns = ["a", "b", "c", "d", "e", "f", "g", "h"];
+const withOne = drawn(Object.fromEntries([...columns, "1"].map((name) => [name, name])));
+
+it.each([
+  ["cleared", []],
+  ["made automatic", null],
+] as const)("interactions: a pop-up field shown ahead of the automatic tooltip's, %s, asks for the layer's render", async (_, popup) => {
+  const saved = mapOf({ ...base, tooltip: null, popup: ["1"] } as Layer);
+  const { w, h } = await loaded(saved, withOne);
+  await editLayer(w, h, saved, { popup: popup as string[] | null });
+  expect(renderCalls(w)).toHaveLength(1);
+  h.unmount();
+});
+
+it("widgets: removing a widget whose field is shown ahead of the automatic tooltip's asks for the layer's render", async () => {
+  const one = { ...lines, field: "1", visible: false };
+  const saved = mapOf({ ...base, tooltip: null, popup: null } as Layer, { widgets: [one] });
+  const { w, h } = await loaded(saved, withOne);
+  h.value.widgets.apply([]);
+  await flush();
+  w.pending("PATCH", "/api/maps/m")[0].ok({ ...saved, widgets: [], editRevision: "r2" });
+  await flush();
+  expect(renderCalls(w)).toHaveLength(1);
+  h.unmount();
+});
+
+it("asks nothing when automatic interactions stop reading a field listed after the automatic ones", async () => {
+  const saved = mapOf({ ...base, tooltip: null, popup: ["z"] } as Layer);
+  const { w, h } = await loaded(saved, drawn(Object.fromEntries([...columns, "z"].map((name) => [name, name]))));
+  await editLayer(w, h, saved, { popup: [] });
+  expect(renderCalls(w)).toHaveLength(0);
+  h.unmount();
+});
+
 it("leaves a tiled layer to its archive's rule: a widget edit asks nothing, a style edit asks as before", async () => {
   const saved = mapOf(base);
   const { w, h } = await loaded(saved, tiled);

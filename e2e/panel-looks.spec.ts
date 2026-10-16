@@ -1,57 +1,73 @@
 // The Panels looks, read off the running page: Glass (the shipped look),
-// Liquid with its eight kinds of surface, and Paper. Every account here is
-// invited through the accounts API for this run and picks its look through
-// the documented own-settings write or the Appearance tab, so the suite's
-// fixture account keeps Dezfil's default look for every other journey.
-// Every expected value is written out below from the shipped tones and the
-// looks' own numbers; the page's tokens are never the expected side.
+// Liquid (one material on every card and panel) and Paper. Every account
+// here is invited through the accounts API for this run and picks its look
+// through the documented own-settings write or the Appearance tab, so the
+// suite's fixture account keeps Dezfil's default look for every other
+// journey. Every expected value is written out below from the shipped tones
+// and the looks' own numbers; the page's tokens are never the expected side.
+//
+// Liquid's recipe, the same on every role in a theme: the panel tone under a
+// faint tint as one fill, a 24 px blur, the light on the rim, and a drop that
+// says only how high the surface sits (a contact drop inside a panel, one
+// floating drop, a higher one on hover and on a dialog). A block inside a
+// panel takes the fill, the light and the contact drop with no blur; the
+// map's own frame keeps the floating drop alone.
 //
 // What it holds:
 //
 // - The tab: the second card is Panels and background with Panels leading,
-//   three pictures each in its own look, the kinds as switches only while
-//   Liquid is picked, at their first values. A pick or a switch changes the
+//   three pictures each in its own look, and under each of the three
+//   choices the card holds Panels and Background only. A pick changes the
 //   page at once and shows Saved only after the answer; a refusal returns
-//   the page to what is kept; the card's Reset returns the picks in sight
-//   (a hidden kind stays stored) and its Undo puts them back; Reset to
-//   Dezfil's default and its Undo, the kinds it hid included.
-// - Liquid, every kind on: a member of every role computes its kind's
-//   values by day and by night (the header's buttons at the header card's,
-//   a layer card, a node tile with its group edge, a slider's thumb and a switch's knob for
-//   the cards inside panels); then each kind off in turn: its roles back at
-//   Glass, every other role still liquid.
+//   the page to what is kept; the card's Reset returns the two and its Undo
+//   puts them back; Reset to Dezfil's default and its Undo do the same. An
+//   own-settings write naming one of Liquid's former kinds of surface is
+//   refused by its position, and the look stays as it was.
+// - Liquid on every role, by day and by night: a member of every role
+//   computes the recipe (the header's buttons, a layer card, a node tile
+//   with its group edge, a slider's thumb and a switch's knob, a gallery
+//   card at rest and hovered), and so do the blocks inside panels (a legend
+//   tab entry, a widget row, a basemap card, the Tools' picker and result)
+//   and the widget card over the map, the blocks with no backdrop filter.
+//   The header's and a map button's quiet text read at Glass's ink.
 // - Paper: every role at Paper's values, the Assistant pane with the side
 //   panels, each map button its own sheet, menus and dialogs as shipped,
-//   the lines inside a panel at 7 % ink by day and 8 % by night, and More
-//   contrast's stronger lines winning.
+//   the blocks and the widget card at Glass's grounds, the lines inside a
+//   panel at 7 % ink by day and 8 % by night, and More contrast's stronger
+//   lines winning.
 // - Glass after Liquid and Paper leaves no trace on the tab, a list page or
 //   the builder: no look attribute, no filter, no inline property, nothing
 //   moved.
 // - The bend, in Chromium: a map button's backdrop is pulled inward across
-//   its bezel (read against the same button with the bend taken off), its
-//   rim light is on, the map under it is soft; the inspector resized and
-//   the query drawer sliding in keep their blur and take the bend for
-//   their size once settled; a map button does not grow under the pointer.
-//   In Firefox, and in WebKit where its build is installed (the projects
-//   named fallback), the same button blurs and carries the rim light with
-//   nothing bent.
+//   its bezel (read with the button's own fill taken off, against the same
+//   button with the bend taken off), its rim light is on, the map under it
+//   is soft; the inspector resized and the query drawer sliding in keep
+//   their blur and take the bend for their size once settled; a map button
+//   does not grow under the pointer. In Firefox, and in WebKit where its
+//   build is installed (the projects named fallback), the same button blurs
+//   and carries the rim light with nothing bent and nothing written inline.
 // - The computer's requests for less transparency and more contrast make
-//   every translucent fill opaque under Glass, Liquid and Paper while the
-//   light and the shadow stay; the rail opened over the page, the dialog's
-//   veil, the wash, an entry screen and the status and data colours are
-//   the same under every look.
+//   every translucent fill opaque under Glass, Liquid and Paper, a block's
+//   and the widget card's among them, while the light and the shadow stay;
+//   the rail opened over the page, the dialog's veil, the wash, an entry
+//   screen and the status and data colours are the same under every look.
 // - The export card's preview keeps the default look with no lens inside
 //   it while the card takes the person's; a published page opened by its
 //   author carries no look, lens or rim light, in both of its modes.
-// - A fresh browser signed in with Liquid paints Liquid's fills, blur and
+// - A fresh browser signed in with Liquid paints Liquid's fill, blur and
 //   light from its first frame, and bends within the first second.
+//
+// The Assistant's own message is a block too; it needs a turn answered by a
+// model, which these accounts never send, so it is named in the
+// annotations rather than read.
 //
 // Seeds, each switched by DEZFIL_PANEL_LOOKS_SEED and each expected to turn
 // named steps red (unset it for green):
 //
-//   typed-liquid  the legend types Liquid's values for the map by hand:
-//                 the step with "On the map" off fails, the legend and only
-//                 the legend staying liquid.
+//   typed-liquid  under Liquid the legend types a Liquid of its own by hand
+//                 (a thinner fill and a 9 px blur): the every-role step and
+//                 the requests case's Liquid step fail on the legend and
+//                 only the legend.
 //   preview-lens  a lens is laid inline on the legend inside the export
 //                 card's preview: the preview step fails on the inline
 //                 property and on the legend's blur.
@@ -59,10 +75,10 @@
 //                 applied by a script after load: the first-frame step
 //                 fails on the root's attributes at its creation and its
 //                 first frame (the header card, drawn later, reads right).
-//   late-sheets   the Liquid rules are held back from the stylesheets and
-//                 added once the header card has been on the page for a
-//                 frame, the served attributes right: the first-frame step
-//                 fails on the header card's values alone.
+//   late-sheets   the rules keyed on Liquid's root are held back from the
+//                 stylesheets and added once the header card has been on
+//                 the page for a frame, the served attributes right: the
+//                 first-frame step fails on the header card's values alone.
 //
 // Environment: the documented gate (isolated server, fresh data dir), its
 // browsers installed. Run with DEZFIL_BASE_URL at the server.
@@ -77,43 +93,22 @@ import {
   colour, fmt, layers, maxStep, oklabToRgb, paintersAcross, range, rgbToOklab, rowLuma, sameColour, STRIPES_STYLE, stripesGeoJson,
   type Layer, type RGBA,
 } from "./surface-reads";
-import { addLayer, consumeExpected, FIXTURES_DIR, patchLayer, publishMap, routeHouse, seedCsv, seedFile, trackConsole, type ConsoleError } from "./support";
+import { addLayer, consumeExpected, FIXTURES_DIR, patchLayer, patchMap, publishMap, routeHouse, seedCsv, seedFile, trackConsole, type ConsoleError } from "./support";
 
 // ---- the expected values, written out ----
 
 type Theme = "light" | "dark";
 type Role =
-  | "glass-chrome" | "glass-panel" | "overlay-panel" | "overlay-control"
-  | "page-card" | "inner-card" | "menu" | "dialog" | "stage";
+  | "glass-chrome" | "glass-panel" | "overlay-panel" | "overlay-control" | "map-card"
+  | "page-card" | "inner-card" | "block" | "menu" | "dialog" | "stage";
 type Panels = "glass" | "liquid" | "paper";
 
-/** The kinds in the order the root names them, each with the roles it is. */
-const KINDS = [
-  { word: "chrome", key: "liquidChrome", label: "Header and side menu", roles: ["glass-chrome"], first: "on" },
-  { word: "panels", key: "liquidPanels", label: "Side panels", roles: ["glass-panel"], first: "on" },
-  { word: "map", key: "liquidMap", label: "On the map", roles: ["overlay-panel", "stage"], first: "on" },
-  { word: "buttons", key: "liquidButtons", label: "Map buttons", roles: ["overlay-control"], first: "on" },
-  { word: "cards", key: "liquidCards", label: "Page cards", roles: ["page-card"], first: "off" },
-  { word: "inner", key: "liquidInner", label: "Cards inside panels", roles: ["inner-card"], first: "off" },
-  { word: "menus", key: "liquidMenus", label: "Menus and pop-overs", roles: ["menu"], first: "off" },
-  { word: "dialogs", key: "liquidDialogs", label: "Dialogs", roles: ["dialog"], first: "off" },
-] as const satisfies readonly { word: string; key: string; label: string; roles: readonly Role[]; first: "on" | "off" }[];
-type Word = (typeof KINDS)[number]["word"];
-const ALL_WORDS: Word[] = KINDS.map((k) => k.word);
-const FIRST_WORDS: Word[] = KINDS.filter((k) => k.first === "on").map((k) => k.word);
-const wordOf = (role: Role): Word => KINDS.find((k) => (k.roles as readonly Role[]).includes(role))!.word;
-
-/** A look as the own-settings write takes it: Panels, and the kinds that are on. */
-function lookOf(panels: Panels, on: readonly Word[] = FIRST_WORDS): Record<string, string> {
-  return { panels, ...Object.fromEntries(KINDS.map((k) => [k.key, on.includes(k.word) ? "on" : "off"])) };
-}
-/** The root's attributes for that look. */
-function attrsOf(panels: Panels, on: readonly Word[] = FIRST_WORDS): LookAttributes {
-  if (panels === "glass") return {};
-  if (panels === "paper") return { "data-look-panels": "paper" };
-  const words = ALL_WORDS.filter((w) => on.includes(w));
-  return words.length ? { "data-look-liquid": words.join(" "), "data-look-panels": "liquid" } : { "data-look-panels": "liquid" };
-}
+/** A look as the own-settings write takes it: its Panels pick. */
+const lookOf = (panels: Panels): Record<string, string> => ({ panels });
+/** The root's attributes for that look: Glass, the default, carries none. */
+const attrsOf = (panels: Panels): LookAttributes => (panels === "glass" ? {} : { "data-look-panels": panels });
+/** Every pick of the look, in the order the own-settings read lists them. */
+const PICKS = ["color", "contrast", "font", "background", "corners", "rail", "panels"];
 
 /** Kelp's tones by day and by night, as the shipped palettes state them. */
 interface Tones { panel: RGBA; ground: RGBA; raised: RGBA; hover: RGBA; ink: RGBA; muted: RGBA; accent: RGBA; border: RGBA; moreBorder: RGBA; shadow: RGBA }
@@ -157,46 +152,39 @@ const step = (name: keyof typeof STEP, theme: Theme): Layer => {
   return layer(0, y, blur, 0, thin(TONES[theme].shadow, share));
 };
 
-/* Liquid: the panel tone under a faint tint, the light on the rim drawn
- * inside the edge, then a soft two-layer drop. */
-type Fill = "glass" | "read" | "card" | "inner" | "dialog";
-function liquidFill(kind: Fill, theme: Theme, opaque = false): RGBA {
-  const { panel, hover } = TONES[theme];
-  const light: Record<Fill, [RGBA, number, RGBA, number]> = {
-    glass: [WHITE, 0.12, panel, opaque ? 0.88 : 0.484], read: [WHITE, 0.08, panel, opaque ? 0.92 : 0.828],
-    card: [WHITE, 0.1, panel, opaque ? 0.9 : 0.63], inner: [WHITE, 0.1, panel, opaque ? 0.9 : 0.495], dialog: [WHITE, 0.08, panel, opaque ? 0.92 : 0.8464],
-  };
-  const dark: Record<Fill, [RGBA, number, RGBA, number]> = {
-    glass: [BLACK, 0.06, panel, opaque ? 0.94 : 0.517], read: [BLACK, 0.08, panel, opaque ? 0.92 : 0.7176],
-    card: [BLACK, 0.06, panel, opaque ? 0.94 : 0.6204], inner: [WHITE, 0.04, hover, opaque ? 0.96 : 0.528], dialog: [BLACK, 0.08, panel, opaque ? 0.92 : 0.736],
-  };
-  const [a, sa, b, sb] = (theme === "light" ? light : dark)[kind];
-  return mix([a, sa], [b, sb]);
+/* Liquid: one recipe. The panel tone under a faint tint folded into one
+ * fill (white at 8 % over the panel tone at 82.8 % by day, black at 8 %
+ * over it at 71.76 % by night, the panel tone at 92 % where a fill must be
+ * opaque), the light on the rim drawn inside the edge, then a two-layer
+ * drop by height. */
+function liquidFill(theme: Theme, opaque = false): RGBA {
+  const { panel } = TONES[theme];
+  return theme === "light" ? mix([WHITE, 0.08], [panel, opaque ? 0.92 : 0.828]) : mix([BLACK, 0.08], [panel, opaque ? 0.92 : 0.7176]);
 }
+const LIQUID_BLUR = "blur(24px)";
 const RIM: Record<Theme, Layer[]> = {
   light: [layer(1, 1, 0, 0, [255, 255, 255, 0.9], true), layer(-1, -1, 0, 0, [255, 255, 255, 0.405], true), layer(0, 0, 14, 0, [255, 255, 255, 0.144], true)],
   dark: [layer(1, 1, 0, 0, [255, 255, 255, 0.42], true), layer(-1, -1, 0, 0, [255, 255, 255, 0.168], true), layer(0, 0, 14, 0, [255, 255, 255, 0.067], true)],
 };
-type Drop = "lift" | "button" | "card" | "inner" | "dialog";
+/** The drops by height: lying inside a panel, floating, and risen (hovered, lifted, dragged, a dialog). */
+type Drop = "contact" | "float" | "high";
 function liquidDrop(kind: Drop, theme: Theme): Layer[] {
   const s = TONES.light.shadow;
   const night = (a: number): RGBA => [0, 0, 0, a];
   const light: Record<Drop, Layer[]> = {
-    lift: [layer(0, 1, 1, 0, thin(s, 0.2)), layer(0, 12, 32, -6, thin(s, 0.85))],
-    button: [layer(0, 1, 1, 0, thin(s, 0.2)), layer(0, 6, 18, -4, thin(s, 0.8))],
-    card: [layer(0, 1, 2, 0, thin(s, 0.3)), layer(0, 8, 24, -6, thin(s, 0.6))],
-    inner: [layer(0, 1, 2, 0, thin(s, 0.4)), layer(0, 4, 12, -4, thin(s, 0.5))],
-    dialog: [layer(0, 1, 1, 0, thin(s, 0.2)), layer(0, 24, 64, -12, s)],
+    contact: [layer(0, 1, 2, 0, thin(s, 0.4)), layer(0, 4, 12, -4, thin(s, 0.5))],
+    float: [layer(0, 1, 1, 0, thin(s, 0.2)), layer(0, 12, 32, -6, thin(s, 0.85))],
+    high: [layer(0, 1, 1, 0, thin(s, 0.2)), layer(0, 24, 64, -12, s)],
   };
   const dark: Record<Drop, Layer[]> = {
-    lift: [layer(0, 1, 1, 0, night(0.35)), layer(0, 14, 36, -6, night(0.55))],
-    button: [layer(0, 1, 1, 0, night(0.35)), layer(0, 6, 18, -4, night(0.5))],
-    card: [layer(0, 1, 2, 0, night(0.4)), layer(0, 8, 24, -6, night(0.45))],
-    inner: [layer(0, 1, 2, 0, night(0.45)), layer(0, 4, 12, -4, night(0.4))],
-    dialog: [layer(0, 1, 1, 0, night(0.4)), layer(0, 24, 64, -12, night(0.7))],
+    contact: [layer(0, 1, 2, 0, night(0.45)), layer(0, 4, 12, -4, night(0.4))],
+    float: [layer(0, 1, 1, 0, night(0.35)), layer(0, 14, 36, -6, night(0.55))],
+    high: [layer(0, 1, 1, 0, night(0.4)), layer(0, 24, 64, -12, night(0.7))],
   };
   return (theme === "light" ? light : dark)[kind];
 }
+/** The rim light, then a drop. */
+const lit = (drop: Drop, theme: Theme): Layer[] => [...RIM[theme], ...liquidDrop(drop, theme)];
 
 /* Paper: opaque paper, no blur, no edge line, one gentle lift. */
 const paperFill = (theme: Theme): RGBA => (theme === "light" ? mixOklab(TONES.light.panel, 0.96, TONES.light.ground) : TONES.dark.raised);
@@ -223,35 +211,37 @@ interface Edge { style: string; width: string; colour: RGBA }
 interface Want { fill: RGBA; blur: string; edge: Edge | null; shadows: Layer[] }
 const hairline = (theme: Theme): Edge => ({ style: "solid", width: "1px", colour: TONES[theme].border });
 const clearLine: Edge = { style: "solid", width: "1px", colour: CLEAR };
+/** Paper's softer line inside a panel: 7 % ink by day, 8 % by night. */
+const paperLine = (theme: Theme): Edge => ({ style: "solid", width: "1px", colour: thin(TONES[theme].ink, theme === "light" ? 0.07 : 0.08) });
 
 function glassWant(role: Role, theme: Theme, opaque = false): Want {
-  const { panel } = TONES[theme];
+  const { panel, raised } = TONES[theme];
   const glass = opaque ? panel : thin(panel, 0.93);
   switch (role) {
     case "glass-chrome": return { fill: glass, blur: "blur(18px)", edge: null, shadows: [step("float", theme)] };
     case "glass-panel": return { fill: glass, blur: "blur(18px)", edge: null, shadows: [step("float", theme)] };
     case "overlay-panel": return { fill: glass, blur: "blur(8px)", edge: null, shadows: [step("overlay", theme)] };
     case "overlay-control": return { fill: glass, blur: "blur(8px)", edge: null, shadows: [step("float", theme)] };
+    case "map-card": return { fill: panel, blur: "none", edge: hairline(theme), shadows: [] };
     case "page-card": return { fill: panel, blur: "none", edge: hairline(theme), shadows: [step("float", theme)] };
     case "inner-card": return { fill: panel, blur: "none", edge: hairline(theme), shadows: [step("hairline", theme)] };
+    // On the raised tone; a member on the panel tone says so (see `panelTone`).
+    case "block": return { fill: raised, blur: "none", edge: hairline(theme), shadows: [] };
     case "menu": return { fill: panel, blur: "none", edge: hairline(theme), shadows: [step("lift", theme)] };
     case "dialog": return { fill: panel, blur: "none", edge: hairline(theme), shadows: [step("dialog", theme)] };
     case "stage": return { fill: CLEAR, blur: "none", edge: null, shadows: [step("deep", theme)] };
   }
 }
 function liquidWant(role: Role, theme: Theme, opaque = false): Want {
-  const lit = (drop: Drop) => [...RIM[theme], ...liquidDrop(drop, theme)];
-  const fill = (kind: Fill) => liquidFill(kind, theme, opaque);
+  const fill = liquidFill(theme, opaque);
   switch (role) {
-    case "glass-chrome": return { fill: fill("glass"), blur: "blur(9px)", edge: null, shadows: lit("lift") };
-    case "glass-panel": return { fill: fill("read"), blur: "blur(24px)", edge: null, shadows: lit("lift") };
-    case "overlay-panel": return { fill: fill("read"), blur: "blur(24px)", edge: null, shadows: lit("lift") };
-    case "overlay-control": return { fill: fill("glass"), blur: "blur(6px)", edge: null, shadows: lit("button") };
-    case "page-card": return { fill: fill("card"), blur: "blur(14px)", edge: clearLine, shadows: lit("card") };
-    case "inner-card": return { fill: fill("inner"), blur: "blur(6px)", edge: clearLine, shadows: lit("inner") };
-    case "menu": return { fill: fill("read"), blur: "blur(24px)", edge: clearLine, shadows: lit("lift") };
-    case "dialog": return { fill: fill("dialog"), blur: "blur(24px)", edge: clearLine, shadows: lit("dialog") };
-    case "stage": return { fill: CLEAR, blur: "none", edge: null, shadows: liquidDrop("lift", theme) };
+    case "glass-chrome": case "glass-panel": case "overlay-panel": case "overlay-control":
+      return { fill, blur: LIQUID_BLUR, edge: null, shadows: lit("float", theme) };
+    case "map-card": case "page-card": case "menu": return { fill, blur: LIQUID_BLUR, edge: clearLine, shadows: lit("float", theme) };
+    case "inner-card": return { fill, blur: LIQUID_BLUR, edge: clearLine, shadows: lit("contact", theme) };
+    case "block": return { fill, blur: "none", edge: clearLine, shadows: lit("contact", theme) };
+    case "dialog": return { fill, blur: LIQUID_BLUR, edge: clearLine, shadows: lit("high", theme) };
+    case "stage": return { fill: CLEAR, blur: "none", edge: null, shadows: liquidDrop("float", theme) };
   }
 }
 function paperWant(role: Role, theme: Theme): Want {
@@ -261,17 +251,19 @@ function paperWant(role: Role, theme: Theme): Want {
     case "page-card": return { fill: paperFill(theme), blur: "none", edge: clearLine, shadows: paperDrop("card", theme) };
     case "inner-card": return { fill: theme === "light" ? TONES.light.panel : TONES.dark.hover, blur: "none", edge: clearLine, shadows: paperDrop("inner", theme) };
     case "stage": return { fill: CLEAR, blur: "none", edge: null, shadows: paperDrop("lift", theme) };
+    // Glass's grounds, the softer line inside a panel.
+    case "block": case "map-card": return { ...glassWant(role, theme), edge: paperLine(theme) };
     case "menu": case "dialog": return glassWant(role, theme);
   }
 }
 
-/** The look a screen is under: Panels, and the kinds that are on. */
-interface Under { panels: Panels; on: readonly Word[]; opaque?: boolean }
-const GLASS: Under = { panels: "glass", on: [] };
-const LIQUID_ALL: Under = { panels: "liquid", on: ALL_WORDS };
-const PAPER: Under = { panels: "paper", on: [] };
+/** The look a screen is under: its Panels pick, and whether a fill must be opaque. */
+interface Under { panels: Panels; opaque?: boolean }
+const GLASS: Under = { panels: "glass" };
+const LIQUID: Under = { panels: "liquid" };
+const PAPER: Under = { panels: "paper" };
 function roleWant(role: Role, theme: Theme, under: Under): Want {
-  if (under.panels === "liquid" && under.on.includes(wordOf(role))) return liquidWant(role, theme, under.opaque);
+  if (under.panels === "liquid") return liquidWant(role, theme, under.opaque);
   if (under.panels === "paper") return paperWant(role, theme);
   return glassWant(role, theme, under.opaque);
 }
@@ -282,14 +274,16 @@ const SEED = process.env.DEZFIL_PANEL_LOOKS_SEED ?? "";
 const SEEDS = ["", "typed-liquid", "preview-lens", "late-look", "late-sheets"];
 if (!SEEDS.includes(SEED)) throw new Error(`DEZFIL_PANEL_LOOKS_SEED=${SEED} names no seed; known: ${SEEDS.filter(Boolean).join(", ")}`);
 const css = (c: RGBA) => `rgba(${c.slice(0, 3).map((v) => v.toFixed(2)).join(", ")}, ${c[3].toFixed(4)})`;
-const shadowCss = (all: Layer[]) => all.map((l) => `${l.inset ? "inset " : ""}${l.x}px ${l.y}px ${l.blur}px ${l.spread}px ${css(l.colour!)}`).join(", ");
-/** The legend typing Liquid's map values by hand, under Liquid whatever its kinds. */
+/** Under Liquid the legend typing a Liquid of its own by hand: a thinner fill
+ * (white at 12 % over the panel tone at 48.4 % by day, black at 6 % over it at
+ * 51.7 % by night) and a 9 px blur, the recipe's light and drop kept. */
 function typedLiquid(): string {
   return (["light", "dark"] as Theme[]).map((theme) => {
-    const want = liquidWant("overlay-panel", theme);
+    const { panel } = TONES[theme];
+    const fill = theme === "light" ? mix([WHITE, 0.12], [panel, 0.484]) : mix([BLACK, 0.06], [panel, 0.517]);
     const root = theme === "dark" ? ':root[data-theme="dark"]' : ':root:not([data-theme="dark"])';
     return `${root}[data-look-panels="liquid"] [data-map-legend]:not([data-look-default] [data-map-legend]) {
-      background-color: ${css(want.fill)} !important; backdrop-filter: ${want.blur} !important; box-shadow: ${shadowCss(want.shadows)} !important; }`;
+      background-color: ${css(fill)} !important; backdrop-filter: blur(9px) !important; }`;
   }).join("\n");
 }
 
@@ -412,18 +406,32 @@ interface Member {
   own?: ("fill" | "edge" | "shadow")[];
   /** What it computes in place of the role's ground (a node tile's group tint over it). */
   fill?: (want: Want) => RGBA;
+  /** A block drawn on the panel tone where its role's ground is the raised one (Glass and Paper). */
+  panelTone?: true;
+  /** A block that draws no line around it under any look. */
+  lineless?: true;
+  /** What a state of the member (a hover) computes in place of the role's resting shadow. */
+  shadows?: (theme: Theme, under: Under) => Layer[];
 }
 
 /** Soft and polled: a surface that eases its shadow reads mid-transition for
  * a beat after a change, and one read of a busy page can take a while. */
 const settle = expect.configure({ soft: true });
 
+/** What a member must compute under a look: its role's values, and what the member says of itself. */
+function memberWant(m: Member, theme: Theme, under: Under): Want {
+  let want = roleWant(m.role, theme, under);
+  if (m.panelTone && under.panels !== "liquid") want = { ...want, fill: TONES[theme].panel };
+  if (m.lineless) want = { ...want, edge: null };
+  if (m.shadows) want = { ...want, shadows: m.shadows(theme, under) };
+  return m.fill ? { ...want, fill: m.fill(want) } : want;
+}
+
 async function expectMember(page: Page, m: Member, theme: Theme, under: Under, where: string): Promise<void> {
   const loc = m.at(page);
   await expect.soft(loc, `${where}: ${m.what} is on screen`).toBeVisible();
   if (!(await loc.isVisible())) return;
-  const role = roleWant(m.role, theme, under);
-  const want = m.fill ? { ...role, fill: m.fill(role) } : role;
+  const want = memberWant(m, theme, under);
   await settle
     .poll(async () => problems(await (m.pseudo === "::-webkit-slider-thumb" ? readThumb(page, loc) : readEl(loc, m.pseudo)), want, m.own), { message: `${where}: ${m.what} (${m.role})`, timeout: 8_000 })
     .toEqual([]);
@@ -445,15 +453,76 @@ const zoomIn = stageButton("Zoom in");
 const mapCard: Member = { role: "stage", what: "the map card", at: (p) => p.locator("[data-drag-canvas]").first().locator("xpath=..") };
 const layerCard: Member = { role: "inner-card", what: "a layer card", at: (p) => p.locator('[data-layer-list] li[data-selected="false"]').first() };
 const layerMenu: Member = { role: "menu", what: "the layer menu", at: (p) => p.getByRole("menu").filter({ visible: true }).first() };
-/** A style slider's thumb under Liquid's cards inside panels: the knob's ground (white at a tenth over the panel
- * at about half by day, white at a twenty-fifth over the hover tone at about half by night), its own accent edge. */
-const sliderThumb = (theme: Theme): Member => ({
+/** A style slider's thumb: under Liquid the knob takes the recipe's fill; its accent ring is its own. */
+const sliderThumb: Member = {
   role: "inner-card", what: "a style slider's thumb", pseudo: "::-webkit-slider-thumb", own: ["edge"],
-  fill: () => (theme === "light" ? mix([[255, 255, 255, 1], 0.1], [TONES.light.panel, 0.495]) : mix([[255, 255, 255, 1], 0.04], [TONES.dark.hover, 0.528])),
   at: (p) => p.locator('[data-builder-pane] input[type="range"]').filter({ visible: true }).first(),
-});
+};
 const exportDialog: Member = { role: "dialog", what: "the export dialog", at: (p) => p.getByRole("dialog", { name: "Export image" }) };
 const BUILDER: Member[] = [headerCard, exportButton, themeButton, inspector, legend, statusPill, zoomIn, mapCard, layerCard];
+
+/** The widget card over the map, and the blocks inside the inspector's tabs and the Tools drawer. */
+const widgetCard: Member = { role: "map-card", what: "the widget card over the map", at: (p) => p.locator("[data-widget-rail] [data-widget-card]").first() };
+const legendEntry: Member = { role: "block", what: "a legend entry in the Legend tab", at: (p) => p.locator("[data-builder-pane] [data-legend-row]").first() };
+const widgetRow: Member = { role: "block", what: "a widget's row in the Widgets tab", panelTone: true, at: (p) => p.locator("[data-builder-pane] [data-widget-row]:not([data-expanded])").first() };
+const widgetsSwitchKnob: Member = {
+  role: "inner-card", what: "a switch's knob", pseudo: "::before", own: ["edge"],
+  at: (p) => p.getByRole("switch", { name: "Show widgets on published view", exact: true }),
+};
+/** A basemap's card not in use: the one in use takes the accent as its own. */
+const basemapCard: Member = {
+  role: "block", what: "a basemap's card in the Basemap tab",
+  at: (p) => p.locator('[data-builder-pane] button[class*="BasemapPanel-module"][class*="__card"][data-active="false"]').first(),
+};
+const toolsDrawer: Member = { role: "glass-panel", what: "the Tools drawer", at: (p) => p.locator("[data-recipe-drawer]") };
+const toolResult: Member = { role: "block", what: "a tool's result block", at: (p) => p.locator("[data-recipe-drawer] [data-result-section]") };
+const toolPicker: Member = { role: "block", what: "a tool's input picker", at: (p) => p.locator("[data-recipe-drawer] [data-parameter-form] input[type='search']").first().locator("xpath=..") };
+const talkingChip: Member = { role: "block", what: "a chip of what the Assistant is talking about", at: (p) => p.locator('[data-assistant-pane][data-open="true"] [data-talking-about] [data-chip]').first() };
+/** The header's quiet text: the section's link in the breadcrumb. */
+const crumbLink = (p: Page) => p.locator("header").getByRole("navigation", { name: "Breadcrumb" }).getByRole("link").last();
+
+/** Open one of the inspector's tabs, the pointer off every card after. */
+async function inspectorTab(page: Page, name: string): Promise<void> {
+  await page.getByRole("tablist", { name: "Builder panels" }).getByRole("tab", { name, exact: true }).click();
+  await page.mouse.move(5, 5);
+}
+
+/** The blocks inside the inspector's tabs and the Tools drawer, the knob of
+ * the Widgets tab's switch and the Assistant's chips where a model is set
+ * up, under a look; the inspector is left on its Layers tab. */
+async function readBlocks(page: Page, api: Person["api"], theme: Theme, under: Under, where: string): Promise<void> {
+  await inspectorTab(page, "Legend");
+  await expectMember(page, legendEntry, theme, under, where);
+  await inspectorTab(page, "Widgets");
+  await expectMember(page, widgetRow, theme, under, where);
+  await expectMember(page, widgetsSwitchKnob, theme, under, where);
+  await inspectorTab(page, "Basemap");
+  await expectMember(page, basemapCard, theme, under, where);
+  await inspectorTab(page, "Layers");
+  if ((await page.locator('[data-layer-list] li[data-selected="true"]').count()) === 0) await page.locator("[data-layer-list] [data-layer-select]").first().click();
+  if (!(await toolsDrawer.at(page).isVisible())) await page.locator("[data-tools-control]").click();
+  await page.locator("[data-operation='buffer']").click();
+  await expect(page.locator("[data-parameter-form]")).toBeVisible();
+  await page.mouse.move(5, 5);
+  await expectMember(page, toolsDrawer, theme, under, where);
+  await expectMember(page, toolResult, theme, under, where);
+  // The input arrives filled from the selected layer; Change opens its picker.
+  await page.locator("[data-recipe-drawer] [data-input-change]").first().click();
+  await page.mouse.move(5, 5);
+  await expectMember(page, toolPicker, theme, under, where);
+  await page.locator("[data-tools-control]").click();
+  await expect(toolsDrawer.at(page)).toBeHidden();
+  const status = (await (await api.get("/api/assistant")).json()) as { enabled?: boolean };
+  console.log(`[blocks] ${where} (${theme}): the Assistant is ${status.enabled ? "set up" : "not set up"} on this instance`);
+  if (status.enabled) {
+    await page.getByRole("button", { name: "Open assistant", exact: true }).click();
+    await expectMember(page, talkingChip, theme, under, where);
+    await page.locator("#header-actions-left").getByRole("button", { name: "Close assistant", exact: true }).click();
+  } else {
+    test.info().annotations.push({ type: "not shown", description: `${where} (${theme}): no model is set up on this instance, so the Assistant draws none of its blocks` });
+  }
+  test.info().annotations.push({ type: "not shown", description: `${where} (${theme}): the person's own message to the Assistant needs a turn a model answers; none is sent here` });
+}
 
 // ---- the fixtures ----
 
@@ -462,8 +531,9 @@ const rail = (page: Page) => page.getByRole("navigation", { name: "Product navig
 
 interface Fixture { mapId: string; mapName: string }
 
-/** A map with two layers, the black and white stripes and the stations, as the person. */
-async function seed(page: Page, tag: string): Promise<Fixture> {
+/** A map with two layers, the black and white stripes and the stations, as
+ * the person; with `widget`, a histogram of the stations' riders over it. */
+async function seed(page: Page, tag: string, { widget = false } = {}): Promise<Fixture> {
   await page.goto("/maps");
   const bands = (await seedFile(page, `pl_${tag}_bands.geojson`, stripesGeoJson(), "application/geo+json")).name;
   const points = (await seedCsv(page, `pl_${tag}_pts`, readFileSync(path.join(FIXTURES_DIR, "stations.csv"), "utf8"))).name;
@@ -475,7 +545,12 @@ async function seed(page: Page, tag: string): Promise<Fixture> {
   }, mapName);
   const bandsLayer = await addLayer(page, mapId, "bands", `SELECT * FROM "${bands}"`);
   await patchLayer(page, bandsLayer, { style: STRIPES_STYLE });
-  await addLayer(page, mapId, "stations", `SELECT * FROM "${points}"`);
+  const stations = await addLayer(page, mapId, "stations", `SELECT * FROM "${points}"`);
+  if (widget) {
+    await patchMap(page, mapId, {
+      widgets: [{ id: "w-riders", type: "histogram", layerId: stations, title: "Riders", field: "riders", agg: "count", aggField: null, unit: null, note: null, format: null, visible: true }],
+    });
+  }
   return { mapId, mapName };
 }
 
@@ -494,8 +569,9 @@ async function openBuilder(page: Page, mapId: string): Promise<void> {
   await expect(page.locator("[data-status-bar]")).toBeVisible();
 }
 
+/** The root carries the look (soft, so the surfaces are still read and say what a wrong root does to them) and the theme. */
 async function expectRoot(page: Page, theme: Theme, attrs: LookAttributes): Promise<void> {
-  await expect.poll(() => rootLook(page), { message: "the root carries the look" }).toEqual(attrs);
+  await settle.poll(() => rootLook(page), { message: "the root carries the look" }).toEqual(attrs);
   if (theme === "dark") await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   else await expect(page.locator("html")).not.toHaveAttribute("data-theme", "dark");
 }
@@ -525,9 +601,9 @@ async function closeExportCard(page: Page): Promise<void> {
   await expect(page.getByRole("dialog", { name: "Export image" })).toHaveCount(0);
 }
 
-/** The builder's surfaces, a menu and the export dialog, under a look. */
-async function readBuilder(page: Page, theme: Theme, under: Under, where: string): Promise<void> {
-  for (const m of BUILDER) await expectMember(page, m, theme, under, where);
+/** The builder's surfaces (and any `more` the fixture shows), a menu and the export dialog, under a look. */
+async function readBuilder(page: Page, theme: Theme, under: Under, where: string, more: Member[] = []): Promise<void> {
+  for (const m of [...BUILDER, ...more]) await expectMember(page, m, theme, under, where);
   await readLayerMenu(page, theme, under, where);
   await openExportCard(page);
   await expectMember(page, exportDialog, theme, under, where);
@@ -568,7 +644,7 @@ const GROUPS: Record<string, RGBA> = {
 // ---- the tab ----
 
 test.describe("Panels in the Appearance tab", () => {
-  test("Panels and background leads with three pictures, the kinds show only under Liquid, and every pick is kept as it is made", async ({ browser, request, baseURL }) => {
+  test("Panels and background leads with three pictures, holds Panels and Background only under every choice, and every pick is kept as it is made", async ({ browser, request, baseURL }) => {
     const people: Person[] = [];
     try {
       const { person, page, errors } = await personIn(browser, request, baseURL!, "Picker", "light");
@@ -576,26 +652,29 @@ test.describe("Panels in the Appearance tab", () => {
       await page.goto("/settings/appearance");
       const card = page.locator("section").filter({ has: page.getByRole("heading", { name: "Panels and background", exact: true }) });
       const panels = page.getByRole("radiogroup", { name: "Panels" });
+      const background = page.getByRole("radiogroup", { name: "Background" });
       await expect(panels).toBeVisible();
-      const kindsRow = page.locator("#set-liquid-panels");
-      const kindSwitch = (label: string) => page.getByRole("switch", { name: label, exact: true });
       const saved = page.locator("#set-panels").getByRole("status");
       const settings = async () => (await (await person.api.get("/api/settings")).json()).look as Record<string, string>;
+      /** The card's rows, and the switches in it: Panels and Background, and none. */
+      const holdsTheTwo = async (choice: string) => {
+        await expect.poll(async () => (await card.locator("[id^='set-']").evaluateAll((els) => els.map((el) => el.id))).filter((id) => !/-(label|error)$/.test(id)), { message: `under ${choice}, the card's rows` })
+          .toEqual(["set-panels", "set-background"]);
+        await expect(card.getByRole("switch"), `under ${choice}, no switch in the card`).toHaveCount(0);
+      };
 
       await test.step("the second card is Panels and background, Panels first, three pictures with Glass marked", async () => {
         const titles = await page.locator("main section h2, main section h3").filter({ visible: true }).allTextContents();
         expect(titles.slice(0, 2), "the tab's first two cards").toEqual(["Color and contrast", "Panels and background"]);
-        const rows = (await card.locator("[id^='set-']").evaluateAll((els) => els.map((el) => el.id))).filter((id) => !/-(label|error)$/.test(id));
-        expect(rows, "the card's rows, Panels leading").toEqual(["set-panels", "set-background"]);
+        await holdsTheTwo("Glass");
         await expect(panels.getByRole("radio")).toHaveCount(3);
         for (const [at, name] of ["Glass", "Liquid", "Paper"].entries()) await expect(panels.getByRole("radio").nth(at)).toHaveAccessibleName(name);
         await expect(panels.getByRole("radio", { name: "Glass" })).toHaveAttribute("aria-checked", "true");
-        await expect(kindsRow).toHaveCount(0);
         expect(await rootLook(page)).toEqual({});
       });
 
       await test.step("each picture shows its own choice: its header card, side menu and card over a map", async () => {
-        for (const [choice, under] of [["glass", GLASS], ["liquid", LIQUID_ALL], ["paper", PAPER]] as const) {
+        for (const [choice, under] of [["glass", GLASS], ["liquid", LIQUID], ["paper", PAPER]] as const) {
           const art = (p: Page) => p.locator(`[data-picture-panels="${choice}"]`);
           for (const [part, role] of [["pnHead", "glass-chrome"], ["pnRail", "glass-chrome"], ["pnCard", "overlay-panel"]] as const) {
             await expectMember(page, { role, what: `the ${choice} picture's ${part}`, own: ["edge"], at: (p) => art(p).locator(`[class*="${part}"]`).first() }, "light", under, "the Panels pictures");
@@ -620,19 +699,7 @@ test.describe("Panels in the Appearance tab", () => {
         expect((await settings()).panels).toBe("liquid");
         await page.unroute("**/api/settings");
         expect(await page.evaluate(() => (window as { __sameDocument?: boolean }).__sameDocument)).toBe(true);
-      });
-
-      await test.step("under Liquid the kinds show as switches at their first values, and a switch is kept at once", async () => {
-        await expect(kindsRow).toBeVisible();
-        for (const kind of KINDS) {
-          if (kind.first === "on") await expect(kindSwitch(kind.label), kind.label).toBeChecked();
-          else await expect(kindSwitch(kind.label), kind.label).not.toBeChecked();
-        }
-        await kindSwitch("Menus and pop-overs").click();
-        await expect.poll(() => rootLook(page)).toEqual(attrsOf("liquid", [...FIRST_WORDS, "menus"]));
-        await kindSwitch("Header and side menu").click();
-        await expect.poll(() => rootLook(page)).toEqual(attrsOf("liquid", ["panels", "map", "buttons", "menus"]));
-        await expect.poll(async () => { const look = await settings(); return [look.liquidMenus, look.liquidChrome]; }).toEqual(["on", "off"]);
+        await holdsTheTwo("Liquid");
       });
 
       await test.step("a refused pick returns the page to what is kept", async () => {
@@ -642,7 +709,7 @@ test.describe("Panels in the Appearance tab", () => {
         });
         await panels.getByRole("radio", { name: "Paper" }).click();
         // The page returns to what is kept; the row keeps the refused pick with its red line.
-        await expect.poll(() => rootLook(page)).toEqual(attrsOf("liquid", ["panels", "map", "buttons", "menus"]));
+        await expect.poll(() => rootLook(page)).toEqual(attrsOf("liquid"));
         await expect(page.locator("#set-panels-error")).toBeVisible();
         await consumeExpected(errors, /\/api\/settings/, /400/);
         await page.unroute("**/api/settings");
@@ -652,38 +719,56 @@ test.describe("Panels in the Appearance tab", () => {
         await expect(panels.getByRole("radio", { name: "Liquid" })).toHaveAttribute("aria-checked", "true");
       });
 
-      await test.step("the card's Reset returns the picks in sight, a hidden kind staying stored, and its Undo puts them back", async () => {
+      await test.step("the card's Reset returns Panels and Background, and its Undo puts them back", async () => {
         await panels.getByRole("radio", { name: "Paper" }).click();
-        await expect.poll(() => rootLook(page)).toEqual(attrsOf("paper"));
-        await expect(kindsRow).toHaveCount(0);
-        await expect.poll(async () => (await settings()).panels).toBe("paper");
+        await background.getByRole("radio", { name: "Graticule" }).click();
+        await expect.poll(() => rootLook(page)).toEqual({ ...attrsOf("paper"), "data-look-background": "graticule" });
+        await holdsTheTwo("Paper");
+        await expect.poll(async () => { const look = await settings(); return [look.panels, look.background]; }).toEqual(["paper", "graticule"]);
         const writes: Record<string, unknown>[] = [];
         page.on("request", (r) => { if (r.method() === "PATCH" && new URL(r.url()).pathname === "/api/settings") writes.push(JSON.parse(r.postData() ?? "{}").look); });
         await card.getByRole("button", { name: "Reset to defaults: Panels and background" }).click();
         await expect.poll(() => rootLook(page)).toEqual({});
         await expect.poll(() => writes.length).toBe(1);
-        expect(writes[0], "the card's Reset writes the picks in sight").toEqual({ panels: "glass", background: "atlantic" });
-        await expect.poll(async () => { const look = await settings(); return [look.panels, look.liquidChrome, look.liquidMenus]; }).toEqual(["glass", "off", "on"]);
+        expect(writes[0], "the card's Reset writes the two").toEqual({ panels: "glass", background: "atlantic" });
+        await expect.poll(async () => { const look = await settings(); return [look.panels, look.background]; }).toEqual(["glass", "atlantic"]);
         await card.getByRole("button", { name: "Undo reset to defaults: Panels and background" }).click();
-        await expect.poll(() => rootLook(page)).toEqual(attrsOf("paper"));
+        await expect.poll(() => rootLook(page)).toEqual({ ...attrsOf("paper"), "data-look-background": "graticule" });
         await expect.poll(() => writes.length).toBe(2);
-        expect(writes[1], "the Undo writes back what the Reset changed").toEqual({ panels: "paper" });
+        expect(writes[1], "the Undo writes back what the Reset changed").toEqual({ panels: "paper", background: "graticule" });
+        await expect.poll(async () => { const look = await settings(); return [look.panels, look.background]; }).toEqual(["paper", "graticule"]);
       });
 
-      await test.step("Reset to Dezfil's default returns every pick in sight, the kinds among them, and its Undo restores them all", async () => {
+      await test.step("Reset to Dezfil's default returns every pick in sight, and its Undo restores them all", async () => {
         await panels.getByRole("radio", { name: "Liquid" }).click();
         await page.getByRole("radiogroup", { name: "Color" }).getByRole("radio", { name: "Harbor" }).click();
-        await expect.poll(() => rootLook(page)).toEqual({ ...attrsOf("liquid", ["panels", "map", "buttons", "menus"]), "data-look-color": "harbor" });
-        await expect.poll(async () => { const look = await settings(); return [look.panels, look.color]; }).toEqual(["liquid", "harbor"]);
+        const picked = { ...attrsOf("liquid"), "data-look-background": "graticule", "data-look-color": "harbor" };
+        await expect.poll(() => rootLook(page)).toEqual(picked);
+        await expect.poll(async () => { const look = await settings(); return [look.panels, look.background, look.color]; }).toEqual(["liquid", "graticule", "harbor"]);
         await page.getByRole("button", { name: "Reset to Dezfil's default" }).click();
         await expect.poll(() => rootLook(page)).toEqual({});
-        await expect(kindsRow).toHaveCount(0);
-        await expect.poll(async () => { const look = await settings(); return [look.panels, look.color, look.liquidChrome, look.liquidMenus]; }).toEqual(["glass", "kelp", "on", "off"]);
+        await holdsTheTwo("Glass, after Reset to Dezfil's default");
+        await expect.poll(async () => { const look = await settings(); return [look.panels, look.background, look.color]; }).toEqual(["glass", "atlantic", "kelp"]);
         await page.getByRole("button", { name: "Undo reset to Dezfil's default" }).click();
-        await expect.poll(() => rootLook(page)).toEqual({ ...attrsOf("liquid", ["panels", "map", "buttons", "menus"]), "data-look-color": "harbor" });
-        await expect.poll(async () => { const look = await settings(); return [look.panels, look.color, look.liquidChrome, look.liquidMenus]; }).toEqual(["liquid", "harbor", "off", "on"]);
-        await expect(kindSwitch("Header and side menu")).not.toBeChecked();
-        await expect(kindSwitch("Menus and pop-overs")).toBeChecked();
+        await expect.poll(() => rootLook(page)).toEqual(picked);
+        await expect.poll(async () => { const look = await settings(); return [look.panels, look.background, look.color]; }).toEqual(["liquid", "graticule", "harbor"]);
+        await expect(panels.getByRole("radio", { name: "Liquid" })).toHaveAttribute("aria-checked", "true");
+        await holdsTheTwo("Liquid, after the Undo");
+      });
+
+      await test.step("an own-settings write naming one of Liquid's former kinds is refused by its position, and the look stays as it was", async () => {
+        const before = await settings();
+        expect(Object.keys(before).sort(), "the own-settings read lists the seven picks").toEqual([...PICKS].sort());
+        const refused = await person.api.patch("/api/settings", { data: { look: { panels: "paper", liquidMenus: "on" } } });
+        expect(refused.status()).toBe(400);
+        const body = (await refused.json()) as { error: { code: string; message: string } };
+        // The key is named by its position, never repeated: a posted key may hold a credential.
+        expect(body).toEqual({ error: { code: "invalid_request", message: `look: Unknown setting at position 2. Expected one of: ${PICKS.join(", ")}.` } });
+        expect(await settings(), "nothing of the refused write is kept").toEqual(before);
+        await page.reload();
+        await expect(panels).toBeVisible();
+        expect(await rootLook(page), "the page after a reload").toEqual({ ...attrsOf("liquid"), "data-look-background": "graticule", "data-look-color": "harbor" });
+        await holdsTheTwo("Liquid, after the refused write");
       });
       expectQuiet(errors);
     } finally {
@@ -695,29 +780,48 @@ test.describe("Panels in the Appearance tab", () => {
 // ---- Liquid ----
 
 for (const theme of THEMES) {
-  test(`Liquid with every kind on: a member of every role computes its kind's values (${theme})`, async ({ browser, request, baseURL }) => {
+  test(`Liquid on every role: a member of every role, the blocks inside panels and the widget card over the map compute the one recipe (${theme})`, async ({ browser, request, baseURL }) => {
+    test.setTimeout(360_000);
     const people: Person[] = [];
     try {
       const { person, page, errors } = await personIn(browser, request, baseURL!, "Liquid", theme);
       people.push(person);
-      const fx = await seed(page, `${runTag()}_${theme}_all`);
+      const fx = await seed(page, `${runTag()}_${theme}_all`, { widget: true });
       const workflow = await seedWorkflow(page, `${runTag()}_${theme}`);
-      await setLook(person.api, lookOf("liquid", ALL_WORDS));
+      await setLook(person.api, lookOf("liquid"));
 
-      await test.step(`the builder, a menu and a dialog (${theme})`, async () => {
+      await test.step(`the builder, the widget card over the map, a menu and a dialog (${theme})`, async () => {
         await openBuilder(page, fx.mapId);
-        await expectRoot(page, theme, attrsOf("liquid", ALL_WORDS));
-        await readBuilder(page, theme, LIQUID_ALL, "the builder");
-        await page.locator("[data-layer-list] [data-layer-select]").first().click();
-        await expectMember(page, sliderThumb(theme), theme, LIQUID_ALL, "a layer's style");
+        await expectRoot(page, theme, attrsOf("liquid"));
+        await expect(widgetCard.at(page)).toBeVisible({ timeout: 30_000 });
+        await readBuilder(page, theme, LIQUID, "the builder", [widgetCard]);
       });
-      await test.step(`a gallery card, a Settings card and a switch's knob (${theme})`, async () => {
+      await test.step(`the header's and a map button's quiet text read at Glass's ink (${theme})`, async () => {
+        const muted = `rgb(${TONES[theme].muted.slice(0, 3).join(", ")})`;
+        await expect(crumbLink(page)).toBeVisible();
+        await expect(crumbLink(page), "the header's breadcrumb link").toHaveCSS("color", muted);
+        await expect(zoomIn.at(page), "the map's Zoom in button").toHaveCSS("color", muted);
+        const stepped = await page.evaluate(() => Array.from(document.querySelectorAll<HTMLElement>("[style]"))
+          .filter((el) => /--fg-/.test(el.style.cssText)).map((el) => `${el.tagName.toLowerCase()}: ${el.style.cssText}`));
+        expect(stepped, "no element carries a quiet ink of its own").toEqual([]);
+      });
+      await test.step(`the blocks inside the inspector's tabs and the Tools drawer: the fill, the light and the contact drop, no blur (${theme})`, async () => {
+        await readBlocks(page, person.api, theme, LIQUID, "the builder");
+      });
+      await test.step(`a layer's style: a slider's thumb (${theme})`, async () => {
+        // The Tools step above left a layer selected; its style is in the inspector.
+        if ((await page.locator('[data-layer-list] li[data-selected="true"]').count()) === 0) await page.locator("[data-layer-list] [data-layer-select]").first().click();
+        await expectMember(page, sliderThumb, theme, LIQUID, "a layer's style");
+      });
+      await test.step(`a gallery card at rest and under the pointer, a Settings card and the tab column (${theme})`, async () => {
         await openMaps(page);
-        await expectMember(page, galleryCard(fx.mapName), theme, LIQUID_ALL, "Maps");
+        await expectMember(page, galleryCard(fx.mapName), theme, LIQUID, "Maps");
+        await galleryCard(fx.mapName).at(page).hover();
+        await expectMember(page, { ...galleryCard(fx.mapName), what: "the hovered gallery card", shadows: (t) => lit("high", t) }, theme, LIQUID, "Maps");
+        await page.mouse.move(5, 5);
         await visit(page, "/settings/appearance");
-        await expectMember(page, { role: "page-card", what: "a Settings card", at: (p) => p.locator("section[aria-labelledby]").filter({ visible: true }).first() }, theme, LIQUID_ALL, "Settings");
-        await expectMember(page, { role: "page-card", what: "the Settings tab column", at: (p) => p.getByRole("navigation", { name: "Settings" }) }, theme, LIQUID_ALL, "Settings");
-        await expectMember(page, { role: "inner-card", what: "a switch's knob", pseudo: "::before", own: ["edge"], at: (p) => p.getByRole("switch", { name: "Dialogs", exact: true }) }, theme, LIQUID_ALL, "Settings");
+        await expectMember(page, { role: "page-card", what: "a Settings card", at: (p) => p.locator("section[aria-labelledby]").filter({ visible: true }).first() }, theme, LIQUID, "Settings");
+        await expectMember(page, { role: "page-card", what: "the Settings tab column", at: (p) => p.getByRole("navigation", { name: "Settings" }) }, theme, LIQUID, "Settings");
       });
       await test.step(`a node tile keeps its group's edge and tint over the inner card's ground (${theme})`, async () => {
         await visit(page, `/workflows/${workflow}`);
@@ -726,7 +830,7 @@ for (const theme of THEMES) {
         const group = await tile.evaluate((el) => el.closest("[data-grp]")?.getAttribute("data-grp") ?? "");
         expect(Object.keys(GROUPS), "the tile's group is one of the shipped groups").toContain(group);
         const tint = GROUPS[group];
-        await expectMember(page, { role: "inner-card", what: "a node tile", own: ["edge"], fill: (want) => mix([tint, 0.12], [want.fill, 0.88]), at: () => tile }, theme, LIQUID_ALL, "the workflow canvas");
+        await expectMember(page, { role: "inner-card", what: "a node tile", own: ["edge"], fill: (want) => mix([tint, 0.12], [want.fill, 0.88]), at: () => tile }, theme, LIQUID, "the workflow canvas");
         const edge = await readEl(tile);
         // 1.5 px as written; a browser at one device pixel to the CSS pixel draws it on whole pixels.
         expect(["1px", "1.5px"], "the tile keeps its group's edge").toContain(edge.edgeWidth);
@@ -738,42 +842,18 @@ for (const theme of THEMES) {
       await closeAll(people);
     }
   });
-
-  test(`Liquid, each kind off in turn: its roles compute Glass, every other role stays liquid (${theme})`, async ({ browser, request, baseURL }) => {
-    test.setTimeout(480_000);
-    const people: Person[] = [];
-    try {
-      const { person, page, errors } = await personIn(browser, request, baseURL!, "Kinds", theme);
-      people.push(person);
-      const fx = await seed(page, `${runTag()}_${theme}_kinds`);
-      for (const kind of KINDS) {
-        const on = ALL_WORDS.filter((w) => w !== kind.word);
-        const under: Under = { panels: "liquid", on };
-        await test.step(`"${kind.label}" off: ${kind.roles.join(" and ")} at Glass, the rest liquid (${theme})`, async () => {
-          await setLook(person.api, lookOf("liquid", on));
-          await openBuilder(page, fx.mapId);
-          await expectRoot(page, theme, attrsOf("liquid", on));
-          await readBuilder(page, theme, under, `${kind.label} off, the builder`);
-          await openMaps(page);
-          await expectMember(page, galleryCard(fx.mapName), theme, under, `${kind.label} off, Maps`);
-        });
-      }
-      expectQuiet(errors);
-    } finally {
-      await closeAll(people);
-    }
-  });
 }
 
 // ---- Paper ----
 
 for (const theme of THEMES) {
-  test(`Paper: every role at its values, the buttons as separate sheets, menus and dialogs as shipped, the lines inside panels softened (${theme})`, async ({ browser, request, baseURL }) => {
+  test(`Paper: every role at its values, the buttons as separate sheets, menus and dialogs as shipped, the blocks at Glass's grounds, the lines inside panels softened (${theme})`, async ({ browser, request, baseURL }) => {
+    test.setTimeout(360_000);
     const people: Person[] = [];
     try {
       const { person, page, errors } = await personIn(browser, request, baseURL!, "Paper", theme);
       people.push(person);
-      const fx = await seed(page, `${runTag()}_${theme}_paper`);
+      const fx = await seed(page, `${runTag()}_${theme}_paper`, { widget: true });
       await setLook(person.api, lookOf("paper"));
       const tabsLine = (p: Page) => p.getByRole("tablist", { name: "Builder panels" });
       const lineColour = async () => colour(await tabsLine(page).evaluate((el) => getComputedStyle(el).borderBottomColor));
@@ -781,7 +861,8 @@ for (const theme of THEMES) {
       await test.step(`the builder, each map button its own sheet, the menu and the dialog as shipped (${theme})`, async () => {
         await openBuilder(page, fx.mapId);
         await expectRoot(page, theme, attrsOf("paper"));
-        await readBuilder(page, theme, PAPER, "the builder");
+        await expect(widgetCard.at(page)).toBeVisible({ timeout: 30_000 });
+        await readBuilder(page, theme, PAPER, "the builder", [widgetCard]);
         for (const name of ["Zoom out", "Fullscreen map"]) await expectMember(page, stageButton(name), theme, PAPER, "the builder");
       });
       await test.step(`the Assistant pane is paper with the side panels (${theme})`, async () => {
@@ -794,6 +875,9 @@ for (const theme of THEMES) {
         await expect.poll(async () => fmt(await lineColour()), { message: "the inspector's tab line" }).toBe(fmt(want));
         expect(sameColour(await lineColour(), want)).toBe(true);
       });
+      await test.step(`the blocks inside the inspector's tabs and the Tools drawer keep Glass's grounds with the softer line (${theme})`, async () => {
+        await readBlocks(page, person.api, theme, PAPER, "the builder");
+      });
       await test.step(`a gallery card (${theme})`, async () => {
         await openMaps(page);
         await expectMember(page, galleryCard(fx.mapName), theme, PAPER, "Maps");
@@ -803,6 +887,7 @@ for (const theme of THEMES) {
         await openBuilder(page, fx.mapId);
         await expectRoot(page, theme, { ...attrsOf("paper"), "data-look-contrast": "more" });
         await expect.poll(async () => fmt(await lineColour()), { message: "the inspector's tab line under More contrast" }).toBe(fmt(TONES[theme].moreBorder));
+        await expect(widgetCard.at(page), "the widget card's line under More contrast").toHaveCSS("border-top-color", `rgb(${TONES[theme].moreBorder.slice(0, 3).join(", ")})`);
       });
       expectQuiet(errors);
     } finally {
@@ -817,7 +902,7 @@ for (const theme of THEMES) {
  * filters, a custom property set on an element, the boxes of the chrome. */
 async function traces(page: Page): Promise<{ attrs: LookAttributes; filters: number; inline: string[] }> {
   return {
-    attrs: Object.fromEntries(Object.entries(await rootLook(page)).filter(([name]) => name === "data-look-panels" || name === "data-look-liquid")),
+    attrs: Object.fromEntries(Object.entries(await rootLook(page)).filter(([name]) => name === "data-look-panels")),
     filters: await page.locator("[data-panel-lens], filter[id^='dz-lens']").count(),
     inline: await page.evaluate(() => Array.from(document.querySelectorAll<HTMLElement>("[style]")).flatMap((el) => {
       const out: string[] = [];
@@ -869,19 +954,20 @@ for (const theme of THEMES) {
       await expect(panels).toBeVisible();
       const tabBefore = await boxes(page, onTab);
 
-      await test.step(`Liquid with every kind on reaches the tab, Maps and the builder (${theme})`, async () => {
+      await test.step(`Liquid reaches the tab, Maps and the builder (${theme})`, async () => {
         await panels.getByRole("radio", { name: "Liquid" }).click();
-        for (const kind of KINDS.filter((k) => k.first === "off")) await page.getByRole("switch", { name: kind.label, exact: true }).click();
-        await expect.poll(() => rootLook(page)).toEqual(attrsOf("liquid", ALL_WORDS));
+        await expect.poll(() => rootLook(page)).toEqual(attrsOf("liquid"));
         await rail(page).getByRole("link", { name: "Maps" }).click();
         await expect(galleryCard(fx.mapName).at(page)).toBeVisible();
         await galleryCard(fx.mapName).at(page).getByRole("button", { name: `Open ${fx.mapName} in the builder` }).click();
         await expect(page.locator("[data-map-legend]").first()).toBeVisible({ timeout: 30_000 });
         // The harness: the look did reach the page, so its absence later is the switch's doing.
         const reached = await traces(page);
-        expect(reached.attrs).toEqual(attrsOf("liquid", ALL_WORDS));
-        if (browserName === "chromium") await expect.poll(async () => (await traces(page)).filters, { message: "the bend reached the builder" }).toBeGreaterThan(0);
-        await expect.poll(async () => (await traces(page)).inline.length, { message: "the ink step reached the builder" }).toBeGreaterThan(0);
+        expect(reached.attrs).toEqual(attrsOf("liquid"));
+        if (browserName === "chromium") {
+          await expect.poll(async () => (await traces(page)).filters, { message: "the bend reached the builder" }).toBeGreaterThan(0);
+          await expect.poll(async () => (await traces(page)).inline.length, { message: "the bend's blur, held inline, reached the builder" }).toBeGreaterThan(0);
+        }
       });
 
       await test.step(`Paper, then Glass, picked on the tab (${theme})`, async () => {
@@ -916,7 +1002,9 @@ for (const theme of THEMES) {
 
 // ---- the bend ----
 
-/** Bring the stripes in until each is 12 to 24 pixels wide, the pointer off the stack. */
+/** Bring the stripes in until each is 20 to 40 pixels wide, the pointer off
+ * the stack: wide enough that the recipe's 24 px blur leaves them a contrast
+ * to soften and to bend. */
 async function stripesIn(page: Page): Promise<void> {
   const card = (await mapCard.at(page).boundingBox())!;
   const pane = (await inspector.at(page).boundingBox())!;
@@ -932,7 +1020,7 @@ async function stripesIn(page: Page): Promise<void> {
     }, { message: "the map has settled", timeout: 30_000, intervals: [400] }).toBe(true);
   };
   let width = 0;
-  for (let zoomed = 1; zoomed <= 4; zoomed += 1) {
+  for (let zoomed = 1; zoomed <= 5; zoomed += 1) {
     await page.getByRole("button", { name: "Zoom in", exact: true }).click();
     await page.mouse.move(pane.x + pane.width / 2, pane.y + pane.height / 2);
     await page.waitForTimeout(600);
@@ -940,10 +1028,10 @@ async function stripesIn(page: Page): Promise<void> {
     await expect(page.getByText("Saving…", { exact: true })).toBeHidden();
     await page.waitForTimeout(600);
     width = stripeWidth(await rowLuma(page, probe.x, probe.y, probe.width));
-    if (width >= 12) break;
+    if (width >= 20) break;
   }
-  expect(width, `the harness: the stripes are 12 to 24 pixels wide (${width})`).toBeGreaterThanOrEqual(12);
-  expect(width, `the harness: the stripes are 12 to 24 pixels wide (${width})`).toBeLessThanOrEqual(24);
+  expect(width, `the harness: the stripes are 20 to 40 pixels wide (${width})`).toBeGreaterThanOrEqual(20);
+  expect(width, `the harness: the stripes are 20 to 40 pixels wide (${width})`).toBeLessThanOrEqual(40);
 }
 function stripeWidth(v: number[]): number {
   const r = range(v);
@@ -1061,12 +1149,12 @@ test("the bend in Chromium: a map button's backdrop pulled inward across its bez
     const { person, page, errors } = await personIn(browser, request, baseURL!, "Bend", "light");
     people.push(person);
     const fx = await seed(page, `${runTag()}_bend`);
-    await setLook(person.api, lookOf("liquid", [...FIRST_WORDS, "menus"]));
+    await setLook(person.api, lookOf("liquid"));
     await openBuilder(page, fx.mapId);
     await stripesIn(page);
     const button = page.getByRole("button", { name: "Zoom out", exact: true });
 
-    await test.step("the Zoom out button is bent at its size, its rim lit on the sides facing the light, its ink stepped up", async () => {
+    await test.step("the Zoom out button is bent at its size, its rim lit on the sides facing the light, its quiet ink as under Glass", async () => {
       const box = (await button.boundingBox())!;
       await expect.poll(async () => (await readEl(button)).lens?.size, { message: "the button is drawn through a filter of its size" })
         .toBe(`${Math.round(box.width)}x${Math.round(box.height)}`);
@@ -1075,14 +1163,17 @@ test("the bend in Chromium: a map button's backdrop pulled inward across its bez
       const [first, far] = layers(seen.shadow);
       expect([first.inset, first.x, first.y], "the bright line faces the upper left").toEqual([true, 1, 1]);
       expect([far.inset, far.x, far.y], "the fainter one the far side").toEqual([true, -1, -1]);
-      expect(seen.inline["--fg-muted"], "the quiet ink stepped up").toBe("var(--fg)");
-      expect(sameColour(colour(seen.color), TONES.light.ink), `the button's ink ${seen.color}`).toBe(true);
+      expect(Object.keys(seen.inline), "the button carries the bend's blur and nothing more").toEqual(["--surface-overlay-control-blur"]);
+      expect(sameColour(colour(seen.color), TONES.light.muted), `the button's ink ${seen.color}`).toBe(true);
     });
 
-    await test.step("across its bezel the stripes are pulled inward, against the same filter with its pull set to none", async () => {
+    await test.step("across its bezel the stripes are pulled inward, read with the button's own fill taken off, against the same filter with its pull set to none", async () => {
       // A row through the button's middle: its left and right bezels each
-      // side of the glyph. The map is moved a few pixels at a time until a
-      // stripe's edge lies in each bezel, so each has something to pull.
+      // side of the glyph. The recipe's fill lets less than a tenth of the
+      // map through, so the button's own fill is taken off for the read (its
+      // filter, its blur and its rim stay) and the row shows what the filter
+      // draws. Each bezel is read in turn, the map moved a few pixels at a
+      // time until a stripe's edge lies in it, so it has something to pull.
       const w = Math.round((await button.boundingBox())!.width);
       const left = { from: 1, to: 9 }, right = { from: w - 10, to: w - 2 }, middle = { from: 14, to: w - 15 };
       const across = async () => {
@@ -1090,18 +1181,6 @@ test("the bend in Chromium: a map button's backdrop pulled inward across its bez
         return { x: Math.round(box.x), y: Math.round(box.y + box.height / 2) };
       };
       const contrast = (row: number[], at: { from: number; to: number }) => range(row.slice(at.from, at.to + 1));
-      let bent: number[] = [];
-      for (let nudge = 0; nudge <= 6; nudge += 1) {
-        const { x, y } = await across();
-        bent = await rowLuma(page, x, y, w);
-        if (contrast(bent, left) >= 25 && contrast(bent, right) >= 25) break;
-        await nudgeMap(page, 5);
-      }
-      const { x, y } = await across();
-      bent = await rowLuma(page, x, y, w);
-      expect(contrast(bent, left), "the harness: a stripe's edge lies in the left bezel").toBeGreaterThanOrEqual(25);
-      expect(contrast(bent, right), "the harness: a stripe's edge lies in the right bezel").toBeGreaterThanOrEqual(25);
-      // The same filter with its pull set to none: the blur alone, as the bent button draws it.
       const id = (await readEl(button)).lens!.id;
       const pull = async (scale: string | null) => page.evaluate(({ id, scale }) => {
         const map = document.getElementById(id)?.querySelector("feDisplacementMap");
@@ -1109,31 +1188,62 @@ test("the bend in Chromium: a map button's backdrop pulled inward across its bez
         if (map && scale !== null) map.setAttribute("scale", scale);
         return was;
       }, { id, scale });
-      const scale = await pull("0");
-      expect(Number(scale), "the harness: the filter pulls").toBeGreaterThan(0);
-      await page.waitForTimeout(300);
-      const plain = await rowLuma(page, x, y, w);
-      await pull(scale);
-      await page.waitForTimeout(300);
-      expect(await rowLuma(page, x, y, w), "the harness: the pull put back draws the bent row again").toEqual(bent);
-      const diff = bent.map((v, i) => Math.abs(v - plain[i]));
-      const most = (at: { from: number; to: number }) => Math.max(...diff.slice(at.from, at.to + 1));
-      const measured = {
-        left: most(left), right: most(right), middle: most(middle),
-        leftShift: bestShift(bent, plain, left.from, left.to), rightShift: bestShift(bent, plain, right.from, right.to),
+      const ownFill = (off: boolean) => button.evaluate((el, off) => {
+        if (off) (el as HTMLElement).style.setProperty("background-color", "transparent");
+        else (el as HTMLElement).style.removeProperty("background-color");
+      }, off);
+      /** The bent row and the same row with the pull set to none, at one place. */
+      const pair = async (x: number, y: number) => {
+        const bent = await rowLuma(page, x, y, w);
+        const scale = await pull("0");
+        expect(Number(scale), "the harness: the filter pulls").toBeGreaterThan(0);
+        await page.waitForTimeout(300);
+        const plain = await rowLuma(page, x, y, w);
+        await pull(scale);
+        await page.waitForTimeout(300);
+        expect(await rowLuma(page, x, y, w), "the harness: the pull put back draws the bent row again").toEqual(bent);
+        return { bent, plain, diff: bent.map((v, i) => Math.abs(v - plain[i])) };
       };
-      await test.info().attach("the bend, a row through the Zoom out button", { body: JSON.stringify({ y, measured, bent: bent.map(Math.round), plain: plain.map(Math.round) }), contentType: "application/json" });
-      console.log(`[bend] Zoom out ${w}px wide: ${JSON.stringify(measured)}`);
-      expect.soft(measured.left, "the left bezel moves").toBeGreaterThanOrEqual(6);
-      expect.soft(measured.right, "the right bezel moves").toBeGreaterThanOrEqual(6);
-      expect.soft(measured.middle, "past the bezels nothing moves").toBeLessThanOrEqual(2);
-      // Inward: the left bezel shows what lies to its right, the right bezel what lies to its left.
-      expect.soft(measured.leftShift, "the left bezel is pulled inward").toBeGreaterThan(0);
-      expect.soft(measured.rightShift, "the right bezel is pulled inward").toBeLessThan(0);
+      const most = (diff: number[], at: { from: number; to: number }) => Math.max(...diff.slice(at.from, at.to + 1));
+      const readBezel = async (side: "left" | "right") => {
+        const at = side === "left" ? left : right;
+        for (let nudge = 0; nudge <= 8; nudge += 1) {
+          const { x, y } = await across();
+          if (contrast(await rowLuma(page, x, y, w), at) >= 25) break;
+          await nudgeMap(page, 5);
+        }
+        const { x, y } = await across();
+        expect(contrast(await rowLuma(page, x, y, w), at), `the harness: a stripe's edge lies in the ${side} bezel`).toBeGreaterThanOrEqual(25);
+        const read = await pair(x, y);
+        // For the record, not held: the same pull as a person sees it, through the button's fill.
+        await ownFill(false);
+        await page.waitForTimeout(300);
+        const seen = await pair(x, y);
+        await ownFill(true);
+        await page.waitForTimeout(300);
+        return { y, moves: most(read.diff, at), middle: most(read.diff, middle), shift: bestShift(read.bent, read.plain, at.from, at.to), throughFill: most(seen.diff, at), bent: read.bent.map(Math.round), plain: read.plain.map(Math.round) };
+      };
+      await ownFill(true);
+      try {
+        await page.waitForTimeout(300);
+        const l = await readBezel("left");
+        const r = await readBezel("right");
+        const measured = { left: l.moves, right: r.moves, middle: Math.max(l.middle, r.middle), leftShift: l.shift, rightShift: r.shift, throughFill: { left: l.throughFill, right: r.throughFill } };
+        await test.info().attach("the bend, rows through the Zoom out button", { body: JSON.stringify({ measured, left: l, right: r }), contentType: "application/json" });
+        console.log(`[bend] Zoom out ${w}px wide: ${JSON.stringify(measured)}`);
+        expect.soft(measured.left, "the left bezel moves").toBeGreaterThanOrEqual(6);
+        expect.soft(measured.right, "the right bezel moves").toBeGreaterThanOrEqual(6);
+        expect.soft(measured.middle, "past the bezels nothing moves").toBeLessThanOrEqual(2);
+        // Inward: the left bezel shows what lies to its right, the right bezel what lies to its left.
+        expect.soft(measured.leftShift, "the left bezel is pulled inward").toBeGreaterThan(0);
+        expect.soft(measured.rightShift, "the right bezel is pulled inward").toBeLessThan(0);
+      } finally {
+        await ownFill(false);
+      }
     });
 
     await test.step("the map under the button is soft, and sharp beside it", async () => {
-      await softUnder(page, "the Zoom out button", button, liquidFill("glass", "light")[3]);
+      await softUnder(page, "the Zoom out button", button, liquidFill("light")[3]);
     });
 
     await test.step("a map button does not grow under the pointer; its icon takes the accent", async () => {
@@ -1202,21 +1312,22 @@ test("@fallback where the bend is not drawn, a map button blurs and carries the 
       const seen = await readEl(button);
       expect(problems(seen, liquidWant("overlay-control", "light"))).toEqual([]);
       expect(seen.lens, "no filter bends it").toBeNull();
-      expect(seen.blur).toBe("blur(6px)");
-      // Where the bend is not drawn the lens writes the quiet inks stepped up and nothing else: no role blur, plain or bent.
-      expect.soft(seen.inline, "the button carries the ink step and nothing more").toEqual({ "--fg-muted": "var(--fg)", "--fg-faint": "color-mix(in srgb, var(--fg) 78%, transparent)" });
-      expect.soft((await traces(page)).inline.filter((trace) => trace.includes(": --surface-")), "no role blur held inline anywhere on the page").toEqual([]);
+      expect(seen.blur).toBe(LIQUID_BLUR);
+      // Where the bend is not drawn the lens writes nothing at all: no role blur, plain or bent, and no ink of its own.
+      expect.soft(seen.inline, "the button carries nothing inline").toEqual({});
+      expect(sameColour(colour(seen.color), TONES.light.muted), `the button's ink ${seen.color}`).toBe(true);
+      expect.soft((await traces(page)).inline, "nothing held inline anywhere on the page").toEqual([]);
       expect(await page.locator("[data-panel-lens], filter[id^='dz-lens']").count(), "no filter on the page").toBe(0);
-      for (const m of [headerCard, inspector, legend]) await expectMember(page, m, "light", { panels: "liquid", on: FIRST_WORDS }, browserName);
+      for (const m of [headerCard, inspector, legend]) await expectMember(page, m, "light", LIQUID, browserName);
     });
     await test.step(`in ${browserName}, the map under the button is soft, and sharp beside it`, async () => {
-      if (await drawsBackdropBlur(page)) await softUnder(page, "the Zoom out button", button, liquidFill("glass", "light")[3]);
+      if (await drawsBackdropBlur(page)) await softUnder(page, "the Zoom out button", button, liquidFill("light")[3]);
       else {
         // The control shows the screenshots cannot see any backdrop blur here, so the softness is not measured.
         test.info().annotations.push({ type: "unverified", description: `${browserName}'s screenshots show no backdrop blur, not even a plain one: the map's softness under the button is not measured` });
-        await expect(button).toHaveCSS("backdrop-filter", "blur(6px)");
+        await expect(button).toHaveCSS("backdrop-filter", LIQUID_BLUR);
       }
-      expect.soft((await traces(page)).inline.filter((trace) => trace.includes(": --surface-")), "no role blur held inline after the map has moved").toEqual([]);
+      expect.soft((await traces(page)).inline, "nothing held inline after the map has moved").toEqual([]);
     });
     expectQuiet(errors);
   } finally {
@@ -1234,7 +1345,7 @@ for (const theme of THEMES) {
     try {
       const { person, page, errors } = await personIn(browser, request, baseURL!, "Request", theme);
       people.push(person);
-      const fx = await seed(page, `${runTag()}_${theme}_request`);
+      const fx = await seed(page, `${runTag()}_${theme}_request`, { widget: true });
       const cdp = await page.context().newCDPSession(page);
       const request_ = async (feature: string | null) => {
         await cdp.send("Emulation.setEmulatedMedia", {
@@ -1245,20 +1356,29 @@ for (const theme of THEMES) {
         });
       };
       const untouched: Record<string, Record<string, string>> = {};
-      const looks: [string, Under][] = [["Glass", GLASS], ["Liquid", LIQUID_ALL], ["Paper", PAPER]];
+      const looks: [string, Under][] = [["Glass", GLASS], ["Liquid", LIQUID], ["Paper", PAPER]];
+      const REQUESTS = ["prefers-reduced-transparency", "prefers-contrast"];
       for (const [name, under] of looks) {
-        await test.step(`${name}: the fills go opaque on each request, the light and the shadow stay (${theme})`, async () => {
-          await setLook(person.api, lookOf(under.panels, under.on));
+        await test.step(`${name}: the fills go opaque on each request, a block's and the widget card's among them, the light and the shadow stay (${theme})`, async () => {
+          const atRest = [headerCard, inspector, legend, zoomIn, layerCard, widgetCard];
+          await setLook(person.api, lookOf(under.panels));
           await openBuilder(page, fx.mapId);
-          await expectRoot(page, theme, attrsOf(under.panels, under.on));
-          for (const feature of ["prefers-reduced-transparency", "prefers-contrast"]) {
+          await expectRoot(page, theme, attrsOf(under.panels));
+          await expect(widgetCard.at(page)).toBeVisible({ timeout: 30_000 });
+          for (const feature of REQUESTS) {
             await request_(feature);
-            for (const m of [headerCard, inspector, legend, zoomIn, layerCard]) {
-              await expectMember(page, m, theme, { ...under, opaque: true }, `${name} under ${feature}`);
-            }
+            for (const m of atRest) await expectMember(page, m, theme, { ...under, opaque: true }, `${name} under ${feature}`);
           }
           await request_(null);
-          for (const m of [headerCard, inspector, legend, zoomIn, layerCard]) await expectMember(page, m, theme, under, `${name}, no request`);
+          for (const m of atRest) await expectMember(page, m, theme, under, `${name}, no request`);
+          await inspectorTab(page, "Legend");
+          for (const feature of REQUESTS) {
+            await request_(feature);
+            await expectMember(page, legendEntry, theme, { ...under, opaque: true }, `${name} under ${feature}`);
+          }
+          await request_(null);
+          await expectMember(page, legendEntry, theme, under, `${name}, no request`);
+          await inspectorTab(page, "Layers");
         });
         await test.step(`${name}: the veil, the rail opened by pointer and by key, the wash, an entry screen, the status and data colours (${theme})`, async () => {
           const seen: Record<string, string> = {};
@@ -1328,14 +1448,14 @@ for (const theme of THEMES) {
 
 // ---- the export card's preview and a published page ----
 
-for (const [name, under] of [["Liquid with every kind on", LIQUID_ALL], ["Paper", PAPER]] as const) {
+for (const [name, under] of [["Liquid", LIQUID], ["Paper", PAPER]] as const) {
   test(`under ${name} the export card's preview keeps the default look with no lens inside it, and a published page carries no look`, async ({ browser, request, baseURL }) => {
     const people: Person[] = [];
     try {
       const { person, page, errors } = await personIn(browser, request, baseURL!, "Exporter", "light");
       people.push(person);
       const fx = await seed(page, `${runTag()}_export`);
-      await setLook(person.api, lookOf(under.panels, under.on));
+      await setLook(person.api, lookOf(under.panels));
 
       await test.step(`${name}: the card takes the look, the preview inside it the default`, async () => {
         await openBuilder(page, fx.mapId);
@@ -1390,8 +1510,8 @@ for (const [name, under] of [["Liquid with every kind on", LIQUID_ALL], ["Paper"
 
 // ---- the first frame ----
 
-/** The member read at the first frame for each kind it can show on Maps. */
-const FIRST_FRAME_MEMBERS = { chrome: 'header [class*="headCard"]' };
+/** The member read at the first frame on Maps: the header card. */
+const FIRST_FRAME_MEMBERS = { header: 'header [class*="headCard"]' };
 
 test("a fresh browser signed in with Liquid paints Liquid from its first frame, and bends within the first second", async ({ browser, request, baseURL, browserName }) => {
   const people: Person[] = [];
@@ -1399,7 +1519,7 @@ test("a fresh browser signed in with Liquid paints Liquid from its first frame, 
     const person = await invitePerson(browser, request, baseURL!, "First", runTag());
     people.push(person);
     await routeHouse(person.context, { basemapStyleStub: true });
-    await setLook(person.api, lookOf("liquid", ALL_WORDS));
+    await setLook(person.api, lookOf("liquid"));
     const page = await person.context.newPage();
     const errors = trackConsole(page);
     expect(await person.context.storageState().then((state) => state.origins.length), "the context has never loaded a page").toBe(0);
@@ -1417,7 +1537,7 @@ test("a fresh browser signed in with Liquid paints Liquid from its first frame, 
         const response = await route.fetch();
         const headers = { ...response.headers() };
         delete headers["content-length"];
-        await route.fulfill({ response, headers, body: delayLook(await response.text(), attrsOf("liquid", ALL_WORDS)) });
+        await route.fulfill({ response, headers, body: delayLook(await response.text(), attrsOf("liquid")) });
       });
     }
     let held = "";
@@ -1425,9 +1545,11 @@ test("a fresh browser signed in with Liquid paints Liquid from its first frame, 
       await page.route("**/*.css", async (route) => {
         const response = await route.fetch();
         const text = await response.text();
-        if (!text.includes("data-look-liquid~=")) return route.fulfill({ response });
+        // A rule keyed on Liquid's root, its value quoted or bare as the build writes it.
+        const keyed = /\[data-look-panels=(["']?)liquid\1\]/g;
+        if (!keyed.test(text)) return route.fulfill({ response });
         held += text;
-        await route.fulfill({ response, body: text.replaceAll("data-look-liquid~=", "data-look-held~=") });
+        await route.fulfill({ response, body: text.replace(keyed, "[data-look-held=$1liquid$1]") });
       });
     }
     await page.goto("/maps");
@@ -1437,11 +1559,11 @@ test("a fresh browser signed in with Liquid paints Liquid from its first frame, 
       await page.addStyleTag({ content: held });
     }
     const evidence = await frameEvidence(page, Object.keys(FIRST_FRAME_MEMBERS));
-    console.log(describeEvidence("Liquid, every kind on, /maps", evidence));
+    console.log(describeEvidence("Liquid, /maps", evidence));
 
     await test.step("the root and the header card carry Liquid at the first painted frame", async () => {
-      expect.soft(frameProblems(evidence, attrsOf("liquid", ALL_WORDS)), "the root at its creation and its first frame").toEqual([]);
-      const header = evidence.members?.chrome ?? null;
+      expect.soft(frameProblems(evidence, attrsOf("liquid")), "the root at its creation and its first frame").toEqual([]);
+      const header = evidence.members?.header ?? null;
       expect(header, "the header card was read in the first frame it was on the page").not.toBeNull();
       console.log(`[first-frame] the header card was first on the page at frame ${header!.frame}, ${header!.t.toFixed(1)} ms, paints before: ${header!.paintsBefore.length}`);
       const seen: Seen = { fill: header!.fill, blur: header!.blur, edgeStyle: "none", edgeWidth: "0px", edgeColor: "", shadow: header!.shadow, transform: "", color: "", lens: null, inline: {} };

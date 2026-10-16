@@ -39,9 +39,15 @@ async function driver(context: Pick<TestContext, "signal" | "onTestFinished">, r
   const end = () => ending ??= (async () => {
     const shell = run?.pid;
     if (shell !== undefined) {
+      // A process the group was forking when the kill went out can miss it
+      // and live on in the group, so the kill goes out again until nothing
+      // of the group is left; a zombie waiting for its reaper only needs time.
       try { process.kill(-shell, "SIGKILL"); } catch { /* the group is gone already */ }
       await closed.catch(() => null);
-      for (let i = 0; i < 500 && groupAlive(shell); i += 1) await sleep(10);
+      for (let i = 0; i < 500 && groupAlive(shell); i += 1) {
+        try { process.kill(-shell, "SIGKILL"); } catch { /* the group is gone already */ }
+        await sleep(10);
+      }
     }
     rmSync(directory, { recursive: true, force: true });
   })();

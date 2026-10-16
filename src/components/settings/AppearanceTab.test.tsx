@@ -11,8 +11,7 @@ import { FADE_MS, UNDO_MS } from "./save-unit";
 
 /**
  * Appearance: four cards of picture rows over the own-settings read and
- * write, the kinds Liquid reaches as switches while Liquid is shown, the
- * page's root following each pick at once, and Reset to Dezfil's default
+ * write, the page's root following each pick at once, and Reset to Dezfil's default
  * at the heading row's right. The server is a fake that
  * keeps the look the way the own-settings operation does and answers
  * with the whole read; a test can hold an answer, refuse a write the way
@@ -101,22 +100,14 @@ const onRoot = () => Object.fromEntries(LOOK_KEYS.flatMap(key => {
 }));
 const saved = (id: string) => row(id).querySelectorAll('[role="status"]').map(element => element.textContent);
 const top = () => container.querySelector("[data-appearance-top]")!;
-/** The kinds the root names under Liquid, or null when it names none. */
+/** What an earlier version stamped for the kinds of surface Liquid reached, or null. */
 const liquidOnRoot = () => host.document.documentElement.getAttribute("data-look-liquid");
-/** The seven picks at Dezfil's default: what a reset returns while no kind is shown. */
+/** The seven picks at Dezfil's default: what a reset returns. */
 const PICKS_DEFAULT = { color: "kelp", contrast: "standard", font: "inter", background: "atlantic", corners: "rounded", rail: "hover", panels: "glass" };
+/** The row of switches an earlier version showed under Liquid. */
 const KINDS = "set-liquid-panels";
-/** The kinds row's switches, by their words, and whether each is on. */
-const switches = () => row(KINDS).querySelectorAll("label").map(label =>
-  [label.textContent, (label.querySelector('[role="switch"]') as unknown as { checked: boolean }).checked]);
-function props(element: HostElement) {
-  const key = Object.keys(element).find(name => name.startsWith("__reactProps$"))!;
-  return (element as unknown as Record<string, Record<string, (event: unknown) => void>>)[key];
-}
-const flip = (name: string, on: boolean) => act(async () => {
-  const input = row(KINDS).querySelectorAll("label").find(label => label.textContent === name)!.querySelector('[role="switch"]')!;
-  props(input).onChange({ target: { checked: on } });
-});
+/** The kinds an earlier version kept, as an account may still hold them. */
+const RETIRED_KINDS = { liquidChrome: "off", liquidCards: "on", liquidDialogs: "on" };
 
 describe("the Appearance tab", () => {
   it("draws the four cards in order with the seven picture rows and no other, Color first, each pick marked", async () => {
@@ -355,104 +346,49 @@ describe("Reset to Dezfil's default", () => {
   });
 });
 
-describe("Panels, and the kinds Liquid reaches", () => {
-  it("shows the kinds as switches between Panels and Background only while Liquid is shown, each at its first value", async () => {
+describe("Panels, with Liquid in one recipe", () => {
+  it("holds Panels and Background under every choice, with no row of switches, and stamps Liquid as Panels alone", async () => {
     await open();
-    expect(row(KINDS)).toBeNull();
-    holding = true;
-    await pick("set-panels", "Liquid");
-    // At once, before the answer: the row, and the root under Liquid with the first kinds.
-    const rows = container.querySelectorAll("[data-stack]").map(element => element.getAttribute("id"));
-    expect(rows.slice(2, 5)).toEqual(["set-panels", KINDS, "set-background"]);
-    expect(row(KINDS).querySelector("b")!.textContent).toBe("Liquid panels");
-    expect(switches()).toEqual([["Header and side menu", true], ["Side panels", true], ["On the map", true], ["Map buttons", true],
-      ["Page cards", false], ["Cards inside panels", false], ["Menus and pop-overs", false], ["Dialogs", false]]);
-    expect(onRoot()).toMatchObject({ panels: "liquid" });
-    expect(liquidOnRoot()).toBe("chrome panels map buttons");
-    await act(async () => { held.shift()!(); });
-    await settle();
-    expect(saved("set-panels")).toEqual(["Saved"]);
-    holding = false;
-    await pick("set-panels", "Paper");
-    await settle();
-    expect(row(KINDS)).toBeNull();
-    expect(onRoot()).toMatchObject({ panels: "paper" });
-    expect(liquidOnRoot()).toBeNull();
-    expect(writes()).toEqual([{ look: { panels: "liquid" } }, { look: { panels: "paper" } }]);
+    for (const choice of ["Liquid", "Paper", "Glass"]) {
+      holding = true;
+      await pick("set-panels", choice);
+      const rows = card("Panels and background").querySelectorAll("[data-stack]").map(element => element.getAttribute("id"));
+      expect(rows, choice).toEqual(["set-panels", "set-background"]);
+      expect(row(KINDS), choice).toBeNull();
+      expect(card("Panels and background").querySelectorAll('[role="switch"]'), choice).toHaveLength(0);
+      expect(liquidOnRoot(), choice).toBeNull();
+      await act(async () => { held.shift()!(); });
+      await settle();
+      holding = false;
+    }
+    expect(writes()).toEqual([{ look: { panels: "liquid" } }, { look: { panels: "paper" } }, { look: { panels: "glass" } }]);
   });
 
-  it("keeps a kind as it is switched: the root at once, Saved only after the response, and the saved look back on a refusal", async () => {
-    stored = { ...stored, panels: "liquid" };
+  it("returns Panels and Background alone at the card's Reset under Liquid, an account's retired kinds left as they are", async () => {
+    stored = { ...stored, panels: "liquid", background: "plain", ...RETIRED_KINDS } as Look;
     await open();
-    holding = true;
-    await flip("Page cards", true);
-    expect(liquidOnRoot()).toBe("chrome panels map buttons cards");
-    expect(writes()).toEqual([{ look: { liquidCards: "on" } }]);
-    expect(saved(KINDS)).toEqual([]);
-    await act(async () => { held.shift()!(); });
-    await settle();
-    expect(saved(KINDS)).toEqual(["Saved"]);
-    expect(stored.liquidCards).toBe("on");
-    mode = "refuse";
-    await flip("Header and side menu", false);
-    expect(liquidOnRoot()).toBe("panels map buttons cards");
-    expect(saved(KINDS)).toEqual([]);
-    await act(async () => { held.shift()!(); });
-    await settle();
-    expect(liquidOnRoot()).toBe("chrome panels map buttons cards");
-    expect(saved(KINDS)).toEqual([]);
-    expect(row(KINDS).textContent).toContain("Expected one of the offered choices.");
-    expect(stored.liquidChrome).toBe("on");
-  });
-
-  it("leaves a kind out of sight stored at the card's Reset, and returns the kinds shown under Liquid, Undo writing them back", async () => {
-    stored = { ...defaultLook(), panels: "paper", liquidCards: "on" };
-    await open();
+    expect(onRoot()).toMatchObject({ panels: "liquid", background: "plain" });
     const panels = card("Panels and background");
     await press(panels, "Reset to defaults: Panels and background");
     await settle();
     expect(writes()).toEqual([{ look: { panels: "glass", background: "atlantic" } }]);
-    expect(stored.liquidCards).toBe("on");
-    expect(button(panels, "Undo reset to defaults: Panels and background")).toBeDefined();
-    // Liquid again: the kind kept while out of sight is there as it was.
-    await pick("set-panels", "Liquid");
-    await settle();
-    expect(switches().find(([name]) => name === "Page cards")).toEqual(["Page cards", true]);
-    expect(liquidOnRoot()).toBe("chrome panels map buttons cards");
-    await press(panels, "Reset to defaults: Panels and background");
-    await settle();
-    expect(writes().at(-1)).toEqual({ look: { panels: "glass", background: "atlantic", liquidChrome: "on", liquidPanels: "on", liquidMap: "on",
-      liquidButtons: "on", liquidCards: "off", liquidInner: "off", liquidMenus: "off", liquidDialogs: "off" } });
-    expect(row(KINDS)).toBeNull();
+    expect(stored).toMatchObject(RETIRED_KINDS);
     await press(panels, "Undo reset to defaults: Panels and background");
     await settle();
-    expect(writes().at(-1)).toEqual({ look: { panels: "liquid", liquidCards: "on" } });
-    expect(switches().find(([name]) => name === "Page cards")).toEqual(["Page cards", true]);
-    expect(liquidOnRoot()).toBe("chrome panels map buttons cards");
-  });
-
-  it("returns every kind shown with Reset to Dezfil's default, and Undo writes back the kinds it hid", async () => {
-    stored = { ...stored, panels: "liquid", liquidCards: "on", liquidMap: "off" };
-    await open();
-    await press(top(), "Reset to Dezfil's default");
-    await settle();
-    expect(writes()).toEqual([{ look: defaultLook() }]);
-    expect(row(KINDS)).toBeNull();
+    expect(writes().at(-1)).toEqual({ look: { panels: "liquid", background: "plain" } });
     expect(liquidOnRoot()).toBeNull();
-    await press(top(), "Undo reset to Dezfil's default");
-    await settle();
-    expect(writes()[1]).toEqual({ look: { color: "harbor", rail: "icons", panels: "liquid", liquidCards: "on", liquidMap: "off" } });
-    expect(liquidOnRoot()).toBe("chrome panels buttons cards");
-    expect(switches().filter(([, on]) => on).map(([name]) => name)).toEqual(["Header and side menu", "Side panels", "Map buttons", "Page cards"]);
   });
 
-  it("returns only the picks with Reset to Dezfil's default while the kinds are out of sight", async () => {
-    stored = { ...stored, panels: "paper", liquidCards: "on" };
+  it("returns the seven picks with Reset to Dezfil's default under Liquid, and Undo writes back what it changed", async () => {
+    stored = { ...stored, panels: "liquid", ...RETIRED_KINDS } as Look;
     await open();
     await press(top(), "Reset to Dezfil's default");
     await settle();
     expect(writes()).toEqual([{ look: PICKS_DEFAULT }]);
-    expect(stored.liquidCards).toBe("on");
+    await press(top(), "Undo reset to Dezfil's default");
+    await settle();
+    expect(writes()[1]).toEqual({ look: { color: "harbor", rail: "icons", panels: "liquid" } });
+    expect(liquidOnRoot()).toBeNull();
   });
 });
 
@@ -543,9 +479,7 @@ describe("the tab's words", () => {
     ...container.descendants().flatMap(element => [...element.attributes.values()])];
   /** The only things the tab says: its titles, labels, choices and actions. */
   const SAYS = new Set([
-    ...LOOK_CARDS.flatMap(card => [card.title, ...card.rows.flatMap(row => row.kind === "kinds"
-      ? [row.label, ...row.kinds.map(kind => kind.label)]
-      : [row.label, ...lookChoices(row.key).map(value => choiceLabel(row.key, value))])]),
+    ...LOOK_CARDS.flatMap(card => [card.title, ...card.rows.flatMap(row => [row.label, ...lookChoices(row.key).map(value => choiceLabel(row.key, value))])]),
     "Reset to defaults", "Reset to Dezfil's default", "Undo", "Saved",
   ]);
   const holdsTheCopyRules = () => {
@@ -561,7 +495,8 @@ describe("the tab's words", () => {
   it("says only its titles, labels, choices and actions: no hint, no em dash, and the word color", async () => {
     stored = { ...defaultLook(), color: "slate", corners: "soft", panels: "liquid" };
     await open();
-    expect(said(container)).toContain("Menus and pop-overs");
+    expect(said(container)).toContain("Liquid");
+    expect(said(container)).not.toContain("Menus and pop-overs");
     expect(said(container)).toContain("Reset to Dezfil's default");
     expect(said(container)).toContain("Reset to defaults");
     holdsTheCopyRules();

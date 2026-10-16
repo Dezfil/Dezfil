@@ -64,13 +64,17 @@ describe("Appearance in the search", () => {
     expect(appearance("frosted")[0].target).toEqual({ tab: "appearance", anchor: "set-panels" });
   });
 
-  it("finds Panels by the name of a kind Liquid reaches, whatever is picked, and never the kinds' own row", () => {
-    for (const kind of ["Header and side menu", "Side panels", "On the map", "Map buttons", "Page cards", "Cards inside panels", "Menus and pop-overs", "Dialogs"]) {
-      const hits = appearance(kind.toLowerCase());
-      expect(hits.find(hit => hit.name === "Panels"), kind).toMatchObject({ target: { tab: "appearance", anchor: "set-panels" } });
-      expect(hits.map(hit => hit.name), kind).not.toContain("Liquid panels");
+  it("finds nothing by the name of a kind of surface Liquid once reached, while liquid still finds Panels alone", () => {
+    // Liquid is one choice of Panels and reaches every surface; the kinds it
+    // once reached one by one are no row, keyword or value any more.
+    const liquid = { look: { ...defaultLook(), panels: "liquid" } };
+    for (const kind of ["Header and side menu", "Side panels", "On the map", "Map buttons", "Page cards",
+      "Cards inside panels", "Menus and pop-overs", "Dialogs"]) {
+      expect(searchSettings(index(true, liquid), kind.toLowerCase()).map(hitPath), kind).toEqual([]);
     }
-    expect(appearance("menus and pop-overs").map(hitPath)).toEqual(["You / Appearance · Panels"]);
+    for (const query of ["liquid", "liquid panels"]) {
+      expect(appearance(query, liquid).filter(hit => hit.entry.kind === "row").map(hitPath), query).toEqual(["You / Appearance · Panels"]);
+    }
   });
 
   it("finds a row by the words of its current choice, and shows them", () => {
