@@ -126,12 +126,12 @@ describe("the code the preview adapts from osmtogeojson and the iD editor", () =
     for (const file of ["assembler-rings.ts", "preview-plan.ts"]) {
       const source = flat(`src/lib/osm/${file}`);
       expect(source, file).toContain("the iD editor's relation.js");
-      expect(source, file).toContain("iD is licensed under the ISC License, its copyright held by the iD contributors");
+      expect(source, file).toContain("Copyright (c) iD Contributors");
       expect(source, file).toContain("above copyright notice and this permission notice appear in all copies");
     }
     const notice = flat("NOTICE");
     expect(notice).toMatch(
-      /osmtogeojson 3\.0\.0-beta\.5 \(MIT, © 2013 Martin Raifer\)[\s\S]*?src\/lib\/osm\/assembler-rings\.ts[\s\S]*?src\/lib\/osm\/preview-plan\.ts[\s\S]*?src\/lib\/osm\/assembler-model\.ts[\s\S]*?iD editor \(ISC, © the iD contributors/,
+      /osmtogeojson 3\.0\.0-beta\.5 \(MIT, © 2013 Martin Raifer\)[\s\S]*?src\/lib\/osm\/assembler-rings\.ts[\s\S]*?src\/lib\/osm\/preview-plan\.ts[\s\S]*?src\/lib\/osm\/assembler-model\.ts[\s\S]*?iD editor \(ISC, Copyright \(c\) iD Contributors/,
     );
   });
 });

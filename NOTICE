@@ -103,7 +103,8 @@ originating projects are listed here as they are used:
   that say nothing of an element (src/lib/osm/assembler-model.ts). Each
   file carries its copyright and permission notice. The joining and the
   inner-ring assignment are osmtogeojson's adaptation of the iD editor
-  (ISC, © the iD contributors; https://github.com/openstreetmap/iD),
+  (ISC, Copyright (c) iD Contributors;
+  https://github.com/openstreetmap/iD),
   relation.js and geo.js, whose notice the first two files carry too.
   osmtogeojson itself is a dependency, used unmodified.
 

@@ -24,9 +24,9 @@
  * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *
- * iD is licensed under the ISC License, its copyright held by the iD
- * contributors (https://github.com/openstreetmap/iD); its permission
- * notice follows.
+ * iD (https://github.com/openstreetmap/iD), ISC License:
+ *
+ * Copyright (c) iD Contributors
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
