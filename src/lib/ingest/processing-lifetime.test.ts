@@ -413,3 +413,25 @@ it("a spatial upload keeps the account's work until its received file and its ex
   await drainAccountWork(scope.accountId!);
   expect(accountReleased).toBe(true);
 });
+
+it("a file upload keeps the account's work until its received file is removed", async () => {
+  vi.spyOn(console, "warn").mockImplementation(() => {});
+  const read = rememberContentRead();
+  const removal = holdRemoval((file, options) => receivedFile(file, options) && listTables().length > 0);
+  const scope = testAccountScope();
+  let answer: Response | undefined;
+  void upload(uploadRequest("name,value\na,1\n", "plain.csv")).then(response => { answer = response; });
+  const file = await removal.reached;
+  const operation = read[0]!;
+  // An account deletion starts draining the account's work now.
+  let accountReleased = false; void drainAccountWork(scope.accountId!).then(() => { accountReleased = true; });
+  try {
+    await vi.advanceTimersByTimeAsync(35_000);
+    expect(answer?.status).toBe(201);
+    expect(accountReleased).toBe(false);
+  } finally { removal.release(); }
+  await operation.drained;
+  expect(removal.removed()).toBe(true); expect(existsSync(file)).toBe(false);
+  await drainAccountWork(scope.accountId!);
+  expect(accountReleased).toBe(true);
+});

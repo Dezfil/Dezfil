@@ -9,6 +9,7 @@ import { closeMetadataDb } from "@/lib/metadata/db";
 import { listTables } from "@/lib/metadata/tables";
 import { limits } from "@/lib/limits";
 import { currentTrustedOperation } from "@/lib/trusted-operation";
+import { drainAccountWork } from "@/lib/auth/account-deletion-admission";
 import * as source from "@/lib/net/remote-fetch";
 import * as ingest from "@/lib/ingest/ingest";
 import { refreshTable } from "@/lib/ingest/refresh";
@@ -113,4 +114,30 @@ it("one departing preview does not stop another caller's source read", async () 
   bodies.forEach(body => body.end(JSON.stringify(response)));
   expect(await first).toBeInstanceOf(EvaluationCancelled); expect(await second).toMatchObject({ featureCount: 2 });
   expect(stopped).toBe(true); expect(retained).toBe(true);
+});
+
+it("an import keeps the account's work until a removal left to its cleanup path has run", async () => {
+  vi.spyOn(source, "openRemote").mockImplementation(async () => reply(Readable.from([Buffer.from(JSON.stringify(response))])));
+  const reached = Promise.withResolvers<void>(), release = Promise.withResolvers<void>();
+  let operation: ReturnType<typeof remember>, removed = false;
+  const original = ingest.buildArtifact;
+  vi.spyOn(ingest, "buildArtifact").mockImplementation(async (...args) => {
+    // The first class leaves a removal to the operation's cleanup path, held until released.
+    if (!operation) { operation = remember(); operation!.defer(async () => { reached.resolve(); await release.promise; removed = true; }); }
+    return original(...args);
+  });
+  const scope = testAccountScope();
+  const work = importOsm(scope, request);
+  await reached.promise;
+  // An account deletion starts draining the account's work now.
+  let accountReleased = false; void drainAccountWork(scope.accountId!).then(() => { accountReleased = true; });
+  try {
+    await vi.advanceTimersByTimeAsync(0);
+    expect(accountReleased).toBe(false);
+  } finally { release.resolve(); }
+  expect(await work).toHaveLength(2);
+  await operation!.drained;
+  expect(removed).toBe(true);
+  await drainAccountWork(scope.accountId!);
+  expect(accountReleased).toBe(true);
 });
