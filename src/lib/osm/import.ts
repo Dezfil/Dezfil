@@ -358,7 +358,9 @@ export async function importOsm(
 ): Promise<DataTable[]> {
   return withTrustedMutation({ kind: "import", name: "OpenStreetMap import", signal }, async operation => {
     const deletionWork = admitAccountWork([requireAccountScope(scope)]);
-    try {
+    // The account's work is released after the operation's removals, the
+    // last cleanup to run.
+    operation.defer(() => deletionWork.release());
     requireAccountScope(scope);
     const projectId = importProjectId(request.projectId);
     if (projectId) requireFilingDestination(scope, projectId);
@@ -454,8 +456,6 @@ export async function importOsm(
       if (inFlight) await removeAccountFile(inFlight, { force: true });
       throw error;
     }
-
-    } finally { deletionWork.release(); }
   });
 }
 

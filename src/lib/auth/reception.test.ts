@@ -1,5 +1,5 @@
-import { createServer, request as httpRequest, Agent, type Server, type ClientRequest } from "node:http";
-import { connect, type AddressInfo } from "node:net";
+import { createServer, request as httpRequest, Agent, type Server, type ClientRequest, type IncomingMessage, type ServerResponse } from "node:http";
+import { connect, type AddressInfo, type Socket } from "node:net";
 import { mkdtemp, readdir, rm, stat } from "node:fs/promises";
 import path from "node:path";
 import { NextRequestAdapter } from "next/dist/server/web/spec-extension/adapters/next-request";
@@ -255,4 +255,65 @@ it("keeps application cancellation bodyless while file cleanup is delayed", asyn
     await vi.advanceTimersByTimeAsync(1000); expect(client.received()).toBe(false);
   } finally { release.resolve(); }
   expect(await client.result).toMatchObject({ status: 499, text: "" }); await noPartial();
+});
+
+/** A server that holds every answer until the case gives it, and one client
+ * connection that queues its requests on it without reading. */
+async function holding(onRequest: (incoming: IncomingMessage) => void = () => {}) {
+  installIngress();
+  const held: { incoming: IncomingMessage; outgoing: ServerResponse }[] = [], sockets: Socket[] = [], idle: number[] = [];
+  const server = createServer((incoming, outgoing) => { onRequest(incoming); held.push({ incoming, outgoing }); });
+  // The connection's own close listeners, before any request arrives on it.
+  server.on("connection", socket => { sockets.push(socket); idle.push(socket.listenerCount("close")); });
+  servers.push(server); await new Promise<void>(resolve => server.listen(0, "127.0.0.1", resolve));
+  const peer = connect({ port: (server.address() as AddressInfo).port, host: "127.0.0.1" });
+  let text = ""; peer.on("data", chunk => { text += chunk.toString("latin1"); }); peer.on("error", () => {});
+  const until = async (done: () => boolean) => { for (let attempt = 0; attempt < 200 && !done(); attempt++) await pause(); expect(done()).toBe(true); };
+  return {
+    held, sockets, idle, peer,
+    queue: (count: number) => { peer.write("GET /health HTTP/1.1\r\nHost: instance.test\r\n\r\n".repeat(count)); },
+    reached: (count: number) => until(() => held.length === count),
+    answered: (count: number) => until(() => text.split("HTTP/1.1 200").length - 1 === count),
+    close: async () => { const closed = new Promise(resolve => sockets[0].once("close", resolve)); peer.destroy(); await closed; await pause(20); },
+  };
+}
+
+it("hears a kept-alive connection close through one listener, however many requests are in flight on it", async () => {
+  const warnings: Error[] = [], warned = (warning: Error) => { warnings.push(warning); };
+  process.on("warning", warned);
+  const connection = await holding();
+  try {
+    connection.queue(1); await connection.reached(1);
+    const one = connection.sockets[0].listenerCount("close");
+    // The client queues eleven more before reading any answer.
+    connection.queue(11); await connection.reached(12); await pause(20);
+    expect(connection.sockets).toHaveLength(1);
+    expect(connection.sockets[0].listenerCount("close")).toBe(one);
+    expect(warnings.filter(warning => warning.name === "MaxListenersExceededWarning")).toEqual([]);
+    for (const { outgoing } of connection.held) outgoing.end("answered");
+    await connection.answered(12); await pause(20);
+    // With nothing left in flight, the connection keeps only its own listeners.
+    expect(connection.sockets[0].listenerCount("close")).toBe(connection.idle[0]);
+  } finally { process.off("warning", warned); connection.peer.destroy(); }
+});
+
+// The framework's proxy drops the reception's error observer when it puts a
+// body back; a request still in flight then claims the departure the server
+// reports on it once its connection closes.
+const dropObserver = (incoming: IncomingMessage) => { incoming.removeAllListeners("error"); };
+
+it("still reaches every request in flight on a connection that closes", async () => {
+  const connection = await holding(dropObserver);
+  connection.queue(3); await connection.reached(3);
+  await connection.close();
+  expect(connection.held.map(({ incoming }) => incoming.listenerCount("error"))).toEqual([1, 1, 1]);
+});
+
+it("still reaches the other requests in flight when one on the connection finishes", async () => {
+  const connection = await holding(dropObserver);
+  connection.queue(3); await connection.reached(3);
+  connection.held[0].outgoing.end("answered"); await connection.answered(1);
+  await connection.close();
+  // The finished request no longer hears the connection; the two in flight do.
+  expect(connection.held.map(({ incoming }) => incoming.listenerCount("error"))).toEqual([0, 1, 1]);
 });
