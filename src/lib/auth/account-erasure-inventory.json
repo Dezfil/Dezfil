@@ -3498,6 +3498,146 @@
         "memory:immutable-configuration"
       ]
     },
+    "memory:src/lib/osm/preview-plan.ts#standInPlan": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/osm/preview-plan.ts#standInPlan.appended": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/osm/preview-plan.ts#standInPlan.areaIds": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/osm/preview-plan.ts#standInPlan.areas": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/osm/preview-plan.ts#standInPlan.before": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/osm/preview-plan.ts#standInPlan.carriers": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/osm/preview-plan.ts#standInPlan.copies": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/osm/preview-plan.ts#standInPlan.copy": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/osm/preview-plan.ts#standInPlan.drawn": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/osm/preview-plan.ts#standInPlan.element": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/osm/preview-plan.ts#standInPlan.elements": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/osm/preview-plan.ts#standInPlan.given": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/osm/preview-plan.ts#standInPlan.giver": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/osm/preview-plan.ts#standInPlan.i": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/osm/preview-plan.ts#standInPlan.id": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/osm/preview-plan.ts#standInPlan.kept": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/osm/preview-plan.ts#standInPlan.lines": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/osm/preview-plan.ts#standInPlan.marking": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/osm/preview-plan.ts#standInPlan.ownLine": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/osm/preview-plan.ts#standInPlan.relationKeys": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/osm/preview-plan.ts#standInPlan.removed": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/osm/preview-plan.ts#standInPlan.replaced": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/osm/preview-plan.ts#standInPlan.set": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/osm/preview-plan.ts#standInPlan.slots": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/osm/preview-plan.ts#standInPlan.standIns": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/osm/preview-plan.ts#standInPlan.stood": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/osm/preview-plan.ts#standInPlan.unused": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/osm/preview-plan.ts#standInPlan.whole": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
     "memory:src/lib/overture/divisions.ts#CITY_SEARCH_SUBTYPES": {
       "stores": [
         "memory:public-geography-catalogues"
