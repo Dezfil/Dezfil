@@ -125,7 +125,7 @@ describe("a tile template carrying user information, given to the embedded assis
     assistantRuns.resume(scope, run.id, "approved");
     const done = await streamed(runStream(scope, resumeAssistant(parked, true, deps), run.id));
     expect(done).toContainEqual(expect.objectContaining({ type: "tool_result", tool: "update_instance_settings", ok: false }));
-    expect(JSON.stringify(done)).toContain("A browser cannot load tiles from an address that carries a user name or password; put the key in the path or the query.");
+    expect(JSON.stringify(done)).toContain("Satellite imagery is not drawn from an address that carries a user name or password; put the key in the path or the query.");
     const record = assistantRuns.read(scope, run.id);
     expect(record.actions).toEqual([expect.objectContaining({ tool: "update_instance_settings", args: { satelliteUrl: ORIGIN } })]);
     expectNoSeed([asked, done, record, assistantRuns.pending(scope)]);

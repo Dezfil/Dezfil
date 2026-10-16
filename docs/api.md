@@ -504,8 +504,8 @@ of them: the fifteen Limits numbers; the services' eight numbers
 `overpassTimeoutS` and `overpassCacheHours`, in their variables' units; the four
 service addresses `geocoderUrl`, `isochroneUrl`, `overpassUrl` and
 `s3Endpoint`; the satellite imagery's tile address `satelliteUrl`, which must
-hold `{z}`, `{x}` and `{y}` and carry no user name or password (a browser cannot
-load tiles from such an address, so the key belongs in the path or the query,
+hold `{z}`, `{x}` and `{y}` and carry no user name or password (the imagery is
+not drawn from such an address, so the key belongs in the path or the query,
 and the refusal says so), and its credit `satelliteAttribution`, at most 160
 characters; the five basemap switches `basemaps.dark`, `basemaps.light`,
 `basemaps.streets`, `basemaps.satellite` and `basemaps.singleMapStyles`, each

@@ -52,7 +52,7 @@ import { SETTING_CATALOGUE } from "./catalogue";
  * query. Here one is set from the page, by the variable, through the
  * generated tool and through the embedded assistant, and then searched for
  * in everything the server says or keeps afterwards. A save refuses a
- * template carrying user information (no browser loads tiles from it), so
+ * template carrying user information (no imagery is drawn from it), so
  * the template's key is saved in its path and query, its user information
  * given on each of those roads and refused, and set by the variable alone,
  * which carries it to every sink the template reaches (the reads, the

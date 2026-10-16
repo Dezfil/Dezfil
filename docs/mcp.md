@@ -126,7 +126,7 @@ them is refused before any call. The listed sites go in as a list of origins.
 An address goes in whole, as text, and is refused when the egress policy would
 refuse it now, its key named with the policy's sentence; the satellite tile
 address is also refused when it carries a user name or password, the refusal
-saying a browser cannot load tiles from such an address and the key belongs in
+saying the imagery is not drawn from such an address and the key belongs in
 the path or the query. The result, the
 assistant's confirmation, its events and its record give it as scheme and host
 alone, while the call itself carries the address as given.

@@ -28,7 +28,7 @@ import styles from "./DataTab.module.css";
  * variable, or a folder on the server where the variable names one in
  * place of an address (the template catalogue's), never its path. A tile
  * template in effect that carries a user name or password says under it
- * that browsers draw nothing from it.
+ * that nothing is drawn from it.
  *
  * Typed text holds the page as any typed text does, but it never reaches
  * the search: an address may carry a key.
@@ -54,7 +54,7 @@ export function ServiceAddressRow({ row, setting, card, onAnswer, labels = DATA_
   if (!setting) return null;
 
   // Said while the address in effect carries user information, where the
-  // row has words for it: a template no browser loads tiles from.
+  // row has words for it: a template the imagery is not drawn from.
   const credentials = row.userInformation && (setting.value as { userInformation?: boolean } | null)?.userInformation === true
     ? <RowError id={`${id}-credentials`}>{row.userInformation}</RowError> : null;
   const decided = serverSetState(setting);

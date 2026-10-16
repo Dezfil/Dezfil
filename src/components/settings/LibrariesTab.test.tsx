@@ -25,7 +25,7 @@ import { instanceReadFixture, type Resolution } from "./read-fixture";
 
 const BLOCKED = "The requested address is not reachable from this server: loopback, private-network, link-local, and metadata addresses are blocked by default. Specific hosts can be allowed with DEZFIL_EGRESS_ALLOWLIST.";
 const KEY = "SEEDED-KEY-0008-QUERY";
-const USER_INFORMATION = "Browsers draw no tiles from an address that carries a user name or password. Put the key in the path or the query.";
+const USER_INFORMATION = "Satellite imagery is not drawn from an address that carries a user name or password. Put the key in the path or the query.";
 const HARBOR: LibraryStyleRead = { id: "style-harbor", name: "Harbor chart", url: "https://tiles.harbor.example/styles/chart/style.json",
   attribution: [{ label: "Harbor Office" }], offered: true, addedAt: "2026-10-01T08:00:00.000Z" };
 

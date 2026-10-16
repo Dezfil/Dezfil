@@ -41,7 +41,7 @@ export interface AddressRow {
   /** What removing a saved address does, as Remove's dialog says it. */
   readonly removal: string;
   /** What the row says while the address in effect carries a user name or
-   * password, where that keeps it from working (a tile template browsers load). */
+   * password, where that keeps it from working (the imagery's tile template). */
   readonly userInformation?: string;
 }
 

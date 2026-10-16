@@ -290,7 +290,7 @@ fills it for each tile as MapLibre fills a raster template, so `{ratio}`
 write-only, encrypted with the instance's key, read back as its scheme and host
 alone, and refused at save where the egress policy would refuse it now. Unlike
 a service address, it is also refused at save when it carries a user name or
-password: a browser cannot load tiles from such an address, so the key belongs
+password: the imagery is not drawn from such an address, so the key belongs
 in the path or the query. One that carries them anyway, set by the variable or
 stored before saves refused it, reads with `userInformation: true` and is not
 drawn; the tab says so under the tile address. The credit is text of at most
