@@ -440,6 +440,10 @@ test("the SQL console end to end", async ({ page, context }) => {
   });
 
   await test.step("the save panel stays whole at the results area's minimum height", async () => {
+    // The reload re-ran the Data door's query, and on a large store it can
+    // still be running here: its result would then land after this step's
+    // and its "Save as dataset" would be the one opened.
+    await expect(page.getByText(`Opened from Data: ${spatial}.`)).toBeVisible({ timeout: 20_000 });
     // Drag the editor divider as far down as it goes: the results card is
     // at its minimum, and a panel positioned inside it would be clipped.
     const hHandle = page.getByRole("separator", { name: "Resize the editor" });
@@ -450,6 +454,11 @@ test("the SQL console end to end", async ({ page, context }) => {
     await page.mouse.up();
     await typeSql(page, `SELECT name, riders FROM ${spatial} WHERE riders > 1000`);
     await page.getByRole("button", { name: "Run query" }).click();
+    // This query's own result, not the door's: the panel belongs to the
+    // run it was opened for.
+    const results = page.getByRole("region", { name: "Results", exact: true });
+    await expect(results.getByRole("columnheader", { name: /riders/ })).toBeVisible({ timeout: 20_000 });
+    await expect(results.getByRole("columnheader", { name: /kind/ })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Save as dataset" })).toBeVisible({ timeout: 20_000 });
     await page.getByRole("button", { name: "Save as dataset" }).click();
     const panel = page.getByRole("group", { name: "Save as dataset" });
