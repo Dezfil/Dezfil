@@ -189,15 +189,18 @@ export function Menu({
       if (rect && from && Math.abs(rect.top - from.top) < 1 && Math.abs(rect.left - from.left) < 1) return;
       close();
     };
+    // A resize closes whatever the trigger did: the menu's place and its
+    // height were measured for the window as it was.
+    const onResize = () => close();
     document.addEventListener("pointerdown", onPointerDown);
     document.addEventListener("keydown", onKeyDown, true);
     window.addEventListener("scroll", onScroll, true);
-    window.addEventListener("resize", onScroll);
+    window.addEventListener("resize", onResize);
     return () => {
       document.removeEventListener("pointerdown", onPointerDown);
       document.removeEventListener("keydown", onKeyDown, true);
       window.removeEventListener("scroll", onScroll, true);
-      window.removeEventListener("resize", onScroll);
+      window.removeEventListener("resize", onResize);
     };
   }, [open, close, closeToTrigger]);
 

@@ -102,3 +102,34 @@ test("an open layer menu still closes when its row scrolls away under it", async
   await expect(menuButton, "a menu left behind by its scrolled row stayed open").toHaveAttribute("aria-expanded", "false");
   await expect(page.getByRole("menuitem", { name: "Delete layer", exact: true })).toHaveCount(0);
 });
+
+test("an open layer menu closes when the window is resized, though its row has not moved", async ({ page, context }) => {
+  await routeHouse(context, { basemapStyleStub: true });
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto("/maps");
+  await seedCsv(page, `${table}_r`, CSV);
+  const mapId = await createMap(page, `Menu resize ${runId}`);
+  const targetId = await addLayer(page, mapId, "Resized", `SELECT * FROM "${table}_r"`);
+  await page.goto(`/maps/${mapId}`);
+  const row = page.locator("li[data-selected]").filter({ has: page.locator(`[data-layer-select="${targetId}"]`) });
+  await expect(row).toBeVisible({ timeout: 30_000 });
+  await saveSettled(page);
+
+  const menuButton = row.getByRole("button", { name: "Layer menu", exact: true });
+  // The row eases into place after the builder opens: measure it at rest.
+  await expect.poll(async () => {
+    const first = await menuButton.boundingBox();
+    await page.waitForTimeout(200);
+    return JSON.stringify(first) === JSON.stringify(await menuButton.boundingBox());
+  }, { message: "the row never came to rest" }).toBe(true);
+  await menuButton.click();
+  await expect(page.getByRole("menuitem", { name: "Delete layer", exact: true })).toBeVisible();
+  const before = await menuButton.boundingBox();
+  // Shorter, as a window dragged smaller: the menu's place and its height
+  // were measured for the window as it was.
+  await page.setViewportSize({ width: 1440, height: 760 });
+  const after = await menuButton.boundingBox();
+  expect(after, "the row moved with the resize; the case no longer holds its trigger still").toEqual(before);
+  await expect(menuButton, "a menu measured for the old window stayed open").toHaveAttribute("aria-expanded", "false");
+  await expect(page.getByRole("menuitem", { name: "Delete layer", exact: true })).toHaveCount(0);
+});
