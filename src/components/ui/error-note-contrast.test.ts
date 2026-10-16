@@ -17,10 +17,11 @@ type Theme = "light" | "dark";
 const GLOBALS = readFileSync("src/app/globals.css", "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
 const NOTE = readFileSync("src/components/ui/ErrorNote.module.css", "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
 
-/** The declarations of the top-level rule whose selector list is exactly this one. */
+/** The declarations of the top-level rule whose selector list is exactly this
+ * one, a cascade layer's rule included. */
 function block(css: string, selector: string): Map<string, string> {
   const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s*");
-  const m = new RegExp(`(?:^|\\})\\s*${escaped}\\s*\\{([^}]*)\\}`).exec(css);
+  const m = new RegExp(`(?:^|\\}|@layer [\\w-]+\\s*\\{)\\s*${escaped}\\s*\\{([^}]*)\\}`).exec(css);
   expect(m, `${selector} is not where this check expects it`).not.toBeNull();
   return new Map([...m![1].matchAll(/([\w-]+)\s*:\s*([^;]+);?/g)].map(([, name, value]) => [name, value.trim()]));
 }

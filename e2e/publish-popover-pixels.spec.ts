@@ -5,7 +5,10 @@
 // statistical map-region detectors in pixel-regressions.spec.ts. Dynamic
 // values are handled, not masked away: the elapsed time reads "just now"
 // throughout (the shot follows the publish within seconds) and the token
-// URL is masked.
+// URL is masked. The shot is the popover's bounding box, so the page shows
+// through outside its rounded corners: third-party hosts are blocked and
+// the basemap answers a fixed empty style, so what shows there is the same
+// on every run instead of a live tile server's labels.
 //
 // Baselines are darwin-generated — where the local browser rounds run —
 // so the spec skips visibly elsewhere, including main's ubuntu browser
@@ -14,7 +17,7 @@
 // host.docker.internal. Cross-platform pixel discipline is out of scope
 // here.
 import { test, expect } from "@playwright/test";
-import { addLayer, createMap, saveSettled, seedCsv } from "./support";
+import { addLayer, createMap, routeHouse, saveSettled, seedCsv } from "./support";
 
 test.skip(
   process.platform !== "darwin",
@@ -26,7 +29,9 @@ const tableName = `pub_px_${runId}`;
 
 test("the publish popover matches its baselines in both themes and states", async ({
   page,
+  context,
 }) => {
+  await routeHouse(context, { basemapStyleStub: true });
   // **Wide enough for the popover to be on screen at all.** At the default
   // 1280 the builder header's right-hand cluster runs past the viewport when a
   // map is published — measured at 133 px over with the newest control

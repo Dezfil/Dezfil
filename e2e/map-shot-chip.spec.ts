@@ -24,9 +24,11 @@
 //     helper — that the chip genuinely moves pixels inside the clip, and
 //     that `mapShot` holds it out anyway;
 //   - the SOURCE half proves the six local shot closures in
-//     `journey.spec.ts` still carry the line. The rendered half cannot
-//     reach them (they are closures over one test's `canvasBox`), and two
-//     green journey runs are absence of failure, not proof.
+//     `journey.spec.ts` still carry the line: each goes through the
+//     file's one masked shot helper, and that helper's screenshot carries
+//     the stylesheet. The rendered half cannot reach them (they are
+//     closures over one test's `canvasBox`), and two green journey runs
+//     are absence of failure, not proof.
 //
 // Neither half asserts anything about the chip's own behavior: its
 // placement, text, tone, hold and action are owned by
@@ -194,9 +196,19 @@ test("every map-pixel shot closure in the journey carries the stylesheet", async
   // Named, so a refactor that renames the closure fails here rather than
   // silently checking nothing.
   expect(closures.length, "the journey's map shot closures").toBe(6);
-  const bare = closures.filter((body) => !body.includes("style: MAP_SHOT_STYLE"));
+  // Each closure shoots through the shared helper and takes no screenshot
+  // of its own...
+  const bypassing = closures.filter(
+    (body) => !body.includes("maskedMapShot(page, {") || body.includes(".screenshot("),
+  );
   expect(
-    bare.length,
-    `map shot closures without the stylesheet: ${bare.map((b) => b.slice(0, 80)).join(" | ")}`,
+    bypassing.length,
+    `map shot closures that bypass maskedMapShot: ${bypassing.map((b) => b.slice(0, 80)).join(" | ")}`,
   ).toBe(0);
+  // ...and the helper's one screenshot carries the stylesheet.
+  const helper = source.split("async function maskedMapShot(")[1];
+  if (!helper) throw new Error("the journey has no maskedMapShot helper");
+  const helperBody = helper.slice(0, helper.indexOf("\n}\n"));
+  expect(helperBody.split(".screenshot(").length - 1, "the helper's screenshots").toBe(1);
+  expect(helperBody, "the helper's screenshot carries the stylesheet").toContain("style: MAP_SHOT_STYLE");
 });

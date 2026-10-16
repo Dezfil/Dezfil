@@ -18,9 +18,9 @@ const rule = object({ rule: { type: "string" } });
 const ORIGIN = { type: "string", description: "Scheme and host only, including the port when set. No user information, path, query or fragment." };
 const address = { oneOf: [object({ set: { const: false } }), object({ set: { const: true }, origin: ORIGIN }),
   object({ set: { const: true }, unreadable: { const: true } }), rule] };
-/** A tile template browsers load also says when the one in effect carries user information. */
+/** The imagery's tile template also says when the one in effect carries user information. */
 const template = { oneOf: [...address.oneOf.slice(0, 2), object({ set: { const: true }, origin: ORIGIN,
-  userInformation: { const: true, description: "The template in effect carries a user name or password, never given here. No browser loads tiles from such an address, so the imagery is not drawn." } }),
+  userInformation: { const: true, description: "The template in effect carries a user name or password, never given here. The imagery is not drawn from such an address." } }),
   ...address.oneOf.slice(2)] };
 
 /** An address whose variable may name a folder on the server instead (the
@@ -117,7 +117,7 @@ export const INSTANCE_SETTINGS_SCHEMAS = {
           "Each is kept as its scheme, host and port, a repeated site once; an empty list clears to the default."
         : constraint.kind === "address" ? `An http or https address with a host, at most ${constraint.maxLength} characters once trimmed, kept as given. ` +
           (constraint.placeholders ? `It must hold ${constraint.placeholders.join(", ")}; the save-time check reads it with each filled with a digit. ` : "") +
-          (constraint.userInformation === "refused" ? "It must carry no user name or password: a browser cannot load tiles from such an address, " +
+          (constraint.userInformation === "refused" ? "It must carry no user name or password: the imagery is not drawn from such an address, " +
             "so the key belongs in the path or the query. " : "") +
           "Write-only: it is stored encrypted with the instance's key and every read gives back its scheme and host alone, so a new key " +
           `means sending the whole address again. A set ${definition.environment} locks it.` +
@@ -147,8 +147,8 @@ export const INSTANCE_SETTINGS_PATHS = {
       "Address value and defaultValue expose scheme and host only, never user information, paths, queries or fragments; malformed addresses report set and unreadable. " +
       "A service address or the satellite tile template an admin stored reads as set with its scheme and host, or as set and unreadable once the instance's " +
       "encryption key no longer opens it; its storedValue is always null. The satellite tile template in effect, stored or set by DEZFIL_SATELLITE_URL, " +
-      "also reads with userInformation true while it carries a user name or password, which is never given: no browser loads tiles from such an address, " +
-      "so the imagery is not drawn. The satellite credit an admin stored reads as stored while DEZFIL_SATELLITE_ATTRIBUTION " +
+      "also reads with userInformation true while it carries a user name or password, which is never given: the imagery is not drawn from such an address. " +
+      "The satellite credit an admin stored reads as stored while DEZFIL_SATELLITE_ATTRIBUTION " +
       "is unset, and as the variable's, with the stored credit as storedValue, while it is set. " +
       "The template catalogue's address (templatesCatalogueUrl) reads as a service address does; while DEZFIL_TEMPLATES_CATALOGUE names a folder on this " +
       "server instead of an http or https address, it reads as set with folder true, and the folder's path is never given. " +
@@ -191,7 +191,7 @@ export const INSTANCE_SETTINGS_PATHS = {
       "each is stored encrypted and read back as its scheme and host alone; a refusal names the key and never repeats the address. " +
       "The catalogue's address is http or https here: a folder on the server is named by DEZFIL_TEMPLATES_CATALOGUE alone. " +
       "The template must also hold {z}, {x} and {y}, a refusal naming the ones missing, and carry no user name or password, refused " +
-      "before any lookup with a sentence saying a browser cannot load tiles from such an address and the key belongs in the path or the query. Before the write, an address is also refused " +
+      "before any lookup with a sentence saying the imagery is not drawn from such an address and the key belongs in the path or the query. Before the write, an address is also refused " +
       "(400 invalid_request, with the egress policy's own sentence) when that policy would refuse a request to it now, a template with each placeholder " +
       "filled with a digit: a literal in loopback, private, carrier-grade, link-local or metadata, unique-local, unspecified, multicast or reserved space, " +
       "mapped and NAT64 forms included, or a name all of whose addresses resolve there, unless DEZFIL_EGRESS_ALLOWLIST names it. " +

@@ -1,6 +1,7 @@
 import type { Database } from "better-sqlite3";
 import { ApiError } from "@/lib/api/errors";
 import { metadataDb } from "@/lib/metadata/db";
+import { tileTemplateRefusal } from "@/lib/settings/address-admission";
 import { resolveServiceAddress } from "@/lib/settings/service-address";
 import { readStoredSettings } from "@/lib/settings/store";
 import {
@@ -32,10 +33,13 @@ export function satelliteTileUrl(db: Database = metadataDb()): string | null {
   return resolveServiceAddress("satelliteUrl", db).address;
 }
 
-/** Whether imagery is set up and its template can be read now. */
+/** Whether imagery is set up, its template can be read now and the
+ * template's own rule lets it be drawn: one carrying a user name or
+ * password, which only its variable can set, counts as no imagery. */
 function satelliteReadable(db: Database): boolean {
   try {
-    return satelliteTileUrl(db) !== null;
+    const template = satelliteTileUrl(db);
+    return template !== null && tileTemplateRefusal(template) === null;
   } catch (error) {
     if (error instanceof ApiError && error.code === "service_address_unreadable") return false;
     throw error;
@@ -52,7 +56,7 @@ export function satelliteAttribution(db: Database = metadataDb()): AttributionLi
   return typeof text === "string" && text ? [{ label: text }] : [];
 }
 
-/** The Satellite entry, present while a template is set and readable. */
+/** The Satellite entry, present while a template is set, readable and drawable. */
 export function satelliteBasemap(db: Database = metadataDb()): BasemapStyle | null {
   if (!satelliteReadable(db)) return null;
   return {
@@ -65,13 +69,15 @@ export function satelliteBasemap(db: Database = metadataDb()): BasemapStyle | nu
 }
 
 /** The MapLibre style document served for the imagery at a style address,
- * its tiles under that address, or null while no template is set. Throws
- * the coded unreadable refusal, never a default. */
+ * its tiles under that address, or null while no template is set or the
+ * one in effect carries a user name or password. Throws the coded
+ * unreadable refusal, never a default. */
 export function satelliteStyleDocument(
   styleUrl: string = SATELLITE_STYLE_URL,
   db: Database = metadataDb(),
 ): Record<string, unknown> | null {
-  if (!satelliteTileUrl(db)) return null;
+  const template = satelliteTileUrl(db);
+  if (!template || tileTemplateRefusal(template)) return null;
   const credit = satelliteAttribution(db)[0]?.label;
   return {
     version: 8,

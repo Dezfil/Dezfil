@@ -123,7 +123,8 @@ function continuousAccessor(
 }
 
 /** Build a per-feature fill accessor from a fill paint (spec: data-driven fill).
- * `noData` is what a continuous ramp draws for a missing value. */
+ * `noData` is what a continuous ramp and a classed fill draw for a missing
+ * value. */
 export function fillAccessor(
   fill: FillPaint,
   fillOpacity = 1,
@@ -145,10 +146,11 @@ export function fillAccessor(
   // quantile
   const colors = fill.colors.map((c) => toDeck(c, fillOpacity));
   const breaks = fill.breaks;
+  // As on a continuous ramp: a missing value is no value, never the first class.
+  const missing = toDeck(noData, fillOpacity);
   return (f) => {
-    const raw = f.properties?.[fill.attribute];
-    const v = typeof raw === "number" ? raw : Number(raw);
-    if (!Number.isFinite(v)) return colors[0];
+    const v = numericValue(f.properties?.[fill.attribute]);
+    if (v === null) return missing;
     let i = 0;
     while (i < breaks.length && v > breaks[i]) i++;
     return colors[Math.min(i, colors.length - 1)];

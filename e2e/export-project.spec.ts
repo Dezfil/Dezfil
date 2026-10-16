@@ -438,8 +438,9 @@ test("the 16-C export end to end", async ({ page, context }) => {
     await d2.getByRole("textbox").fill("doomed");
     await api(page, "DELETE", `/api/projects/${pd}`);
     await d2.getByRole("button", { name: /^Download / }).click();
-    // The server's sentence, the dialog still on review, the name kept.
-    await expect(d2.getByText(/No project with id/)).toBeVisible();
+    // The server's sentence (a project the caller cannot reach answers
+    // like a missing one), the dialog still on review, the name kept.
+    await expect(d2.getByText("The requested resource was not found.", { exact: true })).toBeVisible();
     await expect(d2.getByRole("button", { name: "Back" })).toBeVisible();
     await expect(d2.getByRole("textbox")).toHaveValue("doomed");
     await page.keyboard.press("Escape");

@@ -196,7 +196,8 @@ export function buildOpenApiDocument() {
             "template, so the template and a key in it never leave the server. " +
             "It answers signed-in accounts only; an anonymous request is " +
             "refused. No imagery ships with the app, so an instance that " +
-            "configures none answers 404 and offers no imagery basemap. A " +
+            "configures none answers 404 and offers no imagery basemap, as " +
+            "does one whose tile template carries a user name or password. A " +
             "stored template the instance's key no longer opens is refused " +
             "with service_address_unreadable, never answered with another " +
             "style. A published page's reader has the publication's own " +

@@ -9,7 +9,7 @@
   max-width: 760px;
 }
 
-.recentHead {
+.recentCard .recentHead {
   display: flex;
   align-items: center;
   gap: 10px;

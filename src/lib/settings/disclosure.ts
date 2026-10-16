@@ -16,8 +16,8 @@ export function variableMayNameFolder(definition: SettingDefinition): boolean {
 }
 
 /** A path or template can contain credentials just as user information or a query can.
- * Where asked (a tile template browsers load), it also says that the address
- * carries user information, never what it is: no browser loads tiles from it. */
+ * Where asked (the imagery's tile template), it also says that the address
+ * carries user information, never what it is: no imagery is drawn from it. */
 export function discloseAddress(value: string | null, reportUserInformation = false): AddressDisclosure {
   if (!value?.trim()) return { set: false };
   try {
@@ -36,8 +36,8 @@ export function carriesUserInformation(address: string): boolean {
   } catch { return false; }
 }
 
-/** Whether a setting's address takes no user information at save (a tile
- * template browsers load), so its read reports the one in effect carrying some. */
+/** Whether a setting's address takes no user information at save (the
+ * imagery's tile template), so its read reports the one in effect carrying some. */
 export function refusesUserInformation(definition: SettingDefinition): boolean {
   return definition.write?.kind === "address" && definition.write.userInformation === "refused";
 }

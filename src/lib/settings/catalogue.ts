@@ -23,7 +23,8 @@ function stored(key: string, label: string, purpose: string, defaultValue: Setti
 const choice = (...values: string[]): WriteConstraint => ({ kind: "choice", values });
 /** An address set by its variable or stored by an admin beside it (a
  * service's, or the imagery's tile template with its placeholders, which
- * browsers load and so takes no user information): a set variable locks
+ * takes no user information since no imagery is drawn from one carrying
+ * it): a set variable locks
  * it. Write-only, like the rest of the address kind: what any read gives
  * back is its scheme and host. */
 function serviceAddress(key: string, environment: string, label: string, purpose: string,

@@ -20,7 +20,10 @@ import { CREDIT_DAYLIGHT, creditClearance } from "./use-status-priority";
  * A legend card in the lower-left corner shares the same band from the
  * other side. Where the credit is short, the pill would keep its bounding
  * box and widen over the legend's last row; it keeps clear of the card as
- * it keeps clear of the credit.
+ * it keeps clear of the credit. A card in the lower-right corner stands
+ * above the credit with its foot inside the band, and a wide one reaches
+ * further in than a short credit: the pill keeps clear of it the same way,
+ * unless it is only the hidden copy a legend docked in the rail leaves.
  */
 
 const PILL_CSS = readFileSync("src/components/builder/StatusBar.module.css", "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
@@ -47,6 +50,8 @@ const PILL = {
 const CORNER = { right: px(CREDIT, "right"), bottom: px(CREDIT, "bottom") };
 const LEGEND_CORNER = rule(STAGE_CSS, '.overlayCorner[data-corner="bottom-left"]');
 const LEGEND_AT = { left: px(LEGEND_CORNER, "left"), bottom: px(LEGEND_CORNER, "bottom") };
+const RIGHT_CORNER = rule(STAGE_CSS, '.overlayCorner[data-corner="bottom-right"]');
+const RIGHT_AT = { right: px(RIGHT_CORNER, "right"), bottom: px(RIGHT_CORNER, "bottom") };
 /** One 11 px line of credit text. */
 const CREDIT_LINE = 14;
 const CREDIT_WIDTH = 244;
@@ -71,9 +76,11 @@ const LEGEND = { width: 240, height: 80 };
 const SHORT_CREDIT = 160;
 
 /** The pill laid out on a stage `width` wide beside a credit, as drawn,
- * with a legend card in the lower-left corner when one is given. */
-async function layOut(width: number, { creditWidth = CREDIT_WIDTH, legend = null }: {
+ * with a legend card in the lower-left or the lower-right corner when one
+ * is given; `docked` makes the lower-right one the rail's hidden copy. */
+async function layOut(width: number, { creditWidth = CREDIT_WIDTH, legend = null, legendRight = null, docked = false }: {
   creditWidth?: number; legend?: { width: number; height: number } | null;
+  legendRight?: { width: number; height: number } | null; docked?: boolean;
 } = {}) {
   const host = installDomHost();
   vi.stubGlobal("HTMLElement", HostElement);
@@ -86,6 +93,8 @@ async function layOut(width: number, { creditWidth = CREDIT_WIDTH, legend = null
   // Mutable, so a test can move the card and ask the pill to look again.
   const legendBox = legend && { left: LEGEND_AT.left, right: LEGEND_AT.left + legend.width,
     top: STAGE_HEIGHT - LEGEND_AT.bottom - legend.height, bottom: STAGE_HEIGHT - LEGEND_AT.bottom };
+  const rightBox = legendRight && { left: width - RIGHT_AT.right - legendRight.width, right: width - RIGHT_AT.right,
+    top: STAGE_HEIGHT - RIGHT_AT.bottom - legendRight.height, bottom: STAGE_HEIGHT - RIGHT_AT.bottom };
   const box = (left: number, right: number, top: number, bottom: number) =>
     ({ left, right, top, bottom, width: right - left, height: bottom - top, x: left, y: top });
   const isProbe = (element: HostElement) => /(^|\s)_probe_/.test(element.getAttribute("class") ?? "");
@@ -96,6 +105,7 @@ async function layOut(width: number, { creditWidth = CREDIT_WIDTH, legend = null
   (HostElement.prototype as unknown as { getBoundingClientRect: () => object }).getBoundingClientRect = function (this: HostElement) {
     if (this.hasAttribute("data-map-credit")) return box(creditBox.left, creditBox.right, creditBox.top, creditBox.bottom);
     if (legendBox && this.getAttribute("data-corner") === "bottom-left") return box(legendBox.left, legendBox.right, legendBox.top, legendBox.bottom);
+    if (rightBox && this.getAttribute("data-corner") === "bottom-right") return box(rightBox.left, rightBox.right, rightBox.top, rightBox.bottom);
     if (isProbe(this)) return box(center - cap / 2, center + cap / 2, band.top, band.bottom);
     const parent = this.parentElement;
     if (parent && isProbe(parent)) {
@@ -114,12 +124,17 @@ async function layOut(width: number, { creditWidth = CREDIT_WIDTH, legend = null
   const corner = host.document.createElement("div");
   corner.setAttribute("data-corner", "bottom-left");
   host.document.body.appendChild(corner);
+  const rightCorner = host.document.createElement("div");
+  rightCorner.setAttribute("data-corner", "bottom-right");
+  if (docked) rightCorner.setAttribute("data-legend-placement-probe", "true");
+  host.document.body.appendChild(rightCorner);
   const container = host.document.createElement("div");
   host.document.body.appendChild(container);
   const root = createRoot(container as unknown as Element);
   cleanups.push(() => { act(() => root.unmount()); host.uninstall(); });
   const props = { channel: createStatusChannel(), credit: credit as unknown as HTMLElement,
-    legend: legendBox ? corner as unknown as HTMLElement : null };
+    legend: legendBox ? corner as unknown as HTMLElement : null,
+    legendRight: rightBox ? rightCorner as unknown as HTMLElement : null };
   await act(async () => root.render(<StatusBar {...props} />));
   const drawn = () => {
     const bar = host.document.querySelector("[data-status-bar]");
@@ -136,7 +151,7 @@ async function layOut(width: number, { creditWidth = CREDIT_WIDTH, legend = null
     await act(async () => { corner.dispatchEvent(new HostEvent("transitionend", { bubbles: true })); });
     return drawn();
   };
-  return { bar: drawn(), credit: creditBox, legend: legendBox, center, glideLegend };
+  return { bar: drawn(), credit: creditBox, legend: legendBox, legendRight: rightBox, center, glideLegend };
 }
 
 it("measures the replica's resting pill at the width it reported", () => {
@@ -230,4 +245,45 @@ it("gives the pill its band back while the legend is out of it", () => {
   const grounded = { left: 16, right: 256, top: 604, bottom: 684 };
   const start = 256 + CREDIT_DAYLIGHT;
   expect(creditClearance(probe, null, 417, grounded)).toEqual({ room: 835 - start, shift: -(start - (450 - 208.5)) });
+});
+
+it("slides left rather than cover a lower-right legend above a short credit", async () => {
+  const { bar, credit, legendRight } = await layOut(820, { creditWidth: SHORT_CREDIT, legendRight: LEGEND });
+  // The card reaches further in than the short credit, and its foot is in the band.
+  expect(legendRight!.left).toBeLessThan(credit.left);
+  expect(legendRight!.bottom).toBeGreaterThan(STAGE_HEIGHT - PILL.bottom - PILL.height);
+  expect(bar!.shown).toEqual(["Coords", "Zoom", "BBox"]);
+  expect(bar!.right, `the pill ends at ${bar!.right}, the legend starts at ${legendRight!.left}`).toBeLessThanOrEqual(legendRight!.left - CREDIT_DAYLIGHT);
+});
+
+it.each([1600, 1200, 940, 900, 820, 760, 680, 600])("keeps the pill clear of a lower-right legend above a short credit on a stage %i px wide", async width => {
+  const { bar, credit, legendRight } = await layOut(width, { creditWidth: SHORT_CREDIT, legendRight: LEGEND });
+  const end = Math.min(credit.left, legendRight!.left) - CREDIT_DAYLIGHT;
+  if (!bar) {
+    // No pill at all: only where not even the coordinates fit left of the card.
+    expect(end - PILL.capMargin / 2).toBeLessThan(READOUT.Coords + 2 * PILL.padding);
+    return;
+  }
+  expect(bar.right, `the pill ends at ${bar.right}, the legend starts at ${legendRight!.left}`).toBeLessThanOrEqual(end);
+  expect(bar.left).toBeGreaterThanOrEqual(PILL.capMargin / 2);
+});
+
+it("does not make room for the hidden copy a legend docked in the rail leaves in the lower-right corner", async () => {
+  // Drawn, the card would end the pill's room at 900 px; its hidden copy draws nothing there.
+  const { bar, legendRight, center } = await layOut(900, { creditWidth: SHORT_CREDIT, legendRight: LEGEND, docked: true });
+  expect(center + 208.5).toBeGreaterThan(legendRight!.left - CREDIT_DAYLIGHT);
+  expect(bar!.shown).toEqual(["Coords", "Zoom", "BBox"]);
+  expect((bar!.left + bar!.right) / 2).toBe(center);
+});
+
+it("counts a lower-right legend only while it stands in the band", () => {
+  const probe = { left: 65, right: 835, top: 652, bottom: 684 };
+  const credit = { left: 724, right: 884, top: 674, bottom: 688 };
+  // Lifted over a docked timeline, the card stands above the band.
+  const lifted = { left: 644, right: 884, top: 438, bottom: 518 };
+  expect(creditClearance(probe, credit, 417, null, lifted)).toEqual(creditClearance(probe, credit, 417));
+  // Grounded above the credit, its foot in the band, it ends the room before the credit does.
+  const grounded = { left: 644, right: 884, top: 578, bottom: 658 };
+  expect(creditClearance(probe, credit, 417, null, grounded)).toEqual({ room: 644 - CREDIT_DAYLIGHT - 65, shift: 450 + 208.5 - (644 - CREDIT_DAYLIGHT) });
+  expect(creditClearance(probe, null, 417, null, grounded)).toEqual(creditClearance(probe, grounded, 417));
 });

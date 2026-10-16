@@ -1,6 +1,6 @@
 .screen { display: flex; flex-direction: column; gap: 20px; }
 .notice { width: fit-content; color: var(--accent-bright); font-size: var(--text-label); }
-.ledger { overflow-x: auto; }
+.screen .ledger { overflow-x: auto; }
 .ledger .columns, .rowLine, .newRow {
   display: grid;
   grid-template-columns: minmax(220px, 1.3fr) minmax(190px, 1.2fr) 100px 120px 110px 44px;

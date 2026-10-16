@@ -14,13 +14,19 @@ export function testAccountScope(db: Database = metadataDb(), id = "test-account
   return accountScope(authenticateSession(session.secret, db)!, db);
 }
 
+/** The request a fixture built, holding the one it was built from (whose
+ * signal it follows only while that one is alive). */
+const builtFrom = new WeakMap<Request, Request>();
+
 /** Route fixtures present a real credential through the ingress sanitizer. */
 export function testAccountRequest(request: Request, db: Database = metadataDb(), id = "test-account", basis?: EditBasis): Request {
   const session = testSession(db, id);
   const headers = new Headers(fixtureHeaders(basis, request.headers));
   headers.set("cookie", `${SESSION_COOKIE}=${session.secret}`);
   headers.set("origin", new URL(request.url).origin);
-  return socketRequest(new Request(request, { headers }));
+  const built = new Request(request, { headers });
+  builtFrom.set(built, request);
+  return socketRequest(built);
 }
 
 function testSession(db: Database, id: string) {

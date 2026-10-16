@@ -367,6 +367,13 @@ rule:
   does not excuse an undefined token.
 - `npm run lint:icons` fails when a builder component grows an inline
   `<svg>` past its inventoried count, or a new file gains one.
+- `npm run lint:class-pairs` fails when one element takes classes from two
+  module stylesheets that set the same property at equal specificity, since
+  the order the build emits the two sheets in then decides, and production
+  orders them differently from development; and when a stylesheet opens a
+  cascade layer without first naming the order `src/app/globals.css` names.
+  Raise the caller's selector, or move the shared component's rule into its
+  layer.
 - `npm run lint:specimen` fails when the design specimen page would change
   if regenerated, which a shipped token, stylesheet or palette makes happen.
 - `npm run lint:plugin` fails when the plugin package's guidance file or its
@@ -483,6 +490,32 @@ Optional; absent, the gated tests skip visibly:
 
 The suite blocks third-party hosts, so it needs no internet beyond the
 instance itself.
+
+The assistant specs (`e2e/assistant-*.spec.ts` and the pane cases in
+`e2e/pane-replacement.spec.ts`) answer from a scripted model the suite
+serves itself on `127.0.0.1:3202`, and count the assistant's own calls to
+the instance through a tool harness on `127.0.0.1:3303`. Without the
+instance pointed at both they fail rather than skip. Boot their instance
+like this, alongside the variables above, with the instance's own port in
+`PORT` and `DEZFIL_E2E_LISTEN_PORT`:
+
+```sh
+DEZFIL_DATA_DIR=/tmp/dezfil-scratch PORT=3210 \
+DEZFIL_AI_PROVIDER=openai OPENAI_API_KEY=scripted-wire \
+OPENAI_BASE_URL=http://127.0.0.1:3202/v1 \
+DEZFIL_ASSISTANT_AUTO_CHECK=off \
+NODE_OPTIONS="--require $PWD/e2e/assistant-self-port.cjs" \
+DEZFIL_E2E_LISTEN_PORT=3210 DEZFIL_E2E_SELF_PORT=3303 \
+npm start
+```
+
+The automatic check is off because, with it on, a turn that changes the
+map renders it and asks the model once more, a call the scripted replies
+do not provide for. `e2e/assistant-look.spec.ts` is about that check: its
+instance keeps the check on and loads `e2e/assistant-preloads.cjs` in place
+of the self-port preload, with `DEZFIL_E2E_RENDER_STUB=1` and
+`DEZFIL_ASSISTANT_LOOK_RETENTION=2`. Ports 3202 and 3303 are fixed, so one
+such run at a time per machine.
 
 ## Driving the API without a browser
 
@@ -652,17 +685,31 @@ the chosen endpoint and the local catalogs for both clients. Omitting
 refused. Prepare a fresh copy whenever the instance address changes.
 
 **Pixel baselines.** The snapshots live beside their specs in the
-`*.spec.ts-snapshots` directories. Regenerate against a provisioned instance
-one spec at a time so no unrelated shot is rewritten:
+`*.spec.ts-snapshots` directories. They are cut on one environment, and a
+re-cut names it in its commit: macOS on Apple silicon, the Chromium headless
+shell the pinned Playwright installs, and a production build
+(`npm run build`, then `npm start`) on a fresh data directory, provisioned
+as [the browser suite](#the-browser-suite) describes. A store that earlier
+runs have filled is not that environment: lists, counts and relative times
+in a shot follow what the store holds. Regenerate one spec at a time, so no
+unrelated shot is rewritten, and only the shots that no longer match:
 
 ```sh
-npx playwright test e2e/pixel-regressions.spec.ts --update-snapshots
+npx playwright test e2e/pixel-regressions.spec.ts --update-snapshots=changed
 ```
+
+Then compare every rewritten file with the one it replaces before
+committing it. In this mode a shot that still differs when its comparison
+times out is written as it stands, so a surface that had not finished
+loading, a live tile server's pixels or a value that depends on the store
+would become the baseline; each of those is a defect in the shot, not a
+new baseline.
 
 Baselines are platform-specific: shots generated on one operating system do
 not match another, so a pixel spec run on a machine unlike the one that
 recorded its baseline skips rather than reporting a difference. Only
-regenerate when the change to the rendered surface is intended.
+regenerate when the change to the rendered surface is intended, or when the
+renderer moved under an unchanged surface.
 
 **The API description.** There is no emit step: the document is built at
 request time and served at `/api/openapi.json`, with human-readable pages at

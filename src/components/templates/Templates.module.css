@@ -44,7 +44,7 @@
   text-overflow: ellipsis;
 }
 
-.tags {
+.tags[data-field="tags"] {
   margin-top: 9px;
 }
 

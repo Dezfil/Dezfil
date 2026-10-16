@@ -8,6 +8,7 @@ import { orderForLegend } from "@/lib/style/legend-order";
 import type { NamedStyle } from "../map/LegendPanel";
 import type { LegendLiveText } from "./LegendTab";
 import type { AppearanceDraft } from "./builder-shell-state";
+import { draftedStyle } from "./style-draft";
 
 /**
  * The builder's legend inputs, out of `MapBuilder.tsx` (at-touch
@@ -39,7 +40,7 @@ export function useLegendLayers({
         return {
           id: l.id,
           name: l.name,
-          style: effectiveStyle(appearance?.style ?? l.style, viz),
+          style: effectiveStyle(draftedStyle(l.style, appearance), viz),
           visible: l.visible,
           inLegend: l.inLegend,
           viz,

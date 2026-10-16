@@ -235,10 +235,22 @@
   font-family: var(--font-ui);
 }
 
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
+/* The cascade layers, named here before the first one opens and again at
+   the top of every sheet that opens one, so the order holds whichever
+   sheet loads first. The shared components' own single-class rules sit in
+   `kit`, so a caller's class on the same element always wins over them,
+   whatever the order the build emits the two stylesheets in. A rule
+   outside every layer beats a layered one, so the element resets and the
+   focus ring below, which the kit's classes override, sit in `base` under
+   it. */
+@layer base, kit;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
 }
 
 html,
@@ -275,31 +287,39 @@ a:hover {
   color: var(--accent-bright);
 }
 
-input,
-textarea,
-select {
-  font: inherit;
-}
+@layer base {
+  input,
+  textarea,
+  select {
+    font: inherit;
+  }
 
-button {
-  font: inherit;
-  color: inherit;
-  background: none;
-  border: none;
-  cursor: pointer;
+  button {
+    font: inherit;
+    color: inherit;
+    background: none;
+    border: none;
+    cursor: pointer;
+  }
 }
 
 /* One convention app-wide: disabled means the quiet default
    arrow — never pointer, never not-allowed. Outranks single-class module
-   rules, so per-component overrides aren't needed. */
+   rules, so per-component overrides aren't needed. It stays outside the
+   layers, so it outranks the kit's own single-class rules too. */
 button:disabled {
   cursor: default;
 }
 
-:focus-visible {
-  outline: 2px solid var(--focus);
-  outline-offset: 2px;
-  border-radius: 2px;
+/* The ring is the base default, below the kit: a component that shapes
+   its own corners keeps them under the ring, and the dialog's one
+   suppression of it holds. */
+@layer base {
+  :focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
 }
 
 ::-webkit-scrollbar {

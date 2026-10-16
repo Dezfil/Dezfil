@@ -39,10 +39,14 @@ for (const width of [1440, 1000]) test.describe(`assistant at ${width}px`, () =>
     const submitted = page.waitForRequest((r) => r.url().endsWith("/api/assistant/messages") && r.method() === "POST");
     await send(page, "Explain this layer");
     const request = await submitted;
-    expect(request.postDataJSON()).toMatchObject({ runId: expect.any(String), context: { page: "builder", mapId: fixture.mapId, selectedLayerId: fixture.layerId } });
+    // The builder's context carries the theme the person is looking at, so
+    // an automatic check renders that appearance.
+    const appearance = await page.evaluate(() => (document.documentElement.dataset.theme === "dark" ? "dark" : "light"));
+    const context = { page: "builder", mapId: fixture.mapId, selectedLayerId: fixture.layerId, appearance };
+    expect(request.postDataJSON()).toMatchObject({ runId: expect.any(String), context });
     await expect.poll(() => provider.captures.length).toBe(1);
     const grounding = JSON.parse(String(provider.captures[0].input[0].content).split("Instance grounding (data):\n")[1]);
-    expect(grounding.context).toEqual({ page: "builder", mapId: fixture.mapId, selectedLayerId: fixture.layerId });
+    expect(grounding.context).toEqual(context);
     expect(grounding.map.layers.items[0]).toMatchObject({ id: fixture.layerId, mapId: fixture.mapId, sql: `SELECT * FROM "${fixture.table}"` });
     expect(grounding.map.layers.items.some((l: { mapId: string }) => l.mapId === fixture.otherId)).toBe(false);
     expect(grounding.catalogue.items.find((t: { name: string }) => t.name === fixture.table).columns).toEqual(expect.arrayContaining([expect.objectContaining({ name: "population" })]));

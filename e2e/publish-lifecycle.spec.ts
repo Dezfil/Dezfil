@@ -42,6 +42,7 @@ import {
   type ConsoleError,
 } from "./support";
 import { markStats } from "./png-probes";
+import { startLoopbackBasemap, assertBasemapTraffic } from "../scripts/loopback-basemap.mjs";
 
 /** The two 404s a dead published link casts, each consumed once and only
  * for that link: the document the published root answers with its
@@ -55,6 +56,16 @@ async function consumeDeadLink(errors: ConsoleError[], origin: string, token: st
 const runId = Date.now().toString(36);
 const tableName = `plc_${runId}`;
 const DATA_DIR = process.env.DEZFIL_DATA_DIR;
+
+// The server render's basemap, served on the loopback for the one map that
+// is exported; closed after the page has left it.
+let basemap: Awaited<ReturnType<typeof startLoopbackBasemap>> | null = null;
+test.afterEach(async ({ page }) => {
+  if (!basemap) return;
+  await page.goto("about:blank");
+  await basemap.close();
+  basemap = null;
+});
 
 const TILE_BUILD_FAILED_SENTENCE =
   "The layer's tile archive could not be built.";
@@ -239,10 +250,12 @@ test("the tiled road reaches the reader, and its failure classes present specifi
   await test.step("the builder shows the tiled progression for the over-cap layer", async () => {
     await page.goto(`/maps/${mapId}`);
     const row = page.getByRole("button", { name: new RegExp(`^${layerName}`) });
-    await expect(row).toContainText(/preparing tiles|tiled/, {
+    // The layer's own name ends in "tiled": the row's state is read from
+    // its count line ("2,401 features · tiled") or the building badge.
+    await expect(row).toContainText(/preparing tiles…|features · tiled/, {
       timeout: 30_000,
     });
-    await expect(row).toContainText("tiled", { timeout: 60_000 });
+    await expect(row).toContainText("features · tiled", { timeout: 60_000 });
     await saveSettled(page);
     const deck = page.locator("canvas#deckgl-overlay");
     await expect(deck).toBeVisible();
@@ -302,6 +315,14 @@ test("the tiled road reaches the reader, and its failure classes present specifi
   });
 
   await test.step("the private server image road paints the tiled data without public worker egress", async () => {
+    // The render paints the map's own basemap: a loopback one keeps the
+    // public tile host out of the render's budget, and its traffic shows
+    // the basemap was painted rather than skipped.
+    basemap = await startLoopbackBasemap();
+    await patchMap(page, mapId, {
+      customBasemap: { url: basemap.styleUrl, name: "Export fixture", force: true },
+    });
+    const before = basemap.snapshot(12.5);
     const exported = await page.evaluate(
       async ({ mapId }) => {
         const response = await fetch(`/api/maps/${mapId}/export/image`, {
@@ -331,11 +352,14 @@ test("the tiled road reaches the reader, and its failure classes present specifi
         return {
           status: response.status,
           body: response.ok ? btoa(binary) : new TextDecoder().decode(bytes),
+          abandoned: response.headers.get("x-dezfil-export-abandoned"),
         };
       },
       { mapId },
     );
     expect(exported.status, exported.body).toBe(200);
+    assertBasemapTraffic(basemap.delta(before, 12.5));
+    expect(exported.abandoned, "the render abandons no basemap request").toBeNull();
     const stats = await markStats(page, Buffer.from(exported.body, "base64"));
     expect(stats.share).toBeGreaterThan(0.0001);
   });

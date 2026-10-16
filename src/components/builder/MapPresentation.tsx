@@ -280,6 +280,7 @@ export function MapPresentation({
             recordsState={stage.dash.valuesState}
             credit={stage.creditEl}
             legend={stage.bottomLeftCornerEl}
+            legendRight={stage.bottomRightCornerEl}
           />
         )}
       </div>

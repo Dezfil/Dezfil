@@ -2,20 +2,24 @@
    flat accent — beside secondary, quiet and destructive, in the two
    ratified size tiers. Everything here is on rulebook tokens. */
 
-.btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  flex-shrink: 0;
-  border-radius: var(--radius);
-  font-family: var(--font-ui);
-  font-weight: 600;
-  white-space: nowrap;
-  transition:
-    background var(--dur-micro) ease,
-    color var(--dur-micro) ease,
-    border-color var(--dur-micro) ease;
+@layer base, kit;
+
+@layer kit {
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    flex-shrink: 0;
+    border-radius: var(--radius);
+    font-family: var(--font-ui);
+    font-weight: 600;
+    white-space: nowrap;
+    transition:
+      background var(--dur-micro) ease,
+      color var(--dur-micro) ease,
+      border-color var(--dur-micro) ease;
+  }
 }
 
 /* Size tiers. Chrome is the app's 38px metric; compact is the dense

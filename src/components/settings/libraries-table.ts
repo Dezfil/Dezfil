@@ -76,7 +76,7 @@ export const SATELLITE_ADDRESS_ROW: AddressRow = {
   kind: "address", key: "satelliteUrl", id: "set-satellite-address", label: "Tile address", name: "Satellite tile address",
   keys: "satellite imagery url template key tiles source", placeholder: "https://imagery.example.org/{z}/{x}/{y}.jpg",
   removal: "Satellite leaves the basemap pickers. Maps on it keep their choice and draw the default style until an address is saved again.",
-  userInformation: "Browsers draw no tiles from an address that carries a user name or password. Put the key in the path or the query.",
+  userInformation: "Satellite imagery is not drawn from an address that carries a user name or password. Put the key in the path or the query.",
 };
 
 export const SATELLITE_CREDIT_ROW = {

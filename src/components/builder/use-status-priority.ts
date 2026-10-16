@@ -47,31 +47,37 @@ export function pickStatusItems(
 }
 
 /** Daylight kept between the pill and the corner furniture beside it: the
- * basemap credit on its right, a lower-left legend card on its left. */
+ * basemap credit and a lower-right legend card on its right, a lower-left
+ * legend card on its left. */
 export const CREDIT_DAYLIGHT = 16;
 
 type Extent = { left: number; right: number; top: number; bottom: number };
 
 /**
  * The pill between the basemap credit and a lower-left legend card, all
- * three in the stage's bottom band. The pill stays centred while it clears
- * both; otherwise it slides in its band just far enough to keep daylight
- * to the one it would cover, and never past the edges its centred width
- * cap allows. `room` is the widest the pill may be there (Infinity while
- * neither shares the band); `shift` is how far a pill `width` wide slides
- * from centre, left positive. `probe` is the pill's full permitted box,
- * centred where the pill is.
+ * three in the stage's bottom band, and clear of a lower-right legend card
+ * whose foot reaches into the band above the credit, counted on the right
+ * as the credit is. The pill stays centred while it clears them; otherwise
+ * it slides in its band just far enough to keep daylight to the one it
+ * would cover, and never past the edges its centred width cap allows.
+ * `room` is the widest the pill may be there (Infinity while none shares
+ * the band); `shift` is how far a pill `width` wide slides from centre,
+ * left positive. `probe` is the pill's full permitted box, centred where
+ * the pill is.
  */
 export function creditClearance(
   probe: Extent,
   credit: Extent | null,
   width: number,
   legend: Extent | null = null,
+  legendRight: Extent | null = null,
   daylight: number = CREDIT_DAYLIGHT,
 ): { room: number; shift: number } {
   const shares = (box: Extent | null): box is Extent =>
     !!box && box.top < probe.bottom && probe.top < box.bottom;
-  const right = shares(credit) ? credit.left - daylight : null;
+  // The nearer of the right-hand furniture in the band ends the room.
+  const rightEdges = [credit, legendRight].filter(shares).map((box) => box.left - daylight);
+  const right = rightEdges.length > 0 ? Math.min(...rightEdges) : null;
   const left = shares(legend) ? Math.max(probe.left, legend.right + daylight) : null;
   if (right === null && left === null) return { room: Infinity, shift: 0 };
   const center = (probe.left + probe.right) / 2;
@@ -97,6 +103,8 @@ export function useStatusPriority(
   credit: HTMLElement | null = null,
   /** The lower-left legend corner, which the pill keeps clear of too. */
   legend: HTMLElement | null = null,
+  /** The lower-right legend corner, above the credit: kept clear of too. */
+  legendRight: HTMLElement | null = null,
 ): {
   probeRef: (el: HTMLDivElement | null) => void;
   itemRef: (key: StatusKey) => (el: HTMLElement | null) => void;
@@ -110,6 +118,7 @@ export function useStatusPriority(
   const presentRef = useRef(present);
   const creditRef = useRef(credit);
   const legendRef = useRef(legend);
+  const legendRightRef = useRef(legendRight);
   const [visible, setVisible] = useState<readonly StatusKey[]>(present);
   const [shift, setShift] = useState(0);
 
@@ -120,6 +129,7 @@ export function useStatusPriority(
     presentRef.current = present;
     creditRef.current = credit;
     legendRef.current = legend;
+    legendRightRef.current = legendRight;
   });
 
   const compute = useCallback(() => {
@@ -140,7 +150,12 @@ export function useStatusPriority(
     const box = probe.getBoundingClientRect();
     const creditBox = creditRef.current?.getBoundingClientRect() ?? null;
     const legendBox = legendRef.current?.getBoundingClientRect() ?? null;
-    const { room } = creditClearance(box, creditBox, 0, legendBox);
+    // A legend docked in the rail leaves a hidden copy in its corner for
+    // placement; nothing is drawn there.
+    const right = legendRightRef.current;
+    const rightBox = right && !right.hasAttribute("data-legend-placement-probe")
+      ? right.getBoundingClientRect() : null;
+    const { room } = creditClearance(box, creditBox, 0, legendBox, rightBox);
     const next = pickStatusItems(
       presentRef.current,
       widths,
@@ -155,7 +170,7 @@ export function useStatusPriority(
         : next,
     );
     // Rounded away from centre, so the pill never stops short of daylight.
-    const slide = creditClearance(box, creditBox, width, legendBox).shift;
+    const slide = creditClearance(box, creditBox, width, legendBox, rightBox).shift;
     setShift(slide < 0 ? Math.floor(slide) : Math.ceil(slide));
   }, []);
 
@@ -172,6 +187,7 @@ export function useStatusPriority(
       for (const item of itemEls.current.values()) ro.observe(item);
       if (creditRef.current) ro.observe(creditRef.current);
       if (legendRef.current) ro.observe(legendRef.current);
+      if (legendRightRef.current) ro.observe(legendRightRef.current);
       compute();
     },
     [compute],
@@ -212,14 +228,18 @@ export function useStatusPriority(
   // (fullscreen moves it past the inspector, a docked timeline lifts it),
   // which no resize reports, so the end of a glide re-measures too.
   useLayoutEffect(() => {
-    if (!legend) return;
-    observer.current?.observe(legend);
-    legend.addEventListener("transitionend", compute);
+    const corners = [legend, legendRight].filter((el): el is HTMLElement => el !== null);
+    for (const corner of corners) {
+      observer.current?.observe(corner);
+      corner.addEventListener("transitionend", compute);
+    }
     return () => {
-      observer.current?.unobserve(legend);
-      legend.removeEventListener("transitionend", compute);
+      for (const corner of corners) {
+        observer.current?.unobserve(corner);
+        corner.removeEventListener("transitionend", compute);
+      }
     };
-  }, [legend, compute]);
+  }, [legend, legendRight, compute]);
 
   // Re-pick after every commit: presence changes (pitch appearing, a
   // failed records readout) land here even when nothing resized.

@@ -4,16 +4,20 @@
    working. Visual reference:
    the builder-styles reference. */
 
-.switch {
-  appearance: none;
-  width: 36px;
-  height: 24px;
-  margin: 0;
-  border: 0;
-  background: transparent;
-  position: relative;
-  cursor: pointer;
-  flex: none;
+@layer base, kit;
+
+@layer kit {
+  .switch {
+    appearance: none;
+    width: 36px;
+    height: 24px;
+    margin: 0;
+    border: 0;
+    background: transparent;
+    position: relative;
+    cursor: pointer;
+    flex: none;
+  }
 }
 
 .switch::after {
@@ -66,11 +70,13 @@
 
 /* The wrapped-label shape (the kit checkbox's manner): label text beside
    the track, one click target. */
-.row {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
+@layer kit {
+  .row {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+  }
 }
 
 .row:has(.switch:disabled) {

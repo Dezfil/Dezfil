@@ -97,6 +97,10 @@ jobs:
       - run: npm run lint:wheelhouse
       - run: npm run lint:tokens
       - run: npm run lint:icons
+      # Two module stylesheets that set one property on the same element at
+      # equal specificity are decided by the order the build emits them in,
+      # and a production build orders them differently from development.
+      - run: npm run lint:class-pairs
       # The design specimen page is generated from the component library and
       # never hand-synced. This fails when a shipped token, kit stylesheet or
       # palette changes without regenerating the page.

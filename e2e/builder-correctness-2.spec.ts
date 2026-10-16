@@ -1044,7 +1044,7 @@ test("the Data Explorer never leaves a blank result area on zero matches", async
   emptyCatalog = false;
 
   await page.reload();
-  const search = page.getByLabel("Search tables");
+  const search = page.getByRole("textbox", { name: "Search data" });
   await expect(search).toBeVisible();
   const noResults = page.getByText(
     "No tables match. Clear the search or filters.",

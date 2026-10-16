@@ -655,6 +655,10 @@ test.describe("census checks", () => {
         await expect(page.locator("[data-workflow-canvas]")).toBeVisible();
         await expectRing(page, page.getByRole("tab", { name: /^Sources/ }), "the pane's Sources tab");
         await expectRing(page, page.getByRole("searchbox", { name: "Search sources" }), "the pane's search");
+        // The pane lists one row per dataset the account holds, and Tab
+        // crosses each before the stage: the census narrows the list to its
+        // own sources, so the walk measures the stage, not the store.
+        await page.keyboard.type(runId);
         await expectRing(page, page.getByRole("button", { name: "Zoom in" }), "the stage's zoom in");
         // Undo and Redo: dimmed until there is a step, so Arrange makes one
         // and its undo makes the other side; each then takes the ring and

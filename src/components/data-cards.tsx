@@ -15,8 +15,8 @@ import {
   IconAddToMap,
   IconFolderPlus,
   IconSql,
-  IconTrash,
 } from "./gallery-icons";
+import { CardDelete } from "./CardDelete";
 import {
   CrsChip,
   GeometryChip,
@@ -40,8 +40,7 @@ import styles from "./TablesScreen.module.css";
 
 export interface TableActionsProps {
   table: TableListing;
-  /** The delete button's two-press confirmation, owned by the screen. */
-  confirming: boolean;
+  /** True while the deletion is in flight. */
   deleting: boolean;
   onOpen: () => void;
   onQuery: () => void;
@@ -49,19 +48,17 @@ export interface TableActionsProps {
   /** Filing: the add-to-project dialog over this
    * dataset — on loose and nested rows alike, never on a folder's. */
   onFile: () => void;
-  onDeletePress: () => void;
-  onDeleteBlur: () => void;
+  /** The delete's second press. */
+  onDelete: () => unknown;
 }
 
 export function TableActions({
   table: t,
-  confirming,
   deleting,
   onQuery,
   onAddToMap,
   onFile,
-  onDeletePress,
-  onDeleteBlur,
+  onDelete,
   rowStyle,
   mine = true,
 }: TableActionsProps & {
@@ -107,26 +104,15 @@ export function TableActions({
       )}
       <ExportMenu name={t.name} dataset={t} spatial={!!t.geometryColumn} />
       {mine && (
-        <button
-          className={gallery.deleteAct}
-          data-confirm={confirming || undefined}
+        <CardDelete
+          label={`Delete ${t.name}`}
+          armedLabel={`Confirm deleting ${t.name}`}
+          hint="Delete this table and its data"
+          armedHint="Click again to delete permanently"
+          question="Delete?"
           disabled={deleting}
-          data-hint={
-            confirming
-              ? "Click again to delete permanently"
-              : "Delete this table and its data"
-          }
-          aria-label={
-            confirming ? `Confirm deleting ${t.name}` : `Delete ${t.name}`
-          }
-          onClick={(e) => {
-            e.stopPropagation();
-            onDeletePress();
-          }}
-          onBlur={onDeleteBlur}
-        >
-          {confirming ? "Delete?" : <IconTrash />}
-        </button>
+          onConfirm={onDelete}
+        />
       )}
     </span>
   );

@@ -91,6 +91,7 @@ import { withBuilderRecovery } from "./BuilderRecovery";
 import { BuilderStaleNotice } from "./BuilderStaleNotice";
 import { BuilderSavedState, LegendUnsavedDot } from "./UnsavedFields";
 import { useStyleAppearanceCommit } from "./use-style-appearance-commit";
+import { nextStyleDraft } from "./style-draft";
 
 function BuilderEditor({
   recoverySeed, onRecovered,
@@ -459,13 +460,12 @@ function BuilderEditor({
       if (!layer) return;
       appearancePreviewVersionRef.current[layerId] =
         (appearancePreviewVersionRef.current[layerId] ?? 0) + 1;
-      const prior = appearanceDraftRef.current[layerId];
-      setAppearanceDraft(layerId, {
-        ...prior,
-        style: { ...(prior?.style ?? layer.style), ...partial },
-      });
+      setAppearanceDraft(
+        layerId,
+        nextStyleDraft(appearanceDraftRef.current[layerId], layer.style, partial, map?.layers.find((l) => l.id === layerId)?.style),
+      );
     },
-    [authoritativeLayersRef, setAppearanceDraft],
+    [authoritativeLayersRef, map, setAppearanceDraft],
   );
 
   const previewAggregatedFill = useCallback(
