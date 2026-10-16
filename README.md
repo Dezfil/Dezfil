@@ -392,9 +392,13 @@ answer with HTTP 422 `query_result_too_large`, without partial data or details:
 These ceilings have no setting. Row and engine-memory limits still apply;
 a result below both byte ceilings can fail the engine-memory limit during
 query execution or result projection, including geometry decoding. Layer
-renders, dataset map features, slider and Overture previews,
-published views, statistics, classification, widgets and value search retain
-their existing limits. SQL, table and layer file exports still stream complete
+renders, dataset map features, slider and Overture previews and published
+views retain their existing limits. A filter's distinct values, categorical
+classification, category widgets and value search hold each text value they
+return to the 2 MiB value ceiling: the first two refuse with the same 422, a
+category widget answers that code as its own error while the others keep
+working, and value search names the layer under `refusedLayers` and answers no
+rows from it. SQL, table and layer file exports still stream complete
 results above both ceilings. Dataset inspection shows text values, and the WKT
 of its registered geometry column, longer than 512 characters as their first
 512 characters and an ellipsis, as geometry-choice preview does. Other values,

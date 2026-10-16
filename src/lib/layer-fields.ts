@@ -7,6 +7,7 @@ import { inspectLayerGeometry } from "@/lib/layer-geometry";
 import type { Layer } from "@/lib/metadata/maps";
 import { isAggregated, AGG_VALUE, AGG_COUNT, type LayerViz } from "@/lib/viz";
 import { layerEvaluation } from "@/lib/query/context";
+import { cappedText, cappedValue } from "@/lib/query/value-ceiling";
 
 function ident(s: string): string {
   return `"${s.replace(/"/g, '""')}"`;
@@ -309,18 +310,21 @@ export async function layerFieldStats(
         ),
       };
     }
+    // Each value returned is held to the per-value ceiling; the one read
+    // past them only says the list is truncated.
+    const text = `${col}::VARCHAR`;
     const reader = await conn.runAndReadAll(
-      `SELECT ${col}::VARCHAR AS v, count(*) AS n FROM ${sub}
+      `SELECT ${cappedText(text, "v")}, count(*) AS n FROM ${sub}
        WHERE ${col} IS NOT NULL
-       GROUP BY 1 ORDER BY n DESC, v LIMIT ${MAX_STAT_VALUES + 1}`,
+       GROUP BY ${text} ORDER BY n DESC, ${text} LIMIT ${MAX_STAT_VALUES + 1}`,
     );
-    const values = reader.getRowObjects().map((r) => String(r.v));
+    const rows = reader.getRowObjects();
     return {
       field,
       kind: "text" as const,
       numeric: false as const,
-      values: values.slice(0, MAX_STAT_VALUES),
-      truncated: values.length > MAX_STAT_VALUES,
+      values: rows.slice(0, MAX_STAT_VALUES).map((r) => cappedValue(r, "v")),
+      truncated: rows.length > MAX_STAT_VALUES,
     };
   }, { signal, scope });
 }

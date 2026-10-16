@@ -1614,6 +1614,15 @@ rather than on the page:
   and emitted as WKT, count only toward the result ceiling. Text and JSON
   coordinates retain the cell ceiling. Excess returns the same whole-answer
   422 catalogue refusal. Health, cancellation and source timeouts stay unchanged.
+- A filter's distinct values (`GET /api/layers/{id}/fields/{field}`),
+  categorical classification (`POST /api/layers/{id}/fill`), category widgets
+  and map value search (`GET /api/maps/{id}/search`) return a handful of text
+  values and hold each to the 2 MiB value ceiling, counted as a JSON string.
+  A value over it is refused before it is read: the first two answer the 422
+  catalogue refusal, a category widget answers `{id, error, errorCode}` with
+  `query_result_too_large` while the other widgets keep working, and value
+  search answers no rows from that layer and names it, with the same pair,
+  under `refusedLayers`.
 - Geometry-choice preview (`POST /api/tables/{name}/geometry/preview`) shares
   those fixed ceilings. Metadata, grid rows and map features count together.
   Count the existing 512-character excerpts; source text and nested JSON remain

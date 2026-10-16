@@ -366,7 +366,9 @@ export const LAYER_QUERY_PATHS = {
         "distribution for numeric and time fields (time extents as " +
         "ISO-8601 strings), distinct values (bounded, by frequency) for " +
         "text. Computed on the layer's own result — the unfiltered " +
-        "extent, so a brush keeps a stable background.",
+        "extent, so a brush keeps a stable background. A distinct value " +
+        "longer than 2,097,152 bytes (2 MiB) as a JSON string refuses " +
+        "the answer with 422 query_result_too_large.",
       tag: "Layers",
       tool: "get_field_stats", mcp: LOCAL_READ,
       display: {"verb": "Read the statistics of {arg.field} on the layer {subject}", "subject": {"resource": "layers", "argument": "id"}},
@@ -395,7 +397,8 @@ export const LAYER_QUERY_PATHS = {
         "aggregated layer classifies its `value` or `count`. Returns a " +
         "paint to merge into the style — `fill`, or `strokeBy` for a " +
         "data-driven outline — or into the viz fill of an aggregated " +
-        "layer.",
+        "layer. A category longer than 2,097,152 bytes (2 MiB) as a " +
+        "JSON string refuses the paint with 422 query_result_too_large.",
       tag: "Layers",
       tool: "compute_fill", mcp: LOCAL_READ,
       display: {"verb": "Computed a {arg.method} fill by {arg.attribute} on the layer {subject}", "subject": {"resource": "layers", "argument": "id"}},

@@ -42,7 +42,7 @@ export async function GET(request: Request, { params }: Params) {
     // inside the places group rather than costing the local answers.
     // Observe both outcomes immediately: a value-scan failure must not leave
     // a later provider rejection without a handler.
-    const [values, places] = await Promise.all([
+    const [found, places] = await Promise.all([
       searchValues(
         mapEvaluation(scope, id),
         visible
@@ -65,7 +65,8 @@ export async function GET(request: Request, { params }: Params) {
       layers: visible
         .filter((l) => matches(l.name, q))
         .map((l) => ({ layerId: l.id, name: l.name, viz: l.viz.type })),
-      values,
+      values: found.values,
+      ...(found.refusedLayers.length ? { refusedLayers: found.refusedLayers } : {}),
       coordinates: parseCoordinates(q),
       ...(places ? { places } : {}),
     };

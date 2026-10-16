@@ -1,9 +1,11 @@
+import { QueryResultTooLarge } from "@/lib/api/errors";
 import type { DatasetScope } from "@/lib/query/access";
 import { boundedEvaluation, isOutOfMemory } from "@/lib/query/bounded";
 import { namedSql } from "@/lib/query/named-sql";
 import { wrappable } from "@/lib/query/compile";
+import { cappedText, cappedValue } from "@/lib/query/value-ceiling";
 import { foldCase } from "./match";
-import { VALUE_ROW_BOUND, type ValueRow } from "./contract";
+import { VALUE_ROW_BOUND, type RefusedLayer, type ValueRow } from "./contract";
 
 /**
  * Attribute-value search over the map's visible layers: each layer's
@@ -18,7 +20,9 @@ import { VALUE_ROW_BOUND, type ValueRow } from "./contract";
  * search — serial per-layer work under a single wall-clock budget, the
  * row budget stopping further layers once filled. A failing layer
  * contributes nothing and does not fail the search; the boundary's own
- * outcomes (interruption, the memory budget) propagate.
+ * outcomes (interruption, the memory budget) propagate. A layer with a
+ * match longer than the per-value ceiling answers no rows either, and is
+ * named with that refusal, so a missing match never reads as no match.
  */
 
 export interface ValueSearchLayer {
@@ -34,7 +38,8 @@ function ident(name: string): string {
 
 interface ScanRow {
   __field: string;
-  __value: string;
+  __value: string | null;
+  __value_bytes: number | bigint;
   __ispoint: boolean;
   __anchor: string;
   __minx: number;
@@ -48,12 +53,13 @@ export async function searchValues(
   layers: ValueSearchLayer[],
   query: string,
   options: { signal?: AbortSignal; bound?: number } = {},
-): Promise<ValueRow[]> {
+): Promise<{ values: ValueRow[]; refusedLayers: RefusedLayer[] }> {
   const bound = options.bound ?? VALUE_ROW_BOUND;
-  if (query.trim() === "" || layers.length === 0 || bound <= 0) return [];
+  if (query.trim() === "" || layers.length === 0 || bound <= 0) return { values: [], refusedLayers: [] };
 
   return boundedEvaluation(async (conn, bounds) => {
     const rows: ValueRow[] = [];
+    const refusedLayers: RefusedLayer[] = [];
     for (const layer of layers) {
       if (rows.length >= bound) break;
       try {
@@ -97,9 +103,9 @@ export async function searchValues(
             )
             .join(" ")} END`;
         const scanned = await conn.runAndReadAll(
-          `SELECT * FROM (
+          `SELECT __field, ${cappedText("__match", "__value")}, __ispoint, __anchor, __minx, __miny, __maxx, __maxy FROM (
              SELECT ${firstMatch((c) => `'${c.replace(/'/g, "''")}'`)} AS __field,
-                    ${firstMatch((c) => ident(c))} AS __value,
+                    ${firstMatch((c) => ident(c))} AS __match,
                     ST_GeometryType(${g}) = 'POINT' AS __ispoint,
                     ST_AsGeoJSON(ST_PointOnSurface(${g})) AS __anchor,
                     ST_XMin(${g}) AS __minx, ST_YMin(${g}) AS __miny,
@@ -110,17 +116,20 @@ export async function searchValues(
            LIMIT ${bound - rows.length}`,
           [foldCase(query)],
         );
-        for (const r of scanned.getRowObjects() as unknown as ScanRow[]) {
+        // A layer answers whole or not at all: every match is read, and
+        // held to the ceiling, before any is added.
+        const found = (scanned.getRowObjects() as unknown as ScanRow[]).map((r): ValueRow => {
+          const value = cappedValue(r as unknown as Record<string, unknown>, "__value");
           const anchor = (
             JSON.parse(String(r.__anchor)) as {
               coordinates: [number, number];
             }
           ).coordinates;
-          rows.push({
+          return {
             layerId: layer.layerId,
             layerName: layer.layerName,
             field: String(r.__field),
-            value: String(r.__value),
+            value,
             ...(r.__ispoint
               ? { point: anchor }
               : {
@@ -132,14 +141,18 @@ export async function searchValues(
                     Number(r.__maxy),
                   ] as [number, number, number, number],
                 }),
-          });
-        }
+          };
+        });
+        rows.push(...found);
       } catch (error) {
         // The boundary's outcomes are never a layer's failure to skip.
         if (bounds.interrupted() || isOutOfMemory(error)) throw error;
+        if (error instanceof QueryResultTooLarge) {
+          refusedLayers.push({ layerId: layer.layerId, layerName: layer.layerName, error: error.message, errorCode: error.code });
+        }
         continue;
       }
     }
-    return rows;
+    return { values: rows, refusedLayers };
   }, { scope, signal: options.signal });
 }

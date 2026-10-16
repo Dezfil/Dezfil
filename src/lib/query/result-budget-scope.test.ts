@@ -35,6 +35,6 @@ it("leaves all nine other reader families outside the opt-in result accountant",
   expect(await classifyFill(scope, layer.sql, "n", "continuous")).toBeDefined();
   const widgets = await computeWidgetValues(scope, map, [layer], [], { id: "total", type: "formula", layerId: layer.id, title: "Total", field: "n", agg: "sum", aggField: null, unit: null, note: null, format: null, visible: true });
   expect(widgets).toMatchObject({ widgets: [{ id: "total", value: 7 }] });
-  expect(await searchValues(scope, [{ layerId: layer.id, layerName: layer.name, sql: layer.sql }], "needle")).toHaveLength(1);
+  expect((await searchValues(scope, [{ layerId: layer.id, layerName: layer.name, sql: layer.sql }], "needle")).values).toHaveLength(1);
   expect(take).not.toHaveBeenCalled();
 });

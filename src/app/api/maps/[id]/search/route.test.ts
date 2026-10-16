@@ -38,7 +38,7 @@ const layer = (over: Record<string, unknown>) => ({
 
 beforeEach(() => {
   vi.clearAllMocks();
-  searchValues.mockResolvedValue([]);
+  searchValues.mockResolvedValue({ values: [], refusedLayers: [] });
   providerState.answer = null;
   mapWithLayers.mockReturnValue({
     id: "m1",
@@ -102,6 +102,15 @@ describe("GET /api/maps/[id]/search", () => {
     expect(without.places).toBeUndefined();
     const withFlag = await (await get("q=berlin&places=1")).json();
     expect(withFlag.places).toEqual({ state: "unconfigured" });
+  });
+
+  it("names a layer whose values were refused, and only then", async () => {
+    expect(await (await get("q=x")).json()).not.toHaveProperty("refusedLayers");
+    const refusedLayers = [{ layerId: "l1", layerName: "Stations", error: "Too large.", errorCode: "query_result_too_large" }];
+    searchValues.mockResolvedValue({ values: [], refusedLayers });
+    const body = await (await get("q=x")).json();
+    expect(body.refusedLayers).toEqual(refusedLayers);
+    expect(body.values).toEqual([]);
   });
 
   it("refuses an empty query", async () => {

@@ -4,6 +4,7 @@ import type { DatasetScope } from "@/lib/query/access";
 import { ApiError } from "@/lib/api/errors";
 import { boundedEvaluation, isOutOfMemory } from "@/lib/query/bounded";
 import { wrappable } from "@/lib/query/compile";
+import { cappedText, cappedValue } from "@/lib/query/value-ceiling";
 import { naturalBreakValues } from "./natural-breaks";
 import { niceBreaks } from "./nice-breaks";
 
@@ -312,12 +313,13 @@ export async function classifyFill(
 
     // categorical
     const palette = resolvePalette(options.palette, "categorical");
+    const text = `${col}::VARCHAR`;
     const reader = await conn.runAndReadAll(
-      `SELECT ${col}::VARCHAR AS v, count(*) AS n FROM ${sub}
+      `SELECT ${cappedText(text, "v")}, count(*) AS n FROM ${sub}
        WHERE ${col} IS NOT NULL
-       GROUP BY 1 ORDER BY n DESC LIMIT ${MAX_CATEGORIES}`,
+       GROUP BY ${text} ORDER BY n DESC LIMIT ${MAX_CATEGORIES}`,
     );
-    const values = reader.getRowObjects().map((r) => String(r.v));
+    const values = reader.getRowObjects().map((r) => cappedValue(r, "v"));
     if (values.length === 0) {
       throw new ApiError(
         "invalid_request",

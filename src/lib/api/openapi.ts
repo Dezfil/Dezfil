@@ -1051,7 +1051,8 @@ export function buildOpenApiDocument() {
           type: "object",
           description:
             "The grouped map-search answer. `places` is " +
-            "present only when asked for.",
+            "present only when asked for, `refusedLayers` only when a " +
+            "layer's values were refused.",
           required: ["layers", "values", "coordinates"],
           properties: {
             layers: {
@@ -1088,6 +1089,30 @@ export function buildOpenApiDocument() {
                   point: { type: "array", items: { type: "number" } },
                   anchor: { type: "array", items: { type: "number" } },
                   bounds: { type: "array", items: { type: "number" } },
+                },
+              },
+            },
+            refusedLayers: {
+              type: "array",
+              description:
+                "Visible layers whose matching values were refused: one of " +
+                "them is longer than 2,097,152 bytes (2 MiB) as a JSON " +
+                "string, the ceiling for one value. Such a layer answers no " +
+                "value rows; the others answer as usual. Each entry carries " +
+                "the error and errorCode a failed widget carries " +
+                "(query_result_too_large). Other layer failures contribute " +
+                "nothing and are not listed.",
+              items: {
+                type: "object",
+                required: ["layerId", "layerName", "error", "errorCode"],
+                properties: {
+                  layerId: { type: "string" },
+                  layerName: { type: "string" },
+                  error: { type: "string" },
+                  errorCode: {
+                    type: "string",
+                    description: "One of the documented error codes.",
+                  },
                 },
               },
             },
