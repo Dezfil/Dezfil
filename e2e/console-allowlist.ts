@@ -21,16 +21,7 @@
 
 const LOCAL_HOSTNAMES = new Set(["localhost", "127.0.0.1", "[::1]", "::1"]);
 
-export const allowedErrorPatterns: { pattern: RegExp; url?: RegExp; reason: string }[] = [
-  {
-    pattern: /\/api\/maps\/[^/]+\/thumbnail/,
-    reason:
-      "A card asks for its map's snapshot only when the maps listing says " +
-      "there is one it is served; one removed or withheld between that " +
-      "listing and the read still 404s to the placeholder, and the browser " +
-      "logs the 404.",
-  },
-];
+export const allowedErrorPatterns: { pattern: RegExp; url?: RegExp; reason: string }[] = [];
 
 function firstUrlIn(text: string): string | undefined {
   return /https?:\/\/[^\s'")]+/.exec(text)?.[0];
