@@ -27,6 +27,15 @@ const REFUSALS = [
   ["no longer theirs to change", 403, "forbidden", "You can view this but cannot make this change."],
 ] as const;
 
+/** The publication settings that travel through ordinary edits. Changing
+ * one is the map owner's alone, so an Editor's change is refused while
+ * their editing stands: the refusal says nothing about their access. */
+const PUBLICATION = [
+  ["the map's widget publication toggle", "/api/maps/m", { widgetsPublished: true }],
+  ["a layer's published fields", "/api/layers/l", { publishedFields: ["label"] }],
+] as const;
+const OWNERS_ALONE = [403, "forbidden", "You can view this but cannot make this change."] as const;
+
 describe("the write sequence", () => {
   it.each(REFUSALS)("halts on a write refused as %s", async (_name, status, code, message) => {
     const w = wire(); vi.stubGlobal("fetch", w.fetch);
@@ -57,6 +66,21 @@ describe("the write sequence", () => {
     await invalid;
     expect(sequence.stale).toBe(false);
   });
+
+  it.each(PUBLICATION)("does not halt when an Editor's change to %s is refused as the owner's, and sends the next edit", async (_name, path, body) => {
+    const w = wire(); vi.stubGlobal("fetch", w.fetch);
+    const sequence = new DocumentSequence("m");
+    sequence.accept({ editRevision: "seen" });
+    const refused = sequence.writeFetch(path, { method: "PATCH", body: JSON.stringify(body) });
+    w.pending("PATCH", path)[0].refuse(...OWNERS_ALONE);
+    expect((await refused).status).toBe(403);
+    expect(sequence.stale).toBe(false);
+    expect(sequence.accessLost).toBe(false);
+    const next = sequence.writeFetch("/api/maps/m", { method: "PATCH", body: JSON.stringify({ name: "Next" }) });
+    w.pending("PATCH", "/api/maps/m")[0].ok({ editRevision: "next" });
+    expect((await next).ok).toBe(true);
+    expect(w.calls.map(call => call.body)).toEqual([body, { name: "Next" }]);
+  });
 });
 
 describe("the builder", () => {
@@ -78,6 +102,33 @@ describe("the builder", () => {
     await Promise.allSettled([saved, next]);
     expect(writes).toBe(1);
     expect(h.render().stale).toBe(true);
+  });
+
+  it.each(PUBLICATION)("keeps saving after an Editor's change to %s is refused as the owner's: the refusal is shown and the next change goes out", async (_name, path, body) => {
+    const w = wire(); vi.stubGlobal("fetch", w.fetch);
+    vi.stubGlobal("window", { addEventListener() {}, removeEventListener() {} });
+    const initial = { id: "m", name: "Map", basemap: "light", basemapLayers: null, layers: [], widgets: [], widgetsPublished: false, editRevision: "seen" } as unknown as MapWithLayers;
+    let map = initial;
+    const h = new HookHarness(() => useBuilderMutations({ mapId: "m", map, setMap: next => { map = (typeof next === "function" ? next(map) : next)!; }, rendersRef: { current: {} }, replaceRenders: async () => null, setSelectedId() {}, refreshLayer: async () => {} }));
+    cleanups.push(() => h.unmount());
+    h.value.serverMapRef.current = initial; h.value.sequence.accept(initial);
+    // The toggle saves through the map's lane; the published fields through
+    // the editor's request, as the publish popover sends them.
+    const refused = path === "/api/maps/m"
+      ? h.value.patchMap(body)
+      : h.value.request(path, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+    w.pending("PATCH", path)[0].refuse(...OWNERS_ALONE);
+    await refused;
+    expect(h.render().stale).toBe(false);
+    if (path === "/api/maps/m") expect(h.render().failures.map).toBe(OWNERS_ALONE[2]);
+    else expect((await refused as Response).status).toBe(403);
+    const renamed = h.value.patchMap({ name: "Next" });
+    await w.settle();
+    const next = w.pending("PATCH", "/api/maps/m");
+    expect(next.map(call => call.body)).toEqual([{ name: "Next" }]);
+    next[0].ok({ ...initial, name: "Next", editRevision: "next" });
+    expect(await renamed).toBe(true);
+    expect(h.render().stale).toBe(false);
   });
 });
 
