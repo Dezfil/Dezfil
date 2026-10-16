@@ -539,9 +539,10 @@ test("the scoped catalog end to end", async ({ page, context }) => {
       mimeType: "text/csv",
       buffer: Buffer.from(CSV),
     });
-    // The road's own refusal, in the zone; the catalog stays open and
+    // The road's own refusal, in the zone (a project the caller cannot
+    // reach answers like a missing one); the catalog stays open and
     // nothing was created or filed.
-    await expect(d3.getByText(`No project with id ${pd}.`)).toBeVisible({
+    await expect(d3.getByText(`als_stale_${runId}.csv: The requested resource was not found.`)).toBeVisible({
       timeout: 30_000,
     });
     await expect(d3).toBeVisible();
@@ -558,7 +559,7 @@ test("the scoped catalog end to end", async ({ page, context }) => {
     await page.getByRole("button", { name: "Add layer", exact: true }).click();
     await expect(d3).toBeVisible();
     await d3.getByRole("button", { name: "Tables" }).click();
-    await expect(d3.getByText(`No project with id ${pd}.`)).toBeVisible();
+    await expect(d3.getByText("The requested resource was not found.", { exact: true })).toBeVisible();
     await expect(
       d3.getByRole("button", { name: "Filter by project" }),
     ).toHaveCount(0);
