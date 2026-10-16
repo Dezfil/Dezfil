@@ -120,8 +120,12 @@ test("field regressions — search sliver, icon keyboard door", async ({
   await page.getByRole("button", { name: "Custom…" }).click();
   const box = page.getByText("Drop an .svg here, or click to choose a file.");
   await expect(box).toBeVisible();
-  // No paste textarea anywhere (the removed door stays removed)…
-  await expect(page.locator("textarea")).toHaveCount(0);
+  // No paste textarea in the icon box (the removed door stays removed)…
+  // The check is the box's, where the door stood, not the page's: the page
+  // holds other surfaces' own text fields, such as the closed assistant
+  // pane's composer, mounted while closed wherever a model is configured.
+  const iconBox = box.locator("xpath=..");
+  await expect(iconBox.locator("textarea")).toHaveCount(0);
   // …and the file input is a REAL keyboard stop: reached by Tab (a
   // direct .focus() would pass even for tabIndex={-1}), activated by
   // Enter, opening the native chooser — the whole keyboard journey.
