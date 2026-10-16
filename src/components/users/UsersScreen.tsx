@@ -25,6 +25,8 @@ export function UsersScreen() {
   const [query, setQuery] = useState(""), [inviting, setInviting] = useState(false), [open, setOpen] = useState<string | null>(null);
   const [handOver, setHandOver] = useState<HandOver | null>(null);
   const [deleting, setDeleting] = useState<Account | null>(null);
+  // Reads a pending deletion still waits on, as its last status said.
+  const [waiting, setWaiting] = useState<ReadonlyMap<string, number>>(() => new Map());
   const focusSearch = useRef(false), finishing = useRef(false);
   const search = useRef<HTMLInputElement>(null); useSearchShortcut(search);
   const { notice, show } = useTransientNotice();
@@ -82,6 +84,7 @@ export function UsersScreen() {
   // A deletion that has left the store is read off the list again; one that
   // now needs a retry takes that state.
   useDeletionWatch(pending.filter(value => value.state === "pending").map(value => value.id), (id, status) => {
+    setWaiting(current => new Map(current).set(id, status?.admittedReads ?? 0));
     if (!status || status.state === "completed") { setAttempt(value => value + 1); return; }
     const state = status.state;
     setData(current => current ? { ...current, deletions: current.deletions.map(value =>
@@ -115,7 +118,7 @@ export function UsersScreen() {
       {active.map(row)}
       {deactivated.length > 0 && <div className={styles.group}>Deactivated · {deactivated.length}</div>}
       {deactivated.map(row)}
-      {shownPending.map(value => <DeletingUserRow key={value.id} value={value} open={open === value.id} busy={busy}
+      {shownPending.map(value => <DeletingUserRow key={value.id} value={value} waiting={waiting.get(value.id) ?? 0} open={open === value.id} busy={busy}
         onToggle={() => setOpen(open === value.id ? null : value.id)} onFinish={() => void finish(value)} />)}
       {shown.length === 0 && shownPending.length === 0 && <p className={styles.empty}>No one matches this search.</p>}
     </div>}

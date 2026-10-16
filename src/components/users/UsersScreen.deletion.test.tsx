@@ -139,6 +139,21 @@ describe("a pending deletion on the page", () => {
     expect(statusReads()).toBe(1);
   });
 
+  it("says on the row how many admitted reads a pending deletion still waits on, while there are any", async () => {
+    await mount();
+    const status = () => host.document.querySelector('[data-deletion="pending"]')?.textContent ?? "";
+    answers.push(Response.json({ id: "deletion", state: "pending", admittedReads: 2 }));
+    await wait(3000);
+    expect(status()).toContain("Deleting · waiting on 2 reads");
+    answers.push(Response.json({ id: "deletion", state: "pending", admittedReads: 1 }));
+    await wait(3000);
+    expect(status()).toContain("Deleting · waiting on 1 read");
+    answers.push(Response.json({ id: "deletion", state: "pending", admittedReads: 0 }));
+    await wait(3000);
+    expect(status()).toContain("Deleting");
+    expect(status()).not.toContain("waiting");
+  });
+
   it("stops reading when the page goes away", async () => {
     await mount();
     await wait(3000);
