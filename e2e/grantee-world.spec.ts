@@ -69,7 +69,10 @@ test("an Editor and a Viewer see the shared project as theirs to use, never to o
         await expect(page.getByRole("button", { name: "Export project" })).toBeVisible();
         await expect(page.getByRole("button", { name: "Add to project" })).toHaveCount(role === "Editor" ? 1 : 0);
         await expect(page.getByRole("button", { name: "Share", exact: true })).toHaveCount(0);
-        await expect(page.getByRole("button", { name: "More", exact: true })).toHaveCount(0);
+        // A member's More holds leaving the project and nothing an owner does.
+        await page.getByRole("button", { name: "More", exact: true }).click();
+        await expect(page.getByRole("menuitem")).toHaveText(["Leave project"]);
+        await page.keyboard.press("Escape");
         await expect(page.getByRole("button", { name: /^(add a note|edit)$/ })).toHaveCount(0);
         await expect(page.getByRole("button", { name: /Shared with|Only you/ })).toHaveCount(0);
       });
