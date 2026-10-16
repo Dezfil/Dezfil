@@ -18,7 +18,7 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       include: ["src/**/*.{ts,tsx,mjs}"],
-      exclude: ["src/**/*.test.{ts,tsx}", "src/**/*.d.ts"],
+      exclude: ["src/**/*.test.{ts,tsx}", "src/**/*.d.ts", "src/**/fixtures/**"],
       reporter: ["text-summary", "json-summary", "json"],
       reportsDirectory: "coverage",
       // The map is wanted even when a case fails; the suite's own result
