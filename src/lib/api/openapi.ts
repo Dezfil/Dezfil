@@ -32,6 +32,7 @@ import { GEOMETRY_RESOURCE_SCHEMAS } from "./openapi-geometry-schemas";
 import { GEOMETRY_EVIDENCE_SCHEMAS } from "./openapi-geometry";
 import { CAMERA_BOUNDS } from "@/lib/map-runtime-limits";
 import { ERROR_CATALOGUE, RESOURCE_ERROR_STATUSES } from "./error-catalogue";
+import { ENGINE_UNREADY } from "@/lib/system/readiness-reasons";
 import { TOKEN_LENGTH } from "@/lib/publish/token";
 import { EXPORT_IMAGE_DEFINITION_SCHEMA } from "@/lib/export/image-definition";
 import { TABLE_COLLECTION_PATHS, TABLE_RESOURCE_PATHS, TABLE_SCHEMAS, TABLE_INSPECTION_SCHEMAS } from "./openapi-tables";
@@ -162,14 +163,14 @@ export function buildOpenApiDocument() {
       "/api/health": {
         get: op({
           summary: "Readiness check",
-          description: "Readiness reports whether socket provenance is installed and the data directory is usable.",
+          description: "Readiness reports whether socket provenance is installed, the data directory is usable, and, once a query has started the query engine that runs SQL, whether that engine can serve. Readiness starts no engine before a query does. A started engine is asked a trivial statement on its own connection, not behind any account's queries: a statement that fails reads unready, and one with no answer within 2 seconds reads ready, since a busy engine is not a dead one. An engine whose last start failed reads unready, and readiness starts it again at most once every 30 seconds, so an instance taken out of rotation recovers once the cause clears. Unready, the reason names storage or the query engine, never a path or the engine's own words.",
           tag: "System",
           tool: "check_health", mcp: LOCAL_READ,
           display: {"verb": "Checked the instance"},
           effects: READ_ONLY,
           responses: {
             "200": jsonOk("#/components/schemas/Health", "Ready."),
-            "503": jsonOk("#/components/schemas/HealthUnready", "The ingress preload or storage is unavailable."),
+            "503": jsonOk("#/components/schemas/HealthUnready", "The ingress preload, storage or the query engine is unavailable."),
           },
         }),
       },
@@ -920,7 +921,7 @@ export function buildOpenApiDocument() {
           required: ["status", "reason"],
           properties: {
             status: { type: "string", enum: ["unready"] },
-            reason: { type: "string", enum: [ERROR_CATALOGUE.internal] },
+            reason: { type: "string", enum: [ERROR_CATALOGUE.internal, ENGINE_UNREADY] },
           },
         },
         ...PROJECT_DEPENDENCY_SCHEMAS,

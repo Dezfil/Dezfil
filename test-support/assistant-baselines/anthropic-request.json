@@ -1454,7 +1454,7 @@
     },
     {
       "name": "check_health",
-      "description": "Readiness check. Readiness reports whether socket provenance is installed and the data directory is usable.",
+      "description": "Readiness check. Readiness reports whether socket provenance is installed, the data directory is usable, and, once a query has started the query engine that runs SQL, whether that engine can serve. Readiness starts no engine before a query does. A started engine is asked a trivial statement on its own connection, not behind any account's queries: a statement that fails reads unready, and one with no answer within 2 seconds reads ready, since a busy engine is not a dead one. An engine whose last start failed reads unready, and readiness starts it again at most once every 30 seconds, so an instance taken out of rotation recovers once the cause clears. Unready, the reason names storage or the query engine, never a path or the engine's own words.",
       "input_schema": {
         "type": "object",
         "properties": {}

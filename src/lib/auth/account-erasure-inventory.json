@@ -3113,6 +3113,11 @@
         "memory:engine-extensions"
       ]
     },
+    "memory:src/lib/duckdb.ts#queryStartFailed": {
+      "stores": [
+        "memory:engine-extensions"
+      ]
+    },
     "memory:src/lib/duckdb.ts#queryCatalogGeneration": {
       "stores": [
         "memory:src/lib/duckdb.ts#queryCatalogGeneration"
@@ -5699,6 +5704,26 @@
     "memory:src/lib/system/part-tests.ts#running": {
       "stores": [
         "memory:provider-scheduling"
+      ]
+    },
+    "memory:src/lib/system/engine-readiness.ts#retry": {
+      "stores": [
+        "memory:engine-extensions"
+      ]
+    },
+    "memory:src/lib/system/engine-readiness.ts#probe.error": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/system/engine-readiness.ts#probe.expired": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/system/engine-readiness.ts#probe.timer": {
+      "stores": [
+        "memory:request-closures"
       ]
     },
     "location:src/lib/system/storage.ts#walk.folder:dataDir": {

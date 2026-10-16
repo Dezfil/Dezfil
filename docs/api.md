@@ -411,7 +411,14 @@ to the same person.
 Operations carry a tag; these are the tags, with what each family is for.
 
 **System.** `GET /api/health` is the readiness probe: `200` when storage is
-usable, `503` with a reason when it is not. `GET /api/config` returns the
+usable and, once a query has started the query engine that runs SQL, that
+engine can serve; `503` with a reason naming storage or the engine when not.
+Readiness starts no engine before a query does. A started engine is asked a
+trivial statement on its own connection, not behind any account's queries: a
+failing statement reads unready, and one with no answer within 2 seconds
+reads ready, since a busy engine is not a dead one. An engine whose last start
+failed reads unready, and readiness starts it again at most once every 30
+seconds, so an instance taken out of rotation recovers once the cause clears. `GET /api/config` returns the
 runtime settings a browser client legitimately needs (available basemaps,
 palettes, the render cap, the preview row count, and whether a geocoder is
 configured, but never a configured URL that might carry a key), and
