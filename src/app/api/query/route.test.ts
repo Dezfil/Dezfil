@@ -53,6 +53,8 @@ describe("POST /api/query — the caller's departure cancels (as Cancel uses it)
     setTimeout(() => controller.abort(), 300);
     const res = await POST(slow);
     const elapsed = Date.now() - started;
+    // The route's own request saw the caller leave (and is held to here).
+    expect(slow.signal.aborted).toBe(true);
     expect(res.status).toBe(499);
     // Interrupted, not awaited to completion: the bound is loose on purpose
     // (a slow machine), but far below the statement's natural runtime.

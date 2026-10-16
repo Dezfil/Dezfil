@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { spawnSync } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -60,19 +61,26 @@ function stubborn(): { file: string; pid: () => number } {
  * and exits at once, its version banner written first when asked. The
  * helper's id is noted, whole, before the program exits, and the program
  * holds off the polite stop until then: a stop landing first on a loaded
- * machine would end it before the note, leaving no helper to find. */
+ * machine would end it before the note, leaving no helper to find.
+ *
+ * It is launched once before it is handed over, doing nothing: the first
+ * launch of a newly written program pays the system's check of it, which
+ * has taken longer than the cases' 300 ms on this platform, and would end
+ * the timed run before the program reached its note. */
 function leavesHelper(seconds: number): { file: string; helper: () => number } {
   const pidFile = path.join(dir, `helper-${pidFiles.length}.pid`);
   pidFiles.push(pidFile);
   const file = path.join(dir, `leaves-helper-${pidFiles.length}`);
   writeFileSync(file, [
     "#!/bin/sh",
+    'if [ "$1" = "--prime" ]; then exit 0; fi',
     "trap '' TERM",
     'if [ "$1" = "--version" ]; then echo "tippecanoe v0.0-helper" >&2; fi',
     `sleep ${seconds} &`,
     `echo $! > '${pidFile}.tmp' && mv '${pidFile}.tmp' '${pidFile}'`,
     "exit 0",
   ].join("\n") + "\n", { mode: 0o755 });
+  spawnSync(file, ["--prime"]);
   return { file, helper: () => (existsSync(pidFile) ? Number(readFileSync(pidFile, "utf8")) : 0) };
 }
 
