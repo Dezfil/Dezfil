@@ -36,6 +36,7 @@ import type { QuerySliderDraft } from "./use-query-slider-preview";
 import { useBuilderWidgets } from "./use-builder-widgets";
 import { useCameraState } from "./use-camera-state";
 import { useLegendLayers } from "./use-legend-layers";
+import { draftedStyle } from "./style-draft";
 import { useLiveFilters } from "./use-live-filters";
 
 /**
@@ -221,7 +222,7 @@ export function useMapPresentation({
       const preview = sliderDrafts[l.id];
       const appearance = appearanceDrafts[l.id];
       const viz = appearance?.viz ?? preview?.viz ?? l.viz;
-      const layerStyle = appearance?.style ?? l.style;
+      const layerStyle = draftedStyle(l.style, appearance);
       const tiles =
         !preview &&
         r?.ok && r.mode === "tiled" && r.tiles?.state === "ready" && r.tiles.url
