@@ -484,6 +484,32 @@ Optional; absent, the gated tests skip visibly:
 The suite blocks third-party hosts, so it needs no internet beyond the
 instance itself.
 
+The assistant specs (`e2e/assistant-*.spec.ts` and the pane cases in
+`e2e/pane-replacement.spec.ts`) answer from a scripted model the suite
+serves itself on `127.0.0.1:3202`, and count the assistant's own calls to
+the instance through a tool harness on `127.0.0.1:3303`. Without the
+instance pointed at both they fail rather than skip. Boot their instance
+like this, alongside the variables above, with the instance's own port in
+`PORT` and `DEZFIL_E2E_LISTEN_PORT`:
+
+```sh
+DEZFIL_DATA_DIR=/tmp/dezfil-scratch PORT=3210 \
+DEZFIL_AI_PROVIDER=openai OPENAI_API_KEY=scripted-wire \
+OPENAI_BASE_URL=http://127.0.0.1:3202/v1 \
+DEZFIL_ASSISTANT_AUTO_CHECK=off \
+NODE_OPTIONS="--require $PWD/e2e/assistant-self-port.cjs" \
+DEZFIL_E2E_LISTEN_PORT=3210 DEZFIL_E2E_SELF_PORT=3303 \
+npm start
+```
+
+The automatic check is off because, with it on, a turn that changes the
+map renders it and asks the model once more, a call the scripted replies
+do not provide for. `e2e/assistant-look.spec.ts` is about that check: its
+instance keeps the check on and loads `e2e/assistant-preloads.cjs` in place
+of the self-port preload, with `DEZFIL_E2E_RENDER_STUB=1` and
+`DEZFIL_ASSISTANT_LOOK_RETENTION=2`. Ports 3202 and 3303 are fixed, so one
+such run at a time per machine.
+
 ## Driving the API without a browser
 
 `node scripts/journey.mjs <base-url>` walks the documented API end to end:
