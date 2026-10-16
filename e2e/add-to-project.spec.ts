@@ -541,9 +541,12 @@ test("the add-to-project dialog end to end", async ({
           .getByRole("checkbox"),
       ).toBeChecked();
     }
-    await expect(dialog).toContainText("Workflow · 4 datasets");
-    // The workflow never carries producers — not even its own.
-    await expect(dialog).not.toContainText("workflow · ");
+    // The workflow never carries producers — not even its own: no
+    // producers section, and the count names no workflow beside the
+    // datasets. (The destination list's project counts can name
+    // workflows; they are other projects', not this move's.)
+    await expect(dialog.locator("[data-producers]")).toHaveCount(0);
+    await expect(dialog.getByText("Workflow · 4 datasets", { exact: true })).toBeVisible();
     const currentRow = dialog.locator("label").filter({ hasText: PB }).first();
     await expect(currentRow.getByRole("radio")).toBeDisabled();
   });
