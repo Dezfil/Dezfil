@@ -93,38 +93,70 @@ const CANCEL_RETRY_MS = 250;
 const CANCEL_WINDOW_MS = 20_000;
 
 /**
- * Cancel the statements one attachment runs on the source, through a
- * short-lived attachment of its own on a connection outside the refused
- * operation, so nothing waits on the blocked connection. It reaches the
- * addresses the attachment was vetted for, in the same order, with the same
+ * Cancel the statements one attachment runs on the source, through
+ * short-lived attachments of its own on a connection outside the refused
+ * operation, so nothing waits on the blocked connection. It reaches each
+ * address the attachment was vetted for on its own, in the same order: given
+ * the whole list, libpq would stop at the first address that answers, which
+ * need not be the server the attachment fell back to. Each uses the same
  * credentials and TLS mode, and asks the server to cancel only active
  * backends whose application name begins with that attachment's unique
  * identity. Its own identity begins differently, so it never matches itself,
- * and the server lets a role cancel only its own backends. It repeats while
- * the attachment's native call is out, within its window, and always
- * detaches.
+ * and the server lets a role cancel only its own backends. An address is
+ * attached once per cancellation and dropped for the rest of it once its
+ * attachment or a cancel through it fails, so an unreachable address costs
+ * one connect limit, not one per try; the cancellation fails only when no
+ * address is left. It repeats while the attachment's native call is out,
+ * within its window, and always detaches what it attached.
  */
 function sourceCancellation(target: ConnectionTarget, hostaddr: readonly string[], sourceIdentity: string): SourceCancellation {
   return running => withSideConnection(async conn => {
-    const own = randomUUID().replace(/-/g, "");
-    const alias = `pg_cancel_${own}`;
     await conn.run("LOAD postgres");
-    await conn.run(
-      `ATTACH ${sqlLit(attachString(target, hostaddr, `dezfil_cancel_${own}`, CANCEL_STATEMENT_MS, CANCEL_CONNECT_S))} AS ${alias} (TYPE postgres, READ_ONLY)`,
-    );
+    const attached: string[] = [];
+    let failure: unknown;
     try {
+      for (const address of hostaddr) {
+        const own = randomUUID().replace(/-/g, "");
+        const alias = `pg_cancel_${own}`;
+        try {
+          await conn.run(
+            `ATTACH ${sqlLit(attachString(target, address, `dezfil_cancel_${own}`, CANCEL_STATEMENT_MS, CANCEL_CONNECT_S))} AS ${alias} (TYPE postgres, READ_ONLY)`,
+          );
+          attached.push(alias);
+        } catch (error) { failure ??= error; }
+      }
       const cancel = `SELECT pg_cancel_backend(pid) AS cancelled FROM pg_stat_activity WHERE left(application_name, ${sourceIdentity.length}) = ${sqlLit(sourceIdentity)} AND pid <> pg_backend_pid() AND state = 'active'`;
+      if (!attached.length) throw failure;
       const until = performance.now() + CANCEL_WINDOW_MS;
+      let live = attached;
       for (;;) {
-        await conn.run(`SELECT * FROM postgres_query(${sqlLit(alias)}, ${sqlLit(cancel)})`);
+        const answered: string[] = [];
+        for (const alias of live) {
+          try {
+            await conn.run(`SELECT * FROM postgres_query(${sqlLit(alias)}, ${sqlLit(cancel)})`);
+            answered.push(alias);
+          } catch (error) { failure ??= error; }
+        }
+        live = answered;
+        if (!live.length) throw failure;
         if (!running() || performance.now() >= until) break;
         await delay(CANCEL_RETRY_MS);
         if (!running()) break;
       }
     } finally {
-      await conn.run(`DETACH ${alias}`);
+      await detachEach(conn, attached);
     }
   });
+}
+
+/** Detach every alias, each regardless of the others; the first failure
+ * is reported once all have been tried. */
+async function detachEach(conn: Pick<import("@duckdb/node-api").DuckDBConnection, "run">, aliases: readonly string[]): Promise<void> {
+  let failure: { error: unknown } | undefined;
+  for (const alias of aliases) {
+    try { await conn.run(`DETACH ${alias}`); } catch (error) { failure ??= { error }; }
+  }
+  if (failure) throw failure.error;
 }
 
 /** Attach read-only, run work, always detach. */
