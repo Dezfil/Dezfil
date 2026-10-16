@@ -12,51 +12,57 @@
 
    The chip owns its box; each host owns the corner's placement, the same
    division StageStack, BasemapCredit and TimelineBar keep. */
-.corner {
-  position: absolute;
-  z-index: 5;
-  pointer-events: none;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
+
+@layer base, kit;
+@layer kit {
+  .corner {
+    position: absolute;
+    z-index: 5;
+    pointer-events: none;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+  }
 }
 
-.chip {
-  --chip-out: calc(var(--dur-panel) + var(--dur-micro));
-  pointer-events: auto;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  box-sizing: border-box;
-  padding: 0;
-  overflow: hidden;
-  /* NOT the pill token. The token resolves to
-     half the box's height, so on a wrapped message the corners curve far
-     enough in to clip the first and last rows — 18.2 px at a 78 px chip,
-     against 12 px of inset. Capped, the ends of a single band still round
-     to a stadium (the used radius clamps to 15 px at 30 px tall, exactly
-     the pill's), and a taller chip keeps its corners clear of every row. */
-  border-radius: var(--radius-card);
-  background: var(--surface-glass-chrome-fill);
-  backdrop-filter: var(--surface-glass-chrome-blur);
-  box-shadow: var(--surface-glass-chrome-shadow);
-  /* A message must not lose its tail off the stage's edge: the header span this chip replaced had no white-space
-     rule and wrapped, and a long import outcome's tail is exactly the
-     part naming what went wrong. The host's corner bounds the width, and
-     the measure is the canvas notice's own 520 px; a single unbroken
-     token breaks rather than escapes. */
-  max-width: min(520px, 100%);
-  white-space: normal;
-  overflow-wrap: anywhere;
-  user-select: none;
-  opacity: 0;
-  visibility: hidden;
-  /* The chip keeps no height of its own: its lines carry the box, and
-     deferring theirs defers the pill's. */
-  transition:
-    opacity var(--dur-micro) ease var(--dur-panel),
-    visibility 0s var(--chip-out),
-    padding 0s var(--chip-out);
+@layer kit {
+  .chip {
+    --chip-out: calc(var(--dur-panel) + var(--dur-micro));
+    pointer-events: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    box-sizing: border-box;
+    padding: 0;
+    overflow: hidden;
+    /* NOT the pill token. The token resolves to
+       half the box's height, so on a wrapped message the corners curve far
+       enough in to clip the first and last rows — 18.2 px at a 78 px chip,
+       against 12 px of inset. Capped, the ends of a single band still round
+       to a stadium (the used radius clamps to 15 px at 30 px tall, exactly
+       the pill's), and a taller chip keeps its corners clear of every row. */
+    border-radius: var(--radius-card);
+    background: var(--surface-glass-chrome-fill);
+    backdrop-filter: var(--surface-glass-chrome-blur);
+    box-shadow: var(--surface-glass-chrome-shadow);
+    /* A message must not lose its tail off the stage's edge: the header span this chip replaced had no white-space
+       rule and wrapped, and a long import outcome's tail is exactly the
+       part naming what went wrong. The host's corner bounds the width, and
+       the measure is the canvas notice's own 520 px; a single unbroken
+       token breaks rather than escapes. */
+    max-width: min(520px, 100%);
+    white-space: normal;
+    overflow-wrap: anywhere;
+    user-select: none;
+    opacity: 0;
+    visibility: hidden;
+    /* The chip keeps no height of its own: its lines carry the box, and
+       deferring theirs defers the pill's. */
+    transition:
+      opacity var(--dur-micro) ease var(--dur-panel),
+      visibility 0s var(--chip-out),
+      padding 0s var(--chip-out);
+  }
 }
 
 /* The entrance is the reference's, not the shipped spans': the chip
@@ -77,28 +83,30 @@
    the instant the line went off and clip the words the exit hold is
    there to keep readable. Fractions interpolate, so the zero-duration
    delay actually defers, and nothing caps how tall a message may grow. */
-.line {
-  display: grid;
-  grid-template-rows: 0fr;
-  min-width: 0;
-  /* The band's own padding sits here, not on the text inside it: a grid
-     item stretched to a zero row still keeps its padding, which left a
-     collapsed line 12 px tall and a resting chip 24 px of invisible box.
-     On the line it collapses with the row, on the same deferred beat. */
-  padding: 0;
-  font-family: var(--font-ui);
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--warn);
-  opacity: 0;
-  visibility: hidden;
-  transition:
-    opacity var(--dur-micro) ease var(--dur-panel),
-    visibility 0s var(--chip-out),
-    grid-template-rows 0s var(--chip-out),
-    padding 0s var(--chip-out);
+@layer kit {
+  .line {
+    display: grid;
+    grid-template-rows: 0fr;
+    min-width: 0;
+    /* The band's own padding sits here, not on the text inside it: a grid
+       item stretched to a zero row still keeps its padding, which left a
+       collapsed line 12 px tall and a resting chip 24 px of invisible box.
+       On the line it collapses with the row, on the same deferred beat. */
+    padding: 0;
+    font-family: var(--font-ui);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--warn);
+    opacity: 0;
+    visibility: hidden;
+    transition:
+      opacity var(--dur-micro) ease var(--dur-panel),
+      visibility 0s var(--chip-out),
+      grid-template-rows 0s var(--chip-out),
+      padding 0s var(--chip-out);
+  }
 }
 
 .line[data-on] {
@@ -118,25 +126,29 @@
 /* The band itself: the reference's 30 px for a message that fits one
    line (18 px of leading inside 6 px above and below), and as many bands
    as a wrapped one needs. */
-.lineText {
-  min-height: 0;
-  overflow: hidden;
-  display: flex;
-  align-items: center;
-  line-height: 18px;
+@layer kit {
+  .lineText {
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    line-height: 18px;
+  }
 }
 
 /* The chip's one action: Retry after a failed layout or recipe save. */
-.action {
-  margin-left: 8px;
-  font-family: var(--font-ui);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0;
-  text-transform: none;
-  color: var(--accent);
-  text-decoration: underline;
-  text-underline-offset: 2px;
+@layer kit {
+  .action {
+    margin-left: 8px;
+    font-family: var(--font-ui);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--accent);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
 }
 
 .action:hover {

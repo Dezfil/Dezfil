@@ -4,10 +4,14 @@
    Behaviour is the full keyboard model: roles with real panel linkage,
    one tab stop per strip, arrows plus Home and End. */
 
-.tabs {
-  display: flex;
-  gap: 2px;
-  flex-shrink: 0;
+@layer base, kit;
+
+@layer kit {
+  .tabs {
+    display: flex;
+    gap: 2px;
+    flex-shrink: 0;
+  }
 }
 
 /* An even strip: every tab takes the same share of the row. Surfaces whose
@@ -18,27 +22,31 @@
   grid-auto-columns: 1fr;
 }
 
-.tab {
-  position: relative;
-  height: 36px;
-  padding: 0 12px;
-  border-radius: var(--radius);
-  font-family: var(--font-ui);
-  font-size: var(--text-body);
-  font-weight: 500;
-  color: var(--fg-muted);
-  white-space: nowrap;
-  transition:
-    color var(--dur-micro) ease,
-    background var(--dur-micro) ease;
+@layer kit {
+  .tab {
+    position: relative;
+    height: 36px;
+    padding: 0 12px;
+    border-radius: var(--radius);
+    font-family: var(--font-ui);
+    font-size: var(--text-body);
+    font-weight: 500;
+    color: var(--fg-muted);
+    white-space: nowrap;
+    transition:
+      color var(--dur-micro) ease,
+      background var(--dur-micro) ease;
+  }
 }
 
 /* A tab may carry a mark beside its word. */
-.tab {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
+@layer kit {
+  .tab {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+  }
 }
 
 .tab svg {

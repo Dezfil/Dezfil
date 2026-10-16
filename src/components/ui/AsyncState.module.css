@@ -1,15 +1,21 @@
 /* The four states, presented. */
 
-.pending {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0;
-  color: var(--fg-muted);
-  font-size: var(--text-label);
+@layer base, kit;
+
+@layer kit {
+  .pending {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    color: var(--fg-muted);
+    font-size: var(--text-label);
+  }
 }
 
-.empty {
-  color: var(--fg-muted);
-  font-size: var(--text-label);
+@layer kit {
+  .empty {
+    color: var(--fg-muted);
+    font-size: var(--text-label);
+  }
 }

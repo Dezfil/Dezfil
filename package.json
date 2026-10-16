@@ -39,6 +39,7 @@
     "lint:wheelhouse": "node scripts/check-wheelhouse.mjs",
     "lint:tokens": "node scripts/check-tokens.mjs",
     "lint:icons": "node scripts/check-inline-svg.mjs",
+    "lint:class-pairs": "node scripts/check-class-pairs.mjs",
     "lint:specimen": "node scripts/build-specimen.mjs --check",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",

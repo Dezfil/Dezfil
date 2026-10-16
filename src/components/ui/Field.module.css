@@ -3,17 +3,21 @@
    global :focus-visible ring is never suppressed — the 28 local
    `outline: none` rules are what this replaces. */
 
-.field {
-  width: 100%;
-  min-width: 0;
-  padding: 0 9px;
-  color: var(--fg);
-  background: var(--bg-panel);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  font-family: var(--font-ui);
-  font-size: var(--text-label);
-  transition: border-color var(--dur-micro) ease;
+@layer base, kit;
+
+@layer kit {
+  .field {
+    width: 100%;
+    min-width: 0;
+    padding: 0 9px;
+    color: var(--fg);
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-family: var(--font-ui);
+    font-size: var(--text-label);
+    transition: border-color var(--dur-micro) ease;
+  }
 }
 
 .field[data-size="chrome"] {
@@ -59,14 +63,16 @@ select.field {
    semantics, keyboard and form behaviour untouched — and a drawn box
    stands in for its OS artwork. */
 
-.check {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-  cursor: pointer;
-  color: var(--fg);
-  font-size: var(--text-label);
+@layer kit {
+  .check {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    cursor: pointer;
+    color: var(--fg);
+    font-size: var(--text-label);
+  }
 }
 
 .check[data-disabled="true"] {
@@ -74,37 +80,43 @@ select.field {
   color: var(--fg-muted);
 }
 
-.checkWrap {
-  position: relative;
-  display: inline-flex;
-  flex: none;
-  width: 15px;
-  height: 15px;
+@layer kit {
+  .checkWrap {
+    position: relative;
+    display: inline-flex;
+    flex: none;
+    width: 15px;
+    height: 15px;
+  }
 }
 
 /* The real control, invisible but present: it keeps the pointer target,
    the keyboard behaviour and the accessibility tree. */
-.checkInput {
-  position: absolute;
-  inset: 0;
-  margin: 0;
-  opacity: 0;
-  cursor: inherit;
+@layer kit {
+  .checkInput {
+    position: absolute;
+    inset: 0;
+    margin: 0;
+    opacity: 0;
+    cursor: inherit;
+  }
 }
 
-.checkBox {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  border: 1.5px solid var(--border-strong);
-  border-radius: var(--radius-sm);
-  background: var(--bg-panel);
-  color: transparent;
-  transition:
-    background var(--dur-micro) ease,
-    border-color var(--dur-micro) ease,
-    color var(--dur-micro) ease;
+@layer kit {
+  .checkBox {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    border: 1.5px solid var(--border-strong);
+    border-radius: var(--radius-sm);
+    background: var(--bg-panel);
+    color: transparent;
+    transition:
+      background var(--dur-micro) ease,
+      border-color var(--dur-micro) ease,
+      color var(--dur-micro) ease;
+  }
 }
 
 .checkInput:checked + .checkBox {

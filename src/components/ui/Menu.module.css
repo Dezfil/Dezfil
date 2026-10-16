@@ -2,7 +2,11 @@
    else — an adopter's trigger keeps its own look — but the 24px contract
    is not the adopter's to opt out of. */
 
-.trigger {
-  min-width: var(--hit-area);
-  min-height: var(--hit-area);
+@layer base, kit;
+
+@layer kit {
+  .trigger {
+    min-width: var(--hit-area);
+    min-height: var(--hit-area);
+  }
 }

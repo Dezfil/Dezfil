@@ -5,7 +5,6 @@
 .trigger {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
 }
 
 .trigger[aria-pressed="true"] {

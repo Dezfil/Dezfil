@@ -79,7 +79,8 @@ source), `lint:readme` (the configuration table covers the real environment
 surface, both directions), `lint:size` (the oversized modules below),
 `lint:stage-edge` (the builder stage's left edge stays one custom
 property), `lint:wheelhouse`, `lint:tokens` and `lint:icons` (the design
-language), `lint:specimen` (the specimen still matches its sources),
+language), `lint:class-pairs` (no element's look left to the order two
+stylesheets load in), `lint:specimen` (the specimen still matches its sources),
 `lint:plugin` (the generated plugin guidance is current), `lint:contract-docs`
 (reader counts and error catalogue match the contract) and `lint:reader-docs`
 (no superseded guidance or missing revision examples). Run the ones a

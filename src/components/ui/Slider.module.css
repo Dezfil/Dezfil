@@ -7,14 +7,18 @@
    It is the inner card's knob, so a look that restates the role reaches
    it; its accent ring is the thumb's own. */
 
-.slider {
-  flex: 1;
-  height: 22px;
-  appearance: none;
-  -webkit-appearance: none;
-  background: none;
-  cursor: pointer;
-  --track: color-mix(in srgb, var(--fg) 16%, transparent);
+@layer base, kit;
+
+@layer kit {
+  .slider {
+    flex: 1;
+    height: 22px;
+    appearance: none;
+    -webkit-appearance: none;
+    background: none;
+    cursor: pointer;
+    --track: color-mix(in srgb, var(--fg) 16%, transparent);
+  }
 }
 
 .slider::-webkit-slider-runnable-track {

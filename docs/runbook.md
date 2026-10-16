@@ -367,6 +367,13 @@ rule:
   does not excuse an undefined token.
 - `npm run lint:icons` fails when a builder component grows an inline
   `<svg>` past its inventoried count, or a new file gains one.
+- `npm run lint:class-pairs` fails when one element takes classes from two
+  module stylesheets that set the same property at equal specificity, since
+  the order the build emits the two sheets in then decides, and production
+  orders them differently from development; and when a stylesheet opens a
+  cascade layer without first naming the order `src/app/globals.css` names.
+  Raise the caller's selector, or move the shared component's rule into its
+  layer.
 - `npm run lint:specimen` fails when the design specimen page would change
   if regenerated, which a shipped token, stylesheet or palette makes happen.
 - `npm run lint:plugin` fails when the plugin package's guidance file or its

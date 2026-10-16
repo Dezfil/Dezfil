@@ -12,8 +12,13 @@
   composes: drawer from "../drawer/RecipeDrawer.module.css";
   display: flex;
   flex-direction: column;
-  left: auto;
   right: var(--gutter);
+}
+
+/* The drawer's left edge, undone a step above the composed class, so
+   neither sheet's place in the build decides it. */
+.pane[data-assistant-pane] {
+  left: auto;
 }
 
 /* Overlaying (at and below the breakpoint, and over the fullscreen map),
