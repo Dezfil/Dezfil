@@ -486,6 +486,9 @@ test("delete inside a folder updates its facts and state; the last deletion remo
   const consoleErrors = trackConsole(page);
   await openData(page);
   await page.getByLabel("Sort tables").selectOption("name");
+  // The count is read once the listing is in: the folder card shows only
+  // after the tables and the workflows have both landed.
+  await expect(folderCard(page, ids.folder)).toBeVisible();
   const all = await allChipCount(page);
   await activator(page, ids.folder).click();
   const inPane = (name: string) => pane(page, ids.folder).locator(`[data-table-card="${name}"]`);
