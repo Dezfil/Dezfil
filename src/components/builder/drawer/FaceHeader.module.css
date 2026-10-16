@@ -8,8 +8,8 @@
   /* The header's underline sits at the same viewport line as the
      inspector tab strip's (a field round): both
      cards start at top 62px; the inspector reaches its border at
-     10px padding + the kit's 36px tab, and this card's 1px frame
-     border means 46px here lands the two borders on one line. */
+     10px padding + the kit's 36px tab, and this card's 1px top
+     padding means 46px here lands the two borders on one line. */
   height: 46px;
   padding: 0 12px;
   border-bottom: 1px solid var(--border);

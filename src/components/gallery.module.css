@@ -1000,7 +1000,7 @@
 
 /* A chip that is a door (04): the assumed-CRS chip on the
    dataset page carries the caret the chips use for a door, and its drawn
-   tooltip shows on hover and on focus. ---- */
+   tooltip shows on hover and on keyboard focus. ---- */
 
 .chipDoorWrap {
   position: relative;
@@ -1046,6 +1046,9 @@
   opacity: 0;
   visibility: hidden;
   transition: opacity var(--dur-micro) ease;
+  /* Drawn over what stands below the chip (the preview tabs): a click
+     there must land on what it covers. */
+  pointer-events: none;
 }
 
 .tip small {
@@ -1055,8 +1058,10 @@
   font-size: var(--text-label);
 }
 
+/* Keyboard focus only: a click leaves focus on the chip, and a tooltip
+   that outlives its click stays drawn over the page below it. */
 .chipDoorWrap:hover .tip,
-.chipDoorWrap:focus-within .tip {
+.chipDoorWrap:has(:focus-visible) .tip {
   opacity: 1;
   visibility: visible;
 }

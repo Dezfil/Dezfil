@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import type { DataTable } from "./api";
@@ -24,6 +25,34 @@ describe("the assumed-CRS chip as a door", () => {
     expect(html).not.toContain("data-set-geometry-door");
     expect(html).toContain('title="The file declared no CRS; WGS84 was assumed"');
     expect(html).toContain(">WGS84 assumed<");
+  });
+});
+
+describe("the door's drawn tooltip, read from the stylesheet", () => {
+  // The tooltip stands below the chip, over whatever sits there (the
+  // preview tabs on the dataset page). A click on the chip leaves focus on
+  // it, so a tooltip held open by any focus, and hit-testable, keeps
+  // catching the next click meant for what it covers.
+  const sheet = readFileSync("src/components/gallery.module.css", "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+  const rules = [...sheet.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => ({
+    selectors: m[1].split(",").map((s) => s.trim()),
+    body: m[2],
+  }));
+  const showing = rules
+    .filter((r) => /visibility:\s*visible/.test(r.body))
+    .flatMap((r) => r.selectors)
+    .filter((s) => /\.tip$/.test(s));
+
+  it("never takes the pointer, so a click beside the chip reaches what the tooltip covers", () => {
+    const tip = rules.find((r) => r.selectors.length === 1 && r.selectors[0] === ".tip");
+    expect(tip, "the tooltip's own rule").toBeDefined();
+    expect(tip!.body).toMatch(/pointer-events:\s*none/);
+  });
+
+  it("shows on hover and on keyboard focus, and a click's focus does not hold it open", () => {
+    expect(showing.some((s) => s.includes(":hover")), "a hover shows it").toBe(true);
+    expect(showing.some((s) => s.includes(":focus-visible")), "keyboard focus shows it").toBe(true);
+    for (const selector of showing) expect(selector, "only keyboard focus counts").not.toMatch(/:focus(?!-visible)/);
   });
 });
 

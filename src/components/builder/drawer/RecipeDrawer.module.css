@@ -24,6 +24,11 @@
   backdrop-filter: var(--surface-glass-panel-blur);
   border-radius: var(--radius-card);
   box-shadow: var(--surface-glass-panel-shadow);
+  /* One pixel above the content: the inspector's tab strip reaches its
+     line a pixel past the header's own height, and this pixel puts the
+     header's underline on the strip's line (FaceHeader.module.css). It is
+     padding because the glass draws no edge. */
+  padding-top: 1px;
   overflow: hidden;
 }
 

@@ -440,6 +440,23 @@ function Canvas({
           isValidConnection={isValidConnection} onConnect={onConnect} onConnectEnd={onConnectEnd}
           onReconnectStart={onReconnectStart} onReconnect={onReconnect} onReconnectEnd={onReconnectEnd}
           whisper={whisper}
+          controls={<CanvasStage
+            view={view}
+            onView={onView}
+            panel={fitPanel}
+            reserve={reserve}
+            helperRight={helperRight}
+            onArrange={arrange}
+            canArrange={graph.members.length > 0}
+            arrangeReason={gate.reason}
+            noteMode={notesCtl.mode.on}
+            noteToolReason={gate.reason ?? (notesCtl.canAdd() ? null : NOTE_TOOL_LIMIT)}
+            onNoteTool={notesCtl.mode.toggle}
+            minimapShown={minimapShown}
+            onMinimap={toggleMinimap}
+            locked={lock.locked}
+            onLock={lock.toggle}
+          />}
         >
         {overlays}
         <CanvasFurniture
@@ -456,23 +473,6 @@ function Canvas({
           assistant={assistant}
           recipe={{ id, name: recipeName }}
           runner={runner.state}
-        />
-        <CanvasStage
-          view={view}
-          onView={onView}
-          panel={fitPanel}
-          reserve={reserve}
-          helperRight={helperRight}
-          onArrange={arrange}
-          canArrange={graph.members.length > 0}
-          arrangeReason={gate.reason}
-          noteMode={notesCtl.mode.on}
-          noteToolReason={gate.reason ?? (notesCtl.canAdd() ? null : NOTE_TOOL_LIMIT)}
-          onNoteTool={notesCtl.mode.toggle}
-          minimapShown={minimapShown}
-          onMinimap={toggleMinimap}
-          locked={lock.locked}
-          onLock={lock.toggle}
         />
         </WorkflowStage>
         <CanvasNotices notice={notice} locked={lock.locked} onUnlock={lock.unlock} />
