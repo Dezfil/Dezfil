@@ -26,6 +26,13 @@ import styles from "./SearchControl.module.css";
 
 const subscribeNever = () => () => {};
 
+/** The line naming the layers whose values were too large to search, one
+ * name each, or null when none was refused. */
+function refusalLine(refused: readonly { layerName: string }[]): string | null {
+  const names = [...new Set(refused.map((layer) => layer.layerName))];
+  return names.length ? `Values in ${names.join(", ")} are too large to search.` : null;
+}
+
 export function SearchControl({
   mapId,
   map,
@@ -90,12 +97,16 @@ export function SearchControl({
   // The popup the user can see is `showPanel`, not `state.open`: a
   // typed query with nothing to show keeps `open` true but renders no
   // panel, and everything popup-shaped — aria-expanded, Escape, the
-  // arrow-reopen — must follow what is visible.
+  // arrow-reopen — must follow what is visible. A refused layer is
+  // something to show: without its line, a search whose only matches
+  // were refused would read as one with none.
   const empty =
     state.rows.flat.length === 0 &&
     (!state.places || state.places.state === "ok");
+  const refusal = refusalLine(state.refusedLayers);
   const showPanel =
-    state.open && (state.rows.flat.length > 0 || state.places !== null);
+    state.open &&
+    (state.rows.flat.length > 0 || state.places !== null || refusal !== null);
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     const flat = state.rows.flat;
@@ -210,6 +221,7 @@ export function SearchControl({
               </li>
             ))}
           </ul>
+          {refusal && <div className={styles.note}>{refusal}</div>}
           {state.places?.state === "pending" && (
             <div className={styles.note}>Searching places…</div>
           )}
@@ -223,6 +235,7 @@ export function SearchControl({
           )}
           {state.submitted &&
             empty &&
+            !refusal &&
             state.places?.state !== "pending" &&
             !state.pending && <div className={styles.note}>No results.</div>}
         </div>

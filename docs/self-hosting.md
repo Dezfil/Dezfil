@@ -425,7 +425,7 @@ classification, category widgets and value search hold each text value they
 return to the 2 MiB value ceiling: the first two refuse with the same 422, a
 category widget answers that code as its own error while the others keep
 working, and value search names the layer under `refusedLayers` and answers no
-rows from it. SQL, table and layer file exports still stream complete
+rows from it, which the builder's search says in a line under its results. SQL, table and layer file exports still stream complete
 results above both ceilings. Dataset inspection shows text values, and the WKT
 of its registered geometry column, longer than 512 characters as their first
 512 characters and an ellipsis, as geometry-choice preview does. Other values,
