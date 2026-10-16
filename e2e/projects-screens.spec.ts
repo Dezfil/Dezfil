@@ -175,8 +175,13 @@ test("departed project-home continuations keep project B clean", async ({ page, 
       const recent = async (route: Route) => {
         const response = await route.fetch();
         const maps = (await response.json()) as { id: string; updatedAt: string }[];
+        // The page drops a read another one supersedes. With many maps the
+        // read can still be in here when it does, and there is no request
+        // left to answer.
         await route.fulfill({ response, json: maps.map((map) => map.id === mapId
-          ? { ...map, updatedAt: "9999-01-01T00:00:00.000Z" } : map) });
+          ? { ...map, updatedAt: "9999-01-01T00:00:00.000Z" } : map) }).catch((error: Error) => {
+          if (!error.message.includes("Route is already handled")) throw error;
+        });
       };
       await page.route("**/api/maps", recent);
       try {
