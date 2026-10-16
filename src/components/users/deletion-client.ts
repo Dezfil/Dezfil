@@ -11,3 +11,11 @@ export const deleteAccount = (preview: DeletionPreview, email: string) =>
   });
 export const finishDeletion = (id: string) =>
   accountRequest<DeletionStatus>(`/api/users/deletions/${encodeURIComponent(id)}/finish`, "POST");
+/** A deletion's status, or null once it has left the store: finished,
+ * or never committed. Any other refusal throws. */
+export async function readDeletionStatus(id: string): Promise<DeletionStatus | null> {
+  const response = await fetch(`/api/users/deletions/${encodeURIComponent(id)}`, { cache: "no-store" });
+  if (response.status === 404) return null;
+  if (!response.ok) throw new Error(`Deletion status ${response.status}`);
+  return response.json() as Promise<DeletionStatus>;
+}

@@ -1,7 +1,7 @@
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
-import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Account } from "@/lib/metadata/accounts";
 import type { PendingDeletion } from "@/lib/auth/account-deletion-status";
 import { installDomHost } from "../testing/dom-host";
@@ -89,4 +89,62 @@ it("shows an unreadable deletion by identifier without hiding unrelated users", 
   const invite = host.document.querySelectorAll("button").find(value => value.textContent.trim() === "Invite")!;
   expect(invite.disabled).toBe(false);
   expect(host.document.body.textContent).not.toContain("Finish deleting");
+});
+
+describe("a pending deletion on the page", () => {
+  let answers: Response[];
+  const statusReads = () => calls.filter(call => call === "GET /api/users/deletions/deletion").length;
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval"] });
+    listed = []; entries = [{ id: "deletion", state: "pending", account }]; answers = [];
+    const ordinary = globalThis.fetch;
+    vi.stubGlobal("fetch", vi.fn((url: string, init?: RequestInit) => {
+      if (url === "/api/users/deletions/deletion" && (init?.method ?? "GET") === "GET") {
+        calls.push(`GET ${url}`);
+        return Promise.resolve(answers.shift() ?? Response.json({ id: "deletion", state: "pending" }));
+      }
+      return ordinary(url, init);
+    }));
+  });
+  afterEach(() => { vi.useRealTimers(); });
+  const wait = (ms: number) => act(async () => { await vi.advanceTimersByTimeAsync(ms); });
+
+  it("reads its status every few seconds and drops the row once the deletion has left", async () => {
+    await mount();
+    expect(host.document.body.textContent).toContain("Deleting");
+    expect(statusReads()).toBe(0);
+    await wait(3000);
+    expect(statusReads()).toBe(1);
+    expect(host.document.body.textContent).toContain("Deleting");
+    // Finished on the server: its status is gone, and the list read again no longer holds it.
+    entries = [];
+    answers.push(Response.json({ error: { code: "not_found", message: "Deletion not found." } }, { status: 404 }));
+    await wait(3000);
+    expect(statusReads()).toBe(2);
+    expect(calls.filter(call => call === "GET /api/users")).toHaveLength(2);
+    expect(host.document.body.textContent).not.toContain("Deleting");
+    expect(host.document.body.textContent).toContain("No one matches this search.");
+    // Nothing pending: nothing more is read.
+    await wait(9000);
+    expect(statusReads()).toBe(2);
+  });
+
+  it("takes a deletion that now needs a retry into its unfinished state, and stops reading it", async () => {
+    await mount();
+    answers.push(Response.json({ id: "deletion", state: "needs-retry" }));
+    await wait(3000);
+    expect(host.document.body.textContent).toContain("Deletion unfinished");
+    expect(host.document.body.textContent).toContain("Cy Marsh’s account could not be deleted completely.");
+    await wait(9000);
+    expect(statusReads()).toBe(1);
+  });
+
+  it("stops reading when the page goes away", async () => {
+    await mount();
+    await wait(3000);
+    expect(statusReads()).toBe(1);
+    await act(async () => root.render(<div />));
+    await wait(9000);
+    expect(statusReads()).toBe(1);
+  });
 });

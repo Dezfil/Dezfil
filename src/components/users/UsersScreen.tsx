@@ -15,6 +15,7 @@ import { UserRow } from "./UserRow";
 import { DeleteAccountDialog } from "./DeleteAccountDialog";
 import { DeletingUserRow } from "./DeletingUserRow";
 import { finishDeletion, type DeletionStatus } from "./deletion-client";
+import { useDeletionWatch } from "./use-deletion-watch";
 import type { HandOver } from "./SignInHandOver";
 import styles from "./UsersScreen.module.css";
 
@@ -78,6 +79,14 @@ export function UsersScreen() {
   const unreadable = data?.deletions.filter(value => value.state === "unreadable") ?? [];
   const shown = data?.users.filter(user => !pending.some(value => value.account.id === user.id) && matches(user)) ?? [];
   const shownPending = pending.filter(value => matches(value.account));
+  // A deletion that has left the store is read off the list again; one that
+  // now needs a retry takes that state.
+  useDeletionWatch(pending.filter(value => value.state === "pending").map(value => value.id), (id, status) => {
+    if (!status || status.state === "completed") { setAttempt(value => value + 1); return; }
+    const state = status.state;
+    setData(current => current ? { ...current, deletions: current.deletions.map(value =>
+      value.id === id && value.state !== "unreadable" ? { ...value, state } : value) } : null);
+  });
   const active = shown.filter(user => user.status !== "deactivated"), deactivated = shown.filter(user => user.status === "deactivated");
   function row(account: Account) {
     return <UserRow key={account.id} account={account} own={account.id === data?.own} open={open === account.id} busy={busy}
