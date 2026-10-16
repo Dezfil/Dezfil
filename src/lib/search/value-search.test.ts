@@ -6,6 +6,10 @@ import { closeMetadataDb } from "@/lib/metadata/db";
 import { resetQueryInstance } from "@/lib/duckdb";
 import { searchValues, type ValueSearchLayer } from "./value-search";
 
+/** The value rows a search answers; the layers it refused are their own
+ * tests' subject. */
+const search = async (...args: Parameters<typeof searchValues>) => (await searchValues(...args)).values;
+
 let dir: string;
 
 beforeAll(async () => {
@@ -36,7 +40,7 @@ const stations = (id = "l1", name = "Stations"): ValueSearchLayer => ({
 
 describe("value search", () => {
   it("matches case-insensitive substrings in text fields, one row per feature", async () => {
-    const rows = await searchValues(testAccountScope(), [stations()], "alex");
+    const rows = await search(testAccountScope(), [stations()], "alex");
     expect(rows).toEqual([
       {
         layerId: "l1",
@@ -47,11 +51,11 @@ describe("value search", () => {
       },
     ]);
     // "U2" matches two features in one field each — two rows, not four.
-    expect(await searchValues(testAccountScope(), [stations()], "u2")).toHaveLength(2);
+    expect(await search(testAccountScope(), [stations()], "u2")).toHaveLength(2);
   });
 
   it("folds Unicode case in the engine", async () => {
-    const rows = await searchValues(testAccountScope(), [stations()], "SÜDKREUZ");
+    const rows = await search(testAccountScope(), [stations()], "SÜDKREUZ");
     expect(rows.map((r) => r.value)).toEqual(["Südkreuz"]);
   });
 
@@ -61,7 +65,7 @@ describe("value search", () => {
       layerName: "L",
       sql: `SELECT 'Hauptstraße 12' AS address, ST_Point(0, 0) AS geom`,
     };
-    expect((await searchValues(testAccountScope(), [layer], "STRASSE")).map((r) => r.value)).toEqual(
+    expect((await search(testAccountScope(), [layer], "STRASSE")).map((r) => r.value)).toEqual(
       ["Hauptstraße 12"],
     );
     // And the mirror: data holds "ss", the query holds "ß".
@@ -70,7 +74,7 @@ describe("value search", () => {
       layerName: "L",
       sql: `SELECT 'Hauptstrasse 12' AS address, ST_Point(0, 0) AS geom`,
     };
-    expect((await searchValues(testAccountScope(), [mirror], "straße")).map((r) => r.value)).toEqual(
+    expect((await search(testAccountScope(), [mirror], "straße")).map((r) => r.value)).toEqual(
       ["Hauptstrasse 12"],
     );
   });
@@ -84,9 +88,9 @@ describe("value search", () => {
         ('abc', ST_Point(1, 1))
       ) AS t(label, geom)`,
     };
-    expect(await searchValues(testAccountScope(), [layer], "100%")).toHaveLength(1);
-    expect(await searchValues(testAccountScope(), [layer], "a%c")).toEqual([]);
-    expect(await searchValues(testAccountScope(), [layer], "a_c")).toEqual([]);
+    expect(await search(testAccountScope(), [layer], "100%")).toHaveLength(1);
+    expect(await search(testAccountScope(), [layer], "a%c")).toEqual([]);
+    expect(await search(testAccountScope(), [layer], "a_c")).toEqual([]);
   });
 
   it("keeps injection-shaped text as data", async () => {
@@ -95,7 +99,7 @@ describe("value search", () => {
       `") OR 1=1 --`,
       "$$ union select",
     ]) {
-      expect(await searchValues(testAccountScope(), [stations()], hostile)).toEqual([]);
+      expect(await search(testAccountScope(), [stations()], hostile)).toEqual([]);
     }
   });
 
@@ -108,10 +112,10 @@ describe("value search", () => {
         ('name-true-42', true, 42, ST_Point(0, 0))
       ) AS t(name, flag, count, geom)`,
     };
-    expect(await searchValues(testAccountScope(), [layer], "true")).toHaveLength(1);
-    expect((await searchValues(testAccountScope(), [layer], "true"))[0].field).toBe("name");
-    expect(await searchValues(testAccountScope(), [layer], "42")).toHaveLength(1);
-    expect((await searchValues(testAccountScope(), [layer], "42"))[0].field).toBe("name");
+    expect(await search(testAccountScope(), [layer], "true")).toHaveLength(1);
+    expect((await search(testAccountScope(), [layer], "true"))[0].field).toBe("name");
+    expect(await search(testAccountScope(), [layer], "42")).toHaveLength(1);
+    expect((await search(testAccountScope(), [layer], "42"))[0].field).toBe("name");
   });
 
   it("answers non-point features with anchor and bounds, no point", async () => {
@@ -121,7 +125,7 @@ describe("value search", () => {
       sql: `SELECT 'Mitte' AS name,
                    ST_GeomFromText('POLYGON((13 52, 14 52, 14 53, 13 53, 13 52))') AS geom`,
     };
-    const [row] = await searchValues(testAccountScope(), [layer], "mitte");
+    const [row] = await search(testAccountScope(), [layer], "mitte");
     expect(row.point).toBeUndefined();
     expect(row.bounds).toEqual([13, 52, 14, 53]);
     expect(row.anchor?.[0]).toBeGreaterThan(13);
@@ -138,7 +142,7 @@ describe("value search", () => {
                    ST_Point(0, 0) AS geom
             FROM range(30)`,
     };
-    const rows = await searchValues(testAccountScope(), [many, stations()], "o", { bound: 20 });
+    const rows = await search(testAccountScope(), [many, stations()], "o", { bound: 20 });
     expect(rows).toHaveLength(20);
     // The budget filled on the first layer; the second contributed none.
     expect(rows.every((r) => r.layerId === "big")).toBe(true);
@@ -155,8 +159,10 @@ describe("value search", () => {
       layerName: "Write",
       sql: "INSERT INTO x VALUES (1)",
     };
-    const rows = await searchValues(testAccountScope(), [broken, rejected, stations()], "alex");
-    expect(rows.map((r) => r.layerId)).toEqual(["l1"]);
+    const answer = await searchValues(testAccountScope(), [broken, rejected, stations()], "alex");
+    expect(answer.values.map((r) => r.layerId)).toEqual(["l1"]);
+    // Only a refused value names its layer; an ordinary failure does not.
+    expect(answer.refusedLayers).toEqual([]);
   });
 
   it("skips features with null geometry and layers without text or geometry", async () => {
@@ -168,7 +174,7 @@ describe("value search", () => {
         ('missing', CAST(NULL AS GEOMETRY))
       ) AS t(name, geom)`,
     };
-    expect((await searchValues(testAccountScope(), [nullGeom], "i")).map((r) => r.value)).toEqual([
+    expect((await search(testAccountScope(), [nullGeom], "i")).map((r) => r.value)).toEqual([
       "visible",
     ]);
     const noText: ValueSearchLayer = {
@@ -176,11 +182,11 @@ describe("value search", () => {
       layerName: "N",
       sql: "SELECT 1 AS n, ST_Point(0, 0) AS geom",
     };
-    expect(await searchValues(testAccountScope(), [noText], "1")).toEqual([]);
+    expect(await search(testAccountScope(), [noText], "1")).toEqual([]);
   });
 
   it("answers nothing for an empty or whitespace query", async () => {
-    expect(await searchValues(testAccountScope(), [stations()], "")).toEqual([]);
-    expect(await searchValues(testAccountScope(), [stations()], "   ")).toEqual([]);
+    expect(await search(testAccountScope(), [stations()], "")).toEqual([]);
+    expect(await search(testAccountScope(), [stations()], "   ")).toEqual([]);
   });
 });

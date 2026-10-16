@@ -92,7 +92,8 @@ is cancelled without retaining it or pulling again. On framework-matched paths
 this is a handler guarantee: the framework may already have drained and copied
 up to its 17 MiB limit before the gate, including anonymous callers. Canonical
 spellings of the excluded public widget-values, render and extent POST paths
-additionally refuse before a large wire body completes. Multipart uploads at the
+and of the three authentication entry POSTs additionally refuse before a large
+wire body completes. Multipart uploads at the
 canonical `/api/tables` path stream to disk without the framework copy, under
 their file and archive limits. A reverse proxy's own request-size limit bounds the matched
 paths' residual copy further; see [self-hosting](self-hosting.md).
@@ -411,7 +412,14 @@ to the same person.
 Operations carry a tag; these are the tags, with what each family is for.
 
 **System.** `GET /api/health` is the readiness probe: `200` when storage is
-usable, `503` with a reason when it is not. `GET /api/config` returns the
+usable and, once a query has started the query engine that runs SQL, that
+engine can serve; `503` with a reason naming storage or the engine when not.
+Readiness starts no engine before a query does. A started engine is asked a
+trivial statement on its own connection, not behind any account's queries: a
+failing statement reads unready, and one with no answer within 2 seconds
+reads ready, since a busy engine is not a dead one. An engine whose last start
+failed reads unready, and readiness starts it again at most once every 30
+seconds, so an instance taken out of rotation recovers once the cause clears. `GET /api/config` returns the
 runtime settings a browser client legitimately needs (available basemaps,
 palettes, the render cap, the preview row count, and whether a geocoder is
 configured, but never a configured URL that might carry a key), and
@@ -1615,6 +1623,15 @@ rather than on the page:
   and emitted as WKT, count only toward the result ceiling. Text and JSON
   coordinates retain the cell ceiling. Excess returns the same whole-answer
   422 catalogue refusal. Health, cancellation and source timeouts stay unchanged.
+- A filter's distinct values (`GET /api/layers/{id}/fields/{field}`),
+  categorical classification (`POST /api/layers/{id}/fill`), category widgets
+  and map value search (`GET /api/maps/{id}/search`) return a handful of text
+  values and hold each to the 2 MiB value ceiling, counted as a JSON string.
+  A value over it is refused before it is read: the first two answer the 422
+  catalogue refusal, a category widget answers `{id, error, errorCode}` with
+  `query_result_too_large` while the other widgets keep working, and value
+  search answers no rows from that layer and names it, with the same pair,
+  under `refusedLayers`.
 - Geometry-choice preview (`POST /api/tables/{name}/geometry/preview`) shares
   those fixed ceilings. Metadata, grid rows and map features count together.
   Count the existing 512-character excerpts; source text and nested JSON remain

@@ -34,6 +34,17 @@ export interface ValueRow {
   bounds?: [number, number, number, number];
 }
 
+/** A visible layer whose matching values were refused: one of them is
+ * longer than the per-value ceiling. It answers no value rows; the others
+ * answer as usual. The pair is the one a failed widget carries. */
+export interface RefusedLayer {
+  layerId: string;
+  layerName: string;
+  error: string;
+  /** A documented error code: query_result_too_large. */
+  errorCode: string;
+}
+
 /** One reading of a pasted decimal pair (S7). When both readings are
  * plausible, both rows appear, each labelled by its reading. */
 export interface CoordinateRow {
@@ -68,6 +79,8 @@ export type PlacesAnswer =
 export interface SearchResponse {
   layers: LayerRow[];
   values: ValueRow[];
+  /** Present only when a layer's values were refused. */
+  refusedLayers?: RefusedLayer[];
   coordinates: CoordinateRow[];
   places?: PlacesAnswer;
 }

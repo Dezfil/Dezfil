@@ -157,3 +157,30 @@ for (const form of ["libpq", "fields"] as const) {
     });
   }
 }
+
+// A name can resolve to several admitted addresses, IPv6 first on a
+// dual-stack host. libpq is handed each of them, in resolution order, paired
+// with one host entry each, so it walks on when the first refuses; an address
+// the policy refuses is never handed over.
+describe("a name with several resolved addresses", () => {
+  const hosts = (sql: string) => sql.match(/[' ]host=''([^']*)''/)?.[1];
+  const addresses = (sql: string) => sql.match(/hostaddr=''([^']+)''/)?.[1];
+  it("hands libpq every admitted address of an allowed loopback name, IPv6 first", async () => {
+    vi.stubEnv("DEZFIL_EGRESS_ALLOWLIST", "localhost");
+    io.lookup.mockResolvedValue([{ address: "::1", family: 6 }, { address: "127.0.0.1", family: 4 }]);
+    await testConnection({ ...target, host: "localhost" });
+    expect(io.resolved).toEqual([["::1", "127.0.0.1"]]);
+    expect(attachments()).toHaveLength(1);
+    expect(addresses(String(attachments()[0][0]))).toBe("::1,127.0.0.1");
+    expect(hosts(String(attachments()[0][0]))).toBe("localhost,localhost");
+  });
+  it("hands over only the addresses the policy admits, in resolution order", async () => {
+    io.lookup.mockResolvedValue([
+      { address: "10.0.0.5", family: 4 }, { address: "2001:4860:4860::8888", family: 6 },
+      { address: "169.254.169.254", family: 4 }, { address: "8.8.8.8", family: 4 },
+    ]);
+    await testConnection({ ...target, host: "db.example.org" });
+    expect(addresses(String(attachments()[0][0]))).toBe("2001:4860:4860::8888,8.8.8.8");
+    expect(hosts(String(attachments()[0][0]))).toBe("db.example.org,db.example.org");
+  });
+});

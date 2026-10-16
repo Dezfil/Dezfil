@@ -1,3 +1,5 @@
+import v8 from "node:v8";
+import vm from "node:vm";
 import { expect, it } from "vitest";
 import { boundedMcpRequest } from "./bounded-handoff";
 import { smallJsonValue } from "./json-body";
@@ -45,4 +47,35 @@ it("passes the foreign HEAD request through the upload wrapper without reconstru
   });
   expect(response.status).toBe(200); expect(response.headers.get("x-control")).toBe("retained");
   expect(await response.text()).toBe("");
+});
+
+v8.setFlagsFromString("--expose-gc");
+const gc = vm.runInNewContext("gc") as (options: { type: "major" }) => void;
+async function collect() {
+  // Weak references stay alive for the current job, so collect in later jobs.
+  await new Promise(resolve => setImmediate(resolve)); gc({ type: "major" });
+  await new Promise(resolve => setImmediate(resolve)); gc({ type: "major" });
+}
+
+// A platform request follows its caller's signal through a controller only
+// that request holds, and the rebuilt request follows the original's signal
+// through a weakly held listener. Nothing in this case keeps the original.
+async function rebuiltFromDroppedCaller(signal: AbortSignal) {
+  return boundedMcpRequest(new Request("http://instance.test/api/mcp", {
+    method: "POST", headers: { "content-type": "application/json" }, body: "{}", signal,
+  }));
+}
+
+// Each case keeps one thing alive: the rebuilt request, or its signal alone.
+it.each([
+  ["the rebuilt request", (admitted: Request) => () => admitted.signal],
+  ["the rebuilt request's signal alone", (admitted: Request) => { const signal = admitted.signal; return () => signal; }],
+])("the caller's departure reaches %s after the original is collected", async (_label, keep) => {
+  const caller = new AbortController();
+  let admitted: Request | undefined = await rebuiltFromDroppedCaller(caller.signal);
+  const signal = keep(admitted); admitted = undefined;
+  await collect();
+  caller.abort();
+  await new Promise(resolve => setImmediate(resolve));
+  expect(signal().aborted).toBe(true);
 });

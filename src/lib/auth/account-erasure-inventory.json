@@ -2578,6 +2578,11 @@
         "tiles/*.pmtiles"
       ]
     },
+    "memory:src/lib/api/bounded-handoff.ts#followed": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
     "memory:src/lib/api/openapi-account.ts#ACCOUNT_PATHS": {
       "stores": [
         "memory:immutable-configuration"
@@ -3129,6 +3134,11 @@
       ]
     },
     "memory:src/lib/duckdb.ts#startedQueryInstance": {
+      "stores": [
+        "memory:engine-extensions"
+      ]
+    },
+    "memory:src/lib/duckdb.ts#queryStartFailed": {
       "stores": [
         "memory:engine-extensions"
       ]
@@ -5733,6 +5743,26 @@
     "memory:src/lib/system/part-tests.ts#running": {
       "stores": [
         "memory:provider-scheduling"
+      ]
+    },
+    "memory:src/lib/system/engine-readiness.ts#retry": {
+      "stores": [
+        "memory:engine-extensions"
+      ]
+    },
+    "memory:src/lib/system/engine-readiness.ts#probe.error": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/system/engine-readiness.ts#probe.expired": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/system/engine-readiness.ts#probe.timer": {
+      "stores": [
+        "memory:request-closures"
       ]
     },
     "location:src/lib/system/storage.ts#walk.folder:dataDir": {

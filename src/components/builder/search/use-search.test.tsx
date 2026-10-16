@@ -33,6 +33,13 @@ it("aborts on typing and resubmission, fences stale answers and abort errors", a
   await act(async () => pending[0].resolve(Response.json({ places: { state: "failed", message: "Stale" } })));
   expect(search.state.places).toEqual({ state: "ok", attribution: "Current", results: [] });
 });
+it("carries the layers whose values were refused, and drops them with the next search", async () => {
+  const refused = { layerId: "parcels", layerName: "Parcels", error: "A value is larger than this query may return.", errorCode: "query_result_too_large" };
+  await act(async () => pending[0].resolve(Response.json({ layers: [], values: [], refusedLayers: [refused], coordinates: [], places: { state: "ok", attribution: null, results: [] } })));
+  expect(search.state.refusedLayers).toEqual([refused]);
+  await act(async () => search.type("second"));
+  expect(search.state.refusedLayers).toEqual([]);
+});
 it("aborts the submitted request when leaving the builder", async () => {
   await act(async () => root.unmount());
   expect(pending[0].signal.aborted).toBe(true);

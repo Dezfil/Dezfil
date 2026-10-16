@@ -419,9 +419,13 @@ answer with HTTP 422 `query_result_too_large`, without partial data or details:
 These ceilings have no setting. Row and engine-memory limits still apply;
 a result below both byte ceilings can fail the engine-memory limit during
 query execution or result projection, including geometry decoding. Layer
-renders, dataset map features, slider and Overture previews,
-published views, statistics, classification, widgets and value search retain
-their existing limits. SQL, table and layer file exports still stream complete
+renders, dataset map features, slider and Overture previews and published
+views retain their existing limits. A filter's distinct values, categorical
+classification, category widgets and value search hold each text value they
+return to the 2 MiB value ceiling: the first two refuse with the same 422, a
+category widget answers that code as its own error while the others keep
+working, and value search names the layer under `refusedLayers` and answers no
+rows from it, which the builder's search says in a line under its results. SQL, table and layer file exports still stream complete
 results above both ceilings. Dataset inspection shows text values, and the WKT
 of its registered geometry column, longer than 512 characters as their first
 512 characters and an ellipsis, as geometry-choice preview does. Other values,
@@ -461,9 +465,11 @@ Published render selections remain at 65,536 bytes even within their semantic
 filter counts; the viewer's twelve selections of fifty long values fit.
 
 The canonical spellings of the anonymous published widget-values, render and
-extent POST paths bypass the framework proxy. Encoded-slash spellings can still
-match the proxy and incur its body copy. Their handlers admit at most 65,536 bytes and refuse excess
-before parsing; empty bodies retain their existing defaults. All dispatchable
+extent POST paths, and of the three authentication entry POSTs (setup, sign-in
+and sign-in link redemption), bypass the framework proxy. Percent-encoded
+spellings can still match the proxy and incur its body copy. Their handlers
+admit at most 65,536 bytes and refuse excess before parsing; the published
+paths' empty bodies retain their existing defaults. All dispatchable
 methods on excluded paths retain their method-specific request gate. `TRACE`,
 which no handler can receive, is answered with an empty 400 on every path before
 its body is read.
@@ -475,12 +481,11 @@ The framework proxy copy limit is 17 MiB (previously 10 MiB), so complete workfl
 requests, including their over-limit refusal boundary, reach their readers.
 On paths still matched by the proxy, the framework drains and copies the body
 before the request gate runs, including for anonymous callers. The 17 MiB copy
-is bounded storage, not early wire admission. Authentication entry POSTs remain
-on that path. Configure a fronting reverse proxy's own request-size limit to
-bound this pre-gate copy further, allowing the upload size you intend to serve
-on `/api/tables`.
+is bounded storage, not early wire admission. Configure a fronting reverse
+proxy's own request-size limit to bound this pre-gate copy further, allowing
+the upload size you intend to serve on `/api/tables`.
 
-When one of these four paths refuses a request part-way through its body, the
+When one of these seven paths refuses a request part-way through its body, the
 answer is sent at once. The instance then receives and discards the rest of that
 request, storing nothing, so the connection stays usable; the server's request
 and keep-alive timeouts bound it. A fronting proxy's request-size limit stops

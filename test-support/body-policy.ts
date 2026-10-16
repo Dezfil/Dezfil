@@ -14,6 +14,10 @@ const production = (file: string) => file.startsWith("src/") && !/\.(test|d)\.[c
   !/(?:^|\/)(?:testing|test-support|fixtures)\//.test(file) && file !== "src/lib/mcp/test-client.ts";
 const rawMembers = new Set(["body", "arrayBuffer", "blob", "bytes", "formData", "json", "text", "clone"]);
 type Values = Map<ts.Symbol, number | string>;
+// Parsed and bound source files, shared by every audit in one test file.
+// Each audit still builds its own program and checker; a file whose text an
+// override changes is parsed afresh, so a seed never sees another's source.
+const parsedSources = new Map<string, { text: string; source: ts.SourceFile }>();
 
 /** Source overrides let every seeded defect compile independently, without
  * mutating the checkout. The same checker inspects the real tree and seeds. */
@@ -22,9 +26,19 @@ export function auditBodyPolicy(overrides: Record<string, string> = {}): BodyAud
   const parsed = ts.parseJsonConfigFileContent(config.config, ts.sys, root);
   const options = { ...parsed.options, incremental: false, noEmit: true };
   const host = ts.createCompilerHost(options);
-  const read = host.readFile.bind(host), exists = host.fileExists.bind(host);
+  const read = host.readFile.bind(host), exists = host.fileExists.bind(host), parse = host.getSourceFile.bind(host);
   host.readFile = file => overrides[relative(file)] ?? read(file);
   host.fileExists = file => relative(file) in overrides || exists(file);
+  host.getSourceFile = (file, version, onError, fresh) => {
+    const text = host.readFile(file);
+    if (text === undefined) return parse(file, version, onError, fresh);
+    const key = `${file}\0${typeof version === "object" ? `${version.languageVersion}:${version.impliedNodeFormat}` : version}`;
+    const known = parsedSources.get(key);
+    if (known?.text === text) return known.source;
+    const source = parse(file, version, onError, fresh);
+    if (source) parsedSources.set(key, { text, source });
+    return source;
+  };
   const program = ts.createProgram([...new Set([...parsed.fileNames.filter(file => production(relative(file))), ...Object.keys(overrides).map(file => path.join(root, file))])], options, host);
   const checker = program.getTypeChecker();
   const files = program.getSourceFiles().filter(file => production(relative(file.fileName)));
@@ -80,9 +94,11 @@ export function auditBodyPolicy(overrides: Record<string, string> = {}): BodyAud
     const allowed = (RAW_BODY_MODULES as readonly string[]).includes(relative(file.fileName));
     const inspect = (node: ts.Node) => {
       if (ts.isAsExpression(node) && bounded(node) && relative(file.fileName) !== "src/lib/api/bounded-handoff.ts") report(node, "bounded Request brand forged outside the handoff");
-      if (!allowed && (ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node)) && isRequest(node.expression)) {
+      if (!allowed && (ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node))) {
+        // The member is named before the receiver is typed: typing every
+        // receiver in the tree is most of an audit's cost.
         const member = ts.isPropertyAccessExpression(node) ? node.name.text : literal(node.argumentExpression, new Map());
-        if (member === undefined || rawMembers.has(String(member))) report(node, `raw Request body member ${member ?? "computed"} outside a named reader`);
+        if ((member === undefined || rawMembers.has(String(member))) && isRequest(node.expression)) report(node, `raw Request body member ${member ?? "computed"} outside a named reader`);
       }
       if (!allowed && ts.isVariableDeclaration(node) && ts.isObjectBindingPattern(node.name) && node.initializer && isRequest(node.initializer)) {
         for (const item of node.name.elements) if (rawMembers.has((item.propertyName ?? item.name).getText())) report(item, "destructured raw Request body member outside a named reader");

@@ -183,7 +183,7 @@ templates, as [Templates](docs/configuration.md#templates) says.
 | `DEZFIL_TRUSTED_MEMORY_MB` | `3072` | Trusted engine memory, in engine MB, shared across trusted work. Dedicated scratch allowance is four times this value. Fixed without an override; locked with one. Shown on System beside hardened engine memory. | Restart |
 | `DEZFIL_PREVIEW_ROWS` | `1000` | Rows returned in a query/preview result. | App (live) or restart |
 | `DEZFIL_RENDER_CAP_FEATURES` | `250000` | Max features a single layer renders before asking for a LIMIT or aggregation. | Restart |
-| `DEZFIL_RENDER_CAP_BYTES` | `134217728` | Bytes drawn per layer (128 MiB): each complete uncompressed UTF-8 JSON inline answer, including its envelope. Equality is admitted. Fixed without an override; locked with one. Shown on Limits > Queries. | Restart |
+| `DEZFIL_RENDER_CAP_BYTES` | `134217728` | Bytes drawn per layer (128 MiB): each complete uncompressed UTF-8 JSON inline answer, including its envelope. Equality is admitted. A number written with more than 40 characters (a long literal in a JSON value, an arbitrary-precision integer) must also fit, as its text, in what is left when it is read. Fixed without an override; locked with one. Shown on Limits > Queries. | Restart |
 | `DEZFIL_SLIDER_PREVIEW_ROWS` | `50000` | Max source points transferred for an interactive slider preview. | Restart |
 | `DEZFIL_PUBLISH_FRESHNESS_S` | `30` | How stale a published view may be — its cache window. | Restart |
 | `DEZFIL_TILE_BUILD_TIMEOUT_S` | `600` | Timeout for each stage of a background tile build. | Restart |
@@ -270,9 +270,9 @@ The fixed `experimental.proxyClientMaxBodySize` in `next.config.ts` is
 17 MiB (17,825,792 bytes), allowing the 16 MiB JSON boundary to reach its reader.
 Matched paths still drain and copy up to that limit before the gate, including
 anonymous callers. A fronting reverse proxy's own request-size limit bounds
-that residual copy further. Canonical spellings of `/api/tables` and the public
-widget-values, render and extent POST paths bypass the copy and preserve their
-handler-side gates. The native door returns an
+that residual copy further. Canonical spellings of `/api/tables`, the public
+widget-values, render and extent POST paths and the three authentication entry
+POSTs bypass the copy and preserve their handler-side gates. The native door returns an
 empty 400 for `TRACE`. See [self-hosting](docs/self-hosting.md) for the wire
 behavior and [the API guide](docs/api.md#request-bounds) for exact refusals.
 
@@ -392,9 +392,13 @@ answer with HTTP 422 `query_result_too_large`, without partial data or details:
 These ceilings have no setting. Row and engine-memory limits still apply;
 a result below both byte ceilings can fail the engine-memory limit during
 query execution or result projection, including geometry decoding. Layer
-renders, dataset map features, slider and Overture previews,
-published views, statistics, classification, widgets and value search retain
-their existing limits. SQL, table and layer file exports still stream complete
+renders, dataset map features, slider and Overture previews and published
+views retain their existing limits. A filter's distinct values, categorical
+classification, category widgets and value search hold each text value they
+return to the 2 MiB value ceiling: the first two refuse with the same 422, a
+category widget answers that code as its own error while the others keep
+working, and value search names the layer under `refusedLayers` and answers no
+rows from it, which the builder's search says in a line under its results. SQL, table and layer file exports still stream complete
 results above both ceilings. Dataset inspection shows text values, and the WKT
 of its registered geometry column, longer than 512 characters as their first
 512 characters and an ellipsis, as geometry-choice preview does. Other values,

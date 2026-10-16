@@ -65,7 +65,7 @@ registerQueryStore({
   clear() {
     for (const ref of nativeInstances) { ref.deref()?.closeSync(); nativeInstances.delete(ref); }
     rmSync(path.join(dataDir(), "engine-spill"), { recursive: true, force: true });
-    nativeState.trusted = null; queryInstancePromise = null; queryCatalogGeneration++;
+    nativeState.trusted = null; queryInstancePromise = null; queryStartFailed = false; queryCatalogGeneration++;
     connectionGenerations = new WeakMap();
   },
 });
@@ -275,6 +275,12 @@ async function createHardenedInstance(install: boolean, loaded: (extension: Engi
  * attempt that started it so a discarded instance's loads are never read. */
 let startedQueryInstance: { attempt: Promise<DuckDBInstance>; extensions: readonly EngineExtension[] } | null = null;
 
+/** Whether the last start of the hardened instance failed, with none
+ * succeeding since: readiness reads it, and an instance no query has
+ * started yet is not a failed one. A start under way does not clear it;
+ * only one that succeeds does. */
+let queryStartFailed = false;
+
 /** The hardened instance, started when there is none. An instance already
  * starting is joined whichever start it is; `install` says only how a
  * start made here loads its extensions. A failed start is discarded, so
@@ -284,12 +290,12 @@ function getQueryInstance(install = true): Promise<DuckDBInstance> {
     const extensions: EngineExtension[] = [];
     const attempt: Promise<DuckDBInstance> = watchInstance(createHardenedInstance(install, extension => { extensions.push(extension); })).then(
       (instance) => {
-        if (queryInstancePromise === attempt) startedQueryInstance = { attempt, extensions };
+        if (queryInstancePromise === attempt) { startedQueryInstance = { attempt, extensions }; queryStartFailed = false; }
         return instance;
       },
       (error) => {
         // A reset may have installed a replacement while this attempt waited.
-        if (queryInstancePromise === attempt) queryInstancePromise = null;
+        if (queryInstancePromise === attempt) { queryInstancePromise = null; queryStartFailed = true; }
         throw error;
       },
     );
@@ -304,6 +310,16 @@ export function queryEngineExtensions(): readonly EngineExtension[] | null {
   return startedQueryInstance !== null && startedQueryInstance.attempt === queryInstancePromise ? startedQueryInstance.extensions : null;
 }
 
+/** Where the hardened instance stands, starting nothing: running; failed,
+ * when its last start failed and none has succeeded since, whether or not
+ * another start is under way, whoever began it; starting, for a first
+ * start; or none in place (never started, or discarded). */
+export function queryEngineStanding(): "none" | "starting" | "running" | "failed" {
+  if (queryInstancePromise && queryEngineExtensions() !== null) return "running";
+  if (queryStartFailed) return "failed";
+  return queryInstancePromise ? "starting" : "none";
+}
+
 /** Monotonic identity of the hardened catalog: bumped when the
  * instance is discarded and stamped onto every connection at creation,
  * so work still running for a discarded catalog can be told apart from
@@ -314,6 +330,7 @@ let connectionGenerations = new WeakMap<DuckDBConnection, number>();
 /** Tests re-point DEZFIL_DATA_DIR; the fence must be rebuilt. */
 export function resetQueryInstance(): void {
   queryInstancePromise = null;
+  queryStartFailed = false;
   queryCatalogGeneration += 1;
 }
 

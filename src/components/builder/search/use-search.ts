@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { MapWithLayers } from "@/lib/metadata/maps";
 import type {
   PlacesAnswer,
+  RefusedLayer,
   SearchResponse,
 } from "@/lib/search/contract";
 import { matches } from "@/lib/search/match";
@@ -38,6 +39,9 @@ export interface SearchState {
   /** Null until the current query is submitted. */
   places: PlacesState;
   submitted: boolean;
+  /** The layers whose matching values the current answer refused: they
+   * answer no value rows, so the dropdown names them. */
+  refusedLayers: RefusedLayer[];
 }
 
 export function useSearch(mapId: string, map: MapWithLayers | null) {
@@ -171,6 +175,7 @@ export function useSearch(mapId: string, map: MapWithLayers | null) {
     pending,
     places,
     submitted,
+    refusedLayers: server?.refusedLayers ?? [],
   };
 
   return { state, type, submit, close, refresh, setActiveId };
