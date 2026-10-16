@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import { existsSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
 import path from "node:path";
@@ -81,6 +81,33 @@ describe("readiness and the query engine", () => {
     starts({ now: true });
     await failedStart();
     expectUnready(await readiness());
+  });
+
+  it("holds not ready while a query's start of a failed engine runs past the limit, and is ready once it succeeds", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const failing = { now: true };
+    const slow = Promise.withResolvers<void>();
+    const started = vi.spyOn(DuckDBInstance, "create").mockImplementation(async (...args: Parameters<typeof create>) => {
+      if (failing.now) throw new Error('IO Error: Extension "/opt/dezfil/spatial.duckdb_extension" not found');
+      await slow.promise;
+      return create(...args);
+    });
+    await failedStart();
+    // The cause clears and a query starts the engine again; the start is slow.
+    failing.now = false;
+    const retried = connectQueryInstance();
+    // Should an assertion fail first, the start still settles, so no test
+    // after this one inherits a start under way.
+    onTestFinished(async () => { slow.resolve(); await retried.then((conn) => conn.disconnectSync(), () => {}); });
+    expectUnready(await readiness());
+    // Readiness joined the query's start rather than making one of its own.
+    expect(started).toHaveBeenCalledTimes(2);
+    slow.resolve();
+    await retried;
+    let answer = await readiness();
+    for (let i = 0; i < 20 && answer.status !== 200; i++) answer = await readiness();
+    expect(answer).toEqual({ status: 200, body: { status: "ready" } });
+    expect(started).toHaveBeenCalledTimes(2);
   });
 
   it("answers not ready when a running engine's statement fails, and gives its connection back", async () => {

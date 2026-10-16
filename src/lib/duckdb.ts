@@ -276,8 +276,9 @@ async function createHardenedInstance(install: boolean, loaded: (extension: Engi
 let startedQueryInstance: { attempt: Promise<DuckDBInstance>; extensions: readonly EngineExtension[] } | null = null;
 
 /** Whether the last start of the hardened instance failed, with none
- * started since: readiness reads it, and an instance no query has started
- * yet is not a failed one. */
+ * succeeding since: readiness reads it, and an instance no query has
+ * started yet is not a failed one. A start under way does not clear it;
+ * only one that succeeds does. */
 let queryStartFailed = false;
 
 /** The hardened instance, started when there is none. An instance already
@@ -309,12 +310,14 @@ export function queryEngineExtensions(): readonly EngineExtension[] | null {
   return startedQueryInstance !== null && startedQueryInstance.attempt === queryInstancePromise ? startedQueryInstance.extensions : null;
 }
 
-/** Where the hardened instance stands, starting nothing: none in place
- * (never started, or discarded), starting, running, or none in place
- * because its last start failed. */
+/** Where the hardened instance stands, starting nothing: running; failed,
+ * when its last start failed and none has succeeded since, whether or not
+ * another start is under way, whoever began it; starting, for a first
+ * start; or none in place (never started, or discarded). */
 export function queryEngineStanding(): "none" | "starting" | "running" | "failed" {
-  if (queryInstancePromise) return queryEngineExtensions() !== null ? "running" : "starting";
-  return queryStartFailed ? "failed" : "none";
+  if (queryInstancePromise && queryEngineExtensions() !== null) return "running";
+  if (queryStartFailed) return "failed";
+  return queryInstancePromise ? "starting" : "none";
 }
 
 /** Monotonic identity of the hardened catalog: bumped when the

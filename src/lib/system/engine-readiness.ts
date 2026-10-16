@@ -14,9 +14,12 @@ export { ENGINE_UNREADY } from "./readiness-reasons";
  * statement that failed. A statement with no answer by the limit reads as
  * busy, not dead: engine work shares the runtime's worker pool, so the
  * probe waits behind long queries, and readiness must not flap under the
- * very load a monitor sheds. An engine whose last start failed is started
- * again by readiness itself, at most once per ENGINE_RETRY_MS and one
- * start at a time, so an instance taken out of rotation recovers once the
+ * very load a monitor sheds. An engine whose last start failed reads as
+ * failed until a start succeeds, whoever began it, so only an engine whose
+ * last start succeeded, or a first start, is ever read as busy. Readiness
+ * starts a failed engine again itself, at most once per ENGINE_RETRY_MS and
+ * one start at a time, joining a start a query has under way rather than
+ * making another, so an instance taken out of rotation recovers once the
  * cause clears, with no query to start it.
  */
 
@@ -43,9 +46,9 @@ export async function queryEngineAnswers(): Promise<boolean> {
   return probe(true);
 }
 
-/** Connect, starting the engine when `restarting`, and ask the statement.
- * Past the limit the answer is busy, unless this is a failed engine's
- * start, which proves nothing until it settles. */
+/** Connect, starting the engine (or joining its start) when `restarting`,
+ * and ask the statement. Past the limit the answer is busy, unless this is
+ * a failed engine's start, which proves nothing until it settles. */
 async function probe(restarting: boolean): Promise<boolean> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   const expired = new Promise<"expired">((resolve) => { timer = setTimeout(() => resolve("expired"), ENGINE_PROBE_MS); });
