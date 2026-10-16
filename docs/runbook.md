@@ -678,17 +678,31 @@ the chosen endpoint and the local catalogs for both clients. Omitting
 refused. Prepare a fresh copy whenever the instance address changes.
 
 **Pixel baselines.** The snapshots live beside their specs in the
-`*.spec.ts-snapshots` directories. Regenerate against a provisioned instance
-one spec at a time so no unrelated shot is rewritten:
+`*.spec.ts-snapshots` directories. They are cut on one environment, and a
+re-cut names it in its commit: macOS on Apple silicon, the Chromium headless
+shell the pinned Playwright installs, and a production build
+(`npm run build`, then `npm start`) on a fresh data directory, provisioned
+as [the browser suite](#the-browser-suite) describes. A store that earlier
+runs have filled is not that environment: lists, counts and relative times
+in a shot follow what the store holds. Regenerate one spec at a time, so no
+unrelated shot is rewritten, and only the shots that no longer match:
 
 ```sh
-npx playwright test e2e/pixel-regressions.spec.ts --update-snapshots
+npx playwright test e2e/pixel-regressions.spec.ts --update-snapshots=changed
 ```
+
+Then compare every rewritten file with the one it replaces before
+committing it. In this mode a shot that still differs when its comparison
+times out is written as it stands, so a surface that had not finished
+loading, a live tile server's pixels or a value that depends on the store
+would become the baseline; each of those is a defect in the shot, not a
+new baseline.
 
 Baselines are platform-specific: shots generated on one operating system do
 not match another, so a pixel spec run on a machine unlike the one that
 recorded its baseline skips rather than reporting a difference. Only
-regenerate when the change to the rendered surface is intended.
+regenerate when the change to the rendered surface is intended, or when the
+renderer moved under an unchanged surface.
 
 **The API description.** There is no emit step: the document is built at
 request time and served at `/api/openapi.json`, with human-readable pages at

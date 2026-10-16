@@ -693,9 +693,13 @@ for (const theme of ["light", "dark"] as const) {
     // a background that is not the subject.
     const st = await box(stage(page));
     const clip = { x: Math.ceil(st.x), y: Math.ceil(st.y), width: Math.floor(st.w), height: Math.floor(st.h) };
-    // Exact color, with a count bound for the anti-aliased edges' wobble
-    // (2 pixels differed on a whole-set run and none alone; the form,
-    // ~2x the measured wobble).
-    await expect(page).toHaveScreenshot(`stack-${theme}.png`, { clip, animations: "disabled", threshold: 0, maxDiffPixels: 4 });
+    // A count bound for the anti-aliased edges' wobble (2 pixels differed
+    // on a whole-set run and none alone; the form, ~2x the measured
+    // wobble), and a per-pixel tolerance of about two levels a channel:
+    // the glass stack's first composite after Arrange now and then reads
+    // one level darker along the first button's right edge (23 to 30
+    // pixels) and stays so until the page next repaints, so no wait
+    // settles it. A change of a few levels still fails.
+    await expect(page).toHaveScreenshot(`stack-${theme}.png`, { clip, animations: "disabled", threshold: 0.01, maxDiffPixels: 4 });
   });
 }
