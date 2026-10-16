@@ -285,7 +285,8 @@ test.describe("set geometry", () => {
     await expect(dock(page)).toContainText("Adds a geometry column. The original columns stay.");
     await expect(applyButton(page)).toBeEnabled();
     // The map draws the lines at the trip's own place, both themes (the pixels before apply are
-    // the preview's).
+    // the preview's). The door opens on Data preview, so the map is chosen first.
+    await page.getByRole("tab", { name: "Map preview" }).click();
     await expectInk(page, "light", [TRIP_MID]);
     await expect(page.locator("[data-choice-readout]")).toContainText("3 of 4 sampled rows");
     await expect(page.locator("[data-choice-readout]")).toContainText("LINESTRING");
