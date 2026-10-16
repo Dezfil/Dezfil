@@ -36,7 +36,8 @@ export const statusPillStore = createPreferenceStore("dezfil-status-pill-hidden"
 /** A style or viz edit in flight, before it is written to the layer. */
 export interface AppearanceDraft {
   style?: LayerStyle;
-  /** The saved style the style draft was taken from (see style-draft.ts). */
+  /** The layer's style as the map showed it when the style draft was
+   * taken (see style-draft.ts). */
   styleFrom?: LayerStyle;
   viz?: AggregatedViz | OdViz | ClusterViz;
 }

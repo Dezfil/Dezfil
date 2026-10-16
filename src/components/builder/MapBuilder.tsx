@@ -462,10 +462,10 @@ function BuilderEditor({
         (appearancePreviewVersionRef.current[layerId] ?? 0) + 1;
       setAppearanceDraft(
         layerId,
-        nextStyleDraft(appearanceDraftRef.current[layerId], layer.style, partial),
+        nextStyleDraft(appearanceDraftRef.current[layerId], layer.style, partial, map?.layers.find((l) => l.id === layerId)?.style),
       );
     },
-    [authoritativeLayersRef, setAppearanceDraft],
+    [authoritativeLayersRef, map, setAppearanceDraft],
   );
 
   const previewAggregatedFill = useCallback(
