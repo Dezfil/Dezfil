@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { SaveStatusChip } from "../ui/SaveStatusChip";
 import { DISCARD_MESSAGE, STALE_MESSAGE } from "../document-sequence";
 import { useUnsavedNavigation } from "../use-unsaved-navigation";
@@ -10,10 +10,16 @@ export function CanvasStaleStatus() {
   const [confirm, setConfirm] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  useUnsavedNavigation(recovery.stale);
+  const [leaving, setLeaving] = useState(false);
+  useUnsavedNavigation(recovery.stale && !leaving);
+  // Ended access is not recovered in place: past the confirm step the page
+  // reloads. The unsaved-work guard lets go first (an effect's cleanup runs
+  // before any effect starts), so the browser does not ask a second time.
+  useEffect(() => { if (leaving) window.location.reload(); }, [leaving]);
   const notes = (recovery.document?.draftLayout?.notes ?? []).filter(note =>
     note.text !== recovery.document?.layout?.notes.find(saved => saved.id === note.id)?.text);
   async function reload() {
+    if (recovery.document?.accessLost) { setBusy(true); setLeaving(true); return; }
     setBusy(true); setError(null);
     try { await recovery.recover?.(); }
     catch (cause) { setError(cause instanceof Error ? cause.message : STALE_MESSAGE); }

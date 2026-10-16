@@ -25,10 +25,18 @@ export class DocumentSequence {
   private closed = false;
   get disposed() { return this.closed; }
   stale = false;
+  /** Whether a halt came from access ending rather than a stale revision.
+   * Reading the document again in place cannot recover that, so the
+   * editor's Reload reloads the page and the server decides what the
+   * person may now see. */
+  accessLost = false;
   private listeners = new Set<() => void>();
   subscribe = (listener: () => void) => { this.listeners.add(listener); return () => { this.listeners.delete(listener); }; };
   snapshot = () => this.stale;
-  halt() { this.stale = true; this.listeners.forEach((listener) => listener()); }
+  halt(accessLost = false) {
+    if (accessLost) this.accessLost = true;
+    this.stale = true; this.listeners.forEach((listener) => listener());
+  }
   /** Refused work keeps its old basis until an explicit discard installs a
    * new editor. A stale revision halts the sequence, and so does a write
    * refused because access has ended. */
@@ -36,7 +44,8 @@ export class DocumentSequence {
     if (response.status === 409 || response.status === 403 || response.status === 404) {
       const body = await response.clone().json().catch(() => null);
       const code = body?.error?.code;
-      if ((response.status === 409 && code === "stale_revision") || accessEnded(response.status, code, method, path)) this.halt();
+      if (response.status === 409 && code === "stale_revision") this.halt();
+      else if (accessEnded(response.status, code, method, path)) this.halt(true);
     }
     return response;
   }
