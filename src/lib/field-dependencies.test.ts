@@ -7,6 +7,7 @@ import {
   privateLayerFields,
   publishedLayerFields,
   publishedSignature,
+  shiftsAutomaticFields,
   tileArchiveFields,
   tileArchiveSignature,
   widensPrivateFields,
@@ -270,5 +271,19 @@ describe("what an edit adds to the private policy's needs", () => {
     expect(widens(needs(quiet, { widgets }), needs(quiet, { widgets: widgets.map((w) => ({ ...w, title: "Renamed" })) }))).toBe(false);
     // The published override is the reader's alone.
     expect(widens(needs(quiet), needs({ ...quiet, publishedFields: ["j"] }))).toBe(false);
+  });
+
+  it("shifts the automatic fields when it stops reading a field an object lists first, and only then", () => {
+    const shifts = (name: string, after: Partial<FieldLayerConfig> = { tooltip: null, popup: [] }) =>
+      shiftsAutomaticFields(needs({ tooltip: null, popup: [name] }), needs(after));
+    // The names an object lists ahead of one set before them, asked of the engine itself.
+    const first = (name: string) => Object.keys({ set: true, [name]: true })[0] === name;
+    for (const name of ["1", "0", "42", "4294967294", "4294967295", "01", "-1", "1.5", "a1", "z"]) {
+      expect(shifts(name), name).toBe(first(name));
+    }
+    expect(shifts("1", { tooltip: null, popup: null })).toBe(true);
+    // Explicit lists name what they show, whatever else is carried.
+    expect(shifts("1", { tooltip: ["a"], popup: [] })).toBe(false);
+    expect(shiftsAutomaticFields(needs({ tooltip: null, popup: ["1"] }), needs({ tooltip: null, popup: ["1", "a"] }))).toBe(false);
   });
 });

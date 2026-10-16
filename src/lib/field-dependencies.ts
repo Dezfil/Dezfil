@@ -234,6 +234,29 @@ export function widensPrivateFields(
   return false;
 }
 
+/** Whether an object lists a name ahead of the names set before it, as it
+ * does an integer-like one. */
+function listedFirst(name: string): boolean {
+  return /^(0|[1-9]\d*)$/.test(name) && Number(name) < 2 ** 32 - 1;
+}
+
+/** Whether a render built under `before` shows other automatic fields than
+ * one built under `after`. The canvas lists a feature's properties
+ * integer-like names first, so such a field, carried for another reason
+ * beside the automatic ones, is shown ahead of them; once it is no longer
+ * read, a new render leaves it out and shows the field it pushed out. A
+ * field listed after the automatic ones changes nothing they show. */
+export function shiftsAutomaticFields(
+  before: PrivateFieldNeeds,
+  after: PrivateFieldNeeds,
+): boolean {
+  if (!after.automatic) return false;
+  for (const name of before.names) {
+    if (!after.names.has(name) && listedFirst(name)) return true;
+  }
+  return false;
+}
+
 /**
  * The private policy: the fields the builder's own map reads from this
  * layer, in result order. Its style channels and labels, the filters the
