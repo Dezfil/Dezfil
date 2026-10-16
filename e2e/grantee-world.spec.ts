@@ -6,7 +6,7 @@
 // non-member meets none of it. Run against a fresh scratch instance.
 import { test, expect, type Page } from "@playwright/test";
 import { routeHouse } from "./support";
-import { closeAll, createMapWithLayer, createProject, expectAbsentAlike, invitePerson, NOT_FOUND, PERMISSION, runTag, share, uploadSentinel, type Person } from "./sharing-support";
+import { closeAll, createMapWithLayer, createProject, expectAbsentAlike, expectNotFoundPage, invitePerson, PERMISSION, runTag, share, uploadSentinel, type Person } from "./sharing-support";
 
 const ownerPill = (page: Page, person: Person) => page.getByRole("img", { name: `Shared by ${person.name}`, exact: true });
 
@@ -69,7 +69,10 @@ test("an Editor and a Viewer see the shared project as theirs to use, never to o
         await expect(page.getByRole("button", { name: "Export project" })).toBeVisible();
         await expect(page.getByRole("button", { name: "Add to project" })).toHaveCount(role === "Editor" ? 1 : 0);
         await expect(page.getByRole("button", { name: "Share", exact: true })).toHaveCount(0);
-        await expect(page.getByRole("button", { name: "More", exact: true })).toHaveCount(0);
+        // A member's More holds leaving the project and nothing an owner does.
+        await page.getByRole("button", { name: "More", exact: true }).click();
+        await expect(page.getByRole("menuitem")).toHaveText(["Leave project"]);
+        await page.keyboard.press("Escape");
         await expect(page.getByRole("button", { name: /^(add a note|edit)$/ })).toHaveCount(0);
         await expect(page.getByRole("button", { name: /Shared with|Only you/ })).toHaveCount(0);
       });
@@ -95,7 +98,7 @@ test("an Editor and a Viewer see the shared project as theirs to use, never to o
       await expectAbsentAlike(nia.api, `/api/maps/${map.id}`, "/api/maps/absent-map");
       const page = await nia.context.newPage();
       await page.goto(`/maps/${map.id}`);
-      await expect(page.getByText(NOT_FOUND, { exact: true })).toBeVisible();
+      await expectNotFoundPage(page);
       await expect(page.getByText(mapName, { exact: true })).toHaveCount(0);
       await page.goto("/maps");
       await expect(page.getByRole("button", { name: "New map", exact: true }).first()).toBeVisible();
