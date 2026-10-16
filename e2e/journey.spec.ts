@@ -54,11 +54,77 @@ const isCameraOnlyWrite = (req: { postData(): string | null }) => {
   }
 };
 
+// An undo is one queued step: its request, its answer, then its layers'
+// render replacement. Until that settles the history buttons read
+// disabled, and a redo chord pressed meanwhile is refused as a press on
+// the disabled button would be. A click waits for its button; a chord
+// does not, so the chord waits for Redo to come back.
+const redoReady = (page: Page) =>
+  expect(page.getByRole("button", { name: /^Redo/ })).toBeEnabled();
+
 // Pixel-equality polls clip inside the map card's 22px border-radius:
 // the card's own clipped-corner antialiasing is not byte-stable across
 // separately composited frames, and the curve is a structural edge of
 // the screenshot region, not a maskable node.
 const MAP_SHOT_INSET = 12;
+
+// The floating chrome inside the map card. The status pill and timeline
+// carry live readouts; the rest (stage stack, corner overlays, offline
+// pill, basemap credit) is static, but its rounded-corner antialiasing is
+// not byte-stable across separately composited frames, which a byte-exact
+// poll then reads as a restyle that never settles. The tooltip is chrome
+// too: mask insertion itself synthesizes hover at a parked pointer, so a
+// reference shot can catch the bubble mid-arm and never settle again.
+const CHROME_MASKS = [
+  "[data-status-bar]",
+  '[class*="timelineDock"]',
+  '[class*="stageStack"]',
+  '[class*="overlayCorner"]',
+  '[class*="offline"]',
+  '[class*="BasemapCredit-module"]',
+  "[data-hint-bubble]",
+];
+
+// A mask hides whatever it covers, so a masked element that grows over
+// the map (a layout defect) would turn a real pixel change into a poll
+// that times out as "the map did not change". Each masked element is
+// held to a minor share of the shot first, so that defect fails by name.
+const MASK_SHARE_MAX = 0.25;
+
+/** The rendered map inside the card, every floating chrome element
+ * masked, the clip inset past the card's corner radius by the caller.
+ * The save status chip lives inside the clip and fades for 430 ms after
+ * every save; the shot holds it out for its own duration (MAP_SHOT_STYLE). */
+async function maskedMapShot(
+  page: Page,
+  clip: { x: number; y: number; width: number; height: number },
+) {
+  const shares = await page.evaluate(
+    ({ selectors, clip }) =>
+      selectors.map((selector) => {
+        let largest = 0;
+        for (const element of document.querySelectorAll(selector)) {
+          const r = element.getBoundingClientRect();
+          const w = Math.min(r.right, clip.x + clip.width) - Math.max(r.left, clip.x);
+          const h = Math.min(r.bottom, clip.y + clip.height) - Math.max(r.top, clip.y);
+          if (w > 0 && h > 0) largest = Math.max(largest, (w * h) / (clip.width * clip.height));
+        }
+        return largest;
+      }),
+    { selectors: CHROME_MASKS, clip },
+  );
+  CHROME_MASKS.forEach((selector, i) => {
+    expect(
+      shares[i],
+      `the mask ${selector} covers ${Math.round(shares[i] * 100)}% of the map shot`,
+    ).toBeLessThan(MASK_SHARE_MAX);
+  });
+  return page.screenshot({
+    style: MAP_SHOT_STYLE,
+    clip,
+    mask: CHROME_MASKS.map((selector) => page.locator(selector)),
+  });
+}
 
 // Unique per run so repeated local runs never collide on table names.
 const runId = Date.now().toString(36);
@@ -280,7 +346,11 @@ test("the core loop through the real UI", async ({ page, context }) => {
       `SELECT * FROM ${tableName} ORDER BY riders DESC;`,
     );
     await page.getByRole("button", { name: "Run query" }).click();
-    await expect(page.getByText("4 rows")).toBeVisible();
+    // The result's own count: the assistant, where one is configured,
+    // repeats it with the run's time in its context line.
+    await expect(
+      page.getByRole("region", { name: "Results" }).getByText("4 rows", { exact: true }),
+    ).toBeVisible();
     // The result grid itself, not just the meta line.
     await expect(
       page.getByRole("cell", { name: "Hauptbahnhof" }),
@@ -354,6 +424,7 @@ test("the core loop through the real UI", async ({ page, context }) => {
     await expect(legend).toBeVisible();
     await expect.poll(async () => legend.locator("li").count()).toBe(0);
     // Redo through the keyboard chord — the other half of the surface.
+    await redoReady(page);
     await page.keyboard.press("ControlOrMeta+Shift+Z");
     await expect
       .poll(async () => legend.locator("li").count())
@@ -415,37 +486,11 @@ test("the core loop through the real UI", async ({ page, context }) => {
       .locator('[class*="canvasCol"]')
       .boundingBox();
     const mapShot = () =>
-      // The status pill and timeline float inside the map card and carry
-      // live readouts. The remaining floating chrome — stage stack, corner
-      // overlays, offline pill, basemap credit — is static, but its
-      // rounded-corner antialiasing is not byte-stable across separately
-      // composited frames, which a byte-exact poll then reads as a restyle
-      // that never settles. Mask all of it, and inset the clip past
-      // the card's own corner radius, so the polls compare only the
-      // rendered map.
-      page.screenshot({
-        // The save status chip lives inside this clip and fades for 430 ms
-        // after every save; the shot holds it out for its own duration
-        // (support.ts, MAP_SHOT_STYLE).
-        style: MAP_SHOT_STYLE,
-        clip: {
-          x: canvasBox!.x + MAP_SHOT_INSET,
-          y: canvasBox!.y + MAP_SHOT_INSET,
-          width: canvasBox!.width - MAP_SHOT_INSET * 2,
-          height: canvasBox!.height - MAP_SHOT_INSET * 2,
-        },
-        mask: [
-          page.locator('[data-status-bar]'),
-          page.locator('[class*="timelineDock"]'),
-          page.locator('[class*="stageStack"]'),
-          page.locator('[class*="overlayCorner"]'),
-          page.locator('[class*="offline"]'),
-          page.locator('[class*="BasemapCredit-module"]'),
-          // The tooltip is chrome too: mask insertion itself
-          // synthesizes hover at a parked pointer, so a reference shot
-          // can catch the bubble mid-arm and never settle again.
-          page.locator('[data-hint-bubble]'),
-        ],
+      maskedMapShot(page, {
+        x: canvasBox!.x + MAP_SHOT_INSET,
+        y: canvasBox!.y + MAP_SHOT_INSET,
+        width: canvasBox!.width - MAP_SHOT_INSET * 2,
+        height: canvasBox!.height - MAP_SHOT_INSET * 2,
       });
     const opacity = page.getByRole("slider", { name: "Layer opacity" });
     await expect(opacity).toHaveValue("1");
@@ -505,6 +550,7 @@ test("the core loop through the real UI", async ({ page, context }) => {
     const releasedOpacity = await opacity.inputValue();
     await page.getByRole("button", { name: "Undo" }).click();
     await expect(opacity).toHaveValue("1");
+    await redoReady(page);
     await page.keyboard.press("ControlOrMeta+Shift+Z");
     await expect(opacity).toHaveValue(releasedOpacity);
 
@@ -561,6 +607,7 @@ test("the core loop through the real UI", async ({ page, context }) => {
         timeout: 30_000,
       })
       .toBe(true);
+    await redoReady(page);
     await page.keyboard.press("ControlOrMeta+Shift+Z");
     await expect(opacity).toHaveValue(responseLostOpacity);
     await expect
@@ -644,37 +691,11 @@ test("the core loop through the real UI", async ({ page, context }) => {
       .locator('[class*="canvasCol"]')
       .boundingBox();
     const mapShot = () =>
-      // The status pill and timeline float inside the map card and carry
-      // live readouts. The remaining floating chrome — stage stack, corner
-      // overlays, offline pill, basemap credit — is static, but its
-      // rounded-corner antialiasing is not byte-stable across separately
-      // composited frames, which a byte-exact poll then reads as a restyle
-      // that never settles. Mask all of it, and inset the clip past
-      // the card's own corner radius, so the polls compare only the
-      // rendered map.
-      page.screenshot({
-        // The save status chip lives inside this clip and fades for 430 ms
-        // after every save; the shot holds it out for its own duration
-        // (support.ts, MAP_SHOT_STYLE).
-        style: MAP_SHOT_STYLE,
-        clip: {
-          x: canvasBox!.x + MAP_SHOT_INSET,
-          y: canvasBox!.y + MAP_SHOT_INSET,
-          width: canvasBox!.width - MAP_SHOT_INSET * 2,
-          height: canvasBox!.height - MAP_SHOT_INSET * 2,
-        },
-        mask: [
-          page.locator('[data-status-bar]'),
-          page.locator('[class*="timelineDock"]'),
-          page.locator('[class*="stageStack"]'),
-          page.locator('[class*="overlayCorner"]'),
-          page.locator('[class*="offline"]'),
-          page.locator('[class*="BasemapCredit-module"]'),
-          // The tooltip is chrome too: mask insertion itself
-          // synthesizes hover at a parked pointer, so a reference shot
-          // can catch the bubble mid-arm and never settle again.
-          page.locator('[data-hint-bubble]'),
-        ],
+      maskedMapShot(page, {
+        x: canvasBox!.x + MAP_SHOT_INSET,
+        y: canvasBox!.y + MAP_SHOT_INSET,
+        width: canvasBox!.width - MAP_SHOT_INSET * 2,
+        height: canvasBox!.height - MAP_SHOT_INSET * 2,
       });
     // A rejected release restores both the control and the authoritative
     // full-quality surface; the transient drag still never writes.
@@ -740,6 +761,7 @@ test("the core loop through the real UI", async ({ page, context }) => {
 
     await page.getByRole("button", { name: "Undo" }).click();
     await expect(radius).toHaveValue("30");
+    await redoReady(page);
     await page.keyboard.press("ControlOrMeta+Shift+Z");
     await expect(radius).toHaveValue(releasedRadius);
 
@@ -832,37 +854,11 @@ test("the core loop through the real UI", async ({ page, context }) => {
       .locator('[class*="canvasCol"]')
       .boundingBox();
     const mapShot = () =>
-      // The status pill and timeline float inside the map card and carry
-      // live readouts. The remaining floating chrome — stage stack, corner
-      // overlays, offline pill, basemap credit — is static, but its
-      // rounded-corner antialiasing is not byte-stable across separately
-      // composited frames, which a byte-exact poll then reads as a restyle
-      // that never settles. Mask all of it, and inset the clip past
-      // the card's own corner radius, so the polls compare only the
-      // rendered map.
-      page.screenshot({
-        // The save status chip lives inside this clip and fades for 430 ms
-        // after every save; the shot holds it out for its own duration
-        // (support.ts, MAP_SHOT_STYLE).
-        style: MAP_SHOT_STYLE,
-        clip: {
-          x: canvasBox!.x + MAP_SHOT_INSET,
-          y: canvasBox!.y + MAP_SHOT_INSET,
-          width: canvasBox!.width - MAP_SHOT_INSET * 2,
-          height: canvasBox!.height - MAP_SHOT_INSET * 2,
-        },
-        mask: [
-          page.locator('[data-status-bar]'),
-          page.locator('[class*="timelineDock"]'),
-          page.locator('[class*="stageStack"]'),
-          page.locator('[class*="overlayCorner"]'),
-          page.locator('[class*="offline"]'),
-          page.locator('[class*="BasemapCredit-module"]'),
-          // The tooltip is chrome too: mask insertion itself
-          // synthesizes hover at a parked pointer, so a reference shot
-          // can catch the bubble mid-arm and never settle again.
-          page.locator('[data-hint-bubble]'),
-        ],
+      maskedMapShot(page, {
+        x: canvasBox!.x + MAP_SHOT_INSET,
+        y: canvasBox!.y + MAP_SHOT_INSET,
+        width: canvasBox!.width - MAP_SHOT_INSET * 2,
+        height: canvasBox!.height - MAP_SHOT_INSET * 2,
       });
     const cellSize = page.getByRole("slider", { name: "Cell size" });
     // The continuous log track: 5 km sits at position 306 of 600; the
@@ -899,6 +895,7 @@ test("the core loop through the real UI", async ({ page, context }) => {
     page.off("request", counter);
     await page.getByRole("button", { name: "Undo" }).click();
     await expect(cellSize).toHaveValue(defaultCellPosition);
+    await redoReady(page);
     await page.keyboard.press("ControlOrMeta+Shift+Z");
     await expect(cellSize).toHaveValue(releasedCellSize);
     await saveSettled(page);
@@ -940,7 +937,6 @@ test("the core loop through the real UI", async ({ page, context }) => {
       .toBe(true);
     await page.mouse.up();
     await expect.poll(() => patches).toBe(1);
-    await expect.poll(() => refetches).toBe(1);
     await expect(
       page.getByText(/layer save could not be confirmed/i),
     ).toBeVisible();
@@ -949,6 +945,10 @@ test("the core loop through the real UI", async ({ page, context }) => {
       .poll(async () => (await mapShot()).equals(allCells), { timeout: 30_000 })
       .toBe(true);
     await expect(page.getByText("Approximate preview")).toHaveCount(0);
+    // A save that never reached the server is retired against the map's
+    // own read: the exact cells come back from the render already held,
+    // with no render request.
+    expect(refetches).toBe(0);
     const afterFailure = await readBuilderLayer(page, tableName);
     expect(afterFailure.viz.fill?.breaks).toEqual(beforeBreaks);
     await consumeTransportAbort(consoleErrors);
@@ -1001,37 +1001,11 @@ test("the core loop through the real UI", async ({ page, context }) => {
       .locator('[class*="canvasCol"]')
       .boundingBox();
     const mapShot = () =>
-      // The status pill and timeline float inside the map card and carry
-      // live readouts. The remaining floating chrome — stage stack, corner
-      // overlays, offline pill, basemap credit — is static, but its
-      // rounded-corner antialiasing is not byte-stable across separately
-      // composited frames, which a byte-exact poll then reads as a restyle
-      // that never settles. Mask all of it, and inset the clip past
-      // the card's own corner radius, so the polls compare only the
-      // rendered map.
-      page.screenshot({
-        // The save status chip lives inside this clip and fades for 430 ms
-        // after every save; the shot holds it out for its own duration
-        // (support.ts, MAP_SHOT_STYLE).
-        style: MAP_SHOT_STYLE,
-        clip: {
-          x: canvasBox!.x + MAP_SHOT_INSET,
-          y: canvasBox!.y + MAP_SHOT_INSET,
-          width: canvasBox!.width - MAP_SHOT_INSET * 2,
-          height: canvasBox!.height - MAP_SHOT_INSET * 2,
-        },
-        mask: [
-          page.locator('[data-status-bar]'),
-          page.locator('[class*="timelineDock"]'),
-          page.locator('[class*="stageStack"]'),
-          page.locator('[class*="overlayCorner"]'),
-          page.locator('[class*="offline"]'),
-          page.locator('[class*="BasemapCredit-module"]'),
-          // The tooltip is chrome too: mask insertion itself
-          // synthesizes hover at a parked pointer, so a reference shot
-          // can catch the bubble mid-arm and never settle again.
-          page.locator('[data-hint-bubble]'),
-        ],
+      maskedMapShot(page, {
+        x: canvasBox!.x + MAP_SHOT_INSET,
+        y: canvasBox!.y + MAP_SHOT_INSET,
+        width: canvasBox!.width - MAP_SHOT_INSET * 2,
+        height: canvasBox!.height - MAP_SHOT_INSET * 2,
       });
     // The whole beat — adding the filter, dragging, committing, clearing —
     // must never refetch render data: the canvas is filtering client-side.
@@ -1165,37 +1139,11 @@ return fetch(`/api/maps/${mapId}/layers`, {
       .locator('[class*="canvasCol"]')
       .boundingBox();
     const mapShot = () =>
-      // The status pill and timeline float inside the map card and carry
-      // live readouts. The remaining floating chrome — stage stack, corner
-      // overlays, offline pill, basemap credit — is static, but its
-      // rounded-corner antialiasing is not byte-stable across separately
-      // composited frames, which a byte-exact poll then reads as a restyle
-      // that never settles. Mask all of it, and inset the clip past
-      // the card's own corner radius, so the polls compare only the
-      // rendered map.
-      page.screenshot({
-        // The save status chip lives inside this clip and fades for 430 ms
-        // after every save; the shot holds it out for its own duration
-        // (support.ts, MAP_SHOT_STYLE).
-        style: MAP_SHOT_STYLE,
-        clip: {
-          x: canvasBox!.x + MAP_SHOT_INSET,
-          y: canvasBox!.y + MAP_SHOT_INSET,
-          width: canvasBox!.width - MAP_SHOT_INSET * 2,
-          height: canvasBox!.height - MAP_SHOT_INSET * 2,
-        },
-        mask: [
-          page.locator('[data-status-bar]'),
-          page.locator('[class*="timelineDock"]'),
-          page.locator('[class*="stageStack"]'),
-          page.locator('[class*="overlayCorner"]'),
-          page.locator('[class*="offline"]'),
-          page.locator('[class*="BasemapCredit-module"]'),
-          // The tooltip is chrome too: mask insertion itself
-          // synthesizes hover at a parked pointer, so a reference shot
-          // can catch the bubble mid-arm and never settle again.
-          page.locator('[data-hint-bubble]'),
-        ],
+      maskedMapShot(page, {
+        x: canvasBox!.x + MAP_SHOT_INSET,
+        y: canvasBox!.y + MAP_SHOT_INSET,
+        width: canvasBox!.width - MAP_SHOT_INSET * 2,
+        height: canvasBox!.height - MAP_SHOT_INSET * 2,
       });
     const before = await mapShot();
     const cellSize = page.getByRole("slider", { name: "Cell size" });
@@ -1278,36 +1226,18 @@ return fetch(`/api/layers/${layerId}`, { headers: { "X-Edit-Revision": shown.edi
       .locator('[class*="canvasCol"]')
       .boundingBox();
     const mapShot = () =>
-      page.screenshot({
-        // The canvas minus the widget strip; the legend is static across
-        // both states, so it cannot fake a difference. The 182px margin
-        // keeps the timeline dock's rounded corner fully out of the shot,
-        // and the inset plus chrome masks keep every other card edge and
-        // floating overlay out too — edge antialiasing wobbles across
-        // repaints, which is not a map pixel (finding, generalized by:
-        // exact-equality polls must not straddle a card edge). The save
-        // status chip lives inside this clip and fades for 430 ms after
-        // every save; the shot holds it out for its own duration
-        // (support.ts, MAP_SHOT_STYLE).
-        style: MAP_SHOT_STYLE,
-        clip: {
-          x: canvasBox!.x + MAP_SHOT_INSET,
-          y: canvasBox!.y + MAP_SHOT_INSET,
-          width: canvasBox!.width - MAP_SHOT_INSET * 2,
-          height: canvasBox!.height - 182 - MAP_SHOT_INSET,
-        },
-        mask: [
-          page.locator('[data-status-bar]'),
-          page.locator('[class*="timelineDock"]'),
-          page.locator('[class*="stageStack"]'),
-          page.locator('[class*="overlayCorner"]'),
-          page.locator('[class*="offline"]'),
-          page.locator('[class*="BasemapCredit-module"]'),
-          // The tooltip is chrome too: mask insertion itself
-          // synthesizes hover at a parked pointer, so a reference shot
-          // can catch the bubble mid-arm and never settle again.
-          page.locator('[data-hint-bubble]'),
-        ],
+      // The canvas minus the widget strip; the legend is static across
+      // both states, so it cannot fake a difference. The 182px margin
+      // keeps the timeline dock's rounded corner fully out of the shot,
+      // and the inset plus chrome masks keep every other card edge and
+      // floating overlay out too — edge antialiasing wobbles across
+      // repaints, which is not a map pixel (finding, generalized by:
+      // exact-equality polls must not straddle a card edge).
+      maskedMapShot(page, {
+        x: canvasBox!.x + MAP_SHOT_INSET,
+        y: canvasBox!.y + MAP_SHOT_INSET,
+        width: canvasBox!.width - MAP_SHOT_INSET * 2,
+        height: canvasBox!.height - 182 - MAP_SHOT_INSET,
       });
     const allVisible = await mapShot();
     const minBound = page.getByPlaceholder("2021-03-01T08:30:00");
@@ -1384,8 +1314,11 @@ return fetch(`/api/layers/${layerId}`, { headers: { "X-Edit-Revision": shown.edi
     );
     await page.mouse.up();
     await expect.poll(() => recoveryPatches).toBe(1);
-    const recoveredStart = await startThumb.getAttribute("aria-valuenow");
-    expect(recoveredStart).not.toBeNull();
+    // A time bound is stored to the second, and once the save lands the
+    // handle shows the stored bound; until then it holds the released
+    // position, fractional milliseconds and all.
+    const released = Number(await startThumb.getAttribute("aria-valuenow"));
+    const recoveredStart = String(Math.floor(released / 1000) * 1000);
     await expect
       .poll(async () => {
         const min = (await readBuilderLayer(page, tableName)).filters?.find(
@@ -1397,6 +1330,7 @@ return fetch(`/api/layers/${layerId}`, { headers: { "X-Edit-Revision": shown.edi
       })
       .toBe(Number(recoveredStart));
     await saveSettled(page);
+    await expect(startThumb).toHaveAttribute("aria-valuenow", recoveredStart);
     page.off("request", recoveryCounter);
 
     // One undo crosses the accepted recovery gesture, not the aborted one.
@@ -1410,8 +1344,9 @@ return fetch(`/api/layers/${layerId}`, { headers: { "X-Edit-Revision": shown.edi
         timeout: 30_000,
       })
       .toBe(true);
+    await redoReady(page);
     await page.keyboard.press("ControlOrMeta+Shift+Z");
-    await expect(startThumb).toHaveAttribute("aria-valuenow", recoveredStart!);
+    await expect(startThumb).toHaveAttribute("aria-valuenow", recoveredStart);
     await saveSettled(page);
 
     // Play: the window sweeps — the readout visibly moves — and pausing
@@ -1645,9 +1580,15 @@ return fetch(`/api/layers/${layerId}`, { headers: { "X-Edit-Revision": shown.edi
         { timeout: 20_000 },
       )
       .toBeGreaterThan(30);
+    // The status pill sheds readouts whole when its band between the
+    // legend card and the basemap credit runs short, pitch first. At this
+    // window the band holds four; the readout is read with room for five.
+    const viewport = page.viewportSize()!;
+    await page.setViewportSize({ width: 1600, height: viewport.height });
     await expect(
       page.locator("[data-status-bar]").getByText("Pitch", { exact: true }),
     ).toBeVisible();
+    await page.setViewportSize(viewport);
 
     // Extrude hex bins on a fresh scratch layer (the stress layer is long
     // deleted, and the fixture layer carries the docked timeline): the
