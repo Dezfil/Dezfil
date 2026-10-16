@@ -1,7 +1,8 @@
 import { DuckDBTypeId, type DuckDBListVector, type DuckDBStructVector, type DuckDBType, type DuckDBVector } from "@duckdb/node-api";
 import { stringByteLength } from "./budget-string";
 import { quoteIdent } from "./budget-projection";
-import { jsonBytes, type ByteBudget } from "./result-budget";
+import type { RenderBudget } from "./render-budget";
+import { jsonBytes } from "./result-budget";
 import { setOwn } from "./set-own";
 
 /**
@@ -16,14 +17,17 @@ import { setOwn } from "./set-own";
  * it, lists and maps carry their member counts, and a JSON document is
  * walked node by node, its repeated member names resolved as JSON.parse
  * resolves them. Only numbers are converted first and counted after:
- * their JSON spelling is normalized by the parser (1.0 becomes 1), and each
- * is a short token. Integers, floating values and booleans are read as the
- * engine holds them: the engine writes a double's shortest exact spelling,
- * so the parsed text and the native value are the same number. The engine
- * runs no subquery inside a list function, and a document is walked by
- * one, so a list or map that holds a JSON document anywhere inside it reads
- * its items through a subquery over them instead: its documents are walked
- * like any other, and none is converted whole before it is counted.
+ * their JSON spelling is normalized by the parser (1.0 becomes 1), and a
+ * short token is harmless to convert; a document's number literal longer
+ * than any number's spelling must first fit what the budget has left, as
+ * its text, so an enormous literal is refused before it is converted.
+ * Integers, floating values and booleans are read as the engine holds
+ * them: the engine writes a double's shortest exact spelling, so the parsed
+ * text and the native value are the same number. The engine runs no
+ * subquery inside a list function, and a document is walked by one, so a
+ * list or map that holds a JSON document anywhere inside it reads its items
+ * through a subquery over them instead: its documents are walked like any
+ * other, and none is converted whole before it is counted.
  */
 export type RenderValue =
   | { kind: "text" | "json" | "tree" | "number"; sql: string }
@@ -60,6 +64,7 @@ function treeProjection(expression: string): string {
         key_bytes := ${stringByteLength("n.key")},
         key := n.key,
         bytes := CASE WHEN n.type IN ('VARCHAR', 'BOOLEAN') THEN strlen(CAST(n.atom AS VARCHAR)) WHEN n.type = 'NULL' THEN 4 END,
+        spelled := CASE WHEN n.type NOT IN ('OBJECT', 'ARRAY', 'VARCHAR', 'BOOLEAN', 'NULL') THEN strlen(CAST(n.atom AS VARCHAR)) END,
         atom := CAST(n.atom AS VARCHAR)
       ) ORDER BY n.id))
     FROM json_tree(${expression}) AS n)`;
@@ -163,8 +168,19 @@ export function renderValueProjection(expression: string, type: DuckDBType, dept
   }
 }
 
+/** The longest JSON spelling a number has, as in -0.0000012345678901234567. */
+const NUMBER_SPELLING = 25;
+
+/** A number's text is converted before the length it serializes to is
+ * known. A text no longer than a number's spelling is a short token; a
+ * longer one, which only an unbounded literal has, must fit what is left
+ * before it is converted, though only what it serializes to is charged. */
+function admitNumberText(length: number, budget: RenderBudget): void {
+  if (length > NUMBER_SPELLING) budget.admit(length);
+}
+
 /** Reads one admitted value, charging its exact serialized bytes as it goes. */
-export function decodeRenderValue(vector: DuckDBVector, index: number, value: RenderValue, budget: ByteBudget): unknown {
+export function decodeRenderValue(vector: DuckDBVector, index: number, value: RenderValue, budget: RenderBudget): unknown {
   if (value.kind === "number") {
     const item = vector.getItem(index) as number | bigint | boolean | null;
     // A wide integer becomes the nearest double, as parsing its digits does;
@@ -231,11 +247,11 @@ export function decodeRenderValue(vector: DuckDBVector, index: number, value: Re
   }
 }
 
-function decodeTree(tree: DuckDBStructVector, index: number, budget: ByteBudget): unknown {
+function decodeTree(tree: DuckDBStructVector, index: number, budget: RenderBudget): unknown {
   const repeated = tree.entryVectorAt(0).getItem(index) === true;
   const list = tree.entryVectorAt(1) as DuckDBListVector;
   const nodes = list.childVector as DuckDBStructVector;
-  const [types, ids, parents, keyBytes, keys, bytes, atoms] = Array.from({ length: 7 }, (_, i) => nodes.entryVectorAt(i));
+  const [types, ids, parents, keyBytes, keys, bytes, spelled, atoms] = Array.from({ length: 8 }, (_, i) => nodes.entryVectorAt(i));
   const end = list.getEntryOffset(index) + list.getEntryLength(index);
   let cursor = list.getEntryOffset(index);
   // Document order numbers a node's descendants after it and before
@@ -312,6 +328,7 @@ function decodeTree(tree: DuckDBStructVector, index: number, budget: ByteBudget)
     const known = bytes.getItem(row);
     if (known !== null) budget.take(Number(known));
     if (type === "NULL") return null;
+    if (known === null) admitNumberText(Number(spelled.getItem(row)), budget);
     const parsed: unknown = JSON.parse(atoms.getItem(row) as string);
     if (known === null) budget.take(jsonBytes(parsed));
     return parsed;

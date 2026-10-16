@@ -585,7 +585,7 @@ removes its owned scratch and lock on refusal.
 | Variable | Default | Effect | Changed by |
 |---|---|---|---|
 | `DEZFIL_RENDER_CAP_FEATURES` | `250000` | Features a single layer renders before the API asks for a limit or an aggregation instead. | Restart |
-| `DEZFIL_RENDER_CAP_BYTES` | `134217728` | Bytes drawn per layer (128 MiB): each complete uncompressed UTF-8 JSON inline answer, including its envelope. Equality is admitted. Fixed without an override; locked with one. Shown on Limits > Queries. | Restart |
+| `DEZFIL_RENDER_CAP_BYTES` | `134217728` | Bytes drawn per layer (128 MiB): each complete uncompressed UTF-8 JSON inline answer, including its envelope. Equality is admitted. A number literal in a JSON value that is longer than any number's spelling must also fit, as its text, in what is left when it is read. Fixed without an override; locked with one. Shown on Limits > Queries. | Restart |
 | `DEZFIL_TILE_BUILD_TIMEOUT_S` | `600` | Timeout for each stage of a background tile build. | Restart |
 | `DEZFIL_TIPPECANOE` | `tippecanoe` | Path to the tile-building binary (`src/lib/tiles/tiler.ts`). The image installs it on the path. | Restart |
 | `DEZFIL_BASEMAP_URL` | built-in styles | A MapLibre style URL that replaces the built-in basemap and pins it in both themes, for instances with no internet access (`src/lib/basemap.ts`). | Restart |

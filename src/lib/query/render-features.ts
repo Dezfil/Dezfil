@@ -103,7 +103,7 @@ export function layerFeature(rows: InlineRows): FeatureBuilder<InlineFeature> {
 async function readInlineFeatures<F>(
   conn: DuckDBConnection,
   rows: InlineRows,
-  budget: ByteBudget,
+  budget: RenderBudget,
   interrupted: () => boolean,
   feature: FeatureBuilder<F>,
   take: number,
