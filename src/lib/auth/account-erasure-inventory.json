@@ -2558,6 +2558,11 @@
         "tiles/*.pmtiles"
       ]
     },
+    "memory:src/lib/api/bounded-handoff.ts#followed": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
     "memory:src/lib/api/openapi-account.ts#ACCOUNT_PATHS": {
       "stores": [
         "memory:immutable-configuration"
