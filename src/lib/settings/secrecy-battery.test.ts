@@ -720,9 +720,17 @@ describe("a service address carrying a key", () => {
   });
 
   it("the imagery style for a signed-in request alone, naming the instance's tile address and none of the template, refused to an anonymous one; a publication of a map on Satellite assembled afresh", async () => {
-    // The tile template's key in all three places, by the variable: a save
-    // refuses its user information.
+    // The tile template's key in its user information too, by the variable
+    // (a save refuses it there): such a template counts as no imagery, so
+    // no style is served for it, and its answer holds none of the key.
     vi.stubEnv(VARIABLE.satelliteUrl, address("satelliteUrl", { user: true }));
+    try {
+      const none = await ask("GET", SATELLITE_STYLE_URL);
+      expect(none.status, none.text).toBe(404);
+      searched("the imagery style's answer for a template with user information", none.text);
+    } finally { vi.stubEnv(VARIABLE.satelliteUrl, undefined); }
+    // The key in the template's path and query, by the variable.
+    vi.stubEnv(VARIABLE.satelliteUrl, address("satelliteUrl"));
     try {
       const style = await ask("GET", SATELLITE_STYLE_URL);
       expect(style.status, style.text).toBe(200);

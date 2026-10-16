@@ -748,7 +748,10 @@ failure upstream answers `imagery_unavailable` (502, or 504 past the time
 limit), whose message says what went wrong and never the tile address or its
 key; where the egress policy refused the imagery's address, at its host or at
 a redirect, the 502 carries `X-Dezfil-Egress-Refused: imagery`, which an image
-export reads to refuse its image rather than make it without the imagery. With no imagery configured the styles and the tiles answer 404. Every
+export reads to refuse its image rather than make it without the imagery. With no imagery configured the styles and the tiles answer 404; a tile
+template carrying a user name or password counts as none for the styles and
+the basemap offer, while a signed-in tile request answers it with
+`imagery_unavailable` without asking it. Every
 answer is private, no-store. None of the four is a tool: an agent reads the
 basemap offer from `GET /api/config`.
 
