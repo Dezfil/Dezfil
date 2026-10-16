@@ -1,3 +1,4 @@
+import { joinRuns, KEPT_RING } from "./assembler-rings";
 import { pointWithin, type WithinShape } from "./geometry";
 
 /**
@@ -17,8 +18,9 @@ import { pointWithin, type WithinShape } from "./geometry";
  * certainly makes a feature of it with every coordinate counted, and it
  * lies inside the area the preview is limited to. Where any of that is
  * uncertain (a feature the cap or a later line may push out, an element the
- * assembler may fold into another, a relation whose rings it may drop), the
- * element is assembled and the answer decided as before.
+ * assembler may fold into another), the element is assembled and the
+ * answer decided as before. A multipolygon counts only the outer rings the
+ * assembler keeps, and one that keeps none makes no feature to count.
  */
 export function certainlyTooLarge(response: unknown, within: WithinShape | null, cap: number, room: number): boolean {
   const elements = elementsOf(response);
@@ -88,6 +90,25 @@ const wayMembers = (element: Element) => membersOf(element).filter((m) => m.type
 /** The members a multipolygon assembles into its outer rings. */
 const outerMembers = (element: Element) => wayMembers(element).filter((m) => m.role === "outer" || !m.role);
 
+/** The outer rings a multipolygon's own member geometry joins into, by
+ * node count: members with the role outer or none, their empty entries
+ * dropped as the assembler drops them. Nodes are named by their
+ * coordinates, as the assembler names the nodes of member geometry. */
+function outerRings(element: Element): number[] {
+  const names = new Map<object, string>();
+  const name = (vertex: Element) => {
+    let known = names.get(vertex);
+    if (known === undefined) names.set(vertex, known = `${vertex.lat}/${vertex.lon}`);
+    return known;
+  };
+  const ways = outerMembers(element).map((m) => (Array.isArray(m.geometry) ? m.geometry : []).filter((v): v is Element => !!v));
+  return joinRuns(ways, name).map((run) => run.length);
+}
+
+/** The node count of the outer rings the assembler keeps. */
+const keptOuterNodes = (element: Element) =>
+  outerRings(element).filter((n) => n >= KEPT_RING).reduce((sum, n) => sum + n, 0);
+
 function lowerBound(element: Element): number {
   switch (element.type) {
     case "node":
@@ -103,13 +124,11 @@ function lowerBound(element: Element): number {
         return coordinateBytes(Math.max(0, pairs)) + tagBytes(element.tags);
       }
       if (type === "multipolygon" || type === "boundary") {
-        // Joining drops one node per join, and a ring under four nodes is
-        // dropped, three at most for each member. With a single outer ring
-        // the feature may take the ring's tags instead of the relation's.
-        const outers = outerMembers(element);
-        const pairs = outers.reduce((sum, m) => sum + vertices(m.geometry), 0) - 4 * outers.length;
+        // Only the outer rings the assembler keeps are certain to be drawn.
+        // With a single outer ring the feature may take the ring's tags
+        // instead of the relation's.
         const named = membersOf(element).filter((m) => m.type === "way" && m.role === "outer").length >= 2;
-        return coordinateBytes(Math.max(0, pairs)) + (named ? tagBytes(element.tags) : 0);
+        return coordinateBytes(keptOuterNodes(element)) + (named ? tagBytes(element.tags) : 0);
       }
       return 0;
     }
@@ -140,10 +159,13 @@ interface Facts {
   relations: Map<unknown, number>;
   /** The ways some relation names as a member. */
   memberWays: Set<unknown>;
+  /** The relation whose member geometry the assembler reads for each
+   * member way: the first that carries it. */
+  definers: Map<string, Element>;
 }
 
 function responseFacts(elements: Element[]): Facts {
-  const facts: Facts = { points: new Map(), ways: new Map(), relations: new Map(), memberWays: new Set() };
+  const facts: Facts = { points: new Map(), ways: new Map(), relations: new Map(), memberWays: new Set(), definers: new Map() };
   const count = (map: Map<unknown, number>, id: unknown) => map.set(id, (map.get(id) ?? 0) + 1);
   for (const element of elements) {
     if (element.type === "node") count(facts.points, element.id);
@@ -151,7 +173,11 @@ function responseFacts(elements: Element[]): Facts {
     if (element.type === "relation") {
       count(facts.relations, element.id);
       if (element.bounds) count(facts.ways, element.id);
-      for (const member of wayMembers(element)) facts.memberWays.add(member.ref);
+      for (const member of wayMembers(element)) {
+        facts.memberWays.add(member.ref);
+        const defined = `${member.ref}`;
+        if (member.geometry && !facts.definers.has(defined)) facts.definers.set(defined, element);
+      }
     }
     if ((element.type === "way" || element.type === "relation") && element.center) count(facts.points, element.id);
     // A relation's located node members are read as nodes of their own.
@@ -197,9 +223,12 @@ function assembledWhole(element: Element, facts: Facts): boolean {
       const type = relationType(element);
       if (type === "route" || type === "waterway") return wayMembers(element).some((m) => vertices(m.geometry) > 0);
       if (type === "multipolygon" || type === "boundary") {
-        // Every outer ring is read from the response itself.
+        // Every outer ring is read from this relation's own member
+        // geometry, and at least one of them is kept.
         const outer = membersOf(element).filter((m) => m.type === "way" && m.role === "outer");
-        return outer.length > 0 && outer.every((m) => Array.isArray(m.geometry) && m.geometry.length > 0);
+        return outer.length > 0 && outer.every((m) => Array.isArray(m.geometry) && m.geometry.length > 0)
+          && outerMembers(element).every((m) => Array.isArray(m.geometry) && facts.definers.get(`${m.ref}`) === element)
+          && keptOuterNodes(element) > 0;
       }
       return false;
     }

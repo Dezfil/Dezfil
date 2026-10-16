@@ -15,15 +15,22 @@ import { previewOsm } from "./import";
  * it whole with 422 render_bytes_exceeded.
  */
 
-const assembled = vi.hoisted(() => ({ features: 0 }));
+/** Features the assembler handed over, and whether it is running now, so
+ * that a read of a raw coordinate can be told apart as construction. */
+const assembled = vi.hoisted(() => ({ features: 0, running: false }));
 vi.mock("osmtogeojson", async (original) => {
   const real = (await original<{ default: (...args: unknown[]) => unknown }>()).default;
   return {
     default: (data: unknown, options: unknown, each?: (feature: unknown) => void) => {
-      if (each) return real(data, options, (feature: unknown) => { assembled.features++; each(feature); });
-      const collection = real(data, options) as { features: unknown[] };
-      assembled.features += collection.features.length;
-      return collection;
+      assembled.running = true;
+      try {
+        if (each) return real(data, options, (feature: unknown) => { assembled.features++; each(feature); });
+        const collection = real(data, options) as { features: unknown[] };
+        assembled.features += collection.features.length;
+        return collection;
+      } finally {
+        assembled.running = false;
+      }
     },
   };
 });
@@ -33,6 +40,7 @@ vi.mock("./overpass", async (original) => ({ ...(await original<typeof import(".
 afterEach(() => {
   vi.restoreAllMocks();
   assembled.features = 0;
+  assembled.running = false;
   fetchOverpass.mockReset();
   delete process.env.DEZFIL_RENDER_CAP_BYTES;
   delete process.env.DEZFIL_RENDER_CAP_FEATURES;
@@ -177,29 +185,36 @@ describe("an OpenStreetMap preview is decided before the collection is assembled
 });
 
 /**
+ * Construction is observed on the raw element itself: every read of a
+ * vertex's coordinates while the assembler runs (it reads both of each
+ * vertex to build its pair), apart from the reads outside it, and every
+ * serialization of its tags.
+ */
+interface Watched { coordinates: number; measured: number; tags: number }
+const watching = (): Watched => ({ coordinates: 0, measured: 0, tags: 0 });
+
+/** A raw geometry whose coordinate reads are counted. */
+const watchedPath = (points: [number, number][], seen: Watched) => points.map(([lon, lat]) => {
+  const read = () => { if (assembled.running) seen.coordinates++; else seen.measured++; };
+  return { get lat() { read(); return lat; }, get lon() { read(); return lon; } };
+});
+
+/** Counts each serialization of these tags. */
+function watchTags(tags: object, seen: Watched) {
+  const stringify = JSON.stringify;
+  vi.spyOn(JSON, "stringify").mockImplementation(function (value: unknown, ...rest: unknown[]) {
+    if (value === tags) seen.tags++;
+    return (stringify as (...args: unknown[]) => string)(value, ...rest);
+  });
+}
+
+/**
  * One element too large for the answer on its own is refused before the
- * assembler builds it. Construction is observed on the raw element itself:
- * every read of a vertex's coordinates (the assembler reads both of each
- * vertex to build its pair) and every serialization of its tags. A
- * refusal is early only when neither happened.
+ * assembler builds it: a refusal is early only when the assembler read
+ * none of its coordinates and its tags were never serialized.
  */
 describe("an element too large on its own is refused before it is assembled", () => {
   const LIMIT = 65_536;
-  interface Watched { coordinates: number; tags: number }
-
-  /** A raw geometry whose coordinate reads are counted. */
-  const watchedPath = (points: [number, number][], seen: Watched) => points.map(([lon, lat]) => ({
-    get lat() { seen.coordinates++; return lat; },
-    get lon() { seen.coordinates++; return lon; },
-  }));
-  /** Counts each serialization of these tags. */
-  function watchTags(tags: object, seen: Watched) {
-    const stringify = JSON.stringify;
-    vi.spyOn(JSON, "stringify").mockImplementation(function (value: unknown, ...rest: unknown[]) {
-      if (value === tags) seen.tags++;
-      return (stringify as (...args: unknown[]) => string)(value, ...rest);
-    });
-  }
   const long = (n: number) => Array.from({ length: n }, (_, i): [number, number] => [13.3 + i * 1e-6, 52.4 + (i % 2) * 1e-4]);
   const streets = (n: number, first: number) => Array.from({ length: n }, (_, i) => way(first + i, [[13.3, 52.4], [13.31, 52.41]], { highway: "service" }));
 
@@ -230,17 +245,17 @@ describe("an element too large on its own is refused before it is assembled", ()
   }
 
   it.each(cases)("%s: refused unassembled, while the late control is not", async (_name, make) => {
-    const early: Watched = { coordinates: 0, tags: 0 };
+    const early = watching();
     const built = make(early);
     watchTags(built.tags, early);
     fetchOverpass.mockImplementation(async () => ({ response: built.response, fromCache: true }));
     process.env.DEZFIL_RENDER_CAP_BYTES = String(LIMIT);
     await expect(previewOsm({ ql: "nwr; out geom;", name: "source" })).rejects.toMatchObject({ code: "render_bytes_exceeded", message: expect.stringMatching(SENTENCE) });
-    expect(early).toEqual({ coordinates: 0, tags: 0 });
+    expect(early).toMatchObject({ coordinates: 0, tags: 0 });
     expect(assembled.features).toBe(0);
     vi.restoreAllMocks();
 
-    const late: Watched = { coordinates: 0, tags: 0 };
+    const late = watching();
     const control = make(late);
     watchTags(control.tags, late);
     expect(() => lateRefusal(control.response)).toThrow("refused late");
@@ -275,5 +290,56 @@ describe("an element too large on its own is refused before it is assembled", ()
     expect(before).toMatchObject({ featureCount: 2, truncated: true });
     expect(answer(response, null, 2, LIMIT)).toEqual(before);
     expect(() => answer(response, null, 3, LIMIT)).toThrow(SENTENCE);
+  });
+});
+
+/**
+ * A relation counts against the limit only when the assembler makes a
+ * feature of it: an outer ring of fewer than four nodes is discarded, and
+ * a relation left without a ring makes none, however large its tags.
+ */
+describe("a multipolygon whose rings the assembler discards", () => {
+  const LIMIT = 65_536;
+  const forest = (members: Element[], note: string): Element =>
+    ({ type: "relation", id: 9, tags: { type: "multipolygon", landuse: "forest", note }, members });
+  const outer = (ref: number, geometry: unknown[]): Element => ({ type: "way", ref, role: "outer", geometry });
+
+  it("answers the assembler's empty preview, not a refusal, when both outer rings have two nodes", () => {
+    const response = { version: 0.6, elements: [forest([
+      outer(1, path([[13.3, 52.4], [13.31, 52.41]])),
+      outer(2, path([[13.32, 52.42], [13.33, 52.43]])),
+    ], "x".repeat(70000))] };
+    const before = previous(response, null, limits.renderCapFeatures);
+    expect(before).toMatchObject({ featureCount: 0, truncated: false });
+    expect(answer(response, null, limits.renderCapFeatures, LIMIT)).toEqual(before);
+  });
+
+  it("refuses before construction when the outer ways close a kept ring and the tags pass the limit", async () => {
+    // Two outer ways that join into one ring of five nodes.
+    const make = (seen: Watched) => {
+      const relation = forest([
+        outer(1, watchedPath([[13.3, 52.4], [13.31, 52.4], [13.31, 52.41]], seen)),
+        outer(2, watchedPath([[13.31, 52.41], [13.3, 52.41], [13.3, 52.4]], seen)),
+      ], "x".repeat(70000));
+      return { response: { version: 0.6, elements: [relation] }, tags: relation.tags as object };
+    };
+    expect(classes(make(watching()).response)).toEqual([0, 0, 1]);
+    const early = watching();
+    const built = make(early);
+    watchTags(built.tags, early);
+    fetchOverpass.mockImplementation(async () => ({ response: built.response, fromCache: true }));
+    process.env.DEZFIL_RENDER_CAP_BYTES = String(LIMIT);
+    await expect(previewOsm({ ql: "nwr; out geom;", name: "source" })).rejects.toMatchObject({ code: "render_bytes_exceeded", message: expect.stringMatching(SENTENCE) });
+    expect(early).toMatchObject({ coordinates: 0, tags: 0 });
+    vi.restoreAllMocks();
+
+    // The deliberately late control builds the ring and serializes the tags.
+    const late = watching();
+    const control = make(late);
+    watchTags(control.tags, late);
+    const preview = osmPreviewAnswer(control.response, PROMOTED, null, limits.renderCapFeatures, Number.MAX_SAFE_INTEGER, () => {});
+    expect(bytesOf(preview)).toBeGreaterThan(LIMIT);
+    expect(late.coordinates).toBeGreaterThan(0);
+    expect(late.tags).toBeGreaterThan(0);
   });
 });
