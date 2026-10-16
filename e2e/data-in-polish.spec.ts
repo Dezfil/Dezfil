@@ -159,6 +159,9 @@ test("the zone's hover answers like the gallery ghost, both dialogs, both themes
         .getByRole("button", { name: "Switch between dark and light theme" })
         .click();
     }
+    // The ghost is the grid's first tile; the view preference is shared,
+    // and another case may have left the list.
+    await page.getByRole("button", { name: "Grid view", exact: true }).click();
     const ghost = page.getByRole("button", {
       name: "New map Start from a blank map",
     });
