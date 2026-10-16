@@ -1,8 +1,13 @@
-import { expect, it } from "vitest";
+import { beforeAll, expect, it } from "vitest";
 import { buildOpenApiDocument } from "./openapi";
-import { auditBodyPolicy, bodyPolicyProblems } from "../../../test-support/body-policy";
+import { auditBodyPolicy, bodyPolicyProblems, type BodyAudit } from "../../../test-support/body-policy";
+
+// The unseeded tree is audited once for the file; a case that seeds a defect
+// audits its own sources.
+let tree: BodyAudit;
+beforeAll(() => { tree = auditBodyPolicy(); });
 it("excludes raw request bodies by type and matches enforced and documented policies both ways", () => {
-  const audit = auditBodyPolicy();
+  const audit = tree;
   expect(audit.policies.length).toBeGreaterThan(50);
   expect(bodyPolicyProblems(audit, buildOpenApiDocument())).toEqual([]);
 });
@@ -37,7 +42,7 @@ it("rejects a removed bound even when no raw body is read", async () => {
   expect(bodyPolicyProblems(audit, buildOpenApiDocument())).toContain("post /api/maps: documented byte policy 16777216/request_body_too_large differs from enforced undefined/undefined");
 });
 it("rejects stale descriptions and undocumented policies, including assistant's own code", () => {
-  const audit = auditBodyPolicy(), document = buildOpenApiDocument();
+  const audit = tree, document = buildOpenApiDocument();
   document.paths["/api/assistant/messages"].post.description = "At most 16,777,216 wire bytes";
   delete (document.paths as Record<string, unknown>)["/api/maps"];
   const problems = bodyPolicyProblems(audit, document);
