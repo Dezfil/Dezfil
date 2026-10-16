@@ -9,7 +9,8 @@ import { lookChoices } from "@/lib/look";
  * themes, under Liquid and under Paper: computed here
  * from the fills the looks' stylesheets declare and the tones the page
  * declares, the backdrop unblurred, as a person's eye would meet it at the
- * worst spot. The numbers are printed for the record.
+ * worst spot, in the quiet ink the page's body takes under that look (Liquid
+ * steps it toward the ink). The numbers are printed for the record.
  */
 
 type RGBA = [number, number, number, number];
@@ -169,7 +170,7 @@ const VEIL = "color-mix(in srgb, var(--fg) 32%, transparent)";
 
 type Backdrop = "cell" | "veil" | "ground" | "inspector";
 /** Every surface a role draws that carries words and where it can sit;
- * each is read in the quiet ink, which no look steps up. */
+ * each is read in the quiet ink the body takes. */
 const SURFACES: { role: string; part: string; over: Backdrop[] }[] = [
   { role: "glass-chrome", part: "fill", over: ["cell"] },
   { role: "glass-panel", part: "fill", over: ["cell"] },
@@ -204,8 +205,10 @@ function readings(liquidCss = LIQUID_CSS, paperCss = PAPER_CSS): Reading[] {
       ground: [at("var(--bg)"), over(at(LINE), at("var(--bg)"))],
       inspector: [over(fill("glass-panel", "fill"), cell)],
     };
+    // The body's quiet ink: as the look's sheet restates it on the body, else the root's.
+    const body = tokensOf(rules(look === "liquid" ? liquidCss : paperCss), `:root[data-look-panels="${look}"] body`);
+    const ink = at(body.get("--fg-muted") ?? "var(--fg-muted)");
     for (const surface of SURFACES) {
-      const ink = at("var(--fg-muted)");
       const ground = fill(surface.role, surface.part);
       const ratio = Math.min(...surface.over.flatMap(name => backdrops[name]).map(backdrop => contrast(ink, over(ground, backdrop))));
       out.push({ look, color, theme, surface: `${surface.role} ${surface.part}`, ratio, alpha: ground[3] });
@@ -234,11 +237,11 @@ describe("readability under the Panels looks", () => {
   it("reads Kelp's numbers as the design measured them", () => {
     const kelp = (look: Look, theme: Theme, surface: string) =>
       Number(readings().find(reading => reading.look === look && reading.color === "kelp" && reading.theme === theme && reading.surface === surface)!.ratio.toFixed(2));
-    // The one fill read in the quiet ink: on the chrome and the read panels over a cell, a page card over a line, an
-    // inner card and a block over the inspector, a dialog over the veil.
+    // The one clear fill read in the stepped quiet ink: on the chrome and the read panels over a cell, a page card over
+    // a line, an inner card and a block over the inspector, a dialog (a touch firmer by day) over the veil.
     const surfaces = ["glass-chrome fill", "glass-panel fill", "page-card fill", "inner-card fill", "block fill", "dialog fill"];
-    expect(surfaces.map(surface => kelp("liquid", "light", surface))).toEqual([4.59, 4.59, 5.05, 5.22, 5.22, 4.55]);
-    expect(surfaces.map(surface => kelp("liquid", "dark", surface))).toEqual([4.9, 4.9, 6.78, 6.95, 6.95, 4.69]);
+    expect(surfaces.map(surface => kelp("liquid", "light", surface))).toEqual([4.56, 4.56, 8.84, 7.29, 7.29, 4.61]);
+    expect(surfaces.map(surface => kelp("liquid", "dark", surface))).toEqual([5, 5, 11.62, 9.74, 9.74, 4.59]);
   });
 
   it("finds every fill Paper declares opaque, and every fill Liquid declares on request", () => {
@@ -253,12 +256,18 @@ describe("readability under the Panels looks", () => {
     }
   });
 
-  it("fails on a thinner fill", () => {
-    const thinner = LIQUID_CSS.replaceAll("var(--bg-panel) 82.8%)", "var(--bg-panel) 60%)");
+  it("fails on a thinner fill by day or by night, and on the quiet ink left unstepped", () => {
+    const day = /#fff 10%, var\(--bg-panel\) (\d+(?:\.\d+)?)%\)/.exec(LIQUID_CSS)![1];
+    const night = /#000 6%, var\(--bg-panel\) (\d+(?:\.\d+)?)%\)/.exec(LIQUID_CSS)![1];
+    const thinner = LIQUID_CSS.replaceAll(`#fff 10%, var(--bg-panel) ${day}%)`, `#fff 10%, var(--bg-panel) ${Number(day) - 6}%)`);
     expect(thinner).not.toBe(LIQUID_CSS);
-    const failing = below(readings(thinner));
-    expect(failing.length).toBeGreaterThan(0);
-    expect(failing.some(line => line.startsWith("liquid kelp light glass-panel fill"))).toBe(true);
+    expect(below(readings(thinner)).some(line => line.startsWith("liquid kelp light glass-panel fill"))).toBe(true);
+    const thinnerNight = LIQUID_CSS.replaceAll(`#000 6%, var(--bg-panel) ${night}%)`, `#000 6%, var(--bg-panel) ${Number(night) - 6}%)`);
+    expect(thinnerNight).not.toBe(LIQUID_CSS);
+    expect(below(readings(thinnerNight)).some(line => line.startsWith("liquid kelp dark glass-panel fill"))).toBe(true);
+    const unstepped = LIQUID_CSS.replace("--fg-muted: var(--liquid-fg-muted);", "");
+    expect(unstepped).not.toBe(LIQUID_CSS);
+    expect(below(readings(unstepped)).some(line => line.startsWith("liquid kelp light glass-panel fill"))).toBe(true);
     const paperThin = PAPER_CSS.replace("--surface-page-card-fill: color-mix(in oklab, var(--bg-panel) 96%, var(--bg));",
       "--surface-page-card-fill: color-mix(in srgb, var(--bg-panel) 30%, transparent);");
     expect(paperThin).not.toBe(PAPER_CSS);
