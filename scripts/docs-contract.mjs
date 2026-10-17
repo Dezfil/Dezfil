@@ -588,6 +588,20 @@ export function checkIndex({ files, read }) {
     : "the index differs from what the pages generate; run npm run docs:write")];
 }
 
+/** The API description file under docs/reference/: the document the server
+ * serves, as indented JSON so a change reads as a diff. */
+export const DESCRIPTION_FILE = "docs/reference/openapi.json";
+export const descriptionText = (document) => `${JSON.stringify(document, null, 2)}\n`;
+
+/** The description file's freshness: the committed copy equals what the
+ * contract source builds. */
+export function checkDescription({ committed, document }) {
+  if (committed === descriptionText(document)) return [];
+  return [problem(DESCRIPTION_FILE, "description.stale", committed === null
+    ? "the API description file is missing; run npm run docs:write"
+    : "the API description file differs from what the source builds; run npm run docs:write")];
+}
+
 /** A problem as one line: the file, the line where there is one, the rule. */
 export function formatProblem(p) {
   return `${p.file}${p.line ? `:${p.line}` : ""}: ${p.rule}: ${p.message}`;

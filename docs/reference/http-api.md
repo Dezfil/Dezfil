@@ -31,6 +31,14 @@ server uses.
 
 Both require sign-in or an API token.
 
+The same document is kept beside this page as
+[`openapi.json`](openapi.json), so it can be read in a checkout without
+starting a server or signing in. `npm run docs:write` generates it from the
+source the server serves and `npm run lint:docs` fails when it differs. The
+documentation site renders the
+[operation reference](https://dezfil.io/docs/reference/api/) from that file:
+every operation, grouped by resource family.
+
 The document is hand-written in `src/lib/api/openapi.ts` and its sibling
 modules, and a check in the test suite compares it against the implemented
 route files in both directions: every route and method must be documented,

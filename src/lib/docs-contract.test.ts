@@ -10,7 +10,8 @@ import { fileURLToPath } from "node:url";
 import { afterAll, describe, expect, it } from "vitest";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: a plain-JS gate, no declaration file on purpose.
-import { checkIndex, checkPageText, checkTree, frontmatterValues, generateIndex, headings, indexOrder, references } from "../../scripts/docs-contract.mjs";
+import { DESCRIPTION_FILE, checkDescription, checkIndex, checkPageText, checkTree, descriptionText, frontmatterValues, generateIndex, headings, indexOrder, references } from "../../scripts/docs-contract.mjs";
+import { buildOpenApiDocument } from "@/lib/api/openapi";
 
 type Problem = { file: string; rule: string; message: string; line?: number };
 type Files = Record<string, string | null>;
@@ -135,6 +136,33 @@ describe("the agents' index", () => {
     const edited: Record<string, string> = { ...current, "docs/guides/templates.md": current["docs/guides/templates.md"].replace("Start a map from a template", "Begin a map from a template") };
     expect(shape(at(edited))).toEqual([{ file: "docs/README.md", rule: "index.stale" }]);
     expect(shape(at(files))).toEqual([{ file: "docs/README.md", rule: "index.stale" }]);
+  });
+});
+
+describe("the API description file", () => {
+  const committed = readFileSync(DESCRIPTION_FILE, "utf8");
+
+  it("is the document the server serves, built from the same source", () => {
+    // The lint builds it through the contract gates' loader; this reads the
+    // same source through the suite's, so the two paths are compared.
+    const document = buildOpenApiDocument();
+    expect(committed).toBe(descriptionText(document));
+    expect(checkDescription({ committed, document })).toEqual([]);
+    expect(Object.keys(JSON.parse(committed).paths).length).toBe(Object.keys(document.paths).length);
+  });
+
+  it("fails when the copy is stale or missing", () => {
+    const document = buildOpenApiDocument();
+    const stale = committed.replace('"summary": "List PostGIS connections"', '"summary": "List the PostGIS connections"');
+    expect(stale).not.toBe(committed);
+    expect(shape(checkDescription({ committed: stale, document }) as Problem[])).toEqual([{ file: DESCRIPTION_FILE, rule: "description.stale" }]);
+    expect(shape(checkDescription({ committed: null, document }) as Problem[])).toEqual([{ file: DESCRIPTION_FILE, rule: "description.stale" }]);
+  });
+
+  it("is linked from the HTTP API guide, beside the operation reference by its full site address", () => {
+    const guide = readFileSync("docs/reference/http-api.md", "utf8");
+    expect(guide).toContain("[`openapi.json`](openapi.json)");
+    expect(guide).toContain("[operation reference](https://dezfil.io/docs/reference/api/)");
   });
 });
 
