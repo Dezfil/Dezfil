@@ -88,19 +88,21 @@ const DROP: Record<Theme, Record<Height, string>> = {
     high: "0 1px 1px rgba(0, 0, 0, 0.4), 0 24px 64px -12px rgba(0, 0, 0, 0.7)",
   },
 };
-/** The one fill: the panel tone under a tint, as one colour (by day white
- * 0.08 over 90 %, by night black 0.08 over 78 %), and the same tint over a
- * full share when it goes opaque. */
+/** The one clear fill: the panel tone under a tint, as one colour (by day
+ * white 0.10 over 36 %, by night black 0.06 over 50 %), and the opaque tint
+ * over a full share. A dialog sits over its veil, so by day it takes the
+ * panel tone at 40 %. */
 const FILL: Record<Theme, string> = {
-  light: "color-mix(in srgb, #fff 8%, var(--bg-panel) 82.8%)",
-  dark: "color-mix(in srgb, #000 8%, var(--bg-panel) 71.76%)",
+  light: "color-mix(in srgb, #fff 10%, var(--bg-panel) 36%)",
+  dark: "color-mix(in srgb, #000 6%, var(--bg-panel) 50%)",
 };
+const DIALOG_DAY = "color-mix(in srgb, #fff 10%, var(--bg-panel) 40%)";
 const OPAQUE: Record<Theme, string> = {
   light: "color-mix(in srgb, #fff 8%, var(--bg-panel) 92%)",
   dark: "color-mix(in srgb, #000 8%, var(--bg-panel) 92%)",
 };
-const BLUR = "blur(24px)";
-const LENS = "18";
+const BLUR = "blur(6px)";
+const LENS = "26";
 const CLEAR = "1px solid transparent";
 /** The dashed line of a card that makes something new, kept in its width with no colour. */
 const DASHED_CLEAR = "1px dashed transparent";
@@ -123,7 +125,7 @@ function liquid(role: Role, theme: Theme, opaque = false): Record<string, string
     };
     case "block": return { fill, "fill-panel": fill, edge: CLEAR, shadow: lit("contact") };
     case "menu": return { ...floating, edge: CLEAR, shadow: lit("float"), "edge-strong": CLEAR, "fill-raised": fill };
-    case "dialog": return { ...floating, edge: CLEAR, shadow: lit("high") };
+    case "dialog": return { ...floating, fill: theme === "light" && !opaque ? DIALOG_DAY : fill, edge: CLEAR, shadow: lit("high") };
     case "stage": return { fill: "transparent", blur: "none", edge: "none", shadow: DROP[theme].float };
   }
 }
@@ -132,6 +134,15 @@ const SUPPORTS = "@supports not (backdrop-filter: blur(1px))";
 const REQUEST = "@media (prefers-reduced-transparency: reduce), (prefers-contrast: more)";
 /** The pictures of the other picks: they show the person's look. */
 const OTHER_PICTURES = ["color", "contrast", "corners"];
+
+/** Under Liquid the root names its quiet inks stepped toward the ink, and
+ * the body takes them: the one rule in the sheet that is not a role's. */
+const QUIET_ROOT = new Map([
+  ["--liquid-fg-muted", "color-mix(in srgb, var(--fg) 85%, var(--fg-muted))"],
+  ["--liquid-fg-faint", "color-mix(in srgb, var(--fg) 70%, var(--fg-muted))"],
+]);
+const QUIET_BODY_SELECTOR = ':root[data-look-panels="liquid"] body';
+const QUIET_BODY = new Map([["--fg-muted", "var(--liquid-fg-muted)"], ["--fg-faint", "var(--liquid-fg-faint)"]]);
 
 const LIQUID_SELECTOR = /^:root(\[data-theme="dark"\])?\[data-look-panels="([\w-]+)"\]( \[data-picture-([\w-]+)\])?$/;
 const PICTURE_SELECTOR = /^:root(\[data-theme="dark"\])? \[data-picture-panels="liquid"\]$/;
@@ -144,9 +155,14 @@ export function liquidProblems(css: string, globals: string = GLOBALS): string[]
 
   // Each selector's restated parts, per condition, in source order.
   const restated = new Map<string, Map<string, string>>();
+  const quiet = { root: new Map<string, string>(), body: new Map<string, string>() };
   for (const rule of rules(css)) {
     if (rule.within !== null && rule.within !== SUPPORTS && rule.within !== REQUEST) problems.push(`${rule.within}: not a condition a look keys on`);
     if (/!important/.test(rule.body)) problems.push(`${rule.selectors.join(", ")}: forces a declaration`);
+    if (rule.within === null && rule.selectors.length === 1 && rule.selectors[0] === QUIET_BODY_SELECTOR) {
+      for (const [property, value] of rule.declarations) quiet.body.set(property, value);
+      continue;
+    }
     for (const selector of rule.selectors) {
       const pick = LIQUID_SELECTOR.exec(selector), picture = PICTURE_SELECTOR.exec(selector);
       if (!pick && !picture) { problems.push(`${selector}: keyed on neither the root by Liquid nor the Liquid picture`); continue; }
@@ -155,6 +171,7 @@ export function liquidProblems(css: string, globals: string = GLOBALS): string[]
       const key = `${rule.within ?? ""}|${selector}`;
       const tokens = restated.get(key) ?? new Map<string, string>();
       for (const [property, value] of rule.declarations) {
+        if (QUIET_ROOT.has(property) && rule.within === null && selector === ':root[data-look-panels="liquid"]') { quiet.root.set(property, value); continue; }
         if (!known.has(property)) problems.push(`${selector}: declares ${property}, not a role's part`);
         tokens.set(property, value);
       }
@@ -181,6 +198,15 @@ export function liquidProblems(css: string, globals: string = GLOBALS): string[]
     return parts.get(role)!.filter(part => restates(part) && (!opaque || (FILL_PARTS.has(part) && role !== "stage")))
       .map(part => [`--surface-${role}-${part}`, values[part] ?? "(no value named)"] as [string, string]);
   }));
+
+  // The quiet inks, exactly: the root's stepped inks and the body taking them.
+  for (const [name, want, have] of [["the root", QUIET_ROOT, quiet.root], ["the body", QUIET_BODY, quiet.body]] as const) {
+    for (const [token, value] of want) {
+      if (!have.has(token)) problems.push(`${name} under Liquid: ${token} is not stated`);
+      else if (have.get(token) !== value) problems.push(`${name} under Liquid: ${token} is ${have.get(token)}, not ${value}`);
+    }
+    for (const token of have.keys()) if (!want.has(token)) problems.push(`${name} under Liquid: states ${token}, which is not a quiet ink`);
+  }
 
   const root = (dark: boolean) => `:root${dark ? '[data-theme="dark"]' : ""}[data-look-panels="liquid"]`;
   const selectors = (dark: boolean) => [root(dark), ...OTHER_PICTURES.map(pick => `${root(dark)} [data-picture-${pick}]`),
@@ -341,10 +367,10 @@ describe("Liquid's stylesheet", () => {
     expect(liquidProblems(LIQUID_CSS)).toEqual([]);
   });
 
-  it("gives every role the same fill, blur, bend and rim light, in each theme", () => {
+  it("gives every role the same fill, blur, bend and rim light, in each theme, a dialog by day the one firmer fill", () => {
     for (const theme of ["light", "dark"] as const) {
       const values = recipeValues(LIQUID_CSS, theme);
-      expect([...values.fill], theme).toEqual([FILL[theme]]);
+      expect(new Set(values.fill), theme).toEqual(new Set(theme === "light" ? [FILL.light, DIALOG_DAY] : [FILL.dark]));
       expect([...values.blur], theme).toEqual([BLUR]);
       expect([...values.lens], theme).toEqual([LENS]);
       expect([...values.rim], theme).toEqual([RIM[theme]]);
@@ -352,17 +378,22 @@ describe("Liquid's stylesheet", () => {
   });
 
   it("fails on a role with a blur, a fill or a bend of its own", () => {
-    const blur = LIQUID_CSS.replace("  --surface-overlay-control-blur: blur(24px);\n", "  --surface-overlay-control-blur: blur(6px);\n");
+    const blur = LIQUID_CSS.replace("  --surface-overlay-control-blur: blur(6px);\n", "  --surface-overlay-control-blur: blur(24px);\n");
     expect(blur).not.toBe(LIQUID_CSS);
-    expect(liquidProblems(blur)).toContain(':root[data-look-panels="liquid"]: --surface-overlay-control-blur is blur(6px), not blur(24px)');
+    expect(liquidProblems(blur)).toContain(':root[data-look-panels="liquid"]: --surface-overlay-control-blur is blur(24px), not blur(6px)');
     expect([...recipeValues(blur, "light").blur]).toHaveLength(2);
-    const fill = LIQUID_CSS.replace("  --surface-glass-chrome-fill: color-mix(in srgb, #fff 8%, var(--bg-panel) 82.8%);\n",
+    const fill = LIQUID_CSS.replace("  --surface-glass-chrome-fill: color-mix(in srgb, #fff 10%, var(--bg-panel) 36%);\n",
       "  --surface-glass-chrome-fill: color-mix(in srgb, #fff 12%, var(--bg-panel) 48.4%);\n");
     expect(fill).not.toBe(LIQUID_CSS);
     expect(liquidProblems(fill).join("\n")).toMatch(/--surface-glass-chrome-fill is color-mix\(in srgb, #fff 12%/);
-    const lens = LIQUID_CSS.replace("  --surface-page-card-lens: 18;\n", "  --surface-page-card-lens: 14;\n");
+    const lens = LIQUID_CSS.replace("  --surface-page-card-lens: 26;\n", "  --surface-page-card-lens: 14;\n");
     expect(lens).not.toBe(LIQUID_CSS);
-    expect([...recipeValues(lens, "light").lens].sort()).toEqual(["14", "18"]);
+    expect([...recipeValues(lens, "light").lens].sort()).toEqual(["14", "26"]);
+    // The dialog's day fill on another role is a fill of its own there.
+    const firmer = LIQUID_CSS.replace("  --surface-menu-fill: color-mix(in srgb, #fff 10%, var(--bg-panel) 36%);\n",
+      `  --surface-menu-fill: ${DIALOG_DAY};\n`);
+    expect(firmer).not.toBe(LIQUID_CSS);
+    expect(liquidProblems(firmer)).toContain(`:root[data-look-panels="liquid"]: --surface-menu-fill is ${DIALOG_DAY}, not ${FILL.light}`);
   });
 
   it("fails on a rule keyed on a component's class, or on a kind of surface", () => {
@@ -373,17 +404,28 @@ describe("Liquid's stylesheet", () => {
   });
 
   it("fails on a dropped lens", () => {
-    const dropped = LIQUID_CSS.replace("  --surface-glass-chrome-lens: 18;\n", "");
+    const dropped = LIQUID_CSS.replace("  --surface-glass-chrome-lens: 26;\n", "");
     expect(dropped).not.toBe(LIQUID_CSS);
     expect(liquidProblems(dropped)).toContain(':root[data-look-panels="liquid"]: --surface-glass-chrome-lens is not restated');
   });
 
   it("fails on a forced declaration and a part that is not a role's", () => {
-    const forced = LIQUID_CSS.replace("--surface-glass-chrome-lens: 18;", "--surface-glass-chrome-lens: 18 !important;");
+    const forced = LIQUID_CSS.replace("--surface-glass-chrome-lens: 26;", "--surface-glass-chrome-lens: 26 !important;");
     expect(forced).not.toBe(LIQUID_CSS);
     expect(liquidProblems(forced).join("\n")).toMatch(/forces a declaration/);
     const own = `${LIQUID_CSS}\n:root[data-look-panels="liquid"] {\n  --liquid-tint: #fff;\n}\n`;
     expect(liquidProblems(own)).toContain(':root[data-look-panels="liquid"]: declares --liquid-tint, not a role\'s part');
+  });
+
+  it("steps the quiet inks on the body, and fails on one left unstepped or stepped otherwise", () => {
+    const unstepped = LIQUID_CSS.replace("  --fg-muted: var(--liquid-fg-muted);\n", "");
+    expect(unstepped).not.toBe(LIQUID_CSS);
+    expect(liquidProblems(unstepped)).toContain("the body under Liquid: --fg-muted is not stated");
+    const other = LIQUID_CSS.replace("color-mix(in srgb, var(--fg) 85%, var(--fg-muted))", "color-mix(in srgb, var(--fg) 60%, var(--fg-muted))");
+    expect(other).not.toBe(LIQUID_CSS);
+    expect(liquidProblems(other)).toContain("the root under Liquid: --liquid-fg-muted is color-mix(in srgb, var(--fg) 60%, var(--fg-muted)), not color-mix(in srgb, var(--fg) 85%, var(--fg-muted))");
+    const elsewhere = `${LIQUID_CSS}\n:root[data-look-panels="liquid"] main {\n  --fg-muted: var(--fg);\n}\n`;
+    expect(liquidProblems(elsewhere).join("\n")).toMatch(/:root\[data-look-panels="liquid"\] main: keyed on neither/);
   });
 
   it("is loaded by the document after the look's own rules", () => {

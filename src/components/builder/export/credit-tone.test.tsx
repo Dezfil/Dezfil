@@ -35,11 +35,13 @@ const TOKEN_RULES: TokenRule[] = SHEETS.flatMap((file, sheet) => {
   });
 });
 
-/** One compound of the forms the token rules use: `:root`, then attribute parts. */
+/** One compound of the forms the token rules use: `:root` or an element's
+ * name, then attribute parts. */
 function fits(compound: string, el: HostElement, root: HostElement): boolean {
-  const m = /^(:root)?((?:\[[\w-]+(?:="[^"]*")?\])*)$/.exec(compound);
+  const m = /^(:root|[a-z][a-z0-9]*)?((?:\[[\w-]+(?:="[^"]*")?\])*)$/.exec(compound);
   if (!m) throw new Error(`the resolver does not read "${compound}"`);
-  if (m[1] && el !== root) return false;
+  if (m[1] === ":root" && el !== root) return false;
+  if (m[1] && m[1] !== ":root" && el.localName !== m[1]) return false;
   return !m[2] || el.matches(m[2]);
 }
 
@@ -85,11 +87,13 @@ const LIGHT = { ink: "#5f6f6b", dot: "#93a19c", halo: "#ffffff" };
 const DARK = { ink: "#98a3b8", dot: "#5d6880", halo: "#10141d" };
 
 /** The composition as a host mounts it for an image in `appearance` of a map
- * on `key` (null is Auto), and the colours its credit and title are drawn in. */
-function drawn(appearance: Appearance, key: BasemapKey | null, custom = false) {
+ * on `key` (null is Auto), on a page in the `panels` look, and the colours its
+ * credit and title are drawn in. */
+function drawn(appearance: Appearance, key: BasemapKey | null, custom = false, panels: "liquid" | "paper" | null = null) {
   const host = installDomHost();
   const root = host.document.documentElement;
   if (appearance === "dark") root.setAttribute("data-theme", "dark");
+  if (panels) root.setAttribute("data-look-panels", panels);
   const react = createRoot(host.document.body as unknown as Element);
   try {
     act(() => react.render(
@@ -167,6 +171,13 @@ describe("the image's credit, drawn on the map", () => {
     expect(drawn("dark", "satellite").credit).toEqual(DARK);
     expect(drawn("dark", "light", true).credit).toEqual(DARK);
     expect(drawn("light", "dark", true).credit).toEqual(LIGHT);
+  });
+
+  it("keeps its colours on a page in the Liquid look, whose stepped quiet ink is the page's own", () => {
+    expect(drawn("light", "light", false, "liquid").credit).toEqual(LIGHT);
+    expect(drawn("dark", "light", false, "liquid").credit).toEqual(LIGHT);
+    expect(drawn("light", "dark", false, "liquid").credit).toEqual(DARK);
+    expect(drawn("dark", null, false, "liquid").credit).toEqual(DARK);
   });
 
   it("leaves the title, on its own card, in the image's theme", () => {
