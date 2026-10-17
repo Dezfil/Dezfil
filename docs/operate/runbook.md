@@ -714,7 +714,8 @@ scene in the script's scene list (`scripts/docs-pictures-scenes.mjs`) from a
 real instance and writes the changed files under `docs/images/` with the
 manifest beside them. Run it from a checkout that holds a production build
 and no `.env` files, such as a detached worktree after `npm ci` and
-`npm run build`; it needs the Chromium Playwright installs. It starts
+`npm run build`; it needs the Chromium and the ffmpeg Playwright installs
+(`npx playwright install chromium ffmpeg`). It starts
 `next start` from that checkout on a free loopback port (`--port` to choose
 one) over a scratch folder it creates in the system's temporary folder and
 removes at the end, with that folder as the data directory and as the
@@ -724,7 +725,14 @@ through setup, a second invited account, a project they share, the three
 shipped templates copied, the fixtures under `e2e/fixtures/` uploaded) and
 takes the rest, signed in as the first account. Every scene is taken at
 1440 × 900 CSS pixels and two pixels per CSS pixel, in the light theme with
-reduced motion and a fixed clock. The run fails, writing nothing, when the
+reduced motion and a fixed clock. A recording is not filmed in real time:
+each of its steps is done, the page settles, and the frame is held for the
+step's number of frames at ten a second, so its length is its frame count
+(eight seconds at most). The frames go to Playwright's own ffmpeg, which
+encodes a muted VP8 WebM single-threaded with bit-exact settings, so the
+same frames give the same bytes; the first frame is its poster. A recording
+over 1,500,000 bytes fails the run: hold fewer frames or declare a crop,
+never a smaller scale. The run fails, writing nothing, when the
 server opened any request (an observer in its preload chain writes each one
 down), when a page asked for an address off the instance, or when a file is
 over its bound. A file is replaced only when its bytes changed, and its

@@ -13,7 +13,11 @@
 // - `crop`, when the picture is not the full frame: the element to frame
 //   and the margin around it, in CSS pixels; the rectangle it comes to is
 //   declared in the scene's manifest row;
-// - `open`, how the page is brought to the scene's first frame.
+// - `open`, how the page is brought to the scene's first frame;
+// - for a recording, `poster`, its poster's file, and `steps`: each one an
+//   optional action, after which the page is settled and the frame is held
+//   for `hold` frames of the cadence (ten a second), so the recording's
+//   length is the frames held, at most eight seconds.
 
 /** Open the Templates page and wait until the catalogue has been read and
  * the three shipped cards are drawn with their pictures. */
@@ -46,6 +50,21 @@ export const SCENES = [
     kind: "still",
     state: "seeded",
     open: openTemplates,
+  },
+  {
+    id: "templates-search",
+    file: "guides/templates-search.webm",
+    poster: "guides/templates-search-poster.webp",
+    pages: ["docs/guides/templates.md"],
+    kind: "recording",
+    state: "seeded",
+    open: openTemplates,
+    steps: [
+      { hold: 10 },
+      { act: (page) => page.keyboard.press("/"), hold: 5 },
+      ...[..."quake"].map((letter) => ({ act: (page) => page.keyboard.type(letter), hold: 3 })),
+      { hold: 20 },
+    ],
   },
 ];
 

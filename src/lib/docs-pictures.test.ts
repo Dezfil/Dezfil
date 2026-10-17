@@ -9,7 +9,10 @@ import sharp from "sharp";
 import { afterAll, describe, expect, it } from "vitest";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: plain-JS scripts, no declaration files on purpose.
-import { FRAME, webpSize } from "../../scripts/docs-media.mjs";
+import { FRAME, RECORDING_MAX_SECONDS, webmInfo, webpSize } from "../../scripts/docs-media.mjs";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: as above.
+import { CADENCE, bundledFfmpeg, encodeWebm } from "../../scripts/docs-pictures-capture.mjs";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: as above.
 import { manifestText, planRun } from "../../scripts/docs-pictures-manifest.mjs";
@@ -25,7 +28,7 @@ import { placeOf } from "../../scripts/docs-contract.mjs";
 import { parseIndex } from "@/lib/templates/catalogue";
 
 type Row = Record<string, unknown> & { file: string; scene: string };
-type Scene = { id: string; file: string; kind: string; state: string; pages: string[]; crop?: { selector: string; margin?: number }; poster?: string };
+type Scene = { id: string; file: string; kind: string; state: string; pages: string[]; crop?: { selector: string; margin?: number }; poster?: string; steps?: { hold: number }[] };
 const scenes = SCENES as Scene[];
 
 const scratch = mkdtempSync(join(tmpdir(), "dezfil-docs-pictures-test-"));
@@ -109,6 +112,16 @@ describe("the scene list", () => {
     expect(scenes.some((s) => s.kind === "still" && s.crop)).toBe(true);
   });
 
+  it("holds at least one recording with a poster, each within eight seconds by its frame count", () => {
+    const recordings = scenes.filter((s) => s.kind === "recording");
+    expect(recordings.length).toBeGreaterThan(0);
+    for (const scene of recordings) {
+      expect(placeOf(`docs/images/${scene.poster}`).kind).toBe("picture");
+      const frames = scene.steps!.reduce((sum, step) => sum + step.hold, 0);
+      expect(frames / CADENCE).toBeLessThanOrEqual(RECORDING_MAX_SECONDS);
+    }
+  });
+
   it("takes the first-run setup card before any account exists", () => {
     expect(scenes.find((s) => s.id === "setup-card")?.state).toBe("fresh");
     expect(STATES.indexOf("fresh")).toBeLessThan(STATES.indexOf("seeded"));
@@ -127,6 +140,58 @@ describe("the WebP header", () => {
 
   it("reads nothing from a file that is not WebP", () => {
     expect(webpSize(Buffer.from("RIFF0000WAVEfmt ................"))).toBeNull();
+  });
+});
+
+// A WebM document built by hand, element by element, so the reader is held
+// without an encoder: an element is its id, its size and its data.
+function element(id: number, data: Buffer | Buffer[], unknownSize = false): Buffer {
+  const body = Buffer.concat(Array.isArray(data) ? data : [data]);
+  const idBytes = Buffer.from(id.toString(16).padStart(id.toString(16).length + (id.toString(16).length % 2), "0"), "hex");
+  const size = unknownSize ? Buffer.from([0x01, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff]) : Buffer.from([0x01, 0, 0, 0, 0, 0, 0, 0]);
+  if (!unknownSize) size.writeUInt32BE(body.length, 4);
+  return Buffer.concat([idBytes, size, body]);
+}
+const uint = (value: number) => Buffer.from([(value >> 8) & 0xff, value & 0xff]);
+const double = (value: number) => { const b = Buffer.alloc(8); b.writeDoubleBE(value); return b; };
+function webm({ docType = "webm", duration = 5000 as number | null, width = 2880, height = 1800, unknownSegment = false } = {}) {
+  const info = [element(0x2ad7b1, Buffer.from([0x0f, 0x42, 0x40])), ...(duration === null ? [] : [element(0x4489, double(duration))])];
+  const track = element(0xae, [element(0x83, Buffer.from([1])), element(0x86, Buffer.from("V_VP8")), element(0xe0, [element(0xb0, uint(width)), element(0xba, uint(height))])]);
+  return Buffer.concat([
+    element(0x1a45dfa3, element(0x4282, Buffer.from(docType))),
+    element(0x18538067, [element(0x1549a966, info), element(0x1654ae6b, track), element(0x1f43b675, Buffer.alloc(16))], unknownSegment),
+  ]);
+}
+
+describe("the WebM header", () => {
+  it("reads the video's size and the segment's length", () => {
+    expect(webmInfo(webm())).toEqual({ width: 2880, height: 1800, length: 5, codec: "V_VP8" });
+    expect(webmInfo(webm({ duration: 4300, width: 874, height: 912 }))).toMatchObject({ width: 874, height: 912, length: 4.3 });
+  });
+
+  it("reads a segment whose size is left unknown, as a stream writes it", () => {
+    expect(webmInfo(webm({ unknownSegment: true }))).toMatchObject({ width: 2880, length: 5 });
+  });
+
+  it("reads nothing from a file that is not WebM or has no length", () => {
+    expect(webmInfo(webm({ docType: "matroska" }))).toBeNull();
+    expect(webmInfo(webm({ duration: null }))).toBeNull();
+    expect(webmInfo(Buffer.from("not a recording"))).toBeNull();
+  });
+});
+
+const ffmpeg = (() => { try { return bundledFfmpeg() as string; } catch { return null; } })();
+
+describe("the recording encoder", () => {
+  it.skipIf(!ffmpeg)("writes the same bytes for the same frames, as long as the frames say (needs npx playwright install ffmpeg)", async () => {
+    const frame = (r: number) => sharp({ create: { width: 64, height: 48, channels: 3, background: { r, g: 120, b: 90 } } }).png().toBuffer();
+    const [a, b] = await Promise.all([frame(20), frame(220)]);
+    const frames = [...Array(7).fill(a), ...Array(6).fill(b)];
+    const one = await encodeWebm(frames, join(scratch, "one.webm"));
+    const two = await encodeWebm(frames, join(scratch, "two.webm"));
+    expect(Buffer.compare(one, two)).toBe(0);
+    expect(webmInfo(one)).toEqual({ width: 64, height: 48, length: 13 / CADENCE, codec: "V_VP8" });
+    expect(one.toString("latin1")).not.toMatch(/Lavf\d|Lavc\d|libvpx v/);
   });
 });
 

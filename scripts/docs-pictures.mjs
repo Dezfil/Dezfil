@@ -25,17 +25,18 @@ import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
-import { frameContext, openBrowser, settle, takeStill } from "./docs-pictures-capture.mjs";
+import { frameContext, openBrowser, settle, takeRecording, takeStill } from "./docs-pictures-capture.mjs";
 import { assertBuiltCheckout, freePort, makeScratch, seed, serverRequests, startServer, writeCatalogue } from "./docs-pictures-instance.mjs";
 import { MANIFEST, manifestText, planRun } from "./docs-pictures-manifest.mjs";
 import { SCENES, STATES } from "./docs-pictures-scenes.mjs";
-import { PICTURE_AIM_BYTES, PICTURE_MAX_BYTES } from "./docs-media.mjs";
+import { PICTURE_AIM_BYTES, PICTURE_MAX_BYTES, RECORDING_MAX_BYTES, RECORDINGS_MAX } from "./docs-media.mjs";
 
 const root = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
 const { values } = parseArgs({ options: { only: { type: "string" }, port: { type: "string" } } });
 const only = values.only ? new Set(values.only.split(",").map((id) => id.trim()).filter(Boolean)) : null;
 if (only) for (const id of only) assert.ok(SCENES.some((scene) => scene.id === id), `There is no scene ${id}.`);
 const chosen = SCENES.filter((scene) => !only || only.has(scene.id));
+assert.ok(SCENES.filter((scene) => scene.kind === "recording").length <= RECORDINGS_MAX, `The scene list holds more than ${RECORDINGS_MAX} recordings.`);
 const port = values.port ? Number(values.port) : await freePort();
 assert.ok(Number.isInteger(port) && port > 1024 && port !== 3000, "Choose a port above 1024 other than 3000.");
 
@@ -63,8 +64,10 @@ try {
         try {
           await scene.open(page);
           await settle(page);
-          const files = await takeStill(page, scene);
-          for (const file of files) console.log(`${scene.id}: ${file.file}, ${file.width} × ${file.height}, ${file.bytes.length} bytes`);
+          const files = scene.kind === "recording"
+            ? await takeRecording(page, scene, path.join(scratch.folder, `${scene.id}.webm`))
+            : await takeStill(page, scene);
+          for (const file of files) console.log(`${scene.id}: ${file.file}, ${file.width} × ${file.height}${file.length ? `, ${file.length} s` : ""}, ${file.bytes.length} bytes`);
           captured.push(...files);
         } finally {
           await page.close();
@@ -91,6 +94,8 @@ for (const item of captured) {
   if (item.kind === "picture") {
     assert.ok(item.bytes.length <= PICTURE_MAX_BYTES, `${item.scene}: ${item.file} is ${item.bytes.length} bytes, over ${PICTURE_MAX_BYTES}; declare a crop for the scene.`);
     if (item.bytes.length > PICTURE_AIM_BYTES) console.warn(`${item.scene}: ${item.file} is ${item.bytes.length} bytes, over the ${PICTURE_AIM_BYTES} aim.`);
+  } else {
+    assert.ok(item.bytes.length <= RECORDING_MAX_BYTES, `${item.scene}: ${item.file} is ${item.bytes.length} bytes, over ${RECORDING_MAX_BYTES}; hold fewer frames or declare a crop for the scene.`);
   }
 }
 
