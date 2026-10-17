@@ -5,6 +5,7 @@ import { ownedCreationOp } from "./openapi-owned-creation";
 import { LOCAL_DELETE, LOCAL_READ, LOCAL_REPLACE, REMOTE_ADD, REMOTE_READ, REMOTE_REPLACE } from "./operation-mcp";
 import { READ_ONLY, writes, resource } from "./operation-metadata";
 import { op, jsonOk, pathParam } from "./openapi-helpers";
+import { HTTP_API_GUIDE_URL } from "@/lib/docs-site";
 
 const PROTECTION_INPUT_CONTRACT =
   " Both string forms refuse unsupported protection requests before source contact or " +
@@ -15,7 +16,7 @@ const PROTECTION_INPUT_CONTRACT =
   "Dezfil supports connection fields and SSL required or not required. The first refused " +
   "parameter's canonical name replaces channel_binding; the existing SSL-mode refusal wins. " +
   "Saved connections are not rechecked because their original string was never stored. " +
-  "See docs/api.md (Connections) for parameter dispositions.";
+  `See ${HTTP_API_GUIDE_URL} (Connections) for parameter dispositions.`;
 
 export const CONNECTION_PATHS = {
   "/api/connections/postgis": {
