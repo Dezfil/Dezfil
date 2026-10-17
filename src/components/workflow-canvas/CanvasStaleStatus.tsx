@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { SaveStatusChip } from "../ui/SaveStatusChip";
-import { DISCARD_MESSAGE, STALE_MESSAGE } from "../document-sequence";
+import { ACCESS_ENDED_MESSAGE, DISCARD_MESSAGE, STALE_MESSAGE } from "../document-sequence";
 import { useUnsavedNavigation } from "../use-unsaved-navigation";
 import { useCanvasRecovery } from "./WorkflowRecovery";
 
@@ -26,7 +26,7 @@ export function CanvasStaleStatus() {
     finally { setBusy(false); }
   }
   return <SaveStatusChip data-stale-recovery channels={[
-    { key: "stale", announce: true, message: { text: STALE_MESSAGE, tone: "bad",
+    { key: "stale", announce: true, message: { text: recovery.document?.accessLost ? ACCESS_ENDED_MESSAGE : STALE_MESSAGE, tone: "bad",
       ...(!confirm ? { action: { label: "Reload", run: () => setConfirm(true) } } : {}) } },
     { key: "discard", message: confirm ? { text: DISCARD_MESSAGE, actions: [
       ...(notes.length ? [{ label: "Copy note text", run: () => void navigator.clipboard.writeText(notes.map(note => note.text).join("\n\n")) }] : []),

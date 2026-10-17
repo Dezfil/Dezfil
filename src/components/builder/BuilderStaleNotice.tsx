@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { ErrorNote } from "../ui/ErrorNote";
 import { Button } from "../ui/Button";
-import { DISCARD_MESSAGE, STALE_MESSAGE } from "../document-sequence";
+import { ACCESS_ENDED_MESSAGE, DISCARD_MESSAGE, STALE_MESSAGE } from "../document-sequence";
 import { useUnsavedNavigation } from "../use-unsaved-navigation";
 import type { useBuilderMutations } from "./use-builder-mutations";
 import { readBuilderRecovery, type BuilderRecoveryProps } from "./BuilderRecovery";
@@ -31,7 +31,7 @@ export function BuilderStaleNotice({ mutations, onRecovered }: { mutations: Retu
     catch (cause) { setError(cause instanceof Error ? cause.message : STALE_MESSAGE); }
     finally { setBusy(false); }
   }
-  return <ErrorNote message={STALE_MESSAGE} data-stale-recovery>
+  return <ErrorNote message={mutations.sequence.accessLost ? ACCESS_ENDED_MESSAGE : STALE_MESSAGE} data-stale-recovery>
     <div className={styles.content}>
       {confirm && <><p>{DISCARD_MESSAGE}</p><div className={styles.actions}>
         {sql && <Button onClick={() => void navigator.clipboard.writeText(sql)}>Copy SQL</Button>}

@@ -1,6 +1,9 @@
 import { editHeaders } from "@/lib/edit-basis";
 
 export const STALE_MESSAGE = "This item has changed. Reload it before trying again.";
+/** What a halted editor says once access has ended: reading the item again
+ * in place cannot help, so its Reload reloads the page. */
+export const ACCESS_ENDED_MESSAGE = "You can no longer edit this item. Reload the page to continue.";
 export const DISCARD_MESSAGE = "Reload discards your unsaved values. Copy what you want to keep first.";
 
 /** Whether a write changes the publication: the publish operations, or one
