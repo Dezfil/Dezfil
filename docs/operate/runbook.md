@@ -775,9 +775,13 @@ recorded its baseline skips rather than reporting a difference. Only
 regenerate when the change to the rendered surface is intended, or when the
 renderer moved under an unchanged surface.
 
-**The API description.** There is no emit step: the document is built at
-request time and served at `/api/openapi.json`, with the human-readable API
-reference at `/developer`. The API journey asserts it is served and well formed.
+**The API description.** The server builds the document at request time and
+serves it at `/api/openapi.json`, with the human-readable API reference at
+`/developer`; the API journey asserts it is served and well formed. A
+generated copy is committed at `docs/reference/openapi.json` for the
+documentation site and for agents reading the checkout: `npm run docs:write`
+rewrites it with the index, and `npm run lint:docs` fails while it differs
+from what the source builds.
 
 **The frozen assistant baselines.** The committed captures under
 `test-support/assistant-baselines/` are read back whole by the unit suite
