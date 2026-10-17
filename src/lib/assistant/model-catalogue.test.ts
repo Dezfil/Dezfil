@@ -26,8 +26,10 @@ describe("whole catalogue contract", () => {
     const parsed = validateCatalogue(JSON.parse(example!));
     expect(parsed.openai).toHaveLength(2);
     expect(parsed.anthropic).toHaveLength(2);
-    for (const row of readFileSync("README.md", "utf8").split("\n").filter((line) => /^\| `DEZFIL_(DATA_DIR|AI_MODELS_OPENAI|AI_MODELS_ANTHROPIC)`/.test(line))) {
-      expect(row).toContain("docs/operate/runbook.md#the-model-catalogue-file");
+    const rows = readFileSync("docs/reference/configuration.md", "utf8").split("\n").filter((line) => /^\| `DEZFIL_(DATA_DIR|AI_MODELS_OPENAI|AI_MODELS_ANTHROPIC)`/.test(line));
+    expect(rows).toHaveLength(3);
+    for (const row of rows) {
+      expect(row).toContain("](../operate/runbook.md#the-model-catalogue-file)");
       expect(row).not.toContain("\u2014");
     }
   });

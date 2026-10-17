@@ -79,8 +79,8 @@ jobs:
       # guard reads API descriptions, so neither can see a citation sitting in
       # a source comment or a report label.
       - run: npm run lint:citations
-      # Every setting the server reads must appear in the README's table, and
-      # every row of that table must be a setting the server reads, so the
+      # Every setting the server reads must appear in the configuration page's
+      # tables, and every row there must be a setting the server reads, so the
       # documented surface and the real one cannot drift apart silently.
       - run: npm run lint:readme
       # The decomposition tripwire: a handful of oversized modules must not

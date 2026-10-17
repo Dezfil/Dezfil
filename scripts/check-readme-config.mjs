@@ -1,6 +1,8 @@
-// Both configuration guides cover the catalogue in both directions, including
-// documented defaults and change timing. Keep the independent source and script
-// scans too: a row in the catalogue cannot justify an unused deployment name.
+// The configuration page covers the catalogue in both directions, including
+// documented defaults and change timing. It is the one document held here:
+// the README links to it and carries no table of its own. Keep the
+// independent source and script scans too: a row in the catalogue cannot
+// justify an unused deployment name.
 //
 // Coverage is defined by what `src` reads from process.env, minus two
 // documented exclusion classes:
@@ -19,7 +21,7 @@
 // Script DEZFIL_TEST_* reads are documented too: the image observers are
 // part of the reproducible operator recipes. So is a DEZFIL_TEST_* seam the
 // server code itself reads (process.env, outside test files): it is test
-// wiring in the product, and both guides name it.
+// wiring in the product, and the configuration page names it.
 // Anything else the server reads — today that includes ANTHROPIC_API_KEY
 // and OPENAI_API_KEY — must be documented.
 //
@@ -37,7 +39,7 @@
 // variable sets (whether the catalogue is used, as the catalogue's own
 // predicate says).
 //
-// Usage: node scripts/check-readme-config.mjs [--src DIR] [--readme FILE] [--configuration FILE]
+// Usage: node scripts/check-readme-config.mjs [--src DIR] [--configuration FILE]
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -126,12 +128,13 @@ export function serverVariables(srcDir, scriptsDir = path.join(srcDir, "..", "sc
   return names;
 }
 
-/** Every variable the README's configuration table documents. */
-export function documentedVariables(readmeFile) {
+/** Every variable a configuration document's tables document, platform
+ * plumbing (listed by name and outside the check) left out. */
+export function documentedVariables(file) {
   const names = new Set();
-  for (const line of readFileSync(readmeFile, "utf8").split("\n")) {
+  for (const line of readFileSync(file, "utf8").split("\n")) {
     const m = /^\|\s*`([A-Z][A-Z0-9_]+)`/.exec(line);
-    if (m) names.add(m[1]);
+    if (m && !DOCUMENTED_PLATFORM.has(m[1])) names.add(m[1]);
   }
   return names;
 }
@@ -319,11 +322,10 @@ if (isMain) {
     return i >= 0 ? args[i + 1] : fallback;
   };
   const srcDir = argOf("--src", path.join(process.cwd(), "src"));
-  const readme = argOf("--readme", path.join(process.cwd(), "README.md"));
   const configuration = argOf("--configuration", path.join(process.cwd(), "docs/reference/configuration.md"));
   const { SETTING_CATALOGUE, TEST_WIRING, isInstanceDefault, isInstanceRule, isLibrarySwitch, isTemplatesSetting } = await settingsSource(path.dirname(srcDir));
   const problems = configurationProblems({ srcDir, catalogue: SETTING_CATALOGUE, testWiring: TEST_WIRING,
-    documents: { [readme]: readFileSync(readme, "utf8"), [configuration]: readFileSync(configuration, "utf8") },
+    documents: { [configuration]: readFileSync(configuration, "utf8") },
     defaultsGuide: configuration, isInstanceDefault, isInstanceRule, isLibrarySwitch, isTemplatesSetting,
   });
   for (const problem of problems) console.error(problem);
@@ -336,6 +338,6 @@ if (isMain) {
     const rules = SETTING_CATALOGUE.filter(d => isInstanceRule(d)).length;
     const switches = SETTING_CATALOGUE.filter(d => isLibrarySwitch(d)).length;
     const templates = SETTING_CATALOGUE.filter(d => isTemplatesSetting(d)).length;
-    console.log(`PASS: both documents match ${deployment} deployment settings and ${TEST_WIRING.length} test-wiring names, defaults and change timing; the configuration guide's Instance defaults table matches the ${defaults} instance defaults, its Security and rules table the ${rules} rules, its Libraries table the ${switches} basemap switches and its Templates table the ${templates} template setting${templates === 1 ? "" : "s"}, with their documented values; source scans agree in both directions.`);
+    console.log(`PASS: the configuration page matches ${deployment} deployment settings and ${TEST_WIRING.length} test-wiring names, defaults and change timing; its Instance defaults table matches the ${defaults} instance defaults, its Security and rules table the ${rules} rules, its Libraries table the ${switches} basemap switches and its Templates table the ${templates} template setting${templates === 1 ? "" : "s"}, with their documented values; source scans agree in both directions.`);
   }
 }

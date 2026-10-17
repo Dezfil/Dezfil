@@ -251,7 +251,7 @@ once in TypeScript for the interactive preview, so the two agree.
 | `design/` | The identity sheet. |
 
 Top-level files worth knowing: `Dockerfile` builds the single image,
-`README.md` is the quick start and the configuration table, `NOTICE` carries
+`README.md` is the quick start, `NOTICE` carries
 the attribution for borrowed code, and `LICENSE` is Apache 2.0.
 
 ## The container

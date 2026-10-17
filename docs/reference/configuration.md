@@ -22,6 +22,14 @@ the environment.
 `GET /api/instance/settings` reports the effective configuration, sources and
 locks to admins.
 
+Every deployment setting is optional; pass them as `-e NAME=value` on
+`docker run`. A setting its variable sets shows locked in Settings, naming the
+variable. The **System** tab shows each part of the server (the data folder,
+the query engine, the tile builder, the image renderer and the metadata
+database) with a Test, what the data folder holds by kind with Clear all for
+the service caches, and every setting a variable decides, with the value in
+effect and its source.
+
 For an instance setting, a non-empty deployment variable wins and locks app
 changes, including clearing a stored value. Changing any environment variable
 requires a restart. An accepted variable supplies its normalized value; an
@@ -74,14 +82,14 @@ Two conventions run through the whole surface:
 
 ## How the configuration tables are checked
 
-Both this page and the **Configuration** table in [README.md](../../README.md)
-are checked against `src/lib/settings/catalogue.ts` by
-`scripts/check-readme-config.mjs` (`npm run lint:readme`). Each document must
+This page is checked against `src/lib/settings/catalogue.ts` by
+`scripts/check-readme-config.mjs` (`npm run lint:readme`); it is the one place
+the settings are listed, and the README links here. The page must
 cover every deployment definition exactly once, with no orphan row, and match
 its documented default and **Changed by** value. The checker reads the catalogue
 itself; it keeps no separate list of settings. It also scans production `src/`
 names and the `DEZFIL_TEST_*` reads of the helper scripts and of production
-`src/`, and holds both documents and the catalogue to those sets in both
+`src/`, and holds this page and the catalogue to those sets in both
 directions. The four test-wiring names keep their own coverage check.
 
 Rows start with `` | `NAME` `` and contain the default, effect and **Changed by**
@@ -423,7 +431,7 @@ not native chunks, JavaScript object overhead, heap or RSS.
 
 | Variable | Default | Effect | Changed by |
 |---|---|---|---|
-| `DEZFIL_DATA_DIR` | ./data; /data in the container | The single durable directory. Back up the complete stopped directory and any external encryption key. `src/lib/config.ts` falls back to `data` under the working directory; the image sets `/data` and declares it a volume. | Restart |
+| `DEZFIL_DATA_DIR` | ./data; /data in the container | The single durable directory. Back up the complete stopped directory and any external encryption key. `src/lib/config.ts` falls back to `data` under the working directory; the image sets `/data` and declares it a volume. It also holds the optional `assistant-models.json` [model catalogue](../operate/runbook.md#the-model-catalogue-file). | Restart |
 | `DEZFIL_SECRET_KEY` | generated | 64 hex characters (32 bytes), the at-rest encryption key for stored connection credentials. Unset, a key is generated into the data directory as `secret.key` on first boot and reused from there (`src/lib/secrets.ts`). A wrong or lost key makes stored credentials unreadable. | Restart |
 
 ## Trusted proxies
@@ -688,8 +696,8 @@ the surface is simply absent and everything else works unchanged
 | `OPENAI_API_KEY` | unset | Enables the assistant with OpenAI. | Restart |
 | `DEZFIL_AI_PROVIDER` | first key set | `anthropic` or `openai`, when both keys are present. An unknown value leaves the assistant disabled with an explanatory reason. | Restart |
 | `DEZFIL_AI_MODEL` | provider default | Overrides the model. Defaults are `claude-opus-5` for Anthropic and `gpt-5.6-terra` for OpenAI. | Restart |
-| `DEZFIL_AI_MODELS_ANTHROPIC` | unset | Comma-separated model identities narrowing and ordering what a person may choose. Unset offers the effective catalogue. The instance default is always present exactly once. Only the resolved provider's list applies. | Restart |
-| `DEZFIL_AI_MODELS_OPENAI` | unset | The same, for OpenAI. | Restart |
+| `DEZFIL_AI_MODELS_ANTHROPIC` | unset | Comma-separated model identities narrowing and ordering what a person may choose. Unset offers the effective [catalogue](../operate/runbook.md#the-model-catalogue-file). The instance default is always present exactly once. Only the resolved provider's list applies. | Restart |
+| `DEZFIL_AI_MODELS_OPENAI` | unset | The same, for OpenAI. See the [catalogue instructions](../operate/runbook.md#the-model-catalogue-file). | Restart |
 | `DEZFIL_ASSISTANT_STEP_BUDGET` | `20` | Maximum model and tool steps one assistant request may take. | Restart |
 | `DEZFIL_ASSISTANT_OFFER` | `subset` | Which operations a page's run is offered at the start: `subset` (that page's operations plus the grounding reads, the rest reachable through a discovery tool) or `full` (every operation the page admits, no discovery tool). Any other value reads as `subset` (`src/lib/assistant/offer.ts`). | Restart |
 | `DEZFIL_ASSISTANT_AUTO_CHECK` | on | Whether the assistant looks at the rendered map by itself after a turn that changed it. `0`, `false`, or `off` turns it off; an explicit check stays available. | Restart |
@@ -704,7 +712,7 @@ directory; see [the runbook](../operate/runbook.md#the-model-catalogue-file).
 ## Platform and image plumbing
 
 These are set by the runtime or the container image, not tuned by a
-self-hoster, and the README check excludes them by name.
+self-hoster, and the configuration check excludes them by name.
 
 | Variable | Where it is set | Effect |
 |---|---|---|
@@ -716,13 +724,13 @@ self-hoster, and the README check excludes them by name.
 | `DUCKDB_EXTENSION_DIR` | image sets `/app/duckdb-extensions` | The baked engine extension bundle. Overriding it defeats the offline guarantee. |
 | `NEXT_TELEMETRY_DISABLED` | image sets `1` | Turns off the framework's own telemetry during build and at runtime. |
 | `UV_THREADPOOL_SIZE` | the runtime, 4 unless set before start | The runtime's worker pool, shared by engine calls, file system work and password hashing. PostGIS source calls may hold at most three quarters of it at once (at least one), so blocked source reads always leave a worker for their cancellation and for the rest of the server. Raising it raises that share. |
-| `TZ`, `CI` | environment | Excluded by name from the README check; the code does not read them as settings. |
+| `TZ`, `CI` | environment | Excluded by name from the configuration check; the code does not read them as settings. |
 
 ## Test and development wiring
 
 Read by test files, end-to-end specs, and helper scripts, never by the
 server as a setting. They are listed here so nobody mistakes one
-for a tunable. All four names and their defaults are checked in both guides:
+for a tunable. All four names and their defaults are checked here:
 
 | Variable | Default | Effect | Changed by |
 |---|---|---|---|
@@ -751,7 +759,7 @@ for a tunable. All four names and their defaults are checked in both guides:
 A handful of further `DEZFIL_`-prefixed names appear inside individual test
 files and inside the performance harness under `scripts/perf/`, where they
 select an optional arm or name an output file. They are local to the file
-that reads them and are not part of the settings surface. The README check
+that reads them and are not part of the settings surface. The configuration check
 does not see them, because it scans non-test source files under `src` and only `DEZFIL_TEST_*`
 reads in helper scripts and in those source files.
 

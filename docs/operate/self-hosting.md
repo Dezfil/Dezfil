@@ -13,8 +13,8 @@ checked: none
 This page is for the person who runs the instance. It covers what to decide before
 you put data in it, what the instance keeps, and what it sends out.
 
-The `README` has the run commands and the full table of settings. Start there, then
-read this.
+The `README` has the run commands and [the configuration page](../reference/configuration.md)
+the full table of settings. Start there, then read this.
 
 ## Accounts and access
 

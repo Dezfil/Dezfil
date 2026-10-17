@@ -1,4 +1,4 @@
-// The README-coverage check must be demonstrably red in both directions
+// The configuration-coverage check must be demonstrably red in both directions
 // — an undocumented server setting and a stale documented one — and
 // green on the real repository. A check that cannot be shown red is not
 // evidence.
@@ -18,25 +18,25 @@ import {
 const dir = mkdtempSync(join(tmpdir(), "dezfil-readme-check-"));
 afterAll(() => rmSync(dir, { recursive: true, force: true }));
 
-function fixture(code: string, readme: string) {
+function fixture(code: string, page: string) {
   const src = join(dir, `src-${Math.random().toString(36).slice(2)}`);
   mkdirSync(src, { recursive: true });
   writeFileSync(join(src, "config.ts"), code);
-  const readmePath = join(src, "README.md");
-  writeFileSync(readmePath, readme);
-  return judge(serverVariables(src), documentedVariables(readmePath));
+  const pagePath = join(src, "configuration.md");
+  writeFileSync(pagePath, page);
+  return judge(serverVariables(src), documentedVariables(pagePath));
 }
 
 const TABLE = (rows: string[]) =>
   ["| Setting | Default | What |", "|---|---|---|", ...rows].join("\n");
 
-describe("README config coverage", () => {
+describe("configuration page coverage", () => {
   it("excludes client token reference text but still detects a server read", () => {
     expect(fixture('export const guide = "DEZFIL_API_TOKEN";', TABLE([]))).toEqual({ undocumented: [], stale: [] });
     expect(fixture('export const token = process.env.DEZFIL_API_TOKEN;', TABLE([])).undocumented).toEqual(['DEZFIL_API_TOKEN']);
     expect(fixture('export const token = process.env["DEZFIL_API_TOKEN"];', TABLE([])).undocumented).toEqual(['DEZFIL_API_TOKEN']);
   });
-  it("red on a server setting the README does not document", () => {
+  it("red on a server setting the configuration page does not document", () => {
     const { undocumented, stale } = fixture(
       'export const x = process.env.DEZFIL_FAKE_SETTING;',
       TABLE(["| `DEZFIL_DATA_DIR` | `/data` | Data. |"]),
@@ -61,7 +61,7 @@ describe("README config coverage", () => {
     expect(stale).toEqual([]);
   });
 
-  it("red on a test seam the server code reads that the README does not document, and stale once it is no longer read", () => {
+  it("red on a test seam the server code reads that the configuration page does not document, and stale once it is no longer read", () => {
     expect(fixture('export const r = process.env.DEZFIL_TEST_ENGINE_SEAM;', TABLE([])).undocumented).toEqual(["DEZFIL_TEST_ENGINE_SEAM"]);
     expect(fixture('export const r = process.env["DEZFIL_TEST_ENGINE_SEAM"];', TABLE([])).undocumented).toEqual(["DEZFIL_TEST_ENGINE_SEAM"]);
     expect(fixture('export const r = "no seam";', TABLE(["| `DEZFIL_TEST_ENGINE_SEAM` | unset | Seam. |"])).stale).toEqual(["DEZFIL_TEST_ENGINE_SEAM"]);
@@ -72,6 +72,15 @@ describe("README config coverage", () => {
     mkdirSync(src, { recursive: true });
     writeFileSync(join(src, "engine.test.ts"), "export const local = process.env.DEZFIL_TEST_FILE_LOCAL;");
     expect([...serverVariables(src)]).toEqual([]);
+  });
+
+  it("leaves the platform rows the page lists by name out of the documented set", () => {
+    const { undocumented, stale } = fixture(
+      'export const a = process.env.DEZFIL_DATA_DIR;',
+      TABLE(["| `DEZFIL_DATA_DIR` | `/data` | Data. |", "| `PORT` | image sets `3000` | Port. |", "| `NEXT_TELEMETRY_DISABLED` | image sets `1` | Telemetry. |"]),
+    );
+    expect(undocumented).toEqual([]);
+    expect(stale).toEqual([]);
   });
 
   it("red on an undocumented non-DEZFIL administrator setting", () => {
@@ -97,26 +106,26 @@ describe("README config coverage", () => {
     expect([...server]).toContain("OPENAI_API_KEY");
     const { undocumented, stale } = judge(
       server,
-      documentedVariables(join(root, "README.md")),
+      documentedVariables(join(root, "docs/reference/configuration.md")),
     );
     expect(undocumented).toEqual([]);
     expect(stale).toEqual([]);
   });
 });
 
-it("includes the image observers' test settings in both configuration guides", () => {
+it("includes the image observers' test settings on the configuration page", () => {
   const root = fileURLToPath(new URL("../..", import.meta.url));
   const actual = serverVariables(join(root, "src"));
   const names = ["DEZFIL_TEST_PUBLICATION_LOG", "DEZFIL_TEST_DERIVATION_LOG"];
   for (const name of names) {
     expect(actual.has(name), name).toBe(true);
-    for (const guide of ["README.md", "docs/reference/configuration.md"]) expect(documentedVariables(join(root, guide)).has(name), `${guide}: ${name}`).toBe(true);
+    expect(documentedVariables(join(root, "docs/reference/configuration.md")).has(name), name).toBe(true);
   }
   for (const name of names) {
-    const dropped = documentedVariables(join(root, "README.md")); dropped.delete(name);
+    const dropped = documentedVariables(join(root, "docs/reference/configuration.md")); dropped.delete(name);
     expect(judge(actual, dropped).undocumented).toContain(name);
     const stopped = new Set(actual); stopped.delete(name);
-    expect(judge(stopped, documentedVariables(join(root, "README.md"))).stale).toContain(name);
+    expect(judge(stopped, documentedVariables(join(root, "docs/reference/configuration.md"))).stale).toContain(name);
   }
 });
 

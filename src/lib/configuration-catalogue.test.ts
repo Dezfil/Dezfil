@@ -11,7 +11,8 @@ import { addressRows, serviceNumberRows } from "@/components/settings/data-table
 const root = process.cwd();
 const scratch = mkdtempSync(path.join(process.env.DEZFIL_DATA_DIR!, "configuration-check-"));
 afterAll(() => rmSync(scratch, { recursive: true, force: true }));
-const guides = ["README.md", "docs/reference/configuration.md"] as const;
+/** The one document the check holds: the README links to it and carries no table. */
+const guides = ["docs/reference/configuration.md"] as const;
 const originals = Object.fromEntries(guides.map(file => [file, readFileSync(path.join(root, file), "utf8")]));
 const variable = "DEZFIL_UPLOAD_MAX_MB";
 /** The guide whose Instance defaults table the check holds to the catalogue's defaults. */
@@ -28,19 +29,18 @@ function cell(row: string, position: number, value: string) {
 }
 function check(file?: string, mutate?: (text: string) => string) {
   const run = mkdtempSync(path.join(scratch, "run-"));
-  const readme = path.join(run, "README.md"), configuration = path.join(run, "configuration.md");
-  for (const [name, destination] of [["README.md", readme], ["docs/reference/configuration.md", configuration]]) {
-    writeFileSync(destination, file === name ? mutate!(originals[name]) : originals[name]);
-  }
+  const configuration = path.join(run, "configuration.md");
+  const name = "docs/reference/configuration.md";
+  writeFileSync(configuration, file === name ? mutate!(originals[name]) : originals[name]);
   const result = spawnSync(process.execPath, [path.join(root, "scripts/check-readme-config.mjs"),
-    "--readme", readme, "--configuration", configuration], {
+    "--configuration", configuration], {
     encoding: "utf8", env: { ...process.env, DEZFIL_DATA_DIR: run },
   });
   expect(result.error).toBeUndefined();
   return { status: result.status, output: result.stdout + result.stderr };
 }
 
-it("checks both real documents against the catalogue and retains the script wiring check", () => {
+it("checks the real configuration page against the catalogue and retains the script wiring check", () => {
   const result = check();
   expect(result.status, result.output).toBe(0);
   expect(result.output).toContain("68 deployment settings");
@@ -51,11 +51,21 @@ it("checks both real documents against the catalogue and retains the script wiri
   expect(result.output).toContain("1 template setting");
 });
 
+it("holds the configuration page alone: the README carries no table, and a row removed from the page fails", () => {
+  const readme = readFileSync(path.join(root, "README.md"), "utf8");
+  expect(readme.split("\n").filter(line => /^\|\s*`[A-Z][A-Z0-9_]+`/.test(line))).toEqual([]);
+  expect(readme).toContain("](docs/reference/configuration.md)");
+  expect(check().status).toBe(0);
+  const removed = check("docs/reference/configuration.md", text => changeRow(text, "DEZFIL_QUERY_TIMEOUT_S", () => "\0").replace("\0\n", ""));
+  expect(removed.status, removed.output).toBe(1);
+  expect(removed.output).toMatch(/UNDOCUMENTED: \S*configuration\.md: DEZFIL_QUERY_TIMEOUT_S/);
+});
+
 it("takes defaults and editability from the supplied catalogue, not a copy in the checker", () => {
   const catalogue = SETTING_CATALOGUE.map(definition => definition.key === "uploadMaxMb"
     ? { ...definition, documentedDefault: "777", editable: false, timing: "next-start" as const } : definition);
   const problems = configurationProblems({ srcDir: path.join(root, "src"), documents: originals, catalogue, testWiring: TEST_WIRING, defaultsGuide, isInstanceDefault, isInstanceRule, isLibrarySwitch, isTemplatesSetting });
-  expect(problems).toHaveLength(4);
+  expect(problems).toHaveLength(2 * guides.length);
   for (const guide of guides) {
     expect(problems).toContainEqual(expect.stringContaining(`DEFAULT: ${guide}: ${variable}: expected "777"`));
     expect(problems).toContainEqual(expect.stringContaining(`CHANGED BY: ${guide}: ${variable}: expected "Restart"`));
@@ -106,7 +116,7 @@ describe("the test seams the product code reads", () => {
   const problemsOf = (srcDir: string, testWiring: readonly { environment: string; documentedDefault: string }[] = TEST_WIRING) =>
     configurationProblems({ srcDir, documents: originals, catalogue: SETTING_CATALOGUE, testWiring, defaultsGuide, isInstanceDefault, isInstanceRule, isLibrarySwitch, isTemplatesSetting });
 
-  it("hold the engine's extension repository as test wiring, unset by default, in both guides", () => {
+  it("hold the engine's extension repository as test wiring, unset by default, on the configuration page", () => {
     expect(TEST_WIRING.map(wiring => wiring.environment)).toContain(seam);
     for (const guide of guides) {
       expect(configurationRows(originals[guide]).filter(row => row.name === seam), guide).toEqual([{ name: seam, defaultValue: "unset", changedBy: "Restart" }]);
@@ -129,7 +139,6 @@ describe("the test seams the product code reads", () => {
     expect(problems.filter(problem => problem.includes("DEZFIL_TEST_NEW_SEAM")).sort()).toEqual([
       "STALE: source scan against catalogue: DEZFIL_TEST_NEW_SEAM",
       "STALE: test wiring reads against catalogue: DEZFIL_TEST_NEW_SEAM",
-      "UNDOCUMENTED: README.md test wiring reads: DEZFIL_TEST_NEW_SEAM",
       "UNDOCUMENTED: docs/reference/configuration.md test wiring reads: DEZFIL_TEST_NEW_SEAM",
     ]);
     expect(problems.filter(problem => problem.includes("DEZFIL_TEST_FILE_LOCAL"))).toEqual([]);
@@ -362,7 +371,7 @@ describe("the template catalogue's address, stored on Data & services", () => {
     catalogue: SETTING_CATALOGUE, testWiring: TEST_WIRING, defaultsGuide, isInstanceDefault, isInstanceRule, isLibrarySwitch, isTemplatesSetting });
   const DEFAULT = "https://github.com/Dezfil/templates/releases/latest/download/index.json";
 
-  it("is marked as changed in the app in both guides, with the release catalogue as its default", () => {
+  it("is marked as changed in the app on the configuration page, with the release catalogue as its default", () => {
     for (const guide of guides) {
       expect(configurationRows(originals[guide]).filter(row => row.name === name), guide).toEqual([{ name, defaultValue: DEFAULT, changedBy: LIVE }]);
     }
@@ -384,7 +393,7 @@ describe("the satellite imagery's tile address and credit, stored on Libraries",
   const problemsOf = (documents: Record<string, string>) => configurationProblems({ srcDir: path.join(root, "src"), documents,
     catalogue: SETTING_CATALOGUE, testWiring: TEST_WIRING, defaultsGuide, isInstanceDefault, isInstanceRule, isLibrarySwitch, isTemplatesSetting });
 
-  it("are marked as changed in the app in both guides", () => {
+  it("are marked as changed in the app on the configuration page", () => {
     for (const guide of guides) {
       const rows = configurationRows(originals[guide]);
       for (const name of satellite) expect(rows.find(row => row.name === name)?.changedBy, `${guide}: ${name}`).toBe(LIVE);
@@ -411,7 +420,7 @@ describe("the service addresses and numbers an admin stores on Data & services",
   const fixed = ["DEZFIL_GEOCODE_NO_MATCH_CACHE_HOURS", "DEZFIL_GEOCODE_CACHE_MB", "DEZFIL_ISOCHRONE_CACHE_MB", "DEZFIL_OVERPASS_CACHE_MB",
     "DEZFIL_OVERPASS_MAXSIZE_MB", "DEZFIL_OVERTURE_S3_ENDPOINT", "DEZFIL_OBJECT_STORE_CREDENTIALS", "DEZFIL_EGRESS_ALLOWLIST"];
 
-  it("are the four addresses and the eight numbers, each marked as changed in the app in both guides", () => {
+  it("are the four addresses and the eight numbers, each marked as changed in the app on the configuration page", () => {
     expect(stored).toEqual([
       "DEZFIL_GEOCODER_URL", "DEZFIL_ISOCHRONE_URL", "DEZFIL_OVERPASS_URL", "DEZFIL_S3_ENDPOINT",
       "DEZFIL_GEOCODE_PACE_MS", "DEZFIL_GEOCODE_REQUEST_TIMEOUT_S", "DEZFIL_GEOCODE_MATCH_CACHE_HOURS",
@@ -439,16 +448,16 @@ describe("the service addresses and numbers an admin stores on Data & services",
     }
   });
 
-  it("rejects both guides as they read before an admin could store these, every mark in each", () => {
+  it("rejects the configuration page as it read before an admin could store these, every mark", () => {
     const before = Object.fromEntries(guides.map(guide => [guide,
       stored.reduce((text, name) => changeRow(text, name, row => cell(row, 4, "Restart")), originals[guide])]));
-    expect(problemsOf(before)).toHaveLength(2 * stored.length);
+    expect(problemsOf(before)).toHaveLength(guides.length * stored.length);
     const result = check("docs/reference/configuration.md", text => changeRow(text, "DEZFIL_GEOCODER_URL", row => cell(row, 4, "Restart")));
     expect(result.status, result.output).toBe(1);
     expect(result.output).toContain(`CHANGED BY: ${result.output.match(/\S*configuration\.md/)![0]}: DEZFIL_GEOCODER_URL: expected "${LIVE}", found "Restart"`);
   });
 
-  it("rejects a stored address's row lost, or its default changed, in either guide", () => {
+  it("rejects a stored address's row lost, or its default changed, on the configuration page", () => {
     for (const guide of guides) {
       // The row taken out whole, so the table around it stays one table.
       expect(problemsOf({ ...originals, [guide]: changeRow(originals[guide], "DEZFIL_ISOCHRONE_URL", () => "\0").replace("\0\n", "") }))
