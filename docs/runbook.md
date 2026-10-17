@@ -454,7 +454,7 @@ directory, with `DEZFIL_DATA_DIR` naming it in the test process too. Two more bo
 say which), since one instance cannot offer both lists. The
 deletion proof host's control directory for `account-deletion` and
 `deleted-attribution`: boot the instance with
-`--import=scripts/deletion-proof-preload.mjs` and
+`--import=./scripts/deletion-proof-preload.mjs` from the checkout's root and
 `DEZFIL_PROOF_CONTROL_DIR` set to a fresh absolute directory, and set the
 same variable in the test process. An otherwise idle machine: the cases
 that measure time fail under load and are then recorded as flakes. And one
@@ -462,8 +462,13 @@ Playwright run at a time per worktree: every run from a worktree shares
 its `.claude/browser-auth.json`, and cookies ignore ports, so two runs
 against two instances sign each other out. The pixel baselines were cut
 on a production standalone; cut and compare them there. A whole-set run
-is therefore two Playwright runs: everything but `assistant-look` against
-the harness instance, then `assistant-look` against its own.
+is therefore several Playwright runs: the main one against the harness
+instance with the model-offer cases left out (`--grep-invert` over
+`assistant-look`, `assistant-picker` and `assistant-catalogue`), then
+`assistant-look` against its own instance, then `assistant-picker` and
+`assistant-catalogue`'s offer cases each against the boot its header
+names, selected with `--grep`; `assistant-catalogue` asserts the default
+list in one boot and a one-model list in another.
 
 Subsets run by area: `npm run e2e:keyboard`, `e2e:layers`, `e2e:imports`,
 `e2e:sqlbridge`, `e2e:sqlconsole`, `e2e:draw`, `e2e:styling`,
