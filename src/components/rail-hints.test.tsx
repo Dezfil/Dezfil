@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { Account } from "@/lib/metadata/accounts";
 vi.mock("next/navigation", () => ({ usePathname: () => "/maps" }));
 import { RailModeContext, railModeOf, type RailMode } from "./rail-mode";
-import { NavLinks, RailSettingsLink, RailUsersLink } from "./NavLinks";
+import { NavLinks, RailDocsLink, RailSettingsLink, RailUsersLink } from "./NavLinks";
 import { UserBadge } from "./UserBadge";
 
 /**
@@ -14,13 +14,14 @@ import { UserBadge } from "./UserBadge";
  * (open) or one rest away (hover), and no item carries a hint.
  */
 const account = { id: "one", name: "Frida Merian", email: "frida@example.test", isAdmin: true } as Account;
-const LABELS = ["Home", "Projects", "Maps", "Workflows", "Data", "Connections", "SQL", "Templates", "Users", "Settings"];
+const LABELS = ["Home", "Projects", "Maps", "Workflows", "Data", "Connections", "SQL", "Templates", "Users", "Docs", "Settings"];
 
 function railItems(mode: RailMode): string {
   return renderToStaticMarkup(
     <RailModeContext.Provider value={mode}>
       <NavLinks />
       <RailUsersLink />
+      <RailDocsLink />
       <RailSettingsLink />
       <UserBadge account={account} />
     </RailModeContext.Provider>,

@@ -3,6 +3,8 @@ import Link from 'next/link';
 import { useId, useState, useSyncExternalStore } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Field';
+import { ExternalIcon } from '@/components/ui/icons';
+import { MCP_GUIDE_URL } from '@/lib/docs-site';
 import { MCP_CLIENTS, clientGuide, type McpClientName } from '@/lib/mcp/client-guide';
 import { checkMcpConnection } from '@/lib/mcp/connection';
 import { CardActions, LabelledField, Note, SettingsCard } from './SettingsCard';
@@ -62,6 +64,8 @@ export function McpCard() {
       <Link href="/developer" className={cardStyles.link}>API reference</Link>
       {' · '}
       <a href="/api/openapi.json" className={cardStyles.link}>API contract and edit revisions</a>
+      {' · '}
+      <a href={MCP_GUIDE_URL} target="_blank" rel="noreferrer" className={`${cardStyles.link} ${styles.external}`}>MCP server guide <ExternalIcon /></a>
     </Note>
   </SettingsCard>;
 }

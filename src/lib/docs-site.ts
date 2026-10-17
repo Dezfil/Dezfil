@@ -18,3 +18,6 @@ export function docsPageUrl(page: string): string {
 
 /** The HTTP API guide, the reader's companion to the served description. */
 export const HTTP_API_GUIDE_URL = docsPageUrl("reference/http-api");
+
+/** The MCP page, the companion to the MCP server card in Settings. */
+export const MCP_GUIDE_URL = docsPageUrl("reference/mcp");
