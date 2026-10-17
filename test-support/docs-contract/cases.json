@@ -1,0 +1,668 @@
+{
+  "what": "The page contract's shared cases. The product's lint and the documentation site's build each run every case and must agree: a valid document is accepted and read to the same values, an invalid one is refused with the named rule, each tree is refused with exactly the named problems, and pages sort in the expected order. Documents are placed at documentCase inside the base tree; a tree case replaces or adds its files over the base. Dates are judged against today.",
+  "today": "2026-10-17",
+  "documentCase": "docs/start/case.md",
+  "base": {
+    "LICENSE": "Licence text.\n",
+    "scripts/tool.mjs": "export {};\n",
+    "CHANGELOG.md": "# Changelog\n\n## Unreleased\n\nNothing yet.\n",
+    "SECURITY.md": "# Security policy\n\n## Reporting\n\nWrite to us.\n",
+    "CONTRIBUTING.md": "# Contributing\n\n## Before you start\n\nRead the brief.\n",
+    "CODE_OF_CONDUCT.md": "# Code of conduct\n\n## Our standards\n\nBe kind.\n",
+    "docs/start/run-it.md": "---\ntitle: \"Run it\"\nsummary: \"How to run Dezfil with Docker or from source, and what the first run asks.\"\nread_when:\n  - \"you want Dezfil running on your machine\"\n  - \"you set up the first account\"\naudience:\n  - user\n  - operator\nchecked: none\n---\n\n## First run\n\nThe first run asks for an account. See [the MCP tools](../reference/mcp.md#the-tools),\n[the licence](../../LICENSE), [contributing](../../CONTRIBUTING.md#before-you-start),\n[the tool script](../../scripts/tool.mjs), [first run](#first-run), the\n[operation reference](https://dezfil.io/docs/reference/api/), the\n[docs home](https://dezfil.io/docs/) and [an outside page](https://example.org/a)\nor [write to us](mailto:maintainers@dezfil.io).\n\n```sh\n# Not a heading, and [not a link](missing.md).\n```\n\n### With Docker\n\n`[not a link either](missing.md)` and text.\n",
+    "docs/reference/mcp.md": "---\ntitle: MCP\nsummary: >-\n  How an agent drives Dezfil through its MCP server,\n  folded over two lines.\nread_when: [\"you connect an agent\", \"you read the tool list\"]\naudience: [agent, developer]\nchecked: 0.1.0\nchecked_on: 2026-10-01\norder: 2\n---\n\n## The tools\n\nEvery operation is a tool. See [run it](../start/run-it.md).\n\n## The tools\n\nA repeated heading gets its own anchor: [the second](#the-tools-1).\n",
+    "docs/guides/templates.md": "---\ntitle: \"Templates\"\nsummary: \"Start a map from a template and make it your own.\"\nread_when:\n  - \"you want a map to start from\"\naudience:\n  - user\nchecked: none\nmoved_from:\n  - \"/docs/guides/old-templates/\"\n---\n\n## Make a copy\n\nPick a card. [Back to running](../start/run-it.md#with-docker).\n"
+  },
+  "documents": [
+    {
+      "name": "block lists and quoted strings",
+      "valid": true,
+      "text": "---\ntitle: \"Case\"\nsummary: \"A page used to show one rule of the page contract.\"\nread_when:\n  - \"you check the page contract\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nText.\n",
+      "values": {
+        "title": "Case",
+        "summary": "A page used to show one rule of the page contract.",
+        "read_when": [
+          "you check the page contract"
+        ],
+        "audience": [
+          "developer"
+        ],
+        "checked": "none"
+      }
+    },
+    {
+      "name": "flow lists and a folded summary",
+      "valid": true,
+      "text": "---\ntitle: Case\nsummary: >-\n  A page used to show one rule\n  of the page contract.\nread_when: [\"you check the page contract\", \"you compare two parsers\"]\naudience: [developer, agent]\nchecked: none\n---\n\n## First\n\nText.\n",
+      "values": {
+        "title": "Case",
+        "summary": "A page used to show one rule of the page contract.",
+        "read_when": [
+          "you check the page contract",
+          "you compare two parsers"
+        ],
+        "audience": [
+          "developer",
+          "agent"
+        ],
+        "checked": "none"
+      }
+    },
+    {
+      "name": "a checked version with an unquoted date and an order",
+      "valid": true,
+      "text": "---\ntitle: \"Case\"\nsummary: \"A page used to show one rule of the page contract.\"\nread_when:\n  - \"you check the page contract\"\naudience:\n  - developer\nchecked: 0.1.0\nchecked_on: 2026-10-01\norder: 3\n---\n\n## First\n\nText.\n",
+      "values": {
+        "title": "Case",
+        "summary": "A page used to show one rule of the page contract.",
+        "read_when": [
+          "you check the page contract"
+        ],
+        "audience": [
+          "developer"
+        ],
+        "checked": "0.1.0",
+        "checked_on": "2026-10-01",
+        "order": 3
+      }
+    },
+    {
+      "name": "a checked version with a quoted date of today",
+      "valid": true,
+      "text": "---\ntitle: \"Case\"\nsummary: \"A page used to show one rule of the page contract.\"\nread_when:\n  - \"you check the page contract\"\naudience:\n  - developer\nchecked: \"0.1.0\"\nchecked_on: \"2026-10-17\"\n---\n\n## First\n\nText.\n",
+      "values": {
+        "title": "Case",
+        "summary": "A page used to show one rule of the page contract.",
+        "read_when": [
+          "you check the page contract"
+        ],
+        "audience": [
+          "developer"
+        ],
+        "checked": "0.1.0",
+        "checked_on": "2026-10-17"
+      }
+    },
+    {
+      "name": "a summary of exactly 160 characters",
+      "valid": true,
+      "text": "---\ntitle: \"Case\"\nsummary: \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"\nread_when:\n  - \"you check the page contract\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nText.\n",
+      "values": {
+        "title": "Case",
+        "summary": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "read_when": [
+          "you check the page contract"
+        ],
+        "audience": [
+          "developer"
+        ],
+        "checked": "none"
+      }
+    },
+    {
+      "name": "five read_when lines",
+      "valid": true,
+      "text": "---\ntitle: \"Case\"\nsummary: \"A page used to show one rule of the page contract.\"\nread_when:\n  - \"situation 1\"\n  - \"situation 2\"\n  - \"situation 3\"\n  - \"situation 4\"\n  - \"situation 5\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nText.\n",
+      "values": {
+        "title": "Case",
+        "summary": "A page used to show one rule of the page contract.",
+        "read_when": [
+          "situation 1",
+          "situation 2",
+          "situation 3",
+          "situation 4",
+          "situation 5"
+        ],
+        "audience": [
+          "developer"
+        ],
+        "checked": "none"
+      }
+    },
+    {
+      "name": "no frontmatter block",
+      "valid": false,
+      "text": "## First\n\nText.\n",
+      "rules": [
+        "frontmatter.missing"
+      ]
+    },
+    {
+      "name": "a missing field",
+      "valid": false,
+      "text": "---\ntitle: \"Case\"\nread_when:\n  - \"you check the page contract\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nText.\n",
+      "rules": [
+        "frontmatter.missing-field"
+      ]
+    },
+    {
+      "name": "an empty title",
+      "valid": false,
+      "text": "---\ntitle: \"\"\nsummary: \"A page used to show one rule of the page contract.\"\nread_when:\n  - \"you check the page contract\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nText.\n",
+      "rules": [
+        "frontmatter.title"
+      ]
+    },
+    {
+      "name": "an empty summary",
+      "valid": false,
+      "text": "---\ntitle: \"Case\"\nsummary: \"\"\nread_when:\n  - \"you check the page contract\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nText.\n",
+      "rules": [
+        "frontmatter.summary"
+      ]
+    },
+    {
+      "name": "a read_when that is not a list",
+      "valid": false,
+      "text": "---\ntitle: \"Case\"\nsummary: \"A page used to show one rule of the page contract.\"\nread_when: \"you check the page contract\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nText.\n",
+      "rules": [
+        "frontmatter.read-when"
+      ]
+    },
+    {
+      "name": "a field outside the list",
+      "valid": false,
+      "text": "---\ntitle: \"Case\"\nsummary: \"A page used to show one rule of the page contract.\"\nread_when:\n  - \"you check the page contract\"\naudience:\n  - developer\nchecked: none\ntags: [maps]\n---\n\n## First\n\nText.\n",
+      "rules": [
+        "frontmatter.unknown-field"
+      ]
+    },
+    {
+      "name": "a summary over 160 characters",
+      "valid": false,
+      "text": "---\ntitle: \"Case\"\nsummary: \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"\nread_when:\n  - \"you check the page contract\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nText.\n",
+      "rules": [
+        "frontmatter.summary-length"
+      ]
+    },
+    {
+      "name": "a sixth read_when line",
+      "valid": false,
+      "text": "---\ntitle: \"Case\"\nsummary: \"A page used to show one rule of the page contract.\"\nread_when:\n  - \"situation 1\"\n  - \"situation 2\"\n  - \"situation 3\"\n  - \"situation 4\"\n  - \"situation 5\"\n  - \"situation 6\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nText.\n",
+      "rules": [
+        "frontmatter.read-when-count"
+      ]
+    },
+    {
+      "name": "an empty read_when list",
+      "valid": false,
+      "text": "---\ntitle: \"Case\"\nsummary: \"A page used to show one rule of the page contract.\"\nread_when: []\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nText.\n",
+      "rules": [
+        "frontmatter.read-when-count"
+      ]
+    },
+    {
+      "name": "an audience outside the four",
+      "valid": false,
+      "text": "---\ntitle: \"Case\"\nsummary: \"A page used to show one rule of the page contract.\"\nread_when:\n  - \"you check the page contract\"\naudience:\n  - admin\nchecked: none\n---\n\n## First\n\nText.\n",
+      "rules": [
+        "frontmatter.audience"
+      ]
+    },
+    {
+      "name": "a date not in the YYYY-MM-DD form",
+      "valid": false,
+      "text": "---\ntitle: \"Case\"\nsummary: \"A page used to show one rule of the page contract.\"\nread_when:\n  - \"you check the page contract\"\naudience:\n  - developer\nchecked: \"0.1.0\"\nchecked_on: \"17.10.2026\"\n---\n\n## First\n\nText.\n",
+      "rules": [
+        "frontmatter.date-form"
+      ]
+    },
+    {
+      "name": "a date with a time of day",
+      "valid": false,
+      "text": "---\ntitle: \"Case\"\nsummary: \"A page used to show one rule of the page contract.\"\nread_when:\n  - \"you check the page contract\"\naudience:\n  - developer\nchecked: 0.1.0\nchecked_on: 2026-10-01T10:00:00Z\n---\n\n## First\n\nText.\n",
+      "rules": [
+        "frontmatter.date-form"
+      ]
+    },
+    {
+      "name": "a future date",
+      "valid": false,
+      "text": "---\ntitle: \"Case\"\nsummary: \"A page used to show one rule of the page contract.\"\nread_when:\n  - \"you check the page contract\"\naudience:\n  - developer\nchecked: 0.1.0\nchecked_on: 2026-10-18\n---\n\n## First\n\nText.\n",
+      "rules": [
+        "frontmatter.date-future"
+      ]
+    },
+    {
+      "name": "a checked_on beside checked: none",
+      "valid": false,
+      "text": "---\ntitle: \"Case\"\nsummary: \"A page used to show one rule of the page contract.\"\nread_when:\n  - \"you check the page contract\"\naudience:\n  - developer\nchecked: none\nchecked_on: 2026-10-01\n---\n\n## First\n\nText.\n",
+      "rules": [
+        "frontmatter.checked-on-without-version"
+      ]
+    },
+    {
+      "name": "a checked version without its date",
+      "valid": false,
+      "text": "---\ntitle: \"Case\"\nsummary: \"A page used to show one rule of the page contract.\"\nread_when:\n  - \"you check the page contract\"\naudience:\n  - developer\nchecked: 0.1.0\n---\n\n## First\n\nText.\n",
+      "rules": [
+        "frontmatter.checked-on-missing"
+      ]
+    },
+    {
+      "name": "a checked value that is neither a version nor none",
+      "valid": false,
+      "text": "---\ntitle: \"Case\"\nsummary: \"A page used to show one rule of the page contract.\"\nread_when:\n  - \"you check the page contract\"\naudience:\n  - developer\nchecked: soon\n---\n\n## First\n\nText.\n",
+      "rules": [
+        "frontmatter.checked"
+      ]
+    },
+    {
+      "name": "an order that is not a whole number",
+      "valid": false,
+      "text": "---\ntitle: \"Case\"\nsummary: \"A page used to show one rule of the page contract.\"\nread_when:\n  - \"you check the page contract\"\naudience:\n  - developer\nchecked: none\norder: 1.5\n---\n\n## First\n\nText.\n",
+      "rules": [
+        "frontmatter.order"
+      ]
+    },
+    {
+      "name": "a first-level heading in the body",
+      "valid": false,
+      "text": "---\ntitle: \"Case\"\nsummary: \"A page used to show one rule of the page contract.\"\nread_when:\n  - \"you check the page contract\"\naudience:\n  - developer\nchecked: none\n---\n\n# Case\n\n## First\n\nText.\n",
+      "rules": [
+        "body.first-level-heading"
+      ]
+    },
+    {
+      "name": "an underlined first-level heading in the body",
+      "valid": false,
+      "text": "---\ntitle: \"Case\"\nsummary: \"A page used to show one rule of the page contract.\"\nread_when:\n  - \"you check the page contract\"\naudience:\n  - developer\nchecked: none\n---\n\nCase\n====\n\n## First\n\nText.\n",
+      "rules": [
+        "body.first-level-heading"
+      ]
+    },
+    {
+      "name": "a skipped heading level",
+      "valid": false,
+      "text": "---\ntitle: \"Case\"\nsummary: \"A page used to show one rule of the page contract.\"\nread_when:\n  - \"you check the page contract\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\n#### Too deep\n\nText.\n",
+      "rules": [
+        "body.skipped-heading-level"
+      ]
+    },
+    {
+      "name": "a body that starts below level two",
+      "valid": false,
+      "text": "---\ntitle: \"Case\"\nsummary: \"A page used to show one rule of the page contract.\"\nread_when:\n  - \"you check the page contract\"\naudience:\n  - developer\nchecked: none\n---\n\n### Too deep\n\nText.\n",
+      "rules": [
+        "body.skipped-heading-level"
+      ]
+    }
+  ],
+  "trees": [
+    {
+      "name": "a dead page link",
+      "files": {
+        "docs/start/run-it.md": "---\ntitle: \"Run it\"\nsummary: \"How to run Dezfil with Docker or from source, and what the first run asks.\"\nread_when:\n  - \"you want Dezfil running on your machine\"\n  - \"you set up the first account\"\naudience:\n  - user\n  - operator\nchecked: none\n---\n\n## First run\n\nThe first run asks for an account. See [the MCP tools](../reference/mcp.md#the-tools),\n[the licence](../../LICENSE), [contributing](../../CONTRIBUTING.md#before-you-start),\n[the tool script](../../scripts/tool.mjs), [gone](../reference/missing.md), the\n[operation reference](https://dezfil.io/docs/reference/api/), the\n[docs home](https://dezfil.io/docs/) and [an outside page](https://example.org/a)\nor [write to us](mailto:maintainers@dezfil.io).\n\n```sh\n# Not a heading, and [not a link](missing.md).\n```\n\n### With Docker\n\n`[not a link either](missing.md)` and text.\n"
+      },
+      "problems": [
+        {
+          "file": "docs/start/run-it.md",
+          "rule": "link.dead-page"
+        }
+      ]
+    },
+    {
+      "name": "a link to a heading that does not exist",
+      "files": {
+        "docs/start/run-it.md": "---\ntitle: \"Run it\"\nsummary: \"How to run Dezfil with Docker or from source, and what the first run asks.\"\nread_when:\n  - \"you want Dezfil running on your machine\"\n  - \"you set up the first account\"\naudience:\n  - user\n  - operator\nchecked: none\n---\n\n## First run\n\nThe first run asks for an account. See [the MCP tools](../reference/mcp.md#nowhere),\n[the licence](../../LICENSE), [contributing](../../CONTRIBUTING.md#before-you-start),\n[the tool script](../../scripts/tool.mjs), [first run](#first-run), the\n[operation reference](https://dezfil.io/docs/reference/api/), the\n[docs home](https://dezfil.io/docs/) and [an outside page](https://example.org/a)\nor [write to us](mailto:maintainers@dezfil.io).\n\n```sh\n# Not a heading, and [not a link](missing.md).\n```\n\n### With Docker\n\n`[not a link either](missing.md)` and text.\n"
+      },
+      "problems": [
+        {
+          "file": "docs/start/run-it.md",
+          "rule": "link.dead-page"
+        }
+      ]
+    },
+    {
+      "name": "a link to a heading of this page that does not exist",
+      "files": {
+        "docs/start/run-it.md": "---\ntitle: \"Run it\"\nsummary: \"How to run Dezfil with Docker or from source, and what the first run asks.\"\nread_when:\n  - \"you want Dezfil running on your machine\"\n  - \"you set up the first account\"\naudience:\n  - user\n  - operator\nchecked: none\n---\n\n## First run\n\nThe first run asks for an account. See [the MCP tools](../reference/mcp.md#the-tools),\n[the licence](../../LICENSE), [contributing](../../CONTRIBUTING.md#before-you-start),\n[the tool script](../../scripts/tool.mjs), [first run](#second-run), the\n[operation reference](https://dezfil.io/docs/reference/api/), the\n[docs home](https://dezfil.io/docs/) and [an outside page](https://example.org/a)\nor [write to us](mailto:maintainers@dezfil.io).\n\n```sh\n# Not a heading, and [not a link](missing.md).\n```\n\n### With Docker\n\n`[not a link either](missing.md)` and text.\n"
+      },
+      "problems": [
+        {
+          "file": "docs/start/run-it.md",
+          "rule": "link.dead-page"
+        }
+      ]
+    },
+    {
+      "name": "a dead link to a tracked file",
+      "files": {
+        "docs/start/run-it.md": "---\ntitle: \"Run it\"\nsummary: \"How to run Dezfil with Docker or from source, and what the first run asks.\"\nread_when:\n  - \"you want Dezfil running on your machine\"\n  - \"you set up the first account\"\naudience:\n  - user\n  - operator\nchecked: none\n---\n\n## First run\n\nThe first run asks for an account. See [the MCP tools](../reference/mcp.md#the-tools),\n[the licence](../../LICENSE), [contributing](../../CONTRIBUTING.md#before-you-start),\n[the tool script](../../scripts/gone.mjs), [first run](#first-run), the\n[operation reference](https://dezfil.io/docs/reference/api/), the\n[docs home](https://dezfil.io/docs/) and [an outside page](https://example.org/a)\nor [write to us](mailto:maintainers@dezfil.io).\n\n```sh\n# Not a heading, and [not a link](missing.md).\n```\n\n### With Docker\n\n`[not a link either](missing.md)` and text.\n"
+      },
+      "problems": [
+        {
+          "file": "docs/start/run-it.md",
+          "rule": "link.dead-file"
+        }
+      ]
+    },
+    {
+      "name": "a link written from the repository root",
+      "files": {
+        "docs/start/run-it.md": "---\ntitle: \"Run it\"\nsummary: \"How to run Dezfil with Docker or from source, and what the first run asks.\"\nread_when:\n  - \"you want Dezfil running on your machine\"\n  - \"you set up the first account\"\naudience:\n  - user\n  - operator\nchecked: none\n---\n\n## First run\n\nThe first run asks for an account. See [the MCP tools](../reference/mcp.md#the-tools),\n[the licence](/LICENSE), [contributing](../../CONTRIBUTING.md#before-you-start),\n[the tool script](../../scripts/tool.mjs), [first run](#first-run), the\n[operation reference](https://dezfil.io/docs/reference/api/), the\n[docs home](https://dezfil.io/docs/) and [an outside page](https://example.org/a)\nor [write to us](mailto:maintainers@dezfil.io).\n\n```sh\n# Not a heading, and [not a link](missing.md).\n```\n\n### With Docker\n\n`[not a link either](missing.md)` and text.\n"
+      },
+      "problems": [
+        {
+          "file": "docs/start/run-it.md",
+          "rule": "link.not-relative"
+        }
+      ]
+    },
+    {
+      "name": "a link to a generated page written relatively",
+      "files": {
+        "docs/start/run-it.md": "---\ntitle: \"Run it\"\nsummary: \"How to run Dezfil with Docker or from source, and what the first run asks.\"\nread_when:\n  - \"you want Dezfil running on your machine\"\n  - \"you set up the first account\"\naudience:\n  - user\n  - operator\nchecked: none\n---\n\n## First run\n\nThe first run asks for an account. See [the MCP tools](../reference/mcp.md#the-tools),\n[the licence](../../LICENSE), [contributing](../../CONTRIBUTING.md#before-you-start),\n[the tool script](../../scripts/tool.mjs), [first run](#first-run), the\n[operation reference](../reference/api/), the\n[docs home](https://dezfil.io/docs/) and [an outside page](https://example.org/a)\nor [write to us](mailto:maintainers@dezfil.io).\n\n```sh\n# Not a heading, and [not a link](missing.md).\n```\n\n### With Docker\n\n`[not a link either](missing.md)` and text.\n"
+      },
+      "problems": [
+        {
+          "file": "docs/start/run-it.md",
+          "rule": "link.generated-not-full"
+        }
+      ]
+    },
+    {
+      "name": "a link to a section page written relatively",
+      "files": {
+        "docs/start/run-it.md": "---\ntitle: \"Run it\"\nsummary: \"How to run Dezfil with Docker or from source, and what the first run asks.\"\nread_when:\n  - \"you want Dezfil running on your machine\"\n  - \"you set up the first account\"\naudience:\n  - user\n  - operator\nchecked: none\n---\n\n## First run\n\nThe first run asks for an account. See [the MCP tools](../reference/mcp.md#the-tools),\n[the licence](../../LICENSE), [contributing](../../CONTRIBUTING.md#before-you-start),\n[the tool script](../../scripts/tool.mjs), [first run](#first-run), the\n[operation reference](https://dezfil.io/docs/reference/api/), the\n[docs home](../guides/) and [an outside page](https://example.org/a)\nor [write to us](mailto:maintainers@dezfil.io).\n\n```sh\n# Not a heading, and [not a link](missing.md).\n```\n\n### With Docker\n\n`[not a link either](missing.md)` and text.\n"
+      },
+      "problems": [
+        {
+          "file": "docs/start/run-it.md",
+          "rule": "link.generated-not-full"
+        }
+      ]
+    },
+    {
+      "name": "a link to the docs home written as a site address",
+      "files": {
+        "docs/start/run-it.md": "---\ntitle: \"Run it\"\nsummary: \"How to run Dezfil with Docker or from source, and what the first run asks.\"\nread_when:\n  - \"you want Dezfil running on your machine\"\n  - \"you set up the first account\"\naudience:\n  - user\n  - operator\nchecked: none\n---\n\n## First run\n\nThe first run asks for an account. See [the MCP tools](../reference/mcp.md#the-tools),\n[the licence](../../LICENSE), [contributing](../../CONTRIBUTING.md#before-you-start),\n[the tool script](../../scripts/tool.mjs), [first run](#first-run), the\n[operation reference](https://dezfil.io/docs/reference/api/), the\n[docs home](/docs/) and [an outside page](https://example.org/a)\nor [write to us](mailto:maintainers@dezfil.io).\n\n```sh\n# Not a heading, and [not a link](missing.md).\n```\n\n### With Docker\n\n`[not a link either](missing.md)` and text.\n"
+      },
+      "problems": [
+        {
+          "file": "docs/start/run-it.md",
+          "rule": "link.generated-not-full"
+        }
+      ]
+    },
+    {
+      "name": "a picture not in the manifest",
+      "files": {
+        "docs/start/run-it.md": "---\ntitle: \"Run it\"\nsummary: \"How to run Dezfil with Docker or from source, and what the first run asks.\"\nread_when:\n  - \"you want Dezfil running on your machine\"\n  - \"you set up the first account\"\naudience:\n  - user\n  - operator\nchecked: none\n---\n\n## First run\n\nThe first run asks for an account. See [the MCP tools](../reference/mcp.md#the-tools),\n[the licence](../../LICENSE), [contributing](../../CONTRIBUTING.md#before-you-start),\n[the tool script](../../scripts/tool.mjs), [first run](#first-run), the\n[operation reference](https://dezfil.io/docs/reference/api/), the\n[docs home](https://dezfil.io/docs/) and [an outside page](https://example.org/a)\nor [write to us](mailto:maintainers@dezfil.io).\n\n```sh\n# Not a heading, and [not a link](missing.md).\n```\n\n### With Docker\n\n`[not a link either](missing.md)` and text.\n\n![The setup card](../images/start/setup-card.webp)\n",
+        "docs/images/start/setup-card.webp": "picture",
+        "docs/images/manifest.json": "{\"rows\": []}\n"
+      },
+      "problems": [
+        {
+          "file": "docs/start/run-it.md",
+          "rule": "image.not-in-manifest"
+        }
+      ]
+    },
+    {
+      "name": "a manifest that is not JSON",
+      "files": {
+        "docs/images/manifest.json": "rows: none\n"
+      },
+      "problems": [
+        {
+          "file": "docs/images/manifest.json",
+          "rule": "manifest.unreadable"
+        }
+      ]
+    },
+    {
+      "name": "a picture without alternative text",
+      "files": {
+        "docs/start/run-it.md": "---\ntitle: \"Run it\"\nsummary: \"How to run Dezfil with Docker or from source, and what the first run asks.\"\nread_when:\n  - \"you want Dezfil running on your machine\"\n  - \"you set up the first account\"\naudience:\n  - user\n  - operator\nchecked: none\n---\n\n## First run\n\nThe first run asks for an account. See [the MCP tools](../reference/mcp.md#the-tools),\n[the licence](../../LICENSE), [contributing](../../CONTRIBUTING.md#before-you-start),\n[the tool script](../../scripts/tool.mjs), [first run](#first-run), the\n[operation reference](https://dezfil.io/docs/reference/api/), the\n[docs home](https://dezfil.io/docs/) and [an outside page](https://example.org/a)\nor [write to us](mailto:maintainers@dezfil.io).\n\n```sh\n# Not a heading, and [not a link](missing.md).\n```\n\n### With Docker\n\n`[not a link either](missing.md)` and text.\n\n![](../images/start/setup-card.webp)\n",
+        "docs/images/start/setup-card.webp": "picture",
+        "docs/images/manifest.json": "{\"rows\": [{\"file\": \"start/setup-card.webp\"}]}\n"
+      },
+      "problems": [
+        {
+          "file": "docs/start/run-it.md",
+          "rule": "image.no-alt"
+        }
+      ]
+    },
+    {
+      "name": "a missing picture",
+      "files": {
+        "docs/start/run-it.md": "---\ntitle: \"Run it\"\nsummary: \"How to run Dezfil with Docker or from source, and what the first run asks.\"\nread_when:\n  - \"you want Dezfil running on your machine\"\n  - \"you set up the first account\"\naudience:\n  - user\n  - operator\nchecked: none\n---\n\n## First run\n\nThe first run asks for an account. See [the MCP tools](../reference/mcp.md#the-tools),\n[the licence](../../LICENSE), [contributing](../../CONTRIBUTING.md#before-you-start),\n[the tool script](../../scripts/tool.mjs), [first run](#first-run), the\n[operation reference](https://dezfil.io/docs/reference/api/), the\n[docs home](https://dezfil.io/docs/) and [an outside page](https://example.org/a)\nor [write to us](mailto:maintainers@dezfil.io).\n\n```sh\n# Not a heading, and [not a link](missing.md).\n```\n\n### With Docker\n\n`[not a link either](missing.md)` and text.\n\n![The setup card](../images/start/setup-card.webp)\n",
+        "docs/images/manifest.json": "{\"rows\": [{\"file\": \"start/setup-card.webp\"}]}\n"
+      },
+      "problems": [
+        {
+          "file": "docs/start/run-it.md",
+          "rule": "image.missing"
+        }
+      ]
+    },
+    {
+      "name": "a picture from outside the images folder",
+      "files": {
+        "docs/start/run-it.md": "---\ntitle: \"Run it\"\nsummary: \"How to run Dezfil with Docker or from source, and what the first run asks.\"\nread_when:\n  - \"you want Dezfil running on your machine\"\n  - \"you set up the first account\"\naudience:\n  - user\n  - operator\nchecked: none\n---\n\n## First run\n\nThe first run asks for an account. See [the MCP tools](../reference/mcp.md#the-tools),\n[the licence](../../LICENSE), [contributing](../../CONTRIBUTING.md#before-you-start),\n[the tool script](../../scripts/tool.mjs), [first run](#first-run), the\n[operation reference](https://dezfil.io/docs/reference/api/), the\n[docs home](https://dezfil.io/docs/) and [an outside page](https://example.org/a)\nor [write to us](mailto:maintainers@dezfil.io).\n\n```sh\n# Not a heading, and [not a link](missing.md).\n```\n\n### With Docker\n\n`[not a link either](missing.md)` and text.\n\n![A logo](https://example.org/logo.png)\n"
+      },
+      "problems": [
+        {
+          "file": "docs/start/run-it.md",
+          "rule": "image.outside-images"
+        }
+      ]
+    },
+    {
+      "name": "a moved_from that is a live page",
+      "files": {
+        "docs/guides/templates.md": "---\ntitle: \"Templates\"\nsummary: \"Start a map from a template and make it your own.\"\nread_when:\n  - \"you want a map to start from\"\naudience:\n  - user\nchecked: none\nmoved_from:\n  - \"/docs/start/run-it/\"\n---\n\n## Make a copy\n\nPick a card. [Back to running](../start/run-it.md#with-docker).\n"
+      },
+      "problems": [
+        {
+          "file": "docs/guides/templates.md",
+          "rule": "moved-from.live-page"
+        }
+      ]
+    },
+    {
+      "name": "a moved_from equal to a page's raw markdown address",
+      "files": {
+        "docs/guides/templates.md": "---\ntitle: \"Templates\"\nsummary: \"Start a map from a template and make it your own.\"\nread_when:\n  - \"you want a map to start from\"\naudience:\n  - user\nchecked: none\nmoved_from:\n  - \"/docs/start/run-it.md\"\n---\n\n## Make a copy\n\nPick a card. [Back to running](../start/run-it.md#with-docker).\n"
+      },
+      "problems": [
+        {
+          "file": "docs/guides/templates.md",
+          "rule": "moved-from.raw-markdown"
+        }
+      ]
+    },
+    {
+      "name": "a moved_from under the generated reference",
+      "files": {
+        "docs/guides/templates.md": "---\ntitle: \"Templates\"\nsummary: \"Start a map from a template and make it your own.\"\nread_when:\n  - \"you want a map to start from\"\naudience:\n  - user\nchecked: none\nmoved_from:\n  - \"/docs/reference/api/maps/\"\n---\n\n## Make a copy\n\nPick a card. [Back to running](../start/run-it.md#with-docker).\n"
+      },
+      "problems": [
+        {
+          "file": "docs/guides/templates.md",
+          "rule": "moved-from.live-page"
+        }
+      ]
+    },
+    {
+      "name": "a moved_from listed by two pages",
+      "files": {
+        "docs/reference/mcp.md": "---\ntitle: MCP\nsummary: >-\n  How an agent drives Dezfil through its MCP server,\n  folded over two lines.\nread_when: [\"you connect an agent\", \"you read the tool list\"]\naudience: [agent, developer]\nchecked: 0.1.0\nchecked_on: 2026-10-01\norder: 2\nmoved_from: [/docs/guides/old-templates/]\n---\n\n## The tools\n\nEvery operation is a tool. See [run it](../start/run-it.md).\n\n## The tools\n\nA repeated heading gets its own anchor: [the second](#the-tools-1).\n"
+      },
+      "problems": [
+        {
+          "file": "docs/reference/mcp.md",
+          "rule": "moved-from.duplicate"
+        }
+      ]
+    },
+    {
+      "name": "a moved_from that is not a site address under /docs/",
+      "files": {
+        "docs/guides/templates.md": "---\ntitle: \"Templates\"\nsummary: \"Start a map from a template and make it your own.\"\nread_when:\n  - \"you want a map to start from\"\naudience:\n  - user\nchecked: none\nmoved_from:\n  - \"/guides/old-templates/\"\n---\n\n## Make a copy\n\nPick a card. [Back to running](../start/run-it.md#with-docker).\n"
+      },
+      "problems": [
+        {
+          "file": "docs/guides/templates.md",
+          "rule": "moved-from.form"
+        }
+      ]
+    },
+    {
+      "name": "an authored page at an imported document's address",
+      "files": {
+        "docs/develop/contributing.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one rule of the page contract.\"\nread_when:\n  - \"you check the page contract\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nText.\n"
+      },
+      "problems": [
+        {
+          "file": "docs/develop/contributing.md",
+          "rule": "address.imported-document"
+        }
+      ]
+    },
+    {
+      "name": "a page at reference/api",
+      "files": {
+        "docs/reference/api.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one rule of the page contract.\"\nread_when:\n  - \"you check the page contract\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nText.\n"
+      },
+      "problems": [
+        {
+          "file": "docs/reference/api.md",
+          "rule": "address.generated-reference"
+        }
+      ]
+    },
+    {
+      "name": "a page under reference/api",
+      "files": {
+        "docs/reference/api/maps.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one rule of the page contract.\"\nread_when:\n  - \"you check the page contract\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nText.\n"
+      },
+      "problems": [
+        {
+          "file": "docs/reference/api/maps.md",
+          "rule": "address.generated-reference"
+        }
+      ]
+    },
+    {
+      "name": "a file out of place",
+      "files": {
+        "docs/notes.txt": "notes\n"
+      },
+      "problems": [
+        {
+          "file": "docs/notes.txt",
+          "rule": "tree.out-of-place"
+        }
+      ]
+    },
+    {
+      "name": "a page nested two folders deep",
+      "files": {
+        "docs/start/deeper/still/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one rule of the page contract.\"\nread_when:\n  - \"you check the page contract\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nText.\n"
+      },
+      "problems": [
+        {
+          "file": "docs/start/deeper/still/case.md",
+          "rule": "tree.out-of-place"
+        }
+      ]
+    },
+    {
+      "name": "a page outside the six sections",
+      "files": {
+        "docs/tutorials/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one rule of the page contract.\"\nread_when:\n  - \"you check the page contract\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nText.\n"
+      },
+      "problems": [
+        {
+          "file": "docs/tutorials/case.md",
+          "rule": "tree.out-of-place"
+        }
+      ]
+    },
+    {
+      "name": "a picture outside a section folder",
+      "files": {
+        "docs/images/setup-card.webp": "picture"
+      },
+      "problems": [
+        {
+          "file": "docs/images/setup-card.webp",
+          "rule": "tree.out-of-place"
+        }
+      ]
+    },
+    {
+      "name": "a file name with capitals and an underscore",
+      "files": {
+        "docs/start/Run_Again.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one rule of the page contract.\"\nread_when:\n  - \"you check the page contract\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nText.\n"
+      },
+      "problems": [
+        {
+          "file": "docs/start/Run_Again.md",
+          "rule": "tree.file-name"
+        }
+      ]
+    },
+    {
+      "name": "a section folder without a page",
+      "files": {
+        "docs/operate/notes.txt": "notes\n"
+      },
+      "problems": [
+        {
+          "file": "docs/operate/notes.txt",
+          "rule": "tree.out-of-place"
+        },
+        {
+          "file": "docs/operate",
+          "rule": "tree.empty-section"
+        }
+      ]
+    }
+  ],
+  "order": [
+    {
+      "name": "order first, then title, then path",
+      "pages": [
+        {
+          "path": "docs/start/b.md",
+          "title": "Beta"
+        },
+        {
+          "path": "docs/start/a.md",
+          "title": "Alpha",
+          "order": 2
+        },
+        {
+          "path": "docs/start/c.md",
+          "title": "alpha"
+        },
+        {
+          "path": "docs/start/d.md",
+          "title": "Gamma",
+          "order": 1
+        },
+        {
+          "path": "docs/start/e.md",
+          "title": "Beta"
+        },
+        {
+          "path": "docs/start/f.md",
+          "title": "Zeta",
+          "order": 2
+        }
+      ],
+      "expected": [
+        "docs/start/d.md",
+        "docs/start/a.md",
+        "docs/start/f.md",
+        "docs/start/c.md",
+        "docs/start/b.md",
+        "docs/start/e.md"
+      ]
+    }
+  ]
+}
