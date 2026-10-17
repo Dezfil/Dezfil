@@ -24,8 +24,10 @@ covers both ways in full, the data volume and the first-run setup.
 
 ## Documentation
 
-The documentation lives in [docs/](docs/), one folder per section: start,
-guides, reference, operate and develop. Begin with [Run it](docs/start/run-it.md).
+The documentation is published at [dezfil.io/docs](https://dezfil.io/docs/).
+The same pages live in [docs/](docs/), one folder per section, and
+[the index](docs/README.md) lists every page with its summary and when to
+read it. Begin with [Run it](docs/start/run-it.md).
 
 ## Contributing
 

@@ -390,6 +390,12 @@ rule:
   if regenerated, which a shipped token, stylesheet or palette makes happen.
 - `npm run lint:plugin` fails when the plugin package's guidance file or its
   bundled licence drifts from the canonical source they are rendered from.
+- `npm run lint:docs` holds every page under `docs/` to the page contract:
+  its frontmatter, its headings, its links and pictures, and the addresses
+  it owns or once had. It also fails when the image manifest disagrees with
+  its files, or when the index (`docs/README.md`) or the API description
+  file (`docs/reference/openapi.json`) is not what `npm run docs:write`
+  would write. Each problem names its file and rule.
 
 Types: `npm run typecheck`. Unit suite: `npm test` (Vitest, over
 `src/**/*.test.{ts,tsx}`), with 30-second per-test and per-hook timeouts
