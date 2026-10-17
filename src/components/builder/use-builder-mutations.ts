@@ -188,7 +188,7 @@ export function useBuilderMutations({
   }), [sequence, edited]);
 
   const turn = useCallback((work: () => Promise<void>) => sequence.enqueue(async () => {
-    if (sequence.stale) throw new Error("This item has changed. Reload it before trying again.");
+    if (sequence.stale) throw new Error(sequence.haltMessage);
     await work();
     if (sequence.stale) return;
     // The turn has settled while later editor intent still waits. Install the

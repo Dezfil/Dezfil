@@ -9,6 +9,10 @@ import { useBuilderMutations } from "./builder/use-builder-mutations";
 import { WorkflowDocument } from "./workflow-canvas/workflow-document";
 import { LayoutSaveCoordinator, type SaveState } from "./workflow-canvas/layout-save-coordinator";
 import { RecipeEditor } from "./workflow-canvas/use-recipe-edits";
+import { useWorkflowRun, type WorkflowRunner } from "./workflow-canvas/use-workflow-run";
+import { useRunConfirm } from "./workflow-canvas/use-run-confirm";
+import { useWorkflowEditorPort } from "./workflow-canvas/use-workflow-editor-port";
+import type { Wire } from "./workflow-canvas/fetch-wire";
 
 /**
  * An editor left open after its person loses access: removed from the
@@ -155,5 +159,84 @@ describe("the workflow canvas", () => {
     expect(states.at(-1)).toMatchObject({ kind: "stale" });
     // The person's typed value is kept for copying before a reload.
     expect(edits.drafts.get("n")?.displayValues).toEqual({ distance: 20 });
+  });
+});
+
+const SAYS_ENDED = "You can no longer edit this item. Reload the page to continue.";
+const SAYS_STALE = "This item has changed. Reload it before trying again.";
+/** Each way a write sequence halts, and the words every later refusal says. */
+const HALTS = [
+  ...REFUSALS.map(([name, status, code, message]) => [`access ended (${name})`, status, code, message, SAYS_ENDED] as const),
+  ["a stale revision", 409, "stale_revision", SAYS_STALE, SAYS_STALE] as const,
+];
+
+/** A write the server refuses as given, halting the sequence. */
+async function halt(sequence: DocumentSequence, w: Wire, path: string, status: number, code: string, message: string) {
+  sequence.accept({ editRevision: "seen" });
+  const answer = sequence.writeFetch(path, { method: "PATCH", body: "{}" });
+  w.pending("PATCH", path)[0].refuse(status, code, message);
+  await answer;
+  expect(sequence.stale).toBe(true);
+}
+
+describe("what a halted editor says", () => {
+  it.each(HALTS)("refuses a later write in its own words after %s, sending nothing", async (_name, status, code, message, says) => {
+    const w = wire(); vi.stubGlobal("fetch", w.fetch);
+    const sequence = new DocumentSequence("m");
+    await halt(sequence, w, "/api/maps/m", status, code, message);
+    const later = await sequence.writeFetch("/api/maps/m", { method: "PATCH", body: "{}" });
+    expect(later.status).toBe(409);
+    expect((await later.json()).error.message).toBe(says);
+    expect(w.calls).toHaveLength(1);
+  });
+
+  it.each(HALTS)("refuses a Run in its own words after %s, starting nothing", async (_name, status, code, message, says) => {
+    const w = wire(); vi.stubGlobal("fetch", w.fetch);
+    const doc = new WorkflowDocument("w");
+    await halt(doc, w, "/api/recipes/w/steps/n", status, code, message);
+    const h = new HookHarness(() => useWorkflowRun("w", { settle: async () => null, onRecipeChanged: async () => true, onTablesChanged: async () => true, onRunSeen() {} }, doc, true));
+    const flow = new HookHarness(() => useRunConfirm({ runner: h.value }));
+    cleanups.push(() => { flow.unmount(); h.unmount(); });
+    // Run asks for the plan first; the refusal is said at the action.
+    await flow.value.askRun(null); flow.render();
+    expect(flow.value.refusal?.message).toBe(says);
+    expect(await h.value.plan()).toEqual({ refused: `Couldn't save the change, so nothing started. ${says}` });
+    expect(await h.value.start({ members: ["n"] })).toEqual({ kind: "save_failed", message: says });
+    expect(await h.value.runNode("n")).toEqual({ kind: "save_failed", message: says });
+    expect(w.calls).toHaveLength(1);
+  });
+
+  it.each(HALTS)("settles the workflow's edits in its own words after %s", async (_name, status, code, message, says) => {
+    const w = wire(); vi.stubGlobal("fetch", w.fetch);
+    const doc = new WorkflowDocument("w");
+    await halt(doc, w, "/api/recipes/w/steps/n", status, code, message);
+    const ports = { onState() {}, lockReason: () => null, say() {}, onAccepted() {} };
+    const edits = new RecipeEditor("w", ports, ports, doc);
+    expect(await edits.settled()).toMatchObject({ kind: "refused", message: says });
+  });
+
+  it.each(HALTS)("refuses the assistant's turn on a workflow in its own words after %s", async (_name, status, code, message, says) => {
+    const w = wire(); vi.stubGlobal("fetch", w.fetch);
+    const doc = new WorkflowDocument("w");
+    await halt(doc, w, "/api/recipes/w/steps/n", status, code, message);
+    const runner = { observe: async () => {} } as unknown as WorkflowRunner;
+    const h = new HookHarness(() => useWorkflowEditorPort("w", doc, runner, async () => true, () => {}));
+    cleanups.push(() => h.unmount());
+    const work = vi.fn(async () => {});
+    await expect(h.value.turn(work)).rejects.toMatchObject({ message: says });
+    expect(work).not.toHaveBeenCalled();
+  });
+
+  it.each(HALTS)("refuses the assistant's turn on a map in its own words after %s", async (_name, status, code, message, says) => {
+    const w = wire(); vi.stubGlobal("fetch", w.fetch);
+    vi.stubGlobal("window", { addEventListener() {}, removeEventListener() {} });
+    const initial = { id: "m", name: "Map", basemap: "light", basemapLayers: null, layers: [], widgets: [], editRevision: "seen" } as unknown as MapWithLayers;
+    let map = initial;
+    const h = new HookHarness(() => useBuilderMutations({ mapId: "m", map, setMap: next => { map = (typeof next === "function" ? next(map) : next)!; }, rendersRef: { current: {} }, replaceRenders: async () => null, setSelectedId() {}, refreshLayer: async () => {} }));
+    cleanups.push(() => h.unmount());
+    await halt(h.value.sequence, w, "/api/maps/m", status, code, message);
+    const work = vi.fn(async () => {});
+    await expect(h.value.turn(work)).rejects.toMatchObject({ message: says });
+    expect(work).not.toHaveBeenCalled();
   });
 });

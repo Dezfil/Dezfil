@@ -1,5 +1,4 @@
 import { useMemo, type Dispatch, type SetStateAction } from "react";
-import { STALE_MESSAGE } from "../document-sequence";
 import type { DocumentEditorPort } from "../document-editor-context";
 import type { WorkflowDocument } from "./workflow-document";
 import type { WorkflowRunner } from "./use-workflow-run";
@@ -18,7 +17,7 @@ export function useWorkflowEditorPort(
     sequence: document,
     request: document.request,
     turn: (work: () => Promise<void>) => document.enqueue(async () => {
-      if (document.stale) throw new Error(STALE_MESSAGE);
+      if (document.stale) throw new Error(document.haltMessage);
       await work();
       if (document.stale) return;
       const [recipe, layout] = await Promise.all([fetchWorkflow(id), fetchLayout(id)]);
