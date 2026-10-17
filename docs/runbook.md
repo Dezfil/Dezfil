@@ -440,18 +440,35 @@ bound, the standalone build, the browser download, the tiler build and the
 extension install all landing before the first test started, so there is no
 job to fix rather than a job that times out.
 
-A whole-set run, or any run whose result is kept as evidence, needs four
-things the variables do not give it. A fresh scratch store: a store grown
-over a night of runs makes small loads miss their comparison bounds. A
-model configured on the instance, a placeholder key behind the loopback
-allow-list is enough (`DEZFIL_AI_PROVIDER=openai OPENAI_API_KEY=placeholder`,
-nothing leaves the machine): the pane cases need the Assistant composer to
-exist. An otherwise idle machine: the cases that measure time fail under
-load and are then recorded as flakes. And one Playwright run at a time per
-worktree: every run from a worktree shares its `.claude/browser-auth.json`,
-and cookies ignore ports, so two runs against two instances sign each
-other out. The pixel baselines were cut on a production standalone; cut
-and compare them there.
+A whole-set run, or any run whose result is kept as evidence, needs more
+than the variables give it. A fresh scratch store: a store grown over a
+night of runs makes small loads miss their comparison bounds. The
+assistant wiring below: the assistant specs answer from the scripted
+model the suite serves itself and count calls through its tool harness,
+so an instance with a placeholder key alone fails about ninety cases
+rather than skipping them, and `assistant-look` needs an instance of its
+own; `assistant-catalogue` needs the store under the worktree's `.claude`
+directory, with `DEZFIL_DATA_DIR` naming it in the test process too. Two more boots serve the model offer cases: `assistant-picker` with
+`DEZFIL_AI_MODELS_OPENAI` naming its three models, and
+`assistant-catalogue`'s one-model cases with it naming one (their headers
+say which), since one instance cannot offer both lists. The
+deletion proof host's control directory for `account-deletion` and
+`deleted-attribution`: boot the instance with
+`--import=./scripts/deletion-proof-preload.mjs` from the checkout's root and
+`DEZFIL_PROOF_CONTROL_DIR` set to a fresh absolute directory, and set the
+same variable in the test process. An otherwise idle machine: the cases
+that measure time fail under load and are then recorded as flakes. And one
+Playwright run at a time per worktree: every run from a worktree shares
+its `.claude/browser-auth.json`, and cookies ignore ports, so two runs
+against two instances sign each other out. The pixel baselines were cut
+on a production standalone; cut and compare them there. A whole-set run
+is therefore several Playwright runs: the main one against the harness
+instance with the model-offer cases left out (`--grep-invert` over
+`assistant-look`, `assistant-picker` and `assistant-catalogue`), then
+`assistant-look` against its own instance, then `assistant-picker` and
+`assistant-catalogue`'s offer cases each against the boot its header
+names, selected with `--grep`; `assistant-catalogue` asserts the default
+list in one boot and a one-model list in another.
 
 Subsets run by area: `npm run e2e:keyboard`, `e2e:layers`, `e2e:imports`,
 `e2e:sqlbridge`, `e2e:sqlconsole`, `e2e:draw`, `e2e:styling`,
