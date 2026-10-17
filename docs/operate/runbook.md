@@ -709,6 +709,31 @@ the chosen endpoint and the local catalogs for both clients. Omitting
 `--base-url` selects `http://localhost:3000`; an occupied destination is
 refused. Prepare a fresh copy whenever the instance address changes.
 
+**The documentation's pictures.** `npm run docs:pictures` takes every
+scene in the script's scene list (`scripts/docs-pictures-scenes.mjs`) from a
+real instance and writes the changed files under `docs/images/` with the
+manifest beside them. Run it from a checkout that holds a production build
+and no `.env` files, such as a detached worktree after `npm ci` and
+`npm run build`; it needs the Chromium Playwright installs. It starts
+`next start` from that checkout on a free loopback port (`--port` to choose
+one) over a scratch folder it creates in the system's temporary folder and
+removes at the end, with that folder as the data directory and as the
+template catalogue, written from the shipped templates. It takes the scenes
+that need no account first, then seeds through the API (the first account
+through setup, a second invited account, a project they share, the three
+shipped templates copied, the fixtures under `e2e/fixtures/` uploaded) and
+takes the rest, signed in as the first account. Every scene is taken at
+1440 × 900 CSS pixels and two pixels per CSS pixel, in the light theme with
+reduced motion and a fixed clock. The run fails, writing nothing, when the
+server opened any request (an observer in its preload chain writes each one
+down), when a page asked for an address off the instance, or when a file is
+over its bound. A file is replaced only when its bytes changed, and its
+manifest row's version and date move with it, so a second run on the same
+build changes nothing. `--only <scene>,<scene>` takes some scenes and keeps
+the others' rows. After changing a surface a scene shows, run it and commit
+what changed; when the manifest is new, `npm run docs:write` lists it in the
+index.
+
 **Pixel baselines.** The snapshots live beside their specs in the
 `*.spec.ts-snapshots` directories. They are cut on one environment, and a
 re-cut names it in its commit: macOS on Apple silicon, the Chromium headless

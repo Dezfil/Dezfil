@@ -80,6 +80,7 @@
     "lint:reader-docs": "node scripts/check-reader-docs.mjs",
     "lint:docs": "node scripts/docs.mjs --check",
     "docs:write": "node scripts/docs.mjs --write",
+    "docs:pictures": "node scripts/docs-pictures.mjs",
     "probe:publication-source": "node scripts/publication-source-probe.mjs",
     "probe:derivation": "node scripts/derivation-probe.mjs",
     "probe:credential-cleanup": "node scripts/credential-cleanup-driver.mjs",
@@ -144,6 +145,7 @@
     "js-yaml": "^4.3.0",
     "jszip": "^3.10.1",
     "pbf": "^4.0.2",
+    "sharp": "^0.35.5",
     "typescript": "^6.0.3",
     "vitest": "^4.1.10"
   },
