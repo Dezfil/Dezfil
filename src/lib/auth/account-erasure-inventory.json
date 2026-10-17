@@ -2583,6 +2583,16 @@
         "memory:request-closures"
       ]
     },
+    "memory:src/lib/docs-site.ts#HTTP_API_GUIDE_URL": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/docs-site.ts#MCP_GUIDE_URL": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
     "memory:src/lib/api/openapi-account.ts#ACCOUNT_PATHS": {
       "stores": [
         "memory:immutable-configuration"

@@ -34,3 +34,10 @@
 .status[data-failed] {
   color: var(--danger);
 }
+
+/* A link out of the app carries the drawn external mark after its text. */
+.external {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}

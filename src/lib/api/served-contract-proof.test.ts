@@ -13,7 +13,7 @@ beforeAll(async () => {
 });
 function observed() {
   return { document: buildOpenApiDocument(), sourceDocument: buildOpenApiDocument(), tools, derivedTools: buildTools(),
-    docs: { api: read("docs/api.md"), mcp: read("docs/mcp.md"), proof: read("docs/testing/account-deletion-guidance.md") }, baseline: JSON.parse(read("test-support/assistant-baselines/mcp-tools-list.json")),
+    docs: { api: read("docs/reference/http-api.md"), mcp: read("docs/reference/mcp.md"), proof: read("docs/develop/verification/account-deletion-guidance.md") }, baseline: JSON.parse(read("test-support/assistant-baselines/mcp-tools-list.json")),
     guidance: read("plugins/dezfil/skills/dezfil/analysis.md"), expectedGuidance: renderGuidance() };
 }
 it("accepts the actual generated server listing and committed readers through the outside checker", () => {

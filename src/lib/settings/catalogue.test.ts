@@ -9,7 +9,12 @@ import { DEFAULTS, EDITABLE_NUMBERS } from "../../../test-support/settings-fixtu
 
 describe("settings catalogue", () => {
   it("has one complete definition for each deployment variable and keeps test wiring separate", () => {
-    const rows = [...readFileSync("README.md", "utf8").matchAll(/^\| `([A-Z][A-Z0-9_]+)`/gm)].map(match => match[1]);
+    const page = readFileSync("docs/reference/configuration.md", "utf8");
+    const named = (text: string) => [...text.matchAll(/^\| `([A-Z][A-Z0-9_]+)`/gm)].map(match => match[1]);
+    // The platform rows are listed by name and are not deployment settings.
+    const platform = new Set(named(page.split("## Platform and image plumbing")[1]?.split("\n## ")[0] ?? ""));
+    expect(platform.size).toBeGreaterThan(0);
+    const rows = named(page).filter(name => !platform.has(name));
     const deployment = SETTING_CATALOGUE.filter(d => d.scope === "instance" && d.environment);
     expect(deployment).toHaveLength(68);
     expect(TEST_WIRING).toHaveLength(4);

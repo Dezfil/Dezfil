@@ -5,9 +5,12 @@ Upload geospatial data, query it with SQL, style it on a map, publish a
 shareable view, from one container.
 
 This file is the brief for coding agents working in this repository: the
-constraints that hold across every change. What the product does and how to
-run it is in [README.md](README.md); operational recipes live in
-[docs/runbook.md](docs/runbook.md).
+constraints that hold across every change. Before you touch a page under
+`docs/` or a behavior a page describes, read the documentation index,
+[docs/README.md](docs/README.md): every page with its summary and the
+situations it is written for. What the product does and how to run it is in
+[README.md](README.md); operational recipes live in
+[docs/operate/runbook.md](docs/operate/runbook.md).
 
 ## The product
 
@@ -82,16 +85,19 @@ property), `lint:wheelhouse`, `lint:tokens` and `lint:icons` (the design
 language), `lint:class-pairs` (no element's look left to the order two
 stylesheets load in), `lint:specimen` (the specimen still matches its sources),
 `lint:plugin` (the generated plugin guidance is current), `lint:contract-docs`
-(reader counts and error catalogue match the contract) and `lint:reader-docs`
-(no superseded guidance or missing revision examples). Run the ones a
-change can plausibly break, and all of them before calling it done.
+(reader counts and error catalogue match the contract), `lint:reader-docs`
+(no superseded guidance or missing revision examples) and `lint:docs` (every
+page under `docs/` holds the page contract, its links and pictures resolve,
+and the index, the API description file and the image manifest are
+current). Run the ones a change can plausibly break, and all of them before
+calling it done.
 
 [The pipeline](.github/workflows/ci.yml) is the definition of green: it runs
 those checks and the suite on a pull request, then builds the container image
 and drives the documented API through it after a merge. The browser suite is
 not in it: run it yourself, on an instance you provisioned for it. The
-required and optional variables are listed under "Develop" in
-[README.md](README.md).
+required and optional variables are listed in
+[checks and testing](docs/develop/checks-and-testing.md).
 
 **A change ships with its tests.** Prefer a test that fails before the
 change and passes after it. A test that cannot fail is worse than no test:

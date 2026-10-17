@@ -7,7 +7,7 @@ import { checkReaderDocs } from "../../../scripts/check-reader-docs.mjs";
 
 const document = buildOpenApiDocument(), tools = buildTools();
 const read = (file: string) => readFileSync(file, "utf8");
-const docs = { api: read("docs/api.md"), mcp: read("docs/mcp.md"), proof: read("docs/testing/account-deletion-guidance.md") };
+const docs = { api: read("docs/reference/http-api.md"), mcp: read("docs/reference/mcp.md"), proof: read("docs/develop/verification/account-deletion-guidance.md") };
 const bump = (text: string, pattern: RegExp) => text.replace(pattern, match => match.replace(/\d+/, number => String(Number(number) + 1)));
 const countSeeds: [string, "api" | "mcp", RegExp][] = [
   ["paths", "api", /\d+ paths/], ["operations", "api", /\d+ operations/],
@@ -37,18 +37,18 @@ it("rejects source enum/catalogue disagreement and a dropped generated tool", ()
   expect(checkContractDocs(changed, tools, docs).length).toBeGreaterThan(0);
   expect(checkContractDocs(document, tools.slice(1), docs).length).toBeGreaterThan(0);
 });
-const readers = Object.fromEntries(["README.md", "AGENTS.md", "docs/configuration.md", "docs/self-hosting.md", "docs/runbook.md", "docs/api.md", "docs/mcp.md", "plugins/dezfil/skills/dezfil/analysis.md", "src/components/settings/WorkspaceCard.tsx"].map(file => [file, read(file)]));
+const readers = Object.fromEntries(["README.md", "AGENTS.md", "docs/reference/configuration.md", "docs/operate/self-hosting.md", "docs/operate/runbook.md", "docs/reference/http-api.md", "docs/reference/mcp.md", "docs/start/run-it.md", "docs/guides/templates.md", "docs/reference/sql-limits.md", "docs/develop/checks-and-testing.md", "plugins/dezfil/skills/dezfil/analysis.md", "src/components/settings/WorkspaceCard.tsx"].map(file => [file, read(file)]));
 it("accepts the shipped reader guidance", () => { expect(checkReaderDocs(readers)).toEqual([]); });
 it.each([
-  ["docs/configuration.md", "Dezfil is configured entirely through environment variables."],
+  ["docs/reference/configuration.md", "Dezfil is configured entirely through environment variables."],
   ["AGENTS.md", "Local accounts exist; fuller account documentation follows."],
   ["README.md", "Dezfil has no accounts. Authoring APIs are open."],
-  ["docs/api.md", "Write preconditions are not yet required."],
+  ["docs/reference/http-api.md", "Write preconditions are not yet required."],
   ["src/components/settings/WorkspaceCard.tsx", '"Members & sharing" coming soon'],
 ])("rejects superseded copy in %s", (file, text) => {
   expect(checkReaderDocs({ ...readers, [file]: readers[file] + "\n" + text }).length).toBeGreaterThan(0);
 });
-it.each(["docs/api.md", "docs/mcp.md"])("rejects a missing revision in the actual %s example", file => {
+it.each(["docs/reference/http-api.md", "docs/reference/mcp.md"])("rejects a missing revision in the actual %s example", file => {
   const changed = readers[file].replace('"X-Edit-Revision": current.editRevision', '"ignored": current.editRevision').replace('expected_revision: current.editRevision', 'ignored: current.editRevision');
   expect(changed).not.toBe(readers[file]);
   expect(checkReaderDocs({ ...readers, [file]: changed }).length).toBeGreaterThan(0);
@@ -87,7 +87,7 @@ it("rejects stale actor guidance in the actual reader", () => {
   expect(checkContractDocs(document, tools, seeded)).toContain("MCP actor guidance omits the deleted variant");
 });
 it("does not describe deletion as unavailable", () => {
-  expect(read("docs/runbook.md")).not.toContain("The deletion operations are not exposed yet.");
+  expect(read("docs/operate/runbook.md")).not.toContain("The deletion operations are not exposed yet.");
 });
 
 it("rejects a stale count in the outside proof guide", () => {

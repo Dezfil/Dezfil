@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import styles from "@/app/(workspace)/layout.module.css";
 import { usePathObject } from "@/components/shell/path-model";
@@ -8,7 +9,9 @@ import { useProjectFact } from "@/components/shell/use-project-name";
 import { PeopleChip } from "@/components/sharing/PeopleMarks";
 import { peopleMark } from "@/components/sharing/people";
 import { useProjectPeople } from "@/components/sharing/use-project-people";
+import { DOCS_SITE_URL } from "@/lib/docs-site";
 import { railHint, useRailItemMode } from "./rail-mode";
+import { ExternalIcon } from "./ui/icons";
 
 /* The workspace's sections, shared by the icon rail and the
    breadcrumb. Icon strokes follow the Wheelhouse reference mockup. */
@@ -95,12 +98,49 @@ const SETTINGS = {
   ),
 };
 
+/* Bottom-cluster entry beside Settings that leaves the app: the
+   documentation site's home in a new tab, with the drawn external mark
+   after its label. It is no section, so the breadcrumb and the browser
+   title never name it and it is never marked active. The open book is
+   drawn here in the rail's own stroke. */
+const DOCS = {
+  href: DOCS_SITE_URL,
+  label: "Docs",
+  icon: <path d="M12 6.5C10.3 5 7.8 4.5 4 4.5v13c3.8 0 6.3.5 8 2 1.7-1.5 4.2-2 8-2v-13c-3.8 0-6.3.5-8 2ZM12 6.5v13" />,
+};
+
 const USERS = {
   href: "/users",
   label: "Users",
   match: (p: string) => p === "/users" || p.startsWith("/users/"),
   icon: <><circle cx="9" cy="8" r="3" /><path d="M3 21v-2a6 6 0 0 1 12 0v2M16 5a3 3 0 0 1 0 6M18 15a5 5 0 0 1 3 4v2" /></>,
 };
+
+/* The row every rail entry draws: the icon in the fixed column, then the
+   label the expansion reveals. */
+function RailRow({ icon, label, external }: { icon: ReactNode; label: string; external?: boolean }) {
+  return (
+    <>
+      <span className={styles.railIcon}>
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.7"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden
+        >
+          {icon}
+        </svg>
+      </span>
+      <span className={styles.railLabel}>
+        {label}
+        {external && <span className={styles.railExternal}><ExternalIcon /></span>}
+      </span>
+    </>
+  );
+}
 
 function RailLink({
   link,
@@ -117,20 +157,7 @@ function RailLink({
       data-active={link.match(pathname) || undefined}
       {...railHint(mode, link.label)}
     >
-      <span className={styles.railIcon}>
-        <svg
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.7"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden
-        >
-          {link.icon}
-        </svg>
-      </span>
-      <span className={styles.railLabel}>{link.label}</span>
+      <RailRow icon={link.icon} label={link.label} />
     </Link>
   );
 }
@@ -149,6 +176,17 @@ export function NavLinks() {
 export function RailSettingsLink() {
   const pathname = usePathname();
   return <RailLink link={SETTINGS} pathname={pathname} />;
+}
+
+/** The documentation site, beside Settings: a plain anchor out of the app,
+ * opened in a new tab. */
+export function RailDocsLink() {
+  const mode = useRailItemMode();
+  return (
+    <a href={DOCS.href} target="_blank" rel="noreferrer" className={styles.railLink} {...railHint(mode, DOCS.label)}>
+      <RailRow icon={DOCS.icon} label={DOCS.label} external />
+    </a>
+  );
 }
 
 /* A section with no rail entry: the API reference, reached from the MCP
