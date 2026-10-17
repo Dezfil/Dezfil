@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import path from 'node:path';
 
-export const READER_FILES = ['README.md', 'AGENTS.md', 'docs/configuration.md', 'docs/self-hosting.md', 'docs/runbook.md', 'docs/api.md', 'docs/mcp.md', 'plugins/dezfil/skills/dezfil/analysis.md', 'src/components/settings/WorkspaceCard.tsx'];
+export const READER_FILES = ['README.md', 'AGENTS.md', 'docs/reference/configuration.md', 'docs/operate/self-hosting.md', 'docs/operate/runbook.md', 'docs/reference/http-api.md', 'docs/reference/mcp.md', 'plugins/dezfil/skills/dezfil/analysis.md', 'src/components/settings/WorkspaceCard.tsx'];
 const superseded = [
   /deletion operations are not exposed yet/i,
   /fuller (?:account )?documentation follows/i,
@@ -20,7 +20,7 @@ export function checkReaderDocs(files) {
     if (typeof text !== 'string') { problems.push(`Missing reader surface: ${file}`); continue; }
     for (const pattern of superseded) if (pattern.test(text.replace(/\s+/g, ' '))) problems.push(`Superseded reader copy: ${file} (${pattern.source})`);
   }
-  for (const [file, revision] of [['docs/api.md', '"X-Edit-Revision": current.editRevision'], ['docs/mcp.md', 'expected_revision: current.editRevision']]) {
+  for (const [file, revision] of [['docs/reference/http-api.md', '"X-Edit-Revision": current.editRevision'], ['docs/reference/mcp.md', 'expected_revision: current.editRevision']]) {
     const example = files[file]?.match(/<!-- revision-example -->\s*```js\n([\s\S]*?)\n```/)?.[1];
     if (!example?.includes(revision)) problems.push(`Missing revision in reader example: ${file}`);
     if (!example || (example.match(/current = await /g)?.length ?? 0) < 3) problems.push(`Missing accepted-result chaining in reader example: ${file}`);

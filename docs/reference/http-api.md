@@ -96,7 +96,7 @@ and of the three authentication entry POSTs additionally refuse before a large
 wire body completes. Multipart uploads at the
 canonical `/api/tables` path stream to disk without the framework copy, under
 their file and archive limits. A reverse proxy's own request-size limit bounds the matched
-paths' residual copy further; see [self-hosting](self-hosting.md).
+paths' residual copy further; see [self-hosting](../operate/self-hosting.md).
 `TRACE` returns an empty 400 at the native door before body work.
 
 Map, layer, widget, sketch, export and project JSON readers accept at most
@@ -966,7 +966,7 @@ release the reader or restore space, then use Finish deleting.
 
 Finishing deletion rewrites the whole metadata store and pauses all responses.
 Allow free working space on both the data volume and SQLite's temporary filesystem;
-the [host guide](self-hosting.md#leaving-and-deleting-accounts) gives measured pauses
+the [host guide](../operate/self-hosting.md#leaving-and-deleting-accounts) gives measured pauses
 and space requirements. A failed compaction remains unfinished and safe to retry.
 Completion also waits for prepared files to settle or expire and cleanup to finish.
 Recorded dataset inputs identify foreign card images, tiles and private prepared
@@ -2594,4 +2594,4 @@ remove converted files and the staged archive, retaining source artifacts. Harde
 <!-- error-catalogue:end -->
 
 The result-byte regression and outside probe invocations are in
-[result budget commands](runbook.md#sql-result-byte-budget).
+[result budget commands](../operate/runbook.md#sql-result-byte-budget).

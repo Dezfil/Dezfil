@@ -66,7 +66,7 @@ npm run journey:browser           # every spec under e2e/, against a running ins
 
 It needs a running server and a provisioned browser, and several settings on
 the server before a full run is green. The README's development section lists
-them, and [docs/runbook.md](docs/runbook.md) covers the subsets and what a
+them, and [docs/operate/runbook.md](docs/operate/runbook.md) covers the subsets and what a
 failure usually means.
 
 ## Branches and pull requests

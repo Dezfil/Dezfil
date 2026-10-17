@@ -7,7 +7,7 @@ shareable view, from one container.
 This file is the brief for coding agents working in this repository: the
 constraints that hold across every change. What the product does and how to
 run it is in [README.md](README.md); operational recipes live in
-[docs/runbook.md](docs/runbook.md).
+[docs/operate/runbook.md](docs/operate/runbook.md).
 
 ## The product
 

@@ -27,7 +27,7 @@ describe('packaged render destination gate', () => {
     ]);
   });
   it('documents the SQL byte-budget probe in the merged image-job order', () => {
-    const guide = readFileSync('docs/runbook.md', 'utf8').split('### Image job probe order')[1].split('\n### ')[0];
+    const guide = readFileSync('docs/operate/runbook.md', 'utf8').split('### Image job probe order')[1].split('\n### ')[0];
     const rows = [...guide.matchAll(/^\| (\d+) \| (.+) \| (.+) \|$/gm)];
     expect(rows.map(row => Number(row[1]))).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]);
     expect(rows[1][2]).toBe('`render-egress-driver.mjs --image dezfil:ci`');

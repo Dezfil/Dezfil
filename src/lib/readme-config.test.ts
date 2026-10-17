@@ -110,7 +110,7 @@ it("includes the image observers' test settings in both configuration guides", (
   const names = ["DEZFIL_TEST_PUBLICATION_LOG", "DEZFIL_TEST_DERIVATION_LOG"];
   for (const name of names) {
     expect(actual.has(name), name).toBe(true);
-    for (const guide of ["README.md", "docs/configuration.md"]) expect(documentedVariables(join(root, guide)).has(name), `${guide}: ${name}`).toBe(true);
+    for (const guide of ["README.md", "docs/reference/configuration.md"]) expect(documentedVariables(join(root, guide)).has(name), `${guide}: ${name}`).toBe(true);
   }
   for (const name of names) {
     const dropped = documentedVariables(join(root, "README.md")); dropped.delete(name);

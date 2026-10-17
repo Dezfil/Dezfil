@@ -8,7 +8,7 @@ import { closeMetadataDb } from "@/lib/metadata/db";
 /** Run against a production standalone started with the ingress preload and
  * scripts/abandonment-control.mjs, sharing the same fresh DEZFIL_DATA_DIR,
  * with its output in the file DEZFIL_ABANDONMENT_LOG names. Provisioning is in
- * docs/configuration.md. No listener or build is started by this suite. */
+ * docs/reference/configuration.md. No listener or build is started by this suite. */
 const port = process.env.DEZFIL_ABANDONMENT_PORT;
 const output = process.env.DEZFIL_ABANDONMENT_LOG;
 const UNHANDLED = /uncaughtException:|unhandledRejection:/g;

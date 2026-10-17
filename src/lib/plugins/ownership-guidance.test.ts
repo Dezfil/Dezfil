@@ -52,7 +52,7 @@ it("removes the obsolete shared-data upgrade claim and documents local draft dis
   expect(readme).not.toContain("Signed-in accounts still share the same maps");
   expect(readme).toContain("Each account's maps");
   expect(readme.replace(/\s+/g, " ")).toContain("are private, including from admins, until a project's owner shares the project");
-  const runbook = readFileSync("docs/runbook.md", "utf8");
+  const runbook = readFileSync("docs/operate/runbook.md", "utf8");
   expect(runbook).toContain("Unlabelled browser SQL drafts");
   expect(runbook).toContain("recorded original account");
   expect(runbook).toContain("File-referencing PROJ");

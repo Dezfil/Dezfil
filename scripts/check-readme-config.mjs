@@ -320,7 +320,7 @@ if (isMain) {
   };
   const srcDir = argOf("--src", path.join(process.cwd(), "src"));
   const readme = argOf("--readme", path.join(process.cwd(), "README.md"));
-  const configuration = argOf("--configuration", path.join(process.cwd(), "docs/configuration.md"));
+  const configuration = argOf("--configuration", path.join(process.cwd(), "docs/reference/configuration.md"));
   const { SETTING_CATALOGUE, TEST_WIRING, isInstanceDefault, isInstanceRule, isLibrarySwitch, isTemplatesSetting } = await settingsSource(path.dirname(srcDir));
   const problems = configurationProblems({ srcDir, catalogue: SETTING_CATALOGUE, testWiring: TEST_WIRING,
     documents: { [readme]: readFileSync(readme, "utf8"), [configuration]: readFileSync(configuration, "utf8") },

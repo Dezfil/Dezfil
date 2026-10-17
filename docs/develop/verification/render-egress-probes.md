@@ -175,7 +175,7 @@ disabled and every fixture response is `no-store`. The fixture is HTTP on the
 public-range network at `timing.render.test:8080`, outside the app origin.
 No internet, allowlist, app-origin tiles or loopback basemap supplies it.
 
-[`render-timing-fixture.json`](../scripts/render-timing-fixture.json) freezes
+[`render-timing-fixture.json`](../../../scripts/render-timing-fixture.json) freezes
 the style, 256×256 authored cyan PNG, 2048×2048 export definition and SHA-256
 identities. The checker and tests pin those identities independently of the
 manifest. Do not change them between baseline and candidate. The observer

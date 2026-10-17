@@ -9,7 +9,7 @@ name: CI
 #            no network. Only on main, because it builds a full image.
 #
 # The end-to-end browser suite is not one of them: it runs locally, against an
-# instance you provision yourself. CONTRIBUTING.md and docs/runbook.md say how.
+# instance you provision yourself. CONTRIBUTING.md and docs/operate/runbook.md say how.
 on:
   push:
     branches: [main]
@@ -179,7 +179,7 @@ jobs:
       # geometry-choice cell boundaries. The three-minute timeout leaves room
       # for slower workers; elapsed time is printed by the driver.
       # PostGIS and the full four-reader result/geometry/export matrix remain the
-      # outside --full proof in docs/runbook.md, section "SQL result byte budget".
+      # outside --full proof in docs/operate/runbook.md, section "SQL result byte budget".
       # Invocation-owned containers and anonymous volumes are always removed.
       - name: Source-free result-byte boundaries
         timeout-minutes: 3

@@ -87,7 +87,7 @@ own and opens its map in the builder (a workflow example: its canvas), where
 each output that came with the copy says so until its first run.
 
 Existing work belongs to the recorded original account after an upgrade.
-Read the [ownership upgrade instructions](docs/runbook.md#upgrading-ownership-storage)
+Read the [ownership upgrade instructions](docs/operate/runbook.md#upgrading-ownership-storage)
 before updating. SQL uses your imported datasets by name. Direct file reads
 and file-referencing projection definitions are refused, including in saved
 queries and published layers; ordinary EPSG transforms remain supported.
@@ -95,7 +95,7 @@ queries and published layers; ordinary EPSG transforms remain supported.
 Create a personal token on the **Tokens** tab of Settings, under
 **API / MCP tokens**, for a script or agent. Copy its secret once; it cannot be
 read back. REST and MCP calls use that account's current permissions. Revoking a token stops both. See the
-[MCP guide](docs/mcp.md) for client setup and the [API guide](docs/api.md) for
+[MCP guide](docs/reference/mcp.md) for client setup and the [API guide](docs/reference/http-api.md) for
 ordered writes.
 
 Maps and workflows refuse a save based on an older edit revision, even from
@@ -111,7 +111,7 @@ Another active admin can permanently delete an account after deactivation. Leave
 it deactivated to keep shared work. Deletion breaks owned publications, dissolves
 owned projects and keeps the identifying SQL name reserved. Finish deleting resumes
 unfinished cleanup after restart. Read the [host guide's measured pause, required
-space and retained-copy limits](docs/self-hosting.md#leaving-and-deleting-accounts)
+space and retained-copy limits](docs/operate/self-hosting.md#leaving-and-deleting-accounts)
 before using it.
 
 ## Configuration
@@ -132,7 +132,7 @@ value in effect and its source. The test-wiring rows are for probe processes
 and tests. `GET /api/instance/settings` reports the effective configuration to
 admins.
 Account and instance preferences persist in the data directory, alongside the
-optional model catalogue file. See [configuration](docs/configuration.md).
+optional model catalogue file. See [configuration](docs/reference/configuration.md).
 
 For an instance setting, a non-empty deployment variable wins and locks app
 changes, including clearing a stored value. Changing any environment variable
@@ -147,19 +147,19 @@ How long sign-ins and links last, the shortest password, and who may create
 tokens, publish, embed, add database connections and import from links have no
 variable: admins set them on the **Security**, **Publishing** and
 **Data & services** tabs or through
-`PATCH /api/instance/settings`, as [Security and rules](docs/configuration.md#security-and-rules)
+`PATCH /api/instance/settings`, as [Security and rules](docs/reference/configuration.md#security-and-rules)
 lists. Which basemaps are offered where one is chosen, and whether a single map
 may take a style address the library does not offer, have no variable either:
 admins switch them on the **Libraries** tab, which also keeps the basemap
-library and the saved palettes, as [Libraries](docs/configuration.md#libraries)
+library and the saved palettes, as [Libraries](docs/reference/configuration.md#libraries)
 lists. Whether the server reads the template catalogue has no variable either:
 admins switch it on the **Data & services** tab, whose Templates card also
 holds the catalogue's address, its Test and Remove all for the downloaded
-templates, as [Templates](docs/configuration.md#templates) says.
+templates, as [Templates](docs/reference/configuration.md#templates) says.
 
 | Setting | Default | What it controls | Changed by |
 |---|---|---|---|
-| `DEZFIL_DATA_DIR` | ./data; /data in the container | Durable data directory (the mounted volume), including the optional `assistant-models.json` [model catalogue](docs/runbook.md#the-model-catalogue-file). | Restart |
+| `DEZFIL_DATA_DIR` | ./data; /data in the container | Durable data directory (the mounted volume), including the optional `assistant-models.json` [model catalogue](docs/operate/runbook.md#the-model-catalogue-file). | Restart |
 | `DEZFIL_TRUSTED_PROXIES` | unset | Comma-separated IP addresses or CIDRs of reverse proxy socket peers. Only these peers may supply forwarding information. Configure proxies to replace host/protocol/port forwarding fields and append the actual client address. Direct clients' forwarding headers are discarded. | Restart |
 | `DEZFIL_SESSION_COOKIE` | port-based | Session cookie name: `dezfil_session` on listening port 3000, otherwise `dezfil_session_<port>`. Overrides the name for containers sharing a host. Must be a non-empty HTTP cookie-name token; invalid values stop startup. | Restart |
 | `DEZFIL_UPLOAD_MAX_MB` | `5120` | Upload size cap, in MB. | App (live) or restart |
@@ -210,8 +210,8 @@ templates, as [Templates](docs/configuration.md#templates) says.
 | `OPENAI_API_KEY` | unset | Enables the assistant with OpenAI. Bring your own key. | Restart |
 | `DEZFIL_AI_PROVIDER` | first key set | `anthropic` or `openai` — which provider to use when both keys are set. | Restart |
 | `DEZFIL_AI_MODEL` | provider default | Override the model (defaults: `claude-opus-5`, `gpt-5.6-terra`; OpenAI uses the Responses API). `DEZFIL_AI_MODEL=gpt-6-astra` restores the earlier OpenAI default. | Restart |
-| `DEZFIL_AI_MODELS_ANTHROPIC` | unset | Comma-separated Anthropic model identities, narrowing and ordering the offer. Unset offers the full effective [catalogue](docs/runbook.md#the-model-catalogue-file) and shows the picker. A set empty list or a list naming only the default offers that model alone. The default stays where listed or is prepended once; only the resolved provider's list applies. | Restart |
-| `DEZFIL_AI_MODELS_OPENAI` | unset | The same catalogue and narrowing rules for OpenAI, for example `gpt-5.6-terra,gpt-6-astra`. Use `gpt-5.6-terra` alone for the default one-model state. See the [catalogue instructions](docs/runbook.md#the-model-catalogue-file). | Restart |
+| `DEZFIL_AI_MODELS_ANTHROPIC` | unset | Comma-separated Anthropic model identities, narrowing and ordering the offer. Unset offers the full effective [catalogue](docs/operate/runbook.md#the-model-catalogue-file) and shows the picker. A set empty list or a list naming only the default offers that model alone. The default stays where listed or is prepended once; only the resolved provider's list applies. | Restart |
+| `DEZFIL_AI_MODELS_OPENAI` | unset | The same catalogue and narrowing rules for OpenAI, for example `gpt-5.6-terra,gpt-6-astra`. Use `gpt-5.6-terra` alone for the default one-model state. See the [catalogue instructions](docs/operate/runbook.md#the-model-catalogue-file). | Restart |
 | `DEZFIL_ASSISTANT_STEP_BUDGET` | `20` | Max model+tool steps one assistant request may take. | Restart |
 | `DEZFIL_ASSISTANT_AUTO_CHECK` | on | Whether the assistant checks the map by itself after a turn that changed it: a bounded rendered image read back by the model, one line in the transcript saying what it saw. `0`, `false` or `off` turns it off; an explicit check stays available. `GET /api/assistant` reports the setting. | Restart |
 | `DEZFIL_ASSISTANT_LOOK_TIMEOUT_S` | `30` | The map check's budget, request to response: queue wait, render and image preparation. Past it the check answers `render_timeout` and the note says the picture could not be taken in time. | Restart |
@@ -234,7 +234,7 @@ templates, as [Templates](docs/configuration.md#templates) says.
 
 Dataset and geometry inspection use the Query time limit. File, archive, link
 and object-store imports and refreshes use the Data processing time limit;
-[the configuration guide](docs/configuration.md#upload-and-remote-import)
+[the configuration guide](docs/reference/configuration.md#upload-and-remote-import)
 describes the operation families. Upload reception and processing each keep
 the limit admitted when reception began. A 60-second body stall answers
 `408 upload_stalled`; reception expiry answers `408 data_processing_timeout`. Trusted work shares the configured engine memory and a dedicated
@@ -263,7 +263,7 @@ other JSON, including MCP and workflows; assistant messages retain 131,072.
 Excess returns 413 with the operation's documented error. Optional bodies,
 escaping and UTF-8 bytes count too. Render selections remain in the small tier
 even when their filters satisfy the semantic limits. MCP's base64 envelope
-makes a raw upload smaller than 12 MiB; see [the MCP guide](docs/mcp.md).
+makes a raw upload smaller than 12 MiB; see [the MCP guide](docs/reference/mcp.md).
 Multipart uploads stream to disk under the separate file/archive caps.
 
 The fixed `experimental.proxyClientMaxBodySize` in `next.config.ts` is
@@ -273,8 +273,8 @@ anonymous callers. A fronting reverse proxy's own request-size limit bounds
 that residual copy further. Canonical spellings of `/api/tables`, the public
 widget-values, render and extent POST paths and the three authentication entry
 POSTs bypass the copy and preserve their handler-side gates. The native door returns an
-empty 400 for `TRACE`. See [self-hosting](docs/self-hosting.md) for the wire
-behavior and [the API guide](docs/api.md#request-bounds) for exact refusals.
+empty 400 for `TRACE`. See [self-hosting](docs/operate/self-hosting.md) for the wire
+behavior and [the API guide](docs/reference/http-api.md#request-bounds) for exact refusals.
 
 Published API budgets use verified ingress sources, shared across tokens, including
 unknown tokens. View reads share one budget; tiles have another. Both together
@@ -289,7 +289,7 @@ reaching the instance through the NAT64 prefix `64:ff9b::/96`, charged as the
 IPv4 address it carries. The verified source itself
 stays the full address. Missing or forged provenance refuses with private, no-store
 503 `ingress_unavailable` before body work or token resolution. See
-[self-hosting](docs/self-hosting.md) for provenance refusals and scope.
+[self-hosting](docs/operate/self-hosting.md) for provenance refusals and scope.
 
 Password derivation admission is shared across the server process: two active,
 six ordinary plus two reserved protected waiters, and a five-second maximum
@@ -471,7 +471,7 @@ run** — without these, real failures, not skips:
   opt-in itself).
 
 Operational recipes for running an instance live in
-[docs/runbook.md](docs/runbook.md).
+[docs/operate/runbook.md](docs/operate/runbook.md).
 
 Tiled rendering of large layers shells out to
 [tippecanoe](https://github.com/felt/tippecanoe) (`brew install tippecanoe`

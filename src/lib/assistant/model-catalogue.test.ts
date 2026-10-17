@@ -18,7 +18,7 @@ const model = (id: string, name = id, efforts: string[] = []) => ({ id, name, ef
 
 describe("whole catalogue contract", () => {
   it("the runbook example is a valid both-provider instance file and new docs have no em dashes", () => {
-    const section = readFileSync("docs/runbook.md", "utf8").split("## The model catalogue file")[1];
+    const section = readFileSync("docs/operate/runbook.md", "utf8").split("## The model catalogue file")[1];
     expect(section).toBeDefined();
     expect(section).not.toContain("\u2014");
     const example = section.match(/```json\n([\s\S]*?)\n```/)?.[1];
@@ -27,7 +27,7 @@ describe("whole catalogue contract", () => {
     expect(parsed.openai).toHaveLength(2);
     expect(parsed.anthropic).toHaveLength(2);
     for (const row of readFileSync("README.md", "utf8").split("\n").filter((line) => /^\| `DEZFIL_(DATA_DIR|AI_MODELS_OPENAI|AI_MODELS_ANTHROPIC)`/.test(line))) {
-      expect(row).toContain("docs/runbook.md#the-model-catalogue-file");
+      expect(row).toContain("docs/operate/runbook.md#the-model-catalogue-file");
       expect(row).not.toContain("\u2014");
     }
   });

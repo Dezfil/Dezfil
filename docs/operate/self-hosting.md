@@ -98,7 +98,7 @@ the column's foot; members see General alone, read-only.
   views and images, and a screen already open keep what they have. Someone's own
   minimap or results band choice still wins in their browser. Members meet the
   defaults as the starting state of what they make;
-  [the configuration guide](configuration.md#instance-defaults) lists every value.
+  [the configuration guide](../reference/configuration.md#instance-defaults) lists every value.
 - **Publishing** also holds **Public links**: who may publish (Everyone, Admins
   only or No one) and embedding on other sites (Any site, Listed sites, one site
   per line, or Off). Maps already published stay public until unpublished; a
@@ -134,7 +134,7 @@ the column's foot; members see General alone, read-only.
   password that already exists; each applies from the next session use, link,
   sign-in attempt, password or token. Who may add database connections and who
   may import from links are on Data & services;
-  [the configuration guide](configuration.md#security-and-rules) lists every
+  [the configuration guide](../reference/configuration.md#security-and-rules) lists every
   value.
 - **System** shows the version and how long the server has run, whether the data
   folder is writable, whether the assistant is on, and every setting a variable
@@ -329,8 +329,8 @@ This boundary concerns server-side style-driven rendering. It is not a statement
 about a viewer's browser, service workers, WebSocket, browser-owned background
 requests, or UDP/QUIC suppression. The launch flags configure suppression, but
 those supplementary claims are reported individually. The
-[destination probes](render-egress-probes.md) and
-[TLS/timing recipes](render-comparison-probes.md) separate connection assertions,
+[destination probes](../develop/verification/render-egress-probes.md) and
+[TLS/timing recipes](../develop/verification/render-comparison-probes.md) separate connection assertions,
 scripted browser stimuli and unobserved claims. The latter probes stay outside
 the image job; no additional production service or setting is required.
 
@@ -386,7 +386,7 @@ Notes worth having before you switch any of them on:
   aborts it; an independent request does not cancel another caller's work.
   Advisory custom-basemap checks similarly abort on replacement, URL edit,
   Cancel or panel departure. See the [provider cancellation
-  recipe](provider-cancellation.md) for the route and browser probes, timeouts
+  recipe](../develop/verification/provider-cancellation.md) for the route and browser probes, timeouts
   and retained save behavior.
 - **The AI assistant** is off until a provider key is set. Once it is on, the
   conversation, the grounding about your instance, the results of the tools it calls
@@ -459,7 +459,7 @@ admits 16,777,216; assistant messages keep 131,072 and their own refusal code.
 These limits include UTF-8, escaping and whitespace regardless of Content-Type.
 Optional bodies obey the same bound. Excess returns 413 before parsing, never
 a default or a write. Workflow and assistant refusal wording stays unchanged;
-[the API guide](api.md#request-bounds) gives the exact envelopes.
+[the API guide](../reference/http-api.md#request-bounds) gives the exact envelopes.
 MCP base64 uploads must be below 12 MiB after envelope and metadata overhead.
 Published render selections remain at 65,536 bytes even within their semantic
 filter counts; the viewer's twelve selections of fifty long values fit.
@@ -554,7 +554,7 @@ thumbnail capture and refused saves do not assign an author.
 Clients that write maps or workflows must now read an edit revision and carry it
 on each covered write. Formerly bodyless covered successes return JSON with the
 new revision. Update headless clients with the server; see the
-[API guide](api.md#editing-with-revisions). For rollback use the complete stopped
+[API guide](../reference/http-api.md#editing-with-revisions). For rollback use the complete stopped
 backup and its matching build. The revision-only schema additions support the
 immediately preceding compatible writers, but that is not a general promise that
 older releases understand ownership or sharing storage.

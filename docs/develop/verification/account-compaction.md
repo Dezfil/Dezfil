@@ -33,7 +33,7 @@ use on the data and temporary filesystems for every trial. It records candidate,
 image identity, host, SQLite options and mount/filesystem information. Each trial
 reports its measured pause as above or at or below the **5.0-second reference
 mark**, without averaging. Exceeding that mark does not fail the proof. The
-[host guide](../self-hosting.md#leaving-and-deleting-accounts) states the observed
+[host guide](../../operate/self-hosting.md#leaving-and-deleting-accounts) states the observed
 pause and capacity considerations. Failed or timed-out health connections count
 toward the uninterrupted gap. The
 compaction result travels over an already-connected process channel, so the pause

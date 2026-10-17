@@ -48,7 +48,7 @@ tile address; see [Service addresses and numbers](#service-addresses-and-numbers
 The optional `assistant-models.json` in the data directory supplies the model
 catalogue; environment model lists narrow its offer. It is a file, not an account
 preference. Its reload and validation rules are in
-[the runbook](runbook.md#the-model-catalogue-file). Edit revisions and stale-save
+[the runbook](../operate/runbook.md#the-model-catalogue-file). Edit revisions and stale-save
 recovery need no deployment switch.
 
 Two conventions run through the whole surface:
@@ -63,7 +63,7 @@ Two conventions run through the whole surface:
 
 ## How the configuration tables are checked
 
-Both this page and the **Configuration** table in [README.md](../README.md)
+Both this page and the **Configuration** table in [README.md](../../README.md)
 are checked against `src/lib/settings/catalogue.ts` by
 `scripts/check-readme-config.mjs` (`npm run lint:readme`). Each document must
 cover every deployment definition exactly once, with no orphan row, and match
@@ -238,7 +238,7 @@ A gap or an answer limit applies from the next request and freshness at each
 cached answer's next use; a run already admitted keeps its own. The tab also
 shows each cache's use against its budget with Clear, Overture's release list
 with Check now, and a Test per service; both are operations in
-[the API guide](api.md#resource-families). Each cache's budget, how long a
+[the API guide](http-api.md#resource-families). Each cache's budget, how long a
 no-match is kept, the Overpass response budget, the Overture endpoint, signing
 object-store reads with the server's credentials and the allowlist stay the
 environment's alone; the tab shows the last two locked, naming their
@@ -273,7 +273,7 @@ The basemap library holds at most 50 styles an admin added by their address,
 each offered or hidden where a basemap is chosen. The server reads a style's
 address once, as it is added, through the egress check, and keeps its credit or
 its host; the address is public to whoever draws a map on it. Adding, hiding
-and removing are operations in [the API guide](api.md#resource-families). A
+and removing are operations in [the API guide](http-api.md#resource-families). A
 map that took a style keeps its own copy of the name, address and credit,
 whatever happens to the library afterwards.
 
@@ -440,8 +440,8 @@ anonymous callers. A fronting reverse proxy's own request-size limit bounds
 that residual copy further. Canonical spellings of `/api/tables`, the public
 widget-values, render and extent POST paths and the three authentication entry
 POSTs bypass the copy and preserve their handler-side gates. The native door returns an
-empty 400 for `TRACE`. See [self-hosting](self-hosting.md) for the wire
-behavior and [the API guide](api.md#request-bounds) for exact refusals.
+empty 400 for `TRACE`. See [self-hosting](../operate/self-hosting.md) for the wire
+behavior and [the API guide](http-api.md#request-bounds) for exact refusals.
 
 ## Upload and remote import
 
@@ -611,7 +611,7 @@ untrusted hop. An IPv6 source is charged with its whole /64, so a host cannot st
 budget by taking a fresh address from its prefix; an IPv4 source, IPv4-mapped
 spellings included, is charged alone, and so is an IPv4 client reaching the
 instance through the NAT64 prefix `64:ff9b::/96`, charged as the IPv4 address
-it carries. The verified source itself stays the full address. See [self-hosting](self-hosting.md) for provenance refusals and scope.
+it carries. The verified source itself stays the full address. See [self-hosting](../operate/self-hosting.md) for provenance refusals and scope.
 
 Password derivation admission is shared across the server process: two active,
 six ordinary plus two reserved protected waiters, and a five-second maximum
@@ -688,7 +688,7 @@ the surface is simply absent and everything else works unchanged
 | `DEZFIL_TOOL_ATTACHMENT_MAX_MB` | `32` | Cap on a download answered to an agent tool. Past it the tool gets a coded error instead. | Restart |
 
 The optional model catalogue file that these settings narrow lives in the data
-directory; see [the runbook](runbook.md#the-model-catalogue-file).
+directory; see [the runbook](../operate/runbook.md#the-model-catalogue-file).
 
 ## Platform and image plumbing
 

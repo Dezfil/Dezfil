@@ -237,7 +237,7 @@ once in TypeScript for the interactive preview, so the two agree.
 | `public/` | Static runtime assets: basemap definitions, icon sprites, logos, the vector tile parser worker. |
 | `plugins/dezfil/` | The distributable agent plugin package. |
 | `test-support/` | Fixture builders for the test suites. |
-| `docs/` | These documents and the runbook. |
+| `docs/` | The documentation, one folder per section: these pages, the runbook and the verification records. |
 | `design/` | The identity sheet. |
 
 Top-level files worth knowing: `Dockerfile` builds the single image,

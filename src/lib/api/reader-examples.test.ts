@@ -32,7 +32,7 @@ beforeEach(() => {
 });
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.unstubAllEnvs(); db.close(); });
 
-it.each(["docs/api.md", "docs/mcp.md"])("executes %s with two accepted writes and detects omitted revisions", async file => {
+it.each(["docs/reference/http-api.md", "docs/reference/mcp.md"])("executes %s with two accepted writes and detects omitted revisions", async file => {
   const source = example(file);
   const run = (code: string) => new AsyncFunction("base", "token", "fetch", code)(base, token, fetch);
   await run(source);
@@ -50,5 +50,5 @@ it("gives external tools the enforced revision and recovery contract", () => {
   const section = GUIDANCE_SECTIONS.find(section => section.id === "edit-revisions" && section.audience === "package");
   for (const term of ["expected_revision", "editRevision", "stale_revision", "new edit", "order"]) expect(section?.text).toContain(term);
   expect(readFileSync("plugins/dezfil/skills/dezfil/analysis.md", "utf8")).toContain(section?.text);
-  expect(readFileSync("docs/api.md", "utf8")).not.toContain("Write preconditions are not yet required");
+  expect(readFileSync("docs/reference/http-api.md", "utf8")).not.toContain("Write preconditions are not yet required");
 });

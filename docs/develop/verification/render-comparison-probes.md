@@ -118,7 +118,7 @@ baseline median of **4,543 ms**, with **81 tiles per export**, is historical
 context, never a substitute for this paired run. Both images run on the same
 host, with two CPUs and 4 GiB per app, fresh stores/browsers, disabled browser
 cache and `no-store` fixture responses. The
-[frozen fixture](../scripts/render-timing-fixture.json) stays byte-identical:
+[frozen fixture](../../../scripts/render-timing-fixture.json) stays byte-identical:
 2048×2048 export, external HTTP basemap, public-range fixture network. The run
 refuses mismatched browser versions. Each child's inventory retains the exact
 image ID and resource settings; the paired report retains host identity.

@@ -80,7 +80,7 @@ Saved SQL and publication tokens survive unchanged; an affected query or publish
 changes the SQL to refer to an uploaded dataset by name. Review saved queries
 for file readers, file-relation shorthand and metadata definition/path access
 before upgrading. See
-[the SQL boundary](api.md#the-read-only-sql-instance) for the execution rules.
+[the SQL boundary](../reference/http-api.md#the-read-only-sql-instance) for the execution rules.
 
 Unlabelled browser SQL drafts and history from older releases cannot be
 attributed to an account and are discarded when the private workspace first
@@ -95,7 +95,7 @@ browser cleanup.
 Users lists pending and needs-retry deletions separately from accounts. Finish
 deleting resumes the same record and is safe to retry after restart. Never remove
 its journal or edit its identity rows manually. An active admin uses the same
-status and continuation operations through the [API](api.md) or [MCP](mcp.md).
+status and continuation operations through the [API](../reference/http-api.md) or [MCP](../reference/mcp.md).
 A long-lived outside reader, such as a replication sidecar, can keep deletion unfinished until it releases the database; release it, then use Finish deleting.
 
 Check free space on both the data volume and SQLite's temporary filesystem. The
@@ -108,10 +108,10 @@ memory make it longer. The [host guide](self-hosting.md#leaving-and-deleting-acc
 states space planning, cache purge and exact copy limits. A failed compaction stays
 unfinished and can be retried.
 
-The [upgrade and packaged recovery proof](testing/account-deletion-recovery.md)
-and [built-image deletion journey](testing/account-deletion-image.md) exercise
+The [upgrade and packaged recovery proof](../develop/verification/account-deletion-recovery.md)
+and [built-image deletion journey](../develop/verification/account-deletion-image.md) exercise
 original-profile removal and remaining-admin recovery on disposable stores. The
-[served contract proof](testing/account-deletion-guidance.md) compares published
+[served contract proof](../develop/verification/account-deletion-guidance.md) compares published
 counts, errors, actors, generated tools and installed guidance.
 
 ## Retained account identity upgrade
@@ -301,7 +301,7 @@ A 409 `stale_revision` stops the example. Inspect a fresh read and deliberately
 compose a new edit; do not attach its token to the refused payload and replay it.
 A 400 `invalid_request` for a missing revision means the client must implement the
 read/write contract. Child writes use the parent's revision. See the
-[API](api.md#editing-with-revisions) and [MCP](mcp.md#editing-with-revisions)
+[API](../reference/http-api.md#editing-with-revisions) and [MCP](../reference/mcp.md#editing-with-revisions)
 guides for compound filing, run starts, exceptions and executable examples.
 
 ## A second isolated instance
@@ -552,7 +552,7 @@ The authentication probes run against an already running scratch instance:
   widgets and real tiles. Set `DEZFIL_RENDER_CAP_FEATURES=2000` on the server and
   keep `tippecanoe` on its `PATH`.
 
-The [upgrade and packaged recovery proofs](testing/account-deletion-recovery.md)
+The [upgrade and packaged recovery proofs](../develop/verification/account-deletion-recovery.md)
 cover pre-account adoption, original-account deletion, fixed homes, remaining-admin
 redemption and scratch restoration in checkout and container modes.
 
@@ -1189,7 +1189,7 @@ live rows), hourly cadence and renewal races remain deterministic unit proofs.
 
 ### Provider cancellation and caller recovery
 
-The [provider cancellation recipe](provider-cancellation.md) runs place search
+The [provider cancellation recipe](../develop/verification/provider-cancellation.md) runs place search
 and advisory custom-basemap checks against an owned held provider and a separate
 production instance on port 3217. It includes route disconnects, queued and
 pre-aborted calls, unchanged timeouts, completed-call controls, browser
@@ -1200,7 +1200,7 @@ renderer proofs.
 
 ### Render destination gate and outside comparison
 
-Run the [three-arm destination gate](render-egress-probes.md#image-job-step)
+Run the [three-arm destination gate](../develop/verification/render-egress-probes.md#image-job-step)
 against the named built image. It runs both victim variants with three helpers,
 two internal networks and no host ports, fails on missing evidence, and removes
 its owned containers/networks on every ordinary exit. Expect about 30 added
@@ -1208,7 +1208,7 @@ image-job seconds against the outside 27–29 second measurements; record the
 actual elapsed time. The same guide gives the wider dependency/compatibility
 matrix, socket/lifetime proofs and cleanup recipes.
 
-The [TLS and paired comparison guide](render-comparison-probes.md) gives exact
+The [TLS and paired comparison guide](../develop/verification/render-comparison-probes.md) gives exact
 host OpenSSL/NSS prerequisites and trust mounts, positive and negative certificate
 arms, per-claim supplementary browser labels, two warmups then ten interleaved
 exports per version, independent guarded tile counts, retained voids, medians,
@@ -1242,7 +1242,7 @@ is a test client, not a shipped service.
 | 16 | `offline-export-probe.mjs --expect-unavailable` | One `dezfil-nobrowser` server from the image with Chromium removed. |
 | 17 | `dezfil-plugin-container.mjs --render --render-log ...` | The retained `dezfil-plugin-ci` server and a stock MCP client. |
 
-The [account-deletion image journey](testing/account-deletion-image.md) also runs
+The [account-deletion image journey](../develop/verification/account-deletion-image.md) also runs
 after the account-journey cleanup and before MCP restart. Its guide is the canonical
 checkout/image mirror and seeded-red recipe.
 

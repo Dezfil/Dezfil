@@ -50,7 +50,7 @@ The four bounded REST readers are `run_sql`, `inspect_table`,
 answer has a fixed 33,554,432-byte (32 MiB) ceiling and each non-geometry cell
 a 2,097,152-byte (2 MiB) ceiling, after conversions and excerpts. Equality is
 admitted. Native geometry provenance exempts only the cell ceiling; coordinate
-text/JSON remains non-geometry. See [the API guide](api.md).
+text/JSON remains non-geometry. See [the API guide](http-api.md).
 
 HTTP 422 `query_result_too_large` is relayed with `isError: true`, the same
 code and sentence in text and `structuredContent.result`, and no partial rows:
@@ -286,7 +286,7 @@ with Finish deleting. Completed ids return `not_found`. `list_users` includes
 a separate `deletions` array for unfinished work, including after profile erasure.
 
 Finishing deletion rewrites the metadata store and pauses all responses. The
-[host guide](self-hosting.md#leaving-and-deleting-accounts) gives measured pauses
+[host guide](../operate/self-hosting.md#leaving-and-deleting-accounts) gives measured pauses
 and the required data-volume and temporary-filesystem space; a failed compaction
 remains unfinished and safe to retry. Completion waits for prepared-copy settlement
 or expiry and cleanup. Recorded dataset inputs identify affected foreign derivatives;
@@ -485,7 +485,7 @@ endpoint are accepted; credentials, queries, fragments and other paths are
 refused. An occupied destination is refused. The prepared directory is a
 complete copy plus the local catalog entries both clients need, and it can
 live anywhere. Install and removal commands for each client are in
-[the package's own README](../plugins/dezfil/README.md).
+[the package's own README](../../plugins/dezfil/README.md).
 
 ## Exercising it
 
@@ -519,7 +519,7 @@ and compose a new edit before trying again. Never silently replay a refused payl
 with a fresh token. The server enforces this precondition for tools as it does for
 REST. Complete deletion has no resulting revision, and a transfer may end your
 reach. Run starts require the plan's revision; cancellation needs none. See
-[the API guide](api.md#editing-with-revisions) for attribution, shared undo,
+[the API guide](http-api.md#editing-with-revisions) for attribution, shared undo,
 continuing-run behavior and the bounded exceptions.
 
 The exclusions include automatic HEAD/OPTIONS, entry, transport, renderer and
