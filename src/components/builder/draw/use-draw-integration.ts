@@ -7,16 +7,16 @@ import {
   useRef,
   useState,
 } from "react";
-import type { PickedFeature } from "../../map/canvas-pointer";
+import type { FeaturePickHandler, PickedFeature } from "../../map/canvas-pointer";
 import type { SketchGeometry } from "@/lib/sketch/geometry";
 import {
-  drawState,
   resetDraw,
   setDrawSelection,
   useDrawMode,
   type DrawModeState,
   type DrawSelection,
 } from "./draw-mode";
+import { builderCanvasPick } from "./canvas-pick";
 import { useDrawSession, type DrawSessionApi } from "./use-draw-session";
 import {
   sketchSentence,
@@ -58,7 +58,7 @@ export interface DrawIntegration {
     index: number,
     position: [number, number],
   ) => Promise<void>;
-  onCanvasFeaturePick: (layerId: string, feature: PickedFeature) => boolean;
+  onCanvasFeaturePick: FeaturePickHandler;
 }
 
 export function useDrawIntegration(opts: {
@@ -223,26 +223,10 @@ export function useDrawIntegration(opts: {
   // then a sketch feature's click selects it, when no shape tool owns
   // the map.
   const onCanvasFeaturePick = useCallback(
-    (layerId: string, feature: PickedFeature) => {
-      if (offerPickedLayer(layerId)) return true;
-      const table = byLayerRef.current.get(layerId);
-      const st = drawState();
-      if (
-        table &&
-        feature.featureId &&
-        feature.kind &&
-        (st.tool === null || st.tool === "select")
-      ) {
-        setDrawSelection({
-          layerId,
-          table,
-          featureId: feature.featureId,
-          kind: feature.kind,
-        });
-        return true;
-      }
-      return false;
-    },
+    (layerId: string, feature: PickedFeature) =>
+      builderCanvasPick(layerId, feature, offerPickedLayer, (id) =>
+        byLayerRef.current.get(id),
+      ),
     [offerPickedLayer],
   );
 

@@ -4,17 +4,19 @@ import type * as maplibregl from "maplibre-gl";
 import { HookHarness, hookReact } from "../workflow-canvas/hook-harness";
 vi.mock("react", () => hookReact);
 import { armDrawTool, closeDraw, drawState, openDraw, resetDraw, setDrawSelection } from "../builder/draw/draw-mode";
-import { pointerHandlers } from "./canvas-pointer";
+import { builderCanvasPick } from "../builder/draw/canvas-pick";
+import { armPick, disarmPick, offerLayer } from "../builder/drawer/pick-mode";
+import { pointerHandlers, type FeaturePickHandler } from "./canvas-pointer";
 import type { RenderedLayer } from "./MapCanvas";
 import { usePinnedPopup } from "./use-pinned-popup";
 
 /**
  * A feature's pop-up pinned on the map, and what ends it: Escape, with
- * the builder's draw mode on the page too, and the feature it describes
- * leaving the map. The card is pinned the way the canvas pins it, by a
- * click through the pointer handlers; the window delivers a key to its
- * capture listeners first and to its bubbling ones only if none stopped
- * it, as a browser does.
+ * the builder's draw mode on the page too, the feature it describes
+ * leaving the map, and a drawn shape selected after it. The card is
+ * pinned the way the canvas pins it, by a click through the pointer
+ * handlers; the window delivers a key to its capture listeners first and
+ * to its bubbling ones only if none stopped it, as a browser does.
  */
 
 type Listener = (event: unknown) => void;
@@ -30,10 +32,13 @@ beforeEach(() => {
     addEventListener: (type: string, fn: Listener, options?: boolean | AddEventListenerOptions) => { if (type === "keydown") phase(options).add(fn); },
     removeEventListener: (type: string, fn: Listener, options?: boolean | AddEventListenerOptions) => { if (type === "keydown") phase(options).delete(fn); },
   });
+  // The Tools picker listens on the document for its own Escape.
+  vi.stubGlobal("document", { addEventListener: () => {}, removeEventListener: () => {} });
 });
 afterEach(() => {
   unmounts.splice(0).forEach((unmount) => unmount());
   resetDraw();
+  disarmPick();
   vi.unstubAllGlobals();
 });
 
@@ -55,7 +60,7 @@ const feature = (id: string, kind = "point") => ({ type: "Feature", geometry: nu
 const layer = (id: string, features: unknown[], extra: Partial<RenderedLayer> = {}): RenderedLayer =>
   ({ id, style: {}, visible: true, popup: null, tooltip: null, geojson: { type: "FeatureCollection", features }, ...extra }) as unknown as RenderedLayer;
 
-function canvas(initial: RenderedLayer[]) {
+function canvas(initial: RenderedLayer[], pick?: FeaturePickHandler) {
   let layers = initial;
   const h = new HookHarness(() => usePinnedPopup(layers));
   unmounts.push(() => h.unmount());
@@ -71,7 +76,7 @@ function canvas(initial: RenderedLayer[]) {
     pinnedRef: h.value.pinnedRef,
     layersRef: { get current() { return layers; } },
     markScaleRef: { current: 1 },
-    onFeaturePickRef: { current: undefined },
+    onFeaturePickRef: { current: pick },
     setHover: () => {},
     setPinned: (value) => { h.value.setPinned(value); h.render(); },
   });
@@ -161,6 +166,35 @@ describe("the feature the pinned pop-up describes", () => {
     const c = canvas([layer("L", [plain("x"), plain("y")])]);
     c.click("L", 1);
     c.draw([layer("L", [plain("z")])]);
+    expect(c.pinned()).not.toBeNull();
+  });
+});
+
+describe("a click the builder takes before the pop-up", () => {
+  /** The builder's answer to a feature click: the armed Tools picker's
+   * pick first, then a drawn shape's selection; these layers' sketch
+   * tables by layer. */
+  const builder = (sketches: Record<string, string>): FeaturePickHandler => (layerId, feature) =>
+    builderCanvasPick(layerId, feature, (id) => offerLayer({ id, name: id, sql: `SELECT * FROM ${id}` }), (id) => sketches[id]);
+  const layers = () => [layer("L", [feature("a")]), layer("S", [feature("s1", "polygon")])];
+
+  it("closes a pinned pop-up when a drawn shape is selected", () => {
+    const c = canvas(layers(), builder({ S: "sketch_1" }));
+    c.click("L", 0);
+    expect(c.pinned()).not.toBeNull();
+    c.click("S", 0);
+    expect(drawState().selected).toEqual({ layerId: "S", table: "sketch_1", featureId: "s1", kind: "polygon" });
+    expect(c.pinned(), "the pop-up stayed pinned over the shape selected after it").toBeNull();
+  });
+
+  it("leaves a pinned pop-up standing when the Tools picker takes the click, a drawn shape's included", () => {
+    const c = canvas(layers(), builder({ S: "sketch_1" }));
+    c.click("L", 0);
+    const tried: string[] = [];
+    armPick({ label: "Input", tryLayer: (picked) => { tried.push(picked.id); return null; } });
+    c.click("S", 0);
+    expect(tried).toEqual(["S"]);
+    expect(drawState().selected).toBeNull();
     expect(c.pinned()).not.toBeNull();
   });
 });
