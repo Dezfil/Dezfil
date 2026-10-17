@@ -50,10 +50,15 @@ export interface PickedFeature {
   kind: string | null;
 }
 
+/** What a pick handler made of a click: false leaves it to the canvas,
+ * true takes it, and "selected" takes it as a shape selected on the map,
+ * which also closes a pinned pop-up: that card is about another feature. */
+export type FeaturePickResult = boolean | "selected";
+
 export type FeaturePickHandler = (
   layerId: string,
   feature: PickedFeature,
-) => boolean;
+) => FeaturePickResult;
 
 /** Field rows for the tooltip and the pop-up — one rule for both. Null
  * fields = automatic first few (the count shared with the published
@@ -209,8 +214,10 @@ export function pointerHandlers(ctx: PointerContext): {
           const featureId =
             typeof props.feature_id === "string" ? props.feature_id : null;
           const kind = typeof props.kind === "string" ? props.kind : null;
-          if (pickCb(picked.id, { featureId, kind })) {
+          const taken = pickCb(picked.id, { featureId, kind });
+          if (taken) {
             setHover(null);
+            if (taken === "selected") setPinned(null);
             return;
           }
         }

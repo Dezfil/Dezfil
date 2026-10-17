@@ -1,6 +1,9 @@
 import { editHeaders } from "@/lib/edit-basis";
 
 export const STALE_MESSAGE = "This item has changed. Reload it before trying again.";
+/** What a halted editor says once access has ended: reading the item again
+ * in place cannot help, so its Reload reloads the page. */
+export const ACCESS_ENDED_MESSAGE = "You can no longer edit this item. Reload the page to continue.";
 export const DISCARD_MESSAGE = "Reload discards your unsaved values. Copy what you want to keep first.";
 
 /** Whether a write changes the publication: the publish operations, or one
@@ -47,6 +50,8 @@ export class DocumentSequence {
   private listeners = new Set<() => void>();
   subscribe = (listener: () => void) => { this.listeners.add(listener); return () => { this.listeners.delete(listener); }; };
   snapshot = () => this.stale;
+  /** What the halted editor says, and so every refusal after the halt. */
+  get haltMessage() { return this.accessLost ? ACCESS_ENDED_MESSAGE : STALE_MESSAGE; }
   halt(accessLost = false) {
     if (accessLost) this.accessLost = true;
     this.stale = true; this.listeners.forEach((listener) => listener());
@@ -63,7 +68,7 @@ export class DocumentSequence {
     }
     return response;
   }
-  refusal() { return Response.json({ error: { code: "stale_revision", message: STALE_MESSAGE } }, { status: 409 }); }
+  refusal() { return Response.json({ error: { code: "stale_revision", message: this.haltMessage } }, { status: 409 }); }
   writeFetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     if (this.stale || this.closed) return this.refusal();
     const path = typeof input === "string" ? input : input instanceof URL ? input.pathname : input.url;

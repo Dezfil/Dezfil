@@ -11,7 +11,8 @@ import type { PictureBasemaps } from "@/lib/picture-credit";
  * The project home's page asks the server, once, whether the reader may file
  * their own work into the project now, and hands the answer to the home: its
  * owner and an Editor may, a Viewer never, and nobody while the project's
- * owner is deactivated, since a frozen project accepts nothing new.
+ * owner is deactivated, since a frozen project accepts nothing new. A
+ * project the reader does not reach is not found, as a missing one is.
  */
 
 const page = vi.hoisted(() => ({ scope: null as unknown }));
@@ -22,7 +23,7 @@ let scopes: Record<string, AccountScope>;
 beforeEach(() => {
   db = metadata.open(":memory:");
   vi.spyOn(metadata, "metadataDb").mockReturnValue(db);
-  scopes = Object.fromEntries(["ada", "bo", "cy"].map((id) => [id, testAccountScope(db, id)]));
+  scopes = Object.fromEntries(["ada", "bo", "cy", "dee"].map((id) => [id, testAccountScope(db, id)]));
   shareProject("ada", "P", [["bo", "editor"], ["cy", "viewer"]], [], db);
 });
 
@@ -60,5 +61,13 @@ describe("the project home's page", () => {
     db.prepare("UPDATE accounts SET status = 'deactivated' WHERE id = 'ada'").run();
     expect(await files("bo")).toBe(false);
     expect(await files("cy")).toBe(false);
+  });
+
+  it("is not found for someone the project does not reach, exactly as a missing project", async () => {
+    const { default: ProjectPage } = await import("./page");
+    page.scope = scopes.dee;
+    await expect(ProjectPage({ params: Promise.resolve({ id: "P" }) })).rejects.toThrow("NEXT_HTTP_ERROR_FALLBACK;404");
+    page.scope = scopes.ada;
+    await expect(ProjectPage({ params: Promise.resolve({ id: "no-such-project" }) })).rejects.toThrow("NEXT_HTTP_ERROR_FALLBACK;404");
   });
 });

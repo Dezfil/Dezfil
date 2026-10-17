@@ -18,6 +18,7 @@ import type { EditBasis } from "../src/lib/edit-basis";
 // DEZFIL_DATA_DIR (the runner must reach the server's files) and
 // skips visibly without it.
 import { test, expect, type Locator, type Page, type Route } from "@playwright/test";
+import { expectNotFoundPage } from "./sharing-support";
 import { rename as fsRename } from "node:fs/promises";
 import path from "node:path";
 import { routeHouse, seedCsv } from "./support";
@@ -702,12 +703,11 @@ test("the Projects list and the project home", async ({
     await context.unroute(`**/api/projects/${p2}`);
   });
 
-  await test.step("an unknown project reports as missing, never an empty project", async () => {
-    await page.goto("/projects/no-such-project");
+  await test.step("an unknown project is not found, never an empty project", async () => {
     // A project the caller cannot reach answers like a missing one, so the
-    // refusal does not name it.
-    await expect(page.getByRole("main").getByText("The requested resource was not found.", { exact: true })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Projects" }).last()).toBeVisible();
+    // page does not name it.
+    expect((await page.goto("/projects/no-such-project"))?.status()).toBe(404);
+    await expectNotFoundPage(page);
     await expect(page.getByRole("heading", { name: "Maps" })).toHaveCount(0);
   });
 

@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { STALE_MESSAGE } from "../document-sequence";
 import { WorkflowDocument } from "./workflow-document";
 import { editHeaders } from "@/lib/edit-basis";
 import { readApiFailure } from "../api";
@@ -294,7 +293,7 @@ class Runner implements WorkflowRunner {
       if (blocked && "message" in blocked) return { refused: blocked.kind === "save_failed" ? `Couldn't save the change, so nothing started. ${blocked.message}` : blocked.message };
     }
     const readPlan = async () => {
-      if (this.document.stale) return { refused: STALE_MESSAGE };
+      if (this.document.stale) return { refused: this.document.haltMessage };
       const result = await call(`/api/recipes/${this.id}/runs`,
         { method: "POST", body: JSON.stringify({ plan: true, ...(fromStepId ? { fromStepId } : {}) }) }, "plan the run");
       if (!result.ok) return { refused: "failed" in result ? result.failed : result.refused.message };
@@ -309,7 +308,7 @@ class Runner implements WorkflowRunner {
   /** The pre-run barrier: what is typed lands, everything in flight is
    * awaited; a refused or failed save starts nothing. */
   private async barrier(): Promise<StartOutcome | null> {
-    if (this.document.stale) return { kind: "save_failed", message: STALE_MESSAGE };
+    if (this.document.stale) return { kind: "save_failed", message: this.document.haltMessage };
     if (this.flush) {
       const outcome = await this.flush();
       if (outcome && (outcome.kind === "refused" || outcome.kind === "failed")) {

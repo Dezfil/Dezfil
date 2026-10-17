@@ -26,7 +26,7 @@ export function CanvasStaleStatus() {
     finally { setBusy(false); }
   }
   return <SaveStatusChip data-stale-recovery channels={[
-    { key: "stale", announce: true, message: { text: STALE_MESSAGE, tone: "bad",
+    { key: "stale", announce: true, message: { text: recovery.document?.haltMessage ?? STALE_MESSAGE, tone: "bad",
       ...(!confirm ? { action: { label: "Reload", run: () => setConfirm(true) } } : {}) } },
     { key: "discard", message: confirm ? { text: DISCARD_MESSAGE, actions: [
       ...(notes.length ? [{ label: "Copy note text", run: () => void navigator.clipboard.writeText(notes.map(note => note.text).join("\n\n")) }] : []),

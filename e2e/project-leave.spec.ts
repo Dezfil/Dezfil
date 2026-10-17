@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { closeAll, createProject, invitePerson, runTag, share, type Person } from "./sharing-support";
+import { closeAll, createProject, expectNotFoundPage, invitePerson, runTag, share, type Person } from "./sharing-support";
 
 // Real keyboard, focus, navigation and pixels belong to this browser proof.
 // Run on an isolated instance. Its API fixtures use no production data.
@@ -82,8 +82,8 @@ for (const role of ["viewer", "editor"] as const) for (const frozen of [false, t
         expect((await member.api.get(`/api/projects/${id}`)).status()).toBe(404);
         if (ownMap) expect(await (await member.api.get(`/api/maps/${ownMap}`)).json()).toMatchObject({ projectId: id });
         await page.screenshot({ path: info.outputPath(`${entrance}-departed.png`) });
-        await page.goto(`/projects/${id}`);
-        await expect(page.getByText("The requested resource was not found.", { exact: true })).toBeVisible();
+        expect((await page.goto(`/projects/${id}`))?.status()).toBe(404);
+        await expectNotFoundPage(page);
         await expect(page.getByRole("button", { name: "More", exact: true })).toHaveCount(0);
         await page.goto("/maps");
         await page.getByRole("button", { name: "Filter by project", exact: true }).click();

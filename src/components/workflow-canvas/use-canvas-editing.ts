@@ -156,9 +156,11 @@ export function useCanvasEditing({
   }, [rawEdits, readLockReason, say]);
   const historyPress = history.press;
   const historySeal = history.seal;
+  // Halted, Undo and Redo give the halted status's own reason.
+  const historyReason = stale ? rawEdits.document!.haltMessage : gate.reason;
   useEffect(() => {
-    onHistory({ canUndo: history.canUndo, canRedo: history.canRedo, reason: stale ? "This item has changed. Reload it before trying again." : gate.reason, press: historyPress, seal: historySeal });
-  }, [onHistory, history.canUndo, history.canRedo, gate.reason, stale, historyPress, historySeal]);
+    onHistory({ canUndo: history.canUndo, canRedo: history.canRedo, reason: historyReason, press: historyPress, seal: historySeal });
+  }, [onHistory, history.canUndo, history.canRedo, historyReason, historyPress, historySeal]);
   // What the pane, the panels and the link handlers call: the same
   // coordinator, recording what the workflow accepts. The record's own
   // inverses travel the unrecorded road, `rawEdits`.

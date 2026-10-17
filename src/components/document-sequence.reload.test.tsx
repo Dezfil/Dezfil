@@ -11,13 +11,15 @@ import { CanvasRecoveryContext } from "./workflow-canvas/WorkflowRecovery";
 import { WorkflowDocument } from "./workflow-canvas/workflow-document";
 
 /**
- * Where a halted editor's Reload leads. After a stale revision it reads
- * the document again and seeds a fresh editor in place. After access has
- * ended (the person was made a Viewer, removed from the project, or the
- * owner deactivated) a read in place would hand a Viewer an editable
- * editor again, or fail for someone removed; so, past the same confirm
- * step, the page itself reloads and the server decides what the person
- * may now see. The browser does not ask a second time.
+ * What a halted editor says, and where its Reload leads. After a stale
+ * revision it says the item has changed, then reads the document again
+ * and seeds a fresh editor in place. After access has ended (the person
+ * was made a Viewer, removed from the project, or the owner deactivated)
+ * it says the person can no longer edit, since a read in place would hand
+ * a Viewer an editable editor again, or fail for someone removed; so,
+ * past the same confirm step, the page itself reloads and the server
+ * decides what the person may now see. The browser does not ask a second
+ * time.
  */
 
 /** Made a Viewer (or the owner deactivated), and removed from the project. */
@@ -26,6 +28,8 @@ const ENDED = [
   ["no longer reached", 404, "not_found", "The requested resource was not found."],
 ] as const;
 const STALE = [409, "stale_revision", "This item has changed. Reload it before trying again."] as const;
+const SAYS_STALE = "This item has changed. Reload it before trying again.";
+const SAYS_ENDED = "You can no longer edit this item. Reload the page to continue.";
 
 const MAP = { id: "m", name: "Map", basemap: "light", basemapLayers: null, layers: [], widgets: [], editRevision: "fresh" } as unknown as MapWithLayers;
 
@@ -106,6 +110,18 @@ async function haltedCanvas([status, code, message]: readonly [number, string, s
 }
 
 describe("the builder's halted notice", () => {
+  it.each(ENDED)("says the person can no longer edit once a save is refused as %s", async (_name, ...refusal) => {
+    await haltedBuilder(refusal);
+    expect(container.textContent).toContain(SAYS_ENDED);
+    expect(container.textContent).not.toContain(SAYS_STALE);
+  });
+
+  it("says the item has changed after a stale revision", async () => {
+    await haltedBuilder(STALE);
+    expect(container.textContent).toContain(SAYS_STALE);
+    expect(container.textContent).not.toContain(SAYS_ENDED);
+  });
+
   it.each(ENDED)("reloads the page once a save is refused as %s, without reading the map in place or the browser asking again", async (_name, ...refusal) => {
     const recovered = await haltedBuilder(refusal);
     await reloadTwice();
@@ -125,6 +141,18 @@ describe("the builder's halted notice", () => {
 });
 
 describe("the workflow canvas's halted status", () => {
+  it.each(ENDED)("says the person can no longer edit once an edit is refused as %s", async (_name, ...refusal) => {
+    await haltedCanvas(refusal);
+    expect(container.textContent).toContain(SAYS_ENDED);
+    expect(container.textContent).not.toContain(SAYS_STALE);
+  });
+
+  it("says the item has changed after a stale revision", async () => {
+    await haltedCanvas(STALE);
+    expect(container.textContent).toContain(SAYS_STALE);
+    expect(container.textContent).not.toContain(SAYS_ENDED);
+  });
+
   it.each(ENDED)("reloads the page once an edit is refused as %s, without recovering in place or the browser asking again", async (_name, ...refusal) => {
     const recover = await haltedCanvas(refusal);
     await reloadTwice();

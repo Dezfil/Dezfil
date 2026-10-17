@@ -5,7 +5,7 @@ import type { WorkflowStep } from "../workflow-model";
 import { editCall as call, UncertainEdits, type EditAnswer as Answer } from "./edit-transport";
 import { EditDrafts, type EditRejection } from "./edit-drafts";
 import { WorkflowDocument } from "./workflow-document";
-import { fieldIntent, STALE_MESSAGE } from "../document-sequence";
+import { fieldIntent } from "../document-sequence";
 import type { SaveState } from "./use-layout-saves";
 import { additionRecovery } from "./addition-recovery";
 
@@ -337,7 +337,7 @@ export class RecipeEditor implements RecipeCoordinator {
       // Mutations can queue more mutations; wait until nothing is on the wire.
       while (this.inflight.size > 0) await Promise.allSettled([...this.inflight]);
       await this.idle();
-      if (this.document.stale) return { kind: "refused", code: "stale_revision", message: STALE_MESSAGE };
+      if (this.document.stale) return { kind: "refused", code: "stale_revision", message: this.document.haltMessage };
       return this.drafts.rejected(window.rejected);
     } finally {
       this.windows.delete(window);
