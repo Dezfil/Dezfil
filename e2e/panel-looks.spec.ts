@@ -67,7 +67,7 @@
 // named steps red (unset it for green):
 //
 //   typed-liquid  under Liquid the legend types a Liquid of its own by hand
-//                 (a thinner fill and a 9 px blur): the every-role step and
+//                 (a firmer fill and a 24 px blur): the every-role step and
 //                 the requests case's Liquid step fail on the legend and
 //                 only the legend.
 //   preview-lens  a lens is laid inline on the legend inside the export
