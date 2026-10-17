@@ -1,5 +1,5 @@
 {
-  "what": "The page contract's shared cases. The product's lint and the documentation site's build each run every case and must agree: a valid document is accepted and read to the same values, an invalid one is refused with the named rule, each tree is refused with exactly the named problems, and pages sort in the expected order. Documents are placed at documentCase inside the base tree; a tree case replaces or adds its files over the base. Dates are judged against today.",
+  "what": "The page contract's shared cases. The product's lint and the documentation site's build each run every case and must agree: a valid document is accepted and read to the same values, an invalid one is refused with the named rule, each tree is refused with exactly the named problems, and pages sort in the expected order: within a section its own pages first, then each subfolder's pages as a group with groups by folder name, and inside each by order (pages without one after those with one), then title (compared as English text), then path. Documents are placed at documentCase inside the base tree; a tree case replaces or adds its files over the base. Dates are judged against today.",
   "today": "2026-10-17",
   "documentCase": "docs/start/case.md",
   "base": {
@@ -662,6 +662,40 @@
         "docs/start/c.md",
         "docs/start/b.md",
         "docs/start/e.md"
+      ]
+    },
+    {
+      "name": "a section's own pages first, then each subfolder's pages as a group, groups by folder name",
+      "pages": [
+        {
+          "path": "docs/develop/verification/b.md",
+          "title": "Alpha proof"
+        },
+        {
+          "path": "docs/develop/zeta.md",
+          "title": "Zeta"
+        },
+        {
+          "path": "docs/develop/probes/a.md",
+          "title": "Beta probe",
+          "order": 1
+        },
+        {
+          "path": "docs/develop/verification/a.md",
+          "title": "Zulu proof",
+          "order": 1
+        },
+        {
+          "path": "docs/develop/architecture.md",
+          "title": "Architecture"
+        }
+      ],
+      "expected": [
+        "docs/develop/architecture.md",
+        "docs/develop/zeta.md",
+        "docs/develop/probes/a.md",
+        "docs/develop/verification/a.md",
+        "docs/develop/verification/b.md"
       ]
     }
   ]

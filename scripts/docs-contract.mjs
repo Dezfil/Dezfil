@@ -17,8 +17,17 @@ import { DOCS_SITE_URL } from "../src/lib/docs-site.ts";
 
 const posix = path.posix;
 
-/** The six sections, in their fixed order. */
-export const SECTIONS = ["start", "guides", "reference", "operate", "develop", "about"];
+/** The six sections, in their fixed order, with the one-line descriptions
+ * the index, the site and llms.txt all use. */
+export const SECTION_INFO = [
+  { id: "start", title: "Start", description: "What Dezfil is and your first map." },
+  { id: "guides", title: "Guides", description: "How to do each thing in the app." },
+  { id: "reference", title: "Reference", description: "The exact rules: the API, MCP, configuration, limits, formats, shortcuts." },
+  { id: "operate", title: "Operate", description: "Running an instance." },
+  { id: "develop", title: "Develop", description: "Changing the code." },
+  { id: "about", title: "About", description: "Licence, credits, changes and policies." },
+];
+export const SECTIONS = SECTION_INFO.map((section) => section.id);
 
 /** The four root files the site renders as documentation, at fixed
  * addresses, with fixed summaries. They carry no frontmatter. */
@@ -485,6 +494,98 @@ export function comparePages(a, b) {
   const byTitle = String(a.title).localeCompare(String(b.title), "en");
   if (byTitle !== 0) return byTitle;
   return a.path < b.path ? -1 : a.path > b.path ? 1 : 0;
+}
+
+/** A section's pages in reading order: the section's own pages first, then
+ * each subfolder's pages as a group, groups by folder name. Within each,
+ * by `order`, title and path. */
+export function indexOrder(pages) {
+  const folderOf = (page) => page.path.split("/").slice(2, -1).join("/");
+  const folders = [...new Set(pages.map(folderOf))].sort((a, b) => (a === "" ? -1 : b === "" ? 1 : a < b ? -1 : a > b ? 1 : 0));
+  return folders.flatMap((folder) => pages.filter((page) => folderOf(page) === folder).sort(comparePages));
+}
+
+/** The four imported documents with the title the site takes from each
+ * one's first heading. */
+export function importedDocuments(read) {
+  return IMPORTED.map((entry) => {
+    let title = entry.file;
+    try { title = headingText(/^# +(.+?)\s*#*\s*$/m.exec(read(entry.file))?.[1] ?? entry.file); } catch { /* named by file */ }
+    return { ...entry, title, section: entry.page.split("/")[0] };
+  });
+}
+
+const titleOf = (id) => SECTION_INFO.find((section) => section.id === id).title;
+const folderTitle = (name) => name.charAt(0).toUpperCase() + name.slice(1).replace(/-/g, " ");
+
+/** The agents' index, docs/README.md, generated from the pages'
+ * frontmatter: the six sections in order, one entry per page with its
+ * title, path, summary, read_when lines, audience and checked, then the
+ * documents and generated files that sit beside the pages. */
+export function generateIndex({ files, read }) {
+  const fileSet = new Set(files);
+  const pages = [];
+  for (const file of files) {
+    if (placeOf(file).kind !== "page") continue;
+    const page = splitPage(read(file));
+    if (page.error) continue;
+    pages.push({ path: file, ...page.data });
+  }
+  const lines = [
+    "# Dezfil documentation",
+    "",
+    "Every page under `docs/`, generated from the pages' own frontmatter. Find the",
+    "section for what you are doing, then the page whose \"read when\" line is",
+    "your situation. `checked` is the release a page was last read against a",
+    "running instance of, with the date, or `none` until it has been. The same",
+    `pages are published at ${DOCS_SITE_URL}.`,
+    "",
+    "This file is written by `npm run docs:write` and held by `npm run lint:docs`:",
+    "change the pages, then regenerate it.",
+  ];
+  const list = (value) => (Array.isArray(value) ? value.join("; ") : String(value));
+  for (const section of SECTION_INFO) {
+    lines.push("", `## ${section.title}`, "", section.description);
+    let folder = null;
+    for (const page of indexOrder(pages.filter((p) => p.path.split("/")[1] === section.id))) {
+      const group = page.path.split("/").slice(2, -1).join("/");
+      if (group && group !== folder) lines.push("", `### ${folderTitle(group)}`);
+      folder = group;
+      const checked = page.checked === "none" ? "none" : `${page.checked}, ${dateValue(page.checked_on) ?? page.checked_on}`;
+      lines.push(
+        "",
+        `- [${page.title}](${page.path.slice("docs/".length)})`,
+        `  - path: \`${page.path}\``,
+        `  - summary: ${page.summary}`,
+        `  - read when: ${list(page.read_when)}`,
+        `  - audience: ${list(page.audience).replace(/; /g, ", ")}`,
+        `  - checked: ${checked}`,
+      );
+    }
+  }
+  lines.push("", "## Also", "");
+  for (const doc of importedDocuments(read)) {
+    lines.push(`- [${doc.title}](../${doc.file}) (${titleOf(doc.section)}): ${doc.summary}`);
+  }
+  if (fileSet.has("docs/reference/openapi.json")) {
+    lines.push("- [The OpenAPI description](reference/openapi.json) (Reference): the HTTP API as the server serves it, generated from the source; the operation reference is built from it.");
+  }
+  if (fileSet.has("docs/images/manifest.json")) {
+    lines.push("- [The image manifest](images/manifest.json): one row per picture and recording, with the scene it shows, its size and when it was taken.");
+  }
+  return `${lines.join("\n")}\n`;
+}
+
+/** The index's freshness: the committed file equals what the pages
+ * generate. */
+export function checkIndex({ files, read }) {
+  const expected = generateIndex({ files, read });
+  let committed = null;
+  try { committed = files.includes("docs/README.md") ? read("docs/README.md") : null; } catch { /* missing */ }
+  if (committed === expected) return [];
+  return [problem("docs/README.md", "index.stale", committed === null
+    ? "the index is missing; run npm run docs:write"
+    : "the index differs from what the pages generate; run npm run docs:write")];
 }
 
 /** A problem as one line: the file, the line where there is one, the rule. */

@@ -10,7 +10,7 @@ import { fileURLToPath } from "node:url";
 import { afterAll, describe, expect, it } from "vitest";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: a plain-JS gate, no declaration file on purpose.
-import { checkPageText, checkTree, comparePages, frontmatterValues, headings, references } from "../../scripts/docs-contract.mjs";
+import { checkIndex, checkPageText, checkTree, frontmatterValues, generateIndex, headings, indexOrder, references } from "../../scripts/docs-contract.mjs";
 
 type Problem = { file: string; rule: string; message: string; line?: number };
 type Files = Record<string, string | null>;
@@ -64,7 +64,7 @@ describe("the shared contract cases", () => {
   });
 
   it.each(cases.order)("sort pages in reading order: $name", ({ pages, expected }) => {
-    expect([...pages].sort(comparePages).map((p) => p.path)).toEqual(expected);
+    expect(indexOrder(pages).map((p: { path: string }) => p.path)).toEqual(expected);
   });
 
   it("seed every rule the contract names at least once", () => {
@@ -76,6 +76,65 @@ describe("the shared contract cases", () => {
     const named = new Set([...source.matchAll(/"((?:frontmatter|body|link|image|moved-from|address|tree|manifest)\.[a-z-]+)"/g)].map((m) => m[1]));
     expect(named.size).toBeGreaterThan(20);
     for (const rule of named) expect(seeded, rule).toContain(rule);
+  });
+});
+
+describe("the agents' index", () => {
+  const files = tree();
+  const read = (file: string) => files[file];
+  const index = generateIndex({ files: Object.keys(files), read }) as string;
+
+  it("lists the six sections in order with their descriptions, an empty one by its description alone", () => {
+    const sections = [...index.slice(0, index.indexOf("## Also")).matchAll(/^## (.+)\n\n(.+)$/gm)].map((m) => [m[1], m[2]]);
+    expect(sections).toEqual([
+      ["Start", "What Dezfil is and your first map."],
+      ["Guides", "How to do each thing in the app."],
+      ["Reference", "The exact rules: the API, MCP, configuration, limits, formats, shortcuts."],
+      ["Operate", "Running an instance."],
+      ["Develop", "Changing the code."],
+      ["About", "Licence, credits, changes and policies."],
+    ]);
+    expect(index).toContain("## Operate\n\nRunning an instance.\n\n## Develop");
+  });
+
+  it("gives each page one entry with its six fields in order", () => {
+    expect(index).toContain([
+      "- [MCP](reference/mcp.md)",
+      "  - path: `docs/reference/mcp.md`",
+      "  - summary: How an agent drives Dezfil through its MCP server, folded over two lines.",
+      "  - read when: you connect an agent; you read the tool list",
+      "  - audience: agent, developer",
+      "  - checked: 0.1.0, 2026-10-01",
+    ].join("\n"));
+    expect(index.match(/^- \[/gm)!.length - 4).toBe(3);
+  });
+
+  it("ends with the imported documents and their fixed summaries", () => {
+    expect(index.slice(index.indexOf("## Also"))).toBe([
+      "## Also",
+      "",
+      "- [Changelog](../CHANGELOG.md) (About): What changed in each release.",
+      "- [Security policy](../SECURITY.md) (About): Which versions get fixes and how to report a vulnerability.",
+      "- [Contributing](../CONTRIBUTING.md) (Develop): How to get a change from your machine into the project.",
+      "- [Code of conduct](../CODE_OF_CONDUCT.md) (Develop): The standards for taking part and how they are enforced.",
+      "",
+    ].join("\n"));
+  });
+
+  it("names the generated files beside the pages once they exist", () => {
+    const more: Record<string, string> = { ...files, "docs/reference/openapi.json": "{}", "docs/images/manifest.json": "{\"rows\": []}" };
+    const fuller = generateIndex({ files: Object.keys(more), read: (file: string) => more[file] }) as string;
+    expect(fuller).toContain("- [The OpenAPI description](reference/openapi.json)");
+    expect(fuller).toContain("- [The image manifest](images/manifest.json)");
+  });
+
+  it("is held fresh: a summary changed without regenerating fails, a missing index fails", () => {
+    const current: Record<string, string> = { ...files, "docs/README.md": index };
+    const at = (set: Record<string, string>) => checkIndex({ files: Object.keys(set), read: (file: string) => set[file] }) as Problem[];
+    expect(at(current)).toEqual([]);
+    const edited: Record<string, string> = { ...current, "docs/guides/templates.md": current["docs/guides/templates.md"].replace("Start a map from a template", "Begin a map from a template") };
+    expect(shape(at(edited))).toEqual([{ file: "docs/README.md", rule: "index.stale" }]);
+    expect(shape(at(files))).toEqual([{ file: "docs/README.md", rule: "index.stale" }]);
   });
 });
 
@@ -126,7 +185,9 @@ describe("the lint:docs command", () => {
 
   it("fails a seeded tree and names the file, the line and the rule", () => {
     const seeded = cases.trees.find((t) => t.name === "a dead page link")!;
-    const { code, output } = run(write(tree(seeded.files)));
+    const files = tree(seeded.files);
+    files["docs/README.md"] = generateIndex({ files: Object.keys(files), read: (file: string) => files[file] });
+    const { code, output } = run(write(files));
     expect(code).toBe(1);
     expect(output).toMatch(/^docs\/start\/run-it\.md:\d+: link\.dead-page: /m);
     expect(output).toContain("FAIL: 1 documentation problem(s).");
