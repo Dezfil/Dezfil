@@ -1,6 +1,6 @@
 // The configuration page covers the catalogue in both directions, including
 // documented defaults and change timing. It is the one document held here:
-// the README links to it and carries no table of its own. Keep the
+// the README carries no table of its own. Keep the
 // independent source and script scans too: a row in the catalogue cannot
 // justify an unused deployment name.
 //

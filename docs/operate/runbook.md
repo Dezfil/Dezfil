@@ -205,7 +205,7 @@ cp -a "$backup" "$store"
 # Start the matching application version with the matching encryption key.
 ```
 
-For the named Docker volume in the README, use your installed image to copy the
+For the named Docker volume of [Run it](../start/run-it.md), use your installed image to copy the
 stopped volume. Choose an empty backup directory and keep its contents private:
 
 ```sh

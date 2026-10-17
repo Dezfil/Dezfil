@@ -84,7 +84,7 @@ Two conventions run through the whole surface:
 
 This page is checked against `src/lib/settings/catalogue.ts` by
 `scripts/check-readme-config.mjs` (`npm run lint:readme`); it is the one place
-the settings are listed, and the README links here. The page must
+the settings are listed. The page must
 cover every deployment definition exactly once, with no orphan row, and match
 its documented default and **Changed by** value. The checker reads the catalogue
 itself; it keeps no separate list of settings. It also scans production `src/`

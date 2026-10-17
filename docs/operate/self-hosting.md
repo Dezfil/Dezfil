@@ -13,7 +13,7 @@ checked: none
 This page is for the person who runs the instance. It covers what to decide before
 you put data in it, what the instance keeps, and what it sends out.
 
-The `README` has the run commands and [the configuration page](../reference/configuration.md)
+[Run it](../start/run-it.md) has the run commands and [the configuration page](../reference/configuration.md)
 the full table of settings. Start there, then read this.
 
 ## Accounts and access
@@ -58,6 +58,21 @@ can revoke a deactivated owner's known published token without reading the map.
 Reactivation restores access to retained work; it does not restore ended sessions.
 Another admin must remove your admin flag or deactivate you, and at least one
 active admin must remain.
+
+Each account's maps, datasets, workflows, connections and projects are private,
+including from admins, until a project's owner shares the project: its people
+then reach everything filed in it, as viewers or editors.
+Connections are never shared. Dataset and connection names belong to that
+account's space; SQL names another person's dataset `<sql name>.<dataset>`.
+Basemap, palette, operation and model catalogues remain shared; any signed-in
+account can save or delete a custom palette. Published links remain readable without an account,
+as do embeds on the sites the instance allows, and the readiness probe.
+
+Existing work belongs to the recorded original account after an upgrade.
+Read the [ownership upgrade instructions](runbook.md#upgrading-ownership-storage)
+before updating. SQL uses your imported datasets by name. Direct file reads
+and file-referencing projection definitions are refused, including in saved
+queries and published layers; ordinary EPSG transforms remain supported.
 
 For scripts and agents, create an API / MCP token in Settings. Its secret is shown
 once, and its authority follows the account's current permissions. Keep the secret
@@ -354,6 +369,14 @@ If you set `DEZFIL_SECRET_KEY` externally, back up that exact value securely
 alongside the deployment configuration. Otherwise include `secret.key` from the
 data directory. Data encrypted under a lost or wrong key cannot be recovered. Keep it out of your
 shell history and out of version control, the way you would any other secret.
+
+`DEZFIL_SECRET_KEY` takes 64 hex characters (32 bytes). Secrets written under a
+generated key can only ever be read with that same key. Set `DEZFIL_SECRET_KEY` to
+a fresh value later, or lose `secret.key` while keeping `metadata.sqlite`, and the
+stored credentials cannot be decrypted; the affected connections must be entered
+again. To pin the key from day one, set the variable before the first boot. To
+move from a generated key to a pinned one without losing anything, set
+`DEZFIL_SECRET_KEY` to the hex string already in `secret.key`.
 
 ## What leaves the instance
 

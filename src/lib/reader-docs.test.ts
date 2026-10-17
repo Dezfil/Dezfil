@@ -6,8 +6,11 @@ it("keeps the product boundary and setup instructions current", () => {
   const brief = read("AGENTS.md").split("## Out of scope for now")[1];
   for (const term of ["Local accounts", "private ownership", "project sharing", "stale", "SSO", "audit logs", "finer grants"]) expect(brief).toContain(term);
   expect(brief).not.toMatch(/fuller .*documentation follows/);
-  const readme = read("README.md");
-  for (const term of ["setup", "original account", "API / MCP tokens", "Reload", "published", "DEZFIL_SECRET_KEY"]) expect(readme).toContain(term);
+  // The README's run, account, token, revision and key paragraphs now live on these pages.
+  for (const [file, term] of [
+    ["docs/start/run-it.md", "setup"], ["docs/operate/self-hosting.md", "original account"], ["docs/reference/mcp.md", "API / MCP tokens"],
+    ["docs/reference/http-api.md", "Reload"], ["docs/operate/self-hosting.md", "Published links remain readable"], ["docs/operate/self-hosting.md", "DEZFIL_SECRET_KEY"],
+  ]) expect(read(file), `${file}: ${term}`).toContain(term);
 });
 
 it("distinguishes deployment settings from persisted preferences and the model catalogue", () => {

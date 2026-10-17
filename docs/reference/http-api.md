@@ -29,6 +29,8 @@ server uses.
   and links to the same document. It has no entry in the side menu; the MCP
   server card in Settings links to it.
 
+Both require sign-in or an API token.
+
 The document is hand-written in `src/lib/api/openapi.ts` and its sibling
 modules, and a check in the test suite compares it against the implemented
 route files in both directions: every route and method must be documented,
@@ -1569,6 +1571,23 @@ run id, and `GET /api/assistant/runs/{id}` re-reads it after a lost
 response. `GET /api/assistant/pending` recovers open confirmations, and
 `GET /api/assistant/policy` answers what a run on a given page admits.
 `POST /api/mcp` is the MCP endpoint; see the MCP page.
+
+The in-product assistant appears in the builder once one of `ANTHROPIC_API_KEY`
+or `OPENAI_API_KEY` is set (see [configuration](configuration.md#the-assistant)):
+it turns plain English into SQL, layers and styles, showing the SQL and
+explaining each step. Without a key the assistant is simply absent and everything
+else works unchanged. The key is a server-side secret; it never reaches the
+browser or a published page. Destructive and publishing actions ask before
+running. The model credential is per instance. Signed-in accounts can use the
+assistant it powers, with tool calls retaining the caller's current privileges.
+Unreserved messages return `assistant_reservation_required`. The builder sends
+its map and selected layer as context. Text deltas arrive during generation;
+complete message events remain available. Duplicate submissions return a JSON
+snapshot without repeating work. Recovery is bounded in-memory working state;
+the API documents expiry, release and capacity refusal. The policy read
+(`GET /api/assistant/policy?page=builder|sql|workflow`) answers what a run under
+that page admits and is offered at the start, and whether it can discover the
+rest; the same modules decide for the message route.
 
 ## How errors are shaped
 

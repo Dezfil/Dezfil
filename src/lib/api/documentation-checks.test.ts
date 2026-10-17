@@ -37,7 +37,7 @@ it("rejects source enum/catalogue disagreement and a dropped generated tool", ()
   expect(checkContractDocs(changed, tools, docs).length).toBeGreaterThan(0);
   expect(checkContractDocs(document, tools.slice(1), docs).length).toBeGreaterThan(0);
 });
-const readers = Object.fromEntries(["README.md", "AGENTS.md", "docs/reference/configuration.md", "docs/operate/self-hosting.md", "docs/operate/runbook.md", "docs/reference/http-api.md", "docs/reference/mcp.md", "plugins/dezfil/skills/dezfil/analysis.md", "src/components/settings/WorkspaceCard.tsx"].map(file => [file, read(file)]));
+const readers = Object.fromEntries(["README.md", "AGENTS.md", "docs/reference/configuration.md", "docs/operate/self-hosting.md", "docs/operate/runbook.md", "docs/reference/http-api.md", "docs/reference/mcp.md", "docs/start/run-it.md", "docs/guides/templates.md", "docs/reference/sql-limits.md", "docs/develop/checks-and-testing.md", "plugins/dezfil/skills/dezfil/analysis.md", "src/components/settings/WorkspaceCard.tsx"].map(file => [file, read(file)]));
 it("accepts the shipped reader guidance", () => { expect(checkReaderDocs(readers)).toEqual([]); });
 it.each([
   ["docs/reference/configuration.md", "Dezfil is configured entirely through environment variables."],

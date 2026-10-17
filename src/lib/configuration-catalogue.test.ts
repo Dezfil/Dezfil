@@ -11,7 +11,7 @@ import { addressRows, serviceNumberRows } from "@/components/settings/data-table
 const root = process.cwd();
 const scratch = mkdtempSync(path.join(process.env.DEZFIL_DATA_DIR!, "configuration-check-"));
 afterAll(() => rmSync(scratch, { recursive: true, force: true }));
-/** The one document the check holds: the README links to it and carries no table. */
+/** The one document the check holds: the README carries no table. */
 const guides = ["docs/reference/configuration.md"] as const;
 const originals = Object.fromEntries(guides.map(file => [file, readFileSync(path.join(root, file), "utf8")]));
 const variable = "DEZFIL_UPLOAD_MAX_MB";
@@ -54,7 +54,6 @@ it("checks the real configuration page against the catalogue and retains the scr
 it("holds the configuration page alone: the README carries no table, and a row removed from the page fails", () => {
   const readme = readFileSync(path.join(root, "README.md"), "utf8");
   expect(readme.split("\n").filter(line => /^\|\s*`[A-Z][A-Z0-9_]+`/.test(line))).toEqual([]);
-  expect(readme).toContain("](docs/reference/configuration.md)");
   expect(check().status).toBe(0);
   const removed = check("docs/reference/configuration.md", text => changeRow(text, "DEZFIL_QUERY_TIMEOUT_S", () => "\0").replace("\0\n", ""));
   expect(removed.status, removed.output).toBe(1);

@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import path from 'node:path';
 
-export const READER_FILES = ['README.md', 'AGENTS.md', 'docs/reference/configuration.md', 'docs/operate/self-hosting.md', 'docs/operate/runbook.md', 'docs/reference/http-api.md', 'docs/reference/mcp.md', 'plugins/dezfil/skills/dezfil/analysis.md', 'src/components/settings/WorkspaceCard.tsx'];
+export const READER_FILES = ['README.md', 'AGENTS.md', 'docs/reference/configuration.md', 'docs/operate/self-hosting.md', 'docs/operate/runbook.md', 'docs/reference/http-api.md', 'docs/reference/mcp.md', 'docs/start/run-it.md', 'docs/guides/templates.md', 'docs/reference/sql-limits.md', 'docs/develop/checks-and-testing.md', 'plugins/dezfil/skills/dezfil/analysis.md', 'src/components/settings/WorkspaceCard.tsx'];
 const superseded = [
   /deletion operations are not exposed yet/i,
   /fuller (?:account )?documentation follows/i,

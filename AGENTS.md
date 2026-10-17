@@ -90,8 +90,8 @@ change can plausibly break, and all of them before calling it done.
 those checks and the suite on a pull request, then builds the container image
 and drives the documented API through it after a merge. The browser suite is
 not in it: run it yourself, on an instance you provisioned for it. The
-required and optional variables are listed under "Develop" in
-[README.md](README.md).
+required and optional variables are listed in
+[checks and testing](docs/develop/checks-and-testing.md).
 
 **A change ships with its tests.** Prefer a test that fails before the
 change and passes after it. A test that cannot fail is worse than no test:
