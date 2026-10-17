@@ -2,7 +2,7 @@
 // (a file replaced only when its bytes changed, a row's version and date
 // moving only with its file), its scene list, the WebP header it reads back
 // and the catalogue folder it serves the Templates page from.
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import sharp from "sharp";
@@ -21,7 +21,7 @@ import { manifestText, planRun } from "../../scripts/docs-pictures-manifest.mjs"
 import { SCENES, STATES } from "../../scripts/docs-pictures-scenes.mjs";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: as above.
-import { writeCatalogue } from "../../scripts/docs-pictures-instance.mjs";
+import { freePort, makeScratch, startServer, writeCatalogue } from "../../scripts/docs-pictures-instance.mjs";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: as above.
 import { placeOf } from "../../scripts/docs-contract.mjs";
@@ -195,6 +195,46 @@ describe("the catalogue folder", () => {
     for (const entry of entries) {
       expect(readFileSync(entry.pictureAddresses.light).subarray(1, 4).toString()).toBe("PNG");
       expect(entry.archive.startsWith(folder)).toBe(true);
+    }
+  });
+});
+
+describe("the picture script's server", () => {
+  // A stand-in checkout whose server starts, records its process id in the
+  // data directory and then never answers: the script must stop it before
+  // giving up, or it outlives the scratch folder it was started over.
+  const root = mkdtempSync(join(scratch, "checkout-"));
+  mkdirSync(join(root, "scripts"));
+  mkdirSync(join(root, "node_modules/next/dist/bin"), { recursive: true });
+  writeFileSync(join(root, "scripts/ingress-preload.mjs"), "");
+  writeFileSync(join(root, "scripts/docs-pictures-observer.mjs"), "");
+  // With a file named "answer" in the data directory it does answer the
+  // health check, but the empty observer never writes the request file.
+  writeFileSync(join(root, "node_modules/next/dist/bin/next"), [
+    'const { existsSync, writeFileSync } = require("node:fs");',
+    'const { join } = require("node:path");',
+    'const data = process.env.DEZFIL_DATA_DIR;',
+    'writeFileSync(join(data, "pid"), String(process.pid));',
+    'if (existsSync(join(data, "answer"))) require("node:http").createServer((_, res) => res.end("ok")).listen(Number(process.argv.at(-1)), "127.0.0.1");',
+    "else setInterval(() => {}, 1000);",
+  ].join("\n"));
+  const alive = (pid: number) => { try { process.kill(pid, 0); return true; } catch { return false; } };
+
+  it.each([
+    ["never becomes ready", false, /did not answer/],
+    ["answers without the request observer", true, /request observer did not load/],
+  ])("stops a server that %s before reporting the failure", async (_, answer, message) => {
+    const folder = await makeScratch();
+    if (answer) writeFileSync(join(folder.data, "answer"), "");
+    let pid = 0;
+    try {
+      await expect(startServer({ root, port: await freePort(), scratch: folder, readyWithin: 1000 })).rejects.toThrow(message);
+      pid = Number(readFileSync(join(folder.data, "pid"), "utf8"));
+      expect(pid).toBeGreaterThan(0);
+      expect(alive(pid)).toBe(false);
+    } finally {
+      if (pid && alive(pid)) process.kill(pid, "SIGKILL");
+      rmSync(folder.folder, { recursive: true, force: true });
     }
   });
 });

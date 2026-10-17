@@ -97,7 +97,7 @@ export function assertBuiltCheckout(root) {
  * the scratch data directory and catalogue folder, telemetry off, nothing
  * inherited but the path and the home folder.
  */
-export async function startServer({ root, port, scratch }) {
+export async function startServer({ root, port, scratch, readyWithin = 60_000 }) {
   const observer = pathToFileURL(path.join(root, "scripts/docs-pictures-observer.mjs")).href;
   const env = {
     PATH: process.env.PATH,
@@ -117,25 +117,30 @@ export async function startServer({ root, port, scratch }) {
   child.stdout.on("data", (chunk) => { output += chunk; });
   child.stderr.on("data", (chunk) => { output += chunk; });
   const base = `http://127.0.0.1:${port}`;
-  for (let attempt = 0; attempt < 240; attempt += 1) {
-    if (child.exitCode !== null) throw new Error(`The instance stopped while starting:\n${output}`);
-    try {
-      if ((await fetch(`${base}/api/health`)).ok) break;
-    } catch { /* not listening yet */ }
-    await new Promise((resolve) => setTimeout(resolve, 250));
-    if (attempt === 239) throw new Error(`The instance did not answer /api/health within a minute:\n${output}`);
-  }
-  assert.ok(existsSync(scratch.requests), "The request observer did not load into the server.");
-  return {
-    base,
-    output: () => output,
-    async stop() {
-      if (child.exitCode !== null) return;
-      const exited = once(child, "exit");
-      child.kill("SIGTERM");
-      await exited;
-    },
+  const stop = async () => {
+    if (child.exitCode !== null || child.signalCode !== null) return;
+    const exited = once(child, "exit");
+    child.kill("SIGTERM");
+    await exited;
   };
+  // A start that fails stops the child before it reports, so no server is
+  // left running over the scratch folder the caller is about to remove.
+  try {
+    const deadline = Date.now() + readyWithin;
+    for (;;) {
+      if (child.exitCode !== null || child.signalCode !== null) throw new Error(`The instance stopped while starting:\n${output}`);
+      try {
+        if ((await fetch(`${base}/api/health`)).ok) break;
+      } catch { /* not listening yet */ }
+      if (Date.now() >= deadline) throw new Error(`The instance did not answer /api/health within ${readyWithin / 1000} s:\n${output}`);
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+    assert.ok(existsSync(scratch.requests), "The request observer did not load into the server.");
+  } catch (error) {
+    await stop();
+    throw error;
+  }
+  return { base, output: () => output, stop };
 }
 
 /** The requests the server opened during the run, from the observer's file. */
