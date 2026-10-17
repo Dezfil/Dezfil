@@ -1,4 +1,14 @@
-# Architecture
+---
+title: "Architecture"
+summary: "How the one container is put together: the web application, the metadata database, the query engine and the files under one data directory."
+read_when:
+  - "you change the code and need to know where a piece lives"
+  - "you want to know why there is no second service"
+audience:
+  - developer
+  - agent
+checked: none
+---
 
 Dezfil is one container. Inside it are a web application, an embedded
 metadata database, and a spatial query engine that reads files. There is no

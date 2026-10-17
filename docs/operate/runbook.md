@@ -1,4 +1,15 @@
-# Runbook
+---
+title: "Runbook"
+summary: "Recipes for the work around an instance: running it locally, backups, upgrades, account recovery, the checks and the outside probes."
+read_when:
+  - "you back up, restore or upgrade an instance"
+  - "you recover an admin account"
+  - "you run the checks, the browser suite or a probe on an instance of your own"
+audience:
+  - operator
+  - developer
+checked: none
+---
 
 Operational recipes for running a self hosted instance: the things an owner
 does around the container rather than inside the app. Each section stands on

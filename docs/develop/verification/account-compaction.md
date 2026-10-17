@@ -1,4 +1,12 @@
-# Account store compaction proof
+---
+title: "Account store compaction proof"
+summary: "How to prove that compacting the shared account store after a deletion finishes in place while a separate process keeps probing the server."
+read_when:
+  - "you change account deletion or the metadata store's compaction"
+audience:
+  - developer
+checked: none
+---
 
 The compaction primitive is internal; the public deletion routes drive it through
 the deletion coordinator.

@@ -1,4 +1,14 @@
-# Self-hosting
+---
+title: "Self-hosting"
+summary: "What to decide before you put data in an instance, what the instance keeps, and what it sends out."
+read_when:
+  - "you run an instance for yourself or for others"
+  - "you put Dezfil behind a reverse proxy"
+  - "you need to know what leaves the instance"
+audience:
+  - operator
+checked: none
+---
 
 This page is for the person who runs the instance. It covers what to decide before
 you put data in it, what the instance keeps, and what it sends out.

@@ -1,4 +1,13 @@
-# How this is built
+---
+title: "How this is built"
+summary: "The method behind the repository: each change described as behavior first, written largely by AI coding agents and reviewed before it lands."
+read_when:
+  - "you plan to contribute a change"
+  - "you wonder why the repository looks the way it does"
+audience:
+  - developer
+checked: none
+---
 
 This project is written largely by AI coding agents, under a method that is worth
 stating plainly: it explains why the repository looks the way it does, and it tells a

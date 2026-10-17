@@ -1,4 +1,12 @@
-# Account deletion on the built application
+---
+title: "Account deletion on the built application"
+summary: "Proofs that account deletion erases rows, files and the store's free pages on the built application and in the container image."
+read_when:
+  - "you change account deletion and need the built-image evidence"
+audience:
+  - developer
+checked: none
+---
 
 Run these from a built, detached linked candidate checkout outside the editing
 environment, using its matching production standalone or image.

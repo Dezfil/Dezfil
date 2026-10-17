@@ -1,4 +1,15 @@
-# The HTTP API
+---
+title: "The HTTP API"
+summary: "How the HTTP API is organised: where its description is served, how sign-in, revisions and errors work, and where the exact rules live."
+read_when:
+  - "you script Dezfil over HTTP"
+  - "you look for the operation that does a thing"
+  - "a request is refused and you want to know why"
+audience:
+  - developer
+  - agent
+checked: none
+---
 
 Everything Dezfil can do is an HTTP call. The user interface is a client of
 this API and has no private path to the engine, so anything you can do by

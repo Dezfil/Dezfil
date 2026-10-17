@@ -1,4 +1,12 @@
-# Accepted deletion admission proofs
+---
+title: "Accepted deletion admission proofs"
+summary: "Proofs on a built candidate that pages stop serving a deleted owner's content and that deletion survives a restart."
+read_when:
+  - "you change what happens to admitted work when an account is deleted"
+audience:
+  - developer
+checked: none
+---
 
 Run these from a built, detached candidate checkout outside the editing
 environment. Every command supplies a new empty scratch store. No deletion

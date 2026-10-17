@@ -1,4 +1,12 @@
-# TLS, browser transport and paired render timing
+---
+title: "TLS, browser transport and paired render timing"
+summary: "Outside probes for image exports: private certificate trust, the browser transport and paired render timing against a baseline image."
+read_when:
+  - "you change the image export renderer or its relay and need timing evidence"
+audience:
+  - developer
+checked: none
+---
 
 These probes run outside CI, from this checkout on one idle Docker host. Build
 and name the candidate image first. Keep the baseline image built from `2aded21`

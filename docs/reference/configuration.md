@@ -1,4 +1,15 @@
-# Configuration
+---
+title: "Configuration"
+summary: "Every setting an instance reads, with its default, what it does, and whether it changes live in Settings or needs a restart."
+read_when:
+  - "you set an environment variable for an instance"
+  - "you want to know a setting's default"
+  - "you need to know whether a change applies live or after a restart"
+audience:
+  - operator
+  - agent
+checked: none
+---
 
 The catalogue defines every deployment setting. Their defaults allow a local
 instance to start without deployment configuration. The editable limits, the four

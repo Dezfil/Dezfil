@@ -1,4 +1,12 @@
-# Upgrade and recovery after deleting the original account
+---
+title: "Upgrade and recovery after deleting the original account"
+summary: "Proofs that an upgraded store keeps working, and an admin can still be recovered, after the original account is deleted."
+read_when:
+  - "you change account upgrade, setup or admin recovery"
+audience:
+  - developer
+checked: none
+---
 
 Run outside the editing environment, from a built, detached linked candidate
 checkout with the locked dependencies. Container arms use an image built from that

@@ -1,4 +1,12 @@
-# Provider cancellation probes
+---
+title: "Provider cancellation probes"
+summary: "Probes that place search and basemap inspection stop their outbound calls when the caller leaves or replaces the request."
+read_when:
+  - "you change the geocoder, basemap inspection or how a request is cancelled"
+audience:
+  - developer
+checked: none
+---
 
 Place search carries its caller's abort signal through the shared geocoder
 capacity wait and the whole outbound exchange. The advisory custom-basemap

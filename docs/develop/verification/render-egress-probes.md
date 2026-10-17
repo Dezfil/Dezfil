@@ -1,4 +1,12 @@
-# Renderer destination probes
+---
+title: "Renderer destination probes"
+summary: "Probes that the image export renderer reaches only the destinations it may, from the image job's gate to the wider matrix."
+read_when:
+  - "you change where the image export renderer may connect"
+audience:
+  - developer
+checked: none
+---
 
 These are assertion-bearing probes for the built image and the relay. Their
 socket/browser outcomes require an outside run. Pure parser, admission and

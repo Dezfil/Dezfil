@@ -1,4 +1,16 @@
-# The MCP server
+---
+title: "The MCP server"
+summary: "How an AI agent reaches an instance over the Model Context Protocol: the endpoint, sign-in, the generated tools and the agent plugin."
+read_when:
+  - "you connect an AI agent or MCP client to an instance"
+  - "you want to know which operations an agent can call"
+  - "you install the agent plugin"
+audience:
+  - user
+  - developer
+  - agent
+checked: none
+---
 
 Dezfil serves its own API to AI agents over the Model Context Protocol. The
 agent brings its own model; the instance supplies the tools, their schemas,
