@@ -734,8 +734,8 @@ same frames give the same bytes; the first frame is its poster. A recording
 over 1,500,000 bytes fails the run: hold fewer frames or declare a crop,
 never a smaller scale. The run fails, writing nothing, when the
 server opened any request (an observer in its preload chain writes each one
-down), when a page asked for an address off the instance, or when a file is
-over its bound. A file is replaced only when its bytes changed, and its
+down; `--keep-requests <file>` keeps its file), when a page asked for an
+address off the instance, or when a file is over its bound. A file is replaced only when its bytes changed, and its
 manifest row's version and date move with it, so a second run on the same
 build changes nothing. `--only <scene>,<scene>` takes some scenes and keeps
 the others' rows. After changing a surface a scene shows, run it and commit

@@ -7,6 +7,8 @@
 //   npm run docs:pictures                      # every scene
 //   npm run docs:pictures -- --only setup-card # some scenes, comma-separated
 //   npm run docs:pictures -- --port 3290       # a port of your choosing
+//   npm run docs:pictures -- --keep-requests <file>
+//                                              # keep the observer's file
 //
 // It provisions a production server of the checkout's build on loopback, on
 // a port of its own, over a scratch directory it creates under the system's
@@ -21,7 +23,7 @@
 // bytes changed, with the manifest beside them. Commit what changed.
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
@@ -32,7 +34,7 @@ import { SCENES, STATES } from "./docs-pictures-scenes.mjs";
 import { PICTURE_AIM_BYTES, PICTURE_MAX_BYTES, RECORDING_MAX_BYTES, RECORDINGS_MAX } from "./docs-media.mjs";
 
 const root = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
-const { values } = parseArgs({ options: { only: { type: "string" }, port: { type: "string" } } });
+const { values } = parseArgs({ options: { only: { type: "string" }, port: { type: "string" }, "keep-requests": { type: "string" } } });
 const only = values.only ? new Set(values.only.split(",").map((id) => id.trim()).filter(Boolean)) : null;
 if (only) for (const id of only) assert.ok(SCENES.some((scene) => scene.id === id), `There is no scene ${id}.`);
 const chosen = SCENES.filter((scene) => !only || only.has(scene.id));
@@ -78,8 +80,10 @@ try {
     }
     assert.deepEqual(foreign, [], `The ${state} scenes' pages asked for addresses off the instance.`);
   }
+  if (values["keep-requests"]) await copyFile(scratch.requests, path.resolve(values["keep-requests"]));
   const requests = await serverRequests(scratch);
   assert.deepEqual(requests, [], "The server opened requests during the run; every picture must come from the run alone.");
+  console.log("The server opened no request: the observer's file is empty.");
 } catch (error) {
   if (server) console.error(server.output().split("\n").slice(-40).join("\n"));
   throw error;

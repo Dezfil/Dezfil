@@ -4,6 +4,8 @@ Self-hosted spatial SQL and map publishing, powered by DuckDB and files.
 Upload geospatial data, query it with SQL, style it on a map, publish a
 shareable view — from one container.
 
+![The Templates page of a Dezfil instance: a search box, tag chips and the cards of two finished maps and a workflow example](docs/images/guides/templates.webp)
+
 > Status: pre-release, under active development.
 
 ## Run it

@@ -38,6 +38,8 @@ same volume. To move to another machine, stop the container and copy the
 whole directory and preserve any externally supplied `DEZFIL_SECRET_KEY`. Running without
 the volume works, but state then lasts only for that container's lifetime.
 
+![The first-run setup card, asking for the name, email and password of the account that becomes the instance's admin](../images/start/setup-card.webp)
+
 On first run, create the initial admin account. Application pages and APIs
 require a session or an account API token; admins manage accounts in Users,
 and the instance name, the sign-in page, the defaults for new maps, layers and
