@@ -334,7 +334,8 @@ const decode = (value) => { try { return decodeURIComponent(value); } catch { re
  *
  * `files` lists the repository's files as POSIX paths from its root; `read`
  * returns a file's text. The lint passes the files git knows; the tests pass
- * a fixture tree. */
+ * a fixture tree. Returns the problems, the pages, and the files under
+ * docs/images/ the pages use. */
 export function checkTree({ files, read, on = today() }) {
   const problems = [];
   const fileSet = new Set(files);
@@ -414,6 +415,8 @@ export function checkTree({ files, read, on = today() }) {
   }
 
   const importedFiles = new Set(IMPORTED.map((entry) => entry.file));
+  // The files under docs/images/ the pages use, for the manifest's rules.
+  const used = new Set();
   const isDocument = (file) => pages.includes(file) || importedFiles.has(file);
 
   for (const [file, page] of parsed) {
@@ -425,6 +428,7 @@ export function checkTree({ files, read, on = today() }) {
       if (ref.type === "image") {
         if (!target || external || target.startsWith("/")) { where("image.outside-images", `${target || "an empty source"} is not a file under docs/images/`); continue; }
         const resolved = posix.normalize(posix.join(posix.dirname(file), decode(target.split(/[?#]/)[0])));
+        if (resolved.startsWith("docs/images/")) used.add(resolved);
         if (!resolved.startsWith("docs/images/")) where("image.outside-images", `${target} is not under docs/images/`);
         else if (!fileSet.has(resolved)) where("image.missing", `${target} does not exist`);
         else if (!listed.has(resolved.slice("docs/images/".length))) where("image.not-in-manifest", `${target} has no row in docs/images/manifest.json`);
@@ -482,7 +486,7 @@ export function checkTree({ files, read, on = today() }) {
     }
   }
 
-  return { problems, pages };
+  return { problems, pages, used };
 }
 
 /** Pages in their reading order: by `order` first (pages without one after

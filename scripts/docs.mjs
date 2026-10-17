@@ -7,8 +7,9 @@
 // server serves, with no server. Check mode (`npm run lint:docs`) holds
 // the page contract for every page under docs/ (the frontmatter, the
 // headings, the links and pictures, the addresses each page owns and the old
-// addresses it lists) and the generated files' freshness, and names each
-// problem with its file and rule. The rules live in docs-contract.mjs.
+// addresses it lists), the image manifest against the files it lists, and
+// the generated files' freshness, and names each problem with its file and
+// rule. The rules live in docs-contract.mjs and docs-manifest.mjs.
 //
 // Usage:
 //   node scripts/docs.mjs --check               # the repository
@@ -21,6 +22,7 @@ import path from "node:path";
 import { parseArgs } from "node:util";
 import { contractSource } from "./contract-source.mjs";
 import { DESCRIPTION_FILE, checkDescription, checkIndex, checkTree, descriptionText, formatProblem, generateIndex, reader } from "./docs-contract.mjs";
+import { checkManifest } from "./docs-manifest.mjs";
 
 const { values } = parseArgs({ options: { check: { type: "boolean" }, write: { type: "boolean" }, root: { type: "string" } } });
 const root = path.resolve(values.root ?? process.cwd());
@@ -61,7 +63,8 @@ if (values.write) {
 }
 
 const files = repositoryFiles();
-const { problems, pages } = checkTree({ files, read });
+const { problems, pages, used } = checkTree({ files, read });
+problems.push(...checkManifest({ files, read, readBytes: (file) => readFileSync(path.join(root, file)), used }));
 problems.push(...checkIndex({ files, read }));
 if (document) {
   const committed = existsSync(path.join(root, DESCRIPTION_FILE)) ? readFileSync(path.join(root, DESCRIPTION_FILE), "utf8") : null;
@@ -72,4 +75,5 @@ if (problems.length) {
   console.error(`FAIL: ${problems.length} documentation problem(s).`);
   process.exit(1);
 }
-console.log(`PASS: ${pages.length} pages hold the page contract; the index${document ? " and the API description file are" : " is"} current.`);
+const media = files.includes("docs/images/manifest.json") ? " The image manifest matches its files." : "";
+console.log(`PASS: ${pages.length} pages hold the page contract; the index${document ? " and the API description file are" : " is"} current.${media}`);
