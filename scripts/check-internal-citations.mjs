@@ -32,6 +32,13 @@ const PATTERNS = [
   { re: /design\/prototypes/g, what: "a dropped design folder" },
   { re: /[Pp]hase [0-9]+(?:\.[0-9]+)?/g, what: "a phase of the private history" },
   { re: /phase-[0-9]+(?:\.[0-9]+)?/g, what: "a phase folder" },
+  // The private review record's own files. A public description of how a
+  // change is reviewed stays allowed: these are the shapes of the record's
+  // files and folder, never the words "review" or "round" in prose.
+  { re: /reviews\/[\w./-]*/g, what: "a review record folder" },
+  { re: /[\w.-]*findings\.md/g, what: "a review findings file" },
+  { re: /[\w.-]*reconciliation\.md/g, what: "a review reconciliation" },
+  { re: /[\w.-]*(?<![A-Za-z])(?:review|codex)[\w.-]*\.log(?:\.gz)?/g, what: "a review log" },
 ];
 
 // The two guards must hold these shapes as pattern literals: rejecting a
@@ -45,7 +52,7 @@ const ALLOWLIST = new Set([
 
 const BINARY_EXTENSIONS = new Set([
   "png", "jpg", "jpeg", "gif", "ico", "webp", "woff", "woff2", "pmtiles",
-  "parquet", "sqlite", "duckdb", "zip", "gz",
+  "parquet", "sqlite", "duckdb", "zip", "gz", "webm",
 ]);
 
 function trackedFiles() {

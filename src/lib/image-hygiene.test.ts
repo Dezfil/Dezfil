@@ -157,7 +157,7 @@ describe("image inventory judge", () => {
       "f /app/data/secret.key",
       "f /app/data/metadata.sqlite",
       "f /app/.git/HEAD",
-      "f /app/docs/runbook.md",
+      "f /app/docs/operate/runbook.md",
       "f /app/.env.production",
       "f /app/leftovers/scratch.txt",
     ]);

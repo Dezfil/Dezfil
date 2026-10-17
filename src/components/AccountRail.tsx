@@ -3,13 +3,14 @@
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import type { Account } from "@/lib/metadata/accounts";
-import { RailSettingsLink, RailUsersLink } from "./NavLinks";
+import { RailDocsLink, RailSettingsLink, RailUsersLink } from "./NavLinks";
 import { DISPLAY_NAME_EVENT, UserBadge } from "./UserBadge";
 import { accountRequest } from "./settings/api";
 
 export function AccountRailView({ account }: { account: Account | null }) {
   return <>
     {account?.isAdmin && <RailUsersLink />}
+    <RailDocsLink />
     <RailSettingsLink />
     <UserBadge account={account} />
   </>;

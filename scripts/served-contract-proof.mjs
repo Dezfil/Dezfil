@@ -49,8 +49,7 @@ try {
   await client.connect(new StreamableHTTPClientTransport(new URL(base + '/api/mcp'), { fetch: account.fetch }));
   const tools = []; let cursor;
   do { const page = await client.listTools(cursor ? { cursor } : {}); tools.push(...page.tools); cursor = page.nextCursor; } while (cursor);
-  const docs = Object.fromEntries(['api', 'mcp'].map(key => [key, readFileSync(`docs/${key}.md`, 'utf8')]));
-  docs.proof = readFileSync('docs/testing/account-deletion-guidance.md', 'utf8');
+  const docs = { api: readFileSync('docs/reference/http-api.md', 'utf8'), mcp: readFileSync('docs/reference/mcp.md', 'utf8'), proof: readFileSync('docs/develop/verification/account-deletion-guidance.md', 'utf8') };
   const baseline = JSON.parse(readFileSync('test-support/assistant-baselines/mcp-tools-list.json', 'utf8'));
   const guidance = readFileSync('plugins/dezfil/skills/dezfil/analysis.md', 'utf8');
   const problems = checkServedContract({ document, sourceDocument: source.document, tools, derivedTools: source.tools, docs, baseline, guidance, expectedGuidance });

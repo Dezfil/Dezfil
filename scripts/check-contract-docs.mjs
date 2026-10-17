@@ -85,7 +85,7 @@ export function checkContractDocs(document, tools, docs) {
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const { document, tools } = await contractSource();
   const directory = process.argv.includes('--docs-dir') ? process.argv[process.argv.indexOf('--docs-dir') + 1] : 'docs';
-  const docs = { api: readFileSync(path.join(directory, 'api.md'), 'utf8'), mcp: readFileSync(path.join(directory, 'mcp.md'), 'utf8'), proof: readFileSync(path.join(directory, 'testing/account-deletion-guidance.md'), 'utf8') };
+  const docs = { api: readFileSync(path.join(directory, 'reference/http-api.md'), 'utf8'), mcp: readFileSync(path.join(directory, 'reference/mcp.md'), 'utf8'), proof: readFileSync(path.join(directory, 'develop/verification/account-deletion-guidance.md'), 'utf8') };
   const problems = checkContractDocs(document, tools, docs);
   for (const problem of problems) console.error(problem);
   if (problems.length) process.exitCode = 1;

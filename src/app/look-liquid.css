@@ -1,14 +1,18 @@
 /* ============================================================
-   Liquid: every card and panel as liquid glass, in one recipe. While
-   Panels is Liquid the workspace root carries data-look-panels="liquid"
-   and every role is restated here with the same material, so every
-   surface follows and no surface is liquid in a way of its own. No rule
-   names a component: a surface reads its role and nothing else.
+   Liquid: every card and panel as clear liquid glass, in one recipe.
+   While Panels is Liquid the workspace root carries
+   data-look-panels="liquid" and every role is restated here with the
+   same material, so every surface follows and no surface is liquid in a
+   way of its own. No rule names a component: a surface reads its role
+   and nothing else.
 
    The recipe, by day and by night:
-   - one fill: the panel tone under a faint tint, folded into one colour,
-     strong enough that text reads on it over any map;
-   - one blur (24 px) and one bend (18 px at most, less on a small
+   - one clear fill: the panel tone under a faint tint, folded into one
+     colour, about half solid by day so the map shows through; by night
+     a little firmer, as much as the quiet text needs to read over the
+     brightest data colours; a dialog, over its veil, a touch firmer by
+     day for the same reason;
+   - one light blur (6 px) and one bend (26 px at most, less on a small
      surface), on every role that floats;
    - no edge line: a role with a hairline keeps its width in a
      transparent line, so nothing moves when the look is switched;
@@ -22,7 +26,8 @@
    A block inside a panel takes the fill and the light and no blur or
    bend: the browser shows it nothing but the panel's own fill. The
    map's own frame keeps the floating drop alone, and a map button does
-   not grow under the pointer.
+   not grow under the pointer. Over the clear fill the quiet text steps
+   toward the full ink, so it reads over the map.
 
    The recipe also dresses the pictures of the other picks, which show
    the person's look, and the Liquid picture of Panels. Where the browser
@@ -37,8 +42,8 @@
 :root[data-look-panels="liquid"] [data-picture-corners],
 :root [data-picture-panels="liquid"] {
   /* Header and side menu: the header card and its buttons, the search field, the side menu at rest, the save chip, the draw dock */
-  --surface-glass-chrome-fill: color-mix(in srgb, #fff 8%, var(--bg-panel) 82.8%);
-  --surface-glass-chrome-blur: blur(24px);
+  --surface-glass-chrome-fill: color-mix(in srgb, #fff 10%, var(--bg-panel) 36%);
+  --surface-glass-chrome-blur: blur(6px);
   --surface-glass-chrome-edge: none;
   --surface-glass-chrome-shadow:
     inset 1px 1px 0 rgba(255, 255, 255, 0.9),
@@ -46,11 +51,11 @@
     inset 0 0 14px rgba(255, 255, 255, 0.144),
     0 1px 1px color-mix(in srgb, var(--shadow) 20%, transparent),
     0 12px 32px -6px color-mix(in srgb, var(--shadow) 85%, transparent);
-  --surface-glass-chrome-lens: 18;
+  --surface-glass-chrome-lens: 26;
 
   /* Side panels: the inspector, Tools, the Assistant, the SQL page's and the canvas's panes */
-  --surface-glass-panel-fill: color-mix(in srgb, #fff 8%, var(--bg-panel) 82.8%);
-  --surface-glass-panel-blur: blur(24px);
+  --surface-glass-panel-fill: color-mix(in srgb, #fff 10%, var(--bg-panel) 36%);
+  --surface-glass-panel-blur: blur(6px);
   --surface-glass-panel-edge: none;
   --surface-glass-panel-shadow:
     inset 1px 1px 0 rgba(255, 255, 255, 0.9),
@@ -58,11 +63,11 @@
     inset 0 0 14px rgba(255, 255, 255, 0.144),
     0 1px 1px color-mix(in srgb, var(--shadow) 20%, transparent),
     0 12px 32px -6px color-mix(in srgb, var(--shadow) 85%, transparent);
-  --surface-glass-panel-lens: 18;
+  --surface-glass-panel-lens: 26;
 
   /* Over the map: the legend, the status pill, the timeline, the readouts and notices */
-  --surface-overlay-panel-fill: color-mix(in srgb, #fff 8%, var(--bg-panel) 82.8%);
-  --surface-overlay-panel-blur: blur(24px);
+  --surface-overlay-panel-fill: color-mix(in srgb, #fff 10%, var(--bg-panel) 36%);
+  --surface-overlay-panel-blur: blur(6px);
   --surface-overlay-panel-edge: none;
   --surface-overlay-panel-shadow:
     inset 1px 1px 0 rgba(255, 255, 255, 0.9),
@@ -70,11 +75,11 @@
     inset 0 0 14px rgba(255, 255, 255, 0.144),
     0 1px 1px color-mix(in srgb, var(--shadow) 20%, transparent),
     0 12px 32px -6px color-mix(in srgb, var(--shadow) 85%, transparent);
-  --surface-overlay-panel-lens: 18;
+  --surface-overlay-panel-lens: 26;
 
   /* The map's buttons and the small marks over cards and pictures, which no longer grow under the pointer */
-  --surface-overlay-control-fill: color-mix(in srgb, #fff 8%, var(--bg-panel) 82.8%);
-  --surface-overlay-control-blur: blur(24px);
+  --surface-overlay-control-fill: color-mix(in srgb, #fff 10%, var(--bg-panel) 36%);
+  --surface-overlay-control-blur: blur(6px);
   --surface-overlay-control-edge: none;
   --surface-overlay-control-shadow:
     inset 1px 1px 0 rgba(255, 255, 255, 0.9),
@@ -82,12 +87,12 @@
     inset 0 0 14px rgba(255, 255, 255, 0.144),
     0 1px 1px color-mix(in srgb, var(--shadow) 20%, transparent),
     0 12px 32px -6px color-mix(in srgb, var(--shadow) 85%, transparent);
-  --surface-overlay-control-lens: 18;
+  --surface-overlay-control-lens: 26;
   --surface-overlay-control-grow: none;
 
   /* The cards floating over the map: the widget cards and their menu */
-  --surface-map-card-fill: color-mix(in srgb, #fff 8%, var(--bg-panel) 82.8%);
-  --surface-map-card-blur: blur(24px);
+  --surface-map-card-fill: color-mix(in srgb, #fff 10%, var(--bg-panel) 36%);
+  --surface-map-card-blur: blur(6px);
   --surface-map-card-edge: 1px solid transparent;
   --surface-map-card-shadow:
     inset 1px 1px 0 rgba(255, 255, 255, 0.9),
@@ -95,11 +100,11 @@
     inset 0 0 14px rgba(255, 255, 255, 0.144),
     0 1px 1px color-mix(in srgb, var(--shadow) 20%, transparent),
     0 12px 32px -6px color-mix(in srgb, var(--shadow) 85%, transparent);
-  --surface-map-card-lens: 18;
+  --surface-map-card-lens: 26;
 
   /* Page cards, rising under the pointer */
-  --surface-page-card-fill: color-mix(in srgb, #fff 8%, var(--bg-panel) 82.8%);
-  --surface-page-card-blur: blur(24px);
+  --surface-page-card-fill: color-mix(in srgb, #fff 10%, var(--bg-panel) 36%);
+  --surface-page-card-blur: blur(6px);
   --surface-page-card-edge: 1px solid transparent;
   --surface-page-card-shadow:
     inset 1px 1px 0 rgba(255, 255, 255, 0.9),
@@ -114,11 +119,11 @@
     0 1px 1px color-mix(in srgb, var(--shadow) 20%, transparent),
     0 24px 64px -12px var(--shadow);
   --surface-page-card-edge-hover: 1px solid transparent;
-  --surface-page-card-lens: 18;
+  --surface-page-card-lens: 26;
 
   /* Cards inside panels, lying on them; lifted and dragged they rise, and a knob and a grip take the fill */
-  --surface-inner-card-fill: color-mix(in srgb, #fff 8%, var(--bg-panel) 82.8%);
-  --surface-inner-card-blur: blur(24px);
+  --surface-inner-card-fill: color-mix(in srgb, #fff 10%, var(--bg-panel) 36%);
+  --surface-inner-card-blur: blur(6px);
   --surface-inner-card-edge: 1px solid transparent;
   --surface-inner-card-shadow:
     inset 1px 1px 0 rgba(255, 255, 255, 0.9),
@@ -138,15 +143,15 @@
     inset 0 0 14px rgba(255, 255, 255, 0.144),
     0 1px 1px color-mix(in srgb, var(--shadow) 20%, transparent),
     0 24px 64px -12px var(--shadow);
-  --surface-inner-card-lens: 18;
-  --surface-inner-card-knob: color-mix(in srgb, #fff 8%, var(--bg-panel) 82.8%);
-  --surface-inner-card-mark: color-mix(in srgb, #fff 8%, var(--bg-panel) 82.8%);
+  --surface-inner-card-lens: 26;
+  --surface-inner-card-knob: color-mix(in srgb, #fff 10%, var(--bg-panel) 36%);
+  --surface-inner-card-mark: color-mix(in srgb, #fff 10%, var(--bg-panel) 36%);
   --surface-inner-card-edge-hover: 1px solid transparent;
   --surface-inner-card-edge-new: 1px dashed transparent;
 
   /* Blocks inside panels: the recipe's fill and light, lying on the panel with no blur or bend */
-  --surface-block-fill: color-mix(in srgb, #fff 8%, var(--bg-panel) 82.8%);
-  --surface-block-fill-panel: color-mix(in srgb, #fff 8%, var(--bg-panel) 82.8%);
+  --surface-block-fill: color-mix(in srgb, #fff 10%, var(--bg-panel) 36%);
+  --surface-block-fill-panel: color-mix(in srgb, #fff 10%, var(--bg-panel) 36%);
   --surface-block-edge: 1px solid transparent;
   --surface-block-shadow:
     inset 1px 1px 0 rgba(255, 255, 255, 0.9),
@@ -156,8 +161,8 @@
     0 4px 12px -4px color-mix(in srgb, var(--shadow) 50%, transparent);
 
   /* Menus and pop-overs */
-  --surface-menu-fill: color-mix(in srgb, #fff 8%, var(--bg-panel) 82.8%);
-  --surface-menu-blur: blur(24px);
+  --surface-menu-fill: color-mix(in srgb, #fff 10%, var(--bg-panel) 36%);
+  --surface-menu-blur: blur(6px);
   --surface-menu-edge: 1px solid transparent;
   --surface-menu-shadow:
     inset 1px 1px 0 rgba(255, 255, 255, 0.9),
@@ -165,13 +170,13 @@
     inset 0 0 14px rgba(255, 255, 255, 0.144),
     0 1px 1px color-mix(in srgb, var(--shadow) 20%, transparent),
     0 12px 32px -6px color-mix(in srgb, var(--shadow) 85%, transparent);
-  --surface-menu-lens: 18;
+  --surface-menu-lens: 26;
   --surface-menu-edge-strong: 1px solid transparent;
-  --surface-menu-fill-raised: color-mix(in srgb, #fff 8%, var(--bg-panel) 82.8%);
+  --surface-menu-fill-raised: color-mix(in srgb, #fff 10%, var(--bg-panel) 36%);
 
   /* Dialogs, the topmost (the veil behind them is the shipped one) */
-  --surface-dialog-fill: color-mix(in srgb, #fff 8%, var(--bg-panel) 82.8%);
-  --surface-dialog-blur: blur(24px);
+  --surface-dialog-fill: color-mix(in srgb, #fff 10%, var(--bg-panel) 40%);
+  --surface-dialog-blur: blur(6px);
   --surface-dialog-edge: 1px solid transparent;
   --surface-dialog-shadow:
     inset 1px 1px 0 rgba(255, 255, 255, 0.9),
@@ -179,7 +184,7 @@
     inset 0 0 14px rgba(255, 255, 255, 0.144),
     0 1px 1px color-mix(in srgb, var(--shadow) 20%, transparent),
     0 24px 64px -12px var(--shadow);
-  --surface-dialog-lens: 18;
+  --surface-dialog-lens: 26;
 
   /* The map's own frame: no ground of its own, the floating drop alone */
   --surface-stage-fill: transparent;
@@ -195,42 +200,42 @@
 :root[data-theme="dark"][data-look-panels="liquid"] [data-picture-contrast],
 :root[data-theme="dark"][data-look-panels="liquid"] [data-picture-corners],
 :root[data-theme="dark"] [data-picture-panels="liquid"] {
-  --surface-glass-chrome-fill: color-mix(in srgb, #000 8%, var(--bg-panel) 71.76%);
+  --surface-glass-chrome-fill: color-mix(in srgb, #000 6%, var(--bg-panel) 50%);
   --surface-glass-chrome-shadow:
     inset 1px 1px 0 rgba(255, 255, 255, 0.42),
     inset -1px -1px 0 rgba(255, 255, 255, 0.168),
     inset 0 0 14px rgba(255, 255, 255, 0.067),
     0 1px 1px rgba(0, 0, 0, 0.35),
     0 14px 36px -6px rgba(0, 0, 0, 0.55);
-  --surface-glass-panel-fill: color-mix(in srgb, #000 8%, var(--bg-panel) 71.76%);
+  --surface-glass-panel-fill: color-mix(in srgb, #000 6%, var(--bg-panel) 50%);
   --surface-glass-panel-shadow:
     inset 1px 1px 0 rgba(255, 255, 255, 0.42),
     inset -1px -1px 0 rgba(255, 255, 255, 0.168),
     inset 0 0 14px rgba(255, 255, 255, 0.067),
     0 1px 1px rgba(0, 0, 0, 0.35),
     0 14px 36px -6px rgba(0, 0, 0, 0.55);
-  --surface-overlay-panel-fill: color-mix(in srgb, #000 8%, var(--bg-panel) 71.76%);
+  --surface-overlay-panel-fill: color-mix(in srgb, #000 6%, var(--bg-panel) 50%);
   --surface-overlay-panel-shadow:
     inset 1px 1px 0 rgba(255, 255, 255, 0.42),
     inset -1px -1px 0 rgba(255, 255, 255, 0.168),
     inset 0 0 14px rgba(255, 255, 255, 0.067),
     0 1px 1px rgba(0, 0, 0, 0.35),
     0 14px 36px -6px rgba(0, 0, 0, 0.55);
-  --surface-overlay-control-fill: color-mix(in srgb, #000 8%, var(--bg-panel) 71.76%);
+  --surface-overlay-control-fill: color-mix(in srgb, #000 6%, var(--bg-panel) 50%);
   --surface-overlay-control-shadow:
     inset 1px 1px 0 rgba(255, 255, 255, 0.42),
     inset -1px -1px 0 rgba(255, 255, 255, 0.168),
     inset 0 0 14px rgba(255, 255, 255, 0.067),
     0 1px 1px rgba(0, 0, 0, 0.35),
     0 14px 36px -6px rgba(0, 0, 0, 0.55);
-  --surface-map-card-fill: color-mix(in srgb, #000 8%, var(--bg-panel) 71.76%);
+  --surface-map-card-fill: color-mix(in srgb, #000 6%, var(--bg-panel) 50%);
   --surface-map-card-shadow:
     inset 1px 1px 0 rgba(255, 255, 255, 0.42),
     inset -1px -1px 0 rgba(255, 255, 255, 0.168),
     inset 0 0 14px rgba(255, 255, 255, 0.067),
     0 1px 1px rgba(0, 0, 0, 0.35),
     0 14px 36px -6px rgba(0, 0, 0, 0.55);
-  --surface-page-card-fill: color-mix(in srgb, #000 8%, var(--bg-panel) 71.76%);
+  --surface-page-card-fill: color-mix(in srgb, #000 6%, var(--bg-panel) 50%);
   --surface-page-card-shadow:
     inset 1px 1px 0 rgba(255, 255, 255, 0.42),
     inset -1px -1px 0 rgba(255, 255, 255, 0.168),
@@ -243,7 +248,7 @@
     inset 0 0 14px rgba(255, 255, 255, 0.067),
     0 1px 1px rgba(0, 0, 0, 0.4),
     0 24px 64px -12px rgba(0, 0, 0, 0.7);
-  --surface-inner-card-fill: color-mix(in srgb, #000 8%, var(--bg-panel) 71.76%);
+  --surface-inner-card-fill: color-mix(in srgb, #000 6%, var(--bg-panel) 50%);
   --surface-inner-card-shadow:
     inset 1px 1px 0 rgba(255, 255, 255, 0.42),
     inset -1px -1px 0 rgba(255, 255, 255, 0.168),
@@ -262,25 +267,25 @@
     inset 0 0 14px rgba(255, 255, 255, 0.067),
     0 1px 1px rgba(0, 0, 0, 0.4),
     0 24px 64px -12px rgba(0, 0, 0, 0.7);
-  --surface-inner-card-knob: color-mix(in srgb, #000 8%, var(--bg-panel) 71.76%);
-  --surface-inner-card-mark: color-mix(in srgb, #000 8%, var(--bg-panel) 71.76%);
-  --surface-block-fill: color-mix(in srgb, #000 8%, var(--bg-panel) 71.76%);
-  --surface-block-fill-panel: color-mix(in srgb, #000 8%, var(--bg-panel) 71.76%);
+  --surface-inner-card-knob: color-mix(in srgb, #000 6%, var(--bg-panel) 50%);
+  --surface-inner-card-mark: color-mix(in srgb, #000 6%, var(--bg-panel) 50%);
+  --surface-block-fill: color-mix(in srgb, #000 6%, var(--bg-panel) 50%);
+  --surface-block-fill-panel: color-mix(in srgb, #000 6%, var(--bg-panel) 50%);
   --surface-block-shadow:
     inset 1px 1px 0 rgba(255, 255, 255, 0.42),
     inset -1px -1px 0 rgba(255, 255, 255, 0.168),
     inset 0 0 14px rgba(255, 255, 255, 0.067),
     0 1px 2px rgba(0, 0, 0, 0.45),
     0 4px 12px -4px rgba(0, 0, 0, 0.4);
-  --surface-menu-fill: color-mix(in srgb, #000 8%, var(--bg-panel) 71.76%);
+  --surface-menu-fill: color-mix(in srgb, #000 6%, var(--bg-panel) 50%);
   --surface-menu-shadow:
     inset 1px 1px 0 rgba(255, 255, 255, 0.42),
     inset -1px -1px 0 rgba(255, 255, 255, 0.168),
     inset 0 0 14px rgba(255, 255, 255, 0.067),
     0 1px 1px rgba(0, 0, 0, 0.35),
     0 14px 36px -6px rgba(0, 0, 0, 0.55);
-  --surface-menu-fill-raised: color-mix(in srgb, #000 8%, var(--bg-panel) 71.76%);
-  --surface-dialog-fill: color-mix(in srgb, #000 8%, var(--bg-panel) 71.76%);
+  --surface-menu-fill-raised: color-mix(in srgb, #000 6%, var(--bg-panel) 50%);
+  --surface-dialog-fill: color-mix(in srgb, #000 6%, var(--bg-panel) 50%);
   --surface-dialog-shadow:
     inset 1px 1px 0 rgba(255, 255, 255, 0.42),
     inset -1px -1px 0 rgba(255, 255, 255, 0.168),
@@ -382,4 +387,22 @@
     --surface-menu-fill-raised: color-mix(in srgb, #000 8%, var(--bg-panel) 92%);
     --surface-dialog-fill: color-mix(in srgb, #000 8%, var(--bg-panel) 92%);
   }
+}
+
+/* ---- The quiet text, stepped toward the ink ----
+
+   The root names its own Color's quiet inks stepped toward its full ink
+   (the muted 85 % of the way, the faint 70 %), and the body takes them as
+   its quiet inks: every Color and Contrast steps alike, and a scope that
+   restates its inks (an image's default scope, a picture, a published
+   page) keeps its own. */
+
+:root[data-look-panels="liquid"] {
+  --liquid-fg-muted: color-mix(in srgb, var(--fg) 85%, var(--fg-muted));
+  --liquid-fg-faint: color-mix(in srgb, var(--fg) 70%, var(--fg-muted));
+}
+
+:root[data-look-panels="liquid"] body {
+  --fg-muted: var(--liquid-fg-muted);
+  --fg-faint: var(--liquid-fg-faint);
 }

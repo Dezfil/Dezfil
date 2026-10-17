@@ -9,7 +9,7 @@ name: CI
 #            no network. Only on main, because it builds a full image.
 #
 # The end-to-end browser suite is not one of them: it runs locally, against an
-# instance you provision yourself. CONTRIBUTING.md and docs/runbook.md say how.
+# instance you provision yourself. CONTRIBUTING.md and docs/operate/runbook.md say how.
 on:
   push:
     branches: [main]
@@ -79,8 +79,8 @@ jobs:
       # guard reads API descriptions, so neither can see a citation sitting in
       # a source comment or a report label.
       - run: npm run lint:citations
-      # Every setting the server reads must appear in the README's table, and
-      # every row of that table must be a setting the server reads, so the
+      # Every setting the server reads must appear in the configuration page's
+      # tables, and every row there must be a setting the server reads, so the
       # documented surface and the real one cannot drift apart silently.
       - run: npm run lint:readme
       # The decomposition tripwire: a handful of oversized modules must not
@@ -110,6 +110,10 @@ jobs:
       - run: npm run lint:reader-docs
       # The shipped plugin guidance stays current.
       - run: npm run lint:plugin
+      # Every documentation page holds the page contract (frontmatter,
+      # headings, links, pictures, addresses), the image manifest matches its
+      # files, and the generated index and API description file are current.
+      - run: npm run lint:docs
       - run: npm test
         env:
           # The authenticated test fixtures refuse to run without an
@@ -179,7 +183,7 @@ jobs:
       # geometry-choice cell boundaries. The three-minute timeout leaves room
       # for slower workers; elapsed time is printed by the driver.
       # PostGIS and the full four-reader result/geometry/export matrix remain the
-      # outside --full proof in docs/runbook.md, section "SQL result byte budget".
+      # outside --full proof in docs/operate/runbook.md, section "SQL result byte budget".
       # Invocation-owned containers and anonymous volumes are always removed.
       - name: Source-free result-byte boundaries
         timeout-minutes: 3

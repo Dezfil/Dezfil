@@ -259,6 +259,19 @@
   height: 19px;
 }
 
+/* The drawn external mark after the label of an entry that leaves the
+   app, sized to the label's text rather than the icon column. */
+.railExternal {
+  display: inline-flex;
+  margin-left: 6px;
+  vertical-align: -1px;
+}
+
+.railLink .railExternal svg {
+  width: 11px;
+  height: 11px;
+}
+
 .railLabel {
   font-size: 13px;
   white-space: nowrap;

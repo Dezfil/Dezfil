@@ -48,7 +48,7 @@ ENV NODE_ENV=production \
 # 700 MB more for the browser stack, measured. Chromium uses its own roots
 # and the node user's NSS stores. Node uses its bundled roots plus the PEM
 # file named by NODE_EXTRA_CA_CERTS. Private CAs need both client and
-# browser trust (docs/self-hosting.md). fonts-liberation covers any
+# browser trust (docs/operate/self-hosting.md). fonts-liberation covers any
 # text outside the app's self-hosted faces. The WebGL path runs software GL
 # through SwiftShader, which works in this base with no network.
 RUN apt-get update && apt-get install -y --no-install-recommends \

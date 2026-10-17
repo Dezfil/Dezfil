@@ -9,7 +9,7 @@ import { csvFixture } from "../../../scripts/transport-probe-support.mjs";
 
 /** Run against a production standalone with the ingress preload and the same
  * fresh DEZFIL_DATA_DIR. Provisioning and the exact failing seed are in
- * docs/configuration.md. No listener or build is started by this suite. */
+ * docs/reference/configuration.md. No listener or build is started by this suite. */
 const port = process.env.DEZFIL_UPLOAD_RECEPTION_PORT;
 const prefix = Buffer.from('--receive\r\nContent-Disposition: form-data; name="file"; filename="points.csv"\r\nContent-Type: text/csv\r\n\r\n');
 const ending = Buffer.from("\r\n--receive--\r\n");

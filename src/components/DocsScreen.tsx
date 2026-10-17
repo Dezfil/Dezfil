@@ -2,6 +2,7 @@ import Link from "next/link";
 import { buildOpenApiDocument } from "@/lib/api/openapi";
 import { ERROR_CATALOGUE } from "@/lib/api/error-catalogue";
 import { OPERATIONS } from "@/lib/operations/catalog";
+import { HTTP_API_GUIDE_URL } from "@/lib/docs-site";
 import { ExternalIcon } from "./ui/icons";
 import styles from "./DocsScreen.module.css";
 
@@ -44,6 +45,9 @@ export function DocsScreen() {
           <Link href="/settings/tokens#mcp-heading" className={styles.specLink}>
             Set up an MCP client
           </Link>
+          <a href={HTTP_API_GUIDE_URL} target="_blank" rel="noreferrer" className={styles.specLink}>
+            HTTP API guide <ExternalIcon />
+          </a>
         </div>
       </div>
 

@@ -53,6 +53,7 @@ npm run lint:icons
 npm run lint:class-pairs # no tie between two stylesheets left to load order
 npm run lint:specimen   # the design specimen page is regenerated
 npm run lint:plugin     # the shipped plugin manifests
+npm run lint:docs       # the documentation's pages, links, index and pictures
 ```
 
 The end-to-end browser suite is not part of the normal loop and the pipeline
@@ -65,8 +66,8 @@ npm run journey:browser           # every spec under e2e/, against a running ins
 ```
 
 It needs a running server and a provisioned browser, and several settings on
-the server before a full run is green. The README's development section lists
-them, and [docs/runbook.md](docs/runbook.md) covers the subsets and what a
+the server before a full run is green. [Checks and testing](docs/develop/checks-and-testing.md)
+lists them, and [docs/operate/runbook.md](docs/operate/runbook.md) covers the subsets and what a
 failure usually means.
 
 ## Branches and pull requests
