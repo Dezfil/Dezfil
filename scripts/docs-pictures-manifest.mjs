@@ -39,7 +39,8 @@ const byFile = (a, b) => (a.file < b.file ? -1 : a.file > b.file ? 1 : 0);
  * only some scenes, so the rows of the others stay as they are.
  *
  * Returns the files to write, the files to remove (a scene that left the
- * list, or a file a scene no longer makes) and the manifest to keep.
+ * list, or a file a scene no longer makes, never a file this run made) and
+ * the manifest to keep.
  */
 export function planRun({ manifest, captured, current, scenes, partial = false, version, date }) {
   const before = new Map((manifest?.rows ?? []).map((row) => [row.file, row]));
@@ -49,8 +50,10 @@ export function planRun({ manifest, captured, current, scenes, partial = false, 
   const rows = new Map();
   const removes = [];
   for (const row of before.values()) {
-    const keep = taken.has(row.scene) ? made.has(row.file) : known.has(row.scene) || partial;
-    if (taken.has(row.scene) && made.has(row.file)) continue; // replaced below
+    // A file this run made is never removed, whichever scene made it before:
+    // a renamed scene that keeps its file name replaces the row below.
+    if (made.has(row.file)) continue;
+    const keep = !taken.has(row.scene) && (known.has(row.scene) || partial);
     if (keep) rows.set(row.file, row);
     else removes.push(row.file);
   }

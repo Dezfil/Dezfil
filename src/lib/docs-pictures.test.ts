@@ -90,6 +90,14 @@ describe("the manifest the picture script writes", () => {
     expect(plan.manifest.rows.map((row: Row) => row.file)).toEqual(["guides/one-renamed.webp"]);
   });
 
+  it("keeps a file a renamed scene still makes, under the new scene, with its version and date", () => {
+    const renamed = { rows: [{ ...before.rows[0], scene: "one-before" }, before.rows[1]] };
+    const plan = planRun({ manifest: renamed, captured: [item("one", "guides/one.webp", "one"), item("two", "guides/two.webp", "two")], current, scenes: [{ id: "one" }, { id: "two" }], ...now });
+    expect(plan.removes).toEqual([]);
+    expect(plan.writes).toEqual([]);
+    expect(plan.manifest).toEqual(before);
+  });
+
   it("keeps the rows of the scenes a partial run did not take", () => {
     const plan = planRun({ manifest: before, captured: [item("one", "guides/one.webp", "one")], current, scenes: [{ id: "one" }], partial: true, ...now });
     expect(plan.removes).toEqual([]);
