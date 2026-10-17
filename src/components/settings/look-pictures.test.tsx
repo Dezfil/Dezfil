@@ -232,10 +232,10 @@ describe("the Panels pictures", () => {
     expect(on(liquid, "glass", "--surface-glass-chrome-fill")).toBe("color-mix(in srgb, var(--bg-panel) 93%, transparent)");
     expect(on(liquid, "glass", "--surface-glass-chrome-blur")).toBe("blur(18px)");
     expect(on(liquid, "glass", "--surface-overlay-panel-shadow")).toBe("0 8px 26px var(--shadow)");
-    expect(on({}, "liquid", "--surface-glass-chrome-fill")).toBe("color-mix(in srgb, #fff 8%, var(--bg-panel) 82.8%)");
-    expect(on({}, "liquid", "--surface-glass-chrome-blur")).toBe("blur(24px)");
-    expect(on({}, "liquid", "--surface-overlay-panel-fill")).toBe("color-mix(in srgb, #fff 8%, var(--bg-panel) 82.8%)");
-    expect(on({ "data-theme": "dark" }, "liquid", "--surface-overlay-panel-fill")).toBe("color-mix(in srgb, #000 8%, var(--bg-panel) 71.76%)");
+    expect(on({}, "liquid", "--surface-glass-chrome-fill")).toBe("color-mix(in srgb, #fff 10%, var(--bg-panel) 36%)");
+    expect(on({}, "liquid", "--surface-glass-chrome-blur")).toBe("blur(6px)");
+    expect(on({}, "liquid", "--surface-overlay-panel-fill")).toBe("color-mix(in srgb, #fff 10%, var(--bg-panel) 36%)");
+    expect(on({ "data-theme": "dark" }, "liquid", "--surface-overlay-panel-fill")).toBe("color-mix(in srgb, #000 6%, var(--bg-panel) 50%)");
     expect(on({}, "liquid", "--surface-glass-chrome-shadow")).toMatch(/^inset 1px 1px 0 rgba\(255, 255, 255, 0\.9\), /);
     expect(on({}, "paper", "--surface-glass-chrome-fill")).toBe("color-mix(in oklab, var(--bg-panel) 96%, var(--bg))");
     expect(on({}, "paper", "--surface-overlay-panel-blur")).toBe("none");
@@ -247,7 +247,7 @@ describe("the Panels pictures", () => {
     const dropped = globals.replace(",\n[data-picture-panels] {", " {");
     expect(dropped).not.toBe(globals);
     expect(panelsProblems(lookRules({ "src/app/globals.css": dropped })).join("\n"))
-      .toMatch(/^glass under \{"data-look-panels":"liquid"\}: --surface-glass-chrome-fill is color-mix\(in srgb, #fff 8%/m);
+      .toMatch(/^glass under \{"data-look-panels":"liquid"\}: --surface-glass-chrome-fill is color-mix\(in srgb, #fff 10%/m);
   });
 
   it("draw the header card, the side menu and a card over a small map in data colours, each reading its role", () => {
