@@ -1,9 +1,12 @@
 // The picture script's scene list: one entry per picture or recording the
 // documentation carries. "Every scene" means this list, and a manifest row's
-// scene is one of its ids.
+// scene is one of its ids. Every scene is taken in both of the app's themes:
+// `file` and `poster` name the light take, which is what pages and the
+// README name, and the dark take is written beside each with `.dark` before
+// the extension.
 //
 // Each scene names:
-// - `id`, the scene, and `file`, its file under docs/images/;
+// - `id`, the scene, and `file`, its light take's file under docs/images/;
 // - `pages`, the pages that use it (for the author: the page contract holds
 //   the use);
 // - `kind`, a still or a recording;
@@ -12,7 +15,7 @@
 //   script takes every fresh scene before it seeds;
 // - `crop`, when the picture is not the full frame: the element to frame
 //   and the margin around it, in CSS pixels; the rectangle it comes to is
-//   declared in the scene's manifest row;
+//   declared in the scene's manifest rows and shared by its two takes;
 // - `open`, how the page is brought to the scene's first frame;
 // - for a recording, `poster`, its poster's file, and `steps`: each one an
 //   optional action, after which the page is settled and the frame is held

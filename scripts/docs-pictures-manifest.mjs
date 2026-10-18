@@ -1,19 +1,22 @@
 // The image manifest, docs/images/manifest.json, as the picture script
-// writes it: one row per picture and recording, none for itself. A file is
+// writes it: one row per picture and recording, a scene's light and dark
+// takes each with a row of its own, none for itself. A file is
 // replaced only when its bytes changed, and a row's version and date move
 // only with its file, so a run that changed nothing changes no file and no
 // row, and a diff after a run shows real changes and nothing else.
 
 export const MANIFEST = "docs/images/manifest.json";
 
-/** A row in its fixed key order: what the scene is, when it was taken,
- * the file's size, then what only some rows carry. Sizes are pixels and
- * bytes; a crop is the CSS-pixel rectangle the picture shows. */
+/** A row in its fixed key order: what the scene is and the theme of its
+ * take, when it was taken, the file's size, then what only some rows carry.
+ * Sizes are pixels and bytes; a crop is the CSS-pixel rectangle the picture
+ * shows. */
 export function manifestRow(item, taken) {
   return {
     file: item.file,
     scene: item.scene,
     kind: item.kind,
+    theme: item.theme,
     version: taken.version,
     date: taken.date,
     width: item.width,
@@ -33,8 +36,8 @@ const byFile = (a, b) => (a.file < b.file ? -1 : a.file > b.file ? 1 : 0);
  * What a run writes, from what it captured and what is on disk.
  *
  * `manifest` is the committed manifest or null; `captured` lists every file
- * the run made, `{ scene, kind, file, bytes, width, height, crop?, length?,
- * poster? }`; `current(file)` returns the bytes on disk under docs/images/
+ * the run made, `{ scene, kind, theme, file, bytes, width, height, crop?,
+ * length?, poster? }`, a scene's dark take as a file of its own; `current(file)` returns the bytes on disk under docs/images/
  * or null; `scenes` is the scene list; `partial` is true when the run took
  * only some scenes, so the rows of the others stay as they are.
  *

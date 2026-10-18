@@ -1,7 +1,7 @@
 // Taking a scene: the browser, the frame, settling and the still. Every
-// picture is taken in the same frame (1440 by 900 CSS pixels, light theme,
-// two pixels per CSS pixel, reduced motion, a fixed clock) so a picture
-// changes only when what it shows changes.
+// picture is taken in the same frame (1440 by 900 CSS pixels, two pixels per
+// CSS pixel, reduced motion, a fixed clock) so a picture changes only when
+// what it shows changes, once in each of the app's two themes.
 import { spawn } from "node:child_process";
 import { once } from "node:events";
 import { existsSync } from "node:fs";
@@ -9,7 +9,7 @@ import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { chromium } from "@playwright/test";
 import sharp from "sharp";
-import { FRAME, RECORDING_MAX_SECONDS, webmInfo, webpSize } from "./docs-media.mjs";
+import { FRAME, RECORDING_MAX_SECONDS, THEMES, takeFile, webmInfo, webpSize } from "./docs-media.mjs";
 
 /** The browser clock every scene reads, so no date drifts between runs. */
 export const FIXED_TIME = new Date("2026-06-01T09:00:00Z");
@@ -28,12 +28,32 @@ export function openBrowser() {
   return chromium.launch({ args: ["--force-color-profile=srgb"] });
 }
 
+/** Where the app keeps a browser's theme choice: the header's switch
+ * writes it and the root layout's boot script reads it before first paint.
+ * Light is the app's default, so only the dark theme is stored. */
+export const THEME_STORAGE_KEY = "dezfil-theme";
+
+/** The browser storage of a reader whose remembered choice is the theme,
+ * as the app's own switch leaves it: nothing for light, the key for dark. */
+export function themeStorage(origin, theme) {
+  if (!THEMES.includes(theme)) throw new Error(`There is no theme ${theme}.`);
+  return { cookies: [], origins: theme === "dark" ? [{ origin, localStorage: [{ name: THEME_STORAGE_KEY, value: "dark" }] }] : [] };
+}
+
+/** The theme the page is drawn in, as the app stamps it on the root. */
+export const pageTheme = (page) => page.evaluate(() => (document.documentElement.dataset.theme === "dark" ? "dark" : "light"));
+
 /**
- * A browser context in the frame, for one instance state. Every request the
- * page makes off the instance's own origin is refused and written down, so a
- * picture never depends on a host outside the run.
+ * A browser context in the frame, for one instance state and one theme. The
+ * theme is the app's own: the browser starts with the choice the app's
+ * switch stores, so every page applies it before first paint as it does for
+ * a returning reader, and that stored choice is the only thing that differs
+ * between a scene's two takes (the system's colour scheme stays light). Every
+ * request the page makes off the instance's own origin is refused and written
+ * down, so a picture never depends on a host outside the run.
  */
-export async function frameContext(browser, base, { cookie } = {}) {
+export async function frameContext(browser, base, { cookie, theme = "light" } = {}) {
+  const origin = new URL(base).origin;
   const context = await browser.newContext({
     baseURL: base,
     viewport: { width: FRAME.width, height: FRAME.height },
@@ -42,9 +62,9 @@ export async function frameContext(browser, base, { cookie } = {}) {
     reducedMotion: "reduce",
     locale: "en-US",
     timezoneId: "UTC",
+    storageState: themeStorage(origin, theme),
   });
   const foreign = [];
-  const origin = new URL(base).origin;
   await context.route("**/*", (route) => {
     const url = route.request().url();
     if (new URL(url).origin === origin) return route.continue();
@@ -95,11 +115,11 @@ export async function toWebp(png) {
   return { bytes, ...webpSize(bytes) };
 }
 
-/** Take a still scene on an opened, settled page. */
-export async function takeStill(page, scene) {
-  const crop = scene.crop ? await cropRectangle(page, scene.crop) : null;
+/** Take a still scene's take in a theme on an opened, settled page. `crop`
+ * is the rectangle to show, or null for the full frame. */
+export async function takeStill(page, scene, { theme, crop }) {
   const picture = await toWebp(await framePng(page, crop));
-  return [{ scene: scene.id, kind: "picture", file: scene.file, crop, ...picture }];
+  return [{ scene: scene.id, kind: "picture", theme, file: takeFile(scene.file, theme), crop, ...picture }];
 }
 
 // ---------------------------------------------------------------------------
@@ -146,15 +166,14 @@ export async function encodeWebm(frames, output) {
 }
 
 /**
- * Take a recording scene on an opened, settled page: the first frame, then
- * each step done, the page settled and the frame held for the step's
- * number of frames. The poster is the first frame as a picture. The file's
- * size and length are read back from its header and must be the frame's
- * (or the crop's) at two pixels per CSS pixel and the frame count over the
- * cadence.
+ * Take a recording scene's take in a theme on an opened, settled page: the
+ * first frame, then each step done, the page settled and the frame held for
+ * the step's number of frames. The poster is the take's first frame as a
+ * picture. The file's size and length are read back from its header and
+ * must be the frame's (or the crop's) at two pixels per CSS pixel and the
+ * frame count over the cadence.
  */
-export async function takeRecording(page, scene, output) {
-  const crop = scene.crop ? await cropRectangle(page, scene.crop) : null;
+export async function takeRecording(page, scene, output, { theme, crop }) {
   const frames = [];
   for (const step of scene.steps) {
     if (step.act) {
@@ -173,8 +192,9 @@ export async function takeRecording(page, scene, output) {
     throw new Error(`${scene.id}: the recording reads as ${JSON.stringify(info)}, not ${width} × ${height} for ${length} s.`);
   }
   const poster = await toWebp(frames[0]);
+  const posterFile = takeFile(scene.poster, theme);
   return [
-    { scene: scene.id, kind: "recording", file: scene.file, crop, bytes, width, height, length, poster: scene.poster },
-    { scene: scene.id, kind: "picture", file: scene.poster, crop, ...poster },
+    { scene: scene.id, kind: "recording", theme, file: takeFile(scene.file, theme), crop, bytes, width, height, length, poster: posterFile },
+    { scene: scene.id, kind: "picture", theme, file: posterFile, crop, ...poster },
   ];
 }

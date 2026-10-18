@@ -1,6 +1,7 @@
 // The picture script's parts that need no browser: the manifest it writes
 // (a file replaced only when its bytes changed, a row's version and date
-// moving only with its file), its scene list, the WebP header it reads back
+// moving only with its file), its scene list and the names of a scene's two
+// takes, the theme a take's browser starts in, the WebP header it reads back
 // and the catalogue folder it serves the Templates page from.
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -9,10 +10,10 @@ import sharp from "sharp";
 import { afterAll, describe, expect, it } from "vitest";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: plain-JS scripts, no declaration files on purpose.
-import { FRAME, RECORDING_MAX_SECONDS, webmInfo, webpSize } from "../../scripts/docs-media.mjs";
+import { FRAME, RECORDING_MAX_SECONDS, THEMES, darkTake, isDarkTake, lightTake, takeFile, takeTheme, webmInfo, webpSize } from "../../scripts/docs-media.mjs";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: as above.
-import { CADENCE, bundledFfmpeg, encodeWebm } from "../../scripts/docs-pictures-capture.mjs";
+import { CADENCE, THEME_STORAGE_KEY, bundledFfmpeg, encodeWebm, themeStorage } from "../../scripts/docs-pictures-capture.mjs";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: as above.
 import { manifestText, planRun } from "../../scripts/docs-pictures-manifest.mjs";
@@ -37,7 +38,7 @@ afterAll(() => rmSync(scratch, { recursive: true, force: true }));
 
 const bytes = (text: string) => Buffer.from(text);
 const item = (scene: string, file: string, content: string, extra: Record<string, unknown> = {}) =>
-  ({ scene, kind: "picture", file, bytes: bytes(content), width: 10, height: 20, ...extra });
+  ({ scene, kind: "picture", theme: file.includes(".dark.") ? "dark" : "light", file, bytes: bytes(content), width: 10, height: 20, ...extra });
 const listed = [{ id: "one" }, { id: "two" }, { id: "three" }];
 const earlier = { version: "0.0.9", date: "2026-01-02" };
 const now = { version: "0.1.0", date: "2026-10-17" };
@@ -45,8 +46,8 @@ const now = { version: "0.1.0", date: "2026-10-17" };
 describe("the manifest the picture script writes", () => {
   const before = {
     rows: [
-      { file: "guides/one.webp", scene: "one", kind: "picture", ...earlier, width: 10, height: 20, bytes: 3 },
-      { file: "guides/two.webp", scene: "two", kind: "picture", ...earlier, width: 10, height: 20, bytes: 3 },
+      { file: "guides/one.webp", scene: "one", kind: "picture", theme: "light", ...earlier, width: 10, height: 20, bytes: 3 },
+      { file: "guides/two.webp", scene: "two", kind: "picture", theme: "light", ...earlier, width: 10, height: 20, bytes: 3 },
     ],
   };
   const disk: Record<string, Buffer> = { "guides/one.webp": bytes("one"), "guides/two.webp": bytes("two") };
@@ -63,8 +64,22 @@ describe("the manifest the picture script writes", () => {
     const plan = planRun({ manifest: before, captured: [item("one", "guides/one.webp", "one, relabelled"), item("two", "guides/two.webp", "two")], current, scenes: listed, ...now });
     expect(plan.writes.map((w: { file: string }) => w.file)).toEqual(["guides/one.webp"]);
     expect(plan.manifest.rows).toEqual([
-      { file: "guides/one.webp", scene: "one", kind: "picture", ...now, width: 10, height: 20, bytes: 15 },
+      { file: "guides/one.webp", scene: "one", kind: "picture", theme: "light", ...now, width: 10, height: 20, bytes: 15 },
       before.rows[1],
+    ]);
+  });
+
+  it("writes a scene's dark take as a row of its own with its theme, beside the light take's", () => {
+    const plan = planRun({
+      manifest: before,
+      captured: [item("one", "guides/one.webp", "one"), item("one", "guides/one.dark.webp", "one, dark"), item("two", "guides/two.webp", "two")],
+      current, scenes: listed, ...now,
+    });
+    expect(plan.writes.map((w: { file: string }) => w.file)).toEqual(["guides/one.dark.webp"]);
+    expect(plan.manifest.rows.map((row: Row) => [row.file, row.theme, row.version])).toEqual([
+      ["guides/one.dark.webp", "dark", now.version],
+      ["guides/one.webp", "light", earlier.version],
+      ["guides/two.webp", "light", earlier.version],
     ]);
   });
 
@@ -79,8 +94,8 @@ describe("the manifest the picture script writes", () => {
     });
     expect(plan.writes).toHaveLength(2);
     expect(plan.manifest.rows.map((row: Row) => Object.keys(row))).toEqual([
-      ["file", "scene", "kind", "version", "date", "width", "height", "bytes", "length", "poster"],
-      ["file", "scene", "kind", "version", "date", "width", "height", "bytes", "crop"],
+      ["file", "scene", "kind", "theme", "version", "date", "width", "height", "bytes", "length", "poster"],
+      ["file", "scene", "kind", "theme", "version", "date", "width", "height", "bytes", "crop"],
     ]);
   });
 
@@ -106,12 +121,13 @@ describe("the manifest the picture script writes", () => {
 });
 
 describe("the scene list", () => {
-  it("names each scene once, in a known state and kind, with a file the page contract places under docs/images/", () => {
+  it("names each scene once, in a known state and kind, with a light take and a dark take the page contract places under docs/images/", () => {
     expect(new Set(scenes.map((s) => s.id)).size).toBe(scenes.length);
     for (const scene of scenes) {
       expect(STATES).toContain(scene.state);
       expect(["still", "recording"]).toContain(scene.kind);
-      expect(placeOf(`docs/images/${scene.file}`).kind).toBe(scene.kind === "still" ? "picture" : "recording");
+      expect(isDarkTake(scene.file)).toBe(false);
+      for (const theme of THEMES) expect(placeOf(`docs/images/${takeFile(scene.file, theme)}`).kind).toBe(scene.kind === "still" ? "picture" : "recording");
       expect(scene.pages.length).toBeGreaterThan(0);
     }
   });
@@ -125,7 +141,8 @@ describe("the scene list", () => {
     const recordings = scenes.filter((s) => s.kind === "recording");
     expect(recordings.length).toBeGreaterThan(0);
     for (const scene of recordings) {
-      expect(placeOf(`docs/images/${scene.poster}`).kind).toBe("picture");
+      expect(isDarkTake(scene.poster!)).toBe(false);
+      for (const theme of THEMES) expect(placeOf(`docs/images/${takeFile(scene.poster, theme)}`).kind).toBe("picture");
       const frames = scene.steps!.reduce((sum, step) => sum + step.hold, 0);
       expect(frames / CADENCE).toBeLessThanOrEqual(RECORDING_MAX_SECONDS);
     }
@@ -134,6 +151,29 @@ describe("the scene list", () => {
   it("takes the first-run setup card before any account exists", () => {
     expect(scenes.find((s) => s.id === "setup-card")?.state).toBe("fresh");
     expect(STATES.indexOf("fresh")).toBeLessThan(STATES.indexOf("seeded"));
+  });
+});
+
+describe("a scene's two takes", () => {
+  it("are the light theme then the dark theme, the dark take beside the light one with .dark before the extension", () => {
+    expect(THEMES).toEqual(["light", "dark"]);
+    expect(darkTake("guides/templates.webp")).toBe("guides/templates.dark.webp");
+    expect(darkTake("guides/templates-search.webm")).toBe("guides/templates-search.dark.webm");
+    expect(lightTake("guides/templates.dark.webp")).toBe("guides/templates.webp");
+    expect(takeFile("start/setup-card.webp", "light")).toBe("start/setup-card.webp");
+    expect(takeFile("start/setup-card.webp", "dark")).toBe("start/setup-card.dark.webp");
+    expect([takeTheme("guides/a.webp"), takeTheme("guides/a.dark.webm"), takeTheme("guides/dark.webp")]).toEqual(["light", "dark", "light"]);
+  });
+
+  it("start their browser with the choice the app's theme switch stores, which its boot script reads before first paint", () => {
+    // The key and value the app writes and reads; if the app moves them, the
+    // dark take would come out light, and this fails first.
+    expect(readFileSync("src/components/theme.tsx", "utf8")).toContain(`const STORAGE_KEY = "${THEME_STORAGE_KEY}";`);
+    expect(readFileSync("src/app/document.tsx", "utf8")).toContain(`localStorage.getItem("${THEME_STORAGE_KEY}")==="dark"`);
+    const origin = "http://127.0.0.1:3250";
+    expect(themeStorage(origin, "light")).toEqual({ cookies: [], origins: [] });
+    expect(themeStorage(origin, "dark")).toEqual({ cookies: [], origins: [{ origin, localStorage: [{ name: THEME_STORAGE_KEY, value: "dark" }] }] });
+    expect(() => themeStorage(origin, "dusk")).toThrow(/no theme dusk/);
   });
 });
 

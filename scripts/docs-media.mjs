@@ -12,7 +12,35 @@ export const PICTURE_MAX_BYTES = 250_000;
 export const PICTURE_AIM_BYTES = 200_000;
 export const RECORDING_MAX_BYTES = 1_500_000;
 export const RECORDING_MAX_SECONDS = 8;
+/** At most this many recorded scenes, each with its two takes. */
 export const RECORDINGS_MAX = 12;
+
+// ---------------------------------------------------------------------------
+// Takes: every scene is taken in the light theme and in the dark theme. The
+// light take carries the scene's own name, which is what pages and the README
+// name; the dark take sits beside it with `.dark` before the extension
+// (`templates.webp` and `templates.dark.webp`) and is found by that name.
+
+/** The app's two themes, in the order a run takes them. */
+export const THEMES = ["light", "dark"];
+
+const DARK = /\.dark\.(webp|webm)$/;
+
+/** Whether a picture or recording is a dark take. */
+export const isDarkTake = (file) => DARK.test(file);
+
+/** The theme a file's name says it was taken in. */
+export const takeTheme = (file) => (isDarkTake(file) ? "dark" : "light");
+
+/** A light take's dark take, beside it. */
+export const darkTake = (file) => file.replace(/\.(webp|webm)$/, ".dark.$1");
+
+/** A dark take's light take, beside it. */
+export const lightTake = (file) => file.replace(DARK, ".$1");
+
+/** A scene's file in a theme: the scene's own name in the light theme, its
+ * dark take in the dark theme. */
+export const takeFile = (file, theme) => (theme === "dark" ? darkTake(file) : file);
 
 /** The canvas of a WebP file in pixels, from its first chunk, or null when
  * the bytes are not a WebP file this reader knows. */

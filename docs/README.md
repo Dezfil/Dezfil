@@ -189,4 +189,4 @@ Licence, credits, changes and policies.
 - [Contributing to Dezfil](../CONTRIBUTING.md) (Develop): How to get a change from your machine into the project.
 - [Contributor Covenant Code of Conduct](../CODE_OF_CONDUCT.md) (Develop): The standards for taking part and how they are enforced.
 - [The OpenAPI description](reference/openapi.json) (Reference): the HTTP API as the server serves it, generated from the source; the operation reference is built from it.
-- [The image manifest](images/manifest.json): one row per picture and recording, with the scene it shows, its size and when it was taken.
+- [The image manifest](images/manifest.json): one row per picture and recording, each scene in its light and its dark take, with the scene it shows, the take's theme, its size and when it was taken.
