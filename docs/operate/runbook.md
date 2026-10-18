@@ -394,9 +394,10 @@ rule:
   its frontmatter, its headings, its links and pictures, and the addresses
   it owns or once had. It also fails when the image manifest disagrees with
   its files, when a picture or recording lacks its light or its dark take,
-  or when the index (`docs/README.md`) or the API description
-  file (`docs/reference/openapi.json`) is not what `npm run docs:write`
-  would write. Each problem names its file and rule.
+  when the README shows a picture in one theme only, or when the index
+  (`docs/README.md`) or the API description file
+  (`docs/reference/openapi.json`) is not what `npm run docs:write` would
+  write. Each problem names its file and rule.
 
 Types: `npm run typecheck`. Unit suite: `npm test` (Vitest, over
 `src/**/*.test.{ts,tsx}`), with 30-second per-test and per-hook timeouts
@@ -757,8 +758,10 @@ theme or a dark take comes out the same as its light take. The dark take is
 written beside the light one with `.dark` before the extension
 (`templates.webp` and `templates.dark.webp`), shows the same frame or crop,
 and has a manifest row of its own carrying its theme. Pages and the README
-name the light take; the dark take is found by that name. A recording is
-not filmed in real time: each of its steps is done, the page settles, and
+name the light take; the dark take is found by that name. The README sets
+each picture as the image of a `<picture>` whose source for
+`(prefers-color-scheme: dark)` names the dark take, so GitHub shows the
+take of the reader's theme. A recording is not filmed in real time: each of its steps is done, the page settles, and
 the frame is held for the step's number of frames at ten a second, so its
 length is its frame count (eight seconds at most). The frames go to Playwright's own ffmpeg, which
 encodes a muted VP8 WebM single-threaded with bit-exact settings, so the

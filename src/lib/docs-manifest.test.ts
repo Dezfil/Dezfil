@@ -38,6 +38,12 @@ checked: none
 
 ${body}
 `;
+/** The README's way of showing a picture: the light take, with a source
+ * naming the dark take for a reader whose theme is dark. */
+const readmePicture = (light: string, alt: string, sources = `<source media="(prefers-color-scheme: dark)" srcset="${light.replace(/\.(webp|webm)$/, ".dark.$1")}">`) =>
+  `<picture>\n  ${sources}\n  <img src="${light}" alt="${alt}">\n</picture>\n`;
+const README = `# Dezfil\n\n${readmePicture("docs/images/start/card.webp", "The setup card")}`;
+
 const row = (file: string, scene: string, kind: string, bytes: Buffer, width: number, height: number, extra: Row = {}): Row =>
   ({ file, scene, kind, theme: file.includes(".dark.") ? "dark" : "light", version: "0.1.0", date: "2026-10-17", width, height, bytes: bytes.length, ...extra });
 
@@ -68,7 +74,7 @@ function base(): { tree: Tree; rows: Row[] } {
     row("start/card.webp", "card", "picture", card, 200, 100, cardCrop),
   ];
   const tree: Tree = {
-    "README.md": "# Dezfil\n\n![The setup card](docs/images/start/card.webp)\n",
+    "README.md": README,
     "docs/guides/templates.md": page("![The Templates page](../images/guides/templates.webp)\n\n![Searching the templates](../images/guides/search.webm)"),
     "docs/images/guides/templates.webp": picture,
     "docs/images/guides/templates.dark.webp": pictureDark,
@@ -271,13 +277,32 @@ const seeds: Seed[] = [
   },
   {
     name: "the README using a file that does not exist",
-    make({ tree }) { tree["README.md"] = "# Dezfil\n\n![The setup card](docs/images/start/card.webp)\n\n![Gone](docs/images/start/gone.webp)\n"; },
+    make({ tree }) { tree["README.md"] = `${README}\n${readmePicture("docs/images/start/gone.webp", "Gone")}`; },
     problems: [{ file: "README.md", rule: "manifest.missing-file" }],
   },
   {
     name: "the README using a file with no row",
     make({ tree, rows }) { rows.splice(rows.findIndex(at("start/card.webp")), 1); void tree; },
     problems: [{ file: "README.md", rule: "manifest.no-row" }, { file: "docs/images/start/card.webp", rule: "manifest.no-row" }],
+  },
+  {
+    name: "the README showing a picture in one theme only",
+    make({ tree }) { tree["README.md"] = "# Dezfil\n\n![The setup card](docs/images/start/card.webp)\n"; },
+    problems: [{ file: "README.md", rule: "manifest.readme-picture" }],
+  },
+  {
+    name: "the README's picture whose dark source names another scene's dark take",
+    make({ tree }) {
+      tree["README.md"] = `# Dezfil\n\n${readmePicture("docs/images/start/card.webp", "The setup card", '<source media="(prefers-color-scheme: dark)" srcset="docs/images/guides/templates.dark.webp">')}`;
+    },
+    problems: [{ file: "README.md", rule: "manifest.readme-picture" }, { file: "README.md", rule: "manifest.readme-picture" }],
+  },
+  {
+    name: "the README's picture whose only source is for something other than the theme",
+    make({ tree }) {
+      tree["README.md"] = `# Dezfil\n\n${readmePicture("docs/images/start/card.webp", "The setup card", '<source media="(min-width: 800px)" srcset="docs/images/start/card.dark.webp">')}`;
+    },
+    problems: [{ file: "README.md", rule: "manifest.readme-picture" }, { file: "README.md", rule: "manifest.readme-picture" }],
   },
   {
     name: "a recording whose poster has no row",
@@ -297,6 +322,16 @@ const seeds: Seed[] = [
 describe("the image manifest's rules", () => {
   it("accept a tree whose every file has a true row and a use, the README's, a poster's and the dark takes' included", () => {
     const { tree, rows } = base();
+    expect(check(tree, rows)).toEqual([]);
+  });
+
+  it("accept the README's picture with a source for each theme, however its paths and media are spaced", () => {
+    const { tree, rows } = base();
+    const sources = [
+      '<source media="(prefers-color-scheme:light)" srcset="./docs/images/start/card.webp">',
+      '<source media=" ( prefers-color-scheme: dark ) " srcset=" docs/images/start/card.dark.webp ">',
+    ].join("\n  ");
+    tree["README.md"] = `# Dezfil\n\n${readmePicture("./docs/images/start/card.webp", "The setup card", sources)}`;
     expect(check(tree, rows)).toEqual([]);
   });
 
