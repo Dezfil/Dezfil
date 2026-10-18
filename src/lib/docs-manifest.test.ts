@@ -291,6 +291,11 @@ const seeds: Seed[] = [
     problems: [{ file: "README.md", rule: "manifest.readme-picture" }],
   },
   {
+    name: "the README showing a picture twice, once in its <picture> and once in one theme only",
+    make({ tree }) { tree["README.md"] = `${README}\n![The setup card again](docs/images/start/card.webp)\n`; },
+    problems: [{ file: "README.md", rule: "manifest.readme-picture" }],
+  },
+  {
     name: "the README's picture whose dark source names another scene's dark take",
     make({ tree }) {
       tree["README.md"] = `# Dezfil\n\n${readmePicture("docs/images/start/card.webp", "The setup card", '<source media="(prefers-color-scheme: dark)" srcset="docs/images/guides/templates.dark.webp">')}`;

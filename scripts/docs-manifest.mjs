@@ -75,16 +75,19 @@ function readmeImages(files, read) {
     .filter((file) => file?.startsWith(IMAGES));
 }
 
-/** The README's <picture> elements, outside code: each one's images and its
- * sources, with their media and srcset as written. */
+/** The README's <picture> elements in its text with code blanked: each
+ * one's place, its images and its sources, with their media and srcset as
+ * written. */
 function readmePictures(text) {
   const attribute = (tag, name) => {
     const match = new RegExp(String.raw`\s${name}\s*=\s*(?:"([^"]*)"|'([^']*)')`, "i").exec(tag);
     return match ? (match[1] ?? match[2]) : null;
   };
-  return [...withoutCode(text).join("\n").matchAll(/<picture\b[^>]*>([\s\S]*?)<\/picture\s*>/gi)].map(([, inner]) => ({
-    images: [...inner.matchAll(/<img\s[^>]*>/gi)].map(([tag]) => readmePath(attribute(tag, "src"))),
-    sources: [...inner.matchAll(/<source\s[^>]*>/gi)].map(([tag]) => ({ media: attribute(tag, "media"), srcset: attribute(tag, "srcset") })),
+  return [...text.matchAll(/<picture\b[^>]*>([\s\S]*?)<\/picture\s*>/gi)].map((match) => ({
+    at: match.index,
+    length: match[0].length,
+    images: [...match[1].matchAll(/<img\s[^>]*>/gi)].map(([tag]) => readmePath(attribute(tag, "src"))),
+    sources: [...match[1].matchAll(/<source\s[^>]*>/gi)].map(([tag]) => ({ media: attribute(tag, "media"), srcset: attribute(tag, "srcset") })),
   }));
 }
 
@@ -99,13 +102,16 @@ function sourceTheme(media) {
  * as the one image of a <picture> whose source for a dark colour scheme
  * names that take's dark take, and every source there names the take of the
  * theme its media asks for. GitHub then shows the take of the reader's
- * theme, and the image is what a reader without a theme sees.
+ * theme, and the image is what a reader without a theme sees. Each use is
+ * judged on its own: a themed <picture> covers its own image and no other
+ * use of the same file.
  */
-function readmePictureProblems(files, read, readme) {
+function readmePictureProblems(files, read) {
   if (!files.includes("README.md")) return [];
   const problems = [];
-  const themed = new Set();
-  for (const { images, sources } of readmePictures(read("README.md"))) {
+  const text = withoutCode(read("README.md")).join("\n");
+  let rest = text;
+  for (const { at, length, images, sources } of readmePictures(text)) {
     const light = images.filter((file) => file?.startsWith(IMAGES));
     if (!light.length) continue;
     if (images.length !== 1) {
@@ -123,9 +129,12 @@ function readmePictureProblems(files, read, readme) {
         ? `the <picture> of ${image} has a source for (prefers-color-scheme: ${theme}) naming ${srcset}; it names ${wanted} alone`
         : `the <picture> of ${image} has a source for ${media ?? "no media"}; its sources are for (prefers-color-scheme: dark) and (prefers-color-scheme: light)`));
     }
-    if (dark) themed.add(image);
+    // A themed picture is set aside, so its image is not read again below;
+    // newlines stay, so what is left keeps its lines.
+    if (dark) rest = rest.slice(0, at) + rest.slice(at, at + length).replace(/[^\n]/g, " ") + rest.slice(at + length);
   }
-  for (const file of readme.filter((image) => !isDarkTake(image) && !themed.has(image))) {
+  const unthemed = references(rest).filter((ref) => ref.type === "image").map((ref) => readmePath(ref.target));
+  for (const file of unthemed.filter((image) => image?.startsWith(IMAGES) && !isDarkTake(image))) {
     problems.push(problem("README.md", "manifest.readme-picture", `${file} shows in one theme only: set it as the image of a <picture> with <source media="(prefers-color-scheme: dark)" srcset="${darkTake(file)}">`));
   }
   return problems;
@@ -172,7 +181,7 @@ export function checkManifest({ files, read, readBytes, used = new Set() }) {
     if (!present.has(file) && !files.includes(file)) problems.push(problem("README.md", "manifest.missing-file", `the README uses ${file}, which does not exist`));
     else if (!byFile.has(file.slice(IMAGES.length))) problems.push(problem("README.md", "manifest.no-row", `the README uses ${file}, which has no row in the manifest`));
   }
-  problems.push(...readmePictureProblems(files, read, readme));
+  problems.push(...readmePictureProblems(files, read));
   for (const file of [...new Set([...used, ...readme])].filter(isDarkTake).sort()) {
     problems.push(problem(file, "manifest.dark-named", `a page or the README names the dark take; they name ${lightTake(file)}, and the dark take is found by its name`));
   }
