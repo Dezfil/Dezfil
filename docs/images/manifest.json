@@ -1,41 +1,97 @@
 {
   "rows": [
     {
+      "file": "guides/templates-search-poster.dark.webp",
+      "scene": "templates-search",
+      "kind": "picture",
+      "theme": "dark",
+      "version": "0.1.0",
+      "date": "2026-10-18",
+      "width": 2880,
+      "height": 1800,
+      "bytes": 154154
+    },
+    {
       "file": "guides/templates-search-poster.webp",
       "scene": "templates-search",
       "kind": "picture",
+      "theme": "light",
       "version": "0.1.0",
-      "date": "2026-10-17",
+      "date": "2026-10-18",
       "width": 2880,
       "height": 1800,
-      "bytes": 195340
+      "bytes": 195524
+    },
+    {
+      "file": "guides/templates-search.dark.webm",
+      "scene": "templates-search",
+      "kind": "recording",
+      "theme": "dark",
+      "version": "0.1.0",
+      "date": "2026-10-18",
+      "width": 2880,
+      "height": 1800,
+      "bytes": 414928,
+      "length": 5,
+      "poster": "guides/templates-search-poster.dark.webp"
     },
     {
       "file": "guides/templates-search.webm",
       "scene": "templates-search",
       "kind": "recording",
+      "theme": "light",
       "version": "0.1.0",
-      "date": "2026-10-17",
+      "date": "2026-10-18",
       "width": 2880,
       "height": 1800,
-      "bytes": 418438,
+      "bytes": 418812,
       "length": 5,
       "poster": "guides/templates-search-poster.webp"
+    },
+    {
+      "file": "guides/templates.dark.webp",
+      "scene": "templates-page",
+      "kind": "picture",
+      "theme": "dark",
+      "version": "0.1.0",
+      "date": "2026-10-18",
+      "width": 2880,
+      "height": 1800,
+      "bytes": 154154
     },
     {
       "file": "guides/templates.webp",
       "scene": "templates-page",
       "kind": "picture",
+      "theme": "light",
       "version": "0.1.0",
-      "date": "2026-10-17",
+      "date": "2026-10-18",
       "width": 2880,
       "height": 1800,
-      "bytes": 195340
+      "bytes": 195524
+    },
+    {
+      "file": "start/setup-card.dark.webp",
+      "scene": "setup-card",
+      "kind": "picture",
+      "theme": "dark",
+      "version": "0.1.0",
+      "date": "2026-10-18",
+      "width": 874,
+      "height": 912,
+      "bytes": 18788,
+      "crop": {
+        "x": 804,
+        "y": 195,
+        "width": 437,
+        "height": 456
+      }
     },
     {
       "file": "start/setup-card.webp",
       "scene": "setup-card",
       "kind": "picture",
+      "theme": "light",
       "version": "0.1.0",
       "date": "2026-10-17",
       "width": 874,

@@ -64,7 +64,8 @@ export function pageAddress(file) {
 }
 
 /** Where a file under docs/ belongs: a page, one of the generated files,
- * a picture or recording, or nowhere. */
+ * a picture or recording (its light take, or its dark take with `.dark`
+ * before the extension), or nowhere. */
 export function placeOf(file) {
   const parts = file.split("/");
   if (parts[0] !== "docs") return { kind: "outside" };
@@ -72,7 +73,7 @@ export function placeOf(file) {
   if (file === "docs/reference/openapi.json") return { kind: "description" };
   if (file === "docs/images/manifest.json") return { kind: "manifest" };
   if (parts[1] === "images") {
-    const media = parts.length === 4 && SECTIONS.includes(parts[2]) && /^[a-z0-9-]+\.(webp|webm)$/.exec(parts[3]);
+    const media = parts.length === 4 && SECTIONS.includes(parts[2]) && /^[a-z0-9-]+(?:\.dark)?\.(webp|webm)$/.exec(parts[3]);
     return media ? { kind: media[1] === "webp" ? "picture" : "recording", name: parts[3] } : { kind: "misplaced" };
   }
   const page = (parts.length === 3 || parts.length === 4) && SECTIONS.includes(parts[1]) && file.endsWith(".md");
@@ -575,7 +576,7 @@ export function generateIndex({ files, read }) {
     lines.push("- [The OpenAPI description](reference/openapi.json) (Reference): the HTTP API as the server serves it, generated from the source; the operation reference is built from it.");
   }
   if (fileSet.has("docs/images/manifest.json")) {
-    lines.push("- [The image manifest](images/manifest.json): one row per picture and recording, with the scene it shows, its size and when it was taken.");
+    lines.push("- [The image manifest](images/manifest.json): one row per picture and recording, each scene in its light and its dark take, with the scene it shows, the take's theme, its size and when it was taken.");
   }
   return `${lines.join("\n")}\n`;
 }

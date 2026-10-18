@@ -393,9 +393,11 @@ rule:
 - `npm run lint:docs` holds every page under `docs/` to the page contract:
   its frontmatter, its headings, its links and pictures, and the addresses
   it owns or once had. It also fails when the image manifest disagrees with
-  its files, or when the index (`docs/README.md`) or the API description
-  file (`docs/reference/openapi.json`) is not what `npm run docs:write`
-  would write. Each problem names its file and rule.
+  its files, when a picture or recording lacks its light or its dark take,
+  when the README shows a picture in one theme only, or when the index
+  (`docs/README.md`) or the API description file
+  (`docs/reference/openapi.json`) is not what `npm run docs:write` would
+  write. Each problem names its file and rule.
 
 Types: `npm run typecheck`. Unit suite: `npm test` (Vitest, over
 `src/**/*.test.{ts,tsx}`), with 30-second per-test and per-hook timeouts
@@ -747,13 +749,24 @@ that need no account first, then seeds through the API (the first account
 through setup, a second invited account, a project they share, the three
 shipped templates copied, the fixtures under `e2e/fixtures/` uploaded) and
 takes the rest, signed in as the first account. Every scene is taken at
-1440 × 900 CSS pixels and two pixels per CSS pixel, in the light theme with
-reduced motion and a fixed clock. A recording is not filmed in real time:
-each of its steps is done, the page settles, and the frame is held for the
-step's number of frames at ten a second, so its length is its frame count
-(eight seconds at most). The frames go to Playwright's own ffmpeg, which
+1440 × 900 CSS pixels and two pixels per CSS pixel with reduced motion and a
+fixed clock, twice from the same instance state: in the light theme, then in
+the dark theme. The theme is the app's own: the dark take's browser starts
+with the choice the header's theme switch stores, which the app applies
+before first paint, and the run fails when a page is drawn in the other
+theme or a dark take comes out the same as its light take. The dark take is
+written beside the light one with `.dark` before the extension
+(`templates.webp` and `templates.dark.webp`), shows the same frame or crop,
+and has a manifest row of its own carrying its theme. Pages and the README
+name the light take; the dark take is found by that name. The README sets
+each picture as the image of a `<picture>` whose source for
+`(prefers-color-scheme: dark)` names the dark take, so GitHub shows the
+take of the reader's theme. A recording is not filmed in real time: each of its steps is done, the page settles, and
+the frame is held for the step's number of frames at ten a second, so its
+length is its frame count (eight seconds at most). The frames go to Playwright's own ffmpeg, which
 encodes a muted VP8 WebM single-threaded with bit-exact settings, so the
-same frames give the same bytes; the first frame is its poster. A recording
+same frames give the same bytes; each take's first frame is its poster, so
+a recording's dark take has a dark poster of its own. A recording
 over 1,500,000 bytes fails the run: hold fewer frames or declare a crop,
 never a smaller scale. The run fails, writing nothing, when the
 server opened any request (an observer in its preload chain writes each one

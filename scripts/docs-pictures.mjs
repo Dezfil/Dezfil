@@ -16,22 +16,27 @@
 // data directory and template catalogue are in that folder; no other data
 // directory is opened. The scenes that need no account are taken first, then
 // the instance is seeded through the documented API and the rest are taken.
-// The server's outbound requests are written down by an observer in its
-// preload chain, and the browser's requests off the instance are refused; a
-// run in which either happened fails, and so does a file over its bound.
-// Only then are files written under docs/images/, each one only when its
-// bytes changed, with the manifest beside them. Commit what changed.
+// Every scene is taken twice from the same instance state, in the app's light
+// theme and in its dark theme, chosen the way the app's own switch stores it;
+// the dark take is written beside the light one with `.dark` before the
+// extension, and shares its frame or crop. The server's outbound requests are
+// written down by an observer in its preload chain, and the browser's
+// requests off the instance are refused; a run in which either happened
+// fails, and so does a file over its bound, a page drawn in the other theme,
+// or a dark take that came out the same as its light take. Only then are
+// files written under docs/images/, each one only when its bytes changed,
+// with the manifest beside them. Commit what changed.
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import { copyFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
-import { frameContext, openBrowser, settle, takeRecording, takeStill } from "./docs-pictures-capture.mjs";
+import { cropRectangle, frameContext, openBrowser, pageTheme, settle, takeRecording, takeStill } from "./docs-pictures-capture.mjs";
 import { assertBuiltCheckout, freePort, makeScratch, seed, serverRequests, startServer, writeCatalogue } from "./docs-pictures-instance.mjs";
 import { MANIFEST, manifestText, planRun } from "./docs-pictures-manifest.mjs";
 import { SCENES, STATES } from "./docs-pictures-scenes.mjs";
-import { PICTURE_AIM_BYTES, PICTURE_MAX_BYTES, RECORDING_MAX_BYTES, RECORDINGS_MAX } from "./docs-media.mjs";
+import { PICTURE_AIM_BYTES, PICTURE_MAX_BYTES, RECORDING_MAX_BYTES, RECORDINGS_MAX, THEMES, lightTake } from "./docs-media.mjs";
 
 const root = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
 const { values } = parseArgs({ options: { only: { type: "string" }, port: { type: "string" }, "keep-requests": { type: "string" } } });
@@ -55,30 +60,38 @@ try {
   server = await startServer({ root, port, scratch });
   browser = await openBrowser();
   let cookie = null;
+  // A scene's crop, found on its light take and shared by its dark take.
+  const crops = new Map();
   for (const state of STATES) {
     const scenes = chosen.filter((scene) => scene.state === state);
     if (!scenes.length) continue;
     if (state === "seeded") ({ cookie } = await seed(server.base, root));
-    const { context, foreign } = await frameContext(browser, server.base, { cookie });
-    try {
-      for (const scene of scenes) {
-        const page = await context.newPage();
-        try {
-          await scene.open(page);
-          await settle(page);
-          const files = scene.kind === "recording"
-            ? await takeRecording(page, scene, path.join(scratch.folder, `${scene.id}.webm`))
-            : await takeStill(page, scene);
-          for (const file of files) console.log(`${scene.id}: ${file.file}, ${file.width} × ${file.height}${file.length ? `, ${file.length} s` : ""}, ${file.bytes.length} bytes`);
-          captured.push(...files);
-        } finally {
-          await page.close();
+    for (const theme of THEMES) {
+      const { context, foreign } = await frameContext(browser, server.base, { cookie, theme });
+      try {
+        for (const scene of scenes) {
+          const page = await context.newPage();
+          try {
+            await scene.open(page);
+            await settle(page);
+            const drawn = await pageTheme(page);
+            assert.equal(drawn, theme, `${scene.id}: the page is drawn in the ${drawn} theme, not the ${theme} theme the browser chose.`);
+            if (!crops.has(scene.id)) crops.set(scene.id, scene.crop ? await cropRectangle(page, scene.crop) : null);
+            const take = { theme, crop: crops.get(scene.id) };
+            const files = scene.kind === "recording"
+              ? await takeRecording(page, scene, path.join(scratch.folder, `${scene.id}.${theme}.webm`), take)
+              : await takeStill(page, scene, take);
+            for (const file of files) console.log(`${scene.id}: ${file.file}, ${file.width} × ${file.height}${file.length ? `, ${file.length} s` : ""}, ${file.bytes.length} bytes`);
+            captured.push(...files);
+          } finally {
+            await page.close();
+          }
         }
+      } finally {
+        await context.close();
       }
-    } finally {
-      await context.close();
+      assert.deepEqual(foreign, [], `The ${state} scenes' pages asked for addresses off the instance in the ${theme} theme.`);
     }
-    assert.deepEqual(foreign, [], `The ${state} scenes' pages asked for addresses off the instance.`);
   }
   if (values["keep-requests"]) await copyFile(scratch.requests, path.resolve(values["keep-requests"]));
   const requests = await serverRequests(scratch);
@@ -91,6 +104,14 @@ try {
   await browser?.close();
   await server?.stop();
   await rm(scratch.folder, { recursive: true, force: true });
+}
+
+// A dark take the same as its light take was not drawn in the dark theme.
+const takes = new Map(captured.map((item) => [item.file, item]));
+for (const item of captured.filter((taken) => taken.theme === "dark")) {
+  const light = takes.get(lightTake(item.file));
+  assert.ok(light, `${item.scene}: ${item.file} has no light take in the run.`);
+  assert.ok(Buffer.compare(Buffer.from(light.bytes), Buffer.from(item.bytes)) !== 0, `${item.scene}: ${item.file} came out the same as ${light.file}; the dark theme did not reach the picture.`);
 }
 
 // Bounds, before anything is written: a run over a bound writes nothing.

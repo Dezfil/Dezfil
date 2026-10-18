@@ -1,5 +1,5 @@
 {
-  "what": "The page contract's shared cases. The product's lint and the documentation site's build each run every case and must agree: a valid document is accepted and read to the same values, an invalid one is refused with the named rule, each tree is refused with exactly the named problems, and pages sort in the expected order: within a section its own pages first, then each subfolder's pages as a group with groups by folder name, and inside each by order (pages without one after those with one), then title (compared as English text), then path. Documents are placed at documentCase inside the base tree; a tree case replaces or adds its files over the base. Dates are judged against today.",
+  "what": "The page contract's shared cases. The product's lint and the documentation site's build each run every case and must agree: a valid document is accepted and read to the same values, an invalid one is refused with the named rule, each tree is refused with exactly the named problems (none, for a tree that shows what is allowed), and pages sort in the expected order: within a section its own pages first, then each subfolder's pages as a group with groups by folder name, and inside each by order (pages without one after those with one), then title (compared as English text), then path. Documents are placed at documentCase inside the base tree; a tree case replaces or adds its files over the base. Dates are judged against today.",
   "today": "2026-10-17",
   "documentCase": "docs/start/case.md",
   "base": {
@@ -590,6 +590,40 @@
       "problems": [
         {
           "file": "docs/images/setup-card.webp",
+          "rule": "tree.out-of-place"
+        }
+      ]
+    },
+    {
+      "name": "a picture's dark take beside its light take, both in place",
+      "files": {
+        "docs/start/run-it.md": "---\ntitle: \"Run it\"\nsummary: \"How to run Dezfil with Docker or from source, and what the first run asks.\"\nread_when:\n  - \"you want Dezfil running on your machine\"\n  - \"you set up the first account\"\naudience:\n  - user\n  - operator\nchecked: none\n---\n\n## First run\n\nThe first run asks for an account. See [the MCP tools](../reference/mcp.md#the-tools),\n[the licence](../../LICENSE), [contributing](../../CONTRIBUTING.md#before-you-start),\n[the tool script](../../scripts/tool.mjs), [first run](#first-run), the\n[operation reference](https://dezfil.io/docs/reference/api/), the\n[docs home](https://dezfil.io/docs/) and [an outside page](https://example.org/a)\nor [write to us](mailto:maintainers@dezfil.io).\n\n```sh\n# Not a heading, and [not a link](missing.md).\n```\n\n### With Docker\n\n`[not a link either](missing.md)` and text.\n\n![The setup card](../images/start/setup-card.webp)\n",
+        "docs/images/start/setup-card.webp": "picture",
+        "docs/images/start/setup-card.dark.webp": "picture",
+        "docs/images/manifest.json": "{\"rows\": [{\"file\": \"start/setup-card.webp\"}, {\"file\": \"start/setup-card.dark.webp\"}]}\n"
+      },
+      "problems": []
+    },
+    {
+      "name": "a picture with another word before its extension",
+      "files": {
+        "docs/images/start/setup-card.night.webp": "picture"
+      },
+      "problems": [
+        {
+          "file": "docs/images/start/setup-card.night.webp",
+          "rule": "tree.out-of-place"
+        }
+      ]
+    },
+    {
+      "name": "a dark take of a dark take",
+      "files": {
+        "docs/images/guides/search.dark.dark.webm": "recording"
+      },
+      "problems": [
+        {
+          "file": "docs/images/guides/search.dark.dark.webm",
           "rule": "tree.out-of-place"
         }
       ]
