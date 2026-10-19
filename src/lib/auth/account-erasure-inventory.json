@@ -860,6 +860,11 @@
     "memory:picture-scheduler": {
       "action": "retain",
       "rule": "Keep the instance scheduler, clock and renderer availability flags. Its queue holds no completed work; account-derived attempts are separately drained."
+    },
+    "memory:picture-data": {
+      "action": "purge",
+      "rule": "Drain in-progress picture dependency resolution, then clear every coalesced dataset identity before account erasure completes. Future looks derive any remaining work from live maps.",
+      "fixture": "memory:picture-data"
     }
   },
   "tables": {
@@ -6955,6 +6960,31 @@
     "memory:src/lib/pictures/start.ts#startPictures.stopData": {
       "stores": [
         "memory:picture-scheduler"
+      ]
+    },
+    "memory:src/lib/pictures/renderer.ts#standing": {
+      "stores": [
+        "memory:picture-scheduler"
+      ]
+    },
+    "memory:src/lib/pictures/service.ts#PictureService.rendererFailed": {
+      "stores": [
+        "memory:picture-scheduler"
+      ]
+    },
+    "memory:src/lib/pictures/service.ts#PictureService.dataDue": {
+      "stores": [
+        "memory:picture-scheduler"
+      ]
+    },
+    "memory:src/lib/pictures/service.ts#PictureService.dataIds": {
+      "stores": [
+        "memory:picture-data"
+      ]
+    },
+    "memory:src/lib/pictures/service.ts#PictureService.dataWork": {
+      "stores": [
+        "memory:picture-data"
       ]
     }
   },

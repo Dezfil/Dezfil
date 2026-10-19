@@ -103,6 +103,8 @@ export class PictureService {
   async drain(): Promise<void> { await this.dataWork; await this.queue.drain(); }
   get busy(): boolean { return this.dataWork !== null || this.queue.busy; }
   clearPendingData(): void { this.dataIds.clear(); }
+  /** Independent observation for the populated erasure proof. */
+  pendingDataIdsForTests(): string[] { return [...this.dataIds]; }
   private async resolveDataChanges(ids: ReadonlySet<string>, changedAt: number): Promise<void> {
     const maps = metadataDb().prepare("SELECT id FROM maps").all() as { id: string }[];
     for (const map of maps) {
