@@ -36,3 +36,11 @@ export function pictureWorkScope(secret: string, db: Database = metadataDb(), no
   if (!secret.startsWith("dz_picture_") || !row) throw new AuthError("authentication_required", "Sign in to continue.", 401);
   return { mapId: row.mapId, scope: Object.freeze({ accountId: row.ownerId, workKey, [accountScopeBrand]: true as const }) };
 }
+
+/** Internal background admission uses the stored owner, never a caller's
+ * supplied account. HTTP reads still require the attempt credential. */
+export function mapOwnerWorkScope(mapId: string, db: Database = metadataDb()): AccountScope {
+  const row = db.prepare("SELECT owner_id FROM maps WHERE id = ?").get(mapId) as { owner_id: string } | undefined;
+  if (!row || getAccount(row.owner_id, db)?.status !== "active") throw new AuthError("authentication_required", "Sign in to continue.", 401);
+  return Object.freeze({ accountId: row.owner_id, [accountScopeBrand]: true as const });
+}

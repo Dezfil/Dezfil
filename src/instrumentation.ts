@@ -48,5 +48,7 @@ export async function register() {
       await import("@/lib/operations/recover");
     recoverInterruptedRuns();
     recoverInterruptedCascades();
+    const { startPictures } = await import("@/lib/pictures/start");
+    startPictures();
   }
 }

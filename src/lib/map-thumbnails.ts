@@ -573,3 +573,13 @@ export async function publishedPictureGeneration(mapId: string): Promise<number 
     return generation ?? null;
   });
 }
+
+/** Evidence of the currently named bytes, for freshness checks at a look. */
+export async function publishedPictureInputs(mapId: string): Promise<ArtifactInputs | null> {
+  return queueTurn(mapId, async () => {
+    const set = await readSet(mapId);
+    const name = set?.light ?? path.basename(thumbnailPath(mapId));
+    try { return (await imageEvidence(name, await readFile(inDir(name)))).inputs; }
+    catch { return null; }
+  });
+}

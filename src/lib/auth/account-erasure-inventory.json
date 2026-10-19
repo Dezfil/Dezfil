@@ -851,6 +851,15 @@
       "action": "erase",
       "rule": "Erase picture state with its owning map, including account content cascades.",
       "fixture": "table:map_pictures"
+    },
+    "memory:picture-attempts": {
+      "action": "erase",
+      "rule": "Drain admitted picture attempts and remove their map keys, state snapshots and pixel buffers at settlement; pending work is derived from map rows and cascades with them.",
+      "fixture": "memory:picture-attempts"
+    },
+    "memory:picture-scheduler": {
+      "action": "retain",
+      "rule": "Keep the instance scheduler, clock and renderer availability flags. Its queue holds no completed work; account-derived attempts are separately drained."
     }
   },
   "tables": {
@@ -6814,6 +6823,118 @@
     "memory:src/lib/auth/reception.mjs#receptionIterator.waiting": {
       "stores": [
         "memory:request-closures"
+      ]
+    },
+    "location:src/lib/map-thumbnails.ts#publishedPictureGeneration.found:inDir": {
+      "stores": [
+        "file:thumbnails"
+      ],
+      "roots": [
+        "thumbnails/*"
+      ]
+    },
+    "location:src/lib/map-thumbnails.ts#publishedPictureGeneration.names:thumbnailPath": {
+      "stores": [
+        "file:thumbnails"
+      ],
+      "roots": [
+        "thumbnails/*.png"
+      ]
+    },
+    "location:src/lib/map-thumbnails.ts#publishedPictureInputs.name:thumbnailPath": {
+      "stores": [
+        "file:thumbnails"
+      ],
+      "roots": [
+        "thumbnails/*.png"
+      ]
+    },
+    "location:src/lib/map-thumbnails.ts#publishedPictureInputs:inDir": {
+      "stores": [
+        "file:thumbnails"
+      ],
+      "roots": [
+        "thumbnails/*"
+      ]
+    },
+    "location:src/lib/map-thumbnails.ts#savePictureSet:inDir": {
+      "stores": [
+        "file:thumbnails"
+      ],
+      "roots": [
+        "thumbnails/*"
+      ]
+    },
+    "location:src/lib/map-thumbnails.ts#savePictureSet:thumbnailManifestPath": {
+      "stores": [
+        "file:thumbnails"
+      ],
+      "roots": [
+        "thumbnails/*.json"
+      ]
+    },
+    "location:src/lib/map-thumbnails.ts#savePictureSet:thumbnailPath": {
+      "stores": [
+        "file:thumbnails"
+      ],
+      "roots": [
+        "thumbnails/*.png"
+      ]
+    },
+    "writer:src/lib/map-thumbnails.ts#savePictureSet:writeAtomically": {
+      "stores": [
+        "file:thumbnails"
+      ],
+      "roots": [
+        "thumbnails/*.json"
+      ]
+    },
+    "writer:src/lib/map-thumbnails.ts#savePictureSet:writeImageCandidate": {
+      "stores": [
+        "file:thumbnails"
+      ],
+      "roots": [
+        "thumbnails/*"
+      ]
+    },
+    "memory:src/lib/pictures/queue.ts#PictureQueue.running": {
+      "stores": [
+        "memory:picture-attempts"
+      ]
+    },
+    "memory:src/lib/pictures/service.ts#PictureService.now": {
+      "stores": [
+        "memory:picture-scheduler"
+      ]
+    },
+    "memory:src/lib/pictures/service.ts#PictureService.queue": {
+      "stores": [
+        "memory:picture-scheduler"
+      ]
+    },
+    "memory:src/lib/pictures/service.ts#PictureService.rendererReady": {
+      "stores": [
+        "memory:picture-scheduler"
+      ]
+    },
+    "memory:src/lib/pictures/start.ts#startPictures.lastLook": {
+      "stores": [
+        "memory:picture-scheduler"
+      ]
+    },
+    "memory:src/lib/pictures/start.ts#startPictures.looking": {
+      "stores": [
+        "memory:picture-scheduler"
+      ]
+    },
+    "memory:src/lib/pictures/start.ts#startPictures.service": {
+      "stores": [
+        "memory:picture-scheduler"
+      ]
+    },
+    "memory:src/lib/pictures/start.ts#startPictures.serving": {
+      "stores": [
+        "memory:picture-scheduler"
       ]
     }
   },

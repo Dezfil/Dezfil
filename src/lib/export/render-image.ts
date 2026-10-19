@@ -104,6 +104,8 @@ export interface RenderImageInput {
   mapId: string;
   /** Background pictures reserve foreground capacity and budget only held slots. */
   background?: boolean;
+  /** Internal work may renew its credential once queue wait has ended. */
+  admitted?: () => void;
   definition: ExportImageDefinition;
   baseUrl: string;
   credential: string;
@@ -165,6 +167,7 @@ async function performRenderMapImage(
   // export answers: the slot stays held until it has ended.
   const late: { end: Promise<void> | null } = { end: null };
   try {
+    input.admitted?.();
     return await driveRender({
       url: `${input.baseUrl}/render/${encodeURIComponent(input.mapId)}`,
       credential: input.credential,

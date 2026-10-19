@@ -44,3 +44,12 @@ export function pictureRequestScope(request: Request, db: Database = metadataDb(
   if (isAnonymousAsset(path, request.method, process.env.NODE_ENV === "development")) return scope;
   throw refused();
 }
+
+/** Only the in-process owner of an attempt renews it after slot admission. */
+export function renewPictureCredential(secret: string, expiresAt: number, db: Database = metadataDb()): void {
+  const changed = db.prepare(`UPDATE map_pictures SET work_expires_at = ? WHERE work_key = ?
+    AND EXISTS (SELECT 1 FROM maps m JOIN accounts a ON a.id = m.owner_id
+      WHERE m.id = map_pictures.map_id AND m.owner_id = map_pictures.work_owner AND a.status = 'active')`)
+    .run(expiresAt, delegatedWorkKey(secret)).changes;
+  if (!changed) throw refused();
+}
