@@ -38,6 +38,8 @@
 .invitation { background: var(--bg-raised); min-width: 820px; }
 .newRow { padding: 10px 16px 10px 12px; gap: 0 10px; }
 .newActions { grid-column: 4 / -1; display: flex; justify-content: flex-end; gap: 6px; }
+/* The note under the invitation keeps the rows' and cells' left inset. */
+.invitation .note { padding: 0 16px 12px 12px; }
 .invitationError { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; padding: 0 16px 12px; }
 .group { padding: 8px 16px 8px 12px; background: var(--bg-raised); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); font-size: var(--text-meta); color: var(--fg-muted); min-width: 820px; }
 .empty { text-align: center; padding: 24px; font-size: var(--text-body); color: var(--fg-muted); }
