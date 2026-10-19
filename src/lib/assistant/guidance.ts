@@ -103,7 +103,7 @@ export const GUIDANCE_SECTIONS: readonly { id: string; audience: 'shared' | 'ass
       "Compound filing carries each selected document's revision in the documented members or resource input. Whole creation and copying to a new identity need no destination revision. " +
       "Missing revisions return invalid_request; stale_revision changes nothing. After refusal, read again explicitly, inspect current state and compose a new edit. " +
       "Never silently replay the refused payload with a fresh token. A token does not grant permission. Complete deletion has no resulting revision; a transfer may end your reach. " +
-      "Viewport-only saves, thumbnail capture and run cancellation are exceptions. Read shared undo targets and eligibility before replay; start runs with the revision returned by planning. " +
+      "Viewport-only saves, picture refresh and run cancellation are exceptions. Map card pictures are made by the server from saved drawings. refresh_map_picture queues a replacement for an owner or Editor and reports unavailable when there is no renderer; pictureState and pictureVersion are on map listings. Read shared undo targets and eligibility before replay; start runs with the revision returned by planning. " +
       "Last-change actors and run initiators are separate from ownership; unknown historical authors stay unknown.",
   },
   {

@@ -684,12 +684,18 @@ image carries what the source tree does not:
 - `tippecanoe`, compiled from source in its own build stage, so tiled
   rendering works without a host install;
 - Chromium plus a certificate bundle and fallback fonts, driven through
-  software GL by the server-side image export (`DEZFIL_CHROMIUM_PATH`);
+  software GL by server-side image exports, appearance checks and map card pictures (`DEZFIL_CHROMIUM_PATH`);
 - the DuckDB extension bundle, baked at build time into
   `/app/duckdb-extensions`, so a running instance needs no network;
 - the native packages the standalone tracer misses, copied in whole;
 - `public/`, `LICENSE`, `NOTICE` and the model catalogue file at its
   source-relative path, copied explicitly.
+
+Without the renderer, map listings report `pictureState: unavailable`,
+refresh answers `outcome: unavailable`, and existing pictures stay served.
+System reports the image renderer's availability. Install or restore the
+configured executable; the hourly look discovers recovery without an edit.
+Map pictures are made on the server even when nobody opens their builder.
 
 It runs as the unprivileged `node` user, exposes 3000 and declares `/data`
 as its volume. Two checks belong to the image, not the source tree:
