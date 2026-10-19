@@ -7,7 +7,9 @@ import type { InstanceRead } from "./instance-read";
  * and search words, the meta line under its label, and the state beside its
  * Test. The state comes from the configuration read (the data folder's from
  * the readiness check) and follows a Test's answer where the answer says
- * more: a pass is the part working, a program not found is not found.
+ * more: a pass is the part working, a program not found is not found. The
+ * image renderer's state is its standing for map pictures, so a browser
+ * found whose launch was refused reads as one that could not start.
  */
 
 export interface StatusRowFacts {
@@ -46,6 +48,9 @@ const READY: PartState = { tone: "on", text: "Ready" };
 const NOT_STARTED: PartState = { tone: "off", text: "Not started yet" };
 const FOUND: PartState = { tone: "on", text: "Found" };
 const NOT_FOUND: PartState = { tone: "danger", text: "Not found" };
+/** The renderer's browser is there, but its launch was refused: map
+ * pictures wait for the server's next look at it. */
+const COULD_NOT_START: PartState = { tone: "danger", text: "Could not start" };
 
 export function partMeta(part: Part, read: Pick<InstanceRead, "settings" | "parts">): PartMeta | null {
   const parts: PartStates = read.parts;
@@ -79,10 +84,16 @@ export function partState(part: Part, parts: PartStates, health: Health, answer:
       if (notFound) return NOT_STARTED;
       return parts.query_engine.started ? READY : NOT_STARTED;
     case "tile_builder":
-    case "image_renderer":
       if (passed) return FOUND;
       if (notFound) return NOT_FOUND;
-      return parts[part].found ? FOUND : NOT_FOUND;
+      return parts.tile_builder.found ? FOUND : NOT_FOUND;
+    case "image_renderer":
+      // The renderer's standing is what map pictures can use: a browser
+      // found whose launch was refused is not one they can.
+      if (passed) return FOUND;
+      if (notFound) return NOT_FOUND;
+      if (!parts.image_renderer.found) return NOT_FOUND;
+      return parts.image_renderer.available ? FOUND : COULD_NOT_START;
     case "metadata_database":
       return READY;
   }

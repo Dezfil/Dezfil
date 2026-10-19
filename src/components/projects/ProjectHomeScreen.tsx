@@ -33,6 +33,7 @@ import { HomeSections, type HomeView } from "./HomeSections";
 import { KindIcon } from "./ProjectPicture";
 import { ProjectCrumbTail } from "../shell/ProjectCrumbTail";
 import type { PictureBasemaps } from "@/lib/picture-credit";
+import { PictureRendererNotice } from "../PictureRendererNotice";
 import { PlainCrumbTail } from "../shell/PlainCrumbTail";
 import { RoleLine } from "../sharing/PeopleMarks";
 import { MembersLine } from "../sharing/MembersLine";
@@ -75,7 +76,7 @@ function ProjectPath({ name }: { name: string }) {
   return null;
 }
 
-export function ProjectHomeScreen({ id, files, pictureBasemaps }: {
+export function ProjectHomeScreen({ id, files, pictureBasemaps, rendererNotice }: {
   id: string;
   /** Whether the reader may file their own work into the project now, as
    * the server's reach kernel answered for the page: its owner or an
@@ -84,18 +85,22 @@ export function ProjectHomeScreen({ id, files, pictureBasemaps }: {
   /** The instance's basemaps, which the line for the map pictures
    * credits. */
   pictureBasemaps?: PictureBasemaps;
+  /** Whether the reader is an administrator told the pictures have no
+   * renderer, as the page was served. */
+  rendererNotice?: boolean;
 }) {
   const home = useProjectHome(id);
   // Keep the reader across route changes to reject departed responses, while
   // drafts, dialogs and busy flags are local to the displayed project visit.
-  return <ProjectHomeVisit key={id} id={id} home={home} files={files} pictureBasemaps={pictureBasemaps} />;
+  return <ProjectHomeVisit key={id} id={id} home={home} files={files} pictureBasemaps={pictureBasemaps} rendererNotice={rendererNotice} />;
 }
 
-function ProjectHomeVisit({ id, home, files, pictureBasemaps }: {
+function ProjectHomeVisit({ id, home, files, pictureBasemaps, rendererNotice }: {
   id: string;
   home: ReturnType<typeof useProjectHome>;
   files: boolean;
   pictureBasemaps?: PictureBasemaps;
+  rendererNotice?: boolean;
 }) {
   const router = useRouter();
   const me = useSignedInSqlName();
@@ -658,6 +663,7 @@ function ProjectHomeVisit({ id, home, files, pictureBasemaps }: {
             pictureBasemaps={pictureBasemaps}
           />
         )}
+        <PictureRendererNotice shown={rendererNotice} />
       </div>
 
       {picking && (

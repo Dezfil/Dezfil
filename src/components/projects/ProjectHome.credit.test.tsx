@@ -74,8 +74,8 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-async function open() {
-  await act(async () => root.render(<SignedIn account={bo}><ProjectHomeScreen id="p" files pictureBasemaps={INSTANCE} /></SignedIn>));
+async function open(rendererNotice?: boolean) {
+  await act(async () => root.render(<SignedIn account={bo}><ProjectHomeScreen id="p" files pictureBasemaps={INSTANCE} rendererNotice={rendererNotice} /></SignedIn>));
   for (let i = 0; i < 4; i += 1) await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
 }
 const credits = () => container.querySelectorAll("[data-picture-credit]");
@@ -121,5 +121,36 @@ describe("a project's home's line for its pictures", () => {
     const [line] = credits();
     expect(content().childNodes.at(-1)).toBe(line);
     expect(line.textContent).toBe("Map previews:© Imagery Provider");
+  });
+});
+
+describe("a project's home's line for an administrator when pictures have no renderer", () => {
+  const notices = () => container.querySelectorAll("[data-renderer-notice]");
+  const SAID = "No map pictures: this instance has no renderer. Settings · System says how to set one.";
+
+  it("stands at the home's foot, under the credit in cards and under the sections in the list", async () => {
+    fake.maps = [map("a", "dark")];
+    await open(true);
+    expect(notices()).toHaveLength(1);
+    expect(notices()[0].textContent).toBe(SAID);
+    expect(content().childNodes.at(-1)).toBe(notices()[0]);
+    expect(content().childNodes.at(-2)).toBe(credits()[0]);
+    await act(async () => { container.querySelector('button[aria-label="List view"]')!.click(); });
+    expect(notices()).toHaveLength(1);
+    expect(content().childNodes.at(-1)).toBe(notices()[0]);
+    expect(notices()[0].closest('[data-section="map"]')).toBeNull();
+  });
+
+  it("stands at an empty project's foot too", async () => {
+    fake.catalogue = { maps: [map("r", null, false, null)], workflows: [], tables: [] } satisfies Catalogue;
+    await open(true);
+    expect(notices()).toHaveLength(1);
+    expect(content().childNodes.at(-1)).toBe(notices()[0]);
+  });
+
+  it("is not there when the page does not hand it", async () => {
+    fake.maps = [map("a", "dark")];
+    await open(false);
+    expect(notices()).toHaveLength(0);
   });
 });

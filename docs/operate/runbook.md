@@ -695,7 +695,9 @@ Without the renderer, map listings report `pictureState: unavailable`,
 refresh answers `outcome: unavailable`, and existing pictures stay served.
 The admin System read, `GET /api/instance/settings`, reports this as
 `parts.image_renderer.available`; `found` separately reports file presence.
-The System tab currently shows file presence. Install or restore the configured
+The System tab's Image renderer row reads Not found without the program and
+Could not start after a launch refusal, and every page of map cards tells
+administrators so in one line at its foot. Install or restore the configured
 executable; the hourly look discovers recovery without an edit. A launch refusal
 also holds picture work unavailable until that look, even if the file exists.
 Map pictures are made on the server even when nobody opens their builder.

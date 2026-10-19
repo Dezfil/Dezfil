@@ -18,6 +18,10 @@ import { SignedIn } from "./sharing/signed-in";
 
 const lists = vi.hoisted(() => ({ world: null as unknown, view: "grid" as "grid" | "list" }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), replace: vi.fn() }) }));
+// The line's one link is a plain anchor here, standing in for next/link's.
+vi.mock("next/link", () => ({
+  default: ({ href, children, ...rest }: { href: string; children: React.ReactNode }) => <a href={href} {...rest}>{children}</a>,
+}));
 vi.mock("@/components/theme", () => ({ useTheme: () => ({ theme: "light" }) }));
 vi.mock("./MapStrip", () => ({ MapStrip: () => null }));
 vi.mock("./use-view-prefs", async (original) => ({
@@ -58,9 +62,9 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-async function open(maps: MapOverview[]) {
+async function open(maps: MapOverview[], rendererNotice?: boolean) {
   lists.world = { projects: [], all: maps, scoped: maps };
-  await act(async () => root.render(<SignedIn account={bo}><MapsScreen pictureBasemaps={INSTANCE} /></SignedIn>));
+  await act(async () => root.render(<SignedIn account={bo}><MapsScreen pictureBasemaps={INSTANCE} rendererNotice={rendererNotice} /></SignedIn>));
   for (let i = 0; i < 4; i += 1) await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
 }
 const credits = () => container.querySelectorAll("[data-picture-credit]");
@@ -105,5 +109,31 @@ describe("the Maps gallery's line for its pictures", () => {
     expect(card.childNodes.at(-1)).toBe(foot);
     expect(card.querySelectorAll('[aria-label="Open Map a"]')).toHaveLength(1);
     expect(links(foot).map(([label]) => label)).toEqual(["© OpenMapTiles", "© OpenStreetMap"]);
+  });
+});
+
+describe("the Maps gallery's line for an administrator when pictures have no renderer", () => {
+  const notices = () => container.querySelectorAll("[data-renderer-notice]");
+
+  it("stands at the screen's foot under the grid's credit line, when the page hands it", async () => {
+    await open([map("a", null)], true);
+    expect(notices()).toHaveLength(1);
+    const [line] = notices();
+    expect(line.parentElement).toBe(screen());
+    expect(screen().childNodes.at(-1)).toBe(line);
+    expect(screen().childNodes.at(-2)).toBe(credits()[0]);
+    expect(line.textContent).toBe("No map pictures: this instance has no renderer. Settings · System says how to set one.");
+  });
+
+  it("stands at the screen's foot in the list too, under the scroller and not in the list card", async () => {
+    lists.view = "list";
+    await open([map("a", null, false)], true);
+    expect(notices()).toHaveLength(1);
+    expect(screen().childNodes.at(-1)).toBe(notices()[0]);
+  });
+
+  it.each([false, undefined])("is not there when the page does not hand it (%s)", async (handed) => {
+    await open([map("a", null, false)], handed);
+    expect(notices()).toHaveLength(0);
   });
 });

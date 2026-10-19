@@ -13,6 +13,7 @@ import { ErrorNote } from "../ui/ErrorNote";
 import { useTransientNotice } from "../use-transient-notice";
 import { TransientNotice } from "../TransientNotice";
 import { PictureCredit } from "../PictureCredit";
+import { PictureRendererNotice } from "../PictureRendererNotice";
 import type { PictureBasemaps } from "@/lib/picture-credit";
 import { homePictures, homeView, type HomeRunRow } from "./home-model";
 import { useHomeReads, useLeadHistory, useRereadAfterRun } from "./home-reads";
@@ -32,9 +33,13 @@ import styles from "./Home.module.css";
  */
 export function HomeScreen({
   pictureBasemaps,
+  rendererNotice,
 }: {
   /** The instance's basemaps, which the line at Home's foot credits. */
   pictureBasemaps?: PictureBasemaps;
+  /** Whether the reader is an administrator told the pictures have no
+   * renderer, as the page was served. */
+  rendererNotice?: boolean;
 } = {}) {
   const router = useRouter();
   const label = useSignedInLabel();
@@ -138,6 +143,7 @@ export function HomeScreen({
         onCopy={setCopying}
       />
       <PictureCredit maps={pictured} basemaps={pictureBasemaps} placement="page" />
+      <PictureRendererNotice shown={rendererNotice} />
       {copying ? <TemplateCopyDialog key={copying} id={copying} onClose={() => setCopying(null)} /> : null}
     </div>
   );

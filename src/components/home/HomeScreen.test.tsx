@@ -1479,4 +1479,21 @@ describe("the line crediting Home's map pictures", () => {
     await openWithPictures();
     expect(credits()).toHaveLength(0);
   });
+
+  it("carries the administrators' line about a missing renderer at Home's foot, under the credit, only when the page hands it", async () => {
+    const notices = () => container.querySelectorAll("[data-renderer-notice]");
+    answers.maps = [on(map("m1", { changed: at(5) }), null)];
+    await openWithPictures();
+    expect(notices()).toHaveLength(0);
+    act(() => root.unmount());
+    root = createRoot(container as unknown as Element);
+    await act(async () => root.render(<SignedIn account={ADA}><HomeScreen pictureBasemaps={pictures} rendererNotice /></SignedIn>));
+    await settle();
+    const home = container.querySelector("[data-home]")!;
+    expect(notices()).toHaveLength(1);
+    expect(notices()[0].parentElement).toBe(home);
+    expect(home.childNodes.at(-1)).toBe(notices()[0]);
+    expect(home.childNodes.at(-2)).toBe(credits()[0]);
+    expect(notices()[0].textContent).toBe("No map pictures: this instance has no renderer. Settings · System says how to set one.");
+  });
 });

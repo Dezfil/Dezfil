@@ -25,6 +25,7 @@ import { Button } from "./ui/Button";
 import { Dialog } from "./ui/Dialog";
 import { ErrorNote } from "./ui/ErrorNote";
 import { ListHeading } from "./ListHeading";
+import { PictureRendererNotice } from "./PictureRendererNotice";
 import { headingLine } from "./scope/model";
 import { PlusIcon, SignOutIcon } from "./ui/icons";
 import { LeaveProjectDialog, ownsFiledWork } from "./projects/LeaveProjectDialog";
@@ -62,7 +63,13 @@ const NAME_MAX = 120;
 const count = (n: number, word: string) =>
   `${n} ${word}${n === 1 ? "" : "s"}`;
 
-export function ProjectsScreen() {
+export function ProjectsScreen({
+  rendererNotice,
+}: {
+  /** Whether the reader is an administrator told the pictures have no
+   * renderer, as the page was served. */
+  rendererNotice?: boolean;
+} = {}) {
   const router = useRouter();
   const me = useSignedInSqlName();
   const { notice: departureNotice, clear: clearDeparture } = useDepartureNotice();
@@ -559,6 +566,7 @@ export function ProjectsScreen() {
           )}
         </AsyncState>
       </div>
+      {world && settled && <PictureRendererNotice shown={rendererNotice} />}
 
       {exportNote && (
         <p className={styles.exportNote} role="status">

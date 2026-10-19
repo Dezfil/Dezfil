@@ -19,6 +19,7 @@ import {
 import { CardDelete } from "./CardDelete";
 import { MapStrip } from "./MapStrip";
 import { PictureCredit } from "./PictureCredit";
+import { PictureRendererNotice } from "./PictureRendererNotice";
 import { AddToProjectDialog } from "./projects/AddToProjectDialog";
 import { actionLabel } from "./projects/add-model";
 import { useTheme } from "@/components/theme";
@@ -117,9 +118,13 @@ export function ProjectTag({
 
 export function MapsScreen({
   pictureBasemaps,
+  rendererNotice,
 }: {
   /** The instance's basemaps, which the line under the pictures credits. */
   pictureBasemaps?: PictureBasemaps;
+  /** Whether the reader is an administrator told the pictures have no
+   * renderer, as the page was served. */
+  rendererNotice?: boolean;
 } = {}) {
   const router = useRouter();
   const { theme } = useTheme();
@@ -706,6 +711,7 @@ export function MapsScreen({
       {shown && settled && view === "grid" && (
         <PictureCredit maps={shown} basemaps={pictureBasemaps} placement="page" />
       )}
+      {shown && settled && <PictureRendererNotice shown={rendererNotice} />}
 
       {filing && (
         <AddToProjectDialog
