@@ -711,6 +711,31 @@ allowlist, or when repository metadata, a data directory, database or key
 material, or environment files appear anywhere. The second proves every
 supported extension loads with the network disabled.
 
+## Map picture proofs
+
+Build and provision a production instance in a separate checkout with its own
+scratch data directory, a real image renderer and tile builder. Use a port
+other than the development listener. Auto must be unpinned and its light and
+dark style hosts reachable. Create a disposable account token on that instance.
+The proof creates and deletes its own maps, never opens their builders, and
+rejects the development port before making a request.
+
+```sh
+mkdir -p .claude/scratch
+export DEZFIL_DATA_DIR=$(mktemp -d "$PWD/.claude/scratch/pictures-XXXXXXXX")
+export DEZFIL_PICTURE_TEST_URL=http://127.0.0.1:3581
+export DEZFIL_PICTURE_TEST_TOKEN=disposable-account-token
+fnm exec --using=24 npm test -- src/lib/pictures/pictures.real-render.test.ts --maxWorkers=2
+```
+
+Remove that test process's scratch directory after the run. The instance has
+its own independent scratch directory. The test checks all three computed
+mark positions at 692 by 296 in both appearances, then unsupported tiled
+live filters and a layer that fails after save admission. The pixel oracle's
+flat-image control and listener guard run without a server in
+`src/lib/pictures/real-proof-controls.test.ts`. A skipped real-render test is
+not evidence of a rendered picture.
+
 ## Regenerating what is generated
 
 **The design specimen.** `node scripts/build-specimen.mjs` rewrites the fed
