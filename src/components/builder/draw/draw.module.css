@@ -180,6 +180,34 @@
   stroke-linejoin: round;
 }
 
+/* The selected shape: a thicker accent outline over a soft accent glow,
+   with a thin casing in the panel colour between them so the outline
+   reads over a light or a dark basemap. Solid, so it never reads as a
+   draft's dashed line. */
+.selectGlow,
+.selectCasing,
+.selectLine {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.selectGlow {
+  stroke: var(--accent);
+  stroke-width: 10;
+  stroke-opacity: 0.28;
+}
+
+.selectCasing {
+  stroke: var(--bg-panel);
+  stroke-width: 5;
+}
+
+.selectLine {
+  stroke: var(--accent);
+  stroke-width: 3;
+}
+
 .handle {
   fill: var(--bg-panel);
   stroke: var(--accent);
