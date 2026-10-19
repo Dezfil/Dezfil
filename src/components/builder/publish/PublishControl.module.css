@@ -38,11 +38,15 @@
   position: relative;
 }
 
+/* A column, so its content shrinks to the height the control bounds it
+   to and scrolls inside. */
 .pop {
   position: absolute;
   top: calc(100% + 8px);
   right: 0;
   z-index: 40;
+  display: flex;
+  flex-direction: column;
   width: 300px;
   background: var(--surface-menu-fill);
   backdrop-filter: var(--surface-menu-blur);

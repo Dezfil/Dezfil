@@ -6,7 +6,30 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
+  min-height: 0;
   text-align: left;
+}
+
+/* The panel ends above the window's bottom edge: the head (the status, the
+   link and its copy, or the Publish button) stays put and the rest scrolls
+   inside it. The scroller reaches out over the panel's padding, so a focus
+   ring at its edge is not cut off. */
+.head {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.scroll {
+  display: flex;
+  flex: 0 1 auto;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 0;
+  overflow-y: auto;
+  margin: -4px -12px;
+  padding: 4px 12px;
 }
 
 /* ---- status row ---- */
@@ -345,10 +368,15 @@
 
 /* ---- the embed view ---- */
 
+/* The embed view scrolls whole inside the bounded panel. */
 .embed {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  min-height: 0;
+  overflow-y: auto;
+  margin: -4px -12px;
+  padding: 4px 12px;
   text-align: left;
 }
 

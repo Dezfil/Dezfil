@@ -625,111 +625,125 @@ export function PublishPopover({
     return <EmbedView url={url} mapName={map.name} listed={embedding === "listed"} onBack={() => setView("main")} />;
   }
 
+  const errorNote = error && (
+    <ErrorNote message={error} onDismiss={() => setError(null)} />
+  );
+
+  // The head (the status, the link and its copy, or the Publish button)
+  // stays put; everything under it scrolls inside the panel, which ends
+  // above the window's bottom edge.
   return (
     <div className={styles.body}>
-      {error && (
-        <ErrorNote message={error} onDismiss={() => setError(null)} />
-      )}
       {map.published ? (
         <>
-          <div className={styles.top}>
-            <span className={styles.live}>
-              <span className={styles.liveDot} aria-hidden />
-              Published
-              {map.publishedAt && (
-                <span className={styles.ago}>
-                  {" "}
-                  · {timeSince(map.publishedAt)}
-                </span>
-              )}
-            </span>
-            {url && (
-              <a
-                className={styles.openLink}
-                href={url}
-                target="_blank"
-                rel="noreferrer"
-              >
-                Open <ExternalIcon />
-              </a>
-            )}
-          </div>
-          <div className={styles.hero}>
-            {url && (
-              <>
-                <div className={styles.url} data-publish-url={url}>
-                  {url.replace(/^https?:\/\//, "")}
-                </div>
-                <Button
-                  variant="primary"
-                  className={styles.copyBtn}
-                  onClick={() => void copy()}
+          <div className={styles.head}>
+            {errorNote}
+            <div className={styles.top}>
+              <span className={styles.live}>
+                <span className={styles.liveDot} aria-hidden />
+                Published
+                {map.publishedAt && (
+                  <span className={styles.ago}>
+                    {" "}
+                    · {timeSince(map.publishedAt)}
+                  </span>
+                )}
+              </span>
+              {url && (
+                <a
+                  className={styles.openLink}
+                  href={url}
+                  target="_blank"
+                  rel="noreferrer"
                 >
-                  {copied ? <CheckIcon /> : <CopyIcon />}
-                  {copied ? "Link copied" : "Copy link"}
-                </Button>
-              </>
-            )}
-            <Audience tense="present" />
+                  Open <ExternalIcon />
+                </a>
+              )}
+            </div>
+            <div className={styles.hero}>
+              {url && (
+                <>
+                  <div className={styles.url} data-publish-url={url}>
+                    {url.replace(/^https?:\/\//, "")}
+                  </div>
+                  <Button
+                    variant="primary"
+                    className={styles.copyBtn}
+                    onClick={() => void copy()}
+                  >
+                    {copied ? <CheckIcon /> : <CopyIcon />}
+                    {copied ? "Link copied" : "Copy link"}
+                  </Button>
+                </>
+              )}
+              <Audience tense="present" />
+            </div>
           </div>
-          {refusal && <p className={styles.refusal}>{refusal}</p>}
-          <SharedFields
-            mapId={map.id}
-            revision={revision}
-            heading="Shared fields"
-            locked={!!refusal}
-            onLayerChange={onChange}
-          />
-          <div className={styles.rule} />
-          <ReaderControls
-            mapId={map.id}
-            publishedAt={map.publishedAt}
-            locked={!!refusal}
-            onError={setError}
-          />
-          <div className={styles.rule} />
-          <div className={styles.foot}>
-            {url && embedOffered && (
-              <Button variant="quiet" onClick={() => setView("embed")}>
-                Embed
+          <div className={styles.scroll} data-publish-scroll>
+            {refusal && <p className={styles.refusal}>{refusal}</p>}
+            <SharedFields
+              mapId={map.id}
+              revision={revision}
+              heading="Shared fields"
+              locked={!!refusal}
+              onLayerChange={onChange}
+            />
+            <div className={styles.rule} />
+            <ReaderControls
+              mapId={map.id}
+              publishedAt={map.publishedAt}
+              locked={!!refusal}
+              onError={setError}
+            />
+            <div className={styles.rule} />
+            <div className={styles.foot}>
+              {url && embedOffered && (
+                <Button variant="quiet" onClick={() => setView("embed")}>
+                  Embed
+                </Button>
+              )}
+              <Button
+                variant="quiet"
+                className={styles.unpublish}
+                onClick={() => void unpublish()}
+                busy={busy}
+              >
+                Unpublish
               </Button>
-            )}
-            <Button
-              variant="quiet"
-              className={styles.unpublish}
-              onClick={() => void unpublish()}
-              busy={busy}
-            >
-              Unpublish
-            </Button>
+            </div>
           </div>
         </>
       ) : (
         <>
-          <div className={styles.unpub}>
-            <Button
-              variant="primary"
-              size="chrome"
-              className={styles.publishBtn}
-              onClick={() => void publish()}
-              busy={busy}
-              disabled={!!refusal}
-            >
-              {copied ? "Link copied" : "Publish map"}
-            </Button>
-            {refusal && <p className={styles.refusal}>{refusal}</p>}
-            <Audience tense="future" />
+          <div className={styles.head}>
+            {errorNote}
+            <div className={styles.unpub}>
+              <Button
+                variant="primary"
+                size="chrome"
+                className={styles.publishBtn}
+                onClick={() => void publish()}
+                busy={busy}
+                disabled={!!refusal}
+              >
+                {copied ? "Link copied" : "Publish map"}
+              </Button>
+              {refusal && <p className={styles.refusal}>{refusal}</p>}
+              <Audience tense="future" />
+            </div>
           </div>
-          <div className={styles.rule} />
-          {/* A map not yet published has no publication to change: its
-              fields stay its author's to arrange under any rule. */}
-          <SharedFields
-            mapId={map.id}
-            revision={revision}
-            heading="Fields this will share"
-            locked={false}
-            onLayerChange={onChange}
-          />
+          <div className={styles.scroll} data-publish-scroll>
+            <div className={styles.rule} />
+            {/* A map not yet published has no publication to change: its
+                fields stay its author's to arrange under any rule. */}
+            <SharedFields
+              mapId={map.id}
+              revision={revision}
+              heading="Fields this will share"
+              locked={false}
+              onLayerChange={onChange}
+            />
+          </div>
         </>
       )}
     </div>
