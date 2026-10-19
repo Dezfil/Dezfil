@@ -57,6 +57,7 @@ it.each(["before", "during"])("refuses an active Editor with forbidden when the 
 it("documents only the waiting state for an accepted refresh", async () => {
   const { buildOpenApiDocument } = await import("@/lib/api/openapi");
   const operation = buildOpenApiDocument().paths["/api/maps/{id}/picture/refresh"].post;
-  const answer = operation.responses["202"] as { content: { "application/json": { schema: { properties: { pictureState: unknown } } } } };
+  const answers = operation.responses as unknown as Record<string, { content: { "application/json": { schema: { properties: { pictureState: unknown } } } } }>;
+  const answer = answers["202"];
   expect(answer.content["application/json"].schema.properties.pictureState).toEqual({ type: "string", const: "waiting" });
 });
