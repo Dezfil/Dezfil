@@ -26,7 +26,7 @@ const EXPECTED: Record<AssistantPage, string[]> = {
     "compute_fill", "compute_scale", "create_layer", "create_map", "delete_layer", "delete_map", "duplicate_layer", "duplicate_map",
     "export_layer_data", "export_map_image", "get_field_stats", "get_layer", "get_map", "get_map_dependencies", "get_publication_state",
     "get_table_features", "inspect_table", "inspect_table_geometry", "layer_extent", "list_layer_fields", "list_layers", "list_maps",
-    "list_operations", "list_palettes", "list_tables", "look_at_map", "publish_map", "read_table_catalogue", "redo_change", "render_layer", "run_operation",
+    "list_operations", "list_palettes", "list_tables", "look_at_map", "publish_map", "read_table_catalogue", "redo_change", "refresh_map_picture", "render_layer", "run_operation",
     "run_sql", "search_map", "undo_change", "unpublish_map", "update_layer", "update_map",
   ],
   sql: ["export_sql_result", "get_table_features", "inspect_table", "inspect_table_geometry", "list_tables", "read_table_catalogue", "run_sql"],
