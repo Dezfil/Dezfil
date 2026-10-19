@@ -949,12 +949,12 @@
   padding: 24px 0;
 }
 
-/* Resolved-empty outside the grid: the same actionable tile, centered,
- * sized like the grid cell it usually occupies. */
+/* Resolved-empty outside the grid (a list view, the Connections list):
+ * the same actionable tile, at the top left where the grid's first cell
+ * sits. */
 .emptyAction {
   display: grid;
-  justify-content: center;
-  padding: 24px 0;
+  justify-content: start;
 }
 
 .emptyAction .ghost {
