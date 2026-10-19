@@ -64,12 +64,14 @@ type Fetched<T> = { state: "loading" } | { state: "ok"; value: T } | {
 
 export function RenderExportView({
   mapId,
+  picture = false,
   defaultBasemapUrl,
   basemapOverrideUrl,
   basemapOverrideAttribution = [],
   basemaps = BASEMAPS,
 }: {
   mapId: string;
+  picture?: boolean;
   defaultBasemapUrl: string;
   basemapOverrideUrl: string | null;
   /** The credit for that override, server-injected. */
@@ -509,6 +511,7 @@ export function RenderExportView({
         outputWidth={def.size.width}
         widgetSize={def.widgetSize}
         credit={def.credit}
+        showCredit={!picture}
         map={buildCompositionMapInputs({
           definitionBasemapLayers: def.basemapLayers,
           storedBasemapLayers: stage.basemap.layers,

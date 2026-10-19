@@ -1,3 +1,4 @@
+import { headers } from "next/headers";
 import {
   basemapOverrideAttribution,
   basemapOverrideUrl,
@@ -27,6 +28,7 @@ export default async function RenderExportPage({
   return (
     <RenderExportView
       mapId={id}
+      picture={(await headers()).has("x-dezfil-picture-work")}
       defaultBasemapUrl={basemapUrl()}
       basemapOverrideUrl={basemapOverrideUrl()}
       basemapOverrideAttribution={basemapOverrideAttribution()}

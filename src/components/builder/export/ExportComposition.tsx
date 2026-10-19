@@ -101,6 +101,7 @@ export function ExportComposition({
   outputWidth,
   widgetSize = "m",
   credit,
+  showCredit = true,
   widgets,
   values,
   valuesState,
@@ -140,6 +141,8 @@ export function ExportComposition({
   /** How large the rail and the attribution are drawn. */
   widgetSize?: ExportImageDefinition["widgetSize"];
   credit?: ExportImageDefinition["credit"];
+  /** Card hosts credit the recorded basemap outside the image. */
+  showCredit?: boolean;
   widgets: MapWidget[];
   values: WidgetValues | null;
   valuesState: AnswerState;
@@ -292,7 +295,7 @@ export function ExportComposition({
               leaves the share rule, and only upward. Having no card, it
               takes the default look of the basemap's tone rather than the
               image's theme, so it reads against the map it sits on. */}
-          <div data-look-default={map.basemapTone}>
+          {showCredit && <div data-look-default={map.basemapTone}>
             <div
               className={styles.credit}
               data-corner={creditCorner}
@@ -311,7 +314,7 @@ export function ExportComposition({
               <span className={styles.creditDot}>·</span>
               <span className={styles.creditMark}>Made with Dezfil</span>
             </div>
-          </div>
+          </div>}
           {failures && failures.length > 0 && (
             <div className={styles.failures} role="note">
               {failures.map((f) => (
