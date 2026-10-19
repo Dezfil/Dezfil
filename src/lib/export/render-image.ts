@@ -30,8 +30,8 @@ import type { ExportImageDefinition } from "./image-definition";
 interface Waiter { start: () => boolean; background: boolean; }
 
 const slotKey = Symbol.for("dezfil.image-lane");
-const shared = process as typeof process & { [slotKey]?: { active: number; background: number; waiters: Waiter[] } };
-const slots = shared[slotKey] ??= { active: 0, background: 0, waiters: [] as Waiter[] };
+const shared = process as typeof process & { [slotKey]?: { active: number; background: number; interrupts: (() => void)[]; waiters: Waiter[] } };
+const slots = shared[slotKey] ??= { active: 0, background: 0, interrupts: [] as (() => void)[], waiters: [] as Waiter[] };
 const { waiters } = slots;
 
 function pumpSlots(): void {
@@ -44,13 +44,14 @@ function pumpSlots(): void {
 }
 onCommittedSettings("image-lane", pumpSlots);
 
-function releaseSlot(background = false): void {
+function releaseSlot(background = false, interrupt?: () => void): void {
+  if (interrupt) slots.interrupts.splice(slots.interrupts.indexOf(interrupt), 1);
   slots.active -= 1;
   if (background) slots.background -= 1;
   pumpSlots();
 }
 
-function acquireSlot(deadline: number, signal: AbortSignal | undefined, budget: RenderBudget, background = false): Promise<void> {
+function acquireSlot(deadline: number, signal: AbortSignal | undefined, budget: RenderBudget, background = false, interrupt?: () => void): Promise<void> {
   return new Promise<void>((resolve, reject) => {
     const cleanup = () => {
       clearTimeout(timer);
@@ -65,13 +66,16 @@ function acquireSlot(deadline: number, signal: AbortSignal | undefined, budget: 
       // A commit or release can pump before an expired waiter's timer fires.
       if (signal?.aborted) { leave(new EvaluationCancelled()); return false; }
       if (!background && Date.now() >= deadline) { leave(renderTimeout(budget)); return false; }
-      cleanup(); resolve(); return true;
+      cleanup();
+      if (interrupt) slots.interrupts.push(interrupt);
+      resolve(); return true;
     } };
     const timer = background ? undefined : setTimeout(() => leave(renderTimeout(budget)), Math.max(deadline - Date.now(), 1));
     const onAbort = () => leave(new EvaluationCancelled());
     signal?.addEventListener("abort", onAbort, { once: true });
     if (signal?.aborted) { onAbort(); return; }
     waiters.push(waiter);
+    if (!background && limits.exportRenderConcurrency === 1) for (const stop of slots.interrupts) stop();
     pumpSlots();
   });
 }
@@ -138,8 +142,11 @@ async function performRenderMapImage(
   const requestBoundMs = renderRequestBoundMs(input.budgetMs);
   let deadline = Date.now() + budget.timeoutMs;
   const background = input.background ?? false;
+  const interruption = new AbortController();
+  const interrupt = background ? () => interruption.abort() : undefined;
+  const signal = background ? AbortSignal.any([interruption.signal, ...(input.signal ? [input.signal] : [])]) : input.signal;
   if (background) {
-    await acquireSlot(deadline, input.signal, budget, true);
+    await acquireSlot(deadline, signal, budget, true, interrupt);
     deadline = Date.now() + budget.timeoutMs;
   }
   // Imagery is checked only for a map that draws it, so every other image
@@ -147,12 +154,12 @@ async function performRenderMapImage(
   const imageryHost = imageryHostOf(input.mapId);
   try {
   if (imageryHost !== null) {
-    if (await withinBudget(imageryHostRefused(imageryHost), deadline, input.signal, budget)) {
+    if (await withinBudget(imageryHostRefused(imageryHost), deadline, signal, budget)) {
       throw new ApiError("render_failed", EGRESS_REFUSAL, 502);
     }
     stand();
   }
-  } catch (error) { if (background) releaseSlot(true); throw error; }
+  } catch (error) { if (background) releaseSlot(true, interrupt); throw error; }
   if (!background) await acquireSlot(deadline, input.signal, budget);
   // A launch given up on at the budget may still be starting when the
   // export answers: the slot stays held until it has ended.
@@ -165,15 +172,15 @@ async function performRenderMapImage(
       deadline,
       requestBoundMs,
       budget,
-      signal: input.signal,
+      signal,
       driver: input.driver,
       accountId: scope.accountId,
       stand,
       hold: (end) => { late.end = end; },
     });
   } finally {
-    if (late.end) void late.end.then(() => releaseSlot(background));
-    else releaseSlot(background);
+    if (late.end) void late.end.then(() => releaseSlot(background, interrupt));
+    else releaseSlot(background, interrupt);
   }
 }
 
