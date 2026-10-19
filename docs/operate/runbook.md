@@ -785,6 +785,18 @@ loopback styles accessible to both browsers and the saved camera at the
 card's composition size. The clear-conversation check counts every page
 request; the browser uploads no pictures, so none is excused.
 
+The card states run on that same instance and on a second one with no
+renderer: the same standalone launched the same way, with its preloads, on
+another port and data directory, with `DEZFIL_CHROMIUM_PATH` naming a file
+that does not exist and no style fixture. Without `DEZFIL_NO_RENDERER_URL`
+the no-renderer case is skipped. Cut the placeholder and administrator-line
+baselines on the first run with `--update-snapshots=missing` and look at them
+before keeping them.
+
+```sh
+DEZFIL_BASE_URL=http://127.0.0.1:3581 DEZFIL_NO_RENDERER_URL=http://127.0.0.1:3583 npx playwright test e2e/card-states.spec.ts --project=chromium
+```
+
 ### Picture capacity and measurement
 
 Run these proofs on a separately built production instance, under the same

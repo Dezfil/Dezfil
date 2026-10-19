@@ -61,7 +61,10 @@ run** — without these, real failures, not skips:
   real failed-tile-build drive;
 - `DEZFIL_E2E_ASSISTANT=1` plus a server-side model key — the
   assistant-confirmation smoke (`npm run e2e:smoke` sets the
-  opt-in itself).
+  opt-in itself);
+- `DEZFIL_NO_RENDERER_URL` (test process) at a second isolated instance
+  without an image renderer — the card states with no renderer, as
+  [the runbook](../operate/runbook.md#map-picture-proofs) provisions them.
 
 Operational recipes for running an instance live in
 [the runbook](../operate/runbook.md).
