@@ -86,7 +86,8 @@ function map(id: string, f: { owner?: PersonLabel; by?: PersonLabel | null; chan
   const changed = f.changed ?? at(1);
   return JSON.parse(JSON.stringify({
     id, name: `Map ${id}`, projectId: f.project ?? null, owner, home: owner.sqlName,
-    layerCount: 2, layerColors: [], hasThumbnail: true, published: false, publishToken: null,
+    layerCount: 2, layerColors: [], hasThumbnail: true, pictureState: "current", pictureVersion: `server-${id}`,
+    published: false, publishToken: null,
     createdAt: at(1), updatedAt: changed, editRevision: `rev-${id}`,
     lastChangedAt: changed, lastChangedBy: f.by === undefined ? owner : f.by,
   })) as MapOverview;

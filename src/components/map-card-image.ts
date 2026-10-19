@@ -4,13 +4,16 @@ import type { Theme } from "./theme";
  * The address of a map's card image (by theme). The theme rides in the
  * address, so a toggle re-requests the image with no reload and every
  * host of the shared card follows; the route answers the theme's own
- * image or falls back to whatever the map has. The version key keeps the
- * browser's cache honest across edits.
+ * image or falls back to whatever the map has. The version is the
+ * listing's picture version, which changes exactly when a new picture
+ * lands, never with the map's edits: a replaced picture is always a new
+ * address, so no cached older image can stand in for it, and an edit that
+ * changes no picture asks for nothing new.
  */
 export function mapCardImageAddress(
   mapId: string,
-  updatedAt: string,
+  version: string,
   theme: Theme,
 ): string {
-  return `/api/maps/${mapId}/thumbnail?v=${encodeURIComponent(updatedAt)}&theme=${theme}`;
+  return `/api/maps/${mapId}/thumbnail?v=${encodeURIComponent(version)}&theme=${theme}`;
 }
