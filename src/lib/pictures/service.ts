@@ -28,15 +28,26 @@ export class PictureService {
   readonly queue: PictureQueue;
   private readonly now: () => number;
   private rendererReady = false;
+  private rendererFailed = false;
   constructor(private readonly options: PictureServiceOptions) {
     this.now = options.now ?? Date.now;
     this.queue = new PictureQueue({ db: metadataDb(), now: this.now, available: () => this.rendererReady,
       capacity: () => Math.max(1, limits.exportRenderConcurrency - 1),
       building: mapId => !!metadataDb().prepare("SELECT 1 FROM layer_tiles t JOIN layers l ON l.id = t.layer_id WHERE l.map_id = ? AND l.visible = 1 AND t.state = 'building'").get(mapId),
-      run: options.run ?? (state => this.render(state)),
+      run: async state => {
+        try { await (options.run ?? (state => this.render(state)))(state); }
+        catch (error) {
+          if (error && typeof error === "object" && "code" in error && error.code === "render_unavailable") {
+            this.rendererFailed = true;
+            this.rendererReady = false;
+          }
+          throw error;
+        }
+      },
     });
   }
   async look(): Promise<void> {
+    this.rendererFailed = false;
     this.rendererReady = (this.options.available ?? pictureRendererAvailable)();
     const maps = metadataDb().prepare("SELECT m.id, m.updated_at FROM maps m JOIN accounts a ON a.id = m.owner_id WHERE a.status = 'active' ORDER BY m.updated_at DESC, m.id").all() as { id: string; updated_at: string }[];
     for (const map of maps) {
@@ -60,7 +71,7 @@ export class PictureService {
   async request(mapId: string, force = false): Promise<PictureState> {
     const scope = mapOwnerWorkScope(mapId);
     const { target, inputs } = await pictureBindings(scope, mapId);
-    this.rendererReady = (this.options.available ?? pictureRendererAvailable)();
+    this.rendererReady = !this.rendererFailed && (this.options.available ?? pictureRendererAvailable)();
     const state = requestPicture(mapId, target.digest, this.now(), force || bindingsChanged(mapId, inputs));
     rememberBindings(mapId, inputs);
     this.queue.tick();

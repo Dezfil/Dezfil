@@ -17,7 +17,10 @@ export class PictureQueue {
     const o = this.options, now = o.now();
     for (const state of listPictureStates(o.db)) {
       if (state.state === "current" || this.running.has(state.mapId)) continue;
-      if (!o.available()) { settlePicture(state.mapId, state.requestedGeneration, { state: "unavailable" }, o.db); continue; }
+      if (!o.available()) {
+        if (state.state !== "unavailable") settlePicture(state.mapId, state.requestedGeneration, { state: "unavailable" }, o.db);
+        continue;
+      }
       if (state.state === "unavailable") {
         settlePicture(state.mapId, state.requestedGeneration, { state: "waiting", nextAttemptAt: now }, o.db);
         state.nextAttemptAt = now;
