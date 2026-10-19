@@ -19,6 +19,8 @@ import {
 import { CardDelete } from "./CardDelete";
 import { MapStrip } from "./MapStrip";
 import { PictureCredit } from "./PictureCredit";
+import { readPictureListing } from "./picture-poll";
+import { PicturePoll } from "./PicturePoll";
 import { PictureRendererNotice } from "./PictureRendererNotice";
 import { AddToProjectDialog } from "./projects/AddToProjectDialog";
 import { actionLabel } from "./projects/add-model";
@@ -26,7 +28,7 @@ import { useTheme } from "@/components/theme";
 import { untilViewSettled, useViewPrefs } from "./use-view-prefs";
 import { ListHeading } from "./ListHeading";
 import { ScopeFilter } from "./scope/ScopeFilter";
-import { headingLine, scopeRows, tileSubLine, unreachedProjects } from "./scope/model";
+import { headingLine, scopeParam, scopeRows, tileSubLine, unreachedProjects } from "./scope/model";
 import { useProjectScope } from "./scope/use-scope";
 import { useScopeWorld } from "./scope/use-scope-world";
 import { AsyncState } from "./ui/AsyncState";
@@ -315,6 +317,13 @@ export function MapsScreen({
     });
   }, [maps, query, filter, sort]);
 
+  // While a card shown here waits for its picture, the scope's listing is
+  // asked again for the pictures alone, as the page reads it.
+  const readShownListing = useCallback(() => {
+    const param = scope.kind === "invalid" ? "" : scopeParam(scope);
+    return readPictureListing(param === null ? "/api/maps" : `/api/maps?project=${encodeURIComponent(param)}`);
+  }, [scope]);
+
   const counts = useMemo(() => {
     const published = maps?.filter((m) => m.published).length ?? 0;
     return {
@@ -394,6 +403,7 @@ export function MapsScreen({
   };
 
   return (
+    <PicturePoll cards={shown} read={readShownListing}>
     <div className={styles.screen}>
       {/* The one heading: the count is the scope's, before any narrowing;
           until the world resolves nothing is asserted. A
@@ -771,5 +781,6 @@ export function MapsScreen({
         />
       )}
     </div>
+    </PicturePoll>
   );
 }

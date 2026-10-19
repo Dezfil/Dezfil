@@ -1,6 +1,7 @@
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { MapOverview } from "./api";
 import type { ProjectsWorld } from "./projects/read";
 import type { ProjectOverview } from "./projects/model";
 import { SignedIn } from "./sharing/signed-in";
@@ -8,10 +9,14 @@ import { installDomHost, type HostElement } from "./testing/dom-host";
 import { ProjectsScreen } from "./ProjectsScreen";
 
 /**
- * The Projects page's map pictures: the line an administrator is handed
- * when pictures have no renderer stands at the page's foot, under the
- * projects, in either view, and nowhere when the page does not hand it.
- * The composed read is a fake.
+ * The Projects page's map pictures: while a map in a shown project's
+ * picture waits, the page asks its maps listing again every five seconds
+ * until none waits, and the new picture shows in the tile with no reload;
+ * a waiting map in no shown project asks nothing. The line an
+ * administrator is handed when pictures have no renderer stands at the
+ * page's foot, under the projects, in either view, and nowhere when the
+ * page does not hand it. The composed read is a fake; the listing the
+ * poll asks is the browser's fetch.
  */
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
@@ -35,7 +40,7 @@ vi.mock("./use-view-prefs", async (original) => ({
   ...(await original<typeof import("./use-view-prefs")>()),
   useViewPrefs: () => ({ view: fake.view, sort: "updated", settled: true, setView: vi.fn(), setSort: vi.fn() }),
 }));
-vi.mock("./MapStrip", () => ({ MapStrip: () => null }));
+vi.mock("@/components/theme", () => ({ useTheme: () => ({ theme: "light" }) }));
 
 const bo = { name: "Bo Lindqvist", sqlName: "bo" };
 const project = (id: string, name: string): ProjectOverview => ({
@@ -47,10 +52,17 @@ const project = (id: string, name: string): ProjectOverview => ({
 let host: ReturnType<typeof installDomHost>;
 let root: ReturnType<typeof createRoot>;
 let container: HostElement;
+let listing: MapOverview[];
+let asked: string[];
 beforeEach(() => {
   fake.view = "grid";
   fake.world = { projects: [project("port", "Port traffic")], maps: [], workflows: [], tables: [] } satisfies ProjectsWorld;
-  vi.stubGlobal("fetch", vi.fn(async () => Response.json({ error: { code: "not_found", message: "Not found." } }, { status: 404 })));
+  listing = [];
+  asked = [];
+  vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+    if (url === "/api/maps") { asked.push(url); return Response.json(listing); }
+    return Response.json({ error: { code: "not_found", message: "Not found." } }, { status: 404 });
+  }));
   host = installDomHost();
   container = host.document.createElement("div");
   host.document.body.appendChild(container);
@@ -84,5 +96,42 @@ describe("the Projects page's line for an administrator when pictures have no re
   it.each([false, undefined])("is not there when the page does not hand it (%s)", async (handed) => {
     await open(handed);
     expect(notices()).toHaveLength(0);
+  });
+});
+
+describe("the Projects page while a map in a shown picture waits for its picture", () => {
+  const map = (id: string, projectId: string | null, picture: Partial<MapOverview>): MapOverview => ({
+    id, name: `Map ${id}`, projectId, basemap: null, customBasemap: null, basemapLayers: null,
+    pictureState: "current", pictureVersion: null, hasThumbnail: false, thumbnailBasemap: null, ...picture,
+  }) as unknown as MapOverview;
+  const landed = { pictureState: "current", pictureVersion: "server-1", hasThumbnail: true } as const;
+  const tile = (id: string) => container.querySelectorAll("[data-tile]").find((t) => t.getAttribute("data-id") === id) ?? null;
+  const pass = async (ms: number) => { await act(async () => { await vi.advanceTimersByTimeAsync(ms); }); };
+  beforeEach(() => { vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] }); });
+  afterEach(() => { vi.useRealTimers(); });
+
+  async function openWith(maps: MapOverview[]) {
+    fake.world = { projects: [project("port", "Port traffic")], maps, workflows: [], tables: [] } satisfies ProjectsWorld;
+    await act(async () => root.render(<SignedIn account={bo}><ProjectsScreen /></SignedIn>));
+    await pass(0);
+  }
+
+  it("asks the maps listing every five seconds until none waits, and shows the new picture in its tile", async () => {
+    listing = [map("a", "port", { pictureState: "waiting" })];
+    await openWith(listing);
+    expect(tile("a")?.querySelector("img")).toBeNull();
+    await pass(5_000);
+    expect(asked).toEqual(["/api/maps"]);
+    listing = [map("a", "port", landed)];
+    await pass(5_000);
+    expect(tile("a")?.querySelector("img")?.getAttribute("src")).toBe("/api/maps/a/thumbnail?v=server-1&theme=light");
+    await pass(60_000);
+    expect(asked).toHaveLength(2);
+  });
+
+  it("asks nothing for a waiting map in no shown project's picture", async () => {
+    await openWith([map("a", null, { pictureState: "waiting" }), map("b", "port", landed)]);
+    await pass(60_000);
+    expect(asked).toEqual([]);
   });
 });

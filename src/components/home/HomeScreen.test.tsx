@@ -1432,6 +1432,45 @@ describe("a picture that does not load", () => {
   });
 });
 
+/* ---- a picture that is still to come ---- */
+
+describe("Home while a map it shows waits for its picture", () => {
+  const pass = async (ms: number) => { await act(async () => { await vi.advanceTimersByTimeAsync(ms); }); };
+  beforeEach(() => { vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] }); });
+  afterEach(() => { vi.useRealTimers(); });
+  const waiting = (m: MapOverview) => ({ ...m, pictureState: "waiting", pictureVersion: null, hasThumbnail: false }) as MapOverview;
+
+  it("asks the maps listing every five seconds until none waits, and Continue shows the new picture with no reload", async () => {
+    answers.maps = [waiting(map("m1", { changed: at(5) })), map("m2", { changed: at(4) })];
+    await act(async () => root.render(<SignedIn account={ADA}><HomeScreen /></SignedIn>));
+    for (let i = 0; i < 6; i += 1) await pass(0);
+    expect(calls("/api/maps")).toHaveLength(1);
+    expect(leadPlace().querySelector("img")).toBeNull();
+    await pass(5_000);
+    expect(calls("/api/maps")).toHaveLength(2);
+    answers.maps = [map("m1", { changed: at(5) }), map("m2", { changed: at(4) })];
+    await pass(5_000);
+    expect(calls("/api/maps")).toHaveLength(3);
+    expect(leadPlace().querySelector("img")?.getAttribute("src")).toBe("/api/maps/m1/thumbnail?v=server-m1&theme=light");
+    await pass(60_000);
+    expect(calls("/api/maps")).toHaveLength(3);
+  });
+
+  it("asks nothing for a waiting map Home does not show", async () => {
+    // More maps than the lead and Recent hold; the oldest one waits.
+    answers.maps = [
+      ...Array.from({ length: 10 }, (_, i) => map(`m${i}`, { changed: at(20 - i) })),
+      waiting(map("old", { changed: at(1) })),
+    ];
+    await act(async () => root.render(<SignedIn account={ADA}><HomeScreen /></SignedIn>));
+    for (let i = 0; i < 6; i += 1) await pass(0);
+    expect(container.querySelector("[data-home]")!.textContent).toContain("Map m1");
+    expect(container.querySelector("[data-home]")!.textContent).not.toContain("Map old");
+    await pass(60_000);
+    expect(calls("/api/maps")).toHaveLength(1);
+  });
+});
+
 /* ---- the line for the pictures ---- */
 
 describe("the line crediting Home's map pictures", () => {

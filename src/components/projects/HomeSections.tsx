@@ -1,6 +1,7 @@
 "use client";
 
 import { LastChanged } from "../sharing/LastChanged";
+import { useCallback } from "react";
 import { useRouter } from "next/navigation";
 import type { MapOverview, TableListing } from "../api";
 import { formatBytes, formatCompactCount, formatRelativeTime } from "../api";
@@ -18,6 +19,8 @@ import { datasetPageHref } from "../dataset-doors";
 import { lastRunCell, otherMembershipNames } from "./home-model";
 import { CardFrame, CardLink, MapCard, PublishedLink, WorkflowCard } from "./ItemCards";
 import { PictureCredit } from "../PictureCredit";
+import { readPictureListing } from "../picture-poll";
+import { PicturePoll } from "../PicturePoll";
 import type { PictureBasemaps } from "@/lib/picture-credit";
 import gallery from "../gallery.module.css";
 import styles from "./HomeSections.module.css";
@@ -160,8 +163,14 @@ export function HomeSections({
   const anyShared = tables.some(
     (t) => otherMembershipNames(t, projectId, names).length > 0,
   );
+  // While a map here waits for its picture, the project's maps listing is
+  // asked again for the pictures alone.
+  const readProjectMaps = useCallback(
+    () => readPictureListing(`/api/maps?project=${encodeURIComponent(projectId)}`),
+    [projectId],
+  );
   return (
-    <>
+    <PicturePoll cards={maps} read={readProjectMaps}>
       {maps.length > 0 && (
         <section className={styles.section} data-section="map">
           <SectionHead kind="map" count={maps.length} />
@@ -370,6 +379,6 @@ export function HomeSections({
       {/* The home's foot in cards; the list carries the line as the Maps
           list card's foot row. */}
       {view === "cards" && <PictureCredit maps={maps} basemaps={pictureBasemaps} placement="page" />}
-    </>
+    </PicturePoll>
   );
 }

@@ -26,6 +26,8 @@ import { Dialog } from "./ui/Dialog";
 import { ErrorNote } from "./ui/ErrorNote";
 import { ListHeading } from "./ListHeading";
 import { PictureRendererNotice } from "./PictureRendererNotice";
+import { readPictureListing } from "./picture-poll";
+import { PicturePoll } from "./PicturePoll";
 import { headingLine } from "./scope/model";
 import { PlusIcon, SignOutIcon } from "./ui/icons";
 import { LeaveProjectDialog, ownsFiledWork } from "./projects/LeaveProjectDialog";
@@ -143,6 +145,14 @@ export function ProjectsScreen({
           })
         : new Map<string, PictureItem[]>(),
     [world],
+  );
+  // The maps drawn in the shown projects' pictures, at most four a project.
+  const pictured = useMemo(
+    () =>
+      shown?.flatMap((p) =>
+        (pictures.get(p.id) ?? []).flatMap((item) => (item.kind === "map" ? [item.map] : [])),
+      ) ?? null,
+    [shown, pictures],
   );
   // A project's people are its owner's to see counted: the projects one
   // owns are asked; one shared with one already says whose it is.
@@ -412,6 +422,7 @@ export function ProjectsScreen({
   );
 
   return (
+    <PicturePoll cards={pictured} read={readProjectMaps}>
     <div className={styles.screen}>
       {/* The one heading: Projects gains the count it never had, silent
           until the read resolves, and loses its sentence; the line
@@ -677,5 +688,12 @@ export function ProjectsScreen({
         </Dialog>
       )}
     </div>
+    </PicturePoll>
   );
+}
+
+/** The maps listing the projects' pictures come from, asked again for the
+ * pictures alone while a map in a shown picture waits for one. */
+function readProjectMaps() {
+  return readPictureListing("/api/maps");
 }

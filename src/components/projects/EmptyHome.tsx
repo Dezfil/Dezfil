@@ -11,6 +11,8 @@ import type { CatalogueState } from "./home-read";
 import { recentHeading, recentItems, type RecentItem } from "./recent-model";
 import { RecentCard, RecentRow, RecentStateRow } from "./RecentList";
 import { PictureCredit } from "../PictureCredit";
+import { readPictureListing } from "../picture-poll";
+import { PicturePoll } from "../PicturePoll";
 import type { PictureBasemaps } from "@/lib/picture-credit";
 import styles from "./EmptyHome.module.css";
 
@@ -21,7 +23,8 @@ import styles from "./EmptyHome.module.css";
  * filed map or workflow would leave its project), and the owner's pill on
  * someone else's, which is not one's to file. The card and its rows are
  * RecentList's filing form. Presentation only: the home owns the reads,
- * the creates and the filing.
+ * the creates and the filing; while a recent map waits for its picture,
+ * the workspace's maps listing is asked again for the pictures alone.
  */
 
 export function EmptyHome({
@@ -73,7 +76,7 @@ export function EmptyHome({
   const pictured = useMemo(() => items.flatMap((it) => (it.kind === "map" ? [it.map] : [])), [items]);
 
   return (
-    <>
+    <PicturePoll cards={pictured} read={readCatalogueMaps}>
       <div className={styles.plate} data-empty-plate>
         <span className={styles.plateGlyph} aria-hidden>
           <IconFolder />
@@ -120,6 +123,12 @@ export function EmptyHome({
         ))}
       </RecentCard>
       <PictureCredit maps={pictured} basemaps={pictureBasemaps} placement="page" />
-    </>
+    </PicturePoll>
   );
+}
+
+/** The workspace's maps listing the recent rows come from, asked again for
+ * the pictures alone while a recent map waits for one. */
+function readCatalogueMaps() {
+  return readPictureListing("/api/maps");
 }
