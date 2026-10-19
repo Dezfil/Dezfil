@@ -8,6 +8,7 @@ import type { MapOverview } from "./api";
 import { readApiError } from "./api";
 import {
   IconDuplicate,
+  IconFolder,
   IconFolderPlus,
   IconGrid,
   IconLink,
@@ -85,10 +86,12 @@ function StateChip({ live }: { live: boolean }) {
   );
 }
 
-/** The passive project fact: text, never a
- * control, never an id. One's own work can stay filed in a project one was
- * removed from: the directory has no name for it, and it is said as such
- * rather than as in no project. */
+/** The passive project fact on a map's or workflow's card: the folder glyph
+ * the page's project filter carries, then the name, read aloud as one
+ * phrase. Never a control, never an id. Work in no project says nothing
+ * here. One's own work can stay filed in a project one was removed from:
+ * the directory has no name for it, and it is said as such rather than as
+ * in no project. */
 export function ProjectTag({
   projectId,
   projects,
@@ -96,19 +99,18 @@ export function ProjectTag({
   projectId: string | null;
   projects: { id: string; name: string }[];
 }) {
-  if (!projectId) {
-    return (
-      <span className={gallery.projTag} data-none>
-        not in a project
-      </span>
-    );
-  }
+  if (!projectId) return null;
   const name = projects.find((p) => p.id === projectId)?.name;
-  return name ? (
-    <span className={gallery.projTag}>{name}</span>
-  ) : (
-    <span className={gallery.projTag} data-unreached>
-      {unreachedProjects(1)}
+  const text = name ?? unreachedProjects(1);
+  return (
+    <span
+      className={gallery.projTag}
+      data-unreached={name ? undefined : true}
+      role="img"
+      aria-label={`Project: ${text}`}
+    >
+      <IconFolder />
+      <span className={gallery.projName}>{text}</span>
     </span>
   );
 }
@@ -600,7 +602,7 @@ export function MapsScreen({
                       <LastChanged value={m} />
                     </span>
                   </div>
-                  <div className={gallery.cardChips}>
+                  <div className={gallery.cardChipsLine}>
                     <StateChip live={m.published} />
                     <ProjectTag
                       projectId={m.projectId}
