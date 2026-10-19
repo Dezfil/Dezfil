@@ -14,7 +14,7 @@ describe("drawing freshness", () => {
     ["timeline", (m: MapWithLayers) => { m.timeline = { layerId: "a", field: "time" } as MapWithLayers["timeline"]; }],
     ["SQL", (m: MapWithLayers) => { m.layers[0].sql += " LIMIT 1"; }],
     ["style", (m: MapWithLayers) => { m.layers[0].style.opacity = 0.2; }],
-    ["filters", (m: MapWithLayers) => { m.layers[0].filters = [{ field: "v", op: "eq", value: 1 }] as Layer["filters"]; }],
+    ["filters", (m: MapWithLayers) => { m.layers[0].filters = [{ field: "v", kind: "values", values: [1] }] as Layer["filters"]; }],
     ["visualization", (m: MapWithLayers) => { m.layers[0].viz = { type: "heatmap" } as Layer["viz"]; }],
     ["visibility", (m: MapWithLayers) => { m.layers[0].visible = false; }],
     ["order", (m: MapWithLayers) => { m.layers.reverse(); }],
