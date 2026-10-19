@@ -756,13 +756,23 @@ DEZFIL_BASE_URL=http://127.0.0.1:3581 npx playwright test e2e/picture-framing.sp
 ```
 
 Use the style fixture only on the migrated theme suite's instance. Keep it off
-the real-render and framing instance. For the migrated theme suite, add
-`--import=./scripts/pictures-browser-fixture-preload.mjs` to the isolated
-instance's normal launch and set `DEZFIL_PICTURE_STYLE_FIXTURE=1`. This
-fixture refuses the development port and requires a data directory whose
-name includes `pictures-`. It substitutes only the three built-in style
+the real-render and framing instance. For the migrated theme suite, copy
+`scripts/pictures-browser-fixture-preload.mjs` into `.next/standalone/scripts/`
+and load that copy: add `--import=./scripts/pictures-browser-fixture-preload.mjs`
+while launching from `.next/standalone`, and set `DEZFIL_PICTURE_STYLE_FIXTURE=1`.
+The root and standalone have separate copies of `puppeteer-core`; a preload
+loaded from the root patches the wrong copy. This fixture refuses the development
+port and requires a data directory whose name includes `pictures-`.
+It substitutes only the three built-in style
 responses after normal renderer admission. The actual browser still loads,
 paints and captures them; no image or readiness declaration is mocked.
+
+That same instance also needs the [browser suite's assistant wiring](#the-browser-suite)
+for `assistant-clear.spec.ts`: the scripted provider, automatic check off and
+the `e2e/assistant-self-port.cjs` preload, with `DEZFIL_E2E_LISTEN_PORT` matching
+the instance's port and `DEZFIL_E2E_SELF_PORT=3303`. Keep the self-port preload's
+path valid from the standalone launch directory, alongside the ingress and
+style preloads.
 
 ```sh
 DEZFIL_BASE_URL=http://127.0.0.1:3581 npx playwright test e2e/thumbnail-theme.spec.ts e2e/picture-credit.spec.ts e2e/edit-attribution-capture.spec.ts e2e/map-alignment.spec.ts e2e/assistant-clear.spec.ts --project=chromium
