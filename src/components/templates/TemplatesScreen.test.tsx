@@ -2,7 +2,7 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CatalogueState, TemplateCard, TemplateList } from "@/lib/templates/card";
-import { installDomHost, type HostElement } from "../testing/dom-host";
+import { HostEvent, installDomHost, type HostElement } from "../testing/dom-host";
 import { TemplatesScreen } from "./TemplatesScreen";
 
 /**
@@ -127,8 +127,12 @@ describe("the Templates page's cards", () => {
     );
     expect(field(c, "absent")).toBeNull();
     expect(field(c, "tools")).toBeNull();
-    expect(c.querySelector('button[aria-label="Open Harbour depths"]')).not.toBeNull();
-    expect(c.querySelector('button[aria-label="Make a copy of Harbour depths"]')).not.toBeNull();
+    // The card is the one way in, reachable from the keyboard; its
+    // actions hold only the copy.
+    const door = c.querySelector('[role="link"]');
+    expect(door?.getAttribute("aria-label")).toBe("Open Harbour depths");
+    expect(door?.getAttribute("tabindex")).toBe("0");
+    expect(c.querySelectorAll("button").map((b) => b.getAttribute("aria-label"))).toEqual(["Make a copy of Harbour depths"]);
   });
 
   it("lets the date's and the credit's hints show, their words marked as not explaining them", async () => {
@@ -178,7 +182,9 @@ describe("the Templates page's cards", () => {
     await open();
     await act(async () => { card("storm-tracks").querySelector('[role="link"]')!.click(); });
     expect(nav.push).toHaveBeenLastCalledWith("/templates/storm-tracks");
-    await act(async () => { card("harbour-depths").querySelector('button[aria-label="Open Harbour depths"]')!.click(); });
+    // From the keyboard: Enter on the focused card.
+    const door = card("harbour-depths").querySelector('[role="link"]')!;
+    await act(async () => { door.dispatchEvent(Object.assign(new HostEvent("keydown", { bubbles: true, cancelable: true }), { key: "Enter" })); });
     expect(nav.push).toHaveBeenLastCalledWith("/templates/harbour-depths");
   });
 

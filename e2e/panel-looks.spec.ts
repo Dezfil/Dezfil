@@ -966,7 +966,7 @@ for (const theme of THEMES) {
         await expect.poll(() => rootLook(page)).toEqual(attrsOf("liquid"));
         await rail(page).getByRole("link", { name: "Maps" }).click();
         await expect(galleryCard(fx.mapName).at(page)).toBeVisible();
-        await galleryCard(fx.mapName).at(page).getByRole("button", { name: `Open ${fx.mapName} in the builder` }).click();
+        await page.getByRole("link", { name: `Open ${fx.mapName}`, exact: true }).click();
         await expect(page.locator("[data-map-legend]").first()).toBeVisible({ timeout: 30_000 });
         // The harness: the look did reach the page, so its absence later is the switch's doing.
         const reached = await traces(page);
@@ -993,7 +993,7 @@ for (const theme of THEMES) {
         await expect(galleryCard(fx.mapName).at(page)).toBeVisible();
         await expect.poll(() => traces(page), { message: "Maps after Glass" }).toEqual(NO_TRACE);
         expect(await boxes(page, onMaps), "Maps' boxes after Glass").toEqual(mapsBefore);
-        await galleryCard(fx.mapName).at(page).getByRole("button", { name: `Open ${fx.mapName} in the builder` }).click();
+        await page.getByRole("link", { name: `Open ${fx.mapName}`, exact: true }).click();
         await expect(page.locator("[data-map-legend]").first()).toBeVisible({ timeout: 30_000 });
         await page.waitForTimeout(1_000);
         await expect.poll(() => traces(page), { message: "the builder after Glass" }).toEqual(NO_TRACE);

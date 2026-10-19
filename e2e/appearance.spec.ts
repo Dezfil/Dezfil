@@ -299,14 +299,14 @@ test.describe("the person's look", () => {
       await test.step("a list page reached by the rail shows it, with no reload", async () => {
         await rail(page).getByRole("link", { name: "Maps" }).click();
         await expect(page).toHaveURL(/\/maps$/);
-        await expect(page.getByRole("button", { name: "Open Look at once in the builder" })).toBeVisible();
+        await expect(page.getByRole("link", { name: "Open Look at once", exact: true })).toBeVisible();
         expect(await sameDocument()).toBe(true);
         expect(await rootLook(page)).toEqual({ "data-look-color": "harbor" });
         expect(await ink(rail(page).getByRole("link", { name: "Maps" }))).toBe(HARBOR_ACCENT);
       });
 
       await test.step("the builder reached from the list shows it, with no reload", async () => {
-        await page.getByRole("button", { name: "Open Look at once in the builder" }).click();
+        await page.getByRole("link", { name: "Open Look at once", exact: true }).click();
         const panels = page.getByRole("tablist", { name: "Builder panels" });
         await expect(panels).toBeVisible({ timeout: 30_000 });
         expect(await sameDocument()).toBe(true);
@@ -376,7 +376,7 @@ test.describe("the person's look", () => {
         const main = page.locator("main").first();
         const openList = async () => {
           await page.goto("/maps");
-          await expect(page.getByRole("button", { name: "Open Export flow in the builder" })).toBeVisible();
+          await expect(page.getByRole("link", { name: "Open Export flow", exact: true })).toBeVisible();
           await settled();
         };
         const inspector = page.locator('[class*="MapBuilder-module"][class*="__rail"]').filter({ has: page.getByRole("tablist", { name: "Builder panels" }) });

@@ -681,7 +681,7 @@ for (const theme of THEMES) {
       await expectMember({ kind: "page-card", what: "the hovered gallery card", own: ["edge"], at: mapCardOnPage }, page, theme, "Maps", undefined, { shadows: [stepLayer("deep", theme)] });
       await expectMember({
         kind: "overlay-control", what: "the card's hover pill", corner: CORNER.control,
-        at: (p) => mapCardOnPage(p).getByRole("button", { name: `Open ${fx.mapName} in the builder`, exact: true }).locator("xpath=.."),
+        at: (p) => mapCardOnPage(p).getByRole("button", { name: `Duplicate ${fx.mapName}`, exact: true }).locator("xpath=.."),
       }, page, theme, "Maps");
       await page.mouse.move(5, 5);
     });

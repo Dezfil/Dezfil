@@ -12,7 +12,6 @@ import {
   IconGrid,
   IconLink,
   IconList,
-  IconOpen,
   IconPublish,
   IconSearch,
 } from "./gallery-icons";
@@ -318,16 +317,11 @@ export function MapsScreen({
     };
   }, [maps]);
 
-
-  // A map one may only view opens in the reader, not the builder: someone
-  // else's map in a project where one is a Viewer.
-  const viewOnly = (m: MapOverview) =>
-    othersOwner(m) !== null &&
-    world?.projects.find((p) => p.id === m.projectId)?.role === "viewer";
-
+  // The card and the list row are themselves what opens a map (the builder,
+  // or the reader for a map one may only view), so the actions carry no
+  // second control that does the same.
   const quickActions = (m: MapOverview, rowStyle: string) => {
     const mine = othersOwner(m) === null;
-    const opens = viewOnly(m) ? "Open" : "Open in builder";
     return (
     <span className={rowStyle}>
       {mine && (
@@ -342,16 +336,6 @@ export function MapsScreen({
           <IconFolderPlus />
         </button>
       )}
-      <button
-        data-hint={opens}
-        aria-label={viewOnly(m) ? `Open ${m.name}` : `Open ${m.name} in the builder`}
-        onClick={(e) => {
-          e.stopPropagation();
-          router.push(`/maps/${m.id}`);
-        }}
-      >
-        <IconOpen />
-      </button>
       <button
         data-hint="Duplicate map"
         aria-label={`Duplicate ${m.name}`}

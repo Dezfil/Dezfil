@@ -94,15 +94,24 @@ describe.each(["grid", "list"] as const)("the Maps list's open door (%s)", (layo
     return asBo(<MapsScreen />);
   };
 
-  it("says Open, not Open in builder, on a map Bo may only view", () => {
-    const html = render("viewer");
-    expect(html).toContain('aria-label="Open Station catchments"');
-    expect(html).not.toContain('aria-label="Open Station catchments in the builder"');
-    expect(html).toContain('aria-label="Open Berth occupancy in the builder"');
+  // The card (a keyboard-reachable link) or the list row (a button) is the
+  // one door; the quick actions repeat neither the builder nor the reader.
+  const door = layout === "grid" ? /<div role="link" tabindex="0" aria-label="Open ([^"]+)"/g : /<button[^>]*aria-label="Open ([^"]+)"/g;
+  it.each(["viewer", "editor"] as const)("opens each map from its card alone, with Bo the project's %s", (role) => {
+    const html = render(role);
+    expect([...html.matchAll(door)].map((m) => m[1])).toEqual(["Station catchments", "Berth occupancy"]);
+    expect(html.match(/aria-label="Open [^"]*"/g)).toEqual(['aria-label="Open Station catchments"', 'aria-label="Open Berth occupancy"']);
+    expect(html).not.toMatch(/data-hint="Open( in builder)?"/);
   });
+});
 
-  it("keeps Open in builder on a map Bo edits", () => {
-    expect(render("editor")).toContain('aria-label="Open Station catchments in the builder"');
+describe.each(["grid", "list"] as const)("the Workflows list's open door (%s)", (layout) => {
+  it("opens each workflow from its card or row alone", () => {
+    lists.view = layout;
+    lists.world = { projects, all: [], scoped: [workflow("w-ada", "Permit geocoding", ada), workflow("w-bo", "Vessel density", bo)] };
+    const html = asBo(<WorkflowsScreen />);
+    expect(html.match(/aria-label="Open [^"]*"/g)).toEqual(['aria-label="Open Permit geocoding"', 'aria-label="Open Vessel density"']);
+    expect(html).not.toContain('data-hint="Open"');
   });
 });
 

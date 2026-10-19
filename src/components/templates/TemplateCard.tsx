@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { TemplateCard as Card } from "@/lib/templates/card";
-import { IconDownload, IconDuplicate, IconOpen, MapPlaceholder } from "../gallery-icons";
+import { IconDownload, IconDuplicate, MapPlaceholder } from "../gallery-icons";
 import gallery from "../gallery.module.css";
 import type { Theme } from "../theme";
 import { WorkflowThumb } from "../WorkflowThumb";
@@ -113,18 +113,9 @@ export function TemplateCard({
           )}
         </div>
       </div>
+      {/* The card itself opens the template, so its actions hold only
+          what the card cannot do. */}
       <span className={gallery.acts}>
-        <button
-          type="button"
-          data-hint="Open"
-          aria-label={`Open ${card.title}`}
-          onClick={(e) => {
-            e.stopPropagation();
-            onOpen();
-          }}
-        >
-          <IconOpen />
-        </button>
         <button
           type="button"
           data-hint="Make a copy"
