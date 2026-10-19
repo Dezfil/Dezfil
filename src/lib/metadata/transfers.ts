@@ -1,3 +1,4 @@
+import { notifyPicture } from "@/lib/pictures/hooks";
 import { documentFacts } from "./document-facts";
 import { recordDocumentChanges, requireDocumentRevision } from "./revisions";
 import type { Database } from "better-sqlite3";
@@ -93,7 +94,10 @@ function transferFiled(kind: keyof typeof FILED, scope: AccountScope, id: string
 }
 
 export function transferMap(scope: AccountScope, id: string, to: unknown, db: Database = metadataDb(), options: { expectedRevision?: unknown } = {}): TransferResult {
-  return transferFiled("map", scope, id, to, db, options.expectedRevision);
+  const transferred = transferFiled("map", scope, id, to, db, options.expectedRevision);
+  db.prepare("UPDATE map_pictures SET work_key = NULL, work_owner = NULL, work_expires_at = NULL, work_inputs = NULL WHERE map_id = ?").run(id);
+  notifyPicture(id, { force: true });
+  return transferred;
 }
 
 export function transferWorkflow(scope: AccountScope, id: string, to: unknown, db: Database = metadataDb(), options: { expectedRevision?: unknown } = {}): TransferResult {

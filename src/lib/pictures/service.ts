@@ -8,7 +8,7 @@ import { renderMapImage } from "@/lib/export/render-image";
 import { admitResourceWork, inDetachedDeletionWork } from "@/lib/auth/account-deletion-work";
 import { PictureQueue } from "./queue";
 import { getPictureState, requestPicture, type PictureState } from "./state";
-import { initializePicture } from "./migration";
+import { initializePicture, adoptPicture } from "./migration";
 import { reconcilePictureFiles } from "./reconcile";
 import { pictureTarget, publishPicture } from "./publication";
 import { mintPictureCredential, revokePictureCredential, renewPictureCredential } from "./credential";
@@ -60,6 +60,11 @@ export class PictureService {
     const state = requestPicture(mapId, target.digest, this.now(), force);
     this.queue.tick();
     return getPictureState(mapId) ?? state;
+  }
+  async adopt(mapId: string): Promise<void> {
+    const scope = mapOwnerWorkScope(mapId), target = pictureTarget(scope, mapId);
+    if ((await servedThumbnails(scope, [mapId])).has(mapId)) adoptPicture(mapId, target.digest, this.now());
+    else await this.request(mapId);
   }
   private async render(state: PictureState): Promise<void> {
     const scope = mapOwnerWorkScope(state.mapId), target = pictureTarget(scope, state.mapId);

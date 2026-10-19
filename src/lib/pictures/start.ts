@@ -1,3 +1,4 @@
+import { observePictureChanges } from "./hooks";
 import { metadataDb } from "@/lib/metadata/db";
 import { PictureService } from "./service";
 const key = Symbol.for("dezfil.picture-service");
@@ -8,6 +9,9 @@ export function startPictures(baseUrl = `http://127.0.0.1:${process.env.PORT ?? 
   if (host[key]) return;
   metadataDb().prepare("UPDATE map_pictures SET work_key = NULL, work_owner = NULL, work_expires_at = NULL, work_inputs = NULL").run();
   const service = new PictureService({ baseUrl });
+  const stopChanges = observePictureChanges(event => {
+    void (event.inherited ? service.adopt(event.mapId) : service.request(event.mapId, event.force)).catch(() => {});
+  });
   let serving = false, looking = false, lastLook = -Infinity;
   const timer = setInterval(() => {
     if (looking) return;
@@ -23,6 +27,6 @@ export function startPictures(baseUrl = `http://127.0.0.1:${process.env.PORT ?? 
     })().catch(error => console.warn("Picture look failed", error)).finally(() => { looking = false; });
   }, 1000);
   timer.unref();
-  host[key] = { service, stop: () => clearInterval(timer) };
+  host[key] = { service, stop: () => { clearInterval(timer); stopChanges(); } };
 }
 export function activePictureService(): PictureService | undefined { return host[key]?.service; }

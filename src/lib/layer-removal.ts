@@ -1,3 +1,4 @@
+import { notifyPicture } from "@/lib/pictures/hooks";
 import { documentFacts, type DocumentFacts } from "./metadata/document-facts";
 import { recordDocumentChanges, requireDocumentRevision } from "@/lib/metadata/revisions";
 import { randomUUID } from "node:crypto";
@@ -30,6 +31,7 @@ export async function removeLayer(
   id: string,
   opts: { groupId?: string | null; expectedRevision?: unknown } = {},
 ): Promise<DocumentFacts> {
+  const mapId = requireLayerFor(scope, id, "edit").mapId;
   const facts = metadataDb().transaction(() => {
     const layer = requireLayerFor(scope, id, "edit");
     requireDocumentRevision(scope, { kind: "map", id: layer.mapId, expectedRevision: opts.expectedRevision });
@@ -84,6 +86,7 @@ export async function removeLayer(
     }, metadataDb(), scope);
     return documentFacts({ kind: "map", id: layer.mapId });
   })();
+  notifyPicture(mapId);
   await removeTileArtifacts(id);
   return facts;
 }

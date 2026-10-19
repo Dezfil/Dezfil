@@ -1,3 +1,4 @@
+import { isolatePictureData } from "@/lib/test-support/picture-data";
 import { afterAll, expect, it } from "vitest";
 import { spawn } from "node:child_process";
 import { createMap } from "@/lib/map-service";
@@ -7,6 +8,7 @@ import { publishedPictureGeneration } from "@/lib/map-thumbnails";
 import { pictureTarget } from "./publication";
 import { getPictureState, requestPicture } from "./state";
 import { reconcilePictureFiles } from "./reconcile";
+isolatePictureData();
 const scope = testAccountScope();
 afterAll(closeMetadataDb);
 it("recovers after the publisher is killed between the manifest and metadata writes", async () => {

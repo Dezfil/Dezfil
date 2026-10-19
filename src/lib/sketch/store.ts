@@ -1,3 +1,4 @@
+import { notifyPicture } from "@/lib/pictures/hooks";
 import { withTrustedMutation } from "@/lib/trusted-mutation";
 import { currentTrustedOperation } from "@/lib/trusted-operation";
 import { trustedQueueTurn } from "@/lib/trusted-queue";
@@ -291,6 +292,7 @@ export async function createSketch(
         };
       })();
       operation.markCommitted();
+      notifyPicture(mapId);
       return { ...created, featureId: stored.id };
     } catch (error) {
       currentTrustedOperation()?.refuseIfFinal(error);
@@ -354,6 +356,7 @@ async function mutate(
             409,
           );
         operation.markCommitted();
+        if (typeof fresh.sourceParams?.mapId === "string") notifyPicture(fresh.sourceParams.mapId);
         // The replaced artifact retires on the operation's cleanup path: a
         // failure there is logged, never answered, and never touches the
         // artifact just committed.
@@ -576,6 +579,7 @@ export async function cascadeDeleteSketch(scope: AccountScope, name: string, fro
         return { mapId, layerId, ...(mapId ? { editRevision: documentFacts({ kind: "map", id: mapId }, db).editRevision } : {}) };
       })();
       operation.markCommitted();
+      if (mapId) notifyPicture(mapId);
       // What follows the commit runs on the operation's cleanup path, last
       // deferred first: tile artifacts, then the view, then the artifact's
       // retirement. A failed step is logged, never answered, and does not

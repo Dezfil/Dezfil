@@ -1,8 +1,10 @@
+import { isolatePictureData } from "@/lib/test-support/picture-data";
 import { afterEach, expect, it } from "vitest";
 import { testAccountScope } from "@/lib/test-support/accounts";
 import { closeMetadataDb } from "@/lib/metadata/db";
 import { renderMapImage, type RenderDriver } from "@/lib/export/render-image";
 import { cardDefinition } from "./card";
+isolatePictureData();
 const tick = () => new Promise(resolve => setTimeout(resolve, 15));
 afterEach(() => { delete process.env.DEZFIL_EXPORT_RENDER_CONCURRENCY; closeMetadataDb(); });
 it("reserves a foreground slot and admits people ahead of waiting pictures", async () => {

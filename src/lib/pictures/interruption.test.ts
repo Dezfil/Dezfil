@@ -1,8 +1,10 @@
+import { isolatePictureData } from "@/lib/test-support/picture-data";
 import { afterAll, expect, it } from "vitest";
 import { renderMapImage } from "@/lib/export/render-image";
 import { testAccountScope } from "@/lib/test-support/accounts";
 import { closeMetadataDb } from "@/lib/metadata/db";
 import { cardDefinition } from "./card";
+isolatePictureData();
 afterAll(() => { delete process.env.DEZFIL_EXPORT_RENDER_CONCURRENCY; closeMetadataDb(); });
 it("interrupts a picture immediately at one slot so a person's check keeps its budget", async () => {
   process.env.DEZFIL_EXPORT_RENDER_CONCURRENCY = "1";

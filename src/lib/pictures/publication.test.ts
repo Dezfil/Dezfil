@@ -1,3 +1,4 @@
+import { isolatePictureData } from "@/lib/test-support/picture-data";
 import { afterAll, expect, it } from "vitest";
 import { createMap } from "@/lib/map-service";
 import { testAccountScope } from "@/lib/test-support/accounts";
@@ -6,6 +7,7 @@ import { readThumbnail, publishedPictureGeneration } from "@/lib/map-thumbnails"
 import { NO_INPUTS } from "@/lib/query/evaluation-inputs";
 import { requestPicture, getPictureState } from "./state";
 import { pictureTarget, publishPicture } from "./publication";
+isolatePictureData();
 const scope = testAccountScope();
 const map = createMap(scope, "Publication");
 afterAll(closeMetadataDb);

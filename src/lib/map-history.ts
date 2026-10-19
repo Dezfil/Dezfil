@@ -1,3 +1,4 @@
+import { notifyPicture } from "@/lib/pictures/hooks";
 import { documentFacts, type DocumentFacts } from "./metadata/document-facts";
 import { recordDocumentChanges, requireDocumentRevision } from "./metadata/revisions";
 import { ERROR_CATALOGUE } from "./api/error-catalogue";
@@ -166,6 +167,7 @@ async function applyHistory(
     recordDocumentChanges(scope, [{ kind: "map", id }]);
     return { map: mapWithLayersFor(scope, id, "edit"), history: captureHistory(scope, id) };
   })();
+  notifyPicture(id);
   await Promise.all(removedLayers.map((lid) => removeTileArtifacts(lid)));
   return { ...accepted.map, history: await presentHistory(scope, id, accepted.history) };
 }

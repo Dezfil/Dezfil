@@ -1,3 +1,4 @@
+import { isolatePictureData } from "@/lib/test-support/picture-data";
 import { afterAll, beforeAll, expect, it } from "vitest";
 import { writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -13,6 +14,7 @@ import { pictureWorkScope } from "@/lib/auth/scope";
 import { requestPicture } from "./state";
 import { mintPictureCredential } from "./credential";
 import { collectPictureEvaluation, readAttemptInputs } from "./inputs";
+isolatePictureData();
 let mapId: string;
 let files: { id: string; file: string }[];
 beforeAll(async () => {

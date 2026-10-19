@@ -1,3 +1,4 @@
+import { notifyPicture } from "@/lib/pictures/hooks";
 import { documentFacts, type DocumentFacts } from "./metadata/document-facts";
 import { recordDocumentChanges, recordDocumentBatch, requireDocumentRevision } from "@/lib/metadata/revisions";
 import { fileMap } from "@/lib/metadata/owned-projects";
@@ -164,7 +165,7 @@ export function createMap(scope: AccountScope, name: string, projectId: string |
   requireAccountScope(scope);
   if (projectId) requireFilingDestination(scope, projectId);
   const db = metadataDb();
-  return db.transaction(() => {
+  const created = db.transaction(() => {
   const defaults = instanceDefaults(db);
   const now = new Date().toISOString();
   const map: MapRecord = {
@@ -193,6 +194,8 @@ export function createMap(scope: AccountScope, name: string, projectId: string |
   });
   return { ...map, ...documentFacts({ kind: "map", id: map.id }) };
   })();
+  notifyPicture(created.id);
+  return created;
 }
 
 /** Every map the acting account reaches. */
@@ -420,6 +423,7 @@ export function updateMap(
       }, metadataDb(), scope);
     }
   })();
+  notifyPicture(id);
   return mapWithLayersFor(scope, id, "edit");
 }
 

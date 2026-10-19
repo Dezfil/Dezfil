@@ -1,3 +1,4 @@
+import { isolatePictureData } from "@/lib/test-support/picture-data";
 import { afterAll, expect, it } from "vitest";
 import { createMap } from "@/lib/map-service";
 import { testAccountScope } from "@/lib/test-support/accounts";
@@ -7,6 +8,7 @@ import { NO_INPUTS } from "@/lib/query/evaluation-inputs";
 import { getPictureState } from "./state";
 import { PictureService } from "./service";
 import { pictureTarget, publishPicture } from "./publication";
+isolatePictureData();
 const scope = testAccountScope();
 afterAll(closeMetadataDb);
 it("looks queue missing pictures before old ones, recover the renderer and do not remake current files after restart", async () => {

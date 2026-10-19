@@ -1,3 +1,4 @@
+import { notifyPicture } from "@/lib/pictures/hooks";
 import { documentFacts, type DocumentFacts } from "./metadata/document-facts";
 import { recordDocumentChanges } from "@/lib/metadata/revisions";
 import { mapEvaluation, type DatasetScope } from "@/lib/query/access";
@@ -274,7 +275,7 @@ export async function deriveAndCommitUpdate(
     if (stale !== undefined) fields = { ...fields, legendAttrs: stale };
   }
 
-  return metadataDb().transaction(() => {
+  const committed = metadataDb().transaction(() => {
     // The accepted basis must still be the one used for validation and
     // derivation. Permission and SQL admission are rechecked first.
     const prior = admitLayerCommit(scope, id, layer, fields, opts.expectedRevision);
@@ -306,6 +307,8 @@ export async function deriveAndCommitUpdate(
     }
     return { ...fresh, ...documentFacts({ kind: "map", id: layer.mapId }) };
   })();
+  notifyPicture(layer.mapId);
+  return committed;
 }
 
 /**
