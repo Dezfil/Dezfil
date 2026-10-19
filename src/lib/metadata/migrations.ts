@@ -536,4 +536,17 @@ export const MIGRATIONS: string[] = [
        state = 'waiting', attempt_count = 0
        WHERE map_id IN (SELECT id FROM maps WHERE owner_id = NEW.id);
    END;`,
+  // Finished pictures survive deactivation; only unfinished work is requeued.
+  `DROP TRIGGER revoke_picture_work_on_inactive_owner;
+   CREATE TRIGGER revoke_picture_work_on_inactive_owner AFTER UPDATE OF status ON accounts
+   WHEN OLD.status = 'active' AND NEW.status <> 'active'
+   BEGIN
+     UPDATE map_pictures SET work_key = NULL, work_owner = NULL, work_expires_at = NULL,
+       work_inputs = NULL,
+       requested_generation = requested_generation + CASE WHEN state = 'current' THEN 0 ELSE 1 END,
+       attempt_count = CASE WHEN state = 'current' THEN attempt_count ELSE 0 END,
+       state = CASE WHEN state = 'current' THEN 'current' ELSE 'waiting' END
+       WHERE map_id IN (SELECT id FROM maps WHERE owner_id = NEW.id)
+         AND (state <> 'current' OR work_key IS NOT NULL);
+   END;`,
 ];

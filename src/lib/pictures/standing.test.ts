@@ -47,3 +47,21 @@ it("populated running work drains and releases its map while queued inactive wor
   now += 3600000; service.queue.tick(); expect(service.queue.busy).toBe(false);
   expect(getPictureState(map.id)?.publishedGeneration).toBe(0);
 });
+
+it("deactivation preserves current pictures while invalidating pending work", async () => {
+  const scope = testAccountScope(undefined, "current-owner");
+  const current = createMap(scope, "Current"), pending = createMap(scope, "Pending");
+  const target = pictureTarget(scope, current.id);
+  const state = requestPicture(current.id, target.digest, Date.now());
+  await publishPicture(scope, target, state.requestedGeneration, { light: Buffer.from("light"), dark: Buffer.from("dark") }, NO_INPUTS);
+  requestPicture(pending.id, "drawing", Date.now());
+  const before = getPictureState(current.id), queued = getPictureState(pending.id)!;
+  metadataDb().prepare("UPDATE accounts SET status = 'deactivated' WHERE id = ?").run(scope.accountId);
+  metadataDb().prepare("UPDATE accounts SET status = 'active' WHERE id = ?").run(scope.accountId);
+  expect(getPictureState(current.id)).toEqual(before);
+  expect(getPictureState(pending.id)?.requestedGeneration).toBe(queued.requestedGeneration + 1);
+  const launches: string[] = [];
+  const service = new PictureService({ baseUrl: "http://fixture.test", now: () => Date.now() + 10000, available: () => true, run: async row => { launches.push(row.mapId); } });
+  await service.look(); await service.queue.drain();
+  expect(launches).not.toContain(current.id);
+});
