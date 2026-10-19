@@ -45,8 +45,10 @@ it("committed data hooks resolve current SQL, ignore unrelated data and advance 
     now += 100;
     updateTableData(roads, { ...roads, sourceParams: undefined, file: unrelated.file });
     service.dataChanged(roads.id); now += 5000; await service.tick(); await service.queue.drain();
+    // Both maps changed. A single slot admits one per tick, in either order.
+    await service.tick(); await service.queue.drain();
     expect(getPictureState(map.id)).toMatchObject({ requestedGeneration: initial.requestedGeneration + 1, drawingChangedAt: initial.drawingChangedAt });
-    expect(launches).toContain(map.id);
+    expect(launches.sort()).toEqual([map.id, catalogue.id].sort());
     metadataDb().prepare("UPDATE data_tables SET source = 'sketch' WHERE id = ?").run(roads.id);
     await service.request(map.id);
     const sketch = getPictureState(map.id)!; now += 100;
