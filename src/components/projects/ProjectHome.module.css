@@ -32,7 +32,9 @@
   gap: 16px;
 }
 
+/* Between the back arrow and the actions, the name's block takes the room. */
 .headLeft {
+  flex: 1;
   min-width: 0;
 }
 

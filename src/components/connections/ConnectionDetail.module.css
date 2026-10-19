@@ -11,9 +11,10 @@
   font-weight: 500;
 }
 
+/* Back arrow, logo, name block, actions. */
 .detailHead {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 14px;
 }
@@ -396,7 +397,7 @@
   }
 
   .detailHead {
-    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-columns: auto auto minmax(0, 1fr);
   }
 
   .headActions {
