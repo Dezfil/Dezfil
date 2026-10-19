@@ -520,7 +520,7 @@ export function WorkflowsScreen() {
                               <LastChanged value={w} />
                             </span>
                           </div>
-                          <div className={gallery.cardChips}>
+                          <div className={gallery.cardChipsLine}>
                             <WorkflowStatusChip summary={w.summary} />
                             <ProjectTag
                               projectId={w.projectId}
