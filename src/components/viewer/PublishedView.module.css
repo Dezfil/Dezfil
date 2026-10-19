@@ -223,17 +223,6 @@
   background: var(--bg);
 }
 
-.spinner {
-  color: var(--accent);
-  animation: spin 2.4s linear infinite;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
 .splashText {
   font-family: var(--font-ui);
   font-size: 12px;

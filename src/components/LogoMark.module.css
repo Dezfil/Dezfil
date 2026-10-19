@@ -1,0 +1,17 @@
+/* The icon, the contour D, takes one of its two inks: the theme's accent
+   (kelp in the light theme, mint in the dark one), or the text colour on a
+   filled tile. No gradient, outline, glow or shadow. */
+.mark {
+  display: inline-block;
+  flex: none;
+  vertical-align: middle;
+  overflow: visible;
+}
+
+.mark path {
+  fill: var(--accent);
+}
+
+.mark[data-tone="current"] path {
+  fill: currentColor;
+}
