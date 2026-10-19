@@ -23,6 +23,9 @@ function pageRequests(page: Page) {
   const seen: string[] = [];
   const listen = (request: { url: () => string; method: () => string }) => {
     const url = new URL(request.url());
+    // The builder still attempts its timed capture while the retired upload
+    // refuses it. That background request is unrelated to clearing the pane.
+    if (request.method() === "PUT" && /^\/api\/maps\/[^/]+\/thumbnail$/.test(url.pathname)) return;
     if (url.pathname.startsWith("/api/")) seen.push(`${request.method()} ${url.pathname}`);
   };
   page.on("request", listen);
