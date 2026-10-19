@@ -1,6 +1,6 @@
 {
   "count": 157,
-  "overall": "cf9c6a3daa5bae1f4bfff2ae85d63d2d1dd1f8ba651e198aba6681b75649a878",
+  "overall": "f1abe858a7c6fe53739a546cfe301222f6178caea242e479423cdab24b5ea4ce",
   "tools": {
     "get_account": "1d39e185a29991c180c5357ee693fb43d368491d0c799a0e52600ca88d32baa8",
     "update_account": "6fbaac652fbb4a554398de411dbad73d791da57e9656b80f4e40a51b69d9fb46",
@@ -16,8 +16,8 @@
     "update_user_access": "b6ff5ebde601518cd40d339d2f2cbb1a7833e66c5802c830bce1daa8eba2e05a",
     "delete_user": "2e7c773d1adbf131370592a03c08c827f6f074ae70bd6a6e3e25826c694596aa",
     "issue_user_sign_in_link": "820719ea846a13310453ef272afd8f36a0cb3787b4a879690dc149c0b9a7ee90",
-    "get_instance_settings": "bd20419f21976077f72f17cc2909356b9078bd5b902e7e50d85ba1e0e1bcf449",
-    "update_instance_settings": "f3a6a7122ad0889e9dfbe6d6ab818bc0592229c37d406b884b6481fd2d690800",
+    "get_instance_settings": "e6a3b17101358cb29607014a7b694e48c900fd76d6dbb1e3e4eae0b86181f20f",
+    "update_instance_settings": "628785eb307706e8966709b3fdff5f61224dde279332ad1124df87613062ea34",
     "clear_service_caches": "b21e79095a28774eb6eb24ee95a0d2674a9bcf806897a3195e98318605c08b25",
     "test_service": "09b17f8f733e8038c0b789b60b915faae4092018614a745cb7bf05cecdf3c78e",
     "read_storage": "42b0ae1dc5cde11b6d009ced59d8378746efaeb483a807f13edcf08c1f5e90d3",
@@ -120,7 +120,7 @@
     "get_map": "962198dbcab626882846cb0263725f7aa8521842fc26a83283cdaf5140929664",
     "update_map": "ada8c9135bf0333c8abcccdcc68e65126af263d1bd69be955571d69f2c6fa244",
     "delete_map": "26442b6ac1d192b137e56108c2785787678d0c7585203162e94cf04257081298",
-    "refresh_map_picture": "d58ec0a30b42e40e548ffb24b0d04f21a75074ea02f0e42cb44fd4b5625383bd",
+    "refresh_map_picture": "5ad514bd1dd95937934c0a5d7fddb9a7f097422a2cf556849f1aaa20154ce72c",
     "read_widget_values": "ad405f2650b43ca4f0f6c706f3f6709848134839ab8aae80c37bc2159f79f7e0",
     "search_map": "b2750c37b39e0fc8cc1c301737385ac4ece5067647af69bbe6f6779535625922",
     "get_map_dependencies": "f66f2c0ecbd037b47d2c9d26ce9cd7762355544bbf0f1be395ee9887b34e219f",
