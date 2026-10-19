@@ -746,6 +746,23 @@ requests allowed in the isolated instance's egress policy.
 DEZFIL_BASE_URL=http://127.0.0.1:3581 npx playwright test e2e/picture-framing.spec.ts --project=chromium
 ```
 
+For the migrated theme suite, add
+`--import=./scripts/pictures-browser-fixture-preload.mjs` to the isolated
+instance's normal launch and set `DEZFIL_PICTURE_STYLE_FIXTURE=1`. This
+fixture refuses the development port and requires a data directory whose
+name includes `pictures-`. It substitutes only the three built-in style
+responses after normal renderer admission. The actual browser still loads,
+paints and captures them; no image or readiness declaration is mocked.
+
+```sh
+DEZFIL_BASE_URL=http://127.0.0.1:3581 npx playwright test e2e/thumbnail-theme.spec.ts e2e/picture-credit.spec.ts e2e/edit-attribution-capture.spec.ts e2e/map-alignment.spec.ts e2e/assistant-clear.spec.ts --project=chromium
+```
+
+Theme pictures and credit are seeded through server work. Alignment uses
+loopback styles accessible to both browsers and the saved camera at the
+card's composition size. The clear-conversation check counts every page
+request, including a residual browser upload if one remains installed.
+
 ## Regenerating what is generated
 
 **The design specimen.** `node scripts/build-specimen.mjs` rewrites the fed

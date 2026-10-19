@@ -5,30 +5,16 @@
 // The seeded map stays on Auto, so its picture is credited with the
 // built-in styles' line. Run with DEZFIL_BASE_URL at an isolated instance.
 import { test, expect, type Locator, type Page } from "@playwright/test";
+import { waitForPicture } from "./picture-support";
 import { createMap, routeHouse, trackConsole } from "./support";
 import { isAllowedConsoleError } from "./console-allowlist";
 
 const runId = Date.now().toString(36);
 
-/** A map with a stored picture: one small PNG, as an earlier capture
- * would have left it. */
+/** The server makes the picture without a visit to the builder. */
 async function picturedMap(page: Page, name: string): Promise<string> {
   const mapId = await createMap(page, name);
-  await page.evaluate(async (mapId) => {
-    const c = document.createElement("canvas");
-    c.width = 64;
-    c.height = 36;
-    const ctx = c.getContext("2d")!;
-    ctx.fillStyle = "#3b7dd8";
-    ctx.fillRect(0, 0, 64, 36);
-    const blob = await new Promise<Blob>((resolve) => c.toBlob((b) => resolve(b!), "image/png"));
-    const put = await fetch(`/api/maps/${mapId}/thumbnail`, {
-      method: "PUT",
-      headers: { "content-type": "image/png" },
-      body: blob,
-    });
-    if (!put.ok) throw new Error(String(put.status));
-  }, mapId);
+  await waitForPicture(page.request, mapId);
   return mapId;
 }
 

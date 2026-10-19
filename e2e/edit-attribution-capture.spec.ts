@@ -1,9 +1,10 @@
+import { waitForPicture } from "./picture-support";
 import { test, expect } from "@playwright/test";
 import { routeHouse } from "./support";
 import { readThenWriteRequestSetup } from "./edit-basis";
 import { closeAll, createProject, invitePerson, runTag, share, type Person } from "./sharing-support";
 
-test("themed captures land through style changes and viewers see attribution without edit controls", async ({ browser, request, baseURL }) => {
+test("server pictures land after style changes and viewers see attribution without edit controls", async ({ browser, request, baseURL }) => {
   const people: Person[] = [];
   try {
     const tag = runTag();
@@ -15,29 +16,19 @@ test("themed captures land through style changes and viewers see attribution wit
     const project = await createProject(ada, `Project ${tag}`, { addMaps: [map.id] }); await share(ada, project, viewer, "viewer");
     await routeHouse(ada.context, { basemapStyleStub: true }); await routeHouse(viewer.context, { basemapStyleStub: true });
     const page = await ada.context.newPage();
-    const captures: { theme: string; cycle: string; status: number }[] = [];
     let accepted: Record<string, unknown> | null = null;
-    await page.route(`**${path}/thumbnail**`, async route => {
-      if (route.request().method() !== "PUT") return route.continue();
-      const url = new URL(route.request().url());
-      if (captures.length < 2) {
-        const saved = await readThenWriteRequestSetup(ada.api, path, () => ({ method: "PATCH", path: `/api/layers/${layer.id}`, options: { data: { style: { ...layer.style, opacity: captures.length ? 0.6 : 0.4 } } } }));
-        expect(saved.status()).toBe(200); accepted = await saved.json();
-      }
-      const response = await route.fetch();
-      captures.push({ theme: url.searchParams.get("theme")!, cycle: url.searchParams.get("cycle")!, status: response.status() });
-      await route.fulfill({ response });
-    });
+    for (const opacity of [0.4, 0.6]) {
+      const saved = await readThenWriteRequestSetup(ada.api, path, () => ({ method: "PATCH", path: `/api/layers/${layer.id}`, options: { data: { style: { ...layer.style, opacity } } } }));
+      expect(saved.status()).toBe(200); accepted = await saved.json();
+    }
+    await waitForPicture(ada.api, map.id);
     await page.goto(`/maps/${map.id}`);
     await expect(page.getByRole("button", { name: map.name, exact: true })).toBeVisible();
     // The head's last-changed line stands to the right of the search field.
     const search = await page.getByRole("combobox", { name: "Search this map and places" }).boundingBox();
     const changed = await page.locator("header [data-last-changed]").boundingBox();
     expect(changed!.x).toBeGreaterThanOrEqual(search!.x + search!.width);
-    await expect.poll(() => captures.length, { timeout: 60_000 }).toBeGreaterThanOrEqual(2);
-    expect(captures.slice(0, 2).map(c => c.status)).toEqual([202, 204]);
-    expect(captures[0].cycle).toBe(captures[1].cycle);
-    expect(new Set(captures.slice(0, 2).map(c => c.theme))).toEqual(new Set(["light", "dark"]));
+    await waitForPicture(ada.api, map.id);
     const current = await (await ada.api.get(path)).json();
     for (const key of ["editRevision", "lastChangedAt", "lastChangedBy"]) expect(current[key]).toEqual(accepted![key]);
     for (const theme of ["light", "dark"]) expect((await viewer.api.get(`${path}/thumbnail?theme=${theme}`)).status()).toBe(200);
