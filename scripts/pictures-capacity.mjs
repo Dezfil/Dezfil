@@ -6,7 +6,7 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { productLoader } from './account-deletion-source-loader.mjs';
 import { probeOrigin } from './settings-probe.mjs';
-import { capacityEvents, firstMeasurement, activeRenders, foregroundTiming, assertForegroundOverlap, foregroundLimits, assertForegroundInterruption } from './pictures-measurement.mjs';
+import { capacityEvents, firstMeasurement, activeRenders, foregroundTiming, assertForegroundOverlap, foregroundLimits, assertForegroundInterruption, measureBacklog } from './pictures-measurement.mjs';
 const execute = promisify(execFile), sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 const [mode, manifestPath, reportPath, baselinePath, ...restartArgs] = process.argv.slice(2);
 assert.ok(['seed-first', 'seed-missing', 'seed-mixed', 'run'].includes(mode), 'Use seed-first, seed-missing, seed-mixed or run');
@@ -137,18 +137,16 @@ if (mode.startsWith('seed-')) {
   }
   try {
     if (baseline) {
-      assert.ok(capacityEvents(fixture.maps, events(), false).length < fixture.maps.filter(map => map.group !== 'current').length, 'Start observation before the backlog drains');
-      report.foregroundBacklog = { export: await foreground(false), check: await foreground(true) };
-      assert.ok(report.foregroundBacklog.export.startMs <= baseline.limits.exportStartMs, 'Foreground export start exceeded its frozen ceiling');
-      assert.ok(report.foregroundBacklog.check.answerMs <= baseline.limits.checkAnswerMs, 'Foreground check exceeded its frozen ceiling');
-    }
-    if (fixture.kind === 'mixed') {
-      // The event log is independent of a cacheable list. At one background
-      // slot, 100 publications are exactly half of the 200 pending maps.
-      await until(() => capacityEvents(fixture.maps, events(), false).length >= 100);
-      report.restartAfterPublications = capacityEvents(fixture.maps, events(), false).length;
-      assert.ok(report.restartAfterPublications <= 101, 'The restart checkpoint was missed');
-      report.restartMs = await restart();
+      report.limits = baseline.limits;
+      report.foregroundBacklog = { export: [], check: [] };
+      await measureBacklog({ maps: fixture.maps, events, foreground, limits: baseline.limits,
+        record: (kind, sample) => report.foregroundBacklog[kind].push(sample),
+        poll: async () => { await until(() => true); await sleep(20); },
+        restart: fixture.kind === 'mixed' ? async publications => {
+          report.restartAfterPublications = publications;
+          report.restartMs = await restart();
+        } : undefined,
+      });
     }
     await until(listing => fixture.maps.every(map => listing.find(row => row.id === map.id)?.pictureState === 'current'));
     capacityEvents(fixture.maps, events());
@@ -184,10 +182,6 @@ if (mode.startsWith('seed-')) {
       } finally { await json('PATCH', '/api/instance/settings', { exportRenderConcurrency: previous }); }
       await until(listing => listing.find(row => row.id === backgroundId)?.pictureState === 'current', Date.now() + 120000);
       report.limits = { capacity300Ms: Math.ceil(300 * report.timings.all.p90Ms * 1.5 + report.startupMs + report.restartMs), ...concurrentLimits };
-    } else {
-      // A successful baseline exists before this workload; exercise foreground
-      // timing during backlog in the next run as well as the event ordering.
-      report.limits = baseline.limits;
     }
     report.changeToCard = [];
     for (const pair of [false, true]) {

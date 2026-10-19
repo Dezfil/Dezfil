@@ -61,6 +61,45 @@ export function assertForegroundInterruption(sample, events, budgetMs) {
   return timing;
 }
 
+export function assertBacklogSample(maps, events, sample, checkpoint) {
+  const overlap = assertForegroundOverlap(sample, events);
+  const pending = maps.filter(map => map.group !== 'current');
+  const background = events[overlap.backgroundAdmissionIndex];
+  const published = capacityEvents(maps, events.slice(0, sample.eventOffset), false);
+  assert.ok(pending.some(map => map.id === background.mapId) && !published.some(event => event.mapId === background.mapId), 'Overlap must be work on a pending fixture map');
+  const lower = Math.floor(checkpoint * pending.length / 5), upper = Math.floor((checkpoint + 1) * pending.length / 5);
+  assert.ok(checkpoint >= 0 && checkpoint < 5 && published.length >= lower && published.length < upper, 'Backlog sample missed its progress window');
+  return { ...overlap, checkpoint, publications: published.length };
+}
+
+/** Advance on publications rather than guessed wall-clock delays. The caller
+ * bounds polling and records samples before any assertion can fail. */
+export async function measureBacklog({ maps, events, foreground, poll, record, limits, restart = undefined }) {
+  const pending = maps.filter(map => map.group !== 'current').length;
+  let restarted = false;
+  for (let checkpoint = 0; checkpoint < 5; checkpoint++) for (const kind of ['export', 'check']) {
+    for (;;) {
+      const observed = events(), published = capacityEvents(maps, observed, false).length;
+      if (restart && !restarted && published >= pending / 2) {
+        assert.ok(published <= pending / 2 + 1, 'The restart checkpoint was missed');
+        await restart(published);
+        restarted = true;
+        continue;
+      }
+      assert.ok(published < Math.floor((checkpoint + 1) * pending / 5), 'Backlog sample missed its progress window');
+      const active = activeRenders(observed);
+      if (published >= Math.floor(checkpoint * pending / 5) && active.length === 1 && active[0].background) break;
+      await poll();
+    }
+    const sample = { ...await foreground(kind === 'check'), checkpoint };
+    record(kind, sample);
+    Object.assign(sample, assertBacklogSample(maps, events(), sample, checkpoint));
+    if (kind === 'export') assert.ok(sample.startMs <= limits.exportStartMs, 'Foreground export start exceeded its frozen ceiling');
+    else assert.ok(sample.answerMs <= limits.checkAnswerMs, 'Foreground check exceeded its frozen ceiling');
+  }
+  assert.ok(!restart || restarted, 'The mixed workload never restarted');
+}
+
 /** Independent event oracle. Missing, duplicate and out-of-order publication
  * must fail even when every listing eventually says current. */
 export function capacityEvents(maps, events, complete = true) {
