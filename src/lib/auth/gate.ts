@@ -1,3 +1,4 @@
+import { pictureRequestScope, PICTURE_WORK_HEADER } from "@/lib/pictures/credential";
 import { apiMethodResponse } from "./api-methods";
 import { isAnonymousAsset } from "./public-assets";
 import { NextResponse } from "next/server";
@@ -12,6 +13,13 @@ import { assertRequestOrigin, authFailure, privateResponse, requestAuth, request
 /** Early refusal only. Handlers needing identity reauthenticate the credential. */
 export function gateRequest(request: Request): Response {
   const pathname = new URL(request.url).pathname;
+  if (request.headers.has(PICTURE_WORK_HEADER)) {
+    try {
+      requestIngress(request);
+      pictureRequestScope(request);
+      return privateResponse(apiMethodResponse(pathname, request.method) ?? NextResponse.next());
+    } catch (error) { return authFailure(error); }
+  }
   if (isAnonymousAsset(pathname, request.method, process.env.NODE_ENV === "development") ||
       (isAnonymousOperation(pathname, request.method) && !isEntryRequest(pathname, request.method))) {
     const response = NextResponse.next();

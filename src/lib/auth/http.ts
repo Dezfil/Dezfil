@@ -28,6 +28,7 @@ export function sessionSecret(request: Request): string | null {
 }
 export function requestAuth(request: Request, db?: Database): AuthContext | null {
   requestIngress(request);
+  if (request.headers.has("x-dezfil-picture-work")) return null;
   const authorization = request.headers.get("authorization");
   if (authorization !== null) {
     const match = /^Bearer ([^\s]+)$/i.exec(authorization);

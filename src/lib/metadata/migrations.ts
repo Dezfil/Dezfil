@@ -521,4 +521,9 @@ export const MIGRATIONS: string[] = [
     attempt_count INTEGER NOT NULL DEFAULT 0,
     next_attempt_at INTEGER NOT NULL
   );`,
+  // Attempt credentials are neither sessions nor API tokens and die with work.
+  `ALTER TABLE map_pictures ADD COLUMN work_key TEXT;
+   ALTER TABLE map_pictures ADD COLUMN work_owner TEXT;
+   ALTER TABLE map_pictures ADD COLUMN work_expires_at INTEGER;
+   CREATE UNIQUE INDEX idx_picture_work_key ON map_pictures(work_key);`,
 ];
