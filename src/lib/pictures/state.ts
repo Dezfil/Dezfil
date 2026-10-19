@@ -20,7 +20,7 @@ export function getPictureState(mapId: string, db: Database = metadataDb()): Pic
   return db.prepare(`SELECT ${columns} FROM map_pictures WHERE map_id = ?`).get(mapId) as PictureState | undefined ?? null;
 }
 export function listPictureStates(db: Database = metadataDb()): PictureState[] {
-  return db.prepare(`SELECT ${columns} FROM map_pictures ORDER BY CASE WHEN producer = 'old' THEN 1 ELSE 0 END, drawing_changed_at DESC, map_id`).all() as PictureState[];
+  return db.prepare(`SELECT ${columns} FROM map_pictures ORDER BY CASE WHEN producer = 'old' AND requested_generation = 1 THEN 1 ELSE 0 END, drawing_changed_at DESC, map_id`).all() as PictureState[];
 }
 export function requestPicture(mapId: string, digest: string, now: number, force = false, db: Database = metadataDb()): PictureState {
   return db.transaction(() => {
