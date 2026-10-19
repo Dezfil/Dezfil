@@ -786,21 +786,43 @@ request, including a residual browser upload if one remains installed.
 ### Picture capacity and measurement
 
 Run these proofs on a separately built production instance, under the same
-exclusive test lock as the browser battery. Use the loopback ground fixture
-above, the real headless browser and default two image slots. The offline
-seeder refuses an existing database; the runner refuses port 3000. Each workload
+exclusive test lock as the browser battery. Use the real headless browser and
+default two image slots. The basemap is the raster tile server in
+`scripts/loopback-basemap.mjs`, also used by
+`src/lib/export/map-look.real-render.test.ts`. Start it in a separate terminal
+and keep it running through every application restart:
+
+```sh
+fnm exec --using=24 node scripts/loopback-basemap.mjs 3582
+```
+
+It serves a light style at `http://127.0.0.1:3582/style.json`, light and dark
+variants at `/light/style.json` and `/dark/style.json`, and PNG tiles over
+loopback. Every map has a small point layer at its saved centre. Singles use
+the loopback style directly. Pairs keep Auto: the test-only style preload
+redirects the built-in light and dark styles to the loopback variants, so
+both appearances fetch tiles and draw data without public network requests.
+The fixture presents the loopback destination to the egress gate as well, so
+style admission needs no public DNS lookup.
+
+The offline seeder refuses an existing database; the runner refuses port 3000. Each workload
 gets its own stopped instance and fresh `pictures-` data directory. Its owner
 token is written with mode 0600 beside the manifest and is never printed.
 
-First seed twenty empty maps, ten single pictures and ten pairs:
+First seed twenty maps without pictures, ten singles and ten pairs:
 
 ```sh
+export DEZFIL_PICTURE_BASEMAP_URL=http://127.0.0.1:3582/style.json
+export DEZFIL_PICTURE_STYLE_FIXTURE=1
+export DEZFIL_EGRESS_ALLOWLIST=127.0.0.1
 export DEZFIL_DATA_DIR=$(mktemp -d "$PWD/.claude/scratch/pictures-measure-XXXXXXXX")
 fnm exec --using=24 node scripts/pictures-capacity.mjs seed-first .claude/scratch/pictures-first.fixture.json
 export DEZFIL_PICTURE_METRICS="$PWD/.claude/scratch/pictures-first.events.jsonl"
 export DEZFIL_PICTURE_TEST_URL=http://127.0.0.1:3581
 # Start the separate production server with this store and PORT=3581.
-# Add --import=./scripts/pictures-metrics-preload.mjs to its launch.
+# Preserve the environment above and add both preloads to its launch:
+# --import=./scripts/pictures-browser-fixture-preload.mjs
+# --import=./scripts/pictures-metrics-preload.mjs
 # restart-isolated-server is an executable that replaces only that instance,
 # preserves its store, metrics path and environment, then returns.
 fnm exec --using=24 node scripts/pictures-capacity.mjs run \
@@ -809,16 +831,35 @@ fnm exec --using=24 node scripts/pictures-capacity.mjs run \
 ```
 
 Supply `DEZFIL_STANDALONE_DIR` when the standalone instance owns the matching
-native modules in a different module tree. Start the runner promptly after the
-server. The preload records admission and successful publication, including
-both appearances, reduction and publication. The report keeps the raw events,
+native modules in a different module tree. Copy both preloads into that
+instance's `scripts/` directory, beside its module tree, as in the browser
+recipe above. The seed, server and runner must share the basemap address.
+Start the runner promptly after the server, before the first fifth of its
+backlog drains.
+
+The restart executable must stop **only the listening process**, wait for it
+to exit, and relaunch that instance with the same store, event file, preloads
+and environment. Identify it with `lsof -ti tcp:3581 -sTCP:LISTEN` (substitute
+the isolated instance's port). Never kill every process on the port with
+`lsof -ti tcp:3581`: that also lists the runner's client connections and kills
+the measurement. Keep the loopback tile server running on its separate port.
+
+The metrics preload records admission, physical slot release and successful
+publication, covering both appearances and reduction. The report keeps the raw events,
 machine and runtime information, per-attempt timings, median and 90th
 percentile, and browser-process peak RSS sampled every 250 ms. The sample peak
-is not an instantaneous allocation maximum. It also measures idle foreground
-export admission and check response, actual interruption at one slot, startup
-and restart overhead. It freezes the 300-map ceiling at 300 times the measured
-90th percentile times 1.5 plus startup and restart overhead. Foreground ceilings
-are the idle baselines plus measured interruption cost.
+is not an instantaneous allocation maximum. Idle foreground export admission
+and check response are reference observations only. At two slots it takes five
+samples each of export admission and check response while one background render
+is in flight, proving from events that the same render still holds its slot
+when the foreground request is admitted. Each foreground limit is its 90th
+percentile times 1.5. The run refuses a margin as large as the shortest measured
+picture render; it never silently widens that margin. At one slot, a separate
+assertion requires actual interruption and export admission within one picture's
+budget. It also measures startup and restart overhead, and freezes the 300-map
+ceiling at 300 times the measured 90th percentile times 1.5 plus startup and
+restart overhead. Foreground ceilings
+are frozen before the proof workloads; older idle-based reports are refused.
 
 Then seed and start fresh instances for each capacity workload. Use fresh
 manifest and event filenames for each. Pass the successful first-run report
@@ -842,12 +883,16 @@ fnm exec --using=24 node scripts/pictures-capacity.mjs run \
 The mixed fixture has 100 missing, 100 old-road and 100 current pictures.
 Its restart occurs halfway through the pending work. Independent publication
 events reject a repeated remake, missing work, a current map being rendered,
-or an old picture overtaking a missing one. Both runs exercise foreground work
-during the backlog and require a saved camera change to reach a new picture
-within a minute for a single and a pair. Nonzero exit or `result: failed` is
+or an old picture overtaking a missing one. Each run takes five export and five
+check samples, one of each in every fifth of the pending publications. Before
+each request it waits for a background render in flight; a sample without
+overlap is refused. Every sample must meet its frozen limit, and every sample
+is retained in the report, including one that fails. Both runs require a saved
+camera change to reach a new picture within a minute for a single and a pair.
+Nonzero exit or `result: failed` is
 failure; keep its raw report. A passing unit fixture does not demonstrate
-renderer throughput. Stop the isolated instance and remove its store, token
-and temporary files after the proof artifacts have been collected.
+renderer throughput. Stop the isolated instance and the loopback server and
+remove the store, token and temporary files after collecting the proof artifacts.
 
 ## Regenerating what is generated
 
