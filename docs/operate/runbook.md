@@ -736,6 +736,16 @@ flat-image control and listener guard run without a server in
 `src/lib/pictures/real-proof-controls.test.ts`. A skipped real-render test is
 not evidence of a rendered picture.
 
+The independent framing proof opens the real builder at 1440 by 900, flat
+and pitched. It measures its visible 988 by 824 map window and compares mark
+offsets around the saved centre against the card after reduction, within four
+pixels. It attaches both images and the numeric errors. Keep loopback style
+requests allowed in the isolated instance's egress policy.
+
+```sh
+DEZFIL_BASE_URL=http://127.0.0.1:3581 npx playwright test e2e/picture-framing.spec.ts --project=chromium
+```
+
 ## Regenerating what is generated
 
 **The design specimen.** `node scripts/build-specimen.mjs` rewrites the fed
