@@ -35482,6 +35482,284 @@
         ]
       }
     },
+    "/api/maps/{id}/picture/refresh": {
+      "post": {
+        "summary": "Refresh a map picture",
+        "description": "A map is reached by its owner and, while it is filed in a project, by that project's owner and people. Results cover exactly the reached maps and name each map's owner and SQL home; the map's SQL is evaluated in its home within the caller's own reach. Content changes are open to the owner, the project's owner and its editors; SQL anyone but the owner saves, directly or by undo and redo, must name only datasets within their own reach in the map's home, else it is refused with sql_error naming the reference as written and nothing changes. Sketches drawn on the map are content, each sketch dataset its drawer's own; deletion, publication settings and snapshot captures stay the owner's; a snapshot is served to everyone who reaches the map and every dataset it drew. Anyone who reaches a map may duplicate it into their own space: the copy keeps the map's SQL home and its layers' SQL as stored, is filed in the map's project only when the duplicator may file there (its owner or an editor), and carries the snapshot only when the duplicator may be served it. Administrators reach nothing more. Unreached and missing map or project identities both return not_found before source access or protected changes; a reached map whose change the caller may not make returns forbidden and changes nothing. Ask the server to picture the saved drawing as its owner. The owner or a project Editor may ask; a Viewer receives forbidden. Repeated requests coalesce with pending work. The previous complete picture stays served. This changes no edit revision, history or Last edited timestamp and requires no edit revision. Answers queued after admission to the quiet wait, or unavailable when the renderer is absent. Basemap services may be contacted by the background attempt.",
+        "tags": [
+          "Maps"
+        ],
+        "x-tool": "refresh_map_picture",
+        "x-effects": {
+          "readOnly": false,
+          "writes": [
+            {
+              "resource": "maps",
+              "collection": true,
+              "argument": "id"
+            }
+          ]
+        },
+        "x-mcp": {
+          "destructiveHint": false,
+          "openWorldHint": true,
+          "idempotentHint": false
+        },
+        "x-tool-output": {
+          "envelope": "result-history"
+        },
+        "x-display": {
+          "verb": "Requested a map picture"
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Map id."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The renderer is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "outcome": {
+                      "type": "string",
+                      "const": "unavailable"
+                    },
+                    "pictureState": {
+                      "type": "string",
+                      "const": "unavailable"
+                    }
+                  },
+                  "required": [
+                    "outcome",
+                    "pictureState"
+                  ]
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Queued or coalesced.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "outcome": {
+                      "type": "string",
+                      "const": "queued"
+                    },
+                    "pictureState": {
+                      "type": "string",
+                      "enum": [
+                        "waiting",
+                        "failed",
+                        "unsupported",
+                        "current"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "outcome",
+                    "pictureState"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "method_not_allowed: the method is unsupported for this path.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Allow": {
+                "description": "Exactly the documented methods for this path.",
+                "schema": {
+                  "type": "string",
+                  "const": "OPTIONS, POST"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieSession": []
+          },
+          {
+            "BearerToken": []
+          }
+        ]
+      },
+      "options": {
+        "summary": "Read allowed methods",
+        "description": "Automatic OPTIONS returns no body and the Allow header. Authentication is required.",
+        "tags": [
+          "System"
+        ],
+        "x-tool": false,
+        "x-effects": {
+          "readOnly": true,
+          "writes": []
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Map id."
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Allowed methods.",
+            "headers": {
+              "Allow": {
+                "description": "Exactly the documented methods for this path.",
+                "schema": {
+                  "type": "string",
+                  "const": "OPTIONS, POST"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "method_not_allowed: the method is unsupported for this path.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Allow": {
+                "description": "Exactly the documented methods for this path.",
+                "schema": {
+                  "type": "string",
+                  "const": "OPTIONS, POST"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieSession": []
+          },
+          {
+            "BearerToken": []
+          }
+        ]
+      }
+    },
     "/api/maps/{id}/thumbnail": {
       "get": {
         "summary": "Read a map's snapshot",
@@ -74416,9 +74694,27 @@
                 },
                 "description": "One representative CSS color per layer, in draw order — what the maps screen renders as layer dots."
               },
+              "pictureState": {
+                "type": "string",
+                "enum": [
+                  "current",
+                  "waiting",
+                  "failed",
+                  "unsupported",
+                  "unavailable"
+                ],
+                "description": "The server picture work state. It names no dataset or private reason, even when this reader cannot be served the picture."
+              },
+              "pictureVersion": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "An opaque version of the served picture for the image URL v parameter. Changes when a new complete picture lands, including data-only and requested refreshes. Null when no picture is served."
+              },
               "hasThumbnail": {
                 "type": "boolean",
-                "description": "Whether the map has a card image the caller is served: GET /api/maps/{id}/thumbnail answers one. False until the builder first captures the map, and while every image it has drew a dataset beyond the caller's reach. A card asks for the image only when this is true."
+                "description": "Whether the map has a card image the caller is served: GET /api/maps/{id}/thumbnail answers one. False until the server first pictures the map, and while every image it has drew a dataset beyond the caller's reach. A card asks for the image only when this is true."
               },
               "thumbnailBasemap": {
                 "type": [

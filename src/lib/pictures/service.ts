@@ -66,6 +66,10 @@ export class PictureService {
     this.queue.tick();
     return getPictureState(mapId) ?? state;
   }
+  async refresh(mapId: string): Promise<PictureState> {
+    const pending = getPictureState(mapId);
+    return this.request(mapId, pending?.state !== "waiting" && pending?.state !== "unavailable");
+  }
   async adopt(mapId: string): Promise<void> {
     const scope = mapOwnerWorkScope(mapId);
     const { target, inputs } = await pictureBindings(scope, mapId);

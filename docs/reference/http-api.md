@@ -46,7 +46,7 @@ every documented operation must have a route, and every call the interface
 makes must hit a documented path (`src/lib/api/parity.test.ts`). The
 description cannot drift from the server.
 
-Measured from the current source: **145 paths, 410 operations, 188 named component schemas.** Operations include supported automatic HEAD and OPTIONS.
+Measured from the current source: **146 paths, 412 operations, 188 named component schemas.** Operations include supported automatic HEAD and OPTIONS.
 `npm run lint:contract-docs` measures these numbers and checks the catalogue below
 against the contract; changing only the reader-facing text fails the gate.
 
@@ -1705,6 +1705,29 @@ rather than on the page:
   coded error naming the bound, not a truncated success.
 - Request bodies for workflow layout documents have an explicit byte bound
   and are refused with `request_body_too_large` before parsing.
+
+## Map pictures
+
+The server makes map card pictures from the saved drawing as its owner,
+including maps nobody has opened. `GET /api/maps` adds `pictureState`
+(`current`, `waiting`, `failed`, `unsupported` or `unavailable`) and
+`pictureVersion`, an opaque string or null when this reader is served no
+picture. Use the version as the image URL's `v` parameter; data-only changes
+and requested refreshes can replace a picture without changing Last edited.
+The state reveals no input names or private failure reason.
+
+`POST /api/maps/{id}/picture/refresh` is available to the owner and project
+Editors. A Viewer receives `403 forbidden`. It answers `202` with
+`{ "outcome": "queued", "pictureState": "waiting" }`, coalescing with pending
+work, or `200` with `{ "outcome": "unavailable", "pictureState": "unavailable" }`
+when the renderer is absent. No request body or edit revision is required.
+The operation changes no map revision, history or Last edited timestamp.
+The generated tool is `refresh_map_picture`.
+
+The previous complete picture stays served while newer work waits or fails.
+Reading `GET /api/maps/{id}/thumbnail?theme=light|dark` keeps the existing
+reach and theme fallback rules. A reader must reach the map and every input
+recorded by the image; an unattributed picture remains the owner's alone.
 
 ## Edits that belong together
 

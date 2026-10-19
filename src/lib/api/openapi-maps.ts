@@ -130,6 +130,20 @@ export const MAP_RESOURCE_PATHS = {
       responses: { ...editRevisionResponses, "204": { description: "Deleted." } },
     })),
   },
+  "/api/maps/{id}/picture/refresh": {
+    post: op(mapAccess({
+      summary: "Refresh a map picture",
+      description: "Ask the server to picture the saved drawing as its owner. The owner or a project Editor may ask; a Viewer receives forbidden. Repeated requests coalesce with pending work. The previous complete picture stays served. This changes no edit revision, history or Last edited timestamp and requires no edit revision. Answers queued after admission to the quiet wait, or unavailable when the renderer is absent. Basemap services may be contacted by the background attempt.",
+      tag: "Maps", tool: "refresh_map_picture", mcp: MAP_LOOK,
+      display: { verb: "Requested a map picture" }, effects: writes(resource("maps", "id")),
+      parameters: [pathParam("id", "Map id.")],
+      responses: {
+        "202": { description: "Queued or coalesced.", content: { "application/json": { schema: { type: "object", properties: { outcome: { type: "string", const: "queued" }, pictureState: { type: "string", enum: ["waiting", "failed", "unsupported", "current"] } }, required: ["outcome", "pictureState"] } } } },
+        "200": { description: "The renderer is unavailable.", content: { "application/json": { schema: { type: "object", properties: { outcome: { type: "string", const: "unavailable" }, pictureState: { type: "string", const: "unavailable" } }, required: ["outcome", "pictureState"] } } } },
+        "403": ERROR_RESPONSE,
+      },
+    })),
+  },
   "/api/maps/{id}/thumbnail": {
     get: op(mapChildren(mapAccess({
       summary: "Read a map's snapshot",
@@ -773,12 +787,14 @@ export const MAP_SCHEMAS = {
               "One representative CSS color per layer, in draw " +
               "order — what the maps screen renders as layer dots.",
           },
+          pictureState: { type: "string", enum: ["current", "waiting", "failed", "unsupported", "unavailable"], description: "The server picture work state. It names no dataset or private reason, even when this reader cannot be served the picture." },
+          pictureVersion: { type: ["string", "null"], description: "An opaque version of the served picture for the image URL v parameter. Changes when a new complete picture lands, including data-only and requested refreshes. Null when no picture is served." },
           hasThumbnail: {
             type: "boolean",
             description:
               "Whether the map has a card image the caller is served: " +
               "GET /api/maps/{id}/thumbnail answers one. False until the " +
-              "builder first captures the map, and while every image it " +
+              "server first pictures the map, and while every image it " +
               "has drew a dataset beyond the caller's reach. A card asks " +
               "for the image only when this is true.",
           },
