@@ -73,8 +73,12 @@ export function assertBacklogSample(maps, events, sample, checkpoint) {
 }
 
 /** Advance on publications rather than guessed wall-clock delays. The caller
- * bounds polling and records samples before any assertion can fail. */
-export async function measureBacklog({ maps, events, foreground, poll, record, limits, restart = undefined }) {
+ * bounds polling and records samples before any assertion can fail. Only the
+ * mixed workload restarts, so `restart` is optional.
+ * @param {{ maps: any[], events: () => any[], foreground: (check: boolean) => Promise<any>,
+ *   poll: () => Promise<void>, record: (kind: string, sample: any) => unknown, limits: any,
+ *   restart?: (count: number) => Promise<void> }} options */
+export async function measureBacklog({ maps, events, foreground, poll, record, limits, restart }) {
   const pending = maps.filter(map => map.group !== 'current').length;
   let restarted = false;
   for (let checkpoint = 0; checkpoint < 5; checkpoint++) for (const kind of ['export', 'check']) {

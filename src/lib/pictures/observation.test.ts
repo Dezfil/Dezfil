@@ -19,13 +19,13 @@ it("observes admitted work and a committed set, never a refused publication", as
   try {
     await renderMapImage(scope, { mapId: map.id, background: true, baseUrl: "http://fixture.test", credential: "fixture",
       definition: cardDefinition(map.viewport, "light"), driver: { launch: async () => ({ render: async () => ({ png: new Uint8Array([1]) }), close: async () => {}, kill: () => {} }) } });
-    expect(seen.map(event => event.kind)).toEqual(["admitted"]);
+    expect(seen.map(event => event.kind)).toEqual(["admitted", "released"]);
     const target = pictureTarget(scope, map.id), state = requestPicture(map.id, target.digest, Date.now());
     await publishPicture(scope, target, state.requestedGeneration, { light: Buffer.from("light"), dark: Buffer.from("dark") }, NO_INPUTS);
-    expect(seen.map(event => event.kind)).toEqual(["admitted", "published"]);
-    expect(seen[1].monotonicMs).toBeGreaterThan(seen[0].monotonicMs);
+    expect(seen.map(event => event.kind)).toEqual(["admitted", "released", "published"]);
+    expect(seen[2].monotonicMs).toBeGreaterThan(seen[0].monotonicMs);
     requestPicture(map.id, target.digest, Date.now(), true);
     await expect(publishPicture(scope, target, state.requestedGeneration, { light: Buffer.from("old"), dark: Buffer.from("old") }, NO_INPUTS)).rejects.toThrow();
-    expect(seen).toHaveLength(2);
+    expect(seen).toHaveLength(3);
   } finally { unsubscribe("dezfil.picture.measure", observe); }
 });
