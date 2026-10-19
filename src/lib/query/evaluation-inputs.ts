@@ -144,14 +144,15 @@ export function parseInputs(value: unknown): ArtifactInputs | null {
  * into every collection open where it was started.
  */
 interface Collection {
+  observe?: (inputs: ArtifactInputs) => void;
   entries: Map<string, ArtifactInput>;
   catalogue: boolean;
 }
 const collecting = new AsyncLocalStorage<readonly Collection[]>();
 const collections = new Set<Promise<unknown>>();
 
-export async function collectInputs<T>(work: () => Promise<T>): Promise<{ value: T; inputs: ArtifactInputs }> {
-  const mine: Collection = { entries: new Map(), catalogue: false };
+export async function collectInputs<T>(work: () => Promise<T>, observe?: (inputs: ArtifactInputs) => void): Promise<{ value: T; inputs: ArtifactInputs }> {
+  const mine: Collection = { entries: new Map(), catalogue: false, observe };
   const pending = collecting.run([...(collecting.getStore() ?? []), mine], work);
   collections.add(pending);
   try { return { value: await pending, inputs: normalized(mine.entries.values(), mine.catalogue) }; }
@@ -168,6 +169,7 @@ export function foldEvaluation(collections: readonly Collection[] | undefined, c
   if (!collections?.length) return;
   const inputs = recordedInputs(conn);
   for (const collection of collections) {
+    collection.observe?.(inputs);
     for (const input of inputs.datasets) collection.entries.set(input.id, input);
     collection.catalogue ||= inputs.catalogue;
   }

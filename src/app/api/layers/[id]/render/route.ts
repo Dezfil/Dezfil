@@ -1,3 +1,4 @@
+import { collectPictureEvaluation } from "@/lib/pictures/inputs";
 import { largeBodyText } from "@/lib/api/json-body";
 import { privateTileAccess } from "@/lib/tiles/access";
 import { requireRequestScope } from "@/lib/auth/scope-http";
@@ -22,7 +23,7 @@ export async function GET(request: Request, { params }: Params) {
     const scope = requireRequestScope(request);
     const { id } = await params;
     const layer = requireLayer(scope, id);
-    const render = await renderLayer(scope, layer, request.signal, { tileAccess: privateTileAccess(scope, id) });
+    const render = await collectPictureEvaluation(scope, id, () => renderLayer(scope, layer, request.signal, { tileAccess: privateTileAccess(scope, id) }));
     requireLayer(scope, id);
     return NextResponse.json(render);
   } catch (error) {

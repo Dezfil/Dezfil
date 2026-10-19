@@ -12,7 +12,7 @@ const refused = () => new AuthError("authentication_required", "Sign in to conti
  * asking for this credential. Only a hash survives in the attempt's row. */
 export function mintPictureCredential(mapId: string, expiresAt: number, db: Database = metadataDb()): string {
   const secret = `dz_picture_${randomBytes(32).toString("hex")}`;
-  const changed = db.prepare(`UPDATE map_pictures SET work_key = ?, work_expires_at = ?,
+  const changed = db.prepare(`UPDATE map_pictures SET work_key = ?, work_expires_at = ?, work_inputs = NULL,
     work_owner = (SELECT owner_id FROM maps WHERE id = ?)
     WHERE map_id = ? AND EXISTS (SELECT 1 FROM maps m JOIN accounts a ON a.id = m.owner_id WHERE m.id = ? AND a.status = 'active')`)
     .run(delegatedWorkKey(secret), expiresAt, mapId, mapId, mapId).changes;
@@ -20,7 +20,7 @@ export function mintPictureCredential(mapId: string, expiresAt: number, db: Data
   return secret;
 }
 export function revokePictureCredential(secret: string, db: Database = metadataDb()): void {
-  db.prepare("UPDATE map_pictures SET work_key = NULL, work_owner = NULL, work_expires_at = NULL WHERE work_key = ?").run(delegatedWorkKey(secret));
+  db.prepare("UPDATE map_pictures SET work_key = NULL, work_owner = NULL, work_expires_at = NULL, work_inputs = NULL WHERE work_key = ?").run(delegatedWorkKey(secret));
 }
 
 /** Reads only, bounded by resource identity rather than a URL prefix. */

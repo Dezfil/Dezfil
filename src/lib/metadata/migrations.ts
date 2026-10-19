@@ -526,4 +526,5 @@ export const MIGRATIONS: string[] = [
    ALTER TABLE map_pictures ADD COLUMN work_owner TEXT;
    ALTER TABLE map_pictures ADD COLUMN work_expires_at INTEGER;
    CREATE UNIQUE INDEX idx_picture_work_key ON map_pictures(work_key);`,
+  `ALTER TABLE map_pictures ADD COLUMN work_inputs TEXT;`,
 ];
