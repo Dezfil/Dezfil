@@ -1,3 +1,4 @@
+import { registerRetainedStore } from "@/lib/auth/account-deletion-admission";
 import { observePictureChanges, observePictureDataChanges } from "./hooks";
 import { metadataDb } from "@/lib/metadata/db";
 import { PictureService } from "./service";
@@ -9,6 +10,7 @@ export function startPictures(baseUrl = `http://127.0.0.1:${process.env.PORT ?? 
   if (host[key]) return;
   metadataDb().prepare("UPDATE map_pictures SET work_key = NULL, work_owner = NULL, work_expires_at = NULL, work_inputs = NULL").run();
   const service = new PictureService({ baseUrl });
+  registerRetainedStore({ drain: () => service.queue.drain(), busy: () => service.queue.busy, clear: () => {} });
   const stopChanges = observePictureChanges(event => {
     void (event.inherited ? service.adopt(event.mapId) : service.request(event.mapId, event.force)).catch(() => {});
   });

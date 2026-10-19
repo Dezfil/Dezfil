@@ -91,21 +91,23 @@ export class PictureService {
     const lease = admitResourceWork(scope, [{ table: "maps", id: state.mapId }]);
     // A whole pair plus bounded shutdown; individual drive budgets start
     // after admission. The service admits only its background capacity.
-    const credential = mintPictureCredential(state.mapId, Date.now() + 2 * limits.assistantLookTimeoutMs + 10000);
+    let credential: string | undefined;
     try {
+      credential = mintPictureCredential(state.mapId, Date.now() + 2 * limits.assistantLookTimeoutMs + 10000);
+      const workCredential = credential;
       await inDetachedDeletionWork(lease, async () => {
         const images: { light: Uint8Array; dark?: Uint8Array } = { light: new Uint8Array() };
         for (const appearance of target.basemaps.dark ? ["light", "dark"] as const : ["light"] as const) {
           const result = await renderMapImage(scope, { mapId: state.mapId, definition: cardDefinition(target.map.viewport, appearance),
-            baseUrl: this.options.baseUrl, credential, background: true, budgetMs: limits.assistantLookTimeoutMs,
-            admitted: () => renewPictureCredential(credential, Date.now() + limits.assistantLookTimeoutMs + 10000),
+            baseUrl: this.options.baseUrl, credential: workCredential, background: true, budgetMs: limits.assistantLookTimeoutMs,
+            admitted: () => renewPictureCredential(workCredential, Date.now() + limits.assistantLookTimeoutMs + 10000),
             standing: () => { lease.assertCommit(); const fresh = pictureTarget(scope, state.mapId, target.sketchIds); if (fresh.digest !== target.digest || getPictureState(state.mapId)?.requestedGeneration !== state.requestedGeneration) throw new Error("The picture request changed."); },
           });
           images[appearance] = completePicture(result, state.mapId, target.map.layers.filter(l => l.visible).map(l => l.id), target.basemaps[appearance]!.url);
         }
         lease.assertCommit();
-        await publishPicture(scope, target, state.requestedGeneration, images, readAttemptInputs(credential, target.map.layers.filter(l => l.visible).map(l => l.id)));
+        await publishPicture(scope, target, state.requestedGeneration, images, readAttemptInputs(workCredential, target.map.layers.filter(l => l.visible).map(l => l.id)));
       });
-    } finally { revokePictureCredential(credential); lease.release(); }
+    } finally { if (credential) revokePictureCredential(credential); lease.release(); }
   }
 }

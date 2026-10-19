@@ -528,4 +528,12 @@ export const MIGRATIONS: string[] = [
    CREATE UNIQUE INDEX idx_picture_work_key ON map_pictures(work_key);`,
   `ALTER TABLE map_pictures ADD COLUMN work_inputs TEXT;`,
   `ALTER TABLE map_pictures ADD COLUMN binding_inputs TEXT;`,
+  `CREATE TRIGGER revoke_picture_work_on_inactive_owner AFTER UPDATE OF status ON accounts
+   WHEN OLD.status = 'active' AND NEW.status <> 'active'
+   BEGIN
+     UPDATE map_pictures SET work_key = NULL, work_owner = NULL, work_expires_at = NULL,
+       work_inputs = NULL, requested_generation = requested_generation + 1,
+       state = 'waiting', attempt_count = 0
+       WHERE map_id IN (SELECT id FROM maps WHERE owner_id = NEW.id);
+   END;`,
 ];
