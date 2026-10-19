@@ -21,7 +21,14 @@
 
 const LOCAL_HOSTNAMES = new Set(["localhost", "127.0.0.1", "[::1]", "::1"]);
 
-export const allowedErrorPatterns: { pattern: RegExp; url?: RegExp; reason: string }[] = [];
+export const allowedErrorPatterns: { pattern: RegExp; url?: RegExp; reason: string }[] = [
+  // Temporary: only while the builder still captures and uploads pictures.
+  {
+    pattern: /^Failed to load resource: the server responded with a status of 410 \(Gone\)$/,
+    url: /^https?:\/\/[^/]+\/api\/maps\/[0-9a-f-]+\/thumbnail\?theme=(?:light|dark)&cycle=[a-z0-9]+-[a-z0-9]+&revision=[0-9a-f]+$/,
+    reason: "The retired upload refuses the builder's remaining timed capture.",
+  },
+];
 
 function firstUrlIn(text: string): string | undefined {
   return /https?:\/\/[^\s'")]+/.exec(text)?.[0];
