@@ -1,3 +1,4 @@
+import { notifyPicture } from "@/lib/pictures/hooks";
 import { admitAccountWork, type AccountWorkLease } from "@/lib/auth/account-deletion-admission";
 import { bindDeletionDatasets, inDetachedDeletionWork, observeDeletionCleanup } from "@/lib/auth/account-deletion-work";
 import { closeTileArchives } from "./serve";
@@ -276,6 +277,8 @@ async function runBuild(attempt: BuildAttempt): Promise<void> {
       });
     })();
     finalArchiveNeedsRemoval = false;
+    const map = metadataDb().prepare("SELECT map_id FROM layers WHERE id = ?").get(input.layerId) as { map_id: string } | undefined;
+    if (map) notifyPicture(map.map_id);
   } catch (error) {
     if (finalArchiveNeedsRemoval) {
       await observeDeletionCleanup(() => rm(tileArchivePath(input.layerId), { force: true })).catch(

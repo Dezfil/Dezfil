@@ -10,3 +10,13 @@ export function observePictureChanges(listener: (event: PictureChange) => void):
 export function notifyPicture(mapId: string, options: Omit<PictureChange, "mapId"> = {}): void {
   queueMicrotask(() => { for (const listener of listeners) listener({ mapId, ...options }); });
 }
+
+const dataKey = Symbol.for("dezfil.picture-data-changes");
+const dataHost = process as typeof process & { [dataKey]?: Set<(datasetId: string) => void> };
+const dataListeners = dataHost[dataKey] ??= new Set<(datasetId: string) => void>();
+export function observePictureDataChanges(listener: (datasetId: string) => void): () => void {
+  dataListeners.add(listener); return () => { dataListeners.delete(listener); };
+}
+export function notifyPictureData(datasetId: string): void {
+  queueMicrotask(() => { for (const listener of dataListeners) listener(datasetId); });
+}

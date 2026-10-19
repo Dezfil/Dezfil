@@ -6946,6 +6946,16 @@
       "stores": [
         "memory:picture-scheduler"
       ]
+    },
+    "memory:src/lib/pictures/hooks.ts#dataListeners": {
+      "stores": [
+        "memory:picture-scheduler"
+      ]
+    },
+    "memory:src/lib/pictures/start.ts#startPictures.stopData": {
+      "stores": [
+        "memory:picture-scheduler"
+      ]
     }
   },
   "files": {

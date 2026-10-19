@@ -1,3 +1,4 @@
+import { pictureBindings, rememberBindings, bindingsChanged } from "./bindings";
 import { accessSync, constants } from "node:fs";
 import { metadataDb } from "@/lib/metadata/db";
 import { mapOwnerWorkScope } from "@/lib/auth/scope";
@@ -40,10 +41,12 @@ export class PictureService {
     const maps = metadataDb().prepare("SELECT m.id, m.updated_at FROM maps m JOIN accounts a ON a.id = m.owner_id WHERE a.status = 'active' ORDER BY m.updated_at DESC, m.id").all() as { id: string; updated_at: string }[];
     for (const map of maps) {
       try {
-        const scope = mapOwnerWorkScope(map.id), target = pictureTarget(scope, map.id);
+        const scope = mapOwnerWorkScope(map.id);
+        const { target, inputs: bindings } = await pictureBindings(scope, map.id);
         const hasPicture = (await servedThumbnails(scope, [map.id])).has(map.id);
         initializePicture(map.id, target.digest, hasPicture, Date.parse(map.updated_at), metadataDb());
-        let state = requestPicture(map.id, target.digest, this.now());
+        let state = requestPicture(map.id, target.digest, this.now(), bindingsChanged(map.id, bindings));
+        rememberBindings(map.id, bindings);
         const inputs = await publishedPictureInputs(map.id);
         if (state.state === "current" && inputs && !inputsAreCurrent(inputs)) state = requestPicture(map.id, target.digest, this.now(), true);
         await reconcilePictureFiles(map.id, hasPicture, this.now());
@@ -55,19 +58,35 @@ export class PictureService {
     this.queue.tick();
   }
   async request(mapId: string, force = false): Promise<PictureState> {
-    const scope = mapOwnerWorkScope(mapId), target = pictureTarget(scope, mapId);
+    const scope = mapOwnerWorkScope(mapId);
+    const { target, inputs } = await pictureBindings(scope, mapId);
     this.rendererReady = (this.options.available ?? pictureRendererAvailable)();
-    const state = requestPicture(mapId, target.digest, this.now(), force);
+    const state = requestPicture(mapId, target.digest, this.now(), force || bindingsChanged(mapId, inputs));
+    rememberBindings(mapId, inputs);
     this.queue.tick();
     return getPictureState(mapId) ?? state;
   }
   async adopt(mapId: string): Promise<void> {
-    const scope = mapOwnerWorkScope(mapId), target = pictureTarget(scope, mapId);
-    if ((await servedThumbnails(scope, [mapId])).has(mapId)) adoptPicture(mapId, target.digest, this.now());
+    const scope = mapOwnerWorkScope(mapId);
+    const { target, inputs } = await pictureBindings(scope, mapId);
+    if ((await servedThumbnails(scope, [mapId])).has(mapId)) { adoptPicture(mapId, target.digest, this.now()); rememberBindings(mapId, inputs); }
     else await this.request(mapId);
   }
+  async dataChanged(datasetId: string): Promise<void> {
+    const maps = metadataDb().prepare("SELECT id FROM maps").all() as { id: string }[];
+    for (const map of maps) {
+      try {
+        const { target, inputs, resolved } = await pictureBindings(mapOwnerWorkScope(map.id), map.id);
+        if (!resolved || !inputs.datasets.some(input => input.id === datasetId)) continue;
+        requestPicture(map.id, target.digest, this.now(), bindingsChanged(map.id, inputs));
+        rememberBindings(map.id, inputs);
+      } catch { /* A removed map or inactive owner contributes no work. */ }
+    }
+    this.queue.tick();
+  }
   private async render(state: PictureState): Promise<void> {
-    const scope = mapOwnerWorkScope(state.mapId), target = pictureTarget(scope, state.mapId);
+    const scope = mapOwnerWorkScope(state.mapId);
+    const { target } = await pictureBindings(scope, state.mapId);
     if (target.digest !== state.digest) { await this.request(state.mapId); return; }
     const lease = admitResourceWork(scope, [{ table: "maps", id: state.mapId }]);
     // A whole pair plus bounded shutdown; individual drive budgets start
@@ -80,7 +99,7 @@ export class PictureService {
           const result = await renderMapImage(scope, { mapId: state.mapId, definition: cardDefinition(target.map.viewport, appearance),
             baseUrl: this.options.baseUrl, credential, background: true, budgetMs: limits.assistantLookTimeoutMs,
             admitted: () => renewPictureCredential(credential, Date.now() + limits.assistantLookTimeoutMs + 10000),
-            standing: () => { lease.assertCommit(); const fresh = pictureTarget(scope, state.mapId); if (fresh.digest !== target.digest || getPictureState(state.mapId)?.requestedGeneration !== state.requestedGeneration) throw new Error("The picture request changed."); },
+            standing: () => { lease.assertCommit(); const fresh = pictureTarget(scope, state.mapId, target.sketchIds); if (fresh.digest !== target.digest || getPictureState(state.mapId)?.requestedGeneration !== state.requestedGeneration) throw new Error("The picture request changed."); },
           });
           images[appearance] = completePicture(result, state.mapId, target.map.layers.filter(l => l.visible).map(l => l.id), target.basemaps[appearance]!.url);
         }
