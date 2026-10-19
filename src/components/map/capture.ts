@@ -4,23 +4,18 @@ import { renderTilesSettled } from "@/lib/export/render-settle";
 
 /**
  * Canvas capture for the map surface — extracted from MapCanvas (the
- * decomposition habit's at-touch slice). Two consumers:
- *
- * - The 640px thumbnail, behavior-preserved: composite the
- *   basemap and deck canvases in DOM order, downscaled, resolving null on
- *   any failure — thumbnails are a nicety and their caller drops nulls in
- *   silence by design.
- * - The export card's full-resolution capture, which is the
- *   opposite contract: every failure is a thrown CaptureError the card
- *   must surface. The map's pixel ratio and the deck overlay's
- *   device-pixel setting are raised so both WebGL backing buffers render
- *   at the target size, the map settles idle, the composite is read
- *   inside a render event (the basemap's buffer is only readable there —
- *   no preserved buffer, that would perturb rendering everywhere else),
- *   and the settings are restored on every outcome. Backing sizes are
- *   validated first: a renderer that clamped or resized on a different
- *   frame must fail loudly, never download a nominally correct image
- *   (raised at review).
+ * decomposition habit's at-touch slice). One consumer: the export card's
+ * full-resolution capture, where every failure is a thrown CaptureError
+ * the card must surface. The map's pixel ratio and the deck overlay's
+ * device-pixel setting are raised so both WebGL backing buffers render
+ * at the target size, the map settles idle, the composite is read
+ * inside a render event (the basemap's buffer is only readable there —
+ * no preserved buffer, that would perturb rendering everywhere else),
+ * and the settings are restored on every outcome. Backing sizes are
+ * validated first: a renderer that clamped or resized on a different
+ * frame must fail loudly, never download a nominally correct image
+ * (raised at review). Map card pictures are made on the server, never
+ * from a person's canvas.
  */
 
 export class CaptureError extends Error {
@@ -41,126 +36,8 @@ const SETTLE_TIMEOUT_MS = 20_000;
 /** Backing-buffer tolerance in device pixels: rounding, not clamping. */
 const SIZE_TOLERANCE = 2;
 
-/** The complete painted camera: not only centre, zoom, pitch
- * and bearing but the view padding the builder frames with — the
- * latitude constraint the live camera runs under is a function of the
- * host height and this padding, so a second map at the same CSS size,
- * the same padding and the same constraint paints the same ground. */
-export interface PaintedCamera {
-  lng: number;
-  lat: number;
-  zoom: number;
-  pitch: number;
-  bearing: number;
-  padding: { top: number; right: number; bottom: number; left: number };
-}
-
-/** What one thumbnail composite yields: the finished PNG for
- * the live theme, and the parts a second theme's image is composed from
- * in the same paint — the deck overlay alone at the composite's size, the
- * painted camera, and the live host's CSS size and pixel ratio. */
-export interface ThumbnailCapture {
-  blob: Blob;
-  width: number;
-  height: number;
-  /** The data layers over a transparent ground, at width × height. */
-  overlay: HTMLCanvasElement;
-  camera: PaintedCamera;
-  host: { cssWidth: number; cssHeight: number; pixelRatio: number };
-  /** The style URL the canvas last loaded (the basemap lifecycle stamps
-   * it on the host at style load); null while the offline fallback is
-   * showing. A theme switch mid-load leaves the previous style painted,
-   * and this says so. */
-  paintedStyleUrl: string | null;
-}
-
 /** Where the basemap lifecycle stamps the loaded style's URL. */
 export const PAINTED_BASEMAP_KEY = "paintedBasemap";
-
-export type SnapshotCapture = () => Promise<ThumbnailCapture | null>;
-
-export type SnapshotHandle = (capture: SnapshotCapture | null) => void;
-
-/** The thumbnail composite: downscale to at most 640 wide, fallback
- * color under the stack, null on any failure. It also keeps the overlay
- * and the painted camera from the same render event. */
-export function compositeThumbnail(
-  instance: maplibregl.Map,
-  fallbackColor: string,
-): Promise<ThumbnailCapture | null> {
-  return new Promise<ThumbnailCapture | null>((resolve) => {
-    instance.once("render", () => {
-      try {
-        const container = instance.getContainer();
-        const canvases = Array.from(container.querySelectorAll("canvas"));
-        const base = canvases[0];
-        if (!base || base.width === 0 || base.height === 0) {
-          resolve(null);
-          return;
-        }
-        const scale = Math.min(1, 640 / base.width);
-        const width = Math.max(1, Math.round(base.width * scale));
-        const height = Math.max(1, Math.round(base.height * scale));
-        const out = document.createElement("canvas");
-        out.width = width;
-        out.height = height;
-        const ctx = out.getContext("2d");
-        // The overlay alone: every canvas but the basemap's, over nothing.
-        const overlay = document.createElement("canvas");
-        overlay.width = width;
-        overlay.height = height;
-        const overlayCtx = overlay.getContext("2d");
-        if (!ctx || !overlayCtx) {
-          resolve(null);
-          return;
-        }
-        ctx.fillStyle = fallbackColor;
-        ctx.fillRect(0, 0, width, height);
-        for (const canvas of canvases) {
-          try {
-            ctx.drawImage(canvas, 0, 0, width, height);
-            if (canvas !== base) overlayCtx.drawImage(canvas, 0, 0, width, height);
-          } catch {
-            // A detached canvas skips; the rest still lands.
-          }
-        }
-        const center = instance.getCenter();
-        const padding = instance.getPadding();
-        const camera: PaintedCamera = {
-          lng: center.lng,
-          lat: center.lat,
-          zoom: instance.getZoom(),
-          pitch: instance.getPitch(),
-          bearing: instance.getBearing(),
-          padding: {
-            top: padding.top ?? 0,
-            right: padding.right ?? 0,
-            bottom: padding.bottom ?? 0,
-            left: padding.left ?? 0,
-          },
-        };
-        const host = {
-          cssWidth: container.clientWidth,
-          cssHeight: container.clientHeight,
-          pixelRatio: instance.getPixelRatio(),
-        };
-        const paintedStyleUrl = container.dataset[PAINTED_BASEMAP_KEY] ?? null;
-        out.toBlob(
-          (blob) =>
-            resolve(
-              blob
-                ? { blob, width, height, overlay, camera, host, paintedStyleUrl }
-                : null,
-            ),
-          "image/png",
-        );
-      } catch {
-        resolve(null);
-      }
-    });
-    instance.triggerRepaint();
-  });
-}
 
 export interface CaptureTarget {
   width: number;
@@ -179,10 +56,9 @@ export function layersLoadedProbe(
 /** How often the readiness probe re-evaluates while unready. */
 const READINESS_POLL_MS = 200;
 
-/** Hand both capture handles to their consumers at map mount — the
- * thumbnail (contract) and the validated full-res export capture — and,
- * for the bare render route, a readiness signal: the map idle with its
- * committed deck layer set fully loaded. The commitment check is
+/** Hand the validated full-res export capture to its consumer at map
+ * mount and, for the bare render route, a readiness signal: the map idle
+ * with its committed deck layer set fully loaded. The commitment check is
  * generation-aware by construction — the initially empty deck state can
  * never read as ready when layers are expected, because the caller's
  * expected count gates it. After the render driver's settle signal, replace
@@ -199,13 +75,9 @@ export function wireCaptureHandles(opts: {
   fallbackColor: () => string;
   deckLayers: () => readonly unknown[];
   expectedLayerCount?: () => number;
-  onSnapshotHandle?: SnapshotHandle;
   onCaptureHandle?: (capture: CaptureAtSize | null) => void;
   onReadiness?: (ready: boolean) => void;
 }): () => void {
-  opts.onSnapshotHandle?.(() =>
-    compositeThumbnail(opts.instance, opts.fallbackColor()),
-  );
   opts.onCaptureHandle?.((target) =>
     captureAtSize(
       opts.instance,

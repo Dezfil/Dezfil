@@ -26,7 +26,7 @@ import {
   dimRanges,
   type LiveDim,
 } from "@/lib/live-filters";
-import type { CaptureAtSize, SnapshotHandle } from "./capture";
+import type { CaptureAtSize } from "./capture";
 import { useCameraRequests, type FlyRequest } from "./use-camera-requests";
 import { useSearchMarker, type SearchMarkerRequest } from "./use-search-marker";
 import {
@@ -329,11 +329,6 @@ interface Props {
   /** Reports the view's pitch (integer degrees) whenever it changes —
    * drives the tilt toggle's state and the status bar. */
   onPitchChange?: (pitch: number) => void;
-  /** Receives a snapshot capture once the map exists; null on teardown
-   * Capturing composites the basemap and deck canvases into one
-   * downscaled PNG — the maps screen's card image. Passing this prop
-   * turns on preserved drawing buffers, so only the builder should. */
-  onSnapshotHandle?: SnapshotHandle;
   /** Receives the validated full-resolution capture once the map exists;
    * null on teardown. Only the export card passes this. */
   onCaptureHandle?: (capture: CaptureAtSize | null) => void;
@@ -371,7 +366,6 @@ export function MapCanvas({
   onZoomHandle,
   onBearingChange,
   onPitchChange,
-  onSnapshotHandle,
   onCaptureHandle,
   onReadiness,
   onInitialWebGLFailure,
@@ -881,7 +875,6 @@ export function MapCanvas({
       fallbackColor: () => fallbackColorRef.current,
       deckLayers: () => deckLayersRef.current,
       expectedLayerCount: () => layersRef.current.length,
-      onSnapshotHandle,
       onCaptureHandle,
       onReadiness,
     });

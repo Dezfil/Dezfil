@@ -1536,7 +1536,7 @@ Auto or a built-in style, that built-in style with the built-in credit,
 whatever style this instance's deployment sets; for a template on Satellite,
 none, since the template names no imagery, so they are credited by the map's
 basemap now. When they cannot be saved the copy stands and its card
-shows the placeholder until the map's first capture. It answers 201
+shows the placeholder until the server first pictures the map. It answers 201
 `{ project, members }`, the project as `GET /api/projects/{id}` reads it with
 its members, and `Location` naming the project. Refused, coded, with nothing
 created: 404 `template_not_listed`, 409 `template_not_installed`, 409
@@ -2336,10 +2336,8 @@ tab. There is no editing lock or durable draft after a successful reload.
 
 A viewport-only map PATCH needs no revision and remains last-write-wins without
 changing revision, history or last changer. Mixing viewport and content puts the
-whole PATCH under the content precondition. Thumbnail captures may carry a
-revision for information only: missing or stale revisions do not prevent landing
-or decide attribution. Existing SQL and input evidence does. Missing or stale SQL
-evidence can still land an owner-only image. Rendering and caches do not advance
+whole PATCH under the content precondition. Map pictures are made on the
+server and never take or advance a revision. Rendering and caches do not advance
 edit revisions or attribution, and anonymous published views expose neither.
 
 Dataset contents, geometry and sketch features, connections, account preferences,

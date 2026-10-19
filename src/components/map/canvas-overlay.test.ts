@@ -43,17 +43,16 @@ describe("canvas overlay lifetime", () => {
     expect(mocks.capture).toHaveBeenLastCalledWith({ ...capture, instance, overlay: mounted.overlay });
   });
 
-  it("withdraws both consumers before stopping readiness polling", () => {
+  it("withdraws the export capture before stopping readiness polling", () => {
     const order: string[] = [];
     mocks.capture.mockReturnValueOnce(() => order.push("stop readiness"));
     const mounted = attachCanvasOverlay({
       instance: { addControl: vi.fn() },
     } as unknown as PointerContext, {
       fallbackColor: () => "#ffffff", deckLayers: () => [],
-      onSnapshotHandle: (handle) => { if (handle === null) order.push("clear snapshot"); },
       onCaptureHandle: (handle) => { if (handle === null) order.push("clear capture"); },
     });
     mounted.dispose();
-    expect(order).toEqual(["clear snapshot", "clear capture", "stop readiness"]);
+    expect(order).toEqual(["clear capture", "stop readiness"]);
   });
 });

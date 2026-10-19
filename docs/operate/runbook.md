@@ -783,7 +783,7 @@ DEZFIL_BASE_URL=http://127.0.0.1:3581 npx playwright test e2e/thumbnail-theme.sp
 Theme pictures and credit are seeded through server work. Alignment uses
 loopback styles accessible to both browsers and the saved camera at the
 card's composition size. The clear-conversation check counts every page
-request, including a residual browser upload if one remains installed.
+request; the browser uploads no pictures, so none is excused.
 
 ### Picture capacity and measurement
 

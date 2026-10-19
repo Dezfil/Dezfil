@@ -62,7 +62,6 @@ import { BuilderHelpers, useBuilderHelpers } from "./BuilderHelpers";
 import { ExportImageCard } from "./export/ExportImageCard";
 import { buildExportStage } from "./export/export-stage";
 import { useExportCard } from "./export/use-export-card";
-import { useThumbnailCapture } from "./use-thumbnail-capture";
 import { useWidgetListActions } from "./use-widget-list-actions";
 import { LayerList } from "./LayerList";
 import { StylePanel } from "./StylePanel";
@@ -285,10 +284,6 @@ function BuilderEditor({
     truthSeqRef,
     mapFieldEditedAtRef,
   });
-
-  // Snapshot capture: wiring lives in its own hook (the at-touch slice
-  // for the capture surface).
-  const onSnapshotHandle = useThumbnailCapture(mapId, map, renders, { theme, basemapUrl, basemapOverrideUrl, basemaps });
 
   // Undo/redo is its own serialized lane; its repaint is a render
   // replacement, so a superseded repaint never lands.
@@ -998,7 +993,6 @@ function BuilderEditor({
           onViewportChange: persistViewport,
           onLabelCounts,
           onBasemapGroups: setLoadedBasemapGroups,
-          onSnapshotHandle,
           onCameraHandle: setDrawCamera,
         }}
         controls={

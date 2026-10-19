@@ -53,13 +53,12 @@ export interface WidgetCardActions {
 
 /** What authoring hangs on the canvas: drawing's feature pick, viewport
  * persistence, the style panel's label counts and the basemap tab's
- * groups, thumbnail capture, and the camera handle for the draw overlay. */
+ * groups, and the camera handle for the draw overlay. */
 export interface CanvasAuthoring {
   onFeaturePick?: CanvasProps["onFeaturePick"];
   onViewportChange?: CanvasProps["onViewportChange"];
   onLabelCounts?: CanvasProps["onLabelCounts"];
   onBasemapGroups?: CanvasProps["onBasemapGroups"];
-  onSnapshotHandle?: CanvasProps["onSnapshotHandle"];
   onCameraHandle?: CanvasProps["onZoomHandle"];
 }
 
@@ -164,7 +163,6 @@ export function MapPresentation({
           }}
           onBearingChange={stage.setBearing}
           onPitchChange={stage.setPitch}
-          onSnapshotHandle={canvas?.onSnapshotHandle}
           padding={{
             top: 62,
             // Both edges read from the properties that define them, never
