@@ -396,13 +396,12 @@ const KIND_NAME: Record<SketchKind, string> = {
 /** The kinds whose selection carries vertex handles. */
 const HANDLE_KINDS: SketchKind[] = ["polygon", "freehand"];
 
-/** The overlay's selection mark: the dashed outline the shipped
- * selected-polygon treatment draws, named reference. Matched by class,
- * so the locator finds main's polygon and freehand marks too — they are
- * regression cases, not repairs. */
-const SELECTION_MARK = 'svg[class*="overlay"] [class*="draftLine"]';
+/** The overlay's selection mark: the accent outline every selected kind
+ * draws over its glow. Matched by class, so the locator finds the
+ * polygon and freehand marks too. */
+const SELECTION_MARK = 'svg[class*="overlay"] [class*="selectLine"]';
 
-/** A mark's edges may sit this far from the drawn extent: the 2 px
+/** A mark's edges may sit this far from the drawn extent: the 3 px
  * stroke, projection rounding, the freehand sampler's 3 px step. */
 const MARK_TOLERANCE_PX = 8;
 

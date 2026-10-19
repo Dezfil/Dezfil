@@ -18,6 +18,7 @@ import type { SketchFeatureBody } from "./use-draw-session";
 import type { SelectedSketchGeometry } from "./use-draw-integration";
 import { circleRing, closeRing, rectangleRing } from "./draft-geometry";
 import { POINT_MARK_PX, selectionMarkFor } from "./selection-mark";
+import { SelectedMark } from "./SelectedMark";
 import styles from "./draw.module.css";
 
 /**
@@ -474,13 +475,7 @@ export function DrawOverlay({
     const p = toScreen(mark.position);
     if (p)
       handles.push(
-        <circle
-          key="sel"
-          className={styles.draftLine}
-          cx={p.x}
-          cy={p.y}
-          r={POINT_MARK_PX}
-        />,
+        <SelectedMark key="sel" cx={p.x} cy={p.y} r={POINT_MARK_PX} />,
       );
   }
   if (mark?.shape === "outline" && selectedGeometry) {
@@ -494,11 +489,7 @@ export function DrawOverlay({
           )
         : mark.trace;
     handles.push(
-      <path
-        key="sel"
-        className={styles.draftLine}
-        d={path(trace, mark.closed)}
-      />,
+      <SelectedMark key="sel" d={path(trace, mark.closed)} />,
     );
     mark.handles.forEach((g, i) => {
       const p = toScreen(trace[i]);

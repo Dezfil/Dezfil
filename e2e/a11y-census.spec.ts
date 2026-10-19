@@ -643,8 +643,8 @@ test.describe("census checks", () => {
         await expectRing(page, home.locator('[data-start-action="new-map"]'), "a start action");
         await expectRing(page, home.locator("[data-recent-row]").first(), "a recent row");
         const card = home.locator('[data-shelf="shown"] [data-template]').first();
+        // The card itself opens the template, so its next stop is Make a copy.
         await expectRing(page, card.locator('[role="link"]'), "a template's card");
-        await expectRing(page, card.getByRole("button", { name: /^Open / }), "a template's Open");
         await expectRing(page, card.getByRole("button", { name: /^Make a copy of / }), "a template's Make a copy");
       });
 

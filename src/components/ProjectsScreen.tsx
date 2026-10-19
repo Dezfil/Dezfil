@@ -496,7 +496,7 @@ export function ProjectsScreen() {
             <>
               {/* The new-item card is the grid's first cell at zero and
                   afterwards, as on the sibling lists; in list view the
-                  resolved-empty state is the same tile, centred. */}
+                  resolved-empty state is the same tile, top left. */}
               {shown && view === "grid" && (
                 <div className={gallery.grid}>
                   {newTile}

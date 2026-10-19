@@ -10,7 +10,7 @@ import styles from "./Home.module.css";
 
 /**
  * The templates below everything else: the Templates page's card as it
- * ships, with its Open and Make a copy, in a row of Home's own, under "What
+ * ships, with its Make a copy, in a row of Home's own, under "What
  * Dezfil can do" with the count line when the person reaches nothing yet,
  * else "From the templates"; the link opens the Templates page. While the
  * list is read, the shipped pending line; a failed list, its note with Try

@@ -12,7 +12,6 @@ import {
   IconFolderPlus,
   IconGrid,
   IconList,
-  IconOpen,
   IconSearch,
   MapPlaceholder,
 } from "./gallery-icons";
@@ -204,13 +203,9 @@ export function WorkflowsScreen() {
 
   const open = (id: string) => router.push(`/workflows/${id}`);
 
-  // A list row is itself the button that opens, so it carries no second
-  // control of the same name; the grid card's pill keeps Open.
-  const quickActions = (
-    w: WorkflowListing,
-    rowStyle: string,
-    withOpen: boolean,
-  ) => {
+  // The card and the list row are themselves what opens a workflow, so the
+  // actions carry no second control that does the same.
+  const quickActions = (w: WorkflowListing, rowStyle: string) => {
     const live = w.summary.liveOutputs;
     const mine = othersOwner(w) === null;
     return (
@@ -225,18 +220,6 @@ export function WorkflowsScreen() {
             }}
           >
             <IconFolderPlus />
-          </button>
-        )}
-        {withOpen && (
-          <button
-            data-hint="Open"
-            aria-label={`Open ${w.name}`}
-            onClick={(e) => {
-              e.stopPropagation();
-              open(w.id);
-            }}
-          >
-            <IconOpen />
           </button>
         )}
         <button
@@ -549,7 +532,7 @@ export function WorkflowsScreen() {
                       {othersOwner(w) && (
                         <OwnerPill owner={othersOwner(w)!} placement="corner" />
                       )}
-                      {quickActions(w, gallery.acts, true)}
+                      {quickActions(w, gallery.acts)}
                     </article>
                   ))}
                 </div>
@@ -604,7 +587,7 @@ export function WorkflowsScreen() {
                         <span className={gallery.colActs} />
                       </button>
                       <span className={styles.listRowActs}>
-                        {quickActions(w, gallery.rowActs, false)}
+                        {quickActions(w, gallery.rowActs)}
                       </span>
                     </div>
                   ))}

@@ -1013,13 +1013,13 @@ describe("the templates below", () => {
     expect(container.querySelector("[data-recent]")).toBeNull();
   });
 
-  it("opens a card's template and hands its Make a copy the template's id", async () => {
+  it("opens a card's template from the card and hands its Make a copy the template's id", async () => {
     await open();
     const trees = shelf()!.querySelector('[data-template="trees"]')!;
     expect(trees.querySelectorAll("[aria-label]").map((e) => e.getAttribute("aria-label"))).toEqual([
-      "Open Street trees", "Open Street trees", "Make a copy of Street trees",
+      "Open Street trees", "Make a copy of Street trees",
     ]);
-    await press(trees.querySelectorAll("button").find((b) => b.getAttribute("aria-label") === "Open Street trees")!);
+    await press(trees.querySelector('[role="link"]')!);
     expect(nav.push).toHaveBeenLastCalledWith("/templates/trees");
     await press(trees.querySelectorAll("button").find((b) => b.getAttribute("aria-label") === "Make a copy of Street trees")!);
     expect(hosted.copying.at(-1)).toBe("trees");
@@ -1180,7 +1180,10 @@ function emptySections(): number {
 }
 
 const START = ["h2 Start", "button New map", "button Add data", "button New workflow", "link Open SQL"];
-const templateCard = (title: string) => [`link Open ${title}`, `button Open ${title}`, `button Make a copy of ${title}`];
+/** The lead names the template as a link, then its Open and Make a copy. */
+const leadCard = (title: string) => [`link Open ${title}`, `button Open ${title}`, `button Make a copy of ${title}`];
+/** A shelf card is its link and its Make a copy: the link is the way in. */
+const templateCard = (title: string) => [`link Open ${title}`, `button Make a copy of ${title}`];
 /** The line at Home's foot crediting the basemaps under its map pictures. */
 const PICTURE_CREDIT = ["link © OpenMapTiles", "link © OpenStreetMap"];
 const FIVE = (): TemplateList => ({
@@ -1194,7 +1197,7 @@ describe("the tree Home gives the screen reader", () => {
     expect(outline()).toEqual([
       "h1 Welcome, Ada",
       "h2 Start with a template",
-      ...templateCard("Harbour depths"),
+      ...leadCard("Harbour depths"),
       "h2 Or start your own", ...START.slice(1),
       "h2 What Dezfil can do",
       "link All templates",
@@ -1249,7 +1252,7 @@ describe("the tree Home gives the screen reader", () => {
     expect(outline()).toEqual([
       "h1 Welcome, Ada",
       "h2 Start with a template",
-      ...templateCard("Harbour depths"),
+      ...leadCard("Harbour depths"),
       "h2 Or start your own", ...START.slice(1),
       "h2 Recent",
       "link Map m1, Bo Brandt",

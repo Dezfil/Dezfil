@@ -14,6 +14,7 @@ import {
   readApiError,
 } from "./api";
 import { AddToMapDialog, tableSubject } from "./AddToMapDialog";
+import { BackLink } from "./BackLink";
 import { ExportMenu } from "./ExportMenu";
 import { datasetQueryHref } from "./dataset-doors";
 import { TablePreviewMap } from "./TablePreviewMap";
@@ -27,7 +28,6 @@ import { ProposalStrip, proposedPair } from "./set-geometry/ProposalStrip";
 import { useSetGeometryPanel } from "./set-geometry/use-set-geometry-panel";
 import {
   IconAddToMap,
-  IconBack,
   IconMap,
   IconRefresh,
   IconSql,
@@ -288,14 +288,7 @@ function TableDetail({
     <div className={styles.screen}>
       <PlainCrumbTail name={table.name} owner={table.owner} />
       <div className={styles.head}>
-        <Link
-          href="/data"
-          className={styles.back}
-          title="Back to Data"
-          aria-label="Back to Data"
-        >
-          <IconBack />
-        </Link>
+        <BackLink href="/data" label="Back to Data" />
         <div className={styles.title}>
           <h1>{table.name}</h1>
           <div className={gallery.cardChips}>

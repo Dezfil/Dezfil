@@ -1,0 +1,25 @@
+/* The square back arrow before a page's title. */
+.back {
+  flex: none;
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-control);
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  color: var(--fg-muted);
+  transition: 0.13s;
+  margin-top: 2px;
+}
+
+.back:hover {
+  color: var(--fg);
+  border-color: var(--border-strong);
+  transform: translateX(-1px);
+}
+
+.back svg {
+  width: 16px;
+  height: 16px;
+}

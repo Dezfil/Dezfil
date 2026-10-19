@@ -2,7 +2,7 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { MapOverview } from "../api";
-import { installDomHost } from "../testing/dom-host";
+import { installDomHost, type HostElement } from "../testing/dom-host";
 import { SignedIn } from "../sharing/signed-in";
 import { browserTitle, pathObjectFor } from "../shell/path-model";
 import { ProjectHomeScreen } from "./ProjectHomeScreen";
@@ -16,6 +16,10 @@ import type { HomeWorld, ProjectRecordWire } from "./home-read";
 
 const home = vi.hoisted(() => ({ record: null as unknown }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }), usePathname: () => "/projects/berlin" }));
+// The heading's back arrow is a link; a plain anchor stands in for next/link's.
+vi.mock("next/link", () => ({
+  default: ({ href, children, ...rest }: { href: string; children: React.ReactNode }) => <a href={href} {...rest}>{children}</a>,
+}));
 vi.mock("../sharing/use-project-people", async (original) => ({
   ...await original<typeof import("../sharing/use-project-people")>(),
   useProjectPeople: () => new Map(),
@@ -46,6 +50,7 @@ const bo = { name: "Bo Lindqvist", sqlName: "bo" };
 
 let host: ReturnType<typeof installDomHost>;
 let root: ReturnType<typeof createRoot>;
+let container: HostElement;
 beforeEach(() => {
   vi.stubGlobal("fetch", vi.fn(async () => Response.json({}, { status: 404 })));
   host = installDomHost();
@@ -54,7 +59,7 @@ beforeEach(() => {
     el.setAttribute("id", id);
     host.document.body.appendChild(el);
   }
-  const container = host.document.createElement("div");
+  container = host.document.createElement("div");
   host.document.body.appendChild(container);
   root = createRoot(container as unknown as Element);
 });
@@ -85,5 +90,18 @@ describe("the project home's tab title", () => {
     await open("editor");
     act(() => root.render(<span />));
     expect(pathObjectFor("/projects/berlin")).toBeNull();
+  });
+});
+
+describe("the project home's back arrow", () => {
+  it.each(["owner", "editor", "viewer"] as const)("leads its %s back to Projects from before the name", async (role) => {
+    await open(role);
+    const back = container.querySelectorAll("a").find((a) => a.getAttribute("aria-label") === "Back to Projects")!;
+    expect(back).toBeTruthy();
+    expect(back.getAttribute("href")).toBe("/projects");
+    // The heading's first thing, beside the block that holds the name.
+    const heading = back.parentElement!;
+    expect(heading.children[0]).toBe(back);
+    expect(heading.children[1].querySelector("h1")?.textContent).toBe("Berlin housing study");
   });
 });

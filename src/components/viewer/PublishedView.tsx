@@ -52,7 +52,7 @@ import { BasemapPicker } from "../map/BasemapPicker";
 import { StageButton, StageStack } from "../map/StageStack";
 import { FitIcon, MoonIcon, SunIcon } from "../ui/icons";
 import type { CameraHandle } from "../map/camera-handle";
-import { Compass } from "../Compass";
+import { LogoMark } from "../LogoMark";
 import { timeToMs, windowToRange, type TimeWindowMs } from "@/lib/time";
 import { createStatusChannel } from "@/lib/map-status";
 import { CursorReadout } from "./CursorReadout";
@@ -474,9 +474,7 @@ export function PublishedView({
   if (status === "loading") {
     return (
       <div className={styles.splash}>
-        <span className={styles.spinner}>
-          <Compass size={30} />
-        </span>
+        <LogoMark size={30} motion="shimmer" />
         <span className={styles.splashText}>Loading map…</span>
       </div>
     );

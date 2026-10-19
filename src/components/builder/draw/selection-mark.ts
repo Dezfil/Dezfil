@@ -3,7 +3,7 @@ import type { SketchGeometry } from "@/lib/sketch/geometry";
 /**
  * The selection mark: what a selected drawn shape shows on the map,
  * decided from its kind and its own stored geometry. Every kind gets the
- * outline the shipped selected-polygon treatment already draws; handles
+ * same outline treatment (SelectedMark draws it); handles
  * stay with the two kinds whose vertices the store lets move — a handle
  * on a circle would appear and then do nothing. Pure, so the rule is
  * exercised on real coordinates without a map; the overlay only projects

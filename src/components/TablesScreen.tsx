@@ -912,7 +912,7 @@ export function TablesScreen({
 
               {tables && tables.length === 0 && view === "list" && (
                 // Resolved-empty in list view is the same actionable tile
-                // the Maps gallery established, centred; in grid view it
+                // the Maps gallery established, top left; in grid view it
                 // is the grid's first cell above.
                 <div className={gallery.emptyAction}>
                   <button

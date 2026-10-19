@@ -321,7 +321,7 @@ test.describe("Templates", () => {
     // reader takes its place.
     const archive = catalogue!.hold(`/archives/${MAP_ID}-${mapTemplate.facts.version}.zip`, await readFile(mapTemplate.archive));
     const writes = watchWrites(page, new URL(baseURL!).origin, MAP_ID);
-    await card(page, MAP_ID).locator('[data-hint="Open"]').click();
+    await card(page, MAP_ID).locator('[role="link"]').click();
     await expect(page).toHaveURL(new RegExp(`/templates/${MAP_ID}$`));
     await archive.arrived;
     await expect(page.locator("[data-template-downloading]")).toContainText("Downloading the template");
@@ -352,7 +352,7 @@ test.describe("Templates", () => {
   test("a workflow example's node panel names the template's result, and its copy's names the copy", async ({ page }) => {
     const errors = trackConsole(page);
     await page.goto("/templates");
-    await card(page, WORKFLOW_ID).locator('[data-hint="Open"]').click();
+    await card(page, WORKFLOW_ID).locator('[role="link"]').click();
     await expect(page).toHaveURL(new RegExp(`/templates/${WORKFLOW_ID}$`));
     await expect(page.locator("[data-template-fallback]")).toHaveCount(0);
     await expect(folds(page)).toHaveCount(5);

@@ -729,12 +729,6 @@
   },
   {
     "file": "src/components/viewer/PublishedView.module.css",
-    "rule": "duration",
-    "value": "2.4s",
-    "count": 1
-  },
-  {
-    "file": "src/components/viewer/PublishedView.module.css",
     "rule": "easing",
     "value": "ease-in-out",
     "count": 1

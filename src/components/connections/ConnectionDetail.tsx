@@ -13,6 +13,7 @@ import { IconButton } from "@/components/ui/IconButton";
 import { ErrorNote } from "@/components/ui/ErrorNote";
 import { WarnIcon, XIcon } from "@/components/ui/icons";
 import { AddDataDialog } from "@/components/AddDataDialog";
+import { BackLink } from "@/components/BackLink";
 import { skippedNotice } from "@/components/skipped-members";
 import { uploadSettleNotice } from "@/components/upload-settle-notice";
 import type { NoticeTone } from "@/components/use-transient-notice";
@@ -289,9 +290,9 @@ export function ConnectionDetail({ id }: { id: string }) {
   return (
     <div className={styles.screen}>
       <PlainCrumbTail name={connection.name} />
-      <Link className={styles.back} href="/connections">‹ Connections</Link>
 
       <header className={styles.detailHead}>
+        <BackLink href="/connections" label="Back to Connections" />
         <span className={styles.logoTile}>
           {/* eslint-disable-next-line @next/next/no-img-element -- static SVG, PostgreSQL elephant mark (see NOTICE) */}
           <img src="/logos/postgresql.svg" alt="" />

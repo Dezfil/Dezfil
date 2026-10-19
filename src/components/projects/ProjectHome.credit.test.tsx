@@ -19,6 +19,10 @@ import { ProjectHomeScreen } from "./ProjectHomeScreen";
 
 const fake = vi.hoisted(() => ({ maps: [] as unknown[], catalogue: null as unknown }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }), usePathname: () => "/projects/p" }));
+// The heading's back arrow is a link; a plain anchor stands in for next/link's.
+vi.mock("next/link", () => ({
+  default: ({ href, children, ...rest }: { href: string; children: React.ReactNode }) => <a href={href} {...rest}>{children}</a>,
+}));
 vi.mock("@/components/theme", () => ({ useTheme: () => ({ theme: "light" }) }));
 vi.mock("./home-read", async (original) => ({
   ...await original<typeof import("./home-read")>(),

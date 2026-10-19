@@ -424,12 +424,12 @@ test("navigating builder → gallery → builder applies each page's rule, with 
   await page.mouse.move(x + 1, y);
   await expectRailWidth(page, EXPANDED);
 
-  // Leave to collapse, then back into the builder by the card's own
-  // control (a client push, not a load).
+  // Leave to collapse, then back into the builder by the card itself
+  // (a client push, not a load).
   await page.mouse.move(box.x + EXPANDED + 300, y);
   await expectRailWidth(page, COLLAPSED);
   await page
-    .getByRole("button", { name: `Open ${name} in the builder`, exact: true })
+    .getByRole("link", { name: `Open ${name}`, exact: true })
     .click();
   await expect(page).toHaveURL(new RegExp(`/maps/${mapId}$`));
 
@@ -496,7 +496,7 @@ test("a navigation the rail did not start, landing on the builder while a dwell 
   // The push the rail did not start, held at its response...
   holding = true;
   await page
-    .getByRole("button", { name: `Open ${name} in the builder`, exact: true })
+    .getByRole("link", { name: `Open ${name}`, exact: true })
     .click();
   await expect.poll(() => held, { timeout: 5000 }).toBeGreaterThan(0);
   // ...the page's timers stop...

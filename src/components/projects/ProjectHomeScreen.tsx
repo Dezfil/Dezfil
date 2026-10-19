@@ -15,6 +15,7 @@ import { invalidateProjects } from "../shell/use-project-name";
 import { contributePath, releasePath, useInstanceName } from "../shell/path-model";
 import { Button } from "../ui/Button";
 import { AddDataDialog } from "../AddDataDialog";
+import { BackLink } from "../BackLink";
 import { NewWorkflowDialog } from "../NewWorkflowDialog";
 import { skippedNotice } from "../skipped-members";
 import { uploadSettleNotice } from "../upload-settle-notice";
@@ -418,6 +419,7 @@ function ProjectHomeVisit({ id, home, files, pictureBasemaps }: {
         <PlainCrumbTail name={record.name} />
       )}
       <div className={styles.heading}>
+        <BackLink href="/projects" label="Back to Projects" />
         <div className={styles.headLeft}>
           {nameDraft !== null ? (
             <input

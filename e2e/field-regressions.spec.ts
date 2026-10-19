@@ -572,7 +572,7 @@ test("field regression — the published title card wears the legend's card", as
     await page.goto(`/v/${token}`);
     const title = page.locator("header").first();
     await expect(title).toContainText(`Field title ${runId}`);
-    // No logo beside the name. The compass keeps its place on the loading
+    // No logo beside the name. The icon keeps its place on the loading
     // and not-found screens; it has none next to a map's own title.
     await expect(title.locator("svg")).toHaveCount(0);
     return title.evaluate((el) => {
