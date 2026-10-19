@@ -1,6 +1,8 @@
 // A subprocess proof: stop exactly after the file switch, before its row.
 import { productLoader } from './account-deletion-source-loader.mjs';
-if (!process.env.DEZFIL_DATA_DIR?.includes('/.claude/scratch/pictures-')) throw new Error('Use an isolated picture proof directory.');
+const directory = process.argv[3];
+if (!directory) throw new Error('Pass the test data directory explicitly.');
+process.env.DEZFIL_DATA_DIR = directory;
 const load = productLoader(process.cwd());
 const { testAccountScope } = load('lib/test-support/accounts.ts');
 const { pictureTarget } = load('lib/pictures/publication.ts');

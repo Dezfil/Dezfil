@@ -14,7 +14,7 @@ afterAll(closeMetadataDb);
 it("recovers after the publisher is killed between the manifest and metadata writes", async () => {
   const map = createMap(scope, "Crash boundary");
   const state = requestPicture(map.id, pictureTarget(scope, map.id).digest, Date.now() - 6000);
-  const child = spawn(process.execPath, ["scripts/pictures-crash-child.mjs", map.id], { env: process.env, stdio: ["ignore", "pipe", "pipe"] });
+  const child = spawn(process.execPath, ["scripts/pictures-crash-child.mjs", map.id, process.env.DEZFIL_DATA_DIR!], { env: { ...process.env, DEZFIL_DATA_DIR: "" }, stdio: ["ignore", "pipe", "pipe"] });
   let stderr = ""; child.stderr.on("data", chunk => { stderr += chunk; });
   const exit = await new Promise<{ code: number | null; signal: string | null }>((resolve, reject) => {
     child.once("error", reject); child.once("exit", (code, signal) => resolve({ code, signal }));
