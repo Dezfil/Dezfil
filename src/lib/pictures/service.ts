@@ -26,6 +26,7 @@ export class PictureService {
   private rendererReady = false;
   private rendererFailed = false;
   private dataIds = new Set<string>();
+  private dataStartedAt = 0;
   private dataDue = 0;
   private dataWork: Promise<void> | null = null;
   constructor(private readonly options: PictureServiceOptions) {
@@ -89,8 +90,10 @@ export class PictureService {
     else await this.request(mapId);
   }
   dataChanged(datasetId: string): void {
+    const now = this.now();
+    if (!this.dataIds.size) this.dataStartedAt = now;
     this.dataIds.add(datasetId);
-    this.dataDue = this.now() + 5000;
+    this.dataDue = Math.min(now + 5000, this.dataStartedAt + 60000);
   }
   async tick(): Promise<void> {
     if (!this.dataWork && this.dataIds.size && this.now() >= this.dataDue) {
