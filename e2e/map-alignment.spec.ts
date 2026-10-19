@@ -63,6 +63,10 @@ for (const [pole, sign] of [["north", 1], ["south", -1]] as const) {
       const northing = (latitude: number) => 0.5 - Math.asinh(Math.tan(latitude * Math.PI / 180)) / (2 * Math.PI);
       const world = 512 * 2 ** cardCamera.zoom;
       const pointFraction = { x: (lng - cardCamera.lng) / 360 * world / 990 + .5, y: (northing(lat) - northing(cardCamera.lat)) * world / 424 + .5 };
+      // The saved padded centre survives the shorter card's coverage clamp.
+      // Require the whole ground disc inside that centre band before rendering.
+      expect(pointFraction.y * 424).toBeGreaterThan(30);
+      expect(pointFraction.y * 424).toBeLessThan(424 - 30);
       const expectedGround = { light: [240, 230, 200], dark: [26, 42, 58] };
       for (const theme of ["light", "dark"] as const) {
         const previous = (await waitForPicture(page.request, id)).pictureVersion;
@@ -80,9 +84,13 @@ for (const [pole, sign] of [["north", 1], ["south", -1]] as const) {
           expect(Math.abs(stats.data.x! / stats.width - pointFraction.x)).toBeLessThan(0.004);
           expect(Math.abs(stats.data.y! / stats.height - pointFraction.y)).toBeLessThan(0.004);
           expect(stats.corner).toEqual(expectedGround[theme]);
-        }).toPass({ timeout: 60_000 });
-        await testInfo.attach(`${pole}-${theme}-thumbnail`, { body: bytes, contentType: "image/png" });
-        await testInfo.attach(`${pole}-${theme}-alignment`, { body: JSON.stringify(alignmentStats(bytes)), contentType: "application/json" });
+        }).toPass({ timeout: 60_000 }).finally(async () => {
+          if (!bytes.length) return;
+          await testInfo.attach(`${pole}-${theme}-thumbnail`, { body: bytes, contentType: "image/png" });
+          await testInfo.attach(`${pole}-${theme}-alignment`, { body: JSON.stringify({
+            ...alignmentStats(bytes), savedCamera: saved.viewport, cardCamera, pointFraction,
+          }), contentType: "application/json" });
+        });
       }
       // The server browser receives its own loopback style, independent of
       // Playwright routing. Both renderers must paint the same coordinate.

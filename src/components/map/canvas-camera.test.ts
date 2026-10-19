@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import * as maplibregl from "maplibre-gl";
+import { WebMercatorViewport } from "@deck.gl/core";
+import { alignmentPoint } from "../../../scripts/map-alignment-fixture.mjs";
+import { coveredCamera } from "../../../e2e/camera-bounds-oracle";
+import { cardDefinition } from "@/lib/pictures/card";
 import { attachCanvasCamera, CANVAS_CAMERA_OPTIONS } from "./canvas-camera";
 
 function harness(height = 512, padding = { top: 0, bottom: 0 }) {
@@ -59,6 +63,31 @@ describe("shared canvas camera", () => {
     expect(h.constrain(85.051129, 10).center.lat).toBeCloseTo(85.03213742967942, 9);
     expect(h.constrain(-85.051129, 10).center.lat).toBeCloseTo(-85.03974267783215, 9);
     h.dispose();
+  });
+  it.each([1, -1])("keeps the %s pole alignment fixture inside both the saved card and the square export", sign => {
+    const requested = { lng: 12, lat: sign * 85.051129, zoom: 10, pitch: 0, bearing: 0 };
+    const builder = harness(1100, { top: 62, bottom: 14 });
+    const saved = { ...requested, lat: builder.constrain(requested.lat, requested.zoom).center.lat };
+    expect(saved.lat).toBeCloseTo(coveredCamera(requested, 1100, 62, 14).lat, 10);
+    const card = cardDefinition(saved, "light");
+    // The short card keeps the padded builder's saved centre. A landmark
+    // visible near the builder's edge can be outside this centre band.
+    for (const { viewport, size } of [card, { viewport: requested, size: { width: 512, height: 512 } }]) {
+      const render = harness(size.height);
+      const camera = render.constrain(viewport.lat, viewport.zoom);
+      expect(camera.center.lat).toBeCloseTo(coveredCamera(viewport, size.height).lat, 10);
+      if (size === card.size) expect(camera.center.lat).toBeCloseTo(saved.lat, 10);
+      const [x, y] = new WebMercatorViewport({
+        ...size, longitude: viewport.lng, latitude: camera.center.lat,
+        zoom: camera.zoom, pitch: viewport.pitch, bearing: viewport.bearing,
+      }).project(alignmentPoint(sign));
+      expect(x).toBeCloseTo(size.width / 2, 6);
+      // Keep the entire 30px basemap disc and its smaller data disc visible.
+      expect(y, "landmark clears the top edge").toBeGreaterThan(30);
+      expect(y, "landmark clears the bottom edge").toBeLessThan(size.height - 30);
+      render.dispose();
+    }
+    builder.dispose();
   });
   it("installs the public constraint before reapplying the original opening request", () => {
     const h = harness();
