@@ -1,5 +1,6 @@
 import { isolatePictureData } from "@/lib/test-support/picture-data";
 import { afterAll, expect, it } from "vitest";
+import { EvaluationCancelled } from "@/lib/api/errors";
 import { renderMapImage } from "@/lib/export/render-image";
 import { testAccountScope } from "@/lib/test-support/accounts";
 import { closeMetadataDb } from "@/lib/metadata/db";
@@ -18,5 +19,5 @@ it("interrupts a picture immediately at one slot so a person's check keeps its b
   const interrupted = await background;
   expect(foreground).toMatchObject({ png: new Uint8Array([2]) });
   expect(killed).toBe(true);
-  expect(interrupted).toBeInstanceOf(Error);
+  expect(interrupted).toBeInstanceOf(EvaluationCancelled);
 });

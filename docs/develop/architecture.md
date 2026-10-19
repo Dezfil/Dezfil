@@ -235,12 +235,16 @@ is replaced before the matching row generation is committed. Startup and
 hourly looks reconcile an interrupted handoff without serving a partial pair.
 
 Committed drawing and bound-data changes wait five quiet seconds. Failures
-retry after one minute, ten minutes, then hourly. Startup waits for the HTTP
+retry at once, after one minute, after ten minutes, then hourly. A lane
+interruption requeues without spending a failed attempt. Unsupported drawings
+wait for a changed request or an explicit refresh. Startup waits for the HTTP
 listener; each hourly look also checks renderer recovery and old pictures
 awaiting their one-time replacement. Missing and stale work comes first.
 The background lane leaves a foreground slot free when capacity permits;
 at one slot a person's arrival interrupts picture work. Each appearance's
 30-second budget starts after admission. Requests retain the previous picture.
+The System renderer Test takes only a slot free now and does not interrupt
+pictures. At one slot it can answer `busy` for the duration of a picture render.
 
 An attempt runs as the stored active owner through a short-lived, read-only
 credential restricted to that map's render inputs. Actual layer evaluations

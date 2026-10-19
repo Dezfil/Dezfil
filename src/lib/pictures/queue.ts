@@ -1,3 +1,4 @@
+import { EvaluationCancelled } from "@/lib/api/errors";
 import type { Database } from "better-sqlite3";
 import { listPictureStates, settlePicture, type PictureState } from "./state";
 import { PictureRenderError } from "./card";
@@ -16,7 +17,7 @@ export class PictureQueue {
   tick(): void {
     const o = this.options, now = o.now();
     for (const state of listPictureStates(o.db)) {
-      if (state.state === "current" || this.running.has(state.mapId)) continue;
+      if ((state.state === "current" || state.state === "unsupported") || this.running.has(state.mapId)) continue;
       if (!o.available()) {
         if (state.state !== "unavailable") settlePicture(state.mapId, state.requestedGeneration, { state: "unavailable" }, o.db);
         continue;
@@ -30,12 +31,16 @@ export class PictureQueue {
       const active = o.db.prepare("SELECT 1 FROM maps m JOIN accounts a ON a.id = m.owner_id WHERE m.id = ? AND a.status = 'active'").get(state.mapId);
       if (!active) continue;
       const work = o.run(state).catch(error => {
+        if (error instanceof EvaluationCancelled) {
+          settlePicture(state.mapId, state.requestedGeneration, { state: "waiting", nextAttemptAt: o.now() }, o.db);
+          return;
+        }
         const unavailable = error && typeof error === "object" && "code" in error && error.code === "render_unavailable";
         const attemptCount = state.attemptCount + 1;
         settlePicture(state.mapId, state.requestedGeneration, unavailable ? { state: "unavailable" } : {
           state: error instanceof PictureRenderError ? error.state : "failed",
           attemptCount,
-          nextAttemptAt: o.now() + (attemptCount === 1 ? 60000 : attemptCount === 2 ? 600000 : 3600000),
+          nextAttemptAt: o.now() + (attemptCount === 1 ? 0 : attemptCount === 2 ? 60000 : attemptCount === 3 ? 600000 : 3600000),
         }, o.db);
       }).finally(() => { this.running.delete(state.mapId); });
       this.running.set(state.mapId, work);
