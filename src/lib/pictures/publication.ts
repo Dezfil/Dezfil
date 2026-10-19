@@ -1,3 +1,4 @@
+import { ApiError } from "@/lib/api/errors";
 import type { AccountScope } from "@/lib/auth/scope";
 import { ownMapWithLayers } from "@/lib/map-access";
 import { metadataDb } from "@/lib/metadata/db";
@@ -21,7 +22,15 @@ export function pictureTarget(scope: AccountScope, mapId: string, sketchIds: rea
   const ground = dark ? [light.url, dark.url] : [light.url];
   // The stable imagery proxy hides provider changes. Hash the effective
   // template, but never copy its possibly secret address into evidence.
-  if (!map.customBasemap && map.basemap === "satellite") ground.push(satelliteTileUrl() ?? "unavailable");
+  if (!map.customBasemap && map.basemap === "satellite") {
+    try { ground.push(satelliteTileUrl() ?? "unavailable"); }
+    catch (error) {
+      if (!(error instanceof ApiError) || error.code !== "service_address_unreadable") throw error;
+      // The renderer uses the effective fallback while imagery is unreadable.
+      // Keep that standing in the digest so restored imagery requests a picture.
+      ground.push("unreadable");
+    }
+  }
   return { map, ownerId: scope.accountId, sketchIds: [...sketchIds], basemaps: { light, dark }, digest: drawingDigest(map, ground, artifacts) };
 }
 export type PictureTarget = ReturnType<typeof pictureTarget>;

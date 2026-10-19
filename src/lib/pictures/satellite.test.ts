@@ -1,0 +1,33 @@
+import { afterAll, expect, it, vi } from "vitest";
+import { isolatePictureData } from "@/lib/test-support/picture-data";
+import { testAccountScope } from "@/lib/test-support/accounts";
+import { closeMetadataDb, metadataDb } from "@/lib/metadata/db";
+import { createMap } from "@/lib/map-service";
+import { NO_INPUTS } from "@/lib/query/evaluation-inputs";
+import { PictureService } from "./service";
+import { pictureTarget, publishPicture } from "./publication";
+import { getPictureState } from "./state";
+isolatePictureData();
+afterAll(() => { vi.unstubAllEnvs(); closeMetadataDb(); });
+it("records and pictures the effective fallback when the stored imagery template is unreadable", async () => {
+  vi.stubEnv("DEZFIL_SATELLITE_URL", "");
+  const scope = testAccountScope(), map = createMap(scope, "Unreadable imagery");
+  const db = metadataDb();
+  db.prepare("UPDATE maps SET basemap = 'satellite' WHERE id = ?").run(map.id);
+  db.prepare("INSERT INTO workspace_settings(key,value,updated_at) VALUES('instance.satelliteUrl','unreadable-envelope','time')").run();
+  let now = Date.now();
+  const service = new PictureService({ now: () => now, available: () => true, baseUrl: "http://fixture.test", run: async state => {
+    const target = pictureTarget(scope, state.mapId);
+    expect(target.basemaps.light.kind).toBe("vector");
+    await publishPicture(scope, target, state.requestedGeneration, { light: Buffer.from("fallback") }, NO_INPUTS);
+  } });
+  await service.look();
+  expect(getPictureState(map.id)).toMatchObject({ state: "waiting" });
+  now += 5000; service.queue.tick(); await service.queue.drain();
+  expect(getPictureState(map.id)).toMatchObject({ state: "current" });
+  const previous = getPictureState(map.id)!.digest;
+  vi.stubEnv("DEZFIL_SATELLITE_URL", "https://tiles.example.test/{z}/{x}/{y}.png");
+  await service.look();
+  expect(getPictureState(map.id)?.digest).not.toBe(previous);
+  expect(getPictureState(map.id)?.state).toBe("waiting");
+});
