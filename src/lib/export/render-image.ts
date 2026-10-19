@@ -27,26 +27,30 @@ import type { ExportImageDefinition } from "./image-definition";
 
 // ---- the slot queue (documented cap; budget covers the wait) ----
 
-interface Waiter { start: () => boolean; }
+interface Waiter { start: () => boolean; background: boolean; }
 
 const slotKey = Symbol.for("dezfil.image-lane");
-const shared = process as typeof process & { [slotKey]?: { active: number; waiters: Waiter[] } };
-const slots = shared[slotKey] ??= { active: 0, waiters: [] as Waiter[] };
+const shared = process as typeof process & { [slotKey]?: { active: number; background: number; waiters: Waiter[] } };
+const slots = shared[slotKey] ??= { active: 0, background: 0, waiters: [] as Waiter[] };
 const { waiters } = slots;
 
 function pumpSlots(): void {
   while (slots.active < limits.exportRenderConcurrency && waiters.length) {
-    if (waiters.shift()!.start()) slots.active += 1;
+    const foreground = waiters.findIndex(waiter => !waiter.background);
+    if (foreground < 0 && slots.background >= Math.max(1, limits.exportRenderConcurrency - 1)) break;
+    const waiter = waiters.splice(foreground < 0 ? 0 : foreground, 1)[0];
+    if (waiter.start()) { slots.active += 1; if (waiter.background) slots.background += 1; }
   }
 }
 onCommittedSettings("image-lane", pumpSlots);
 
-function releaseSlot(): void {
+function releaseSlot(background = false): void {
   slots.active -= 1;
+  if (background) slots.background -= 1;
   pumpSlots();
 }
 
-function acquireSlot(deadline: number, signal: AbortSignal | undefined, budget: RenderBudget): Promise<void> {
+function acquireSlot(deadline: number, signal: AbortSignal | undefined, budget: RenderBudget, background = false): Promise<void> {
   return new Promise<void>((resolve, reject) => {
     const cleanup = () => {
       clearTimeout(timer);
@@ -57,13 +61,13 @@ function acquireSlot(deadline: number, signal: AbortSignal | undefined, budget: 
       if (i >= 0) waiters.splice(i, 1);
       cleanup(); reject(error);
     };
-    const waiter: Waiter = { start: () => {
+    const waiter: Waiter = { background, start: () => {
       // A commit or release can pump before an expired waiter's timer fires.
       if (signal?.aborted) { leave(new EvaluationCancelled()); return false; }
-      if (Date.now() >= deadline) { leave(renderTimeout(budget)); return false; }
+      if (!background && Date.now() >= deadline) { leave(renderTimeout(budget)); return false; }
       cleanup(); resolve(); return true;
     } };
-    const timer = setTimeout(() => leave(renderTimeout(budget)), Math.max(deadline - Date.now(), 1));
+    const timer = background ? undefined : setTimeout(() => leave(renderTimeout(budget)), Math.max(deadline - Date.now(), 1));
     const onAbort = () => leave(new EvaluationCancelled());
     signal?.addEventListener("abort", onAbort, { once: true });
     if (signal?.aborted) { onAbort(); return; }
@@ -75,7 +79,7 @@ function acquireSlot(deadline: number, signal: AbortSignal | undefined, budget: 
 /** Take a slot now, when one is free and no image waits for one; never
  * queue. Whoever takes one releases it. */
 function takeSlotNow(): boolean {
-  if (waiters.length > 0 || slots.active >= limits.exportRenderConcurrency) return false;
+  if (waiters.some(waiter => !waiter.background) || slots.active >= limits.exportRenderConcurrency) return false;
   slots.active += 1;
   return true;
 }
@@ -94,6 +98,8 @@ function withinBudget<T>(step: Promise<T>, deadline: number, signal: AbortSignal
 
 export interface RenderImageInput {
   mapId: string;
+  /** Background pictures reserve foreground capacity and budget only held slots. */
+  background?: boolean;
   definition: ExportImageDefinition;
   baseUrl: string;
   credential: string;
@@ -130,17 +136,24 @@ async function performRenderMapImage(
   stand();
   const budget: RenderBudget = { timeoutMs: input.budgetMs ?? limits.exportRenderTimeoutMs, check: input.budgetMs !== undefined };
   const requestBoundMs = renderRequestBoundMs(input.budgetMs);
-  const deadline = Date.now() + budget.timeoutMs;
+  let deadline = Date.now() + budget.timeoutMs;
+  const background = input.background ?? false;
+  if (background) {
+    await acquireSlot(deadline, input.signal, budget, true);
+    deadline = Date.now() + budget.timeoutMs;
+  }
   // Imagery is checked only for a map that draws it, so every other image
   // joins the queue at once.
   const imageryHost = imageryHostOf(input.mapId);
+  try {
   if (imageryHost !== null) {
     if (await withinBudget(imageryHostRefused(imageryHost), deadline, input.signal, budget)) {
       throw new ApiError("render_failed", EGRESS_REFUSAL, 502);
     }
     stand();
   }
-  await acquireSlot(deadline, input.signal, budget);
+  } catch (error) { if (background) releaseSlot(true); throw error; }
+  if (!background) await acquireSlot(deadline, input.signal, budget);
   // A launch given up on at the budget may still be starting when the
   // export answers: the slot stays held until it has ended.
   const late: { end: Promise<void> | null } = { end: null };
@@ -159,8 +172,8 @@ async function performRenderMapImage(
       hold: (end) => { late.end = end; },
     });
   } finally {
-    if (late.end) void late.end.then(releaseSlot);
-    else releaseSlot();
+    if (late.end) void late.end.then(() => releaseSlot(background));
+    else releaseSlot(background);
   }
 }
 
