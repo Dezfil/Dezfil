@@ -6972,6 +6972,11 @@
         "memory:picture-scheduler"
       ]
     },
+    "memory:src/lib/pictures/service.ts#PictureService.dataStartedAt": {
+      "stores": [
+        "memory:picture-scheduler"
+      ]
+    },
     "memory:src/lib/pictures/service.ts#PictureService.dataDue": {
       "stores": [
         "memory:picture-scheduler"
