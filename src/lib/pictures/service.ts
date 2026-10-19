@@ -1,4 +1,4 @@
-import { pictureBindings, rememberBindings, bindingsChanged } from "./bindings";
+import { pictureBindings, schedulingBindings, bindingMayUse, rememberBindings, bindingsChanged } from "./bindings";
 import { accessSync, constants } from "node:fs";
 import { metadataDb } from "@/lib/metadata/db";
 import { mapOwnerWorkScope } from "@/lib/auth/scope";
@@ -29,6 +29,9 @@ export class PictureService {
   private readonly now: () => number;
   private rendererReady = false;
   private rendererFailed = false;
+  private dataIds = new Set<string>();
+  private dataDue = 0;
+  private dataWork: Promise<void> | null = null;
   constructor(private readonly options: PictureServiceOptions) {
     this.now = options.now ?? Date.now;
     this.queue = new PictureQueue({ db: metadataDb(), now: this.now, available: () => this.rendererReady,
@@ -53,11 +56,11 @@ export class PictureService {
     for (const map of maps) {
       try {
         const scope = mapOwnerWorkScope(map.id);
-        const { target, inputs: bindings } = await pictureBindings(scope, map.id);
+        const { target, inputs: bindings, resolved } = await schedulingBindings(scope, map.id);
         const hasPicture = (await servedThumbnails(scope, [map.id])).has(map.id);
         initializePicture(map.id, target.digest, hasPicture, Date.parse(map.updated_at), metadataDb());
-        let state = requestPicture(map.id, target.digest, this.now(), bindingsChanged(map.id, bindings));
-        rememberBindings(map.id, bindings);
+        let state = requestPicture(map.id, target.digest, this.now(), bindingsChanged(map.id, bindings, resolved));
+        rememberBindings(map.id, bindings, resolved);
         const inputs = await publishedPictureInputs(map.id);
         if (state.state === "current" && inputs && !inputsAreCurrent(inputs)) state = requestPicture(map.id, target.digest, this.now(), true);
         await reconcilePictureFiles(map.id, hasPicture, this.now());
@@ -70,10 +73,10 @@ export class PictureService {
   }
   async request(mapId: string, force = false): Promise<PictureState> {
     const scope = mapOwnerWorkScope(mapId);
-    const { target, inputs } = await pictureBindings(scope, mapId);
+    const { target, inputs, resolved } = await schedulingBindings(scope, mapId);
     this.rendererReady = !this.rendererFailed && (this.options.available ?? pictureRendererAvailable)();
-    const state = requestPicture(mapId, target.digest, this.now(), force || bindingsChanged(mapId, inputs));
-    rememberBindings(mapId, inputs);
+    const state = requestPicture(mapId, target.digest, this.now(), force || bindingsChanged(mapId, inputs, resolved));
+    rememberBindings(mapId, inputs, resolved);
     this.queue.tick();
     return getPictureState(mapId) ?? state;
   }
@@ -83,21 +86,35 @@ export class PictureService {
   }
   async adopt(mapId: string): Promise<void> {
     const scope = mapOwnerWorkScope(mapId);
-    const { target, inputs } = await pictureBindings(scope, mapId);
-    if ((await servedThumbnails(scope, [mapId])).has(mapId)) { adoptPicture(mapId, target.digest, this.now()); rememberBindings(mapId, inputs); }
+    const { target, inputs, resolved } = await schedulingBindings(scope, mapId);
+    if ((await servedThumbnails(scope, [mapId])).has(mapId)) { adoptPicture(mapId, target.digest, this.now()); rememberBindings(mapId, inputs, resolved); }
     else await this.request(mapId);
   }
-  async dataChanged(datasetId: string): Promise<void> {
+  dataChanged(datasetId: string): void {
+    this.dataIds.add(datasetId);
+    this.dataDue = this.now() + 5000;
+  }
+  async tick(): Promise<void> {
+    if (!this.dataWork && this.dataIds.size && this.now() >= this.dataDue) {
+      const ids = this.dataIds; this.dataIds = new Set();
+      this.dataWork = this.resolveDataChanges(ids, this.dataDue - 5000).finally(() => { this.dataWork = null; });
+    }
+    await this.dataWork;
+    this.queue.tick();
+  }
+  async drain(): Promise<void> { await this.dataWork; await this.queue.drain(); }
+  get busy(): boolean { return this.dataWork !== null || this.queue.busy; }
+  clearPendingData(): void { this.dataIds.clear(); }
+  private async resolveDataChanges(ids: ReadonlySet<string>, changedAt: number): Promise<void> {
     const maps = metadataDb().prepare("SELECT id FROM maps").all() as { id: string }[];
     for (const map of maps) {
+      if (!bindingMayUse(map.id, ids)) continue;
       try {
         const { target, inputs, resolved } = await pictureBindings(mapOwnerWorkScope(map.id), map.id);
-        if (!resolved || !inputs.datasets.some(input => input.id === datasetId)) continue;
-        requestPicture(map.id, target.digest, this.now(), bindingsChanged(map.id, inputs));
-        rememberBindings(map.id, inputs);
+        requestPicture(map.id, target.digest, changedAt, bindingsChanged(map.id, inputs, resolved));
+        rememberBindings(map.id, inputs, resolved);
       } catch { /* A removed map or inactive owner contributes no work. */ }
     }
-    this.queue.tick();
   }
   private async render(state: PictureState): Promise<void> {
     const scope = mapOwnerWorkScope(state.mapId);

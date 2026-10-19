@@ -36,9 +36,9 @@ it("serves owner, Editor and Viewer by consumed-input reach, rechecks after byte
   const server = createServer((_request, response) => { response.writeHead(200, { "content-type": "text/csv" }); response.end(`v,lon,lat\n${value},1,2\n`); });
   await new Promise<void>(resolve => server.listen(0, "127.0.0.1", resolve));
   const url = `http://127.0.0.1:${(server.address() as AddressInfo).port}/roads.csv`;
-  const tasks: Promise<unknown>[] = [];
-  const service = new PictureService({ baseUrl: "http://fixture.test", available: () => true, run: async () => {} });
-  const stop = observePictureDataChanges(id => { tasks.push(service.dataChanged(id)); });
+  let now = Date.now();
+  const service = new PictureService({ now: () => now, baseUrl: "http://fixture.test", available: () => true, run: async () => {} });
+  const stop = observePictureDataChanges(id => { service.dataChanged(id); });
   try {
     const table = (await importFromUrl(dataOwner, url, "roads")).tables[0];
     shareProject(dataOwner.accountId, "data-project", [[owner.accountId, "viewer"], [editor.accountId, "viewer"], [viewer.accountId, "viewer"]], [table.id]);
@@ -46,7 +46,7 @@ it("serves owner, Editor and Viewer by consumed-input reach, rechecks after byte
     const map = createMap(owner, "Reach", "map-project");
     const revision = () => ({ expectedRevision: documentFacts({ kind: "map", id: map.id }).editRevision });
     const layer = await createLayer(owner, map.id, { name: "Roads", sql: "SELECT * FROM data.roads" }, revision());
-    await Promise.all(tasks.splice(0)); await service.request(map.id);
+    service.clearPendingData(); await service.request(map.id);
     const target = pictureTarget(owner, map.id), state = getPictureState(map.id)!;
     const credential = mintPictureCredential(map.id, Date.now() + 60000);
     const response = await renderLayer(socketRequest(new Request(`http://fixture.test/api/layers/${layer.id}/render`, { headers: { "x-dezfil-picture-work": credential } })), { params: Promise.resolve({ id: layer.id }) });
@@ -61,7 +61,7 @@ it("serves owner, Editor and Viewer by consumed-input reach, rechecks after byte
     setProjectPerson(dataOwner, "data-project", "viewer", "viewer");
     const clock = getPictureState(map.id)!.drawingChangedAt;
     value = 2; const replacement = await refreshTable(dataOwner, table.name);
-    await Promise.resolve(); await Promise.all(tasks.splice(0));
+    await Promise.resolve(); now += 5000; await service.tick(); await service.queue.drain();
     expect(replacement.file).not.toBe(table.file);
     expect(getPictureState(map.id)).toMatchObject({ requestedGeneration: state.requestedGeneration + 1, drawingChangedAt: clock });
     expect(() => readAttemptInputs(credential, [layer.id])).toThrow();
@@ -76,5 +76,5 @@ it("serves owner, Editor and Viewer by consumed-input reach, rechecks after byte
     const refused = await renderLayer(socketRequest(new Request(`http://fixture.test/api/layers/${layer.id}/render`, { headers: { "x-dezfil-picture-work": ownerCredential } })), { params: Promise.resolve({ id: layer.id }) });
     expect((await refused.json()).ok).toBe(false);
     await expect(publishPicture(owner, changed, getPictureState(map.id)!.requestedGeneration, { light: Buffer.from("unreached"), dark: Buffer.from("unreached") }, { catalogue: false, datasets: [{ id: table.id, file: replacement.file }] })).rejects.toThrow();
-  } finally { stop(); await Promise.all(tasks); await new Promise<void>(resolve => { server.closeAllConnections(); server.close(() => resolve()); }); }
+  } finally { stop(); await service.drain(); await new Promise<void>(resolve => { server.closeAllConnections(); server.close(() => resolve()); }); }
 });

@@ -10,15 +10,15 @@ export function startPictures(baseUrl = `http://127.0.0.1:${process.env.PORT ?? 
   if (host[key]) return;
   metadataDb().prepare("UPDATE map_pictures SET work_key = NULL, work_owner = NULL, work_expires_at = NULL, work_inputs = NULL").run();
   const service = new PictureService({ baseUrl });
-  registerRetainedStore({ drain: () => service.queue.drain(), busy: () => service.queue.busy, clear: () => {} });
+  registerRetainedStore({ drain: () => service.drain(), busy: () => service.busy, clear: () => service.clearPendingData() });
   const stopChanges = observePictureChanges(event => {
     void (event.inherited ? service.adopt(event.mapId) : service.request(event.mapId, event.force)).catch(() => {});
   });
-  const stopData = observePictureDataChanges(id => { void service.dataChanged(id).catch(() => {}); });
+  const stopData = observePictureDataChanges(id => { service.dataChanged(id); });
   let serving = false, looking = false, lastLook = -Infinity;
   const timer = setInterval(() => {
     if (looking) return;
-    if (serving && Date.now() - lastLook < 3600000) { service.queue.tick(); return; }
+    if (serving && Date.now() - lastLook < 3600000) { void service.tick().catch(error => console.warn("Picture scheduling failed", error)); return; }
     looking = true;
     void (async () => {
       if (!serving) {

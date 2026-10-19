@@ -234,7 +234,10 @@ layers; incomplete or abandoned work never publishes. A whole set's manifest
 is replaced before the matching row generation is committed. Startup and
 hourly looks reconcile an interrupted handoff without serving a partial pair.
 
-Committed drawing and bound-data changes wait five quiet seconds. Failures
+Committed drawing and bound-data changes wait five quiet seconds. Data events
+coalesce before scheduling: stored inputs select the maps to resolve, with
+unresolved bindings and catalogue readers included. Looks reuse successful
+bindings while the saved drawing and its input artifacts agree. Failures
 retry at once, after one minute, after ten minutes, then hourly. A lane
 interruption requeues without spending a failed attempt. Unsupported drawings
 wait for a changed request or an explicit refresh. Startup waits for the HTTP
