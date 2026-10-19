@@ -91,6 +91,39 @@ describe("the Maps page while a card waits for its picture", () => {
     expect(asked).toHaveLength(2);
   });
 
+  it("asks again when its next read of the listing has the card waiting after an answer said it failed", async () => {
+    const onOne = { pictureState: "waiting", pictureVersion: "server-1", hasThumbnail: true } as const;
+    listing = [map("a", onOne)];
+    await open(listing);
+    await pass(5_000);
+    expect(asked).toHaveLength(1);
+    listing = [map("a", { ...onOne, pictureState: "failed" })];
+    await pass(5_000);
+    expect(asked).toHaveLength(2);
+    await pass(60_000);
+    expect(asked).toHaveLength(2);
+    // The work is tried again, and the page reads its scope's listing anew.
+    await open([map("a", onOne)]);
+    listing = [map("a", landed)];
+    await pass(5_000);
+    expect(asked).toHaveLength(3);
+    expect(pictureOf("Map a")).toBe("/api/maps/a/thumbnail?v=server-1&theme=light");
+  });
+
+  it("keeps a landed picture on its card when the page only filters what it already read", async () => {
+    listing = [map("a", waiting, true)];
+    await open(listing);
+    listing = [map("a", landed, true)];
+    await pass(5_000);
+    expect(pictureOf("Map a")).toBe("/api/maps/a/thumbnail?v=server-1&theme=light");
+    await act(async () => {
+      container.querySelectorAll("button").find((b) => b.textContent?.startsWith("Published"))!.click();
+    });
+    expect(pictureOf("Map a")).toBe("/api/maps/a/thumbnail?v=server-1&theme=light");
+    await pass(60_000);
+    expect(asked).toHaveLength(1);
+  });
+
   it("asks nothing for a waiting map its filter hides", async () => {
     listing = [map("a", waiting), map("b", landed, true)];
     await open(listing);

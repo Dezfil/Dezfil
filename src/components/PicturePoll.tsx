@@ -5,7 +5,8 @@ import {
   NO_FRESH_PICTURES,
   PICTURE_POLL_MS,
   anyWaiting,
-  askedBases,
+  askedCards,
+  currentPictures,
   landPictures,
   withFreshPicture,
   type FreshPictures,
@@ -19,8 +20,10 @@ const FreshPicturesContext = createContext<FreshPictures>(NO_FRESH_PICTURES);
  * waits, it asks `read` again every five seconds, one ask at a time (the
  * next is timed from the last one's answer), and stops when none waits or
  * the owner unmounts. A failed ask keeps what is shown and the next one
- * asks again. The cards are the owner's own, as it holds them; the answers
- * reach every card picture and picture credit line inside.
+ * asks again. The cards are the owner's own, as it holds them; an answer
+ * reaches every card picture and picture credit line inside while the
+ * owner still holds the card it was asked of, and a card the owner reads
+ * anew stands as read, asked again while it waits.
  */
 export function PicturePoll({
   cards,
@@ -53,17 +56,18 @@ function usePicturePoll(cards: readonly PictureCard[] | null, read: () => Promis
       mounted.current = false;
     };
   }, []);
-  const waiting = cards !== null && anyWaiting(fresh, cards);
+  const current = useMemo(() => currentPictures(fresh, cards), [fresh, cards]);
+  const waiting = cards !== null && anyWaiting(current, cards);
   useEffect(() => {
     if (!waiting || asking.current) return;
     const timer = setTimeout(() => {
-      const bases = askedBases(latest.current.cards ?? []);
+      const asked = askedCards(latest.current.cards ?? []);
       asking.current = true;
       void latest.current
         .read()
         .then(
           (answer) => {
-            if (mounted.current) setFresh((current) => landPictures(current, bases, answer));
+            if (mounted.current) setFresh((held) => landPictures(held, asked, answer));
           },
           () => {
             // What is shown stays; the next ask tries again.
@@ -76,7 +80,7 @@ function usePicturePoll(cards: readonly PictureCard[] | null, read: () => Promis
     }, PICTURE_POLL_MS);
     return () => clearTimeout(timer);
   }, [waiting, answered]);
-  return fresh;
+  return current;
 }
 
 /** The card with the freshest picture its page has asked for. */

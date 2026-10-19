@@ -15,7 +15,7 @@ import type { PictureCard } from "./picture-poll";
  * shown and credited as it lands, with no reload; a failed ask keeping
  * what is shown and the next one asking again; and nothing asked once no
  * card waits or the page is gone. The owner's own newer read stands over
- * an older answer.
+ * an older answer, even one that says just what the card said when asked.
  */
 
 vi.mock("./theme", () => ({ useTheme: () => ({ theme: "light" }) }));
@@ -151,5 +151,32 @@ describe("a page's poll for its cards' pictures", () => {
     expect(shownSrc("a")).toBe("/api/maps/a/thumbnail?v=server-2&theme=light");
     await pass(60_000);
     expect(poll.read).toHaveBeenCalledTimes(1);
+  });
+
+  it("lets the owner's newer read stand over an older answer though it says just what the card said when asked, and asks again while it waits", async () => {
+    const poll = deferredRead();
+    const onOne = { pictureState: "waiting", pictureVersion: "server-1", hasThumbnail: true } as const;
+    await draw([map("a", onOne)], poll.read);
+    await pass(5_000);
+    await poll.answer([map("a", { ...onOne, pictureState: "failed" })]);
+    // The failure is laid over the card, so nothing on the page waits.
+    await pass(60_000);
+    expect(poll.read).toHaveBeenCalledTimes(1);
+    // The work is tried again and the owner reads its listing again (another
+    // scope, say): the card waits again, on the same picture as when asked.
+    await draw([map("a", onOne)], poll.read);
+    await pass(5_000);
+    expect(poll.read).toHaveBeenCalledTimes(2);
+  });
+
+  it("lays no answer over a read the owner made while it was out, though the picture facts read the same", async () => {
+    const poll = deferredRead();
+    const onOne = { pictureState: "waiting", pictureVersion: "server-1", hasThumbnail: true } as const;
+    await draw([map("a", onOne)], poll.read);
+    await pass(5_000);
+    await draw([map("a", onOne)], poll.read);
+    await poll.answer([map("a", { ...onOne, pictureState: "failed" })]);
+    await pass(5_000);
+    expect(poll.read).toHaveBeenCalledTimes(2);
   });
 });

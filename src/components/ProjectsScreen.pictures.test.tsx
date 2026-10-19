@@ -129,6 +129,22 @@ describe("the Projects page while a map in a shown picture waits for its picture
     expect(asked).toHaveLength(2);
   });
 
+  it("asks again when its next read has the map waiting after an answer said its picture failed", async () => {
+    const onOne = { pictureState: "waiting", pictureVersion: "server-1", hasThumbnail: true } as const;
+    listing = [map("a", "port", onOne)];
+    await openWith(listing);
+    await pass(5_000);
+    listing = [map("a", "port", { ...onOne, pictureState: "failed" })];
+    await pass(5_000);
+    await pass(60_000);
+    expect(asked).toHaveLength(2);
+    // The work is tried again, and the page reads its world anew.
+    await openWith([map("a", "port", onOne)]);
+    listing = [map("a", "port", landed)];
+    await pass(5_000);
+    expect(asked).toHaveLength(3);
+  });
+
   it("asks nothing for a waiting map in no shown project's picture", async () => {
     await openWith([map("a", null, { pictureState: "waiting" }), map("b", "port", landed)]);
     await pass(60_000);
