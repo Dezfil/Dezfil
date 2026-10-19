@@ -44,3 +44,22 @@ it("coalesces data changes before evaluating only stored dependents and reuses u
     expect(writes()).toBe(priorWrites);
   } finally { evaluations.mockRestore(); }
 });
+
+it("resolves again when the owner loses a cached input's reach", async () => {
+  const { shareProject } = await import("@/lib/test-support/sharing");
+  const { leaveProject } = await import("@/lib/metadata/project-people");
+  const { storedBindings } = await import("./bindings");
+  const scope = testAccountScope(), supplier = testAccountScope(undefined, "supplier");
+  const csv = path.join(process.env.DEZFIL_DATA_DIR!, "shared.csv");
+  await writeFile(csv, "value,lon,lat\n1,1,2\n");
+  const table = await ingestFile(supplier, csv, "shared.csv");
+  shareProject(supplier.accountId, "cached-input", [[scope.accountId, "viewer"]], [table.id]);
+  const map = createMap(scope, "Cached reach");
+  await createLayer(scope, map.id, { name: "Shared", sql: `SELECT * FROM supplier.${table.name}` }, { expectedRevision: documentFacts({ kind: "map", id: map.id }).editRevision });
+  const service = new PictureService({ available: () => false, baseUrl: "http://fixture.test" });
+  await service.request(map.id);
+  expect(storedBindings(map.id)?.resolved).toBe(true);
+  leaveProject(scope, "cached-input");
+  await service.request(map.id);
+  expect(storedBindings(map.id)?.resolved).toBe(false);
+});

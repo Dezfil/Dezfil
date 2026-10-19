@@ -1,3 +1,5 @@
+import { inputsReached } from "@/lib/artifact-access";
+import { reachableDatasetIds } from "@/lib/auth/reach";
 import type { AccountScope } from "@/lib/auth/scope";
 import { metadataDb } from "@/lib/metadata/db";
 import { boundedEvaluation } from "@/lib/query/bounded";
@@ -46,7 +48,7 @@ export function bindingsChanged(mapId: string, inputs: ArtifactInputs, resolved 
  * Catalogue reads need a fresh namespace; unresolved reads must try again. */
 export async function schedulingBindings(scope: AccountScope, mapId: string) {
   const stored = storedBindings(mapId), state = getPictureState(mapId);
-  if (stored?.resolved && !stored.inputs.catalogue && state && inputsAreCurrent(stored.inputs)) {
+  if (stored?.resolved && !stored.inputs.catalogue && state && inputsAreCurrent(stored.inputs) && inputsReached(stored.inputs, reachableDatasetIds(scope))) {
     const sketchIds = stored.inputs.datasets.filter(input => (metadataDb().prepare("SELECT source FROM data_tables WHERE id = ?").get(input.id) as { source: string } | undefined)?.source === "sketch").map(input => input.id);
     const target = pictureTarget(scope, mapId, sketchIds);
     if (target.digest === state.digest) return { target, ...stored };
