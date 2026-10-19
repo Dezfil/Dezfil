@@ -19,14 +19,11 @@ import { collectInputs, parseInputs, type ArtifactInputs } from "@/lib/query/eva
 import { namedSql } from "@/lib/query/named-sql";
 
 /**
- * What a map's card image drew. The builder captures the image in the
- * browser and sends the map's SQL revision as it stood when the capture
- * started; the server stamps the image with the identities that revision's
- * SQL binds in the map's home within the uploader's reach, or marks it
- * unattributed when it cannot: no revision came with it, the map's layers
- * moved away from that revision before the stamp was made, or one of its
- * references no longer binds, so the image may show what the stamp cannot
- * name. An unattributed image is its map owner's alone.
+ * What a map's card image drew. Server attempts record the actual layer
+ * evaluations and served tile archives, publishing complete sets with a
+ * matching generation. A template's inherited picture instead carries the
+ * validated copy's remapped input identities. Legacy images with no valid
+ * evidence remain their map owner's alone.
  *
  * Each image's evidence names the image's own bytes by digest and lives
  * under its own directory of the data volume, so the thumbnail directory
@@ -46,6 +43,7 @@ import { namedSql } from "@/lib/query/named-sql";
  * is unattributed, and the basemap it was drawn on, or null when none was
  * recorded. */
 export interface ImageEvidence {
+  generation?: number;
   inputs: ArtifactInputs | null;
   basemap: DrawnBasemap | null;
 }
@@ -71,7 +69,7 @@ export async function writeImageEvidence(image: string, bytes: Uint8Array, evide
   const target = evidencePath(image);
   const temp = `${target}.${randomBytes(6).toString("hex")}.tmp`;
   try {
-    await writeFile(temp, JSON.stringify({ sha256: digest(bytes), inputs: evidence.inputs, basemap: evidence.basemap }));
+    await writeFile(temp, JSON.stringify({ sha256: digest(bytes), inputs: evidence.inputs, basemap: evidence.basemap, generation: evidence.generation }));
     authorize();
     renameSync(temp, target);
   } catch (error) {
@@ -82,7 +80,7 @@ export async function writeImageEvidence(image: string, bytes: Uint8Array, evide
 
 /** An image's evidence as written, or null when there is none or it does
  * not read. */
-async function readEvidence(image: string): Promise<{ sha256?: unknown; inputs?: unknown; basemap?: unknown } | null> {
+async function readEvidence(image: string): Promise<{ sha256?: unknown; inputs?: unknown; basemap?: unknown; generation?: unknown } | null> {
   try {
     const parsed: unknown = JSON.parse(await readFile(evidencePath(image), "utf8"));
     return parsed && typeof parsed === "object" ? parsed : null;
@@ -111,7 +109,7 @@ function parseBasemap(value: unknown): DrawnBasemap | null {
 export async function imageEvidence(image: string, bytes: Uint8Array): Promise<ImageEvidence> {
   const parsed = await readEvidence(image);
   if (!parsed || parsed.sha256 !== digest(bytes)) return NO_EVIDENCE;
-  return { inputs: parseInputs(parsed.inputs), basemap: parseBasemap(parsed.basemap) };
+  return { inputs: parseInputs(parsed.inputs), basemap: parseBasemap(parsed.basemap), ...generationOf(parsed.generation) };
 }
 
 /** The inputs these bytes of this image drew, or null when the image is
@@ -126,7 +124,7 @@ export async function imageInputs(image: string, bytes: Uint8Array): Promise<Art
  * still leaves the image unattributed where it is served. */
 export async function recordedEvidence(image: string): Promise<ImageEvidence> {
   const parsed = await readEvidence(image);
-  return parsed ? { inputs: parseInputs(parsed.inputs), basemap: parseBasemap(parsed.basemap) } : NO_EVIDENCE;
+  return parsed ? { inputs: parseInputs(parsed.inputs), basemap: parseBasemap(parsed.basemap), ...generationOf(parsed.generation) } : NO_EVIDENCE;
 }
 
 export async function removeImageEvidence(image: string): Promise<void> {
@@ -170,11 +168,11 @@ export function currentMapRevision(mapId: string): string {
 }
 
 /**
- * The evidence a capture earns, or null when it stays unattributed. The
+ * The evidence for a validated template copy, or null if unresolved. The
  * identities are bound by compiling each layer's SQL in the map's home
- * within the uploader's reach, the same binding a render records; nothing is
+ * within the copier's reach; this attributes inherited pixels, never a new render. Nothing is
  * read from any dataset. A layer whose SQL does not compile drew nothing for
- * this revision; a reference that names a dataset the uploader cannot reach
+ * this revision; a reference that names a dataset the copier cannot reach
  * makes the capture unattributable.
  */
 export async function captureInputs(scope: AccountScope, mapId: string, revision: string | null): Promise<ArtifactInputs | null> {
@@ -196,4 +194,8 @@ export async function captureInputs(scope: AccountScope, mapId: string, revision
   } catch {
     return null;
   }
+}
+
+function generationOf(value: unknown): { generation?: number } {
+  return typeof value === "number" && Number.isSafeInteger(value) && value > 0 ? { generation: value } : {};
 }

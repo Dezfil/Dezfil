@@ -507,4 +507,46 @@ export const MIGRATIONS: string[] = [
   // members cascade away; datasets and independently owned jobs stay intact.
   `DELETE FROM cascade_runs WHERE NOT EXISTS
     (SELECT 1 FROM recipes WHERE recipes.id = cascade_runs.recipe_id);`,
+  // Picture work is a child of the map, outside its edit revision and history.
+  `CREATE TABLE map_pictures (
+    map_id TEXT PRIMARY KEY REFERENCES maps(id) ON DELETE CASCADE,
+    state TEXT NOT NULL DEFAULT 'waiting' CHECK (state IN ('current', 'waiting', 'failed', 'unsupported', 'unavailable')),
+    digest TEXT NOT NULL,
+    published_digest TEXT,
+    requested_generation INTEGER NOT NULL DEFAULT 1,
+    published_generation INTEGER NOT NULL DEFAULT 0,
+    drawing_changed_at INTEGER NOT NULL,
+    requested_at INTEGER NOT NULL,
+    producer TEXT NOT NULL DEFAULT 'server' CHECK (producer IN ('server', 'inherited', 'old')),
+    attempt_count INTEGER NOT NULL DEFAULT 0,
+    next_attempt_at INTEGER NOT NULL
+  );`,
+  // Attempt credentials are neither sessions nor API tokens and die with work.
+  `ALTER TABLE map_pictures ADD COLUMN work_key TEXT;
+   ALTER TABLE map_pictures ADD COLUMN work_owner TEXT;
+   ALTER TABLE map_pictures ADD COLUMN work_expires_at INTEGER;
+   CREATE UNIQUE INDEX idx_picture_work_key ON map_pictures(work_key);`,
+  `ALTER TABLE map_pictures ADD COLUMN work_inputs TEXT;`,
+  `ALTER TABLE map_pictures ADD COLUMN binding_inputs TEXT;`,
+  `CREATE TRIGGER revoke_picture_work_on_inactive_owner AFTER UPDATE OF status ON accounts
+   WHEN OLD.status = 'active' AND NEW.status <> 'active'
+   BEGIN
+     UPDATE map_pictures SET work_key = NULL, work_owner = NULL, work_expires_at = NULL,
+       work_inputs = NULL, requested_generation = requested_generation + 1,
+       state = 'waiting', attempt_count = 0
+       WHERE map_id IN (SELECT id FROM maps WHERE owner_id = NEW.id);
+   END;`,
+  // Finished pictures survive deactivation; only unfinished work is requeued.
+  `DROP TRIGGER revoke_picture_work_on_inactive_owner;
+   CREATE TRIGGER revoke_picture_work_on_inactive_owner AFTER UPDATE OF status ON accounts
+   WHEN OLD.status = 'active' AND NEW.status <> 'active'
+   BEGIN
+     UPDATE map_pictures SET work_key = NULL, work_owner = NULL, work_expires_at = NULL,
+       work_inputs = NULL,
+       requested_generation = requested_generation + CASE WHEN state = 'current' THEN 0 ELSE 1 END,
+       attempt_count = CASE WHEN state = 'current' THEN attempt_count ELSE 0 END,
+       state = CASE WHEN state = 'current' THEN 'current' ELSE 'waiting' END
+       WHERE map_id IN (SELECT id FROM maps WHERE owner_id = NEW.id)
+         AND (state <> 'current' OR work_key IS NOT NULL);
+   END;`,
 ];

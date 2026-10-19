@@ -59,7 +59,7 @@ function reopen() { db.close(); db = open(file); }
 // homes, run initiators, lineage runners) and their own tables (the
 // basemap library's among them); their tests hold those. This one holds
 // everything the ownership entry received.
-const laterTables = new Set(["project_people", "ownership_transfer_gate", "step_runner_outputs", "basemap_styles"]);
+const laterTables = new Set(["project_people", "ownership_transfer_gate", "step_runner_outputs", "basemap_styles", "map_pictures"]);
 function snapshot() {
   const names = (db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name").all() as { name: string }[])
     .map(row => row.name).filter(name => !laterTables.has(name));

@@ -3,7 +3,6 @@ import ts from "typescript";
 
 export const RAW_BODY_MODULES = [
   "src/lib/api/bounded-body.ts",
-  "src/lib/api/thumbnail-body.ts",
   "src/lib/ingest/receive.ts",
 ] as const;
 export interface BodyPolicy { path: string; method: string; limit: number; code: string }

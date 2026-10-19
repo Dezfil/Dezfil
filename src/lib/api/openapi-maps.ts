@@ -130,12 +130,26 @@ export const MAP_RESOURCE_PATHS = {
       responses: { ...editRevisionResponses, "204": { description: "Deleted." } },
     })),
   },
+  "/api/maps/{id}/picture/refresh": {
+    post: op(mapAccess({
+      summary: "Refresh a map picture",
+      description: "Ask the server to picture the saved drawing as its owner. The owner or a project Editor may ask; a Viewer receives forbidden. Repeated requests coalesce with pending work. The previous complete picture stays served. This changes no edit revision, history or Last edited timestamp and requires no edit revision. Answers queued after admission to the quiet wait, or unavailable when the renderer is absent. Basemap services may be contacted by the background attempt.",
+      tag: "Maps", tool: "refresh_map_picture", mcp: MAP_LOOK,
+      display: { verb: "Requested a map picture" }, effects: writes(resource("maps", "id")),
+      parameters: [pathParam("id", "Map id.")],
+      responses: {
+        "202": { description: "Queued or coalesced.", content: { "application/json": { schema: { type: "object", properties: { outcome: { type: "string", const: "queued" }, pictureState: { type: "string", const: "waiting" } }, required: ["outcome", "pictureState"] } } } },
+        "200": { description: "The renderer is unavailable.", content: { "application/json": { schema: { type: "object", properties: { outcome: { type: "string", const: "unavailable" }, pictureState: { type: "string", const: "unavailable" } }, required: ["outcome", "pictureState"] } } } },
+        "403": ERROR_RESPONSE,
+      },
+    })),
+  },
   "/api/maps/{id}/thumbnail": {
     get: op(mapChildren(mapAccess({
       summary: "Read a map's snapshot",
       description:
-        "The PNG the builder last captured for this map — the " +
-        "maps screen's card image. 404 while no capture exists. A map " +
+        "The last complete PNG the server made for this map, the " +
+        "maps screen's card image. 404 while no picture is served. A map " +
         "whose basemap follows the theme carries one image per theme: " +
         "name the theme to read that one. The fallback order: " +
         "the named theme's image, then the map's single image, then " +
@@ -160,70 +174,11 @@ export const MAP_RESOURCE_PATHS = {
       },
     }))),
     put: op(mapChildren(mapAccess({
-      summary: "Store a map's snapshot",
-      description:
-        "A PNG body, at most 4 MB (4,194,304 bytes), captured by the " +
-        "builder after edits settle. A larger body is refused with " +
-        "`413 request_body_too_large` without reading the rest of it; an " +
-        "empty or non-PNG body is refused with `400 invalid_request`. " +
-        "Without a theme the body is the map's " +
-        "one image and replaces whatever it had. With a theme and a " +
-        "cycle the body is one half of a themed pair: it is " +
-        "held until the other theme arrives under the same cycle, and " +
-        "the pair then replaces everything the map had, together. A " +
-        "cycle that never completes leaves the map's images as they " +
-        "were; a later cycle's completion discards it. Each image is " +
-        "stamped with the datasets its map's SQL draws, bound in the " +
-        "map's home within the uploader's reach at the revision the " +
-        "capture saw; an image sent without a revision, or whose map's " +
-        "layers moved from that revision before it arrived, is kept " +
-        "unattributed.",
-      tag: "Maps",
-      tool: false,
-      effects: writes(resource("maps", "id")),
-      parameters: [
-        pathParam("id", "Map id."),
-        THUMBNAIL_THEME_PARAM,
-        {
-          name: "cycle",
-          in: "query",
-          required: false,
-          schema: { type: "string", pattern: "^[A-Za-z0-9_-]{1,64}$" },
-          description:
-            "The capture cycle a themed snapshot belongs to; required " +
-            "with a theme, refused without one. Two writes carrying " +
-            "the same cycle and different themes form one pair. A " +
-            "cycle publishes once: a write naming the cycle of the " +
-            "pair the map shows is held, and starts that cycle's pair " +
-            "again.",
-        },
-        {
-          name: "revision",
-          in: "query",
-          required: false,
-          schema: { type: "string", pattern: "^[0-9a-f]{16}$" },
-          description:
-            "The map's SQL revision when the capture started: a digest " +
-            "of its layers' identities and SQL in layer order, as the " +
-            "builder computes it. Absent, the image is unattributed.",
-        },
-      ],
-      requestBody: {
-        required: true,
-        content: {
-          "image/png": { schema: { type: "string", format: "binary" } },
-        },
-      },
-      responses: {
-        "204": { description: "Stored: the map's images are replaced." },
-        "202": {
-          description:
-            "Held: a themed snapshot waiting for its partner under the " +
-            "same cycle. The map's images are unchanged.",
-        },
-        "400": { ...ERROR_RESPONSE, description: "An empty or non-PNG body, or a malformed theme, cycle or revision (invalid_request)." },
-        "413": { ...ERROR_RESPONSE, description: "A body larger than 4 MB, refused without reading the rest of it (request_body_too_large)." },
-      },
+      summary: "Refuse a retired browser picture upload",
+      description: "Compatibility change: this operation no longer accepts browser pixels. An authorized owner receives 410 picture_upload_retired without the handler reading the body or changing any image. Use POST /api/maps/{id}/picture/refresh. Theme, cycle and revision query values do not restore the former operation.",
+      tag: "Maps", tool: false, effects: READ_ONLY,
+      parameters: [pathParam("id", "Map id.")],
+      responses: { "410": { ...ERROR_RESPONSE, description: "Browser picture upload retired (picture_upload_retired)." }, "403": ERROR_RESPONSE },
     }))),
   },
   "/api/maps/{id}/widget-values": {
@@ -773,12 +728,14 @@ export const MAP_SCHEMAS = {
               "One representative CSS color per layer, in draw " +
               "order — what the maps screen renders as layer dots.",
           },
+          pictureState: { type: "string", enum: ["current", "waiting", "failed", "unsupported", "unavailable"], description: "The server picture work state. It names no dataset or private reason, even when this reader cannot be served the picture." },
+          pictureVersion: { type: ["string", "null"], description: "An opaque version of the served picture for the image URL v parameter. Changes when a new complete picture lands, including data-only and requested refreshes. Null when no picture is served." },
           hasThumbnail: {
             type: "boolean",
             description:
               "Whether the map has a card image the caller is served: " +
               "GET /api/maps/{id}/thumbnail answers one. False until the " +
-              "builder first captures the map, and while every image it " +
+              "server first pictures the map, and while every image it " +
               "has drew a dataset beyond the caller's reach. A card asks " +
               "for the image only when this is true.",
           },

@@ -1,32 +1,21 @@
 import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
-import { getLayer as readEditLayer } from "@/lib/metadata/maps";
 import { createHash } from "node:crypto";
 import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { documentFacts } from "@/lib/metadata/document-facts";
-import { readThumbnail } from "./map-thumbnails";
+import { readThumbnail, saveThumbnail } from "./map-thumbnails";
 import { closeMetadataDb, metadataDb } from "@/lib/metadata/db";
 import { resetQueryInstance } from "@/lib/duckdb";
 import { ingestFile } from "@/lib/ingest/ingest";
-import { createMap } from "@/lib/map-service";
+import { createMap, updateMap } from "@/lib/map-service";
 import { createLayer, updateLayer } from "@/lib/layer-service";
-import { listLayers, type Layer, type MapRecord } from "@/lib/metadata/maps";
+import type { Layer, MapRecord } from "@/lib/metadata/maps";
 import type { DataTable } from "@/lib/metadata/tables";
 import type { AccountScope } from "@/lib/auth/scope";
-import { mapSqlRevision } from "@/lib/map-sql-revision";
-import { testAccountRequest, testAccountScope } from "@/lib/test-support/accounts";
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { shareProject } from "@/lib/test-support/sharing";
-
-/**
- * A card image is stamped with what its map's SQL draws at the revision the
- * builder saw when the capture started. Ada and Bob each own a `roads`; Bob
- * files his in project P, where Ada is a viewer. Ada's map draws her `roads`
- * and Bob's `bob.roads`. An upload with the map's current revision is stamped
- * with both identities; one with no revision, or a revision the layers have
- * moved from (a late upload after a SQL change), is kept unattributed, each
- * image of a themed pair on its own.
- */
+import { preparePictureFixture, publishPictureFixture } from "@/lib/test-support/picture-fixture";
 const initialDir = process.env.DEZFIL_DATA_DIR!;
 let directory: string;
 let scopes: Record<string, AccountScope>;
@@ -53,102 +42,55 @@ beforeEach(async () => {
 });
 afterEach(async () => { closeMetadataDb(); resetQueryInstance(); vi.unstubAllEnvs(); await rm(directory, { recursive: true, force: true }); });
 
-async function upload(body: Buffer, query: string, editRevision?: string) {
-  const { PUT } = await import("@/app/api/maps/[id]/thumbnail/route");
-  const request = testAccountRequest(new Request(`http://instance.test/api/maps/${map.id}/thumbnail?${query}`, {
-    method: "PUT", headers: { "content-type": "image/png", ...(editRevision ? { "X-Edit-Revision": editRevision } : {}) }, body: new Uint8Array(body),
-  }), undefined, "ada");
-  return PUT(request, { params: Promise.resolve({ id: map.id }) });
+
+async function evidence(theme: "light" | "dark" = "light") {
+  const set = JSON.parse(await readFile(path.join(directory, "thumbnails", `${map.id}.json`), "utf8"));
+  return JSON.parse(await readFile(path.join(directory, "artifact-inputs", "thumbnails", `${set[theme]}.json`), "utf8")) as { sha256: string; generation: number; inputs: { catalogue: boolean; datasets: { id: string }[] } };
 }
-const revision = () => mapSqlRevision(listLayers(map.id));
-/** The evidence on the volume for one image file, exactly as written. */
-async function evidence(image: string) {
-  const file = path.join(directory, "artifact-inputs", "thumbnails", `${image}.json`);
-  return JSON.parse(await readFile(file, "utf8")) as { sha256: string; inputs: { catalogue: boolean; datasets: { id: string }[] } | null };
-}
-const sha = (bytes: Buffer) => createHash("sha256").update(bytes).digest("hex");
-const ids = (inputs: { datasets: { id: string }[] } | null) => inputs?.datasets.map((input) => input.id).sort() ?? null;
-
-describe("card images record what they drew", () => {
-  it("stamps an upload at the map's current revision with the identities its SQL binds", async () => {
-    const body = png("current");
-    expect((await upload(body, `revision=${revision()}`)).status).toBe(204);
-    const stamped = await evidence(`${map.id}.png`);
-    expect(stamped.sha256).toBe(sha(body));
-    expect(stamped.inputs?.catalogue).toBe(false);
-    expect(ids(stamped.inputs)).toEqual([tables.ada.id, tables.bob.id].sort());
-  });
-
-  it("keeps an upload with no revision unattributed", async () => {
-    expect((await upload(png("bare"), "")).status).toBe(204);
-    expect((await evidence(`${map.id}.png`)).inputs).toBeNull();
-  });
-
-  it("keeps a late upload after a SQL change unattributed", async () => {
-    const seen = revision();
-    await updateLayer(scopes.ada, theirs.id, { sql: "SELECT * FROM roads" }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(theirs.id)?.mapId ?? "missing") })?.editRevision });
-    expect((await upload(png("late"), `revision=${seen}`)).status).toBe(204);
-    expect((await evidence(`${map.id}.png`)).inputs).toBeNull();
-  });
-
-  it("stamps each image of a themed pair on its own", async () => {
-    const seen = revision();
-    expect((await upload(png("light"), `theme=light&cycle=c1&revision=${seen}`)).status).toBe(202);
-    await updateLayer(scopes.ada, theirs.id, { sql: "SELECT * FROM roads" }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(theirs.id)?.mapId ?? "missing") })?.editRevision });
-    expect((await upload(png("dark"), `theme=dark&cycle=c1&revision=${seen}`)).status).toBe(204);
-    expect(ids((await evidence(`${map.id}.c1.light.png`)).inputs)).toEqual([tables.ada.id, tables.bob.id].sort());
-    expect((await evidence(`${map.id}.c1.dark.png`)).inputs).toBeNull();
-  });
-
-  it("records the whole reach behind a catalogue read", async () => {
-    await updateLayer(scopes.ada, theirs.id, { sql: "SELECT r.* FROM roads r WHERE EXISTS (SELECT view_name FROM duckdb_views())" }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(theirs.id)?.mapId ?? "missing") })?.editRevision });
-    expect((await upload(png("listing"), `revision=${revision()}`)).status).toBe(204);
-    const stamped = await evidence(`${map.id}.png`);
-    expect(stamped.inputs?.catalogue).toBe(true);
-    expect(ids(stamped.inputs)).toEqual([tables.ada.id, tables.bob.id].sort());
-  });
-
-  it("refuses a malformed revision before storing anything", async () => {
-    const response = await upload(png("x"), "revision=not-a-revision");
-    expect(response.status).toBe(400);
-    expect((await response.json()).error.code).toBe("invalid_request");
-    expect(await readdir(path.join(directory, "thumbnails")).catch(() => [])).toEqual([]);
-  });
-
-  it("retires an image's evidence with the image", async () => {
-    await upload(png("light"), `theme=light&cycle=c1&revision=${revision()}`);
-    await upload(png("dark"), `theme=dark&cycle=c1&revision=${revision()}`);
-    await upload(png("single"), `revision=${revision()}`);
-    const left = await readdir(path.join(directory, "artifact-inputs", "thumbnails"));
-    expect(left).toEqual([`${map.id}.png.json`]);
-  });
-});
-
-
-it.each([undefined, "obsolete-edit-revision"])("lands captures through style changes without moving document attribution (%s)", async editRevision => {
-  const seen = revision();
-  await updateLayer(scopes.ada, theirs.id, { style: { ...theirs.style, opacity: 0.5 } }, { expectedRevision: documentFacts({ kind: "map", id: map.id }).editRevision });
-  const afterStyle = documentFacts({ kind: "map", id: map.id });
-  expect((await upload(png("light"), `theme=light&cycle=style&revision=${seen}`, editRevision)).status).toBe(202);
-  expect(documentFacts({ kind: "map", id: map.id })).toEqual(afterStyle);
-  await updateLayer(scopes.ada, theirs.id, { style: { ...theirs.style, opacity: 0.3 } }, { expectedRevision: afterStyle.editRevision });
-  const betweenImages = documentFacts({ kind: "map", id: map.id });
-  expect((await upload(png("dark"), `theme=dark&cycle=style&revision=${seen}`, editRevision)).status).toBe(204);
-  expect(documentFacts({ kind: "map", id: map.id })).toEqual(betweenImages);
+const ids = (inputs: { datasets: { id: string }[] }) => inputs.datasets.map(input => input.id).sort();
+it("binds both images to their own bytes, the same generation and actual evaluated inputs", async () => {
+  const fixture = await publishPictureFixture(scopes.ada, map.id, png("light"), png("dark"));
   for (const theme of ["light", "dark"] as const) {
-    expect(await readThumbnail(scopes.ada, map.id, theme)).toEqual(png(theme));
-    expect(ids((await evidence(`${map.id}.style.${theme}.png`)).inputs)).toEqual([tables.ada.id, tables.bob.id].sort());
+    const stamped = await evidence(theme);
+    expect(stamped.sha256).toBe(createHash("sha256").update(png(theme)).digest("hex"));
+    expect(stamped.generation).toBe(fixture.state.requestedGeneration);
+    expect(stamped.inputs.catalogue).toBe(false);
+    expect(ids(stamped.inputs)).toEqual([tables.ada.id, tables.bob.id].sort());
   }
 });
-
-it.each(["missing", "stale"])("lands %s SQL evidence for the owner alone", async state => {
-  const seen = revision();
+it.each(["sql", "style"])("refuses a late %s generation instead of publishing unattributed pixels", async kind => {
+  await publishPictureFixture(scopes.ada, map.id, png("previous"));
+  const attempt = await preparePictureFixture(scopes.ada, map.id);
+  await updateLayer(scopes.ada, theirs.id, kind === "sql" ? { sql: "SELECT * FROM roads" } : { style: { ...theirs.style, opacity: .3 } }, { expectedRevision: documentFacts({ kind: "map", id: map.id }).editRevision });
+  await expect(attempt.publish(png("late"))).rejects.toThrow();
+  expect(await readThumbnail(scopes.ada, map.id)).toEqual(png("previous"));
+});
+it("records the whole mounted reach behind a catalogue evaluation", async () => {
+  await updateLayer(scopes.ada, theirs.id, { sql: "SELECT r.* FROM roads r WHERE EXISTS (SELECT view_name FROM duckdb_views())" }, { expectedRevision: documentFacts({ kind: "map", id: map.id }).editRevision });
+  await publishPictureFixture(scopes.ada, map.id, png("catalogue"));
+  const stamped = await evidence(); expect(stamped.inputs.catalogue).toBe(true);
+  expect(ids(stamped.inputs)).toEqual([tables.ada.id, tables.bob.id].sort());
+});
+it("retires a replaced set's evidence when one fixed-ground image replaces the pair", async () => {
+  await publishPictureFixture(scopes.ada, map.id, png("light"), png("dark"));
+  const previous = await readdir(path.join(directory, "artifact-inputs", "thumbnails"));
+  updateMap(scopes.ada, map.id, { basemap: "light" }, { expectedRevision: documentFacts({ kind: "map", id: map.id }).editRevision });
+  await publishPictureFixture(scopes.ada, map.id, png("single"));
+  const left = await readdir(path.join(directory, "artifact-inputs", "thumbnails"));
+  expect(left).toHaveLength(1); expect(left.some(name => previous.includes(name))).toBe(false);
+  expect(await readThumbnail(scopes.ada, map.id, "dark")).toEqual(png("single"));
+});
+it("publication leaves revision, attribution and history untouched", async () => {
+  const before = documentFacts({ kind: "map", id: map.id });
+  const history = metadataDb().prepare("SELECT * FROM map_history WHERE map_id = ? ORDER BY seq").all(map.id);
+  await publishPictureFixture(scopes.ada, map.id, png("fresh"));
+  expect(documentFacts({ kind: "map", id: map.id })).toEqual(before);
+  expect(metadataDb().prepare("SELECT * FROM map_history WHERE map_id = ? ORDER BY seq").all(map.id)).toEqual(history);
+});
+it("legacy unattributed bytes remain the owner's alone", async () => {
   shareProject("ada", "Map readers", [["bob", "viewer"]]);
   metadataDb().prepare("UPDATE maps SET project_id = ? WHERE id = ?").run("Map readers", map.id);
-  if (state === "stale") await updateLayer(scopes.ada, theirs.id, { sql: "SELECT * FROM roads" }, { expectedRevision: documentFacts({ kind: "map", id: map.id }).editRevision });
-  const before = documentFacts({ kind: "map", id: map.id });
-  expect((await upload(png(state), state === "stale" ? `revision=${seen}` : "", "obsolete")).status).toBe(204);
-  expect(await readThumbnail(scopes.ada, map.id)).toEqual(png(state));
+  await saveThumbnail(scopes.ada, map.id, png("legacy"));
+  expect(await readThumbnail(scopes.ada, map.id)).toEqual(png("legacy"));
   expect(await readThumbnail(scopes.bob, map.id)).toBeNull();
-  expect(documentFacts({ kind: "map", id: map.id })).toEqual(before);
 });

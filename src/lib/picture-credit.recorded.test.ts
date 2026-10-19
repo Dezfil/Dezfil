@@ -3,7 +3,8 @@ import { createHash } from "node:crypto";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GET as listMaps } from "@/app/api/maps/route";
-import { PUT as savePicture } from "@/app/api/maps/[id]/thumbnail/route";
+import { publishPictureFixture } from "@/lib/test-support/picture-fixture";
+import { saveThumbnail } from "@/lib/map-thumbnails";
 import { POST as duplicate } from "@/app/api/maps/[id]/duplicate/route";
 import { BASEMAPS, BUILT_IN_ATTRIBUTION } from "@/lib/basemap";
 import { pictureBasemaps } from "@/lib/basemap-offer";
@@ -28,10 +29,11 @@ const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, ...B
 const OMT = "© OpenMapTiles";
 const OSM = "© OpenStreetMap";
 
+const root = process.env.DEZFIL_DATA_DIR!;
 let dir: string;
 
 beforeEach(async () => {
-  dir = await mkdtemp(path.join(process.cwd(), ".tmp-test-"));
+  dir = await mkdtemp(path.join(root, "picture-credit-"));
   vi.stubEnv("DEZFIL_DATA_DIR", path.join(dir, "data"));
   for (const name of ["DEZFIL_BASEMAP_URL", "DEZFIL_BASEMAP_ATTRIBUTION"]) vi.stubEnv(name, undefined);
   vi.stubEnv("DEZFIL_SATELLITE_URL", "https://imagery.example/{z}/{x}/{y}.png?key=K");
@@ -55,14 +57,8 @@ function mapOn(basemap: "satellite" | "dark" | null): string {
 }
 const moveTo = (id: string, basemap: "satellite" | "dark" | null) => updateMap(testAccountScope(), id, { basemap }, revision(id));
 
-/** The builder's capture saved through the shipped route. */
-async function picture(id: string, query = ""): Promise<void> {
-  const response = await savePicture(testAccountRequest(new Request(`http://test/api/maps/${id}/thumbnail${query}`, {
-    method: "PUT", headers: { "content-type": "image/png" }, body: PNG,
-  })), params(id));
-  expect(response.status, await response.clone().text()).toBeGreaterThanOrEqual(200);
-  expect(response.status).toBeLessThan(300);
-}
+/** Fixture pixels published through the server service. */
+async function picture(id: string): Promise<void> { await publishPictureFixture(testAccountScope(), id, PNG); }
 
 /** The maps listing as a page reads it, through the shipped route. */
 async function listing(): Promise<MapOverview[]> {
@@ -116,8 +112,7 @@ describe("the credit of a map's picture", () => {
     expect(await line()).toEqual([OMT, OSM]);
     // A themed pair on Auto, then the map on Satellite with no new picture.
     moveTo(id, null);
-    await picture(id, "?theme=light&cycle=c1");
-    await picture(id, "?theme=dark&cycle=c1");
+    await picture(id);
     moveTo(id, "satellite");
     expect(await line("dark")).toEqual([OMT, OSM]);
   });
@@ -143,8 +138,8 @@ describe("the credit of a map's picture", () => {
   it("follows the map's basemap now for a picture saved before pictures recorded it", async () => {
     const withEvidence = mapOn("satellite");
     const withoutEvidence = mapOn("satellite");
-    await picture(withEvidence);
-    await picture(withoutEvidence);
+    await saveThumbnail(testAccountScope(), withEvidence, PNG);
+    await saveThumbnail(testAccountScope(), withoutEvidence, PNG);
     // As such a picture's evidence reads: its bytes and inputs alone, or no
     // evidence at all for one older still.
     const evidence = path.join(dir, "data", "artifact-inputs", "thumbnails");

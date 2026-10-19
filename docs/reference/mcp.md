@@ -349,9 +349,9 @@ Direct multipart upload uses the separately configured upload limit.
 
 | | |
 |---|---|
-| Documented operations | 410 |
-| Operations that become tools | 156 |
-| Deliberately excluded | 254 |
+| Documented operations | 412 |
+| Operations that become tools | 157 |
+| Deliberately excluded | 255 |
 
 Measured by building the OpenAPI document and the tool set from
 `src/lib/api/openapi.ts` and `src/lib/tools/tools.ts` and counting the

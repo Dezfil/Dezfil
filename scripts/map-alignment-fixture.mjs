@@ -6,7 +6,10 @@ import { decodePng } from "./png-probe.mjs";
 
 export const ALIGNMENT_DATA = [26, 93, 74];
 export const ALIGNMENT_GROUND = [224, 48, 80];
-export const alignmentPoint = (sign) => [12, sign * 85.035];
+// About 440 world pixels from the pole at zoom 10: inside both the
+// 512px endpoint export and the 424px centre band of the padded builder's
+// saved view (1100px high, with 62px top and 14px bottom padding).
+export const alignmentPoint = (sign) => [12, sign * 85.025];
 export const alignmentBackground = (theme) => theme === "dark" ? "#1a2a3a" : "#f0e6c8";
 
 // At an unpadded endpoint camera, coverage puts the nearest world edge at

@@ -1,0 +1,23 @@
+import { isolatePictureData } from "@/lib/test-support/picture-data";
+import { afterAll, expect, it } from "vitest";
+import { EvaluationCancelled } from "@/lib/api/errors";
+import { renderMapImage } from "@/lib/export/render-image";
+import { testAccountScope } from "@/lib/test-support/accounts";
+import { closeMetadataDb } from "@/lib/metadata/db";
+import { cardDefinition } from "./card";
+isolatePictureData();
+afterAll(() => { delete process.env.DEZFIL_EXPORT_RENDER_CONCURRENCY; closeMetadataDb(); });
+it("interrupts a picture immediately at one slot so a person's check keeps its budget", async () => {
+  process.env.DEZFIL_EXPORT_RENDER_CONCURRENCY = "1";
+  const scope = testAccountScope();
+  const input = { mapId: "map", definition: cardDefinition({ lng: 0, lat: 0, zoom: 1 }, "light"), credential: "fixture", baseUrl: "http://fixture.test" };
+  let end!: () => void, killed = false;
+  const background = renderMapImage(scope, { ...input, background: true, budgetMs: 2000, driver: { launch: async () => ({ render: () => new Promise(resolve => { end = () => resolve({ png: new Uint8Array([1]) }); }), close: async () => {}, kill: () => { killed = true; end?.(); } }) } }).catch(error => error);
+  await new Promise(resolve => setTimeout(resolve, 15));
+  const foreground = await renderMapImage(scope, { ...input, budgetMs: 200, driver: { launch: async () => ({ render: async () => ({ png: new Uint8Array([2]) }), close: async () => {}, kill: () => {} }) } }).catch(error => error);
+  end();
+  const interrupted = await background;
+  expect(foreground).toMatchObject({ png: new Uint8Array([2]) });
+  expect(killed).toBe(true);
+  expect(interrupted).toBeInstanceOf(EvaluationCancelled);
+});

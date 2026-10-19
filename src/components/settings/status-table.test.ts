@@ -36,7 +36,7 @@ describe("the Status rows' words", () => {
     expect(partMeta("query_engine", read({ query_engine: { version: null, started: false, extensions: [] } }))).toEqual({ text: "DuckDB" });
     expect(partMeta("tile_builder", read())).toEqual({ text: "tippecanoe" });
     expect(partMeta("tile_builder", read({ tile_builder: { found: true, version: "2.79.0" } }))).toEqual({ text: "tippecanoe 2.79.0" });
-    expect(partMeta("image_renderer", read({ image_renderer: { found: true, imagesAtOnce: 3 } }))).toEqual({ text: "Chromium · 3 at once" });
+    expect(partMeta("image_renderer", read({ image_renderer: { found: true, available: true, imagesAtOnce: 3 } }))).toEqual({ text: "Chromium · 3 at once" });
     expect(partMeta("metadata_database", read())).toEqual({ text: "metadata.sqlite", mono: true });
   });
 
@@ -49,14 +49,14 @@ describe("the Status rows' words", () => {
       .toEqual({ tone: "on", text: "Ready" });
     for (const part of ["tile_builder", "image_renderer"] as const) {
       expect(partState(part, FRESH, "ready", null)).toEqual({ tone: "on", text: "Found" });
-      expect(partState(part, { ...FRESH, tile_builder: { found: false, version: null }, image_renderer: { found: false, imagesAtOnce: 2 } }, "ready", null))
+      expect(partState(part, { ...FRESH, tile_builder: { found: false, version: null }, image_renderer: { found: false, available: false, imagesAtOnce: 2 } }, "ready", null))
         .toEqual({ tone: "danger", text: "Not found" });
     }
     expect(partState("metadata_database", FRESH, "ready", null)).toEqual({ tone: "on", text: "Ready" });
   });
 
   it("follows a Test's answer where it decides the state, and the reads where it does not", () => {
-    const missing: PartStates = { ...FRESH, tile_builder: { found: false, version: null }, image_renderer: { found: false, imagesAtOnce: 2 } };
+    const missing: PartStates = { ...FRESH, tile_builder: { found: false, version: null }, image_renderer: { found: false, available: false, imagesAtOnce: 2 } };
     // A pass is the part working.
     expect(words("data_folder", FRESH, "unready", passed("data_folder"))).toBe("Writable");
     expect(words("query_engine", FRESH, "ready", passed("query_engine"))).toBe("Ready");

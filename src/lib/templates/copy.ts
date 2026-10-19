@@ -1,3 +1,4 @@
+import { notifyPicture } from "@/lib/pictures/hooks";
 import type { Database } from "better-sqlite3";
 import { randomBytes, randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
@@ -344,5 +345,6 @@ export async function copyTemplate(scope: AccountScope, id: string, request: Cop
     lease.release();
   }
   await savePictures(scope, made);
+  notifyPicture(made.mapId, { inherited: true });
   return { project: await projectOverview(scope, made.projectId), members: await projectMembers(scope, made.projectId) };
 }

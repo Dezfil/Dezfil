@@ -1,3 +1,4 @@
+import { recordPictureInputs } from "@/lib/pictures/inputs";
 import type { AccountScope } from "@/lib/auth/scope";
 import { requireReachable } from "@/lib/auth/reach";
 import { getTileRecord, type TileRecord } from "@/lib/metadata/tiles";
@@ -29,5 +30,7 @@ export async function readPrivateTile(scope: AccountScope, layerId: string, z: n
   const tile = await readTile(layerId, z, x, y);
   const after = getTileRecord(layerId);
   if (!sameArchive(before, after) || !archiveServable(access, tileArchiveAttribution(layerId, after))) throw tilesUnavailable();
+  const attribution = tileArchiveAttribution(layerId, after);
+  recordPictureInputs(scope, layerId, typeof attribution === "object" ? attribution.inputs : null);
   return tile;
 }

@@ -1,3 +1,4 @@
+import { notifyPicture } from "@/lib/pictures/hooks";
 import { requireRequestScope } from "@/lib/auth/scope-http";
 import { NextResponse } from "next/server";
 import { errorResponse } from "@/lib/api/errors";
@@ -15,6 +16,7 @@ export async function POST(_request: Request, { params }: Params) {
     const copy = duplicateMap(scope, id);
     // The copy keeps the original's snapshot until its own first capture.
     await copyThumbnail(scope, id, copy.id);
+    notifyPicture(copy.id, { inherited: true });
     return NextResponse.json(
       { ...copy, ...mapPresence(scope, copy.id) },
       { status: 201 },

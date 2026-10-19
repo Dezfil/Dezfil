@@ -1,4 +1,5 @@
 import { registerExistingAccountFile } from "@/lib/ingest/file-ownership";
+import { notifyPictureData } from "@/lib/pictures/hooks";
 import type { Database } from "better-sqlite3";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { requireOwnedResource, resourceAbsent } from "@/lib/auth/owned-resource";
@@ -37,7 +38,9 @@ export function ownedTableNames(scope: AccountScope, db: Database = metadataDb()
 }
 export function deleteOwnedTable(scope: AccountScope, table: Pick<DataTable, "id" | "name">, db: Database = metadataDb()): boolean {
   const owner = requireAccountScope(scope, db);
-  return db.prepare("DELETE FROM data_tables WHERE owner_id = ? AND id = ? AND name = ?").run(owner, table.id, table.name).changes > 0;
+  const deleted = db.prepare("DELETE FROM data_tables WHERE owner_id = ? AND id = ? AND name = ?").run(owner, table.id, table.name).changes > 0;
+  if (deleted) notifyPictureData(table.id);
+  return deleted;
 }
 export function updateOwnedTableData(scope: AccountScope, ref: { id: string; name: string; file?: string }, update: TableDataUpdate, db: Database = metadataDb()): boolean {
   return db.transaction(() => {

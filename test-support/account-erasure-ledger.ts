@@ -7,7 +7,7 @@ import { erasureInventory } from "../src/lib/auth/account-erasure-inventory";
 import type { ErasureProbe } from "./account-erasure-proof";
 
 type Row = Record<string, unknown> & { _row: number };
-export const contentTables = ["maps", "layers", "map_history", "layer_tiles", "data_tables", "pg_connections", "recipes", "recipe_steps", "recipe_layouts", "cascade_runs", "cascade_members", "operation_jobs", "step_runner_outputs", "lineage_edges", "project_datasets"];
+export const contentTables = ["maps", "layers", "map_pictures", "map_history", "layer_tiles", "data_tables", "pg_connections", "recipes", "recipe_steps", "recipe_layouts", "cascade_runs", "cascade_members", "operation_jobs", "step_runner_outputs", "lineage_edges", "project_datasets"];
 /** The fixture assigns expectations when it creates a row. It never consumes
  * the erasure service's captured inventory, counts or reported deletions. */
 export function erasureLedger() {
@@ -33,6 +33,7 @@ export function erasureLedger() {
   for (const owner of ["target", "target-near"]) for (const filing of ["target", "target-near"]) {
     const id = `${owner}-in-${filing}`, gone = owner === "target" ? "content" : undefined;
     add("maps", { id, name: "same map", ...time, owner_id: owner, home_account_id: "target", project_id: `project-${filing}`, last_changed_by: "target", publish_token: `publication-${id}`, published_at: time.created_at }, gone);
+    add("map_pictures", { map_id: id, digest: "drawing", drawing_changed_at: 1, requested_at: 1, next_attempt_at: 1 }, gone);
     add("layers", { id: `layer-${id}`, map_id: id, name: "layer", sql: 'SELECT * FROM target.same_dataset', style: '{}', ordinal: 0, ...time }, gone);
     add("layer_tiles", { layer_id: `layer-${id}`, state: "ready", fingerprint: `fingerprint-${id}`, updated_at: time.updated_at }, gone);
     add("map_history", { id: `history-${id}`, map_id: id, seq: 1, scope: "map", target_id: id, op: "update", before: '{}', after: '{"name":"same map"}', created_at: time.created_at, author_id: "target" }, gone);

@@ -1,5 +1,4 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { setTimeout as sleep } from "node:timers/promises";
@@ -97,11 +96,14 @@ function program(name: string, body: string): { file: string; started: () => boo
   return { file, started: () => existsSync(log) };
 }
 
-/** Whether a process runs: one killed and not yet reaped is a zombie,
- * gone though its id still stands. */
+/** Probe this fixture's own PID without a process-table command. A zombie
+ * still counts as present: the next browser must start after it is reaped. */
 function running(pid: number): boolean {
-  const state = spawnSync("ps", ["-o", "stat=", "-p", String(pid)], { encoding: "utf8" }).stdout.trim();
-  return state !== "" && !state.startsWith("Z");
+  try { process.kill(pid, 0); return true; }
+  catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ESRCH") return false;
+    throw error;
+  }
 }
 
 /** The check picture as the page draws it, or a flat one. */
@@ -224,7 +226,10 @@ describe("the image renderer's Test", () => {
     const leaving = new AbortController();
     try {
       const asked = Date.now();
-      expect(await test()).toEqual({ part: "image_renderer", result: "failed", reason: "timed_out" });
+      const pending = test();
+      await vi.waitFor(() => expect(started()).toHaveLength(1));
+      expect(running(started()[0]), "the liveness probe must detect the running fixture").toBe(true);
+      expect(await pending).toEqual({ part: "image_renderer", result: "failed", reason: "timed_out" });
       expect(Date.now() - asked).toBeLessThan(PART_TEST_LIMITS.image_renderer * 1000 + 2000);
       const [first] = started();
       expect(first).toEqual(expect.any(Number));

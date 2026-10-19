@@ -586,7 +586,7 @@ revisions while their pre-existing last changer and history authors remain
 runs retain their stored initiator; older run records adopted into the original
 account show that adopted initiator, not a newly inferred historical author.
 The next accepted covered change records its real actor. Saved camera motion,
-thumbnail capture and refused saves do not assign an author.
+server picture work and refused saves do not assign an author.
 
 Clients that write maps or workflows must now read an edit revision and carry it
 on each covered write. Formerly bodyless covered successes return JSON with the

@@ -2,6 +2,7 @@
 // Keep every dependency in the renderer's network namespace.
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
+import { pathToFileURL } from "node:url";
 
 // Opaque neutral gray: no data hue, dark ink or attribution-gray signal.
 const TILE = Buffer.from(
@@ -9,7 +10,7 @@ const TILE = Buffer.from(
   "base64",
 );
 
-export async function startLoopbackBasemap() {
+export async function startLoopbackBasemap(port = 0) {
   let styles = 0;
   /** @type {Map<number, number>} */
   const tiles = new Map();
@@ -20,7 +21,7 @@ export async function startLoopbackBasemap() {
   };
   const server = createServer((req, res) => {
     const url = new URL(req.url ?? "/", "http://127.0.0.1");
-    if (req.method === "GET" && url.pathname === "/style.json") {
+    if (req.method === "GET" && ["/style.json", "/light/style.json", "/dark/style.json"].includes(url.pathname)) {
       styles += 1;
       res.writeHead(200, { ...headers, "content-type": "application/json" });
       res.end(JSON.stringify({
@@ -33,7 +34,8 @@ export async function startLoopbackBasemap() {
             maxzoom: 22,
           },
         },
-        layers: [{ id: "fixture", type: "raster", source: "fixture" }],
+        layers: [{ id: "fixture", type: "raster", source: "fixture",
+          ...(url.pathname === "/dark/style.json" ? { paint: { "raster-brightness-max": 0.15 } } : {}) }],
       }));
       return;
     }
@@ -50,7 +52,7 @@ export async function startLoopbackBasemap() {
   });
   await new Promise((resolve, reject) => {
     server.once("error", reject);
-    server.listen(0, "127.0.0.1", () => {
+    server.listen(port, "127.0.0.1", () => {
       server.off("error", reject);
       resolve(undefined);
     });
@@ -83,6 +85,14 @@ export async function startLoopbackBasemap() {
       });
     },
   };
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  const port = Number(process.argv[2]);
+  assert.ok(Number.isInteger(port) && port > 0 && port <= 65535 && port !== 3000, "Supply a separate loopback fixture port");
+  const fixture = await startLoopbackBasemap(port);
+  console.log(fixture.styleUrl);
+  for (const signal of ["SIGINT", "SIGTERM"]) process.once(signal, () => { void fixture.close(); });
 }
 
 /** A successful PNG with zero traffic is only an offline fallback. */

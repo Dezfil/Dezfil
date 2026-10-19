@@ -48,6 +48,10 @@ export type Boundary = keyof typeof AUTHORIZATION_BOUNDARIES;
  */
 export const OWNER_QUERY_MODULES: Record<string, readonly Boundary[]> = {
   "src/lib/auth/owned-resource.ts": ["projectReachable", "ownerOnly", "initiatorPrivate"],
+  // Picture work reads its map owner under an active-account check.
+  "src/lib/auth/scope.ts": ["projectReachable"],
+  // Deactivation revokes picture work only for maps belonging to that owner.
+  "src/lib/metadata/migrations.ts": ["projectReachable"],
   "src/lib/auth/reach.ts": ["projectReachable"],
   "src/lib/auth/account-deletion-work.ts": ["projectReachable"],
   "src/lib/auth/account-deletion-preview.ts": ["projectReachable", "ownerOnly"],

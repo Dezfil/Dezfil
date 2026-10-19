@@ -23,8 +23,8 @@ function pageRequests(page: Page) {
   const seen: string[] = [];
   const listen = (request: { url: () => string; method: () => string }) => {
     const url = new URL(request.url());
-    // The builder's card image is written on its own timer, 2.5 s after
-    // the map last drew, whatever the pane does; it is not a dispatch.
+    // The builder still attempts its timed capture while the retired upload
+    // refuses it. That background request is unrelated to clearing the pane.
     if (request.method() === "PUT" && /^\/api\/maps\/[^/]+\/thumbnail$/.test(url.pathname)) return;
     if (url.pathname.startsWith("/api/")) seen.push(`${request.method()} ${url.pathname}`);
   };

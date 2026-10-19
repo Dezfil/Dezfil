@@ -1,3 +1,4 @@
+import { notifyPictureData } from "@/lib/pictures/hooks";
 import { requireOwnedResource } from "@/lib/auth/owned-resource";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import type { Database } from "better-sqlite3";
@@ -185,6 +186,7 @@ export function insertTable(scope: AccountScope, t: DataTable, db: Database = me
     t.importedAt,
     serializeGeometryStorage(t),
   );
+  notifyPictureData(t.id);
 }
 
 /** The measured facts a refresh replaces after an atomic re-import. */
@@ -238,6 +240,7 @@ export function updateTableData(
        WHERE name = ? AND id = ?${ref.file !== undefined ? " AND file = ?" : ""}`,
     )
     .run(...values);
+  if (info.changes > 0) notifyPictureData(ref.id);
   return info.changes > 0;
 }
 

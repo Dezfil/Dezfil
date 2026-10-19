@@ -24,8 +24,10 @@ import { POLICY_REFUSAL_CODE } from "./policy";
  * Clearing the services' caches adds one, and a service's Test one. A
  * part's Test adds one, and the storage read one. The basemap library adds
  * three: add, offer or hide, remove. Templates add list, read one,
- * refresh, fetch, copy and the removal of the downloads. */
-const GENERATED_TOOLS = 156;
+ * refresh, fetch, copy and the removal of the downloads.
+ * Server map pictures add one refresh operation; the retired upload stays excluded.
+ * Renderer availability and refresh's waiting-only response update output captures without changing the count. */
+const GENERATED_TOOLS = 157;
 
 describe("the page action policy is documented", () => {
   const document = buildOpenApiDocument();

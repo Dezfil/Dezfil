@@ -30,8 +30,8 @@ describe("the default offer", () => {
     expect(omittedFromOffer(undefined, "full", tools, "subset")).toEqual([]);
   });
   it("narrows each page to its own work: the sizes the measurement compares", () => {
-    // 40: the map check (look_at_map) is builder work; its image read is offered on no page.
-    expect(defaultOffer("builder", "full", tools, "subset")).toHaveLength(40);
+    // Map checks and picture refresh are builder work; the image read is offered on no page.
+    expect(defaultOffer("builder", "full", tools, "subset")).toHaveLength(41);
     expect(defaultOffer("sql", "read_only", tools, "subset")).toHaveLength(12);
     expect(defaultOffer("workflow", "read_only", tools, "subset")).toHaveLength(18);
     // A write is never offered where it is not admitted, whatever its relevance.

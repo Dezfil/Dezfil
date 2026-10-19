@@ -13,7 +13,7 @@ const FINAL_STATEMENT = "CREATE INDEX idx_lineage_edges_runner ON lineage_edges(
 let priorColumns: Record<string, string[]>;
 /** The tables this entry adds, and the basemap library's, which a later
  * entry adds with nothing in it. */
-const ADDED_TABLES = new Set(["project_people", "ownership_transfer_gate", "step_runner_outputs", "basemap_styles"]);
+const ADDED_TABLES = new Set(["project_people", "ownership_transfer_gate", "step_runner_outputs", "basemap_styles", "map_pictures"]);
 const now = "2026-01-01T00:00:00.000Z";
 let directory: string, file: string, db: Database.Database;
 

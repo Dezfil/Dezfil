@@ -141,7 +141,7 @@ const otherTheme = (theme: ThumbnailTheme): ThumbnailTheme =>
   theme === "light" ? "dark" : "light";
 
 /** Write whole, then rename into place: a reader never sees a partial file. */
-async function writeAtomically(target: string, bytes: Uint8Array | string, authorize: () => void) {
+async function writeAtomically(target: string, bytes: Uint8Array | string, authorize: () => void, published?: () => void) {
   await mkdir(path.dirname(target), { recursive: true });
   authorize();
   const temp = `${target}.${randomBytes(6).toString("hex")}.tmp`;
@@ -150,6 +150,7 @@ async function writeAtomically(target: string, bytes: Uint8Array | string, autho
     // Authorization and publication share one event-loop turn.
     authorize();
     renameSync(temp, target);
+    published?.();
   } catch (error) {
     await observeDeletionCleanup(() => rm(temp, { force: true }));
     throw error;
@@ -177,6 +178,7 @@ async function readSet(mapId: string): Promise<ThumbnailSet | null> {
       return null;
     }
     const lightCycle = parsed.light.slice(mapId.length + 1, -".light.png".length);
+    if (parsed.dark === parsed.light && isThumbnailCycle(lightCycle) && parsed.light === thumbnailSetFile(mapId, lightCycle, "light")) return { light: parsed.light, dark: parsed.dark };
     const darkCycle = parsed.dark.slice(mapId.length + 1, -".dark.png".length);
     if (!isThumbnailCycle(lightCycle) || lightCycle !== darkCycle ||
       parsed.light !== thumbnailSetFile(mapId, lightCycle, "light") ||
@@ -522,3 +524,62 @@ export function copyThumbnail(scope: AccountScope, from: string, to: string): Pr
 
 export function thumbnailMutationIds(): string[] { return [...turns.keys()]; }
 export function thumbnailTurnForTests(mapId: string): Promise<unknown> | undefined { return turns.get(mapId); }
+
+/** Server candidates use fresh names for single images too, so switching
+ * between one and two appearances is one atomic publication. */
+export function savePictureSet(scope: AccountScope, mapId: string, images: { light: Uint8Array; dark?: Uint8Array },
+  inputs: ArtifactInputs, basemaps: { light: DrawnBasemap; dark?: DrawnBasemap }, generation: number,
+  check: () => void, published: () => void): Promise<void> {
+  requireOwnMap(scope, mapId);
+  const lease = admitResourceWork(scope, [{ table: "maps", id: mapId }]);
+  const authorize = () => { requireOwnMap(scope, mapId); lease.assertCommit(); check(); };
+  return inDeletionWork(lease, () => inThumbnailTurn(mapId, async () => {
+    bindDeletionDatasets(inputs.datasets.map(input => input.id));
+    authorize();
+    const cycle = randomBytes(12).toString("hex");
+    const light = thumbnailSetFile(mapId, cycle, "light");
+    const dark = images.dark ? thumbnailSetFile(mapId, cycle, "dark") : light;
+    const next = { light, dark };
+    try {
+      for (const theme of images.dark ? THUMBNAIL_THEMES : ["light"] as const) {
+        await writeImageCandidate(next[theme], inDir(next[theme]), images[theme]!, { inputs, basemap: basemaps[theme]!, generation }, authorize);
+      }
+      await writeAtomically(thumbnailManifestPath(mapId), JSON.stringify(next), authorize, published);
+    } catch (error) {
+      // Never remove names already made authoritative by the switch.
+      const current = await readSet(mapId);
+      if (current?.light !== light) await Promise.all([...new Set([light, dark])].map(removeImage));
+      throw error;
+    }
+    await removeImage(path.basename(thumbnailPath(mapId)));
+    await retireUnreferenced(mapId, next);
+  })).finally(() => lease.release());
+}
+
+/** The generation is trusted only when every named image exists and its
+ * byte-bound evidence agrees. Old files deliberately answer no generation. */
+export async function publishedPictureGeneration(mapId: string): Promise<number | null> {
+  return queueTurn(mapId, async () => {
+    const set = await readSet(mapId);
+    const names = set ? [...new Set([set.light, set.dark])] : [path.basename(thumbnailPath(mapId))];
+    let generation: number | undefined;
+    for (const name of names) {
+      try {
+        const found = (await imageEvidence(name, await readFile(inDir(name)))).generation;
+        if (found === undefined || (generation !== undefined && found !== generation)) return null;
+        generation = found;
+      } catch { return null; }
+    }
+    return generation ?? null;
+  });
+}
+
+/** Evidence of the currently named bytes, for freshness checks at a look. */
+export async function publishedPictureInputs(mapId: string): Promise<ArtifactInputs | null> {
+  return queueTurn(mapId, async () => {
+    const set = await readSet(mapId);
+    const name = set?.light ?? path.basename(thumbnailPath(mapId));
+    try { return (await imageEvidence(name, await readFile(inDir(name)))).inputs; }
+    catch { return null; }
+  });
+}

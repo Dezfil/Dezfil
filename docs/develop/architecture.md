@@ -116,8 +116,8 @@ creates it and proves it writable (`src/lib/data-dir.ts`).
 | `tables/` | Dataset artifacts, one Parquet file per dataset, named by identifier. This is the durable form of every table. |
 | `tiles/` | One PMTiles archive per tiled layer. |
 | `tiles/scratch/` | The one place the hardened engine may write. Tile builds export here and the finished archive is renamed one level up. |
-| `thumbnails/` | Map card images, with a small manifest per map when a map carries one image per theme. |
-| `artifact-inputs/tiles/`, `artifact-inputs/thumbnails/` | What each tile archive and card image drew: the dataset identities and artifacts, one small file per archive or image. Lost evidence leaves its artifact unattributed, served to the map's owner alone. |
+| `thumbnails/` | Server-rendered map card images, 692 by 296 pixels. An atomic manifest selects a complete theme pair or one fixed-ground image. |
+| `artifact-inputs/tiles/`, `artifact-inputs/thumbnails/` | What each tile archive and card image drew: the dataset identities and artifacts, one small file per archive or image; server picture evidence also carries its published generation. Lost evidence leaves its artifact unattributed, served to the map's owner alone. |
 | `exports/` | Staging for project exports. Old siblings are swept as new ones are assembled. |
 | `cache/overpass/`, `cache/geocode/`, `cache/isochrone/` | Provider answer caches, each with its own size and freshness budget. |
 | `tmp/` | Scratch for uploads, downloads and exports in flight. Swept whole at boot. |
@@ -145,6 +145,12 @@ Each repository owns one concern: datasets, maps and layers, tile build
 records, workflows and their steps, canvas layouts, cascades, run records,
 lineage edges, per-map undo history, projects, connections, palettes, and
 settings.
+
+`map_pictures` is a cascading child of its map. It stores the drawing digest,
+requested and published generations, last drawing-change time, work state,
+retry deadline, scheduling bindings and the current attempt's expiring work
+credential hash and consumed inputs. These are derived work, outside the
+map's edit revision, history and attribution.
 
 ## A layer is its SQL
 
@@ -219,6 +225,35 @@ origin under `public/workers/`. `src/lib/maplibre.ts` configures their URL
 before maps are constructed, so bundled pages and offline image exports
 use the same assets. Their bytes are checked against the installed package
 in the unit suite and against the built container by its inventory check.
+
+Map pictures use the same server renderer at 990 by 424 pixels with the
+saved camera at scale 1, then reduce to 692 by 296. They omit title, legend,
+widgets and in-image credit. Auto produces a light/dark pair; other basemaps
+produce one image. The page declares its painted style and unsupported
+layers; incomplete or abandoned work never publishes. A whole set's manifest
+is replaced before the matching row generation is committed. Startup and
+hourly looks reconcile an interrupted handoff without serving a partial pair.
+
+Committed drawing and bound-data changes wait five quiet seconds. Data events
+coalesce before scheduling: stored inputs select the maps to resolve, with
+unresolved bindings and catalogue readers included. Looks reuse successful
+bindings while the saved drawing and its input artifacts agree. Failures
+retry at once, after one minute, after ten minutes, then hourly. A lane
+interruption requeues without spending a failed attempt. Unsupported drawings
+wait for a changed request or an explicit refresh. Startup waits for the HTTP
+listener; each hourly look also checks renderer recovery and old pictures
+awaiting their one-time replacement. Missing and stale work comes first.
+The background lane leaves a foreground slot free when capacity permits;
+at one slot a person's arrival interrupts picture work. Each appearance's
+30-second budget starts after admission. Requests retain the previous picture.
+The System renderer Test takes only a slot free now and does not interrupt
+pictures. At one slot it can answer `busy` for the duration of a picture render.
+
+An attempt runs as the stored active owner through a short-lived, read-only
+credential restricted to that map's render inputs. Actual layer evaluations
+and served tile archives record inputs under the attempt. Publication rechecks
+the saved drawing, requested generation, owner standing and current reachable
+inputs. Dependency scans schedule work but never attribute image bytes.
 
 ## Hexagons and H3
 

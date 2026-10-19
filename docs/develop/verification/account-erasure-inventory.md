@@ -74,6 +74,13 @@ whole-cache purges and empty fixtures. Those tests establish the oracle's refusa
 mechanism. They do not claim that the account cleanup implementation has erased
 all stores; each cleanup delivery must bind and run its product-store fixtures.
 
+Picture dependency scheduling holds coalesced dataset identities and an
+in-progress resolution. Its populated proof in
+`src/lib/pictures/data-erasure.test.ts` observes the pending identities directly,
+requires the resolution to drain, then clears both accounts' pending entries
+while an account-table control stays unchanged. Renderer availability flags and
+the scheduling clock retain no account content.
+
 Run the discovery and proof-oracle suites without a listener:
 
 ```sh

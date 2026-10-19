@@ -1,3 +1,4 @@
+import { notifyPicture } from "@/lib/pictures/hooks";
 import { documentFacts, type DocumentFacts } from "./metadata/document-facts";
 import { recordDocumentChanges, requireDocumentRevision } from "@/lib/metadata/revisions";
 import { randomUUID } from "node:crypto";
@@ -77,7 +78,7 @@ export async function createLayer(
     createdAt: now,
     updatedAt: now,
   };
-  return metadataDb().transaction(() => {
+  const committed = metadataDb().transaction(() => {
     const arrangement = requireMapFor(scope, mapId, "edit").legendOrder;
     recheckSaved(scope, saved);
     requireDocumentRevision(scope, { kind: "map", id: mapId, expectedRevision: opts.expectedRevision });
@@ -99,6 +100,8 @@ export async function createLayer(
     if (arrangement) enterArrangement(scope, mapId, layer.id, arrangement, groupId);
     return { ...layer, ...documentFacts({ kind: "map", id: mapId }) };
   })();
+  notifyPicture(committed.mapId);
+  return committed;
 }
 
 /** Duplicate a layer in place: full copy — SQL, style, tooltip, legend flag —
@@ -108,7 +111,7 @@ export function duplicateLayer(
   id: string,
   opts: { groupId?: string | null; expectedRevision?: unknown } = {},
 ): Layer & DocumentFacts {
-  return metadataDb().transaction(() => {
+  const committed = metadataDb().transaction(() => {
     const source = requireLayerFor(scope, id, "edit");
     requireDocumentRevision(scope, { kind: "map", id: source.mapId, expectedRevision: opts.expectedRevision });
     const now = new Date().toISOString();
@@ -139,4 +142,6 @@ export function duplicateLayer(
       enterArrangement(scope, source.mapId, copy.id, arrangement, groupId);
     return { ...copy, ...documentFacts({ kind: "map", id: source.mapId }) };
   })();
+  notifyPicture(committed.mapId);
+  return committed;
 }

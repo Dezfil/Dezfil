@@ -16,11 +16,11 @@ let directory: string, file: string, db: Database.Database;
  * table; these checks compare the store as the identity migration left it,
  * every other byte included. */
 const LATER_TOKEN_COLUMN = ", expires_at INTEGER)";
-const LATER_TABLES = new Set(["basemap_styles"]);
+const LATER_TABLES = new Set(["basemap_styles", "map_pictures"]);
 function schema() {
   return (db.prepare("SELECT type, name, tbl_name, sql FROM sqlite_master WHERE NOT (type = 'table' AND name = 'accounts') ORDER BY type, name").all() as
     { type: string; name: string; tbl_name: string; sql: string | null }[])
-    .filter(entry => !LATER_TABLES.has(entry.tbl_name))
+    .filter(entry => !LATER_TABLES.has(entry.tbl_name) && entry.name !== "revoke_picture_work_on_inactive_owner")
     .map(entry => entry.type === "table" && entry.name === "auth_tokens" && entry.sql?.endsWith(LATER_TOKEN_COLUMN)
       ? { ...entry, sql: entry.sql.slice(0, -LATER_TOKEN_COLUMN.length) + ")" } : entry);
 }

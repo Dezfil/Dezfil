@@ -40,10 +40,12 @@ it.each(["delete", "upgrade"])("removes workflow runs and members on %s while th
   const survivorRun = createCascade(survivor.id, "run_all", []);
   if (mode === "delete") expect(deleteRecipe(recipe.id)).toBe(true);
   else {
-    // The old deletion left its runs behind. Its schema is otherwise unchanged.
+    // Recreate the preceding schema; lowering only its version would replay
+    // later table creation against tables that already exist.
     db.prepare("DELETE FROM recipes WHERE id = ?").run(recipe.id);
     const cleanup = MIGRATIONS.findIndex(sql => /DELETE FROM cascade_runs WHERE NOT EXISTS/.test(sql));
     expect(cleanup).toBeGreaterThanOrEqual(0);
+    db.exec("DROP TRIGGER revoke_picture_work_on_inactive_owner; DROP TABLE map_pictures");
     db.pragma(`user_version = ${cleanup}`);
     expect(getCascade(run.id)).not.toBeNull();
     closeMetadataDb();

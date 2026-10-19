@@ -29,6 +29,7 @@ export const PART_STATES_SCHEMA = {
     }),
     image_renderer: object({
       found: { type: "boolean", description: "Whether an executable file is where the image renderer's browser setting points (a bare name looked up on the search path), by a file check alone." },
+      available: { type: "boolean", description: "Whether the picture service can use the renderer: an executable is found and no launch refusal is awaiting the next startup or hourly look. This read launches nothing and does not clear a refusal." },
       imagesAtOnce: { type: "integer", minimum: 1, description: "Images at once in effect." },
     }),
     metadata_database: object({ file: { type: "string", description: "The metadata database's file name, without its folder." } }),

@@ -1,0 +1,67 @@
+import { isolatePictureData } from "@/lib/test-support/picture-data";
+import { afterAll, beforeEach, expect, it, vi } from "vitest";
+const held = vi.hoisted(() => ({ begun: Promise.withResolvers<void>(), finish: Promise.withResolvers<void>() }));
+vi.mock("@/lib/export/render-image", () => ({ renderMapImage: async () => { held.begun.resolve(); await held.finish.promise; throw new Error("Stopped render"); } }));
+import { createMap } from "@/lib/map-service";
+import { closeMetadataDb, metadataDb } from "@/lib/metadata/db";
+import { testAccountScope } from "@/lib/test-support/accounts";
+import { pictureWorkScope } from "@/lib/auth/scope";
+import { admittedReads, drainAccountWork } from "@/lib/auth/account-deletion-admission";
+import { throughTransferGate } from "@/lib/metadata/ownership-transfer";
+import { PictureService } from "./service";
+import { mintPictureCredential } from "./credential";
+import { getPictureState, requestPicture } from "./state";
+import { pictureTarget, publishPicture } from "./publication";
+import { NO_INPUTS } from "@/lib/query/evaluation-inputs";
+isolatePictureData();
+beforeEach(() => { metadataDb().prepare("DELETE FROM maps").run(); });
+afterAll(closeMetadataDb);
+it("deactivation permanently revokes existing work even after reactivation", () => {
+  const scope = testAccountScope(undefined, "revoked"), map = createMap(scope, "Revocation");
+  requestPicture(map.id, "drawing", Date.now());
+  const credential = mintPictureCredential(map.id, Date.now() + 60000);
+  metadataDb().prepare("UPDATE accounts SET status = 'deactivated' WHERE id = ?").run(scope.accountId);
+  metadataDb().prepare("UPDATE accounts SET status = 'active' WHERE id = ?").run(scope.accountId);
+  expect(() => pictureWorkScope(credential)).toThrow();
+});
+it.each(["delete", "transfer", "deactivate"])("late publication cannot cross %s", async action => {
+  const scope = testAccountScope(undefined, `owner-${action}`), next = testAccountScope(undefined, `next-${action}`), map = createMap(scope, action);
+  const target = pictureTarget(scope, map.id), state = requestPicture(map.id, target.digest, Date.now());
+  if (action === "delete") metadataDb().prepare("DELETE FROM maps WHERE id = ?").run(map.id);
+  if (action === "deactivate") metadataDb().prepare("UPDATE accounts SET status = 'deactivated' WHERE id = ?").run(scope.accountId);
+  if (action === "transfer") throughTransferGate({ kind: "map", id: map.id, from: scope.accountId, to: next.accountId }, metadataDb(), () => metadataDb().prepare("UPDATE maps SET owner_id = ? WHERE id = ?").run(next.accountId, map.id));
+  await expect(publishPicture(scope, target, state.requestedGeneration, { light: Buffer.from("late"), dark: Buffer.from("late") }, NO_INPUTS)).rejects.toThrow();
+  expect(getPictureState(map.id)?.publishedGeneration ?? 0).toBe(0);
+});
+it("populated running work drains and releases its map while queued inactive work never launches", async () => {
+  const scope = testAccountScope(undefined, "running"), map = createMap(scope, "Running");
+  let now = Date.now();
+  const service = new PictureService({ baseUrl: "http://fixture.test", available: () => true, now: () => now });
+  await service.request(map.id); now += 5000; service.queue.tick(); await held.begun.promise;
+  expect(service.queue.busy).toBe(true); expect(admittedReads(scope.accountId)).toBeGreaterThan(0);
+  metadataDb().prepare("UPDATE accounts SET status = 'deactivated' WHERE id = ?").run(scope.accountId);
+  let drained = false; const draining = drainAccountWork(scope.accountId).then(() => { drained = true; });
+  await new Promise(resolve => setImmediate(resolve)); expect(drained).toBe(false);
+  held.finish.resolve(); await service.queue.drain(); await draining;
+  expect(service.queue.busy).toBe(false); expect(admittedReads(scope.accountId)).toBe(0);
+  now += 3600000; service.queue.tick(); expect(service.queue.busy).toBe(false);
+  expect(getPictureState(map.id)?.publishedGeneration).toBe(0);
+});
+
+it("deactivation preserves current pictures while invalidating pending work", async () => {
+  const scope = testAccountScope(undefined, "current-owner");
+  const current = createMap(scope, "Current"), pending = createMap(scope, "Pending");
+  const target = pictureTarget(scope, current.id);
+  const state = requestPicture(current.id, target.digest, Date.now());
+  await publishPicture(scope, target, state.requestedGeneration, { light: Buffer.from("light"), dark: Buffer.from("dark") }, NO_INPUTS);
+  requestPicture(pending.id, "drawing", Date.now());
+  const before = getPictureState(current.id), queued = getPictureState(pending.id)!;
+  metadataDb().prepare("UPDATE accounts SET status = 'deactivated' WHERE id = ?").run(scope.accountId);
+  metadataDb().prepare("UPDATE accounts SET status = 'active' WHERE id = ?").run(scope.accountId);
+  expect(getPictureState(current.id)).toEqual(before);
+  expect(getPictureState(pending.id)?.requestedGeneration).toBe(queued.requestedGeneration + 1);
+  const launches: string[] = [];
+  const service = new PictureService({ baseUrl: "http://fixture.test", now: () => Date.now() + 10000, available: () => true, run: async row => { launches.push(row.mapId); } });
+  await service.look(); await service.queue.drain();
+  expect(launches).not.toContain(current.id);
+});

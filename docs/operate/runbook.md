@@ -684,12 +684,21 @@ image carries what the source tree does not:
 - `tippecanoe`, compiled from source in its own build stage, so tiled
   rendering works without a host install;
 - Chromium plus a certificate bundle and fallback fonts, driven through
-  software GL by the server-side image export (`DEZFIL_CHROMIUM_PATH`);
+  software GL by server-side image exports, appearance checks and map card pictures (`DEZFIL_CHROMIUM_PATH`);
 - the DuckDB extension bundle, baked at build time into
   `/app/duckdb-extensions`, so a running instance needs no network;
 - the native packages the standalone tracer misses, copied in whole;
 - `public/`, `LICENSE`, `NOTICE` and the model catalogue file at its
   source-relative path, copied explicitly.
+
+Without the renderer, map listings report `pictureState: unavailable`,
+refresh answers `outcome: unavailable`, and existing pictures stay served.
+The admin System read, `GET /api/instance/settings`, reports this as
+`parts.image_renderer.available`; `found` separately reports file presence.
+The System tab currently shows file presence. Install or restore the configured
+executable; the hourly look discovers recovery without an edit. A launch refusal
+also holds picture work unavailable until that look, even if the file exists.
+Map pictures are made on the server even when nobody opens their builder.
 
 It runs as the unprivileged `node` user, exposes 3000 and declares `/data`
 as its volume. Two checks belong to the image, not the source tree:
@@ -704,6 +713,186 @@ The first fails when `/app` holds anything outside the checked-in
 allowlist, or when repository metadata, a data directory, database or key
 material, or environment files appear anywhere. The second proves every
 supported extension loads with the network disabled.
+
+## Map picture proofs
+
+Build and provision a production instance in a separate checkout with its own
+scratch data directory, a real image renderer and tile builder. After building,
+provision the standalone as in [the project departure proof](#project-departure-proof-on-a-production-standalone):
+copy `public` to `.next/standalone/public`, `.next/static` to
+`.next/standalone/.next/static`, and the complete native packages (`@duckdb`,
+`better-sqlite3`, `bindings`, `file-uri-to-path`) into its `node_modules`.
+Copy the ingress preload and its supporting files at the same relative paths,
+as that recipe describes. The traced standalone alone cannot render these proofs.
+Use a port other than the development listener. Auto must be unpinned and its light and
+dark style hosts reachable. Create a disposable account token on that instance.
+The proof creates and deletes its own maps, never opens their builders, and
+rejects the development port before making a request.
+
+```sh
+mkdir -p .claude/scratch
+export DEZFIL_DATA_DIR=$(mktemp -d "$PWD/.claude/scratch/pictures-XXXXXXXX")
+export DEZFIL_PICTURE_TEST_URL=http://127.0.0.1:3581
+export DEZFIL_PICTURE_TEST_TOKEN=disposable-account-token
+fnm exec --using=24 npm test -- src/lib/pictures/pictures.real-render.test.ts --maxWorkers=2
+```
+
+Remove that test process's scratch directory after the run. The instance has
+its own independent scratch directory. The test checks all three computed
+mark positions at 692 by 296 in both appearances, then unsupported tiled
+live filters and a layer that fails after save admission. The pixel oracle's
+flat-image control and listener guard run without a server in
+`src/lib/pictures/real-proof-controls.test.ts`. A skipped real-render test is
+not evidence of a rendered picture.
+
+The independent framing proof opens the real builder at 1440 by 900, flat
+and pitched. It measures its visible 988 by 824 map window and compares mark
+offsets around the saved centre against the card after reduction, within four
+pixels. It attaches both images and the numeric errors. Keep loopback style
+requests allowed in the isolated instance's egress policy.
+
+```sh
+DEZFIL_BASE_URL=http://127.0.0.1:3581 npx playwright test e2e/picture-framing.spec.ts --project=chromium
+```
+
+Use the style fixture only on the migrated theme suite's instance. Keep it off
+the real-render and framing instance. For the migrated theme suite, copy
+`scripts/pictures-browser-fixture-preload.mjs` into `.next/standalone/scripts/`
+and load that copy: add `--import=./scripts/pictures-browser-fixture-preload.mjs`
+while launching from `.next/standalone`, and set `DEZFIL_PICTURE_STYLE_FIXTURE=1`.
+The root and standalone have separate copies of `puppeteer-core`; a preload
+loaded from the root patches the wrong copy. This fixture refuses the development
+port and requires a data directory whose name includes `pictures-`.
+It substitutes only the three built-in style
+responses after normal renderer admission. The actual browser still loads,
+paints and captures them; no image or readiness declaration is mocked.
+
+That same instance also needs the [browser suite's assistant wiring](#the-browser-suite)
+for `assistant-clear.spec.ts`: the scripted provider, automatic check off and
+the `e2e/assistant-self-port.cjs` preload, with `DEZFIL_E2E_LISTEN_PORT` matching
+the instance's port and `DEZFIL_E2E_SELF_PORT=3303`. Keep the self-port preload's
+path valid from the standalone launch directory, alongside the ingress and
+style preloads.
+
+```sh
+DEZFIL_BASE_URL=http://127.0.0.1:3581 npx playwright test e2e/thumbnail-theme.spec.ts e2e/picture-credit.spec.ts e2e/edit-attribution-capture.spec.ts e2e/map-alignment.spec.ts e2e/assistant-clear.spec.ts --project=chromium
+```
+
+Theme pictures and credit are seeded through server work. Alignment uses
+loopback styles accessible to both browsers and the saved camera at the
+card's composition size. The clear-conversation check counts every page
+request, including a residual browser upload if one remains installed.
+
+### Picture capacity and measurement
+
+Run these proofs on a separately built production instance, under the same
+exclusive test lock as the browser battery. Use the real headless browser and
+default two image slots. The basemap is the raster tile server in
+`scripts/loopback-basemap.mjs`, also used by
+`src/lib/export/map-look.real-render.test.ts`. Start it in a separate terminal
+and keep it running through every application restart:
+
+```sh
+fnm exec --using=24 node scripts/loopback-basemap.mjs 3582
+```
+
+It serves a light style at `http://127.0.0.1:3582/style.json`, light and dark
+variants at `/light/style.json` and `/dark/style.json`, and PNG tiles over
+loopback. Every map has a small point layer at its saved centre. Singles use
+the loopback style directly. Pairs keep Auto: the test-only style preload
+redirects the built-in light and dark styles to the loopback variants, so
+both appearances fetch tiles and draw data without public network requests.
+The fixture presents the loopback destination to the egress gate as well, so
+style admission needs no public DNS lookup.
+
+The offline seeder refuses an existing database; the runner refuses port 3000. Each workload
+gets its own stopped instance and fresh `pictures-` data directory. Its owner
+token is written with mode 0600 beside the manifest and is never printed.
+
+First seed twenty maps without pictures, ten singles and ten pairs:
+
+```sh
+export DEZFIL_PICTURE_BASEMAP_URL=http://127.0.0.1:3582/style.json
+export DEZFIL_PICTURE_STYLE_FIXTURE=1
+export DEZFIL_EGRESS_ALLOWLIST=127.0.0.1
+export DEZFIL_DATA_DIR=$(mktemp -d "$PWD/.claude/scratch/pictures-measure-XXXXXXXX")
+fnm exec --using=24 node scripts/pictures-capacity.mjs seed-first .claude/scratch/pictures-first.fixture.json
+export DEZFIL_PICTURE_METRICS="$PWD/.claude/scratch/pictures-first.events.jsonl"
+export DEZFIL_PICTURE_TEST_URL=http://127.0.0.1:3581
+# Start the separate production server with this store and PORT=3581.
+# Preserve the environment above and add both preloads to its launch:
+# --import=./scripts/pictures-browser-fixture-preload.mjs
+# --import=./scripts/pictures-metrics-preload.mjs
+# restart-isolated-server is an executable that replaces only that instance,
+# preserves its store, metrics path and environment, then returns.
+fnm exec --using=24 node scripts/pictures-capacity.mjs run \
+  .claude/scratch/pictures-first.fixture.json .claude/scratch/pictures-first-run.json unused \
+  -- ./restart-isolated-server
+```
+
+Supply `DEZFIL_STANDALONE_DIR` when the standalone instance owns the matching
+native modules in a different module tree. Copy both preloads into that
+instance's `scripts/` directory, beside its module tree, as in the browser
+recipe above. The seed, server and runner must share the basemap address.
+Start the runner promptly after the server, before the first fifth of its
+backlog drains.
+
+The restart executable must stop **only the listening process**, wait for it
+to exit, and relaunch that instance with the same store, event file, preloads
+and environment. Identify it with `lsof -ti tcp:3581 -sTCP:LISTEN` (substitute
+the isolated instance's port). Never kill every process on the port with
+`lsof -ti tcp:3581`: that also lists the runner's client connections and kills
+the measurement. Keep the loopback tile server running on its separate port.
+
+The metrics preload records admission, physical slot release and successful
+publication, covering both appearances and reduction. The report keeps the raw events,
+machine and runtime information, per-attempt timings, median and 90th
+percentile, and browser-process peak RSS sampled every 250 ms. The sample peak
+is not an instantaneous allocation maximum. Idle foreground export admission
+and check response are reference observations only. At two slots it takes five
+samples each of export admission and check response while one background render
+is in flight, proving from events that the same render still holds its slot
+when the foreground request is admitted. Each foreground limit is its 90th
+percentile times 1.5. The run refuses a margin as large as the shortest measured
+picture render; it never silently widens that margin. At one slot, a separate
+assertion requires actual interruption and export admission within one picture's
+budget. It also measures startup and restart overhead, and freezes the 300-map
+ceiling at 300 times the measured 90th percentile times 1.5 plus startup and
+restart overhead. Foreground ceilings
+are frozen before the proof workloads; older idle-based reports are refused.
+
+Then seed and start fresh instances for each capacity workload. Use fresh
+manifest and event filenames for each. Pass the successful first-run report
+unchanged as the fourth argument:
+
+```sh
+# With a new stopped instance/store and matching fresh metrics path:
+fnm exec --using=24 node scripts/pictures-capacity.mjs seed-missing .claude/scratch/pictures-missing.fixture.json
+# Start the isolated server, then:
+fnm exec --using=24 node scripts/pictures-capacity.mjs run \
+  .claude/scratch/pictures-missing.fixture.json .claude/scratch/pictures-missing-run.json \
+  .claude/scratch/pictures-first-run.json
+# Repeat the provisioning with another fresh store:
+fnm exec --using=24 node scripts/pictures-capacity.mjs seed-mixed .claude/scratch/pictures-mixed.fixture.json
+# Start the isolated server, then:
+fnm exec --using=24 node scripts/pictures-capacity.mjs run \
+  .claude/scratch/pictures-mixed.fixture.json .claude/scratch/pictures-mixed-run.json \
+  .claude/scratch/pictures-first-run.json -- ./restart-isolated-server
+```
+
+The mixed fixture has 100 missing, 100 old-road and 100 current pictures.
+Its restart occurs halfway through the pending work. Independent publication
+events reject a repeated remake, missing work, a current map being rendered,
+or an old picture overtaking a missing one. Each run takes five export and five
+check samples, one of each in every fifth of the pending publications. Before
+each request it waits for a background render in flight; a sample without
+overlap is refused. Every sample must meet its frozen limit, and every sample
+is retained in the report, including one that fails. Both runs require a saved
+camera change to reach a new picture within a minute for a single and a pair.
+Nonzero exit or `result: failed` is
+failure; keep its raw report. A passing unit fixture does not demonstrate
+renderer throughput. Stop the isolated instance and the loopback server and
+remove the store, token and temporary files after collecting the proof artifacts.
 
 ## Regenerating what is generated
 

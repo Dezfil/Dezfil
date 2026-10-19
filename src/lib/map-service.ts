@@ -1,3 +1,5 @@
+import { pictureListing, type PictureListing } from "@/lib/pictures/listing";
+import { notifyPicture } from "@/lib/pictures/hooks";
 import { documentFacts, type DocumentFacts } from "./metadata/document-facts";
 import { recordDocumentChanges, recordDocumentBatch, requireDocumentRevision } from "@/lib/metadata/revisions";
 import { fileMap } from "@/lib/metadata/owned-projects";
@@ -164,7 +166,7 @@ export function createMap(scope: AccountScope, name: string, projectId: string |
   requireAccountScope(scope);
   if (projectId) requireFilingDestination(scope, projectId);
   const db = metadataDb();
-  return db.transaction(() => {
+  const created = db.transaction(() => {
   const defaults = instanceDefaults(db);
   const now = new Date().toISOString();
   const map: MapRecord = {
@@ -193,6 +195,8 @@ export function createMap(scope: AccountScope, name: string, projectId: string |
   });
   return { ...map, ...documentFacts({ kind: "map", id: map.id }) };
   })();
+  notifyPicture(created.id);
+  return created;
 }
 
 /** Every map the acting account reaches. */
@@ -207,7 +211,7 @@ export function allMaps(scope: AccountScope): MapRecord[] {
  * project it is in (null = not in one), its owner and its SQL home. The
  * reference is deliberately not on MapRecord, so the published snapshot's
  * revision never observes a membership change. */
-export interface MapOverview extends MapRecord, Presence, DocumentFacts {
+export interface MapOverview extends MapRecord, Presence, DocumentFacts, PictureListing {
   layerCount: number;
   layerColors: string[];
   hasThumbnail: boolean;
@@ -236,11 +240,11 @@ export async function mapsOverview(scope: AccountScope, project?: string | "none
     if (project && project !== "none") requireReachable(scope, "project", project);
     return maps
       .filter((m) => canReach(scope, "map", m.id))
-      .map((m) => ({ ...m, hasThumbnail: pictured.has(m.id), thumbnailBasemap: pictured.get(m.id) ?? null }));
+      .map((m) => ({ ...m, ...pictureListing(m.id, pictured.has(m.id), m.updatedAt), hasThumbnail: pictured.has(m.id), thumbnailBasemap: pictured.get(m.id) ?? null }));
   })();
 }
 
-function listedMaps(scope: AccountScope, project?: string | "none"): Omit<MapOverview, "hasThumbnail" | "thumbnailBasemap">[] {
+function listedMaps(scope: AccountScope, project?: string | "none"): Omit<MapOverview, "hasThumbnail" | "thumbnailBasemap" | keyof PictureListing>[] {
   // An unknown or unreachable project refuses — a silently empty list
   // would read as an empty project.
   return metadataDb().transaction(() => {
@@ -420,6 +424,7 @@ export function updateMap(
       }, metadataDb(), scope);
     }
   })();
+  notifyPicture(id);
   return mapWithLayersFor(scope, id, "edit");
 }
 
