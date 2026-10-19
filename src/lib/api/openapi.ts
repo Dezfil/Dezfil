@@ -84,7 +84,7 @@ export function buildOpenApiDocument() {
         "Missing or malformed revisions return 400 invalid_request. Stale revisions return 409 stale_revision: This item has changed. Reload it before trying again. " +
         "Refusal changes nothing. Reload explicitly and compose a new edit, never replay an old payload under a fresh token. " +
         "This breaks unversioned writers and clients expecting bodyless covered successes. Whole-document deletion has no surviving revision. " +
-        "Viewport-only saves, informational thumbnail revisions and run cancellation keep their documented exceptions. " +
+        "Viewport-only saves, picture refresh and run cancellation keep their documented exceptions. " +
         "Attribution names the last accepted actor, not the owner; legacy authors can be unknown. Shared map undo retains original authors. " +
         "Run starts use the plan revision; admitted runs track executable definitions, preserving concurrent layout and lifecycle changes. " +
         "Unsupported methods on documented paths return 405 method_not_allowed with an exact Allow header after authentication. HEAD is bodyless and OPTIONS reports Allow.",

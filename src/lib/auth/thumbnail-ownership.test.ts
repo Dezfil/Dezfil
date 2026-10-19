@@ -76,29 +76,12 @@ it("requires service scopes and validates both copy parents before filesystem wo
   }
   expect(await snapshot()).toEqual(before); expect(effects.io).not.toHaveBeenCalled();
 });
-it("rechecks activity after the upload body arrives", async () => {
+it("refuses an owner's retired upload without touching its body or files", async () => {
   const { PUT } = await import("@/app/api/maps/[id]/thumbnail/route");
-  const request = input("alice", maps.alice, "PUT");
-  // The account is deactivated while the body is still arriving.
-  const chunks = [Uint8Array.from(png), Uint8Array.from([2])];
-  vi.spyOn(request, "body", "get").mockReturnValue(new ReadableStream<Uint8Array>({
-    pull(controller) {
-      const chunk = chunks.shift();
-      if (!chunk) { controller.close(); return; }
-      if (!chunks.length) db.prepare("UPDATE accounts SET status = 'deactivated' WHERE id = 'alice'").run();
-      controller.enqueue(chunk);
-    },
-  }) as ReadableStream<Uint8Array<ArrayBuffer>>);
+  const request = input("alice", maps.alice, "PUT"), body = vi.spyOn(request, "body", "get");
   const before = await snapshot();
-  expect((await PUT(request, { params: Promise.resolve({ id: maps.alice }) })).status).toBe(401);
-  expect(await snapshot()).toEqual(before); expect(effects.io).not.toHaveBeenCalled();
-});
-it.each(["", "?theme=light&cycle=next"])("refuses a staged thumbnail commit after deactivation (%s)", async query => {
-  const { PUT } = await import("@/app/api/maps/[id]/thumbnail/route");
-  const before = await snapshot();
-  effects.afterWrite = () => { db.prepare("UPDATE accounts SET status = 'deactivated' WHERE id = 'alice'").run(); };
-  expect((await PUT(input("alice", maps.alice, "PUT", "session", query), { params: Promise.resolve({ id: maps.alice }) })).status).toBe(401);
-  expect(await snapshot()).toEqual(before);
+  expect((await PUT(request, { params: Promise.resolve({ id: maps.alice }) })).status).toBe(410);
+  expect(body).not.toHaveBeenCalled(); expect(await snapshot()).toEqual(before); expect(effects.io).not.toHaveBeenCalled();
 });
 it("does not follow a stored thumbnail manifest into another map's files", async () => {
   const { GET } = await import("@/app/api/maps/[id]/thumbnail/route");

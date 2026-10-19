@@ -1,207 +1,33 @@
-import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
-import { testAccountScope, testAccountRequest } from "@/lib/test-support/accounts";
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtemp, rm, readdir } from "node:fs/promises";
-import path from "node:path";
-import { closeMetadataDb } from "@/lib/metadata/db";
-import { createMap, removeMap } from "@/lib/map-service";
-import { readThumbnail } from "@/lib/map-thumbnails";
-import { GET, PUT } from "./route";
+import { publishPictureFixture } from "@/lib/test-support/picture-fixture";
+import { saveThumbnail } from "@/lib/map-thumbnails";
 import { POST as duplicate } from "../duplicate/route";
-
-/**
- * The thumbnail route by theme: a themed write is held until its cycle
- * completes; a read naming a theme the map has no image for is answered
- * with one it has; a map with no image is refused as it always was; a
- * read naming no theme answers as it did.
- */
-
-let dir: string;
-let mapId: string;
-
-const PNG_MAGIC = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
-const png = (tag: string) =>
-  new Uint8Array([...PNG_MAGIC, ...Buffer.from(tag)]) as Uint8Array<ArrayBuffer>;
-
-beforeEach(async () => {
-  dir = await mkdtemp(path.join(process.cwd(), ".tmp-test-"));
-  process.env.DEZFIL_DATA_DIR = path.join(dir, "data");
-  closeMetadataDb();
-  mapId = createMap(testAccountScope(), "m").id;
+import { isolatePictureData } from "@/lib/test-support/picture-data";
+import { afterAll, expect, it, vi } from "vitest";
+import { testAccountScope, testAccountRequest } from "@/lib/test-support/accounts";
+import { createMap } from "@/lib/map-service";
+import { closeMetadataDb } from "@/lib/metadata/db";
+import { documentFacts } from "@/lib/metadata/document-facts";
+import { GET, PUT } from "./route";
+isolatePictureData(); afterAll(closeMetadataDb);
+it.each(["", "?theme=light&cycle=old", "?revision=malformed"])("refuses the retired upload without reading or changing anything (%s)", async query => {
+  const map = createMap(testAccountScope(), "Retired"), facts = documentFacts({ kind: "map", id: map.id });
+  const request = testAccountRequest(new Request(`http://fixture.test/api/maps/${map.id}/thumbnail${query}`, { method: "PUT", body: new Uint8Array([0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a]) }));
+  const read = vi.spyOn(request, "body", "get");
+  const response = await PUT(request, { params: Promise.resolve({ id: map.id }) });
+  expect(response.status).toBe(410); expect((await response.json()).error.code).toBe("picture_upload_retired");
+  expect(read).not.toHaveBeenCalled(); expect(documentFacts({ kind: "map", id: map.id })).toEqual(facts);
+  expect((await GET(testAccountRequest(new Request(`http://fixture.test/api/maps/${map.id}/thumbnail`)), { params: Promise.resolve({ id: map.id }) })).status).toBe(404);
 });
 
-afterEach(async () => {
-  closeMetadataDb();
-  delete process.env.DEZFIL_DATA_DIR;
-  await rm(dir, { recursive: true, force: true });
-});
-
-const params = (id: string) => ({ params: Promise.resolve({ id }) });
-
-async function put(query: string, body: Uint8Array<ArrayBuffer>, id = mapId) {
-  return PUT(
-    testAccountRequest(new Request(`http://test/api/maps/${id}/thumbnail${query}`, {
-      method: "PUT",
-      headers: { "content-type": "image/png" },
-      body,
-    })),
-    params(id),
-  );
-}
-
-async function get(query: string, id = mapId) {
-  const response = await GET(
-    testAccountRequest(new Request(`http://test/api/maps/${id}/thumbnail${query}`)),
-    params(id),
-  );
-  const tag =
-    response.status === 200
-      ? Buffer.from(await response.arrayBuffer()).subarray(8).toString()
-      : null;
-  return { status: response.status, tag };
-}
-
-describe("PUT and GET /api/maps/{id}/thumbnail by theme", () => {
-  it("a write naming no theme stores the map's one image, and a themed read falls back to it", async () => {
-    expect((await put("", png("single"))).status).toBe(204);
-    expect(await get("")).toEqual({ status: 200, tag: "single" });
-    expect(await get("?theme=light")).toEqual({ status: 200, tag: "single" });
-    expect(await get("?theme=dark")).toEqual({ status: 200, tag: "single" });
-  });
-
-  it("a map with no image is refused for every read, theme or none", async () => {
-    expect((await get("")).status).toBe(404);
-    expect((await get("?theme=dark")).status).toBe(404);
-  });
-
-  it("a themed write is held (202) until its partner completes the cycle (204)", async () => {
-    expect((await put("?theme=light&cycle=c1", png("L"))).status).toBe(202);
-    // Held, not published: the map still has no image.
-    expect((await get("?theme=light")).status).toBe(404);
-    expect((await put("?theme=dark&cycle=c1", png("D"))).status).toBe(204);
-    expect(await get("?theme=light")).toEqual({ status: 200, tag: "L" });
-    expect(await get("?theme=dark")).toEqual({ status: 200, tag: "D" });
-    expect(await get("")).toEqual({ status: 200, tag: "L" });
-  });
-
-  it("a half-finished cycle leaves what the map had", async () => {
-    await put("", png("single"));
-    expect((await put("?theme=dark&cycle=c2", png("D"))).status).toBe(202);
-    expect(await get("?theme=dark")).toEqual({ status: 200, tag: "single" });
-    expect(await get("")).toEqual({ status: 200, tag: "single" });
-  });
-
-  it("refuses an unknown theme, a themed write without a cycle, a cycle without a theme, and a malformed cycle", async () => {
-    expect((await get("?theme=blue")).status).toBe(400);
-    expect((await put("?theme=light", png("L"))).status).toBe(400);
-    expect((await put("?cycle=c1", png("L"))).status).toBe(400);
-    expect((await put("?theme=light&cycle=../x", png("L"))).status).toBe(400);
-    expect((await put("?theme=blue&cycle=c1", png("L"))).status).toBe(400);
-    // Nothing of that landed.
-    expect((await get("")).status).toBe(404);
-  });
-
-  it("still refuses a body that is not a PNG under a theme", async () => {
-    expect(
-      (await put("?theme=light&cycle=c1", new Uint8Array([1, 2, 3]) as Uint8Array<ArrayBuffer>)).status,
-    ).toBe(400);
-  });
-
-  it("duplicating carries a themed pair; deleting the source leaves none", async () => {
-    await put("?theme=light&cycle=c1", png("L"));
-    await put("?theme=dark&cycle=c1", png("D"));
-    const copy = (await (
-      await duplicate(testAccountRequest(new Request("http://test")), params(mapId))
-    ).json()) as { id: string };
-    expect(await get("?theme=light", copy.id)).toEqual({ status: 200, tag: "L" });
-    expect(await get("?theme=dark", copy.id)).toEqual({ status: 200, tag: "D" });
-    await removeMap(testAccountScope(), mapId, { expectedRevision: readEditRevision({ kind: "map", id: mapId })?.editRevision });
-    // The source's files are gone, theme by theme; the copy keeps its own.
-    await expect(readThumbnail(testAccountScope(), mapId)).rejects.toMatchObject({ code: "not_found", status: 404 });
-    expect((await readdir(path.join(dir, "data", "thumbnails"))).some(name => name.startsWith(mapId + "."))).toBe(false);
-    expect(await get("?theme=dark", copy.id)).toEqual({ status: 200, tag: "D" });
-  });
-
-  it("duplicating carries a single image; deleting the source leaves none", async () => {
-    await put("", png("single"));
-    const copy = (await (
-      await duplicate(testAccountRequest(new Request("http://test")), params(mapId))
-    ).json()) as { id: string };
-    expect(await get("", copy.id)).toEqual({ status: 200, tag: "single" });
-    expect(await get("?theme=dark", copy.id)).toEqual({ status: 200, tag: "single" });
-    await removeMap(testAccountScope(), copy.id, { expectedRevision: readEditRevision({ kind: "map", id: copy.id })?.editRevision });
-    await expect(readThumbnail(testAccountScope(), copy.id)).rejects.toMatchObject({ code: "not_found", status: 404 });
-    expect((await readdir(path.join(dir, "data", "thumbnails"))).some(name => name.startsWith(copy.id + "."))).toBe(false);
-    expect(await get("", mapId)).toEqual({ status: 200, tag: "single" });
-  });
-});
-
-describe("PUT /api/maps/{id}/thumbnail size bound", () => {
-  const MiB = 1024 * 1024;
-  const SENTENCE = "The snapshot must be a PNG of at most 4 MB.";
-  /** A PNG-headed body of `size` bytes in 256 KiB pulls, recording how far it was read. */
-  function pngStream(size: number, magic = PNG_MAGIC) {
-    const seen = { bytes: 0, cancelled: false };
-    const stream = new ReadableStream<Uint8Array>({
-      pull(controller) {
-        if (seen.bytes >= size) { controller.close(); return; }
-        const chunk = new Uint8Array(Math.min(256 * 1024, size - seen.bytes));
-        if (seen.bytes === 0) chunk.set(magic);
-        seen.bytes += chunk.byteLength;
-        controller.enqueue(chunk);
-      },
-      cancel() { seen.cancelled = true; },
-    }, { highWaterMark: 0 });
-    return { seen, stream };
-  }
-  async function putStream(stream: ReadableStream<Uint8Array>) {
-    return PUT(
-      testAccountRequest(new Request(`http://test/api/maps/${mapId}/thumbnail`, {
-        method: "PUT", headers: { "content-type": "image/png" }, body: stream, duplex: "half",
-      } as RequestInit)),
-      params(mapId),
-    );
-  }
-
-  it("accepts a PNG of exactly 4 MiB", async () => {
-    const body = pngStream(4 * MiB);
-    expect((await putStream(body.stream)).status).toBe(204);
-    const stored = await GET(testAccountRequest(new Request(`http://test/api/maps/${mapId}/thumbnail`)), params(mapId));
-    expect(stored.status).toBe(200);
-    expect((await stored.arrayBuffer()).byteLength).toBe(4 * MiB);
-  });
-
-  it("refuses one byte more with 413 and the sentence, without reading the rest of the body", async () => {
-    const body = pngStream(64 * MiB + 1);
-    const response = await putStream(body.stream);
-    expect(response.status).toBe(413);
-    expect(await response.json()).toEqual({ error: { code: "request_body_too_large", message: SENTENCE } });
-    // The sender's 60 MiB beyond the bound were never asked for.
-    expect(body.seen.bytes).toBeLessThan(5 * MiB);
-    expect(body.seen.cancelled).toBe(true);
-    expect((await get("")).status).toBe(404);
-  });
-
-  it("refuses a declared length past the bound before reading the body", async () => {
-    const body = pngStream(5 * MiB);
-    const response = await PUT(
-      testAccountRequest(new Request(`http://test/api/maps/${mapId}/thumbnail`, {
-        method: "PUT", headers: { "content-type": "image/png", "content-length": String(4 * MiB + 1) }, body: body.stream, duplex: "half",
-      } as RequestInit)),
-      params(mapId),
-    );
-    expect(response.status).toBe(413);
-    expect((await response.json()).error).toEqual({ code: "request_body_too_large", message: SENTENCE });
-    expect(body.seen.bytes).toBeLessThan(MiB);
-  });
-
-  it("keeps the validation refusal for a non-PNG body at the admitted size and for an empty body", async () => {
-    const notPng = await putStream(pngStream(4 * MiB, [1, 2, 3, 4, 5, 6, 7, 8]).stream);
-    expect(notPng.status).toBe(400);
-    expect(await notPng.json()).toEqual({ error: { code: "invalid_request", message: "The body is not a PNG." } });
-    const empty = await put("", new Uint8Array(0) as Uint8Array<ArrayBuffer>);
-    expect(empty.status).toBe(400);
-    expect(await empty.json()).toEqual({ error: { code: "invalid_request", message: SENTENCE } });
-    expect((await get("")).status).toBe(404);
-  });
+it("serves complete themes and copies them; legacy single files retain their fallback", async () => {
+  const scope = testAccountScope(), map = createMap(scope, "Themes");
+  await publishPictureFixture(scope, map.id, Buffer.from("light"), Buffer.from("dark"));
+  const copied = await duplicate(testAccountRequest(new Request("http://fixture.test", { method: "POST" })), { params: Promise.resolve({ id: map.id }) });
+  const id = (await copied.json()).id;
+  const read = async (mapId: string, query: string) => GET(testAccountRequest(new Request(`http://fixture.test/api/maps/${mapId}/thumbnail${query}`)), { params: Promise.resolve({ id: mapId }) });
+  for (const theme of ["light", "dark"]) expect(await (await read(id, `?theme=${theme}`)).text()).toBe(theme);
+  expect(await (await read(id, "")).text()).toBe("light");
+  expect((await read(id, "?theme=blue")).status).toBe(400);
+  await saveThumbnail(scope, map.id, Buffer.from("legacy"));
+  for (const query of ["", "?theme=light", "?theme=dark"]) expect(await (await read(map.id, query)).text()).toBe("legacy");
 });

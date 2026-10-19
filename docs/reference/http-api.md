@@ -88,7 +88,7 @@ preconditions are declared on the operations that require them.
 
 Measured JSON reader operations: **69**. These counts include optional bodies,
 helper readers and MCP's external parser handoff, and exclude multipart uploads
-and binary thumbnails. The contract gate measures them; type-aware body-policy
+and multipart uploads. The contract gate measures them; type-aware body-policy
 coverage independently checks the implementation against the contract.
 
 <!-- body-tiers:start -->
@@ -139,28 +139,19 @@ and helper operations, use the 16,777,216-byte tier. Workflow readers retain
 their existing 16 MiB bound, required or optional empty-body behavior and
 `request_body_too_large` with the message "The workflow request body exceeds the
 16777216-byte limit." Assistant messages retain 131,072 bytes and
-`assistant_submission_too_large`. Multipart uploads and binary thumbnails
-are separate body classes.
+`assistant_submission_too_large`. Multipart uploads are a separate body class.
 
-`PUT /api/maps/{id}/thumbnail` accepts a PNG of at most 4 MiB (4,194,304
-bytes), counted as the bytes arrive. A larger declared length is refused
-before reading, and a body that crosses the bound is refused on the chunk that
-crosses it, without reading the rest: `413 request_body_too_large` with "The
-snapshot must be a PNG of at most 4 MB." An empty body keeps `400
-invalid_request` with the same sentence, and a body that is not a PNG keeps
-`400 invalid_request` with "The body is not a PNG." As for the JSON readers,
-this is a handler bound: on this framework-matched path the framework's own
-body copy comes first.
-
-**Snapshot size compatibility change.** An oversized snapshot used to be read
-whole and refused with `400 invalid_request`; it is now refused with `413
-request_body_too_large` and the same sentence. The bound and the other
-refusals are unchanged.
+**Picture upload compatibility change.** `PUT /api/maps/{id}/thumbnail` no
+longer accepts browser-captured pixels. After its existing owner authorization,
+it answers `410 picture_upload_retired` without the handler reading the body
+or changing images, evidence, edit revision or history. Theme, cycle and SQL
+revision parameters do not restore the old operation. Replace uploads with
+`POST /api/maps/{id}/picture/refresh`; the server makes the picture from the
+saved drawing. Picture reads and their theme fallback remain compatible.
 
 Body policy coverage uses the TypeScript receiver type and resolved calls,
 including aliases and helper parameters. Raw Request body members are confined
-to `src/lib/api/bounded-body.ts` (JSON bytes),
-`src/lib/api/thumbnail-body.ts` (binary thumbnails), and
+to `src/lib/api/bounded-body.ts` (JSON bytes) and
 `src/lib/ingest/receive.ts` (streaming multipart).
 `src/lib/api/bounded-handoff.ts` alone constructs the admitted Request for an
 external JSON parser. Workflow and assistant readers use the shared byte
@@ -1622,7 +1613,7 @@ server-side, so filesystem paths and engine text stay out of responses
 The complete catalogue is published two ways in the same document: as the
 enum of the `Error` schema, and as `x-error-codes` at the top level, which
 maps every code to a sentence explaining what it means
-(`src/lib/api/error-catalogue.ts`). There are **141** codes. Clients should
+(`src/lib/api/error-catalogue.ts`). There are **142** codes. Clients should
 branch on codes, never on prose.
 
 One status is unusual: a client that abandons an in-flight evaluation gets
@@ -2043,12 +2034,12 @@ with the same name does not replace that history.
 **Retained artifacts record what they drew.** A tile archive records the
 dataset identities its build's evaluation bound, each with the artifact it was
 read from; a published view held for its freshness bound records every
-evaluation its assembly ran; a card image records the identities its map's SQL
-binds in the map's home within the uploader's reach. The builder sends a card
-image with the map's SQL revision as it stood when the capture started
-(`revision` on `PUT /api/maps/{id}/thumbnail`); an image sent without one, or
-whose map's layers moved from that revision before it arrived, is kept
-unattributed, each image of a themed pair on its own. An evaluation that reads
+evaluation its assembly ran; a server card image records the inputs its actual
+layer evaluations and served tile archives consumed, in the map's SQL home
+within the owner's reach. A changed input, saved drawing or owner standing
+refuses the entire new set. Its pictures and evidence carry one published
+generation; neither compilation after rendering nor a browser upload may
+attribute those pixels. An evaluation that reads
 the engine's catalogue (its catalogue functions, the information schema, a
 listing of relations) records the whole reach it evaluated in. Tile
 fingerprints fold in the recorded identities with their current artifacts, so
@@ -2057,7 +2048,7 @@ stale and a same-named dataset of another account never does; a dataset's
 refresh or deletion invalidates or reclaims the tiles of every layer that drew
 it, whoever's map it is on. Tiles and card images made before artifacts
 recorded their inputs carry no evidence and are unattributed: served to the
-map's owner only until rebuilt or recaptured. Such a tile archive is
+map's owner only until rebuilt or pictured again. Such a tile archive is
 invalidated or reclaimed by the refresh or deletion of its map owner's dataset
 whose name its layer's SQL contains as a whole word, as tiles were before.
 
@@ -2073,7 +2064,7 @@ served (`hasThumbnail`), so a card asks for one only then. Each image also
 records the basemap it was drawn on as it was saved, with that style's credit,
 and the entry carries it (`thumbnailBasemap`): a page of card images credits
 what each image drew, whatever the map, the imagery or the instance's styles
-do until the map is captured again. It is null for an image that recorded
+do until the map is pictured again. It is null for an image that recorded
 none, one saved before images recorded it or a Satellite template's picture,
 which is credited by the map's basemap now. An image is
 copied into a duplicate, with what it recorded, only when the duplicator may
@@ -2511,6 +2502,7 @@ remove converted files and the staged archive, retaining source artifacts. Harde
 <!-- error-catalogue:start -->
 | Code | Meaning |
 |---|---|
+| `picture_upload_retired` | Browser picture uploads are retired. Request a server picture with POST /api/maps/{id}/picture/refresh. |
 | `setting_locked` | An environment variable locks a submitted setting. No settings changed; change or remove the named variable and restart before editing this setting. |
 | `project_owner_cannot_leave` | The project's owner cannot leave. Transfer or delete the project instead. |
 | `method_not_allowed` | This method is not allowed for this path. |

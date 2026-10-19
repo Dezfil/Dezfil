@@ -1,3 +1,5 @@
+import { publishPictureFixture, preparePictureFixture } from "@/lib/test-support/picture-fixture";
+import { readThumbnail, saveThemedThumbnail } from "@/lib/map-thumbnails";
 import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { getLayer as readEditLayer } from "@/lib/metadata/maps";
 import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
@@ -10,7 +12,6 @@ import { createMap } from "@/lib/map-service";
 import { createLayer, updateLayer } from "@/lib/layer-service";
 import { listLayers, type Layer, type MapRecord } from "@/lib/metadata/maps";
 import type { DataTable } from "@/lib/metadata/tables";
-import { mapSqlRevision } from "@/lib/map-sql-revision";
 import { copyThumbnail, thumbnailPath } from "@/lib/map-thumbnails";
 import { publishMap, getPublishedView, resetPublishCache } from "@/lib/publish/publish-service";
 import { currentPublishedTile } from "@/lib/tiles/published";
@@ -84,11 +85,7 @@ const tile = (account: string, target: Layer = layer) =>
 const image = (account: string, target: MapRecord = map) =>
   call(account, route.thumbnail, `/api/maps/${target.id}/thumbnail`, { id: target.id });
 const png = (tag: string) => new Uint8Array(Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.from(tag)]));
-const revision = (target: MapRecord = map) => mapSqlRevision(listLayers(target.id));
-async function capture(tag: string, seen = revision(), target: MapRecord = map) {
-  const stored = await call("ada", route.thumbnail, `/api/maps/${target.id}/thumbnail?revision=${seen}`, { id: target.id }, "PUT", png(tag));
-  expect(stored.status).toBe(204);
-}
+async function capture(tag: string, target: MapRecord = map) { await publishPictureFixture(scopes.ada, target.id, png(tag)); }
 /** The owner warms the layer's archive. */
 async function warm(target: Layer = layer) {
   expect((await render("ada", target)).mode).toBe("tiled");
@@ -177,7 +174,7 @@ describe("retained artifacts are served by what they drew", () => {
       name: "Listing", sql: "SELECT r.* FROM roads r WHERE EXISTS (SELECT view_name FROM duckdb_views())",
     }, { expectedRevision: readEditRevision({ kind: "map", id: listing.id })?.editRevision });
     await warm(read);
-    await capture("listing", revision(listing), listing);
+    await capture("listing", listing);
     // Bob reaches `roads` but not Ada's `parks`, which the catalogue read
     // could see: neither artifact is his.
     expect((await tile("bob", read)).body).toEqual(NOT_AVAILABLE);
@@ -192,14 +189,13 @@ describe("retained artifacts are served by what they drew", () => {
     expect(currentPublishedTile(token, read.id, null)).toBeNull();
   });
 
-  it("keeps a late upload after a SQL change unattributed, the owner's alone", async () => {
+  it("rejects a late picture after SQL changes and retains the previous attributed image", async () => {
     await capture("current");
+    const attempt = await preparePictureFixture(scopes.ada, map.id);
+    await updateLayer(scopes.ada, layer.id, { sql: "SELECT * FROM roads WHERE sentinel <> 'none'" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
+    await expect(attempt.publish(png("late"))).rejects.toThrow();
     expect((await image("bob")).status).toBe(200);
-    const seen = revision();
-    await updateLayer(scopes.ada, layer.id, { sql: "SELECT * FROM roads WHERE sentinel <> 'none'" }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
-    await capture("late", seen);
-    expect((await image("bob")).body).toEqual(PLACEHOLDER);
-    expect(Buffer.from((await image("ada")).bytes).toString("latin1")).toContain("late");
+    expect(Buffer.from((await image("ada")).bytes).toString("latin1")).toContain("current");
   });
 
   it("says in the maps listing whether the image read serves the caller one", async () => {
@@ -226,11 +222,10 @@ describe("retained artifacts are served by what they drew", () => {
     await agree({ ada: true, bob: false, cyd: false }, older);
     // A themed pair counts once it is published, never while one theme is held.
     const themed = createMap(scopes.ada, "Themed", "P");
-    const put = (theme: string) => call("ada", route.thumbnail,
-      `/api/maps/${themed.id}/thumbnail?revision=${revision(themed)}&theme=${theme}&cycle=c1`, { id: themed.id }, "PUT", png(theme));
-    expect((await put("light")).status).toBe(202);
+    const inputs = { catalogue: false, datasets: [] };
+    expect(await saveThemedThumbnail(scopes.ada, themed.id, "light", "c1", png("light"), inputs)).toBe("held");
     await agree({ ada: false, bob: false }, themed);
-    expect((await put("dark")).status).toBe(204);
+    expect(await saveThemedThumbnail(scopes.ada, themed.id, "dark", "c1", png("dark"), inputs)).toBe("published");
     await agree({ ada: true, bob: true }, themed);
   });
 
@@ -238,16 +233,17 @@ describe("retained artifacts are served by what they drew", () => {
     const bobs = createMap(scopes.bob, "Bob's own");
     await capture("roads");
     await copyThumbnail(scopes.bob, map.id, bobs.id);
-    expect(Buffer.from(await readFile(thumbnailPath(bobs.id))).toString("latin1")).toContain("roads");
+    expect(Buffer.from((await readThumbnail(scopes.bob, bobs.id))!).toString("latin1")).toContain("roads");
 
     const later = createMap(scopes.bob, "Bob's later");
     unfileDataset("P", tables.roads.id);
     await copyThumbnail(scopes.bob, map.id, later.id);
     expect((await readdir(path.join(directory, "thumbnails"))).some((name) => name.startsWith(later.id))).toBe(false);
     // An unattributed image copies for its owner alone.
-    await writeFile(thumbnailPath(map.id), png("legacy"));
+    const legacySource = createMap(scopes.ada, "Legacy source");
+    await writeFile(thumbnailPath(legacySource.id), png("legacy"));
     const adas = createMap(scopes.ada, "Ada's copy");
-    await copyThumbnail(scopes.ada, map.id, adas.id);
+    await copyThumbnail(scopes.ada, legacySource.id, adas.id);
     expect(Buffer.from(await readFile(thumbnailPath(adas.id))).toString("latin1")).toContain("legacy");
   });
 });

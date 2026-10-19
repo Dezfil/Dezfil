@@ -9,6 +9,13 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Changed
 
+- Map card pictures are generated from saved drawings on the server, including
+  unopened maps. Listings expose picture state and a publication version;
+  owners and project Editors can request a refresh.
+- Compatibility: `PUT /api/maps/{id}/thumbnail` now refuses authorized browser
+  uploads with `410 picture_upload_retired`. Use
+  `POST /api/maps/{id}/picture/refresh`. Reading existing pictures is unchanged.
+
 - Breaking: application pages and API operations now require a current cookie
   session or an account bearer token, including configuration, OpenAPI, MCP,
   assistant and exports. Anonymous API clients receive `authentication_required`.

@@ -1,22 +1,15 @@
-import { emptySnapshot, thumbnailBody } from "@/lib/api/thumbnail-body";
+import { ERROR_CATALOGUE } from "@/lib/api/error-catalogue";
 import { requireRequestScope } from "@/lib/auth/scope-http";
 import { NextResponse } from "next/server";
 import { ApiError, errorResponse } from "@/lib/api/errors";
 import { requireMap, requireMapFor } from "@/lib/map-service";
 import {
-  isThumbnailCycle,
   isThumbnailTheme,
   readThumbnail,
-  saveThemedThumbnail,
-  saveThumbnail,
   type ThumbnailTheme,
 } from "@/lib/map-thumbnails";
-import { captureBasemap, captureInputs } from "@/lib/thumbnail-evidence";
-import { isMapSqlRevision } from "@/lib/map-sql-revision";
 
 type Params = { params: Promise<{ id: string }> };
-
-const PNG_MAGIC = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
 
 /** The optional theme a request names; absent means none. */
 function themeOf(request: Request): ThumbnailTheme | null {
@@ -50,7 +43,7 @@ export async function GET(request: Request, { params }: Params) {
     return new NextResponse(new Uint8Array(png), {
       headers: {
         "content-type": "image/png",
-        // Card URLs carry ?v=<updatedAt> and the theme, so short caching
+        // Card URLs carry the published picture version and theme, so short caching
         // is enough.
         "cache-control": "private, max-age=300",
       },
@@ -60,60 +53,11 @@ export async function GET(request: Request, { params }: Params) {
   }
 }
 
-/** The map's SQL revision the capture saw when it started; absent means none. */
-function revisionOf(request: Request): string | null {
-  const revision = new URL(request.url).searchParams.get("revision");
-  if (revision === null) return null;
-  if (!isMapSqlRevision(revision)) {
-    throw new ApiError("invalid_request", "A revision is 16 lowercase hexadecimal digits.", 400);
-  }
-  return revision;
-}
-
-/** Store the map's snapshot — a PNG body, captured by the builder. With a
- * theme and a cycle, one of a themed pair: held (202) until the partner
- * arrives under the same cycle, then published together (204). Each image
- * is stamped with what the map's SQL draws at the revision the capture saw,
- * or kept unattributed when that revision is missing or has moved, and with
- * the basemap the map stands on as it is saved, which its credit names. */
+/** Compatibility refusal. Browser pixels never enter the picture store. */
 export async function PUT(request: Request, { params }: Params) {
   try {
-    const scope = requireRequestScope(request);
-    const { id } = await params;
+    const scope = requireRequestScope(request), { id } = await params;
     requireMapFor(scope, id, "capture");
-    const theme = themeOf(request);
-    const cycle = new URL(request.url).searchParams.get("cycle");
-    if (theme && !isThumbnailCycle(cycle)) {
-      throw new ApiError(
-        "invalid_request",
-        "A themed snapshot names its cycle: 1 to 64 letters, digits, - or _.",
-        400,
-      );
-    }
-    if (!theme && cycle !== null) {
-      throw new ApiError(
-        "invalid_request",
-        "A cycle belongs to a themed snapshot; name the theme too.",
-        400,
-      );
-    }
-    const body = await thumbnailBody(request);
-    if (body.byteLength === 0) throw emptySnapshot();
-    if (!PNG_MAGIC.every((byte, i) => body[i] === byte)) {
-      throw new ApiError("invalid_request", "The body is not a PNG.", 400);
-    }
-    const revision = revisionOf(request);
-    const inputs = await captureInputs(scope, id, revision);
-    const basemap = captureBasemap(id, theme);
-    if (theme) {
-      const outcome = await saveThemedThumbnail(scope, id, theme, cycle!, body, inputs, basemap);
-      return new NextResponse(null, {
-        status: outcome === "held" ? 202 : 204,
-      });
-    }
-    await saveThumbnail(scope, id, body, inputs, basemap);
-    return new NextResponse(null, { status: 204 });
-  } catch (error) {
-    return errorResponse(error);
-  }
+    throw new ApiError("picture_upload_retired", ERROR_CATALOGUE.picture_upload_retired, 410);
+  } catch (error) { return errorResponse(error); }
 }

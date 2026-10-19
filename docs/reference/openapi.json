@@ -3,7 +3,7 @@
   "info": {
     "title": "Dezfil API",
     "version": "0.1.0",
-    "description": "Upload files, query them with SQL, compose styled map layers, and publish read-only shareable views. Every capability the UI offers is one of these documented calls; the whole journey can be driven headlessly. Protected operations require a current cookie session or account bearer token. Every map, dataset, workflow, connection and project has one owner and is private to its owner unless a project shares it: a project's owner gives people the viewer or editor role, and they reach the project and everything filed in it, whoever owns it. A viewer reads; an editor also changes the content of its maps and workflows and runs its workflows; deletion, publication, sharing and transfer stay the owner's, and datasets change only by their owner. Connections are never shared, and standalone jobs, renders and downloads stay with the account that started them. Administrators have no additional content access. Dataset and connection names are owner-local: in SQL another person's reachable dataset is <sql name>.<dataset>, and a map's or workflow's SQL reads in its SQL home. Unreached and missing resources share the same refusal. Instance catalogues and saved palettes remain shared. User SQL reads named datasets only; direct or indirect file reads and path discovery are refused. Cookie mutations require the same trusted Origin. Identity-bearing responses, including authentication refusals, are private, no-store. Only entry, readiness and the token-scoped read-only published projection permit anonymous access. Maps and workflows have one durable editRevision, paired with state on document, child and list reads. Covered writes require X-Edit-Revision (MCP expected_revision); order writes and chain the accepted JSON result. Missing or malformed revisions return 400 invalid_request. Stale revisions return 409 stale_revision: This item has changed. Reload it before trying again. Refusal changes nothing. Reload explicitly and compose a new edit, never replay an old payload under a fresh token. This breaks unversioned writers and clients expecting bodyless covered successes. Whole-document deletion has no surviving revision. Viewport-only saves, informational thumbnail revisions and run cancellation keep their documented exceptions. Attribution names the last accepted actor, not the owner; legacy authors can be unknown. Shared map undo retains original authors. Run starts use the plan revision; admitted runs track executable definitions, preserving concurrent layout and lifecycle changes. Unsupported methods on documented paths return 405 method_not_allowed with an exact Allow header after authentication. HEAD is bodyless and OPTIONS reports Allow."
+    "description": "Upload files, query them with SQL, compose styled map layers, and publish read-only shareable views. Every capability the UI offers is one of these documented calls; the whole journey can be driven headlessly. Protected operations require a current cookie session or account bearer token. Every map, dataset, workflow, connection and project has one owner and is private to its owner unless a project shares it: a project's owner gives people the viewer or editor role, and they reach the project and everything filed in it, whoever owns it. A viewer reads; an editor also changes the content of its maps and workflows and runs its workflows; deletion, publication, sharing and transfer stay the owner's, and datasets change only by their owner. Connections are never shared, and standalone jobs, renders and downloads stay with the account that started them. Administrators have no additional content access. Dataset and connection names are owner-local: in SQL another person's reachable dataset is <sql name>.<dataset>, and a map's or workflow's SQL reads in its SQL home. Unreached and missing resources share the same refusal. Instance catalogues and saved palettes remain shared. User SQL reads named datasets only; direct or indirect file reads and path discovery are refused. Cookie mutations require the same trusted Origin. Identity-bearing responses, including authentication refusals, are private, no-store. Only entry, readiness and the token-scoped read-only published projection permit anonymous access. Maps and workflows have one durable editRevision, paired with state on document, child and list reads. Covered writes require X-Edit-Revision (MCP expected_revision); order writes and chain the accepted JSON result. Missing or malformed revisions return 400 invalid_request. Stale revisions return 409 stale_revision: This item has changed. Reload it before trying again. Refusal changes nothing. Reload explicitly and compose a new edit, never replay an old payload under a fresh token. This breaks unversioned writers and clients expecting bodyless covered successes. Whole-document deletion has no surviving revision. Viewport-only saves, picture refresh and run cancellation keep their documented exceptions. Attribution names the last accepted actor, not the owner; legacy authors can be unknown. Shared map undo retains original authors. Run starts use the plan revision; admitted runs track executable definitions, preserving concurrent layout and lifecycle changes. Unsupported methods on documented paths return 405 method_not_allowed with an exact Allow header after authentication. HEAD is bodyless and OPTIONS reports Allow."
   },
   "tags": [
     {
@@ -35763,7 +35763,7 @@
     "/api/maps/{id}/thumbnail": {
       "get": {
         "summary": "Read a map's snapshot",
-        "description": "History follows its map: everyone who reaches the map reads its availability, and undo and redo are content changes. Thumbnails are rendered by the server as the map's owner and record the datasets each image drew: an image is served, and copied into a duplicate, only for someone who reaches the map and can now reach every one of them, an unattributed image for the owner alone; anyone else reads no snapshot. Replay checks every target and parent reference before changing the whole gesture; unreached, missing or mismatched references return not_found and leave history and artifacts unchanged. A deleted layer can be restored under its recorded identity and parent. Picture publication rechecks owner standing, the drawing generation and consumed inputs after waiting and before publication. A map is reached by its owner and, while it is filed in a project, by that project's owner and people. Results cover exactly the reached maps and name each map's owner and SQL home; the map's SQL is evaluated in its home within the caller's own reach. Content changes are open to the owner, the project's owner and its editors; SQL anyone but the owner saves, directly or by undo and redo, must name only datasets within their own reach in the map's home, else it is refused with sql_error naming the reference as written and nothing changes. Sketches drawn on the map are content, each sketch dataset its drawer's own; deletion and publication settings stay the owner's; the server makes pictures as the owner, and an Editor may request a refresh; a snapshot is served to everyone who reaches the map and every dataset it drew. Anyone who reaches a map may duplicate it into their own space: the copy keeps the map's SQL home and its layers' SQL as stored, is filed in the map's project only when the duplicator may file there (its owner or an editor), and carries the snapshot only when the duplicator may be served it. Administrators reach nothing more. Unreached and missing map or project identities both return not_found before source access or protected changes; a reached map whose change the caller may not make returns forbidden and changes nothing. The PNG the builder last captured for this map — the maps screen's card image. 404 while no capture exists. A map whose basemap follows the theme carries one image per theme: name the theme to read that one. The fallback order: the named theme's image, then the map's single image, then the other theme's; a request naming no theme answers the light image, then dark, then the single image. An image the reader may not be served (one that drew a dataset beyond their reach, or an unattributed one read by anyone but the owner) is passed over like a missing one; when none is left the answer is the same 404 as for a map with no image at all. The maps listing's `hasThumbnail` says beforehand whether there is one.",
+        "description": "History follows its map: everyone who reaches the map reads its availability, and undo and redo are content changes. Thumbnails are rendered by the server as the map's owner and record the datasets each image drew: an image is served, and copied into a duplicate, only for someone who reaches the map and can now reach every one of them, an unattributed image for the owner alone; anyone else reads no snapshot. Replay checks every target and parent reference before changing the whole gesture; unreached, missing or mismatched references return not_found and leave history and artifacts unchanged. A deleted layer can be restored under its recorded identity and parent. Picture publication rechecks owner standing, the drawing generation and consumed inputs after waiting and before publication. A map is reached by its owner and, while it is filed in a project, by that project's owner and people. Results cover exactly the reached maps and name each map's owner and SQL home; the map's SQL is evaluated in its home within the caller's own reach. Content changes are open to the owner, the project's owner and its editors; SQL anyone but the owner saves, directly or by undo and redo, must name only datasets within their own reach in the map's home, else it is refused with sql_error naming the reference as written and nothing changes. Sketches drawn on the map are content, each sketch dataset its drawer's own; deletion and publication settings stay the owner's; the server makes pictures as the owner, and an Editor may request a refresh; a snapshot is served to everyone who reaches the map and every dataset it drew. Anyone who reaches a map may duplicate it into their own space: the copy keeps the map's SQL home and its layers' SQL as stored, is filed in the map's project only when the duplicator may file there (its owner or an editor), and carries the snapshot only when the duplicator may be served it. Administrators reach nothing more. Unreached and missing map or project identities both return not_found before source access or protected changes; a reached map whose change the caller may not make returns forbidden and changes nothing. The last complete PNG the server made for this map, the maps screen's card image. 404 while no picture is served. A map whose basemap follows the theme carries one image per theme: name the theme to read that one. The fallback order: the named theme's image, then the map's single image, then the other theme's; a request naming no theme answers the light image, then dark, then the single image. An image the reader may not be served (one that drew a dataset beyond their reach, or an unattributed one read by anyone but the owner) is passed over like a missing one; when none is left the answer is the same 404 as for a map with no image at all. The maps listing's `hasThumbnail` says beforehand whether there is one.",
         "tags": [
           "Maps"
         ],
@@ -35888,21 +35888,15 @@
         ]
       },
       "put": {
-        "summary": "Store a map's snapshot",
-        "description": "History follows its map: everyone who reaches the map reads its availability, and undo and redo are content changes. Thumbnails are rendered by the server as the map's owner and record the datasets each image drew: an image is served, and copied into a duplicate, only for someone who reaches the map and can now reach every one of them, an unattributed image for the owner alone; anyone else reads no snapshot. Replay checks every target and parent reference before changing the whole gesture; unreached, missing or mismatched references return not_found and leave history and artifacts unchanged. A deleted layer can be restored under its recorded identity and parent. Picture publication rechecks owner standing, the drawing generation and consumed inputs after waiting and before publication. A map is reached by its owner and, while it is filed in a project, by that project's owner and people. Results cover exactly the reached maps and name each map's owner and SQL home; the map's SQL is evaluated in its home within the caller's own reach. Content changes are open to the owner, the project's owner and its editors; SQL anyone but the owner saves, directly or by undo and redo, must name only datasets within their own reach in the map's home, else it is refused with sql_error naming the reference as written and nothing changes. Sketches drawn on the map are content, each sketch dataset its drawer's own; deletion and publication settings stay the owner's; the server makes pictures as the owner, and an Editor may request a refresh; a snapshot is served to everyone who reaches the map and every dataset it drew. Anyone who reaches a map may duplicate it into their own space: the copy keeps the map's SQL home and its layers' SQL as stored, is filed in the map's project only when the duplicator may file there (its owner or an editor), and carries the snapshot only when the duplicator may be served it. Administrators reach nothing more. Unreached and missing map or project identities both return not_found before source access or protected changes; a reached map whose change the caller may not make returns forbidden and changes nothing. A PNG body, at most 4 MB (4,194,304 bytes), captured by the builder after edits settle. A larger body is refused with `413 request_body_too_large` without reading the rest of it; an empty or non-PNG body is refused with `400 invalid_request`. Without a theme the body is the map's one image and replaces whatever it had. With a theme and a cycle the body is one half of a themed pair: it is held until the other theme arrives under the same cycle, and the pair then replaces everything the map had, together. A cycle that never completes leaves the map's images as they were; a later cycle's completion discards it. Each image is stamped with the datasets its map's SQL draws, bound in the map's home within the uploader's reach at the revision the capture saw; an image sent without a revision, or whose map's layers moved from that revision before it arrived, is kept unattributed.",
+        "summary": "Refuse a retired browser picture upload",
+        "description": "History follows its map: everyone who reaches the map reads its availability, and undo and redo are content changes. Thumbnails are rendered by the server as the map's owner and record the datasets each image drew: an image is served, and copied into a duplicate, only for someone who reaches the map and can now reach every one of them, an unattributed image for the owner alone; anyone else reads no snapshot. Replay checks every target and parent reference before changing the whole gesture; unreached, missing or mismatched references return not_found and leave history and artifacts unchanged. A deleted layer can be restored under its recorded identity and parent. Picture publication rechecks owner standing, the drawing generation and consumed inputs after waiting and before publication. A map is reached by its owner and, while it is filed in a project, by that project's owner and people. Results cover exactly the reached maps and name each map's owner and SQL home; the map's SQL is evaluated in its home within the caller's own reach. Content changes are open to the owner, the project's owner and its editors; SQL anyone but the owner saves, directly or by undo and redo, must name only datasets within their own reach in the map's home, else it is refused with sql_error naming the reference as written and nothing changes. Sketches drawn on the map are content, each sketch dataset its drawer's own; deletion and publication settings stay the owner's; the server makes pictures as the owner, and an Editor may request a refresh; a snapshot is served to everyone who reaches the map and every dataset it drew. Anyone who reaches a map may duplicate it into their own space: the copy keeps the map's SQL home and its layers' SQL as stored, is filed in the map's project only when the duplicator may file there (its owner or an editor), and carries the snapshot only when the duplicator may be served it. Administrators reach nothing more. Unreached and missing map or project identities both return not_found before source access or protected changes; a reached map whose change the caller may not make returns forbidden and changes nothing. Compatibility change: this operation no longer accepts browser pixels. An authorized owner receives 410 picture_upload_retired without the handler reading the body or changing any image. Use POST /api/maps/{id}/picture/refresh. Theme, cycle and revision query values do not restore the former operation.",
         "tags": [
           "Maps"
         ],
         "x-tool": false,
         "x-effects": {
-          "readOnly": false,
-          "writes": [
-            {
-              "resource": "maps",
-              "collection": true,
-              "argument": "id"
-            }
-          ]
+          "readOnly": true,
+          "writes": []
         },
         "parameters": [
           {
@@ -35913,69 +35907,9 @@
               "type": "string"
             },
             "description": "Map id."
-          },
-          {
-            "name": "theme",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "enum": [
-                "light",
-                "dark"
-              ]
-            },
-            "description": "The viewer's theme, \"light\" or \"dark\". Any other value is refused."
-          },
-          {
-            "name": "cycle",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "pattern": "^[A-Za-z0-9_-]{1,64}$"
-            },
-            "description": "The capture cycle a themed snapshot belongs to; required with a theme, refused without one. Two writes carrying the same cycle and different themes form one pair. A cycle publishes once: a write naming the cycle of the pair the map shows is held, and starts that cycle's pair again."
-          },
-          {
-            "name": "revision",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "pattern": "^[0-9a-f]{16}$"
-            },
-            "description": "The map's SQL revision when the capture started: a digest of its layers' identities and SQL in layer order, as the builder computes it. Absent, the image is unattributed."
           }
         ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "image/png": {
-              "schema": {
-                "type": "string",
-                "format": "binary"
-              }
-            }
-          }
-        },
         "responses": {
-          "202": {
-            "description": "Held: a themed snapshot waiting for its partner under the same cycle. The map's images are unchanged."
-          },
-          "204": {
-            "description": "Stored: the map's images are replaced."
-          },
-          "400": {
-            "description": "An empty or non-PNG body, or a malformed theme, cycle or revision (invalid_request).",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
           "401": {
             "description": "Error with a machine-readable code and human message.",
             "content": {
@@ -36025,8 +35959,8 @@
               }
             }
           },
-          "413": {
-            "description": "A body larger than 4 MB, refused without reading the rest of it (request_body_too_large).",
+          "410": {
+            "description": "Browser picture upload retired (picture_upload_retired).",
             "content": {
               "application/json": {
                 "schema": {
@@ -69914,6 +69848,7 @@
               "code": {
                 "type": "string",
                 "enum": [
+                  "picture_upload_retired",
                   "setting_locked",
                   "project_owner_cannot_leave",
                   "method_not_allowed",
@@ -78088,6 +78023,7 @@
           "code": {
             "type": "string",
             "enum": [
+              "picture_upload_retired",
               "setting_locked",
               "project_owner_cannot_leave",
               "method_not_allowed",
@@ -78254,6 +78190,7 @@
     }
   },
   "x-error-codes": {
+    "picture_upload_retired": "Browser picture uploads are retired. Request a server picture with POST /api/maps/{id}/picture/refresh.",
     "setting_locked": "An environment variable locks a submitted setting. No settings changed; change or remove the named variable and restart before editing this setting.",
     "project_owner_cannot_leave": "The project's owner cannot leave. Transfer or delete the project instead.",
     "method_not_allowed": "This method is not allowed for this path.",

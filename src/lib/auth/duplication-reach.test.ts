@@ -1,3 +1,4 @@
+import { publishPictureFixture } from "@/lib/test-support/picture-fixture";
 import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -7,11 +8,10 @@ import { resetQueryInstance } from "@/lib/duckdb";
 import { ingestFile } from "@/lib/ingest/ingest";
 import { createMap } from "@/lib/map-service";
 import { createLayer } from "@/lib/layer-service";
-import { listLayers, type MapRecord } from "@/lib/metadata/maps";
+import { type MapRecord } from "@/lib/metadata/maps";
 import { addStep, createRecipe, listSteps } from "@/lib/metadata/recipes";
 import { fileRecipe } from "@/lib/metadata/projects";
 import type { DataTable } from "@/lib/metadata/tables";
-import { mapSqlRevision } from "@/lib/map-sql-revision";
 import { testAccountRequest, testAccountScope } from "@/lib/test-support/accounts";
 import { shareProject } from "@/lib/test-support/sharing";
 import type { AccountScope } from "./scope";
@@ -60,9 +60,7 @@ beforeEach(async () => {
   await createLayer(scopes.ada, maps.N.id, { name: "Parks", sql: "SELECT * FROM parks" }, { expectedRevision: readEditRevision({ kind: "map", id: maps.N.id })?.editRevision });
   await createLayer(scopes.cyd, maps.C.id, { name: "Ada's roads", sql: "SELECT * FROM ada.roads" }, { expectedRevision: readEditRevision({ kind: "map", id: maps.C.id })?.editRevision });
   for (const map of [maps.M, maps.N]) {
-    const put = await call("ada", route.thumbnail, `/api/maps/${map.id}/thumbnail?revision=${mapSqlRevision(listLayers(map.id))}`,
-      { id: map.id }, "PUT", png(map.name));
-    expect(put.status).toBe(204);
+    await publishPictureFixture(scopes.ada, map.id, png(map.name));
   }
   const recipe = createRecipe(scopes.ada, "Survey");
   fileRecipe(recipe.id, "P");
