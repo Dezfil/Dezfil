@@ -38,3 +38,25 @@ it("owner and Editor coalesce, Viewer refuses, unavailable is explicit, and vers
   expect((await mapsOverview(scope)).find(row => row.id === map.id)?.pictureVersion).toBe(listed.pictureVersion);
   expect(documentFacts({ kind: "map", id: map.id })).toEqual(facts);
 });
+
+it.each(["before", "during"])("refuses an active Editor with forbidden when the owner deactivates %s refresh", async timing => {
+  const owner = testAccountScope(undefined, `owner-${timing}`), editor = testAccountScope(undefined, `editor-${timing}`);
+  const db = metadataDb(), project = `project-${timing}`;
+  db.prepare("INSERT INTO projects(id,name,owner_id,created_at,updated_at) VALUES(?,'Project',?,'time','time')").run(project, owner.accountId);
+  db.prepare("INSERT INTO project_people VALUES(?,?,'editor','time')").run(project, editor.accountId);
+  const map = createMap(owner, "Owner standing", project);
+  const service = new PictureService({ baseUrl: "http://fixture.test", available: () => true, run: async () => {} });
+  const deactivate = () => db.prepare("UPDATE accounts SET status = 'deactivated' WHERE id = ?").run(owner.accountId);
+  runtime.service = { refresh: async (id: string) => { if (timing === "during") deactivate(); return service.refresh(id); } };
+  if (timing === "before") deactivate();
+  const response = await POST(testAccountRequest(new Request(`http://fixture.test/api/maps/${map.id}/picture/refresh`, { method: "POST" }), db, editor.accountId), { params: Promise.resolve({ id: map.id }) });
+  expect(response.status).toBe(403);
+  expect(await response.json()).toMatchObject({ error: { code: "forbidden" } });
+  expect(getPictureState(map.id)).toBeNull();
+});
+it("documents only the waiting state for an accepted refresh", async () => {
+  const { buildOpenApiDocument } = await import("@/lib/api/openapi");
+  const operation = buildOpenApiDocument().paths["/api/maps/{id}/picture/refresh"].post;
+  const answer = operation.responses["202"] as { content: { "application/json": { schema: { properties: { pictureState: unknown } } } } };
+  expect(answer.content["application/json"].schema.properties.pictureState).toEqual({ type: "string", const: "waiting" });
+});

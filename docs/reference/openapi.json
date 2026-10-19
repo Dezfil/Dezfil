@@ -35560,12 +35560,7 @@
                     },
                     "pictureState": {
                       "type": "string",
-                      "enum": [
-                        "waiting",
-                        "failed",
-                        "unsupported",
-                        "current"
-                      ]
+                      "const": "waiting"
                     }
                   },
                   "required": [

@@ -138,7 +138,7 @@ export const MAP_RESOURCE_PATHS = {
       display: { verb: "Requested a map picture" }, effects: writes(resource("maps", "id")),
       parameters: [pathParam("id", "Map id.")],
       responses: {
-        "202": { description: "Queued or coalesced.", content: { "application/json": { schema: { type: "object", properties: { outcome: { type: "string", const: "queued" }, pictureState: { type: "string", enum: ["waiting", "failed", "unsupported", "current"] } }, required: ["outcome", "pictureState"] } } } },
+        "202": { description: "Queued or coalesced.", content: { "application/json": { schema: { type: "object", properties: { outcome: { type: "string", const: "queued" }, pictureState: { type: "string", const: "waiting" } }, required: ["outcome", "pictureState"] } } } },
         "200": { description: "The renderer is unavailable.", content: { "application/json": { schema: { type: "object", properties: { outcome: { type: "string", const: "unavailable" }, pictureState: { type: "string", const: "unavailable" } }, required: ["outcome", "pictureState"] } } } },
         "403": ERROR_RESPONSE,
       },
