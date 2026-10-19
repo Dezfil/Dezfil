@@ -46,6 +46,7 @@ import { namedSql } from "@/lib/query/named-sql";
  * is unattributed, and the basemap it was drawn on, or null when none was
  * recorded. */
 export interface ImageEvidence {
+  generation?: number;
   inputs: ArtifactInputs | null;
   basemap: DrawnBasemap | null;
 }
@@ -71,7 +72,7 @@ export async function writeImageEvidence(image: string, bytes: Uint8Array, evide
   const target = evidencePath(image);
   const temp = `${target}.${randomBytes(6).toString("hex")}.tmp`;
   try {
-    await writeFile(temp, JSON.stringify({ sha256: digest(bytes), inputs: evidence.inputs, basemap: evidence.basemap }));
+    await writeFile(temp, JSON.stringify({ sha256: digest(bytes), inputs: evidence.inputs, basemap: evidence.basemap, generation: evidence.generation }));
     authorize();
     renameSync(temp, target);
   } catch (error) {
@@ -82,7 +83,7 @@ export async function writeImageEvidence(image: string, bytes: Uint8Array, evide
 
 /** An image's evidence as written, or null when there is none or it does
  * not read. */
-async function readEvidence(image: string): Promise<{ sha256?: unknown; inputs?: unknown; basemap?: unknown } | null> {
+async function readEvidence(image: string): Promise<{ sha256?: unknown; inputs?: unknown; basemap?: unknown; generation?: unknown } | null> {
   try {
     const parsed: unknown = JSON.parse(await readFile(evidencePath(image), "utf8"));
     return parsed && typeof parsed === "object" ? parsed : null;
@@ -111,7 +112,7 @@ function parseBasemap(value: unknown): DrawnBasemap | null {
 export async function imageEvidence(image: string, bytes: Uint8Array): Promise<ImageEvidence> {
   const parsed = await readEvidence(image);
   if (!parsed || parsed.sha256 !== digest(bytes)) return NO_EVIDENCE;
-  return { inputs: parseInputs(parsed.inputs), basemap: parseBasemap(parsed.basemap) };
+  return { inputs: parseInputs(parsed.inputs), basemap: parseBasemap(parsed.basemap), ...generationOf(parsed.generation) };
 }
 
 /** The inputs these bytes of this image drew, or null when the image is
@@ -126,7 +127,7 @@ export async function imageInputs(image: string, bytes: Uint8Array): Promise<Art
  * still leaves the image unattributed where it is served. */
 export async function recordedEvidence(image: string): Promise<ImageEvidence> {
   const parsed = await readEvidence(image);
-  return parsed ? { inputs: parseInputs(parsed.inputs), basemap: parseBasemap(parsed.basemap) } : NO_EVIDENCE;
+  return parsed ? { inputs: parseInputs(parsed.inputs), basemap: parseBasemap(parsed.basemap), ...generationOf(parsed.generation) } : NO_EVIDENCE;
 }
 
 export async function removeImageEvidence(image: string): Promise<void> {
@@ -196,4 +197,8 @@ export async function captureInputs(scope: AccountScope, mapId: string, revision
   } catch {
     return null;
   }
+}
+
+function generationOf(value: unknown): { generation?: number } {
+  return typeof value === "number" && Number.isSafeInteger(value) && value > 0 ? { generation: value } : {};
 }
