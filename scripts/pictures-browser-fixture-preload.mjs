@@ -14,7 +14,7 @@ puppeteer.launch = async (...args) => {
     page.on('request', request => {
       const url = new URL(request.url());
       const colour = url.origin === 'https://tiles.openfreemap.org' ? colours[url.pathname] : undefined;
-      if (colour) request.continue = async () => request.respond({ status: 200, contentType: 'application/json', body: JSON.stringify({ version: 8, sources: {}, layers: [{ id: 'fixture-ground', type: 'background', paint: { 'background-color': colour } }] }) });
+      if (colour) request.continue = async () => request.respond({ status: 200, contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify({ version: 8, sources: {}, layers: [{ id: 'fixture-ground', type: 'background', paint: { 'background-color': colour } }] }) });
     });
     return page;
   };
