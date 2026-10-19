@@ -1,5 +1,7 @@
 "use client";
 
+import { usePaintedStyle } from "./use-painted-style";
+import { unsupportedRenderLayers } from "@/lib/pictures/declaration";
 import { useEffect, useMemo, useState } from "react";
 import type { MapWithLayers } from "@/lib/metadata/maps";
 import type { LayerRenderData } from "@/lib/layer-service";
@@ -75,6 +77,7 @@ export function RenderExportView({
   /** The styles this instance offers, server-injected. */
   basemaps?: BasemapStyle[];
 }) {
+  const paintedStyle = usePaintedStyle();
   // The definition, from the driver's request-scoped initialization.
   const [definition, setDefinition] = useState<
     ExportImageDefinition | { invalid: string } | null
@@ -303,6 +306,7 @@ export function RenderExportView({
     const m = map.value;
     const layers: RenderedLayer[] = [];
     const failures: string[] = [];
+    const unsupported: string[] = [];
     for (const l of visibleLayers) {
       const fetched = renders[l.id];
       if (!fetched || fetched.state === "loading") return null;
@@ -335,7 +339,9 @@ export function RenderExportView({
         r.mode === "tiled" && r.tiles?.state === "ready" && r.tiles.url
           ? { url: r.tiles.url, minZoom: r.tiles.minZoom, maxZoom: r.tiles.maxZoom }
           : null;
-      if (tiledUrl && dims.length > 0) {
+      const omitted = unsupportedRenderLayers([{ id: l.id, tiled: !!tiledUrl, liveDimensions: dims.length }]);
+      if (omitted.length) {
+        unsupported.push(...omitted);
         failures.push(
           `${l.name}: live-filtered tiled layers cannot render in server exports yet`,
         );
@@ -383,6 +389,7 @@ export function RenderExportView({
     return {
       layers,
       failures,
+      unsupported,
       legendLayers,
       basemap: {
         key: m.basemap,
@@ -464,6 +471,9 @@ export function RenderExportView({
     ready && stage && def && map.state === "ok"
       ? JSON.stringify({
           map: map.value.id,
+          unsupported: stage.unsupported,
+          paintedStyle,
+          requestedStyle: stage.basemap.url,
           layers: visibleLayers.map((l) => ({ id: l.id, filters: l.filters })),
           legend: { visible: def.legend.visible, corner: def.legend.corner, order: stage.legendLayers.map((l) => l.id ?? l.name) },
           widgets: stage.widgets.map((w) => w.id),
