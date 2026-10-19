@@ -1,3 +1,4 @@
+import { pictureRendererAvailable } from "@/lib/pictures/renderer";
 import path from "node:path";
 import { version as engineVersion } from "@duckdb/node-api";
 import { queryEngineExtensions } from "@/lib/duckdb";
@@ -30,7 +31,7 @@ export function readPartStates({ imagesAtOnce, metadataFile }: {
   return {
     query_engine: { version: versionNumber(engineVersion()), started: extensions !== null, extensions: extensions ? [...extensions] : [] },
     tile_builder: { found: tilerFound(), version: versionNumber(knownTilerVersion()) },
-    image_renderer: { found: executableFound(chromiumPath()), imagesAtOnce },
+    image_renderer: { found: executableFound(chromiumPath()), available: pictureRendererAvailable(), imagesAtOnce },
     metadata_database: { file: path.basename(metadataFile) },
   };
 }

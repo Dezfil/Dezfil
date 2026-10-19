@@ -693,8 +693,11 @@ image carries what the source tree does not:
 
 Without the renderer, map listings report `pictureState: unavailable`,
 refresh answers `outcome: unavailable`, and existing pictures stay served.
-System reports the image renderer's availability. Install or restore the
-configured executable; the hourly look discovers recovery without an edit.
+The admin System read, `GET /api/instance/settings`, reports this as
+`parts.image_renderer.available`; `found` separately reports file presence.
+The System tab currently shows file presence. Install or restore the configured
+executable; the hourly look discovers recovery without an edit. A launch refusal
+also holds picture work unavailable until that look, even if the file exists.
 Map pictures are made on the server even when nobody opens their builder.
 
 It runs as the unprivileged `node` user, exposes 3000 and declares `/data`

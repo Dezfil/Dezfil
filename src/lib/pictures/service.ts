@@ -1,10 +1,8 @@
 import { pictureBindings, schedulingBindings, bindingMayUse, rememberBindings, bindingsChanged } from "./bindings";
-import { accessSync, constants } from "node:fs";
 import { metadataDb } from "@/lib/metadata/db";
 import { mapOwnerWorkScope } from "@/lib/auth/scope";
 import { publishedPictureInputs, servedThumbnails } from "@/lib/map-thumbnails";
 import { limits } from "@/lib/limits";
-import { chromiumPath } from "@/lib/export/render-drive";
 import { renderMapImage } from "@/lib/export/render-image";
 import { admitResourceWork, inDetachedDeletionWork } from "@/lib/auth/account-deletion-work";
 import { PictureQueue } from "./queue";
@@ -15,9 +13,7 @@ import { pictureTarget, publishPicture } from "./publication";
 import { mintPictureCredential, revokePictureCredential, renewPictureCredential } from "./credential";
 import { inputsAreCurrent, readAttemptInputs } from "./inputs";
 import { cardDefinition, completePicture } from "./card";
-export function pictureRendererAvailable(): boolean {
-  try { accessSync(chromiumPath(), constants.X_OK); return true; } catch { return false; }
-}
+import { pictureRendererAvailable, pictureRendererFailed, retryPictureRenderer } from "./renderer";
 export interface PictureServiceOptions {
   baseUrl: string;
   now?: () => number;
@@ -41,6 +37,7 @@ export class PictureService {
         try { await (options.run ?? (state => this.render(state)))(state); }
         catch (error) {
           if (error && typeof error === "object" && "code" in error && error.code === "render_unavailable") {
+            if (!this.options.available) pictureRendererFailed();
             this.rendererFailed = true;
             this.rendererReady = false;
           }
@@ -50,6 +47,7 @@ export class PictureService {
     });
   }
   async look(): Promise<void> {
+    if (!this.options.available) retryPictureRenderer();
     this.rendererFailed = false;
     this.rendererReady = (this.options.available ?? pictureRendererAvailable)();
     const maps = metadataDb().prepare("SELECT m.id, m.updated_at FROM maps m JOIN accounts a ON a.id = m.owner_id WHERE a.status = 'active' ORDER BY m.updated_at DESC, m.id").all() as { id: string; updated_at: string }[];

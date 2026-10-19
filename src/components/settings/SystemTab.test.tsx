@@ -142,7 +142,7 @@ describe("System", () => {
 
   it("shows a started engine with its extensions, the tile builder's version once known and a program not found", async () => {
     partReads = [{ query_engine: { version: "1.5.4", started: true, extensions: ["spatial", "h3", "json"] },
-      tile_builder: { found: true, version: "2.79.0" }, image_renderer: { found: false, imagesAtOnce: 3 } }];
+      tile_builder: { found: true, version: "2.79.0" }, image_renderer: { found: false, available: false, imagesAtOnce: 3 } }];
     await open();
     expect(byId("sys-engine").textContent).toBe("Query engineDuckDB 1.5.4 · spatial, h3, jsonReadyTest");
     expect(byId("sys-tiler").textContent).toBe("Tile buildertippecanoe 2.79.0FoundTest");

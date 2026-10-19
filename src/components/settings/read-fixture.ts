@@ -27,7 +27,7 @@ export function instanceReadFixture(resolved: Readonly<Record<string, Resolution
     parts: {
       query_engine: { version: "1.5.4", started: false, extensions: [] },
       tile_builder: { found: true, version: null },
-      image_renderer: { found: true, imagesAtOnce: 2 },
+      image_renderer: { found: true, available: true, imagesAtOnce: 2 },
       metadata_database: { file: "metadata.sqlite" },
     },
     // As a fresh data folder reports them: every cache empty, no release list taken yet.

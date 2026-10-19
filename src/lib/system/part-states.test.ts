@@ -16,6 +16,9 @@ import { readInstanceSettings } from "@/lib/settings/read";
 import { keepRequestsOnThisMachine } from "@/lib/test-support/outside-requests";
 import { testAccountScope } from "@/lib/test-support/accounts";
 import { probeTilerVersion } from "@/lib/tiles/tiler";
+import { PictureService } from "@/lib/pictures/service";
+import { createMap } from "@/lib/map-service";
+import { settlePicture } from "@/lib/pictures/state";
 import type { PartStates } from "./part-states";
 
 /**
@@ -120,7 +123,7 @@ describe("the parts block of the configuration read", () => {
     expect(parts).toEqual({
       query_engine: { version: expect.stringMatching(/^\d+\.\d+\.\d+$/), started: false, extensions: [] },
       tile_builder: { found: true, version: null },
-      image_renderer: { found: true, imagesAtOnce: 3 },
+      image_renderer: { found: true, available: true, imagesAtOnce: 3 },
       metadata_database: { file: "metadata.sqlite" },
     });
     // Nothing was started to answer.
@@ -149,7 +152,7 @@ describe("the parts block of the configuration read", () => {
     writeFileSync(notRunnable, "#!/bin/sh\nexit 0\n", { mode: 0o644 });
     let parts = await partsRead();
     expect(parts.tile_builder).toEqual({ found: false, version: null });
-    expect(parts.image_renderer.found).toBe(false);
+    expect(parts.image_renderer).toMatchObject({ found: false, available: false });
     vi.stubEnv("DEZFIL_TIPPECANOE", notRunnable);
     parts = await partsRead();
     expect(parts.tile_builder.found).toBe(false);
@@ -175,4 +178,24 @@ describe("the parts block of the configuration read", () => {
     expect((await partsRead()).query_engine).toEqual({ version: expect.stringMatching(/^\d+\.\d+\.\d+$/), started: true, extensions: ["spatial", "json"] });
     expect(engines).not.toHaveBeenCalled();
   });
+});
+
+it("reports picture renderer standing after a launch refusal and recovery without launching during the read", async () => {
+  const browser = program("browser");
+  vi.stubEnv("DEZFIL_CHROMIUM_PATH", browser.file);
+  const scope = testAccountScope(f.db, "admin"), map = createMap(scope, "Standing");
+  let now = Date.now(), attempts = 0;
+  const service = new PictureService({ baseUrl: ORIGIN, now: () => now, run: async state => {
+    attempts++;
+    if (attempts === 1) throw Object.assign(new Error("Cannot launch"), { code: "render_unavailable" });
+    settlePicture(state.mapId, state.requestedGeneration, { state: "current" });
+  } });
+  expect((await partsRead()).image_renderer).toMatchObject({ found: true, available: true });
+  await service.request(map.id); now += 5000; service.queue.tick(); await service.queue.drain();
+  expect((await partsRead()).image_renderer).toMatchObject({ found: true, available: false });
+  expect(attempts).toBe(1);
+  now += 3600000; await service.look(); await service.queue.drain();
+  expect((await partsRead()).image_renderer).toMatchObject({ found: true, available: true });
+  expect(attempts).toBe(2);
+  expect(started.programs).toEqual([]); expect(started.launches).toBe(0);
 });

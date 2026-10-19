@@ -11,8 +11,9 @@ export interface PartStates {
    * version once this server has run it. */
   readonly tile_builder: { readonly found: boolean; readonly version: string | null };
   /** Whether the image renderer's browser is a program where its setting
-   * points, and how many images render at once. */
-  readonly image_renderer: { readonly found: boolean; readonly imagesAtOnce: number };
+   * points, whether picture work can use it (a launch refusal lasts until
+   * the next look), and how many images render at once. */
+  readonly image_renderer: { readonly found: boolean; readonly available: boolean; readonly imagesAtOnce: number };
   /** The metadata database's file name, without its folder. */
   readonly metadata_database: { readonly file: string };
 }

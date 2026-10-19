@@ -517,7 +517,10 @@ the server as System's Status shows it: for `query_engine` the engine library's
 `extensions` it loaded; for `tile_builder` whether the program is `found` where
 its setting points (a bare name looked up on the search path, by a file check)
 and its `version` once this server has run it, else null; for `image_renderer`
-whether its browser is `found` and `imagesAtOnce`; for `metadata_database` its
+whether its browser is `found`, `imagesAtOnce`, and whether picture work can
+use it in `available`. Availability is false when the executable is missing
+or a picture launch failed since the last startup or hourly look. Reading
+does not launch the renderer or clear that refusal. For `metadata_database` its
 `file` name without its folder. The read contacts no provider, initializes no
 engine, launches no browser, runs no program and creates no configuration
 artifact. `capacities` contains
