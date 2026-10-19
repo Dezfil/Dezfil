@@ -717,8 +717,14 @@ supported extension loads with the network disabled.
 ## Map picture proofs
 
 Build and provision a production instance in a separate checkout with its own
-scratch data directory, a real image renderer and tile builder. Use a port
-other than the development listener. Auto must be unpinned and its light and
+scratch data directory, a real image renderer and tile builder. After building,
+provision the standalone as in [the project departure proof](#project-departure-proof-on-a-production-standalone):
+copy `public` to `.next/standalone/public`, `.next/static` to
+`.next/standalone/.next/static`, and the complete native packages (`@duckdb`,
+`better-sqlite3`, `bindings`, `file-uri-to-path`) into its `node_modules`.
+Copy the ingress preload and its supporting files at the same relative paths,
+as that recipe describes. The traced standalone alone cannot render these proofs.
+Use a port other than the development listener. Auto must be unpinned and its light and
 dark style hosts reachable. Create a disposable account token on that instance.
 The proof creates and deletes its own maps, never opens their builders, and
 rejects the development port before making a request.
@@ -749,7 +755,8 @@ requests allowed in the isolated instance's egress policy.
 DEZFIL_BASE_URL=http://127.0.0.1:3581 npx playwright test e2e/picture-framing.spec.ts --project=chromium
 ```
 
-For the migrated theme suite, add
+Use the style fixture only on the migrated theme suite's instance. Keep it off
+the real-render and framing instance. For the migrated theme suite, add
 `--import=./scripts/pictures-browser-fixture-preload.mjs` to the isolated
 instance's normal launch and set `DEZFIL_PICTURE_STYLE_FIXTURE=1`. This
 fixture refuses the development port and requires a data directory whose
