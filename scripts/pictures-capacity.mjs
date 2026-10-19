@@ -28,8 +28,10 @@ if (mode.startsWith('seed-')) {
   const actor = authenticateSession(issueSession(getAccount(scope.accountId), db, Date.now()).secret, db);
   const token = createApiToken(actor, 'Disposable capacity proof', db).secret;
   const { seedPictureCapacity } = load('lib/test-support/picture-capacity.ts');
-  const kind = mode.slice(5), maps = await seedPictureCapacity(scope, kind);
-  write(manifestPath, { kind, maps, createdAt: Date.now() });
+  const basemapUrl = process.env.DEZFIL_PICTURE_BASEMAP_URL;
+  assert.ok(basemapUrl, 'Set DEZFIL_PICTURE_BASEMAP_URL to the loopback tile fixture');
+  const kind = mode.slice(5), maps = await seedPictureCapacity(scope, kind, basemapUrl);
+  write(manifestPath, { kind, maps, basemapUrl, createdAt: Date.now() });
   writeFileSync(manifestPath + '.token', token, { mode: 0o600 });
   closeMetadataDb();
   console.log(JSON.stringify({ result: 'seeded', kind, maps: maps.length, manifest: manifestPath, tokenFile: manifestPath + '.token' }));
@@ -55,6 +57,8 @@ if (mode.startsWith('seed-')) {
   assert.equal(initialSettings.settings.exportRenderConcurrency.value, 2, 'Measure the default two-slot lane');
   const initialBoot = events().find(event => event.kind === 'boot');
   assert.ok(initialBoot, 'The process boot must be observed');
+  assert.equal(initialBoot.basemapUrl, fixture.basemapUrl, 'The seed and server must use the same loopback tile fixture');
+  assert.ok(fixture.basemapUrl && initialBoot.styleFixture, 'Capacity pairs require the loopback style fixture preload');
   const baseline = fixture.kind === 'first' ? null : JSON.parse(readFileSync(baselinePath, 'utf8'));
   if (baseline) assert.equal(baseline.result, 'confirmed');
   const started = Date.now(), deadline = started + (baseline?.limits.capacity300Ms ?? 1800000);

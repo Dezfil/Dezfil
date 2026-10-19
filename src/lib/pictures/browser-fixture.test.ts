@@ -6,6 +6,7 @@ const { on, launch } = vi.hoisted(() => {
   const newPage = vi.fn(async () => ({ on }));
   return { on, newPage, launch: vi.fn(async () => ({ newPage })) };
 });
+
 vi.mock("puppeteer-core", () => ({ default: { launch } }));
 afterAll(() => vi.unstubAllEnvs());
 
@@ -38,5 +39,22 @@ it("substitutes only built-in styles with cross-origin-readable responses after 
     intercept(request as unknown as HTTPRequest);
     expect(request.continue).toBe(resume);
     expect(respond).not.toHaveBeenCalled();
+  }
+});
+
+it("redirects both appearances to the loopback tile fixture when measuring capacity", async () => {
+  vi.stubEnv("DEZFIL_PICTURE_BASEMAP_URL", "http://127.0.0.1:3582/style.json");
+  const browser = await puppeteer.launch();
+  await browser.newPage();
+  const intercept = on.mock.calls.at(-1)![1] as (request: HTTPRequest) => void;
+  for (const [style, appearance] of [["positron", "light"], ["dark", "dark"]]) {
+    const respond = vi.fn();
+    const request = { url: () => `https://tiles.openfreemap.org/styles/${style}`, continue: vi.fn(), respond };
+    intercept(request as unknown as HTTPRequest);
+    expect(request.url()).toBe(`http://127.0.0.1:3582/${appearance}/style.json`);
+    await request.continue();
+    expect(respond).toHaveBeenCalledWith(expect.objectContaining({ status: 302, headers: expect.objectContaining({
+      Location: `http://127.0.0.1:3582/${appearance}/style.json`,
+    }) }));
   }
 });

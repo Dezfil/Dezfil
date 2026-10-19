@@ -3,6 +3,18 @@ import { startLoopbackBasemap, assertBasemapTraffic } from "../../../scripts/loo
 import { countColored, decodePng } from "../../../scripts/png-probe.mjs";
 
 describe("loopback basemap measurement", () => {
+  it("offers light and dark styles that both fetch loopback raster tiles", async () => {
+    const fixture = await startLoopbackBasemap();
+    try {
+      const light = await fetch(new URL("/light/style.json", fixture.styleUrl)).then(response => response.json());
+      const dark = await fetch(new URL("/dark/style.json", fixture.styleUrl)).then(response => response.json());
+      expect(light.sources).toEqual(dark.sources);
+      expect(light.layers[0].type).toBe("raster");
+      expect(dark.layers[0].paint["raster-brightness-max"]).toBeLessThan(1);
+      expect(dark.layers).not.toEqual(light.layers);
+      expect(new URL(light.sources.fixture.tiles[0]).origin).toBe(new URL(fixture.styleUrl).origin);
+    } finally { await fixture.close(); }
+  });
   it("serves a self-contained CORS style and neutral, opaque PNG without caching", async () => {
     const fixture = await startLoopbackBasemap();
     try {
