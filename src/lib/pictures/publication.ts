@@ -2,6 +2,8 @@ import type { AccountScope } from "@/lib/auth/scope";
 import { ownMapWithLayers } from "@/lib/map-access";
 import { metadataDb } from "@/lib/metadata/db";
 import { captureBasemap } from "@/lib/thumbnail-evidence";
+import { satelliteTileUrl } from "@/lib/basemap-satellite";
+import { pictureMeasure } from "./measurement";
 import { basemapFollowsTheme } from "@/lib/basemap-offer";
 import { inputsReached } from "@/lib/artifact-access";
 import { reachableDatasetIds } from "@/lib/auth/reach";
@@ -16,7 +18,11 @@ export function pictureTarget(scope: AccountScope, mapId: string, sketchIds: rea
   const light = captureBasemap(mapId, "light")!;
   const dark = !map.customBasemap && basemapFollowsTheme(map.basemap) ? captureBasemap(mapId, "dark")! : undefined;
   const artifacts = sketchIds.map(id => (metadataDb().prepare("SELECT file FROM data_tables WHERE id = ?").get(id) as { file: string } | undefined)?.file ?? `missing:${id}`);
-  return { map, ownerId: scope.accountId, sketchIds: [...sketchIds], basemaps: { light, dark }, digest: drawingDigest(map, dark ? [light.url, dark.url] : [light.url], artifacts) };
+  const ground = dark ? [light.url, dark.url] : [light.url];
+  // The stable imagery proxy hides provider changes. Hash the effective
+  // template, but never copy its possibly secret address into evidence.
+  if (!map.customBasemap && map.basemap === "satellite") ground.push(satelliteTileUrl() ?? "unavailable");
+  return { map, ownerId: scope.accountId, sketchIds: [...sketchIds], basemaps: { light, dark }, digest: drawingDigest(map, ground, artifacts) };
 }
 export type PictureTarget = ReturnType<typeof pictureTarget>;
 export function assertPicturePublication(scope: AccountScope, target: PictureTarget, generation: number, inputs: ArtifactInputs): void {
@@ -34,4 +40,5 @@ export async function publishPicture(scope: AccountScope, target: PictureTarget,
     check();
     if (!settlePicture(target.map.id, generation, { state: "current", producer: "server", publishedGeneration: generation, publishedDigest: target.digest, attemptCount: 0 })) throw new Error("The picture request changed.");
   });
+  pictureMeasure({ kind: "published", mapId: target.map.id, generation });
 }

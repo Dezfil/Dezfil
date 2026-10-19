@@ -1,4 +1,5 @@
 import { admitResourceWork, inDeletionWork, registerRenderDeletionWork } from "@/lib/auth/account-deletion-work";
+import { pictureMeasure } from "@/lib/pictures/measurement";
 import { drainAccountRenders } from "./render-work";
 import { trackRenderWork } from "./render-work";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
@@ -145,11 +146,15 @@ async function performRenderMapImage(
   let deadline = Date.now() + budget.timeoutMs;
   const background = input.background ?? false;
   const interruption = new AbortController();
-  const interrupt = background ? () => interruption.abort() : undefined;
+  const interrupt = background ? () => {
+    if (!interruption.signal.aborted) pictureMeasure({ kind: "interrupted", mapId: input.mapId });
+    interruption.abort();
+  } : undefined;
   const signal = background ? AbortSignal.any([interruption.signal, ...(input.signal ? [input.signal] : [])]) : input.signal;
   if (background) {
     await acquireSlot(deadline, signal, budget, true, interrupt);
     deadline = Date.now() + budget.timeoutMs;
+    pictureMeasure({ kind: "admitted", mapId: input.mapId, background });
   }
   // Imagery is checked only for a map that draws it, so every other image
   // joins the queue at once.
@@ -162,7 +167,10 @@ async function performRenderMapImage(
     stand();
   }
   } catch (error) { if (background) releaseSlot(true, interrupt); throw error; }
-  if (!background) await acquireSlot(deadline, input.signal, budget);
+  if (!background) {
+    await acquireSlot(deadline, input.signal, budget);
+    pictureMeasure({ kind: "admitted", mapId: input.mapId, background });
+  }
   // A launch given up on at the budget may still be starting when the
   // export answers: the slot stays held until it has ended.
   const late: { end: Promise<void> | null } = { end: null };

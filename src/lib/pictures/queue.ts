@@ -40,4 +40,6 @@ export class PictureQueue {
   }
   async drain(): Promise<void> { await Promise.all([...this.running.values()]); }
   get busy(): boolean { return this.running.size > 0; }
+  /** Independent populated-store observation for the erasure proof. */
+  runningIdsForTests(): string[] { return [...this.running.keys()]; }
 }

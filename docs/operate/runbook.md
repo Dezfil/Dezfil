@@ -763,6 +763,72 @@ loopback styles accessible to both browsers and the saved camera at the
 card's composition size. The clear-conversation check counts every page
 request, including a residual browser upload if one remains installed.
 
+### Picture capacity and measurement
+
+Run these proofs on a separately built production instance, under the same
+exclusive test lock as the browser battery. Use the loopback ground fixture
+above, the real headless browser and default two image slots. The offline
+seeder refuses an existing database; the runner refuses port 3000. Each workload
+gets its own stopped instance and fresh `pictures-` data directory. Its owner
+token is written with mode 0600 beside the manifest and is never printed.
+
+First seed twenty empty maps, ten single pictures and ten pairs:
+
+```sh
+export DEZFIL_DATA_DIR=$(mktemp -d "$PWD/.claude/scratch/pictures-measure-XXXXXXXX")
+fnm exec --using=24 node scripts/pictures-capacity.mjs seed-first .claude/scratch/pictures-first.fixture.json
+export DEZFIL_PICTURE_METRICS="$PWD/.claude/scratch/pictures-first.events.jsonl"
+export DEZFIL_PICTURE_TEST_URL=http://127.0.0.1:3581
+# Start the separate production server with this store and PORT=3581.
+# Add --import=./scripts/pictures-metrics-preload.mjs to its launch.
+# restart-isolated-server is an executable that replaces only that instance,
+# preserves its store, metrics path and environment, then returns.
+fnm exec --using=24 node scripts/pictures-capacity.mjs run \
+  .claude/scratch/pictures-first.fixture.json .claude/scratch/pictures-first-run.json unused \
+  -- ./restart-isolated-server
+```
+
+Supply `DEZFIL_STANDALONE_DIR` when the standalone instance owns the matching
+native modules in a different module tree. Start the runner promptly after the
+server. The preload records admission and successful publication, including
+both appearances, reduction and publication. The report keeps the raw events,
+machine and runtime information, per-attempt timings, median and 90th
+percentile, and browser-process peak RSS sampled every 250 ms. The sample peak
+is not an instantaneous allocation maximum. It also measures idle foreground
+export admission and check response, actual interruption at one slot, startup
+and restart overhead. It freezes the 300-map ceiling at 300 times the measured
+90th percentile times 1.5 plus startup and restart overhead. Foreground ceilings
+are the idle baselines plus measured interruption cost.
+
+Then seed and start fresh instances for each capacity workload. Use fresh
+manifest and event filenames for each. Pass the successful first-run report
+unchanged as the fourth argument:
+
+```sh
+# With a new stopped instance/store and matching fresh metrics path:
+fnm exec --using=24 node scripts/pictures-capacity.mjs seed-missing .claude/scratch/pictures-missing.fixture.json
+# Start the isolated server, then:
+fnm exec --using=24 node scripts/pictures-capacity.mjs run \
+  .claude/scratch/pictures-missing.fixture.json .claude/scratch/pictures-missing-run.json \
+  .claude/scratch/pictures-first-run.json
+# Repeat the provisioning with another fresh store:
+fnm exec --using=24 node scripts/pictures-capacity.mjs seed-mixed .claude/scratch/pictures-mixed.fixture.json
+# Start the isolated server, then:
+fnm exec --using=24 node scripts/pictures-capacity.mjs run \
+  .claude/scratch/pictures-mixed.fixture.json .claude/scratch/pictures-mixed-run.json \
+  .claude/scratch/pictures-first-run.json -- ./restart-isolated-server
+```
+
+The mixed fixture has 100 missing, 100 old-road and 100 current pictures.
+Its restart occurs halfway through the pending work. Independent publication
+events reject a repeated remake, missing work, a current map being rendered,
+or an old picture overtaking a missing one. Both runs exercise foreground work
+during the backlog and require a saved camera change to reach a new picture
+within a minute for a single and a pair. Nonzero exit or `result: failed` is
+failure; keep its raw report. A passing unit fixture does not demonstrate
+renderer throughput. Stop the isolated instance and remove its store, token
+and temporary files after the proof artifacts have been collected.
+
 ## Regenerating what is generated
 
 **The design specimen.** `node scripts/build-specimen.mjs` rewrites the fed
