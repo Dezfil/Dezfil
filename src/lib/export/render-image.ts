@@ -151,6 +151,10 @@ async function performRenderMapImage(
     interruption.abort();
   } : undefined;
   const signal = background ? AbortSignal.any([interruption.signal, ...(input.signal ? [input.signal] : [])]) : input.signal;
+  const release = () => {
+    pictureMeasure({ kind: "released", mapId: input.mapId, background });
+    releaseSlot(background, interrupt);
+  };
   if (background) {
     await acquireSlot(deadline, signal, budget, true, interrupt);
     deadline = Date.now() + budget.timeoutMs;
@@ -166,7 +170,7 @@ async function performRenderMapImage(
     }
     stand();
   }
-  } catch (error) { if (background) releaseSlot(true, interrupt); throw error; }
+  } catch (error) { if (background) release(); throw error; }
   if (!background) {
     await acquireSlot(deadline, input.signal, budget);
     pictureMeasure({ kind: "admitted", mapId: input.mapId, background });
@@ -190,8 +194,8 @@ async function performRenderMapImage(
       hold: (end) => { late.end = end; },
     });
   } finally {
-    if (late.end) void late.end.then(() => releaseSlot(background, interrupt));
-    else releaseSlot(background, interrupt);
+    if (late.end) void late.end.then(release);
+    else release();
   }
 }
 

@@ -6,6 +6,61 @@ export function percentile(values, fraction) {
   return sorted[Math.max(0, Math.ceil(sorted.length * fraction) - 1)];
 }
 
+/** Slot lifetime, not publication lifetime: reduction happens after release.
+ * Event indices distinguish consecutive appearances of the same map. */
+export function activeRenders(events, end = events.length) {
+  let active = [];
+  for (let index = 0; index < end; index++) {
+    const event = events[index];
+    if (event.kind === 'boot') active = [];
+    if (event.kind === 'admitted') active.push({ ...event, index });
+    if (event.kind === 'released') active = active.filter(start =>
+      !(start.pid === event.pid && start.mapId === event.mapId && start.background === event.background));
+  }
+  return active;
+}
+
+export function foregroundTiming(sample, events) {
+  assert.ok(Number.isInteger(sample.eventOffset) && sample.eventOffset >= 0 && sample.eventOffset <= events.length, 'Missing foreground event cursor');
+  const admissionIndex = events.findIndex((event, index) => index >= sample.eventOffset && event.kind === 'admitted' &&
+    !event.background && event.mapId === sample.mapId && event.at >= sample.requestedAt && event.at <= sample.answeredAt);
+  assert.ok(admissionIndex >= 0, 'A foreground admission was not measured');
+  return { admissionIndex, startMs: events[admissionIndex].at - sample.requestedAt, answerMs: sample.answeredAt - sample.requestedAt };
+}
+
+export function assertForegroundOverlap(sample, events) {
+  const timing = foregroundTiming(sample, events);
+  const active = activeRenders(events, sample.eventOffset);
+  assert.ok(active.length === 1 && active[0].background && active[0].at <= sample.requestedAt, 'Sample requires exactly one background render in flight');
+  // A sample that waited for that render to finish must not calibrate away
+  // the queueing defect, even if a different background render has started.
+  assert.ok(activeRenders(events, timing.admissionIndex).some(start => start.index === active[0].index), 'Foreground admission must overlap the same background render');
+  return { ...timing, backgroundAdmissionIndex: active[0].index };
+}
+
+export function foregroundLimits(samples, events, pictureMs, concurrency) {
+  assert.equal(concurrency, 2, 'Foreground limits require the default two slots');
+  assert.ok(Number.isFinite(pictureMs) && pictureMs > 0, 'Missing picture duration for the margin guard');
+  const limits = {};
+  for (const [kind, measure, field] of [['export', 'startMs', 'exportStartMs'], ['check', 'answerMs', 'checkAnswerMs']]) {
+    assert.equal(samples[kind].length, 5, 'Foreground limits require five samples of each operation');
+    const p90 = percentile(samples[kind].map(sample => assertForegroundOverlap(sample, events)[measure]), .9);
+    limits[field] = Math.ceil(p90 * 1.5);
+    assert.ok(limits[field] - p90 < pictureMs, 'Foreground margin must stay below one measured picture render');
+  }
+  return limits;
+}
+
+export function assertForegroundInterruption(sample, events, budgetMs) {
+  const timing = foregroundTiming(sample, events), active = activeRenders(events, sample.eventOffset);
+  assert.ok(active.length === 1 && active[0].background, 'Interruption requires one background render');
+  assert.ok(events.slice(sample.eventOffset, timing.admissionIndex).some(event => event.kind === 'interrupted' &&
+    event.mapId === active[0].mapId && event.pid === active[0].pid && event.at >= sample.requestedAt), 'The foreground did not interrupt its background render');
+  assert.ok(!activeRenders(events, timing.admissionIndex).some(start => start.index === active[0].index), 'The interrupted slot was not released');
+  assert.ok(timing.startMs <= budgetMs, 'Foreground export start exceeded one picture budget');
+  return timing;
+}
+
 /** Independent event oracle. Missing, duplicate and out-of-order publication
  * must fail even when every listing eventually says current. */
 export function capacityEvents(maps, events, complete = true) {
@@ -27,16 +82,24 @@ export function capacityEvents(maps, events, complete = true) {
 export function firstMeasurement(maps, events) {
   assert.equal(maps.length, 20);
   const published = capacityEvents(maps, events);
+  const appearances = [];
   const attempts = published.map(event => {
     const map = maps.find(map => map.id === event.mapId);
     const starts = events.filter(start => start.kind === 'admitted' && start.background && start.mapId === event.mapId);
     assert.equal(starts.length, map.pair ? 2 : 1, 'A missing or repeated appearance invalidates the baseline');
     assert.equal(starts[0].pid, event.pid, 'An interrupted attempt cannot be a timing baseline');
+    for (const start of starts) {
+      const release = events.slice(events.indexOf(start) + 1).find(end => end.kind === 'released' && end.background && end.mapId === start.mapId && end.pid === start.pid);
+      assert.ok(release, 'A picture slot release was not measured');
+      const duration = release.monotonicMs - start.monotonicMs;
+      assert.ok(duration > 0);
+      appearances.push(duration);
+    }
     const elapsedMs = event.monotonicMs - starts[0].monotonicMs;
     assert.ok(elapsedMs > 0);
     return { mapId: map.id, pair: map.pair, elapsedMs };
   });
   const describe = rows => ({ count: rows.length, medianMs: percentile(rows.map(row => row.elapsedMs), .5), p90Ms: percentile(rows.map(row => row.elapsedMs), .9) });
   assert.equal(attempts.filter(row => row.pair).length, 10);
-  return { attempts, all: describe(attempts), single: describe(attempts.filter(row => !row.pair)), pair: describe(attempts.filter(row => row.pair)) };
+  return { attempts, appearanceFloorMs: Math.min(...appearances), all: describe(attempts), single: describe(attempts.filter(row => !row.pair)), pair: describe(attempts.filter(row => row.pair)) };
 }

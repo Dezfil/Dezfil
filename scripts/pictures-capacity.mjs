@@ -6,7 +6,7 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { productLoader } from './account-deletion-source-loader.mjs';
 import { probeOrigin } from './settings-probe.mjs';
-import { capacityEvents, firstMeasurement } from './pictures-measurement.mjs';
+import { capacityEvents, firstMeasurement, activeRenders, foregroundTiming, assertForegroundOverlap, foregroundLimits, assertForegroundInterruption } from './pictures-measurement.mjs';
 const execute = promisify(execFile), sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 const [mode, manifestPath, reportPath, baselinePath, ...restartArgs] = process.argv.slice(2);
 assert.ok(['seed-first', 'seed-missing', 'seed-mixed', 'run'].includes(mode), 'Use seed-first, seed-missing, seed-mixed or run');
@@ -60,7 +60,13 @@ if (mode.startsWith('seed-')) {
   assert.equal(initialBoot.basemapUrl, fixture.basemapUrl, 'The seed and server must use the same loopback tile fixture');
   assert.ok(fixture.basemapUrl && initialBoot.styleFixture, 'Capacity pairs require the loopback style fixture preload');
   const baseline = fixture.kind === 'first' ? null : JSON.parse(readFileSync(baselinePath, 'utf8'));
-  if (baseline) assert.equal(baseline.result, 'confirmed');
+  if (baseline) {
+    assert.equal(baseline.result, 'confirmed');
+    assert.ok(baseline.foregroundConcurrent, 'A baseline with five concurrent foreground samples is required');
+    const frozen = foregroundLimits(baseline.foregroundConcurrent, baseline.rawEvents, baseline.timings.appearanceFloorMs, baseline.settings.concurrency);
+    assert.equal(baseline.limits.exportStartMs, frozen.exportStartMs);
+    assert.equal(baseline.limits.checkAnswerMs, frozen.checkAnswerMs);
+  }
   const started = Date.now(), deadline = started + (baseline?.limits.capacity300Ms ?? 1800000);
   let peakBrowserRssKiB = 0, samples = 0, samplingError;
   async function sampleMemory() {
@@ -108,12 +114,26 @@ if (mode.startsWith('seed-')) {
   const { cardDefinition } = load('lib/pictures/card.ts');
   const definition = cardDefinition((await json('GET', `/api/maps/${mapId}`)).viewport, 'light');
   async function foreground(check) {
-    const start = Date.now();
+    const eventOffset = events().length, requestedAt = Date.now();
     const response = await request('POST', check ? '/api/maps/look' : `/api/maps/${mapId}/export/image`, check ? { mapId } : { definition });
     await response.arrayBuffer();
-    const admission = events().find(event => event.kind === 'admitted' && !event.background && event.mapId === mapId && event.at >= start);
-    assert.ok(admission, 'A foreground admission was not measured');
-    return { startMs: admission.at - start, answerMs: Date.now() - start };
+    const sample = { mapId, eventOffset, requestedAt, answeredAt: Date.now() };
+    return { ...sample, ...foregroundTiming(sample, events()) };
+  }
+  async function waitForBackground(after = 0) {
+    while (Date.now() < deadline) {
+      const active = activeRenders(events());
+      if (active.length === 1 && active[0].background && active[0].index >= after) return active[0];
+      await sleep(20);
+    }
+    throw new Error('No background render was in flight before the deadline');
+  }
+  const backgroundId = fixture.maps[1].id;
+  async function refreshBackground() {
+    await until(listing => listing.find(row => row.id === backgroundId)?.pictureState === 'current');
+    const after = events().length;
+    await json('POST', `/api/maps/${backgroundId}/picture/refresh`);
+    return waitForBackground(after);
   }
   try {
     if (baseline) {
@@ -141,28 +161,29 @@ if (mode.startsWith('seed-')) {
       await sleep(2000);
       capacityEvents(fixture.maps, events());
       report.foregroundIdle = { export: await foreground(false), check: await foreground(true) };
+      report.foregroundConcurrent = { export: [], check: [] };
+      for (let i = 0; i < 5; i++) for (const kind of ['export', 'check']) {
+        await refreshBackground();
+        const sample = await foreground(kind === 'check');
+        report.foregroundConcurrent[kind].push(sample);
+        Object.assign(sample, assertForegroundOverlap(sample, events()));
+      }
+      const concurrentLimits = foregroundLimits(report.foregroundConcurrent, events(), report.timings.appearanceFloorMs, 2);
       const previous = initialSettings.settings.exportRenderConcurrency.storedValue;
       try {
+        await until(listing => listing.find(row => row.id === backgroundId)?.pictureState === 'current');
         await json('PATCH', '/api/instance/settings', { exportRenderConcurrency: 1 });
         async function interrupt(check) {
-          const start = Date.now();
-          await json('POST', `/api/maps/${fixture.maps[1].id}/picture/refresh`);
-          while (!events().some(event => event.kind === 'admitted' && event.background && event.mapId === fixture.maps[1].id && event.at >= start)) {
-            assert.ok(Date.now() - start < 30000, 'The interruption had no background attempt'); await sleep(20);
-          }
-          const answer = await foreground(check);
-          // The foreground request must overlap actual background work.
-          assert.ok(events().some(event => event.kind === 'interrupted' && event.mapId === fixture.maps[1].id && event.at >= start), 'The foreground did not interrupt actual background work');
-          return answer;
+          await refreshBackground();
+          const sample = await foreground(check);
+          assertForegroundInterruption(sample, events(), report.settings.appearanceBudgetSeconds * 1000);
+          if (check) assert.ok(sample.answerMs <= report.settings.appearanceBudgetSeconds * 1000, 'The one-slot check exceeded its budget');
+          return sample;
         }
         report.foregroundOneSlot = { export: await interrupt(false), check: await interrupt(true) };
       } finally { await json('PATCH', '/api/instance/settings', { exportRenderConcurrency: previous }); }
-      await json('POST', `/api/maps/${fixture.maps[1].id}/picture/refresh`);
-      await until(listing => listing.find(row => row.id === fixture.maps[1].id)?.pictureState === 'current', Date.now() + 120000);
-      const interruptionMs = Math.max(0, report.foregroundOneSlot.export.startMs - report.foregroundIdle.export.startMs,
-        report.foregroundOneSlot.check.answerMs - report.foregroundIdle.check.answerMs);
-      report.limits = { capacity300Ms: Math.ceil(300 * report.timings.all.p90Ms * 1.5 + report.startupMs + report.restartMs),
-        exportStartMs: report.foregroundIdle.export.startMs + interruptionMs, checkAnswerMs: report.foregroundIdle.check.answerMs + interruptionMs };
+      await until(listing => listing.find(row => row.id === backgroundId)?.pictureState === 'current', Date.now() + 120000);
+      report.limits = { capacity300Ms: Math.ceil(300 * report.timings.all.p90Ms * 1.5 + report.startupMs + report.restartMs), ...concurrentLimits };
     } else {
       // A successful baseline exists before this workload; exercise foreground
       // timing during backlog in the next run as well as the event ordering.
