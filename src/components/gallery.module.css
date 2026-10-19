@@ -439,10 +439,17 @@
   opacity: 0;
 }
 
+/* The info line under a card's name stands the same distance below it on
+   every card: a map's, workflow's or dataset's chips, a project's counts or
+   its "Empty". */
+.cardInfo {
+  margin-top: 8px;
+}
+
 .cardChips {
+  composes: cardInfo;
   display: flex;
   gap: 6px;
-  margin-top: 8px;
   flex-wrap: wrap;
 }
 

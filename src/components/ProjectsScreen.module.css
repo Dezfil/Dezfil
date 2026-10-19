@@ -37,6 +37,7 @@
 /* ---- the counts row on a card ---- */
 
 .counts {
+  composes: cardInfo from "./gallery.module.css";
   display: flex;
   align-items: center;
   gap: 14px;
