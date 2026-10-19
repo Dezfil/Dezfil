@@ -507,4 +507,18 @@ export const MIGRATIONS: string[] = [
   // members cascade away; datasets and independently owned jobs stay intact.
   `DELETE FROM cascade_runs WHERE NOT EXISTS
     (SELECT 1 FROM recipes WHERE recipes.id = cascade_runs.recipe_id);`,
+  // Picture work is a child of the map, outside its edit revision and history.
+  `CREATE TABLE map_pictures (
+    map_id TEXT PRIMARY KEY REFERENCES maps(id) ON DELETE CASCADE,
+    state TEXT NOT NULL DEFAULT 'waiting' CHECK (state IN ('current', 'waiting', 'failed', 'unsupported', 'unavailable')),
+    digest TEXT NOT NULL,
+    published_digest TEXT,
+    requested_generation INTEGER NOT NULL DEFAULT 1,
+    published_generation INTEGER NOT NULL DEFAULT 0,
+    drawing_changed_at INTEGER NOT NULL,
+    requested_at INTEGER NOT NULL,
+    producer TEXT NOT NULL DEFAULT 'server' CHECK (producer IN ('server', 'inherited', 'old')),
+    attempt_count INTEGER NOT NULL DEFAULT 0,
+    next_attempt_at INTEGER NOT NULL
+  );`,
 ];

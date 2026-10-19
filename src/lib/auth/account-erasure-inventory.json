@@ -846,6 +846,11 @@
     "memory:native-reception-context": {
       "action": "retain",
       "rule": "Keep the async context carrier shared by ingress and bundled request handlers. Each reception owner holds only request-local clocks, readers and refusal delivery until its work settles; no account-indexed cache or retained result is held."
+    },
+    "table:map_pictures": {
+      "action": "erase",
+      "rule": "Erase picture state with its owning map, including account content cascades.",
+      "fixture": "table:map_pictures"
     }
   },
   "tables": {
@@ -876,7 +881,8 @@
     "recipe_steps": "table:recipe_steps",
     "recipes": "table:recipes",
     "step_runner_outputs": "table:step_runner_outputs",
-    "workspace_settings": "table:workspace_settings"
+    "workspace_settings": "table:workspace_settings",
+    "map_pictures": "table:map_pictures"
   },
   "sources": {
     "location:src/app/api/health/route.ts#GET:dataDir": {
