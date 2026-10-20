@@ -47,7 +47,7 @@ The title follows your choices until you type your own.
 | Change a widget | Click its row in the tab, change it and click **Save**. On the map, **Widget options** in the card's ⋮ menu opens the same editor |
 | Hide or show it | Click the eye on its row. A hidden widget keeps its settings and leaves the map |
 | Reorder | Drag the row by its grip, or drag the card on the map |
-| Delete it | Click the bin on its row, or **Delete widget** in the card's ⋮ menu. **Undo** takes it back |
+| Delete it | Click the bin on its row, or **Delete widget** in the card's ⋮ menu (**Delete note** on a note). **Undo** takes it back |
 
 Widgets and the filters they set have these limits:
 
