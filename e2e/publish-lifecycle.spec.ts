@@ -42,6 +42,7 @@ import {
   type ConsoleError,
 } from "./support";
 import { markStats } from "./png-probes";
+import { listedPicture, pictureAtRest } from "./picture-support";
 import { startLoopbackBasemap, assertBasemapTraffic } from "../scripts/loopback-basemap.mjs";
 
 /** The two 404s a dead published link casts, each consumed once and only
@@ -322,6 +323,10 @@ test("the tiled road reaches the reader, and its failure classes present specifi
     await patchMap(page, mapId, {
       customBasemap: { url: basemap.styleUrl, name: "Export fixture", force: true },
     });
+    // The basemap change asks for a new card picture, drawn on the same
+    // loopback basemap: count the export's traffic only while the
+    // picture is at rest, and only if it stayed so through the export.
+    const rest = await pictureAtRest(page.request, mapId);
     const before = basemap.snapshot(12.5);
     const exported = await page.evaluate(
       async ({ mapId }) => {
@@ -358,6 +363,10 @@ test("the tiled road reaches the reader, and its failure classes present specifi
       { mapId },
     );
     expect(exported.status, exported.body).toBe(200);
+    expect(
+      await listedPicture(page.request, mapId),
+      "no picture work ran beside the export, so the basemap traffic counted is the export's own",
+    ).toEqual(rest);
     assertBasemapTraffic(basemap.delta(before, 12.5));
     expect(exported.abandoned, "the render abandons no basemap request").toBeNull();
     const stats = await markStats(page, Buffer.from(exported.body, "base64"));
