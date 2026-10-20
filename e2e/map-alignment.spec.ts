@@ -64,10 +64,6 @@ for (const [pole, sign] of [["north", 1], ["south", -1]] as const) {
       const northing = (latitude: number) => 0.5 - Math.asinh(Math.tan(latitude * Math.PI / 180)) / (2 * Math.PI);
       const world = 512 * 2 ** cardCamera.zoom;
       const pointFraction = { x: (lng - cardCamera.lng) / 360 * world / 990 + .5, y: (northing(lat) - northing(cardCamera.lat)) * world / 424 + .5 };
-      // The saved padded centre survives the shorter card's coverage clamp.
-      // Require the whole ground disc inside that centre band before rendering.
-      expect(pointFraction.y * 424).toBeGreaterThan(30);
-      expect(pointFraction.y * 424).toBeLessThan(424 - 30);
       const expectedGround = { light: [240, 230, 200], dark: [26, 42, 58] };
       for (const theme of ["light", "dark"] as const) {
         const previous = (await waitForPicture(page.request, id)).pictureVersion;
@@ -75,15 +71,17 @@ for (const [pole, sign] of [["north", 1], ["south", -1]] as const) {
         expect((await page.request.post(`/api/maps/${id}/picture/refresh`)).status()).toBe(202);
         await waitForPicture(page.request, id, previous);
         let bytes: Buffer = Buffer.alloc(0);
-        // The independent geographic projection rejects a stale image
-        // from the builder's earlier fit-to-data camera.
+        // The picture frames its one landmark, as Fit does: at the centre,
+        // with the ground disc on it. Where the padded saved view would put
+        // the landmark is the control: a picture of the saved view fails.
         await expect(async () => {
           const response = await page.request.get(`/api/maps/${id}/thumbnail?theme=${theme}`);
           expect(response.status()).toBe(200);
           bytes = await response.body();
           const stats = expectAligned(bytes);
-          expect(Math.abs(stats.data.x! / stats.width - pointFraction.x)).toBeLessThan(0.004);
-          expect(Math.abs(stats.data.y! / stats.height - pointFraction.y)).toBeLessThan(0.004);
+          expect(Math.abs(stats.data.x! / stats.width - 0.5)).toBeLessThan(0.004);
+          expect(Math.abs(stats.data.y! / stats.height - 0.5)).toBeLessThan(0.004);
+          expect(Math.abs(stats.data.y! / stats.height - pointFraction.y), "not where the saved view puts it").toBeGreaterThan(0.05);
           expect(stats.corner).toEqual(expectedGround[theme]);
         }).toPass({ timeout: 60_000 }).finally(async () => {
           if (!bytes.length) return;

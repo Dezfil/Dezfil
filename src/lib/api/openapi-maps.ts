@@ -23,6 +23,25 @@ const THUMBNAIL_THEME_PARAM = {
   description:
     'The viewer\'s theme, "light" or "dark". Any other value is refused.',
 };
+const PICTURE_SHAPE_PARAM = {
+  name: "shape",
+  in: "query",
+  required: false,
+  schema: { type: "string", enum: ["card", "wide"] },
+  description:
+    'The proportion the picture is framed for: "card", the maps cards\' ' +
+    'own, or "wide", a band such as Home\'s Continue card. Any other ' +
+    "value is refused.",
+};
+const PICTURE_WIDTH_PARAM = {
+  name: "width",
+  in: "query",
+  required: false,
+  schema: { type: "integer", minimum: 1, maximum: 999999999 },
+  description:
+    "The width in screen pixels the image will cover. Anything but a " +
+    "positive whole number is refused.",
+};
 
 export const MAP_COLLECTION_PATHS = {
   "/api/maps": {
@@ -159,17 +178,36 @@ export const MAP_RESOURCE_PATHS = {
         "reach, or an unattributed one read by anyone but the owner) is " +
         "passed over like a missing one; when none is left the answer is " +
         "the same 404 as for a map with no image at all. The maps " +
-        "listing's `hasThumbnail` says beforehand whether there is one.",
+        "listing's `hasThumbnail` says beforehand whether there is one. " +
+        "Naming a shape or a width answers one of the sizes the server " +
+        "keeps of that picture, as WebP, framed for that shape: the " +
+        "narrowest at least that wide, else the widest; a shape alone " +
+        "answers its widest, a width alone the card shape's. A picture " +
+        "made before sizes were kept answers its PNG whatever is named. " +
+        "Every answer carries an entity tag of its bytes and " +
+        "`Cache-Control: private, no-cache`, so a client may keep it but " +
+        "asks again before each use; a request whose `If-None-Match` " +
+        "names the current tag is answered 304 without the bytes, after " +
+        "the same serving checks as a full read.",
       tag: "Maps",
       // UI sugar, not a map capability — outside the agent tool set.
       tool: false,
       effects: READ_ONLY,
-      parameters: [pathParam("id", "Map id."), THUMBNAIL_THEME_PARAM],
+      parameters: [pathParam("id", "Map id."), THUMBNAIL_THEME_PARAM, PICTURE_SHAPE_PARAM, PICTURE_WIDTH_PARAM],
       responses: {
         "200": {
-          description: "The snapshot.",
-          content: { "image/png": { schema: { type: "string", format: "binary" } } },
+          description: "The snapshot: the PNG, or with a shape or a width named, a kept size.",
+          headers: {
+            ETag: { description: "The entity tag of these bytes.", schema: { type: "string" } },
+            "Cache-Control": { description: "private, no-cache", schema: { type: "string", const: "private, no-cache" } },
+          },
+          content: {
+            "image/png": { schema: { type: "string", format: "binary" } },
+            "image/webp": { schema: { type: "string", format: "binary" } },
+          },
         },
+        "304": { description: "The picture this reader is served is unchanged: its entity tag matches If-None-Match." },
+        "400": { ...ERROR_RESPONSE, description: "A theme, shape or width the read does not take (invalid_request)." },
         "404": { description: "No snapshot yet." },
       },
     }))),

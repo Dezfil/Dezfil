@@ -181,7 +181,7 @@ if (mode.startsWith('seed-')) {
     }
     if (baseline) assert.ok(report.capacityElapsedMs <= baseline.limits.capacity300Ms, 'Capacity exceeded the frozen first-run ceiling');
     if (fixture.kind === 'first') {
-      report.timings = firstMeasurement(fixture.maps, events());
+      report.timings = firstMeasurement(fixture.maps, events(), load('lib/pictures/shapes.ts').PICTURE_SHAPE_NAMES.length);
       report.startupMs = events().find(event => event.kind === 'admitted' && event.background).at - initialBoot.at;
       report.restartMs = await restart();
       await sleep(2000);
@@ -217,7 +217,9 @@ if (mode.startsWith('seed-')) {
       const current = await json('GET', `/api/maps/${map.id}`), start = Date.now();
       const response = await fetch(`${origin}/api/maps/${map.id}`, { method: 'PATCH', signal: AbortSignal.timeout(120000),
         headers: { authorization: `Bearer ${token}`, origin, 'content-type': 'application/json', 'X-Edit-Revision': current.editRevision },
-        body: JSON.stringify({ viewport: { ...current.viewport, lng: current.viewport.lng + .1 } }) });
+        // The picture frames the data and keeps only tilt and rotation from the
+        // saved view, so a turn of the map is a change it must show.
+        body: JSON.stringify({ viewport: { ...current.viewport, bearing: ((current.viewport.bearing ?? 0) + 10) % 360 } }) });
       assert.ok(response.ok, 'The saved drawing change must succeed');
       await until(listing => listing.some(row => row.id === map.id && row.pictureState === 'current' && row.pictureVersion !== before.pictureVersion), start + 60000);
       report.changeToCard.push({ pair, elapsedMs: Date.now() - start });

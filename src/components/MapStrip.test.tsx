@@ -1,4 +1,5 @@
-import { act } from "react";
+import { act, type Ref } from "react";
+import { coveredWidth, PICTURE_SHAPES, SHAPE_SWITCH, type PictureShape } from "@/lib/pictures/shapes";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { MapOverview } from "./api";
@@ -15,7 +16,7 @@ import { MapStrip } from "./MapStrip";
  * leaves the version alone asks for nothing new.
  */
 
-vi.mock("./gallery-icons", async (original) => ({ ...await original<object>(), MapPlaceholder: () => <i data-placeholder="" /> }));
+vi.mock("./gallery-icons", async (original) => ({ ...await original<object>(), MapPlaceholder: ({ ref }: { ref?: Ref<HTMLElement> }) => <i ref={ref} data-placeholder="" /> }));
 const look = vi.hoisted(() => ({ theme: "light" as "light" | "dark" }));
 vi.mock("./theme", () => ({ useTheme: () => ({ theme: look.theme }) }));
 
@@ -97,5 +98,75 @@ describe("a map's card picture", () => {
     look.theme = "light";
     await draw({ pictureState: "current", pictureVersion: "server-3", hasThumbnail: true });
     expect(requested()).toEqual([address("server-3")]);
+  });
+});
+
+/** A host box the strip can measure, and the observer a browser would run on its resize. */
+function measured(box: { width: number; height: number }) {
+  const size = { ...box };
+  const observers: (() => void)[] = [];
+  Object.assign(container, { getBoundingClientRect: () => ({ ...size, x: 0, y: 0, top: 0, left: 0, right: size.width, bottom: size.height }) });
+  vi.stubGlobal("ResizeObserver", class { constructor(private readonly react: () => void) {} observe() { observers.push(this.react); } disconnect() { observers.splice(observers.indexOf(this.react), 1); } });
+  return { resize: async (next: { width: number; height: number }) => { Object.assign(size, next); await act(async () => { for (const react of [...observers]) react(); }); } };
+}
+const offered = (shape: PictureShape, theme = "light") => PICTURE_SHAPES[shape].widths.map((width) => `${address("server-3", theme)}&shape=${shape}&width=${width} ${width}w`).join(", ");
+const image = () => container.querySelector("img")!;
+// The test host keeps an attribute's name as React wrote it; a browser lowercases it.
+const srcset = () => image().getAttribute("srcSet") ?? image().getAttribute("srcset");
+
+describe("a measured strip", () => {
+  afterEach(() => { vi.unstubAllGlobals(); });
+
+  it.each([
+    ["a card-shaped box", { width: 300, height: 128 }, "card"],
+    ["a box just short of the switch", { width: 289, height: 100 }, "card"],
+    ["a box just past the switch", { width: 291, height: 100 }, "wide"],
+    ["a band", { width: 1100, height: 280 }, "wide"],
+  ] as const)("offers %s the kept sizes of its shape, with the width the picture covers there", async (_, box, shape) => {
+    measured(box);
+    await draw({ pictureState: "current", pictureVersion: "server-3", hasThumbnail: true });
+    expect(box.width / box.height > SHAPE_SWITCH).toBe(shape === "wide");
+    expect(srcset()).toBe(offered(shape));
+    // A box past the switch but narrower than the wide shape crops its sides: the picture covers more than the box.
+    expect(image().getAttribute("sizes")).toBe(`${Math.ceil(coveredWidth(shape, box))}px`);
+    expect(image().getAttribute("src")).toBe(address("server-3"));
+  });
+
+  it("gives a box taller than the picture the wider width the cropped picture covers", async () => {
+    const box = { width: 200, height: 150 };
+    measured(box);
+    await draw({ pictureState: "current", pictureVersion: "server-3", hasThumbnail: true });
+    const covered = Math.ceil(coveredWidth("card", box));
+    expect(covered).toBeGreaterThan(box.width);
+    expect(image().getAttribute("sizes")).toBe(`${covered}px`);
+  });
+
+  it("measures again on a resize, changing shape across the switch, and follows the theme", async () => {
+    const strip = measured({ width: 300, height: 128 });
+    await draw({ pictureState: "current", pictureVersion: "server-3", hasThumbnail: true });
+    await strip.resize({ width: 900, height: 200 });
+    expect(srcset()).toBe(offered("wide"));
+    expect(image().getAttribute("sizes")).toBe("900px");
+    look.theme = "dark";
+    await draw({ pictureState: "current", pictureVersion: "server-3", hasThumbnail: true });
+    expect(srcset()).toBe(offered("wide", "dark"));
+  });
+
+  it("asks for the card's default picture where the box has no size yet, and the sizes once it has", async () => {
+    const strip = measured({ width: 0, height: 0 });
+    await draw({ pictureState: "current", pictureVersion: "server-3", hasThumbnail: true });
+    expect(srcset()).toBeNull();
+    expect(image().getAttribute("src")).toBe(address("server-3"));
+    await strip.resize({ width: 300, height: 128 });
+    expect(srcset()).toBe(offered("card"));
+  });
+
+  it("leaves the placeholder when a size fails to load, and asks again for a new version", async () => {
+    measured({ width: 300, height: 128 });
+    await draw({ pictureState: "current", pictureVersion: "server-3", hasThumbnail: true });
+    await act(async () => { image().dispatchEvent(new HostEvent("error")); });
+    expect(container.querySelector("img")).toBeNull();
+    await draw({ pictureState: "current", pictureVersion: "server-4", hasThumbnail: true });
+    expect(srcset()).toContain("v=server-4");
   });
 });

@@ -57,3 +57,28 @@ it.each(["home", "projects", "maps", "workflows", "data", "sql"])("keeps the sig
     expect(response.headers.get("location")).toBe("http://instance.test/");
   }
 });
+
+it("leaves the picture read's caching to its route and keeps every other signed-in answer unkept", async () => {
+  const signed = await first(), cookie = `${SESSION_COOKIE}=${signed.secret}`;
+  const { buildOpenApiDocument } = await import("@/lib/api/openapi");
+  const { isAnonymousOperation } = await import("./request-policy");
+  const paths = buildOpenApiDocument().paths as Record<string, Record<string, unknown>>;
+  let checked = 0;
+  for (const [template, operations] of Object.entries(paths)) {
+    const pathname = template.replace(/\{[^}]+\}/g, "fixture-id");
+    for (const method of Object.keys(operations).filter(key => ["get", "post", "put", "patch", "delete"].includes(key)).map(key => key.toUpperCase())) {
+      if (isAnonymousOperation(pathname, method)) continue;
+      const request = new NextRequest(socketRequest(new Request("http://instance.test" + pathname, { method, headers: { cookie, origin: "http://instance.test" } })));
+      const policy = gateRequest(request).headers.get("cache-control");
+      if (template === "/api/maps/{id}/thumbnail" && method === "GET") expect(policy, `${method} ${template}`).toBeNull();
+      else expect(policy, `${method} ${template}`).toBe("private, no-store");
+      checked++;
+    }
+  }
+  expect(checked).toBeGreaterThan(100);
+  // Without a credential the read is refused before its route, unkept.
+  const refused = gateRequest(input("/api/maps/fixture-id/thumbnail"));
+  expect(refused.status).toBe(401); expect(refused.headers.get("cache-control")).toBe("private, no-store");
+  // A neighbouring path is not the picture read.
+  expect(gateRequest(input("/api/maps/fixture-id/thumbnail/extra", { cookie })).headers.get("cache-control")).toBe("private, no-store");
+});

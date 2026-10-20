@@ -25,10 +25,10 @@ import { createApiToken } from "./credentials";
  * on session and token alike, and no read changes anything.
  */
 const effects = vi.hoisted(() => ({
-  thumbnail: vi.fn(async () => Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 7])),
+  thumbnail: vi.fn(async () => ({ bytes: Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 7]), type: "image/png" })),
   query: vi.fn(async () => { throw new Error("Unexpected query"); }),
 }));
-vi.mock("@/lib/map-thumbnails", async original => ({ ...await original<object>(), readThumbnail: effects.thumbnail,
+vi.mock("@/lib/map-thumbnails", async original => ({ ...await original<object>(), readPicture: effects.thumbnail,
   copyThumbnail: vi.fn(async () => {}) }));
 vi.mock("@/lib/query/bounded", async original => ({ ...await original<object>(), boundedEvaluation: effects.query }));
 
@@ -222,7 +222,7 @@ describe("reading a reached map", () => {
     for (const account of ["ada", "pat", "edd", "viv"]) {
       const read = await call(route.thumbnail, "GET", input(account, "/api/maps/M/thumbnail"), { id: "M" });
       expect(read.status, account).toBe(200);
-      expect(effects.thumbnail).toHaveBeenLastCalledWith(expect.objectContaining({ accountId: account }), "M", null);
+      expect(effects.thumbnail).toHaveBeenLastCalledWith(expect.objectContaining({ accountId: account }), "M", null, {});
     }
     expect(effects.thumbnail).toHaveBeenCalledTimes(4);
   });

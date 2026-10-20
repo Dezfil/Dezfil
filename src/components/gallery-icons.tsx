@@ -1,3 +1,4 @@
+import type { Ref } from "react";
 import { classOfTable } from "./geometry-class";
 
 /** Shared stroke icons and drawn artwork for the Maps/Data gallery screens
@@ -371,9 +372,10 @@ export function DataMotif({ kinds }: { kinds: GeometryKind[] }) {
 
 /** Neutral placeholder for a map card whose snapshot doesn't exist yet:
  * a quiet graticule with a compass rose — chart paper, no fake data. */
-export function MapPlaceholder() {
+export function MapPlaceholder({ ref }: { ref?: Ref<SVGSVGElement> }) {
   return (
     <svg
+      ref={ref}
       viewBox="0 0 320 190"
       preserveAspectRatio="xMidYMid slice"
       aria-hidden

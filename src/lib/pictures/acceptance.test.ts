@@ -24,13 +24,14 @@ import { PictureService } from "./service";
 import { pictureTarget, publishPicture } from "./publication";
 import { getPictureState } from "./state";
 import { NO_INPUTS } from "@/lib/query/evaluation-inputs";
+import { sizedPicture } from "@/lib/test-support/picture-sizes";
 isolatePictureData();
 afterAll(() => { resetQueryInstance(); closeMetadataDb(); });
 function harness() {
   let now = Date.now(); const launches: string[] = [], jobs = new Set<Promise<unknown>>();
   const scope = testAccountScope();
   const service = new PictureService({ baseUrl: "http://fixture.test", available: () => true, now: () => now, run: async state => {
-    launches.push(state.mapId); const target = pictureTarget(scope, state.mapId); await publishPicture(scope, target, state.requestedGeneration, { light: Buffer.from("light"), ...(target.basemaps.dark ? { dark: Buffer.from("dark") } : {}) }, NO_INPUTS);
+    launches.push(state.mapId); const target = pictureTarget(scope, state.mapId); await publishPicture(scope, target, state.requestedGeneration, { light: sizedPicture("light"), ...(target.basemaps.dark ? { dark: sizedPicture("dark") } : {}) }, NO_INPUTS);
   } });
   const stop = observePictureChanges(event => {
     const work = event.inherited ? service.adopt(event.mapId) : service.request(event.mapId, event.force);
@@ -39,7 +40,7 @@ function harness() {
   const flush = async () => { await new Promise(resolve => setImmediate(resolve)); await Promise.all([...jobs]); };
   return { scope, service, launches, stop, flush, tick: async () => { await flush(); now += 5001; service.queue.tick(); await service.queue.drain(); } };
 }
-it("all creation entry points schedule unopened maps while inherited duplicates and template copies stay current", async () => {
+it("all creation entry points schedule unopened maps; a duplicate of a sized picture stays current and a template copy is made once more", async () => {
   const h = harness();
   const request = (route: string, body?: object) => testAccountRequest(new Request(`http://fixture.test${route}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body ?? {}) }));
   try {
@@ -51,16 +52,22 @@ it("all creation entry points schedule unopened maps while inherited duplicates 
     for (let i = 0; i < 4; i++) await h.tick();
     expect(new Set(h.launches)).toEqual(new Set([browser.id, api.id, assistant.id, emptyCopy.id]));
     const copy = await (await duplicateRoute(request(`/api/maps/${api.id}/duplicate`), { params: Promise.resolve({ id: api.id }) })).json();
-    await h.flush(); expect(getPictureState(copy.id)?.producer).toBe("inherited");
+    await h.flush(); expect(getPictureState(copy.id)).toMatchObject({ state: "current", producer: "inherited" });
+    { const before = [...h.launches]; await h.tick(); expect(h.launches).toEqual(before); }
     const fixture = await buildTemplate(path.join(process.env.DEZFIL_DATA_DIR!, "template-fixture"), { id: "picture-template" });
     const folder = await writeShippedFolder(path.join(process.env.DEZFIL_DATA_DIR!, "shipped-fixture"), [fixture]);
     const spy = vi.spyOn(shipped, "shippedTemplatesDir").mockReturnValue(folder);
     try {
+      const beforeCopy = [...h.launches];
       const result = await copyTemplate(h.scope, "picture-template");
-      await h.flush();
+      await h.flush(); await h.service.queue.drain();
       expect(result.members.maps).toHaveLength(1);
-      expect(getPictureState(result.members.maps[0].id)).toMatchObject({ state: "current", producer: "inherited" });
-      const before = [...h.launches]; await h.tick(); expect(h.launches).toEqual(before);
+      // A template's picture keeps no sizes: the copy is adopted, then made
+      // once more at once, waiting for no look, and only once.
+      const copied = result.members.maps[0].id;
+      expect(h.launches).toEqual([...beforeCopy, copied]);
+      expect(getPictureState(copied)).toMatchObject({ state: "current", producer: "server", requestedGeneration: 2, publishedGeneration: 2 });
+      await h.tick(); expect(h.launches).toEqual([...beforeCopy, copied]);
     } finally { spy.mockRestore(); }
   } finally { h.stop(); }
 });
@@ -76,7 +83,8 @@ it("committed drawing changes launch once; excluded edits launch nothing; pictur
     const changes = [
       () => updateMap(h.scope, map.id, { basemap: "dark" }, revision()),
       () => updateMap(h.scope, map.id, { layerOrder: [second.id, layer.id] }, revision()),
-      () => updateMap(h.scope, map.id, { viewport: { lng: 2, lat: 3, zoom: 4 } }),
+      () => updateMap(h.scope, map.id, { viewport: { lng: 2, lat: 3, zoom: 4, pitch: 30 } }),
+      () => updateMap(h.scope, map.id, { viewport: { lng: 2, lat: 3, zoom: 4, pitch: 30, bearing: 20 } }),
       () => updateMap(h.scope, map.id, { basemapLayers: { labels: false } }, revision()),
       () => updateLayer(h.scope, layer.id, { filters: [{ kind: "timerange", field: "time", min: "2025-01-01", max: null }] }, revision()),
       () => updateMap(h.scope, map.id, { timeline: { layerId: layer.id, field: "time", speed: 1 } }, revision()),
@@ -92,6 +100,8 @@ it("committed drawing changes launch once; excluded edits launch nothing; pictur
     for (const change of changes) { await change(); await once(); }
     const before = h.launches.length;
     updateMap(h.scope, map.id, { name: "Renamed", legendCorner: "top-right", widgets: [] }, revision());
+    // The picture frames the drawn data: the saved centre and zoom draw nothing.
+    updateMap(h.scope, map.id, { viewport: { lng: -70, lat: 40, zoom: 9, pitch: 30, bearing: 20 } });
     await updateLayer(h.scope, layer.id, { name: "Renamed layer", publishedFields: [], inLegend: false }, revision());
     publishMap(h.scope, map.id, {}, revision());
     const project = createProject(h.scope, { name: "Filed" }); fileMap(h.scope, map.id, project.id, metadataDb(), revision());
