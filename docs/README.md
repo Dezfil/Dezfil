@@ -33,8 +33,8 @@ Install, secure, configure and back up your own instance.
 
 - [Reverse proxy and HTTPS](self-host/reverse-proxy.md)
   - path: `docs/self-host/reverse-proxy.md`
-  - summary: Serve Dezfil at your own domain over HTTPS, with a reverse proxy in front of it.
-  - read when: you need to know what to set DEZFIL_TRUSTED_PROXIES to
+  - summary: Serve Dezfil at your own domain over HTTPS, with Caddy or nginx in front of it.
+  - read when: you want people to reach Dezfil at your own domain over HTTPS; you put Caddy or nginx in front of Dezfil; you need to know what to set DEZFIL_TRUSTED_PROXIES to; sign-in works on the server but fails through your domain; uploads, long imports or the assistant's answers fail or stall behind nginx
   - audience: operator
 
 - [Configuration](self-host/configuration.md)
