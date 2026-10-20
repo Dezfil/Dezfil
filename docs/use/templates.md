@@ -92,7 +92,7 @@ The copied datasets appear under **Data** as **From a template**. They are yours
 
 You can copy a template as often as you like. Each copy makes a new project. A dataset whose name you already have takes the next free name, such as `earthquakes_2`.
 
-A workflow example's copy comes with the results the template made. Each node's **Last run** reads **copied from the template** until you run it. Click **Run all** to make the results again from your copied datasets.
+A workflow example's copy comes with the results the template made. Click a node: its **Last run** reads **copied from the template** until you run it. To make the results again from your copied datasets, click **Run all** and confirm.
 
 ## Troubleshooting
 
