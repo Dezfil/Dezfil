@@ -8,8 +8,9 @@
 // placeholder. A page with a waiting card asks its listing again every five
 // seconds, one ask at a time, stops once none waits or the page leaves, and
 // the newer picture lands on the card without a reload. A data-only change
-// gets a picture address of its own, so the next listing shows it although
-// the browser still holds the older picture under the older address. With
+// gets a picture address of its own, so the next listing shows it whatever
+// the browser keeps under the older address: the older picture, when the
+// instance lets it keep pictures, or nothing, when it does not. With
 // no renderer the listing says unavailable, nothing asks again, System reads
 // Not found, and administrators, and nobody else, see one line at the foot
 // of each card page.
@@ -509,7 +510,9 @@ interface Marks {
 /** The marks in a picture: in the image the card shows, decoded off the
  * element itself, or in the copy the browser holds for that address, read
  * from its cache without asking the server. Null when there is no such
- * image or copy. */
+ * image or copy. The workspace's own fetch asks every read of the instance
+ * afresh, so the cache is read with the fetch of a blank frame of the
+ * page's own origin. */
 async function marksOf(page: Page, src: string, from: "card" | "cache"): Promise<Marks | null> {
   return page.evaluate(
     async ({ src, from, kelp }) => {
@@ -517,10 +520,19 @@ async function marksOf(page: Page, src: string, from: "card" | "cache"): Promise
       let width: number;
       let height: number;
       if (from === "cache") {
-        const response = await fetch(src, { cache: "only-if-cached", mode: "same-origin" }).catch(() => null);
-        if (!response?.ok) return null;
-        const bitmap = await createImageBitmap(await response.blob());
-        [source, width, height] = [bitmap, bitmap.width, bitmap.height];
+        const frame = document.createElement("iframe");
+        frame.hidden = true;
+        document.body.appendChild(frame);
+        try {
+          const response = await frame
+            .contentWindow!.fetch(new URL(src, location.href).href, { cache: "only-if-cached", mode: "same-origin" })
+            .catch(() => null);
+          if (!response?.ok) return null;
+          const bitmap = await createImageBitmap(new Blob([await response.arrayBuffer()]));
+          [source, width, height] = [bitmap, bitmap.width, bitmap.height];
+        } finally {
+          frame.remove();
+        }
       } else {
         const shown = [...document.images].find((img) => img.getAttribute("src") === src);
         if (!shown || !shown.complete || shown.naturalWidth === 0) return null;
@@ -672,7 +684,7 @@ test.describe("card states with a renderer", () => {
     expectQuietConsole(errors);
   });
 
-  test("a data-only refresh shows on the next listing, past the older picture the browser still holds", async ({ page }) => {
+  test("a data-only refresh gets a picture address of its own and shows on the next listing, whatever the browser keeps of the older picture", async ({ page }) => {
     test.setTimeout(300_000);
     // Routing a request turns the browser's cache off, and this test is
     // about that cache, so it routes nothing. It holds instead that the page
@@ -696,13 +708,20 @@ test.describe("card states with a renderer", () => {
     const map = await seedMap(api, `Data only ${runId}`, `SELECT * FROM "${table}"`);
     const first = await waitForPicture(api, map.id);
 
+    const told = page.waitForResponse(
+      (response) => response.request().resourceType() === "image" && response.url().includes(`/api/maps/${map.id}/thumbnail`),
+    );
     await page.goto("/maps");
     const before = await shownMarks(page, map, first.pictureVersion);
     expect(before.marks).toBeGreaterThan(200);
-    expect(
-      await marksOf(page, before.src, "cache"),
-      "the browser keeps the picture it showed; without that copy this run shows nothing about passing it",
-    ).not.toBeNull();
+    // What the browser keeps of a card picture is what the instance's answer
+    // lets it keep. Either way the copy is read back, never assumed.
+    const policy = (await told).headers()["cache-control"] ?? "";
+    const keeps = !/\bno-store\b/.test(policy);
+    test.info().annotations.push({ type: "card picture caching", description: policy || "no cache-control" });
+    const kept = await marksOf(page, before.src, "cache");
+    if (keeps) expect(kept, "the browser keeps the picture it showed").not.toBeNull();
+    else expect(kept, "told to store nothing, the browser keeps no copy of the picture it showed").toBeNull();
 
     const revision = await editRevision(api, map);
     await setGeometry(api, table, ["east", "north"]);
@@ -715,8 +734,12 @@ test.describe("card states with a renderer", () => {
     expect(after.marks).toBeGreaterThan(200);
     expect(after.cx - before.cx, "the card's picture shows the data where it now stands").toBeGreaterThan(0.1);
     const held = await marksOf(page, before.src, "cache");
-    expect(held, "the browser still holds the older picture under the older address").not.toBeNull();
-    expect(Math.abs(held!.cx - before.cx), "and that copy is the older picture").toBeLessThan(0.02);
+    if (keeps) {
+      expect(held, "the browser still holds the older picture under the older address").not.toBeNull();
+      expect(Math.abs(held!.cx - before.cx), "and that copy is the older picture").toBeLessThan(0.02);
+    } else {
+      expect(held, "and holds no older picture that could stand in for the newer").toBeNull();
+    }
     expect(outside).toEqual([]);
     expectQuietConsole(errors);
   });
