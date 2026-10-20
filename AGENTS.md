@@ -88,8 +88,9 @@ stylesheets load in), `lint:specimen` (the specimen still matches its sources),
 (reader counts and error catalogue match the contract), `lint:reader-docs`
 (no superseded guidance or missing revision examples), `lint:docs` (every
 page under `docs/` holds the page contract, its links and pictures resolve,
-and the index, the API description file and the image manifest are
-current) and `lint:retired-paths` (no tracked file names a documentation
+so do those of the procedure notes under `scripts/` and `src/`, and the
+index, the API description file and the image manifest are current) and
+`lint:retired-paths` (no tracked file names a documentation
 path that moved or left). Run the ones a change can plausibly break, and all of them before
 calling it done.
 

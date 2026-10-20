@@ -61,6 +61,13 @@ const problem = (file, rule, message, line) => ({ file, rule, message, ...(line 
 /** Today as YYYY-MM-DD in UTC, the reference for "not in the future". */
 export const today = () => new Date().toISOString().slice(0, 10);
 
+/** Whether a file is a procedure note: Markdown under scripts/ or src/,
+ * beside the script or suite it runs. A note is not a page: it carries no
+ * frontmatter, has no entry in the index and no address on the site, and
+ * the image leaves it out. Its links and pictures are held as a page's
+ * are, and a link into it may name one of its headings. */
+export const isNote = (file) => /^(?:scripts|src)\/.+\.md$/.test(file);
+
 /** A page's address below the docs home, such as `api/http-api`, or
  * null when the path is not a page's. */
 export function pageAddress(file) {
@@ -341,8 +348,9 @@ const decode = (value) => { try { return decodeURIComponent(value); } catch { re
  *
  * `files` lists the repository's files as POSIX paths from its root; `read`
  * returns a file's text. The lint passes the files git knows; the tests pass
- * a fixture tree. Returns the problems, the pages, and the files under
- * docs/images/ the pages use. */
+ * a fixture tree. The procedure notes' links and pictures are checked with
+ * the pages'. Returns the problems, the pages, the notes, and the files
+ * under docs/images/ the pages and notes use. */
 export function checkTree({ files, read, on = today() }) {
   const problems = [];
   const fileSet = new Set(files);
@@ -422,13 +430,24 @@ export function checkTree({ files, read, on = today() }) {
   }
 
   const importedFiles = new Set(IMPORTED.map((entry) => entry.file));
+  const notes = files.filter(isNote).sort();
+  const noteSet = new Set(notes);
   // The files under docs/images/ the pages use, for the manifest's rules.
   const used = new Set();
-  const isDocument = (file) => pages.includes(file) || importedFiles.has(file);
+  const isDocument = (file) => pages.includes(file) || importedFiles.has(file) || noteSet.has(file);
 
-  for (const [file, page] of parsed) {
+  // What holds links: each page's body after its frontmatter, and each
+  // note's whole text.
+  const bodies = [...parsed].map(([file, page]) => ({ file, body: page.body, bodyLine: page.bodyLine }));
+  for (const file of notes) {
+    let text = "";
+    try { text = read(file); } catch { /* an unreadable note holds no links */ }
+    bodies.push({ file, body: text, bodyLine: 1 });
+  }
+
+  for (const { file, body, bodyLine } of bodies) {
     const own = anchors(file);
-    for (const ref of references(page.body, page.bodyLine)) {
+    for (const ref of references(body, bodyLine)) {
       const where = (rule, message) => problems.push(problem(file, rule, message, ref.line));
       const target = ref.target.trim();
       const external = /^[a-z][a-z0-9+.-]*:/i.test(target) || target.startsWith("//");
@@ -501,7 +520,7 @@ export function checkTree({ files, read, on = today() }) {
     }
   }
 
-  return { problems, pages, used };
+  return { problems, pages, notes, used };
 }
 
 /** Pages in their reading order: by `order` first (pages without one after

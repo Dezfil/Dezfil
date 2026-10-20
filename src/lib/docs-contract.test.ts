@@ -195,6 +195,50 @@ describe("reading a page", () => {
   });
 });
 
+describe("the procedure notes beside the scripts", () => {
+  // A note is Markdown under scripts/ or src/, beside what it runs. It is
+  // not a page, so it has no frontmatter and no index entry, but its links
+  // are held as a page's are, and a link may name one of its headings.
+  const probe = [
+    "# The probe",
+    "",
+    "Run it after [the install page](../docs/start/install.md#first-run), the",
+    "[other note](../src/lib/thing/check.md#the-steps), [this list](#what-it-checks)",
+    "and [the script](tool.mjs).",
+    "",
+    "## What it checks",
+    "",
+  ].join("\n");
+  const nested = "# The check\n\nSee [the probe](../../../scripts/probe.md#what-it-checks).\n\n## The steps\n";
+  const notes: Record<string, string> = { "scripts/probe.md": probe, "src/lib/thing/check.md": nested };
+  const lines = (problems: Problem[]) => problems.map(({ file, rule, line }) => ({ file, rule, line }));
+
+  it("accept notes without frontmatter whose links and headings resolve, and leave them out of the pages and the index", () => {
+    const files = tree(notes);
+    const result = checkTree({ files: Object.keys(files), read: (file: string) => files[file], on: cases.today }) as { problems: Problem[]; pages: string[]; notes: string[] };
+    expect(result.problems).toEqual([]);
+    expect(result.notes).toEqual(["scripts/probe.md", "src/lib/thing/check.md"]);
+    expect(result.pages.filter((page) => !page.startsWith("docs/"))).toEqual([]);
+    const index = (set: Record<string, string>) => generateIndex({ files: Object.keys(set), read: (file: string) => set[file] });
+    expect(index(files)).toBe(index(tree()));
+  });
+
+  it.each<[string, string, [string, string], string, number]>([
+    ["a dead file", "scripts/probe.md", ["(tool.mjs)", "(gone.mjs)"], "link.dead-file", 5],
+    ["a dead note", "scripts/probe.md", ["(../src/lib/thing/check.md#the-steps)", "(../src/lib/thing/gone.md)"], "link.dead-page", 4],
+    ["a heading a page does not have", "scripts/probe.md", ["install.md#first-run", "install.md#second-run"], "link.dead-page", 3],
+    ["a heading another note does not have", "scripts/probe.md", ["check.md#the-steps", "check.md#no-steps"], "link.dead-page", 4],
+    ["a heading the note itself does not have", "scripts/probe.md", ["(#what-it-checks)", "(#what-it-skips)"], "link.dead-page", 4],
+    ["a heading a note further down does not have", "src/lib/thing/check.md", ["probe.md#what-it-checks", "probe.md#what-it-runs"], "link.dead-page", 3],
+    ["a link out of the repository", "src/lib/thing/check.md", ["../../../scripts/probe.md", "../../../../probe.md"], "link.dead-file", 3],
+    ["a picture that is not there", "scripts/probe.md", ["and [the script](tool.mjs).", "and ![the screen](../docs/images/use/gone.webp)."], "image.missing", 5],
+  ])("refuse %s, named by the note's file and line", (_name, file, [from, to], rule, line) => {
+    const edited = notes[file].replace(from, to);
+    expect(edited).not.toBe(notes[file]);
+    expect(lines(check(tree({ ...notes, [file]: edited })))).toEqual([{ file, rule, line }]);
+  });
+});
+
 describe("the lint:docs command", () => {
   function run(root?: string): { code: number; output: string } {
     try {
@@ -219,6 +263,28 @@ describe("the lint:docs command", () => {
     const { code, output } = run();
     expect(output).toContain("PASS");
     expect(code).toBe(0);
+  });
+
+  it("reads every procedure note the repository holds under scripts/ and src/", () => {
+    // The same file list the gate reads: what git tracks and what it would
+    // add. The notes moved out of docs/ are among them.
+    const listed = execFileSync("git", ["ls-files", "--cached", "--others", "--exclude-standard", "--", "scripts/*.md", "src/*.md"], { encoding: "utf8" }).split("\n").filter(Boolean);
+    const unique = [...new Set(listed)];
+    for (const note of ["scripts/served-contract-proof.md", "scripts/transport-probe.md", "src/lib/auth/account-erasure-inventory.md", "src/lib/pictures/pictures.real-render.md", "src/lib/ingest/reception.standalone.md", "src/lib/auth/abandonment.standalone.md"]) {
+      expect(unique).toContain(note);
+    }
+    const { code, output } = run();
+    expect(code).toBe(0);
+    expect(output).toContain(`the links in ${unique.length} procedure notes resolve`);
+  });
+
+  it("fails a seeded note and names the file, the line and the rule", () => {
+    const files = tree({ "scripts/probe.md": "# The probe\n\nRun [the script](tool.mjs), then\n[the next step](../docs/start/install.md#the-next-step).\n" });
+    files["docs/README.md"] = generateIndex({ files: Object.keys(files), read: (file: string) => files[file] });
+    const { code, output } = run(write(files));
+    expect(code).toBe(1);
+    expect(output).toMatch(/^scripts\/probe\.md:4: link\.dead-page: docs\/start\/install\.md has no heading #the-next-step$/m);
+    expect(output).toContain("FAIL: 1 documentation problem(s).");
   });
 
   it("fails a seeded tree and names the file, the line and the rule", () => {
