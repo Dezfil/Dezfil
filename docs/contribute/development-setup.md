@@ -129,7 +129,7 @@ DEZFIL_TRUSTED_PROXIES=127.0.0.1 node --import=./scripts/ingress-preload.mjs scr
 node scripts/ingress-probe.mjs --expect-missing
 ```
 
-- `NODE_OPTIONS` gives the type check 4 GB of heap, as the pipeline does. It needs about 2.5 GB.
+- `NODE_OPTIONS` gives the type check 4 GB of heap, as the pipeline does.
 - The loop runs every `lint:` gate, in the pipeline's order.
 - The last two lines check that the ingress preload tells direct and proxied connections apart, and that a server without it refuses.
 
@@ -201,7 +201,7 @@ export DEZFIL_CHROMIUM_PATH=<PATH_TO_CHROME_HEADLESS_SHELL>
 DEZFIL_MAP_LOOK_RENDER=3581 npx vitest run src/lib/export/map-look.real-render.test.ts
 ```
 
-Each file's header names its other variables. The map pictures test has its own note, [`src/lib/pictures/pictures.real-render.md`](../../src/lib/pictures/pictures.real-render.md).
+Each file's header names its other variables.
 
 ## Run the browser suite
 
@@ -440,7 +440,7 @@ The runtime or the image sets these. They are not settings, and `npm run lint:re
 
 **`/api/health` answers 503, and the log says "The ingress preload is required".** The server started without the preload. Start it with `npm run dev`, `npm start`, or `node --import=./scripts/ingress-preload.mjs server.js`.
 
-**A test run pauses, or an import fails on a missing extension.** The engine is fetching its extensions from the network. Install them once with `node scripts/install-duckdb-extensions.mjs "$PWD/duckdb-extensions"`, then set `DUCKDB_EXTENSION_DIR` to that folder.
+**A test run pauses, or an import fails on a missing extension.** The engine is fetching its extensions from the network. Install them once with `node scripts/install-duckdb-extensions.mjs "$PWD/duckdb-extensions"`, set `DUCKDB_EXTENSION_DIR` to that folder and restart the instance. With no network, copy in a folder another machine filled.
 
 **Browser specs fail instead of skipping.** A variable of [step 2](#2-start-an-instance-for-the-suite) is missing on the server, `tippecanoe` is not on its `PATH`, or it has no Chromium. Check the server process's environment, not the test process's.
 

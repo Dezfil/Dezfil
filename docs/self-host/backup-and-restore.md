@@ -542,28 +542,10 @@ in the working directory. `node scripts/big-data.mjs <base-url>
 [approx-rows]` drives a dataset beyond browser-memory scale. Point all of
 these at a scratch instance on its own data directory.
 
-## The container image
+## Without the image renderer
 
-```sh
-docker build -t dezfil .
-docker run -d --name dezfil -p 127.0.0.1:3000:3000 -v dezfil-data:/data dezfil
-```
-
-Readiness is `GET /api/health`, expected within 30 seconds of the container
-starting; the pipeline polls for exactly that long and fails otherwise. The
-image carries what the source tree does not:
-
-- `tippecanoe`, compiled from source in its own build stage, so tiled
-  rendering works without a host install;
-- Chromium plus a certificate bundle and fallback fonts, driven through
-  software GL by server-side image exports, appearance checks and map card pictures (`DEZFIL_CHROMIUM_PATH`);
-- the DuckDB extension bundle, baked at build time into
-  `/app/duckdb-extensions`, so a running instance needs no network;
-- the native packages the standalone tracer misses, copied in whole;
-- `public/`, `LICENSE`, `NOTICE` and the model catalogue file at its
-  source-relative path, copied explicitly.
-
-Without the renderer, map listings report `pictureState: unavailable`,
+Without the image renderer, the headless Chromium `DEZFIL_CHROMIUM_PATH`
+names, map listings report `pictureState: unavailable`,
 refresh answers `outcome: unavailable`, and existing pictures stay served.
 The admin System read, `GET /api/instance/settings`, reports this as
 `parts.image_renderer.available`; `found` separately reports file presence.
@@ -574,174 +556,7 @@ executable; the hourly look discovers recovery without an edit. A launch refusal
 also holds picture work unavailable until that look, even if the file exists.
 Map pictures are made on the server even when nobody opens their builder.
 
-It runs as the unprivileged `node` user, exposes 3000 and declares `/data`
-as its volume. Two checks belong to the image, not the source tree:
-
-```sh
-node scripts/check-image-inventory.mjs dezfil:ci
-docker run --rm --network=none -v "$PWD/scripts:/scripts:ro" \
-  dezfil:ci node /scripts/check-duckdb-extensions-offline.mjs
-```
-
-The first fails when `/app` holds anything outside the checked-in
-allowlist, or when repository metadata, a data directory, database or key
-material, or environment files appear anywhere. The second proves every
-supported extension loads with the network disabled.
-
-## Regenerating what is generated
-
-**The design specimen.** `node scripts/build-specimen.mjs` rewrites the fed
-sections of the specimen page from the shipped sources: the light and dark
-token blocks, the surface roles' block and the plate drawn from it, every
-component stylesheet in the UI kit, and the palette ramps. `--check` on the
-same script is what `npm run lint:specimen` runs. Re-run it whenever a
-token, a surface role, a kit stylesheet or a palette changes. A new surface
-role needs its words in the script's role notes, or the feed stops.
-
-**The look's background sheets.** `node scripts/generate-look-sheets.mjs`
-rewrites `public/look/`: the Atlantic chart in every other Color and theme,
-derived from the two shipped sheets by swapping their inks, and the
-Graticule and Hex lattice tiles per Color and theme. `--check` reports a
-stale, missing or stray file, and the unit suite runs it. Re-run it when a
-shipped sheet or the script's ink table changes; never edit those files by
-hand.
-
-**The plugin guidance file.** `node scripts/generate-dezfil-guidance.mjs`
-rewrites the skill's analysis document and its bundled licence from the one
-canonical source; `--check` is `npm run lint:plugin`. Re-run on any change
-to that source.
-
-**The plugin package.** `node scripts/prepare-dezfil-plugin.mjs --output
-<new-directory> --base-url <origin>` writes a self-contained copy carrying
-the chosen endpoint and the local catalogs for both clients. Omitting
-`--base-url` selects `http://localhost:3000`; an occupied destination is
-refused. Prepare a fresh copy whenever the instance address changes.
-
-**The documentation's pictures.** `npm run docs:pictures` takes every
-scene in the script's scene list (`scripts/docs-pictures-scenes.mjs`) from a
-real instance and writes the changed files under `docs/images/` with the
-manifest beside them. Run it from a checkout that holds a production build
-and no `.env` files, such as a detached worktree after `npm ci` and
-`npm run build`; it needs the Chromium and the ffmpeg Playwright installs
-(`npx playwright install chromium ffmpeg`). It starts
-`next start` from that checkout on a free loopback port (`--port` to choose
-one) over a scratch folder it creates in the system's temporary folder and
-removes at the end, with that folder as the data directory and as the
-template catalogue, written from the shipped templates. It takes the scenes
-that need no account first, then seeds through the API (the first account
-through setup, a second invited account, a project they share, the three
-shipped templates copied, the fixtures under `e2e/fixtures/` uploaded) and
-takes the rest, signed in as the first account. Every scene is taken at
-1440 × 900 CSS pixels and two pixels per CSS pixel with reduced motion and a
-fixed clock, twice from the same instance state: in the light theme, then in
-the dark theme. The theme is the app's own: the dark take's browser starts
-with the choice the header's theme switch stores, which the app applies
-before first paint, and the run fails when a page is drawn in the other
-theme or a dark take comes out the same as its light take. The dark take is
-written beside the light one with `.dark` before the extension
-(`templates.webp` and `templates.dark.webp`), shows the same frame or crop,
-and has a manifest row of its own carrying its theme. Pages and the README
-name the light take; the dark take is found by that name. The README sets
-each picture as the image of a `<picture>` whose source for
-`(prefers-color-scheme: dark)` names the dark take, so GitHub shows the
-take of the reader's theme. A recording is not filmed in real time: each of its steps is done, the page settles, and
-the frame is held for the step's number of frames at ten a second, so its
-length is its frame count (eight seconds at most). The frames go to Playwright's own ffmpeg, which
-encodes a muted VP8 WebM single-threaded with bit-exact settings, so the
-same frames give the same bytes; each take's first frame is its poster, so
-a recording's dark take has a dark poster of its own. A recording
-over 1,500,000 bytes fails the run: hold fewer frames or declare a crop,
-never a smaller scale. The run fails, writing nothing, when the
-server opened a request to any host but itself (an observer in its preload
-chain writes each one down; `--keep-requests <file>` keeps its file), when a
-page asked for an address off the instance, or when a file is over its
-bound. A scene that shows a map says so (`map: true`) and is the one scene
-that may reach the built-in basemap; it is taken once every map on the page
-is at rest with its tiles loaded, a basemap request that fails fails the run,
-and the run lists the basemap's styles and tile sets it drew. How to prove a
-run is in [the pictures' procedure note](../../scripts/docs-pictures.md). A file is replaced only when its bytes changed, and its
-manifest row's version and date move with it, so a second run on the same
-build changes nothing. `--only <scene>,<scene>` takes some scenes and keeps
-the others' rows. After changing a surface a scene shows, run it and commit
-what changed; when the manifest is new, `npm run docs:write` lists it in the
-index.
-
-**Pixel baselines.** The snapshots live beside their specs in the
-`*.spec.ts-snapshots` directories. They are cut on one environment, and a
-re-cut names it in its commit: macOS on Apple silicon, the Chromium headless
-shell the pinned Playwright installs, and a production build
-(`npm run build`, then `npm start`) on a fresh data directory, provisioned
-as [the browser suite](#the-browser-suite) describes. A store that earlier
-runs have filled is not that environment: lists, counts and relative times
-in a shot follow what the store holds. Regenerate one spec at a time, so no
-unrelated shot is rewritten, and only the shots that no longer match:
-
-```sh
-npx playwright test e2e/pixel-regressions.spec.ts --update-snapshots=changed
-```
-
-Then compare every rewritten file with the one it replaces before
-committing it. In this mode a shot that still differs when its comparison
-times out is written as it stands, so a surface that had not finished
-loading, a live tile server's pixels or a value that depends on the store
-would become the baseline; each of those is a defect in the shot, not a
-new baseline.
-
-Baselines are platform-specific: shots generated on one operating system do
-not match another, so a pixel spec run on a machine unlike the one that
-recorded its baseline skips rather than reporting a difference. Only
-regenerate when the change to the rendered surface is intended, or when the
-renderer moved under an unchanged surface.
-
-**The API description.** The server builds the document at request time and
-serves it at `/api/openapi.json`, with the human-readable API reference at
-`/developer`; the API journey asserts it is served and well formed. A
-generated copy is committed at `docs/api/openapi.json` for the
-documentation site and for agents reading the checkout: `npm run docs:write`
-rewrites it with the index, and `npm run lint:docs` fails while it differs
-from what the source builds.
-
-**The frozen assistant baselines.** The committed captures under
-`test-support/assistant-baselines/` are read back whole by the unit suite
-and compared against fresh derivations from the product's own builders. No
-script regenerates them, deliberately: a failure means a surface the
-comparison exists to hold has moved, so confirm the change is intended, then
-refresh the captures by hand.
-
-## The spatial engine extensions
-
-The engine needs several DuckDB extensions: spatial, h3, httpfs, json,
-postgres, azure and aws. One exported list is shared by the installer and
-the offline check, so the bundle cannot drift from what the product needs.
-
-```sh
-node scripts/install-duckdb-extensions.mjs "$PWD/duckdb-extensions"
-```
-
-That downloads and caches them into the named directory; point the instance
-at it with `DUCKDB_EXTENSION_DIR`. The image runs the same script at build
-time, which is why a container needs no network for them.
-
-An empty or stale cache shows up as an import or query failing on a missing
-extension, or a test run pausing mid-suite while the engine fetches from the
-public extension host. Either way: run the installer again against the
-directory, then restart the instance. With no outbound network the installer
-cannot fill an empty cache; copy a populated directory in from a machine
-that could, or use the image.
-
 ## Troubleshooting
-
-**The extension install fails on a TLS error.** A slim base image ships no
-certificate authority bundle and the extensions come over HTTPS: install
-`ca-certificates` before running the installer there.
-
-**A layer over the render cap or Bytes drawn per layer reports a missing
-tiler.** `tippecanoe` is not on `PATH`. Install it or set `DEZFIL_TIPPECANOE`.
-Everything within both limits keeps working without it.
-
-**A browser run fails instead of skipping.** Check the required provisioning
-on the server process, not the test process: a missing render cap override,
-loopback allowlist entry or tiler each turns a drive into a real failure.
 
 **The image export fails while health stays green.** The headless browser
 is missing or unreachable at `DEZFIL_CHROMIUM_PATH`. That split is
@@ -758,10 +573,6 @@ the hex string already in `secret.key`.
 `assistant-models.json` is rejected whole on any invalid entry and the
 shipped catalogue applies instead; `GET /api/assistant` says which
 ([Offer other models](assistant.md#offer-other-models)).
-
-**A script collides with the development server.** These scripts write real
-state and bind real ports: give them their own port and `DEZFIL_DATA_DIR`,
-never the port the development server holds.
 
 ## Shipping a template release
 

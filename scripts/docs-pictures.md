@@ -6,6 +6,55 @@ reaches the built-in basemap and nothing else. The request rule itself is
 held by the unit suite (`src/lib/docs-pictures-network.test.ts`); these runs
 show it in a browser.
 
+## What a run does
+
+The run takes every scene of `scripts/docs-pictures-scenes.mjs` from a real
+instance and writes the files that changed under `docs/images/`, with the
+manifest beside them. After changing a surface a scene shows, run it and
+commit what changed.
+
+- It starts `next start` from the checkout on a free loopback port (`--port`
+  chooses one) over a scratch folder it makes in the system's temporary
+  folder and removes at the end. That folder is the data directory and the
+  template catalogue, written from the shipped templates.
+- It takes the scenes that need no account first. Then it sets the instance
+  up through the API (the first account through setup, a second invited
+  account, a project the two share, the three shipped templates copied, the
+  files under `e2e/fixtures/` uploaded) and takes the rest, signed in as the
+  first account; last, it makes that account's first map and takes the
+  scenes that show it.
+- Every scene is taken at 1440 × 900 CSS pixels, two pixels per CSS pixel,
+  with reduced motion and a fixed clock, twice from the same state: in the
+  light theme, then in the dark theme. The dark take's browser starts with
+  the choice the header's theme switch stores, which the app applies before
+  its first paint. The run fails when a page is drawn in the other theme, or
+  when a dark take comes out the same as its light take.
+- The dark take sits beside the light one with `.dark` before the extension
+  (`templates.webp` and `templates.dark.webp`), shows the same frame or crop,
+  and has a manifest row of its own carrying its theme. Pages and the README
+  name the light take. The README sets each picture as the image of a
+  `<picture>` whose source for `(prefers-color-scheme: dark)` names the dark
+  take, so GitHub shows the take of the reader's theme.
+- A recording is not filmed in real time: each step is done, the page
+  settles, and the frame is held for the step's number of frames at ten a
+  second, so a recording lasts its frame count, eight seconds at most.
+  Playwright's own ffmpeg encodes the frames as a muted VP8 WebM,
+  single-threaded with fixed settings, so the same frames give the same
+  bytes. Each take's first frame is its poster. A recording over 1,500,000
+  bytes fails the run: hold fewer frames or declare a crop, never a smaller
+  scale.
+- The run fails, writing nothing, when the server opened a request to any
+  host but itself (an observer in its preload chain writes each one down;
+  `--keep-requests <file>` keeps that file), when a page asked for an
+  address off the instance, or when a file is over its bound. A scene that
+  shows a map says so with `map: true`: it alone may reach the built-in
+  basemap, it is taken once every map on the page is at rest with its tiles
+  loaded, and a basemap request that fails fails the run.
+- A file is replaced only when its bytes changed, and its manifest row's
+  version and date move with it, so a second run on the same build changes
+  nothing. `--only <scene>,<scene>` takes some scenes and keeps the other
+  rows. When the manifest is new, `npm run docs:write` lists it in the index.
+
 ## Before you start
 
 Use a detached worktree at the commit you are proving, with the lockfile's
