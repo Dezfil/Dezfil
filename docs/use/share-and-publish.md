@@ -158,7 +158,7 @@ On the **Maps** page, a card's **Publish map** publishes a draft, and **Copy sha
 
 The options change only the image, never the map. A new dialog opens at 1920 pixels wide and **4:3**; an admin changes that in **Settings** › **Publishing** › **Image export**.
 
-To download a layer's data rather than a picture, see [Build a map](build-a-map.md#2-arrange-the-layers).
+To download a layer's data rather than a picture, pick **Data** in the same menu.
 
 ## Export a project
 
