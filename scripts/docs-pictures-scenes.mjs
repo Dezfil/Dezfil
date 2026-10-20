@@ -14,9 +14,12 @@
 //   exists; `seeded` after the seeding (two accounts, a shared project, the
 //   three shipped templates copied and the repository's fixtures uploaded),
 //   signed in as the first account; `first-map` after that and the first
-//   account's own first map, the one "Your first map" builds. The script
-//   takes the states in this order, every scene of one before the next, so
-//   a seeded scene never shows the first map;
+//   account's own first map, the one "Your first map" builds; then the
+//   states of the Use Dezfil pages, each made from the one before it by its
+//   seeding in `STATE_SEEDING` (a state without one is the state before it,
+//   in a browser of its own). The script takes the states in the order of
+//   `STATES`, every scene of one before the next, so a seeded scene never
+//   shows the first map;
 // - `map: true`, when the scene shows a map: its page may reach the built-in
 //   basemap's host, and nothing is taken until every map on the page is at
 //   rest on the built-in basemap, its tiles loaded. Without it, the
@@ -31,7 +34,8 @@
 //   for `hold` frames of the cadence (ten a second), so the recording's
 //   length is the frames held, at most eight seconds.
 
-import { FIRST_MAP } from "./docs-pictures-instance.mjs";
+import { ASSISTANT_MESSAGES } from "./docs-pictures-assistant.mjs";
+import { ASSISTANT_MAP, BIG_CITIES, FIRST_MAP, MEMBER_MAPS, runWorkflow, seedAssistantMap, seedFirstMap, seedMember, seedWorkflow } from "./docs-pictures-instance.mjs";
 
 /** Open the Templates page and wait until the catalogue has been read and
  * the three shipped cards are drawn with their pictures. */
@@ -267,6 +271,486 @@ const MAIN_SCREEN_SCENES = [
   },
 ];
 
+// ---------------------------------------------------------------------------
+// Use Dezfil: the SQL workspace, as "Query with SQL" walks through it, on
+// the first map's cities, in the `sql` state.
+
+/** Step 3's query: the cities of more than ten million people, largest
+ * first, with their points. No two of the 15 share a population, so the
+ * order is total. */
+export const SQL_PAGE_QUERY = [
+  "SELECT name, country, population, geometry",
+  "FROM world_cities",
+  "WHERE population > 10000000",
+  "ORDER BY population DESC;",
+].join("\n");
+
+/** How many rows step 3's query answers. */
+const SQL_PAGE_ROWS = 15;
+
+/** What the History scene runs after step 3's query, in order: the page's
+ * API example, then a query that fails with sql_error. */
+const SQL_PAGE_HISTORY = [
+  "SELECT name, country FROM world_cities ORDER BY population DESC LIMIT 3",
+  "SELECT nme FROM world_cities",
+];
+
+/** Where the SQL workspace keeps its draft and its history in the
+ * browser. Each SQL scene starts without them, so none inherits the draft
+ * or the history of the scene before it in the same browser. */
+export const SQL_STORAGE_KEYS = ["dezfil:sql:draft", "dezfil:sql:history"];
+
+/** The results card, and the pane of Sources and History. */
+const SQL_RESULTS = 'section[aria-label="Results"]';
+const SQL_PANE = 'aside[aria-label="Sources and history"]';
+
+/** Type a query into the empty or selected editor, run it, and wait for
+ * its answer. Every answer that ran carries the run time the main
+ * screens' SQL scene shows, so two runs draw the same picture. */
+async function runSqlPageQuery(page, sql) {
+  await page.locator(".cm-content").click();
+  await page.keyboard.press("ControlOrMeta+a");
+  await page.keyboard.insertText(sql);
+  await page.keyboard.press("Escape");
+  const answered = page.waitForResponse((response) => new URL(response.url()).pathname === "/api/query" && response.request().method() === "POST");
+  await page.getByRole("button", { name: "Run query", exact: true }).click();
+  await answered;
+  await page.getByRole("button", { name: "Run query", exact: true }).waitFor();
+}
+
+/** The SQL workspace after step 3: opened with nothing kept from an
+ * earlier scene, the query run, its 15 cities in the table and the Map tab
+ * live. */
+async function openSqlResult(page) {
+  await page.addInitScript((keys) => {
+    for (const key of keys) localStorage.removeItem(key);
+  }, SQL_STORAGE_KEYS);
+  await page.route((url) => url.pathname === "/api/query", async (route) => {
+    if (route.request().method() !== "POST") return route.fallback();
+    const answer = await route.fetch();
+    if (!answer.ok()) return route.fulfill({ response: answer });
+    return route.fulfill({ response: answer, json: { ...(await answer.json()), runtimeMs: SQL_SCENE_RUNTIME_MS } });
+  });
+  await page.goto("/sql");
+  await page.locator(`[data-name="${FIRST_MAP.layer}"]`).waitFor();
+  await runSqlPageQuery(page, SQL_PAGE_QUERY);
+  const results = page.locator(SQL_RESULTS);
+  await results.locator("table tbody tr").nth(SQL_PAGE_ROWS - 1).waitFor();
+  if (await results.getByRole("tab", { name: "Map", exact: true }).isDisabled()) throw new Error("Step 3's result has no geometry: its Map tab is disabled.");
+}
+
+const SQL_PAGE_SCENES = [
+  {
+    // The page's opening picture: Sources, the editor and the 15 cities as
+    // a table, in the full frame.
+    id: "sql-workspace",
+    file: "use/sql-workspace.webp",
+    pages: ["docs/use/sql.md"],
+    kind: "still",
+    state: "sql",
+    open: openSqlResult,
+  },
+  {
+    // Step 5's first tab: the Save as dataset panel under the result's
+    // bar, the new name typed and not yet saved.
+    id: "sql-save-as-dataset",
+    file: "use/sql-save-as-dataset.webp",
+    pages: ["docs/use/sql.md"],
+    kind: "still",
+    state: "sql",
+    crop: { selector: [`${SQL_RESULTS} > div:first-child`, '[role=group][aria-label="Save as dataset"]'], margin: 16 },
+    async open(page) {
+      await openSqlResult(page);
+      await page.getByRole("button", { name: "Save as dataset", exact: true }).click();
+      await page.getByLabel("Name for the new dataset").fill("megacities");
+    },
+  },
+  {
+    // The History tab after three runs, one of them failed. The browser's
+    // fixed clock gives every card the same day and time.
+    id: "sql-history",
+    file: "use/sql-history.webp",
+    pages: ["docs/use/sql.md"],
+    kind: "still",
+    state: "sql",
+    // From the pane's tabs to Clear history, without the empty pane below.
+    crop: { selector: [`${SQL_PANE} [role=tablist]`, `${SQL_PANE} button:has-text("Clear history")`], margin: 12 },
+    async open(page) {
+      await openSqlResult(page);
+      for (const sql of SQL_PAGE_HISTORY) await runSqlPageQuery(page, sql);
+      await page.locator(SQL_RESULTS).getByText("sql_error", { exact: true }).waitFor();
+      await page.getByRole("tab", { name: /^History/ }).click();
+      await page.locator("[data-history-card]").nth(SQL_PAGE_HISTORY.length).waitFor();
+    },
+  },
+];
+
+// ---------------------------------------------------------------------------
+// Use Dezfil: the Big cities workflow "Workflows" builds on the first map's
+// cities, in the `workflow` state as made and never run, and in the
+// `workflow-run` state after its run.
+
+/** Where the results band keeps a person's choice of open or closed in the
+ * browser. Each workflow scene starts without it, so the band opens as the
+ * instance's default says: closed, until a run in the page opens it. */
+export const BAND_CHOICE_KEY = "dezfil.workflow.band-choice";
+
+/** A tile on the canvas, by the dataset it writes or, for a source, reads. */
+const workflowTile = (page, name) => page.locator(`[data-node][data-name="${name}"]`);
+
+/** Open the Big cities workflow on its canvas, with its three tiles drawn. */
+async function openWorkflow(page) {
+  await page.addInitScript((key) => localStorage.removeItem(key), BAND_CHOICE_KEY);
+  const workflow = await findByName(page, "/api/recipes?origin=workflow", BIG_CITIES.name, (body) => body.recipes);
+  await page.goto(`/workflows/${workflow.id}`);
+  for (const name of [FIRST_MAP.layer, BIG_CITIES.filter.parameters.name, BIG_CITIES.cells.parameters.name]) await workflowTile(page, name).waitFor();
+}
+
+const WORKFLOW_PAGE_SCENES = [
+  {
+    // The page's opening picture: the canvas after the run, each node with
+    // its check mark and the results band on its bar, in the full frame.
+    // The run is the seeding's, so the band stays closed: its Messages
+    // carry the time of each run, which differs on every run.
+    id: "workflows-canvas",
+    file: "use/workflows-canvas.webp",
+    pages: ["docs/use/workflows.md"],
+    kind: "still",
+    state: "workflow-run",
+    async open(page) {
+      await openWorkflow(page);
+      await page.locator('[data-node][data-kind="node"][data-state="up to date"]').nth(1).waitFor();
+    },
+  },
+  {
+    // Step 4: the Filter rows panel before any run, its preview read.
+    id: "workflows-node-panel",
+    file: "use/workflows-node-panel.webp",
+    pages: ["docs/use/workflows.md"],
+    kind: "still",
+    state: "workflow",
+    // The panel stands over the canvas: a margin would cut into the tiles
+    // beside it. The crop ends under Output: the state holds both nodes,
+    // so the Run section offers Run from here, which a reader at step 4,
+    // with Filter rows alone, does not have yet.
+    crop: { selector: ["aside[data-node-panel] > header", 'aside[data-node-panel] section[aria-label="Output"]'], margin: 0 },
+    async open(page) {
+      await openWorkflow(page);
+      await workflowTile(page, BIG_CITIES.filter.parameters.name).click();
+      await page.locator("aside[data-node-panel] [data-preview-line]").waitFor();
+    },
+  },
+  {
+    // Step 6: the Run all dialog, before the run is confirmed. Closing the
+    // page leaves the workflow unrun.
+    id: "workflows-run-all",
+    file: "use/workflows-run-all.webp",
+    pages: ["docs/use/workflows.md"],
+    kind: "still",
+    state: "workflow",
+    crop: { selector: "[data-run-confirm]", margin: 24 },
+    async open(page) {
+      await openWorkflow(page);
+      await page.locator('[data-run-action="run-all"]').click();
+      await page.locator("[data-run-confirm] [data-plan-list] li").nth(1).waitFor();
+    },
+  },
+];
+
+// ---------------------------------------------------------------------------
+// Use Dezfil: the assistant, as "The assistant" shows it on a map, on the
+// SQL page and on a workflow, in the `assistant` state: the first account's
+// City sizes map, the first map's cities in one color, beside the Big
+// cities workflow. The model is the run's scripted one
+// (docs-pictures-assistant.mjs): what it says is scripted, what it does
+// runs on the instance.
+
+/** The run time every action line of the pane shows. The server measures
+ * each action afresh, so its time differs on every run; the scenes' pages
+ * are handed the instance's own answers with this time in them, as the SQL
+ * scenes are for a query's, so two runs draw the same picture. */
+export const ASSISTANT_ELAPSED_MS = 100;
+
+const ELAPSED = /"elapsedMs":\s*-?\d+(?:\.\d+)?/g;
+
+/** The pane, open. */
+const ASSISTANT_PANE = '[data-assistant-pane][data-open="true"]';
+
+/** Hand the page the assistant's answers with the steady action time. */
+async function steadyAssistantTimes(page) {
+  const assistant = (url) => url.pathname === "/api/assistant/messages" || url.pathname.startsWith("/api/assistant/runs/");
+  await page.route(assistant, async (route) => {
+    const answer = await route.fetch();
+    const headers = { ...answer.headers() };
+    delete headers["content-length"];
+    delete headers["transfer-encoding"];
+    const body = (await answer.text()).replace(ELAPSED, `"elapsedMs":${ASSISTANT_ELAPSED_MS}`);
+    return route.fulfill({ status: answer.status(), headers, body });
+  });
+}
+
+/** Leave no request of an earlier scene waiting at a card: each is
+ * abandoned, as the API offers, before the page opens, so no pane offers
+ * to recover one. The cards wait on the server, whatever page or browser
+ * asked. */
+async function abandonPending(page) {
+  const listed = await page.request.get("/api/assistant/pending");
+  if (!listed.ok()) throw new Error(`/api/assistant/pending answered ${listed.status()}.`);
+  const origin = new URL(listed.url()).origin;
+  for (const { runId } of (await listed.json()).pending) {
+    const gone = await page.request.delete(`/api/assistant/runs/${encodeURIComponent(runId)}`, { headers: { origin } });
+    if (!gone.ok()) throw new Error(`Abandoning the waiting request ${runId} answered ${gone.status()}.`);
+  }
+}
+
+/** Open the pane from its door in the page's header. */
+async function openAssistant(page) {
+  await page.getByRole("button", { name: "Open assistant", exact: true }).click();
+  const pane = page.locator(ASSISTANT_PANE);
+  await pane.getByRole("textbox", { name: "Ask the assistant" }).waitFor();
+  return pane;
+}
+
+/** Send a message from the pane's box, as Enter does. */
+async function sendMessage(pane, message) {
+  const box = pane.getByRole("textbox", { name: "Ask the assistant" });
+  await box.fill(message);
+  await box.press("Enter");
+}
+
+/** Rest the pointer on the pane's chips, which are not controls, so
+ * nothing the picture shows lights up under it. */
+async function restPointer(pane) {
+  await pane.locator("[data-talking-about]").hover();
+}
+
+/** Open the City sizes map with its cities drawn, and the pane beside it,
+ * with nothing of an earlier scene waiting. */
+async function openAssistantMap(page) {
+  await abandonPending(page);
+  await steadyAssistantTimes(page);
+  const map = await findByName(page, "/api/maps", ASSISTANT_MAP.name);
+  await page.goto(`/maps/${map.id}`);
+  await page.locator("[data-layer-select]", { hasText: `${FIRST_MAP.features} features` }).waitFor();
+  return openAssistant(page);
+}
+
+const ASSISTANT_PAGE_SCENES = [
+  {
+    // The page's opening picture: the map in full, after the message that
+    // colors the cities, the pane with its chips, the two action lines and
+    // the reply.
+    id: "assistant-builder",
+    file: "use/assistant-builder.webp",
+    pages: ["docs/use/assistant.md"],
+    kind: "still",
+    state: "assistant",
+    map: true,
+    async open(page) {
+      const pane = await openAssistantMap(page);
+      // The layer's card selects it, and a second press lets it go: a page
+      // that opened with it selected is pressed once more.
+      const card = page.locator("[data-layer-select]", { hasText: FIRST_MAP.layer });
+      const chip = pane.locator('[data-chip="layer"]');
+      await card.click();
+      if (!(await chip.waitFor({ timeout: 3000 }).then(() => true, () => false))) await card.click();
+      await chip.waitFor();
+      await sendMessage(pane, ASSISTANT_MESSAGES.color);
+      await pane.getByText("The cities are colored by population", { exact: false }).waitFor();
+      await pane.locator('[data-record-entry][data-status="succeeded"]').nth(1).waitFor();
+      await pane.locator('[data-phase="idle"]').waitFor();
+      await page.locator("[data-corner] li").nth(4).waitFor();
+      await restPointer(pane);
+    },
+  },
+  {
+    // Confirm or cancel: the card waiting before a dataset is deleted, in
+    // the pane alone. The card's words name the dataset by its name, which
+    // is the same on every run. The request is left waiting, and the next
+    // scene abandons it.
+    id: "assistant-confirm",
+    file: "use/assistant-confirm.webp",
+    pages: ["docs/use/assistant.md"],
+    kind: "still",
+    state: "assistant",
+    map: true,
+    crop: { selector: ASSISTANT_PANE, margin: 0 },
+    async open(page) {
+      const pane = await openAssistantMap(page);
+      await sendMessage(pane, ASSISTANT_MESSAGES.remove);
+      await pane.locator("[data-confirmation] button:not([disabled])").nth(1).waitFor();
+      await pane.locator('[data-phase="parked"]').waitFor();
+      await restPointer(pane);
+    },
+  },
+  {
+    // Write SQL with the assistant: the pane on the SQL page after step 3's
+    // query ran, its proposal with Insert into editor, in the pane alone.
+    id: "assistant-sql",
+    file: "use/assistant-sql.webp",
+    pages: ["docs/use/assistant.md"],
+    kind: "still",
+    state: "assistant",
+    crop: { selector: ASSISTANT_PANE, margin: 0 },
+    async open(page) {
+      await abandonPending(page);
+      await steadyAssistantTimes(page);
+      await openSqlResult(page);
+      const pane = await openAssistant(page);
+      await pane.locator('[data-chip="execution"]').waitFor();
+      await sendMessage(pane, ASSISTANT_MESSAGES.count);
+      await pane.getByRole("button", { name: "Insert into editor", exact: true }).waitFor();
+      await pane.locator('[data-phase="idle"]').waitFor();
+      await restPointer(pane);
+    },
+  },
+  {
+    // Understand a workflow: the pane on Big cities after a run started on
+    // the page, Filter rows selected, its two ways in above the empty box,
+    // in the pane alone. The run opens the results band, whose messages
+    // carry the time of each run: it stays outside the crop.
+    id: "assistant-workflow",
+    file: "use/assistant-workflow.webp",
+    pages: ["docs/use/assistant.md"],
+    kind: "still",
+    state: "assistant",
+    crop: { selector: ASSISTANT_PANE, margin: 0 },
+    async open(page) {
+      await abandonPending(page);
+      await openWorkflow(page);
+      const pane = await openAssistant(page);
+      await page.locator('[data-run-action="run-all"]').click();
+      await page.locator("[data-run-confirm]").getByRole("button", { name: "Run 2 nodes" }).click();
+      await pane.locator('[data-chip="run"]', { hasText: "completed" }).waitFor({ timeout: 120_000 });
+      await workflowTile(page, BIG_CITIES.filter.parameters.name).click();
+      await pane.locator('[data-chip="step"]').waitFor();
+      await pane.getByRole("button", { name: "Explain this node", exact: true }).waitFor();
+      await pane.getByRole("button", { name: "Diagnose the last run", exact: true }).waitFor();
+      await restPointer(pane);
+    },
+  },
+];
+
+// ---------------------------------------------------------------------------
+// Use Dezfil: a person's own settings, as "Your settings" shows them, in the
+// `member` state: signed in as the second account, a member, so the
+// column shows what a member's shows, with three maps of its own, one of
+// them published. What these scenes pick is kept with that account alone.
+
+/** Dezfil's default look: every pick at its first choice. */
+export const DEFAULT_LOOK = { color: "kelp", contrast: "standard", font: "inter", background: "atlantic", corners: "rounded", rail: "hover", panels: "glass" };
+
+/** The Settings page's heading, where the pointer rests and lights nothing. */
+const SETTINGS_HEADING = 'h1:text-is("Settings")';
+
+/** Put the member's look back to Dezfil's default before the page opens,
+ * so a take starts there whatever the scene before it picked: every
+ * member scene but the Harbor one shows the default look. */
+async function defaultLook(page) {
+  const read = await page.request.get("/api/settings");
+  if (!read.ok()) throw new Error(`/api/settings answered ${read.status()}.`);
+  const reset = await page.request.patch("/api/settings", { data: { look: DEFAULT_LOOK }, headers: { origin: new URL(read.url()).origin } });
+  if (!reset.ok()) throw new Error(`Putting the member's look back answered ${reset.status()}.`);
+}
+
+/** Open Appearance at the default look, its Color row drawn. */
+async function openAppearance(page) {
+  await defaultLook(page);
+  await page.goto("/settings/appearance");
+  await page.locator("#appearance-color").getByRole("radio", { name: "Kelp", exact: true }).waitFor();
+}
+
+/** Store the member's Maps layout and sort, as the screen's own buttons
+ * do, before the page opens. Picked on the page, each pick's save is
+ * answered but its answer is never read, and the browser then reports the
+ * save in flight for as long as the page is open, so the page never comes
+ * to rest. */
+async function storeMapsView(page, prefs) {
+  const read = await page.request.get("/api/settings");
+  if (!read.ok()) throw new Error(`/api/settings answered ${read.status()}.`);
+  const stored = await page.request.patch("/api/settings", { data: { viewPrefs: { maps: prefs } }, headers: { origin: new URL(read.url()).origin } });
+  if (!stored.ok()) throw new Error(`Storing the member's Maps view answered ${stored.status()}.`);
+}
+
+/** The Maps list's card of rows: the one element whose children hold the
+ * rows' buttons. */
+const MAPS_LIST = 'main div:has(> div > button[aria-label^="Open "])';
+
+const SETTINGS_PAGE_SCENES = [
+  {
+    // The page's opening picture: Appearance at Dezfil's default look, the
+    // column of tabs and the Color and contrast card.
+    id: "settings-appearance",
+    file: "use/settings-appearance.webp",
+    pages: ["docs/use/settings.md"],
+    kind: "still",
+    state: "member",
+    crop: { selector: [SETTINGS_HEADING, 'nav[aria-label="Settings"]', "#appearance-color"], margin: 24 },
+    async open(page) {
+      await openAppearance(page);
+      await page.locator(SETTINGS_HEADING).hover();
+    },
+  },
+  {
+    // Change the look, step 2: Harbor picked, in the full frame, once its
+    // Saved mark has gone, so the picture does not depend on how fast it
+    // was taken.
+    id: "settings-look-harbor",
+    file: "use/settings-look-harbor.webp",
+    pages: ["docs/use/settings.md"],
+    kind: "still",
+    state: "member",
+    async open(page) {
+      await openAppearance(page);
+      await page.locator("#appearance-color").getByRole("radio", { name: "Harbor", exact: true }).click();
+      await page.locator('html[data-look-color="harbor"]').waitFor({ state: "attached" });
+      await page.locator('[data-appearance-slot="reset"]').waitFor();
+      const saved = page.locator("#appearance-color").getByText("Saved", { exact: true });
+      await saved.waitFor();
+      await saved.waitFor({ state: "hidden", timeout: 10_000 });
+      await page.locator(SETTINGS_HEADING).hover();
+    },
+  },
+  {
+    // Lay out and sort your lists: the member's maps in List view, sorted
+    // Name A to Z.
+    id: "settings-maps-list",
+    file: "use/settings-maps-list.webp",
+    pages: ["docs/use/settings.md"],
+    kind: "still",
+    state: "member",
+    crop: { selector: ['[role=group][aria-label="View"]', MAPS_LIST], margin: 16 },
+    async open(page) {
+      await defaultLook(page);
+      await storeMapsView(page, { view: "list", sort: "name" });
+      await page.goto("/maps");
+      await page.locator('[role=group][aria-label="View"] button[aria-label="List view"][data-on]').waitFor();
+      if ((await page.getByRole("combobox", { name: "Sort maps" }).inputValue()) !== "name") throw new Error("The Maps screen did not open sorted Name A to Z.");
+      await page.locator(MAPS_LIST).getByRole("button", { name: /^Open / }).nth(MEMBER_MAPS.count - 1).waitFor();
+      const first = await page.locator(MAPS_LIST).getByRole("button", { name: /^Open / }).first().getAttribute("aria-label");
+      if (first !== "Open Forty years of big earthquakes") throw new Error(`The list sorted Name A to Z starts with ${first}.`);
+      await page.locator(`${MAPS_LIST} > [aria-hidden]`).first().hover();
+    },
+  },
+  {
+    // Change your name or email, and your password: the Account card with
+    // Change password opened, its fields empty.
+    id: "settings-account",
+    file: "use/settings-account.webp",
+    pages: ["docs/use/settings.md"],
+    kind: "still",
+    state: "member",
+    crop: { selector: "#account", margin: 16 },
+    async open(page) {
+      await defaultLook(page);
+      await page.goto("/settings/account");
+      await page.locator("#password > summary").click();
+      await page.locator("#account").getByText("At least 8 characters.", { exact: true }).waitFor();
+      await page.locator(SETTINGS_HEADING).hover();
+    },
+  },
+];
+
 export const SCENES = [
   {
     id: "setup-card",
@@ -303,8 +787,52 @@ export const SCENES = [
       { hold: 20 },
     ],
   },
+  {
+    // The built-in basemap's credit in the lower right corner of a
+    // template's map, as the earthquakes template opens on its own page,
+    // with a little of the map around it. The template's widget rail ends
+    // with its Sources card about 11 CSS pixels above the credit, so a
+    // margin wider than that frames a cut-off piece of the card. The page
+    // writes nothing, so the seeded state stays as the other scenes find
+    // it. A published map carries the same credit, but its page keeps its
+    // author's theme whatever the reader's, so it would draw one picture in
+    // both takes.
+    id: "licence-and-credits-map-credit",
+    file: "about/licence-and-credits-map-credit.webp",
+    pages: ["docs/about/licence-and-credits.md"],
+    kind: "still",
+    state: "seeded",
+    map: true,
+    crop: { selector: "[data-map-credit]", margin: 8 },
+    async open(page) {
+      await page.goto("/templates/earthquakes");
+      await page.locator("[data-map-credit] a").nth(1).waitFor();
+    },
+  },
   ...MAIN_SCREEN_SCENES,
   ...FIRST_MAP_SCENES,
+  ...SQL_PAGE_SCENES,
+  ...WORKFLOW_PAGE_SCENES,
+  ...ASSISTANT_PAGE_SCENES,
+  ...SETTINGS_PAGE_SCENES,
 ];
 
-export const STATES = ["fresh", "seeded", "first-map"];
+export const STATES = ["fresh", "seeded", "first-map", "sql", "workflow", "workflow-run", "assistant", "member"];
+
+/** The states taken signed in as the second account, a member, rather than
+ * the first, the instance's admin. */
+export const MEMBER_STATES = ["member"];
+
+/** What makes a state after the seeded one from the state before it,
+ * called once a run with the first account's API client, the checkout's
+ * root and what the seeding returned (the second account's client among
+ * it). `sql` has none: it is the first map's state, in a browser of its
+ * own, so the SQL workspace's stored draft and history stay among its own
+ * scenes. */
+export const STATE_SEEDING = {
+  "first-map": seedFirstMap,
+  workflow: seedWorkflow,
+  "workflow-run": runWorkflow,
+  assistant: seedAssistantMap,
+  member: seedMember,
+};

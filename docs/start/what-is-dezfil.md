@@ -52,13 +52,13 @@ In the builder you add datasets or SQL queries as layers and style each one, the
 
 The **SQL** workspace queries your datasets in DuckDB's SQL, spatial functions included, and shows the result as a **Table** or on a **Map**.
 
-Keep a result with **Save as dataset**, **Download** or **Add as map layer**.
+Keep a result with **Save as dataset**, **Download** or **Add as map layer**. See [Query with SQL](../use/sql.md).
 
 ## Workflows
 
 ![The workflow canvas of a copy of Health access in Rwanda: three datasets feeding six nodes, from Centroid to a last SQL step, two notes as colored boxes, the Sources and Tools pane on the left and Run all at the top right](../images/start/what-is-dezfil-workflow.webp)
 
-A workflow chains tools, such as **Filter rows** and **Spatial join**, and each node writes a new dataset. Click **Run all** to repeat the chain when the data changes.
+A workflow chains tools, such as **Filter rows** and **Spatial join**, and each node writes a new dataset. Click **Run all** to repeat the chain when the data changes. See [Workflows](../use/workflows.md).
 
 The colored boxes are notes, for comments beside the nodes. Their text shows when you zoom in.
 
@@ -72,8 +72,8 @@ The colored boxes are notes, for comments beside the nodes. Their text shows whe
 
 - **Projects:** a project groups maps, workflows and datasets, and shares them with people as viewers or editors.
 - **Connections:** your saved PostGIS databases, whose tables you import as datasets.
-- **Assistant:** a chat pane on the map, SQL and workflow pages that reads your data and makes changes when you ask. It runs on an Anthropic or OpenAI key set on the server.
-- **Settings:** your account, your API tokens and your look. Admins also set how the instance behaves there. See [Configuration](../self-host/configuration.md).
+- **Assistant:** a chat pane on the map, SQL and workflow pages that reads your data and makes changes when you ask. It runs on an Anthropic or OpenAI key set on the server. See [The assistant](../use/assistant.md).
+- **Settings:** your account, your API tokens and your look. Admins also set how the instance behaves there. See [Your settings](../use/settings.md) and [Configuration](../self-host/configuration.md).
 
 ## How it runs
 
@@ -82,7 +82,7 @@ The colored boxes are notes, for comments beside the nodes. Their text shows whe
 - **Accounts:** the first person to finish setup is the admin, who adds the others under **Users**. Your maps, datasets and workflows stay private until a project shares them or you publish a map.
 - **What leaves the instance:** maps load the built-in basemaps from OpenFreeMap, in each viewer's browser and in the map pictures the server draws, and the server reads the template catalogue from GitHub. Imports, the address finder, travel times and the assistant reach outside only when you use or set them up. See [What leaves the instance](../self-host/what-leaves-the-instance.md).
 - **Scripts and AI agents:** every action in the app is a call to the HTTP API, described in [the API description](../api/openapi.json). An AI agent connects over MCP at `/api/mcp`, with a token from **Settings** › **API & MCP**. See [Connect an AI agent](../api/mcp.md).
-- **Licence:** Dezfil is released under the Apache License 2.0.
+- **Licence:** Dezfil is released under the Apache License 2.0. [Licence and credits](../about/licence-and-credits.md) names the libraries and map data it uses.
 
 ## Next steps
 

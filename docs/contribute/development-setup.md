@@ -40,7 +40,7 @@ curl http://localhost:3000/api/health
 {"status":"ready"}
 ```
 
-Then open <http://localhost:3000> and create the first account, as [Install](../start/install.md) shows.
+Then open <http://localhost:3000> and create the first account, as [Install](../start/install.md#first-run) shows.
 
 ## Add the programs the container brings
 
@@ -72,6 +72,7 @@ sudo apt-get install -y --no-install-recommends build-essential libsqlite3-dev z
 curl -fsSL https://github.com/felt/tippecanoe/archive/refs/tags/2.79.0.tar.gz | tar -xz -C /tmp
 make -C /tmp/tippecanoe-2.79.0 -j"$(nproc)" tippecanoe
 sudo install /tmp/tippecanoe-2.79.0/tippecanoe /usr/local/bin/tippecanoe
+# On a minimal system, add --with-deps to install the libraries the browser needs.
 npx playwright install chromium
 ```
 
@@ -82,6 +83,9 @@ npx playwright install chromium
 Dezfil looks for `tippecanoe` on your `PATH` and for Chromium at `/usr/bin/chromium`. To name other files, set `DEZFIL_TIPPECANOE` or `DEZFIL_CHROMIUM_PATH` in `.env.local`, which Next.js reads at start and git ignores:
 
 ```sh title=".env.local"
+# Playwright's headless shell, as an absolute path: under ~/Library/Caches/ms-playwright
+# on macOS or ~/.cache/ms-playwright on Linux, it is
+# chromium_headless_shell-<N>/chrome-headless-shell-<PLATFORM>/chrome-headless-shell
 DEZFIL_CHROMIUM_PATH=<PATH_TO_CHROME_HEADLESS_SHELL>
 ```
 
@@ -92,6 +96,7 @@ The unit tests and the scripts do not read `.env.local`: set the variable in the
 Give each instance its own data folder and port, so test writes never reach your working data:
 
 ```sh title="Terminal"
+# One dev server runs per checkout: stop the first, or use npm start below.
 DEZFIL_DATA_DIR="$(mktemp -d)" PORT=3310 npm run dev
 ```
 
@@ -108,7 +113,18 @@ npm ci
 npm run build
 ```
 
-A standalone you start by hand needs what the [Dockerfile](../../Dockerfile)'s last stage copies beside it, such as `public`, `.next/static` and the native packages.
+A standalone you start by hand needs what the [Dockerfile](../../Dockerfile)'s last stage copies beside it. In the build worktree:
+
+```sh title="Terminal"
+cp -R public templates .next/standalone/
+cp -R .next/static .next/standalone/.next/
+mkdir -p .next/standalone/scripts .next/standalone/src/lib/auth .next/standalone/src/lib/assistant
+cp scripts/ingress-preload.mjs scripts/preload-options.mjs .next/standalone/scripts/
+cp src/lib/auth/ingress.mjs src/lib/auth/reception.mjs .next/standalone/src/lib/auth/
+cp src/lib/assistant/model-catalogue.json .next/standalone/src/lib/assistant/
+cp -R node_modules/@duckdb node_modules/better-sqlite3 node_modules/bindings \
+  node_modules/file-uri-to-path .next/standalone/node_modules/
+```
 
 > [!WARNING]
 > `npm run dev`, `npm start` and the image load the ingress preload first. Without it, `/api/health` answers 503 and sign-in is refused. Start a standalone with `node --import=./scripts/ingress-preload.mjs server.js`.
@@ -129,7 +145,7 @@ DEZFIL_TRUSTED_PROXIES=127.0.0.1 node --import=./scripts/ingress-preload.mjs scr
 node scripts/ingress-probe.mjs --expect-missing
 ```
 
-- `NODE_OPTIONS` gives the type check 4 GB of heap, as the pipeline does. It needs about 2.5 GB.
+- `NODE_OPTIONS` gives the type check 4 GB of heap, as the pipeline does.
 - The loop runs every `lint:` gate, in the pipeline's order.
 - The last two lines check that the ingress preload tells direct and proxied connections apart, and that a server without it refuses.
 
@@ -145,27 +161,30 @@ You should see no error from ESLint or TypeScript, no `FAILED:` line, no failed 
 | `lint:size` | An oversized module listed in `scripts/check-monster-files.mjs` is above or below its recorded line ceiling |
 | `lint:stage-edge` | The map stage's left edge appears as a literal instead of its one custom property |
 | `lint:wheelhouse` | A style or component leaves the design vocabulary (font sizes, radii, motion, colours, glyphs, focus rings, cursors, accessible names, surface roles), or `scripts/wheelhouse-inventory.json` lists a violation that is gone |
-| `lint:tokens` | A stylesheet uses a `var(--x)` token nothing defines |
-| `lint:icons` | A builder component gains an inline `<svg>` past its recorded count |
-| `lint:class-pairs` | Two module stylesheets set the same property on one element at equal specificity, or a stylesheet opens a cascade layer out of the order `src/app/globals.css` names |
+| `lint:tokens` | A stylesheet uses a `var(--x)` token nothing defines, even with a fallback value |
+| `lint:icons` | A builder component gains an inline `<svg>` past its recorded count, or a new file gains one |
+| `lint:class-pairs` | Two module stylesheets set the same property on one element at equal specificity, or a stylesheet opens a cascade layer out of the order `src/app/globals.css` names. Raise the caller's selector, or move the shared component's rule into its layer |
 | `lint:specimen` | The design specimen page would change if regenerated |
-| `lint:contract-docs` | The API description, the MCP tools or the error catalogue disagree with each other or with the API pages |
+| `lint:contract-docs` | The API description, the MCP tools or the error catalogue disagree with each other, with the API pages or with the counts in `scripts/served-contract-proof.md` |
 | `lint:reader-docs` | A file on its list (pages, `README.md`, `AGENTS.md`, procedure notes) is missing or holds superseded copy, or an API page's edit-revision example is incomplete |
 | `lint:plugin` | The plugin's guidance file or bundled licence differs from its source |
-| `lint:docs` | A page breaks the page contract or a writing rule, or the index, a settings table, `docs/api/openapi.json` or the image manifest is out of date |
-| `lint:retired-paths` | A tracked file names a docs path that moved or left |
+| `lint:docs` | A page breaks the page contract or a writing rule, as [Write a docs page](write-docs.md#the-checks) explains each; a link or picture in a page, or in a procedure note under `scripts/` or `src/`, leads nowhere; a picture lacks its light or its dark take, or the README shows one take only; or the index, a settings table, `docs/api/openapi.json` or the image manifest is out of date |
+| `lint:retired-paths` | A tracked file names a docs path that moved or left, from the list in `scripts/check-retired-paths.mjs`. Only the list itself, a page's `moved_from` rows and the test fixtures that show such a path refused pass |
 
-To check your branch's commit messages as a pull request does:
+To check your branch's commits as a pull request does:
 
 ```sh title="Terminal"
 git log -z --format=%B --no-merges main..HEAD | node .github/scripts/check-commit-messages.mjs
+# Lists each commit without a sign-off; prints nothing when all are signed off.
+git log --no-merges -i -E --invert-grep --grep='^ *Signed-off-by: .+ <[^>]+>' \
+  --format='Missing Signed-off-by: %h %s' main..HEAD
 ```
 
 ```text title="Output"
 Checked 3 commit messages: clean.
 ```
 
-The secret scan is `gitleaks dir . --no-banner --redact --exit-code 1`.
+The secret scan is `gitleaks dir . --no-banner --redact --exit-code 1`. [How this is built](how-this-is-built.md#3-run-the-checks) lists the pipeline's jobs.
 
 ## Run the unit tests
 
@@ -201,7 +220,7 @@ export DEZFIL_CHROMIUM_PATH=<PATH_TO_CHROME_HEADLESS_SHELL>
 DEZFIL_MAP_LOOK_RENDER=3581 npx vitest run src/lib/export/map-look.real-render.test.ts
 ```
 
-Each file's header names its other variables. The map pictures test has its own note, [`src/lib/pictures/pictures.real-render.md`](../../src/lib/pictures/pictures.real-render.md).
+Each file's header names its other variables.
 
 ## Run the browser suite
 
@@ -224,7 +243,8 @@ Build, then start the instance on a fresh data folder, with `tippecanoe` on the 
 
 ```sh title="Terminal"
 npm run build
-DEZFIL_DATA_DIR="$(mktemp -d)" PORT=3310 \
+export DEZFIL_DATA_DIR="$(mktemp -d)"; echo "$DEZFIL_DATA_DIR"
+PORT=3320 \
 DEZFIL_RENDER_CAP_FEATURES=2000 \
 DEZFIL_EGRESS_ALLOWLIST=127.0.0.1 \
 DEZFIL_OVERPASS_URL=http://127.0.0.1:31877/overpass \
@@ -233,7 +253,7 @@ DEZFIL_AI_PROVIDER=openai OPENAI_API_KEY=scripted-wire \
 OPENAI_BASE_URL=http://127.0.0.1:3202/v1 \
 DEZFIL_ASSISTANT_AUTO_CHECK=off \
 NODE_OPTIONS="--require $PWD/e2e/assistant-self-port.cjs" \
-DEZFIL_E2E_LISTEN_PORT=3310 DEZFIL_E2E_SELF_PORT=3303 \
+DEZFIL_E2E_LISTEN_PORT=3320 DEZFIL_E2E_SELF_PORT=3303 \
 npm start
 ```
 
@@ -249,14 +269,14 @@ Without one of these, the specs that need it fail rather than skip:
 | `DEZFIL_ASSISTANT_AUTO_CHECK=off` | With the check on, a turn that changes the map asks the model once more, and the script has no reply for it |
 | `NODE_OPTIONS`, `DEZFIL_E2E_LISTEN_PORT`, `DEZFIL_E2E_SELF_PORT` | The assistant's calls to its own instance go through the suite's counting harness on port 3303; `DEZFIL_E2E_LISTEN_PORT` is the instance's own port |
 
-You should see `{"status":"ready"}` from `curl http://127.0.0.1:3310/api/health`.
+You should see `{"status":"ready"}` from `curl http://127.0.0.1:3320/api/health`.
 
 ### 3. Run the suite
 
 In a second terminal:
 
 ```sh title="Terminal"
-DEZFIL_BASE_URL=http://127.0.0.1:3310 \
+DEZFIL_BASE_URL=http://127.0.0.1:3320 \
   npm run journey:browser -- --grep-invert "assistant-look|assistant-picker|assistant-catalogue|account-deletion|deleted-attribution|card-states|thumbnail-theme"
 ```
 
@@ -272,12 +292,12 @@ Some specs skip, and say so, until the test process has their variable:
 | In the test process | What else it needs | Turns on |
 |---|---|---|
 | `DEZFIL_TEST_PG_URL` | A running `postgis/postgis:16-3.4` container, as in the unit tests | The live PostGIS imports |
-| `DEZFIL_DATA_DIR` | The server's own value | The real failed tile build |
+| `DEZFIL_DATA_DIR` | The server's own folder, which step 2 prints | The real failed tile build of `e2e/publish-lifecycle.spec.ts`, and cases of `e2e/camera-bounds.spec.ts`, `e2e/layer-download-abort-lifecycle.spec.ts` and `e2e/projects-screens.spec.ts` that read the server's files |
 | `DEZFIL_E2E_ASSISTANT=1` | A real model key on the server | The assistant confirmation smoke; `npm run e2e:smoke` sets it |
 | `DEZFIL_TEMPLATES_CATALOGUE` | A local catalogue folder of at least nine templates, named on the server too | `e2e/home.spec.ts` |
 | `DEZFIL_E2E_PINNED_QUEUE_MAX=<N>` | A second instance started with `DEZFIL_OPERATION_QUEUE_MAX=<N>` | The locked limit in `e2e/settings-page.spec.ts` |
 | `DEZFIL_NO_RENDERER_URL` | A second instance whose `DEZFIL_CHROMIUM_PATH` names no file | The no-renderer cases of `e2e/card-states.spec.ts` |
-| `DEZFIL_E2E_FIRST_RUN=1` | An instance with no account yet | `e2e/account-entry.spec.ts`, the first-account journey |
+| `DEZFIL_E2E_FIRST_RUN=1` | An instance with no account yet, and that spec run alone: with the variable set, every other spec starts signed out | `e2e/account-entry.spec.ts`, the first-account journey |
 
 These specs need an instance started differently, as each file's header says:
 
@@ -289,18 +309,26 @@ These specs need an instance started differently, as each file's header says:
 | `e2e/account-deletion.spec.ts`, `e2e/deleted-attribution.spec.ts` | `--import=./scripts/deletion-proof-preload.mjs`, and `DEZFIL_PROOF_CONTROL_DIR` set to the same fresh absolute folder on both sides |
 | `e2e/card-states.spec.ts`, `e2e/thumbnail-theme.spec.ts` | The picture instance with the style fixture preload, as [`src/lib/pictures/pictures.real-render.md`](../../src/lib/pictures/pictures.real-render.md) describes |
 
-The pixel baselines are cut on macOS, and most pixel specs skip on other systems.
+The pixel baselines are cut on macOS on Apple silicon, and most pixel specs skip on other systems.
 
 ## Drive the API without a browser
 
+Start an instance for the scripts after `npm run build`, then run the journey from a second terminal:
+
 ```sh title="Terminal"
-node scripts/journey.mjs http://127.0.0.1:3310
+export DEZFIL_DATA_DIR="$(mktemp -d)"
+PORT=3330 DEZFIL_EGRESS_ALLOWLIST=127.0.0.1 DEZFIL_RENDER_CAP_FEATURES=2000 npm start
+# In a second terminal:
+node scripts/journey.mjs http://127.0.0.1:3330
 ```
+
+- `DEZFIL_EGRESS_ALLOWLIST` lets the server reach the basemap and the files the scripts serve on loopback.
+- `DEZFIL_RENDER_CAP_FEATURES=2000` lowers the render cap, so the journey takes the tiled road too.
 
 The journey walks the API from upload, SQL and styling to publishing and an image export. It exits non-zero at the first broken step.
 
 ```text title="Output"
-Dezfil headless journey → http://127.0.0.1:3310
+Dezfil headless journey → http://127.0.0.1:3330
 
   ✓ 01 instance reports ready
   ✓ 02 signed in and created an API token before protected work
@@ -311,7 +339,7 @@ Journey complete — <N> steps passed.
 
 On a machine without Chromium, add `--http-only`. The journey then skips the image export and says so.
 
-On an empty store the journey creates its own account, and it signs back in to that account on later runs. A store another account set up turns it away.
+On an empty store the journey creates its own account and signs back in to it on later runs. A store another account set up turns it away.
 
 | Command | What it drives |
 |---|---|
@@ -342,7 +370,7 @@ ok: spatial
 PASS — all 7 extensions load offline.
 ```
 
-The image job runs these on `main`, among many checks of the running container. [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) lists every step. [Architecture](architecture.md) says what the image holds.
+The image job runs these on `main`. [Architecture](architecture.md#the-container-image) says what the image holds.
 
 ## Checks outside the pipeline
 
@@ -379,16 +407,19 @@ A script writes each of these. Run it and commit what changed, rather than editi
 | What | Command | Fails while stale |
 |---|---|---|
 | The docs index, the settings tables and `docs/api/openapi.json` | `npm run docs:write` | `npm run lint:docs` |
-| The docs pictures | `npm run docs:pictures`, in a detached worktree after `npm run build` | `npm run lint:docs`, only when the manifest and the files disagree |
+| The docs pictures | `npm run docs:pictures`, in a detached worktree after `npm run build`, as [Write a docs page](write-docs.md#pictures) shows | `npm run lint:docs`, only when the manifest and the files disagree |
 | The design specimen, `design/identity/dezfil-identity.html` | `node scripts/build-specimen.mjs` | `npm run lint:specimen` |
 | The look's background sheets in `public/look/` | `node scripts/generate-look-sheets.mjs` | The unit suite runs its `--check` |
 | The plugin guidance file and its licence | `node scripts/generate-dezfil-guidance.mjs` | `npm run lint:plugin` |
 | A plugin package for one instance | `node scripts/prepare-dezfil-plugin.mjs --output <NEW_FOLDER> --base-url <ORIGIN>` | Not committed: prepare a fresh copy when the instance address changes |
+| The shipped templates in `templates/`, one released archive at a time | `npm run templates:install -- <ARCHIVE> --sha256 <SHA256> --size <BYTES>`, as [`scripts/install-template.md`](../../scripts/install-template.md) says | Not checked for staleness: install each release once, from its checksum and size |
 
 Two kinds are cut by hand:
 
-- **Pixel baselines:** on macOS, against a production build on a fresh data folder, run one spec at a time with `npx playwright test e2e/<SPEC>.spec.ts --update-snapshots=changed`. Compare each rewritten picture with the old one before you commit it.
-- **The assistant baselines:** the captures under `test-support/assistant-baselines/` have no script. When the unit suite says one moved, confirm the change is meant, then update the capture by hand.
+| What | How |
+|---|---|
+| Pixel baselines | Only for an intended change, on macOS on Apple silicon, against a production build on a fresh data folder, one spec at a time: `DEZFIL_BASE_URL=http://127.0.0.1:<PORT> npx playwright test e2e/<SPEC>.spec.ts --update-snapshots=changed`. A shot whose comparison times out is written as it stands, so compare each rewritten picture with the old one before you commit it, and name the system in the commit message. |
+| The assistant baselines | The captures under `test-support/assistant-baselines/` have no script. When the unit suite says one moved, confirm the change is meant, then update the capture by hand. |
 
 ## Test and development wiring
 
@@ -431,16 +462,16 @@ The runtime or the image sets these. They are not settings, and `npm run lint:re
 | `NODE_ENV` | image sets `production` | Standard Node build mode. |
 | `NEXT_RUNTIME` | supplied by the framework | Which runtime a module is executing in. |
 | `PATH` | the system | The program search path. A tile builder or an image renderer whose setting names a program rather than a path is looked up there. |
-| `DUCKDB_EXTENSION_DIR` | image sets `/app/duckdb-extensions` | The baked engine extension bundle. Overriding it defeats the offline guarantee. |
+| `DUCKDB_EXTENSION_DIR` | image sets `/app/duckdb-extensions` | The baked engine extension bundle. In the image, overriding it defeats the offline guarantee; in a checkout, Troubleshooting sets it. |
 | `NEXT_TELEMETRY_DISABLED` | image sets `1` | Turns off the framework's own telemetry during build and at runtime. |
-| `UV_THREADPOOL_SIZE` | the runtime, 4 unless set before start | The runtime's worker pool, shared by engine calls, file system work and password hashing. PostGIS source calls may hold at most three quarters of it at once (at least one), so blocked source reads always leave a worker for their cancellation and for the rest of the server. Raising it raises that share. |
+| `UV_THREADPOOL_SIZE` | the runtime, 4 unless set before start | The runtime's worker pool, shared by engine calls, file system work and password hashing. PostGIS source calls may hold at most three quarters of it at once (at least one), so from two workers up, blocked source reads leave a worker for their cancellation and for the rest of the server. Raising it raises that share. |
 | `TZ`, `CI` | environment | Excluded by name from the configuration check; the code does not read them as settings. |
 
 ## Troubleshooting
 
 **`/api/health` answers 503, and the log says "The ingress preload is required".** The server started without the preload. Start it with `npm run dev`, `npm start`, or `node --import=./scripts/ingress-preload.mjs server.js`.
 
-**A test run pauses, or an import fails on a missing extension.** The engine is fetching its extensions from the network. Install them once with `node scripts/install-duckdb-extensions.mjs "$PWD/duckdb-extensions"`, then set `DUCKDB_EXTENSION_DIR` to that folder.
+**A test run pauses, or an import fails on a missing extension.** The engine is fetching its extensions from the network. Install them once with `node scripts/install-duckdb-extensions.mjs "$PWD/duckdb-extensions"`, set `DUCKDB_EXTENSION_DIR` to that folder and restart the instance. With no network, copy in a folder another machine filled.
 
 **Browser specs fail instead of skipping.** A variable of [step 2](#2-start-an-instance-for-the-suite) is missing on the server, `tippecanoe` is not on its `PATH`, or it has no Chromium. Check the server process's environment, not the test process's.
 
@@ -452,4 +483,5 @@ The runtime or the image sets these. They are not settings, and `npm run lint:re
 
 - [How this is built](how-this-is-built.md): take a change from an idea to a merged pull request.
 - [Architecture](architecture.md): where each part of the container lives in the source.
+- [Write a docs page](write-docs.md): the writing rules and the checks that hold them.
 - [Contributing](../../CONTRIBUTING.md): sign-off, commit messages and licensing.

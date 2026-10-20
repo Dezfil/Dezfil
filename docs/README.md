@@ -33,6 +33,30 @@ What Dezfil is, how to install it, and your first map.
 
 Do things in the app: data, maps, SQL, workflows and sharing.
 
+- [Query with SQL](use/sql.md)
+  - path: `docs/use/sql.md`
+  - summary: Query your datasets in the SQL workspace, see the result as a table or on a map, and keep it as a dataset, a file or a map layer.
+  - read when: you want to query your datasets, or ones shared with you, with SQL; you want to see a query result on a map; you want to keep a query result as a dataset, a file or a map layer; a query is refused, fails or takes too long; you want to run SQL from a script or an AI agent
+  - audience: user, agent
+
+- [Workflows](use/workflows.md)
+  - path: `docs/use/workflows.md`
+  - summary: Chain tools on a canvas into a workflow, run it, look at each result and run it again when its data or settings change.
+  - read when: you want to repeat the same analysis steps on a dataset without doing them by hand each time; you want to filter, join, buffer or summarize data and keep the result as a dataset; you want to see a step's result as a table or on a map, or add it to a map; you changed a node or its data, or a node says it is edited, stale, failed or cannot run; you can open a workflow someone shared but cannot change or run it
+  - audience: user
+
+- [The assistant](use/assistant.md)
+  - path: `docs/use/assistant.md`
+  - summary: Ask the assistant in plain words to change a map, write SQL into the editor, or explain a workflow node and its last run.
+  - read when: you want to change a map by asking in plain words; you want the assistant to write a SQL query, or explain a workflow node or a failed run; the assistant asks you to confirm an action, or you want to stop or undo what it did; you want to choose another model or effort; the assistant pane says no model credential is configured
+  - audience: user
+
+- [Your settings](use/settings.md)
+  - path: `docs/use/settings.md`
+  - summary: Change your look, light or dark, how your lists are laid out and sorted, and your name, email and password.
+  - read when: you want another color, typeface, background or panel style, or the side menu always open; you want the dark theme; you want your maps, data, workflows or projects as a list, or sorted another way; you want to change your display name, email or password; you want to know which choices follow you to another browser
+  - audience: user
+
 - [Templates](use/templates.md)
   - path: `docs/use/templates.md`
   - summary: The finished maps and workflow examples an instance offers: what a card shows, opening one read only, and making a copy of your own.
@@ -63,8 +87,8 @@ Install, secure, configure and back up your own instance.
 
 - [Runbook](self-host/backup-and-restore.md)
   - path: `docs/self-host/backup-and-restore.md`
-  - summary: Recipes for the work around an instance: running it locally, backups, upgrades, account recovery, the checks and the outside probes.
-  - read when: you back up, restore or upgrade an instance; you recover an admin account; you run the checks, the browser suite or a probe on an instance of your own
+  - summary: Recipes for the work around an instance: its data directory, backups, upgrades, account recovery and deletion, and API clients without a browser.
+  - read when: you back up, restore or upgrade an instance; you recover an admin account; you finish deleting an account, or drive the API from a shell script
   - audience: operator, developer
 
 - [Self-hosting](self-host/what-leaves-the-instance.md)
@@ -145,19 +169,31 @@ Work on Dezfil's code.
 
 - [Architecture](contribute/architecture.md)
   - path: `docs/contribute/architecture.md`
-  - summary: How the one container is put together: the web application, the metadata database, the query engine and the files under one data directory.
-  - read when: you change the code and need to know where a piece lives; you want to know why there is no second service
+  - summary: Find where each part of the Dezfil container lives in the source, and keep the rules that hold the parts together.
+  - read when: you change the code or the Dockerfile and need to know where a part lives or what the image carries; you wonder why Dezfil needs no database server or second service; you trace a layer from the browser to the query engine and back; you add a feature and want to know which rules it must keep; you add an API operation and want the UI, the assistant and MCP clients to get it
   - audience: developer, agent
 
 - [How this is built](contribute/how-this-is-built.md)
   - path: `docs/contribute/how-this-is-built.md`
-  - summary: The method behind the repository: each change described as behavior first, written largely by AI coding agents and reviewed before it lands.
-  - read when: you plan to contribute a change; you wonder why the repository looks the way it does
-  - audience: developer
+  - summary: Take a change from an idea to main: describe the behavior, build it on a branch with its tests, pass the checks and get it reviewed.
+  - read when: you plan to contribute a change and want to know what is expected of it; you write a change with an AI coding agent; you want to know what a reviewer looks for before a pull request merges; you say in a pull request what you tested and what you did not; a pull request check says a commit is not signed off or its message carries an internal reference
+  - audience: developer, agent
+
+- [Write a docs page](contribute/write-docs.md)
+  - path: `docs/contribute/write-docs.md`
+  - summary: Write or rewrite a page under docs/ that people and agents can act on, and pass every check of npm run lint:docs.
+  - read when: you write a new page under docs/ or rewrite one; npm run lint:docs fails on a page you changed; you add a code block, a tab set, a notice or a picture to a page; you take a page off the list of pages not yet rewritten; you change a writing rule or the check that holds it
+  - audience: developer, agent
 
 ## About
 
 Licence, credits, changes and policies.
+
+- [Licence and credits](about/licence-and-credits.md)
+  - path: `docs/about/licence-and-credits.md`
+  - summary: Check Dezfil's licence, the libraries, fonts and tools it includes, and the map data credits your maps show.
+  - read when: you want to know Dezfil's licence and what it lets you do; you need the libraries, fonts and tools Dezfil includes, and their licences; you want to know where a map, a published map or an exported image shows its map data credit; you add your own basemap or satellite imagery and need its credit on the map; you publish a map made from a template or imported data and want to credit its sources
+  - audience: user, operator, developer, agent
 
 ## Also
 
