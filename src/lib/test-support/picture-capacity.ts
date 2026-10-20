@@ -6,12 +6,12 @@ import { pictureTarget, publishPicture } from "@/lib/pictures/publication";
 import { requestPicture } from "@/lib/pictures/state";
 import { NO_INPUTS } from "@/lib/query/evaluation-inputs";
 import { encodePng } from "@/lib/export/png-codec";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { insertLayer } from "@/lib/metadata/maps";
 import { defaultStyle } from "@/lib/style/defaults";
 
 export type CapacityKind = "first" | "missing" | "mixed";
-export interface CapacityMap { id: string; group: "missing" | "old" | "current"; pair: boolean; }
+export interface CapacityMap { id: string; group: "missing" | "old" | "current"; pair: boolean; drawingChangedAt: number; oldPictureSha256?: string; }
 /** Offline fixture only: no picture service is started while the store is seeded. */
 export async function seedPictureCapacity(scope: AccountScope, kind: CapacityKind, basemapUrl: string): Promise<CapacityMap[]> {
   const url = new URL(basemapUrl);
@@ -33,12 +33,14 @@ export async function seedPictureCapacity(scope: AccountScope, kind: CapacityKin
       style: defaultStyle("POINT", 0), visible: true, tooltip: null, popup: null, publishedFields: null,
       inLegend: true, viz: { type: "points" }, filters: [], legendTitle: null, legendLabels: null, legendAttrs: null,
       ordinal: 0, createdAt: updatedAt, updatedAt });
-    if (group === "old") await saveThumbnail(scope, map.id, png);
+    const oldPicture = encodePng({ width: 1, height: 1, rgba: new Uint8Array([i, 79, 64, 255]) });
+    if (group === "old") await saveThumbnail(scope, map.id, oldPicture);
     if (group === "current") {
       const target = pictureTarget(scope, map.id), state = requestPicture(map.id, target.digest, now);
       await publishPicture(scope, target, state.requestedGeneration, { light: png, ...(pair ? { dark: png } : {}) }, NO_INPUTS);
     }
-    maps.push({ id: map.id, group, pair });
+    maps.push({ id: map.id, group, pair, drawingChangedAt: Date.parse(updatedAt),
+      ...(group === "old" ? { oldPictureSha256: createHash("sha256").update(oldPicture).digest("hex") } : {}) });
   }
   return maps;
 }
