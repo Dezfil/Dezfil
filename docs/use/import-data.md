@@ -25,7 +25,7 @@ Open **Add data** on the **Data** page or on **Home**. In a map, **Add layer** h
 2. Drop one or more files on the box that reads **Drop files. Each becomes a queryable table**, or click the box and choose them.
 3. Wait while the files upload one after another. You should see each file's name, its progress and its place in the batch, such as (1 of 3).
 
-When every file has landed, the dialog closes. You should see a notice such as **world_cities is ready.** and a card for each new dataset.
+When every file has landed, the dialog closes, unless a CSV first stops at [Column matching](#csv-columns). You should see a notice such as **world_cities is ready.** and a card for each new dataset.
 
 You can also drop files anywhere on the **Data** page to start an upload.
 
@@ -66,7 +66,7 @@ When there is no sure match, for example with columns named `x` and `y`, **Add d
 
 1. Under **Format**, check or change the kind of geometry: **Coordinate pair**, **WKT text**, **GeoJSON**, **WKB hex** or **H3 cell**.
 2. Choose the column. For a pair, choose the columns under **Longitude · x** and **Latitude · y**.
-3. If **Projection** shows **Choose a projection**, pick the coordinate system the numbers are in.
+3. If the numbers are not degrees of longitude and latitude, pick their coordinate system under **Projection**, which starts at WGS 84.
 4. Check the preview and the count of rows that read, then click **Confirm**. You should see the dataset on the **Data** page with its geometry.
 
 To keep the file as a table without geometry, click **Cancel**. You can still give it geometry later with **Set geometry** on its dataset page.
