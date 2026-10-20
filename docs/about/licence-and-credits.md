@@ -108,11 +108,13 @@ The credit follows the basemap a map is on, in these places:
 |---|---|
 | A map in the builder, or a template you open | The credit in the map's lower right corner |
 | A published or embedded map | The credit in the lower right corner, with **made with Dezfil** |
-| An image you export | The credit drawn into the image, with **Made with Dezfil**. Under **Credit** you pick its size and corner. Every image carries it. |
+| An image you export | The credit drawn into the image, with **Made with Dezfil**. |
 | Pictures of your maps on **Home**, **Maps** and a project's page | **Map previews:** and the credits of the basemaps they were drawn on, at the foot of the page or list |
 | The basemap pickers | **Previews:** and the built-in credit, under the style thumbnails |
 | Smaller maps, such as a dataset's map or a SQL result's map | The style's own credit in the map's corner. It folds behind the ⓘ button once you move the map. |
 | The builder's **Search map & places** box | The address finder's own credit, under the places it finds |
+
+To export an image, see [Share and publish](../use/share-and-publish.md#export-an-image).
 
 ## Credit your own basemap
 
@@ -135,7 +137,7 @@ Templates your server downloads from the catalogue credit their sources the same
 
 Your copy of a template keeps the **Sources** note. A published map shows it while **Show widgets on published view** is on, in the **Widgets** tab. Copies of the templates that come with Dezfil start with it on.
 
-A dataset you copy from a template carries no credit of its own. When you put it on another map, add a **Note** widget there that names its source.
+A dataset you copy from a template carries no credit of its own. When you put it on another map, add a **Note** widget there that names its source. [Widgets and tools](../use/widgets-and-tools.md#add-a-widget) shows how to add one.
 
 Data you import keeps its source's licence too, so credit it the same way, in a **Note** widget. OpenStreetMap data, for example, is under the ODbL and asks for the credit © OpenStreetMap contributors.
 
@@ -150,4 +152,6 @@ Data you import keeps its source's licence too, so credit it the same way, in a 
 ## Next steps
 
 - Copy a template and see its sources: [Templates](../use/templates.md).
+- Choose a basemap for a map: [Build a map](../use/build-a-map.md#4-choose-the-basemap).
+- Export an image with its credit: [Share and publish](../use/share-and-publish.md#export-an-image).
 - Serve basemaps from your own servers: [What leaves the instance](../self-host/what-leaves-the-instance.md).
