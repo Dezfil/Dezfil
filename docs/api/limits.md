@@ -55,6 +55,7 @@ Run it with `node rows.mjs`.
 {"rowCount":1001,"shown":1000,"previewTruncated":true}
 ```
 
+- `<YOUR_TOKEN>` is your API token. The [API quickstart](quickstart.md) shows how to create one.
 - `range(1001)` makes 1,001 numbered rows, so you need no dataset to try it.
 - `rowCount` counts every row of the result.
 - `preview` holds the first rows, up to **Rows shown in results**, and `previewTruncated` is `true` when rows were left out.
@@ -67,16 +68,17 @@ On the **SQL** page the same query shows **Showing the first 1,000 of 1,001 rows
 |---|---|---|
 | An answer with more rows or features than it holds | The answer, with a field that says it is cut short | `previewTruncated: true` |
 | A request over a size | A 4xx status and an error code, before any work. Nothing changes. | 413 `upload_too_large` |
+| An answer, or the work, over a size or memory budget | 422, or 400 for the memory of people's SQL, and a code. No part of the answer comes back. | 422 `query_result_too_large` |
 | Work that runs past its time | 408, or 504 for a link import's download, and a code that names the limit. The work stops. | 408 `query_timeout` |
 | A full queue, or too many requests | 409, 429 or 503. Retry later. | 429 `rate_limited` |
 
-When a setting changes the limit, the error's `message` says which, such as `An admin can change "Query time limit".` [Errors](errors.md) shows the parts of an error answer.
+Most refusals at a setting's limit say in their `message` which setting changes it, such as `An admin can change "Query time limit".` A few call the setting by another name than **Settings** › **Limits** does: the `label` that `GET /api/instance/settings` gives each setting is the one the message uses. [Errors](errors.md) shows the parts of an error answer.
 
 ## Limits an operator changes
 
-An admin changes most limits in **Settings** > **Limits**. A row with a lock is decided by the server: the line under it names the variable that changes it, except **Largest image**, which is fixed.
+An admin changes most limits in **Settings** › **Limits**. A row with a lock is decided by the server: the line under it names the variable that changes it, except **Largest image**, which is fixed.
 
-From a script, send the new value with an admin's token:
+From a script, send the new value with `<YOUR_ADMIN_TOKEN>`, a token an admin's account created; any other account's token answers 403 `forbidden`:
 
 ::::tabs
 :::tab[curl]
@@ -113,6 +115,7 @@ Run it with `node change-limit.mjs`.
 - `previewRows` is the key of **Rows shown in results**. The table below gives each limit's key and variable.
 - `source` is `stored` for a value saved in **Settings**, `environment` for a variable, or `default`.
 - A key that a variable sets answers 409 `setting_locked`, and nothing changes.
+- To go back to the default, send `{"previewRows": null}`.
 
 `GET /api/instance/settings` reads every limit in effect, for an admin. Any signed-in account reads `previewRows` and `renderCapFeatures` from `GET /api/config`.
 
@@ -162,6 +165,7 @@ Run it with `node change-limit.mjs`.
 | One value that is not geometry, as JSON | 2,097,152 bytes (2 MiB) | 422 `query_result_too_large`, no rows |
 | Time for one query | **Query time limit** | 408 `query_timeout` |
 | Memory, shared by every query | **Engine memory** | 400 `query_memory_exceeded` |
+| A text value, or the WKT of a dataset's geometry, in a dataset inspection or a geometry-choice preview | 512 characters | Its first 512 and an ellipsis; the stored data stays whole |
 
 A value over 2 MiB refuses the whole answer:
 
@@ -215,15 +219,13 @@ Row and engine-memory limits still apply: a result below both byte ceilings can 
 
 Downloads and saved datasets take the complete result. SQL, table and layer file exports stream every row, above both byte limits.
 
-Dataset inspection and geometry-choice preview shorten a text value, or the WKT of the dataset's geometry, longer than 512 characters to its first 512 and an ellipsis. The stored data stays whole.
-
 An inspection that is still too large keeps the dataset's page and its **Set geometry** panel from opening. It also blocks tool column pickers, SQL schema inventory and completion, workflow dataset reads and facts, and automatic layer addition after a tool run.
 
 A tool run can then report a failure even though the dataset has already been written. Existing layer rendering, dataset map features, file exports and deleting the dataset from **Data** use other reads and keep working.
 
 A filter's distinct values, a categorical classification, category widgets and value search hold each text value to 2 MiB too. The first two answer the same 422, a category widget shows the code as its own error, and value search names the layer under `refusedLayers` and leaves its rows out.
 
-**Query time limit** also holds dataset inspection, previews, layer rendering and published maps. It must stay below **Time limit per tool run**.
+**Query time limit** must stay below **Time limit per tool run**.
 
 ## Uploads and imports
 
@@ -237,12 +239,17 @@ A filter's distinct values, a categorical classification, category widgets and v
 | The download of a link import | **Link import time limit** | 504 `remote_timeout` |
 | The area of an OpenStreetMap import | **OpenStreetMap area** | 413 `area_too_large` |
 | The area of an Overture import | **Overture area**, by theme | 413 `area_too_large` |
+| The answer of the OpenStreetMap server to an import | Twice **Overpass response budget** | 413 `remote_too_large` |
+| The OpenStreetMap server's time to answer | **Time budget per query**, and 30 seconds more | 502 `remote_fetch_failed` |
+| One statement of a PostGIS preview | 30 seconds, fixed | 408 `query_timeout` |
 | Memory for imports and other data work | **Trusted engine memory** | 422 `engine_memory_exceeded` |
 | A template's archive | 150 MB, and **Largest upload** unpacked | 413 `template_archive_too_large` or `template_unpacked_too_large` |
 
 **Data processing time limit** also holds imports from links, OpenStreetMap, Overture and PostGIS, refreshes, geometry changes, template installs and exports of a dataset or a project.
 
-When it runs out, the work stops, and data that was there before stays as it was. Data work can also spill to disk in the data folder, up to four times **Trusted engine memory**.
+When it runs out, the work stops, and data that was there before stays as it was.
+
+**Time budget per query** and **Overpass response budget** are in [Data and services](../self-host/configuration/services.md), with their variables and defaults.
 
 **Overture area** is the area for places. Each other theme takes a share of it:
 
@@ -262,6 +269,7 @@ A reverse proxy in front of Dezfil has a body limit of its own, which must allow
 |---|---|---|
 | Features in one layer | **Features drawn per layer** | A points layer draws as tiles. Another layer answers `render_cap_exceeded`. |
 | One layer's answer, as JSON | **Bytes drawn per layer** | A points layer draws as tiles. Another layer answers `render_bytes_exceeded`. |
+| A slider, Overture or OpenStreetMap preview, or a sketch's features, as JSON | **Bytes drawn per layer** | 422 `render_bytes_exceeded`, with no part of the answer |
 | One stage of building a layer's tiles | **Tile build time limit** | The layer answers `tile_build_failed`, naming the time limit |
 | Tools running at once | **Tools running at once** | Later runs wait |
 | Tool runs waiting | **Tools waiting** | 503 `operation_queue_full` |
@@ -275,7 +283,7 @@ A reverse proxy in front of Dezfil has a body limit of its own, which must allow
 
 A layer that cannot draw still answers 200 from `GET /api/layers/{id}/render`. Its `ok` is `false`, and `error.code` names the limit. The map shows the layer as failed.
 
-Tools running at once share the query engine's memory. **Geocode addresses** and **Travel-time area** show how many one run takes at the current time limits, and grow with **Time limit per tool run**.
+**Geocode addresses** and **Travel-time area** show how many one run takes at the current time limits, and grow with **Time limit per tool run**. They show on the **Tools** card of **Settings** › **Limits**, and **Largest image** on its **Image export** card. `GET /api/instance/settings` answers them as `capacities.geocodeRows`, `capacities.isochroneOrigins` and `maxImageDimension`.
 
 ## The assistant and agents
 
@@ -287,21 +295,23 @@ Tools running at once share the query engine's memory. **Geocode addresses** and
 | Model and tool steps in one request | **Assistant steps** | The request ends with the event `{"type":"done","reason":"budget"}` |
 | Requests open on the instance | 8 | 409 `assistant_capacity` |
 | One map check, waiting included | **Map check time limit** | The check answers `render_timeout` |
-| A download that a tool answers, over MCP or to the assistant | **Tool attachment size** | 413 `attachment_too_large` |
+| A request's unused place | 5 minutes | The place is freed |
+| A download that a tool answers, over MCP or to the assistant | **Tool attachment size** | A failed tool result with the code `attachment_too_large` |
 | One MCP request, an uploaded file inside it | 16,777,216 bytes (16 MiB) | 413 `request_body_too_large` |
+| A file uploaded through MCP | About 12 MiB: three bytes for every four of the request left after its other parts. Also **Largest upload**. | 413 `request_body_too_large`, or `upload_too_large` over **Largest upload** |
 | One page of the schema catalogue, `GET /api/catalogue/tables` | 96 KiB | 422 `catalogue_too_large` |
 
 **Assistant steps** and **Map check time limit** are in the table of [Set up the assistant](../self-host/assistant.md#assistant-settings), with their variables and defaults; the other settings named here are in the table above.
 
 In the app, a message over its limit shows **The message and its context are too large to send. Shorten the message.** On the **SQL** page, your editor text and a summary of your last run travel with every message, so a long draft counts too.
 
-A request holds one of the eight places from its reservation until it ends. One that waits for your confirmation keeps its place; a reservation nobody uses frees its place after five minutes.
+A request holds one of the eight places from its reservation until it ends. One that waits for your confirmation keeps its place.
 
 When all eight are taken, the pane says **The assistant is at capacity: eight requests are open on this instance.** `GET /api/assistant/pending` lists your waiting requests, and `DELETE /api/assistant/runs/{id}` frees one.
 
 A detail Dezfil leaves out of what it tells the model comes with the address the model reads it from. When even the names do not fit, the message is refused.
 
-Through MCP, a file travels inside the request as base64, which makes it a third larger. The file must stay under 12 MiB (12,582,912 bytes) less the request's other bytes, and under **Largest upload**.
+Through MCP, a file travels inside the request as base64, which makes it a third larger.
 
 To upload a bigger file, use **Add data** in the app or `POST /api/tables` over HTTP.
 
@@ -353,15 +363,15 @@ Dezfil counts requests in three places: visitors reading published maps, sign-in
 | A visitor's map tiles | **Tile requests per visitor**, every 10 seconds | 429 `rate_limited` |
 | Failed sign-ins for one account, and from one address | **Failed sign-ins before a pause**, within 15 minutes | 429 `rate_limited`, with `Retry-After` |
 | Wrong current passwords when you change your password or email | The count per account, kept apart from sign-ins | 429 `rate_limited`, with `Retry-After` |
-| Sign-ins and password checks working at once | 2 at a time, and 8 waiting up to 5 seconds each | 503 `authentication_busy`, with `Retry-After: 1` |
+| Sign-ins and password checks working at once | Two run at a time. Six sign-ins may wait, and two current-password checks or sign-in links, which run one at a time; each waits up to 5 seconds. | 503 `authentication_busy`, with `Retry-After: 1` |
 
-The visitor limits are in **Settings** > **Limits**, on the **Public requests** card. The sign-in counts are in **Settings** > **Security**, on the **Sign-in** card, and in [Security and rules](../self-host/configuration/rules.md) with their defaults.
+The visitor limits are in **Settings** › **Limits**, on the **Public requests** card. The sign-in counts are in **Settings** › **Security**, on the **Sign-in** card, and in [Security and rules](../self-host/configuration/rules.md) with their defaults.
 
-Each visitor is counted by network address, and an IPv6 address with its whole /64. Behind a proxy that `DEZFIL_TRUSTED_PROXIES` does not list, every visitor shares the proxy's count.
+Each visitor is counted by network address, and an IPv6 address with its whole /64. Behind a proxy that `DEZFIL_TRUSTED_PROXIES` does not list, every visitor shares the proxy's count: see [Trusted proxies](../self-host/reverse-proxy.md#trusted-proxies).
 
-A sign-in refusal gives the wait in `retryAfter`, in seconds, and the time in `retryAt`. A visitor's count starts again after its 10 seconds.
+A sign-in refusal gives the wait in its answer, as [Errors](errors.md#what-an-error-answer-holds) shows. A visitor's count starts again after its 10 seconds.
 
-An OpenStreetMap import answers `rate_limited` too when the Overpass server refuses it. To avoid the public server's limits, point **Address** on the **OpenStreetMap** card in **Settings** > **Data & services**, or `DEZFIL_OVERPASS_URL`, at your own Overpass server.
+An OpenStreetMap import answers `rate_limited` too when the Overpass server refuses it. To avoid the public server's limits, point **Address** on the **OpenStreetMap** card in **Settings** › **Data & services**, or `DEZFIL_OVERPASS_URL`, at your own Overpass server.
 
 ## Troubleshooting
 
@@ -369,7 +379,7 @@ An OpenStreetMap import answers `rate_limited` too when the Overpass server refu
 
 A reverse proxy refused the upload before it reached Dezfil. Raise the proxy's body limit as [Reverse proxy and HTTPS](../self-host/reverse-proxy.md#uploads-over-1-mb-fail-behind-nginx) shows.
 
-### A row in Settings > Limits has a lock
+### A row in Settings › Limits has a lock
 
 The server decides it, and the line under the row names the variable that changes it. Change the variable and restart, as [Configuration](../self-host/configuration.md) shows.
 

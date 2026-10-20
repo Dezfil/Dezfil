@@ -94,7 +94,7 @@ describe("Limits", () => {
     expect(read.settings.previewRows, "nothing changes").toMatchObject({ value: 500, source: "environment", locked: true });
     const config = await (await fetch(`${ADDRESS}/api/config`, { headers: auth })).json();
     expect(config).toMatchObject({ previewRows: 500, renderCapFeatures: expect.any(Number) });
-    const quoted = /the error's `message` says which, such as `([^`]+)`/.exec(page)?.[1];
+    const quoted = /say in their `message` which setting changes it, such as `([^`]+)`/.exec(page)?.[1];
     expect(quoted).toBe(settingRemedy("queryTimeoutS"));
   }, 120_000);
 
