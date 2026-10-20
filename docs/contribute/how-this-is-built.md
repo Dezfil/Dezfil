@@ -163,7 +163,7 @@ You should see the pull request marked Merged, and the `image` job start on `mai
 
 **The `commits` job says "Missing Signed-off-by".** A commit lacks the sign-off line. Sign every commit on the branch with `git rebase --signoff main`, then force-push the branch.
 
-**The `commits` job says a message "carries a planning document number", "a tracking row identifier" or "a path this repository does not carry".** Reword that commit with `git rebase -i main`, writing what the change does instead of the reference, then force-push.
+**The `commits` job says a message "carries a planning document number", "a tracking row identifier" or "a path this repository does not carry".** Reword the commit, writing what the change does instead of the reference, then force-push. For the last commit, run `git commit --amend -s -m "<NEW_MESSAGE>"`; for an earlier one, `git rebase -i main`.
 
 **`npm run lint:citations` says a file "cites" something.** A tracked file points at a document this repository does not carry. Write the reason in its place, not the reference.
 
