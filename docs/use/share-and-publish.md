@@ -104,18 +104,18 @@ You should see **Published**, the link, **Copy link** and **Open**. Dezfil also 
 
 Readers see the map as it is, and your later edits reach them on their next load. A hidden layer's features are not published, but a widget on that layer still shows readers its numbers. Which widgets go out: [Widgets and tools](widgets-and-tools.md#widgets-on-a-published-map).
 
-By default, a layer shares the fields its style, filters and widgets need, marked **needed to render**, plus those its hover and click pop-ups show. **Reset to automatic** restores the default.
+By default, a layer shares the fields its style, filters and widgets need, marked **needed to render**, plus those its hover and click pop-ups show. **Reset to automatic** restores the default. On a published map, the row reads **Shared fields**.
 
 A layer drawn as cells, such as hex bins, shares only each cell's computed values.
 
-To change what readers can do, open the panel of a published map:
+To change what readers can do, click **Published** at the top right:
 
 - **Opens in**: **Light** or **Dark**. A map opens in the mode you published it in, and follows when you switch the app's theme in its builder.
 - **Readers can**: untick **3D tilt**, **Fit to data**, **Light / dark**, **Basemap picker** or **Cursor coordinates**. All are on at first, and **Zoom** and **North** always stay.
 
 These changes keep the same link and reach readers on their next load.
 
-To stop sharing, open the panel and click **Unpublish**. The link stops working at once, and readers see **Map not found**. Publishing the map again gives it a new link.
+To stop sharing, click **Published**, then **Unpublish**. The link stops working at once, and readers see **Map not found**. Publishing the map again gives it a new link, opening in the mode you are working in, with every control on.
 
 On the **Maps** page, a card's **Publish map** publishes a draft, and **Copy share link** copies a published map's link.
 
