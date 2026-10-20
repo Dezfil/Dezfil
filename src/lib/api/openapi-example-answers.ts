@@ -8,8 +8,9 @@ import { settingDefinition } from "@/lib/settings/catalogue";
  * World cities with the layer Big cities, publishes it, changes its basemap
  * and unpublishes it. Only identifiers and times were replaced, by fixed
  * ones, so the answers agree with each other; everything else is what the
- * instance answered. A token's secret is shown as <YOUR_TOKEN> and the
- * published link's token as <PUBLISH_TOKEN>.
+ * instance answered. The secret of the token the quickstart makes is shown
+ * as <YOUR_TOKEN>, the one a caller sends from then on; a second token's as
+ * <NEW_TOKEN>; and the published link's token as <PUBLISH_TOKEN>.
  */
 
 /** The variables that enable the assistant, named where every credential
@@ -810,7 +811,7 @@ export const NIGHTLY_TOKEN = {
   lastUsedAt: null,
   revokedAt: null,
   expiresAt: null,
-  secret: "<YOUR_TOKEN>",
+  secret: "<NEW_TOKEN>",
 };
 
 /** The run Save as dataset starts, as it is accepted. */

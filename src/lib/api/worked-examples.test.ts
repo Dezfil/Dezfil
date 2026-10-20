@@ -95,8 +95,11 @@ describe("the worked examples in the description", () => {
     const query = (lookup(document, "POST /api/query")!.requestBody!.content!["application/json"].examples!.quickstart.value as Json).sql as string;
     expect(query).toContain(`FROM ${uploaded.name}`);
     expect(layer.sql).toContain(`FROM ${uploaded.name}`);
-    // The token a caller sends is the secret creating it answered.
+    // The token a caller sends is the secret creating it answered; a second
+    // token's secret is a new one, never the caller's own.
     expect(answer("POST /api/account/tokens", "201").secret).toBe("<YOUR_TOKEN>");
+    const second = lookup(document, "POST /api/account/tokens")!.responses["201"].content!["application/json"].examples!.nightlyImport.value as Json;
+    expect(second.secret).toBe("<NEW_TOKEN>");
   });
 
   it("the upload is the multipart form it is, carrying the bytes of the quickstart's file", () => {

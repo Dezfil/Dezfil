@@ -2585,7 +2585,7 @@
                       "lastUsedAt": null,
                       "revokedAt": null,
                       "expiresAt": null,
-                      "secret": "<YOUR_TOKEN>"
+                      "secret": "<NEW_TOKEN>"
                     }
                   }
                 }
