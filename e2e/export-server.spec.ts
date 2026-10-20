@@ -5,7 +5,9 @@
 // per-element probes shared with the card spec plus differentials (2),
 // the readiness contract red-proven against the route itself (3),
 // published-path independence including an exhausted anonymous rate
-// bucket (4), and concurrency without cross-contamination (6). The
+// bucket (4), and concurrency without cross-contamination (6). Each
+// export's basemap traffic is counted while the map's card picture is at
+// rest, since the picture is drawn on the same fixture basemap. The
 // timeout, crash and missing-browser arms live in the renderer's unit
 // suite and the container evidence — a second server boot per arm is the
 // container run's job, stated in the verification record.
@@ -125,6 +127,41 @@ function definition(overrides: Record<string, unknown> = {}) {
   };
 }
 
+interface Picture {
+  pictureState: string;
+  pictureVersion: string | null;
+}
+
+/** The map's card picture as the maps listing gives it. */
+async function listedPicture(page: Page, mapId: string): Promise<Picture> {
+  const response = await page.request.get("/api/maps");
+  expect(response.status()).toBe(200);
+  const row = ((await response.json()) as ({ id: string } & Picture)[]).find((m) => m.id === mapId);
+  expect(row, "the map is listed").toBeDefined();
+  return { pictureState: row!.pictureState, pictureVersion: row!.pictureVersion };
+}
+
+/** States in which the server has no more picture work for the map. */
+const AT_REST = ["current", "unsupported", "unavailable"];
+
+/** The server makes a map's card picture five quiet seconds after each
+ * drawing change, on the map's own basemap, so its renderer fetches the
+ * same fixture style an export does. An export's basemap traffic is its
+ * own only while the map's picture is at rest: in a state with no work
+ * left, and the same across two seconds, so a change just made has had
+ * time to ask for its picture. Answers the picture as it rests. */
+async function pictureAtRest(page: Page, mapId: string): Promise<Picture> {
+  let rest: Picture | undefined;
+  await expect(async () => {
+    const first = await listedPicture(page, mapId);
+    expect(AT_REST, `the map's picture is at rest, not ${first.pictureState}`).toContain(first.pictureState);
+    await new Promise((resolve) => setTimeout(resolve, 2_000));
+    expect(await listedPicture(page, mapId)).toEqual(first);
+    rest = first;
+  }).toPass({ timeout: 90_000 });
+  return rest!;
+}
+
 async function exportPng(
   basemaps: Basemaps,
   page: Page,
@@ -141,6 +178,7 @@ async function exportPng(
   const fixture = basemaps.get(mapId);
   if (!fixture) throw new Error("server export map has no traffic fixture");
   const zoom = (def.viewport as { zoom: number }).zoom;
+  const rest = await pictureAtRest(page, mapId);
   const before = fixture.snapshot(zoom);
   const out = await page.evaluate(
     async ({ mapId, def }) => {
@@ -173,6 +211,10 @@ async function exportPng(
   const traffic = fixture.delta(before, zoom);
   console.log(`export ${mapId} ${JSON.stringify({ status: out.status, ...traffic })}`);
   if (out.status === 200) {
+    expect(
+      await listedPicture(page, mapId),
+      "no picture work ran beside the export, so the basemap traffic counted is the export's own",
+    ).toEqual(rest);
     assertBasemapTraffic(traffic);
     expect(out.abandoned, "ordinary exports abandon no basemap request").toBeNull();
   }
@@ -398,6 +440,8 @@ test.describe("server-side image export", () => {
 
     await test.step("two simultaneous distinct renders, no cross-contamination", async () => {
       const { mapId: secondMapId } = await seed(page, basemaps);
+      // Both pictures at rest first, so the two renders still start together.
+      await Promise.all([pictureAtRest(page, mapId), pictureAtRest(page, secondMapId)]);
       const [a, b] = await Promise.all([
         exportPng(
           basemaps,
