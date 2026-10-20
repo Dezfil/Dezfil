@@ -31,11 +31,11 @@ A project holds maps, workflows and datasets. The people you share it with reach
 3. Open the project and click **Add to project**. The dialog has a tab each for **Maps**, **Workflows** and **Data**.
 4. Tick what you want and click the button that counts it, such as **Add 3 items**. You should see the items in the project's sections.
 
-A map or workflow sits in one project at most, so adding it moves it out of the project it was in. A dataset can be in several projects.
+A map or workflow sits in one project at most, so adding it moves it from its old one. A dataset can be in several.
 
 A map brings the datasets it draws and the workflows that make them; a workflow brings the datasets it reads and writes. Only your own work is offered.
 
-From a card in **Maps**, **Workflows** or **Data**, **Add to a project** files that one item, with what it brings, and can create a project too. A filed map or workflow offers **Move to another project**.
+From a card in **Maps**, **Workflows** or **Data**, **Add to a project** files that one item with what it brings, or **Move to another project** once it is filed.
 
 ## Share a project with people
 
@@ -53,7 +53,7 @@ You can add only people with an active account on your Dezfil. An admin invites 
 
 ## What Viewers and Editors can do
 
-A role covers everything filed in the project: every map, workflow and dataset in it, whoever owns it.
+A role covers everything filed in the project, whoever owns it.
 
 | Action | Viewer | Editor |
 |---|---|---|
@@ -84,7 +84,7 @@ The project's owner does all of this in the **Share** dialog:
 - **Remove someone:** point at their row and click the cross. **Undo** at the bottom of the dialog puts them back. Nothing they own is deleted.
 - **Hand the project over:** click **Owner** on your row and pick **Transfer ownership…**, or pick **Make owner** in a member's role menu. Choose the new owner and click **Transfer ownership**.
 
-After a hand-over you stay as an Editor, and every map, workflow and dataset keeps its owner. Only an active member can receive a project.
+After a hand-over you stay as an Editor, and every item keeps its owner. Only an active member can receive a project.
 
 To leave a project shared with you, click **⋯** on its page, pick **Leave project** and confirm. What you made there stays yours and stays in the project.
 
@@ -96,13 +96,13 @@ To delete a project you own, click **⋯**, pick **Delete project** and confirm.
 2. Click **Fields this will share** to see what each layer sends to readers. Click **Edit** on a layer to tick fields on or off.
 3. Click **Publish map**.
 
-You should see **Published**, the link, **Copy link** and **Open**. Dezfil also copies the link when your browser allows it. **Preview** in the top bar opens the published page.
+You should see **Published**, the link, **Copy link** and **Open**. **Preview** in the top bar opens the published page.
 
-Readers see the map as it is, and your later edits reach them on their next load. A hidden layer's features are not published, but a widget on that layer still shows readers its numbers. Which widgets go out: [Widgets and tools](widgets-and-tools.md#widgets-on-a-published-map).
+Readers see the map as it is, and your later edits reach them on their next load. A hidden layer's features are not published, but a widget on it still shows readers its numbers. Which widgets go out: [Widgets and tools](widgets-and-tools.md#widgets-on-a-published-map).
 
 By default, a layer shares the fields its style, filters and widgets need, marked **needed to render**, plus those its hover and click pop-ups show. **Reset to automatic** restores the default. On a published map, **Fields this will share** reads **Shared fields**.
 
-A layer drawn as cells, such as hex bins, shares only each cell's computed values.
+A layer drawn as cells, such as hex bins, shares only the cells' computed values.
 
 ![The publish panel of a published map, under its link: the Shared fields row with its counts, Opens in with Light chosen, the Readers can list with Zoom and North always on and 3D tilt, Fit to data, Light / dark, Basemap picker and Cursor coordinates ticked, and the Embed and Unpublish buttons](../images/use/share-and-publish-published.webp)
 
@@ -167,7 +167,7 @@ To download a layer's data rather than a picture, pick **Data** in the same menu
 3. Under **Review**, choose the **Dataset format**: **GeoParquet**, **GeoJSON** or **CSV**.
 4. Click **Download**. You should see your browser save a zip file named after the project.
 
-The zip holds the datasets in that format and the maps and workflows as JSON, without their published links. The datasets upload to any Dezfil as files; Dezfil has no import for the maps and workflows.
+The zip holds the maps and workflows as JSON, without published links. Its datasets upload to any Dezfil as files; Dezfil has no import for the maps and workflows.
 
 ## Troubleshooting
 
