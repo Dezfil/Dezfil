@@ -2,13 +2,13 @@
  * default development listener, even when credentials happen to work. */
 export function pictureProofClient(base: string, token: string) {
   const url = new URL(base);
-  if (!token || !["127.0.0.1", "localhost"].includes(url.hostname) || !url.port || url.port === "3000") throw new Error("Picture proofs require a loopback instance on a separate port and a fixture token.");
-  async function request(method: string, route: string, body?: unknown, mapId?: string) {
+  if (!token || !["http:", "https:"].includes(url.protocol) || url.port === "3000") throw new Error("Picture proofs require an isolated instance on a separate port and a fixture token.");
+  async function request(method: string, route: string, body?: unknown, mapId?: string, expectedStatus?: number) {
     const headers: Record<string, string> = { authorization: `Bearer ${token}`, origin: url.origin };
     if (mapId) headers["X-Edit-Revision"] = (await json<{ editRevision: string }>("GET", `/api/maps/${mapId}`)).editRevision;
     if (body !== undefined) headers["content-type"] = "application/json";
     const response = await fetch(new URL(route, url), { method, headers, body: body === undefined ? undefined : JSON.stringify(body), signal: AbortSignal.timeout(120000) });
-    if (!response.ok) throw new Error(`${method} ${route}: ${response.status} ${await response.text()}`);
+    if (expectedStatus === undefined ? !response.ok : response.status !== expectedStatus) throw new Error(`${method} ${route}: ${response.status} ${await response.text()}`);
     return response;
   }
   async function json<T>(method: string, route: string, body?: unknown, mapId?: string): Promise<T> { return (await request(method, route, body, mapId)).json() as Promise<T>; }

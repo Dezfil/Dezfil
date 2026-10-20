@@ -1,7 +1,7 @@
 import { expect, it } from "vitest";
-import { capacityEvents, firstMeasurement, foregroundLimits, assertForegroundInterruption, activeRenders, assertBacklogSample, measureBacklog } from "../../../scripts/pictures-measurement.mjs";
+import { capacityEvents, firstMeasurement, foregroundLimits, assertForegroundInterruption, activeRenders, assertBacklogSample, measureBacklog, assertRestartInterrupted } from "../../../scripts/pictures-measurement.mjs";
 it("capacity observations reject rerenders, missing work and legacy work overtaking missing work", () => {
-  const maps = [{ id: "m", group: "missing" }, { id: "o", group: "old" }, { id: "c", group: "current" }];
+  const maps = [{ id: "m", group: "missing", drawingChangedAt: 2 }, { id: "o", group: "old", drawingChangedAt: 3 }, { id: "c", group: "current" }];
   const event = (mapId: string) => ({ kind: "published", mapId });
   expect(capacityEvents(maps, [event("m"), event("o")])).toHaveLength(2);
   expect(() => capacityEvents(maps, [event("o"), event("m")])).toThrow("overtook");
@@ -67,7 +67,7 @@ it("requires a real one-slot interruption and enforces the picture budget for ad
 });
 
 it("refuses backlog samples before background work, after release, or outside their progress window", () => {
-  const maps = Array.from({ length: 300 }, (_, i) => ({ id: String(i), group: "missing" }));
+  const maps = Array.from({ length: 300 }, (_, i) => ({ id: String(i), drawingChangedAt: -i, group: "missing" }));
   const sample = { mapId: "person", eventOffset: 1, requestedAt: 10, answeredAt: 100 };
   const admission = { kind: "admitted", mapId: "299", background: true, at: 0, pid: 1 };
   const person = { kind: "admitted", mapId: "person", background: false, at: 12, pid: 1 };
@@ -82,7 +82,7 @@ it("refuses backlog samples before background work, after release, or outside th
 });
 
 it.each(["missing", "mixed"])("spreads five foreground pairs across the %s backlog and restarts halfway when required", async kind => {
-  const maps = Array.from({ length: 300 }, (_, i) => ({ id: String(i), group: kind === "missing" || i < 100 ? "missing" : i < 200 ? "old" : "current" }));
+  const maps = Array.from({ length: 300 }, (_, i) => ({ id: String(i), drawingChangedAt: -i, group: kind === "missing" || i < 100 ? "missing" : i < 200 ? "old" : "current" }));
   const pending = maps.filter(map => map.group !== "current");
   const events: { kind: string; mapId?: string; background?: boolean; at: number; pid: number }[] = [];
   let publications = 0, clock = 0, pid = 1;
@@ -100,7 +100,7 @@ it.each(["missing", "mixed"])("spreads five foreground pairs across the %s backl
       if (activeRenders(events).length) { emit("released", String(publications), true); emit("published", String(publications++)); }
       if (publications < pending.length) emit("admitted", String(publications), true);
     },
-    restart: kind === "mixed" ? async (count: number) => { restarts.push(count); events.push({ kind: "boot", at: ++clock, pid: ++pid }); } : undefined,
+    restart: kind === "mixed" ? async (sample: { publications: number }) => { restarts.push(sample.publications); events.push({ kind: "boot", at: ++clock, pid: ++pid }); } : undefined,
     record: (operation: string, sample: { eventOffset: number }) => received.push({ kind: operation, publications: capacityEvents(maps, events.slice(0, sample.eventOffset), false).length }),
   });
   expect(received).toEqual(Array.from({ length: 5 }, (_, i) => [
@@ -110,7 +110,7 @@ it.each(["missing", "mixed"])("spreads five foreground pairs across the %s backl
 });
 
 it.each(["export", "check"])("records the failing backlog sample before enforcing its frozen %s limit", async operation => {
-  const maps = Array.from({ length: 300 }, (_, i) => ({ id: String(i), group: "missing" }));
+  const maps = Array.from({ length: 300 }, (_, i) => ({ id: String(i), drawingChangedAt: -i, group: "missing" }));
   const events = [{ kind: "admitted", mapId: "0", background: true, at: 0, pid: 1 }];
   const recorded: unknown[] = [];
   await expect(measureBacklog({ maps, events: () => events, limits: { exportStartMs: operation === "export" ? 1 : 100, checkAnswerMs: 10 },
@@ -124,7 +124,7 @@ it.each(["export", "check"])("records the failing backlog sample before enforcin
   expect(recorded).toHaveLength(operation === "export" ? 1 : 2);
 });
 it("whole-attempt timing includes the second appearance and publication, and refuses a hidden retry", () => {
-  const maps = Array.from({ length: 20 }, (_, i) => ({ id: String(i), group: "missing", pair: i % 2 === 1 }));
+  const maps = Array.from({ length: 20 }, (_, i) => ({ id: String(i), drawingChangedAt: -i, group: "missing", pair: i % 2 === 1 }));
   const events = maps.flatMap(map => [
     { kind: "admitted", background: true, mapId: map.id, monotonicMs: 100, pid: 1 },
     { kind: "released", background: true, mapId: map.id, monotonicMs: 150, pid: 1 },
@@ -134,4 +134,51 @@ it("whole-attempt timing includes the second appearance and publication, and ref
   ]);
   expect(firstMeasurement(maps, events)).toMatchObject({ single: { count: 10, p90Ms: 100 }, pair: { count: 10, p90Ms: 200 }, all: { p90Ms: 200 } });
   expect(() => firstMeasurement(maps, [...events, events[0]])).toThrow("repeated appearance");
+});
+
+it("rejects the seeded defect of older missing pictures publishing ahead of newer ones", () => {
+  const maps = [
+    { id: "older", group: "missing", drawingChangedAt: 1 },
+    { id: "newer", group: "missing", drawingChangedAt: 2 },
+  ];
+  const event = (mapId: string) => ({ kind: "published", mapId });
+  expect(() => capacityEvents(maps, [event("older"), event("newer")])).toThrow("Recency order");
+  expect(capacityEvents(maps, [event("newer"), event("older")])).toHaveLength(2);
+});
+
+it("rejects a seeded graceful drain and proves the interrupted map resumes and publishes once", () => {
+  const admission = { kind: "admitted", mapId: "old", background: true, pid: 1 };
+  const sample = { admissionIndex: 1, eventOffset: 2 };
+  const events = [
+    { kind: "boot", pid: 1 }, admission,
+    { kind: "boot", pid: 2 }, { ...admission, pid: 2 },
+    { kind: "released", mapId: "old", background: true, pid: 2 },
+    { kind: "published", mapId: "old", pid: 2 },
+  ];
+  expect(assertRestartInterrupted(sample, events)).toMatchObject({ mapId: "old", oldPid: 1, newPid: 2 });
+  const drained = [...events.slice(0, 2), { ...admission, kind: "released" }, ...events.slice(2)];
+  expect(() => assertRestartInterrupted(sample, drained)).toThrow("finished before restart");
+  expect(() => assertRestartInterrupted({ ...sample, eventOffset: 3 }, drained)).toThrow("no render in flight");
+  expect(() => assertRestartInterrupted(sample, events.slice(0, 3))).toThrow("never resumed");
+  expect(() => assertRestartInterrupted(sample, [...events, events.at(-1)!])).toThrow("exactly once");
+});
+
+it("accepts a pair interrupted after light releases and dark is admitted, but rejects a released dark render", () => {
+  const admission = { kind: "admitted", mapId: "pair", background: true, pid: 1 };
+  const release = { ...admission, kind: "released" };
+  const sample = { admissionIndex: 1, eventOffset: 2 };
+  const events = [
+    { kind: "boot", pid: 1 }, admission, // Light holds the slot when restart is requested.
+    release, admission, // Dark starts before the old process is killed.
+    { kind: "boot", pid: 2 }, { ...admission, pid: 2 }, { ...release, pid: 2 },
+    { ...admission, pid: 2 }, { ...release, pid: 2 },
+    { kind: "published", mapId: "pair", pid: 2 },
+  ];
+  expect(assertRestartInterrupted(sample, events)).toMatchObject({ mapId: "pair", oldPid: 1, newPid: 2, admissionIndex: 3, bootIndex: 4 });
+  expect(assertRestartInterrupted(sample, events, false)).toMatchObject({ admissionIndex: 3 });
+  expect(assertRestartInterrupted({ admissionIndex: 3, eventOffset: 4 }, events)).toMatchObject({ admissionIndex: 3 });
+  const drained = [...events.slice(0, 4), release, ...events.slice(4)];
+  expect(() => assertRestartInterrupted(sample, drained)).toThrow("finished before restart");
+  const published = [...events.slice(0, 4), { kind: "published", mapId: "pair", pid: 1 }, ...events.slice(4)];
+  expect(() => assertRestartInterrupted(sample, published, false)).toThrow("finished before restart");
 });

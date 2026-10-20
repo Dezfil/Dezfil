@@ -77,8 +77,8 @@ export function assertBacklogSample(maps, events, sample, checkpoint) {
  * mixed workload restarts, so `restart` is optional.
  * @param {{ maps: any[], events: () => any[], foreground: (check: boolean) => Promise<any>,
  *   poll: () => Promise<void>, record: (kind: string, sample: any) => unknown, limits: any,
- *   restart?: (count: number) => Promise<void> }} options */
-export async function measureBacklog({ maps, events, foreground, poll, record, limits, restart }) {
+ *   beforeRestart?: () => Promise<void>, restart?: (sample: any) => Promise<void> }} options */
+export async function measureBacklog({ maps, events, foreground, poll, record, limits, restart, beforeRestart }) {
   const pending = maps.filter(map => map.group !== 'current').length;
   let restarted = false;
   for (let checkpoint = 0; checkpoint < 5; checkpoint++) for (const kind of ['export', 'check']) {
@@ -86,7 +86,16 @@ export async function measureBacklog({ maps, events, foreground, poll, record, l
       const observed = events(), published = capacityEvents(maps, observed, false).length;
       if (restart && !restarted && published >= pending / 2) {
         assert.ok(published <= pending / 2 + 1, 'The restart checkpoint was missed');
-        await restart(published);
+        await beforeRestart?.();
+        const atRestart = events(), count = capacityEvents(maps, atRestart, false).length;
+        assert.ok(count <= pending / 2 + 1, 'The restart checkpoint was missed');
+        const active = activeRenders(atRestart);
+        if (active.length !== 1 || !active[0].background) { await poll(); continue; }
+        assert.ok(maps.some(map => map.id === active[0].mapId && map.group !== 'current') &&
+          !atRestart.some(event => event.kind === 'published' && event.mapId === active[0].mapId), 'Restart must interrupt unpublished fixture work');
+        const sample = { publications: count, admissionIndex: active[0].index, eventOffset: atRestart.length };
+        await restart(sample);
+        assertRestartInterrupted(sample, events(), false);
         restarted = true;
         continue;
       }
@@ -111,11 +120,15 @@ export function capacityEvents(maps, events, complete = true) {
   const ids = new Set(maps.map(map => map.id));
   const published = events.filter(event => event.kind === 'published' && ids.has(event.mapId));
   const seen = new Set();
+  const ordered = group => maps.filter(map => map.group === group).sort((a, b) => b.drawingChangedAt - a.drawingChangedAt || a.id.localeCompare(b.id));
+  for (const map of pending) assert.ok(Number.isFinite(map.drawingChangedAt), 'The fixture must record drawing recency');
+  const cohorts = { missing: ordered('missing'), old: ordered('old') };
   for (const event of published) {
     const map = maps.find(map => map.id === event.mapId);
     assert.notEqual(map.group, 'current', 'An already-current map was rendered again');
     assert.ok(!seen.has(event.mapId), 'A picture was remade twice across restart');
     if (map.group === 'old') assert.ok(maps.filter(map => map.group === 'missing').every(map => seen.has(map.id)), 'Old-road work overtook a missing picture');
+    assert.equal(event.mapId, cohorts[map.group].find(candidate => !seen.has(candidate.id))?.id, `Recency order was violated within the ${map.group} cohort`);
     seen.add(event.mapId);
   }
   if (complete) assert.equal(seen.size, pending.length, 'A pending picture was never published');
@@ -145,4 +158,30 @@ export function firstMeasurement(maps, events) {
   const describe = rows => ({ count: rows.length, medianMs: percentile(rows.map(row => row.elapsedMs), .5), p90Ms: percentile(rows.map(row => row.elapsedMs), .9) });
   assert.equal(attempts.filter(row => row.pair).length, 10);
   return { attempts, appearanceFloorMs: Math.min(...appearances), all: describe(attempts), single: describe(attempts.filter(row => !row.pair)), pair: describe(attempts.filter(row => row.pair)) };
+}
+
+/** An admission observed before calling a restart is insufficient: the map's
+ * last appearance admitted before boot must still hold its slot, then resume
+ * on the new process and publish exactly once. A graceful drain must fail. */
+export function assertRestartInterrupted(sample, events, complete = true) {
+  const admission = events[sample.admissionIndex];
+  assert.ok(admission?.kind === 'admitted' && admission.background && sample.admissionIndex < sample.eventOffset, 'Restart requires a background admission');
+  assert.ok(activeRenders(events, sample.eventOffset).some(event => event.index === sample.admissionIndex), 'Restart caught no render in flight');
+  const boot = events.findIndex((event, index) => index >= sample.eventOffset && event.kind === 'boot' && event.pid !== admission.pid);
+  assert.ok(boot >= 0, 'Restart did not boot a different process');
+  const interrupted = events.slice(sample.admissionIndex + 1, boot);
+  // Light may release and dark acquire the slot after the restart request.
+  // Check the slot at boot, rather than rejecting the first appearance's release.
+  const inFlight = activeRenders(events, boot).findLast(event => event.background &&
+    event.pid === admission.pid && event.mapId === admission.mapId);
+  assert.ok(inFlight && !interrupted.some(event => event.pid === admission.pid &&
+    event.mapId === admission.mapId && event.kind === 'published'), 'Background render finished before restart');
+  if (complete) {
+    const resumed = events.findIndex((event, index) => index > boot && event.kind === 'admitted' && event.background && event.mapId === admission.mapId && event.pid === events[boot].pid);
+    assert.ok(resumed > boot, 'Interrupted work was never resumed');
+    const publications = events.filter(event => event.kind === 'published' && event.mapId === admission.mapId);
+    assert.equal(publications.length, 1, 'Interrupted work must publish exactly once');
+    assert.ok(events.indexOf(publications[0]) > resumed && publications[0].pid === events[boot].pid, 'Interrupted work did not publish on the replacement process');
+  }
+  return { mapId: admission.mapId, oldPid: admission.pid, newPid: events[boot].pid, admissionIndex: inFlight.index, bootIndex: boot };
 }

@@ -46,6 +46,7 @@ it.each(["missing", "mixed"] as const)("drains the %s capacity fixture, keeps cu
   }
   expect(new Set(launches).size).toBe(count);
   expect(launches).toHaveLength(count);
+  expect(launches.slice(0, kind === "mixed" ? 100 : 300)).toEqual(maps.filter(map => map.group === "missing").reverse().map(map => map.id));
   if (kind === "mixed") {
     expect(new Set(launches.slice(0, 100))).toEqual(new Set(maps.filter(map => map.group === "missing").map(map => map.id)));
     expect(launches.slice(100)).toEqual(maps.filter(map => map.group === "old").reverse().map(map => map.id));

@@ -1,4 +1,6 @@
 import { isolatePictureData } from "@/lib/test-support/picture-data";
+import { encodePng } from "@/lib/export/png-codec";
+import type { PictureState } from "./state";
 import { afterAll, expect, it, vi } from "vitest";
 const race = vi.hoisted(() => ({ afterBytes: undefined as (() => void) | undefined }));
 vi.mock("node:fs/promises", async load => {
@@ -26,7 +28,7 @@ import { readAttemptInputs } from "./inputs";
 import { pictureTarget, publishPicture } from "./publication";
 import { requestPicture, getPictureState } from "./state";
 import { PictureService } from "./service";
-import { observePictureDataChanges } from "./hooks";
+import { observePictureChanges, observePictureDataChanges } from "./hooks";
 isolatePictureData();
 afterAll(async () => { await retirementsSettled(); resetQueryInstance(); closeMetadataDb(); vi.unstubAllEnvs(); });
 it("serves owner, Editor and Viewer by consumed-input reach, rechecks after bytes, and refreshes through the real data boundary", async () => {
@@ -37,7 +39,8 @@ it("serves owner, Editor and Viewer by consumed-input reach, rechecks after byte
   await new Promise<void>(resolve => server.listen(0, "127.0.0.1", resolve));
   const url = `http://127.0.0.1:${(server.address() as AddressInfo).port}/roads.csv`;
   let now = Date.now();
-  const service = new PictureService({ now: () => now, baseUrl: "http://fixture.test", available: () => true, run: async () => {} });
+  let work: (state: PictureState) => Promise<void> = async () => {};
+  const service = new PictureService({ now: () => now, baseUrl: "http://fixture.test", available: () => true, run: state => work(state) });
   const stop = observePictureDataChanges(id => { service.dataChanged(id); });
   try {
     const table = (await importFromUrl(dataOwner, url, "roads")).tables[0];
@@ -59,11 +62,41 @@ it("serves owner, Editor and Viewer by consumed-input reach, rechecks after byte
     expect(await readThumbnail(viewer, map.id)).toBeNull();
     expect((await readThumbnail(editor, map.id))?.toString()).toBe("light");
     setProjectPerson(dataOwner, "data-project", "viewer", "viewer");
-    const clock = getPictureState(map.id)!.drawingChangedAt;
+    const notifications: Promise<unknown>[] = [];
+    const stopChanges = observePictureChanges(event => { notifications.push(service.request(event.mapId)); });
+    let editorPicture: Buffer | undefined;
+    work = async queued => {
+      const target = pictureTarget(owner, queued.mapId);
+      expect(target.map.layers[0].sql).toContain("11 AS edited");
+      const credential = mintPictureCredential(map.id, Date.now() + 60000);
+      const rendered = await renderLayer(socketRequest(new Request(`http://fixture.test/api/layers/${layer.id}/render`, { headers: { "x-dezfil-picture-work": credential } })), { params: Promise.resolve({ id: layer.id }) });
+      const drawing = await rendered.json();
+      expect(drawing).toMatchObject({ ok: true, geojson: { features: [{ properties: { edited: 11 } }] } });
+      // Only rasterization is stubbed. Encode the evaluated Editor value,
+      // so re-serving the owner's previous bytes cannot satisfy this proof.
+      editorPicture = Buffer.from(encodePng({ width: 1, height: 1, rgba: new Uint8Array([drawing.geojson.features[0].properties.edited, 80, 120, 255]) }));
+      const consumed = readAttemptInputs(credential, [layer.id]);
+      expect(consumed.datasets).toEqual([{ id: table.id, file: table.file }]);
+      await publishPicture(owner, target, queued.requestedGeneration, { light: editorPicture, dark: editorPicture }, consumed);
+    };
+    try {
+      await updateLayer(editor, layer.id, { sql: "SELECT *, 11 AS edited FROM data.roads" }, revision());
+      await Promise.all(notifications);
+      expect(notifications).toHaveLength(1);
+      now += 5001; await service.tick(); await service.queue.drain();
+    } finally { stopChanges(); work = async () => {}; }
+    expect(editorPicture).toBeDefined();
+    expect(getPictureState(map.id)).toMatchObject({ state: "current", publishedGeneration: state.requestedGeneration + 1 });
+    for (const scope of [owner, editor]) {
+      expect(await readThumbnail(scope, map.id)).toEqual(editorPicture);
+      expect((await readThumbnail(scope, map.id))?.equals(Buffer.from("light"))).toBe(false);
+    }
+    const editorState = getPictureState(map.id)!;
+    const clock = editorState.drawingChangedAt;
     value = 2; const replacement = await refreshTable(dataOwner, table.name);
     await Promise.resolve(); now += 5000; await service.tick(); await service.queue.drain();
     expect(replacement.file).not.toBe(table.file);
-    expect(getPictureState(map.id)).toMatchObject({ requestedGeneration: state.requestedGeneration + 1, drawingChangedAt: clock });
+    expect(getPictureState(map.id)).toMatchObject({ requestedGeneration: editorState.requestedGeneration + 1, drawingChangedAt: clock });
     expect(() => readAttemptInputs(credential, [layer.id])).toThrow();
     await expect(publishPicture(owner, target, state.requestedGeneration, { light: Buffer.from("late"), dark: Buffer.from("late") }, inputs)).rejects.toThrow();
     const legacy = createMap(owner, "Unattributed", "map-project"); await saveThumbnail(owner, legacy.id, Buffer.from("legacy"));
@@ -75,6 +108,12 @@ it("serves owner, Editor and Viewer by consumed-input reach, rechecks after byte
     const ownerCredential = mintPictureCredential(map.id, Date.now() + 60000);
     const refused = await renderLayer(socketRequest(new Request(`http://fixture.test/api/layers/${layer.id}/render`, { headers: { "x-dezfil-picture-work": ownerCredential } })), { params: Promise.resolve({ id: layer.id }) });
     expect((await refused.json()).ok).toBe(false);
-    await expect(publishPicture(owner, changed, getPictureState(map.id)!.requestedGeneration, { light: Buffer.from("unreached"), dark: Buffer.from("unreached") }, { catalogue: false, datasets: [{ id: table.id, file: replacement.file }] })).rejects.toThrow();
+    work = queued => publishPicture(owner, changed, queued.requestedGeneration, { light: Buffer.from("unreached"), dark: Buffer.from("unreached") }, { catalogue: false, datasets: [{ id: table.id, file: replacement.file }] });
+    await expect(work(getPictureState(map.id)!)).rejects.toThrow();
+    // Let the actual queue catch that same publication refusal. Merely
+    // observing the thrown error would miss a row left waiting forever.
+    now = Date.now() + 10000; await service.tick(); await service.queue.drain();
+    expect(getPictureState(map.id)).toMatchObject({ state: "failed", publishedGeneration: editorState.publishedGeneration, attemptCount: 1 });
+    expect(await readThumbnail(editor, map.id)).toEqual(editorPicture);
   } finally { stop(); await service.drain(); await new Promise<void>(resolve => { server.closeAllConnections(); server.close(() => resolve()); }); }
 });

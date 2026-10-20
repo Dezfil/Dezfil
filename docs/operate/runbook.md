@@ -731,21 +731,44 @@ dark style hosts reachable. Create a disposable account token on that instance.
 The proof creates and deletes its own maps, never opens their builders, and
 rejects the development port before making a request.
 
+Set `DEZFIL_EGRESS_ALLOWLIST=127.0.0.1` on the real-render instance: the
+drawing and incompleteness cases serve loopback styles beside the renderer.
+Capture that instance's stderr with `2>"$DEZFIL_PICTURE_RENDER_LOG"` when
+launching it. Choose an absolute log path readable by the test process and
+export that same path there, as below. The abandoned-request proof reads the
+renderer log to distinguish abandonment from an egress refusal or budget kill.
+
 ```sh
 mkdir -p .claude/scratch
 export DEZFIL_DATA_DIR=$(mktemp -d "$PWD/.claude/scratch/pictures-XXXXXXXX")
 export DEZFIL_PICTURE_TEST_URL=http://127.0.0.1:3581
 export DEZFIL_PICTURE_TEST_TOKEN=disposable-account-token
+export DEZFIL_PICTURE_RENDER_LOG="$PWD/.claude/scratch/pictures-render.stderr.log"
 fnm exec --using=24 npm test -- src/lib/pictures/pictures.real-render.test.ts --maxWorkers=2
 ```
 
 Remove that test process's scratch directory after the run. The instance has
 its own independent scratch directory. The test checks all three computed
-mark positions at 692 by 296 in both appearances, then unsupported tiled
-live filters and a layer that fails after save admission. The pixel oracle's
+mark positions at 692 by 296 in both appearances on each creation road,
+then drawing changes, unsupported tiled live filters, a layer that fails
+after save admission, an unreachable basemap and an abandoned outside request.
+The pixel oracle's
 flat-image control and listener guard run without a server in
 `src/lib/pictures/real-proof-controls.test.ts`. A skipped real-render test is
 not evidence of a rendered picture.
+
+For the never-opened absence control, provision a separate instance from a
+build made before server pictures. Point `DEZFIL_PICTURE_TEST_URL` and
+`DEZFIL_PICTURE_TEST_TOKEN` at that instance, then run only the never-opened
+cases with the absence switch:
+
+```sh
+export DEZFIL_DATA_DIR=$(mktemp -d "$PWD/.claude/scratch/pictures-control-XXXXXXXX")
+DEZFIL_PICTURE_EXPECT_NONE=1 fnm exec --using=24 npm test -- src/lib/pictures/pictures.real-render.test.ts --maxWorkers=2 -t "never opened"
+```
+
+This control observes missing pictures for three quiet periods without calling
+the picture refresh API. Remove its test scratch directory after the run.
 
 The independent framing proof opens the real builder at 1440 by 900, flat
 and pitched. It measures its visible 988 by 824 map window and compares mark
@@ -858,6 +881,9 @@ and environment. Identify it with `lsof -ti tcp:3581 -sTCP:LISTEN` (substitute
 the isolated instance's port). Never kill every process on the port with
 `lsof -ti tcp:3581`: that also lists the runner's client connections and kills
 the measurement. Keep the loopback tile server running on its separate port.
+For the mixed workload, the restart must interrupt a background render while
+it still holds its slot. Do not gracefully drain it: the event oracle rejects
+a render that finishes before the replacement process boots.
 
 The metrics preload records admission, physical slot release and successful
 publication, covering both appearances and reduction. The report keeps the raw events,
@@ -880,6 +906,11 @@ Then seed and start fresh instances for each capacity workload. Use fresh
 manifest and event filenames for each. Pass the successful first-run report
 unchanged as the fourth argument:
 
+Re-seed the mixed fixture with the current seeder and a new stopped store.
+Older manifests lack `drawingChangedAt` for recency ordering and
+`oldPictureSha256` for checking the served bytes; do not reuse them or fill
+those fields by hand. The frozen first-run limits stay unchanged.
+
 ```sh
 # With a new stopped instance/store and matching fresh metrics path:
 fnm exec --using=24 node scripts/pictures-capacity.mjs seed-missing .claude/scratch/pictures-missing.fixture.json
@@ -896,9 +927,25 @@ fnm exec --using=24 node scripts/pictures-capacity.mjs run \
 ```
 
 The mixed fixture has 100 missing, 100 old-road and 100 current pictures.
-Its restart occurs halfway through the pending work. Independent publication
+Its restart occurs halfway through the pending work, with an unpublished
+background render in flight. Independent publication
 events reject a repeated remake, missing work, a current map being rendered,
-or an old picture overtaking a missing one. Each run takes five export and five
+an old picture overtaking a missing one, or recency order broken within either
+pending cohort. During backfill, four readers repeatedly fetch both themes of
+every old-road map: the seeded bytes must stay served until publication, and
+each replacement must then be read. Readers drain before the intentional
+downtime and resume after the restart.
+
+The mixed report adds `oldPictureReads`, recording each map and theme, HTTP
+status, byte count, SHA-256, request and answer times, event cursors, classified
+phase and any read error. `restartSample` records the publication count,
+admission index and event cursor at the restart request;
+`restartAfterPublications` records its position in the workload.
+`restartInterruption` identifies the interrupted map, old and new process IDs,
+admission index and replacement boot index. The raw events must show its
+resumed admission and exactly one publication on the replacement process.
+
+Each run takes five export and five
 check samples, one of each in every fifth of the pending publications. Before
 each request it waits for a background render in flight; a sample without
 overlap is refused. Every sample must meet its frozen limit, and every sample

@@ -1,3 +1,4 @@
+import assert from "node:assert/strict";
 import { decodePng } from "../src/lib/export/png-codec";
 export function colourCentre(bytes: Uint8Array, colour: readonly number[]) {
   const image = decodePng(bytes);
@@ -25,4 +26,28 @@ export function pictureMarkSql() {
       stroke: { r: 0, g: 0, b: 0, a: 1 }, fillOpacity: 1, strokeWidth: 0, strokeOpacity: 0, pointRadius: 10, opacity: 1,
     } };
   });
+}
+
+/** Geometry, not image inequality: a missing or displaced mark must fail. */
+export function assertPictureMarks(bytes: Uint8Array) {
+  for (const mark of PICTURE_MARKS) {
+    const measured = colourCentre(bytes, mark.colour);
+    assert.deepEqual([measured.width, measured.height], [692, 296]);
+    assert.ok(Math.abs(measured.x - (495 + mark.dx) * 692 / 990) < 2, "Mark longitude differs from the saved view");
+    assert.ok(Math.abs(measured.y - (212 + mark.dy) * 296 / 424) < 2, "Mark latitude differs from the saved view");
+  }
+}
+
+export function pictureMarkPosition(mark: { dx: number; dy: number }) {
+  return { x: (495 + mark.dx) * 692 / 990, y: (212 + mark.dy) * 296 / 424 };
+}
+/** Check a small interior patch so missing marks cannot pass by changing
+ * unrelated pixels elsewhere in the picture. */
+export function assertPicturePatch(bytes: Uint8Array, x: number, y: number, colour: readonly number[]) {
+  const image = decodePng(bytes);
+  assert.deepEqual([image.width, image.height], [692, 296]);
+  for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+    const offset = (Math.floor(y) + dy) * image.width * 4 + (Math.floor(x) + dx) * 4;
+    assert.ok(colour.every((value, channel) => Math.abs(image.rgba[offset + channel] - value) < 18), "Expected colour missing at the computed patch");
+  }
 }

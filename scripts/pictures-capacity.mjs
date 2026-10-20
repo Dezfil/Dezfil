@@ -1,4 +1,13 @@
 // Offline seeding and real-instance measurement. No server is started here.
+// Follow docs/operate/runbook.md for the separate server and metrics preload.
+// Reuse the frozen first-run report; new mixed fixtures include recency and
+// old-byte digests. With that isolated server stopped, seed a fresh manifest:
+// node scripts/pictures-capacity.mjs seed-mixed <pictures-mixed.fixture.json>
+// Start it and promptly run (restart must interrupt work, not drain it):
+// node scripts/pictures-capacity.mjs run <pictures-mixed.fixture.json>
+//   <pictures-mixed-run.json> <pictures-first-run.json> -- <restart-executable>
+// Join the previous two lines. The report includes byte-read samples and
+// the interrupted admission, replacement boot and resumed publication.
 import assert from 'node:assert/strict';
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
@@ -6,7 +15,8 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { productLoader } from './account-deletion-source-loader.mjs';
 import { probeOrigin } from './settings-probe.mjs';
-import { capacityEvents, firstMeasurement, activeRenders, foregroundTiming, assertForegroundOverlap, foregroundLimits, assertForegroundInterruption, measureBacklog } from './pictures-measurement.mjs';
+import { oldPictureMonitor, assertOldPictureCoverage } from './pictures-retention.mjs';
+import { capacityEvents, firstMeasurement, activeRenders, foregroundTiming, assertForegroundOverlap, foregroundLimits, assertForegroundInterruption, measureBacklog, assertRestartInterrupted } from './pictures-measurement.mjs';
 const execute = promisify(execFile), sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 const [mode, manifestPath, reportPath, baselinePath, ...restartArgs] = process.argv.slice(2);
 assert.ok(['seed-first', 'seed-missing', 'seed-mixed', 'run'].includes(mode), 'Use seed-first, seed-missing, seed-mixed or run');
@@ -87,6 +97,15 @@ if (mode.startsWith('seed-')) {
     concurrency: initialSettings.settings.exportRenderConcurrency.value,
     appearanceBudgetSeconds: initialSettings.settings.assistantLookTimeoutS.value,
   } };
+  const retention = fixture.kind === 'mixed' ? oldPictureMonitor({
+    maps: fixture.maps, events,
+    read: (id, theme) => fetch(`${origin}/api/maps/${id}/thumbnail?theme=${theme}`, {
+      headers: { authorization: `Bearer ${token}`, 'cache-control': 'no-cache' },
+      redirect: 'error', signal: AbortSignal.timeout(120000),
+    }),
+    record: sample => report.oldPictureReads.push(sample),
+  }) : undefined;
+  if (retention) report.oldPictureReads = [];
   async function restart() {
     const before = await json('GET', '/api/instance/settings'), start = Date.now();
     await execute(command[0], command.slice(1), { timeout: 120000 });
@@ -136,21 +155,30 @@ if (mode.startsWith('seed-')) {
     return waitForBackground(after);
   }
   try {
+    await retention?.start();
     if (baseline) {
       report.limits = baseline.limits;
       report.foregroundBacklog = { export: [], check: [] };
       await measureBacklog({ maps: fixture.maps, events, foreground, limits: baseline.limits,
         record: (kind, sample) => report.foregroundBacklog[kind].push(sample),
-        poll: async () => { await until(() => true); await sleep(20); },
-        restart: fixture.kind === 'mixed' ? async publications => {
-          report.restartAfterPublications = publications;
+        poll: async () => { retention?.check(); await until(() => true); await sleep(20); },
+        beforeRestart: retention ? () => retention.pause() : undefined,
+        restart: fixture.kind === 'mixed' ? async sample => {
+          report.restartAfterPublications = sample.publications;
+          report.restartSample = sample;
           report.restartMs = await restart();
+          retention.resume();
         } : undefined,
       });
     }
     await until(listing => fixture.maps.every(map => listing.find(row => row.id === map.id)?.pictureState === 'current'));
     capacityEvents(fixture.maps, events());
     report.capacityElapsedMs = Date.now() - initialBoot.at;
+    if (retention) {
+      await retention.finish();
+      assertOldPictureCoverage(fixture.maps, report.oldPictureReads, events());
+      report.restartInterruption = assertRestartInterrupted(report.restartSample, events());
+    }
     if (baseline) assert.ok(report.capacityElapsedMs <= baseline.limits.capacity300Ms, 'Capacity exceeded the frozen first-run ceiling');
     if (fixture.kind === 'first') {
       report.timings = firstMeasurement(fixture.maps, events());
@@ -200,6 +228,7 @@ if (mode.startsWith('seed-')) {
   } catch (error) { report.error = error.message; process.exitCode = 1; }
   finally {
     clearInterval(timer);
+    try { await retention?.stop(); } catch (error) { report.result = 'failed'; report.error ??= error.message; process.exitCode = 1; }
     while (sampling) await sleep(10);
     report.memory = { sampledPeakBrowserRssKiB: peakBrowserRssKiB, sampleIntervalMs: 250, samples, samplingError };
     report.rawEvents = events(); write(reportPath, report);
