@@ -50,14 +50,17 @@ order: <the page's place in its section>
 - [<Page title>](<relative/path.md>): <what the reader does there>.
 ```
 
-Then check it from the repository root:
+Then write the index and check every page, from the repository root:
 
 ```sh title="Terminal"
-npm run lint:docs
+npm run docs:write
 ```
 
 ```text title="Output"
-PASS: <N> pages hold the page contract; <N> hold the writing rules; the links in <N> procedure notes resolve; the index, the API description file and the <N> settings tables are current. The image manifest matches its files.
+Wrote docs/api/openapi.json.
+Wrote the settings tables, unchanged.
+Wrote docs/README.md.
+PASS: <N> pages hold the page contract; <N> hold the writing rules, <N> on the list of pages not yet rewritten; the links in <N> procedure notes resolve; the index, the API description file and the <N> settings tables are current. The image manifest matches its files.
 ```
 
 ## Pick the section
@@ -117,7 +120,7 @@ FAIL: 3 documentation problem(s).
 
 Lines count from the file's top, frontmatter included, and the command exits with status 1.
 
-The page contract holds every page as well: its place (`tree.*`, `address.*`), its frontmatter (`frontmatter.*`, `moved-from.*`), headings (`body.*`), links (`link.*`), pictures (`image.*`, `manifest.*`) and the generated files (`index.stale`, `description.stale`, `settings.*`).
+The page contract holds every page as well: its place (`tree.*`, `address.*`), its frontmatter (`frontmatter.*`, `moved-from.*`), headings (`body.*`), links (`link.*`), pictures (`image.*`, `manifest.*`) and the files `npm run docs:write` generates (`index.stale`, `description.stale`, `settings.*`).
 
 After moving a page or changing a link, also run `npm run lint:retired-paths`: it fails on a tracked file naming one of its listed docs paths that moved or left.
 
