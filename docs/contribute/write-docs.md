@@ -141,10 +141,13 @@ After moving a page or changing a link, also run `npm run lint:retired-paths`: i
 
 The checks measure the page as Markdown parses:
 
-- Prose is the text of paragraphs, footnotes, list items and notices. A nested list item counts on its own.
-- Headings, tables, code blocks, HTML comments and the lines of a tab set are not prose, nor is a region between `<!-- <name>:start -->` and `<!-- <name>:end -->`, which a script writes.
-- A link counts its text, not its address. Inline code counts; a picture's alternative text does not.
-- A word is a run of letters and digits, so `don't` is two words, and so is `1,500`.
+| What | How it counts |
+|---|---|
+| Paragraphs, footnotes, list items and notices | As prose. A nested list item counts on its own. |
+| Headings, tables, code blocks, HTML comments, the lines of a tab set, and a region between `<!-- <name>:start -->` and `<!-- <name>:end -->`, which a script writes | Not as prose |
+| A link | By its text, not its address |
+| Inline code, and a picture's alternative text | Inline code counts; the alternative text does not |
+| A word | A run of letters and digits, so `don't` is two words, and so is `1,500` |
 
 The four imported documents, such as `CHANGELOG.md`, and the site's own pages are outside these checks.
 
@@ -169,7 +172,7 @@ The words rules read paragraphs, list items, notices, headings, table cells, tab
 
 Show, then explain:
 
-````markdown title="docs/start/install.md"
+````markdown title="Example"
 ```sh title="Terminal"
 docker run -d --name dezfil -p 127.0.0.1:3000:3000 -v dezfil-data:/data dezfil
 ```
@@ -188,12 +191,14 @@ curl http://localhost:3000/api/health
 ```
 ````
 
-- The language comes first after the fence, then `title=` and the title in double quotes. The site also reads single quotes, or one unquoted word.
-- Title a shell block Terminal, a file after its name (`compose.yaml`), and an answer Output.
+| Part | Rule |
+|---|---|
+| After the fence | The language, then `title=` and the title in double quotes. The site also reads single quotes, or one unquoted word. |
+| The title | Terminal for a shell block, a file's name for a file (`compose.yaml`), Output for an answer |
 
 ## Tabs
 
-````markdown title="docs/start/install.md"
+````markdown title="Example"
 ::::tabs
 
 :::tab[Docker]
