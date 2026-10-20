@@ -7,8 +7,9 @@ import { describe, expect, it } from "vitest";
  * brief, in the contributing guide and as a row of Development setup's
  * table of gates.
  * The brief also sends an agent to the documentation index before it
- * touches a page or a behavior a page describes, and the README's
- * Documentation section links the site and the index.
+ * touches a page or a behavior a page describes, and to Write a docs page
+ * before it writes one; the README's Documentation section links the site
+ * and the index.
  */
 const read = (file: string) => readFileSync(file, "utf8");
 
@@ -67,6 +68,11 @@ describe("the ways into the documentation", () => {
   it("the agents' brief points at the index in its first lines", () => {
     const opening = read("AGENTS.md").split("\n").slice(0, 15).join("\n");
     expect(opening).toContain("(docs/README.md)");
+  });
+
+  it("the agents' brief sends an agent that writes a page to Write a docs page, in its first lines", () => {
+    const opening = read("AGENTS.md").split("\n").slice(0, 15).join("\n");
+    expect(opening).toContain("(docs/contribute/write-docs.md)");
   });
 
   it("the README's Documentation section links the site and the index", () => {
