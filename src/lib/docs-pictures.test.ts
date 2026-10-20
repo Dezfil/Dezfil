@@ -7,13 +7,13 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import sharp from "sharp";
-import { afterAll, describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it, vi } from "vitest";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: plain-JS scripts, no declaration files on purpose.
 import { FRAME, RECORDING_MAX_SECONDS, THEMES, darkTake, isDarkTake, lightTake, takeFile, takeTheme, webmInfo, webpSize } from "../../scripts/docs-media.mjs";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: as above.
-import { CADENCE, THEME_STORAGE_KEY, bundledFfmpeg, encodeWebm, themeStorage } from "../../scripts/docs-pictures-capture.mjs";
+import { CADENCE, THEME_STORAGE_KEY, bundledFfmpeg, cropRectangle, encodeWebm, themeStorage } from "../../scripts/docs-pictures-capture.mjs";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: as above.
 import { manifestText, planRun } from "../../scripts/docs-pictures-manifest.mjs";
@@ -26,11 +26,12 @@ import { freePort, makeScratch, startServer, writeCatalogue } from "../../script
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: as above.
 import { placeOf } from "../../scripts/docs-contract.mjs";
+import { pictureRendererAvailable } from "@/lib/pictures/renderer";
 import { parseIndex } from "@/lib/templates/catalogue";
 import { webm } from "../../test-support/media-fixtures";
 
 type Row = Record<string, unknown> & { file: string; scene: string };
-type Scene = { id: string; file: string; kind: string; state: string; pages: string[]; crop?: { selector: string; margin?: number }; poster?: string; steps?: { hold: number }[] };
+type Scene = { id: string; file: string; kind: string; state: string; pages: string[]; map?: boolean; crop?: { selector: string | string[]; margin?: number }; poster?: string; steps?: { hold: number }[] };
 const scenes = SCENES as Scene[];
 
 const scratch = mkdtempSync(join(tmpdir(), "dezfil-docs-pictures-test-"));
@@ -152,6 +153,16 @@ describe("the scene list", () => {
     expect(scenes.find((s) => s.id === "setup-card")?.state).toBe("fresh");
     expect(STATES.indexOf("fresh")).toBeLessThan(STATES.indexOf("seeded"));
   });
+
+  it("takes the first map's scenes after every seeded scene, so no seeded picture shows the first map", () => {
+    expect(STATES).toEqual(["fresh", "seeded", "first-map"]);
+    const firstMap = scenes.filter((s) => s.state === "first-map");
+    expect(firstMap.length).toBeGreaterThan(0);
+    for (const scene of firstMap) {
+      expect(scene.pages).toContain("docs/start/first-map.md");
+      expect(scene.map).toBe(true);
+    }
+  });
 });
 
 describe("a scene's two takes", () => {
@@ -211,6 +222,29 @@ describe("the WebM header", () => {
 
 const ffmpeg = (() => { try { return bundledFfmpeg() as string; } catch { return null; } })();
 
+describe("a scene's crop", () => {
+  type Box = { x: number; y: number; width: number; height: number };
+  // A page that knows the boxes of a few elements, as a browser lays them out.
+  const page = (boxes: Record<string, Box>) => ({
+    locator: (selector: string) => ({ first: () => ({ boundingBox: async () => boxes[selector] ?? null }) }),
+  });
+
+  it("frames one element with its margin in whole CSS pixels, clamped to the frame", async () => {
+    const rectangle = await cropRectangle(page({ "#a": { x: 10.5, y: 20.2, width: 100, height: 50 } }), { selector: "#a", margin: 24 });
+    expect(rectangle).toEqual({ x: 0, y: 0, width: 135, height: 95 });
+  });
+
+  it("frames several elements together: the box around all of them, with the margin", async () => {
+    const boxes = { "#bar": { x: 800, y: 12, width: 600, height: 40 }, "#panel": { x: 1100, y: 60, width: 300, height: 220 } };
+    expect(await cropRectangle(page(boxes), { selector: ["#bar", "#panel"], margin: 24 })).toEqual({ x: 776, y: 0, width: 648, height: 304 });
+    expect(await cropRectangle(page(boxes), { selector: ["#panel"], margin: 24 })).toEqual({ x: 1076, y: 36, width: 348, height: 268 });
+  });
+
+  it("names the element it cannot find", async () => {
+    await expect(cropRectangle(page({ "#bar": { x: 0, y: 0, width: 10, height: 10 } }), { selector: ["#bar", "#panel"] })).rejects.toThrow("#panel is not on the page");
+  });
+});
+
 describe("the recording encoder", () => {
   it.skipIf(!ffmpeg)("writes the same bytes for the same frames, as long as the frames say (needs npx playwright install ffmpeg)", async () => {
     const frame = (r: number) => sharp({ create: { width: 64, height: 48, channels: 3, background: { r, g: 120, b: 90 } } }).png().toBuffer();
@@ -255,6 +289,7 @@ describe("the picture script's server", () => {
     'const { join } = require("node:path");',
     'const data = process.env.DEZFIL_DATA_DIR;',
     'writeFileSync(join(data, "pid"), String(process.pid));',
+    'writeFileSync(join(data, "browser.json"), JSON.stringify(process.env.DEZFIL_CHROMIUM_PATH ?? null));',
     'if (existsSync(join(data, "answer"))) require("node:http").createServer((_, res) => res.end("ok")).listen(Number(process.argv.at(-1)), "127.0.0.1");',
     "else setInterval(() => {}, 1000);",
   ].join("\n"));
@@ -273,6 +308,30 @@ describe("the picture script's server", () => {
       expect(pid).toBeGreaterThan(0);
       expect(alive(pid)).toBe(false);
     } finally {
+      if (pid && alive(pid)) process.kill(pid, "SIGKILL");
+      rmSync(folder.folder, { recursive: true, force: true });
+    }
+  });
+
+  // A map the run makes has no picture to inherit, so a server that found a
+  // browser would start one to draw its card and talk to it over a socket
+  // of its own: a request off the instance, which fails the run. On a
+  // machine with a browser at the renderer's default place that would
+  // happen every time; the server is started pointing at a file that does
+  // not exist instead, so it makes no card picture on any machine.
+  it("starts the server with no browser to draw map card pictures, on any machine", async () => {
+    const folder = await makeScratch();
+    let pid = 0;
+    try {
+      await expect(startServer({ root, port: await freePort(), scratch: folder, readyWithin: 1000 })).rejects.toThrow(/did not answer/);
+      pid = Number(readFileSync(join(folder.data, "pid"), "utf8"));
+      const browser = JSON.parse(readFileSync(join(folder.data, "browser.json"), "utf8"));
+      expect(browser).toEqual(expect.any(String));
+      expect(browser.startsWith(join(folder.folder, "/"))).toBe(true);
+      vi.stubEnv("DEZFIL_CHROMIUM_PATH", browser);
+      expect(pictureRendererAvailable()).toBe(false);
+    } finally {
+      vi.unstubAllEnvs();
       if (pid && alive(pid)) process.kill(pid, "SIGKILL");
       rmSync(folder.folder, { recursive: true, force: true });
     }
