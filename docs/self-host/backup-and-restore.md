@@ -38,7 +38,10 @@ layers, styles, published links, connections, accounts, sessions, token records,
 workflows and runs), `tables/` (the GeoParquet
 artifacts), `thumbnails/`, `tmp/` (scratch for imports, exports and tile
 builds), `cache/overpass/` once an OSM import runs, and `secret.key` on
-first boot unless `DEZFIL_SECRET_KEY` was set first. An optional
+first boot unless `DEZFIL_SECRET_KEY` was set first. It also holds `tiles/`
+(one PMTiles archive per tiled layer), `exports/` (project exports being
+assembled), the provider caches `cache/geocode/` and `cache/isochrone/`, and
+`artifact-inputs/` (what each tile archive and map card picture drew). An optional
 `assistant-models.json` placed there by hand is read as
 [Set up the assistant](assistant.md#offer-other-models) describes.
 

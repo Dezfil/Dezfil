@@ -143,16 +143,16 @@ Work on Dezfil's code.
   - read when: you set up a checkout to change Dezfil's code; you want to run the pipeline's checks before you push; you run the unit tests or the browser suite against an instance of your own; a test needs DEZFIL_TEST_PG_URL or another test-only variable; you regenerate the docs index, the design specimen or another generated file
   - audience: developer, agent
 
+- [Architecture](contribute/architecture.md)
+  - path: `docs/contribute/architecture.md`
+  - summary: Find where each part of the Dezfil container lives in the source, and keep the rules that hold the parts together.
+  - read when: you change the code and need to know where a part lives; you wonder why Dezfil needs no database server or second service; you trace a layer from the browser to the query engine and back; you add a feature and want to know which rules it must keep; you add an API operation and want the UI, the assistant and MCP clients to get it
+  - audience: developer, agent
+
 - [How this is built](contribute/how-this-is-built.md)
   - path: `docs/contribute/how-this-is-built.md`
   - summary: Take a change from an idea to main: describe the behavior, build it on a branch with its tests, pass the checks and get it reviewed.
   - read when: you plan to contribute a change and want to know what is expected of it; you write a change with an AI coding agent; you want to know what a reviewer looks for before a pull request merges; you say in a pull request what you tested and what you did not; a pull request check says a commit is not signed off or its message carries an internal reference
-  - audience: developer, agent
-
-- [Architecture](contribute/architecture.md)
-  - path: `docs/contribute/architecture.md`
-  - summary: How the one container is put together: the web application, the metadata database, the query engine and the files under one data directory.
-  - read when: you change the code and need to know where a piece lives; you want to know why there is no second service
   - audience: developer, agent
 
 ## About

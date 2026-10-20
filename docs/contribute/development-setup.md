@@ -342,7 +342,7 @@ ok: spatial
 PASS — all 7 extensions load offline.
 ```
 
-The image job runs these on `main`. [Architecture](architecture.md) says what the image holds.
+The image job runs these on `main`. [Architecture](architecture.md#the-container-image) says what the image holds.
 
 ## Checks outside the pipeline
 

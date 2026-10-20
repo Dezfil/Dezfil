@@ -1,304 +1,114 @@
 ---
 title: "Architecture"
-summary: "How the one container is put together: the web application, the metadata database, the query engine and the files under one data directory."
+summary: "Find where each part of the Dezfil container lives in the source, and keep the rules that hold the parts together."
 read_when:
-  - "you change the code and need to know where a piece lives"
-  - "you want to know why there is no second service"
+  - "you change the code and need to know where a part lives"
+  - "you wonder why Dezfil needs no database server or second service"
+  - "you trace a layer from the browser to the query engine and back"
+  - "you add a feature and want to know which rules it must keep"
+  - "you add an API operation and want the UI, the assistant and MCP clients to get it"
 audience:
   - developer
   - agent
 checked: none
+order: 2
 moved_from:
   - "/docs/develop/architecture/"
 ---
 
-Dezfil is one container. Inside it are a web application, an embedded
-metadata database, and a spatial query engine that reads files. There is no
-external database to provision, no job runner, no cache server, and no
-second service. Everything durable is a file under one directory, so backup
-is a copy and moving machines is a copy.
+Dezfil is one Node.js server in one container. It keeps everything it stores in one data folder:
 
-## The shape
-
-```
-                    browser
-                       |
-     React UI  +  deck.gl over MapLibre GL
-                       |  HTTP, /api/...
-  -------------------------------------------------------------
-   one container (Next.js server, Node)
-                       |
-     API route handlers  ->  service modules
-                       |            |
-        metadata (SQLite)      query boundary
-                       |            |
-                       |     +------+------+
-                       |     |             |
-                       | trusted DuckDB  hardened DuckDB
-                       |  (ingest, admin) (user SQL only)
-                       |     |             |
-  -------------------------------------------------------------
-   the data directory
-     metadata.sqlite   tables/*.parquet   tiles/*.pmtiles
-     secret.key        thumbnails/        cache/   tmp/  exports/
+```text title="One container"
+ browser                                   AI agent
+ React UI, deck.gl over MapLibre GL        any MCP client
+      |                                         |
+      | HTTP /api/...                           | HTTP /api/mcp
++-----|-----------------------------------------|---------------+
+|     v       Next.js server, port 3000         v               |
+|  pages and API routes  <------ HTTP ------  MCP endpoint      |
+|     |                                                         |
+|     v                                                         |
+|  service modules                                              |
+|     |             |              |              |             |
+|     v             v              v              v             |
+|  SQLite        DuckDB         DuckDB         picture renderer |
+|  metadata      trusted:       hardened:      (Chromium) and   |
+|  store         imports and    user SQL,      tile builder     |
+|                inspection     read-only      (tippecanoe)     |
+|     |             |              |              |             |
++-----|-------------|--------------|--------------|-------------+
+      v             v              v              v
+  data folder:  metadata.sqlite   tables/ (GeoParquet)
+                tiles/ (PMTiles)  thumbnails/
 ```
 
-The engine never holds durable state. Both engine instances run in memory;
-everything that must survive a restart is a file on the volume.
+Both DuckDB instances run in memory, and the metadata store is a SQLite file. What must outlive a restart is a file in the data folder, so there is no database server to run, and a backup is a copy of that folder.
 
-## The request path
+The data folder is `DEZFIL_DATA_DIR`: `/data` in the container, `./data` in a checkout. [Back up and restore](../self-host/backup-and-restore.md) lists what it holds.
 
-Every capability is an HTTP endpoint, and the interface is a client of it.
-Rendering one layer in the builder walks the whole stack:
+## The parts in the source
 
-1. The page under `src/app/(workspace)/maps/[id]/page.tsx` renders the
-   builder component.
-2. The builder asks for render data per layer, through a small fetch helper
-   (`src/components/builder/render-data.ts`) that calls
-   `GET /api/layers/{id}/render`. A failed render is a layer state, not a
-   page error.
-3. The route handler (`src/app/api/layers/[id]/render/route.ts`) loads the
-   layer and calls the service, passing the request's abort signal down.
-4. `src/lib/layer-service.ts` compiles the effective query: the layer's own
-   SQL, refined by its filters, then aggregated according to its
-   visualization. It counts features and decides whether to answer inline or
-   to switch to tiles.
-5. `src/lib/query/bounded.ts` is the single door to user SQL. It takes a
-   connection on the hardened instance under a wall-clock budget, registers
-   the datasets as views, runs the work, and interrupts on timeout or on the
-   caller going away.
-6. The hardened engine reads the GeoParquet files under the data directory.
-7. The response feeds deck.gl layers composited onto the MapLibre map.
+| Part | In the source | Its job |
+|---|---|---|
+| Pages | `src/app/(workspace)/`, `src/app/(entry)/`, `src/app/v/`, `src/components/` | The React screens: the workspace, the entry pages (sign-in, setup, accepting a link) and the published viewer at `/v/<token>` |
+| Map canvas | `src/components/map/` | deck.gl layers drawn over a MapLibre GL basemap |
+| API routes | `src/app/api/` | Every HTTP operation, one `route.ts` per path. The sign-in gate in `src/proxy.ts` refuses a request that needs a sign-in and has none. A handler checks what the caller may reach and calls the service modules. |
+| Service modules | `src/lib/` | The work behind the routes: imports, layers, tiles, operations, publishing, sharing |
+| API description | `src/lib/api/openapi.ts` and the `openapi-*.ts` files beside it | The OpenAPI description, served at `GET /api/openapi.json` and written to `docs/api/openapi.json` |
+| Metadata store | `src/lib/metadata/` | Accounts, maps, layers, projects, workflows and settings in `metadata.sqlite`, with the migrations that build it |
+| Trusted DuckDB | `src/lib/duckdb.ts`, `src/lib/trusted-*.ts`, `src/lib/ingest/` | Reads imported files and writes each dataset as one GeoParquet file in `tables/` |
+| Hardened DuckDB | `src/lib/duckdb.ts`, `src/lib/query/` | Runs user SQL and every layer's query, fenced to `tables/` and the tile scratch folder |
+| Tile builder | `src/lib/tiles/` | Builds a PMTiles archive with tippecanoe for a large point layer, and serves its tiles from the archive |
+| Picture renderer | `src/lib/export/`, `src/lib/pictures/`, `src/app/render/` | Headless Chromium opens the app's own render page and takes a screenshot, for image exports and the pictures on map cards |
+| MCP endpoint | `src/app/api/mcp/`, `src/lib/mcp/`, `src/lib/tools/` | The documented operations as MCP tools. Each tool call is an HTTP request to the API. |
+| Assistant | `src/lib/assistant/` | The in-app assistant, which calls the same tools as an MCP client |
+| Startup | `src/instrumentation.ts` | Checks that the data folder is writable, opens the metadata store, removes leftover files, settles interrupted runs and starts the map picture work |
 
-The published viewer and the SQL workspace take the same path with a
-different door: a publication token in place of a layer id, or
-`POST /api/query` in place of the render route. There is no shortcut from
-the interface to the engine, which is why a headless script can drive the
-whole product.
+## The container image
 
-## Two engine instances
+The [Dockerfile](../../Dockerfile) builds the image in stages on `node:24-slim`. Its last stage holds everything the server needs, so a running instance fetches nothing:
 
-The query engine is DuckDB with its spatial extension, embedded in the
-server process through its Node bindings (`src/lib/duckdb.ts`). There are
-two instances, both in memory, and keeping them apart means hardening user
-queries can never break trusted work.
+| In the image | Where | What it is for |
+|---|---|---|
+| The production build, as the Next.js standalone server | `/app` | The pages, the API and the MCP endpoint |
+| `tippecanoe` 2.79.0, compiled in a build stage of its own | `/usr/local/bin/tippecanoe` | The tiles of large layers |
+| Chromium, a certificate bundle and the Liberation fonts | `/usr/bin/chromium`, named by `DEZFIL_CHROMIUM_PATH` | Image exports, the pictures on map cards and the look at a map the assistant or an agent asks for, drawn with software GL |
+| The engine's extensions: spatial, h3, httpfs, json, postgres, azure and aws | `/app/duckdb-extensions`, named by `DUCKDB_EXTENSION_DIR` | Installed at build time by `scripts/install-duckdb-extensions.mjs` from the one list in `scripts/duckdb-extensions.mjs`, which the offline check reads too |
+| The native packages the standalone build leaves out: `@duckdb`, `better-sqlite3`, `bindings` and `file-uri-to-path` | `/app/node_modules/` | The engine's and the metadata store's native code, copied whole |
+| `public/`, the model catalogue, the shipped templates, `LICENSE` and `NOTICE` | At their paths in the source | Read at run time where the source keeps them |
+| The ingress preload and the account recovery script, with the modules they import | `/app/scripts/`, `/app/src/lib/auth/` | The preload starts before the server; an operator runs the recovery script |
 
-**The trusted instance** does ingest and inspection: reading an uploaded
-file, writing a dataset artifact, measuring it.
+The image runs as the unprivileged `node` user, listens on port 3000 and keeps its data in the `/data` volume. [Development setup](development-setup.md#build-and-check-the-image) builds it and runs its two checks.
 
-**The hardened instance** runs user SQL and nothing else. At creation it
-loads its extensions, then closes the door behind them:
+## Follow a layer from the browser and back
 
-- the filesystem is fenced to the dataset directory and the tile scratch
-  directory, and nothing else is reachable;
-- external access is disabled, so the engine cannot open the network;
-- further extension installation and autoloading are disabled;
-- a memory budget is applied, and spilling to disk is switched off so that
-  exceeding the budget is a clean coded failure rather than a slow grind;
-- the configuration is then locked, so none of the above can be changed by a
-  statement.
+1. The builder asks for each layer's data with `GET /api/layers/<id>/render`, in `src/components/builder/render-data.ts`.
+2. The route, `src/app/api/layers/[id]/render/route.ts`, checks that the caller can reach the layer and passes the request's abort signal on.
+3. `src/lib/layer-render.ts` builds the effective query with `src/lib/query/compile.ts`: the layer's SQL, refined by its filters, then aggregated by its visualization.
+4. `src/lib/query/bounded.ts` runs it on the hardened instance within a time budget. It stops the engine when the budget runs out or the caller leaves.
+5. The answer carries GeoJSON for deck.gl. A point layer over the [render limits](../api/limits.md) answers with tiles instead, which `src/lib/tiles/build.ts` builds in the background.
 
-Before any statement reaches it, a guard requires exactly one read-only
-`SELECT`, classified with the engine's own parser rather than a keyword
-blocklist (`src/lib/query/guard.ts`). Datasets are exposed as views over
-their files, so user SQL sees names and never paths.
+The SQL workspace takes the same road through `POST /api/query`, and a published map through `GET /api/published/<token>`. The browser reaches the engine only through the API.
 
-There is no browser-side query engine. Every query runs on the server.
+## Rules every change keeps
 
-## Where the files live
+- **One container, one data folder:** a feature that needs a second service, such as a database server, a cache or a job runner, does not fit. Durable state is a file in the data folder, never inside an engine.
+- **DuckDB on the server only:** there is no query engine in the browser. The client calls the API, and the server's engine works on data larger than browser memory.
+- **User SQL on the hardened instance:** at its start it loads its extensions, fences the filesystem, sets a memory limit with no spilling to disk, turns off network access and extension loading, then locks its configuration. Never widen it to make a feature easier.
+- **One read-only statement:** `src/lib/query/guard.ts` admits exactly one `SELECT`, classified by DuckDB's own parser rather than a list of keywords. `src/lib/query/guard.test.ts` holds it.
+- **SQL is the source of truth for a layer:** a layer is its SQL, a name and a style. Style draws the query's result and never becomes a second query. Rendering, classification, field statistics and publishing all build the effective query in `src/lib/query/compile.ts`.
+- **Every capability is an API the UI calls:** new behavior starts as a documented operation with a route behind it. `src/lib/api/parity.test.ts` fails on a route without an operation, an operation without a route, or a UI call to an undocumented path.
+- **The API description is a published contract:** a renamed path, field or error code is a breaking change. If an agent would need a warning, change the API until the mistake is impossible or harmless.
+- **MCP tools come from the API description:** `src/lib/tools/tools.ts` makes one tool of each documented operation that names one in its `x-tool` extension. `src/lib/tools/tools.test.ts` fails when the two drift apart.
 
-The data directory is `DEZFIL_DATA_DIR`, which defaults to `data` beside
-the working directory and is `/data` in the container. At boot the server
-creates it and proves it writable (`src/lib/data-dir.ts`).
+After you change the description, run `npm run docs:write` to write `docs/api/openapi.json` again. `npm run lint:docs` fails while that file is stale.
 
-| Path | What it holds |
-|---|---|
-| `metadata.sqlite` | The metadata database. |
-| `secret.key` | The generated at-rest encryption key, when none was configured. Created with owner-only permissions. |
-| `tables/` | Dataset artifacts, one Parquet file per dataset, named by identifier. This is the durable form of every table. |
-| `tiles/` | One PMTiles archive per tiled layer. |
-| `tiles/scratch/` | The one place the hardened engine may write. Tile builds export here and the finished archive is renamed one level up. |
-| `thumbnails/` | Server-rendered map card images, 692 by 296 pixels. An atomic manifest selects a complete theme pair or one fixed-ground image. |
-| `artifact-inputs/tiles/`, `artifact-inputs/thumbnails/` | What each tile archive and card image drew: the dataset identities and artifacts, one small file per archive or image; server picture evidence also carries its published generation. Lost evidence leaves its artifact unattributed, served to the map's owner alone. |
-| `exports/` | Staging for project exports. Old siblings are swept as new ones are assembled. |
-| `cache/overpass/`, `cache/geocode/`, `cache/isochrone/` | Provider answer caches, each with its own size and freshness budget. |
-| `tmp/` | Scratch for uploads, downloads and exports in flight. Swept whole at boot. |
-| `assistant-models.json` | Optional, supplied by whoever runs the instance. Narrows the model catalogue. |
+> [!NOTE]
+> The map's hex bin is a flat hexagon grid at any cell size, not H3. `src/lib/query/compile.ts` builds it in SQL with the math of `src/lib/hex-bin.ts`. H3, through DuckDB's extension, serves index-based work, such as the **Assign H3 cells** tool.
 
-Drawn sketches are not a separate store: a draw session becomes an ordinary
-dataset artifact under `tables/` plus one layer. Publishing writes no files
-of its own; a published view reads the same artifacts, authorized against
-metadata.
+## Next steps
 
-## Metadata
-
-Map and layer metadata lives in an embedded SQLite database, opened through
-one module (`src/lib/metadata/db.ts`) with write-ahead logging and foreign
-keys on. Schema changes are an ordered list of migration statements applied
-by version number, each inside its own transaction. A statement that needs a
-value derived by the application's own rules, such as an account's SQL name,
-calls it as a SQL function the migration runner registers on the connection.
-There is no migration library and no external tool.
-
-Keeping metadata embedded is what preserves the one-container promise. The
-repository modules beside `db.ts` deliberately keep their SQL portable, so
-moving to a server database later would touch that folder and nothing else.
-Each repository owns one concern: datasets, maps and layers, tile build
-records, workflows and their steps, canvas layouts, cascades, run records,
-lineage edges, per-map undo history, projects, connections, palettes, and
-settings.
-
-`map_pictures` is a cascading child of its map. It stores the drawing digest,
-requested and published generations, last drawing-change time, work state,
-retry deadline, scheduling bindings and the current attempt's expiring work
-credential hash and consumed inputs. These are derived work, outside the
-map's edit revision, history and attribution.
-
-## A layer is its SQL
-
-A layer is its SQL text plus a style. The record carries the statement, a
-name, the style, visibility, ordinal position within the map, the filters
-applied to it, the visualization type, tooltip and popup fields, the fields
-a publication may expose, and the legend's title and labels
-(`src/lib/metadata/maps.ts`). The map owns layer order, visibility and the
-viewport.
-
-Nothing renders from a cached feature collection that has drifted from its
-query. Changing the SQL changes the layer, and the effective query is
-recomputed from the statement, its filters and its visualization each time.
-
-## Large layers become tiles
-
-Under the render cap a layer answers as inline features, built while they
-are read so that an answer over Bytes drawn per layer is stopped before it is
-complete (`src/lib/query/render-features.ts`). Over the cap or over the byte
-limit, a simple point layer switches to a tiled render instead
-(`src/lib/layer-render.ts`). Aggregations and heatmaps do not: past either
-bound they answer a coded error naming it, because silently sampling an
-aggregate would be a lie. A layer learns that its answer is over the byte
-limit only by reading it up to the limit, so that outcome is remembered for
-the answer it was read for: the layer, its effective query, the fields it
-carries, its envelope, the data its evaluation read and the limit. The
-builder's poll while tiles build, a reload or a published view then takes
-the same road without reading again, for thirty seconds from the read that
-found the excess; asking again does not extend that, so a query that reads
-the clock and has come to fit is drawn again within half a minute
-(`src/lib/render-over-limit.ts`).
-
-Feature properties carry the columns their audience reads, one policy per
-audience over shared primitives (`src/lib/field-dependencies.ts`): a builder
-render carries what the layer and its map use, a published render the
-publication's field set, and a tile archive, which serves both, the published
-set. An edit that makes a builder layer read a field its last render lacks
-asks for the render again (`src/components/builder/render-field-refresh.ts`).
-
-A tile build runs in two stages (`src/lib/tiles/build.ts`). The effective
-query is exported to newline-delimited GeoJSON in the scratch directory, the
-one writable spot the hardened engine has. Then the tile builder turns that
-into a PMTiles archive of vector tiles, and the finished archive is renamed
-into place so the previous one keeps serving until the instant it is
-replaced.
-
-Freshness is a fingerprint over the effective query plus the dataset
-identities its evaluation bound, each with its current artifact, so
-restyling never looks like a data change and a data change never fails to
-look like one. The build records those identities beside the archive
-(`src/lib/tiles/evidence.ts`), from the export's own evaluation
-(`src/lib/query/evaluation-inputs.ts`); a refresh or deletion of a dataset
-finds the layers whose tiles drew it by that record. Builds queue per layer
-and per requesting reach: the layer's record names only the archive being
-served, a failure stays with the attempt that failed, and only a committed
-build replaces the archive. The application serves tiles
-itself by reading byte ranges out of the archive
-(`src/lib/tiles/serve.ts`); there is no tile server.
-
-## Rendering
-
-The canvas is deck.gl drawing over a MapLibre GL basemap, composited
-through deck.gl's MapLibre overlay bridge. `src/components/map/MapCanvas.tsx`
-coordinates the map; `src/components/map/canvas-overlay.ts` owns the separate
-data canvas and its capture lifetime. The default basemap is a keyless
-public vector style, with light, streets and imagery alternatives, and an
-instance can pin its own style URL for an air-gapped deployment
-(`src/lib/basemap.ts`).
-
-The renderer's ESM worker and shared chunk are served from the application
-origin under `public/workers/`. `src/lib/maplibre.ts` configures their URL
-before maps are constructed, so bundled pages and offline image exports
-use the same assets. Their bytes are checked against the installed package
-in the unit suite and against the built container by its inventory check.
-
-Map pictures use the same server renderer at 990 by 424 pixels with the
-saved camera at scale 1, then reduce to 692 by 296. They omit title, legend,
-widgets and in-image credit. Auto produces a light/dark pair; other basemaps
-produce one image. The page declares its painted style and unsupported
-layers; incomplete or abandoned work never publishes. A whole set's manifest
-is replaced before the matching row generation is committed. Startup and
-hourly looks reconcile an interrupted handoff without serving a partial pair.
-
-Committed drawing and bound-data changes wait five quiet seconds. Data events
-coalesce before scheduling: stored inputs select the maps to resolve, with
-unresolved bindings and catalogue readers included. Looks reuse successful
-bindings while the saved drawing and its input artifacts agree. Failures
-retry at once, after one minute, after ten minutes, then hourly. A lane
-interruption requeues without spending a failed attempt. Unsupported drawings
-wait for a changed request or an explicit refresh. Startup waits for the HTTP
-listener; each hourly look also checks renderer recovery and old pictures
-awaiting their one-time replacement. Missing and stale work comes first.
-The background lane leaves a foreground slot free when capacity permits;
-at one slot a person's arrival interrupts picture work. Each appearance's
-30-second budget starts after admission. Requests retain the previous picture.
-The System renderer Test takes only a slot free now and does not interrupt
-pictures. At one slot it can answer `busy` for the duration of a picture render.
-
-An attempt runs as the stored active owner through a short-lived, read-only
-credential restricted to that map's render inputs. Actual layer evaluations
-and served tile archives record inputs under the attempt. Publication rechecks
-the saved drawing, requested generation, owner standing and current reachable
-inputs. Dependency scans schedule work but never attribute image bytes.
-
-## Hexagons and H3
-
-These are two different things and the code keeps them apart.
-
-**H3** is available through the engine's community extension, baked into
-the image, and used for index-based work: hexagon cell columns, hotspot
-statistics, and recognizing H3 cell text when a file is imported. There is
-no H3 library in the browser bundle.
-
-**The map's hex bin is not H3.** It is a planar hexagon tessellation in
-projected meters (`src/lib/hex-bin.ts`), because a fixed resolution ladder
-cannot give the in-between cell sizes a map actually needs. The same maths
-exists twice on purpose, once in SQL for the authoritative aggregation and
-once in TypeScript for the interactive preview, so the two agree.
-
-## Repository layout
-
-| Path | What it holds |
-|---|---|
-| `src/app/` | Routes. The workspace pages, the published viewer, the bare page the image exporter screenshots, and every API route handler under `src/app/api/`. |
-| `src/components/` | The interface: the builder and its panels, the map canvas, the workflow canvas, screens and dialogs. |
-| `src/lib/` | Everything else: services, the metadata repositories, ingest, operations, tiles, publishing, the query boundary and the engine, the API description, the agent tool layer and the MCP server. |
-| `e2e/` | Browser journeys and their snapshots. |
-| `scripts/` | Tooling: the custom lint checks, the engine extension bake and its offline proof, headless journeys, packaging. |
-| `public/` | Static runtime assets: basemap definitions, icon sprites, logos, the vector tile parser worker. |
-| `plugins/dezfil/` | The distributable agent plugin package. |
-| `test-support/` | Fixture builders for the test suites. |
-| `docs/` | The documentation, one folder per section: these pages, the runbook and the verification records. |
-| `design/` | The identity sheet. |
-
-Top-level files worth knowing: `Dockerfile` builds the single image,
-`README.md` is the quick start, `NOTICE` carries
-the attribution for borrowed code, and `LICENSE` is Apache 2.0.
-
-## The container
-
-One image, built in stages from a Debian-based Node base because the
-engine's native bindings target that C library. The build compiles the tile
-builder from source and bakes the engine's extensions into the image, so a
-running instance needs no network to load them.
-
-The final image carries the application, the baked extensions, the tile
-builder, and a headless browser used only to render image exports of the
-instance's own pages. It runs as an unprivileged user, listens on port 3000,
-and declares `/data` as its volume.
+- [Development setup](development-setup.md): run a checkout, the checks and the tests.
+- [How this is built](how-this-is-built.md): take a change from an idea to a merged pull request.
+- [How the API works](../api/http-api.md): sign-in, edit revisions and errors for every client of the API.
+- [Connect an AI agent](../api/mcp.md): use the MCP endpoint from Claude Code, Codex or Cursor.
