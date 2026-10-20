@@ -160,7 +160,7 @@ An upload cannot be refreshed. Upload the new version instead: it lands beside t
 
 **The dataset says Header looks broken.** Its column names look like data: the header row is missing or was never split. Fix the first row and upload again.
 
-**The import says the file or area is too large.** The message names the limit. Choose a smaller file or area, or ask an admin to raise the limit in **Settings** › **Limits** › **Imports**.
+**The import says the file or area is too large.** The message names the limit and how it is changed. Choose a smaller file or area, or ask an admin to raise the limit in **Settings** › **Limits** › **Imports**, or with the variable the message names.
 
 **"The requested address is not reachable from this server".** Dezfil blocks loopback, private-network, link-local and metadata addresses, such as a database on your own network. An operator allows a host with `DEZFIL_EGRESS_ALLOWLIST`: see [Configuration](../self-host/configuration.md).
 
