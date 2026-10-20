@@ -20,8 +20,9 @@
 // are not prose. A link counts its text, not its destination; inline code
 // counts as words; a picture's alternative text does not. Words are runs of
 // letters and digits. The lines of a tab set (`::::tabs`, `:::tab[Label]`,
-// `:::` and `::::`) are not prose; what the tabs hold is. A line inside an
-// HTML comment is none of these: no reader sees it.
+// `:::` and `::::`) are not prose; what the tabs hold is, each tab read on
+// its own, so no paragraph, list or quote runs on into the next. A line
+// inside an HTML comment is none of these: no reader sees it.
 //
 // Each problem names the file, the rule and the line, in the page
 // contract's form. The rule names are stable: the cases refer to them.
@@ -102,12 +103,20 @@ function commentedLines(tree) {
   return hidden;
 }
 
+/** What stands for the first of a run of tab lines: an empty HTML comment,
+ * which ends a paragraph, a quote or a list item open before it. The run's
+ * other lines stand as blank lines, which end an HTML block. */
+const TAB_BOUNDARY = "<!-- -->";
+
 /** A body read for the writing rules. Lines of the tab syntax outside code
- * and HTML comments are found first and blanked, keeping the line count, so
- * a tab line neither joins the paragraph or notice beside it nor counts as
- * prose; the rest is then parsed. A tab line inside a comment is no line of
- * a tab set, since no reader sees it. `firstLine` is the body's first line
- * in its file, and every line the reading gives is a line of the file. */
+ * and HTML comments are found first and replaced, keeping the line count,
+ * so a tab line neither joins the paragraph or notice beside it nor counts
+ * as prose, and no block runs on from one tab into the next, as none does
+ * where the site draws the tabs: the first line of each run of tab lines
+ * becomes `TAB_BOUNDARY`, at its own indent, and the others blank lines.
+ * The rest is then parsed. A tab line inside a comment is no line of a tab
+ * set, since no reader sees it. `firstLine` is the body's first line in its
+ * file, and every line the reading gives is a line of the file. */
 export function readBody(body, firstLine = 1) {
   const lines = body.split("\n");
   const code = new Set();
@@ -121,8 +130,9 @@ export function readBody(body, firstLine = 1) {
   const blanked = lines.map((text, i) => {
     const marker = code.has(i + 1) || commented.has(i + 1) ? null : colonLine(text);
     if (!marker) return text;
+    const follows = markers.at(-1)?.index === i - 1;
     markers.push({ ...marker, line: firstLine + i, index: i });
-    return "";
+    return follows ? "" : `${/^\s*/.exec(text)[0]}${TAB_BOUNDARY}`;
   });
   const tree = parseMarkdown(blanked.join("\n"));
   const regions = [];

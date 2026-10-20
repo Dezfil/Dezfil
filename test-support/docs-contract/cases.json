@@ -2238,6 +2238,47 @@
         "docs/use/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you check the writing rules\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\n<!-- The search box narrows the cards. --> <video></video>\n\nword word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word.\n\nword word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word.\n"
       },
       "problems": []
+    },
+    {
+      "scope": "product",
+      "name": "a list that ends one tab, beside an indented paragraph of 80 words in the next",
+      "files": {
+        "docs/about/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you check the writing rules\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nRun it.\n\n::::tabs\n:::tab[Docker]\n- Open a terminal.\n:::\n:::tab[Compose]\n  word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word.\n:::\n::::\n"
+      },
+      "problems": []
+    },
+    {
+      "scope": "product",
+      "name": "a list that ends one tab, beside an indented command in the next",
+      "files": {
+        "docs/about/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you check the writing rules\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nRun it.\n\n::::tabs\n:::tab[Docker]\n- Open a terminal.\n:::\n:::tab[Compose]\n    docker compose up -d\n:::\n::::\n"
+      },
+      "problems": [
+        {
+          "file": "docs/about/case.md",
+          "rule": "writing.code-language",
+          "line": 20
+        },
+        {
+          "file": "docs/about/case.md",
+          "rule": "writing.code-title",
+          "line": 20
+        }
+      ]
+    },
+    {
+      "scope": "product",
+      "name": "an HTML block that ends one tab, beside a paragraph of 81 words in the next",
+      "files": {
+        "docs/about/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you check the writing rules\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nRun it.\n\n::::tabs\n:::tab[Docker]\n<div>Open a terminal.</div>\n:::\n:::tab[Compose]\nword word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word.\n:::\n::::\n"
+      },
+      "problems": [
+        {
+          "file": "docs/about/case.md",
+          "rule": "writing.paragraph-length",
+          "line": 20
+        }
+      ]
     }
   ],
   "order": [
