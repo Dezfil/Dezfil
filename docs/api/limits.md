@@ -1,60 +1,125 @@
 ---
 title: "Limits"
-summary: "The fixed byte ceilings on SQL answers and previews, and the time, size, memory, rate and queue limits an operator changes."
+summary: "Find every limit Dezfil holds requests to, what you get when you reach one, and the setting that changes it."
 read_when:
-  - "a query or an inspection answers query_result_too_large"
-  - "you need to know which reads are bounded and by how much"
+  - "a request answers 408, 413, 422 or 429 and you want to know which limit it reached"
+  - "a query shows only its first rows, or answers query_result_too_large"
   - "you want to raise the largest upload, the query time limit or another limit"
+  - "an assistant message, an agent's upload or a tool's download is too large"
+  - "visitors to a published map get rate_limited"
 audience:
-  - user
   - developer
   - agent
   - operator
 checked: none
 moved_from:
   - "/docs/reference/sql-limits/"
+order: 5
 ---
 
-SQL console/SQL previews, dataset inspection, geometry-choice preview and the
-PostGIS five-row preview have fixed result limits: **33,554,432 bytes (32 MiB)**
-for the complete uncompressed UTF-8 JSON answer and **2,097,152 bytes (2 MiB)**
-for one non-geometry column value. Equality is admitted. Quotes, escaping,
-nested values, schema, repeated keys and metadata count after existing display
-conversions and excerpts. Native geometry, identified by type or registered
-provenance before conversion, counts only toward the result ceiling; coordinate
-text and JSON remain non-geometry. Exceeding either bound refuses the whole
-answer with HTTP 422 `query_result_too_large`, without partial data or details:
+At a limit, Dezfil either cuts an answer short and says so, or refuses the request with a status and an error code.
 
-> The result is too large to return: more than 32 MB in total, or one non-geometry value over 2 MB. Select fewer rows or columns, or shorten the value.
+Try the first kind. This query asks for 1,001 rows, one more than a query's answer holds unless an admin changes it:
 
-These ceilings have no setting. Row and engine-memory limits still apply;
-a result below both byte ceilings can fail the engine-memory limit during
-query execution or result projection, including geometry decoding. Layer
-renders, dataset map features, slider and Overture previews and published
-views retain their existing limits. A filter's distinct values, categorical
-classification, category widgets and value search hold each text value they
-return to the 2 MiB value ceiling: the first two refuse with the same 422, a
-category widget answers that code as its own error while the others keep
-working, and value search names the layer under `refusedLayers` and answers no
-rows from it, which the builder's search says in a line under its results. SQL, table and layer file exports still stream complete
-results above both ceilings. Dataset inspection shows text values, and the WKT
-of its registered geometry column, longer than 512 characters as their first
-512 characters and an ellipsis, as geometry-choice preview does. Other values,
-nested values, additional geometry columns, the schema, row counts and the
-stored data stay whole, and SQL console/SQL previews and the PostGIS preview do
-not excerpt, so long text alone no longer refuses an inspection. An inspection that still exceeds a
-ceiling, with a nested value over 2 MiB for example, prevents its detail and docked set-geometry
-panel from opening. It also blocks tool column pickers, SQL schema inventory
-and completion, workflow dataset reads and facts, and automatic layer addition
-after a tool run. The tool run can report failure even though the dataset has
-already been written. Existing layer rendering, dataset map features, complete
-API file exports and owner deletion from Data use separate reads and remain
-available. This bounds serialized data on the covered reads,
-not native chunks, JavaScript object overhead, heap or RSS.
+::::tabs
+:::tab[curl]
+```sh title="Terminal"
+curl -s http://localhost:3000/api/query \
+  -H "Authorization: Bearer <YOUR_TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{"sql": "SELECT range AS n FROM range(1001)"}' \
+  | jq -c '{rowCount, shown: (.preview | length), previewTruncated}'
+```
+
+`jq -c` prints three parts of the answer on one line. Install [jq](https://jqlang.org) if your system lacks it.
+:::
+:::tab[JavaScript]
+```js title="rows.mjs"
+const response = await fetch("http://localhost:3000/api/query", {
+  method: "POST",
+  headers: {
+    Authorization: "Bearer <YOUR_TOKEN>",
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({ sql: "SELECT range AS n FROM range(1001)" }),
+});
+const result = await response.json();
+console.log(JSON.stringify({ rowCount: result.rowCount, shown: result.preview.length, previewTruncated: result.previewTruncated }));
+```
+
+Run it with `node rows.mjs`.
+:::
+::::
+
+```json title="Output"
+{"rowCount":1001,"shown":1000,"previewTruncated":true}
+```
+
+- `range(1001)` makes 1,001 numbered rows, so you need no dataset to try it.
+- `rowCount` counts every row of the result.
+- `preview` holds the first rows, up to **Rows shown in results**, and `previewTruncated` is `true` when rows were left out.
+
+On the **SQL** page the same query shows **Showing the first 1,000 of 1,001 rows. Save as dataset or Download to keep them all.** Both take every row.
+
+## What you get at a limit
+
+| At the limit | You get | For example |
+|---|---|---|
+| An answer with more rows or features than it holds | The answer, with a field that says it is cut short | `previewTruncated: true` |
+| A request over a size | A 4xx status and an error code, before any work. Nothing changes. | 413 `upload_too_large` |
+| Work that runs past its time | 408, or 504 for a link import's download, and a code that names the limit. The work stops. | 408 `query_timeout` |
+| A full queue, or too many requests | 409, 429 or 503. Retry later. | 429 `rate_limited` |
+
+When a setting changes the limit, the error's `message` says which, such as `An admin can change "Query time limit".` [Errors](errors.md) shows the parts of an error answer.
 
 ## Limits an operator changes
 
-An admin changes most of these on the **Limits** tab of **Settings**; the rest are variables alone. [Configuration](../self-host/configuration.md) shows how to set a variable and which value wins.
+An admin changes most limits in **Settings** > **Limits**. A row with a lock is decided by the server: the line under it names the variable that changes it, except **Largest image**, which is fixed.
+
+From a script, send the new value with an admin's token:
+
+::::tabs
+:::tab[curl]
+```sh title="Terminal"
+curl -s -X PATCH http://localhost:3000/api/instance/settings \
+  -H "Authorization: Bearer <YOUR_ADMIN_TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{"previewRows": 2000}' \
+  | jq -c '.settings.previewRows | {value, source, locked}'
+```
+:::
+:::tab[JavaScript]
+```js title="change-limit.mjs"
+const response = await fetch("http://localhost:3000/api/instance/settings", {
+  method: "PATCH",
+  headers: {
+    Authorization: "Bearer <YOUR_ADMIN_TOKEN>",
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({ previewRows: 2000 }),
+});
+const { value, source, locked } = (await response.json()).settings.previewRows;
+console.log(JSON.stringify({ value, source, locked }));
+```
+
+Run it with `node change-limit.mjs`.
+:::
+::::
+
+```json title="Output"
+{"value":2000,"source":"stored","locked":false}
+```
+
+- `previewRows` is the key of **Rows shown in results**. The table below gives each limit's key and variable.
+- `source` is `stored` for a value saved in **Settings**, `environment` for a variable, or `default`.
+- A key that a variable sets answers 409 `setting_locked`, and nothing changes.
+
+`GET /api/instance/settings` reads every limit in effect, for an admin. Any signed-in account reads `previewRows` and `renderCapFeatures` from `GET /api/config`.
+
+> [!NOTE]
+> A change applies to new work. A query, upload or tool run that has already started keeps the limit it started with.
+
+[Configuration](../self-host/configuration.md) shows how to set a variable and which value wins.
 
 <!-- settings-limits:start -->
 
@@ -87,3 +152,237 @@ An admin changes most of these on the **Limits** tab of **Settings**; the rest a
 | **Run history depth** | `DEZFIL_OPERATION_HISTORY_PER_SUBJECT` |  | `20` runs | Any number above 0, rounded down to a whole number of at least 1 | Runs kept in each run history, such as a workflow step's; its latest success is always kept. | By variable, after a restart |
 
 <!-- settings-limits:end -->
+
+## SQL results
+
+| What | Limit | At the limit |
+|---|---|---|
+| Rows in a query's answer | **Rows shown in results** | The first rows, with `previewTruncated: true` |
+| The whole answer, as JSON | 33,554,432 bytes (32 MiB) | 422 `query_result_too_large`, no rows |
+| One value that is not geometry, as JSON | 2,097,152 bytes (2 MiB) | 422 `query_result_too_large`, no rows |
+| Time for one query | **Query time limit** | 408 `query_timeout` |
+| Memory, shared by every query | **Engine memory** | 400 `query_memory_exceeded` |
+
+A value over 2 MiB refuses the whole answer:
+
+::::tabs
+:::tab[curl]
+```sh title="Terminal"
+curl -s -w "\n%{http_code}\n" http://localhost:3000/api/query \
+  -H "Authorization: Bearer <YOUR_TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d "{\"sql\": \"SELECT repeat('x', 3000000) AS value\"}"
+```
+
+```text title="Output"
+{"error":{"code":"query_result_too_large","message":"The result is too large to return: more than 32 MB in total, or one non-geometry value over 2 MB. Select fewer rows or columns, or shorten the value."}}
+422
+```
+:::
+:::tab[JavaScript]
+```js title="too-large.mjs"
+const response = await fetch("http://localhost:3000/api/query", {
+  method: "POST",
+  headers: {
+    Authorization: "Bearer <YOUR_TOKEN>",
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({ sql: "SELECT repeat('x', 3000000) AS value" }),
+});
+console.log(response.status, (await response.json()).error.code);
+```
+
+Run it with `node too-large.mjs`.
+
+```text title="Output"
+422 query_result_too_large
+```
+:::
+::::
+
+The two byte limits are fixed, with no setting. They hold four reads: the SQL console, dataset inspection, geometry-choice preview and the PostGIS five-row preview.
+
+| Read | HTTP | MCP tool | Rows it shows |
+|---|---|---|---|
+| The SQL console, on the **SQL** page | `POST /api/query` | `run_sql` | **Rows shown in results** |
+| A dataset inspection, on a dataset's page | `GET /api/tables/{name}` | `inspect_table` | 50 |
+| The geometry-choice preview, in **Set geometry** | `POST /api/tables/{name}/geometry/preview` | `preview_table_geometry` | 50 |
+| The PostGIS five-row preview | `POST /api/connections/postgis/{id}/preview` | `preview_postgis_relation` | 5 |
+
+A value's quotes and escaping count toward its size. A geometry column counts toward the whole answer only, whether it travels as WKT or GeoJSON. Text that holds WKT or GeoJSON counts as text.
+
+Row and engine-memory limits still apply: a result below both byte ceilings can fail the engine-memory limit while the query runs.
+
+Downloads and saved datasets take the complete result. SQL, table and layer file exports stream every row, above both byte limits.
+
+Dataset inspection and geometry-choice preview shorten a text value, or the WKT of the dataset's geometry, longer than 512 characters to its first 512 and an ellipsis. The stored data stays whole.
+
+An inspection that is still too large keeps the dataset's page and its **Set geometry** panel from opening. It also blocks tool column pickers, SQL schema inventory and completion, workflow dataset reads and facts, and automatic layer addition after a tool run.
+
+A tool run can then report a failure even though the dataset has already been written. Existing layer rendering, dataset map features, file exports and deleting the dataset from **Data** use other reads and keep working.
+
+A filter's distinct values, a categorical classification, category widgets and value search hold each text value to 2 MiB too. The first two answer the same 422, a category widget shows the code as its own error, and value search names the layer under `refusedLayers` and leaves its rows out.
+
+**Query time limit** also holds dataset inspection, previews, layer rendering and published maps. It must stay below **Time limit per tool run**.
+
+## Uploads and imports
+
+| What | Limit | At the limit |
+|---|---|---|
+| One uploaded file | **Largest upload** | 413 `upload_too_large` |
+| A .zip or .kmz file, unpacked | **Largest upload** | 413 `archive_too_large` |
+| Receiving an upload, then processing it, each | **Data processing time limit** | 408 `data_processing_timeout` |
+| An upload that stops sending | 60 seconds without a byte | 408 `upload_stalled` |
+| One import from a link or cloud storage | **Largest link import** | 413 `remote_too_large` |
+| The download of a link import | **Link import time limit** | 504 `remote_timeout` |
+| The area of an OpenStreetMap import | **OpenStreetMap area** | 413 `area_too_large` |
+| The area of an Overture import | **Overture area**, by theme | 413 `area_too_large` |
+| Memory for imports and other data work | **Trusted engine memory** | 422 `engine_memory_exceeded` |
+| A template's archive | 150 MB, and **Largest upload** unpacked | 413 `template_archive_too_large` or `template_unpacked_too_large` |
+
+**Data processing time limit** also holds imports from links, OpenStreetMap, Overture and PostGIS, refreshes, geometry changes, template installs and exports of a dataset or a project.
+
+When it runs out, the work stops, and data that was there before stays as it was. Data work can also spill to disk in the data folder, up to four times **Trusted engine memory**.
+
+**Overture area** is the area for places. Each other theme takes a share of it:
+
+| Overture theme | Largest area |
+|---|---|
+| Places | **Overture area** |
+| Buildings, Addresses | A fifth of it |
+| Transportation | Half of it |
+| Base · land & water | Four times it |
+| Divisions | Twenty times it |
+
+A reverse proxy in front of Dezfil has a body limit of its own, which must allow your largest upload. [Reverse proxy and HTTPS](../self-host/reverse-proxy.md) shows how to set it.
+
+## Layers, tools and images
+
+| What | Limit | At the limit |
+|---|---|---|
+| Features in one layer | **Features drawn per layer** | A points layer draws as tiles. Another layer answers `render_cap_exceeded`. |
+| One layer's answer, as JSON | **Bytes drawn per layer** | A points layer draws as tiles. Another layer answers `render_bytes_exceeded`. |
+| One stage of building a layer's tiles | **Tile build time limit** | The layer answers `tile_build_failed`, naming the time limit |
+| Tools running at once | **Tools running at once** | Later runs wait |
+| Tool runs waiting | **Tools waiting** | 503 `operation_queue_full` |
+| One tool run, waiting not counted | **Time limit per tool run** | 408 `operation_timeout` |
+| Runs of one workflow at once | 1 | 409 `run_in_flight` |
+| Addresses in one geocode run | **Geocode addresses** | 400 `invalid_request` |
+| Origins in one travel-time run | **Travel-time area** | 400 `invalid_request` |
+| One side of an exported image | 4,096 pixels | 400 `invalid_request` |
+| Images rendering at once | **Images at once** | Later images wait |
+| One image, waiting included | **Time limit per image** | 408 `render_timeout` |
+
+A layer that cannot draw still answers 200 from `GET /api/layers/{id}/render`. Its `ok` is `false`, and `error.code` names the limit. The map shows the layer as failed.
+
+Tools running at once share the query engine's memory. **Geocode addresses** and **Travel-time area** show how many one run takes at the current time limits, and grow with **Time limit per tool run**.
+
+## The assistant and agents
+
+| What | Limit | At the limit |
+|---|---|---|
+| One message as sent, with its history and page context | 131,072 bytes (128 KiB) | 413 `assistant_submission_too_large` |
+| The page context in a message | 64 KiB of JSON | 413 `assistant_context_too_large` |
+| What Dezfil tells the model about the page | 96 KiB | Details are left out, then 413 `assistant_context_too_large` |
+| Model and tool steps in one request | **Assistant steps** | The request ends with the event `{"type":"done","reason":"budget"}` |
+| Requests open on the instance | 8 | 409 `assistant_capacity` |
+| One map check, waiting included | **Map check time limit** | The check answers `render_timeout` |
+| A download that a tool answers, over MCP or to the assistant | **Tool attachment size** | 413 `attachment_too_large` |
+| One MCP request, an uploaded file inside it | 16,777,216 bytes (16 MiB) | 413 `request_body_too_large` |
+| One page of the schema catalogue, `GET /api/catalogue/tables` | 96 KiB | 422 `catalogue_too_large` |
+
+**Assistant steps** and **Map check time limit** are in the table of [Set up the assistant](../self-host/assistant.md#assistant-settings), with their variables and defaults; the other settings named here are in the table above.
+
+In the app, a message over its limit shows **The message and its context are too large to send. Shorten the message.** On the **SQL** page, your editor text and a summary of your last run travel with every message, so a long draft counts too.
+
+A request holds one of the eight places from its reservation until it ends. One that waits for your confirmation keeps its place; a reservation nobody uses frees its place after five minutes.
+
+When all eight are taken, the pane says **The assistant is at capacity: eight requests are open on this instance.** `GET /api/assistant/pending` lists your waiting requests, and `DELETE /api/assistant/runs/{id}` frees one.
+
+A detail Dezfil leaves out of what it tells the model comes with the address the model reads it from. When even the names do not fit, the message is refused.
+
+Through MCP, a file travels inside the request as base64, which makes it a third larger. The file must stay under 12 MiB (12,582,912 bytes) less the request's other bytes, and under **Largest upload**.
+
+To upload a bigger file, use **Add data** in the app or `POST /api/tables` over HTTP.
+
+## Request bodies
+
+Every operation that takes a JSON body has a byte limit, and the [API reference](https://dezfil.io/docs/api/reference/) shows each one. An agent reads it from the API description as `x-byte-limit`:
+
+::::tabs
+:::tab[curl]
+```sh title="Terminal"
+curl -s http://localhost:3000/api/openapi.json \
+  -H "Authorization: Bearer <YOUR_TOKEN>" \
+  | jq '.paths["/api/query"].post.requestBody["x-byte-limit"]'
+```
+:::
+:::tab[JavaScript]
+```js title="body-limit.mjs"
+const response = await fetch("http://localhost:3000/api/openapi.json", {
+  headers: { Authorization: "Bearer <YOUR_TOKEN>" },
+});
+const description = await response.json();
+console.log(description.paths["/api/query"].post.requestBody["x-byte-limit"]);
+```
+
+Run it with `node body-limit.mjs`.
+:::
+::::
+
+```text title="Output"
+16777216
+```
+
+| What | Limit | At the limit |
+|---|---|---|
+| A JSON body | The operation's `x-byte-limit` | 413 and the code its `x-byte-error` names: `request_body_too_large`, or `assistant_submission_too_large` for an assistant message |
+| Any body but a file upload, until all of it arrives | 300 seconds | 408 `request_timeout` |
+
+Dezfil counts a body's bytes as they arrive, whitespace and escaping included, and refuses a larger body before it parses it. Nothing changes.
+
+A file upload, `POST /api/tables`, has no byte limit in the description: **Largest upload** holds it.
+
+## Rate limits
+
+Dezfil counts requests in three places: visitors reading published maps, sign-ins, and current-password checks. Other requests, with a token or a session, have no rate limit.
+
+| Who | Limit | At the limit |
+|---|---|---|
+| A visitor reading a published map: its data, widgets and renders | **Requests per visitor**, every 10 seconds | 429 `rate_limited` |
+| A visitor's map tiles | **Tile requests per visitor**, every 10 seconds | 429 `rate_limited` |
+| Failed sign-ins for one account, and from one address | **Failed sign-ins before a pause**, within 15 minutes | 429 `rate_limited`, with `Retry-After` |
+| Wrong current passwords when you change your password or email | The count per account, kept apart from sign-ins | 429 `rate_limited`, with `Retry-After` |
+| Sign-ins and password checks working at once | 2 at a time, and 8 waiting up to 5 seconds each | 503 `authentication_busy`, with `Retry-After: 1` |
+
+The visitor limits are in **Settings** > **Limits**, on the **Public requests** card. The sign-in counts are in **Settings** > **Security**, on the **Sign-in** card, and in [Security and rules](../self-host/configuration/rules.md) with their defaults.
+
+Each visitor is counted by network address, and an IPv6 address with its whole /64. Behind a proxy that `DEZFIL_TRUSTED_PROXIES` does not list, every visitor shares the proxy's count.
+
+A sign-in refusal gives the wait in `retryAfter`, in seconds, and the time in `retryAt`. A visitor's count starts again after its 10 seconds.
+
+An OpenStreetMap import answers `rate_limited` too when the Overpass server refuses it. To avoid the public server's limits, point **Address** on the **OpenStreetMap** card in **Settings** > **Data & services**, or `DEZFIL_OVERPASS_URL`, at your own Overpass server.
+
+## Troubleshooting
+
+### An upload answers 413 with a web page instead of JSON
+
+A reverse proxy refused the upload before it reached Dezfil. Raise the proxy's body limit as [Reverse proxy and HTTPS](../self-host/reverse-proxy.md#uploads-over-1-mb-fail-behind-nginx) shows.
+
+### A row in Settings > Limits has a lock
+
+The server decides it, and the line under the row names the variable that changes it. Change the variable and restart, as [Configuration](../self-host/configuration.md) shows.
+
+### Settings refuses a new Query time limit
+
+**Query time limit** must stay below **Time limit per tool run**. Raise the tool run's limit first, then the query's.
+
+### A geocode or travel-time run is refused as too large
+
+The dataset has more rows than one run takes. Filter it first, or raise **Time limit per tool run**; **Geocode addresses** and **Travel-time area** show the new number.
+
+## Next steps
+
+- [Errors](errors.md): the parts of an error answer, and what to do about each common code.
+- [Configuration](../self-host/configuration.md): set a variable, and see which value wins.
+- [How the API works](http-api.md): sign-in, edit revisions and paging.

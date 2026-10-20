@@ -146,7 +146,7 @@ Each of these is a variable, read when the server starts.
 
 <!-- settings-assistant:end -->
 
-The image renderer the map check uses is on [Storage and programs](configuration/storage.md). The largest file a tool may hand back is on [Limits](../api/limits.md#limits-an-operator-changes).
+The image renderer the map check uses is on [Storage and programs](configuration/storage.md). The largest file a tool may hand back is on [Limits](../api/limits.md#limits-an-operator-changes). The assistant's message and context limits are under [The assistant and agents](../api/limits.md#the-assistant-and-agents).
 
 ## What the provider receives
 

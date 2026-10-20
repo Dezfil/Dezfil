@@ -19,15 +19,18 @@ it("documents all four bounded reader operations with fixed binary-byte ceilings
 });
 
 import { readFileSync } from "node:fs";
-// The SQL result limits have their home on Limits; the four operations'
-// own entries in the operation reference carry them through their
-// descriptions, held above.
+// The SQL result limits have their home on Limits, which names the four
+// reads both as the app shows them and by their MCP tools; the four
+// operations' own entries in the operation reference carry them through
+// their descriptions, held above.
+const READS = ["SQL console", "dataset inspection", "geometry-choice preview", "PostGIS five-row preview"];
+const READ_TOOLS = ["run_sql", "inspect_table", "preview_table_geometry", "preview_postgis_relation"];
 it("keeps the four-reader limits and refusal code in every operator guide", () => {
-  for (const file of ["docs/api/limits.md", "docs/api/mcp.md", "docs/self-host/what-leaves-the-instance.md"]) {
+  for (const [file, readers] of [["docs/api/limits.md", [...READS, ...READ_TOOLS]], ["docs/api/mcp.md", READ_TOOLS], ["docs/self-host/what-leaves-the-instance.md", READS]] as const) {
     const text = readFileSync(file, "utf8");
     expect(text, file).toContain("33,554,432"); expect(text, file).toContain("2,097,152");
     expect(text, file).toContain("query_result_too_large");
-    for (const reader of file === "docs/api/mcp.md" ? ["run_sql", "inspect_table", "preview_table_geometry", "preview_postgis_relation"] : ["SQL console", "dataset inspection", "geometry-choice preview", "PostGIS five-row preview"]) expect(text, file).toContain(reader);
+    for (const reader of readers) expect(text, file).toContain(reader);
   }
 });
 

@@ -1,4 +1,5 @@
 /// <reference types="vite/client" />
+import { execFileSync } from "node:child_process";
 import { mkdtemp, rm } from "node:fs/promises";
 import path from "node:path";
 import { NextRequest } from "next/server";
@@ -174,7 +175,8 @@ export function filledIn(code: string, names: Map<string, unknown>, line: number
 
 /** A shell block's commands, as words: a backslash at a line's end joins
  * the next line, single quotes keep what they hold, double quotes and bare
- * words expand `$NAME`. Any other shell syntax fails. */
+ * words expand `$NAME`, and a bare `|` is a word of its own, the pipe
+ * between two commands. Any other shell syntax fails. */
 export function shellCommands(code: string, environment: Record<string, string>): string[][] {
   const expand = (text: string, at: number): [string, number] => {
     const variable = /^\$\{?([A-Za-z_]\w*)\}?/.exec(text.slice(at));
@@ -205,6 +207,7 @@ export function shellCommands(code: string, environment: Record<string, string>)
         }
         at++;
       } else if (char === "$") { const [value, length] = expand(line, at); word += value; at += length; }
+      else if (char === "|" && word === "" && /^\|(?:\s|$)/.test(line.slice(at))) { words.push(PIPE); started = false; at++; }
       else if ("|&;<>()`\\#".includes(char)) throw new Error(`unsupported shell syntax ${char} in: ${line.trim()}`);
       else { word += char; at++; }
     }
@@ -214,13 +217,30 @@ export function shellCommands(code: string, environment: Record<string, string>)
   return commands;
 }
 
+/** The word a bare `|` becomes: no quoted word can be it. */
+const PIPE = "\0|";
+
 /** What one shell block prints, run as a shell would: `curl`, `export` and
- * `rm` of a file the block wrote, which is all the pages use. */
+ * `rm` of a file the block wrote, which is all the pages use, and a curl
+ * call piped into `jq`, which runs the real jq on what curl printed. */
 export async function runShell(code: string, files: Record<string, string>): Promise<string> {
   const environment: Record<string, string> = {};
   const cookies = new Map<string, string>();
   let printed = "";
-  for (const [command, ...args] of shellCommands(code, environment)) {
+  for (const words of shellCommands(code, environment)) {
+    const stages: string[][] = [[]];
+    for (const word of words) {
+      if (word === PIPE) stages.push([]);
+      else stages.at(-1)!.push(word);
+    }
+    const [[command, ...args], ...piped] = stages;
+    if (piped.length) {
+      if (command !== "curl" || piped.some(([next]) => next !== "jq")) throw new Error(`the runner pipes only curl into jq: ${words.join(" ")}`);
+      let text = await curl(args, cookies, files);
+      for (const [, ...filter] of piped) text = jq(filter, text);
+      printed += text;
+      continue;
+    }
     if (command === "export") {
       for (const assignment of args) {
         const at = assignment.indexOf("=");
@@ -232,6 +252,15 @@ export async function runShell(code: string, files: Record<string, string>): Pro
     else throw new Error(`the runner does not know the command ${command}`);
   }
   return printed;
+}
+
+/** What jq prints for an input, run as the real program. */
+function jq(args: string[], input: string): string {
+  try { return execFileSync("jq", args, { input, encoding: "utf8" }); }
+  catch (error) {
+    const failed = error as NodeJS.ErrnoException & { stderr?: string };
+    throw new Error(failed.code === "ENOENT" ? "the page pipes curl into jq, which is not installed here" : `jq ${args.join(" ")}: ${failed.stderr ?? failed.message}`);
+  }
 }
 
 /** One curl call: what it sends, and what it prints. */
