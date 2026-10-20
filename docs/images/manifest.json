@@ -35,6 +35,74 @@
       }
     },
     {
+      "file": "self-host/users-list.dark.webp",
+      "scene": "users-list",
+      "kind": "picture",
+      "theme": "dark",
+      "version": "0.1.0",
+      "date": "2026-10-20",
+      "width": 2736,
+      "height": 1152,
+      "bytes": 52496,
+      "crop": {
+        "x": 72,
+        "y": 62,
+        "width": 1368,
+        "height": 576
+      }
+    },
+    {
+      "file": "self-host/users-list.webp",
+      "scene": "users-list",
+      "kind": "picture",
+      "theme": "light",
+      "version": "0.1.0",
+      "date": "2026-10-20",
+      "width": 2736,
+      "height": 1152,
+      "bytes": 63854,
+      "crop": {
+        "x": 72,
+        "y": 62,
+        "width": 1368,
+        "height": 576
+      }
+    },
+    {
+      "file": "self-host/what-leaves-the-instance-data-services.dark.webp",
+      "scene": "what-leaves-the-instance-data-services",
+      "kind": "picture",
+      "theme": "dark",
+      "version": "0.1.0",
+      "date": "2026-10-20",
+      "width": 1704,
+      "height": 1310,
+      "bytes": 35284,
+      "crop": {
+        "x": 332,
+        "y": 123,
+        "width": 852,
+        "height": 655
+      }
+    },
+    {
+      "file": "self-host/what-leaves-the-instance-data-services.webp",
+      "scene": "what-leaves-the-instance-data-services",
+      "kind": "picture",
+      "theme": "light",
+      "version": "0.1.0",
+      "date": "2026-10-20",
+      "width": 1704,
+      "height": 1310,
+      "bytes": 40448,
+      "crop": {
+        "x": 332,
+        "y": 123,
+        "width": 852,
+        "height": 655
+      }
+    },
+    {
       "file": "start/first-map-add-layer.dark.webp",
       "scene": "first-map-add-layer",
       "kind": "picture",
