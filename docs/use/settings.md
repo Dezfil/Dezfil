@@ -113,6 +113,8 @@ Your other browser sessions end, so those browsers ask you to sign in again. You
 | Light or dark | The theme button in the top bar | In this browser only |
 | Name, email and password | **Settings** › **Account** | With your account |
 
+Your SQL draft and query history stay in each browser too, as [Query with SQL](sql.md) explains.
+
 ## Troubleshooting
 
 **"Enter your current password to change your email." shows under the password field.** You changed **Email**. Type your password in **Current password to change email**, then click **Save**.
@@ -132,4 +134,4 @@ Your other browser sessions end, so those browsers ask you to sign in again. You
 ## Next steps
 
 - Query your datasets and other people's: [Query with SQL](sql.md).
-- Read and change the same preferences from a script with `GET /api/settings` and `PATCH /api/settings`: [How the API works](../api/http-api.md).
+- Read and change the same preferences from a script with `GET /api/settings` and `PATCH /api/settings`: [How the API works](../api/http-api.md#resource-families).
