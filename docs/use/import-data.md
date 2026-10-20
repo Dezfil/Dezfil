@@ -164,6 +164,8 @@ An upload cannot be refreshed. Upload the new version instead: it lands beside t
 
 **"The requested address is not reachable from this server".** Dezfil blocks loopback, private-network, link-local and metadata addresses, such as a database on your own network. An operator allows a host with `DEZFIL_EGRESS_ALLOWLIST`: see [Configuration](../self-host/configuration.md).
 
+**Overture Maps Places with a Category answer "An unexpected server error occurred."** Choose **Any category**, then keep the category you want in **SQL**, such as `WHERE category = 'restaurant'`.
+
 **The connection says "PostGIS not installed: only attribute tables can be imported".** Its tables import without geometry. Install the PostGIS extension in the database, then click **Test now** on the connection's page.
 
 ## Next steps
