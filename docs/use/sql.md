@@ -224,6 +224,8 @@ To let an agent call these tools, see [Connect an AI agent](../api/mcp.md).
 
 **The result shows `query_timeout`.** The query ran past your instance's time limit. Narrow it with `WHERE` or `LIMIT`, or ask an admin to raise **Query time limit** in **Settings** › **Limits**.
 
+**The result shows `query_memory_exceeded`.** The query needed more memory than your instance gives all queries together. Narrow it with `WHERE`, or select fewer columns. Whoever runs the instance can give queries more memory.
+
 **The result shows `query_result_too_large`.** The answer is too big to show, so the workspace offers no way to keep it. Select fewer columns or rows. To download every row anyway, call `POST /api/query/export` from [a script](#from-a-script-or-an-ai-agent).
 
 **Save as dataset says a table with that name already exists.** Dezfil never replaces a dataset when you save. Choose another name.
