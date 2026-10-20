@@ -13,15 +13,11 @@ checked: none
 order: 1
 ---
 
-- **You need:** a running Dezfil and an account on it. If you have neither, follow [Install](../start/install.md) first.
+- **You need:** a running Dezfil and an account on it. To run Dezfil yourself, follow [Install](../start/install.md) first. On an instance someone else runs, ask its admin for an account.
 - **Data:** the 48 cities of [Your first map](../start/first-map.md#1-save-the-cities), saved as `world-cities.csv` in the folder you run the examples from.
 - **Tools:** curl, or Node.js 24 or later. Save a JavaScript tab under the name in its title and run it with `node`, such as `node list-maps.mjs`.
 
-The examples call `http://localhost:3000`. For another address, change it in each call.
-
-In each call, replace `<YOUR_TOKEN>` with your token, and a value such as `<MAP_ID>` with the one an answer before it gave you.
-
-Each answer is shown spread over lines, much as the JavaScript tabs print it; curl prints it on one line. A `...` stands for fields left out.
+The examples call `http://localhost:3000`; change the address if yours differs. Replace `<YOUR_TOKEN>` with your token, and a value such as `<MAP_ID>` with the one an answer before it gave. Answers are spread over lines, though curl prints each on one, and `...` stands for fields left out.
 
 ## Step 1: Create a token
 
@@ -87,7 +83,7 @@ console.log(JSON.stringify(await response.json(), null, 2));
 
 - `secret` is your token, the `<YOUR_TOKEN>` of the calls below. It begins with `dz_token_`, and no other answer shows it.
 - `Origin` names the instance's own address. Dezfil refuses a sign-in, or a change sent with a session cookie, unless it does, so another website can't act with your session.
-- `expiresAt` stays `null` unless an admin sets **New tokens expire after** in **Settings** > **Security**.
+- `expiresAt` stays `null` unless an admin sets **New tokens expire after** in **Settings** › **Security**, as [Security and rules](../self-host/configuration/rules.md) describes.
 - `-c cookies.txt` keeps the session cookie of the sign-in, whose own answer `-o /dev/null` drops, and `-b cookies.txt` sends it back. `rm cookies.txt` deletes it.
 
 ## Step 2: List your maps
@@ -114,7 +110,7 @@ console.log(JSON.stringify(await response.json(), null, 2));
 ```
 
 - `Authorization: Bearer` carries the token. Every call below sends it, and acts as your account.
-- A new account has no maps, so the list is empty. Later it holds every map you reach: your own, and those in projects shared with you.
+- A new account has no maps, so the list is empty. If you made Your first map with this account, it lists that map. Later it holds every map you reach: your own, and those in projects shared with you.
 
 ## Step 3: Upload a CSV
 
@@ -160,7 +156,7 @@ console.log(JSON.stringify(await response.json(), null, 2));
 ```
 
 - `file` is the one form field an upload takes. To upload several files, send one request for each.
-- The dataset takes its name from the file: `world-cities.csv` becomes `world_cities`. Upload the same file again and the copy is `world_cities_2`.
+- The dataset takes its name from the file: `world-cities.csv` becomes `world_cities`. If you already have one, such as Your first map's, the new one is `world_cities_2`.
 - Dezfil reads the `latitude` and `longitude` columns as each city's position, and stores the points in a new `geometry` column.
 
 ## Step 4: Run SQL
@@ -209,7 +205,7 @@ console.log(JSON.stringify(await response.json(), null, 2));
 }
 ```
 
-- `sql` holds one read-only `SELECT` over your datasets.
+- `sql` holds one read-only `SELECT` over your datasets. [Query with SQL](../use/sql.md) shows what it can do.
 - `rowCount` counts every row of the result. `preview` holds the first rows, and `previewTruncated` is `true` when some were left out. [Limits](limits.md) gives the preview's size.
 - `population` arrives as text: `BIGINT` numbers travel as strings, so no digit is lost.
 - `runtimeMs` is how long the query took, so yours differs.
@@ -254,7 +250,7 @@ console.log(JSON.stringify(await response.json(), null, 2));
 }
 ```
 
-The `editRevision` names this state of the map. Each change to the map sends the newest one in the `X-Edit-Revision` header, and answers with the next.
+The `editRevision` names this state of the map. Each change to the map sends the newest one in the `X-Edit-Revision` header, and answers with the next. [Edit with revisions](http-api.md#edit-with-revisions) has the rules.
 
 Add a layer of the cities with more than 10 million people, using the map's `id` and `editRevision`:
 
@@ -363,11 +359,11 @@ The answer says "Read this item first, then send its editRevision in X-Edit-Revi
 
 ### A change answers 409 `stale_revision`
 
-The map changed after the answer your revision came from, for example in the builder. Nothing was changed. Read the map with `GET /api/maps/<MAP_ID>`, see what changed, then make your change again with that answer's `editRevision`.
+The map changed after the answer your revision came from, for example in the builder. Nothing was changed. Read the map with `GET /api/maps/<MAP_ID>`, see what changed, then make your change again with that answer's `editRevision`, as [Edit with revisions](http-api.md#edit-with-revisions) shows.
 
 ### Creating a token or publishing answers 403 `rule_refused`
 
-A rule an admin sets leaves your account out: only admins may do this or, for publishing, no one. The answer's `rule` field names the rule. An admin changes it in **Settings**: **Who may create tokens** under **Security**, **Who may publish** under **Publishing**.
+A rule an admin sets leaves your account out: only admins may do this or, for publishing, no one. The answer's `rule` field names the rule. An admin changes it in **Settings**: **Who may create tokens** under **Security**, **Who may publish** under **Publishing**. [Security and rules](../self-host/configuration/rules.md) lists both.
 
 ## Next steps
 
