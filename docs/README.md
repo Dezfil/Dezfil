@@ -11,11 +11,23 @@ change the pages, then regenerate it.
 
 What Dezfil is, how to install it, and your first map.
 
-- [Run it](start/install.md)
+- [What Dezfil is](start/what-is-dezfil.md)
+  - path: `docs/start/what-is-dezfil.md`
+  - summary: See what you can do with Dezfil, what each of its main screens is for, and how an instance runs and keeps your data.
+  - read when: you want to know what Dezfil does before you install it; you want to see the main screens and what each one is for; you want to know how Dezfil runs and where it keeps your data; you want to script Dezfil or connect an AI agent to it; you want to know Dezfil's licence
+  - audience: user, operator, developer, agent
+
+- [Install](start/install.md)
   - path: `docs/start/install.md`
-  - summary: The two ways to run Dezfil, where everything it stores lives, and the first-run setup that creates the admin account.
-  - read when: you run Dezfil for the first time; you choose between the container and a development checkout; you back up or move an instance's data
-  - audience: user, operator
+  - summary: Install Dezfil with Docker, Docker Compose or from source, create the admin account, and keep the instance running day to day.
+  - read when: you want Dezfil running on your computer or a server; you choose between Docker, Docker Compose and a development checkout; you create the first admin account; you stop, start, upgrade, back up or check a running instance
+  - audience: user, operator, developer
+
+- [Your first map](start/first-map.md)
+  - path: `docs/start/first-map.md`
+  - summary: Upload a CSV of world cities, put it on a new map, color the points by population and publish the map as a link.
+  - read when: you have just installed Dezfil and want to build something; you want to turn a CSV with latitude and longitude columns into points on a map; you want to color points by a column and show a legend; you want to share a map as a link
+  - audience: user
 
 ## Use Dezfil
 

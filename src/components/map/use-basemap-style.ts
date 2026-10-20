@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type * as maplibregl from "maplibre-gl";
+import { attachIdleStamp } from "./idle-stamp";
 import { createPaintedStyleStamp } from "./painted-style";
 
 /** A plain-background style shown while/if basemap tiles are unreachable —
@@ -103,6 +104,9 @@ export function useBasemapStyle(
       instance.getContainer(),
       basemapUrlRef.current,
     );
+    // And whether the map is at rest, its tiles loaded: the painted
+    // stamp alone says the style arrived, not that it is drawn.
+    attachIdleStamp(instance, instance.getContainer());
     instance.on("style.load", (event) => {
       // The fallback's own load must not clear a pending real failure.
       const fallback = isFallbackStyle(instance.getStyle() ?? {});

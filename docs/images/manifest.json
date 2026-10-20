@@ -1,15 +1,139 @@
 {
   "rows": [
     {
+      "file": "start/first-map-add-layer.dark.webp",
+      "scene": "first-map-add-layer",
+      "kind": "picture",
+      "theme": "dark",
+      "version": "0.1.0",
+      "date": "2026-10-20",
+      "width": 1536,
+      "height": 1296,
+      "bytes": 47436,
+      "crop": {
+        "x": 336,
+        "y": 126,
+        "width": 768,
+        "height": 648
+      }
+    },
+    {
+      "file": "start/first-map-add-layer.webp",
+      "scene": "first-map-add-layer",
+      "kind": "picture",
+      "theme": "light",
+      "version": "0.1.0",
+      "date": "2026-10-20",
+      "width": 1536,
+      "height": 1296,
+      "bytes": 47708,
+      "crop": {
+        "x": 336,
+        "y": 126,
+        "width": 768,
+        "height": 648
+      }
+    },
+    {
+      "file": "start/first-map-finished.dark.webp",
+      "scene": "first-map-finished",
+      "kind": "picture",
+      "theme": "dark",
+      "version": "0.1.0",
+      "date": "2026-10-20",
+      "width": 2880,
+      "height": 1800,
+      "bytes": 132130
+    },
+    {
+      "file": "start/first-map-finished.webp",
+      "scene": "first-map-finished",
+      "kind": "picture",
+      "theme": "light",
+      "version": "0.1.0",
+      "date": "2026-10-20",
+      "width": 2880,
+      "height": 1800,
+      "bytes": 160656
+    },
+    {
+      "file": "start/first-map-publish.dark.webp",
+      "scene": "first-map-publish",
+      "kind": "picture",
+      "theme": "dark",
+      "version": "0.1.0",
+      "date": "2026-10-20",
+      "width": 1112,
+      "height": 432,
+      "bytes": 15012,
+      "crop": {
+        "x": 884,
+        "y": 0,
+        "width": 556,
+        "height": 216
+      }
+    },
+    {
+      "file": "start/first-map-publish.webp",
+      "scene": "first-map-publish",
+      "kind": "picture",
+      "theme": "light",
+      "version": "0.1.0",
+      "date": "2026-10-20",
+      "width": 1112,
+      "height": 432,
+      "bytes": 17760,
+      "crop": {
+        "x": 884,
+        "y": 0,
+        "width": 556,
+        "height": 216
+      }
+    },
+    {
+      "file": "start/first-map-style.dark.webp",
+      "scene": "first-map-style",
+      "kind": "picture",
+      "theme": "dark",
+      "version": "0.1.0",
+      "date": "2026-10-20",
+      "width": 672,
+      "height": 956,
+      "bytes": 28182,
+      "crop": {
+        "x": 85,
+        "y": 420,
+        "width": 336,
+        "height": 478
+      }
+    },
+    {
+      "file": "start/first-map-style.webp",
+      "scene": "first-map-style",
+      "kind": "picture",
+      "theme": "light",
+      "version": "0.1.0",
+      "date": "2026-10-20",
+      "width": 672,
+      "height": 956,
+      "bytes": 28286,
+      "crop": {
+        "x": 85,
+        "y": 420,
+        "width": 336,
+        "height": 478
+      }
+    },
+    {
       "file": "start/setup-card.dark.webp",
       "scene": "setup-card",
       "kind": "picture",
       "theme": "dark",
       "version": "0.1.0",
-      "date": "2026-10-18",
+      "date": "2026-10-20",
       "width": 874,
       "height": 912,
-      "bytes": 18788,
+      "bytes": 15448,
       "crop": {
         "x": 804,
         "y": 195,
@@ -23,10 +147,10 @@
       "kind": "picture",
       "theme": "light",
       "version": "0.1.0",
-      "date": "2026-10-17",
+      "date": "2026-10-20",
       "width": 874,
       "height": 912,
-      "bytes": 17930,
+      "bytes": 14512,
       "crop": {
         "x": 804,
         "y": 195,
@@ -35,15 +159,149 @@
       }
     },
     {
+      "file": "start/what-is-dezfil-data.dark.webp",
+      "scene": "what-is-dezfil-data",
+      "kind": "picture",
+      "theme": "dark",
+      "version": "0.1.0",
+      "date": "2026-10-20",
+      "width": 2880,
+      "height": 1800,
+      "bytes": 130802
+    },
+    {
+      "file": "start/what-is-dezfil-data.webp",
+      "scene": "what-is-dezfil-data",
+      "kind": "picture",
+      "theme": "light",
+      "version": "0.1.0",
+      "date": "2026-10-20",
+      "width": 2880,
+      "height": 1800,
+      "bytes": 155580
+    },
+    {
+      "file": "start/what-is-dezfil-home.dark.webp",
+      "scene": "what-is-dezfil-home",
+      "kind": "picture",
+      "theme": "dark",
+      "version": "0.1.0",
+      "date": "2026-10-20",
+      "width": 2736,
+      "height": 780,
+      "bytes": 112266,
+      "crop": {
+        "x": 72,
+        "y": 120,
+        "width": 1368,
+        "height": 390
+      }
+    },
+    {
+      "file": "start/what-is-dezfil-home.webp",
+      "scene": "what-is-dezfil-home",
+      "kind": "picture",
+      "theme": "light",
+      "version": "0.1.0",
+      "date": "2026-10-20",
+      "width": 2736,
+      "height": 780,
+      "bytes": 120286,
+      "crop": {
+        "x": 72,
+        "y": 120,
+        "width": 1368,
+        "height": 390
+      }
+    },
+    {
+      "file": "start/what-is-dezfil-maps.dark.webp",
+      "scene": "what-is-dezfil-maps",
+      "kind": "picture",
+      "theme": "dark",
+      "version": "0.1.0",
+      "date": "2026-10-20",
+      "width": 2880,
+      "height": 1460,
+      "bytes": 161954,
+      "crop": {
+        "x": 0,
+        "y": 74,
+        "width": 1440,
+        "height": 730
+      }
+    },
+    {
+      "file": "start/what-is-dezfil-maps.webp",
+      "scene": "what-is-dezfil-maps",
+      "kind": "picture",
+      "theme": "light",
+      "version": "0.1.0",
+      "date": "2026-10-20",
+      "width": 2880,
+      "height": 1460,
+      "bytes": 195760,
+      "crop": {
+        "x": 0,
+        "y": 74,
+        "width": 1440,
+        "height": 730
+      }
+    },
+    {
+      "file": "start/what-is-dezfil-sql.dark.webp",
+      "scene": "what-is-dezfil-sql",
+      "kind": "picture",
+      "theme": "dark",
+      "version": "0.1.0",
+      "date": "2026-10-20",
+      "width": 2880,
+      "height": 1800,
+      "bytes": 123112
+    },
+    {
+      "file": "start/what-is-dezfil-sql.webp",
+      "scene": "what-is-dezfil-sql",
+      "kind": "picture",
+      "theme": "light",
+      "version": "0.1.0",
+      "date": "2026-10-20",
+      "width": 2880,
+      "height": 1800,
+      "bytes": 128950
+    },
+    {
+      "file": "start/what-is-dezfil-workflow.dark.webp",
+      "scene": "what-is-dezfil-workflow",
+      "kind": "picture",
+      "theme": "dark",
+      "version": "0.1.0",
+      "date": "2026-10-20",
+      "width": 2880,
+      "height": 1800,
+      "bytes": 162554
+    },
+    {
+      "file": "start/what-is-dezfil-workflow.webp",
+      "scene": "what-is-dezfil-workflow",
+      "kind": "picture",
+      "theme": "light",
+      "version": "0.1.0",
+      "date": "2026-10-20",
+      "width": 2880,
+      "height": 1800,
+      "bytes": 137408
+    },
+    {
       "file": "use/templates-search-poster.dark.webp",
       "scene": "templates-search",
       "kind": "picture",
       "theme": "dark",
       "version": "0.1.0",
-      "date": "2026-10-18",
+      "date": "2026-10-20",
       "width": 2880,
       "height": 1800,
-      "bytes": 154154
+      "bytes": 151642
     },
     {
       "file": "use/templates-search-poster.webp",
@@ -51,10 +309,10 @@
       "kind": "picture",
       "theme": "light",
       "version": "0.1.0",
-      "date": "2026-10-18",
+      "date": "2026-10-20",
       "width": 2880,
       "height": 1800,
-      "bytes": 195524
+      "bytes": 195462
     },
     {
       "file": "use/templates-search.dark.webm",
@@ -62,10 +320,10 @@
       "kind": "recording",
       "theme": "dark",
       "version": "0.1.0",
-      "date": "2026-10-18",
+      "date": "2026-10-20",
       "width": 2880,
       "height": 1800,
-      "bytes": 414928,
+      "bytes": 406313,
       "length": 5,
       "poster": "use/templates-search-poster.dark.webp"
     },
@@ -75,10 +333,10 @@
       "kind": "recording",
       "theme": "light",
       "version": "0.1.0",
-      "date": "2026-10-18",
+      "date": "2026-10-20",
       "width": 2880,
       "height": 1800,
-      "bytes": 418812,
+      "bytes": 420806,
       "length": 5,
       "poster": "use/templates-search-poster.webp"
     },
@@ -88,10 +346,10 @@
       "kind": "picture",
       "theme": "dark",
       "version": "0.1.0",
-      "date": "2026-10-18",
+      "date": "2026-10-20",
       "width": 2880,
       "height": 1800,
-      "bytes": 154154
+      "bytes": 151642
     },
     {
       "file": "use/templates.webp",
@@ -99,10 +357,10 @@
       "kind": "picture",
       "theme": "light",
       "version": "0.1.0",
-      "date": "2026-10-18",
+      "date": "2026-10-20",
       "width": 2880,
       "height": 1800,
-      "bytes": 195524
+      "bytes": 195462
     }
   ]
 }
