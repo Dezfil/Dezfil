@@ -89,7 +89,7 @@ it("rejects stale actor guidance in the actual reader", () => {
   expect(checkContractDocs(document, tools, api)).toContain("API actor guidance omits the deleted variant");
 });
 it.each([["api", "API"], ["mcp", "MCP"]] as const)("rejects a %s guide that stops saying a change's author can be a deleted account", (key, label) => {
-  const seeded = { ...docs, [key]: docs[key].replace(/A change's author can be a deleted account, and then no name\s+is\s+kept\./, "No name is kept.") };
+  const seeded = { ...docs, [key]: docs[key].replace(/A\s+change's\s+author\s+can\s+be\s+a\s+deleted\s+account,\s+and\s+then\s+no\s+name\s+is\s+kept\./, "No name is kept.") };
   expect(seeded[key]).not.toBe(docs[key]);
   expect(checkContractDocs(document, tools, seeded)).toEqual([`${label} guide omits that a change's author can be a deleted account`]);
 });
