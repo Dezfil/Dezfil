@@ -67,6 +67,8 @@ To delete a dataset, for example, the card says "This deletes the dataset and it
 
 While a card waits, you cannot type in the box. Click **Stop** to end the whole request instead.
 
+**Undo** in the top bar takes back only changes to a map. A dataset the assistant deleted, for example, stays deleted. To try a card without changing anything, click **Cancel**.
+
 The assistant asks before it:
 
 | Area | Actions |
@@ -107,7 +109,7 @@ On the SQL page the assistant only reads. To have it change a map or a dataset, 
 4. Click a tool's tile on the canvas. You should see the **Node** chip and **Explain this node** above the box. A source or a note gives no **Node** chip.
 5. Click **Explain this node**. It sends those words as your message, and the reply explains what the node does.
 
-After a run you start or watch on this page, the **Last run** chip shows its outcome and, in an empty conversation, **Diagnose the last run** appears above the box. An earlier run counts for neither.
+After a run you start or watch on this page, the **Last run** chip shows its outcome and, in an empty conversation, **Diagnose the last run** appears above the box. An earlier run counts for neither: to ask about a run that failed before you opened the page, run the workflow again here.
 
 On a workflow the assistant only reads: it explains nodes and runs but does not edit or run the workflow. [Workflows](workflows.md) covers building and running one.
 
