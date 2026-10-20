@@ -52265,7 +52265,7 @@
             ],
             "minimum": 60,
             "maximum": 21600,
-            "description": "Data processing time limit. Admitted budget for upload reception and trusted data processing, separately. Null clears the stored value."
+            "description": "Data processing time limit. Time to receive one upload, and, counted apart, time for one data processing job, such as an import. Null clears the stored value."
           },
           "remoteMaxMb": {
             "type": [
@@ -52283,7 +52283,7 @@
             ],
             "minimum": 10,
             "maximum": 3600,
-            "description": "Link import time limit. Budget for the complete remote exchange, including the body. Null clears the stored value."
+            "description": "Link import time limit. Time for one link import's whole download. Null clears the stored value."
           },
           "overtureMaxKm2": {
             "type": [
@@ -52292,7 +52292,7 @@
             ],
             "minimum": 1,
             "maximum": 1000000,
-            "description": "Overture area. Places area budget; other themes scale by density. Null clears the stored value."
+            "description": "Overture area. The largest area one Overture import of places may cover; other themes may cover more or less, by how dense they are. Null clears the stored value."
           },
           "osmMaxKm2": {
             "type": [
@@ -52301,7 +52301,7 @@
             ],
             "minimum": 1,
             "maximum": 1000000,
-            "description": "OpenStreetMap area. Area budget for one OpenStreetMap import. Null clears the stored value."
+            "description": "OpenStreetMap area. The largest area one OpenStreetMap import may cover. Null clears the stored value."
           },
           "overpassTimeoutS": {
             "type": [
@@ -52328,7 +52328,7 @@
             ],
             "minimum": 5,
             "maximum": 600,
-            "description": "Query time limit. Admitted budget for user SQL and interactive trusted reads. Null clears the stored value."
+            "description": "Query time limit. Time for one query, whether the SQL people run, a layer, an inspection, a preview or a published map. Null clears the stored value."
           },
           "previewRows": {
             "type": [
@@ -52346,7 +52346,7 @@
             ],
             "minimum": 10,
             "maximum": 300,
-            "description": "Time limit per image. Image-render budget including queue wait. Null clears the stored value."
+            "description": "Time limit per image. Time for one image, its wait for a turn included. Null clears the stored value."
           },
           "exportRenderConcurrency": {
             "type": [
@@ -52355,7 +52355,7 @@
             ],
             "minimum": 1,
             "maximum": 8,
-            "description": "Images at once. Concurrent server image renders. Null clears the stored value."
+            "description": "Images at once. Images the server draws at the same time. Null clears the stored value."
           },
           "geocodePaceMs": {
             "type": [
@@ -52418,7 +52418,7 @@
             ],
             "minimum": 30,
             "maximum": 7200,
-            "description": "Time limit per run. Execution budget for a geospatial operation, excluding queue wait. Null clears the stored value."
+            "description": "Time limit per run. Time for one tool run, not counting its wait for a turn. Null clears the stored value."
           },
           "operationConcurrency": {
             "type": [
@@ -52427,7 +52427,7 @@
             ],
             "minimum": 1,
             "maximum": 8,
-            "description": "Operation runs at once. Concurrent geospatial operations sharing the hardened engine. Null clears the stored value."
+            "description": "Operation runs at once. Tool runs at the same time; they share the engine that runs people's SQL. Null clears the stored value."
           },
           "operationQueueMax": {
             "type": [
@@ -52436,7 +52436,7 @@
             ],
             "minimum": 1,
             "maximum": 200,
-            "description": "Operation runs waiting. Maximum waiting geospatial operations. Null clears the stored value."
+            "description": "Operation runs waiting. Tool runs that may wait for a turn. Null clears the stored value."
           },
           "publicRateLimit": {
             "type": [
@@ -52445,7 +52445,7 @@
             ],
             "minimum": 1,
             "maximum": 10000,
-            "description": "Requests per source. Anonymous published reads per verified source across publication tokens. Null clears the stored value."
+            "description": "Requests per source. Requests one visitor may make to published maps, counted by network address across every published map. Null clears the stored value."
           },
           "publicTileRateLimit": {
             "type": [
@@ -52454,7 +52454,7 @@
             ],
             "minimum": 1,
             "maximum": 100000,
-            "description": "Tile requests per source. Anonymous tile reads per verified source across publication tokens. Null clears the stored value."
+            "description": "Tile requests per source. Tile requests one visitor may make to published maps, counted by network address across every published map. Null clears the stored value."
           },
           "s3Endpoint": {
             "type": [
@@ -52462,7 +52462,7 @@
               "null"
             ],
             "pattern": "^\\s*[Hh][Tt][Tt][Pp][Ss]?://[^/\\\\?#\\s]",
-            "description": "S3 endpoint. Custom S3-compatible endpoint for anonymous imports. Null clears the stored value. An http or https address with a host, at most 2048 characters once trimmed, kept as given. Write-only: it is stored encrypted with the instance's key and every read gives back its scheme and host alone, so a new key means sending the whole address again. A set DEZFIL_S3_ENDPOINT locks it."
+            "description": "S3 endpoint. The S3-compatible store that s3:// links are read from without the server's credentials. Null clears the stored value. An http or https address with a host, at most 2048 characters once trimmed, kept as given. Write-only: it is stored encrypted with the instance's key and every read gives back its scheme and host alone, so a new key means sending the whole address again. A set DEZFIL_S3_ENDPOINT locks it."
           },
           "overpassUrl": {
             "type": [
@@ -52510,7 +52510,7 @@
               "null"
             ],
             "pattern": "^\\s*[Hh][Tt][Tt][Pp][Ss]?://[^/\\\\?#\\s]",
-            "description": "Catalogue address. Where the template catalogue's index is read; the variable may name a folder on the server instead. Null clears the stored value. An http or https address with a host, at most 2048 characters once trimmed, kept as given. Write-only: it is stored encrypted with the instance's key and every read gives back its scheme and host alone, so a new key means sending the whole address again. A set DEZFIL_TEMPLATES_CATALOGUE locks it. Only DEZFIL_TEMPLATES_CATALOGUE may name a folder on the server instead; a folder is never taken here."
+            "description": "Catalogue address. Where the template catalogue's index is read. Null clears the stored value. An http or https address with a host, at most 2048 characters once trimmed, kept as given. Write-only: it is stored encrypted with the instance's key and every read gives back its scheme and host alone, so a new key means sending the whole address again. A set DEZFIL_TEMPLATES_CATALOGUE locks it. Only DEZFIL_TEMPLATES_CATALOGUE may name a folder on the server instead; a folder is never taken here."
           },
           "instanceName": {
             "type": [
@@ -53104,7 +53104,7 @@
                     "const": "Data processing time limit"
                   },
                   "purpose": {
-                    "const": "Admitted budget for upload reception and trusted data processing, separately."
+                    "const": "Time to receive one upload, and, counted apart, time for one data processing job, such as an import."
                   },
                   "defaultValue": {
                     "const": 3600
@@ -53392,7 +53392,7 @@
                     "const": "Link import time limit"
                   },
                   "purpose": {
-                    "const": "Budget for the complete remote exchange, including the body."
+                    "const": "Time for one link import's whole download."
                   },
                   "defaultValue": {
                     "const": 300
@@ -53536,7 +53536,7 @@
                     "const": "Overture area"
                   },
                   "purpose": {
-                    "const": "Places area budget; other themes scale by density."
+                    "const": "The largest area one Overture import of places may cover; other themes may cover more or less, by how dense they are."
                   },
                   "defaultValue": {
                     "const": 25000
@@ -53680,7 +53680,7 @@
                     "const": "OpenStreetMap area"
                   },
                   "purpose": {
-                    "const": "Area budget for one OpenStreetMap import."
+                    "const": "The largest area one OpenStreetMap import may cover."
                   },
                   "defaultValue": {
                     "const": 10000
@@ -54338,7 +54338,7 @@
                     "const": "Query time limit"
                   },
                   "purpose": {
-                    "const": "Admitted budget for user SQL and interactive trusted reads."
+                    "const": "Time for one query, whether the SQL people run, a layer, an inspection, a preview or a published map."
                   },
                   "defaultValue": {
                     "const": 60
@@ -54482,7 +54482,7 @@
                     "const": "Engine memory"
                   },
                   "purpose": {
-                    "const": "Shared memory budget of the hardened query instance."
+                    "const": "Memory the engine that runs people's SQL may use, shared by every query."
                   },
                   "defaultValue": {
                     "const": 2048
@@ -54595,7 +54595,7 @@
                     "const": "Trusted engine memory"
                   },
                   "purpose": {
-                    "const": "Shared memory budget of the trusted engine; scratch allowance is four times this value."
+                    "const": "Memory the engine that imports and processes data may use; it may spill up to four times this to disk."
                   },
                   "defaultValue": {
                     "const": 3072
@@ -54852,7 +54852,7 @@
                     "const": "Features drawn per layer"
                   },
                   "purpose": {
-                    "const": "Feature cap for rendering and the point-layer tile threshold."
+                    "const": "The most features a layer draws, and the count past which a points layer is drawn from tiles."
                   },
                   "defaultValue": {
                     "const": 250000
@@ -54965,7 +54965,7 @@
                     "const": "Bytes drawn per layer"
                   },
                   "purpose": {
-                    "const": "Complete uncompressed UTF-8 JSON byte ceiling for each inline layer answer."
+                    "const": "The largest answer one layer may draw from, in bytes of uncompressed JSON."
                   },
                   "defaultValue": {
                     "const": 134217728
@@ -55417,7 +55417,7 @@
                     "const": "Time limit per image"
                   },
                   "purpose": {
-                    "const": "Image-render budget including queue wait."
+                    "const": "Time for one image, its wait for a turn included."
                   },
                   "defaultValue": {
                     "const": 90
@@ -55674,7 +55674,7 @@
                     "const": "Images at once"
                   },
                   "purpose": {
-                    "const": "Concurrent server image renders."
+                    "const": "Images the server draws at the same time."
                   },
                   "defaultValue": {
                     "const": 2
@@ -55818,7 +55818,7 @@
                     "const": "Tool attachment size"
                   },
                   "purpose": {
-                    "const": "Maximum download carried in a tool's base64 envelope."
+                    "const": "The largest file a tool hands back to the assistant or an agent, such as an exported image."
                   },
                   "defaultValue": {
                     "const": 32
@@ -56044,7 +56044,7 @@
                     "const": "Map check time limit"
                   },
                   "purpose": {
-                    "const": "Budget for an assistant map check, including queue wait."
+                    "const": "Time for one of the assistant's map checks, its wait for a turn included."
                   },
                   "defaultValue": {
                     "const": 30
@@ -56157,7 +56157,7 @@
                     "const": "Retained map checks"
                   },
                   "purpose": {
-                    "const": "Full images and thumbnails retained in process."
+                    "const": "Map check pictures kept in memory, oldest dropped first; a restart clears them."
                   },
                   "defaultValue": {
                     "const": 256
@@ -56270,7 +56270,7 @@
                     "const": "Map check storage"
                   },
                   "purpose": {
-                    "const": "Byte budget for retained map checks."
+                    "const": "Memory the kept map check pictures may take."
                   },
                   "defaultValue": {
                     "const": 96
@@ -57586,7 +57586,7 @@
                     "const": "Time limit per run"
                   },
                   "purpose": {
-                    "const": "Execution budget for a geospatial operation, excluding queue wait."
+                    "const": "Time for one tool run, not counting its wait for a turn."
                   },
                   "defaultValue": {
                     "const": 600
@@ -57730,7 +57730,7 @@
                     "const": "Operation runs at once"
                   },
                   "purpose": {
-                    "const": "Concurrent geospatial operations sharing the hardened engine."
+                    "const": "Tool runs at the same time; they share the engine that runs people's SQL."
                   },
                   "defaultValue": {
                     "const": 1
@@ -57874,7 +57874,7 @@
                     "const": "Operation runs waiting"
                   },
                   "purpose": {
-                    "const": "Maximum waiting geospatial operations."
+                    "const": "Tool runs that may wait for a turn."
                   },
                   "defaultValue": {
                     "const": 20
@@ -58018,7 +58018,7 @@
                     "const": "Run history depth"
                   },
                   "purpose": {
-                    "const": "Runs retained per subject, including its most recent success."
+                    "const": "Runs kept in each run history, such as a workflow step's; its latest success is always kept."
                   },
                   "defaultValue": {
                     "const": 20
@@ -58131,7 +58131,7 @@
                     "const": "Requests per source"
                   },
                   "purpose": {
-                    "const": "Anonymous published reads per verified source across publication tokens."
+                    "const": "Requests one visitor may make to published maps, counted by network address across every published map."
                   },
                   "defaultValue": {
                     "const": 60
@@ -58275,7 +58275,7 @@
                     "const": "Tile requests per source"
                   },
                   "purpose": {
-                    "const": "Anonymous tile reads per verified source across publication tokens."
+                    "const": "Tile requests one visitor may make to published maps, counted by network address across every published map."
                   },
                   "defaultValue": {
                     "const": 600
@@ -58637,7 +58637,7 @@
                     "const": "Encryption key"
                   },
                   "purpose": {
-                    "const": "At-rest encryption key for stored credentials."
+                    "const": "The key that encrypts saved connection passwords and service addresses."
                   },
                   "defaultValue": {
                     "const": {
@@ -58742,7 +58742,7 @@
                     "const": "Trusted proxies"
                   },
                   "purpose": {
-                    "const": "Socket peers allowed to supply forwarding information."
+                    "const": "The proxies whose forwarded visitor address, host, scheme and port Dezfil accepts."
                   },
                   "defaultValue": {
                     "const": []
@@ -58960,7 +58960,7 @@
                     "const": "Allowed destinations"
                   },
                   "purpose": {
-                    "const": "Hosts, IPs or CIDRs permitted past the egress policy."
+                    "const": "Hosts on a private network that the server may reach."
                   },
                   "defaultValue": {
                     "const": []
@@ -59068,7 +59068,7 @@
                     "const": "Object-store credentials"
                   },
                   "purpose": {
-                    "const": "Sign imports with the instance credential chain when enabled."
+                    "const": "Read cloud storage links with the server's own credentials."
                   },
                   "defaultValue": {
                     "const": false
@@ -59173,7 +59173,7 @@
                     "const": "S3 endpoint"
                   },
                   "purpose": {
-                    "const": "Custom S3-compatible endpoint for anonymous imports."
+                    "const": "The S3-compatible store that s3:// links are read from without the server's credentials."
                   },
                   "defaultValue": {
                     "const": {
@@ -59635,7 +59635,7 @@
                     "const": "Tile builder"
                   },
                   "purpose": {
-                    "const": "Binary used to build vector tiles."
+                    "const": "The program that builds vector tiles."
                   },
                   "defaultValue": {
                     "const": "tippecanoe"
@@ -59743,7 +59743,7 @@
                     "const": "Basemap address"
                   },
                   "purpose": {
-                    "const": "Style override pinning the automatic basemap in both themes."
+                    "const": "A basemap style that Auto draws in both themes, in place of the built-in ones."
                   },
                   "defaultValue": {
                     "const": {
@@ -59892,7 +59892,7 @@
                     "const": "Basemap credit"
                   },
                   "purpose": {
-                    "const": "Credit line for the deployment basemap override."
+                    "const": "The credit maps show for the style DEZFIL_BASEMAP_URL names."
                   },
                   "defaultValue": {
                     "const": null
@@ -60638,7 +60638,7 @@
                     "const": "Catalogue address"
                   },
                   "purpose": {
-                    "const": "Where the template catalogue's index is read; the variable may name a folder on the server instead."
+                    "const": "Where the template catalogue's index is read."
                   },
                   "defaultValue": {
                     "const": {
@@ -61453,7 +61453,7 @@
                     "const": "Assistant operation offer"
                   },
                   "purpose": {
-                    "const": "Choose the page's subset or its full admitted operation set."
+                    "const": "With subset, the assistant starts with the page's own tools and looks up the rest; with full, it starts with every tool the page allows."
                   },
                   "defaultValue": {
                     "const": "subset"
@@ -61561,7 +61561,7 @@
                     "const": "Image renderer"
                   },
                   "purpose": {
-                    "const": "Headless browser binary used for server image export."
+                    "const": "The headless browser that draws image exports and map pictures."
                   },
                   "defaultValue": {
                     "const": "/usr/bin/chromium"

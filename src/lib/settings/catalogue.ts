@@ -41,7 +41,7 @@ function serviceAddress(key: string, environment: string, label: string, purpose
 const TEMPLATES_CATALOGUE = "https://github.com/Dezfil/templates/releases/latest/download/index.json";
 function catalogueAddress(): SettingDefinition {
   const definition = serviceAddress("templatesCatalogueUrl", "DEZFIL_TEMPLATES_CATALOGUE", "Catalogue address",
-    "Where the template catalogue's index is read; the variable may name a folder on the server instead.", TEMPLATES_CATALOGUE, TEMPLATES_CATALOGUE);
+    "Where the template catalogue's index is read.", TEMPLATES_CATALOGUE, TEMPLATES_CATALOGUE);
   return { ...definition, write: { kind: "address", maxLength: 2048, folder: "variable" } };
 }
 /** Whether the server reads the template catalogue at all: a switch an
@@ -84,17 +84,17 @@ export const SETTING_CATALOGUE: readonly SettingDefinition[] = [
   ...NUMERIC_SETTINGS,
   deployment("assistantAutoCheck", "DEZFIL_ASSISTANT_AUTO_CHECK", "boolean", "Automatic map check", "Check the rendered map after an assistant turn changes it.", true, "on"),
   deployment("dataDir", "DEZFIL_DATA_DIR", "path", "Data directory", "The single durable directory for tables, tiles and metadata.", { rule: "working-directory/data" }, "./data; /data in the container"),
-  deployment("secretKey", "DEZFIL_SECRET_KEY", "secret", "Encryption key", "At-rest encryption key for stored credentials.", { rule: "key-file-or-generate" }, "generated"),
-  deployment("trustedProxies", "DEZFIL_TRUSTED_PROXIES", "list", "Trusted proxies", "Socket peers allowed to supply forwarding information.", [], "unset"),
+  deployment("secretKey", "DEZFIL_SECRET_KEY", "secret", "Encryption key", "The key that encrypts saved connection passwords and service addresses.", { rule: "key-file-or-generate" }, "generated"),
+  deployment("trustedProxies", "DEZFIL_TRUSTED_PROXIES", "list", "Trusted proxies", "The proxies whose forwarded visitor address, host, scheme and port Dezfil accepts.", [], "unset"),
   deployment("sessionCookie", "DEZFIL_SESSION_COOKIE", "text", "Session cookie name", "Browser session cookie name, derived from the listening port unless overridden.", { rule: "listening-port" }, "port-based"),
-  deployment("egressAllowlist", "DEZFIL_EGRESS_ALLOWLIST", "list", "Allowed destinations", "Hosts, IPs or CIDRs permitted past the egress policy.", [], "unset"),
-  deployment("objectStoreCredentials", "DEZFIL_OBJECT_STORE_CREDENTIALS", "boolean", "Object-store credentials", "Sign imports with the instance credential chain when enabled.", false, "off"),
-  serviceAddress("s3Endpoint", "DEZFIL_S3_ENDPOINT", "S3 endpoint", "Custom S3-compatible endpoint for anonymous imports.", { rule: "aws-bucket-endpoint" }, "AWS"),
+  deployment("egressAllowlist", "DEZFIL_EGRESS_ALLOWLIST", "list", "Allowed destinations", "Hosts on a private network that the server may reach.", [], "unset"),
+  deployment("objectStoreCredentials", "DEZFIL_OBJECT_STORE_CREDENTIALS", "boolean", "Object-store credentials", "Read cloud storage links with the server's own credentials.", false, "off"),
+  serviceAddress("s3Endpoint", "DEZFIL_S3_ENDPOINT", "S3 endpoint", "The S3-compatible store that s3:// links are read from without the server's credentials.", { rule: "aws-bucket-endpoint" }, "AWS"),
   serviceAddress("overpassUrl", "DEZFIL_OVERPASS_URL", "Overpass endpoint", "Endpoint for OpenStreetMap imports.", "https://overpass-api.de/api/interpreter", "https://overpass-api.de/api/interpreter"),
   deployment("overtureS3Endpoint", "DEZFIL_OVERTURE_S3_ENDPOINT", "address", "Overture endpoint", "S3-compatible override for the public Overture bucket.", null, "unset, the public bucket"),
-  deployment("tippecanoe", "DEZFIL_TIPPECANOE", "path", "Tile builder", "Binary used to build vector tiles.", "tippecanoe", "tippecanoe"),
-  deployment("basemapUrl", "DEZFIL_BASEMAP_URL", "address", "Basemap address", "Style override pinning the automatic basemap in both themes.", { rule: "built-in-basemap-for-theme" }, "built-in styles"),
-  deployment("basemapAttribution", "DEZFIL_BASEMAP_ATTRIBUTION", "text", "Basemap credit", "Credit line for the deployment basemap override.", null, "unset"),
+  deployment("tippecanoe", "DEZFIL_TIPPECANOE", "path", "Tile builder", "The program that builds vector tiles.", "tippecanoe", "tippecanoe"),
+  deployment("basemapUrl", "DEZFIL_BASEMAP_URL", "address", "Basemap address", "A basemap style that Auto draws in both themes, in place of the built-in ones.", { rule: "built-in-basemap-for-theme" }, "built-in styles"),
+  deployment("basemapAttribution", "DEZFIL_BASEMAP_ATTRIBUTION", "text", "Basemap credit", "The credit maps show for the style DEZFIL_BASEMAP_URL names.", null, "unset"),
   serviceAddress("satelliteUrl", "DEZFIL_SATELLITE_URL", "Satellite template", "Raster tile template enabling satellite imagery.", null, "unset", { placeholders: ["{z}", "{x}", "{y}"] }),
   textBeside("satelliteAttribution", "DEZFIL_SATELLITE_ATTRIBUTION", "Satellite credit", "Credit line required by the imagery provider.", 160),
   serviceAddress("geocoderUrl", "DEZFIL_GEOCODER_URL", "Address finder", "Nominatim-compatible endpoint for search and batch geocoding.", null, "unset"),
@@ -106,8 +106,8 @@ export const SETTING_CATALOGUE: readonly SettingDefinition[] = [
   deployment("aiModel", "DEZFIL_AI_MODEL", "text", "Assistant model", "Overrides the provider's default model.", { rule: "provider-default-model" }, "provider default"),
   deployment("aiModelsAnthropic", "DEZFIL_AI_MODELS_ANTHROPIC", "list", "Anthropic model offer", "Narrows and orders the catalogue; a set empty list offers only the default.", { rule: "effective-provider-catalogue" }, "unset"),
   deployment("aiModelsOpenai", "DEZFIL_AI_MODELS_OPENAI", "list", "OpenAI model offer", "Narrows and orders the catalogue; a set empty list offers only the default.", { rule: "effective-provider-catalogue" }, "unset"),
-  deployment("assistantOffer", "DEZFIL_ASSISTANT_OFFER", "choice", "Assistant operation offer", "Choose the page's subset or its full admitted operation set.", "subset", "subset"),
-  deployment("chromiumPath", "DEZFIL_CHROMIUM_PATH", "path", "Image renderer", "Headless browser binary used for server image export.", "/usr/bin/chromium", "/usr/bin/chromium"),
+  deployment("assistantOffer", "DEZFIL_ASSISTANT_OFFER", "choice", "Assistant operation offer", "With subset, the assistant starts with the page's own tools and looks up the rest; with full, it starts with every tool the page allows.", "subset", "subset"),
+  deployment("chromiumPath", "DEZFIL_CHROMIUM_PATH", "path", "Image renderer", "The headless browser that draws image exports and map pictures.", "/usr/bin/chromium", "/usr/bin/chromium"),
   stored("instanceName", "Instance name", "Name beside the wordmark and in browser titles.", null, { kind: "text", maxLength: 80, empty: "null" }),
   stored("signInMessage", "Sign-in message", "Optional message on the sign-in page.", "", { kind: "text", maxLength: 280, empty: "null" }),
   stored("lostPasswordContact", "Lost-password contact", "Contact line for password recovery; empty uses the built-in line.", "", { kind: "text", maxLength: 120, empty: "null" }),

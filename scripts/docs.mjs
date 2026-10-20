@@ -2,21 +2,23 @@
 // The documentation's generator and gate.
 //
 // Write mode (`npm run docs:write`) generates what is made from the pages
-// and the source: the agents' index, docs/README.md, and the API description
+// and the source: the agents' index, docs/README.md; the API description
 // file, docs/api/openapi.json, built from the same contract source the
-// server serves, with no server. Check mode (`npm run lint:docs`) holds
-// the page contract for every page under docs/ (the frontmatter, the
-// headings, the links and pictures, the addresses each page owns and the old
-// addresses it lists), the writing rules for every page not on the list of
-// pages not yet rewritten, the links and pictures of every procedure note
-// under scripts/ and src/ (which are not pages), the image manifest against
-// the files it lists, and the generated files' freshness, and names each
-// problem with its file and rule. The rules live in docs-contract.mjs,
-// docs-writing.mjs and docs-manifest.mjs.
+// server serves, with no server; and the settings tables in their pages,
+// built from the settings catalogue Settings reads. Check mode
+// (`npm run lint:docs`) holds the page contract for every page under docs/
+// (the frontmatter, the headings, the links and pictures, the addresses each
+// page owns and the old addresses it lists), the writing rules for every
+// page not on the list of pages not yet rewritten, the links and pictures of
+// every procedure note under scripts/ and src/ (which are not pages), the
+// image manifest against the files it lists, and the freshness of the
+// generated files and of the settings tables, and names each problem with
+// its file and rule. The rules live in docs-contract.mjs, docs-writing.mjs,
+// docs-manifest.mjs and settings-tables.mjs.
 //
 // Usage:
 //   node scripts/docs.mjs --check               # the repository
-//   node scripts/docs.mjs --write               # regenerate both files
+//   node scripts/docs.mjs --write               # regenerate what is generated
 //   node scripts/docs.mjs --check --root <dir>  # another tree
 
 import { execFileSync } from "node:child_process";
@@ -27,7 +29,8 @@ import { contractSource } from "./contract-source.mjs";
 import { DESCRIPTION_FILE, checkDescription, checkIndex, checkTree, descriptionText, formatProblem, generateIndex, reader } from "./docs-contract.mjs";
 import { checkManifest } from "./docs-manifest.mjs";
 import { checkWriting, writingNames } from "./docs-writing.mjs";
-import { settingsSource } from "./settings-source.mjs";
+import { settingsDisplaySource } from "./settings-source.mjs";
+import { checkSettingsTables, settingsTables, writeSettingsTables } from "./settings-tables.mjs";
 
 const { values } = parseArgs({ options: { check: { type: "boolean" }, write: { type: "boolean" }, root: { type: "string" } } });
 const root = path.resolve(values.root ?? process.cwd());
@@ -58,11 +61,17 @@ const read = reader(root);
 // to hold; the repository always has one.
 const hasSource = existsSync(path.join(root, "src/lib/api/openapi.ts"));
 const document = hasSource ? (await contractSource(root)).document : null;
+// The settings catalogue, and the tables made from it. A fixture tree
+// without the source has neither.
+const settings = existsSync(path.join(root, "src/lib/settings/catalogue.ts")) ? await settingsDisplaySource(root) : null;
+const tables = settings ? settingsTables(settings) : [];
 if (values.write) {
   if (document) {
     writeFileSync(path.join(root, DESCRIPTION_FILE), descriptionText(document));
     console.log(`Wrote ${DESCRIPTION_FILE}.`);
   }
+  const written = writeSettingsTables({ files: repositoryFiles(), read, write: (file, text) => writeFileSync(path.join(root, file), text), tables });
+  if (tables.length) console.log(`Wrote the settings tables${written.length ? ` in ${written.join(", ")}` : ", unchanged"}.`);
   writeFileSync(path.join(root, "docs/README.md"), generateIndex({ files: repositoryFiles(), read }));
   console.log("Wrote docs/README.md.");
 }
@@ -72,7 +81,8 @@ const { problems, pages, notes, used } = checkTree({ files, read });
 problems.push(...checkManifest({ files, read, readBytes: (file) => readFileSync(path.join(root, file)), used }));
 // The names a read_when line is held to: the settings catalogue's and the
 // description's error codes. A fixture tree without the source has none.
-const catalogue = existsSync(path.join(root, "src/lib/settings/catalogue.ts")) ? (await settingsSource(root)).SETTING_CATALOGUE : [];
+const catalogue = settings ? settings.catalogue.SETTING_CATALOGUE : [];
+problems.push(...checkSettingsTables({ files, read, tables }));
 const writing = checkWriting({ files, read, names: writingNames({ catalogue, document }) });
 problems.push(...writing.problems);
 problems.push(...checkIndex({ files, read }));
@@ -87,4 +97,5 @@ if (problems.length) {
 }
 const media = files.includes("docs/images/manifest.json") ? " The image manifest matches its files." : "";
 const listed = writing.listed.length ? `, ${writing.listed.length} on the list of pages not yet rewritten` : "";
-console.log(`PASS: ${pages.length} pages hold the page contract; ${writing.checked.length} hold the writing rules${listed}; the links in ${notes.length} procedure notes resolve; the index${document ? " and the API description file are" : " is"} current.${media}`);
+const current = [document ? "the API description file" : null, tables.length ? `the ${tables.length} settings tables` : null].filter(Boolean);
+console.log(`PASS: ${pages.length} pages hold the page contract; ${writing.checked.length} hold the writing rules${listed}; the links in ${notes.length} procedure notes resolve; the index${current.length ? `, ${current.join(" and ")} are` : " is"} current.${media}`);

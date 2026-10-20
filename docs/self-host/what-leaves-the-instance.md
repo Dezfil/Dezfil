@@ -15,8 +15,8 @@ moved_from:
 This page is for the person who runs the instance. It covers what to decide before
 you put data in it, what the instance keeps, and what it sends out.
 
-[Install](../start/install.md) has the run commands and [the configuration page](configuration.md)
-the full table of settings. Start there, then read this.
+[Install](../start/install.md) has the run commands and [Configuration](configuration.md)
+links every table of settings. Start there, then read this.
 
 ## Accounts and access
 
@@ -129,7 +129,7 @@ the column's foot; members see General alone, read-only.
   views and images, and a screen already open keep what they have. Someone's own
   minimap or results band choice still wins in their browser. Members meet the
   defaults as the starting state of what they make;
-  [the configuration guide](configuration.md#instance-defaults) lists every value.
+  [the configuration guide](configuration/defaults.md) lists every value.
 - **Publishing** also holds **Public links**: who may publish (Everyone, Admins
   only or No one) and embedding on other sites (Any site, Listed sites, one site
   per line, or Off). Maps already published stay public until unpublished; a
@@ -165,7 +165,7 @@ the column's foot; members see General alone, read-only.
   password that already exists; each applies from the next session use, link,
   sign-in attempt, password or token. Who may add database connections and who
   may import from links are on Data & services;
-  [the configuration guide](configuration.md#security-and-rules) lists every
+  [the configuration guide](configuration/rules.md) lists every
   value.
 - **System** shows the version and how long the server has run, whether the data
   folder is writable, whether the assistant is on, and every setting a variable

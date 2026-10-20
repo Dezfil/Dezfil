@@ -20,3 +20,33 @@ export async function settingsSource(root = process.cwd()) {
   try { return await import(new URL("catalogue.ts", source)); }
   finally { hooks.deregister(); }
 }
+
+/** The catalogue with what Settings shows beside it: the Limits tab's
+ * cards, in its order, with the labels and units its rows take, which the
+ * System tab's Server settings card names those settings by too, and the
+ * other tabs' cards and rows, under the labels each tab draws a setting
+ * with. Read without a build, store or server, as the catalogue is. */
+export async function settingsDisplaySource(root = process.cwd()) {
+  const source = pathToFileURL(path.join(root, "src") + path.sep).href;
+  const hooks = registerHooks({
+    resolve(specifier, context, next) {
+      const target = specifier.startsWith("@/") ? new URL(specifier.slice(2), source).href : specifier;
+      let result;
+      try { result = next(target, context); }
+      catch (error) {
+        if (!target.startsWith(".") && !target.startsWith("file:")) throw error;
+        if (!context.parentURL?.startsWith(source)) throw error;
+        result = next(target + ".ts", context);
+      }
+      return result.url.startsWith(source) && result.url.endsWith(".ts")
+        ? { ...result, format: "module-typescript" } : result;
+    },
+  });
+  try {
+    const catalogue = await import(new URL("lib/settings/catalogue.ts", source));
+    const tab = (name) => import(new URL(`components/settings/${name}.ts`, source));
+    const [limits, general, defaults, libraries, data, security] = await Promise.all(
+      ["limits-table", "general-table", "defaults-table", "libraries-table", "data-table", "security-table"].map(tab));
+    return { catalogue, limits, general, defaults, libraries, data, security };
+  } finally { hooks.deregister(); }
+}

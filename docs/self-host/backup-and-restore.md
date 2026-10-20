@@ -39,7 +39,8 @@ workflows and runs), `tables/` (the GeoParquet
 artifacts), `thumbnails/`, `tmp/` (scratch for imports, exports and tile
 builds), `cache/overpass/` once an OSM import runs, and `secret.key` on
 first boot unless `DEZFIL_SECRET_KEY` was set first. An optional
-`assistant-models.json` placed there by hand is read as described below.
+`assistant-models.json` placed there by hand is read as
+[Set up the assistant](assistant.md#offer-other-models) describes.
 
 ## Upgrading ownership storage
 
@@ -328,9 +329,10 @@ rule:
 
 - `npm run lint:hygiene` rejects a NUL byte in any tracked text file, which
   makes git and grep treat a source file as binary.
-- `npm run lint:readme` compares the settings the server reads from the
-  environment with the tables on the configuration page, both directions,
-  with their documented defaults and change timing.
+- `npm run lint:readme` compares the settings the server reads, and the
+  stored instance settings, with the settings tables the configuration page
+  links, both directions, one row each, with their documented defaults,
+  Settings keys and change timing.
 - `npm run lint:size` holds the line-count ceilings of the oversized
   modules: growing one fails until the ceiling is raised in the same change,
   shrinking one until it is lowered to match.
@@ -854,114 +856,12 @@ the hex string already in `secret.key`.
 
 **The model catalogue silently falls back.** An instance
 `assistant-models.json` is rejected whole on any invalid entry and the
-shipped catalogue applies instead; `GET /api/assistant` says which.
+shipped catalogue applies instead; `GET /api/assistant` says which
+([Offer other models](assistant.md#offer-other-models)).
 
 **A script collides with the development server.** These scripts write real
 state and bind real ports: give them their own port and `DEZFIL_DATA_DIR`,
 never the port the development server holds.
-
-## The model catalogue file
-
-The maintained model names and per-model effort levels live in
-`src/lib/assistant/model-catalogue.json`, shipped at
-`/app/src/lib/assistant/model-catalogue.json` in the runtime image.
-An optional `assistant-models.json` directly in `DEZFIL_DATA_DIR` adds and
-overrides entries for that instance. There is no separate path setting.
-
-For example, this instance file overrides one shipped entry and adds one local
-identity under each provider. The local identities illustrate the shape; they
-are not claims that either provider serves a model by those names.
-
-```json
-{
-  "openai": [
-    { "id": "gpt-6-astra", "name": "Astra", "efforts": ["low", "medium", "high", "xhigh"] },
-    { "id": "local-openai-model", "name": "Local OpenAI", "efforts": [] }
-  ],
-  "anthropic": [
-    { "id": "claude-opus-5", "name": "Opus 5", "efforts": ["low", "medium", "high", "xhigh", "max"] },
-    { "id": "local-anthropic-model", "name": "Local Anthropic", "efforts": ["low", "high"] }
-  ]
-}
-```
-
-The top level is an object whose only fields are `openai` and `anthropic`, each
-an ordered list. Both lists are required in the shipped copy; either may be
-omitted from the instance copy. A model has exactly `id`, `name` and `efforts`:
-a nonblank identity and display name, and a list of distinct effort words.
-OpenAI words are `none`, `minimal`, `low`, `medium`, `high`, `xhigh`;
-Anthropic words are `low`, `medium`, `high`, `xhigh`, `max`. Empty effort lists
-are valid. Do not author `default`: Dezfil supplies it first for every model,
-with the fixed labels `Default`, `None`, `Minimal`, `Low`, `Medium`, `High`,
-`XHigh` and `Max`. Levels state supported choices, not equivalent amounts of
-work across models.
-
-Identity is scoped to its provider. An instance entry replaces the whole
-shipped entry with that identity, keeping its shipped position. New identities
-append in instance-file order. Omitted entries, omitted providers and empty
-lists hide nothing. An instance override wins over the shipped copy.
-
-Each file is limited to **256 KiB (262,144 bytes)**. Invalid JSON, an unknown
-field or provider, an invalid shape, duplicate identities within a provider,
-missing or blank names/identities, invalid or repeated efforts, an unreadable
-file or an oversized file rejects the whole instance copy. A bad entry under
-the other provider also rejects it. Nothing is partially applied and no older
-valid instance copy is retained: the shipped catalogue applies instead. Keep
-the shipped copy valid; the instance fallback is not recovery for a broken
-installation's shipped file.
-
-`GET /api/assistant` reports `catalogue` when enabled:
-
-| `source` | `instance` | Meaning |
-|---|---|---|
-| `shipped` | `absent` | No instance file. This is normal. |
-| `merged` | `applied` | A valid instance file applied, including a valid empty copy. |
-| `shipped` | `rejected` | The instance file was rejected. `reason` identifies the field or read failure without file contents. |
-
-Only `rejected` carries `reason`. These fields describe the same snapshot as
-the response's offered models. The disabled read retains its enablement
-explanation and offers no models. Catalogue reads make no provider calls.
-
-With the resolved provider's model-list environment variable unset, the whole
-effective catalogue is offered in order. `DEZFIL_AI_MODELS_OPENAI` and
-`DEZFIL_AI_MODELS_ANTHROPIC` narrow and order that offer: trim entries, ignore
-blanks, keep the first occurrence, and prepend the instance default only if
-missing. A set empty or separators-only list offers the default alone. Naming
-only `gpt-5.6-terra` for OpenAI or `claude-opus-5` for Anthropic explicitly
-reaches the one-model state, unless `DEZFIL_AI_MODEL` sets a different
-default. Unknown listed identities and unknown defaults remain requestable,
-named by identity with only `default` effort. Listing a model does not establish
-provider availability, and a catalogue never enables a missing credential.
-
-To replace a catalogue by hand or by an owner-managed job, write a complete
-replacement beside the target, then rename it into place on the same filesystem.
-For example, prepare `assistant-models.json.next` in `DEZFIL_DATA_DIR`, then:
-
-```sh
-mv "$DEZFIL_DATA_DIR/assistant-models.json.next" "$DEZFIL_DATA_DIR/assistant-models.json"
-```
-
-A read then sees the old complete file or the new complete file. Direct
-in-place edits can expose partial JSON and trigger rejection during the edit.
-A replacement completed before a read begins is visible to the next enabled
-status read and new message admission, without a restart. Removing the file
-restores shipped knowledge; repairing it applies on the next read. Editing a
-source checkout's shipped file also takes effect on its next read, but does
-not change the copy baked into an already built image. Use the data-directory
-copy for normal production updates.
-
-An open pane keeps the status it read at mount. File replacement and a choice
-refusal do not refresh that pane. A stale choice is refused before binding;
-the message is preserved. Remounting reads the new offer and reconciles the
-remembered model and effort. Already bound turns and their continuations keep
-their original pair.
-
-**Replacing the instance file loses manual edits to that file.** An owner-managed
-job must merge those entries into its replacement, or the owner keeps them in
-the repository's shipped copy and ships that copy with the instance. An
-instance override still wins for the same identity. Dezfil supplies no cron
-setup, refresh job or provider discovery. Effort levels remain manually
-maintained.
 
 ## Shipping a template release
 

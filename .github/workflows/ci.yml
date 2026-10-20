@@ -9,7 +9,7 @@ name: CI
 #            no network. Only on main, because it builds a full image.
 #
 # The end-to-end browser suite is not one of them: it runs locally, against an
-# instance you provision yourself. CONTRIBUTING.md and docs/self-host/backup-and-restore.md say how.
+# instance you provision yourself. CONTRIBUTING.md and docs/contribute/development-setup.md say how.
 on:
   push:
     branches: [main]
@@ -79,9 +79,10 @@ jobs:
       # guard reads API descriptions, so neither can see a citation sitting in
       # a source comment or a report label.
       - run: npm run lint:citations
-      # Every setting the server reads must appear in the configuration page's
-      # tables, and every row there must be a setting the server reads, so the
-      # documented surface and the real one cannot drift apart silently.
+      # Every setting the server reads must have one row in the settings tables
+      # the configuration page links, and every row there must be a setting
+      # the server reads, so the documented surface and the real one cannot
+      # drift apart silently.
       - run: npm run lint:readme
       # The decomposition tripwire: a handful of oversized modules must not
       # grow. Growing one means raising its recorded ceiling in the same diff,
