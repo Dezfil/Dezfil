@@ -48,7 +48,7 @@ docker run -d --name dezfil -p 127.0.0.1:3000:3000 -v dezfil-data:/data \
 
 ::::
 
-The server reads the key when it starts. If Dezfil is already running, run `docker rm -f dezfil` first; the volume keeps your data. With Docker Compose, add the key under `environment:` and run `docker compose up -d`.
+The server reads the key when it starts. If Dezfil is already running, run `docker rm -f dezfil` first, and add the other `-e` variables you use to the command, such as `DEZFIL_TRUSTED_PROXIES`. The volume keeps your data. With Docker Compose, add the key under `environment:` and run `docker compose up -d`.
 
 The key is set only in the environment: no Settings tab takes it. With both keys set, Dezfil uses Anthropic unless you add `DEZFIL_AI_PROVIDER=openai`.
 
@@ -63,7 +63,7 @@ People can pick another model and an effort level from the chip beside **Send**.
 | Anthropic | Opus 5, Fable 5, Sonnet 5, Haiku 4 |
 | OpenAI | Astra, Sol, Terra, Nova |
 
-To offer fewer, list their ids in the order you want, and start the container again:
+To offer fewer, list their ids in the order you want, and start the container again with the other `-e` variables you use:
 
 ```sh title="Terminal"
 docker rm -f dezfil

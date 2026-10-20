@@ -35,7 +35,7 @@ docker run -d --name dezfil -p 127.0.0.1:3000:3000 -v dezfil-data:/data \
   dezfil
 ```
 
-A container keeps the variables it was created with. To change one, run `docker rm -f dezfil`, then the command again. The `dezfil-data` volume keeps your data.
+A container keeps the variables it was created with. To change one, run `docker rm -f dezfil`, then the command again with every variable you use, not only the new one. The `dezfil-data` volume keeps your data.
 
 :::
 

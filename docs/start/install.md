@@ -172,7 +172,7 @@ To add people, open **Users** in the side menu and click **Invite**.
 | See the logs | `docker logs -f dezfil` |
 | Check health | `curl http://localhost:3000/api/health` answers `{"status":"ready"}` |
 | Back up | Stop Dezfil, then copy the `dezfil-data` volume with the commands in [Back up and restore](../self-host/backup-and-restore.md#full-backup-and-restore). |
-| Upgrade | Back up. In the `Dezfil` folder, run `git pull` and `docker build -t dezfil .`. Then run `docker stop dezfil`, `docker rm dezfil` and the install's `docker run` command. |
+| Upgrade | Back up. In the `Dezfil` folder, run `git pull` and `docker build -t dezfil .`. Then run `docker stop dezfil`, `docker rm dezfil` and the install's `docker run` command, with the `-e` variables you added. |
 
 :::
 
