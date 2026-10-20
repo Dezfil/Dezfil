@@ -150,7 +150,7 @@ The container brings two programs a checkout lacks:
 
 ![The setup page, titled Create the first account, with Name, Email and Password fields and a Create account button](../images/start/setup-card.webp)
 
-1. Open <http://localhost:3000>. Dezfil shows **Create the first account**.
+1. Open <http://localhost:3000>. Dezfil shows **Create the first account**. On a server, run `ssh -L 3000:127.0.0.1:3000 <YOUR_SERVER>` on your computer first, then open the address there.
 2. Fill in **Name**, **Email** and **Password**. The password needs at least 8 characters, and very common passwords are refused.
 3. Click **Create account**. You should see **Home**, signed in as the admin.
 
