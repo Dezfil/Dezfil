@@ -114,12 +114,13 @@ To size points by a number column, set **Scale by** under **Point size** to it. 
 
 To bin points into hexagons:
 
-1. In **Visualization**, click **Hex bins**. You should see colored hexagons in place of the points, and the card count cells instead of features.
-2. Set **Show** to **Count of points**, or to **Sum**, **Average**, **Minimum** or **Maximum** of a number column. You should see the colors follow the new values.
-3. Change **Cell size (Mercator)** for bigger or smaller cells.
-4. To raise the cells, turn on **Extrude cells (3D)** and choose **Height by**. Then tilt the map with **Pitch**. You should see the cells stand at their heights.
+1. In **Visualization**, click **Hex bins**. You should see the card count cells instead of features.
+2. Under **Cell size (Mercator)**, drag the slider or type a size such as `500 km` in the box beside it. Cells start 1.2 km wide, too small to see on a map of the world. You should see colored hexagons in place of the points.
+3. Set **Show** to **Count of points**, or to **Sum**, **Average**, **Minimum** or **Maximum** of a number column. You should see the colors follow the new values.
 
 ![A layer of the earthquakes around Japan drawn as hex bins: the Visualization section with Hex bins selected, Show set to Count of points and the cell size, and the map of Japan with the earthquakes counted in colored hexagons](../images/use/build-a-map-hex-bins.webp)
+
+To raise the cells, turn on **Extrude cells (3D)** and choose **Height by**. Then tilt the map with **Pitch**. You should see the cells stand at their heights.
 
 > [!NOTE]
 > A type the layer cannot use is grayed out. Point at it to read why, or see [Troubleshooting](#troubleshooting).
