@@ -106,9 +106,12 @@ function troubleshooting(): { heading: string; status: number; code: string; quo
 describe("the API quickstart", () => {
   const { calls } = pageCalls(page);
 
-  it("shows its calls as curl and JavaScript tabs, each followed by its answer", () => {
+  it("shows its calls as curl and JavaScript tabs, each followed by its answer, under steps numbered in order", () => {
     expect(calls.map((found) => Object.keys(found.tabs))).toEqual(Array(7).fill(["curl", "JavaScript"]));
     expect(calls.every((found) => found.output)).toBe(true);
+    // A step moved or left out shows in its number, even when every answer
+    // still holds.
+    expect([...page.matchAll(/^## Step (\d+): /gm)].map((found) => Number(found[1]))).toEqual([1, 2, 3, 4, 5, 6]);
   });
 
   it("gets every answer it shows from a new instance, run with curl", async () => {
