@@ -26,6 +26,8 @@ npm run dev
 The app comes up on <http://localhost:3000> and keeps its data in `./data`.
 Some tests build vector tiles with a native tiler; if you do not have one on
 your `PATH`, those tests will tell you so.
+[Development setup](docs/contribute/development-setup.md#add-the-programs-the-container-brings)
+shows how to add it.
 
 ## Run the gates
 
@@ -33,10 +35,13 @@ These are the same checks the pipeline runs on your pull request. Run them
 before you push.
 
 ```bash
-npm run lint          # code style
-npm run typecheck     # types
-npm test              # unit and integration tests
+npm run lint                            # code style
+npm run typecheck                       # types
+DEZFIL_DATA_DIR="$(mktemp -d)" npm test # unit and integration tests
 ```
+
+The tests make their own folders inside `DEZFIL_DATA_DIR` and fail without it.
+Give them a scratch folder, never one that holds data you keep.
 
 There are also several narrower gates, each guarding one property of the
 repository. The pipeline runs all of them, and so should you if you touched
@@ -56,6 +61,9 @@ npm run lint:plugin     # the shipped plugin manifests
 npm run lint:docs       # the documentation's pages, writing, links, index and pictures
 npm run lint:retired-paths # no file names a documentation path that moved or left
 ```
+
+[Development setup](docs/contribute/development-setup.md#run-the-checks) runs
+every gate in one loop and says what makes each one fail.
 
 The end-to-end browser suite is not part of the normal loop and the pipeline
 does not run it. Run it yourself when you have changed something only a
