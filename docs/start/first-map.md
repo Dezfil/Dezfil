@@ -15,7 +15,7 @@ order: 3
 ![The finished map in the builder: 48 cities as points on a world map, colored by population, with a legend of five population classes](../images/start/first-map-finished.webp)
 
 - **Time:** about 10 minutes.
-- **You need:** a running Dezfil and an account on it. If you have neither, follow [Install](install.md) first.
+- **You need:** a running Dezfil and an account on it. To run Dezfil yourself, follow [Install](install.md) first. On an instance someone else runs, ask its admin for an account.
 - **Data:** 48 cities from Natural Earth (public domain) with the columns `name`, `country`, `population`, `latitude` and `longitude`. Any CSV with latitude and longitude columns works the same way.
 
 ## 1. Save the cities
@@ -136,8 +136,8 @@ Click **Open** to see the map as its readers do. To stop sharing it, click **Pub
 
 **The dialog stays open and says "imported as a table: no geometry for a layer".** Dezfil found no coordinate columns it recognizes. Fix it one of two ways:
 
-- Rename the columns to `latitude` and `longitude`, then upload the file again.
-- Open **Data** in the side menu and open the dataset. Click **Set geometry** and pick **Coordinate pair**. Choose your columns under **Longitude · x** and **Latitude · y**, then click **Apply**. Add the dataset to your map from **Add layer** › **Tables**.
+- Rename the columns to `latitude` and `longitude`, then upload the file again. It becomes a new dataset, so its name ends in `_2`.
+- Open **Data** in the side menu and open the dataset. Click **Set geometry** and pick **Coordinate pair**. Choose your columns under **Longitude · x** and **Latitude · y**, then click **Apply**. Open your map again and add the dataset from **Add layer** › **Tables**.
 
 ## What you learned
 
