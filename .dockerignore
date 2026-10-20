@@ -50,3 +50,7 @@ test-data
 # Host-side container orchestration, never executed by the application image.
 scripts/result-budget-image.sh
 scripts/account-deletion-image.sh
+# The procedures kept beside the scripts and suites they run are notes for
+# whoever runs them; the application never reads them.
+scripts/**/*.md
+src/**/*.md
