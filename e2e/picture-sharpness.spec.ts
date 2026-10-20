@@ -142,30 +142,51 @@ async function atRest(page: Page) {
     animation.playState !== "running" || animation.effect?.getComputedTiming().iterations === Infinity));
 }
 
+/** The picture's box once the page is at rest, and the part of it a
+ * person sees: its box cut by every ancestor that clips its content. */
+async function boxes(page: Page, index: number) {
+  const picture = pictures(page).nth(index);
+  await picture.scrollIntoViewIfNeeded();
+  await atRest(page);
+  return picture.evaluate(element => {
+    const own = element.getBoundingClientRect();
+    let left = own.left, top = own.top, right = own.right, bottom = own.bottom;
+    for (let parent = element.parentElement; parent; parent = parent.parentElement) {
+      const style = getComputedStyle(parent);
+      if (style.overflowX === "visible" && style.overflowY === "visible") continue;
+      const clip = parent.getBoundingClientRect();
+      left = Math.max(left, clip.left); top = Math.max(top, clip.top); right = Math.min(right, clip.right); bottom = Math.min(bottom, clip.bottom);
+    }
+    return {
+      box: { x: own.x, y: own.y, width: own.width, height: own.height },
+      visible: { x: left, y: top, width: Math.max(0, right - left), height: Math.max(0, bottom - top) },
+    };
+  });
+}
+
 /** Everything one picture on screen must hold. */
 async function judge(page: Page, picture: Seen, where: string) {
   const dpr = await page.evaluate(() => devicePixelRatio);
-  const shape: PictureShape = shapeForBox(picture.box);
-  const label = `${where}, ${picture.host} ${Math.round(picture.box.width)}×${Math.round(picture.box.height)} at ${dpr}`;
+  const { box, visible } = await boxes(page, picture.index);
+  const shape: PictureShape = shapeForBox(box);
+  const label = `${where}, ${picture.host} ${Math.round(box.width)}×${Math.round(box.height)} at ${dpr}`;
   const chosen = new URL(picture.currentSrc);
   expect(chosen.searchParams.get("shape"), `${label}: the shape for its box`).toBe(shape);
-  const covers = coveredWidth(shape, picture.box) * dpr;
+  const covers = coveredWidth(shape, box) * dpr;
   const offered = (picture.srcset ?? "").split(",").map(item => Number(item.trim().split(" ")[1]?.replace("w", "")));
   const widest = PICTURE_SHAPES[shape].widths.at(-1)!;
   expect(Math.max(...offered), `${label}: a size offered for ${Math.ceil(covers)} screen pixels`).toBeGreaterThanOrEqual(Math.min(widest, Math.floor(covers)));
   const taken = await fileWidth(page, picture.currentSrc);
   if (Number.isInteger(dpr)) expect(taken, `${label}: the file taken`).toBeGreaterThanOrEqual(Math.min(widest, Math.floor(covers) - 1));
-  await pictures(page).nth(picture.index).scrollIntoViewIfNeeded();
-  await atRest(page);
-  const box = (await pictures(page).nth(picture.index).boundingBox())!;
-  const shot = await pixels(await page.screenshot({ clip: box }));
+  const shot = await pixels(await page.screenshot({ clip: visible }));
   const rise = eastEdgeRise(shot);
   if (rise !== null) expect(rise, `${label}: the edge's rise in screen pixels`).toBeLessThanOrEqual(2);
-  if (picture.host === "continue" && picture.box.width / picture.box.height >= PICTURE_SHAPES.card.frame.width / PICTURE_SHAPES.card.frame.height) {
-    const radius = (10 * coveredWidth(shape, picture.box) / PICTURE_SHAPES[shape].frame.width) * dpr;
+  if (picture.host === "continue" && visible.width / visible.height >= PICTURE_SHAPES.card.frame.width / PICTURE_SHAPES.card.frame.height) {
+    const radius = (10 * coveredWidth(shape, box) / PICTURE_SHAPES[shape].frame.width) * dpr;
     for (const colour of [ORANGE, MUSTARD]) {
       const mark = colourBox(shot, colour);
-      expect(mark.left > 0 && mark.top > 0 && mark.right < shot.width && mark.bottom < shot.height, `${label}: mark ${colour} inside the card`).toBe(true);
+      const seenAs = `seen ${shot.width}×${shot.height} of box ${JSON.stringify(box)} visible ${JSON.stringify(visible)}, mark ${JSON.stringify(mark)}`;
+      expect(mark.left > 0 && mark.top > 0 && mark.right < shot.width && mark.bottom < shot.height, `${label}: mark ${colour} inside the card (${seenAs})`).toBe(true);
       expect(mark.count, `${label}: mark ${colour} drawn whole`).toBeGreaterThan(0.6 * Math.PI * radius * radius);
     }
   }
@@ -249,11 +270,10 @@ test("a 692 pixel picture enlarged in place fails the sharpness bound where it c
       await open(page);
       await hideHostChrome(page);
       for (const picture of await seen(page)) {
-        const covers = coveredWidth(shapeForBox(picture.box), picture.box) * dpr;
+        const { box, visible } = await boxes(page, picture.index);
+        const covers = coveredWidth(shapeForBox(box), box) * dpr;
         if (covers < 2 * 692) continue;
-        await pictures(page).nth(picture.index).scrollIntoViewIfNeeded();
-        await atRest(page);
-        const rise = eastEdgeRise(await pixels(await page.screenshot({ clip: (await pictures(page).nth(picture.index).boundingBox())! })));
+        const rise = eastEdgeRise(await pixels(await page.screenshot({ clip: visible })));
         expect(rise, `${name} ${picture.host} at ${dpr}: the enlarged picture's edge`).not.toBeNull();
         expect(rise!).toBeGreaterThan(2);
         controls.push(`${name} ${picture.host} at ${dpr}: ${rise!.toFixed(2)}`);
