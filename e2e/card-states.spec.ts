@@ -538,29 +538,34 @@ interface Marks {
 /** The marks in a picture: in the image the card shows, decoded off the
  * element itself, or in the copy the browser holds for that address, read
  * from its cache without asking the server. Null when there is no such
- * image or copy. The workspace's own fetch asks every read of the instance
- * afresh, so the cache is read with the fetch of a blank frame of the
- * page's own origin. */
+ * image or copy. The cache is read from a page of its own in the same
+ * browser context, which shares the cache: the workspace's own fetch asks
+ * every read of the instance afresh, and a read the cache cannot answer
+ * is reported in the console of the page that made it, which is not the
+ * page whose console the test holds quiet. */
 async function marksOf(page: Page, src: string, from: "card" | "cache"): Promise<Marks | null> {
+  if (from === "card") return decodeMarks(page, src, from);
+  const probe = await page.context().newPage();
+  try {
+    // A same-origin document with none of the workspace's scripts.
+    await probe.goto("/api/health");
+    return await decodeMarks(probe, new URL(src, page.url()).href, from);
+  } finally {
+    await probe.close();
+  }
+}
+
+async function decodeMarks(page: Page, src: string, from: "card" | "cache"): Promise<Marks | null> {
   return page.evaluate(
     async ({ src, from, kelp }) => {
       let source: CanvasImageSource;
       let width: number;
       let height: number;
       if (from === "cache") {
-        const frame = document.createElement("iframe");
-        frame.hidden = true;
-        document.body.appendChild(frame);
-        try {
-          const response = await frame
-            .contentWindow!.fetch(new URL(src, location.href).href, { cache: "only-if-cached", mode: "same-origin" })
-            .catch(() => null);
-          if (!response?.ok) return null;
-          const bitmap = await createImageBitmap(new Blob([await response.arrayBuffer()]));
-          [source, width, height] = [bitmap, bitmap.width, bitmap.height];
-        } finally {
-          frame.remove();
-        }
+        const response = await fetch(src, { cache: "only-if-cached", mode: "same-origin" }).catch(() => null);
+        if (!response?.ok) return null;
+        const bitmap = await createImageBitmap(await response.blob());
+        [source, width, height] = [bitmap, bitmap.width, bitmap.height];
       } else {
         const shown = [...document.images].find((img) => img.getAttribute("src") === src);
         if (!shown || !shown.complete || shown.naturalWidth === 0) return null;
