@@ -408,7 +408,7 @@ The unit tests, the browser specs, the helper scripts and the server's test seam
 
 `npm run lint:readme` holds this table to the catalogue and to what the code reads, in both directions. A `DEZFIL_TEST_` variable only test files read stays local to them.
 
-The tests and scripts also read these names, which no check holds:
+The tests and scripts also read these names, among others, which no check holds:
 
 | Variable | What reads it |
 |---|---|
