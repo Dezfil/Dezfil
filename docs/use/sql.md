@@ -35,14 +35,14 @@ You should see **Preview** with the dataset's first rows, its row and column cou
 
 Hover a row in **Sources** for its two buttons:
 
-- **Open as SQL** puts a query for the dataset's first 100 rows in the editor and runs it.
+- **Open as SQL** replaces the editor's text with a query for the dataset's first 100 rows, and runs it.
 - **Insert at the cursor** types the dataset's name, in quotes, where your cursor is.
 
 To find a dataset, type in the search box above the list. It matches dataset names and column names. Press ⌘ + K (Ctrl + K on Windows and Linux) to jump there.
 
 ## 3. Run a query
 
-1. Click in the editor and type this query:
+1. Click **Clear** under the editor, then click in the editor and type this query:
 
    ```sql title="SQL"
    SELECT name, country, population, geometry
@@ -131,8 +131,8 @@ You should see the map builder with the new layer selected. The layer holds your
 Click **History** at the top of the pane. Every query you run lands there, newest first and grouped by day, with its rows and time or its error code.
 
 - Click a card to put its query in the editor.
-- Click **Run again** to put it in the editor and run it.
-- Click **Remove from history** to drop one card, or **Clear history** at the foot to drop them all.
+- Hover a card for **Run again**, which puts its query in the editor and runs it, and **Remove from history**, which drops the card.
+- Click **Clear history** at the foot to drop them all.
 
 ![The History tab: today's three queries as cards with their SQL, the two that ran with their rows and time, and the one that failed with its error code](../images/use/sql-history.webp)
 
