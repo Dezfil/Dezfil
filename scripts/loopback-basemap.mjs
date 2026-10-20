@@ -1,8 +1,11 @@
 // Test-only basemap shared by Playwright and the plain Node API journey.
-// Keep every dependency in the renderer's network namespace.
+// Keep every dependency in the renderer's network namespace. The browser
+// suite's loader reads this file as a plain script, so nothing here may
+// need a module to parse (no reading of the module's own address, no
+// waiting at the top level); scripts/loopback-basemap-serve.mjs starts it
+// from the command line.
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
-import { pathToFileURL } from "node:url";
 
 // Opaque neutral gray: no data hue, dark ink or attribution-gray signal.
 const TILE = Buffer.from(
@@ -85,14 +88,6 @@ export async function startLoopbackBasemap(port = 0) {
       });
     },
   };
-}
-
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  const port = Number(process.argv[2]);
-  assert.ok(Number.isInteger(port) && port > 0 && port <= 65535 && port !== 3000, "Supply a separate loopback fixture port");
-  const fixture = await startLoopbackBasemap(port);
-  console.log(fixture.styleUrl);
-  for (const signal of ["SIGINT", "SIGTERM"]) process.once(signal, () => { void fixture.close(); });
 }
 
 /** A successful PNG with zero traffic is only an offline fallback. */

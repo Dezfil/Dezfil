@@ -803,11 +803,12 @@ Run these proofs on a separately built production instance, under the same
 exclusive test lock as the browser battery. Use the real headless browser and
 default two image slots. The basemap is the raster tile server in
 `scripts/loopback-basemap.mjs`, also used by
-`src/lib/export/map-look.real-render.test.ts`. Start it in a separate terminal
-and keep it running through every application restart:
+`src/lib/export/map-look.real-render.test.ts`. Start it with
+`scripts/loopback-basemap-serve.mjs` in a separate terminal and keep it
+running through every application restart:
 
 ```sh
-fnm exec --using=24 node scripts/loopback-basemap.mjs 3582
+fnm exec --using=24 node scripts/loopback-basemap-serve.mjs 3582
 ```
 
 It serves a light style at `http://127.0.0.1:3582/style.json`, light and dark
