@@ -140,9 +140,24 @@ describe("the settings tables", () => {
     // Words about a default stay words; the value itself is code.
     expect(row("settings-storage", "DEZFIL_SECRET_KEY")[3]).toBe("generated");
     expect(row("settings-services", "DEZFIL_OVERPASS_URL")[3]).toBe("`https://overpass-api.de/api/interpreter`");
-    expect(row("settings-libraries", "DEZFIL_SATELLITE_URL")[4]).toBe("An `http` or `https` address, up to 2,048 characters, holding `{z}`, `{x}` and `{y}`, with no user name or password");
-    expect(row("settings-services", "DEZFIL_TEMPLATES_CATALOGUE")[4]).toMatch(/; the variable may name a folder on the server instead$/);
+    expect(row("settings-libraries", "DEZFIL_SATELLITE_URL")[4]).toBe(
+      "An `http` or `https` address, up to 2,048 characters, holding `{z}`, `{x}` and `{y}`, with no user name or password, in Settings; any address as a variable");
+    expect(row("settings-services", "DEZFIL_TEMPLATES_CATALOGUE")[4]).toMatch(/, in Settings; any address, or a folder on the server, as a variable$/);
     expect(row("settings-proxies", "DEZFIL_SESSION_COOKIE")[4]).toBe("ASCII letters, digits and ``!#$%&'*+-.^_`\\|~``; any other value stops the server at start");
+  });
+
+  it("give Settings' rule for what Settings takes, in the unit its tab takes, apart from what a variable takes", () => {
+    // The tab types the gap in seconds and the address freshness in days; the variable and the API keep milliseconds and hours.
+    expect(row("settings-services", "DEZFIL_GEOCODE_PACE_MS")[4]).toBe("0 to 60 seconds in Settings; any number from 0, in milliseconds, as a variable");
+    expect(row("settings-services", "DEZFIL_GEOCODE_MATCH_CACHE_HOURS")[4]).toBe("1 to 365 days in Settings; any number above 0, in hours, as a variable");
+    expect(row("settings-services", "DEZFIL_ISOCHRONE_CACHE_HOURS")[4]).toBe("1 to 365 days in Settings; any number above 0, in hours, as a variable");
+    // A unit the tab shares with the variable is said once, in the Default column.
+    expect(row("settings-services", "DEZFIL_OVERPASS_CACHE_H")[4]).toBe("1 to 720 in Settings; any number above 0 as a variable");
+    // Settings' length and form rules do not bind a variable, which is taken trimmed.
+    expect(row("settings-libraries", "DEZFIL_SATELLITE_ATTRIBUTION")[4]).toBe("Text, up to 160 characters, in Settings; any text as a variable");
+    expect(row("settings-services", "DEZFIL_GEOCODER_URL")[4]).toBe("An `http` or `https` address, up to 2,048 characters, in Settings; any address as a variable");
+    // A setting Settings alone changes keeps its rule as it is.
+    expect(row("settings-general", "signInMessage")[4]).toBe("Text, up to 280 characters");
   });
 
   it("refuse a setting no area takes, and a variable whose values are not described", () => {

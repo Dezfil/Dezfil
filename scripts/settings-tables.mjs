@@ -146,19 +146,29 @@ function numberValues(parsing) {
   return ["any number above 0", ""];
 }
 
-/** The values a setting takes, each way it is set. */
-export function valuesOf(definition) {
+/** The values a setting takes, each way it is set. `drawn` is the number
+ * row of the tab that draws it, where the tab types it in a unit of its own
+ * (the gaps in seconds, the freshness in days): Settings' range is then
+ * given in that unit, and the variable's in the catalogue's. Settings'
+ * rules for text and addresses bind what Settings saves; a variable is
+ * taken as it is, trimmed. */
+export function valuesOf(definition, drawn) {
   const settings = definition.editable && definition.write ? writeValues(definition.write) : null;
   if (definition.kind === "number" && definition.environment) {
     const [variable, taken] = numberValues(definition.parsing);
     if (!settings) return `${variable.charAt(0).toUpperCase()}${variable.slice(1)}${taken}`;
+    if (drawn && drawn.scale !== 1) {
+      const range = `${grouped(definition.write.min / drawn.scale)} to ${grouped(definition.write.max / drawn.scale)} ${drawn.unit}`;
+      return `${range} in Settings; ${variable}, in ${definition.unit}, as a variable${taken}`;
+    }
     return `${settings.replace(/^A (?:whole )?number from /, "")} in Settings; ${variable} as a variable${taken}`;
   }
-  if (settings) {
-    const folder = definition.environment && definition.write.kind === "address" && definition.write.folder === "variable"
-      ? "; the variable may name a folder on the server instead" : "";
-    return `${settings}${folder}`;
+  if (settings && definition.environment && definition.write.kind === "address") {
+    const folder = definition.write.folder === "variable" ? "any address, or a folder on the server," : "any address";
+    return `${settings}, in Settings; ${folder} as a variable`;
   }
+  if (settings && definition.environment && definition.write.kind === "text") return `${settings}, in Settings; any text as a variable`;
+  if (settings) return settings;
   if (Object.hasOwn(VARIABLE_VALUES, definition.key)) return VARIABLE_VALUES[definition.key];
   throw new Error(`No words for the values of ${definition.environment ?? definition.key}: describe them in scripts/settings-tables.mjs`);
 }
@@ -271,6 +281,7 @@ export function settingsTables(source) {
     return (parts ?? [definition.label]).map((part) => `**${part}**`).join(" › ");
   };
   const unitOf = (definition) => shownUnit(definition.key, definition.unit);
+  const typedIn = new Map(source.data.serviceNumberRows().map((row) => [row.key, row]));
   const members = new Map([...SETTINGS_AREAS, WIRING_TABLE].map((area) => [area.id, []]));
   for (const definition of SETTING_CATALOGUE) {
     const area = areaOf(definition, predicates);
@@ -296,7 +307,7 @@ export function settingsTables(source) {
         definition.environment ? code(definition.environment) : "",
         definition.editable ? code(definition.key) : "",
         defaultOf(definition, unitOf),
-        valuesOf(definition),
+        valuesOf(definition, typedIn.get(definition.key)),
         definition.purpose,
         changesOf(definition),
       ])),
