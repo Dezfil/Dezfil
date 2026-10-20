@@ -10,7 +10,7 @@ constraints that hold across every change. Before you touch a page under
 [docs/README.md](docs/README.md): every page with its summary and the
 situations it is written for. What the product does and how to run it is in
 [README.md](README.md); operational recipes live in
-[docs/operate/runbook.md](docs/operate/runbook.md).
+[docs/self-host/backup-and-restore.md](docs/self-host/backup-and-restore.md).
 
 ## The product
 
@@ -97,7 +97,7 @@ those checks and the suite on a pull request, then builds the container image
 and drives the documented API through it after a merge. The browser suite is
 not in it: run it yourself, on an instance you provisioned for it. The
 required and optional variables are listed in
-[checks and testing](docs/develop/checks-and-testing.md).
+[checks and testing](docs/contribute/development-setup.md).
 
 **A change ships with its tests.** Prefer a test that fails before the
 change and passes after it. A test that cannot fail is worse than no test:

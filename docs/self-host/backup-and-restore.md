@@ -93,7 +93,7 @@ Saved SQL and publication tokens survive unchanged; an affected query or publish
 changes the SQL to refer to an uploaded dataset by name. Review saved queries
 for file readers, file-relation shorthand and metadata definition/path access
 before upgrading. See
-[the SQL boundary](../reference/http-api.md#the-read-only-sql-instance) for the execution rules.
+[the SQL boundary](../api/http-api.md#the-read-only-sql-instance) for the execution rules.
 
 Unlabelled browser SQL drafts and history from older releases cannot be
 attributed to an account and are discarded when the private workspace first
@@ -108,7 +108,7 @@ browser cleanup.
 Users lists pending and needs-retry deletions separately from accounts. Finish
 deleting resumes the same record and is safe to retry after restart. Never remove
 its journal or edit its identity rows manually. An active admin uses the same
-status and continuation operations through the [API](../reference/http-api.md) or [MCP](../reference/mcp.md).
+status and continuation operations through the [API](../api/http-api.md) or [MCP](../api/mcp.md).
 A long-lived outside reader, such as a replication sidecar, can keep deletion unfinished until it releases the database; release it, then use Finish deleting.
 
 Check free space on both the data volume and SQLite's temporary filesystem. The
@@ -117,7 +117,7 @@ runs on one machine, the 1 GiB observations ranged from 3.4 to 13.2 seconds in t
 container (nine trials) and 9 to 38 seconds on the host. The repeat run observed up
 to 1.55 seconds at 64 MiB and 3.07 seconds at 256 MiB. These observations set no
 bound and promise no maximum pause. A slow or nearly full disk and a host short of
-memory make it longer. The [host guide](self-hosting.md#leaving-and-deleting-accounts)
+memory make it longer. The [host guide](what-leaves-the-instance.md#leaving-and-deleting-accounts)
 states space planning, cache purge and exact copy limits. A failed compaction stays
 unfinished and can be retried.
 
@@ -207,7 +207,7 @@ cp -a "$backup" "$store"
 # Start the matching application version with the matching encryption key.
 ```
 
-For the named Docker volume of [Run it](../start/run-it.md), use your installed image to copy the
+For the named Docker volume of [Run it](../start/install.md), use your installed image to copy the
 stopped volume. Choose an empty backup directory and keep its contents private:
 
 ```sh
@@ -242,7 +242,7 @@ then stop the rehearsal. Only then start the new image on the original directory
 An upgrade from a release without accounts still needs first-admin setup under
 restricted access. Existing last changers and history authors start unknown; new
 changes record their own actors. Legacy runs keep their stored or adopted initiator. See
-[self-hosting](self-hosting.md#upgrading) for the attribution limits.
+[self-hosting](what-leaves-the-instance.md#upgrading) for the attribution limits.
 
 ## Admin account recovery
 
@@ -280,7 +280,7 @@ store is retried for at most five seconds and then refused without changes.
 Successful issuance revokes that account's password, earlier links, sessions and
 API/MCP tokens and prints one fragment link with account and expiry. Open it
 within fifteen minutes and choose a password. Other accounts are unaffected.
-This is not compromise cleanup; see the [limits](self-hosting.md#recovering-an-admin-account).
+This is not compromise cleanup; see the [limits](what-leaves-the-instance.md#recovering-an-admin-account).
 
 `admin:recover` restores account entry. `journey:recovery` is a separate test of
 workflow-run recovery after a server restart; it is not an account command.
@@ -314,7 +314,7 @@ A 409 `stale_revision` stops the example. Inspect a fresh read and deliberately
 compose a new edit; do not attach its token to the refused payload and replay it.
 A 400 `invalid_request` for a missing revision means the client must implement the
 read/write contract. Child writes use the parent's revision. See the
-[API](../reference/http-api.md#editing-with-revisions) and [MCP](../reference/mcp.md#editing-with-revisions)
+[API](../api/http-api.md#editing-with-revisions) and [MCP](../api/mcp.md#editing-with-revisions)
 guides for compound filing, run starts, exceptions and executable examples.
 
 ## A second isolated instance

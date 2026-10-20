@@ -34,11 +34,11 @@ server uses.
 Both require sign-in or an API token.
 
 The same document is kept beside this page as
-[`openapi.json`](openapi.json), so it can be read in a checkout without
+[`openapi.json`](../reference/openapi.json), so it can be read in a checkout without
 starting a server or signing in. `npm run docs:write` generates it from the
 source the server serves and `npm run lint:docs` fails when it differs. The
 documentation site renders the
-[operation reference](https://dezfil.io/docs/reference/api/) from that file:
+[operation reference](https://dezfil.io/docs/api/reference/) from that file:
 every operation, grouped by resource family.
 
 The document is hand-written in `src/lib/api/openapi.ts` and its sibling
@@ -119,7 +119,7 @@ and of the three authentication entry POSTs additionally refuse before a large
 wire body completes. Multipart uploads at the
 canonical `/api/tables` path stream to disk without the framework copy, under
 their file and archive limits. A reverse proxy's own request-size limit bounds the matched
-paths' residual copy further; see [self-hosting](../operate/self-hosting.md).
+paths' residual copy further; see [self-hosting](../self-host/what-leaves-the-instance.md).
 `TRACE` returns an empty 400 at the native door before body work.
 
 Map, layer, widget, sketch, export and project JSON readers accept at most
@@ -442,13 +442,13 @@ and a fresh image export card start with on this instance. `defaults` is one
 flat object keyed and valued as `PATCH /api/instance/settings` takes them, every
 key present with its effective value; a basemap the instance no longer offers
 reads as `auto`, which is what a new map starts on. Every signed-in account and
-agent can make this read. [The configuration guide](configuration.md#instance-defaults)
+agent can make this read. [The configuration guide](../self-host/configuration.md#instance-defaults)
 lists the eighteen keys with their values and defaults. The same read carries
 `rules`, the rules every account follows, keyed and valued the same way:
 `tokens.create`, `tokens.expiry`, `publishing.publish`, `publishing.embedding`,
 `connections.create` and `imports.links`, each with its effective value; and
 `passwordMin`, the fewest characters a password set from now needs.
-[The configuration guide](configuration.md#security-and-rules) lists them with
+[The configuration guide](../self-host/configuration.md#security-and-rules) lists them with
 the rest of the sign-in and publishing settings. `templates.catalogue` says
 whether the template catalogue is in use.
 `GET /api/openapi.json` serves the description. `GET`/`PATCH /api/settings`
@@ -983,7 +983,7 @@ release the reader or restore space, then use Finish deleting.
 
 Finishing deletion rewrites the whole metadata store and pauses all responses.
 Allow free working space on both the data volume and SQLite's temporary filesystem;
-the [host guide](../operate/self-hosting.md#leaving-and-deleting-accounts) gives measured pauses
+the [host guide](../self-host/what-leaves-the-instance.md#leaving-and-deleting-accounts) gives measured pauses
 and space requirements. A failed compaction remains unfinished and safe to retry.
 Completion also waits for prepared files to settle or expire and cleanup to finish.
 Recorded dataset inputs identify foreign card images, tiles and private prepared
@@ -1577,7 +1577,7 @@ response. `GET /api/assistant/pending` recovers open confirmations, and
 `POST /api/mcp` is the MCP endpoint; see the MCP page.
 
 The in-product assistant appears in the builder once one of `ANTHROPIC_API_KEY`
-or `OPENAI_API_KEY` is set (see [configuration](configuration.md#the-assistant)):
+or `OPENAI_API_KEY` is set (see [configuration](../self-host/configuration.md#the-assistant)):
 it turns plain English into SQL, layers and styles, showing the SQL and
 explaining each step. Without a key the assistant is simply absent and everything
 else works unchanged. The key is a server-side secret; it never reaches the
@@ -1697,7 +1697,7 @@ rather than on the page:
   available.
 - Timeouts, memory budgets, configured size caps, area budgets, render caps, queue
   depths and anonymous rate limits are all configuration; see
-  [configuration.md](configuration.md). When one is hit the answer is a
+  [configuration.md](../self-host/configuration.md). When one is hit the answer is a
   coded error naming the bound, not a truncated success.
 - Request bodies for workflow layout documents have an explicit byte bound
   and are refused with `request_body_too_large` before parsing.
@@ -2650,4 +2650,4 @@ remove converted files and the staged archive, retaining source artifacts. Harde
 <!-- error-catalogue:end -->
 
 The result-byte regression and outside probe invocations are in
-[result budget commands](../operate/runbook.md#sql-result-byte-budget).
+[result budget commands](../self-host/backup-and-restore.md#sql-result-byte-budget).

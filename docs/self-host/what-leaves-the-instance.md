@@ -15,7 +15,7 @@ moved_from:
 This page is for the person who runs the instance. It covers what to decide before
 you put data in it, what the instance keeps, and what it sends out.
 
-[Run it](../start/run-it.md) has the run commands and [the configuration page](../reference/configuration.md)
+[Run it](../start/install.md) has the run commands and [the configuration page](configuration.md)
 the full table of settings. Start there, then read this.
 
 ## Accounts and access
@@ -71,7 +71,7 @@ account can save or delete a custom palette. Published links remain readable wit
 as do embeds on the sites the instance allows, and the readiness probe.
 
 Existing work belongs to the recorded original account after an upgrade.
-Read the [ownership upgrade instructions](runbook.md#upgrading-ownership-storage)
+Read the [ownership upgrade instructions](backup-and-restore.md#upgrading-ownership-storage)
 before updating. SQL uses your imported datasets by name. Direct file reads
 and file-referencing projection definitions are refused, including in saved
 queries and published layers; ordinary EPSG transforms remain supported.
@@ -129,7 +129,7 @@ the column's foot; members see General alone, read-only.
   views and images, and a screen already open keep what they have. Someone's own
   minimap or results band choice still wins in their browser. Members meet the
   defaults as the starting state of what they make;
-  [the configuration guide](../reference/configuration.md#instance-defaults) lists every value.
+  [the configuration guide](configuration.md#instance-defaults) lists every value.
 - **Publishing** also holds **Public links**: who may publish (Everyone, Admins
   only or No one) and embedding on other sites (Any site, Listed sites, one site
   per line, or Off). Maps already published stay public until unpublished; a
@@ -165,7 +165,7 @@ the column's foot; members see General alone, read-only.
   password that already exists; each applies from the next session use, link,
   sign-in attempt, password or token. Who may add database connections and who
   may import from links are on Data & services;
-  [the configuration guide](../reference/configuration.md#security-and-rules) lists every
+  [the configuration guide](configuration.md#security-and-rules) lists every
   value.
 - **System** shows the version and how long the server has run, whether the data
   folder is writable, whether the assistant is on, and every setting a variable
@@ -258,7 +258,7 @@ Deletion has these copy and attribution limits:
   a backup can revive erased data and credentials; review them before reopening.
 
 Before upgrading or rolling back, follow the [retained-identity upgrade and full
-backup instructions](runbook.md#retained-account-identity-upgrade). Keep a stopped,
+backup instructions](backup-and-restore.md#retained-account-identity-upgrade). Keep a stopped,
 complete backup and the matching application and key; do not down-migrate a live
 store containing deleting or deleted accounts.
 
@@ -293,7 +293,7 @@ revoked after the backup can become valid again after restoration. Review and
 revoke restored credentials as needed before reopening access. Work accepted
 after the backup is not in the restore. Test the restore on an isolated port and
 copy, never with two servers writing the same directory. The
-[runbook](runbook.md#full-backup-and-restore) gives checkout and volume commands.
+[runbook](backup-and-restore.md#full-backup-and-restore) gives checkout and volume commands.
 
 ## Private certificate authorities for image exports
 
@@ -498,7 +498,7 @@ admits 16,777,216; assistant messages keep 131,072 and their own refusal code.
 These limits include UTF-8, escaping and whitespace regardless of Content-Type.
 Optional bodies obey the same bound. Excess returns 413 before parsing, never
 a default or a write. Workflow and assistant refusal wording stays unchanged;
-[the API guide](../reference/http-api.md#request-bounds) gives the exact envelopes.
+[the API guide](../api/http-api.md#request-bounds) gives the exact envelopes.
 MCP base64 uploads must be below 12 MiB after envelope and metadata overhead.
 Published render selections remain at 65,536 bytes even within their semantic
 filter counts; the viewer's twelve selections of fifty long values fit.
@@ -593,7 +593,7 @@ server picture work and refused saves do not assign an author.
 Clients that write maps or workflows must now read an edit revision and carry it
 on each covered write. Formerly bodyless covered successes return JSON with the
 new revision. Update headless clients with the server; see the
-[API guide](../reference/http-api.md#editing-with-revisions). For rollback use the complete stopped
+[API guide](../api/http-api.md#editing-with-revisions). For rollback use the complete stopped
 backup and its matching build. The revision-only schema additions support the
 immediately preceding compatible writers, but that is not a general promise that
 older releases understand ownership or sharing storage.
@@ -602,7 +602,7 @@ older releases understand ownership or sharing storage.
 
 With filesystem access, use `npm run admin:recover` in a checkout or the packaged
 `scripts/admin-recover.mjs` in the container. The
-[runbook](runbook.md#admin-account-recovery) provides all three invocations.
+[runbook](backup-and-restore.md#admin-account-recovery) provides all three invocations.
 The command requires an existing, compatible, setup-complete data directory and
 an explicit reachable HTTP/HTTPS origin. It never creates or migrates a store.
 It selects the sole active admin, or an exact email supplied with `--email` when

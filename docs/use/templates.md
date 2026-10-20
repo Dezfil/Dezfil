@@ -27,9 +27,9 @@ network: the maps *Forty years of big earthquakes* and *The world's air
 routes*, and the workflow example *Health access in Rwanda*. [NOTICE](../../NOTICE)
 lists their data's sources, licences and credits.
 
-![The Templates page: a search box, tag chips with their counts, and the cards of the three shipped templates](../images/guides/templates.webp)
+![The Templates page: a search box, tag chips with their counts, and the cards of the three shipped templates](../images/use/templates.webp)
 
-![Typing "quake" into the search box narrows the cards to the earthquakes map, and each chip's count follows the search](../images/guides/templates-search.webm)
+![Typing "quake" into the search box narrows the cards to the earthquakes map, and each chip's count follows the search](../images/use/templates-search.webm)
 
 Opening a template shows the version its card named, read only: a map as a
 map one may only view opens, a workflow example's canvas as a viewer sees it

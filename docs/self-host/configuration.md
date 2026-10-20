@@ -69,7 +69,7 @@ tile address; see [Service addresses and numbers](#service-addresses-and-numbers
 The optional `assistant-models.json` in the data directory supplies the model
 catalogue; environment model lists narrow its offer. It is a file, not an account
 preference. Its reload and validation rules are in
-[the runbook](../operate/runbook.md#the-model-catalogue-file). Edit revisions and stale-save
+[the runbook](backup-and-restore.md#the-model-catalogue-file). Edit revisions and stale-save
 recovery need no deployment switch.
 
 Two conventions run through the whole surface:
@@ -259,7 +259,7 @@ A gap or an answer limit applies from the next request and freshness at each
 cached answer's next use; a run already admitted keeps its own. The tab also
 shows each cache's use against its budget with Clear, Overture's release list
 with Check now, and a Test per service; both are operations in
-[the API guide](http-api.md#resource-families). Each cache's budget, how long a
+[the API guide](../api/http-api.md#resource-families). Each cache's budget, how long a
 no-match is kept, the Overpass response budget, the Overture endpoint, signing
 object-store reads with the server's credentials and the allowlist stay the
 environment's alone; the tab shows the last two locked, naming their
@@ -294,7 +294,7 @@ The basemap library holds at most 50 styles an admin added by their address,
 each offered or hidden where a basemap is chosen. The server reads a style's
 address once, as it is added, through the egress check, and keeps its credit or
 its host; the address is public to whoever draws a map on it. Adding, hiding
-and removing are operations in [the API guide](http-api.md#resource-families). A
+and removing are operations in [the API guide](../api/http-api.md#resource-families). A
 map that took a style keeps its own copy of the name, address and credit,
 whatever happens to the library afterwards.
 
@@ -433,7 +433,7 @@ not native chunks, JavaScript object overhead, heap or RSS.
 
 | Variable | Default | Effect | Changed by |
 |---|---|---|---|
-| `DEZFIL_DATA_DIR` | ./data; /data in the container | The single durable directory. Back up the complete stopped directory and any external encryption key. `src/lib/config.ts` falls back to `data` under the working directory; the image sets `/data` and declares it a volume. It also holds the optional `assistant-models.json` [model catalogue](../operate/runbook.md#the-model-catalogue-file). | Restart |
+| `DEZFIL_DATA_DIR` | ./data; /data in the container | The single durable directory. Back up the complete stopped directory and any external encryption key. `src/lib/config.ts` falls back to `data` under the working directory; the image sets `/data` and declares it a volume. It also holds the optional `assistant-models.json` [model catalogue](backup-and-restore.md#the-model-catalogue-file). | Restart |
 | `DEZFIL_SECRET_KEY` | generated | 64 hex characters (32 bytes), the at-rest encryption key for stored connection credentials. Unset, a key is generated into the data directory as `secret.key` on first boot and reused from there (`src/lib/secrets.ts`). A wrong or lost key makes stored credentials unreadable. | Restart |
 
 ## Trusted proxies
@@ -451,7 +451,7 @@ other JSON, including MCP and workflows; assistant messages retain 131,072.
 Excess returns 413 with the operation's documented error. Optional bodies,
 escaping and UTF-8 bytes count too. Render selections remain in the small tier
 even when their filters satisfy the semantic limits. MCP's base64 envelope
-makes a raw upload smaller than 12 MiB; see [the MCP guide](mcp.md).
+makes a raw upload smaller than 12 MiB; see [the MCP guide](../api/mcp.md).
 Multipart uploads stream to disk under the separate file/archive caps.
 
 The fixed `experimental.proxyClientMaxBodySize` in `next.config.ts` is
@@ -461,8 +461,8 @@ anonymous callers. A fronting reverse proxy's own request-size limit bounds
 that residual copy further. Canonical spellings of `/api/tables`, the public
 widget-values, render and extent POST paths and the three authentication entry
 POSTs bypass the copy and preserve their handler-side gates. The native door returns an
-empty 400 for `TRACE`. See [self-hosting](../operate/self-hosting.md) for the wire
-behavior and [the API guide](http-api.md#request-bounds) for exact refusals.
+empty 400 for `TRACE`. See [self-hosting](what-leaves-the-instance.md) for the wire
+behavior and [the API guide](../api/http-api.md#request-bounds) for exact refusals.
 
 ## Upload and remote import
 
@@ -632,7 +632,7 @@ untrusted hop. An IPv6 source is charged with its whole /64, so a host cannot st
 budget by taking a fresh address from its prefix; an IPv4 source, IPv4-mapped
 spellings included, is charged alone, and so is an IPv4 client reaching the
 instance through the NAT64 prefix `64:ff9b::/96`, charged as the IPv4 address
-it carries. The verified source itself stays the full address. See [self-hosting](../operate/self-hosting.md) for provenance refusals and scope.
+it carries. The verified source itself stays the full address. See [self-hosting](what-leaves-the-instance.md) for provenance refusals and scope.
 
 Password derivation admission is shared across the server process: two active,
 six ordinary plus two reserved protected waiters, and a five-second maximum
@@ -698,8 +698,8 @@ the surface is simply absent and everything else works unchanged
 | `OPENAI_API_KEY` | unset | Enables the assistant with OpenAI. | Restart |
 | `DEZFIL_AI_PROVIDER` | first key set | `anthropic` or `openai`, when both keys are present. An unknown value leaves the assistant disabled with an explanatory reason. | Restart |
 | `DEZFIL_AI_MODEL` | provider default | Overrides the model. Defaults are `claude-opus-5` for Anthropic and `gpt-5.6-terra` for OpenAI. | Restart |
-| `DEZFIL_AI_MODELS_ANTHROPIC` | unset | Comma-separated model identities narrowing and ordering what a person may choose. Unset offers the effective [catalogue](../operate/runbook.md#the-model-catalogue-file). The instance default is always present exactly once. Only the resolved provider's list applies. | Restart |
-| `DEZFIL_AI_MODELS_OPENAI` | unset | The same, for OpenAI. See the [catalogue instructions](../operate/runbook.md#the-model-catalogue-file). | Restart |
+| `DEZFIL_AI_MODELS_ANTHROPIC` | unset | Comma-separated model identities narrowing and ordering what a person may choose. Unset offers the effective [catalogue](backup-and-restore.md#the-model-catalogue-file). The instance default is always present exactly once. Only the resolved provider's list applies. | Restart |
+| `DEZFIL_AI_MODELS_OPENAI` | unset | The same, for OpenAI. See the [catalogue instructions](backup-and-restore.md#the-model-catalogue-file). | Restart |
 | `DEZFIL_ASSISTANT_STEP_BUDGET` | `20` | Maximum model and tool steps one assistant request may take. | Restart |
 | `DEZFIL_ASSISTANT_OFFER` | `subset` | Which operations a page's run is offered at the start: `subset` (that page's operations plus the grounding reads, the rest reachable through a discovery tool) or `full` (every operation the page admits, no discovery tool). Any other value reads as `subset` (`src/lib/assistant/offer.ts`). | Restart |
 | `DEZFIL_ASSISTANT_AUTO_CHECK` | on | Whether the assistant looks at the rendered map by itself after a turn that changed it. `0`, `false`, or `off` turns it off; an explicit check stays available. | Restart |
@@ -709,7 +709,7 @@ the surface is simply absent and everything else works unchanged
 | `DEZFIL_TOOL_ATTACHMENT_MAX_MB` | `32` | Cap on a download answered to an agent tool. Past it the tool gets a coded error instead. | Restart |
 
 The optional model catalogue file that these settings narrow lives in the data
-directory; see [the runbook](../operate/runbook.md#the-model-catalogue-file).
+directory; see [the runbook](backup-and-restore.md#the-model-catalogue-file).
 
 ## Platform and image plumbing
 

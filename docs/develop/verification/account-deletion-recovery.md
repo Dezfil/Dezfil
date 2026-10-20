@@ -61,7 +61,7 @@ the retained original identity in the real setup/recovery reader; they do not
 change the expected answer. A startup, package or transport failure is not that red.
 The socket-free deletion/recovery process test has the same two seeded controls.
 
-Keep the separate [workflow restart journey](../../operate/runbook.md#driving-the-api-without-a-browser)
-and the [identity migration and rollback proof](../../operate/runbook.md#retained-account-identity-upgrade).
+Keep the separate [workflow restart journey](../../self-host/backup-and-restore.md#driving-the-api-without-a-browser)
+and the [identity migration and rollback proof](../../self-host/backup-and-restore.md#retained-account-identity-upgrade).
 They cover different boundaries and are not replaced by account deletion.
 Outside arms remain unconfirmed until their green and named reds are observed.
