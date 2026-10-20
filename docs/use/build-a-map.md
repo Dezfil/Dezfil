@@ -81,9 +81,7 @@ The list shows the layers in drawing order: the top card draws over the ones bel
 
 ## 3. Style a layer
 
-1. Click a layer's name in the list.
-
-You should see its style panel open under the card. Click a section's title to fold it away, and the layer's name again to close the panel.
+A new layer's style panel is open under its card. For another layer, click its name in the list. Click a section's title to fold it away, and the layer's name again to close the panel.
 
 A new layer starts in one color, the next in your instance's color cycle. The panel's sections depend on the layer's geometry and type:
 
