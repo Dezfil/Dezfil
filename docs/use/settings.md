@@ -24,7 +24,7 @@ Your own settings sit under **You** in **Settings**: **Account**, **API & MCP** 
 
 ![The Appearance tab after picking Harbor: the side menu, the column and the Color and contrast card tinted blue, and Reset to Dezfil's default at the right of the Settings heading](../images/use/settings-look-harbor.webp)
 
-You should see the whole workspace take the new color at once, and **Saved** beside the row.
+You should see the whole workspace take the new color at once, and **Saved** beside the row for a moment.
 
 There is no Save button: each pick is kept the moment you click it. Every row works the same way, and its first choice is Dezfil's default.
 
@@ -48,14 +48,14 @@ People who open your published maps see Dezfil's default look, whatever you pick
 
 ## Switch between light and dark
 
-Click the theme button at the top right of any page: a moon while the page is light, a sun while it is dark.
+Click the theme button at the right of the top bar: a moon while the page is light, a sun while it is dark.
 
 You should see the page switch at once. Dezfil starts light. In the builder, a map on the **Auto** basemap follows the theme.
 
-To find the button from Settings, type `dark` in **Search settings**.
+To find the button from Settings, type `dark` in **Search settings** and choose **Light or dark**. You should see the theme button light up for a moment.
 
 > [!NOTE]
-> Switching the theme while a published map is open in the builder switches the theme its readers see as well.
+> Switching the theme while your own published map is open in the builder switches the theme its readers see as well.
 
 ## Lay out and sort your lists
 
@@ -110,7 +110,7 @@ Your other browser sessions end, so those browsers ask you to sign in again. You
 | Your look | **Settings** › **Appearance** | With your account, in every browser you sign in on |
 | Layout and sort of a list | **Maps**, **Data**, **Workflows**, **Projects** | With your account, for each screen |
 | SQL source grouping | **By person** or **By project** in **SQL**, as [Query with SQL](sql.md#other-peoples-datasets) shows | With your account |
-| Light or dark | The theme button at the top right | In this browser only |
+| Light or dark | The theme button in the top bar | In this browser only |
 | Name, email and password | **Settings** › **Account** | With your account |
 
 ## Troubleshooting
