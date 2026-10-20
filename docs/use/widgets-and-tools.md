@@ -109,6 +109,10 @@ Before **Run** turns on, Dezfil tries the tool on your data and shows the rows a
 
 A result without geometry, such as a **Group & summarize** table, is saved as a dataset and adds no layer.
 
+Tool runs from the builder stay off the **Workflows** page. To chain tools and run them again together, build a workflow there.
+
+### Choose the input
+
 To choose another input, click **Change** beside it:
 
 - **Search:** click the search box to list the tables, under **Drawn on this map** (your sketches), **Tool outputs** and **Workspace tables**. A table the tool cannot take is grayed out, with the reason.
@@ -118,11 +122,11 @@ With no layer selected, **Tools** opens on the full list and every input starts 
 
 A tool reads the whole table behind a layer, without the layer's **Filters**, and the form says so when the layer has some. **SQL step** differs: from a selected layer, it runs the layer's own query, filters and all.
 
+### When the data changes
+
 When a dataset a tool read changes, the card of the layer it made says so, such as **world_cities changed · re-run**.
 
 Click **Re-run** to make the result again from the new data, or × to keep it as it is.
-
-Tool runs from the builder stay off the **Workflows** page. To chain tools and run them again together, build a workflow there.
 
 ## The tools
 
