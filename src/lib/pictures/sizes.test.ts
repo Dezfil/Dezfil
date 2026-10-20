@@ -79,6 +79,15 @@ describe("a picture's kept sizes", () => {
     expect(files(from.id).filter((name) => name.endsWith(".webp"))).toHaveLength(18);
   });
 
+  it("copies a single appearance's sizes into a duplicate", async () => {
+    const from = createMap(scope, "One ground"), to = createMap(scope, "One ground copy");
+    for (const id of [from.id, to.id]) metadataDb().prepare("UPDATE maps SET basemap = 'light' WHERE id = ?").run(id);
+    await publish(from.id, images("only"));
+    await copyThumbnail(scope, from.id, to.id);
+    expect(files(to.id).filter((name) => name.endsWith(".webp"))).toHaveLength(9);
+    expect(await read(to.id, "dark", { shape: "wide", width: 1200 })).toEqual({ type: "image/webp", text: "only:wide-1656" });
+  });
+
   it("refuses a set whose appearances kept different sizes", async () => {
     const map = createMap(scope, "Uneven");
     const dark = images("dark");

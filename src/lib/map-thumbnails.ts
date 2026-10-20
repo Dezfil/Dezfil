@@ -485,12 +485,17 @@ async function readPublished(
     let bytes: Buffer | undefined;
     try { bytes = await readFile(file); } catch { /* Try the next name. */ }
     requireMap(scope, mapId);
-    if (!bytes || !servableTo(scope, mapId, await imageInputs(path.basename(file), bytes))) continue;
+    if (!bytes) continue;
+    const inputs = await imageInputs(path.basename(file), bytes);
+    if (!servableTo(scope, mapId, inputs)) continue;
     const sized = wantedSize(set, path.basename(file), want);
     if (sized) {
       let kept: Buffer | undefined;
       try { kept = await readFile(inDir(sized)); } catch { /* Answer the PNG. */ }
+      // Reach may have changed while the size was read: the same check
+      // decides again, for the size and for the PNG in its place.
       requireMap(scope, mapId);
+      if (!servableTo(scope, mapId, inputs)) continue;
       if (kept) return { bytes: kept, type: "image/webp" };
     }
     return { bytes, type: "image/png" };
@@ -605,8 +610,10 @@ export function copyThumbnail(scope: AccountScope, from: string, to: string): Pr
     // The kept sizes travel with their PNGs; a set missing one is copied
     // as the older picture it then is, without sizes.
     const sized: [string, Buffer][] = [];
-    for (const [source, target] of [[set.light, copied.light], [set.dark, copied.dark]] as const) {
-      if (!set.sizes || (source === set.dark && set.dark === set.light)) continue;
+    // One appearance names one file twice: its sizes are copied once.
+    const pairs = set.dark === set.light ? [[set.light, copied.light]] as const : [[set.light, copied.light], [set.dark, copied.dark]] as const;
+    for (const [source, target] of pairs) {
+      if (!set.sizes) continue;
       for (const shape of PICTURE_SHAPE_NAMES) {
         for (const width of set.sizes[shape]) {
           try { sized.push([sizedPictureFile(target, shape, width), await readFile(inDir(sizedPictureFile(source, shape, width)))]); }
