@@ -79,8 +79,8 @@ npx playwright test  # the browser suite, against a running instance
 
 Past lint and types there are named gates, each its own script, each holding
 something review keeps missing: `lint:hygiene` (no NUL bytes in tracked
-source), `lint:readme` (the configuration table covers the real environment
-surface, both directions), `lint:size` (the oversized modules below),
+source), `lint:readme` (the settings tables cover every
+deployment variable and stored instance setting once, both directions), `lint:size` (the oversized modules below),
 `lint:stage-edge` (the builder stage's left edge stays one custom
 property), `lint:wheelhouse`, `lint:tokens` and `lint:icons` (the design
 language), `lint:class-pairs` (no element's look left to the order two
@@ -91,7 +91,8 @@ stylesheets load in), `lint:specimen` (the specimen still matches its sources),
 page under `docs/` holds the page contract and, unless it waits on the list
 of pages not yet rewritten, the writing rules; its links and pictures
 resolve, so do those of the procedure notes under `scripts/` and `src/`, and
-the index, the API description file and the image manifest are current) and
+the index, the API description file, the settings tables and the image
+manifest are current) and
 `lint:retired-paths` (no tracked file names a documentation
 path that moved or left). Run the ones a change can plausibly break, and all of them before
 calling it done.
@@ -101,7 +102,7 @@ those checks and the suite on a pull request, then builds the container image
 and drives the documented API through it after a merge. The browser suite is
 not in it: run it yourself, on an instance you provisioned for it. The
 required and optional variables are listed in
-[checks and testing](docs/contribute/development-setup.md).
+[Development setup](docs/contribute/development-setup.md#run-the-browser-suite).
 
 **A change ships with its tests.** Prefer a test that fails before the
 change and passes after it. A test that cannot fail is worse than no test:

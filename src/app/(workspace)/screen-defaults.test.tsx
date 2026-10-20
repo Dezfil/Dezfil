@@ -9,6 +9,7 @@ import { LayerDownloadControlProvider } from "@/components/builder/LayerDownload
 import { MapBuilder } from "@/components/builder/MapBuilder";
 import { MapReader } from "@/components/reader/MapReader";
 import { ScreenDefaultsProvider } from "@/components/screen-defaults";
+import { MapOpeningProvider } from "@/components/map-opening";
 import { SqlConsole } from "@/components/sql/SqlConsole";
 import { WorkflowScreen } from "@/components/WorkflowScreen";
 import MapPage from "./maps/[id]/page";
@@ -95,13 +96,19 @@ async function pages(): Promise<[string, Element, unknown][]> {
   ];
 }
 
-/** What a page hands its screen: the provider directly around the screen,
- * under the layer-download control each of these pages already gives it. */
+/** What a page hands its screen: the provider around the screen, under the
+ * layer-download control each of these pages already gives it. The builder
+ * sits inside the page's word on how the map opens, which is no default. */
 function handed(page: Element, screen: unknown): InstanceDefaults | undefined {
   expect(page.type).toBe(LayerDownloadControlProvider);
   const provider = page.props.children as Element;
   expect(provider.type).toBe(ScreenDefaultsProvider);
-  expect(provider.props.children.type).toBe(screen);
+  let inner = provider.props.children as Element;
+  if (screen === MapBuilder) {
+    expect(inner.type).toBe(MapOpeningProvider);
+    inner = inner.props.children as Element;
+  }
+  expect(inner.type).toBe(screen);
   return provider.props.defaults;
 }
 
@@ -138,7 +145,11 @@ describe("the pages that open a screen", () => {
   it("hand the read-only map view none", async () => {
     writeStoredSettings(CHANGED, db);
     const page = await mapPage("viv");
-    expect(page.type).toBe(MapReader);
-    expect(Object.keys(page.props).sort()).toEqual(["basemapOverrideAttribution", "basemapOverrideUrl", "basemapUrl", "basemaps", "mapId"]);
+    // Only whether the map opens framed, never a default itself.
+    expect(page.type).toBe(MapOpeningProvider);
+    expect(Object.keys(page.props).sort()).toEqual(["children", "framed"]);
+    const reader = page.props.children as Element;
+    expect(reader.type).toBe(MapReader);
+    expect(Object.keys(reader.props).sort()).toEqual(["basemapOverrideAttribution", "basemapOverrideUrl", "basemapUrl", "basemaps", "mapId"]);
   });
 });

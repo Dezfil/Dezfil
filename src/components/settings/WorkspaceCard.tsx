@@ -9,6 +9,9 @@ import { unitControlFor, type ReadSetting } from "./server-set";
 import { useSaveUnit, useUnitFocus } from "./use-save-unit";
 import { useLiveValue } from "./live-values";
 import { cardFormClass, LabelledField, Note, SaveLine, SettingsCard } from "./SettingsCard";
+import { generalRow, INSTANCE_CARD } from "./general-table";
+
+const NAME = generalRow("instanceName");
 
 /** The Instance card: this instance's name, beside the wordmark and in
  * browser titles. Admins edit it; members see it disabled. It has no
@@ -19,7 +22,7 @@ export function WorkspaceCard(props: { admin: true; setting: ReadSetting } | { a
 
 function instanceUnit(setting: ReadSetting): SaveUnit {
   return new SaveUnit({
-    title: "Instance", controls: [unitControlFor(setting, { reset: false })], kept: { instanceName: setting.value as Value },
+    title: INSTANCE_CARD.title, controls: [unitControlFor(setting, { reset: false })], kept: { instanceName: setting.value as Value },
     write: async patch => {
       const kept = keptValues(await writeInstanceSettings(patch), ["instanceName"]);
       // The header's chip and the browser title follow what was kept.
@@ -32,13 +35,13 @@ function instanceUnit(setting: ReadSetting): SaveUnit {
 function AdminInstance({ setting }: { setting: ReadSetting }) {
   const ids = useId();
   const root = useRef<HTMLElement>(null);
-  const [unit, card] = useSaveUnit("card-instance", () => instanceUnit(setting));
+  const [unit, card] = useSaveUnit(INSTANCE_CARD.id, () => instanceUnit(setting));
   useUnitFocus(root, card.focus);
-  useLiveValue("set-instance-name", String(card.values.instanceName ?? ""));
+  useLiveValue(NAME.id, String(card.values.instanceName ?? ""));
   const error = card.errors.instanceName;
-  return <SettingsCard ref={root} id="card-instance" title="Instance" headingId="instance-heading">
+  return <SettingsCard ref={root} id={INSTANCE_CARD.id} title={INSTANCE_CARD.title} headingId="instance-heading">
     <form className={cardFormClass} noValidate onSubmit={event => { event.preventDefault(); unit.save(); }}>
-      <LabelledField id="set-instance-name" label="Instance name" inputId={`${ids}-name`} saved={card.saved.includes("instanceName")}
+      <LabelledField id={NAME.id} label={NAME.label} inputId={`${ids}-name`} saved={card.saved.includes("instanceName")}
         error={error} errorId={`${ids}-name-error`}>
         <TextInput id={`${ids}-name`} data-unit-key="instanceName" value={String(card.values.instanceName ?? "")} maxLength={80}
           disabled={card.busy} aria-invalid={error ? true : undefined} aria-describedby={error ? `${ids}-name-error` : undefined}
@@ -52,8 +55,8 @@ function AdminInstance({ setting }: { setting: ReadSetting }) {
 
 function MemberInstance({ name }: { name: string | null }) {
   const ids = useId();
-  return <SettingsCard id="card-instance" title="Instance" headingId="instance-heading">
-    <LabelledField id="set-instance-name" label="Instance name" inputId={`${ids}-name`}>
+  return <SettingsCard id={INSTANCE_CARD.id} title={INSTANCE_CARD.title} headingId="instance-heading">
+    <LabelledField id={NAME.id} label={NAME.label} inputId={`${ids}-name`}>
       <TextInput id={`${ids}-name`} value={name ?? ""} disabled readOnly />
     </LabelledField>
     <Note>Only admins can change the instance name.</Note>

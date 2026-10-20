@@ -6,6 +6,7 @@ import type { ApiToken } from "@/lib/metadata/auth-credentials";
 import type { CustomPalette } from "@/lib/metadata/palettes";
 import { LANDING_PAGES } from "@/components/auth/entry-settings";
 import { DEFAULTS_TABS, rowValueWords, type DefaultsTabId } from "./defaults-table";
+import { generalRow, INSTANCE_CARD, SIGN_IN_CARD, type GeneralRow } from "./general-table";
 import type { InstanceRead } from "./instance-read";
 import { addressWords, cardSetUp, catalogueSwitchWords, dataRowWords, dataTabCards, isTemplatesCard, TEMPLATES_CARD } from "./data-table";
 import {
@@ -100,14 +101,15 @@ function appearanceCards(look: Look | null): IndexCard[] {
 
 function generalCards(values: EntryValues): IndexCard[] {
   const landing = LANDING_PAGES.find(page => page.value === values.landingPage) ?? LANDING_PAGES[0];
+  const row = (key: GeneralRow["key"], keys: string, value: string) => ({ id: generalRow(key).id, label: generalRow(key).label, keys, value });
   return [
-    { id: "card-instance", title: "Instance", keys: "instance name", rows: [
-      { id: "set-instance-name", label: "Instance name", keys: "title chip header browser tab name", value: text(values.instanceName) },
+    { id: INSTANCE_CARD.id, title: INSTANCE_CARD.title, keys: "instance name", rows: [
+      row("instanceName", "title chip header browser tab name", text(values.instanceName)),
     ] },
-    { id: "card-sign-in", title: "Sign-in", keys: "sign in login entry page", rows: [
-      { id: "set-sign-in-message", label: "Message", keys: "sign-in login welcome page text help", value: text(values.signInMessage) },
-      { id: "set-lost-password-contact", label: "Lost password contact", keys: "forgot reset password help admin contact", value: text(values.lostPasswordContact) },
-      { id: "set-landing-page", label: "Landing page", keys: "after signing in start home open first page destination", value: landing.label },
+    { id: SIGN_IN_CARD.id, title: SIGN_IN_CARD.title, keys: "sign in login entry page", rows: [
+      row("signInMessage", "sign-in login welcome page text help", text(values.signInMessage)),
+      row("lostPasswordContact", "forgot reset password help admin contact", text(values.lostPasswordContact)),
+      row("landingPage", "after signing in start home open first page destination", landing.label),
     ] },
   ];
 }

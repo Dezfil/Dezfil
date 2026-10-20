@@ -47,6 +47,9 @@ export const hookReact = {
     const { h, s } = seat();
     if (!same(s.deps, deps)) { s.deps = deps; h.effects.push(() => { s.cleanup?.(); s.cleanup = effect(); }); }
   },
+  /** The scheduler renders no provider, so a context reads its default. */
+  createContext<T>(defaultValue: T) { return { defaultValue, Provider: () => null }; },
+  useContext<T>(context: { defaultValue: T }) { return context.defaultValue; },
   useSyncExternalStore(subscribe: (fn: () => void) => () => void, get: () => unknown) {
     const [, set] = hookReact.useState(0);
     hookReact.useEffect(() => subscribe(() => set((n) => n + 1)), [subscribe]);

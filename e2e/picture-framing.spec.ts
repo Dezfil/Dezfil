@@ -26,7 +26,13 @@ for (const pitch of [0, 45]) test(`picture framing matches the real laptop build
     const box = (await host.boundingBox())!;
     const visible = { width: size.width - live.padding.left - live.padding.right, height: size.height - live.padding.top - live.padding.bottom };
     expect(visible).toEqual({ width: 988, height: 824 });
+    // The marks are measured inside the region the card takes in, 990 by
+    // 424 around the visible centre: the page's layer list and legend draw
+    // the same colours, and a centroid over the whole page averages them in.
+    const centre = { x: box.x + (size.width + live.padding.left - live.padding.right) / 2, y: box.y + (size.height + live.padding.top - live.padding.bottom) / 2 };
+    const region = { x: Math.round(centre.x - 495), y: Math.round(centre.y - 212), width: 990, height: 424 };
     const screenshot = await page.screenshot();
+    const framed = await page.screenshot({ clip: region });
     expect((await page.request.post(`/api/maps/${id}/picture/refresh`)).status()).toBe(202);
     let version = "";
     await expect(async () => {
@@ -36,13 +42,14 @@ for (const pitch of [0, 45]) test(`picture framing matches the real laptop build
     }).toPass({ timeout: 90000 });
     const response = await page.request.get(`/api/maps/${id}/thumbnail?theme=light&v=${version}`);
     expect(response.status()).toBe(200); const card = await response.body();
-    const centre = { x: box.x + (size.width + live.padding.left - live.padding.right) / 2, y: box.y + (size.height + live.padding.top - live.padding.bottom) / 2 };
     const measurements = PICTURE_MARKS.map(mark => {
-      const builder = colourCentre(screenshot, mark.colour), picture = colourCentre(card, mark.colour);
-      const expected = { x: 346 + (builder.x - centre.x) * 692 / 990, y: 148 + (builder.y - centre.y) * 296 / 424 };
-      return { colour: mark.colour, builder, picture, expected, error: Math.hypot(picture.x - expected.x, picture.y - expected.y) };
+      const builder = colourCentre(framed, mark.colour), picture = colourCentre(card, mark.colour);
+      const offset = { x: region.x + builder.x - centre.x, y: region.y + builder.y - centre.y };
+      const expected = { x: 346 + offset.x * 692 / 990, y: 148 + offset.y * 296 / 424 };
+      return { colour: mark.colour, builder, offset, picture, expected, error: Math.hypot(picture.x - expected.x, picture.y - expected.y) };
     });
     await info.attach(`builder-${pitch}`, { body: screenshot, contentType: "image/png" });
+    await info.attach(`builder-region-${pitch}`, { body: framed, contentType: "image/png" });
     await info.attach(`picture-${pitch}`, { body: card, contentType: "image/png" });
     await info.attach(`framing-${pitch}`, { body: JSON.stringify({ visible, camera, measurements }), contentType: "application/json" });
     for (const mark of measurements) expect(mark.error, `mark ${mark.colour.join(",")} after scale`).toBeLessThanOrEqual(4);

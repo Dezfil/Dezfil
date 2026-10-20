@@ -54,7 +54,7 @@ function parse(u: string) {
 
 let dir: string;
 
-live(url ? "postgis live integration" : "SKIP: DEZFIL_TEST_PG_URL is missing (disposable PostGIS, docs/self-host/backup-and-restore.md)", () => {
+live(url ? "postgis live integration" : "SKIP: DEZFIL_TEST_PG_URL is missing (disposable PostGIS, docs/contribute/development-setup.md)", () => {
   // The describe body evaluates even when skipped — parse a placeholder.
   const target = parse(url ?? "postgres://postgres:test@127.0.0.1:54329/postgres");
   const rotationRole = `dezfil_live_rotation_${process.pid}`;

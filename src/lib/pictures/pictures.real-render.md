@@ -74,7 +74,7 @@ It substitutes only the three built-in style
 responses after normal renderer admission. The actual browser still loads,
 paints and captures them; no image or readiness declaration is mocked.
 
-That same instance also needs the [browser suite's assistant wiring](../../../docs/self-host/backup-and-restore.md#the-browser-suite)
+That same instance also needs the [browser suite's assistant wiring](../../../docs/contribute/development-setup.md#2-start-an-instance-for-the-suite)
 for `assistant-clear.spec.ts`: the scripted provider, automatic check off and
 the `e2e/assistant-self-port.cjs` preload, with `DEZFIL_E2E_LISTEN_PORT` matching
 the instance's port and `DEZFIL_E2E_SELF_PORT=3303`. Keep the self-port preload's
