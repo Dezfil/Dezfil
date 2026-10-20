@@ -100,13 +100,13 @@ To delete a project you own, click **⋯**, pick **Delete project** and confirm.
 
 You should see **Published**, the link, **Copy link** and **Open**. Dezfil also copies the link when your browser allows it. **Preview** in the top bar opens the published page.
 
-![The publish panel of a published map, under its link: the Shared fields row with its counts, Opens in with Light chosen, the Readers can list with Zoom and North always on and 3D tilt, Fit to data, Light / dark, Basemap picker and Cursor coordinates ticked, and the Embed and Unpublish buttons](../images/use/share-and-publish-published.webp)
-
 Readers see the map as it is, and your later edits reach them on their next load. A hidden layer's features are not published, but a widget on that layer still shows readers its numbers. Which widgets go out: [Widgets and tools](widgets-and-tools.md#widgets-on-a-published-map).
 
 By default, a layer shares the fields its style, filters and widgets need, marked **needed to render**, plus those its hover and click pop-ups show. **Reset to automatic** restores the default. On a published map, the row reads **Shared fields**.
 
 A layer drawn as cells, such as hex bins, shares only each cell's computed values.
+
+![The publish panel of a published map, under its link: the Shared fields row with its counts, Opens in with Light chosen, the Readers can list with Zoom and North always on and 3D tilt, Fit to data, Light / dark, Basemap picker and Cursor coordinates ticked, and the Embed and Unpublish buttons](../images/use/share-and-publish-published.webp)
 
 To change what readers can do, click **Published** at the top right:
 
