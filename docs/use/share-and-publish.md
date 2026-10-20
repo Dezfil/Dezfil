@@ -175,7 +175,7 @@ The zip holds the maps and workflows as JSON, without published links. Its datas
 
 **Publishing says "You can view this but cannot make this change."** The map belongs to someone else in the project. Ask its owner to publish it.
 
-**The person you want to add is not found: "No account with that name." or "No account with that email."** Type part of their name, or their whole email address. They need an active account: someone an admin invited has one once they have used their sign-in link and set a password.
+**The person you want to add is not found: "No account with that name." or "No account with that email."** Type part of their name, or their whole email address. They need an active account, which an invited person has once they have used their sign-in link.
 
 **The embedded map does not show on your site.** Embedding is **Off**, or your site is not listed. Ask an admin for **Any site**, or to add your site's address under **Listed sites**, such as `https://intranet.example.com`.
 
