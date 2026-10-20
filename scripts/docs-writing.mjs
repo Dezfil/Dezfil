@@ -247,7 +247,12 @@ export const LIMITS = {
   page: 1500,
   /** Words of prose a reader passes before something to do or see. */
   firstScreen: 150,
+  /** Words in a notice. */
+  notice: 50,
 };
+
+/** The two kinds of notice, in GitHub's alert form. */
+export const NOTICE_KINDS = ["NOTE", "WARNING"];
 
 /** The sections whose pages open with something to do or see. */
 export const FIRST_SCREEN_SECTIONS = ["start", "use", "self-host", "api"];
@@ -322,6 +327,41 @@ function tabProblems(read) {
   return found;
 }
 
+/** The problems of a body's notices: each a GitHub NOTE or WARNING
+ * alert, its marker alone on its first line, of at most 50 words, and at
+ * most one in a second-level section. A quote of any other form and a
+ * colon block (`:::note`) are other forms of notice. */
+function noticeProblems(prose) {
+  const found = [];
+  const { read } = prose;
+  const add = (rule, message, line) => found.push({ rule, message, line });
+  const words = new Map(prose.units.filter((unit) => unit.kind === "notice").map((unit) => [unit.line, unit.words]));
+  const sections = [];
+  walk(read.tree, (node) => {
+    if (node.type === "heading" && node.depth === 2) sections.push(read.at(node));
+  });
+  const counted = new Map();
+  walk(read.tree, (node) => {
+    if (node.type !== "blockquote") return;
+    if (read.generated(node)) return false;
+    const line = read.at(node);
+    const marker = noticeMarker(node);
+    if (!marker) add("writing.notice-kind", "a quote is another form of notice; write a notice as a > [!NOTE] or > [!WARNING] alert", line);
+    else if (!marker.alone) add("writing.notice-kind", `the [!${marker.kind}] marker shares its line with text, so GitHub shows a plain quote; put the marker on a line of its own`, line);
+    else if (!NOTICE_KINDS.includes(marker.kind)) add("writing.notice-kind", `a [!${marker.kind}] alert is another form of notice; a notice is a NOTE or a WARNING alert`, line);
+    const count = words.get(line) ?? 0;
+    if (count > LIMITS.notice) add("writing.notice-length", `this notice is ${count} words; one holds at most ${LIMITS.notice}, a sentence or two`, line);
+    const section = sections.filter((heading) => heading < line).at(-1) ?? 0;
+    counted.set(section, (counted.get(section) ?? 0) + 1);
+    if (counted.get(section) > 1) add("writing.notice-count", "this is the section's second notice; a second-level section holds at most one", line);
+    return false;
+  });
+  for (const marker of read.markers.filter((m) => m.kind === "block")) {
+    add("writing.notice-kind", `"${marker.text}" opens a block of another form; write a notice as a > [!NOTE] or > [!WARNING] alert`, marker.line);
+  }
+  return found;
+}
+
 /** Problems in file order: by line, then by rule. */
 const byPlace = (a, b) => (a.file < b.file ? -1 : a.file > b.file ? 1 : (a.line ?? 0) - (b.line ?? 0) || (a.rule < b.rule ? -1 : a.rule > b.rule ? 1 : 0));
 
@@ -362,6 +402,9 @@ export function checkPageWriting({ file, page }) {
 
   // Every tab set well formed.
   for (const found of tabProblems(prose.read)) add(found.rule, found.message, found.line);
+
+  // Notices: their form, their length and one to a section.
+  for (const found of noticeProblems(prose)) add(found.rule, found.message, found.line);
 
   // Something to do or see before word 151: a page with fewer words has
   // no word 151 to pass.

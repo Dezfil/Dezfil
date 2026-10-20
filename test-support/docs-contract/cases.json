@@ -1230,6 +1230,139 @@
         "docs/about/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you check the writing rules\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nRun it.\n\n```md title=\"Tabs\"\n::::tabs\n:::tab[Docker]\n:::\n```\n"
       },
       "problems": []
+    },
+    {
+      "scope": "product",
+      "name": "a TIP alert",
+      "files": {
+        "docs/about/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you check the writing rules\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nRun it.\n\n> [!TIP]\n> Keep the instance private.\n"
+      },
+      "problems": [
+        {
+          "file": "docs/about/case.md",
+          "rule": "writing.notice-kind",
+          "line": 15
+        }
+      ]
+    },
+    {
+      "scope": "product",
+      "name": "a quote that is not an alert",
+      "files": {
+        "docs/about/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you check the writing rules\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nRun it.\n\n> Keep the instance private.\n"
+      },
+      "problems": [
+        {
+          "file": "docs/about/case.md",
+          "rule": "writing.notice-kind",
+          "line": 15
+        }
+      ]
+    },
+    {
+      "scope": "product",
+      "name": "an alert whose marker shares its first line",
+      "files": {
+        "docs/about/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you check the writing rules\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nRun it.\n\n> [!NOTE] Keep the instance private.\n"
+      },
+      "problems": [
+        {
+          "file": "docs/about/case.md",
+          "rule": "writing.notice-kind",
+          "line": 15
+        }
+      ]
+    },
+    {
+      "scope": "product",
+      "name": "a notice written as a colon block",
+      "files": {
+        "docs/about/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you check the writing rules\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nRun it.\n\n:::note\nKeep the instance private.\n:::\n"
+      },
+      "problems": [
+        {
+          "file": "docs/about/case.md",
+          "rule": "writing.notice-kind",
+          "line": 15
+        }
+      ]
+    },
+    {
+      "scope": "product",
+      "name": "a notice of 51 words",
+      "files": {
+        "docs/about/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you check the writing rules\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nRun it.\n\n> [!NOTE]\n> word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word.\n"
+      },
+      "problems": [
+        {
+          "file": "docs/about/case.md",
+          "rule": "writing.notice-length",
+          "line": 15
+        }
+      ]
+    },
+    {
+      "scope": "product",
+      "name": "a notice of 50 words",
+      "files": {
+        "docs/about/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you check the writing rules\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nRun it.\n\n> [!NOTE]\n> word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word.\n"
+      },
+      "problems": []
+    },
+    {
+      "scope": "product",
+      "name": "a notice of 81 words, over both lengths",
+      "files": {
+        "docs/about/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you check the writing rules\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nRun it.\n\n> [!WARNING]\n> word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word.\n"
+      },
+      "problems": [
+        {
+          "file": "docs/about/case.md",
+          "rule": "writing.notice-length",
+          "line": 15
+        },
+        {
+          "file": "docs/about/case.md",
+          "rule": "writing.paragraph-length",
+          "line": 15
+        }
+      ]
+    },
+    {
+      "scope": "product",
+      "name": "two notices in one section",
+      "files": {
+        "docs/about/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you check the writing rules\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nRun it.\n\n> [!NOTE]\n> Keep it private.\n\nThen run it.\n\n> [!WARNING]\n> Keep it running.\n"
+      },
+      "problems": [
+        {
+          "file": "docs/about/case.md",
+          "rule": "writing.notice-count",
+          "line": 20
+        }
+      ]
+    },
+    {
+      "scope": "product",
+      "name": "two notices in one section, the second under a third-level heading",
+      "files": {
+        "docs/about/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you check the writing rules\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nRun it.\n\n> [!NOTE]\n> Keep it private.\n\n### Then\n\n> [!WARNING]\n> Keep it running.\n"
+      },
+      "problems": [
+        {
+          "file": "docs/about/case.md",
+          "rule": "writing.notice-count",
+          "line": 20
+        }
+      ]
+    },
+    {
+      "scope": "product",
+      "name": "one notice in each section, the opening before the first heading included, in either case of the marker",
+      "files": {
+        "docs/about/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you check the writing rules\"\naudience:\n  - developer\nchecked: none\n---\n\n> [!NOTE]\n> Keep it private.\n\n## First\n\nRun it.\n\n> [!warning]\n> Keep it running.\n\n## Second\n\n> [!NOTE]\n> Keep it safe.\n"
+      },
+      "problems": []
     }
   ],
   "order": [
