@@ -459,7 +459,7 @@
       "date": "2026-10-20",
       "width": 2880,
       "height": 1800,
-      "bytes": 168744
+      "bytes": 167172
     },
     {
       "file": "use/build-a-map-builder.webp",
@@ -470,7 +470,7 @@
       "date": "2026-10-20",
       "width": 2880,
       "height": 1800,
-      "bytes": 197054
+      "bytes": 193530
     },
     {
       "file": "use/build-a-map-draw.dark.webp",
@@ -481,7 +481,7 @@
       "date": "2026-10-20",
       "width": 1976,
       "height": 1648,
-      "bytes": 117856,
+      "bytes": 115890,
       "crop": {
         "x": 438,
         "y": 62,
@@ -498,7 +498,7 @@
       "date": "2026-10-20",
       "width": 1976,
       "height": 1648,
-      "bytes": 142504,
+      "bytes": 137232,
       "crop": {
         "x": 438,
         "y": 62,
@@ -537,7 +537,7 @@
       "date": "2026-10-20",
       "width": 1616,
       "height": 820,
-      "bytes": 39870,
+      "bytes": 38932,
       "crop": {
         "x": 316,
         "y": 245,
@@ -554,7 +554,7 @@
       "date": "2026-10-20",
       "width": 1616,
       "height": 820,
-      "bytes": 39340,
+      "bytes": 39224,
       "crop": {
         "x": 316,
         "y": 245,
@@ -571,7 +571,7 @@
       "date": "2026-10-20",
       "width": 2736,
       "height": 1736,
-      "bytes": 130472,
+      "bytes": 130568,
       "crop": {
         "x": 36,
         "y": 16,
@@ -588,7 +588,7 @@
       "date": "2026-10-20",
       "width": 2736,
       "height": 1736,
-      "bytes": 128096,
+      "bytes": 128138,
       "crop": {
         "x": 36,
         "y": 16,
@@ -605,7 +605,7 @@
       "date": "2026-10-20",
       "width": 2736,
       "height": 1736,
-      "bytes": 65394,
+      "bytes": 65178,
       "crop": {
         "x": 36,
         "y": 16,
@@ -622,7 +622,7 @@
       "date": "2026-10-20",
       "width": 2736,
       "height": 1736,
-      "bytes": 65944,
+      "bytes": 66022,
       "crop": {
         "x": 36,
         "y": 16,
@@ -763,7 +763,7 @@
       "date": "2026-10-20",
       "width": 2736,
       "height": 1736,
-      "bytes": 134032,
+      "bytes": 132370,
       "crop": {
         "x": 36,
         "y": 16,
@@ -780,7 +780,7 @@
       "date": "2026-10-20",
       "width": 2736,
       "height": 1736,
-      "bytes": 151950,
+      "bytes": 149604,
       "crop": {
         "x": 36,
         "y": 16,
@@ -1127,7 +1127,7 @@
       "date": "2026-10-20",
       "width": 2880,
       "height": 1800,
-      "bytes": 140096
+      "bytes": 137966
     },
     {
       "file": "use/widgets-and-tools-widgets.webp",
@@ -1138,7 +1138,7 @@
       "date": "2026-10-20",
       "width": 2880,
       "height": 1800,
-      "bytes": 168060
+      "bytes": 164040
     },
     {
       "file": "use/workflows-canvas.dark.webp",
