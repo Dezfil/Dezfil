@@ -549,18 +549,6 @@ On a runner without a browser, append `--http-only` to the API journey. It
 prints the omitted image-render step explicitly; the default journey and CI
 still require the real image-export proof.
 
-The authentication probes run against an already running scratch instance:
-
-- `npm run probe:gate -- <base-url>` checks protected operations and anonymous
-  exceptions. Start it on an empty store so it can check setup before provisioning.
-- `npm run probe:login -- <port>` checks socket-based sign-in limits and waits
-  for recovery at the real retry deadline (about fifteen minutes). Use a fresh store
-  and a dual-stack listener with `DEZFIL_TRUSTED_PROXIES=127.0.0.1`; `--no-wait`
-  omits only the recovery check.
-- `npm run probe:published-auth -- <base-url>` checks anonymous published data,
-  widgets and real tiles. Set `DEZFIL_RENDER_CAP_FEATURES=2000` on the server and
-  keep `tippecanoe` on its `PATH`.
-
 The [upgrade and packaged recovery proofs](../../scripts/account-upgrade-proof.md)
 cover pre-account adoption, original-account deletion, fixed homes, remaining-admin
 redemption and scratch restoration in checkout and container modes.

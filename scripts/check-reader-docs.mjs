@@ -5,7 +5,8 @@ import path from 'node:path';
 export const READER_FILES = ['README.md', 'AGENTS.md', 'docs/self-host/configuration.md', 'docs/self-host/what-leaves-the-instance.md', 'docs/self-host/backup-and-restore.md', 'docs/api/http-api.md', 'docs/api/mcp.md', 'docs/start/install.md', 'docs/use/templates.md', 'docs/api/limits.md', 'docs/contribute/development-setup.md', 'plugins/dezfil/skills/dezfil/analysis.md', 'src/components/settings/WorkspaceCard.tsx',
   // The procedures that left the runbook and the configuration page for the
   // scripts and suites they run keep the same superseded-copy check.
-  'scripts/account-identity-proof.md', 'src/lib/pictures/pictures.real-render.md', 'scripts/pictures-capacity.md', 'scripts/transport-probe.md', 'scripts/body-probe.md', 'scripts/publication-source-probe.md', 'scripts/derivation-probe.md', 'scripts/credential-cleanup-driver.md', 'scripts/sharing-journey.md', 'scripts/query-result-budget-probe.md', 'scripts/settings-probe.md', 'src/lib/ingest/reception.standalone.md', 'src/lib/auth/abandonment.standalone.md'];
+  'scripts/account-identity-proof.md', 'src/lib/pictures/pictures.real-render.md', 'scripts/pictures-capacity.md', 'scripts/transport-probe.md', 'scripts/body-probe.md', 'scripts/publication-source-probe.md', 'scripts/derivation-probe.md', 'scripts/credential-cleanup-driver.md', 'scripts/sharing-journey.md', 'scripts/query-result-budget-probe.md', 'scripts/settings-probe.md', 'src/lib/ingest/reception.standalone.md', 'src/lib/auth/abandonment.standalone.md',
+  'scripts/gate-journey.md', 'scripts/login-http-probe.md', 'scripts/published-auth-probe.md'];
 const superseded = [
   /deletion operations are not exposed yet/i,
   /fuller (?:account )?documentation follows/i,

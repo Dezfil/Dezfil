@@ -1,6 +1,21 @@
-import { readFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { existsSync, readFileSync } from "node:fs";
 import { expect, it } from "vitest";
 const read = (path: string) => readFileSync(path, "utf8");
+
+it("keeps every probe's procedure beside the script it runs, and out of the pages", () => {
+  const scripts = JSON.parse(read("package.json")).scripts as Record<string, string>;
+  const probes = Object.entries(scripts).filter(([name]) => name.startsWith("probe:"));
+  expect(probes.length).toBeGreaterThan(5);
+  const pages = execFileSync("git", ["ls-files", "-z", "docs"], { encoding: "utf8" }).split("\0").filter((file) => file.endsWith(".md"));
+  expect(pages.length).toBeGreaterThan(5);
+  for (const [name, command] of probes) {
+    const script = /^node (scripts\/[a-z0-9-]+)\.mjs$/.exec(command)?.[1];
+    expect(script, name).toBeDefined();
+    expect(existsSync(`${script}.md`), `${name}: ${script}.md`).toBe(true);
+    for (const page of pages) expect(read(page), `${page} names ${name}`).not.toMatch(new RegExp(`${name}(?![a-z0-9-])`));
+  }
+});
 
 it("keeps the product boundary and setup instructions current", () => {
   const brief = read("AGENTS.md").split("## Out of scope for now")[1];
