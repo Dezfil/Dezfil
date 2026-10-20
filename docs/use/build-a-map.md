@@ -66,7 +66,7 @@ You should see a layer for each table with geometry that the import makes, and a
 
 ## 2. Arrange the layers
 
-The list shows the layers in drawing order: the top card draws over the ones below it. A new layer starts at the top.
+The list shows the layers in drawing order: the top card draws over the ones below it. A new layer starts at the top. **More actions** is the ⋮ on each card.
 
 | To | Do this |
 |---|---|
@@ -180,7 +180,7 @@ Drag the rows to change the legend's order. **Reset order** returns it to the or
 ## 6. Draw on the map
 
 1. Click **Draw**, the pencil last in the map's controls. You should see the draw tools at the top of the map, and **Pick a tool. This session’s shapes become one layer** at the bottom.
-2. Click a tool and draw, as the table below shows. You should see each shape stay as you finish it, and the first one add a layer named **Sketch** to the list.
+2. Point at a tool to read its name, click it and draw, as the table below shows. You should see each shape stay as you finish it, and the first one add a layer named **Sketch** to the list.
 3. Click **Finish drawing**, the pencil again, or press Escape until the tools close. You should see a notice such as **Sketch saved · 3 shapes · world_cities_sketch**.
 
 ![Drawing on the map: the draw tools at the top with Draw a polygon selected, a polygon of three vertices half drawn over the map, and the line at the bottom that explains the tool](../images/use/build-a-map-draw.webp)
@@ -199,7 +199,7 @@ While you draw a line or a polygon, Backspace removes the last vertex. While the
 
 Each drawing session makes its own layer: **Sketch**, then **Sketch 2**, and so on. Its shapes are kept in a dataset named after the map, such as `world_cities_sketch`.
 
-To change a shape, click it on the map with **Select a drawn shape**, or while no tool is picked. You should see its name at the bottom of the map, with **Delete** and **Done**.
+To change a shape, click it on the map with **Select a drawn shape**, or while no tool is picked. You should see its kind, such as **Polygon**, at the bottom of the map, with **Delete** and **Done**.
 
 - **Delete**, or Backspace, removes the shape.
 - On a polygon or a freehand shape, drag a handle to move a vertex.
