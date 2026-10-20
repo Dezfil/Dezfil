@@ -35,7 +35,7 @@ A map or workflow sits in one project at most, so adding it moves it from its ol
 
 A map brings the datasets it draws and the workflows that make them; a workflow brings the datasets it reads and writes. Only your own work is offered.
 
-From a card in **Maps**, **Workflows** or **Data**, **Add to a project** files that one item with what it brings, or **Move to another project** once it is filed.
+From a card in **Maps**, **Workflows** or **Data**, **Add to a project** files that one item with what it brings; a filed map or workflow offers **Move to another project** instead.
 
 ## Share a project with people
 
