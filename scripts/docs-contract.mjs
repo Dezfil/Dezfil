@@ -20,11 +20,11 @@ const posix = path.posix;
 /** The six sections, in their fixed order, with the one-line descriptions
  * the index, the site and llms.txt all use. */
 export const SECTION_INFO = [
-  { id: "start", title: "Start", description: "What Dezfil is and your first map." },
-  { id: "guides", title: "Guides", description: "How to do each thing in the app." },
-  { id: "reference", title: "Reference", description: "The exact rules: the API, MCP, configuration, limits, formats, shortcuts." },
-  { id: "operate", title: "Operate", description: "Running an instance." },
-  { id: "develop", title: "Develop", description: "Changing the code." },
+  { id: "start", title: "Get started", description: "What Dezfil is, how to install it, and your first map." },
+  { id: "use", title: "Use Dezfil", description: "Do things in the app: data, maps, SQL, workflows and sharing." },
+  { id: "self-host", title: "Self-host", description: "Install, secure, configure and back up your own instance." },
+  { id: "api", title: "API and agents", description: "Script Dezfil over HTTP, or connect an AI agent through MCP." },
+  { id: "contribute", title: "Contribute", description: "Work on Dezfil's code." },
   { id: "about", title: "About", description: "Licence, credits, changes and policies." },
 ];
 export const SECTIONS = SECTION_INFO.map((section) => section.id);
@@ -34,12 +34,18 @@ export const SECTIONS = SECTION_INFO.map((section) => section.id);
 export const IMPORTED = [
   { file: "CHANGELOG.md", page: "about/changelog", summary: "What changed in each release." },
   { file: "SECURITY.md", page: "about/security-policy", summary: "Which versions get fixes and how to report a vulnerability." },
-  { file: "CONTRIBUTING.md", page: "develop/contributing", summary: "How to get a change from your machine into the project." },
-  { file: "CODE_OF_CONDUCT.md", page: "develop/code-of-conduct", summary: "The standards for taking part and how they are enforced." },
+  { file: "CONTRIBUTING.md", page: "contribute/contributing", summary: "How to get a change from your machine into the project." },
+  { file: "CODE_OF_CONDUCT.md", page: "contribute/code-of-conduct", summary: "The standards for taking part and how they are enforced." },
 ];
 
 /** The site's operation reference, generated from the API description. */
-export const GENERATED_REFERENCE = "reference/api";
+export const GENERATED_REFERENCE = "api/reference";
+
+/** The API description file: the one file under a section folder that is
+ * not a page. The site serves it at its own address, so a link to it, by
+ * its relative path or by that full site address, reaches the site's copy. */
+export const DESCRIPTION_FILE = "docs/api/openapi.json";
+export const DESCRIPTION_URL = `${DOCS_SITE_URL}${DESCRIPTION_FILE.slice("docs/".length)}`;
 
 export const AUDIENCES = ["user", "operator", "developer", "agent"];
 export const SUMMARY_LIMIT = 160;
@@ -55,7 +61,14 @@ const problem = (file, rule, message, line) => ({ file, rule, message, ...(line 
 /** Today as YYYY-MM-DD in UTC, the reference for "not in the future". */
 export const today = () => new Date().toISOString().slice(0, 10);
 
-/** A page's address below the docs home, such as `reference/http-api`, or
+/** Whether a file is a procedure note: Markdown under scripts/ or src/,
+ * beside the script or suite it runs. A note is not a page: it carries no
+ * frontmatter, has no entry in the index and no address on the site, and
+ * the image leaves it out. Its links and pictures are held as a page's
+ * are, and a link into it may name one of its headings. */
+export const isNote = (file) => /^(?:scripts|src)\/.+\.md$/.test(file);
+
+/** A page's address below the docs home, such as `api/http-api`, or
  * null when the path is not a page's. */
 export function pageAddress(file) {
   const match = /^docs\/(.+)\.md$/.exec(file);
@@ -70,7 +83,7 @@ export function placeOf(file) {
   const parts = file.split("/");
   if (parts[0] !== "docs") return { kind: "outside" };
   if (file === "docs/README.md") return { kind: "index" };
-  if (file === "docs/reference/openapi.json") return { kind: "description" };
+  if (file === DESCRIPTION_FILE) return { kind: "description" };
   if (file === "docs/images/manifest.json") return { kind: "manifest" };
   if (parts[1] === "images") {
     const media = parts.length === 4 && SECTIONS.includes(parts[2]) && /^[a-z0-9-]+(?:\.dark)?\.(webp|webm)$/.exec(parts[3]);
@@ -335,8 +348,9 @@ const decode = (value) => { try { return decodeURIComponent(value); } catch { re
  *
  * `files` lists the repository's files as POSIX paths from its root; `read`
  * returns a file's text. The lint passes the files git knows; the tests pass
- * a fixture tree. Returns the problems, the pages, and the files under
- * docs/images/ the pages use. */
+ * a fixture tree. The procedure notes' links and pictures are checked with
+ * the pages'. Returns the problems, the pages, the notes, and the files
+ * under docs/images/ the pages and notes use. */
 export function checkTree({ files, read, on = today() }) {
   const problems = [];
   const fileSet = new Set(files);
@@ -416,13 +430,24 @@ export function checkTree({ files, read, on = today() }) {
   }
 
   const importedFiles = new Set(IMPORTED.map((entry) => entry.file));
+  const notes = files.filter(isNote).sort();
+  const noteSet = new Set(notes);
   // The files under docs/images/ the pages use, for the manifest's rules.
   const used = new Set();
-  const isDocument = (file) => pages.includes(file) || importedFiles.has(file);
+  const isDocument = (file) => pages.includes(file) || importedFiles.has(file) || noteSet.has(file);
 
-  for (const [file, page] of parsed) {
+  // What holds links: each page's body after its frontmatter, and each
+  // note's whole text.
+  const bodies = [...parsed].map(([file, page]) => ({ file, body: page.body, bodyLine: page.bodyLine }));
+  for (const file of notes) {
+    let text = "";
+    try { text = read(file); } catch { /* an unreadable note holds no links */ }
+    bodies.push({ file, body: text, bodyLine: 1 });
+  }
+
+  for (const { file, body, bodyLine } of bodies) {
     const own = anchors(file);
-    for (const ref of references(page.body, page.bodyLine)) {
+    for (const ref of references(body, bodyLine)) {
       const where = (rule, message) => problems.push(problem(file, rule, message, ref.line));
       const target = ref.target.trim();
       const external = /^[a-z][a-z0-9+.-]*:/i.test(target) || target.startsWith("//");
@@ -439,6 +464,14 @@ export function checkTree({ files, read, on = today() }) {
       if (!target) { where("link.dead-file", "the link has no target"); continue; }
       if (target.startsWith("#")) {
         if (!own.has(decode(target.slice(1)))) where("link.dead-page", `this page has no heading ${target}`);
+        continue;
+      }
+      // The API description by its full site address: that one address,
+      // and only while the file is there to serve.
+      if (target.startsWith(DOCS_SITE_URL) && /\.json(?:[?#]|$)/.test(target)) {
+        const address = target.split(/[?#]/)[0];
+        if (address !== DESCRIPTION_URL) where("link.description-address", `${target} is not a file the site serves; the API description is ${DESCRIPTION_URL}`);
+        else if (!fileSet.has(DESCRIPTION_FILE)) where("link.description-address", `${target} is served from ${DESCRIPTION_FILE}, which does not exist`);
         continue;
       }
       // The third and fourth kinds: a generated page by its full site
@@ -487,7 +520,7 @@ export function checkTree({ files, read, on = today() }) {
     }
   }
 
-  return { problems, pages, used };
+  return { problems, pages, notes, used };
 }
 
 /** Pages in their reading order: by `order` first (pages without one after
@@ -525,8 +558,9 @@ const folderTitle = (name) => name.charAt(0).toUpperCase() + name.slice(1).repla
 
 /** The agents' index, docs/README.md, generated from the pages'
  * frontmatter: the six sections in order, one entry per page with its
- * title, path, summary, read_when lines, audience and checked, then the
- * documents and generated files that sit beside the pages. */
+ * title, path, summary, read_when lines and audience, then the documents
+ * and generated files that sit beside the pages. A page's checked field
+ * is for the people who check pages and stays out of the index. */
 export function generateIndex({ files, read }) {
   const fileSet = new Set(files);
   const pages = [];
@@ -541,9 +575,7 @@ export function generateIndex({ files, read }) {
     "",
     "Every page under `docs/`, generated from the pages' own frontmatter. Find the",
     "section for what you are doing, then the page whose \"read when\" line is",
-    "your situation. `checked` is the release a page was last read against a",
-    "running instance of, with the date, or `none` until it has been. The same",
-    `pages are published at ${DOCS_SITE_URL}.`,
+    `your situation. The same pages are published at ${DOCS_SITE_URL}.`,
     "",
     "This file is written by `npm run docs:write` and held by `npm run lint:docs`:",
     "change the pages, then regenerate it.",
@@ -556,7 +588,6 @@ export function generateIndex({ files, read }) {
       const group = page.path.split("/").slice(2, -1).join("/");
       if (group && group !== folder) lines.push("", `### ${folderTitle(group)}`);
       folder = group;
-      const checked = page.checked === "none" ? "none" : `${page.checked}, ${dateValue(page.checked_on) ?? page.checked_on}`;
       lines.push(
         "",
         `- [${page.title}](${page.path.slice("docs/".length)})`,
@@ -564,7 +595,6 @@ export function generateIndex({ files, read }) {
         `  - summary: ${page.summary}`,
         `  - read when: ${list(page.read_when)}`,
         `  - audience: ${list(page.audience).replace(/; /g, ", ")}`,
-        `  - checked: ${checked}`,
       );
     }
   }
@@ -572,8 +602,8 @@ export function generateIndex({ files, read }) {
   for (const doc of importedDocuments(read)) {
     lines.push(`- [${doc.title}](../${doc.file}) (${titleOf(doc.section)}): ${doc.summary}`);
   }
-  if (fileSet.has("docs/reference/openapi.json")) {
-    lines.push("- [The OpenAPI description](reference/openapi.json) (Reference): the HTTP API as the server serves it, generated from the source; the operation reference is built from it.");
+  if (fileSet.has(DESCRIPTION_FILE)) {
+    lines.push(`- [The OpenAPI description](${DESCRIPTION_FILE.slice("docs/".length)}) (${titleOf("api")}): the HTTP API as the server serves it, generated from the source; the operation reference is built from it.`);
   }
   if (fileSet.has("docs/images/manifest.json")) {
     lines.push("- [The image manifest](images/manifest.json): one row per picture and recording, each scene in its light and its dark take, with the scene it shows, the take's theme, its size and when it was taken.");
@@ -593,9 +623,8 @@ export function checkIndex({ files, read }) {
     : "the index differs from what the pages generate; run npm run docs:write")];
 }
 
-/** The API description file under docs/reference/: the document the server
- * serves, as indented JSON so a change reads as a diff. */
-export const DESCRIPTION_FILE = "docs/reference/openapi.json";
+/** The API description file's text: the document the server serves, as
+ * indented JSON so a change reads as a diff. */
 export const descriptionText = (document) => `${JSON.stringify(document, null, 2)}\n`;
 
 /** The description file's freshness: the committed copy equals what the

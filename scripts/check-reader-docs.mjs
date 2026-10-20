@@ -2,7 +2,11 @@ import { readFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import path from 'node:path';
 
-export const READER_FILES = ['README.md', 'AGENTS.md', 'docs/reference/configuration.md', 'docs/operate/self-hosting.md', 'docs/operate/runbook.md', 'docs/reference/http-api.md', 'docs/reference/mcp.md', 'docs/start/run-it.md', 'docs/guides/templates.md', 'docs/reference/sql-limits.md', 'docs/develop/checks-and-testing.md', 'plugins/dezfil/skills/dezfil/analysis.md', 'src/components/settings/WorkspaceCard.tsx'];
+export const READER_FILES = ['README.md', 'AGENTS.md', 'docs/self-host/configuration.md', 'docs/self-host/what-leaves-the-instance.md', 'docs/self-host/backup-and-restore.md', 'docs/api/http-api.md', 'docs/api/mcp.md', 'docs/start/install.md', 'docs/use/templates.md', 'docs/api/limits.md', 'docs/contribute/development-setup.md', 'plugins/dezfil/skills/dezfil/analysis.md', 'src/components/settings/WorkspaceCard.tsx',
+  // The procedures that left the runbook and the configuration page for the
+  // scripts and suites they run keep the same superseded-copy check.
+  'scripts/account-identity-proof.md', 'src/lib/pictures/pictures.real-render.md', 'scripts/pictures-capacity.md', 'scripts/transport-probe.md', 'scripts/body-probe.md', 'scripts/publication-source-probe.md', 'scripts/derivation-probe.md', 'scripts/credential-cleanup-driver.md', 'scripts/sharing-journey.md', 'scripts/query-result-budget-probe.md', 'scripts/settings-probe.md', 'src/lib/ingest/reception.standalone.md', 'src/lib/auth/abandonment.standalone.md',
+  'scripts/gate-journey.md', 'scripts/login-http-probe.md', 'scripts/published-auth-probe.md'];
 const superseded = [
   /deletion operations are not exposed yet/i,
   /fuller (?:account )?documentation follows/i,
@@ -20,7 +24,7 @@ export function checkReaderDocs(files) {
     if (typeof text !== 'string') { problems.push(`Missing reader surface: ${file}`); continue; }
     for (const pattern of superseded) if (pattern.test(text.replace(/\s+/g, ' '))) problems.push(`Superseded reader copy: ${file} (${pattern.source})`);
   }
-  for (const [file, revision] of [['docs/reference/http-api.md', '"X-Edit-Revision": current.editRevision'], ['docs/reference/mcp.md', 'expected_revision: current.editRevision']]) {
+  for (const [file, revision] of [['docs/api/http-api.md', '"X-Edit-Revision": current.editRevision'], ['docs/api/mcp.md', 'expected_revision: current.editRevision']]) {
     const example = files[file]?.match(/<!-- revision-example -->\s*```js\n([\s\S]*?)\n```/)?.[1];
     if (!example?.includes(revision)) problems.push(`Missing revision in reader example: ${file}`);
     if (!example || (example.match(/current = await /g)?.length ?? 0) < 3) problems.push(`Missing accepted-result chaining in reader example: ${file}`);

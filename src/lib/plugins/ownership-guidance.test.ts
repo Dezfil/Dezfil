@@ -48,11 +48,11 @@ it("describes ownership and sharing in the published API introduction", () => {
   expect(description).toContain("<sql name>.<dataset>");
 });
 it("removes the obsolete shared-data upgrade claim and documents local draft disposal", () => {
-  const guide = readFileSync("docs/operate/self-hosting.md", "utf8");
+  const guide = readFileSync("docs/self-host/what-leaves-the-instance.md", "utf8");
   expect(guide).not.toContain("Signed-in accounts still share the same maps");
   expect(guide).toContain("Each account's maps");
   expect(guide.replace(/\s+/g, " ")).toContain("are private, including from admins, until a project's owner shares the project");
-  const runbook = readFileSync("docs/operate/runbook.md", "utf8");
+  const runbook = readFileSync("docs/self-host/backup-and-restore.md", "utf8");
   expect(runbook).toContain("Unlabelled browser SQL drafts");
   expect(runbook).toContain("recorded original account");
   expect(runbook).toContain("File-referencing PROJ");

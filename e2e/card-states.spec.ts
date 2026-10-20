@@ -19,7 +19,7 @@
 // on the development port, each with its own scratch data directory.
 //
 // - DEZFIL_BASE_URL: the instance the migrated theme suite runs on, set up
-//   as docs/operate/runbook.md "Map picture proofs" describes: a real image
+//   as src/lib/pictures/pictures.real-render.md describes: a real image
 //   renderer, the style fixture preload with DEZFIL_PICTURE_STYLE_FIXTURE=1,
 //   a data directory whose name includes `pictures-`, and Images at once at
 //   its default.

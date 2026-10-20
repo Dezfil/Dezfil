@@ -10,14 +10,14 @@
 export const DOCS_SITE_URL = "https://dezfil.io/docs/";
 
 /** The full site address of one documentation page, named by its section
- * and page, such as `reference/http-api`. */
+ * and page, such as `api/http-api`. */
 export function docsPageUrl(page: string): string {
   if (!/^[a-z0-9-]+(\/[a-z0-9-]+)+$/.test(page)) throw new Error(`Not a documentation page: ${page}`);
   return `${DOCS_SITE_URL}${page}/`;
 }
 
 /** The HTTP API guide, the reader's companion to the served description. */
-export const HTTP_API_GUIDE_URL = docsPageUrl("reference/http-api");
+export const HTTP_API_GUIDE_URL = docsPageUrl("api/http-api");
 
 /** The MCP page, the companion to the MCP server card in Settings. */
-export const MCP_GUIDE_URL = docsPageUrl("reference/mcp");
+export const MCP_GUIDE_URL = docsPageUrl("api/mcp");

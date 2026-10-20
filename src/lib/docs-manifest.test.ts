@@ -64,24 +64,24 @@ beforeAll(async () => {
 function base(): { tree: Tree; rows: Row[] } {
   const cardCrop = { crop: { x: 10, y: 20, width: 100, height: 50 } };
   const rows = [
-    row("guides/search-poster.dark.webp", "search", "picture", posterDark, 2880, 1800),
-    row("guides/search-poster.webp", "search", "picture", poster, 2880, 1800),
-    row("guides/search.dark.webm", "search", "recording", recordingDark, 2880, 1800, { length: 5, poster: "guides/search-poster.dark.webp" }),
-    row("guides/search.webm", "search", "recording", recording, 2880, 1800, { length: 5, poster: "guides/search-poster.webp" }),
-    row("guides/templates.dark.webp", "templates", "picture", pictureDark, 2880, 1800),
-    row("guides/templates.webp", "templates", "picture", picture, 2880, 1800),
+    row("use/search-poster.dark.webp", "search", "picture", posterDark, 2880, 1800),
+    row("use/search-poster.webp", "search", "picture", poster, 2880, 1800),
+    row("use/search.dark.webm", "search", "recording", recordingDark, 2880, 1800, { length: 5, poster: "use/search-poster.dark.webp" }),
+    row("use/search.webm", "search", "recording", recording, 2880, 1800, { length: 5, poster: "use/search-poster.webp" }),
+    row("use/templates.dark.webp", "templates", "picture", pictureDark, 2880, 1800),
+    row("use/templates.webp", "templates", "picture", picture, 2880, 1800),
     row("start/card.dark.webp", "card", "picture", cardDark, 200, 100, cardCrop),
     row("start/card.webp", "card", "picture", card, 200, 100, cardCrop),
   ];
   const tree: Tree = {
     "README.md": README,
-    "docs/guides/templates.md": page("![The Templates page](../images/guides/templates.webp)\n\n![Searching the templates](../images/guides/search.webm)"),
-    "docs/images/guides/templates.webp": picture,
-    "docs/images/guides/templates.dark.webp": pictureDark,
-    "docs/images/guides/search.webm": recording,
-    "docs/images/guides/search.dark.webm": recordingDark,
-    "docs/images/guides/search-poster.webp": poster,
-    "docs/images/guides/search-poster.dark.webp": posterDark,
+    "docs/use/templates.md": page("![The Templates page](../images/use/templates.webp)\n\n![Searching the templates](../images/use/search.webm)"),
+    "docs/images/use/templates.webp": picture,
+    "docs/images/use/templates.dark.webp": pictureDark,
+    "docs/images/use/search.webm": recording,
+    "docs/images/use/search.dark.webm": recordingDark,
+    "docs/images/use/search-poster.webp": poster,
+    "docs/images/use/search-poster.dark.webp": posterDark,
     "docs/images/start/card.webp": card,
     "docs/images/start/card.dark.webp": cardDark,
   };
@@ -93,13 +93,13 @@ function base(): { tree: Tree; rows: Row[] } {
 function moreRecordings({ tree, rows }: { tree: Tree; rows: Row[] }, count: number) {
   const links = [];
   for (let i = 1; i <= count; i += 1) {
-    tree[`docs/images/guides/more-${i}.webm`] = recording;
-    tree[`docs/images/guides/more-${i}.dark.webm`] = recordingDark;
-    rows.push(row(`guides/more-${i}.webm`, `more-${i}`, "recording", recording, 2880, 1800, { length: 5, poster: "guides/search-poster.webp" }));
-    rows.push(row(`guides/more-${i}.dark.webm`, `more-${i}`, "recording", recordingDark, 2880, 1800, { length: 5, poster: "guides/search-poster.dark.webp" }));
-    links.push(`![Loop ${i}](../images/guides/more-${i}.webm)`);
+    tree[`docs/images/use/more-${i}.webm`] = recording;
+    tree[`docs/images/use/more-${i}.dark.webm`] = recordingDark;
+    rows.push(row(`use/more-${i}.webm`, `more-${i}`, "recording", recording, 2880, 1800, { length: 5, poster: "use/search-poster.webp" }));
+    rows.push(row(`use/more-${i}.dark.webm`, `more-${i}`, "recording", recordingDark, 2880, 1800, { length: 5, poster: "use/search-poster.dark.webp" }));
+    links.push(`![Loop ${i}](../images/use/more-${i}.webm)`);
   }
-  tree["docs/guides/templates.md"] = page(`![The Templates page](../images/guides/templates.webp)\n\n![Searching the templates](../images/guides/search.webm)\n\n${links.join("\n\n")}`);
+  tree["docs/use/templates.md"] = page(`![The Templates page](../images/use/templates.webp)\n\n![Searching the templates](../images/use/search.webm)\n\n${links.join("\n\n")}`);
 }
 
 function check(tree: Tree, rows: Row[] | null, manifestText?: string): Problem[] {
@@ -120,30 +120,30 @@ const seeds: Seed[] = [
     name: "a picture over 250,000 bytes",
     async make({ tree, rows }) {
       const big = await noisyWebp(2880, 1800);
-      tree["docs/images/guides/templates.webp"] = big;
-      rows.find(at("guides/templates.webp"))!.bytes = big.length;
+      tree["docs/images/use/templates.webp"] = big;
+      rows.find(at("use/templates.webp"))!.bytes = big.length;
     },
-    problems: [{ file: "docs/images/guides/templates.webp", rule: "manifest.picture-bytes" }],
+    problems: [{ file: "docs/images/use/templates.webp", rule: "manifest.picture-bytes" }],
   },
   {
     name: "a recording over 1,500,000 bytes",
     make({ tree, rows }) {
       const big = webm({ payload: 1_500_001 });
-      tree["docs/images/guides/search.webm"] = big;
-      rows.find(at("guides/search.webm"))!.bytes = big.length;
+      tree["docs/images/use/search.webm"] = big;
+      rows.find(at("use/search.webm"))!.bytes = big.length;
     },
-    problems: [{ file: "docs/images/guides/search.webm", rule: "manifest.recording-bytes" }],
+    problems: [{ file: "docs/images/use/search.webm", rule: "manifest.recording-bytes" }],
   },
   {
     name: "a recording over eight seconds, in both themes",
     make({ tree, rows }) {
       const long = webm({ duration: 8100 });
-      for (const file of ["guides/search.webm", "guides/search.dark.webm"]) {
+      for (const file of ["use/search.webm", "use/search.dark.webm"]) {
         tree[`docs/images/${file}`] = long;
         Object.assign(rows.find(at(file))!, { bytes: long.length, length: 8.1 });
       }
     },
-    problems: [{ file: "docs/images/guides/search.dark.webm", rule: "manifest.recording-length" }, { file: "docs/images/guides/search.webm", rule: "manifest.recording-length" }],
+    problems: [{ file: "docs/images/use/search.dark.webm", rule: "manifest.recording-length" }, { file: "docs/images/use/search.webm", rule: "manifest.recording-length" }],
   },
   {
     name: "a thirteenth recorded scene, in both themes",
@@ -152,29 +152,29 @@ const seeds: Seed[] = [
   },
   {
     name: "an orphan file, with no row and no use",
-    make({ tree }) { tree["docs/images/guides/orphan.webp"] = picture; },
+    make({ tree }) { tree["docs/images/use/orphan.webp"] = picture; },
     problems: [
-      { file: "docs/images/guides/orphan.webp", rule: "manifest.dark-take" },
-      { file: "docs/images/guides/orphan.webp", rule: "manifest.unused" },
-      { file: "docs/images/guides/orphan.webp", rule: "manifest.no-row" },
+      { file: "docs/images/use/orphan.webp", rule: "manifest.dark-take" },
+      { file: "docs/images/use/orphan.webp", rule: "manifest.unused" },
+      { file: "docs/images/use/orphan.webp", rule: "manifest.no-row" },
     ],
   },
   {
     name: "a file with a row that nothing uses, in both themes",
     make({ tree, rows }) {
-      tree["docs/images/guides/spare.webp"] = picture;
-      tree["docs/images/guides/spare.dark.webp"] = pictureDark;
-      rows.push(row("guides/spare.webp", "spare", "picture", picture, 2880, 1800), row("guides/spare.dark.webp", "spare", "picture", pictureDark, 2880, 1800));
+      tree["docs/images/use/spare.webp"] = picture;
+      tree["docs/images/use/spare.dark.webp"] = pictureDark;
+      rows.push(row("use/spare.webp", "spare", "picture", picture, 2880, 1800), row("use/spare.dark.webp", "spare", "picture", pictureDark, 2880, 1800));
     },
-    problems: [{ file: "docs/images/guides/spare.dark.webp", rule: "manifest.unused" }, { file: "docs/images/guides/spare.webp", rule: "manifest.unused" }],
+    problems: [{ file: "docs/images/use/spare.dark.webp", rule: "manifest.unused" }, { file: "docs/images/use/spare.webp", rule: "manifest.unused" }],
   },
   {
     name: "a light take without its dark take",
     make({ tree, rows }) {
-      delete tree["docs/images/guides/templates.dark.webp"];
-      rows.splice(rows.findIndex(at("guides/templates.dark.webp")), 1);
+      delete tree["docs/images/use/templates.dark.webp"];
+      rows.splice(rows.findIndex(at("use/templates.dark.webp")), 1);
     },
-    problems: [{ file: "docs/images/guides/templates.webp", rule: "manifest.dark-take" }],
+    problems: [{ file: "docs/images/use/templates.webp", rule: "manifest.dark-take" }],
   },
   {
     name: "a light take whose dark take has a row but no file",
@@ -184,10 +184,10 @@ const seeds: Seed[] = [
   {
     name: "a dark take without its light take",
     make({ tree, rows }) {
-      tree["docs/images/guides/extra.dark.webp"] = pictureDark;
-      rows.push(row("guides/extra.dark.webp", "extra", "picture", pictureDark, 2880, 1800));
+      tree["docs/images/use/extra.dark.webp"] = pictureDark;
+      rows.push(row("use/extra.dark.webp", "extra", "picture", pictureDark, 2880, 1800));
     },
-    problems: [{ file: "docs/images/guides/extra.dark.webp", rule: "manifest.light-take" }, { file: "docs/images/guides/extra.dark.webp", rule: "manifest.unused" }],
+    problems: [{ file: "docs/images/use/extra.dark.webp", rule: "manifest.light-take" }, { file: "docs/images/use/extra.dark.webp", rule: "manifest.unused" }],
   },
   {
     name: "a dark take whose row declares another crop than its light take's",
@@ -196,15 +196,15 @@ const seeds: Seed[] = [
   },
   {
     name: "a dark take whose row names another scene than its light take's",
-    make({ rows }) { rows.find(at("guides/search.dark.webm"))!.scene = "searching"; },
-    problems: [{ file: "docs/images/guides/search.dark.webm", rule: "manifest.take-pair" }],
+    make({ rows }) { rows.find(at("use/search.dark.webm"))!.scene = "searching"; },
+    problems: [{ file: "docs/images/use/search.dark.webm", rule: "manifest.take-pair" }],
   },
   {
     name: "a page naming a dark take",
     make({ tree }) {
-      tree["docs/guides/templates.md"] = page("![The Templates page](../images/guides/templates.webp)\n\n![Searching the templates](../images/guides/search.webm)\n\n![The dark Templates page](../images/guides/templates.dark.webp)");
+      tree["docs/use/templates.md"] = page("![The Templates page](../images/use/templates.webp)\n\n![Searching the templates](../images/use/search.webm)\n\n![The dark Templates page](../images/use/templates.dark.webp)");
     },
-    problems: [{ file: "docs/images/guides/templates.dark.webp", rule: "manifest.dark-named" }],
+    problems: [{ file: "docs/images/use/templates.dark.webp", rule: "manifest.dark-named" }],
   },
   {
     name: "the README naming a dark take",
@@ -213,23 +213,23 @@ const seeds: Seed[] = [
   },
   {
     name: "a row whose theme is not its file's",
-    make({ rows }) { rows.find(at("guides/templates.dark.webp"))!.theme = "light"; },
-    problems: [{ file: "docs/images/manifest.json", rule: "manifest.row-form" }, { file: "docs/images/guides/templates.dark.webp", rule: "manifest.no-row" }],
+    make({ rows }) { rows.find(at("use/templates.dark.webp"))!.theme = "light"; },
+    problems: [{ file: "docs/images/manifest.json", rule: "manifest.row-form" }, { file: "docs/images/use/templates.dark.webp", rule: "manifest.no-row" }],
   },
   {
     name: "a row without a theme",
-    make({ rows }) { delete rows.find(at("guides/templates.webp"))!.theme; },
-    problems: [{ file: "docs/images/manifest.json", rule: "manifest.row-form" }, { file: "docs/images/guides/templates.webp", rule: "manifest.no-row" }],
+    make({ rows }) { delete rows.find(at("use/templates.webp"))!.theme; },
+    problems: [{ file: "docs/images/manifest.json", rule: "manifest.row-form" }, { file: "docs/images/use/templates.webp", rule: "manifest.no-row" }],
   },
   {
     name: "a dark recording whose poster is the light take",
-    make({ rows }) { rows.find(at("guides/search.dark.webm"))!.poster = "guides/search-poster.webp"; },
-    problems: [{ file: "docs/images/manifest.json", rule: "manifest.row-form" }, { file: "docs/images/guides/search.dark.webm", rule: "manifest.no-row" }],
+    make({ rows }) { rows.find(at("use/search.dark.webm"))!.poster = "use/search-poster.webp"; },
+    problems: [{ file: "docs/images/manifest.json", rule: "manifest.row-form" }, { file: "docs/images/use/search.dark.webm", rule: "manifest.no-row" }],
   },
   {
     name: "a row with the wrong byte count",
-    make({ rows }) { (rows.find(at("guides/templates.webp"))!.bytes as number) += 1; },
-    problems: [{ file: "docs/images/guides/templates.webp", rule: "manifest.bytes" }],
+    make({ rows }) { (rows.find(at("use/templates.webp"))!.bytes as number) += 1; },
+    problems: [{ file: "docs/images/use/templates.webp", rule: "manifest.bytes" }],
   },
   {
     name: "a row with the wrong size",
@@ -238,16 +238,16 @@ const seeds: Seed[] = [
   },
   {
     name: "a row with the wrong length, which its dark take's row no longer matches",
-    make({ rows }) { rows.find(at("guides/search.webm"))!.length = 5.1; },
-    problems: [{ file: "docs/images/guides/search.dark.webm", rule: "manifest.take-pair" }, { file: "docs/images/guides/search.webm", rule: "manifest.length" }],
+    make({ rows }) { rows.find(at("use/search.webm"))!.length = 5.1; },
+    problems: [{ file: "docs/images/use/search.dark.webm", rule: "manifest.take-pair" }, { file: "docs/images/use/search.webm", rule: "manifest.length" }],
   },
   {
     name: "a picture that is neither the frame nor its declared crop at two pixels per CSS pixel",
     make({ tree, rows }) {
-      tree["docs/images/guides/templates.webp"] = small;
-      Object.assign(rows.find(at("guides/templates.webp"))!, { bytes: small.length, width: 1000, height: 600 });
+      tree["docs/images/use/templates.webp"] = small;
+      Object.assign(rows.find(at("use/templates.webp"))!, { bytes: small.length, width: 1000, height: 600 });
     },
-    problems: [{ file: "docs/images/guides/templates.webp", rule: "manifest.frame" }],
+    problems: [{ file: "docs/images/use/templates.webp", rule: "manifest.frame" }],
   },
   {
     name: "a row for the manifest itself",
@@ -256,13 +256,13 @@ const seeds: Seed[] = [
   },
   {
     name: "two rows for one file",
-    make({ rows }) { rows.push({ ...rows.find(at("guides/templates.webp"))! }); },
+    make({ rows }) { rows.push({ ...rows.find(at("use/templates.webp"))! }); },
     problems: [{ file: "docs/images/manifest.json", rule: "manifest.duplicate-row" }],
   },
   {
     name: "a row whose kind is not its file's",
-    make({ rows }) { rows.find(at("guides/templates.webp"))!.kind = "recording"; },
-    problems: [{ file: "docs/images/manifest.json", rule: "manifest.row-form" }, { file: "docs/images/guides/templates.webp", rule: "manifest.no-row" }],
+    make({ rows }) { rows.find(at("use/templates.webp"))!.kind = "recording"; },
+    problems: [{ file: "docs/images/manifest.json", rule: "manifest.row-form" }, { file: "docs/images/use/templates.webp", rule: "manifest.no-row" }],
   },
   {
     name: "a manifest with a field besides rows",
@@ -298,7 +298,7 @@ const seeds: Seed[] = [
   {
     name: "the README's picture whose dark source names another scene's dark take",
     make({ tree }) {
-      tree["README.md"] = `# Dezfil\n\n${readmePicture("docs/images/start/card.webp", "The setup card", '<source media="(prefers-color-scheme: dark)" srcset="docs/images/guides/templates.dark.webp">')}`;
+      tree["README.md"] = `# Dezfil\n\n${readmePicture("docs/images/start/card.webp", "The setup card", '<source media="(prefers-color-scheme: dark)" srcset="docs/images/use/templates.dark.webp">')}`;
     },
     problems: [{ file: "README.md", rule: "manifest.readme-picture" }, { file: "README.md", rule: "manifest.readme-picture" }],
   },
@@ -312,15 +312,15 @@ const seeds: Seed[] = [
   {
     name: "a recording whose poster has no row",
     make({ tree, rows }) {
-      rows.splice(rows.findIndex(at("guides/search-poster.webp")), 1);
+      rows.splice(rows.findIndex(at("use/search-poster.webp")), 1);
       void tree;
     },
-    problems: [{ file: "docs/images/manifest.json", rule: "manifest.poster" }, { file: "docs/images/guides/search-poster.webp", rule: "manifest.no-row" }],
+    problems: [{ file: "docs/images/manifest.json", rule: "manifest.poster" }, { file: "docs/images/use/search-poster.webp", rule: "manifest.no-row" }],
   },
   {
     name: "a file that is not what its name says",
-    make({ tree }) { tree["docs/images/guides/templates.webp"] = "not a picture"; },
-    problems: [{ file: "docs/images/guides/templates.webp", rule: "manifest.unreadable-file" }],
+    make({ tree }) { tree["docs/images/use/templates.webp"] = "not a picture"; },
+    problems: [{ file: "docs/images/use/templates.webp", rule: "manifest.unreadable-file" }],
   },
 ];
 
@@ -381,10 +381,10 @@ describe("lint:docs over a tree on disk", () => {
     for (const imported of ["CHANGELOG.md", "SECURITY.md", "CONTRIBUTING.md", "CODE_OF_CONDUCT.md"]) writeFileSync(join(folder, imported), `# ${imported}\n`);
     expect(run("--write").code).toBe(0);
     expect(run("--check")).toMatchObject({ code: 0 });
-    (rows.find(at("guides/search.webm"))!.bytes as number) -= 1;
+    (rows.find(at("use/search.webm"))!.bytes as number) -= 1;
     writeFileSync(join(folder, "docs/images/manifest.json"), JSON.stringify({ rows }, null, 2));
     const failed = run("--check");
     expect(failed.code).toBe(1);
-    expect(failed.output).toContain("docs/images/guides/search.webm: manifest.bytes:");
+    expect(failed.output).toContain("docs/images/use/search.webm: manifest.bytes:");
   });
 });

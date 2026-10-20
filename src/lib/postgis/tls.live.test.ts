@@ -7,7 +7,7 @@ import { fixtureUrl, openSource, watchAttachments, type SourceFixture } from "./
 
 for (const [variable, encrypted] of [["DEZFIL_TEST_PG_URL", false], ["DEZFIL_TEST_PG_TLS_URL", true]] as const) {
   const url = process.env[variable];
-  describe.skipIf(!url)(url ? `live TLS ${encrypted? "capable": "disabled"}` : `SKIP: ${variable} is missing (disposable ${encrypted ? "TLS-capable" : "TLS-disabled"} PostGIS, docs/operate/runbook.md)`, () => {
+  describe.skipIf(!url)(url ? `live TLS ${encrypted? "capable": "disabled"}` : `SKIP: ${variable} is missing (disposable ${encrypted ? "TLS-capable" : "TLS-disabled"} PostGIS, docs/self-host/backup-and-restore.md)`, () => {
     let source: SourceFixture;
     let scratch: string;
     let watch: ReturnType<typeof watchAttachments>;

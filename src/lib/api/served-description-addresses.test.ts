@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { buildOpenApiDocument } from "./openapi";
 import { DOCS_SITE_URL, HTTP_API_GUIDE_URL, docsPageUrl } from "@/lib/docs-site";
@@ -43,8 +43,8 @@ describe("the served description names documentation by its site address", () =>
     expect(TOP_FOLDERS.has("docs")).toBe(true);
     expect(ROOT_FILES.has("README.md")).toBe(true);
     expect(repositoryPaths("See docs/api.md (Connections).")).toEqual(["docs/api.md"]);
-    expect(repositoryPaths("Read docs/reference/http-api.md, scripts/check.mjs or README.md.")).toEqual([
-      "docs/reference/http-api.md", "scripts/check.mjs", "README.md",
+    expect(repositoryPaths("Read docs/api/http-api.md, scripts/check.mjs or README.md.")).toEqual([
+      "docs/api/http-api.md", "scripts/check.mjs", "README.md",
     ]);
     expect(repositoryPaths(
       `See ${HTTP_API_GUIDE_URL}. GET /api/openapi.json answers application/json; ` +
@@ -58,19 +58,25 @@ describe("the served description names documentation by its site address", () =>
   });
 
   it("names the HTTP API guide by its full site address where it once named the file", () => {
-    expect(HTTP_API_GUIDE_URL).toBe("https://dezfil.io/docs/reference/http-api/");
+    expect(HTTP_API_GUIDE_URL).toBe("https://dezfil.io/docs/api/http-api/");
     expect(HTTP_API_GUIDE_URL.startsWith(DOCS_SITE_URL)).toBe(true);
     // The address is the page's path in the repository, so the page must be there.
-    expect(existsSync(`docs/${HTTP_API_GUIDE_URL.slice(DOCS_SITE_URL.length, -1)}.md`)).toBe(true);
-    const text = JSON.stringify(buildOpenApiDocument());
-    expect(text).toContain(`See ${HTTP_API_GUIDE_URL} (Connections) for parameter dispositions.`);
+    const page = `docs/${HTTP_API_GUIDE_URL.slice(DOCS_SITE_URL.length, -1)}.md`;
+    expect(existsSync(page)).toBe(true);
+    // And the page holds what the string sends the reader to: the Connections
+    // family and its table of how each string parameter is treated.
+    const text = readFileSync(page, "utf8");
+    expect(text).toContain("**Connections.** PostGIS connections");
+    expect(text).toMatch(/^\| `channel_binding`, `gssencmode` \| /m);
+    const served = JSON.stringify(buildOpenApiDocument());
+    expect(served).toContain(`See ${HTTP_API_GUIDE_URL} (Connections) for parameter dispositions.`);
   });
 
   it("builds a page address only from a section and a page", () => {
-    expect(docsPageUrl("reference/mcp")).toBe("https://dezfil.io/docs/reference/mcp/");
-    expect(docsPageUrl("develop/verification/provider-cancellation"))
-      .toBe("https://dezfil.io/docs/develop/verification/provider-cancellation/");
-    for (const bad of ["mcp", "reference/mcp.md", "/reference/mcp", "reference/mcp/", "Reference/MCP"]) {
+    expect(docsPageUrl("api/mcp")).toBe("https://dezfil.io/docs/api/mcp/");
+    expect(docsPageUrl("self-host/configuration/storage"))
+      .toBe("https://dezfil.io/docs/self-host/configuration/storage/");
+    for (const bad of ["mcp", "api/mcp.md", "/api/mcp", "api/mcp/", "API/MCP"]) {
       expect(() => docsPageUrl(bad)).toThrow();
     }
   });

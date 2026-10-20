@@ -10,6 +10,7 @@ import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/cli
 import { provisionJourney } from './journey-auth.mjs';
 import { contractSource } from './contract-source.mjs';
 import { checkServedContract, servedCounts } from './served-contract-checks.mjs';
+import { readContractDocs } from './check-contract-docs.mjs';
 const { values } = parseArgs({ options: { standalone: { type: 'string', default: '.next/standalone' }, container: { type: 'string' }, port: { type: 'string', default: '3407' } } });
 const root = process.cwd(), scratch = process.env.DEZFIL_DATA_DIR, port = Number(values.port);
 assert.ok(scratch && path.isAbsolute(scratch)); mkdirSync(scratch, { recursive: true }); assert.deepEqual(readdirSync(scratch), []);
@@ -49,7 +50,7 @@ try {
   await client.connect(new StreamableHTTPClientTransport(new URL(base + '/api/mcp'), { fetch: account.fetch }));
   const tools = []; let cursor;
   do { const page = await client.listTools(cursor ? { cursor } : {}); tools.push(...page.tools); cursor = page.nextCursor; } while (cursor);
-  const docs = { api: readFileSync('docs/reference/http-api.md', 'utf8'), mcp: readFileSync('docs/reference/mcp.md', 'utf8'), proof: readFileSync('docs/develop/verification/account-deletion-guidance.md', 'utf8') };
+  const docs = readContractDocs();
   const baseline = JSON.parse(readFileSync('test-support/assistant-baselines/mcp-tools-list.json', 'utf8'));
   const guidance = readFileSync('plugins/dezfil/skills/dezfil/analysis.md', 'utf8');
   const problems = checkServedContract({ document, sourceDocument: source.document, tools, derivedTools: source.tools, docs, baseline, guidance, expectedGuidance });

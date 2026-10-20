@@ -46,25 +46,25 @@ const now = { version: "0.1.0", date: "2026-10-17" };
 describe("the manifest the picture script writes", () => {
   const before = {
     rows: [
-      { file: "guides/one.webp", scene: "one", kind: "picture", theme: "light", ...earlier, width: 10, height: 20, bytes: 3 },
-      { file: "guides/two.webp", scene: "two", kind: "picture", theme: "light", ...earlier, width: 10, height: 20, bytes: 3 },
+      { file: "use/one.webp", scene: "one", kind: "picture", theme: "light", ...earlier, width: 10, height: 20, bytes: 3 },
+      { file: "use/two.webp", scene: "two", kind: "picture", theme: "light", ...earlier, width: 10, height: 20, bytes: 3 },
     ],
   };
-  const disk: Record<string, Buffer> = { "guides/one.webp": bytes("one"), "guides/two.webp": bytes("two") };
+  const disk: Record<string, Buffer> = { "use/one.webp": bytes("one"), "use/two.webp": bytes("two") };
   const current = (file: string) => disk[file] ?? null;
 
   it("changes no file and no row when every picture came out the same", () => {
-    const plan = planRun({ manifest: before, captured: [item("one", "guides/one.webp", "one"), item("two", "guides/two.webp", "two")], current, scenes: listed, ...now });
+    const plan = planRun({ manifest: before, captured: [item("one", "use/one.webp", "one"), item("two", "use/two.webp", "two")], current, scenes: listed, ...now });
     expect(plan.writes).toEqual([]);
     expect(plan.removes).toEqual([]);
     expect(manifestText(plan.manifest)).toBe(manifestText(before));
   });
 
   it("replaces only the file whose bytes changed, and moves only its row's version and date", () => {
-    const plan = planRun({ manifest: before, captured: [item("one", "guides/one.webp", "one, relabelled"), item("two", "guides/two.webp", "two")], current, scenes: listed, ...now });
-    expect(plan.writes.map((w: { file: string }) => w.file)).toEqual(["guides/one.webp"]);
+    const plan = planRun({ manifest: before, captured: [item("one", "use/one.webp", "one, relabelled"), item("two", "use/two.webp", "two")], current, scenes: listed, ...now });
+    expect(plan.writes.map((w: { file: string }) => w.file)).toEqual(["use/one.webp"]);
     expect(plan.manifest.rows).toEqual([
-      { file: "guides/one.webp", scene: "one", kind: "picture", theme: "light", ...now, width: 10, height: 20, bytes: 15 },
+      { file: "use/one.webp", scene: "one", kind: "picture", theme: "light", ...now, width: 10, height: 20, bytes: 15 },
       before.rows[1],
     ]);
   });
@@ -72,14 +72,14 @@ describe("the manifest the picture script writes", () => {
   it("writes a scene's dark take as a row of its own with its theme, beside the light take's", () => {
     const plan = planRun({
       manifest: before,
-      captured: [item("one", "guides/one.webp", "one"), item("one", "guides/one.dark.webp", "one, dark"), item("two", "guides/two.webp", "two")],
+      captured: [item("one", "use/one.webp", "one"), item("one", "use/one.dark.webp", "one, dark"), item("two", "use/two.webp", "two")],
       current, scenes: listed, ...now,
     });
-    expect(plan.writes.map((w: { file: string }) => w.file)).toEqual(["guides/one.dark.webp"]);
+    expect(plan.writes.map((w: { file: string }) => w.file)).toEqual(["use/one.dark.webp"]);
     expect(plan.manifest.rows.map((row: Row) => [row.file, row.theme, row.version])).toEqual([
-      ["guides/one.dark.webp", "dark", now.version],
-      ["guides/one.webp", "light", earlier.version],
-      ["guides/two.webp", "light", earlier.version],
+      ["use/one.dark.webp", "dark", now.version],
+      ["use/one.webp", "light", earlier.version],
+      ["use/two.webp", "light", earlier.version],
     ]);
   });
 
@@ -87,8 +87,8 @@ describe("the manifest the picture script writes", () => {
     const plan = planRun({
       manifest: null,
       captured: [
-        item("two", "guides/two.webm", "loop", { kind: "recording", length: 4.2, poster: "guides/two-poster.webp" }),
-        item("one", "start/one.webp", "crop", { crop: { x: 1, y: 2, width: 5, height: 10 } }),
+        item("two", "start/two.webm", "loop", { kind: "recording", length: 4.2, poster: "start/two-poster.webp" }),
+        item("one", "use/one.webp", "crop", { crop: { x: 1, y: 2, width: 5, height: 10 } }),
       ],
       current: () => null, scenes: listed, ...now,
     });
@@ -100,21 +100,21 @@ describe("the manifest the picture script writes", () => {
   });
 
   it("removes the file and row of a scene that left the list, and of a file a scene no longer makes", () => {
-    const plan = planRun({ manifest: before, captured: [item("one", "guides/one-renamed.webp", "one")], current, scenes: [{ id: "one" }], ...now });
-    expect(plan.removes).toEqual(["guides/one.webp", "guides/two.webp"]);
-    expect(plan.manifest.rows.map((row: Row) => row.file)).toEqual(["guides/one-renamed.webp"]);
+    const plan = planRun({ manifest: before, captured: [item("one", "use/one-renamed.webp", "one")], current, scenes: [{ id: "one" }], ...now });
+    expect(plan.removes).toEqual(["use/one.webp", "use/two.webp"]);
+    expect(plan.manifest.rows.map((row: Row) => row.file)).toEqual(["use/one-renamed.webp"]);
   });
 
   it("keeps a file a renamed scene still makes, under the new scene, with its version and date", () => {
     const renamed = { rows: [{ ...before.rows[0], scene: "one-before" }, before.rows[1]] };
-    const plan = planRun({ manifest: renamed, captured: [item("one", "guides/one.webp", "one"), item("two", "guides/two.webp", "two")], current, scenes: [{ id: "one" }, { id: "two" }], ...now });
+    const plan = planRun({ manifest: renamed, captured: [item("one", "use/one.webp", "one"), item("two", "use/two.webp", "two")], current, scenes: [{ id: "one" }, { id: "two" }], ...now });
     expect(plan.removes).toEqual([]);
     expect(plan.writes).toEqual([]);
     expect(plan.manifest).toEqual(before);
   });
 
   it("keeps the rows of the scenes a partial run did not take", () => {
-    const plan = planRun({ manifest: before, captured: [item("one", "guides/one.webp", "one")], current, scenes: [{ id: "one" }], partial: true, ...now });
+    const plan = planRun({ manifest: before, captured: [item("one", "use/one.webp", "one")], current, scenes: [{ id: "one" }], partial: true, ...now });
     expect(plan.removes).toEqual([]);
     expect(plan.manifest).toEqual(before);
   });
@@ -157,12 +157,12 @@ describe("the scene list", () => {
 describe("a scene's two takes", () => {
   it("are the light theme then the dark theme, the dark take beside the light one with .dark before the extension", () => {
     expect(THEMES).toEqual(["light", "dark"]);
-    expect(darkTake("guides/templates.webp")).toBe("guides/templates.dark.webp");
-    expect(darkTake("guides/templates-search.webm")).toBe("guides/templates-search.dark.webm");
-    expect(lightTake("guides/templates.dark.webp")).toBe("guides/templates.webp");
+    expect(darkTake("use/templates.webp")).toBe("use/templates.dark.webp");
+    expect(darkTake("use/templates-search.webm")).toBe("use/templates-search.dark.webm");
+    expect(lightTake("use/templates.dark.webp")).toBe("use/templates.webp");
     expect(takeFile("start/setup-card.webp", "light")).toBe("start/setup-card.webp");
     expect(takeFile("start/setup-card.webp", "dark")).toBe("start/setup-card.dark.webp");
-    expect([takeTheme("guides/a.webp"), takeTheme("guides/a.dark.webm"), takeTheme("guides/dark.webp")]).toEqual(["light", "dark", "light"]);
+    expect([takeTheme("use/a.webp"), takeTheme("use/a.dark.webm"), takeTheme("use/dark.webp")]).toEqual(["light", "dark", "light"]);
   });
 
   it("start their browser with the choice the app's theme switch stores, which its boot script reads before first paint", () => {

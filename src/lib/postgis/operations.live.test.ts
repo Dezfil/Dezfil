@@ -31,7 +31,7 @@ async function until(predicate: () => Promise<boolean>, milliseconds: number, me
 /** How Postgres shows a millisecond setting: in the largest unit that divides it. */
 const shownDuration = (ms: number) => ms % 60_000 === 0 ? `${ms / 60_000}min` : ms % 1000 === 0 ? `${ms / 1000}s` : `${ms}ms`;
 const kinds = ["create", "edit", "test", "catalogue", "preview", "import", "refresh"] as const;
-describe.skipIf(!url)(url ? "live source operation ownership" : "SKIP: DEZFIL_TEST_PG_URL is missing (all-operation source ownership, docs/operate/runbook.md)", () => {
+describe.skipIf(!url)(url ? "live source operation ownership" : "SKIP: DEZFIL_TEST_PG_URL is missing (all-operation source ownership, docs/self-host/backup-and-restore.md)", () => {
   let source: SourceFixture, scratch: string;
   const schema = `dezfil_source_${randomUUID().replace(/-/g, "")}`;
   beforeAll(async () => {

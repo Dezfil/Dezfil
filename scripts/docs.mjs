@@ -3,13 +3,15 @@
 //
 // Write mode (`npm run docs:write`) generates what is made from the pages
 // and the source: the agents' index, docs/README.md, and the API description
-// file, docs/reference/openapi.json, built from the same contract source the
+// file, docs/api/openapi.json, built from the same contract source the
 // server serves, with no server. Check mode (`npm run lint:docs`) holds
 // the page contract for every page under docs/ (the frontmatter, the
 // headings, the links and pictures, the addresses each page owns and the old
-// addresses it lists), the image manifest against the files it lists, and
-// the generated files' freshness, and names each problem with its file and
-// rule. The rules live in docs-contract.mjs and docs-manifest.mjs.
+// addresses it lists), the links and pictures of every procedure note under
+// scripts/ and src/ (which are not pages), the image manifest against the
+// files it lists, and the generated files' freshness, and names each problem
+// with its file and rule. The rules live in docs-contract.mjs and
+// docs-manifest.mjs.
 //
 // Usage:
 //   node scripts/docs.mjs --check               # the repository
@@ -63,7 +65,7 @@ if (values.write) {
 }
 
 const files = repositoryFiles();
-const { problems, pages, used } = checkTree({ files, read });
+const { problems, pages, notes, used } = checkTree({ files, read });
 problems.push(...checkManifest({ files, read, readBytes: (file) => readFileSync(path.join(root, file)), used }));
 problems.push(...checkIndex({ files, read }));
 if (document) {
@@ -76,4 +78,4 @@ if (problems.length) {
   process.exit(1);
 }
 const media = files.includes("docs/images/manifest.json") ? " The image manifest matches its files." : "";
-console.log(`PASS: ${pages.length} pages hold the page contract; the index${document ? " and the API description file are" : " is"} current.${media}`);
+console.log(`PASS: ${pages.length} pages hold the page contract; the links in ${notes.length} procedure notes resolve; the index${document ? " and the API description file are" : " is"} current.${media}`);

@@ -18,18 +18,32 @@ const model = (id: string, name = id, efforts: string[] = []) => ({ id, name, ef
 
 describe("whole catalogue contract", () => {
   it("the runbook example is a valid both-provider instance file and new docs have no em dashes", () => {
-    const section = readFileSync("docs/operate/runbook.md", "utf8").split("## The model catalogue file")[1];
+    const section = readFileSync("docs/self-host/backup-and-restore.md", "utf8").split("## The model catalogue file")[1];
     expect(section).toBeDefined();
     expect(section).not.toContain("\u2014");
+    // The dash rule covers everything from this section on as it was first
+    // written: the rest of its page, and the probe procedures that followed
+    // it there and now sit beside their scripts. Every one of those sections
+    // is read, wherever it lives.
+    const notes = ["scripts/transport-probe.md", "scripts/body-probe.md", "scripts/publication-source-probe.md", "scripts/derivation-probe.md", "scripts/credential-cleanup-driver.md", "scripts/sharing-journey.md", "scripts/query-result-budget-probe.md", "scripts/settings-probe.md"];
+    const texts = notes.map((note) => readFileSync(note, "utf8"));
+    const headings = [section, ...texts].join("\n").split("\n").filter((line) => /^#{1,6} /.test(line)).map((line) => line.replace(/^#+ /, "").trim());
+    for (const heading of [
+      "Request transport probe", "JSON body and MCP admission probe", "Publication source and state probe", "Derivation admission and timing probe",
+      "Credential cleanup and restart probe", "Provider cancellation and caller recovery", "Render destination gate and outside comparison", "Image job probe order",
+      "Project departure proof on a production standalone", "SQL result byte budget", "Local regressions", "Served standalone probe", "Request markers",
+      "Built image", "Browser flow", "Companion commands", "Settings persistence smoke probe", "Shipping a template release",
+    ]) expect(headings, heading).toContain(heading);
+    texts.forEach((text, i) => expect(text, notes[i]).not.toContain("\u2014"));
     const example = section.match(/```json\n([\s\S]*?)\n```/)?.[1];
     expect(example).toBeDefined();
     const parsed = validateCatalogue(JSON.parse(example!));
     expect(parsed.openai).toHaveLength(2);
     expect(parsed.anthropic).toHaveLength(2);
-    const rows = readFileSync("docs/reference/configuration.md", "utf8").split("\n").filter((line) => /^\| `DEZFIL_(DATA_DIR|AI_MODELS_OPENAI|AI_MODELS_ANTHROPIC)`/.test(line));
+    const rows = readFileSync("docs/self-host/configuration.md", "utf8").split("\n").filter((line) => /^\| `DEZFIL_(DATA_DIR|AI_MODELS_OPENAI|AI_MODELS_ANTHROPIC)`/.test(line));
     expect(rows).toHaveLength(3);
     for (const row of rows) {
-      expect(row).toContain("](../operate/runbook.md#the-model-catalogue-file)");
+      expect(row).toContain("](backup-and-restore.md#the-model-catalogue-file)");
       expect(row).not.toContain("\u2014");
     }
   });

@@ -106,7 +106,7 @@ describe("configuration page coverage", () => {
     expect([...server]).toContain("OPENAI_API_KEY");
     const { undocumented, stale } = judge(
       server,
-      documentedVariables(join(root, "docs/reference/configuration.md")),
+      documentedVariables(join(root, "docs/self-host/configuration.md")),
     );
     expect(undocumented).toEqual([]);
     expect(stale).toEqual([]);
@@ -119,13 +119,13 @@ it("includes the image observers' test settings on the configuration page", () =
   const names = ["DEZFIL_TEST_PUBLICATION_LOG", "DEZFIL_TEST_DERIVATION_LOG"];
   for (const name of names) {
     expect(actual.has(name), name).toBe(true);
-    expect(documentedVariables(join(root, "docs/reference/configuration.md")).has(name), name).toBe(true);
+    expect(documentedVariables(join(root, "docs/self-host/configuration.md")).has(name), name).toBe(true);
   }
   for (const name of names) {
-    const dropped = documentedVariables(join(root, "docs/reference/configuration.md")); dropped.delete(name);
+    const dropped = documentedVariables(join(root, "docs/self-host/configuration.md")); dropped.delete(name);
     expect(judge(actual, dropped).undocumented).toContain(name);
     const stopped = new Set(actual); stopped.delete(name);
-    expect(judge(stopped, documentedVariables(join(root, "docs/reference/configuration.md"))).stale).toContain(name);
+    expect(judge(stopped, documentedVariables(join(root, "docs/self-host/configuration.md"))).stale).toContain(name);
   }
 });
 

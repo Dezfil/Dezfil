@@ -79,6 +79,7 @@
     "lint:contract-docs": "node scripts/check-contract-docs.mjs",
     "lint:reader-docs": "node scripts/check-reader-docs.mjs",
     "lint:docs": "node scripts/docs.mjs --check",
+    "lint:retired-paths": "node scripts/check-retired-paths.mjs",
     "docs:write": "node scripts/docs.mjs --write",
     "docs:pictures": "node scripts/docs-pictures.mjs",
     "probe:publication-source": "node scripts/publication-source-probe.mjs",

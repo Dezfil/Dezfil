@@ -5,6 +5,7 @@ import { buildTools } from "@/lib/tools/tools";
 import { testClient } from "@/lib/mcp/test-client";
 import { renderGuidance } from "../../../scripts/dezfil-guidance.mjs";
 import { checkServedContract } from "../../../scripts/served-contract-checks.mjs";
+import { readContractDocs } from "../../../scripts/check-contract-docs.mjs";
 const read = (file: string) => readFileSync(file, "utf8");
 let tools: { name: string }[];
 beforeAll(async () => {
@@ -13,7 +14,7 @@ beforeAll(async () => {
 });
 function observed() {
   return { document: buildOpenApiDocument(), sourceDocument: buildOpenApiDocument(), tools, derivedTools: buildTools(),
-    docs: { api: read("docs/reference/http-api.md"), mcp: read("docs/reference/mcp.md"), proof: read("docs/develop/verification/account-deletion-guidance.md") }, baseline: JSON.parse(read("test-support/assistant-baselines/mcp-tools-list.json")),
+    docs: readContractDocs(), baseline: JSON.parse(read("test-support/assistant-baselines/mcp-tools-list.json")),
     guidance: read("plugins/dezfil/skills/dezfil/analysis.md"), expectedGuidance: renderGuidance() };
 }
 it("accepts the actual generated server listing and committed readers through the outside checker", () => {

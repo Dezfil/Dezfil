@@ -12,11 +12,11 @@ const root = process.cwd();
 const scratch = mkdtempSync(path.join(process.env.DEZFIL_DATA_DIR!, "configuration-check-"));
 afterAll(() => rmSync(scratch, { recursive: true, force: true }));
 /** The one document the check holds: the README carries no table. */
-const guides = ["docs/reference/configuration.md"] as const;
+const guides = ["docs/self-host/configuration.md"] as const;
 const originals = Object.fromEntries(guides.map(file => [file, readFileSync(path.join(root, file), "utf8")]));
 const variable = "DEZFIL_UPLOAD_MAX_MB";
 /** The guide whose Instance defaults table the check holds to the catalogue's defaults. */
-const defaultsGuide = "docs/reference/configuration.md";
+const defaultsGuide = "docs/self-host/configuration.md";
 function changeRow(text: string, name: string, change: (row: string) => string) {
   const row = text.split("\n").find(line => line.startsWith(`| \`${name}\` |`));
   expect(row, `seed target ${name}`).toBeDefined();
@@ -30,7 +30,7 @@ function cell(row: string, position: number, value: string) {
 function check(file?: string, mutate?: (text: string) => string) {
   const run = mkdtempSync(path.join(scratch, "run-"));
   const configuration = path.join(run, "configuration.md");
-  const name = "docs/reference/configuration.md";
+  const name = "docs/self-host/configuration.md";
   writeFileSync(configuration, file === name ? mutate!(originals[name]) : originals[name]);
   const result = spawnSync(process.execPath, [path.join(root, "scripts/check-readme-config.mjs"),
     "--configuration", configuration], {
@@ -55,7 +55,7 @@ it("holds the configuration page alone: the README carries no table, and a row r
   const readme = readFileSync(path.join(root, "README.md"), "utf8");
   expect(readme.split("\n").filter(line => /^\|\s*`[A-Z][A-Z0-9_]+`/.test(line))).toEqual([]);
   expect(check().status).toBe(0);
-  const removed = check("docs/reference/configuration.md", text => changeRow(text, "DEZFIL_QUERY_TIMEOUT_S", () => "\0").replace("\0\n", ""));
+  const removed = check("docs/self-host/configuration.md", text => changeRow(text, "DEZFIL_QUERY_TIMEOUT_S", () => "\0").replace("\0\n", ""));
   expect(removed.status, removed.output).toBe(1);
   expect(removed.output).toMatch(/UNDOCUMENTED: \S*configuration\.md: DEZFIL_QUERY_TIMEOUT_S/);
 });
@@ -138,7 +138,7 @@ describe("the test seams the product code reads", () => {
     expect(problems.filter(problem => problem.includes("DEZFIL_TEST_NEW_SEAM")).sort()).toEqual([
       "STALE: source scan against catalogue: DEZFIL_TEST_NEW_SEAM",
       "STALE: test wiring reads against catalogue: DEZFIL_TEST_NEW_SEAM",
-      "UNDOCUMENTED: docs/reference/configuration.md test wiring reads: DEZFIL_TEST_NEW_SEAM",
+      "UNDOCUMENTED: docs/self-host/configuration.md test wiring reads: DEZFIL_TEST_NEW_SEAM",
     ]);
     expect(problems.filter(problem => problem.includes("DEZFIL_TEST_FILE_LOCAL"))).toEqual([]);
   });
@@ -190,9 +190,9 @@ describe("the configuration guide's Instance defaults table", () => {
     ];
     const problems = configurationProblems({ srcDir: path.join(root, "src"), documents: originals, catalogue, testWiring: TEST_WIRING, defaultsGuide, isInstanceDefault, isInstanceRule, isLibrarySwitch, isTemplatesSetting });
     expect([...problems].sort()).toEqual([
-      'DEFAULT: docs/reference/configuration.md instance defaults: newMap.zoom: expected "2", found "1.3"',
-      "STALE: docs/reference/configuration.md instance defaults: canvas.resultsBand",
-      "UNDOCUMENTED: docs/reference/configuration.md instance defaults: canvas.snap",
+      'DEFAULT: docs/self-host/configuration.md instance defaults: newMap.zoom: expected "2", found "1.3"',
+      "STALE: docs/self-host/configuration.md instance defaults: canvas.resultsBand",
+      "UNDOCUMENTED: docs/self-host/configuration.md instance defaults: canvas.snap",
     ]);
   });
 });
@@ -237,9 +237,9 @@ describe("the configuration guide's Security and rules table", () => {
     ];
     const problems = configurationProblems({ srcDir: path.join(root, "src"), documents: originals, catalogue, testWiring: TEST_WIRING, defaultsGuide, isInstanceDefault, isInstanceRule, isLibrarySwitch, isTemplatesSetting });
     expect([...problems].sort()).toEqual([
-      'DEFAULT: docs/reference/configuration.md security and rules: security.linkDays: expected "14", found "7"',
-      "STALE: docs/reference/configuration.md security and rules: imports.links",
-      "UNDOCUMENTED: docs/reference/configuration.md security and rules: tokens.scopes",
+      'DEFAULT: docs/self-host/configuration.md security and rules: security.linkDays: expected "14", found "7"',
+      "STALE: docs/self-host/configuration.md security and rules: imports.links",
+      "UNDOCUMENTED: docs/self-host/configuration.md security and rules: tokens.scopes",
     ]);
   });
 
@@ -291,9 +291,9 @@ describe("the configuration guide's Libraries table", () => {
     ];
     const problems = configurationProblems({ srcDir: path.join(root, "src"), documents: originals, catalogue, testWiring: TEST_WIRING, defaultsGuide, isInstanceDefault, isInstanceRule, isLibrarySwitch, isTemplatesSetting });
     expect([...problems].sort()).toEqual([
-      'DEFAULT: docs/reference/configuration.md libraries: basemaps.streets: expected "off", found "on"',
-      "STALE: docs/reference/configuration.md libraries: basemaps.light",
-      "UNDOCUMENTED: docs/reference/configuration.md libraries: basemaps.terrain",
+      'DEFAULT: docs/self-host/configuration.md libraries: basemaps.streets: expected "off", found "on"',
+      "STALE: docs/self-host/configuration.md libraries: basemaps.light",
+      "UNDOCUMENTED: docs/self-host/configuration.md libraries: basemaps.terrain",
     ]);
   });
 
@@ -346,8 +346,8 @@ describe("the configuration guide's Templates table", () => {
     ];
     const problems = configurationProblems({ srcDir: path.join(root, "src"), documents: originals, catalogue, testWiring: TEST_WIRING, defaultsGuide, isInstanceDefault, isInstanceRule, isLibrarySwitch, isTemplatesSetting });
     expect([...problems].sort()).toEqual([
-      'DEFAULT: docs/reference/configuration.md templates: templates.catalogue: expected "off", found "on"',
-      "UNDOCUMENTED: docs/reference/configuration.md templates: templates.autoFetch",
+      'DEFAULT: docs/self-host/configuration.md templates: templates.catalogue: expected "off", found "on"',
+      "UNDOCUMENTED: docs/self-host/configuration.md templates: templates.autoFetch",
     ]);
   });
 
@@ -451,7 +451,7 @@ describe("the service addresses and numbers an admin stores on Data & services",
     const before = Object.fromEntries(guides.map(guide => [guide,
       stored.reduce((text, name) => changeRow(text, name, row => cell(row, 4, "Restart")), originals[guide])]));
     expect(problemsOf(before)).toHaveLength(guides.length * stored.length);
-    const result = check("docs/reference/configuration.md", text => changeRow(text, "DEZFIL_GEOCODER_URL", row => cell(row, 4, "Restart")));
+    const result = check("docs/self-host/configuration.md", text => changeRow(text, "DEZFIL_GEOCODER_URL", row => cell(row, 4, "Restart")));
     expect(result.status, result.output).toBe(1);
     expect(result.output).toContain(`CHANGED BY: ${result.output.match(/\S*configuration\.md/)![0]}: DEZFIL_GEOCODER_URL: expected "${LIVE}", found "Restart"`);
   });
