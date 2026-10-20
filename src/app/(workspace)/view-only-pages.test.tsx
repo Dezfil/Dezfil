@@ -7,6 +7,7 @@ import { LayerDownloadControlProvider } from "@/components/builder/LayerDownload
 import { MapBuilder } from "@/components/builder/MapBuilder";
 import { MapReader } from "@/components/reader/MapReader";
 import { ScreenDefaultsProvider } from "@/components/screen-defaults";
+import { MapOpeningProvider } from "@/components/map-opening";
 import { WorkflowScreen } from "@/components/WorkflowScreen";
 import MapPage from "./maps/[id]/page";
 import WorkflowPage from "./workflows/[id]/page";
@@ -55,9 +56,14 @@ beforeEach(() => {
 });
 afterEach(() => { vi.restoreAllMocks(); db.close(); });
 
-async function mapPage(account: string, id = "M") {
+async function mapPage(account: string, id = "M", search: { layer?: string } = {}) {
   who.account = account;
-  return (await MapPage({ params: Promise.resolve({ id }), searchParams: Promise.resolve({}) })) as ReactElement<Record<string, unknown>>;
+  return (await MapPage({ params: Promise.resolve({ id }), searchParams: Promise.resolve(search) })) as ReactElement<Record<string, unknown>>;
+}
+/** The map screen inside the page's word on how it opens. */
+function opened(element: ReactElement<Record<string, unknown>>): { framed: unknown; screen: ReactElement<Record<string, unknown>> } {
+  expect(element.type).toBe(MapOpeningProvider);
+  return { framed: element.props.framed, screen: element.props.children as ReactElement<Record<string, unknown>> };
 }
 /** The screen a page opens, inside the providers around it. */
 function screenOf(page: ReactElement<Record<string, unknown>>): ReactElement<Record<string, unknown>> {
@@ -72,15 +78,26 @@ async function workflowPage(account: string, id = "W") {
 
 describe("a map's page", () => {
   it("gives a Viewer the reader", async () => {
-    const page = await mapPage("viv");
-    expect(page.type).toBe(MapReader);
-    expect(page.props.mapId).toBe("M");
+    const { screen } = opened(await mapPage("viv"));
+    expect(screen.type).toBe(MapReader);
+    expect(screen.props.mapId).toBe("M");
   });
 
   it.each(["pat", "edd"])("gives %s the builder", async (account) => {
     const page = await mapPage(account);
     expect(page.type).toBe(LayerDownloadControlProvider);
-    expect(screenOf(page).type).toBe(MapBuilder);
+    expect(opened(screenOf(page)).screen.type).toBe(MapBuilder);
+  });
+
+  // A map opens at its saved view; one still at the instance's starting
+  // view has none of its own and opens framed, and a promotion that has just
+  // added a layer frames it in the builder.
+  it("tells the builder and the reader how the map opens", async () => {
+    const framed = async () => [opened(await mapPage("viv")).framed, opened(screenOf(await mapPage("pat"))).framed];
+    expect(await framed()).toEqual([false, false]);
+    expect(opened(screenOf(await mapPage("pat", "M", { layer: "landed" }))).framed).toBe(true);
+    db.exec("UPDATE maps SET view_lng = 0, view_lat = 40, view_zoom = 1.3, view_pitch = 0, view_bearing = 0 WHERE id = 'M'");
+    expect(await framed()).toEqual([true, true]);
   });
 
   it("gives a Viewer the builder on their own map filed in the project", async () => {
@@ -103,7 +120,7 @@ describe("a map's page", () => {
   // save is refused.
   it.each(["edd", "pat", "viv"])("gives %s the reader on a frozen map", async (account) => {
     const page = await mapPage(account, "F");
-    expect(page.type).toBe(MapReader);
+    expect(opened(page).screen.type).toBe(MapReader);
   });
 });
 

@@ -15,6 +15,7 @@ import { StageButton, StageStack } from "../map/StageStack";
 import type { CameraHandle } from "../map/camera-handle";
 import { ErrorNote } from "../ui/ErrorNote";
 import { FitIcon } from "../ui/icons";
+import { useOpensFramed } from "../map-opening";
 import { BuilderLoadFailure, BuilderLoading } from "../builder/BuilderFallback";
 import { builderBasemap } from "../builder/builder-basemap";
 import { layerFailureCopy } from "../builder/layer-failure";
@@ -152,9 +153,11 @@ export function ReaderStage({
   const rendersRef = useRef(loaded);
   const mapRef = useRef<MapWithLayers | null>(map);
   const cameraRef = useRef<CameraHandle | null>(null);
-  // The data frames the first view, as the builder's load does.
+  // The first view is the saved one, or framed to the data while the map
+  // has none of its own, as the builder's first load (map-opening.tsx).
+  const framedOpening = useOpensFramed();
   const [fitBounds, setFitBounds] = useState<Bounds | null>(() => {
-    const b = renderBounds(Object.values(loaded));
+    const b = framedOpening ? renderBounds(Object.values(loaded)) : null;
     return b ? ([...b] as Bounds) : null;
   });
   const [fitFailure, setFitFailure] = useState<string | null>(null);

@@ -56,7 +56,8 @@ import {
   touchProjectsOf,
 } from "@/lib/metadata/projects";
 import { metadataDb } from "@/lib/metadata/db";
-import { instanceDefaults, type InstanceDefaults } from "@/lib/settings/defaults";
+import { instanceDefaults } from "@/lib/settings/defaults";
+import { startingView } from "@/lib/map-opening";
 import { mapEvaluation } from "@/lib/query/context";
 import {
   recordStep,
@@ -79,14 +80,6 @@ const RECORDED_MAP_FIELDS = [
   "widgets",
   "widgetsPublished",
 ] as const;
-
-/** Where a new map opens, from the instance's defaults. The product's own
- * view opens on the populated world: zoomed to ~1.3 and biased north so
- * the canvas clamp pins the view just under the top of the world,
- * Greenland to the Southern Ocean, no dead space above. */
-function startingView(defaults: InstanceDefaults): Viewport {
-  return { lng: defaults["newMap.longitude"], lat: defaults["newMap.latitude"], zoom: defaults["newMap.zoom"] };
-}
 
 /**
  * The map write's semantic gate: widget and timeline column references
