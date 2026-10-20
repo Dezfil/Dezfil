@@ -24,7 +24,7 @@ async function until(predicate: () => Promise<boolean>, milliseconds: number, me
   throw new Error(message);
 }
 
-describe.skipIf(!url)(url ? "live preview ownership" : "SKIP: DEZFIL_TEST_PG_URL is missing (held-preview PostGIS proof, docs/self-host/backup-and-restore.md)", () => {
+describe.skipIf(!url)(url ? "live preview ownership" : "SKIP: DEZFIL_TEST_PG_URL is missing (held-preview PostGIS proof, docs/contribute/development-setup.md)", () => {
   let source: SourceFixture;
   let scratch: string;
   const schema = `dezfil_preview_${randomUUID().replace(/-/g, "")}`;

@@ -35,7 +35,7 @@ read it. Begin with [Run it](docs/start/install.md).
 ## Contributing
 
 [CONTRIBUTING.md](CONTRIBUTING.md) says how to get a change from your machine
-into the project, and [checks and testing](docs/contribute/development-setup.md)
+into the project, and [Development setup](docs/contribute/development-setup.md)
 which checks a change runs.
 
 ## License

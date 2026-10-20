@@ -125,17 +125,17 @@ Script Dezfil over HTTP, or connect an AI agent through MCP.
 
 Work on Dezfil's code.
 
+- [Development setup](contribute/development-setup.md)
+  - path: `docs/contribute/development-setup.md`
+  - summary: Run a checkout for development, run the checks and tests the pipeline runs, and start the instances the browser suite and the scripts need.
+  - read when: you set up a checkout to change Dezfil's code; you want to run the pipeline's checks before you push; you run the unit tests or the browser suite against an instance of your own; a test needs DEZFIL_TEST_PG_URL or another test-only variable; you regenerate the docs index, the design specimen or another generated file
+  - audience: developer, agent
+
 - [Architecture](contribute/architecture.md)
   - path: `docs/contribute/architecture.md`
   - summary: How the one container is put together: the web application, the metadata database, the query engine and the files under one data directory.
   - read when: you change the code and need to know where a piece lives; you want to know why there is no second service
   - audience: developer, agent
-
-- [Checks and testing](contribute/development-setup.md)
-  - path: `docs/contribute/development-setup.md`
-  - summary: How to run a checkout for development, the unit and browser suites, and what a full browser run needs provisioned.
-  - read when: you set up a checkout to change the code; you run the browser suite against an instance of your own
-  - audience: developer
 
 - [How this is built](contribute/how-this-is-built.md)
   - path: `docs/contribute/how-this-is-built.md`

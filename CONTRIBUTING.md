@@ -67,9 +67,8 @@ npm run journey:browser           # every spec under e2e/, against a running ins
 ```
 
 It needs a running server and a provisioned browser, and several settings on
-the server before a full run is green. [Checks and testing](docs/contribute/development-setup.md)
-lists them, and [docs/self-host/backup-and-restore.md](docs/self-host/backup-and-restore.md) covers the subsets and what a
-failure usually means.
+the server before a full run is green. [Development setup](docs/contribute/development-setup.md#run-the-browser-suite)
+lists them, with the subsets and what a failure usually means.
 
 ## Branches and pull requests
 

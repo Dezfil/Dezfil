@@ -9,7 +9,7 @@ name: CI
 #            no network. Only on main, because it builds a full image.
 #
 # The end-to-end browser suite is not one of them: it runs locally, against an
-# instance you provision yourself. CONTRIBUTING.md and docs/self-host/backup-and-restore.md say how.
+# instance you provision yourself. CONTRIBUTING.md and docs/contribute/development-setup.md say how.
 on:
   push:
     branches: [main]
