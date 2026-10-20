@@ -52,7 +52,7 @@ const HIDE_HOST_CHROME = `
   :has(> img[src*="/thumbnail?"]) > :not(img):not(svg) { visibility: hidden !important; }`;
 
 type Host = "card" | "continue" | "recent" | "project picture" | "dialog";
-interface Seen { host: Host; index: number; box: { x: number; y: number; width: number; height: number }; currentSrc: string; srcset: string | null; natural: { width: number; height: number } }
+interface Seen { host: Host; index: number; box: { x: number; y: number; width: number; height: number }; currentSrc: string; srcset: string | null }
 
 let ground: Awaited<ReturnType<typeof pictureBasemap>>;
 let mapId = "", projectId = "", table = "";
@@ -87,13 +87,25 @@ const PAGES: { name: string; open: (page: Page) => Promise<void> }[] = [
 ];
 
 const pictures = (page: Page) => page.locator(`img[src*="/api/maps/${mapId}/thumbnail?"]`);
+/** The pixel width of the file the browser chose, read from the file
+ * itself: an image offered by width reports its width divided by the
+ * density the browser picked, not the file's. */
+const fileWidths = new Map<string, number>();
+async function fileWidth(page: Page, src: string): Promise<number> {
+  if (!fileWidths.has(src)) {
+    const response = await page.request.get(src);
+    expect(response.status(), src).toBe(200);
+    fileWidths.set(src, (await sharp(await response.body()).metadata()).width!);
+  }
+  return fileWidths.get(src)!;
+}
 /** Every picture of the fixture on the page, once each has loaded. */
 async function seen(page: Page): Promise<Seen[]> {
   await expect.poll(() => pictures(page).evaluateAll(images => images.length > 0 && images.every(image => (image as HTMLImageElement).complete && (image as HTMLImageElement).naturalWidth > 0)), { timeout: 30000 }).toBe(true);
   return pictures(page).evaluateAll(images => images.map((element, index) => {
     const image = element as HTMLImageElement, rect = image.getBoundingClientRect();
     const host = image.closest("[data-lead='continue']") ? "continue" : image.closest("[data-recent-row]") ? "recent" : image.closest("[data-tile]") ? "project picture" : image.closest("[role='dialog']") ? "dialog" : "card";
-    return { host, index, box: { x: rect.x, y: rect.y, width: rect.width, height: rect.height }, currentSrc: image.currentSrc, srcset: image.getAttribute("srcset"), natural: { width: image.naturalWidth, height: image.naturalHeight } };
+    return { host, index, box: { x: rect.x, y: rect.y, width: rect.width, height: rect.height }, currentSrc: image.currentSrc, srcset: image.getAttribute("srcset") };
   })) as Promise<Seen[]>;
 }
 
@@ -134,7 +146,8 @@ async function judge(page: Page, picture: Seen, where: string) {
   const offered = (picture.srcset ?? "").split(",").map(item => Number(item.trim().split(" ")[1]?.replace("w", "")));
   const widest = PICTURE_SHAPES[shape].widths.at(-1)!;
   expect(Math.max(...offered), `${label}: a size offered for ${Math.ceil(covers)} screen pixels`).toBeGreaterThanOrEqual(Math.min(widest, Math.floor(covers)));
-  if (Number.isInteger(dpr)) expect(picture.natural.width, `${label}: the file taken`).toBeGreaterThanOrEqual(Math.min(widest, Math.floor(covers) - 1));
+  const taken = await fileWidth(page, picture.currentSrc);
+  if (Number.isInteger(dpr)) expect(taken, `${label}: the file taken`).toBeGreaterThanOrEqual(Math.min(widest, Math.floor(covers) - 1));
   await pictures(page).nth(picture.index).scrollIntoViewIfNeeded();
   const box = (await pictures(page).nth(picture.index).boundingBox())!;
   const shot = await pixels(await page.screenshot({ clip: box }));
@@ -148,7 +161,7 @@ async function judge(page: Page, picture: Seen, where: string) {
       expect(mark.count, `${label}: mark ${colour} drawn whole`).toBeGreaterThan(0.6 * Math.PI * radius * radius);
     }
   }
-  return { label, covers, natural: picture.natural.width, rise };
+  return { label, covers, taken, rise };
 }
 
 async function hideHostChrome(page: Page) { await page.addStyleTag({ content: HIDE_HOST_CHROME }); }

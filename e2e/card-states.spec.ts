@@ -598,10 +598,14 @@ async function decodeMarks(page: Page, src: string, from: "card" | "cache"): Pro
  * picture holds. */
 async function shownMarks(page: Page, map: Probe, version: string | null) {
   await expectPicture(page, map, version, "light");
-  const src = await (await markStrips(page, map)).first().locator("img").getAttribute("src");
+  const image = (await markStrips(page, map)).first().locator("img");
+  const src = await image.getAttribute("src");
+  // The size the browser chose from those offered: the file it fetched,
+  // and so the one it may keep.
+  const loaded = await image.evaluate((element) => (element as HTMLImageElement).currentSrc);
   const marks = await marksOf(page, src!, "card");
   expect(marks, "the card's picture decodes").not.toBeNull();
-  return { src: src!, ...marks! };
+  return { src: src!, loaded, ...marks! };
 }
 
 function expectQuietConsole(errors: ConsoleError[]) {
@@ -753,7 +757,7 @@ test.describe("card states with a renderer", () => {
     const policy = (await told).headers()["cache-control"] ?? "";
     const keeps = !/\bno-store\b/.test(policy);
     test.info().annotations.push({ type: "card picture caching", description: policy || "no cache-control" });
-    const kept = await marksOf(page, before.src, "cache");
+    const kept = await marksOf(page, before.loaded, "cache");
     if (keeps) expect(kept, "the browser keeps the picture it showed").not.toBeNull();
     else expect(kept, "told to store nothing, the browser keeps no copy of the picture it showed").toBeNull();
 
@@ -767,7 +771,7 @@ test.describe("card states with a renderer", () => {
     expect(after.src).not.toBe(before.src);
     expect(after.marks).toBeGreaterThan(200);
     expect(after.cx - before.cx, "the card's picture shows the data where it now stands").toBeGreaterThan(0.1);
-    const held = await marksOf(page, before.src, "cache");
+    const held = await marksOf(page, before.loaded, "cache");
     if (keeps) {
       expect(held, "the browser still holds the older picture under the older address").not.toBeNull();
       expect(Math.abs(held!.cx - before.cx), "and that copy is the older picture").toBeLessThan(0.02);
