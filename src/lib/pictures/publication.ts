@@ -13,6 +13,7 @@ import type { ArtifactInputs } from "@/lib/query/evaluation-inputs";
 import { drawingDigest } from "./digest";
 import { getPictureState, settlePicture } from "./state";
 import { inputsAreCurrent } from "./inputs";
+import type { PictureImages } from "./card";
 
 export function pictureTarget(scope: AccountScope, mapId: string, sketchIds: readonly string[] = []) {
   const map = ownMapWithLayers(scope, mapId);
@@ -41,7 +42,7 @@ export function assertPicturePublication(scope: AccountScope, target: PictureTar
       !inputsAreCurrent(inputs) || !inputsReached(inputs, reachableDatasetIds(scope))) throw new Error("The picture's saved state or standing changed.");
 }
 export async function publishPicture(scope: AccountScope, target: PictureTarget, generation: number,
-  images: { light: Uint8Array; dark?: Uint8Array }, inputs: ArtifactInputs): Promise<void> {
+  images: { light: Uint8Array | PictureImages; dark?: Uint8Array | PictureImages }, inputs: ArtifactInputs): Promise<void> {
   if (!!images.dark !== !!target.basemaps.dark) throw new Error("The picture set is incomplete.");
   const check = () => assertPicturePublication(scope, target, generation, inputs);
   check();

@@ -14,6 +14,7 @@ import { EGRESS_REFUSAL, type RenderDriver } from "./render-driver";
 export type { RenderBrowser, RenderDriver } from "./render-driver";
 export type { RenderImageResult } from "./render-drive";
 import type { ExportImageDefinition } from "./image-definition";
+import type { PictureRenderRequest } from "./picture-encode";
 
 /**
  * The server image renderer: drive a headless browser at the bare render
@@ -108,6 +109,9 @@ export interface RenderImageInput {
   /** Internal work may renew its credential once queue wait has ended. */
   admitted?: () => void;
   definition: ExportImageDefinition;
+  /** A map picture's frame and kept sizes; only the picture service
+   * passes one. */
+  picture?: PictureRenderRequest;
   baseUrl: string;
   credential: string;
   signal?: AbortSignal;
@@ -184,6 +188,7 @@ async function performRenderMapImage(
       url: `${input.baseUrl}/render/${encodeURIComponent(input.mapId)}`,
       credential: input.credential,
       definition: input.definition,
+      ...(input.picture ? { picture: input.picture } : {}),
       deadline,
       requestBoundMs,
       budget,

@@ -69,7 +69,9 @@ describe("shared canvas camera", () => {
     const builder = harness(1100, { top: 62, bottom: 14 });
     const saved = { ...requested, lat: builder.constrain(requested.lat, requested.zoom).center.lat };
     expect(saved.lat).toBeCloseTo(coveredCamera(requested, 1100, 62, 14).lat, 10);
-    const card = cardDefinition(saved, "light");
+    const definition = cardDefinition(saved, "light");
+    // The card's frame in CSS pixels: its output divided by its scale.
+    const card = { viewport: definition.viewport, size: { width: definition.size.width / definition.mapScale!, height: definition.size.height / definition.mapScale! } };
     // The short card keeps the padded builder's saved centre. A landmark
     // visible near the builder's edge can be outside this centre band.
     for (const { viewport, size } of [card, { viewport: requested, size: { width: 512, height: 512 } }]) {

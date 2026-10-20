@@ -17,6 +17,8 @@ import {
 import { dataDir } from "@/lib/config";
 import type { ArtifactInputs } from "@/lib/query/evaluation-inputs";
 import type { DrawnBasemap } from "./picture-credit";
+import { PICTURE_SHAPE_NAMES, keptWidth, type PictureShape } from "./pictures/shapes";
+import type { PictureImages } from "./pictures/card";
 import {
   evidencedImages,
   imageEvidence,
@@ -131,10 +133,41 @@ export function thumbnailSetFile(
   return `${mapId}.${cycle}.${theme}.png`;
 }
 
-/** The published pair, by file name within the thumbnails directory. */
+/** The published pair, by file name within the thumbnails directory. A
+ * server picture made with kept sizes lists them: each is a WebP file
+ * beside its PNG under the same publication name, and is that picture
+ * for serving. A set without sizes is an older picture. */
 export interface ThumbnailSet {
   light: string;
   dark: string;
+  sizes?: Record<PictureShape, number[]>;
+}
+
+/** A kept size's file, beside the PNG it belongs to. */
+export function sizedPictureFile(png: string, shape: PictureShape, width: number): string {
+  return png.replace(/\.png$/, `.${shape}-${width}.webp`);
+}
+
+/** Every file a set names: its PNGs and their kept sizes. */
+function setFiles(set: ThumbnailSet): string[] {
+  const pngs = [...new Set([set.light, set.dark])];
+  const sizes = set.sizes;
+  return pngs.flatMap((png) => [
+    png,
+    ...(sizes ? PICTURE_SHAPE_NAMES.flatMap((shape) => sizes[shape].map((width) => sizedPictureFile(png, shape, width))) : []),
+  ]);
+}
+
+function readSizes(raw: unknown): Record<PictureShape, number[]> | undefined | null {
+  if (raw === undefined) return undefined;
+  if (!raw || typeof raw !== "object") return null;
+  const sizes = {} as Record<PictureShape, number[]>;
+  for (const shape of PICTURE_SHAPE_NAMES) {
+    const widths = (raw as Record<string, unknown>)[shape];
+    if (!Array.isArray(widths) || widths.length === 0 || !widths.every((w) => Number.isInteger(w) && w > 0)) return null;
+    sizes[shape] = [...widths].sort((a, b) => a - b);
+  }
+  return sizes;
 }
 
 const otherTheme = (theme: ThumbnailTheme): ThumbnailTheme =>
@@ -173,26 +206,30 @@ async function readSet(mapId: string): Promise<ThumbnailSet | null> {
   try {
     const parsed = JSON.parse(
       await readFile(thumbnailManifestPath(mapId), "utf8"),
-    ) as Partial<ThumbnailSet>;
+    ) as Partial<Omit<ThumbnailSet, "sizes">> & { sizes?: unknown };
     if (typeof parsed.light !== "string" || typeof parsed.dark !== "string") {
       return null;
     }
+    const sizes = readSizes(parsed.sizes);
+    if (sizes === null) return null;
+    const listed = sizes ? { sizes } : {};
     const lightCycle = parsed.light.slice(mapId.length + 1, -".light.png".length);
-    if (parsed.dark === parsed.light && isThumbnailCycle(lightCycle) && parsed.light === thumbnailSetFile(mapId, lightCycle, "light")) return { light: parsed.light, dark: parsed.dark };
+    if (parsed.dark === parsed.light && isThumbnailCycle(lightCycle) && parsed.light === thumbnailSetFile(mapId, lightCycle, "light")) return { light: parsed.light, dark: parsed.dark, ...listed };
     const darkCycle = parsed.dark.slice(mapId.length + 1, -".dark.png".length);
     if (!isThumbnailCycle(lightCycle) || lightCycle !== darkCycle ||
       parsed.light !== thumbnailSetFile(mapId, lightCycle, "light") ||
       parsed.dark !== thumbnailSetFile(mapId, darkCycle, "dark")) return null;
-    return { light: parsed.light, dark: parsed.dark };
+    return { light: parsed.light, dark: parsed.dark, ...listed };
   } catch {
     return null;
   }
 }
 
-/** Every themed file of the map, published or held, by name. */
+/** Every themed file of the map, published or held, by name: its PNGs
+ * and their kept sizes. */
 async function themedFiles(mapId: string): Promise<string[]> {
   const shape = new RegExp(
-    `^${mapId.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\.[A-Za-z0-9_-]+\\.(light|dark)\\.png$`,
+    `^${mapId.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\.[A-Za-z0-9_-]+\\.(light|dark)\\.(png|(card|wide)-[0-9]+\\.webp)$`,
   );
   try {
     return (await readdir(thumbnailsDir())).filter((name) => shape.test(name));
@@ -216,7 +253,7 @@ async function retireUnreferenced(
   keep: ThumbnailSet | null,
   single = false,
 ): Promise<void> {
-  const kept = new Set(keep ? [keep.light, keep.dark] : []);
+  const kept = new Set(keep ? setFiles(keep) : []);
   if (single) kept.add(path.basename(thumbnailPath(mapId)));
   await Promise.all(
     (await themedFiles(mapId))
@@ -236,7 +273,7 @@ async function expireHeld(
   keep: ThumbnailSet | null,
   now = Date.now(),
 ): Promise<void> {
-  const kept = new Set(keep ? [keep.light, keep.dark] : []);
+  const kept = new Set(keep ? setFiles(keep) : []);
   await Promise.all(
     (await themedFiles(mapId))
       .filter((name) => !kept.has(name))
@@ -391,20 +428,51 @@ export async function readThumbnail(
   mapId: string,
   theme?: ThumbnailTheme | null,
 ): Promise<Buffer | null> {
+  return (await readPicture(scope, mapId, theme))?.bytes ?? null;
+}
+
+/** What a picture read may name beyond the theme: a shape, a width in
+ * pixels, or both. */
+export interface PictureWant {
+  shape?: PictureShape;
+  width?: number;
+}
+
+/** A picture read's answer: the bytes and their format. */
+export interface PictureAnswer {
+  bytes: Buffer;
+  type: "image/png" | "image/webp";
+}
+
+/**
+ * The picture for a theme, as readThumbnail chooses it, and with a shape
+ * or a width named, the kept size of that picture: the narrowest of the
+ * shape at least that wide, else the widest; a shape alone its widest, a
+ * width alone the card's. The PNG's evidence decides whether any of them
+ * is served. A picture without kept sizes answers its PNG whatever is
+ * named, as does a set whose size file is missing.
+ */
+export async function readPicture(
+  scope: AccountScope,
+  mapId: string,
+  theme?: ThumbnailTheme | null,
+  want: PictureWant = {},
+): Promise<PictureAnswer | null> {
   requireMap(scope, mapId);
   const before = begun.count;
   if (!turns.has(mapId)) {
-    const bytes = await readPublished(scope, mapId, theme);
-    if (begun.count === before && !turns.has(mapId)) return bytes;
+    const answer = await readPublished(scope, mapId, theme, want);
+    if (begun.count === before && !turns.has(mapId)) return answer;
   }
-  return queueTurn(mapId, () => readPublished(scope, mapId, theme));
+  return queueTurn(mapId, () => readPublished(scope, mapId, theme, want));
 }
 
 async function readPublished(
   scope: AccountScope,
   mapId: string,
-  theme?: ThumbnailTheme | null,
-): Promise<Buffer | null> {
+  theme: ThumbnailTheme | null | undefined,
+  want: PictureWant,
+): Promise<PictureAnswer | null> {
   requireMap(scope, mapId);
   const set = await readSet(mapId);
   const single = thumbnailPath(mapId);
@@ -417,10 +485,29 @@ async function readPublished(
     let bytes: Buffer | undefined;
     try { bytes = await readFile(file); } catch { /* Try the next name. */ }
     requireMap(scope, mapId);
-    if (bytes && servableTo(scope, mapId, await imageInputs(path.basename(file), bytes))) return bytes;
+    if (!bytes || !servableTo(scope, mapId, await imageInputs(path.basename(file), bytes))) continue;
+    const sized = wantedSize(set, path.basename(file), want);
+    if (sized) {
+      let kept: Buffer | undefined;
+      try { kept = await readFile(inDir(sized)); } catch { /* Answer the PNG. */ }
+      requireMap(scope, mapId);
+      if (kept) return { bytes: kept, type: "image/webp" };
+    }
+    return { bytes, type: "image/png" };
   }
   requireMap(scope, mapId);
   return null;
+}
+
+/** The kept size a read names, for one of the set's PNGs; null when the
+ * read names none or the picture keeps none. */
+function wantedSize(set: ThumbnailSet | null, png: string, want: PictureWant): string | null {
+  if (!set?.sizes || (png !== set.light && png !== set.dark)) return null;
+  if (want.shape === undefined && want.width === undefined) return null;
+  const shape = want.shape ?? "card";
+  const widths = set.sizes[shape];
+  const width = want.width === undefined ? widths[widths.length - 1] : keptWidth(widths, want.width);
+  return sizedPictureFile(png, shape, width);
 }
 
 /**
@@ -507,6 +594,7 @@ export function copyThumbnail(scope: AccountScope, from: string, to: string): Pr
     const copied: ThumbnailSet = {
       light: set.light.replace(from, to),
       dark: set.dark.replace(from, to),
+      ...(set.sizes ? { sizes: set.sizes } : {}),
     };
     const light = await readFile(inDir(set.light));
     authorize();
@@ -514,8 +602,22 @@ export function copyThumbnail(scope: AccountScope, from: string, to: string): Pr
     const lightEvidence = await imageEvidence(set.light, light);
     const darkEvidence = await imageEvidence(set.dark, dark);
     if (!servableTo(scope, from, lightEvidence.inputs) || !servableTo(scope, from, darkEvidence.inputs)) return;
+    // The kept sizes travel with their PNGs; a set missing one is copied
+    // as the older picture it then is, without sizes.
+    const sized: [string, Buffer][] = [];
+    for (const [source, target] of [[set.light, copied.light], [set.dark, copied.dark]] as const) {
+      if (!set.sizes || (source === set.dark && set.dark === set.light)) continue;
+      for (const shape of PICTURE_SHAPE_NAMES) {
+        for (const width of set.sizes[shape]) {
+          try { sized.push([sizedPictureFile(target, shape, width), await readFile(inDir(sizedPictureFile(source, shape, width)))]); }
+          catch { delete copied.sizes; }
+        }
+      }
+    }
+    authorize();
     await writeImageEvidence(copied.light, light, lightEvidence);
     await writeImageEvidence(copied.dark, dark, darkEvidence);
+    if (copied.sizes) for (const [name, bytes] of sized) await writeAtomically(inDir(name), bytes, authorize);
     await writeAtomically(inDir(copied.light), light, authorize);
     await writeAtomically(inDir(copied.dark), dark, authorize);
     await writeAtomically(thumbnailManifestPath(to), JSON.stringify(copied), authorize);
@@ -527,10 +629,17 @@ export function thumbnailTurnForTests(mapId: string): Promise<unknown> | undefin
 
 /** Server candidates use fresh names for single images too, so switching
  * between one and two appearances is one atomic publication. */
-export function savePictureSet(scope: AccountScope, mapId: string, images: { light: Uint8Array; dark?: Uint8Array },
+export function savePictureSet(scope: AccountScope, mapId: string, images: { light: Uint8Array | PictureImages; dark?: Uint8Array | PictureImages },
   inputs: ArtifactInputs, basemaps: { light: DrawnBasemap; dark?: DrawnBasemap }, generation: number,
   check: () => void, published: () => void): Promise<void> {
   requireOwnMap(scope, mapId);
+  const themes = images.dark ? THUMBNAIL_THEMES : ["light"] as const;
+  const pictures = Object.fromEntries(themes.map((theme) => {
+    const image = images[theme]!;
+    return [theme, image instanceof Uint8Array ? { png: image, sized: [] } : image];
+  })) as Partial<Record<ThumbnailTheme, PictureImages>>;
+  // Refused before any work is admitted, so a refusal holds no lease.
+  const sizes = listedSizes(themes.map((theme) => pictures[theme]!));
   const lease = admitResourceWork(scope, [{ table: "maps", id: mapId }]);
   const authorize = () => { requireOwnMap(scope, mapId); lease.assertCommit(); check(); };
   return inDeletionWork(lease, () => inThumbnailTurn(mapId, async () => {
@@ -539,21 +648,46 @@ export function savePictureSet(scope: AccountScope, mapId: string, images: { lig
     const cycle = randomBytes(12).toString("hex");
     const light = thumbnailSetFile(mapId, cycle, "light");
     const dark = images.dark ? thumbnailSetFile(mapId, cycle, "dark") : light;
-    const next = { light, dark };
+    const next: ThumbnailSet = { light, dark, ...(sizes ? { sizes } : {}) };
     try {
-      for (const theme of images.dark ? THUMBNAIL_THEMES : ["light"] as const) {
-        await writeImageCandidate(next[theme], inDir(next[theme]), images[theme]!, { inputs, basemap: basemaps[theme]!, generation }, authorize);
+      for (const theme of themes) {
+        // The kept sizes land first, so the PNG whose evidence serves
+        // them, and then the switch, name only files already whole.
+        for (const size of sizes ? pictures[theme]!.sized : []) {
+          await writeAtomically(inDir(sizedPictureFile(next[theme], size.shape, size.width)), size.bytes, authorize);
+        }
+        await writeImageCandidate(next[theme], inDir(next[theme]), pictures[theme]!.png, { inputs, basemap: basemaps[theme]!, generation }, authorize);
       }
       await writeAtomically(thumbnailManifestPath(mapId), JSON.stringify(next), authorize, published);
     } catch (error) {
       // Never remove names already made authoritative by the switch.
       const current = await readSet(mapId);
-      if (current?.light !== light) await Promise.all([...new Set([light, dark])].map(removeImage));
+      if (current?.light !== light) await Promise.all(setFiles(next).map(removeImage));
       throw error;
     }
     await removeImage(path.basename(thumbnailPath(mapId)));
     await retireUnreferenced(mapId, next);
   })).finally(() => lease.release());
+}
+
+/** The sizes a set lists: those every appearance kept, the same in each,
+ * covering both shapes; none when any appearance kept none. A set whose
+ * appearances disagree is refused rather than listed in part. */
+function listedSizes(pictures: PictureImages[]): Record<PictureShape, number[]> | undefined {
+  if (pictures.some((picture) => picture.sized.length === 0)) return undefined;
+  const of = (picture: PictureImages) => Object.fromEntries(PICTURE_SHAPE_NAMES.map((shape) => [
+    shape, picture.sized.filter((size) => size.shape === shape).map((size) => size.width).sort((a, b) => a - b),
+  ])) as Record<PictureShape, number[]>;
+  const sizes = of(pictures[0]);
+  if (PICTURE_SHAPE_NAMES.some((shape) => sizes[shape].length === 0) ||
+    pictures.some((picture) => JSON.stringify(of(picture)) !== JSON.stringify(sizes))) throw new Error("The picture's kept sizes are incomplete.");
+  return sizes;
+}
+
+/** Whether the map's published picture lists kept sizes: made by this
+ * version of the picture service. */
+export async function publishedPictureSized(mapId: string): Promise<boolean> {
+  return queueTurn(mapId, async () => !!(await readSet(mapId))?.sizes);
 }
 
 /** The generation is trusted only when every named image exists and its
