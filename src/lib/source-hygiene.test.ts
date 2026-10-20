@@ -120,11 +120,11 @@ describe("recordings are binary to both guards", () => {
   const bytes = Buffer.concat([Buffer.from([0x1a, 0x45, 0xdf, 0xa3, 0x00]), Buffer.from(` ${TRACKING_ROW} `)]);
 
   it("skips a tracked .webm file and still scans the same bytes under a text name", () => {
-    const clean = scratchRepository({ "docs/images/guides/search.webm": bytes });
+    const clean = scratchRepository({ "docs/images/use/search.webm": bytes });
     expect(run([], script, clean).code).toBe(0);
     expect(run([], citations, clean).code).toBe(0);
 
-    const text = scratchRepository({ "docs/images/guides/search.txt": bytes });
+    const text = scratchRepository({ "docs/images/use/search.txt": bytes });
     const nul = run([], script, text);
     expect(nul.code).toBe(1);
     expect(nul.output).toContain("search.txt");

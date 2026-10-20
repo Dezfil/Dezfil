@@ -20,11 +20,11 @@ const posix = path.posix;
 /** The six sections, in their fixed order, with the one-line descriptions
  * the index, the site and llms.txt all use. */
 export const SECTION_INFO = [
-  { id: "start", title: "Start", description: "What Dezfil is and your first map." },
-  { id: "guides", title: "Guides", description: "How to do each thing in the app." },
-  { id: "reference", title: "Reference", description: "The exact rules: the API, MCP, configuration, limits, formats, shortcuts." },
-  { id: "operate", title: "Operate", description: "Running an instance." },
-  { id: "develop", title: "Develop", description: "Changing the code." },
+  { id: "start", title: "Get started", description: "What Dezfil is, how to install it, and your first map." },
+  { id: "use", title: "Use Dezfil", description: "Do things in the app: data, maps, SQL, workflows and sharing." },
+  { id: "self-host", title: "Self-host", description: "Install, secure, configure and back up your own instance." },
+  { id: "api", title: "API and agents", description: "Script Dezfil over HTTP, or connect an AI agent through MCP." },
+  { id: "contribute", title: "Contribute", description: "Work on Dezfil's code." },
   { id: "about", title: "About", description: "Licence, credits, changes and policies." },
 ];
 export const SECTIONS = SECTION_INFO.map((section) => section.id);
@@ -34,12 +34,12 @@ export const SECTIONS = SECTION_INFO.map((section) => section.id);
 export const IMPORTED = [
   { file: "CHANGELOG.md", page: "about/changelog", summary: "What changed in each release." },
   { file: "SECURITY.md", page: "about/security-policy", summary: "Which versions get fixes and how to report a vulnerability." },
-  { file: "CONTRIBUTING.md", page: "develop/contributing", summary: "How to get a change from your machine into the project." },
-  { file: "CODE_OF_CONDUCT.md", page: "develop/code-of-conduct", summary: "The standards for taking part and how they are enforced." },
+  { file: "CONTRIBUTING.md", page: "contribute/contributing", summary: "How to get a change from your machine into the project." },
+  { file: "CODE_OF_CONDUCT.md", page: "contribute/code-of-conduct", summary: "The standards for taking part and how they are enforced." },
 ];
 
 /** The site's operation reference, generated from the API description. */
-export const GENERATED_REFERENCE = "reference/api";
+export const GENERATED_REFERENCE = "api/reference";
 
 export const AUDIENCES = ["user", "operator", "developer", "agent"];
 export const SUMMARY_LIMIT = 160;
@@ -55,7 +55,7 @@ const problem = (file, rule, message, line) => ({ file, rule, message, ...(line 
 /** Today as YYYY-MM-DD in UTC, the reference for "not in the future". */
 export const today = () => new Date().toISOString().slice(0, 10);
 
-/** A page's address below the docs home, such as `reference/http-api`, or
+/** A page's address below the docs home, such as `api/http-api`, or
  * null when the path is not a page's. */
 export function pageAddress(file) {
   const match = /^docs\/(.+)\.md$/.exec(file);

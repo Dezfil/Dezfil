@@ -9,9 +9,9 @@
     "SECURITY.md": "# Security policy\n\n## Reporting\n\nWrite to us.\n",
     "CONTRIBUTING.md": "# Contributing\n\n## Before you start\n\nRead the brief.\n",
     "CODE_OF_CONDUCT.md": "# Code of conduct\n\n## Our standards\n\nBe kind.\n",
-    "docs/start/run-it.md": "---\ntitle: \"Run it\"\nsummary: \"How to run Dezfil with Docker or from source, and what the first run asks.\"\nread_when:\n  - \"you want Dezfil running on your machine\"\n  - \"you set up the first account\"\naudience:\n  - user\n  - operator\nchecked: none\n---\n\n## First run\n\nThe first run asks for an account. See [the MCP tools](../reference/mcp.md#the-tools),\n[the licence](../../LICENSE), [contributing](../../CONTRIBUTING.md#before-you-start),\n[the tool script](../../scripts/tool.mjs), [first run](#first-run), the\n[operation reference](https://dezfil.io/docs/reference/api/), the\n[docs home](https://dezfil.io/docs/) and [an outside page](https://example.org/a)\nor [write to us](mailto:maintainers@dezfil.io).\n\n```sh\n# Not a heading, and [not a link](missing.md).\n```\n\n### With Docker\n\n`[not a link either](missing.md)` and text.\n",
-    "docs/reference/mcp.md": "---\ntitle: MCP\nsummary: >-\n  How an agent drives Dezfil through its MCP server,\n  folded over two lines.\nread_when: [\"you connect an agent\", \"you read the tool list\"]\naudience: [agent, developer]\nchecked: 0.1.0\nchecked_on: 2026-10-01\norder: 2\n---\n\n## The tools\n\nEvery operation is a tool. See [run it](../start/run-it.md).\n\n## The tools\n\nA repeated heading gets its own anchor: [the second](#the-tools-1).\n",
-    "docs/guides/templates.md": "---\ntitle: \"Templates\"\nsummary: \"Start a map from a template and make it your own.\"\nread_when:\n  - \"you want a map to start from\"\naudience:\n  - user\nchecked: none\nmoved_from:\n  - \"/docs/guides/old-templates/\"\n---\n\n## Make a copy\n\nPick a card. [Back to running](../start/run-it.md#with-docker).\n"
+    "docs/start/install.md": "---\ntitle: \"Run it\"\nsummary: \"How to run Dezfil with Docker or from source, and what the first run asks.\"\nread_when:\n  - \"you want Dezfil running on your machine\"\n  - \"you set up the first account\"\naudience:\n  - user\n  - operator\nchecked: none\n---\n\n## First run\n\nThe first run asks for an account. See [the MCP tools](../api/mcp.md#the-tools),\n[the licence](../../LICENSE), [contributing](../../CONTRIBUTING.md#before-you-start),\n[the tool script](../../scripts/tool.mjs), [first run](#first-run), the\n[operation reference](https://dezfil.io/docs/api/reference/), the\n[docs home](https://dezfil.io/docs/) and [an outside page](https://example.org/a)\nor [write to us](mailto:maintainers@dezfil.io).\n\n```sh\n# Not a heading, and [not a link](missing.md).\n```\n\n### With Docker\n\n`[not a link either](missing.md)` and text.\n",
+    "docs/api/mcp.md": "---\ntitle: MCP\nsummary: >-\n  How an agent drives Dezfil through its MCP server,\n  folded over two lines.\nread_when: [\"you connect an agent\", \"you read the tool list\"]\naudience: [agent, developer]\nchecked: 0.1.0\nchecked_on: 2026-10-01\norder: 2\n---\n\n## The tools\n\nEvery operation is a tool. See [run it](../start/install.md).\n\n## The tools\n\nA repeated heading gets its own anchor: [the second](#the-tools-1).\n",
+    "docs/use/templates.md": "---\ntitle: \"Templates\"\nsummary: \"Start a map from a template and make it your own.\"\nread_when:\n  - \"you want a map to start from\"\naudience:\n  - user\nchecked: none\nmoved_from:\n  - \"/docs/use/old-templates/\"\n---\n\n## Make a copy\n\nPick a card. [Back to running](../start/install.md#with-docker).\n"
   },
   "documents": [
     {
@@ -292,11 +292,11 @@
     {
       "name": "a dead page link",
       "files": {
-        "docs/start/run-it.md": "---\ntitle: \"Run it\"\nsummary: \"How to run Dezfil with Docker or from source, and what the first run asks.\"\nread_when:\n  - \"you want Dezfil running on your machine\"\n  - \"you set up the first account\"\naudience:\n  - user\n  - operator\nchecked: none\n---\n\n## First run\n\nThe first run asks for an account. See [the MCP tools](../reference/mcp.md#the-tools),\n[the licence](../../LICENSE), [contributing](../../CONTRIBUTING.md#before-you-start),\n[the tool script](../../scripts/tool.mjs), [gone](../reference/missing.md), the\n[operation reference](https://dezfil.io/docs/reference/api/), the\n[docs home](https://dezfil.io/docs/) and [an outside page](https://example.org/a)\nor [write to us](mailto:maintainers@dezfil.io).\n\n```sh\n# Not a heading, and [not a link](missing.md).\n```\n\n### With Docker\n\n`[not a link either](missing.md)` and text.\n"
+        "docs/start/install.md": "---\ntitle: \"Run it\"\nsummary: \"How to run Dezfil with Docker or from source, and what the first run asks.\"\nread_when:\n  - \"you want Dezfil running on your machine\"\n  - \"you set up the first account\"\naudience:\n  - user\n  - operator\nchecked: none\n---\n\n## First run\n\nThe first run asks for an account. See [the MCP tools](../api/mcp.md#the-tools),\n[the licence](../../LICENSE), [contributing](../../CONTRIBUTING.md#before-you-start),\n[the tool script](../../scripts/tool.mjs), [gone](../api/missing.md), the\n[operation reference](https://dezfil.io/docs/api/reference/), the\n[docs home](https://dezfil.io/docs/) and [an outside page](https://example.org/a)\nor [write to us](mailto:maintainers@dezfil.io).\n\n```sh\n# Not a heading, and [not a link](missing.md).\n```\n\n### With Docker\n\n`[not a link either](missing.md)` and text.\n"
       },
       "problems": [
         {
-          "file": "docs/start/run-it.md",
+          "file": "docs/start/install.md",
           "rule": "link.dead-page"
         }
       ]
@@ -304,11 +304,11 @@
     {
       "name": "a link to a heading that does not exist",
       "files": {
-        "docs/start/run-it.md": "---\ntitle: \"Run it\"\nsummary: \"How to run Dezfil with Docker or from source, and what the first run asks.\"\nread_when:\n  - \"you want Dezfil running on your machine\"\n  - \"you set up the first account\"\naudience:\n  - user\n  - operator\nchecked: none\n---\n\n## First run\n\nThe first run asks for an account. See [the MCP tools](../reference/mcp.md#nowhere),\n[the licence](../../LICENSE), [contributing](../../CONTRIBUTING.md#before-you-start),\n[the tool script](../../scripts/tool.mjs), [first run](#first-run), the\n[operation reference](https://dezfil.io/docs/reference/api/), the\n[docs home](https://dezfil.io/docs/) and [an outside page](https://example.org/a)\nor [write to us](mailto:maintainers@dezfil.io).\n\n```sh\n# Not a heading, and [not a link](missing.md).\n```\n\n### With Docker\n\n`[not a link either](missing.md)` and text.\n"
+        "docs/start/install.md": "---\ntitle: \"Run it\"\nsummary: \"How to run Dezfil with Docker or from source, and what the first run asks.\"\nread_when:\n  - \"you want Dezfil running on your machine\"\n  - \"you set up the first account\"\naudience:\n  - user\n  - operator\nchecked: none\n---\n\n## First run\n\nThe first run asks for an account. See [the MCP tools](../api/mcp.md#nowhere),\n[the licence](../../LICENSE), [contributing](../../CONTRIBUTING.md#before-you-start),\n[the tool script](../../scripts/tool.mjs), [first run](#first-run), the\n[operation reference](https://dezfil.io/docs/api/reference/), the\n[docs home](https://dezfil.io/docs/) and [an outside page](https://example.org/a)\nor [write to us](mailto:maintainers@dezfil.io).\n\n```sh\n# Not a heading, and [not a link](missing.md).\n```\n\n### With Docker\n\n`[not a link either](missing.md)` and text.\n"
       },
       "problems": [
         {
-          "file": "docs/start/run-it.md",
+          "file": "docs/start/install.md",
           "rule": "link.dead-page"
         }
       ]
@@ -316,11 +316,11 @@
     {
       "name": "a link to a heading of this page that does not exist",
       "files": {
-        "docs/start/run-it.md": "---\ntitle: \"Run it\"\nsummary: \"How to run Dezfil with Docker or from source, and what the first run asks.\"\nread_when:\n  - \"you want Dezfil running on your machine\"\n  - \"you set up the first account\"\naudience:\n  - user\n  - operator\nchecked: none\n---\n\n## First run\n\nThe first run asks for an account. See [the MCP tools](../reference/mcp.md#the-tools),\n[the licence](../../LICENSE), [contributing](../../CONTRIBUTING.md#before-you-start),\n[the tool script](../../scripts/tool.mjs), [first run](#second-run), the\n[operation reference](https://dezfil.io/docs/reference/api/), the\n[docs home](https://dezfil.io/docs/) and [an outside page](https://example.org/a)\nor [write to us](mailto:maintainers@dezfil.io).\n\n```sh\n# Not a heading, and [not a link](missing.md).\n```\n\n### With Docker\n\n`[not a link either](missing.md)` and text.\n"
+        "docs/start/install.md": "---\ntitle: \"Run it\"\nsummary: \"How to run Dezfil with Docker or from source, and what the first run asks.\"\nread_when:\n  - \"you want Dezfil running on your machine\"\n  - \"you set up the first account\"\naudience:\n  - user\n  - operator\nchecked: none\n---\n\n## First run\n\nThe first run asks for an account. See [the MCP tools](../api/mcp.md#the-tools),\n[the licence](../../LICENSE), [contributing](../../CONTRIBUTING.md#before-you-start),\n[the tool script](../../scripts/tool.mjs), [first run](#second-run), the\n[operation reference](https://dezfil.io/docs/api/reference/), the\n[docs home](https://dezfil.io/docs/) and [an outside page](https://example.org/a)\nor [write to us](mailto:maintainers@dezfil.io).\n\n```sh\n# Not a heading, and [not a link](missing.md).\n```\n\n### With Docker\n\n`[not a link either](missing.md)` and text.\n"
       },
       "problems": [
         {
-          "file": "docs/start/run-it.md",
+          "file": "docs/start/install.md",
           "rule": "link.dead-page"
         }
       ]
@@ -328,11 +328,11 @@
     {
       "name": "a dead link to a tracked file",
       "files": {
-        "docs/start/run-it.md": "---\ntitle: \"Run it\"\nsummary: \"How to run Dezfil with Docker or from source, and what the first run asks.\"\nread_when:\n  - \"you want Dezfil running on your machine\"\n  - \"you set up the first account\"\naudience:\n  - user\n  - operator\nchecked: none\n---\n\n## First run\n\nThe first run asks for an account. See [the MCP tools](../reference/mcp.md#the-tools),\n[the licence](../../LICENSE), [contributing](../../CONTRIBUTING.md#before-you-start),\n[the tool script](../../scripts/gone.mjs), [first run](#first-run), the\n[operation reference](https://dezfil.io/docs/reference/api/), the\n[docs home](https://dezfil.io/docs/) and [an outside page](https://example.org/a)\nor [write to us](mailto:maintainers@dezfil.io).\n\n```sh\n# Not a heading, and [not a link](missing.md).\n```\n\n### With Docker\n\n`[not a link either](missing.md)` and text.\n"
+        "docs/start/install.md": "---\ntitle: \"Run it\"\nsummary: \"How to run Dezfil with Docker or from source, and what the first run asks.\"\nread_when:\n  - \"you want Dezfil running on your machine\"\n  - \"you set up the first account\"\naudience:\n  - user\n  - operator\nchecked: none\n---\n\n## First run\n\nThe first run asks for an account. See [the MCP tools](../api/mcp.md#the-tools),\n[the licence](../../LICENSE), [contributing](../../CONTRIBUTING.md#before-you-start),\n[the tool script](../../scripts/gone.mjs), [first run](#first-run), the\n[operation reference](https://dezfil.io/docs/api/reference/), the\n[docs home](https://dezfil.io/docs/) and [an outside page](https://example.org/a)\nor [write to us](mailto:maintainers@dezfil.io).\n\n```sh\n# Not a heading, and [not a link](missing.md).\n```\n\n### With Docker\n\n`[not a link either](missing.md)` and text.\n"
       },
       "problems": [
         {
-          "file": "docs/start/run-it.md",
+          "file": "docs/start/install.md",
           "rule": "link.dead-file"
         }
       ]
@@ -340,11 +340,11 @@
     {
       "name": "a link written from the repository root",
       "files": {
-        "docs/start/run-it.md": "---\ntitle: \"Run it\"\nsummary: \"How to run Dezfil with Docker or from source, and what the first run asks.\"\nread_when:\n  - \"you want Dezfil running on your machine\"\n  - \"you set up the first account\"\naudience:\n  - user\n  - operator\nchecked: none\n---\n\n## First run\n\nThe first run asks for an account. See [the MCP tools](../reference/mcp.md#the-tools),\n[the licence](/LICENSE), [contributing](../../CONTRIBUTING.md#before-you-start),\n[the tool script](../../scripts/tool.mjs), [first run](#first-run), the\n[operation reference](https://dezfil.io/docs/reference/api/), the\n[docs home](https://dezfil.io/docs/) and [an outside page](https://example.org/a)\nor [write to us](mailto:maintainers@dezfil.io).\n\n```sh\n# Not a heading, and [not a link](missing.md).\n```\n\n### With Docker\n\n`[not a link either](missing.md)` and text.\n"
+        "docs/start/install.md": "---\ntitle: \"Run it\"\nsummary: \"How to run Dezfil with Docker or from source, and what the first run asks.\"\nread_when:\n  - \"you want Dezfil running on your machine\"\n  - \"you set up the first account\"\naudience:\n  - user\n  - operator\nchecked: none\n---\n\n## First run\n\nThe first run asks for an account. See [the MCP tools](../api/mcp.md#the-tools),\n[the licence](/LICENSE), [contributing](../../CONTRIBUTING.md#before-you-start),\n[the tool script](../../scripts/tool.mjs), [first run](#first-run), the\n[operation reference](https://dezfil.io/docs/api/reference/), the\n[docs home](https://dezfil.io/docs/) and [an outside page](https://example.org/a)\nor [write to us](mailto:maintainers@dezfil.io).\n\n```sh\n# Not a heading, and [not a link](missing.md).\n```\n\n### With Docker\n\n`[not a link either](missing.md)` and text.\n"
       },
       "problems": [
         {
-          "file": "docs/start/run-it.md",
+          "file": "docs/start/install.md",
           "rule": "link.not-relative"
         }
       ]
@@ -352,11 +352,11 @@
     {
       "name": "a link to a generated page written relatively",
       "files": {
-        "docs/start/run-it.md": "---\ntitle: \"Run it\"\nsummary: \"How to run Dezfil with Docker or from source, and what the first run asks.\"\nread_when:\n  - \"you want Dezfil running on your machine\"\n  - \"you set up the first account\"\naudience:\n  - user\n  - operator\nchecked: none\n---\n\n## First run\n\nThe first run asks for an account. See [the MCP tools](../reference/mcp.md#the-tools),\n[the licence](../../LICENSE), [contributing](../../CONTRIBUTING.md#before-you-start),\n[the tool script](../../scripts/tool.mjs), [first run](#first-run), the\n[operation reference](../reference/api/), the\n[docs home](https://dezfil.io/docs/) and [an outside page](https://example.org/a)\nor [write to us](mailto:maintainers@dezfil.io).\n\n```sh\n# Not a heading, and [not a link](missing.md).\n```\n\n### With Docker\n\n`[not a link either](missing.md)` and text.\n"
+        "docs/start/install.md": "---\ntitle: \"Run it\"\nsummary: \"How to run Dezfil with Docker or from source, and what the first run asks.\"\nread_when:\n  - \"you want Dezfil running on your machine\"\n  - \"you set up the first account\"\naudience:\n  - user\n  - operator\nchecked: none\n---\n\n## First run\n\nThe first run asks for an account. See [the MCP tools](../api/mcp.md#the-tools),\n[the licence](../../LICENSE), [contributing](../../CONTRIBUTING.md#before-you-start),\n[the tool script](../../scripts/tool.mjs), [first run](#first-run), the\n[operation reference](../api/reference/), the\n[docs home](https://dezfil.io/docs/) and [an outside page](https://example.org/a)\nor [write to us](mailto:maintainers@dezfil.io).\n\n```sh\n# Not a heading, and [not a link](missing.md).\n```\n\n### With Docker\n\n`[not a link either](missing.md)` and text.\n"
       },
       "problems": [
         {
-          "file": "docs/start/run-it.md",
+          "file": "docs/start/install.md",
           "rule": "link.generated-not-full"
         }
       ]
@@ -364,11 +364,11 @@
     {
       "name": "a link to a section page written relatively",
       "files": {
-        "docs/start/run-it.md": "---\ntitle: \"Run it\"\nsummary: \"How to run Dezfil with Docker or from source, and what the first run asks.\"\nread_when:\n  - \"you want Dezfil running on your machine\"\n  - \"you set up the first account\"\naudience:\n  - user\n  - operator\nchecked: none\n---\n\n## First run\n\nThe first run asks for an account. See [the MCP tools](../reference/mcp.md#the-tools),\n[the licence](../../LICENSE), [contributing](../../CONTRIBUTING.md#before-you-start),\n[the tool script](../../scripts/tool.mjs), [first run](#first-run), the\n[operation reference](https://dezfil.io/docs/reference/api/), the\n[docs home](../guides/) and [an outside page](https://example.org/a)\nor [write to us](mailto:maintainers@dezfil.io).\n\n```sh\n# Not a heading, and [not a link](missing.md).\n```\n\n### With Docker\n\n`[not a link either](missing.md)` and text.\n"
+        "docs/start/install.md": "---\ntitle: \"Run it\"\nsummary: \"How to run Dezfil with Docker or from source, and what the first run asks.\"\nread_when:\n  - \"you want Dezfil running on your machine\"\n  - \"you set up the first account\"\naudience:\n  - user\n  - operator\nchecked: none\n---\n\n## First run\n\nThe first run asks for an account. See [the MCP tools](../api/mcp.md#the-tools),\n[the licence](../../LICENSE), [contributing](../../CONTRIBUTING.md#before-you-start),\n[the tool script](../../scripts/tool.mjs), [first run](#first-run), the\n[operation reference](https://dezfil.io/docs/api/reference/), the\n[docs home](../use/) and [an outside page](https://example.org/a)\nor [write to us](mailto:maintainers@dezfil.io).\n\n```sh\n# Not a heading, and [not a link](missing.md).\n```\n\n### With Docker\n\n`[not a link either](missing.md)` and text.\n"
       },
       "problems": [
         {
-          "file": "docs/start/run-it.md",
+          "file": "docs/start/install.md",
           "rule": "link.generated-not-full"
         }
       ]
@@ -376,11 +376,11 @@
     {
       "name": "a link to the docs home written as a site address",
       "files": {
-        "docs/start/run-it.md": "---\ntitle: \"Run it\"\nsummary: \"How to run Dezfil with Docker or from source, and what the first run asks.\"\nread_when:\n  - \"you want Dezfil running on your machine\"\n  - \"you set up the first account\"\naudience:\n  - user\n  - operator\nchecked: none\n---\n\n## First run\n\nThe first run asks for an account. See [the MCP tools](../reference/mcp.md#the-tools),\n[the licence](../../LICENSE), [contributing](../../CONTRIBUTING.md#before-you-start),\n[the tool script](../../scripts/tool.mjs), [first run](#first-run), the\n[operation reference](https://dezfil.io/docs/reference/api/), the\n[docs home](/docs/) and [an outside page](https://example.org/a)\nor [write to us](mailto:maintainers@dezfil.io).\n\n```sh\n# Not a heading, and [not a link](missing.md).\n```\n\n### With Docker\n\n`[not a link either](missing.md)` and text.\n"
+        "docs/start/install.md": "---\ntitle: \"Run it\"\nsummary: \"How to run Dezfil with Docker or from source, and what the first run asks.\"\nread_when:\n  - \"you want Dezfil running on your machine\"\n  - \"you set up the first account\"\naudience:\n  - user\n  - operator\nchecked: none\n---\n\n## First run\n\nThe first run asks for an account. See [the MCP tools](../api/mcp.md#the-tools),\n[the licence](../../LICENSE), [contributing](../../CONTRIBUTING.md#before-you-start),\n[the tool script](../../scripts/tool.mjs), [first run](#first-run), the\n[operation reference](https://dezfil.io/docs/api/reference/), the\n[docs home](/docs/) and [an outside page](https://example.org/a)\nor [write to us](mailto:maintainers@dezfil.io).\n\n```sh\n# Not a heading, and [not a link](missing.md).\n```\n\n### With Docker\n\n`[not a link either](missing.md)` and text.\n"
       },
       "problems": [
         {
-          "file": "docs/start/run-it.md",
+          "file": "docs/start/install.md",
           "rule": "link.generated-not-full"
         }
       ]
@@ -388,13 +388,13 @@
     {
       "name": "a picture not in the manifest",
       "files": {
-        "docs/start/run-it.md": "---\ntitle: \"Run it\"\nsummary: \"How to run Dezfil with Docker or from source, and what the first run asks.\"\nread_when:\n  - \"you want Dezfil running on your machine\"\n  - \"you set up the first account\"\naudience:\n  - user\n  - operator\nchecked: none\n---\n\n## First run\n\nThe first run asks for an account. See [the MCP tools](../reference/mcp.md#the-tools),\n[the licence](../../LICENSE), [contributing](../../CONTRIBUTING.md#before-you-start),\n[the tool script](../../scripts/tool.mjs), [first run](#first-run), the\n[operation reference](https://dezfil.io/docs/reference/api/), the\n[docs home](https://dezfil.io/docs/) and [an outside page](https://example.org/a)\nor [write to us](mailto:maintainers@dezfil.io).\n\n```sh\n# Not a heading, and [not a link](missing.md).\n```\n\n### With Docker\n\n`[not a link either](missing.md)` and text.\n\n![The setup card](../images/start/setup-card.webp)\n",
+        "docs/start/install.md": "---\ntitle: \"Run it\"\nsummary: \"How to run Dezfil with Docker or from source, and what the first run asks.\"\nread_when:\n  - \"you want Dezfil running on your machine\"\n  - \"you set up the first account\"\naudience:\n  - user\n  - operator\nchecked: none\n---\n\n## First run\n\nThe first run asks for an account. See [the MCP tools](../api/mcp.md#the-tools),\n[the licence](../../LICENSE), [contributing](../../CONTRIBUTING.md#before-you-start),\n[the tool script](../../scripts/tool.mjs), [first run](#first-run), the\n[operation reference](https://dezfil.io/docs/api/reference/), the\n[docs home](https://dezfil.io/docs/) and [an outside page](https://example.org/a)\nor [write to us](mailto:maintainers@dezfil.io).\n\n```sh\n# Not a heading, and [not a link](missing.md).\n```\n\n### With Docker\n\n`[not a link either](missing.md)` and text.\n\n![The setup card](../images/start/setup-card.webp)\n",
         "docs/images/start/setup-card.webp": "picture",
         "docs/images/manifest.json": "{\"rows\": []}\n"
       },
       "problems": [
         {
-          "file": "docs/start/run-it.md",
+          "file": "docs/start/install.md",
           "rule": "image.not-in-manifest"
         }
       ]
@@ -414,13 +414,13 @@
     {
       "name": "a picture without alternative text",
       "files": {
-        "docs/start/run-it.md": "---\ntitle: \"Run it\"\nsummary: \"How to run Dezfil with Docker or from source, and what the first run asks.\"\nread_when:\n  - \"you want Dezfil running on your machine\"\n  - \"you set up the first account\"\naudience:\n  - user\n  - operator\nchecked: none\n---\n\n## First run\n\nThe first run asks for an account. See [the MCP tools](../reference/mcp.md#the-tools),\n[the licence](../../LICENSE), [contributing](../../CONTRIBUTING.md#before-you-start),\n[the tool script](../../scripts/tool.mjs), [first run](#first-run), the\n[operation reference](https://dezfil.io/docs/reference/api/), the\n[docs home](https://dezfil.io/docs/) and [an outside page](https://example.org/a)\nor [write to us](mailto:maintainers@dezfil.io).\n\n```sh\n# Not a heading, and [not a link](missing.md).\n```\n\n### With Docker\n\n`[not a link either](missing.md)` and text.\n\n![](../images/start/setup-card.webp)\n",
+        "docs/start/install.md": "---\ntitle: \"Run it\"\nsummary: \"How to run Dezfil with Docker or from source, and what the first run asks.\"\nread_when:\n  - \"you want Dezfil running on your machine\"\n  - \"you set up the first account\"\naudience:\n  - user\n  - operator\nchecked: none\n---\n\n## First run\n\nThe first run asks for an account. See [the MCP tools](../api/mcp.md#the-tools),\n[the licence](../../LICENSE), [contributing](../../CONTRIBUTING.md#before-you-start),\n[the tool script](../../scripts/tool.mjs), [first run](#first-run), the\n[operation reference](https://dezfil.io/docs/api/reference/), the\n[docs home](https://dezfil.io/docs/) and [an outside page](https://example.org/a)\nor [write to us](mailto:maintainers@dezfil.io).\n\n```sh\n# Not a heading, and [not a link](missing.md).\n```\n\n### With Docker\n\n`[not a link either](missing.md)` and text.\n\n![](../images/start/setup-card.webp)\n",
         "docs/images/start/setup-card.webp": "picture",
         "docs/images/manifest.json": "{\"rows\": [{\"file\": \"start/setup-card.webp\"}]}\n"
       },
       "problems": [
         {
-          "file": "docs/start/run-it.md",
+          "file": "docs/start/install.md",
           "rule": "image.no-alt"
         }
       ]
@@ -428,12 +428,12 @@
     {
       "name": "a missing picture",
       "files": {
-        "docs/start/run-it.md": "---\ntitle: \"Run it\"\nsummary: \"How to run Dezfil with Docker or from source, and what the first run asks.\"\nread_when:\n  - \"you want Dezfil running on your machine\"\n  - \"you set up the first account\"\naudience:\n  - user\n  - operator\nchecked: none\n---\n\n## First run\n\nThe first run asks for an account. See [the MCP tools](../reference/mcp.md#the-tools),\n[the licence](../../LICENSE), [contributing](../../CONTRIBUTING.md#before-you-start),\n[the tool script](../../scripts/tool.mjs), [first run](#first-run), the\n[operation reference](https://dezfil.io/docs/reference/api/), the\n[docs home](https://dezfil.io/docs/) and [an outside page](https://example.org/a)\nor [write to us](mailto:maintainers@dezfil.io).\n\n```sh\n# Not a heading, and [not a link](missing.md).\n```\n\n### With Docker\n\n`[not a link either](missing.md)` and text.\n\n![The setup card](../images/start/setup-card.webp)\n",
+        "docs/start/install.md": "---\ntitle: \"Run it\"\nsummary: \"How to run Dezfil with Docker or from source, and what the first run asks.\"\nread_when:\n  - \"you want Dezfil running on your machine\"\n  - \"you set up the first account\"\naudience:\n  - user\n  - operator\nchecked: none\n---\n\n## First run\n\nThe first run asks for an account. See [the MCP tools](../api/mcp.md#the-tools),\n[the licence](../../LICENSE), [contributing](../../CONTRIBUTING.md#before-you-start),\n[the tool script](../../scripts/tool.mjs), [first run](#first-run), the\n[operation reference](https://dezfil.io/docs/api/reference/), the\n[docs home](https://dezfil.io/docs/) and [an outside page](https://example.org/a)\nor [write to us](mailto:maintainers@dezfil.io).\n\n```sh\n# Not a heading, and [not a link](missing.md).\n```\n\n### With Docker\n\n`[not a link either](missing.md)` and text.\n\n![The setup card](../images/start/setup-card.webp)\n",
         "docs/images/manifest.json": "{\"rows\": [{\"file\": \"start/setup-card.webp\"}]}\n"
       },
       "problems": [
         {
-          "file": "docs/start/run-it.md",
+          "file": "docs/start/install.md",
           "rule": "image.missing"
         }
       ]
@@ -441,11 +441,11 @@
     {
       "name": "a picture from outside the images folder",
       "files": {
-        "docs/start/run-it.md": "---\ntitle: \"Run it\"\nsummary: \"How to run Dezfil with Docker or from source, and what the first run asks.\"\nread_when:\n  - \"you want Dezfil running on your machine\"\n  - \"you set up the first account\"\naudience:\n  - user\n  - operator\nchecked: none\n---\n\n## First run\n\nThe first run asks for an account. See [the MCP tools](../reference/mcp.md#the-tools),\n[the licence](../../LICENSE), [contributing](../../CONTRIBUTING.md#before-you-start),\n[the tool script](../../scripts/tool.mjs), [first run](#first-run), the\n[operation reference](https://dezfil.io/docs/reference/api/), the\n[docs home](https://dezfil.io/docs/) and [an outside page](https://example.org/a)\nor [write to us](mailto:maintainers@dezfil.io).\n\n```sh\n# Not a heading, and [not a link](missing.md).\n```\n\n### With Docker\n\n`[not a link either](missing.md)` and text.\n\n![A logo](https://example.org/logo.png)\n"
+        "docs/start/install.md": "---\ntitle: \"Run it\"\nsummary: \"How to run Dezfil with Docker or from source, and what the first run asks.\"\nread_when:\n  - \"you want Dezfil running on your machine\"\n  - \"you set up the first account\"\naudience:\n  - user\n  - operator\nchecked: none\n---\n\n## First run\n\nThe first run asks for an account. See [the MCP tools](../api/mcp.md#the-tools),\n[the licence](../../LICENSE), [contributing](../../CONTRIBUTING.md#before-you-start),\n[the tool script](../../scripts/tool.mjs), [first run](#first-run), the\n[operation reference](https://dezfil.io/docs/api/reference/), the\n[docs home](https://dezfil.io/docs/) and [an outside page](https://example.org/a)\nor [write to us](mailto:maintainers@dezfil.io).\n\n```sh\n# Not a heading, and [not a link](missing.md).\n```\n\n### With Docker\n\n`[not a link either](missing.md)` and text.\n\n![A logo](https://example.org/logo.png)\n"
       },
       "problems": [
         {
-          "file": "docs/start/run-it.md",
+          "file": "docs/start/install.md",
           "rule": "image.outside-images"
         }
       ]
@@ -453,11 +453,11 @@
     {
       "name": "a moved_from that is a live page",
       "files": {
-        "docs/guides/templates.md": "---\ntitle: \"Templates\"\nsummary: \"Start a map from a template and make it your own.\"\nread_when:\n  - \"you want a map to start from\"\naudience:\n  - user\nchecked: none\nmoved_from:\n  - \"/docs/start/run-it/\"\n---\n\n## Make a copy\n\nPick a card. [Back to running](../start/run-it.md#with-docker).\n"
+        "docs/use/templates.md": "---\ntitle: \"Templates\"\nsummary: \"Start a map from a template and make it your own.\"\nread_when:\n  - \"you want a map to start from\"\naudience:\n  - user\nchecked: none\nmoved_from:\n  - \"/docs/start/install/\"\n---\n\n## Make a copy\n\nPick a card. [Back to running](../start/install.md#with-docker).\n"
       },
       "problems": [
         {
-          "file": "docs/guides/templates.md",
+          "file": "docs/use/templates.md",
           "rule": "moved-from.live-page"
         }
       ]
@@ -465,11 +465,11 @@
     {
       "name": "a moved_from equal to a page's raw markdown address",
       "files": {
-        "docs/guides/templates.md": "---\ntitle: \"Templates\"\nsummary: \"Start a map from a template and make it your own.\"\nread_when:\n  - \"you want a map to start from\"\naudience:\n  - user\nchecked: none\nmoved_from:\n  - \"/docs/start/run-it.md\"\n---\n\n## Make a copy\n\nPick a card. [Back to running](../start/run-it.md#with-docker).\n"
+        "docs/use/templates.md": "---\ntitle: \"Templates\"\nsummary: \"Start a map from a template and make it your own.\"\nread_when:\n  - \"you want a map to start from\"\naudience:\n  - user\nchecked: none\nmoved_from:\n  - \"/docs/start/install.md\"\n---\n\n## Make a copy\n\nPick a card. [Back to running](../start/install.md#with-docker).\n"
       },
       "problems": [
         {
-          "file": "docs/guides/templates.md",
+          "file": "docs/use/templates.md",
           "rule": "moved-from.raw-markdown"
         }
       ]
@@ -477,11 +477,11 @@
     {
       "name": "a moved_from under the generated reference",
       "files": {
-        "docs/guides/templates.md": "---\ntitle: \"Templates\"\nsummary: \"Start a map from a template and make it your own.\"\nread_when:\n  - \"you want a map to start from\"\naudience:\n  - user\nchecked: none\nmoved_from:\n  - \"/docs/reference/api/maps/\"\n---\n\n## Make a copy\n\nPick a card. [Back to running](../start/run-it.md#with-docker).\n"
+        "docs/use/templates.md": "---\ntitle: \"Templates\"\nsummary: \"Start a map from a template and make it your own.\"\nread_when:\n  - \"you want a map to start from\"\naudience:\n  - user\nchecked: none\nmoved_from:\n  - \"/docs/api/reference/maps/\"\n---\n\n## Make a copy\n\nPick a card. [Back to running](../start/install.md#with-docker).\n"
       },
       "problems": [
         {
-          "file": "docs/guides/templates.md",
+          "file": "docs/use/templates.md",
           "rule": "moved-from.live-page"
         }
       ]
@@ -489,11 +489,11 @@
     {
       "name": "a moved_from listed by two pages",
       "files": {
-        "docs/reference/mcp.md": "---\ntitle: MCP\nsummary: >-\n  How an agent drives Dezfil through its MCP server,\n  folded over two lines.\nread_when: [\"you connect an agent\", \"you read the tool list\"]\naudience: [agent, developer]\nchecked: 0.1.0\nchecked_on: 2026-10-01\norder: 2\nmoved_from: [/docs/guides/old-templates/]\n---\n\n## The tools\n\nEvery operation is a tool. See [run it](../start/run-it.md).\n\n## The tools\n\nA repeated heading gets its own anchor: [the second](#the-tools-1).\n"
+        "docs/api/mcp.md": "---\ntitle: MCP\nsummary: >-\n  How an agent drives Dezfil through its MCP server,\n  folded over two lines.\nread_when: [\"you connect an agent\", \"you read the tool list\"]\naudience: [agent, developer]\nchecked: 0.1.0\nchecked_on: 2026-10-01\norder: 2\nmoved_from: [/docs/use/old-templates/]\n---\n\n## The tools\n\nEvery operation is a tool. See [run it](../start/install.md).\n\n## The tools\n\nA repeated heading gets its own anchor: [the second](#the-tools-1).\n"
       },
       "problems": [
         {
-          "file": "docs/reference/mcp.md",
+          "file": "docs/use/templates.md",
           "rule": "moved-from.duplicate"
         }
       ]
@@ -501,11 +501,11 @@
     {
       "name": "a moved_from that is not a site address under /docs/",
       "files": {
-        "docs/guides/templates.md": "---\ntitle: \"Templates\"\nsummary: \"Start a map from a template and make it your own.\"\nread_when:\n  - \"you want a map to start from\"\naudience:\n  - user\nchecked: none\nmoved_from:\n  - \"/guides/old-templates/\"\n---\n\n## Make a copy\n\nPick a card. [Back to running](../start/run-it.md#with-docker).\n"
+        "docs/use/templates.md": "---\ntitle: \"Templates\"\nsummary: \"Start a map from a template and make it your own.\"\nread_when:\n  - \"you want a map to start from\"\naudience:\n  - user\nchecked: none\nmoved_from:\n  - \"/use/old-templates/\"\n---\n\n## Make a copy\n\nPick a card. [Back to running](../start/install.md#with-docker).\n"
       },
       "problems": [
         {
-          "file": "docs/guides/templates.md",
+          "file": "docs/use/templates.md",
           "rule": "moved-from.form"
         }
       ]
@@ -513,35 +513,35 @@
     {
       "name": "an authored page at an imported document's address",
       "files": {
-        "docs/develop/contributing.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one rule of the page contract.\"\nread_when:\n  - \"you check the page contract\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nText.\n"
+        "docs/contribute/contributing.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one rule of the page contract.\"\nread_when:\n  - \"you check the page contract\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nText.\n"
       },
       "problems": [
         {
-          "file": "docs/develop/contributing.md",
+          "file": "docs/contribute/contributing.md",
           "rule": "address.imported-document"
         }
       ]
     },
     {
-      "name": "a page at reference/api",
+      "name": "a page at api/reference",
       "files": {
-        "docs/reference/api.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one rule of the page contract.\"\nread_when:\n  - \"you check the page contract\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nText.\n"
+        "docs/api/reference.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one rule of the page contract.\"\nread_when:\n  - \"you check the page contract\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nText.\n"
       },
       "problems": [
         {
-          "file": "docs/reference/api.md",
+          "file": "docs/api/reference.md",
           "rule": "address.generated-reference"
         }
       ]
     },
     {
-      "name": "a page under reference/api",
+      "name": "a page under api/reference",
       "files": {
-        "docs/reference/api/maps.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one rule of the page contract.\"\nread_when:\n  - \"you check the page contract\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nText.\n"
+        "docs/api/reference/maps.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one rule of the page contract.\"\nread_when:\n  - \"you check the page contract\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nText.\n"
       },
       "problems": [
         {
-          "file": "docs/reference/api/maps.md",
+          "file": "docs/api/reference/maps.md",
           "rule": "address.generated-reference"
         }
       ]
@@ -583,6 +583,18 @@
       ]
     },
     {
+      "name": "a page in a folder of a section that no longer exists",
+      "files": {
+        "docs/reference/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one rule of the page contract.\"\nread_when:\n  - \"you check the page contract\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nText.\n"
+      },
+      "problems": [
+        {
+          "file": "docs/reference/case.md",
+          "rule": "tree.out-of-place"
+        }
+      ]
+    },
+    {
       "name": "a picture outside a section folder",
       "files": {
         "docs/images/setup-card.webp": "picture"
@@ -597,7 +609,7 @@
     {
       "name": "a picture's dark take beside its light take, both in place",
       "files": {
-        "docs/start/run-it.md": "---\ntitle: \"Run it\"\nsummary: \"How to run Dezfil with Docker or from source, and what the first run asks.\"\nread_when:\n  - \"you want Dezfil running on your machine\"\n  - \"you set up the first account\"\naudience:\n  - user\n  - operator\nchecked: none\n---\n\n## First run\n\nThe first run asks for an account. See [the MCP tools](../reference/mcp.md#the-tools),\n[the licence](../../LICENSE), [contributing](../../CONTRIBUTING.md#before-you-start),\n[the tool script](../../scripts/tool.mjs), [first run](#first-run), the\n[operation reference](https://dezfil.io/docs/reference/api/), the\n[docs home](https://dezfil.io/docs/) and [an outside page](https://example.org/a)\nor [write to us](mailto:maintainers@dezfil.io).\n\n```sh\n# Not a heading, and [not a link](missing.md).\n```\n\n### With Docker\n\n`[not a link either](missing.md)` and text.\n\n![The setup card](../images/start/setup-card.webp)\n",
+        "docs/start/install.md": "---\ntitle: \"Run it\"\nsummary: \"How to run Dezfil with Docker or from source, and what the first run asks.\"\nread_when:\n  - \"you want Dezfil running on your machine\"\n  - \"you set up the first account\"\naudience:\n  - user\n  - operator\nchecked: none\n---\n\n## First run\n\nThe first run asks for an account. See [the MCP tools](../api/mcp.md#the-tools),\n[the licence](../../LICENSE), [contributing](../../CONTRIBUTING.md#before-you-start),\n[the tool script](../../scripts/tool.mjs), [first run](#first-run), the\n[operation reference](https://dezfil.io/docs/api/reference/), the\n[docs home](https://dezfil.io/docs/) and [an outside page](https://example.org/a)\nor [write to us](mailto:maintainers@dezfil.io).\n\n```sh\n# Not a heading, and [not a link](missing.md).\n```\n\n### With Docker\n\n`[not a link either](missing.md)` and text.\n\n![The setup card](../images/start/setup-card.webp)\n",
         "docs/images/start/setup-card.webp": "picture",
         "docs/images/start/setup-card.dark.webp": "picture",
         "docs/images/manifest.json": "{\"rows\": [{\"file\": \"start/setup-card.webp\"}, {\"file\": \"start/setup-card.dark.webp\"}]}\n"
@@ -619,11 +631,11 @@
     {
       "name": "a dark take of a dark take",
       "files": {
-        "docs/images/guides/search.dark.dark.webm": "recording"
+        "docs/images/use/search.dark.dark.webm": "recording"
       },
       "problems": [
         {
-          "file": "docs/images/guides/search.dark.dark.webm",
+          "file": "docs/images/use/search.dark.dark.webm",
           "rule": "tree.out-of-place"
         }
       ]
@@ -643,15 +655,15 @@
     {
       "name": "a section folder without a page",
       "files": {
-        "docs/operate/notes.txt": "notes\n"
+        "docs/self-host/notes.txt": "notes\n"
       },
       "problems": [
         {
-          "file": "docs/operate/notes.txt",
+          "file": "docs/self-host/notes.txt",
           "rule": "tree.out-of-place"
         },
         {
-          "file": "docs/operate",
+          "file": "docs/self-host",
           "rule": "tree.empty-section"
         }
       ]
@@ -702,34 +714,34 @@
       "name": "a section's own pages first, then each subfolder's pages as a group, groups by folder name",
       "pages": [
         {
-          "path": "docs/develop/verification/b.md",
+          "path": "docs/self-host/configuration/b.md",
           "title": "Alpha proof"
         },
         {
-          "path": "docs/develop/zeta.md",
+          "path": "docs/self-host/zeta.md",
           "title": "Zeta"
         },
         {
-          "path": "docs/develop/probes/a.md",
+          "path": "docs/self-host/backups/a.md",
           "title": "Beta probe",
           "order": 1
         },
         {
-          "path": "docs/develop/verification/a.md",
+          "path": "docs/self-host/configuration/a.md",
           "title": "Zulu proof",
           "order": 1
         },
         {
-          "path": "docs/develop/architecture.md",
+          "path": "docs/self-host/architecture.md",
           "title": "Architecture"
         }
       ],
       "expected": [
-        "docs/develop/architecture.md",
-        "docs/develop/zeta.md",
-        "docs/develop/probes/a.md",
-        "docs/develop/verification/a.md",
-        "docs/develop/verification/b.md"
+        "docs/self-host/architecture.md",
+        "docs/self-host/zeta.md",
+        "docs/self-host/backups/a.md",
+        "docs/self-host/configuration/a.md",
+        "docs/self-host/configuration/b.md"
       ]
     }
   ]

@@ -88,20 +88,20 @@ describe("the agents' index", () => {
   it("lists the six sections in order with their descriptions, an empty one by its description alone", () => {
     const sections = [...index.slice(0, index.indexOf("## Also")).matchAll(/^## (.+)\n\n(.+)$/gm)].map((m) => [m[1], m[2]]);
     expect(sections).toEqual([
-      ["Start", "What Dezfil is and your first map."],
-      ["Guides", "How to do each thing in the app."],
-      ["Reference", "The exact rules: the API, MCP, configuration, limits, formats, shortcuts."],
-      ["Operate", "Running an instance."],
-      ["Develop", "Changing the code."],
+      ["Get started", "What Dezfil is, how to install it, and your first map."],
+      ["Use Dezfil", "Do things in the app: data, maps, SQL, workflows and sharing."],
+      ["Self-host", "Install, secure, configure and back up your own instance."],
+      ["API and agents", "Script Dezfil over HTTP, or connect an AI agent through MCP."],
+      ["Contribute", "Work on Dezfil's code."],
       ["About", "Licence, credits, changes and policies."],
     ]);
-    expect(index).toContain("## Operate\n\nRunning an instance.\n\n## Develop");
+    expect(index).toContain("## Self-host\n\nInstall, secure, configure and back up your own instance.\n\n## API and agents");
   });
 
   it("gives each page one entry with its six fields in order", () => {
     expect(index).toContain([
-      "- [MCP](reference/mcp.md)",
-      "  - path: `docs/reference/mcp.md`",
+      "- [MCP](api/mcp.md)",
+      "  - path: `docs/api/mcp.md`",
       "  - summary: How an agent drives Dezfil through its MCP server, folded over two lines.",
       "  - read when: you connect an agent; you read the tool list",
       "  - audience: agent, developer",
@@ -116,8 +116,8 @@ describe("the agents' index", () => {
       "",
       "- [Changelog](../CHANGELOG.md) (About): What changed in each release.",
       "- [Security policy](../SECURITY.md) (About): Which versions get fixes and how to report a vulnerability.",
-      "- [Contributing](../CONTRIBUTING.md) (Develop): How to get a change from your machine into the project.",
-      "- [Code of conduct](../CODE_OF_CONDUCT.md) (Develop): The standards for taking part and how they are enforced.",
+      "- [Contributing](../CONTRIBUTING.md) (Contribute): How to get a change from your machine into the project.",
+      "- [Code of conduct](../CODE_OF_CONDUCT.md) (Contribute): The standards for taking part and how they are enforced.",
       "",
     ].join("\n"));
   });
@@ -133,7 +133,7 @@ describe("the agents' index", () => {
     const current: Record<string, string> = { ...files, "docs/README.md": index };
     const at = (set: Record<string, string>) => checkIndex({ files: Object.keys(set), read: (file: string) => set[file] }) as Problem[];
     expect(at(current)).toEqual([]);
-    const edited: Record<string, string> = { ...current, "docs/guides/templates.md": current["docs/guides/templates.md"].replace("Start a map from a template", "Begin a map from a template") };
+    const edited: Record<string, string> = { ...current, "docs/use/templates.md": current["docs/use/templates.md"].replace("Start a map from a template", "Begin a map from a template") };
     expect(shape(at(edited))).toEqual([{ file: "docs/README.md", rule: "index.stale" }]);
     expect(shape(at(files))).toEqual([{ file: "docs/README.md", rule: "index.stale" }]);
   });
@@ -217,7 +217,7 @@ describe("the lint:docs command", () => {
     files["docs/README.md"] = generateIndex({ files: Object.keys(files), read: (file: string) => files[file] });
     const { code, output } = run(write(files));
     expect(code).toBe(1);
-    expect(output).toMatch(/^docs\/start\/run-it\.md:\d+: link\.dead-page: /m);
+    expect(output).toMatch(/^docs\/start\/install\.md:\d+: link\.dead-page: /m);
     expect(output).toContain("FAIL: 1 documentation problem(s).");
   });
 });
