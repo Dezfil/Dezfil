@@ -73,7 +73,7 @@ describe("the product's shared cases", () => {
   it.each(productCases)("refuse a seeded tree with exactly its problems, each at its line: $name", ({ files, problems }) => {
     const found = pageChecks(productTree(files));
     expect(lines(found)).toEqual(problems);
-    expect(found.every((p) => p.message.length > 0)).toBe(true);
+    expect(found.every((p) => p.message.length > 0 && !p.message.includes("\n"))).toBe(true);
   });
 
   it("seed every writing rule the module names at least once, and only in the product's cases", () => {

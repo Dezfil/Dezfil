@@ -426,6 +426,10 @@ function codeLines(read) {
   return found;
 }
 
+/** A phrase as a message names it: on one line, a page's line breaks
+ * inside it read as spaces. */
+const oneLine = (text) => text.replace(/\s+/g, " ");
+
 /** A whole word or phrase, its words apart by any space, in any case. */
 const phrase = (words) => new RegExp(`(?<![\\p{L}\\p{N}])${words.split(" ").join("\\s+")}(?![\\p{L}\\p{N}])`, "giu");
 
@@ -568,10 +572,10 @@ export function checkPageWriting({ file, text = "", page, names = writingNames()
   for (const { text, lines } of texts(prose.read, { code: false, strong: false })) {
     for (const match of text.matchAll(/\u2014/g)) add("writing.em-dash", "an em dash; use a period, a colon, a comma or parentheses", lines[match.index]);
     for (const { pattern } of HISTORY) {
-      for (const match of text.matchAll(pattern)) add("writing.word", `"${match[0]}" tells a history or what is not promised; say what is true`, lines[match.index]);
+      for (const match of text.matchAll(pattern)) add("writing.word", `"${oneLine(match[0])}" tells a history or what is not promised; say what is true`, lines[match.index]);
     }
     for (const match of text.matchAll(USED_TO)) {
-      if (!afterBe(text, match.index)) add("writing.word", `"${match[0]}" tells a history; say what is true`, lines[match.index]);
+      if (!afterBe(text, match.index)) add("writing.word", `"${oneLine(match[0])}" tells a history; say what is true`, lines[match.index]);
     }
     if (section !== "contribute") {
       for (const match of text.matchAll(RECORD_TERMS)) add("writing.record-term", `"${match[0]}" is a term of the development record; outside Contribute a page says what is true and how to use it`, lines[match.index]);

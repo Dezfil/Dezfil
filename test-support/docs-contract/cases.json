@@ -1444,6 +1444,25 @@
     },
     {
       "scope": "product",
+      "name": "phrases broken across lines, named at the line each begins on",
+      "files": {
+        "docs/about/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you check the writing rules\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nThe token no\nlonger works, and the key\nused to sign in.\n"
+      },
+      "problems": [
+        {
+          "file": "docs/about/case.md",
+          "rule": "writing.word",
+          "line": 13
+        },
+        {
+          "file": "docs/about/case.md",
+          "rule": "writing.word",
+          "line": 15
+        }
+      ]
+    },
+    {
+      "scope": "product",
       "name": "the same words in bold and in code, and \"is used to\"",
       "files": {
         "docs/about/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you check the writing rules\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nClick **Check now** to test it, or **Previously used** to pick one.\n\nThe flag `--no-longer` and `now()` are code, and so is `a — b`.\n\nA token is used to sign in, and it is often used to script.\n\n**No longer than a minute** is a label.\n\n```text title=\"Words in code\"\nnow previously no longer is not claimed does not establish is not promised used to —\n```\n"
