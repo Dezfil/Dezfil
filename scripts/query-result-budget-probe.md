@@ -246,7 +246,8 @@ those existing gates; it does not replace them.
 
 ## Companion commands
 
-Keep the runbook's renderer, tiler and loopback fixture prerequisites. These
+Keep the renderer, tiler and loopback fixture prerequisites of
+[Development setup](../docs/contribute/development-setup.md#2-start-an-instance-for-the-suite). These
 are unchanged checks, each on its own disposable instance/store; do not run
 ownership/sharing seeds against a store another journey already provisioned.
 Expected durations are 2-5 minutes for build, 15-30 minutes for the complete
