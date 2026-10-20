@@ -384,6 +384,7 @@ A script writes each of these. Run it and commit what changed, rather than editi
 | The look's background sheets in `public/look/` | `node scripts/generate-look-sheets.mjs` | The unit suite runs its `--check` |
 | The plugin guidance file and its licence | `node scripts/generate-dezfil-guidance.mjs` | `npm run lint:plugin` |
 | A plugin package for one instance | `node scripts/prepare-dezfil-plugin.mjs --output <NEW_FOLDER> --base-url <ORIGIN>` | Not committed: prepare a fresh copy when the instance address changes |
+| The shipped templates in `templates/`, one released archive at a time | `npm run templates:install -- <ARCHIVE> --sha256 <SHA256> --size <BYTES>`, as [`scripts/install-template.md`](../../scripts/install-template.md) says | Not checked for staleness: install each release once, from its checksum and size |
 
 Two kinds are cut by hand:
 

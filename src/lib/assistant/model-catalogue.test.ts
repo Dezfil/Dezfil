@@ -24,12 +24,10 @@ describe("whole catalogue contract", () => {
     expect(section).toBeDefined();
     expect(section).not.toContain("\u2014");
     // The dash rule covers everything that followed this section in the
-    // runbook as it was first written: the template release section still
-    // at the end of Back up and restore, and the probe procedures that now
-    // sit beside their scripts. Every one of those sections is read,
-    // wherever it lives.
-    const runbook = readFileSync("docs/self-host/backup-and-restore.md", "utf8");
-    const release = runbook.slice(Math.max(0, runbook.indexOf("## Shipping a template release")));
+    // runbook as it was first written: the template release procedure and
+    // the probe procedures, each beside the script it runs. Every one of
+    // those sections is read, wherever it lives.
+    const release = readFileSync("scripts/install-template.md", "utf8");
     expect(release).not.toContain("\u2014");
     const notes = ["scripts/transport-probe.md", "scripts/body-probe.md", "scripts/publication-source-probe.md", "scripts/derivation-probe.md", "scripts/credential-cleanup-driver.md", "scripts/sharing-journey.md", "scripts/query-result-budget-probe.md", "scripts/settings-probe.md"];
     const texts = notes.map((note) => readFileSync(note, "utf8"));
