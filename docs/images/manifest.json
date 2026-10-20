@@ -293,6 +293,344 @@
       "bytes": 137408
     },
     {
+      "file": "use/assistant-builder.dark.webp",
+      "scene": "assistant-builder",
+      "kind": "picture",
+      "theme": "dark",
+      "version": "0.1.0",
+      "date": "2026-10-20",
+      "width": 2880,
+      "height": 1800,
+      "bytes": 181870
+    },
+    {
+      "file": "use/assistant-builder.webp",
+      "scene": "assistant-builder",
+      "kind": "picture",
+      "theme": "light",
+      "version": "0.1.0",
+      "date": "2026-10-20",
+      "width": 2880,
+      "height": 1800,
+      "bytes": 196428
+    },
+    {
+      "file": "use/assistant-confirm.dark.webp",
+      "scene": "assistant-confirm",
+      "kind": "picture",
+      "theme": "dark",
+      "version": "0.1.0",
+      "date": "2026-10-20",
+      "width": 684,
+      "height": 1648,
+      "bytes": 20628,
+      "crop": {
+        "x": 1084,
+        "y": 62,
+        "width": 342,
+        "height": 824
+      }
+    },
+    {
+      "file": "use/assistant-confirm.webp",
+      "scene": "assistant-confirm",
+      "kind": "picture",
+      "theme": "light",
+      "version": "0.1.0",
+      "date": "2026-10-20",
+      "width": 684,
+      "height": 1648,
+      "bytes": 20244,
+      "crop": {
+        "x": 1084,
+        "y": 62,
+        "width": 342,
+        "height": 824
+      }
+    },
+    {
+      "file": "use/assistant-sql.dark.webp",
+      "scene": "assistant-sql",
+      "kind": "picture",
+      "theme": "dark",
+      "version": "0.1.0",
+      "date": "2026-10-20",
+      "width": 684,
+      "height": 1648,
+      "bytes": 29650,
+      "crop": {
+        "x": 1084,
+        "y": 62,
+        "width": 342,
+        "height": 824
+      }
+    },
+    {
+      "file": "use/assistant-sql.webp",
+      "scene": "assistant-sql",
+      "kind": "picture",
+      "theme": "light",
+      "version": "0.1.0",
+      "date": "2026-10-20",
+      "width": 684,
+      "height": 1648,
+      "bytes": 29082,
+      "crop": {
+        "x": 1084,
+        "y": 62,
+        "width": 342,
+        "height": 824
+      }
+    },
+    {
+      "file": "use/assistant-workflow.dark.webp",
+      "scene": "assistant-workflow",
+      "kind": "picture",
+      "theme": "dark",
+      "version": "0.1.0",
+      "date": "2026-10-20",
+      "width": 684,
+      "height": 1648,
+      "bytes": 19326,
+      "crop": {
+        "x": 1084,
+        "y": 62,
+        "width": 342,
+        "height": 824
+      }
+    },
+    {
+      "file": "use/assistant-workflow.webp",
+      "scene": "assistant-workflow",
+      "kind": "picture",
+      "theme": "light",
+      "version": "0.1.0",
+      "date": "2026-10-20",
+      "width": 684,
+      "height": 1648,
+      "bytes": 18890,
+      "crop": {
+        "x": 1084,
+        "y": 62,
+        "width": 342,
+        "height": 824
+      }
+    },
+    {
+      "file": "use/settings-account.dark.webp",
+      "scene": "settings-account",
+      "kind": "picture",
+      "theme": "dark",
+      "version": "0.1.0",
+      "date": "2026-10-20",
+      "width": 1704,
+      "height": 1108,
+      "bytes": 29798,
+      "crop": {
+        "x": 332,
+        "y": 123,
+        "width": 852,
+        "height": 554
+      }
+    },
+    {
+      "file": "use/settings-account.webp",
+      "scene": "settings-account",
+      "kind": "picture",
+      "theme": "light",
+      "version": "0.1.0",
+      "date": "2026-10-20",
+      "width": 1704,
+      "height": 1108,
+      "bytes": 32684,
+      "crop": {
+        "x": 332,
+        "y": 123,
+        "width": 852,
+        "height": 554
+      }
+    },
+    {
+      "file": "use/settings-appearance.dark.webp",
+      "scene": "settings-appearance",
+      "kind": "picture",
+      "theme": "dark",
+      "version": "0.1.0",
+      "date": "2026-10-20",
+      "width": 2716,
+      "height": 1112,
+      "bytes": 52106,
+      "crop": {
+        "x": 72,
+        "y": 62,
+        "width": 1358,
+        "height": 556
+      }
+    },
+    {
+      "file": "use/settings-appearance.webp",
+      "scene": "settings-appearance",
+      "kind": "picture",
+      "theme": "light",
+      "version": "0.1.0",
+      "date": "2026-10-20",
+      "width": 2716,
+      "height": 1112,
+      "bytes": 70560,
+      "crop": {
+        "x": 72,
+        "y": 62,
+        "width": 1358,
+        "height": 556
+      }
+    },
+    {
+      "file": "use/settings-look-harbor.dark.webp",
+      "scene": "settings-look-harbor",
+      "kind": "picture",
+      "theme": "dark",
+      "version": "0.1.0",
+      "date": "2026-10-20",
+      "width": 2880,
+      "height": 1800,
+      "bytes": 104542
+    },
+    {
+      "file": "use/settings-look-harbor.webp",
+      "scene": "settings-look-harbor",
+      "kind": "picture",
+      "theme": "light",
+      "version": "0.1.0",
+      "date": "2026-10-20",
+      "width": 2880,
+      "height": 1800,
+      "bytes": 126742
+    },
+    {
+      "file": "use/settings-maps-list.dark.webp",
+      "scene": "settings-maps-list",
+      "kind": "picture",
+      "theme": "dark",
+      "version": "0.1.0",
+      "date": "2026-10-20",
+      "width": 2704,
+      "height": 832,
+      "bytes": 52242,
+      "crop": {
+        "x": 80,
+        "y": 128,
+        "width": 1352,
+        "height": 416
+      }
+    },
+    {
+      "file": "use/settings-maps-list.webp",
+      "scene": "settings-maps-list",
+      "kind": "picture",
+      "theme": "light",
+      "version": "0.1.0",
+      "date": "2026-10-20",
+      "width": 2704,
+      "height": 832,
+      "bytes": 58098,
+      "crop": {
+        "x": 80,
+        "y": 128,
+        "width": 1352,
+        "height": 416
+      }
+    },
+    {
+      "file": "use/sql-history.dark.webp",
+      "scene": "sql-history",
+      "kind": "picture",
+      "theme": "dark",
+      "version": "0.1.0",
+      "date": "2026-10-20",
+      "width": 732,
+      "height": 980,
+      "bytes": 34950,
+      "crop": {
+        "x": 70,
+        "y": 50,
+        "width": 366,
+        "height": 490
+      }
+    },
+    {
+      "file": "use/sql-history.webp",
+      "scene": "sql-history",
+      "kind": "picture",
+      "theme": "light",
+      "version": "0.1.0",
+      "date": "2026-10-20",
+      "width": 732,
+      "height": 980,
+      "bytes": 34240,
+      "crop": {
+        "x": 70,
+        "y": 50,
+        "width": 366,
+        "height": 490
+      }
+    },
+    {
+      "file": "use/sql-save-as-dataset.dark.webp",
+      "scene": "sql-save-as-dataset",
+      "kind": "picture",
+      "theme": "dark",
+      "version": "0.1.0",
+      "date": "2026-10-20",
+      "width": 2034,
+      "height": 388,
+      "bytes": 30822,
+      "crop": {
+        "x": 423,
+        "y": 358,
+        "width": 1017,
+        "height": 194
+      }
+    },
+    {
+      "file": "use/sql-save-as-dataset.webp",
+      "scene": "sql-save-as-dataset",
+      "kind": "picture",
+      "theme": "light",
+      "version": "0.1.0",
+      "date": "2026-10-20",
+      "width": 2034,
+      "height": 388,
+      "bytes": 30924,
+      "crop": {
+        "x": 423,
+        "y": 358,
+        "width": 1017,
+        "height": 194
+      }
+    },
+    {
+      "file": "use/sql-workspace.dark.webp",
+      "scene": "sql-workspace",
+      "kind": "picture",
+      "theme": "dark",
+      "version": "0.1.0",
+      "date": "2026-10-20",
+      "width": 2880,
+      "height": 1800,
+      "bytes": 157756
+    },
+    {
+      "file": "use/sql-workspace.webp",
+      "scene": "sql-workspace",
+      "kind": "picture",
+      "theme": "light",
+      "version": "0.1.0",
+      "date": "2026-10-20",
+      "width": 2880,
+      "height": 1800,
+      "bytes": 164516
+    },
+    {
       "file": "use/templates-search-poster.dark.webp",
       "scene": "templates-search",
       "kind": "picture",
@@ -361,6 +699,96 @@
       "width": 2880,
       "height": 1800,
       "bytes": 195462
+    },
+    {
+      "file": "use/workflows-canvas.dark.webp",
+      "scene": "workflows-canvas",
+      "kind": "picture",
+      "theme": "dark",
+      "version": "0.1.0",
+      "date": "2026-10-20",
+      "width": 2880,
+      "height": 1800,
+      "bytes": 96036
+    },
+    {
+      "file": "use/workflows-canvas.webp",
+      "scene": "workflows-canvas",
+      "kind": "picture",
+      "theme": "light",
+      "version": "0.1.0",
+      "date": "2026-10-20",
+      "width": 2880,
+      "height": 1800,
+      "bytes": 91246
+    },
+    {
+      "file": "use/workflows-node-panel.dark.webp",
+      "scene": "workflows-node-panel",
+      "kind": "picture",
+      "theme": "dark",
+      "version": "0.1.0",
+      "date": "2026-10-20",
+      "width": 636,
+      "height": 1260,
+      "bytes": 30152,
+      "crop": {
+        "x": 1108,
+        "y": 62,
+        "width": 318,
+        "height": 630
+      }
+    },
+    {
+      "file": "use/workflows-node-panel.webp",
+      "scene": "workflows-node-panel",
+      "kind": "picture",
+      "theme": "light",
+      "version": "0.1.0",
+      "date": "2026-10-20",
+      "width": 636,
+      "height": 1260,
+      "bytes": 29868,
+      "crop": {
+        "x": 1108,
+        "y": 62,
+        "width": 318,
+        "height": 630
+      }
+    },
+    {
+      "file": "use/workflows-run-all.dark.webp",
+      "scene": "workflows-run-all",
+      "kind": "picture",
+      "theme": "dark",
+      "version": "0.1.0",
+      "date": "2026-10-20",
+      "width": 976,
+      "height": 468,
+      "bytes": 14068,
+      "crop": {
+        "x": 476,
+        "y": 333,
+        "width": 488,
+        "height": 234
+      }
+    },
+    {
+      "file": "use/workflows-run-all.webp",
+      "scene": "workflows-run-all",
+      "kind": "picture",
+      "theme": "light",
+      "version": "0.1.0",
+      "date": "2026-10-20",
+      "width": 976,
+      "height": 468,
+      "bytes": 13906,
+      "crop": {
+        "x": 476,
+        "y": 333,
+        "width": 488,
+        "height": 234
+      }
     }
   ]
 }

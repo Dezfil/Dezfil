@@ -17,7 +17,8 @@
 // directory is opened. The scenes that need no account are taken first, then
 // the instance is seeded through the documented API and the seeded scenes
 // are taken, then the first account's first map is made and the scenes that
-// show it are taken (the states of docs-pictures-scenes.mjs, in order).
+// show it are taken, then each later state is made from the one before it
+// and its scenes taken (the states of docs-pictures-scenes.mjs, in order).
 // Every scene is taken twice from the same instance state, in the app's light
 // theme and in its dark theme, chosen the way the app's own switch stores it;
 // the dark take is written beside the light one with `.dark` before the
@@ -30,7 +31,10 @@
 // taken only once its map is at rest on it, every tile loaded; a basemap
 // request that fails fails the run, and so does the basemap's host asked for
 // from any other scene (docs-pictures-network.mjs); the run names the
-// basemap's styles and tile sets it drew. A run also fails on a
+// basemap's styles and tile sets it drew. The assistant scenes talk to a
+// scripted model the script serves on loopback beside the server
+// (docs-pictures-assistant.mjs); the server's requests to it stay inside the
+// run, and a request it has no answer for fails the run. A run also fails on a
 // file over its bound, a page drawn in the other theme, or a dark take that
 // came out the same as its light take. Only then are files written under
 // docs/images/, each one only when its bytes changed, with the manifest
@@ -42,10 +46,11 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { answerCameraSaves, cropRectangle, frameContext, openBrowser, pageTheme, rest, takeRecording, takeStill } from "./docs-pictures-capture.mjs";
-import { assertBuiltCheckout, freePort, makeScratch, seed, seedFirstMap, serverRequests, startServer, writeCatalogue } from "./docs-pictures-instance.mjs";
+import { assistantEnvironment, startScriptedModel } from "./docs-pictures-assistant.mjs";
+import { assertBuiltCheckout, freePort, makeScratch, seed, serverRequests, startServer, writeCatalogue } from "./docs-pictures-instance.mjs";
 import { MANIFEST, manifestText, planRun } from "./docs-pictures-manifest.mjs";
 import { problemsMessage, requestsOffInstance } from "./docs-pictures-network.mjs";
-import { SCENES, STATES } from "./docs-pictures-scenes.mjs";
+import { MEMBER_STATES, SCENES, STATES, STATE_SEEDING } from "./docs-pictures-scenes.mjs";
 import { PICTURE_AIM_BYTES, PICTURE_MAX_BYTES, RECORDING_MAX_BYTES, RECORDINGS_MAX, THEMES, lightTake } from "./docs-media.mjs";
 
 const root = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
@@ -64,29 +69,34 @@ const date = new Date().toISOString().slice(0, 10);
 const scratch = await makeScratch();
 let server = null;
 let browser = null;
+let model = null;
 const captured = [];
 try {
   await writeCatalogue(root, scratch.catalogue);
-  server = await startServer({ root, port, scratch });
+  model = await startScriptedModel();
+  server = await startServer({ root, port, scratch, environment: assistantEnvironment(model.url) });
   browser = await openBrowser();
   // Each state after the fresh one builds on the one before it: the
-  // seeding, then the first map. A run that takes no scene of a state still
-  // makes it when a later state's scenes need it.
+  // seeding, then each later state's own seeding, in order. A run that
+  // takes no scene of a state still makes it when a later state's scenes
+  // need it.
   let seeded = null;
-  let firstMap = false;
+  const made = new Set();
   // A scene's crop, found on its light take and shared by its dark take.
   const crops = new Map();
   // The built-in basemap's styles and tile sets the map scenes drew.
   const drawn = new Set();
-  for (const state of STATES) {
+  for (const [index, state] of STATES.entries()) {
     const scenes = chosen.filter((scene) => scene.state === state);
     if (!scenes.length) continue;
     if (state !== "fresh") seeded ??= await seed(server.base, root);
-    if (state === "first-map" && !firstMap) {
-      await seedFirstMap(seeded.api, root);
-      firstMap = true;
+    for (const earlier of STATES.slice(0, index + 1)) {
+      if (made.has(earlier) || !STATE_SEEDING[earlier]) continue;
+      await STATE_SEEDING[earlier](seeded.api, root, seeded);
+      made.add(earlier);
     }
-    const cookie = seeded?.cookie ?? null;
+    // A member's state is taken signed in as the second account.
+    const cookie = (MEMBER_STATES.includes(state) ? seeded?.member.cookie : seeded?.cookie) ?? null;
     for (const theme of THEMES) {
       const { context, network } = await frameContext(browser, server.base, { cookie, theme });
       try {
@@ -126,19 +136,23 @@ try {
   }
   if (values["keep-requests"]) await copyFile(scratch.requests, path.resolve(values["keep-requests"]));
   const requests = await serverRequests(scratch);
-  const outside = requestsOffInstance(requests, server.base);
+  const outside = requestsOffInstance(requests, server.base, [model.host]);
   assert.ok(outside.length === 0, `The server opened requests off the instance during the run; every picture must come from the run alone:\n${outside.map((row) => `  ${row.method} ${row.host}${row.path}`).join("\n")}`);
+  const toModel = requests.filter((row) => row.host === model.host).length;
   console.log(requests.length
-    ? `The server opened no request off the instance: the observer's file holds ${requests.length} to the instance itself.`
+    ? `The server opened no request off the instance: the observer's file holds ${requests.length - toModel} to the instance itself and ${toModel} to the scripted model.`
     : "The server opened no request: the observer's file is empty.");
+  assert.deepEqual(model.problems, [], `The scripted model was asked for what it has no answer to:\n${model.problems.map((line) => `  ${line}`).join("\n")}`);
   // Two runs that print the same lines drew the same basemap.
   if (drawn.size) console.log(`The map scenes drew the built-in basemap from:\n${[...drawn].sort().map((source) => `  ${source}`).join("\n")}`);
 } catch (error) {
   if (server) console.error(server.output().split("\n").slice(-40).join("\n"));
+  if (model?.problems.length) console.error(`The scripted model had no answer to:\n${model.problems.map((line) => `  ${line}`).join("\n")}`);
   throw error;
 } finally {
   await browser?.close();
   await server?.stop();
+  await model?.stop();
   await rm(scratch.folder, { recursive: true, force: true });
 }
 

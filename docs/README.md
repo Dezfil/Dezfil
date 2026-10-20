@@ -33,6 +33,30 @@ What Dezfil is, how to install it, and your first map.
 
 Do things in the app: data, maps, SQL, workflows and sharing.
 
+- [Query with SQL](use/sql.md)
+  - path: `docs/use/sql.md`
+  - summary: Query your datasets in the SQL workspace, see the result as a table or on a map, and keep it as a dataset, a file or a map layer.
+  - read when: you want to query your datasets, or ones shared with you, with SQL; you want to see a query result on a map; you want to keep a query result as a dataset, a file or a map layer; a query is refused, fails or takes too long; you want to run SQL from a script or an AI agent
+  - audience: user, agent
+
+- [Workflows](use/workflows.md)
+  - path: `docs/use/workflows.md`
+  - summary: Chain tools on a canvas into a workflow, run it, look at each result and run it again when its data or settings change.
+  - read when: you want to repeat the same analysis steps on a dataset without doing them by hand each time; you want to filter, join, buffer or summarize data and keep the result as a dataset; you want to see a step's result as a table or on a map, or add it to a map; you changed a node or its data, or a node says it is edited, stale, failed or cannot run; you can open a workflow someone shared but cannot change or run it
+  - audience: user
+
+- [The assistant](use/assistant.md)
+  - path: `docs/use/assistant.md`
+  - summary: Ask the assistant in plain words to change a map, write SQL into the editor, or explain a workflow node and its last run.
+  - read when: you want to change a map by asking in plain words; you want the assistant to write a SQL query, or explain a workflow node or a failed run; the assistant asks you to confirm an action, or you want to stop or undo what it did; you want to choose another model or effort; the assistant pane says no model credential is configured
+  - audience: user
+
+- [Your settings](use/settings.md)
+  - path: `docs/use/settings.md`
+  - summary: Change your look, light or dark, how your lists are laid out and sorted, and your name, email and password.
+  - read when: you want another color, typeface, background or panel style, or the side menu always open; you want the dark theme; you want your maps, data, workflows or projects as a list, or sorted another way; you want to change your display name, email or password; you want to know which choices follow you to another browser
+  - audience: user
+
 - [Templates](use/templates.md)
   - path: `docs/use/templates.md`
   - summary: The finished maps and workflow examples an instance offers: what a card shows, opening one read only, and making a copy of your own.
