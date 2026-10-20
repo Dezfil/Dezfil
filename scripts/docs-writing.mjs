@@ -523,7 +523,9 @@ function namedProblems(text, lineAt) {
  * the settings catalogue they are made from, and the error codes of the
  * API description's catalogue. A Settings key is one an admin changes in
  * Settings; an account's own preferences and the test wiring are not
- * settings the tables document. */
+ * settings the tables document.
+ * @param {{ catalogue?: readonly { key: string; environment?: string; editable?: boolean; scope?: string }[]; document?: { "x-error-codes"?: Record<string, unknown> } | null }} [sources]
+ */
 export function writingNames({ catalogue = [], document = null } = {}) {
   const variables = [...new Set(catalogue.filter((setting) => setting.environment).map((setting) => setting.environment))];
   const keys = catalogue.filter((setting) => setting.editable && setting.scope !== "account").map((setting) => setting.key);
