@@ -242,9 +242,11 @@ export function handListedNames(text, names) {
 
 /** The pages the overview links, in the order it first links them, as
  * paths under docs/; links to other sites and to the overview itself are
- * left out, and so are links inside code. */
+ * left out, and so are links inside code and inside HTML comments, which
+ * no reader follows. */
 export function linkedPages(documents, overview = OVERVIEW) {
-  const text = (documents[overview] ?? "").replace(/^ {0,3}(`{3,}|~{3,})[^\n]*\n[\s\S]*?^ {0,3}\1[^\n]*$/gm, "").replace(/`[^`\n]*`/g, "");
+  const text = (documents[overview] ?? "").replace(/^ {0,3}(`{3,}|~{3,})[^\n]*\n[\s\S]*?^ {0,3}\1[^\n]*$/gm, "").replace(/`[^`\n]*`/g, "")
+    .replace(/<!--[\s\S]*?-->/g, "");
   const pages = [];
   for (const match of text.matchAll(/\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g)) {
     const target = match[1].split("#")[0];

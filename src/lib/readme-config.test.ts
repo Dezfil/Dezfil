@@ -219,6 +219,14 @@ it("reads a test seam however the code reads it, in the server code and in a scr
   ]);
 });
 
+it("counts no link inside an HTML comment or code as the overview linking a table", () => {
+  const documents = {
+    "docs/self-host/configuration.md": "See [A](a.md).\n\n<!-- [B](b.md) -->\n\n<!--\n[C](c.md)\n-->\n\n`[D](d.md)`\n",
+    "docs/self-host/a.md": "", "docs/self-host/b.md": "", "docs/self-host/c.md": "", "docs/self-host/d.md": "",
+  };
+  expect(linkedPages(documents)).toEqual(["docs/self-host/a.md"]);
+});
+
 it("discovers new script test wiring and its removal without counting mentions", () => {
   const scripts = join(dir, "scripts"); mkdirSync(scripts);
   const file = join(scripts, "observer.mjs");
