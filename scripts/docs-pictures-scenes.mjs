@@ -477,20 +477,31 @@ const USE_MAPS_SCENES = [
     // Drawing on the first map: the draw tools with Draw a polygon picked,
     // three vertices placed and the polygon left open, and the line under
     // the map. Nothing is saved: a session's layer and dataset are made by
-    // its first finished shape.
+    // its first finished shape. The frame is the map's window, so its
+    // controls, legend, status bar and credit show whole. Draw and the
+    // polygon tool get a click event rather than the pointer, so neither
+    // button grows under the pointer or shrinks as it is pressed, and the
+    // page asks for reduced motion, so the draw tools and the line appear
+    // without their rise: with the pointer's clicks, one pixel of the
+    // polygon tool came out a shade apart from run to run.
     id: "build-a-map-draw",
     file: "use/build-a-map-draw.webp",
     pages: ["docs/use/build-a-map.md"],
     kind: "still",
     state: "use-maps",
     map: true,
-    crop: { selector: [DRAW_DOCK, POLYGON_LINE], margin: 120 },
+    crop: { selector: "[data-drag-canvas]", margin: 0 },
     async open(page) {
+      await page.emulateMedia({ reducedMotion: "reduce" });
       await arrangeWorldCities(page, { megacities: true, widgets: false });
       await openWorldCities(page);
-      await page.getByRole("button", { name: "Draw", exact: true }).click();
+      // Draw waits for the map's camera, and a click event, unlike the
+      // pointer's click, does not wait for a button to be enabled.
+      const draw = page.getByRole("button", { name: "Draw", exact: true, disabled: false });
+      await draw.waitFor();
+      await draw.dispatchEvent("click");
       const dock = page.locator(DRAW_DOCK);
-      await dock.getByRole("button", { name: "Draw a polygon" }).click();
+      await dock.getByRole("button", { name: "Draw a polygon" }).dispatchEvent("click");
       const line = page.locator(POLYGON_LINE);
       await line.waitFor();
       const top = await dock.boundingBox();
