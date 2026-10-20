@@ -11,6 +11,7 @@ audience:
   - user
   - operator
   - developer
+  - agent
 checked: none
 order: 1
 ---
@@ -58,7 +59,7 @@ Dezfil is built on these projects. [NOTICE](../../NOTICE) lists the code it borr
 | Rendering | loaders.gl | MIT | Reads vector tiles in the browser |
 | Rendering | PMTiles | BSD-3-Clause | Serves the tiles of large layers from their archives |
 | Query engine | DuckDB, with its spatial, httpfs, json, postgres, azure and aws extensions | MIT | Runs your SQL and your imports |
-| Query engine | DuckDB's h3 extension, with Uber's H3 library | Apache-2.0 | Hexagonal aggregation |
+| Query engine | DuckDB's h3 extension, with Uber's H3 library | Apache-2.0 | H3 cells: the **Assign H3 cells** and **Hotspot analysis (Getis-Ord Gi\*)** tools, and H3 cell columns read as places |
 | App shell | Next.js and React | MIT | The app's pages and its API |
 | App shell | better-sqlite3 | MIT | Keeps maps, accounts and settings in SQLite |
 | App shell | React Flow | MIT | The workflow canvas |

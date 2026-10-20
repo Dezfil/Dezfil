@@ -169,7 +169,7 @@ Licence, credits, changes and policies.
   - path: `docs/about/licence-and-credits.md`
   - summary: Check Dezfil's licence, the libraries, fonts and tools it includes, and the map data credits your maps show.
   - read when: you want to know Dezfil's licence and what it lets you do; you need the libraries, fonts and tools Dezfil includes, and their licences; you want to know where a map, a published map or an exported image shows its map data credit; you add your own basemap or satellite imagery and need its credit on the map; you publish a map made from a template or imported data and want to credit its sources
-  - audience: user, operator, developer
+  - audience: user, operator, developer, agent
 
 ## Also
 
