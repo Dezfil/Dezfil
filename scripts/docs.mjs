@@ -7,11 +7,12 @@
 // server serves, with no server. Check mode (`npm run lint:docs`) holds
 // the page contract for every page under docs/ (the frontmatter, the
 // headings, the links and pictures, the addresses each page owns and the old
-// addresses it lists), the links and pictures of every procedure note under
-// scripts/ and src/ (which are not pages), the image manifest against the
-// files it lists, and the generated files' freshness, and names each problem
-// with its file and rule. The rules live in docs-contract.mjs and
-// docs-manifest.mjs.
+// addresses it lists), the writing rules for every page not on the list of
+// pages not yet rewritten, the links and pictures of every procedure note
+// under scripts/ and src/ (which are not pages), the image manifest against
+// the files it lists, and the generated files' freshness, and names each
+// problem with its file and rule. The rules live in docs-contract.mjs,
+// docs-writing.mjs and docs-manifest.mjs.
 //
 // Usage:
 //   node scripts/docs.mjs --check               # the repository
@@ -25,6 +26,7 @@ import { parseArgs } from "node:util";
 import { contractSource } from "./contract-source.mjs";
 import { DESCRIPTION_FILE, checkDescription, checkIndex, checkTree, descriptionText, formatProblem, generateIndex, reader } from "./docs-contract.mjs";
 import { checkManifest } from "./docs-manifest.mjs";
+import { checkWriting } from "./docs-writing.mjs";
 
 const { values } = parseArgs({ options: { check: { type: "boolean" }, write: { type: "boolean" }, root: { type: "string" } } });
 const root = path.resolve(values.root ?? process.cwd());
@@ -67,6 +69,8 @@ if (values.write) {
 const files = repositoryFiles();
 const { problems, pages, notes, used } = checkTree({ files, read });
 problems.push(...checkManifest({ files, read, readBytes: (file) => readFileSync(path.join(root, file)), used }));
+const writing = checkWriting({ files, read });
+problems.push(...writing.problems);
 problems.push(...checkIndex({ files, read }));
 if (document) {
   const committed = existsSync(path.join(root, DESCRIPTION_FILE)) ? readFileSync(path.join(root, DESCRIPTION_FILE), "utf8") : null;
@@ -78,4 +82,5 @@ if (problems.length) {
   process.exit(1);
 }
 const media = files.includes("docs/images/manifest.json") ? " The image manifest matches its files." : "";
-console.log(`PASS: ${pages.length} pages hold the page contract; the links in ${notes.length} procedure notes resolve; the index${document ? " and the API description file are" : " is"} current.${media}`);
+const listed = writing.listed.length ? `, ${writing.listed.length} on the list of pages not yet rewritten` : "";
+console.log(`PASS: ${pages.length} pages hold the page contract; ${writing.checked.length} hold the writing rules${listed}; the links in ${notes.length} procedure notes resolve; the index${document ? " and the API description file are" : " is"} current.${media}`);

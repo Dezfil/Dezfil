@@ -54,3 +54,6 @@ scripts/account-deletion-image.sh
 # whoever runs them; the application never reads them.
 scripts/**/*.md
 src/**/*.md
+# The list of pages the documentation lint's writing rules skip is read by
+# that lint alone.
+scripts/docs-not-rewritten.txt
