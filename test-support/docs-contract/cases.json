@@ -1888,6 +1888,33 @@
           "line": 15
         }
       ]
+    },
+    {
+      "scope": "product",
+      "name": "addresses written as their own link text on an API page, in angle brackets, bare and as www and mail addresses",
+      "files": {
+        "docs/api/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you check the writing rules\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nThe description follows OpenAPI 3.1 (<https://spec.openapis.org/oas/v3.1.0>).\n\nRead https://spec.openapis.org/oas/v3.1.0 for the format, or www.spec.example.com for the status at <https://status.example.com/now>.\n\nWrite to spec@example.com with questions.\n"
+      },
+      "problems": []
+    },
+    {
+      "scope": "product",
+      "name": "a record term and a history word in a link's own text on an API page",
+      "files": {
+        "docs/api/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you check the writing rules\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nThe format follows [the OpenAPI spec](https://spec.openapis.org/oas/v3.1.0), [now at 3.1](https://www.openapis.org/).\n"
+      },
+      "problems": [
+        {
+          "file": "docs/api/case.md",
+          "rule": "writing.record-term",
+          "line": 13
+        },
+        {
+          "file": "docs/api/case.md",
+          "rule": "writing.word",
+          "line": 13
+        }
+      ]
     }
   ],
   "order": [

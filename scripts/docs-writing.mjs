@@ -379,11 +379,19 @@ function noticeProblems(prose) {
 /** What breaks a text where code or bold stood, so no phrase reads across. */
 const GAP = "\u0000";
 
+/** Whether a link's text is its own address: an address in angle
+ * brackets or written bare, which GitHub links as it stands (a www or mail
+ * address gains its scheme). */
+const isAddress = (link) =>
+  link.children.length === 1 && link.children[0].type === "text" &&
+  [link.url, link.url.replace(/^mailto:/, ""), link.url.replace(/^http:\/\//, "")].includes(link.children[0].value);
+
 /** A block's inline content as one text, with each character's file line.
  * `code` keeps inline code (else a gap stands for it), `strong` keeps bold
- * text (else a gap). A link gives its text, a picture its alternative
- * text; HTML gives a gap. */
-function flatten(node, read, { code, strong }) {
+ * text (else a gap), `urls` keeps a link whose text is its own address
+ * (else a gap). A link gives its text, a picture its alternative text;
+ * HTML gives a gap. */
+function flatten(node, read, { code, strong, urls = true }) {
   let text = "";
   const lines = [];
   const append = (value, line, multiline) => {
@@ -397,6 +405,7 @@ function flatten(node, read, { code, strong }) {
     if (n.type === "text") append(n.value, read.at(n), true);
     else if (n.type === "inlineCode") append(code ? `${GAP}${n.value}${GAP}` : GAP, read.at(n), false);
     else if (n.type === "strong" && !strong) append(GAP, read.at(n), false);
+    else if (n.type === "link" && !urls && isAddress(n)) append(GAP, read.at(n), false);
     else if (n.type === "image" || n.type === "imageReference") append(` ${n.alt ?? ""} `, read.at(n), false);
     else if (n.type === "html") append(GAP, read.at(n), false);
     else if (n.type === "break") append("\n", read.at(n), false);
@@ -597,9 +606,13 @@ export function checkPageWriting({ file, text = "", page, names = writingNames()
   for (const found of noticeProblems(prose)) add(found.rule, found.message, found.line);
 
   // Outside code and bold: no em dash, no word of a history or of what is
-  // not promised and, outside Contribute, no term of the record.
+  // not promised and, outside Contribute, no term of the record. The words
+  // are the page's own, so an address that is its own link text is not
+  // read for them.
   for (const { text, lines } of texts(prose.read, { code: false, strong: false })) {
     for (const match of text.matchAll(/\u2014/g)) add("writing.em-dash", "an em dash; use a period, a colon, a comma or parentheses", lines[match.index]);
+  }
+  for (const { text, lines } of texts(prose.read, { code: false, strong: false, urls: false })) {
     for (const { pattern } of HISTORY) {
       for (const match of text.matchAll(pattern)) add("writing.word", `"${oneLine(match[0])}" tells a history or what is not promised; say what is true`, lines[match.index]);
     }
