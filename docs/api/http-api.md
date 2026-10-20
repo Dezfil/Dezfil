@@ -1697,7 +1697,7 @@ rather than on the page:
   available.
 - Timeouts, memory budgets, configured size caps, area budgets, render caps, queue
   depths and anonymous rate limits are all configuration; see
-  [configuration.md](../self-host/configuration.md). When one is hit the answer is a
+  [Limits an operator changes](limits.md#limits-an-operator-changes). When one is hit the answer is a
   coded error naming the bound, not a truncated success.
 - Request bodies for workflow layout documents have an explicit byte bound
   and are refused with `request_body_too_large` before parsing.

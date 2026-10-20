@@ -50,7 +50,7 @@ redirects are refused.
 The settings that matter to a tool call are the ordinary
 instance settings: the query timeout and memory budget, the upload and
 import caps, and `DEZFIL_TOOL_ATTACHMENT_MAX_MB`, which bounds a download
-answered into a tool result. See [configuration.md](../self-host/configuration.md).
+answered into a tool result. See [Limits an operator changes](limits.md#limits-an-operator-changes).
 
 One platform variable matters indirectly. A tool call reaches the API over
 loopback, and the address is built from `PORT` when it is set, otherwise

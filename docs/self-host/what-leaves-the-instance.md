@@ -15,8 +15,8 @@ moved_from:
 This page is for the person who runs the instance. It covers what to decide before
 you put data in it, what the instance keeps, and what it sends out.
 
-[Run it](../start/install.md) has the run commands and [the configuration page](configuration.md)
-the full table of settings. Start there, then read this.
+[Run it](../start/install.md) has the run commands and [Configuration](configuration.md)
+links every table of settings. Start there, then read this.
 
 ## Accounts and access
 
