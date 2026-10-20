@@ -13,9 +13,9 @@
 //
 // The rules measure the page as Markdown parses (CommonMark with GitHub's
 // extensions, the parser family the site renders with), never as groups of
-// lines between blank ones. Prose is the text of paragraphs, of list items
-// (each item's own text, counted once, a nested item as an item of its own)
-// and of notices. Headings, tables, code blocks, HTML and the regions a
+// lines between blank ones. Prose is the text of paragraphs (a footnote's
+// included), of list items (each item's own text, counted once, a nested
+// item as an item of its own) and of notices. Headings, tables, code blocks, HTML and the regions a
 // generator writes between `<!-- name:start -->` and `<!-- name:end -->`
 // are not prose. A link counts its text, not its destination; inline code
 // counts as words; a picture's alternative text does not. Words are runs of
@@ -196,8 +196,9 @@ function isSomethingToDo(node) {
  * its kind, its file line and its words, and every word of the prose in
  * document order. A list item's unit holds its own paragraphs; a list
  * nested in it gives units of its own. A notice is one unit, whatever it
- * holds. Units inside a generated region are left out. Beside the prose,
- * the things a reader can do or see, in the same order. */
+ * holds. A footnote's paragraphs are paragraphs. Units inside a generated
+ * region are left out. Beside the prose, the things a reader can do or
+ * see, in the same order. */
 export function measure(body, firstLine = 1, read = readBody(body, firstLine)) {
   const units = [];
   const unit = (kind, node, found) => units.push({ kind, line: read.at(node), words: found.length, found, node });
@@ -210,7 +211,7 @@ export function measure(body, firstLine = 1, read = readBody(body, firstLine)) {
         if (own.length) unit("item", child, own.flatMap((p) => inlineWords(p, read)));
         visit({ children: child.children.filter((c) => c.type !== "paragraph") });
       } else if (child.type === "blockquote") unit("notice", child, noticeWords(child, read));
-      else if (!["code", "html", "table", "heading", "definition", "footnoteDefinition"].includes(child.type)) visit(child);
+      else if (!["code", "html", "table", "heading", "definition"].includes(child.type)) visit(child);
     }
   };
   visit(read.tree);

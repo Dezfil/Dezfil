@@ -1957,6 +1957,20 @@
         "docs/about/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you check the writing rules\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nThe proxy is not always used to reach the provider, and a key is also mostly used to sign in.\n"
       },
       "problems": []
+    },
+    {
+      "scope": "product",
+      "name": "a footnote of 81 words, whose paragraph is prose",
+      "files": {
+        "docs/about/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you check the writing rules\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nA note.[^1]\n\n[^1]: word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word.\n"
+      },
+      "problems": [
+        {
+          "file": "docs/about/case.md",
+          "rule": "writing.paragraph-length",
+          "line": 15
+        }
+      ]
     }
   ],
   "order": [
