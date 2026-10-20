@@ -75,6 +75,16 @@ describe("the product's shared cases", () => {
     expect(lines(found)).toEqual(problems);
     expect(found.every((p) => p.message.length > 0)).toBe(true);
   });
+
+  it("seed every writing rule the module names at least once, and only in the product's cases", () => {
+    const source = readFileSync("scripts/docs-writing.mjs", "utf8");
+    const named = new Set([...source.matchAll(/"(writing\.[a-z-]+)"/g)].map((m) => m[1]));
+    expect(named.size).toBeGreaterThan(20);
+    const seeded = new Set(productCases.flatMap((t) => t.problems.map((p) => p.rule)));
+    for (const rule of named) expect(seeded, rule).toContain(rule);
+    const common = cases.trees.filter((t) => !("scope" in t)).flatMap((t) => t.problems.map((p) => p.rule));
+    expect(common.filter((rule) => rule.startsWith("writing."))).toEqual([]);
+  });
 });
 
 describe("the rules on one page", () => {
@@ -301,6 +311,20 @@ describe("the lint:docs command", () => {
     }
     return root;
   }
+
+  // The command prints each problem as file:line: rule: message, the page
+  // contract's form, so every failing product case is run through it too.
+  // A fixture tree carries no settings catalogue or API description, so the
+  // command has no names for a read_when line; those cases run above with
+  // the product section's names.
+  const throughCommand = productCases.filter((t) => t.problems.length > 0 && !t.problems.some((p) => p.rule === "writing.read-when-name"));
+  it.each(throughCommand)("report every problem with its file, line and rule: $name", ({ files, problems }) => {
+    const { code, output } = run(write(productTree(files)));
+    expect(code).toBe(1);
+    const reported = [...output.matchAll(/^(\S+?):(\d+): ([a-z-]+\.[a-z-]+): \S/gm)].map((m) => ({ file: m[1], rule: m[3], line: Number(m[2]) }));
+    expect(reported).toEqual(problems);
+    expect(output).toContain(`FAIL: ${problems.length} documentation problem(s).`);
+  });
 
   it("fails a list entry that names no page, with the list's file, line and rule", () => {
     const { code, output } = run(write({ ...cases.base, [WRITING_LIST]: "# Not yet rewritten.\ndocs/start/install.md\ndocs/start/gone.md\n" }));

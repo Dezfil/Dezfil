@@ -1721,6 +1721,54 @@
         "docs/about/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you set DEZFIL_NOT_A_SETTING or get not_a_code\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nRun it.\n"
       },
       "problems": []
+    },
+    {
+      "scope": "product",
+      "name": "the base tree's install page off the list, its code block without a title",
+      "files": {
+        "scripts/docs-not-rewritten.txt": "# No page waits.\n"
+      },
+      "problems": [
+        {
+          "file": "docs/start/install.md",
+          "rule": "writing.code-title",
+          "line": 22
+        }
+      ]
+    },
+    {
+      "scope": "product",
+      "name": "a listed page, skipped by the writing rules and still held by the page contract",
+      "files": {
+        "docs/about/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you check the writing rules\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nword word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word.\n\nSee [the gone page](gone.md).\n",
+        "scripts/docs-not-rewritten.txt": "docs/start/install.md\ndocs/about/case.md\n"
+      },
+      "problems": [
+        {
+          "file": "docs/about/case.md",
+          "rule": "link.dead-page",
+          "line": 15
+        }
+      ]
+    },
+    {
+      "scope": "product",
+      "name": "a list entry that names no page, and one listed twice",
+      "files": {
+        "scripts/docs-not-rewritten.txt": "# Not yet rewritten.\ndocs/start/install.md\ndocs/start/gone.md\ndocs/start/install.md\n"
+      },
+      "problems": [
+        {
+          "file": "scripts/docs-not-rewritten.txt",
+          "rule": "writing.list-entry",
+          "line": 3
+        },
+        {
+          "file": "scripts/docs-not-rewritten.txt",
+          "rule": "writing.list-entry",
+          "line": 4
+        }
+      ]
     }
   ],
   "order": [

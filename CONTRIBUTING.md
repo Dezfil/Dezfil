@@ -53,7 +53,7 @@ npm run lint:icons
 npm run lint:class-pairs # no tie between two stylesheets left to load order
 npm run lint:specimen   # the design specimen page is regenerated
 npm run lint:plugin     # the shipped plugin manifests
-npm run lint:docs       # the documentation's pages, links, index and pictures
+npm run lint:docs       # the documentation's pages, writing, links, index and pictures
 npm run lint:retired-paths # no file names a documentation path that moved or left
 ```
 
