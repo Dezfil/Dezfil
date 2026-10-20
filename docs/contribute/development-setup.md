@@ -7,6 +7,8 @@ read_when:
 audience:
   - developer
 checked: none
+moved_from:
+  - "/docs/develop/checks-and-testing/"
 ---
 
 ```sh

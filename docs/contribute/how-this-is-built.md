@@ -7,6 +7,8 @@ read_when:
 audience:
   - developer
 checked: none
+moved_from:
+  - "/docs/develop/how-this-is-built/"
 ---
 
 This project is written largely by AI coding agents, under a method that is worth

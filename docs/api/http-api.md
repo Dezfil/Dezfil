@@ -9,6 +9,8 @@ audience:
   - developer
   - agent
 checked: none
+moved_from:
+  - "/docs/reference/http-api/"
 ---
 
 Everything Dezfil can do is an HTTP call. The user interface is a client of

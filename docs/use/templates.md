@@ -7,6 +7,8 @@ read_when:
 audience:
   - user
 checked: none
+moved_from:
+  - "/docs/guides/templates/"
 ---
 
 **Templates**, last in the side menu, shows every signed-in account the

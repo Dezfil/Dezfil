@@ -9,6 +9,8 @@ audience:
   - operator
   - agent
 checked: none
+moved_from:
+  - "/docs/reference/configuration/"
 ---
 
 The catalogue defines every deployment setting. Their defaults allow a local

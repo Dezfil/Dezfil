@@ -9,6 +9,8 @@ audience:
   - operator
   - developer
 checked: none
+moved_from:
+  - "/docs/operate/runbook/"
 ---
 
 Operational recipes for running a self hosted instance: the things an owner

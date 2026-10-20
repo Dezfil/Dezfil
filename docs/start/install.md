@@ -9,6 +9,8 @@ audience:
   - user
   - operator
 checked: none
+moved_from:
+  - "/docs/start/run-it/"
 ---
 
 For development, with live reload:

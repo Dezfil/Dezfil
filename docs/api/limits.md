@@ -9,6 +9,8 @@ audience:
   - developer
   - agent
 checked: none
+moved_from:
+  - "/docs/reference/sql-limits/"
 ---
 
 SQL console/SQL previews, dataset inspection, geometry-choice preview and the

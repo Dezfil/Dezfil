@@ -10,6 +10,8 @@ audience:
   - developer
   - agent
 checked: none
+moved_from:
+  - "/docs/reference/mcp/"
 ---
 
 Dezfil serves its own API to AI agents over the Model Context Protocol. The

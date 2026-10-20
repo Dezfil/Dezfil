@@ -8,6 +8,8 @@ read_when:
 audience:
   - operator
 checked: none
+moved_from:
+  - "/docs/operate/self-hosting/"
 ---
 
 This page is for the person who runs the instance. It covers what to decide before

@@ -8,6 +8,8 @@ audience:
   - developer
   - agent
 checked: none
+moved_from:
+  - "/docs/develop/architecture/"
 ---
 
 Dezfil is one container. Inside it are a web application, an embedded
