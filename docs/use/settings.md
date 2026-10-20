@@ -76,15 +76,6 @@ Each screen keeps its own layout and sort. The next time you open it, it opens t
 | **Data** | **Recently updated**, **Name A–Z**, **Row count**, **Size** | **Grid view**, **Recently updated** |
 | **Projects** | **Recently updated**, **Name A–Z**, **Largest** | **Grid view**, **Recently updated** |
 
-## Group your SQL sources
-
-In **SQL**, two buttons at the top of the source list group the datasets you can query.
-
-- **By person**, the default, lists **Yours** first, then each other person's datasets under their name.
-- **By project** lists one group per project, then **Not in a project**.
-
-Dezfil keeps your choice. [Query with SQL](sql.md) covers the rest of the workspace.
-
 ## Change your name or email
 
 ![The Account tab: Display name, the SQL name beneath it, Email, and Change password opened with Current password and New password fields](../images/use/settings-account.webp)
@@ -96,7 +87,7 @@ Dezfil keeps your choice. [Query with SQL](sql.md) covers the rest of the worksp
 
 You sign in with the new email from then on.
 
-Your **SQL name** stays as it is. Other people's queries name your datasets with it, as in `<YOUR_SQL_NAME>.world_cities`.
+Your **SQL name** stays as it is. Other people's queries name your datasets with it, as [Query with SQL](sql.md#other-peoples-datasets) shows.
 
 ## Change your password
 
@@ -118,7 +109,7 @@ Your other browser sessions end, so those browsers ask you to sign in again. You
 |---|---|---|
 | Your look | **Settings** › **Appearance** | With your account, in every browser you sign in on |
 | Layout and sort of a list | **Maps**, **Data**, **Workflows**, **Projects** | With your account, for each screen |
-| SQL source grouping | **SQL** | With your account |
+| SQL source grouping | **By person** or **By project** in **SQL**, as [Query with SQL](sql.md#other-peoples-datasets) shows | With your account |
 | Light or dark | The theme button at the top right | In this browser only |
 | Name, email and password | **Settings** › **Account** | With your account |
 

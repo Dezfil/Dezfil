@@ -166,9 +166,14 @@ To have a query written for you, click **Assistant** in the header. **Insert int
 
 ## Other people's datasets
 
-When someone shares a project with you, its datasets appear in **Sources** under their owner's name and SQL name. In a query you write them as `<sql name>.<dataset>`, such as `ada.roads`. Your own datasets need no prefix.
+When someone shares a project with you, its datasets appear in **Sources** under their owner's name and SQL name. In a query you write them as `<SQL_NAME>.<DATASET>`, such as `ada.roads`. Your own datasets need no prefix.
 
-**By project**, above the list, groups **Sources** by project instead of **By person**. Dezfil remembers the choice for your account. Your own SQL name is in **Settings** › **Account**.
+Two buttons above the list choose how **Sources** groups the datasets. Dezfil keeps your choice with your account.
+
+- **By person**, the default, lists your own datasets under **Yours**, then each other person's under their name. While every dataset is your own, it groups them as **Tool outputs**, the ones a tool made, including those you save from a query, and **Workspace tables**, the rest.
+- **By project** lists one group per project, then **Not in a project**.
+
+Your own SQL name is in **Settings** › **Account**. Other people's queries name your datasets with it.
 
 ## From a script or an AI agent
 
