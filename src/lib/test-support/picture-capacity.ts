@@ -5,6 +5,7 @@ import { saveThumbnail } from "@/lib/map-thumbnails";
 import { pictureTarget, publishPicture } from "@/lib/pictures/publication";
 import { requestPicture } from "@/lib/pictures/state";
 import { NO_INPUTS } from "@/lib/query/evaluation-inputs";
+import { sizedPicture } from "./picture-sizes";
 import { encodePng } from "@/lib/export/png-codec";
 import { createHash, randomUUID } from "node:crypto";
 import { insertLayer } from "@/lib/metadata/maps";
@@ -37,7 +38,7 @@ export async function seedPictureCapacity(scope: AccountScope, kind: CapacityKin
     if (group === "old") await saveThumbnail(scope, map.id, oldPicture);
     if (group === "current") {
       const target = pictureTarget(scope, map.id), state = requestPicture(map.id, target.digest, now);
-      await publishPicture(scope, target, state.requestedGeneration, { light: png, ...(pair ? { dark: png } : {}) }, NO_INPUTS);
+      await publishPicture(scope, target, state.requestedGeneration, { light: sizedPicture("light", png), ...(pair ? { dark: sizedPicture("dark", png) } : {}) }, NO_INPUTS);
     }
     maps.push({ id: map.id, group, pair, drawingChangedAt: Date.parse(updatedAt),
       ...(group === "old" ? { oldPictureSha256: createHash("sha256").update(oldPicture).digest("hex") } : {}) });

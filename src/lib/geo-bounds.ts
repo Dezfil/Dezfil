@@ -12,6 +12,15 @@ function walk(coords: unknown, fn: (lng: number, lat: number) => void): void {
   for (const c of coords) walk(c, fn);
 }
 
+/** Every position of a geometry, a collection's members included: they
+ * keep their geometries rather than coordinates, and are drawn all the
+ * same. */
+function walkGeometry(geometry: unknown, fn: (lng: number, lat: number) => void): void {
+  const g = geometry as { coordinates?: unknown; geometries?: unknown } | null | undefined;
+  if (Array.isArray(g?.geometries)) for (const member of g.geometries) walkGeometry(member, fn);
+  else walk(g?.coordinates, fn);
+}
+
 /** Merge bounds across several GeoJSON feature collections (loosely typed —
  * they come off the render API); null if none have geometry. */
 export function boundsOf(collections: unknown[]): Bounds | null {
@@ -25,9 +34,7 @@ export function boundsOf(collections: unknown[]): Bounds | null {
       (fc as { features?: unknown })?.features ?? ([] as unknown);
     if (!Array.isArray(features)) continue;
     for (const f of features) {
-      const coords = (f as { geometry?: { coordinates?: unknown } })?.geometry
-        ?.coordinates;
-      walk(coords, (lng, lat) => {
+      walkGeometry((f as { geometry?: unknown })?.geometry, (lng, lat) => {
         any = true;
         if (lng < w) w = lng;
         if (lng > e) e = lng;

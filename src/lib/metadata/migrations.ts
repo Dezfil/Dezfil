@@ -549,4 +549,7 @@ export const MIGRATIONS: string[] = [
        WHERE map_id IN (SELECT id FROM maps WHERE owner_id = NEW.id)
          AND (state <> 'current' OR work_key IS NOT NULL);
    END;`,
+  // The generation a re-make of an earlier picture was asked at, which the
+  // queue orders after all other work.
+  `ALTER TABLE map_pictures ADD COLUMN remake_generation INTEGER;`,
 ];

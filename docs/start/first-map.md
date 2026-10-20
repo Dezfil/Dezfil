@@ -100,7 +100,7 @@ Dezfil uploads the file and stores it as a table. It reads the `latitude` and `l
 You should see 48 points on the map, a layer card named **world_cities** with **48 features**, and for a few seconds the notice **Added world_cities to this map**.
 
 > [!NOTE]
-> If the coordinate columns of your own file have other names and its rows do not become points, see [Troubleshooting](#troubleshooting).
+> The column names Dezfil reads as coordinates are listed under [CSV columns](../use/import-data.md#csv-columns). If your own file's columns are not read, see [Troubleshooting](#troubleshooting).
 
 ## 5. Color the cities by population
 
@@ -121,6 +121,8 @@ Every change saves as you make it. **Undo**, the curved arrow at the top of the 
 - Click **Continuous** for a smooth color ramp instead of classes.
 - Click a class color or boundary in the panel to edit it.
 
+Every style option is in [Build a map](../use/build-a-map.md#3-style-a-layer).
+
 ## 6. Publish the map
 
 1. Click **Publish** at the top right.
@@ -138,6 +140,8 @@ Click **Open** to see the map as its readers do. To stop sharing it, click **Pub
 
 - Rename the columns to `latitude` and `longitude`, then upload the file again. It becomes a new dataset, so its name ends in `_2`.
 - Open **Data** in the side menu and open the dataset. Click **Set geometry** and pick **Coordinate pair**. Choose your columns under **Longitude · x** and **Latitude · y**, then click **Apply**. Open your map again and add the dataset from **Add layer** › **Tables**.
+
+**Publish map is grayed out.** Your instance limits who may publish: see [Share and publish](../use/share-and-publish.md#troubleshooting).
 
 ## What you learned
 

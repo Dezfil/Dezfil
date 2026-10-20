@@ -15,7 +15,8 @@ import {
 import { effectiveBasemap } from "@/lib/basemap-effective";
 import { effectiveStyle } from "@/lib/viz";
 import { liveFilters, liveDim } from "@/lib/live-filters";
-import { featurePasses } from "@/lib/map-extent";
+import { featurePasses, type ExtentLayer } from "@/lib/map-extent";
+import { pageFrame, renderCamera, type PictureFrame } from "@/lib/pictures/framing";
 import {
   EXPORT_IMAGE_DEFINITION_SCHEMA,
   definitionRenderProblems,
@@ -54,6 +55,8 @@ declare global {
   interface Window {
     /** Injected by the renderer service before navigation — never URL. */
     __DEZFIL_EXPORT_DEFINITION__?: unknown;
+    /** Injected beside it for a map picture alone: how to frame it. */
+    __DEZFIL_PICTURE_FRAME__?: unknown;
   }
 }
 
@@ -84,10 +87,14 @@ export function RenderExportView({
   const [definition, setDefinition] = useState<
     ExportImageDefinition | { invalid: string } | null
   >(null);
+  // A map picture is framed like Fit instead of at the saved view; only
+  // picture work is handed a frame.
+  const [frame, setFrame] = useState<PictureFrame | null>(null);
   useEffect(() => {
     // Deferred a tick: the injected global is present before any script
     // runs, and the deferral keeps hydration's first pass clean.
     const timer = setTimeout(() => {
+      setFrame(pageFrame(picture, window.__DEZFIL_PICTURE_FRAME__));
       const raw = window.__DEZFIL_EXPORT_DEFINITION__;
       if (raw === undefined) {
         setDefinition({
@@ -112,7 +119,7 @@ export function RenderExportView({
       );
     }, 0);
     return () => clearTimeout(timer);
-  }, []);
+  }, [picture]);
 
   const def =
     definition && !("invalid" in definition) ? definition : null;
@@ -309,6 +316,10 @@ export function RenderExportView({
     const layers: RenderedLayer[] = [];
     const failures: string[] = [];
     const unsupported: string[] = [];
+    // What Fit would measure: each drawn layer under the dimensions it
+    // is drawn with. A tiled layer under live filters, the one extent Fit
+    // asks the server for, is unsupported here and never reaches it.
+    const extent: ExtentLayer[] = [];
     for (const l of visibleLayers) {
       const fetched = renders[l.id];
       if (!fetched || fetched.state === "loading") return null;
@@ -349,6 +360,7 @@ export function RenderExportView({
         );
         continue;
       }
+      extent.push({ id: l.id, visible: true, geojson: tiledUrl ? null : r.geojson, tiles: tiledUrl ? (r.tiles?.bounds ?? null) : null, dims });
       const gj = r.geojson as { features?: unknown[] } | null;
       const geojson =
         dims.length > 0 && gj?.features
@@ -388,10 +400,13 @@ export function RenderExportView({
     });
 
     const widgets = m.widgets.filter((w) => def.widgets.includes(w.id));
+    const scale = resolveMapScale(def);
+    const camera = renderCamera(frame, extent, { width: def.size.width / scale, height: def.size.height / scale }, def.viewport);
     return {
       layers,
       failures,
       unsupported,
+      camera,
       legendLayers,
       basemap: {
         key: m.basemap,
@@ -408,6 +423,7 @@ export function RenderExportView({
   }, [
     map,
     def,
+    frame,
     renders,
     visibleLayers,
     basemapOverrideUrl,
@@ -474,6 +490,7 @@ export function RenderExportView({
       ? JSON.stringify({
           map: map.value.id,
           unsupported: stage.unsupported,
+          camera: stage.camera,
           paintedStyle,
           requestedStyle: stage.basemap.url,
           layers: visibleLayers.map((l) => ({ id: l.id, filters: l.filters })),
@@ -523,7 +540,7 @@ export function RenderExportView({
           fallbackColor: BASEMAP_FALLBACKS[def.appearance],
           layers: stage.layers,
           liveFilters: null,
-          camera: def.viewport,
+          camera: stage.camera,
         })}
         onReadiness={setMapReady}
         onLegendPlacementReadiness={setLegendPlacementReady}

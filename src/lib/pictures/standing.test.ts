@@ -13,6 +13,7 @@ import { mintPictureCredential } from "./credential";
 import { getPictureState, requestPicture } from "./state";
 import { pictureTarget, publishPicture } from "./publication";
 import { NO_INPUTS } from "@/lib/query/evaluation-inputs";
+import { sizedPicture } from "@/lib/test-support/picture-sizes";
 isolatePictureData();
 beforeEach(() => { metadataDb().prepare("DELETE FROM maps").run(); });
 afterAll(closeMetadataDb);
@@ -53,7 +54,7 @@ it("deactivation preserves current pictures while invalidating pending work", as
   const current = createMap(scope, "Current"), pending = createMap(scope, "Pending");
   const target = pictureTarget(scope, current.id);
   const state = requestPicture(current.id, target.digest, Date.now());
-  await publishPicture(scope, target, state.requestedGeneration, { light: Buffer.from("light"), dark: Buffer.from("dark") }, NO_INPUTS);
+  await publishPicture(scope, target, state.requestedGeneration, { light: sizedPicture("light"), dark: sizedPicture("dark") }, NO_INPUTS);
   requestPicture(pending.id, "drawing", Date.now());
   const before = getPictureState(current.id), queued = getPictureState(pending.id)!;
   metadataDb().prepare("UPDATE accounts SET status = 'deactivated' WHERE id = ?").run(scope.accountId);

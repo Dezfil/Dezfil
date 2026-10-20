@@ -6891,6 +6891,7 @@
         "file:thumbnails"
       ],
       "roots": [
+        "thumbnails/*",
         "thumbnails/*.json"
       ]
     },
@@ -6990,6 +6991,24 @@
     "memory:src/lib/pictures/service.ts#PictureService.dataWork": {
       "stores": [
         "memory:picture-data"
+      ]
+    },
+    "memory:src/lib/pictures/shapes.ts#PICTURE_SHAPES": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/pictures/shapes.ts#WIDE_FRAME": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "location:src/lib/map-thumbnails.ts#readPublished:inDir": {
+      "stores": [
+        "file:thumbnails"
+      ],
+      "roots": [
+        "thumbnails/*"
       ]
     }
   },

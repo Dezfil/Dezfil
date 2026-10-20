@@ -64,7 +64,9 @@ it still holds its slot. Do not gracefully drain it: the event oracle rejects
 a render that finishes before the replacement process boots.
 
 The metrics preload records admission, physical slot release and successful
-publication, covering both appearances and reduction. The report keeps the raw events,
+publication, covering both picture shapes in both appearances, and reduction.
+One attempt admits a render per shape and appearance: two for a single, four
+for a pair. The report keeps the raw events,
 machine and runtime information, per-attempt timings, median and 90th
 percentile, and browser-process peak RSS sampled every 250 ms. The sample peak
 is not an instantaneous allocation maximum. Idle foreground export admission
@@ -128,7 +130,8 @@ check samples, one of each in every fifth of the pending publications. Before
 each request it waits for a background render in flight; a sample without
 overlap is refused. Every sample must meet its frozen limit, and every sample
 is retained in the report, including one that fails. Both runs require a saved
-camera change to reach a new picture within a minute for a single and a pair.
+turn of the map to reach a new picture within a minute for a single and a pair.
+A moved centre or zoom is no such change: the picture frames the data.
 Nonzero exit or `result: failed` is
 failure; keep its raw report. A passing unit fixture does not demonstrate
 renderer throughput. Stop the isolated instance and the loopback server and

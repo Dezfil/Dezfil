@@ -122,7 +122,12 @@ test.describe("clearing the conversation", () => {
 test.describe("what clearing does not do", () => {
   test("dispatches nothing, cancels nothing and abandons nothing the server holds", async ({ page }) => {
     const { mapId } = await seed(page);
+    // Made through the API, the map frames its data on its first opening
+    // and saves that view. The window opens only after that write, however
+    // long the layer takes to load.
+    const framed = page.waitForResponse((r) => r.request().method() === "PATCH" && new URL(r.url()).pathname === `/api/maps/${mapId}`, { timeout: 60_000 });
     await onBuilder(page, mapId);
+    expect((await framed).ok(), "the opening saved its framed view").toBe(true);
 
     // A turn that leaves the server something to hold: a settled run with
     // a receipt, and a product dispatch behind it.

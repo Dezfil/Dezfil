@@ -8,6 +8,8 @@ import { requestPicture } from "@/lib/pictures/state";
 import { publishPicture } from "@/lib/pictures/publication";
 import { collectPictureEvaluation, readAttemptInputs } from "@/lib/pictures/inputs";
 import { mintPictureCredential, revokePictureCredential } from "@/lib/pictures/credential";
+import type { PictureImages } from "@/lib/pictures/card";
+type Picture = Uint8Array | PictureImages;
 /** Fixture pixels, real evaluated inputs and the whole-set publication road.
  * A caller may hold the returned attempt across a mutation to prove refusal. */
 export async function preparePictureFixture(scope: AccountScope, mapId: string) {
@@ -19,9 +21,9 @@ export async function preparePictureFixture(scope: AccountScope, mapId: string) 
     const layers = target.map.layers.filter(layer => layer.visible);
     for (const layer of layers) await collectPictureEvaluation(work, layer.id, () => boundedEvaluation(async conn => { await conn.runAndReadAll(await namedSql(conn, layer.sql)); }, { scope: mapEvaluation(work, mapId) }));
     const inputs = readAttemptInputs(credential, layers.map(layer => layer.id));
-    return { target, state, inputs, publish: (light: Uint8Array, dark: Uint8Array = light) => publishPicture(scope, target, state.requestedGeneration, { light, ...(target.basemaps.dark ? { dark } : {}) }, inputs) };
+    return { target, state, inputs, publish: (light: Picture, dark: Picture = light) => publishPicture(scope, target, state.requestedGeneration, { light, ...(target.basemaps.dark ? { dark } : {}) }, inputs) };
   } finally { revokePictureCredential(credential); }
 }
-export async function publishPictureFixture(scope: AccountScope, mapId: string, light: Uint8Array, dark: Uint8Array = light) {
+export async function publishPictureFixture(scope: AccountScope, mapId: string, light: Picture, dark: Picture = light) {
   const fixture = await preparePictureFixture(scope, mapId); await fixture.publish(light, dark); return fixture;
 }

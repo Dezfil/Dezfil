@@ -1,13 +1,14 @@
 import { describe, expect, it } from "vitest";
 import type { MapWithLayers, Layer } from "@/lib/metadata/maps";
-import { drawingDigest, requestDrawing } from "./digest";
+import { drawingDigest, firstFormulaDigest, onCurrentFormula, requestDrawing } from "./digest";
 
 const layer = { id: "a", sql: "SELECT * FROM places", visible: true, style: { opacity: 1 }, viz: { type: "points" }, filters: [], ordinal: 0 } as unknown as Layer;
 const map = { viewport: { lng: 1, lat: 2, zoom: 3 }, basemap: null, customBasemap: null, basemapLayers: null, timeline: null, layers: [layer, { ...layer, id: "b", sql: "SELECT * FROM roads", ordinal: 1 }] } as unknown as MapWithLayers;
 const digest = (value = map, ground = ["light", "dark"], sketches = ["shape-file"]) => drawingDigest(value, ground, sketches);
 describe("drawing freshness", () => {
   it.each([
-    ["camera", (m: MapWithLayers) => { m.viewport.zoom++; }],
+    ["tilt", (m: MapWithLayers) => { m.viewport.pitch = 30; }],
+    ["rotation", (m: MapWithLayers) => { m.viewport.bearing = 45; }],
     ["basemap", (m: MapWithLayers) => { m.basemap = "dark"; }],
     ["custom style", (m: MapWithLayers) => { m.customBasemap = { url: "https://example.test/style", name: null, attribution: [] }; }],
     ["basemap groups", (m: MapWithLayers) => { m.basemapLayers = { labels: false }; }],
@@ -36,6 +37,17 @@ describe("drawing freshness", () => {
   });
   it("canonicalizes objects and camera defaults", () => {
     expect(digest({ ...map, viewport: { zoom: 3, lat: 2, lng: 1, pitch: 0, bearing: 0 } })).toBe(digest());
+  });
+  it("ignores the saved centre and zoom, which the picture no longer draws at", () => {
+    expect(digest({ ...map, viewport: { lng: -70, lat: 40, zoom: 9 } })).toBe(digest());
+  });
+  it("marks its formula, and recognises the first formula's digest as the earlier code wrote it", () => {
+    expect(onCurrentFormula(digest())).toBe(true);
+    // Written by the first formula for this map before the camera left it.
+    const first = "53d9623ff8fa2a7eb6a601ddc7272fee3d7cbb0c79ab1a579bab02d522685853";
+    expect(firstFormulaDigest(map, ["light", "dark"], ["shape-file"])).toBe(first);
+    expect(onCurrentFormula(first)).toBe(false);
+    expect(firstFormulaDigest({ ...map, viewport: { lng: -70, lat: 40, zoom: 9 } }, ["light", "dark"], ["shape-file"])).not.toBe(first);
   });
   it("keeps excluded edits out of generations and ordering; forced refresh advances only requested", () => {
     const first = requestDrawing(null, "a", 100);
