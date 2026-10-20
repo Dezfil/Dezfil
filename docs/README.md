@@ -63,8 +63,8 @@ Install, secure, configure and back up your own instance.
 
 - [Runbook](self-host/backup-and-restore.md)
   - path: `docs/self-host/backup-and-restore.md`
-  - summary: Recipes for the work around an instance: running it locally, backups, upgrades, account recovery, the checks and the outside probes.
-  - read when: you back up, restore or upgrade an instance; you recover an admin account; you run the checks, the browser suite or a probe on an instance of your own
+  - summary: Recipes for the work around an instance: its data directory, backups, upgrades, account recovery and deletion, and API clients without a browser.
+  - read when: you back up, restore or upgrade an instance; you recover an admin account; you finish deleting an account, or drive the API from a shell script
   - audience: operator, developer
 
 - [Self-hosting](self-host/what-leaves-the-instance.md)

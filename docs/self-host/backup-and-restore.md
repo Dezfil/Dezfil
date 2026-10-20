@@ -1,10 +1,10 @@
 ---
 title: "Runbook"
-summary: "Recipes for the work around an instance: running it locally, backups, upgrades, account recovery, the checks and the outside probes."
+summary: "Recipes for the work around an instance: its data directory, backups, upgrades, account recovery and deletion, and API clients without a browser."
 read_when:
   - "you back up, restore or upgrade an instance"
   - "you recover an admin account"
-  - "you run the checks, the browser suite or a probe on an instance of your own"
+  - "you finish deleting an account, or drive the API from a shell script"
 audience:
   - operator
   - developer

@@ -10,8 +10,9 @@ constraints that hold across every change. Before you touch a page under
 [docs/README.md](docs/README.md): every page with its summary and the
 situations it is written for. What the product does is in
 [README.md](README.md), how to run it in
-[docs/start/install.md](docs/start/install.md); operational recipes live in
-[docs/self-host/backup-and-restore.md](docs/self-host/backup-and-restore.md).
+[docs/start/install.md](docs/start/install.md), and how to run the checks,
+the tests and the instances they need in
+[docs/contribute/development-setup.md](docs/contribute/development-setup.md).
 
 ## The product
 
