@@ -5,7 +5,9 @@ import { encodePng } from "../src/lib/export/png-codec";
 export const PICTURE_GROUND = [245, 240, 230] as const;
 export const PICTURE_LAND = [100, 40, 150] as const;
 /** Real style and tile responses. Run beside the isolated renderer with
- * DEZFIL_EGRESS_ALLOWLIST=127.0.0.1; no browser interception is involved. */
+ * DEZFIL_EGRESS_ALLOWLIST=127.0.0.1; no browser interception is involved.
+ * `/box.json?w=&s=&e=&n=` draws the ground with one land box at those
+ * coordinates, so a picture's camera can be read back from its pixels. */
 export async function pictureBasemap() {
   let origin = "", styles = 0, tiles = 0, held = 0, closed = 0;
   const tile = encodePng({ width: 1, height: 1, rgba: new Uint8Array([...PICTURE_LAND, 255]) });
@@ -17,7 +19,19 @@ export async function pictureBasemap() {
       response.on("close", () => { closed++; });
       return; // Accept the request but send neither headers nor bytes.
     }
-    if (request.url?.endsWith(".json")) {
+    const address = new URL(request.url ?? "/", "http://fixture");
+    if (address.pathname === "/box.json") {
+      styles++;
+      const [w, s, e, n] = ["w", "s", "e", "n"].map(key => Number(address.searchParams.get(key)));
+      response.setHeader("content-type", "application/json");
+      response.end(JSON.stringify({ version: 8,
+        sources: { box: { type: "geojson", data: { type: "Feature", properties: {}, geometry: { type: "Polygon", coordinates: [[[w, s], [e, s], [e, n], [w, n], [w, s]]] } } } },
+        layers: [
+          { id: "ground", type: "background", paint: { "background-color": `rgb(${PICTURE_GROUND.join(",")})` } },
+          { id: "box", type: "fill", source: "box", paint: { "fill-color": `rgb(${PICTURE_LAND.join(",")})`, "fill-antialias": false } },
+        ],
+      }));
+    } else if (request.url?.endsWith(".json")) {
       styles++;
       const land = request.url === "/land.json" || request.url === "/stall.json";
       const tileUrl = request.url === "/stall.json" ? `${origin}/stall/{z}/{x}/{y}.png` : `${origin}/tile.png`;

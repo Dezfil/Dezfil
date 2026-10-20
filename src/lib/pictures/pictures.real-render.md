@@ -30,8 +30,9 @@ fnm exec --using=24 npm test -- src/lib/pictures/pictures.real-render.test.ts --
 ```
 
 Remove that test process's scratch directory after the run. The instance has
-its own independent scratch directory. The test checks all three computed
-mark positions at 692 by 296 in both appearances on each creation road,
+its own independent scratch directory. The test checks all three mark
+positions at 692 by 296, computed from the coordinates by Fit's rule inside
+the card's margin, in both appearances on each creation road,
 then drawing changes, unsupported tiled live filters, a layer that fails
 after save admission, an unreachable basemap and an abandoned outside request.
 The pixel oracle's
@@ -52,14 +53,40 @@ DEZFIL_PICTURE_EXPECT_NONE=1 fnm exec --using=24 npm test -- src/lib/pictures/pi
 This control observes missing pictures for three quiet periods without calling
 the picture refresh API. Remove its test scratch directory after the run.
 
-The independent framing proof opens the real builder at 1440 by 900, flat
-and pitched. It measures its visible 988 by 824 map window and compares mark
-offsets around the saved centre against the card after reduction, within four
-pixels. It attaches both images and the numeric errors. Keep loopback style
-requests allowed in the isolated instance's egress policy.
+The framing proof runs on the same instance and token. It frames fixture
+maps in both shapes and works out each mark's place from its coordinates and
+the shape's frame and margin, never from the renderer's camera: flat data
+against the margin on the side that limits it, the saved tilt and rotation
+(each re-rendered flat and north up as its control), a single point at Fit's
+closest zoom read from a land box of known size, a filter and a timeline
+window framing only what they leave, an empty map showing the world, and
+every kept size decoded at its own pixel size. The arithmetic itself is held
+against deck.gl's fit in `src/lib/pictures/real-proof-controls.test.ts`.
 
 ```sh
-DEZFIL_BASE_URL=http://127.0.0.1:3581 npx playwright test e2e/picture-framing.spec.ts --project=chromium
+fnm exec --using=24 npm test -- src/lib/pictures/framing.real-render.test.ts --maxWorkers=1
+```
+
+The encoding proof needs no instance, only the headless shell. It makes every
+kept size in the renderer's own browser, decodes each at its size and format,
+holds a hard edge's rise within two pixels against a softened master that
+fails it, and fails the render when the browser answers another format.
+
+```sh
+DEZFIL_CHROMIUM_PATH=/path/to/chrome-headless-shell fnm exec --using=24 npm test -- src/lib/export/picture-encode.real-render.test.ts --maxWorkers=1
+```
+
+The sharpness proof drives every card host in a browser on that instance: at
+one, two and three screen pixels per point, at widths on both sides of every
+layout and shape switch it finds by sweeping each page, after a resize and a
+browser zoom, it checks the shape, the size offered and taken, and a straight
+edge's rise within two screen pixels, with a 692 pixel picture enlarged in
+place as the failing control. It also checks that a page opened again is
+answered 304 for every picture, and that a reader who lost reach and another
+account on the same browser are refused a picture they held. Run it alone.
+
+```sh
+DEZFIL_BASE_URL=http://127.0.0.1:3581 npx playwright test e2e/picture-sharpness.spec.ts --project=chromium --workers=1
 ```
 
 Use the style fixture only on the migrated theme suite's instance. Keep it off

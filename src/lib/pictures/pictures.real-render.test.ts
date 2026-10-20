@@ -2,7 +2,7 @@ import { buildTools } from "@/lib/tools/tools";
 import { executeTool } from "@/lib/tools/execute";
 import { readFile } from "node:fs/promises";
 import { closedPictureAddress, pictureBasemap, PICTURE_GROUND, PICTURE_LAND } from "../../../test-support/picture-basemap";
-import { assertPicturePatch, pictureMarkPosition, assertPictureMarks } from "../../../test-support/picture-pixels";
+import { assertPicturePatch, pictureMarkPosition, pictureMarkScale, assertPictureMarks } from "../../../test-support/picture-pixels";
 import { afterAll, describe, expect, it } from "vitest";
 import { pictureProofClient } from "../../../test-support/pictures-http";
 import { colourCentre, PICTURE_CAMERA, PICTURE_MARKS, pictureMarkSql } from "../../../test-support/picture-pixels";
@@ -71,9 +71,10 @@ describe.skipIf(!base)("server picture road", () => {
       } }, map.id);
       const definitions = pictureMarkSql();
       const layers: { id: string }[] = [];
-      for (const definition of definitions) layers.push(await api.json("POST", `/api/maps/${map.id}/layers`, {
+      // The marks carry the fields the changes filter on; the anchors' layer never changes.
+      for (const [i, definition] of definitions.entries()) layers.push(await api.json("POST", `/api/maps/${map.id}/layers`, i < PICTURE_MARKS.length ? {
         ...definition, sql: definition.sql + ", 1 AS value, TIMESTAMP '2026-01-01' AS time",
-      }, map.id));
+      } : definition, map.id));
       const patchLayer = (index: number, body: object) => api.json("PATCH", `/api/layers/${layers[index].id}`, body, map.id);
       if (change === "timeline window") {
         await patchLayer(1, { filters: [{ kind: "timerange", field: "time", min: "2025-01-01", max: "2028-01-01" }] });
@@ -103,9 +104,10 @@ describe.skipIf(!base)("server picture road", () => {
         const world = 512 * 2 ** PICTURE_CAMERA.zoom, metresPerPixel = 2 * Math.PI * 6378137 / world;
         const east = PICTURE_CAMERA.lng * Math.PI / 180 * 6378137 + mark.dx * metresPerPixel;
         const north = -mark.dy * metresPerPixel;
-        const left = position.x + (Math.floor(east / 5000) * 5000 - east) / metresPerPixel * 692 / 990;
-        const top = position.y - (Math.floor(north / 5000) * 5000 + 5000 - north) / metresPerPixel * 296 / 424;
-        const width = 5000 / metresPerPixel * 692 / 990, height = 5000 / metresPerPixel * 296 / 424;
+        const scale = pictureMarkScale();
+        const left = position.x + (Math.floor(east / 5000) * 5000 - east) / metresPerPixel * scale;
+        const top = position.y - (Math.floor(north / 5000) * 5000 + 5000 - north) / metresPerPixel * scale;
+        const width = 5000 / metresPerPixel * scale, height = 5000 / metresPerPixel * scale;
         for (const x of [left + 5, left + width - 5]) for (const y of [top + 5, top + height - 5]) {
           assertPicturePatch(original, x, y, PICTURE_GROUND);
           assertPicturePatch(changed, x, y, mark.colour);
@@ -157,10 +159,10 @@ describe.skipIf(!base)("server picture road", () => {
     for (const theme of ["light", "dark"]) {
       bytes[theme] = Buffer.from(await (await api.request("GET", `/api/maps/${map.id}/thumbnail?theme=${theme}&v=${ready.pictureVersion}`)).arrayBuffer());
       for (const mark of PICTURE_MARKS) {
-        const measured = colourCentre(bytes[theme], mark.colour);
+        const measured = colourCentre(bytes[theme], mark.colour), expected = pictureMarkPosition(mark);
         expect([measured.width, measured.height]).toEqual([692, 296]);
-        expect(Math.abs(measured.x - (495 + mark.dx) * 692 / 990)).toBeLessThan(2);
-        expect(Math.abs(measured.y - (212 + mark.dy) * 296 / 424)).toBeLessThan(2);
+        expect(Math.abs(measured.x - expected.x)).toBeLessThan(2);
+        expect(Math.abs(measured.y - expected.y)).toBeLessThan(2);
       }
     }
     expect(bytes.light.equals(bytes.dark)).toBe(false);

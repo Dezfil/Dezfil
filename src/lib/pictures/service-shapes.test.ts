@@ -5,6 +5,7 @@ import { afterAll, expect, it, vi } from "vitest";
  * the definition's size and every kept size in its format, under a
  * complete declaration; every call is recorded. */
 const calls = vi.hoisted(() => [] as { appearance: string; size: { width: number; height: number }; mapScale?: number; sizes: { width: number; type: string }[]; padding: unknown }[]);
+const encoding = vi.hoisted(() => ({ failWide: false }));
 vi.mock("@/lib/export/render-image", async () => {
   const { captureBasemap } = await import("@/lib/thumbnail-evidence");
   const header = (width: number, height: number) => {
@@ -22,6 +23,8 @@ vi.mock("@/lib/export/render-image", async () => {
   return {
     renderMapImage: async (_scope: unknown, input: { mapId: string; definition: { appearance: "light" | "dark"; size: { width: number; height: number }; mapScale?: number }; picture: { frame: { padding: unknown }; sizes: { width: number; height: number; type: string }[] }; admitted?: () => void }) => {
       input.admitted?.();
+      // The wide master is the one 3312 pixels wide.
+      if (encoding.failWide && input.picture.sizes.some(s => s.width === 3312)) throw new Error("The picture could not be encoded: the browser answered image/png.");
       calls.push({ appearance: input.definition.appearance, size: input.definition.size, mapScale: input.definition.mapScale, sizes: input.picture.sizes.map((s) => ({ width: s.width, type: s.type })), padding: input.picture.frame.padding });
       const style = captureBasemap(input.mapId, input.definition.appearance)!.url;
       return {
@@ -79,4 +82,20 @@ it("renders a pending retry still on the digest's first formula at its own gener
   now += 1; service.queue.tick(); await service.queue.drain();
   expect(calls.length).toBe(before + 4);
   expect(getPictureState(map.id)).toMatchObject({ state: "current", digest: target.digest, requestedGeneration: state.requestedGeneration, publishedGeneration: state.requestedGeneration });
+});
+
+it("publishes nothing when one shape's sizes cannot be encoded, and keeps the previous picture", async () => {
+  const scope = testAccountScope(), map = createMap(scope, "Encoding fails");
+  let now = Date.now();
+  const service = new PictureService({ baseUrl: "http://fixture.test", available: () => true, now: () => now });
+  await service.request(map.id); now += 5000; service.queue.tick(); await service.queue.drain();
+  const previous = getPictureState(map.id)!;
+  const served = (await readPicture(scope, map.id, "light", { shape: "card", width: 720 }))?.bytes;
+  expect(previous.state).toBe("current");
+  encoding.failWide = true;
+  try {
+    await service.refresh(map.id); now += 5000; service.queue.tick(); await service.queue.drain();
+  } finally { encoding.failWide = false; }
+  expect(getPictureState(map.id)).toMatchObject({ state: "failed", publishedGeneration: previous.publishedGeneration });
+  expect((await readPicture(scope, map.id, "light", { shape: "card", width: 720 }))?.bytes).toEqual(served);
 });
