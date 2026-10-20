@@ -126,8 +126,8 @@ A node's tile wears a small badge for most states. Point at a tile for its state
 
 | The panel says | What it means | What to do |
 |---|---|---|
-| **Edited. Run to apply.** | You changed a node that has run. Its dataset still holds the last run. | Run it, or click **Discard edit**. |
-| **Stale.** | A dataset it reads has new data, or the node it reads from ran again. The panel names which. | Run it again. |
+| **Edited. Run to apply.** | You changed a node that has made a dataset. Its dataset still holds the last run. | Run it, or click **Discard edit**. |
+| **Stale.** | A dataset it reads has new data, or the node it reads from ran again or is itself stale. The panel names which. | Run it again. When the node it reads from is itself stale, click **Run from here** on that node, or **Run all**. |
 | **The last run failed.** | The run stopped on the error shown under it. Any dataset from an earlier run stands. | Fix what the error names and run it again. |
 | **Cannot run.** | A dataset it reads is gone, or comes from a node that cannot run. | Link another input, or bring the dataset back. |
 | **Output deleted.** | The dataset this node made was deleted. | Run it again to make it. |
