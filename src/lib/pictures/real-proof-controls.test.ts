@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { assertPictureMarks, colourCentre, PICTURE_MARKS, pictureMarkSql } from "../../../test-support/picture-pixels";
+import { assertPicturePatch, assertPictureMarks, colourCentre, PICTURE_MARKS, pictureMarkSql } from "../../../test-support/picture-pixels";
 import { pictureProofClient } from "../../../test-support/pictures-http";
 import { encodePng } from "@/lib/export/png-codec";
 it("the transport-only seed cannot satisfy a mark proof", () => {
@@ -26,4 +26,12 @@ it("the mark oracle rejects a seeded displaced mark as well as a blank picture",
 });
 it("the never-opened client accepts a separately provisioned remote instance", () => {
   expect(() => pictureProofClient("https://pictures.example.test", "fixture")).not.toThrow();
+});
+
+it("a seeded unchanged colour cannot pass the drawing-change patch oracle", () => {
+  const rgba = new Uint8Array(692 * 296 * 4);
+  for (let offset = 0; offset < rgba.length; offset += 4) rgba.set([180, 25, 160, 255], offset);
+  const changed = encodePng({ width: 692, height: 296, rgba });
+  expect(() => assertPicturePatch(changed, 100, 100, [233, 90, 45])).toThrow("colour missing");
+  expect(() => assertPicturePatch(changed, 100, 100, [180, 25, 160])).not.toThrow();
 });

@@ -37,3 +37,17 @@ export function assertPictureMarks(bytes: Uint8Array) {
     assert.ok(Math.abs(measured.y - (212 + mark.dy) * 296 / 424) < 2, "Mark latitude differs from the saved view");
   }
 }
+
+export function pictureMarkPosition(mark: { dx: number; dy: number }) {
+  return { x: (495 + mark.dx) * 692 / 990, y: (212 + mark.dy) * 296 / 424 };
+}
+/** Check a small interior patch so missing marks cannot pass by changing
+ * unrelated pixels elsewhere in the picture. */
+export function assertPicturePatch(bytes: Uint8Array, x: number, y: number, colour: readonly number[]) {
+  const image = decodePng(bytes);
+  assert.deepEqual([image.width, image.height], [692, 296]);
+  for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+    const offset = (Math.floor(y) + dy) * image.width * 4 + (Math.floor(x) + dx) * 4;
+    assert.ok(colour.every((value, channel) => Math.abs(image.rgba[offset + channel] - value) < 18), "Expected colour missing at the computed patch");
+  }
+}

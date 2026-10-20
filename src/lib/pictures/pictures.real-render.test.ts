@@ -1,6 +1,7 @@
 import { buildTools } from "@/lib/tools/tools";
 import { executeTool } from "@/lib/tools/execute";
-import { assertPictureMarks } from "../../../test-support/picture-pixels";
+import { pictureBasemap, PICTURE_GROUND, PICTURE_LAND } from "../../../test-support/picture-basemap";
+import { assertPicturePatch, pictureMarkPosition, assertPictureMarks } from "../../../test-support/picture-pixels";
 import { afterAll, describe, expect, it } from "vitest";
 import { pictureProofClient } from "../../../test-support/pictures-http";
 import { colourCentre, PICTURE_CAMERA, PICTURE_MARKS, pictureMarkSql } from "../../../test-support/picture-pixels";
@@ -56,6 +57,62 @@ describe.skipIf(!base)("server picture road", () => {
     }));
     expect(pictures[0].equals(pictures[1])).toBe(false);
   }, 240000);
+  it.skipIf(process.env.DEZFIL_PICTURE_EXPECT_NONE === "1").each(["colour", "filter", "visualization", "timeline window", "basemap toggle", "hidden layer"])("drawing change appears in pixels: %s", async change => {
+    const ground = await pictureBasemap();
+    try {
+      const map = await api.json<{ id: string }>("POST", "/api/maps", { name: `Pixels: ${change}` }); maps.push(map.id);
+      await api.json("PATCH", `/api/maps/${map.id}`, { viewport: PICTURE_CAMERA, customBasemap: {
+        url: `${ground.origin}/${change === "basemap toggle" ? "land" : "plain"}.json`, name: "Pixel fixture", attribution: [{ label: "Fixture" }],
+      } }, map.id);
+      const definitions = pictureMarkSql();
+      const layers: { id: string }[] = [];
+      for (const definition of definitions) layers.push(await api.json("POST", `/api/maps/${map.id}/layers`, {
+        ...definition, sql: definition.sql + ", 1 AS value, TIMESTAMP '2026-01-01' AS time",
+      }, map.id));
+      const patchLayer = (index: number, body: object) => api.json("PATCH", `/api/layers/${layers[index].id}`, body, map.id);
+      if (change === "timeline window") {
+        await patchLayer(1, { filters: [{ kind: "timerange", field: "time", min: "2025-01-01", max: "2028-01-01" }] });
+        await api.json("PATCH", `/api/maps/${map.id}`, { timeline: { layerId: layers[1].id, field: "time", speed: 1 } }, map.id);
+      }
+      const picture = async (version: string | null) => Buffer.from(await (await api.request("GET", `/api/maps/${map.id}/thumbnail?v=${version}`)).arrayBuffer());
+      const before = await api.picture(map.id), original = await picture(before.pictureVersion);
+      assertPictureMarks(original);
+      const index = change === "timeline window" ? 1 : change === "visualization" || change === "hidden layer" ? 2 : 0;
+      const mark = PICTURE_MARKS[index], position = pictureMarkPosition(mark);
+      const replacement = [180, 25, 160] as const;
+      if (change === "colour") await patchLayer(index, { style: { ...definitions[index].style, fill: { type: "constant", color: { r: replacement[0], g: replacement[1], b: replacement[2], a: 1 } } } });
+      if (change === "filter") await patchLayer(index, { filters: [{ kind: "range", field: "value", min: 2, max: null }] });
+      if (change === "timeline window") await patchLayer(index, { filters: [{ kind: "timerange", field: "time", min: "2027-01-01", max: "2028-01-01" }] });
+      if (change === "hidden layer") await patchLayer(index, { visible: false });
+      if (change === "visualization") await patchLayer(index, { viz: { type: "grid", cellKm: 5, aggregate: { fn: "count" }, fill: definitions[index].style.fill } });
+      if (change === "basemap toggle") {
+        assertPicturePatch(original, 30, 30, PICTURE_LAND);
+        expect(ground.traffic().tiles).toBeGreaterThan(0);
+        await api.json("PATCH", `/api/maps/${map.id}`, { basemapLayers: { land: false } }, map.id);
+      }
+      const after = await api.picture(map.id, "current", before.pictureVersion), changed = await picture(after.pictureVersion);
+      expect(changed.equals(original)).toBe(false);
+      if (change === "visualization") {
+        // Independently locate the 5 km Mercator square and inspect its
+        // four inset corners, outside the original ten-pixel point.
+        const world = 512 * 2 ** PICTURE_CAMERA.zoom, metresPerPixel = 2 * Math.PI * 6378137 / world;
+        const east = PICTURE_CAMERA.lng * Math.PI / 180 * 6378137 + mark.dx * metresPerPixel;
+        const north = -mark.dy * metresPerPixel;
+        const left = position.x + (Math.floor(east / 5000) * 5000 - east) / metresPerPixel * 692 / 990;
+        const top = position.y - (Math.floor(north / 5000) * 5000 + 5000 - north) / metresPerPixel * 296 / 424;
+        const width = 5000 / metresPerPixel * 692 / 990, height = 5000 / metresPerPixel * 296 / 424;
+        for (const x of [left + 5, left + width - 5]) for (const y of [top + 5, top + height - 5]) {
+          assertPicturePatch(original, x, y, PICTURE_GROUND);
+          assertPicturePatch(changed, x, y, mark.colour);
+        }
+      } else if (change === "basemap toggle") assertPicturePatch(changed, 30, 30, PICTURE_GROUND);
+      else assertPicturePatch(changed, position.x, position.y, change === "colour" ? replacement : PICTURE_GROUND);
+      // A failed/blank render cannot satisfy the disappearance assertions.
+      for (const [i, untouched] of PICTURE_MARKS.entries()) if (i !== index || change === "basemap toggle") {
+        const p = pictureMarkPosition(untouched); assertPicturePatch(changed, p.x, p.y, untouched.colour);
+      }
+    } finally { await ground.close(); }
+  }, 300000);
   it.skipIf(process.env.DEZFIL_PICTURE_EXPECT_NONE === "1")("pictures an unopened saved map at the documented size in both appearances, and keeps it through failed and unsupported attempts", async () => {
     const map = await api.json<{ id: string }>("POST", "/api/maps", { name: "Picture proof" }); maps.push(map.id);
     await api.json("PATCH", `/api/maps/${map.id}`, { viewport: PICTURE_CAMERA, basemap: null }, map.id);
