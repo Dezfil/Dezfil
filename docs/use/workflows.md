@@ -13,7 +13,7 @@ checked: none
 order: 5
 ---
 
-![The workflow canvas after a run: the world_cities source linked to a Filter rows node and an Assign H3 cells node, each node with its check mark, the Sources and Tools pane on the left and Run all at the top right](../images/use/workflows-canvas.webp)
+![The workflow canvas after a run: the world_cities source linked to a Filter rows node, which feeds an Assign H3 cells node, each node with its check mark, the Sources and Tools pane on the left and Run all at the top right](../images/use/workflows-canvas.webp)
 
 A workflow is a chain of tools on a canvas. Each tool is a node that reads a dataset and writes a new one, and a run carries the nodes in order.
 
@@ -43,15 +43,15 @@ For a dataset that is not in the list yet, click **Add data** at the foot of the
 2. Open **Tools** in the pane.
 3. Click **Filter rows**.
 
-You should see a **Filter rows** tile beside the source, linked to it, with the name of the dataset it will write under it: `world_cities_filter_rows`.
+You should see a **Filter rows** tile beside the source, linked to it. Under it stands the dataset it will write, `world_cities_filter_rows`, its name cut short to fit.
 
 A tool you add while a tile is selected reads that tile's dataset, when it can.
 
-To link two tiles yourself, drag from the port on the right of one tile to an input port on the left of another. You should see **Linked world_cities into Rows to filter.** at the foot of the canvas.
+To link two tiles yourself, drag from the port on the right of one tile to an input port on the left of another. A line at the foot of the canvas names the link, such as **Linked world_cities into Rows to filter.**
 
 ## 4. Set the tool
 
-Click the **Filter rows** tile. Its panel opens beside the canvas.
+Click the **Filter rows** tile. Its panel opens at the right of the canvas.
 
 1. Under **Parameters**, set **Field** to **population**.
 2. Set **Comparison** to **greater_than**.
@@ -70,7 +70,7 @@ Every change saves as you make it. **Dataset name** under **Output** is the name
 3. Set **Resolution** to `3`.
 4. Turn on **Boundary**.
 
-You should see a third tile, `world_cities_filter_rows_h3_cell`, linked to the filter. Its panel says **The preview comes after world_cities_filter_rows is produced.** A node can read a result that is not made yet.
+You should see an **Assign H3 cells** tile linked to the filter, writing `world_cities_filter_rows_h3_cell`. Its panel says **The preview comes after world_cities_filter_rows is produced.** A node can read a result that is not made yet.
 
 **Boundary** draws each city as the hexagon of the H3 cell it falls in. A low **Resolution** makes large cells.
 
