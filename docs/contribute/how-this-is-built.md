@@ -108,7 +108,9 @@ The browser suite is outside the pipeline. When only a browser can judge your ch
 
 ## 4. Open a pull request
 
-Push the branch and open a pull request against `main`. Its description starts from the project's [template](../../.github/PULL_REQUEST_TEMPLATE.md):
+Push the branch to your fork of the repository, or to the repository itself if you can push there, and open a pull request against `main`. With the GitHub CLI, `gh pr create --base main` offers to fork and push for you.
+
+The description starts from the project's [template](../../.github/PULL_REQUEST_TEMPLATE.md):
 
 | Section | What you write |
 |---|---|
@@ -118,7 +120,7 @@ Push the branch and open a pull request against `main`. Its description starts f
 | For a reviewer | A trade-off you made, a place you were unsure, a behavior only a browser shows, and a screenshot if the interface changed |
 | Before you open this | The sign-off, Conventional Commits, borrowed code in NOTICE, and docs that match what ships |
 
-You should see the `checks`, `secrets` and `commits` jobs start on the pull request.
+You should see the `checks`, `secrets` and `commits` jobs start on the pull request. On a first pull request from a fork, they may wait until a maintainer approves the run.
 
 Under How it was checked, name each command you ran and read the output of, and say plainly what you did not run.
 
