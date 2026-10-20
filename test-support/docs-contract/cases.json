@@ -1847,6 +1847,25 @@
         "docs/about/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you raise DEZFIL_UPLOAD_MAX_MB\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nThe largest upload, by variable:\n\n<!-- upload-settings:start -->\n| Variable | Default |\n|---|---|\n| `DEZFIL_UPLOAD_MAX_MB` | 1024 |\n<!-- upload-settings:end -->\n"
       },
       "problems": []
+    },
+    {
+      "scope": "product",
+      "name": "a check command in a code block inside a notice and in one that opens on a list item's line, each named at its own line",
+      "files": {
+        "docs/self-host/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you check the writing rules\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nRun the server.\n\n> [!NOTE]\n> Before you stop it, run:\n>\n> ```sh title=\"Terminal\"\n> npm test\n> ```\n\n- ```sh title=\"Terminal\"\n  npm run lint\n  ```\n"
+      },
+      "problems": [
+        {
+          "file": "docs/self-host/case.md",
+          "rule": "writing.check-command",
+          "line": 19
+        },
+        {
+          "file": "docs/self-host/case.md",
+          "rule": "writing.check-command",
+          "line": 23
+        }
+      ]
     }
   ],
   "order": [

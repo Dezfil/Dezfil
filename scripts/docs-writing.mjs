@@ -415,12 +415,15 @@ function texts(read, keep) {
 }
 
 /** Each line of each code block outside generated regions, with its file
- * line. */
+ * line. A fenced block's content starts on the line after its fence; the
+ * fence is read where the block starts, past the markers of the notice or
+ * list item that holds it. */
 function codeLines(read) {
   const found = [];
   walk(read.tree, (node) => {
     if (node.type !== "code" || read.generated(node)) return;
-    const fenced = /^\s*(?:`{3,}|~{3,})/.test(read.lines[node.position.start.line - 1] ?? "");
+    const { line, column } = node.position.start;
+    const fenced = /^(?:`{3,}|~{3,})/.test((read.lines[line - 1] ?? "").slice(column - 1));
     node.value.split("\n").forEach((text, i) => found.push({ text, line: read.at(node) + (fenced ? 1 : 0) + i }));
   });
   return found;
