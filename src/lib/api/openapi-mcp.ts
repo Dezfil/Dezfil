@@ -118,6 +118,10 @@ export const MCP_PATHS = {
             "200": {
               description:
                 "JSON-RPC response, as application/json or text/event-stream.",
+              content: {
+                "application/json": { schema: { type: "object", description: "A JSON-RPC 2.0 MCP response." } },
+                "text/event-stream": { schema: { type: "string", description: "The JSON-RPC 2.0 MCP response as server-sent events." } },
+              },
             },
           },
         }),

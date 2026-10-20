@@ -49,6 +49,9 @@ export function op(config: {
   const bound = (config.requestBody as { "x-byte-limit"?: number } | undefined)?.["x-byte-limit"];
   const code = (config.requestBody as { "x-byte-error"?: string } | undefined)?.["x-byte-error"] ?? "request_body_too_large";
   const admission = bound && !config.description?.includes(`At most ${bound.toLocaleString("en-US")} wire bytes`) ? `At most ${bound.toLocaleString("en-US")} wire bytes; a larger body is refused with \`${code}\` before JSON parsing. ` : "";
+  // A body with a byte limit states the code a larger one is refused with,
+  // the shared one included, so a reader never has to know the default.
+  const requestBody = bound ? { ...config.requestBody as object, "x-byte-error": code } : config.requestBody;
   return {
     summary: config.summary,
     description: admission + (config.description ?? ""),
@@ -63,7 +66,7 @@ export function op(config: {
     ...(config.relevance ? { "x-relevance": config.relevance } : {}),
     ...(config.confirm ? { "x-confirm": config.confirm } : {}),
     ...(config.parameters ? { parameters: config.parameters } : {}),
-    ...(config.requestBody ? { requestBody: config.requestBody } : {}),
+    ...(requestBody ? { requestBody } : {}),
     responses: { ...config.responses, ...(bound ? { "413": ERROR_RESPONSE } : {}), default: ERROR_RESPONSE },
   };
 }

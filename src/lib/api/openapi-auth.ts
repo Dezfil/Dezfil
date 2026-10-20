@@ -16,8 +16,12 @@ export const AUTHENTICATION_BUSY_RESPONSE = { ...ERROR_RESPONSE, description: "i
 export const DERIVATION_ADMISSION = " Password derivations share two active slots and at most eight waiters: six ordinary and two reserved protected, each waiting at most five seconds. FIFO within each class; validated links and signed-in current-password work are protected, including the second password-change derivation. Protected work takes the next free slot but at most one active slot, even with ordinary slots idle. Ordinary work may use both; running work is never pre-empted. A fourth simultaneous protected caller is refused at once and may retry immediately without a login lockout; the busy response advises a one-second retry. Known and unknown sign-ins are ordinary. Overflow or deadline answers authentication_busy. Cancellation removes waiters; native work owns its slot until it settles. Recovery issuance derives nothing.";
 const success = { "413": ERROR_RESPONSE, "200": jsonOk("#/components/schemas/AccountSession"), "400": ERROR_RESPONSE, "401": ERROR_RESPONSE, "403": ERROR_RESPONSE, "409": ERROR_RESPONSE, "503": AUTHENTICATION_BUSY_RESPONSE };
 const entry = "Cookie mutations and entry submissions require an Origin matching the trusted request origin. Explicit bearer authentication does not use cookies. Responses are private, no-store. ";
+/** The Origin an entry submission must carry: without it, or with another,
+ * the submission is refused with forbidden before anything is read. */
+const ORIGIN_PARAMETER = { name: "Origin", in: "header", required: true, schema: { type: "string" },
+  description: "The address the instance is opened at, its scheme, host and port, such as http://localhost:3000. Missing or another origin: 403 forbidden." };
 const mutation = (summary: string, description: string, properties: Record<string, unknown>) => ({ ...op({ summary, description: entry + description + DERIVATION_ADMISSION, tag: "Accounts", tool: false,
-  effects: writes(resource("accounts")), requestBody: body(properties), responses: success }), security: [] });
+  effects: writes(resource("accounts")), parameters: [ORIGIN_PARAMETER], requestBody: body(properties), responses: success }), security: [] });
 export const AUTH_PATHS = {
   "/api/auth/entry": { get: { ...op({ summary: "Authentication entry information", tag: "Accounts", tool: false, effects: READ_ONLY,
     description: "The instance name, sign-in message, lost-password contact, landing page, the shortest password a password chosen on these screens needs, and setup availability. The landing page value does not change navigation. Before setup, the legacy display name may prefill Name. Never returns a signed-in person's identity or account preferences. Private, no-store.",
