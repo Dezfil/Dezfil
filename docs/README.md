@@ -33,6 +33,12 @@ What Dezfil is, how to install it, and your first map.
 
 Do things in the app: data, maps, SQL, workflows and sharing.
 
+- [Import data](use/import-data.md)
+  - path: `docs/use/import-data.md`
+  - summary: Upload files, import from a link, Overture Maps or OpenStreetMap, and take snapshots of PostGIS tables.
+  - read when: you want to upload a CSV, GeoJSON, Shapefile, GeoPackage, KML or GeoParquet file, or know which formats Dezfil reads; your CSV uploaded but shows no points, or its coordinate columns were not found; you want to import a file from a web address or a cloud storage bucket; you want places, buildings, roads or boundaries from Overture Maps or OpenStreetMap; you want to import the tables of a PostGIS database, or fetch an imported dataset again from its source
+  - audience: user
+
 - [Templates](use/templates.md)
   - path: `docs/use/templates.md`
   - summary: The finished maps and workflow examples an instance offers: what a card shows, opening one read only, and making a copy of your own.

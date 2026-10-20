@@ -100,7 +100,7 @@ Dezfil uploads the file and stores it as a table. It reads the `latitude` and `l
 You should see 48 points on the map, a layer card named **world_cities** with **48 features**, and for a few seconds the notice **Added world_cities to this map**.
 
 > [!NOTE]
-> If the coordinate columns of your own file have other names and its rows do not become points, see [Troubleshooting](#troubleshooting).
+> The column names Dezfil reads as coordinates are listed under [CSV columns](../use/import-data.md#csv-columns). If your own file's columns are not read, see [Troubleshooting](#troubleshooting).
 
 ## 5. Color the cities by population
 

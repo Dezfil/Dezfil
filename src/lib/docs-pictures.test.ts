@@ -155,12 +155,22 @@ describe("the scene list", () => {
   });
 
   it("takes the first map's scenes after every seeded scene, so no seeded picture shows the first map", () => {
-    expect(STATES).toEqual(["fresh", "seeded", "first-map"]);
+    expect(STATES).toEqual(["fresh", "seeded", "first-map", "use-maps"]);
     const firstMap = scenes.filter((s) => s.state === "first-map");
     expect(firstMap.length).toBeGreaterThan(0);
     for (const scene of firstMap) {
       expect(scene.pages).toContain("docs/start/first-map.md");
       expect(scene.map).toBe(true);
+    }
+  });
+
+  it("takes the Use Dezfil scenes on data and maps last, so what they change as they open reaches no other page's picture", () => {
+    expect(STATES.at(-1)).toBe("use-maps");
+    const useMaps = scenes.filter((s) => s.state === "use-maps");
+    expect(useMaps.length).toBeGreaterThan(0);
+    for (const scene of useMaps) {
+      expect(scene.file.startsWith("use/")).toBe(true);
+      for (const page of scene.pages) expect(page.startsWith("docs/use/")).toBe(true);
     }
   });
 });

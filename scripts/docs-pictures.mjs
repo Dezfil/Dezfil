@@ -17,7 +17,8 @@
 // directory is opened. The scenes that need no account are taken first, then
 // the instance is seeded through the documented API and the seeded scenes
 // are taken, then the first account's first map is made and the scenes that
-// show it are taken (the states of docs-pictures-scenes.mjs, in order).
+// show it are taken, then the scenes of the Use Dezfil pages on data and
+// maps (the states of docs-pictures-scenes.mjs, in order).
 // Every scene is taken twice from the same instance state, in the app's light
 // theme and in its dark theme, chosen the way the app's own switch stores it;
 // the dark take is written beside the light one with `.dark` before the
@@ -82,7 +83,7 @@ try {
     const scenes = chosen.filter((scene) => scene.state === state);
     if (!scenes.length) continue;
     if (state !== "fresh") seeded ??= await seed(server.base, root);
-    if (state === "first-map" && !firstMap) {
+    if (STATES.indexOf(state) >= STATES.indexOf("first-map") && !firstMap) {
       await seedFirstMap(seeded.api, root);
       firstMap = true;
     }

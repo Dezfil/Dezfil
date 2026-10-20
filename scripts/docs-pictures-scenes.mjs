@@ -14,9 +14,11 @@
 //   exists; `seeded` after the seeding (two accounts, a shared project, the
 //   three shipped templates copied and the repository's fixtures uploaded),
 //   signed in as the first account; `first-map` after that and the first
-//   account's own first map, the one "Your first map" builds. The script
-//   takes the states in this order, every scene of one before the next, so
-//   a seeded scene never shows the first map;
+//   account's own first map, the one "Your first map" builds; `use-maps`
+//   after that and what the Use Dezfil pages on data and maps show beside
+//   it. The script takes the states in this order, every scene of one
+//   before the next, so a seeded scene never shows the first map, and what
+//   a use-maps scene changes as it opens never reaches an earlier picture;
 // - `map: true`, when the scene shows a map: its page may reach the built-in
 //   basemap's host, and nothing is taken until every map on the page is at
 //   rest on the built-in basemap, its tiles loaded. Without it, the
@@ -31,6 +33,7 @@
 //   for `hold` frames of the cadence (ten a second), so the recording's
 //   length is the frames held, at most eight seconds.
 
+import { readFile } from "node:fs/promises";
 import { FIRST_MAP } from "./docs-pictures-instance.mjs";
 
 /** Open the Templates page and wait until the catalogue has been read and
@@ -267,6 +270,106 @@ const MAIN_SCREEN_SCENES = [
   },
 ];
 
+// ---------------------------------------------------------------------------
+// Use Dezfil on data and maps: Import data, Build a map, and Widgets and
+// tools, in the use-maps state. A scene that changes the instance makes the
+// change at the start of its own `open`, so both its takes start from the
+// same state, whatever the scene before it left.
+
+/** A change made through the documented API as the signed-in account,
+ * carrying this instance's Origin as the app's own pages do, and the edit
+ * revision it is based on where the operation takes one. */
+async function change(page, method, address, { body, revision } = {}) {
+  const { origin } = new URL((await page.request.get("/api/health")).url());
+  const headers = { origin, ...(revision ? { "x-edit-revision": revision } : {}) };
+  const answer = await page.request.fetch(address, { method, headers, ...(body === undefined ? {} : { data: body }) });
+  if (!answer.ok()) throw new Error(`${method} ${address} answered ${answer.status()}: ${await answer.text()}`);
+  return answer.status() === 204 ? null : answer.json();
+}
+
+/** The Data page's Add data dialog as it opens: Files, with Upload file and
+ * its drop box. */
+async function openAddData(page) {
+  await page.goto("/data");
+  await page.getByRole("button", { name: "Add data", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Add data" });
+  await dialog.getByRole("button", { name: "Upload data files" }).waitFor();
+  return dialog;
+}
+
+/** One of Add data's sources, by its title: the button also reads the line
+ * under the title. */
+const importSource = (dialog, title) => dialog.getByRole("button", { name: new RegExp(`^${title} `) });
+
+/** The file the column matching scene drops: the first map's cities with
+ * their coordinates in columns named y and x, names Dezfil does not take
+ * as coordinates without asking. */
+const XY_CITIES = { file: "world-cities-xy.csv", table: "world_cities_xy" };
+
+async function xyCities() {
+  const [header, ...rows] = (await readFile(new URL(`../${FIRST_MAP.fixture}`, import.meta.url), "utf8")).split("\n");
+  if (header !== "name,country,population,latitude,longitude") throw new Error(`${FIRST_MAP.fixture} begins with ${header}, not the columns the scene renames.`);
+  return Buffer.from([header.replace("latitude,longitude", "y,x"), ...rows].join("\n"));
+}
+
+const USE_MAPS_SCENES = [
+  {
+    // Add data as the Data page opens it: the four sources, Upload file and
+    // the drop box with its formats.
+    id: "import-data-add-data",
+    file: "use/import-data-add-data.webp",
+    pages: ["docs/use/import-data.md"],
+    kind: "still",
+    state: "use-maps",
+    crop: { selector: "[role=dialog]", margin: 24 },
+    open: openAddData,
+  },
+  {
+    // The CSV with x and y columns dropped on Add data: the column matching
+    // step with the pair read as longitude and latitude, the projection,
+    // the count of rows that read and the preview. The upload lands a
+    // dataset, so the take before this one's is removed first; the step is
+    // never confirmed.
+    id: "import-data-column-matching",
+    file: "use/import-data-column-matching.webp",
+    pages: ["docs/use/import-data.md"],
+    kind: "still",
+    state: "use-maps",
+    crop: { selector: "[role=dialog]", margin: 24 },
+    async open(page) {
+      const tables = await (await page.request.get("/api/tables")).json();
+      for (const table of tables.filter((entry) => entry.name === XY_CITIES.table)) await change(page, "DELETE", `/api/tables/${encodeURIComponent(table.name)}`);
+      const dialog = await openAddData(page);
+      await dialog.locator("input[type=file]").setInputFiles({ name: XY_CITIES.file, mimeType: "text/csv", buffer: await xyCities() });
+      const step = dialog.locator("[data-column-matching]");
+      await step.waitFor();
+      if ((await step.getByRole("button", { name: "Coordinate pair" }).getAttribute("aria-pressed")) !== "true") throw new Error("The column matching step did not read the x and y columns as a coordinate pair.");
+      for (const [label, column] of [["Longitude column", "x"], ["Latitude column", "y"]]) {
+        const select = step.getByLabel(label, { exact: true });
+        if ((await select.inputValue()) !== column) await select.selectOption(column);
+      }
+      const projection = step.getByLabel("Projection", { exact: true });
+      if ((await projection.inputValue()) === "") await projection.selectOption("4326");
+      await step.getByText(`${FIRST_MAP.features} of ${FIRST_MAP.features} sampled rows read as`).waitFor();
+    },
+  },
+  {
+    // The PostGIS source with no saved connection: the form that adds one.
+    id: "import-data-postgis",
+    file: "use/import-data-postgis.webp",
+    pages: ["docs/use/import-data.md"],
+    kind: "still",
+    state: "use-maps",
+    crop: { selector: "[role=dialog]", margin: 24 },
+    async open(page) {
+      const dialog = await openAddData(page);
+      await importSource(dialog, "PostGIS").click();
+      await dialog.getByRole("heading", { name: "Connect a PostGIS database" }).waitFor();
+      await dialog.getByRole("button", { name: "Test & save connection" }).waitFor();
+    },
+  },
+];
+
 export const SCENES = [
   {
     id: "setup-card",
@@ -305,6 +408,7 @@ export const SCENES = [
   },
   ...MAIN_SCREEN_SCENES,
   ...FIRST_MAP_SCENES,
+  ...USE_MAPS_SCENES,
 ];
 
-export const STATES = ["fresh", "seeded", "first-map"];
+export const STATES = ["fresh", "seeded", "first-map", "use-maps"];

@@ -44,7 +44,7 @@ In the builder you add datasets or SQL queries as layers and style each one, the
 
 ![The Data page: the search box, the source chips Files and Templates with their counts, and the cards of the datasets, with a workflow's outputs folded into one card](../images/start/what-is-dezfil-data.webp)
 
-**Data** holds your datasets, from files such as CSV, GeoJSON or Shapefiles, a link, Overture Maps, OpenStreetMap or PostGIS. Open one to see its rows and its map.
+**Data** holds your datasets, from files such as CSV, GeoJSON or Shapefiles, a link, Overture Maps, OpenStreetMap or PostGIS. Open one to see its rows and its map. See [Import data](../use/import-data.md).
 
 ## SQL
 
@@ -71,7 +71,7 @@ The colored boxes are notes, for comments beside the nodes. Their text shows whe
 ## Also in the app
 
 - **Projects:** a project groups maps, workflows and datasets, and shares them with people as viewers or editors.
-- **Connections:** your saved PostGIS databases, whose tables you import as datasets.
+- **Connections:** your saved PostGIS databases, whose tables you import as datasets. See [Import data](../use/import-data.md#connect-a-postgis-database).
 - **Assistant:** a chat pane on the map, SQL and workflow pages that reads your data and makes changes when you ask. It runs on an Anthropic or OpenAI key set on the server.
 - **Settings:** your account, your API tokens and your look. Admins also set how the instance behaves there. See [Configuration](../self-host/configuration.md).
 
