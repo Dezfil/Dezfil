@@ -15,7 +15,7 @@ order: 2
 
 ![The map builder on World cities: the Layers tab with the layers Megacities and world_cities, the style panel of world_cities open at its Visualization section, and the map with the megacities drawn larger over the cities and the legend in the bottom left corner](../images/use/build-a-map-builder.webp)
 
-- **You need:** a map you can edit and at least one dataset. The steps use the World cities map from [Your first map](../start/first-map.md), which makes both in about ten minutes.
+- **You need:** a map you can edit and at least one dataset. The steps use the World cities map from [Your first map](../start/first-map.md), which makes both.
 
 Every change in the builder saves as you make it. **Undo** at the top of the page takes the last one back.
 
@@ -113,7 +113,7 @@ To size points by a number column, set **Scale by** under **Point size** to it. 
 To bin points into hexagons:
 
 1. In **Visualization**, click **Hex bins**. You should see the card count cells instead of features.
-2. Under **Cell size (Mercator)**, drag the slider or type a size such as `500 km` in the box beside it. Cells start 1.2 km wide, too small to see on a map of the world. You should see colored hexagons in place of the points.
+2. Under **Cell size (Mercator)**, type a size such as `500 km` in the box beside the slider. Cells start 1.2 km wide, too small to see on a world map. You should see colored hexagons in place of the points.
 3. Set **Show** to **Count of points**, or to **Sum**, **Average**, **Minimum** or **Maximum** of a number column. You should see the colors follow the new values.
 
 ![A layer of the earthquakes around Japan drawn as hex bins: the Visualization section with Hex bins selected, Show set to Count of points and the cell size, and the map of Japan with the earthquakes counted in colored hexagons](../images/use/build-a-map-hex-bins.webp)
@@ -208,7 +208,7 @@ To change a shape, click it on the map with **Select a drawn shape**, or while n
 
 **Arc, Line, Icon and Cluster are grayed out on a big layer.** Its card reads **tiled**, so it draws as map tiles. Filter it or bin it first.
 
-**Bands of color cross the whole map with Hex bins or Grid.** A cell on the 180° meridian, in the Pacific, is drawn the long way round the world. Leave the points next to that meridian out of the layer's query with **More actions** › **Edit source**. A margin of 2° holds for a cell size up to 100 km. For a layer of `earthquakes` whose geometry column is `geometry`:
+**Bands of color cross the whole map with Hex bins or Grid.** A cell on the 180° meridian, in the Pacific, is drawn the long way round the world. Leave the points next to that meridian out of the layer's query with **More actions** › **Edit source**. A margin of 2° holds for cells up to 100 km, as in this query on `earthquakes`, whose geometry column is `geometry`:
 
 ```sql title="SQL query"
 SELECT * FROM earthquakes WHERE ST_X(geometry) BETWEEN -178 AND 178
@@ -226,7 +226,7 @@ SELECT * FROM earthquakes WHERE ST_X(geometry) BETWEEN -178 AND 178
 
 **The Map layers eyes are grayed out.** They work on vector styles only, not on **Satellite**. Your choices are kept for the next vector style.
 
-**Draw is grayed out.** The map is still loading. It turns on once the map has drawn.
+**Draw is grayed out.** The map is still loading; Draw turns on once it has drawn.
 
 ## Next steps
 
