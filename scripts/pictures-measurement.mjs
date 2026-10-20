@@ -135,14 +135,17 @@ export function capacityEvents(maps, events, complete = true) {
   return published;
 }
 
-export function firstMeasurement(maps, events) {
+/** Each appearance renders once per kept shape, so `shapes` is how many
+ * background renders one appearance admits. */
+export function firstMeasurement(maps, events, shapes) {
   assert.equal(maps.length, 20);
+  assert.ok(Number.isInteger(shapes) && shapes > 0, 'Missing the number of kept shapes');
   const published = capacityEvents(maps, events);
   const appearances = [];
   const attempts = published.map(event => {
     const map = maps.find(map => map.id === event.mapId);
     const starts = events.filter(start => start.kind === 'admitted' && start.background && start.mapId === event.mapId);
-    assert.equal(starts.length, map.pair ? 2 : 1, 'A missing or repeated appearance invalidates the baseline');
+    assert.equal(starts.length, (map.pair ? 2 : 1) * shapes, 'A missing or repeated appearance invalidates the baseline');
     assert.equal(starts[0].pid, event.pid, 'An interrupted attempt cannot be a timing baseline');
     for (const start of starts) {
       const release = events.slice(events.indexOf(start) + 1).find(end => end.kind === 'released' && end.background && end.mapId === start.mapId && end.pid === start.pid);
