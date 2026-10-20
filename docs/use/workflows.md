@@ -160,10 +160,12 @@ The buttons at the top left of the canvas change how it looks, never what it run
 
 The **Workflows** page lists your workflows as cards. Search them by name, or filter them by **All**, **Needs attention** or **Never run**.
 
-| On a card | What it does |
+Hover a card for its buttons, and point at one to read its name. **Add to a project** and **Delete workflow** show on your own workflows only.
+
+| Button | What it does |
 |---|---|
 | **Duplicate** | Makes a copy with `copy` after its name. The copy's nodes write datasets of their own, and it has not run. |
-| **Add to a project** | Files the workflow in a project, for the people you share it with. |
+| **Add to a project**, or **Move to another project** once it is in one | Files the workflow in a project, for the people you share it with. |
 | **Delete workflow** | Deletes it on a second click. The datasets it made stay in **Data**. |
 
 To take one node out, click **Remove node** at the foot of its panel. The dialog says whether its dataset stays.
