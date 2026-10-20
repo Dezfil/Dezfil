@@ -25,8 +25,8 @@ An admin sets the basemap switches and the satellite imagery on the **Libraries*
 | **Style addresses on single maps** |  | `basemaps.singleMapStyles` | on | `true` or `false` | Whether a map may take a style address the library does not offer. Off, such an address is refused on any map, for everyone, admins included; a map that holds one keeps it. | In Settings, live |
 | **Tile address** | `DEZFIL_SATELLITE_URL` | `satelliteUrl` | unset | An `http` or `https` address, up to 2,048 characters, holding `{z}`, `{x}` and `{y}`, with no user name or password, in Settings; any address as a variable | Raster tile template enabling satellite imagery. | In Settings, live; by variable, after a restart |
 | **Satellite imagery** › **Credit** | `DEZFIL_SATELLITE_ATTRIBUTION` | `satelliteAttribution` | unset | Text, up to 160 characters, in Settings; any text as a variable | Credit line required by the imagery provider. | In Settings, live; by variable, after a restart |
-| **Basemap address** | `DEZFIL_BASEMAP_URL` |  | built-in styles | A MapLibre style address | Style override pinning the automatic basemap in both themes. | By variable, after a restart |
-| **Basemap credit** | `DEZFIL_BASEMAP_ATTRIBUTION` |  | unset | Text | Credit line for the deployment basemap override. | By variable, after a restart |
+| **Basemap address** | `DEZFIL_BASEMAP_URL` |  | built-in styles | A MapLibre style address | A basemap style that Auto draws in both themes, in place of the built-in ones. | By variable, after a restart |
+| **Basemap credit** | `DEZFIL_BASEMAP_ATTRIBUTION` |  | unset | Text | The credit maps show for the style DEZFIL_BASEMAP_URL names. | By variable, after a restart |
 
 <!-- settings-libraries:end -->
 

@@ -130,7 +130,7 @@ describe("the settings tables", () => {
     // A variable alone: no Settings key, and a restart.
     expect(row("settings-limits", "DEZFIL_RENDER_CAP_FEATURES")).toEqual([
       "**Features drawn per layer**", "`DEZFIL_RENDER_CAP_FEATURES`", "", "`250000` features", "Any number above 0",
-      "Feature cap for rendering and the point-layer tile threshold.", "By variable, after a restart",
+      "The most features a layer draws, and the count past which a points layer is drawn from tiles.", "By variable, after a restart",
     ]);
     // Settings alone: no variable, and live.
     expect(row("settings-rules", "security.sessionDays")).toEqual([

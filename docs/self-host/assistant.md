@@ -136,12 +136,12 @@ Each of these is a variable, read when the server starts.
 | **Assistant model** | `DEZFIL_AI_MODEL` |  | provider default | A model id the provider offers | Overrides the provider's default model. | By variable, after a restart |
 | **Anthropic model offer** | `DEZFIL_AI_MODELS_ANTHROPIC` |  | unset | Model ids, separated by commas; set and empty, only the default | Narrows and orders the catalogue; a set empty list offers only the default. | By variable, after a restart |
 | **OpenAI model offer** | `DEZFIL_AI_MODELS_OPENAI` |  | unset | Model ids, separated by commas; set and empty, only the default | Narrows and orders the catalogue; a set empty list offers only the default. | By variable, after a restart |
-| **Assistant operation offer** | `DEZFIL_ASSISTANT_OFFER` |  | `subset` | `subset` or `full`; any other value reads as `subset` | Choose the page's subset or its full admitted operation set. | By variable, after a restart |
+| **Assistant operation offer** | `DEZFIL_ASSISTANT_OFFER` |  | `subset` | `subset` or `full`; any other value reads as `subset` | With subset, the assistant starts with the page's own tools and looks up the rest; with full, it starts with every tool the page allows. | By variable, after a restart |
 | **Automatic map check** | `DEZFIL_ASSISTANT_AUTO_CHECK` |  | on | `0`, `false` or `off` turns it off; any other value turns it on | Check the rendered map after an assistant turn changes it. | By variable, after a restart |
 | **Assistant steps** | `DEZFIL_ASSISTANT_STEP_BUDGET` |  | `20` steps | Any number above 0 | Maximum model and tool steps per request. | By variable, after a restart |
-| **Map check time limit** | `DEZFIL_ASSISTANT_LOOK_TIMEOUT_S` |  | `30` seconds | Any number above 0 | Budget for an assistant map check, including queue wait. | By variable, after a restart |
-| **Retained map checks** | `DEZFIL_ASSISTANT_LOOK_RETENTION` |  | `256` images | Any number above 0, rounded down to a whole number of at least 1 | Full images and thumbnails retained in process. | By variable, after a restart |
-| **Map check storage** | `DEZFIL_ASSISTANT_LOOK_RETENTION_MB` |  | `96` MB | Any number above 0 | Byte budget for retained map checks. | By variable, after a restart |
+| **Map check time limit** | `DEZFIL_ASSISTANT_LOOK_TIMEOUT_S` |  | `30` seconds | Any number above 0 | Time for one of the assistant's map checks, its wait for a turn included. | By variable, after a restart |
+| **Retained map checks** | `DEZFIL_ASSISTANT_LOOK_RETENTION` |  | `256` images | Any number above 0, rounded down to a whole number of at least 1 | Map check pictures kept in memory, oldest dropped first; a restart clears them. | By variable, after a restart |
+| **Map check storage** | `DEZFIL_ASSISTANT_LOOK_RETENTION_MB` |  | `96` MB | Any number above 0 | Memory the kept map check pictures may take. | By variable, after a restart |
 
 <!-- settings-assistant:end -->
 

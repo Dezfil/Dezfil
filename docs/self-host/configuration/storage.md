@@ -19,9 +19,9 @@ Each of these is a variable, read when the server starts. The **System** tab of 
 | Setting | Variable | Settings key | Default | Values | What it does | Changes |
 |---|---|---|---|---|---|---|
 | **Data directory** | `DEZFIL_DATA_DIR` |  | ./data; /data in the container | A folder path | The single durable directory for tables, tiles and metadata. | By variable, after a restart |
-| **Encryption key** | `DEZFIL_SECRET_KEY` |  | generated | 64 hex characters (32 bytes) | At-rest encryption key for stored credentials. | By variable, after a restart |
-| **Tile builder** | `DEZFIL_TIPPECANOE` |  | `tippecanoe` | A program name, looked up on `PATH`, or a path to the program | Binary used to build vector tiles. | By variable, after a restart |
-| **Image renderer** | `DEZFIL_CHROMIUM_PATH` |  | `/usr/bin/chromium` | A path to a headless Chromium or Chrome | Headless browser binary used for server image export. | By variable, after a restart |
+| **Encryption key** | `DEZFIL_SECRET_KEY` |  | generated | 64 hex characters (32 bytes) | The key that encrypts saved connection passwords and service addresses. | By variable, after a restart |
+| **Tile builder** | `DEZFIL_TIPPECANOE` |  | `tippecanoe` | A program name, looked up on `PATH`, or a path to the program | The program that builds vector tiles. | By variable, after a restart |
+| **Image renderer** | `DEZFIL_CHROMIUM_PATH` |  | `/usr/bin/chromium` | A path to a headless Chromium or Chrome | The headless browser that draws image exports and map pictures. | By variable, after a restart |
 
 <!-- settings-storage:end -->
 

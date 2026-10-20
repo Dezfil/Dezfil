@@ -192,7 +192,7 @@ Set `DEZFIL_TRUSTED_PROXIES` to the address Dezfil sees your proxy's requests ar
 
 | Setting | Variable | Settings key | Default | Values | What it does | Changes |
 |---|---|---|---|---|---|---|
-| **Trusted proxies** | `DEZFIL_TRUSTED_PROXIES` |  | unset | IP addresses or CIDR networks, separated by commas or spaces; a host name stops the server at start | Socket peers allowed to supply forwarding information. | By variable, after a restart |
+| **Trusted proxies** | `DEZFIL_TRUSTED_PROXIES` |  | unset | IP addresses or CIDR networks, separated by commas or spaces; a host name stops the server at start | The proxies whose forwarded visitor address, host, scheme and port Dezfil accepts. | By variable, after a restart |
 | **Session cookie name** | `DEZFIL_SESSION_COOKIE` |  | port-based | ASCII letters, digits and ``!#$%&'*+-.^_`\|~``; any other value stops the server at start | Browser session cookie name, derived from the listening port unless overridden. | By variable, after a restart |
 
 <!-- settings-proxies:end -->
