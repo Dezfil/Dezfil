@@ -53,7 +53,8 @@ export default async function MapBuilderPage({
   // picker lists only the ones it offers: each style comes marked.
   // A promotion flow arrives with?layer=<id> so the landed layer opens
   // selected. Read server-side — a client-side URL sniff races the
-  // router's history commit.
+  // router's history commit. It has just added that layer, so the builder
+  // frames the data as it does after any added layer.
   const { layer } = await searchParams;
   // The builder's screens are handed the instance's defaults as this page
   // is served.
@@ -64,7 +65,7 @@ export default async function MapBuilderPage({
       )}
     >
       <ScreenDefaultsProvider defaults={instanceDefaults()}>
-        <MapOpeningProvider framed={framed}>
+        <MapOpeningProvider framed={framed || layer !== undefined}>
           <MapBuilder
             mapId={id}
             initialLayerId={layer ?? null}
