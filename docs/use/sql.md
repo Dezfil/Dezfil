@@ -80,7 +80,7 @@ Click a cell to read its whole value. **Copy** puts it on the clipboard.
 
 ## 5. Keep the result
 
-The bar above the result has three ways to keep it. Pick the one you need:
+The bar above the result has three ways to keep it:
 
 ::::tabs
 
@@ -168,9 +168,9 @@ To have a query written for you, click **Assistant** in the header. **Insert int
 
 When someone shares a project with you, its datasets appear in **Sources** under their owner's name and SQL name. In a query you write them as `<SQL_NAME>.<DATASET>`, such as `ada.roads`. Your own datasets need no prefix.
 
-Two buttons above the list choose how **Sources** groups the datasets. Dezfil keeps your choice with your account.
+Two buttons above the list group **Sources**, and Dezfil keeps your choice with your account.
 
-- **By person**, the default, lists your own datasets under **Yours**, then each other person's under their name. While every dataset is your own, it groups them as **Tool outputs**, the ones a tool made, including those you save from a query, and **Workspace tables**, the rest.
+- **By person**, the default, lists your own datasets under **Yours**, then each other person's under their name. While every dataset is your own, it groups them as **Tool outputs**, the ones a tool or a saved query made, and **Workspace tables**, the rest.
 - **By project** lists one group per project, then **Not in a project**.
 
 Your own SQL name is in **Settings** › **Account**. Other people's queries name your datasets with it.
