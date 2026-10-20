@@ -152,15 +152,16 @@ const FIRST_MAP_SCENES = [
 const COPIES = ["Forty years of big earthquakes", "The world's air routes", "Health access in Rwanda"];
 
 /** The query the SQL scene runs on the copied earthquakes: the six
- * strongest, with their place, year, magnitude and geometry. The result
+ * strongest, with their place, magnitude, depth and geometry. The result
  * keeps its geometry, so its Map tab and Add as map layer are live, as the
- * page beside the picture offers them. No two of the six share a magnitude
- * and a year, so the order is total. */
+ * page beside the picture offers them. No two of the six struck at the same
+ * time, so the order is total. The year stays out: the results table
+ * writes whole numbers with a thousands separator, a year as "2,004". */
 export const SQL_SCENE_QUERY = [
-  "SELECT place, year, magnitude, geom",
+  "SELECT place, magnitude, depth_km, geom",
   "FROM earthquakes",
   "WHERE magnitude >= 8.5",
-  "ORDER BY magnitude DESC, year;",
+  "ORDER BY magnitude DESC, time_utc;",
 ].join("\n");
 
 /** How many rows the SQL scene's query answers. */
