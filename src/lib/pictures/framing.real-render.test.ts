@@ -193,11 +193,15 @@ describe.skipIf(!base)("a picture frames what the map draws, in each shape", () 
       expect(colourIn(image, left.colour).count, "the narrowed point is not drawn").toBeLessThan(12);
       const only = framedPosition(shape, kept.map(p => [p.lng, p.lat] as const), image.width);
       const ignored = framedPosition(shape, [...kept, left].map(p => [p.lng, p.lat] as const), image.width);
-      for (const point of kept) {
+      const misses = kept.map(point => {
         const mark = found(image, point.colour);
         expect(apart(mark, only.at(point.lng, point.lat))).toBeLessThan(tolerance(shape, image));
-        expect(apart(mark, ignored.at(point.lng, point.lat))).toBeGreaterThan(10 * scaleOf(shape, image));
-      }
+        return apart(mark, ignored.at(point.lng, point.lat));
+      });
+      // The control: framed with the narrowed point too, the marks would
+      // sit elsewhere. A mark on the side both boxes share sits at the
+      // margin in both, so the picture as a whole is what must disagree.
+      expect(Math.max(...misses), `${shape} ${image.width}: framed as if nothing were narrowed`).toBeGreaterThan(10 * scaleOf(shape, image));
     }
   }, 300000);
 
