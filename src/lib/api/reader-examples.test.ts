@@ -11,14 +11,25 @@ import { requireRequestAuth } from "@/lib/auth/http";
 import { createApiToken } from "@/lib/auth/credentials";
 import { mapsOverview } from "@/lib/map-service";
 import { GUIDANCE_SECTIONS } from "@/lib/assistant/guidance";
+import { REVISION_EXAMPLE } from "../../../scripts/check-reader-docs.mjs";
 
 const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
 const base = "http://127.0.0.1:3231";
 let db: Database, token: string;
 function example(file: string) {
-  const source = readFileSync(file, "utf8").match(/<!-- revision-example -->\s*```js\n([\s\S]*?)\n```/);
+  const source = readFileSync(file, "utf8").match(REVISION_EXAMPLE);
   expect(source, file + " executable revision example").not.toBeNull();
   return source![1];
+}
+/** Run an example as its reader does. One that declares its own address
+ * and token runs as the file it is, with the token in place of
+ * <YOUR_TOKEN>; one that does not is given both. */
+function runExample(code: string) {
+  if (/^const base = /m.test(code)) {
+    expect(code, "the example takes the token in place of <YOUR_TOKEN>").toContain('const token = "<YOUR_TOKEN>";');
+    return new AsyncFunction("fetch", code.replace('"<YOUR_TOKEN>"', JSON.stringify(token)))(fetch);
+  }
+  return new AsyncFunction("base", "token", "fetch", code)(base, token, fetch);
 }
 beforeEach(() => {
   db = metadata.open(":memory:"); vi.spyOn(metadata, "metadataDb").mockReturnValue(db); vi.stubEnv("PORT", "3231");
@@ -32,18 +43,31 @@ beforeEach(() => {
 });
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.unstubAllEnvs(); db.close(); });
 
+/** The pages that show what their example prints, after `node revisions.mjs`. */
+const SHOWS_OUTPUT = new Set(["docs/api/http-api.md"]);
+const REVISION = /\b[0-9a-f]{32}\b/;
+const REVISIONS = new RegExp(REVISION.source, "g");
+
 it.each(["docs/api/http-api.md", "docs/api/mcp.md"])("executes %s with two accepted writes and detects omitted revisions", async file => {
   const source = example(file);
-  const run = (code: string) => new AsyncFunction("base", "token", "fetch", code)(base, token, fetch);
-  await run(source);
+  const log = vi.spyOn(console, "log");
+  await runExample(source);
+  const printed = log.mock.calls.map(args => args.join(" "));
+  if (SHOWS_OUTPUT.has(file)) {
+    // The page's Output is what the example prints, but for the revision,
+    // which is new on every run and has the shape the page shows.
+    const shown = /```sh title="Terminal"\nnode revisions\.mjs\n```\s*```text title="Output"\n([^\n]+)\n```/.exec(readFileSync(file, "utf8"))?.[1];
+    expect(shown, file + " shows what the example prints").toMatch(REVISION);
+    expect(printed.join("\n").replace(REVISIONS, "<REVISION>")).toBe(shown!.replace(REVISIONS, "<REVISION>"));
+  }
   const maps = await mapsOverview(testAccountScope(db));
   expect(maps).toHaveLength(1); expect(maps[0]).toMatchObject({ name: "Survey map", basemap: "light" });
   const withoutRevision = source.replaceAll('"X-Edit-Revision": current.editRevision', '"X-Edit-Revision": ""').replaceAll('expected_revision: current.editRevision', 'expected_revision: ""');
   expect(withoutRevision).not.toBe(source);
-  await expect(run(withoutRevision)).rejects.toThrow(/invalid_request/);
+  await expect(runExample(withoutRevision)).rejects.toThrow(/invalid_request/);
   const staleChain = source.replace(/current = await (request|call)\(([^\n]+)name: "Survey map"([^\n]+)\);/, 'await $1($2name: "Survey map"$3);');
   expect(staleChain).not.toBe(source);
-  await expect(run(staleChain)).rejects.toThrow(/stale_revision/);
+  await expect(runExample(staleChain)).rejects.toThrow(/stale_revision/);
 });
 
 it("gives external tools the enforced revision and recovery contract", () => {

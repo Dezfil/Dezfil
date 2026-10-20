@@ -86,7 +86,8 @@ property), `lint:wheelhouse`, `lint:tokens` and `lint:icons` (the design
 language), `lint:class-pairs` (no element's look left to the order two
 stylesheets load in), `lint:specimen` (the specimen still matches its sources),
 `lint:plugin` (the generated plugin guidance is current), `lint:contract-docs`
-(reader counts and error catalogue match the contract), `lint:reader-docs`
+(the error schema, the derived tools, the change authors and the reader
+counts match the contract), `lint:reader-docs`
 (no superseded guidance or missing revision examples), `lint:docs` (every
 page under `docs/` holds the page contract and, unless it waits on the list
 of pages not yet rewritten, the writing rules; its links and pictures

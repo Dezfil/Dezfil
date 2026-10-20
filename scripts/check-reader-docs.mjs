@@ -17,6 +17,9 @@ const superseded = [
   /Dezfil has no accounts|Authoring APIs are open|one shared workspace/i,
   /Members & sharing.{0,80}coming soon/i,
 ];
+/** The runnable revision example: the JavaScript block after the
+ * `<!-- revision-example -->` marker, with or without a title. */
+export const REVISION_EXAMPLE = /<!-- revision-example -->\s*```js(?: title="[^"\n]*")?\n([\s\S]*?)\n```/;
 export function checkReaderDocs(files) {
   const problems = [];
   for (const file of READER_FILES) {
@@ -25,7 +28,7 @@ export function checkReaderDocs(files) {
     for (const pattern of superseded) if (pattern.test(text.replace(/\s+/g, ' '))) problems.push(`Superseded reader copy: ${file} (${pattern.source})`);
   }
   for (const [file, revision] of [['docs/api/http-api.md', '"X-Edit-Revision": current.editRevision'], ['docs/api/mcp.md', 'expected_revision: current.editRevision']]) {
-    const example = files[file]?.match(/<!-- revision-example -->\s*```js\n([\s\S]*?)\n```/)?.[1];
+    const example = files[file]?.match(REVISION_EXAMPLE)?.[1];
     if (!example?.includes(revision)) problems.push(`Missing revision in reader example: ${file}`);
     if (!example || (example.match(/current = await /g)?.length ?? 0) < 3) problems.push(`Missing accepted-result chaining in reader example: ${file}`);
   }

@@ -363,8 +363,7 @@ and the entries `buildTools()` returns.
 ## The parity check
 
 `npm run lint:contract-docs` compares this page’s numbers with the contract and
-derived tools, and the API guide’s catalogue with the source error catalogue.
-It fails on drift in the reader-facing text. `src/lib/tools/tools.test.ts`
+derived tools. It fails on drift in the reader-facing text. `src/lib/tools/tools.test.ts`
 compares the derived tool set against the documented operations and fails on
 any difference in either direction. It extends the chain that
 `src/lib/api/parity.test.ts` already enforces: route files match the OpenAPI
@@ -533,7 +532,7 @@ and compose a new edit before trying again. Never silently replay a refused payl
 with a fresh token. The server enforces this precondition for tools as it does for
 REST. Complete deletion has no resulting revision, and a transfer may end your
 reach. Run starts require the plan's revision; cancellation needs none. See
-[the API guide](http-api.md#editing-with-revisions) for attribution, shared undo,
+[the API guide](http-api.md#edit-with-revisions) for attribution, shared undo,
 continuing-run behavior and the bounded exceptions.
 
 The exclusions include automatic HEAD/OPTIONS, entry, transport, renderer and

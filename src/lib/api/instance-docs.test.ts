@@ -3,16 +3,18 @@ import { describe, expect, it } from "vitest";
 import { buildOpenApiDocument } from "@/lib/api/openapi";
 import { HTTP_METHODS } from "@/lib/api/http-methods";
 import { buildTools } from "@/lib/tools/tools";
-import { limitsSettingRows } from "@/components/settings/limits-table";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: a plain-JS gate, no declaration file on purpose.
+import { SETTINGS_AREAS, tableRegions } from "../../../scripts/settings-tables.mjs";
 
 /**
  * The admin's operations on this instance, every one under
- * /api/instance, are each described in the API guide by method and path
- * and in the MCP guide by the tool it generates, so a new one cannot ship
- * with no reader-facing word.
+ * /api/instance, are each described in the MCP guide by the tool it
+ * generates, and every key the settings change takes is in a settings
+ * table, so a new one cannot ship with no reader-facing word. Each
+ * operation's own entry is the generated operation reference's.
  */
 
-const api = readFileSync("docs/api/http-api.md", "utf8");
 const mcp = readFileSync("docs/api/mcp.md", "utf8");
 
 /** A count from twenty to ninety-nine, in the guides' words. */
@@ -38,19 +40,27 @@ describe("the instance operations in the guides", () => {
     ]);
   });
 
-  it("names how many keys the settings change takes in both guides, and in the API guide every one the Limits tab does not draw", () => {
+  it("names how many keys the settings change takes in the MCP guide, and lists every one in a settings table's Settings key column", () => {
     const keys = Object.keys(document.components.schemas.InstanceSettingsPatch.properties);
-    const flat = (text: string) => text.replace(/\s+/g, " ");
-    expect(flat(api)).toContain(`changes only submitted editable keys, ${inWords(keys.length)} of them`);
-    expect(flat(mcp)).toContain(`editable-key input, ${inWords(keys.length)} keys`);
-    const limits = new Set(limitsSettingRows().map(row => row.key));
-    expect(keys.filter(key => !limits.has(key) && !api.includes(`\`${key}\``))).toEqual([]);
+    expect(mcp.replace(/\s+/g, " ")).toContain(`editable-key input, ${inWords(keys.length)} keys`);
+    const listed = new Set<string>();
+    for (const { page, table } of SETTINGS_AREAS as { page: string; table: string }[]) {
+      const region = (tableRegions(readFileSync(page, "utf8")) as { name: string; content?: string }[]).find((found) => found.name === table);
+      expect(region?.content, `${page}: ${table}`).toBeDefined();
+      // The rows below the header: the separator row starts with "|-".
+      for (const row of region!.content!.split("\n").filter((line) => line.startsWith("| ")).slice(1)) {
+        const cell = row.split(/(?<!\\)\|/)[3].trim();
+        for (const key of cell.matchAll(/`([^`]+)`/g)) listed.add(key[1]);
+      }
+    }
+    expect(keys.filter(key => !listed.has(key))).toEqual([]);
+    // A key no table lists is named, so the check reads the column.
+    expect([...keys, "invented.key"].filter(key => !listed.has(key))).toEqual(["invented.key"]);
   });
 
   it.each(["GET /api/instance/settings", "PATCH /api/instance/settings", "POST /api/instance/services/{service}/test",
     "DELETE /api/instance/caches", "POST /api/instance/parts/{part}/test", "GET /api/instance/storage",
-    "POST /api/instance/basemaps", "PATCH /api/instance/basemaps/{id}", "DELETE /api/instance/basemaps/{id}"])("describes %s in both guides", call => {
-    expect(api, call).toContain(`\`${call}\``);
+    "POST /api/instance/basemaps", "PATCH /api/instance/basemaps/{id}", "DELETE /api/instance/basemaps/{id}"])("describes %s in the MCP guide by its tool", call => {
     const operation = operations.find(found => found.call === call)!;
     const tool = tools.find(found => found.method === operation.method && found.path === operation.path);
     expect(tool, call).toBeDefined();

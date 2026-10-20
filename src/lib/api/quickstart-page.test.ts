@@ -50,9 +50,9 @@ async function runTab(tab: "curl" | "JavaScript", calls: PageCall[]): Promise<Ru
   const names = known(), problems: string[] = [], printed: string[] = [];
   const files = citiesFile();
   for (const call of calls) {
-    const block = call.tabs[tab];
     const where = `${PAGE}:${call.line} (${tab})`;
-    if (!block) { problems.push(`${where}: the call has no ${tab} tab`); continue; }
+    if (call.tabs[tab]?.length !== 1) { problems.push(`${where}: the ${tab} tab holds ${call.tabs[tab]?.length ?? "no"} code blocks; a call is one`); continue; }
+    const block = call.tabs[tab][0];
     if (!call.output) { problems.push(`${where}: no Output block follows the call`); continue; }
     let text: string;
     try {

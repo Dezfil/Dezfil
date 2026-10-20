@@ -97,7 +97,7 @@ Saved SQL and publication tokens survive unchanged; an affected query or publish
 changes the SQL to refer to an uploaded dataset by name. Review saved queries
 for file readers, file-relation shorthand and metadata definition/path access
 before upgrading. See
-[the SQL boundary](../api/http-api.md#the-read-only-sql-instance) for the execution rules.
+[the SQL boundary](https://dezfil.io/docs/api/reference/query/#post-api-query) for the execution rules.
 
 Unlabelled browser SQL drafts and history from older releases cannot be
 attributed to an account and are discarded when the private workspace first
@@ -284,7 +284,7 @@ A 409 `stale_revision` stops the example. Inspect a fresh read and deliberately
 compose a new edit; do not attach its token to the refused payload and replay it.
 A 400 `invalid_request` for a missing revision means the client must implement the
 read/write contract. Child writes use the parent's revision. See the
-[API](../api/http-api.md#editing-with-revisions) and [MCP](../api/mcp.md#editing-with-revisions)
+[API](../api/http-api.md#edit-with-revisions) and [MCP](../api/mcp.md#editing-with-revisions)
 guides for compound filing, run starts, exceptions and executable examples.
 
 ## A second isolated instance

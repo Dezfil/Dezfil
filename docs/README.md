@@ -121,17 +121,17 @@ Script Dezfil over HTTP, or connect an AI agent through MCP.
   - read when: you want your first working calls to the Dezfil API; you need an API token for a script or an agent; you want to upload data, run SQL, or build and publish a map from code; a call answers authentication_required, invalid_request or stale_revision
   - audience: developer, agent
 
+- [How the API works](api/http-api.md)
+  - path: `docs/api/http-api.md`
+  - summary: Call Dezfil's HTTP API from a script: the address, signing in with a token, editing with revisions, who may do what, paging and errors.
+  - read when: you call Dezfil over HTTP from a script, a program or an agent; you need an API token, or want to know how the app's browser session signs in; a change to a map or workflow answers invalid_request or stale_revision; a call answers forbidden or not_found for something you expect to reach; you want to page through a long list of datasets
+  - audience: developer, agent
+
 - [Limits](api/limits.md)
   - path: `docs/api/limits.md`
   - summary: The fixed byte ceilings on SQL answers and previews, and the time, size, memory, rate and queue limits an operator changes.
   - read when: a query or an inspection answers query_result_too_large; you need to know which reads are bounded and by how much; you want to raise the largest upload, the query time limit or another limit
   - audience: user, developer, agent, operator
-
-- [The HTTP API](api/http-api.md)
-  - path: `docs/api/http-api.md`
-  - summary: How the HTTP API is organised: where its description is served, how sign-in, revisions and errors work, and where the exact rules live.
-  - read when: you script Dezfil over HTTP; you look for the operation that does a thing; a request is refused and you want to know why
-  - audience: developer, agent
 
 - [The MCP server](api/mcp.md)
   - path: `docs/api/mcp.md`

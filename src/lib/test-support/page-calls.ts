@@ -24,8 +24,9 @@ import { socketRequest } from "@/lib/assistant/testing/socket-request";
 /** One fenced code block of a page. */
 export interface PageBlock { lang: string; title: string; code: string; line: number }
 
-/** One call a page shows: its tabs by label, and the answer after them. */
-export interface PageCall { line: number; tabs: Record<string, PageBlock>; output?: PageBlock }
+/** One call a page shows: the code blocks of each tab by label, and the
+ * answer after the tab set. */
+export interface PageCall { line: number; tabs: Record<string, PageBlock[]>; output?: PageBlock }
 
 const FENCE = /^(`{3,})([\w-]*)(?:\s+title="([^"]*)")?\s*$/;
 
@@ -46,10 +47,8 @@ export function pageCalls(text: string): { blocks: PageBlock[]; calls: PageCall[
       if (close < 0) throw new Error(`line ${at + 1}: a code block is never closed`);
       const block = { lang: fence[2], title: fence[3] ?? "", code: lines.slice(at + 1, close).join("\n"), line: at + 1 };
       blocks.push(block);
-      if (set && tab) {
-        if (set.tabs[tab]) throw new Error(`line ${at + 1}: the tab ${tab} holds two code blocks`);
-        set.tabs[tab] = block;
-      } else if (waiting && block.title === "Output") {
+      if (set && tab) (set.tabs[tab] ??= []).push(block);
+      else if (waiting && block.title === "Output") {
         waiting.output = block;
         waiting = null;
       }
@@ -59,7 +58,7 @@ export function pageCalls(text: string): { blocks: PageBlock[]; calls: PageCall[
     const trimmed = line.trim();
     if (trimmed === "::::tabs") { set = { line: at + 1, tabs: {} }; continue; }
     const opened = /^:::tab\[(.+)\]$/.exec(trimmed);
-    if (opened && set) { tab = opened[1]; continue; }
+    if (opened && set) { tab = opened[1]; set.tabs[tab] ??= []; continue; }
     if (trimmed === ":::") { tab = null; continue; }
     if (trimmed === "::::" && set) {
       if (set.tabs.curl) { calls.push(set); waiting = set; }
@@ -223,7 +222,7 @@ export async function runShell(code: string, files: Record<string, string>): Pro
 async function curl(args: string[], cookies: Map<string, string>, files: Record<string, string>): Promise<string> {
   const headers = new Headers({ "user-agent": "curl/8.7.1", accept: "*/*" });
   let method: string | undefined, url: string | undefined, data: string | undefined, output: string | undefined;
-  let save: string | undefined, send: string | undefined;
+  let save: string | undefined, send: string | undefined, written: string | undefined;
   const form = new FormData();
   let multipart = false;
   for (let at = 0; at < args.length; at++) {
@@ -243,6 +242,7 @@ async function curl(args: string[], cookies: Map<string, string>, files: Record<
       multipart = true;
     }
     else if (arg === "-o") output = args[++at];
+    else if (arg === "-w") written = args[++at];
     else if (arg === "-c") save = args[++at];
     else if (arg === "-b") send = args[++at];
     else if (arg.startsWith("-")) throw new Error(`the runner does not know curl's ${arg}`);
@@ -259,7 +259,9 @@ async function curl(args: string[], cookies: Map<string, string>, files: Record<
   });
   if (save) cookies.set(save, response.headers.getSetCookie().map((cookie) => cookie.split(";")[0]).join("; "));
   const body = await response.text();
-  return output === "/dev/null" ? "" : body;
+  const after = written === undefined ? "" : written.replaceAll("%{http_code}", String(response.status)).replaceAll("\\n", "\n");
+  if (/%\{/.test(after)) throw new Error(`the runner knows only %{http_code} in curl -w: ${written}`);
+  return (output === "/dev/null" ? "" : body) + after;
 }
 
 // ---------------------------------------------------------------------------

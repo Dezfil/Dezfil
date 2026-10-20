@@ -501,7 +501,7 @@ admits 16,777,216; assistant messages keep 131,072 and their own refusal code.
 These limits include UTF-8, escaping and whitespace regardless of Content-Type.
 Optional bodies obey the same bound. Excess returns 413 before parsing, never
 a default or a write. Workflow and assistant refusal wording stays unchanged;
-[the API guide](../api/http-api.md#request-bounds) gives the exact envelopes.
+[the operation reference](https://dezfil.io/docs/api/reference/) gives the exact envelopes.
 MCP base64 uploads must be below 12 MiB after envelope and metadata overhead.
 Published render selections remain at 65,536 bytes even within their semantic
 filter counts; the viewer's twelve selections of fifty long values fit.
@@ -596,7 +596,7 @@ server picture work and refused saves do not assign an author.
 Clients that write maps or workflows must now read an edit revision and carry it
 on each covered write. Formerly bodyless covered successes return JSON with the
 new revision. Update headless clients with the server; see the
-[API guide](../api/http-api.md#editing-with-revisions). For rollback use the complete stopped
+[API guide](../api/http-api.md#edit-with-revisions). For rollback use the complete stopped
 backup and its matching build. The revision-only schema additions support the
 immediately preceding compatible writers, but that is not a general promise that
 older releases understand ownership or sharing storage.
