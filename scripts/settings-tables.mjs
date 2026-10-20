@@ -186,6 +186,59 @@ export function changesOf(definition) {
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
+/** The tabs of Settings that draw instance settings, each with its cards
+ * and their rows under the labels the tab shows, from the modules the tabs
+ * draw from: `source.general`, `source.defaults`, `source.libraries`,
+ * `source.data`, `source.security` and `source.limits`. A row draws one
+ * setting, or several side by side, each then named by its own label. */
+export function drawnTabs(source) {
+  const { general, defaults, libraries, data, security, limits } = source;
+  const own = (card) => ({ title: card.title, rows: card.rows.map((row) => ({ label: row.label, fields: row.fields })) });
+  const single = (label, key) => ({ label, fields: [{ key }] });
+  const dataCard = (card) => data.isTemplatesCard(card)
+    ? { title: card.title, rows: [single(card.catalogue.label, card.catalogue.key), single(card.address.label, card.address.key)] }
+    : { title: card.title, rows: card.rows.filter((row) => ["address", "number", "locked"].includes(row.kind)).map((row) => single(row.label, row.key)) };
+  return [
+    { tab: "General", cards: general.GENERAL_CARDS.map((card) => ({ title: card.title, rows: card.rows.map((row) => single(row.label, row.key)) })) },
+    { tab: "Maps", cards: defaults.DEFAULTS_TABS.maps.map(own) },
+    { tab: "Workflows & SQL", cards: defaults.DEFAULTS_TABS.workflows.map(own) },
+    { tab: "Publishing", cards: [...defaults.DEFAULTS_TABS.publishing, security.PUBLIC_LINKS_CARD].map(own) },
+    { tab: "Security", cards: security.SECURITY_CARDS.map(own) },
+    { tab: "Libraries", cards: [
+      { title: libraries.BASEMAPS_CARD.title, rows: [
+        ...libraries.BUILT_IN_STYLES.map((row) => single(row.label, row.setting)),
+        single(libraries.SINGLE_MAP_ROW.label, libraries.SINGLE_MAP_ROW.key),
+      ] },
+      { title: libraries.SATELLITE_CARD.title, rows: [
+        single(libraries.SATELLITE_ADDRESS_ROW.label, libraries.SATELLITE_ADDRESS_ROW.key),
+        single(libraries.SATELLITE_CREDIT_ROW.label, libraries.SATELLITE_CREDIT_ROW.key),
+      ] },
+    ] },
+    { tab: "Data & services", cards: [...data.dataTabCards().map(dataCard), own(security.CONNECTIONS_CARD)] },
+    { tab: "Limits", cards: limits.LIMITS_CARDS.map((card) => ({ title: card.title,
+      rows: card.rows.filter((row) => row.kind === "setting").map((row) => single(row.label, row.key)) })) },
+  ];
+}
+
+/** Each drawn setting's name as its tab shows it, by key: its row's label,
+ * then its own label where the row draws several. The card's title goes in
+ * front where that label is one word, or where it names more than one row
+ * of the tab, so the name says which card to open. */
+export function drawnLabels(tabs) {
+  const labels = new Map();
+  for (const { tab, cards } of tabs) {
+    const rows = cards.flatMap((card) => card.rows);
+    const count = (label) => rows.filter((row) => row.label === label).length;
+    for (const card of cards) for (const row of card.rows) for (const field of row.fields) {
+      let parts = row.fields.length > 1 && field.label ? [row.label, field.label] : [row.label];
+      if (parts.length === 1 && (!/\s/.test(parts[0]) || count(parts[0]) > 1)) parts = [card.title, ...parts];
+      if (labels.has(field.key)) throw new Error(`Two rows of Settings draw ${field.key}: ${labels.get(field.key).tab} and ${tab}`);
+      labels.set(field.key, { tab, parts });
+    }
+  }
+  return labels;
+}
+
 const cell = (text) => String(text).replace(/\|/g, "\\|").replace(/\n/g, " ");
 
 export const SETTINGS_HEADER = ["Setting", "Variable", "Settings key", "Default", "Values", "What it does", "Changes"];
@@ -201,14 +254,22 @@ function table(header, rows) {
 
 /** Every table, from the catalogue and what Settings shows beside it:
  * `source.catalogue` is the catalogue module (its settings, its test wiring
- * and its predicates) and `source.limits` the Limits tab's (its cards, the
- * labels and units its rows take). Each table comes with its page and its
- * rows' names, a variable or a Settings key. */
+ * and its predicates), `source.limits` the Limits tab's (its cards, the
+ * labels and units its rows take), and the other tabs' modules (see
+ * drawnTabs) give the labels each tab draws its settings under. A setting
+ * no tab draws, which a variable alone sets, is named as System's Server
+ * settings card names it. Each table comes with its page and its rows'
+ * names, a variable or a Settings key. */
 export function settingsTables(source) {
   const { SETTING_CATALOGUE, TEST_WIRING } = source.catalogue;
   const predicates = source.catalogue;
-  const { LIMITS_CARDS, LIMITS_LABELS, shownUnit } = source.limits;
-  const labelOf = (definition) => LIMITS_LABELS[definition.key] ?? definition.label;
+  const { LIMITS_CARDS, shownUnit } = source.limits;
+  const drawn = drawnLabels(drawnTabs(source));
+  const labelOf = (definition) => {
+    const parts = drawn.get(definition.key)?.parts;
+    if (!parts && definition.editable) throw new Error(`No tab of Settings draws ${definition.key}: add its row to drawnTabs in scripts/settings-tables.mjs`);
+    return (parts ?? [definition.label]).map((part) => `**${part}**`).join(" › ");
+  };
   const unitOf = (definition) => shownUnit(definition.key, definition.unit);
   const members = new Map([...SETTINGS_AREAS, WIRING_TABLE].map((area) => [area.id, []]));
   for (const definition of SETTING_CATALOGUE) {
@@ -231,7 +292,7 @@ export function settingsTables(source) {
       ...area,
       names: rows.map((definition) => definition.environment ?? definition.key),
       markdown: table(SETTINGS_HEADER, rows.map((definition) => [
-        `**${labelOf(definition)}**`,
+        labelOf(definition),
         definition.environment ? code(definition.environment) : "",
         definition.editable ? code(definition.key) : "",
         defaultOf(definition, unitOf),

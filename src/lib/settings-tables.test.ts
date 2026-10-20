@@ -7,6 +7,11 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import * as catalogue from "./settings/catalogue";
 import * as limits from "@/components/settings/limits-table";
+import * as general from "@/components/settings/general-table";
+import * as defaults from "@/components/settings/defaults-table";
+import * as libraries from "@/components/settings/libraries-table";
+import * as data from "@/components/settings/data-table";
+import * as security from "@/components/settings/security-table";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: a plain-JS gate, no declaration file on purpose.
 import { SETTINGS_AREAS, SETTINGS_HEADER, TEST_SEAMS, WIRING_TABLE, areaOf, checkSettingsTables, settingsTables, tableRegions, writeSettingsTables } from "../../scripts/settings-tables.mjs";
@@ -15,7 +20,7 @@ type Problem = { file: string; rule: string; message: string; line?: number };
 type Table = { id: string; page: string; table: string; names: string[]; markdown: string };
 type Definition = (typeof catalogue.SETTING_CATALOGUE)[number];
 
-const source = { catalogue, limits };
+const source = { catalogue, limits, general, defaults, libraries, data, security };
 const tables = settingsTables(source) as Table[];
 const byTable = (name: string) => tables.find((entry) => entry.table === name)!;
 const shape = (problems: Problem[]) => problems.map(({ file, rule }) => ({ file, rule }));
@@ -85,6 +90,37 @@ describe("the settings tables", () => {
     expect(row("settings-limits", "DEZFIL_PUBLIC_RATE_LIMIT")[3]).toBe("`60` every 10 seconds");
   });
 
+  it("name each setting a tab draws as that tab shows it, its card in front where the label is one word or names more than one row", () => {
+    expect(row("settings-general", "signInMessage")[0]).toBe("**Sign-in** › **Message**");
+    expect(row("settings-general", "lostPasswordContact")[0]).toBe("**Lost password contact**");
+    expect(row("settings-defaults", "newMap.latitude")[0]).toBe("**Starting view** › **Latitude**");
+    expect(row("settings-defaults", "newLayer.pointOpacity")[0]).toBe("**Opacity** › **Points**");
+    expect(row("settings-defaults", "canvas.minimap")[0]).toBe("**Workflow canvas** › **Minimap**");
+    expect(row("settings-defaults", "sqlConsole.textSize")[0]).toBe("**Text size**");
+    expect(row("settings-libraries", "DEZFIL_SATELLITE_URL")[0]).toBe("**Tile address**");
+    expect(row("settings-libraries", "DEZFIL_SATELLITE_ATTRIBUTION")[0]).toBe("**Satellite imagery** › **Credit**");
+    expect(row("settings-services", "DEZFIL_GEOCODE_PACE_MS")[0]).toBe("**Address finder** › **Gap between requests**");
+    expect(row("settings-services", "DEZFIL_ISOCHRONE_URL")[0]).toBe("**Travel time** › **Address**");
+    expect(row("settings-services", "DEZFIL_EGRESS_ALLOWLIST")[0]).toBe("**Hosts the server may reach**");
+    expect(row("settings-rules", "security.failedPerAccount")[0]).toBe("**Failed sign-ins before a pause** › **Per account**");
+    expect(row("settings-rules", "publishing.embedSites")[0]).toBe("**Embedding on other sites** › **Listed sites**");
+    // A setting no tab draws, which a variable alone sets, keeps System's name for it.
+    expect(row("settings-services", "DEZFIL_GEOCODE_CACHE_MB")[0]).toBe("**Address cache size**");
+    expect(row("settings-storage", "DEZFIL_DATA_DIR")[0]).toBe("**Data directory**");
+  });
+
+  it("take each label from the tab's own rows, and refuse a setting Settings changes that no tab draws", () => {
+    const relabelled = { ...defaults, DEFAULTS_TABS: { ...defaults.DEFAULTS_TABS, workflows: defaults.DEFAULTS_TABS.workflows.map((card) => ({
+      ...card, rows: card.rows.map((entry) => (entry.id === "set-sql-text-size" ? { ...entry, label: "Editor text size" } : entry)),
+    })) } };
+    const moved = settingsTables({ ...source, defaults: relabelled }) as Table[];
+    expect(moved.find((t) => t.table === "settings-defaults")!.markdown).toContain("| **Editor text size** |  | `sqlConsole.textSize` |");
+    const undrawn = { ...defaults, DEFAULTS_TABS: { ...defaults.DEFAULTS_TABS, workflows: defaults.DEFAULTS_TABS.workflows.map((card) => ({
+      ...card, rows: card.rows.filter((entry) => entry.id !== "set-sql-text-size"),
+    })) } };
+    expect(() => settingsTables({ ...source, defaults: undrawn })).toThrow(/sqlConsole\.textSize/);
+  });
+
   it("give each row its setting, variable, Settings key, default with its unit, values, purpose and change timing", () => {
     expect(SETTINGS_HEADER).toEqual(["Setting", "Variable", "Settings key", "Default", "Values", "What it does", "Changes"]);
     expect(row("settings-limits", "DEZFIL_UPLOAD_MAX_MB")).toEqual([
@@ -112,10 +148,10 @@ describe("the settings tables", () => {
   it("refuse a setting no area takes, and a variable whose values are not described", () => {
     const base = catalogue.settingDefinition("basemapAttribution");
     const stray: Definition = { ...base, key: "strayText", environment: "DEZFIL_STRAY_TEXT" };
-    expect(() => settingsTables({ catalogue: { ...catalogue, SETTING_CATALOGUE: [...catalogue.SETTING_CATALOGUE, stray] }, limits })).toThrow(/DEZFIL_STRAY_TEXT/);
+    expect(() => settingsTables({ ...source, catalogue: { ...catalogue, SETTING_CATALOGUE: [...catalogue.SETTING_CATALOGUE, stray] } })).toThrow(/DEZFIL_STRAY_TEXT/);
     const number = catalogue.settingDefinition("tileBuildTimeoutS");
     const limit: Definition = { ...number, key: "strayLimitS", environment: "DEZFIL_STRAY_LIMIT_S" };
-    const widened = settingsTables({ catalogue: { ...catalogue, SETTING_CATALOGUE: [...catalogue.SETTING_CATALOGUE, limit] }, limits }) as Table[];
+    const widened = settingsTables({ ...source, catalogue: { ...catalogue, SETTING_CATALOGUE: [...catalogue.SETTING_CATALOGUE, limit] } }) as Table[];
     expect(widened.find((t) => t.table === "settings-limits")!.names).toContain("DEZFIL_STRAY_LIMIT_S");
   });
 

@@ -23,8 +23,9 @@ export async function settingsSource(root = process.cwd()) {
 
 /** The catalogue with what Settings shows beside it: the Limits tab's
  * cards, in its order, with the labels and units its rows take, which the
- * System tab's Server settings card names those settings by too. Read
- * without a build, store or server, as the catalogue is. */
+ * System tab's Server settings card names those settings by too, and the
+ * other tabs' cards and rows, under the labels each tab draws a setting
+ * with. Read without a build, store or server, as the catalogue is. */
 export async function settingsDisplaySource(root = process.cwd()) {
   const source = pathToFileURL(path.join(root, "src") + path.sep).href;
   const hooks = registerHooks({
@@ -43,7 +44,9 @@ export async function settingsDisplaySource(root = process.cwd()) {
   });
   try {
     const catalogue = await import(new URL("lib/settings/catalogue.ts", source));
-    const limits = await import(new URL("components/settings/limits-table.ts", source));
-    return { catalogue, limits };
+    const tab = (name) => import(new URL(`components/settings/${name}.ts`, source));
+    const [limits, general, defaults, libraries, data, security] = await Promise.all(
+      ["limits-table", "general-table", "defaults-table", "libraries-table", "data-table", "security-table"].map(tab));
+    return { catalogue, limits, general, defaults, libraries, data, security };
   } finally { hooks.deregister(); }
 }
