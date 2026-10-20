@@ -80,7 +80,7 @@ server {
 }
 ```
 
-- `client_max_body_size 0` leaves the size of an upload to Dezfil's **Largest upload**, 5,120 MB by default ([Limits](../api/limits.md)). Without it, nginx refuses anything over 1 MB.
+- `client_max_body_size 0` leaves the size of an upload to Dezfil's **Largest upload**, 5,120 MB by default ([Limits](../api/limits.md#limits-an-operator-changes)). Without it, nginx refuses anything over 1 MB.
 - `proxy_read_timeout 3600s` waits up to an hour for an answer, as long as Dezfil's **Data processing time limit** allows an import by default.
 - The two buffering lines pass uploads and the assistant's answers through as they arrive.
 - The `proxy_set_header` lines send the visitor's address, host, scheme and port, and drop a `Forwarded` header a visitor could add.

@@ -63,9 +63,10 @@ People can pick another model and an effort level from the chip beside **Send**.
 | Anthropic | Opus 5, Fable 5, Sonnet 5, Haiku 4 |
 | OpenAI | Astra, Sol, Terra, Nova |
 
-To offer fewer, list their ids in the order you want:
+To offer fewer, list their ids in the order you want, and start the container again:
 
 ```sh title="Terminal"
+docker rm -f dezfil
 docker run -d --name dezfil -p 127.0.0.1:3000:3000 -v dezfil-data:/data \
   -e ANTHROPIC_API_KEY=<YOUR_ANTHROPIC_KEY> \
   -e DEZFIL_AI_MODELS_ANTHROPIC=claude-sonnet-5,claude-haiku-4 \
