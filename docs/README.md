@@ -139,6 +139,12 @@ Install, secure, configure and back up your own instance.
   - read when: you need to know which outside services your instance contacts, and what each one receives; you run Dezfil on a network without internet access, or behind a firewall that allows only some hosts; you want basemap tiles, templates or OpenStreetMap data to come from your own servers; you want to know what a visitor's browser contacts when they open a published map; an import, a connection or a service is refused because its address is on a private network
   - audience: operator
 
+- [Troubleshooting](self-host/troubleshooting.md)
+  - path: `docs/self-host/troubleshooting.md`
+  - summary: Find the symptom your instance shows, from a container that stops at start-up to a refused upload, and fix it.
+  - read when: the container stops right after it starts, or health answers unready; sign-in fails behind your reverse proxy, or your domain sends the browser to another address; an upload is refused as too large, or ends with the connection dropped; the assistant does not answer, or map cards show no pictures; you forgot the admin password
+  - audience: operator
+
 ### Configuration
 
 - [General](self-host/configuration/general.md)
