@@ -2,7 +2,7 @@
 // — an undocumented server setting and a stale documented one — and
 // green on the real repository. A check that cannot be shown red is not
 // evidence.
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -13,6 +13,7 @@ import {
   serverVariables,
   documentedVariables,
   judge,
+  linkedPages,
 } from "../../scripts/check-readme-config.mjs";
 
 const dir = mkdtempSync(join(tmpdir(), "dezfil-readme-check-"));
@@ -27,8 +28,31 @@ function fixture(code: string, page: string) {
   return judge(serverVariables(src), documentedVariables(pagePath));
 }
 
-const TABLE = (rows: string[]) =>
-  ["| Setting | Default | What |", "|---|---|---|", ...rows].join("\n");
+/** A page holding a settings table with these variables, and a plain table
+ * beside it that the check does not read. */
+const TABLE = (variables: string[], plain: string[] = []) => [
+  "<!-- settings-storage:start -->",
+  "",
+  "| Setting | Variable | Settings key | Default | Values | What it does | Changes |",
+  "|---|---|---|---|---|---|---|",
+  ...variables.map(name => `| **Setting** | \`${name}\` |  | unset | Any | Does. | By variable, after a restart |`),
+  "",
+  "<!-- settings-storage:end -->",
+  "",
+  "| Variable | Where it is set | Effect |",
+  "|---|---|---|",
+  ...plain,
+].join("\n");
+/** A page holding the test wiring's table with these variables. */
+const WIRING = (variables: string[]) => [
+  "<!-- test-wiring:start -->",
+  "",
+  "| Variable | Default | What it does |",
+  "|---|---|---|",
+  ...variables.map(name => `| \`${name}\` | unset | Seam. |`),
+  "",
+  "<!-- test-wiring:end -->",
+].join("\n");
 
 describe("configuration page coverage", () => {
   it("excludes client token reference text but still detects a server read", () => {
@@ -36,10 +60,10 @@ describe("configuration page coverage", () => {
     expect(fixture('export const token = process.env.DEZFIL_API_TOKEN;', TABLE([])).undocumented).toEqual(['DEZFIL_API_TOKEN']);
     expect(fixture('export const token = process.env["DEZFIL_API_TOKEN"];', TABLE([])).undocumented).toEqual(['DEZFIL_API_TOKEN']);
   });
-  it("red on a server setting the configuration page does not document", () => {
+  it("red on a server setting the settings tables do not document", () => {
     const { undocumented, stale } = fixture(
       'export const x = process.env.DEZFIL_FAKE_SETTING;',
-      TABLE(["| `DEZFIL_DATA_DIR` | `/data` | Data. |"]),
+      TABLE(["DEZFIL_DATA_DIR"]),
     );
     expect(undocumented).toEqual(["DEZFIL_FAKE_SETTING"]);
     expect(stale).toEqual(["DEZFIL_DATA_DIR"]);
@@ -55,16 +79,16 @@ describe("configuration page coverage", () => {
         'export const e = process.env.DUCKDB_EXTENSION_DIR;', // plumbing
         'export const f = process.env.PATH;', // platform, excluded
       ].join("\n"),
-      TABLE(["| `DEZFIL_DATA_DIR` | `/data` | Data. |"]),
+      TABLE(["DEZFIL_DATA_DIR"]),
     );
     expect(undocumented).toEqual([]);
     expect(stale).toEqual([]);
   });
 
-  it("red on a test seam the server code reads that the configuration page does not document, and stale once it is no longer read", () => {
-    expect(fixture('export const r = process.env.DEZFIL_TEST_ENGINE_SEAM;', TABLE([])).undocumented).toEqual(["DEZFIL_TEST_ENGINE_SEAM"]);
-    expect(fixture('export const r = process.env["DEZFIL_TEST_ENGINE_SEAM"];', TABLE([])).undocumented).toEqual(["DEZFIL_TEST_ENGINE_SEAM"]);
-    expect(fixture('export const r = "no seam";', TABLE(["| `DEZFIL_TEST_ENGINE_SEAM` | unset | Seam. |"])).stale).toEqual(["DEZFIL_TEST_ENGINE_SEAM"]);
+  it("red on a test seam the server code reads that the wiring table does not document, and stale once it is no longer read", () => {
+    expect(fixture('export const r = process.env.DEZFIL_TEST_ENGINE_SEAM;', WIRING([])).undocumented).toEqual(["DEZFIL_TEST_ENGINE_SEAM"]);
+    expect(fixture('export const r = process.env["DEZFIL_TEST_ENGINE_SEAM"];', WIRING([])).undocumented).toEqual(["DEZFIL_TEST_ENGINE_SEAM"]);
+    expect(fixture('export const r = "no seam";', WIRING(["DEZFIL_TEST_ENGINE_SEAM"])).stale).toEqual(["DEZFIL_TEST_ENGINE_SEAM"]);
   });
 
   it("leaves a test seam that only a test file reads to that file", () => {
@@ -74,10 +98,10 @@ describe("configuration page coverage", () => {
     expect([...serverVariables(src)]).toEqual([]);
   });
 
-  it("leaves the platform rows the page lists by name out of the documented set", () => {
+  it("reads the generated tables alone: platform rows a page lists by name, and a row outside a table's markers, are not documented settings", () => {
     const { undocumented, stale } = fixture(
       'export const a = process.env.DEZFIL_DATA_DIR;',
-      TABLE(["| `DEZFIL_DATA_DIR` | `/data` | Data. |", "| `PORT` | image sets `3000` | Port. |", "| `NEXT_TELEMETRY_DISABLED` | image sets `1` | Telemetry. |"]),
+      TABLE(["DEZFIL_DATA_DIR"], ["| `PORT` | image sets `3000` | Port. |", "| `NEXT_TELEMETRY_DISABLED` | image sets `1` | Telemetry. |", "| `DEZFIL_OUTSIDE` | unset | Outside. |"]),
     );
     expect(undocumented).toEqual([]);
     expect(stale).toEqual([]);
@@ -86,7 +110,7 @@ describe("configuration page coverage", () => {
   it("red on an undocumented non-DEZFIL administrator setting", () => {
     const { undocumented } = fixture(
       'export const k = process.env.SOME_PROVIDER_API_KEY;',
-      TABLE(["| `SOME_OTHER_ROW` | — | Not it. |"]),
+      TABLE(["SOME_OTHER_ROW"]),
     );
     expect(undocumented).toEqual(["SOME_PROVIDER_API_KEY"]);
   });
@@ -94,38 +118,43 @@ describe("configuration page coverage", () => {
   it("red when a documented provider-key row is deleted", () => {
     const { undocumented } = fixture(
       'export const k = process.env.ANTHROPIC_API_KEY;',
-      TABLE(["| `DEZFIL_DATA_DIR` | `/data` | Data. |"]),
+      TABLE(["DEZFIL_DATA_DIR"]),
     );
     expect(undocumented).toContain("ANTHROPIC_API_KEY");
   });
 
   it("green on the real repository, both directions — provider keys covered", () => {
-    const root = fileURLToPath(new URL("../..", import.meta.url));
-    const server = serverVariables(join(root, "src"));
+    const { server, documented } = real();
     expect([...server]).toContain("ANTHROPIC_API_KEY");
     expect([...server]).toContain("OPENAI_API_KEY");
-    const { undocumented, stale } = judge(
-      server,
-      documentedVariables(join(root, "docs/self-host/configuration.md")),
-    );
+    const { undocumented, stale } = judge(server, documented);
     expect(undocumented).toEqual([]);
     expect(stale).toEqual([]);
   });
 });
 
-it("includes the image observers' test settings on the configuration page", () => {
+/** What the server reads and what the tables the configuration overview
+ * links, with the test wiring's on Development setup, document. */
+function real() {
   const root = fileURLToPath(new URL("../..", import.meta.url));
-  const actual = serverVariables(join(root, "src"));
+  const documents = Object.fromEntries(readdirSync(join(root, "docs"), { recursive: true, encoding: "utf8" })
+    .filter(file => file.endsWith(".md")).map(file => [`docs/${file.split("\\").join("/")}`, readFileSync(join(root, "docs", file), "utf8")]));
+  const pages: string[] = [...new Set([...linkedPages(documents), "docs/contribute/development-setup.md"])];
+  return { server: serverVariables(join(root, "src")) as Set<string>, documented: documentedVariables(...pages.map(page => join(root, page))) as Set<string> };
+}
+
+it("includes the image observers' test settings in the wiring table", () => {
+  const { server: actual, documented } = real();
   const names = ["DEZFIL_TEST_PUBLICATION_LOG", "DEZFIL_TEST_DERIVATION_LOG"];
   for (const name of names) {
     expect(actual.has(name), name).toBe(true);
-    expect(documentedVariables(join(root, "docs/self-host/configuration.md")).has(name), name).toBe(true);
+    expect(documented.has(name), name).toBe(true);
   }
   for (const name of names) {
-    const dropped = documentedVariables(join(root, "docs/self-host/configuration.md")); dropped.delete(name);
+    const dropped = new Set(documented); dropped.delete(name);
     expect(judge(actual, dropped).undocumented).toContain(name);
     const stopped = new Set(actual); stopped.delete(name);
-    expect(judge(stopped, documentedVariables(join(root, "docs/self-host/configuration.md"))).stale).toContain(name);
+    expect(judge(stopped, documented).stale).toContain(name);
   }
 });
 

@@ -328,9 +328,10 @@ rule:
 
 - `npm run lint:hygiene` rejects a NUL byte in any tracked text file, which
   makes git and grep treat a source file as binary.
-- `npm run lint:readme` compares the settings the server reads from the
-  environment with the tables on the configuration page, both directions,
-  with their documented defaults and change timing.
+- `npm run lint:readme` compares the settings the server reads, and the
+  stored instance settings, with the settings tables the configuration page
+  links, both directions, one row each, with their documented defaults,
+  Settings keys and change timing.
 - `npm run lint:size` holds the line-count ceilings of the oversized
   modules: growing one fails until the ceiling is raised in the same change,
   shrinking one until it is lowered to match.

@@ -1,9 +1,10 @@
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CATALOGUE_LIMIT, readModelCatalogue, validateCatalogue } from "./model-catalogue";
 import { describeModel } from "./model-knowledge";
+import { settingsRows } from "../../../scripts/check-readme-config.mjs";
 
 let dir: string;
 let file: string;
@@ -40,11 +41,20 @@ describe("whole catalogue contract", () => {
     const parsed = validateCatalogue(JSON.parse(example!));
     expect(parsed.openai).toHaveLength(2);
     expect(parsed.anthropic).toHaveLength(2);
-    const rows = readFileSync("docs/self-host/configuration.md", "utf8").split("\n").filter((line) => /^\| `DEZFIL_(DATA_DIR|AI_MODELS_OPENAI|AI_MODELS_ANTHROPIC)`/.test(line));
-    expect(rows).toHaveLength(3);
-    for (const row of rows) {
-      expect(row).toContain("](backup-and-restore.md#the-model-catalogue-file)");
+    // The settings that name or narrow the model catalogue: each one's row,
+    // on whichever page its settings table is, and that page links the
+    // catalogue's instructions.
+    const pages = readdirSync("docs", { recursive: true, encoding: "utf8" }).filter((file) => file.endsWith(".md")).map((file) => `docs/${file.split(path.sep).join("/")}`);
+    for (const name of ["DEZFIL_DATA_DIR", "DEZFIL_AI_MODELS_OPENAI", "DEZFIL_AI_MODELS_ANTHROPIC"]) {
+      const holding = pages.flatMap((page) => {
+        const text = readFileSync(page, "utf8");
+        return (settingsRows(text, page) as { variable: string; line: number }[]).filter((row) => row.variable === name).map((row) => ({ page, text, row: text.split("\n")[row.line - 1] }));
+      });
+      expect(holding, name).toHaveLength(1);
+      const [{ page, text, row }] = holding;
       expect(row).not.toContain("\u2014");
+      const target = path.posix.relative(path.posix.dirname(page), "docs/self-host/backup-and-restore.md");
+      expect(text, page).toContain(`](${target}#the-model-catalogue-file)`);
     }
   });
 

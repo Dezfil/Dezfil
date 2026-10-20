@@ -93,3 +93,35 @@ The unit tests, the browser specs, the helper scripts and the server's test seam
 | `DEZFIL_OVERTURE_S3_ENDPOINT` | unset, the public bucket | S3-compatible override for the public Overture bucket. |
 
 <!-- test-wiring:end -->
+
+`npm run lint:readme` holds this table to the settings catalogue and to what
+the code reads, in both directions: a `DEZFIL_TEST_*` variable a helper script
+or the server reads outside a test file has a row here, and a row here names
+one still read.
+
+Other names the tests, the browser suite and the helper scripts read are not
+in the table:
+
+- `DEZFIL_BASE_URL`: the target address for the browser test runner and the
+  headless journey scripts.
+- `DEZFIL_E2E_FIRST_RUN=1`: leaves account setup to the first-run browser
+  journey on an empty scratch store instead of provisioning a signed-in
+  fixture.
+- `DEZFIL_TEST_PG_TLS_URL`, `DEZFIL_TEST_OVERTURE`, `DEZFIL_TEST_TILER_LOG`,
+  `DEZFIL_TEST_TILER_RELEASE`, `DEZFIL_TEST_TILER_STARTED`: fixture
+  endpoints and stub seams for the unit suites.
+- `DEZFIL_E2E_ASSISTANT`, `DEZFIL_E2E_LISTEN_PORT`, `DEZFIL_E2E_SELF_PORT`,
+  `DEZFIL_E2E_RENDER_STUB`, `DEZFIL_DEBUG_PNG`: switches for the browser
+  suite.
+- `DEZFIL_ASSISTANT_LIVE`, `DEZFIL_RESTART_CHILD`, `DEZFIL_STREAM_EVIDENCE`,
+  `DEZFIL_GEOMETRY_TILER_RELEASE`, `DEZFIL_GEOMETRY_TILER_STARTED`: opt-in
+  arms and seams inside individual unit test files.
+- `DEZFIL_MCP_PROBE_LOG`, `DEZFIL_PLUGIN_RENDER_LOG`: log destinations for
+  the helper scripts under `scripts/` that drive the agent surfaces.
+
+A handful of further `DEZFIL_`-prefixed names appear inside individual test
+files and inside the performance harness under `scripts/perf/`, where they
+select an optional arm or name an output file. They are local to the file
+that reads them and are not part of the settings surface. The configuration
+check does not see them, because it scans non-test source files under `src`
+and only `DEZFIL_TEST_*` reads in helper scripts and in those source files.

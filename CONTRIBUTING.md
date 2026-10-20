@@ -44,7 +44,7 @@ the area concerned:
 
 ```bash
 npm run lint:hygiene    # no binary junk in source files
-npm run lint:readme     # every setting the server reads is documented
+npm run lint:readme     # every setting has one row in the settings tables
 npm run lint:size       # the oversized modules do not grow
 npm run lint:stage-edge # nothing development-only reaches a production build
 npm run lint:wheelhouse # the design system's vocabulary

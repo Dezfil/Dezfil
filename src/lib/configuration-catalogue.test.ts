@@ -1,468 +1,393 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { afterAll, describe, expect, it } from "vitest";
 import { isLibrarySwitch, isTemplatesSetting, SETTING_CATALOGUE, TEST_WIRING } from "./settings/catalogue";
 import { isInstanceDefault } from "./settings/instance-defaults";
 import { isInstanceRule } from "./settings/instance-security";
-import { configurationProblems, configurationRows } from "../../scripts/check-readme-config.mjs";
+import { configurationProblems, settingsRows } from "../../scripts/check-readme-config.mjs";
 import { addressRows, serviceNumberRows } from "@/components/settings/data-table";
+
+// The configuration guard reads the settings tables the configuration
+// overview links, as they are written, and holds them to the catalogue on
+// its own: every deployment variable and every stored instance setting has
+// exactly one row, in its area's table, with its documented default, its
+// Settings key and its change timing; the test wiring and the test seams
+// the code reads are on Development setup. Every rule is shown red.
 
 const root = process.cwd();
 const scratch = mkdtempSync(path.join(process.env.DEZFIL_DATA_DIR!, "configuration-check-"));
 afterAll(() => rmSync(scratch, { recursive: true, force: true }));
-/** The one document the check holds: the README carries no table. */
-const guides = ["docs/self-host/configuration.md"] as const;
-const originals = Object.fromEntries(guides.map(file => [file, readFileSync(path.join(root, file), "utf8")]));
+
+const OVERVIEW = "docs/self-host/configuration.md";
+const WIRING = "docs/contribute/development-setup.md";
+const LIMITS = "docs/api/limits.md";
+const LIVE = "In Settings, live; by variable, after a restart";
+const RESTART = "By variable, after a restart";
+type Documents = Record<string, string>;
+/** Every page under docs/, as the check reads them. */
+const originals: Documents = Object.fromEntries(readdirSync("docs", { recursive: true, encoding: "utf8" })
+  .filter(file => file.endsWith(".md")).map(file => [`docs/${file.split(path.sep).join("/")}`, readFileSync(path.join("docs", file), "utf8")]));
+const predicates = { isInstanceDefault, isInstanceRule, isLibrarySwitch, isTemplatesSetting };
+const srcDir = path.join(root, "src");
 const variable = "DEZFIL_UPLOAD_MAX_MB";
-/** The guide whose Instance defaults table the check holds to the catalogue's defaults. */
-const defaultsGuide = "docs/self-host/configuration.md";
-function changeRow(text: string, name: string, change: (row: string) => string) {
-  const row = text.split("\n").find(line => line.startsWith(`| \`${name}\` |`));
-  expect(row, `seed target ${name}`).toBeDefined();
-  const changed = text.replace(row!, change(row!));
-  expect(changed, "the seed must alter the document").not.toBe(text);
-  return changed;
+
+/** The guard's problems over these documents and this catalogue. */
+const problemsOf = (documents: Documents = originals, over: Record<string, unknown> = {}): string[] =>
+  configurationProblems({ srcDir, documents, catalogue: SETTING_CATALOGUE, testWiring: TEST_WIRING, ...predicates, ...over });
+
+/** The page whose settings table lists a variable or Settings key, and the row. */
+function rowOf(documents: Documents, name: string): { page: string; row: string } {
+  for (const [page, text] of Object.entries(documents)) {
+    const found = (settingsRows(text, page) as { variable: string; key: string; line: number }[]).find(row => row.variable === name || (!row.variable && row.key === name));
+    if (found) return { page, row: text.split("\n")[found.line - 1] };
+  }
+  throw new Error(`no settings table lists ${name}`);
 }
+/** The documents with one row changed; the seed must change something. */
+function changeRow(documents: Documents, name: string, change: (row: string) => string): Documents {
+  const { page, row } = rowOf(documents, name);
+  const text = documents[page];
+  const next = text.replace(`${row}\n`, change(row) === "" ? "" : `${change(row)}\n`);
+  expect(next, `the seed must alter ${page}`).not.toBe(text);
+  return { ...documents, [page]: next };
+}
+/** A row with one cell replaced, counted from 0. */
 function cell(row: string, position: number, value: string) {
-  const cells = row.split("|"); cells[position] = ` ${value} `; return cells.join("|");
+  const cells = row.split(/(?<!\\)\|/); cells[position + 1] = ` ${value} `; return cells.join("|");
 }
-function check(file?: string, mutate?: (text: string) => string) {
+const COLUMN = { setting: 0, variable: 1, key: 2, default: 3, values: 4, does: 5, changes: 6 };
+/** The documents with the overview's link to a page taken out. */
+function unlinked(documents: Documents, page: string): Documents {
+  const target = path.posix.relative(path.posix.dirname(OVERVIEW), page);
+  const text = documents[OVERVIEW];
+  const next = text.replace(new RegExp(`\\]\\(${target.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&")}(#[^)]*)?\\)`, "g"), "](#settings-tables)");
+  expect(next, `the overview links ${target}`).not.toBe(text);
+  return { ...documents, [OVERVIEW]: next };
+}
+
+/** The guard as `npm run lint:readme` runs it, over a copy of the pages. */
+function check(documents: Documents = originals) {
   const run = mkdtempSync(path.join(scratch, "run-"));
-  const configuration = path.join(run, "configuration.md");
-  const name = "docs/self-host/configuration.md";
-  writeFileSync(configuration, file === name ? mutate!(originals[name]) : originals[name]);
-  const result = spawnSync(process.execPath, [path.join(root, "scripts/check-readme-config.mjs"),
-    "--configuration", configuration], {
+  for (const [file, text] of Object.entries(documents)) {
+    mkdirSync(path.join(run, path.dirname(file)), { recursive: true });
+    writeFileSync(path.join(run, file), text);
+  }
+  const result = spawnSync(process.execPath, [path.join(root, "scripts/check-readme-config.mjs"), "--docs", path.join(run, "docs")], {
     encoding: "utf8", env: { ...process.env, DEZFIL_DATA_DIR: run },
   });
   expect(result.error).toBeUndefined();
   return { status: result.status, output: result.stdout + result.stderr };
 }
+const reported = (output: string) => output.split("\n").filter(line => /^[A-Z ]+: /.test(line) && !line.startsWith("FAIL") && !line.startsWith("PASS"));
 
-it("checks the real configuration page against the catalogue and retains the script wiring check", () => {
+it("checks the real tables against the catalogue and keeps the script wiring check", () => {
   const result = check();
   expect(result.status, result.output).toBe(0);
-  expect(result.output).toContain("68 deployment settings");
+  expect(result.output).toContain("67 deployment variables");
+  expect(result.output).toContain("40 stored instance settings");
   expect(result.output).toContain("4 test-wiring names");
-  expect(result.output).toContain("18 instance defaults");
-  expect(result.output).toContain("12 rules");
-  expect(result.output).toContain("5 basemap switches");
-  expect(result.output).toContain("1 template setting");
+  expect(result.output).toContain("1 test seam");
+  expect(problemsOf()).toEqual([]);
 });
 
-it("holds the configuration page alone: the README carries no table, and a row removed from the page fails", () => {
+it("holds the settings tables alone: the README and the overview carry no table of their own, and a row removed from a table fails", () => {
   const readme = readFileSync(path.join(root, "README.md"), "utf8");
   expect(readme.split("\n").filter(line => /^\|\s*`[A-Z][A-Z0-9_]+`/.test(line))).toEqual([]);
-  expect(check().status).toBe(0);
-  const removed = check("docs/self-host/configuration.md", text => changeRow(text, "DEZFIL_QUERY_TIMEOUT_S", () => "\0").replace("\0\n", ""));
+  expect(settingsRows(originals[OVERVIEW], OVERVIEW)).toEqual([]);
+  const names = new Set([...SETTING_CATALOGUE.filter(definition => definition.scope === "instance").flatMap(definition => [definition.environment, definition.key]),
+    ...TEST_WIRING.map(wiring => wiring.environment)].filter(Boolean));
+  const handRows = originals[OVERVIEW].split("\n").filter(line => line.startsWith("|")
+    && line.split(/(?<!\\)\|/).slice(1, 3).some(cell => names.has(cell.trim().replace(/^`|`$/g, ""))));
+  expect(handRows).toEqual([]);
+  const removed = check(changeRow(originals, "DEZFIL_QUERY_TIMEOUT_S", () => ""));
   expect(removed.status, removed.output).toBe(1);
-  expect(removed.output).toMatch(/UNDOCUMENTED: \S*configuration\.md: DEZFIL_QUERY_TIMEOUT_S/);
+  expect(reported(removed.output)).toEqual(["UNDOCUMENTED: deployment variables: DEZFIL_QUERY_TIMEOUT_S"]);
 });
 
-it("takes defaults and editability from the supplied catalogue, not a copy in the checker", () => {
+it("takes defaults, editability and timing from the supplied catalogue, not a copy in the checker", () => {
   const catalogue = SETTING_CATALOGUE.map(definition => definition.key === "uploadMaxMb"
     ? { ...definition, documentedDefault: "777", editable: false, timing: "next-start" as const } : definition);
-  const problems = configurationProblems({ srcDir: path.join(root, "src"), documents: originals, catalogue, testWiring: TEST_WIRING, defaultsGuide, isInstanceDefault, isInstanceRule, isLibrarySwitch, isTemplatesSetting });
-  expect(problems).toHaveLength(2 * guides.length);
-  for (const guide of guides) {
-    expect(problems).toContainEqual(expect.stringContaining(`DEFAULT: ${guide}: ${variable}: expected "777"`));
-    expect(problems).toContainEqual(expect.stringContaining(`CHANGED BY: ${guide}: ${variable}: expected "Restart"`));
-  }
+  expect([...problemsOf(originals, { catalogue })].sort()).toEqual([
+    `CHANGES: ${LIMITS} settings-limits: ${variable}: expected "${RESTART}", found "${LIVE}"`,
+    `DEFAULT: ${LIMITS} settings-limits: ${variable}: expected "777", found "5120"`,
+    `KEY: ${LIMITS} settings-limits: ${variable}: expected no Settings key, found "uploadMaxMb"`,
+  ]);
 });
 
 it("rejects deployment and test-wiring names removed from the catalogue while reads remain", () => {
-  const problems = configurationProblems({ srcDir: path.join(root, "src"), documents: originals,
-    catalogue: SETTING_CATALOGUE.filter(definition => definition.environment !== variable), testWiring: TEST_WIRING.slice(1), defaultsGuide, isInstanceDefault, isInstanceRule, isLibrarySwitch, isTemplatesSetting,
-  });
-  for (const name of [variable, TEST_WIRING[0].environment]) {
-    expect(problems).toContain(`STALE: source scan against catalogue: ${name}`);
-    for (const guide of guides) expect(problems).toContainEqual(expect.stringMatching(`STALE: ${guide}.*: ${name}`));
-  }
+  const problems = problemsOf(originals, { catalogue: SETTING_CATALOGUE.filter(definition => definition.environment !== variable), testWiring: TEST_WIRING.slice(1) });
+  for (const name of [variable, TEST_WIRING[0].environment]) expect(problems).toContain(`STALE: source scan against catalogue: ${name}`);
+  expect(problems).toContain(`STALE: ${LIMITS} settings-limits: ${variable}`);
+  expect(problems).toContain(`STALE: ${WIRING} test wiring: ${TEST_WIRING[0].environment}`);
 });
 
-describe.each(guides)("%s catalogue drift", file => {
-  const seeds: [string, (text: string) => string, string][] = [
-    ["missing deployment row", text => changeRow(text, variable, () => ""), "UNDOCUMENTED"],
-    ["orphan deployment row", text => `${text}\n| \`DEZFIL_ORPHAN_SETTING\` | 1 | Orphan. | Restart |\n`, "STALE"],
-    ["wrong default", text => changeRow(text, variable, row => cell(row, 2, "999")), "DEFAULT"],
-    ["missing editable mark", text => changeRow(text, variable, row => cell(row, 4, "Restart")), "CHANGED BY"],
-    ["false editable mark", text => changeRow(text, "DEZFIL_QUERY_MEMORY_MB", row => cell(row, 4, "App (live) or restart")), "CHANGED BY"],
-    ["wrong timing", text => changeRow(text, variable, row => cell(row, 4, "App (after restart) or restart")), "CHANGED BY"],
-    ["duplicate row", text => changeRow(text, variable, row => `${row}\n${row}`), "DUPLICATE"],
-    ["missing change column", text => text.replaceAll("| Changed by |", "| How changed |"), "CHANGED BY"],
+describe("catalogue drift", () => {
+  const seeds: [string, (documents: Documents) => Documents, string[]][] = [
+    ["missing deployment row", d => changeRow(d, variable, () => ""), [`UNDOCUMENTED: deployment variables: ${variable}`]],
+    ["orphan deployment row", d => changeRow(d, variable, row => `${row}\n| **Orphan** | \`DEZFIL_ORPHAN_SETTING\` |  | \`1\` | Any | Orphan. | ${RESTART} |`),
+      [`STALE: ${LIMITS} settings-limits: DEZFIL_ORPHAN_SETTING`]],
+    ["wrong default", d => changeRow(d, variable, row => cell(row, COLUMN.default, "`999` MB")),
+      [`DEFAULT: ${LIMITS} settings-limits: ${variable}: expected "5120", found "999"`]],
+    ["missing editable mark", d => changeRow(d, variable, row => cell(row, COLUMN.changes, RESTART)),
+      [`CHANGES: ${LIMITS} settings-limits: ${variable}: expected "${LIVE}", found "${RESTART}"`]],
+    ["false editable mark", d => changeRow(d, "DEZFIL_QUERY_MEMORY_MB", row => cell(row, COLUMN.changes, LIVE)),
+      [`CHANGES: ${LIMITS} settings-limits: DEZFIL_QUERY_MEMORY_MB: expected "${RESTART}", found "${LIVE}"`]],
+    ["wrong timing", d => changeRow(d, variable, row => cell(row, COLUMN.changes, "In Settings, after a restart; by variable, after a restart")),
+      [`CHANGES: ${LIMITS} settings-limits: ${variable}: expected "${LIVE}", found "In Settings, after a restart; by variable, after a restart"`]],
+    ["wrong Settings key", d => changeRow(d, variable, row => cell(row, COLUMN.key, "`remoteMaxMb`")),
+      [`KEY: ${LIMITS} settings-limits: ${variable}: expected "uploadMaxMb", found "remoteMaxMb"`]],
+    ["duplicate row", d => changeRow(d, variable, row => `${row}\n${row}`),
+      [`DUPLICATE: deployment variables: ${variable} (${LIMITS} settings-limits, ${LIMITS} settings-limits)`]],
+    ["row listed twice, in two tables", d => changeRow(d, "DEZFIL_DATA_DIR", row => `${row}\n${rowOf(d, variable).row}`), [
+      `DUPLICATE: deployment variables: ${variable} (docs/self-host/configuration/storage.md settings-storage, ${LIMITS} settings-limits)`,
+      `MISPLACED: docs/self-host/configuration/storage.md settings-storage: ${variable}: belongs in the settings-limits table on ${LIMITS}`,
+    ]],
+    ["row moved to another area's table", d => changeRow(changeRow(d, variable, () => ""), "DEZFIL_DATA_DIR", row => `${row}\n${rowOf(d, variable).row}`),
+      [`MISPLACED: docs/self-host/configuration/storage.md settings-storage: ${variable}: belongs in the settings-limits table on ${LIMITS}`]],
+    ["table the overview does not link", d => unlinked(d, "docs/self-host/reverse-proxy.md"),
+      ["UNDOCUMENTED: deployment variables: DEZFIL_TRUSTED_PROXIES", "UNDOCUMENTED: deployment variables: DEZFIL_SESSION_COOKIE"]],
   ];
-  it.each(seeds)("rejects seeded %s independently", (_label, seed, diagnostic) => {
-    const result = check(file, seed);
+  it.each(seeds)("rejects seeded %s, naming only it", (_label, seed, problems) => {
+    expect([...problemsOf(seed(originals))].sort()).toEqual([...problems].sort());
+  });
+  it.each(seeds.slice(0, 8))("fails the command on seeded %s", (_label, seed, problems) => {
+    const result = check(seed(originals));
     expect(result.status, result.output).toBe(1);
-    expect(result.output).toContain(diagnostic);
-    expect(result.output).toContain(path.basename(file));
+    expect(reported(result.output).sort()).toEqual([...problems].sort());
+  });
+  it("rejects a table whose change column is lost, a row at a time", () => {
+    const text = originals[LIMITS];
+    const lost = text.replace("| What it does | Changes |", "| What it does | How changed |");
+    expect(lost).not.toBe(text);
+    const problems = problemsOf({ ...originals, [LIMITS]: lost });
+    expect(problems.filter(problem => problem.startsWith(`CHANGES: ${LIMITS} settings-limits: `))).toHaveLength(rowsIn(LIMITS));
+    expect(problems.every(problem => problem.startsWith("CHANGES: "))).toBe(true);
   });
   it.each(TEST_WIRING)("rejects removal of test wiring $environment", ({ environment }) => {
-    const result = check(file, text => changeRow(text, environment, () => ""));
-    expect(result.status, result.output).toBe(1);
-    expect(result.output).toContain(environment);
+    const problems = problemsOf(changeRow(originals, environment, () => ""));
+    expect(problems).toContain(`UNDOCUMENTED: ${WIRING} test wiring: ${environment}`);
+    expect(problems).toContain(`UNDOCUMENTED: ${WIRING} test wiring reads: ${environment}`);
   });
   it("rejects an orphan test-wiring row", () => {
-    const result = check(file, text => `${text}\n| \`DEZFIL_TEST_ORPHAN\` | unset | Orphan. | Restart |\n`);
-    expect(result.status, result.output).toBe(1);
-    expect(result.output).toContain("DEZFIL_TEST_ORPHAN");
+    const seeded = changeRow(originals, TEST_WIRING[0].environment, row => `${row}\n| \`DEZFIL_TEST_ORPHAN\` | unset | Orphan. |`);
+    expect([...problemsOf(seeded)].sort()).toEqual([`STALE: ${WIRING} test wiring reads: DEZFIL_TEST_ORPHAN`, `STALE: ${WIRING} test wiring: DEZFIL_TEST_ORPHAN`]);
   });
 });
+
+/** How many rows a page's settings tables hold. */
+const rowsIn = (page: string) => settingsRows(originals[page], page).length;
 
 describe("the test seams the product code reads", () => {
   const seam = "DEZFIL_TEST_EXTENSION_REPOSITORY";
-  const problemsOf = (srcDir: string, testWiring: readonly { environment: string; documentedDefault: string }[] = TEST_WIRING) =>
-    configurationProblems({ srcDir, documents: originals, catalogue: SETTING_CATALOGUE, testWiring, defaultsGuide, isInstanceDefault, isInstanceRule, isLibrarySwitch, isTemplatesSetting });
 
-  it("hold the engine's extension repository as test wiring, unset by default, on the configuration page", () => {
+  it("hold the engine's extension repository as test wiring, unset by default, on Development setup", () => {
     expect(TEST_WIRING.map(wiring => wiring.environment)).toContain(seam);
-    for (const guide of guides) {
-      expect(configurationRows(originals[guide]).filter(row => row.name === seam), guide).toEqual([{ name: seam, defaultValue: "unset", changedBy: "Restart" }]);
-    }
-    expect(problemsOf(path.join(root, "src"))).toEqual([]);
+    const rows = (settingsRows(originals[WIRING], WIRING) as { variable: string; defaultValue: string }[]).filter(row => row.variable === seam);
+    expect(rows.map(row => ({ variable: row.variable, defaultValue: row.defaultValue }))).toEqual([{ variable: seam, defaultValue: "unset" }]);
+    expect(problemsOf()).toEqual([]);
   });
 
   it("rejects the seam taken from the catalogue while the engine still reads it", () => {
-    const problems = problemsOf(path.join(root, "src"), TEST_WIRING.filter(wiring => wiring.environment !== seam));
+    const problems = problemsOf(originals, { testWiring: TEST_WIRING.filter(wiring => wiring.environment !== seam) });
     expect(problems).toContain(`STALE: source scan against catalogue: ${seam}`);
     expect(problems).toContain(`STALE: test wiring reads against catalogue: ${seam}`);
-    for (const guide of guides) expect(problems).toContain(`STALE: ${guide} test wiring: ${seam}`);
+    expect(problems).toContain(`STALE: ${WIRING} test wiring: ${seam}`);
   });
 
-  it("rejects a seam the product code reads that the catalogue and the guides do not name, and leaves one a test file reads to that file", () => {
+  it("rejects a seam the product code reads that the catalogue and Development setup do not name, and leaves one a test file reads to that file", () => {
     const src = mkdtempSync(path.join(scratch, "src-"));
     writeFileSync(path.join(src, "engine.ts"), "export const repository = process.env.DEZFIL_TEST_NEW_SEAM;\n");
     writeFileSync(path.join(src, "engine.test.ts"), "export const local = process.env.DEZFIL_TEST_FILE_LOCAL;\n");
-    const problems = problemsOf(src);
-    expect(problems.filter(problem => problem.includes("DEZFIL_TEST_NEW_SEAM")).sort()).toEqual([
+    const problems = configurationProblems({ srcDir: src, scriptsDir: path.join(root, "scripts"), documents: originals, catalogue: SETTING_CATALOGUE, testWiring: TEST_WIRING, ...predicates });
+    expect(problems.filter((problem: string) => problem.includes("DEZFIL_TEST_NEW_SEAM")).sort()).toEqual([
       "STALE: source scan against catalogue: DEZFIL_TEST_NEW_SEAM",
       "STALE: test wiring reads against catalogue: DEZFIL_TEST_NEW_SEAM",
-      "UNDOCUMENTED: docs/self-host/configuration.md test wiring reads: DEZFIL_TEST_NEW_SEAM",
+      `UNDOCUMENTED: ${WIRING} test wiring reads: DEZFIL_TEST_NEW_SEAM`,
     ]);
-    expect(problems.filter(problem => problem.includes("DEZFIL_TEST_FILE_LOCAL"))).toEqual([]);
+    expect(problems.filter((problem: string) => problem.includes("DEZFIL_TEST_FILE_LOCAL"))).toEqual([]);
+  });
+
+  it("keep the catalogue's Overture endpoint with the test wiring on Development setup, and in no operator table", () => {
+    const name = "DEZFIL_OVERTURE_S3_ENDPOINT";
+    expect(rowOf(originals, name).page).toBe(WIRING);
+    expect(problemsOf(changeRow(originals, name, () => ""))).toEqual([`UNDOCUMENTED: ${WIRING} test wiring: ${name}`]);
+    const moved = changeRow(originals, "DEZFIL_DATA_DIR", row => `${row}\n| **Overture endpoint** | \`${name}\` |  | unset, the public bucket | An address | Override. | ${RESTART} |`);
+    expect(problemsOf(moved)).toEqual([`MISPLACED: docs/self-host/configuration/storage.md settings-storage: ${name}: a test seam, documented with the test wiring on ${WIRING}`]);
   });
 });
 
-describe("the configuration guide's Instance defaults table", () => {
-  const key = "newLayer.lineOpacity";
-  /** The guide with one row taken out whole, so the table around it stays one table. */
-  const without = (text: string, name: string) => {
-    const changed = changeRow(text, name, () => "\0");
-    return changed.replace("\0\n", "");
-  };
-  /** What the check reported, one problem a line, without the run's folder or the closing count. */
-  const reported = (output: string) => output.split("\n").filter(line => /^[A-Z ]+: /.test(line) && !line.startsWith("FAIL"))
-    .map(line => line.replace(/\S*configuration\.md/, "configuration.md"));
-  const seeds: [string, (text: string) => string, string][] = [
-    ["missing default row", text => without(text, key), `UNDOCUMENTED: configuration.md instance defaults: ${key}`],
-    ["orphan default row", text => changeRow(text, key, row => `${row}\n| \`newLayer.haloWidth\` | A number from 0 to 4 | \`1\` | Orphan. |`),
-      "STALE: configuration.md instance defaults: newLayer.haloWidth"],
-    ["wrong default", text => changeRow(text, key, row => cell(row, 3, "`90`")),
-      `DEFAULT: configuration.md instance defaults: ${key}: expected "95", found "90"`],
-    ["duplicate default row", text => changeRow(text, key, row => `${row}\n${row}`), `DUPLICATE: configuration.md instance defaults: ${key}`],
+/** The keyed groups the catalogue's own predicates name, each in its own table. */
+describe.each([
+  { group: "instance defaults", table: "settings-defaults", page: "docs/self-host/configuration/defaults.md", predicate: isInstanceDefault, key: "newLayer.lineOpacity", value: "95", orphan: "newLayer.haloWidth", count: 18 },
+  { group: "security and rules", table: "settings-rules", page: "docs/self-host/configuration/rules.md", predicate: isInstanceRule, key: "security.passwordMin", value: "8", orphan: "security.twoFactor", count: 12 },
+  { group: "basemap switches", table: "settings-libraries", page: "docs/self-host/configuration/libraries.md", predicate: isLibrarySwitch, key: "basemaps.streets", value: "on", orphan: "basemaps.terrain", count: 5 },
+  { group: "template catalogue", table: "settings-services", page: "docs/self-host/configuration/services.md", predicate: isTemplatesSetting, key: "templates.catalogue", value: "on", orphan: "templates.autoFetch", count: 1 },
+])("the $group, in the $table table", ({ table, page, predicate, key, value, orphan, count }) => {
+  const where = `${page} ${table}`;
+  const seeds: [string, (documents: Documents) => Documents, string[]][] = [
+    ["missing row", d => changeRow(d, key, () => ""), [`UNDOCUMENTED: stored instance settings: ${key}`]],
+    ["orphan row", d => changeRow(d, key, row => `${row}\n| **Orphan** |  | \`${orphan}\` | \`${value}\` | Any | Orphan. | In Settings, live |`), [`STALE: ${where}: ${orphan}`]],
+    ["wrong default", d => changeRow(d, key, row => cell(row, COLUMN.default, "`90`")), [`DEFAULT: ${where}: ${key}: expected "${value}", found "90"`]],
+    ["duplicate row", d => changeRow(d, key, row => `${row}\n${row}`), [`DUPLICATE: stored instance settings: ${key} (${where}, ${where})`]],
+    ["timing", d => changeRow(d, key, row => cell(row, COLUMN.changes, "In Settings, after a restart")), [`CHANGES: ${where}: ${key}: expected "In Settings, live", found "In Settings, after a restart"`]],
   ];
+  it.each(seeds)("rejects seeded %s, naming only it", (_label, seed, problems) => {
+    expect(problemsOf(seed(originals))).toEqual(problems);
+  });
 
-  it.each(seeds)("rejects seeded %s, naming only it", (_label, seed, problem) => {
-    const result = check(defaultsGuide, seed);
-    expect(result.status, result.output).toBe(1);
-    expect(reported(result.output)).toEqual([problem]);
+  it("holds every row of the group, and the table, to the catalogue's predicate", () => {
+    const keys = SETTING_CATALOGUE.filter(definition => predicate(definition)).map(definition => definition.key);
+    expect(keys).toHaveLength(count);
+    const rows = (settingsRows(originals[page], page) as { table: string; key: string }[]).filter(row => row.table === table).map(row => row.key);
+    for (const name of keys) expect(rows, name).toContain(name);
+  });
+
+  it("rejects the table the overview no longer links, naming every row of it", () => {
+    const problems = problemsOf(unlinked(originals, page));
+    expect(problems).toHaveLength(rowsIn(page));
+    expect(problems.every(problem => problem.startsWith("UNDOCUMENTED: "))).toBe(true);
+    for (const name of SETTING_CATALOGUE.filter(definition => predicate(definition)).map(definition => definition.key)) {
+      expect(problems).toContain(`UNDOCUMENTED: stored instance settings: ${name}`);
+    }
   });
 
   it("rejects the table whose default column is lost, a default at a time", () => {
-    const result = check(defaultsGuide, text => text.replace("| Setting | Values | Default | Taken when |", "| Setting | Values | Starts as | Taken when |"));
-    expect(result.status, result.output).toBe(1);
-    expect(reported(result.output).filter(line => line.startsWith("DEFAULT: configuration.md instance defaults: "))).toHaveLength(18);
+    const text = originals[page];
+    const lost = text.replace("| Settings key | Default | Values |", "| Settings key | Starts as | Values |");
+    expect(lost).not.toBe(text);
+    const problems = problemsOf({ ...originals, [page]: lost });
+    expect(problems).toHaveLength(rowsIn(page));
+    expect(problems.every(problem => problem.startsWith(`DEFAULT: ${where}: `))).toBe(true);
   });
 
-  it("rejects a guide that has lost the table, naming every default", () => {
-    const result = check(defaultsGuide, text => text.replace("## Instance defaults", "## Starting values"));
-    expect(result.status, result.output).toBe(1);
-    expect(reported(result.output).filter(line => line.startsWith("UNDOCUMENTED: configuration.md instance defaults: "))).toHaveLength(18);
-  });
-
-  it("holds the table to the supplied catalogue's defaults, not a copy in the checker", () => {
-    const opens = SETTING_CATALOGUE.find(definition => definition.key === "canvas.opens")!;
+  it("holds the table to the supplied catalogue, not a copy in the checker", () => {
+    const keys = SETTING_CATALOGUE.filter(definition => predicate(definition)).map(definition => definition.key);
+    const first = SETTING_CATALOGUE.find(definition => definition.key === keys[0])!;
+    const last = keys.at(-1)!;
     const catalogue = [
-      ...SETTING_CATALOGUE.filter(definition => definition.key !== "canvas.resultsBand")
-        .map(definition => definition.key === "newMap.zoom" ? { ...definition, documentedDefault: "2" } : definition),
-      { ...opens, key: "canvas.snap", documentedDefault: "on" },
+      ...SETTING_CATALOGUE.filter(definition => keys.length === 1 || definition.key !== last)
+        .map(definition => definition.key === key ? { ...definition, documentedDefault: "changed" } : definition),
+      { ...first, key: orphan },
     ];
-    const problems = configurationProblems({ srcDir: path.join(root, "src"), documents: originals, catalogue, testWiring: TEST_WIRING, defaultsGuide, isInstanceDefault, isInstanceRule, isLibrarySwitch, isTemplatesSetting });
-    expect([...problems].sort()).toEqual([
-      'DEFAULT: docs/self-host/configuration.md instance defaults: newMap.zoom: expected "2", found "1.3"',
-      "STALE: docs/self-host/configuration.md instance defaults: canvas.resultsBand",
-      "UNDOCUMENTED: docs/self-host/configuration.md instance defaults: canvas.snap",
-    ]);
+    const expected = [`DEFAULT: ${where}: ${key}: expected "changed", found "${value}"`, `UNDOCUMENTED: stored instance settings: ${orphan}`];
+    if (keys.length > 1) expected.push(`STALE: ${where}: ${last}`);
+    expect([...problemsOf(originals, { catalogue })].sort()).toEqual(expected.sort());
   });
 });
 
-describe("the configuration guide's Security and rules table", () => {
-  const key = "security.passwordMin";
-  const without = (text: string, name: string) => changeRow(text, name, () => "\0").replace("\0\n", "");
-  const reported = (output: string) => output.split("\n").filter(line => /^[A-Z ]+: /.test(line) && !line.startsWith("FAIL"))
-    .map(line => line.replace(/\S*configuration\.md/, "configuration.md"));
-  const seeds: [string, (text: string) => string, string[]][] = [
-    ["missing rule row", text => without(text, key), [`UNDOCUMENTED: configuration.md security and rules: ${key}`]],
-    ["orphan rule row", text => changeRow(text, key, row => `${row}\n| \`security.twoFactor\` | \`off\`, \`on\` | \`off\` | Orphan. |`),
-      ["STALE: configuration.md security and rules: security.twoFactor"]],
-    ["wrong default", text => changeRow(text, key, row => cell(row, 3, "`12`")),
-      [`DEFAULT: configuration.md security and rules: ${key}: expected "8", found "12"`]],
-    ["wrong list default", text => changeRow(text, "publishing.embedSites", row => cell(row, 3, "`https://www.stadtwerke.example`")),
-      ['DEFAULT: configuration.md security and rules: publishing.embedSites: expected "none", found "https://www.stadtwerke.example"']],
-    ["duplicate rule row", text => changeRow(text, key, row => `${row}\n${row}`), [`DUPLICATE: configuration.md security and rules: ${key}`]],
-    ["rule row moved under the defaults", text => changeRow(without(text, "imports.links"), "imageExport.shape",
-      row => `${row}\n| \`imports.links\` | \`everyone\`, \`admins\` | \`everyone\` | Moved. |`), [
-      "STALE: configuration.md instance defaults: imports.links", "UNDOCUMENTED: configuration.md security and rules: imports.links"]],
-  ];
-
-  it.each(seeds)("rejects seeded %s, naming only it", (_label, seed, problems) => {
-    const result = check(defaultsGuide, seed);
-    expect(result.status, result.output).toBe(1);
-    expect(reported(result.output).sort()).toEqual(problems);
-  });
-
-  it("rejects a guide that has lost the table, naming every rule", () => {
-    const result = check(defaultsGuide, text => text.replace("## Security and rules", "## Access"));
-    expect(result.status, result.output).toBe(1);
-    expect(reported(result.output).filter(line => line.startsWith("UNDOCUMENTED: configuration.md security and rules: "))).toHaveLength(12);
-  });
-
-  it("holds the table to the supplied catalogue's rules, not a copy in the checker", () => {
-    const create = SETTING_CATALOGUE.find(definition => definition.key === "tokens.create")!;
-    const catalogue = [
-      ...SETTING_CATALOGUE.filter(definition => definition.key !== "imports.links")
-        .map(definition => definition.key === "security.linkDays" ? { ...definition, documentedDefault: "14" } : definition),
-      { ...create, key: "tokens.scopes", documentedDefault: "read" },
-    ];
-    const problems = configurationProblems({ srcDir: path.join(root, "src"), documents: originals, catalogue, testWiring: TEST_WIRING, defaultsGuide, isInstanceDefault, isInstanceRule, isLibrarySwitch, isTemplatesSetting });
-    expect([...problems].sort()).toEqual([
-      'DEFAULT: docs/self-host/configuration.md security and rules: security.linkDays: expected "14", found "7"',
-      "STALE: docs/self-host/configuration.md security and rules: imports.links",
-      "UNDOCUMENTED: docs/self-host/configuration.md security and rules: tokens.scopes",
-    ]);
+describe("a row moved into another group's table", () => {
+  it.each([
+    ["imports.links", "settings-defaults", "docs/self-host/configuration/defaults.md", "imageExport.shape", "settings-rules", "docs/self-host/configuration/rules.md"],
+    ["basemaps.singleMapStyles", "settings-rules", "docs/self-host/configuration/rules.md", "imports.links", "settings-libraries", "docs/self-host/configuration/libraries.md"],
+    ["templates.catalogue", "settings-libraries", "docs/self-host/configuration/libraries.md", "basemaps.streets", "settings-services", "docs/self-host/configuration/services.md"],
+  ])("rejects %s under %s, naming only it", (key, table, page, beside, home, homePage) => {
+    const moved = changeRow(changeRow(originals, key, () => ""), beside, row => `${row}\n${rowOf(originals, key).row}`);
+    expect(problemsOf(moved)).toEqual([`MISPLACED: ${page} ${table}: ${key}: belongs in the ${home} table on ${homePage}`]);
   });
 
   it("counts the stored sign-in, token, publishing, connection and import settings, and nothing else, as rules", () => {
-    const rules = SETTING_CATALOGUE.filter(definition => isInstanceRule(definition)).map(definition => definition.key);
-    expect(rules).toEqual([
+    expect(SETTING_CATALOGUE.filter(definition => isInstanceRule(definition)).map(definition => definition.key)).toEqual([
       "security.sessionDays", "security.linkDays", "security.failedPerAccount", "security.failedPerAddress", "security.passwordMin",
       "tokens.create", "tokens.expiry", "publishing.publish", "publishing.embedding", "publishing.embedSites",
       "connections.create", "imports.links",
     ]);
     expect(SETTING_CATALOGUE.filter(definition => isInstanceRule(definition) && isInstanceDefault(definition))).toEqual([]);
   });
-});
 
-describe("the configuration guide's Libraries table", () => {
-  const key = "basemaps.streets";
-  const without = (text: string, name: string) => changeRow(text, name, () => "\0").replace("\0\n", "");
-  const reported = (output: string) => output.split("\n").filter(line => /^[A-Z ]+: /.test(line) && !line.startsWith("FAIL"))
-    .map(line => line.replace(/\S*configuration\.md/, "configuration.md"));
-  const seeds: [string, (text: string) => string, string[]][] = [
-    ["missing switch row", text => without(text, key), [`UNDOCUMENTED: configuration.md libraries: ${key}`]],
-    ["orphan switch row", text => changeRow(text, key, row => `${row}\n| \`basemaps.terrain\` | \`true\` or \`false\` | on | Orphan. |`),
-      ["STALE: configuration.md libraries: basemaps.terrain"]],
-    ["wrong default", text => changeRow(text, key, row => cell(row, 3, "off")), [`DEFAULT: configuration.md libraries: ${key}: expected "on", found "off"`]],
-    ["duplicate switch row", text => changeRow(text, key, row => `${row}\n${row}`), [`DUPLICATE: configuration.md libraries: ${key}`]],
-    ["switch row moved under the rules", text => changeRow(without(text, "basemaps.singleMapStyles"), "imports.links",
-      row => `${row}\n| \`basemaps.singleMapStyles\` | \`true\` or \`false\` | on | Moved. |`), [
-      "STALE: configuration.md security and rules: basemaps.singleMapStyles", "UNDOCUMENTED: configuration.md libraries: basemaps.singleMapStyles"]],
-  ];
-
-  it.each(seeds)("rejects seeded %s, naming only it", (_label, seed, problems) => {
-    const result = check(defaultsGuide, seed);
-    expect(result.status, result.output).toBe(1);
-    expect(reported(result.output).sort()).toEqual(problems);
-  });
-
-  it("rejects a guide that has lost the section, naming every switch", () => {
-    const result = check(defaultsGuide, text => text.replace("## Libraries", "## Basemaps and palettes"));
-    expect(result.status, result.output).toBe(1);
-    expect(reported(result.output).filter(line => line.startsWith("UNDOCUMENTED: configuration.md libraries: "))).toHaveLength(5);
-  });
-
-  it("holds the table to the supplied catalogue's switches, not a copy in the checker", () => {
-    const dark = SETTING_CATALOGUE.find(definition => definition.key === "basemaps.dark")!;
-    const catalogue = [
-      ...SETTING_CATALOGUE.filter(definition => definition.key !== "basemaps.light")
-        .map(definition => definition.key === "basemaps.streets" ? { ...definition, documentedDefault: "off" } : definition),
-      { ...dark, key: "basemaps.terrain" },
-    ];
-    const problems = configurationProblems({ srcDir: path.join(root, "src"), documents: originals, catalogue, testWiring: TEST_WIRING, defaultsGuide, isInstanceDefault, isInstanceRule, isLibrarySwitch, isTemplatesSetting });
-    expect([...problems].sort()).toEqual([
-      'DEFAULT: docs/self-host/configuration.md libraries: basemaps.streets: expected "off", found "on"',
-      "STALE: docs/self-host/configuration.md libraries: basemaps.light",
-      "UNDOCUMENTED: docs/self-host/configuration.md libraries: basemaps.terrain",
-    ]);
-  });
-
-  it("counts the five basemap switches, and nothing else, as the Libraries rows", () => {
+  it("counts the five basemap switches and the one template setting, and nothing else, as their groups", () => {
     expect(SETTING_CATALOGUE.filter(definition => isLibrarySwitch(definition)).map(definition => definition.key)).toEqual([
       "basemaps.dark", "basemaps.light", "basemaps.streets", "basemaps.satellite", "basemaps.singleMapStyles",
     ]);
-    expect(SETTING_CATALOGUE.filter(definition => isLibrarySwitch(definition) && (isInstanceDefault(definition) || isInstanceRule(definition)))).toEqual([]);
+    expect(SETTING_CATALOGUE.filter(definition => isTemplatesSetting(definition)).map(definition => definition.key)).toEqual(["templates.catalogue"]);
+    expect(SETTING_CATALOGUE.filter(definition => (isLibrarySwitch(definition) || isTemplatesSetting(definition))
+      && (isInstanceDefault(definition) || isInstanceRule(definition)))).toEqual([]);
   });
 
-  it("refuses a check without the catalogue's Libraries predicate", () => {
-    expect(() => configurationProblems({ srcDir: path.join(root, "src"), documents: originals, catalogue: SETTING_CATALOGUE, testWiring: TEST_WIRING,
-      defaultsGuide, isInstanceDefault, isInstanceRule, isLibrarySwitch: undefined, isTemplatesSetting })).toThrow("isLibrarySwitch");
-  });
-});
-
-describe("the configuration guide's Templates table", () => {
-  const key = "templates.catalogue";
-  const without = (text: string, name: string) => changeRow(text, name, () => "\0").replace("\0\n", "");
-  const reported = (output: string) => output.split("\n").filter(line => /^[A-Z ]+: /.test(line) && !line.startsWith("FAIL"))
-    .map(line => line.replace(/\S*configuration\.md/, "configuration.md"));
-  const seeds: [string, (text: string) => string, string[]][] = [
-    ["missing switch row", text => without(text, key), [`UNDOCUMENTED: configuration.md templates: ${key}`]],
-    ["orphan row", text => changeRow(text, key, row => `${row}\n| \`templates.autoFetch\` | \`true\` or \`false\` | off | Orphan. |`),
-      ["STALE: configuration.md templates: templates.autoFetch"]],
-    ["wrong default", text => changeRow(text, key, row => cell(row, 3, "off")), [`DEFAULT: configuration.md templates: ${key}: expected "on", found "off"`]],
-    ["duplicate switch row", text => changeRow(text, key, row => `${row}\n${row}`), [`DUPLICATE: configuration.md templates: ${key}`]],
-    ["switch row moved under the libraries", text => changeRow(without(text, key), "basemaps.streets",
-      row => `${row}\n| \`templates.catalogue\` | \`true\` or \`false\` | on | Moved. |`), [
-      "STALE: configuration.md libraries: templates.catalogue", "UNDOCUMENTED: configuration.md templates: templates.catalogue"]],
-  ];
-
-  it.each(seeds)("rejects seeded %s, naming only it", (_label, seed, problems) => {
-    const result = check(defaultsGuide, seed);
-    expect(result.status, result.output).toBe(1);
-    expect(reported(result.output).sort()).toEqual(problems);
-  });
-
-  it("rejects a guide that has lost the section, naming the switch", () => {
-    const result = check(defaultsGuide, text => text.replace("## Templates", "## Examples"));
-    expect(result.status, result.output).toBe(1);
-    expect(reported(result.output)).toEqual(["UNDOCUMENTED: configuration.md templates: templates.catalogue"]);
-  });
-
-  it("holds the table to the supplied catalogue's template settings, not a copy in the checker", () => {
-    const use = SETTING_CATALOGUE.find(definition => definition.key === key)!;
-    const catalogue = [
-      ...SETTING_CATALOGUE.map(definition => definition.key === key ? { ...definition, documentedDefault: "off" } : definition),
-      { ...use, key: "templates.autoFetch" },
-    ];
-    const problems = configurationProblems({ srcDir: path.join(root, "src"), documents: originals, catalogue, testWiring: TEST_WIRING, defaultsGuide, isInstanceDefault, isInstanceRule, isLibrarySwitch, isTemplatesSetting });
-    expect([...problems].sort()).toEqual([
-      'DEFAULT: docs/self-host/configuration.md templates: templates.catalogue: expected "off", found "on"',
-      "UNDOCUMENTED: docs/self-host/configuration.md templates: templates.autoFetch",
-    ]);
-  });
-
-  it("counts the catalogue switch, and nothing else, as the Templates rows", () => {
-    expect(SETTING_CATALOGUE.filter(definition => isTemplatesSetting(definition)).map(definition => definition.key)).toEqual([key]);
-    expect(SETTING_CATALOGUE.filter(definition => isTemplatesSetting(definition) &&
-      (isInstanceDefault(definition) || isInstanceRule(definition) || isLibrarySwitch(definition)))).toEqual([]);
-  });
-
-  it("refuses a check without the catalogue's Templates predicate", () => {
-    expect(() => configurationProblems({ srcDir: path.join(root, "src"), documents: originals, catalogue: SETTING_CATALOGUE, testWiring: TEST_WIRING,
-      defaultsGuide, isInstanceDefault, isInstanceRule, isLibrarySwitch, isTemplatesSetting: undefined })).toThrow("isTemplatesSetting");
+  it.each(["isInstanceDefault", "isInstanceRule", "isLibrarySwitch", "isTemplatesSetting"])("refuses a check without the catalogue's %s predicate", name => {
+    expect(() => problemsOf(originals, { [name]: undefined })).toThrow(name);
   });
 });
 
 describe("the template catalogue's address, stored on Data & services", () => {
-  const LIVE = "App (live) or restart";
   const name = "DEZFIL_TEMPLATES_CATALOGUE";
-  const problemsOf = (documents: Record<string, string>) => configurationProblems({ srcDir: path.join(root, "src"), documents,
-    catalogue: SETTING_CATALOGUE, testWiring: TEST_WIRING, defaultsGuide, isInstanceDefault, isInstanceRule, isLibrarySwitch, isTemplatesSetting });
+  const where = "docs/self-host/configuration/services.md settings-services";
   const DEFAULT = "https://github.com/Dezfil/templates/releases/latest/download/index.json";
 
-  it("is marked as changed in the app on the configuration page, with the release catalogue as its default", () => {
-    for (const guide of guides) {
-      expect(configurationRows(originals[guide]).filter(row => row.name === name), guide).toEqual([{ name, defaultValue: DEFAULT, changedBy: LIVE }]);
-    }
+  it("is marked as changed in Settings or by its variable, with the release catalogue as its default", () => {
+    const rows = (settingsRows(originals[rowOf(originals, name).page], "") as { variable: string; defaultValue: string; changes: string }[]).filter(row => row.variable === name);
+    expect(rows.map(row => ({ defaultValue: row.defaultValue, changes: row.changes }))).toEqual([{ defaultValue: DEFAULT, changes: LIVE }]);
   });
 
-  it.each(guides)("rejects it marked as changed only by a restart, lost, or with another default in %s, naming it alone", guide => {
-    expect(problemsOf({ ...originals, [guide]: changeRow(originals[guide], name, row => cell(row, 4, "Restart")) }))
-      .toEqual([`CHANGED BY: ${guide}: ${name}: expected "${LIVE}", found "Restart"`]);
-    expect(problemsOf({ ...originals, [guide]: changeRow(originals[guide], name, () => "\0").replace("\0\n", "") }))
-      .toEqual([`UNDOCUMENTED: ${guide}: ${name}`]);
-    expect(problemsOf({ ...originals, [guide]: changeRow(originals[guide], name, row => cell(row, 2, "`https://templates.example/index.json`")) }))
-      .toEqual([`DEFAULT: ${guide}: ${name}: expected "${DEFAULT}", found "https://templates.example/index.json"`]);
+  it("rejects it marked as changed only by a restart, lost, or with another default, naming it alone", () => {
+    expect(problemsOf(changeRow(originals, name, row => cell(row, COLUMN.changes, RESTART)))).toEqual([`CHANGES: ${where}: ${name}: expected "${LIVE}", found "${RESTART}"`]);
+    expect(problemsOf(changeRow(originals, name, () => ""))).toEqual([`UNDOCUMENTED: deployment variables: ${name}`]);
+    expect(problemsOf(changeRow(originals, name, row => cell(row, COLUMN.default, "`https://templates.example/index.json`"))))
+      .toEqual([`DEFAULT: ${where}: ${name}: expected "${DEFAULT}", found "https://templates.example/index.json"`]);
   });
 });
 
 describe("the satellite imagery's tile address and credit, stored on Libraries", () => {
-  const LIVE = "App (live) or restart";
   const satellite = ["DEZFIL_SATELLITE_URL", "DEZFIL_SATELLITE_ATTRIBUTION"];
-  const problemsOf = (documents: Record<string, string>) => configurationProblems({ srcDir: path.join(root, "src"), documents,
-    catalogue: SETTING_CATALOGUE, testWiring: TEST_WIRING, defaultsGuide, isInstanceDefault, isInstanceRule, isLibrarySwitch, isTemplatesSetting });
+  const where = "docs/self-host/configuration/libraries.md settings-libraries";
 
-  it("are marked as changed in the app on the configuration page", () => {
-    for (const guide of guides) {
-      const rows = configurationRows(originals[guide]);
-      for (const name of satellite) expect(rows.find(row => row.name === name)?.changedBy, `${guide}: ${name}`).toBe(LIVE);
-    }
+  it("are marked as changed in Settings or by their variables", () => {
+    for (const name of satellite) expect(rowOf(originals, name).row, name).toContain(`| ${LIVE} |`);
   });
 
-  it.each(guides)("rejects each marked as changed only by a restart in %s, naming it alone", guide => {
+  it("rejects each marked as changed only by a restart, naming it alone", () => {
     for (const name of satellite) {
-      expect(problemsOf({ ...originals, [guide]: changeRow(originals[guide], name, row => cell(row, 4, "Restart")) }), name)
-        .toEqual([`CHANGED BY: ${guide}: ${name}: expected "${LIVE}", found "Restart"`]);
+      expect(problemsOf(changeRow(originals, name, row => cell(row, COLUMN.changes, RESTART))), name)
+        .toEqual([`CHANGES: ${where}: ${name}: expected "${LIVE}", found "${RESTART}"`]);
     }
   });
 });
 
 describe("the service addresses and numbers an admin stores on Data & services", () => {
-  const LIVE = "App (live) or restart";
-  const srcDir = path.join(root, "src");
-  const problemsOf = (documents: Record<string, string>) =>
-    configurationProblems({ srcDir, documents, catalogue: SETTING_CATALOGUE, testWiring: TEST_WIRING, defaultsGuide, isInstanceDefault, isInstanceRule, isLibrarySwitch, isTemplatesSetting });
   const variableOf = (key: string) => SETTING_CATALOGUE.find(definition => definition.key === key)!.environment!;
+  const where = "docs/self-host/configuration/services.md settings-services";
   /** Every address and number the tab draws, by its variable. */
   const stored = [...addressRows(), ...serviceNumberRows()].map(row => variableOf(row.key));
   /** The services' settings that stay the environment's alone. */
   const fixed = ["DEZFIL_GEOCODE_NO_MATCH_CACHE_HOURS", "DEZFIL_GEOCODE_CACHE_MB", "DEZFIL_ISOCHRONE_CACHE_MB", "DEZFIL_OVERPASS_CACHE_MB",
-    "DEZFIL_OVERPASS_MAXSIZE_MB", "DEZFIL_OVERTURE_S3_ENDPOINT", "DEZFIL_OBJECT_STORE_CREDENTIALS", "DEZFIL_EGRESS_ALLOWLIST"];
+    "DEZFIL_OVERPASS_MAXSIZE_MB", "DEZFIL_OBJECT_STORE_CREDENTIALS", "DEZFIL_EGRESS_ALLOWLIST"];
 
-  it("are the four addresses and the eight numbers, each marked as changed in the app on the configuration page", () => {
+  it("are the four addresses and the eight numbers, each marked as changed in Settings or by its variable", () => {
     expect(stored).toEqual([
       "DEZFIL_GEOCODER_URL", "DEZFIL_ISOCHRONE_URL", "DEZFIL_OVERPASS_URL", "DEZFIL_S3_ENDPOINT",
       "DEZFIL_GEOCODE_PACE_MS", "DEZFIL_GEOCODE_REQUEST_TIMEOUT_S", "DEZFIL_GEOCODE_MATCH_CACHE_HOURS",
       "DEZFIL_ISOCHRONE_PACE_MS", "DEZFIL_ISOCHRONE_REQUEST_TIMEOUT_S", "DEZFIL_ISOCHRONE_CACHE_HOURS",
       "DEZFIL_OVERPASS_TIMEOUT_S", "DEZFIL_OVERPASS_CACHE_H",
     ]);
-    for (const guide of guides) {
-      const rows = configurationRows(originals[guide]);
-      for (const name of stored) expect(rows.find(row => row.name === name)?.changedBy, `${guide}: ${name}`).toBe(LIVE);
-      for (const name of fixed) expect(rows.find(row => row.name === name)?.changedBy, `${guide}: ${name}`).toBe("Restart");
-    }
+    for (const name of stored) expect(rowOf(originals, name), name).toEqual({ page: "docs/self-host/configuration/services.md", row: expect.stringContaining(`| ${LIVE} |`) });
+    for (const name of fixed) expect(rowOf(originals, name), name).toEqual({ page: "docs/self-host/configuration/services.md", row: expect.stringContaining(`| ${RESTART} |`) });
   });
 
-  it.each(guides)("rejects each of them marked as changed only by a restart in %s, naming it alone", guide => {
+  it("rejects each of them marked as changed only by a restart, naming it alone", () => {
     for (const name of stored) {
-      expect(problemsOf({ ...originals, [guide]: changeRow(originals[guide], name, row => cell(row, 4, "Restart")) }), name)
-        .toEqual([`CHANGED BY: ${guide}: ${name}: expected "${LIVE}", found "Restart"`]);
+      expect(problemsOf(changeRow(originals, name, row => cell(row, COLUMN.changes, RESTART))), name)
+        .toEqual([`CHANGES: ${where}: ${name}: expected "${LIVE}", found "${RESTART}"`]);
     }
   });
 
-  it.each(guides)("rejects a service setting the environment alone sets marked as changed in the app in %s", guide => {
+  it("rejects a service setting the environment alone sets marked as changed in Settings", () => {
     for (const name of fixed) {
-      expect(problemsOf({ ...originals, [guide]: changeRow(originals[guide], name, row => cell(row, 4, LIVE)) }), name)
-        .toEqual([`CHANGED BY: ${guide}: ${name}: expected "Restart", found "${LIVE}"`]);
+      expect(problemsOf(changeRow(originals, name, row => cell(row, COLUMN.changes, LIVE))), name)
+        .toEqual([`CHANGES: ${where}: ${name}: expected "${RESTART}", found "${LIVE}"`]);
     }
   });
 
-  it("rejects the configuration page as it read before an admin could store these, every mark", () => {
-    const before = Object.fromEntries(guides.map(guide => [guide,
-      stored.reduce((text, name) => changeRow(text, name, row => cell(row, 4, "Restart")), originals[guide])]));
-    expect(problemsOf(before)).toHaveLength(guides.length * stored.length);
-    const result = check("docs/self-host/configuration.md", text => changeRow(text, "DEZFIL_GEOCODER_URL", row => cell(row, 4, "Restart")));
+  it("rejects the tables as they read before an admin could store these, every mark", () => {
+    const before = stored.reduce((documents, name) => changeRow(documents, name, row => cell(row, COLUMN.changes, RESTART)), originals);
+    expect(problemsOf(before)).toHaveLength(stored.length);
+    const result = check(changeRow(originals, "DEZFIL_GEOCODER_URL", row => cell(row, COLUMN.changes, RESTART)));
     expect(result.status, result.output).toBe(1);
-    expect(result.output).toContain(`CHANGED BY: ${result.output.match(/\S*configuration\.md/)![0]}: DEZFIL_GEOCODER_URL: expected "${LIVE}", found "Restart"`);
+    expect(reported(result.output)).toEqual([`CHANGES: ${where}: DEZFIL_GEOCODER_URL: expected "${LIVE}", found "${RESTART}"`]);
   });
 
-  it("rejects a stored address's row lost, or its default changed, on the configuration page", () => {
-    for (const guide of guides) {
-      // The row taken out whole, so the table around it stays one table.
-      expect(problemsOf({ ...originals, [guide]: changeRow(originals[guide], "DEZFIL_ISOCHRONE_URL", () => "\0").replace("\0\n", "") }))
-        .toEqual([`UNDOCUMENTED: ${guide}: DEZFIL_ISOCHRONE_URL`]);
-      expect(problemsOf({ ...originals, [guide]: changeRow(originals[guide], "DEZFIL_OVERPASS_URL", row => cell(row, 2, "`https://overpass.example/api/interpreter`")) }))
-        .toEqual([`DEFAULT: ${guide}: DEZFIL_OVERPASS_URL: expected "https://overpass-api.de/api/interpreter", found "https://overpass.example/api/interpreter"`]);
-    }
+  it("rejects a stored address's row lost, or its default changed", () => {
+    expect(problemsOf(changeRow(originals, "DEZFIL_ISOCHRONE_URL", () => ""))).toEqual(["UNDOCUMENTED: deployment variables: DEZFIL_ISOCHRONE_URL"]);
+    expect(problemsOf(changeRow(originals, "DEZFIL_OVERPASS_URL", row => cell(row, COLUMN.default, "`https://overpass.example/api/interpreter`"))))
+      .toEqual([`DEFAULT: ${where}: DEZFIL_OVERPASS_URL: expected "https://overpass-api.de/api/interpreter", found "https://overpass.example/api/interpreter"`]);
   });
 });
