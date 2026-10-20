@@ -53,13 +53,12 @@ it("keeps result-budget commands and their outcomes in the probe's procedure bes
   const words = /delegated (?:browser|runner)|supervising session|single observation/i;
   expect(text).not.toMatch(words);
   // The wording rule covers everything from this procedure on as it was
-  // first written: the settings probe that followed it, now beside its own
-  // script, and the template release section still at the end of Back up
-  // and restore. Every one of those sections is read, wherever it lives.
-  const page = readFileSync("docs/self-host/backup-and-restore.md", "utf8");
-  const release = page.indexOf("## Shipping a template release");
-  expect(release).toBeGreaterThan(-1);
-  const after: [string, string][] = [["scripts/settings-probe.md", readFileSync("scripts/settings-probe.md", "utf8")], ["docs/self-host/backup-and-restore.md", page.slice(release)]];
+  // first written: the settings probe and the template release procedure
+  // that followed it, each beside its own script. Every one of those
+  // sections is read, wherever it lives.
+  const release = readFileSync("scripts/install-template.md", "utf8");
+  expect(release).toMatch(/^# Shipping a template release$/m);
+  const after: [string, string][] = [["scripts/settings-probe.md", readFileSync("scripts/settings-probe.md", "utf8")], ["scripts/install-template.md", release]];
   const headings = [text, ...after.map(([, part]) => part)].join("\n").split("\n").filter((line) => /^#{1,6} /.test(line)).map((line) => line.replace(/^#+ /, "").trim());
   for (const heading of ["Local regressions", "Served standalone probe", "Request markers", "Built image", "Browser flow", "Companion commands", "Settings persistence smoke probe", "Shipping a template release"]) {
     expect(headings, heading).toContain(heading);

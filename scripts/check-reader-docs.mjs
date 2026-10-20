@@ -6,7 +6,8 @@ export const READER_FILES = ['README.md', 'AGENTS.md', 'docs/self-host/configura
   // The procedures that left the runbook and the configuration page for the
   // scripts and suites they run keep the same superseded-copy check.
   'scripts/account-identity-proof.md', 'src/lib/pictures/pictures.real-render.md', 'scripts/pictures-capacity.md', 'scripts/transport-probe.md', 'scripts/body-probe.md', 'scripts/publication-source-probe.md', 'scripts/derivation-probe.md', 'scripts/credential-cleanup-driver.md', 'scripts/sharing-journey.md', 'scripts/query-result-budget-probe.md', 'scripts/settings-probe.md', 'src/lib/ingest/reception.standalone.md', 'src/lib/auth/abandonment.standalone.md',
-  'scripts/gate-journey.md', 'scripts/login-http-probe.md', 'scripts/published-auth-probe.md'];
+  'scripts/gate-journey.md', 'scripts/login-http-probe.md', 'scripts/published-auth-probe.md',
+  'scripts/docs-pictures.md', 'scripts/install-template.md'];
 const superseded = [
   /deletion operations are not exposed yet/i,
   /fuller (?:account )?documentation follows/i,
