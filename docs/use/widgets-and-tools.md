@@ -109,7 +109,7 @@ Before **Run** turns on, Dezfil tries the tool on your data and shows the rows a
 
 A result without geometry, such as a **Group & summarize** table, is saved as a dataset and adds no layer.
 
-Tool runs from the builder stay off the **Workflows** page. To chain tools and run them again together, build a workflow there.
+Tool runs from the builder stay off the **Workflows** page. To chain tools and run them again together, build a workflow there. See [Workflows](workflows.md).
 
 ### Choose the input
 
@@ -164,7 +164,7 @@ Each input takes points, lines or polygons unless the table says otherwise. A di
 
 **The bar at the top has no Tools button.** On a window narrower than 1,440 pixels, **Tools** shows its icon alone. It is the icon right after **Assistant**, or after **Preview** on a published map.
 
-**A tool is grayed out and says "Needs a geocoding endpoint." or "Needs a routing endpoint."** This instance has no address for the service the tool asks. An admin sets one in **Settings** › **Data & services**, under **Address finder** or **Travel time**.
+**A tool is grayed out and says "Needs a geocoding endpoint." or "Needs a routing endpoint."** This instance has no address for the service the tool asks. An admin sets one in **Settings** › **Data & services**, under **Address finder** or **Travel time**. [Data and services](../self-host/configuration/services.md) lists both.
 
 **Run stays grayed out under a sentence such as "Choose a field and a value to run this."** Fill in what the sentence names. **Run** turns on once the dry run answers.
 
@@ -184,3 +184,5 @@ Each input takes points, lines or polygons unless the table says otherwise. A di
 
 - Style the new layer or give it filters: [Build a map](build-a-map.md).
 - Publish the map with its widgets: [Share and publish](share-and-publish.md).
+- Chain tools into a workflow you can run again: [Workflows](workflows.md).
+- Write the query behind a **SQL step**: [Query with SQL](sql.md).

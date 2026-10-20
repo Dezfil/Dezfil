@@ -47,7 +47,7 @@ You should see the dialog close and a new card at the top of the layer list, wit
 3. Click **Run preview**, or press ⌘Enter (Ctrl+Enter). You should see the result's rows beside the query.
 4. Type a **Layer name** and click **Add layer**. Without a name, the layer is called **Untitled layer**.
 
-You should see the new layer at the top of the list.
+You should see the new layer at the top of the list. [Query with SQL](sql.md) covers the queries you can write.
 
 :::
 
@@ -218,11 +218,11 @@ SELECT * FROM earthquakes WHERE ST_X(geometry) BETWEEN -178 AND 178
 
 **A layer's card says error.** Click the card: its style panel says what went wrong. Fix the query with **More actions** › **Edit source**.
 
-**Custom… is grayed out.** Your instance takes only the styles its library offers, and the panel says so. An admin can add a style, or allow others, in **Settings** › **Libraries** › **Basemaps**.
+**Custom… is grayed out.** Your instance takes only the styles its library offers, and the panel says so. An admin can add a style, or allow others, in **Settings** › **Libraries** › **Basemaps**. See [Basemaps and imagery](../self-host/configuration/libraries.md).
 
 **Check cannot reach the style.** The panel says why and offers **Use anyway**. Readers' browsers load the style themselves, so it may still work for them.
 
-**The map shows the default style instead of Satellite.** The instance has no satellite imagery. An admin sets it up in **Settings** › **Libraries** › **Satellite imagery**.
+**The map shows the default style instead of Satellite.** The instance has no satellite imagery. An admin sets it up in **Settings** › **Libraries** › **Satellite imagery**. See [Basemaps and imagery](../self-host/configuration/libraries.md).
 
 **The Map layers eyes are grayed out.** They work on vector styles only, not on **Satellite**. Your choices are kept for the next vector style.
 
@@ -233,3 +233,5 @@ SELECT * FROM earthquakes WHERE ST_X(geometry) BETWEEN -178 AND 178
 - Share the map with people, or publish it as a link: [Share and publish](share-and-publish.md).
 - Add widgets, or run a tool on a layer: [Widgets and tools](widgets-and-tools.md).
 - Bring in more data: [Import data](import-data.md).
+- Write the queries behind your layers: [Query with SQL](sql.md).
+- Ask the assistant to add or restyle layers for you: [The assistant](assistant.md).

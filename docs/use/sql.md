@@ -16,7 +16,7 @@ order: 4
 
 ![The SQL workspace: Sources on the left, a query for the cities of more than ten million people in the editor, and its 15 rows as a table](../images/use/sql-workspace.webp)
 
-- **You need:** an account on a running Dezfil and at least one dataset.
+- **You need:** an account on a running Dezfil and at least one dataset. To add one, see [Import data](import-data.md).
 - **Example data:** the `world_cities` dataset from [Your first map](../start/first-map.md). Any dataset works the same way.
 
 ## 1. Open the SQL workspace
@@ -115,7 +115,7 @@ The file holds every row of the result. **CSV** writes geometry as WKT text. **G
 2. Change **Layer name** if you like. It starts as **Query result**.
 3. Click one of your maps, or **New map** to start a blank one.
 
-You should see the map builder with the new layer selected. The layer holds your query, not a copy of its rows.
+You should see the map builder with the new layer selected. The layer holds your query, not a copy of its rows. To style it, see [Build a map](build-a-map.md).
 
 **Add as map layer** is greyed out when the result has no geometry column.
 
@@ -166,7 +166,7 @@ To have a query written for you, click **Assistant** in the header. **Insert int
 
 ## Other people's datasets
 
-When someone shares a project with you, its datasets appear in **Sources** under their owner's name and SQL name. In a query you write them as `<SQL_NAME>.<DATASET>`, such as `ada.roads`. Your own datasets need no prefix.
+When someone [shares a project](share-and-publish.md) with you, its datasets appear in **Sources** under their owner's name and SQL name. In a query you write them as `<SQL_NAME>.<DATASET>`, such as `ada.roads`. Your own datasets need no prefix.
 
 Two buttons above the list group **Sources**, and Dezfil keeps your choice with your account.
 
@@ -238,3 +238,5 @@ To let an agent call these tools, see [Connect an AI agent](../api/mcp.md).
 ## Next steps
 
 - Chain queries and tools into steps that run again: [Workflows](workflows.md).
+- Put more data in reach: [Import data](import-data.md).
+- Style a layer you made from a query: [Build a map](build-a-map.md).

@@ -98,7 +98,7 @@ A workflow example's copy comes with the results the template made. Click a node
 
 **The page says "The template catalogue is turned off, so only the templates on this server show."** An admin turned the catalogue off. The templates that come with Dezfil and the ones already downloaded still open and copy.
 
-To list the others, an admin turns the catalogue on in **Settings** › **Data & services** › **Templates** › **Catalogue**.
+To list the others, an admin turns the catalogue on in **Settings** › **Data & services** › **Templates** › **Catalogue**. [Data and services](../self-host/configuration/services.md) lists it with the catalogue's address.
 
 **The page says the template catalogue "did not answer", or gives another reason, then "so only the templates on this server show."** Your server could not read the catalogue, so only the templates it holds show. Open **Templates** again after half a minute to try once more.
 
@@ -109,7 +109,7 @@ If it keeps happening, ask your admin to check the catalogue's address and what 
 ## Next steps
 
 - Change your copy's map: [Build a map](build-a-map.md).
-- Run and change a workflow example's copy: open it under **Workflows** in the side menu.
-- Query the copied datasets: open **SQL** in the side menu.
+- Run and change a workflow example's copy: [Workflows](workflows.md).
+- Query the copied datasets: [Query with SQL](sql.md).
 - Share your copy or publish its map: [Share and publish](share-and-publish.md).
 - Start from your own file instead: [Your first map](../start/first-map.md).

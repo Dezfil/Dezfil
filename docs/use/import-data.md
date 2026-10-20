@@ -79,7 +79,7 @@ To keep the file as a table without geometry, click **Cancel**.
 
 The address starts with `https://`, `http://`, `s3://`, `gs://` or `az://` and ends in a file name whose extension is in [Formats](#formats).
 
-Public `s3://` and `gs://` files need no credentials. Private buckets and `az://` addresses need credentials on the server: see [Configuration](../self-host/configuration.md).
+Public `s3://` and `gs://` files need no credentials. Private buckets and `az://` addresses need credentials on the server: see [Data and services](../self-host/configuration/services.md).
 
 Dezfil keeps a copy of the file, not a live link: see [Refresh an import](#refresh-an-import).
 
@@ -158,9 +158,9 @@ An upload cannot be refreshed. Upload the new version instead: it lands beside t
 
 **The dataset says Header looks broken.** Its column names look like data: the header row is missing or was never split. Fix the first row and upload again.
 
-**The import says the file or area is too large.** The message names the limit and how it is changed. Choose a smaller file or area, or ask an admin to raise the limit in **Settings** › **Limits** › **Imports**, or with the variable the message names.
+**The import says the file or area is too large.** The message names the limit and how it is changed. Choose a smaller file or area, or ask an admin to raise the limit in **Settings** › **Limits** › **Imports**, or with the variable the message names. [Limits](../api/limits.md) lists them all.
 
-**"The requested address is not reachable from this server".** Dezfil blocks loopback, private-network, link-local and metadata addresses, such as a database on your own network. An operator allows a host with `DEZFIL_EGRESS_ALLOWLIST`: see [Configuration](../self-host/configuration.md).
+**"The requested address is not reachable from this server".** Dezfil blocks loopback, private-network, link-local and metadata addresses, such as a database on your own network. An operator allows a host with `DEZFIL_EGRESS_ALLOWLIST`: see [Data and services](../self-host/configuration/services.md).
 
 **Overture Maps Places with a Category answer "An unexpected server error occurred."** Choose **Any category**, then keep the category you want in **SQL**, such as `WHERE category = 'restaurant'`.
 
@@ -170,5 +170,5 @@ An upload cannot be refreshed. Upload the new version instead: it lands beside t
 
 - Put a dataset on a map: [Build a map](build-a-map.md), or **Add to a map** on the dataset page.
 - Share datasets through a project: [Share and publish](share-and-publish.md).
-- Query your datasets: open **SQL** in the side menu.
+- Query your datasets: [Query with SQL](sql.md).
 - Import from a script or an AI agent: [How the API works](../api/http-api.md) and [Connect an AI agent](../api/mcp.md).

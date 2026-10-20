@@ -74,7 +74,7 @@ Being an admin gives you no access to anyone's work.
 
 Database connections are never shared. A dataset that refreshes from your PostGIS connection stays yours to refresh, and the **Share** dialog names each one.
 
-In **SQL**, you write someone else's dataset with their SQL name in front, such as `lena_ortiz.stations`. The **Share** dialog shows each person's SQL name.
+In [SQL](sql.md), you write someone else's dataset with their SQL name in front, such as `lena_ortiz.stations`. The **Share** dialog shows each person's SQL name.
 
 ## Change roles, remove people and hand a project over
 
