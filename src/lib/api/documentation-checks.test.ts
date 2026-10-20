@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { expect, it } from "vitest";
 import { buildOpenApiDocument } from "./openapi";
 import { buildTools } from "@/lib/tools/tools";
@@ -87,7 +87,9 @@ it("rejects stale actor guidance in the actual reader", () => {
   expect(checkContractDocs(document, tools, seeded)).toContain("MCP actor guidance omits the deleted variant");
 });
 it("does not describe deletion as unavailable", () => {
-  expect(read("docs/self-host/backup-and-restore.md")).not.toContain("The deletion operations are not exposed yet.");
+  const pages = readdirSync("docs", { recursive: true, encoding: "utf8" }).filter(name => name.endsWith(".md")).map(name => read(`docs/${name}`));
+  expect(pages.some(page => page.includes("**Finish deleting**"))).toBe(true);
+  for (const page of pages) expect(page).not.toContain("The deletion operations are not exposed yet.");
 });
 
 it("rejects a stale count in the outside proof guide", () => {

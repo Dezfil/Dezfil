@@ -85,11 +85,11 @@ Install, secure, configure and back up your own instance.
   - read when: you want to turn on the assistant for your instance; you want to change which models people can choose; you want to offer a model or an effort level Dezfil does not list; you need to know what the assistant sends to the AI provider; the assistant pane shows an error instead of an answer
   - audience: operator, agent
 
-- [Runbook](self-host/backup-and-restore.md)
+- [Back up and restore](self-host/backup-and-restore.md)
   - path: `docs/self-host/backup-and-restore.md`
-  - summary: Recipes for the work around an instance: its data directory, backups, upgrades, account recovery and deletion, and API clients without a browser.
-  - read when: you back up, restore or upgrade an instance; you recover an admin account; you finish deleting an account, or drive the API from a shell script
-  - audience: operator, developer
+  - summary: Back up your instance's data folder and its encryption key, then restore them on the same machine or a new one.
+  - read when: you want a backup before an upgrade, a move or a big change; you want to know which files hold your maps, data and accounts; you need to restore an instance from a backup, or move it to another machine; you want to know where the encryption key is and whether DEZFIL_SECRET_KEY must be kept with the backup; saved database connections or service addresses fail after a restore
+  - audience: operator
 
 - [Self-hosting](self-host/what-leaves-the-instance.md)
   - path: `docs/self-host/what-leaves-the-instance.md`

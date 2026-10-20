@@ -35,7 +35,12 @@ it("distinguishes deployment settings from persisted preferences and the model c
 });
 
 it("gives operators complete restoration and credential recovery instructions", () => {
-  const guide = read("docs/self-host/what-leaves-the-instance.md"), runbook = read("docs/self-host/backup-and-restore.md");
+  const guide = read("docs/self-host/what-leaves-the-instance.md"), backup = read("docs/self-host/backup-and-restore.md"), api = read("docs/api/http-api.md");
   for (const term of ["seven days", "Viewer", "Editor", "Unknown", "initiator", "plaintext", "backed-up validity", "fifteen minutes", "five seconds", "hostile setup"]) expect(guide.replace(/\s+/g, " ")).toContain(term);
-  for (const term of ["## Full backup and restore", "## Admin account recovery", "npm run admin:recover --", "docker exec -it", "docker run --rm -it", "--data-dir", "--origin", "--email", "X-Edit-Revision", "jq -er '.editRevision'"]) expect(runbook).toContain(term);
+  // The backup and the restore commands have one home; the admin recovery
+  // commands sit with the recovery they start; a script's chained revision
+  // example is on How the API works.
+  for (const term of ["\n## Back up\n", "\n## Restore\n", "cp -a /data/. /backup/", "&& echo Restored"]) expect(backup).toContain(term);
+  for (const term of ["\n## Recovering an admin account\n", "npm run admin:recover --", "docker exec -it", "docker run --rm -it", "--data-dir", "--origin", "--email"]) expect(guide).toContain(term);
+  for (const term of ["X-Edit-Revision", "current.editRevision"]) expect(api).toContain(term);
 });

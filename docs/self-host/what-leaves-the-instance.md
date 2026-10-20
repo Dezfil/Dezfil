@@ -71,7 +71,7 @@ account can save or delete a custom palette. Published links remain readable wit
 as do embeds on the sites the instance allows, and the readiness probe.
 
 Existing work belongs to the recorded original account after an upgrade.
-Read the [ownership upgrade instructions](backup-and-restore.md#upgrading-ownership-storage)
+Back up first, as [Back up and restore](backup-and-restore.md#back-up) shows,
 before updating. SQL uses your imported datasets by name. Direct file reads
 and file-referencing projection definitions are refused, including in saved
 queries and published layers; ordinary EPSG transforms remain supported.
@@ -257,8 +257,8 @@ Deletion has these copy and attribution limits:
   connection wrote to. Browser-local SQL and conversations also remain. Restoring
   a backup can revive erased data and credentials; review them before reopening.
 
-Before upgrading or rolling back, follow the [retained-identity upgrade and full
-backup instructions](backup-and-restore.md#retained-account-identity-upgrade). Keep a stopped,
+Before upgrading or rolling back, follow the [full
+backup instructions](backup-and-restore.md#back-up). Keep a stopped,
 complete backup and the matching application and key; do not down-migrate a live
 store containing deleting or deleted accounts.
 
@@ -292,8 +292,8 @@ link and token records retain their backed-up validity and expiry: a credential
 revoked after the backup can become valid again after restoration. Review and
 revoke restored credentials as needed before reopening access. Work accepted
 after the backup is not in the restore. Test the restore on an isolated port and
-copy, never with two servers writing the same directory. The
-[runbook](backup-and-restore.md#full-backup-and-restore) gives checkout and volume commands.
+copy, never with two servers writing the same directory.
+[Back up and restore](backup-and-restore.md) gives checkout and volume commands.
 
 ## Private certificate authorities for image exports
 
@@ -604,9 +604,35 @@ older releases understand ownership or sharing storage.
 ## Recovering an admin account
 
 With filesystem access, use `npm run admin:recover` in a checkout or the packaged
-`scripts/admin-recover.mjs` in the container. The
-[runbook](backup-and-restore.md#admin-account-recovery) provides all three invocations.
-The command requires an existing, compatible, setup-complete data directory and
+`scripts/admin-recover.mjs` in the container, with the application version that
+matches the store. The origin is the address the recipient will open, with no
+path, query, credentials or fragment. `--email` matches a normalized exact email;
+omit it only when there is exactly one active admin.
+
+Checkout:
+
+```sh title="Terminal"
+npm run admin:recover -- --data-dir /srv/dezfil/data \
+  --origin https://maps.example.com --email admin@example.com
+```
+
+Running container:
+
+```sh title="Terminal"
+docker exec -it dezfil node scripts/admin-recover.mjs \
+  --data-dir /data --origin https://maps.example.com --email admin@example.com
+```
+
+One-off container against the stopped volume, without starting the server:
+
+```sh title="Terminal"
+docker run --rm -it -v dezfil-data:/data dezfil \
+  node scripts/admin-recover.mjs --data-dir /data \
+  --origin https://maps.example.com --email admin@example.com
+```
+
+The last two commands allocate a TTY because the link is terminal-only. Do not
+pipe it to a log. The command requires an existing, compatible, setup-complete data directory and
 an explicit reachable HTTP/HTTPS origin. It never creates or migrates a store.
 It selects the sole active admin, or an exact email supplied with `--email` when
 several exist. It cannot create an admin or reactivate an account.

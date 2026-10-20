@@ -23,6 +23,17 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   Complete first-account setup and create client tokens in Settings.
   Cookie mutations require the instance Origin. Shared resource access between
   signed-in accounts is unchanged; account administration requires an admin.
+- Breaking: user SQL refuses file readers, file-relation shorthand and engine
+  path or definition discovery with `sql_rejected`, even for a file its author
+  owns. File-referencing PROJ coordinate definitions are refused too; EPSG
+  codes and inline definitions without files still work. Saved queries and
+  published layers that use them fail until their owner changes the SQL to
+  name an uploaded dataset. Review saved queries before you upgrade.
+- Compatibility: SQL drafts and history that a browser kept before accounts
+  belong to no account, so they are discarded the first time an account signs
+  in there. Copy any draft you need before you upgrade. From then on, signing
+  out or signing in as another account clears them in that browser. Saved
+  layer and workflow SQL is unaffected.
 
 ## [0.1.0]
 

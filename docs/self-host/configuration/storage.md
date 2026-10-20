@@ -25,7 +25,7 @@ Each of these is a variable, read when the server starts. The **System** tab of 
 
 <!-- settings-storage:end -->
 
-- Without `DEZFIL_SECRET_KEY`, Dezfil makes a key the first time it needs one, such as when someone saves a connection password, and keeps it as `secret.key` in the data folder. Until then, **System** shows **Not created yet**. With a lost or changed key, Dezfil cannot read the saved connection passwords and service addresses. Back it up with the data, as [Back up and restore](../backup-and-restore.md) says.
+- Without `DEZFIL_SECRET_KEY`, Dezfil makes a key the first time it needs one, such as when someone saves a connection password, and keeps it as `secret.key` in the data folder. Until then, **System** shows **Not created yet**. With a lost or changed key, Dezfil cannot read the saved connection passwords and service addresses. Back it up with the data, as [Back up and restore](../backup-and-restore.md#the-encryption-key) says.
 - The image ships the tile builder and the image renderer where these defaults find them.
 - The data folder also holds the optional model catalogue file: see [Offer other models](../assistant.md#offer-other-models).
 

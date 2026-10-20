@@ -171,7 +171,7 @@ To add people, open **Users** in the side menu and click **Invite**.
 | Start | `docker start dezfil` |
 | See the logs | `docker logs -f dezfil` |
 | Check health | `curl http://localhost:3000/api/health` answers `{"status":"ready"}` |
-| Back up | Stop Dezfil, then copy the `dezfil-data` volume with the commands in [Back up and restore](../self-host/backup-and-restore.md#full-backup-and-restore). |
+| Back up | Stop Dezfil, then copy the `dezfil-data` volume with the commands in [Back up and restore](../self-host/backup-and-restore.md#back-up). |
 | Upgrade | Back up. In the `Dezfil` folder, run `git pull` and `docker build -t dezfil .`. Then run `docker stop dezfil`, `docker rm dezfil` and the install's `docker run` command, with the `-e` variables you added. |
 
 :::
@@ -186,7 +186,7 @@ Run these in the `Dezfil` folder.
 | Start | `docker compose start` |
 | See the logs | `docker compose logs -f` |
 | Check health | `curl http://localhost:3000/api/health` answers `{"status":"ready"}` |
-| Back up | Stop Dezfil, then copy the `dezfil-data` volume with the commands in [Back up and restore](../self-host/backup-and-restore.md#full-backup-and-restore). |
+| Back up | Stop Dezfil, then copy the `dezfil-data` volume with the commands in [Back up and restore](../self-host/backup-and-restore.md#back-up). |
 | Upgrade | Back up. Run `git pull`, then `docker compose up -d --build`. Compose replaces the container and keeps the volume. |
 
 :::
@@ -200,5 +200,5 @@ A new version updates the stored data when it starts. To go back, restore your b
 - [Your first map](first-map.md): add data and build a map.
 - [Reverse proxy and HTTPS](../self-host/reverse-proxy.md): serve Dezfil under your own domain.
 - [Configuration](../self-host/configuration.md): the settings that change how your instance runs.
-- [Back up and restore](../self-host/backup-and-restore.md#full-backup-and-restore): back up and restore the data volume.
+- [Back up and restore](../self-host/backup-and-restore.md): back up and restore the data volume.
 - [What leaves the instance](../self-host/what-leaves-the-instance.md): what your instance sends out, and what to settle before other people use it.
