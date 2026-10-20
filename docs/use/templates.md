@@ -76,7 +76,7 @@ A template's address, such as `/templates/earthquakes`, opens it for anyone with
 
 ## 3. Make a copy
 
-Start on the template's page. On the Templates page, a card also shows **Make a copy** in its corner when you point at it.
+Start on the template's page. On the Templates page, pointing at a card also shows a copy button in its corner, whose hint reads **Make a copy**.
 
 1. Click **Make a copy** at the top right. You should see the **Make a copy** dialog, which names the template and the version it copies.
 2. Check **Project name**: it starts as the template's title and holds up to 120 characters. You should see under it what comes with the copy, and its size.
