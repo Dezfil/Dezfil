@@ -19,8 +19,6 @@ order: 2
 
 Every change in the builder saves as you make it. **Undo** at the top of the page takes the last one back.
 
-Widgets, and the tools in the bar at the top, have their own page: [Widgets and tools](widgets-and-tools.md).
-
 ## 1. Add a layer
 
 A layer draws one dataset, or the result of one SQL query, on the map. In the **Layers** tab, click **Add layer**, then choose where its data comes from.
@@ -30,7 +28,7 @@ A layer draws one dataset, or the result of one SQL query, on the map. In the **
 :::tab[A dataset]
 
 1. Under **Sources**, click **Tables**.
-2. Click a dataset in the list. Type in the search box above it to narrow the list. On a map in a project, the list starts on that project's datasets: pick **All projects** in the filter above it to see the rest.
+2. Click a dataset in the list. Type in the search box above it to narrow the list. On a map in a project, the list starts on that project: pick **All projects** in the filter above it for the rest.
 3. Click **Add layer**. **Layer name** takes the dataset's name; change it first if you like.
 
 You should see the dialog close and a new card at the top of the layer list, with its style panel open.
@@ -122,9 +120,6 @@ To bin points into hexagons:
 
 To raise the cells, turn on **Extrude cells (3D)** and choose **Height by**. Then tilt the map with **Pitch**. You should see the cells stand at their heights.
 
-> [!NOTE]
-> A type the layer cannot use is grayed out. Point at it to read why, or see [Troubleshooting](#troubleshooting).
-
 ## 4. Choose the basemap
 
 1. Click the **Basemap** tab.
@@ -136,7 +131,7 @@ You should see the map redraw on that style. The choice belongs to this map.
 
 | Style | What it is |
 |---|---|
-| **Auto** | Follows the app's theme: the dark map in dark mode, the light map in light mode. On an instance that pins its own style, Auto is that style in both, and the panel says so. New maps start on Auto unless an admin chose another. |
+| **Auto** | Follows the app's theme: the dark map in dark mode, the light map in light mode. On an instance that pins its own style, Auto is that style, as the panel says. New maps start on Auto unless an admin chose another. |
 | **Dark**, **Light**, **Streets** | Fixed styles that keep their look in either theme. |
 | **Satellite** | Aerial imagery, shown only where an admin set it up. |
 | Cards after these | Styles an admin added to the instance's library. |
@@ -209,7 +204,7 @@ To change a shape, click it on the map with **Select a drawn shape**, or while n
 
 ## Troubleshooting
 
-**A visualization type is grayed out.** Point at it to read why. **Heatmap**, **Hex bins**, **Grid**, **Cluster** and **Icon** need points, and **Arc** and **Line** need an origin and a destination.
+**A visualization type is grayed out.** The layer cannot use it. Point at it to read why, and see what each type needs under [Visualization types](#visualization-types).
 
 **Arc, Line, Icon and Cluster are grayed out on a big layer.** Its card reads **tiled**, so it draws as map tiles. Filter it or bin it first.
 
