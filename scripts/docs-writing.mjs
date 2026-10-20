@@ -516,8 +516,9 @@ function namesIn(line, kinds) {
 }
 
 /** The problems of a page's read_when lines: every variable, Settings key
- * and error code a line names appears in the page's body, so the page
- * answers the situation it names. Each is named at its read_when line. */
+ * and error code a line names appears in the page's body outside HTML
+ * comments, which no reader sees, so the page answers the situation it
+ * names. Each is named at its read_when line. */
 function readWhenProblems({ text, page, names }) {
   const found = [];
   const kinds = new Map([...names.codes.map((name) => [name, "error code"]), ...names.keys.map((name) => [name, "Settings key"]), ...names.variables.map((name) => [name, "variable"])]);
@@ -525,12 +526,13 @@ function readWhenProblems({ text, page, names }) {
   if (!kinds.size || !list.length) return found;
   const front = text.split("\n").slice(0, page.bodyLine - 1);
   const from = Math.max(0, front.findIndex((line) => /^read_when\s*:/.test(line)));
+  const body = page.body.replace(/<!--[\s\S]*?-->/g, " ");
   const reported = new Set();
   for (const line of list) {
     if (typeof line !== "string") continue;
     for (const name of namesIn(line, kinds)) {
       if (reported.has(name)) continue;
-      if (new RegExp(`(?<![A-Za-z0-9_.])${escapeName(name)}(?![A-Za-z0-9_])`).test(page.body)) continue;
+      if (new RegExp(`(?<![A-Za-z0-9_.])${escapeName(name)}(?![A-Za-z0-9_])`).test(body)) continue;
       reported.add(name);
       const at = front.findIndex((entry, i) => i >= from && namesIn(entry, kinds).includes(name));
       found.push({ rule: "writing.read-when-name", message: `a read_when line names the ${kinds.get(name)} ${name}, and the page's body never does; answer it on the page, or leave it out of the line`, line: (at === -1 ? from : at) + 1 });

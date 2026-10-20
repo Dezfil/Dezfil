@@ -1825,6 +1825,28 @@
           "line": 6
         }
       ]
+    },
+    {
+      "scope": "product",
+      "name": "a read_when line naming a variable the body names only inside an HTML comment",
+      "files": {
+        "docs/about/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you raise DEZFIL_UPLOAD_MAX_MB\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\n<!-- DEZFIL_UPLOAD_MAX_MB -->\n\nRaise the largest upload in Settings, and keep a <!-- DEZFIL_UPLOAD_MAX_MB --> note.\n"
+      },
+      "problems": [
+        {
+          "file": "docs/about/case.md",
+          "rule": "writing.read-when-name",
+          "line": 5
+        }
+      ]
+    },
+    {
+      "scope": "product",
+      "name": "a read_when line naming a variable the body names inside a generated region",
+      "files": {
+        "docs/about/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you raise DEZFIL_UPLOAD_MAX_MB\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nThe largest upload, by variable:\n\n<!-- upload-settings:start -->\n| Variable | Default |\n|---|---|\n| `DEZFIL_UPLOAD_MAX_MB` | 1024 |\n<!-- upload-settings:end -->\n"
+      },
+      "problems": []
     }
   ],
   "order": [
