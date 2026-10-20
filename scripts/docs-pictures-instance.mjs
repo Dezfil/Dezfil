@@ -237,3 +237,48 @@ export async function seedFirstMap(api, root) {
   expectStatus(await api("PATCH", `/api/layers/${layer.id}`, { basis: captureBasis(current), body: { style: { ...current.style, fill } } }), 200, "color the cities by population");
   expectStatus(await api("PATCH", `/api/maps/${map.id}`, { body: { viewport: FIRST_MAP.viewport } }), 200, "frame the world");
 }
+
+/** What the Use Dezfil pages on maps show beside the first map, made in
+ * the use-maps state: a second layer on the first map, the query Build a
+ * map adds with its points drawn larger, and a map of the copied
+ * earthquakes around Japan drawn as hex bins. The scenes find the layer
+ * and the map by their names. */
+export const USE_MAPS = {
+  megacities: { name: "Megacities", sql: "SELECT * FROM world_cities WHERE population > 10000000", features: 15, pointRadius: 9 },
+  // One region, not the whole table: the builder frames a map's data when
+  // it opens, and a cell on the 180th meridian draws as a band around the
+  // world, so the whole table frames the world, striped.
+  earthquakes: {
+    name: "Earthquakes in Japan",
+    layer: "earthquakes",
+    sql: "SELECT * FROM earthquakes WHERE place LIKE '%Japan%'",
+    viz: { type: "hexbin", cellKm: 100, aggregate: { fn: "count" } },
+  },
+};
+
+/** Add a layer to a map from its query, then change it as the builder
+ * would: `change` takes the layer as read and gives the fields to write. */
+async function addLayer(api, map, { name, sql }, change) {
+  const basis = captureBasis(expectStatus(await api("GET", `/api/maps/${map.id}`), 200, `read ${map.name}`));
+  const layer = expectStatus(await api("POST", `/api/maps/${map.id}/layers`, { basis, body: { name, sql, writtenIn: { kind: "console" } } }), 201, `add ${name} to ${map.name}`);
+  const current = expectStatus(await api("GET", `/api/layers/${layer.id}`), 200, `read ${name}`);
+  const body = change(current);
+  return expectStatus(await api("PATCH", `/api/layers/${layer.id}`, { basis: captureBasis(current), body }), 200, `change ${name}`);
+}
+
+/**
+ * The use-maps state, through the operations the builder calls: on the
+ * first map, the large cities as a second layer with bigger points; and a
+ * new map of the earthquakes the seeding copied, those around Japan, as hex
+ * bins.
+ */
+export async function seedUseMaps(api) {
+  const maps = expectStatus(await api("GET", "/api/maps"), 200, "list the maps");
+  const firstMap = maps.find((map) => map.name === FIRST_MAP.name);
+  assert.ok(firstMap, "the first map is made before the use-maps state");
+  await addLayer(api, firstMap, USE_MAPS.megacities, (current) => ({ style: { ...current.style, pointRadius: USE_MAPS.megacities.pointRadius } }));
+
+  const { earthquakes } = USE_MAPS;
+  const map = expectStatus(await api("POST", "/api/maps", { body: { name: earthquakes.name } }), 201, "create the earthquakes map");
+  await addLayer(api, map, { name: earthquakes.layer, sql: earthquakes.sql }, () => ({ viz: earthquakes.viz }));
+}

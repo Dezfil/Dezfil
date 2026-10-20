@@ -121,6 +121,8 @@ Every change saves as you make it. **Undo**, the curved arrow at the top of the 
 - Click **Continuous** for a smooth color ramp instead of classes.
 - Click a class color or boundary in the panel to edit it.
 
+Every style option is in [Build a map](../use/build-a-map.md#3-style-a-layer).
+
 ## 6. Publish the map
 
 1. Click **Publish** at the top right.

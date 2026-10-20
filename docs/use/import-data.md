@@ -17,7 +17,7 @@ order: 1
 
 Everything you import becomes a dataset: a table you can put on a map, query with SQL or use in a workflow. New to Dezfil? Start with [Your first map](../start/first-map.md).
 
-Open **Add data** on the **Data** page or on **Home**. In a map, **Add layer** has the same sources under **Import** and adds the result as a layer.
+Open **Add data** on the **Data** page or on **Home**. In a map, **Add layer** has the same sources under **Import** and adds the result as a layer: see [Build a map](build-a-map.md).
 
 ## Upload files
 
@@ -165,6 +165,6 @@ An upload cannot be refreshed. Upload the new version instead: it lands beside t
 
 ## Next steps
 
-- Put a dataset on a map: **Add to a map** on the dataset page.
+- Put a dataset on a map: [Build a map](build-a-map.md), or **Add to a map** on the dataset page.
 - Query your datasets: open **SQL** in the side menu.
 - Import from a script or an AI agent: [How the API works](../api/http-api.md) and [Connect an AI agent](../api/mcp.md).

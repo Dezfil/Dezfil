@@ -43,7 +43,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { answerCameraSaves, cropRectangle, frameContext, openBrowser, pageTheme, rest, takeRecording, takeStill } from "./docs-pictures-capture.mjs";
-import { assertBuiltCheckout, freePort, makeScratch, seed, seedFirstMap, serverRequests, startServer, writeCatalogue } from "./docs-pictures-instance.mjs";
+import { assertBuiltCheckout, freePort, makeScratch, seed, seedFirstMap, seedUseMaps, serverRequests, startServer, writeCatalogue } from "./docs-pictures-instance.mjs";
 import { MANIFEST, manifestText, planRun } from "./docs-pictures-manifest.mjs";
 import { problemsMessage, requestsOffInstance } from "./docs-pictures-network.mjs";
 import { SCENES, STATES } from "./docs-pictures-scenes.mjs";
@@ -71,10 +71,12 @@ try {
   server = await startServer({ root, port, scratch });
   browser = await openBrowser();
   // Each state after the fresh one builds on the one before it: the
-  // seeding, then the first map. A run that takes no scene of a state still
-  // makes it when a later state's scenes need it.
+  // seeding, then the first map, then what the Use Dezfil pages on maps
+  // show beside it. A run that takes no scene of a state still makes it
+  // when a later state's scenes need it.
   let seeded = null;
   let firstMap = false;
+  let useMaps = false;
   // A scene's crop, found on its light take and shared by its dark take.
   const crops = new Map();
   // The built-in basemap's styles and tile sets the map scenes drew.
@@ -86,6 +88,10 @@ try {
     if (STATES.indexOf(state) >= STATES.indexOf("first-map") && !firstMap) {
       await seedFirstMap(seeded.api, root);
       firstMap = true;
+    }
+    if (state === "use-maps" && !useMaps) {
+      await seedUseMaps(seeded.api);
+      useMaps = true;
     }
     const cookie = seeded?.cookie ?? null;
     for (const theme of THEMES) {

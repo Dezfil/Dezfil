@@ -34,7 +34,7 @@
 //   length is the frames held, at most eight seconds.
 
 import { readFile } from "node:fs/promises";
-import { FIRST_MAP } from "./docs-pictures-instance.mjs";
+import { FIRST_MAP, USE_MAPS } from "./docs-pictures-instance.mjs";
 
 /** Open the Templates page and wait until the catalogue has been read and
  * the three shipped cards are drawn with their pictures. */
@@ -312,6 +312,52 @@ async function xyCities() {
   return Buffer.from([header.replace("latitude,longitude", "y,x"), ...rows].join("\n"));
 }
 
+/** Set the first map as a scene shows it: whether its Megacities layer is
+ * drawn, and whether its widgets are on the map. A scene of the first map
+ * sets both at the start of its take, so neither take shows what the scene
+ * before it set. */
+async function arrangeWorldCities(page, { megacities, widgets }) {
+  const { id } = await findByName(page, "/api/maps", FIRST_MAP.name);
+  const read = async () => (await page.request.get(`/api/maps/${id}`)).json();
+  let map = await read();
+  const layer = map.layers.find((entry) => entry.name === USE_MAPS.megacities.name);
+  if (!layer) throw new Error(`${FIRST_MAP.name} has no ${USE_MAPS.megacities.name} layer: the use-maps seeding did not add it.`);
+  if (layer.visible !== megacities) {
+    const current = await (await page.request.get(`/api/layers/${layer.id}`)).json();
+    await change(page, "PATCH", `/api/layers/${layer.id}`, { body: { visible: megacities }, revision: current.editRevision });
+    map = await read();
+  }
+  if (map.widgets.some((widget) => widget.visible !== widgets)) {
+    await change(page, "PATCH", `/api/maps/${id}`, { body: { widgets: map.widgets.map((widget) => ({ ...widget, visible: widgets })) }, revision: map.editRevision });
+  }
+}
+
+/** The first map in the builder, once its cities' layer card counts them. */
+async function openWorldCities(page) {
+  const { id } = await findByName(page, "/api/maps", FIRST_MAP.name);
+  await page.goto(`/maps/${id}`);
+  await page.locator("[data-layer-select]", { hasText: `${FIRST_MAP.features} features` }).waitFor();
+}
+
+/** The Visualization section of the open layer's style panel: its type
+ * tiles, size and opacity. */
+const VIZ_SECTION = '[data-builder-pane] section:has(> button:has-text("Visualization"))';
+
+/** Open the style panel of the layer whose card names it, at its
+ * Visualization section. */
+async function openVisualization(page, layer) {
+  await page.locator("[data-layer-select]", { hasText: layer }).click();
+  const section = page.locator(VIZ_SECTION).first();
+  await section.waitFor();
+  await section.scrollIntoViewIfNeeded();
+  return section;
+}
+
+/** The draw tools' dock, and the line under the map that explains the
+ * polygon tool once it is picked. */
+const DRAW_DOCK = '[role=toolbar][aria-label="Draw tools"]';
+const POLYGON_LINE = '[role=status]:has-text("Click to place vertices")';
+
 const USE_MAPS_SCENES = [
   {
     // Add data as the Data page opens it: the four sources, Upload file and
@@ -366,6 +412,88 @@ const USE_MAPS_SCENES = [
       await importSource(dialog, "PostGIS").click();
       await dialog.getByRole("heading", { name: "Connect a PostGIS database" }).waitFor();
       await dialog.getByRole("button", { name: "Test & save connection" }).waitFor();
+    },
+  },
+  {
+    // The builder in full on the first map with its second layer: the
+    // Layers tab with both cards, the cities' style panel open at
+    // Visualization, the map and the legend.
+    id: "build-a-map-builder",
+    file: "use/build-a-map-builder.webp",
+    pages: ["docs/use/build-a-map.md"],
+    kind: "still",
+    state: "use-maps",
+    map: true,
+    async open(page) {
+      await arrangeWorldCities(page, { megacities: true, widgets: false });
+      await openWorldCities(page);
+      await page.locator("[data-layer-select]", { hasText: `${USE_MAPS.megacities.features} features` }).waitFor();
+      await openVisualization(page, FIRST_MAP.layer);
+    },
+  },
+  {
+    // The earthquakes around Japan as hex bins: their style panel at
+    // Visualization with Hex bins chosen, Show and the cell size, and the
+    // map the builder framed on them as it opened.
+    id: "build-a-map-hex-bins",
+    file: "use/build-a-map-hex-bins.webp",
+    pages: ["docs/use/build-a-map.md"],
+    kind: "still",
+    state: "use-maps",
+    map: true,
+    async open(page) {
+      const { id } = await findByName(page, "/api/maps", USE_MAPS.earthquakes.name);
+      await page.goto(`/maps/${id}`);
+      await page.locator("[data-layer-select]", { hasText: USE_MAPS.earthquakes.layer }).filter({ hasText: "cells" }).waitFor();
+      const section = await openVisualization(page, USE_MAPS.earthquakes.layer);
+      if ((await section.getByRole("button", { name: "Hex bins" }).getAttribute("data-active")) !== "true") throw new Error("The earthquakes layer is not drawn as hex bins.");
+    },
+  },
+  {
+    // The Basemap tab of the first map: the styles with Auto chosen,
+    // Custom…, the basemap's map layers and the status bar's switch.
+    id: "build-a-map-basemap",
+    file: "use/build-a-map-basemap.webp",
+    pages: ["docs/use/build-a-map.md"],
+    kind: "still",
+    state: "use-maps",
+    map: true,
+    crop: { selector: "[data-builder-pane]", margin: 12 },
+    async open(page) {
+      await arrangeWorldCities(page, { megacities: true, widgets: false });
+      await openWorldCities(page);
+      await page.getByRole("tab", { name: "Basemap", exact: true }).click();
+      await page.getByRole("heading", { name: "Map layers" }).waitFor();
+      await page.getByRole("heading", { name: "Overlays" }).waitFor();
+    },
+  },
+  {
+    // Drawing on the first map: the draw tools with Draw a polygon picked,
+    // three vertices placed and the polygon left open, and the line under
+    // the map. Nothing is saved: a session's layer and dataset are made by
+    // its first finished shape.
+    id: "build-a-map-draw",
+    file: "use/build-a-map-draw.webp",
+    pages: ["docs/use/build-a-map.md"],
+    kind: "still",
+    state: "use-maps",
+    map: true,
+    crop: { selector: [DRAW_DOCK, POLYGON_LINE], margin: 120 },
+    async open(page) {
+      await arrangeWorldCities(page, { megacities: true, widgets: false });
+      await openWorldCities(page);
+      await page.getByRole("button", { name: "Draw", exact: true }).click();
+      const dock = page.locator(DRAW_DOCK);
+      await dock.getByRole("button", { name: "Draw a polygon" }).click();
+      const line = page.locator(POLYGON_LINE);
+      await line.waitFor();
+      const top = await dock.boundingBox();
+      const bottom = await line.boundingBox();
+      const middle = top.x + top.width / 2;
+      for (const [x, y] of [[middle - 170, top.y + top.height + 140], [middle + 150, top.y + top.height + 100], [middle + 40, bottom.y - 120]]) {
+        await page.mouse.click(x, y);
+      }
+      await page.locator("svg[data-armed] circle").nth(2).waitFor();
     },
   },
 ];

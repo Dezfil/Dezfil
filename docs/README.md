@@ -39,6 +39,12 @@ Do things in the app: data, maps, SQL, workflows and sharing.
   - read when: you want to upload a CSV, GeoJSON, Shapefile, GeoPackage, KML or GeoParquet file, or know which formats Dezfil reads; your CSV uploaded but shows no points, or its coordinate columns were not found; you want to import a file from a web address or a cloud storage bucket; you want places, buildings, roads or boundaries from Overture Maps or OpenStreetMap; you want to import the tables of a PostGIS database, or fetch an imported dataset again from its source
   - audience: user
 
+- [Build a map](use/build-a-map.md)
+  - path: `docs/use/build-a-map.md`
+  - summary: Add layers to a map, style them, pick a basemap, edit the legend and draw your own points, lines and areas.
+  - read when: you want to add a dataset or a SQL query to a map as a layer, or hide, reorder, rename, copy or delete one; you want to change how a layer looks: its colors, size, labels, or a type such as a heatmap or hex bins; you want another basemap, or a map style of your own; you want to move the legend or change its text; you want to draw points, lines or areas on a map
+  - audience: user
+
 - [Templates](use/templates.md)
   - path: `docs/use/templates.md`
   - summary: The finished maps and workflow examples an instance offers: what a card shows, opening one read only, and making a copy of your own.

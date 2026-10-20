@@ -36,7 +36,7 @@ Home brings back your last map or workflow under **Continue**, and starts new wo
 
 ![The map builder with the map of Your first map: the Layers tab with its one layer, and 48 cities on a world map, colored by population, with the legend of five population classes](../images/start/first-map-finished.webp)
 
-In the builder you add datasets or SQL queries as layers and style each one, then set the **Basemap**, **Widgets** and **Legend**. [Your first map](first-map.md) builds this map step by step.
+In the builder you add datasets or SQL queries as layers and style each one, then set the **Basemap**, **Widgets** and **Legend**. [Your first map](first-map.md) builds this map step by step. See [Build a map](../use/build-a-map.md).
 
 **Publish** gives the map a link that anyone can open without an account, and **Embed** gives the code that puts it in a web page.
 
