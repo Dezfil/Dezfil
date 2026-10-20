@@ -39,7 +39,7 @@ You should see your issue open with the label its form sets: `enhancement` or `b
 
 Describe behavior, not code: what a user will see or be able to do, how you will know it works, and what the change leaves out.
 
-The costlier a mistake would be, the more you describe first. A renamed API path, field or error code is a breaking change, so say so in the issue.
+The costlier a mistake would be, the more you describe first. If the change breaks the API, as [Architecture](architecture.md#rules-every-change-keeps) defines a breaking change, say so in the issue.
 
 Report a security problem privately, as [SECURITY.md](../../SECURITY.md) says, never in an issue. Ask questions in [Discussions](https://github.com/Dezfil/Dezfil/discussions).
 
