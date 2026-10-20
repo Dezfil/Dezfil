@@ -136,10 +136,7 @@ Then open <http://localhost:3000>.
 
 To stop Dezfil, press Ctrl+C in its terminal. To upgrade, stop it, run `git pull` and `npm ci`, then `npm run dev` again. To back up, stop it and copy the `data` folder.
 
-The container brings two programs a checkout lacks:
-
-- `tippecanoe` builds tiles for large layers. Install it on your `PATH`.
-- Chromium draws map pictures on the server: the pictures on map cards, and the images the API and the assistant make. Set `DEZFIL_CHROMIUM_PATH` if it is not at `/usr/bin/chromium`. The builder's own image download works without it.
+A checkout lacks two programs the container brings, `tippecanoe` for the tiles of large layers and Chromium for the map pictures the server draws, and [Development setup](../contribute/development-setup.md#add-the-programs-the-container-brings) shows how to add them.
 
 [Development setup](../contribute/development-setup.md) covers the rest: the checks, the tests and what they need.
 
@@ -201,6 +198,7 @@ A new version updates the stored data when it starts. To go back, restore your b
 ## Next steps
 
 - [Your first map](first-map.md): add data and build a map.
+- [Reverse proxy and HTTPS](../self-host/reverse-proxy.md): serve Dezfil under your own domain.
 - [Configuration](../self-host/configuration.md): the settings that change how your instance runs.
 - [Back up and restore](../self-host/backup-and-restore.md#full-backup-and-restore): back up and restore the data volume.
 - [What leaves the instance](../self-host/what-leaves-the-instance.md): what your instance sends out, and what to settle before other people use it.
