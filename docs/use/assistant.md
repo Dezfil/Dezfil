@@ -15,6 +15,9 @@ order: 8
 
 ![The map builder with the Assistant pane open on the right: the Map and Layer chips, a message asking to color the cities by population, two action lines with check marks and the reply, beside the cities colored by population](../images/use/assistant-builder.webp)
 
+- **You need:** an instance with the assistant turned on. Whoever runs it turns it on with a provider key.
+- **Example data:** the `world_cities` dataset and the map from [Your first map](../start/first-map.md). Any map with a layer works the same way.
+
 ## Open the assistant
 
 1. Open a map, the **SQL** page or a workflow.
