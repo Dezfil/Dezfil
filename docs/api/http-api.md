@@ -262,6 +262,8 @@ curl -s -w "\n%{http_code}\n" http://localhost:3000/api/maps/no-such-map -H "Aut
 - Some codes add a field beside the two, such as `position` for `sql_error` or `rule` for `rule_refused`.
 - An unexpected failure answers `500 internal` with a fixed sentence. The detail goes to the server's log.
 
+[Errors](errors.md) says what to do about each common code.
+
 The [operation reference](https://dezfil.io/docs/api/reference/) lists every code and the statuses each operation answers.
 
 ## Connections

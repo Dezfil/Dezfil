@@ -127,6 +127,12 @@ Script Dezfil over HTTP, or connect an AI agent through MCP.
   - read when: you call Dezfil over HTTP from a script, a program or an agent; you need an API token, or want to know how the app's browser session signs in; a change to a map or workflow answers invalid_request or stale_revision; a call answers forbidden or not_found for something you expect to reach; you want to page through a long list of datasets
   - audience: developer, agent
 
+- [Errors](api/errors.md)
+  - path: `docs/api/errors.md`
+  - summary: Read the error answer a failed API call returns, and know what to do about the codes a script or an agent meets most often.
+  - read when: a request or a tool call fails and you want to know why; you write a client or an agent that decides what to do when a call fails; a call answers stale_revision, rate_limited, query_timeout or query_result_too_large; you look up an error code this page does not list
+  - audience: developer, agent
+
 - [Limits](api/limits.md)
   - path: `docs/api/limits.md`
   - summary: The fixed byte ceilings on SQL answers and previews, and the time, size, memory, rate and queue limits an operator changes.

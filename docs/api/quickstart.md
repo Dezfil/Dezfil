@@ -373,5 +373,6 @@ A rule an admin sets leaves your account out: only admins may do this or, for pu
 
 - [How the API works](http-api.md): the address, signing in, edit revisions, who may do what, paging and errors.
 - [Operation reference](https://dezfil.io/docs/api/reference/): every operation with its fields, built from the API description, [openapi.json](openapi.json).
+- [Errors](errors.md): what an error answer holds, and what to do about each common code.
 - [Limits](limits.md): upload sizes, SQL results and the settings that change them.
 - [Connect an AI agent](mcp.md): the same operations as tools for Claude Code, Codex or Cursor.

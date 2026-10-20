@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, it } from "vitest";
 import { laneSettled } from "@/lib/operations/lane";
-import { answerProblems, filledIn, ownInstance, pageCalls, runShell, shownAnswer, type OwnInstance, type PageBlock } from "@/lib/test-support/page-calls";
+import { filledIn, ownInstance, pageCalls, printedProblems, runShell, type OwnInstance, type PageBlock } from "@/lib/test-support/page-calls";
 
 // How the API works shows its calls as terminal blocks, each followed by
 // the answer it gives. They run here in the page's order, as a reader runs
@@ -22,21 +22,6 @@ function terminalCalls(text: string): { call: PageBlock; output: PageBlock }[] {
   return blocks.flatMap((block, index) => {
     const next = blocks[index + 1];
     return block.lang === "sh" && block.title === "Terminal" && next?.title === "Output" && !block.code.startsWith("node ") ? [{ call: block, output: next }] : [];
-  });
-}
-
-/** Where one printed answer differs from the one the page shows. A text
- * answer is held line by line: a line of JSON as JSON, any other as text. */
-function outputProblems(output: PageBlock, text: string, names: Map<string, unknown>): string[] {
-  const where = `${PAGE}:${output.line}`;
-  const shown = output.lang === "json" ? [output.code] : output.code.split("\n");
-  const printed = output.lang === "json" ? [text.trim()] : text.replace(/\n$/, "").split("\n");
-  if (shown.length !== printed.length) return [`${where}: the page shows ${shown.length} lines, the call printed ${printed.length}: ${text}`];
-  return shown.flatMap((line, index) => {
-    if (!/^[{[]/.test(line)) return line === printed[index] ? [] : [`${where}: the page shows ${line}, the call printed ${printed[index]}`];
-    let actual: unknown;
-    try { actual = JSON.parse(printed[index]); } catch { return [`${where}: the call printed no JSON: ${printed[index].slice(0, 200)}`]; }
-    return answerProblems(shownAnswer(line), actual, names, new Set()).map((problem) => `${where}: ${problem}`);
   });
 }
 
@@ -72,7 +57,7 @@ async function runPage(text: string, token: string): Promise<{ problems: string[
   const names = new Map<string, unknown>([["YOUR_TOKEN", token], ["YOUR_NAME", READER.name], ["YOUR_EMAIL", READER.email]]);
   const problems: string[] = [];
   for (const { call, output } of terminalCalls(text)) {
-    try { problems.push(...outputProblems(output, await runShell(filledIn(call.code, names, call.line), {}), names)); }
+    try { problems.push(...printedProblems(output, await runShell(filledIn(call.code, names, call.line), {}), names, `${PAGE}:${output.line}`)); }
     catch (error) { problems.push(`${PAGE}:${call.line}: ${(error as Error).message}`); }
   }
   return { problems, names };

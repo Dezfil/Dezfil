@@ -145,6 +145,22 @@ export function answerProblems(shown: unknown, actual: unknown, names: Map<strin
   return same(shown, actual) ? [] : [`${at}: the page shows ${show(shown)}, the answer is ${show(actual)}`];
 }
 
+/** Where what a call printed differs from the Output block the page shows
+ * after it, each problem led by `where`. A json block is one answer, however
+ * many lines the page spreads it over; a text block is held line by line, a
+ * line of JSON as an answer and any other line as text. */
+export function printedProblems(output: PageBlock, text: string, names: Map<string, unknown>, where: string, varies: ReadonlySet<string> = new Set()): string[] {
+  const shown = output.lang === "json" ? [output.code] : output.code.split("\n");
+  const printed = output.lang === "json" ? [text.trim()] : text.replace(/\n$/, "").split("\n");
+  if (shown.length !== printed.length) return [`${where}: the page shows ${shown.length} lines, the call printed ${printed.length}: ${text}`];
+  return shown.flatMap((line, index) => {
+    if (!/^[{[]/.test(line)) return line === printed[index] ? [] : [`${where}: the page shows ${line}, the call printed ${printed[index]}`];
+    let actual: unknown;
+    try { actual = JSON.parse(printed[index]); } catch { return [`${where}: the call printed no JSON: ${printed[index].slice(0, 200)}`]; }
+    return answerProblems(shownAnswer(line), actual, names, varies).map((problem) => `${where}: ${problem}`);
+  });
+}
+
 /** A call's code with every `<NAME>` replaced as a reader replaces it. */
 export function filledIn(code: string, names: Map<string, unknown>, line: number): string {
   return code.replace(/<([A-Z][A-Z0-9_]*)>/g, (_whole, name: string) => {
@@ -270,12 +286,19 @@ async function curl(args: string[], cookies: Map<string, string>, files: Record<
 const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
 
 /** What one JavaScript file prints, run as a module with Node's globals. The
- * one import the pages use, `openAsBlob` from `node:fs`, reads the files a
- * reader saved beside the script. */
+ * imports the pages use: `openAsBlob` from `node:fs`, which reads the files a
+ * reader saved beside the script, and the names another file beside it
+ * exports, such as `import { request } from "./dezfil.mjs";`, which runs that
+ * file first, in a scope of its own. */
 export async function runScript(code: string, files: Record<string, string>): Promise<string> {
   const printed: string[] = [];
-  const body = code.replace(/^import \{ openAsBlob \} from "node:fs";$/m, "");
-  if (/^\s*import\b/m.test(body)) throw new Error("the runner gives a script only openAsBlob from node:fs");
+  const body = code.replace(/^import \{ openAsBlob \} from "node:fs";$/m, "").replace(/^import \{ ([\w, ]+) \} from "\.\/([\w.-]+\.mjs)";$/gm, (_line, names: string, file: string) => {
+    if (!(file in files)) throw new Error(`import: there is no file ${file} beside the script`);
+    const source = files[file].replace(/^export (?=(?:async )?function |const |let )/gm, "");
+    if (/^\s*(?:import|export)\b/m.test(source)) throw new Error(`import: ${file} itself imports or exports in a way the runner does not know`);
+    return `const { ${names} } = await (async () => {\n${source}\nreturn { ${names} };\n})();`;
+  });
+  if (/^\s*import\b/m.test(body)) throw new Error("the runner gives a script only openAsBlob from node:fs and the files beside it");
   const openAsBlob = async (file: string) => {
     if (!(file in files)) throw new Error(`openAsBlob: there is no file ${file}`);
     return new Blob([files[file]]);
