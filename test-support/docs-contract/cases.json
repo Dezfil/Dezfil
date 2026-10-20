@@ -1971,6 +1971,203 @@
           "line": 15
         }
       ]
+    },
+    {
+      "scope": "product",
+      "name": "a paragraph of 80 words with a link whose destination holds words",
+      "files": {
+        "docs/about/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you check the writing rules\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nword word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word [the install page](../start/install.md#with-docker).\n"
+      },
+      "problems": []
+    },
+    {
+      "scope": "product",
+      "name": "a paragraph of 80 words with an HTML comment inside it",
+      "files": {
+        "docs/about/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you check the writing rules\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nword word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word <!-- a comment of five words --> word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word.\n"
+      },
+      "problems": []
+    },
+    {
+      "scope": "product",
+      "name": "paragraphs of 80 words packed against the lines of a tab set",
+      "files": {
+        "docs/about/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you check the writing rules\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\n::::tabs\n:::tab[Docker Compose]\nword word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word.\n:::\n:::tab[Any other client]\nword word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word.\n:::\n::::\n"
+      },
+      "problems": []
+    },
+    {
+      "scope": "product",
+      "name": "a paragraph of 81 words inside a generated region",
+      "files": {
+        "docs/about/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you check the writing rules\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nThe table below is generated.\n\n<!-- settings-table:start -->\n\nword word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word.\n\n<!-- settings-table:end -->\n"
+      },
+      "problems": []
+    },
+    {
+      "scope": "product",
+      "name": "a paragraph of 81 words, its last one inline code",
+      "files": {
+        "docs/about/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you check the writing rules\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nword word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word `dezfil`.\n"
+      },
+      "problems": [
+        {
+          "file": "docs/about/case.md",
+          "rule": "writing.paragraph-length",
+          "line": 13
+        }
+      ]
+    },
+    {
+      "scope": "product",
+      "name": "a paragraph of 81 words through a contraction and a number",
+      "files": {
+        "docs/about/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you check the writing rules\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nword word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word don't 10.\n"
+      },
+      "problems": [
+        {
+          "file": "docs/about/case.md",
+          "rule": "writing.paragraph-length",
+          "line": 13
+        }
+      ]
+    },
+    {
+      "scope": "product",
+      "name": "1,501 words of prose whose last 50 are a notice's, word 1,501 alone on its line",
+      "files": {
+        "docs/about/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you check the writing rules\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\n- word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word.\n- word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word.\n- word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word.\n- word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word.\n- word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word.\n- word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word.\n- word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word.\n- word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word.\n- word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word.\n- word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word.\n- word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word.\n- word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word.\n- word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word.\n- word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word.\n- word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word.\n- word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word.\n- word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word.\n- word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word.\n- word word word word word word word word word word word.\n\n> [!NOTE]\n> word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word\n> word.\n"
+      },
+      "problems": [
+        {
+          "file": "docs/about/case.md",
+          "rule": "writing.page-length",
+          "line": 35
+        }
+      ]
+    },
+    {
+      "scope": "product",
+      "name": "a Use Dezfil page whose 151st word before its first code block is in a notice",
+      "files": {
+        "docs/use/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you check the writing rules\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nword word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word.\n\nword word word word word word word word word word word word word word word word word word word word word.\n\n> [!NOTE]\n> word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word\n> word.\n\n```sh title=\"Terminal\"\ndocker stop dezfil\n```\n"
+      },
+      "problems": [
+        {
+          "file": "docs/use/case.md",
+          "rule": "writing.first-screen",
+          "line": 19
+        }
+      ]
+    },
+    {
+      "scope": "product",
+      "name": "six paragraphs whose two middle ones make a median of 30.5 words",
+      "files": {
+        "docs/about/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you check the writing rules\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nword word word word word word word word word word.\n\nword word word word word word word word word word word word word word word word word word word word.\n\nword word word word word word word word word word word word word word word word word word word word word word word word word word word word word word.\n\nword word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word.\n\nword word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word.\n\nword word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word.\n"
+      },
+      "problems": [
+        {
+          "file": "docs/about/case.md",
+          "rule": "writing.median-paragraph",
+          "line": 19
+        }
+      ]
+    },
+    {
+      "scope": "product",
+      "name": "a history word and an em dash in a table's cells",
+      "files": {
+        "docs/about/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you check the writing rules\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\n| Setting | Note |\n|---|---|\n| Port | now 8080 |\n| Host | a name — or an address |\n"
+      },
+      "problems": [
+        {
+          "file": "docs/about/case.md",
+          "rule": "writing.word",
+          "line": 15
+        },
+        {
+          "file": "docs/about/case.md",
+          "rule": "writing.em-dash",
+          "line": 16
+        }
+      ]
+    },
+    {
+      "scope": "product",
+      "name": "two notices before the first heading",
+      "files": {
+        "docs/about/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you check the writing rules\"\naudience:\n  - developer\nchecked: none\n---\n\n> [!NOTE]\n> Keep it private.\n\n> [!WARNING]\n> Keep it running.\n\n## First\n\nRun it.\n"
+      },
+      "problems": [
+        {
+          "file": "docs/about/case.md",
+          "rule": "writing.notice-count",
+          "line": 14
+        }
+      ]
+    },
+    {
+      "scope": "product",
+      "name": "a Use Dezfil page with 151 words of prose before a table",
+      "files": {
+        "docs/use/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you check the writing rules\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nword word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word.\n\nword word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word.\n\n| Task | Command |\n|---|---|\n| Stop | `docker stop dezfil` |\n\nword word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word.\n"
+      },
+      "problems": [
+        {
+          "file": "docs/use/case.md",
+          "rule": "writing.first-screen",
+          "line": 15
+        }
+      ]
+    },
+    {
+      "scope": "product",
+      "name": "a Use Dezfil page with 151 words of prose before a numbered list",
+      "files": {
+        "docs/use/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you check the writing rules\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nword word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word.\n\nword word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word.\n\n1. Open the map.\n2. Add a layer.\n"
+      },
+      "problems": [
+        {
+          "file": "docs/use/case.md",
+          "rule": "writing.first-screen",
+          "line": 15
+        }
+      ]
+    },
+    {
+      "scope": "product",
+      "name": "a Use Dezfil page with 151 words of prose before a numbered heading",
+      "files": {
+        "docs/use/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you check the writing rules\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nword word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word.\n\nword word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word.\n\n## 2. Add a layer\n\nword word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word.\n"
+      },
+      "problems": [
+        {
+          "file": "docs/use/case.md",
+          "rule": "writing.first-screen",
+          "line": 15
+        }
+      ]
+    },
+    {
+      "scope": "product",
+      "name": "a page whose frontmatter cannot be read beside a page with a writing problem",
+      "files": {
+        "docs/about/broken.md": "---\ntitle: \"Broken\n---\n\n## First\n\nword.\n",
+        "docs/about/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you check the writing rules\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nword word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word.\n"
+      },
+      "problems": [
+        {
+          "file": "docs/about/broken.md",
+          "rule": "frontmatter.missing",
+          "line": 1
+        },
+        {
+          "file": "docs/about/case.md",
+          "rule": "writing.paragraph-length",
+          "line": 13
+        }
+      ]
     }
   ],
   "order": [
