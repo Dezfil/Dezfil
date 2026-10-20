@@ -92,7 +92,7 @@ Each node's result is a dataset in **Data**, where a workflow's results sit toge
 1. Click the **Assign H3 cells** tile.
 2. In the results band, click **Map**.
 
-You should see 15 hexagons, one for each city of more than ten million people.
+You should see 15 small marks on the map, one cell for each city of more than ten million people, and 15 features in the corner. At this size each cell is a few pixels wide: scroll on one to zoom in on its hexagon.
 
 **Data** shows the same dataset's first rows. **Provenance** names the tool that made it, when it ran, what it read and the SQL it ran.
 
