@@ -98,15 +98,20 @@ describe("the agents' index", () => {
     expect(index).toContain("## Self-host\n\nInstall, secure, configure and back up your own instance.\n\n## API and agents");
   });
 
-  it("gives each page one entry with its six fields in order", () => {
+  it("gives each page one entry with its five fields in order, and no checked", () => {
     expect(index).toContain([
       "- [MCP](api/mcp.md)",
       "  - path: `docs/api/mcp.md`",
       "  - summary: How an agent drives Dezfil through its MCP server, folded over two lines.",
       "  - read when: you connect an agent; you read the tool list",
       "  - audience: agent, developer",
-      "  - checked: 0.1.0, 2026-10-01",
+      "",
+      "",
     ].join("\n"));
+    // The entry ends at its audience line. The page under test is checked
+    // against a release, and the index still leaves the field out, for
+    // every page and in the header.
+    expect(index).not.toMatch(/checked/i);
     expect(index.match(/^- \[/gm)!.length - 4).toBe(3);
   });
 

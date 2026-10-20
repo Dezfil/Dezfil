@@ -539,8 +539,9 @@ const folderTitle = (name) => name.charAt(0).toUpperCase() + name.slice(1).repla
 
 /** The agents' index, docs/README.md, generated from the pages'
  * frontmatter: the six sections in order, one entry per page with its
- * title, path, summary, read_when lines, audience and checked, then the
- * documents and generated files that sit beside the pages. */
+ * title, path, summary, read_when lines and audience, then the documents
+ * and generated files that sit beside the pages. A page's checked field
+ * is for the people who check pages and stays out of the index. */
 export function generateIndex({ files, read }) {
   const fileSet = new Set(files);
   const pages = [];
@@ -555,9 +556,7 @@ export function generateIndex({ files, read }) {
     "",
     "Every page under `docs/`, generated from the pages' own frontmatter. Find the",
     "section for what you are doing, then the page whose \"read when\" line is",
-    "your situation. `checked` is the release a page was last read against a",
-    "running instance of, with the date, or `none` until it has been. The same",
-    `pages are published at ${DOCS_SITE_URL}.`,
+    `your situation. The same pages are published at ${DOCS_SITE_URL}.`,
     "",
     "This file is written by `npm run docs:write` and held by `npm run lint:docs`:",
     "change the pages, then regenerate it.",
@@ -570,7 +569,6 @@ export function generateIndex({ files, read }) {
       const group = page.path.split("/").slice(2, -1).join("/");
       if (group && group !== folder) lines.push("", `### ${folderTitle(group)}`);
       folder = group;
-      const checked = page.checked === "none" ? "none" : `${page.checked}, ${dateValue(page.checked_on) ?? page.checked_on}`;
       lines.push(
         "",
         `- [${page.title}](${page.path.slice("docs/".length)})`,
@@ -578,7 +576,6 @@ export function generateIndex({ files, read }) {
         `  - summary: ${page.summary}`,
         `  - read when: ${list(page.read_when)}`,
         `  - audience: ${list(page.audience).replace(/; /g, ", ")}`,
-        `  - checked: ${checked}`,
       );
     }
   }
