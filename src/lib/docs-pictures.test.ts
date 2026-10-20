@@ -20,10 +20,10 @@ import { CADENCE, THEME_STORAGE_KEY, bundledFfmpeg, cropRectangle, encodeWebm, t
 import { manifestText, planRun } from "../../scripts/docs-pictures-manifest.mjs";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: as above.
-import { BAND_CHOICE_KEY, SCENES, SQL_STORAGE_KEYS, STATES, STATE_SEEDING } from "../../scripts/docs-pictures-scenes.mjs";
+import { BAND_CHOICE_KEY, DEFAULT_LOOK, MEMBER_STATES, SCENES, SQL_STORAGE_KEYS, STATES, STATE_SEEDING } from "../../scripts/docs-pictures-scenes.mjs";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: as above.
-import { ASSISTANT_MAP, BIG_CITIES, FIRST_MAP, freePort, makeScratch, runWorkflow, seedAssistantMap, seedFirstMap, seedWorkflow, startServer, writeCatalogue } from "../../scripts/docs-pictures-instance.mjs";
+import { ASSISTANT_MAP, BIG_CITIES, FIRST_MAP, MEMBER_MAPS, freePort, makeScratch, runWorkflow, seedAssistantMap, seedFirstMap, seedMember, seedWorkflow, startServer, writeCatalogue } from "../../scripts/docs-pictures-instance.mjs";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: as above.
 import { ASSISTANT_MESSAGES, PROPOSED_QUERY, SCRIPTED_KEY, assistantEnvironment, replyEvents, scriptedReply, startScriptedModel } from "../../scripts/docs-pictures-assistant.mjs";
@@ -35,6 +35,7 @@ import { defaultOutputName } from "@/components/builder/drawer/operation-form";
 import { assistantAvailability } from "@/lib/assistant/config";
 import { openaiProvider } from "@/lib/assistant/providers/openai";
 import { resolveBoolean } from "@/lib/settings/resolver";
+import { defaultLook } from "@/lib/look";
 import { buildTools } from "@/lib/tools/tools";
 import { findOperation } from "@/lib/operations/catalog";
 import { pictureRendererAvailable } from "@/lib/pictures/renderer";
@@ -260,6 +261,50 @@ describe("the assistant scenes", () => {
 
   it("hold steady the action time the pane shows, under the name the pane reads it by", () => {
     expect(readFileSync("src/components/builder/assistant/record-projection.ts", "utf8")).toMatch(/event\.elapsedMs[\s\S]*action\.elapsedMs/);
+  });
+});
+
+describe("the settings scenes", () => {
+  it("are taken on Your settings' page in a state of their own, signed in as the second account, a member", () => {
+    expect(STATES.indexOf("member")).toBeGreaterThan(STATES.indexOf("seeded"));
+    expect(MEMBER_STATES).toEqual(["member"]);
+    expect(STATE_SEEDING.member).toBe(seedMember);
+    const settings = scenes.filter((s) => s.state === "member");
+    expect(settings.map((s) => s.id)).toEqual(["settings-appearance", "settings-look-harbor", "settings-maps-list", "settings-account"]);
+    for (const scene of settings) {
+      expect(scene.pages).toEqual(["docs/use/settings.md"]);
+      expect(scene.map).toBeUndefined();
+    }
+  });
+
+  it("start each take from Dezfil's default look, every pick at its first choice", () => {
+    expect(DEFAULT_LOOK).toEqual(defaultLook());
+  });
+
+  it("show the member's own maps: the three shipped templates copied with the member's token, one of them published", async () => {
+    const calls: string[] = [];
+    const maps = [
+      { id: "m1", name: "Forty years of big earthquakes" },
+      { id: "m2", name: MEMBER_MAPS.published },
+      { id: "m3", name: "Health access in Rwanda" },
+    ];
+    const member = async (method: string, path: string, options: { basis?: { editRevision: string } } = {}) => {
+      calls.push(`${method} ${path}${options.basis ? ` @${options.basis.editRevision}` : ""}`);
+      if (path === "/api/templates") return { status: 200, json: { templates: ["a", "b", "c"].map((id) => ({ id, origin: "shipped" })).concat({ id: "d", origin: "downloaded" }) } };
+      if (path.endsWith("/copy")) return { status: 201, json: {} };
+      if (path === "/api/maps") return { status: 200, json: maps };
+      if (method === "GET") return { status: 200, json: { id: "m2", editRevision: "r7" } };
+      return { status: 201, json: {} };
+    };
+    const first = async () => { throw new Error("The member's work is made with the member's own client."); };
+    await seedMember(first, "/nowhere", { member: { api: member } });
+    expect(calls).toEqual([
+      "GET /api/templates",
+      "POST /api/templates/a/copy", "POST /api/templates/b/copy", "POST /api/templates/c/copy",
+      "GET /api/maps",
+      "GET /api/maps/m2",
+      "POST /api/maps/m2/publish @r7",
+    ]);
   });
 });
 

@@ -50,7 +50,7 @@ import { assistantEnvironment, startScriptedModel } from "./docs-pictures-assist
 import { assertBuiltCheckout, freePort, makeScratch, seed, serverRequests, startServer, writeCatalogue } from "./docs-pictures-instance.mjs";
 import { MANIFEST, manifestText, planRun } from "./docs-pictures-manifest.mjs";
 import { problemsMessage, requestsOffInstance } from "./docs-pictures-network.mjs";
-import { SCENES, STATES, STATE_SEEDING } from "./docs-pictures-scenes.mjs";
+import { MEMBER_STATES, SCENES, STATES, STATE_SEEDING } from "./docs-pictures-scenes.mjs";
 import { PICTURE_AIM_BYTES, PICTURE_MAX_BYTES, RECORDING_MAX_BYTES, RECORDINGS_MAX, THEMES, lightTake } from "./docs-media.mjs";
 
 const root = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
@@ -92,10 +92,11 @@ try {
     if (state !== "fresh") seeded ??= await seed(server.base, root);
     for (const earlier of STATES.slice(0, index + 1)) {
       if (made.has(earlier) || !STATE_SEEDING[earlier]) continue;
-      await STATE_SEEDING[earlier](seeded.api, root);
+      await STATE_SEEDING[earlier](seeded.api, root, seeded);
       made.add(earlier);
     }
-    const cookie = seeded?.cookie ?? null;
+    // A member's state is taken signed in as the second account.
+    const cookie = (MEMBER_STATES.includes(state) ? seeded?.member.cookie : seeded?.cookie) ?? null;
     for (const theme of THEMES) {
       const { context, network } = await frameContext(browser, server.base, { cookie, theme });
       try {

@@ -35,7 +35,7 @@
 //   length is the frames held, at most eight seconds.
 
 import { ASSISTANT_MESSAGES } from "./docs-pictures-assistant.mjs";
-import { ASSISTANT_MAP, BIG_CITIES, FIRST_MAP, runWorkflow, seedAssistantMap, seedFirstMap, seedWorkflow } from "./docs-pictures-instance.mjs";
+import { ASSISTANT_MAP, BIG_CITIES, FIRST_MAP, MEMBER_MAPS, runWorkflow, seedAssistantMap, seedFirstMap, seedMember, seedWorkflow } from "./docs-pictures-instance.mjs";
 
 /** Open the Templates page and wait until the catalogue has been read and
  * the three shipped cards are drawn with their pictures. */
@@ -629,6 +629,126 @@ const ASSISTANT_PAGE_SCENES = [
   },
 ];
 
+// ---------------------------------------------------------------------------
+// Use Dezfil: a person's own settings, as "Your settings" shows them, in the
+// `member` state: signed in as the second account, a member, so the
+// column shows what a member's shows, with three maps of its own, one of
+// them published. What these scenes pick is kept with that account alone.
+
+/** Dezfil's default look: every pick at its first choice. */
+export const DEFAULT_LOOK = { color: "kelp", contrast: "standard", font: "inter", background: "atlantic", corners: "rounded", rail: "hover", panels: "glass" };
+
+/** The Settings page's heading, where the pointer rests and lights nothing. */
+const SETTINGS_HEADING = 'h1:text-is("Settings")';
+
+/** Put the member's look back to Dezfil's default before the page opens,
+ * so a take starts there whatever the scene before it picked: every
+ * member scene but the Harbor one shows the default look. */
+async function defaultLook(page) {
+  const read = await page.request.get("/api/settings");
+  if (!read.ok()) throw new Error(`/api/settings answered ${read.status()}.`);
+  const reset = await page.request.patch("/api/settings", { data: { look: DEFAULT_LOOK }, headers: { origin: new URL(read.url()).origin } });
+  if (!reset.ok()) throw new Error(`Putting the member's look back answered ${reset.status()}.`);
+}
+
+/** Open Appearance at the default look, its Color row drawn. */
+async function openAppearance(page) {
+  await defaultLook(page);
+  await page.goto("/settings/appearance");
+  await page.locator("#appearance-color").getByRole("radio", { name: "Kelp", exact: true }).waitFor();
+}
+
+/** Store the member's Maps layout and sort, as the screen's own buttons
+ * do, before the page opens. Picked on the page, each pick's save is
+ * answered but its answer is never read, and the browser then reports the
+ * save in flight for as long as the page is open, so the page never comes
+ * to rest. */
+async function storeMapsView(page, prefs) {
+  const read = await page.request.get("/api/settings");
+  if (!read.ok()) throw new Error(`/api/settings answered ${read.status()}.`);
+  const stored = await page.request.patch("/api/settings", { data: { viewPrefs: { maps: prefs } }, headers: { origin: new URL(read.url()).origin } });
+  if (!stored.ok()) throw new Error(`Storing the member's Maps view answered ${stored.status()}.`);
+}
+
+/** The Maps list's card of rows: the one element whose children hold the
+ * rows' buttons. */
+const MAPS_LIST = 'main div:has(> div > button[aria-label^="Open "])';
+
+const SETTINGS_PAGE_SCENES = [
+  {
+    // The page's opening picture: Appearance at Dezfil's default look, the
+    // column of tabs and the Color and contrast card.
+    id: "settings-appearance",
+    file: "use/settings-appearance.webp",
+    pages: ["docs/use/settings.md"],
+    kind: "still",
+    state: "member",
+    crop: { selector: [SETTINGS_HEADING, 'nav[aria-label="Settings"]', "#appearance-color"], margin: 24 },
+    async open(page) {
+      await openAppearance(page);
+      await page.locator(SETTINGS_HEADING).hover();
+    },
+  },
+  {
+    // Change the look, step 2: Harbor picked, in the full frame, once its
+    // Saved mark has gone, so the picture does not depend on how fast it
+    // was taken.
+    id: "settings-look-harbor",
+    file: "use/settings-look-harbor.webp",
+    pages: ["docs/use/settings.md"],
+    kind: "still",
+    state: "member",
+    async open(page) {
+      await openAppearance(page);
+      await page.locator("#appearance-color").getByRole("radio", { name: "Harbor", exact: true }).click();
+      await page.locator('html[data-look-color="harbor"]').waitFor({ state: "attached" });
+      await page.locator('[data-appearance-slot="reset"]').waitFor();
+      const saved = page.locator("#appearance-color").getByText("Saved", { exact: true });
+      await saved.waitFor();
+      await saved.waitFor({ state: "hidden", timeout: 10_000 });
+      await page.locator(SETTINGS_HEADING).hover();
+    },
+  },
+  {
+    // Lay out and sort your lists: the member's maps in List view, sorted
+    // Name A to Z.
+    id: "settings-maps-list",
+    file: "use/settings-maps-list.webp",
+    pages: ["docs/use/settings.md"],
+    kind: "still",
+    state: "member",
+    crop: { selector: ['[role=group][aria-label="View"]', MAPS_LIST], margin: 16 },
+    async open(page) {
+      await defaultLook(page);
+      await storeMapsView(page, { view: "list", sort: "name" });
+      await page.goto("/maps");
+      await page.locator('[role=group][aria-label="View"] button[aria-label="List view"][data-on]').waitFor();
+      if ((await page.getByRole("combobox", { name: "Sort maps" }).inputValue()) !== "name") throw new Error("The Maps screen did not open sorted Name A to Z.");
+      await page.locator(MAPS_LIST).getByRole("button", { name: /^Open / }).nth(MEMBER_MAPS.count - 1).waitFor();
+      const first = await page.locator(MAPS_LIST).getByRole("button", { name: /^Open / }).first().getAttribute("aria-label");
+      if (first !== "Open Forty years of big earthquakes") throw new Error(`The list sorted Name A to Z starts with ${first}.`);
+      await page.locator(`${MAPS_LIST} > [aria-hidden]`).first().hover();
+    },
+  },
+  {
+    // Change your name or email, and your password: the Account card with
+    // Change password opened, its fields empty.
+    id: "settings-account",
+    file: "use/settings-account.webp",
+    pages: ["docs/use/settings.md"],
+    kind: "still",
+    state: "member",
+    crop: { selector: "#account", margin: 16 },
+    async open(page) {
+      await defaultLook(page);
+      await page.goto("/settings/account");
+      await page.locator("#password > summary").click();
+      await page.locator("#account").getByText("At least 8 characters.", { exact: true }).waitFor();
+      await page.locator(SETTINGS_HEADING).hover();
+    },
+  },
+];
+
 export const SCENES = [
   {
     id: "setup-card",
@@ -670,18 +790,25 @@ export const SCENES = [
   ...SQL_PAGE_SCENES,
   ...WORKFLOW_PAGE_SCENES,
   ...ASSISTANT_PAGE_SCENES,
+  ...SETTINGS_PAGE_SCENES,
 ];
 
-export const STATES = ["fresh", "seeded", "first-map", "sql", "workflow", "workflow-run", "assistant"];
+export const STATES = ["fresh", "seeded", "first-map", "sql", "workflow", "workflow-run", "assistant", "member"];
+
+/** The states taken signed in as the second account, a member, rather than
+ * the first, the instance's admin. */
+export const MEMBER_STATES = ["member"];
 
 /** What makes a state after the seeded one from the state before it,
- * called once a run with the first account's API client and the
- * checkout's root. `sql` has none: it is the first map's state, in a
- * browser of its own, so the SQL workspace's stored draft and history
- * stay among its own scenes. */
+ * called once a run with the first account's API client, the checkout's
+ * root and what the seeding returned (the second account's client among
+ * it). `sql` has none: it is the first map's state, in a browser of its
+ * own, so the SQL workspace's stored draft and history stay among its own
+ * scenes. */
 export const STATE_SEEDING = {
   "first-map": seedFirstMap,
   workflow: seedWorkflow,
   "workflow-run": runWorkflow,
   assistant: seedAssistantMap,
+  member: seedMember,
 };

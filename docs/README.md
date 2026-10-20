@@ -51,6 +51,12 @@ Do things in the app: data, maps, SQL, workflows and sharing.
   - read when: you want to change a map by asking in plain words; you want the assistant to write a SQL query, or explain a workflow node or a failed run; the assistant asks you to confirm an action, or you want to stop or undo what it did; you want to choose another model or effort; the assistant pane says no model credential is configured
   - audience: user
 
+- [Your settings](use/settings.md)
+  - path: `docs/use/settings.md`
+  - summary: Change your look, light or dark, how your lists are laid out and sorted, and your name, email and password.
+  - read when: you want another color, typeface, background or panel style, or the side menu always open; you want the dark theme; you want your maps, data, workflows or projects as a list, or sorted another way; you want to change your display name, email or password; you want to know which choices follow you to another browser
+  - audience: user
+
 - [Templates](use/templates.md)
   - path: `docs/use/templates.md`
   - summary: The finished maps and workflow examples an instance offers: what a card shows, opening one read only, and making a copy of your own.

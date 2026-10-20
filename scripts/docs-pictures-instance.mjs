@@ -179,7 +179,8 @@ export async function serverRequests(scratch) {
  * templates copied in their own kinds, and the repository's fixtures
  * uploaded and filed in the project. Returns the first account's browser
  * cookie, for the seeded scenes' browser, and its API client, for the
- * seeding of a later state.
+ * seeding of a later state, and the same two of the second account, a
+ * member, under `member`.
  */
 export async function seed(base, root) {
   const first = await provisionJourney(base, PEOPLE.first);
@@ -209,7 +210,7 @@ export async function seed(base, root) {
   }
   expectStatus(await lena("PATCH", `/api/projects/${project.id}/members`, { body: { addTables: tables } }), 200, "file the fixtures in the project");
 
-  return { cookie: first.cookie, api: lena };
+  return { cookie: first.cookie, api: lena, member: { cookie: second.cookie, api: journeyApi(base, { token: second.token }) } };
 }
 
 /**
@@ -317,4 +318,29 @@ export async function seedAssistantMap(api) {
     body: { name: FIRST_MAP.layer, sql: `SELECT * FROM ${FIRST_MAP.layer}`, writtenIn: { kind: "console" } },
   }), 201, "add the cities to the assistant's map");
   expectStatus(await api("PATCH", `/api/maps/${map.id}`, { body: { viewport: ASSISTANT_MAP.viewport } }), 200, "frame the world on the assistant's map");
+}
+
+// ---------------------------------------------------------------------------
+// The second account's own settings, as "Your settings" shows them.
+
+/** The second account's own maps: copies of the three shipped templates,
+ * one of them published, so a list of them shows both states. */
+export const MEMBER_MAPS = { published: "The world's air routes", count: 3 };
+
+/**
+ * The second account's own work, made through the documented API with its
+ * own token: the three shipped templates copied, and one of their maps
+ * published. The first account's work is untouched.
+ */
+export async function seedMember(_api, _root, seeded) {
+  const jonas = seeded.member.api;
+  const templates = expectStatus(await jonas("GET", "/api/templates"), 200, "list the templates as the member").templates.filter((card) => card.origin === "shipped");
+  assert.equal(templates.length, 3, "the member is offered the three shipped templates");
+  for (const card of templates) expectStatus(await jonas("POST", `/api/templates/${card.id}/copy`, { body: {} }), 201, `copy ${card.id} as the member`);
+  const maps = expectStatus(await jonas("GET", "/api/maps"), 200, "list the member's maps");
+  assert.equal(maps.length, MEMBER_MAPS.count, "the member sees the three copies' maps and nothing else");
+  const map = maps.find((entry) => entry.name === MEMBER_MAPS.published);
+  assert.ok(map, `The member has no map named ${MEMBER_MAPS.published}.`);
+  const basis = captureBasis(expectStatus(await jonas("GET", `/api/maps/${map.id}`), 200, "read the map to publish"));
+  expectStatus(await jonas("POST", `/api/maps/${map.id}/publish`, { basis, body: {} }), 201, "publish the member's map");
 }

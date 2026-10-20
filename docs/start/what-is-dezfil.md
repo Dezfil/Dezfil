@@ -73,7 +73,7 @@ The colored boxes are notes, for comments beside the nodes. Their text shows whe
 - **Projects:** a project groups maps, workflows and datasets, and shares them with people as viewers or editors.
 - **Connections:** your saved PostGIS databases, whose tables you import as datasets.
 - **Assistant:** a chat pane on the map, SQL and workflow pages that reads your data and makes changes when you ask. It runs on an Anthropic or OpenAI key set on the server. See [The assistant](../use/assistant.md).
-- **Settings:** your account, your API tokens and your look. Admins also set how the instance behaves there. See [Configuration](../self-host/configuration.md).
+- **Settings:** your account, your API tokens and your look. Admins also set how the instance behaves there. See [Your settings](../use/settings.md) and [Configuration](../self-host/configuration.md).
 
 ## How it runs
 
