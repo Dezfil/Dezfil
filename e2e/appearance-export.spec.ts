@@ -80,11 +80,13 @@ const attrs = (look: Look) => {
   return Object.fromEntries(out.sort(([a], [b]) => a.localeCompare(b)));
 };
 
-/** The builder frames the data on every open and, once the camera comes
- * to rest, sends the framed camera to be kept: an open is settled once
- * that write has been sent and no other has followed for a second. Every
- * image here is made from a settled open, so its camera is the framing
- * and never a moment of it. */
+/** The fixture map is made through the API with no view of its own, so its
+ * first open frames the data and, once the camera comes to rest, sends the
+ * framed camera to be kept; later opens start at that kept view and move
+ * nothing. An open is settled once the data is drawn, the painted camera has
+ * held still for a second and no camera write has been sent in it. Every
+ * image here is made from a settled open, so its camera is never a moment of
+ * a framing. */
 async function openSettled(page: Page, mapId: string): Promise<void> {
   const writes: number[] = [];
   const onWrite = (r: Request) => {
@@ -93,8 +95,13 @@ async function openSettled(page: Page, mapId: string): Promise<void> {
   page.on("request", onWrite);
   try {
     await openBuilder(page, mapId);
-    await expect.poll(() => writes.length, { timeout: 15_000, message: "the builder's framing sent its camera" }).toBeGreaterThan(0);
-    await expect.poll(() => Date.now() - writes[writes.length - 1], { timeout: 15_000, message: "the camera stayed at rest" }).toBeGreaterThan(1_000);
+    const host = page.locator("[data-map-camera]");
+    let painted: string | null = null, since = Date.now();
+    await expect.poll(async () => {
+      const now = await host.getAttribute("data-map-camera");
+      if (now !== painted) { painted = now; since = Date.now(); }
+      return now === null ? 0 : Date.now() - Math.max(since, writes.at(-1) ?? 0);
+    }, { timeout: 15_000, message: "the camera stayed at rest" }).toBeGreaterThan(1_000);
   } finally {
     page.off("request", onWrite);
   }

@@ -7,6 +7,8 @@ import type { Bounds } from "@/lib/geo-bounds";
 import { readApiError } from "../api";
 import type { LegendLiveText } from "./LegendTab";
 import { renderBounds, type LayerRenderData } from "./render-data";
+import { useOpensFramed } from "../map-opening";
+import { loadFrames } from "./load-framing";
 import type { ReplaceRenders } from "./use-layer-renders";
 import { useMutationLane } from "./use-mutation-lane";
 import { useMapHistory } from "./use-map-history";
@@ -249,6 +251,14 @@ export function useBuilderReload({
     serverMapRef, clearFailure, setHistory, fail,
   } = mutations;
   const initialSeed = useRef(recoverySeed);
+  const opening = useOpensFramed();
+  // As the page was served when the builder opened: a refresh after the
+  // opening framed and saved the camera neither reloads nor reframes.
+  const [framedOpening] = useState(opening);
+  // The layers the last completed load brought, for this map; null until
+  // one completes. A load cut short leaves it, so the next one still sees
+  // a newly added layer as new.
+  const loadedLayersRef = useRef<{ mapId: string; ids: ReadonlySet<string> } | null>(null);
   // Load the map and every layer's render data.
   useEffect(() => {
     let cancelled = false;
@@ -306,11 +316,14 @@ export function useBuilderReload({
           { seed: recoverySeed?.renders, cancelled: () => cancelled },
         );
         if (!answers) return;
-        // Frame the data once it has loaded (spec: fit-to-bounds on the data
-        // extent). Done here in the load handler, not a reactive effect.
-        // During an import's focus window the camera belongs to the newly
-        // added layers — no global reframe.
-        if (!importFocusRef.current.active) {
+        const loaded = body.layers.map((l) => l.id);
+        const previous = loadedLayersRef.current?.mapId === mapId ? loadedLayersRef.current.ids : null;
+        loadedLayersRef.current = { mapId, ids: new Set(loaded) };
+        // Frame the data once it has loaded, when this load frames at all
+        // (load-framing.ts). Done here in the load handler, not a reactive
+        // effect. During an import's focus window the camera belongs to the
+        // newly added layers — no global reframe.
+        if (loadFrames(previous, loaded, framedOpening) && !importFocusRef.current.active) {
           const b = renderBounds(Object.values(answers));
           if (b) setFitBounds([...b] as Bounds);
         }
@@ -322,6 +335,6 @@ export function useBuilderReload({
     return () => {
       cancelled = true;
     };
-  }, [sequence, mapId, reloadKey, recoverySeed, clearFailure, fail, importFocusRef, truthSeqRef, authoritativeLayersRef, layerConfirmedAtRef, layerRemovedAtRef, mapFieldEditedAtRef, reloadEpochRef, mapAppliedAtRef, serverMapRef, setMap, setMapProjectId, setHistory, replaceRenders, setFitBounds]);
+  }, [sequence, mapId, reloadKey, recoverySeed, clearFailure, fail, importFocusRef, truthSeqRef, authoritativeLayersRef, layerConfirmedAtRef, layerRemovedAtRef, mapFieldEditedAtRef, reloadEpochRef, mapAppliedAtRef, serverMapRef, setMap, setMapProjectId, setHistory, replaceRenders, setFitBounds, framedOpening]);
 
 }

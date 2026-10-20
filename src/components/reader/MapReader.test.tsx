@@ -6,6 +6,7 @@ import { BASEMAPS } from "@/lib/basemap";
 import { defaultStyle } from "@/lib/style/defaults";
 import { POINTS_VIZ } from "@/lib/viz";
 import type { LayerRenderData } from "../builder/render-data";
+import { MapOpeningProvider } from "../map-opening";
 import { loadReader, ReaderStage } from "./MapReader";
 
 /**
@@ -111,6 +112,20 @@ describe("the Viewer's reader", () => {
         basemapUrl="https://tiles.test/style.json" basemapOverrideUrl={null} basemapOverrideAttribution={[]} basemaps={BASEMAPS} />,
     );
     expect(html).toMatch(/data-reader-stack="top-right"[^>]*>[\s\S]*Zoom in/);
+  });
+
+  it("opens at the saved view, and framed to the data only when the page says the map has no view of its own", () => {
+    const drawn = { ...renders, "l-stations": { layerId: "l-stations", ok: true, geojson: { type: "FeatureCollection", features: [
+      { type: "Feature", properties: {}, geometry: { type: "Point", coordinates: [13.3, 52.4] } },
+      { type: "Feature", properties: {}, geometry: { type: "Point", coordinates: [13.5, 52.6] } },
+    ] } } as unknown as LayerRenderData };
+    const stage = <ReaderStage mapId="map-1" map={map} projectId={null} renders={drawn}
+      basemapUrl="https://tiles.test/style.json" basemapOverrideUrl={null} basemapOverrideAttribution={[]} basemaps={BASEMAPS} />;
+    renderToStaticMarkup(stage);
+    expect((presented.props!.map as MapWithLayers).viewport).toEqual(map.viewport);
+    expect(presented.props!.fitBounds).toBeNull();
+    renderToStaticMarkup(<MapOpeningProvider framed>{stage}</MapOpeningProvider>);
+    expect(presented.props!.fitBounds).toEqual([[13.3, 52.4], [13.5, 52.6]]);
   });
 });
 
