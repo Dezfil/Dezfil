@@ -135,6 +135,13 @@ function eastEdgeRise(image: Pixels): number | null {
   return edgeRise(line);
 }
 
+/** The page at rest: a dialog's entrance and any transition finished, so
+ * a picture is drawn at its own scale and not resampled mid-animation. */
+async function atRest(page: Page) {
+  await page.waitForFunction(() => document.getAnimations().every(animation =>
+    animation.playState !== "running" || animation.effect?.getComputedTiming().iterations === Infinity));
+}
+
 /** Everything one picture on screen must hold. */
 async function judge(page: Page, picture: Seen, where: string) {
   const dpr = await page.evaluate(() => devicePixelRatio);
@@ -149,6 +156,7 @@ async function judge(page: Page, picture: Seen, where: string) {
   const taken = await fileWidth(page, picture.currentSrc);
   if (Number.isInteger(dpr)) expect(taken, `${label}: the file taken`).toBeGreaterThanOrEqual(Math.min(widest, Math.floor(covers) - 1));
   await pictures(page).nth(picture.index).scrollIntoViewIfNeeded();
+  await atRest(page);
   const box = (await pictures(page).nth(picture.index).boundingBox())!;
   const shot = await pixels(await page.screenshot({ clip: box }));
   const rise = eastEdgeRise(shot);
@@ -244,6 +252,7 @@ test("a 692 pixel picture enlarged in place fails the sharpness bound where it c
         const covers = coveredWidth(shapeForBox(picture.box), picture.box) * dpr;
         if (covers < 2 * 692) continue;
         await pictures(page).nth(picture.index).scrollIntoViewIfNeeded();
+        await atRest(page);
         const rise = eastEdgeRise(await pixels(await page.screenshot({ clip: (await pictures(page).nth(picture.index).boundingBox())! })));
         expect(rise, `${name} ${picture.host} at ${dpr}: the enlarged picture's edge`).not.toBeNull();
         expect(rise!).toBeGreaterThan(2);

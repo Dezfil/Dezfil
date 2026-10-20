@@ -735,13 +735,16 @@ test.describe("card states with a renderer", () => {
     const errors = trackConsole(page);
     const api = page.request;
     // Two places per row: the name rule finds lon/lat at upload; east/north
-    // is the other place the data can be told to stand.
+    // is the other place the data can be told to stand. A picture frames
+    // the data, so moving every row alike would leave it unchanged:
+    // east/north moves only the first row, far east, and the others draw
+    // to the west of the wider frame.
     const rows = [
       [13.25, 52.52],
       [13.25, 52.55],
       [13.22, 52.52],
       [13.25, 52.49],
-    ].map(([lon, lat], i) => `p${i},${lon},${lat},${lon + 0.3},${lat}`);
+    ].map(([lon, lat], i) => `p${i},${lon},${lat},${i === 0 ? lon + 0.3 : lon},${lat}`);
     const table = await upload(api, `cs_data_${runId}`, ["name,lon,lat,east,north", ...rows].join("\n"));
     const map = await seedMap(api, `Data only ${runId}`, `SELECT * FROM "${table}"`);
     const first = await waitForPicture(api, map.id);
@@ -770,7 +773,7 @@ test.describe("card states with a renderer", () => {
     const after = await shownMarks(page, map, second.pictureVersion);
     expect(after.src).not.toBe(before.src);
     expect(after.marks).toBeGreaterThan(200);
-    expect(after.cx - before.cx, "the card's picture shows the data where it now stands").toBeGreaterThan(0.1);
+    expect(before.cx - after.cx, "the card's picture frames the data as it now stands").toBeGreaterThan(0.1);
     const held = await marksOf(page, before.loaded, "cache");
     if (keeps) {
       expect(held, "the browser still holds the older picture under the older address").not.toBeNull();
