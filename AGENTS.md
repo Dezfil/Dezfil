@@ -86,10 +86,11 @@ language), `lint:class-pairs` (no element's look left to the order two
 stylesheets load in), `lint:specimen` (the specimen still matches its sources),
 `lint:plugin` (the generated plugin guidance is current), `lint:contract-docs`
 (reader counts and error catalogue match the contract), `lint:reader-docs`
-(no superseded guidance or missing revision examples) and `lint:docs` (every
+(no superseded guidance or missing revision examples), `lint:docs` (every
 page under `docs/` holds the page contract, its links and pictures resolve,
 and the index, the API description file and the image manifest are
-current). Run the ones a change can plausibly break, and all of them before
+current) and `lint:retired-paths` (no tracked file names a documentation
+path that moved or left). Run the ones a change can plausibly break, and all of them before
 calling it done.
 
 [The pipeline](.github/workflows/ci.yml) is the definition of green: it runs

@@ -366,6 +366,10 @@ rule:
   (`docs/README.md`) or the API description file
   (`docs/api/openapi.json`) is not what `npm run docs:write` would
   write. Each problem names its file and rule.
+- `npm run lint:retired-paths` fails when a tracked file names a
+  documentation path that moved or left, from the finite list in
+  `scripts/check-retired-paths.mjs`. A page's `moved_from` rows and the test
+  fixtures that show such a path refused are the only lines it lets through.
 
 Types: `npm run typecheck`. Unit suite: `npm test` (Vitest, over
 `src/**/*.test.{ts,tsx}`), with 30-second per-test and per-hook timeouts

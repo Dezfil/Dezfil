@@ -46,6 +46,22 @@ describe("the documentation gate is listed with the others", () => {
   });
 });
 
+describe("the retired-path gate is listed with the others", () => {
+  it("is a package script", () => {
+    expect(JSON.parse(read("package.json")).scripts["lint:retired-paths"]).toBe("node scripts/check-retired-paths.mjs");
+  });
+
+  it("runs in the pipeline's checks job", () => {
+    expect(job(read(".github/workflows/ci.yml"), "checks")).toMatch(/^\s+- run: npm run lint:retired-paths$/m);
+  });
+
+  it("is in the agents' brief, the contributing guide and the runbook's checks section", () => {
+    expect(section(read("AGENTS.md"), "Working in this repository")).toContain("`lint:retired-paths`");
+    expect(section(read("CONTRIBUTING.md"), "Run the gates")).toMatch(/^npm run lint:retired-paths\b/m);
+    expect(section(read("docs/self-host/backup-and-restore.md"), "The checks")).toMatch(/^- `npm run lint:retired-paths`/m);
+  });
+});
+
 describe("the ways into the documentation", () => {
   it("the agents' brief points at the index in its first lines", () => {
     const opening = read("AGENTS.md").split("\n").slice(0, 15).join("\n");

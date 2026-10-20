@@ -114,6 +114,8 @@ jobs:
       # headings, links, pictures, addresses), the image manifest matches its
       # files, and the generated index and API description file are current.
       - run: npm run lint:docs
+      # No tracked file names a documentation path that moved or left.
+      - run: npm run lint:retired-paths
       - run: npm test
         env:
           # The authenticated test fixtures refuse to run without an
