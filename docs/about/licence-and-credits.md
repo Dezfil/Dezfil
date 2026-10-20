@@ -97,20 +97,20 @@ All five fonts are under the SIL Open Font License 1.1. The instance serves them
 
 ![The lower right corner of a template's map, with the basemap's credit © OpenMapTiles · © OpenStreetMap, each part a link](../images/about/licence-and-credits-map-credit.webp)
 
-The built-in basemaps **Dark**, **Light** and **Streets** come from OpenFreeMap. Their data is © OpenStreetMap contributors under the ODbL, and their styles follow the OpenMapTiles schema, under BSD-3-Clause.
+The built-in basemaps **Dark**, **Light** and **Streets** come from OpenFreeMap. Their data is © OpenStreetMap contributors under the ODbL, and their styles follow the OpenMapTiles schema, whose terms ask for the © OpenMapTiles credit.
 
-On a map, their credit reads **© OpenMapTiles · © OpenStreetMap**, each part a link. OpenFreeMap's terms make naming OpenFreeMap optional, so the line leaves it out. **Settings** › **Libraries** names it under each built-in style: **OpenFreeMap · built in**.
+On a map, their credit reads **© OpenMapTiles · © OpenStreetMap**, each part a link. OpenFreeMap's terms make naming OpenFreeMap optional, so the line leaves it out. The **Libraries** tab of **Settings**, which admins see, names it under each built-in style: **OpenFreeMap · built in**.
 
-The credit follows the basemap a map is on, wherever the map appears:
+The credit follows the basemap a map is on, in these places:
 
 | Where | What you see |
 |---|---|
 | A map in the builder, or a template you open | The credit in the map's lower right corner |
 | A published or embedded map | The credit in the lower right corner, with **made with Dezfil** |
 | An image you export | The credit drawn into the image, with **Made with Dezfil**. Under **Credit** you pick its size and corner. Every image carries it. |
-| Map pictures on **Home**, **Maps** and a project's page | **Map previews:** and the credits of the basemaps they were drawn on, at the foot of the page or list |
+| Pictures of your maps on **Home**, **Maps** and a project's page | **Map previews:** and the credits of the basemaps they were drawn on, at the foot of the page or list |
 | The basemap pickers | **Previews:** and the built-in credit, under the style thumbnails |
-| Smaller maps, such as a dataset's map or a SQL result's map | The style's own credit, behind the ⓘ button in the map's corner |
+| Smaller maps, such as a dataset's map or a SQL result's map | The style's own credit in the map's corner. It folds behind the ⓘ button once you move the map. |
 | The builder's **Search map & places** box | The address finder's own credit, under the places it finds |
 
 ## Credit your own basemap
@@ -119,10 +119,10 @@ Dezfil ships no satellite imagery. An instance that offers **Satellite** brings 
 
 | Basemap | The credit it shows | Where it comes from |
 |---|---|---|
-| **Satellite** | The text in **Credit** | **Settings** › **Libraries** › **Satellite imagery**, or `DEZFIL_SATELLITE_ATTRIBUTION`, which wins while it is set |
+| **Satellite** | The text in **Credit** | **Settings** › **Libraries** › **Satellite imagery**, which an admin sets, or `DEZFIL_SATELLITE_ATTRIBUTION` |
 | A style an admin adds with **Add a style**, in **Settings** › **Libraries** | The credit the style itself names, or its host name when it names none | Read from the style when it is added |
 | A style address on one map, through **Custom…** in the builder | The same | Read from the style when the map saves it |
-| The deployment's own style, `DEZFIL_BASEMAP_URL` | `DEZFIL_BASEMAP_ATTRIBUTION`, or none while it is unset | Set when the server starts |
+| The deployment's own style, `DEZFIL_BASEMAP_URL` | The text of `DEZFIL_BASEMAP_ATTRIBUTION` | Its variable |
 
 [Basemaps and imagery](../self-host/configuration/libraries.md) holds these settings, with their defaults. To serve the basemap from your own servers, see [What leaves the instance](../self-host/what-leaves-the-instance.md).
 
