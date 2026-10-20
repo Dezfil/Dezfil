@@ -40,7 +40,7 @@ While the editor is open, the widget on the map follows your changes. Nothing is
 
 On a map with more than one layer, **Layer** chooses the one a widget reads. A widget reads the layer's rows after the layer's own **Filters**.
 
-The title follows your choices until you type your own, of up to 60 characters. A map holds up to 12 widgets and notes. At 12, **Add widget** is gone.
+The title follows your choices until you type your own.
 
 | To | Do this |
 |---|---|
@@ -48,6 +48,14 @@ The title follows your choices until you type your own, of up to 60 characters. 
 | Hide or show it | Click the eye on its row. A hidden widget keeps its settings and leaves the map |
 | Reorder | Drag the row by its grip, or drag the card on the map |
 | Delete it | Click the bin on its row, or **Delete widget** in the card's ⋮ menu. **Undo** takes it back |
+
+Widgets and the filters they set have these limits:
+
+| Limit | Value |
+|---|---|
+| A widget's title | 60 characters |
+| Widgets and notes on one map | 12. At 12, **Add widget** is gone |
+| Live constraints on one layer at a time: widget selections, range and time filters, and the timeline together | 4 |
 
 ## Filter the map with widgets
 
@@ -162,7 +170,7 @@ Each input takes points, lines or polygons unless the table says otherwise. A di
 
 **Formula, Category and Histogram are grayed out and say "Add a layer first".** The map has no layer yet. Add one as [Build a map](build-a-map.md) shows. A **Note** needs none.
 
-**A click on a widget changes nothing, and a notice says the layer carries the maximum live constraints or that a selection was dropped.** A layer takes four at a time, shared by widget selections, its range and time filters, and the timeline. Clear a selection or remove a filter first.
+**A click on a widget changes nothing, and a notice says the layer carries the maximum live constraints or that a selection was dropped.** A layer takes only as many as [the limits](#add-a-widget) allow, shared by widget selections, its range and time filters, and the timeline. Clear a selection or remove a filter first.
 
 **The widgets say "Widgets couldn't update", or the map says "Selection not applied".** The values or the filtered layer could not be computed. Click **Try again**.
 
