@@ -30,7 +30,7 @@ A layer draws one dataset, or the result of one SQL query, on the map. In the **
 :::tab[A dataset]
 
 1. Under **Sources**, click **Tables**.
-2. Click a dataset in the list. Type in the search box above it to narrow the list.
+2. Click a dataset in the list. Type in the search box above it to narrow the list. On a map in a project, the list starts on that project's datasets: pick **All projects** in the filter above it to see the rest.
 3. Click **Add layer**. **Layer name** takes the dataset's name; change it first if you like.
 
 You should see the dialog close and a new card at the top of the layer list, with its style panel open.
