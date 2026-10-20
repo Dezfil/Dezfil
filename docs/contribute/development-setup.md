@@ -289,7 +289,7 @@ These specs need an instance started differently, as each file's header says:
 | `e2e/account-deletion.spec.ts`, `e2e/deleted-attribution.spec.ts` | `--import=./scripts/deletion-proof-preload.mjs`, and `DEZFIL_PROOF_CONTROL_DIR` set to the same fresh absolute folder on both sides |
 | `e2e/card-states.spec.ts`, `e2e/thumbnail-theme.spec.ts` | The picture instance with the style fixture preload, as [`src/lib/pictures/pictures.real-render.md`](../../src/lib/pictures/pictures.real-render.md) describes |
 
-The pixel baselines are cut on macOS, and most pixel specs skip on other systems.
+The pixel baselines are cut on macOS on Apple silicon, and most pixel specs skip on other systems.
 
 ## Drive the API without a browser
 
@@ -388,8 +388,10 @@ A script writes each of these. Run it and commit what changed, rather than editi
 
 Two kinds are cut by hand:
 
-- **Pixel baselines:** on macOS, against a production build on a fresh data folder, run one spec at a time with `npx playwright test e2e/<SPEC>.spec.ts --update-snapshots=changed`. Compare each rewritten picture with the old one before you commit it.
-- **The assistant baselines:** the captures under `test-support/assistant-baselines/` have no script. When the unit suite says one moved, confirm the change is meant, then update the capture by hand.
+| What | How |
+|---|---|
+| Pixel baselines | Only for an intended change, on macOS on Apple silicon, against a production build on a fresh data folder, one spec at a time: `DEZFIL_BASE_URL=http://127.0.0.1:<PORT> npx playwright test e2e/<SPEC>.spec.ts --update-snapshots=changed`. A shot whose comparison times out is written as it stands, so compare each rewritten picture with the old one before you commit it, and name the system in the commit message. |
+| The assistant baselines | The captures under `test-support/assistant-baselines/` have no script. When the unit suite says one moved, confirm the change is meant, then update the capture by hand. |
 
 ## Test and development wiring
 
