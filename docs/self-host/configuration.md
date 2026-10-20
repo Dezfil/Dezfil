@@ -98,12 +98,12 @@ Every setting has one row, in the table of its area. A row gives the variable an
 | [Data and services](configuration/services.md) | The address finder, travel time, OpenStreetMap, S3 storage, the template catalogue and hosts on your own network | **Data & services**, or a variable |
 | [Security and rules](configuration/rules.md) | Sign-in and link lifetimes, passwords, and who may create tokens, publish, embed, connect and import | **Security**, **Publishing**, **Data & services** |
 | [Storage and programs](configuration/storage.md) | The data folder, the encryption key, the tile builder and the image renderer | A variable |
-| [Set up the assistant](assistant.md) | The provider keys, the models on offer and the assistant's own budgets | A variable |
+| [Set up the assistant](assistant.md#assistant-settings) | The provider keys, the models on offer and the assistant's own budgets | A variable |
 | [Reverse proxy and HTTPS](reverse-proxy.md#trusted-proxies) | The trusted proxies and the session cookie's name | A variable |
 | [Limits](../api/limits.md#limits-an-operator-changes) | Time, size, memory, rate and queue limits | **Limits**, or a variable |
 
 ## What else is kept
 
 - Each person's look, list layouts and sort orders are their own account preferences, set under **You** in **Settings**. They are not instance settings.
-- The model catalogue file, `assistant-models.json` in the data folder, adds models people can choose. See [Set up the assistant](assistant.md).
+- The model catalogue file, `assistant-models.json` in the data folder, adds models people can choose. See [Offer other models](assistant.md#offer-other-models).
 - Saved palettes and the basemap styles an admin adds are instance data, kept on the **Libraries** tab.

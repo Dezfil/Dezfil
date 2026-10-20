@@ -45,8 +45,8 @@ Install, secure, configure and back up your own instance.
 
 - [Set up the assistant](self-host/assistant.md)
   - path: `docs/self-host/assistant.md`
-  - summary: Turn on the in-app assistant with an Anthropic or OpenAI key, and choose the models people may pick.
-  - read when: you want to turn on the assistant for your instance; you want to change which models people can choose
+  - summary: Turn on the in-app assistant with an Anthropic or OpenAI key, choose its models, and check that it answers.
+  - read when: you want to turn on the assistant for your instance; you want to change which models people can choose; you want to offer a model or an effort level Dezfil does not list; you need to know what the assistant sends to the AI provider; the assistant pane shows an error instead of an answer
   - audience: operator, agent
 
 - [Runbook](self-host/backup-and-restore.md)

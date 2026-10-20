@@ -25,6 +25,6 @@ Each of these is a variable. The **System** tab of **Settings** shows the value 
 
 <!-- settings-storage:end -->
 
-The data folder also holds the optional model catalogue file: see [the model catalogue file](../backup-and-restore.md#the-model-catalogue-file).
+The data folder also holds the optional model catalogue file: see [Offer other models](../assistant.md#offer-other-models).
 
 [Configuration](../configuration.md) shows how to set a variable.
