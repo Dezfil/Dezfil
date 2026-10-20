@@ -132,7 +132,7 @@ Use a database user that may only read. The password is stored encrypted and nev
 
 To import part of a table, open **Filter or row limit** first. **Filter** takes a `WHERE` condition that runs on the database, such as `population > 100000`; **Row limit** caps the rows.
 
-A connection is yours alone: people in your projects see the datasets you file there, never the connection.
+What people in your projects see of a connection: [Share and publish](share-and-publish.md#what-viewers-and-editors-can-do).
 
 > [!NOTE]
 > If **New connection** or the form is grayed out with "Only admins can add database connections on this instance.", an admin can change **Who may add database connections** in **Settings** › **Data & services**.
