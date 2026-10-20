@@ -1949,6 +1949,14 @@
           "line": 28
         }
       ]
+    },
+    {
+      "scope": "product",
+      "name": "\"used to\" two adverbs after a form of \"be\"",
+      "files": {
+        "docs/about/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you check the writing rules\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nThe proxy is not always used to reach the provider, and a key is also mostly used to sign in.\n"
+      },
+      "problems": []
     }
   ],
   "order": [

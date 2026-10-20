@@ -111,6 +111,8 @@ describe("the rules on one page", () => {
     ["The key is used to sign in.", []],
     ["It's used to sign in, and tokens are mostly used to script.", []],
     ["A token is not used to publish.", []],
+    ["The proxy is not always used to reach the provider.", []],
+    ["The proxy is the one people used to reach it.", ["writing.word"]],
     ["The key once used to sign in.", ["writing.word"]],
     ["Dezfil used to ask for a key, and people used to wait.", ["writing.word", "writing.word"]],
   ])("read \"used to\" after a form of \"be\" as a description: %s", (text, rules) => {

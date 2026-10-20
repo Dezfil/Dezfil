@@ -472,11 +472,16 @@ const BE = new Set(["be", "is", "are", "was", "were", "been", "being", "am", "is
 const BETWEEN = new Set(["not", "also", "often", "still", "only", "always", "never", "sometimes", "mostly", "rarely", "all", "both", "mainly"]);
 const isBe = (word) => BE.has(word) || /'(?:s|re|m)$/.test(word);
 
-/** Whether "used to" at `index` follows a form of "be". */
+/** Whether "used to" at `index` follows a form of "be", with at most two
+ * adverbs between ("is not always used to"). */
 function afterBe(text, index) {
   const before = (text.slice(Math.max(0, index - 80), index).toLowerCase().replace(/’/g, "'").match(/[\p{L}\p{N}']+/gu) ?? []);
-  const [second, first] = before.slice(-2).length === 2 ? before.slice(-2) : [undefined, before.at(-1)];
-  return (first !== undefined && isBe(first)) || (second !== undefined && isBe(second) && (BETWEEN.has(first) || first.endsWith("ly")));
+  for (let between = 0; between <= 2 && between < before.length; between += 1) {
+    const middle = before.slice(before.length - between);
+    if (!middle.every((word) => BETWEEN.has(word) || word.endsWith("ly"))) return false;
+    if (isBe(before[before.length - 1 - between])) return true;
+  }
+  return false;
 }
 
 /** The development record's terms, kept out of every page outside
