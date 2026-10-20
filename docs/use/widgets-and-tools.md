@@ -150,7 +150,7 @@ Each input takes points, lines or polygons unless the table says otherwise. A di
 
 ## Troubleshooting
 
-**The bar at the top has no Tools button.** On a window narrower than 1,440 pixels, **Tools** shows its icon alone. Point at the icons beside **Undo** to find it.
+**The bar at the top has no Tools button.** On a window narrower than 1,440 pixels, **Tools** shows its icon alone. It is the icon right after **Assistant**, or after **Preview** on a published map.
 
 **A tool is grayed out and says "Needs a geocoding endpoint." or "Needs a routing endpoint."** This instance has no address for the service the tool asks. An admin sets one in **Settings** › **Data & services**, under **Address finder** or **Travel time**.
 
