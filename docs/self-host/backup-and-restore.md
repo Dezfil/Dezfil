@@ -85,7 +85,9 @@ The key is in one of two places:
 
 To see which, open **Settings** > **System**. In **Server settings**, the **Encryption key** row reads **secret.key in the data folder**, **Not created yet** or **Set**. **Set** means the key comes from `DEZFIL_SECRET_KEY`, and the **Source** column reads **Environment**.
 
-If you set `DEZFIL_SECRET_KEY`, keep a copy of its value, such as the `.env` file Docker Compose reads, in another place than the backup folder. A restore needs both, and either one alone cannot read the saved passwords.
+If you set `DEZFIL_SECRET_KEY`, keep a copy of its value, such as the `.env` file of [Docker Compose](docker-compose.md), in another place than the backup folder. A restore needs both, and either one alone cannot read the saved passwords.
+
+To move a key Dezfil made into the variable, see [Keep the key you have](docker-compose.md#keep-the-key-you-have).
 
 > [!WARNING]
 > A restore needs the key the backup was made with. With another key, Dezfil cannot read the saved connection passwords and service addresses, and you enter each one again.
@@ -208,4 +210,5 @@ If that key is lost, save each address again. Delete each connection in **Connec
 ## Next steps
 
 - [Upgrade](upgrade.md): back up, then move to a new version.
+- [Docker Compose](docker-compose.md): keep the encryption key in `.env`, outside the data folder.
 - [Configuration](configuration.md): `DEZFIL_DATA_DIR`, `DEZFIL_SECRET_KEY` and the other variables.

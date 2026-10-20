@@ -91,6 +91,12 @@ Do things in the app: data, maps, SQL, workflows and sharing.
 
 Install, secure, configure and back up your own instance.
 
+- [Docker Compose](self-host/docker-compose.md)
+  - path: `docs/self-host/docker-compose.md`
+  - summary: Run Dezfil as a lasting instance with Docker Compose: the data in a named volume, the keys in a file, a restart policy and a health check.
+  - read when: you want Dezfil to keep running on a server and come back after a crash or a reboot; you move from the quick start to an instance people rely on; you want to set the encryption key with `DEZFIL_SECRET_KEY` instead of the one Dezfil makes; you want to keep provider keys out of `compose.yaml`; you want Docker to tell you whether Dezfil is healthy
+  - audience: operator
+
 - [Reverse proxy and HTTPS](self-host/reverse-proxy.md)
   - path: `docs/self-host/reverse-proxy.md`
   - summary: Serve Dezfil at your own domain over HTTPS, with Caddy or nginx in front of it.

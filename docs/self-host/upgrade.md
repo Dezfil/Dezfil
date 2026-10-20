@@ -15,7 +15,7 @@ order: 6
 
 An upgrade builds the new version and replaces the container. Your data stays in the `dezfil-data` volume, and the new version updates it when it starts, so you back up first.
 
-The commands use the names from [Install](../start/install.md): a container and an image called `dezfil`, and a volume called `dezfil-data`. Run them in the `Dezfil` folder you cloned.
+The commands use the names from [Install](../start/install.md) and [Docker Compose](docker-compose.md): a container and an image called `dezfil`, and a volume called `dezfil-data`. Run them in the `Dezfil` folder you cloned.
 
 ## 1. Read what changed
 
@@ -214,4 +214,5 @@ If that key is lost, [Back up and restore](backup-and-restore.md#saved-connectio
 ## Next steps
 
 - [Back up and restore](backup-and-restore.md): what the backup holds, and moving to another machine.
+- [Docker Compose](docker-compose.md): a Compose file for a lasting instance, its keys kept in `.env`.
 - [Configuration](configuration.md): the variables you pass to the new container.

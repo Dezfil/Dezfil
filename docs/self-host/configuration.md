@@ -53,6 +53,8 @@ services:
 
 Then run `docker compose up -d`. Compose replaces the container and keeps the volume.
 
+Keep keys such as `ANTHROPIC_API_KEY` out of `compose.yaml`: [Docker Compose](docker-compose.md#2-make-the-keys-file) puts them in a `.env` file.
+
 :::
 
 ::::

@@ -93,6 +93,8 @@ docker compose up -d --build
 - `dezfil-data:/data` keeps everything Dezfil stores in the `dezfil-data` volume.
 - `restart: unless-stopped` starts Dezfil again after a crash or a Docker restart, unless you stopped it.
 
+For an instance that lasts, with its keys and backups, see [Docker Compose](../self-host/docker-compose.md).
+
 The first build takes a few minutes: it compiles the app and its tile builder. Dezfil should be ready within 30 seconds of the container starting. Check it:
 
 ```sh title="Terminal"

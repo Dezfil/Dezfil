@@ -48,7 +48,7 @@ docker run -d --name dezfil -p 127.0.0.1:3000:3000 -v dezfil-data:/data \
 
 ::::
 
-The server reads the key when it starts. If Dezfil is already running, run `docker rm -f dezfil` first, and add the other `-e` variables you use to the command, such as `DEZFIL_TRUSTED_PROXIES`. The volume keeps your data. With Docker Compose, add the key under `environment:` and run `docker compose up -d`.
+The server reads the key when it starts. If Dezfil is already running, run `docker rm -f dezfil` first, and add the other `-e` variables you use to the command, such as `DEZFIL_TRUSTED_PROXIES`. The volume keeps your data. With Docker Compose, put the key in the keys file [Docker Compose](docker-compose.md#2-make-the-keys-file) makes, and run `docker compose up -d`.
 
 The key is set only in the environment: no Settings tab takes it. With both keys set, Dezfil uses Anthropic unless you add `DEZFIL_AI_PROVIDER=openai`.
 
