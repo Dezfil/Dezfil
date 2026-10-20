@@ -165,15 +165,20 @@ export async function rest(page, scene) {
 }
 
 /** A scene's declared crop as a rectangle of whole CSS pixels inside the
- * frame: the element's box with the declared margin around it. */
+ * frame: the box around the element, or around all of the elements when
+ * the crop names several, with the declared margin around it. */
 export async function cropRectangle(page, crop) {
-  const box = await page.locator(crop.selector).first().boundingBox();
-  if (!box) throw new Error(`The crop's element ${crop.selector} is not on the page.`);
+  const boxes = [];
+  for (const selector of [crop.selector].flat()) {
+    const box = await page.locator(selector).first().boundingBox();
+    if (!box) throw new Error(`The crop's element ${selector} is not on the page.`);
+    boxes.push(box);
+  }
   const margin = crop.margin ?? 0;
-  const x = Math.max(0, Math.floor(box.x - margin));
-  const y = Math.max(0, Math.floor(box.y - margin));
-  const right = Math.min(FRAME.width, Math.ceil(box.x + box.width + margin));
-  const bottom = Math.min(FRAME.height, Math.ceil(box.y + box.height + margin));
+  const x = Math.max(0, Math.floor(Math.min(...boxes.map((box) => box.x)) - margin));
+  const y = Math.max(0, Math.floor(Math.min(...boxes.map((box) => box.y)) - margin));
+  const right = Math.min(FRAME.width, Math.ceil(Math.max(...boxes.map((box) => box.x + box.width)) + margin));
+  const bottom = Math.min(FRAME.height, Math.ceil(Math.max(...boxes.map((box) => box.y + box.height)) + margin));
   return { x, y, width: right - x, height: bottom - y };
 }
 

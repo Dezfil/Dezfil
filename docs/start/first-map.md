@@ -126,7 +126,7 @@ Every change saves as you make it. **Undo**, the curved arrow at the top of the 
 1. Click **Publish** at the top right.
 2. Click **Publish map**.
 
-![The publish panel before publishing: the Publish map button, the line Anyone with the link will be able to view, and the fields the map will share](../images/start/first-map-publish.webp)
+![The top bar's buttons with Publish at the right, and under it the publish panel before publishing: the Publish map button, the line Anyone with the link will be able to view, and the fields the map will share](../images/start/first-map-publish.webp)
 
 You should see **Published** with the map's link, **Copy link** and **Open**. If your browser allows it, Dezfil also copies the link for you, and **Copy link** reads **Link copied** for a moment. Anyone with the link can view the map, without an account.
 

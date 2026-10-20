@@ -13,7 +13,7 @@ import { afterAll, describe, expect, it } from "vitest";
 import { FRAME, RECORDING_MAX_SECONDS, THEMES, darkTake, isDarkTake, lightTake, takeFile, takeTheme, webmInfo, webpSize } from "../../scripts/docs-media.mjs";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: as above.
-import { CADENCE, THEME_STORAGE_KEY, bundledFfmpeg, encodeWebm, themeStorage } from "../../scripts/docs-pictures-capture.mjs";
+import { CADENCE, THEME_STORAGE_KEY, bundledFfmpeg, cropRectangle, encodeWebm, themeStorage } from "../../scripts/docs-pictures-capture.mjs";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: as above.
 import { manifestText, planRun } from "../../scripts/docs-pictures-manifest.mjs";
@@ -30,7 +30,7 @@ import { parseIndex } from "@/lib/templates/catalogue";
 import { webm } from "../../test-support/media-fixtures";
 
 type Row = Record<string, unknown> & { file: string; scene: string };
-type Scene = { id: string; file: string; kind: string; state: string; pages: string[]; map?: boolean; crop?: { selector: string; margin?: number }; poster?: string; steps?: { hold: number }[] };
+type Scene = { id: string; file: string; kind: string; state: string; pages: string[]; map?: boolean; crop?: { selector: string | string[]; margin?: number }; poster?: string; steps?: { hold: number }[] };
 const scenes = SCENES as Scene[];
 
 const scratch = mkdtempSync(join(tmpdir(), "dezfil-docs-pictures-test-"));
@@ -220,6 +220,29 @@ describe("the WebM header", () => {
 });
 
 const ffmpeg = (() => { try { return bundledFfmpeg() as string; } catch { return null; } })();
+
+describe("a scene's crop", () => {
+  type Box = { x: number; y: number; width: number; height: number };
+  // A page that knows the boxes of a few elements, as a browser lays them out.
+  const page = (boxes: Record<string, Box>) => ({
+    locator: (selector: string) => ({ first: () => ({ boundingBox: async () => boxes[selector] ?? null }) }),
+  });
+
+  it("frames one element with its margin in whole CSS pixels, clamped to the frame", async () => {
+    const rectangle = await cropRectangle(page({ "#a": { x: 10.5, y: 20.2, width: 100, height: 50 } }), { selector: "#a", margin: 24 });
+    expect(rectangle).toEqual({ x: 0, y: 0, width: 135, height: 95 });
+  });
+
+  it("frames several elements together: the box around all of them, with the margin", async () => {
+    const boxes = { "#bar": { x: 800, y: 12, width: 600, height: 40 }, "#panel": { x: 1100, y: 60, width: 300, height: 220 } };
+    expect(await cropRectangle(page(boxes), { selector: ["#bar", "#panel"], margin: 24 })).toEqual({ x: 776, y: 0, width: 648, height: 304 });
+    expect(await cropRectangle(page(boxes), { selector: ["#panel"], margin: 24 })).toEqual({ x: 1076, y: 36, width: 348, height: 268 });
+  });
+
+  it("names the element it cannot find", async () => {
+    await expect(cropRectangle(page({ "#bar": { x: 0, y: 0, width: 10, height: 10 } }), { selector: ["#bar", "#panel"] })).rejects.toThrow("#panel is not on the page");
+  });
+});
 
 describe("the recording encoder", () => {
   it.skipIf(!ffmpeg)("writes the same bytes for the same frames, as long as the frames say (needs npx playwright install ffmpeg)", async () => {

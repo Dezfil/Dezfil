@@ -21,9 +21,10 @@
 //   basemap's host, and nothing is taken until every map on the page is at
 //   rest on the built-in basemap, its tiles loaded. Without it, the
 //   basemap's host is refused like any other and fails the run;
-// - `crop`, when the picture is not the full frame: the element to frame
-//   and the margin around it, in CSS pixels; the rectangle it comes to is
-//   declared in the scene's manifest rows and shared by its two takes;
+// - `crop`, when the picture is not the full frame: the element to frame,
+//   or a list of elements framed together, and the margin around it, in
+//   CSS pixels; the rectangle it comes to is declared in the scene's
+//   manifest rows and shared by its two takes;
 // - `open`, how the page is brought to the scene's first frame;
 // - for a recording, `poster`, its poster's file, and `steps`: each one an
 //   optional action, after which the page is settled and the frame is held
@@ -122,14 +123,16 @@ const FIRST_MAP_SCENES = [
     },
   },
   {
-    // The publish panel before the map is published.
+    // The publish panel before the map is published, under the top bar's
+    // buttons with Publish at their right end. The bar's buttons are framed
+    // whole: a frame around the panel alone cuts a neighbouring button.
     id: "first-map-publish",
     file: "start/first-map-publish.webp",
     pages: ["docs/start/first-map.md"],
     kind: "still",
     state: "first-map",
     map: true,
-    crop: { selector: "#publish-popover", margin: 48 },
+    crop: { selector: ["header > div:has(> #header-actions-right)", "#publish-popover"], margin: 24 },
     async open(page) {
       await openFirstMap(page);
       await page.getByRole("button", { name: "Publish", exact: true }).click();
