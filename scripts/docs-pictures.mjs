@@ -22,19 +22,25 @@
 // extension, and shares its frame or crop. The server's outbound requests are
 // written down by an observer in its preload chain, and the browser's
 // requests off the instance are refused; a run in which either happened
-// fails, and so does a file over its bound, a page drawn in the other theme,
-// or a dark take that came out the same as its light take. Only then are
-// files written under docs/images/, each one only when its bytes changed,
-// with the manifest beside them. Commit what changed.
+// fails, naming each address. The one exception is a scene that shows a map
+// (`map: true` in the scene list): it reaches the built-in basemap and is
+// taken only once its map is at rest on it, every tile loaded; a basemap
+// request that fails fails the run, and so does the basemap's host asked for
+// from any other scene (docs-pictures-network.mjs). A run also fails on a
+// file over its bound, a page drawn in the other theme, or a dark take that
+// came out the same as its light take. Only then are files written under
+// docs/images/, each one only when its bytes changed, with the manifest
+// beside them. Commit what changed.
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import { copyFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
-import { cropRectangle, frameContext, openBrowser, pageTheme, settle, takeRecording, takeStill } from "./docs-pictures-capture.mjs";
+import { answerCameraSaves, cropRectangle, frameContext, openBrowser, pageTheme, rest, takeRecording, takeStill } from "./docs-pictures-capture.mjs";
 import { assertBuiltCheckout, freePort, makeScratch, seed, serverRequests, startServer, writeCatalogue } from "./docs-pictures-instance.mjs";
 import { MANIFEST, manifestText, planRun } from "./docs-pictures-manifest.mjs";
+import { problemsMessage, requestsOffInstance } from "./docs-pictures-network.mjs";
 import { SCENES, STATES } from "./docs-pictures-scenes.mjs";
 import { PICTURE_AIM_BYTES, PICTURE_MAX_BYTES, RECORDING_MAX_BYTES, RECORDINGS_MAX, THEMES, lightTake } from "./docs-media.mjs";
 
@@ -67,13 +73,16 @@ try {
     if (!scenes.length) continue;
     if (state === "seeded") ({ cookie } = await seed(server.base, root));
     for (const theme of THEMES) {
-      const { context, foreign } = await frameContext(browser, server.base, { cookie, theme });
+      const { context, network } = await frameContext(browser, server.base, { cookie, theme });
       try {
         for (const scene of scenes) {
+          network.begin(scene);
           const page = await context.newPage();
+          let failure = null;
           try {
+            if (scene.map === true) await answerCameraSaves(page, server.base);
             await scene.open(page);
-            await settle(page);
+            await rest(page, scene);
             const drawn = await pageTheme(page);
             assert.equal(drawn, theme, `${scene.id}: the page is drawn in the ${drawn} theme, not the ${theme} theme the browser chose.`);
             if (!crops.has(scene.id)) crops.set(scene.id, scene.crop ? await cropRectangle(page, scene.crop) : null);
@@ -83,20 +92,29 @@ try {
               : await takeStill(page, scene, take);
             for (const file of files) console.log(`${scene.id}: ${file.file}, ${file.width} × ${file.height}${file.length ? `, ${file.length} s` : ""}, ${file.bytes.length} bytes`);
             captured.push(...files);
+          } catch (error) {
+            failure = error;
           } finally {
             await page.close();
           }
+          // What the page asked for decides first: a scene that failed
+          // because a request was refused reports the address.
+          const problems = network.end();
+          if (problems.length) throw new Error(problemsMessage(scene, problems, { theme }), failure ? { cause: failure } : undefined);
+          if (failure) throw failure;
         }
       } finally {
         await context.close();
       }
-      assert.deepEqual(foreign, [], `The ${state} scenes' pages asked for addresses off the instance in the ${theme} theme.`);
     }
   }
   if (values["keep-requests"]) await copyFile(scratch.requests, path.resolve(values["keep-requests"]));
   const requests = await serverRequests(scratch);
-  assert.deepEqual(requests, [], "The server opened requests during the run; every picture must come from the run alone.");
-  console.log("The server opened no request: the observer's file is empty.");
+  const outside = requestsOffInstance(requests, server.base);
+  assert.ok(outside.length === 0, `The server opened requests off the instance during the run; every picture must come from the run alone:\n${outside.map((row) => `  ${row.method} ${row.host}${row.path}`).join("\n")}`);
+  console.log(requests.length
+    ? `The server opened no request off the instance: the observer's file holds ${requests.length} to the instance itself.`
+    : "The server opened no request: the observer's file is empty.");
 } catch (error) {
   if (server) console.error(server.output().split("\n").slice(-40).join("\n"));
   throw error;

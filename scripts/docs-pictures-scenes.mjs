@@ -13,6 +13,10 @@
 // - `state`, the instance state it is taken in: `fresh` before any account
 //   exists, `seeded` after the seeding, signed in as the first account. The
 //   script takes every fresh scene before it seeds;
+// - `map: true`, when the scene shows a map: its page may reach the built-in
+//   basemap's host, and nothing is taken until every map on the page is at
+//   rest on the built-in basemap, its tiles loaded. Without it, the
+//   basemap's host is refused like any other and fails the run;
 // - `crop`, when the picture is not the full frame: the element to frame
 //   and the margin around it, in CSS pixels; the rectangle it comes to is
 //   declared in the scene's manifest rows and shared by its two takes;

@@ -10,6 +10,7 @@ import { createRequire } from "node:module";
 import { chromium } from "@playwright/test";
 import sharp from "sharp";
 import { FRAME, RECORDING_MAX_SECONDS, THEMES, takeFile, webmInfo, webpSize } from "./docs-media.mjs";
+import { BASEMAP_ORIGINS, sceneNetwork } from "./docs-pictures-network.mjs";
 
 /** The browser clock every scene reads, so no date drifts between runs. */
 export const FIXED_TIME = new Date("2026-06-01T09:00:00Z");
@@ -48,9 +49,12 @@ export const pageTheme = (page) => page.evaluate(() => (document.documentElement
  * theme is the app's own: the browser starts with the choice the app's
  * switch stores, so every page applies it before first paint as it does for
  * a returning reader, and that stored choice is the only thing that differs
- * between a scene's two takes (the system's colour scheme stays light). Every
- * request the page makes off the instance's own origin is refused and written
- * down, so a picture never depends on a host outside the run.
+ * between a scene's two takes (the system's colour scheme stays light). Its
+ * requests are watched scene by scene (`network.begin(scene)` before a
+ * scene's page opens, `network.end()` after it closes): every request off
+ * the instance's own origin is refused and written down, except the built-in
+ * basemap's in a scene that shows a map, so a picture never depends on any
+ * other host (docs-pictures-network.mjs).
  */
 export async function frameContext(browser, base, { cookie, theme = "light" } = {}) {
   const origin = new URL(base).origin;
@@ -64,19 +68,16 @@ export async function frameContext(browser, base, { cookie, theme = "light" } = 
     timezoneId: "UTC",
     storageState: themeStorage(origin, theme),
   });
-  const foreign = [];
-  await context.route("**/*", (route) => {
-    const url = route.request().url();
-    if (new URL(url).origin === origin) return route.continue();
-    foreign.push(url);
-    return route.abort();
-  });
+  const network = sceneNetwork(origin);
+  await context.route("**/*", network.route);
+  context.on("requestfailed", network.failed);
+  context.on("response", network.answered);
   if (cookie) {
     const [name, ...value] = cookie.split("=");
     await context.addCookies([{ name, value: value.join("="), url: origin }]);
   }
   await context.clock.setFixedTime(FIXED_TIME);
-  return { context, foreign };
+  return { context, network };
 }
 
 /** Wait until nothing on the page is still arriving or drawing: the
@@ -88,6 +89,79 @@ export async function settle(page) {
     await Promise.all([...document.images].map((image) => (image.complete ? null : image.decode().catch(() => null))));
     await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
   });
+}
+
+/** The marks the app's map leaves on its host: the address of the style it
+ * painted, written only when a real style loaded (never on the offline
+ * fallback), and whether it is at rest with every tile it asked for loaded. */
+export const MAP_MARKS = { painted: "data-painted-basemap", idle: "data-map-idle" };
+
+/** How long a map scene's map has to come to rest. */
+export const MAP_REST_WITHIN = 60_000;
+
+/** Every map on the page as its marks say: at rest or not, and the style
+ * it painted. Run in the page. */
+function readMaps(marks) {
+  return [...document.querySelectorAll(".maplibregl-map")].map((host) => ({ idle: host.hasAttribute(marks.idle), painted: host.getAttribute(marks.painted) }));
+}
+
+/**
+ * Wait until every map on a settled page is at rest on the built-in
+ * basemap: the page holds a map, each map reports its style and tiles
+ * loaded, and it still does after the page settles once more (a style the
+ * page swapped in after the first rest has loaded too). A map at rest on
+ * the offline background, or on a style that is not built in, fails the
+ * scene; so does a map that does not come to rest in time.
+ */
+export async function mapAtRest(page, { within = MAP_REST_WITHIN } = {}) {
+  const resting = async () => {
+    try {
+      await page.waitForFunction((marks) => {
+        const maps = [...document.querySelectorAll(".maplibregl-map")];
+        return maps.length > 0 && maps.every((host) => host.hasAttribute(marks.idle));
+      }, MAP_MARKS, { timeout: within, polling: 100 });
+    } catch {
+      throw new Error(`The map did not come to rest within ${within / 1000} s: its style or its tiles did not all load.`);
+    }
+  };
+  await resting();
+  await settle(page);
+  await resting();
+  const maps = await page.evaluate(readMaps, MAP_MARKS);
+  for (const { painted } of maps) {
+    if (!painted) throw new Error("The map came to rest on its offline background: the built-in basemap did not load.");
+    if (!BASEMAP_ORIGINS.includes(new URL(painted).origin)) throw new Error(`The map is drawn on ${painted}, which is not the built-in basemap.`);
+  }
+  return maps.map((map) => map.painted);
+}
+
+/**
+ * The builder saves its camera as the map settles, with a request whose
+ * answer it never reads, and the browser counts a request open until its
+ * answer has been read, so a builder page never settles. On a map scene's
+ * page the save still goes to the instance as the app sends it, and the page
+ * is handed the answer's status and headers with an empty body. Every other
+ * request falls through to the context's rule.
+ */
+export async function answerCameraSaves(page, base) {
+  const origin = new URL(base).origin;
+  const cameraSave = (url) => url.origin === origin && /^\/api\/maps\/[^/]+$/.test(url.pathname);
+  await page.route(cameraSave, async (route) => {
+    const request = route.request();
+    if (request.method() !== "PATCH" || Object.keys(request.postDataJSON() ?? {}).join() !== "viewport") return route.fallback();
+    const answer = await route.fetch();
+    const headers = { ...answer.headers() };
+    delete headers["transfer-encoding"];
+    delete headers["content-length"];
+    return route.fulfill({ status: answer.status(), headers, body: "" });
+  });
+}
+
+/** Bring a scene's page to rest: settled, and for a scene that shows a map,
+ * its map at rest on the built-in basemap. */
+export async function rest(page, scene) {
+  await settle(page);
+  if (scene.map === true) await mapAtRest(page);
 }
 
 /** A scene's declared crop as a rectangle of whole CSS pixels inside the
@@ -178,7 +252,7 @@ export async function takeRecording(page, scene, output, { theme, crop }) {
   for (const step of scene.steps) {
     if (step.act) {
       await step.act(page);
-      await settle(page);
+      await rest(page, scene);
     }
     const frame = await framePng(page, crop);
     for (let i = 0; i < step.hold; i += 1) frames.push(frame);
