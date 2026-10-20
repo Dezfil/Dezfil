@@ -76,7 +76,7 @@ Each reader's selections are their own and are never saved. While a widget holds
 Hidden widgets never go out. A widget on a hidden layer still shows its numbers, while the layer's features stay off the published map.
 
 > [!NOTE]
-> Only the map's owner can change **Show widgets on published view**.
+> Only the map's owner can change **Show widgets on published view**. [Share and publish](share-and-publish.md) covers publishing, and choosing the widgets an exported image shows.
 
 ## Run a tool on a layer
 
@@ -171,4 +171,4 @@ Each input takes points, lines or polygons unless the table says otherwise. A di
 ## Next steps
 
 - Style the new layer or give it filters: [Build a map](build-a-map.md).
-- Publish the map with its widgets: [Your first map](../start/first-map.md#6-publish-the-map) shows how.
+- Publish the map with its widgets: [Share and publish](share-and-publish.md).

@@ -18,7 +18,8 @@
 // the instance is seeded through the documented API and the seeded scenes
 // are taken, then the first account's first map is made and the scenes that
 // show it are taken, then the scenes of the Use Dezfil pages on data and
-// maps (the states of docs-pictures-scenes.mjs, in order).
+// maps, then those on sharing (the states of docs-pictures-scenes.mjs, in
+// order).
 // Every scene is taken twice from the same instance state, in the app's light
 // theme and in its dark theme, chosen the way the app's own switch stores it;
 // the dark take is written beside the light one with `.dark` before the
@@ -43,7 +44,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { answerCameraSaves, cropRectangle, frameContext, openBrowser, pageTheme, rest, takeRecording, takeStill } from "./docs-pictures-capture.mjs";
-import { assertBuiltCheckout, freePort, makeScratch, seed, seedFirstMap, seedUseMaps, serverRequests, startServer, writeCatalogue } from "./docs-pictures-instance.mjs";
+import { assertBuiltCheckout, freePort, makeScratch, seed, seedFirstMap, seedUseMaps, seedUseShare, serverRequests, startServer, writeCatalogue } from "./docs-pictures-instance.mjs";
 import { MANIFEST, manifestText, planRun } from "./docs-pictures-manifest.mjs";
 import { problemsMessage, requestsOffInstance } from "./docs-pictures-network.mjs";
 import { SCENES, STATES } from "./docs-pictures-scenes.mjs";
@@ -72,11 +73,12 @@ try {
   browser = await openBrowser();
   // Each state after the fresh one builds on the one before it: the
   // seeding, then the first map, then what the Use Dezfil pages on maps
-  // show beside it. A run that takes no scene of a state still makes it
-  // when a later state's scenes need it.
+  // show beside it, then what Share and publish shows. A run that takes no
+  // scene of a state still makes it when a later state's scenes need it.
   let seeded = null;
   let firstMap = false;
   let useMaps = false;
+  let useShare = false;
   // A scene's crop, found on its light take and shared by its dark take.
   const crops = new Map();
   // The built-in basemap's styles and tile sets the map scenes drew.
@@ -89,9 +91,13 @@ try {
       await seedFirstMap(seeded.api, root);
       firstMap = true;
     }
-    if (state === "use-maps" && !useMaps) {
+    if (STATES.indexOf(state) >= STATES.indexOf("use-maps") && !useMaps) {
       await seedUseMaps(seeded.api);
       useMaps = true;
+    }
+    if (state === "use-share" && !useShare) {
+      await seedUseShare(seeded.api, server.base);
+      useShare = true;
     }
     const cookie = seeded?.cookie ?? null;
     for (const theme of THEMES) {

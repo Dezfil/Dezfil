@@ -287,3 +287,48 @@ export async function seedUseMaps(api) {
   const map = expectStatus(await api("POST", "/api/maps", { body: { name: earthquakes.name } }), 201, "create the earthquakes map");
   await addLayer(api, map, { name: earthquakes.layer, sql: earthquakes.sql }, () => ({ viz: earthquakes.viz }));
 }
+
+/** What Share and publish shows, made in the use-share state after the
+ * use-maps one: two more people on the instance, the first a Viewer of the
+ * shared project and the second in no project yet, so the Share dialog can
+ * find and add them; and the first map published, opening in the light
+ * theme. The scenes find the people by their names and the map by its
+ * name. */
+export const USE_SHARE = {
+  viewer: { name: "Sam Ito", email: "sam@example.test", password: "harbor charts at dawn" },
+  added: { name: "Ana Diaz", email: "ana@example.test", password: "compass roses at sea" },
+  theme: "light",
+};
+
+/** A person invited through the users operation who sets a password
+ * through the invitation, as the person would: the Share dialog finds an
+ * account only once it is active. Returns the account, with its SQL name. */
+async function addPerson(api, base, person) {
+  const invited = expectStatus(await api("POST", "/api/users", { body: { name: person.name, email: person.email } }), 201, `invite ${person.name}`);
+  const secret = new URLSearchParams(new URL(invited.signInUrl).hash.slice(1)).get("secret");
+  const redeemed = await fetch(`${base}/api/auth/redeem`, { method: "POST", headers: { origin: base, "content-type": "application/json" }, body: JSON.stringify({ secret, password: person.password }) });
+  assert.equal(redeemed.status, 200, `${person.name} sets their password`);
+  await redeemed.body?.cancel();
+  assert.ok(invited.account?.sqlName, `the invitation names ${person.name}'s SQL name`);
+  return invited.account;
+}
+
+/**
+ * The use-share state, through the operations the app calls: the two
+ * people, the first given the Viewer role in the shared project, and the
+ * first map published by its owner.
+ */
+export async function seedUseShare(api, base) {
+  const viewer = await addPerson(api, base, USE_SHARE.viewer);
+  await addPerson(api, base, USE_SHARE.added);
+  const projects = expectStatus(await api("GET", "/api/projects"), 200, "list the projects");
+  const project = projects.find((entry) => entry.name === PROJECT.name);
+  assert.ok(project, "the shared project is made before the use-share state");
+  expectStatus(await api("PUT", `/api/projects/${project.id}/people/${viewer.sqlName}`, { body: { role: "viewer" } }), 200, `give ${USE_SHARE.viewer.name} the Viewer role`);
+
+  const maps = expectStatus(await api("GET", "/api/maps"), 200, "list the maps");
+  const firstMap = maps.find((map) => map.name === FIRST_MAP.name);
+  assert.ok(firstMap, "the first map is made before the use-share state");
+  const basis = captureBasis(expectStatus(await api("GET", `/api/maps/${firstMap.id}`), 200, "read the first map"));
+  expectStatus(await api("POST", `/api/maps/${firstMap.id}/publish`, { basis, body: { theme: USE_SHARE.theme } }), 201, "publish the first map");
+}

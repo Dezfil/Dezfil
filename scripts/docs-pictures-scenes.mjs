@@ -16,9 +16,11 @@
 //   signed in as the first account; `first-map` after that and the first
 //   account's own first map, the one "Your first map" builds; `use-maps`
 //   after that and what the Use Dezfil pages on data and maps show beside
-//   it. The script takes the states in this order, every scene of one
-//   before the next, so a seeded scene never shows the first map, and what
-//   a use-maps scene changes as it opens never reaches an earlier picture;
+//   it; `use-share` after that and what Share and publish shows: two more
+//   people and the first map published. The script takes the states in
+//   this order, every scene of one before the next, so a seeded scene never
+//   shows the first map, and what a use-maps scene changes as it opens never
+//   reaches an earlier picture;
 // - `map: true`, when the scene shows a map: its page may reach the built-in
 //   basemap's host, and nothing is taken until every map on the page is at
 //   rest on the built-in basemap, its tiles loaded. Without it, the
@@ -34,7 +36,7 @@
 //   length is the frames held, at most eight seconds.
 
 import { readFile } from "node:fs/promises";
-import { FIRST_MAP, USE_MAPS } from "./docs-pictures-instance.mjs";
+import { FIRST_MAP, PROJECT, USE_MAPS, USE_SHARE } from "./docs-pictures-instance.mjs";
 
 /** Open the Templates page and wait until the catalogue has been read and
  * the three shipped cards are drawn with their pictures. */
@@ -550,6 +552,96 @@ const USE_MAPS_SCENES = [
   },
 ];
 
+// ---------------------------------------------------------------------------
+// Use Dezfil on sharing: Share and publish in the use-share state, after
+// the use-maps one, where the first map is published and two more people
+// are on the instance. A scene of the first map sets its layers and widgets
+// at the start of its take, as the use-maps scenes do.
+
+/** The shared project's page as its owner sees it, once the line of the
+ * people it is shared with and its facts are drawn. */
+async function openSharedProject(page) {
+  const { id } = await findByName(page, "/api/projects", PROJECT.name);
+  await page.goto(`/projects/${id}`);
+  await page.locator('[data-members-line="shared"]').waitFor();
+  await page.locator("[data-facts]").waitFor();
+}
+
+const USE_SHARING_SCENES = [
+  {
+    // The shared project's Share dialog: the person the seeding left out
+    // of the project found by part of her name and picked, with Viewer
+    // chosen and Add ready, never clicked; the owner, the Editor and the
+    // Viewer under People with access. The pointer leaves the dialog, so
+    // no row shows its remove cross.
+    id: "share-and-publish-share-dialog",
+    file: "use/share-and-publish-share-dialog.webp",
+    pages: ["docs/use/share-and-publish.md"],
+    kind: "still",
+    state: "use-share",
+    crop: { selector: "[data-share-dialog]", margin: 24 },
+    async open(page) {
+      await openSharedProject(page);
+      await page.locator("[data-share-action]").click();
+      const dialog = page.locator("[data-share-dialog]");
+      await dialog.locator("[data-member]").nth(2).waitFor();
+      await dialog.getByLabel("Add people by name or email").fill(USE_SHARE.added.name.split(" ")[0]);
+      await dialog.getByRole("option", { name: new RegExp(USE_SHARE.added.name) }).click();
+      await dialog.locator("[data-picked]").waitFor();
+      const viewer = dialog.getByRole("group", { name: "Role" }).getByRole("button", { name: "Viewer", exact: true });
+      if ((await viewer.getAttribute("aria-pressed")) !== "true") throw new Error("The Share dialog does not start with Viewer chosen.");
+      await page.mouse.move(0, 0);
+    },
+  },
+  {
+    // The publish panel of the published first map, below its link: the
+    // shared fields' row, Opens in, Readers can and the panel's foot, with
+    // no margin, so none of the map around the panel shows. The link is
+    // out of the frame: it holds the run's own port and a token drawn
+    // afresh on every run.
+    id: "share-and-publish-published",
+    file: "use/share-and-publish-published.webp",
+    pages: ["docs/use/share-and-publish.md"],
+    kind: "still",
+    state: "use-share",
+    map: true,
+    crop: { selector: "#publish-popover [data-publish-scroll]", margin: 0 },
+    async open(page) {
+      await arrangeWorldCities(page, { megacities: false, widgets: true });
+      await openWorldCities(page);
+      await page.getByRole("button", { name: "Published", exact: true }).click();
+      const popover = page.locator("#publish-popover");
+      const opensIn = popover.getByRole("group", { name: "Opens in" });
+      await opensIn.waitFor();
+      if ((await opensIn.getByRole("button", { name: "Light", exact: true }).getAttribute("aria-pressed")) !== "true") throw new Error(`The first map is not published to open in the ${USE_SHARE.theme} theme.`);
+      await popover.getByText(/^\d+ layers? · \d+ fields?$/).waitFor();
+    },
+  },
+  {
+    // The Export image dialog of the first map, as it opens on the
+    // builder's view, with the map's name typed as the image's title. The
+    // By country widget is on the map, so the options list its switch. The
+    // pointer leaves the dialog, so no option shows its hover.
+    id: "share-and-publish-export-image",
+    file: "use/share-and-publish-export-image.webp",
+    pages: ["docs/use/share-and-publish.md"],
+    kind: "still",
+    state: "use-share",
+    map: true,
+    crop: { selector: "[data-export-card]", margin: 24 },
+    async open(page) {
+      await arrangeWorldCities(page, { megacities: false, widgets: true });
+      await openWorldCities(page);
+      await page.getByRole("button", { name: "Export", exact: true }).click();
+      await page.getByRole("menuitem", { name: /^Image/ }).click();
+      const card = page.locator("[data-export-card]");
+      await card.locator("[data-export-download]").waitFor();
+      await card.getByLabel("Image title").fill(FIRST_MAP.name);
+      await page.mouse.move(0, 0);
+    },
+  },
+];
+
 export const SCENES = [
   {
     id: "setup-card",
@@ -589,6 +681,7 @@ export const SCENES = [
   ...MAIN_SCREEN_SCENES,
   ...FIRST_MAP_SCENES,
   ...USE_MAPS_SCENES,
+  ...USE_SHARING_SCENES,
 ];
 
-export const STATES = ["fresh", "seeded", "first-map", "use-maps"];
+export const STATES = ["fresh", "seeded", "first-map", "use-maps", "use-share"];

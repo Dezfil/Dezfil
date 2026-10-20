@@ -51,6 +51,12 @@ Do things in the app: data, maps, SQL, workflows and sharing.
   - read when: you want a count, a chart or a note beside your map; you want readers to filter a map by clicking a category or dragging a range; you want to run a tool, such as a buffer, a join or a summary, on a layer; you want to know which tools there are, what each one makes and what it needs; a widget, a tool or a layer card shows a warning, or a tool is grayed out
   - audience: user
 
+- [Share and publish](use/share-and-publish.md)
+  - path: `docs/use/share-and-publish.md`
+  - summary: Share a project with people on your Dezfil, publish a map as a link anyone can open, embed it in a web page, or save it as a PNG image.
+  - read when: you want people on your Dezfil to see or edit your maps, workflows and data, and to know what a Viewer or an Editor can do; you want to change someone's role, remove them, hand a project over or leave one; you want anyone with a link to see a map without an account, or to put the map on another web page; you want to choose which fields and controls a published map shows; you want a picture of a map for a report or slides, or a project's data, maps and workflows as files
+  - audience: user
+
 - [Templates](use/templates.md)
   - path: `docs/use/templates.md`
   - summary: The finished maps and workflow examples an instance offers: what a card shows, opening one read only, and making a copy of your own.

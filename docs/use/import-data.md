@@ -33,7 +33,7 @@ Each dataset is named after its file, in lower case with underscores: `World Cit
 
 If a file fails, the dialog stays open and names it with the reason; the rest of the batch still uploads.
 
-When the **Data** page shows one project, what you import joins it.
+When the **Data** page shows one project, what you import joins it. See [Share and publish](share-and-publish.md).
 
 ## Formats
 
@@ -166,5 +166,6 @@ An upload cannot be refreshed. Upload the new version instead: it lands beside t
 ## Next steps
 
 - Put a dataset on a map: [Build a map](build-a-map.md), or **Add to a map** on the dataset page.
+- Share datasets through a project: [Share and publish](share-and-publish.md).
 - Query your datasets: open **SQL** in the side menu.
 - Import from a script or an AI agent: [How the API works](../api/http-api.md) and [Connect an AI agent](../api/mcp.md).

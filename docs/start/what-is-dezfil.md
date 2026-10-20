@@ -38,7 +38,7 @@ Home brings back your last map or workflow under **Continue**, and starts new wo
 
 In the builder you add datasets or SQL queries as layers and style each one, then set the **Basemap**, **Widgets** and **Legend**. [Your first map](first-map.md) builds this map step by step. See [Build a map](../use/build-a-map.md) and [Widgets and tools](../use/widgets-and-tools.md).
 
-**Publish** gives the map a link that anyone can open without an account, and **Embed** gives the code that puts it in a web page.
+**Publish** gives the map a link that anyone can open without an account, and **Embed** gives the code that puts it in a web page. See [Share and publish](../use/share-and-publish.md).
 
 ## Data
 
@@ -70,7 +70,7 @@ The colored boxes are notes, for comments beside the nodes. Their text shows whe
 
 ## Also in the app
 
-- **Projects:** a project groups maps, workflows and datasets, and shares them with people as viewers or editors.
+- **Projects:** a project groups maps, workflows and datasets, and shares them with people as viewers or editors. See [Share and publish](../use/share-and-publish.md).
 - **Connections:** your saved PostGIS databases, whose tables you import as datasets. See [Import data](../use/import-data.md#connect-a-postgis-database).
 - **Assistant:** a chat pane on the map, SQL and workflow pages that reads your data and makes changes when you ask. It runs on an Anthropic or OpenAI key set on the server.
 - **Settings:** your account, your API tokens and your look. Admins also set how the instance behaves there. See [Configuration](../self-host/configuration.md).

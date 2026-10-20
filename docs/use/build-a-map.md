@@ -231,6 +231,6 @@ To change a shape, click it on the map with **Select a drawn shape**, or while n
 
 ## Next steps
 
-- Publish the map as a link: [Your first map](../start/first-map.md#6-publish-the-map).
+- Share the map with people, or publish it as a link: [Share and publish](share-and-publish.md).
 - Add widgets, or run a tool on a layer: [Widgets and tools](widgets-and-tools.md).
 - Bring in more data: [Import data](import-data.md).

@@ -155,7 +155,7 @@ describe("the scene list", () => {
   });
 
   it("takes the first map's scenes after every seeded scene, so no seeded picture shows the first map", () => {
-    expect(STATES).toEqual(["fresh", "seeded", "first-map", "use-maps"]);
+    expect(STATES).toEqual(["fresh", "seeded", "first-map", "use-maps", "use-share"]);
     const firstMap = scenes.filter((s) => s.state === "first-map");
     expect(firstMap.length).toBeGreaterThan(0);
     for (const scene of firstMap) {
@@ -164,13 +164,15 @@ describe("the scene list", () => {
     }
   });
 
-  it("takes the Use Dezfil scenes on data and maps last, so what they change as they open reaches no other page's picture", () => {
-    expect(STATES.at(-1)).toBe("use-maps");
-    const useMaps = scenes.filter((s) => s.state === "use-maps");
-    expect(useMaps.length).toBeGreaterThan(0);
-    for (const scene of useMaps) {
-      expect(scene.file.startsWith("use/")).toBe(true);
-      for (const page of scene.pages) expect(page.startsWith("docs/use/")).toBe(true);
+  it("takes the Use Dezfil scenes on data and maps, then those on sharing, last, so what they change as they open reaches no other page's picture", () => {
+    expect(STATES.slice(-2)).toEqual(["use-maps", "use-share"]);
+    for (const state of ["use-maps", "use-share"]) {
+      const taken = scenes.filter((s) => s.state === state);
+      expect(taken.length).toBeGreaterThan(0);
+      for (const scene of taken) {
+        expect(scene.file.startsWith("use/")).toBe(true);
+        for (const page of scene.pages) expect(page.startsWith("docs/use/")).toBe(true);
+      }
     }
   });
 });

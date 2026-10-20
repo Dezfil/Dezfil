@@ -141,6 +141,8 @@ Click **Open** to see the map as its readers do. To stop sharing it, click **Pub
 - Rename the columns to `latitude` and `longitude`, then upload the file again. It becomes a new dataset, so its name ends in `_2`.
 - Open **Data** in the side menu and open the dataset. Click **Set geometry** and pick **Coordinate pair**. Choose your columns under **Longitude · x** and **Latitude · y**, then click **Apply**. Open your map again and add the dataset from **Add layer** › **Tables**.
 
+**Publish map is grayed out.** Your instance limits who may publish: see [Share and publish](../use/share-and-publish.md#troubleshooting).
+
 ## What you learned
 
 - **Uploading data:** a CSV with latitude and longitude columns becomes points as it uploads.
