@@ -152,7 +152,7 @@ You should see no error from ESLint or TypeScript, no `FAILED:` line, no failed 
 | `lint:contract-docs` | The API description, the MCP tools or the error catalogue disagree with each other or with the API pages |
 | `lint:reader-docs` | A file on its list (pages, `README.md`, `AGENTS.md`, procedure notes) is missing or holds superseded copy, or an API page's edit-revision example is incomplete |
 | `lint:plugin` | The plugin's guidance file or bundled licence differs from its source |
-| `lint:docs` | A page breaks the page contract or a writing rule; a link or picture in a page, or in a procedure note under `scripts/` or `src/`, leads nowhere; a picture lacks its light or its dark take, or the README shows one take only; or the index, a settings table, `docs/api/openapi.json` or the image manifest is out of date |
+| `lint:docs` | A page breaks the page contract or a writing rule, as [Write a docs page](write-docs.md#the-checks) explains each; a link or picture in a page, or in a procedure note under `scripts/` or `src/`, leads nowhere; a picture lacks its light or its dark take, or the README shows one take only; or the index, a settings table, `docs/api/openapi.json` or the image manifest is out of date |
 | `lint:retired-paths` | A tracked file names a docs path that moved or left, from the list in `scripts/check-retired-paths.mjs`. Only the list itself, a page's `moved_from` rows and the test fixtures that show such a path refused pass |
 
 To check your branch's commit messages as a pull request does:
@@ -379,7 +379,7 @@ A script writes each of these. Run it and commit what changed, rather than editi
 | What | Command | Fails while stale |
 |---|---|---|
 | The docs index, the settings tables and `docs/api/openapi.json` | `npm run docs:write` | `npm run lint:docs` |
-| The docs pictures | `npm run docs:pictures`, in a detached worktree after `npm run build` | `npm run lint:docs`, only when the manifest and the files disagree |
+| The docs pictures | `npm run docs:pictures`, in a detached worktree after `npm run build`, as [Write a docs page](write-docs.md#pictures) shows | `npm run lint:docs`, only when the manifest and the files disagree |
 | The design specimen, `design/identity/dezfil-identity.html` | `node scripts/build-specimen.mjs` | `npm run lint:specimen` |
 | The look's background sheets in `public/look/` | `node scripts/generate-look-sheets.mjs` | The unit suite runs its `--check` |
 | The plugin guidance file and its licence | `node scripts/generate-dezfil-guidance.mjs` | `npm run lint:plugin` |
@@ -453,4 +453,5 @@ The runtime or the image sets these. They are not settings, and `npm run lint:re
 
 - [How this is built](how-this-is-built.md): take a change from an idea to a merged pull request.
 - [Architecture](architecture.md): where each part of the container lives in the source.
+- [Write a docs page](write-docs.md): the writing rules and the checks that hold them.
 - [Contributing](../../CONTRIBUTING.md): sign-off, commit messages and licensing.

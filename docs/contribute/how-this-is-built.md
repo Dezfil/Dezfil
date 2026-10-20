@@ -73,7 +73,7 @@ A change ships with its tests. Prefer a test that fails before the change and pa
 Keep to these while you build:
 
 - **API first:** new behavior starts as a documented API operation, which the UI calls like any other client. What a person can do in the app, an agent can do too.
-- **Docs in the same change:** if a page under `docs/` describes what you changed, fix the page too.
+- **Docs in the same change:** if a page under `docs/` describes what you changed, fix the page too. [Write a docs page](write-docs.md) holds the rules.
 - **Large modules shrink:** the oversized modules listed in `scripts/check-monster-files.mjs` must not grow. Extract the piece you touch, and start new logic in a new module.
 - **Borrowed code keeps its header:** code from a permissively licensed project keeps its licence header and gets a line in [NOTICE](../../NOTICE). Copyleft code is reference only.
 
@@ -175,4 +175,5 @@ The `image` job then builds the container from `main`.
 
 - [Development setup](development-setup.md): run a checkout, every check and the tests.
 - [Architecture](architecture.md): how the container is put together, and where each piece lives.
+- [Write a docs page](write-docs.md): the rules a page follows and the checks that hold them.
 - [Contributing](../../CONTRIBUTING.md): commit types, the certificate and licensing.
