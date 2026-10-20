@@ -49,9 +49,9 @@ Only the project's owner shares it.
 
 You should see the person under **People with access**, and a line such as **Added Ana Diaz as Viewer.** at the bottom of the dialog.
 
-The person needs no invitation and no new sign-in. The project appears on their **Projects** page, and its card shows your first name and their role.
+The project appears on their **Projects** page, and its card shows your first name and their role.
 
-You can add only people with an active account on your Dezfil. An admin creates accounts on the **Users** page.
+You can add only people with an active account on your Dezfil. An admin invites people on the **Users** page.
 
 ## What Viewers and Editors can do
 
@@ -168,7 +168,7 @@ To download a layer's data rather than a picture, see [Build a map](build-a-map.
 
 **Publishing says "You can view this but cannot make this change."** The map belongs to someone else in the project. Ask its owner to publish it.
 
-**The person you want to add is not found: "No account with that name."** Type part of their name, or their whole email address. They need an active account on your Dezfil. An admin adds accounts on the **Users** page.
+**The person you want to add is not found: "No account with that name." or "No account with that email."** Type part of their name, or their whole email address. They need an active account: someone an admin invited has one once they have used their sign-in link and set a password.
 
 **The embedded map does not show on your site.** Embedding is **Off**, or your site is not listed. Ask an admin for **Any site**, or to add your site's address under **Listed sites**, such as `https://intranet.example.com`.
 
