@@ -53,10 +53,10 @@ it("removes the obsolete shared-data upgrade claim and documents local draft dis
   expect(guide).toContain("Each account's maps");
   expect(guide.replace(/\s+/g, " ")).toContain("are private, including from admins, until a project's owner shares the project");
   // The upgrade's breaking SQL change and its draft disposal are changelog
-  // entries; the host guide says who owns the existing work after it.
+  // entries; Upgrade says who owns the existing work after it.
   const changelog = readFileSync("CHANGELOG.md", "utf8").replace(/\s+/g, " ");
   expect(changelog).toContain("SQL drafts and history that a browser kept before accounts");
-  expect(guide.replace(/\s+/g, " ")).toContain("recorded original account");
+  expect(readFileSync("docs/self-host/upgrade.md", "utf8")).toContain("recorded original account");
   expect(changelog).toContain("File-referencing PROJ");
 });
 it("carries departure, deletion and explicit deleted actors in the generated guidance", () => {

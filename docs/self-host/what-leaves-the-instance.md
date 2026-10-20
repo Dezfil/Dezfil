@@ -71,7 +71,7 @@ account can save or delete a custom palette. Published links remain readable wit
 as do embeds on the sites the instance allows, and the readiness probe.
 
 Existing work belongs to the recorded original account after an upgrade.
-Back up first, as [Back up and restore](backup-and-restore.md#back-up) shows,
+Read [what the new version does when it starts](upgrade.md#what-the-new-version-does-when-it-starts)
 before updating. SQL uses your imported datasets by name. Direct file reads
 and file-referencing projection definitions are refused, including in saved
 queries and published layers; ordinary EPSG transforms remain supported.
@@ -257,8 +257,8 @@ Deletion has these copy and attribution limits:
   connection wrote to. Browser-local SQL and conversations also remain. Restoring
   a backup can revive erased data and credentials; review them before reopening.
 
-Before upgrading or rolling back, follow the [full
-backup instructions](backup-and-restore.md#back-up). Keep a stopped,
+Before upgrading or rolling back, follow the [upgrade and
+go-back steps](upgrade.md). Keep a stopped,
 complete backup and the matching application and key; do not down-migrate a live
 store containing deleting or deleted accounts.
 

@@ -94,7 +94,7 @@ If you set `DEZFIL_SECRET_KEY`, keep a copy of its value, such as the `.env` fil
 
 Restoring replaces everything in the volume with the backup, and work done since the backup is lost. Step 1 keeps a copy of the current data, in case you want it later.
 
-Start the version that made the backup.
+Start the version that made the backup. If you have upgraded since, [go back to the old version](upgrade.md#go-back-to-the-old-version) instead: it restores the backup with the image you kept.
 
 ### 1. Stop Dezfil and keep the current data
 
@@ -207,4 +207,5 @@ If that key is lost, save each address again. Delete each connection in **Connec
 
 ## Next steps
 
+- [Upgrade](upgrade.md): back up, then move to a new version.
 - [Configuration](configuration.md): `DEZFIL_DATA_DIR`, `DEZFIL_SECRET_KEY` and the other variables.

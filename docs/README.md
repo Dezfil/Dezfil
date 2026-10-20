@@ -91,6 +91,12 @@ Install, secure, configure and back up your own instance.
   - read when: you want a backup before an upgrade, a move or a big change; you want to know which files hold your maps, data and accounts; you need to restore an instance from a backup, or move it to another machine; you want to know where the encryption key is and whether DEZFIL_SECRET_KEY must be kept with the backup; saved database connections or service addresses fail after a restore
   - audience: operator
 
+- [Upgrade](self-host/upgrade.md)
+  - path: `docs/self-host/upgrade.md`
+  - summary: Move your instance to a new version of Dezfil, keep its data, and go back to the old version if you need to.
+  - read when: a new version of Dezfil is out and you want to run it; you want to know what a new version does to your data when it starts; you want to go back to the version you ran before an upgrade; Dezfil does not start after an upgrade; after an upgrade, Settings cannot read a saved address
+  - audience: operator
+
 - [Self-hosting](self-host/what-leaves-the-instance.md)
   - path: `docs/self-host/what-leaves-the-instance.md`
   - summary: What to decide before you put data in an instance, what the instance keeps, and what it sends out.
