@@ -225,7 +225,8 @@ Build, then start the instance on a fresh data folder, with `tippecanoe` on the 
 
 ```sh title="Terminal"
 npm run build
-DEZFIL_DATA_DIR="$(mktemp -d)" PORT=3320 \
+export DEZFIL_DATA_DIR="$(mktemp -d)"; echo "$DEZFIL_DATA_DIR"
+PORT=3320 \
 DEZFIL_RENDER_CAP_FEATURES=2000 \
 DEZFIL_EGRESS_ALLOWLIST=127.0.0.1 \
 DEZFIL_OVERPASS_URL=http://127.0.0.1:31877/overpass \
@@ -273,12 +274,12 @@ Some specs skip, and say so, until the test process has their variable:
 | In the test process | What else it needs | Turns on |
 |---|---|---|
 | `DEZFIL_TEST_PG_URL` | A running `postgis/postgis:16-3.4` container, as in the unit tests | The live PostGIS imports |
-| `DEZFIL_DATA_DIR` | The server's own value | The real failed tile build |
+| `DEZFIL_DATA_DIR` | The server's own folder, which step 2 prints | The real failed tile build of `e2e/publish-lifecycle.spec.ts`, and cases of `e2e/camera-bounds.spec.ts`, `e2e/layer-download-abort-lifecycle.spec.ts` and `e2e/projects-screens.spec.ts` that read the server's files |
 | `DEZFIL_E2E_ASSISTANT=1` | A real model key on the server | The assistant confirmation smoke; `npm run e2e:smoke` sets it |
 | `DEZFIL_TEMPLATES_CATALOGUE` | A local catalogue folder of at least nine templates, named on the server too | `e2e/home.spec.ts` |
 | `DEZFIL_E2E_PINNED_QUEUE_MAX=<N>` | A second instance started with `DEZFIL_OPERATION_QUEUE_MAX=<N>` | The locked limit in `e2e/settings-page.spec.ts` |
 | `DEZFIL_NO_RENDERER_URL` | A second instance whose `DEZFIL_CHROMIUM_PATH` names no file | The no-renderer cases of `e2e/card-states.spec.ts` |
-| `DEZFIL_E2E_FIRST_RUN=1` | An instance with no account yet | `e2e/account-entry.spec.ts`, the first-account journey |
+| `DEZFIL_E2E_FIRST_RUN=1` | An instance with no account yet, and that spec run alone: with the variable set, every other spec starts signed out | `e2e/account-entry.spec.ts`, the first-account journey |
 
 These specs need an instance started differently, as each file's header says:
 
