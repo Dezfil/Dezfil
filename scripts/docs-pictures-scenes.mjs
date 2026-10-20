@@ -1231,6 +1231,25 @@ const SELF_HOST_SCENES = [
       await page.mouse.move(0, 0);
     },
   },
+  {
+    // What leaves the instance, beside the services that stay off: the
+    // first three cards of Data & services, the address finder and travel
+    // time each Not set up with its address row alone, and OpenStreetMap on
+    // the public Overpass server with its numbers and its empty cache. The
+    // instance's environment sets none of the three.
+    id: "what-leaves-the-instance-data-services",
+    file: "self-host/what-leaves-the-instance-data-services.webp",
+    pages: ["docs/self-host/what-leaves-the-instance.md"],
+    kind: "still",
+    state: "self-host",
+    crop: { selector: ["#data-geocoder", "#data-osm"], margin: 16 },
+    async open(page) {
+      await page.goto("/settings/data");
+      for (const card of ["#data-geocoder", "#data-travel"]) await page.locator(card).getByText("Not set up", { exact: true }).waitFor();
+      await page.locator("#data-osm #set-osm-cache").waitFor();
+      await page.locator(SETTINGS_HEADING).hover();
+    },
+  },
 ];
 
 export const SCENES = [

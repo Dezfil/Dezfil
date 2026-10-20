@@ -96,6 +96,8 @@ To delete an account with everything it owns:
 
 Changes the account made to other people's maps and workflows then show **Deleted account** as their author. Deleting also empties the caches of the address finder, travel time and OpenStreetMap.
 
+Deleting reaches nothing outside the instance. Backups, files people exported or downloaded, the server's logs, what the assistant's provider holds and a database a connection wrote to keep their copies.
+
 To finish a deletion, Dezfil rewrites its metadata database, and answers no request until that ends, health checks included. The pause grows with the database, and a slow disk makes it longer. It needs free disk space of up to twice the database's size.
 
 ## Recover the admin account

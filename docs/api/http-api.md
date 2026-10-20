@@ -119,7 +119,7 @@ and of the three authentication entry POSTs additionally refuse before a large
 wire body completes. Multipart uploads at the
 canonical `/api/tables` path stream to disk without the framework copy, under
 their file and archive limits. A reverse proxy's own request-size limit bounds the matched
-paths' residual copy further; see [self-hosting](../self-host/what-leaves-the-instance.md).
+paths' residual copy further; see [Reverse proxy and HTTPS](../self-host/reverse-proxy.md).
 `TRACE` returns an empty 400 at the native door before body work.
 
 Map, layer, widget, sketch, export and project JSON readers accept at most

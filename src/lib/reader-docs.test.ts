@@ -23,8 +23,8 @@ it("keeps the product boundary and setup instructions current", () => {
   expect(brief).not.toMatch(/fuller .*documentation follows/);
   // The README's run, account, token, revision and key paragraphs now live on these pages.
   for (const [file, term] of [
-    ["docs/start/install.md", "setup"], ["docs/self-host/what-leaves-the-instance.md", "original account"], ["docs/api/mcp.md", "API / MCP tokens"],
-    ["docs/api/http-api.md", "Reload"], ["docs/self-host/what-leaves-the-instance.md", "Published links remain readable"], ["docs/self-host/what-leaves-the-instance.md", "DEZFIL_SECRET_KEY"],
+    ["docs/start/install.md", "setup"], ["docs/self-host/upgrade.md", "original account"], ["docs/api/mcp.md", "API / MCP tokens"],
+    ["docs/api/http-api.md", "Reload"], ["docs/use/share-and-publish.md", "without an account"], ["docs/self-host/backup-and-restore.md", "DEZFIL_SECRET_KEY"],
   ]) expect(read(file), `${file}: ${term}`).toContain(term);
 });
 
@@ -35,9 +35,15 @@ it("distinguishes deployment settings from persisted preferences and the model c
 });
 
 it("gives operators complete restoration and credential recovery instructions", () => {
-  const guide = read("docs/self-host/what-leaves-the-instance.md"), backup = read("docs/self-host/backup-and-restore.md"), api = read("docs/api/http-api.md");
-  const users = read("docs/self-host/users.md");
-  for (const term of ["seven days", "Viewer", "Editor", "Unknown", "initiator", "plaintext", "backed-up validity"]) expect(guide.replace(/\s+/g, " ")).toContain(term);
+  const backup = read("docs/self-host/backup-and-restore.md"), api = read("docs/api/http-api.md");
+  const users = read("docs/self-host/users.md"), share = read("docs/use/share-and-publish.md"), upgrade = read("docs/self-host/upgrade.md");
+  // The link lifetime, the project roles, the author of changes made before
+  // the ownership upgrade and what a restore brings back sit on the page of
+  // the task they belong to.
+  for (const [page, text, term] of [
+    ["users", users, "7 days"], ["share", share, "Viewer"], ["share", share, "Editor"], ["upgrade", upgrade, "Unknown"],
+    ["backup", backup, "password hash"], ["backup", backup, "tokens revoked since work again"],
+  ]) expect(text.replace(/\s+/g, " "), `${page}: ${term}`).toContain(term);
   // The backup and the restore commands have one home; the admin recovery
   // commands sit with the recovery they start, on Users, with the link's
   // lifetime, the wait on a busy store and what a takeover leaves; a

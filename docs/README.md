@@ -133,10 +133,10 @@ Install, secure, configure and back up your own instance.
   - read when: you want to give someone an account on your Dezfil; you want to make someone an admin, or take admin access away; someone forgot their password, or their sign-in link stopped working; you want to close an account, or delete it with its work; you lost the admin password and no other admin can sign in
   - audience: operator
 
-- [Self-hosting](self-host/what-leaves-the-instance.md)
+- [What leaves the instance](self-host/what-leaves-the-instance.md)
   - path: `docs/self-host/what-leaves-the-instance.md`
-  - summary: What to decide before you put data in an instance, what the instance keeps, and what it sends out.
-  - read when: you run an instance for yourself or for others; you put Dezfil behind a reverse proxy; you need to know what leaves the instance
+  - summary: See every outside request your instance can make, what each one sends, and the setting that turns it off or points it at your own server.
+  - read when: you need to know which outside services your instance contacts, and what each one receives; you run Dezfil on a network without internet access, or behind a firewall that allows only some hosts; you want basemap tiles, templates or OpenStreetMap data to come from your own servers; you want to know what a visitor's browser contacts when they open a published map; an import, a connection or a service is refused because its address is on a private network
   - audience: operator
 
 ### Configuration

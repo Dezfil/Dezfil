@@ -195,7 +195,7 @@ describe("the scene list", () => {
     expect(MEMBER_STATES).not.toContain("self-host");
     expect(STATE_SEEDING["self-host"]).toBe(seedSelfHost);
     const taken = scenes.filter((s) => s.state === "self-host");
-    expect(taken.map((s) => s.id)).toEqual(["users-list"]);
+    expect(taken.map((s) => s.id)).toEqual(["users-list", "what-leaves-the-instance-data-services"]);
     for (const scene of taken) {
       expect(scene.file.startsWith("self-host/")).toBe(true);
       expect(scene.map).toBeUndefined();
