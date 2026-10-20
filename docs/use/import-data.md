@@ -142,7 +142,9 @@ A connection is yours alone: people in your projects see the datasets you file t
 Imports from a link, Overture Maps, OpenStreetMap and PostGIS can fetch their data again from their source.
 
 1. Open the dataset from the **Data** page.
-2. Click the refresh button, **Re-run the stored import**, among the buttons at the top. You should see **updated just now** in the dataset's details.
+2. Click the refresh button, **Re-run the stored import**, among the buttons at the top. You should see **updated just now** beside the dataset's name.
+
+An Overture Maps dataset refreshes from the release it was imported from. For newer data, click **Update to latest release** in the line under its name.
 
 A connection's page under **Connections** in the side menu refreshes its snapshots one by one or with **Refresh all**.
 
