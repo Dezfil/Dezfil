@@ -115,6 +115,12 @@ Install, secure, configure and back up your own instance.
 
 Script Dezfil over HTTP, or connect an AI agent through MCP.
 
+- [API quickstart](api/quickstart.md)
+  - path: `docs/api/quickstart.md`
+  - summary: Create an API token, then list your maps, upload a CSV, run SQL, add a layer and publish the map, with curl or JavaScript.
+  - read when: you want your first working calls to the Dezfil API; you need an API token for a script or an agent; you want to upload data, run SQL, or build and publish a map from code; a call answers authentication_required, invalid_request or stale_revision
+  - audience: developer, agent
+
 - [Limits](api/limits.md)
   - path: `docs/api/limits.md`
   - summary: The fixed byte ceilings on SQL answers and previews, and the time, size, memory, rate and queue limits an operator changes.

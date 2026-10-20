@@ -81,7 +81,7 @@ The colored boxes are notes, for comments beside the nodes. Their text shows whe
 - **One data folder:** everything Dezfil stores lives in one folder, `/data` in the container. Datasets are GeoParquet files; maps, workflows, accounts and settings sit in one SQLite file. To back up, stop Dezfil and copy the folder. If you set the encryption key `DEZFIL_SECRET_KEY` yourself, keep it too: see [Back up and restore](../self-host/backup-and-restore.md#full-backup-and-restore).
 - **Accounts:** the first person to finish setup is the admin, who adds the others under **Users**. Your maps, datasets and workflows stay private until a project shares them or you publish a map.
 - **What leaves the instance:** maps load the built-in basemaps from OpenFreeMap, in each viewer's browser and in the map pictures the server draws, and the server reads the template catalogue from GitHub. Imports, the address finder, travel times and the assistant reach outside only when you use or set them up. See [What leaves the instance](../self-host/what-leaves-the-instance.md).
-- **Scripts and AI agents:** every action in the app is a call to the HTTP API, described in [the API description](../api/openapi.json). An AI agent connects over MCP at `/api/mcp`, with a token from **Settings** › **API & MCP**. See [Connect an AI agent](../api/mcp.md).
+- **Scripts and AI agents:** every action in the app is a call to the HTTP API, described in [the API description](../api/openapi.json). An AI agent connects over MCP at `/api/mcp`, with a token from **Settings** › **API & MCP**. See the [API quickstart](../api/quickstart.md) and [Connect an AI agent](../api/mcp.md).
 - **Licence:** Dezfil is released under the Apache License 2.0.
 
 ## Next steps
