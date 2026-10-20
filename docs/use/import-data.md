@@ -106,8 +106,9 @@ Under **Area rule**, **Entirely inside** keeps only features fully inside the ar
 
 1. In **Add data**, click **OpenStreetMap**.
 2. Under **Query Area**, choose a **Polygon** or **BBox** area, as for Overture Maps.
-3. Under **Quick queries**, click **Buildings**, **Roads**, **Amenities** or **Landuse**, or type a tag such as `shop=bakery` in **Tags** and press Enter. The form starts with `amenity=restaurant`.
-4. Click **Import as table**. You should see the dialog close and up to three new datasets.
+3. Under **Tags**, click the × on `amenity=restaurant`, the tag the form starts with, unless you want restaurants.
+4. Under **Quick queries**, click **Buildings**, **Roads**, **Amenities** or **Landuse**, or type a tag such as `shop=bakery` in **Tags** and press Enter. Every tag listed is imported together.
+5. Click **Import as table**. You should see the dialog close and up to three new datasets.
 
 The result is split by geometry into `<name>_points`, `<name>_lines` and `<name>_polygons`, keeping those that hold features. Each has a `name` column, a column for each tag key you asked for, such as `amenity`, and all its tags in a `tags` column.
 
