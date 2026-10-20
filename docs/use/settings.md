@@ -78,8 +78,6 @@ Each screen keeps its own layout and sort. The next time you open it, it opens t
 
 ## Change your name or email
 
-![The Account tab: Display name, the SQL name beneath it, Email, and Change password opened with Current password and New password fields](../images/use/settings-account.webp)
-
 1. Click your initials or name at the foot of the side menu. **Settings** opens on **Account**.
 2. Change **Display name** (up to 80 characters) or **Email**. **Save** and **Cancel** appear while a field differs from what is saved.
 3. For a new email, also type your password in **Current password to change email**.
@@ -91,8 +89,10 @@ Your **SQL name** stays as it is. Other people's queries name your datasets with
 
 ## Change your password
 
+![The Account tab: Display name, the SQL name beneath it, Email, and Change password opened with Current password and New password fields](../images/use/settings-account.webp)
+
 1. On **Account**, click **Change password**.
-2. Fill in **Current password** and **New password**. The line under **New password** names the fewest characters it needs: 8, unless your admin set more.
+2. Fill in **Current password** and **New password**. The line under **New password** names the fewest characters it needs.
 3. Click **Change password**. You should see **Password changed**.
 
 Your other browser sessions end, so those browsers ask you to sign in again. Your API tokens keep working.
@@ -115,13 +115,13 @@ Your other browser sessions end, so those browsers ask you to sign in again. You
 
 ## Troubleshooting
 
-**"Enter your current password to change your email." shows under the field.** You changed **Email**. Type your password in **Current password to change email**, then click **Save**.
+**"Enter your current password to change your email." shows under the password field.** You changed **Email**. Type your password in **Current password to change email**, then click **Save**.
 
 **The card says "An account already uses this email address."** Another account has that email. Choose another one, or ask an admin.
 
 **The card says "Enter your current password."** The current password you typed is wrong. Type it again.
 
-**The card says "Too many wrong current passwords. Try again later."** After 5 wrong current passwords in 15 minutes, or the count your admin set, Dezfil pauses your password and email changes. Wait up to 15 minutes.
+**The card says "Too many wrong current passwords. Try again later."** After too many wrong current passwords, Dezfil pauses your password and email changes. Wait up to 15 minutes.
 
 **The card asks for more characters, or says "This password is too common. Choose a different one."** Choose a longer password that is less common.
 
