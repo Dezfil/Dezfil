@@ -74,9 +74,11 @@ Auckland,New Zealand,1377200,-36.8481,174.763
 Stockholm,Sweden,1264000,59.3527,18.0954
 ```
 
+You should have a file of 49 lines: the header and 48 cities.
+
 ## 2. Sign in
 
-Open your Dezfil address, such as <http://localhost:3000>, and sign in with your **Email** and **Password**. If you just created the first account, you are already signed in.
+Open your Dezfil address, such as <http://localhost:3000>. Fill in your **Email** and **Password**, then click **Sign in**. If you just created the first account, you are already signed in.
 
 You should see **Home**, which greets you by your first name.
 
@@ -84,7 +86,7 @@ You should see **Home**, which greets you by your first name.
 
 On Home, click **New map**.
 
-You should see the map builder with an empty map named **Untitled map**. To rename it, click **Untitled map** in the bar at the top, replace the name with `World cities` and press Enter.
+You should see the map builder with an empty map named **Untitled map**. To rename it, click **Untitled map** in the bar at the top, delete the name, type `World cities` and press Enter.
 
 ## 4. Add the cities
 
@@ -113,7 +115,7 @@ Dezfil sorts the cities into five classes with about the same number of cities i
 
 You should see the points change color, and the legend in the corner of the map list the five classes with their population ranges.
 
-Every change saves as you make it. **Undo** at the top of the page takes the last one back. To change the look:
+Every change saves as you make it. **Undo**, the curved arrow at the top of the page, takes the last one back. To change the look:
 
 - Click the palette to pick another one.
 - Click **Continuous** for a smooth color ramp instead of classes.
@@ -126,9 +128,9 @@ Every change saves as you make it. **Undo** at the top of the page takes the las
 
 ![The publish panel before publishing: the Publish map button, the line Anyone with the link will be able to view, and the fields the map will share](../images/start/first-map-publish.webp)
 
-You should see **Published** with the map's link, **Copy link** and **Open**. If your browser allows it, Dezfil also copies the link for you. Anyone with the link can view the map, without an account.
+You should see **Published** with the map's link, **Copy link** and **Open**. If your browser allows it, Dezfil also copies the link for you, and **Copy link** reads **Link copied** for a moment. Anyone with the link can view the map, without an account.
 
-Click **Open** to see the map as its readers do. To stop sharing it, open the panel again and click **Unpublish**.
+Click **Open** to see the map as its readers do. To stop sharing it, click **Published** at the top right, then **Unpublish**.
 
 ## Troubleshooting
 
