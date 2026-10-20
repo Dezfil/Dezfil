@@ -102,7 +102,7 @@ You should see **Published**, the link, **Copy link** and **Open**. Dezfil also 
 
 Readers see the map as it is, and your later edits reach them on their next load. A hidden layer's features are not published, but a widget on that layer still shows readers its numbers. Which widgets go out: [Widgets and tools](widgets-and-tools.md#widgets-on-a-published-map).
 
-By default, a layer shares the fields its style, filters and widgets need, marked **needed to render**, plus those its hover and click pop-ups show. **Reset to automatic** restores the default. On a published map, the row reads **Shared fields**.
+By default, a layer shares the fields its style, filters and widgets need, marked **needed to render**, plus those its hover and click pop-ups show. **Reset to automatic** restores the default. On a published map, **Fields this will share** reads **Shared fields**.
 
 A layer drawn as cells, such as hex bins, shares only each cell's computed values.
 
