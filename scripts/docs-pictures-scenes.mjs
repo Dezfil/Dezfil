@@ -353,6 +353,10 @@ async function openVisualization(page, layer) {
   return section;
 }
 
+/** The country the widgets scene leaves out: the one with the most of the
+ * first map's cities, three, so the By country widget lists it first. */
+const WIDGET_LEFT_OUT = "United States of America";
+
 /** The draw tools' dock, and the line under the map that explains the
  * polygon tool once it is picked. */
 const DRAW_DOCK = '[role=toolbar][aria-label="Draw tools"]';
@@ -494,6 +498,54 @@ const USE_MAPS_SCENES = [
         await page.mouse.click(x, y);
       }
       await page.locator("svg[data-armed] circle").nth(2).waitFor();
+    },
+  },
+  {
+    // The Widgets tab of the first map with its By country widget on the
+    // map, the most numerous country clicked off: its three cities gone
+    // from the map and the status bar counting the 45 left. The selection
+    // is the page's own and is never saved.
+    id: "widgets-and-tools-widgets",
+    file: "use/widgets-and-tools-widgets.webp",
+    pages: ["docs/use/widgets-and-tools.md"],
+    kind: "still",
+    state: "use-maps",
+    map: true,
+    async open(page) {
+      await arrangeWorldCities(page, { megacities: false, widgets: true });
+      await openWorldCities(page);
+      await page.getByRole("tab", { name: "Widgets", exact: true }).click();
+      const country = page.locator('[data-widget-card="category"] button', { hasText: WIDGET_LEFT_OUT });
+      await country.click();
+      await page.locator('[data-widget-card="category"] button:not([data-active])', { hasText: WIDGET_LEFT_OUT }).waitFor();
+      await page.locator("[data-records]", { hasText: `${FIRST_MAP.features - 3} of ${FIRST_MAP.features}` }).waitFor();
+    },
+  },
+  {
+    // The Tools drawer opened with the cities' layer selected, on Filter
+    // rows filled in as the page's steps fill it: the dry run's line and
+    // Run ready. Run is never clicked, so no dataset is made.
+    id: "widgets-and-tools-tool-form",
+    file: "use/widgets-and-tools-tool-form.webp",
+    pages: ["docs/use/widgets-and-tools.md"],
+    kind: "still",
+    state: "use-maps",
+    map: true,
+    crop: { selector: "[data-recipe-drawer]", margin: 12 },
+    async open(page) {
+      await arrangeWorldCities(page, { megacities: false, widgets: true });
+      await openWorldCities(page);
+      await page.locator("[data-layer-select]", { hasText: FIRST_MAP.layer }).click();
+      await page.locator("[data-tools-control]").click();
+      const drawer = page.locator("[data-recipe-drawer]");
+      await drawer.getByText(`Suggested for ${FIRST_MAP.layer}`).waitFor();
+      await drawer.locator('[data-catalog-group="Data"] [data-operation="filter_rows"]').click();
+      await drawer.locator('[data-param="field"]').selectOption(FIRST_MAP.colorBy);
+      await drawer.locator('[data-param="comparison"]').selectOption("greater_than");
+      await drawer.locator('[data-param="value"]').fill("10000000");
+      await drawer.locator("[data-output-name]").fill("big_cities");
+      await drawer.locator("[data-dry-run]", { hasText: `${USE_MAPS.megacities.features} rows` }).waitFor();
+      if (await drawer.getByRole("button", { name: "Run", exact: true }).isDisabled()) throw new Error("Run is not ready on the Filter rows form.");
     },
   },
 ];

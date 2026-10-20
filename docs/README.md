@@ -45,6 +45,12 @@ Do things in the app: data, maps, SQL, workflows and sharing.
   - read when: you want to add a dataset or a SQL query to a map as a layer, or hide, reorder, rename, copy or delete one; you want to change how a layer looks: its colors, size, labels, or a type such as a heatmap or hex bins; you want another basemap, or a map style of your own; you want to move the legend or change its text; you want to draw points, lines or areas on a map
   - audience: user
 
+- [Widgets and tools](use/widgets-and-tools.md)
+  - path: `docs/use/widgets-and-tools.md`
+  - summary: Add widgets that count, chart and filter a map's data, and run a tool on a layer to make a new dataset and layer from it.
+  - read when: you want a count, a chart or a note beside your map; you want readers to filter a map by clicking a category or dragging a range; you want to run a tool, such as a buffer, a join or a summary, on a layer; you want to know which tools there are, what each one makes and what it needs; a widget, a tool or a layer card shows a warning, or a tool is grayed out
+  - audience: user
+
 - [Templates](use/templates.md)
   - path: `docs/use/templates.md`
   - summary: The finished maps and workflow examples an instance offers: what a card shows, opening one read only, and making a copy of your own.

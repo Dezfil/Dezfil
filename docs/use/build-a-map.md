@@ -19,6 +19,8 @@ You need a map you can edit and at least one dataset. [Your first map](../start/
 
 Every change in the builder saves as you make it. **Undo** at the top of the page takes the last one back.
 
+Widgets, and the tools in the bar at the top, have their own page: [Widgets and tools](widgets-and-tools.md).
+
 ## 1. Add a layer
 
 A layer draws one dataset, or the result of one SQL query, on the map. In the **Layers** tab, click **Add layer**, then choose where its data comes from.
@@ -230,4 +232,5 @@ To change a shape, click it on the map with **Select a drawn shape**, or while n
 ## Next steps
 
 - Publish the map as a link: [Your first map](../start/first-map.md#6-publish-the-map).
+- Add widgets, or run a tool on a layer: [Widgets and tools](widgets-and-tools.md).
 - Bring in more data: [Import data](import-data.md).

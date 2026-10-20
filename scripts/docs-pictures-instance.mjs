@@ -240,7 +240,8 @@ export async function seedFirstMap(api, root) {
 
 /** What the Use Dezfil pages on maps show beside the first map, made in
  * the use-maps state: a second layer on the first map, the query Build a
- * map adds with its points drawn larger, and a map of the copied
+ * map adds with its points drawn larger; the widget Widgets and tools adds
+ * to it, counting the cities by country; and a map of the copied
  * earthquakes around Japan drawn as hex bins. The scenes find the layer
  * and the map by their names. */
 export const USE_MAPS = {
@@ -254,6 +255,7 @@ export const USE_MAPS = {
     sql: "SELECT * FROM earthquakes WHERE place LIKE '%Japan%'",
     viz: { type: "hexbin", cellKm: 100, aggregate: { fn: "count" } },
   },
+  byCountry: { id: "by-country", type: "category", title: "By country", field: "country", agg: "count", aggField: null, unit: null, note: null, format: null, visible: true },
 };
 
 /** Add a layer to a map from its query, then change it as the builder
@@ -268,15 +270,18 @@ async function addLayer(api, map, { name, sql }, change) {
 
 /**
  * The use-maps state, through the operations the builder calls: on the
- * first map, the large cities as a second layer with bigger points; and a
- * new map of the earthquakes the seeding copied, those around Japan, as hex
- * bins.
+ * first map, the large cities as a second layer with bigger points and a
+ * category widget on the cities' country; and a new map of the earthquakes
+ * the seeding copied, those around Japan, as hex bins.
  */
 export async function seedUseMaps(api) {
   const maps = expectStatus(await api("GET", "/api/maps"), 200, "list the maps");
   const firstMap = maps.find((map) => map.name === FIRST_MAP.name);
   assert.ok(firstMap, "the first map is made before the use-maps state");
   await addLayer(api, firstMap, USE_MAPS.megacities, (current) => ({ style: { ...current.style, pointRadius: USE_MAPS.megacities.pointRadius } }));
+  const withLayers = expectStatus(await api("GET", `/api/maps/${firstMap.id}`), 200, "read the first map");
+  const cities = withLayers.layers.find((layer) => layer.name === FIRST_MAP.layer);
+  expectStatus(await api("PATCH", `/api/maps/${firstMap.id}`, { basis: captureBasis(withLayers), body: { widgets: [{ ...USE_MAPS.byCountry, layerId: cities.id }] } }), 200, "count the cities by country");
 
   const { earthquakes } = USE_MAPS;
   const map = expectStatus(await api("POST", "/api/maps", { body: { name: earthquakes.name } }), 201, "create the earthquakes map");
