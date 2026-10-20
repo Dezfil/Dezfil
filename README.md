@@ -2,7 +2,7 @@
 
 Self-hosted spatial SQL and map publishing, powered by DuckDB and files.
 Upload geospatial data, query it with SQL, style it on a map, publish a
-shareable view — from one container.
+shareable view, from one container.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/use/templates.dark.webp">
@@ -22,15 +22,16 @@ docker run -d --name dezfil -p 127.0.0.1:3000:3000 -v dezfil-data:/data dezfil
 
 For development, with live reload, run `npm ci` and then `npm run dev`.
 
-Open <http://localhost:3000> and create the first admin account. [Run it](docs/start/install.md)
-covers both ways in full, the data volume and the first-run setup.
+Open <http://localhost:3000> and create the first admin account. [Install](docs/start/install.md)
+covers each way in full, with Docker Compose and the first-run setup.
 
 ## Documentation
 
 The documentation is published at [dezfil.io/docs](https://dezfil.io/docs/).
 The same pages live in [docs/](docs/), one folder per section, and
 [the index](docs/README.md) lists every page with its summary and when to
-read it. Begin with [Run it](docs/start/install.md).
+read it. Begin with [What Dezfil is](docs/start/what-is-dezfil.md) or
+[Install](docs/start/install.md).
 
 ## Contributing
 
