@@ -322,7 +322,7 @@ if (isMain) {
     return i >= 0 ? args[i + 1] : fallback;
   };
   const srcDir = argOf("--src", path.join(process.cwd(), "src"));
-  const configuration = argOf("--configuration", path.join(process.cwd(), "docs/reference/configuration.md"));
+  const configuration = argOf("--configuration", path.join(process.cwd(), "docs/self-host/configuration.md"));
   const { SETTING_CATALOGUE, TEST_WIRING, isInstanceDefault, isInstanceRule, isLibrarySwitch, isTemplatesSetting } = await settingsSource(path.dirname(srcDir));
   const problems = configurationProblems({ srcDir, catalogue: SETTING_CATALOGUE, testWiring: TEST_WIRING,
     documents: { [configuration]: readFileSync(configuration, "utf8") },

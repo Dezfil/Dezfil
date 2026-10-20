@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { contractSource } from './contract-source.mjs';
-import { measureContract, checkContractDocs, readerCountSummary } from './check-contract-docs.mjs';
+import { CONTRACT_DOCS, measureContract, checkContractDocs, readerCountSummary } from './check-contract-docs.mjs';
 const { document, tools } = await contractSource(), counts = measureContract(document, tools);
-const files = { api: 'docs/reference/http-api.md', mcp: 'docs/reference/mcp.md', proof: 'docs/develop/verification/account-deletion-guidance.md' };
+const files = CONTRACT_DOCS;
 const docs = Object.fromEntries(Object.entries(files).map(([name, file]) => [name, readFileSync(file, 'utf8')]));
 function replace(key, pattern, replacement) {
   assert.ok(pattern.test(docs[key]), `Missing reader generation anchor: ${pattern}`);

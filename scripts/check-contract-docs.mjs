@@ -4,6 +4,11 @@ import path from 'node:path';
 import { contractSource } from './contract-source.mjs';
 
 import { HTTP_METHODS } from '../src/lib/api/http-methods.ts';
+/** The committed files whose reader counts the contract holds: the two API
+ * pages, and the served contract proof's procedure, which carries the counts. */
+export const CONTRACT_DOCS = { api: 'docs/api/http-api.md', mcp: 'docs/api/mcp.md', proof: 'scripts/served-contract-proof.md' };
+/** Those files' committed text, read from a repository root. */
+export const readContractDocs = (root = '.') => Object.fromEntries(Object.entries(CONTRACT_DOCS).map(([key, file]) => [key, readFileSync(path.join(root, file), 'utf8')]));
 const normalize = value => value.replace(/\s+/g, ' ').trim();
 const equal = (left, right) => JSON.stringify(left) === JSON.stringify(right);
 export function measureContract(document, tools) {
@@ -84,8 +89,8 @@ export function checkContractDocs(document, tools, docs) {
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const { document, tools } = await contractSource();
-  const directory = process.argv.includes('--docs-dir') ? process.argv[process.argv.indexOf('--docs-dir') + 1] : 'docs';
-  const docs = { api: readFileSync(path.join(directory, 'reference/http-api.md'), 'utf8'), mcp: readFileSync(path.join(directory, 'reference/mcp.md'), 'utf8'), proof: readFileSync(path.join(directory, 'develop/verification/account-deletion-guidance.md'), 'utf8') };
+  const root = process.argv.includes('--root') ? process.argv[process.argv.indexOf('--root') + 1] : '.';
+  const docs = readContractDocs(root);
   const problems = checkContractDocs(document, tools, docs);
   for (const problem of problems) console.error(problem);
   if (problems.length) process.exitCode = 1;
