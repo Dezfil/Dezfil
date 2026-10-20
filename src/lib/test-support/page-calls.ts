@@ -222,9 +222,10 @@ const PIPE = "\0|";
 
 /** What one shell block prints, run as a shell would: `curl`, `export` and
  * `rm` of a file the block wrote, which is all the pages use, and a curl
- * call piped into `jq`, which runs the real jq on what curl printed. */
-export async function runShell(code: string, files: Record<string, string>): Promise<string> {
-  const environment: Record<string, string> = {};
+ * call piped into `jq`, which runs the real jq on what curl printed. The
+ * environment holds the variables the reader set before the block. */
+export async function runShell(code: string, files: Record<string, string>, set: Record<string, string> = {}): Promise<string> {
+  const environment: Record<string, string> = { ...set };
   const cookies = new Map<string, string>();
   let printed = "";
   for (const words of shellCommands(code, environment)) {

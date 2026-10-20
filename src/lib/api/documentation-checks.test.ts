@@ -9,16 +9,14 @@ const document = buildOpenApiDocument(), tools = buildTools();
 const read = (file: string) => readFileSync(file, "utf8");
 const docs = readContractDocs() as { api: string; mcp: string; proof: string };
 const bump = (text: string, pattern: RegExp) => text.replace(pattern, match => match.replace(/\d+/, number => String(Number(number) + 1)));
-// The MCP guide's counts, and every count in the served contract proof's
-// procedure. Each operation, error code and body limit is listed by the
-// generated operation reference, which the documentation site holds to the
-// description; the API guide carries none of them.
-const countSeeds: [string, "proof" | "mcp", RegExp][] = [
+// Every count in the served contract proof's procedure. Each operation with
+// its tool, each error code and each body limit is listed by the generated
+// operation reference, which the documentation site holds to the
+// description; neither API guide carries them.
+const countSeeds: [string, "proof", RegExp][] = [
   ["paths", "proof", /\d+ paths/], ["operations", "proof", /\d+ operations/],
   ["schemas", "proof", /\d+ schemas/], ["errors", "proof", /\d+ error codes/],
-  ["MCP operations", "mcp", /Documented operations \| \d+/],
-  ["tools", "mcp", /Operations that become tools \| \d+/],
-  ["exclusions", "mcp", /Deliberately excluded \| \d+/],
+  ["tools", "proof", /\d+ tools/], ["exclusions", "proof", /\d+ exclusions/],
   ["JSON readers", "proof", /\d+ JSON readers/],
 ];
 it("checks actual reader-facing counts and change authors against the served contract and tools", () => {
@@ -29,9 +27,11 @@ it.each(countSeeds)("rejects a stale reader-facing %s count", (_label, key, patt
   expect(seeded[key]).not.toBe(docs[key]);
   expect(checkContractDocs(document, tools, seeded).length).toBeGreaterThan(0);
 });
-it("leaves the per-operation lists to the operation reference: the API guide states no count, tier or error table", () => {
-  for (const anchor of [/\*\*\d+ paths,/, /There are \*\*\d+\*\* codes/, /Measured JSON reader operations/, /<!-- body-tiers:start -->/, /<!-- error-catalogue:start -->/]) {
+it("leaves the per-operation lists to the operation reference: neither API guide states a count, tier or error table", () => {
+  for (const anchor of [/\*\*\d+ paths,/, /There are \*\*\d+\*\* codes/, /Measured JSON reader operations/, /<!-- body-tiers:start -->/, /<!-- error-catalogue:start -->/,
+    /\| Documented operations \| \d+/, /\| Operations that become tools \| \d+/, /\| Deliberately excluded \| \d+/, /editable-key input, [a-z-]+ keys/]) {
     expect(docs.api).not.toMatch(anchor);
+    expect(docs.mcp).not.toMatch(anchor);
   }
 });
 it("rejects source enum/catalogue disagreement and a dropped generated tool", () => {
@@ -88,10 +88,10 @@ it("rejects stale actor guidance in the actual reader", () => {
   const api = { ...docs, api: docs.api.replaceAll("{ deleted: true }", "null") };
   expect(checkContractDocs(document, tools, api)).toContain("API actor guidance omits the deleted variant");
 });
-it("rejects an API guide that stops saying a change's author can be a deleted account", () => {
-  const seeded = { ...docs, api: docs.api.replace("A change's author can be a deleted account, and then no name is kept.", "No name is kept.") };
-  expect(seeded.api).not.toBe(docs.api);
-  expect(checkContractDocs(document, tools, seeded)).toEqual(["API guide omits that a change's author can be a deleted account"]);
+it.each([["api", "API"], ["mcp", "MCP"]] as const)("rejects a %s guide that stops saying a change's author can be a deleted account", (key, label) => {
+  const seeded = { ...docs, [key]: docs[key].replace(/A change's author can be a deleted account, and then no name\s+is\s+kept\./, "No name is kept.") };
+  expect(seeded[key]).not.toBe(docs[key]);
+  expect(checkContractDocs(document, tools, seeded)).toEqual([`${label} guide omits that a change's author can be a deleted account`]);
 });
 it("does not describe deletion as unavailable", () => {
   expect(read("docs/self-host/backup-and-restore.md")).not.toContain("The deletion operations are not exposed yet.");

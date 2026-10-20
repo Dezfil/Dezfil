@@ -8,21 +8,13 @@ import { buildTools } from "@/lib/tools/tools";
 import { SETTINGS_AREAS, tableRegions } from "../../../scripts/settings-tables.mjs";
 
 /**
- * The admin's operations on this instance, every one under
- * /api/instance, are each described in the MCP guide by the tool it
- * generates, and every key the settings change takes is in a settings
- * table, so a new one cannot ship with no reader-facing word. Each
- * operation's own entry is the generated operation reference's.
+ * The admin's operations on this instance, every one under /api/instance,
+ * each become a tool an agent calls, and every key the settings change
+ * takes is in a settings table, so a new one cannot ship with no
+ * reader-facing word. Each operation's own entry, with its tool's name, is
+ * the generated operation reference's, which the documentation site holds
+ * to the description.
  */
-
-const mcp = readFileSync("docs/api/mcp.md", "utf8");
-
-/** A count from twenty to ninety-nine, in the guides' words. */
-function inWords(count: number): string {
-  const tens = ["", "", "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety"][Math.floor(count / 10)];
-  const ones = ["", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine"][count % 10];
-  return ones ? `${tens}-${ones}` : tens;
-}
 
 describe("the instance operations in the guides", () => {
   const document = buildOpenApiDocument();
@@ -40,9 +32,8 @@ describe("the instance operations in the guides", () => {
     ]);
   });
 
-  it("names how many keys the settings change takes in the MCP guide, and lists every one in a settings table's Settings key column", () => {
+  it("lists every key the settings change takes in a settings table's Settings key column", () => {
     const keys = Object.keys(document.components.schemas.InstanceSettingsPatch.properties);
-    expect(mcp.replace(/\s+/g, " ")).toContain(`editable-key input, ${inWords(keys.length)} keys`);
     const listed = new Set<string>();
     for (const { page, table } of SETTINGS_AREAS as { page: string; table: string }[]) {
       const region = (tableRegions(readFileSync(page, "utf8")) as { name: string; content?: string }[]).find((found) => found.name === table);
@@ -60,10 +51,10 @@ describe("the instance operations in the guides", () => {
 
   it.each(["GET /api/instance/settings", "PATCH /api/instance/settings", "POST /api/instance/services/{service}/test",
     "DELETE /api/instance/caches", "POST /api/instance/parts/{part}/test", "GET /api/instance/storage",
-    "POST /api/instance/basemaps", "PATCH /api/instance/basemaps/{id}", "DELETE /api/instance/basemaps/{id}"])("describes %s in the MCP guide by its tool", call => {
+    "POST /api/instance/basemaps", "PATCH /api/instance/basemaps/{id}", "DELETE /api/instance/basemaps/{id}"])("gives %s a tool of its own", call => {
     const operation = operations.find(found => found.call === call)!;
     const tool = tools.find(found => found.method === operation.method && found.path === operation.path);
     expect(tool, call).toBeDefined();
-    expect(mcp, tool!.name).toContain(`\`${tool!.name}\``);
+    expect(tools.filter(found => found.name === tool!.name), tool!.name).toHaveLength(1);
   });
 });

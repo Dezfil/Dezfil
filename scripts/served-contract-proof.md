@@ -1,6 +1,6 @@
 # Served reader and tool contract
 
-A probe that compares the served API description and MCP tool list with the counts this procedure and the MCP guide state.
+A probe that compares the served API description and MCP tool list with the counts this procedure states.
 
 Run in the detached candidate checkout with its matching production standalone
 and image already built. The probe owns its isolated server or container, creates
@@ -21,8 +21,8 @@ It authenticates against `/api/openapi.json`, uses the stock MCP client's real
 Streamable HTTP `tools/list`, and compares:
 
 - Actual served paths, operations, schemas, error codes, body-reader tiers, tools
-  and exclusions against the counts below and the MCP guide's, and the served
-  error schema against the served error catalogue.
+  and exclusions against the counts below, and the served error schema against
+  the served error catalogue.
 - Named, explicitly deleted and unknown actor variants at last-change, Undo/Redo
   author and run-starter positions, without changing their times or SQL homes.
 - Every served MCP definition against the committed capture, and the entire served

@@ -9,11 +9,8 @@ function replace(key, pattern, replacement) {
   assert.ok(pattern.test(docs[key]), `Missing reader generation anchor: ${pattern}`);
   docs[key] = docs[key].replace(pattern, replacement);
 }
-for (const [label, key] of [['Documented operations', 'operations'], ['Operations that become tools', 'tools'], ['Deliberately excluded', 'exclusions']]) {
-  replace('mcp', new RegExp(`\\| ${label} \\| \\d+ \\|`), `| ${label} | ${counts[key]} |`);
-}
 replace('proof', /<!-- contract-counts:start -->[\s\S]*?<!-- contract-counts:end -->/, '<!-- contract-counts:start -->\n' + readerCountSummary(counts) + '\n<!-- contract-counts:end -->');
 assert.deepEqual(checkContractDocs(document, tools, docs), []);
 for (const [name, text] of Object.entries(docs)) writeFileSync(files[name], text);
 delete counts.operationsWithTools;
-console.log('Regenerated the MCP guide\'s counts and the proof procedure\'s: ' + JSON.stringify(counts));
+console.log('Regenerated the proof procedure\'s counts: ' + JSON.stringify(counts));

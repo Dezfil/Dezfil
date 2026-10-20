@@ -284,7 +284,7 @@ A 409 `stale_revision` stops the example. Inspect a fresh read and deliberately
 compose a new edit; do not attach its token to the refused payload and replay it.
 A 400 `invalid_request` for a missing revision means the client must implement the
 read/write contract. Child writes use the parent's revision. See the
-[API](../api/http-api.md#edit-with-revisions) and [MCP](../api/mcp.md#editing-with-revisions)
+[API](../api/http-api.md#edit-with-revisions) and [MCP](../api/mcp.md#edit-safely)
 guides for compound filing, run starts, exceptions and executable examples.
 
 ## A second isolated instance

@@ -5,10 +5,11 @@ import { contractSource } from './contract-source.mjs';
 
 import { HTTP_METHODS } from '../src/lib/api/http-methods.ts';
 /** The committed files the contract holds: the two API pages, which say
- * what a change's author can be, the MCP guide's counts, and the served
- * contract proof's procedure, which carries every count. Each operation,
- * error code and body limit is listed by the generated operation reference,
- * which the documentation site's own checks hold to the description. */
+ * what a change's author can be, and the served contract proof's
+ * procedure, which carries every count. Each operation with its tool, each
+ * error code and each body limit is listed by the generated operation
+ * reference, which the documentation site's own checks hold to the
+ * description. */
 export const CONTRACT_DOCS = { api: 'docs/api/http-api.md', mcp: 'docs/api/mcp.md', proof: 'scripts/served-contract-proof.md' };
 /** Those files' committed text, read from a repository root. */
 export const readContractDocs = (root = '.') => Object.fromEntries(Object.entries(CONTRACT_DOCS).map(([key, file]) => [key, readFileSync(path.join(root, file), 'utf8')]));
@@ -37,12 +38,6 @@ export function readerCountSummary(counts) {
 /** Compare the committed reader text, never two newly generated summaries. */
 export function checkContractDocs(document, tools, docs) {
   const measured = measureContract(document, tools), problems = [];
-  const count = (label, seen, expected) => {
-    if (seen === undefined || Number(seen) !== expected) problems.push(`${label}: reader says ${seen ?? 'nothing'}, contract requires ${expected}`);
-  };
-  for (const [label, expected] of [['Documented operations', measured.operations], ['Operations that become tools', measured.tools], ['Deliberately excluded', measured.exclusions]]) {
-    count(`MCP ${label}`, docs.mcp.match(new RegExp(`\\| ${label} \\| (\\d+) \\|`))?.[1], expected);
-  }
   const catalogue = document['x-error-codes'];
   const enumCodes = document.components.schemas.Error.properties.error.properties.code.enum;
   if (!equal([...enumCodes].sort(), Object.keys(catalogue).sort())) problems.push('Error schema and source catalogue disagree');
@@ -67,8 +62,8 @@ export function checkContractDocs(document, tools, docs) {
   for (const field of ['lastChangedBy', 'author', 'runner']) if (!found.has(field)) problems.push(`Missing actor position: ${field}`);
   for (const [key, label] of [['api', 'API'], ['mcp', 'MCP']]) {
     if (!docs[key].includes('{ deleted: true }')) problems.push(`${label} actor guidance omits the deleted variant`);
+    if (!normalize(docs[key]).includes("A change's author can be a deleted account")) problems.push(`${label} guide omits that a change's author can be a deleted account`);
   }
-  if (!normalize(docs.api).includes("A change's author can be a deleted account")) problems.push('API guide omits that a change\'s author can be a deleted account');
   const proofCounts = docs.proof?.match(/<!-- contract-counts:start -->([\s\S]*?)<!-- contract-counts:end -->/)?.[1];
   if (normalize(proofCounts ?? '') !== readerCountSummary(measured)) problems.push('Proof guide counts differ from contract');
   return problems;

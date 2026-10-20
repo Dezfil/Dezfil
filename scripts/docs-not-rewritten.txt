@@ -2,7 +2,6 @@
 # rewritten, one path per line. A page leaves this list in the change that
 # rewrites it, and no page is added to it. Every other check of the lint
 # still holds a listed page.
-docs/api/mcp.md
 docs/contribute/architecture.md
 docs/contribute/how-this-is-built.md
 docs/self-host/backup-and-restore.md
