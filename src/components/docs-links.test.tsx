@@ -49,7 +49,8 @@ function pageFile(url: string): string {
 describe("the documentation site's addresses in the app", () => {
   it("name pages the repository carries", () => {
     expect(DOCS_SITE_URL).toBe("https://dezfil.io/docs/");
-    expect(MCP_GUIDE_URL).toBe("https://dezfil.io/docs/reference/mcp/");
+    expect(MCP_GUIDE_URL).toBe("https://dezfil.io/docs/api/mcp/");
+    expect(HTTP_API_GUIDE_URL).toBe("https://dezfil.io/docs/api/http-api/");
     for (const url of [MCP_GUIDE_URL, HTTP_API_GUIDE_URL]) expect(existsSync(pageFile(url)), url).toBe(true);
   });
 });
