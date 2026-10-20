@@ -1,103 +1,178 @@
 ---
 title: "How this is built"
-summary: "The method behind the repository: each change described as behavior first, written largely by AI coding agents and reviewed before it lands."
+summary: "Take a change from an idea to main: describe the behavior, build it on a branch with its tests, pass the checks and get it reviewed."
 read_when:
-  - "you plan to contribute a change"
-  - "you wonder why the repository looks the way it does"
+  - "you plan to contribute a change and want to know what is expected of it"
+  - "you write a change with an AI coding agent"
+  - "you want to know what a reviewer looks for before a pull request merges"
+  - "you say in a pull request what you tested and what you did not"
+  - "a pull request check says a commit is not signed off or its message carries an internal reference"
 audience:
   - developer
+  - agent
 checked: none
+order: 3
 moved_from:
   - "/docs/develop/how-this-is-built/"
 ---
 
-This project is written largely by AI coding agents, under a method that is worth
-stating plainly: it explains why the repository looks the way it does, and it tells a
-contributor what is expected of a change.
+Every change to Dezfil takes the same steps, whether a person or an AI coding agent writes it:
 
-## A change starts as a description of behavior
+| Step | What you do | What holds it |
+|---|---|---|
+| [1. Describe](#1-describe-the-change) | Say what a user will notice, in an issue | The issue forms |
+| [2. Build](#2-build-it-on-a-branch) | Commit on a branch, with tests | Conventional Commits and a sign-off |
+| [3. Check](#3-run-the-checks) | Run the checks before you push | The pipeline, on every pull request |
+| [4. Open a pull request](#4-open-a-pull-request) | Say what changed and how you checked it | The pull request template |
+| [5. Review](#5-get-it-reviewed) | A second reader reads the diff | The reviewer, then a maintainer's merge |
 
-Before implementation, a change is described in terms of what a user would notice: the
-behavior, the acceptance criteria, what is explicitly out of scope. The description
-avoids function names, signatures and pseudo-code, because those are decisions the
-implementation makes better. Only once the description is settled does the work move on
-to how it will be done, and then to the order the steps take.
+## 1. Describe the change
 
-The rule is a spectrum rather than a ritual. A change whose surface is already known,
-which introduces nothing a user would have to decide, and whose steps would restate the
-description, is written directly. The costlier the mistake, the more description it is
-worth writing first.
+For anything larger than a typo, open an issue first, at <https://github.com/Dezfil/Dezfil/issues/new/choose>. Pick the form that fits:
 
-Where the implementation ends up differing from the description, the description is
-corrected. Documentation mirrors the implementation, never the other way round: a
-document that disagrees with working code is a document to fix.
+| Form | What it asks for |
+|---|---|
+| Feature request | The problem, the behavior you would like from a user's point of view, and what you do today instead |
+| Bug report | What happened, the steps to reproduce it, the version, how you run Dezfil, and any logs |
 
-## Every change is read by a different model
+You should see your issue open with the label its form sets: `enhancement` or `bug`.
 
-A change is reviewed before it lands by a model from a different family than the one
-that wrote it, reading the diff from a fresh context, with the automated checks already
-green so the reading is not spent on what a linter would catch.
+Describe behavior, not code: what a user will see or be able to do, how you will know it works, and what the change leaves out.
 
-This is not ceremony. Four classes of defect reliably survive the model that wrote them
-and are caught here:
+The costlier a mistake would be, the more you describe first. A renamed API path, field or error code is a breaking change, so say so in the issue.
 
-- **A check that cannot fail.** An assertion whose two sides come from the same code
-  path, an absence check against a payload that never carried the value, a timeout test
-  against a call that returns before the timer arms.
-- **An overclaimed closure.** Work marked done in terms its own evidence does not
-  support. Criteria of the form "an X and a Y each do Z" evidenced by one of the two.
-- **A citation that resolves to nothing.** A path, a test or a script name that does
-  not exist.
-- **A defect in the measurement.** A benchmark is code too, and a wrong number
-  presented as a fact is worse than no number.
+Report a security problem privately, as [SECURITY.md](../../SECURITY.md) says, never in an issue. Ask questions in [Discussions](https://github.com/Dezfil/Dezfil/discussions).
 
-Review findings are input, not instructions. A finding is adopted when it stands up to
-scrutiny and declined with a reason when it does not.
+> [!NOTE]
+> Dezfil's scope is narrow on purpose: make a map, add layers, style it, publish it. Organizations, single sign-on, audit logs, per-item grants and warehouse connectors are outside its model. If a change seems to need one, raise that in the issue.
 
-## Evidence has a vocabulary
+## 2. Build it on a branch
 
-Any claim that something works carries one of four labels, and "verified" on its own is
-not one of them:
+```sh title="Terminal"
+git switch -c fix/legend-range main
+git add <CHANGED_FILES>
+git commit -s -m "fix(legend): show the new range after a colormap change"
+git log -1 --format=%B
+```
 
-- **confirmed** - the code path or the artifact demonstrates the claim directly.
-- **confirmed mechanism, unmeasured impact** - deterministic in code, but the
-  user-facing magnitude needs a profile or a reproduction before it drives priority.
-- **plausible** - credible from reading the code, and in need of a concurrency test, a
-  failure injection or a browser run before it is more than that.
-- **comparative judgment** - depends on what a user expects, and is never "verified".
+```text title="Output"
+fix(legend): show the new range after a colormap change
 
-An untested branch is not verified, however convincing its sibling looks.
+Signed-off-by: <YOUR_NAME> <<YOUR_EMAIL>>
+```
 
-## Testing is layered because no layer is enough
+- `fix/legend-range` names the branch by its kind and its subject. Cut it from `main` and keep it to one subject: a defect you find on the way past gets its own issue.
+- `git add <CHANGED_FILES>` stages the files you edited, so the commit takes them.
+- `fix(legend): ...` is a Conventional Commits message: a type, an optional scope, then what the change does.
+- `-s` adds the `Signed-off-by` line from your `user.name` and `user.email`. With it you certify the Developer Certificate of Origin, under your real name.
 
-Each layer holds what the one below it cannot see.
+Write a body for anything substantial: why, the behavior that results, how you checked it and what that did not cover. [Contributing](../../CONTRIBUTING.md) lists the commit types and holds the certificate.
 
-1. **The automated suites** hold repeatable behavior: types, lint, unit tests, the API
-   journey. They are the floor and they run in the pipeline.
-2. **Browser journeys** hold flows end to end. They cannot judge how something feels.
-3. **Pixel regressions** hold what an agent cannot see: transparency arithmetic, icon
-   rendering, whether an animation is actually running.
-4. **A human looking at the screen** is the last word on interaction.
+A change ships with its tests. Prefer a test that fails before the change and passes after it: a test that cannot fail only turns an assumption into a green tick.
 
-The ratchet matters more than the layers: anything a human catches by eye becomes an
-automated check, so the same class of defect is never found by hand twice.
+Keep to these while you build:
 
-## Some habits that are load-bearing
+- **API first:** new behavior starts as a documented API operation, which the UI calls like any other client. What a person can do in the app, an agent can do too.
+- **Docs in the same change:** if a page under `docs/` describes what you changed, fix the page too.
+- **Large modules shrink:** the oversized modules listed in `scripts/check-monster-files.mjs` must not grow. Extract the piece you touch, and start new logic in a new module.
+- **Borrowed code keeps its header:** code from a permissively licensed project keeps its licence header and gets a line in [NOTICE](../../NOTICE). Copyleft code is reference only.
 
-- **Put quality where the checks can see it.** Agents build what is verified. To raise
-  quality somewhere, add an acceptance criterion or a pipeline check. Exhortation in
-  prose does nothing.
-- **Oversized modules shrink at the change that touches them.** A change that touches a
-  large module extracts the piece it worked on, and new logic starts in a new module.
-  Never a rewrite sprint, which is where behavior quietly changes.
-- **Finding a defect is not authorization to fix it.** Work that discovers an unrelated
-  defect records it and carries on, so a scoped change stays scoped.
-- **When two notes disagree, run the thing.** Never resolve a contradiction by
-  preferring the more recent note.
+If an AI coding agent writes the change, start it on [AGENTS.md](../../AGENTS.md). It holds the constraints every change keeps, and points the agent at the [documentation index](../README.md).
 
-## What this means for a contribution
+## 3. Run the checks
 
-A change is welcome from a human or an agent. Either way it carries its tests, its
-claims carry the evidence vocabulary above, and it states plainly what it did not
-verify. A pull request that says what it could not prove is more useful than one that
-implies it proved everything.
+```sh title="Terminal"
+npm run lint
+npm run typecheck
+DEZFIL_DATA_DIR="$(mktemp -d)" npm test
+```
+
+- `npm run lint` runs ESLint over the repository.
+- `npm run typecheck` checks the types with the TypeScript compiler and emits no JavaScript.
+- `npm test` runs the unit and integration suite. `DEZFIL_DATA_DIR` gives it an empty scratch folder, so the suite never touches your real data. Its tile tests need `tippecanoe` on your `PATH`: [Development setup](development-setup.md#add-the-programs-the-container-brings) says how to install it.
+
+You should see each command finish without an error.
+
+Each narrower check, such as `npm run lint:docs`, holds one property of the repository. Run the ones your change could break. [Development setup](development-setup.md#run-the-checks) lists them all.
+
+The pipeline runs the checks again on every pull request and every push to `main`, and a new push to a pull request cancels the run still going:
+
+| Job | When it runs | What it does |
+|---|---|---|
+| `checks` | Every pull request and every push to `main` | Lint, types, every narrower check, the unit suite, and the two checks of the ingress preload |
+| `secrets` | Every pull request and every push to `main` | Scans the working tree for secrets with gitleaks |
+| `commits` | Every pull request | Checks that every commit is signed off and that no commit message cites an internal tracking reference |
+| `image` | Every push to `main`, so after a merge | Builds the container, checks what it holds, and drives it with no network: ready within 30 seconds, the API journey, then the ownership and sharing journeys, each seeded on a fresh volume and verified after the container is replaced. [`ci.yml`](../../.github/workflows/ci.yml) lists every step. |
+
+The browser suite is outside the pipeline. When only a browser can judge your change, run `npm run journey:browser` yourself, as [Development setup](development-setup.md#run-the-browser-suite) describes.
+
+## 4. Open a pull request
+
+Push the branch and open a pull request against `main`. Its description starts from the project's [template](../../.github/PULL_REQUEST_TEMPLATE.md):
+
+| Section | What you write |
+|---|---|
+| What this changes | One or two sentences: what is different after it merges |
+| Why | The problem it solves, and the issue it closes, such as `Fixes #123` |
+| How it was checked | The commands you ran, and what you looked at by eye |
+| For a reviewer | A trade-off you made, a place you were unsure, a behavior only a browser shows, and a screenshot if the interface changed |
+| Before you open this | The sign-off, Conventional Commits, borrowed code in NOTICE, and docs that match what ships |
+
+You should see the `checks`, `secrets` and `commits` jobs start on the pull request.
+
+Under How it was checked, name each command you ran and read the output of, and say plainly what you did not run.
+
+Give each claim one of these labels. "Verified" on its own is not one of them:
+
+| Label | Use it when |
+|---|---|
+| confirmed | The code path, a test or a run demonstrates the claim directly |
+| confirmed mechanism, unmeasured impact | The code makes the behavior certain, but how much it matters to a user needs a profile or a reproduction |
+| plausible | Reading the code makes it credible, and a concurrency, failure-injection or browser test would settle it |
+| comparative judgment | It depends on what users expect, or on what another product does |
+
+An untested branch of the code stays unverified, however convincing its sibling looks.
+
+## 5. Get it reviewed
+
+A second reader reads the diff before it merges: a person or an agent that did not write the change, starting fresh. Never merge your own pull request without a review.
+
+When an AI agent wrote the change, the reviewer is a model of another family, so the two do not share blind spots.
+
+The reviewer reads the change against its description and looks hardest at what its author's own checking tends to miss:
+
+| What | What the reviewer asks |
+|---|---|
+| The description | Does the change do what its issue describes, and nothing outside it? |
+| Tests that can fail | Could each new test fail? An assertion whose two sides come from the same code path, or an absence check against data that never held the value, cannot. |
+| Claims and evidence | Does the evidence cover every part of the claim? "X and Y each do Z" needs both shown. |
+| References | Does every path, test, command or script the change names exist? |
+| Measurements | Is the harness right? A benchmark is code too, and a wrong number is a defect. |
+| The API | Can an agent do through the API what a person can do in the app? |
+| Docs and licences | Do the pages match the behavior, and does borrowed code keep its header and its NOTICE line? |
+
+Review findings are input, not instructions: each is adopted when it holds up, or declined with a reason on the pull request. Push each fix as a new commit.
+
+Once the checks pass and the review settles, a maintainer merges the pull request with a merge commit. It keeps each of your commits, and the change's boundary, in the history.
+
+The `image` job then builds the container from `main`.
+
+## Troubleshooting
+
+**The `commits` job says "Missing Signed-off-by".** A commit lacks the sign-off line. Sign every commit on the branch with `git rebase --signoff main`, then force-push the branch.
+
+**The `commits` job says a message "carries a planning document number", "a tracking row identifier" or "a path this repository does not carry".** Reword that commit with `git rebase -i main`, writing what the change does instead of the reference, then force-push.
+
+**`npm run lint:citations` says a file "cites" something.** A tracked file points at a document this repository does not carry. Write the reason in its place, not the reference.
+
+**`npm run typecheck` stops with "JavaScript heap out of memory".** Node's default heap is too small for this repository. Run `NODE_OPTIONS=--max-old-space-size=4096 npm run typecheck`, as the pipeline does.
+
+**`npm test` fails with "Authenticated fixtures require a scratch DEZFIL_DATA_DIR" or "DEZFIL_DATA_DIR must name a scratch directory".** The suite needs a scratch folder. Set `DEZFIL_DATA_DIR` as in [step 3](#3-run-the-checks).
+
+**`npm run lint:size` says a module is "below its ceiling".** Your change shrank one of the oversized modules. Lower its ceiling to the new line count in `scripts/check-monster-files.mjs`, in the same change.
+
+## Next steps
+
+- [Development setup](development-setup.md): run a checkout, every check and the tests.
+- [Architecture](architecture.md): how the container is put together, and where each piece lives.
+- [Contributing](../../CONTRIBUTING.md): commit types, the certificate and licensing.

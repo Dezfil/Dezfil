@@ -165,7 +165,7 @@ git log -z --format=%B --no-merges main..HEAD | node .github/scripts/check-commi
 Checked 3 commit messages: clean.
 ```
 
-The secret scan is `gitleaks dir . --no-banner --redact --exit-code 1`.
+The secret scan is `gitleaks dir . --no-banner --redact --exit-code 1`. [How this is built](how-this-is-built.md#3-run-the-checks) lists the pipeline's jobs.
 
 ## Run the unit tests
 
@@ -342,7 +342,7 @@ ok: spatial
 PASS — all 7 extensions load offline.
 ```
 
-The image job runs these on `main`, among many checks of the running container. [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) lists every step. [Architecture](architecture.md) says what the image holds.
+The image job runs these on `main`. [Architecture](architecture.md) says what the image holds.
 
 ## Checks outside the pipeline
 

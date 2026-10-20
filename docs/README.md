@@ -143,17 +143,17 @@ Work on Dezfil's code.
   - read when: you set up a checkout to change Dezfil's code; you want to run the pipeline's checks before you push; you run the unit tests or the browser suite against an instance of your own; a test needs DEZFIL_TEST_PG_URL or another test-only variable; you regenerate the docs index, the design specimen or another generated file
   - audience: developer, agent
 
+- [How this is built](contribute/how-this-is-built.md)
+  - path: `docs/contribute/how-this-is-built.md`
+  - summary: Take a change from an idea to main: describe the behavior, build it on a branch with its tests, pass the checks and get it reviewed.
+  - read when: you plan to contribute a change and want to know what is expected of it; you write a change with an AI coding agent; you want to know what a reviewer looks for before a pull request merges; you say in a pull request what you tested and what you did not; a pull request check says a commit is not signed off or its message carries an internal reference
+  - audience: developer, agent
+
 - [Architecture](contribute/architecture.md)
   - path: `docs/contribute/architecture.md`
   - summary: How the one container is put together: the web application, the metadata database, the query engine and the files under one data directory.
   - read when: you change the code and need to know where a piece lives; you want to know why there is no second service
   - audience: developer, agent
-
-- [How this is built](contribute/how-this-is-built.md)
-  - path: `docs/contribute/how-this-is-built.md`
-  - summary: The method behind the repository: each change described as behavior first, written largely by AI coding agents and reviewed before it lands.
-  - read when: you plan to contribute a change; you wonder why the repository looks the way it does
-  - audience: developer
 
 ## About
 
