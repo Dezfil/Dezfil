@@ -15,7 +15,7 @@ order: 2
 
 ![The map builder on World cities: the Layers tab with the layers Megacities and world_cities, the style panel of world_cities open at its Visualization section, and the map with the megacities drawn larger over the cities and the legend in the bottom left corner](../images/use/build-a-map-builder.webp)
 
-You need a map you can edit and at least one dataset. [Your first map](../start/first-map.md) makes both in about ten minutes.
+- **You need:** a map you can edit and at least one dataset. The steps use the World cities map from [Your first map](../start/first-map.md), which makes both in about ten minutes.
 
 Every change in the builder saves as you make it. **Undo** at the top of the page takes the last one back.
 
