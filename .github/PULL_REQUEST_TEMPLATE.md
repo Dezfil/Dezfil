@@ -12,8 +12,8 @@
 
 - [ ] `npm run lint`
 - [ ] `npm run typecheck`
-- [ ] `npm test`
-- [ ] The narrower gates for the area I touched
+- [ ] `DEZFIL_DATA_DIR="$(mktemp -d)" npm test`
+- [ ] The narrower gates for the area I touched, as docs/contribute/development-setup.md lists them
 
 ## For a reviewer
 

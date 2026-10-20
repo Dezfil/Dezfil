@@ -8,10 +8,13 @@ This file is the brief for coding agents working in this repository: the
 constraints that hold across every change. Before you touch a page under
 `docs/` or a behavior a page describes, read the documentation index,
 [docs/README.md](docs/README.md): every page with its summary and the
-situations it is written for. What the product does is in
+situations it is written for. To write or rewrite a page, follow
+[docs/contribute/write-docs.md](docs/contribute/write-docs.md): the writing
+rules and the checks that hold them. What the product does is in
 [README.md](README.md), how to run it in
-[docs/start/install.md](docs/start/install.md); operational recipes live in
-[docs/self-host/backup-and-restore.md](docs/self-host/backup-and-restore.md).
+[docs/start/install.md](docs/start/install.md), and how to run the checks,
+the tests and the instances they need in
+[docs/contribute/development-setup.md](docs/contribute/development-setup.md).
 
 ## The product
 
@@ -68,13 +71,13 @@ What follows from that:
 ## Working in this repository
 
 ```sh
-npm ci               # install exactly what the lockfile pins
-npm run dev          # the app on port 3000, data in ./data
-npm test             # the unit and integration suite
-npm run lint         # eslint
-npm run typecheck    # tsc, no emit
-npm run build        # the production build
-npx playwright test  # the browser suite, against a running instance
+npm ci                                   # install exactly what the lockfile pins
+npm run dev                              # the app on port 3000, data in ./data
+DEZFIL_DATA_DIR="$(mktemp -d)" npm test  # the unit and integration suite, on a scratch data folder
+npm run lint                             # eslint
+npm run typecheck                        # tsc, no emit
+npm run build                            # the production build
+npx playwright test                      # the browser suite, against a running instance
 ```
 
 Past lint and types there are named gates, each its own script, each holding

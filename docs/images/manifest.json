@@ -1,6 +1,40 @@
 {
   "rows": [
     {
+      "file": "about/licence-and-credits-map-credit.dark.webp",
+      "scene": "licence-and-credits-map-credit",
+      "kind": "picture",
+      "theme": "dark",
+      "version": "0.1.0",
+      "date": "2026-10-20",
+      "width": 430,
+      "height": 66,
+      "bytes": 2674,
+      "crop": {
+        "x": 1203,
+        "y": 849,
+        "width": 215,
+        "height": 33
+      }
+    },
+    {
+      "file": "about/licence-and-credits-map-credit.webp",
+      "scene": "licence-and-credits-map-credit",
+      "kind": "picture",
+      "theme": "light",
+      "version": "0.1.0",
+      "date": "2026-10-20",
+      "width": 430,
+      "height": 66,
+      "bytes": 1980,
+      "crop": {
+        "x": 1203,
+        "y": 849,
+        "width": 215,
+        "height": 33
+      }
+    },
+    {
       "file": "start/first-map-add-layer.dark.webp",
       "scene": "first-map-add-layer",
       "kind": "picture",
