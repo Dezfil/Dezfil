@@ -66,7 +66,7 @@ Install, secure, configure and back up your own instance.
 - [General](self-host/configuration/general.md)
   - path: `docs/self-host/configuration/general.md`
   - summary: Name the instance, write the sign-in page's message and lost-password contact, and choose where people land after they sign in.
-  - read when: you want to give the instance a name or a sign-in message; you want people to land on another page after they sign in
+  - read when: you want to give the instance a name or a sign-in message; you want to tell people whom to ask when they lose their password; you want people to land on another page after they sign in
   - audience: operator, agent
 
 - [Instance defaults](self-host/configuration/defaults.md)
@@ -78,13 +78,13 @@ Install, secure, configure and back up your own instance.
 - [Basemaps and imagery](self-host/configuration/libraries.md)
   - path: `docs/self-host/configuration/libraries.md`
   - summary: Choose which basemaps the instance offers, set up satellite imagery, and pin a basemap style of your own.
-  - read when: you want to hide a basemap from the pickers; you want to offer satellite imagery with your own tile address; you want every map to use your own basemap style
+  - read when: you want to hide a basemap from the pickers; you want to offer satellite imagery with your own tile address; you want every map to use your own basemap style, such as on a network without internet access
   - audience: operator, agent
 
 - [Data and services](self-host/configuration/services.md)
   - path: `docs/self-host/configuration/services.md`
   - summary: Point the instance at an address finder, a travel-time service, an Overpass server or S3 storage, and choose its template catalogue.
-  - read when: you want to turn on place search and geocoding with an address finder; you want travel-time areas, or your own Overpass server for OpenStreetMap; you want the server to reach a host on your private network
+  - read when: you want to turn on place search and geocoding with an address finder; you want travel-time areas, or your own Overpass server for OpenStreetMap; you want the server to reach a host on your private network; you want imports from private cloud storage buckets
   - audience: operator, agent
 
 - [Security and rules](self-host/configuration/rules.md)

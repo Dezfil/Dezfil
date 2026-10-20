@@ -12,7 +12,7 @@ checked: none
 order: 5
 ---
 
-An admin sets these on the **Security**, **Publishing** and **Data & services** tabs of **Settings**. Each one has a Settings key and no variable.
+An admin sets these on the **Security**, **Publishing** and **Data & services** tabs of **Settings**. They have no variables, so nothing locks them, and a change applies at once.
 
 <!-- settings-rules:start -->
 
@@ -32,5 +32,8 @@ An admin sets these on the **Security**, **Publishing** and **Data & services** 
 | **Who may import from links** |  | `imports.links` | `everyone` | `everyone` or `admins` | Whether every account or only admins may import from web addresses and cloud storage. Link datasets keep refreshing. | In Settings, live |
 
 <!-- settings-rules:end -->
+
+- A rule refuses new actions and takes nothing away. A refused action answers `403 rule_refused`, with `error.rule` naming the rule, and the screens show that action disabled.
+- Every signed-in account and agent reads the rules it follows as `rules` in `GET /api/config`, with the shortest password as `passwordMin`.
 
 [Configuration](../configuration.md) shows how a change in Settings applies.

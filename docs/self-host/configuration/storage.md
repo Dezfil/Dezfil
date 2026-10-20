@@ -12,7 +12,7 @@ checked: none
 order: 6
 ---
 
-Each of these is a variable. The **System** tab of **Settings** shows the value in effect.
+Each of these is a variable, read when the server starts. The **System** tab of **Settings** shows the value in effect.
 
 <!-- settings-storage:start -->
 
@@ -25,6 +25,8 @@ Each of these is a variable. The **System** tab of **Settings** shows the value 
 
 <!-- settings-storage:end -->
 
-The data folder also holds the optional model catalogue file: see [Offer other models](../assistant.md#offer-other-models).
+- Without `DEZFIL_SECRET_KEY`, Dezfil makes a key on first start and keeps it as `secret.key` in the data folder. With a lost or changed key, Dezfil cannot read the saved connection passwords and service addresses. Back it up with the data, as [Back up and restore](../backup-and-restore.md) says.
+- The image ships the tile builder and the image renderer where these defaults find them.
+- The data folder also holds the optional model catalogue file: see [Offer other models](../assistant.md#offer-other-models).
 
 [Configuration](../configuration.md) shows how to set a variable.

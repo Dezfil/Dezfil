@@ -5,6 +5,7 @@ read_when:
   - "you want to turn on place search and geocoding with an address finder"
   - "you want travel-time areas, or your own Overpass server for OpenStreetMap"
   - "you want the server to reach a host on your private network"
+  - "you want imports from private cloud storage buckets"
 audience:
   - operator
   - agent
@@ -41,5 +42,9 @@ An admin sets most of these on the **Data & services** tab of **Settings**. The 
 | **Allowed destinations** | `DEZFIL_EGRESS_ALLOWLIST` |  | unset | Host names, IP addresses or CIDR networks, separated by commas | Hosts, IPs or CIDRs permitted past the egress policy. | By variable, after a restart |
 
 <!-- settings-services:end -->
+
+- A saved address is kept encrypted with the instance's key, and shows only its scheme and host. To change a key inside it, save the whole address again.
+- The server refuses an address on a loopback, private or link-local network, at save and at each request, unless `DEZFIL_EGRESS_ALLOWLIST` names it. [What leaves the instance](../what-leaves-the-instance.md) lists every request this governs.
+- Without `DEZFIL_OBJECT_STORE_CREDENTIALS`, cloud storage links are read anonymously, so people import only what the public can read.
 
 [Configuration](../configuration.md) shows how to set a variable and which value wins.

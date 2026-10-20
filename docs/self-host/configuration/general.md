@@ -3,6 +3,7 @@ title: "General"
 summary: "Name the instance, write the sign-in page's message and lost-password contact, and choose where people land after they sign in."
 read_when:
   - "you want to give the instance a name or a sign-in message"
+  - "you want to tell people whom to ask when they lose their password"
   - "you want people to land on another page after they sign in"
 audience:
   - operator
@@ -11,7 +12,7 @@ checked: none
 order: 1
 ---
 
-An admin sets these on the **General** tab of **Settings**. Each one has a Settings key and no variable.
+An admin sets these on the **General** tab of **Settings**. They have no variables, so nothing locks them, and a change applies at once.
 
 <!-- settings-general:start -->
 
@@ -24,4 +25,4 @@ An admin sets these on the **General** tab of **Settings**. Each one has a Setti
 
 <!-- settings-general:end -->
 
-[Configuration](../configuration.md) shows how a change in Settings applies.
+The sign-in page shows the message as plain text, and names the contact in its lost-password line. [Configuration](../configuration.md) shows how a change in Settings applies.

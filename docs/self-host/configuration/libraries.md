@@ -4,7 +4,7 @@ summary: "Choose which basemaps the instance offers, set up satellite imagery, a
 read_when:
   - "you want to hide a basemap from the pickers"
   - "you want to offer satellite imagery with your own tile address"
-  - "you want every map to use your own basemap style"
+  - "you want every map to use your own basemap style, such as on a network without internet access"
 audience:
   - operator
   - agent
@@ -29,5 +29,9 @@ An admin sets the basemap switches and the satellite imagery on the **Libraries*
 | **Basemap credit** | `DEZFIL_BASEMAP_ATTRIBUTION` |  | unset | Text | Credit line for the deployment basemap override. | By variable, after a restart |
 
 <!-- settings-libraries:end -->
+
+- The satellite tile address never reaches a browser. The server fetches each tile and passes it back, so the imagery provider sees your server, not each viewer. A key limited to browser origins needs that limit lifted.
+- Without a readable tile address, **Satellite** leaves every basemap picker. A map already on it draws the default style until an address is saved again.
+- With `DEZFIL_BASEMAP_URL` set and no `DEZFIL_BASEMAP_ATTRIBUTION`, maps show no credit for the basemap.
 
 [Configuration](../configuration.md) shows how to set a variable and which value wins.

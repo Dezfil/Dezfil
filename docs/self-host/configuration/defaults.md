@@ -39,4 +39,8 @@ An admin sets these on the **Maps**, **Workflows & SQL** and **Publishing** tabs
 
 <!-- settings-defaults:end -->
 
+- A canvas, a console or an export card already open keeps what it opened with.
+- A layer created with a style keeps that style. A drawn sketch's layer takes only its color from the cycle.
+- Every signed-in account and agent reads the values in effect as `defaults` in `GET /api/config`.
+
 [Configuration](../configuration.md) shows how a change in Settings applies.
