@@ -33,6 +33,12 @@ What Dezfil is, how to install it, and your first map.
 
 Do things in the app: data, maps, SQL, workflows and sharing.
 
+- [Query with SQL](use/sql.md)
+  - path: `docs/use/sql.md`
+  - summary: Query your datasets in the SQL workspace, see the result as a table or on a map, and keep it as a dataset, a file or a map layer.
+  - read when: you want to query your datasets, or ones shared with you, with SQL; you want to see a query result on a map; you want to keep a query result as a dataset, a file or a map layer; a query is refused, fails or takes too long; you want to run SQL from a script or an AI agent
+  - audience: user, agent
+
 - [Templates](use/templates.md)
   - path: `docs/use/templates.md`
   - summary: The finished maps and workflow examples an instance offers: what a card shows, opening one read only, and making a copy of your own.

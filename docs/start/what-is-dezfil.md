@@ -52,7 +52,7 @@ In the builder you add datasets or SQL queries as layers and style each one, the
 
 The **SQL** workspace queries your datasets in DuckDB's SQL, spatial functions included, and shows the result as a **Table** or on a **Map**.
 
-Keep a result with **Save as dataset**, **Download** or **Add as map layer**.
+Keep a result with **Save as dataset**, **Download** or **Add as map layer**. See [Query with SQL](../use/sql.md).
 
 ## Workflows
 

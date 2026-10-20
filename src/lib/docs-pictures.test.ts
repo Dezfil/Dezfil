@@ -19,10 +19,10 @@ import { CADENCE, THEME_STORAGE_KEY, bundledFfmpeg, cropRectangle, encodeWebm, t
 import { manifestText, planRun } from "../../scripts/docs-pictures-manifest.mjs";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: as above.
-import { SCENES, STATES } from "../../scripts/docs-pictures-scenes.mjs";
+import { SCENES, SQL_STORAGE_KEYS, STATES, STATE_SEEDING } from "../../scripts/docs-pictures-scenes.mjs";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: as above.
-import { freePort, makeScratch, startServer, writeCatalogue } from "../../scripts/docs-pictures-instance.mjs";
+import { freePort, makeScratch, seedFirstMap, startServer, writeCatalogue } from "../../scripts/docs-pictures-instance.mjs";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: as above.
 import { placeOf } from "../../scripts/docs-contract.mjs";
@@ -155,13 +155,30 @@ describe("the scene list", () => {
   });
 
   it("takes the first map's scenes after every seeded scene, so no seeded picture shows the first map", () => {
-    expect(STATES).toEqual(["fresh", "seeded", "first-map"]);
+    expect(STATES.slice(0, 3)).toEqual(["fresh", "seeded", "first-map"]);
     const firstMap = scenes.filter((s) => s.state === "first-map");
     expect(firstMap.length).toBeGreaterThan(0);
     for (const scene of firstMap) {
       expect(scene.pages).toContain("docs/start/first-map.md");
       expect(scene.map).toBe(true);
     }
+  });
+
+  it("makes each state after the seeded one from the state before it, the first map by its own seeding", () => {
+    expect(new Set(STATES).size).toBe(STATES.length);
+    for (const state of Object.keys(STATE_SEEDING)) expect(STATES.indexOf(state)).toBeGreaterThan(STATES.indexOf("seeded"));
+    expect(STATE_SEEDING["first-map"]).toBe(seedFirstMap);
+  });
+
+  it("takes the SQL workspace's scenes after the first map in a state of their own, each starting without the draft and history the app keeps", () => {
+    expect(STATES.indexOf("sql")).toBeGreaterThan(STATES.indexOf("first-map"));
+    const sql = scenes.filter((s) => s.state === "sql");
+    expect(sql.length).toBeGreaterThan(0);
+    for (const scene of sql) expect(scene.pages).toEqual(["docs/use/sql.md"]);
+    // The keys the app writes; if it moves them, a scene would inherit the
+    // draft of the one before it, and this fails first.
+    const storage = readFileSync("src/components/sql/sql-storage.ts", "utf8");
+    for (const key of SQL_STORAGE_KEYS) expect(storage).toContain(`"${key}"`);
   });
 });
 

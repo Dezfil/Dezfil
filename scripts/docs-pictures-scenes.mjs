@@ -14,9 +14,12 @@
 //   exists; `seeded` after the seeding (two accounts, a shared project, the
 //   three shipped templates copied and the repository's fixtures uploaded),
 //   signed in as the first account; `first-map` after that and the first
-//   account's own first map, the one "Your first map" builds. The script
-//   takes the states in this order, every scene of one before the next, so
-//   a seeded scene never shows the first map;
+//   account's own first map, the one "Your first map" builds; then the
+//   states of the Use Dezfil pages, each made from the one before it by its
+//   seeding in `STATE_SEEDING` (a state without one is the state before it,
+//   in a browser of its own). The script takes the states in the order of
+//   `STATES`, every scene of one before the next, so a seeded scene never
+//   shows the first map;
 // - `map: true`, when the scene shows a map: its page may reach the built-in
 //   basemap's host, and nothing is taken until every map on the page is at
 //   rest on the built-in basemap, its tiles loaded. Without it, the
@@ -31,7 +34,7 @@
 //   for `hold` frames of the cadence (ten a second), so the recording's
 //   length is the frames held, at most eight seconds.
 
-import { FIRST_MAP } from "./docs-pictures-instance.mjs";
+import { FIRST_MAP, seedFirstMap } from "./docs-pictures-instance.mjs";
 
 /** Open the Templates page and wait until the catalogue has been read and
  * the three shipped cards are drawn with their pictures. */
@@ -267,6 +270,120 @@ const MAIN_SCREEN_SCENES = [
   },
 ];
 
+// ---------------------------------------------------------------------------
+// Use Dezfil: the SQL workspace, as "Query with SQL" walks through it, on
+// the first map's cities, in the `sql` state.
+
+/** Step 3's query: the cities of more than ten million people, largest
+ * first, with their points. No two of the 15 share a population, so the
+ * order is total. */
+export const SQL_PAGE_QUERY = [
+  "SELECT name, country, population, geometry",
+  "FROM world_cities",
+  "WHERE population > 10000000",
+  "ORDER BY population DESC;",
+].join("\n");
+
+/** How many rows step 3's query answers. */
+const SQL_PAGE_ROWS = 15;
+
+/** What the History scene runs after step 3's query, in order: the page's
+ * API example, then a query that fails with sql_error. */
+const SQL_PAGE_HISTORY = [
+  "SELECT name, country FROM world_cities ORDER BY population DESC LIMIT 3",
+  "SELECT nme FROM world_cities",
+];
+
+/** Where the SQL workspace keeps its draft and its history in the
+ * browser. Each SQL scene starts without them, so none inherits the draft
+ * or the history of the scene before it in the same browser. */
+export const SQL_STORAGE_KEYS = ["dezfil:sql:draft", "dezfil:sql:history"];
+
+/** The results card, and the pane of Sources and History. */
+const SQL_RESULTS = 'section[aria-label="Results"]';
+const SQL_PANE = 'aside[aria-label="Sources and history"]';
+
+/** Type a query into the empty or selected editor, run it, and wait for
+ * its answer. Every answer that ran carries the run time the main
+ * screens' SQL scene shows, so two runs draw the same picture. */
+async function runSqlPageQuery(page, sql) {
+  await page.locator(".cm-content").click();
+  await page.keyboard.press("ControlOrMeta+a");
+  await page.keyboard.insertText(sql);
+  await page.keyboard.press("Escape");
+  const answered = page.waitForResponse((response) => new URL(response.url()).pathname === "/api/query" && response.request().method() === "POST");
+  await page.getByRole("button", { name: "Run query", exact: true }).click();
+  await answered;
+  await page.getByRole("button", { name: "Run query", exact: true }).waitFor();
+}
+
+/** The SQL workspace after step 3: opened with nothing kept from an
+ * earlier scene, the query run, its 15 cities in the table and the Map tab
+ * live. */
+async function openSqlResult(page) {
+  await page.addInitScript((keys) => {
+    for (const key of keys) localStorage.removeItem(key);
+  }, SQL_STORAGE_KEYS);
+  await page.route((url) => url.pathname === "/api/query", async (route) => {
+    if (route.request().method() !== "POST") return route.fallback();
+    const answer = await route.fetch();
+    if (!answer.ok()) return route.fulfill({ response: answer });
+    return route.fulfill({ response: answer, json: { ...(await answer.json()), runtimeMs: SQL_SCENE_RUNTIME_MS } });
+  });
+  await page.goto("/sql");
+  await page.locator(`[data-name="${FIRST_MAP.layer}"]`).waitFor();
+  await runSqlPageQuery(page, SQL_PAGE_QUERY);
+  const results = page.locator(SQL_RESULTS);
+  await results.locator("table tbody tr").nth(SQL_PAGE_ROWS - 1).waitFor();
+  if (await results.getByRole("tab", { name: "Map", exact: true }).isDisabled()) throw new Error("Step 3's result has no geometry: its Map tab is disabled.");
+}
+
+const SQL_PAGE_SCENES = [
+  {
+    // The page's opening picture: Sources, the editor and the 15 cities as
+    // a table, in the full frame.
+    id: "sql-workspace",
+    file: "use/sql-workspace.webp",
+    pages: ["docs/use/sql.md"],
+    kind: "still",
+    state: "sql",
+    open: openSqlResult,
+  },
+  {
+    // Step 5's first tab: the Save as dataset panel under the result's
+    // bar, the new name typed and not yet saved.
+    id: "sql-save-as-dataset",
+    file: "use/sql-save-as-dataset.webp",
+    pages: ["docs/use/sql.md"],
+    kind: "still",
+    state: "sql",
+    crop: { selector: [`${SQL_RESULTS} > div:first-child`, '[role=group][aria-label="Save as dataset"]'], margin: 16 },
+    async open(page) {
+      await openSqlResult(page);
+      await page.getByRole("button", { name: "Save as dataset", exact: true }).click();
+      await page.getByLabel("Name for the new dataset").fill("megacities");
+    },
+  },
+  {
+    // The History tab after three runs, one of them failed. The browser's
+    // fixed clock gives every card the same day and time.
+    id: "sql-history",
+    file: "use/sql-history.webp",
+    pages: ["docs/use/sql.md"],
+    kind: "still",
+    state: "sql",
+    // From the pane's tabs to Clear history, without the empty pane below.
+    crop: { selector: [`${SQL_PANE} [role=tablist]`, `${SQL_PANE} button:has-text("Clear history")`], margin: 12 },
+    async open(page) {
+      await openSqlResult(page);
+      for (const sql of SQL_PAGE_HISTORY) await runSqlPageQuery(page, sql);
+      await page.locator(SQL_RESULTS).getByText("sql_error", { exact: true }).waitFor();
+      await page.getByRole("tab", { name: /^History/ }).click();
+      await page.locator("[data-history-card]").nth(SQL_PAGE_HISTORY.length).waitFor();
+    },
+  },
+];
+
 export const SCENES = [
   {
     id: "setup-card",
@@ -305,6 +422,16 @@ export const SCENES = [
   },
   ...MAIN_SCREEN_SCENES,
   ...FIRST_MAP_SCENES,
+  ...SQL_PAGE_SCENES,
 ];
 
-export const STATES = ["fresh", "seeded", "first-map"];
+export const STATES = ["fresh", "seeded", "first-map", "sql"];
+
+/** What makes a state after the seeded one from the state before it,
+ * called once a run with the first account's API client and the
+ * checkout's root. `sql` has none: it is the first map's state, in a
+ * browser of its own, so the SQL workspace's stored draft and history
+ * stay among its own scenes. */
+export const STATE_SEEDING = {
+  "first-map": seedFirstMap,
+};
