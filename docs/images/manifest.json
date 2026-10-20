@@ -63,14 +63,14 @@
       "theme": "dark",
       "version": "0.1.0",
       "date": "2026-10-20",
-      "width": 728,
-      "height": 464,
-      "bytes": 13212,
+      "width": 1112,
+      "height": 432,
+      "bytes": 15012,
       "crop": {
-        "x": 1076,
-        "y": 8,
-        "width": 364,
-        "height": 232
+        "x": 884,
+        "y": 0,
+        "width": 556,
+        "height": 216
       }
     },
     {
@@ -80,14 +80,14 @@
       "theme": "light",
       "version": "0.1.0",
       "date": "2026-10-20",
-      "width": 728,
-      "height": 464,
-      "bytes": 14050,
+      "width": 1112,
+      "height": 432,
+      "bytes": 17760,
       "crop": {
-        "x": 1076,
-        "y": 8,
-        "width": 364,
-        "height": 232
+        "x": 884,
+        "y": 0,
+        "width": 556,
+        "height": 216
       }
     },
     {
@@ -257,7 +257,7 @@
       "date": "2026-10-20",
       "width": 2880,
       "height": 1800,
-      "bytes": 115112
+      "bytes": 123112
     },
     {
       "file": "start/what-is-dezfil-sql.webp",
@@ -268,7 +268,7 @@
       "date": "2026-10-20",
       "width": 2880,
       "height": 1800,
-      "bytes": 121304
+      "bytes": 128950
     },
     {
       "file": "start/what-is-dezfil-workflow.dark.webp",
