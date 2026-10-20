@@ -15,10 +15,11 @@ checked: none
 order: 1
 ---
 
-| What | Licence | Full text |
+| What | Licence | Where to read it |
 |---|---|---|
 | Dezfil | Apache License 2.0 | [LICENSE](../../LICENSE) |
-| The code, palettes, icons, fonts and tools it includes | Each project's own | [NOTICE](../../NOTICE) |
+| The code it borrows, its palettes, icons and fonts, and the tools in its image | Each project's own | [NOTICE](../../NOTICE) |
+| The packages the app is built from | Each package's own | [package-lock.json](../../package-lock.json) |
 | The data of the built-in basemaps | ODbL, © OpenStreetMap contributors | [openstreetmap.org/copyright](https://www.openstreetmap.org/copyright) |
 | The data of the templates | Each source's own | [NOTICE](../../NOTICE), and the template's own map |
 
@@ -38,11 +39,17 @@ docker exec dezfil cat /app/NOTICE
 - `/app/NOTICE` lists the code Dezfil borrows and the components of the image. `/app/LICENSE` holds the licence text.
 - Chromium and the other Debian packages in the image keep their licences under `/usr/share/doc`.
 
-You should see the text of NOTICE, which opens with Dezfil's own copyright and licence lines.
+```text title="Output"
+Dezfil
+Copyright 2026 Siavash Saki
+
+Licensed under the Apache License, Version 2.0 (see LICENSE).
+...
+```
 
 ## Libraries and tools
 
-Dezfil is built on these projects. [NOTICE](../../NOTICE) lists the code it borrows and the components of its container image, with their copyright lines. [package.json](../../package.json) names each package the app depends on directly.
+Dezfil is built on these projects. [NOTICE](../../NOTICE) lists the code it borrows and the components of its container image. [package.json](../../package.json) names each package the app depends on directly, and [package-lock.json](../../package-lock.json) the licence each installed package declares.
 
 | Kind | Project | Licence | What it does in Dezfil |
 |---|---|---|---|
