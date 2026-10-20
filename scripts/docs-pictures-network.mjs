@@ -149,9 +149,10 @@ export function problemsMessage(scene, problems, { theme } = {}) {
  * The server's requests, as its observer wrote them, that went somewhere
  * other than the instance itself. The server asks its own listener whether
  * it is answering before it makes map card pictures, which stays inside the
- * run; a request to any other host does not.
+ * run; so do its requests to the hosts the run itself serves it (`inside`,
+ * the scripted model's); a request to any other host does not.
  */
-export function requestsOffInstance(rows, base) {
+export function requestsOffInstance(rows, base, inside = []) {
   const own = new URL(base).host;
-  return rows.filter((row) => row.host !== own);
+  return rows.filter((row) => row.host !== own && !inside.includes(row.host));
 }
