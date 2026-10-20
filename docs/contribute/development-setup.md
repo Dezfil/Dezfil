@@ -92,6 +92,7 @@ The unit tests and the scripts do not read `.env.local`: set the variable in the
 Give each instance its own data folder and port, so test writes never reach your working data:
 
 ```sh title="Terminal"
+# One dev server runs per checkout: stop the first, or use npm start below.
 DEZFIL_DATA_DIR="$(mktemp -d)" PORT=3310 npm run dev
 ```
 
@@ -224,7 +225,7 @@ Build, then start the instance on a fresh data folder, with `tippecanoe` on the 
 
 ```sh title="Terminal"
 npm run build
-DEZFIL_DATA_DIR="$(mktemp -d)" PORT=3310 \
+DEZFIL_DATA_DIR="$(mktemp -d)" PORT=3320 \
 DEZFIL_RENDER_CAP_FEATURES=2000 \
 DEZFIL_EGRESS_ALLOWLIST=127.0.0.1 \
 DEZFIL_OVERPASS_URL=http://127.0.0.1:31877/overpass \
@@ -233,7 +234,7 @@ DEZFIL_AI_PROVIDER=openai OPENAI_API_KEY=scripted-wire \
 OPENAI_BASE_URL=http://127.0.0.1:3202/v1 \
 DEZFIL_ASSISTANT_AUTO_CHECK=off \
 NODE_OPTIONS="--require $PWD/e2e/assistant-self-port.cjs" \
-DEZFIL_E2E_LISTEN_PORT=3310 DEZFIL_E2E_SELF_PORT=3303 \
+DEZFIL_E2E_LISTEN_PORT=3320 DEZFIL_E2E_SELF_PORT=3303 \
 npm start
 ```
 
@@ -249,14 +250,14 @@ Without one of these, the specs that need it fail rather than skip:
 | `DEZFIL_ASSISTANT_AUTO_CHECK=off` | With the check on, a turn that changes the map asks the model once more, and the script has no reply for it |
 | `NODE_OPTIONS`, `DEZFIL_E2E_LISTEN_PORT`, `DEZFIL_E2E_SELF_PORT` | The assistant's calls to its own instance go through the suite's counting harness on port 3303; `DEZFIL_E2E_LISTEN_PORT` is the instance's own port |
 
-You should see `{"status":"ready"}` from `curl http://127.0.0.1:3310/api/health`.
+You should see `{"status":"ready"}` from `curl http://127.0.0.1:3320/api/health`.
 
 ### 3. Run the suite
 
 In a second terminal:
 
 ```sh title="Terminal"
-DEZFIL_BASE_URL=http://127.0.0.1:3310 \
+DEZFIL_BASE_URL=http://127.0.0.1:3320 \
   npm run journey:browser -- --grep-invert "assistant-look|assistant-picker|assistant-catalogue|account-deletion|deleted-attribution|card-states|thumbnail-theme"
 ```
 
@@ -293,14 +294,22 @@ The pixel baselines are cut on macOS on Apple silicon, and most pixel specs skip
 
 ## Drive the API without a browser
 
+Start an instance for the scripts after `npm run build`, then run the journey from a second terminal:
+
 ```sh title="Terminal"
-node scripts/journey.mjs http://127.0.0.1:3310
+export DEZFIL_DATA_DIR="$(mktemp -d)"
+PORT=3330 DEZFIL_EGRESS_ALLOWLIST=127.0.0.1 DEZFIL_RENDER_CAP_FEATURES=2000 npm start
+# In a second terminal:
+node scripts/journey.mjs http://127.0.0.1:3330
 ```
+
+- `DEZFIL_EGRESS_ALLOWLIST` lets the server reach the basemap and the files the scripts serve on loopback.
+- `DEZFIL_RENDER_CAP_FEATURES=2000` lowers the render cap, so the journey takes the tiled road too.
 
 The journey walks the API from upload, SQL and styling to publishing and an image export. It exits non-zero at the first broken step.
 
 ```text title="Output"
-Dezfil headless journey → http://127.0.0.1:3310
+Dezfil headless journey → http://127.0.0.1:3330
 
   ✓ 01 instance reports ready
   ✓ 02 signed in and created an API token before protected work
@@ -311,7 +320,7 @@ Journey complete — <N> steps passed.
 
 On a machine without Chromium, add `--http-only`. The journey then skips the image export and says so.
 
-On an empty store the journey creates its own account, and it signs back in to that account on later runs. A store another account set up turns it away.
+On an empty store the journey creates its own account and signs back in to it on later runs. A store another account set up turns it away.
 
 | Command | What it drives |
 |---|---|
