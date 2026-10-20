@@ -48,7 +48,7 @@ In the builder you add datasets or SQL queries as layers and style each one, the
 
 ## SQL
 
-![The SQL workspace: Sources on the left, a query in the editor that counts the earthquakes in each depth class, and its three rows as a table](../images/start/what-is-dezfil-sql.webp)
+![The SQL workspace: Sources on the left, a query in the editor that lists the six strongest earthquakes with their place, year, magnitude and geometry, and its six rows as a table, with the Map tab beside Table](../images/start/what-is-dezfil-sql.webp)
 
 The **SQL** workspace queries your datasets in DuckDB's SQL, spatial functions included, and shows the result as a **Table** or on a **Map**.
 

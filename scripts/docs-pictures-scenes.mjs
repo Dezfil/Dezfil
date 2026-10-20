@@ -148,15 +148,20 @@ const FIRST_MAP_SCENES = [
  * workflow keeps its template's title. */
 const COPIES = ["Forty years of big earthquakes", "The world's air routes", "Health access in Rwanda"];
 
-/** The query the SQL scene runs on the copied earthquakes: how many there
- * are in each of the template's three depth classes, with their mean
- * magnitude. The three counts differ, so the order is total. */
+/** The query the SQL scene runs on the copied earthquakes: the six
+ * strongest, with their place, year, magnitude and geometry. The result
+ * keeps its geometry, so its Map tab and Add as map layer are live, as the
+ * page beside the picture offers them. No two of the six share a magnitude
+ * and a year, so the order is total. */
 export const SQL_SCENE_QUERY = [
-  "SELECT depth_class, count(*) AS earthquakes, round(avg(magnitude), 1) AS mean_magnitude",
+  "SELECT place, year, magnitude, geom",
   "FROM earthquakes",
-  "GROUP BY depth_class",
-  "ORDER BY earthquakes DESC;",
+  "WHERE magnitude >= 8.5",
+  "ORDER BY magnitude DESC, year;",
 ].join("\n");
+
+/** How many rows the SQL scene's query answers. */
+const SQL_SCENE_ROWS = 6;
 
 /** The run time the SQL scene's result shows. The server measures each
  * run afresh, so its time differs on every run; the scene's page is handed
@@ -218,7 +223,8 @@ const MAIN_SCREEN_SCENES = [
   },
   {
     // The SQL workspace: a query on the copied earthquakes, run, its rows
-    // as a table. A fresh browser context starts with no draft kept.
+    // as a table with the Map tab live. A fresh browser context starts
+    // with no draft kept.
     id: "what-is-dezfil-sql",
     file: "start/what-is-dezfil-sql.webp",
     pages: ["docs/start/what-is-dezfil.md"],
@@ -236,7 +242,9 @@ const MAIN_SCREEN_SCENES = [
       await page.keyboard.insertText(SQL_SCENE_QUERY);
       await page.keyboard.press("Escape");
       await page.getByRole("button", { name: "Run query", exact: true }).click();
-      await page.locator('section[aria-label="Results"] table tbody tr').nth(2).waitFor();
+      const results = page.locator('section[aria-label="Results"]');
+      await results.locator("table tbody tr").nth(SQL_SCENE_ROWS - 1).waitFor();
+      if (await results.getByRole("tab", { name: "Map", exact: true }).isDisabled()) throw new Error("The SQL scene's result has no geometry: its Map tab is disabled.");
     },
   },
   {
