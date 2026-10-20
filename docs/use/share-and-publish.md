@@ -102,9 +102,7 @@ You should see **Published**, the link, **Copy link** and **Open**. Dezfil also 
 
 ![The publish panel of a published map, under its link: the Shared fields row with its counts, Opens in with Light chosen, the Readers can list with Zoom and North always on and 3D tilt, Fit to data, Light / dark, Basemap picker and Cursor coordinates ticked, and the Embed and Unpublish buttons](../images/use/share-and-publish-published.webp)
 
-Readers see the map as it is, and your later edits reach them on their next load. Hidden layers are not published, and neither is their data.
-
-Widgets appear on the published map unless you switch off **Show widgets on published view** in the builder's **Widgets** tab.
+Readers see the map as it is, and your later edits reach them on their next load. A hidden layer's features are not published, but a widget on that layer still shows readers its numbers. Which widgets go out: [Widgets and tools](widgets-and-tools.md#widgets-on-a-published-map).
 
 By default, a layer shares the fields its style, filters and widgets need, marked **needed to render**, plus those its hover and click pop-ups show. **Reset to automatic** restores the default.
 
