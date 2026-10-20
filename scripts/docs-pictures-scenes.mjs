@@ -34,7 +34,7 @@
 //   for `hold` frames of the cadence (ten a second), so the recording's
 //   length is the frames held, at most eight seconds.
 
-import { FIRST_MAP, seedFirstMap } from "./docs-pictures-instance.mjs";
+import { BIG_CITIES, FIRST_MAP, runWorkflow, seedFirstMap, seedWorkflow } from "./docs-pictures-instance.mjs";
 
 /** Open the Templates page and wait until the catalogue has been read and
  * the three shipped cards are drawn with their pictures. */
@@ -384,6 +384,76 @@ const SQL_PAGE_SCENES = [
   },
 ];
 
+// ---------------------------------------------------------------------------
+// Use Dezfil: the Big cities workflow "Workflows" builds on the first map's
+// cities, in the `workflow` state as made and never run, and in the
+// `workflow-run` state after its run.
+
+/** Where the results band keeps a person's choice of open or closed in the
+ * browser. Each workflow scene starts without it, so the band opens as the
+ * instance's default says: closed, until a run in the page opens it. */
+export const BAND_CHOICE_KEY = "dezfil.workflow.band-choice";
+
+/** A tile on the canvas, by the dataset it writes or, for a source, reads. */
+const workflowTile = (page, name) => page.locator(`[data-node][data-name="${name}"]`);
+
+/** Open the Big cities workflow on its canvas, with its three tiles drawn. */
+async function openWorkflow(page) {
+  await page.addInitScript((key) => localStorage.removeItem(key), BAND_CHOICE_KEY);
+  const workflow = await findByName(page, "/api/recipes?origin=workflow", BIG_CITIES.name, (body) => body.recipes);
+  await page.goto(`/workflows/${workflow.id}`);
+  for (const name of [FIRST_MAP.layer, BIG_CITIES.filter.parameters.name, BIG_CITIES.cells.parameters.name]) await workflowTile(page, name).waitFor();
+}
+
+const WORKFLOW_PAGE_SCENES = [
+  {
+    // The page's opening picture: the canvas after the run, each node with
+    // its check mark and the results band on its bar, in the full frame.
+    // The run is the seeding's, so the band stays closed: its Messages
+    // carry the time of each run, which differs on every run.
+    id: "workflows-canvas",
+    file: "use/workflows-canvas.webp",
+    pages: ["docs/use/workflows.md"],
+    kind: "still",
+    state: "workflow-run",
+    async open(page) {
+      await openWorkflow(page);
+      await page.locator('[data-node][data-kind="node"][data-state="up to date"]').nth(1).waitFor();
+    },
+  },
+  {
+    // Step 4: the Filter rows panel before any run, its preview read.
+    id: "workflows-node-panel",
+    file: "use/workflows-node-panel.webp",
+    pages: ["docs/use/workflows.md"],
+    kind: "still",
+    state: "workflow",
+    // The panel stands over the canvas: a margin would cut into the tiles
+    // beside it.
+    crop: { selector: "aside[data-node-panel]", margin: 0 },
+    async open(page) {
+      await openWorkflow(page);
+      await workflowTile(page, BIG_CITIES.filter.parameters.name).click();
+      await page.locator("aside[data-node-panel] [data-preview-line]").waitFor();
+    },
+  },
+  {
+    // Step 6: the Run all dialog, before the run is confirmed. Closing the
+    // page leaves the workflow unrun.
+    id: "workflows-run-all",
+    file: "use/workflows-run-all.webp",
+    pages: ["docs/use/workflows.md"],
+    kind: "still",
+    state: "workflow",
+    crop: { selector: "[data-run-confirm]", margin: 24 },
+    async open(page) {
+      await openWorkflow(page);
+      await page.locator('[data-run-action="run-all"]').click();
+      await page.locator("[data-run-confirm] [data-plan-list] li").nth(1).waitFor();
+    },
+  },
+];
+
 export const SCENES = [
   {
     id: "setup-card",
@@ -423,9 +493,10 @@ export const SCENES = [
   ...MAIN_SCREEN_SCENES,
   ...FIRST_MAP_SCENES,
   ...SQL_PAGE_SCENES,
+  ...WORKFLOW_PAGE_SCENES,
 ];
 
-export const STATES = ["fresh", "seeded", "first-map", "sql"];
+export const STATES = ["fresh", "seeded", "first-map", "sql", "workflow", "workflow-run"];
 
 /** What makes a state after the seeded one from the state before it,
  * called once a run with the first account's API client and the
@@ -434,4 +505,6 @@ export const STATES = ["fresh", "seeded", "first-map", "sql"];
  * stay among its own scenes. */
 export const STATE_SEEDING = {
   "first-map": seedFirstMap,
+  workflow: seedWorkflow,
+  "workflow-run": runWorkflow,
 };

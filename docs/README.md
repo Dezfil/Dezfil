@@ -39,6 +39,12 @@ Do things in the app: data, maps, SQL, workflows and sharing.
   - read when: you want to query your datasets, or ones shared with you, with SQL; you want to see a query result on a map; you want to keep a query result as a dataset, a file or a map layer; a query is refused, fails or takes too long; you want to run SQL from a script or an AI agent
   - audience: user, agent
 
+- [Workflows](use/workflows.md)
+  - path: `docs/use/workflows.md`
+  - summary: Chain tools on a canvas into a workflow, run it, look at each result and run it again when its data or settings change.
+  - read when: you want to repeat the same analysis steps on a dataset without doing them by hand each time; you want to filter, join, buffer or summarize data and keep the result as a dataset; you want to see a step's result as a table or on a map, or add it to a map; you changed a node or its data, or a node says it is edited, stale, failed or cannot run; you can open a workflow someone shared but cannot change or run it
+  - audience: user
+
 - [Templates](use/templates.md)
   - path: `docs/use/templates.md`
   - summary: The finished maps and workflow examples an instance offers: what a card shows, opening one read only, and making a copy of your own.

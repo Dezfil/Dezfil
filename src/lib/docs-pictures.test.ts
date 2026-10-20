@@ -19,13 +19,15 @@ import { CADENCE, THEME_STORAGE_KEY, bundledFfmpeg, cropRectangle, encodeWebm, t
 import { manifestText, planRun } from "../../scripts/docs-pictures-manifest.mjs";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: as above.
-import { SCENES, SQL_STORAGE_KEYS, STATES, STATE_SEEDING } from "../../scripts/docs-pictures-scenes.mjs";
+import { BAND_CHOICE_KEY, SCENES, SQL_STORAGE_KEYS, STATES, STATE_SEEDING } from "../../scripts/docs-pictures-scenes.mjs";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: as above.
-import { freePort, makeScratch, seedFirstMap, startServer, writeCatalogue } from "../../scripts/docs-pictures-instance.mjs";
+import { BIG_CITIES, FIRST_MAP, freePort, makeScratch, runWorkflow, seedFirstMap, seedWorkflow, startServer, writeCatalogue } from "../../scripts/docs-pictures-instance.mjs";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: as above.
 import { placeOf } from "../../scripts/docs-contract.mjs";
+import { defaultOutputName } from "@/components/builder/drawer/operation-form";
+import { findOperation } from "@/lib/operations/catalog";
 import { pictureRendererAvailable } from "@/lib/pictures/renderer";
 import { parseIndex } from "@/lib/templates/catalogue";
 import { webm } from "../../test-support/media-fixtures";
@@ -179,6 +181,26 @@ describe("the scene list", () => {
     // draft of the one before it, and this fails first.
     const storage = readFileSync("src/components/sql/sql-storage.ts", "utf8");
     for (const key of SQL_STORAGE_KEYS) expect(storage).toContain(`"${key}"`);
+  });
+
+  it("takes the Workflows page's scenes on its workflow made and never run, then after its run", () => {
+    expect(STATES.slice(STATES.indexOf("sql") + 1)).toEqual(["workflow", "workflow-run"]);
+    expect(STATE_SEEDING.workflow).toBe(seedWorkflow);
+    expect(STATE_SEEDING["workflow-run"]).toBe(runWorkflow);
+    const workflow = scenes.filter((s) => s.state === "workflow" || s.state === "workflow-run");
+    expect(new Set(workflow.map((s) => s.state))).toEqual(new Set(["workflow", "workflow-run"]));
+    for (const scene of workflow) expect(scene.pages).toEqual(["docs/use/workflows.md"]);
+    // The band's choice is the app's own key; if it moves, the canvas scene
+    // would open the band the scene before it chose, and this fails first.
+    expect(readFileSync("src/components/workflow-canvas/band-store.ts", "utf8")).toContain(`const KEY = "${BAND_CHOICE_KEY}";`);
+  });
+
+  it("names the workflow's datasets as the canvas names them by default, so its pictures show what the page's steps make", () => {
+    const { filter, cells } = BIG_CITIES;
+    expect(filter.parameters.input).toBe(FIRST_MAP.layer);
+    expect(filter.parameters.name).toBe(defaultOutputName(findOperation(filter.operation), filter.parameters.input, () => false));
+    expect(cells.parameters.input).toBe(filter.parameters.name);
+    expect(cells.parameters.name).toBe(defaultOutputName(findOperation(cells.operation), cells.parameters.input, () => false));
   });
 });
 

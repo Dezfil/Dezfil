@@ -237,3 +237,57 @@ export async function seedFirstMap(api, root) {
   expectStatus(await api("PATCH", `/api/layers/${layer.id}`, { basis: captureBasis(current), body: { style: { ...current.style, fill } } }), 200, "color the cities by population");
   expectStatus(await api("PATCH", `/api/maps/${map.id}`, { body: { viewport: FIRST_MAP.viewport } }), 200, "frame the world");
 }
+
+/** The workflow "Workflows" builds on the first map's cities: its name,
+ * and its two nodes as the page sets them, each writing the dataset the
+ * canvas names by default. */
+export const BIG_CITIES = {
+  name: "Big cities",
+  filter: { operation: "filter_rows", parameters: { input: FIRST_MAP.layer, field: "population", comparison: "greater_than", value: "10000000", name: "world_cities_filter_rows" } },
+  cells: { operation: "h3_cell", parameters: { input: "world_cities_filter_rows", resolution: 3, boundary: true, name: "world_cities_filter_rows_h3_cell" } },
+};
+
+/** The first account's Big cities workflow, read back by its name. */
+async function bigCities(api) {
+  const listed = expectStatus(await api("GET", "/api/recipes?origin=workflow"), 200, "list the workflows").recipes;
+  const found = listed.find((entry) => entry.name === BIG_CITIES.name);
+  assert.ok(found, `There is no workflow named ${BIG_CITIES.name}.`);
+  return found;
+}
+
+/**
+ * The Big cities workflow, made by the first account through the
+ * operations the canvas calls for the page's steps 1 to 5: the workflow,
+ * then its two nodes, the filter reading the cities and the cells reading
+ * the filter's dataset. It is never run. Its canvas has no written layout,
+ * so it opens arranged by dependency, the same on every run.
+ */
+export async function seedWorkflow(api) {
+  const recipe = expectStatus(await api("POST", "/api/recipes", { body: { name: BIG_CITIES.name } }), 201, "create the workflow").recipe;
+  for (const step of [BIG_CITIES.filter, BIG_CITIES.cells]) {
+    const basis = captureBasis(expectStatus(await api("GET", `/api/recipes/${recipe.id}`), 200, "read the workflow"));
+    expectStatus(await api("POST", `/api/recipes/${recipe.id}/steps`, { basis, body: step }), 201, `add the ${step.operation} node`);
+  }
+}
+
+/** How long the Big cities run may take. */
+const WORKFLOW_RUN_WITHIN = 120_000;
+
+/** The Big cities workflow run as the page's step 6 runs it, every node,
+ * waited for until the run has completed. */
+export async function runWorkflow(api) {
+  const within = WORKFLOW_RUN_WITHIN;
+  const recipe = await bigCities(api);
+  const basis = captureBasis(expectStatus(await api("GET", `/api/recipes/${recipe.id}`), 200, "read the workflow"));
+  const run = expectStatus(await api("POST", `/api/recipes/${recipe.id}/runs`, { basis, body: {} }), 202, "run the workflow").run;
+  const deadline = Date.now() + within;
+  for (;;) {
+    const read = expectStatus(await api("GET", `/api/recipes/${recipe.id}/runs/${run.id}`), 200, "read the workflow's run").run;
+    if (read.outcome) {
+      assert.equal(read.outcome, "completed", `The workflow's run ended ${read.outcome}: ${JSON.stringify(read.members)}`);
+      return;
+    }
+    assert.ok(Date.now() < deadline, `The workflow's run did not end within ${within / 1000} s.`);
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+}

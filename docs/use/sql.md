@@ -227,3 +227,7 @@ To let an agent call these tools, see [Connect an AI agent](../api/mcp.md).
 **The result shows `query_result_too_large`.** The answer is too big to show, so the workspace offers no way to keep it. Select fewer columns or rows. To download every row anyway, call `POST /api/query/export` from [a script](#from-a-script-or-an-ai-agent).
 
 **Save as dataset says a table with that name already exists.** Dezfil never replaces a dataset when you save. Choose another name.
+
+## Next steps
+
+- Chain queries and tools into steps that run again: [Workflows](workflows.md).
