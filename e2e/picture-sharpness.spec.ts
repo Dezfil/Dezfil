@@ -164,10 +164,8 @@ async function boxes(page: Page, index: number) {
   });
 }
 
-/** Everything one picture on screen must hold. `capture` converts a box
- * on the page into the units the screenshot clip is read in, where those
- * are not the page's own (see the browser zoom). */
-async function judge(page: Page, picture: Seen, where: string, capture = 1) {
+/** Everything one picture on screen must hold. */
+async function judge(page: Page, picture: Seen, where: string) {
   const dpr = await page.evaluate(() => devicePixelRatio);
   const { box, visible } = await boxes(page, picture.index);
   const shape: PictureShape = shapeForBox(box);
@@ -180,9 +178,9 @@ async function judge(page: Page, picture: Seen, where: string, capture = 1) {
   expect(Math.max(...offered), `${label}: a size offered for ${Math.ceil(covers)} screen pixels`).toBeGreaterThanOrEqual(Math.min(widest, Math.floor(covers)));
   const taken = await fileWidth(page, picture.currentSrc);
   if (Number.isInteger(dpr)) expect(taken, `${label}: the file taken`).toBeGreaterThanOrEqual(Math.min(widest, Math.floor(covers) - 1));
-  const shot = await pixels(await page.screenshot({ clip: { x: visible.x * capture, y: visible.y * capture, width: visible.width * capture, height: visible.height * capture } }));
+  const shot = await pixels(await page.screenshot({ clip: visible }));
   // The clip is rounded to whole pixels, so the capture may differ by up
-  // to one point; a capture read at another density differs by hundreds.
+  // to one point; a capture read at another density differs by far more.
   expect(Math.abs(shot.width - visible.width * dpr), `${label}: the capture holds the picture at its screen pixels`).toBeLessThanOrEqual(dpr + 1);
   const rise = eastEdgeRise(shot);
   if (rise !== null) expect(rise, `${label}: the edge's rise in screen pixels`).toBeLessThanOrEqual(2);
@@ -255,16 +253,19 @@ test("after a resize and a browser zoom, Home's pictures follow their boxes", as
   // The strip measures again on its resize, and the browser takes the new offer.
   await page.waitForTimeout(500);
   for (const picture of await seen(page)) await judge(page, picture, "Home resized to 1700");
-  // A browser zoom of 125 percent: more screen pixels per point, fewer points across.
-  const cdp = await context.newCDPSession(page);
-  await cdp.send("Emulation.setDeviceMetricsOverride", { width: 1360, height: 720, deviceScaleFactor: 2.5, mobile: false });
-  await expect.poll(() => page.evaluate(() => devicePixelRatio)).toBe(2.5);
-  await page.waitForTimeout(500);
-  // Playwright does not know of this zoom: its capture still reads a clip
-  // at the context's two screen pixels per point, while the page now draws
-  // at two and a half. A clip given in those units holds the picture.
-  for (const picture of await seen(page)) await judge(page, picture, "Home zoomed to 125 percent", 2.5 / 2);
   await context.close();
+  // A browser zoom of 125 percent on that screen: more screen pixels per
+  // point, fewer points across. Playwright cannot zoom a page it holds (an
+  // override through the devtools protocol sits beside its own emulation,
+  // and its boxes and captures then disagree with the screen), so the
+  // zoomed page is one opened at those metrics; the resize above is the
+  // page following its boxes in place.
+  const zoomed = await browser.newContext({ deviceScaleFactor: 2.5, viewport: { width: 1360, height: 720 } });
+  const again = await zoomed.newPage();
+  await again.goto("/");
+  await hideHostChrome(again);
+  for (const picture of await seen(again)) await judge(again, picture, "Home zoomed to 125 percent");
+  await zoomed.close();
 });
 
 test("a 692 pixel picture enlarged in place fails the sharpness bound where it covers twice its width", async ({ browser }) => {

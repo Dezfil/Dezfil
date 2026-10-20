@@ -78,8 +78,8 @@ DEZFIL_CHROMIUM_PATH=/path/to/chrome-headless-shell fnm exec --using=24 npm test
 
 The sharpness proof drives every card host in a browser on that instance: at
 one, two and three screen pixels per point, at widths on both sides of every
-layout and shape switch it finds by sweeping each page, after a resize and a
-browser zoom, it checks the shape, the size offered and taken, and a straight
+layout and shape switch it finds by sweeping each page, after a resize in
+place and on a page opened at a browser zoom, it checks the shape, the size offered and taken, and a straight
 edge's rise within two screen pixels, with a 692 pixel picture enlarged in
 place as the failing control. It also checks that a page opened again is
 answered 304 for every picture, and that a reader who lost reach and another
