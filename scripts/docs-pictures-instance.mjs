@@ -59,11 +59,12 @@ export async function freePort() {
   return port;
 }
 
-/** The scratch directory: the data directory, the catalogue folder and the
- * request observer's file, all under one folder the run removes. */
+/** The scratch directory: the data directory, the catalogue folder, the
+ * request observer's file and the place of a browser that is never there,
+ * all under one folder the run removes. */
 export async function makeScratch() {
   const folder = await mkdtemp(path.join(tmpdir(), "dezfil-docs-pictures-"));
-  const scratch = { folder, data: path.join(folder, "data"), catalogue: path.join(folder, "catalogue"), requests: path.join(folder, "requests.ndjson") };
+  const scratch = { folder, data: path.join(folder, "data"), catalogue: path.join(folder, "catalogue"), requests: path.join(folder, "requests.ndjson"), browser: path.join(folder, "no-browser") };
   await mkdir(scratch.data);
   await mkdir(scratch.catalogue);
   return scratch;
@@ -109,7 +110,11 @@ export function assertBuiltCheckout(root) {
  * Start `next start` from the checkout, on loopback, with the request
  * observer first in the preload chain and an environment of the script's own:
  * the scratch data directory and catalogue folder, telemetry off, nothing
- * inherited but the path and the home folder.
+ * inherited but the path and the home folder. The server's browser setting
+ * names a file in the scratch folder that nothing creates, so it draws no
+ * map card picture on any machine: a map the run makes has no picture to
+ * inherit, and a browser found at the default place would be started and
+ * talked to over a socket of its own, a request off the instance.
  */
 export async function startServer({ root, port, scratch, readyWithin = 60_000 }) {
   const observer = pathToFileURL(path.join(root, "scripts/docs-pictures-observer.mjs")).href;
@@ -123,6 +128,7 @@ export async function startServer({ root, port, scratch, readyWithin = 60_000 })
     DEZFIL_DATA_DIR: scratch.data,
     DEZFIL_TEMPLATES_CATALOGUE: scratch.catalogue,
     DEZFIL_DOCS_REQUEST_LOG: scratch.requests,
+    DEZFIL_CHROMIUM_PATH: scratch.browser,
   };
   const child = spawn(process.execPath, ["--import=./scripts/ingress-preload.mjs", "node_modules/next/dist/bin/next", "start", "-H", "127.0.0.1", "-p", String(port)], {
     cwd: root, env, stdio: ["ignore", "pipe", "pipe"],

@@ -93,3 +93,11 @@ A run that passes says the server opened no request off the instance (the
 server asks its own listener whether it answers before it makes map card
 pictures; that request stays inside the run) and lists the basemap's styles
 and tile sets the map scenes drew.
+
+The run's server makes no map card picture, on any machine: its
+`DEZFIL_CHROMIUM_PATH` names a file in the scratch folder that does not
+exist. A map the run makes has no picture to inherit, and a server that
+found a browser would start one and talk to it, a request off the instance
+that fails the run. The pages come out the same on every machine for it:
+a page of map cards always shows the administrator the line about a missing
+renderer, and the Maps scene's crop leaves that line out.
