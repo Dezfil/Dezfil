@@ -25,6 +25,8 @@ There is no published image to pull. You clone the repository and build the imag
 
 ## Install
 
+Docker is the quickest start. Docker Compose keeps the setup in a file, and starts Dezfil again after a crash or a Docker restart. From source is for working on the code.
+
 ::::tabs
 
 :::tab[Docker]
@@ -91,7 +93,7 @@ docker compose up -d --build
 - `dezfil-data:/data` keeps everything Dezfil stores in the `dezfil-data` volume.
 - `restart: unless-stopped` starts Dezfil again after a crash or a Docker restart, unless you stopped it.
 
-Dezfil should be ready within 30 seconds of the container starting. Check it:
+The first build takes a few minutes: it compiles the app and its tile builder. Dezfil should be ready within 30 seconds of the container starting. Check it:
 
 ```sh title="Terminal"
 curl http://localhost:3000/api/health
@@ -120,7 +122,7 @@ npm run dev
 - `npm run dev` serves Dezfil on port 3000 and keeps your data in `./data`. Set `PORT` for another port, `DEZFIL_DATA_DIR` for another folder.
 - `npm run dev` listens on every network interface. Run `npm run dev -- -H 127.0.0.1` to keep it on this machine.
 
-Check that Dezfil is ready:
+In another terminal, check that Dezfil is ready:
 
 ```sh title="Terminal"
 curl http://localhost:3000/api/health
@@ -142,6 +144,8 @@ The container brings two programs a checkout lacks:
 :::
 
 ::::
+
+If the check answers `unready`, or nothing at all, the logs say why: run `docker logs dezfil` or `docker compose logs`, or read the terminal that runs `npm run dev`.
 
 ## First run
 
