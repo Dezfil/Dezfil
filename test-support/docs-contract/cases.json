@@ -2184,6 +2184,38 @@
         "docs/about/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you check the writing rules\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nRun it.\n\n<!--\n::::tabs\n:::tab[Docker]\nRun it.\n:::\n::::\n-->\n\n::::tabs\n:::tab[Docker]\nRun it in Docker.\n<!--\n:::note\nKeep it private.\n:::\n-->\n:::\n:::tab[Compose]\nRun it in Compose.\n:::\n::::\n"
       },
       "problems": []
+    },
+    {
+      "scope": "product",
+      "name": "alerts whose marker shares its first line with bold text, a link and inline code",
+      "files": {
+        "docs/about/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you check the writing rules\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nRun it.\n\n> [!NOTE] **Keep the token private.**\n\n## Second\n\n> [!NOTE] [Keep the token private](../start/install.md).\n\n## Third\n\n> [!WARNING] `<YOUR_TOKEN>` stays private.\n"
+      },
+      "problems": [
+        {
+          "file": "docs/about/case.md",
+          "rule": "writing.notice-kind",
+          "line": 15
+        },
+        {
+          "file": "docs/about/case.md",
+          "rule": "writing.notice-kind",
+          "line": 19
+        },
+        {
+          "file": "docs/about/case.md",
+          "rule": "writing.notice-kind",
+          "line": 23
+        }
+      ]
+    },
+    {
+      "scope": "product",
+      "name": "alerts whose marker stands alone, before bold text on the next line and before trailing spaces",
+      "files": {
+        "docs/about/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you check the writing rules\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nRun it.\n\n> [!NOTE]\n> **Keep** the token private.\n\n## Second\n\n> [!WARNING]  \n> Keep the token private.\n"
+      },
+      "problems": []
     }
   ],
   "order": [

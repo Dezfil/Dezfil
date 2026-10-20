@@ -174,19 +174,23 @@ const NOTICE_MARKER = /^\[!([A-Za-z]+)\]/;
 
 /** A notice's marker: the kind its first line names (`[!NOTE]`), and
  * whether the marker stands alone on that line as GitHub requires. Null
- * when the quote opens with no marker. */
-export function noticeMarker(quote) {
+ * when the quote opens with no marker. Whether it stands alone is read
+ * from the whole line as written, from where the quote's text starts, so
+ * bold text, a link or code after the marker shares the line too. */
+export function noticeMarker(quote, read) {
   const first = quote.children[0];
   const text = first?.type === "paragraph" && first.children[0]?.type === "text" ? first.children[0].value : "";
   const marker = NOTICE_MARKER.exec(text);
   if (!marker) return null;
-  return { kind: marker[1].toUpperCase(), alone: text.split("\n")[0].trim() === marker[0], length: marker[0].length };
+  const { line, column } = first.position.start;
+  const opening = (read.lines[line - 1] ?? "").slice(column - 1);
+  return { kind: marker[1].toUpperCase(), alone: opening.trim() === marker[0], length: marker[0].length };
 }
 
 /** A notice's words: the text of everything it holds but code, tables and
  * HTML, without its marker. */
 function noticeWords(quote, read) {
-  const marker = noticeMarker(quote);
+  const marker = noticeMarker(quote, read);
   const found = [];
   let first = true;
   walk(quote, (node) => {
@@ -381,7 +385,7 @@ function noticeProblems(prose) {
     if (node.type !== "blockquote") return;
     if (read.generated(node)) return false;
     const line = read.at(node);
-    const marker = noticeMarker(node);
+    const marker = noticeMarker(node, read);
     if (!marker) add("writing.notice-kind", "a quote is another form of notice; write a notice as a > [!NOTE] or > [!WARNING] alert", line);
     else if (!marker.alone) add("writing.notice-kind", `the [!${marker.kind}] marker shares its line with text, so GitHub shows a plain quote; put the marker on a line of its own`, line);
     else if (!NOTICE_KINDS.includes(marker.kind)) add("writing.notice-kind", `a [!${marker.kind}] alert is another form of notice; a notice is a NOTE or a WARNING alert`, line);
