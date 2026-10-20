@@ -300,7 +300,7 @@ console.log(JSON.stringify(await response.json(), null, 2));
 - Without a `style`, the layer takes the instance's default look. The [operation reference](https://dezfil.io/docs/api/reference/) lists every style field.
 - The answer's `editRevision` is the map's new one. The next change sends it.
 
-In the app, the map appears on your **Maps** page. Open it to see the 15 cities.
+In the app, the map appears on your **Maps** page. Open it to see the 15 cities. Your first map's World cities, if you have it, shows all 48.
 
 ## Step 6: Publish the map
 
