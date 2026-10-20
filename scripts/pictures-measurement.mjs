@@ -160,9 +160,9 @@ export function firstMeasurement(maps, events) {
   return { attempts, appearanceFloorMs: Math.min(...appearances), all: describe(attempts), single: describe(attempts.filter(row => !row.pair)), pair: describe(attempts.filter(row => row.pair)) };
 }
 
-/** An admission observed before calling a restart is insufficient: it must
- * still hold its slot when that process disappears, then resume on the new
- * process and publish exactly once. A graceful drain is a failing control. */
+/** An admission observed before calling a restart is insufficient: the map's
+ * last appearance admitted before boot must still hold its slot, then resume
+ * on the new process and publish exactly once. A graceful drain must fail. */
 export function assertRestartInterrupted(sample, events, complete = true) {
   const admission = events[sample.admissionIndex];
   assert.ok(admission?.kind === 'admitted' && admission.background && sample.admissionIndex < sample.eventOffset, 'Restart requires a background admission');
@@ -170,8 +170,12 @@ export function assertRestartInterrupted(sample, events, complete = true) {
   const boot = events.findIndex((event, index) => index >= sample.eventOffset && event.kind === 'boot' && event.pid !== admission.pid);
   assert.ok(boot >= 0, 'Restart did not boot a different process');
   const interrupted = events.slice(sample.admissionIndex + 1, boot);
-  assert.ok(!interrupted.some(event => event.pid === admission.pid && event.mapId === admission.mapId &&
-    (event.kind === 'published' || event.kind === 'released' && event.background)), 'Background render finished before restart');
+  // Light may release and dark acquire the slot after the restart request.
+  // Check the slot at boot, rather than rejecting the first appearance's release.
+  const inFlight = activeRenders(events, boot).findLast(event => event.background &&
+    event.pid === admission.pid && event.mapId === admission.mapId);
+  assert.ok(inFlight && !interrupted.some(event => event.pid === admission.pid &&
+    event.mapId === admission.mapId && event.kind === 'published'), 'Background render finished before restart');
   if (complete) {
     const resumed = events.findIndex((event, index) => index > boot && event.kind === 'admitted' && event.background && event.mapId === admission.mapId && event.pid === events[boot].pid);
     assert.ok(resumed > boot, 'Interrupted work was never resumed');
@@ -179,5 +183,5 @@ export function assertRestartInterrupted(sample, events, complete = true) {
     assert.equal(publications.length, 1, 'Interrupted work must publish exactly once');
     assert.ok(events.indexOf(publications[0]) > resumed && publications[0].pid === events[boot].pid, 'Interrupted work did not publish on the replacement process');
   }
-  return { mapId: admission.mapId, oldPid: admission.pid, newPid: events[boot].pid, admissionIndex: sample.admissionIndex, bootIndex: boot };
+  return { mapId: admission.mapId, oldPid: admission.pid, newPid: events[boot].pid, admissionIndex: inFlight.index, bootIndex: boot };
 }

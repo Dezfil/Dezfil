@@ -162,3 +162,23 @@ it("rejects a seeded graceful drain and proves the interrupted map resumes and p
   expect(() => assertRestartInterrupted(sample, events.slice(0, 3))).toThrow("never resumed");
   expect(() => assertRestartInterrupted(sample, [...events, events.at(-1)!])).toThrow("exactly once");
 });
+
+it("accepts a pair interrupted after light releases and dark is admitted, but rejects a released dark render", () => {
+  const admission = { kind: "admitted", mapId: "pair", background: true, pid: 1 };
+  const release = { ...admission, kind: "released" };
+  const sample = { admissionIndex: 1, eventOffset: 2 };
+  const events = [
+    { kind: "boot", pid: 1 }, admission, // Light holds the slot when restart is requested.
+    release, admission, // Dark starts before the old process is killed.
+    { kind: "boot", pid: 2 }, { ...admission, pid: 2 }, { ...release, pid: 2 },
+    { ...admission, pid: 2 }, { ...release, pid: 2 },
+    { kind: "published", mapId: "pair", pid: 2 },
+  ];
+  expect(assertRestartInterrupted(sample, events)).toMatchObject({ mapId: "pair", oldPid: 1, newPid: 2, admissionIndex: 3, bootIndex: 4 });
+  expect(assertRestartInterrupted(sample, events, false)).toMatchObject({ admissionIndex: 3 });
+  expect(assertRestartInterrupted({ admissionIndex: 3, eventOffset: 4 }, events)).toMatchObject({ admissionIndex: 3 });
+  const drained = [...events.slice(0, 4), release, ...events.slice(4)];
+  expect(() => assertRestartInterrupted(sample, drained)).toThrow("finished before restart");
+  const published = [...events.slice(0, 4), { kind: "published", mapId: "pair", pid: 1 }, ...events.slice(4)];
+  expect(() => assertRestartInterrupted(sample, published, false)).toThrow("finished before restart");
+});
