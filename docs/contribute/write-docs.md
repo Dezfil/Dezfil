@@ -262,7 +262,7 @@ The site keeps a reader's choice by label across pages, so give one choice one l
 ```
 
 - The alternative text says what the picture shows. A picture without it fails `image.no-alt`.
-- A picture lives under `docs/images/<section>/` as `<page>-<what>.webp`, a recording as `.webm`.
+- A picture lives under `docs/images/<section>/`. Name a new one `<page>-<what>.webp`, and a recording `.webm`.
 - The page names the light take; the dark take sits beside it with `.dark` before the extension.
 
 `npm run docs:pictures` takes both from a real instance and writes their rows in `docs/images/manifest.json`. A picture without a row fails `image.not-in-manifest`.
@@ -271,11 +271,15 @@ The site keeps a reader's choice by label across pages, so give one choice one l
 
 Add an entry to `scripts/docs-pictures-scenes.mjs`: its `id`, its light take's `file`, the `pages`, its `kind`, its `state`, how to `open` it and, for less than the full frame, a `crop`. A map scene sets `map: true`. A recording also takes a `poster` and its `steps`.
 
+Run `npx vitest run src/lib/docs-pictures.test.ts`. You should see it pass: it checks each scene's id, state, kind and takes. Then commit the scene.
+
 ### 2. Take it
 
-In a detached worktree of your branch with no `.env` files:
+In a detached worktree of that commit, which has no `.env` files:
 
 ```sh title="Terminal"
+git worktree add --detach ../<FOLDER> HEAD
+cd ../<FOLDER>
 npm ci
 npx playwright install chromium ffmpeg
 npm run build
@@ -294,7 +298,7 @@ The server opened no request: the observer's file is empty.
 Run npm run docs:write if the manifest is new, then npm run lint:docs.
 ```
 
-It serves the build on loopback over scratch data, and fails if the server or the browser reaches another host. See [What a run does](../../scripts/docs-pictures.md#what-a-run-does).
+It serves the build on loopback over scratch data, and fails if the server or the browser reaches another host; a map scene may reach the built-in basemap's. See [What a run does](../../scripts/docs-pictures.md#what-a-run-does).
 
 ### 3. Commit it
 
