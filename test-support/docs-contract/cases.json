@@ -2216,6 +2216,28 @@
         "docs/about/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you check the writing rules\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nRun it.\n\n> [!NOTE]\n> **Keep** the token private.\n\n## Second\n\n> [!WARNING]  \n> Keep the token private.\n"
       },
       "problems": []
+    },
+    {
+      "scope": "product",
+      "name": "a Use Dezfil page whose only videos before word 151 are inside HTML comments",
+      "files": {
+        "docs/use/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you check the writing rules\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\n<!-- <video></video> -->\n\nword word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word. <!-- <video></video> -->\n\nword word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word.\n"
+      },
+      "problems": [
+        {
+          "file": "docs/use/case.md",
+          "rule": "writing.first-screen",
+          "line": 17
+        }
+      ]
+    },
+    {
+      "scope": "product",
+      "name": "a Use Dezfil page whose video follows an HTML comment in one HTML block",
+      "files": {
+        "docs/use/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you check the writing rules\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\n<!-- The search box narrows the cards. --> <video></video>\n\nword word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word.\n\nword word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word.\n"
+      },
+      "problems": []
     }
   ],
   "order": [

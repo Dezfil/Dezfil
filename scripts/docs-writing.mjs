@@ -210,13 +210,14 @@ const plainText = (node) => (typeof node.value === "string" && ["text", "inlineC
 const STEP_HEADING = /^(?:step\s+\d+(?![\p{L}\p{N}])|\d+[.)](?:\s|$))/iu;
 
 /** What a reader can do or see: a code block, a picture or recording (a
- * picture's syntax, by reference or in HTML), a table, a numbered list (its
- * first item is step 1) or a heading that begins with a step number. */
+ * picture's syntax, by reference or in HTML outside a comment), a table, a
+ * numbered list (its first item is step 1) or a heading that begins with a
+ * step number. */
 function isSomethingToDo(node) {
   if (["code", "table", "image", "imageReference"].includes(node.type)) return true;
   if (node.type === "list") return node.ordered === true;
   if (node.type === "heading") return STEP_HEADING.test(plainText(node).trim());
-  if (node.type === "html") return /<(?:img|video)\b/i.test(node.value);
+  if (node.type === "html") return /<(?:img|video)\b/i.test(node.value.replace(HTML_COMMENT, " "));
   return false;
 }
 
