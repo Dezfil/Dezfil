@@ -84,8 +84,8 @@ Hidden widgets never go out. A widget on a hidden layer still shows its numbers,
 2. Click **Tools** in the bar at the top of the page. You should see the **Tools** drawer, with **Suggested for world_cities** above the full list.
 3. Click **Filter rows**, under **Data**. You should see its form, with **Rows to filter** set to **world_cities** and the line **Pre-filled from the layer “world_cities”.**
 4. Set **Field** to **population**.
-5. Set **Comparison** to **greater_than**.
-6. Type `10000000` in **Value**. You should see **Dry run: 15 rows · POINT** above **Run**, and **Saved as a dataset and added to the map.** under **Result**.
+5. Type `10000000` in **Value**.
+6. Set **Comparison** to **greater_than**. You should see **Dry run: 15 rows · POINT** above **Run**, and **Saved as a dataset and added to the map.** under **Result**.
 7. Replace the text in **Table name** with `big_cities`.
 8. Click **Run**. You should see **world_cities (Filter rows)** and **reading big_cities · 15 rows · point** in the drawer, and the new layer at the top of the list.
 
