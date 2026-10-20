@@ -20,14 +20,16 @@ const CEILINGS = {
   // helper composition, the effective-basemap derivation, the shared
   // map, legend and widget presentation, the render answers with the
   // tile poll, and the timeline dock's render refreshes (now the mutation
-  // lane's).
-  "src/components/builder/MapBuilder.tsx": 1055,
+  // lane's). The thumbnail capture has since left the builder altogether:
+  // card pictures are made on the server.
+  "src/components/builder/MapBuilder.tsx": 1049,
   // The map canvas. Extractions so far: capture, the text sublayer, the
   // basemap content-group lifecycle, tiled-layer construction, pointer
   // interaction, camera constraints, the shared paint readout, overlay
   // lifetime, the cluster counts, the glyph fill and the pinned pop-up;
-  // its three label attachments are one.
-  "src/components/map/MapCanvas.tsx": 1194,
+  // its three label attachments are one. The card picture's snapshot
+  // handle is gone with the builder's capture.
+  "src/components/map/MapCanvas.tsx": 1187,
   // Layer service. Extractions so far: layer geometry inspection, the
   // deletion cascade, field/schema/statistics queries, creation, access, rendering and slider previews,
   // and the write admission.

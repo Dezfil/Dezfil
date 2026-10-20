@@ -8,6 +8,8 @@ import {
   type PicturedMap,
 } from "@/lib/picture-credit";
 import { BasemapCredit } from "./map/BasemapCredit";
+import type { PictureCard } from "./picture-poll";
+import { useFreshPictures } from "./PicturePoll";
 import { useTheme } from "./theme";
 import styles from "./PictureCredit.module.css";
 
@@ -17,7 +19,8 @@ import styles from "./PictureCredit.module.css";
  * that says what it credits, since the open map's bare lines would read
  * as the page's own. A page's own line stands at its foot (`page`); a list
  * view carries it as its list card's foot row (`foot`). No picture on a
- * basemap with a credit, no line.
+ * basemap with a credit, no line. A picture that lands while the page asks
+ * its listing again is credited as it lands.
  */
 export function PictureCredit({
   maps,
@@ -25,13 +28,14 @@ export function PictureCredit({
   placement,
 }: {
   /** The maps whose pictures the page shows. */
-  maps: readonly PicturedMap[];
+  maps: readonly (PicturedMap & PictureCard)[];
   /** The instance's basemaps, as the page was handed them. */
   basemaps?: PictureBasemaps;
   placement: "page" | "foot";
 }) {
   const { theme } = useTheme();
-  const lines = useMemo(() => picturesCredit(maps, basemaps, theme), [maps, basemaps, theme]);
+  const shown = useFreshPictures(maps);
+  const lines = useMemo(() => picturesCredit(shown, basemaps, theme), [shown, basemaps, theme]);
   if (lines.length === 0) return null;
   return (
     <p className={placement === "foot" ? styles.foot : styles.page} data-picture-credit={placement}>

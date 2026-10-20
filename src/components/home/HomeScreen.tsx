@@ -13,6 +13,9 @@ import { ErrorNote } from "../ui/ErrorNote";
 import { useTransientNotice } from "../use-transient-notice";
 import { TransientNotice } from "../TransientNotice";
 import { PictureCredit } from "../PictureCredit";
+import { PictureRendererNotice } from "../PictureRendererNotice";
+import { readPictureListing } from "../picture-poll";
+import { PicturePoll } from "../PicturePoll";
 import type { PictureBasemaps } from "@/lib/picture-credit";
 import { homePictures, homeView, type HomeRunRow } from "./home-model";
 import { useHomeReads, useLeadHistory, useRereadAfterRun } from "./home-reads";
@@ -32,9 +35,13 @@ import styles from "./Home.module.css";
  */
 export function HomeScreen({
   pictureBasemaps,
+  rendererNotice,
 }: {
   /** The instance's basemaps, which the line at Home's foot credits. */
   pictureBasemaps?: PictureBasemaps;
+  /** Whether the reader is an administrator told the pictures have no
+   * renderer, as the page was served. */
+  rendererNotice?: boolean;
 } = {}) {
   const router = useRouter();
   const label = useSignedInLabel();
@@ -93,6 +100,7 @@ export function HomeScreen({
   const form = lead.kind === "none" ? "row" : "pair";
 
   return (
+    <PicturePoll cards={pictured} read={readHomeMaps}>
     <div className={styles.screen} data-home>
       <h1 className={styles.welcome} data-welcome>
         {view.welcome}
@@ -138,9 +146,17 @@ export function HomeScreen({
         onCopy={setCopying}
       />
       <PictureCredit maps={pictured} basemaps={pictureBasemaps} placement="page" />
+      <PictureRendererNotice shown={rendererNotice} />
       {copying ? <TemplateCopyDialog key={copying} id={copying} onClose={() => setCopying(null)} /> : null}
     </div>
+    </PicturePoll>
   );
+}
+
+/** Home's maps listing, asked again for the pictures alone while a map
+ * Home shows waits for one. */
+function readHomeMaps() {
+  return readPictureListing("/api/maps");
 }
 
 /** The model's rows as the shared row draws them: Run withheld with the

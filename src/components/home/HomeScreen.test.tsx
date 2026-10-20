@@ -86,7 +86,8 @@ function map(id: string, f: { owner?: PersonLabel; by?: PersonLabel | null; chan
   const changed = f.changed ?? at(1);
   return JSON.parse(JSON.stringify({
     id, name: `Map ${id}`, projectId: f.project ?? null, owner, home: owner.sqlName,
-    layerCount: 2, layerColors: [], hasThumbnail: true, published: false, publishToken: null,
+    layerCount: 2, layerColors: [], hasThumbnail: true, pictureState: "current", pictureVersion: `server-${id}`,
+    published: false, publishToken: null,
     createdAt: at(1), updatedAt: changed, editRevision: `rev-${id}`,
     lastChangedAt: changed, lastChangedBy: f.by === undefined ? owner : f.by,
   })) as MapOverview;
@@ -1431,6 +1432,45 @@ describe("a picture that does not load", () => {
   });
 });
 
+/* ---- a picture that is still to come ---- */
+
+describe("Home while a map it shows waits for its picture", () => {
+  const pass = async (ms: number) => { await act(async () => { await vi.advanceTimersByTimeAsync(ms); }); };
+  beforeEach(() => { vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] }); });
+  afterEach(() => { vi.useRealTimers(); });
+  const waiting = (m: MapOverview) => ({ ...m, pictureState: "waiting", pictureVersion: null, hasThumbnail: false }) as MapOverview;
+
+  it("asks the maps listing every five seconds until none waits, and Continue shows the new picture with no reload", async () => {
+    answers.maps = [waiting(map("m1", { changed: at(5) })), map("m2", { changed: at(4) })];
+    await act(async () => root.render(<SignedIn account={ADA}><HomeScreen /></SignedIn>));
+    for (let i = 0; i < 6; i += 1) await pass(0);
+    expect(calls("/api/maps")).toHaveLength(1);
+    expect(leadPlace().querySelector("img")).toBeNull();
+    await pass(5_000);
+    expect(calls("/api/maps")).toHaveLength(2);
+    answers.maps = [map("m1", { changed: at(5) }), map("m2", { changed: at(4) })];
+    await pass(5_000);
+    expect(calls("/api/maps")).toHaveLength(3);
+    expect(leadPlace().querySelector("img")?.getAttribute("src")).toBe("/api/maps/m1/thumbnail?v=server-m1&theme=light");
+    await pass(60_000);
+    expect(calls("/api/maps")).toHaveLength(3);
+  });
+
+  it("asks nothing for a waiting map Home does not show", async () => {
+    // More maps than the lead and Recent hold; the oldest one waits.
+    answers.maps = [
+      ...Array.from({ length: 10 }, (_, i) => map(`m${i}`, { changed: at(20 - i) })),
+      waiting(map("old", { changed: at(1) })),
+    ];
+    await act(async () => root.render(<SignedIn account={ADA}><HomeScreen /></SignedIn>));
+    for (let i = 0; i < 6; i += 1) await pass(0);
+    expect(container.querySelector("[data-home]")!.textContent).toContain("Map m1");
+    expect(container.querySelector("[data-home]")!.textContent).not.toContain("Map old");
+    await pass(60_000);
+    expect(calls("/api/maps")).toHaveLength(1);
+  });
+});
+
 /* ---- the line for the pictures ---- */
 
 describe("the line crediting Home's map pictures", () => {
@@ -1478,5 +1518,22 @@ describe("the line crediting Home's map pictures", () => {
     root = createRoot(container as unknown as Element);
     await openWithPictures();
     expect(credits()).toHaveLength(0);
+  });
+
+  it("carries the administrators' line about a missing renderer at Home's foot, under the credit, only when the page hands it", async () => {
+    const notices = () => container.querySelectorAll("[data-renderer-notice]");
+    answers.maps = [on(map("m1", { changed: at(5) }), null)];
+    await openWithPictures();
+    expect(notices()).toHaveLength(0);
+    act(() => root.unmount());
+    root = createRoot(container as unknown as Element);
+    await act(async () => root.render(<SignedIn account={ADA}><HomeScreen pictureBasemaps={pictures} rendererNotice /></SignedIn>));
+    await settle();
+    const home = container.querySelector("[data-home]")!;
+    expect(notices()).toHaveLength(1);
+    expect(notices()[0].parentElement).toBe(home);
+    expect(home.childNodes.at(-1)).toBe(notices()[0]);
+    expect(home.childNodes.at(-2)).toBe(credits()[0]);
+    expect(notices()[0].textContent).toBe("No map pictures: this instance has no renderer. Settings · System says how to set one.");
   });
 });

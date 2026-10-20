@@ -1,0 +1,16 @@
+/* The line a page of map cards shows administrators while map pictures
+   have no renderer: set as the pictures' credit line is, at the page's
+   foot, the meta step in faint ink; its one link quiet until hovered. */
+.notice {
+  composes: page from "./PictureCredit.module.css";
+}
+
+.notice a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.notice a:hover {
+  color: var(--fg-muted);
+  text-decoration: underline;
+}

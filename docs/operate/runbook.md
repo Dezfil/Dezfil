@@ -695,7 +695,9 @@ Without the renderer, map listings report `pictureState: unavailable`,
 refresh answers `outcome: unavailable`, and existing pictures stay served.
 The admin System read, `GET /api/instance/settings`, reports this as
 `parts.image_renderer.available`; `found` separately reports file presence.
-The System tab currently shows file presence. Install or restore the configured
+The System tab's Image renderer row reads Not found without the program and
+Could not start after a launch refusal, and every page of map cards tells
+administrators so in one line at its foot. Install or restore the configured
 executable; the hourly look discovers recovery without an edit. A launch refusal
 also holds picture work unavailable until that look, even if the file exists.
 Map pictures are made on the server even when nobody opens their builder.
@@ -781,7 +783,19 @@ DEZFIL_BASE_URL=http://127.0.0.1:3581 npx playwright test e2e/thumbnail-theme.sp
 Theme pictures and credit are seeded through server work. Alignment uses
 loopback styles accessible to both browsers and the saved camera at the
 card's composition size. The clear-conversation check counts every page
-request, including a residual browser upload if one remains installed.
+request; the browser uploads no pictures, so none is excused.
+
+The card states run on that same instance and on a second one with no
+renderer: the same standalone launched the same way, with its preloads, on
+another port and data directory, with `DEZFIL_CHROMIUM_PATH` naming a file
+that does not exist and no style fixture. Without `DEZFIL_NO_RENDERER_URL`
+the no-renderer case is skipped. Cut the placeholder and administrator-line
+baselines on the first run with `--update-snapshots=missing` and look at them
+before keeping them.
+
+```sh
+DEZFIL_BASE_URL=http://127.0.0.1:3581 DEZFIL_NO_RENDERER_URL=http://127.0.0.1:3583 npx playwright test e2e/card-states.spec.ts --project=chromium
+```
 
 ### Picture capacity and measurement
 
@@ -789,11 +803,12 @@ Run these proofs on a separately built production instance, under the same
 exclusive test lock as the browser battery. Use the real headless browser and
 default two image slots. The basemap is the raster tile server in
 `scripts/loopback-basemap.mjs`, also used by
-`src/lib/export/map-look.real-render.test.ts`. Start it in a separate terminal
-and keep it running through every application restart:
+`src/lib/export/map-look.real-render.test.ts`. Start it with
+`scripts/loopback-basemap-serve.mjs` in a separate terminal and keep it
+running through every application restart:
 
 ```sh
-fnm exec --using=24 node scripts/loopback-basemap.mjs 3582
+fnm exec --using=24 node scripts/loopback-basemap-serve.mjs 3582
 ```
 
 It serves a light style at `http://127.0.0.1:3582/style.json`, light and dark

@@ -1,3 +1,6 @@
+import { spawn } from "node:child_process";
+import { readFileSync } from "node:fs";
+import { createServer } from "node:net";
 import { describe, expect, it } from "vitest";
 import { startLoopbackBasemap, assertBasemapTraffic } from "../../../scripts/loopback-basemap.mjs";
 import { countColored, decodePng } from "../../../scripts/png-probe.mjs";
@@ -80,6 +83,58 @@ describe("loopback basemap measurement", () => {
       expect(() => assertBasemapTraffic(second.delta(secondBefore, 10))).toThrow(/fixture style/);
     } finally {
       await Promise.all([first.close(), second.close()]);
+    }
+  });
+});
+
+/** A loopback port free a moment ago. */
+async function freePort(): Promise<number> {
+  const probe = createServer();
+  await new Promise<void>((resolve) => probe.listen(0, "127.0.0.1", resolve));
+  const { port } = probe.address() as { port: number };
+  await new Promise((resolve) => probe.close(resolve));
+  return port;
+}
+
+describe("the loopback basemap's two uses", () => {
+  it("stays a module the browser suite's loader can read: no module-only syntax at its top", () => {
+    // The browser suite reads this file through a loader that makes plain
+    // scripts of it, where import.meta and a top-level await do not parse.
+    const source = readFileSync("scripts/loopback-basemap.mjs", "utf8");
+    expect(source).not.toMatch(/import\.meta/);
+    expect(source).not.toMatch(/^[^\s/*].*\bawait\b/m);
+  });
+
+  it("starts from the command line on the port it is given and answers its style there until it is stopped", async () => {
+    const port = await freePort();
+    const server = spawn(process.execPath, ["scripts/loopback-basemap-serve.mjs", String(port)], { stdio: ["ignore", "pipe", "pipe"] });
+    const exited = new Promise<number | null>((resolve) => server.once("exit", resolve));
+    try {
+      const printed = await Promise.race([
+        new Promise<string>((resolve) => {
+          let out = "";
+          server.stdout.on("data", (chunk) => {
+            out += chunk;
+            if (out.includes("\n")) resolve(out.trim());
+          });
+        }),
+        exited.then((code) => { throw new Error(`The command exited (${code}) before it served.`); }),
+      ]);
+      expect(printed).toBe(`http://127.0.0.1:${port}/style.json`);
+      const style = await fetch(printed);
+      expect(style.status).toBe(200);
+      expect((await style.json()).version).toBe(8);
+    } finally {
+      if (server.exitCode === null && server.signalCode === null) server.kill("SIGTERM");
+      await exited;
+    }
+  });
+
+  it("refuses to start without a port of its own", async () => {
+    for (const args of [[], ["3000"], ["not-a-port"]]) {
+      const refused = spawn(process.execPath, ["scripts/loopback-basemap-serve.mjs", ...args], { stdio: "ignore" });
+      const code = await new Promise((resolve) => refused.once("exit", resolve));
+      expect(code, args.join(" ") || "no port").not.toBe(0);
     }
   });
 });

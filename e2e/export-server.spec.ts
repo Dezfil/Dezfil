@@ -5,7 +5,9 @@
 // per-element probes shared with the card spec plus differentials (2),
 // the readiness contract red-proven against the route itself (3),
 // published-path independence including an exhausted anonymous rate
-// bucket (4), and concurrency without cross-contamination (6). The
+// bucket (4), and concurrency without cross-contamination (6). Each
+// export's basemap traffic is counted while the map's card picture is at
+// rest, since the picture is drawn on the same fixture basemap. The
 // timeout, crash and missing-browser arms live in the renderer's unit
 // suite and the container evidence — a second server boot per arm is the
 // container run's job, stated in the verification record.
@@ -25,6 +27,7 @@ import {
   seedCsv,
 } from "./support";
 import { markStats, pngStats } from "./png-probes";
+import { listedPicture, pictureAtRest } from "./picture-support";
 
 import { startLoopbackBasemap, assertBasemapTraffic } from "../scripts/loopback-basemap.mjs";
 
@@ -141,6 +144,7 @@ async function exportPng(
   const fixture = basemaps.get(mapId);
   if (!fixture) throw new Error("server export map has no traffic fixture");
   const zoom = (def.viewport as { zoom: number }).zoom;
+  const rest = await pictureAtRest(page.request, mapId);
   const before = fixture.snapshot(zoom);
   const out = await page.evaluate(
     async ({ mapId, def }) => {
@@ -173,6 +177,10 @@ async function exportPng(
   const traffic = fixture.delta(before, zoom);
   console.log(`export ${mapId} ${JSON.stringify({ status: out.status, ...traffic })}`);
   if (out.status === 200) {
+    expect(
+      await listedPicture(page.request, mapId),
+      "no picture work ran beside the export, so the basemap traffic counted is the export's own",
+    ).toEqual(rest);
     assertBasemapTraffic(traffic);
     expect(out.abandoned, "ordinary exports abandon no basemap request").toBeNull();
   }
@@ -398,6 +406,8 @@ test.describe("server-side image export", () => {
 
     await test.step("two simultaneous distinct renders, no cross-contamination", async () => {
       const { mapId: secondMapId } = await seed(page, basemaps);
+      // Both pictures at rest first, so the two renders still start together.
+      await Promise.all([pictureAtRest(page.request, mapId), pictureAtRest(page.request, secondMapId)]);
       const [a, b] = await Promise.all([
         exportPng(
           basemaps,

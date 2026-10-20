@@ -24,7 +24,6 @@ export function attachCanvasOverlay(pointer: PointerContext, capture: CaptureOpt
   return {
     overlay,
     dispose() {
-      capture.onSnapshotHandle?.(null);
       capture.onCaptureHandle?.(null);
       disposeCapture();
     },

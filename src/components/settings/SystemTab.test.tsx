@@ -150,6 +150,13 @@ describe("System", () => {
     expect(byId("sys-renderer").querySelector("[data-state]")?.getAttribute("data-state")).toBe("danger");
   });
 
+  it("shows a renderer found whose launch was refused as one map pictures cannot use", async () => {
+    partReads = [{ image_renderer: { found: true, available: false, imagesAtOnce: 2 } }];
+    await open();
+    expect(byId("sys-renderer").textContent).toBe("Image rendererChromium · 2 at onceCould not startTest");
+    expect(byId("sys-renderer").querySelector("[data-state]")?.getAttribute("data-state")).toBe("danger");
+  });
+
   it("runs a part's Test through its route and gives the answer in that part's words, the row's state following it", async () => {
     answers = {
       tile_builder: { part: "tile_builder", result: "failed", reason: "not_found" },

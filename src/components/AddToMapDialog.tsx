@@ -11,6 +11,8 @@ import { ErrorNote } from "./ui/ErrorNote";
 import { PlusIcon } from "./ui/icons";
 import { StatusDot, StatusLine } from "./ui/Status";
 import { MapStrip } from "./MapStrip";
+import { readPictureListing } from "./picture-poll";
+import { PicturePoll } from "./PicturePoll";
 import gallery from "./gallery.module.css";
 import styles from "./AddToMapDialog.module.css";
 import { serverUnreachable } from "./failure-copy";
@@ -52,6 +54,12 @@ interface Props {
   /** What to land; null keeps the dialog closed. */
   subject: LayerSubject | null;
   onClose: () => void;
+}
+
+/** The maps listing the dialog's cards come from, asked again for the
+ * pictures alone while a card waits for one. */
+function readDialogMaps() {
+  return readPictureListing("/api/maps");
 }
 
 /**
@@ -217,6 +225,7 @@ export function AddToMapDialog({ subject, onClose }: Props) {
         />
       </label>
 
+      <PicturePoll cards={maps} read={readDialogMaps}>
       <div className={styles.list}>
         <div className={styles.grid}>
           <button
@@ -267,6 +276,7 @@ export function AddToMapDialog({ subject, onClose }: Props) {
           </p>
         )}
       </div>
+      </PicturePoll>
 
       <div className={styles.foot}>
         <Button variant="quiet" onClick={onClose} disabled={busy}>

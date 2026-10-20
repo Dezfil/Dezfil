@@ -55,6 +55,20 @@ describe("the Status rows' words", () => {
     expect(partState("metadata_database", FRESH, "ready", null)).toEqual({ tone: "on", text: "Ready" });
   });
 
+  it("reads the image renderer by its standing for map pictures: a browser found whose launch was refused could not start", () => {
+    const refused: PartStates = { ...FRESH, image_renderer: { found: true, available: false, imagesAtOnce: 2 } };
+    expect(partState("image_renderer", refused, "ready", null)).toEqual({ tone: "danger", text: "Could not start" });
+    // A program not there is not found, whatever else the read says.
+    expect(partState("image_renderer", { ...refused, image_renderer: { found: false, available: false, imagesAtOnce: 2 } }, "ready", null))
+      .toEqual({ tone: "danger", text: "Not found" });
+    // A Test's answer still decides where it says more.
+    expect(words("image_renderer", refused, "ready", passed("image_renderer"))).toBe("Found");
+    expect(words("image_renderer", refused, "ready", failed("image_renderer", "not_found"))).toBe("Not found");
+    expect(words("image_renderer", refused, "ready", failed("image_renderer", "timed_out"))).toBe("Could not start");
+    // The tile builder has no such standing.
+    expect(partState("tile_builder", refused, "ready", null)).toEqual({ tone: "on", text: "Found" });
+  });
+
   it("follows a Test's answer where it decides the state, and the reads where it does not", () => {
     const missing: PartStates = { ...FRESH, tile_builder: { found: false, version: null }, image_renderer: { found: false, available: false, imagesAtOnce: 2 } };
     // A pass is the part working.
