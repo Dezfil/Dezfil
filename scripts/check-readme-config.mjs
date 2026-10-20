@@ -98,31 +98,45 @@ const CATALOGUE_FILES = ["lib/settings/catalogue.ts", "lib/settings/numeric.ts"]
 /** The calls through which the code reads a catalogue setting by its key. */
 const BY_KEY = /\b(?:resolveNumber|resolveNumericSetting|resolveBoolean|resolveServiceAddress|serviceAddressConfigured|settingDefinition)\(\s*["'`]([A-Za-z0-9.]+)["'`]/g;
 
-/** Test-only environment reads in executable probe helpers, not mentions. */
-export function probeVariables(scriptsDir) {
+const TEST_NAME = "DEZFIL_TEST_[A-Z0-9_]+";
+/** The forms a read of a DEZFIL_TEST_* name takes: a property of the
+ * environment or of any object holding it (`process.env.X`, an `env`
+ * parameter's `env.X`, `process.env?.X`), the same in brackets, and a
+ * name taken out by destructuring. A string that only mentions the name
+ * is no read. */
+const READS = [
+  new RegExp(`[\\w$)\\]]\\s*\\??\\.\\s*(${TEST_NAME})\\b`, "g"),
+  new RegExp(`[\\w$)\\]]\\s*(?:\\?\\.)?\\[\\s*["'\`](${TEST_NAME})["'\`]\\s*\\]`, "g"),
+];
+const DESTRUCTURED = /\{([^{}]*)\}\s*=(?!=|>)/g;
+
+/** The DEZFIL_TEST_* names a file's code reads, comments left out. */
+function testReads(file) {
   const names = new Set();
-  if (!existsSync(scriptsDir)) return names;
-  for (const file of walk(scriptsDir).filter(file => /\.[cm]?js$/.test(file))) {
-    const source = readFileSync(file, "utf8");
-    for (const pattern of [/process\.env\.(DEZFIL_TEST_[A-Z0-9_]+)/g, /process\.env\[["'](DEZFIL_TEST_[A-Z0-9_]+)["']\]/g]) {
-      for (const match of source.matchAll(pattern)) names.add(match[1]);
-    }
+  const code = codeOf(file);
+  for (const pattern of READS) for (const match of code.matchAll(pattern)) names.add(match[1]);
+  for (const match of code.matchAll(DESTRUCTURED)) {
+    for (const name of match[1].matchAll(new RegExp(`\\b(${TEST_NAME})\\b(?=\\s*[,:=}]|\\s*$)`, "g"))) names.add(name[1]);
   }
   return names;
 }
 
-/** Test seams the server code itself reads: process.env reads of
- * DEZFIL_TEST_* in src, test files excluded. A test file's own seam stays
- * local to it; a mention is not a read. */
+/** Test-only environment reads in executable probe helpers, of any script
+ * kind, not mentions. */
+export function probeVariables(scriptsDir) {
+  const names = new Set();
+  if (!existsSync(scriptsDir)) return names;
+  for (const file of walk(scriptsDir).filter(file => /\.[cm]?[jt]s$/.test(file))) for (const name of testReads(file)) names.add(name);
+  return names;
+}
+
+/** Test seams the server code itself reads: reads of DEZFIL_TEST_* in
+ * src, test files excluded. A test file's own seam stays local to it; a
+ * mention is not a read. */
 export function seamVariables(srcDir) {
   const names = new Set();
   const files = walk(srcDir).filter(file => /\.(?:ts|tsx|js|mjs)$/.test(file) && !/\.test\.(?:ts|tsx|js|mjs)$/.test(file));
-  for (const file of files) {
-    const source = readFileSync(file, "utf8");
-    for (const pattern of [/process\.env\.(DEZFIL_TEST_[A-Z0-9_]+)/g, /process\.env\[["'](DEZFIL_TEST_[A-Z0-9_]+)["']\]/g]) {
-      for (const match of source.matchAll(pattern)) names.add(match[1]);
-    }
-  }
+  for (const file of files) for (const name of testReads(file)) names.add(name);
   return names;
 }
 

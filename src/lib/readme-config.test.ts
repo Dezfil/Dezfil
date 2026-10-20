@@ -205,6 +205,20 @@ describe("what the code reads of the catalogue", () => {
   });
 });
 
+it("reads a test seam however the code reads it, in the server code and in a script of any kind, and counts no mention or comment", () => {
+  const src = tree({
+    "lib/param.ts": "export const a = (env: Record<string, string | undefined>) => env.DEZFIL_TEST_PARAM;",
+    "lib/destructured.ts": "const { DEZFIL_TEST_DESTRUCTURED, DEZFIL_TEST_RENAMED: renamed } = process.env;\nexport { DEZFIL_TEST_DESTRUCTURED, renamed };",
+    "lib/optional.ts": 'export const c = process.env?.DEZFIL_TEST_OPTIONAL ?? process.env?.["DEZFIL_TEST_OPTIONAL_QUOTED"];',
+    "lib/mention.ts": 'export const m = "DEZFIL_TEST_MENTION is set by the suite";\n// process.env.DEZFIL_TEST_COMMENTED',
+  });
+  const scripts = join(dir, `scripts-${Math.random().toString(36).slice(2)}`); mkdirSync(scripts);
+  writeFileSync(join(scripts, "measure.perf.ts"), "export const d = process.env.DEZFIL_TEST_TS_SCRIPT;");
+  expect([...serverVariables(src, scripts)].sort()).toEqual([
+    "DEZFIL_TEST_DESTRUCTURED", "DEZFIL_TEST_OPTIONAL", "DEZFIL_TEST_OPTIONAL_QUOTED", "DEZFIL_TEST_PARAM", "DEZFIL_TEST_RENAMED", "DEZFIL_TEST_TS_SCRIPT",
+  ]);
+});
+
 it("discovers new script test wiring and its removal without counting mentions", () => {
   const scripts = join(dir, "scripts"); mkdirSync(scripts);
   const file = join(scripts, "observer.mjs");
