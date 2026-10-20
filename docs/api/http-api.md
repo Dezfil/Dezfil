@@ -217,7 +217,7 @@ A token reaches what its account reaches: your own work, and everything filed in
 - Something you don't reach answers `404 not_found`, exactly as if it did not exist. A change you may not make to something you reach answers `403 forbidden`, and nothing changes.
 - In SQL and in dataset reads, another person's dataset is `<sql name>.<dataset>`, such as `ana_diaz.stations`. Every dataset list gives each one's `qualifiedName`, the name to send.
 
-The API calls a workflow a recipe: workflows live under `/api/recipes`.
+The API calls a workflow a recipe: workflows live under `/api/recipes`. [Share and publish](../use/share-and-publish.md) shows how to share a project in the app.
 
 ## Lists and paging
 

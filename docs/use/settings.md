@@ -99,7 +99,7 @@ Your other browser sessions end, so those browsers ask you to sign in again. You
 
 ## The other tabs
 
-- **API & MCP** holds **API / MCP tokens** and the **MCP server** card. [Connect an AI agent](../api/mcp.md) shows how to use them.
+- **API & MCP** holds **API / MCP tokens** and the **MCP server** card. The [API quickstart](../api/quickstart.md) and [Connect an AI agent](../api/mcp.md) show how to use them.
 - Under **Instance**, **General** shows the instance's name and its sign-in settings. Only admins change them; [Configuration](../self-host/configuration.md) covers the tabs an admin sees.
 - **Search settings**, at the top of the column, finds any setting by its name.
 

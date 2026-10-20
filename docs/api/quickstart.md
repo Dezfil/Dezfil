@@ -157,7 +157,7 @@ console.log(JSON.stringify(await response.json(), null, 2));
 
 - `file` is the one form field an upload takes. To upload several files, send one request for each.
 - The dataset takes its name from the file: `world-cities.csv` becomes `world_cities`. If you already have one, such as Your first map's, the new one is `world_cities_2`.
-- Dezfil reads the `latitude` and `longitude` columns as each city's position, and stores the points in a new `geometry` column.
+- Dezfil reads the `latitude` and `longitude` columns as each city's position, and stores the points in a new `geometry` column. [CSV columns](../use/import-data.md#csv-columns) lists the names it recognizes.
 
 ## Step 4: Run SQL
 
@@ -340,6 +340,8 @@ Open `http://localhost:3000/v/<PUBLISH_TOKEN>`. You should see the map with its 
 
 - The published view opens in the dark theme. Send the body `{"theme": "light"}` with the request for the light one.
 - To stop sharing, send `DELETE` to the same address with the map's newest `editRevision`. The link stops working at once.
+
+[Share and publish](../use/share-and-publish.md#publish-a-map) covers publishing in the app and embedding the map in a web page.
 
 ## Troubleshooting
 
