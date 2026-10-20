@@ -1,6 +1,7 @@
 import { buildTools } from "@/lib/tools/tools";
 import { executeTool } from "@/lib/tools/execute";
-import { pictureBasemap, PICTURE_GROUND, PICTURE_LAND } from "../../../test-support/picture-basemap";
+import { readFile } from "node:fs/promises";
+import { closedPictureAddress, pictureBasemap, PICTURE_GROUND, PICTURE_LAND } from "../../../test-support/picture-basemap";
 import { assertPicturePatch, pictureMarkPosition, assertPictureMarks } from "../../../test-support/picture-pixels";
 import { afterAll, describe, expect, it } from "vitest";
 import { pictureProofClient } from "../../../test-support/pictures-http";
@@ -13,7 +14,11 @@ const base = process.env.DEZFIL_PICTURE_TEST_URL;
  * DEZFIL_PICTURE_TEST_TOKEN:
  * npm test -- src/lib/pictures/pictures.real-render.test.ts --maxWorkers=2
  * For the pre-server-picture control add DEZFIL_PICTURE_EXPECT_NONE=1 and
- * -t "never opened". The URL may name any separately provisioned instance. */
+ * -t "never opened". The URL may name any separately provisioned instance.
+ * The drawing/failure fixtures run beside the renderer; allow 127.0.0.1 in
+ * that instance's DEZFIL_EGRESS_ALLOWLIST. Redirect its stderr to a file
+ * and set DEZFIL_PICTURE_RENDER_LOG to that file for the abandoned-request
+ * case, which requires the real background attempt's abandonment record. */
 describe.skipIf(!base)("server picture road", () => {
   const api = base ? pictureProofClient(base, process.env.DEZFIL_PICTURE_TEST_TOKEN ?? "") : undefined!;
   const maps: string[] = [];
@@ -113,6 +118,35 @@ describe.skipIf(!base)("server picture road", () => {
       }
     } finally { await ground.close(); }
   }, 300000);
+  it.skipIf(process.env.DEZFIL_PICTURE_EXPECT_NONE === "1").each(["unreachable basemap", "abandoned outside request"])("real incompleteness retains served bytes: %s", async failure => {
+    const ground = await pictureBasemap();
+    try {
+      const map = await api.json<{ id: string }>("POST", "/api/maps", { name: `Incomplete: ${failure}` }); maps.push(map.id);
+      const basemap = (url: string) => ({ customBasemap: { url, name: "Failure fixture", attribution: [{ label: "Fixture" }] } });
+      await api.json("PATCH", `/api/maps/${map.id}`, { viewport: PICTURE_CAMERA, ...basemap(`${ground.origin}/plain.json`) }, map.id);
+      for (const layer of pictureMarkSql()) await api.json("POST", `/api/maps/${map.id}/layers`, layer, map.id);
+      const ready = await api.picture(map.id);
+      const thumbnail = async () => Buffer.from(await (await api.request("GET", `/api/maps/${map.id}/thumbnail?theme=light`)).arrayBuffer());
+      const previous = await thumbnail(); assertPictureMarks(previous);
+      expect(ground.traffic().styles).toBeGreaterThan(0); // This loopback host passed egress and painted.
+      const closed = failure === "unreachable basemap" ? await closedPictureAddress() : undefined;
+      const logPath = process.env.DEZFIL_PICTURE_RENDER_LOG;
+      if (!closed) expect(logPath, "Redirect the isolated server stderr and supply DEZFIL_PICTURE_RENDER_LOG").toBeTruthy();
+      const logOffset = !closed ? (await readFile(logPath!, "utf8")).length : 0;
+      await api.json("PATCH", `/api/maps/${map.id}`, basemap(closed?.url ?? `${ground.origin}/stall.json`), map.id);
+      const failed = await api.picture(map.id, "failed");
+      expect(failed.pictureVersion).toBe(ready.pictureVersion);
+      expect(await thumbnail()).toEqual(previous);
+      if (closed) await closed.assertClosed();
+      else {
+        expect(ground.traffic().held).toBeGreaterThan(0);
+        expect(ground.traffic().closed).toBeGreaterThan(0);
+        const log = (await readFile(logPath!, "utf8")).slice(logOffset);
+        // A budget kill or an egress refusal is not an abandonment proof.
+        expect(log.split("\n").some(line => line.includes(`[export] map ${map.id}:`) && line.includes("request(s) abandoned past") && line.includes("127.0.0.1"))).toBe(true);
+      }
+    } finally { await ground.close(); }
+  }, 240000);
   it.skipIf(process.env.DEZFIL_PICTURE_EXPECT_NONE === "1")("pictures an unopened saved map at the documented size in both appearances, and keeps it through failed and unsupported attempts", async () => {
     const map = await api.json<{ id: string }>("POST", "/api/maps", { name: "Picture proof" }); maps.push(map.id);
     await api.json("PATCH", `/api/maps/${map.id}`, { viewport: PICTURE_CAMERA, basemap: null }, map.id);
