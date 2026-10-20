@@ -137,7 +137,7 @@ On the **Workflows** page, each card sums up its workflow in one chip, such as *
 
 ## The tools
 
-**Tools** lists the tools in six groups. Click a tool to add it in view, or drag it to the spot you want. Its search box finds a tool by its name or by what it does.
+**Tools** lists the tools in six groups: **Data**, **Overlay**, **Proximity**, **Geometry**, **Aggregation** and **Statistics**. Click a tool to add it in view, or drag it to the spot you want. Its search box finds a tool by its name or by what it does: type `join`, `buffer` or `summarize`, for example.
 
 In a panel, small icons under each input show the kinds of geometry it takes.
 
