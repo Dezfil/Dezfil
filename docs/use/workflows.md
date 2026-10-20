@@ -35,7 +35,7 @@ In **Sources**, click **world_cities** under **Workspace tables**. You can also 
 
 You should see a **world_cities** tile on the canvas, and its row in the pane marked **on canvas**.
 
-For a dataset that is not in the list yet, click **Add data** at the foot of the pane. The dataset you import lands on the canvas as a source.
+For a dataset that is not in the list yet, click **Add data** at the foot of the pane and import it as [Import data](import-data.md) describes. It lands on the canvas as a source.
 
 ## 3. Add a tool
 
@@ -96,7 +96,7 @@ You should see 15 small marks on the map, one cell for each city of more than te
 
 **Data** shows the same dataset's first rows. **Provenance** names the tool that made it, when it ran, what it read and the SQL it ran.
 
-To draw the result on a map, click **Add to a map**, then **New map** or one of your maps. The map builder opens with the result as a layer.
+To draw the result on a map, click **Add to a map**, then **New map** or one of your maps. The map builder opens with the result as a layer, ready to style as [Build a map](build-a-map.md) shows.
 
 ## 8. Change a node and run it again
 
@@ -131,13 +131,13 @@ A node's tile wears a small badge for most states. Point at a tile for its state
 | **The last run failed.** | The run stopped on the error shown under it. Any dataset from an earlier run stands. | Fix what the error names and run it again. |
 | **Cannot run.** | A dataset it reads is gone, or comes from a node that cannot run. | Link another input, or bring the dataset back. |
 | **Output deleted.** | The dataset this node made was deleted. | Run it again to make it. |
-| **Unavailable on this instance.** | The tool needs an outside service this instance has not set up. | Ask an admin to set up the service the panel names. |
+| **Unavailable on this instance.** | The tool needs an outside service this instance has not set up. | Ask an admin to set up the service the panel names. See [Widgets and tools](widgets-and-tools.md#troubleshooting). |
 
 On the **Workflows** page, each card sums up its workflow in one chip, such as **Up to date**, **Never run**, **2 to run again** or **1 failed**. The **Needs attention** filter keeps the workflows with a node to look at.
 
 ## The tools
 
-**Tools** lists the tools in six groups: **Data**, **Overlay**, **Proximity**, **Geometry**, **Aggregation** and **Statistics**. Click a tool to add it in view, or drag it to the spot you want. Its search box finds a tool by its name or by what it does: type `join`, `buffer` or `summarize`, for example.
+**Tools** lists the tools in six groups: **Data**, **Overlay**, **Proximity**, **Geometry**, **Aggregation** and **Statistics**. Click a tool to add it in view, or drag it to the spot you want. Its search box finds a tool by its name or by what it does: type `join`, `buffer` or `summarize`, for example. [Widgets and tools](widgets-and-tools.md#the-tools) lists what each tool makes and the inputs it takes.
 
 In a panel, small icons under each input show the kinds of geometry it takes.
 
@@ -165,12 +165,14 @@ Hover a card for its buttons, and point at one to read its name. **Add to a proj
 | Button | What it does |
 |---|---|
 | **Duplicate** | Makes a copy with `copy` after its name. The copy's nodes write datasets of their own, and it has not run. |
-| **Add to a project**, or **Move to another project** once it is in one | Files the workflow in a project, for the people you share it with. |
+| **Add to a project**, or **Move to another project** once it is in one | Files the workflow in a project, for the people you share it with. See [Share and publish](share-and-publish.md). |
 | **Delete workflow** | Deletes it on a second click. The datasets it made stay in **Data**. |
 
 To take one node out, click **Remove node** at the foot of its panel. The dialog says whether its dataset stays.
 
 ## Troubleshooting
+
+**A tool is greyed out, or refuses data that spans too much of the earth.** Both are under [Widgets and tools](widgets-and-tools.md#troubleshooting).
 
 **A link is refused with a sentence such as "Features to buffer needs point, line, polygon geometry".** The dataset has no geometry, or the wrong kind. For a table of coordinates, open it in **Data** and click **Set geometry**, as [Your first map](../start/first-map.md#troubleshooting) shows.
 

@@ -34,8 +34,9 @@
 //   for `hold` frames of the cadence (ten a second), so the recording's
 //   length is the frames held, at most eight seconds.
 
+import { readFile } from "node:fs/promises";
 import { ASSISTANT_MESSAGES } from "./docs-pictures-assistant.mjs";
-import { ASSISTANT_MAP, BIG_CITIES, FIRST_MAP, MEMBER_MAPS, runWorkflow, seedAssistantMap, seedFirstMap, seedMember, seedWorkflow } from "./docs-pictures-instance.mjs";
+import { ASSISTANT_MAP, BIG_CITIES, FIRST_MAP, MEMBER_MAPS, PROJECT, USE_MAPS, USE_SHARE, runWorkflow, seedAssistantMap, seedFirstMap, seedMember, seedUseMaps, seedUseShare, seedWorkflow } from "./docs-pictures-instance.mjs";
 
 /** Open the Templates page and wait until the catalogue has been read and
  * the three shipped cards are drawn with their pictures. */
@@ -751,6 +752,438 @@ const SETTINGS_PAGE_SCENES = [
   },
 ];
 
+// ---------------------------------------------------------------------------
+// Use Dezfil on data and maps: Import data, Build a map, and Widgets and
+// tools, in the use-maps state. A scene that changes the instance makes the
+// change at the start of its own `open`, so both its takes start from the
+// same state, whatever the scene before it left.
+
+/** A change made through the documented API as the signed-in account,
+ * carrying this instance's Origin as the app's own pages do, and the edit
+ * revision it is based on where the operation takes one. */
+async function change(page, method, address, { body, revision } = {}) {
+  const { origin } = new URL((await page.request.get("/api/health")).url());
+  const headers = { origin, ...(revision ? { "x-edit-revision": revision } : {}) };
+  const answer = await page.request.fetch(address, { method, headers, ...(body === undefined ? {} : { data: body }) });
+  if (!answer.ok()) throw new Error(`${method} ${address} answered ${answer.status()}: ${await answer.text()}`);
+  return answer.status() === 204 ? null : answer.json();
+}
+
+/** The Data page's Add data dialog as it opens: Files, with Upload file and
+ * its drop box. */
+async function openAddData(page) {
+  await page.goto("/data");
+  await page.getByRole("button", { name: "Add data", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Add data" });
+  await dialog.getByRole("button", { name: "Upload data files" }).waitFor();
+  return dialog;
+}
+
+/** One of Add data's sources, by its title: the button also reads the line
+ * under the title. */
+const importSource = (dialog, title) => dialog.getByRole("button", { name: new RegExp(`^${title} `) });
+
+/** The file the column matching scene drops: the first map's cities with
+ * their coordinates in columns named y and x, names Dezfil does not take
+ * as coordinates without asking. */
+const XY_CITIES = { file: "world-cities-xy.csv", table: "world_cities_xy" };
+
+async function xyCities() {
+  const [header, ...rows] = (await readFile(new URL(`../${FIRST_MAP.fixture}`, import.meta.url), "utf8")).split("\n");
+  if (header !== "name,country,population,latitude,longitude") throw new Error(`${FIRST_MAP.fixture} begins with ${header}, not the columns the scene renames.`);
+  return Buffer.from([header.replace("latitude,longitude", "y,x"), ...rows].join("\n"));
+}
+
+/** Set the first map as a scene shows it: whether its Megacities layer is
+ * drawn, and whether its widgets are on the map. A scene of the first map
+ * sets both at the start of its take, so neither take shows what the scene
+ * before it set. */
+async function arrangeWorldCities(page, { megacities, widgets }) {
+  const { id } = await findByName(page, "/api/maps", FIRST_MAP.name);
+  const read = async () => (await page.request.get(`/api/maps/${id}`)).json();
+  let map = await read();
+  const layer = map.layers.find((entry) => entry.name === USE_MAPS.megacities.name);
+  if (!layer) throw new Error(`${FIRST_MAP.name} has no ${USE_MAPS.megacities.name} layer: the use-maps seeding did not add it.`);
+  if (layer.visible !== megacities) {
+    const current = await (await page.request.get(`/api/layers/${layer.id}`)).json();
+    await change(page, "PATCH", `/api/layers/${layer.id}`, { body: { visible: megacities }, revision: current.editRevision });
+    map = await read();
+  }
+  if (map.widgets.some((widget) => widget.visible !== widgets)) {
+    await change(page, "PATCH", `/api/maps/${id}`, { body: { widgets: map.widgets.map((widget) => ({ ...widget, visible: widgets })) }, revision: map.editRevision });
+  }
+}
+
+/** The first map in the builder, once its cities' layer card counts them. */
+async function openWorldCities(page) {
+  const { id } = await findByName(page, "/api/maps", FIRST_MAP.name);
+  await page.goto(`/maps/${id}`);
+  await page.locator("[data-layer-select]", { hasText: `${FIRST_MAP.features} features` }).waitFor();
+}
+
+/** The Visualization section of the open layer's style panel: its type
+ * tiles, size and opacity. */
+const VIZ_SECTION = '[data-builder-pane] section:has(> button:has-text("Visualization"))';
+
+/** Open the style panel of the layer whose card names it, at its
+ * Visualization section. */
+async function openVisualization(page, layer) {
+  await page.locator("[data-layer-select]", { hasText: layer }).click();
+  const section = page.locator(VIZ_SECTION).first();
+  await section.waitFor();
+  await section.scrollIntoViewIfNeeded();
+  return section;
+}
+
+/** The country the widgets scene leaves out: the one with the most of the
+ * first map's cities, three, so the By country widget lists it first. */
+const WIDGET_LEFT_OUT = "United States of America";
+
+/** The draw tools' dock, and the line under the map that explains the
+ * polygon tool once it is picked. */
+const DRAW_DOCK = '[role=toolbar][aria-label="Draw tools"]';
+const POLYGON_LINE = '[role=status]:has-text("Click to place vertices")';
+
+const USE_MAPS_SCENES = [
+  {
+    // Add data as the Data page opens it: the four sources, Upload file and
+    // the drop box with its formats.
+    id: "import-data-add-data",
+    file: "use/import-data-add-data.webp",
+    pages: ["docs/use/import-data.md"],
+    kind: "still",
+    state: "use-maps",
+    crop: { selector: "[role=dialog]", margin: 24 },
+    open: openAddData,
+  },
+  {
+    // The CSV with x and y columns dropped on Add data: the column matching
+    // step with the pair read as longitude and latitude, the projection,
+    // the count of rows that read and the preview. The upload lands a
+    // dataset, so the take before this one's is removed first; the step is
+    // never confirmed.
+    id: "import-data-column-matching",
+    file: "use/import-data-column-matching.webp",
+    pages: ["docs/use/import-data.md"],
+    kind: "still",
+    state: "use-maps",
+    crop: { selector: "[role=dialog]", margin: 24 },
+    async open(page) {
+      const tables = await (await page.request.get("/api/tables")).json();
+      for (const table of tables.filter((entry) => entry.name === XY_CITIES.table)) await change(page, "DELETE", `/api/tables/${encodeURIComponent(table.name)}`);
+      const dialog = await openAddData(page);
+      await dialog.locator("input[type=file]").setInputFiles({ name: XY_CITIES.file, mimeType: "text/csv", buffer: await xyCities() });
+      const step = dialog.locator("[data-column-matching]");
+      await step.waitFor();
+      if ((await step.getByRole("button", { name: "Coordinate pair" }).getAttribute("aria-pressed")) !== "true") throw new Error("The column matching step did not read the x and y columns as a coordinate pair.");
+      for (const [label, column] of [["Longitude column", "x"], ["Latitude column", "y"]]) {
+        const select = step.getByLabel(label, { exact: true });
+        if ((await select.inputValue()) !== column) await select.selectOption(column);
+      }
+      const projection = step.getByLabel("Projection", { exact: true });
+      if ((await projection.inputValue()) === "") await projection.selectOption("4326");
+      await step.getByText(`${FIRST_MAP.features} of ${FIRST_MAP.features} sampled rows read as`).waitFor();
+    },
+  },
+  {
+    // The PostGIS source with no saved connection: the form that adds one.
+    id: "import-data-postgis",
+    file: "use/import-data-postgis.webp",
+    pages: ["docs/use/import-data.md"],
+    kind: "still",
+    state: "use-maps",
+    crop: { selector: "[role=dialog]", margin: 24 },
+    async open(page) {
+      const dialog = await openAddData(page);
+      await importSource(dialog, "PostGIS").click();
+      await dialog.getByRole("heading", { name: "Connect a PostGIS database" }).waitFor();
+      await dialog.getByRole("button", { name: "Test & save connection" }).waitFor();
+    },
+  },
+  {
+    // The builder in full on the first map with its second layer: the
+    // Layers tab with both cards, the cities' style panel open at
+    // Visualization, the map and the legend.
+    id: "build-a-map-builder",
+    file: "use/build-a-map-builder.webp",
+    pages: ["docs/use/build-a-map.md"],
+    kind: "still",
+    state: "use-maps",
+    map: true,
+    async open(page) {
+      await arrangeWorldCities(page, { megacities: true, widgets: false });
+      await openWorldCities(page);
+      await page.locator("[data-layer-select]", { hasText: `${USE_MAPS.megacities.features} features` }).waitFor();
+      await openVisualization(page, FIRST_MAP.layer);
+    },
+  },
+  {
+    // The earthquakes around Japan as hex bins: their style panel at
+    // Visualization with Hex bins chosen, Show and the cell size, and the
+    // map the builder framed on them as it opened.
+    id: "build-a-map-hex-bins",
+    file: "use/build-a-map-hex-bins.webp",
+    pages: ["docs/use/build-a-map.md"],
+    kind: "still",
+    state: "use-maps",
+    map: true,
+    async open(page) {
+      const { id } = await findByName(page, "/api/maps", USE_MAPS.earthquakes.name);
+      await page.goto(`/maps/${id}`);
+      await page.locator("[data-layer-select]", { hasText: USE_MAPS.earthquakes.layer }).filter({ hasText: "cells" }).waitFor();
+      const section = await openVisualization(page, USE_MAPS.earthquakes.layer);
+      if ((await section.getByRole("button", { name: "Hex bins" }).getAttribute("data-active")) !== "true") throw new Error("The earthquakes layer is not drawn as hex bins.");
+    },
+  },
+  {
+    // The Basemap tab of the first map: the styles with Auto chosen,
+    // Custom…, the basemap's map layers and the status bar's switch.
+    id: "build-a-map-basemap",
+    file: "use/build-a-map-basemap.webp",
+    pages: ["docs/use/build-a-map.md"],
+    kind: "still",
+    state: "use-maps",
+    map: true,
+    crop: { selector: "[data-builder-pane]", margin: 12 },
+    async open(page) {
+      await arrangeWorldCities(page, { megacities: true, widgets: false });
+      await openWorldCities(page);
+      await page.getByRole("tab", { name: "Basemap", exact: true }).click();
+      await page.getByRole("heading", { name: "Map layers" }).waitFor();
+      await page.getByRole("heading", { name: "Overlays" }).waitFor();
+    },
+  },
+  {
+    // Drawing on the first map: the draw tools with Draw a polygon picked,
+    // three vertices placed and the polygon left open, and the line under
+    // the map. Nothing is saved: a session's layer and dataset are made by
+    // its first finished shape. The frame is the map's window, so its
+    // controls, legend, status bar and credit show whole. Draw and the
+    // polygon tool get a click event rather than the pointer, so neither
+    // button grows under the pointer or shrinks as it is pressed, and the
+    // page asks for reduced motion, so the draw tools and the line appear
+    // without their rise: with the pointer's clicks, one pixel of the
+    // polygon tool came out a shade apart from run to run.
+    id: "build-a-map-draw",
+    file: "use/build-a-map-draw.webp",
+    pages: ["docs/use/build-a-map.md"],
+    kind: "still",
+    state: "use-maps",
+    map: true,
+    crop: { selector: "[data-drag-canvas]", margin: 0 },
+    async open(page) {
+      await page.emulateMedia({ reducedMotion: "reduce" });
+      await arrangeWorldCities(page, { megacities: true, widgets: false });
+      await openWorldCities(page);
+      // Draw waits for the map's camera, and a click event, unlike the
+      // pointer's click, does not wait for a button to be enabled.
+      const draw = page.getByRole("button", { name: "Draw", exact: true, disabled: false });
+      await draw.waitFor();
+      await draw.dispatchEvent("click");
+      const dock = page.locator(DRAW_DOCK);
+      await dock.getByRole("button", { name: "Draw a polygon" }).dispatchEvent("click");
+      const line = page.locator(POLYGON_LINE);
+      await line.waitFor();
+      const top = await dock.boundingBox();
+      const bottom = await line.boundingBox();
+      const middle = top.x + top.width / 2;
+      for (const [x, y] of [[middle - 170, top.y + top.height + 140], [middle + 150, top.y + top.height + 100], [middle + 40, bottom.y - 120]]) {
+        await page.mouse.click(x, y);
+      }
+      await page.locator("svg[data-armed] circle").nth(2).waitFor();
+    },
+  },
+  {
+    // The Widgets tab of the first map with its By country widget on the
+    // map, the most numerous country clicked off: its three cities gone
+    // from the map and the status bar counting the 45 left. The selection
+    // is the page's own and is never saved.
+    id: "widgets-and-tools-widgets",
+    file: "use/widgets-and-tools-widgets.webp",
+    pages: ["docs/use/widgets-and-tools.md"],
+    kind: "still",
+    state: "use-maps",
+    map: true,
+    async open(page) {
+      await arrangeWorldCities(page, { megacities: false, widgets: true });
+      await openWorldCities(page);
+      await page.getByRole("tab", { name: "Widgets", exact: true }).click();
+      const country = page.locator('[data-widget-card="category"] button', { hasText: WIDGET_LEFT_OUT });
+      await country.click();
+      await page.locator('[data-widget-card="category"] button:not([data-active])', { hasText: WIDGET_LEFT_OUT }).waitFor();
+      await page.locator("[data-records]", { hasText: `${FIRST_MAP.features - 3} of ${FIRST_MAP.features}` }).waitFor();
+    },
+  },
+  {
+    // The Tools drawer opened with the cities' layer selected, on Filter
+    // rows filled in as the page's steps fill it: the dry run's line and
+    // Run ready. Run is never clicked, so no dataset is made.
+    id: "widgets-and-tools-tool-form",
+    file: "use/widgets-and-tools-tool-form.webp",
+    pages: ["docs/use/widgets-and-tools.md"],
+    kind: "still",
+    state: "use-maps",
+    map: true,
+    crop: { selector: "[data-recipe-drawer]", margin: 12 },
+    async open(page) {
+      await arrangeWorldCities(page, { megacities: false, widgets: true });
+      await openWorldCities(page);
+      await page.locator("[data-layer-select]", { hasText: FIRST_MAP.layer }).click();
+      await page.locator("[data-tools-control]").click();
+      const drawer = page.locator("[data-recipe-drawer]");
+      await drawer.getByText(`Suggested for ${FIRST_MAP.layer}`).waitFor();
+      await drawer.locator('[data-catalog-group="Data"] [data-operation="filter_rows"]').click();
+      await drawer.locator('[data-param="field"]').selectOption(FIRST_MAP.colorBy);
+      await drawer.locator('[data-param="comparison"]').selectOption("greater_than");
+      await drawer.locator('[data-param="value"]').fill("10000000");
+      await drawer.locator("[data-output-name]").fill("big_cities");
+      await drawer.locator("[data-dry-run]", { hasText: `${USE_MAPS.megacities.features} rows` }).waitFor();
+      if (await drawer.getByRole("button", { name: "Run", exact: true }).isDisabled()) throw new Error("Run is not ready on the Filter rows form.");
+    },
+  },
+];
+
+// ---------------------------------------------------------------------------
+// Templates, beside the Templates page's two scenes in the scene list: a
+// template opened and its Make a copy dialog, in the seeded state, where
+// the three shipped templates are listed. Neither changes the instance:
+// the template's page is read only and the dialog is never confirmed.
+
+/** The shipped template the scenes open, by its id and its title. */
+const EARTHQUAKES_TEMPLATE = { id: "earthquakes", title: "Forty years of big earthquakes" };
+
+const TEMPLATE_SCENES = [
+  {
+    // The earthquakes template opened: its How it's made panel as it
+    // opens, The question and Data unfolded, the layers read, framed from
+    // its head to the end of the first dataset. The panel alone is framed:
+    // the map beside it draws tens of thousands of overlapping points,
+    // which come out differently on each run.
+    id: "templates-how-its-made",
+    file: "use/templates-how-its-made.webp",
+    pages: ["docs/use/templates.md"],
+    kind: "still",
+    state: "seeded",
+    map: true,
+    crop: { selector: ["[data-template-panel] > header", "[data-template-panel] [data-dataset]"], margin: 0 },
+    async open(page) {
+      await page.goto(`/templates/${EARTHQUAKES_TEMPLATE.id}`);
+      const panel = page.locator("[data-template-panel]");
+      await panel.locator('[data-fold="data"] [data-dataset]').nth(1).waitFor();
+      await panel.locator('[data-fold="layers"] button', { hasText: /\d/ }).waitFor();
+    },
+  },
+  {
+    // The Make a copy dialog for the earthquakes template, opened from its
+    // card's corner on the Templates page, so the cards lie behind it and
+    // not the template's map. The dialog reads the template as it opens.
+    id: "templates-copy",
+    file: "use/templates-copy.webp",
+    pages: ["docs/use/templates.md"],
+    kind: "still",
+    state: "seeded",
+    crop: { selector: "[data-template-copy-dialog]", margin: 24 },
+    async open(page) {
+      await openTemplates(page);
+      await page.locator(`article[data-template="${EARTHQUAKES_TEMPLATE.id}"]`).hover();
+      await page.getByRole("button", { name: `Make a copy of ${EARTHQUAKES_TEMPLATE.title}`, exact: true }).click();
+      const dialog = page.locator("[data-template-copy-dialog]");
+      await dialog.getByText("Comes with").waitFor();
+      await page.mouse.move(0, 0);
+    },
+  },
+];
+
+// ---------------------------------------------------------------------------
+// Use Dezfil on sharing: Share and publish in the use-share state, after
+// the use-maps one, where the first map is published and two more people
+// are on the instance. A scene of the first map sets its layers and widgets
+// at the start of its take, as the use-maps scenes do.
+
+/** The shared project's page as its owner sees it, once the line of the
+ * people it is shared with and its facts are drawn. */
+async function openSharedProject(page) {
+  const { id } = await findByName(page, "/api/projects", PROJECT.name);
+  await page.goto(`/projects/${id}`);
+  await page.locator('[data-members-line="shared"]').waitFor();
+  await page.locator("[data-facts]").waitFor();
+}
+
+const USE_SHARING_SCENES = [
+  {
+    // The shared project's Share dialog: the person the seeding left out
+    // of the project found by part of her name and picked, with Viewer
+    // chosen and Add ready, never clicked; the owner, the Editor and the
+    // Viewer under People with access. The pointer leaves the dialog, so
+    // no row shows its remove cross.
+    id: "share-and-publish-share-dialog",
+    file: "use/share-and-publish-share-dialog.webp",
+    pages: ["docs/use/share-and-publish.md"],
+    kind: "still",
+    state: "use-share",
+    crop: { selector: "[data-share-dialog]", margin: 24 },
+    async open(page) {
+      await openSharedProject(page);
+      await page.locator("[data-share-action]").click();
+      const dialog = page.locator("[data-share-dialog]");
+      await dialog.locator("[data-member]").nth(2).waitFor();
+      await dialog.getByLabel("Add people by name or email").fill(USE_SHARE.added.name.split(" ")[0]);
+      await dialog.getByRole("option", { name: new RegExp(USE_SHARE.added.name) }).click();
+      await dialog.locator("[data-picked]").waitFor();
+      const viewer = dialog.getByRole("group", { name: "Role" }).getByRole("button", { name: "Viewer", exact: true });
+      if ((await viewer.getAttribute("aria-pressed")) !== "true") throw new Error("The Share dialog does not start with Viewer chosen.");
+      await page.mouse.move(0, 0);
+    },
+  },
+  {
+    // The publish panel of the published first map, below its link: the
+    // shared fields' row, Opens in, Readers can and the panel's foot, with
+    // no margin, so none of the map around the panel shows. The link is
+    // out of the frame: it holds the run's own port and a token drawn
+    // afresh on every run.
+    id: "share-and-publish-published",
+    file: "use/share-and-publish-published.webp",
+    pages: ["docs/use/share-and-publish.md"],
+    kind: "still",
+    state: "use-share",
+    map: true,
+    crop: { selector: "#publish-popover [data-publish-scroll]", margin: 0 },
+    async open(page) {
+      await arrangeWorldCities(page, { megacities: false, widgets: true });
+      await openWorldCities(page);
+      await page.getByRole("button", { name: "Published", exact: true }).click();
+      const popover = page.locator("#publish-popover");
+      const opensIn = popover.getByRole("group", { name: "Opens in" });
+      await opensIn.waitFor();
+      if ((await opensIn.getByRole("button", { name: "Light", exact: true }).getAttribute("aria-pressed")) !== "true") throw new Error(`The first map is not published to open in the ${USE_SHARE.theme} theme.`);
+      await popover.getByText(/^\d+ layers? · \d+ fields?$/).waitFor();
+    },
+  },
+  {
+    // The Export image dialog of the first map, as it opens on the
+    // builder's view, with the map's name typed as the image's title. The
+    // By country widget is on the map, so the options list its switch. The
+    // pointer leaves the dialog, so no option shows its hover.
+    id: "share-and-publish-export-image",
+    file: "use/share-and-publish-export-image.webp",
+    pages: ["docs/use/share-and-publish.md"],
+    kind: "still",
+    state: "use-share",
+    map: true,
+    crop: { selector: "[data-export-card]", margin: 24 },
+    async open(page) {
+      await arrangeWorldCities(page, { megacities: false, widgets: true });
+      await openWorldCities(page);
+      await page.getByRole("button", { name: "Export", exact: true }).click();
+      await page.getByRole("menuitem", { name: /^Image/ }).click();
+      const card = page.locator("[data-export-card]");
+      await card.locator("[data-export-download]").waitFor();
+      await card.getByLabel("Image title").fill(FIRST_MAP.name);
+      await page.mouse.move(0, 0);
+    },
+  },
+];
+
 export const SCENES = [
   {
     id: "setup-card",
@@ -815,9 +1248,12 @@ export const SCENES = [
   ...WORKFLOW_PAGE_SCENES,
   ...ASSISTANT_PAGE_SCENES,
   ...SETTINGS_PAGE_SCENES,
+  ...USE_MAPS_SCENES,
+  ...TEMPLATE_SCENES,
+  ...USE_SHARING_SCENES,
 ];
 
-export const STATES = ["fresh", "seeded", "first-map", "sql", "workflow", "workflow-run", "assistant", "member"];
+export const STATES = ["fresh", "seeded", "first-map", "sql", "workflow", "workflow-run", "assistant", "member", "use-maps", "use-share"];
 
 /** The states taken signed in as the second account, a member, rather than
  * the first, the instance's admin. */
@@ -825,8 +1261,8 @@ export const MEMBER_STATES = ["member"];
 
 /** What makes a state after the seeded one from the state before it,
  * called once a run with the first account's API client, the checkout's
- * root and what the seeding returned (the second account's client among
- * it). `sql` has none: it is the first map's state, in a browser of its
+ * root and what the seeding returned (the instance's address and the
+ * second account's client among it). `sql` has none: it is the first map's state, in a browser of its
  * own, so the SQL workspace's stored draft and history stay among its own
  * scenes. */
 export const STATE_SEEDING = {
@@ -835,4 +1271,6 @@ export const STATE_SEEDING = {
   "workflow-run": runWorkflow,
   assistant: seedAssistantMap,
   member: seedMember,
+  "use-maps": seedUseMaps,
+  "use-share": seedUseShare,
 };

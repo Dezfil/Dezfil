@@ -177,10 +177,10 @@ export async function serverRequests(scratch) {
  * documented API: the first account through the setup operation, a second
  * account invited and redeemed, a project the two share, the three shipped
  * templates copied in their own kinds, and the repository's fixtures
- * uploaded and filed in the project. Returns the first account's browser
- * cookie, for the seeded scenes' browser, and its API client, for the
- * seeding of a later state, and the same two of the second account, a
- * member, under `member`.
+ * uploaded and filed in the project. Returns the instance's address, the
+ * first account's browser cookie, for the seeded scenes' browser, and its
+ * API client, for the seeding of a later state, and the same two of the
+ * second account, a member, under `member`.
  */
 export async function seed(base, root) {
   const first = await provisionJourney(base, PEOPLE.first);
@@ -210,7 +210,7 @@ export async function seed(base, root) {
   }
   expectStatus(await lena("PATCH", `/api/projects/${project.id}/members`, { body: { addTables: tables } }), 200, "file the fixtures in the project");
 
-  return { cookie: first.cookie, api: lena, member: { cookie: second.cookie, api: journeyApi(base, { token: second.token }) } };
+  return { base, cookie: first.cookie, api: lena, member: { cookie: second.cookie, api: journeyApi(base, { token: second.token }) } };
 }
 
 /**
@@ -343,4 +343,103 @@ export async function seedMember(_api, _root, seeded) {
   assert.ok(map, `The member has no map named ${MEMBER_MAPS.published}.`);
   const basis = captureBasis(expectStatus(await jonas("GET", `/api/maps/${map.id}`), 200, "read the map to publish"));
   expectStatus(await jonas("POST", `/api/maps/${map.id}/publish`, { basis, body: {} }), 201, "publish the member's map");
+}
+
+// ---------------------------------------------------------------------------
+// The Use Dezfil pages on data and maps, and Share and publish.
+
+/** What the Use Dezfil pages on maps show beside the first map, made in
+ * the use-maps state: a second layer on the first map, the query Build a
+ * map adds with its points drawn larger; the widget Widgets and tools adds
+ * to it, counting the cities by country; and a map of the copied
+ * earthquakes around Japan drawn as hex bins. The scenes find the layer
+ * and the map by their names. */
+export const USE_MAPS = {
+  megacities: { name: "Megacities", sql: "SELECT * FROM world_cities WHERE population > 10000000", features: 15, pointRadius: 9 },
+  // One region, not the whole table: the builder frames a map's data when
+  // it opens, and a cell on the 180th meridian draws as a band around the
+  // world, so the whole table frames the world, striped.
+  earthquakes: {
+    name: "Earthquakes in Japan",
+    layer: "earthquakes",
+    sql: "SELECT * FROM earthquakes WHERE place LIKE '%Japan%'",
+    viz: { type: "hexbin", cellKm: 100, aggregate: { fn: "count" } },
+  },
+  byCountry: { id: "by-country", type: "category", title: "By country", field: "country", agg: "count", aggField: null, unit: null, note: null, format: null, visible: true },
+};
+
+/** Add a layer to a map from its query, then change it as the builder
+ * would: `change` takes the layer as read and gives the fields to write. */
+async function addLayer(api, map, { name, sql }, change) {
+  const basis = captureBasis(expectStatus(await api("GET", `/api/maps/${map.id}`), 200, `read ${map.name}`));
+  const layer = expectStatus(await api("POST", `/api/maps/${map.id}/layers`, { basis, body: { name, sql, writtenIn: { kind: "console" } } }), 201, `add ${name} to ${map.name}`);
+  const current = expectStatus(await api("GET", `/api/layers/${layer.id}`), 200, `read ${name}`);
+  const body = change(current);
+  return expectStatus(await api("PATCH", `/api/layers/${layer.id}`, { basis: captureBasis(current), body }), 200, `change ${name}`);
+}
+
+/**
+ * The use-maps state, through the operations the builder calls: on the
+ * first map, the large cities as a second layer with bigger points and a
+ * category widget on the cities' country; and a new map of the earthquakes
+ * the seeding copied, those around Japan, as hex bins.
+ */
+export async function seedUseMaps(api) {
+  const maps = expectStatus(await api("GET", "/api/maps"), 200, "list the maps");
+  const firstMap = maps.find((map) => map.name === FIRST_MAP.name);
+  assert.ok(firstMap, "the first map is made before the use-maps state");
+  await addLayer(api, firstMap, USE_MAPS.megacities, (current) => ({ style: { ...current.style, pointRadius: USE_MAPS.megacities.pointRadius } }));
+  const withLayers = expectStatus(await api("GET", `/api/maps/${firstMap.id}`), 200, "read the first map");
+  const cities = withLayers.layers.find((layer) => layer.name === FIRST_MAP.layer);
+  expectStatus(await api("PATCH", `/api/maps/${firstMap.id}`, { basis: captureBasis(withLayers), body: { widgets: [{ ...USE_MAPS.byCountry, layerId: cities.id }] } }), 200, "count the cities by country");
+
+  const { earthquakes } = USE_MAPS;
+  const map = expectStatus(await api("POST", "/api/maps", { body: { name: earthquakes.name } }), 201, "create the earthquakes map");
+  await addLayer(api, map, { name: earthquakes.layer, sql: earthquakes.sql }, () => ({ viz: earthquakes.viz }));
+}
+
+/** What Share and publish shows, made in the use-share state after the
+ * use-maps one: two more people on the instance, the first a Viewer of the
+ * shared project and the second in no project yet, so the Share dialog can
+ * find and add them; and the first map published, opening in the light
+ * theme. The scenes find the people by their names and the map by its
+ * name. */
+export const USE_SHARE = {
+  viewer: { name: "Sam Ito", email: "sam@example.test", password: "harbor charts at dawn" },
+  added: { name: "Ana Diaz", email: "ana@example.test", password: "compass roses at sea" },
+  theme: "light",
+};
+
+/** A person invited through the users operation who sets a password
+ * through the invitation, as the person would: the Share dialog finds an
+ * account only once it is active. Returns the account, with its SQL name. */
+async function addPerson(api, base, person) {
+  const invited = expectStatus(await api("POST", "/api/users", { body: { name: person.name, email: person.email } }), 201, `invite ${person.name}`);
+  const secret = new URLSearchParams(new URL(invited.signInUrl).hash.slice(1)).get("secret");
+  const redeemed = await fetch(`${base}/api/auth/redeem`, { method: "POST", headers: { origin: base, "content-type": "application/json" }, body: JSON.stringify({ secret, password: person.password }) });
+  assert.equal(redeemed.status, 200, `${person.name} sets their password`);
+  await redeemed.body?.cancel();
+  assert.ok(invited.account?.sqlName, `the invitation names ${person.name}'s SQL name`);
+  return invited.account;
+}
+
+/**
+ * The use-share state, through the operations the app calls: the two
+ * people, the first given the Viewer role in the shared project, and the
+ * first map published by its owner. The people redeem their invitations at
+ * the instance's address the seeding returned.
+ */
+export async function seedUseShare(api, _root, { base }) {
+  const viewer = await addPerson(api, base, USE_SHARE.viewer);
+  await addPerson(api, base, USE_SHARE.added);
+  const projects = expectStatus(await api("GET", "/api/projects"), 200, "list the projects");
+  const project = projects.find((entry) => entry.name === PROJECT.name);
+  assert.ok(project, "the shared project is made before the use-share state");
+  expectStatus(await api("PUT", `/api/projects/${project.id}/people/${viewer.sqlName}`, { body: { role: "viewer" } }), 200, `give ${USE_SHARE.viewer.name} the Viewer role`);
+
+  const maps = expectStatus(await api("GET", "/api/maps"), 200, "list the maps");
+  const firstMap = maps.find((map) => map.name === FIRST_MAP.name);
+  assert.ok(firstMap, "the first map is made before the use-share state");
+  const basis = captureBasis(expectStatus(await api("GET", `/api/maps/${firstMap.id}`), 200, "read the first map"));
+  expectStatus(await api("POST", `/api/maps/${firstMap.id}/publish`, { basis, body: { theme: USE_SHARE.theme } }), 201, "publish the first map");
 }

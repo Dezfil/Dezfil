@@ -451,6 +451,220 @@
       }
     },
     {
+      "file": "use/build-a-map-basemap.dark.webp",
+      "scene": "build-a-map-basemap",
+      "kind": "picture",
+      "theme": "dark",
+      "version": "0.1.0",
+      "date": "2026-10-20",
+      "width": 732,
+      "height": 1696,
+      "bytes": 34368,
+      "crop": {
+        "x": 70,
+        "y": 50,
+        "width": 366,
+        "height": 848
+      }
+    },
+    {
+      "file": "use/build-a-map-basemap.webp",
+      "scene": "build-a-map-basemap",
+      "kind": "picture",
+      "theme": "light",
+      "version": "0.1.0",
+      "date": "2026-10-20",
+      "width": 732,
+      "height": 1696,
+      "bytes": 34986,
+      "crop": {
+        "x": 70,
+        "y": 50,
+        "width": 366,
+        "height": 848
+      }
+    },
+    {
+      "file": "use/build-a-map-builder.dark.webp",
+      "scene": "build-a-map-builder",
+      "kind": "picture",
+      "theme": "dark",
+      "version": "0.1.0",
+      "date": "2026-10-20",
+      "width": 2880,
+      "height": 1800,
+      "bytes": 167172
+    },
+    {
+      "file": "use/build-a-map-builder.webp",
+      "scene": "build-a-map-builder",
+      "kind": "picture",
+      "theme": "light",
+      "version": "0.1.0",
+      "date": "2026-10-20",
+      "width": 2880,
+      "height": 1800,
+      "bytes": 193530
+    },
+    {
+      "file": "use/build-a-map-draw.dark.webp",
+      "scene": "build-a-map-draw",
+      "kind": "picture",
+      "theme": "dark",
+      "version": "0.1.0",
+      "date": "2026-10-20",
+      "width": 1976,
+      "height": 1648,
+      "bytes": 115890,
+      "crop": {
+        "x": 438,
+        "y": 62,
+        "width": 988,
+        "height": 824
+      }
+    },
+    {
+      "file": "use/build-a-map-draw.webp",
+      "scene": "build-a-map-draw",
+      "kind": "picture",
+      "theme": "light",
+      "version": "0.1.0",
+      "date": "2026-10-20",
+      "width": 1976,
+      "height": 1648,
+      "bytes": 137232,
+      "crop": {
+        "x": 438,
+        "y": 62,
+        "width": 988,
+        "height": 824
+      }
+    },
+    {
+      "file": "use/build-a-map-hex-bins.dark.webp",
+      "scene": "build-a-map-hex-bins",
+      "kind": "picture",
+      "theme": "dark",
+      "version": "0.1.0",
+      "date": "2026-10-20",
+      "width": 2880,
+      "height": 1800,
+      "bytes": 150456
+    },
+    {
+      "file": "use/build-a-map-hex-bins.webp",
+      "scene": "build-a-map-hex-bins",
+      "kind": "picture",
+      "theme": "light",
+      "version": "0.1.0",
+      "date": "2026-10-20",
+      "width": 2880,
+      "height": 1800,
+      "bytes": 169588
+    },
+    {
+      "file": "use/import-data-add-data.dark.webp",
+      "scene": "import-data-add-data",
+      "kind": "picture",
+      "theme": "dark",
+      "version": "0.1.0",
+      "date": "2026-10-20",
+      "width": 1616,
+      "height": 820,
+      "bytes": 38932,
+      "crop": {
+        "x": 316,
+        "y": 245,
+        "width": 808,
+        "height": 410
+      }
+    },
+    {
+      "file": "use/import-data-add-data.webp",
+      "scene": "import-data-add-data",
+      "kind": "picture",
+      "theme": "light",
+      "version": "0.1.0",
+      "date": "2026-10-20",
+      "width": 1616,
+      "height": 820,
+      "bytes": 39224,
+      "crop": {
+        "x": 316,
+        "y": 245,
+        "width": 808,
+        "height": 410
+      }
+    },
+    {
+      "file": "use/import-data-column-matching.dark.webp",
+      "scene": "import-data-column-matching",
+      "kind": "picture",
+      "theme": "dark",
+      "version": "0.1.0",
+      "date": "2026-10-20",
+      "width": 2736,
+      "height": 1736,
+      "bytes": 130568,
+      "crop": {
+        "x": 36,
+        "y": 16,
+        "width": 1368,
+        "height": 868
+      }
+    },
+    {
+      "file": "use/import-data-column-matching.webp",
+      "scene": "import-data-column-matching",
+      "kind": "picture",
+      "theme": "light",
+      "version": "0.1.0",
+      "date": "2026-10-20",
+      "width": 2736,
+      "height": 1736,
+      "bytes": 128138,
+      "crop": {
+        "x": 36,
+        "y": 16,
+        "width": 1368,
+        "height": 868
+      }
+    },
+    {
+      "file": "use/import-data-postgis.dark.webp",
+      "scene": "import-data-postgis",
+      "kind": "picture",
+      "theme": "dark",
+      "version": "0.1.0",
+      "date": "2026-10-20",
+      "width": 2736,
+      "height": 1736,
+      "bytes": 65178,
+      "crop": {
+        "x": 36,
+        "y": 16,
+        "width": 1368,
+        "height": 868
+      }
+    },
+    {
+      "file": "use/import-data-postgis.webp",
+      "scene": "import-data-postgis",
+      "kind": "picture",
+      "theme": "light",
+      "version": "0.1.0",
+      "date": "2026-10-20",
+      "width": 2736,
+      "height": 1736,
+      "bytes": 66022,
+      "crop": {
+        "x": 36,
+        "y": 16,
+        "width": 1368,
+        "height": 868
+      }
+    },
+    {
       "file": "use/settings-account.dark.webp",
       "scene": "settings-account",
       "kind": "picture",
@@ -575,6 +789,108 @@
       }
     },
     {
+      "file": "use/share-and-publish-export-image.dark.webp",
+      "scene": "share-and-publish-export-image",
+      "kind": "picture",
+      "theme": "dark",
+      "version": "0.1.0",
+      "date": "2026-10-20",
+      "width": 2736,
+      "height": 1736,
+      "bytes": 132370,
+      "crop": {
+        "x": 36,
+        "y": 16,
+        "width": 1368,
+        "height": 868
+      }
+    },
+    {
+      "file": "use/share-and-publish-export-image.webp",
+      "scene": "share-and-publish-export-image",
+      "kind": "picture",
+      "theme": "light",
+      "version": "0.1.0",
+      "date": "2026-10-20",
+      "width": 2736,
+      "height": 1736,
+      "bytes": 149604,
+      "crop": {
+        "x": 36,
+        "y": 16,
+        "width": 1368,
+        "height": 868
+      }
+    },
+    {
+      "file": "use/share-and-publish-published.dark.webp",
+      "scene": "share-and-publish-published",
+      "kind": "picture",
+      "theme": "dark",
+      "version": "0.1.0",
+      "date": "2026-10-20",
+      "width": 596,
+      "height": 528,
+      "bytes": 16590,
+      "crop": {
+        "x": 1125,
+        "y": 248,
+        "width": 298,
+        "height": 264
+      }
+    },
+    {
+      "file": "use/share-and-publish-published.webp",
+      "scene": "share-and-publish-published",
+      "kind": "picture",
+      "theme": "light",
+      "version": "0.1.0",
+      "date": "2026-10-20",
+      "width": 596,
+      "height": 528,
+      "bytes": 16352,
+      "crop": {
+        "x": 1125,
+        "y": 248,
+        "width": 298,
+        "height": 264
+      }
+    },
+    {
+      "file": "use/share-and-publish-share-dialog.dark.webp",
+      "scene": "share-and-publish-share-dialog",
+      "kind": "picture",
+      "theme": "dark",
+      "version": "0.1.0",
+      "date": "2026-10-20",
+      "width": 1176,
+      "height": 848,
+      "bytes": 24264,
+      "crop": {
+        "x": 426,
+        "y": 238,
+        "width": 588,
+        "height": 424
+      }
+    },
+    {
+      "file": "use/share-and-publish-share-dialog.webp",
+      "scene": "share-and-publish-share-dialog",
+      "kind": "picture",
+      "theme": "light",
+      "version": "0.1.0",
+      "date": "2026-10-20",
+      "width": 1176,
+      "height": 848,
+      "bytes": 24660,
+      "crop": {
+        "x": 426,
+        "y": 238,
+        "width": 588,
+        "height": 424
+      }
+    },
+    {
       "file": "use/sql-history.dark.webp",
       "scene": "sql-history",
       "kind": "picture",
@@ -665,6 +981,74 @@
       "bytes": 164516
     },
     {
+      "file": "use/templates-copy.dark.webp",
+      "scene": "templates-copy",
+      "kind": "picture",
+      "theme": "dark",
+      "version": "0.1.0",
+      "date": "2026-10-20",
+      "width": 1016,
+      "height": 608,
+      "bytes": 29422,
+      "crop": {
+        "x": 466,
+        "y": 298,
+        "width": 508,
+        "height": 304
+      }
+    },
+    {
+      "file": "use/templates-copy.webp",
+      "scene": "templates-copy",
+      "kind": "picture",
+      "theme": "light",
+      "version": "0.1.0",
+      "date": "2026-10-20",
+      "width": 1016,
+      "height": 608,
+      "bytes": 28634,
+      "crop": {
+        "x": 466,
+        "y": 298,
+        "width": 508,
+        "height": 304
+      }
+    },
+    {
+      "file": "use/templates-how-its-made.dark.webp",
+      "scene": "templates-how-its-made",
+      "kind": "picture",
+      "theme": "dark",
+      "version": "0.1.0",
+      "date": "2026-10-20",
+      "width": 684,
+      "height": 1264,
+      "bytes": 60806,
+      "crop": {
+        "x": 82,
+        "y": 62,
+        "width": 342,
+        "height": 632
+      }
+    },
+    {
+      "file": "use/templates-how-its-made.webp",
+      "scene": "templates-how-its-made",
+      "kind": "picture",
+      "theme": "light",
+      "version": "0.1.0",
+      "date": "2026-10-20",
+      "width": 684,
+      "height": 1264,
+      "bytes": 59792,
+      "crop": {
+        "x": 82,
+        "y": 62,
+        "width": 342,
+        "height": 632
+      }
+    },
+    {
       "file": "use/templates-search-poster.dark.webp",
       "scene": "templates-search",
       "kind": "picture",
@@ -733,6 +1117,62 @@
       "width": 2880,
       "height": 1800,
       "bytes": 195462
+    },
+    {
+      "file": "use/widgets-and-tools-tool-form.dark.webp",
+      "scene": "widgets-and-tools-tool-form",
+      "kind": "picture",
+      "theme": "dark",
+      "version": "0.1.0",
+      "date": "2026-10-20",
+      "width": 732,
+      "height": 1696,
+      "bytes": 37016,
+      "crop": {
+        "x": 426,
+        "y": 50,
+        "width": 366,
+        "height": 848
+      }
+    },
+    {
+      "file": "use/widgets-and-tools-tool-form.webp",
+      "scene": "widgets-and-tools-tool-form",
+      "kind": "picture",
+      "theme": "light",
+      "version": "0.1.0",
+      "date": "2026-10-20",
+      "width": 732,
+      "height": 1696,
+      "bytes": 38324,
+      "crop": {
+        "x": 426,
+        "y": 50,
+        "width": 366,
+        "height": 848
+      }
+    },
+    {
+      "file": "use/widgets-and-tools-widgets.dark.webp",
+      "scene": "widgets-and-tools-widgets",
+      "kind": "picture",
+      "theme": "dark",
+      "version": "0.1.0",
+      "date": "2026-10-20",
+      "width": 2880,
+      "height": 1800,
+      "bytes": 137966
+    },
+    {
+      "file": "use/widgets-and-tools-widgets.webp",
+      "scene": "widgets-and-tools-widgets",
+      "kind": "picture",
+      "theme": "light",
+      "version": "0.1.0",
+      "date": "2026-10-20",
+      "width": 2880,
+      "height": 1800,
+      "bytes": 164040
     },
     {
       "file": "use/workflows-canvas.dark.webp",

@@ -33,6 +33,24 @@ What Dezfil is, how to install it, and your first map.
 
 Do things in the app: data, maps, SQL, workflows and sharing.
 
+- [Import data](use/import-data.md)
+  - path: `docs/use/import-data.md`
+  - summary: Upload files, import from a link, Overture Maps or OpenStreetMap, and take snapshots of PostGIS tables.
+  - read when: you want to upload a CSV, GeoJSON, Shapefile, GeoPackage, KML or GeoParquet file, or know which formats Dezfil reads; your CSV uploaded but shows no points, or its coordinate columns were not found; you want to import a file from a web address or a cloud storage bucket; you want places, buildings, roads or boundaries from Overture Maps or OpenStreetMap; you want to import the tables of a PostGIS database, or fetch an imported dataset again from its source
+  - audience: user
+
+- [Build a map](use/build-a-map.md)
+  - path: `docs/use/build-a-map.md`
+  - summary: Add layers to a map, style them, pick a basemap, edit the legend and draw your own points, lines and areas.
+  - read when: you want to add a dataset or a SQL query to a map as a layer, or hide, reorder, rename, copy or delete one; you want to change how a layer looks: its colors, size, labels, or a type such as a heatmap or hex bins; you want another basemap, or a map style of your own; you want to move the legend or change its text; you want to draw points, lines or areas on a map
+  - audience: user
+
+- [Widgets and tools](use/widgets-and-tools.md)
+  - path: `docs/use/widgets-and-tools.md`
+  - summary: Add widgets that count, chart and filter a map's data, and run a tool on a layer to make a new dataset and layer from it.
+  - read when: you want a count, a chart or a note beside your map; you want readers to filter a map by clicking a category or dragging a range; you want to run a tool, such as a buffer, a join or a summary, on a layer; you want to know which tools there are, what each one makes and what it needs; a widget, a tool or a layer card shows a warning, or a tool is grayed out
+  - audience: user
+
 - [Query with SQL](use/sql.md)
   - path: `docs/use/sql.md`
   - summary: Query your datasets in the SQL workspace, see the result as a table or on a map, and keep it as a dataset, a file or a map layer.
@@ -45,6 +63,18 @@ Do things in the app: data, maps, SQL, workflows and sharing.
   - read when: you want to repeat the same analysis steps on a dataset without doing them by hand each time; you want to filter, join, buffer or summarize data and keep the result as a dataset; you want to see a step's result as a table or on a map, or add it to a map; you changed a node or its data, or a node says it is edited, stale, failed or cannot run; you can open a workflow someone shared but cannot change or run it
   - audience: user
 
+- [Templates](use/templates.md)
+  - path: `docs/use/templates.md`
+  - summary: Open a finished map or workflow example, see how it is made and where its data comes from, and make a copy of your own to change.
+  - read when: you want a finished map or workflow example to start from; you want to see how a template is made: its data, its SQL and its styling; you want to know where a template's data comes from and under which licence; you want your own copy of a template to change; the Templates page says the template catalogue is turned off or did not answer
+  - audience: user
+
+- [Share and publish](use/share-and-publish.md)
+  - path: `docs/use/share-and-publish.md`
+  - summary: Share a project with people on your Dezfil, publish a map as a link anyone can open, embed it in a web page, or save it as a PNG image.
+  - read when: you want people on your Dezfil to see or edit your maps, workflows and data, and to know what a Viewer or an Editor can do; you want to change someone's role, remove them, hand a project over or leave one; you want anyone with a link to see a map without an account, or to put the map on another web page; you want to choose which fields and controls a published map shows; you want a picture of a map for a report or slides, or a project's data, maps and workflows as files
+  - audience: user
+
 - [The assistant](use/assistant.md)
   - path: `docs/use/assistant.md`
   - summary: Ask the assistant in plain words to change a map, write SQL into the editor, or explain a workflow node and its last run.
@@ -55,12 +85,6 @@ Do things in the app: data, maps, SQL, workflows and sharing.
   - path: `docs/use/settings.md`
   - summary: Change your look, light or dark, how your lists are laid out and sorted, and your name, email and password.
   - read when: you want another color, typeface, background or panel style, or the side menu always open; you want the dark theme; you want your maps, data, workflows or projects as a list, or sorted another way; you want to change your display name, email or password; you want to know which choices follow you to another browser
-  - audience: user
-
-- [Templates](use/templates.md)
-  - path: `docs/use/templates.md`
-  - summary: The finished maps and workflow examples an instance offers: what a card shows, opening one read only, and making a copy of your own.
-  - read when: you want a finished map or workflow example to start from; you want to know where a template's data comes from
   - audience: user
 
 ## Self-host
