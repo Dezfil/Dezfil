@@ -476,12 +476,55 @@ function namedProblems(text, lineAt) {
   return found;
 }
 
+// ---------------------------------------------------------------------------
+// The names a read_when line is held to
+
+/** The variables and Settings keys the settings tables document, read from
+ * the settings catalogue they are made from, and the error codes of the
+ * API description's catalogue. A Settings key is one an admin changes in
+ * Settings; an account's own preferences and the test wiring are not
+ * settings the tables document. */
+export function writingNames({ catalogue = [], document = null } = {}) {
+  const variables = [...new Set(catalogue.filter((setting) => setting.environment).map((setting) => setting.environment))];
+  const keys = catalogue.filter((setting) => setting.editable && setting.scope !== "account").map((setting) => setting.key);
+  const codes = Object.keys(document?.["x-error-codes"] ?? {});
+  return { variables, keys, codes };
+}
+
+const escapeName = (name) => name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/** The problems of a page's read_when lines: every variable, Settings key
+ * and error code a line names appears in the page's body, so the page
+ * answers the situation it names. Each is named at its read_when line. */
+function readWhenProblems({ text, page, names }) {
+  const found = [];
+  const kinds = new Map([...names.codes.map((name) => [name, "error code"]), ...names.keys.map((name) => [name, "Settings key"]), ...names.variables.map((name) => [name, "variable"])]);
+  const list = Array.isArray(page.data?.read_when) ? page.data.read_when : [];
+  if (!kinds.size || !list.length) return found;
+  const front = text.split("\n").slice(0, page.bodyLine - 1);
+  const from = Math.max(0, front.findIndex((line) => /^read_when\s*:/.test(line)));
+  const reported = new Set();
+  for (const line of list) {
+    if (typeof line !== "string") continue;
+    for (const match of line.matchAll(/[A-Za-z0-9_.]+/g)) {
+      const name = match[0].replace(/^\.+|\.+$/g, "");
+      if (!kinds.has(name) || reported.has(name)) continue;
+      if (new RegExp(`(?<![A-Za-z0-9_.])${escapeName(name)}(?![A-Za-z0-9_])`).test(page.body)) continue;
+      reported.add(name);
+      const at = front.findIndex((entry, i) => i >= from && entry.includes(name));
+      found.push({ rule: "writing.read-when-name", message: `a read_when line names the ${kinds.get(name)} ${name}, and the page's body never does; answer it on the page, or leave it out of the line`, line: (at === -1 ? from : at) + 1 });
+    }
+  }
+  return found;
+}
+
 /** Problems in file order: by line, then by rule. */
 const byPlace = (a, b) => (a.file < b.file ? -1 : a.file > b.file ? 1 : (a.line ?? 0) - (b.line ?? 0) || (a.rule < b.rule ? -1 : a.rule > b.rule ? 1 : 0));
 
-/** The writing rules over one page: `page` is the page split into its
- * frontmatter and body, as the page contract splits it. */
-export function checkPageWriting({ file, page }) {
+/** The writing rules over one page: `text` is the page's file, `page` the
+ * page split into its frontmatter and body as the page contract splits it,
+ * and `names` the names its read_when lines are held to. */
+export function checkPageWriting({ file, text = "", page, names = writingNames() }) {
   const problems = [];
   const add = (rule, message, line) => problems.push(problem(file, rule, message, line));
   const section = file.split("/")[1];
@@ -555,6 +598,9 @@ export function checkPageWriting({ file, page }) {
     if (self) add("writing.opening", `the first paragraph opens with "${self[0]}"; open with what the reader does or sees`, opening.line);
   }
 
+  // What a read_when line names, the body names.
+  for (const found of readWhenProblems({ text, page, names })) add(found.rule, found.message, found.line);
+
   // Something to do or see before word 151: a page with fewer words has
   // no word 151 to pass.
   if (FIRST_SCREEN_SECTIONS.includes(section)) {
@@ -569,9 +615,10 @@ export function checkPageWriting({ file, page }) {
 }
 
 /** Every writing problem in the tree: the list's own entries, then each
- * authored page off the list. Returns the problems, the pages the rules
- * read and the pages the list kept out. */
-export function checkWriting({ files, read }) {
+ * authored page off the list. `names` are those `writingNames` gives.
+ * Returns the problems, the pages the rules read and the pages the list
+ * kept out. */
+export function checkWriting({ files, read, names = writingNames() }) {
   const problems = [];
   const pages = files.filter((file) => placeOf(file).kind === "page").sort();
   const listed = new Set();
@@ -587,7 +634,7 @@ export function checkWriting({ files, read }) {
     const text = read(file);
     const page = splitPage(text);
     if (page.error) continue;
-    problems.push(...checkPageWriting({ file, text, page }));
+    problems.push(...checkPageWriting({ file, text, page, names }));
   }
   return { problems: problems.sort(byPlace), checked, listed: pages.filter((file) => listed.has(file)) };
 }

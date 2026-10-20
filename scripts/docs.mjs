@@ -26,7 +26,8 @@ import { parseArgs } from "node:util";
 import { contractSource } from "./contract-source.mjs";
 import { DESCRIPTION_FILE, checkDescription, checkIndex, checkTree, descriptionText, formatProblem, generateIndex, reader } from "./docs-contract.mjs";
 import { checkManifest } from "./docs-manifest.mjs";
-import { checkWriting } from "./docs-writing.mjs";
+import { checkWriting, writingNames } from "./docs-writing.mjs";
+import { settingsSource } from "./settings-source.mjs";
 
 const { values } = parseArgs({ options: { check: { type: "boolean" }, write: { type: "boolean" }, root: { type: "string" } } });
 const root = path.resolve(values.root ?? process.cwd());
@@ -69,7 +70,10 @@ if (values.write) {
 const files = repositoryFiles();
 const { problems, pages, notes, used } = checkTree({ files, read });
 problems.push(...checkManifest({ files, read, readBytes: (file) => readFileSync(path.join(root, file)), used }));
-const writing = checkWriting({ files, read });
+// The names a read_when line is held to: the settings catalogue's and the
+// description's error codes. A fixture tree without the source has none.
+const catalogue = existsSync(path.join(root, "src/lib/settings/catalogue.ts")) ? (await settingsSource(root)).SETTING_CATALOGUE : [];
+const writing = checkWriting({ files, read, names: writingNames({ catalogue, document }) });
 problems.push(...writing.problems);
 problems.push(...checkIndex({ files, read }));
 if (document) {

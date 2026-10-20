@@ -12,7 +12,8 @@ import { afterAll, describe, expect, it } from "vitest";
 import { checkTree, generateIndex } from "../../scripts/docs-contract.mjs";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: a plain-JS gate, no declaration file on purpose.
-import { OPERATOR_SCRIPTS, WRITING_LIST, checkPageWriting, checkWriting, colonLine, measure, median, readList, words } from "../../scripts/docs-writing.mjs";
+import { OPERATOR_SCRIPTS, WRITING_LIST, checkPageWriting, checkWriting, colonLine, measure, median, readList, words, writingNames } from "../../scripts/docs-writing.mjs";
+import { SETTING_CATALOGUE, TEST_WIRING } from "@/lib/settings/catalogue";
 
 type Problem = { file: string; rule: string; message: string; line?: number };
 type Names = { variables: string[]; keys: string[]; codes: string[] };
@@ -121,6 +122,24 @@ describe("the rules on one page", () => {
     const body = `${w(75)}\n\n${w(70).slice(0, -1)} ![The map](../images/use/map.webp) ${w(9)}\n`;
     expect(check("docs/use/case.md", body)).toEqual([]);
     expect(check("docs/use/case.md", body.replace("![The map](../images/use/map.webp) ", ""))).toEqual([{ file: "docs/use/case.md", rule: "writing.first-screen", line: 12 }]);
+  });
+});
+
+describe("the names a read_when line is held to", () => {
+  const names = writingNames({ catalogue: SETTING_CATALOGUE, document: JSON.parse(readFileSync("docs/api/openapi.json", "utf8")) }) as Names;
+
+  it("are the catalogue's variables, the Settings keys an admin changes, and the description's error codes", () => {
+    expect(names.variables).toEqual(expect.arrayContaining(["DEZFIL_DATA_DIR", "DEZFIL_UPLOAD_MAX_MB", "ANTHROPIC_API_KEY", "DEZFIL_AI_PROVIDER"]));
+    expect(names.keys).toEqual(expect.arrayContaining(["instanceName", "landingPage", "basemaps.satellite", "templates.catalogue"]));
+    expect(names.codes).toEqual(expect.arrayContaining(["upload_too_large", "token_expired", "stale_revision", "rule_refused"]));
+    expect(names.codes.length).toBe(Object.keys(JSON.parse(readFileSync("docs/api/openapi.json", "utf8"))["x-error-codes"]).length);
+  });
+
+  it("leave out an account's own preferences, settings no admin changes in Settings, and test wiring", () => {
+    expect(names.keys).not.toContain("look.color");
+    expect(names.keys).not.toContain("maps.view");
+    expect(names.keys).not.toContain("dataDir");
+    for (const wiring of TEST_WIRING) expect(names.variables).not.toContain(wiring.environment);
   });
 });
 

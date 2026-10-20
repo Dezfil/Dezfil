@@ -19,9 +19,15 @@
       "scripts/docs-not-rewritten.txt": "docs/start/install.md\n"
     },
     "names": {
-      "variables": [],
-      "keys": [],
-      "codes": []
+      "variables": [
+        "DEZFIL_UPLOAD_MAX_MB"
+      ],
+      "keys": [
+        "instanceName"
+      ],
+      "codes": [
+        "upload_too_large"
+      ]
     }
   },
   "documents": [
@@ -1641,6 +1647,78 @@
       "name": "\"This page\" past the first paragraph's opening, and in a later paragraph",
       "files": {
         "docs/about/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you check the writing rules\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nOn this page you run it.\n\nThis page then shows the rest.\n"
+      },
+      "problems": []
+    },
+    {
+      "scope": "product",
+      "name": "a read_when line naming a variable the body does not",
+      "files": {
+        "docs/about/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you raise DEZFIL_UPLOAD_MAX_MB\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nRaise the largest upload in Settings.\n"
+      },
+      "problems": [
+        {
+          "file": "docs/about/case.md",
+          "rule": "writing.read-when-name",
+          "line": 5
+        }
+      ]
+    },
+    {
+      "scope": "product",
+      "name": "a read_when line naming a Settings key the body does not",
+      "files": {
+        "docs/about/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you check the writing rules\"\n  - \"you rename the instance with instanceName\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nRename the instance in Settings.\n"
+      },
+      "problems": [
+        {
+          "file": "docs/about/case.md",
+          "rule": "writing.read-when-name",
+          "line": 6
+        }
+      ]
+    },
+    {
+      "scope": "product",
+      "name": "a read_when line naming an error code the body does not",
+      "files": {
+        "docs/about/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"an upload answers upload_too_large\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nUpload a smaller file.\n"
+      },
+      "problems": [
+        {
+          "file": "docs/about/case.md",
+          "rule": "writing.read-when-name",
+          "line": 5
+        }
+      ]
+    },
+    {
+      "scope": "product",
+      "name": "a read_when line naming a variable the body names only inside a longer name",
+      "files": {
+        "docs/about/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you raise DEZFIL_UPLOAD_MAX_MB\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nSet `DEZFIL_UPLOAD_MAX_MB_TOTAL`.\n"
+      },
+      "problems": [
+        {
+          "file": "docs/about/case.md",
+          "rule": "writing.read-when-name",
+          "line": 5
+        }
+      ]
+    },
+    {
+      "scope": "product",
+      "name": "read_when lines whose variable, Settings key and error code the body names",
+      "files": {
+        "docs/about/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you raise DEZFIL_UPLOAD_MAX_MB.\"\n  - \"you rename the instance with instanceName\"\n  - \"an upload answers upload_too_large, or 413\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nSet `DEZFIL_UPLOAD_MAX_MB` to raise the largest upload.\n\n| Key | Where |\n|---|---|\n| `instanceName` | **General** |\n\n```json title=\"Output\"\n{\"error\":{\"code\":\"upload_too_large\"}}\n```\n"
+      },
+      "problems": []
+    },
+    {
+      "scope": "product",
+      "name": "a read_when line naming something that is no setting or error code",
+      "files": {
+        "docs/about/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you set DEZFIL_NOT_A_SETTING or get not_a_code\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nRun it.\n"
       },
       "problems": []
     }
