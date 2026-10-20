@@ -2,7 +2,7 @@
 title: "Architecture"
 summary: "Find where each part of the Dezfil container lives in the source, and keep the rules that hold the parts together."
 read_when:
-  - "you change the code and need to know where a part lives"
+  - "you change the code or the Dockerfile and need to know where a part lives or what the image carries"
   - "you wonder why Dezfil needs no database server or second service"
   - "you trace a layer from the browser to the query engine and back"
   - "you add a feature and want to know which rules it must keep"
@@ -66,7 +66,7 @@ The data folder is `DEZFIL_DATA_DIR`: `/data` in the container, `./data` in a ch
 
 ## The container image
 
-The [Dockerfile](../../Dockerfile) builds the image in stages on `node:24-slim`. Its last stage holds everything the server needs, so a running instance fetches nothing:
+The [Dockerfile](../../Dockerfile) builds the image in stages on `node:24-slim`. Its last stage holds everything the server runs, so the server starts, and its engine loads every extension, with no network. [What leaves the instance](../self-host/what-leaves-the-instance.md) lists the requests a running instance can make.
 
 | In the image | Where | What it is for |
 |---|---|---|
@@ -75,7 +75,8 @@ The [Dockerfile](../../Dockerfile) builds the image in stages on `node:24-slim`.
 | Chromium, a certificate bundle and the Liberation fonts | `/usr/bin/chromium`, named by `DEZFIL_CHROMIUM_PATH` | Image exports, the pictures on map cards and the look at a map the assistant or an agent asks for, drawn with software GL |
 | The engine's extensions: spatial, h3, httpfs, json, postgres, azure and aws | `/app/duckdb-extensions`, named by `DUCKDB_EXTENSION_DIR` | Installed at build time by `scripts/install-duckdb-extensions.mjs` from the one list in `scripts/duckdb-extensions.mjs`, which the offline check reads too |
 | The native packages the standalone build leaves out: `@duckdb`, `better-sqlite3`, `bindings` and `file-uri-to-path` | `/app/node_modules/` | The engine's and the metadata store's native code, copied whole |
-| `public/`, the model catalogue, the shipped templates, `LICENSE` and `NOTICE` | At their paths in the source | Read at run time where the source keeps them |
+| `public/`, the model catalogue and the shipped templates | At their paths in the source | Read at run time where the source keeps them |
+| `LICENSE` and `NOTICE` | `/app` | The licences of the code and the components the image carries |
 | The ingress preload and the account recovery script, with the modules they import | `/app/scripts/`, `/app/src/lib/auth/` | The preload starts before the server; an operator runs the recovery script |
 
 The image runs as the unprivileged `node` user, listens on port 3000 and keeps its data in the `/data` volume. [Development setup](development-setup.md#build-and-check-the-image) builds it and runs its two checks.

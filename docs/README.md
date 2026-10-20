@@ -146,7 +146,7 @@ Work on Dezfil's code.
 - [Architecture](contribute/architecture.md)
   - path: `docs/contribute/architecture.md`
   - summary: Find where each part of the Dezfil container lives in the source, and keep the rules that hold the parts together.
-  - read when: you change the code and need to know where a part lives; you wonder why Dezfil needs no database server or second service; you trace a layer from the browser to the query engine and back; you add a feature and want to know which rules it must keep; you add an API operation and want the UI, the assistant and MCP clients to get it
+  - read when: you change the code or the Dockerfile and need to know where a part lives or what the image carries; you wonder why Dezfil needs no database server or second service; you trace a layer from the browser to the query engine and back; you add a feature and want to know which rules it must keep; you add an API operation and want the UI, the assistant and MCP clients to get it
   - audience: developer, agent
 
 - [How this is built](contribute/how-this-is-built.md)
