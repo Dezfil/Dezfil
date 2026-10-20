@@ -1,8 +1,9 @@
 // The picture script's parts that need no browser: the manifest it writes
 // (a file replaced only when its bytes changed, a row's version and date
 // moving only with its file), its scene list and the names of a scene's two
-// takes, the theme a take's browser starts in, the WebP header it reads back
-// and the catalogue folder it serves the Templates page from.
+// takes, the theme a take's browser starts in, the WebP header it reads back,
+// the catalogue folder it serves the Templates page from and the scripted
+// model the assistant scenes talk to.
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -19,13 +20,24 @@ import { CADENCE, THEME_STORAGE_KEY, bundledFfmpeg, cropRectangle, encodeWebm, t
 import { manifestText, planRun } from "../../scripts/docs-pictures-manifest.mjs";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: as above.
-import { SCENES, STATES } from "../../scripts/docs-pictures-scenes.mjs";
+import { BAND_CHOICE_KEY, DEFAULT_LOOK, MEMBER_STATES, SCENES, SQL_STORAGE_KEYS, STATES, STATE_SEEDING } from "../../scripts/docs-pictures-scenes.mjs";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: as above.
-import { freePort, makeScratch, startServer, writeCatalogue } from "../../scripts/docs-pictures-instance.mjs";
+import { ASSISTANT_MAP, BIG_CITIES, FIRST_MAP, MEMBER_MAPS, freePort, makeScratch, runWorkflow, seedAssistantMap, seedFirstMap, seedMember, seedUseMaps, seedUseShare, seedWorkflow, startServer, writeCatalogue } from "../../scripts/docs-pictures-instance.mjs";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: as above.
+import { ASSISTANT_MESSAGES, PROPOSED_QUERY, SCRIPTED_KEY, assistantEnvironment, replyEvents, scriptedReply, startScriptedModel } from "../../scripts/docs-pictures-assistant.mjs";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: as above.
 import { placeOf } from "../../scripts/docs-contract.mjs";
+import OpenAI from "openai";
+import { defaultOutputName } from "@/components/builder/drawer/operation-form";
+import { assistantAvailability } from "@/lib/assistant/config";
+import { openaiProvider } from "@/lib/assistant/providers/openai";
+import { resolveBoolean } from "@/lib/settings/resolver";
+import { defaultLook } from "@/lib/look";
+import { buildTools } from "@/lib/tools/tools";
+import { findOperation } from "@/lib/operations/catalog";
 import { pictureRendererAvailable } from "@/lib/pictures/renderer";
 import { parseIndex } from "@/lib/templates/catalogue";
 import { webm } from "../../test-support/media-fixtures";
@@ -155,7 +167,7 @@ describe("the scene list", () => {
   });
 
   it("takes the first map's scenes after every seeded scene, so no seeded picture shows the first map", () => {
-    expect(STATES).toEqual(["fresh", "seeded", "first-map", "use-maps", "use-share"]);
+    expect(STATES.slice(0, 3)).toEqual(["fresh", "seeded", "first-map"]);
     const firstMap = scenes.filter((s) => s.state === "first-map");
     expect(firstMap.length).toBeGreaterThan(0);
     for (const scene of firstMap) {
@@ -166,6 +178,8 @@ describe("the scene list", () => {
 
   it("takes the Use Dezfil scenes on data and maps, then those on sharing, last, so what they change as they open reaches no other page's picture", () => {
     expect(STATES.slice(-2)).toEqual(["use-maps", "use-share"]);
+    expect(STATE_SEEDING["use-maps"]).toBe(seedUseMaps);
+    expect(STATE_SEEDING["use-share"]).toBe(seedUseShare);
     for (const state of ["use-maps", "use-share"]) {
       const taken = scenes.filter((s) => s.state === state);
       expect(taken.length).toBeGreaterThan(0);
@@ -173,6 +187,212 @@ describe("the scene list", () => {
         expect(scene.file.startsWith("use/")).toBe(true);
         for (const page of scene.pages) expect(page.startsWith("docs/use/")).toBe(true);
       }
+    }
+  });
+
+  it("makes each state after the seeded one from the state before it, the first map by its own seeding", () => {
+    expect(new Set(STATES).size).toBe(STATES.length);
+    for (const state of Object.keys(STATE_SEEDING)) expect(STATES.indexOf(state)).toBeGreaterThan(STATES.indexOf("seeded"));
+    expect(STATE_SEEDING["first-map"]).toBe(seedFirstMap);
+  });
+
+  it("takes the SQL workspace's scenes after the first map in a state of their own, each starting without the draft and history the app keeps", () => {
+    expect(STATES.indexOf("sql")).toBeGreaterThan(STATES.indexOf("first-map"));
+    const sql = scenes.filter((s) => s.state === "sql");
+    expect(sql.length).toBeGreaterThan(0);
+    for (const scene of sql) expect(scene.pages).toEqual(["docs/use/sql.md"]);
+    // The keys the app writes; if it moves them, a scene would inherit the
+    // draft of the one before it, and this fails first.
+    const storage = readFileSync("src/components/sql/sql-storage.ts", "utf8");
+    for (const key of SQL_STORAGE_KEYS) expect(storage).toContain(`"${key}"`);
+  });
+
+  it("takes the Workflows page's scenes on its workflow made and never run, then after its run", () => {
+    expect(STATES.slice(STATES.indexOf("sql") + 1, STATES.indexOf("sql") + 3)).toEqual(["workflow", "workflow-run"]);
+    expect(STATE_SEEDING.workflow).toBe(seedWorkflow);
+    expect(STATE_SEEDING["workflow-run"]).toBe(runWorkflow);
+    const workflow = scenes.filter((s) => s.state === "workflow" || s.state === "workflow-run");
+    expect(new Set(workflow.map((s) => s.state))).toEqual(new Set(["workflow", "workflow-run"]));
+    for (const scene of workflow) expect(scene.pages).toEqual(["docs/use/workflows.md"]);
+    // The band's choice is the app's own key; if it moves, the canvas scene
+    // would open the band the scene before it chose, and this fails first.
+    expect(readFileSync("src/components/workflow-canvas/band-store.ts", "utf8")).toContain(`const KEY = "${BAND_CHOICE_KEY}";`);
+  });
+
+  it("names the workflow's datasets as the canvas names them by default, so its pictures show what the page's steps make", () => {
+    const { filter, cells } = BIG_CITIES;
+    expect(filter.parameters.input).toBe(FIRST_MAP.layer);
+    expect(filter.parameters.name).toBe(defaultOutputName(findOperation(filter.operation), filter.parameters.input, () => false));
+    expect(cells.parameters.input).toBe(filter.parameters.name);
+    expect(cells.parameters.name).toBe(defaultOutputName(findOperation(cells.operation), cells.parameters.input, () => false));
+  });
+});
+
+describe("the assistant scenes", () => {
+  it("are taken on The assistant's page after the workflow has run, on a map of their own beside the first map", () => {
+    expect(STATES.indexOf("assistant")).toBeGreaterThan(STATES.indexOf("workflow-run"));
+    expect(STATE_SEEDING.assistant).toBe(seedAssistantMap);
+    expect(ASSISTANT_MAP.name).not.toBe(FIRST_MAP.name);
+    const assistant = scenes.filter((s) => s.state === "assistant");
+    expect(assistant.map((s) => s.id)).toEqual(["assistant-builder", "assistant-confirm", "assistant-sql", "assistant-workflow"]);
+    for (const scene of assistant) expect(scene.pages).toEqual(["docs/use/assistant.md"]);
+    // The two on the map builder draw the basemap; the SQL page and the
+    // canvas draw no map in their pane.
+    expect(assistant.filter((s) => s.map === true).map((s) => s.id)).toEqual(["assistant-builder", "assistant-confirm"]);
+  });
+
+  it("send the messages the page gives as its examples", () => {
+    const page = readFileSync("docs/use/assistant.md", "utf8");
+    for (const message of [ASSISTANT_MESSAGES.color, ASSISTANT_MESSAGES.count]) expect(page).toContain(`\`${message}\``);
+  });
+
+  it("point the instance at the scripted model, which it reads as an OpenAI assistant on no provider's key, with no automatic map check", () => {
+    const env = assistantEnvironment("http://127.0.0.1:41234");
+    expect(assistantAvailability(env)).toMatchObject({ enabled: true, provider: "openai" });
+    expect(env.OPENAI_API_KEY).toBe(SCRIPTED_KEY);
+    vi.stubEnv("DEZFIL_ASSISTANT_AUTO_CHECK", env.DEZFIL_ASSISTANT_AUTO_CHECK);
+    vi.stubEnv("OPENAI_BASE_URL", env.OPENAI_BASE_URL);
+    try {
+      expect(resolveBoolean("assistantAutoCheck")).toBe(false);
+      // The adapter makes its client from the key alone, so the address is
+      // the one the client library reads from the environment.
+      expect(new OpenAI({ apiKey: SCRIPTED_KEY }).baseURL).toBe("http://127.0.0.1:41234/v1");
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it("ask for actions the instance offers: deleting the dataset waits at a card that names it as the call does, the paint and the layer change do not wait", () => {
+    const tools = new Map(buildTools().map((tool) => [tool.name, tool]));
+    expect(tools.get("compute_fill")?.confirm).toBe(false);
+    expect(tools.get("update_layer")?.confirm).toBe(false);
+    const remove = tools.get("delete_table");
+    expect(remove?.confirm).toBe(true);
+    // The card names the dataset by the name in the call, the same on every
+    // run, and never by an identity the run makes.
+    expect(remove?.confirmation).toMatchObject({ target: "Delete {target}?", subject: { argument: "name", name: "name", identity: "name" } });
+  });
+
+  it("hold steady the action time the pane shows, under the name the pane reads it by", () => {
+    expect(readFileSync("src/components/builder/assistant/record-projection.ts", "utf8")).toMatch(/event\.elapsedMs[\s\S]*action\.elapsedMs/);
+  });
+});
+
+describe("the settings scenes", () => {
+  it("are taken on Your settings' page in a state of their own, signed in as the second account, a member", () => {
+    expect(STATES.indexOf("member")).toBeGreaterThan(STATES.indexOf("seeded"));
+    expect(MEMBER_STATES).toEqual(["member"]);
+    expect(STATE_SEEDING.member).toBe(seedMember);
+    const settings = scenes.filter((s) => s.state === "member");
+    expect(settings.map((s) => s.id)).toEqual(["settings-appearance", "settings-look-harbor", "settings-maps-list", "settings-account"]);
+    for (const scene of settings) {
+      expect(scene.pages).toEqual(["docs/use/settings.md"]);
+      expect(scene.map).toBeUndefined();
+    }
+  });
+
+  it("start each take from Dezfil's default look, every pick at its first choice", () => {
+    expect(DEFAULT_LOOK).toEqual(defaultLook());
+  });
+
+  it("show the member's own maps: the three shipped templates copied with the member's token, one of them published", async () => {
+    const calls: string[] = [];
+    const maps = [
+      { id: "m1", name: "Forty years of big earthquakes" },
+      { id: "m2", name: MEMBER_MAPS.published },
+      { id: "m3", name: "Health access in Rwanda" },
+    ];
+    const member = async (method: string, path: string, options: { basis?: { editRevision: string } } = {}) => {
+      calls.push(`${method} ${path}${options.basis ? ` @${options.basis.editRevision}` : ""}`);
+      if (path === "/api/templates") return { status: 200, json: { templates: ["a", "b", "c"].map((id) => ({ id, origin: "shipped" })).concat({ id: "d", origin: "downloaded" }) } };
+      if (path.endsWith("/copy")) return { status: 201, json: {} };
+      if (path === "/api/maps") return { status: 200, json: maps };
+      if (method === "GET") return { status: 200, json: { id: "m2", editRevision: "r7" } };
+      return { status: 201, json: {} };
+    };
+    const first = async () => { throw new Error("The member's work is made with the member's own client."); };
+    await seedMember(first, "/nowhere", { member: { api: member } });
+    expect(calls).toEqual([
+      "GET /api/templates",
+      "POST /api/templates/a/copy", "POST /api/templates/b/copy", "POST /api/templates/c/copy",
+      "GET /api/maps",
+      "GET /api/maps/m2",
+      "POST /api/maps/m2/publish @r7",
+    ]);
+  });
+});
+
+describe("the scripted model", () => {
+  const user = (content: string) => ({ role: "user", content });
+  const grounded = (style: Record<string, unknown>) => user(`Instance grounding (data):\n${JSON.stringify({ context: { page: "builder", mapId: "m1", selectedLayerId: "l1" }, map: { id: "m1", layers: { items: [{ id: "l1", style }] } } })}`);
+  const call = (name: string, id: string) => ({ type: "function_call", call_id: id, name, arguments: "{}" });
+  const output = (id: string, body: unknown) => ({ type: "function_call_output", call_id: id, output: JSON.stringify(body) });
+  const style = { fill: { type: "constant" }, pointRadius: 4 };
+  const fill = { type: "classified", attribute: "population" };
+  const asked = [grounded(style), user(ASSISTANT_MESSAGES.color)];
+  const painted = [...asked, call("compute_fill", "c1"), output("c1", fill)];
+
+  it("colors the selected layer in steps: the paint, then the layer's own style with it, then the reply", () => {
+    expect(scriptedReply({ input: asked })).toEqual({ calls: [{ name: "compute_fill", args: { id: "l1", attribute: "population", method: "quantile", classes: 5 } }] });
+    expect(scriptedReply({ input: painted })).toEqual({ calls: [{ name: "update_layer", args: { id: "l1", style: { ...style, fill } } }] });
+    const done = [...painted, call("update_layer", "c2"), output("c2", { id: "l1" })];
+    expect(scriptedReply({ input: done }).text).toMatch(/^The cities are colored by population/);
+  });
+
+  it("goes no further than an action the instance refused", () => {
+    const refused = [...asked, call("compute_fill", "c1"), output("c1", { error: { code: "invalid_request" } })];
+    expect(() => scriptedReply({ input: refused })).toThrow(/compute_fill answered/);
+  });
+
+  it("proposes the query in a SQL block, and asks once to delete the dataset", () => {
+    expect(scriptedReply({ input: [user(ASSISTANT_MESSAGES.count)] }).text).toContain(`\`\`\`sql\n${PROPOSED_QUERY}\n\`\`\``);
+    expect(scriptedReply({ input: [user(ASSISTANT_MESSAGES.remove)] })).toEqual({ calls: [{ name: "delete_table", args: { name: "world_cities" } }] });
+    expect(() => scriptedReply({ input: [user(ASSISTANT_MESSAGES.remove), call("delete_table", "c1"), output("c1", {})] })).toThrow(/no reply/);
+  });
+
+  it("answers the last message, whatever the conversation said before it, and nothing it was not given", () => {
+    const earlier = [user(ASSISTANT_MESSAGES.color), { role: "assistant", content: "Done." }, user(ASSISTANT_MESSAGES.count)];
+    expect(scriptedReply({ input: earlier }).text).toContain(PROPOSED_QUERY);
+    expect(() => scriptedReply({ input: [user("Hello")] })).toThrow(/no reply/);
+  });
+
+  it("streams a reply as the provider's events: the text, then the completed response with the text and the actions", () => {
+    const events = replyEvents({ text: "Hi", calls: [{ name: "x", args: { a: 1 } }] }).trim().split("\n\n").map((line: string) => JSON.parse(line.slice("data: ".length)));
+    expect(events.map((event: { type: string }) => event.type)).toEqual(["response.output_text.delta", "response.completed"]);
+    expect(events[1].response.status).toBe("completed");
+    expect(events[1].response.output.map((item: { type: string }) => item.type)).toEqual(["message", "function_call"]);
+    expect(JSON.parse(events[1].response.output[1].arguments)).toEqual({ a: 1 });
+  });
+
+  it("is read by the instance's own OpenAI adapter: the text it proposes and the action it asks for", async () => {
+    const model = await startScriptedModel();
+    vi.stubEnv("OPENAI_BASE_URL", `${model.url}/v1`);
+    try {
+      const options = { system: "", tools: [], history: [] };
+      const proposal = await openaiProvider(SCRIPTED_KEY, "scripted").exchange(options).send(ASSISTANT_MESSAGES.count);
+      expect(proposal.text).toContain(PROPOSED_QUERY);
+      expect(proposal.toolCalls).toEqual([]);
+      const removal = await openaiProvider(SCRIPTED_KEY, "scripted").exchange(options).send(ASSISTANT_MESSAGES.remove);
+      expect(removal.toolCalls).toEqual([{ id: expect.any(String), name: "delete_table", args: { name: "world_cities" } }]);
+      expect(model.problems).toEqual([]);
+    } finally {
+      vi.unstubAllEnvs();
+      await model.stop();
+    }
+  });
+
+  it("names what it was asked and could not answer, and refuses it", async () => {
+    const model = await startScriptedModel();
+    try {
+      const refused = await fetch(`${model.url}/v1/responses`, { method: "POST", body: JSON.stringify({ input: [user("Hello")] }) });
+      expect(refused.status).toBe(500);
+      await refused.text();
+      const elsewhere = await fetch(`${model.url}/v1/models`);
+      expect(elsewhere.status).toBe(404);
+      await elsewhere.text();
+      expect(model.problems).toEqual([expect.stringMatching(/no reply to "Hello"/), "GET /v1/models"]);
+    } finally {
+      await model.stop();
     }
   });
 });
@@ -302,6 +522,7 @@ describe("the picture script's server", () => {
     'const data = process.env.DEZFIL_DATA_DIR;',
     'writeFileSync(join(data, "pid"), String(process.pid));',
     'writeFileSync(join(data, "browser.json"), JSON.stringify(process.env.DEZFIL_CHROMIUM_PATH ?? null));',
+    'writeFileSync(join(data, "model.json"), JSON.stringify(process.env.OPENAI_BASE_URL ?? null));',
     'if (existsSync(join(data, "answer"))) require("node:http").createServer((_, res) => res.end("ok")).listen(Number(process.argv.at(-1)), "127.0.0.1");',
     "else setInterval(() => {}, 1000);",
   ].join("\n"));
@@ -346,6 +567,23 @@ describe("the picture script's server", () => {
       vi.unstubAllEnvs();
       if (pid && alive(pid)) process.kill(pid, "SIGKILL");
       rmSync(folder.folder, { recursive: true, force: true });
+    }
+  });
+
+  // The assistant scenes' model is served by the run, and the server is
+  // told where it is; without the environment it is told nothing.
+  it("starts the server with the environment the run serves it, and only that", async () => {
+    for (const [environment, expected] of [[assistantEnvironment("http://127.0.0.1:41234"), "http://127.0.0.1:41234/v1"], [undefined, null]] as const) {
+      const folder = await makeScratch();
+      let pid = 0;
+      try {
+        await expect(startServer({ root, port: await freePort(), scratch: folder, environment, readyWithin: 1000 })).rejects.toThrow(/did not answer/);
+        pid = Number(readFileSync(join(folder.data, "pid"), "utf8"));
+        expect(JSON.parse(readFileSync(join(folder.data, "model.json"), "utf8"))).toBe(expected);
+      } finally {
+        if (pid && alive(pid)) process.kill(pid, "SIGKILL");
+        rmSync(folder.folder, { recursive: true, force: true });
+      }
     }
   });
 });

@@ -9,6 +9,11 @@ import { unitControlFor, type ReadSetting } from "./server-set";
 import { useSaveUnit, useUnitFocus } from "./use-save-unit";
 import { useLiveValue } from "./live-values";
 import { cardFormClass, LabelledField, Note, ResetSlot, SaveLine, SettingsCard } from "./SettingsCard";
+import { generalRow, SIGN_IN_CARD } from "./general-table";
+
+const MESSAGE = generalRow("signInMessage");
+const CONTACT = generalRow("lostPasswordContact");
+const LANDING = generalRow("landingPage");
 
 const KEYS = ["signInMessage", "lostPasswordContact", "landingPage"] as const;
 type SignInValues = Readonly<Record<(typeof KEYS)[number], Value>>;
@@ -24,7 +29,7 @@ export function SignInCard(props: { admin: true; settings: Readonly<Record<strin
 
 function signInUnit(settings: Readonly<Record<string, ReadSetting>>): SaveUnit {
   return new SaveUnit({
-    title: "Sign-in",
+    title: SIGN_IN_CARD.title,
     controls: KEYS.map(key => unitControlFor(settings[key])),
     kept: Object.fromEntries(KEYS.map(key => [key, settings[key].value as Value])),
     write: async patch => keptValues(await writeInstanceSettings(patch), KEYS),
@@ -33,11 +38,11 @@ function signInUnit(settings: Readonly<Record<string, ReadSetting>>): SaveUnit {
 
 function AdminSignIn({ settings }: { settings: Readonly<Record<string, ReadSetting>> }) {
   const root = useRef<HTMLElement>(null);
-  const [unit, card] = useSaveUnit("card-sign-in", () => signInUnit(settings));
+  const [unit, card] = useSaveUnit(SIGN_IN_CARD.id, () => signInUnit(settings));
   useUnitFocus(root, card.focus);
-  useLiveValue("set-sign-in-message", String(card.values.signInMessage ?? ""));
-  useLiveValue("set-lost-password-contact", String(card.values.lostPasswordContact ?? ""));
-  return <SettingsCard ref={root} id="card-sign-in" title="Sign-in" headingId="sign-in-heading" head={<ResetSlot unit={unit} card={card} />}>
+  useLiveValue(MESSAGE.id, String(card.values.signInMessage ?? ""));
+  useLiveValue(CONTACT.id, String(card.values.lostPasswordContact ?? ""));
+  return <SettingsCard ref={root} id={SIGN_IN_CARD.id} title={SIGN_IN_CARD.title} headingId="sign-in-heading" head={<ResetSlot unit={unit} card={card} />}>
     <form className={cardFormClass} noValidate onSubmit={event => { event.preventDefault(); unit.save(); }}>
       <SignInFields values={card.values as SignInValues} disabled={card.busy} saved={card.saved} errors={card.errors}
         onText={(key, value) => unit.edit(key, value)} onChoose={(key, value) => unit.choose(key, value)} />
@@ -48,7 +53,7 @@ function AdminSignIn({ settings }: { settings: Readonly<Record<string, ReadSetti
 }
 
 function MemberSignIn({ values }: { values: SignInValues }) {
-  return <SettingsCard id="card-sign-in" title="Sign-in" headingId="sign-in-heading">
+  return <SettingsCard id={SIGN_IN_CARD.id} title={SIGN_IN_CARD.title} headingId="sign-in-heading">
     <SignInFields values={values} disabled />
     <Note>Only admins can change the sign-in settings.</Note>
   </SettingsCard>;
@@ -68,17 +73,17 @@ function SignInFields({ values, disabled, saved = [], errors = {}, onText, onCho
   const text = (key: string) => String(values[key as keyof SignInValues] ?? "");
   const red = (key: string) => ({ saved: saved.includes(key), error: errors[key], errorId: `${id(key)}-error` });
   return <>
-    <LabelledField id="set-sign-in-message" label="Message" inputId={id("message")} {...red("signInMessage")}
+    <LabelledField id={MESSAGE.id} label={MESSAGE.label} inputId={id("message")} {...red("signInMessage")}
       rule="Anyone who opens the sign-in page can read it.">
       <Textarea id={id("message")} data-unit-key="signInMessage" rows={3} maxLength={280} value={text("signInMessage")}
         disabled={disabled} readOnly={!onText} {...invalid("signInMessage")} onChange={onText && (event => onText("signInMessage", event.target.value))} />
     </LabelledField>
-    <LabelledField id="set-lost-password-contact" label="Lost password contact" inputId={id("contact")} {...red("lostPasswordContact")}
+    <LabelledField id={CONTACT.id} label={CONTACT.label} inputId={id("contact")} {...red("lostPasswordContact")}
       rule={`Shown as “${forgotLine(text("lostPasswordContact"))}”`}>
       <TextInput id={id("contact")} data-unit-key="lostPasswordContact" placeholder="an admin" maxLength={120} value={text("lostPasswordContact")}
         disabled={disabled} readOnly={!onText} {...invalid("lostPasswordContact")} onChange={onText && (event => onText("lostPasswordContact", event.target.value))} />
     </LabelledField>
-    <LabelledField id="set-landing-page" label="Landing page" inputId={id("landing")} {...red("landingPage")}>
+    <LabelledField id={LANDING.id} label={LANDING.label} inputId={id("landing")} {...red("landingPage")}>
       <Select id={id("landing")} data-unit-key="landingPage" value={text("landingPage") || "home"} disabled={disabled}
         {...invalid("landingPage")} onChange={onChoose && (event => onChoose("landingPage", event.target.value))}>
         {LANDING_PAGES.map(page => <option key={page.value} value={page.value}>{page.label}</option>)}

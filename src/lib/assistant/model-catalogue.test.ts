@@ -1,9 +1,10 @@
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CATALOGUE_LIMIT, readModelCatalogue, validateCatalogue } from "./model-catalogue";
 import { describeModel } from "./model-knowledge";
+import { settingsRows } from "../../../scripts/check-readme-config.mjs";
 
 let dir: string;
 let file: string;
@@ -17,17 +18,22 @@ const put = (value: unknown) => writeFileSync(file, JSON.stringify(value));
 const model = (id: string, name = id, efforts: string[] = []) => ({ id, name, efforts });
 
 describe("whole catalogue contract", () => {
-  it("the runbook example is a valid both-provider instance file and new docs have no em dashes", () => {
-    const section = readFileSync("docs/self-host/backup-and-restore.md", "utf8").split("## The model catalogue file")[1];
+  it("the guide's example is a valid instance file and new docs have no em dashes", () => {
+    const guide = "docs/self-host/assistant.md";
+    const section = readFileSync(guide, "utf8").split("## Offer other models")[1]?.split("\n## ")[0];
     expect(section).toBeDefined();
     expect(section).not.toContain("\u2014");
-    // The dash rule covers everything from this section on as it was first
-    // written: the rest of its page, and the probe procedures that followed
-    // it there and now sit beside their scripts. Every one of those sections
-    // is read, wherever it lives.
+    // The dash rule covers everything that followed this section in the
+    // runbook as it was first written: the template release section still
+    // at the end of Back up and restore, and the probe procedures that now
+    // sit beside their scripts. Every one of those sections is read,
+    // wherever it lives.
+    const runbook = readFileSync("docs/self-host/backup-and-restore.md", "utf8");
+    const release = runbook.slice(Math.max(0, runbook.indexOf("## Shipping a template release")));
+    expect(release).not.toContain("\u2014");
     const notes = ["scripts/transport-probe.md", "scripts/body-probe.md", "scripts/publication-source-probe.md", "scripts/derivation-probe.md", "scripts/credential-cleanup-driver.md", "scripts/sharing-journey.md", "scripts/query-result-budget-probe.md", "scripts/settings-probe.md"];
     const texts = notes.map((note) => readFileSync(note, "utf8"));
-    const headings = [section, ...texts].join("\n").split("\n").filter((line) => /^#{1,6} /.test(line)).map((line) => line.replace(/^#+ /, "").trim());
+    const headings = [release, ...texts].join("\n").split("\n").filter((line) => /^#{1,6} /.test(line)).map((line) => line.replace(/^#+ /, "").trim());
     for (const heading of [
       "Request transport probe", "JSON body and MCP admission probe", "Publication source and state probe", "Derivation admission and timing probe",
       "Credential cleanup and restart probe", "Provider cancellation and caller recovery", "Render destination gate and outside comparison", "Image job probe order",
@@ -35,16 +41,25 @@ describe("whole catalogue contract", () => {
       "Built image", "Browser flow", "Companion commands", "Settings persistence smoke probe", "Shipping a template release",
     ]) expect(headings, heading).toContain(heading);
     texts.forEach((text, i) => expect(text, notes[i]).not.toContain("\u2014"));
-    const example = section.match(/```json\n([\s\S]*?)\n```/)?.[1];
+    const example = section!.match(/```json title="assistant-models\.json"\n([\s\S]*?)\n```/)?.[1];
     expect(example).toBeDefined();
     const parsed = validateCatalogue(JSON.parse(example!));
-    expect(parsed.openai).toHaveLength(2);
-    expect(parsed.anthropic).toHaveLength(2);
-    const rows = readFileSync("docs/self-host/configuration.md", "utf8").split("\n").filter((line) => /^\| `DEZFIL_(DATA_DIR|AI_MODELS_OPENAI|AI_MODELS_ANTHROPIC)`/.test(line));
-    expect(rows).toHaveLength(3);
-    for (const row of rows) {
-      expect(row).toContain("](backup-and-restore.md#the-model-catalogue-file)");
+    expect(parsed.openai.length + parsed.anthropic.length).toBeGreaterThan(0);
+    // The settings that name or narrow the model catalogue: each one's row,
+    // on whichever page its settings table is, and that page holds the
+    // catalogue's instructions or links them.
+    const pages = readdirSync("docs", { recursive: true, encoding: "utf8" }).filter((file) => file.endsWith(".md")).map((file) => `docs/${file.split(path.sep).join("/")}`);
+    for (const name of ["DEZFIL_DATA_DIR", "DEZFIL_AI_MODELS_OPENAI", "DEZFIL_AI_MODELS_ANTHROPIC"]) {
+      const holding = pages.flatMap((page) => {
+        const text = readFileSync(page, "utf8");
+        return (settingsRows(text, page) as { variable: string; line: number }[]).filter((row) => row.variable === name).map((row) => ({ page, text, row: text.split("\n")[row.line - 1] }));
+      });
+      expect(holding, name).toHaveLength(1);
+      const [{ page, text, row }] = holding;
       expect(row).not.toContain("\u2014");
+      if (page === guide) { expect(text, page).toContain("\n## Offer other models\n"); continue; }
+      const target = path.posix.relative(path.posix.dirname(page), guide);
+      expect(text, page).toContain(`](${target}#offer-other-models)`);
     }
   });
 

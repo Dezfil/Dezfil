@@ -15,6 +15,9 @@ import { limits } from "@/lib/limits";
 import { requirePageScope } from "@/lib/auth/scope-page";
 import { instanceDefaults } from "@/lib/settings/defaults";
 import { ScreenDefaultsProvider } from "@/components/screen-defaults";
+import { MapOpeningProvider } from "@/components/map-opening";
+import { readMap } from "@/lib/map-access";
+import { opensFramed } from "@/lib/map-opening";
 import { viewsOnly } from "../../standing";
 
 export default async function MapBuilderPage({
@@ -27,25 +30,31 @@ export default async function MapBuilderPage({
   const scope = await requirePageScope();
   const { id } = await params;
   if (!canReach(scope, "map", id)) notFound();
+  // Both the builder and the reader open at the saved view, or framed to
+  // the data while the map has no view of its own (map-opening.ts).
+  const framed = opensFramed(readMap(scope, id).viewport, instanceDefaults());
   // Whoever may not change the map reads it (a Viewer, or anyone while its
   // owner is deactivated); everyone else who reaches it builds. The reader
   // opens nothing that takes one of the instance's defaults.
   if (viewsOnly(scope, "map", id)) {
     return (
-      <MapReader
-        mapId={id}
-        basemapUrl={basemapUrl()}
-        basemapOverrideUrl={basemapOverrideUrl()}
-        basemapOverrideAttribution={basemapOverrideAttribution()}
-        basemaps={drawingBasemaps()}
-      />
+      <MapOpeningProvider framed={framed}>
+        <MapReader
+          mapId={id}
+          basemapUrl={basemapUrl()}
+          basemapOverrideUrl={basemapOverrideUrl()}
+          basemapOverrideAttribution={basemapOverrideAttribution()}
+          basemaps={drawingBasemaps()}
+        />
+      </MapOpeningProvider>
     );
   }
   // The builder draws a map on any style the instance draws, and its
   // picker lists only the ones it offers: each style comes marked.
   // A promotion flow arrives with?layer=<id> so the landed layer opens
   // selected. Read server-side — a client-side URL sniff races the
-  // router's history commit.
+  // router's history commit. It has just added that layer, so the builder
+  // frames the data as it does after any added layer.
   const { layer } = await searchParams;
   // The builder's screens are handed the instance's defaults as this page
   // is served.
@@ -56,14 +65,16 @@ export default async function MapBuilderPage({
       )}
     >
       <ScreenDefaultsProvider defaults={instanceDefaults()}>
-        <MapBuilder
-          mapId={id}
-          initialLayerId={layer ?? null}
-          basemapUrl={basemapUrl()}
-          basemapOverrideUrl={basemapOverrideUrl()}
-          basemapOverrideAttribution={basemapOverrideAttribution()}
-          basemaps={basemapChoices()}
-        />
+        <MapOpeningProvider framed={framed || layer !== undefined}>
+          <MapBuilder
+            mapId={id}
+            initialLayerId={layer ?? null}
+            basemapUrl={basemapUrl()}
+            basemapOverrideUrl={basemapOverrideUrl()}
+            basemapOverrideAttribution={basemapOverrideAttribution()}
+            basemaps={basemapChoices()}
+          />
+        </MapOpeningProvider>
       </ScreenDefaultsProvider>
     </LayerDownloadControlProvider>
   );

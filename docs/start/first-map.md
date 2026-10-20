@@ -153,5 +153,5 @@ Click **Open** to see the map as its readers do. To stop sharing it, click **Pub
 ## Next steps
 
 - Start from a finished map instead: [Templates](../use/templates.md).
-- Query the cities: open **SQL** in the side menu, type `SELECT name, population FROM world_cities ORDER BY population DESC` and click **Run query**.
+- Query the cities: open **SQL** in the side menu, type `SELECT name, population FROM world_cities ORDER BY population DESC` and click **Run query**. [Query with SQL](../use/sql.md) shows the rest of the workspace.
 - Build maps from a script or an AI agent: [How the API works](../api/http-api.md) and [Connect an AI agent](../api/mcp.md).
