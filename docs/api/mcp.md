@@ -23,7 +23,7 @@ account's rights.
 
 Your client brings its own model, so the instance needs no AI key for this.
 The assistant inside the app is a separate thing, with a provider key of its
-own: see [Set up the assistant](../self-host/assistant.md).
+own: see [The assistant](../use/assistant.md).
 
 ## Step 1: Create an API token
 
@@ -159,24 +159,29 @@ with its MCP tool name and its inputs.
 | Account and instance | Read your account; admins also manage users and settings | `get_account`, `list_users` |
 
 Most workflow tools call a workflow a `recipe`. The agent's calls keep the
-same [limits](limits.md#limits-an-operator-changes) as any other call.
+[limits](limits.md) of any other call, and MCP adds two: the size of one
+request, which bounds a file the agent uploads, and **Tool attachment size**
+for a file a tool hands back.
+[The assistant and agents](limits.md#the-assistant-and-agents) gives both.
 
 ## Permissions
 
 A token acts as your account, so the agent reaches what you reach:
 
 - Your own maps, data, workflows and connections.
-- Projects shared with you, in your role there. A **Viewer** reads; an **Editor** also changes maps and workflows, and runs workflows.
+- Projects shared with you, in your role there. A **Viewer** reads; an **Editor** also changes maps and workflows, and runs workflows. [Share and publish](../use/share-and-publish.md#what-viewers-and-editors-can-do) lists what each role can do, and [Who may do what](http-api.md#who-may-do-what) how the API applies it.
 - Admin tools, such as `list_users`, work only with an admin's token. Being an admin gives no access to other people's private work.
 
 To give an agent less than your own access, ask an admin to invite a separate
-account for it in **Users**, then share only the projects it needs.
+account for it in **Users**, then share only the projects it needs. Sign in as
+that account to create the agent's token, as in Step 1: a token carries the
+rights of the account that creates it.
 
 The instance's rules hold for the agent too. For example, while **Who may
 publish** leaves you out, `publish_map` answers `rule_refused`.
 
-An admin can keep new tokens to admins, or make them expire, in **Settings** >
-**Security** > **API tokens**. Tokens that already exist keep working.
+An admin can let only admins create tokens, or make new tokens expire, in
+**Settings** › **Security** › **API tokens**. Tokens that already exist keep working.
 [Security and rules](../self-host/configuration/rules.md) lists both settings.
 
 To cut an agent off, select **Revoke** next to its token, then **Revoke token**.
@@ -245,15 +250,13 @@ map on your **Maps** page. Delete it there when you are done.
 
 - A change without a revision answers `invalid_request`.
 - `stale_revision` means someone changed the item after you read it. Your edit was not applied: read it again and redo the edit on what you find.
-- To make several map or layer edits one undo step, give each the same `change_group`.
+- To make several map or layer edits in a row one undo step, give each the same `change_group`.
 
-A map's `lastChangedBy` names who made its last change: `{ name, sqlName }`
-for an account, `{ deleted: true }` for a deleted account, or `null` when it
-is unknown. A change's author can be a deleted account, and then no name is
-kept.
-
-An undo step's `author` and a workflow run's `runner` take the same three
-forms.
+A map's `lastChangedBy` names who made its last change, and `{ deleted: true }`
+stands for a deleted account. A change's author can be a deleted account, and
+then no name is kept.
+[Who made the last change](http-api.md#who-made-the-last-change) gives every
+form.
 
 ## Add the Dezfil plugin
 
@@ -309,10 +312,10 @@ If you see your account, the token works: restart the client from that
 terminal. "Sign in to continue." means the variable is empty, or the token is
 wrong or revoked: set the variable again, or create a new token.
 
-### The Create token button is grayed out
+### The Create token button is greyed out
 
 The line under it reads "Only admins can create tokens on this instance." An
-admin chose **Admins only** in **Settings** > **Security** > **Who may create
+admin chose **Admins only** in **Settings** › **Security** › **Who may create
 tokens**. Ask an admin to change it. Tokens you made earlier keep working.
 
 ### Calls answer `token_expired`
@@ -331,15 +334,21 @@ added it from.
 
 The tool needs an admin's token, or you can view the item but not change it.
 
-### An upload answers `request_body_too_large`
+### An upload answers `request_body_too_large` or `upload_too_large`
 
-Through MCP, the file travels inside one request, so it must stay under about
-12 MB and under the instance's upload limit.
+Through MCP, the file travels inside one request, so it must fit in that
+request as well as under **Largest upload**.
 [The assistant and agents](limits.md#the-assistant-and-agents) gives the exact
 figures.
 
-Upload bigger files with **Add data** in the app, or through the
-[HTTP API](http-api.md).
+Upload bigger files with **Add data** in the app, or over HTTP as the
+[API quickstart](quickstart.md#step-3-upload-a-csv) does.
+
+### A download answers `attachment_too_large`
+
+A file a tool hands back, such as a map image or a full SQL result, is over
+**Tool attachment size**. The message says how to make it smaller. Over HTTP,
+the same download has no such limit.
 
 ### The client can't reach the instance
 
@@ -353,6 +362,6 @@ available. It uses your browser session, not your token.
 
 ## Next steps
 
-- [API quickstart](quickstart.md): the same work over HTTP, with curl.
+- [API quickstart](quickstart.md): list maps, upload a CSV, run SQL, add a layer and publish over HTTP, with curl or JavaScript.
 - [How the API works](http-api.md): sign-in, edit revisions, paging and errors.
 - [Errors](errors.md): what an error answer holds, and what to do about each common code.
