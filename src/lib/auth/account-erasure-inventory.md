@@ -2,6 +2,12 @@
 
 The closed list of what account deletion erases, purges, compacts or retains, and the populated proofs that hold it.
 
+When you add a table, a file or a holder that stores an account's data, add
+its entry to `account-erasure-inventory.json` beside this file in the same
+change, with the rule account deletion applies to it and, unless the rule
+retains it, a populated fixture that proves the rule. The suites below fail
+on a table, a file location or a holder the inventory does not classify.
+
 The inventory is a closed list of storage consequences, independent of cleanup
 code. `src/lib/auth/account-erasure-inventory.json` maps live schema tables,
 source storage locations and retained holders to explicit erase, whole-purge,
