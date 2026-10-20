@@ -306,17 +306,20 @@ export const SCENES = [
   {
     // The built-in basemap's credit in the lower right corner of a
     // template's map, as the earthquakes template opens on its own page,
-    // with the map around it. The page writes nothing, so the seeded state
-    // stays as the other scenes find it. A published map carries the same
-    // credit, but its page keeps its author's theme whatever the reader's,
-    // so it would draw one picture in both takes.
+    // with a little of the map around it. The template's widget rail ends
+    // with its Sources card about 11 CSS pixels above the credit, so a
+    // margin wider than that frames a cut-off piece of the card. The page
+    // writes nothing, so the seeded state stays as the other scenes find
+    // it. A published map carries the same credit, but its page keeps its
+    // author's theme whatever the reader's, so it would draw one picture in
+    // both takes.
     id: "licence-and-credits-map-credit",
     file: "about/licence-and-credits-map-credit.webp",
     pages: ["docs/about/licence-and-credits.md"],
     kind: "still",
     state: "seeded",
     map: true,
-    crop: { selector: "[data-map-credit]", margin: 48 },
+    crop: { selector: "[data-map-credit]", margin: 8 },
     async open(page) {
       await page.goto("/templates/earthquakes");
       await page.locator("[data-map-credit] a").nth(1).waitFor();
