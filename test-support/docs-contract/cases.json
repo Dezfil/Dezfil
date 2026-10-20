@@ -2168,6 +2168,22 @@
           "line": 13
         }
       ]
+    },
+    {
+      "scope": "product",
+      "name": "a tab line inside an HTML comment, which no reader sees",
+      "files": {
+        "docs/about/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you check the writing rules\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nRun it.\n\n<!--\n:::tab[Example]\n-->\n"
+      },
+      "problems": []
+    },
+    {
+      "scope": "product",
+      "name": "a tab set of one tab inside an HTML comment, and a colon block inside a comment within a tab",
+      "files": {
+        "docs/about/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you check the writing rules\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nRun it.\n\n<!--\n::::tabs\n:::tab[Docker]\nRun it.\n:::\n::::\n-->\n\n::::tabs\n:::tab[Docker]\nRun it in Docker.\n<!--\n:::note\nKeep it private.\n:::\n-->\n:::\n:::tab[Compose]\nRun it in Compose.\n:::\n::::\n"
+      },
+      "problems": []
     }
   ],
   "order": [

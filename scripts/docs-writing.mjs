@@ -20,7 +20,8 @@
 // are not prose. A link counts its text, not its destination; inline code
 // counts as words; a picture's alternative text does not. Words are runs of
 // letters and digits. The lines of a tab set (`::::tabs`, `:::tab[Label]`,
-// `:::` and `::::`) are not prose; what the tabs hold is.
+// `:::` and `::::`) are not prose; what the tabs hold is. A line inside an
+// HTML comment is none of these: no reader sees it.
 //
 // Each problem names the file, the rule and the line, in the page
 // contract's form. The rule names are stable: the cases refer to them.
@@ -81,21 +82,44 @@ export function colonLine(text) {
 const GENERATED_START = /^<!--\s*([A-Za-z0-9_-]+):start\s*-->$/;
 const GENERATED_END = /^<!--\s*([A-Za-z0-9_-]+):end\s*-->$/;
 
+/** An HTML comment, which no reader sees: an empty one, one closed by
+ * `-->`, or one left open to the end of its HTML. */
+const HTML_COMMENT = /<!--(?:-?>|[\s\S]*?(?:-->|$))/g;
+
+/** The lines a body's HTML comments hide from their start: every line after
+ * the one a comment opens on, through the one it closes on. A line a
+ * comment opens on starts outside it. */
+function commentedLines(tree) {
+  const hidden = new Set();
+  walk(tree, (node) => {
+    if (node.type !== "html") return;
+    for (const match of node.value.matchAll(HTML_COMMENT)) {
+      const from = node.position.start.line + (node.value.slice(0, match.index).match(/\n/g) ?? []).length;
+      const to = from + (match[0].match(/\n/g) ?? []).length;
+      for (let line = from + 1; line <= to; line += 1) hidden.add(line);
+    }
+  });
+  return hidden;
+}
+
 /** A body read for the writing rules. Lines of the tab syntax outside code
- * are found first and blanked, keeping the line count, so a tab line
- * neither joins the paragraph or notice beside it nor counts as prose; the
- * rest is then parsed. `firstLine` is the body's first line in its file,
- * and every line the reading gives is a line of the file. */
+ * and HTML comments are found first and blanked, keeping the line count, so
+ * a tab line neither joins the paragraph or notice beside it nor counts as
+ * prose; the rest is then parsed. A tab line inside a comment is no line of
+ * a tab set, since no reader sees it. `firstLine` is the body's first line
+ * in its file, and every line the reading gives is a line of the file. */
 export function readBody(body, firstLine = 1) {
   const lines = body.split("\n");
   const code = new Set();
-  walk(parseMarkdown(body), (node) => {
+  const source = parseMarkdown(body);
+  walk(source, (node) => {
     if (node.type !== "code") return;
     for (let line = node.position.start.line; line <= node.position.end.line; line += 1) code.add(line);
   });
+  const commented = commentedLines(source);
   const markers = [];
   const blanked = lines.map((text, i) => {
-    const marker = code.has(i + 1) ? null : colonLine(text);
+    const marker = code.has(i + 1) || commented.has(i + 1) ? null : colonLine(text);
     if (!marker) return text;
     markers.push({ ...marker, line: firstLine + i, index: i });
     return "";
