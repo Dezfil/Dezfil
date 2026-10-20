@@ -164,12 +164,13 @@ On the map:
 - Click a class label to rename it in place. Press Enter to keep it, Escape to cancel. An empty label returns to the automatic text.
 - Click a layer's title or a column's name to edit it in the **Legend** tab.
 
-In the **Legend** tab, every layer has its own row:
+To edit every text in one place:
 
-1. Type a title in the first field. Left empty, the legend shows the layer's name.
-2. Rename the column in the **variable** field, or click its eye to hide the name. You should see the legend change as you type.
-3. Type over any class label in the fields below.
-4. Clear a layer's checkbox to leave it out of the legend. You should see it vanish from the map's legend.
+1. Click the **Legend** tab. You should see a row for each layer.
+2. Type a title in the first field. Left empty, the legend shows the layer's name.
+3. Rename the column in the **variable** field, or click its eye to hide the name. You should see the legend change as you type.
+4. Type over any class label in the fields below.
+5. Clear a layer's checkbox to leave it out of the legend. You should see it vanish from the map's legend.
 
 **Reset to automatic** clears a layer's own texts, and **Corner** moves the legend to another corner.
 
