@@ -175,11 +175,29 @@ function noticeWords(quote, read) {
   return found;
 }
 
+/** The text of inline content as it reads: text and inline code. */
+const plainText = (node) => (typeof node.value === "string" && ["text", "inlineCode"].includes(node.type) ? node.value : (node.children ?? []).map(plainText).join(""));
+
+/** A heading that begins with a step number: "Step 1" or "1." */
+const STEP_HEADING = /^(?:step\s+\d+(?![\p{L}\p{N}])|\d+[.)](?:\s|$))/iu;
+
+/** What a reader can do or see: a code block, a picture or recording (a
+ * picture's syntax, by reference or in HTML), a table, a numbered list (its
+ * first item is step 1) or a heading that begins with a step number. */
+function isSomethingToDo(node) {
+  if (["code", "table", "image", "imageReference"].includes(node.type)) return true;
+  if (node.type === "list") return node.ordered === true;
+  if (node.type === "heading") return STEP_HEADING.test(plainText(node).trim());
+  if (node.type === "html") return /<(?:img|video)\b/i.test(node.value);
+  return false;
+}
+
 /** A body's prose: one unit per paragraph, list item and notice, each with
  * its kind, its file line and its words, and every word of the prose in
  * document order. A list item's unit holds its own paragraphs; a list
  * nested in it gives units of its own. A notice is one unit, whatever it
- * holds. Units inside a generated region are left out. */
+ * holds. Units inside a generated region are left out. Beside the prose,
+ * the things a reader can do or see, in the same order. */
 export function measure(body, firstLine = 1, read = readBody(body, firstLine)) {
   const units = [];
   const unit = (kind, node, found) => units.push({ kind, line: read.at(node), words: found.length, found });
@@ -197,7 +215,11 @@ export function measure(body, firstLine = 1, read = readBody(body, firstLine)) {
   };
   visit(read.tree);
   const all = units.flatMap((u) => u.found).sort((a, b) => a.key - b.key);
-  return { units, words: all, read };
+  const shown = [];
+  walk(read.tree, (node) => {
+    if (node.position && isSomethingToDo(node)) shown.push({ kind: node.type, line: read.at(node), key: node.position.start.offset });
+  });
+  return { units, words: all, shown, read };
 }
 
 /** The list's entries with their lines: one path per line, with blank lines
@@ -223,7 +245,12 @@ export const LIMITS = {
   medianFrom: 5,
   /** Words of prose on a page. */
   page: 1500,
+  /** Words of prose a reader passes before something to do or see. */
+  firstScreen: 150,
 };
+
+/** The sections whose pages open with something to do or see. */
+export const FIRST_SCREEN_SECTIONS = ["start", "use", "self-host", "api"];
 
 const UNIT_NAME = { paragraph: "paragraph", item: "list item", notice: "notice" };
 
@@ -235,6 +262,7 @@ const byPlace = (a, b) => (a.file < b.file ? -1 : a.file > b.file ? 1 : (a.line 
 export function checkPageWriting({ file, page }) {
   const problems = [];
   const add = (rule, message, line) => problems.push(problem(file, rule, message, line));
+  const section = file.split("/")[1];
   const prose = measure(page.body, page.bodyLine);
 
   // No paragraph, list item or notice over its length.
@@ -256,6 +284,16 @@ export function checkPageWriting({ file, page }) {
   // The page's prose, named at the line of the first word over.
   if (prose.words.length > LIMITS.page) {
     add("writing.page-length", `the page holds ${prose.words.length} words of prose, over ${LIMITS.page}, and word ${LIMITS.page + 1} is on this line; split the subject into an overview and a page per area`, prose.words[LIMITS.page].line);
+  }
+
+  // Something to do or see before word 151: a page with fewer words has
+  // no word 151 to pass.
+  if (FIRST_SCREEN_SECTIONS.includes(section)) {
+    const first = Math.min(...prose.shown.map((shown) => shown.key));
+    const before = prose.words.filter((word) => word.key < first);
+    if (before.length > LIMITS.firstScreen) {
+      add("writing.first-screen", `word ${LIMITS.firstScreen + 1} of the prose comes before any code block, picture, recording, table or numbered step; open with something to do or see`, before[LIMITS.firstScreen].line);
+    }
   }
 
   return problems.sort(byPlace);

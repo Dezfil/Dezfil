@@ -84,6 +84,23 @@ describe("the rules on one page", () => {
     expect(check("docs/use/case.md", body)).toEqual([]);
     expect(check("docs/use/case.md", `${w(5)}\n\n${body}`)).toEqual([{ file: "docs/use/case.md", rule: "writing.median-paragraph", line: 16 }]);
   });
+
+  it.each([
+    ["a picture", "![The builder with its layers](../images/use/builder.webp)"],
+    ["a recording", "![Typing into the search box narrows the cards](../images/use/search.webm)"],
+    ["a picture by reference", "![The builder][builder]\n\n[builder]: ../images/use/builder.webp"],
+    ["a picture in HTML", "<img src=\"../images/use/builder.webp\" alt=\"The builder\">"],
+  ])("take %s as something to see on the first screen", (_name, shown) => {
+    const opening = `${w(75)}\n\n${w(75)}\n\n`;
+    expect(check("docs/use/case.md", `${opening}${shown}\n\n${w(40)}\n`)).toEqual([]);
+    expect(check("docs/use/case.md", `${opening}${w(1)}\n\n${shown}\n\n${w(40)}\n`)).toEqual([{ file: "docs/use/case.md", rule: "writing.first-screen", line: 14 }]);
+  });
+
+  it("count the words before a picture inside a paragraph, not the whole paragraph", () => {
+    const body = `${w(75)}\n\n${w(70).slice(0, -1)} ![The map](../images/use/map.webp) ${w(9)}\n`;
+    expect(check("docs/use/case.md", body)).toEqual([]);
+    expect(check("docs/use/case.md", body.replace("![The map](../images/use/map.webp) ", ""))).toEqual([{ file: "docs/use/case.md", rule: "writing.first-screen", line: 12 }]);
+  });
 });
 
 describe("the list of pages not yet rewritten", () => {
