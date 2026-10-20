@@ -211,10 +211,54 @@ export function readList(text) {
   return entries;
 }
 
-/** The writing rules over one page's text. The rules join here as they
- * are added. */
-export function checkPageWriting() {
-  return [];
+// ---------------------------------------------------------------------------
+// The rules
+
+/** The numbers the rules hold a page to. */
+export const LIMITS = {
+  /** Words in a paragraph, a list item or a notice. */
+  block: 80,
+  /** The median paragraph's words, on a page with `medianFrom` paragraphs or more. */
+  median: 30,
+  medianFrom: 5,
+  /** Words of prose on a page. */
+  page: 1500,
+};
+
+const UNIT_NAME = { paragraph: "paragraph", item: "list item", notice: "notice" };
+
+/** Problems in file order: by line, then by rule. */
+const byPlace = (a, b) => (a.file < b.file ? -1 : a.file > b.file ? 1 : (a.line ?? 0) - (b.line ?? 0) || (a.rule < b.rule ? -1 : a.rule > b.rule ? 1 : 0));
+
+/** The writing rules over one page: `page` is the page split into its
+ * frontmatter and body, as the page contract splits it. */
+export function checkPageWriting({ file, page }) {
+  const problems = [];
+  const add = (rule, message, line) => problems.push(problem(file, rule, message, line));
+  const prose = measure(page.body, page.bodyLine);
+
+  // No paragraph, list item or notice over its length.
+  for (const unit of prose.units) {
+    if (unit.words > LIMITS.block) add("writing.paragraph-length", `this ${UNIT_NAME[unit.kind]} is ${unit.words} words; one holds at most ${LIMITS.block}`, unit.line);
+  }
+
+  // The median paragraph, over the paragraphs that hold words: a list item
+  // or a notice is not a paragraph, and a picture alone holds none.
+  const paragraphs = prose.units.filter((unit) => unit.kind === "paragraph" && unit.words > 0);
+  if (paragraphs.length >= LIMITS.medianFrom) {
+    const middle = median(paragraphs.map((unit) => unit.words));
+    if (middle > LIMITS.median) {
+      const first = paragraphs.find((unit) => unit.words > LIMITS.median);
+      add("writing.median-paragraph", `the median of the page's ${paragraphs.length} paragraphs is ${middle} words, over ${LIMITS.median}; this is the first longer than ${LIMITS.median}`, first.line);
+    }
+  }
+
+  // The page's prose, named at the line of the first word over.
+  if (prose.words.length > LIMITS.page) {
+    add("writing.page-length", `the page holds ${prose.words.length} words of prose, over ${LIMITS.page}, and word ${LIMITS.page + 1} is on this line; split the subject into an overview and a page per area`, prose.words[LIMITS.page].line);
+  }
+
+  return problems.sort(byPlace);
 }
 
 /** Every writing problem in the tree: the list's own entries, then each
@@ -238,5 +282,5 @@ export function checkWriting({ files, read }) {
     if (page.error) continue;
     problems.push(...checkPageWriting({ file, text, page }));
   }
-  return { problems, checked, listed: pages.filter((file) => listed.has(file)) };
+  return { problems: problems.sort(byPlace), checked, listed: pages.filter((file) => listed.has(file)) };
 }

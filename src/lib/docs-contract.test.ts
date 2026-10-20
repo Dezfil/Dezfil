@@ -15,14 +15,19 @@ import { buildOpenApiDocument } from "@/lib/api/openapi";
 
 type Problem = { file: string; rule: string; message: string; line?: number };
 type Files = Record<string, string | null>;
-const cases = JSON.parse(readFileSync("test-support/docs-contract/cases.json", "utf8")) as {
+const shared = JSON.parse(readFileSync("test-support/docs-contract/cases.json", "utf8")) as {
   today: string;
   documentCase: string;
   base: Record<string, string>;
-  documents: { name: string; text: string; valid: boolean; values?: Record<string, unknown>; rules?: string[] }[];
-  trees: { name: string; files: Files; problems: { file: string; rule: string }[] }[];
+  documents: { scope?: string; name: string; text: string; valid: boolean; values?: Record<string, unknown>; rules?: string[] }[];
+  trees: { scope?: string; name: string; files: Files; problems: { file: string; rule: string }[] }[];
   order: { name: string; pages: { path: string; title: string; order?: number }[]; expected: string[] }[];
 };
+// The common cases, which the site runs too. A case marked "scope":
+// "product" holds a writing rule, the product's alone; the writing rules'
+// own suite runs those.
+const common = <T extends { scope?: string }>(list: T[]) => list.filter((entry) => !("scope" in entry));
+const cases = { ...shared, documents: common(shared.documents), trees: common(shared.trees) };
 
 const script = fileURLToPath(new URL("../../scripts/docs.mjs", import.meta.url));
 const scratch = mkdtempSync(join(tmpdir(), "dezfil-docs-contract-"));

@@ -9,13 +9,24 @@ import { fileURLToPath } from "node:url";
 import { afterAll, describe, expect, it } from "vitest";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: a plain-JS gate, no declaration file on purpose.
-import { generateIndex } from "../../scripts/docs-contract.mjs";
+import { checkTree, generateIndex } from "../../scripts/docs-contract.mjs";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: a plain-JS gate, no declaration file on purpose.
-import { WRITING_LIST, checkWriting, colonLine, measure, median, readList, words } from "../../scripts/docs-writing.mjs";
+import { WRITING_LIST, checkPageWriting, checkWriting, colonLine, measure, median, readList, words } from "../../scripts/docs-writing.mjs";
 
 type Problem = { file: string; rule: string; message: string; line?: number };
-const cases = JSON.parse(readFileSync("test-support/docs-contract/cases.json", "utf8")) as { base: Record<string, string> };
+type Names = { variables: string[]; keys: string[]; codes: string[] };
+type Seeded = { scope?: string; name: string; files: Record<string, string | null>; problems: { file: string; rule: string; line?: number }[] };
+const cases = JSON.parse(readFileSync("test-support/docs-contract/cases.json", "utf8")) as {
+  today: string;
+  base: Record<string, string>;
+  product: { files: Record<string, string>; names: Names };
+  documents: { scope?: string; name: string }[];
+  trees: Seeded[];
+};
+const productCases = cases.trees.filter((t) => t.scope === "product");
+/** A sentence of `n` words. */
+const w = (n: number) => `${Array.from({ length: n }, () => "word").join(" ")}.`;
 
 const script = fileURLToPath(new URL("../../scripts/docs.mjs", import.meta.url));
 const scratch = mkdtempSync(join(tmpdir(), "dezfil-docs-writing-"));
@@ -24,6 +35,56 @@ afterAll(() => rmSync(scratch, { recursive: true, force: true }));
 const lines = (problems: Problem[]) => problems.map(({ file, rule, line }) => (line === undefined ? { file, rule } : { file, rule, line }));
 const writing = (files: Record<string, string>) =>
   checkWriting({ files: Object.keys(files), read: (file: string) => files[file] }) as { problems: Problem[]; checked: string[]; listed: string[] };
+
+/** The base tree with the product's files laid over it, then a case's;
+ * null removes a file. */
+function productTree(over: Record<string, string | null>): Record<string, string> {
+  const files: Record<string, string> = { ...cases.base, ...cases.product.files };
+  for (const [file, text] of Object.entries(over)) {
+    if (text === null) delete files[file]; else files[file] = text;
+  }
+  return files;
+}
+
+/** Every page check the lint makes, as lint:docs makes them: the page
+ * contract, then the writing rules. */
+function pageChecks(files: Record<string, string>, names: Names = cases.product.names): Problem[] {
+  const list = Object.keys(files);
+  const read = (file: string) => files[file];
+  return [
+    ...(checkTree({ files: list, read, on: cases.today }) as { problems: Problem[] }).problems,
+    ...(checkWriting({ files: list, read, names }) as { problems: Problem[] }).problems,
+  ];
+}
+
+describe("the product's shared cases", () => {
+  it("mark every case common or the product's own, and the product holds some", () => {
+    for (const entry of [...cases.documents, ...cases.trees]) {
+      if ("scope" in entry) expect(entry.scope, entry.name).toBe("product");
+    }
+    expect(productCases.length).toBeGreaterThan(10);
+  });
+
+  it("accept the base tree under the product's files", () => {
+    expect(pageChecks(productTree({}))).toEqual([]);
+  });
+
+  it.each(productCases)("refuse a seeded tree with exactly its problems, each at its line: $name", ({ files, problems }) => {
+    const found = pageChecks(productTree(files));
+    expect(lines(found)).toEqual(problems);
+    expect(found.every((p) => p.message.length > 0)).toBe(true);
+  });
+});
+
+describe("the rules on one page", () => {
+  const check = (file: string, body: string) => lines(checkPageWriting({ file, page: { data: {}, body, bodyLine: 10 } }) as Problem[]);
+
+  it("leave a paragraph that holds only a picture out of the median", () => {
+    const body = ["![A picture of the map](../images/use/map.webp)", "", w(10), "", w(31), "", w(31), "", w(31), ""].join("\n");
+    expect(check("docs/use/case.md", body)).toEqual([]);
+    expect(check("docs/use/case.md", `${w(5)}\n\n${body}`)).toEqual([{ file: "docs/use/case.md", rule: "writing.median-paragraph", line: 16 }]);
+  });
+});
 
 describe("the list of pages not yet rewritten", () => {
   it("reads one page path per line, past comments and blank lines, with each entry's line", () => {
