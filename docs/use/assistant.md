@@ -16,7 +16,7 @@ order: 8
 ![The map builder with the Assistant pane open on the right: the Map and Layer chips, a message asking to color the cities by population, two action lines with check marks and the reply, beside the cities colored by population](../images/use/assistant-builder.webp)
 
 - **You need:** an instance with the assistant turned on. Whoever runs it turns it on with a provider key.
-- **Example data:** the `world_cities` dataset and the map from [Your first map](../start/first-map.md). Any map with a layer works the same way.
+- **Example data:** the `world_cities` dataset and the map from [Your first map](../start/first-map.md).
 
 ## Open the assistant
 
@@ -38,7 +38,7 @@ The assistant acts with your account, so it can open and change only what you ca
 
 While it works, the box reads **Working…** and **Send** turns into **Stop**.
 
-An action's line shows a spinner while it runs, then a check mark when it is done or a cross when it is not.
+An action's line shows a spinner, then a check mark when it is done or a cross when it is not.
 
 Changes from one message form one step in the map's history, so **Undo** in the top bar takes them back together. An edit of your own in between starts a new step.
 
@@ -50,7 +50,7 @@ Click the small picture to open **The image the model was given**. Whoever runs 
 
 ### What it did
 
-Click an action's line to open it. You see the SQL the action ran, or the values it used, and the name of the operation underneath.
+Click an action's line to see the SQL it ran, or the values it used, and the operation's name.
 
 When an action makes a file, a button downloads it, such as **Download the PNG** for a map image or **Download the GeoJSON file** for a layer's data.
 
@@ -117,13 +117,13 @@ On a workflow the assistant only reads: it explains nodes and runs but does not 
 
 Where your instance offers more than one model, a button under the box names the model in use. Click it and pick a model under **Model**. Where that model has levels, click the button again and pick one under **Effort**.
 
-The level names are the model's own. Your choice holds for every page in this browser tab, and a new tab starts with the instance's default.
+Your choice holds for every page in this browser tab, and a new tab starts with the instance's default.
 
 While a request runs, the button is locked to the model that answers it. Where your instance offers one model, its id, such as `claude-opus-5`, stands under the pane's title instead. Which models are offered is up to whoever runs the instance.
 
 ## Stop, clear and come back
 
-- **Stop** ends a request. Actions that finished stay done, and their lines show which ones they were.
+- **Stop** ends a request. Actions that finished stay done, as their lines show.
 - **Clear conversation**, the broom at the top of the pane, removes the whole conversation. Your next message starts fresh, and the model sees nothing of what came before.
 - One conversation follows you between the map, SQL and workflow pages of one browser tab. Closing the tab or signing out ends it.
 - A reload ends it too, but brings back an unfinished request.
@@ -134,7 +134,7 @@ While a request runs, the button is locked to the model that answers it. Where y
 
 ## Troubleshooting
 
-**The pane says "No model credential is configured."** The assistant is off on your instance. Whoever runs it turns it on with a provider key.
+**The pane says "No model credential is configured.", or names `DEZFIL_AI_PROVIDER`.** The assistant is off on your instance. Whoever runs it turns it on with a provider key.
 
 **The pane says "The assistant couldn't be reached."** The page could not ask the server whether the assistant is on. Click **Try again**.
 
@@ -148,7 +148,9 @@ While a request runs, the button is locked to the model that answers it. Where y
 
 With **Settings** › **Appearance** › **Side menu** set to **Always open**, the window needs 2,016 pixels for both.
 
-**The pane says "The message and its context are too large to send."** Shorten the message. On the SQL page, the draft travels with every message, so a very long draft counts too.
+**The pane says "The message and its context are too large to send."** Shorten the message, or click **Clear conversation**: each message carries the conversation before it, and on the SQL page your draft.
+
+**The pane says "Page context exceeds 64 KiB of UTF-8 JSON."** On the SQL page, shorten your draft, or select less of it.
 
 ## Next steps
 
