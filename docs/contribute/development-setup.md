@@ -165,16 +165,19 @@ You should see no error from ESLint or TypeScript, no `FAILED:` line, no failed 
 | `lint:icons` | A builder component gains an inline `<svg>` past its recorded count, or a new file gains one |
 | `lint:class-pairs` | Two module stylesheets set the same property on one element at equal specificity, or a stylesheet opens a cascade layer out of the order `src/app/globals.css` names. Raise the caller's selector, or move the shared component's rule into its layer |
 | `lint:specimen` | The design specimen page would change if regenerated |
-| `lint:contract-docs` | The API description, the MCP tools or the error catalogue disagree with each other or with the API pages |
+| `lint:contract-docs` | The API description, the MCP tools or the error catalogue disagree with each other, with the API pages or with the counts in `scripts/served-contract-proof.md` |
 | `lint:reader-docs` | A file on its list (pages, `README.md`, `AGENTS.md`, procedure notes) is missing or holds superseded copy, or an API page's edit-revision example is incomplete |
 | `lint:plugin` | The plugin's guidance file or bundled licence differs from its source |
 | `lint:docs` | A page breaks the page contract or a writing rule, as [Write a docs page](write-docs.md#the-checks) explains each; a link or picture in a page, or in a procedure note under `scripts/` or `src/`, leads nowhere; a picture lacks its light or its dark take, or the README shows one take only; or the index, a settings table, `docs/api/openapi.json` or the image manifest is out of date |
 | `lint:retired-paths` | A tracked file names a docs path that moved or left, from the list in `scripts/check-retired-paths.mjs`. Only the list itself, a page's `moved_from` rows and the test fixtures that show such a path refused pass |
 
-To check your branch's commit messages as a pull request does:
+To check your branch's commits as a pull request does:
 
 ```sh title="Terminal"
 git log -z --format=%B --no-merges main..HEAD | node .github/scripts/check-commit-messages.mjs
+# Lists each commit without a sign-off; prints nothing when all are signed off.
+git log --no-merges -i -E --invert-grep --grep='^ *Signed-off-by: .+ <[^>]+>' \
+  --format='Missing Signed-off-by: %h %s' main..HEAD
 ```
 
 ```text title="Output"
@@ -459,9 +462,9 @@ The runtime or the image sets these. They are not settings, and `npm run lint:re
 | `NODE_ENV` | image sets `production` | Standard Node build mode. |
 | `NEXT_RUNTIME` | supplied by the framework | Which runtime a module is executing in. |
 | `PATH` | the system | The program search path. A tile builder or an image renderer whose setting names a program rather than a path is looked up there. |
-| `DUCKDB_EXTENSION_DIR` | image sets `/app/duckdb-extensions` | The baked engine extension bundle. Overriding it defeats the offline guarantee. |
+| `DUCKDB_EXTENSION_DIR` | image sets `/app/duckdb-extensions` | The baked engine extension bundle. In the image, overriding it defeats the offline guarantee; in a checkout, Troubleshooting sets it. |
 | `NEXT_TELEMETRY_DISABLED` | image sets `1` | Turns off the framework's own telemetry during build and at runtime. |
-| `UV_THREADPOOL_SIZE` | the runtime, 4 unless set before start | The runtime's worker pool, shared by engine calls, file system work and password hashing. PostGIS source calls may hold at most three quarters of it at once (at least one), so blocked source reads always leave a worker for their cancellation and for the rest of the server. Raising it raises that share. |
+| `UV_THREADPOOL_SIZE` | the runtime, 4 unless set before start | The runtime's worker pool, shared by engine calls, file system work and password hashing. PostGIS source calls may hold at most three quarters of it at once (at least one), so from two workers up, blocked source reads leave a worker for their cancellation and for the rest of the server. Raising it raises that share. |
 | `TZ`, `CI` | environment | Excluded by name from the configuration check; the code does not read them as settings. |
 
 ## Troubleshooting
