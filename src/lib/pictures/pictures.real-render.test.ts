@@ -23,7 +23,7 @@ describe.skipIf(!base)("server picture road", () => {
   const api = base ? pictureProofClient(base, process.env.DEZFIL_PICTURE_TEST_TOKEN ?? "") : undefined!;
   const maps: string[] = [];
   afterAll(async () => { for (const id of maps) await api.request("DELETE", `/api/maps/${id}`, undefined, id); });
-  it.each(["Maps create endpoint", "API", "assistant tool", "empty duplicate"])("never opened: %s produces computed marks in both appearances", async road => {
+  it.each(["Maps create endpoint / API", "assistant tool", "empty duplicate"])("never opened: %s produces computed marks in both appearances", async road => {
     let map: { id: string };
     if (road === "assistant tool") {
       const result = await executeTool(buildTools().find(tool => tool.name === "create_map")!, { name: "Assistant picture proof" }, base!, fetch,
