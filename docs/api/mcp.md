@@ -265,7 +265,7 @@ new map its basemap, starting view and legend corner, a layer created without
 a style its cycle color, opacity, line width and point radius, and a sketch's
 layer its cycle color alone. A default applies to new things only; an existing
 map and its layers never change with one. The keys and their values are in
-[configuration.md](../self-host/configuration.md#instance-defaults). It also carries `rules`,
+[configuration.md](../self-host/configuration/defaults.md). It also carries `rules`,
 the rules the caller follows (`tokens.create`, `tokens.expiry`,
 `publishing.publish`, `publishing.embedding`, `connections.create` and
 `imports.links`, valued as `update_instance_settings` takes them), and
@@ -273,7 +273,7 @@ the rules the caller follows (`tokens.create`, `tokens.expiry`,
 `create_api_token` while only admins may create tokens, or `publish_map` while
 publishing is closed to the caller, answers `rule_refused` with `error.rule`
 naming the rule and changes nothing; the rules are in
-[configuration.md](../self-host/configuration.md#security-and-rules).
+[configuration.md](../self-host/configuration/rules.md).
 
 Own-account operations generate `get_account`, `update_account`,
 `change_password`, `list_api_tokens`, `create_api_token` and `revoke_api_token`.

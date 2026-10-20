@@ -12,13 +12,16 @@ import { linkedPages, settingsRows } from "../../../scripts/check-readme-config.
 describe("settings catalogue", () => {
   it("has one complete definition for each deployment variable and keeps test wiring separate", () => {
     const page = readFileSync("docs/self-host/configuration.md", "utf8");
+    const setup = readFileSync("docs/contribute/development-setup.md", "utf8");
     const named = (text: string) => [...text.matchAll(/^\| `([A-Z][A-Z0-9_]+)`/gm)].map(match => match[1]);
-    // The platform rows are listed by name on the overview and are not
-    // deployment settings; every other variable is a row of a settings table
-    // the overview links, or of the test wiring's on Development setup.
-    const platform = new Set(named(page.split("## Platform and image plumbing")[1]?.split("\n## ")[0] ?? ""));
+    // The overview holds no variable table of its own. The platform's rows
+    // are listed by name on Development setup and are not deployment
+    // settings; every other variable is a row of a settings table the
+    // overview links, or of the test wiring's on Development setup.
+    expect(named(page)).toEqual([]);
+    const platform = new Set(named(setup.split("## Variables the platform sets")[1]?.split("\n## ")[0] ?? ""));
     expect(platform.size).toBeGreaterThan(0);
-    expect(named(page).filter(name => !platform.has(name))).toEqual([]);
+    expect(SETTING_CATALOGUE.filter(d => d.scope === "instance" && d.environment && platform.has(d.environment))).toEqual([]);
     const documents = Object.fromEntries(readdirSync("docs", { recursive: true, encoding: "utf8" }).filter(file => file.endsWith(".md"))
       .map(file => [`docs/${file.split(path.sep).join("/")}`, readFileSync(path.join("docs", file), "utf8")]));
     const wiring = "docs/contribute/development-setup.md";

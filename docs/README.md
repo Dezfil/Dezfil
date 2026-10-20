@@ -39,8 +39,8 @@ Install, secure, configure and back up your own instance.
 
 - [Configuration](self-host/configuration.md)
   - path: `docs/self-host/configuration.md`
-  - summary: Every setting an instance reads, with its default, what it does, and whether it changes live in Settings or needs a restart.
-  - read when: you set an environment variable for an instance; you want to know a setting's default; you need to know whether a change applies live or after a restart
+  - summary: Change your instance's settings in the app or with environment variables, and check which value is in effect.
+  - read when: you want to change how your instance behaves; you set an environment variable and want to check that it took effect; you want to know whether a change applies at once or after a restart; you look for a setting's default or the values it takes
   - audience: operator, agent
 
 - [Set up the assistant](self-host/assistant.md)

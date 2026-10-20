@@ -442,13 +442,13 @@ and a fresh image export card start with on this instance. `defaults` is one
 flat object keyed and valued as `PATCH /api/instance/settings` takes them, every
 key present with its effective value; a basemap the instance no longer offers
 reads as `auto`, which is what a new map starts on. Every signed-in account and
-agent can make this read. [The configuration guide](../self-host/configuration.md#instance-defaults)
+agent can make this read. [The configuration guide](../self-host/configuration/defaults.md)
 lists the eighteen keys with their values and defaults. The same read carries
 `rules`, the rules every account follows, keyed and valued the same way:
 `tokens.create`, `tokens.expiry`, `publishing.publish`, `publishing.embedding`,
 `connections.create` and `imports.links`, each with its effective value; and
 `passwordMin`, the fewest characters a password set from now needs.
-[The configuration guide](../self-host/configuration.md#security-and-rules) lists them with
+[The configuration guide](../self-host/configuration/rules.md) lists them with
 the rest of the sign-in and publishing settings. `templates.catalogue` says
 whether the template catalogue is in use.
 `GET /api/openapi.json` serves the description. `GET`/`PATCH /api/settings`
@@ -1577,7 +1577,7 @@ response. `GET /api/assistant/pending` recovers open confirmations, and
 `POST /api/mcp` is the MCP endpoint; see the MCP page.
 
 The in-product assistant appears in the builder once one of `ANTHROPIC_API_KEY`
-or `OPENAI_API_KEY` is set (see [configuration](../self-host/configuration.md#the-assistant)):
+or `OPENAI_API_KEY` is set (see [configuration](../self-host/assistant.md)):
 it turns plain English into SQL, layers and styles, showing the SQL and
 explaining each step. Without a key the assistant is simply absent and everything
 else works unchanged. The key is a server-side secret; it never reaches the

@@ -31,7 +31,7 @@ it("keeps the product boundary and setup instructions current", () => {
 it("distinguishes deployment settings from persisted preferences and the model catalogue", () => {
   const configuration = read("docs/self-host/configuration.md");
   expect(configuration).not.toMatch(/configured entirely through environment|nothing is stored in the database|nothing can be\s+changed at runtime/);
-  for (const term of ["account preferences", "instance preferences", "assistant-models.json", "restart", "Settings"]) expect(configuration).toContain(term);
+  for (const term of ["account preferences", "not instance settings", "assistant-models.json", "restart", "Settings"]) expect(configuration).toContain(term);
 });
 
 it("gives operators complete restoration and credential recovery instructions", () => {

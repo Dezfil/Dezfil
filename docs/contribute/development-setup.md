@@ -125,3 +125,19 @@ select an optional arm or name an output file. They are local to the file
 that reads them and are not part of the settings surface. The configuration
 check does not see them, because it scans non-test source files under `src`
 and only `DEZFIL_TEST_*` reads in helper scripts and in those source files.
+
+## Variables the platform sets
+
+The runtime or the image sets these. They are not settings, and `npm run lint:readme` leaves them out by name.
+
+| Variable | Where it is set | Effect |
+|---|---|---|
+| `PORT` | image sets `3000` | The listening port. Also how the server addresses its own API when it calls itself, for example from the MCP endpoint (`src/lib/self-url.ts`). |
+| `HOSTNAME` | image sets `0.0.0.0` | The listening interface. |
+| `NODE_ENV` | image sets `production` | Standard Node build mode. |
+| `NEXT_RUNTIME` | supplied by the framework | Which runtime a module is executing in. |
+| `PATH` | the system | The program search path. A tile builder or an image renderer whose setting names a program rather than a path is looked up there. |
+| `DUCKDB_EXTENSION_DIR` | image sets `/app/duckdb-extensions` | The baked engine extension bundle. Overriding it defeats the offline guarantee. |
+| `NEXT_TELEMETRY_DISABLED` | image sets `1` | Turns off the framework's own telemetry during build and at runtime. |
+| `UV_THREADPOOL_SIZE` | the runtime, 4 unless set before start | The runtime's worker pool, shared by engine calls, file system work and password hashing. PostGIS source calls may hold at most three quarters of it at once (at least one), so blocked source reads always leave a worker for their cancellation and for the rest of the server. Raising it raises that share. |
+| `TZ`, `CI` | environment | Excluded by name from the configuration check; the code does not read them as settings. |
