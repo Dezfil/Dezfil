@@ -128,6 +128,16 @@ describe("the rules on one page", () => {
     ]);
   });
 
+  // A picture's text cannot hold bold, so a UI label it names, kept
+  // exactly, reads like a label set in bold.
+  it("read a picture's alternative text like bold for the history words and record terms, and as text for the em dash and paths", () => {
+    expect(check("docs/self-host/case.md", "![The Services card, its Check now button and the Not now link of a probe](../images/self-host/system.webp)\n")).toEqual([]);
+    expect(check("docs/self-host/case.md", "Open the card. ![The card — with src/lib/card.ts](../images/self-host/system.webp)\n")).toEqual([
+      { file: "docs/self-host/case.md", rule: "writing.em-dash", line: 10 },
+      { file: "docs/self-host/case.md", rule: "writing.repository-path", line: 10 },
+    ]);
+  });
+
   it("count the words before a picture inside a paragraph, not the whole paragraph", () => {
     const body = `${w(75)}\n\n${w(70).slice(0, -1)} ![The map](../images/use/map.webp) ${w(9)}\n`;
     expect(check("docs/use/case.md", body)).toEqual([]);
