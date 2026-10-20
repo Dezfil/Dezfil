@@ -750,9 +750,14 @@ same frames give the same bytes; each take's first frame is its poster, so
 a recording's dark take has a dark poster of its own. A recording
 over 1,500,000 bytes fails the run: hold fewer frames or declare a crop,
 never a smaller scale. The run fails, writing nothing, when the
-server opened any request (an observer in its preload chain writes each one
-down; `--keep-requests <file>` keeps its file), when a page asked for an
-address off the instance, or when a file is over its bound. A file is replaced only when its bytes changed, and its
+server opened a request to any host but itself (an observer in its preload
+chain writes each one down; `--keep-requests <file>` keeps its file), when a
+page asked for an address off the instance, or when a file is over its
+bound. A scene that shows a map says so (`map: true`) and is the one scene
+that may reach the built-in basemap; it is taken once every map on the page
+is at rest with its tiles loaded, a basemap request that fails fails the run,
+and the run lists the basemap's styles and tile sets it drew. How to prove a
+run is in [the pictures' procedure note](../../scripts/docs-pictures.md). A file is replaced only when its bytes changed, and its
 manifest row's version and date move with it, so a second run on the same
 build changes nothing. `--only <scene>,<scene>` takes some scenes and keeps
 the others' rows. After changing a surface a scene shows, run it and commit

@@ -48,6 +48,22 @@ export function mayRequest(url, { origin, map = false }) {
 }
 
 /**
+ * Where a basemap answer's content comes from, as a run reports it: a
+ * built-in style by its address, tiles by their tile set's address (the path
+ * before the tile's zoom, column and row), and anything else (the tile
+ * description, glyphs and sprites, which follow from the style) as null. The
+ * basemap's provider moves its tiles to a new set when it publishes new map
+ * data, so two runs that drew the same styles and tile sets drew the same
+ * basemap, and a map picture that changed between runs that did not is the
+ * basemap's change, not the app's.
+ */
+export function basemapSource(url) {
+  if (BASEMAPS.some((style) => style.url === url)) return url;
+  const tiles = /^(https:\/\/[^/]+\/.+\/)\d+\/\d+\/\d+(?:@2x)?\.\w+$/.exec(url);
+  return tiles ? tiles[1] : null;
+}
+
+/**
  * The run's watch over a browser context's requests, one scene at a time.
  * `begin(scene)` names the scene being taken; `route` refuses (and writes
  * down) every request the scene may not make and lets the rest go;
@@ -55,11 +71,13 @@ export function mayRequest(url, { origin, map = false }) {
  * and write down a basemap request that failed or answered with an error.
  * A request the page itself gave up on (the map cancels a tile it no
  * longer needs) is not a failure. `end()` returns what the scene got wrong
- * and forgets the scene.
+ * and forgets the scene. `sources()` lists the basemap's styles and tile
+ * sets that answered in the context's map scenes (`basemapSource`).
  */
 export function sceneNetwork(origin) {
   let scene = null;
   let problems = [];
+  const sources = new Set();
   const allowedBasemap = (url) => scene?.map === true && isBasemap(url);
   return {
     begin(next) {
@@ -80,14 +98,22 @@ export function sceneNetwork(origin) {
     },
     answered(response) {
       const url = response.url();
-      if (!allowedBasemap(url) || response.status() < 400) return;
-      problems.push({ kind: "failed", url, reason: `answered ${response.status()}` });
+      if (!allowedBasemap(url)) return;
+      if (response.status() >= 400) {
+        problems.push({ kind: "failed", url, reason: `answered ${response.status()}` });
+        return;
+      }
+      const source = basemapSource(url);
+      if (source) sources.add(source);
     },
     end() {
       const found = problems;
       scene = null;
       problems = [];
       return found;
+    },
+    sources() {
+      return [...sources].sort();
     },
   };
 }

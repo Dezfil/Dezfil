@@ -6,7 +6,7 @@
 import { describe, expect, it, vi } from "vitest";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: plain-JS scripts, no declaration files on purpose.
-import { BASEMAP_CONTENT_ORIGINS, BASEMAP_ORIGINS, mayRequest, problemsMessage, requestsOffInstance, sceneNetwork } from "../../scripts/docs-pictures-network.mjs";
+import { BASEMAP_CONTENT_ORIGINS, BASEMAP_ORIGINS, basemapSource, mayRequest, problemsMessage, requestsOffInstance, sceneNetwork } from "../../scripts/docs-pictures-network.mjs";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: as above.
 import { MAP_MARKS } from "../../scripts/docs-pictures-capture.mjs";
@@ -194,6 +194,38 @@ describe("a scene's watch over its requests", () => {
     expect(message.match(/unrelated\.example\/0\n/g)).toHaveLength(1);
     expect(message).toContain("https://unrelated.example/11\n  and 3 more");
     expect(message).not.toContain("https://unrelated.example/12");
+  });
+});
+
+describe("the basemap a run drew", () => {
+  it("is named by its styles' addresses and its tile sets, the path before the tile's zoom, column and row", () => {
+    for (const style of BASEMAPS) expect(basemapSource(style.url)).toBe(style.url);
+    expect(basemapSource("https://tiles.openfreemap.org/planet/20261018_080001_pt/2/2/1.pbf")).toBe("https://tiles.openfreemap.org/planet/20261018_080001_pt/");
+    expect(basemapSource("https://tiles.openfreemap.org/natural_earth/ne2sr/3/4/2.png")).toBe("https://tiles.openfreemap.org/natural_earth/ne2sr/");
+    expect(basemapSource("https://tiles.openfreemap.org/natural_earth/ne2sr/3/4/2@2x.png")).toBe("https://tiles.openfreemap.org/natural_earth/ne2sr/");
+    // The tile description, glyphs and sprites follow from the style.
+    expect(basemapSource("https://tiles.openfreemap.org/planet")).toBeNull();
+    expect(basemapSource("https://tiles.openfreemap.org/fonts/Noto%20Sans%20Regular/0-255.pbf")).toBeNull();
+    expect(basemapSource("https://tiles.openfreemap.org/sprites/ofm_f384/ofm@2x.png")).toBeNull();
+  });
+
+  it("is gathered from what the basemap answered in the context's map scenes, across scenes, and only that", () => {
+    const network = sceneNetwork(origin);
+    const tiles = (set: string) => `https://tiles.openfreemap.org/planet/${set}/1/0/1.pbf`;
+    network.begin(mapScene);
+    network.answered(answer(basemap[1], 200));
+    network.answered(answer(tiles("20261018_080001_pt"), 200));
+    network.answered(answer(tiles("20261025_080001_pt"), 503));
+    network.answered(answer(`${origin}/api/maps/m/1/0/1.pbf`, 200));
+    network.end();
+    network.begin(mapScene);
+    network.answered(answer(basemap[0], 200));
+    network.answered(answer(tiles("20261018_080001_pt").replace("/1/0/1.", "/2/1/1."), 200));
+    network.end();
+    network.begin(plainScene);
+    network.answered(answer(basemap[2], 200));
+    network.end();
+    expect(network.sources()).toEqual([basemap[0], basemap[1], "https://tiles.openfreemap.org/planet/20261018_080001_pt/"].sort());
   });
 });
 

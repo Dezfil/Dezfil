@@ -20,13 +20,15 @@
 // theme and in its dark theme, chosen the way the app's own switch stores it;
 // the dark take is written beside the light one with `.dark` before the
 // extension, and shares its frame or crop. The server's outbound requests are
-// written down by an observer in its preload chain, and the browser's
-// requests off the instance are refused; a run in which either happened
-// fails, naming each address. The one exception is a scene that shows a map
+// written down by an observer in its preload chain (its requests to its own
+// listener stay inside the run), and the browser's requests off the instance
+// are refused; a run in which either went off the instance fails, naming
+// each address. The one exception is a scene that shows a map
 // (`map: true` in the scene list): it reaches the built-in basemap and is
 // taken only once its map is at rest on it, every tile loaded; a basemap
 // request that fails fails the run, and so does the basemap's host asked for
-// from any other scene (docs-pictures-network.mjs). A run also fails on a
+// from any other scene (docs-pictures-network.mjs); the run names the
+// basemap's styles and tile sets it drew. A run also fails on a
 // file over its bound, a page drawn in the other theme, or a dark take that
 // came out the same as its light take. Only then are files written under
 // docs/images/, each one only when its bytes changed, with the manifest
@@ -68,6 +70,8 @@ try {
   let cookie = null;
   // A scene's crop, found on its light take and shared by its dark take.
   const crops = new Map();
+  // The built-in basemap's styles and tile sets the map scenes drew.
+  const drawn = new Set();
   for (const state of STATES) {
     const scenes = chosen.filter((scene) => scene.state === state);
     if (!scenes.length) continue;
@@ -106,6 +110,7 @@ try {
       } finally {
         await context.close();
       }
+      for (const source of network.sources()) drawn.add(source);
     }
   }
   if (values["keep-requests"]) await copyFile(scratch.requests, path.resolve(values["keep-requests"]));
@@ -115,6 +120,8 @@ try {
   console.log(requests.length
     ? `The server opened no request off the instance: the observer's file holds ${requests.length} to the instance itself.`
     : "The server opened no request: the observer's file is empty.");
+  // Two runs that print the same lines drew the same basemap.
+  if (drawn.size) console.log(`The map scenes drew the built-in basemap from:\n${[...drawn].sort().map((source) => `  ${source}`).join("\n")}`);
 } catch (error) {
   if (server) console.error(server.output().split("\n").slice(-40).join("\n"));
   throw error;
