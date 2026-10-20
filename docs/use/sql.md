@@ -159,7 +159,7 @@ A snippet never runs by itself. It replaces the editor only while the editor is 
 | ⌘ + / or Ctrl + / | Comment or uncomment the selected lines |
 | Ctrl + Space | Show the names and functions you can type here |
 
-To have a query written for you, click **Assistant** in the header. **Insert into editor** puts its SQL in the editor without running it.
+To have a query written for you, click **Assistant** in the header. **Insert into editor** puts its SQL in the editor without running it. See [The assistant](assistant.md).
 
 > [!NOTE]
 > `ST_DWithin` and `ST_Buffer` measure in the units of the coordinates: degrees for longitude and latitude, as the comments in the **Within a distance** and **Buffer** snippets say.

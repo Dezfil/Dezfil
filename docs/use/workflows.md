@@ -185,5 +185,6 @@ To take one node out, click **Remove node** at the foot of its panel. The dialog
 ## Next steps
 
 - Start from a finished workflow: [Templates](templates.md).
+- Ask the assistant to explain a node or a failed run: [The assistant](assistant.md).
 - Write your own step in SQL: [Query with SQL](sql.md).
 - Run workflows from a script or an AI agent: [How the API works](../api/http-api.md) and [Connect an AI agent](../api/mcp.md).

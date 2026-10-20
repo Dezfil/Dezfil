@@ -34,7 +34,8 @@
 //   for `hold` frames of the cadence (ten a second), so the recording's
 //   length is the frames held, at most eight seconds.
 
-import { BIG_CITIES, FIRST_MAP, runWorkflow, seedFirstMap, seedWorkflow } from "./docs-pictures-instance.mjs";
+import { ASSISTANT_MESSAGES } from "./docs-pictures-assistant.mjs";
+import { ASSISTANT_MAP, BIG_CITIES, FIRST_MAP, runWorkflow, seedAssistantMap, seedFirstMap, seedWorkflow } from "./docs-pictures-instance.mjs";
 
 /** Open the Templates page and wait until the catalogue has been read and
  * the three shipped cards are drawn with their pictures. */
@@ -454,6 +455,180 @@ const WORKFLOW_PAGE_SCENES = [
   },
 ];
 
+// ---------------------------------------------------------------------------
+// Use Dezfil: the assistant, as "The assistant" shows it on a map, on the
+// SQL page and on a workflow, in the `assistant` state: the first account's
+// City sizes map, the first map's cities in one color, beside the Big
+// cities workflow. The model is the run's scripted one
+// (docs-pictures-assistant.mjs): what it says is scripted, what it does
+// runs on the instance.
+
+/** The run time every action line of the pane shows. The server measures
+ * each action afresh, so its time differs on every run; the scenes' pages
+ * are handed the instance's own answers with this time in them, as the SQL
+ * scenes are for a query's, so two runs draw the same picture. */
+export const ASSISTANT_ELAPSED_MS = 100;
+
+const ELAPSED = /"elapsedMs":\s*-?\d+(?:\.\d+)?/g;
+
+/** The pane, open. */
+const ASSISTANT_PANE = '[data-assistant-pane][data-open="true"]';
+
+/** Hand the page the assistant's answers with the steady action time. */
+async function steadyAssistantTimes(page) {
+  const assistant = (url) => url.pathname === "/api/assistant/messages" || url.pathname.startsWith("/api/assistant/runs/");
+  await page.route(assistant, async (route) => {
+    const answer = await route.fetch();
+    const headers = { ...answer.headers() };
+    delete headers["content-length"];
+    delete headers["transfer-encoding"];
+    const body = (await answer.text()).replace(ELAPSED, `"elapsedMs":${ASSISTANT_ELAPSED_MS}`);
+    return route.fulfill({ status: answer.status(), headers, body });
+  });
+}
+
+/** Leave no request of an earlier scene waiting at a card: each is
+ * abandoned, as the API offers, before the page opens, so no pane offers
+ * to recover one. The cards wait on the server, whatever page or browser
+ * asked. */
+async function abandonPending(page) {
+  const listed = await page.request.get("/api/assistant/pending");
+  if (!listed.ok()) throw new Error(`/api/assistant/pending answered ${listed.status()}.`);
+  const origin = new URL(listed.url()).origin;
+  for (const { runId } of (await listed.json()).pending) {
+    const gone = await page.request.delete(`/api/assistant/runs/${encodeURIComponent(runId)}`, { headers: { origin } });
+    if (!gone.ok()) throw new Error(`Abandoning the waiting request ${runId} answered ${gone.status()}.`);
+  }
+}
+
+/** Open the pane from its door in the page's header. */
+async function openAssistant(page) {
+  await page.getByRole("button", { name: "Open assistant", exact: true }).click();
+  const pane = page.locator(ASSISTANT_PANE);
+  await pane.getByRole("textbox", { name: "Ask the assistant" }).waitFor();
+  return pane;
+}
+
+/** Send a message from the pane's box, as Enter does. */
+async function sendMessage(pane, message) {
+  const box = pane.getByRole("textbox", { name: "Ask the assistant" });
+  await box.fill(message);
+  await box.press("Enter");
+}
+
+/** Rest the pointer on the pane's chips, which are not controls, so
+ * nothing the picture shows lights up under it. */
+async function restPointer(pane) {
+  await pane.locator("[data-talking-about]").hover();
+}
+
+/** Open the City sizes map with its cities drawn, and the pane beside it,
+ * with nothing of an earlier scene waiting. */
+async function openAssistantMap(page) {
+  await abandonPending(page);
+  await steadyAssistantTimes(page);
+  const map = await findByName(page, "/api/maps", ASSISTANT_MAP.name);
+  await page.goto(`/maps/${map.id}`);
+  await page.locator("[data-layer-select]", { hasText: `${FIRST_MAP.features} features` }).waitFor();
+  return openAssistant(page);
+}
+
+const ASSISTANT_PAGE_SCENES = [
+  {
+    // The page's opening picture: the map in full, after the message that
+    // colors the cities, the pane with its chips, the two action lines and
+    // the reply.
+    id: "assistant-builder",
+    file: "use/assistant-builder.webp",
+    pages: ["docs/use/assistant.md"],
+    kind: "still",
+    state: "assistant",
+    map: true,
+    async open(page) {
+      const pane = await openAssistantMap(page);
+      // The layer's card selects it, and a second press lets it go: a page
+      // that opened with it selected is pressed once more.
+      const card = page.locator("[data-layer-select]", { hasText: FIRST_MAP.layer });
+      const chip = pane.locator('[data-chip="layer"]');
+      await card.click();
+      if (!(await chip.waitFor({ timeout: 3000 }).then(() => true, () => false))) await card.click();
+      await chip.waitFor();
+      await sendMessage(pane, ASSISTANT_MESSAGES.color);
+      await pane.getByText("The cities are colored by population", { exact: false }).waitFor();
+      await pane.locator('[data-record-entry][data-status="succeeded"]').nth(1).waitFor();
+      await pane.locator('[data-phase="idle"]').waitFor();
+      await page.locator("[data-corner] li").nth(4).waitFor();
+      await restPointer(pane);
+    },
+  },
+  {
+    // Confirm or cancel: the card waiting before a dataset is deleted, in
+    // the pane alone. The card's words name the dataset by its name, which
+    // is the same on every run. The request is left waiting, and the next
+    // scene abandons it.
+    id: "assistant-confirm",
+    file: "use/assistant-confirm.webp",
+    pages: ["docs/use/assistant.md"],
+    kind: "still",
+    state: "assistant",
+    map: true,
+    crop: { selector: ASSISTANT_PANE, margin: 0 },
+    async open(page) {
+      const pane = await openAssistantMap(page);
+      await sendMessage(pane, ASSISTANT_MESSAGES.remove);
+      await pane.locator("[data-confirmation] button:not([disabled])").nth(1).waitFor();
+      await pane.locator('[data-phase="parked"]').waitFor();
+      await restPointer(pane);
+    },
+  },
+  {
+    // Write SQL with the assistant: the pane on the SQL page after step 3's
+    // query ran, its proposal with Insert into editor, in the pane alone.
+    id: "assistant-sql",
+    file: "use/assistant-sql.webp",
+    pages: ["docs/use/assistant.md"],
+    kind: "still",
+    state: "assistant",
+    crop: { selector: ASSISTANT_PANE, margin: 0 },
+    async open(page) {
+      await abandonPending(page);
+      await steadyAssistantTimes(page);
+      await openSqlResult(page);
+      const pane = await openAssistant(page);
+      await pane.locator('[data-chip="execution"]').waitFor();
+      await sendMessage(pane, ASSISTANT_MESSAGES.count);
+      await pane.getByRole("button", { name: "Insert into editor", exact: true }).waitFor();
+      await pane.locator('[data-phase="idle"]').waitFor();
+      await restPointer(pane);
+    },
+  },
+  {
+    // Understand a workflow: the pane on Big cities after a run started on
+    // the page, Filter rows selected, its two ways in above the empty box,
+    // in the pane alone. The run opens the results band, whose messages
+    // carry the time of each run: it stays outside the crop.
+    id: "assistant-workflow",
+    file: "use/assistant-workflow.webp",
+    pages: ["docs/use/assistant.md"],
+    kind: "still",
+    state: "assistant",
+    crop: { selector: ASSISTANT_PANE, margin: 0 },
+    async open(page) {
+      await abandonPending(page);
+      await openWorkflow(page);
+      const pane = await openAssistant(page);
+      await page.locator('[data-run-action="run-all"]').click();
+      await page.locator("[data-run-confirm]").getByRole("button", { name: "Run 2 nodes" }).click();
+      await pane.locator('[data-chip="run"]', { hasText: "completed" }).waitFor({ timeout: 120_000 });
+      await workflowTile(page, BIG_CITIES.filter.parameters.name).click();
+      await pane.locator('[data-chip="step"]').waitFor();
+      await pane.getByRole("button", { name: "Explain this node", exact: true }).waitFor();
+      await pane.getByRole("button", { name: "Diagnose the last run", exact: true }).waitFor();
+      await restPointer(pane);
+    },
+  },
+];
+
 export const SCENES = [
   {
     id: "setup-card",
@@ -494,9 +669,10 @@ export const SCENES = [
   ...FIRST_MAP_SCENES,
   ...SQL_PAGE_SCENES,
   ...WORKFLOW_PAGE_SCENES,
+  ...ASSISTANT_PAGE_SCENES,
 ];
 
-export const STATES = ["fresh", "seeded", "first-map", "sql", "workflow", "workflow-run"];
+export const STATES = ["fresh", "seeded", "first-map", "sql", "workflow", "workflow-run", "assistant"];
 
 /** What makes a state after the seeded one from the state before it,
  * called once a run with the first account's API client and the
@@ -507,4 +683,5 @@ export const STATE_SEEDING = {
   "first-map": seedFirstMap,
   workflow: seedWorkflow,
   "workflow-run": runWorkflow,
+  assistant: seedAssistantMap,
 };

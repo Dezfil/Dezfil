@@ -45,6 +45,12 @@ Do things in the app: data, maps, SQL, workflows and sharing.
   - read when: you want to repeat the same analysis steps on a dataset without doing them by hand each time; you want to filter, join, buffer or summarize data and keep the result as a dataset; you want to see a step's result as a table or on a map, or add it to a map; you changed a node or its data, or a node says it is edited, stale, failed or cannot run; you can open a workflow someone shared but cannot change or run it
   - audience: user
 
+- [The assistant](use/assistant.md)
+  - path: `docs/use/assistant.md`
+  - summary: Ask the assistant in plain words to change a map, write SQL into the editor, or explain a workflow node and its last run.
+  - read when: you want to change a map by asking in plain words; you want the assistant to write a SQL query, or explain a workflow node or a failed run; the assistant asks you to confirm an action, or you want to stop or undo what it did; you want to choose another model or effort; the assistant pane says no model credential is configured
+  - audience: user
+
 - [Templates](use/templates.md)
   - path: `docs/use/templates.md`
   - summary: The finished maps and workflow examples an instance offers: what a card shows, opening one read only, and making a copy of your own.

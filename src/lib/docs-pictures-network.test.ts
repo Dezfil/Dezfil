@@ -239,6 +239,16 @@ describe("the server's own requests", () => {
     expect(requestsOffInstance(rows, origin)).toEqual([rows[1], rows[2]]);
     expect(requestsOffInstance(rows.slice(0, 1), origin)).toEqual([]);
   });
+
+  it("stay inside the run when they go to a host the run serves, and only that host", () => {
+    const rows = [
+      { engine: "fetch", method: "POST", host: "127.0.0.1:41234", path: "/v1/responses", pid: 1 },
+      { engine: "fetch", method: "POST", host: "127.0.0.1:41235", path: "/v1/responses", pid: 1 },
+      { engine: "fetch", method: "POST", host: "api.openai.com", path: "/v1/responses", pid: 1 },
+    ];
+    expect(requestsOffInstance(rows, origin, ["127.0.0.1:41234"])).toEqual([rows[1], rows[2]]);
+    expect(requestsOffInstance(rows, origin)).toEqual(rows);
+  });
 });
 
 describe("the marks the script waits on", () => {

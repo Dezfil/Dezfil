@@ -31,7 +31,10 @@
 // taken only once its map is at rest on it, every tile loaded; a basemap
 // request that fails fails the run, and so does the basemap's host asked for
 // from any other scene (docs-pictures-network.mjs); the run names the
-// basemap's styles and tile sets it drew. A run also fails on a
+// basemap's styles and tile sets it drew. The assistant scenes talk to a
+// scripted model the script serves on loopback beside the server
+// (docs-pictures-assistant.mjs); the server's requests to it stay inside the
+// run, and a request it has no answer for fails the run. A run also fails on a
 // file over its bound, a page drawn in the other theme, or a dark take that
 // came out the same as its light take. Only then are files written under
 // docs/images/, each one only when its bytes changed, with the manifest
@@ -43,6 +46,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { answerCameraSaves, cropRectangle, frameContext, openBrowser, pageTheme, rest, takeRecording, takeStill } from "./docs-pictures-capture.mjs";
+import { assistantEnvironment, startScriptedModel } from "./docs-pictures-assistant.mjs";
 import { assertBuiltCheckout, freePort, makeScratch, seed, serverRequests, startServer, writeCatalogue } from "./docs-pictures-instance.mjs";
 import { MANIFEST, manifestText, planRun } from "./docs-pictures-manifest.mjs";
 import { problemsMessage, requestsOffInstance } from "./docs-pictures-network.mjs";
@@ -65,10 +69,12 @@ const date = new Date().toISOString().slice(0, 10);
 const scratch = await makeScratch();
 let server = null;
 let browser = null;
+let model = null;
 const captured = [];
 try {
   await writeCatalogue(root, scratch.catalogue);
-  server = await startServer({ root, port, scratch });
+  model = await startScriptedModel();
+  server = await startServer({ root, port, scratch, environment: assistantEnvironment(model.url) });
   browser = await openBrowser();
   // Each state after the fresh one builds on the one before it: the
   // seeding, then each later state's own seeding, in order. A run that
@@ -129,19 +135,23 @@ try {
   }
   if (values["keep-requests"]) await copyFile(scratch.requests, path.resolve(values["keep-requests"]));
   const requests = await serverRequests(scratch);
-  const outside = requestsOffInstance(requests, server.base);
+  const outside = requestsOffInstance(requests, server.base, [model.host]);
   assert.ok(outside.length === 0, `The server opened requests off the instance during the run; every picture must come from the run alone:\n${outside.map((row) => `  ${row.method} ${row.host}${row.path}`).join("\n")}`);
+  const toModel = requests.filter((row) => row.host === model.host).length;
   console.log(requests.length
-    ? `The server opened no request off the instance: the observer's file holds ${requests.length} to the instance itself.`
+    ? `The server opened no request off the instance: the observer's file holds ${requests.length - toModel} to the instance itself and ${toModel} to the scripted model.`
     : "The server opened no request: the observer's file is empty.");
+  assert.deepEqual(model.problems, [], `The scripted model was asked for what it has no answer to:\n${model.problems.map((line) => `  ${line}`).join("\n")}`);
   // Two runs that print the same lines drew the same basemap.
   if (drawn.size) console.log(`The map scenes drew the built-in basemap from:\n${[...drawn].sort().map((source) => `  ${source}`).join("\n")}`);
 } catch (error) {
   if (server) console.error(server.output().split("\n").slice(-40).join("\n"));
+  if (model?.problems.length) console.error(`The scripted model had no answer to:\n${model.problems.map((line) => `  ${line}`).join("\n")}`);
   throw error;
 } finally {
   await browser?.close();
   await server?.stop();
+  await model?.stop();
   await rm(scratch.folder, { recursive: true, force: true });
 }
 

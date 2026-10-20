@@ -115,8 +115,10 @@ export function assertBuiltCheckout(root) {
  * map card picture on any machine: a map the run makes has no picture to
  * inherit, and a browser found at the default place would be started and
  * talked to over a socket of its own, a request off the instance.
+ * `environment` adds what the run itself serves the server, such as the
+ * scripted model the assistant scenes talk to (docs-pictures-assistant.mjs).
  */
-export async function startServer({ root, port, scratch, readyWithin = 60_000 }) {
+export async function startServer({ root, port, scratch, environment = {}, readyWithin = 60_000 }) {
   const observer = pathToFileURL(path.join(root, "scripts/docs-pictures-observer.mjs")).href;
   const env = {
     PATH: process.env.PATH,
@@ -129,6 +131,7 @@ export async function startServer({ root, port, scratch, readyWithin = 60_000 })
     DEZFIL_TEMPLATES_CATALOGUE: scratch.catalogue,
     DEZFIL_DOCS_REQUEST_LOG: scratch.requests,
     DEZFIL_CHROMIUM_PATH: scratch.browser,
+    ...environment,
   };
   const child = spawn(process.execPath, ["--import=./scripts/ingress-preload.mjs", "node_modules/next/dist/bin/next", "start", "-H", "127.0.0.1", "-p", String(port)], {
     cwd: root, env, stdio: ["ignore", "pipe", "pipe"],
@@ -290,4 +293,28 @@ export async function runWorkflow(api) {
     assert.ok(Date.now() < deadline, `The workflow's run did not end within ${within / 1000} s.`);
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
+}
+
+// ---------------------------------------------------------------------------
+// The assistant, as "The assistant" shows it.
+
+/** The map the assistant scenes talk about: the first map's cities in one
+ * color, framed on the world, for the assistant to color by population. It
+ * is a map of its own, so what the assistant changes never reaches the
+ * first map. */
+export const ASSISTANT_MAP = { name: "City sizes", viewport: FIRST_MAP.viewport };
+
+/**
+ * The assistant's map, made by the first account through the operations
+ * the builder calls: a new map, the cities table added to it as a layer in
+ * the layer's own first style, and the map's camera on the world.
+ */
+export async function seedAssistantMap(api) {
+  const map = expectStatus(await api("POST", "/api/maps", { body: { name: ASSISTANT_MAP.name } }), 201, "create the assistant's map");
+  const basis = captureBasis(expectStatus(await api("GET", `/api/maps/${map.id}`), 200, "read the assistant's map"));
+  expectStatus(await api("POST", `/api/maps/${map.id}/layers`, {
+    basis,
+    body: { name: FIRST_MAP.layer, sql: `SELECT * FROM ${FIRST_MAP.layer}`, writtenIn: { kind: "console" } },
+  }), 201, "add the cities to the assistant's map");
+  expectStatus(await api("PATCH", `/api/maps/${map.id}`, { body: { viewport: ASSISTANT_MAP.viewport } }), 200, "frame the world on the assistant's map");
 }

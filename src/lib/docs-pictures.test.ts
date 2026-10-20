@@ -1,8 +1,9 @@
 // The picture script's parts that need no browser: the manifest it writes
 // (a file replaced only when its bytes changed, a row's version and date
 // moving only with its file), its scene list and the names of a scene's two
-// takes, the theme a take's browser starts in, the WebP header it reads back
-// and the catalogue folder it serves the Templates page from.
+// takes, the theme a take's browser starts in, the WebP header it reads back,
+// the catalogue folder it serves the Templates page from and the scripted
+// model the assistant scenes talk to.
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -22,11 +23,19 @@ import { manifestText, planRun } from "../../scripts/docs-pictures-manifest.mjs"
 import { BAND_CHOICE_KEY, SCENES, SQL_STORAGE_KEYS, STATES, STATE_SEEDING } from "../../scripts/docs-pictures-scenes.mjs";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: as above.
-import { BIG_CITIES, FIRST_MAP, freePort, makeScratch, runWorkflow, seedFirstMap, seedWorkflow, startServer, writeCatalogue } from "../../scripts/docs-pictures-instance.mjs";
+import { ASSISTANT_MAP, BIG_CITIES, FIRST_MAP, freePort, makeScratch, runWorkflow, seedAssistantMap, seedFirstMap, seedWorkflow, startServer, writeCatalogue } from "../../scripts/docs-pictures-instance.mjs";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: as above.
+import { ASSISTANT_MESSAGES, PROPOSED_QUERY, SCRIPTED_KEY, assistantEnvironment, replyEvents, scriptedReply, startScriptedModel } from "../../scripts/docs-pictures-assistant.mjs";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: as above.
 import { placeOf } from "../../scripts/docs-contract.mjs";
+import OpenAI from "openai";
 import { defaultOutputName } from "@/components/builder/drawer/operation-form";
+import { assistantAvailability } from "@/lib/assistant/config";
+import { openaiProvider } from "@/lib/assistant/providers/openai";
+import { resolveBoolean } from "@/lib/settings/resolver";
+import { buildTools } from "@/lib/tools/tools";
 import { findOperation } from "@/lib/operations/catalog";
 import { pictureRendererAvailable } from "@/lib/pictures/renderer";
 import { parseIndex } from "@/lib/templates/catalogue";
@@ -184,7 +193,7 @@ describe("the scene list", () => {
   });
 
   it("takes the Workflows page's scenes on its workflow made and never run, then after its run", () => {
-    expect(STATES.slice(STATES.indexOf("sql") + 1)).toEqual(["workflow", "workflow-run"]);
+    expect(STATES.slice(STATES.indexOf("sql") + 1, STATES.indexOf("sql") + 3)).toEqual(["workflow", "workflow-run"]);
     expect(STATE_SEEDING.workflow).toBe(seedWorkflow);
     expect(STATE_SEEDING["workflow-run"]).toBe(runWorkflow);
     const workflow = scenes.filter((s) => s.state === "workflow" || s.state === "workflow-run");
@@ -201,6 +210,131 @@ describe("the scene list", () => {
     expect(filter.parameters.name).toBe(defaultOutputName(findOperation(filter.operation), filter.parameters.input, () => false));
     expect(cells.parameters.input).toBe(filter.parameters.name);
     expect(cells.parameters.name).toBe(defaultOutputName(findOperation(cells.operation), cells.parameters.input, () => false));
+  });
+});
+
+describe("the assistant scenes", () => {
+  it("are taken on The assistant's page after the workflow has run, on a map of their own beside the first map", () => {
+    expect(STATES.indexOf("assistant")).toBeGreaterThan(STATES.indexOf("workflow-run"));
+    expect(STATE_SEEDING.assistant).toBe(seedAssistantMap);
+    expect(ASSISTANT_MAP.name).not.toBe(FIRST_MAP.name);
+    const assistant = scenes.filter((s) => s.state === "assistant");
+    expect(assistant.map((s) => s.id)).toEqual(["assistant-builder", "assistant-confirm", "assistant-sql", "assistant-workflow"]);
+    for (const scene of assistant) expect(scene.pages).toEqual(["docs/use/assistant.md"]);
+    // The two on the map builder draw the basemap; the SQL page and the
+    // canvas draw no map in their pane.
+    expect(assistant.filter((s) => s.map === true).map((s) => s.id)).toEqual(["assistant-builder", "assistant-confirm"]);
+  });
+
+  it("send the messages the page gives as its examples", () => {
+    const page = readFileSync("docs/use/assistant.md", "utf8");
+    for (const message of [ASSISTANT_MESSAGES.color, ASSISTANT_MESSAGES.count]) expect(page).toContain(`\`${message}\``);
+  });
+
+  it("point the instance at the scripted model, which it reads as an OpenAI assistant on no provider's key, with no automatic map check", () => {
+    const env = assistantEnvironment("http://127.0.0.1:41234");
+    expect(assistantAvailability(env)).toMatchObject({ enabled: true, provider: "openai" });
+    expect(env.OPENAI_API_KEY).toBe(SCRIPTED_KEY);
+    vi.stubEnv("DEZFIL_ASSISTANT_AUTO_CHECK", env.DEZFIL_ASSISTANT_AUTO_CHECK);
+    vi.stubEnv("OPENAI_BASE_URL", env.OPENAI_BASE_URL);
+    try {
+      expect(resolveBoolean("assistantAutoCheck")).toBe(false);
+      // The adapter makes its client from the key alone, so the address is
+      // the one the client library reads from the environment.
+      expect(new OpenAI({ apiKey: SCRIPTED_KEY }).baseURL).toBe("http://127.0.0.1:41234/v1");
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it("ask for actions the instance offers: deleting the dataset waits at a card that names it as the call does, the paint and the layer change do not wait", () => {
+    const tools = new Map(buildTools().map((tool) => [tool.name, tool]));
+    expect(tools.get("compute_fill")?.confirm).toBe(false);
+    expect(tools.get("update_layer")?.confirm).toBe(false);
+    const remove = tools.get("delete_table");
+    expect(remove?.confirm).toBe(true);
+    // The card names the dataset by the name in the call, the same on every
+    // run, and never by an identity the run makes.
+    expect(remove?.confirmation).toMatchObject({ target: "Delete {target}?", subject: { argument: "name", name: "name", identity: "name" } });
+  });
+
+  it("hold steady the action time the pane shows, under the name the pane reads it by", () => {
+    expect(readFileSync("src/components/builder/assistant/record-projection.ts", "utf8")).toMatch(/event\.elapsedMs[\s\S]*action\.elapsedMs/);
+  });
+});
+
+describe("the scripted model", () => {
+  const user = (content: string) => ({ role: "user", content });
+  const grounded = (style: Record<string, unknown>) => user(`Instance grounding (data):\n${JSON.stringify({ context: { page: "builder", mapId: "m1", selectedLayerId: "l1" }, map: { id: "m1", layers: { items: [{ id: "l1", style }] } } })}`);
+  const call = (name: string, id: string) => ({ type: "function_call", call_id: id, name, arguments: "{}" });
+  const output = (id: string, body: unknown) => ({ type: "function_call_output", call_id: id, output: JSON.stringify(body) });
+  const style = { fill: { type: "constant" }, pointRadius: 4 };
+  const fill = { type: "classified", attribute: "population" };
+  const asked = [grounded(style), user(ASSISTANT_MESSAGES.color)];
+  const painted = [...asked, call("compute_fill", "c1"), output("c1", fill)];
+
+  it("colors the selected layer in steps: the paint, then the layer's own style with it, then the reply", () => {
+    expect(scriptedReply({ input: asked })).toEqual({ calls: [{ name: "compute_fill", args: { id: "l1", attribute: "population", method: "quantile", classes: 5 } }] });
+    expect(scriptedReply({ input: painted })).toEqual({ calls: [{ name: "update_layer", args: { id: "l1", style: { ...style, fill } } }] });
+    const done = [...painted, call("update_layer", "c2"), output("c2", { id: "l1" })];
+    expect(scriptedReply({ input: done }).text).toMatch(/^The cities are colored by population/);
+  });
+
+  it("goes no further than an action the instance refused", () => {
+    const refused = [...asked, call("compute_fill", "c1"), output("c1", { error: { code: "invalid_request" } })];
+    expect(() => scriptedReply({ input: refused })).toThrow(/compute_fill answered/);
+  });
+
+  it("proposes the query in a SQL block, and asks once to delete the dataset", () => {
+    expect(scriptedReply({ input: [user(ASSISTANT_MESSAGES.count)] }).text).toContain(`\`\`\`sql\n${PROPOSED_QUERY}\n\`\`\``);
+    expect(scriptedReply({ input: [user(ASSISTANT_MESSAGES.remove)] })).toEqual({ calls: [{ name: "delete_table", args: { name: "world_cities" } }] });
+    expect(() => scriptedReply({ input: [user(ASSISTANT_MESSAGES.remove), call("delete_table", "c1"), output("c1", {})] })).toThrow(/no reply/);
+  });
+
+  it("answers the last message, whatever the conversation said before it, and nothing it was not given", () => {
+    const earlier = [user(ASSISTANT_MESSAGES.color), { role: "assistant", content: "Done." }, user(ASSISTANT_MESSAGES.count)];
+    expect(scriptedReply({ input: earlier }).text).toContain(PROPOSED_QUERY);
+    expect(() => scriptedReply({ input: [user("Hello")] })).toThrow(/no reply/);
+  });
+
+  it("streams a reply as the provider's events: the text, then the completed response with the text and the actions", () => {
+    const events = replyEvents({ text: "Hi", calls: [{ name: "x", args: { a: 1 } }] }).trim().split("\n\n").map((line: string) => JSON.parse(line.slice("data: ".length)));
+    expect(events.map((event: { type: string }) => event.type)).toEqual(["response.output_text.delta", "response.completed"]);
+    expect(events[1].response.status).toBe("completed");
+    expect(events[1].response.output.map((item: { type: string }) => item.type)).toEqual(["message", "function_call"]);
+    expect(JSON.parse(events[1].response.output[1].arguments)).toEqual({ a: 1 });
+  });
+
+  it("is read by the instance's own OpenAI adapter: the text it proposes and the action it asks for", async () => {
+    const model = await startScriptedModel();
+    vi.stubEnv("OPENAI_BASE_URL", `${model.url}/v1`);
+    try {
+      const options = { system: "", tools: [], history: [] };
+      const proposal = await openaiProvider(SCRIPTED_KEY, "scripted").exchange(options).send(ASSISTANT_MESSAGES.count);
+      expect(proposal.text).toContain(PROPOSED_QUERY);
+      expect(proposal.toolCalls).toEqual([]);
+      const removal = await openaiProvider(SCRIPTED_KEY, "scripted").exchange(options).send(ASSISTANT_MESSAGES.remove);
+      expect(removal.toolCalls).toEqual([{ id: expect.any(String), name: "delete_table", args: { name: "world_cities" } }]);
+      expect(model.problems).toEqual([]);
+    } finally {
+      vi.unstubAllEnvs();
+      await model.stop();
+    }
+  });
+
+  it("names what it was asked and could not answer, and refuses it", async () => {
+    const model = await startScriptedModel();
+    try {
+      const refused = await fetch(`${model.url}/v1/responses`, { method: "POST", body: JSON.stringify({ input: [user("Hello")] }) });
+      expect(refused.status).toBe(500);
+      await refused.text();
+      const elsewhere = await fetch(`${model.url}/v1/models`);
+      expect(elsewhere.status).toBe(404);
+      await elsewhere.text();
+      expect(model.problems).toEqual([expect.stringMatching(/no reply to "Hello"/), "GET /v1/models"]);
+    } finally {
+      await model.stop();
+    }
   });
 });
 
@@ -329,6 +463,7 @@ describe("the picture script's server", () => {
     'const data = process.env.DEZFIL_DATA_DIR;',
     'writeFileSync(join(data, "pid"), String(process.pid));',
     'writeFileSync(join(data, "browser.json"), JSON.stringify(process.env.DEZFIL_CHROMIUM_PATH ?? null));',
+    'writeFileSync(join(data, "model.json"), JSON.stringify(process.env.OPENAI_BASE_URL ?? null));',
     'if (existsSync(join(data, "answer"))) require("node:http").createServer((_, res) => res.end("ok")).listen(Number(process.argv.at(-1)), "127.0.0.1");',
     "else setInterval(() => {}, 1000);",
   ].join("\n"));
@@ -373,6 +508,23 @@ describe("the picture script's server", () => {
       vi.unstubAllEnvs();
       if (pid && alive(pid)) process.kill(pid, "SIGKILL");
       rmSync(folder.folder, { recursive: true, force: true });
+    }
+  });
+
+  // The assistant scenes' model is served by the run, and the server is
+  // told where it is; without the environment it is told nothing.
+  it("starts the server with the environment the run serves it, and only that", async () => {
+    for (const [environment, expected] of [[assistantEnvironment("http://127.0.0.1:41234"), "http://127.0.0.1:41234/v1"], [undefined, null]] as const) {
+      const folder = await makeScratch();
+      let pid = 0;
+      try {
+        await expect(startServer({ root, port: await freePort(), scratch: folder, environment, readyWithin: 1000 })).rejects.toThrow(/did not answer/);
+        pid = Number(readFileSync(join(folder.data, "pid"), "utf8"));
+        expect(JSON.parse(readFileSync(join(folder.data, "model.json"), "utf8"))).toBe(expected);
+      } finally {
+        if (pid && alive(pid)) process.kill(pid, "SIGKILL");
+        rmSync(folder.folder, { recursive: true, force: true });
+      }
     }
   });
 });
