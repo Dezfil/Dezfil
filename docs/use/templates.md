@@ -38,7 +38,7 @@ You should see one card per template, the ones that come with Dezfil first. Home
 | Tools | A workflow example's tools, in the order it uses them |
 | Tags | Its first two tags |
 | Sources | Where the data comes from. Point at the line to see each source's credit and licence. |
-| **Downloads … when opened** | Only on a template your server does not hold yet: the size of its first download |
+| **Downloads … when opened** | Only when your server does not hold the version listed yet: the size of its download |
 
 To narrow the cards:
 
@@ -72,7 +72,7 @@ A workflow example, such as **Health access in Rwanda**, opens on its workflow c
 A template's address, such as `/templates/earthquakes`, opens it for anyone with an account on your server. Send it to point a colleague at the template.
 
 > [!NOTE]
-> A card with a **Downloads … when opened** line holds a template your server does not have yet. Opening it downloads it first, once. After that it opens at once, for everyone on your server.
+> A card with a **Downloads … when opened** line holds a template, or a newer version of one, that your server does not have yet. Opening it downloads it first, once. After that it opens at once, for everyone on your server.
 
 ## 3. Make a copy
 
