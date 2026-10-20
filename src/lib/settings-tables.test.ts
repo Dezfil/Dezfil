@@ -77,6 +77,25 @@ describe("the settings tables", () => {
     expect(byTable("settings-rules").names).toHaveLength(catalogue.SETTING_CATALOGUE.filter((d) => catalogue.isInstanceRule(d)).length);
   });
 
+  it("keep each variable in the table of its subject, by its name, whatever the generator's own areas say", () => {
+    // An independent statement of where each variable belongs: the
+    // configuration guard places rows by the generator's areas, so a
+    // generator that moved a row would pass it.
+    const subjects: [string, RegExp][] = [
+      ["settings-assistant", /^(?:ANTHROPIC_API_KEY|OPENAI_API_KEY|DEZFIL_AI_[A-Z_]+|DEZFIL_ASSISTANT_[A-Z_]+)$/],
+      ["settings-proxies", /^DEZFIL_(?:TRUSTED_PROXIES|SESSION_COOKIE)$/],
+      ["settings-storage", /^DEZFIL_(?:DATA_DIR|SECRET_KEY|TIPPECANOE|CHROMIUM_PATH)$/],
+      ["settings-libraries", /^DEZFIL_(?:BASEMAP|SATELLITE)_[A-Z_]+$/],
+      ["settings-services", /^DEZFIL_(?:(?:GEOCODER?|ISOCHRONE|OVERPASS)_[A-Z0-9_]+|S3_ENDPOINT|OBJECT_STORE_CREDENTIALS|TEMPLATES_CATALOGUE|EGRESS_ALLOWLIST)$/],
+    ];
+    const variables = catalogue.SETTING_CATALOGUE.filter((d) => d.scope === "instance" && d.environment && !TEST_SEAMS.includes(d.key));
+    for (const { environment } of variables) {
+      const home = subjects.find(([, pattern]) => pattern.test(environment!))?.[0] ?? "settings-limits";
+      const holders = tables.filter((entry) => entry.names.includes(environment!)).map((entry) => entry.table);
+      expect(holders, environment).toEqual([home]);
+    }
+  });
+
   it("put the catalogue's test seams with the test wiring on Development setup, and no other table lists them", () => {
     expect(TEST_SEAMS).toEqual(["overtureS3Endpoint"]);
     expect(byTable(WIRING_TABLE.table).names).toEqual([...catalogue.TEST_WIRING.map((wiring) => wiring.environment), "DEZFIL_OVERTURE_S3_ENDPOINT"]);

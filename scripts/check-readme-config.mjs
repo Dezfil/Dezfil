@@ -4,7 +4,9 @@
 // (scripts/settings-tables.mjs) and `lint:docs` holds them to it; this
 // guard reads them as they are written and holds them to the catalogue on
 // its own, so a table that is current but no longer linked, a row placed by
-// hand, or a generator that drifts fails here too. The README carries no
+// hand, or a generator that drifts in a default, a Settings key or a timing
+// fails here too. A row's place is the generator's own areas here; the
+// generator's tests pin each variable's table by its name. The README carries no
 // table of its own. Keep the independent source and script scans too: a
 // row in the catalogue cannot justify an unused deployment name.
 //
