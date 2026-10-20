@@ -360,8 +360,8 @@ This boundary concerns server-side style-driven rendering. It is not a statement
 about a viewer's browser, service workers, WebSocket, browser-owned background
 requests, or UDP/QUIC suppression. The launch flags configure suppression, but
 those supplementary claims are reported individually. The
-[destination probes](../develop/verification/render-egress-probes.md) and
-[TLS/timing recipes](../develop/verification/render-comparison-probes.md) separate connection assertions,
+[destination probes](../../scripts/render-egress-driver.md) and
+[TLS/timing recipes](../../scripts/render-paired-driver.md) separate connection assertions,
 scripted browser stimuli and unobserved claims. The latter probes stay outside
 the image job; no additional production service or setting is required.
 
@@ -425,7 +425,7 @@ Notes worth having before you switch any of them on:
   aborts it; an independent request does not cancel another caller's work.
   Advisory custom-basemap checks similarly abort on replacement, URL edit,
   Cancel or panel departure. See the [provider cancellation
-  recipe](../develop/verification/provider-cancellation.md) for the route and browser probes, timeouts
+  recipe](../../scripts/provider-cancel-probe.md) for the route and browser probes, timeouts
   and retained save behavior.
 - **The AI assistant** is off until a provider key is set. Once it is on, the
   conversation, the grounding about your instance, the results of the tools it calls

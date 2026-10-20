@@ -1,12 +1,6 @@
----
-title: "Account deletion operations and surfaces"
-summary: "Proofs over the deletion operations through session, token, MCP and the assistant, and over the Users screen that drives them."
-read_when:
-  - "you change the account deletion operations or their screens"
-audience:
-  - developer
-checked: none
----
+# Account deletion operations and surfaces
+
+Proofs over the deletion operations through session, token, MCP and the assistant, and over the Users screen that drives them.
 
 These proofs use synthetic accounts in an isolated production build. Run them
 from a built checkout outside the editing environment, observing each corrected

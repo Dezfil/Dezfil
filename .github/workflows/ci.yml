@@ -183,7 +183,7 @@ jobs:
       # geometry-choice cell boundaries. The three-minute timeout leaves room
       # for slower workers; elapsed time is printed by the driver.
       # PostGIS and the full four-reader result/geometry/export matrix remain the
-      # outside --full proof in docs/self-host/backup-and-restore.md, section "SQL result byte budget".
+      # outside --full proof in scripts/query-result-budget-probe.md.
       # Invocation-owned containers and anonymous volumes are always removed.
       - name: Source-free result-byte boundaries
         timeout-minutes: 3

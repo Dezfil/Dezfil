@@ -1,12 +1,6 @@
----
-title: "Accepted deletion admission proofs"
-summary: "Proofs on a built candidate that pages stop serving a deleted owner's content and that deletion survives a restart."
-read_when:
-  - "you change what happens to admitted work when an account is deleted"
-audience:
-  - developer
-checked: none
----
+# Accepted deletion admission proofs
+
+Proofs on a built candidate that pages stop serving a deleted owner's content and that deletion survives a restart.
 
 Run these from a built, detached candidate checkout outside the editing
 environment. Every command supplies a new empty scratch store. No deletion
@@ -40,7 +34,7 @@ not measure stream drainage or byte erasure.
 
 This earlier restart proof injects the coordinator through parent/child IPC in a production standalone;
 production startup and HTTP admission use the built bundles.
-The [operation proof](account-deletion-surfaces.md) separately drives the now-public
+The [operation proof](account-deletion-parity-proof.md) separately drives the now-public
 confirmation and continuation routes. The proof-only source
 loader loads the checkout's matching coordinator revision and resolves native
 packages from the standalone's module tree. It starts `server.js` **inside the

@@ -1,5 +1,5 @@
 // Offline seeding and real-instance measurement. No server is started here.
-// Follow docs/self-host/backup-and-restore.md for the separate server and metrics preload.
+// Follow scripts/pictures-capacity.md for the separate server and metrics preload.
 // Reuse the frozen first-run report; new mixed fixtures include recency and
 // old-byte digests. With that isolated server stopped, seed a fresh manifest:
 // node scripts/pictures-capacity.mjs seed-mixed <pictures-mixed.fixture.json>

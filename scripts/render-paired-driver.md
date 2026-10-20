@@ -1,12 +1,6 @@
----
-title: "TLS, browser transport and paired render timing"
-summary: "Outside probes for image exports: private certificate trust, the browser transport and paired render timing against a baseline image."
-read_when:
-  - "you change the image export renderer or its relay and need timing evidence"
-audience:
-  - developer
-checked: none
----
+# TLS, browser transport and paired render timing
+
+Outside probes for image exports: private certificate trust, the browser transport and paired render timing against a baseline image.
 
 These probes run outside CI, from this checkout on one idle Docker host. Build
 and name the candidate image first. Keep the baseline image built from `2aded21`
@@ -126,7 +120,7 @@ baseline median of **4,543 ms**, with **81 tiles per export**, is historical
 context, never a substitute for this paired run. Both images run on the same
 host, with two CPUs and 4 GiB per app, fresh stores/browsers, disabled browser
 cache and `no-store` fixture responses. The
-[frozen fixture](../../../scripts/render-timing-fixture.json) stays byte-identical:
+[frozen fixture](render-timing-fixture.json) stays byte-identical:
 2048×2048 export, external HTTP basemap, public-range fixture network. The run
 refuses mismatched browser versions. Each child's inventory retains the exact
 image ID and resource settings; the paired report retains host identity.

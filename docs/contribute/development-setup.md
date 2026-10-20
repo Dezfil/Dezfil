@@ -66,7 +66,7 @@ run** — without these, real failures, not skips:
   opt-in itself);
 - `DEZFIL_NO_RENDERER_URL` (test process) at a second isolated instance
   without an image renderer — the card states with no renderer, as
-  [the runbook](../self-host/backup-and-restore.md#map-picture-proofs) provisions them.
+  [the runbook](../../src/lib/pictures/pictures.real-render.md) provisions them.
 
 Operational recipes for running an instance live in
 [the runbook](../self-host/backup-and-restore.md).

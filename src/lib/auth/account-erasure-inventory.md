@@ -1,12 +1,6 @@
----
-title: "Account erasure inventory"
-summary: "The closed list of what account deletion erases, purges, compacts or retains, and the populated proofs that hold it."
-read_when:
-  - "you add a table, file or holder that stores an account's data"
-audience:
-  - developer
-checked: none
----
+# Account erasure inventory
+
+The closed list of what account deletion erases, purges, compacts or retains, and the populated proofs that hold it.
 
 The inventory is a closed list of storage consequences, independent of cleanup
 code. `src/lib/auth/account-erasure-inventory.json` maps live schema tables,

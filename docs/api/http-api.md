@@ -2650,4 +2650,4 @@ remove converted files and the staged archive, retaining source artifacts. Harde
 <!-- error-catalogue:end -->
 
 The result-byte regression and outside probe invocations are in
-[result budget commands](../self-host/backup-and-restore.md#sql-result-byte-budget).
+[result budget commands](../../scripts/query-result-budget-probe.md).

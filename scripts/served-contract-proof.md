@@ -1,13 +1,6 @@
----
-title: "Served reader and tool contract"
-summary: "A probe that compares the served API description and MCP tool list with the counts and error catalogue the guides state."
-read_when:
-  - "you change the API description, the error catalogue or the generated tools"
-  - "the reader counts in the API or MCP guide disagree with the contract"
-audience:
-  - developer
-checked: none
----
+# Served reader and tool contract
+
+A probe that compares the served API description and MCP tool list with the counts and error catalogue the guides state.
 
 Run in the detached candidate checkout with its matching production standalone
 and image already built. The probe owns its isolated server or container, creates

@@ -1,12 +1,6 @@
----
-title: "Renderer destination probes"
-summary: "Probes that the image export renderer reaches only the destinations it may, from the image job's gate to the wider matrix."
-read_when:
-  - "you change where the image export renderer may connect"
-audience:
-  - developer
-checked: none
----
+# Renderer destination probes
+
+Probes that the image export renderer reaches only the destinations it may, from the image job's gate to the wider matrix.
 
 These are assertion-bearing probes for the built image and the relay. Their
 socket/browser outcomes require an outside run. Pure parser, admission and
@@ -183,7 +177,7 @@ disabled and every fixture response is `no-store`. The fixture is HTTP on the
 public-range network at `timing.render.test:8080`, outside the app origin.
 No internet, allowlist, app-origin tiles or loopback basemap supplies it.
 
-[`render-timing-fixture.json`](../../../scripts/render-timing-fixture.json) freezes
+[`render-timing-fixture.json`](render-timing-fixture.json) freezes
 the style, 256×256 authored cyan PNG, 2048×2048 export definition and SHA-256
 identities. The checker and tests pin those identities independently of the
 manifest. Do not change them between baseline and candidate. The observer
@@ -212,7 +206,7 @@ baseline median. `inventory.json` records the exact image and resource limits.
 The saved images must contain the fixture pixels, not merely an offline PNG.
 
 This command remains a baseline fixture/counting run and makes no paired or
-guarded-road claim. Use the [paired timing driver](render-comparison-probes.md#paired-timing-and-guarded-response-counts)
+guarded-road claim. Use the [paired timing driver](render-paired-driver.md#paired-timing-and-guarded-response-counts)
 for the comparison, independent guarded response counts, both medians, delta,
 ratio and retained voids. Its direct-bypass and delay seeds are documented beside
 the TLS and supplementary probes.
@@ -403,7 +397,7 @@ browser-DNS absence, rebinding listener silence and exact policy answers for bot
 victim variants. The wider matrix must still be repeated against the delivery
 image; none of its 23 baseline failures is deferred or replaced with a flag check.
 TLS, individual supplementary claims and the paired guarded timing comparison
-have [their own recipes and named seeds](render-comparison-probes.md). Their
+have [their own recipes and named seeds](render-paired-driver.md). Their
 outcomes remain separate from the style-driven destination boundary.
 
 ## Image job step

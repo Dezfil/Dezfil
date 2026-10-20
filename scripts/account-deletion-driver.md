@@ -1,12 +1,6 @@
----
-title: "Account deletion on the built application"
-summary: "Proofs that account deletion erases rows, files and the store's free pages on the built application and in the container image."
-read_when:
-  - "you change account deletion and need the built-image evidence"
-audience:
-  - developer
-checked: none
----
+# Account deletion on the built application
+
+Proofs that account deletion erases rows, files and the store's free pages on the built application and in the container image.
 
 Run these from a built, detached linked candidate checkout outside the editing
 environment, using its matching production standalone or image.
@@ -75,7 +69,7 @@ same seed fails `recorded derivative or owned file remains`. Both probes take at
 most the green journey's approximate time; neither changes the compaction proof.
 
 The module-local admission protection is proven by the separate
-[built-page proof and its seed](account-deletion-admission.md). Run both against
+[built-page proof and its seed](account-deletion-pages-proof.md). Run both against
 the same standalone; no changed product build is needed:
 
 ```sh
@@ -108,5 +102,5 @@ to five seconds for the application to create its process-wide admission holder;
 it never creates that holder itself. A missing holder reports a bounded failure
 to the journey, within its ten-second control deadline. Outside green and reds
 are unconfirmed until actually observed. Keep the separate [restart boundary
-proofs](account-deletion-admission.md), [operation/browser proofs](account-deletion-surfaces.md)
-and [compaction measurements](account-compaction.md) in the wider mirror.
+proofs](account-deletion-pages-proof.md), [operation/browser proofs](account-deletion-parity-proof.md)
+and [compaction measurements](account-compaction-proof.md) in the wider mirror.

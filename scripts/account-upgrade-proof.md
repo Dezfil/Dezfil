@@ -1,12 +1,6 @@
----
-title: "Upgrade and recovery after deleting the original account"
-summary: "Proofs that an upgraded store keeps working, and an admin can still be recovered, after the original account is deleted."
-read_when:
-  - "you change account upgrade, setup or admin recovery"
-audience:
-  - developer
-checked: none
----
+# Upgrade and recovery after deleting the original account
+
+Proofs that an upgraded store keeps working, and an admin can still be recovered, after the original account is deleted.
 
 Run outside the editing environment, from a built, detached linked candidate
 checkout with the locked dependencies. Container arms use an image built from that
@@ -61,7 +55,7 @@ the retained original identity in the real setup/recovery reader; they do not
 change the expected answer. A startup, package or transport failure is not that red.
 The socket-free deletion/recovery process test has the same two seeded controls.
 
-Keep the separate [workflow restart journey](../../self-host/backup-and-restore.md#driving-the-api-without-a-browser)
-and the [identity migration and rollback proof](../../self-host/backup-and-restore.md#retained-account-identity-upgrade).
+Keep the separate [workflow restart journey](../docs/self-host/backup-and-restore.md#driving-the-api-without-a-browser)
+and the [identity migration and rollback proof](account-identity-proof.md).
 They cover different boundaries and are not replaced by account deletion.
 Outside arms remain unconfirmed until their green and named reds are observed.
