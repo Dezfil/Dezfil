@@ -145,15 +145,15 @@ You should see no error from ESLint or TypeScript, no `FAILED:` line, no failed 
 | `lint:size` | An oversized module listed in `scripts/check-monster-files.mjs` is above or below its recorded line ceiling |
 | `lint:stage-edge` | The map stage's left edge appears as a literal instead of its one custom property |
 | `lint:wheelhouse` | A style or component leaves the design vocabulary (font sizes, radii, motion, colours, glyphs, focus rings, cursors, accessible names, surface roles), or `scripts/wheelhouse-inventory.json` lists a violation that is gone |
-| `lint:tokens` | A stylesheet uses a `var(--x)` token nothing defines |
-| `lint:icons` | A builder component gains an inline `<svg>` past its recorded count |
-| `lint:class-pairs` | Two module stylesheets set the same property on one element at equal specificity, or a stylesheet opens a cascade layer out of the order `src/app/globals.css` names |
+| `lint:tokens` | A stylesheet uses a `var(--x)` token nothing defines, even with a fallback value |
+| `lint:icons` | A builder component gains an inline `<svg>` past its recorded count, or a new file gains one |
+| `lint:class-pairs` | Two module stylesheets set the same property on one element at equal specificity, or a stylesheet opens a cascade layer out of the order `src/app/globals.css` names. Raise the caller's selector, or move the shared component's rule into its layer |
 | `lint:specimen` | The design specimen page would change if regenerated |
 | `lint:contract-docs` | The API description, the MCP tools or the error catalogue disagree with each other or with the API pages |
 | `lint:reader-docs` | A file on its list (pages, `README.md`, `AGENTS.md`, procedure notes) is missing or holds superseded copy, or an API page's edit-revision example is incomplete |
 | `lint:plugin` | The plugin's guidance file or bundled licence differs from its source |
-| `lint:docs` | A page breaks the page contract or a writing rule, or the index, a settings table, `docs/api/openapi.json` or the image manifest is out of date |
-| `lint:retired-paths` | A tracked file names a docs path that moved or left |
+| `lint:docs` | A page breaks the page contract or a writing rule; a link or picture in a page, or in a procedure note under `scripts/` or `src/`, leads nowhere; a picture lacks its light or its dark take, or the README shows one take only; or the index, a settings table, `docs/api/openapi.json` or the image manifest is out of date |
+| `lint:retired-paths` | A tracked file names a docs path that moved or left, from the list in `scripts/check-retired-paths.mjs`. Only the list itself, a page's `moved_from` rows and the test fixtures that show such a path refused pass |
 
 To check your branch's commit messages as a pull request does:
 

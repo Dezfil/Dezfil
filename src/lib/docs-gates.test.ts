@@ -4,7 +4,8 @@ import { describe, expect, it } from "vitest";
 /**
  * The documentation gate is named wherever the gates are: as a package
  * script, as a step of the pipeline's checks job, in the coding agents'
- * brief, in the contributing guide and in the runbook's checks section.
+ * brief, in the contributing guide and as a row of Development setup's
+ * table of gates.
  * The brief also sends an agent to the documentation index before it
  * touches a page or a behavior a page describes, and the README's
  * Documentation section links the site and the index.
@@ -39,10 +40,10 @@ describe("the documentation gate is listed with the others", () => {
     expect(job(read(".github/workflows/ci.yml"), "checks")).toMatch(/^\s+- run: npm run lint:docs$/m);
   });
 
-  it("is in the agents' brief, the contributing guide and the runbook's checks section", () => {
+  it("is in the agents' brief, the contributing guide and Development setup's table of gates", () => {
     expect(section(read("AGENTS.md"), "Working in this repository")).toContain("`lint:docs`");
     expect(section(read("CONTRIBUTING.md"), "Run the gates")).toMatch(/^npm run lint:docs\b/m);
-    expect(section(read("docs/self-host/backup-and-restore.md"), "The checks")).toMatch(/^- `npm run lint:docs`/m);
+    expect(section(read("docs/contribute/development-setup.md"), "Run the checks")).toMatch(/^\| `lint:docs` \|/m);
   });
 });
 
@@ -55,10 +56,10 @@ describe("the retired-path gate is listed with the others", () => {
     expect(job(read(".github/workflows/ci.yml"), "checks")).toMatch(/^\s+- run: npm run lint:retired-paths$/m);
   });
 
-  it("is in the agents' brief, the contributing guide and the runbook's checks section", () => {
+  it("is in the agents' brief, the contributing guide and Development setup's table of gates", () => {
     expect(section(read("AGENTS.md"), "Working in this repository")).toContain("`lint:retired-paths`");
     expect(section(read("CONTRIBUTING.md"), "Run the gates")).toMatch(/^npm run lint:retired-paths\b/m);
-    expect(section(read("docs/self-host/backup-and-restore.md"), "The checks")).toMatch(/^- `npm run lint:retired-paths`/m);
+    expect(section(read("docs/contribute/development-setup.md"), "Run the checks")).toMatch(/^\| `lint:retired-paths` \|/m);
   });
 });
 
