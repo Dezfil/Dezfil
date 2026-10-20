@@ -118,7 +118,7 @@ creates it and proves it writable (`src/lib/data-dir.ts`).
 | `tables/` | Dataset artifacts, one Parquet file per dataset, named by identifier. This is the durable form of every table. |
 | `tiles/` | One PMTiles archive per tiled layer. |
 | `tiles/scratch/` | The one place the hardened engine may write. Tile builds export here and the finished archive is renamed one level up. |
-| `thumbnails/` | Server-rendered map card images, 692 by 296 pixels. An atomic manifest selects a complete theme pair or one fixed-ground image. |
+| `thumbnails/` | Server-rendered map pictures: the card's 692 by 296 pixel PNG and, beside it, the sizes kept of each shape as WebP. An atomic manifest selects a complete theme pair or one fixed-ground image and lists the sizes; a picture whose manifest lists none was made before sizes were kept. |
 | `artifact-inputs/tiles/`, `artifact-inputs/thumbnails/` | What each tile archive and card image drew: the dataset identities and artifacts, one small file per archive or image; server picture evidence also carries its published generation. Lost evidence leaves its artifact unattributed, served to the map's owner alone. |
 | `exports/` | Staging for project exports. Old siblings are swept as new ones are assembled. |
 | `cache/overpass/`, `cache/geocode/`, `cache/isochrone/` | Provider answer caches, each with its own size and freshness budget. |

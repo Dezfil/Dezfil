@@ -1725,6 +1725,31 @@ Reading `GET /api/maps/{id}/thumbnail?theme=light|dark` keeps the existing
 reach and theme fallback rules. A reader must reach the map and every input
 recorded by the image; an unattributed picture remains the owner's alone.
 
+A picture frames what the map draws, as the builder's Fit does, keeping the
+saved tilt and rotation; a map that draws nothing shows the world. Moving the
+saved view alone therefore makes no new picture. Each picture is kept in two
+shapes and several widths beside its PNG. Name `shape` (`card` or `wide`)
+and `width` (the screen pixels the image will cover) to read one, as WebP:
+
+```sh
+curl -H "Authorization: Bearer <YOUR_TOKEN>" -o card.webp \
+  "http://localhost:3000/api/maps/<MAP_ID>/thumbnail?theme=dark&shape=card&width=1080"
+```
+
+The answer is the narrowest kept size at least that wide, else the widest. A
+shape alone answers its widest, a width alone the card shape's, and no
+parameter answers the PNG as before. A picture made before sizes were kept
+answers its PNG whatever is named. Any other shape, or a width that is not a
+positive whole number, is refused like a bad theme with `400
+invalid_request`.
+
+Every answer carries an `ETag` of its bytes and `Cache-Control: private,
+no-cache`: a browser keeps the image but asks before each use. A request whose
+`If-None-Match` names the current tag is answered `304` without the bytes, but
+only after the same reach checks as a full read, so a reader who lost the map
+or its data, or another account on the same browser, is refused rather than
+confirmed.
+
 ## Edits that belong together
 
 Map and layer edits that a person would think of as one action accept an

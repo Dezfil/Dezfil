@@ -10,6 +10,14 @@ import { requireAdmin } from "./admin";
 import { metadataDb } from "@/lib/metadata/db";
 import { assertRequestOrigin, authFailure, privateResponse, requestAuth, requestIngress, requireRequestAuth, sessionCookie, sessionSecret } from "./http";
 
+/** The one signed-in answer the browser may keep: a map picture, kept under
+ * its entity tag and asked for again on every use, so the serving check
+ * decides each time. The route sets its own caching; its refusals stay
+ * unkept. Every other signed-in answer is never kept. */
+function revalidatedRead(pathname: string, method: string): boolean {
+  return (method === "GET" || method === "HEAD") && /^\/api\/maps\/[^/]+\/thumbnail$/.test(pathname);
+}
+
 /** Early refusal only. Handlers needing identity reauthenticate the credential. */
 export function gateRequest(request: Request): Response {
   const pathname = new URL(request.url).pathname;
@@ -49,7 +57,8 @@ export function gateRequest(request: Request): Response {
     }
     const context = requireRequestAuth(request);
     if (isAdminRequest(pathname)) requireAdmin(context, metadataDb(), Date.now());
-    const response = privateResponse(apiMethodResponse(pathname, request.method) ?? NextResponse.next());
+    const refusal = apiMethodResponse(pathname, request.method);
+    const response = refusal || !revalidatedRead(pathname, request.method) ? privateResponse(refusal ?? NextResponse.next()) : NextResponse.next();
     if (!request.headers.has("authorization") && context.credential.kind === "session" && pathname !== "/api/auth/sign-out") {
       sessionCookie(response, sessionSecret(request)!, ingress);
     }
