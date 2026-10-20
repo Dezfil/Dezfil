@@ -162,7 +162,7 @@ Each input takes points, lines or polygons unless the table says otherwise. A di
 
 **Formula, Category and Histogram are grayed out and say "Add a layer first".** The map has no layer yet. Add one as [Build a map](build-a-map.md) shows. A **Note** needs none.
 
-**A click on a widget changes nothing, and a notice says the layer carries the maximum live constraints.** A layer takes four at a time, shared by widget selections, its range and time filters, and the timeline. Clear a selection or remove a filter first.
+**A click on a widget changes nothing, and a notice says the layer carries the maximum live constraints or that a selection was dropped.** A layer takes four at a time, shared by widget selections, its range and time filters, and the timeline. Clear a selection or remove a filter first.
 
 **The widgets say "Widgets couldn't update", or the map says "Selection not applied".** The values or the filtered layer could not be computed. Click **Try again**.
 
