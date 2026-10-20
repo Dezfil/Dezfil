@@ -104,7 +104,7 @@ To size points by a number column, set **Scale by** under **Point size** to it. 
 | Type | What it draws | What the layer needs |
 |---|---|---|
 | **Points**, **Path**, **Polygons** or **Features** | Each feature as it is. The tile takes its name from the layer's geometry. | Any geometry |
-| **Arc** | A curve from an origin to a destination | Two geometry columns, or two longitude and latitude column pairs |
+| **Arc** | A curve from an origin to a destination | Two of these: a geometry column, or a pair of longitude and latitude columns |
 | **Line** | A straight line from an origin to a destination | The same as **Arc** |
 | **Cluster** | Nearby points merged into bubbles | Points |
 | **Icon** | A symbol at each point | Points |
