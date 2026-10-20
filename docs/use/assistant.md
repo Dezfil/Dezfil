@@ -110,11 +110,11 @@ On a workflow the assistant only reads: it explains nodes and runs but does not 
 
 ## Choose a model
 
-Where your instance offers more than one model, a button beside **Send** names the model in use. Click it, then pick a **Model** and, where that model has levels, an **Effort**.
+Where your instance offers more than one model, a button under the box names the model in use. Click it and pick a model under **Model**. Where that model has levels, click the button again and pick one under **Effort**.
 
 The level names are the model's own. Your choice holds for every page in this browser tab, and a new tab starts with the instance's default.
 
-While a request runs, the button is locked to the model that answers it. Where your instance offers one model, its name stands under the pane's title instead. Which models are offered is up to whoever runs the instance.
+While a request runs, the button is locked to the model that answers it. Where your instance offers one model, its id, such as `claude-opus-5`, stands under the pane's title instead. Which models are offered is up to whoever runs the instance.
 
 ## Stop, clear and come back
 
