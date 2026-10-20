@@ -99,11 +99,11 @@ The SQL workspace takes the same road through `POST /api/query`, and a published
 - **User SQL on the hardened instance:** at its start it loads its extensions, fences the filesystem, sets a memory limit with no spilling to disk, turns off network access and extension loading, then locks its configuration. Never widen it to make a feature easier.
 - **One read-only statement:** `src/lib/query/guard.ts` admits exactly one `SELECT`, classified by DuckDB's own parser rather than a list of keywords. `src/lib/query/guard.test.ts` holds it.
 - **SQL is the source of truth for a layer:** a layer is its SQL, a name and a style. Style draws the query's result and never becomes a second query. Rendering, classification, field statistics and publishing all build the effective query in `src/lib/query/compile.ts`.
-- **Every capability is an API the UI calls:** new behavior starts as a documented operation with a route behind it. `src/lib/api/parity.test.ts` fails on a route without an operation, an operation without a route, or a UI call to an undocumented path.
+- **Every capability is an API the UI calls:** new behavior starts as a documented operation with a route behind it. `src/lib/api/parity.test.ts` fails on a route without an operation, an operation without a route, or a call from `src/components/` to an undocumented path.
 - **The API description is a published contract:** a renamed path, field or error code is a breaking change. If an agent would need a warning, change the API until the mistake is impossible or harmless.
 - **MCP tools come from the API description:** `src/lib/tools/tools.ts` makes one tool of each documented operation that names one in its `x-tool` extension. `src/lib/tools/tools.test.ts` fails when the two drift apart.
 
-After you change the description, run `npm run docs:write` to write `docs/api/openapi.json` again. `npm run lint:docs` fails while that file is stale.
+An operation declares its tool in its `openapi-*.ts` file: `tool` names the tool, or `false` leaves the operation out, and a tool needs `display`, the words the assistant shows for a call. Then regenerate `docs/api/openapi.json` as [Development setup](development-setup.md#regenerate-what-is-generated) shows.
 
 > [!NOTE]
 > The map's hex bin is a flat hexagon grid at any cell size, not H3. `src/lib/query/compile.ts` builds it in SQL with the math of `src/lib/hex-bin.ts`. H3, through DuckDB's extension, serves index-based work, such as the **Assign H3 cells** tool.
