@@ -67,7 +67,7 @@ describe("the rule's refusals", () => {
   it("refuse the built-in basemap's host from a scene that shows no map", () => {
     for (const url of basemap) expect(asks(url, false)).toBe(false);
     // Only a declared map scene counts, not a truthy stand-in for one.
-    expect(mayRequest(basemap[0], { origin, map: 1 })).toBe(false);
+    expect(mayRequest(basemap[0], { origin, map: 1 as unknown as boolean })).toBe(false);
     expect(mayRequest(basemap[0], { origin })).toBe(false);
   });
 
