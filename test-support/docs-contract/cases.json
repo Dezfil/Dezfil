@@ -1915,6 +1915,40 @@
           "line": 13
         }
       ]
+    },
+    {
+      "scope": "product",
+      "name": "a tab label and code block titles with an em dash, a history word, a record term and a source path on a Self-host page",
+      "files": {
+        "docs/self-host/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you check the writing rules\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nRun it.\n\n::::tabs\n:::tab[Docker — now]\nRun it with Docker.\n:::\n:::tab[Compose]\nRun it with Compose.\n:::\n::::\n\n```ts title=\"src/lib/config.ts\"\nconst port = 3000;\n```\n\n```sh title=\"Terminal — the seed host\"\nls\n```\n"
+      },
+      "problems": [
+        {
+          "file": "docs/self-host/case.md",
+          "rule": "writing.em-dash",
+          "line": 16
+        },
+        {
+          "file": "docs/self-host/case.md",
+          "rule": "writing.word",
+          "line": 16
+        },
+        {
+          "file": "docs/self-host/case.md",
+          "rule": "writing.repository-path",
+          "line": 24
+        },
+        {
+          "file": "docs/self-host/case.md",
+          "rule": "writing.em-dash",
+          "line": 28
+        },
+        {
+          "file": "docs/self-host/case.md",
+          "rule": "writing.record-term",
+          "line": 28
+        }
+      ]
     }
   ],
   "order": [

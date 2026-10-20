@@ -415,18 +415,29 @@ function flatten(node, read, { code, strong, urls = true, alt = true }) {
   return { text, lines };
 }
 
+/** A label the site shows as text, on one line. */
+const label = (text, line) => ({ text, lines: Array(text.length).fill(line) });
+
 /** The page's texts outside code blocks, HTML and generated regions: each
- * paragraph, heading and table cell flattened as `flatten` says. */
+ * paragraph, heading and table cell flattened as `flatten` says, and the
+ * labels the site shows beside them, each code block's title and each
+ * tab's label. */
 function texts(read, keep) {
   const found = [];
   walk(read.tree, (node) => {
     if (node.position && read.generated(node)) return false;
-    if (["code", "html", "definition"].includes(node.type)) return false;
+    if (node.type === "code") {
+      const title = codeTitle(node);
+      if (title) found.push(label(title, read.at(node)));
+      return false;
+    }
+    if (["html", "definition"].includes(node.type)) return false;
     if (["paragraph", "heading", "tableCell"].includes(node.type)) {
       found.push(flatten(node, read, keep));
       return false;
     }
   });
+  for (const marker of read.markers) if (marker.kind === "tab-open" && marker.label) found.push(label(marker.label, marker.line));
   return found;
 }
 
