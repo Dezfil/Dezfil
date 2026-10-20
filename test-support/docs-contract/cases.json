@@ -451,6 +451,39 @@
       ]
     },
     {
+      "name": "a link to the API description by its path and by its site address",
+      "files": {
+        "docs/api/openapi.json": "{}\n",
+        "docs/api/mcp.md": "---\ntitle: MCP\nsummary: >-\n  How an agent drives Dezfil through its MCP server,\n  folded over two lines.\nread_when: [\"you connect an agent\", \"you read the tool list\"]\naudience: [agent, developer]\nchecked: 0.1.0\nchecked_on: 2026-10-01\norder: 2\n---\n\n## The tools\n\nEvery operation is a tool. See [run it](../start/install.md). The [description](openapi.json) is also [served](https://dezfil.io/docs/api/openapi.json).\n\n## The tools\n\nA repeated heading gets its own anchor: [the second](#the-tools-1).\n"
+      },
+      "problems": []
+    },
+    {
+      "name": "a site address for the API description that names another file",
+      "files": {
+        "docs/api/openapi.json": "{}\n",
+        "docs/api/mcp.md": "---\ntitle: MCP\nsummary: >-\n  How an agent drives Dezfil through its MCP server,\n  folded over two lines.\nread_when: [\"you connect an agent\", \"you read the tool list\"]\naudience: [agent, developer]\nchecked: 0.1.0\nchecked_on: 2026-10-01\norder: 2\n---\n\n## The tools\n\nEvery operation is a tool. See [run it](../start/install.md). The [description](https://dezfil.io/docs/api/description.json).\n\n## The tools\n\nA repeated heading gets its own anchor: [the second](#the-tools-1).\n"
+      },
+      "problems": [
+        {
+          "file": "docs/api/mcp.md",
+          "rule": "link.description-address"
+        }
+      ]
+    },
+    {
+      "name": "the API description site address without the file",
+      "files": {
+        "docs/api/mcp.md": "---\ntitle: MCP\nsummary: >-\n  How an agent drives Dezfil through its MCP server,\n  folded over two lines.\nread_when: [\"you connect an agent\", \"you read the tool list\"]\naudience: [agent, developer]\nchecked: 0.1.0\nchecked_on: 2026-10-01\norder: 2\n---\n\n## The tools\n\nEvery operation is a tool. See [run it](../start/install.md). The [description](https://dezfil.io/docs/api/openapi.json).\n\n## The tools\n\nA repeated heading gets its own anchor: [the second](#the-tools-1).\n"
+      },
+      "problems": [
+        {
+          "file": "docs/api/mcp.md",
+          "rule": "link.description-address"
+        }
+      ]
+    },
+    {
       "name": "a moved_from that is a live page",
       "files": {
         "docs/use/templates.md": "---\ntitle: \"Templates\"\nsummary: \"Start a map from a template and make it your own.\"\nread_when:\n  - \"you want a map to start from\"\naudience:\n  - user\nchecked: none\nmoved_from:\n  - \"/docs/start/install/\"\n---\n\n## Make a copy\n\nPick a card. [Back to running](../start/install.md#with-docker).\n"

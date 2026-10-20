@@ -3,7 +3,7 @@
 //
 // Write mode (`npm run docs:write`) generates what is made from the pages
 // and the source: the agents' index, docs/README.md, and the API description
-// file, docs/reference/openapi.json, built from the same contract source the
+// file, docs/api/openapi.json, built from the same contract source the
 // server serves, with no server. Check mode (`npm run lint:docs`) holds
 // the page contract for every page under docs/ (the frontmatter, the
 // headings, the links and pictures, the addresses each page owns and the old

@@ -10,7 +10,7 @@ import { fileURLToPath } from "node:url";
 import { afterAll, describe, expect, it } from "vitest";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: a plain-JS gate, no declaration file on purpose.
-import { DESCRIPTION_FILE, checkDescription, checkIndex, checkPageText, checkTree, descriptionText, frontmatterValues, generateIndex, headings, indexOrder, references } from "../../scripts/docs-contract.mjs";
+import { DESCRIPTION_FILE, DESCRIPTION_URL, checkDescription, checkIndex, checkPageText, checkTree, descriptionText, frontmatterValues, generateIndex, headings, indexOrder, references } from "../../scripts/docs-contract.mjs";
 import { buildOpenApiDocument } from "@/lib/api/openapi";
 
 type Problem = { file: string; rule: string; message: string; line?: number };
@@ -123,9 +123,9 @@ describe("the agents' index", () => {
   });
 
   it("names the generated files beside the pages once they exist", () => {
-    const more: Record<string, string> = { ...files, "docs/reference/openapi.json": "{}", "docs/images/manifest.json": "{\"rows\": []}" };
+    const more: Record<string, string> = { ...files, "docs/api/openapi.json": "{}", "docs/images/manifest.json": "{\"rows\": []}" };
     const fuller = generateIndex({ files: Object.keys(more), read: (file: string) => more[file] }) as string;
-    expect(fuller).toContain("- [The OpenAPI description](reference/openapi.json)");
+    expect(fuller).toContain("- [The OpenAPI description](api/openapi.json) (API and agents):");
     expect(fuller).toContain("- [The image manifest](images/manifest.json)");
   });
 
@@ -159,10 +159,15 @@ describe("the API description file", () => {
     expect(shape(checkDescription({ committed: null, document }) as Problem[])).toEqual([{ file: DESCRIPTION_FILE, rule: "description.stale" }]);
   });
 
+  it("sits in the API section and is served at its own site address", () => {
+    expect(DESCRIPTION_FILE).toBe("docs/api/openapi.json");
+    expect(DESCRIPTION_URL).toBe("https://dezfil.io/docs/api/openapi.json");
+  });
+
   it("is linked from the HTTP API guide, beside the operation reference by its full site address", () => {
-    const guide = readFileSync("docs/reference/http-api.md", "utf8");
+    const guide = readFileSync("docs/api/http-api.md", "utf8");
     expect(guide).toContain("[`openapi.json`](openapi.json)");
-    expect(guide).toContain("[operation reference](https://dezfil.io/docs/reference/api/)");
+    expect(guide).toContain("[operation reference](https://dezfil.io/docs/api/reference/)");
   });
 });
 

@@ -34,7 +34,7 @@ server uses.
 Both require sign-in or an API token.
 
 The same document is kept beside this page as
-[`openapi.json`](../reference/openapi.json), so it can be read in a checkout without
+[`openapi.json`](openapi.json), so it can be read in a checkout without
 starting a server or signing in. `npm run docs:write` generates it from the
 source the server serves and `npm run lint:docs` fails when it differs. The
 documentation site renders the

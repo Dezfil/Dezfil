@@ -41,6 +41,12 @@ export const IMPORTED = [
 /** The site's operation reference, generated from the API description. */
 export const GENERATED_REFERENCE = "api/reference";
 
+/** The API description file: the one file under a section folder that is
+ * not a page. The site serves it at its own address, so a link to it, by
+ * its relative path or by that full site address, reaches the site's copy. */
+export const DESCRIPTION_FILE = "docs/api/openapi.json";
+export const DESCRIPTION_URL = `${DOCS_SITE_URL}${DESCRIPTION_FILE.slice("docs/".length)}`;
+
 export const AUDIENCES = ["user", "operator", "developer", "agent"];
 export const SUMMARY_LIMIT = 160;
 export const READ_WHEN_LIMIT = 5;
@@ -70,7 +76,7 @@ export function placeOf(file) {
   const parts = file.split("/");
   if (parts[0] !== "docs") return { kind: "outside" };
   if (file === "docs/README.md") return { kind: "index" };
-  if (file === "docs/reference/openapi.json") return { kind: "description" };
+  if (file === DESCRIPTION_FILE) return { kind: "description" };
   if (file === "docs/images/manifest.json") return { kind: "manifest" };
   if (parts[1] === "images") {
     const media = parts.length === 4 && SECTIONS.includes(parts[2]) && /^[a-z0-9-]+(?:\.dark)?\.(webp|webm)$/.exec(parts[3]);
@@ -441,6 +447,14 @@ export function checkTree({ files, read, on = today() }) {
         if (!own.has(decode(target.slice(1)))) where("link.dead-page", `this page has no heading ${target}`);
         continue;
       }
+      // The API description by its full site address: that one address,
+      // and only while the file is there to serve.
+      if (target.startsWith(DOCS_SITE_URL) && /\.json(?:[?#]|$)/.test(target)) {
+        const address = target.split(/[?#]/)[0];
+        if (address !== DESCRIPTION_URL) where("link.description-address", `${target} is not a file the site serves; the API description is ${DESCRIPTION_URL}`);
+        else if (!fileSet.has(DESCRIPTION_FILE)) where("link.description-address", `${target} is served from ${DESCRIPTION_FILE}, which does not exist`);
+        continue;
+      }
       // The third and fourth kinds: a generated page by its full site
       // address is accepted by its prefix; anything else absolute is
       // external and kept as written.
@@ -572,8 +586,8 @@ export function generateIndex({ files, read }) {
   for (const doc of importedDocuments(read)) {
     lines.push(`- [${doc.title}](../${doc.file}) (${titleOf(doc.section)}): ${doc.summary}`);
   }
-  if (fileSet.has("docs/reference/openapi.json")) {
-    lines.push("- [The OpenAPI description](reference/openapi.json) (Reference): the HTTP API as the server serves it, generated from the source; the operation reference is built from it.");
+  if (fileSet.has(DESCRIPTION_FILE)) {
+    lines.push(`- [The OpenAPI description](${DESCRIPTION_FILE.slice("docs/".length)}) (${titleOf("api")}): the HTTP API as the server serves it, generated from the source; the operation reference is built from it.`);
   }
   if (fileSet.has("docs/images/manifest.json")) {
     lines.push("- [The image manifest](images/manifest.json): one row per picture and recording, each scene in its light and its dark take, with the scene it shows, the take's theme, its size and when it was taken.");
@@ -593,9 +607,8 @@ export function checkIndex({ files, read }) {
     : "the index differs from what the pages generate; run npm run docs:write")];
 }
 
-/** The API description file under docs/reference/: the document the server
- * serves, as indented JSON so a change reads as a diff. */
-export const DESCRIPTION_FILE = "docs/reference/openapi.json";
+/** The API description file's text: the document the server serves, as
+ * indented JSON so a change reads as a diff. */
 export const descriptionText = (document) => `${JSON.stringify(document, null, 2)}\n`;
 
 /** The description file's freshness: the committed copy equals what the

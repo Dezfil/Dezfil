@@ -398,7 +398,7 @@ rule:
   its files, when a picture or recording lacks its light or its dark take,
   when the README shows a picture in one theme only, or when the index
   (`docs/README.md`) or the API description file
-  (`docs/reference/openapi.json`) is not what `npm run docs:write` would
+  (`docs/api/openapi.json`) is not what `npm run docs:write` would
   write. Each problem names its file and rule.
 
 Types: `npm run typecheck`. Unit suite: `npm test` (Vitest, over
@@ -1061,7 +1061,7 @@ renderer moved under an unchanged surface.
 **The API description.** The server builds the document at request time and
 serves it at `/api/openapi.json`, with the human-readable API reference at
 `/developer`; the API journey asserts it is served and well formed. A
-generated copy is committed at `docs/reference/openapi.json` for the
+generated copy is committed at `docs/api/openapi.json` for the
 documentation site and for agents reading the checkout: `npm run docs:write`
 rewrites it with the index, and `npm run lint:docs` fails while it differs
 from what the source builds.
