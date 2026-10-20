@@ -15,7 +15,7 @@ order: 8
 
 ![The map builder with the Assistant pane open on the right: the Map and Layer chips, a message asking to color the cities by population, two action lines with check marks and the reply, beside the cities colored by population](../images/use/assistant-builder.webp)
 
-- **You need:** an instance with the assistant turned on, which takes a provider key from whoever runs it.
+- **You need:** an instance with the assistant turned on, which takes a provider key from whoever runs it. [Set up the assistant](../self-host/assistant.md) shows how.
 - **Example data:** the `world_cities` dataset and the map from [Your first map](../start/first-map.md).
 
 ## Open the assistant
@@ -119,7 +119,7 @@ Where your instance offers more than one model, a button under the box names the
 
 Your choice holds for every page in this browser tab, and a new tab starts with the instance's default.
 
-While a request runs, the button is locked to the model that answers it. Where your instance offers one model, its id, such as `claude-opus-5`, stands under the pane's title instead. Which models are offered is up to whoever runs the instance.
+While a request runs, the button is locked to the model that answers it. Where your instance offers one model, its id, such as `claude-opus-5`, stands under the pane's title instead. Which models are offered is up to whoever runs the instance: [Set up the assistant](../self-host/assistant.md).
 
 ## Stop, clear and come back
 
@@ -134,7 +134,7 @@ While a request runs, the button is locked to the model that answers it. Where y
 
 ## Troubleshooting
 
-**The pane says "No model credential is configured.", or names `DEZFIL_AI_PROVIDER`.** The assistant is off on your instance. Whoever runs it turns it on with a provider key.
+**The pane says "No model credential is configured.", or names `DEZFIL_AI_PROVIDER`.** The assistant is off on your instance. Whoever runs it turns it on with a provider key: [Set up the assistant](../self-host/assistant.md).
 
 **The pane says "The assistant couldn't be reached."** The page could not ask the server whether the assistant is on. Click **Try again**.
 
@@ -142,7 +142,7 @@ While a request runs, the button is locked to the model that answers it. Where y
 
 **A button reads "Recover pending action:" and names an action.** A card from an earlier request still waits, from another page or tab. Click the button to see the card again, then click **Confirm** or **Cancel**.
 
-**The check line says "This instance cannot take a picture of the map."** The server has no browser to draw maps with. The container image brings one; on an instance run from source, whoever runs it sets one up as [Install](../start/install.md#install) shows.
+**The check line says "This instance cannot take a picture of the map."** The server has no browser to draw maps with. Whoever runs it sets one up, or turns the automatic check off, as [Set up the assistant](../self-host/assistant.md#the-check-line-says-this-instance-cannot-take-a-picture-of-the-map) shows.
 
 **Tools closes when you open the assistant.** On a window narrower than 1,860 pixels, **Tools** and the assistant take turns on the map: opening one closes the other. Widen the window to keep both open.
 

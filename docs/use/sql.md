@@ -74,7 +74,7 @@ You should see the 15 cities as points on a basemap, with 15 features and the co
 
 **Map** is greyed out when the result has no geometry column. Make one with a spatial function, such as `ST_Point(longitude, latitude) AS geometry`.
 
-A large result shows only its first rows, in the table and on the map, and the footer says how many of how many. An admin sets how many rows under **Rows shown in results** in **Settings** › **Limits**.
+A large result shows only its first rows, in the table and on the map, and the footer says how many of how many. An admin sets how many rows under **Rows shown in results** in **Settings** › **Limits**. [Limits](../api/limits.md#limits-an-operator-changes) lists each limit with its default.
 
 Click a cell to read its whole value. **Copy** puts it on the clipboard.
 
