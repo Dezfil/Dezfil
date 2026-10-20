@@ -104,6 +104,6 @@ Every setting has one row, in the table of its area. A row gives the variable an
 
 ## What else is kept
 
-- Each person's look, list layouts and sort orders are their own account preferences, set under **You** in **Settings**. They are not instance settings.
+- Each person's look, list layouts and sort orders are their own account preferences, kept with their account. They are not instance settings.
 - The model catalogue file, `assistant-models.json` in the data folder, adds models people can choose. See [Offer other models](assistant.md#offer-other-models).
 - Saved palettes and the basemap styles an admin adds are instance data, kept on the **Libraries** tab.
