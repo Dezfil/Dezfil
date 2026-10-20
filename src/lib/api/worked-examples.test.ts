@@ -1,6 +1,8 @@
+import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { assistantAvailability } from "@/lib/assistant/config";
+import { pageCalls } from "@/lib/test-support/page-calls";
 import { buildOpenApiDocument } from "./openapi";
 import { WORKED_EXAMPLES } from "./openapi-examples";
 
@@ -26,24 +28,69 @@ function operations(doc: Description): [string, Operation][] {
     METHODS.filter((method) => item[method]).map((method) => [`${method.toUpperCase()} ${path}`, item[method]] as [string, Operation]));
 }
 
-/** The operations the documentation calls, the API quickstart's steps
- * first. Each carries a worked example in the description. */
+/** The API quickstart's steps, in order. */
 const QUICKSTART = [
   "POST /api/auth/sign-in", "POST /api/account/tokens", "GET /api/maps", "POST /api/tables",
   "POST /api/query", "POST /api/maps", "POST /api/maps/{id}/layers", "POST /api/maps/{id}/publish",
 ];
-const CALLED = [
-  ...QUICKSTART,
-  "GET /api/account", "GET /api/account/tokens", "DELETE /api/account/tokens/{id}",
+/** The operations a page tells its reader to call in words, beside the
+ * calls its code makes. */
+const NAMED = [
+  "GET /api/account/tokens", "DELETE /api/account/tokens/{id}",
   "GET /api/maps/{id}", "PATCH /api/maps/{id}", "DELETE /api/maps/{id}/publish",
-  "GET /api/tables", "POST /api/query/export", "POST /api/operations/run", "GET /api/catalogue/tables",
-  "POST /api/mcp", "GET /api/openapi.json", "GET /api/health", "GET /api/config", "GET /api/assistant",
-  "GET /api/instance/settings", "PATCH /api/instance/settings", "GET /api/settings", "PATCH /api/settings",
+  "GET /api/tables", "POST /api/query/export", "POST /api/operations/run",
+  "GET /api/config", "GET /api/instance/settings", "GET /api/settings", "PATCH /api/settings",
 ];
 const lookup = (doc: Description, key: string) => {
   const [method, path] = key.split(" ");
   return doc.paths[path]?.[method.toLowerCase()];
 };
+
+/** A path a call names, as the description's path it matches: the path
+ * itself, or the template with the fewest parameters that matches it. */
+function described(doc: Description, path: string): string {
+  if (doc.paths[path]) return path;
+  const fits = Object.keys(doc.paths).filter((template) => template.includes("{") &&
+    new RegExp(`^${template.replace(/\{[^}]+\}/g, "[^/]+")}$`).test(path));
+  fits.sort((a, b) => a.split("{").length - b.split("{").length);
+  return fits[0] ?? `unknown ${path}`;
+}
+
+/** The operations a page's code calls, as `METHOD /path`: every curl
+ * command, every fetch and every `request("METHOD", "/api/...")` call. A
+ * part of a path a call fills in, such as `<MAP_ID>` or `${id}`, matches a
+ * path parameter. */
+function calledBy(text: string, doc: Description = document): string[] {
+  const found = new Set<string>();
+  const add = (method: string, path: string) => found.add(`${method} ${described(doc, path.replace(/\$\{[^}]+\}/g, "x").replace(/[?#].*$/, ""))}`);
+  for (const block of pageCalls(text).blocks) {
+    if (block.lang === "sh" || block.lang === "powershell") {
+      for (const command of block.code.replace(/\\\n\s*/g, " ").split(/\n|\|/)) {
+        const curl = /^\s*curl(?:\.exe)?\s(.*)$/.exec(command);
+        const address = curl && /(?:https?:\/\/[^\s'"/]+|\$\{?\w+\}?)(\/api\/[^\s'"]*)/.exec(curl[1]);
+        if (!address) continue;
+        const method = /(?:-X|--request)\s+([A-Z]+)/.exec(curl[1])?.[1] ?? (/\s(?:-d|--data\S*|-F|--form)\s/.test(` ${curl[1]} `) ? "POST" : "GET");
+        add(method, address[1]);
+      }
+    }
+    if (block.lang === "js") {
+      for (const call of block.code.matchAll(/fetch\(\s*[`"'][^`"']*?(\/api\/[^`"']*)[`"']\s*(?:,\s*\{([\s\S]*?)\}\);)?/g)) {
+        add(/method:\s*"([A-Z]+)"/.exec(call[2] ?? "")?.[1] ?? "GET", call[1]);
+      }
+      for (const call of block.code.matchAll(/\brequest\(\s*"([A-Z]+)"\s*,\s*[`"'](\/api\/[^`"']*)[`"']/g)) add(call[1], call[2]);
+    }
+  }
+  return [...found];
+}
+
+/** The pages that hold the writing rules: every page but those not yet
+ * rewritten. */
+const NOT_REWRITTEN = readFileSync("scripts/docs-not-rewritten.txt", "utf8").split("\n").filter((line) => line && !line.startsWith("#"));
+const PAGES = execFileSync("git", ["ls-files", "docs"], { encoding: "utf8" }).split("\n")
+  .filter((file) => file.endsWith(".md") && file !== "docs/README.md" && !NOT_REWRITTEN.includes(file));
+/** The operations the documentation calls, in its code or in words. Each
+ * carries a worked example in the description. */
+const CALLED = [...new Set([...PAGES.flatMap((file) => calledBy(readFileSync(file, "utf8"))), ...NAMED])];
 
 /** What a worked example named `name` lacks on an operation: a value for
  * every path parameter, every required parameter and the edit revision; a
@@ -67,6 +114,17 @@ function successNames(operation: Operation): string[] {
 }
 
 describe("the worked examples in the description", () => {
+  it("finds the operations a page calls in the page's own code", () => {
+    expect(calledBy(readFileSync("docs/api/quickstart.md", "utf8")).sort()).toEqual([...QUICKSTART].sort());
+    expect(CALLED.filter((key) => key.includes("unknown"))).toEqual([]);
+    // A call a page adds is found, whatever form it takes.
+    const added = '```sh title="Terminal"\ncurl -s -X DELETE http://localhost:3000/api/maps/<MAP_ID> \\\n  -H "X-Edit-Revision: <MAP_REVISION>"\n```\n\n' +
+      '```js title="a.mjs"\nawait fetch(`${base}/api/layers/${id}`, {\n  method: "PATCH",\n  body: "{}",\n});\nawait request("GET", "/api/projects");\n```\n';
+    expect(calledBy(added).sort()).toEqual(["DELETE /api/maps/{id}", "GET /api/projects", "PATCH /api/layers/{id}"]);
+    // None of the three carries an example, so a page that called them would fail the next test.
+    expect(calledBy(added).filter((key) => successNames(lookup(document, key)!).length > 0)).toEqual([]);
+  });
+
   it("every operation the documentation calls carries a complete worked example", () => {
     for (const key of CALLED) {
       const operation = lookup(document, key);
