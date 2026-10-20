@@ -103,11 +103,11 @@ Install, secure, configure and back up your own instance.
 
 Script Dezfil over HTTP, or connect an AI agent through MCP.
 
-- [SQL result limits](api/limits.md)
+- [Limits](api/limits.md)
   - path: `docs/api/limits.md`
-  - summary: The fixed byte ceilings on SQL answers, dataset inspection and previews, and what is refused, shortened or still streamed in full.
-  - read when: a query or an inspection answers query_result_too_large; you need to know which reads are bounded and by how much
-  - audience: user, developer, agent
+  - summary: The fixed byte ceilings on SQL answers and previews, and the time, size, memory, rate and queue limits an operator changes.
+  - read when: a query or an inspection answers query_result_too_large; you need to know which reads are bounded and by how much; you want to raise the largest upload, the query time limit or another limit
+  - audience: user, developer, agent, operator
 
 - [The HTTP API](api/http-api.md)
   - path: `docs/api/http-api.md`

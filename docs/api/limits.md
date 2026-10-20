@@ -1,13 +1,15 @@
 ---
-title: "SQL result limits"
-summary: "The fixed byte ceilings on SQL answers, dataset inspection and previews, and what is refused, shortened or still streamed in full."
+title: "Limits"
+summary: "The fixed byte ceilings on SQL answers and previews, and the time, size, memory, rate and queue limits an operator changes."
 read_when:
   - "a query or an inspection answers query_result_too_large"
   - "you need to know which reads are bounded and by how much"
+  - "you want to raise the largest upload, the query time limit or another limit"
 audience:
   - user
   - developer
   - agent
+  - operator
 checked: none
 moved_from:
   - "/docs/reference/sql-limits/"
