@@ -35,16 +35,17 @@ Dezfil is one Node.js server in one container. It keeps everything it stores in 
 |  metadata      trusted:       hardened:      (Chromium) and   |
 |  store         imports and    user SQL,      tile builder     |
 |                inspection     read-only      (tippecanoe)     |
-|     |             |              |              |             |
-+-----|-------------|--------------|--------------|-------------+
-      v             v              v              v
-  data folder:  metadata.sqlite   tables/ (GeoParquet)
-                tiles/ (PMTiles)  thumbnails/
+|     |             |                             |             |
++-----|-------------|-----------------------------|-------------+
+      v             v                             v
+ metadata.sqlite  tables/ (GeoParquet)          tiles/ (PMTiles)
+                                                thumbnails/
+ (all in the data folder)
 ```
 
-Both DuckDB instances run in memory, and the metadata store is a SQLite file. What must outlive a restart is a file in the data folder, so there is no database server to run, and a backup is a copy of that folder.
+Both DuckDB instances run in memory, and the metadata store is a SQLite file. What must outlive a restart is a file in the data folder, so there is no database server to run.
 
-The data folder is `DEZFIL_DATA_DIR`: `/data` in the container, `./data` in a checkout. [Back up and restore](../self-host/backup-and-restore.md) lists what it holds.
+The data folder is `DEZFIL_DATA_DIR`, with its default in [Storage and programs](../self-host/configuration/storage.md). [Back up and restore](../self-host/backup-and-restore.md) lists what it holds.
 
 ## The parts in the source
 
