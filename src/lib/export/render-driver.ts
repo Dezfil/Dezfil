@@ -143,7 +143,9 @@ export async function puppeteerDriver(): Promise<RenderDriver> {
       }
       let browser;
       const token = `${LAUNCH_SWITCH}=${randomUUID()}`;
-      const args = [...flags, ...renderProxyFlags(context.appOrigin, relay.port), token];
+      // A page served by the development server waits for its reload socket.
+      const developmentReload = process.env.NODE_ENV === "development";
+      const args = [...flags, ...renderProxyFlags(context.appOrigin, relay.port, { developmentReload }), token];
       const start = watchStart(token, [context.stop, context.signal]);
       try {
         if (context.signal?.aborted) throw new EvaluationCancelled();

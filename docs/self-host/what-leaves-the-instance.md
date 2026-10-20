@@ -334,8 +334,11 @@ denied private destination. An unreachable admitted address can fall back to
 another admitted address from the same lookup. Private literals, mixed answer
 sets, redirects and style dependencies receive the same checks.
 
-Only the app's exact scheme, literal host and port bypass the relay. App render
-credentials stay on that exact origin. `DEZFIL_EGRESS_ALLOWLIST` retains its
+Only the app's exact scheme, literal host and port bypass the relay. Under
+`npm run dev` the development server's reload socket, at that same host and
+port in the `ws:` scheme, bypasses it too; every other loopback address still
+goes to the relay and is refused. App render credentials stay on that exact
+origin. `DEZFIL_EGRESS_ALLOWLIST` retains its
 existing hostname, IP and CIDR exceptions: an allowlisted hostname remains
 trusted whatever it resolves to. Ordinary public destinations remain available.
 A policy denial returns the shipped `render_failed` refusal without a PNG;

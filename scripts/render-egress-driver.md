@@ -318,7 +318,12 @@ Green means the exact app origin renders its text, while the other scheme,
 `localhost` alias and other port each fail with `ERR_SOCKS_CONNECTION_FAILED`,
 set the relay refusal and contact no target. The three seeds respectively drop
 the scheme, the port, or the implicit-loopback subtraction from the bypass rule;
-each must fail the browser assertion. Flag-string tests alone establish no
+each must fail the browser assertion. The same file's second case opens a
+WebSocket from the page: with the development server's option the socket to
+the app's own host and port opens and reaches the app directly; without the
+option, and with it for the other scheme, the `localhost` alias and another
+port, the socket fails, the relay records the refusal and no target is
+contacted. Flag-string tests alone establish no
 browser behavior. Expect about 10 seconds for the unseeded browser file, plus
 about 20 seconds per selected browser seed, to be measured outside.
 

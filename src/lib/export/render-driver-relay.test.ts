@@ -48,6 +48,21 @@ it("starts the relay before browser launch with an exact scheme/host/port except
   expect(args.some(flag => /direct|pac-url|ignore-certificate/.test(flag))).toBe(false);
   expect(closeRelay).toHaveBeenCalled();
 });
+it.each([
+  ["development", "--proxy-bypass-list=<-loopback>;http://127.0.0.1:3216;ws://127.0.0.1:3216"],
+  ["production", "--proxy-bypass-list=<-loopback>;http://127.0.0.1:3216"],
+  ["test", "--proxy-bypass-list=<-loopback>;http://127.0.0.1:3216"],
+])("under NODE_ENV=%s the browser's bypass is exactly %s", async (mode, rule) => {
+  vi.stubEnv("NODE_ENV", mode);
+  try {
+    await renderMapImage(testAccountScope(), input);
+  } finally {
+    vi.unstubAllEnvs();
+  }
+  const args = vi.mocked(puppeteer.launch).mock.calls[0][0]!.args!;
+  expect(args.filter(flag => flag.startsWith("--proxy-bypass-list="))).toEqual([rule]);
+  expect(args).toContain("--proxy-server=socks5://127.0.0.1:43127");
+});
 it("a relay startup failure answers the shipped generic 502 without launching, then recovers", async () => {
   vi.mocked(startRenderRelay).mockRejectedValueOnce(Error("EADDRINUSE"));
   await expect(renderMapImage(testAccountScope(), input)).rejects.toMatchObject({ status: 502, code: "render_failed",
