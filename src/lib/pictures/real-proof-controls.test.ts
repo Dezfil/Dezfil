@@ -40,12 +40,12 @@ it("a seeded unchanged colour cannot pass the drawing-change patch oracle", () =
 });
 
 it("works out Fit's framing as deck.gl's own fit does, in each shape", () => {
-  const box: [number, number][] = [[13.4, -0.006], [13.46, 0.012]];
+  const box: [[number, number], [number, number]] = [[13.4, -0.006], [13.46, 0.012]];
   for (const shape of ["card", "wide"] as const) {
     const { frame, padding } = PICTURE_SHAPES[shape];
     const fitted = new WebMercatorViewport({ ...frame }).fitBounds(box, { padding, maxZoom: 15 });
     const ours = framedPosition(shape, box, frame.width);
-    for (const point of [[13.4, -0.006], [13.43, 0.003], [13.46, 0.012]] as const) {
+    for (const point of [[13.4, -0.006], [13.43, 0.003], [13.46, 0.012]] as [number, number][]) {
       const [x, y] = fitted.project(point);
       expect(ours.at(...point).x).toBeCloseTo(x, 3);
       expect(ours.at(...point).y).toBeCloseTo(y, 3);

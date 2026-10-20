@@ -109,13 +109,13 @@ describe.skipIf(!base)("a picture frames what the map draws, in each shape", () 
     const map = await drawn("Framing: sizes", { lng: 13.4, lat: 0, zoom: 10, pitch: 0, bearing: 0 }, [{ lng: 13.4, lat: 0, colour: KELP }, { lng: 13.5, lat: 0.03, colour: BLUE }]);
     const ready = await pictures(map.id);
     for (const shape of ["card", "wide"] as const) for (const width of PICTURE_SHAPES[shape].widths) {
-      const response = await api.request("GET", `/api/maps/${map.id}/thumbnail?v=${ready.pictureVersion}&shape=${shape}&width=${width}`);
+      const response = await api.request("GET", `/api/maps/${map.id}/thumbnail?v=${ready.version}&shape=${shape}&width=${width}`);
       expect(response.headers.get("content-type")).toBe("image/webp");
       const image = await decodePicture(new Uint8Array(await response.arrayBuffer()));
       expect([image.width, image.height], `${shape} ${width}`).toEqual([width, pictureHeight(shape, width)]);
       found(image, KELP);
     }
-    const png = await api.request("GET", `/api/maps/${map.id}/thumbnail?v=${ready.pictureVersion}`);
+    const png = await api.request("GET", `/api/maps/${map.id}/thumbnail?v=${ready.version}`);
     expect(png.headers.get("content-type")).toBe("image/png");
     const image = await decodePicture(new Uint8Array(await png.arrayBuffer()));
     expect([image.width, image.height]).toEqual([692, 296]);

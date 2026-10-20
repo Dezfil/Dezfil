@@ -124,6 +124,10 @@ it.each(["cookie", "token"])("admits a current %s on every protected operation w
   for (const route of protectedRoutes) {
     const response = gateRequest(input(route.path.replaceAll(/\{[^}]+\}/g, "fixture"), route.method.toUpperCase(), headers));
     expect(response.headers.get("x-middleware-next"), route.path).toBe("1");
-    expect(response.headers.get("cache-control"), route.path).toBe("private, no-store");
+    // A map's picture alone is left to its route, which lets the browser
+    // keep it and revalidate it; every other answer is never kept.
+    const revalidated = route.method === "get" && route.path === "/api/maps/{id}/thumbnail";
+    expect(response.headers.get("cache-control"), route.path).toBe(revalidated ? null : "private, no-store");
   }
+  expect(protectedRoutes.some(route => route.method === "get" && route.path === "/api/maps/{id}/thumbnail")).toBe(true);
 });
