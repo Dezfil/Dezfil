@@ -101,7 +101,7 @@ To offer a model Dezfil does not list, or other effort levels, add a model catal
 
 While `DEZFIL_AI_MODELS_ANTHROPIC` or `DEZFIL_AI_MODELS_OPENAI` is set, a model reaches the chip only if the list names it.
 
-Dezfil reads the file again for each message, so it needs no restart. A pane already open shows the new models once it is opened again. Copy the file in under another name, then rename it, so Dezfil never reads half a file:
+Dezfil reads the file again for each message, so it needs no restart. A page already open shows the new models after you reload it. Copy the file in under another name, then rename it, so Dezfil never reads half a file:
 
 ```sh title="Terminal"
 docker cp assistant-models.json dezfil:/data/assistant-models.json.next
