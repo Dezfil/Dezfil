@@ -497,6 +497,24 @@ export function writingNames({ catalogue = [], document = null } = {}) {
 
 const escapeName = (name) => name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
+/** A name that reads as an ordinary word, such as the error codes
+ * forbidden and internal: a line names it only where it sets it as code. */
+const PLAIN_WORD = /^\p{Ll}+$/u;
+
+/** The names a line of text gives, of those `kinds` holds: each token that
+ * is one, but a plain word only inside backticks. */
+function namesIn(line, kinds) {
+  const code = [...line.matchAll(/`[^`]*`/g)].map((m) => [m.index, m.index + m[0].length]);
+  const found = [];
+  for (const match of line.matchAll(/[A-Za-z0-9_.]+/g)) {
+    const name = match[0].replace(/^\.+|\.+$/g, "");
+    if (!kinds.has(name)) continue;
+    if (PLAIN_WORD.test(name) && !code.some(([from, to]) => match.index > from && match.index < to)) continue;
+    found.push(name);
+  }
+  return found;
+}
+
 /** The problems of a page's read_when lines: every variable, Settings key
  * and error code a line names appears in the page's body, so the page
  * answers the situation it names. Each is named at its read_when line. */
@@ -510,12 +528,11 @@ function readWhenProblems({ text, page, names }) {
   const reported = new Set();
   for (const line of list) {
     if (typeof line !== "string") continue;
-    for (const match of line.matchAll(/[A-Za-z0-9_.]+/g)) {
-      const name = match[0].replace(/^\.+|\.+$/g, "");
-      if (!kinds.has(name) || reported.has(name)) continue;
+    for (const name of namesIn(line, kinds)) {
+      if (reported.has(name)) continue;
       if (new RegExp(`(?<![A-Za-z0-9_.])${escapeName(name)}(?![A-Za-z0-9_])`).test(page.body)) continue;
       reported.add(name);
-      const at = front.findIndex((entry, i) => i >= from && entry.includes(name));
+      const at = front.findIndex((entry, i) => i >= from && namesIn(entry, kinds).includes(name));
       found.push({ rule: "writing.read-when-name", message: `a read_when line names the ${kinds.get(name)} ${name}, and the page's body never does; answer it on the page, or leave it out of the line`, line: (at === -1 ? from : at) + 1 });
     }
   }

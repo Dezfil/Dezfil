@@ -14,7 +14,7 @@
     "docs/use/templates.md": "---\ntitle: \"Templates\"\nsummary: \"Start a map from a template and make it your own.\"\nread_when:\n  - \"you want a map to start from\"\naudience:\n  - user\nchecked: none\nmoved_from:\n  - \"/docs/use/old-templates/\"\n---\n\n## Make a copy\n\nPick a card. [Back to running](../start/install.md#with-docker).\n"
   },
   "product": {
-    "what": "The product's own cases, marked \"scope\": \"product\": the writing rules, which the product's lint applies and the documentation site does not. Each runs through every page check the lint makes, the page contract and the writing rules, over the base tree with these files laid over it and then the case's own, and is refused with exactly its problems, each with its file, rule and line (none, for a case that shows what passes). The base tree's install page shows a code block with no title, so the list of pages not yet rewritten holds it here. The names are the variables, Settings keys and error codes a read_when line is held to.",
+    "what": "The product's own cases, marked \"scope\": \"product\": the writing rules, which the product's lint applies and the documentation site does not. Each runs through every page check the lint makes, the page contract and the writing rules, over the base tree with these files laid over it and then the case's own, and is refused with exactly its problems, each with its file, rule and line (none, for a case that shows what passes). The base tree's install page shows a code block with no title, so the list of pages not yet rewritten holds it here. The names are the variables, Settings keys and error codes a read_when line is held to; forbidden is an error code that reads as a plain word.",
     "files": {
       "scripts/docs-not-rewritten.txt": "docs/start/install.md\n"
     },
@@ -26,7 +26,8 @@
         "instanceName"
       ],
       "codes": [
-        "upload_too_large"
+        "upload_too_large",
+        "forbidden"
       ]
     }
   },
@@ -1786,6 +1787,42 @@
           "file": "scripts/docs-not-rewritten.txt",
           "rule": "writing.list-entry",
           "line": 4
+        }
+      ]
+    },
+    {
+      "scope": "product",
+      "name": "a read_when line using an error code that is a plain word as a plain word",
+      "files": {
+        "docs/about/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"a colleague sees a forbidden page\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nShare the project with the colleague.\n"
+      },
+      "problems": []
+    },
+    {
+      "scope": "product",
+      "name": "a read_when line naming an error code that is a plain word as code, which the body does not",
+      "files": {
+        "docs/about/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"a request answers `forbidden`\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nShare the project with the colleague.\n"
+      },
+      "problems": [
+        {
+          "file": "docs/about/case.md",
+          "rule": "writing.read-when-name",
+          "line": 5
+        }
+      ]
+    },
+    {
+      "scope": "product",
+      "name": "read_when lines using an error code that is a plain word, as a word and then as code the body does not name, named at the line that sets it as code",
+      "files": {
+        "docs/about/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"a colleague sees a forbidden page\"\n  - \"a request answers `forbidden`\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nShare the project with the colleague.\n"
+      },
+      "problems": [
+        {
+          "file": "docs/about/case.md",
+          "rule": "writing.read-when-name",
+          "line": 6
         }
       ]
     }

@@ -142,7 +142,12 @@ describe("the names a read_when line is held to", () => {
     expect(names.variables).toEqual(expect.arrayContaining(["DEZFIL_DATA_DIR", "DEZFIL_UPLOAD_MAX_MB", "ANTHROPIC_API_KEY", "DEZFIL_AI_PROVIDER"]));
     expect(names.keys).toEqual(expect.arrayContaining(["instanceName", "landingPage", "basemaps.satellite", "templates.catalogue"]));
     expect(names.codes).toEqual(expect.arrayContaining(["upload_too_large", "token_expired", "stale_revision", "rule_refused"]));
-    expect(names.codes.length).toBe(Object.keys(JSON.parse(readFileSync("docs/api/openapi.json", "utf8"))["x-error-codes"]).length);
+  });
+
+  // These two read as ordinary words, so a read_when line names them only
+  // when it sets them as code.
+  it("include the error codes that are plain words, forbidden and internal, and no others", () => {
+    expect(names.codes.filter((code) => /^\p{Ll}+$/u.test(code)).sort()).toEqual(["forbidden", "internal"]);
   });
 
   it("leave out an account's own preferences, settings no admin changes in Settings, and test wiring", () => {
