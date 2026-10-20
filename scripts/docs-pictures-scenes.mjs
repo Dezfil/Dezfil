@@ -430,8 +430,10 @@ const WORKFLOW_PAGE_SCENES = [
     kind: "still",
     state: "workflow",
     // The panel stands over the canvas: a margin would cut into the tiles
-    // beside it.
-    crop: { selector: "aside[data-node-panel]", margin: 0 },
+    // beside it. The crop ends under Output: the state holds both nodes,
+    // so the Run section offers Run from here, which a reader at step 4,
+    // with Filter rows alone, does not have yet.
+    crop: { selector: ["aside[data-node-panel] > header", 'aside[data-node-panel] section[aria-label="Output"]'], margin: 0 },
     async open(page) {
       await openWorkflow(page);
       await workflowTile(page, BIG_CITIES.filter.parameters.name).click();
