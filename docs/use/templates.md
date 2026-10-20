@@ -100,9 +100,9 @@ A workflow example's copy comes with the results the template made. Click a node
 
 To list the others, an admin turns the catalogue on in **Settings** › **Data & services** › **Templates** › **Catalogue**.
 
-**The page says the template catalogue "did not answer" or "did not answer in time".** Your server could not reach the catalogue, so only the templates it holds show. Open **Templates** again after half a minute to try once more.
+**The page says the template catalogue "did not answer", or gives another reason, then "so only the templates on this server show."** Your server could not read the catalogue, so only the templates it holds show. Open **Templates** again after half a minute to try once more.
 
-If it keeps happening, ask your admin to check what the server may reach: [What leaves the instance](../self-host/what-leaves-the-instance.md).
+If it keeps happening, ask your admin to check the catalogue's address and what the server may reach: [What leaves the instance](../self-host/what-leaves-the-instance.md).
 
 **Opening a template stops with an error while it downloads.** Click **Try again**, or click **Templates** to go back. If it fails again, the error says why. When your server cannot reach the catalogue, the entry above applies.
 
