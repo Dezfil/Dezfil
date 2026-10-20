@@ -219,7 +219,7 @@ To change a shape, click it on the map with **Select a drawn shape**, or while n
 SELECT * FROM earthquakes WHERE ST_X(geometry) BETWEEN -178 AND 178
 ```
 
-**Add layer stays grayed out after you pick a dataset.** The dataset has no geometry column, as the dialog says. If the dialog offers **Set geometry**, click it to give the dataset one on its page, then add it again.
+**Add layer stays grayed out after you pick a dataset.** The dataset has no geometry column, as the dialog says. If the dialog offers **Set geometry**, click it to give the dataset one on its page. Then open your map again and add the dataset from **Add layer** › **Tables**.
 
 **A layer's card says error.** Click the card: its style panel says what went wrong. Fix the query with **More actions** › **Edit source**.
 
