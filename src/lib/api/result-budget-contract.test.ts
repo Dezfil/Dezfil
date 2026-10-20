@@ -44,7 +44,21 @@ it("keeps result-budget commands and their outcomes in the probe's procedure bes
   for (const command of ["probe:query-result-budget", "e2e:result-budget", "geometry-latency.test.ts", "geometry-engine-budget.test.ts", "--observation-dir", "result-budget-image.sh"]) {
     expect(text.includes(command), command).toBe(true);
   }
-  expect(text).not.toMatch(/delegated (?:browser|runner)|supervising session|single observation/i);
+  const words = /delegated (?:browser|runner)|supervising session|single observation/i;
+  expect(text).not.toMatch(words);
+  // The wording rule covers everything from this procedure on as it was
+  // first written: the settings probe that followed it, now beside its own
+  // script, and the template release section still at the end of Back up
+  // and restore. Every one of those sections is read, wherever it lives.
+  const page = readFileSync("docs/self-host/backup-and-restore.md", "utf8");
+  const release = page.indexOf("## Shipping a template release");
+  expect(release).toBeGreaterThan(-1);
+  const after: [string, string][] = [["scripts/settings-probe.md", readFileSync("scripts/settings-probe.md", "utf8")], ["docs/self-host/backup-and-restore.md", page.slice(release)]];
+  const headings = [text, ...after.map(([, part]) => part)].join("\n").split("\n").filter((line) => /^#{1,6} /.test(line)).map((line) => line.replace(/^#+ /, "").trim());
+  for (const heading of ["Local regressions", "Served standalone probe", "Request markers", "Built image", "Browser flow", "Companion commands", "Settings persistence smoke probe", "Shipping a template release"]) {
+    expect(headings, heading).toContain(heading);
+  }
+  for (const [file, part] of after) expect(part, file).not.toMatch(words);
   expect(readFileSync("docs/api/http-api.md", "utf8")).toContain("](../../scripts/query-result-budget-probe.md)");
 });
 
