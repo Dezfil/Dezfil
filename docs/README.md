@@ -147,7 +147,7 @@ Script Dezfil over HTTP, or connect an AI agent through MCP.
 
 - [How the API works](api/http-api.md)
   - path: `docs/api/http-api.md`
-  - summary: Call Dezfil's HTTP API from a script: the address, signing in with a token, editing with revisions, who may do what, paging and errors.
+  - summary: Call Dezfil's HTTP API from a script: the address, signing in, editing with revisions, who may do what, paging, errors and PostGIS connection strings.
   - read when: you call Dezfil over HTTP from a script, a program or an agent; you need an API token, or want to know how the app's browser session signs in; a change to a map or workflow answers invalid_request or stale_revision; a call answers forbidden or not_found for something you expect to reach; you want to page through a long list of datasets
   - audience: developer, agent
 

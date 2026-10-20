@@ -1,6 +1,6 @@
 ---
 title: "How the API works"
-summary: "Call Dezfil's HTTP API from a script: the address, signing in with a token, editing with revisions, who may do what, paging and errors."
+summary: "Call Dezfil's HTTP API from a script: the address, signing in, editing with revisions, who may do what, paging, errors and PostGIS connection strings."
 read_when:
   - "you call Dezfil over HTTP from a script, a program or an agent"
   - "you need an API token, or want to know how the app's browser session signs in"
@@ -53,17 +53,19 @@ Your instance serves the same description at `/api/openapi.json`, and shows it a
 | Way | For | How |
 |---|---|---|
 | API token | Scripts, programs, agents and MCP clients | Send it in the `Authorization` header on every call. |
-| Session cookie | The app's own pages in your browser | The cookie the app sets when you sign in. It lasts as long as **Stay signed in for** says, 30 days by default, counted from your last visit. |
+| Session cookie | The app's own pages in your browser | The cookie the app sets when you sign in. It lasts as long as **Stay signed in for** says, counted from your last visit. |
 
 Both act as your account, with its rights. A change sent with the session cookie must carry an `Origin` header with the instance's own address, as the app's pages do, or it answers `403 forbidden`.
 
 A token works from any script or program that reaches the instance. A web page on another site can't call the API, since the instance allows no cross-origin requests.
 
-A few calls need no sign-in: `GET /api/health`; signing in, creating the first account and redeeming a sign-in link; and a published map's calls under `/api/published/<PUBLISH_TOKEN>`.
+A few calls need no sign-in: `GET /api/health`; `GET /api/auth/entry`, which reads what the sign-in screen shows; signing in, creating the first account and redeeming a sign-in link; and a published map's calls under `/api/published/<PUBLISH_TOKEN>`.
+
+[Security and rules](../self-host/configuration/rules.md) lists **Stay signed in for** and the token rules below, with their defaults.
 
 ### Make a token
 
-Make your first token in the app: **Settings** > **API & MCP**, then **Create token** under **API / MCP tokens**. The [API quickstart](quickstart.md) walks you through it, and shows how to make one from a script. With one token, you can make more over the API:
+Make your first token in the app: in **Settings** › **API & MCP**, enter a **Token name** under **API / MCP tokens** and select **Create token**. The [API quickstart](quickstart.md) walks you through it, and shows how to make one from a script. With one token, you can make more over the API:
 
 ```sh title="Terminal"
 curl -s http://localhost:3000/api/account/tokens \
@@ -77,14 +79,14 @@ curl -s http://localhost:3000/api/account/tokens \
 ```
 
 - `secret` is the new token. It is in this answer only, so store it somewhere safe.
-- `expiresAt` is when the token stops working, or `null` if it never does. An admin sets how long new tokens last in **Settings** > **Security**.
+- `expiresAt` is when the token stops working, or `null` if it never does. An admin sets how long new tokens last with **New tokens expire after**, in **Settings** › **Security**.
 
 `GET /api/account/tokens` lists your tokens without their secrets. `DELETE /api/account/tokens/<TOKEN_ID>` revokes one, and its next call answers `401 authentication_required`.
 
-An expired token answers `401 token_expired`. If an admin lets only admins create tokens, creating one answers `403 rule_refused`.
+An expired token answers `401 token_expired`. If an admin lets only admins create tokens, with **Who may create tokens**, creating one answers `403 rule_refused`.
 
 > [!WARNING]
-> A token can do everything your account can. Keep it out of code you share. If it leaks, select **Revoke** next to it in **Settings** > **API & MCP**.
+> A token can do everything your account can. Keep it out of code you share. If it leaks, select **Revoke** next to it in **Settings** › **API & MCP**, then **Revoke token**.
 
 ## Edit with revisions
 
@@ -223,22 +225,24 @@ Most lists answer everything you reach, in one answer. Add `?project=<PROJECT_ID
 
 | Operation | How it pages |
 |---|---|
-| `GET /api/catalogue/tables` | `limit`: datasets per page, 1 to 32, default 32. `after`: the `nextAfter` of the page before. `columns`: columns per dataset, 0 to 64, default 64. `columnOffset`: the column to continue from. |
+| `GET /api/catalogue/tables` | `limit`: datasets per page, 1 to 32, default 32. `after`: the `nextAfter` of the page before. `columns`: columns per dataset, 0 to 64, default 64. `columnOffset`: the column to continue from. It takes `project` too. |
 | `GET /api/operations/runs` | `limit`: how many runs, newest first; 100 by default, at most 1,000. |
 | `GET /api/maps`, `GET /api/tables`, `GET /api/recipes` and every other list | No paging. `project` narrows the first three. |
 
-The catalogue gives each dataset's columns without reading its rows. With two datasets, `big_cities` and `world_cities`, the first page of one:
+The catalogue gives each dataset's columns without reading its rows. With two datasets, the quickstart's `world_cities` and the `world_cities_2` that uploading it again makes, the first page of one:
 
 ```sh title="Terminal"
 curl -s "http://localhost:3000/api/catalogue/tables?limit=1" -H "Authorization: Bearer <YOUR_TOKEN>"
 ```
 
 ```json title="Output"
-{"tables":[{"id":"<DATASET_ID>","name":"big_cities","qualifiedName":"big_cities",...,"columnCount":4,"nextColumnOffset":null}],"total":2,"nextAfter":"big_cities"}
+{"tables":[{"id":"<DATASET_ID>","name":"world_cities","qualifiedName":"world_cities",...,"columnCount":6,"nextColumnOffset":null}],"total":2,"nextAfter":"world_cities"}
 ```
 
+Your answer lists your own datasets.
+
 - `total` counts every dataset that matches, on all pages.
-- `nextAfter` is the last name on this page. Send it as `after=big_cities` for the next page. It is `null` on the last page.
+- `nextAfter` is the last name on this page. Send it as `after=world_cities` for the next page. It is `null` on the last page.
 - `nextColumnOffset` is set when a dataset has more columns than the page. Ask again with `names=<NAME>` and that `columnOffset`.
 
 A query answers a preview of its rows with the exact row count. [Limits](limits.md) gives the preview's size and every other limit.
@@ -257,14 +261,9 @@ curl -s -w "\n%{http_code}\n" http://localhost:3000/api/maps/no-such-map -H "Aut
 ```
 
 - `-w "\n%{http_code}\n"` prints the status after the body.
-- `code` is stable and meant for programs: branch on it.
-- `message` is for people. It can name the detail of this request.
-- Some codes add a field beside the two, such as `position` for `sql_error` or `rule` for `rule_refused`.
-- An unexpected failure answers `500 internal` with a fixed sentence. The detail goes to the server's log.
+- Branch on `code`, not on the message or the status.
 
-[Errors](errors.md) says what to do about each common code.
-
-The [operation reference](https://dezfil.io/docs/api/reference/) lists every code and the statuses each operation answers.
+[Errors](errors.md) says what an error answer holds and what to do about each common code. The [error catalogue](https://dezfil.io/docs/api/reference/errors/) lists every code, and the [operation reference](https://dezfil.io/docs/api/reference/) the statuses each operation answers.
 
 ## Connections
 

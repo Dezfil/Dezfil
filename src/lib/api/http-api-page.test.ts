@@ -1,12 +1,12 @@
 import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, it } from "vitest";
-import { laneSettled } from "@/lib/operations/lane";
 import { filledIn, ownInstance, pageCalls, printedProblems, runShell, type OwnInstance, type PageBlock } from "@/lib/test-support/page-calls";
 
 // How the API works shows its calls as terminal blocks, each followed by
 // the answer it gives. They run here in the page's order, as a reader runs
 // them, against an instance of their own on which the reader has a token
-// and the two datasets the paging example names; each answer must be the
+// and the two datasets the paging example names, the quickstart's upload
+// and the copy uploading it again makes; each answer must be the
 // one the page shows, and what the page quotes from an answer must be what
 // the instance answers. The JavaScript revision example runs in its own
 // test, beside the MCP guide's.
@@ -29,7 +29,7 @@ let instance: OwnInstance | undefined;
 afterEach(async () => { await instance?.close(); instance = undefined; });
 
 /** A new instance with the reader's account, a token and the datasets
- * world_cities and big_cities. */
+ * world_cities and world_cities_2. */
 async function readerInstance(): Promise<{ token: string }> {
   instance = await ownInstance(ADDRESS, "3452");
   const json = { "content-type": "application/json", origin: ADDRESS };
@@ -39,15 +39,12 @@ async function readerInstance(): Promise<{ token: string }> {
   const made = await fetch(`${ADDRESS}/api/account/tokens`, { method: "POST", headers: { ...json, cookie }, body: JSON.stringify({ name: "Script" }) });
   const token = (await made.json()).secret as string;
   const cities = pageCalls(readFileSync("docs/start/first-map.md", "utf8")).blocks.find((block) => block.title === "world-cities.csv")!;
-  const form = new FormData();
-  form.append("file", new Blob([`${cities.code}\n`]), "world-cities.csv");
-  expect((await fetch(`${ADDRESS}/api/tables`, { method: "POST", headers: { authorization: `Bearer ${token}` }, body: form })).status).toBe(201);
-  const saved = await fetch(`${ADDRESS}/api/operations/run`, {
-    method: "POST", headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
-    body: JSON.stringify({ operation: "sql_step", parameters: { sql: "SELECT name, country, population, geometry FROM world_cities WHERE population > 10000000", name: "big_cities" } }),
-  });
-  expect(saved.status).toBe(202);
-  await laneSettled();
+  for (const name of ["world_cities", "world_cities_2"]) {
+    const form = new FormData();
+    form.append("file", new Blob([`${cities.code}\n`]), "world-cities.csv");
+    const uploaded = await fetch(`${ADDRESS}/api/tables`, { method: "POST", headers: { authorization: `Bearer ${token}` }, body: form });
+    expect([uploaded.status, (await uploaded.json()).name]).toEqual([201, name]);
+  }
   return { token };
 }
 
@@ -102,7 +99,7 @@ describe("How the API works", () => {
 
   it("names an answer the instance does not give, in a seeded copy of the page", async () => {
     const { token } = await readerInstance();
-    const seeded = page.replace('"total":2,"nextAfter":"big_cities"', '"total":3,"nextAfter":"big_cities"').replace("\n404\n", "\n403\n");
+    const seeded = page.replace('"total":2,"nextAfter":"world_cities"', '"total":3,"nextAfter":"world_cities"').replace("\n404\n", "\n403\n");
     expect(seeded).not.toBe(page);
     const { problems } = await runPage(seeded, token);
     expect(problems).toEqual([
