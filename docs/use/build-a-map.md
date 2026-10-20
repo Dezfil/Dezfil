@@ -136,7 +136,7 @@ You should see the map redraw on that style. The choice belongs to this map.
 
 | Style | What it is |
 |---|---|
-| **Auto** | Follows the app's theme: the dark map in dark mode, the light map in light mode. New maps start on it unless an admin chose another. |
+| **Auto** | Follows the app's theme: the dark map in dark mode, the light map in light mode. On an instance that pins its own style, Auto is that style in both, and the panel says so. New maps start on Auto unless an admin chose another. |
 | **Dark**, **Light**, **Streets** | Fixed styles that keep their look in either theme. |
 | **Satellite** | Aerial imagery, shown only where an admin set it up. |
 | Cards after these | Styles an admin added to the instance's library. |
