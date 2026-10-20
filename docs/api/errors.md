@@ -47,7 +47,7 @@ const { error } = await response.json();
 console.log(response.status, error.code, error.message);
 ```
 
-Run it with `node error.mjs`.
+Run it with Node.js 24 or newer: `node error.mjs`.
 
 ```text title="Output"
 400 sql_error The query refers to an unknown table.
@@ -57,7 +57,7 @@ Run it with `node error.mjs`.
 
 ## What an error answer holds
 
-Every error answer holds one `error` object. These two fields are always in it:
+Every error answer an operation gives holds one `error` object. These two fields are always in it:
 
 | Field | What it holds |
 |---|---|
@@ -76,10 +76,10 @@ Some codes add a field beside the two:
 | `retryAt` | `rate_limited` from sign-in or a password check | The time you may try again. |
 | `rule` | `rule_refused` | The instance rule that refused you: `tokens.create`, `publishing.publish`, `connections.create` or `imports.links`. |
 | `setting` | `basemap_not_offered` | The basemap switch that refused it, such as `basemaps.satellite`. |
-| `issues` | `geometry_choice_invalid` | Each reason the geometry choice fails, with its own `code` and `message`. |
+| `issues` | `geometry_choice_invalid`, and `invalid_request` for a tool's arguments over MCP | Each reason the request fails: a `code` and a `message` for a geometry choice, a `message` and the argument's `path` for a tool call. |
 
 > [!NOTE]
-> Over MCP, a failed tool call is marked as an error. Its result holds an `error` object with `code`, `message` and, where they apply, `position` and `issues`.
+> Over MCP, a failed tool call is marked as an error. Its result holds an `error` object with `code`, `message` and, where they apply, `position` and `issues`. A tool takes the edit revision as its `expected_revision` argument. [Connect an AI agent](mcp.md#troubleshooting) helps with the client.
 
 ## What to do about common codes
 
@@ -97,15 +97,15 @@ Agents can read the same list from the [API description](openapi.json):
 |---|---|---|---|
 | `authentication_required` | 401 | The request has no token, or one Dezfil doesn't accept: mistyped, revoked, or its account deactivated. | Send the header `Authorization: Bearer <YOUR_TOKEN>`. If it still fails, create a new token. |
 | `token_expired` | 401 | The token reached the expiry it was created with. | Create a new token and use it instead. |
-| `forbidden` | 403 | The operation is for admins, or you can view the item but not change it. Nothing changed. | Use an admin's token for admin operations. To change someone else's work, ask the owner of its project to make you an **Editor**. Some changes, such as deleting or publishing a map, stay its owner's. |
+| `forbidden` | 403 | The operation is for admins, you can view the item but not change it, or a request signed in with the session cookie lacks the instance's `Origin`. Nothing changed. | Use an admin's token for admin operations. For an item you can't change, see [Who may do what](http-api.md#who-may-do-what); for the `Origin`, [Sign in](http-api.md#sign-in). |
 | `rule_refused` | 403 | An instance rule leaves you out, such as **Who may publish**. The `rule` field names it. Nothing changed. | Ask an admin to change the rule in **Settings**. |
-| `not_found` | 404, or 410 for an expired download ticket | The item does not exist, or your account cannot reach it. Both answer the same. | Check the id. A list call, such as `GET /api/maps`, shows what you reach. |
+| `not_found` | 404, or 410 for an expired query download | The item does not exist, or your account cannot reach it. Both answer the same. | Check the id. A list call, such as `GET /api/maps`, shows what you reach. |
 
 ### Requests and edits
 
 | Code | Status | What happened | What to do |
 |---|---|---|---|
-| `invalid_request` | 400, in a few cases 404, 409, 410 or 422 | The request is malformed, or a field fails validation. A change to a map or workflow that sends no edit revision, or a malformed one, answers this too. | Fix what the message names. Read a map or workflow before you change it, and send its `editRevision` in the `X-Edit-Revision` header. |
+| `invalid_request` | 400, in a few cases 404, 409, 410 or 422 | The request is malformed, or a field fails validation. A change to a map or workflow that sends no edit revision, or a malformed one, answers this too. | Fix what the message names. Read a map or workflow before you change it, and send its `editRevision` in the `X-Edit-Revision` header, or over MCP as the `expected_revision` argument. |
 | `method_not_allowed` | 405 | The path exists, but not with this method. | Use a method from the `Allow` header. |
 | `stale_revision` | 409 | Someone changed the item after you read it. Your change was not applied. | Read the item again, then redo your change on what you find. |
 | `name_taken` | 409, or 400 when you save a workflow step | A dataset of that name exists already. | Choose another name. |
@@ -120,7 +120,7 @@ Agents can read the same list from the [API description](openapi.json):
 | Code | Status | What happened | What to do |
 |---|---|---|---|
 | `sql_rejected` | 400 | The SQL is not one read-only `SELECT`, or it reads a file directly. | Send one `SELECT` over your datasets. |
-| `sql_error` | 400 | The SQL failed to parse or run, or it names a dataset you cannot reach. | Fix the SQL. `position` points at the problem when the engine gives one. |
+| `sql_error` | 400 | The SQL failed to parse or run, or it names a dataset you cannot reach. | Fix the SQL. `position` points at the problem when the engine gives one. Another person's dataset is `<sql name>.<dataset>`: see [Who may do what](http-api.md#who-may-do-what). |
 | `query_timeout` | 408 | The query ran past the instance's query time limit. | Narrow the query, with a `WHERE` or fewer columns. The message names the setting that raises the limit. See [Limits](limits.md). |
 | `query_memory_exceeded` | 400 | The query needed more memory than the engine allows SQL. | Narrow the query, or ask the operator to raise `DEZFIL_QUERY_MEMORY_MB`. |
 | `query_result_too_large` | 422 | The answer is over the size a query may return. See [Limits](limits.md). | Select fewer rows or columns. To get every row, download the result with `POST /api/query/export`. |
@@ -130,18 +130,19 @@ Agents can read the same list from the [API description](openapi.json):
 | Code | Status | What happened | What to do |
 |---|---|---|---|
 | `operation_queue_full` | 503 | Too many operations are already waiting to run. | Retry once some finish. |
+| `authentication_busy` | 503 | Too many sign-ins or password checks are waiting their turn. | Retry after the seconds in `Retry-After`. |
 | `internal` | 500 | The server failed in a way that has no code of its own. | Retry once. If it fails again, the operator finds the detail in the server log. |
 
 ## Handle errors in your code
 
 This helper returns the answer of a successful call and throws on an error,
-with its status and code. It retries the two codes that mean "wait and try
+with its status and code. It retries the three codes that mean "wait and try
 again":
 
 ```js title="dezfil.mjs"
 const base = "http://localhost:3000";
 const token = "<YOUR_TOKEN>";
-const waitAndRetry = new Set(["rate_limited", "operation_queue_full"]);
+const waitAndRetry = new Set(["rate_limited", "operation_queue_full", "authentication_busy"]);
 
 export async function request(method, path, { body, headers = {} } = {}) {
   for (let attempt = 1; ; attempt++) {
@@ -163,7 +164,7 @@ export async function request(method, path, { body, headers = {} } = {}) {
 ```
 
 - A successful call returns its JSON answer, or `null` when the answer is not JSON or has no body.
-- `rate_limited` and `operation_queue_full` wait for the seconds in `Retry-After`, or 5 without it, and try again, three attempts in all.
+- `rate_limited`, `operation_queue_full` and `authentication_busy` wait for the seconds in `Retry-After`, or 5 without it, and try again, three attempts in all.
 - Every other error throws. `failure.error` keeps the whole `error` object, with any extra fields.
 - An answer without an `error` object gets the code `http_<status>`, such as `http_404`. See [Troubleshooting](#troubleshooting).
 
@@ -201,8 +202,7 @@ path and its spelling against the
 ### Every change answers `stale_revision`
 
 Check that you send the revision from the latest answer, not from your first
-read. Each accepted change answers with a new `editRevision`: send that one with
-your next change.
+read. [Edit with revisions](http-api.md#edit-with-revisions) shows the chain.
 
 ### The message says more than the catalogue
 

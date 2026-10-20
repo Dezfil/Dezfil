@@ -89,7 +89,7 @@ describe("Errors", () => {
     ]);
   }, 120_000);
 
-  it("retries only the two codes that mean wait, three attempts in all, and names an answer without an error object", async () => {
+  it("retries only the three codes that mean wait, three attempts in all, and names an answer without an error object", async () => {
     const helper = block(page, "dezfil.mjs").code;
     const calls: string[] = [];
     let answers: Response[] = [];
@@ -112,6 +112,11 @@ describe("Errors", () => {
     answers = [busy(), busy(), busy(), busy()];
     expect(await run(script)).toBe("503 operation_queue_full: Busy. 503 operation_queue_full\n");
     expect(calls).toHaveLength(3);
+
+    calls.length = 0;
+    answers = [new Response(JSON.stringify({ error: { code: "authentication_busy", message: "Authentication is busy." } }), { status: 503, headers: { "retry-after": "1" } }), new Response("[]", { status: 200 })];
+    expect(await run(script)).toBe("[]\n");
+    expect(calls).toHaveLength(2);
 
     calls.length = 0;
     answers = [new Response(JSON.stringify({ error: { code: "stale_revision", message: "This item has changed." } }), { status: 409 })];
