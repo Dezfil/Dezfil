@@ -363,14 +363,19 @@ rule:
   bundled licence drifts from the canonical source they are rendered from.
 - `npm run lint:docs` holds every page under `docs/` to the page contract:
   its frontmatter, its headings, its links and pictures, and the addresses
-  it owns or once had. It also fails when the image manifest disagrees with
-  its files, when a picture or recording lacks its light or its dark take,
-  when the README shows a picture in one theme only, or when the index
-  (`docs/README.md`) or the API description file
-  (`docs/api/openapi.json`) is not what `npm run docs:write` would
+  it owns or once had. Every page not on the list of pages not yet
+  rewritten is also held to the writing rules: the length of a paragraph
+  and of a page, something to do or see before word 151, a language and a
+  title on every code block, well-formed tab sets, notices, the words a
+  page leaves out, and what its read_when lines name. It also fails when
+  the image manifest disagrees with its files, when a picture or recording
+  lacks its light or its dark take, when the README shows a picture in one
+  theme only, or when the index (`docs/README.md`) or the API description
+  file (`docs/api/openapi.json`) is not what `npm run docs:write` would
   write. The procedure notes beside the scripts and suites they run
-  (Markdown under `scripts/` and `src/`) are not pages, but their links and
-  pictures are held the same way. Each problem names its file and rule.
+  (Markdown under `scripts/` and `src/`) are not pages, but their links
+  and pictures are held the same way. Each problem names its file, its
+  line where it has one, and its rule.
 - `npm run lint:retired-paths` fails when a tracked file names a
   documentation path that moved or left, from the finite list in
   `scripts/check-retired-paths.mjs`. A page's `moved_from` rows and the test
