@@ -87,7 +87,7 @@ A page at `docs/<section>/<page>.md` serves at `https://dezfil.io/docs/<section>
 | `checked` | Yes | `none`, or the package version the whole page was read against on a running instance of that version. |
 | `checked_on` | With a version | The date of that reading, as `YYYY-MM-DD`, never in the future. |
 | `order` | No | A whole number: the page's place in its section. Pages without one follow, by title. |
-| `moved_from` | No | The old site addresses of a page that moved, such as `/docs/<section>/<old-page>/`. The site redirects each one. |
+| `moved_from` | When the page moved | The old site addresses of a page that moved, such as `/docs/<section>/<old-page>/`. The site redirects each one. |
 
 After you add, move or delete a page, or change its title, summary, `read_when`, `audience` or `order`, run `npm run docs:write`. It regenerates the index, `docs/README.md`; until you do, `lint:docs` fails with `index.stale`.
 
@@ -104,7 +104,7 @@ After you add, move or delete a page, or change its title, summary, `read_when`,
 - **Exact rules:** Every setting, limit, operation and error code lives in a table or in the generated reference. Each fact has one home, and other pages link to it.
 - **True of the code:** UI labels are the app's own words, found in `src/` and set in bold (**Add data**), even when one holds an avoided word (**Check now**). Every command, flag, variable, default and path is read from the code at the branch the page ships on.
 - **Bold:** Only for UI labels, and for a short lead-in ending in a colon at the start of a list item or a troubleshooting entry, as here.
-- **Never in a page:** The development record (spec numbers, registry rows, phases, review rounds, proof runs, probes, seeds, test names), history words, disclaimers and em dashes. Outside Contribute, also source paths, check and test commands, and test-only settings. See [Words to avoid](#words-to-avoid).
+- **Never in a page:** The development record (spec numbers, registry rows, phases, review rounds, proof runs, probes, seeds, test names), history words, disclaimers and em dashes. Outside Contribute, also source paths, check and test commands, and test-only settings. Contribute may say how a change is checked and reviewed, in general terms. See [Words to avoid](#words-to-avoid).
 - **`read_when`:** Situations in the reader's words, each answered on the page or by a link it gives.
 
 ## Check a page
@@ -310,9 +310,7 @@ A picture is at most 250,000 bytes. A recording is at most 1,500,000 bytes and 8
 
 `scripts/docs-not-rewritten.txt` lists, one per line, the pages the writing rules skip until they are rewritten. Every other check holds them.
 
-1. Rewrite the page under the rules above.
-2. In the same change, delete its line from `scripts/docs-not-rewritten.txt`.
-3. Run `npm run lint:docs`. You should see one page more that holds the writing rules, and one fewer on the list.
+Rewrite the page under the rules above, and in the same change delete its line from the list. Then run `npm run lint:docs`: you should see one page more that holds the writing rules, and one fewer on the list.
 
 A page never returns to the list.
 
@@ -320,11 +318,11 @@ A page never returns to the list.
 
 The writing rules live in `scripts/docs-writing.mjs` and the page contract in `scripts/docs-contract.mjs`; `scripts/docs.mjs` runs both. Their cases are in `test-support/docs-contract/cases.json`.
 
-- A writing case carries `"scope": "product"` and its expected problems, each with file, rule and line.
+- A writing case carries `"scope": "product"` and its expected problems, each with file, rule and line. A contract case carries no scope: the site's build runs it too, so a change to one lands in the website as well.
 - A changed rule ships with a failing case and a passing one at its boundary, such as 81 words beside 80.
-- `npm test` runs the cases in `src/lib/docs-writing.test.ts`, runs every failing one but the `read_when` cases through the `lint:docs` command too, and fails when a rule id has no failing case.
+- The unit suite runs the writing cases in `src/lib/docs-writing.test.ts` and the contract cases in `src/lib/docs-contract.test.ts`. It fails when a writing rule, or a rule of a page's place, frontmatter, headings, links or pictures, has no failing case. The first file also runs every failing case but the `read_when` cases through `lint:docs`.
 
-Run them alone with `npx vitest run src/lib/docs-writing.test.ts`.
+Run them alone with `npx vitest run src/lib/docs-writing.test.ts src/lib/docs-contract.test.ts`.
 
 ## Troubleshooting
 
@@ -338,7 +336,7 @@ The median paragraph runs over 30 words. Split each long one at its second idea,
 
 ## Next steps
 
-- [Development setup](development-setup.md): run a checkout, the checks and the tests.
+- [Development setup](development-setup.md#run-the-checks): every check, those that read particular pages among them.
 - [How this is built](how-this-is-built.md): how a change is specified, written and reviewed.
 - [Contributing](../../CONTRIBUTING.md): get a change from your machine into the project.
 - Model pages: [Your first map](../start/first-map.md) and [Install](../start/install.md).
