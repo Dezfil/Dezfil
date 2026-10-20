@@ -75,7 +75,7 @@ const FIRST_MAP_SCENES = [
     // The finished map, the page's opening picture: the builder in full.
     id: "first-map-finished",
     file: "start/first-map-finished.webp",
-    pages: ["docs/start/first-map.md"],
+    pages: ["docs/start/first-map.md", "docs/start/what-is-dezfil.md"],
     kind: "still",
     state: "first-map",
     map: true,
@@ -138,6 +138,123 @@ const FIRST_MAP_SCENES = [
   },
 ];
 
+// ---------------------------------------------------------------------------
+// The main screens, as "What Dezfil is" shows them, on the seeded instance:
+// the first account's copies of the three shipped templates among its work.
+// The map builder's picture is the first map's: a full-frame builder on any
+// of the copies' maps comes out over the bound on a picture's size.
+
+/** The names the shipped templates' copies carry: each copy's map or
+ * workflow keeps its template's title. */
+const COPIES = ["Forty years of big earthquakes", "The world's air routes", "Health access in Rwanda"];
+
+/** The query the SQL scene runs on the copied earthquakes: how many there
+ * are in each of the template's three depth classes, with their mean
+ * magnitude. The three counts differ, so the order is total. */
+export const SQL_SCENE_QUERY = [
+  "SELECT depth_class, count(*) AS earthquakes, round(avg(magnitude), 1) AS mean_magnitude",
+  "FROM earthquakes",
+  "GROUP BY depth_class",
+  "ORDER BY earthquakes DESC;",
+].join("\n");
+
+/** The run time the SQL scene's result shows. The server measures each
+ * run afresh, so its time differs on every run; the scene's page is handed
+ * the instance's own answer with this time in it, so two runs draw the
+ * same picture. Everything else in the answer is the instance's. */
+export const SQL_SCENE_RUNTIME_MS = 24;
+
+/** The Maps screen's grid of cards: the one element whose children are the
+ * New map tile and the cards. */
+const MAPS_GRID = "main div:has(> button):has(> article)";
+
+const MAIN_SCREEN_SCENES = [
+  {
+    // Home: the last change under Continue, with Start beside it. The crop
+    // ends above Recent, whose rows below the fixtures' come from one
+    // template copy at one moment and fall in another order on each run.
+    id: "what-is-dezfil-home",
+    file: "start/what-is-dezfil-home.webp",
+    pages: ["docs/start/what-is-dezfil.md"],
+    kind: "still",
+    state: "seeded",
+    crop: { selector: "[data-home] [data-beside]", margin: 24 },
+    async open(page) {
+      await page.goto("/");
+      await page.locator('[data-lead="continue"]').waitFor();
+      await page.locator('[data-recent-place="shown"]').waitFor();
+      await page.locator('[data-shelf="shown"]').waitFor();
+    },
+  },
+  {
+    // Maps in Grid view: the heading, the filters, the New map tile and the
+    // three copies' maps. The crop reaches from under the top bar to above
+    // the page's foot, where a line tells an administrator of an instance
+    // without a renderer for map pictures (the picture run's) how to set
+    // one; an instance from the image has one.
+    id: "what-is-dezfil-maps",
+    file: "start/what-is-dezfil-maps.webp",
+    pages: ["docs/start/what-is-dezfil.md"],
+    kind: "still",
+    state: "seeded",
+    crop: { selector: MAPS_GRID, margin: 128 },
+    async open(page) {
+      await page.goto("/maps");
+      for (const name of COPIES) await page.getByRole("link", { name: `Open ${name}`, exact: true }).waitFor();
+    },
+  },
+  {
+    // Data: the source chips and the datasets' cards.
+    id: "what-is-dezfil-data",
+    file: "start/what-is-dezfil-data.webp",
+    pages: ["docs/start/what-is-dezfil.md"],
+    kind: "still",
+    state: "seeded",
+    async open(page) {
+      await page.goto("/data");
+      await page.locator('[data-table-card="earthquakes"]').waitFor();
+      await page.locator('[data-table-card="stations"]').waitFor();
+    },
+  },
+  {
+    // The SQL workspace: a query on the copied earthquakes, run, its rows
+    // as a table. A fresh browser context starts with no draft kept.
+    id: "what-is-dezfil-sql",
+    file: "start/what-is-dezfil-sql.webp",
+    pages: ["docs/start/what-is-dezfil.md"],
+    kind: "still",
+    state: "seeded",
+    async open(page) {
+      await page.route((url) => url.pathname === "/api/query", async (route) => {
+        if (route.request().method() !== "POST") return route.fallback();
+        const answer = await route.fetch();
+        return route.fulfill({ response: answer, json: { ...(await answer.json()), runtimeMs: SQL_SCENE_RUNTIME_MS } });
+      });
+      await page.goto("/sql");
+      await page.locator('[data-name="earthquakes"]').waitFor();
+      await page.locator(".cm-content").click();
+      await page.keyboard.insertText(SQL_SCENE_QUERY);
+      await page.keyboard.press("Escape");
+      await page.getByRole("button", { name: "Run query", exact: true }).click();
+      await page.locator('section[aria-label="Results"] table tbody tr').nth(2).waitFor();
+    },
+  },
+  {
+    // The canvas of the copied Health access in Rwanda workflow, as it
+    // opens: three sources and six nodes.
+    id: "what-is-dezfil-workflow",
+    file: "start/what-is-dezfil-workflow.webp",
+    pages: ["docs/start/what-is-dezfil.md"],
+    kind: "still",
+    state: "seeded",
+    async open(page) {
+      const workflow = await findByName(page, "/api/recipes?origin=workflow", COPIES[2], (body) => body.recipes);
+      await page.goto(`/workflows/${workflow.id}`);
+      await page.locator(".react-flow__node").nth(8).waitFor();
+    },
+  },
+];
+
 export const SCENES = [
   {
     id: "setup-card",
@@ -154,7 +271,7 @@ export const SCENES = [
   {
     id: "templates-page",
     file: "use/templates.webp",
-    pages: ["README.md", "docs/use/templates.md"],
+    pages: ["README.md", "docs/start/what-is-dezfil.md", "docs/use/templates.md"],
     kind: "still",
     state: "seeded",
     open: openTemplates,
@@ -174,6 +291,7 @@ export const SCENES = [
       { hold: 20 },
     ],
   },
+  ...MAIN_SCREEN_SCENES,
   ...FIRST_MAP_SCENES,
 ];
 

@@ -11,6 +11,12 @@ change the pages, then regenerate it.
 
 What Dezfil is, how to install it, and your first map.
 
+- [What Dezfil is](start/what-is-dezfil.md)
+  - path: `docs/start/what-is-dezfil.md`
+  - summary: See what you can do with Dezfil, what each of its main screens is for, and how an instance runs and keeps your data.
+  - read when: you want to know what Dezfil does before you install it; you want to see the main screens and what each one is for; you want to know how Dezfil runs and where it keeps your data; you want to script Dezfil or connect an AI agent to it; you want to know Dezfil's licence
+  - audience: user, operator, developer, agent
+
 - [Install](start/install.md)
   - path: `docs/start/install.md`
   - summary: Install Dezfil with Docker, Docker Compose or from source, create the admin account, and keep the instance running day to day.
