@@ -125,15 +125,24 @@ it.each(["export", "check"])("records the failing backlog sample before enforcin
 });
 it("whole-attempt timing includes the second appearance and publication, and refuses a hidden retry", () => {
   const maps = Array.from({ length: 20 }, (_, i) => ({ id: String(i), drawingChangedAt: -i, group: "missing", pair: i % 2 === 1 }));
+  // One render per kept shape in each appearance.
+  const render = (mapId: string, at: number) => [
+    { kind: "admitted", background: true, mapId, monotonicMs: at, pid: 1 },
+    { kind: "released", background: true, mapId, monotonicMs: at + 20, pid: 1 },
+    { kind: "admitted", background: true, mapId, monotonicMs: at + 25, pid: 1 },
+    { kind: "released", background: true, mapId, monotonicMs: at + 50, pid: 1 },
+  ];
   const events = maps.flatMap(map => [
-    { kind: "admitted", background: true, mapId: map.id, monotonicMs: 100, pid: 1 },
-    { kind: "released", background: true, mapId: map.id, monotonicMs: 150, pid: 1 },
-    ...(map.pair ? [{ kind: "admitted", background: true, mapId: map.id, monotonicMs: 180, pid: 1 },
-      { kind: "released", background: true, mapId: map.id, monotonicMs: 250, pid: 1 }] : []),
+    ...render(map.id, 100),
+    ...(map.pair ? render(map.id, 180) : []),
     { kind: "published", mapId: map.id, monotonicMs: map.pair ? 300 : 200, pid: 1 },
   ]);
-  expect(firstMeasurement(maps, events)).toMatchObject({ single: { count: 10, p90Ms: 100 }, pair: { count: 10, p90Ms: 200 }, all: { p90Ms: 200 } });
-  expect(() => firstMeasurement(maps, [...events, events[0]])).toThrow("repeated appearance");
+  expect(firstMeasurement(maps, events, 2)).toMatchObject({ single: { count: 10, p90Ms: 100 }, pair: { count: 10, p90Ms: 200 }, all: { p90Ms: 200 }, appearanceFloorMs: 20 });
+  expect(() => firstMeasurement(maps, [...events, events[0]], 2)).toThrow("repeated appearance");
+  // A shape left unrendered is a missing render, not a faster attempt.
+  const oneShape = events.filter((event, i) => !(event.mapId === "0" && event.kind !== "published" && i >= 2 && i < 4));
+  expect(() => firstMeasurement(maps, oneShape, 2)).toThrow("missing or repeated");
+  expect(() => firstMeasurement(maps, events)).toThrow("kept shapes");
 });
 
 it("rejects the seeded defect of older missing pictures publishing ahead of newer ones", () => {

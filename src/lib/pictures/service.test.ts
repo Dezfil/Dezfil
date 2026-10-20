@@ -8,6 +8,7 @@ import { NO_INPUTS } from "@/lib/query/evaluation-inputs";
 import { getPictureState } from "./state";
 import { PictureService } from "./service";
 import { pictureTarget, publishPicture } from "./publication";
+import { sizedPicture } from "@/lib/test-support/picture-sizes";
 isolatePictureData();
 const scope = testAccountScope();
 afterAll(closeMetadataDb);
@@ -19,7 +20,7 @@ it("looks queue missing pictures before old ones, recover the renderer and do no
   const launches: string[] = [];
   const make = () => new PictureService({ now: () => now, available: () => available, baseUrl: "http://fixture.test", run: async state => {
     launches.push(state.mapId);
-    await publishPicture(scope, pictureTarget(scope, state.mapId), state.requestedGeneration, { light: Buffer.from("light"), dark: Buffer.from("dark") }, NO_INPUTS);
+    await publishPicture(scope, pictureTarget(scope, state.mapId), state.requestedGeneration, { light: sizedPicture("light"), dark: sizedPicture("dark") }, NO_INPUTS);
   } });
   let service = make(); await service.look(); await service.queue.drain();
   expect(launches).toEqual([]); expect(getPictureState(missing.id)?.state).toBe("unavailable");

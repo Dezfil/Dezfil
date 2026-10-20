@@ -42568,7 +42568,7 @@
     "/api/maps/{id}/thumbnail": {
       "get": {
         "summary": "Read a map's snapshot",
-        "description": "History follows its map: everyone who reaches the map reads its availability, and undo and redo are content changes. Thumbnails are rendered by the server as the map's owner and record the datasets each image drew: an image is served, and copied into a duplicate, only for someone who reaches the map and can now reach every one of them, an unattributed image for the owner alone; anyone else reads no snapshot. Replay checks every target and parent reference before changing the whole gesture; unreached, missing or mismatched references return not_found and leave history and artifacts unchanged. A deleted layer can be restored under its recorded identity and parent. Picture publication rechecks owner standing, the drawing generation and consumed inputs after waiting and before publication. A map is reached by its owner and, while it is filed in a project, by that project's owner and people. Results cover exactly the reached maps and name each map's owner and SQL home; the map's SQL is evaluated in its home within the caller's own reach. Content changes are open to the owner, the project's owner and its editors; SQL anyone but the owner saves, directly or by undo and redo, must name only datasets within their own reach in the map's home, else it is refused with sql_error naming the reference as written and nothing changes. Sketches drawn on the map are content, each sketch dataset its drawer's own; deletion and publication settings stay the owner's; the server makes pictures as the owner, and an Editor may request a refresh; a snapshot is served to everyone who reaches the map and every dataset it drew. Anyone who reaches a map may duplicate it into their own space: the copy keeps the map's SQL home and its layers' SQL as stored, is filed in the map's project only when the duplicator may file there (its owner or an editor), and carries the snapshot only when the duplicator may be served it. Administrators reach nothing more. Unreached and missing map or project identities both return not_found before source access or protected changes; a reached map whose change the caller may not make returns forbidden and changes nothing. The last complete PNG the server made for this map, the maps screen's card image. 404 while no picture is served. A map whose basemap follows the theme carries one image per theme: name the theme to read that one. The fallback order: the named theme's image, then the map's single image, then the other theme's; a request naming no theme answers the light image, then dark, then the single image. An image the reader may not be served (one that drew a dataset beyond their reach, or an unattributed one read by anyone but the owner) is passed over like a missing one; when none is left the answer is the same 404 as for a map with no image at all. The maps listing's `hasThumbnail` says beforehand whether there is one.",
+        "description": "History follows its map: everyone who reaches the map reads its availability, and undo and redo are content changes. Thumbnails are rendered by the server as the map's owner and record the datasets each image drew: an image is served, and copied into a duplicate, only for someone who reaches the map and can now reach every one of them, an unattributed image for the owner alone; anyone else reads no snapshot. Replay checks every target and parent reference before changing the whole gesture; unreached, missing or mismatched references return not_found and leave history and artifacts unchanged. A deleted layer can be restored under its recorded identity and parent. Picture publication rechecks owner standing, the drawing generation and consumed inputs after waiting and before publication. A map is reached by its owner and, while it is filed in a project, by that project's owner and people. Results cover exactly the reached maps and name each map's owner and SQL home; the map's SQL is evaluated in its home within the caller's own reach. Content changes are open to the owner, the project's owner and its editors; SQL anyone but the owner saves, directly or by undo and redo, must name only datasets within their own reach in the map's home, else it is refused with sql_error naming the reference as written and nothing changes. Sketches drawn on the map are content, each sketch dataset its drawer's own; deletion and publication settings stay the owner's; the server makes pictures as the owner, and an Editor may request a refresh; a snapshot is served to everyone who reaches the map and every dataset it drew. Anyone who reaches a map may duplicate it into their own space: the copy keeps the map's SQL home and its layers' SQL as stored, is filed in the map's project only when the duplicator may file there (its owner or an editor), and carries the snapshot only when the duplicator may be served it. Administrators reach nothing more. Unreached and missing map or project identities both return not_found before source access or protected changes; a reached map whose change the caller may not make returns forbidden and changes nothing. The last complete PNG the server made for this map, the maps screen's card image. 404 while no picture is served. A map whose basemap follows the theme carries one image per theme: name the theme to read that one. The fallback order: the named theme's image, then the map's single image, then the other theme's; a request naming no theme answers the light image, then dark, then the single image. An image the reader may not be served (one that drew a dataset beyond their reach, or an unattributed one read by anyone but the owner) is passed over like a missing one; when none is left the answer is the same 404 as for a map with no image at all. The maps listing's `hasThumbnail` says beforehand whether there is one. Naming a shape or a width answers one of the sizes the server keeps of that picture, as WebP, framed for that shape: the narrowest at least that wide, else the widest; a shape alone answers its widest, a width alone the card shape's. A picture made before sizes were kept answers its PNG whatever is named. Every answer carries an entity tag of its bytes and `Cache-Control: private, no-cache`, so a client may keep it but asks again before each use; a request whose `If-None-Match` names the current tag is answered 304 without the bytes, after the same serving checks as a full read.",
         "tags": [
           "Maps"
         ],
@@ -42599,16 +42599,74 @@
               ]
             },
             "description": "The viewer's theme, \"light\" or \"dark\". Any other value is refused."
+          },
+          {
+            "name": "shape",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "card",
+                "wide"
+              ]
+            },
+            "description": "The proportion the picture is framed for: \"card\", the maps cards' own, or \"wide\", a band such as Home's Continue card. Any other value is refused."
+          },
+          {
+            "name": "width",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 999999999
+            },
+            "description": "The width in screen pixels the image will cover. Anything but a positive whole number is refused."
           }
         ],
         "responses": {
           "200": {
-            "description": "The snapshot.",
+            "description": "The snapshot: the PNG, or with a shape or a width named, a kept size.",
+            "headers": {
+              "ETag": {
+                "description": "The entity tag of these bytes.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "description": "private, no-cache",
+                "schema": {
+                  "type": "string",
+                  "const": "private, no-cache"
+                }
+              }
+            },
             "content": {
               "image/png": {
                 "schema": {
                   "type": "string",
                   "format": "binary"
+                }
+              },
+              "image/webp": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "The picture this reader is served is unchanged: its entity tag matches If-None-Match."
+          },
+          "400": {
+            "description": "A theme, shape or width the read does not take (invalid_request).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
                 }
               }
             }
@@ -42837,11 +42895,56 @@
               ]
             },
             "description": "The viewer's theme, \"light\" or \"dark\". Any other value is refused."
+          },
+          {
+            "name": "shape",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "card",
+                "wide"
+              ]
+            },
+            "description": "The proportion the picture is framed for: \"card\", the maps cards' own, or \"wide\", a band such as Home's Continue card. Any other value is refused."
+          },
+          {
+            "name": "width",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 999999999
+            },
+            "description": "The width in screen pixels the image will cover. Anything but a positive whole number is refused."
           }
         ],
         "responses": {
           "200": {
-            "description": "The snapshot."
+            "description": "The snapshot: the PNG, or with a shape or a width named, a kept size.",
+            "headers": {
+              "ETag": {
+                "description": "The entity tag of these bytes.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "description": "private, no-cache",
+                "schema": {
+                  "type": "string",
+                  "const": "private, no-cache"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "The picture this reader is served is unchanged: its entity tag matches If-None-Match."
+          },
+          "400": {
+            "description": "A theme, shape or width the read does not take (invalid_request)."
           },
           "401": {
             "description": "Error with a machine-readable code and human message.",

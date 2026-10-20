@@ -4,6 +4,7 @@ import { AuthError } from "@/lib/auth/errors";
 import { ApiError, EvaluationCancelled } from "@/lib/api/errors";
 import { BROWSER_EXIT_BOUND_MS, puppeteerDriver, type RenderBrowser, type RenderDriver } from "./render-driver";
 import type { ExportImageDefinition } from "./image-definition";
+import type { PictureRenderRequest } from "./picture-encode";
 
 /**
  * One drive of the headless browser, from a held image slot to the
@@ -106,6 +107,8 @@ export interface RenderImageResult {
   abandoned: string[];
   /** The render page's declaration of what it consumed, when it made one. */
   consumed?: string;
+  /** A map picture's kept sizes, in the order and formats asked. */
+  encoded?: Uint8Array[];
 }
 
 /**
@@ -168,6 +171,8 @@ export interface RenderDrive {
   /** Transport-only caller credential; never delivered to page JavaScript. */
   credential: string;
   definition: ExportImageDefinition;
+  /** A map picture's frame and kept sizes; absent for an export. */
+  picture?: PictureRenderRequest;
   deadline: number;
   /** The bound on any one request the page makes. */
   requestBoundMs: number;
@@ -300,6 +305,7 @@ export async function driveRender(drive: RenderDrive): Promise<RenderImageResult
         width: drive.definition.size.width,
         height: drive.definition.size.height,
         definition: drive.definition,
+        ...(drive.picture ? { picture: drive.picture } : {}),
         deadline,
         requestBoundMs,
       },
@@ -317,7 +323,12 @@ export async function driveRender(drive: RenderDrive): Promise<RenderImageResult
       // browser diagnostics ride along.
       throw new ApiError("render_failed", outcome.failed, 502);
     }
-    return { png: outcome.png, abandoned: outcome.abandoned ?? [], ...(outcome.consumed ? { consumed: outcome.consumed } : {}) };
+    return {
+      png: outcome.png,
+      abandoned: outcome.abandoned ?? [],
+      ...(outcome.consumed ? { consumed: outcome.consumed } : {}),
+      ...(outcome.encoded ? { encoded: outcome.encoded } : {}),
+    };
   } catch (error) {
     if (error instanceof AuthError || error instanceof ApiError || error instanceof EvaluationCancelled) {
       throw error;

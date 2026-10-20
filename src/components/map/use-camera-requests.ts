@@ -3,6 +3,7 @@
 import { useEffect, type RefObject } from "react";
 import type * as maplibregl from "maplibre-gl";
 import type { Bounds } from "@/lib/geo-bounds";
+import { FIT_MAX_ZOOM, FIT_PADDING } from "@/lib/fit-camera";
 
 /**
  * The canvas's camera requests, out of MapCanvas per the decomposition
@@ -37,9 +38,9 @@ export function useCameraRequests({
     if (fitBounds && mapRef.current) {
       mapRef.current.fitBounds(fitBounds, {
         padding: timelineOpenRef.current
-          ? { top: 64, left: 64, right: 64, bottom: 150 }
-          : 64,
-        maxZoom: 15,
+          ? { top: FIT_PADDING, left: FIT_PADDING, right: FIT_PADDING, bottom: 150 }
+          : FIT_PADDING,
+        maxZoom: FIT_MAX_ZOOM,
         // Fit frames the data without flattening the camera: maplibre
         // resets bearing and pitch to 0 unless told otherwise.
         duration: 900,

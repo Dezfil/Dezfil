@@ -23,7 +23,7 @@ import { manifestText, planRun } from "../../scripts/docs-pictures-manifest.mjs"
 import { BAND_CHOICE_KEY, DEFAULT_LOOK, MEMBER_STATES, SCENES, SQL_STORAGE_KEYS, STATES, STATE_SEEDING } from "../../scripts/docs-pictures-scenes.mjs";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: as above.
-import { ASSISTANT_MAP, BIG_CITIES, FIRST_MAP, MEMBER_MAPS, freePort, makeScratch, runWorkflow, seedAssistantMap, seedFirstMap, seedMember, seedWorkflow, startServer, writeCatalogue } from "../../scripts/docs-pictures-instance.mjs";
+import { ASSISTANT_MAP, BIG_CITIES, FIRST_MAP, MEMBER_MAPS, freePort, makeScratch, runWorkflow, seedAssistantMap, seedFirstMap, seedMember, seedUseMaps, seedUseShare, seedWorkflow, startServer, writeCatalogue } from "../../scripts/docs-pictures-instance.mjs";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: as above.
 import { ASSISTANT_MESSAGES, PROPOSED_QUERY, SCRIPTED_KEY, assistantEnvironment, replyEvents, scriptedReply, startScriptedModel } from "../../scripts/docs-pictures-assistant.mjs";
@@ -173,6 +173,20 @@ describe("the scene list", () => {
     for (const scene of firstMap) {
       expect(scene.pages).toContain("docs/start/first-map.md");
       expect(scene.map).toBe(true);
+    }
+  });
+
+  it("takes the Use Dezfil scenes on data and maps, then those on sharing, last, so what they change as they open reaches no other page's picture", () => {
+    expect(STATES.slice(-2)).toEqual(["use-maps", "use-share"]);
+    expect(STATE_SEEDING["use-maps"]).toBe(seedUseMaps);
+    expect(STATE_SEEDING["use-share"]).toBe(seedUseShare);
+    for (const state of ["use-maps", "use-share"]) {
+      const taken = scenes.filter((s) => s.state === state);
+      expect(taken.length).toBeGreaterThan(0);
+      for (const scene of taken) {
+        expect(scene.file.startsWith("use/")).toBe(true);
+        for (const page of scene.pages) expect(page.startsWith("docs/use/")).toBe(true);
+      }
     }
   });
 

@@ -7,7 +7,7 @@ import { mapEvaluation } from "@/lib/query/context";
 import { collectInputs, inputsKey, type ArtifactInputs } from "@/lib/query/evaluation-inputs";
 import { namedSql } from "@/lib/query/named-sql";
 import { inputsAreCurrent } from "./inputs";
-import { getPictureState } from "./state";
+import { getPictureState, moveDigestFormula } from "./state";
 import { pictureTarget } from "./publication";
 /** Scheduling dependencies only. Publication evidence comes exclusively from
  * evaluations and archives actually consumed by the render attempt. */
@@ -23,7 +23,9 @@ export async function pictureBindings(scope: AccountScope, mapId: string) {
     });
     if (pictureTarget(scope, mapId).digest !== before.digest) continue;
     const sketchIds = inputs.datasets.filter(input => (metadataDb().prepare("SELECT source FROM data_tables WHERE id = ?").get(input.id) as { source: string } | undefined)?.source === "sketch").map(input => input.id);
-    return { target: pictureTarget(scope, mapId, sketchIds), inputs, resolved };
+    const target = pictureTarget(scope, mapId, sketchIds);
+    moveDigestFormula(mapId, target);
+    return { target, inputs, resolved };
   }
   throw new Error("The map changed while resolving picture inputs.");
 }
@@ -45,13 +47,15 @@ export function bindingsChanged(mapId: string, inputs: ArtifactInputs, resolved 
   return !!previous && (inputsKey(previous.inputs) !== inputsKey(inputs) || previous.resolved !== resolved);
 }
 /** Reuse a successful binding only while its drawing and artifacts agree.
- * Catalogue reads need a fresh namespace; unresolved reads must try again. */
+ * Catalogue reads need a fresh namespace; unresolved reads must try again.
+ * Every request is computed through here or `pictureBindings`, so a row on
+ * the digest's first formula is moved before anything compares it. */
 export async function schedulingBindings(scope: AccountScope, mapId: string) {
-  const stored = storedBindings(mapId), state = getPictureState(mapId);
-  if (stored?.resolved && !stored.inputs.catalogue && state && inputsAreCurrent(stored.inputs) && inputsReached(stored.inputs, reachableDatasetIds(scope))) {
+  const stored = storedBindings(mapId);
+  if (stored?.resolved && !stored.inputs.catalogue && getPictureState(mapId) && inputsAreCurrent(stored.inputs) && inputsReached(stored.inputs, reachableDatasetIds(scope))) {
     const sketchIds = stored.inputs.datasets.filter(input => (metadataDb().prepare("SELECT source FROM data_tables WHERE id = ?").get(input.id) as { source: string } | undefined)?.source === "sketch").map(input => input.id);
     const target = pictureTarget(scope, mapId, sketchIds);
-    if (target.digest === state.digest) return { target, ...stored };
+    if (target.digest === moveDigestFormula(mapId, target)?.digest) return { target, ...stored };
   }
   return pictureBindings(scope, mapId);
 }

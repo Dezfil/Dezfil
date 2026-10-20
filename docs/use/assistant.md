@@ -154,6 +154,7 @@ With **Settings** › **Appearance** › **Side menu** set to **Always open**, t
 
 ## Next steps
 
+- Build the map by hand: [Build a map](build-a-map.md).
 - Write and keep queries: [Query with SQL](sql.md).
 - Chain tools into steps that run again: [Workflows](workflows.md).
 - Use your own AI agent with Dezfil: [Connect an AI agent](../api/mcp.md).

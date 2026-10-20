@@ -133,5 +133,6 @@ Your SQL draft and query history stay in each browser too, as [Query with SQL](s
 
 ## Next steps
 
+- Build on what you see: [Build a map](build-a-map.md).
 - Query your datasets and other people's: [Query with SQL](sql.md).
 - Read and change the same preferences from a script with `GET /api/settings` and `PATCH /api/settings`: the [operation reference](https://dezfil.io/docs/api/reference/system/#get-api-settings).

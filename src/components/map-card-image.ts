@@ -1,3 +1,4 @@
+import type { PictureShape } from "@/lib/pictures/shapes";
 import type { Theme } from "./theme";
 
 /**
@@ -8,12 +9,15 @@ import type { Theme } from "./theme";
  * listing's picture version, which changes exactly when a new picture
  * lands, never with the map's edits: a replaced picture is always a new
  * address, so no cached older image can stand in for it, and an edit that
- * changes no picture asks for nothing new.
+ * changes no picture asks for nothing new. With a size, the address names
+ * one of the sizes kept of that picture: its shape and its width.
  */
 export function mapCardImageAddress(
   mapId: string,
   version: string,
   theme: Theme,
+  size?: { shape: PictureShape; width: number },
 ): string {
-  return `/api/maps/${mapId}/thumbnail?v=${encodeURIComponent(version)}&theme=${theme}`;
+  const kept = size ? `&shape=${size.shape}&width=${size.width}` : "";
+  return `/api/maps/${mapId}/thumbnail?v=${encodeURIComponent(version)}&theme=${theme}${kept}`;
 }

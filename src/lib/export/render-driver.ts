@@ -10,6 +10,7 @@ import { admitRenderRequest } from "./render-guard";
 import { RenderRequestLedger } from "./render-stall";
 import { settleRenderTiles } from "./render-settle";
 import { resolveMapScale, type ExportImageDefinition } from "./image-definition";
+import { encodePictureSizes, type PictureRenderRequest } from "./picture-encode";
 
 /** The minimal driver surface the renderer needs — injectable so the
  * queue, budget and lifecycle rules are unit-testable without a browser. */
@@ -56,6 +57,8 @@ export interface RenderBrowser {
      * from the call's own budget; the export road's documented bound
      * when the call set none. */
     requestBoundMs: number;
+    /** A map picture's frame and kept sizes; absent for an export. */
+    picture?: PictureRenderRequest;
   }): Promise<
     | {
         png: Uint8Array;
@@ -66,6 +69,8 @@ export interface RenderBrowser {
          * ready: the state the image is attributed to, read from the
          * renderer's own inputs, never a later read. */
         consumed?: string;
+        /** A picture's kept sizes, in the order and formats asked. */
+        encoded?: Uint8Array[];
       }
     | { failed: string }
   >;
@@ -171,7 +176,7 @@ export async function puppeteerDriver(): Promise<RenderDriver> {
         start.end();
       }
       const refused: string[] = [];
-      const render: RenderBrowser["render"] = async ({ url, width, height, definition, deadline, requestBoundMs, credential }) => {
+      const render: RenderBrowser["render"] = async ({ url, width, height, definition, deadline, requestBoundMs, credential, picture }) => {
         const page = await browser.newPage();
         // The egress gate: every page request is admitted against the
         // app origin + private-range denial. A refusal is recorded
@@ -263,12 +268,13 @@ export async function puppeteerDriver(): Promise<RenderDriver> {
           height: Math.ceil(cssH),
           deviceScaleFactor: scale,
         });
-        // Request-scoped definition delivery — never the URL.
-        await page.evaluateOnNewDocument((def: unknown) => {
-          (
-            window as { __DEZFIL_EXPORT_DEFINITION__?: unknown }
-          ).__DEZFIL_EXPORT_DEFINITION__ = def;
-        }, definition as unknown);
+        // Request-scoped definition delivery — never the URL. A map
+        // picture's frame rides beside it, never inside the definition.
+        await page.evaluateOnNewDocument((def: unknown, frame: unknown) => {
+          const host = window as { __DEZFIL_EXPORT_DEFINITION__?: unknown; __DEZFIL_PICTURE_FRAME__?: unknown };
+          host.__DEZFIL_EXPORT_DEFINITION__ = def;
+          if (frame !== null) host.__DEZFIL_PICTURE_FRAME__ = frame;
+        }, definition as unknown, (picture?.frame ?? null) as unknown);
         const remaining = () => Math.max(deadline - Date.now(), 1);
         await page.goto(url, {
           waitUntil: "domcontentloaded",
@@ -351,7 +357,10 @@ export async function puppeteerDriver(): Promise<RenderDriver> {
               .querySelector("[data-export-root]")
               ?.getAttribute("data-export-state") ?? undefined,
         );
-        return { png, abandoned, ...(consumed ? { consumed } : {}) };
+        // A map picture's kept sizes, made by this browser before it
+        // closes, inside the render's own slot and budget.
+        const encoded = picture ? await encodePictureSizes(page, png, picture) : undefined;
+        return { png, abandoned, ...(consumed ? { consumed } : {}), ...(encoded ? { encoded } : {}) };
       };
       return {
         async render(input) {

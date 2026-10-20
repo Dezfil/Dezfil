@@ -24,6 +24,27 @@ describe("boundsOf", () => {
     ]);
   });
 
+  it("bounds the members of a geometry collection, nested ones too", () => {
+    const collection = {
+      type: "Feature",
+      geometry: {
+        type: "GeometryCollection",
+        geometries: [
+          { type: "Point", coordinates: [10, 80] },
+          { type: "GeometryCollection", geometries: [{ type: "LineString", coordinates: [[12, 81], [14, 79]] }] },
+        ],
+      },
+    };
+    expect(boundsOf([fc([collection])])).toEqual([
+      [10, 79],
+      [14, 81],
+    ]);
+    expect(boundsOf([fc([collection, point(-5, 40)])])).toEqual([
+      [-5, 40],
+      [14, 81],
+    ]);
+  });
+
   it("descends into nested polygon coordinates", () => {
     expect(
       boundsOf([
