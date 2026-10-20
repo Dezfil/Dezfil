@@ -155,6 +155,12 @@ Work on Dezfil's code.
   - read when: you plan to contribute a change and want to know what is expected of it; you write a change with an AI coding agent; you want to know what a reviewer looks for before a pull request merges; you say in a pull request what you tested and what you did not; a pull request check says a commit is not signed off or its message carries an internal reference
   - audience: developer, agent
 
+- [Write a docs page](contribute/write-docs.md)
+  - path: `docs/contribute/write-docs.md`
+  - summary: Write or rewrite a page under docs/ that people and agents can act on, and pass every check of npm run lint:docs.
+  - read when: you write a new page under docs/ or rewrite one; npm run lint:docs fails on a page you changed; you add a code block, a tab set, a notice or a picture to a page; you take a page off the list of pages not yet rewritten; you change a writing rule or the check that holds it
+  - audience: developer, agent
+
 ## About
 
 Licence, credits, changes and policies.
