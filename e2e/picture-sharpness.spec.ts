@@ -164,8 +164,10 @@ async function boxes(page: Page, index: number) {
   });
 }
 
-/** Everything one picture on screen must hold. */
-async function judge(page: Page, picture: Seen, where: string) {
+/** Everything one picture on screen must hold. `capture` converts a box
+ * on the page into the units the screenshot clip is read in, where those
+ * are not the page's own (see the browser zoom). */
+async function judge(page: Page, picture: Seen, where: string, capture = 1) {
   const dpr = await page.evaluate(() => devicePixelRatio);
   const { box, visible } = await boxes(page, picture.index);
   const shape: PictureShape = shapeForBox(box);
@@ -178,7 +180,8 @@ async function judge(page: Page, picture: Seen, where: string) {
   expect(Math.max(...offered), `${label}: a size offered for ${Math.ceil(covers)} screen pixels`).toBeGreaterThanOrEqual(Math.min(widest, Math.floor(covers)));
   const taken = await fileWidth(page, picture.currentSrc);
   if (Number.isInteger(dpr)) expect(taken, `${label}: the file taken`).toBeGreaterThanOrEqual(Math.min(widest, Math.floor(covers) - 1));
-  const shot = await pixels(await page.screenshot({ clip: visible }));
+  const shot = await pixels(await page.screenshot({ clip: { x: visible.x * capture, y: visible.y * capture, width: visible.width * capture, height: visible.height * capture } }));
+  expect(Math.abs(shot.width - visible.width * dpr), `${label}: the capture holds the picture at its screen pixels`).toBeLessThan(2);
   const rise = eastEdgeRise(shot);
   if (rise !== null) expect(rise, `${label}: the edge's rise in screen pixels`).toBeLessThanOrEqual(2);
   if (picture.host === "continue" && visible.width / visible.height >= PICTURE_SHAPES.card.frame.width / PICTURE_SHAPES.card.frame.height) {
@@ -255,7 +258,10 @@ test("after a resize and a browser zoom, Home's pictures follow their boxes", as
   await cdp.send("Emulation.setDeviceMetricsOverride", { width: 1360, height: 720, deviceScaleFactor: 2.5, mobile: false });
   await expect.poll(() => page.evaluate(() => devicePixelRatio)).toBe(2.5);
   await page.waitForTimeout(500);
-  for (const picture of await seen(page)) await judge(page, picture, "Home zoomed to 125 percent");
+  // Playwright does not know of this zoom: its capture still reads a clip
+  // at the context's two screen pixels per point, while the page now draws
+  // at two and a half. A clip given in those units holds the picture.
+  for (const picture of await seen(page)) await judge(page, picture, "Home zoomed to 125 percent", 2.5 / 2);
   await context.close();
 });
 
