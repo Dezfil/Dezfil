@@ -73,7 +73,7 @@ The list shows the layers in drawing order: the top card draws over the ones bel
 | Hide or show a layer | Click its eye, **Hide layer** or **Show layer**. A hidden layer also leaves the legend. |
 | Zoom to a layer | Click **Zoom to layer**, the target beside the eye. **Fit to data**, in the map's controls, shows every visible layer. |
 | Change the order | Drag the card by its grip. With the keyboard, focus the grip, press Space, move with the arrow keys and press Space again. |
-| Rename a layer | Double-click its name, type the new one and press Enter. |
+| Rename a layer | Double-click its name, replace the old name with the new one and press Enter. |
 | Change its query | **More actions** › **Edit source**. Edit the SQL and click **Update layer**. |
 | Copy a layer | **More actions** › **Duplicate** › **Create a copy**. |
 | Download its data | **More actions** › **Export data** › **GeoParquet**, **GeoJSON** or **CSV**. |
