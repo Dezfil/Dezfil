@@ -83,12 +83,12 @@ If an AI coding agent writes the change, start it on [AGENTS.md](../../AGENTS.md
 
 ```sh title="Terminal"
 npm run lint
-npm run typecheck
+NODE_OPTIONS=--max-old-space-size=4096 npm run typecheck
 DEZFIL_DATA_DIR="$(mktemp -d)" npm test
 ```
 
 - `npm run lint` runs ESLint over the repository.
-- `npm run typecheck` checks the types with the TypeScript compiler and emits no JavaScript.
+- `npm run typecheck` checks the types with the TypeScript compiler and emits no JavaScript. `NODE_OPTIONS` gives it 4 GB of heap, as the pipeline does.
 - `npm test` runs the unit and integration suite. `DEZFIL_DATA_DIR` gives it an empty scratch folder, so the suite never touches your real data. Its tile tests need `tippecanoe` on your `PATH`: [Development setup](development-setup.md#add-the-programs-the-container-brings) says how to install it.
 
 You should see each command finish without an error.
@@ -166,8 +166,6 @@ The `image` job then builds the container from `main`.
 **The `commits` job says a message "carries a planning document number", "a tracking row identifier" or "a path this repository does not carry".** Reword that commit with `git rebase -i main`, writing what the change does instead of the reference, then force-push.
 
 **`npm run lint:citations` says a file "cites" something.** A tracked file points at a document this repository does not carry. Write the reason in its place, not the reference.
-
-**`npm run typecheck` stops with "JavaScript heap out of memory".** Node's default heap is too small for this repository. Run `NODE_OPTIONS=--max-old-space-size=4096 npm run typecheck`, as the pipeline does.
 
 **`npm test` fails with "Authenticated fixtures require a scratch DEZFIL_DATA_DIR" or "DEZFIL_DATA_DIR must name a scratch directory".** The suite needs a scratch folder. Set `DEZFIL_DATA_DIR` as in [step 3](#3-run-the-checks).
 
