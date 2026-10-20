@@ -337,11 +337,18 @@ test("a reader who lost reach, and another account on the same browser, are refu
     expect((await owner.api.delete(`/api/projects/${dataProject}/people/${viewer.sqlName}`)).status()).toBe(200);
     expect(await viewing.page.evaluate(async url => (await fetch(url)).status, viewing.url)).toBe(404);
     await viewing.page.close();
-    // Another account signed in on the same browser: refused too.
+    // Another account signed in on the same browser: refused too. The app
+    // cancels its own pages' requests once the account changes, so the
+    // question is asked from a page of the same browser that runs none of
+    // its scripts: the answer is the instance's.
     const owning = await held(owner, "/maps");
+    const probe = await owner.context.newPage();
+    await probe.goto("/api/health");
+    const ask = () => probe.evaluate(async url => (await fetch(url)).status, owning.url);
+    expect(await ask(), "the owner is served from that page").toBe(200);
     expect((await owner.api.post("/api/auth/sign-out")).ok()).toBe(true);
     expect((await owner.api.post("/api/auth/sign-in", { data: { email: stranger.email, password: PASSWORD } })).status()).toBe(200);
-    expect(await owning.page.evaluate(async url => (await fetch(url)).status, owning.url)).toBe(404);
+    expect(await ask(), "the next account is refused it").toBe(404);
   } finally {
     await closeAll([owner, viewer, stranger]);
     await admin.close();
