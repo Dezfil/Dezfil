@@ -121,7 +121,7 @@ Dezfil imports a PostGIS table as a snapshot: a copy you can refresh later. It o
 ![The PostGIS source in Add data before any connection is saved: the Connect a PostGIS database form with the Paste a connection URL box, the fields Connection name, Host, Port, Database, Username and Password, Require SSL for this connection, and Test & save connection](../images/use/import-data-postgis.webp)
 
 1. In **Add data**, click **PostGIS**. Without a saved connection, you should see **Connect a PostGIS database**.
-2. Fill in **Connection name**. Then fill in **Host**, **Port**, **Database**, **Username** and **Password**, or paste a `postgres://` address into **Paste a connection URL** to fill them.
+2. Fill in **Connection name**. Then fill in **Host**, **Port**, **Database**, **Username** and **Password**, or paste a `postgres://` address into **Paste a connection URL** to fill them. Clear **Require SSL for this connection** only for a database that offers no SSL.
 3. Click **Test & save connection**. You should see **Connected** with the PostgreSQL and PostGIS versions, then the database's tables.
 4. Click a table. You should see a **Preview** of up to 5 rows from the database.
 5. Click **Import**. You should see **Imported as** with the dataset's name, and **Open table** and **Import another**.
