@@ -159,7 +159,7 @@ If the check answers `unready`, or nothing at all, the logs say why: run `docker
 2. Fill in **Name**, **Email** and **Password**. The password needs at least 8 characters, and very common passwords are refused.
 3. Click **Create account**. You should see **Home**, signed in as the admin.
 
-To add people, open **Users** in the side menu and click **Invite**.
+To add people, open **Users** in the side menu and click **Invite**. See [Users](../self-host/users.md).
 
 ## Everyday commands
 

@@ -983,8 +983,8 @@ release the reader or restore space, then use Finish deleting.
 
 Finishing deletion rewrites the whole metadata store and pauses all responses.
 Allow free working space on both the data volume and SQLite's temporary filesystem;
-the [host guide](../self-host/what-leaves-the-instance.md#leaving-and-deleting-accounts) gives measured pauses
-and space requirements. A failed compaction remains unfinished and safe to retry.
+[Users](../self-host/users.md#deactivate-or-delete-an-account) gives the pause and the
+space it needs. A failed compaction remains unfinished and safe to retry.
 Completion also waits for prepared files to settle or expire and cleanup to finish.
 Recorded dataset inputs identify foreign card images, tiles and private prepared
 copies for erasure; existing unattributed card images owned by others remain. Deleting

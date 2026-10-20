@@ -300,8 +300,8 @@ with Finish deleting. Completed ids return `not_found`. `list_users` includes
 a separate `deletions` array for unfinished work, including after profile erasure.
 
 Finishing deletion rewrites the metadata store and pauses all responses. The
-[host guide](../self-host/what-leaves-the-instance.md#leaving-and-deleting-accounts) gives measured pauses
-and the required data-volume and temporary-filesystem space; a failed compaction
+[Users](../self-host/users.md#deactivate-or-delete-an-account) page gives the pause and the space it
+needs; a failed compaction
 remains unfinished and safe to retry. Completion waits for prepared-copy settlement
 or expiry and cleanup. Recorded dataset inputs identify affected foreign derivatives;
 existing unattributed card images owned by others remain. Deleting a workflow removes

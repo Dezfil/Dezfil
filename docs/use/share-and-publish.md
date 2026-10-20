@@ -49,7 +49,7 @@ You should see the person under **People with access**, and a line such as **Add
 
 The project appears on their **Projects** page, and its card shows your first name and their role.
 
-You can add only people with an active account on your Dezfil. An admin invites people on the **Users** page.
+You can add only people with an active account on your Dezfil. An admin invites people on the **Users** page. See [Users](../self-host/users.md).
 
 ## What Viewers and Editors can do
 
@@ -186,5 +186,6 @@ The zip holds the maps and workflows as JSON, without published links. Its datas
 ## Next steps
 
 - Build the map you want to share: [Build a map](build-a-map.md).
+- Add accounts for the people you share with: [Users](../self-host/users.md).
 - Publish from a script or an AI agent: [How the API works](../api/http-api.md) and [Connect an AI agent](../api/mcp.md).
 - Every setting behind publishing and image export: [Configuration](../self-host/configuration.md).

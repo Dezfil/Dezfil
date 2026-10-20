@@ -36,11 +36,14 @@ it("distinguishes deployment settings from persisted preferences and the model c
 
 it("gives operators complete restoration and credential recovery instructions", () => {
   const guide = read("docs/self-host/what-leaves-the-instance.md"), backup = read("docs/self-host/backup-and-restore.md"), api = read("docs/api/http-api.md");
-  for (const term of ["seven days", "Viewer", "Editor", "Unknown", "initiator", "plaintext", "backed-up validity", "fifteen minutes", "five seconds", "hostile setup"]) expect(guide.replace(/\s+/g, " ")).toContain(term);
+  const users = read("docs/self-host/users.md");
+  for (const term of ["seven days", "Viewer", "Editor", "Unknown", "initiator", "plaintext", "backed-up validity"]) expect(guide.replace(/\s+/g, " ")).toContain(term);
   // The backup and the restore commands have one home; the admin recovery
-  // commands sit with the recovery they start; a script's chained revision
-  // example is on How the API works.
+  // commands sit with the recovery they start, on Users, with the link's
+  // lifetime, the wait on a busy store and what a takeover leaves; a
+  // script's chained revision example is on How the API works.
   for (const term of ["\n## Back up\n", "\n## Restore\n", "cp -a /data/. /backup/", "&& echo Restored"]) expect(backup).toContain(term);
-  for (const term of ["\n## Recovering an admin account\n", "npm run admin:recover --", "docker exec -it", "docker run --rm -it", "--data-dir", "--origin", "--email"]) expect(guide).toContain(term);
+  for (const term of ["\n## Recover the admin account\n", "npm run admin:recover --", "docker exec -it", "docker run --rm -it", "--data-dir", "--origin", "--email"]) expect(users).toContain(term);
+  for (const term of ["within 15 minutes", "stayed busy for five seconds", "took over the instance"]) expect(users.replace(/\s+/g, " ")).toContain(term);
   for (const term of ["X-Edit-Revision", "current.editRevision"]) expect(api).toContain(term);
 });

@@ -233,4 +233,5 @@ nginx holds the answer back until its buffers fill. Add `proxy_buffering off;`, 
 
 - [Docker Compose](docker-compose.md): a Compose file for a lasting instance.
 - [Configuration](configuration.md): set other variables, and see the values in effect.
+- [Users](users.md): invite people once the instance answers at your domain.
 - [What leaves the instance](what-leaves-the-instance.md): every outside request your instance can make.

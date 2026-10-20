@@ -127,6 +127,12 @@ Install, secure, configure and back up your own instance.
   - read when: a new version of Dezfil is out and you want to run it; you want to know what a new version does to your data when it starts; you want to go back to the version you ran before an upgrade; Dezfil does not start after an upgrade; after an upgrade, Settings cannot read a saved address
   - audience: operator
 
+- [Users](self-host/users.md)
+  - path: `docs/self-host/users.md`
+  - summary: Add people to your instance, make someone an admin, reset a forgotten password, and get back in when no admin can sign in.
+  - read when: you want to give someone an account on your Dezfil; you want to make someone an admin, or take admin access away; someone forgot their password, or their sign-in link stopped working; you want to close an account, or delete it with its work; you lost the admin password and no other admin can sign in
+  - audience: operator
+
 - [Self-hosting](self-host/what-leaves-the-instance.md)
   - path: `docs/self-host/what-leaves-the-instance.md`
   - summary: What to decide before you put data in an instance, what the instance keeps, and what it sends out.

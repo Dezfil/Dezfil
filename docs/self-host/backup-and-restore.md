@@ -211,4 +211,5 @@ If that key is lost, save each address again. Delete each connection in **Connec
 
 - [Upgrade](upgrade.md): back up, then move to a new version.
 - [Docker Compose](docker-compose.md): keep the encryption key in `.env`, outside the data folder.
+- [Users](users.md): recover the admin account when nobody can sign in.
 - [Configuration](configuration.md): `DEZFIL_DATA_DIR`, `DEZFIL_SECRET_KEY` and the other variables.
