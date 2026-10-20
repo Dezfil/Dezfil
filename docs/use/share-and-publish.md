@@ -37,8 +37,6 @@ A map brings the datasets it draws and the workflows that make them; a workflow 
 
 From a card in **Maps**, **Workflows** or **Data**, **Add to a project** files that one item, with what it brings, and can create a project too. A filed map or workflow offers **Move to another project**.
 
-**Export project** downloads what you pick of the project as one zip file: its datasets as GeoParquet, GeoJSON or CSV, and its maps and workflows as JSON, without their published links. The datasets upload to any Dezfil as files; Dezfil has no import for the maps and workflows.
-
 ## Share a project with people
 
 Only the project's owner shares it.
@@ -161,6 +159,15 @@ On the **Maps** page, a card's **Publish map** publishes a draft, and **Copy sha
 The options change only the image, never the map. A new dialog opens at 1920 pixels wide and **4:3**; an admin changes that in **Settings** › **Publishing** › **Image export**.
 
 To download a layer's data rather than a picture, see [Build a map](build-a-map.md#2-arrange-the-layers).
+
+## Export a project
+
+1. On the project's page, click **Export project**. On **Projects**, a card's **Export bundle** button opens the same dialog.
+2. Under **Contents**, tick what to export and click **Next**.
+3. Under **Review**, choose the **Dataset format**: **GeoParquet**, **GeoJSON** or **CSV**.
+4. Click **Download**. You should see your browser save a zip file named after the project.
+
+The zip holds the datasets in that format and the maps and workflows as JSON, without their published links. The datasets upload to any Dezfil as files; Dezfil has no import for the maps and workflows.
 
 ## Troubleshooting
 
