@@ -1866,6 +1866,28 @@
           "line": 23
         }
       ]
+    },
+    {
+      "scope": "product",
+      "name": "code blocks titled in single quotes and without quotes, as the site reads them",
+      "files": {
+        "docs/about/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you check the writing rules\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nRun it.\n\n```sh title='Terminal'\nls\n```\n\n```sh title=Terminal\nls\n```\n"
+      },
+      "problems": []
+    },
+    {
+      "scope": "product",
+      "name": "a code block whose info string opens with an unquoted title",
+      "files": {
+        "docs/about/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you check the writing rules\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nRun it.\n\n```title=Terminal\nls\n```\n"
+      },
+      "problems": [
+        {
+          "file": "docs/about/case.md",
+          "rule": "writing.code-language",
+          "line": 15
+        }
+      ]
     }
   ],
   "order": [

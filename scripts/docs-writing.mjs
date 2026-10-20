@@ -263,18 +263,25 @@ export const FIRST_SCREEN_SECTIONS = ["start", "use", "self-host", "api"];
 
 const UNIT_NAME = { paragraph: "paragraph", item: "list item", notice: "notice" };
 
-/** A code block's title, as the sample pages write it: `title="Terminal"`
- * after the language, in double quotes. */
-const CODE_TITLE = /(?:^|\s)title="([^"]*)"/;
+/** A code block's title as the site reads it after the language: in
+ * double quotes as the sample pages write it (`title="Terminal"`), in
+ * single quotes, or as one unquoted word. */
+const CODE_TITLE = /(?:^|\s)title\s*=\s*(?:"([^"]*)"|'([^']*)'|(?!["'])(\S+))/i;
+
+/** A code block's title, or null when it has none. */
+function codeTitle(node) {
+  const title = CODE_TITLE.exec([node.lang ?? "", node.meta ?? ""].join(" "));
+  const value = title ? (title[1] ?? title[2] ?? title[3]).trim() : "";
+  return value && !(title[3] && ["true", "false"].includes(value)) ? value : null;
+}
 
 /** The problems of a code block: its language and its title. A block
  * whose info string opens with the title holds no language. */
 function codeProblems(node, read) {
   const found = [];
   const lang = node.lang ?? "";
-  if (!lang || lang.startsWith("title=")) found.push({ rule: "writing.code-language", message: "this code block names no language: open it with one, such as ```sh title=\"Terminal\"", line: read.at(node) });
-  const title = CODE_TITLE.exec([lang, node.meta ?? ""].join(" "));
-  if (!title || !title[1].trim()) found.push({ rule: "writing.code-title", message: "this code block has no title: name it after the language, such as ```sh title=\"Terminal\"", line: read.at(node) });
+  if (!lang || /^title\s*=/i.test([lang, node.meta ?? ""].join(" "))) found.push({ rule: "writing.code-language", message: "this code block names no language: open it with one, such as ```sh title=\"Terminal\"", line: read.at(node) });
+  if (!codeTitle(node)) found.push({ rule: "writing.code-title", message: "this code block has no title: name it after the language, such as ```sh title=\"Terminal\"", line: read.at(node) });
   return found;
 }
 
