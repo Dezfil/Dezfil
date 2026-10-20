@@ -122,18 +122,19 @@ describe.skipIf(!base)("server picture road", () => {
     const ground = await pictureBasemap();
     try {
       const map = await api.json<{ id: string }>("POST", "/api/maps", { name: `Incomplete: ${failure}` }); maps.push(map.id);
-      const basemap = (url: string) => ({ customBasemap: { url, name: "Failure fixture", attribution: [{ label: "Fixture" }] } });
+      const basemap = (url: string, force = false) => ({ customBasemap: { url, force, name: "Failure fixture", attribution: [{ label: "Fixture" }] } });
       await api.json("PATCH", `/api/maps/${map.id}`, { viewport: PICTURE_CAMERA, ...basemap(`${ground.origin}/plain.json`) }, map.id);
       for (const layer of pictureMarkSql()) await api.json("POST", `/api/maps/${map.id}/layers`, layer, map.id);
       const ready = await api.picture(map.id);
       const thumbnail = async () => Buffer.from(await (await api.request("GET", `/api/maps/${map.id}/thumbnail?theme=light`)).arrayBuffer());
       const previous = await thumbnail(); assertPictureMarks(previous);
-      expect(ground.traffic().styles).toBeGreaterThan(0); // This loopback host passed egress and painted.
+      assertPicturePatch(previous, 30, 30, PICTURE_GROUND);
+      expect(ground.traffic().styles).toBeGreaterThan(0);
       const closed = failure === "unreachable basemap" ? await closedPictureAddress() : undefined;
       const logPath = process.env.DEZFIL_PICTURE_RENDER_LOG;
       if (!closed) expect(logPath, "Redirect the isolated server stderr and supply DEZFIL_PICTURE_RENDER_LOG").toBeTruthy();
       const logOffset = !closed ? (await readFile(logPath!, "utf8")).length : 0;
-      await api.json("PATCH", `/api/maps/${map.id}`, basemap(closed?.url ?? `${ground.origin}/stall.json`), map.id);
+      await api.json("PATCH", `/api/maps/${map.id}`, basemap(closed?.url ?? `${ground.origin}/stall.json`, !!closed), map.id);
       const failed = await api.picture(map.id, "failed");
       expect(failed.pictureVersion).toBe(ready.pictureVersion);
       expect(await thumbnail()).toEqual(previous);
