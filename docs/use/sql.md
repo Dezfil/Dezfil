@@ -152,6 +152,9 @@ History lives in this browser and keeps your 40 latest different queries. Runnin
 
 A snippet never runs by itself. It replaces the editor only while the editor is empty or holds an unchanged snippet or **Open as SQL** query. Otherwise it lands below your text.
 
+> [!NOTE]
+> `ST_DWithin` and `ST_Buffer` measure in the units of the coordinates: degrees for longitude and latitude, as the comments in the **Within a distance** and **Buffer** snippets say.
+
 | Keys | What they do |
 |---|---|
 | ⌘ + Enter or Ctrl + Enter | Run the query, or only the selected text |
@@ -161,9 +164,6 @@ A snippet never runs by itself. It replaces the editor only while the editor is 
 
 To have a query written for you, click **Assistant** in the header. **Insert into editor** puts its SQL in the editor without running it. See [The assistant](assistant.md).
 
-> [!NOTE]
-> `ST_DWithin` and `ST_Buffer` measure in the units of the coordinates: degrees for longitude and latitude, as the comments in the **Within a distance** and **Buffer** snippets say.
-
 ## Other people's datasets
 
 When someone shares a project with you, its datasets appear in **Sources** under their owner's name and SQL name. In a query you write them as `<sql name>.<dataset>`, such as `ada.roads`. Your own datasets need no prefix.
@@ -172,7 +172,7 @@ When someone shares a project with you, its datasets appear in **Sources** under
 
 ## From a script or an AI agent
 
-Each action in the workspace is an API operation, and an MCP tool for agents:
+Each of these actions is an API operation, and an MCP tool for agents:
 
 | In the workspace | HTTP API | MCP tool |
 |---|---|---|
