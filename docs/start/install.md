@@ -1,58 +1,200 @@
 ---
-title: "Run it"
-summary: "The two ways to run Dezfil, where everything it stores lives, and the first-run setup that creates the admin account."
+title: "Install"
+summary: "Install Dezfil with Docker, Docker Compose or from source, create the admin account, and keep the instance running day to day."
 read_when:
-  - "you run Dezfil for the first time"
-  - "you choose between the container and a development checkout"
-  - "you back up or move an instance's data"
+  - "you want Dezfil running on your computer or a server"
+  - "you choose between Docker, Docker Compose and a development checkout"
+  - "you create the first admin account"
+  - "you stop, start, upgrade, back up or check a running instance"
 audience:
   - user
   - operator
+  - developer
 checked: none
+order: 2
 moved_from:
   - "/docs/start/run-it/"
 ---
 
-For development, with live reload:
+## What you need
 
-```sh
-npm ci
-npm run dev
-```
+- **For Docker or Docker Compose:** Docker and git. Compose also needs the `docker compose` command.
+- **For a development checkout:** Node.js 24 or newer, npm and git.
 
-Open <http://localhost:3000>.
+There is no published image to pull. You clone the repository and build the image from it.
 
-With Docker installed:
+## Install
 
-```sh
+::::tabs
+
+:::tab[Docker]
+
+```sh title="Terminal"
+git clone https://github.com/Dezfil/Dezfil.git
+cd Dezfil
 docker build -t dezfil .
 docker run -d --name dezfil -p 127.0.0.1:3000:3000 -v dezfil-data:/data dezfil
 ```
 
-Open <http://localhost:3000>. The instance reports readiness at
-`/api/health`.
+- `-p 127.0.0.1:3000:3000` serves Dezfil on port 3000 of this machine only. To use another port, change the first `3000`.
+- `-v dezfil-data:/data` keeps everything Dezfil stores in the `dezfil-data` volume. Without it, a new container starts empty.
+- `--name dezfil` is the name the [everyday commands](#everyday-commands) use.
 
-Everything Dezfil stores, including accounts, sessions, token records, tables,
-maps, layers, styles and published links,
-lives in the `/data` volume (`dezfil-data` above). Back up by copying that
-volume with the container stopped; move to a new container by mounting the
-same volume. To move to another machine, stop the container and copy the
-whole directory and preserve any externally supplied `DEZFIL_SECRET_KEY`. Running without
-the volume works, but state then lasts only for that container's lifetime.
+The first build takes a few minutes: it compiles the app and its tile builder. Dezfil should be ready within 30 seconds of `docker run`. Check it:
 
-![The first-run setup card, asking for the name, email and password of the account that becomes the instance's admin](../images/start/setup-card.webp)
+```sh title="Terminal"
+curl http://localhost:3000/api/health
+```
 
-On first run, create the initial admin account. Application pages and APIs
-require a session or an account API token; admins manage accounts in Users,
-and the instance name, the sign-in page, the defaults for new maps, layers and
-screens, the basemaps on offer, the satellite imagery and the saved palettes,
-the limits, the services' addresses and numbers, and the sign-in, token,
-publishing, connection and import rules in Settings.
-Each person picks their own look on the **Appearance** tab of Settings: color,
-contrast, panels (Glass, Liquid or Paper), background, typeface, corners and how
-the side menu opens. The look is kept with the account, so it shows from the
-first paint in every browser that account signs in to; published pages and
-exported images keep Dezfil's default look.
-An instance upgraded from a release without accounts
-also shows setup once. Secure new and upgraded instances until you complete setup,
-and complete it promptly: whoever reaches setup first becomes the admin.
+```json title="Output"
+{"status":"ready"}
+```
+
+Then open <http://localhost:3000>.
+
+:::
+
+:::tab[Docker Compose]
+
+```sh title="Terminal"
+git clone https://github.com/Dezfil/Dezfil.git
+cd Dezfil
+```
+
+Save this file as `compose.yaml` in the `Dezfil` folder:
+
+```yaml title="compose.yaml"
+services:
+  dezfil:
+    build: .
+    image: dezfil
+    container_name: dezfil
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - dezfil-data:/data
+    restart: unless-stopped
+
+volumes:
+  dezfil-data:
+    name: dezfil-data
+```
+
+Build the image and start Dezfil:
+
+```sh title="Terminal"
+docker compose up -d --build
+```
+
+- `build: .` builds the image from the repository and `image: dezfil` names it.
+- `127.0.0.1:3000:3000` serves Dezfil on port 3000 of this machine only. To use another port, change the first `3000`.
+- `dezfil-data:/data` keeps everything Dezfil stores in the `dezfil-data` volume.
+- `restart: unless-stopped` starts Dezfil again after a crash or a Docker restart, unless you stopped it.
+
+Dezfil should be ready within 30 seconds of the container starting. Check it:
+
+```sh title="Terminal"
+curl http://localhost:3000/api/health
+```
+
+```json title="Output"
+{"status":"ready"}
+```
+
+Then open <http://localhost:3000>.
+
+:::
+
+:::tab[From source]
+
+Use this to work on Dezfil's code. It runs a development server that reloads as you edit.
+
+```sh title="Terminal"
+git clone https://github.com/Dezfil/Dezfil.git
+cd Dezfil
+npm ci
+npm run dev
+```
+
+- `npm ci` installs the exact package versions the lockfile pins.
+- `npm run dev` serves Dezfil on port 3000 and keeps your data in `./data`. Set `PORT` for another port, `DEZFIL_DATA_DIR` for another folder.
+- `npm run dev` listens on every network interface. Run `npm run dev -- -H 127.0.0.1` to keep it on this machine.
+
+Check that Dezfil is ready:
+
+```sh title="Terminal"
+curl http://localhost:3000/api/health
+```
+
+```json title="Output"
+{"status":"ready"}
+```
+
+Then open <http://localhost:3000>.
+
+The container brings two programs a checkout lacks:
+
+- `tippecanoe` builds tiles for large layers. Install it on your `PATH`.
+- Chromium draws map pictures on the server: the pictures on map cards, and the images the API and the assistant make. Set `DEZFIL_CHROMIUM_PATH` if it is not at `/usr/bin/chromium`. The builder's own image download works without it.
+
+[Development setup](../contribute/development-setup.md) covers the rest: the checks, the tests and what they need.
+
+:::
+
+::::
+
+## First run
+
+> [!WARNING]
+> The first person to finish setup becomes the admin. Keep the instance private until you have created your account.
+
+![The setup page, titled Create the first account, with Name, Email and Password fields and a Create account button](../images/start/setup-card.webp)
+
+1. Open <http://localhost:3000>. Dezfil shows **Create the first account**.
+2. Fill in **Name**, **Email** and **Password**. The password needs at least 8 characters, and very common passwords are refused.
+3. Click **Create account**. You should see **Home**, signed in as the admin.
+
+To add people, open **Users** in the side menu and click **Invite**.
+
+## Everyday commands
+
+::::tabs
+
+:::tab[Docker]
+
+| Task | Command |
+|---|---|
+| Stop | `docker stop dezfil` |
+| Start | `docker start dezfil` |
+| See the logs | `docker logs -f dezfil` |
+| Check health | `curl http://localhost:3000/api/health` answers `{"status":"ready"}` |
+| Back up | Stop Dezfil, then copy the `dezfil-data` volume with the commands in [Back up and restore](../self-host/backup-and-restore.md#full-backup-and-restore). |
+| Upgrade | Back up. In the `Dezfil` folder, run `git pull` and `docker build -t dezfil .`. Then run `docker stop dezfil`, `docker rm dezfil` and the install's `docker run` command. |
+
+:::
+
+:::tab[Docker Compose]
+
+Run these in the `Dezfil` folder.
+
+| Task | Command |
+|---|---|
+| Stop | `docker compose stop` |
+| Start | `docker compose start` |
+| See the logs | `docker compose logs -f` |
+| Check health | `curl http://localhost:3000/api/health` answers `{"status":"ready"}` |
+| Back up | Stop Dezfil, then copy the `dezfil-data` volume with the commands in [Back up and restore](../self-host/backup-and-restore.md#full-backup-and-restore). |
+| Upgrade | Back up. Run `git pull`, then `docker compose up -d --build`. Compose replaces the container and keeps the volume. |
+
+:::
+
+::::
+
+A new version updates the stored data when it starts. To go back, restore your backup and run the version that made it.
+
+## Next steps
+
+- [Your first map](first-map.md): add data and build a map.
+- [Configuration](../self-host/configuration.md): the settings that change how your instance runs.
+- [Back up and restore](../self-host/backup-and-restore.md#full-backup-and-restore): back up and restore the data volume.
+- [What leaves the instance](../self-host/what-leaves-the-instance.md): what your instance sends out, and what to settle before other people use it.
