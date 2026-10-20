@@ -3,7 +3,7 @@ import { statSync } from "node:fs";
 import path from "node:path";
 
 // Kept in parity with the shipped migrations by a test, without importing the migrating opener.
-export const RECOVERY_SCHEMA_VERSION = 56;
+export const RECOVERY_SCHEMA_VERSION = 57;
 export const RECOVERY_BUSY_TIMEOUT_MS = 5000;
 export const recoveryWaitRemaining = deadline => Math.max(0, Math.floor(deadline - performance.now()));
 

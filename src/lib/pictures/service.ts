@@ -1,12 +1,12 @@
 import { pictureBindings, schedulingBindings, bindingMayUse, rememberBindings, bindingsChanged } from "./bindings";
 import { metadataDb } from "@/lib/metadata/db";
 import { mapOwnerWorkScope } from "@/lib/auth/scope";
-import { publishedPictureInputs, servedThumbnails } from "@/lib/map-thumbnails";
+import { publishedPictureInputs, publishedPictureSized, servedThumbnails } from "@/lib/map-thumbnails";
 import { limits } from "@/lib/limits";
 import { renderMapImage } from "@/lib/export/render-image";
 import { admitResourceWork, inDetachedDeletionWork } from "@/lib/auth/account-deletion-work";
 import { PictureQueue } from "./queue";
-import { getPictureState, requestPicture, type PictureState } from "./state";
+import { getPictureState, requestPicture, requestRemake, type PictureState } from "./state";
 import { initializePicture, adoptPicture } from "./migration";
 import { reconcilePictureFiles } from "./reconcile";
 import { pictureTarget, publishPicture } from "./publication";
@@ -64,6 +64,7 @@ export class PictureService {
         const inputs = await publishedPictureInputs(map.id);
         if (state.state === "current" && inputs && !inputsAreCurrent(inputs)) state = requestPicture(map.id, target.digest, this.now(), true);
         await reconcilePictureFiles(map.id, hasPicture, this.now());
+        await this.remakeUnsized(map.id);
       } catch {
         // Deletion or changed ownership during a file read removes this
         // candidate from the look; the next committed change supplies it.
@@ -74,7 +75,7 @@ export class PictureService {
   async request(mapId: string, force = false): Promise<PictureState> {
     const scope = mapOwnerWorkScope(mapId);
     const { target, inputs, resolved } = await schedulingBindings(scope, mapId);
-    this.rendererReady = !this.rendererFailed && (this.options.available ?? pictureRendererAvailable)();
+    this.checkRenderer();
     const state = requestPicture(mapId, target.digest, this.now(), force || bindingsChanged(mapId, inputs, resolved));
     rememberBindings(mapId, inputs, resolved);
     this.queue.tick();
@@ -87,8 +88,22 @@ export class PictureService {
   async adopt(mapId: string): Promise<void> {
     const scope = mapOwnerWorkScope(mapId);
     const { target, inputs, resolved } = await schedulingBindings(scope, mapId);
-    if ((await servedThumbnails(scope, [mapId])).has(mapId)) { adoptPicture(mapId, target.digest, this.now()); rememberBindings(mapId, inputs, resolved); }
+    if ((await servedThumbnails(scope, [mapId])).has(mapId)) {
+      adoptPicture(mapId, target.digest, this.now()); rememberBindings(mapId, inputs, resolved);
+      // A copy of a set without sizes waits for no look.
+      if (await this.remakeUnsized(mapId)) { this.checkRenderer(); this.queue.tick(); }
+    }
     else await this.request(mapId);
+  }
+  private checkRenderer(): void {
+    this.rendererReady = !this.rendererFailed && (this.options.available ?? pictureRendererAvailable)();
+  }
+  /** A current picture whose published set lists no sizes was made before
+   * pictures kept them (by this server, a template or an older duplicate):
+   * it is made once more, after all other work. */
+  private async remakeUnsized(mapId: string): Promise<boolean> {
+    if (getPictureState(mapId)?.state !== "current" || await publishedPictureSized(mapId)) return false;
+    return requestRemake(mapId, this.now())?.state === "waiting";
   }
   dataChanged(datasetId: string): void {
     const now = this.now();
@@ -123,7 +138,9 @@ export class PictureService {
   private async render(state: PictureState): Promise<void> {
     const scope = mapOwnerWorkScope(state.mapId);
     const { target } = await pictureBindings(scope, state.mapId);
-    if (target.digest !== state.digest) { await this.request(state.mapId); return; }
+    // Read the row again: the bindings may have moved it to the digest's
+    // current formula, which is the same request.
+    if (target.digest !== getPictureState(state.mapId)?.digest) { await this.request(state.mapId); return; }
     const lease = admitResourceWork(scope, [{ table: "maps", id: state.mapId }]);
     // Each render renews the credential at its admission; individual drive
     // budgets start after admission. The service admits only its

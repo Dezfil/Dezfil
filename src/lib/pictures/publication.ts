@@ -10,7 +10,7 @@ import { inputsReached } from "@/lib/artifact-access";
 import { reachableDatasetIds } from "@/lib/auth/reach";
 import { savePictureSet } from "@/lib/map-thumbnails";
 import type { ArtifactInputs } from "@/lib/query/evaluation-inputs";
-import { drawingDigest } from "./digest";
+import { drawingDigest, firstFormulaDigest } from "./digest";
 import { getPictureState, settlePicture } from "./state";
 import { inputsAreCurrent } from "./inputs";
 import type { PictureImages } from "./card";
@@ -32,7 +32,8 @@ export function pictureTarget(scope: AccountScope, mapId: string, sketchIds: rea
       ground.push("unreadable");
     }
   }
-  return { map, ownerId: scope.accountId, sketchIds: [...sketchIds], basemaps: { light, dark }, digest: drawingDigest(map, ground, artifacts) };
+  return { map, ownerId: scope.accountId, sketchIds: [...sketchIds], basemaps: { light, dark }, digest: drawingDigest(map, ground, artifacts),
+    firstFormulaDigest: firstFormulaDigest(map, ground, artifacts) };
 }
 export type PictureTarget = ReturnType<typeof pictureTarget>;
 export function assertPicturePublication(scope: AccountScope, target: PictureTarget, generation: number, inputs: ArtifactInputs): void {

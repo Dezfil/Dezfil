@@ -35,11 +35,12 @@ vi.mock("@/lib/export/render-image", async () => {
 });
 
 import { createMap } from "@/lib/map-service";
-import { closeMetadataDb } from "@/lib/metadata/db";
+import { closeMetadataDb, metadataDb } from "@/lib/metadata/db";
 import { testAccountScope } from "@/lib/test-support/accounts";
 import { publishedPictureSized, readPicture } from "@/lib/map-thumbnails";
 import { PictureService } from "./service";
 import { getPictureState } from "./state";
+import { pictureTarget } from "./publication";
 import { PICTURE_SHAPES } from "./shapes";
 
 isolatePictureData();
@@ -63,4 +64,19 @@ it("renders both shapes of each appearance, framed by their own margins, and pub
   expect(await publishedPictureSized(map.id)).toBe(true);
   expect((await readPicture(scope, map.id, "dark", { shape: "wide", width: 2000 }))?.type).toBe("image/webp");
   expect((await readPicture(scope, map.id, "light"))?.type).toBe("image/png");
+});
+
+it("renders a pending retry still on the digest's first formula at its own generation", async () => {
+  const scope = testAccountScope(), map = createMap(scope, "Retry across the formula");
+  let now = Date.now();
+  const service = new PictureService({ baseUrl: "http://fixture.test", available: () => true, now: () => now });
+  const target = pictureTarget(scope, map.id);
+  // The request marks the renderer ready; the row then stands as the earlier
+  // code left it, so only the attempt's own check can move it.
+  const state = await service.request(map.id);
+  metadataDb().prepare("UPDATE map_pictures SET digest = ?, attempt_count = 1, next_attempt_at = ? WHERE map_id = ?").run(target.firstFormulaDigest, now, map.id);
+  const before = calls.length;
+  now += 1; service.queue.tick(); await service.queue.drain();
+  expect(calls.length).toBe(before + 4);
+  expect(getPictureState(map.id)).toMatchObject({ state: "current", digest: target.digest, requestedGeneration: state.requestedGeneration, publishedGeneration: state.requestedGeneration });
 });

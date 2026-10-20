@@ -10,22 +10,13 @@ import { copyThumbnail, publishedPictureSized, readPicture, readThumbnail, remov
 import { NO_INPUTS } from "@/lib/query/evaluation-inputs";
 import { requestPicture } from "./state";
 import { pictureTarget, publishPicture } from "./publication";
-import { PICTURE_SHAPES } from "./shapes";
+import { sizedPicture as images } from "@/lib/test-support/picture-sizes";
 import type { PictureImages } from "./card";
 
 isolatePictureData();
 const scope = testAccountScope();
 afterAll(closeMetadataDb);
 
-/** A picture whose every file says what it is, so a read names its pick. */
-function images(tag: string): PictureImages {
-  return {
-    png: Buffer.from(`${tag}:png`),
-    sized: (["card", "wide"] as const).flatMap((shape) => PICTURE_SHAPES[shape].widths.map((width) => ({
-      shape, width, height: 1, bytes: Buffer.from(`${tag}:${shape}-${width}`),
-    }))),
-  };
-}
 const files = (mapId: string) => readdirSync(path.join(dataDir(), "thumbnails")).filter((name) => name.startsWith(`${mapId}.`) && !name.endsWith(".json"));
 
 async function publish(mapId: string, light: Uint8Array | PictureImages, dark?: Uint8Array | PictureImages) {

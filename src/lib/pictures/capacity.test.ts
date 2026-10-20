@@ -7,6 +7,7 @@ import { closeMetadataDb, metadataDb } from "@/lib/metadata/db";
 import { NO_INPUTS } from "@/lib/query/evaluation-inputs";
 import { PictureService } from "./service";
 import { pictureTarget, publishPicture } from "./publication";
+import { sizedPicture } from "@/lib/test-support/picture-sizes";
 import { getPictureState } from "./state";
 import { renderLayer } from "@/lib/layer-render";
 import { resetQueryInstance } from "@/lib/duckdb";
@@ -35,7 +36,7 @@ it.each(["missing", "mixed"] as const)("drains the %s capacity fixture, keeps cu
     expect(ids.has(state.mapId)).toBe(true);
     launches.push(state.mapId);
     const target = pictureTarget(scope, state.mapId);
-    await publishPicture(scope, target, state.requestedGeneration, { light: Buffer.from("fixture"), ...(target.basemaps.dark ? { dark: Buffer.from("fixture") } : {}) }, NO_INPUTS);
+    await publishPicture(scope, target, state.requestedGeneration, { light: sizedPicture("fixture"), ...(target.basemaps.dark ? { dark: sizedPicture("fixture") } : {}) }, NO_INPUTS);
   } });
   let service = make(); await service.look(); await service.queue.drain();
   const count = kind === "mixed" ? 200 : 300;

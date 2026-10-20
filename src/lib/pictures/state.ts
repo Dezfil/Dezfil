@@ -1,6 +1,6 @@
 import type { Database } from "better-sqlite3";
 import { metadataDb } from "@/lib/metadata/db";
-import { requestDrawing, type DrawingFreshness } from "./digest";
+import { onCurrentFormula, requestDrawing, type DrawingFreshness } from "./digest";
 export type PictureStatus = "current" | "waiting" | "failed" | "unsupported" | "unavailable";
 export type PictureProducer = "server" | "inherited" | "old";
 export interface PictureState extends DrawingFreshness {
@@ -19,8 +19,10 @@ const columns = `map_id AS mapId, state, digest, published_digest AS publishedDi
 export function getPictureState(mapId: string, db: Database = metadataDb()): PictureState | null {
   return db.prepare(`SELECT ${columns} FROM map_pictures WHERE map_id = ?`).get(mapId) as PictureState | undefined ?? null;
 }
+/** Work in queue order: the most recent drawing change first, and after
+ * all of it the old road's first pictures and the re-makes. */
 export function listPictureStates(db: Database = metadataDb()): PictureState[] {
-  return db.prepare(`SELECT ${columns} FROM map_pictures ORDER BY CASE WHEN producer = 'old' AND requested_generation = 1 THEN 1 ELSE 0 END, drawing_changed_at DESC, map_id`).all() as PictureState[];
+  return db.prepare(`SELECT ${columns} FROM map_pictures ORDER BY CASE WHEN (producer = 'old' AND requested_generation = 1) OR requested_generation = remake_generation THEN 1 ELSE 0 END, drawing_changed_at DESC, map_id`).all() as PictureState[];
 }
 export function requestPicture(mapId: string, digest: string, now: number, force = false, db: Database = metadataDb()): PictureState {
   return db.transaction(() => {
@@ -33,6 +35,34 @@ export function requestPicture(mapId: string, digest: string, now: number, force
       .run(digest, next.requestedGeneration, next.drawingChangedAt, now, now + 5000, mapId);
     return getPictureState(mapId, db)!;
   })();
+}
+/**
+ * A row still on the digest's first formula moves to the current one
+ * without touching its times or attempts: its requested digest when that is
+ * the first formula's digest of the map now, its published digest when that
+ * was the requested one. A row that no longer matches is left as it is, so
+ * the request that follows sees the real change it is.
+ */
+export function moveDigestFormula(mapId: string, target: { digest: string; firstFormulaDigest: string }, db: Database = metadataDb()): PictureState | null {
+  return db.transaction(() => {
+    const row = getPictureState(mapId, db);
+    if (!row || onCurrentFormula(row.digest) || row.digest !== target.firstFormulaDigest) return row;
+    db.prepare("UPDATE map_pictures SET digest = ?, published_digest = CASE WHEN published_digest = digest THEN ? ELSE published_digest END WHERE map_id = ?")
+      .run(target.digest, target.digest, mapId);
+    return getPictureState(mapId, db);
+  })();
+}
+/**
+ * A current picture made before pictures kept their sizes is made once
+ * more, at a new generation remembered as a re-make, keeping its
+ * drawing-change time. Rows waiting, failed or unsupported keep their
+ * attempts and waits; a real change later moves the row into the ordinary
+ * order.
+ */
+export function requestRemake(mapId: string, now: number, db: Database = metadataDb()): PictureState | null {
+  db.prepare(`UPDATE map_pictures SET requested_generation = requested_generation + 1, remake_generation = requested_generation + 1,
+    state = 'waiting', attempt_count = 0, requested_at = ?, next_attempt_at = ? WHERE map_id = ? AND state = 'current'`).run(now, now, mapId);
+  return getPictureState(mapId, db);
 }
 const writable = { state: "state", publishedGeneration: "published_generation", publishedDigest: "published_digest", producer: "producer", attemptCount: "attempt_count", nextAttemptAt: "next_attempt_at" } as const;
 /** Compare-and-set never resurrects deleted work or settles a newer request. */
