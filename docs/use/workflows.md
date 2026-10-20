@@ -176,11 +176,13 @@ To take one node out, click **Remove node** at the foot of its panel. The dialog
 
 **A link is refused with "That would make a loop".** Two nodes cannot read each other, directly or through other nodes. Link the other way round, or read another dataset.
 
-**A node's run buttons are greyed out and say "A run is in flight."** A run is going, perhaps started by someone else. Wait for it, or click **Cancel** at the top right.
+**A node's run buttons are greyed out, and the line under them says "A run is in flight."** A run is going, perhaps started by someone else. Wait for it, or click **Cancel** at the top right.
 
 **A run is refused with "Too many operations are already queued".** The instance is busy. Click **Retry** once other runs finish.
 
 **Nothing on the canvas moves or links, and it says "Canvas locked".** Click **unlock**. A reload also starts the canvas unlocked.
+
+**A change is not kept, and the canvas says "This item has changed. Reload it before trying again."** The page holds an older copy of the workflow: someone else changed it, or you ran a node you had edited. Click **Reload** at the top of the canvas, click **Reload** again to confirm, then make the change again.
 
 **A panel says "You can view this but cannot make this change."** You are a **Viewer** in the workflow's project: ask the project's owner to make you an **Editor**. Everyone sees a workflow this way while its owner's account is deactivated.
 
