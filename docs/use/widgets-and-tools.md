@@ -103,7 +103,7 @@ The new layer opens with its style panel, ready to style as [Build a map](build-
 
 The new dataset is listed under **Data**, and under **Tool outputs** in **Add layer** › **Tables**.
 
-Click **Done** to close the drawer, or **Run another tool** to pick another tool from the full list. Escape, or the × at the top right, closes the drawer without stopping a run.
+Click **Done** to close the drawer, or **Run another tool** to pick another tool from the full list. Escape, or the × at the top right, closes the drawer without stopping a run: the new layer still arrives, without its style panel open.
 
 Before **Run** turns on, Dezfil tries the tool on your data and shows the rows and geometry it would make.
 
