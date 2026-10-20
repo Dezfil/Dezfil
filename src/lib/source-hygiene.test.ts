@@ -100,7 +100,7 @@ describe("internal citation check", () => {
 
   it("passes the public pages that explain how changes are reviewed and tested", () => {
     const { code, output } = run(
-      ["docs/develop/how-this-is-built.md", "docs/develop/checks-and-testing.md"],
+      ["docs/contribute/how-this-is-built.md", "docs/contribute/development-setup.md"],
       citations,
     );
     expect(output).toContain("PASS");

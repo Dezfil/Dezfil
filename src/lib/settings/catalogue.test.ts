@@ -9,7 +9,7 @@ import { DEFAULTS, EDITABLE_NUMBERS } from "../../../test-support/settings-fixtu
 
 describe("settings catalogue", () => {
   it("has one complete definition for each deployment variable and keeps test wiring separate", () => {
-    const page = readFileSync("docs/reference/configuration.md", "utf8");
+    const page = readFileSync("docs/self-host/configuration.md", "utf8");
     const named = (text: string) => [...text.matchAll(/^\| `([A-Z][A-Z0-9_]+)`/gm)].map(match => match[1]);
     // The platform rows are listed by name and are not deployment settings.
     const platform = new Set(named(page.split("## Platform and image plumbing")[1]?.split("\n## ")[0] ?? ""));

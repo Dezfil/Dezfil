@@ -18,7 +18,7 @@ const model = (id: string, name = id, efforts: string[] = []) => ({ id, name, ef
 
 describe("whole catalogue contract", () => {
   it("the runbook example is a valid both-provider instance file and new docs have no em dashes", () => {
-    const section = readFileSync("docs/operate/runbook.md", "utf8").split("## The model catalogue file")[1];
+    const section = readFileSync("docs/self-host/backup-and-restore.md", "utf8").split("## The model catalogue file")[1];
     expect(section).toBeDefined();
     expect(section).not.toContain("\u2014");
     const example = section.match(/```json\n([\s\S]*?)\n```/)?.[1];
@@ -26,10 +26,10 @@ describe("whole catalogue contract", () => {
     const parsed = validateCatalogue(JSON.parse(example!));
     expect(parsed.openai).toHaveLength(2);
     expect(parsed.anthropic).toHaveLength(2);
-    const rows = readFileSync("docs/reference/configuration.md", "utf8").split("\n").filter((line) => /^\| `DEZFIL_(DATA_DIR|AI_MODELS_OPENAI|AI_MODELS_ANTHROPIC)`/.test(line));
+    const rows = readFileSync("docs/self-host/configuration.md", "utf8").split("\n").filter((line) => /^\| `DEZFIL_(DATA_DIR|AI_MODELS_OPENAI|AI_MODELS_ANTHROPIC)`/.test(line));
     expect(rows).toHaveLength(3);
     for (const row of rows) {
-      expect(row).toContain("](../operate/runbook.md#the-model-catalogue-file)");
+      expect(row).toContain("](backup-and-restore.md#the-model-catalogue-file)");
       expect(row).not.toContain("\u2014");
     }
   });

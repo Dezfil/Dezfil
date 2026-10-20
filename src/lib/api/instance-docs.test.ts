@@ -12,8 +12,8 @@ import { limitsSettingRows } from "@/components/settings/limits-table";
  * with no reader-facing word.
  */
 
-const api = readFileSync("docs/reference/http-api.md", "utf8");
-const mcp = readFileSync("docs/reference/mcp.md", "utf8");
+const api = readFileSync("docs/api/http-api.md", "utf8");
+const mcp = readFileSync("docs/api/mcp.md", "utf8");
 
 /** A count from twenty to ninety-nine, in the guides' words. */
 function inWords(count: number): string {

@@ -42,7 +42,7 @@ describe("the documentation gate is listed with the others", () => {
   it("is in the agents' brief, the contributing guide and the runbook's checks section", () => {
     expect(section(read("AGENTS.md"), "Working in this repository")).toContain("`lint:docs`");
     expect(section(read("CONTRIBUTING.md"), "Run the gates")).toMatch(/^npm run lint:docs\b/m);
-    expect(section(read("docs/operate/runbook.md"), "The checks")).toMatch(/^- `npm run lint:docs`/m);
+    expect(section(read("docs/self-host/backup-and-restore.md"), "The checks")).toMatch(/^- `npm run lint:docs`/m);
   });
 });
 
