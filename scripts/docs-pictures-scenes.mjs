@@ -553,6 +553,57 @@ const USE_MAPS_SCENES = [
 ];
 
 // ---------------------------------------------------------------------------
+// Templates, beside the Templates page's two scenes in the scene list: a
+// template opened and its Make a copy dialog, in the seeded state, where
+// the three shipped templates are listed. Neither changes the instance:
+// the template's page is read only and the dialog is never confirmed.
+
+/** The shipped template the scenes open, by its id and its title. */
+const EARTHQUAKES_TEMPLATE = { id: "earthquakes", title: "Forty years of big earthquakes" };
+
+const TEMPLATE_SCENES = [
+  {
+    // The earthquakes template opened: its How it's made panel as it
+    // opens, The question and Data unfolded, the layers read, framed from
+    // its head to the end of the first dataset. The panel alone is framed:
+    // the map beside it draws tens of thousands of overlapping points,
+    // which come out differently on each run.
+    id: "templates-how-its-made",
+    file: "use/templates-how-its-made.webp",
+    pages: ["docs/use/templates.md"],
+    kind: "still",
+    state: "seeded",
+    map: true,
+    crop: { selector: ["[data-template-panel] > header", "[data-template-panel] [data-dataset]"], margin: 0 },
+    async open(page) {
+      await page.goto(`/templates/${EARTHQUAKES_TEMPLATE.id}`);
+      const panel = page.locator("[data-template-panel]");
+      await panel.locator('[data-fold="data"] [data-dataset]').nth(1).waitFor();
+      await panel.locator('[data-fold="layers"] button', { hasText: /\d/ }).waitFor();
+    },
+  },
+  {
+    // The Make a copy dialog for the earthquakes template, opened from its
+    // card's corner on the Templates page, so the cards lie behind it and
+    // not the template's map. The dialog reads the template as it opens.
+    id: "templates-copy",
+    file: "use/templates-copy.webp",
+    pages: ["docs/use/templates.md"],
+    kind: "still",
+    state: "seeded",
+    crop: { selector: "[data-template-copy-dialog]", margin: 24 },
+    async open(page) {
+      await openTemplates(page);
+      await page.locator(`article[data-template="${EARTHQUAKES_TEMPLATE.id}"]`).hover();
+      await page.getByRole("button", { name: `Make a copy of ${EARTHQUAKES_TEMPLATE.title}`, exact: true }).click();
+      const dialog = page.locator("[data-template-copy-dialog]");
+      await dialog.getByText("Comes with").waitFor();
+      await page.mouse.move(0, 0);
+    },
+  },
+];
+
+// ---------------------------------------------------------------------------
 // Use Dezfil on sharing: Share and publish in the use-share state, after
 // the use-maps one, where the first map is published and two more people
 // are on the instance. A scene of the first map sets its layers and widgets
@@ -681,6 +732,7 @@ export const SCENES = [
   ...MAIN_SCREEN_SCENES,
   ...FIRST_MAP_SCENES,
   ...USE_MAPS_SCENES,
+  ...TEMPLATE_SCENES,
   ...USE_SHARING_SCENES,
 ];
 
