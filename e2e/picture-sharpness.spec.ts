@@ -181,7 +181,9 @@ async function judge(page: Page, picture: Seen, where: string, capture = 1) {
   const taken = await fileWidth(page, picture.currentSrc);
   if (Number.isInteger(dpr)) expect(taken, `${label}: the file taken`).toBeGreaterThanOrEqual(Math.min(widest, Math.floor(covers) - 1));
   const shot = await pixels(await page.screenshot({ clip: { x: visible.x * capture, y: visible.y * capture, width: visible.width * capture, height: visible.height * capture } }));
-  expect(Math.abs(shot.width - visible.width * dpr), `${label}: the capture holds the picture at its screen pixels`).toBeLessThan(2);
+  // The clip is rounded to whole pixels, so the capture may differ by up
+  // to one point; a capture read at another density differs by hundreds.
+  expect(Math.abs(shot.width - visible.width * dpr), `${label}: the capture holds the picture at its screen pixels`).toBeLessThanOrEqual(dpr + 1);
   const rise = eastEdgeRise(shot);
   if (rise !== null) expect(rise, `${label}: the edge's rise in screen pixels`).toBeLessThanOrEqual(2);
   if (picture.host === "continue" && visible.width / visible.height >= PICTURE_SHAPES.card.frame.width / PICTURE_SHAPES.card.frame.height) {
