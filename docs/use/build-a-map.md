@@ -208,7 +208,7 @@ To change a shape, click it on the map with **Select a drawn shape**, or while n
 
 **Arc, Line, Icon and Cluster are grayed out on a big layer.** Its card reads **tiled**, so it draws as map tiles. Filter it or bin it first.
 
-**Bands of color cross the whole map with Hex bins or Grid.** A cell on the 180° meridian, in the Pacific, is drawn the long way round the world. Leave the points next to that meridian out of the layer's query with **More actions** › **Edit source**. A margin of 2° holds for a cell size up to 200 km. For a layer of `earthquakes` whose geometry column is `geometry`:
+**Bands of color cross the whole map with Hex bins or Grid.** A cell on the 180° meridian, in the Pacific, is drawn the long way round the world. Leave the points next to that meridian out of the layer's query with **More actions** › **Edit source**. A margin of 2° holds for a cell size up to 100 km. For a layer of `earthquakes` whose geometry column is `geometry`:
 
 ```sql title="SQL query"
 SELECT * FROM earthquakes WHERE ST_X(geometry) BETWEEN -178 AND 178
