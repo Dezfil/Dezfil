@@ -76,6 +76,9 @@ A number Dezfil cannot use still locks the row, and the default applies. The row
 
 Some settings live in one place only. What new maps start with and who may publish are in Settings alone. The data folder, the encryption key and the assistant's key are variables alone.
 
+> [!NOTE]
+> Remove a variable to return to its default. Set but empty, `DEZFIL_DATA_DIR`, `DEZFIL_TIPPECANOE`, `DEZFIL_CHROMIUM_PATH` and `DEZFIL_AI_MODEL` are used as they are, `DEZFIL_AI_PROVIDER` turns the assistant off and `DEZFIL_SESSION_COOKIE` stops the server.
+
 In Settings, choices save as you change them, and a typed number when you press Enter or leave the field. Other typed text waits for **Save**. Work already running keeps the value it started with.
 
 ## See the values in effect
@@ -83,6 +86,8 @@ In Settings, choices save as you change them, and a typed number when you press 
 Open **Settings** > **System**. The **Server settings** card lists every setting a variable can set, with its **Value** and **Source**: **Environment**, **Default**, or where an admin saved it.
 
 API keys show only **Set** or **Not set**, and service addresses only their scheme and host.
+
+The card also lists variables that set no instance setting: the platform's own, such as `PORT`, and one the development setup uses. [Development setup](../contribute/development-setup.md#variables-the-platform-sets) explains them.
 
 Agents read the same values, as an admin, from `GET /api/instance/settings`. They change a setting with `PATCH /api/instance/settings`, under the Settings key its table names. A setting a variable locks answers `409 setting_locked`. [How the API works](../api/http-api.md) covers tokens and requests.
 
