@@ -77,3 +77,19 @@ on macOS; build from source on Linux). Without it everything else works —
 only points layers over the render cap or Bytes drawn per layer report the
 missing tiler. The Docker image
 bakes it in.
+
+## Test and development wiring
+
+The unit tests, the browser specs, the helper scripts and the server's test seams read these variables. None is a setting: never set one on an instance people use.
+
+<!-- test-wiring:start -->
+
+| Variable | Default | What it does |
+|---|---|---|
+| `DEZFIL_TEST_PG_URL` | unset | Disposable PostGIS fixture URL for probes. |
+| `DEZFIL_TEST_PUBLICATION_LOG` | unset | Publication observer output destination. |
+| `DEZFIL_TEST_DERIVATION_LOG` | unset | Password derivation observer output destination. |
+| `DEZFIL_TEST_EXTENSION_REPOSITORY` | unset | Loopback extension repository for the engine's installs under test. |
+| `DEZFIL_OVERTURE_S3_ENDPOINT` | unset, the public bucket | S3-compatible override for the public Overture bucket. |
+
+<!-- test-wiring:end -->

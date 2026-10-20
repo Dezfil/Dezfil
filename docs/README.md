@@ -31,10 +31,22 @@ Do things in the app: data, maps, SQL, workflows and sharing.
 
 Install, secure, configure and back up your own instance.
 
+- [Reverse proxy and HTTPS](self-host/reverse-proxy.md)
+  - path: `docs/self-host/reverse-proxy.md`
+  - summary: Serve Dezfil at your own domain over HTTPS, with a reverse proxy in front of it.
+  - read when: you need to know what to set DEZFIL_TRUSTED_PROXIES to
+  - audience: operator
+
 - [Configuration](self-host/configuration.md)
   - path: `docs/self-host/configuration.md`
   - summary: Every setting an instance reads, with its default, what it does, and whether it changes live in Settings or needs a restart.
   - read when: you set an environment variable for an instance; you want to know a setting's default; you need to know whether a change applies live or after a restart
+  - audience: operator, agent
+
+- [Set up the assistant](self-host/assistant.md)
+  - path: `docs/self-host/assistant.md`
+  - summary: Turn on the in-app assistant with an Anthropic or OpenAI key, and choose the models people may pick.
+  - read when: you want to turn on the assistant for your instance; you want to change which models people can choose
   - audience: operator, agent
 
 - [Runbook](self-host/backup-and-restore.md)
@@ -48,6 +60,44 @@ Install, secure, configure and back up your own instance.
   - summary: What to decide before you put data in an instance, what the instance keeps, and what it sends out.
   - read when: you run an instance for yourself or for others; you put Dezfil behind a reverse proxy; you need to know what leaves the instance
   - audience: operator
+
+### Configuration
+
+- [General](self-host/configuration/general.md)
+  - path: `docs/self-host/configuration/general.md`
+  - summary: Name the instance, write the sign-in page's message and lost-password contact, and choose where people land after they sign in.
+  - read when: you want to give the instance a name or a sign-in message; you want people to land on another page after they sign in
+  - audience: operator, agent
+
+- [Instance defaults](self-host/configuration/defaults.md)
+  - path: `docs/self-host/configuration/defaults.md`
+  - summary: Choose what new maps, new layers, the workflow canvas, the SQL console and a fresh image export start with.
+  - read when: you want new maps to open somewhere else, or on another basemap; you want new layers to start with other colors, opacity or sizes; you want to change what the workflow canvas, the SQL console or the image export card opens with
+  - audience: operator, agent
+
+- [Basemaps and imagery](self-host/configuration/libraries.md)
+  - path: `docs/self-host/configuration/libraries.md`
+  - summary: Choose which basemaps the instance offers, set up satellite imagery, and pin a basemap style of your own.
+  - read when: you want to hide a basemap from the pickers; you want to offer satellite imagery with your own tile address; you want every map to use your own basemap style
+  - audience: operator, agent
+
+- [Data and services](self-host/configuration/services.md)
+  - path: `docs/self-host/configuration/services.md`
+  - summary: Point the instance at an address finder, a travel-time service, an Overpass server or S3 storage, and choose its template catalogue.
+  - read when: you want to turn on place search and geocoding with an address finder; you want travel-time areas, or your own Overpass server for OpenStreetMap; you want the server to reach a host on your private network
+  - audience: operator, agent
+
+- [Security and rules](self-host/configuration/rules.md)
+  - path: `docs/self-host/configuration/rules.md`
+  - summary: Set how long sign-ins and links last, the shortest password, and who may create tokens, publish, embed, add connections and import.
+  - read when: you want people to stay signed in for a shorter or longer time; you want only admins to publish, create tokens, add connections or import from links; you want to limit which sites may embed a published map
+  - audience: operator, agent
+
+- [Storage and programs](self-host/configuration/storage.md)
+  - path: `docs/self-host/configuration/storage.md`
+  - summary: Set the data folder, the key that encrypts saved connection passwords and addresses, and the programs that build tiles and render images.
+  - read when: you want to keep the data in another folder; you want to set the encryption key yourself; the tile builder or the image renderer is somewhere else on the server
+  - audience: operator, agent
 
 ## API and agents
 

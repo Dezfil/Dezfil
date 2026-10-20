@@ -9,6 +9,7 @@ audience:
   - operator
   - agent
 checked: none
+order: 3
 moved_from:
   - "/docs/reference/configuration/"
 ---
