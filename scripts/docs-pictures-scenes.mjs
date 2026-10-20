@@ -11,8 +11,12 @@
 //   the use);
 // - `kind`, a still or a recording;
 // - `state`, the instance state it is taken in: `fresh` before any account
-//   exists, `seeded` after the seeding, signed in as the first account. The
-//   script takes every fresh scene before it seeds;
+//   exists; `seeded` after the seeding (two accounts, a shared project, the
+//   three shipped templates copied and the repository's fixtures uploaded),
+//   signed in as the first account; `first-map` after that and the first
+//   account's own first map, the one "Your first map" builds. The script
+//   takes the states in this order, every scene of one before the next, so
+//   a seeded scene never shows the first map;
 // - `map: true`, when the scene shows a map: its page may reach the built-in
 //   basemap's host, and nothing is taken until every map on the page is at
 //   rest on the built-in basemap, its tiles loaded. Without it, the
@@ -26,6 +30,8 @@
 //   for `hold` frames of the cadence (ten a second), so the recording's
 //   length is the frames held, at most eight seconds.
 
+import { FIRST_MAP } from "./docs-pictures-instance.mjs";
+
 /** Open the Templates page and wait until the catalogue has been read and
  * the three shipped cards are drawn with their pictures. */
 async function openTemplates(page) {
@@ -36,6 +42,101 @@ async function openTemplates(page) {
   await page.locator("article[data-template]").nth(2).waitFor();
   if (await page.locator("[data-catalogue-line]").count()) throw new Error("The Templates page shows a catalogue line: the catalogue folder was not read as listed.");
 }
+
+/** A map or workflow of the first account's, found by its name in a list
+ * the API answers. */
+async function findByName(page, address, name, pick = (body) => body) {
+  const listed = await page.request.get(address);
+  if (!listed.ok()) throw new Error(`${address} answered ${listed.status()}.`);
+  const found = pick(await listed.json()).find((entry) => entry.name === name);
+  if (!found) throw new Error(`There is no ${name} at ${address}: the seeding did not make it.`);
+  return found;
+}
+
+// ---------------------------------------------------------------------------
+// The first map, as "Your first map" builds it, on the built-in basemap.
+
+/** Open the first map in the builder, as the seeding made it, and wait
+ * until its layer card counts the cities and the legend shows the
+ * population classes. */
+async function openFirstMap(page) {
+  const map = await findByName(page, "/api/maps", FIRST_MAP.name);
+  await page.goto(`/maps/${map.id}`);
+  await page.locator("[data-layer-select]", { hasText: `${FIRST_MAP.features} features` }).waitFor();
+  await page.locator("[data-corner] li").nth(1).waitFor();
+}
+
+/** The Fill section of the open layer's style panel: the only section
+ * with a Fill opacity row. */
+const FILL_SECTION = '[data-builder-pane] section:has-text("Fill opacity")';
+
+const FIRST_MAP_SCENES = [
+  {
+    // The finished map, the page's opening picture: the builder in full.
+    id: "first-map-finished",
+    file: "start/first-map-finished.webp",
+    pages: ["docs/start/first-map.md"],
+    kind: "still",
+    state: "first-map",
+    map: true,
+    open: openFirstMap,
+  },
+  {
+    // Add layer as it opens: Files, Upload file and the drop box.
+    id: "first-map-add-layer",
+    file: "start/first-map-add-layer.webp",
+    pages: ["docs/start/first-map.md"],
+    kind: "still",
+    state: "first-map",
+    map: true,
+    crop: { selector: "[role=dialog]", margin: 24 },
+    async open(page) {
+      await openFirstMap(page);
+      await page.getByRole("button", { name: "Add layer", exact: true }).click();
+      await page.getByRole("dialog").getByRole("button", { name: "Upload data files" }).waitFor();
+    },
+  },
+  {
+    // The layer's Fill section, colored by population in five classes.
+    id: "first-map-style",
+    file: "start/first-map-style.webp",
+    pages: ["docs/start/first-map.md"],
+    kind: "still",
+    state: "first-map",
+    map: true,
+    crop: { selector: FILL_SECTION, margin: 12 },
+    async open(page) {
+      await openFirstMap(page);
+      await page.locator("[data-layer-select]", { hasText: FIRST_MAP.layer }).click();
+      const fill = page.locator(FILL_SECTION).first();
+      await fill.waitFor();
+      // The classes are drawn from the saved style at once; Color by lists
+      // the layer's columns only once they are read, and until then it
+      // shows its first choice, Single color.
+      await fill.getByLabel("Fill class 5 color").waitFor();
+      const select = fill.getByLabel("Fill color attribute");
+      await select.locator(`option[value="${FIRST_MAP.colorBy}"]`).waitFor({ state: "attached" });
+      const colorBy = await select.inputValue();
+      if (colorBy !== FIRST_MAP.colorBy) throw new Error(`The cities are colored by ${colorBy}, not ${FIRST_MAP.colorBy}.`);
+      await fill.scrollIntoViewIfNeeded();
+    },
+  },
+  {
+    // The publish panel before the map is published.
+    id: "first-map-publish",
+    file: "start/first-map-publish.webp",
+    pages: ["docs/start/first-map.md"],
+    kind: "still",
+    state: "first-map",
+    map: true,
+    crop: { selector: "#publish-popover", margin: 48 },
+    async open(page) {
+      await openFirstMap(page);
+      await page.getByRole("button", { name: "Publish", exact: true }).click();
+      await page.locator("#publish-popover").getByRole("button", { name: "Publish map" }).waitFor();
+    },
+  },
+];
 
 export const SCENES = [
   {
@@ -73,6 +174,7 @@ export const SCENES = [
       { hold: 20 },
     ],
   },
+  ...FIRST_MAP_SCENES,
 ];
 
-export const STATES = ["fresh", "seeded"];
+export const STATES = ["fresh", "seeded", "first-map"];

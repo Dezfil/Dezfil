@@ -30,7 +30,7 @@ import { parseIndex } from "@/lib/templates/catalogue";
 import { webm } from "../../test-support/media-fixtures";
 
 type Row = Record<string, unknown> & { file: string; scene: string };
-type Scene = { id: string; file: string; kind: string; state: string; pages: string[]; crop?: { selector: string; margin?: number }; poster?: string; steps?: { hold: number }[] };
+type Scene = { id: string; file: string; kind: string; state: string; pages: string[]; map?: boolean; crop?: { selector: string; margin?: number }; poster?: string; steps?: { hold: number }[] };
 const scenes = SCENES as Scene[];
 
 const scratch = mkdtempSync(join(tmpdir(), "dezfil-docs-pictures-test-"));
@@ -151,6 +151,16 @@ describe("the scene list", () => {
   it("takes the first-run setup card before any account exists", () => {
     expect(scenes.find((s) => s.id === "setup-card")?.state).toBe("fresh");
     expect(STATES.indexOf("fresh")).toBeLessThan(STATES.indexOf("seeded"));
+  });
+
+  it("takes the first map's scenes after every seeded scene, so no seeded picture shows the first map", () => {
+    expect(STATES).toEqual(["fresh", "seeded", "first-map"]);
+    const firstMap = scenes.filter((s) => s.state === "first-map");
+    expect(firstMap.length).toBeGreaterThan(0);
+    for (const scene of firstMap) {
+      expect(scene.pages).toContain("docs/start/first-map.md");
+      expect(scene.map).toBe(true);
+    }
   });
 });
 

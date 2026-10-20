@@ -11,6 +11,12 @@ change the pages, then regenerate it.
 
 What Dezfil is, how to install it, and your first map.
 
+- [Your first map](start/first-map.md)
+  - path: `docs/start/first-map.md`
+  - summary: Upload a CSV of world cities, put it on a new map, color the points by population and publish the map as a link.
+  - read when: you have just installed Dezfil and want to build something; you want to turn a CSV with latitude and longitude columns into points on a map; you want to color points by a column and show a legend; you want to share a map as a link
+  - audience: user
+
 - [Run it](start/install.md)
   - path: `docs/start/install.md`
   - summary: The two ways to run Dezfil, where everything it stores lives, and the first-run setup that creates the admin account.

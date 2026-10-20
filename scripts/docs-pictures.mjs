@@ -15,7 +15,9 @@
 // temporary folder and removes at the end, whatever happens. The server's
 // data directory and template catalogue are in that folder; no other data
 // directory is opened. The scenes that need no account are taken first, then
-// the instance is seeded through the documented API and the rest are taken.
+// the instance is seeded through the documented API and the seeded scenes
+// are taken, then the first account's first map is made and the scenes that
+// show it are taken (the states of docs-pictures-scenes.mjs, in order).
 // Every scene is taken twice from the same instance state, in the app's light
 // theme and in its dark theme, chosen the way the app's own switch stores it;
 // the dark take is written beside the light one with `.dark` before the
@@ -40,7 +42,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { answerCameraSaves, cropRectangle, frameContext, openBrowser, pageTheme, rest, takeRecording, takeStill } from "./docs-pictures-capture.mjs";
-import { assertBuiltCheckout, freePort, makeScratch, seed, serverRequests, startServer, writeCatalogue } from "./docs-pictures-instance.mjs";
+import { assertBuiltCheckout, freePort, makeScratch, seed, seedFirstMap, serverRequests, startServer, writeCatalogue } from "./docs-pictures-instance.mjs";
 import { MANIFEST, manifestText, planRun } from "./docs-pictures-manifest.mjs";
 import { problemsMessage, requestsOffInstance } from "./docs-pictures-network.mjs";
 import { SCENES, STATES } from "./docs-pictures-scenes.mjs";
@@ -67,7 +69,11 @@ try {
   await writeCatalogue(root, scratch.catalogue);
   server = await startServer({ root, port, scratch });
   browser = await openBrowser();
-  let cookie = null;
+  // Each state after the fresh one builds on the one before it: the
+  // seeding, then the first map. A run that takes no scene of a state still
+  // makes it when a later state's scenes need it.
+  let seeded = null;
+  let firstMap = false;
   // A scene's crop, found on its light take and shared by its dark take.
   const crops = new Map();
   // The built-in basemap's styles and tile sets the map scenes drew.
@@ -75,7 +81,12 @@ try {
   for (const state of STATES) {
     const scenes = chosen.filter((scene) => scene.state === state);
     if (!scenes.length) continue;
-    if (state === "seeded") ({ cookie } = await seed(server.base, root));
+    if (state !== "fresh") seeded ??= await seed(server.base, root);
+    if (state === "first-map" && !firstMap) {
+      await seedFirstMap(seeded.api, root);
+      firstMap = true;
+    }
+    const cookie = seeded?.cookie ?? null;
     for (const theme of THEMES) {
       const { context, network } = await frameContext(browser, server.base, { cookie, theme });
       try {
