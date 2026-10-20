@@ -76,7 +76,7 @@ Each reader's selections are their own and are never saved. While a widget holds
 Hidden widgets never go out. A widget on a hidden layer still shows its numbers, while the layer's features stay off the published map.
 
 > [!NOTE]
-> Only the map's owner can change **Show widgets on published view**. [Share and publish](share-and-publish.md) covers publishing, and choosing the widgets an exported image shows.
+> Only the map's owner can change **Show widgets on published view**, and on a published map only an owner the instance lets publish. [Share and publish](share-and-publish.md) covers publishing, and choosing the widgets an exported image shows.
 
 ## Run a tool on a layer
 
