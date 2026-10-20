@@ -7,6 +7,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, describe, expect, it } from "vitest";
+import { SETTING_CATALOGUE } from "./settings/catalogue";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore — plain-JS CI script, no declaration file on purpose.
 import {
@@ -140,7 +141,7 @@ function real() {
   const documents = Object.fromEntries(readdirSync(join(root, "docs"), { recursive: true, encoding: "utf8" })
     .filter(file => file.endsWith(".md")).map(file => [`docs/${file.split("\\").join("/")}`, readFileSync(join(root, "docs", file), "utf8")]));
   const pages: string[] = [...new Set([...linkedPages(documents), "docs/contribute/development-setup.md"])];
-  return { server: serverVariables(join(root, "src")) as Set<string>, documented: documentedVariables(...pages.map(page => join(root, page))) as Set<string> };
+  return { server: serverVariables(join(root, "src"), join(root, "scripts"), [...SETTING_CATALOGUE]) as Set<string>, documented: documentedVariables(...pages.map(page => join(root, page))) as Set<string> };
 }
 
 it("includes the image observers' test settings in the wiring table", () => {
@@ -158,6 +159,51 @@ it("includes the image observers' test settings in the wiring table", () => {
   }
 });
 
+
+/** A source tree of these files, keyed by their path under src/. */
+function tree(files: Record<string, string>): string {
+  const src = join(dir, `src-${Math.random().toString(36).slice(2)}`);
+  for (const [file, text] of Object.entries(files)) {
+    mkdirSync(join(src, file, ".."), { recursive: true });
+    writeFileSync(join(src, file), text);
+  }
+  return src;
+}
+
+describe("what the code reads of the catalogue", () => {
+  const none = join(dir, "no-scripts");
+  const catalogue = [
+    { key: "usedMb", environment: "DEZFIL_USED_MB" }, { key: "unusedMb", environment: "DEZFIL_UNUSED_MB" },
+    { key: "mistralApiKey", environment: "MISTRAL_API_KEY" }, { key: "seamEndpoint", environment: "DEZFIL_SEAM_ENDPOINT" },
+  ];
+
+  it("counts a setting the code resolves by its key, or names outside the catalogue, and not one only the catalogue's own definitions name", () => {
+    const src = tree({
+      "lib/settings/numeric.ts": 'numeric("usedMb", "DEZFIL_USED_MB"); numeric("unusedMb", "DEZFIL_UNUSED_MB");',
+      "lib/settings/catalogue.ts": 'deployment("mistralApiKey", "MISTRAL_API_KEY"); deployment("seamEndpoint", "DEZFIL_SEAM_ENDPOINT");',
+      "lib/limits.ts": 'export const used = () => resolveNumber("usedMb");',
+      "lib/overture.ts": "export const seam = () => process.env.DEZFIL_SEAM_ENDPOINT;",
+    });
+    expect([...serverVariables(src, none, catalogue)].sort()).toEqual(["DEZFIL_SEAM_ENDPOINT", "DEZFIL_USED_MB"]);
+  });
+
+  it("counts no name a comment alone holds", () => {
+    const src = tree({
+      "lib/settings/catalogue.ts": 'deployment("seamEndpoint", "DEZFIL_SEAM_ENDPOINT");',
+      "lib/overture.ts": [
+        "// DEZFIL_SEAM_ENDPOINT (a test seam) was read here.",
+        "/** resolveNumber(\"unusedMb\") and MISTRAL_API_KEY, in a comment. */",
+        'export const site = "https://example.org/"; // DEZFIL_UNUSED_MB',
+      ].join("\n"),
+    });
+    expect([...serverVariables(src, none, catalogue)]).toEqual([]);
+  });
+
+  it("still reads a name a string holds, past a URL and a regular expression with quotes in it", () => {
+    const src = tree({ "lib/a.ts": 'const host = "https://x.example"; const quote = /["\']/; export const k = process.env.DEZFIL_AFTER_THEM;' });
+    expect([...serverVariables(src, none, catalogue)]).toEqual(["DEZFIL_AFTER_THEM"]);
+  });
+});
 
 it("discovers new script test wiring and its removal without counting mentions", () => {
   const scripts = join(dir, "scripts"); mkdirSync(scripts);

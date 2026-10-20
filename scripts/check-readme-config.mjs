@@ -22,8 +22,10 @@
 // setting the overview or a page it links lists again in a table of its
 // own, outside the generated ones, fails as listed twice.
 //
-// Coverage is defined by what `src` reads from process.env, minus two
-// documented exclusion classes:
+// Coverage is defined by what `src` reads, outside the catalogue's own
+// definitions and outside comments: a variable named in the code, or a
+// catalogue setting resolved by its key, minus two documented exclusion
+// classes:
 //   - test-local wiring: DEZFIL_TEST_* named anywhere but a read in the
 //     server code (tiler stubs and fixture URLs read by test files, the
 //     names the catalogue lists) and DEZFIL_BASE_URL (the Playwright
@@ -48,6 +50,7 @@
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import ts from "typescript";
 import { settingsSource } from "./settings-source.mjs";
 import { areaOf, SETTINGS_AREAS, TEST_SEAMS, WIRING_TABLE, tableRegions } from "./settings-tables.mjs";
 
@@ -73,6 +76,27 @@ function walk(dir) {
   }
   return out;
 }
+
+const printed = new Map();
+const printer = ts.createPrinter({ removeComments: true });
+/** A file's code with its comments left out, parsed rather than matched,
+ * so a name a comment holds is no read and a URL or a regular expression
+ * in the code stays code. Kept per file while its text is unchanged. */
+export function codeOf(file) {
+  const text = readFileSync(file, "utf8");
+  const kept = printed.get(file);
+  if (kept?.text === text) return kept.code;
+  const kind = /\.tsx$/.test(file) ? ts.ScriptKind.TSX : /\.[cm]?js$/.test(file) ? ts.ScriptKind.JS : ts.ScriptKind.TS;
+  const code = printer.printFile(ts.createSourceFile(file, text, ts.ScriptTarget.Latest, false, kind));
+  printed.set(file, { text, code });
+  return code;
+}
+
+/** The catalogue's own definitions, which name every setting's variable
+ * and so cannot show that anything reads one. */
+const CATALOGUE_FILES = ["lib/settings/catalogue.ts", "lib/settings/numeric.ts"];
+/** The calls through which the code reads a catalogue setting by its key. */
+const BY_KEY = /\b(?:resolveNumber|resolveNumericSetting|resolveBoolean|resolveServiceAddress|serviceAddressConfigured|settingDefinition)\(\s*["'`]([A-Za-z0-9.]+)["'`]/g;
 
 /** Test-only environment reads in executable probe helpers, not mentions. */
 export function probeVariables(scriptsDir) {
@@ -108,17 +132,23 @@ export function wiringVariables(srcDir, scriptsDir = path.join(srcDir, "..", "sc
 }
 
 /** Every operator-facing name the server code reads (src, excluding
- * tests). Three extractions, because the code reads settings three ways:
- * DEZFIL_* tokens in any context (the limits helpers take the name as
- * a string), *_API_KEY tokens in any context (the provider keys travel
- * through a name map), and direct process.env accesses for anything
- * else — minus the documented exclusions. */
-export function serverVariables(srcDir, scriptsDir = path.join(srcDir, "..", "scripts")) {
+ * tests), comments left out. Four extractions, because the code reads
+ * settings four ways: DEZFIL_* tokens in any context (a name passed as a
+ * string, a message naming the variable to set), *_API_KEY tokens in any
+ * context (the provider keys travel through a name map), direct
+ * process.env accesses for anything else, and a catalogue setting the
+ * code resolves by its key (the limits, the service addresses), which
+ * counts as a read of that setting's variable — minus the documented
+ * exclusions. The catalogue's own definitions are no read: a variable
+ * only they name is one nothing reads. */
+export function serverVariables(srcDir, scriptsDir = path.join(srcDir, "..", "scripts"), catalogue = []) {
   const names = wiringVariables(srcDir, scriptsDir);
   const files = walk(srcDir).filter(
     (f) =>
       /\.(?:ts|tsx|js|mjs)$/.test(f) && !/\.test\.(?:ts|tsx|js|mjs)$/.test(f),
   );
+  const own = new Set(CATALOGUE_FILES.map(file => path.join(srcDir, file)));
+  const byKey = new Map(catalogue.filter(definition => definition.environment).map(definition => [definition.key, definition.environment]));
   const patterns = [
     /\b(DEZFIL_[A-Z0-9_]+)\b/g,
     /\b([A-Z][A-Z0-9_]*_API_KEY)\b/g,
@@ -126,7 +156,8 @@ export function serverVariables(srcDir, scriptsDir = path.join(srcDir, "..", "sc
     /process\.env\[["']([A-Z][A-Z0-9_]*)["']\]/g,
   ];
   for (const file of files) {
-    const src = readFileSync(file, "utf8");
+    if (own.has(file)) continue;
+    const src = codeOf(file);
     for (const pattern of patterns) {
       for (const m of src.matchAll(pattern)) {
         // The guide names this client-side reference. A real process.env
@@ -135,6 +166,7 @@ export function serverVariables(srcDir, scriptsDir = path.join(srcDir, "..", "sc
         if (!EXCLUDED(m[1])) names.add(m[1]);
       }
     }
+    for (const m of src.matchAll(BY_KEY)) if (byKey.has(m[1]) && !EXCLUDED(byKey.get(m[1]))) names.add(byKey.get(m[1]));
   }
   return names;
 }
@@ -276,7 +308,7 @@ export function configurationProblems({ srcDir, scriptsDir = path.join(srcDir, "
   const deployment = variables.filter(definition => !TEST_SEAMS.includes(definition.key));
   const stored = catalogue.filter(definition => definition.scope === "instance" && !definition.environment);
 
-  const server = serverVariables(srcDir, scriptsDir);
+  const server = serverVariables(srcDir, scriptsDir, catalogue);
   const wiring = wiringVariables(srcDir, scriptsDir);
   const problems = differences(new Set([...variables, ...testWiring].map(d => d.environment)), server, "source scan against catalogue");
   problems.push(...differences(new Set(testWiring.map(d => d.environment)), wiring, "test wiring reads against catalogue"));
