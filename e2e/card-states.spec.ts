@@ -432,6 +432,34 @@ async function markStrips(page: Page, map: Probe): Promise<Locator> {
   return page.locator(`[data-probe-strip="${map.id}"]`);
 }
 
+/** A dialog stands centred, so its place moves by half a pixel with its
+ * height, and its height with how many maps the store holds. Before its
+ * strip is pictured, the dialog is moved by that fraction onto whole
+ * pixels, so the capture has one size and one drawing however many maps
+ * there are. */
+async function onWholePixels(page: Page, strip: Locator) {
+  // Measured once the dialog has come in, not while it still moves.
+  await page.getByRole("dialog").evaluate((dialog) =>
+    Promise.all(
+      dialog
+        .getAnimations({ subtree: true })
+        .filter((animation) => animation.effect?.getComputedTiming().endTime !== Infinity)
+        .map((animation) => animation.finished),
+    ),
+  );
+  const box = await strip.boundingBox();
+  expect(box, "the strip is laid out").not.toBeNull();
+  const shift = { x: Math.round(box!.x) - box!.x, y: Math.round(box!.y) - box!.y };
+  await page.getByRole("dialog").evaluate((dialog: HTMLElement, { x, y }) => {
+    dialog.style.translate = `${x}px ${y}px`;
+  }, shift);
+  const moved = await strip.boundingBox();
+  expect(
+    [moved!.x, moved!.y].map((v) => Math.abs(v - Math.round(v)) < 0.01),
+    "the strip stands on whole pixels",
+  ).toEqual([true, true]);
+}
+
 const addressed = (src: string | null) => {
   const query = new URL(src ?? "", "http://card.test").searchParams;
   return { version: query.get("v"), theme: query.get("theme") };
@@ -608,6 +636,7 @@ test.describe("card states with a renderer", () => {
           await test.step(`${host.name}, ${theme}`, async () => {
             await visit(page, host, places, theme, map);
             const strips = await expectPlaceholder(page, map);
+            if (host.dialog) await onWholePixels(page, strips.first());
             await expect(strips.first()).toHaveScreenshot(`waiting-${host.name}-${theme}.png`);
             await expect(page.locator("[data-renderer-notice]")).toHaveCount(0);
             if (theme === "light") await expectPaced(asks, host.name);
