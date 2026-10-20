@@ -15,7 +15,7 @@ order: 1
 
 ![The Add data dialog: the sources Files, Overture Maps, OpenStreetMap and PostGIS on the left, and the Upload file tab with its drop box and the formats it takes](../images/use/import-data-add-data.webp)
 
-Everything you import becomes a dataset: a table you can put on a map, query with SQL or use in a workflow. New to Dezfil? Start with [Your first map](../start/first-map.md).
+Everything you import becomes a dataset: a table you can put on a map, query with SQL or use in a workflow.
 
 Open **Add data** on the **Data** page or on **Home**. In a map, **Add layer** has the same sources under **Import** and adds the result as a layer: see [Build a map](build-a-map.md).
 
@@ -23,7 +23,7 @@ Open **Add data** on the **Data** page or on **Home**. In a map, **Add layer** h
 
 1. Open **Data** in the side menu and click **Add data**. You should see the dialog on **Files**, with **Upload file** selected.
 2. Drop one or more files on the box that reads **Drop files. Each becomes a queryable table**, or click the box and choose them.
-3. Wait while the files upload one after another. You should see each file's name, its progress and its place in the batch, such as (1 of 3).
+3. Wait while the files upload. You should see each file's name, its progress and its place in the batch, such as (1 of 3).
 
 When every file has landed, the dialog closes, unless a CSV first stops at [Column matching](#csv-columns). You should see a notice such as **world_cities is ready.** and a card for each new dataset.
 
@@ -31,7 +31,7 @@ You can also drop files anywhere on the **Data** page to start an upload.
 
 Each dataset is named after its file, in lower case with underscores: `World Cities.csv` becomes `world_cities`. If that name is taken, Dezfil adds `_2`, `_3` and so on.
 
-If a file fails, the dialog stays open and names it with the reason; the rest of the batch still uploads.
+A file that fails stays in the dialog with the reason; the rest of the batch still uploads.
 
 When the **Data** page shows one project, what you import joins it. See [Share and publish](share-and-publish.md).
 
@@ -46,7 +46,7 @@ When the **Data** page shows one project, what you import joins it. See [Share a
 | GeoPackage | `.gpkg` | One dataset per layer that has geometry, named `<file>_<layer>` when there are several; the notice names the layers skipped |
 | KML | `.kml`, `.kmz` | As for GeoPackage; a `.kmz` is read from its `doc.kml`, or else its first `.kml` |
 
-Dezfil stores every dataset as GeoParquet, with its geometry in WGS 84 longitude and latitude. A file that declares another coordinate system is reprojected as it imports.
+A file that declares another coordinate system is reprojected to WGS 84 longitude and latitude as it imports.
 
 ## CSV columns
 
@@ -60,16 +60,16 @@ Dezfil first looks for geometry in a CSV's column names, in this order, in any m
 
 Then it reads the values. A column whose sampled values all read as WKT, GeoJSON geometry, WKB hex or H3 cells becomes the geometry, and the original columns stay.
 
-When there is no sure match, for example with columns named `x` and `y`, **Add data** stops at **Column matching** so you can choose:
+With no sure match, such as columns named `x` and `y`, **Add data** stops at **Column matching**:
 
 ![The Column matching step for a CSV: Coordinate pair selected under Format, the x and y columns chosen under Longitude · x and Latitude · y, the Projection field, the count of sampled rows that read, and a preview of the first rows with the chosen columns tagged](../images/use/import-data-column-matching.webp)
 
 1. Under **Format**, check or change the kind of geometry: **Coordinate pair**, **WKT text**, **GeoJSON**, **WKB hex** or **H3 cell**.
 2. Choose the column. For a pair, choose the columns under **Longitude · x** and **Latitude · y**.
-3. If the numbers are not degrees of longitude and latitude, pick their coordinate system under **Projection**, which starts at WGS 84.
+3. If the numbers are not longitude and latitude in degrees, pick their system under **Projection**, which starts at WGS 84.
 4. Check the preview and the count of rows that read, then click **Confirm**. You should see the dataset on the **Data** page with its geometry.
 
-To keep the file as a table without geometry, click **Cancel**. You can still give it geometry later with **Set geometry** on its dataset page.
+To keep the file as a table without geometry, click **Cancel**.
 
 ## Import from a link
 
@@ -88,15 +88,13 @@ Dezfil keeps a copy of the file, not a live link: see [Refresh an import](#refre
 
 ## Import from Overture Maps
 
-Overture Maps is open map data, which Dezfil reads from Overture's public release.
-
 1. In **Add data**, click **Overture Maps**.
 2. Under **Query Area**, choose the area. **BBox** › **Rectangle** starts with a box on the map: drag its corners, and pan or zoom to move it.
 3. Under **Theme**, click **Places**, **Buildings**, **Transportation**, **Divisions**, **Base · land & water** or **Addresses**.
 4. Click **Run Query** to look first. You should see the features on the map beside the form, and how many it shows.
 5. Click **Import as table**. You should see the dialog close and the new dataset on the **Data** page.
 
-The other areas are **Current View**, a polygon you **Draw** or pick with **Select from Layer**, and a **Country**, **State** or **City** under **Boundaries**.
+Other areas: **Current View**, a polygon you **Draw** or pick with **Select from Layer**, or a **Country**, **State** or **City** under **Boundaries**.
 
 **Places** take a **Category**, such as **Restaurants**, and **Divisions** a **Level**, such as **States & regions**.
 
@@ -106,7 +104,7 @@ Under **Area rule**, **Entirely inside** keeps only features fully inside the ar
 
 1. In **Add data**, click **OpenStreetMap**.
 2. Under **Query Area**, choose a **Polygon** or **BBox** area, as for Overture Maps.
-3. Under **Tags**, click the × on `amenity=restaurant`, the tag the form starts with, unless you want restaurants.
+3. Under **Tags**, click the × on `amenity=restaurant`, the tag the form starts with.
 4. Under **Quick queries**, click **Buildings**, **Roads**, **Amenities** or **Landuse**, or type a tag such as `shop=bakery` in **Tags** and press Enter. Every tag listed is imported together.
 5. Click **Import as table**. You should see the dialog close and up to three new datasets.
 
@@ -121,7 +119,7 @@ Dezfil imports a PostGIS table as a snapshot: a copy you can refresh later. It o
 ![The PostGIS source in Add data before any connection is saved: the Connect a PostGIS database form with the Paste a connection URL box, the fields Connection name, Host, Port, Database, Username and Password, Require SSL for this connection, and Test & save connection](../images/use/import-data-postgis.webp)
 
 1. In **Add data**, click **PostGIS**. Without a saved connection, you should see **Connect a PostGIS database**.
-2. Fill in **Connection name**. Then fill in **Host**, **Port**, **Database**, **Username** and **Password**, or paste a `postgres://` address into **Paste a connection URL** to fill them. Clear **Require SSL for this connection** only for a database that offers no SSL.
+2. Fill in **Connection name**. Then fill in **Host**, **Port**, **Database**, **Username** and **Password**, or paste a `postgres://` address into **Paste a connection URL** to fill them. Clear **Require SSL for this connection** for a database without SSL.
 3. Click **Test & save connection**. You should see **Connected** with the PostgreSQL and PostGIS versions, then the database's tables.
 4. Click a table. You should see a **Preview** of up to 5 rows from the database.
 5. Click **Import**. You should see **Imported as** with the dataset's name, and **Open table** and **Import another**.
@@ -139,16 +137,16 @@ What people in your projects see of a connection: [Share and publish](share-and-
 
 ## Refresh an import
 
-Imports from a link, Overture Maps, OpenStreetMap and PostGIS can fetch their data again from their source.
+Datasets imported from a link, Overture Maps, OpenStreetMap or PostGIS can be fetched again from their source.
 
 1. Open the dataset from the **Data** page.
 2. Click the refresh button, **Re-run the stored import**, among the buttons at the top. You should see **updated just now** beside the dataset's name.
 
-An Overture Maps dataset refreshes from the release it was imported from. For newer data, click **Update to latest release** in the line under its name.
+An Overture Maps dataset refreshes from its own release; for a newer one, click **Update to latest release** under its name.
 
 A connection's page under **Connections** in the side menu refreshes its snapshots one by one or with **Refresh all**.
 
-An upload cannot be refreshed. Upload the new version instead: it lands beside the old one as a new dataset, its name ending in `_2` or the next free number.
+An upload cannot be refreshed. Upload the new version instead: it lands beside the old one as a new dataset.
 
 ## Troubleshooting
 
