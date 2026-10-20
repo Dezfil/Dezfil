@@ -34,7 +34,7 @@ Streamable HTTP `tools/list`, and compares:
 Expected counts: 146 paths, 412 operations, 188 schemas, 142 error codes, 157 tools, 255 exclusions and 69 JSON readers (17 at 65,536 bytes, 1 at 131,072 bytes, 51 at 16,777,216 bytes).
 <!-- contract-counts:end -->
 
-Regenerate the human tables from the contract with
+Regenerate the expected counts above from the contract with
 `node scripts/generate-contract-docs.mjs`, and the plugin with
 `node scripts/generate-dezfil-guidance.mjs`, each under a fresh scratch
 `DEZFIL_DATA_DIR`. Regeneration is separate from the proof; it never repairs a
