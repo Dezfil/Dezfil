@@ -42,9 +42,10 @@ for (const [pole, sign] of [["north", 1], ["south", -1]] as const) {
       await patchMap(page, id, { viewport: { lng, lat, zoom: 10, pitch: 0, bearing: 0 }, customBasemap: { url: `${basemap.url}/${pole}-light.json`, name: "Alignment", force: true } });
       await page.goto(`/maps/${id}`);
       await expect(page.getByText("1 features", { exact: true }).first()).toBeVisible();
-      await expect(page.locator("[data-status-zoom]")).toHaveText("15.00");
-      // Move after the builder's deliberate fit-to-data, through its real
-      // coordinate search and zoom controls. No private renderer access.
+      // The map opens at its saved view, not framed to its data.
+      await expect(page.locator("[data-status-zoom]")).toHaveText("10.00");
+      // Move to the padded camera through the builder's real coordinate
+      // search and zoom controls. No private renderer access.
       const camera = { lng, lat: sign * 85.051129, zoom: 10, pitch: 0, bearing: 0 };
       await page.getByPlaceholder("Search map & places").fill(`${camera.lat}, ${lng}`);
       await page.getByRole("option").filter({ hasText: "as latitude, longitude" }).click();
