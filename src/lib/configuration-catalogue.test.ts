@@ -181,7 +181,7 @@ describe("a setting listed by hand", () => {
   /** The documents with a hand-written table after a page's generated one, and the line its row lands on. */
   function handTable(documents: Documents, page: string, rows: string[]): { documents: Documents; line: number } {
     const text = documents[page];
-    const end = /<!-- settings-[a-z]+:end -->\n/.exec(text)!;
+    const end = /<!-- [a-z-]+:end -->\n/.exec(text)!;
     const table = ["", "| Setting | Default |", "|---|---|", ...rows].join("\n");
     const next = `${text.slice(0, end.index + end[0].length)}${table}\n${text.slice(end.index + end[0].length)}`;
     return { documents: { ...documents, [page]: next }, line: text.slice(0, end.index + end[0].length).split("\n").length + 3 };
@@ -198,6 +198,12 @@ describe("a setting listed by hand", () => {
     ]);
     const result = check(pace.documents);
     expect(result.status, result.output).toBe(1);
+  });
+
+  it("leaves a Contribute page's recipe alone, which names a setting to start an instance for the tests", () => {
+    const recipe = handTable(originals, WIRING, ["| `DEZFIL_RENDER_CAP_FEATURES=2000` | The layers cross the cap |", "| `DEZFIL_DATA_DIR` | A fresh folder |"]);
+    const linking = `${originals[OVERVIEW]}\nSee [Development setup](../contribute/development-setup.md).\n`;
+    expect(problemsOf({ ...recipe.documents, [OVERVIEW]: linking })).toEqual([]);
   });
 
   it("fails one on the overview itself, and leaves a name shown in a code block alone", () => {

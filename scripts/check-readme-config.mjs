@@ -366,9 +366,11 @@ export function configurationProblems({ srcDir, scriptsDir = path.join(srcDir, "
     }
   }
   // A setting a page beside the tables lists by hand, the overview included.
+  // Contribute's recipes name settings to start an instance for the tests,
+  // which lists no setting a second time.
   const listable = new Set([...variables.flatMap(definition => definition.editable ? [definition.environment, definition.key] : [definition.environment]),
     ...stored.map(definition => definition.key), ...testWiring.map(entry => entry.environment)]);
-  for (const page of [overview, ...linked]) {
+  for (const page of [overview, ...linked].filter(page => !page.startsWith("docs/contribute/"))) {
     for (const { line, name } of handListedNames(documents[page] ?? "", listable)) {
       problems.push(`DUPLICATE: ${page}: line ${line}: ${name} is listed outside its settings table; link the table instead`);
     }
