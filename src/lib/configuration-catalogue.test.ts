@@ -175,6 +175,42 @@ describe("catalogue drift", () => {
   });
 });
 
+describe("a setting listed by hand", () => {
+  const SERVICES = "docs/self-host/configuration/services.md";
+  const RULES = "docs/self-host/configuration/rules.md";
+  /** The documents with a hand-written table after a page's generated one, and the line its row lands on. */
+  function handTable(documents: Documents, page: string, rows: string[]): { documents: Documents; line: number } {
+    const text = documents[page];
+    const end = /<!-- settings-[a-z]+:end -->\n/.exec(text)!;
+    const table = ["", "| Setting | Default |", "|---|---|", ...rows].join("\n");
+    const next = `${text.slice(0, end.index + end[0].length)}${table}\n${text.slice(end.index + end[0].length)}`;
+    return { documents: { ...documents, [page]: next }, line: text.slice(0, end.index + end[0].length).split("\n").length + 3 };
+  }
+
+  it("fails a variable or a Settings key repeated in a table of its own beside the generated one, with a default of its own", () => {
+    const pace = handTable(originals, SERVICES, ["| `DEZFIL_GEOCODE_PACE_MS` | `250` milliseconds |"]);
+    expect(problemsOf(pace.documents)).toEqual([
+      `DUPLICATE: ${SERVICES}: line ${pace.line}: DEZFIL_GEOCODE_PACE_MS is listed outside its settings table; link the table instead`,
+    ]);
+    const password = handTable(originals, RULES, ["| `security.passwordMin` | `12` characters |"]);
+    expect(problemsOf(password.documents)).toEqual([
+      `DUPLICATE: ${RULES}: line ${password.line}: security.passwordMin is listed outside its settings table; link the table instead`,
+    ]);
+    const result = check(pace.documents);
+    expect(result.status, result.output).toBe(1);
+  });
+
+  it("fails one on the overview itself, and leaves a name shown in a code block alone", () => {
+    const text = originals[OVERVIEW];
+    const listed = `${text}\n| Variable | Default |\n|---|---|\n| \`${variable}\` | \`4096\` MB |\n`;
+    expect(problemsOf({ ...originals, [OVERVIEW]: listed })).toEqual([
+      `DUPLICATE: ${OVERVIEW}: line ${text.split("\n").length + 3}: ${variable} is listed outside its settings table; link the table instead`,
+    ]);
+    const shown = `${text}\n\`\`\`text title="Example"\n| \`${variable}\` | \`4096\` MB |\n\`\`\`\n`;
+    expect(problemsOf({ ...originals, [OVERVIEW]: shown })).toEqual([]);
+  });
+});
+
 /** How many rows a page's settings tables hold. */
 const rowsIn = (page: string) => settingsRows(originals[page], page).length;
 

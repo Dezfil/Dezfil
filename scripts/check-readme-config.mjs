@@ -18,7 +18,9 @@
 // Each row sits in its area's table, on its area's page, as the catalogue's
 // own predicates (what new things start with, the rules, the basemap
 // switches, the template catalogue's) and the areas place it. An account's
-// own preferences are outside the guard: Your settings describes them.
+// own preferences are outside the guard: Your settings describes them. A
+// setting the overview or a page it links lists again in a table of its
+// own, outside the generated ones, fails as listed twice.
 //
 // Coverage is defined by what `src` reads from process.env, minus two
 // documented exclusion classes:
@@ -172,6 +174,26 @@ export function settingsRows(text, page = "") {
   return rows;
 }
 
+/** The settings a page lists by hand: each of these names written in a
+ * code span on a table row outside the generated tables and outside code
+ * blocks, with its line (1-based). A table of its own beside a generated
+ * one is a second home for the setting, with defaults nothing holds. */
+export function handListedNames(text, names) {
+  const lines = text.split("\n");
+  const generated = new Set();
+  for (const region of tableRegions(text)) for (let line = region.start; line <= (region.end ?? lines.length); line++) generated.add(line);
+  const found = [];
+  let fence = null;
+  lines.forEach((line, i) => {
+    const marker = /^ {0,3}(`{3,}|~{3,})/.exec(line);
+    if (fence) { if (marker && marker[1][0] === fence[0] && marker[1].length >= fence.length && line.trim() === marker[1]) fence = null; return; }
+    if (marker) { fence = marker[1]; return; }
+    if (generated.has(i + 1) || !line.trimStart().startsWith("|")) return;
+    for (const span of line.matchAll(/(`+)(.+?)\1/g)) if (names.has(span[2].trim())) found.push({ line: i + 1, name: span[2].trim() });
+  });
+  return found;
+}
+
 /** The pages the overview links, in the order it first links them, as
  * paths under docs/; links to other sites and to the overview itself are
  * left out, and so are links inside code. */
@@ -265,7 +287,8 @@ export function configurationProblems({ srcDir, scriptsDir = path.join(srcDir, "
   const byKey = new Map(stored.map(definition => [definition.key, definition]));
   const homes = new Map(SETTINGS_AREAS.map(area => [area.id, area]));
   const found = new Map();
-  for (const page of linkedPages(documents, overview)) {
+  const linked = linkedPages(documents, overview);
+  for (const page of linked) {
     for (const row of settingsRows(documents[page], page)) {
       if (!row.table.startsWith("settings-") || DOCUMENTED_PLATFORM.has(row.variable)) continue;
       const where = `${page} ${row.table}`;
@@ -290,6 +313,14 @@ export function configurationProblems({ srcDir, scriptsDir = path.join(srcDir, "
       if (row.changes !== changes) problems.push(
         `CHANGES: ${where}: ${name}: expected ${JSON.stringify(changes)}, found ${JSON.stringify(row.changes)}`,
       );
+    }
+  }
+  // A setting a page beside the tables lists by hand, the overview included.
+  const listable = new Set([...variables.flatMap(definition => definition.editable ? [definition.environment, definition.key] : [definition.environment]),
+    ...stored.map(definition => definition.key), ...testWiring.map(entry => entry.environment)]);
+  for (const page of [overview, ...linked]) {
+    for (const { line, name } of handListedNames(documents[page] ?? "", listable)) {
+      problems.push(`DUPLICATE: ${page}: line ${line}: ${name} is listed outside its settings table; link the table instead`);
     }
   }
   problems.push(...coverage(deployment.map(definition => definition.environment), found, "deployment variables"));
