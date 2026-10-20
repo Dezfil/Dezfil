@@ -22,6 +22,9 @@ Node.js 24 or newer is required. Run `npm ci`, then `npm run dev`: the
 app serves on `http://localhost:3000`. For another port use
 `PORT=3210 npm run dev` or `npm run dev -- --port 3210`. For a
 production-shaped run: `npm run build`, then `PORT=3210 npm start`.
+The development server makes map pictures and image exports as well, with
+the headless browser `DEZFIL_CHROMIUM_PATH` names; its render pages hide the
+development tools badge, so the images do not carry it.
 
 All durable state lives in one directory. `DEZFIL_DATA_DIR` names it;
 unset, it defaults to `./data` under the working directory, and the image

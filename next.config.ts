@@ -18,6 +18,11 @@ const nextConfig: NextConfig = {
   // next dev would otherwise write its own block into AGENTS.md whenever it
   // detects a coding agent; the brief in that file is maintained by hand.
   agentRules: false,
+  // The image renderer opens its pages at 127.0.0.1, the address the server
+  // reaches itself on. The development server answers its reload socket and
+  // other development resources only to hosts it knows, and by default it
+  // knows only localhost. Only the development server reads this setting.
+  allowedDevOrigins: ["127.0.0.1"],
   // The API reference lives at /developer; the old path still resolves.
   async redirects() {
     return [
