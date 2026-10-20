@@ -40,7 +40,7 @@ curl http://localhost:3000/api/health
 {"status":"ready"}
 ```
 
-Then open <http://localhost:3000> and create the first account, as [Install](../start/install.md) shows.
+Then open <http://localhost:3000> and create the first account, as [Install](../start/install.md#first-run) shows.
 
 ## Add the programs the container brings
 
@@ -72,6 +72,7 @@ sudo apt-get install -y --no-install-recommends build-essential libsqlite3-dev z
 curl -fsSL https://github.com/felt/tippecanoe/archive/refs/tags/2.79.0.tar.gz | tar -xz -C /tmp
 make -C /tmp/tippecanoe-2.79.0 -j"$(nproc)" tippecanoe
 sudo install /tmp/tippecanoe-2.79.0/tippecanoe /usr/local/bin/tippecanoe
+# On a minimal system, add --with-deps to install the libraries the browser needs.
 npx playwright install chromium
 ```
 
@@ -82,6 +83,9 @@ npx playwright install chromium
 Dezfil looks for `tippecanoe` on your `PATH` and for Chromium at `/usr/bin/chromium`. To name other files, set `DEZFIL_TIPPECANOE` or `DEZFIL_CHROMIUM_PATH` in `.env.local`, which Next.js reads at start and git ignores:
 
 ```sh title=".env.local"
+# Playwright's headless shell, as an absolute path: under ~/Library/Caches/ms-playwright
+# on macOS or ~/.cache/ms-playwright on Linux, it is
+# chromium_headless_shell-<N>/chrome-headless-shell-<PLATFORM>/chrome-headless-shell
 DEZFIL_CHROMIUM_PATH=<PATH_TO_CHROME_HEADLESS_SHELL>
 ```
 
@@ -109,7 +113,18 @@ npm ci
 npm run build
 ```
 
-A standalone you start by hand needs what the [Dockerfile](../../Dockerfile)'s last stage copies beside it, such as `public`, `.next/static` and the native packages.
+A standalone you start by hand needs what the [Dockerfile](../../Dockerfile)'s last stage copies beside it. In the build worktree:
+
+```sh title="Terminal"
+cp -R public templates .next/standalone/
+cp -R .next/static .next/standalone/.next/
+mkdir -p .next/standalone/scripts .next/standalone/src/lib/auth .next/standalone/src/lib/assistant
+cp scripts/ingress-preload.mjs scripts/preload-options.mjs .next/standalone/scripts/
+cp src/lib/auth/ingress.mjs src/lib/auth/reception.mjs .next/standalone/src/lib/auth/
+cp src/lib/assistant/model-catalogue.json .next/standalone/src/lib/assistant/
+cp -R node_modules/@duckdb node_modules/better-sqlite3 node_modules/bindings \
+  node_modules/file-uri-to-path .next/standalone/node_modules/
+```
 
 > [!WARNING]
 > `npm run dev`, `npm start` and the image load the ingress preload first. Without it, `/api/health` answers 503 and sign-in is refused. Start a standalone with `node --import=./scripts/ingress-preload.mjs server.js`.
