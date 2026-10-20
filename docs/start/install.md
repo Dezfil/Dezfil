@@ -134,6 +134,8 @@ curl http://localhost:3000/api/health
 
 Then open <http://localhost:3000>.
 
+To stop Dezfil, press Ctrl+C in its terminal. To upgrade, stop it, run `git pull` and `npm ci`, then `npm run dev` again. To back up, stop it and copy the `data` folder.
+
 The container brings two programs a checkout lacks:
 
 - `tippecanoe` builds tiles for large layers. Install it on your `PATH`.
