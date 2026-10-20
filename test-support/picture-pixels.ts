@@ -1,3 +1,4 @@
+import assert from "node:assert/strict";
 import { decodePng } from "../src/lib/export/png-codec";
 export function colourCentre(bytes: Uint8Array, colour: readonly number[]) {
   const image = decodePng(bytes);
@@ -25,4 +26,14 @@ export function pictureMarkSql() {
       stroke: { r: 0, g: 0, b: 0, a: 1 }, fillOpacity: 1, strokeWidth: 0, strokeOpacity: 0, pointRadius: 10, opacity: 1,
     } };
   });
+}
+
+/** Geometry, not image inequality: a missing or displaced mark must fail. */
+export function assertPictureMarks(bytes: Uint8Array) {
+  for (const mark of PICTURE_MARKS) {
+    const measured = colourCentre(bytes, mark.colour);
+    assert.deepEqual([measured.width, measured.height], [692, 296]);
+    assert.ok(Math.abs(measured.x - (495 + mark.dx) * 692 / 990) < 2, "Mark longitude differs from the saved view");
+    assert.ok(Math.abs(measured.y - (212 + mark.dy) * 296 / 424) < 2, "Mark latitude differs from the saved view");
+  }
 }
