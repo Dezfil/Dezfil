@@ -200,7 +200,7 @@ function isSomethingToDo(node) {
  * the things a reader can do or see, in the same order. */
 export function measure(body, firstLine = 1, read = readBody(body, firstLine)) {
   const units = [];
-  const unit = (kind, node, found) => units.push({ kind, line: read.at(node), words: found.length, found });
+  const unit = (kind, node, found) => units.push({ kind, line: read.at(node), words: found.length, found, node });
   const visit = (node) => {
     for (const child of node.children ?? []) {
       if (read.generated(child)) continue;
@@ -253,6 +253,10 @@ export const LIMITS = {
 
 /** The two kinds of notice, in GitHub's alert form. */
 export const NOTICE_KINDS = ["NOTE", "WARNING"];
+
+/** The scripts the image ships for operators to run, which a page outside
+ * Contribute may name: the account recovery script. */
+export const OPERATOR_SCRIPTS = ["scripts/admin-recover.mjs"];
 
 /** The sections whose pages open with something to do or see. */
 export const FIRST_SCREEN_SECTIONS = ["start", "use", "self-host", "api"];
@@ -362,6 +366,116 @@ function noticeProblems(prose) {
   return found;
 }
 
+// ---------------------------------------------------------------------------
+// Words
+
+/** What breaks a text where code or bold stood, so no phrase reads across. */
+const GAP = "\u0000";
+
+/** A block's inline content as one text, with each character's file line.
+ * `code` keeps inline code (else a gap stands for it), `strong` keeps bold
+ * text (else a gap). A link gives its text, a picture its alternative
+ * text; HTML gives a gap. */
+function flatten(node, read, { code, strong }) {
+  let text = "";
+  const lines = [];
+  const append = (value, line, multiline) => {
+    for (let i = 0; i < value.length; i += 1) {
+      text += value[i];
+      lines.push(line);
+      if (multiline && value[i] === "\n") line += 1;
+    }
+  };
+  const visit = (n) => {
+    if (n.type === "text") append(n.value, read.at(n), true);
+    else if (n.type === "inlineCode") append(code ? `${GAP}${n.value}${GAP}` : GAP, read.at(n), false);
+    else if (n.type === "strong" && !strong) append(GAP, read.at(n), false);
+    else if (n.type === "image" || n.type === "imageReference") append(` ${n.alt ?? ""} `, read.at(n), false);
+    else if (n.type === "html") append(GAP, read.at(n), false);
+    else if (n.type === "break") append("\n", read.at(n), false);
+    else for (const child of n.children ?? []) visit(child);
+  };
+  for (const child of node.children ?? []) visit(child);
+  return { text, lines };
+}
+
+/** The page's texts outside code blocks, HTML and generated regions: each
+ * paragraph, heading and table cell flattened as `flatten` says. */
+function texts(read, keep) {
+  const found = [];
+  walk(read.tree, (node) => {
+    if (node.position && read.generated(node)) return false;
+    if (["code", "html", "definition"].includes(node.type)) return false;
+    if (["paragraph", "heading", "tableCell"].includes(node.type)) {
+      found.push(flatten(node, read, keep));
+      return false;
+    }
+  });
+  return found;
+}
+
+/** Each line of each code block outside generated regions, with its file
+ * line. */
+function codeLines(read) {
+  const found = [];
+  walk(read.tree, (node) => {
+    if (node.type !== "code" || read.generated(node)) return;
+    const fenced = /^\s*(?:`{3,}|~{3,})/.test(read.lines[node.position.start.line - 1] ?? "");
+    node.value.split("\n").forEach((text, i) => found.push({ text, line: read.at(node) + (fenced ? 1 : 0) + i }));
+  });
+  return found;
+}
+
+/** A whole word or phrase, its words apart by any space, in any case. */
+const phrase = (words) => new RegExp(`(?<![\\p{L}\\p{N}])${words.split(" ").join("\\s+")}(?![\\p{L}\\p{N}])`, "giu");
+
+/** The words that tell a history or what is not promised. */
+const HISTORY = ["now", "previously", "no longer", "is not claimed", "does not establish", "is not promised"].map((words) => ({ words, pattern: phrase(words) }));
+const USED_TO = phrase("used to");
+/** The forms of "be" that make "used to" a description: "is used to". */
+const BE = new Set(["be", "is", "are", "was", "were", "been", "being", "am", "isn't", "aren't", "wasn't", "weren't"]);
+/** Words that may stand between the form of "be" and "used to". */
+const BETWEEN = new Set(["not", "also", "often", "still", "only", "always", "never", "sometimes", "mostly", "rarely", "all", "both", "mainly"]);
+const isBe = (word) => BE.has(word) || /'(?:s|re|m)$/.test(word);
+
+/** Whether "used to" at `index` follows a form of "be". */
+function afterBe(text, index) {
+  const before = (text.slice(Math.max(0, index - 80), index).toLowerCase().replace(/’/g, "'").match(/[\p{L}\p{N}']+/gu) ?? []);
+  const [second, first] = before.slice(-2).length === 2 ? before.slice(-2) : [undefined, before.at(-1)];
+  return (first !== undefined && isBe(first)) || (second !== undefined && isBe(second) && (BETWEEN.has(first) || first.endsWith("ly")));
+}
+
+/** The development record's terms, kept out of every page outside
+ * Contribute. */
+const RECORD_TERMS = /(?<![\p{L}\p{N}])(?:proofs?|probes?|seeds?|seeded|red-proven|gates?|specs?)(?![\p{L}\p{N}])/giu;
+
+/** A repository path a reader outside Contribute never needs: one that
+ * begins with a source, test or tooling folder, or a script the image does
+ * not ship for operators. */
+const REPOSITORY_PATH = /(?:^|[\s'"\x60(<[=:,\u0000])(?:\.{1,2}\/)*((?:src|e2e|test-support|\.github|\.claude|scripts)\/[^\s'"\x60)<>\]\u0000]*)/g;
+const CHECK_COMMAND = /(?<![\w-])npm\s+(?:test(?![\w:-])|run(?:-script)?\s+(?:test|lint|docs)[\w:.-]*)/g;
+const TEST_SETTING = /(?<![A-Za-z0-9_])DEZFIL_TEST_[A-Za-z0-9_]*/g;
+
+/** The problems of the paths, commands and settings a text names. */
+function namedProblems(text, lineAt) {
+  const found = [];
+  for (const match of text.matchAll(REPOSITORY_PATH)) {
+    const path = match[1].replace(/[.,;:!?]+$/, "");
+    if (OPERATOR_SCRIPTS.includes(path)) continue;
+    const message = path.startsWith("scripts/")
+      ? `${path} is a script the image does not ship for operators; outside Contribute a page names only ${OPERATOR_SCRIPTS.join(", ")}`
+      : `${path} is a path in the repository's source, tests or tooling; outside Contribute a page does not name one`;
+    found.push({ rule: "writing.repository-path", message, line: lineAt(match.index + match[0].indexOf(match[1])) });
+  }
+  for (const match of text.matchAll(CHECK_COMMAND)) {
+    found.push({ rule: "writing.check-command", message: `${match[0].replace(/\s+/g, " ")} runs the project's checks or tests; outside Contribute a page does not name them`, line: lineAt(match.index) });
+  }
+  for (const match of text.matchAll(TEST_SETTING)) {
+    found.push({ rule: "writing.test-setting", message: `${match[0]} is test wiring; outside Contribute a page does not name it`, line: lineAt(match.index) });
+  }
+  return found;
+}
+
 /** Problems in file order: by line, then by rule. */
 const byPlace = (a, b) => (a.file < b.file ? -1 : a.file > b.file ? 1 : (a.line ?? 0) - (b.line ?? 0) || (a.rule < b.rule ? -1 : a.rule > b.rule ? 1 : 0));
 
@@ -405,6 +519,41 @@ export function checkPageWriting({ file, page }) {
 
   // Notices: their form, their length and one to a section.
   for (const found of noticeProblems(prose)) add(found.rule, found.message, found.line);
+
+  // Outside code and bold: no em dash, no word of a history or of what is
+  // not promised and, outside Contribute, no term of the record.
+  for (const { text, lines } of texts(prose.read, { code: false, strong: false })) {
+    for (const match of text.matchAll(/\u2014/g)) add("writing.em-dash", "an em dash; use a period, a colon, a comma or parentheses", lines[match.index]);
+    for (const { pattern } of HISTORY) {
+      for (const match of text.matchAll(pattern)) add("writing.word", `"${match[0]}" tells a history or what is not promised; say what is true`, lines[match.index]);
+    }
+    for (const match of text.matchAll(USED_TO)) {
+      if (!afterBe(text, match.index)) add("writing.word", `"${match[0]}" tells a history; say what is true`, lines[match.index]);
+    }
+    if (section !== "contribute") {
+      for (const match of text.matchAll(RECORD_TERMS)) add("writing.record-term", `"${match[0]}" is a term of the development record; outside Contribute a page says what is true and how to use it`, lines[match.index]);
+    }
+  }
+
+  // Outside Contribute, in prose or code: no repository path but the
+  // operator's script, no check or test command, no test variable.
+  if (section !== "contribute") {
+    for (const { text, lines } of texts(prose.read, { code: true, strong: true })) {
+      for (const found of namedProblems(text, (index) => lines[index])) add(found.rule, found.message, found.line);
+    }
+    for (const { text, line } of codeLines(prose.read)) {
+      for (const found of namedProblems(text, () => line)) add(found.rule, found.message, found.line);
+    }
+  }
+
+  // The first paragraph opens with what the page is about, never with the
+  // page itself.
+  const opening = prose.units.find((unit) => unit.kind === "paragraph" && unit.words > 0);
+  if (opening) {
+    const start = flatten(opening.node, prose.read, { code: true, strong: true }).text.replace(new RegExp(GAP, "g"), "").trimStart();
+    const self = /^this\s+(?:page|guide|section)(?![\p{L}\p{N}])/iu.exec(start);
+    if (self) add("writing.opening", `the first paragraph opens with "${self[0]}"; open with what the reader does or sees`, opening.line);
+  }
 
   // Something to do or see before word 151: a page with fewer words has
   // no word 151 to pass.

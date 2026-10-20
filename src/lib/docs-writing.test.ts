@@ -12,7 +12,7 @@ import { afterAll, describe, expect, it } from "vitest";
 import { checkTree, generateIndex } from "../../scripts/docs-contract.mjs";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: a plain-JS gate, no declaration file on purpose.
-import { WRITING_LIST, checkPageWriting, checkWriting, colonLine, measure, median, readList, words } from "../../scripts/docs-writing.mjs";
+import { OPERATOR_SCRIPTS, WRITING_LIST, checkPageWriting, checkWriting, colonLine, measure, median, readList, words } from "../../scripts/docs-writing.mjs";
 
 type Problem = { file: string; rule: string; message: string; line?: number };
 type Names = { variables: string[]; keys: string[]; codes: string[] };
@@ -94,6 +94,27 @@ describe("the rules on one page", () => {
     const opening = `${w(75)}\n\n${w(75)}\n\n`;
     expect(check("docs/use/case.md", `${opening}${shown}\n\n${w(40)}\n`)).toEqual([]);
     expect(check("docs/use/case.md", `${opening}${w(1)}\n\n${shown}\n\n${w(40)}\n`)).toEqual([{ file: "docs/use/case.md", rule: "writing.first-screen", line: 14 }]);
+  });
+
+  it.each([
+    ["The key is used to sign in.", []],
+    ["It's used to sign in, and tokens are mostly used to script.", []],
+    ["A token is not used to publish.", []],
+    ["The key once used to sign in.", ["writing.word"]],
+    ["Dezfil used to ask for a key, and people used to wait.", ["writing.word", "writing.word"]],
+  ])("read \"used to\" after a form of \"be\" as a description: %s", (text, rules) => {
+    expect(check("docs/about/case.md", `${text}\n`).map((p) => p.rule)).toEqual(rules);
+  });
+
+  it("let a page outside Contribute name only the scripts the image ships for operators", () => {
+    const dockerfile = readFileSync("Dockerfile", "utf8");
+    expect(OPERATOR_SCRIPTS).toEqual(["scripts/admin-recover.mjs"]);
+    for (const script of OPERATOR_SCRIPTS) {
+      expect(dockerfile).toMatch(new RegExp(`^COPY .*\\s/app/${script.replace(/[.]/g, "\\.")}\\s+\\./${script.replace(/[.]/g, "\\.")}$`, "m"));
+    }
+    expect(check("docs/self-host/case.md", "Run `node scripts/admin-recover.mjs` or `node scripts/admin-recover.mjs.bak`.\n")).toEqual([
+      { file: "docs/self-host/case.md", rule: "writing.repository-path", line: 10 },
+    ]);
   });
 
   it("count the words before a picture inside a paragraph, not the whole paragraph", () => {

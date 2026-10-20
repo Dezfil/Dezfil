@@ -1363,6 +1363,286 @@
         "docs/about/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you check the writing rules\"\naudience:\n  - developer\nchecked: none\n---\n\n> [!NOTE]\n> Keep it private.\n\n## First\n\nRun it.\n\n> [!warning]\n> Keep it running.\n\n## Second\n\n> [!NOTE]\n> Keep it safe.\n"
       },
       "problems": []
+    },
+    {
+      "scope": "product",
+      "name": "an em dash in prose",
+      "files": {
+        "docs/about/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you check the writing rules\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nOpen the map — then publish it.\n"
+      },
+      "problems": [
+        {
+          "file": "docs/about/case.md",
+          "rule": "writing.em-dash",
+          "line": 13
+        }
+      ]
+    },
+    {
+      "scope": "product",
+      "name": "an em dash in a heading",
+      "files": {
+        "docs/about/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you check the writing rules\"\naudience:\n  - developer\nchecked: none\n---\n\n## Publish — then share\n\nOpen the map.\n"
+      },
+      "problems": [
+        {
+          "file": "docs/about/case.md",
+          "rule": "writing.em-dash",
+          "line": 11
+        }
+      ]
+    },
+    {
+      "scope": "product",
+      "name": "each word and phrase that tells a history or what is not promised",
+      "files": {
+        "docs/about/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you check the writing rules\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nNow open the map.\n\nThe map was previously shared.\n\nThe token no longer works.\n\nOffline use is not claimed.\n\nOne run does not establish it.\n\nA fast answer is not promised.\n\nDezfil used to ask for a key.\n"
+      },
+      "problems": [
+        {
+          "file": "docs/about/case.md",
+          "rule": "writing.word",
+          "line": 13
+        },
+        {
+          "file": "docs/about/case.md",
+          "rule": "writing.word",
+          "line": 15
+        },
+        {
+          "file": "docs/about/case.md",
+          "rule": "writing.word",
+          "line": 17
+        },
+        {
+          "file": "docs/about/case.md",
+          "rule": "writing.word",
+          "line": 19
+        },
+        {
+          "file": "docs/about/case.md",
+          "rule": "writing.word",
+          "line": 21
+        },
+        {
+          "file": "docs/about/case.md",
+          "rule": "writing.word",
+          "line": 23
+        },
+        {
+          "file": "docs/about/case.md",
+          "rule": "writing.word",
+          "line": 25
+        }
+      ]
+    },
+    {
+      "scope": "product",
+      "name": "the same words in bold and in code, and \"is used to\"",
+      "files": {
+        "docs/about/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you check the writing rules\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nClick **Check now** to test it, or **Previously used** to pick one.\n\nThe flag `--no-longer` and `now()` are code, and so is `a — b`.\n\nA token is used to sign in, and it is often used to script.\n\n**No longer than a minute** is a label.\n\n```text title=\"Words in code\"\nnow previously no longer is not claimed does not establish is not promised used to —\n```\n"
+      },
+      "problems": []
+    },
+    {
+      "scope": "product",
+      "name": "each record term on a Self-host page",
+      "files": {
+        "docs/self-host/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you check the writing rules\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nRun the proof.\n\nRun the probe.\n\nSeed the store.\n\nThe store is seeded.\n\nThe check is red-proven.\n\nIt passes the gate.\n\nRead the spec.\n\nCollect the proofs.\n"
+      },
+      "problems": [
+        {
+          "file": "docs/self-host/case.md",
+          "rule": "writing.record-term",
+          "line": 13
+        },
+        {
+          "file": "docs/self-host/case.md",
+          "rule": "writing.record-term",
+          "line": 15
+        },
+        {
+          "file": "docs/self-host/case.md",
+          "rule": "writing.record-term",
+          "line": 17
+        },
+        {
+          "file": "docs/self-host/case.md",
+          "rule": "writing.record-term",
+          "line": 19
+        },
+        {
+          "file": "docs/self-host/case.md",
+          "rule": "writing.record-term",
+          "line": 21
+        },
+        {
+          "file": "docs/self-host/case.md",
+          "rule": "writing.record-term",
+          "line": 23
+        },
+        {
+          "file": "docs/self-host/case.md",
+          "rule": "writing.record-term",
+          "line": 25
+        },
+        {
+          "file": "docs/self-host/case.md",
+          "rule": "writing.record-term",
+          "line": 27
+        }
+      ]
+    },
+    {
+      "scope": "product",
+      "name": "the record terms on a Contribute page, and on a Self-host page in bold and in code",
+      "files": {
+        "docs/contribute/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you check the writing rules\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nRun the proof.\n\nRun the probe.\n\nSeed the store.\n\nThe store is seeded.\n\nThe check is red-proven.\n\nIt passes the gate.\n\nRead the spec.\n\nCollect the proofs.\n",
+        "docs/self-host/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you check the writing rules\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nClick **Run probe** and see `seed` and `spec` in code.\n\n```sh title=\"Terminal\"\nnode probe.mjs --seed --spec\n```\n"
+      },
+      "problems": []
+    },
+    {
+      "scope": "product",
+      "name": "a source path, npm test, npm run lint and a test variable on a Self-host page",
+      "files": {
+        "docs/self-host/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you check the writing rules\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nRead `src/lib/settings/catalogue.ts`.\n\nRun `npm test`.\n\nRun `npm run lint`.\n\nSet `DEZFIL_TEST_PG_URL`.\n"
+      },
+      "problems": [
+        {
+          "file": "docs/self-host/case.md",
+          "rule": "writing.repository-path",
+          "line": 13
+        },
+        {
+          "file": "docs/self-host/case.md",
+          "rule": "writing.check-command",
+          "line": 15
+        },
+        {
+          "file": "docs/self-host/case.md",
+          "rule": "writing.check-command",
+          "line": 17
+        },
+        {
+          "file": "docs/self-host/case.md",
+          "rule": "writing.test-setting",
+          "line": 19
+        }
+      ]
+    },
+    {
+      "scope": "product",
+      "name": "a source path, npm test, npm run lint and a test variable on a Contribute page",
+      "files": {
+        "docs/contribute/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you check the writing rules\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nRead `src/lib/settings/catalogue.ts`.\n\nRun `npm test`.\n\nRun `npm run lint`.\n\nSet `DEZFIL_TEST_PG_URL`.\n"
+      },
+      "problems": []
+    },
+    {
+      "scope": "product",
+      "name": "repository paths, check commands and a test variable in prose and in a code block on a Self-host page",
+      "files": {
+        "docs/self-host/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you check the writing rules\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nThe fixture e2e/fixtures/world-cities.csv, the folder ./test-support/docs and ../.github/workflows/ci.yml.\n\nSkip `.claude/agents` and `scripts/check-readme-config.mjs`.\n\n```sh title=\"Terminal\"\nnpm run docs:write\nnode scripts/docs.mjs --check\nDEZFIL_TEST_PG_URL=postgres://x npm run test:coverage\n```\n"
+      },
+      "problems": [
+        {
+          "file": "docs/self-host/case.md",
+          "rule": "writing.repository-path",
+          "line": 13
+        },
+        {
+          "file": "docs/self-host/case.md",
+          "rule": "writing.repository-path",
+          "line": 13
+        },
+        {
+          "file": "docs/self-host/case.md",
+          "rule": "writing.repository-path",
+          "line": 13
+        },
+        {
+          "file": "docs/self-host/case.md",
+          "rule": "writing.repository-path",
+          "line": 15
+        },
+        {
+          "file": "docs/self-host/case.md",
+          "rule": "writing.repository-path",
+          "line": 15
+        },
+        {
+          "file": "docs/self-host/case.md",
+          "rule": "writing.check-command",
+          "line": 18
+        },
+        {
+          "file": "docs/self-host/case.md",
+          "rule": "writing.repository-path",
+          "line": 19
+        },
+        {
+          "file": "docs/self-host/case.md",
+          "rule": "writing.check-command",
+          "line": 20
+        },
+        {
+          "file": "docs/self-host/case.md",
+          "rule": "writing.test-setting",
+          "line": 20
+        }
+      ]
+    },
+    {
+      "scope": "product",
+      "name": "the image's account recovery script on a Self-host page",
+      "files": {
+        "docs/self-host/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you check the writing rules\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nRun `docker exec -it dezfil node scripts/admin-recover.mjs --help` to see its choices, then scripts/admin-recover.mjs.\n\n```sh title=\"Terminal\"\ndocker exec -it dezfil node scripts/admin-recover.mjs --data-dir /data\n```\n"
+      },
+      "problems": []
+    },
+    {
+      "scope": "product",
+      "name": "npm run dev in Get started, and a link to a fixture file by its text",
+      "files": {
+        "docs/start/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you check the writing rules\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nRun `npm ci`, then `npm run dev` or `npm run build`. Download [world-cities.csv](../../e2e/fixtures/world-cities.csv).\n\n```sh title=\"Terminal\"\nnpm ci\nnpm run dev\n```\n",
+        "e2e/fixtures/world-cities.csv": "name,latitude,longitude\n"
+      },
+      "problems": []
+    },
+    {
+      "scope": "product",
+      "name": "first paragraphs that open with \"This page\", \"This guide\" and \"This section\"",
+      "files": {
+        "docs/about/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you check the writing rules\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nThis page shows how to run it.\n",
+        "docs/about/guide.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you check the writing rules\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nThis guide shows how to run it.\n",
+        "docs/about/section.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you check the writing rules\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nthis section shows how to run it.\n"
+      },
+      "problems": [
+        {
+          "file": "docs/about/case.md",
+          "rule": "writing.opening",
+          "line": 13
+        },
+        {
+          "file": "docs/about/guide.md",
+          "rule": "writing.opening",
+          "line": 13
+        },
+        {
+          "file": "docs/about/section.md",
+          "rule": "writing.opening",
+          "line": 13
+        }
+      ]
+    },
+    {
+      "scope": "product",
+      "name": "\"This page\" past the first paragraph's opening, and in a later paragraph",
+      "files": {
+        "docs/about/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you check the writing rules\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nOn this page you run it.\n\nThis page then shows the rest.\n"
+      },
+      "problems": []
     }
   ],
   "order": [
