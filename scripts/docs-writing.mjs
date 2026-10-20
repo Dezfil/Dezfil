@@ -254,6 +254,74 @@ export const FIRST_SCREEN_SECTIONS = ["start", "use", "self-host", "api"];
 
 const UNIT_NAME = { paragraph: "paragraph", item: "list item", notice: "notice" };
 
+/** A code block's title, as the sample pages write it: `title="Terminal"`
+ * after the language, in double quotes. */
+const CODE_TITLE = /(?:^|\s)title="([^"]*)"/;
+
+/** The problems of a code block: its language and its title. A block
+ * whose info string opens with the title holds no language. */
+function codeProblems(node, read) {
+  const found = [];
+  const lang = node.lang ?? "";
+  if (!lang || lang.startsWith("title=")) found.push({ rule: "writing.code-language", message: "this code block names no language: open it with one, such as ```sh title=\"Terminal\"", line: read.at(node) });
+  const title = CODE_TITLE.exec([lang, node.meta ?? ""].join(" "));
+  if (!title || !title[1].trim()) found.push({ rule: "writing.code-title", message: "this code block has no title: name it after the language, such as ```sh title=\"Terminal\"", line: read.at(node) });
+  return found;
+}
+
+/** The problems of a body's tab sets. A set opens with a `::::tabs` line
+ * and closes with a `::::` line; between them stand two or more tabs, each
+ * opened by a `:::tab[Label]` line with a label of its own and closed by a
+ * `:::` line, and nothing else. A `:::` line inside a tab may close a block
+ * of another kind that opened there; the notice rule names that block. */
+function tabProblems(read) {
+  const found = [];
+  const add = (rule, message, index) => found.push({ rule, message, line: read.firstLine + index });
+  const at = new Map(read.markers.map((marker) => [marker.index, marker]));
+  let set = null;
+  let blocks = 0;
+  read.lines.forEach((text, i) => {
+    const marker = at.get(i);
+    if (!marker) {
+      if (set && !set.tab && !set.stray && text.trim() !== "") {
+        add("writing.tabs-outside", "this stands inside a tab set but outside its tabs; put it in a tab, or after the set's closing :::: line", i);
+        set.stray = true;
+      }
+      return;
+    }
+    if (marker.kind === "block") blocks += 1;
+    else if (marker.kind === "tab-close" && blocks > 0) blocks -= 1;
+    else if (marker.kind === "tab-form") add("writing.tabs-form", `"${marker.text}" is not a line of a tab set, which takes ::::tabs, :::tab[Label], ::: and ::::`, i);
+    else if (marker.kind === "set-open") {
+      if (set) add("writing.tabs-form", "a tab set cannot open inside another", i);
+      else set = { index: i, labels: [], tab: null, stray: false };
+    } else if (marker.kind === "tab-open") {
+      if (!set) return add("writing.tabs-form", "a :::tab line stands only inside a tab set opened by a ::::tabs line", i);
+      if (set.tab) add("writing.tabs-unclosed", "this tab is not closed by a ::: line before the next tab opens", set.tab);
+      if (!marker.label) add("writing.tabs-label", "this tab has no label: open it with :::tab[Label]", i);
+      else if (set.labels.includes(marker.label)) add("writing.tabs-label", `the set already holds a tab labelled ${marker.label}`, i);
+      set.labels.push(marker.label);
+      set.tab = i;
+      set.stray = false;
+    } else if (marker.kind === "tab-close") {
+      if (set?.tab !== null && set?.tab !== undefined) {
+        set.tab = null;
+        set.stray = false;
+      } else add("writing.tabs-form", "a ::: line closes a tab, and no tab is open here", i);
+    } else if (marker.kind === "set-close") {
+      if (!set) return add("writing.tabs-form", "a :::: line closes a tab set, and no set is open here", i);
+      if (set.tab !== null) add("writing.tabs-unclosed", "this tab is not closed by a ::: line before its set closes", set.tab);
+      if (set.labels.length < 2) add("writing.tabs-count", `this tab set holds ${set.labels.length} tab${set.labels.length === 1 ? "" : "s"}; a set holds two or more`, set.index);
+      set = null;
+    }
+  });
+  if (set) {
+    if (set.tab !== null) add("writing.tabs-unclosed", "this tab is never closed by a ::: line", set.tab);
+    add("writing.tabs-unclosed", "this tab set is never closed by a :::: line", set.index);
+  }
+  return found;
+}
+
 /** Problems in file order: by line, then by rule. */
 const byPlace = (a, b) => (a.file < b.file ? -1 : a.file > b.file ? 1 : (a.line ?? 0) - (b.line ?? 0) || (a.rule < b.rule ? -1 : a.rule > b.rule ? 1 : 0));
 
@@ -285,6 +353,15 @@ export function checkPageWriting({ file, page }) {
   if (prose.words.length > LIMITS.page) {
     add("writing.page-length", `the page holds ${prose.words.length} words of prose, over ${LIMITS.page}, and word ${LIMITS.page + 1} is on this line; split the subject into an overview and a page per area`, prose.words[LIMITS.page].line);
   }
+
+  // Every code block names its language and a title.
+  walk(prose.read.tree, (node) => {
+    if (node.type !== "code" || prose.read.generated(node)) return;
+    for (const found of codeProblems(node, prose.read)) add(found.rule, found.message, found.line);
+  });
+
+  // Every tab set well formed.
+  for (const found of tabProblems(prose.read)) add(found.rule, found.message, found.line);
 
   // Something to do or see before word 151: a page with fewer words has
   // no word 151 to pass.

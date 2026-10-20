@@ -131,7 +131,7 @@ describe("the list of pages not yet rewritten", () => {
   it.each([
     ["a path that is no page", "docs/start/install.md\ndocs/start/gone.md\n", 2],
     ["a path listed twice", "docs/start/install.md\ndocs/use/templates.md\ndocs/start/install.md\n", 3],
-    ["a file under docs/ that is not a page", "docs/README.md\n", 1],
+    ["a file under docs/ that is not a page", "docs/start/install.md\ndocs/README.md\n", 2],
   ])("refuse %s, named by the list's file and line", (_name, list, line) => {
     const files = { ...cases.base, [WRITING_LIST]: list };
     expect(lines(writing(files).problems)).toEqual([{ file: WRITING_LIST, rule: "writing.list-entry", line }]);
@@ -263,8 +263,8 @@ describe("the lint:docs command", () => {
   }
 
   it("fails a list entry that names no page, with the list's file, line and rule", () => {
-    const { code, output } = run(write({ ...cases.base, [WRITING_LIST]: "# Not yet rewritten.\ndocs/start/gone.md\n" }));
-    expect(output).toMatch(/^scripts\/docs-not-rewritten\.txt:2: writing\.list-entry: /m);
+    const { code, output } = run(write({ ...cases.base, [WRITING_LIST]: "# Not yet rewritten.\ndocs/start/install.md\ndocs/start/gone.md\n" }));
+    expect(output).toMatch(/^scripts\/docs-not-rewritten\.txt:3: writing\.list-entry: /m);
     expect(output).toContain("FAIL: 1 documentation problem(s).");
     expect(code).toBe(1);
   });

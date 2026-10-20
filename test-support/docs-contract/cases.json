@@ -970,6 +970,266 @@
           "line": 15
         }
       ]
+    },
+    {
+      "scope": "product",
+      "name": "a code block without a language",
+      "files": {
+        "docs/about/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you check the writing rules\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nRun it.\n\n```title=\"Terminal\"\ndocker start dezfil\n```\n"
+      },
+      "problems": [
+        {
+          "file": "docs/about/case.md",
+          "rule": "writing.code-language",
+          "line": 15
+        }
+      ]
+    },
+    {
+      "scope": "product",
+      "name": "a code block without a title",
+      "files": {
+        "docs/about/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you check the writing rules\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nRun it.\n\n```sh\ndocker start dezfil\n```\n"
+      },
+      "problems": [
+        {
+          "file": "docs/about/case.md",
+          "rule": "writing.code-title",
+          "line": 15
+        }
+      ]
+    },
+    {
+      "scope": "product",
+      "name": "a code block with neither a language nor a title",
+      "files": {
+        "docs/about/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you check the writing rules\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nRun it.\n\n```\ndocker start dezfil\n```\n"
+      },
+      "problems": [
+        {
+          "file": "docs/about/case.md",
+          "rule": "writing.code-language",
+          "line": 15
+        },
+        {
+          "file": "docs/about/case.md",
+          "rule": "writing.code-title",
+          "line": 15
+        }
+      ]
+    },
+    {
+      "scope": "product",
+      "name": "an indented code block",
+      "files": {
+        "docs/about/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you check the writing rules\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nRun it.\n\n    docker start dezfil\n"
+      },
+      "problems": [
+        {
+          "file": "docs/about/case.md",
+          "rule": "writing.code-language",
+          "line": 15
+        },
+        {
+          "file": "docs/about/case.md",
+          "rule": "writing.code-title",
+          "line": 15
+        }
+      ]
+    },
+    {
+      "scope": "product",
+      "name": "a code block with an empty title",
+      "files": {
+        "docs/about/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you check the writing rules\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nRun it.\n\n```sh title=\"\"\ndocker start dezfil\n```\n"
+      },
+      "problems": [
+        {
+          "file": "docs/about/case.md",
+          "rule": "writing.code-title",
+          "line": 15
+        }
+      ]
+    },
+    {
+      "scope": "product",
+      "name": "code blocks with a language and a title, in a list item and after one",
+      "files": {
+        "docs/about/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you check the writing rules\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nRun it.\n\n```sh title=\"Terminal\"\ncurl http://localhost:3000/api/health\n```\n\n```json title=\"Output\"\n{\"status\":\"ready\"}\n```\n\n1. Check it:\n\n   ```sh title=\"Terminal\"\n   docker logs dezfil\n   ```\n"
+      },
+      "problems": []
+    },
+    {
+      "scope": "product",
+      "name": "a tab set with one tab",
+      "files": {
+        "docs/about/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you check the writing rules\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nRun it.\n\n::::tabs\n:::tab[Docker]\n```sh title=\"Terminal\"\ndocker start dezfil\n```\n:::\n::::\n"
+      },
+      "problems": [
+        {
+          "file": "docs/about/case.md",
+          "rule": "writing.tabs-count",
+          "line": 15
+        }
+      ]
+    },
+    {
+      "scope": "product",
+      "name": "a tab set with a tab left open",
+      "files": {
+        "docs/about/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you check the writing rules\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nRun it.\n\n::::tabs\n:::tab[Docker]\n```sh title=\"Terminal\"\ndocker start dezfil\n```\n:::\n:::tab[Docker Compose]\nRun it with Compose.\n::::\n"
+      },
+      "problems": [
+        {
+          "file": "docs/about/case.md",
+          "rule": "writing.tabs-unclosed",
+          "line": 21
+        }
+      ]
+    },
+    {
+      "scope": "product",
+      "name": "a tab set never closed",
+      "files": {
+        "docs/about/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you check the writing rules\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nRun it.\n\n::::tabs\n:::tab[Docker]\nRun it.\n:::\n:::tab[Docker Compose]\nRun it with Compose.\n:::\n"
+      },
+      "problems": [
+        {
+          "file": "docs/about/case.md",
+          "rule": "writing.tabs-unclosed",
+          "line": 15
+        }
+      ]
+    },
+    {
+      "scope": "product",
+      "name": "a tab set with content outside its tabs",
+      "files": {
+        "docs/about/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you check the writing rules\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nRun it.\n\n::::tabs\n:::tab[Docker]\nRun it.\n:::\n\nBetween the tabs.\n\n:::tab[Docker Compose]\nRun it with Compose.\n:::\n::::\n"
+      },
+      "problems": [
+        {
+          "file": "docs/about/case.md",
+          "rule": "writing.tabs-outside",
+          "line": 20
+        }
+      ]
+    },
+    {
+      "scope": "product",
+      "name": "a tab without a label",
+      "files": {
+        "docs/about/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you check the writing rules\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nRun it.\n\n::::tabs\n:::tab[Docker]\nRun it.\n:::\n:::tab\nRun it with Compose.\n:::\n::::\n"
+      },
+      "problems": [
+        {
+          "file": "docs/about/case.md",
+          "rule": "writing.tabs-label",
+          "line": 19
+        }
+      ]
+    },
+    {
+      "scope": "product",
+      "name": "a tab set with two tabs of one label",
+      "files": {
+        "docs/about/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you check the writing rules\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nRun it.\n\n::::tabs\n:::tab[Docker]\nRun it.\n:::\n:::tab[Docker]\nRun it again.\n:::\n::::\n"
+      },
+      "problems": [
+        {
+          "file": "docs/about/case.md",
+          "rule": "writing.tabs-label",
+          "line": 19
+        }
+      ]
+    },
+    {
+      "scope": "product",
+      "name": "a tab line outside a tab set",
+      "files": {
+        "docs/about/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you check the writing rules\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nRun it.\n\n:::tab[Docker]\nRun it.\n:::\n"
+      },
+      "problems": [
+        {
+          "file": "docs/about/case.md",
+          "rule": "writing.tabs-form",
+          "line": 15
+        },
+        {
+          "file": "docs/about/case.md",
+          "rule": "writing.tabs-form",
+          "line": 17
+        }
+      ]
+    },
+    {
+      "scope": "product",
+      "name": "a tab set inside a tab",
+      "files": {
+        "docs/about/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you check the writing rules\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nRun it.\n\n::::tabs\n:::tab[Docker]\n::::tabs\nRun it.\n:::\n:::tab[Docker Compose]\nRun it with Compose.\n:::\n::::\n"
+      },
+      "problems": [
+        {
+          "file": "docs/about/case.md",
+          "rule": "writing.tabs-form",
+          "line": 17
+        }
+      ]
+    },
+    {
+      "scope": "product",
+      "name": "a tab set opened with three colons",
+      "files": {
+        "docs/about/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you check the writing rules\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nRun it.\n\n:::tabs\n:::tab[Docker]\nRun it.\n:::\n:::tab[Docker Compose]\nRun it with Compose.\n:::\n::::\n"
+      },
+      "problems": [
+        {
+          "file": "docs/about/case.md",
+          "rule": "writing.tabs-form",
+          "line": 15
+        },
+        {
+          "file": "docs/about/case.md",
+          "rule": "writing.tabs-form",
+          "line": 16
+        },
+        {
+          "file": "docs/about/case.md",
+          "rule": "writing.tabs-form",
+          "line": 18
+        },
+        {
+          "file": "docs/about/case.md",
+          "rule": "writing.tabs-form",
+          "line": 19
+        },
+        {
+          "file": "docs/about/case.md",
+          "rule": "writing.tabs-form",
+          "line": 21
+        },
+        {
+          "file": "docs/about/case.md",
+          "rule": "writing.tabs-form",
+          "line": 22
+        }
+      ]
+    },
+    {
+      "scope": "product",
+      "name": "a well-formed tab set packed without blank lines, its tabs holding code, a list and a notice",
+      "files": {
+        "docs/about/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you check the writing rules\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nRun it.\n\n::::tabs\n:::tab[macOS and Linux]\n```sh title=\"Terminal\"\ndocker start dezfil\n```\nOpen a new terminal.\n:::\n:::tab[Windows]\n- Open PowerShell.\n- Run it.\n:::\n:::tab[Any other client]\n> [!NOTE]\n> A client in the cloud cannot reach your network.\n:::\n::::\nAfter the set.\n"
+      },
+      "problems": []
+    },
+    {
+      "scope": "product",
+      "name": "tab lines inside a code block",
+      "files": {
+        "docs/about/case.md": "---\ntitle: \"Case\"\nsummary: \"A page used to show one writing rule.\"\nread_when:\n  - \"you check the writing rules\"\naudience:\n  - developer\nchecked: none\n---\n\n## First\n\nRun it.\n\n```md title=\"Tabs\"\n::::tabs\n:::tab[Docker]\n:::\n```\n"
+      },
+      "problems": []
     }
   ],
   "order": [
