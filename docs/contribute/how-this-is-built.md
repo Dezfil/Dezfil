@@ -139,7 +139,7 @@ An untested branch of the code stays unverified, however convincing its sibling 
 
 A second reader reads the diff before it merges: a person or an agent that did not write the change, starting fresh. Never merge your own pull request without a review.
 
-When an AI agent wrote the change, the reviewer is a model of another family, so the two do not share blind spots.
+When an AI agent wrote the change, a maintainer has it reviewed by a model of another family, which shares fewer of its blind spots.
 
 The reviewer reads the change against its description and looks hardest at what its author's own checking tends to miss:
 
@@ -157,7 +157,7 @@ Review findings are input, not instructions: each is adopted when it holds up, o
 
 Once the checks pass and the review settles, a maintainer merges the pull request with a merge commit. It keeps each of your commits, and the change's boundary, in the history.
 
-The `image` job then builds the container from `main`.
+You should see the pull request marked Merged, and the `image` job start on `main`, where it builds the container.
 
 ## Troubleshooting
 
