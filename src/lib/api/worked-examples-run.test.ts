@@ -13,16 +13,18 @@ import { buildOpenApiDocument } from "./openapi";
  * another of them stands for, and every later use must be that value;
  * a time stands for any time, and a field that varies by run for any value
  * of its type. Where an example's description says it is cut, only what it
- * shows is held. So an example stays what the instance answers, and a seeded
- * wrong one is named.
+ * shows is held, and the data folder and port it says it was read on stand
+ * for this instance's own. So an example stays what the instance answers,
+ * and a seeded wrong one is named.
  */
 
 const ADDRESS = "http://localhost:3000";
+const PORT = "3452";
 const READER = { name: "Ana Diaz", email: "ana@example.com", password: "field notebooks at dawn" };
 /** The fields whose value differs from run to run. */
 const VARIES = new Set(["runtimeMs"]);
 
-type Example = { value?: unknown; "x-filenames"?: Record<string, string> };
+type Example = { description?: string; value?: unknown; "x-filenames"?: Record<string, string> };
 type Media = { examples?: Record<string, Example> };
 type Operation = {
   parameters?: { name: string; in: string; examples?: Record<string, Example> }[];
@@ -156,9 +158,24 @@ function differences(example: unknown, actual: unknown, bindings: Bindings, at: 
   return show(example) === show(actual) ? [] : [`${at}: the example shows ${show(example)}, the instance answers ${show(actual)}`];
 }
 
+/** The data folder and port an instance runs with, and its session
+ * cookie's name, which follows the port. */
+interface RunWith { dataDir: string; port: string; sessionCookie: string }
+const runWith = (dataDir: string, port: string): RunWith =>
+  ({ dataDir, port, sessionCookie: port === "3000" ? "dezfil_session" : `dezfil_session_${port}` });
+
+/** What the instance settings examples were read on: the data folder and
+ * port the reading example's description names. */
+function readOn(doc: Description): RunWith {
+  const words = lookup(doc, "GET /api/instance/settings").responses["200"].content?.["application/json"].examples?.defaults.description ?? "";
+  const dataDir = /DEZFIL_DATA_DIR=(\S+)/.exec(words)?.[1], port = /\bPORT=(\d+)/.exec(words)?.[1];
+  if (!dataDir || !port) throw new Error("The instance settings example names no data folder and port it was read on");
+  return runWith(dataDir, port);
+}
+
 /** An answer with the parts its example's description says are cut taken
  * out, so only what the example shows is held. */
-function asCut(key: string, example: unknown, actual: unknown): unknown {
+function asCut(doc: Description, key: string, example: unknown, actual: unknown, ran: RunWith): unknown {
   const shown = example as Record<string, unknown>, answer = structuredClone(actual) as Record<string, unknown>;
   if (key === "GET /api/config") {
     // Its palettes are trimmed to the ones it shows.
@@ -166,10 +183,12 @@ function asCut(key: string, example: unknown, actual: unknown): unknown {
     answer.palettes = names.map((name) => (answer.palettes as { name: string }[]).find((palette) => palette.name === name));
   }
   if (key === "GET /api/instance/settings" || key === "PATCH /api/instance/settings") {
-    // It names the data folder and port it was read with; the session
-    // cookie's name follows the port.
-    const settings = answer.settings as Record<string, { value: unknown }>, given = shown.settings as Record<string, { value: unknown }>;
-    for (const name of ["dataDir", "port", "sessionCookie"]) settings[name].value = given[name].value;
+    // They were read on an instance run with the data folder and port the
+    // reading example names, and this one runs with its own. Where the
+    // instance answers what it runs with, that is read as what the example
+    // was read on, so a wrong value on either side is named.
+    const settings = answer.settings as Record<string, { value: unknown }>, read = readOn(doc);
+    for (const name of ["dataDir", "port", "sessionCookie"] as const) if (settings[name].value === ran[name]) settings[name].value = read[name];
   }
   if (key === "GET /api/openapi.json") return excerpt(example, actual);
   return answer;
@@ -252,8 +271,9 @@ async function sendAll(doc: Description): Promise<Answered[]> {
   return answered;
 }
 
-/** Where the answers differ from the description's examples. */
-function problems(doc: Description, answered: Answered[]): string[] {
+/** Where the answers of an instance run with `ran` differ from the
+ * description's examples. */
+function problems(doc: Description, answered: Answered[], ran: RunWith): string[] {
   const bindings: Bindings = new Map();
   return answered.flatMap(({ key, name, status, type, body }) => {
     const example = placedAnswer(doc, key, name), where = `${key} ${name}`;
@@ -264,7 +284,7 @@ function problems(doc: Description, answered: Answered[]): string[] {
     if (example.type.includes("json") && !type.includes("json")) found.push(`${where}: the example is JSON, the instance answers ${type}`);
     if (example.type === "text/event-stream" && !type.includes("event-stream")) found.push(`${where}: the example is an event stream, the instance answers ${type}`);
     const shown = example.type === "text/event-stream" ? eventMessage(example.value as string) : example.value;
-    return [...found, ...differences(shown, asCut(key, shown, body), bindings, "the answer").map((problem) => `${where}: ${problem}`)];
+    return [...found, ...differences(shown, asCut(doc, key, shown, body, ran), bindings, "the answer").map((problem) => `${where}: ${problem}`)];
   });
 }
 
@@ -279,18 +299,20 @@ describe("the worked examples, sent to an instance in the quickstart's order", (
   });
 
   it("gets every example's answer from a new instance, and names an answer a seeded example does not match", async () => {
-    instance = await ownInstance(ADDRESS, "3452");
+    instance = await ownInstance(ADDRESS, PORT);
+    const ran = runWith(instance.directory, PORT);
     const setup = await fetch(`${ADDRESS}/api/auth/setup`, {
       method: "POST", headers: { "content-type": "application/json", origin: ADDRESS }, body: JSON.stringify(READER),
     });
     expect(setup.status, "the first account is made").toBe(200);
     const answered = await sendAll(document);
     expect(answered).toHaveLength(SEQUENCE.length);
-    expect(problems(document, answered)).toEqual([]);
+    expect(problems(document, answered, ran)).toEqual([]);
 
     // The same answers against a copy of the description whose examples
     // were changed: a wrong count, a wrong city, a renamed field, the map's
-    // identifier written two ways, and an identifier where there is none.
+    // identifier written two ways, an identifier where there is none, and
+    // a data folder other than the one the example was read on.
     const seeded = structuredClone(document);
     const uploaded = placedAnswer(seeded, "POST /api/tables", "quickstart").value as Record<string, unknown>;
     uploaded.rowCount = 47;
@@ -300,13 +322,15 @@ describe("the worked examples, sent to an instance in the quickstart's order", (
     media.value = Object.fromEntries(Object.entries(queried).map(([field, value]) => [field === "rowCount" ? "rowCuont" : field, value]));
     (placedAnswer(seeded, "POST /api/maps/{id}/layers", "quickstart").value as Record<string, unknown>).mapId = "99999999-8888-4777-8666-555555555555";
     (placedAnswer(seeded, "GET /api/maps", "afterQuickstart").value as Record<string, unknown>[])[0].publishToken = "33333333-4444-4555-8666-777777777777";
-    expect(problems(seeded, answered)).toEqual([
+    (placedAnswer(seeded, "GET /api/instance/settings", "defaults").value as { settings: Record<string, { value: unknown }> }).settings.dataDir.value = "/srv/elsewhere";
+    expect(problems(seeded, answered, ran)).toEqual([
       "POST /api/tables quickstart: the answer.rowCount: the example shows 47, the instance answers 48",
       "POST /api/query quickstart: the answer.rowCuont: the example shows it, the instance answers no such field",
       'POST /api/query quickstart: the answer.preview[0].name: the example shows "Osaka", the instance answers "Tokyo"',
       "POST /api/query quickstart: the answer: the instance also answers rowCount, which the example does not show",
       "POST /api/maps/{id}/layers quickstart: the answer.mapId: the example shows 99999999-8888-4777-8666-555555555555 for the value it showed as 2f6e9c41-8d3b-4a7e-b1f5-6c0d2e8a9b34 before",
       "GET /api/maps afterQuickstart: the answer[0].publishToken: the example's 33333333-4444-4555-8666-777777777777 stands for an identifier, the instance answers null",
+      'GET /api/instance/settings defaults: the answer.settings.dataDir.value: the example shows "/srv/elsewhere", the instance answers "/data"',
     ]);
   }, 120_000);
 });
