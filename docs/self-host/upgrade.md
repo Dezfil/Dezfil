@@ -65,9 +65,9 @@ docker compose build
 
 ## 3. Back up
 
-Let running tools and workflows finish. Then back up the volume as [Back up](backup-and-restore.md#back-up) shows: it stops Dezfil, copies the volume to `$HOME/dezfil-backup`, prints `Copied` and starts the old version again.
+Let running tools and workflows finish. Then back up the volume as [Back up](backup-and-restore.md#back-up) shows: it stops Dezfil, copies the volume to `$HOME/dezfil-backup`, prints `Copied` and starts the old version again. The version to note with this backup is the commit step 2 printed: after `git pull`, `git rev-parse` prints the new one.
 
-If you set `DEZFIL_SECRET_KEY`, in `.env` or with `-e`, keep its value too, apart from the backup: the volume does not hold it. [The encryption key](backup-and-restore.md#the-encryption-key) says why.
+If you set `DEZFIL_SECRET_KEY`, in `.env` or with `-e`, keep its value too, apart from the backup, as [The encryption key](backup-and-restore.md#the-encryption-key) says.
 
 > [!NOTE]
 > A tool run cut off by a stop ends as failed, a workflow run as **Interrupted**, and neither runs again by itself.
