@@ -189,7 +189,7 @@ Run `curl http://localhost:3000/api/health`. `Internal Server Error` means Dezfi
 
 ### Settings says "The instance’s encryption key cannot read the saved address. Save it again."
 
-The key in `.env` is not the one that saved the address. Either it changed, or it has another form than 64 hex characters. Then saving the address again fails with "An unexpected server error occurred.", and the logs say "DEZFIL_SECRET_KEY must be 64 hex characters (32 bytes)."
+The key in `.env` is not the one that saved the address: it changed, or it has another form than 64 hex characters. With a key of another form, saving the address again fails with "An unexpected server error occurred.", and the logs say "DEZFIL_SECRET_KEY must be 64 hex characters (32 bytes)."
 
 Put the earlier key back in `.env`, the value you kept or the volume's `secret.key`, then run `docker compose up -d`. A new key from `openssl rand -hex 32` is right only when Dezfil never saved anything with a key. If the earlier key is lost, [Back up and restore](backup-and-restore.md#saved-connections-or-service-addresses-fail-after-a-restore) says what to save again.
 
