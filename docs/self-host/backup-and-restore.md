@@ -250,7 +250,7 @@ Add to `docker run` the `-e` variables you set, `DEZFIL_SECRET_KEY` among them. 
 
 :::tab[Docker Compose]
 
-Give the volume `name: dezfil-data` in `compose.yaml`, as [Docker Compose](docker-compose.md#1-write-the-compose-file) shows, then run `docker compose up -d`.
+Give the volume `name: dezfil-data` in `compose.yaml`, as [Docker Compose](docker-compose.md#2-write-the-compose-file) shows, then run `docker compose up -d`.
 
 :::
 

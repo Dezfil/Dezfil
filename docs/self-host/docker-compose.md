@@ -13,13 +13,32 @@ checked: none
 order: 1
 ---
 
-One Compose file holds a lasting setup: the volume that keeps the data, a file with the keys, a restart policy and a health check.
+Turn the quick start into an instance that lasts: its keys in a file of their own, a health check Docker reads, logs that stay small, and a start after every reboot.
 
 - **You need:** Docker with the `docker compose` command, on the machine that serves Dezfil.
 - **The code:** the `Dezfil` folder from [Install](../start/install.md). On a new machine, run `git clone https://github.com/Dezfil/Dezfil.git`.
 - **For the key:** `openssl`, which makes a random encryption key.
 
-## 1. Write the Compose file
+## 1. Note what your instance runs with
+
+On a new machine, go on with step 2. If Dezfil already runs here, note its key and its variables before you replace anything:
+
+1. Sign in as an admin, open **Settings** > **System**, and find the **Encryption key** row in **Server settings**.
+2. List the container's variables:
+
+```sh title="Terminal"
+docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' dezfil
+```
+
+The list holds the image's own variables too, such as `PATH` and `DEZFIL_DATA_DIR`. The others are the ones you set, with `-e` or under `environment:`.
+
+The **Encryption key** row says which key to use in step 3:
+
+- **secret.key in the data folder**: the volume's key, which [Keep the key you have](#keep-the-key-you-have) prints.
+- **Set**, with the source **Environment**: the `DEZFIL_SECRET_KEY` value in the list.
+- **Not created yet**: a new one, as step 3 makes it.
+
+## 2. Write the Compose file
 
 In the `Dezfil` folder, save this file as `compose.yaml`:
 
@@ -55,16 +74,14 @@ volumes:
 - `build: .` builds the image from the folder, and `image: dezfil` names it.
 - `127.0.0.1:3000:3000` serves Dezfil on port 3000 of this machine only. To serve it under your domain, see [Reverse proxy and HTTPS](reverse-proxy.md).
 - `dezfil-data:/data` keeps everything Dezfil stores in the `dezfil-data` volume. `name: dezfil-data` keeps that exact name; without it, Compose adds the folder's name, as in `dezfil_dezfil-data`.
-- `env_file: .env` passes the keys you write in step 2 to Dezfil.
+- `env_file: .env` passes the variables you write in step 3 to Dezfil.
 - `restart: unless-stopped` starts Dezfil again after a crash and whenever Docker starts, unless you stopped it with `docker compose stop`.
 - `healthcheck` asks `/api/health` from inside the container every 30 seconds. After three failures in a row, Docker marks the container unhealthy, but it does not restart it for that.
 - `logging` caps the container's logs at three files of 10 MB each, so a long-running instance does not fill the disk.
 
 If you used the Compose tab of Install, replace its `compose.yaml` with this one. Both use the `dezfil-data` volume, so your data stays.
 
-## 2. Make the keys file
-
-If the `dezfil-data` volume holds data already, [keep the key you have](#keep-the-key-you-have) instead of running this command.
+## 3. Make the keys file
 
 ```sh title="Terminal"
 printf 'DEZFIL_SECRET_KEY=%s\n' "$(openssl rand -hex 32)" > .env
@@ -75,9 +92,9 @@ chmod 600 .env
 - `openssl rand -hex 32` makes a random key of that length.
 - `chmod 600 .env` lets only your user read the file. Git ignores `.env`, and Docker leaves it out of the image it builds.
 
-Without this variable, Dezfil makes a key itself, the first time it needs one, and keeps it in the volume as `secret.key`. With the key in `.env` from the first start, a copy of the volume alone cannot read those passwords.
+If step 1 gave you a key, write that one instead, as the line `DEZFIL_SECRET_KEY=<64_HEX_CHARACTERS>`, and run `chmod 600 .env`. With a new key in `.env` from the first start, a copy of the volume alone cannot read those passwords.
 
-To turn on the assistant, add its key to the same file:
+Add the other variables you noted in step 1, one `NAME=value` line each, or put them under `environment:` in `compose.yaml` as [Configuration](configuration.md#set-a-variable) shows. To turn on the assistant, add its key to `.env`:
 
 ```sh title=".env"
 DEZFIL_SECRET_KEY=<64_HEX_CHARACTERS>
@@ -89,15 +106,19 @@ For OpenAI, the line is `OPENAI_API_KEY=<YOUR_OPENAI_KEY>`. [Set up the assistan
 When you change `.env` later, run `docker compose up -d`. Compose replaces the container and keeps the volume.
 
 > [!WARNING]
-> Keep a copy of `.env` in a safe place, apart from the volume's backups. Without its key, Dezfil cannot read the saved connection passwords and service addresses, and they must be entered again.
+> Keep a copy of `.env` in a safe place, apart from the volume's backups. Without its key, Dezfil cannot read the saved connection passwords and service addresses: you save each address again, and delete and add each connection again.
 
-## 3. Start Dezfil
+## 4. Start Dezfil
 
 ```sh title="Terminal"
 docker compose up -d --build
 ```
 
-The first build takes a few minutes. About a minute after Dezfil starts, check its health:
+The first build takes a few minutes.
+
+If Dezfil runs from Install's Docker command, Compose stops at `The container name "/dezfil" is already in use`. Remove that container with `docker rm -f dezfil`, which keeps the volume, and run the command again. Compose then says the `dezfil-data` volume "already exists but was not created by Docker Compose", and uses it all the same.
+
+About a minute after Dezfil starts, check its health:
 
 ```sh title="Terminal"
 docker inspect --format '{{.State.Health.Status}}' dezfil
@@ -109,17 +130,17 @@ healthy
 
 `starting` means the first check has not passed yet. Ask again after 30 seconds.
 
-Then open <http://localhost:3000>. On a new volume, Dezfil asks for the first account, which becomes the admin: see [First run](../start/install.md#first-run).
+Then open <http://localhost:3000>. On a new volume, Dezfil asks for the first account, which becomes the admin: see [First run](../start/install.md#first-run). Behind a reverse proxy, the proxy's address changes with Compose: set `DEZFIL_TRUSTED_PROXIES` again as [Trust the proxy](reverse-proxy.md#2-trust-the-proxy) shows.
 
-## 4. Check the keys
+## 5. Check the keys
 
 1. Sign in as an admin and open **Settings** > **System**.
 2. In **Server settings**, find the **Encryption key** row. You should see **Set**, with the source **Environment**.
 3. If you added an assistant key, the **Anthropic credential** or **OpenAI credential** row shows **Set** too.
 
-**Set** shows that the variable reached Dezfil. Dezfil reads the key's form the first time it uses the key; [Troubleshooting](#troubleshooting) has the message for a key of the wrong form.
+**Set** shows that the variable reached Dezfil. A key of the wrong form also shows **Set**: [Troubleshooting](#troubleshooting) says how it shows itself.
 
-## 5. Check the restart policy
+## 6. Check the restart policy
 
 ```sh title="Terminal"
 docker inspect --format '{{.HostConfig.RestartPolicy.Name}}' dezfil
@@ -152,21 +173,23 @@ docker run --rm -v dezfil-data:/data:ro --entrypoint cat dezfil /data/secret.key
 - `-v dezfil-data:/data:ro` mounts the volume read-only.
 - `--entrypoint cat dezfil /data/secret.key` prints the key file with the `dezfil` image you built.
 
-If you see `cat: /data/secret.key: No such file or directory` instead, Dezfil has made no key yet, and a new key from step 2 is fine.
-
-Otherwise, write the key to `.env` as the line `DEZFIL_SECRET_KEY=<64_HEX_CHARACTERS>`, run `chmod 600 .env`, and go on with step 3. The volume keeps its `secret.key`, so its backups still hold that key.
+Use that value in step 3. The volume keeps its `secret.key`, so its backups still hold that key. If you see `cat: /data/secret.key: No such file or directory` instead, the volume holds no key: read the **Encryption key** row again, as step 1 says.
 
 ## Troubleshooting
 
-**Compose says the container name "/dezfil" is already in use.** A container from Install's Docker command has that name. Remove it with `docker rm -f dezfil`, then run `docker compose up -d` again. The volume keeps your data.
+### Compose says "env file … not found"
 
-**Compose says it cannot find `.env`.** Make the keys file of step 2 in the folder that holds `compose.yaml`, then start again.
+Make the keys file of step 3 in the folder that holds `compose.yaml`, then start again.
 
-**The health status reads `unhealthy`.** Run `curl http://localhost:3000/api/health`. An answer of `{"status":"unready", ...}` gives a reason, and `docker compose logs dezfil` shows the detail.
+### The health status reads `unhealthy`
 
-**The logs show "DEZFIL_SECRET_KEY must be 64 hex characters (32 bytes)."** The key in `.env` has another form, so nothing was encrypted with it. Replace its value with 64 hex characters: the key you kept, or a new one from `openssl rand -hex 32`. Then run `docker compose up -d`.
+Run `curl http://localhost:3000/api/health`. `Internal Server Error` means Dezfil did not start: [Start-up](troubleshooting.md#start-up) names the causes. An answer of `{"status":"unready", ...}` gives a reason, which [Health answers "unready"](troubleshooting.md#health-answers-unready) explains.
 
-**Settings shows "The instance’s encryption key cannot read the saved address. Save it again."** The key changed after the address was saved. Put the earlier key back in `.env` and run `docker compose up -d`. If that key is lost, [Back up and restore](backup-and-restore.md#saved-connections-or-service-addresses-fail-after-a-restore) says what to save again.
+### Settings says "The instance’s encryption key cannot read the saved address. Save it again."
+
+The key in `.env` is not the one that saved the address. Either it changed, or it has another form than 64 hex characters. Then saving the address again fails with "An unexpected server error occurred.", and the logs say "DEZFIL_SECRET_KEY must be 64 hex characters (32 bytes)."
+
+Put the earlier key back in `.env`, the value you kept or the volume's `secret.key`, then run `docker compose up -d`. A new key from `openssl rand -hex 32` is right only when Dezfil never saved anything with a key. If the earlier key is lost, [Back up and restore](backup-and-restore.md#saved-connections-or-service-addresses-fail-after-a-restore) says what to save again.
 
 ## Next steps
 
