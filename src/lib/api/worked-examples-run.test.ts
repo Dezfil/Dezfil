@@ -74,15 +74,19 @@ const SEQUENCE: [key: string, name: string, how?: "cookie" | "mcp"][] = [
   ["GET /api/health", "ready"],
   ["GET /api/config", "newInstance"],
   ["GET /api/assistant", "notEnabled"],
+  ["GET /api/assistant", "enabled"],
   ["GET /api/instance/settings", "defaults"],
   ["PATCH /api/instance/settings", "previewRows"],
   ["GET /api/settings", "newAccount"],
   ["PATCH /api/settings", "mapsAsList"],
   ["GET /api/openapi.json", "excerpt"],
 ];
-/** Examples not sent, and why. */
-const NOT_SENT: Record<string, string> = {
-  "GET /api/assistant enabled": "it needs a provider key on the instance",
+/** The variables set for one call only, as its example's description says
+ * the instance has them. A placeholder stands for the key: reading the
+ * assistant's status holds no credential, makes no client and reaches no
+ * network. */
+const SET_FOR: Record<string, Record<string, string>> = {
+  "GET /api/assistant enabled": { ANTHROPIC_API_KEY: "placeholder-not-a-key" },
 };
 
 /** Every example placed on an answer of the description, as `METHOD /path name`. */
@@ -263,7 +267,10 @@ async function sendAll(doc: Description): Promise<Answered[]> {
         body = JSON.stringify(filled(example.value, bindings));
       }
     }
+    const variables = Object.entries(SET_FOR[`${key} ${name}`] ?? {});
+    for (const [variable, value] of variables) vi.stubEnv(variable, value);
     const response = await fetch(`${ADDRESS}${path}${query.size ? `?${query}` : ""}`, { method, headers, body });
+    for (const [variable] of variables) vi.stubEnv(variable, undefined);
     if (response.headers.getSetCookie().length) cookie = response.headers.getSetCookie().map((set) => set.split(";")[0]).join("; ");
     const type = response.headers.get("content-type") ?? "", text = await response.text();
     const parsed = type.includes("json") ? JSON.parse(text) : type.includes("event-stream") ? eventMessage(text) : text;
@@ -297,10 +304,11 @@ let instance: OwnInstance | undefined;
 afterEach(async () => { await instance?.close(); instance = undefined; vi.unstubAllEnvs(); });
 
 describe("the worked examples, sent to an instance in the quickstart's order", () => {
-  it("sends every example the description places, but one that needs a provider key", () => {
+  it("sends every example the description places", () => {
     const sent = SEQUENCE.map(([key, name]) => `${key} ${name}`);
     expect(new Set(sent).size).toBe(sent.length);
-    expect([...sent, ...Object.keys(NOT_SENT)].sort()).toEqual(placedExamples(document).sort());
+    expect([...sent].sort()).toEqual(placedExamples(document).sort());
+    expect(Object.keys(SET_FOR).filter((example) => !sent.includes(example))).toEqual([]);
   });
 
   it("gets every example's answer from a new instance, and names an answer a seeded example does not match", async () => {
