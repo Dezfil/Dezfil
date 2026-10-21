@@ -106,7 +106,7 @@ mkdir "$HOME/dezfil-before-restore" && docker run --rm --user root --entrypoint 
   -c 'cp -a /data/. /backup/ && chown -R "$OWNER" /backup && chmod 700 /backup && echo Copied'
 ```
 
-It is the backup command with another folder, and it prints `Copied` the same way. If the volume holds nothing you need, run only `docker stop dezfil`: the restore needs Dezfil stopped.
+It is the backup command with another folder, and it prints `Copied` the same way. Without `Copied`, as after `File exists`, move the earlier copy away and run it again: step 2 empties the volume. If the volume holds nothing you need, run only `docker stop dezfil`: the restore needs Dezfil stopped.
 
 ### 2. Copy the backup into the volume
 

@@ -144,7 +144,7 @@ An upgraded database cannot be turned back in place. An older version starts on 
 
 ### 1. Keep the current data
 
-Run [step 1 of Restore](backup-and-restore.md#1-stop-dezfil-and-keep-the-current-data). It stops Dezfil, copies the volume as it is to `$HOME/dezfil-before-restore` and prints `Copied`.
+Run [step 1 of Restore](backup-and-restore.md#1-stop-dezfil-and-keep-the-current-data). It stops Dezfil, copies the volume as it is to `$HOME/dezfil-before-restore` and prints `Copied`. Go on only after `Copied`.
 
 ### 2. Put the old image back
 
