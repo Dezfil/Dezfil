@@ -407,8 +407,10 @@ button:disabled {
   --blur-overlay: blur(8px);
   --blur-veil: blur(4px);
 
-  /* The glass level, the wash under a small map, the veil behind a dialog */
+  /* The glass level, on the panel tone and on the raised tone; the wash
+     under a small map, the veil behind a dialog */
   --fill-glass: color-mix(in srgb, var(--bg-panel) 93%, transparent);
+  --fill-glass-raised: color-mix(in srgb, var(--bg-raised) 93%, transparent);
   --fill-wash: color-mix(in srgb, var(--bg-raised) 70%, transparent);
   --fill-veil: color-mix(in srgb, var(--fg) 32%, transparent);
 
@@ -448,9 +450,10 @@ button:disabled {
   /* A stage button grows a little under the pointer */
   --surface-overlay-control-grow: scale(1.06);
 
-  /* Page card: a card on a page, lifting on hover */
-  --surface-page-card-fill: var(--bg-panel);
-  --surface-page-card-blur: none;
+  /* Page card: a card on a page, lifting on hover; glass, with the side
+     panels' blur */
+  --surface-page-card-fill: var(--fill-glass);
+  --surface-page-card-blur: var(--blur-glass);
   --surface-page-card-edge: var(--edge-hairline);
   --surface-page-card-shadow: var(--shadow-float);
   --surface-page-card-shadow-hover: var(--shadow-deep);
@@ -460,8 +463,9 @@ button:disabled {
   --surface-page-card-lens: 0;
 
   /* Inner card: a card inside a panel or card, and a control that
-     carries a small shadow; lifted, and dragged */
-  --surface-inner-card-fill: var(--bg-panel);
+     carries a small shadow; lifted, and dragged. The glass tone with no
+     blur of its own: only the panel lies behind it */
+  --surface-inner-card-fill: var(--fill-glass);
   --surface-inner-card-blur: none;
   --surface-inner-card-edge: var(--edge-hairline);
   --surface-inner-card-shadow: var(--shadow-hairline);
@@ -479,25 +483,25 @@ button:disabled {
 
   /* Block: a block drawn inside a panel on the raised tone or the panel
      tone, with the hairline and no shadow of its own (a tile, an entry, a
-     message, a result); solid unless a look makes it otherwise */
-  --surface-block-fill: var(--bg-raised);
-  --surface-block-fill-panel: var(--bg-panel);
+     message, a result); the glass of either tone, no blur */
+  --surface-block-fill: var(--fill-glass-raised);
+  --surface-block-fill-panel: var(--fill-glass);
   --surface-block-edge: var(--edge-hairline);
   --surface-block-shadow: none;
 
   /* Map card: a card floating over a map on the panel tone, with the
-     hairline and no shadow (a widget card and its menu); solid unless a
-     look makes it otherwise */
-  --surface-map-card-fill: var(--bg-panel);
-  --surface-map-card-blur: none;
+     hairline and no shadow (a widget card and its menu); glass, with the
+     overlay blur */
+  --surface-map-card-fill: var(--fill-glass);
+  --surface-map-card-blur: var(--blur-overlay);
   --surface-map-card-edge: var(--edge-hairline);
   --surface-map-card-shadow: none;
   --surface-map-card-lens: 0;
 
-  /* Menu and pop-over: what opens over something and closes; solid
-     unless a look makes it otherwise */
-  --surface-menu-fill: var(--bg-panel);
-  --surface-menu-blur: none;
+  /* Menu and pop-over: what opens over something and closes; glass, with
+     the overlay blur */
+  --surface-menu-fill: var(--fill-glass);
+  --surface-menu-blur: var(--blur-overlay);
   --surface-menu-edge: var(--edge-hairline);
   --surface-menu-shadow: var(--shadow-lift);
   --surface-menu-lens: 0;
@@ -505,11 +509,11 @@ button:disabled {
      popup and failure notice */
   --surface-menu-edge-strong: 1px solid var(--border-strong);
   /* The raised ground of the map's tooltip, popup and failure notice */
-  --surface-menu-fill-raised: var(--bg-raised);
+  --surface-menu-fill-raised: var(--fill-glass-raised);
 
-  /* Dialog: every modal, solid unless a look makes it otherwise */
-  --surface-dialog-fill: var(--bg-panel);
-  --surface-dialog-blur: none;
+  /* Dialog: every modal; glass, with the side panels' blur */
+  --surface-dialog-fill: var(--fill-glass);
+  --surface-dialog-blur: var(--blur-glass);
   --surface-dialog-edge: var(--edge-hairline);
   --surface-dialog-shadow: var(--shadow-dialog);
   --surface-dialog-corner: var(--radius-card);
@@ -521,6 +525,26 @@ button:disabled {
   --surface-stage-edge: none;
   --surface-stage-shadow: var(--shadow-deep);
   --surface-stage-corner: var(--radius-card);
+}
+
+/* An image's default scope and a published page, in either mode, are other
+   people's view of a map: they keep the solid grounds the workspace's
+   glass replaced. Declared after the block, on the same elements, so these
+   win there; everything inside resolves them on its own tones. */
+[data-look-default],
+[data-published-view] {
+  --surface-page-card-fill: var(--bg-panel);
+  --surface-page-card-blur: none;
+  --surface-inner-card-fill: var(--bg-panel);
+  --surface-block-fill: var(--bg-raised);
+  --surface-block-fill-panel: var(--bg-panel);
+  --surface-map-card-fill: var(--bg-panel);
+  --surface-map-card-blur: none;
+  --surface-menu-fill: var(--bg-panel);
+  --surface-menu-blur: none;
+  --surface-menu-fill-raised: var(--bg-raised);
+  --surface-dialog-fill: var(--bg-panel);
+  --surface-dialog-blur: none;
 }
 
 /* ---- The quiet inks by day. The body darkens each Color's quiet and

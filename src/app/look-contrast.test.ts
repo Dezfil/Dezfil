@@ -6,8 +6,8 @@ import { lookChoices } from "@/lib/look";
  * Readability under the Panels looks. Every surface that carries words
  * keeps a fill strong enough that its quiet ink reads at 4.5:1 or better
  * over the strictest data colour below, in each of the four Colors and both
- * themes, at both Contrasts, under Liquid at each of its transparency steps
- * and under Paper: computed here
+ * themes, at both Contrasts, under Glass, under Liquid at each of its
+ * transparency steps and under Paper: computed here
  * from the fills the looks' stylesheets declare and the tones the page
  * declares, the backdrop unblurred, as a person's eye would meet it at the
  * worst spot, in the quiet ink the page's body takes under that look (Liquid
@@ -22,7 +22,8 @@ import { lookChoices } from "@/lib/look";
 
 type RGBA = [number, number, number, number];
 type Theme = "light" | "dark";
-type Look = "liquid" | "paper";
+type Look = "glass" | "liquid" | "paper";
+const LOOKS: Look[] = ["glass", "liquid", "paper"];
 type Step = "clear" | "medium" | "firm";
 const STEPS: Step[] = ["clear", "medium", "firm"];
 type Rule = { selectors: string[]; within: string | null; tokens: Map<string, string> };
@@ -79,8 +80,10 @@ function tones(color: string, theme: Theme, contrast = "standard", GLOBALS = GLO
 }
 
 /** A look's restated roles on the root at a step, over the shipped block,
- * as the cascade orders them: by day, by night, the step by day, the step by night. */
+ * as the cascade orders them: by day, by night, the step by day, the step by
+ * night. Glass is the shipped block itself and restates nothing. */
 function restated(look: Look, theme: Theme, step: Step, liquidCss: string, paperCss: string): Map<string, string> {
+  if (look === "glass") return new Map();
   const night = theme === "dark" ? '[data-theme="dark"]' : "";
   const key = `[data-look-panels="${look}"]`, stepped = step === "clear" ? "" : `[data-look-transparency="${step}"]`;
   const sheet = rules(look === "liquid" ? liquidCss : paperCss);
@@ -206,16 +209,16 @@ const SURFACES: { role: string; part: string; over: Backdrop[] }[] = [
 const FLOOR = 4.5;
 const COLORS = lookChoices("color");
 const CONTRASTS = lookChoices("contrast");
-/** The steps a look reads at: Liquid's three, Paper's one. */
+/** The steps a look reads at: Liquid's three, Glass's and Paper's one. */
 const stepsOf = (look: Look): Step[] => (look === "liquid" ? STEPS : ["clear"]);
 
 type Reading = { look: Look; color: string; theme: Theme; contrast: string; step: Step; surface: string; ratio: number; alpha: number };
 
-/** Every reading for both looks; the stylesheets' text can be seeded. */
-function readings(liquidCss = LIQUID_CSS, paperCss = PAPER_CSS): Reading[] {
-  const block = GLOBALS.find(rule => rule.tokens.has("--surface-menu-shadow"))!.tokens;
+/** Every reading for the three looks; the stylesheets' text can be seeded. */
+function readings(liquidCss = LIQUID_CSS, paperCss = PAPER_CSS, globals = GLOBALS): Reading[] {
+  const block = globals.find(rule => rule.tokens.has("--surface-menu-shadow"))!.tokens;
   const out: Reading[] = [];
-  for (const look of ["liquid", "paper"] as Look[]) for (const color of COLORS) for (const theme of ["light", "dark"] as Theme[])
+  for (const look of LOOKS) for (const color of COLORS) for (const theme of ["light", "dark"] as Theme[])
   for (const level of CONTRASTS) for (const step of stepsOf(look)) {
     const scope = new Map([...tones(color, theme, level), ...block, ...restated(look, theme, step, liquidCss, paperCss),
       ["--fg-muted-palette", "var(--fg-muted)"], ["--fg-faint-palette", "var(--fg-faint)"]]);
@@ -229,7 +232,7 @@ function readings(liquidCss = LIQUID_CSS, paperCss = PAPER_CSS): Reading[] {
       inspector: [over(fill("glass-panel", "fill"), cell)],
     };
     // The body's quiet ink: as the look's sheet restates it on the body, else the root's.
-    const body = tokensOf(rules(look === "liquid" ? liquidCss : paperCss), `:root[data-look-panels="${look}"] body`);
+    const body = look === "glass" ? new Map<string, string>() : tokensOf(rules(look === "liquid" ? liquidCss : paperCss), `:root[data-look-panels="${look}"] body`);
     // Glass and Paper by day at the Standard contrast: the body's darker day ink, made from the palette's.
     const day = look !== "liquid" && theme === "light" && level === "standard";
     const dayInk = tokensOf(GLOBALS, DAY_BODY).get("--fg-muted");
@@ -267,12 +270,12 @@ const unstepped = (theme: Theme, step: Step) => {
 };
 
 describe("readability under the Panels looks", () => {
-  it("reads the quiet ink at 4.5:1 or better over the strictest place, in every Color, theme and Contrast, under Liquid at each step and under Paper", () => {
+  it("reads the quiet ink at 4.5:1 or better over the strictest place, in every Color, theme and Contrast, under Glass, under Liquid at each step and under Paper", () => {
     const all = readings();
-    expect(all).toHaveLength(COLORS.length * 2 * CONTRASTS.length * (STEPS.length + 1) * SURFACES.length);
+    expect(all).toHaveLength(COLORS.length * 2 * CONTRASTS.length * (STEPS.length + 2) * SURFACES.length);
     // The record: one line per look, Color, theme, Contrast and step, the surfaces' ratios in order.
     const lines = ["look    color    theme  contrast step   " + SURFACES.map(surface => `${surface.role} ${surface.part}`).join(" | ")];
-    for (const look of ["liquid", "paper"] as Look[]) for (const color of COLORS) for (const theme of ["light", "dark"])
+    for (const look of LOOKS) for (const color of COLORS) for (const theme of ["light", "dark"])
     for (const contrast of CONTRASTS) for (const step of stepsOf(look)) {
       const row = all.filter(reading => reading.look === look && reading.color === color && reading.theme === theme
         && reading.contrast === contrast && reading.step === step);
@@ -296,6 +299,19 @@ describe("readability under the Panels looks", () => {
     for (const theme of ["light", "dark"] as Theme[]) for (const step of STEPS) {
       expect(surfaces.map(surface => kelp(theme, step, surface)), `${theme} ${step}`).toEqual(measured[theme][step]);
     }
+  });
+
+  it("reads every ground under Glass as its glass, never solid", () => {
+    // The panel tone or the raised tone at 93 %, on every surface that carries words.
+    const glass = readings().filter(reading => reading.look === "glass");
+    expect(glass.length).toBe(COLORS.length * 2 * CONTRASTS.length * SURFACES.length);
+    for (const reading of glass) expect(reading.alpha, `${reading.color} ${reading.theme} ${reading.surface}`).toBeCloseTo(0.93, 9);
+  });
+
+  it("fails on Glass's fill thinned to Liquid's clear share", () => {
+    const thin = rules(read("src/app/globals.css").replace("--fill-glass: color-mix(in srgb, var(--bg-panel) 93%, transparent);",
+      "--fill-glass: color-mix(in srgb, var(--bg-panel) 36%, transparent);"));
+    expect(below(readings(LIQUID_CSS, PAPER_CSS, thin)).some(line => line.startsWith("glass kelp light standard clear glass-panel fill"))).toBe(true);
   });
 
   it("finds every fill Paper declares opaque, and every fill Liquid declares on request", () => {

@@ -542,27 +542,28 @@ describe("the members of each role", () => {
     }
   });
 
-  it("draw the blocks inside panels and the widget cards over the map from their roles at the values they had", () => {
+  it("draw the blocks inside panels and the widget cards over the map from their roles, as glass", () => {
     if (STEP.block > MOVED_THROUGH) return;
-    // Each as it was drawn before it read a role, written out here: the raised or the panel tone, the hairline, no shadow, no blur.
+    // Each written out here: the raised or the panel tone's glass, the hairline, no shadow; a widget card takes the
+    // overlay blur, a block none, since only its panel lies behind it.
     for (const member of MEMBERS.filter(candidate => candidate.role === "block" || candidate.role === "map-card")) {
       const drawn = Object.fromEntries(declarations(read(member.file), member.selector)!);
-      const tone = member.parts.includes("fill") && member.role === "block" ? "var(--bg-raised)" : "var(--bg-panel)";
+      const tone = member.parts.includes("fill") && member.role === "block" ? "color-mix(in srgb, var(--bg-raised) 93%, transparent)" : "color-mix(in srgb, var(--bg-panel) 93%, transparent)";
       expect(resolveThroughBlock(drawn.background), member.selector).toBe(tone);
       expect(resolveThroughBlock(drawn["box-shadow"]), member.selector).toBe("none");
       if (member.parts.includes("edge")) expect(resolveThroughBlock(drawn.border), member.selector).toBe("1px solid var(--border)");
-      if (member.role === "map-card") expect(resolveThroughBlock(drawn["backdrop-filter"]), member.selector).toBe("none");
+      if (member.role === "map-card") expect(resolveThroughBlock(drawn["backdrop-filter"]), member.selector).toBe("blur(8px)");
       else expect(drawn["backdrop-filter"], member.selector).toBeUndefined();
     }
   });
 
-  it("dress every dialog and its veil from the role and the veil's tokens at the values they had", () => {
+  it("dress every dialog and its veil from the role and the veil's tokens, the dialog as glass", () => {
     if (STEP.dialog > MOVED_THROUGH) return;
     const css = read(C + "ui/Dialog.module.css");
     const dialog = Object.fromEntries(declarations(css, ".dialog")!);
     const scrim = Object.fromEntries(declarations(css, ".scrim")!);
-    // The dialog and its veil as they were drawn before they read a role, written out here.
-    expect(resolveThroughBlock(dialog.background)).toBe("var(--bg-panel)");
+    // The dialog on the panel tone's glass and its veil, written out here.
+    expect(resolveThroughBlock(dialog.background)).toBe("color-mix(in srgb, var(--bg-panel) 93%, transparent)");
     expect(resolveThroughBlock(dialog.border)).toBe("1px solid var(--border)");
     expect(resolveThroughBlock(dialog["border-radius"])).toBe("var(--radius-card)");
     expect(resolveThroughBlock(dialog["box-shadow"])).toBe("0 30px 80px var(--shadow)");
@@ -649,17 +650,17 @@ describe("the members of each role", () => {
     expect(tile["border-radius"]).toBe("var(--radius-card)");
     expect(tile.border).toMatch(/var\(--gc,/);
     expect(tile.background).toMatch(/var\(--gc,/);
-    // Its ground is the inner card's fill under its group tint: today's colour to the digit.
+    // Its ground is the inner card's glass under its group tint.
     expect(tile.background).toContain("var(--surface-inner-card-fill)");
-    expect(resolveThroughBlock(tile.background)).toBe("color-mix(in srgb, var(--gc, var(--fg-muted-palette)) 12%, var(--bg-panel))");
+    expect(resolveThroughBlock(tile.background)).toBe("color-mix(in srgb, var(--gc, var(--fg-muted-palette)) 12%, color-mix(in srgb, var(--bg-panel) 93%, transparent))");
     // Selected, the ring is drawn first, so it paints above the shadow as it did.
     expect(Object.fromEntries(declarations(canvas, ".member[data-sel] .tBox")!)["box-shadow"])
       .toBe("0 0 0 3px var(--accent-dim), var(--surface-inner-card-shadow-lifted)");
   });
 
-  it("open every menu and pop-over solid, the map's tooltip and popup on their own raised tone, the accented drawer keeping its ring", () => {
+  it("open every menu and pop-over on its role's glass, the map's tooltip and popup on the raised tone's, the accented drawer keeping its ring", () => {
     if (STEP.menu > MOVED_THROUGH) return;
-    // Solid: no member fills itself with a see-through mix or blurs what is behind it.
+    // No member makes a see-through mix of its own or blurs what is behind it other than by its role.
     const menus = MEMBERS.filter(member => member.role === "menu");
     expect(menus.flatMap(menu => (declarations(read(menu.file), menu.selector) ?? [])
       .filter(([property, value]) => (/^background(-color)?$/.test(property) && /transparent/.test(value))
@@ -668,7 +669,7 @@ describe("the members of each role", () => {
     const canvas = read(C + "map/MapCanvas.module.css");
     for (const selector of [".tooltip", ".popup", ".webglFailureCard"]) {
       expect(Object.fromEntries(declarations(canvas, selector)!).background, selector).toBe("var(--surface-menu-fill-raised)");
-      expect(resolveThroughBlock(Object.fromEntries(declarations(canvas, selector)!).background), selector).toBe("var(--bg-raised)");
+      expect(resolveThroughBlock(Object.fromEntries(declarations(canvas, selector)!).background), selector).toBe("color-mix(in srgb, var(--bg-raised) 93%, transparent)");
     }
     // The accent ring is drawn first, so it paints above the shadow as it did.
     expect(Object.fromEntries(declarations(read(C + "QueryDrawer.module.css"), ".drawer[data-accent]")!)["box-shadow"])

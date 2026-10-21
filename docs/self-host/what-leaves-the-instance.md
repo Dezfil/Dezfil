@@ -96,8 +96,10 @@ the column's foot; members see General alone, read-only.
   Slate), Contrast (Standard or More contrast), Panels (Glass, Liquid or
   Paper, and for Liquid a Transparency of Clear, Medium or Firm), Background (Atlantic chart, Plain, Graticule or Hex lattice), Typeface
   (Inter, or System for the computer's own), Corners (Rounded or Soft) and Side
-  menu (Opens on hover, Always open or Icons only). Glass is the frosted panels
-  Dezfil has always had; Paper makes them solid. Liquid makes every card and
+  menu (Opens on hover, Always open or Icons only). Glass frosts every card and
+  panel, the cards and blocks inside a panel on the glass tone without a blur
+  of their own; Paper makes them solid. Under both, the quieter grey text is a
+  step darker by day. Liquid makes every card and
   panel the same clear liquid glass with a light on its rim: the header and
   side menu, the side panels, everything over the map, the map's buttons, the
   page cards, the cards and blocks inside panels, menus and dialogs. The map

@@ -345,7 +345,8 @@ const PAPER_LINE: Record<Theme, string> = {
 };
 
 /** Each role's parts under Paper; menus, dialogs, the blocks inside panels
- * and the cards over the map are as shipped. */
+ * and the cards over the map take solid grounds (Glass draws them as glass)
+ * and keep their shipped lines and shadows. */
 function paper(role: Role, theme: Theme): Record<string, string> | null {
   const sheet = { fill: PAPER_PANEL[theme], blur: "none", edge: "none", shadow: PAPER_LIFT[theme].lift };
   switch (role) {
@@ -358,7 +359,10 @@ function paper(role: Role, theme: Theme): Record<string, string> | null {
       "shadow-lifted": PAPER_LIFT[theme].card, "shadow-dragged": PAPER_LIFT[theme].lift, "edge-hover": CLEAR, "edge-new": DASHED_CLEAR,
     };
     case "stage": return { shadow: PAPER_LIFT[theme].lift };
-    case "menu": case "dialog": case "block": case "map-card": return null;
+    case "menu": return { fill: "var(--bg-panel)", blur: "none", "fill-raised": "var(--bg-raised)" };
+    case "dialog": return { fill: "var(--bg-panel)", blur: "none" };
+    case "block": return { fill: "var(--bg-raised)", "fill-panel": "var(--bg-panel)" };
+    case "map-card": return { fill: "var(--bg-panel)", blur: "none" };
   }
 }
 /** The roles whose line is resolved again on the body, so it takes Paper's softer lines as the members drew them. */
@@ -388,10 +392,10 @@ export function paperProblems(css: string, globals: string = GLOBALS): string[] 
           if (property !== "--border" && !BODY_LINES.some(role => property === `--surface-${role}-edge`)) {
             problems.push(`${selector}: sets ${property}; the body takes Paper's lines alone`);
           }
-        } else if (/^--surface-(menu|dialog)-/.test(property)) {
-          problems.push(`${selector}: restates ${property}; menus and dialogs are as shipped under Paper`);
-        } else if (/^--surface-(block|map-card)-/.test(property)) {
-          problems.push(`${selector}: restates ${property}; the blocks inside panels and the cards over the map are as shipped under Paper`);
+        } else if (/^--surface-(menu|dialog)-/.test(property) && !/-(fill|fill-raised|blur)$/.test(property)) {
+          problems.push(`${selector}: restates ${property}; menus and dialogs keep their shipped lines and shadows under Paper`);
+        } else if (/^--surface-(block|map-card)-/.test(property) && !/-(fill|fill-panel|blur)$/.test(property)) {
+          problems.push(`${selector}: restates ${property}; the blocks inside panels and the cards over the map keep their shipped lines and shadows under Paper`);
         } else if (!known.has(property)) {
           problems.push(`${selector}: declares ${property}, not a role's part`);
         }
@@ -543,7 +547,7 @@ describe("Liquid's stylesheet", () => {
 });
 
 describe("Paper's stylesheet", () => {
-  it("restates every role but the menu and the dialog, by day and by night, on the root, the other picks' pictures and its own picture", () => {
+  it("restates every role, menus, dialogs, blocks and map cards at their solid grounds alone, by day and by night, on the root, the other picks' pictures and its own picture", () => {
     expect(paperProblems(PAPER_CSS)).toEqual([]);
   });
 
@@ -555,12 +559,16 @@ describe("Paper's stylesheet", () => {
     ]);
   });
 
-  it("fails on a menu's part restated, and on a rule keyed on a component's class", () => {
-    const menu = PAPER_CSS.replace("  --surface-glass-chrome-blur: none;\n", "  --surface-glass-chrome-blur: none;\n  --surface-menu-fill: var(--bg-raised);\n");
-    expect(menu).not.toBe(PAPER_CSS);
-    expect(paperProblems(menu)).toContain(':root[data-look-panels="paper"]: restates --surface-menu-fill; menus and dialogs are as shipped under Paper');
+  it("fails on a menu left as glass or given another ground, on a dialog's line restated, and on a rule keyed on a component's class", () => {
+    const glass = PAPER_CSS.replace("  --surface-menu-fill: var(--bg-panel);\n", "");
+    expect(glass).not.toBe(PAPER_CSS);
+    expect(paperProblems(glass)).toContain(':root[data-look-panels="paper"]: --surface-menu-fill is not restated');
+    const raised = PAPER_CSS.replace("  --surface-menu-fill: var(--bg-panel);\n", "  --surface-menu-fill: var(--bg-raised);\n");
+    expect(paperProblems(raised)).toContain(':root[data-look-panels="paper"]: --surface-menu-fill is var(--bg-raised), not var(--bg-panel)');
+    const blurred = PAPER_CSS.replace("  --surface-map-card-blur: none;\n", "");
+    expect(paperProblems(blurred)).toContain(':root[data-look-panels="paper"]: --surface-map-card-blur is not restated');
     const dialog = `${PAPER_CSS}\n:root[data-look-panels="paper"] {\n  --surface-dialog-edge: none;\n}\n`;
-    expect(paperProblems(dialog)).toContain(':root[data-look-panels="paper"]: restates --surface-dialog-edge; menus and dialogs are as shipped under Paper');
+    expect(paperProblems(dialog)).toContain(':root[data-look-panels="paper"]: restates --surface-dialog-edge; menus and dialogs keep their shipped lines and shadows under Paper');
     const seeded = `${PAPER_CSS}\n.card {\n  --surface-page-card-fill: var(--bg-raised);\n}\n`;
     expect(paperProblems(seeded)).toContain(".card: keyed on neither the root by Paper, its lines on the body, nor the Paper picture");
   });
