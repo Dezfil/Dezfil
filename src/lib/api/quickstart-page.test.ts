@@ -42,6 +42,19 @@ async function newInstance(): Promise<OwnInstance> {
   return instance;
 }
 
+/** An older dataset of the reader's with the name the quickstart's upload
+ * takes, holding other cities, uploaded in the app with their session. */
+async function olderCities(): Promise<void> {
+  const signIn = await fetch(`${ADDRESS}/api/auth/sign-in`, {
+    method: "POST", headers: { "content-type": "application/json", origin: ADDRESS }, body: JSON.stringify({ email: READER.email, password: READER.password }),
+  });
+  const cookie = signIn.headers.getSetCookie().map((set) => set.split(";")[0]).join("; ");
+  const form = new FormData();
+  form.append("file", new Blob(["name,country,population,latitude,longitude\nReykjavik,Iceland,139875,64.1466,-21.9426\nOslo,Norway,709037,59.9139,10.7522\nHelsinki,Finland,674963,60.1699,24.9384\n"]), "world-cities.csv");
+  const older = await fetch(`${ADDRESS}/api/tables`, { method: "POST", headers: { cookie, origin: ADDRESS }, body: form });
+  expect((await older.json()).name, "the older dataset has the upload's name").toBe("world_cities");
+}
+
 interface Run { problems: string[]; printed: string[]; names: Map<string, unknown> }
 
 /** Every call of the page in one tab, in order, each answer held against
@@ -167,6 +180,35 @@ describe("the API quickstart", () => {
     await newInstance();
     const run = await runTab("JavaScript", calls);
     expect(run.problems).toEqual([]);
+  }, 120_000);
+
+  it("reads the dataset it uploads when the account already has one of that name, as step 3 tells the reader", async () => {
+    // A reader who already has a world_cities of other cities, and does
+    // what step 3 says then: the upload is the copy it names, and its name
+    // goes in place of the file's in the SQL of the steps it names.
+    const sections = page.split(/^(?=## )/m);
+    const step3 = sections.find((section) => section.startsWith("## Step 3:")) ?? "";
+    const copy = /the new one is `([a-z0-9_]+)`/.exec(step3)?.[1];
+    const rename = /in place of `([a-z0-9_]+)` in the SQL of steps (\d+) and (\d+)/.exec(step3);
+    expect(copy, "step 3 names the copy an upload makes").toBeDefined();
+    expect(rename, "step 3 says where the copy's name goes").not.toBeNull();
+    const [, original, first, last] = rename!;
+    const followed = sections.map((section) => {
+      const step = Number(/^## Step (\d+):/.exec(section)?.[1]);
+      if (step === 3) return section.replace(`"name": "${original}"`, `"name": "${copy}"`);
+      return step >= Number(first) && step <= Number(last) ? section.replaceAll(original, copy!) : section;
+    }).join("");
+    expect(followed).not.toBe(page);
+
+    await newInstance();
+    await olderCities();
+    expect((await runTab("curl", pageCalls(followed).calls)).problems).toEqual([]);
+
+    // Without the copy's name, the steps read the older dataset.
+    await instance!.close();
+    await newInstance();
+    await olderCities();
+    expect((await runTab("curl", calls)).problems.join("\n")).toMatch(/the answer\.preview\[0\]\.name: the page shows "Tokyo", the answer is "(?!Tokyo)/);
   }, 120_000);
 
   it("names an answer the instance does not give: a seeded copy of the page fails at the calls it changed", async () => {

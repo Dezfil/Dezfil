@@ -156,7 +156,7 @@ console.log(JSON.stringify(await response.json(), null, 2));
 ```
 
 - `file` is the one form field an upload takes. To upload several files, send one request for each.
-- The dataset takes its name from the file: `world-cities.csv` becomes `world_cities`. If you already have one, such as Your first map's, the new one is `world_cities_2`.
+- The dataset takes its name from the file: `world-cities.csv` becomes `world_cities`. If you already have one, such as Your first map's, the new one is `world_cities_2`: write the `name` your answer gives in place of `world_cities` in the SQL of steps 4 and 5.
 - Dezfil reads the `latitude` and `longitude` columns as each city's position, and stores the points in a new `geometry` column. [CSV columns](../use/import-data.md#csv-columns) lists the names it recognizes.
 
 ## Step 4: Run SQL
