@@ -6,14 +6,17 @@ import { buildOpenApiDocument } from "./openapi";
 
 /**
  * The worked examples of the served description, sent to an instance of
- * their own in the API quickstart's order and then the order of the guides
- * that follow it: each request is built from the example as the operation
- * reference draws it, and each answer must be the example's. An identifier,
- * a revision or a placeholder in an example stands for the value the
- * instance gave at that place first, which must be of its kind and not one
- * another of them stands for, and every later use must be that value;
- * a time stands for any time, and a field that varies by run for any value
- * of its type. Where an example's description says it is cut, only what it
+ * their own in the order a reader meets them: the API quickstart's steps in
+ * their order, and each guide's example where what it needs is there, so
+ * the dataset list, the query's refusals, its export, the save and the
+ * catalogue go between the upload and the map, and the rest after the
+ * quickstart's last step. Each request is built from the example as the
+ * operation reference draws it, and each answer must be the example's. An
+ * identifier, a revision or a placeholder in an example stands for the
+ * value the instance gave at that place first, which must be of its kind
+ * and not one another of them stands for, and every later use must be that
+ * value; a time stands for any time, and a field that varies by run for any
+ * value of its type. Where an example's description says it is cut, only what it
  * shows is held, and the data folder and port it says it was read on stand
  * for this instance's own. So an example stays what the instance answers,
  * and a seeded wrong one is named.
