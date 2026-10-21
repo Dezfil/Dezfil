@@ -1894,6 +1894,16 @@
                 ],
                 "default": "glass",
                 "description": "Panels. How cards and panels are drawn: frosted glass, liquid glass with a light on its rim, or opaque paper with no blur."
+              },
+              "transparency": {
+                "type": "string",
+                "enum": [
+                  "clear",
+                  "medium",
+                  "firm"
+                ],
+                "default": "clear",
+                "description": "Transparency. How much of the map shows through Liquid's cards and panels: clear, medium or firm. Only while Panels is Liquid."
               }
             }
           }

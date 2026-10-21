@@ -102,8 +102,11 @@ const saved = (id: string) => row(id).querySelectorAll('[role="status"]').map(el
 const top = () => container.querySelector("[data-appearance-top]")!;
 /** What an earlier version stamped for the kinds of surface Liquid reached, or null. */
 const liquidOnRoot = () => host.document.documentElement.getAttribute("data-look-liquid");
-/** The seven picks at Dezfil's default: what a reset returns. */
-const PICKS_DEFAULT = { color: "kelp", contrast: "standard", font: "inter", background: "atlantic", corners: "rounded", rail: "hover", panels: "glass" };
+/** The eight picks at Dezfil's default: what a reset returns. */
+const PICKS_DEFAULT = {
+  color: "kelp", contrast: "standard", font: "inter", background: "atlantic", corners: "rounded", rail: "hover", panels: "glass",
+  transparency: "clear",
+};
 /** The row of switches an earlier version showed under Liquid. */
 const KINDS = "set-liquid-panels";
 /** The kinds an earlier version kept, as an account may still hold them. */
@@ -364,22 +367,47 @@ describe("Panels, with Liquid in one recipe", () => {
     expect(writes()).toEqual([{ look: { panels: "liquid" } }, { look: { panels: "paper" } }, { look: { panels: "glass" } }]);
   });
 
-  it("returns Panels and Background alone at the card's Reset under Liquid, an account's retired kinds left as they are", async () => {
-    stored = { ...stored, panels: "liquid", background: "plain", ...RETIRED_KINDS } as Look;
+  it("returns Panels, Transparency and Background at the card's Reset under Liquid, an account's retired kinds left as they are", async () => {
+    stored = { ...stored, panels: "liquid", transparency: "medium", background: "plain", ...RETIRED_KINDS } as Look;
     await open();
-    expect(onRoot()).toMatchObject({ panels: "liquid", background: "plain" });
+    expect(onRoot()).toMatchObject({ panels: "liquid", transparency: "medium", background: "plain" });
     const panels = card("Panels and background");
     await press(panels, "Reset to defaults: Panels and background");
     await settle();
-    expect(writes()).toEqual([{ look: { panels: "glass", background: "atlantic" } }]);
+    expect(writes()).toEqual([{ look: { panels: "glass", transparency: "clear", background: "atlantic" } }]);
     expect(stored).toMatchObject(RETIRED_KINDS);
     await press(panels, "Undo reset to defaults: Panels and background");
     await settle();
-    expect(writes().at(-1)).toEqual({ look: { panels: "liquid", background: "plain" } });
+    expect(writes().at(-1)).toEqual({ look: { panels: "liquid", transparency: "medium", background: "plain" } });
     expect(liquidOnRoot()).toBeNull();
   });
 
-  it("returns the seven picks with Reset to Dezfil's default under Liquid, and Undo writes back what it changed", async () => {
+  it("shows Transparency under Panels only while Panels is Liquid, as three segments that save as they are clicked", async () => {
+    await open();
+    expect(row("set-transparency")).toBeNull();
+    await pick("set-panels", "Liquid");
+    await settle();
+    expect(names("set-transparency")).toEqual(["Clear", "Medium", "Firm"]);
+    expect(picked("set-transparency")).toEqual(["Clear"]);
+    // Beside its label, not under it as the picture rows are.
+    expect(row("set-transparency").hasAttribute("data-stack")).toBe(false);
+    await pick("set-transparency", "Medium");
+    await settle();
+    expect(writes().at(-1)).toEqual({ look: { transparency: "medium" } });
+    expect(onRoot()).toMatchObject({ panels: "liquid", transparency: "medium" });
+    expect(saved("set-transparency")).toEqual(["Saved"]);
+    await pick("set-panels", "Paper");
+    await settle();
+    expect(row("set-transparency")).toBeNull();
+    // Out of sight is not reset: the step stays kept for the next time Liquid is picked.
+    expect(writes().at(-1)).toEqual({ look: { panels: "paper" } });
+    expect(stored.transparency).toBe("medium");
+    await pick("set-panels", "Liquid");
+    await settle();
+    expect(picked("set-transparency")).toEqual(["Medium"]);
+  });
+
+  it("returns the eight picks with Reset to Dezfil's default under Liquid, and Undo writes back what it changed", async () => {
     stored = { ...stored, panels: "liquid", ...RETIRED_KINDS } as Look;
     await open();
     await press(top(), "Reset to Dezfil's default");
