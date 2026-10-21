@@ -103,7 +103,7 @@ describe("settings catalogue", () => {
   });
 });
 
-/** The look's seven picks, today's value first: the account's own choices. */
+/** The look's eight picks, today's value first: the account's own choices. */
 const LOOK = {
   "look.color": ["kelp", "harbor", "heather", "slate"],
   "look.contrast": ["standard", "more"],
@@ -112,13 +112,14 @@ const LOOK = {
   "look.corners": ["rounded", "soft"],
   "look.rail": ["hover", "open", "icons"],
   "look.panels": ["glass", "liquid", "paper"],
+  "look.transparency": ["clear", "medium", "firm"],
 };
 /** The kinds of surface Liquid once reached one by one, each a setting of
  * its own; Liquid now reaches them all. */
 const RETIRED_KINDS = ["liquidChrome", "liquidPanels", "liquidMap", "liquidButtons", "liquidCards", "liquidInner", "liquidMenus", "liquidDialogs"];
 
 describe("the look's picks", () => {
-  it("are exactly the seven, with Liquid a choice of Panels and no setting for a kind of surface it reaches", () => {
+  it("are exactly the eight, with Liquid a choice of Panels and no setting for a kind of surface it reaches", () => {
     expect(SETTING_CATALOGUE.filter(d => d.key.startsWith("look.")).map(d => d.key)).toEqual(Object.keys(LOOK));
     expect(settingDefinition("look.panels").label).toBe("Panels");
     for (const kind of RETIRED_KINDS) expect(() => settingDefinition(`look.${kind}`), kind).toThrow(`Unknown setting: look.${kind}`);

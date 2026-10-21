@@ -27,10 +27,11 @@ const cases = [
   ["sourceGrouping", "person", "project"],
   ["look.color", "kelp", "harbor"], ["look.contrast", "standard", "more"], ["look.font", "inter", "system"],
   ["look.background", "atlantic", "hex"], ["look.corners", "rounded", "soft"], ["look.rail", "hover", "icons"],
-  ["look.panels", "glass", "liquid"],
+  ["look.panels", "glass", "liquid"], ["look.transparency", "clear", "firm"],
 ];
 const TODAY = {
   color: "kelp", contrast: "standard", font: "inter", background: "atlantic", corners: "rounded", rail: "hover", panels: "glass",
+  transparency: "clear",
 };
 it.each(cases)("uses the %s definition for validation and both schema positions", async (key, rejected, accepted) => {
   const original = catalogue.settingDefinition;
@@ -55,7 +56,7 @@ it.each(cases)("uses the %s definition for validation and both schema positions"
   }
 });
 
-it("names the seven picks in both schema positions and refuses a kind of surface Liquid once reached before any write", async () => {
+it("names the eight picks in both schema positions and refuses a kind of surface Liquid once reached before any write", async () => {
   const contract = settingsContract();
   const bodySchema = contract.paths["/api/settings"].patch.requestBody as {
     content: { "application/json": { schema: { properties: typeof contract.schemas.WorkspaceSettings.properties } } };

@@ -22,7 +22,29 @@ export interface PictureRow {
   readonly keys: string;
 }
 
-export type LookRow = PictureRow;
+/** The picks the tab draws as segments: a short choice whose pictures
+ * would say nothing its words do not. */
+export const SEGMENT_PICKS = ["transparency"] as const satisfies readonly LookKey[];
+export type SegmentPick = (typeof SEGMENT_PICKS)[number];
+
+/** A pick drawn as segments, in sight only while another pick of its card
+ * reads one value: Transparency, while Panels is Liquid. */
+export interface SegmentRow {
+  readonly key: SegmentPick;
+  readonly label: string;
+  readonly id: string;
+  readonly keys: string;
+  /** The pick of the same card it belongs under, and the value it shows for. */
+  readonly under: { readonly key: PicturePick; readonly value: string };
+}
+
+export type LookRow = PictureRow | SegmentRow;
+
+/** Whether a row is in sight while its card shows these values: always,
+ * unless it belongs under another pick's value. */
+export function rowShown(row: LookRow, value: (key: LookKey) => unknown): boolean {
+  return !("under" in row) || value(row.under.key) === row.under.value;
+}
 
 export interface LookCard {
   readonly id: string;
@@ -31,7 +53,8 @@ export interface LookCard {
 }
 
 /** The cards, top to bottom: Color leads, as it changes the most. Panels
- * leads the second card, then Background. A card left with one row keeps
+ * leads the second card, Transparency under it while Panels is Liquid,
+ * then Background. A card left with one row keeps
  * its place and names only what it holds. */
 export const LOOK_CARDS: readonly LookCard[] = [
   { id: "appearance-color", title: "Color and contrast", rows: [
@@ -42,6 +65,8 @@ export const LOOK_CARDS: readonly LookCard[] = [
   { id: "appearance-background", title: "Panels and background", rows: [
     { key: "panels", label: "Panels", id: "set-panels",
       keys: "glass frosted liquid paper transparent blur solid" },
+    { key: "transparency", label: "Transparency", id: "set-transparency", under: { key: "panels", value: "liquid" },
+      keys: "see through opacity opaque clear medium firm map shows through" },
     { key: "background", label: "Background", id: "set-background",
       keys: "pattern texture sheet wallpaper chart atlantic coastline plain graticule grid crosses hex hexagon lattice" },
   ] },
@@ -62,6 +87,7 @@ const CHOICE_LABELS: Readonly<Record<LookKey, Readonly<Record<string, string>>>>
   corners: { rounded: "Rounded", soft: "Soft" },
   rail: { hover: "Opens on hover", open: "Always open", icons: "Icons only" },
   panels: { glass: "Glass", liquid: "Liquid", paper: "Paper" },
+  transparency: { clear: "Clear", medium: "Medium", firm: "Firm" },
 };
 
 /** A choice as the tab names it. */
@@ -99,9 +125,14 @@ export class LookWriter {
 }
 
 /** A card's save unit over the look's slice. The look admits its choices
- * only, so a Reset writes each pick's default itself. */
+ * only, so a Reset writes each pick's default itself. A row under another
+ * pick's value is out of sight while the card shows another, so the card's
+ * Reset leaves it as it is kept. */
 export function lookUnit(card: LookCard, kept: Look, writer: LookWriter): SaveUnit {
-  const controls: UnitControl[] = card.rows.map(row => ({ key: unitKey(row.key), kind: "choice" as const, defaultValue: lookChoices(row.key)[0] }));
+  const controls: UnitControl[] = card.rows.map(row => ({
+    key: unitKey(row.key), kind: "choice" as const, defaultValue: lookChoices(row.key)[0],
+    ...("under" in row ? { hidden: (shown: Readonly<Record<string, Value>>) => !rowShown(row, key => shown[unitKey(key)]) } : {}),
+  }));
   const keys = controls.map(control => pickOf(control.key));
   return new SaveUnit({
     title: card.title,

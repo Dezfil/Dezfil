@@ -94,7 +94,7 @@ the column's foot; members see General alone, read-only.
 
 - **Appearance** is the person's own look: Color (Kelp, Harbor, Heather or
   Slate), Contrast (Standard or More contrast), Panels (Glass, Liquid or
-  Paper), Background (Atlantic chart, Plain, Graticule or Hex lattice), Typeface
+  Paper, and for Liquid a Transparency of Clear, Medium or Firm), Background (Atlantic chart, Plain, Graticule or Hex lattice), Typeface
   (Inter, or System for the computer's own), Corners (Rounded or Soft) and Side
   menu (Opens on hover, Always open or Icons only). Glass is the frosted panels
   Dezfil has always had; Paper makes them solid. Liquid makes every card and
@@ -102,9 +102,11 @@ the column's foot; members see General alone, read-only.
   side menu, the side panels, everything over the map, the map's buttons, the
   page cards, the cards and blocks inside panels, menus and dialogs. The map
   shows through, and the quieter grey text is darkened so it still reads over
-  most maps. Over a very dark map in the light theme (a dark basemap or
+  most maps. Medium and Firm make the glass firmer, so less of the map shows
+  through. Over a very dark map in the light theme (a dark basemap or
   satellite imagery), or a very light one in the dark theme, text in the
-  panels reads less well; Glass and Paper keep them firm. Text fields and
+  panels reads less well, most at Clear; Glass and Paper keep them firm.
+  Appearance shows a live preview of the builder over a map above its cards. Text fields and
   selects stay solid. Liquid bends the backdrop at a panel's edge in
   Chromium-based browsers (Chrome, Edge and the like); Firefox and Safari show
   the same fills, blur, light and shadow without the bend. A pick changes the page at once and is

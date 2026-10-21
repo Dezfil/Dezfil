@@ -9,16 +9,17 @@
    The recipe, by day and by night:
    - one clear fill: the panel tone under a faint tint, folded into one
      colour, about half solid by day so the map shows through; by night
-     a little firmer, as much as the quiet text needs to read over the
-     brightest data colours; a dialog, over its veil, a touch firmer by
-     day for the same reason;
-   - one light blur (6 px) and one bend (26 px at most, less on a small
-     surface), on every role that floats;
+     firmer, as much as the quiet text needs to read over the brightest
+     data colours; a dialog, over its veil, a touch firmer by day for the
+     same reason;
+   - one light blur and one bend (less on a small surface), on every role
+     that floats: 6 px and 26 by day, 8 px and 16 by night;
    - no edge line: a role with a hairline keeps its width in a
      transparent line, so nothing moves when the look is switched;
    - one light on the rim, drawn inside the edge as the shadow's first
-     three layers: a bright line on the sides facing the light (the upper
-     left), a fainter one on the far side, a faint glow;
+     three layers: by day a bright line on the sides facing the light
+     (the upper left), a fainter one on the far side, a faint glow; by
+     night only a faint line along the top and a fainter one all round;
    - the shadow beyond the rim says only how high a surface sits: a
      contact shadow for what lies inside a panel, one floating shadow for
      what floats, a higher one under the pointer, lifted or dragged, and
@@ -29,11 +30,16 @@
    not grow under the pointer. Over the clear fill the quiet text steps
    toward the full ink, so it reads over the map.
 
+   Transparency: Clear is the recipe above. Medium and Firm, keyed on the
+   root's data-look-transparency, restate only the fills, firmer, and step
+   the quiet text less far; the blur, the bend, the light and the shadows
+   stay.
+
    The recipe also dresses the pictures of the other picks, which show
    the person's look, and the Liquid picture of Panels. Where the browser
    draws no backdrop filter, or the computer asks for less transparency
-   or more contrast, every fill goes opaque at the same tint while the
-   light and the shadow stay.
+   or more contrast, every fill goes opaque at the same tint at every
+   step while the light and the shadow stay.
    ============================================================ */
 
 :root[data-look-panels="liquid"],
@@ -200,111 +206,227 @@
 :root[data-theme="dark"][data-look-panels="liquid"] [data-picture-contrast],
 :root[data-theme="dark"][data-look-panels="liquid"] [data-picture-corners],
 :root[data-theme="dark"] [data-picture-panels="liquid"] {
-  --surface-glass-chrome-fill: color-mix(in srgb, #000 6%, var(--bg-panel) 50%);
+  --surface-glass-chrome-fill: color-mix(in srgb, #000 8%, var(--bg-panel) 54%);
+  --surface-glass-chrome-blur: blur(8px);
   --surface-glass-chrome-shadow:
-    inset 1px 1px 0 rgba(255, 255, 255, 0.42),
-    inset -1px -1px 0 rgba(255, 255, 255, 0.168),
-    inset 0 0 14px rgba(255, 255, 255, 0.067),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.05),
+    inset 0 0 0 0 transparent,
     0 1px 1px rgba(0, 0, 0, 0.35),
     0 14px 36px -6px rgba(0, 0, 0, 0.55);
-  --surface-glass-panel-fill: color-mix(in srgb, #000 6%, var(--bg-panel) 50%);
+  --surface-glass-chrome-lens: 16;
+  --surface-glass-panel-fill: color-mix(in srgb, #000 8%, var(--bg-panel) 54%);
+  --surface-glass-panel-blur: blur(8px);
   --surface-glass-panel-shadow:
-    inset 1px 1px 0 rgba(255, 255, 255, 0.42),
-    inset -1px -1px 0 rgba(255, 255, 255, 0.168),
-    inset 0 0 14px rgba(255, 255, 255, 0.067),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.05),
+    inset 0 0 0 0 transparent,
     0 1px 1px rgba(0, 0, 0, 0.35),
     0 14px 36px -6px rgba(0, 0, 0, 0.55);
-  --surface-overlay-panel-fill: color-mix(in srgb, #000 6%, var(--bg-panel) 50%);
+  --surface-glass-panel-lens: 16;
+  --surface-overlay-panel-fill: color-mix(in srgb, #000 8%, var(--bg-panel) 54%);
+  --surface-overlay-panel-blur: blur(8px);
   --surface-overlay-panel-shadow:
-    inset 1px 1px 0 rgba(255, 255, 255, 0.42),
-    inset -1px -1px 0 rgba(255, 255, 255, 0.168),
-    inset 0 0 14px rgba(255, 255, 255, 0.067),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.05),
+    inset 0 0 0 0 transparent,
     0 1px 1px rgba(0, 0, 0, 0.35),
     0 14px 36px -6px rgba(0, 0, 0, 0.55);
-  --surface-overlay-control-fill: color-mix(in srgb, #000 6%, var(--bg-panel) 50%);
+  --surface-overlay-panel-lens: 16;
+  --surface-overlay-control-fill: color-mix(in srgb, #000 8%, var(--bg-panel) 54%);
+  --surface-overlay-control-blur: blur(8px);
   --surface-overlay-control-shadow:
-    inset 1px 1px 0 rgba(255, 255, 255, 0.42),
-    inset -1px -1px 0 rgba(255, 255, 255, 0.168),
-    inset 0 0 14px rgba(255, 255, 255, 0.067),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.05),
+    inset 0 0 0 0 transparent,
     0 1px 1px rgba(0, 0, 0, 0.35),
     0 14px 36px -6px rgba(0, 0, 0, 0.55);
-  --surface-map-card-fill: color-mix(in srgb, #000 6%, var(--bg-panel) 50%);
+  --surface-overlay-control-lens: 16;
+  --surface-map-card-fill: color-mix(in srgb, #000 8%, var(--bg-panel) 54%);
+  --surface-map-card-blur: blur(8px);
   --surface-map-card-shadow:
-    inset 1px 1px 0 rgba(255, 255, 255, 0.42),
-    inset -1px -1px 0 rgba(255, 255, 255, 0.168),
-    inset 0 0 14px rgba(255, 255, 255, 0.067),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.05),
+    inset 0 0 0 0 transparent,
     0 1px 1px rgba(0, 0, 0, 0.35),
     0 14px 36px -6px rgba(0, 0, 0, 0.55);
-  --surface-page-card-fill: color-mix(in srgb, #000 6%, var(--bg-panel) 50%);
+  --surface-map-card-lens: 16;
+  --surface-page-card-fill: color-mix(in srgb, #000 8%, var(--bg-panel) 54%);
+  --surface-page-card-blur: blur(8px);
   --surface-page-card-shadow:
-    inset 1px 1px 0 rgba(255, 255, 255, 0.42),
-    inset -1px -1px 0 rgba(255, 255, 255, 0.168),
-    inset 0 0 14px rgba(255, 255, 255, 0.067),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.05),
+    inset 0 0 0 0 transparent,
     0 1px 1px rgba(0, 0, 0, 0.35),
     0 14px 36px -6px rgba(0, 0, 0, 0.55);
   --surface-page-card-shadow-hover:
-    inset 1px 1px 0 rgba(255, 255, 255, 0.42),
-    inset -1px -1px 0 rgba(255, 255, 255, 0.168),
-    inset 0 0 14px rgba(255, 255, 255, 0.067),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.05),
+    inset 0 0 0 0 transparent,
     0 1px 1px rgba(0, 0, 0, 0.4),
     0 24px 64px -12px rgba(0, 0, 0, 0.7);
-  --surface-inner-card-fill: color-mix(in srgb, #000 6%, var(--bg-panel) 50%);
+  --surface-page-card-lens: 16;
+  --surface-inner-card-fill: color-mix(in srgb, #000 8%, var(--bg-panel) 54%);
+  --surface-inner-card-blur: blur(8px);
   --surface-inner-card-shadow:
-    inset 1px 1px 0 rgba(255, 255, 255, 0.42),
-    inset -1px -1px 0 rgba(255, 255, 255, 0.168),
-    inset 0 0 14px rgba(255, 255, 255, 0.067),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.05),
+    inset 0 0 0 0 transparent,
     0 1px 2px rgba(0, 0, 0, 0.45),
     0 4px 12px -4px rgba(0, 0, 0, 0.4);
   --surface-inner-card-shadow-lifted:
-    inset 1px 1px 0 rgba(255, 255, 255, 0.42),
-    inset -1px -1px 0 rgba(255, 255, 255, 0.168),
-    inset 0 0 14px rgba(255, 255, 255, 0.067),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.05),
+    inset 0 0 0 0 transparent,
     0 1px 1px rgba(0, 0, 0, 0.4),
     0 24px 64px -12px rgba(0, 0, 0, 0.7);
   --surface-inner-card-shadow-dragged:
-    inset 1px 1px 0 rgba(255, 255, 255, 0.42),
-    inset -1px -1px 0 rgba(255, 255, 255, 0.168),
-    inset 0 0 14px rgba(255, 255, 255, 0.067),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.05),
+    inset 0 0 0 0 transparent,
     0 1px 1px rgba(0, 0, 0, 0.4),
     0 24px 64px -12px rgba(0, 0, 0, 0.7);
-  --surface-inner-card-knob: color-mix(in srgb, #000 6%, var(--bg-panel) 50%);
-  --surface-inner-card-mark: color-mix(in srgb, #000 6%, var(--bg-panel) 50%);
-  --surface-block-fill: color-mix(in srgb, #000 6%, var(--bg-panel) 50%);
-  --surface-block-fill-panel: color-mix(in srgb, #000 6%, var(--bg-panel) 50%);
+  --surface-inner-card-lens: 16;
+  --surface-inner-card-knob: color-mix(in srgb, #000 8%, var(--bg-panel) 54%);
+  --surface-inner-card-mark: color-mix(in srgb, #000 8%, var(--bg-panel) 54%);
+  --surface-block-fill: color-mix(in srgb, #000 8%, var(--bg-panel) 54%);
+  --surface-block-fill-panel: color-mix(in srgb, #000 8%, var(--bg-panel) 54%);
   --surface-block-shadow:
-    inset 1px 1px 0 rgba(255, 255, 255, 0.42),
-    inset -1px -1px 0 rgba(255, 255, 255, 0.168),
-    inset 0 0 14px rgba(255, 255, 255, 0.067),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.05),
+    inset 0 0 0 0 transparent,
     0 1px 2px rgba(0, 0, 0, 0.45),
     0 4px 12px -4px rgba(0, 0, 0, 0.4);
-  --surface-menu-fill: color-mix(in srgb, #000 6%, var(--bg-panel) 50%);
+  --surface-menu-fill: color-mix(in srgb, #000 8%, var(--bg-panel) 54%);
+  --surface-menu-blur: blur(8px);
   --surface-menu-shadow:
-    inset 1px 1px 0 rgba(255, 255, 255, 0.42),
-    inset -1px -1px 0 rgba(255, 255, 255, 0.168),
-    inset 0 0 14px rgba(255, 255, 255, 0.067),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.05),
+    inset 0 0 0 0 transparent,
     0 1px 1px rgba(0, 0, 0, 0.35),
     0 14px 36px -6px rgba(0, 0, 0, 0.55);
-  --surface-menu-fill-raised: color-mix(in srgb, #000 6%, var(--bg-panel) 50%);
-  --surface-dialog-fill: color-mix(in srgb, #000 6%, var(--bg-panel) 50%);
+  --surface-menu-lens: 16;
+  --surface-menu-fill-raised: color-mix(in srgb, #000 8%, var(--bg-panel) 54%);
+  --surface-dialog-fill: color-mix(in srgb, #000 8%, var(--bg-panel) 54%);
+  --surface-dialog-blur: blur(8px);
   --surface-dialog-shadow:
-    inset 1px 1px 0 rgba(255, 255, 255, 0.42),
-    inset -1px -1px 0 rgba(255, 255, 255, 0.168),
-    inset 0 0 14px rgba(255, 255, 255, 0.067),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.05),
+    inset 0 0 0 0 transparent,
     0 1px 1px rgba(0, 0, 0, 0.4),
     0 24px 64px -12px rgba(0, 0, 0, 0.7);
+  --surface-dialog-lens: 16;
   --surface-stage-shadow:
     0 1px 1px rgba(0, 0, 0, 0.35),
     0 14px 36px -6px rgba(0, 0, 0, 0.55);
 }
 
-/* ---- Where no backdrop filter is drawn, the fills go opaque; the light and the shadow stay ---- */
+/* ---- Transparency Medium: firmer fills, by day 62 %, a dialog 64 %, by night 72 %, a dialog 74 % ---- */
+
+:root[data-look-panels="liquid"][data-look-transparency="medium"],
+:root[data-look-panels="liquid"][data-look-transparency="medium"] [data-picture-color],
+:root[data-look-panels="liquid"][data-look-transparency="medium"] [data-picture-contrast],
+:root[data-look-panels="liquid"][data-look-transparency="medium"] [data-picture-corners],
+:root[data-look-transparency="medium"] [data-picture-panels="liquid"] {
+  --surface-glass-chrome-fill: color-mix(in srgb, #fff 10%, var(--bg-panel) 52%);
+  --surface-glass-panel-fill: color-mix(in srgb, #fff 10%, var(--bg-panel) 52%);
+  --surface-overlay-panel-fill: color-mix(in srgb, #fff 10%, var(--bg-panel) 52%);
+  --surface-overlay-control-fill: color-mix(in srgb, #fff 10%, var(--bg-panel) 52%);
+  --surface-map-card-fill: color-mix(in srgb, #fff 10%, var(--bg-panel) 52%);
+  --surface-page-card-fill: color-mix(in srgb, #fff 10%, var(--bg-panel) 52%);
+  --surface-inner-card-fill: color-mix(in srgb, #fff 10%, var(--bg-panel) 52%);
+  --surface-inner-card-knob: color-mix(in srgb, #fff 10%, var(--bg-panel) 52%);
+  --surface-inner-card-mark: color-mix(in srgb, #fff 10%, var(--bg-panel) 52%);
+  --surface-block-fill: color-mix(in srgb, #fff 10%, var(--bg-panel) 52%);
+  --surface-block-fill-panel: color-mix(in srgb, #fff 10%, var(--bg-panel) 52%);
+  --surface-menu-fill: color-mix(in srgb, #fff 10%, var(--bg-panel) 52%);
+  --surface-menu-fill-raised: color-mix(in srgb, #fff 10%, var(--bg-panel) 52%);
+  --surface-dialog-fill: color-mix(in srgb, #fff 10%, var(--bg-panel) 54%);
+}
+
+:root[data-theme="dark"][data-look-panels="liquid"][data-look-transparency="medium"],
+:root[data-theme="dark"][data-look-panels="liquid"][data-look-transparency="medium"] [data-picture-color],
+:root[data-theme="dark"][data-look-panels="liquid"][data-look-transparency="medium"] [data-picture-contrast],
+:root[data-theme="dark"][data-look-panels="liquid"][data-look-transparency="medium"] [data-picture-corners],
+:root[data-theme="dark"][data-look-transparency="medium"] [data-picture-panels="liquid"] {
+  --surface-glass-chrome-fill: color-mix(in srgb, #000 10%, var(--bg-panel) 62%);
+  --surface-glass-panel-fill: color-mix(in srgb, #000 10%, var(--bg-panel) 62%);
+  --surface-overlay-panel-fill: color-mix(in srgb, #000 10%, var(--bg-panel) 62%);
+  --surface-overlay-control-fill: color-mix(in srgb, #000 10%, var(--bg-panel) 62%);
+  --surface-map-card-fill: color-mix(in srgb, #000 10%, var(--bg-panel) 62%);
+  --surface-page-card-fill: color-mix(in srgb, #000 10%, var(--bg-panel) 62%);
+  --surface-inner-card-fill: color-mix(in srgb, #000 10%, var(--bg-panel) 62%);
+  --surface-inner-card-knob: color-mix(in srgb, #000 10%, var(--bg-panel) 62%);
+  --surface-inner-card-mark: color-mix(in srgb, #000 10%, var(--bg-panel) 62%);
+  --surface-block-fill: color-mix(in srgb, #000 10%, var(--bg-panel) 62%);
+  --surface-block-fill-panel: color-mix(in srgb, #000 10%, var(--bg-panel) 62%);
+  --surface-menu-fill: color-mix(in srgb, #000 10%, var(--bg-panel) 62%);
+  --surface-menu-fill-raised: color-mix(in srgb, #000 10%, var(--bg-panel) 62%);
+  --surface-dialog-fill: color-mix(in srgb, #000 10%, var(--bg-panel) 64%);
+}
+
+/* ---- Transparency Firm: firmer fills, by day 78 %, a dialog 80 %, by night 84 %, a dialog 86 % ---- */
+
+:root[data-look-panels="liquid"][data-look-transparency="firm"],
+:root[data-look-panels="liquid"][data-look-transparency="firm"] [data-picture-color],
+:root[data-look-panels="liquid"][data-look-transparency="firm"] [data-picture-contrast],
+:root[data-look-panels="liquid"][data-look-transparency="firm"] [data-picture-corners],
+:root[data-look-transparency="firm"] [data-picture-panels="liquid"] {
+  --surface-glass-chrome-fill: color-mix(in srgb, #fff 10%, var(--bg-panel) 68%);
+  --surface-glass-panel-fill: color-mix(in srgb, #fff 10%, var(--bg-panel) 68%);
+  --surface-overlay-panel-fill: color-mix(in srgb, #fff 10%, var(--bg-panel) 68%);
+  --surface-overlay-control-fill: color-mix(in srgb, #fff 10%, var(--bg-panel) 68%);
+  --surface-map-card-fill: color-mix(in srgb, #fff 10%, var(--bg-panel) 68%);
+  --surface-page-card-fill: color-mix(in srgb, #fff 10%, var(--bg-panel) 68%);
+  --surface-inner-card-fill: color-mix(in srgb, #fff 10%, var(--bg-panel) 68%);
+  --surface-inner-card-knob: color-mix(in srgb, #fff 10%, var(--bg-panel) 68%);
+  --surface-inner-card-mark: color-mix(in srgb, #fff 10%, var(--bg-panel) 68%);
+  --surface-block-fill: color-mix(in srgb, #fff 10%, var(--bg-panel) 68%);
+  --surface-block-fill-panel: color-mix(in srgb, #fff 10%, var(--bg-panel) 68%);
+  --surface-menu-fill: color-mix(in srgb, #fff 10%, var(--bg-panel) 68%);
+  --surface-menu-fill-raised: color-mix(in srgb, #fff 10%, var(--bg-panel) 68%);
+  --surface-dialog-fill: color-mix(in srgb, #fff 10%, var(--bg-panel) 70%);
+}
+
+:root[data-theme="dark"][data-look-panels="liquid"][data-look-transparency="firm"],
+:root[data-theme="dark"][data-look-panels="liquid"][data-look-transparency="firm"] [data-picture-color],
+:root[data-theme="dark"][data-look-panels="liquid"][data-look-transparency="firm"] [data-picture-contrast],
+:root[data-theme="dark"][data-look-panels="liquid"][data-look-transparency="firm"] [data-picture-corners],
+:root[data-theme="dark"][data-look-transparency="firm"] [data-picture-panels="liquid"] {
+  --surface-glass-chrome-fill: color-mix(in srgb, #000 10%, var(--bg-panel) 74%);
+  --surface-glass-panel-fill: color-mix(in srgb, #000 10%, var(--bg-panel) 74%);
+  --surface-overlay-panel-fill: color-mix(in srgb, #000 10%, var(--bg-panel) 74%);
+  --surface-overlay-control-fill: color-mix(in srgb, #000 10%, var(--bg-panel) 74%);
+  --surface-map-card-fill: color-mix(in srgb, #000 10%, var(--bg-panel) 74%);
+  --surface-page-card-fill: color-mix(in srgb, #000 10%, var(--bg-panel) 74%);
+  --surface-inner-card-fill: color-mix(in srgb, #000 10%, var(--bg-panel) 74%);
+  --surface-inner-card-knob: color-mix(in srgb, #000 10%, var(--bg-panel) 74%);
+  --surface-inner-card-mark: color-mix(in srgb, #000 10%, var(--bg-panel) 74%);
+  --surface-block-fill: color-mix(in srgb, #000 10%, var(--bg-panel) 74%);
+  --surface-block-fill-panel: color-mix(in srgb, #000 10%, var(--bg-panel) 74%);
+  --surface-menu-fill: color-mix(in srgb, #000 10%, var(--bg-panel) 74%);
+  --surface-menu-fill-raised: color-mix(in srgb, #000 10%, var(--bg-panel) 74%);
+  --surface-dialog-fill: color-mix(in srgb, #000 10%, var(--bg-panel) 76%);
+}
+
+/* ---- Where no backdrop filter is drawn, the fills go opaque at every step; the light and the shadow stay ---- */
 
 @supports not (backdrop-filter: blur(1px)) {
   :root[data-look-panels="liquid"],
   :root[data-look-panels="liquid"] [data-picture-color],
   :root[data-look-panels="liquid"] [data-picture-contrast],
   :root[data-look-panels="liquid"] [data-picture-corners],
-  :root [data-picture-panels="liquid"] {
+  :root [data-picture-panels="liquid"],
+  :root[data-look-panels="liquid"][data-look-transparency="medium"],
+  :root[data-look-panels="liquid"][data-look-transparency="medium"] [data-picture-color],
+  :root[data-look-panels="liquid"][data-look-transparency="medium"] [data-picture-contrast],
+  :root[data-look-panels="liquid"][data-look-transparency="medium"] [data-picture-corners],
+  :root[data-look-transparency="medium"] [data-picture-panels="liquid"],
+  :root[data-look-panels="liquid"][data-look-transparency="firm"],
+  :root[data-look-panels="liquid"][data-look-transparency="firm"] [data-picture-color],
+  :root[data-look-panels="liquid"][data-look-transparency="firm"] [data-picture-contrast],
+  :root[data-look-panels="liquid"][data-look-transparency="firm"] [data-picture-corners],
+  :root[data-look-transparency="firm"] [data-picture-panels="liquid"] {
     --surface-glass-chrome-fill: color-mix(in srgb, #fff 8%, var(--bg-panel) 92%);
     --surface-glass-panel-fill: color-mix(in srgb, #fff 8%, var(--bg-panel) 92%);
     --surface-overlay-panel-fill: color-mix(in srgb, #fff 8%, var(--bg-panel) 92%);
@@ -325,7 +447,17 @@
   :root[data-theme="dark"][data-look-panels="liquid"] [data-picture-color],
   :root[data-theme="dark"][data-look-panels="liquid"] [data-picture-contrast],
   :root[data-theme="dark"][data-look-panels="liquid"] [data-picture-corners],
-  :root[data-theme="dark"] [data-picture-panels="liquid"] {
+  :root[data-theme="dark"] [data-picture-panels="liquid"],
+  :root[data-theme="dark"][data-look-panels="liquid"][data-look-transparency="medium"],
+  :root[data-theme="dark"][data-look-panels="liquid"][data-look-transparency="medium"] [data-picture-color],
+  :root[data-theme="dark"][data-look-panels="liquid"][data-look-transparency="medium"] [data-picture-contrast],
+  :root[data-theme="dark"][data-look-panels="liquid"][data-look-transparency="medium"] [data-picture-corners],
+  :root[data-theme="dark"][data-look-transparency="medium"] [data-picture-panels="liquid"],
+  :root[data-theme="dark"][data-look-panels="liquid"][data-look-transparency="firm"],
+  :root[data-theme="dark"][data-look-panels="liquid"][data-look-transparency="firm"] [data-picture-color],
+  :root[data-theme="dark"][data-look-panels="liquid"][data-look-transparency="firm"] [data-picture-contrast],
+  :root[data-theme="dark"][data-look-panels="liquid"][data-look-transparency="firm"] [data-picture-corners],
+  :root[data-theme="dark"][data-look-transparency="firm"] [data-picture-panels="liquid"] {
     --surface-glass-chrome-fill: color-mix(in srgb, #000 8%, var(--bg-panel) 92%);
     --surface-glass-panel-fill: color-mix(in srgb, #000 8%, var(--bg-panel) 92%);
     --surface-overlay-panel-fill: color-mix(in srgb, #000 8%, var(--bg-panel) 92%);
@@ -343,14 +475,24 @@
   }
 }
 
-/* ---- When the computer asks for less transparency or more contrast, the fills go opaque; the light and the shadow stay ---- */
+/* ---- When the computer asks for less transparency or more contrast, the fills go opaque at every step; the light and the shadow stay ---- */
 
 @media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
   :root[data-look-panels="liquid"],
   :root[data-look-panels="liquid"] [data-picture-color],
   :root[data-look-panels="liquid"] [data-picture-contrast],
   :root[data-look-panels="liquid"] [data-picture-corners],
-  :root [data-picture-panels="liquid"] {
+  :root [data-picture-panels="liquid"],
+  :root[data-look-panels="liquid"][data-look-transparency="medium"],
+  :root[data-look-panels="liquid"][data-look-transparency="medium"] [data-picture-color],
+  :root[data-look-panels="liquid"][data-look-transparency="medium"] [data-picture-contrast],
+  :root[data-look-panels="liquid"][data-look-transparency="medium"] [data-picture-corners],
+  :root[data-look-transparency="medium"] [data-picture-panels="liquid"],
+  :root[data-look-panels="liquid"][data-look-transparency="firm"],
+  :root[data-look-panels="liquid"][data-look-transparency="firm"] [data-picture-color],
+  :root[data-look-panels="liquid"][data-look-transparency="firm"] [data-picture-contrast],
+  :root[data-look-panels="liquid"][data-look-transparency="firm"] [data-picture-corners],
+  :root[data-look-transparency="firm"] [data-picture-panels="liquid"] {
     --surface-glass-chrome-fill: color-mix(in srgb, #fff 8%, var(--bg-panel) 92%);
     --surface-glass-panel-fill: color-mix(in srgb, #fff 8%, var(--bg-panel) 92%);
     --surface-overlay-panel-fill: color-mix(in srgb, #fff 8%, var(--bg-panel) 92%);
@@ -371,7 +513,17 @@
   :root[data-theme="dark"][data-look-panels="liquid"] [data-picture-color],
   :root[data-theme="dark"][data-look-panels="liquid"] [data-picture-contrast],
   :root[data-theme="dark"][data-look-panels="liquid"] [data-picture-corners],
-  :root[data-theme="dark"] [data-picture-panels="liquid"] {
+  :root[data-theme="dark"] [data-picture-panels="liquid"],
+  :root[data-theme="dark"][data-look-panels="liquid"][data-look-transparency="medium"],
+  :root[data-theme="dark"][data-look-panels="liquid"][data-look-transparency="medium"] [data-picture-color],
+  :root[data-theme="dark"][data-look-panels="liquid"][data-look-transparency="medium"] [data-picture-contrast],
+  :root[data-theme="dark"][data-look-panels="liquid"][data-look-transparency="medium"] [data-picture-corners],
+  :root[data-theme="dark"][data-look-transparency="medium"] [data-picture-panels="liquid"],
+  :root[data-theme="dark"][data-look-panels="liquid"][data-look-transparency="firm"],
+  :root[data-theme="dark"][data-look-panels="liquid"][data-look-transparency="firm"] [data-picture-color],
+  :root[data-theme="dark"][data-look-panels="liquid"][data-look-transparency="firm"] [data-picture-contrast],
+  :root[data-theme="dark"][data-look-panels="liquid"][data-look-transparency="firm"] [data-picture-corners],
+  :root[data-theme="dark"][data-look-transparency="firm"] [data-picture-panels="liquid"] {
     --surface-glass-chrome-fill: color-mix(in srgb, #000 8%, var(--bg-panel) 92%);
     --surface-glass-panel-fill: color-mix(in srgb, #000 8%, var(--bg-panel) 92%);
     --surface-overlay-panel-fill: color-mix(in srgb, #000 8%, var(--bg-panel) 92%);
@@ -391,15 +543,41 @@
 
 /* ---- The quiet text, stepped toward the ink ----
 
-   The root names its own Color's quiet inks stepped toward its full ink
-   (the muted 85 % of the way, the faint 70 %), and the body takes them as
-   its quiet inks: every Color and Contrast steps alike, and a scope that
+   The root names its own Color's quiet inks stepped toward its full ink,
+   by day the muted 85 % of the way and the faint 70 %, by night 60 % and
+   45 %, less far at each firmer step, and the body takes them as its
+   quiet inks: every Color and Contrast steps alike, and a scope that
    restates its inks (an image's default scope, a picture, a published
    page) keeps its own. */
 
 :root[data-look-panels="liquid"] {
   --liquid-fg-muted: color-mix(in srgb, var(--fg) 85%, var(--fg-muted));
   --liquid-fg-faint: color-mix(in srgb, var(--fg) 70%, var(--fg-muted));
+}
+
+:root[data-look-panels="liquid"][data-look-transparency="medium"] {
+  --liquid-fg-muted: color-mix(in srgb, var(--fg) 55%, var(--fg-muted));
+  --liquid-fg-faint: color-mix(in srgb, var(--fg) 40%, var(--fg-muted));
+}
+
+:root[data-look-panels="liquid"][data-look-transparency="firm"] {
+  --liquid-fg-muted: color-mix(in srgb, var(--fg) 25%, var(--fg-muted));
+  --liquid-fg-faint: color-mix(in srgb, var(--fg) 10%, var(--fg-muted));
+}
+
+:root[data-theme="dark"][data-look-panels="liquid"] {
+  --liquid-fg-muted: color-mix(in srgb, var(--fg) 60%, var(--fg-muted));
+  --liquid-fg-faint: color-mix(in srgb, var(--fg) 45%, var(--fg-muted));
+}
+
+:root[data-theme="dark"][data-look-panels="liquid"][data-look-transparency="medium"] {
+  --liquid-fg-muted: color-mix(in srgb, var(--fg) 20%, var(--fg-muted));
+  --liquid-fg-faint: color-mix(in srgb, var(--fg) 5%, var(--fg-muted));
+}
+
+:root[data-theme="dark"][data-look-panels="liquid"][data-look-transparency="firm"] {
+  --liquid-fg-muted: var(--fg-muted);
+  --liquid-fg-faint: var(--fg-faint);
 }
 
 :root[data-look-panels="liquid"] body {

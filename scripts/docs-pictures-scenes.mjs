@@ -639,7 +639,7 @@ const ASSISTANT_PAGE_SCENES = [
 // them published. What these scenes pick is kept with that account alone.
 
 /** Dezfil's default look: every pick at its first choice. */
-export const DEFAULT_LOOK = { color: "kelp", contrast: "standard", font: "inter", background: "atlantic", corners: "rounded", rail: "hover", panels: "glass" };
+export const DEFAULT_LOOK = { color: "kelp", contrast: "standard", font: "inter", background: "atlantic", corners: "rounded", rail: "hover", panels: "glass", transparency: "clear" };
 
 /** The Settings page's heading, where the pointer rests and lights nothing. */
 const SETTINGS_HEADING = 'h1:text-is("Settings")';

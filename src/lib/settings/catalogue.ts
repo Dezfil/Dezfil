@@ -143,6 +143,8 @@ export const SETTING_CATALOGUE: readonly SettingDefinition[] = [
     "hover", choice("hover", "open", "icons"), "account"),
   stored("look.panels", "Panels", "How cards and panels are drawn: frosted glass, liquid glass with a light on its rim, or opaque paper with no blur.",
     "glass", choice("glass", "liquid", "paper"), "account"),
+  stored("look.transparency", "Transparency", "How much of the map shows through Liquid's cards and panels: clear, medium or firm. Only while Panels is Liquid.",
+    "clear", choice("clear", "medium", "firm"), "account"),
   { ...deployment("port", "PORT", "text", "Listening port", "Port used by the server and its internal API calls.", { rule: "runtime-port-or-request-origin" }, "3000 in the container"), scope: "platform", changedBy: "platform" },
   { ...deployment("extensionDir", "DUCKDB_EXTENSION_DIR", "path", "Engine extensions", "Location of the baked offline extension bundle.", { rule: "engine-default-extension-directory" }, "/app/duckdb-extensions in the container"), scope: "platform", changedBy: "platform" },
 ];

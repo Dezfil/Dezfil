@@ -356,7 +356,7 @@ export class SaveUnit {
   reset(): void {
     if (this.slot() !== "reset") return;
     const patch: Patch = {}, previous: Patch = {};
-    for (const control of this.resettable()) {
+    for (const control of this.returned()) {
       patch[control.key] = null;
       if (!same(control, this.kept[control.key], control.defaultValue ?? null)) previous[control.key] = this.kept[control.key];
       this.settling.delete(control.key);
@@ -484,10 +484,17 @@ export class SaveUnit {
     return control && !control.locked ? control : undefined;
   }
 
-  /** The controls Reset returns: editable, with a default, and in sight. */
+  /** The controls Reset is offered for: editable, with a default, and in sight. */
   private resettable(): UnitControl[] {
     const shown = this.shown();
-    return [...this.controls.values()].filter(control => !control.locked && control.defaultValue !== undefined && !control.hidden?.(shown));
+    return this.returned().filter(control => !control.hidden?.(shown));
+  }
+
+  /** The controls Reset returns: every editable one with a default, one out
+   * of sight among them, so a value kept for another pick goes back to its
+   * default with the rest. */
+  private returned(): UnitControl[] {
+    return [...this.controls.values()].filter(control => !control.locked && control.defaultValue !== undefined);
   }
 
   /** What the card shows: each value, or what is kept for one under a red line. */

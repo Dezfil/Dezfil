@@ -789,6 +789,7 @@ export const SETTINGS = {
     corners: "rounded",
     rail: "hover",
     panels: "glass",
+    transparency: "clear",
   },
 };
 
@@ -859,5 +860,6 @@ export const SETTINGS_CHANGED = {
     corners: "rounded",
     rail: "hover",
     panels: "glass",
+    transparency: "clear",
   },
 };
