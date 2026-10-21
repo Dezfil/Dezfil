@@ -13,7 +13,7 @@ checked: none
 order: 9
 ---
 
-Start with three checks. They show whether the container runs, what Dezfil wrote to its log, and whether it is ready to serve.
+Start with three checks: the container's state, its log and its health.
 
 ::::tabs
 
@@ -84,6 +84,8 @@ docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' dezfil
 ```
 
 The list holds the image's own variables too, such as `PATH` and `DEZFIL_DATA_DIR`. Run `docker rm -f dezfil`, then your command again with the `-e` variables you set, `DEZFIL_SECRET_KEY` among them. The volume keeps your data.
+
+With Docker Compose, put those variables under `environment:` in `compose.yaml`, or in `.env` as [Docker Compose](docker-compose.md#3-make-the-keys-file) does, then run `docker compose up -d`.
 
 ### Dezfil asks you to create the first account again
 
