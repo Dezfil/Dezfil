@@ -1,10 +1,12 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import type { TemplateSource } from "@/lib/templates/format";
+import { creditInFull } from "../templates/template-model";
 import { HostEvent, installDomHost, type HostElement } from "../testing/dom-host";
-import { AppearancePreview, previewPicture } from "./AppearancePreview";
+import { AppearancePreview, PREVIEW_CREDIT, PREVIEW_TEMPLATE, previewPicture } from "./AppearancePreview";
 import styles from "./AppearancePreview.module.css";
 
 /**
@@ -38,14 +40,14 @@ describe("the Appearance preview", () => {
   it("draws the header, the side menu, the inspector and its layers, the map buttons, two widget cards and the legend over the template's picture", () => {
     const html = renderToStaticMarkup(<AppearancePreview />);
     expect(html).toMatch(/<figure[^>]*data-appearance-preview=""/);
-    expect(html).toContain(">Preview</figcaption>");
+    expect(html).toMatch(/<figcaption[^>]*><span>Preview<\/span><small>OpenFlights.org \(ODbL-1.0\)<\/small><\/figcaption>/);
     expect(html).toContain(`src="${previewPicture("light")}"`);
     expect(previewPicture("dark")).toBe("/api/templates/air-routes/picture?theme=dark");
     for (const words of ["The world&#x27;s air routes", "Publish", "Layers", "Airports", "Air routes, June 2014", "Airport pairs", "Haul, by distance", "busier airport"]) {
       expect(html, words).toContain(words);
     }
     // The scene is a picture of the builder: nothing in it is read out.
-    expect(html).toMatch(/<figcaption[^>]*>Preview<\/figcaption><div[^>]*aria-hidden="true"/);
+    expect(html).toMatch(/<\/figcaption><div[^>]*aria-hidden="true"/);
   });
 
   it("gives each piece its role and has every role's look read from its tokens alone", () => {
@@ -54,13 +56,22 @@ describe("the Appearance preview", () => {
     // The header, the header's two buttons and the side menu; the inspector; its two layers; the two widget cards;
     // the legend; the two map buttons.
     expect(PIECES.map(([piece]) => count(piece))).toEqual([4, 1, 2, 2, 1, 2]);
+    // Each piece names what it is, so a reader finds it without the stylesheet's names.
+    const named = [...html.matchAll(/data-piece="([\w-]+)"/g)].map(([, piece]) => piece);
+    expect(named).toEqual(["header", "header-button", "header-button", "side-menu", "inspector", "layer", "layer", "map-button", "map-button", "widget", "widget", "legend"]);
     for (const [piece, role] of PIECES) {
       const own = rule(`.${piece}`);
-      const parts = role === "inner-card" ? ["edge", "fill", "shadow"] : ["edge", "fill", "blur", "shadow"];
-      const wanted = new Map(parts.map(part => [
+      const wanted = new Map(["edge", "fill", "blur", "shadow"].map(part => [
         { edge: "border", fill: "background", blur: "backdrop-filter", shadow: "box-shadow" }[part]!, `var(--surface-${role}-${part})`]));
       expect(own, piece).toEqual(wanted);
     }
+  });
+
+  it("credits the template's data as its card does, from the template shipped with Dezfil", () => {
+    const shipped = readdirSync(`templates/${PREVIEW_TEMPLATE}`).filter(name => /^\d+$/.test(name)).sort((a, b) => Number(b) - Number(a))[0];
+    const template = JSON.parse(readFileSync(`templates/${PREVIEW_TEMPLATE}/${shipped}/template.json`, "utf8")) as { sources: TemplateSource[] };
+    expect(PREVIEW_CREDIT).toBe(creditInFull(template.sources));
+    expect(existsSync(`templates/${PREVIEW_TEMPLATE}/${shipped}/pictures/light.png`) && existsSync(`templates/${PREVIEW_TEMPLATE}/${shipped}/pictures/dark.png`)).toBe(true);
   });
 
   it("stands on a solid card, in sight under the page's top band, and in the flow on one column", () => {
@@ -69,8 +80,11 @@ describe("the Appearance preview", () => {
     expect(card.get("position")).toBe("sticky");
     expect(card.get("top")).toBe("58px");
     expect(rule(".preview", "@media (max-width: 900px)").get("position")).toBe("static");
-    // The picture keeps its lower edge, where its credit line is, in view.
-    expect(rule(".map").get("object-position")).toBe("50% 100%");
+    // The picture keeps its lower right, where the basemap's credit is, in view.
+    expect(rule(".map").get("object-position")).toBe("100% 100%");
+    // What the page scrolls to lands clear of the Preview while it stands over the column, and not on one column.
+    expect(rule(":global(:root):has(.preview)").get("scroll-padding-top")).toBe("286px");
+    expect(rule(":global(:root):has(.preview)", "@media (max-width: 900px)").get("scroll-padding-top")).toBe("0");
     expect(rule(".scene").get("background")).toBe("var(--bg)");
   });
 });

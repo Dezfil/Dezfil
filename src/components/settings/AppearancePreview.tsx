@@ -1,6 +1,7 @@
 "use client";
 import { useState, type CSSProperties } from "react";
 import { useTheme } from "@/components/theme";
+import { creditInFull } from "@/components/templates/template-model";
 import { AnalyzeIcon, LayersIcon, MinusIcon, PlusIcon, SlidersIcon, SparkleIcon } from "@/components/ui/icons";
 import styles from "./AppearancePreview.module.css";
 
@@ -8,8 +9,11 @@ import styles from "./AppearancePreview.module.css";
 export const PREVIEW_TEMPLATE = "air-routes";
 
 /** The picture's address in a theme: the template picture route, whose
- * picture carries its own credit at its lower edge. */
+ * picture carries the basemap's credit at its lower right. */
 export const previewPicture = (theme: "light" | "dark") => `/api/templates/${PREVIEW_TEMPLATE}/picture?theme=${theme}`;
+
+/** The template's data, credited as its card credits it in full. */
+export const PREVIEW_CREDIT = creditInFull([{ name: "OpenFlights Airport and Route Databases", licence: "ODbL-1.0", credit: "OpenFlights.org" }]);
 
 /**
  * A small builder over a map, above Appearance's cards: the header, the
@@ -24,40 +28,40 @@ export function AppearancePreview() {
   const src = previewPicture(theme);
   const [failed, setFailed] = useState<string | null>(null);
   return <figure className={styles.preview} data-appearance-preview="">
-    <figcaption className={styles.heading}>Preview</figcaption>
+    <figcaption className={styles.heading}><span>Preview</span><small>{PREVIEW_CREDIT}</small></figcaption>
     <div className={styles.scene} aria-hidden="true">
       {failed !== src && (
         // Same-origin PNG; next/image would only add an optimizer hop.
         // eslint-disable-next-line @next/next/no-img-element
         <img className={styles.map} src={src} alt="" onError={() => setFailed(src)} />
       )}
-      <div className={`${styles.head} ${styles.chrome}`}>
+      <div className={`${styles.head} ${styles.chrome}`} data-piece="header">
         <b className={styles.logo}>Dezfil</b><span>Maps</span><span>/</span><b>The world&apos;s air routes</b>
       </div>
       <div className={styles.tools}>
-        <span className={styles.chrome}>Assistant</span><span className={styles.chrome}>Tools</span>
+        <span className={styles.chrome} data-piece="header-button">Assistant</span><span className={styles.chrome} data-piece="header-button">Tools</span>
         <span className={styles.publish}>Publish</span>
       </div>
-      <div className={`${styles.rail} ${styles.chrome}`}>
+      <div className={`${styles.rail} ${styles.chrome}`} data-piece="side-menu">
         <i data-on=""><LayersIcon /></i><i><AnalyzeIcon /></i><i><SparkleIcon /></i><i><SlidersIcon /></i>
       </div>
-      <div className={`${styles.inspector} ${styles.panel}`}>
+      <div className={`${styles.inspector} ${styles.panel}`} data-piece="inspector">
         <div className={styles.tabs}><b>Layers</b><span>Basemap</span><span>Widgets</span></div>
         <Layer swatch="#f4f4f4" name="Airports" count="3,257 features" />
         <Layer swatch="#f29e38" name="Air routes, June 2014" count="18,930 features" />
         <span className={styles.faint}>Saved just now</span>
       </div>
       <div className={styles.buttons}>
-        <span className={styles.control}><PlusIcon /></span><span className={styles.control}><MinusIcon /></span>
+        <span className={styles.control} data-piece="map-button"><PlusIcon /></span><span className={styles.control} data-piece="map-button"><MinusIcon /></span>
       </div>
       <div className={styles.widgets}>
-        <div className={`${styles.widget} ${styles.mapCard}`}><small>Airport pairs</small><b>18,930</b></div>
-        <div className={`${styles.widget} ${styles.mapCard}`}>
+        <div className={`${styles.widget} ${styles.mapCard}`} data-piece="widget"><small>Airport pairs</small><b>18,930</b></div>
+        <div className={`${styles.widget} ${styles.mapCard}`} data-piece="widget">
           <small>Haul, by distance</small>
           <Bar name="Short" value="11.6k" share={92} /><Bar name="Medium" value="5,625" share={45} /><Bar name="Long" value="1,719" share={14} />
         </div>
       </div>
-      <div className={`${styles.legend} ${styles.overlay}`}>
+      <div className={`${styles.legend} ${styles.overlay}`} data-piece="legend">
         <b>Air routes, June 2014</b>
         <span><i style={{ background: "#f29e38" }} />busier airport</span>
         <span><i style={{ background: "#4f86e8" }} />other airport</span>
@@ -67,7 +71,7 @@ export function AppearancePreview() {
 }
 
 function Layer({ swatch, name, count }: { swatch: string; name: string; count: string }) {
-  return <div className={`${styles.layer} ${styles.inner}`}>
+  return <div className={`${styles.layer} ${styles.inner}`} data-piece="layer">
     <i style={{ background: swatch }} /><span><b>{name}</b><small>{count}</small></span>
   </div>;
 }

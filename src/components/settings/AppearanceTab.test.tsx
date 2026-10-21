@@ -5,6 +5,7 @@ import { defaultLook, LOOK_KEYS, lookAttributes, lookChoices, type Look } from "
 import { closePrivateState } from "../auth/private-state";
 import { SignedIn } from "../sharing/signed-in";
 import { HostElement, HostEvent, installDomHost } from "../testing/dom-host";
+import { PREVIEW_CREDIT } from "./AppearancePreview";
 import { AppearanceTab } from "./AppearanceTab";
 import { choiceLabel, LOOK_CARDS } from "./look-tab";
 import { FADE_MS, UNDO_MS } from "./save-unit";
@@ -508,7 +509,7 @@ describe("the tab's words", () => {
   /** The only things the tab says: its titles, labels, choices and actions. */
   const SAYS = new Set([
     ...LOOK_CARDS.flatMap(card => [card.title, ...card.rows.flatMap(row => [row.label, ...lookChoices(row.key).map(value => choiceLabel(row.key, value))])]),
-    "Reset to defaults", "Reset to Dezfil's default", "Undo", "Saved", "Preview",
+    "Reset to defaults", "Reset to Dezfil's default", "Undo", "Saved", "Preview", PREVIEW_CREDIT,
   ]);
   const holdsTheCopyRules = () => {
     // No hint of any kind: no meta line, note or words after a control, and no tooltip.

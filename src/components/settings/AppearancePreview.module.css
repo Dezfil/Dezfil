@@ -22,12 +22,35 @@
   box-shadow: var(--surface-page-card-shadow);
 }
 
+/* The caption, and the template data's credit at its right. */
 .heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
   padding: 0 2px;
   font-size: var(--text-body);
   font-weight: 500;
   line-height: 1.35;
   color: var(--fg);
+}
+
+.heading small {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-meta);
+  font-weight: 400;
+  color: var(--fg-muted);
+}
+
+/* What the page scrolls to (a row a search or an address lands on, a
+   focused control) stays clear of the Preview standing over the top of
+   the column: its height, the scene's 240px with its caption, padding
+   and border. */
+:global(:root):has(.preview) {
+  scroll-padding-top: 286px;
 }
 
 .scene {
@@ -45,15 +68,15 @@
   color: var(--fg);
 }
 
-/* The map: the picture anchored at its lower edge, so its credit line
-   stays in view at every width the scene takes. */
+/* The map: the picture anchored at its lower right, so the basemap's
+   credit drawn there stays in view at every width the scene takes. */
 .map {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
-  object-position: 50% 100%;
+  object-position: 100% 100%;
 }
 
 .scene b {
@@ -90,6 +113,7 @@
 .inner {
   border: var(--surface-inner-card-edge);
   background: var(--surface-inner-card-fill);
+  backdrop-filter: var(--surface-inner-card-blur);
   box-shadow: var(--surface-inner-card-shadow);
 }
 
@@ -315,17 +339,35 @@
   border-radius: var(--radius-sm);
 }
 
-/* A narrow scene keeps the side of the builder the cards are about: the
-   header's tools and the widget cards go. */
-@container scene (max-width: 600px) {
+/* A narrow scene draws the builder smaller with every piece kept; a very
+   narrow one keeps the side the cards are about, and the header's tools
+   and the widget cards go. */
+@container scene (max-width: 640px) {
+  .head,
+  .tools,
+  .rail,
+  .inspector,
+  .buttons,
+  .widgets,
+  .legend {
+    zoom: 0.75;
+  }
+}
+
+@container scene (max-width: 440px) {
   .tools,
   .widgets {
     display: none;
   }
 }
 
-/* One column: the preview stays in the flow, shorter. */
+/* One column: the preview stays in the flow, shorter, and holds nothing
+   back from what the page scrolls to. */
 @media (max-width: 900px) {
+  :global(:root):has(.preview) {
+    scroll-padding-top: 0;
+  }
+
   .preview {
     position: static;
   }
