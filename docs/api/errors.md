@@ -123,7 +123,7 @@ Agents can read the same list from the [API description](openapi.json):
 | `sql_error` | 400 | The SQL failed to parse or run, or it names a dataset you cannot reach. | Fix the SQL. `position` points at the problem when the engine gives one. Another person's dataset is `<sql name>.<dataset>`: see [Who may do what](http-api.md#who-may-do-what). |
 | `query_timeout` | 408 | The query ran past the instance's query time limit. | Narrow the query, with a `WHERE` or fewer columns. The message names the setting that raises the limit. See [Limits](limits.md). |
 | `query_memory_exceeded` | 400 | The query needed more memory than the engine allows SQL. | Narrow the query, or ask the operator to raise `DEZFIL_QUERY_MEMORY_MB`. |
-| `query_result_too_large` | 422 | The answer is over the size a query may return. See [Limits](limits.md). | Select fewer rows or columns. To get every row, download the result with `POST /api/query/export`. |
+| `query_result_too_large` | 422 | The answer, or one value in it, is over a byte limit, so no rows come back. A query answers this, and so do a dataset's page, a geometry or PostGIS preview, a layer's filter values and a category fill. | Narrow the query, or keep every row: [Answers too large to return](#answers-too-large-to-return) says what to do at each read. |
 
 ### Busy or failing server
 
@@ -132,6 +132,141 @@ Agents can read the same list from the [API description](openapi.json):
 | `operation_queue_full` | 503 | Too many operations are already waiting to run. | Retry once some finish. |
 | `authentication_busy` | 503 | Too many sign-ins or password checks are waiting their turn. | Retry after the seconds in `Retry-After`. |
 | `internal` | 500 | The server failed in a way that has no code of its own. | Retry once. If it fails again, the operator finds the detail in the server log. |
+
+## Answers too large to return
+
+[Limits](limits.md#sql-results) gives the two byte limits behind `query_result_too_large`, and how geometry counts. No setting raises them, so what to do depends on the read that answers it:
+
+| The read | What to do |
+|---|---|
+| A query, on the **SQL** page, with `POST /api/query` or `run_sql` | Narrow it, as [Query with SQL](../use/sql.md#troubleshooting) shows. To keep every row, [download it](#download-every-row) or [save it as a dataset](#save-every-row-as-a-dataset). In the app, a [SQL step](../use/workflows.md#save-a-query-with-a-sql-step) saves it, and the dataset's export in **Data** downloads it. |
+| A dataset's page, or its **Set geometry** panel | Keep a copy without the large column, as [A dataset's page does not open](#a-datasets-page-does-not-open) shows. |
+| A layer's **Filters** or **Color by**, or a **Category** widget's **Group by** | Choose another column: one with a value that long holds no categories. |
+| The PostGIS five-row preview | Import the table all the same: an import is not held to these limits. |
+
+### Download every row
+
+An export runs the same query and streams every row of its result as a file, with no byte limit:
+
+::::tabs
+:::tab[curl]
+```sh title="Terminal"
+curl -s http://localhost:3000/api/query/export \
+  -H "Authorization: Bearer <YOUR_TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{"sql": "SELECT name, country, population FROM world_cities ORDER BY population DESC LIMIT 3", "format": "csv", "name": "largest_cities"}'
+```
+:::
+:::tab[JavaScript]
+```js title="export.mjs"
+const response = await fetch("http://localhost:3000/api/query/export", {
+  method: "POST",
+  headers: {
+    Authorization: "Bearer <YOUR_TOKEN>",
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    sql: "SELECT name, country, population FROM world_cities ORDER BY population DESC LIMIT 3",
+    format: "csv",
+    name: "largest_cities",
+  }),
+});
+console.log((await response.text()).trimEnd());
+```
+
+Run it with `node export.mjs`.
+:::
+::::
+
+```csv title="Output"
+name,country,population
+Tokyo,Japan,35676000
+New York,United States of America,19040000
+Mexico City,Mexico,19028000
+```
+
+- `sql` is your query, here over the `world_cities` dataset of the [API quickstart](quickstart.md).
+- `format` is `csv`, `geoparquet` or `geojson`. CSV writes geometry as WKT text. GeoJSON needs a geometry column and uses the first one.
+- `name` names the file, here `largest_cities.csv`. Without it the file is `query_result.csv`.
+- curl prints the file. To save it instead, add `-o largest_cities.csv -w "%{http_code}\n"`: `200` means the file holds the rows, and any other status that it holds the error answer.
+
+The export still keeps to the **Query time limit** and **Engine memory**, so it can answer `query_timeout` or `query_memory_exceeded`. The [operation reference](https://dezfil.io/docs/api/reference/query/#post-api-query-export) gives every field.
+
+Over MCP, the tool `export_sql_result` hands the file back to the agent, up to **Tool attachment size**. A larger file fails with `attachment_too_large`: download it over HTTP, or save the rows as a dataset with `run_operation`, as the next section shows.
+
+### Save every row as a dataset
+
+A run of the operation `sql_step` saves every row of a query as a new dataset, with no byte limit:
+
+::::tabs
+:::tab[curl]
+```sh title="Terminal"
+curl -s http://localhost:3000/api/operations/run \
+  -H "Authorization: Bearer <YOUR_TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{"operation": "sql_step", "parameters": {"sql": "SELECT name, country, population, geometry FROM world_cities WHERE population > 10000000", "name": "big_cities"}}'
+```
+:::
+:::tab[JavaScript]
+```js title="save.mjs"
+const response = await fetch("http://localhost:3000/api/operations/run", {
+  method: "POST",
+  headers: {
+    Authorization: "Bearer <YOUR_TOKEN>",
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    operation: "sql_step",
+    parameters: {
+      sql: "SELECT name, country, population, geometry FROM world_cities WHERE population > 10000000",
+      name: "big_cities",
+    },
+  }),
+});
+console.log(JSON.stringify(await response.json()));
+```
+
+Run it with `node save.mjs`.
+:::
+::::
+
+```json title="Output"
+{"run":{"id":"<RUN_ID>","operation":"sql_step","state":"queued",...}}
+```
+
+- `parameters` holds the query as `sql` and the new dataset's `name`. A name already taken answers 409 `name_taken`, and nothing runs.
+- The answer comes at once, with the run's `id`, and the run writes the dataset afterwards.
+
+Read the run to see how it ended:
+
+::::tabs
+:::tab[curl]
+```sh title="Terminal"
+curl -s http://localhost:3000/api/operations/runs/<RUN_ID> \
+  -H "Authorization: Bearer <YOUR_TOKEN>"
+```
+:::
+:::tab[JavaScript]
+```js title="read-run.mjs"
+const response = await fetch("http://localhost:3000/api/operations/runs/<RUN_ID>", {
+  headers: { Authorization: "Bearer <YOUR_TOKEN>" },
+});
+console.log(JSON.stringify(await response.json()));
+```
+
+Run it with `node read-run.mjs`.
+:::
+::::
+
+```json title="Output"
+{"run":{"id":"<RUN_ID>","operation":"sql_step","state":"succeeded",...,"finishedAt":"2026-10-20T09:00:01.503Z","output":{"id":"<DATASET_ID>","name":"big_cities"}}}
+```
+
+- `state` is `queued`, then `running`. Read the run again every few seconds until it is `succeeded`, `failed` or `cancelled`.
+- A succeeded run names its dataset under `output`. A failed one holds an `error` with a `code` and a `message`, such as `sql_error`, or `operation_timeout` past **Time limit per tool run**.
+- Over MCP, `run_operation` takes the same `operation` and `parameters`, and `get_operation_run` reads the run.
+
+The [operation reference](https://dezfil.io/docs/api/reference/operations/#post-api-operations-run) gives every field of a run.
 
 ## Handle errors in your code
 
@@ -203,6 +338,20 @@ path and its spelling against the
 
 Check that you send the revision from the latest answer, not from your first
 read. [Edit with revisions](http-api.md#edit-with-revisions) shows the chain.
+
+### A dataset's page does not open
+
+A dataset whose first 50 rows are too large to return keeps its page and **Set geometry** closed, and its inspection answers `query_result_too_large`. Text there shows only its first 512 characters, so the large value is of another kind, such as JSON, a list, a binary value or a second geometry column.
+
+To find its column, run this on the **SQL** page, or with `POST /api/query` or `run_sql`:
+
+```sql title="SQL"
+SELECT max(length(CAST(COLUMNS(*) AS VARCHAR))) FROM <DATASET>;
+```
+
+It answers one row: the length of each column's longest value, in characters, under the column's name. The column to leave out shows a number in the millions. The dataset's own geometry column does not count.
+
+Keep a copy without that column: on the **SQL** page, run `SELECT * EXCLUDE (<COLUMN>) FROM <DATASET>` and click **Save as dataset**. If that query answers `query_result_too_large` too, save it as a **SQL step** in a [workflow](../use/workflows.md), or as [Save every row as a dataset](#save-every-row-as-a-dataset) shows. The copy's page opens.
 
 ### The message says more than the catalogue
 

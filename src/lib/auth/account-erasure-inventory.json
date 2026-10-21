@@ -2768,6 +2768,11 @@
         "memory:immutable-configuration"
       ]
     },
+    "memory:src/lib/api/openapi-example-answers.ts#SAVE_RUN_FINISHED": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
     "memory:src/lib/api/openapi-example-answers.ts#SETTINGS": {
       "stores": [
         "memory:immutable-configuration"

@@ -80,7 +80,7 @@ To let the server reach hosts on your own network, list them:
 
 :::tab[Docker]
 
-List your variables first, as [Set a variable](configuration.md#set-a-variable) shows, and add them to the command, `DEZFIL_SECRET_KEY` among them:
+List your variables first, as [Set a variable](configuration.md#set-a-variable) shows, and add them to the command, `DEZFIL_SECRET_KEY` too if you set one:
 
 ```sh title="Terminal"
 docker rm -f dezfil
@@ -123,7 +123,7 @@ For a database on the Docker host, use the host's address on Docker's network, w
 
 :::tab[Docker]
 
-List your variables first, as [Set a variable](configuration.md#set-a-variable) shows, and add them to the command, `DEZFIL_SECRET_KEY` among them:
+List your variables first, as [Set a variable](configuration.md#set-a-variable) shows, and add them to the command, `DEZFIL_SECRET_KEY` too if you set one:
 
 ```sh title="Terminal"
 docker rm -f dezfil
@@ -237,7 +237,7 @@ pkcs11.txt
 
 :::tab[Docker]
 
-List your variables first, as [Set a variable](configuration.md#set-a-variable) shows. Then run this in the folder of step 1, with them added, `DEZFIL_SECRET_KEY` and `DEZFIL_EGRESS_ALLOWLIST` among them:
+List your variables first, as [Set a variable](configuration.md#set-a-variable) shows. Then run this in the folder of step 1, with them added, `DEZFIL_SECRET_KEY` and `DEZFIL_EGRESS_ALLOWLIST` too if you set them:
 
 ```sh title="Terminal"
 docker rm -f dezfil

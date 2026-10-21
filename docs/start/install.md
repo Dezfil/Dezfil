@@ -10,6 +10,7 @@ audience:
   - user
   - operator
   - developer
+  - agent
 checked: none
 order: 2
 moved_from:
@@ -174,7 +175,7 @@ To add people, open **Users** in the side menu and click **Invite**. See [Users]
 | See the logs | `docker logs -f dezfil` |
 | Check health | `curl http://localhost:3000/api/health` answers `{"status":"ready"}` |
 | Back up | Stop Dezfil, then copy the `dezfil-data` volume with the commands in [Back up and restore](../self-host/backup-and-restore.md#back-up). |
-| Upgrade | Back up. In the `Dezfil` folder, run `git pull` and `docker build -t dezfil .`. Then run `docker stop dezfil`, `docker rm dezfil` and the install's `docker run` command, with the `-e` variables you added. |
+| Upgrade | Follow [Upgrade](../self-host/upgrade.md): it builds the new version, backs up, replaces the container and keeps a way back. |
 
 :::
 
@@ -189,13 +190,13 @@ Run these in the `Dezfil` folder.
 | See the logs | `docker compose logs -f` |
 | Check health | `curl http://localhost:3000/api/health` answers `{"status":"ready"}` |
 | Back up | Stop Dezfil, then copy the `dezfil-data` volume with the commands in [Back up and restore](../self-host/backup-and-restore.md#back-up). |
-| Upgrade | Back up. Run `git pull`, then `docker compose up -d --build`. Compose replaces the container and keeps the volume. |
+| Upgrade | Follow [Upgrade](../self-host/upgrade.md): it builds the new version, backs up, replaces the container and keeps a way back. |
 
 :::
 
 ::::
 
-A new version updates the stored data when it starts. To go back, restore your backup and run the version that made it.
+A new version updates the stored data when it starts. To go back, restore your backup and run the version that made it, as [Go back to the old version](../self-host/upgrade.md#go-back-to-the-old-version) shows.
 
 ## Next steps
 

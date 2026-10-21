@@ -830,6 +830,18 @@ export const SAVE_RUN = {
   },
 };
 
+/** The same run once it finished: big_cities is written, the dataset the
+ * catalogue lists first. */
+export const SAVE_RUN_FINISHED = {
+  run: {
+    ...SAVE_RUN.run,
+    state: "succeeded",
+    startedAt: "2026-10-20T09:00:01.495Z",
+    finishedAt: "2026-10-20T09:00:01.503Z",
+    output: { id: CATALOGUE_PAGE.tables[0].id, name: "big_cities" },
+  },
+};
+
 /** Publishing the map, as it answers. */
 export const PUBLISHED = {
   token: "<PUBLISH_TOKEN>",

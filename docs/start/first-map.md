@@ -136,10 +136,10 @@ Click **Open** to see the map as its readers do. To stop sharing it, click **Pub
 
 ## Troubleshooting
 
-**The dialog stays open and says "imported as a table: no geometry for a layer".** Dezfil found no coordinate columns it recognizes. Fix it one of two ways:
+**The dialog stays open and says "imported as a table: no geometry for a layer".** Dezfil found no coordinate columns it recognizes, or their numbers are not longitude and latitude in degrees. Fix it one of two ways:
 
-- Rename the columns to `latitude` and `longitude`, then upload the file again. It becomes a new dataset, so its name ends in `_2`.
-- Open **Data** in the side menu and open the dataset. Click **Set geometry** and pick **Coordinate pair**. Choose your columns under **Longitude · x** and **Latitude · y**, then click **Apply**. Open your map again and add the dataset from **Add layer** › **Tables**.
+- Rename the columns to `latitude` and `longitude`, then upload the file again. It becomes a new dataset, so its name ends in `_2`. This does not help numbers in another coordinate system.
+- Open **Data** in the side menu and open the dataset. Click **Set geometry** and pick **Coordinate pair**. Choose your columns under **Longitude · x** and **Latitude · y**. If the numbers are not in degrees, pick their system under **Projection**. Then click **Apply**. Open your map again and add the dataset from **Add layer** › **Tables**.
 
 **Publish map is grayed out.** Your instance limits who may publish: see [Share and publish](../use/share-and-publish.md#troubleshooting).
 

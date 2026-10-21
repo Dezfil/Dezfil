@@ -141,7 +141,17 @@ On the **Workflows** page, each card sums up its workflow in one chip, such as *
 
 In a panel, small icons under each input show the kinds of geometry it takes.
 
-**SQL step** has no input ports: it reads the datasets its query names, so you change what it reads by changing its query. [Query with SQL](sql.md) covers writing one.
+## Save a query with a SQL step
+
+**SQL step** keeps the whole result of a query as a dataset, even one too large for the **SQL** page to return. It has no input ports: it reads the datasets its query names, listed under **Reads** in its panel: change the query to change them.
+
+1. Open a workflow, or [create one](#1-create-a-workflow).
+2. In **Tools**, click **SQL step** under **Data**, then click its tile.
+3. In its panel, under **Parameters**, type your query in **Sql**. [Query with SQL](sql.md) covers writing one.
+4. Under **Output**, type a name in **Dataset name**.
+5. Click **Run this node**.
+
+To download the dataset, click the workflow's card in **Data**, hover the dataset's card and click **Export this table**, the download icon. Then click **GeoParquet**, **GeoJSON** or **CSV**: the file holds every row. **GeoJSON** shows only for a dataset with geometry.
 
 ## Arrange the canvas
 

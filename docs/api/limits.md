@@ -72,6 +72,8 @@ On the **SQL** page the same query shows **Showing the first 1,000 of 1,001 rows
 | Work that runs past its time | 408, or 504 for a link import's download, and a code that names the limit. The work stops. | 408 `query_timeout` |
 | A full queue, or too many requests | 409, 429 or 503. Retry later. | 429 `rate_limited` |
 
+An MB, here, in **Settings** and in Dezfil's messages, is 1,048,576 bytes, a MiB: the 32 MB that `query_result_too_large` names is 33,554,432 bytes. Only **Engine memory** and **Trusted engine memory** count an MB as 1,000,000 bytes.
+
 Most refusals at a setting's limit say in their `message` which setting changes it, such as `An admin can change "Query time limit".` A few call the setting by another name than **Settings** › **Limits** does: the `label` that `GET /api/instance/settings` gives each setting is the one the message uses. [Errors](errors.md) shows the parts of an error answer.
 
 ## Limits an operator changes
@@ -213,15 +215,15 @@ The two byte limits are fixed, with no setting. They hold four reads: the SQL co
 | The geometry-choice preview, in **Set geometry** | `POST /api/tables/{name}/geometry/preview` | `preview_table_geometry` | 50 |
 | The PostGIS five-row preview | `POST /api/connections/postgis/{id}/preview` | `preview_postgis_relation` | 5 |
 
-A value's quotes and escaping count toward its size. A geometry column counts toward the whole answer only, whether it travels as WKT or GeoJSON. Text that holds WKT or GeoJSON counts as text.
+A value's quotes and escaping count toward its size. A geometry column counts toward the whole answer only, whether it travels as WKT or GeoJSON; in a dataset inspection, only the dataset's own geometry column does. Text that holds WKT or GeoJSON counts as text.
 
 Row and engine-memory limits still apply: a result below both byte ceilings can fail the engine-memory limit while the query runs.
 
-Downloads and saved datasets take the complete result. SQL, table and layer file exports stream every row, above both byte limits.
+Downloads and saved datasets take the complete result. SQL, table and layer file exports stream every row, above both byte limits. [Errors](errors.md#answers-too-large-to-return) says what to do at each read.
 
 An inspection that is still too large keeps the dataset's page and its **Set geometry** panel from opening. It also blocks tool column pickers, SQL schema inventory and completion, workflow dataset reads and facts, and automatic layer addition after a tool run.
 
-A tool run can then report a failure even though the dataset has already been written. Existing layer rendering, dataset map features, file exports and deleting the dataset from **Data** use other reads and keep working.
+A tool run can then report a failure even though the dataset has already been written. Existing layer rendering, dataset map features, file exports and deleting the dataset from **Data** use other reads and keep working. To open the dataset again, see [A dataset's page does not open](errors.md#a-datasets-page-does-not-open).
 
 A filter's distinct values, a categorical classification, category widgets and value search hold each text value to 2 MiB too. The first two answer the same 422, a category widget shows the code as its own error, and value search names the layer under `refusedLayers` and leaves its rows out.
 

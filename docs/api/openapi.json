@@ -28883,7 +28883,13 @@
             "schema": {
               "type": "string"
             },
-            "description": "Run id."
+            "description": "Run id.",
+            "examples": {
+              "saveAsDataset": {
+                "summary": "Read the run that saved big_cities, once it finished",
+                "value": "e4a7c2b9-1f3d-4e6a-9c85-7b0d2f4a6e13"
+              }
+            }
           }
         ],
         "responses": {
@@ -28893,6 +28899,34 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/OperationRunEnvelope"
+                },
+                "examples": {
+                  "saveAsDataset": {
+                    "summary": "Read the run that saved big_cities, once it finished",
+                    "description": "Needs a token and the run saving big_cities started. Until it finishes, its state is queued, then running: read it again until it is succeeded, failed or cancelled. A succeeded run names its dataset under output.",
+                    "value": {
+                      "run": {
+                        "id": "e4a7c2b9-1f3d-4e6a-9c85-7b0d2f4a6e13",
+                        "operation": "sql_step",
+                        "state": "succeeded",
+                        "subject": {
+                          "kind": "run",
+                          "id": "e4a7c2b9-1f3d-4e6a-9c85-7b0d2f4a6e13"
+                        },
+                        "parameters": {
+                          "sql": "SELECT name, country, population, geometry FROM world_cities WHERE population > 10000000",
+                          "name": "big_cities"
+                        },
+                        "acceptedAt": "2026-10-20T09:00:01.494Z",
+                        "startedAt": "2026-10-20T09:00:01.495Z",
+                        "finishedAt": "2026-10-20T09:00:01.503Z",
+                        "output": {
+                          "id": "c2e8f4a1-6b3d-4f97-a5c0-1d2e3f4a5b6c",
+                          "name": "big_cities"
+                        }
+                      }
+                    }
+                  }
                 }
               }
             }
@@ -53875,12 +53909,24 @@
             "schema": {
               "type": "string"
             },
-            "description": "The known publication token to revoke. This operation does not discover private maps."
+            "description": "The known publication token to revoke. This operation does not discover private maps.",
+            "examples": {
+              "deactivatedOwner": {
+                "summary": "Take a deactivated account's published map offline",
+                "value": "<PUBLISH_TOKEN>"
+              }
+            }
           }
         ],
         "responses": {
           "204": {
-            "description": "Publication revoked. No content is returned."
+            "description": "Publication revoked. No content is returned.",
+            "x-examples": {
+              "deactivatedOwner": {
+                "summary": "Take a deactivated account's published map offline",
+                "description": "Needs an admin's token and the publish token of a map whose owner is deactivated: the end of the map's link, /v/<token>. The answer has no body, and the link stops working at once. The account and the map stay."
+              }
+            }
           },
           "401": {
             "description": "Error with a machine-readable code and human message.",

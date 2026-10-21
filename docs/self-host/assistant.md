@@ -9,7 +9,6 @@ read_when:
   - "the assistant pane shows an error instead of an answer"
 audience:
   - operator
-  - agent
 checked: none
 order: 4
 ---
@@ -48,7 +47,7 @@ docker run -d --name dezfil -p 127.0.0.1:3000:3000 -v dezfil-data:/data \
 
 ::::
 
-The server reads the key when it starts. If Dezfil is already running, list its variables as [Set a variable](configuration.md#set-a-variable) shows, run `docker rm -f dezfil`, and add them to the command, `DEZFIL_SECRET_KEY` among them. The volume keeps your data. With Docker Compose, put the key in the keys file [Docker Compose](docker-compose.md#3-make-the-keys-file) makes, and run `docker compose up -d`.
+The server reads the key when it starts. If Dezfil is already running, list its variables as [Set a variable](configuration.md#set-a-variable) shows, run `docker rm -f dezfil`, and add them to the command, `DEZFIL_SECRET_KEY` too if you set one. The volume keeps your data. With Docker Compose, put the key in the keys file [Docker Compose](docker-compose.md#3-make-the-keys-file) makes, and run `docker compose up -d`.
 
 The key is set only in the environment: no Settings tab takes it. With both keys set, Dezfil uses Anthropic unless you add `DEZFIL_AI_PROVIDER=openai`.
 
@@ -63,7 +62,7 @@ People can pick another model and an effort level from the chip beside **Send**.
 | Anthropic | Opus 5, Fable 5, Sonnet 5, Haiku 4 |
 | OpenAI | Astra, Sol, Terra, Nova |
 
-To offer fewer, list their ids in the order you want, and start the container again with the other `-e` variables you use, `DEZFIL_SECRET_KEY` among them:
+To offer fewer, list their ids in the order you want, and start the container again with the other `-e` variables you use, `DEZFIL_SECRET_KEY` too if you set one:
 
 ```sh title="Terminal"
 docker rm -f dezfil

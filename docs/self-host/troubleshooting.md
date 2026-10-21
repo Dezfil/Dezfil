@@ -83,7 +83,7 @@ A `docker run` that stopped here made its container all the same. Remove it with
 docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' dezfil
 ```
 
-The list holds the image's own variables too, such as `PATH` and `DEZFIL_DATA_DIR`. Run `docker rm -f dezfil`, then your command again with the `-e` variables you set, `DEZFIL_SECRET_KEY` among them. The volume keeps your data.
+The list holds the image's own variables too, such as `PATH` and `DEZFIL_DATA_DIR`. Run `docker rm -f dezfil`, then your command again with the `-e` variables you set, `DEZFIL_SECRET_KEY` too if you set one. The volume keeps your data.
 
 With Docker Compose, put those variables under `environment:` in `compose.yaml`, or in `.env` as [Docker Compose](docker-compose.md#3-make-the-keys-file) does, then run `docker compose up -d`.
 

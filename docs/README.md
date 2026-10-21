@@ -21,7 +21,7 @@ What Dezfil is, how to install it, and your first map.
   - path: `docs/start/install.md`
   - summary: Install Dezfil with Docker, Docker Compose or from source, create the admin account, and keep the instance running day to day.
   - read when: you want Dezfil running on your computer or a server; you choose between Docker, Docker Compose and a development checkout; you create the first admin account; you stop, start, upgrade, back up or check a running instance
-  - audience: user, operator, developer
+  - audience: user, operator, developer, agent
 
 - [Your first map](start/first-map.md)
   - path: `docs/start/first-map.md`
@@ -113,7 +113,7 @@ Install, secure, configure and back up your own instance.
   - path: `docs/self-host/assistant.md`
   - summary: Turn on the in-app assistant with an Anthropic or OpenAI key, choose its models, and check that it answers.
   - read when: you want to turn on the assistant for your instance; you want to change which models people can choose; you want to offer a model or an effort level Dezfil does not list; you need to know what the assistant sends to the AI provider; the assistant pane shows an error instead of an answer
-  - audience: operator, agent
+  - audience: operator
 
 - [Back up and restore](self-host/backup-and-restore.md)
   - path: `docs/self-host/backup-and-restore.md`
@@ -201,9 +201,9 @@ Script Dezfil over HTTP, or connect an AI agent through MCP.
 
 - [Connect an AI agent](api/mcp.md)
   - path: `docs/api/mcp.md`
-  - summary: Connect Claude Code, Codex, Cursor or another MCP client to Dezfil, so an agent can work with your maps, data and workflows.
+  - summary: Connect Claude Code, Codex, Cursor or another MCP client to Dezfil and add the Dezfil plugin, so an agent can work with your maps, data and workflows.
   - read when: you want an AI agent to build maps, query data or run workflows in Dezfil; you add Dezfil to Claude Code, Codex, Cursor or another MCP client; you want to limit what an agent can do with your account; an agent's calls answer 401, token_expired, forbidden or stale_revision; you want the Dezfil skill and references in Claude Code or Codex
-  - audience: user, developer, agent
+  - audience: user, operator, developer, agent
 
 - [Errors](api/errors.md)
   - path: `docs/api/errors.md`
@@ -225,19 +225,19 @@ Work on Dezfil's code.
   - path: `docs/contribute/development-setup.md`
   - summary: Run a checkout for development, run the checks and tests the pipeline runs, and start the instances the browser suite and the scripts need.
   - read when: you set up a checkout to change Dezfil's code; you want to run the pipeline's checks before you push; you run the unit tests or the browser suite against an instance of your own; a test needs DEZFIL_TEST_PG_URL or another test-only variable; you regenerate the docs index, the design specimen or another generated file
-  - audience: developer, agent
+  - audience: developer
 
 - [Architecture](contribute/architecture.md)
   - path: `docs/contribute/architecture.md`
   - summary: Find where each part of the Dezfil container lives in the source, and keep the rules that hold the parts together.
   - read when: you change the code or the Dockerfile and need to know where a part lives or what the image carries; you wonder why Dezfil needs no database server or second service; you trace a layer from the browser to the query engine and back; you add a feature and want to know which rules it must keep; you add an API operation and want the UI, the assistant and MCP clients to get it
-  - audience: developer, agent
+  - audience: developer
 
 - [How this is built](contribute/how-this-is-built.md)
   - path: `docs/contribute/how-this-is-built.md`
   - summary: Take a change from an idea to main: describe the behavior, build it on a branch with its tests, pass the checks and get it reviewed.
   - read when: you plan to contribute a change and want to know what is expected of it; you write a change with an AI coding agent; you want to know what a reviewer looks for before a pull request merges; you say in a pull request what you tested and what you did not; a pull request check says a commit is not signed off or its message carries an internal reference
-  - audience: developer, agent
+  - audience: developer
 
 - [Write a docs page](contribute/write-docs.md)
   - path: `docs/contribute/write-docs.md`

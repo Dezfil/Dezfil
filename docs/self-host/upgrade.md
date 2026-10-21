@@ -65,6 +65,21 @@ docker compose build
 
 ## 3. Back up
 
+Check first that the container keeps its data in the `dezfil-data` volume:
+
+```sh title="Terminal"
+docker inspect --format '{{range .Mounts}}{{if eq .Destination "/data"}}{{.Name}}{{end}}{{end}}' dezfil
+```
+
+```text title="Output"
+dezfil-data
+```
+
+It prints the name of the volume mounted at `/data`, the data folder, and leaves out the container's other mounts.
+
+- If it prints another name, your data is in that volume: write its name in place of `dezfil-data` wherever this page and [Back up and restore](backup-and-restore.md) name it.
+- If it prints an empty line, `/data` is a folder of this machine, not a volume, and the backup below would not copy your data. Stop Dezfil, copy that folder instead, and mount it in place of `dezfil-data` in step 4.
+
 Let running tools and workflows finish. Then back up the volume as [Back up](backup-and-restore.md#back-up) shows: it stops Dezfil, copies the volume to `$HOME/dezfil-backup`, prints `Copied` and starts the old version again. The version to note with this backup is the commit step 2 printed: after `git pull`, `git rev-parse` prints the new one.
 
 If you set `DEZFIL_SECRET_KEY`, in `.env` or with `-e`, keep its value too, apart from the backup, as [The encryption key](backup-and-restore.md#the-encryption-key) says.
@@ -81,7 +96,7 @@ If you set `DEZFIL_SECRET_KEY`, in `.env` or with `-e`, keep its value too, apar
 
 :::tab[Docker]
 
-A new container gets none of the old one's options. To see its variables before you remove it, run `docker inspect dezfil` and look under `Env`. The image's own variables are listed there too.
+A new container gets none of the old one's options. List its variables before you remove it, as [Set a variable](configuration.md#set-a-variable) shows.
 
 ```sh title="Terminal"
 docker rm -f dezfil
@@ -124,6 +139,8 @@ Then check the data in the app:
 3. Open a map you know. You should see its layers as before.
 
 **Could not read the database.** means the database is at another version's level, or the test failed another way. It shows when an older version runs on data a newer one updated.
+
+Keep the backup and `dezfil:before-upgrade` while you might go back. Before the next upgrade, move the backup away as [Back up](backup-and-restore.md#back-up) says. `docker image prune` removes the old images the next `docker tag` leaves without a name.
 
 ## What the new version does when it starts
 
