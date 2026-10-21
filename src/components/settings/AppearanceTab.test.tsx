@@ -508,7 +508,7 @@ describe("the tab's words", () => {
   /** The only things the tab says: its titles, labels, choices and actions. */
   const SAYS = new Set([
     ...LOOK_CARDS.flatMap(card => [card.title, ...card.rows.flatMap(row => [row.label, ...lookChoices(row.key).map(value => choiceLabel(row.key, value))])]),
-    "Reset to defaults", "Reset to Dezfil's default", "Undo", "Saved",
+    "Reset to defaults", "Reset to Dezfil's default", "Undo", "Saved", "Preview",
   ]);
   const holdsTheCopyRules = () => {
     // No hint of any kind: no meta line, note or words after a control, and no tooltip.

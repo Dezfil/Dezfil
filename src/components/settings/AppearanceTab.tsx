@@ -6,6 +6,7 @@ import { ErrorNote } from "@/components/ui/ErrorNote";
 import { RerunIcon } from "@/components/ui/icons";
 import { useSignedInSqlName } from "@/components/sharing/signed-in";
 import { accountRequest, failureMessage, settingsWrite } from "./api";
+import { AppearancePreview } from "./AppearancePreview";
 import {
   choiceLabel, LOOK_CARDS, LookReset, shownLook, unitKey, type LookCard, type LookResetSnapshot, type LookSend, type PictureRow,
   type SegmentRow,
@@ -82,6 +83,7 @@ function LookCards({ session: { units, reset } }: { session: LookSession }) {
   return <div className={styles.tab}>
     <TopAction reset={reset} snapshot={top} shown={shown} />
     {top.note && <ErrorNote message={top.note.message} onRetry={() => reset.retry(shown)} onDismiss={() => reset.dismiss()} />}
+    <AppearancePreview />
     {LOOK_CARDS.map((card, index) => <LookCardView key={card.id} card={card} unit={units[index]} snapshot={snapshots[index]} onNewer={newer} />)}
   </div>;
 }
