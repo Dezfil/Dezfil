@@ -9,7 +9,8 @@ import { buildOpenApiDocument } from "./openapi";
  * that follow it: each request is built from the example as the operation
  * reference draws it, and each answer must be the example's. An identifier,
  * a revision or a placeholder in an example stands for the value the
- * instance gave at that place first, and every later use must be that value;
+ * instance gave at that place first, which must be of its kind and not one
+ * another of them stands for, and every later use must be that value;
  * a time stands for any time, and a field that varies by run for any value
  * of its type. Where an example's description says it is cut, only what it
  * shows is held. So an example stays what the instance answers, and a seeded
@@ -100,6 +101,15 @@ const PLACEHOLDER = /^<[A-Z][A-Z0-9_]*>$/;
 const TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/;
 const show = (value: unknown) => JSON.stringify(value)?.slice(0, 200);
 
+/** The values an example writes in place of one the instance makes up, and
+ * what the instance must answer there: an identifier, a revision, or some
+ * text for a placeholder. */
+const STAND_INS: { shape: RegExp; kind: string; answers: (value: unknown) => boolean }[] = [
+  { shape: UUID, kind: "an identifier", answers: (value) => typeof value === "string" && UUID.test(value) },
+  { shape: REVISION, kind: "a revision", answers: (value) => typeof value === "string" && REVISION.test(value) },
+  { shape: PLACEHOLDER, kind: "text", answers: (value) => typeof value === "string" && value !== "" },
+];
+
 /** What an example's value stands for: the values the instance gave in
  * its place, by the example's value. */
 type Bindings = Map<string, unknown>;
@@ -107,9 +117,15 @@ type Bindings = Map<string, unknown>;
 /** Where an answer differs from its example. */
 function differences(example: unknown, actual: unknown, bindings: Bindings, at: string): string[] {
   if (typeof example === "string") {
-    if (PLACEHOLDER.test(example) || UUID.test(example) || REVISION.test(example)) {
-      if (!bindings.has(example)) { bindings.set(example, actual); return []; }
-      return show(bindings.get(example)) === show(actual) ? [] : [`${at}: the example's ${example} stood for ${show(bindings.get(example))}, the instance answers ${show(actual)}`];
+    const standIn = STAND_INS.find(({ shape }) => shape.test(example));
+    if (standIn) {
+      if (bindings.has(example)) return show(bindings.get(example)) === show(actual) ? [] : [`${at}: the example's ${example} stood for ${show(bindings.get(example))}, the instance answers ${show(actual)}`];
+      if (!standIn.answers(actual)) return [`${at}: the example's ${example} stands for ${standIn.kind}, the instance answers ${show(actual)}`];
+      // One value, one stand-in: the examples agree with each other.
+      const before = [...bindings].find(([, value]) => show(value) === show(actual))?.[0];
+      if (before !== undefined) return [`${at}: the example shows ${example} for the value it showed as ${before} before`];
+      bindings.set(example, actual);
+      return [];
     }
     if (TIME.test(example)) return typeof actual === "string" && TIME.test(actual) ? [] : [`${at}: the example shows a time, the instance answers ${show(actual)}`];
     let expected = example;
@@ -273,7 +289,8 @@ describe("the worked examples, sent to an instance in the quickstart's order", (
     expect(problems(document, answered)).toEqual([]);
 
     // The same answers against a copy of the description whose examples
-    // were changed: a wrong count, a wrong city and a renamed field.
+    // were changed: a wrong count, a wrong city, a renamed field, the map's
+    // identifier written two ways, and an identifier where there is none.
     const seeded = structuredClone(document);
     const uploaded = placedAnswer(seeded, "POST /api/tables", "quickstart").value as Record<string, unknown>;
     uploaded.rowCount = 47;
@@ -281,11 +298,15 @@ describe("the worked examples, sent to an instance in the quickstart's order", (
     queried.preview[0].name = "Osaka";
     const media = lookup(seeded, "POST /api/query").responses["200"].content!["application/json"].examples!.quickstart;
     media.value = Object.fromEntries(Object.entries(queried).map(([field, value]) => [field === "rowCount" ? "rowCuont" : field, value]));
+    (placedAnswer(seeded, "POST /api/maps/{id}/layers", "quickstart").value as Record<string, unknown>).mapId = "99999999-8888-4777-8666-555555555555";
+    (placedAnswer(seeded, "GET /api/maps", "afterQuickstart").value as Record<string, unknown>[])[0].publishToken = "33333333-4444-4555-8666-777777777777";
     expect(problems(seeded, answered)).toEqual([
       "POST /api/tables quickstart: the answer.rowCount: the example shows 47, the instance answers 48",
       "POST /api/query quickstart: the answer.rowCuont: the example shows it, the instance answers no such field",
       'POST /api/query quickstart: the answer.preview[0].name: the example shows "Osaka", the instance answers "Tokyo"',
       "POST /api/query quickstart: the answer: the instance also answers rowCount, which the example does not show",
+      "POST /api/maps/{id}/layers quickstart: the answer.mapId: the example shows 99999999-8888-4777-8666-555555555555 for the value it showed as 2f6e9c41-8d3b-4a7e-b1f5-6c0d2e8a9b34 before",
+      "GET /api/maps afterQuickstart: the answer[0].publishToken: the example's 33333333-4444-4555-8666-777777777777 stands for an identifier, the instance answers null",
     ]);
   }, 120_000);
 });
