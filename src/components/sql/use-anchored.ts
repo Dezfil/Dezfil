@@ -6,9 +6,12 @@ import { useCallback, useLayoutEffect, useState, type RefObject } from "react";
  * A panel anchored to its trigger, placed in viewport coordinates: the
  * results card clips its overflow, so a panel positioned inside it would
  * be cut off whenever the card is short — the editor divider can leave it
- * at its 160px minimum. Fixed positioning from the trigger's rectangle
- * escapes the clip without a portal; the panel opens below, right-aligned
- * to the trigger, and flips above when the viewport has no room below.
+ * at its 160px minimum. The panel is fixed at the trigger's rectangle and
+ * portalled to the body by its owner, because a card that blurs what lies
+ * behind it becomes the containing block of its fixed descendants and
+ * would place and clip the panel against itself; it opens below,
+ * right-aligned to the trigger, and flips above when the viewport has no
+ * room below.
  * Re-placed when the panel's own size changes (the stored-as hint, an
  * error) and on resize — the kit Menu's rule.
  */

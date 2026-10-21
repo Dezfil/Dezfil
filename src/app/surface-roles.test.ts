@@ -25,6 +25,7 @@ const STEPS: Record<string, string> = {
 const STRENGTHS: Record<string, string> = { glass: "blur(18px)", overlay: "blur(8px)", veil: "blur(4px)" };
 const FILLS: Record<string, string> = {
   glass: "color-mix(in srgb, var(--bg-panel) 93%, transparent)",
+  "glass-raised": "color-mix(in srgb, var(--bg-raised) 93%, transparent)",
   wash: "color-mix(in srgb, var(--bg-raised) 70%, transparent)",
   veil: "color-mix(in srgb, var(--fg) 32%, transparent)",
 };
@@ -37,33 +38,52 @@ const HAIRLINE = "1px solid var(--border)";
  * pointer, the menu's stronger edge and raised ground, and the inner
  * card's bright knob, accent mark, stronger line under the pointer and the
  * dashed line of a card that makes something new are today's values, so a
- * look can restate them. A block inside a panel and a card over the map are
- * the solid surfaces they drew before they read a role: the raised or the
- * panel tone, the hairline, no shadow, and no blur or lens for the block,
- * which lies on its panel. */
+ * look can restate them. Every ground is glass: what floats over the map or
+ * opens over something (a card over the map, a menu) takes the overlay
+ * blur, what lies on a page or covers it (a page card, a dialog) the glass
+ * blur, and a card or a block inside a panel the glass tone with no blur of
+ * its own, since only its panel lies behind it; a block has no blur or lens
+ * at all, and its raised ground is the raised tone's glass. */
 const ROLES: Record<string, Record<string, string>> = {
   "glass-chrome": { fill: FILLS.glass, blur: STRENGTHS.glass, edge: "none", shadow: STEPS.float, lens: "0" },
   "glass-panel": { fill: FILLS.glass, blur: STRENGTHS.glass, edge: "none", shadow: STEPS.float, corner: "var(--radius-card)", lens: "0" },
   "overlay-panel": { fill: FILLS.glass, blur: STRENGTHS.overlay, edge: "none", shadow: STEPS.overlay, lens: "0" },
   "overlay-control": { fill: FILLS.glass, blur: STRENGTHS.overlay, edge: "none", shadow: STEPS.float, lens: "0", grow: "scale(1.06)" },
   "page-card": {
-    fill: "var(--bg-panel)", blur: "none", edge: HAIRLINE, shadow: STEPS.float, "shadow-hover": STEPS.deep,
+    fill: FILLS.glass, blur: STRENGTHS.glass, edge: HAIRLINE, shadow: STEPS.float, "shadow-hover": STEPS.deep,
     "edge-hover": "1px solid var(--border-strong)", corner: "var(--radius-card)", lens: "0",
   },
   "inner-card": {
-    fill: "var(--bg-panel)", blur: "none", edge: HAIRLINE, shadow: STEPS.hairline,
+    fill: FILLS.glass, blur: "none", edge: HAIRLINE, shadow: STEPS.hairline,
     "shadow-lifted": STEPS.float, "shadow-dragged": STEPS.deep, lens: "0", knob: "#fff", mark: "var(--accent)",
     "edge-hover": "1px solid var(--border-strong)", "edge-new": "1px dashed var(--border-strong)",
   },
   menu: {
-    fill: "var(--bg-panel)", blur: "none", edge: HAIRLINE, shadow: STEPS.lift, lens: "0", "edge-strong": "1px solid var(--border-strong)",
-    "fill-raised": "var(--bg-raised)",
+    fill: FILLS.glass, blur: STRENGTHS.overlay, edge: HAIRLINE, shadow: STEPS.lift, lens: "0", "edge-strong": "1px solid var(--border-strong)",
+    "fill-raised": FILLS["glass-raised"],
   },
-  dialog: { fill: "var(--bg-panel)", blur: "none", edge: HAIRLINE, shadow: STEPS.dialog, corner: "var(--radius-card)", lens: "0" },
-  block: { fill: "var(--bg-raised)", "fill-panel": "var(--bg-panel)", edge: HAIRLINE, shadow: "none" },
-  "map-card": { fill: "var(--bg-panel)", blur: "none", edge: HAIRLINE, shadow: "none", lens: "0" },
+  dialog: { fill: FILLS.glass, blur: STRENGTHS.glass, edge: HAIRLINE, shadow: STEPS.dialog, corner: "var(--radius-card)", lens: "0" },
+  block: { fill: FILLS["glass-raised"], "fill-panel": FILLS.glass, edge: HAIRLINE, shadow: "none" },
+  "map-card": { fill: FILLS.glass, blur: STRENGTHS.overlay, edge: HAIRLINE, shadow: "none", lens: "0" },
   stage: { fill: "transparent", blur: "none", edge: "none", shadow: STEPS.deep, corner: "var(--radius-card)" },
 };
+
+/** An image's default scope and a published page, in either mode, are other
+ * people's view of a map: one rule of the shipped tokens, after the block so
+ * it wins at equal weight on the elements the block is declared on, keeps
+ * them on the solid grounds, the panel and raised tones with no blur, for
+ * every ground the workspace draws as glass, and restates nothing else. */
+const SOLID_SCOPES = ["[data-look-default]", "[data-published-view]"];
+const SOLID: Record<string, string> = {
+  "--surface-page-card-fill": "var(--bg-panel)", "--surface-page-card-blur": "none",
+  "--surface-inner-card-fill": "var(--bg-panel)",
+  "--surface-block-fill": "var(--bg-raised)", "--surface-block-fill-panel": "var(--bg-panel)",
+  "--surface-map-card-fill": "var(--bg-panel)", "--surface-map-card-blur": "none",
+  "--surface-menu-fill": "var(--bg-panel)", "--surface-menu-blur": "none", "--surface-menu-fill-raised": "var(--bg-raised)",
+  "--surface-dialog-fill": "var(--bg-panel)", "--surface-dialog-blur": "none",
+};
+
+const isSolid = (rule: Rule) => rule.selectors.join(", ") === SOLID_SCOPES.join(", ");
 
 const VOCABULARY = /^--(shadow-[\w-]+|blur-[\w-]+|fill-[\w-]+|edge-[\w-]+|surface-[\w-]+)$/;
 /** The stylesheets that set tones or restate roles: the shipped tokens, the
@@ -118,7 +138,8 @@ const target = (selector: string) => {
 export function vocabularyProblems(sheets: Record<string, string>): string[] {
   const problems: string[] = [];
   const globals = sheets["src/app/globals.css"];
-  const blocks = rules(globals).filter(rule => [...rule.tokens.keys()].some(token => VOCABULARY.test(token)));
+  const all = rules(globals);
+  const blocks = all.filter(rule => !isSolid(rule) && [...rule.tokens.keys()].some(token => VOCABULARY.test(token)));
   if (!blocks.length) return ["no block declares the vocabulary"];
   if (blocks.length > 1) problems.push(`expected one block declaring the vocabulary, found ${blocks.length}`);
   const [block] = blocks;
@@ -152,6 +173,19 @@ export function vocabularyProblems(sheets: Record<string, string>): string[] {
   const known = new Set(Object.entries(ROLES).flatMap(([role, parts]) => Object.keys(parts).map(part => `--surface-${role}-${part}`)));
   for (const token of block.tokens.keys()) if (token.startsWith("--surface-") && !known.has(token)) problems.push(`${token} is not a role's part`);
 
+  // The solid scopes: one rule after the block restating exactly the solid grounds.
+  const solids = all.filter(isSolid);
+  if (solids.length !== 1) problems.push(`expected one rule keeping ${SOLID_SCOPES.join(" and ")} solid, found ${solids.length}`);
+  const [solid] = solids;
+  if (solid && all.indexOf(solid) < all.indexOf(block)) problems.push(`the rule keeping ${SOLID_SCOPES.join(" and ")} solid comes before the block`);
+  if (solid) {
+    for (const [token, value] of Object.entries(SOLID)) {
+      if (!solid.tokens.has(token)) problems.push(`the solid scopes do not restate ${token}`);
+      else if (solid.tokens.get(token) !== value) problems.push(`the solid scopes restate ${token} as ${solid.tokens.get(token)}, not ${value}`);
+    }
+    for (const token of solid.tokens.keys()) if (!(token in SOLID)) problems.push(`the solid scopes restate ${token}, which is not a solid ground`);
+  }
+
   // The block is declared on every element that restates a tone it reads.
   const read = new Set([...block.tokens.values()].flatMap(value => [...value.matchAll(/var\((--[\w-]+)\)/g)].map(match => match[1]))
     .filter(token => !block.tokens.has(token)));
@@ -179,7 +213,7 @@ export function vocabularyProblems(sheets: Record<string, string>): string[] {
   // same pick keeps the shipped roles whatever the root's look.
   for (const [file, css] of Object.entries(sheets)) {
     for (const rule of rules(css)) {
-      if (rule === block) continue;
+      if (rule === block || (file === "src/app/globals.css" && isSolid(rule))) continue;
       const parts = [...rule.tokens.keys()].filter(token => token.startsWith("--surface-"));
       if (!parts.length) continue;
       for (const selector of rule.selectors) {
@@ -205,8 +239,35 @@ function stylesheets(dir: string): string[] {
 }
 
 describe("the surface vocabulary", () => {
-  it("is one block of six steps, three strengths, three fills and eleven roles at their named values, on every element that restates a tone it reads", () => {
+  it("is one block of six steps, three strengths, four fills and eleven roles at their named values, on every element that restates a tone it reads", () => {
     expect(vocabularyProblems(SHEETS)).toEqual([]);
+  });
+
+  it("draws every ground as glass, and fails on a role left solid", () => {
+    const globals = SHEETS["src/app/globals.css"];
+    for (const [token, value] of [["--surface-page-card-fill", "var(--fill-glass)"], ["--surface-menu-blur", "var(--blur-overlay)"],
+      ["--surface-block-fill", "var(--fill-glass-raised)"], ["--surface-dialog-blur", "var(--blur-glass)"]]) {
+      const solid = globals.replace(`  ${token}: ${value};\n  `, `  ${token}: ${/blur/.test(token) ? "none" : /block-fill$/.test(token) ? "var(--bg-raised)" : "var(--bg-panel)"};\n  `);
+      expect(solid, token).not.toBe(globals);
+      expect(vocabularyProblems({ ...SHEETS, "src/app/globals.css": solid }).join("\n"), token).toMatch(new RegExp(`${token} computes (none|var\\(--bg-(panel|raised)\\)), not`));
+    }
+  });
+
+  it("keeps an image's default scope and a published page on the solid grounds, in one rule after the block", () => {
+    const globals = SHEETS["src/app/globals.css"];
+    const start = globals.indexOf("[data-look-default],\n[data-published-view] {");
+    expect(start).toBeGreaterThan(-1);
+    const rule = globals.slice(start, globals.indexOf("}\n", start) + 2);
+    const without = globals.replace(rule, "");
+    expect(vocabularyProblems({ ...SHEETS, "src/app/globals.css": without }))
+      .toContain("expected one rule keeping [data-look-default] and [data-published-view] solid, found 0");
+    const short = globals.replace(rule, rule.replace(" --surface-dialog-blur: none;", ""));
+    expect(short).not.toBe(globals);
+    expect(vocabularyProblems({ ...SHEETS, "src/app/globals.css": short })).toContain("the solid scopes do not restate --surface-dialog-blur");
+    // Placed before the block, the block would win at equal weight on the elements it is declared on.
+    const early = rule + without;
+    expect(vocabularyProblems({ ...SHEETS, "src/app/globals.css": early }))
+      .toContain("the rule keeping [data-look-default] and [data-published-view] solid comes before the block");
   });
 
   it("names the root, a published page's dark root, an image's default scope and the pictures among its scopes", () => {

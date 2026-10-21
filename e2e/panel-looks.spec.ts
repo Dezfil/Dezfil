@@ -31,10 +31,10 @@
 //   and the widget card over the map, the blocks with no backdrop filter.
 //   Under Liquid the header's and a map button's quiet text read at the
 //   stepped ink (85 % of the way from the quiet ink to the full ink); under
-//   Glass at the quiet ink.
+//   Glass at the quiet ink, a step darker by day.
 // - Paper: every role at Paper's values, the Assistant pane with the side
 //   panels, each map button its own sheet, menus and dialogs as shipped,
-//   the blocks and the widget card at Glass's grounds, the lines inside a
+//   the blocks and the widget card on solid grounds, the lines inside a
 //   panel at 7 % ink by day and 8 % by night, and More contrast's stronger
 //   lines winning.
 // - Glass after Liquid and Paper leaves no trace on the tab, a list page or
@@ -202,6 +202,8 @@ const LIQUID_BLUR: Record<Theme, string> = { light: "blur(6px)", dark: "blur(8px
  * Firm the Color's own grey. */
 const STEPPED: Record<Theme, Record<Step, number>> = { light: { clear: 0.85, medium: 0.55, firm: 0.25 }, dark: { clear: 0.6, medium: 0.2, firm: 0 } };
 const stepped = (theme: Theme, step: Step = "clear"): RGBA => mix([TONES[theme].ink, STEPPED[theme][step]], [TONES[theme].muted, 1 - STEPPED[theme][step]]);
+/** Under Glass and Paper the quiet ink by day is 30 % of the way to the full ink; by night it is the Color's own grey. */
+const quiet = (theme: Theme): RGBA => (theme === "light" ? mix([TONES.light.ink, 0.3], [TONES.light.muted, 0.7]) : TONES.dark.muted);
 /** By day a bright line on the sides facing the light, a fainter one opposite, a faint glow; by night a faint line along the top, a fainter one all round, no glow. */
 const RIM: Record<Theme, Layer[]> = {
   light: [layer(1, 1, 0, 0, [255, 255, 255, 0.9], true), layer(-1, -1, 0, 0, [255, 255, 255, 0.405], true), layer(0, 0, 14, 0, [255, 255, 255, 0.144], true)],
@@ -255,6 +257,10 @@ const clearLine: Edge = { style: "solid", width: "1px", colour: CLEAR };
 /** Paper's softer line inside a panel: 7 % ink by day, 8 % by night. */
 const paperLine = (theme: Theme): Edge => ({ style: "solid", width: "1px", colour: thin(TONES[theme].ink, theme === "light" ? 0.07 : 0.08) });
 
+/** Glass: every ground the panel tone at 93 % (the raised tone for a
+ * block), opaque on request; what floats or opens over something blurs at
+ * 8 px, what lies on a page or covers it at 18 px, and what sits inside a
+ * panel has no blur of its own. */
 function glassWant(role: Role, theme: Theme, opaque = false): Want {
   const { panel, raised } = TONES[theme];
   const glass = opaque ? panel : thin(panel, 0.93);
@@ -263,13 +269,13 @@ function glassWant(role: Role, theme: Theme, opaque = false): Want {
     case "glass-panel": return { fill: glass, blur: "blur(18px)", edge: null, shadows: [step("float", theme)] };
     case "overlay-panel": return { fill: glass, blur: "blur(8px)", edge: null, shadows: [step("overlay", theme)] };
     case "overlay-control": return { fill: glass, blur: "blur(8px)", edge: null, shadows: [step("float", theme)] };
-    case "map-card": return { fill: panel, blur: "none", edge: hairline(theme), shadows: [] };
-    case "page-card": return { fill: panel, blur: "none", edge: hairline(theme), shadows: [step("float", theme)] };
-    case "inner-card": return { fill: panel, blur: "none", edge: hairline(theme), shadows: [step("hairline", theme)] };
+    case "map-card": return { fill: glass, blur: "blur(8px)", edge: hairline(theme), shadows: [] };
+    case "page-card": return { fill: glass, blur: "blur(18px)", edge: hairline(theme), shadows: [step("float", theme)] };
+    case "inner-card": return { fill: glass, blur: "none", edge: hairline(theme), shadows: [step("hairline", theme)] };
     // On the raised tone; a member on the panel tone says so (see `panelTone`).
-    case "block": return { fill: raised, blur: "none", edge: hairline(theme), shadows: [] };
-    case "menu": return { fill: panel, blur: "none", edge: hairline(theme), shadows: [step("lift", theme)] };
-    case "dialog": return { fill: panel, blur: "none", edge: hairline(theme), shadows: [step("dialog", theme)] };
+    case "block": return { fill: opaque ? raised : thin(raised, 0.93), blur: "none", edge: hairline(theme), shadows: [] };
+    case "menu": return { fill: glass, blur: "blur(8px)", edge: hairline(theme), shadows: [step("lift", theme)] };
+    case "dialog": return { fill: glass, blur: "blur(18px)", edge: hairline(theme), shadows: [step("dialog", theme)] };
     case "stage": return { fill: CLEAR, blur: "none", edge: null, shadows: [step("deep", theme)] };
   }
 }
@@ -293,9 +299,11 @@ function paperWant(role: Role, theme: Theme): Want {
     case "page-card": return { fill: paperFill(theme), blur: "none", edge: clearLine, shadows: paperDrop("card", theme) };
     case "inner-card": return { fill: theme === "light" ? TONES.light.panel : TONES.dark.hover, blur: "none", edge: clearLine, shadows: paperDrop("inner", theme) };
     case "stage": return { fill: CLEAR, blur: "none", edge: null, shadows: paperDrop("lift", theme) };
-    // Glass's grounds, the softer line inside a panel.
-    case "block": case "map-card": return { ...glassWant(role, theme), edge: paperLine(theme) };
-    case "menu": case "dialog": return glassWant(role, theme);
+    // Solid grounds with no blur, the softer line inside a panel.
+    case "block": return { fill: TONES[theme].raised, blur: "none", edge: paperLine(theme), shadows: [] };
+    case "map-card": return { fill: TONES[theme].panel, blur: "none", edge: paperLine(theme), shadows: [] };
+    case "menu": return { fill: TONES[theme].panel, blur: "none", edge: hairline(theme), shadows: [step("lift", theme)] };
+    case "dialog": return { fill: TONES[theme].panel, blur: "none", edge: hairline(theme), shadows: [step("dialog", theme)] };
   }
 }
 
@@ -483,7 +491,7 @@ const settle = expect.configure({ soft: true });
 /** What a member must compute under a look: its role's values, and what the member says of itself. */
 function memberWant(m: Member, theme: Theme, under: Under): Want {
   let want = roleWant(m.role, theme, under);
-  if (m.panelTone && under.panels !== "liquid") want = { ...want, fill: TONES[theme].panel };
+  if (m.panelTone && under.panels !== "liquid") want = { ...want, fill: under.panels === "glass" && !under.opaque ? thin(TONES[theme].panel, 0.93) : TONES[theme].panel };
   if (m.lineless) want = { ...want, edge: null };
   if (m.shadows) want = { ...want, shadows: m.shadows(theme, under) };
   return m.fill ? { ...want, fill: m.fill(want) } : want;
@@ -1217,7 +1225,7 @@ for (const theme of THEMES) {
         expect(await boxes(page, onBuilder), "the builder's boxes after Glass").toEqual(builderBefore);
         for (const m of BUILDER) await expectMember(page, m, theme, GLASS, "the builder after Glass");
         const crumb = await crumbLink(page).evaluate((node) => getComputedStyle(node).color);
-        expect(sameColour(colour(crumb), TONES[theme].muted), `the header's quiet text after Glass: ${crumb}`).toBe(true);
+        expect(sameColour(colour(crumb), quiet(theme)), `the header's quiet text after Glass: ${crumb}`).toBe(true);
       });
       expectQuiet(errors);
     } finally {

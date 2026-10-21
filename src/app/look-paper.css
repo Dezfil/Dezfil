@@ -14,7 +14,9 @@
    - one gentle two-layer shadow, a 1 px contact line and a soft lift, a
      lighter one on page cards and a contact line alone inside panels;
      the map's own frame takes the same lift;
-   - menus and dialogs are as shipped, and no rule here restates them;
+   - menus, dialogs, the blocks inside panels and the cards over the map
+     keep solid grounds, the panel and raised tones (Glass draws them as
+     glass), with their shipped lines and shadows;
    - the lines inside panels and cards soften to 7 % ink by day and 8 %
      by night. They are set on the body, not the root: the roles resolve
      their edges on the root, so a menu and a dialog keep the shipped
@@ -93,6 +95,18 @@
     0 8px 24px -4px color-mix(in srgb, var(--shadow) 70%, transparent);
   --surface-inner-card-edge-hover: 1px solid transparent;
   --surface-inner-card-edge-new: 1px dashed transparent;
+
+  /* Solid grounds for what Glass draws as glass: the blocks inside panels,
+     the cards over the map, menus and dialogs */
+  --surface-block-fill: var(--bg-raised);
+  --surface-block-fill-panel: var(--bg-panel);
+  --surface-map-card-fill: var(--bg-panel);
+  --surface-map-card-blur: none;
+  --surface-menu-fill: var(--bg-panel);
+  --surface-menu-blur: none;
+  --surface-menu-fill-raised: var(--bg-raised);
+  --surface-dialog-fill: var(--bg-panel);
+  --surface-dialog-blur: none;
 
   /* The map's own frame */
   --surface-stage-shadow:

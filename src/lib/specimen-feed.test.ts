@@ -137,6 +137,10 @@ describe("surfaceBlock", () => {
   it("refuses a sheet where no rule declares the roles, or where two do", () => {
     expect(() => surfaceBlock(":root { --bg: #fff; }")).toThrow(/no rule declares/);
     expect(() => surfaceBlock(SHEET + "\n.x { --surface-menu-fill: red; }\n")).toThrow(/more than one rule/);
+    // The solid scopes' rule after the block restates roles and is not the block.
+    const solid = "\n[data-look-default],\n[data-published-view] {\n  --surface-menu-fill: var(--bg-panel);\n}\n";
+    expect(surfaceBlock(SHEET + solid).tokens).toEqual(surfaceBlock(SHEET).tokens);
+    expect(() => surfaceBlock(SHEET + solid.replace("[data-published-view]", "[data-view]"))).toThrow(/more than one rule/);
   });
 });
 

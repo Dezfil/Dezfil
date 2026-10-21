@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync, statSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { lookChoices } from "@/lib/look";
 
@@ -6,8 +6,8 @@ import { lookChoices } from "@/lib/look";
  * Readability under the Panels looks. Every surface that carries words
  * keeps a fill strong enough that its quiet ink reads at 4.5:1 or better
  * over the strictest data colour below, in each of the four Colors and both
- * themes, at both Contrasts, under Liquid at each of its transparency steps
- * and under Paper: computed here
+ * themes, at both Contrasts, under Glass, under Liquid at each of its
+ * transparency steps and under Paper: computed here
  * from the fills the looks' stylesheets declare and the tones the page
  * declares, the backdrop unblurred, as a person's eye would meet it at the
  * worst spot, in the quiet ink the page's body takes under that look (Liquid
@@ -22,7 +22,8 @@ import { lookChoices } from "@/lib/look";
 
 type RGBA = [number, number, number, number];
 type Theme = "light" | "dark";
-type Look = "liquid" | "paper";
+type Look = "glass" | "liquid" | "paper";
+const LOOKS: Look[] = ["glass", "liquid", "paper"];
 type Step = "clear" | "medium" | "firm";
 const STEPS: Step[] = ["clear", "medium", "firm"];
 type Rule = { selectors: string[]; within: string | null; tokens: Map<string, string> };
@@ -53,6 +54,8 @@ function rules(css: string): Rule[] {
 const read = (file: string) => readFileSync(file, "utf8");
 const GLOBALS = rules(read("src/app/globals.css"));
 const LOOK = rules(read("src/app/look.css"));
+/** The sheets' rules, which a reading can be given seeded in their place. */
+const GLOBAL_RULES = GLOBALS, LOOK_RULES = LOOK;
 const LIQUID_CSS = read("src/app/look-liquid.css");
 const PAPER_CSS = read("src/app/look-paper.css");
 
@@ -61,7 +64,7 @@ const tokensOf = (sheet: Rule[], selector: string) =>
   new Map(sheet.filter(rule => rule.within === null && rule.selectors.includes(selector)).flatMap(rule => [...rule.tokens]));
 
 /** A Color's tones in a theme and at a Contrast, as the page declares them on the root. */
-function tones(color: string, theme: Theme, contrast = "standard"): Map<string, string> {
+function tones(color: string, theme: Theme, contrast = "standard", GLOBALS = GLOBAL_RULES, LOOK = LOOK_RULES): Map<string, string> {
   const dark = theme === "dark";
   const layers = [tokensOf(GLOBALS, ":root"), dark ? tokensOf(GLOBALS, ':root[data-theme="dark"]') : new Map<string, string>()];
   const own = color === "kelp" ? "" : `[data-look-color="${color}"]`;
@@ -77,8 +80,10 @@ function tones(color: string, theme: Theme, contrast = "standard"): Map<string, 
 }
 
 /** A look's restated roles on the root at a step, over the shipped block,
- * as the cascade orders them: by day, by night, the step by day, the step by night. */
+ * as the cascade orders them: by day, by night, the step by day, the step by
+ * night. Glass is the shipped block itself and restates nothing. */
 function restated(look: Look, theme: Theme, step: Step, liquidCss: string, paperCss: string): Map<string, string> {
+  if (look === "glass") return new Map();
   const night = theme === "dark" ? '[data-theme="dark"]' : "";
   const key = `[data-look-panels="${look}"]`, stepped = step === "clear" ? "" : `[data-look-transparency="${step}"]`;
   const sheet = rules(look === "liquid" ? liquidCss : paperCss);
@@ -204,18 +209,19 @@ const SURFACES: { role: string; part: string; over: Backdrop[] }[] = [
 const FLOOR = 4.5;
 const COLORS = lookChoices("color");
 const CONTRASTS = lookChoices("contrast");
-/** The steps a look reads at: Liquid's three, Paper's one. */
+/** The steps a look reads at: Liquid's three, Glass's and Paper's one. */
 const stepsOf = (look: Look): Step[] => (look === "liquid" ? STEPS : ["clear"]);
 
 type Reading = { look: Look; color: string; theme: Theme; contrast: string; step: Step; surface: string; ratio: number; alpha: number };
 
-/** Every reading for both looks; the stylesheets' text can be seeded. */
-function readings(liquidCss = LIQUID_CSS, paperCss = PAPER_CSS): Reading[] {
-  const block = GLOBALS.find(rule => rule.tokens.has("--surface-menu-shadow"))!.tokens;
+/** Every reading for the three looks; the stylesheets' text can be seeded. */
+function readings(liquidCss = LIQUID_CSS, paperCss = PAPER_CSS, globals = GLOBALS): Reading[] {
+  const block = globals.find(rule => rule.tokens.has("--surface-menu-shadow"))!.tokens;
   const out: Reading[] = [];
-  for (const look of ["liquid", "paper"] as Look[]) for (const color of COLORS) for (const theme of ["light", "dark"] as Theme[])
+  for (const look of LOOKS) for (const color of COLORS) for (const theme of ["light", "dark"] as Theme[])
   for (const level of CONTRASTS) for (const step of stepsOf(look)) {
-    const scope = new Map([...tones(color, theme, level), ...block, ...restated(look, theme, step, liquidCss, paperCss)]);
+    const scope = new Map([...tones(color, theme, level), ...block, ...restated(look, theme, step, liquidCss, paperCss),
+      ["--fg-muted-palette", "var(--fg-muted)"], ["--fg-faint-palette", "var(--fg-faint)"]]);
     const at = (value: string) => colour(value, scope);
     const cell = at(CELL[theme]);
     const fill = (role: string, part: string) => at(`var(--surface-${role}-${part})`);
@@ -226,8 +232,11 @@ function readings(liquidCss = LIQUID_CSS, paperCss = PAPER_CSS): Reading[] {
       inspector: [over(fill("glass-panel", "fill"), cell)],
     };
     // The body's quiet ink: as the look's sheet restates it on the body, else the root's.
-    const body = tokensOf(rules(look === "liquid" ? liquidCss : paperCss), `:root[data-look-panels="${look}"] body`);
-    const ink = at(body.get("--fg-muted") ?? "var(--fg-muted)");
+    const body = look === "glass" ? new Map<string, string>() : tokensOf(rules(look === "liquid" ? liquidCss : paperCss), `:root[data-look-panels="${look}"] body`);
+    // Glass and Paper by day at the Standard contrast: the body's darker day ink, made from the palette's.
+    const day = look !== "liquid" && theme === "light" && level === "standard";
+    const dayInk = tokensOf(GLOBALS, DAY_BODY).get("--fg-muted");
+    const ink = at(body.get("--fg-muted") ?? (day && dayInk ? dayInk : "var(--fg-muted)"));
     for (const surface of SURFACES) {
       const ground = fill(surface.role, surface.part);
       const ratio = Math.min(...surface.over.flatMap(name => backdrops[name]).map(backdrop => contrast(ink, over(ground, backdrop))));
@@ -261,12 +270,12 @@ const unstepped = (theme: Theme, step: Step) => {
 };
 
 describe("readability under the Panels looks", () => {
-  it("reads the quiet ink at 4.5:1 or better over the strictest place, in every Color, theme and Contrast, under Liquid at each step and under Paper", () => {
+  it("reads the quiet ink at 4.5:1 or better over the strictest place, in every Color, theme and Contrast, under Glass, under Liquid at each step and under Paper", () => {
     const all = readings();
-    expect(all).toHaveLength(COLORS.length * 2 * CONTRASTS.length * (STEPS.length + 1) * SURFACES.length);
+    expect(all).toHaveLength(COLORS.length * 2 * CONTRASTS.length * (STEPS.length + 2) * SURFACES.length);
     // The record: one line per look, Color, theme, Contrast and step, the surfaces' ratios in order.
     const lines = ["look    color    theme  contrast step   " + SURFACES.map(surface => `${surface.role} ${surface.part}`).join(" | ")];
-    for (const look of ["liquid", "paper"] as Look[]) for (const color of COLORS) for (const theme of ["light", "dark"])
+    for (const look of LOOKS) for (const color of COLORS) for (const theme of ["light", "dark"])
     for (const contrast of CONTRASTS) for (const step of stepsOf(look)) {
       const row = all.filter(reading => reading.look === look && reading.color === color && reading.theme === theme
         && reading.contrast === contrast && reading.step === step);
@@ -290,6 +299,19 @@ describe("readability under the Panels looks", () => {
     for (const theme of ["light", "dark"] as Theme[]) for (const step of STEPS) {
       expect(surfaces.map(surface => kelp(theme, step, surface)), `${theme} ${step}`).toEqual(measured[theme][step]);
     }
+  });
+
+  it("reads every ground under Glass as its glass, never solid", () => {
+    // The panel tone or the raised tone at 93 %, on every surface that carries words.
+    const glass = readings().filter(reading => reading.look === "glass");
+    expect(glass.length).toBe(COLORS.length * 2 * CONTRASTS.length * SURFACES.length);
+    for (const reading of glass) expect(reading.alpha, `${reading.color} ${reading.theme} ${reading.surface}`).toBeCloseTo(0.93, 9);
+  });
+
+  it("fails on Glass's fill thinned to Liquid's clear share", () => {
+    const thin = rules(read("src/app/globals.css").replace("--fill-glass: color-mix(in srgb, var(--bg-panel) 93%, transparent);",
+      "--fill-glass: color-mix(in srgb, var(--bg-panel) 36%, transparent);"));
+    expect(below(readings(LIQUID_CSS, PAPER_CSS, thin)).some(line => line.startsWith("glass kelp light standard clear glass-panel fill"))).toBe(true);
   });
 
   it("finds every fill Paper declares opaque, and every fill Liquid declares on request", () => {
@@ -321,9 +343,119 @@ describe("readability under the Panels looks", () => {
     const unpicked = LIQUID_CSS.replace("--fg-muted: var(--liquid-fg-muted);", "");
     expect(unpicked).not.toBe(LIQUID_CSS);
     expect(fails(unpicked, "light", "clear")).toBe(true);
-    const paperThin = PAPER_CSS.replace("--surface-page-card-fill: color-mix(in oklab, var(--bg-panel) 96%, var(--bg));",
-      "--surface-page-card-fill: color-mix(in srgb, var(--bg-panel) 30%, transparent);");
+    const paperThin = PAPER_CSS.replace("--surface-overlay-panel-fill: color-mix(in oklab, var(--bg-panel) 96%, var(--bg));",
+      "--surface-overlay-panel-fill: color-mix(in srgb, var(--bg-panel) 30%, transparent);");
     expect(paperThin).not.toBe(PAPER_CSS);
-    expect(below(readings(LIQUID_CSS, paperThin)).some(line => line.startsWith("paper kelp light standard clear page-card fill"))).toBe(true);
+    expect(below(readings(LIQUID_CSS, paperThin)).some(line => line.startsWith("paper kelp light standard clear overlay-panel fill"))).toBe(true);
+  });
+});
+
+/* ---- the quiet inks by day ---- */
+
+/** The body takes the day inks; the dark theme and More contrast hand the palette's back; Liquid's own body rule wins. */
+const DAY_BODY = "body";
+const PALETTE_BACK = [':root[data-theme="dark"] body', ':root[data-look-contrast="more"] body'];
+const PUBLISHED_DAY = '[data-published-view][data-view-theme="light"]';
+const PALETTE_INKS: [string, string][] = [["--fg-muted", "var(--fg-muted-palette)"], ["--fg-faint", "var(--fg-faint-palette)"]];
+/** The day inks on the panel tone: the quiet one about 7:1, the faint one about 3.5:1. */
+const QUIET_BOUNDS: [number, number] = [6.8, 7.3];
+const FAINT_BOUNDS: [number, number] = [3.4, 3.7];
+const within = (ratio: number, [low, high]: [number, number]) => ratio >= low && ratio <= high;
+/** Exactly these tokens, on a top-level rule with exactly these selectors. */
+function ruleProblems(sheet: Rule[], selectors: string[], tokens: [string, string][], what: string): string[] {
+  const found = sheet.filter(rule => rule.within === null && rule.selectors.join(", ") === selectors.join(", ")
+    && tokens.some(([token]) => rule.tokens.has(token)));
+  if (found.length !== 1) return [`${what}: expected one rule on ${selectors.join(", ")}, found ${found.length}`];
+  const want = new Map(tokens), have = found[0].tokens;
+  return [
+    ...[...want].filter(([token, value]) => have.get(token) !== value).map(([token, value]) => `${what}: ${token} is ${have.get(token) ?? "missing"}, not ${value}`),
+    ...[...have.keys()].filter(token => !want.has(token)).map(token => `${what}: declares ${token}`),
+  ];
+}
+
+/** The body's day inks as declared, read over a Color's tones by day at the Standard contrast. */
+const DAY_INKS: [string, string][] = [
+  ["--fg-muted", "color-mix(in srgb, var(--fg) 30%, var(--fg-muted-palette))"],
+  ["--fg-faint", "color-mix(in srgb, var(--fg) 18%, var(--fg-faint-palette))"],
+];
+
+/** What is wrong with the day inks and where they are taken; empty when they hold. The shipped tokens can be seeded. */
+function dayInkProblems(globals = GLOBALS, lines: string[] = []): string[] {
+  const problems: string[] = [];
+  const body = tokensOf(globals, DAY_BODY);
+  for (const color of COLORS) {
+    const root = tones(color, "light", "standard", globals);
+    const scope = new Map([...root, ["--fg-muted-palette", root.get("--fg-muted")!], ["--fg-faint-palette", root.get("--fg-faint")!]]);
+    const at = (value: string) => colour(value, scope);
+    const [panel, palette, paletteFaint] = ["var(--bg-panel)", "var(--fg-muted)", "var(--fg-faint)"].map(at);
+    if (!body.has("--fg-muted") || !body.has("--fg-faint")) { problems.push(`${color}: the body takes no day inks`); continue; }
+    const [quiet, faint] = [at(body.get("--fg-muted")!), at(body.get("--fg-faint")!)];
+    const more = colour("var(--fg-muted)", tones(color, "light", "more", globals));
+    const [q, f, m] = [quiet, faint, more].map(ink => contrast(ink, panel));
+    lines.push(`${color.padEnd(8)} quiet ${q.toFixed(2)} (palette ${contrast(palette, panel).toFixed(2)}), faint ${f.toFixed(2)} (palette ${contrast(paletteFaint, panel).toFixed(2)}), More contrast ${m.toFixed(2)}`);
+    if (!within(q, QUIET_BOUNDS)) problems.push(`${color} quiet ${q.toFixed(2)}, outside ${QUIET_BOUNDS.join(" to ")}`);
+    if (!within(f, FAINT_BOUNDS)) problems.push(`${color} faint ${f.toFixed(2)}, outside ${FAINT_BOUNDS.join(" to ")}`);
+    if (!(luminance(faint) > luminance(quiet))) problems.push(`${color}: the faint ink is not lighter than the quiet one`);
+    if (!(m >= q + 1.5)) problems.push(`${color}: More contrast ${m.toFixed(2)} is not clearly stronger than ${q.toFixed(2)}`);
+  }
+  const block = globals.find(rule => rule.tokens.has("--surface-menu-shadow"))!;
+  problems.push(
+    ...ruleProblems(globals, [DAY_BODY], DAY_INKS, "the body by day"),
+    ...ruleProblems(globals, block.selectors, [["--fg-muted-palette", "var(--fg-muted)"], ["--fg-faint-palette", "var(--fg-faint)"]], "the palette's inks"),
+    ...ruleProblems(globals, PALETTE_BACK, PALETTE_INKS, "the dark theme and More contrast"),
+    ...ruleProblems(globals, [PUBLISHED_DAY], PALETTE_INKS, "a published page by day"),
+  );
+  return problems;
+}
+
+/** Every stylesheet under a folder. */
+function stylesheets(dir: string): string[] {
+  return readdirSync(dir).flatMap(entry => {
+    const file = `${dir}/${entry}`;
+    return statSync(file).isDirectory() ? stylesheets(file) : file.endsWith(".css") ? [file] : [];
+  });
+}
+/** Every line, border, outline or stroke drawn in the body's quiet inks rather than the palette's. */
+function linesInBodyInks(sheets: Record<string, string>): string[] {
+  return Object.entries(sheets).flatMap(([file, css]) => [...css.replace(/\/\*[\s\S]*?\*\//g, "")
+    .matchAll(/(?:^|[;{\s])((?:border|outline|column-rule)[\w-]*|stroke)\s*:\s*([^;}]*)/g)]
+    .filter(([, , value]) => /var\(--fg-(muted|faint)\)/.test(value)).map(([, property, value]) => `${file}: ${property}: ${value.trim()}`));
+}
+
+describe("the quiet inks by day", () => {
+  it("hold each Color's quiet and faint inks at about 7:1 and 3.5:1 on the panel tone, the faint lighter, More contrast clearly stronger", () => {
+    const lines: string[] = [];
+    expect(dayInkProblems(GLOBALS, lines)).toEqual([]);
+    console.log(lines.join("\n"));
+  });
+
+  it("fail on an ink left at the palette's value or barely darkened", () => {
+    const css = read("src/app/globals.css");
+    const left = css.replace("--fg-muted: color-mix(in srgb, var(--fg) 30%, var(--fg-muted-palette));", "--fg-muted: var(--fg-muted-palette);");
+    expect(left).not.toBe(css);
+    expect(dayInkProblems(rules(left))).toContain("kelp quiet 5.29, outside 6.8 to 7.3");
+    const barely = css.replace("var(--fg) 18%, var(--fg-faint-palette)", "var(--fg) 6%, var(--fg-faint-palette)");
+    expect(barely).not.toBe(css);
+    expect(dayInkProblems(rules(barely)).join("\n")).toMatch(/harbor faint 2\.\d\d, outside 3\.4 to 3\.7/);
+  });
+
+  it("are taken by the body under Glass and Paper by day at the Standard contrast alone, and a published page keeps the palette's", () => {
+    const css = read("src/app/globals.css");
+    const back = css.replace(':root[data-theme="dark"] body,\n:root[data-look-contrast="more"] body {', ".nowhere {");
+    expect(back).not.toBe(css);
+    expect(dayInkProblems(rules(back))).toContain(`the dark theme and More contrast: expected one rule on ${PALETTE_BACK.join(", ")}, found 0`);
+    const unkept = css.replace(`${PUBLISHED_DAY} {\n  --fg-muted: var(--fg-muted-palette);\n`, `${PUBLISHED_DAY} {\n`);
+    expect(unkept).not.toBe(css);
+    expect(dayInkProblems(rules(unkept))).toContain("a published page by day: --fg-muted is missing, not var(--fg-muted-palette)");
+    // Liquid's body rule, in a sheet the document loads after the shipped tokens, outweighs the plain body rule.
+    expect(rules(LIQUID_CSS).some(rule => rule.selectors.includes(':root[data-look-panels="liquid"] body')
+      && rule.tokens.get("--fg-muted") === "var(--liquid-fg-muted)")).toBe(true);
+  });
+
+  it("leave every line drawn in a quiet ink on the palette's ink", () => {
+    const sheets = Object.fromEntries(stylesheets("src").map(file => [file, read(file)]));
+    expect(linesInBodyInks(sheets)).toEqual([]);
+    const seeded = { "x.module.css": ".a { border: 1px solid var(--fg-faint); }\n.b { stroke: var(--fg-muted-palette); }" };
+    expect(linesInBodyInks(seeded)).toEqual(["x.module.css: border: 1px solid var(--fg-faint)"]);
   });
 });

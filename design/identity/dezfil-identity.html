@@ -273,8 +273,10 @@
   --blur-overlay: blur(8px);
   --blur-veil: blur(4px);
 
-  /* The glass level, the wash under a small map, the veil behind a dialog */
+  /* The glass level, on the panel tone and on the raised tone; the wash
+     under a small map, the veil behind a dialog */
   --fill-glass: color-mix(in srgb, var(--bg-panel) 93%, transparent);
+  --fill-glass-raised: color-mix(in srgb, var(--bg-raised) 93%, transparent);
   --fill-wash: color-mix(in srgb, var(--bg-raised) 70%, transparent);
   --fill-veil: color-mix(in srgb, var(--fg) 32%, transparent);
 
@@ -314,9 +316,10 @@
   /* A stage button grows a little under the pointer */
   --surface-overlay-control-grow: scale(1.06);
 
-  /* Page card: a card on a page, lifting on hover */
-  --surface-page-card-fill: var(--bg-panel);
-  --surface-page-card-blur: none;
+  /* Page card: a card on a page, lifting on hover; glass, with the side
+     panels' blur */
+  --surface-page-card-fill: var(--fill-glass);
+  --surface-page-card-blur: var(--blur-glass);
   --surface-page-card-edge: var(--edge-hairline);
   --surface-page-card-shadow: var(--shadow-float);
   --surface-page-card-shadow-hover: var(--shadow-deep);
@@ -326,8 +329,9 @@
   --surface-page-card-lens: 0;
 
   /* Inner card: a card inside a panel or card, and a control that
-     carries a small shadow; lifted, and dragged */
-  --surface-inner-card-fill: var(--bg-panel);
+     carries a small shadow; lifted, and dragged. The glass tone with no
+     blur of its own: only the panel lies behind it */
+  --surface-inner-card-fill: var(--fill-glass);
   --surface-inner-card-blur: none;
   --surface-inner-card-edge: var(--edge-hairline);
   --surface-inner-card-shadow: var(--shadow-hairline);
@@ -345,25 +349,25 @@
 
   /* Block: a block drawn inside a panel on the raised tone or the panel
      tone, with the hairline and no shadow of its own (a tile, an entry, a
-     message, a result); solid unless a look makes it otherwise */
-  --surface-block-fill: var(--bg-raised);
-  --surface-block-fill-panel: var(--bg-panel);
+     message, a result); the glass of either tone, no blur */
+  --surface-block-fill: var(--fill-glass-raised);
+  --surface-block-fill-panel: var(--fill-glass);
   --surface-block-edge: var(--edge-hairline);
   --surface-block-shadow: none;
 
   /* Map card: a card floating over a map on the panel tone, with the
-     hairline and no shadow (a widget card and its menu); solid unless a
-     look makes it otherwise */
-  --surface-map-card-fill: var(--bg-panel);
-  --surface-map-card-blur: none;
+     hairline and no shadow (a widget card and its menu); glass, with the
+     overlay blur */
+  --surface-map-card-fill: var(--fill-glass);
+  --surface-map-card-blur: var(--blur-overlay);
   --surface-map-card-edge: var(--edge-hairline);
   --surface-map-card-shadow: none;
   --surface-map-card-lens: 0;
 
-  /* Menu and pop-over: what opens over something and closes; solid
-     unless a look makes it otherwise */
-  --surface-menu-fill: var(--bg-panel);
-  --surface-menu-blur: none;
+  /* Menu and pop-over: what opens over something and closes; glass, with
+     the overlay blur */
+  --surface-menu-fill: var(--fill-glass);
+  --surface-menu-blur: var(--blur-overlay);
   --surface-menu-edge: var(--edge-hairline);
   --surface-menu-shadow: var(--shadow-lift);
   --surface-menu-lens: 0;
@@ -371,11 +375,11 @@
      popup and failure notice */
   --surface-menu-edge-strong: 1px solid var(--border-strong);
   /* The raised ground of the map's tooltip, popup and failure notice */
-  --surface-menu-fill-raised: var(--bg-raised);
+  --surface-menu-fill-raised: var(--fill-glass-raised);
 
-  /* Dialog: every modal, solid unless a look makes it otherwise */
-  --surface-dialog-fill: var(--bg-panel);
-  --surface-dialog-blur: none;
+  /* Dialog: every modal; glass, with the side panels' blur */
+  --surface-dialog-fill: var(--fill-glass);
+  --surface-dialog-blur: var(--blur-glass);
   --surface-dialog-edge: var(--edge-hairline);
   --surface-dialog-shadow: var(--shadow-dialog);
   --surface-dialog-corner: var(--radius-card);
@@ -2935,7 +2939,7 @@ document.querySelectorAll('.cat .dots i[data-hex]').forEach(function(c){
 var SURFACE_STEPS = {
   shadow: [{"nm":"hairline","v":"0 1px 4px color-mix(in srgb, var(--shadow) 60%, transparent)"}, {"nm":"float","v":"0 3px 12px var(--shadow)"}, {"nm":"overlay","v":"0 8px 26px var(--shadow)"}, {"nm":"lift","v":"0 10px 30px var(--shadow)"}, {"nm":"deep","v":"0 14px 40px var(--shadow)"}, {"nm":"dialog","v":"0 30px 80px var(--shadow)"}],
   blur: [{"nm":"glass","v":"blur(18px)"}, {"nm":"overlay","v":"blur(8px)"}, {"nm":"veil","v":"blur(4px)"}],
-  fill: [{"nm":"glass","v":"color-mix(in srgb, var(--bg-panel) 93%, transparent)"}, {"nm":"wash","v":"color-mix(in srgb, var(--bg-raised) 70%, transparent)"}, {"nm":"veil","v":"color-mix(in srgb, var(--fg) 32%, transparent)"}],
+  fill: [{"nm":"glass","v":"color-mix(in srgb, var(--bg-panel) 93%, transparent)"}, {"nm":"glass-raised","v":"color-mix(in srgb, var(--bg-raised) 93%, transparent)"}, {"nm":"wash","v":"color-mix(in srgb, var(--bg-raised) 70%, transparent)"}, {"nm":"veil","v":"color-mix(in srgb, var(--fg) 32%, transparent)"}],
   edge: [{"nm":"hairline","v":"1px solid var(--border)"}],
 };
 var SURFACE_ROLES = [
@@ -2943,12 +2947,12 @@ var SURFACE_ROLES = [
   {"key":"glass-panel","nm":"Floating glass, panel","what":"What floats over the page and is read: the builder's inspector, the Tools drawer and the Assistant pane, the SQL page's left pane, the workflow canvas's pane and inspector, How it's made beside a template. Docked or overlaying, no edge.","fill":"var(--fill-glass)","blur":"var(--blur-glass)","edge":"none","corner":"var(--radius-card)","shadow":"var(--shadow-float)","states":[]},
   {"key":"overlay-panel","nm":"Overlay panel","what":"What is read over a map or the canvas: the legend, the status pill, the timeline bar, a published page's title bar, the readouts, the mini-map's legend, the workflow minimap.","fill":"var(--fill-glass)","blur":"var(--blur-overlay)","edge":"none","corner":null,"shadow":"var(--shadow-overlay)","states":[]},
   {"key":"overlay-control","nm":"Overlay control","what":"A control floating over a map, canvas or picture: the zoom and stage buttons, the mini-map's actions, a card's hover pill and owner mark, a note's colour bar.","fill":"var(--fill-glass)","blur":"var(--blur-overlay)","edge":"none","corner":null,"shadow":"var(--shadow-float)","states":[]},
-  {"key":"page-card","nm":"Page card","what":"A card on a page: the gallery cards, the Settings cards and column, the SQL editor and results, the connection cards, the set-geometry panel. A gallery card lifts on hover.","fill":"var(--bg-panel)","blur":"none","edge":"var(--edge-hairline)","corner":"var(--radius-card)","shadow":"var(--shadow-float)","states":[{"nm":"hover","v":"var(--shadow-deep)"}]},
-  {"key":"inner-card","nm":"Inner card","what":"A card inside a panel or card, and a control that carries a small shadow: the layer cards, the node tiles, the pickable cards in dialogs, a switch's knob, a slider's thumb. Corners as each has them.","fill":"var(--bg-panel)","blur":"none","edge":"var(--edge-hairline)","corner":null,"shadow":"var(--shadow-hairline)","states":[{"nm":"lifted","v":"var(--shadow-float)"},{"nm":"dragged","v":"var(--shadow-deep)"}]},
-  {"key":"block","nm":"Block","what":"A block inside a panel on the raised or the panel tone, with the hairline: a visualization's tile, a filter's card, a legend entry, a widget's row, a basemap's card, a tool's result, the person's own message to the Assistant. No blur of its own, lying on its panel; solid unless a look makes it otherwise.","fill":"var(--bg-raised)","blur":"none","edge":"var(--edge-hairline)","corner":null,"shadow":"none","states":[]},
-  {"key":"map-card","nm":"Map card","what":"A card floating over a map on the panel tone, with the hairline: a widget's card and its menu. Solid unless a look makes it otherwise.","fill":"var(--bg-panel)","blur":"none","edge":"var(--edge-hairline)","corner":null,"shadow":"none","states":[]},
-  {"key":"menu","nm":"Menu and pop-over","what":"What opens over something and closes: every menu, picker and pop-over, the map's tooltip and popup, the hint, the SQL peek, the map's failure notice. Solid unless a look makes it otherwise; corners as each has them.","fill":"var(--bg-panel)","blur":"none","edge":"var(--edge-hairline)","corner":null,"shadow":"var(--shadow-lift)","states":[]},
-  {"key":"dialog","nm":"Dialog","what":"Every modal, over its veil. Solid unless a look makes it otherwise.","fill":"var(--bg-panel)","blur":"none","edge":"var(--edge-hairline)","corner":"var(--radius-card)","shadow":"var(--shadow-dialog)","states":[]},
+  {"key":"page-card","nm":"Page card","what":"A card on a page: the gallery cards, the Settings cards and column, the SQL editor and results, the connection cards, the set-geometry panel. Glass, with the side panels' blur; a gallery card lifts on hover.","fill":"var(--fill-glass)","blur":"var(--blur-glass)","edge":"var(--edge-hairline)","corner":"var(--radius-card)","shadow":"var(--shadow-float)","states":[{"nm":"hover","v":"var(--shadow-deep)"}]},
+  {"key":"inner-card","nm":"Inner card","what":"A card inside a panel or card, and a control that carries a small shadow: the layer cards, the node tiles, the pickable cards in dialogs, a switch's knob, a slider's thumb. On the glass tone with no blur of its own, since only its panel lies behind it; corners as each has them.","fill":"var(--fill-glass)","blur":"none","edge":"var(--edge-hairline)","corner":null,"shadow":"var(--shadow-hairline)","states":[{"nm":"lifted","v":"var(--shadow-float)"},{"nm":"dragged","v":"var(--shadow-deep)"}]},
+  {"key":"block","nm":"Block","what":"A block inside a panel on the raised or the panel tone, with the hairline: a visualization's tile, a filter's card, a legend entry, a widget's row, a basemap's card, a tool's result, the person's own message to the Assistant. The glass of either tone with no blur of its own, lying on its panel.","fill":"var(--fill-glass-raised)","blur":"none","edge":"var(--edge-hairline)","corner":null,"shadow":"none","states":[]},
+  {"key":"map-card","nm":"Map card","what":"A card floating over a map on the panel tone, with the hairline: a widget's card and its menu. Glass, with the overlay panel's blur.","fill":"var(--fill-glass)","blur":"var(--blur-overlay)","edge":"var(--edge-hairline)","corner":null,"shadow":"none","states":[]},
+  {"key":"menu","nm":"Menu and pop-over","what":"What opens over something and closes: every menu, picker and pop-over, the map's tooltip and popup, the hint, the SQL peek, the map's failure notice. Glass, with the overlay panel's blur, the tooltip and popup on the raised tone's; corners as each has them.","fill":"var(--fill-glass)","blur":"var(--blur-overlay)","edge":"var(--edge-hairline)","corner":null,"shadow":"var(--shadow-lift)","states":[]},
+  {"key":"dialog","nm":"Dialog","what":"Every modal, over its veil. Glass, with the side panels' blur.","fill":"var(--fill-glass)","blur":"var(--blur-glass)","edge":"var(--edge-hairline)","corner":"var(--radius-card)","shadow":"var(--shadow-dialog)","states":[]},
   {"key":"stage","nm":"The stage","what":"The map card and the framed canvas: no fill of its own, the deep shadow; the framed canvas keeps its edge.","fill":"transparent","blur":"none","edge":"none","corner":"var(--radius-card)","shadow":"var(--shadow-deep)","states":[]}
 ];
 /* wheelhouse:feed surface-plate end */
