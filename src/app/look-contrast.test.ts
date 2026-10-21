@@ -6,7 +6,8 @@ import { lookChoices } from "@/lib/look";
  * Readability under the Panels looks. Every surface that carries words
  * keeps a fill strong enough that its quiet ink reads at 4.5:1 or better
  * over the strictest data colour below, in each of the four Colors and both
- * themes, under Liquid and under Paper: computed here
+ * themes, at both Contrasts, under Liquid at each of its transparency steps
+ * and under Paper: computed here
  * from the fills the looks' stylesheets declare and the tones the page
  * declares, the backdrop unblurred, as a person's eye would meet it at the
  * worst spot, in the quiet ink the page's body takes under that look (Liquid
@@ -15,12 +16,15 @@ import { lookChoices } from "@/lib/look";
  * Liquid's fill is clear by choice, so it is not held over a map that runs
  * against the theme: a uniform black area by day (a dark basemap, satellite
  * imagery, the dark end of a grey ramp) or a white one by night. There its
- * text reads at about 3:1, and Glass and Paper keep their panels firm.
+ * text reads at about 3:1 at Clear, less badly at each firmer step, and
+ * Glass and Paper keep their panels firm.
  */
 
 type RGBA = [number, number, number, number];
 type Theme = "light" | "dark";
 type Look = "liquid" | "paper";
+type Step = "clear" | "medium" | "firm";
+const STEPS: Step[] = ["clear", "medium", "firm"];
 type Rule = { selectors: string[]; within: string | null; tokens: Map<string, string> };
 
 /** Every rule of a stylesheet, comments removed, with the at-rule it sits in. */
@@ -56,25 +60,31 @@ const PAPER_CSS = read("src/app/look-paper.css");
 const tokensOf = (sheet: Rule[], selector: string) =>
   new Map(sheet.filter(rule => rule.within === null && rule.selectors.includes(selector)).flatMap(rule => [...rule.tokens]));
 
-/** A Color's tones in a theme, as the page declares them on the root. */
-function tones(color: string, theme: Theme): Map<string, string> {
+/** A Color's tones in a theme and at a Contrast, as the page declares them on the root. */
+function tones(color: string, theme: Theme, contrast = "standard"): Map<string, string> {
   const dark = theme === "dark";
   const layers = [tokensOf(GLOBALS, ":root"), dark ? tokensOf(GLOBALS, ':root[data-theme="dark"]') : new Map<string, string>()];
-  if (color !== "kelp") {
-    layers.push(tokensOf(LOOK, `:root[data-look-color="${color}"]`));
-    if (dark) layers.push(tokensOf(LOOK, `:root[data-theme="dark"][data-look-color="${color}"]`));
+  const own = color === "kelp" ? "" : `[data-look-color="${color}"]`;
+  if (own) {
+    layers.push(tokensOf(LOOK, `:root${own}`));
+    if (dark) layers.push(tokensOf(LOOK, `:root[data-theme="dark"]${own}`));
+  }
+  if (contrast !== "standard") {
+    layers.push(tokensOf(LOOK, `:root${own}[data-look-contrast="${contrast}"]`));
+    if (dark) layers.push(tokensOf(LOOK, `:root[data-theme="dark"]${own}[data-look-contrast="${contrast}"]`));
   }
   return new Map(layers.flatMap(layer => [...layer]));
 }
 
-/** A look's restated roles on the root, over the shipped block. */
-function restated(look: Look, theme: Theme, liquidCss: string, paperCss: string): Map<string, string> {
-  const dark = theme === "dark" ? '[data-theme="dark"]' : "";
-  const keys = [`[data-look-panels="${look}"]`];
+/** A look's restated roles on the root at a step, over the shipped block,
+ * as the cascade orders them: by day, by night, the step by day, the step by night. */
+function restated(look: Look, theme: Theme, step: Step, liquidCss: string, paperCss: string): Map<string, string> {
+  const night = theme === "dark" ? '[data-theme="dark"]' : "";
+  const key = `[data-look-panels="${look}"]`, stepped = step === "clear" ? "" : `[data-look-transparency="${step}"]`;
   const sheet = rules(look === "liquid" ? liquidCss : paperCss);
-  const light = keys.map(key => tokensOf(sheet, `:root${key}`));
-  const night = theme === "dark" ? keys.map(key => tokensOf(sheet, `:root${dark}${key}`)) : [];
-  return new Map([...light, ...night].flatMap(layer => [...layer]));
+  const chain = [`:root${key}`, ...(night ? [`:root${night}${key}`] : []),
+    ...(stepped ? [`:root${key}${stepped}`, ...(night ? [`:root${night}${key}${stepped}`] : [])] : [])];
+  return new Map(chain.flatMap(selector => [...tokensOf(sheet, selector)]));
 }
 
 /* ---- colour arithmetic, as CSS Color 4 and 5 define it ---- */
@@ -193,15 +203,19 @@ const SURFACES: { role: string; part: string; over: Backdrop[] }[] = [
 ];
 const FLOOR = 4.5;
 const COLORS = lookChoices("color");
+const CONTRASTS = lookChoices("contrast");
+/** The steps a look reads at: Liquid's three, Paper's one. */
+const stepsOf = (look: Look): Step[] => (look === "liquid" ? STEPS : ["clear"]);
 
-type Reading = { look: Look; color: string; theme: Theme; surface: string; ratio: number; alpha: number };
+type Reading = { look: Look; color: string; theme: Theme; contrast: string; step: Step; surface: string; ratio: number; alpha: number };
 
 /** Every reading for both looks; the stylesheets' text can be seeded. */
 function readings(liquidCss = LIQUID_CSS, paperCss = PAPER_CSS): Reading[] {
   const block = GLOBALS.find(rule => rule.tokens.has("--surface-menu-shadow"))!.tokens;
   const out: Reading[] = [];
-  for (const look of ["liquid", "paper"] as Look[]) for (const color of COLORS) for (const theme of ["light", "dark"] as Theme[]) {
-    const scope = new Map([...tones(color, theme), ...block, ...restated(look, theme, liquidCss, paperCss)]);
+  for (const look of ["liquid", "paper"] as Look[]) for (const color of COLORS) for (const theme of ["light", "dark"] as Theme[])
+  for (const level of CONTRASTS) for (const step of stepsOf(look)) {
+    const scope = new Map([...tones(color, theme, level), ...block, ...restated(look, theme, step, liquidCss, paperCss)]);
     const at = (value: string) => colour(value, scope);
     const cell = at(CELL[theme]);
     const fill = (role: string, part: string) => at(`var(--surface-${role}-${part})`);
@@ -217,37 +231,65 @@ function readings(liquidCss = LIQUID_CSS, paperCss = PAPER_CSS): Reading[] {
     for (const surface of SURFACES) {
       const ground = fill(surface.role, surface.part);
       const ratio = Math.min(...surface.over.flatMap(name => backdrops[name]).map(backdrop => contrast(ink, over(ground, backdrop))));
-      out.push({ look, color, theme, surface: `${surface.role} ${surface.part}`, ratio, alpha: ground[3] });
+      out.push({ look, color, theme, contrast: level, step, surface: `${surface.role} ${surface.part}`, ratio, alpha: ground[3] });
     }
   }
   return out;
 }
 
 const below = (all: Reading[]) => all.filter(reading => reading.ratio < FLOOR)
-  .map(reading => `${reading.look} ${reading.color} ${reading.theme} ${reading.surface}: ${reading.ratio.toFixed(2)}`);
+  .map(reading => `${reading.look} ${reading.color} ${reading.theme} ${reading.contrast} ${reading.step} ${reading.surface}: ${reading.ratio.toFixed(2)}`);
+
+/** Each step's fills as Liquid's design names them: the tint, then the
+ * panel share of the roles and of a dialog. */
+const SHARES: Record<Theme, Record<Step, [string, number, number]>> = {
+  light: { clear: ["#fff 10%", 36, 40], medium: ["#fff 10%", 52, 54], firm: ["#fff 10%", 68, 70] },
+  dark: { clear: ["#000 8%", 54, 54], medium: ["#000 10%", 62, 64], firm: ["#000 10%", 74, 76] },
+};
+/** The sheet with one step's fills some points thinner. */
+const thinner = (theme: Theme, step: Step, points: number) => {
+  const [tint, body, dialog] = SHARES[theme][step];
+  return [...new Set([body, dialog])].reduce((css, share) =>
+    css.replaceAll(`${tint}, var(--bg-panel) ${share}%)`, `${tint}, var(--bg-panel) ${share - points}%)`), LIQUID_CSS);
+};
+/** The sheet with one step's quiet inks left at the Color's own grey. */
+const unstepped = (theme: Theme, step: Step) => {
+  const root = `:root${theme === "dark" ? '[data-theme="dark"]' : ""}[data-look-panels="liquid"]${step === "clear" ? "" : `[data-look-transparency="${step}"]`} {`;
+  const at = LIQUID_CSS.indexOf(`\n${root}\n  --liquid-fg-muted: `);
+  const end = LIQUID_CSS.indexOf("}", at);
+  return `${LIQUID_CSS.slice(0, at)}\n${root}\n  --liquid-fg-muted: var(--fg-muted);\n  --liquid-fg-faint: var(--fg-faint);\n${LIQUID_CSS.slice(end)}`;
+};
 
 describe("readability under the Panels looks", () => {
-  it("reads the quiet ink at 4.5:1 or better over the strictest place, in every Color and theme, under Liquid and Paper", () => {
+  it("reads the quiet ink at 4.5:1 or better over the strictest place, in every Color, theme and Contrast, under Liquid at each step and under Paper", () => {
     const all = readings();
-    expect(all).toHaveLength(2 * COLORS.length * 2 * SURFACES.length);
-    // The record: one line per look, Color and theme, the surfaces' ratios in order.
-    const lines = ["look    color    theme  " + SURFACES.map(surface => `${surface.role} ${surface.part}`).join(" | ")];
-    for (const look of ["liquid", "paper"]) for (const color of COLORS) for (const theme of ["light", "dark"]) {
-      const row = all.filter(reading => reading.look === look && reading.color === color && reading.theme === theme);
-      lines.push(`${look.padEnd(7)} ${color.padEnd(8)} ${theme.padEnd(6)} ${row.map(reading => reading.ratio.toFixed(2)).join(" | ")}`);
+    expect(all).toHaveLength(COLORS.length * 2 * CONTRASTS.length * (STEPS.length + 1) * SURFACES.length);
+    // The record: one line per look, Color, theme, Contrast and step, the surfaces' ratios in order.
+    const lines = ["look    color    theme  contrast step   " + SURFACES.map(surface => `${surface.role} ${surface.part}`).join(" | ")];
+    for (const look of ["liquid", "paper"] as Look[]) for (const color of COLORS) for (const theme of ["light", "dark"])
+    for (const contrast of CONTRASTS) for (const step of stepsOf(look)) {
+      const row = all.filter(reading => reading.look === look && reading.color === color && reading.theme === theme
+        && reading.contrast === contrast && reading.step === step);
+      lines.push(`${look.padEnd(7)} ${color.padEnd(8)} ${theme.padEnd(6)} ${contrast.padEnd(8)} ${step.padEnd(6)} ${row.map(reading => reading.ratio.toFixed(2)).join(" | ")}`);
     }
     console.log(lines.join("\n"));
     expect(below(all)).toEqual([]);
   });
 
-  it("reads Kelp's numbers as the design measured them", () => {
-    const kelp = (look: Look, theme: Theme, surface: string) =>
-      Number(readings().find(reading => reading.look === look && reading.color === "kelp" && reading.theme === theme && reading.surface === surface)!.ratio.toFixed(2));
+  it("reads Kelp's numbers as the design measured them, at each step", () => {
+    const kelp = (theme: Theme, step: Step, surface: string) =>
+      Number(readings().find(reading => reading.look === "liquid" && reading.color === "kelp" && reading.theme === theme
+        && reading.contrast === "standard" && reading.step === step && reading.surface === surface)!.ratio.toFixed(2));
     // The one clear fill read in the stepped quiet ink: on the chrome and the read panels over a cell, a page card over
-    // a line, an inner card and a block over the inspector, a dialog (a touch firmer by day) over the veil.
+    // a line, an inner card and a block over the inspector, a dialog (a touch firmer) over the veil.
     const surfaces = ["glass-chrome fill", "glass-panel fill", "page-card fill", "inner-card fill", "block fill", "dialog fill"];
-    expect(surfaces.map(surface => kelp("liquid", "light", surface))).toEqual([4.56, 4.56, 8.84, 7.29, 7.29, 4.61]);
-    expect(surfaces.map(surface => kelp("liquid", "dark", surface))).toEqual([5, 5, 11.62, 9.74, 9.74, 4.59]);
+    const measured: Record<Theme, Record<Step, number[]>> = {
+      light: { clear: [4.56, 4.56, 8.84, 7.29, 7.29, 4.61], medium: [4.69, 4.69, 7.26, 7.05, 7.05, 4.66], firm: [4.69, 4.69, 5.95, 6.17, 6.17, 4.75] },
+      dark: { clear: [4.94, 4.94, 10.08, 9.22, 9.22, 4.57], medium: [4.77, 4.77, 7.79, 7.77, 7.77, 4.76], firm: [5.47, 5.47, 6.93, 7.14, 7.14, 5.57] },
+    };
+    for (const theme of ["light", "dark"] as Theme[]) for (const step of STEPS) {
+      expect(surfaces.map(surface => kelp(theme, step, surface)), `${theme} ${step}`).toEqual(measured[theme][step]);
+    }
   });
 
   it("finds every fill Paper declares opaque, and every fill Liquid declares on request", () => {
@@ -262,21 +304,26 @@ describe("readability under the Panels looks", () => {
     }
   });
 
-  it("fails on a thinner fill by day or by night, and on the quiet ink left unstepped", () => {
-    const day = /#fff 10%, var\(--bg-panel\) (\d+(?:\.\d+)?)%\)/.exec(LIQUID_CSS)![1];
-    const night = /#000 6%, var\(--bg-panel\) (\d+(?:\.\d+)?)%\)/.exec(LIQUID_CSS)![1];
-    const thinner = LIQUID_CSS.replaceAll(`#fff 10%, var(--bg-panel) ${day}%)`, `#fff 10%, var(--bg-panel) ${Number(day) - 6}%)`);
-    expect(thinner).not.toBe(LIQUID_CSS);
-    expect(below(readings(thinner)).some(line => line.startsWith("liquid kelp light glass-panel fill"))).toBe(true);
-    const thinnerNight = LIQUID_CSS.replaceAll(`#000 6%, var(--bg-panel) ${night}%)`, `#000 6%, var(--bg-panel) ${Number(night) - 6}%)`);
-    expect(thinnerNight).not.toBe(LIQUID_CSS);
-    expect(below(readings(thinnerNight)).some(line => line.startsWith("liquid kelp dark glass-panel fill"))).toBe(true);
-    const unstepped = LIQUID_CSS.replace("--fg-muted: var(--liquid-fg-muted);", "");
-    expect(unstepped).not.toBe(LIQUID_CSS);
-    expect(below(readings(unstepped)).some(line => line.startsWith("liquid kelp light glass-panel fill"))).toBe(true);
+  it("fails on a step 6 points thinner by day or by night, and on its quiet ink left unstepped", () => {
+    const fails = (css: string, theme: Theme, step: Step) =>
+      below(readings(css)).some(line => line.startsWith(`liquid kelp ${theme} standard ${step} glass-panel fill`));
+    for (const theme of ["light", "dark"] as Theme[]) for (const step of STEPS) {
+      if (theme === "dark" && step === "firm") continue;
+      expect(thinner(theme, step, 6)).not.toBe(LIQUID_CSS);
+      expect(fails(thinner(theme, step, 6), theme, step), `${theme} ${step} thinner`).toBe(true);
+      expect(unstepped(theme, step)).not.toBe(LIQUID_CSS);
+      expect(fails(unstepped(theme, step), theme, step), `${theme} ${step} unstepped`).toBe(true);
+    }
+    // Firm by night keeps the Color's own grey and holds with room to spare: six points thinner it still reads,
+    // twelve thinner (Medium's fill) it does not.
+    expect(fails(thinner("dark", "firm", 6), "dark", "firm")).toBe(false);
+    expect(fails(thinner("dark", "firm", 12), "dark", "firm")).toBe(true);
+    const unpicked = LIQUID_CSS.replace("--fg-muted: var(--liquid-fg-muted);", "");
+    expect(unpicked).not.toBe(LIQUID_CSS);
+    expect(fails(unpicked, "light", "clear")).toBe(true);
     const paperThin = PAPER_CSS.replace("--surface-page-card-fill: color-mix(in oklab, var(--bg-panel) 96%, var(--bg));",
       "--surface-page-card-fill: color-mix(in srgb, var(--bg-panel) 30%, transparent);");
     expect(paperThin).not.toBe(PAPER_CSS);
-    expect(below(readings(LIQUID_CSS, paperThin)).some(line => line.startsWith("paper kelp light page-card fill"))).toBe(true);
+    expect(below(readings(LIQUID_CSS, paperThin)).some(line => line.startsWith("paper kelp light standard clear page-card fill"))).toBe(true);
   });
 });
