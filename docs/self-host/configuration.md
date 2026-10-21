@@ -41,7 +41,9 @@ A container keeps the variables it was created with. To change one, first list t
 docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' dezfil
 ```
 
-The list holds the image's own variables too, such as `PATH` and `DEZFIL_DATA_DIR`. Run `docker rm -f dezfil`, then the command again with every variable you set, not only the new one, `DEZFIL_SECRET_KEY` among them. The `dezfil-data` volume keeps your data.
+The list holds the image's own variables too, such as `PATH` and `DEZFIL_DATA_DIR`. Run `docker rm -f dezfil`, then the command again with every variable you set, not only the new one, `DEZFIL_SECRET_KEY` too if you set one. The `dezfil-data` volume keeps your data.
+
+Without `DEZFIL_SECRET_KEY`, the instance's key is the `secret.key` file in its volume. To set the variable on it, give it that same key, as [Keep the key you have](docker-compose.md#keep-the-key-you-have) shows. A new key wins over the file, and saved connection passwords and service addresses stop working.
 
 :::
 

@@ -60,6 +60,7 @@ Save this file as `/etc/nginx/conf.d/dezfil.conf`:
 ```nginx title="/etc/nginx/conf.d/dezfil.conf"
 server {
     listen 80;
+    listen [::]:80;
     server_name <YOUR_DOMAIN>;
 
     client_max_body_size 0;
@@ -80,10 +81,12 @@ server {
 }
 ```
 
+- The two `listen` lines take visitors over IPv4 and IPv6. On a server without IPv6, leave out `listen [::]:80;`.
 - `client_max_body_size 0` leaves the size of an upload to Dezfil's **Largest upload**, 5,120 MB by default ([Limits](../api/limits.md#limits-an-operator-changes)). Without it, nginx refuses anything over 1 MB.
 - `proxy_read_timeout 3600s` waits up to an hour for an answer, as long as Dezfil's **Data processing time limit** allows an import by default.
 - The two buffering lines pass uploads and the assistant's answers through as they arrive.
 - The `proxy_set_header` lines send the visitor's address, host, scheme and port, and drop a `Forwarded` header a visitor could add.
+- Dezfil uses no WebSockets, so the block needs no `Upgrade` headers.
 
 Check the file:
 
@@ -132,7 +135,7 @@ Start Dezfil again with that address in `DEZFIL_TRUSTED_PROXIES`:
 
 :::tab[Docker]
 
-List your variables first, as [Set a variable](configuration.md#set-a-variable) shows, and add them to the command, `DEZFIL_SECRET_KEY` among them:
+List your variables first, as [Set a variable](configuration.md#set-a-variable) shows, and add them to the command, `DEZFIL_SECRET_KEY` too if you set one:
 
 ```sh title="Terminal"
 docker rm -f dezfil
@@ -189,6 +192,8 @@ curl https://<YOUR_DOMAIN>/api/health
 ## Trusted proxies
 
 Set `DEZFIL_TRUSTED_PROXIES` to the address Dezfil sees your proxy's requests arrive from, and have the proxy send the visitor's address, host and scheme, as steps 1 and 2 do.
+
+**Session cookie name** needs no change behind a proxy: it follows the port Dezfil listens on, not the one visitors use.
 
 <!-- settings-proxies:start -->
 

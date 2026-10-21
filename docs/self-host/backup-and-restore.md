@@ -239,7 +239,7 @@ A new container gets none of the old one's `-e` variables, so list them before y
 docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' dezfil
 ```
 
-The list also holds the image's own, such as `PATH` and `DEZFIL_DATA_DIR`. Then remove the container and start a new one, adding to `docker run` the `-e` variables you set, `DEZFIL_SECRET_KEY` among them:
+The list also holds the image's own, such as `PATH` and `DEZFIL_DATA_DIR`. Then remove the container and start a new one, adding to `docker run` the `-e` variables you set, `DEZFIL_SECRET_KEY` too if you set one:
 
 ```sh title="Terminal"
 docker rm -f dezfil
