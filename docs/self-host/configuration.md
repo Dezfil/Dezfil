@@ -35,7 +35,13 @@ docker run -d --name dezfil -p 127.0.0.1:3000:3000 -v dezfil-data:/data \
   dezfil
 ```
 
-A container keeps the variables it was created with. To change one, run `docker rm -f dezfil`, then the command again with every variable you use, not only the new one. The `dezfil-data` volume keeps your data.
+A container keeps the variables it was created with. To change one, first list the ones it has:
+
+```sh title="Terminal"
+docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' dezfil
+```
+
+The list holds the image's own variables too, such as `PATH` and `DEZFIL_DATA_DIR`. Run `docker rm -f dezfil`, then the command again with every variable you set, not only the new one, `DEZFIL_SECRET_KEY` among them. The `dezfil-data` volume keeps your data.
 
 :::
 
