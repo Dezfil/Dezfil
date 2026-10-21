@@ -68,14 +68,17 @@ docker compose build
 Check first that the container keeps its data in the `dezfil-data` volume:
 
 ```sh title="Terminal"
-docker inspect --format '{{range .Mounts}}{{.Name}}{{end}}' dezfil
+docker inspect --format '{{range .Mounts}}{{if eq .Destination "/data"}}{{.Name}}{{end}}{{end}}' dezfil
 ```
 
 ```text title="Output"
 dezfil-data
 ```
 
-If it prints another name, your data is in that volume: write its name in place of `dezfil-data` wherever this page and [Back up and restore](backup-and-restore.md) name it.
+It prints the name of the volume mounted at `/data`, the data folder, and leaves out the container's other mounts.
+
+- If it prints another name, your data is in that volume: write its name in place of `dezfil-data` wherever this page and [Back up and restore](backup-and-restore.md) name it.
+- If it prints an empty line, `/data` is a folder of this machine, not a volume, and the backup below would not copy your data. Stop Dezfil, copy that folder instead, and mount it in place of `dezfil-data` in step 4.
 
 Let running tools and workflows finish. Then back up the volume as [Back up](backup-and-restore.md#back-up) shows: it stops Dezfil, copies the volume to `$HOME/dezfil-backup`, prints `Copied` and starts the old version again. The version to note with this backup is the commit step 2 printed: after `git pull`, `git rev-parse` prints the new one.
 
