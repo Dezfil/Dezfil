@@ -211,7 +211,7 @@ FROM <DATASET>
 LIMIT 100;
 ```
 
-`left(…, 1000)` keeps the first 1,000 characters of each value. To keep every row instead, save the query as a **SQL step** in a [workflow](workflows.md#save-a-query-with-a-sql-step), or, from a script, download or save it, as [Errors](../api/errors.md#answers-too-large-to-return) shows.
+`left(…, 1000)` keeps the first 1,000 characters of each value. To keep every row, save the query with a **SQL step** and download its dataset, as [Workflows](workflows.md#save-a-query-with-a-sql-step) shows. From a script, download or save it, as [Errors](../api/errors.md#answers-too-large-to-return) shows.
 
 **Save as dataset says a table with that name already exists.** Dezfil never replaces a dataset when you save. Choose another name.
 

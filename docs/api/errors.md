@@ -139,7 +139,7 @@ Agents can read the same list from the [API description](openapi.json):
 
 | The read | What to do |
 |---|---|
-| A query, on the **SQL** page, with `POST /api/query` or `run_sql` | Narrow it, as [Query with SQL](../use/sql.md#troubleshooting) shows. To keep every row, [download it](#download-every-row) or [save it as a dataset](#save-every-row-as-a-dataset). In the app, a [SQL step](../use/workflows.md#save-a-query-with-a-sql-step) saves it. |
+| A query, on the **SQL** page, with `POST /api/query` or `run_sql` | Narrow it, as [Query with SQL](../use/sql.md#troubleshooting) shows. To keep every row, [download it](#download-every-row) or [save it as a dataset](#save-every-row-as-a-dataset). In the app, a [SQL step](../use/workflows.md#save-a-query-with-a-sql-step) saves it, and the dataset's export in **Data** downloads it. |
 | A dataset's page, or its **Set geometry** panel | Keep a copy without the large column, as [A dataset's page does not open](#a-datasets-page-does-not-open) shows. |
 | A layer's **Filters** or **Color by**, or a **Category** widget's **Group by** | Choose another column: one with a value that long holds no categories. |
 | The PostGIS five-row preview | Import the table all the same: an import is not held to these limits. |

@@ -151,6 +151,8 @@ In a panel, small icons under each input show the kinds of geometry it takes.
 4. Under **Output**, type a name in **Dataset name**.
 5. Click **Run this node**.
 
+To download the dataset, click the workflow's card in **Data**, hover the dataset's card and click **Export this table**, the download icon. Then click **GeoParquet**, **GeoJSON** or **CSV**: the file holds every row. **GeoJSON** shows only for a dataset with geometry.
+
 ## Arrange the canvas
 
 The buttons at the top left of the canvas change how it looks, never what it runs:
