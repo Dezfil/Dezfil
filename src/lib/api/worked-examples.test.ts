@@ -166,6 +166,24 @@ describe("the worked examples in the description", () => {
     expect((upload.value as Json).file).toBe(readFileSync("e2e/fixtures/world-cities.csv", "utf8"));
   });
 
+  it("building the description copies the examples, so a change to a built description never reaches them", () => {
+    const held = new Set<object>();
+    const gather = (value: unknown) => {
+      if (!value || typeof value !== "object" || held.has(value)) return;
+      held.add(value);
+      Object.values(value).forEach(gather);
+    };
+    gather(WORKED_EXAMPLES);
+    const shared: string[] = [];
+    const visit = (value: unknown, at: string) => {
+      if (!value || typeof value !== "object") return;
+      if (held.has(value)) { shared.push(at); return; }
+      for (const [key, item] of Object.entries(value)) visit(item, `${at}.${key}`);
+    };
+    visit(buildOpenApiDocument(), "description");
+    expect(shared).toEqual([]);
+  });
+
   it("every body with a byte limit names the code a larger one is refused with", () => {
     const limited = operations(document).filter(([, operation]) => (operation.requestBody as Json | undefined)?.["x-byte-limit"] !== undefined);
     expect(limited.length).toBeGreaterThan(50);

@@ -419,7 +419,7 @@ export function withExamples<T extends { paths: Record<string, unknown> }>(docum
         const { mediaType, value, files } = example.request;
         const media = operation.requestBody?.content?.[mediaType];
         if (!media) throw new Error(`Worked example ${key} ${name}: the operation takes no ${mediaType} body`);
-        const placed = withNamedExample(media, name, { ...words, value: structuredClone(value), ...(files ? { "x-filenames": files } : {}) });
+        const placed = withNamedExample(media, name, { ...words, value: structuredClone(value), ...(files ? { "x-filenames": structuredClone(files) } : {}) });
         operation = { ...operation, requestBody: { ...operation.requestBody, content: { ...operation.requestBody!.content, [mediaType]: placed } } };
       }
       const { status, mediaType, value } = example.response;
