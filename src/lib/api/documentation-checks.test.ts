@@ -9,15 +9,17 @@ const document = buildOpenApiDocument(), tools = buildTools();
 const read = (file: string) => readFileSync(file, "utf8");
 const docs = readContractDocs() as { api: string; mcp: string; proof: string };
 const bump = (text: string, pattern: RegExp) => text.replace(pattern, match => match.replace(/\d+/, number => String(Number(number) + 1)));
-const countSeeds: [string, "api" | "mcp", RegExp][] = [
-  ["paths", "api", /\d+ paths/], ["operations", "api", /\d+ operations/],
-  ["schemas", "api", /\d+ named\s+component schemas/], ["errors", "api", /There are \*\*\d+\*\* codes/],
-  ["MCP operations", "mcp", /Documented operations \| \d+/],
-  ["tools", "mcp", /Operations that become tools \| \d+/],
-  ["exclusions", "mcp", /Deliberately excluded \| \d+/],
-  ["JSON readers", "api", /Measured JSON reader operations: \*\*\d+\*\*/],
+// Every count in the served contract proof's procedure. Each operation with
+// its tool, each error code and each body limit is listed by the generated
+// operation reference, which the documentation site holds to the
+// description; neither API guide carries them.
+const countSeeds: [string, "proof", RegExp][] = [
+  ["paths", "proof", /\d+ paths/], ["operations", "proof", /\d+ operations/],
+  ["schemas", "proof", /\d+ schemas/], ["errors", "proof", /\d+ error codes/],
+  ["tools", "proof", /\d+ tools/], ["exclusions", "proof", /\d+ exclusions/],
+  ["JSON readers", "proof", /\d+ JSON readers/],
 ];
-it("checks actual reader-facing counts and catalogue against the served contract and tools", () => {
+it("checks actual reader-facing counts and change authors against the served contract and tools", () => {
   expect(checkContractDocs(document, tools, docs)).toEqual([]);
 });
 it.each(countSeeds)("rejects a stale reader-facing %s count", (_label, key, pattern) => {
@@ -25,11 +27,12 @@ it.each(countSeeds)("rejects a stale reader-facing %s count", (_label, key, patt
   expect(seeded[key]).not.toBe(docs[key]);
   expect(checkContractDocs(document, tools, seeded).length).toBeGreaterThan(0);
 });
-it.each(["missing", "extra", "meaning", "duplicate"])("rejects a seeded %s error catalogue entry", mode => {
-  const row = docs.api.match(/^\| `stale_revision` \|.*$/m)![0];
-  const change = mode === "missing" ? "" : mode === "extra" ? row + "\n| `invented_error` | Invented. |" : mode === "duplicate" ? row + "\n" + row : row.replace("Reload", "Ignore");
-  const seeded = { ...docs, api: docs.api.replace(row, change) };
-  expect(checkContractDocs(document, tools, seeded).length).toBeGreaterThan(0);
+it("leaves the per-operation lists to the operation reference: neither API guide states a count, tier or error table", () => {
+  for (const anchor of [/\*\*\d+ paths,/, /There are \*\*\d+\*\* codes/, /Measured JSON reader operations/, /<!-- body-tiers:start -->/, /<!-- error-catalogue:start -->/,
+    /\| Documented operations \| \d+/, /\| Operations that become tools \| \d+/, /\| Deliberately excluded \| \d+/, /editable-key input, [a-z-]+ keys/]) {
+    expect(docs.api).not.toMatch(anchor);
+    expect(docs.mcp).not.toMatch(anchor);
+  }
 });
 it("rejects source enum/catalogue disagreement and a dropped generated tool", () => {
   const changed = structuredClone(document);
@@ -49,7 +52,8 @@ it.each([
   expect(checkReaderDocs({ ...readers, [file]: readers[file] + "\n" + text }).length).toBeGreaterThan(0);
 });
 it.each(["docs/api/http-api.md", "docs/api/mcp.md"])("rejects a missing revision in the actual %s example", file => {
-  const changed = readers[file].replace('"X-Edit-Revision": current.editRevision', '"ignored": current.editRevision').replace('expected_revision: current.editRevision', 'ignored: current.editRevision');
+  // Every occurrence: a page may name the revision outside its example too.
+  const changed = readers[file].replaceAll('"X-Edit-Revision": current.editRevision', '"ignored": current.editRevision').replaceAll('expected_revision: current.editRevision', 'ignored: current.editRevision');
   expect(changed).not.toBe(readers[file]);
   expect(checkReaderDocs({ ...readers, [file]: changed }).length).toBeGreaterThan(0);
 });
@@ -66,15 +70,11 @@ it("keeps repeated contract builds stable and automatic Allow schemas exact", ()
   }
 });
 
-it("measures JSON reader counts and rejects a stale tier independently", () => {
+it("measures JSON reader tiers and rejects a stale tier in the proof procedure", () => {
   const changed = structuredClone(document);
   const body = changed.paths["/api/maps"].post.requestBody as Record<string, unknown>;
   body["x-byte-limit"] = 65_536;
-  // One more than whatever the reader says, so the seed is stale by one.
-  const said = Number(docs.api.match(/^\| 65,536 \| (\d+) \|$/m)![1]);
-  expect(checkContractDocs(changed, tools, docs)).toContain(`JSON tier 65536 readers: reader says ${said}, contract requires ${said + 1}`);
-  const missingBusy = { ...docs, api: docs.api.replace(/^\| `authentication_busy` \|.*\n/m, "") };
-  expect(checkContractDocs(document, tools, missingBusy)).toContain("Reader error catalogue has missing or extra codes");
+  expect(checkContractDocs(changed, tools, docs)).toEqual(["Proof guide counts differ from contract"]);
 });
 
 it("rejects a served actor union that drops deleted actors without changing counts", () => {
@@ -85,6 +85,13 @@ it("rejects a served actor union that drops deleted actors without changing coun
 it("rejects stale actor guidance in the actual reader", () => {
   const seeded = { ...docs, mcp: docs.mcp.replaceAll("{ deleted: true }", "null") };
   expect(checkContractDocs(document, tools, seeded)).toContain("MCP actor guidance omits the deleted variant");
+  const api = { ...docs, api: docs.api.replaceAll("{ deleted: true }", "null") };
+  expect(checkContractDocs(document, tools, api)).toContain("API actor guidance omits the deleted variant");
+});
+it.each([["api", "API"], ["mcp", "MCP"]] as const)("rejects a %s guide that stops saying a change's author can be a deleted account", (key, label) => {
+  const seeded = { ...docs, [key]: docs[key].replace(/A\s+change's\s+author\s+can\s+be\s+a\s+deleted\s+account,\s+and\s+then\s+no\s+name\s+is\s+kept\./, "No name is kept.") };
+  expect(seeded[key]).not.toBe(docs[key]);
+  expect(checkContractDocs(document, tools, seeded)).toEqual([`${label} guide omits that a change's author can be a deleted account`]);
 });
 it("does not describe deletion as unavailable", () => {
   expect(read("docs/self-host/backup-and-restore.md")).not.toContain("The deletion operations are not exposed yet.");

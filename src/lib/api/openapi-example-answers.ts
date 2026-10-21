@@ -1,0 +1,865 @@
+import { settingDefinition } from "@/lib/settings/catalogue";
+
+/**
+ * The answers the worked examples show, taken from one run of the API
+ * quickstart's sequence on a new instance: Ana Diaz creates the first
+ * account, signs in and makes a token, uploads world-cities.csv as the
+ * dataset world_cities, queries it, saves big_cities from it, makes the map
+ * World cities with the layer Big cities, publishes it, changes its basemap
+ * and unpublishes it. Only identifiers and times were replaced, by fixed
+ * ones, so the answers agree with each other; everything else is what the
+ * instance answered. The secret of the token the quickstart makes is shown
+ * as <YOUR_TOKEN>, the one a caller sends from then on; a second token's as
+ * <NEW_TOKEN>; and the published link's token as <PUBLISH_TOKEN>.
+ */
+
+/** The variables that enable the assistant, named where every credential
+ * variable is named: the settings catalogue. */
+const environmentOf = (key: string): string => {
+  const environment = settingDefinition(key).environment;
+  if (!environment) throw new Error(`The setting ${key} names no variable`);
+  return environment;
+};
+const ANTHROPIC_KEY = environmentOf("anthropicApiKey");
+const OPENAI_KEY = environmentOf("openaiApiKey");
+
+/** The 48 cities of world-cities.csv, the file the quickstart uploads. */
+export const WORLD_CITIES_CSV = [
+  "name,country,population,latitude,longitude",
+  "Tokyo,Japan,35676000,35.687,139.7495",
+  "New York,United States of America,19040000,40.7519,-73.982",
+  "Mexico City,Mexico,19028000,19.4444,-99.1329",
+  "Mumbai,India,18978000,19.0189,72.855",
+  "São Paulo,Brazil,18845000,-23.5567,-46.627",
+  "Shanghai,China,14987000,31.2184,121.4346",
+  "Kolkata,India,14787000,22.4969,88.3227",
+  "Dhaka,Bangladesh,12797394,23.725,90.4066",
+  "Buenos Aires,Argentina,12795000,-34.6006,-58.3995",
+  "Los Angeles,United States of America,12500000,33.9919,-118.1819",
+  "Cairo,Egypt,11893000,30.0519,31.248",
+  "Beijing,China,11106000,39.9308,116.3863",
+  "Manila,Philippines,11100000,14.6061,120.9803",
+  "Moscow,Russia,10452000,55.7541,37.6136",
+  "Istanbul,Turkey,10061000,41.1069,29.0081",
+  "Paris,France,9904000,48.8686,2.3314",
+  "Seoul,South Korea,9796000,37.5683,126.9978",
+  "Lagos,Nigeria,9466000,6.4452,3.3896",
+  "Jakarta,Indonesia,9125000,-6.1725,106.8275",
+  "Chicago,United States of America,8990000,41.8319,-87.752",
+  "London,United Kingdom,8567000,51.5019,-0.1187",
+  "Lima,Peru,8012000,-12.0461,-77.052",
+  "Tehran,Iran,7873000,35.6739,51.4224",
+  "Kinshasa,Congo (Kinshasa),7843000,-4.3278,15.313",
+  "Bogota,Colombia,7772000,4.5984,-74.0853",
+  "Bangkok,Thailand,6704000,13.7519,100.5147",
+  "Santiago,Chile,5720000,-33.4481,-70.669",
+  "Madrid,Spain,5567000,40.402,-3.6853",
+  "Toronto,Canada,5213000,43.7019,-79.422",
+  "Singapore,Singapore,5183700,1.295,103.8539",
+  "Luanda,Angola,5172900,-8.8363,13.2325",
+  "Sydney,Australia,4630000,-33.9181,151.1832",
+  "Riyadh,Saudi Arabia,4465000,24.6428,46.7708",
+  "Hanoi,Vietnam,4378000,21.0353,105.8481",
+  "Melbourne,Australia,4170000,-37.8181,144.9731",
+  "Johannesburg,South Africa,3435000,-26.1681,28.0281",
+  "Berlin,Germany,3406000,52.5238,13.3996",
+  "Rome,Italy,3339000,41.8979,12.4813",
+  "Athens,Greece,3242000,37.9853,23.7314",
+  "Casablanca,Morocco,3181000,33.6019,-7.6183",
+  "Addis Ababa,Ethiopia,3100000,9.0353,38.6981",
+  "Nairobi,Kenya,3010000,-1.2814,36.8147",
+  "Caracas,Venezuela,2985000,10.5029,-66.919",
+  "Dakar,Senegal,2604000,14.7178,-17.4751",
+  "Tashkent,Uzbekistan,2184000,41.3136,69.293",
+  "Havana,Cuba,2174000,23.1339,-82.3661",
+  "Auckland,New Zealand,1377200,-36.8481,174.763",
+  "Stockholm,Sweden,1264000,59.3527,18.0954",
+].join("\n") + "\n";
+
+/** Ana Diaz's account, as signing in answers it. */
+export const ACCOUNT = {
+  id: "5f0c2d9e-8a41-4b7e-9c3a-2e6f1b8d7a40",
+  name: "Ana Diaz",
+  email: "ana@example.com",
+  sqlName: "ana_diaz",
+  isAdmin: true,
+  status: "active",
+  isOriginal: true,
+  createdAt: "2026-10-20T09:00:00.626Z",
+  updatedAt: "2026-10-20T09:00:00.626Z",
+  lastSignInAt: "2026-10-20T09:00:00.787Z",
+};
+
+/** world-cities.csv uploaded as world_cities. */
+export const UPLOADED = {
+  id: "7d4b2e91-3f6a-4c58-8e12-9a0b5c6d7e2f",
+  sourceFilename: "world-cities.csv",
+  format: "csv",
+  file: "tables/7d4b2e91-3f6a-4c58-8e12-9a0b5c6d7e2f.parquet",
+  geometryColumn: "geometry",
+  geometryType: "POINT",
+  crsAssumed: true,
+  headerSuspect: false,
+  geometryRecord: {
+    columns: ["longitude", "latitude"],
+    format: "pair",
+    signal: "name",
+    rule: "exact-pair",
+    crs: { stance: "assumed", srid: null, label: "WGS 84 assumed" },
+    unreadableCount: 0,
+  },
+  geometryCandidates: [
+    {
+      columns: ["longitude", "latitude"],
+      format: "pair",
+      signal: "name",
+      rule: "exact-pair",
+      strength: "strong",
+      sample: { rows: 48, nonNull: 48, readable: 48 },
+      crs: { stance: "assumed", srid: null, label: "WGS 84 assumed" },
+      degreeCompatible: true,
+      reasons: [],
+      applied: true,
+      sourceRetained: true,
+      orientations: [{ lon: "longitude", lat: "latitude" }],
+    },
+  ],
+  rowCount: 48,
+  createdAt: "2026-10-20T09:00:01.283Z",
+  source: "upload",
+  sourceParams: null,
+  importedAt: "2026-10-20T09:00:01.283Z",
+  name: "world_cities",
+  projectIds: [],
+};
+
+/** The dataset list after the upload. */
+export const TABLES = [
+  {
+    geometryRecord: {
+      columns: ["longitude", "latitude"],
+      format: "pair",
+      signal: "name",
+      rule: "exact-pair",
+      crs: { stance: "assumed", srid: null, label: "WGS 84 assumed" },
+      unreadableCount: 0,
+    },
+    geometryCandidates: [
+      {
+        columns: ["longitude", "latitude"],
+        format: "pair",
+        signal: "name",
+        rule: "exact-pair",
+        strength: "strong",
+        sample: { rows: 48, nonNull: 48, readable: 48 },
+        crs: { stance: "assumed", srid: null, label: "WGS 84 assumed" },
+        degreeCompatible: true,
+        reasons: [],
+        applied: true,
+        sourceRetained: true,
+        orientations: [{ lon: "longitude", lat: "latitude" }],
+      },
+    ],
+    id: "7d4b2e91-3f6a-4c58-8e12-9a0b5c6d7e2f",
+    name: "world_cities",
+    sourceFilename: "world-cities.csv",
+    format: "csv",
+    file: "tables/7d4b2e91-3f6a-4c58-8e12-9a0b5c6d7e2f.parquet",
+    geometryColumn: "geometry",
+    geometryType: "POINT",
+    crsAssumed: true,
+    headerSuspect: false,
+    rowCount: 48,
+    createdAt: "2026-10-20T09:00:01.283Z",
+    source: "upload",
+    sourceParams: null,
+    importedAt: "2026-10-20T09:00:01.283Z",
+    owner: { name: "Ana Diaz", sqlName: "ana_diaz" },
+    qualifiedName: "world_cities",
+    projectIds: [],
+    sizeBytes: 3839,
+  },
+];
+
+/** The first page of one dataset, once Save as dataset has made big_cities. */
+export const CATALOGUE_PAGE = {
+  tables: [
+    {
+      id: "c2e8f4a1-6b3d-4f97-a5c0-1d2e3f4a5b6c",
+      name: "big_cities",
+      qualifiedName: "big_cities",
+      owner: { name: "Ana Diaz", sqlName: "ana_diaz" },
+      projectIds: [],
+      rowCount: 15,
+      geometryColumn: "geometry",
+      geometryType: "POINT",
+      crsAssumed: true,
+      columns: [
+        { name: "name", type: "VARCHAR" },
+        { name: "country", type: "VARCHAR" },
+        { name: "population", type: "BIGINT" },
+        { name: "geometry", type: "GEOMETRY('EPSG:4326')" },
+      ],
+      columnCount: 4,
+      nextColumnOffset: null,
+    },
+  ],
+  total: 2,
+  nextAfter: "big_cities",
+};
+
+/** The map World cities, as creating it answers. */
+export const MAP_CREATED = {
+  id: "2f6e9c41-8d3b-4a7e-b1f5-6c0d2e8a9b34",
+  name: "World cities",
+  viewport: { lng: 0, lat: 40, zoom: 1.3 },
+  basemap: null,
+  customBasemap: null,
+  basemapLayers: null,
+  note: null,
+  legendCorner: null,
+  legendOrder: null,
+  timeline: null,
+  widgets: [],
+  widgetsPublished: true,
+  publishToken: null,
+  publishedAt: null,
+  published: false,
+  createdAt: "2026-10-20T09:00:01.507Z",
+  updatedAt: "2026-10-20T09:00:01.507Z",
+  editRevision: "4f1c9a7e2b0d4c6e8a1f3b5d7c9e0a2b",
+  lastChangedAt: "2026-10-20T09:00:01.507Z",
+  lastChangedBy: { name: "Ana Diaz", sqlName: "ana_diaz" },
+  projectId: null,
+  owner: { name: "Ana Diaz", sqlName: "ana_diaz" },
+  home: "ana_diaz",
+};
+
+/** The layer Big cities, as adding it answers. */
+export const LAYER_CREATED = {
+  id: "9b1c4e7f-2a5d-4c83-8f06-3e7a1b9d5c20",
+  mapId: "2f6e9c41-8d3b-4a7e-b1f5-6c0d2e8a9b34",
+  name: "Big cities",
+  sql: "SELECT name, population, geometry FROM world_cities WHERE population > 10000000",
+  style: {
+    fill: { type: "constant", color: { r: 18, g: 147, b: 154, a: 1 } },
+    fillOpacity: 0.72,
+    stroke: { r: 12, g: 16, b: 24, a: 1 },
+    strokeOpacity: 0.85,
+    strokeWidth: 0,
+    pointRadius: 3,
+    opacity: 1,
+  },
+  visible: true,
+  tooltip: null,
+  popup: null,
+  publishedFields: null,
+  inLegend: true,
+  viz: { type: "points" },
+  filters: [],
+  legendTitle: null,
+  legendLabels: null,
+  legendAttrs: null,
+  ordinal: 0,
+  createdAt: "2026-10-20T09:00:01.515Z",
+  updatedAt: "2026-10-20T09:00:01.515Z",
+  editRevision: "c03e5b7d9f1a2c4e6b8d0f2a4c6e8b1d",
+  lastChangedAt: "2026-10-20T09:00:01.515Z",
+  lastChangedBy: { name: "Ana Diaz", sqlName: "ana_diaz" },
+};
+
+/** The map once published, as reading it answers. */
+export const MAP_PUBLISHED = {
+  id: "2f6e9c41-8d3b-4a7e-b1f5-6c0d2e8a9b34",
+  name: "World cities",
+  viewport: { lng: 0, lat: 40, zoom: 1.3, pitch: 0, bearing: 0 },
+  basemap: null,
+  customBasemap: null,
+  basemapLayers: null,
+  note: null,
+  legendCorner: null,
+  legendOrder: null,
+  timeline: null,
+  widgets: [],
+  widgetsPublished: true,
+  publishToken: "<PUBLISH_TOKEN>",
+  publishedAt: "2026-10-20T09:00:01.521Z",
+  published: true,
+  createdAt: "2026-10-20T09:00:01.507Z",
+  updatedAt: "2026-10-20T09:00:01.521Z",
+  editRevision: "9b2d4f6a8c0e1b3d5f7a9c1e3b5d7f90",
+  lastChangedAt: "2026-10-20T09:00:01.521Z",
+  lastChangedBy: { name: "Ana Diaz", sqlName: "ana_diaz" },
+  layers: [
+    {
+      id: "9b1c4e7f-2a5d-4c83-8f06-3e7a1b9d5c20",
+      mapId: "2f6e9c41-8d3b-4a7e-b1f5-6c0d2e8a9b34",
+      name: "Big cities",
+      sql: "SELECT name, population, geometry FROM world_cities WHERE population > 10000000",
+      style: {
+        fill: { type: "constant", color: { r: 18, g: 147, b: 154, a: 1 } },
+        fillOpacity: 0.72,
+        stroke: { r: 12, g: 16, b: 24, a: 1 },
+        strokeOpacity: 0.85,
+        strokeWidth: 0,
+        pointRadius: 3,
+        opacity: 1,
+      },
+      visible: true,
+      tooltip: null,
+      popup: null,
+      publishedFields: null,
+      inLegend: true,
+      viz: { type: "points" },
+      filters: [],
+      legendTitle: null,
+      legendLabels: null,
+      legendAttrs: null,
+      ordinal: 0,
+      createdAt: "2026-10-20T09:00:01.515Z",
+      updatedAt: "2026-10-20T09:00:01.515Z",
+      editRevision: "9b2d4f6a8c0e1b3d5f7a9c1e3b5d7f90",
+      lastChangedAt: "2026-10-20T09:00:01.521Z",
+      lastChangedBy: { name: "Ana Diaz", sqlName: "ana_diaz" },
+    },
+  ],
+  projectId: null,
+  owner: { name: "Ana Diaz", sqlName: "ana_diaz" },
+  home: "ana_diaz",
+};
+
+/** The map after its basemap changed to Light. */
+export const MAP_LIGHT = {
+  id: "2f6e9c41-8d3b-4a7e-b1f5-6c0d2e8a9b34",
+  name: "World cities",
+  viewport: { lng: 0, lat: 40, zoom: 1.3, pitch: 0, bearing: 0 },
+  basemap: "light",
+  customBasemap: null,
+  basemapLayers: null,
+  note: null,
+  legendCorner: null,
+  legendOrder: null,
+  timeline: null,
+  widgets: [],
+  widgetsPublished: true,
+  publishToken: "<PUBLISH_TOKEN>",
+  publishedAt: "2026-10-20T09:00:01.521Z",
+  published: true,
+  createdAt: "2026-10-20T09:00:01.507Z",
+  updatedAt: "2026-10-20T09:00:01.529Z",
+  editRevision: "e7a1c3e5b7d9f1a3c5e7b9d1f3a5c7e9",
+  lastChangedAt: "2026-10-20T09:00:01.529Z",
+  lastChangedBy: { name: "Ana Diaz", sqlName: "ana_diaz" },
+  layers: [
+    {
+      id: "9b1c4e7f-2a5d-4c83-8f06-3e7a1b9d5c20",
+      mapId: "2f6e9c41-8d3b-4a7e-b1f5-6c0d2e8a9b34",
+      name: "Big cities",
+      sql: "SELECT name, population, geometry FROM world_cities WHERE population > 10000000",
+      style: {
+        fill: { type: "constant", color: { r: 18, g: 147, b: 154, a: 1 } },
+        fillOpacity: 0.72,
+        stroke: { r: 12, g: 16, b: 24, a: 1 },
+        strokeOpacity: 0.85,
+        strokeWidth: 0,
+        pointRadius: 3,
+        opacity: 1,
+      },
+      visible: true,
+      tooltip: null,
+      popup: null,
+      publishedFields: null,
+      inLegend: true,
+      viz: { type: "points" },
+      filters: [],
+      legendTitle: null,
+      legendLabels: null,
+      legendAttrs: null,
+      ordinal: 0,
+      createdAt: "2026-10-20T09:00:01.515Z",
+      updatedAt: "2026-10-20T09:00:01.515Z",
+      editRevision: "e7a1c3e5b7d9f1a3c5e7b9d1f3a5c7e9",
+      lastChangedAt: "2026-10-20T09:00:01.529Z",
+      lastChangedBy: { name: "Ana Diaz", sqlName: "ana_diaz" },
+    },
+  ],
+  projectId: null,
+  owner: { name: "Ana Diaz", sqlName: "ana_diaz" },
+  home: "ana_diaz",
+};
+
+/** The map list at the end of the sequence, the map unpublished. */
+export const MAPS_LISTED = [
+  {
+    id: "2f6e9c41-8d3b-4a7e-b1f5-6c0d2e8a9b34",
+    name: "World cities",
+    viewport: { lng: 0, lat: 40, zoom: 1.3, pitch: 0, bearing: 0 },
+    basemap: "light",
+    customBasemap: null,
+    basemapLayers: null,
+    note: null,
+    legendCorner: null,
+    legendOrder: null,
+    timeline: null,
+    widgets: [],
+    widgetsPublished: true,
+    publishToken: null,
+    publishedAt: null,
+    published: false,
+    createdAt: "2026-10-20T09:00:01.507Z",
+    updatedAt: "2026-10-20T09:00:01.530Z",
+    editRevision: "2d4f6a8c0e2b4d6f8a0c2e4b6d8f0a2c",
+    lastChangedAt: "2026-10-20T09:00:01.530Z",
+    lastChangedBy: { name: "Ana Diaz", sqlName: "ana_diaz" },
+    projectId: null,
+    owner: { name: "Ana Diaz", sqlName: "ana_diaz" },
+    home: "ana_diaz",
+    layerCount: 1,
+    layerColors: ["rgba(18, 147, 154, 1)"],
+    pictureState: "waiting",
+    pictureVersion: null,
+    hasThumbnail: false,
+    thumbnailBasemap: null,
+  },
+];
+
+/** The values in effect on a new instance, its palettes trimmed to two of the twenty-three. */
+export const CONFIG = {
+  basemapUrl: "https://tiles.openfreemap.org/styles/dark",
+  basemapOverrideUrl: null,
+  basemaps: [
+    {
+      key: "dark",
+      label: "Dark",
+      url: "https://tiles.openfreemap.org/styles/dark",
+      kind: "vector",
+      attribution: [
+        { label: "© OpenMapTiles", href: "https://openmaptiles.org" },
+        { label: "© OpenStreetMap", href: "https://www.openstreetmap.org/copyright" },
+      ],
+    },
+    {
+      key: "light",
+      label: "Light",
+      url: "https://tiles.openfreemap.org/styles/positron",
+      kind: "vector",
+      attribution: [
+        { label: "© OpenMapTiles", href: "https://openmaptiles.org" },
+        { label: "© OpenStreetMap", href: "https://www.openstreetmap.org/copyright" },
+      ],
+    },
+    {
+      key: "streets",
+      label: "Streets",
+      url: "https://tiles.openfreemap.org/styles/liberty",
+      kind: "vector",
+      attribution: [
+        { label: "© OpenMapTiles", href: "https://openmaptiles.org" },
+        { label: "© OpenStreetMap", href: "https://www.openstreetmap.org/copyright" },
+      ],
+    },
+  ],
+  basemapStyles: [],
+  singleMapStyles: true,
+  palettes: [
+    {
+      name: "sunrise",
+      label: "Sunrise",
+      kind: "sequential",
+      group: "sequential",
+      colorblindSafe: false,
+      colors: ["#355C7D", "#C06C84", "#F8B195"],
+    },
+    {
+      name: "bold",
+      label: "Bold",
+      kind: "categorical",
+      group: "qualitative",
+      colorblindSafe: false,
+      colors: [
+        "#7f3c8d",
+        "#11a579",
+        "#3969ac",
+        "#f2b701",
+        "#e73f74",
+        "#80ba5a",
+        "#e68310",
+        "#008695",
+        "#cf1c90",
+        "#f97b72",
+      ],
+    },
+  ],
+  renderCapFeatures: 250000,
+  previewRows: 1000,
+  geocoderConfigured: false,
+  defaults: {
+    "newMap.basemap": "auto",
+    "newMap.latitude": 40,
+    "newMap.longitude": 0,
+    "newMap.zoom": 1.3,
+    "newMap.legendCorner": "bottom-left",
+    "newLayer.colorCycle": "uber_viz_qualitative",
+    "newLayer.pointOpacity": 72,
+    "newLayer.lineOpacity": 95,
+    "newLayer.areaOpacity": 50,
+    "newLayer.lineWidth": 2,
+    "newLayer.pointRadius": 3,
+    "canvas.opens": "full",
+    "canvas.minimap": "auto",
+    "canvas.resultsBand": "closed",
+    "sqlConsole.textSize": "12",
+    "sqlConsole.lineWrap": false,
+    "imageExport.width": "1920",
+    "imageExport.shape": "4:3",
+  },
+  templates: { catalogue: true },
+  rules: {
+    "tokens.create": "everyone",
+    "tokens.expiry": "never",
+    "publishing.publish": "everyone",
+    "publishing.embedding": "any",
+    "connections.create": "everyone",
+    "imports.links": "everyone",
+  },
+  passwordMin: 8,
+};
+
+/** Every instance setting on a new instance run from a checkout with DEZFIL_DATA_DIR=/data and PORT=3000, one per line. */
+const NEW_INSTANCE_SETTINGS = {
+  uploadMaxMb: { key: "uploadMaxMb", environment: "DEZFIL_UPLOAD_MAX_MB", label: "Largest upload", purpose: "Size cap for one uploaded file.", defaultValue: 5120, unit: "MB", write: { kind: "integer", min: 1, max: 102400 }, parsing: "positive", kind: "number", scope: "instance", readBy: "admin", changedBy: "admin", documentedDefault: "5120", environmentTiming: "restart", timing: "live", secret: false, editable: true, value: 5120, source: "default", locked: false, invalidOverride: false, storedValue: null },
+  dataProcessingTimeoutS: { key: "dataProcessingTimeoutS", environment: "DEZFIL_DATA_PROCESSING_TIMEOUT_S", label: "Data processing time limit", purpose: "Time to receive one upload, and, counted apart, time for one data processing job, such as an import.", defaultValue: 3600, unit: "seconds", write: { kind: "integer", min: 60, max: 21600 }, parsing: "positive", kind: "number", scope: "instance", readBy: "admin", changedBy: "admin", documentedDefault: "3600", environmentTiming: "restart", timing: "live", secret: false, editable: true, value: 3600, source: "default", locked: false, invalidOverride: false, storedValue: null },
+  remoteMaxMb: { key: "remoteMaxMb", environment: "DEZFIL_REMOTE_MAX_MB", label: "Largest link import", purpose: "Size cap for a URL or object-store import.", defaultValue: 2048, unit: "MB", write: { kind: "integer", min: 1, max: 102400 }, parsing: "positive", kind: "number", scope: "instance", readBy: "admin", changedBy: "admin", documentedDefault: "2048", environmentTiming: "restart", timing: "live", secret: false, editable: true, value: 2048, source: "default", locked: false, invalidOverride: false, storedValue: null },
+  remoteTimeoutS: { key: "remoteTimeoutS", environment: "DEZFIL_REMOTE_TIMEOUT_S", label: "Link import time limit", purpose: "Time for one link import's whole download.", defaultValue: 300, unit: "seconds", write: { kind: "integer", min: 10, max: 3600 }, parsing: "positive", kind: "number", scope: "instance", readBy: "admin", changedBy: "admin", documentedDefault: "300", environmentTiming: "restart", timing: "live", secret: false, editable: true, value: 300, source: "default", locked: false, invalidOverride: false, storedValue: null },
+  overtureMaxKm2: { key: "overtureMaxKm2", environment: "DEZFIL_OVERTURE_MAX_KM2", label: "Overture area", purpose: "The largest area one Overture import of places may cover; other themes may cover more or less, by how dense they are.", defaultValue: 25000, unit: "km²", write: { kind: "integer", min: 1, max: 1000000 }, parsing: "positive", kind: "number", scope: "instance", readBy: "admin", changedBy: "admin", documentedDefault: "25000", environmentTiming: "restart", timing: "live", secret: false, editable: true, value: 25000, source: "default", locked: false, invalidOverride: false, storedValue: null },
+  osmMaxKm2: { key: "osmMaxKm2", environment: "DEZFIL_OSM_MAX_KM2", label: "OpenStreetMap area", purpose: "The largest area one OpenStreetMap import may cover.", defaultValue: 10000, unit: "km²", write: { kind: "integer", min: 1, max: 1000000 }, parsing: "positive", kind: "number", scope: "instance", readBy: "admin", changedBy: "admin", documentedDefault: "10000", environmentTiming: "restart", timing: "live", secret: false, editable: true, value: 10000, source: "default", locked: false, invalidOverride: false, storedValue: null },
+  overpassTimeoutS: { key: "overpassTimeoutS", environment: "DEZFIL_OVERPASS_TIMEOUT_S", label: "Overpass time limit", purpose: "Time budget sent with every Overpass query.", defaultValue: 60, unit: "seconds", write: { kind: "integer", min: 10, max: 900 }, parsing: "positive", kind: "number", scope: "instance", readBy: "admin", changedBy: "admin", documentedDefault: "60", environmentTiming: "restart", timing: "live", secret: false, editable: true, value: 60, source: "default", locked: false, invalidOverride: false, storedValue: null },
+  overpassMaxsizeMb: { key: "overpassMaxsizeMb", environment: "DEZFIL_OVERPASS_MAXSIZE_MB", label: "Overpass response budget", purpose: "Response budget sent to Overpass; twice this aborts locally.", defaultValue: 512, unit: "MB", parsing: "positive", kind: "number", scope: "instance", readBy: "admin", changedBy: "deployment", documentedDefault: "512", environmentTiming: "restart", timing: "next-start", secret: false, editable: false, value: 512, source: "default", locked: false, invalidOverride: false, storedValue: null },
+  overpassCacheHours: { key: "overpassCacheHours", environment: "DEZFIL_OVERPASS_CACHE_H", label: "Overpass cache freshness", purpose: "How long an Overpass response stays fresh.", defaultValue: 24, unit: "hours", write: { kind: "integer", min: 1, max: 720 }, parsing: "positive", kind: "number", scope: "instance", readBy: "admin", changedBy: "admin", documentedDefault: "24", environmentTiming: "restart", timing: "live", secret: false, editable: true, value: 24, source: "default", locked: false, invalidOverride: false, storedValue: null },
+  overpassCacheMb: { key: "overpassCacheMb", environment: "DEZFIL_OVERPASS_CACHE_MB", label: "Overpass cache size", purpose: "Cache size budget, evicted oldest first.", defaultValue: 2048, unit: "MB", parsing: "positive", kind: "number", scope: "instance", readBy: "admin", changedBy: "deployment", documentedDefault: "2048", environmentTiming: "restart", timing: "next-start", secret: false, editable: false, value: 2048, source: "default", locked: false, invalidOverride: false, storedValue: null },
+  queryTimeoutS: { key: "queryTimeoutS", environment: "DEZFIL_QUERY_TIMEOUT_S", label: "Query time limit", purpose: "Time for one query, whether the SQL people run, a layer, an inspection, a preview or a published map.", defaultValue: 60, unit: "seconds", write: { kind: "integer", min: 5, max: 600 }, parsing: "positive", kind: "number", scope: "instance", readBy: "admin", changedBy: "admin", documentedDefault: "60", environmentTiming: "restart", timing: "live", secret: false, editable: true, value: 60, source: "default", locked: false, invalidOverride: false, storedValue: null },
+  queryMemoryMb: { key: "queryMemoryMb", environment: "DEZFIL_QUERY_MEMORY_MB", label: "Engine memory", purpose: "Memory the engine that runs people's SQL may use, shared by every query.", defaultValue: 2048, unit: "MB", parsing: "positive", kind: "number", scope: "instance", readBy: "admin", changedBy: "deployment", documentedDefault: "2048", environmentTiming: "restart", timing: "next-start", secret: false, editable: false, value: 2048, source: "default", locked: false, invalidOverride: false, storedValue: null },
+  trustedMemoryMb: { key: "trustedMemoryMb", environment: "DEZFIL_TRUSTED_MEMORY_MB", label: "Trusted engine memory", purpose: "Memory the engine that imports and processes data may use; it may spill up to four times this to disk.", defaultValue: 3072, unit: "MB", parsing: "positive", kind: "number", scope: "instance", readBy: "admin", changedBy: "deployment", documentedDefault: "3072", environmentTiming: "restart", timing: "next-start", secret: false, editable: false, value: 3072, source: "default", locked: false, invalidOverride: false, storedValue: null },
+  previewRows: { key: "previewRows", environment: "DEZFIL_PREVIEW_ROWS", label: "Rows shown in results", purpose: "Row cap for result previews.", defaultValue: 1000, unit: "rows", write: { kind: "integer", min: 10, max: 100000 }, parsing: "positive", kind: "number", scope: "instance", readBy: "admin", changedBy: "admin", documentedDefault: "1000", environmentTiming: "restart", timing: "live", secret: false, editable: true, value: 1000, source: "default", locked: false, invalidOverride: false, storedValue: null },
+  renderCapFeatures: { key: "renderCapFeatures", environment: "DEZFIL_RENDER_CAP_FEATURES", label: "Features drawn per layer", purpose: "The most features a layer draws, and the count past which a points layer is drawn from tiles.", defaultValue: 250000, unit: "features", parsing: "positive", kind: "number", scope: "instance", readBy: "admin", changedBy: "deployment", documentedDefault: "250000", environmentTiming: "restart", timing: "next-start", secret: false, editable: false, value: 250000, source: "default", locked: false, invalidOverride: false, storedValue: null },
+  renderCapBytes: { key: "renderCapBytes", environment: "DEZFIL_RENDER_CAP_BYTES", label: "Bytes drawn per layer", purpose: "The largest answer one layer may draw from, in bytes of uncompressed JSON.", defaultValue: 134217728, unit: "bytes", parsing: "positive-integer", kind: "number", scope: "instance", readBy: "admin", changedBy: "deployment", documentedDefault: "134217728", environmentTiming: "restart", timing: "next-start", secret: false, editable: false, value: 134217728, source: "default", locked: false, invalidOverride: false, storedValue: null },
+  sliderPreviewRows: { key: "sliderPreviewRows", environment: "DEZFIL_SLIDER_PREVIEW_ROWS", label: "Slider preview rows", purpose: "Source points transferred for interactive slider previews.", defaultValue: 50000, unit: "rows", parsing: "positive", kind: "number", scope: "instance", readBy: "admin", changedBy: "deployment", documentedDefault: "50000", environmentTiming: "restart", timing: "next-start", secret: false, editable: false, value: 50000, source: "default", locked: false, invalidOverride: false, storedValue: null },
+  publishFreshnessS: { key: "publishFreshnessS", environment: "DEZFIL_PUBLISH_FRESHNESS_S", label: "Published freshness", purpose: "Cache window for published views.", defaultValue: 30, unit: "seconds", parsing: "positive", kind: "number", scope: "instance", readBy: "admin", changedBy: "deployment", documentedDefault: "30", environmentTiming: "restart", timing: "next-start", secret: false, editable: false, value: 30, source: "default", locked: false, invalidOverride: false, storedValue: null },
+  tileBuildTimeoutS: { key: "tileBuildTimeoutS", environment: "DEZFIL_TILE_BUILD_TIMEOUT_S", label: "Tile build time limit", purpose: "Time budget for each background tile-build stage.", defaultValue: 600, unit: "seconds", parsing: "positive", kind: "number", scope: "instance", readBy: "admin", changedBy: "deployment", documentedDefault: "600", environmentTiming: "restart", timing: "next-start", secret: false, editable: false, value: 600, source: "default", locked: false, invalidOverride: false, storedValue: null },
+  exportRenderTimeoutS: { key: "exportRenderTimeoutS", environment: "DEZFIL_EXPORT_RENDER_TIMEOUT_S", label: "Time limit per image", purpose: "Time for one image, its wait for a turn included.", defaultValue: 90, unit: "seconds", write: { kind: "integer", min: 10, max: 300 }, parsing: "positive", kind: "number", scope: "instance", readBy: "admin", changedBy: "admin", documentedDefault: "90", environmentTiming: "restart", timing: "live", secret: false, editable: true, value: 90, source: "default", locked: false, invalidOverride: false, storedValue: null },
+  exportRequestTimeoutS: { key: "exportRequestTimeoutS", environment: "DEZFIL_EXPORT_REQUEST_TIMEOUT_S", label: "Image request time limit", purpose: "Deadline for each request made by the render page.", defaultValue: 20, unit: "seconds", parsing: "positive", kind: "number", scope: "instance", readBy: "admin", changedBy: "deployment", documentedDefault: "20", environmentTiming: "restart", timing: "next-start", secret: false, editable: false, value: 20, source: "default", locked: false, invalidOverride: false, storedValue: null },
+  exportRenderConcurrency: { key: "exportRenderConcurrency", environment: "DEZFIL_EXPORT_RENDER_CONCURRENCY", label: "Images at once", purpose: "Images the server draws at the same time.", defaultValue: 2, unit: "renders", write: { kind: "integer", min: 1, max: 8 }, parsing: "positive-integer", kind: "number", scope: "instance", readBy: "admin", changedBy: "admin", documentedDefault: "2", environmentTiming: "restart", timing: "live", secret: false, editable: true, value: 2, source: "default", locked: false, invalidOverride: false, storedValue: null },
+  toolAttachmentMaxMb: { key: "toolAttachmentMaxMb", environment: "DEZFIL_TOOL_ATTACHMENT_MAX_MB", label: "Tool attachment size", purpose: "The largest file a tool hands back to the assistant or an agent, such as an exported image.", defaultValue: 32, unit: "MB", parsing: "positive", kind: "number", scope: "instance", readBy: "admin", changedBy: "deployment", documentedDefault: "32", environmentTiming: "restart", timing: "next-start", secret: false, editable: false, value: 32, source: "default", locked: false, invalidOverride: false, storedValue: null },
+  assistantStepBudget: { key: "assistantStepBudget", environment: "DEZFIL_ASSISTANT_STEP_BUDGET", label: "Assistant steps", purpose: "Maximum model and tool steps per request.", defaultValue: 20, unit: "steps", parsing: "positive", kind: "number", scope: "instance", readBy: "admin", changedBy: "deployment", documentedDefault: "20", environmentTiming: "restart", timing: "next-start", secret: false, editable: false, value: 20, source: "default", locked: false, invalidOverride: false, storedValue: null },
+  assistantLookTimeoutS: { key: "assistantLookTimeoutS", environment: "DEZFIL_ASSISTANT_LOOK_TIMEOUT_S", label: "Map check time limit", purpose: "Time for one of the assistant's map checks, its wait for a turn included.", defaultValue: 30, unit: "seconds", parsing: "positive", kind: "number", scope: "instance", readBy: "admin", changedBy: "deployment", documentedDefault: "30", environmentTiming: "restart", timing: "next-start", secret: false, editable: false, value: 30, source: "default", locked: false, invalidOverride: false, storedValue: null },
+  assistantLookRetention: { key: "assistantLookRetention", environment: "DEZFIL_ASSISTANT_LOOK_RETENTION", label: "Retained map checks", purpose: "Map check pictures kept in memory, oldest dropped first; a restart clears them.", defaultValue: 256, unit: "images", parsing: "positive-integer", kind: "number", scope: "instance", readBy: "admin", changedBy: "deployment", documentedDefault: "256", environmentTiming: "restart", timing: "next-start", secret: false, editable: false, value: 256, source: "default", locked: false, invalidOverride: false, storedValue: null },
+  assistantLookRetentionMb: { key: "assistantLookRetentionMb", environment: "DEZFIL_ASSISTANT_LOOK_RETENTION_MB", label: "Map check storage", purpose: "Memory the kept map check pictures may take.", defaultValue: 96, unit: "MB", parsing: "positive", kind: "number", scope: "instance", readBy: "admin", changedBy: "deployment", documentedDefault: "96", environmentTiming: "restart", timing: "next-start", secret: false, editable: false, value: 96, source: "default", locked: false, invalidOverride: false, storedValue: null },
+  geocodePaceMs: { key: "geocodePaceMs", environment: "DEZFIL_GEOCODE_PACE_MS", label: "Address finder pace", purpose: "Minimum request gap; zero means no gap.", defaultValue: 1000, unit: "milliseconds", write: { kind: "integer", min: 0, max: 60000 }, parsing: "non-negative", kind: "number", scope: "instance", readBy: "admin", changedBy: "admin", documentedDefault: "1000", environmentTiming: "restart", timing: "live", secret: false, editable: true, value: 1000, source: "default", locked: false, invalidOverride: false, storedValue: null },
+  geocodeMatchCacheHours: { key: "geocodeMatchCacheHours", environment: "DEZFIL_GEOCODE_MATCH_CACHE_HOURS", label: "Address match freshness", purpose: "How long matched addresses are cached.", defaultValue: 720, unit: "hours", write: { kind: "integer", min: 24, max: 8760 }, parsing: "positive", kind: "number", scope: "instance", readBy: "admin", changedBy: "admin", documentedDefault: "720", environmentTiming: "restart", timing: "live", secret: false, editable: true, value: 720, source: "default", locked: false, invalidOverride: false, storedValue: null },
+  geocodeNoMatchCacheHours: { key: "geocodeNoMatchCacheHours", environment: "DEZFIL_GEOCODE_NO_MATCH_CACHE_HOURS", label: "Unmatched address freshness", purpose: "How long no-match answers are cached.", defaultValue: 24, unit: "hours", parsing: "positive", kind: "number", scope: "instance", readBy: "admin", changedBy: "deployment", documentedDefault: "24", environmentTiming: "restart", timing: "next-start", secret: false, editable: false, value: 24, source: "default", locked: false, invalidOverride: false, storedValue: null },
+  geocodeCacheMb: { key: "geocodeCacheMb", environment: "DEZFIL_GEOCODE_CACHE_MB", label: "Address cache size", purpose: "Size budget for cached geocoding answers.", defaultValue: 64, unit: "MB", parsing: "positive", kind: "number", scope: "instance", readBy: "admin", changedBy: "deployment", documentedDefault: "64", environmentTiming: "restart", timing: "next-start", secret: false, editable: false, value: 64, source: "default", locked: false, invalidOverride: false, storedValue: null },
+  isochronePaceMs: { key: "isochronePaceMs", environment: "DEZFIL_ISOCHRONE_PACE_MS", label: "Travel-time pace", purpose: "Minimum routing request gap; zero means no gap.", defaultValue: 1000, unit: "milliseconds", write: { kind: "integer", min: 0, max: 60000 }, parsing: "non-negative", kind: "number", scope: "instance", readBy: "admin", changedBy: "admin", documentedDefault: "1000", environmentTiming: "restart", timing: "live", secret: false, editable: true, value: 1000, source: "default", locked: false, invalidOverride: false, storedValue: null },
+  isochroneRequestTimeoutS: { key: "isochroneRequestTimeoutS", environment: "DEZFIL_ISOCHRONE_REQUEST_TIMEOUT_S", label: "Travel-time request limit", purpose: "Deadline for one routing exchange.", defaultValue: 20, unit: "seconds", write: { kind: "integer", min: 1, max: 120 }, parsing: "positive", kind: "number", scope: "instance", readBy: "admin", changedBy: "admin", documentedDefault: "20", environmentTiming: "restart", timing: "live", secret: false, editable: true, value: 20, source: "default", locked: false, invalidOverride: false, storedValue: null },
+  isochroneCacheHours: { key: "isochroneCacheHours", environment: "DEZFIL_ISOCHRONE_CACHE_HOURS", label: "Travel-time cache freshness", purpose: "How long complete routing answers are cached.", defaultValue: 168, unit: "hours", write: { kind: "integer", min: 24, max: 8760 }, parsing: "positive", kind: "number", scope: "instance", readBy: "admin", changedBy: "admin", documentedDefault: "168", environmentTiming: "restart", timing: "live", secret: false, editable: true, value: 168, source: "default", locked: false, invalidOverride: false, storedValue: null },
+  isochroneCacheMb: { key: "isochroneCacheMb", environment: "DEZFIL_ISOCHRONE_CACHE_MB", label: "Travel-time cache size", purpose: "Size budget for cached routing answers.", defaultValue: 64, unit: "MB", parsing: "positive", kind: "number", scope: "instance", readBy: "admin", changedBy: "deployment", documentedDefault: "64", environmentTiming: "restart", timing: "next-start", secret: false, editable: false, value: 64, source: "default", locked: false, invalidOverride: false, storedValue: null },
+  geocodeRequestTimeoutS: { key: "geocodeRequestTimeoutS", environment: "DEZFIL_GEOCODE_REQUEST_TIMEOUT_S", label: "Address request limit", purpose: "Deadline for one geocoding exchange.", defaultValue: 10, unit: "seconds", write: { kind: "integer", min: 1, max: 120 }, parsing: "positive", kind: "number", scope: "instance", readBy: "admin", changedBy: "admin", documentedDefault: "10", environmentTiming: "restart", timing: "live", secret: false, editable: true, value: 10, source: "default", locked: false, invalidOverride: false, storedValue: null },
+  operationTimeoutS: { key: "operationTimeoutS", environment: "DEZFIL_OPERATION_TIMEOUT_S", label: "Time limit per run", purpose: "Time for one tool run, not counting its wait for a turn.", defaultValue: 600, unit: "seconds", write: { kind: "integer", min: 30, max: 7200 }, parsing: "positive", kind: "number", scope: "instance", readBy: "admin", changedBy: "admin", documentedDefault: "600", environmentTiming: "restart", timing: "live", secret: false, editable: true, value: 600, source: "default", locked: false, invalidOverride: false, storedValue: null },
+  operationConcurrency: { key: "operationConcurrency", environment: "DEZFIL_OPERATION_CONCURRENCY", label: "Operation runs at once", purpose: "Tool runs at the same time; they share the engine that runs people's SQL.", defaultValue: 1, unit: "runs", write: { kind: "integer", min: 1, max: 8 }, parsing: "positive-integer", kind: "number", scope: "instance", readBy: "admin", changedBy: "admin", documentedDefault: "1", environmentTiming: "restart", timing: "live", secret: false, editable: true, value: 1, source: "default", locked: false, invalidOverride: false, storedValue: null },
+  operationQueueMax: { key: "operationQueueMax", environment: "DEZFIL_OPERATION_QUEUE_MAX", label: "Operation runs waiting", purpose: "Tool runs that may wait for a turn.", defaultValue: 20, unit: "runs", write: { kind: "integer", min: 1, max: 200 }, parsing: "positive-integer", kind: "number", scope: "instance", readBy: "admin", changedBy: "admin", documentedDefault: "20", environmentTiming: "restart", timing: "live", secret: false, editable: true, value: 20, source: "default", locked: false, invalidOverride: false, storedValue: null },
+  operationHistoryPerSubject: { key: "operationHistoryPerSubject", environment: "DEZFIL_OPERATION_HISTORY_PER_SUBJECT", label: "Run history depth", purpose: "Runs kept in each run history, such as a workflow step's; its latest success is always kept.", defaultValue: 20, unit: "runs", parsing: "positive-integer", kind: "number", scope: "instance", readBy: "admin", changedBy: "deployment", documentedDefault: "20", environmentTiming: "restart", timing: "next-start", secret: false, editable: false, value: 20, source: "default", locked: false, invalidOverride: false, storedValue: null },
+  publicRateLimit: { key: "publicRateLimit", environment: "DEZFIL_PUBLIC_RATE_LIMIT", label: "Requests per source", purpose: "Requests one visitor may make to published maps, counted by network address across every published map.", defaultValue: 60, unit: "per 10 seconds", write: { kind: "integer", min: 1, max: 10000 }, parsing: "positive", kind: "number", scope: "instance", readBy: "admin", changedBy: "admin", documentedDefault: "60", environmentTiming: "restart", timing: "live", secret: false, editable: true, value: 60, source: "default", locked: false, invalidOverride: false, storedValue: null },
+  publicTileRateLimit: { key: "publicTileRateLimit", environment: "DEZFIL_PUBLIC_TILE_RATE_LIMIT", label: "Tile requests per source", purpose: "Tile requests one visitor may make to published maps, counted by network address across every published map.", defaultValue: 600, unit: "per 10 seconds", write: { kind: "integer", min: 1, max: 100000 }, parsing: "positive", kind: "number", scope: "instance", readBy: "admin", changedBy: "admin", documentedDefault: "600", environmentTiming: "restart", timing: "live", secret: false, editable: true, value: 600, source: "default", locked: false, invalidOverride: false, storedValue: null },
+  assistantAutoCheck: { key: "assistantAutoCheck", environment: "DEZFIL_ASSISTANT_AUTO_CHECK", kind: "boolean", label: "Automatic map check", purpose: "Check the rendered map after an assistant turn changes it.", defaultValue: true, documentedDefault: "on", scope: "instance", readBy: "admin", changedBy: "deployment", environmentTiming: "restart", timing: "next-start", secret: false, editable: false, value: true, source: "default", locked: false, invalidOverride: false, storedValue: null },
+  dataDir: { key: "dataDir", environment: "DEZFIL_DATA_DIR", kind: "path", label: "Data directory", purpose: "The single durable directory for tables, tiles and metadata.", defaultValue: { rule: "working-directory/data" }, documentedDefault: "./data; /data in the container", scope: "instance", readBy: "admin", changedBy: "deployment", environmentTiming: "restart", timing: "next-start", secret: false, editable: false, value: "/data", source: "environment", locked: true, invalidOverride: false, storedValue: null },
+  secretKey: { key: "secretKey", environment: "DEZFIL_SECRET_KEY", kind: "secret", label: "Encryption key", purpose: "The key that encrypts saved connection passwords and service addresses.", defaultValue: { rule: "key-file-or-generate" }, documentedDefault: "generated", scope: "instance", readBy: "admin", changedBy: "deployment", environmentTiming: "restart", timing: "next-start", secret: true, editable: false, value: { status: "not-yet-present" }, source: "default", locked: false, invalidOverride: false, storedValue: null },
+  trustedProxies: { key: "trustedProxies", environment: "DEZFIL_TRUSTED_PROXIES", kind: "list", label: "Trusted proxies", purpose: "The proxies whose forwarded visitor address, host, scheme and port Dezfil accepts.", defaultValue: [], documentedDefault: "unset", scope: "instance", readBy: "admin", changedBy: "deployment", environmentTiming: "restart", timing: "next-start", secret: false, editable: false, value: [], source: "default", locked: false, invalidOverride: false, storedValue: null },
+  sessionCookie: { key: "sessionCookie", environment: "DEZFIL_SESSION_COOKIE", kind: "text", label: "Session cookie name", purpose: "Browser session cookie name, derived from the listening port unless overridden.", defaultValue: { rule: "listening-port" }, documentedDefault: "port-based", scope: "instance", readBy: "admin", changedBy: "deployment", environmentTiming: "restart", timing: "next-start", secret: false, editable: false, value: "dezfil_session", source: "default", locked: false, invalidOverride: false, storedValue: null },
+  egressAllowlist: { key: "egressAllowlist", environment: "DEZFIL_EGRESS_ALLOWLIST", kind: "list", label: "Allowed destinations", purpose: "Hosts on a private network that the server may reach.", defaultValue: [], documentedDefault: "unset", scope: "instance", readBy: "admin", changedBy: "deployment", environmentTiming: "restart", timing: "next-start", secret: false, editable: false, value: [], source: "default", locked: false, invalidOverride: false, storedValue: null },
+  objectStoreCredentials: { key: "objectStoreCredentials", environment: "DEZFIL_OBJECT_STORE_CREDENTIALS", kind: "boolean", label: "Object-store credentials", purpose: "Read cloud storage links with the server's own credentials.", defaultValue: false, documentedDefault: "off", scope: "instance", readBy: "admin", changedBy: "deployment", environmentTiming: "restart", timing: "next-start", secret: false, editable: false, value: false, source: "default", locked: false, invalidOverride: false, storedValue: null },
+  s3Endpoint: { key: "s3Endpoint", environment: "DEZFIL_S3_ENDPOINT", kind: "address", label: "S3 endpoint", purpose: "The S3-compatible store that s3:// links are read from without the server's credentials.", defaultValue: { rule: "aws-bucket-endpoint" }, documentedDefault: "AWS", scope: "instance", readBy: "admin", changedBy: "admin", environmentTiming: "restart", timing: "live", secret: false, editable: true, write: { kind: "address", maxLength: 2048 }, value: { rule: "aws-bucket-endpoint" }, source: "default", locked: false, invalidOverride: false, storedValue: null },
+  overpassUrl: { key: "overpassUrl", environment: "DEZFIL_OVERPASS_URL", kind: "address", label: "Overpass endpoint", purpose: "Endpoint for OpenStreetMap imports.", defaultValue: { set: true, origin: "https://overpass-api.de" }, documentedDefault: "https://overpass-api.de/api/interpreter", scope: "instance", readBy: "admin", changedBy: "admin", environmentTiming: "restart", timing: "live", secret: false, editable: true, write: { kind: "address", maxLength: 2048 }, value: { set: true, origin: "https://overpass-api.de" }, source: "default", locked: false, invalidOverride: false, storedValue: null },
+  overtureS3Endpoint: { key: "overtureS3Endpoint", environment: "DEZFIL_OVERTURE_S3_ENDPOINT", kind: "address", label: "Overture endpoint", purpose: "S3-compatible override for the public Overture bucket.", defaultValue: { set: false }, documentedDefault: "unset, the public bucket", scope: "instance", readBy: "admin", changedBy: "deployment", environmentTiming: "restart", timing: "next-start", secret: false, editable: false, value: { set: false }, source: "default", locked: false, invalidOverride: false, storedValue: null },
+  tippecanoe: { key: "tippecanoe", environment: "DEZFIL_TIPPECANOE", kind: "path", label: "Tile builder", purpose: "The program that builds vector tiles.", defaultValue: "tippecanoe", documentedDefault: "tippecanoe", scope: "instance", readBy: "admin", changedBy: "deployment", environmentTiming: "restart", timing: "next-start", secret: false, editable: false, value: "tippecanoe", source: "default", locked: false, invalidOverride: false, storedValue: null },
+  basemapUrl: { key: "basemapUrl", environment: "DEZFIL_BASEMAP_URL", kind: "address", label: "Basemap address", purpose: "A basemap style that Auto draws in both themes, in place of the built-in ones.", defaultValue: { rule: "built-in-basemap-for-theme" }, documentedDefault: "built-in styles", scope: "instance", readBy: "admin", changedBy: "deployment", environmentTiming: "restart", timing: "next-start", secret: false, editable: false, value: { rule: "built-in-basemap-for-theme" }, source: "default", locked: false, invalidOverride: false, storedValue: null },
+  basemapAttribution: { key: "basemapAttribution", environment: "DEZFIL_BASEMAP_ATTRIBUTION", kind: "text", label: "Basemap credit", purpose: "The credit maps show for the style DEZFIL_BASEMAP_URL names.", defaultValue: null, documentedDefault: "unset", scope: "instance", readBy: "admin", changedBy: "deployment", environmentTiming: "restart", timing: "next-start", secret: false, editable: false, value: null, source: "default", locked: false, invalidOverride: false, storedValue: null },
+  satelliteUrl: { key: "satelliteUrl", environment: "DEZFIL_SATELLITE_URL", kind: "address", label: "Satellite template", purpose: "Raster tile template enabling satellite imagery.", defaultValue: { set: false }, documentedDefault: "unset", scope: "instance", readBy: "admin", changedBy: "admin", environmentTiming: "restart", timing: "live", secret: false, editable: true, write: { kind: "address", maxLength: 2048, placeholders: ["{z}", "{x}", "{y}"], userInformation: "refused" }, value: { set: false }, source: "default", locked: false, invalidOverride: false, storedValue: null },
+  satelliteAttribution: { key: "satelliteAttribution", environment: "DEZFIL_SATELLITE_ATTRIBUTION", kind: "text", label: "Satellite credit", purpose: "Credit line required by the imagery provider.", defaultValue: null, documentedDefault: "unset", scope: "instance", readBy: "admin", changedBy: "admin", environmentTiming: "restart", timing: "live", secret: false, editable: true, write: { kind: "text", maxLength: 160, empty: "null" }, value: null, source: "default", storedValue: null, locked: false, invalidOverride: false },
+  geocoderUrl: { key: "geocoderUrl", environment: "DEZFIL_GEOCODER_URL", kind: "address", label: "Address finder", purpose: "Nominatim-compatible endpoint for search and batch geocoding.", defaultValue: { set: false }, documentedDefault: "unset", scope: "instance", readBy: "admin", changedBy: "admin", environmentTiming: "restart", timing: "live", secret: false, editable: true, write: { kind: "address", maxLength: 2048 }, value: { set: false }, source: "default", locked: false, invalidOverride: false, storedValue: null },
+  isochroneUrl: { key: "isochroneUrl", environment: "DEZFIL_ISOCHRONE_URL", kind: "address", label: "Travel-time endpoint", purpose: "Valhalla-compatible endpoint for travel-time areas.", defaultValue: { set: false }, documentedDefault: "unset", scope: "instance", readBy: "admin", changedBy: "admin", environmentTiming: "restart", timing: "live", secret: false, editable: true, write: { kind: "address", maxLength: 2048 }, value: { set: false }, source: "default", locked: false, invalidOverride: false, storedValue: null },
+  templatesCatalogueUrl: { key: "templatesCatalogueUrl", environment: "DEZFIL_TEMPLATES_CATALOGUE", kind: "address", label: "Catalogue address", purpose: "Where the template catalogue's index is read.", defaultValue: { set: true, origin: "https://github.com" }, documentedDefault: "https://github.com/Dezfil/templates/releases/latest/download/index.json", scope: "instance", readBy: "admin", changedBy: "admin", environmentTiming: "restart", timing: "live", secret: false, editable: true, write: { kind: "address", maxLength: 2048, folder: "variable" }, value: { set: true, origin: "https://github.com" }, source: "default", locked: false, invalidOverride: false, storedValue: null },
+  anthropicApiKey: { key: "anthropicApiKey", environment: ANTHROPIC_KEY, kind: "secret", label: "Anthropic credential", purpose: "Enables the assistant with this provider.", defaultValue: { set: false }, documentedDefault: "unset", scope: "instance", readBy: "admin", changedBy: "deployment", environmentTiming: "restart", timing: "next-start", secret: true, editable: false, value: { set: false }, source: "default", locked: false, invalidOverride: false, storedValue: null },
+  openaiApiKey: { key: "openaiApiKey", environment: OPENAI_KEY, kind: "secret", label: "OpenAI credential", purpose: "Enables the assistant with this provider.", defaultValue: { set: false }, documentedDefault: "unset", scope: "instance", readBy: "admin", changedBy: "deployment", environmentTiming: "restart", timing: "next-start", secret: true, editable: false, value: { set: false }, source: "default", locked: false, invalidOverride: false, storedValue: null },
+  aiProvider: { key: "aiProvider", environment: "DEZFIL_AI_PROVIDER", kind: "choice", label: "Assistant provider", purpose: "Selects the provider when more than one credential is present.", defaultValue: { rule: "first-provider-with-key" }, documentedDefault: "first key set", scope: "instance", readBy: "admin", changedBy: "deployment", environmentTiming: "restart", timing: "next-start", secret: false, editable: false, value: null, source: "default", locked: false, invalidOverride: false, storedValue: null },
+  aiModel: { key: "aiModel", environment: "DEZFIL_AI_MODEL", kind: "text", label: "Assistant model", purpose: "Overrides the provider's default model.", defaultValue: { rule: "provider-default-model" }, documentedDefault: "provider default", scope: "instance", readBy: "admin", changedBy: "deployment", environmentTiming: "restart", timing: "next-start", secret: false, editable: false, value: null, source: "default", locked: false, invalidOverride: false, storedValue: null },
+  aiModelsAnthropic: { key: "aiModelsAnthropic", environment: "DEZFIL_AI_MODELS_ANTHROPIC", kind: "list", label: "Anthropic model offer", purpose: "Narrows and orders the catalogue; a set empty list offers only the default.", defaultValue: { rule: "effective-provider-catalogue" }, documentedDefault: "unset", scope: "instance", readBy: "admin", changedBy: "deployment", environmentTiming: "restart", timing: "next-start", secret: false, editable: false, value: ["claude-opus-5", "claude-fable-5", "claude-sonnet-5", "claude-haiku-4"], source: "default", locked: false, invalidOverride: false, storedValue: null },
+  aiModelsOpenai: { key: "aiModelsOpenai", environment: "DEZFIL_AI_MODELS_OPENAI", kind: "list", label: "OpenAI model offer", purpose: "Narrows and orders the catalogue; a set empty list offers only the default.", defaultValue: { rule: "effective-provider-catalogue" }, documentedDefault: "unset", scope: "instance", readBy: "admin", changedBy: "deployment", environmentTiming: "restart", timing: "next-start", secret: false, editable: false, value: ["gpt-6-astra", "gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-nova"], source: "default", locked: false, invalidOverride: false, storedValue: null },
+  assistantOffer: { key: "assistantOffer", environment: "DEZFIL_ASSISTANT_OFFER", kind: "choice", label: "Assistant operation offer", purpose: "With subset, the assistant starts with the page's own tools and looks up the rest; with full, it starts with every tool the page allows.", defaultValue: "subset", documentedDefault: "subset", scope: "instance", readBy: "admin", changedBy: "deployment", environmentTiming: "restart", timing: "next-start", secret: false, editable: false, value: "subset", source: "default", locked: false, invalidOverride: false, storedValue: null },
+  chromiumPath: { key: "chromiumPath", environment: "DEZFIL_CHROMIUM_PATH", kind: "path", label: "Image renderer", purpose: "The headless browser that draws image exports and map pictures.", defaultValue: "/usr/bin/chromium", documentedDefault: "/usr/bin/chromium", scope: "instance", readBy: "admin", changedBy: "deployment", environmentTiming: "restart", timing: "next-start", secret: false, editable: false, value: "/usr/bin/chromium", source: "default", locked: false, invalidOverride: false, storedValue: null },
+  instanceName: { key: "instanceName", label: "Instance name", purpose: "Name beside the wordmark and in browser titles.", defaultValue: null, documentedDefault: "unset", scope: "instance", readBy: "public", changedBy: "admin", kind: "text", timing: "live", secret: false, editable: true, write: { kind: "text", maxLength: 80, empty: "null" }, value: null, source: "default", storedValue: null, locked: false, invalidOverride: false },
+  signInMessage: { key: "signInMessage", label: "Sign-in message", purpose: "Optional message on the sign-in page.", defaultValue: "", documentedDefault: "empty", scope: "instance", readBy: "public", changedBy: "admin", kind: "text", timing: "live", secret: false, editable: true, write: { kind: "text", maxLength: 280, empty: "null" }, value: "", source: "default", storedValue: null, locked: false, invalidOverride: false },
+  lostPasswordContact: { key: "lostPasswordContact", label: "Lost-password contact", purpose: "Contact line for password recovery; empty uses the built-in line.", defaultValue: "", documentedDefault: "empty", scope: "instance", readBy: "public", changedBy: "admin", kind: "text", timing: "live", secret: false, editable: true, write: { kind: "text", maxLength: 120, empty: "null" }, value: "", source: "default", storedValue: null, locked: false, invalidOverride: false },
+  landingPage: { key: "landingPage", label: "Landing page", purpose: "Preferred entry destination after sign-in.", defaultValue: "home", documentedDefault: "home", scope: "instance", readBy: "public", changedBy: "admin", kind: "choice", timing: "live", secret: false, editable: true, write: { kind: "choice", values: ["home", "projects", "maps", "workflows", "data", "sql"] }, value: "home", source: "default", storedValue: null, locked: false, invalidOverride: false },
+  "newMap.basemap": { key: "newMap.basemap", label: "Basemap", purpose: "The basemap a new map starts on. Auto follows the theme; a basemap the instance no longer offers starts on Auto.", defaultValue: "auto", documentedDefault: "auto", scope: "instance", readBy: "signed-in", changedBy: "admin", kind: "choice", timing: "live", secret: false, editable: true, write: { kind: "choice", values: ["auto", "dark", "light", "streets", "satellite"] }, value: "auto", source: "default", storedValue: null, locked: false, invalidOverride: false },
+  "newMap.latitude": { key: "newMap.latitude", label: "Starting latitude", purpose: "The latitude a new map opens at.", defaultValue: 40, documentedDefault: "40", scope: "instance", readBy: "signed-in", changedBy: "admin", kind: "number", timing: "live", secret: false, editable: true, write: { kind: "decimal", min: -85, max: 85 }, value: 40, source: "default", storedValue: null, locked: false, invalidOverride: false },
+  "newMap.longitude": { key: "newMap.longitude", label: "Starting longitude", purpose: "The longitude a new map opens at.", defaultValue: 0, documentedDefault: "0", scope: "instance", readBy: "signed-in", changedBy: "admin", kind: "number", timing: "live", secret: false, editable: true, write: { kind: "decimal", min: -180, max: 180 }, value: 0, source: "default", storedValue: null, locked: false, invalidOverride: false },
+  "newMap.zoom": { key: "newMap.zoom", label: "Starting zoom", purpose: "The zoom a new map opens at.", defaultValue: 1.3, documentedDefault: "1.3", scope: "instance", readBy: "signed-in", changedBy: "admin", kind: "number", timing: "live", secret: false, editable: true, write: { kind: "decimal", min: 0, max: 22 }, value: 1.3, source: "default", storedValue: null, locked: false, invalidOverride: false },
+  "newMap.legendCorner": { key: "newMap.legendCorner", label: "Legend corner", purpose: "Where a new map's legend sits.", defaultValue: "bottom-left", documentedDefault: "bottom-left", scope: "instance", readBy: "signed-in", changedBy: "admin", kind: "choice", timing: "live", secret: false, editable: true, write: { kind: "choice", values: ["top-left", "top-right", "bottom-left", "bottom-right"] }, value: "bottom-left", source: "default", storedValue: null, locked: false, invalidOverride: false },
+  "newLayer.colorCycle": { key: "newLayer.colorCycle", label: "Color cycle", purpose: "The palette whose colors new layers take in turn, drawn sketches included.", defaultValue: "uber_viz_qualitative", documentedDefault: "uber_viz_qualitative", scope: "instance", readBy: "signed-in", changedBy: "admin", kind: "choice", timing: "live", secret: false, editable: true, write: { kind: "choice", values: ["uber_viz_qualitative", "bold", "tab10", "paired", "dark2", "set3"] }, value: "uber_viz_qualitative", source: "default", storedValue: null, locked: false, invalidOverride: false },
+  "newLayer.pointOpacity": { key: "newLayer.pointOpacity", label: "Point opacity", purpose: "How opaque a new points layer is drawn, unless it is created with a style.", defaultValue: 72, documentedDefault: "72", scope: "instance", readBy: "signed-in", changedBy: "admin", kind: "number", timing: "live", secret: false, editable: true, write: { kind: "integer", min: 10, max: 100 }, unit: "%", value: 72, source: "default", storedValue: null, locked: false, invalidOverride: false },
+  "newLayer.lineOpacity": { key: "newLayer.lineOpacity", label: "Line opacity", purpose: "How opaque a new lines layer is drawn, unless it is created with a style.", defaultValue: 95, documentedDefault: "95", scope: "instance", readBy: "signed-in", changedBy: "admin", kind: "number", timing: "live", secret: false, editable: true, write: { kind: "integer", min: 10, max: 100 }, unit: "%", value: 95, source: "default", storedValue: null, locked: false, invalidOverride: false },
+  "newLayer.areaOpacity": { key: "newLayer.areaOpacity", label: "Area opacity", purpose: "How opaque a new areas layer is drawn, unless it is created with a style.", defaultValue: 50, documentedDefault: "50", scope: "instance", readBy: "signed-in", changedBy: "admin", kind: "number", timing: "live", secret: false, editable: true, write: { kind: "integer", min: 10, max: 100 }, unit: "%", value: 50, source: "default", storedValue: null, locked: false, invalidOverride: false },
+  "newLayer.lineWidth": { key: "newLayer.lineWidth", label: "Line width", purpose: "How wide a new lines layer is drawn, unless it is created with a style.", defaultValue: 2, documentedDefault: "2", scope: "instance", readBy: "signed-in", changedBy: "admin", kind: "number", timing: "live", secret: false, editable: true, write: { kind: "decimal", min: 0.5, max: 50 }, unit: "px", value: 2, source: "default", storedValue: null, locked: false, invalidOverride: false },
+  "newLayer.pointRadius": { key: "newLayer.pointRadius", label: "Point radius", purpose: "How large a new layer's points are drawn, unless it is created with a style.", defaultValue: 3, documentedDefault: "3", scope: "instance", readBy: "signed-in", changedBy: "admin", kind: "number", timing: "live", secret: false, editable: true, write: { kind: "decimal", min: 0.5, max: 100 }, unit: "px", value: 3, source: "default", storedValue: null, locked: false, invalidOverride: false },
+  "canvas.opens": { key: "canvas.opens", label: "Canvas opens", purpose: "Whether a workflow canvas opens full screen or framed.", defaultValue: "full", documentedDefault: "full", scope: "instance", readBy: "signed-in", changedBy: "admin", kind: "choice", timing: "live", secret: false, editable: true, write: { kind: "choice", values: ["full", "framed"] }, value: "full", source: "default", storedValue: null, locked: false, invalidOverride: false },
+  "canvas.minimap": { key: "canvas.minimap", label: "Canvas minimap", purpose: "When a workflow canvas shows its minimap until the person chooses: auto shows it from six nodes.", defaultValue: "auto", documentedDefault: "auto", scope: "instance", readBy: "signed-in", changedBy: "admin", kind: "choice", timing: "live", secret: false, editable: true, write: { kind: "choice", values: ["auto", "always", "never"] }, value: "auto", source: "default", storedValue: null, locked: false, invalidOverride: false },
+  "canvas.resultsBand": { key: "canvas.resultsBand", label: "Canvas results band", purpose: "Whether a workflow canvas opens with its results band closed or open until the person chooses.", defaultValue: "closed", documentedDefault: "closed", scope: "instance", readBy: "signed-in", changedBy: "admin", kind: "choice", timing: "live", secret: false, editable: true, write: { kind: "choice", values: ["closed", "open"] }, value: "closed", source: "default", storedValue: null, locked: false, invalidOverride: false },
+  "sqlConsole.textSize": { key: "sqlConsole.textSize", label: "SQL text size", purpose: "The text size the SQL console's editor opens at.", defaultValue: "12", documentedDefault: "12", scope: "instance", readBy: "signed-in", changedBy: "admin", kind: "choice", timing: "live", secret: false, editable: true, write: { kind: "choice", values: ["11", "12", "13", "14", "16"] }, unit: "px", value: "12", source: "default", storedValue: null, locked: false, invalidOverride: false },
+  "sqlConsole.lineWrap": { key: "sqlConsole.lineWrap", label: "SQL line wrap", purpose: "Whether the SQL console's editor wraps long lines.", defaultValue: false, documentedDefault: "off", scope: "instance", readBy: "signed-in", changedBy: "admin", kind: "boolean", timing: "live", secret: false, editable: true, write: { kind: "switch" }, value: false, source: "default", storedValue: null, locked: false, invalidOverride: false },
+  "imageExport.width": { key: "imageExport.width", label: "Image starting width", purpose: "The width a fresh image export card opens at.", defaultValue: "1920", documentedDefault: "1920", scope: "instance", readBy: "signed-in", changedBy: "admin", kind: "choice", timing: "live", secret: false, editable: true, write: { kind: "choice", values: ["1280", "1920", "2560"] }, unit: "px", value: "1920", source: "default", storedValue: null, locked: false, invalidOverride: false },
+  "imageExport.shape": { key: "imageExport.shape", label: "Image starting shape", purpose: "The shape a fresh image export card opens at.", defaultValue: "4:3", documentedDefault: "4:3", scope: "instance", readBy: "signed-in", changedBy: "admin", kind: "choice", timing: "live", secret: false, editable: true, write: { kind: "choice", values: ["16:9", "4:3", "1:1"] }, value: "4:3", source: "default", storedValue: null, locked: false, invalidOverride: false },
+  "security.sessionDays": { key: "security.sessionDays", label: "Stay signed in for", purpose: "How long a session lasts after its last use. A session keeps the expiry it holds; its next use renews it by this length.", defaultValue: "30", documentedDefault: "30", scope: "instance", readBy: "admin", changedBy: "admin", kind: "choice", timing: "live", secret: false, editable: true, write: { kind: "choice", values: ["1", "7", "30", "90"] }, unit: "days", value: "30", source: "default", storedValue: null, locked: false, invalidOverride: false },
+  "security.linkDays": { key: "security.linkDays", label: "Invite and reset links last", purpose: "How long an invitation or a password reset link stays valid. A link keeps the lifetime it was issued with.", defaultValue: "7", documentedDefault: "7", scope: "instance", readBy: "admin", changedBy: "admin", kind: "choice", timing: "live", secret: false, editable: true, write: { kind: "choice", values: ["1", "3", "7", "14"] }, unit: "days", value: "7", source: "default", storedValue: null, locked: false, invalidOverride: false },
+  "security.failedPerAccount": { key: "security.failedPerAccount", label: "Failed sign-ins per account", purpose: "Failed sign-ins for one account, within a fixed 15 minutes, before its next attempt pauses. Wrong current passwords on password and email changes pause those changes at the same count, counted apart. Never above the count per address.", defaultValue: 5, documentedDefault: "5", scope: "instance", readBy: "admin", changedBy: "admin", kind: "number", timing: "live", secret: false, editable: true, write: { kind: "integer", min: 3, max: 100 }, unit: "per 15 minutes", value: 5, source: "default", storedValue: null, locked: false, invalidOverride: false },
+  "security.failedPerAddress": { key: "security.failedPerAddress", label: "Failed sign-ins per address", purpose: "Failed sign-ins from one network address, within a fixed 15 minutes, before its next attempt pauses. Never below the count per account.", defaultValue: 20, documentedDefault: "20", scope: "instance", readBy: "admin", changedBy: "admin", kind: "number", timing: "live", secret: false, editable: true, write: { kind: "integer", min: 10, max: 1000 }, unit: "per 15 minutes", value: 20, source: "default", storedValue: null, locked: false, invalidOverride: false },
+  "security.passwordMin": { key: "security.passwordMin", label: "Shortest password", purpose: "The fewest characters a password set from now may have. Passwords set earlier keep signing in.", defaultValue: 8, documentedDefault: "8", scope: "instance", readBy: "public", changedBy: "admin", kind: "number", timing: "live", secret: false, editable: true, write: { kind: "integer", min: 8, max: 64 }, unit: "characters", value: 8, source: "default", storedValue: null, locked: false, invalidOverride: false },
+  "tokens.create": { key: "tokens.create", label: "Who may create tokens", purpose: "Whether every account or only admins may create API tokens. Tokens made earlier keep working.", defaultValue: "everyone", documentedDefault: "everyone", scope: "instance", readBy: "signed-in", changedBy: "admin", kind: "choice", timing: "live", secret: false, editable: true, write: { kind: "choice", values: ["everyone", "admins"] }, value: "everyone", source: "default", storedValue: null, locked: false, invalidOverride: false },
+  "tokens.expiry": { key: "tokens.expiry", label: "New tokens expire after", purpose: "The lifetime a new API token takes, from its creation. Tokens made earlier keep their own.", defaultValue: "never", documentedDefault: "never", scope: "instance", readBy: "signed-in", changedBy: "admin", kind: "choice", timing: "live", secret: false, editable: true, write: { kind: "choice", values: ["never", "30d", "90d", "1y"] }, value: "never", source: "default", storedValue: null, locked: false, invalidOverride: false },
+  "publishing.publish": { key: "publishing.publish", label: "Who may publish", purpose: "Whether every account, only admins or no one may publish a map or change a publication. Published maps stay public and can be unpublished.", defaultValue: "everyone", documentedDefault: "everyone", scope: "instance", readBy: "signed-in", changedBy: "admin", kind: "choice", timing: "live", secret: false, editable: true, write: { kind: "choice", values: ["everyone", "admins", "none"] }, value: "everyone", source: "default", storedValue: null, locked: false, invalidOverride: false },
+  "publishing.embedding": { key: "publishing.embedding", label: "Embedding on other sites", purpose: "Which other sites may show a published page in a frame: any site, only the listed sites (at least one), or none.", defaultValue: "any", documentedDefault: "any", scope: "instance", readBy: "signed-in", changedBy: "admin", kind: "choice", timing: "live", secret: false, editable: true, write: { kind: "choice", values: ["any", "listed", "off"] }, value: "any", source: "default", storedValue: null, locked: false, invalidOverride: false },
+  "publishing.embedSites": { key: "publishing.embedSites", label: "Listed sites", purpose: "The sites that may show a published page in a frame while embedding is limited to listed sites; never empty while it is.", defaultValue: [], documentedDefault: "none", scope: "instance", readBy: "admin", changedBy: "admin", kind: "list", timing: "live", secret: false, editable: true, write: { kind: "sites", maxSites: 50 }, value: [], source: "default", storedValue: null, locked: false, invalidOverride: false },
+  "connections.create": { key: "connections.create", label: "Who may add database connections", purpose: "Whether every account or only admins may add a database connection. Connections made earlier keep working.", defaultValue: "everyone", documentedDefault: "everyone", scope: "instance", readBy: "signed-in", changedBy: "admin", kind: "choice", timing: "live", secret: false, editable: true, write: { kind: "choice", values: ["everyone", "admins"] }, value: "everyone", source: "default", storedValue: null, locked: false, invalidOverride: false },
+  "imports.links": { key: "imports.links", label: "Who may import from links", purpose: "Whether every account or only admins may import from web addresses and cloud storage. Link datasets keep refreshing.", defaultValue: "everyone", documentedDefault: "everyone", scope: "instance", readBy: "signed-in", changedBy: "admin", kind: "choice", timing: "live", secret: false, editable: true, write: { kind: "choice", values: ["everyone", "admins"] }, value: "everyone", source: "default", storedValue: null, locked: false, invalidOverride: false },
+  "basemaps.dark": { key: "basemaps.dark", label: "Dark", purpose: "Whether Dark is offered where a basemap is chosen: the builder's picker, a published page's switcher and the Maps tab. Off, choosing it anew is refused; a map already on it keeps it. Auto keeps following the theme with it either way.", defaultValue: true, documentedDefault: "on", scope: "instance", readBy: "signed-in", changedBy: "admin", kind: "boolean", timing: "live", secret: false, editable: true, write: { kind: "switch" }, value: true, source: "default", storedValue: null, locked: false, invalidOverride: false },
+  "basemaps.light": { key: "basemaps.light", label: "Light", purpose: "Whether Light is offered where a basemap is chosen: the builder's picker, a published page's switcher and the Maps tab. Off, choosing it anew is refused; a map already on it keeps it. Auto keeps following the theme with it either way.", defaultValue: true, documentedDefault: "on", scope: "instance", readBy: "signed-in", changedBy: "admin", kind: "boolean", timing: "live", secret: false, editable: true, write: { kind: "switch" }, value: true, source: "default", storedValue: null, locked: false, invalidOverride: false },
+  "basemaps.streets": { key: "basemaps.streets", label: "Streets", purpose: "Whether Streets is offered where a basemap is chosen: the builder's picker, a published page's switcher and the Maps tab. Off, choosing it anew is refused; a map already on it keeps it.", defaultValue: true, documentedDefault: "on", scope: "instance", readBy: "signed-in", changedBy: "admin", kind: "boolean", timing: "live", secret: false, editable: true, write: { kind: "switch" }, value: true, source: "default", storedValue: null, locked: false, invalidOverride: false },
+  "basemaps.satellite": { key: "basemaps.satellite", label: "Satellite", purpose: "Whether Satellite is offered, while imagery is set up, where a basemap is chosen: the builder's picker, a published page's switcher and the Maps tab. Off, choosing it anew is refused; a map already on it keeps it.", defaultValue: true, documentedDefault: "on", scope: "instance", readBy: "signed-in", changedBy: "admin", kind: "boolean", timing: "live", secret: false, editable: true, write: { kind: "switch" }, value: true, source: "default", storedValue: null, locked: false, invalidOverride: false },
+  "basemaps.singleMapStyles": { key: "basemaps.singleMapStyles", label: "Style addresses on single maps", purpose: "Whether a map may take a style address the library does not offer. Off, such an address is refused on any map, for everyone, admins included; a map that holds one keeps it.", defaultValue: true, documentedDefault: "on", scope: "instance", readBy: "signed-in", changedBy: "admin", kind: "boolean", timing: "live", secret: false, editable: true, write: { kind: "switch" }, value: true, source: "default", storedValue: null, locked: false, invalidOverride: false },
+  "templates.catalogue": { key: "templates.catalogue", label: "Use the catalogue", purpose: "Whether the server reads the template catalogue: its list, its pictures and its downloads. Off, it reaches the catalogue for nothing; shipped and downloaded templates still open and copy.", defaultValue: true, documentedDefault: "on", scope: "instance", readBy: "signed-in", changedBy: "admin", kind: "boolean", timing: "live", secret: false, editable: true, write: { kind: "switch" }, value: true, source: "default", storedValue: null, locked: false, invalidOverride: false },
+  port: { key: "port", environment: "PORT", kind: "text", label: "Listening port", purpose: "Port used by the server and its internal API calls.", defaultValue: { rule: "runtime-port-or-request-origin" }, documentedDefault: "3000 in the container", scope: "platform", readBy: "admin", changedBy: "platform", environmentTiming: "restart", timing: "next-start", secret: false, editable: false, value: "3000", source: "environment", locked: true, invalidOverride: false, storedValue: null },
+  extensionDir: { key: "extensionDir", environment: "DUCKDB_EXTENSION_DIR", kind: "path", label: "Engine extensions", purpose: "Location of the baked offline extension bundle.", defaultValue: { rule: "engine-default-extension-directory" }, documentedDefault: "/app/duckdb-extensions in the container", scope: "platform", readBy: "admin", changedBy: "platform", environmentTiming: "restart", timing: "next-start", secret: false, editable: false, value: { rule: "engine-default-extension-directory" }, source: "default", locked: false, invalidOverride: false, storedValue: null },
+};
+
+/** The instance's settings, as an admin reads them on that instance. */
+export const INSTANCE_SETTINGS = {
+  settings: NEW_INSTANCE_SETTINGS,
+  capacities: { geocodeRows: 27, isochroneOrigins: 13 },
+  maxImageDimension: 4096,
+  version: "0.1.0",
+  startedAt: "2026-10-20T09:00:00.000Z",
+  warnings: [],
+  parts: {
+    query_engine: { version: "1.5.4", started: true, extensions: ["spatial", "h3", "json"] },
+    tile_builder: { found: true, version: null },
+    image_renderer: { found: false, available: false, imagesAtOnce: 2 },
+    metadata_database: { file: "metadata.sqlite" },
+  },
+  basemapStyles: [],
+  services: {
+    geocode: { bytes: 0, answers: 0, budgetMb: 64 },
+    isochrone: { bytes: 0, answers: 0, budgetMb: 64 },
+    overpass: { bytes: 0, answers: 0, budgetMb: 2048 },
+    overture: { listed: false },
+  },
+};
+
+/** The same answer once Rows shown in results is 2,000. */
+export const INSTANCE_SETTINGS_CHANGED = { ...INSTANCE_SETTINGS, settings: { ...NEW_INSTANCE_SETTINGS, previewRows: { ...NEW_INSTANCE_SETTINGS.previewRows, value: 2000, source: "stored", storedValue: 2000 } } };
+
+/** The assistant's status on an instance with an Anthropic key and the shipped model list. */
+export const ASSISTANT_ENABLED = {
+  enabled: true,
+  provider: "anthropic",
+  model: "claude-opus-5",
+  models: [
+    {
+      id: "claude-opus-5",
+      name: "Opus 5",
+      efforts: [
+        { value: "default", label: "Default" },
+        { value: "low", label: "Low" },
+        { value: "medium", label: "Medium" },
+        { value: "high", label: "High" },
+        { value: "xhigh", label: "XHigh" },
+        { value: "max", label: "Max" },
+      ],
+    },
+    {
+      id: "claude-fable-5",
+      name: "Fable 5",
+      efforts: [
+        { value: "default", label: "Default" },
+        { value: "low", label: "Low" },
+        { value: "medium", label: "Medium" },
+        { value: "high", label: "High" },
+        { value: "xhigh", label: "XHigh" },
+      ],
+    },
+    {
+      id: "claude-sonnet-5",
+      name: "Sonnet 5",
+      efforts: [
+        { value: "default", label: "Default" },
+        { value: "low", label: "Low" },
+        { value: "medium", label: "Medium" },
+        { value: "high", label: "High" },
+      ],
+    },
+    {
+      id: "claude-haiku-4",
+      name: "Haiku 4",
+      efforts: [
+        { value: "default", label: "Default" },
+        { value: "low", label: "Low" },
+        { value: "medium", label: "Medium" },
+        { value: "high", label: "High" },
+      ],
+    },
+  ],
+  catalogue: { source: "shipped", instance: "absent" },
+  stepBudget: 20,
+  autoCheck: true,
+};
+
+/** The assistant's status on an instance without a provider key. */
+export const ASSISTANT_OFF = {
+  enabled: false,
+  reason: `No model credential is configured. Set ${ANTHROPIC_KEY} or ${OPENAI_KEY} (optionally DEZFIL_AI_PROVIDER and DEZFIL_AI_MODEL) and restart to enable the assistant.`,
+};
+
+/** The map Field notes, as the create_map tool answers it over MCP. */
+export const FIELD_NOTES = {
+  id: "6a3f8d20-4c1e-4b97-a2d5-8e9f0c1b3a74",
+  name: "Field notes",
+  viewport: { lng: 0, lat: 40, zoom: 1.3 },
+  basemap: null,
+  customBasemap: null,
+  basemapLayers: null,
+  note: null,
+  legendCorner: null,
+  legendOrder: null,
+  timeline: null,
+  widgets: [],
+  widgetsPublished: true,
+  publishToken: null,
+  publishedAt: null,
+  published: false,
+  createdAt: "2026-10-20T09:00:02.875Z",
+  updatedAt: "2026-10-20T09:00:02.875Z",
+  editRevision: "9c41e07a5d2b4f8e8a6c1d3b7e05f2a4",
+  lastChangedAt: "2026-10-20T09:00:02.875Z",
+  lastChangedBy: { name: "Ana Diaz", sqlName: "ana_diaz" },
+  projectId: null,
+  owner: { name: "Ana Diaz", sqlName: "ana_diaz" },
+  home: "ana_diaz",
+};
+
+/** Ana Diaz's two tokens, the quickstart's in use. */
+export const TOKENS = {
+  tokens: [
+    {
+      id: "3c9e7a14-5b2f-4d81-9e6a-0f4b8c2d1e73",
+      name: "Quickstart",
+      createdAt: "2026-10-20T09:00:00.791Z",
+      lastUsedAt: "2026-10-20T09:00:00.795Z",
+      revokedAt: null,
+      expiresAt: null,
+    },
+    {
+      id: "a81f3d52-7c64-4e09-b2d7-6e5c9f0a3b18",
+      name: "Nightly import",
+      createdAt: "2026-10-20T09:00:00.794Z",
+      lastUsedAt: null,
+      revokedAt: null,
+      expiresAt: null,
+    },
+  ],
+};
+
+/** A new account's own settings. */
+export const SETTINGS = {
+  displayName: "Ana Diaz",
+  instanceName: null,
+  viewPrefs: {},
+  sourceGrouping: "person",
+  look: {
+    color: "kelp",
+    contrast: "standard",
+    font: "inter",
+    background: "atlantic",
+    corners: "rounded",
+    rail: "hover",
+    panels: "glass",
+    transparency: "clear",
+  },
+};
+
+/** The token Quickstart, as creating it answers. */
+export const QUICKSTART_TOKEN = {
+  id: "3c9e7a14-5b2f-4d81-9e6a-0f4b8c2d1e73",
+  name: "Quickstart",
+  createdAt: "2026-10-20T09:00:00.791Z",
+  lastUsedAt: null,
+  revokedAt: null,
+  expiresAt: null,
+  secret: "<YOUR_TOKEN>",
+};
+
+/** A second token, Nightly import, made with the first. */
+export const NIGHTLY_TOKEN = {
+  id: "a81f3d52-7c64-4e09-b2d7-6e5c9f0a3b18",
+  name: "Nightly import",
+  createdAt: "2026-10-20T09:00:00.794Z",
+  lastUsedAt: null,
+  revokedAt: null,
+  expiresAt: null,
+  secret: "<NEW_TOKEN>",
+};
+
+/** The run Save as dataset starts, as it is accepted. */
+export const SAVE_RUN = {
+  run: {
+    id: "e4a7c2b9-1f3d-4e6a-9c85-7b0d2f4a6e13",
+    operation: "sql_step",
+    state: "queued",
+    subject: { kind: "run", id: "e4a7c2b9-1f3d-4e6a-9c85-7b0d2f4a6e13" },
+    parameters: {
+      sql: "SELECT name, country, population, geometry FROM world_cities WHERE population > 10000000",
+      name: "big_cities",
+    },
+    acceptedAt: "2026-10-20T09:00:01.494Z",
+  },
+};
+
+/** Publishing the map, as it answers. */
+export const PUBLISHED = {
+  token: "<PUBLISH_TOKEN>",
+  publishedAt: "2026-10-20T09:00:01.521Z",
+  editRevision: "9b2d4f6a8c0e1b3d5f7a9c1e3b5d7f90",
+  lastChangedAt: "2026-10-20T09:00:01.521Z",
+  lastChangedBy: { name: "Ana Diaz", sqlName: "ana_diaz" },
+};
+
+/** Unpublishing the map, as it answers. */
+export const UNPUBLISHED = {
+  editRevision: "2d4f6a8c0e2b4d6f8a0c2e4b6d8f0a2c",
+  lastChangedAt: "2026-10-20T09:00:01.530Z",
+  lastChangedBy: { name: "Ana Diaz", sqlName: "ana_diaz" },
+};
+
+/** The same account's settings once the Maps list shows as a list sorted by name. */
+export const SETTINGS_CHANGED = {
+  displayName: "Ana Diaz",
+  instanceName: null,
+  viewPrefs: { maps: { view: "list", sort: "name" } },
+  sourceGrouping: "person",
+  look: {
+    color: "kelp",
+    contrast: "standard",
+    font: "inter",
+    background: "atlantic",
+    corners: "rounded",
+    rail: "hover",
+    panels: "glass",
+    transparency: "clear",
+  },
+};

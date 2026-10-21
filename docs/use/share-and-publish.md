@@ -186,5 +186,5 @@ The zip holds the maps and workflows as JSON, without published links. Its datas
 ## Next steps
 
 - Build the map you want to share: [Build a map](build-a-map.md).
-- Publish from a script or an AI agent: [How the API works](../api/http-api.md) and [Connect an AI agent](../api/mcp.md).
+- Publish from a script or an AI agent: the [API quickstart](../api/quickstart.md) and [Connect an AI agent](../api/mcp.md).
 - Every setting behind publishing and image export: [Configuration](../self-host/configuration.md).

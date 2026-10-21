@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { buildOpenApiDocument } from "./openapi";
 import { DOCS_SITE_URL, HTTP_API_GUIDE_URL, docsPageUrl } from "@/lib/docs-site";
+import { IGNORED_VALUES, unsupportedProtection } from "@/lib/postgis/protection-parameters";
 
 // The served description is read by people and agents who have no checkout
 // of this repository, so a path into it names nothing they can open. A page
@@ -63,11 +64,23 @@ describe("the served description names documentation by its site address", () =>
     // The address is the page's path in the repository, so the page must be there.
     const page = `docs/${HTTP_API_GUIDE_URL.slice(DOCS_SITE_URL.length, -1)}.md`;
     expect(existsSync(page)).toBe(true);
-    // And the page holds what the string sends the reader to: the Connections
-    // family and its table of how each string parameter is treated.
+    // And the page holds what the string sends the reader to: its Connections
+    // section, with the table of how each string parameter is treated, every
+    // parameter the refusal names among its rows.
     const text = readFileSync(page, "utf8");
-    expect(text).toContain("**Connections.** PostGIS connections");
-    expect(text).toMatch(/^\| `channel_binding`, `gssencmode` \| /m);
+    const section = text.split("\n## Connections\n")[1]?.split("\n## ")[0];
+    expect(section, "a Connections section").toBeDefined();
+    expect(section).toMatch(/^\| `channel_binding`, `gssencmode` \| /m);
+    const rows = section!.split("\n").filter((line) => line.startsWith("| `")).map((line) => {
+      const [names, values] = line.split(" | ");
+      return { names: [...names.matchAll(/`([^`]+)`/g)].map((found) => found[1]), values: [...values.matchAll(/`([^`]+)`/g)].map((found) => found[1]) };
+    });
+    expect(rows.flatMap((row) => row.names).sort()).toEqual(Object.keys(IGNORED_VALUES).sort());
+    for (const { names, values } of rows) for (const name of names) {
+      expect(values, name).toEqual([...IGNORED_VALUES[name]]);
+      expect(unsupportedProtection([[name, "not-a-value"]]), name).toBe(name);
+      for (const value of values) expect(unsupportedProtection([[name, value]]), `${name}=${value}`).toBeUndefined();
+    }
     const served = JSON.stringify(buildOpenApiDocument());
     expect(served).toContain(`See ${HTTP_API_GUIDE_URL} (Connections) for parameter dispositions.`);
   });

@@ -2703,6 +2703,91 @@
         "memory:immutable-configuration"
       ]
     },
+    "memory:src/lib/api/openapi-example-answers.ts#ANTHROPIC_KEY": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-example-answers.ts#CATALOGUE_PAGE": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-example-answers.ts#CONFIG": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-example-answers.ts#FIELD_NOTES": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-example-answers.ts#INSTANCE_SETTINGS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-example-answers.ts#INSTANCE_SETTINGS_CHANGED": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-example-answers.ts#LAYER_CREATED": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-example-answers.ts#MAP_CREATED": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-example-answers.ts#MAP_LIGHT": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-example-answers.ts#MAP_PUBLISHED": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-example-answers.ts#MAPS_LISTED": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-example-answers.ts#NEW_INSTANCE_SETTINGS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-example-answers.ts#OPENAI_KEY": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-example-answers.ts#SETTINGS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-example-answers.ts#TABLES": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-example-answers.ts#UPLOADED": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-examples.ts#WORKED_EXAMPLES": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
     "memory:src/lib/api/openapi-geometry-resource.ts#errors": {
       "stores": [
         "memory:immutable-configuration"

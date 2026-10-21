@@ -102,7 +102,7 @@ Your other browser sessions end, so those browsers ask you to sign in again. You
 
 ## The other tabs
 
-- **API & MCP** holds **API / MCP tokens** and the **MCP server** card. [Connect an AI agent](../api/mcp.md) shows how to use them.
+- **API & MCP** holds **API / MCP tokens** and the **MCP server** card. The [API quickstart](../api/quickstart.md) and [Connect an AI agent](../api/mcp.md) show how to use them.
 - Under **Instance**, **General** shows the instance's name and its sign-in settings. Only admins change them; [Configuration](../self-host/configuration.md) covers the tabs an admin sees.
 - **Search settings**, at the top of the column, finds any setting by its name.
 
@@ -138,4 +138,4 @@ Your SQL draft and query history stay in each browser too, as [Query with SQL](s
 
 - Build on what you see: [Build a map](build-a-map.md).
 - Query your datasets and other people's: [Query with SQL](sql.md).
-- Read and change the same preferences from a script with `GET /api/settings` and `PATCH /api/settings`: [How the API works](../api/http-api.md#resource-families).
+- Read and change the same preferences from a script with `GET /api/settings` and `PATCH /api/settings`: the [operation reference](https://dezfil.io/docs/api/reference/system/#get-api-settings).

@@ -4,8 +4,12 @@ import path from 'node:path';
 import { contractSource } from './contract-source.mjs';
 
 import { HTTP_METHODS } from '../src/lib/api/http-methods.ts';
-/** The committed files whose reader counts the contract holds: the two API
- * pages, and the served contract proof's procedure, which carries the counts. */
+/** The committed files the contract holds: the two API pages, which say
+ * what a change's author can be, and the served contract proof's
+ * procedure, which carries every count. Each operation with its tool, each
+ * error code and each body limit is listed by the generated operation
+ * reference, which the documentation site's own checks hold to the
+ * description. */
 export const CONTRACT_DOCS = { api: 'docs/api/http-api.md', mcp: 'docs/api/mcp.md', proof: 'scripts/served-contract-proof.md' };
 /** Those files' committed text, read from a repository root. */
 export const readContractDocs = (root = '.') => Object.fromEntries(Object.entries(CONTRACT_DOCS).map(([key, file]) => [key, readFileSync(path.join(root, file), 'utf8')]));
@@ -34,33 +38,9 @@ export function readerCountSummary(counts) {
 /** Compare the committed reader text, never two newly generated summaries. */
 export function checkContractDocs(document, tools, docs) {
   const measured = measureContract(document, tools), problems = [];
-  const count = (label, seen, expected) => {
-    if (seen === undefined || Number(seen) !== expected) problems.push(`${label}: reader says ${seen ?? 'nothing'}, contract requires ${expected}`);
-  };
-  const api = docs.api.match(/\*\*(\d+) paths, (\d+) operations, (\d+) named\s+component schemas\.\*\*/);
-  count('API paths', api?.[1], measured.paths);
-  count('API operations', api?.[2], measured.operations);
-  count('API schemas', api?.[3], measured.schemas);
-  count('API errors', docs.api.match(/There are \*\*(\d+)\*\* codes/)?.[1], measured.errors);
-  for (const [label, expected] of [['Documented operations', measured.operations], ['Operations that become tools', measured.tools], ['Deliberately excluded', measured.exclusions]]) {
-    count(`MCP ${label}`, docs.mcp.match(new RegExp(`\\| ${label} \\| (\\d+) \\|`))?.[1], expected);
-  }
-  const tierBlock = docs.api.match(/<!-- body-tiers:start -->([\s\S]*?)<!-- body-tiers:end -->/)?.[1] ?? '';
-  const tiers = [...tierBlock.matchAll(/^\| ([\d,]+) \| (\d+) \|$/gm)].map(([, tier, count]) => [tier.replaceAll(',', ''), Number(count)]);
-  if (!equal(tiers.map(([tier]) => tier).sort(), Object.keys(measured.jsonTiers).sort())) problems.push('Reader JSON tier inventory differs from contract');
-  for (const [tier, expected] of Object.entries(measured.jsonTiers)) count(`JSON tier ${tier} readers`, new Map(tiers).get(tier), expected);
-  count('JSON readers', docs.api.match(/Measured JSON reader operations: \*\*(\d+)\*\*/)?.[1], measured.jsonReaders);
   const catalogue = document['x-error-codes'];
   const enumCodes = document.components.schemas.Error.properties.error.properties.code.enum;
   if (!equal([...enumCodes].sort(), Object.keys(catalogue).sort())) problems.push('Error schema and source catalogue disagree');
-  const block = docs.api.match(/<!-- error-catalogue:start -->([\s\S]*?)<!-- error-catalogue:end -->/)?.[1] ?? '';
-  const rows = [...block.matchAll(/^\| `([^`]+)` \| (.*) \|$/gm)].map(([, code, meaning]) => [code, normalize(meaning.replaceAll('\\|', '|'))]);
-  const documented = new Map(rows);
-  if (rows.length !== documented.size) problems.push('Duplicate reader error catalogue entry');
-  if (!equal([...documented.keys()].sort(), Object.keys(catalogue).sort())) problems.push('Reader error catalogue has missing or extra codes');
-  for (const [code, meaning] of Object.entries(catalogue)) {
-    if (documented.get(code) !== normalize(meaning)) problems.push(`Reader error meaning differs: ${code}`);
-  }
   const contractTools = measured.operationsWithTools.map(({ path, method, operation }) => `${method} ${path} ${operation['x-tool']}`).sort();
   const derivedTools = tools.map(tool => `${tool.method} ${tool.path} ${tool.name}`).sort();
   if (!equal(contractTools, derivedTools)) problems.push('Derived tools differ from contract operations');
@@ -82,6 +62,7 @@ export function checkContractDocs(document, tools, docs) {
   for (const field of ['lastChangedBy', 'author', 'runner']) if (!found.has(field)) problems.push(`Missing actor position: ${field}`);
   for (const [key, label] of [['api', 'API'], ['mcp', 'MCP']]) {
     if (!docs[key].includes('{ deleted: true }')) problems.push(`${label} actor guidance omits the deleted variant`);
+    if (!normalize(docs[key]).includes("A change's author can be a deleted account")) problems.push(`${label} guide omits that a change's author can be a deleted account`);
   }
   const proofCounts = docs.proof?.match(/<!-- contract-counts:start -->([\s\S]*?)<!-- contract-counts:end -->/)?.[1];
   if (normalize(proofCounts ?? '') !== readerCountSummary(measured)) problems.push('Proof guide counts differ from contract');
@@ -97,6 +78,6 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   else {
     const counts = measureContract(document, tools);
     delete counts.operationsWithTools;
-    console.log('PASS: reader counts and error catalogue match the contract ' + JSON.stringify(counts));
+    console.log('PASS: the error schema, the derived tools, the change authors and the reader counts match the contract ' + JSON.stringify(counts));
   }
 }
