@@ -1,5 +1,6 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { laneSettled } from "@/lib/operations/lane";
+import { SETTING_CATALOGUE } from "@/lib/settings/catalogue";
 import { ownInstance, type OwnInstance } from "@/lib/test-support/page-calls";
 import { buildOpenApiDocument } from "./openapi";
 
@@ -21,6 +22,10 @@ import { buildOpenApiDocument } from "./openapi";
 const ADDRESS = "http://localhost:3000";
 const PORT = "3452";
 const READER = { name: "Ana Diaz", email: "ana@example.com", password: "field notebooks at dawn" };
+/** The variables an instance's settings are read from, but the data folder
+ * and port the instance is given. None is set, as on a new instance,
+ * whatever the shell running the test exports. */
+const UNSET = SETTING_CATALOGUE.flatMap(({ environment }) => environment && environment !== "DEZFIL_DATA_DIR" && environment !== "PORT" ? [environment] : []);
 /** The fields whose value differs from run to run. */
 const VARIES = new Set(["runtimeMs"]);
 
@@ -289,7 +294,7 @@ function problems(doc: Description, answered: Answered[], ran: RunWith): string[
 }
 
 let instance: OwnInstance | undefined;
-afterEach(async () => { await instance?.close(); instance = undefined; });
+afterEach(async () => { await instance?.close(); instance = undefined; vi.unstubAllEnvs(); });
 
 describe("the worked examples, sent to an instance in the quickstart's order", () => {
   it("sends every example the description places, but one that needs a provider key", () => {
@@ -299,6 +304,7 @@ describe("the worked examples, sent to an instance in the quickstart's order", (
   });
 
   it("gets every example's answer from a new instance, and names an answer a seeded example does not match", async () => {
+    for (const variable of UNSET) vi.stubEnv(variable, undefined);
     instance = await ownInstance(ADDRESS, PORT);
     const ran = runWith(instance.directory, PORT);
     const setup = await fetch(`${ADDRESS}/api/auth/setup`, {
