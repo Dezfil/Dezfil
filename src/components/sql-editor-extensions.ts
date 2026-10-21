@@ -12,6 +12,7 @@ import {
   EditorView,
   GutterMarker,
   gutterLineClass,
+  tooltips,
   type DecorationSet,
 } from "@codemirror/view";
 
@@ -132,6 +133,11 @@ export function sqlLanguage(completion: SqlCompletion | null): Extension {
     }),
     ...extras,
     autocompletion({ icons: false, activateOnTyping: true }),
+    // The list mounts on the body, styled by the editor's theme still: the
+    // editor card clips its overflow, and a card that blurs what lies
+    // behind it is the containing block of its fixed descendants, so a
+    // list inside it would be cut at the card's edge.
+    typeof document === "undefined" ? [] : tooltips({ parent: document.body }),
   ];
 }
 

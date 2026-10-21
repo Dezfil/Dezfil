@@ -148,6 +148,19 @@ export function ResultsPane(p: Props) {
   // a short results card clips its overflow, and a card that blurs what
   // lies behind it is the containing block of its fixed descendants.
   const dlPos = useAnchored(downloadOpen, dlBtnRef, dlMenuRef);
+  // The kit menu's keyboard contract, for a menu that sits at the end of
+  // the page: a keyboard opening moves focus to the first format, arrows,
+  // Home and End move between the formats, and Escape or a choice returns
+  // focus to the trigger.
+  const [dlByKey, setDlByKey] = useState(false);
+  const dlItems = () => Array.from(dlMenuRef.current?.querySelectorAll<HTMLButtonElement>('[role="menuitem"]:not(:disabled)') ?? []);
+  useEffect(() => {
+    if (downloadOpen && dlByKey && dlPos) dlMenuRef.current?.querySelector<HTMLButtonElement>('[role="menuitem"]:not(:disabled)')?.focus();
+  }, [downloadOpen, dlByKey, dlPos]);
+  const closeDownload = () => {
+    setDownloadOpen(false);
+    dlBtnRef.current?.focus();
+  };
   // A new thing shown clears the download note — adjusted during render
   // against the shown key, so there is no second pass to cascade.
   const shownKey = shown.kind === "result" ? `run:${shown.run.runId}` : shown.kind;
@@ -281,7 +294,16 @@ export function ResultsPane(p: Props) {
                 aria-expanded={downloadOpen}
                 busy={downloading !== null}
                 title="Every row of this result, as a file"
-                onClick={() => setDownloadOpen((o) => !o)}
+                onClick={() => {
+                  setDlByKey(false);
+                  setDownloadOpen((o) => !o);
+                }}
+                onKeyDown={(e) => {
+                  if (downloadOpen || (e.key !== "ArrowDown" && e.key !== "Enter" && e.key !== " ")) return;
+                  e.preventDefault();
+                  setDlByKey(true);
+                  setDownloadOpen(true);
+                }}
               >
                 <IconDownload /> {downloading ? "Preparing…" : "Download"}
               </Button>
@@ -292,6 +314,21 @@ export function ResultsPane(p: Props) {
                   role="menu"
                   aria-label="Download format"
                   style={dlPos ? { top: dlPos.top, left: dlPos.left } : { top: 0, left: 0, visibility: "hidden" }}
+                  onKeyDown={(e) => {
+                    const all = dlItems();
+                    const at = all.indexOf(document.activeElement as HTMLButtonElement);
+                    if (e.key === "Escape") {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      closeDownload();
+                    } else if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+                      e.preventDefault();
+                      all[(at + (e.key === "ArrowDown" ? 1 : -1) + all.length) % all.length]?.focus();
+                    } else if (e.key === "Home" || e.key === "End") {
+                      e.preventDefault();
+                      (e.key === "Home" ? all[0] : all[all.length - 1])?.focus();
+                    }
+                  }}
                 >
                   {(
                     [
@@ -307,7 +344,7 @@ export function ResultsPane(p: Props) {
                       className={styles.menuItem}
                       disabled={format === "geojson" && !resultIsMappable(shown.run)}
                       onClick={() => {
-                        setDownloadOpen(false);
+                        closeDownload();
                         setDownloading(format);
                         setDownloadNote(null);
                         void p.onDownload(format).then(

@@ -25,27 +25,37 @@ async function typeSql(page: Page, sql: string) {
   await page.keyboard.press("Escape"); // close any completion popup
 }
 
-/** The document's text — the placeholder CodeMirror renders inside an
- * empty document is not the document. Lines are joined with newlines, as
- * the document has them. */
 /** A floating panel a person can reach: opened against its trigger (just
- * below it or just above it), wholly inside the viewport, and the topmost
- * thing at its centre, so a card that clips it or takes it as its
- * containing block cannot hide it while it still counts as visible. */
-async function expectReachable(panel: Locator, trigger: Locator, what: string): Promise<void> {
-  const t = (await trigger.boundingBox())!;
+ * below it or just above it) where it has one, wholly inside the viewport,
+ * cut by no ancestor that clips, and the topmost thing at its centre, so a
+ * card that clips it or takes it as its containing block cannot hide it
+ * while it still counts as visible. */
+async function expectReachable(panel: Locator, trigger: Locator | null, what: string): Promise<void> {
+  const t = trigger ? await trigger.boundingBox() : null;
   const reach = await panel.evaluate((el, t) => {
     const r = el.getBoundingClientRect();
+    let [left, top, right, bottom] = [r.left, r.top, r.right, r.bottom];
+    for (let a = el.parentElement; a && a !== document.body; a = a.parentElement) {
+      const cs = getComputedStyle(a);
+      if (cs.overflowX === "visible" && cs.overflowY === "visible") continue;
+      const b = a.getBoundingClientRect();
+      [left, top, right, bottom] = [Math.max(left, b.left), Math.max(top, b.top), Math.min(right, b.right), Math.min(bottom, b.bottom)];
+    }
     const hit = document.elementFromPoint(r.left + r.width / 2, r.top + Math.min(r.height / 2, 24));
     return {
-      anchored: Math.abs(r.top - (t.y + t.height)) <= 12 || Math.abs(r.bottom - t.y) <= 12,
+      anchored: !t || Math.abs(r.top - (t.y + t.height)) <= 12 || Math.abs(r.bottom - t.y) <= 12,
       inside: r.left >= 0 && r.top >= 0 && r.right <= window.innerWidth && r.bottom <= window.innerHeight,
+      unclipped: right - left >= r.width - 1 && bottom - top >= r.height - 1,
       topmost: !!hit && el.contains(hit),
     };
   }, t);
-  expect(reach, `${what} opens against its trigger, inside the viewport and on top`).toEqual({ anchored: true, inside: true, topmost: true });
+  expect.soft(reach, `${what} opens against its trigger, inside the viewport, unclipped and on top`)
+    .toEqual({ anchored: true, inside: true, unclipped: true, topmost: true });
 }
 
+/** The document's text — the placeholder CodeMirror renders inside an
+ * empty document is not the document. Lines are joined with newlines, as
+ * the document has them. */
 async function editorText(page: Page): Promise<string> {
   return page.locator(".cm-content").evaluate((el) => {
     const clone = el.cloneNode(true) as HTMLElement;
@@ -210,6 +220,18 @@ test("the SQL console end to end", async ({ page, context }) => {
     await expect(page.locator(".cm-tooltip-autocomplete")).toBeVisible({ timeout: 10_000 });
     await expect(page.locator(".cm-tooltip-autocomplete li").filter({ hasText: spatial })).toBeVisible();
     await page.keyboard.press("Escape");
+    // At the editor's foot, the list runs past the editor card's edge: it
+    // stays whole and on top, never cut by the card it opened in.
+    await typeSql(page, "");
+    for (let i = 0; i < 24; i++) {
+      await page.keyboard.type(`-- line ${i}`);
+      await page.keyboard.press("Escape");
+      await page.keyboard.press("Enter");
+    }
+    await page.keyboard.type("SELECT * FROM cons");
+    await expect(page.locator(".cm-tooltip-autocomplete li").filter({ hasText: spatial })).toBeVisible({ timeout: 10_000 });
+    await expectReachable(page.locator(".cm-tooltip-autocomplete"), null, "the completion list at the editor's foot");
+    await page.keyboard.press("Escape");
     await typeSql(page, `SELECT ri FROM ${spatial}`);
     await page.locator(".cm-content").click();
     await page.keyboard.press("ControlOrMeta+Home");
@@ -334,9 +356,21 @@ test("the SQL console end to end", async ({ page, context }) => {
   });
 
   await test.step("download carries every row of the executed SQL, in each format, after the draft diverged", async () => {
-    // GeoJSON of the spatial result on screen: every feature, parsed.
-    await page.getByRole("button", { name: /Download/ }).click();
+    // From the keyboard: Enter opens the menu with focus on its first
+    // format, the arrows move, and Escape closes it with focus back on
+    // Download, though the menu sits at the end of the page.
+    const download = page.getByRole("button", { name: /Download/ });
     const menu = page.getByRole("menu", { name: "Download format" });
+    await download.focus();
+    await page.keyboard.press("Enter");
+    await expect(menu.getByRole("menuitem", { name: /CSV/ })).toBeFocused();
+    await page.keyboard.press("ArrowDown");
+    await expect(menu.getByRole("menuitem", { name: /GeoParquet/ })).toBeFocused();
+    await page.keyboard.press("Escape");
+    await expect(menu).toHaveCount(0);
+    await expect(download).toBeFocused();
+    // GeoJSON of the spatial result on screen: every feature, parsed.
+    await download.click();
     await expect(menu.getByRole("menuitem", { name: /GeoJSON/ })).toBeEnabled();
     await expectReachable(menu, page.getByRole("button", { name: /Download/ }), "the download menu");
     const geo = page.waitForEvent("download", { timeout: 30_000 });
