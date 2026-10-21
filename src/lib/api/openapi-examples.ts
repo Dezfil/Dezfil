@@ -293,7 +293,7 @@ export const WORKED_EXAMPLES: WorkedExamples = {
       description:
         "Needs an admin's token and the publish token of a map whose owner is deactivated: the end of the map's link, /v/<token>. " +
         "The answer has no body, and the link stops working at once. The account and the map stay.",
-      parameters: { token: "Q7mXc2LpV9tKw4RzB8nHd3" },
+      parameters: { token: "<PUBLISH_TOKEN>" },
       response: { status: "204" },
     },
   },

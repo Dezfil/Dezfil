@@ -53879,7 +53879,7 @@
             "examples": {
               "deactivatedOwner": {
                 "summary": "Take a deactivated account's published map offline",
-                "value": "Q7mXc2LpV9tKw4RzB8nHd3"
+                "value": "<PUBLISH_TOKEN>"
               }
             }
           }
