@@ -79,7 +79,7 @@ A number Dezfil cannot use still locks the row, and the default applies. The row
 Some settings live in one place only. What new maps start with and who may publish are in Settings alone. The data folder, the encryption key and the assistant's key are variables alone.
 
 > [!NOTE]
-> Remove a variable to return to its default. Set but empty, `DEZFIL_DATA_DIR`, `DEZFIL_TIPPECANOE`, `DEZFIL_CHROMIUM_PATH` and `DEZFIL_AI_MODEL` are used as they are, `DEZFIL_AI_PROVIDER` turns the assistant off and `DEZFIL_SESSION_COOKIE` stops the server.
+> Remove a variable to return to its default. Set but empty, `DEZFIL_DATA_DIR`, `DEZFIL_TIPPECANOE`, `DEZFIL_CHROMIUM_PATH` and `DEZFIL_AI_MODEL` are used as they are, `DEZFIL_AI_PROVIDER` turns the assistant off and `DEZFIL_SESSION_COOKIE` keeps Dezfil from starting.
 
 In Settings, choices save as you change them, and a typed number when you press Enter or leave the field. Other typed text waits for **Save**. Work already running keeps the value it started with.
 

@@ -41,9 +41,9 @@ curl http://localhost:3000/api/health
 
 ::::
 
-- The first command shows the container's state: `Up` while it runs, `Exited (1)` after an error.
+- The first shows the container's state: `Up` while it runs, `(unhealthy)` under Compose when health checks fail, and `Exited (1)` or `Restarting (1)` after a refused proxy setting.
 - The second shows the last 50 lines of the log. An error at start-up is near the end.
-- The third asks Dezfil whether it can serve.
+- The third asks Dezfil whether it can serve. No answer while the container is `Up`: wait 30 seconds, then check the port that `-p` or `ports:` publishes.
 
 ```json title="Output"
 {"status":"ready"}
@@ -53,33 +53,41 @@ As an admin, also open **Settings** > **System**. The **Status** card shows the 
 
 ## Start-up
 
-### The container stops right after it starts
+### Dezfil does not start
 
-`docker ps -a` shows `Exited (1)`, or Compose restarts the container over and over. The end of the log names the cause:
+`curl` answers `Internal Server Error`, and so does every page, while `docker ps` shows the container `Up`. A refused proxy setting stops the container instead: `Exited (1)`, or `Restarting (1)` under Compose. The end of the log names the cause, after `An error occurred while loading instrumentation hook:` or `Error:`.
+
+After a fix, [replace the container](configuration.md#set-a-variable) if you changed a variable, or else run `docker restart dezfil`:
 
 | The log says | Fix |
 |---|---|
 | `Data directory /data is not writable` | The files in the volume belong to another user, often after a restore. Give them to `node`, the user Dezfil runs as, as [Back up and restore](backup-and-restore.md#after-a-restore-the-log-says-data-directory-data-is-not-writable) shows. |
-| `Data directory <PATH> cannot be created` | `DEZFIL_DATA_DIR` names a folder the container cannot create. Remove the variable and replace the container: the image keeps its data in `/data`. |
-| `DEZFIL_SESSION_COOKIE must be a non-empty cookie-name token` | Use only letters, digits, `-` and `_` in the name, or remove the variable. Then replace the container. |
-| `Invalid trusted proxy network` or `Invalid ingress address` | `DEZFIL_TRUSTED_PROXIES` takes IP addresses and CIDR ranges, separated by commas. A host name is refused. Then replace the container. |
-| Any other line, right after an upgrade | Go back to the old version as [Upgrade](upgrade.md#go-back-to-the-old-version) describes, and keep the line for a bug report. |
+| `Data directory <PATH> cannot be created` | `DEZFIL_DATA_DIR` names a folder the container cannot create. Remove the variable: the image keeps its data in `/data`. |
+| `DEZFIL_SESSION_COOKIE must be a non-empty cookie-name token` | Use only letters, digits, `-` and `_` in the name, or remove the variable. |
+| `Invalid trusted proxy network` or `Invalid ingress address` | `DEZFIL_TRUSTED_PROXIES` takes IP addresses and CIDR ranges, as [Trusted proxies](reverse-proxy.md#trusted-proxies) lists. A host name is refused. |
+| Any other line | Right after an upgrade, go back to the old version as [Upgrade](upgrade.md#go-back-to-the-old-version) describes. Otherwise, or as well, keep the line for a bug report. |
 
 ### "port is already allocated" or "address already in use"
 
 `docker run` or `docker compose up` stops with one of these messages. Another container or program holds port 3000 on this machine.
 
-Serve Dezfil on another port: change the first `3000` in `-p 127.0.0.1:3000:3000`, or under `ports:` in `compose.yaml`, and open that port. `docker ps` lists which containers hold which ports.
+Serve Dezfil on another port: change the first `3000` in `-p 127.0.0.1:3000:3000` or under `ports:`. `docker ps` lists which containers hold which ports.
+
+A `docker run` that stopped here made its container all the same. Remove it with `docker rm dezfil` before you run the command again.
 
 ### "The container name "/dezfil" is already in use"
 
-`docker run` or `docker compose up` refuses because a container called `dezfil` exists, often a stopped one. Run `docker rm -f dezfil`, then your command again. The volume keeps your data.
+`docker run` or `docker compose up` refuses because a container called `dezfil` exists, often a stopped one. A new container gets none of its variables, so list them first:
+
+```sh title="Terminal"
+docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' dezfil
+```
+
+The list holds the image's own variables too, such as `PATH` and `DEZFIL_DATA_DIR`. Run `docker rm -f dezfil`, then your command again with the `-e` variables you set, `DEZFIL_SECRET_KEY` among them. The volume keeps your data.
 
 ### Dezfil asks you to create the first account again
 
-The container runs on an empty volume, not the one that holds your data. Do not create an account: the first one becomes the admin.
-
-[Back up and restore](backup-and-restore.md#dezfil-shows-create-the-first-account-after-a-restore-or-a-move) shows how to check which volume the container uses and start it on yours.
+The container runs on an empty volume, not the one that holds your data. Do not create an account: the first one becomes the admin. [Back up and restore](backup-and-restore.md#dezfil-shows-create-the-first-account-after-a-restore-or-a-move) shows how to start it on yours.
 
 ### Health answers "unready"
 
@@ -93,11 +101,15 @@ Dezfil cannot write to its data folder, or it runs without its own start command
 {"status":"unready","reason":"The query engine that runs SQL is not answering."}
 ```
 
-The engine that runs SQL failed to start. The log line after `[health] query engine unavailable:` gives its error. Each health check starts it again, at most every 30 seconds, so health reads `ready` once the cause is gone.
+The engine that runs SQL failed to start, and the log line after `[health] query engine unavailable:` gives its error. Each health check starts it again, at most every 30 seconds, so health reads `ready` once the cause is gone.
+
+**Test** on the **Query engine** row names a missing spatial extension. For another error, keep the log line for a bug report.
 
 ### A variable has no effect
 
 Open **Settings** > **System** and find the variable in **Server settings**. **Environment** under **Source** means the server took it. Any other source means it did not: a container keeps the variables it was created with, so [replace the container](configuration.md#set-a-variable).
+
+With Docker Compose, a line in `.env` reaches Dezfil only when the service has `env_file: .env`, as the file of [Docker Compose](docker-compose.md#2-write-the-compose-file) does. Install's file has none: put the variable under `environment:` instead.
 
 **Default** also shows for a value Dezfil cannot use. The setting's row on its own tab, such as **Limits**, then reads "`<VARIABLE>` in the server's environment is not valid, so the default is used." A number takes digits alone, such as `10240`, in the unit the name ends with.
 
@@ -109,21 +121,17 @@ Dezfil sees another address than your browser, most often `http` where the brows
 
 Set the variable to the address [Trust the proxy](reverse-proxy.md#2-trust-the-proxy) prints, and check that the proxy sends `X-Forwarded-Proto`. Replace the container and sign in again. You should see **Home**.
 
-### Your domain sends the browser to `127.0.0.1:3000`
+### Sign-in links point at `127.0.0.1:3000`
 
-Dezfil builds its redirects and the sign-in links **Users** hands out from the host it receives. nginx sends its own upstream address unless told otherwise.
-
-Make the proxy pass the visitor's host, as in [Set up the proxy](reverse-proxy.md#1-set-up-the-proxy), and trust the proxy. A link you made while you opened Dezfil at another address, such as `http://localhost:3000` over SSH, carries that address: make it again from your domain.
+Dezfil builds the sign-in links **Users** hands out from the host it receives, and nginx sends its own unless told otherwise. [Reverse proxy and HTTPS](reverse-proxy.md#sign-in-links-from-users-point-at-1270013000) shows the fix.
 
 ### Pages show "Invalid request provenance."
 
-Every page answers with this error, as JSON. A trusted proxy sent forwarding headers that disagree, such as `Forwarded` beside different `X-Forwarded-*` values, or an `X-Forwarded-Port` that differs from the port the host names.
-
-Let one proxy set the `X-Forwarded-*` headers and drop `Forwarded`, as [Reverse proxy and HTTPS](reverse-proxy.md#troubleshooting) shows.
+Every page answers with it: a trusted proxy sent forwarding headers that disagree. [Reverse proxy and HTTPS](reverse-proxy.md#troubleshooting) says which, and the fix.
 
 ### Pages say "The instance cannot accept sign-ins yet."
 
-Dezfil runs without its own start command, which every request needs. Remove any `command:` you set for the service in Compose, or anything after the image name in `docker run`, and replace the container.
+Dezfil runs without its own start command, which every request needs. Remove it as [Health answers "unready"](#health-answers-unready) shows.
 
 ### Sign-in says "Too many sign-in attempts. Try again at …"
 
@@ -149,7 +157,7 @@ Give one of them its own name, such as `-e DEZFIL_SESSION_COOKIE=dezfil_session_
 
 The file is larger than **Largest upload**. Raise it in **Settings** > **Limits**, on the **Imports** card. If the row is locked, change `DEZFIL_UPLOAD_MAX_MB` instead and replace the container.
 
-A link import says "The remote file exceeds the cap of … MB." instead: raise **Largest link import** the same way. [Limits](../api/limits.md) gives both ranges.
+A link import names its cap instead, as in "The remote file is … MB; the cap is … MB.": raise **Largest link import** the same way. [Limits](../api/limits.md) gives both ranges.
 
 ### An upload ends with "The connection dropped. The file may still have imported."
 
@@ -161,15 +169,16 @@ Look on the **Data** page first: the file may have arrived. Then raise the proxy
 
 A PostGIS connection, a link import or a service address points at a private network, which Dezfil refuses by default. Inside the container, `localhost` is the container itself, not your machine.
 
-List the host or its range in `DEZFIL_EGRESS_ALLOWLIST` and replace the container. [What leaves the instance](what-leaves-the-instance.md#private-addresses) shows how.
+List the host or its range in `DEZFIL_EGRESS_ALLOWLIST` and replace the container. [Private addresses](what-leaves-the-instance.md#private-addresses) shows how, and which address reaches a database on the Docker host.
 
 ### A query or an import stops at its memory or time limit
 
 | The message ends with | Change |
 |---|---|
-| `Narrow it down, or raise DEZFIL_QUERY_MEMORY_MB.` | `DEZFIL_QUERY_MEMORY_MB`: the memory that queries and tools share |
-| `Reduce the work, or raise DEZFIL_TRUSTED_MEMORY_MB and restart.` | `DEZFIL_TRUSTED_MEMORY_MB`: the memory for imports and other data work |
+| `Narrow it down, or raise DEZFIL_QUERY_MEMORY_MB.` | `DEZFIL_QUERY_MEMORY_MB`, the memory that queries and tools share, then replace the container |
+| `Reduce the work, or raise DEZFIL_TRUSTED_MEMORY_MB and restart.` | `DEZFIL_TRUSTED_MEMORY_MB`, the memory for imports and other data work, then replace the container |
 | `An admin can change "Query time limit".` | **Query time limit** in **Settings** > **Limits** |
+| `Change DEZFIL_QUERY_TIMEOUT_S and restart to change "Query time limit".` | `DEZFIL_QUERY_TIMEOUT_S`, then replace the container |
 
 Both memory budgets come out of the machine's memory, so leave the container room for both. [Limits](../api/limits.md) lists every limit with its setting.
 
@@ -183,11 +192,11 @@ For a key the provider refuses, or a provider the server cannot reach, see [Set 
 
 ### Map cards show no pictures
 
-Admins see "No map pictures: this instance has no renderer." above the cards. In **Settings** > **System**, click **Test** on the **Image renderer** row:
+Admins see "No map pictures: this instance has no renderer." at the foot of the page. In **Settings** > **System**, click **Test** on the **Image renderer** row:
 
 | The row says | Fix |
 |---|---|
-| **Not found**, and the test says "The image renderer's browser is not where its setting points." | `DEZFIL_CHROMIUM_PATH` names a file that is not there. In the container, remove the variable: the image brings Chromium at `/usr/bin/chromium`. |
+| **Not found**, and the test says "The image renderer's browser is not where its setting points." | `DEZFIL_CHROMIUM_PATH` names a file that is not there. In the container, remove the variable: the image brings Chromium where [Storage and programs](configuration/storage.md) says. A checkout needs Chromium added, as [Development setup](../contribute/development-setup.md#add-the-programs-the-container-brings) shows. |
 | **Could not start** | Chromium is there, but its launch failed. If you set `DEZFIL_CHROMIUM_PATH`, check that it names a Chromium browser. |
 
 After a fix, replace the container: Dezfil looks for the renderer as it starts, then once an hour. Image exports through the API or the assistant fail with "The image renderer's browser is not available on this instance." for the same reasons.
@@ -196,9 +205,7 @@ After a fix, replace the container: Dezfil looks for the renderer as it starts, 
 
 ### You forgot the admin password
 
-If no other admin can sign in, run the recovery script on the server. It prints a one-time link, valid for 15 minutes, with which the admin chooses a new password.
-
-[Recover the admin account](users.md#recover-the-admin-account) gives the command for Docker, Docker Compose and a checkout, and what each of the script's messages means.
+If no other admin can sign in, run the recovery script on the server: it prints a one-time link to choose a new password. [Recover the admin account](users.md#recover-the-admin-account) gives the command, and [its messages](users.md#the-recovery-script-stops-with-a-message) what to do when it stops.
 
 ### A link says "This sign-in link is unavailable."
 
@@ -212,7 +219,9 @@ Dezfil runs with another encryption key than the one that saved them, often afte
 
 ### The log says "DEZFIL_SECRET_KEY must be 64 hex characters (32 bytes)."
 
-The key you set has another form, so Dezfil encrypted nothing with it. [Docker Compose](docker-compose.md#troubleshooting) shows how to replace it.
+The key you set has another form, so Dezfil encrypted nothing with it. **Encryption key** still reads **Set**, and saving an address fails with "An unexpected server error occurred."
+
+Give the variable the key you kept and replace the container, as [Docker Compose](docker-compose.md#settings-says-the-instances-encryption-key-cannot-read-the-saved-address-save-it-again) shows for `.env`.
 
 ## Next steps
 
