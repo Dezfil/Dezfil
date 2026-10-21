@@ -9,7 +9,6 @@ read_when:
   - "you regenerate the docs index, the design specimen or another generated file"
 audience:
   - developer
-  - agent
 checked: none
 order: 1
 moved_from:

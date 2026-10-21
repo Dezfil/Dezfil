@@ -9,7 +9,6 @@ read_when:
   - "you add an API operation and want the UI, the assistant and MCP clients to get it"
 audience:
   - developer
-  - agent
 checked: none
 order: 2
 moved_from:

@@ -10,6 +10,7 @@ audience:
   - user
   - operator
   - developer
+  - agent
 checked: none
 order: 2
 moved_from:

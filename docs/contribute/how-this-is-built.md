@@ -9,7 +9,6 @@ read_when:
   - "a pull request check says a commit is not signed off or its message carries an internal reference"
 audience:
   - developer
-  - agent
 checked: none
 order: 3
 moved_from:

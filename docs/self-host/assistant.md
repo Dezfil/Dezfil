@@ -9,7 +9,6 @@ read_when:
   - "the assistant pane shows an error instead of an answer"
 audience:
   - operator
-  - agent
 checked: none
 order: 4
 ---

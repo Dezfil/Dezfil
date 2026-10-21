@@ -9,6 +9,7 @@ read_when:
   - "you want the Dezfil skill and references in Claude Code or Codex"
 audience:
   - user
+  - operator
   - developer
   - agent
 checked: none
