@@ -86,6 +86,16 @@ console.log(JSON.stringify(await response.json(), null, 2));
 - `expiresAt` stays `null` unless an admin sets **New tokens expire after** in **Settings** › **Security**, as [Security and rules](../self-host/configuration/rules.md) describes.
 - `-c cookies.txt` keeps the session cookie of the sign-in, whose own answer `-o /dev/null` drops, and `-b cookies.txt` sends it back. `rm cookies.txt` deletes it.
 
+To keep the token in your shell rather than copy it, run the token request through [jq](https://jqlang.org) in place of the script's second command. It prints nothing:
+
+```sh title="Terminal"
+export DEZFIL_API_TOKEN="$(curl -s -b cookies.txt http://localhost:3000/api/account/tokens \
+  -H "Content-Type: application/json" -H "Origin: http://localhost:3000" \
+  -d '{"name": "Quickstart"}' | jq -r .secret)"
+```
+
+Then write `$DEZFIL_API_TOKEN` where a curl call shows `<YOUR_TOKEN>`, as in `-H "Authorization: Bearer $DEZFIL_API_TOKEN"`. In JavaScript, `process.env.DEZFIL_API_TOKEN` reads it, and [Connect an AI agent](mcp.md) uses the same variable.
+
 ## Step 2: List your maps
 
 ::::tabs
@@ -347,7 +357,7 @@ Open `http://localhost:3000/v/<PUBLISH_TOKEN>`. You should see the map with its 
 
 ### A call answers 401 `authentication_required`
 
-The call carried no token, or one Dezfil doesn't accept. Check that the `Authorization` header holds the whole token, beginning `dz_token_`. A revoked token answers the same: create a new one.
+The call carried no token, or one Dezfil doesn't accept. Check that the `Authorization` header holds the whole token, beginning `dz_token_`. A revoked token answers the same: create a new one. A token past its `expiresAt` answers 401 `token_expired` instead, and needs a new one too.
 
 From the curl script of step 1, this answer to the token request means the sign-in before it failed. Check the email, the password and the `Origin` header.
 
