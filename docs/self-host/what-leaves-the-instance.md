@@ -158,7 +158,7 @@ services:
 - `DEZFIL_BASEMAP_URL` is a MapLibre style address. Maps on **Auto**, the default for new maps, draw on it in both themes. Browsers load it directly, so it must be reachable from them.
 - `DEZFIL_BASEMAP_ATTRIBUTION` is the credit line those maps show. Unset, they show none.
 - `DEZFIL_OVERPASS_URL` sends **OpenStreetMap** imports to your Overpass server.
-- `DEZFIL_EGRESS_ALLOWLIST` is needed only for hosts on a private network. The server draws map pictures through the same check, so list every host your style names: the style's own, and those of its tiles, fonts and icons.
+- `DEZFIL_EGRESS_ALLOWLIST` is needed only for hosts on a private network. It is one list: add these hosts to any you listed under [Private addresses](#private-addresses). The server draws map pictures through the same check, so list every host your style names: the style's own, and those of its tiles, fonts and icons.
 
 You should see, in **Settings** > **System** > **Server settings**, the **Basemap address** and **Overpass endpoint** rows with your hosts and the **Source** **Environment**.
 
