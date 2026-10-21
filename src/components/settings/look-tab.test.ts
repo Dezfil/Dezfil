@@ -81,10 +81,10 @@ describe("a card's writes", () => {
     expect(server.calls[1].patch).toEqual({ color: "kelp", contrast: "standard" });
   });
 
-  it("return what is in sight when the card's Reset is pressed: Transparency with Panels and Background only under Liquid", async () => {
+  it("return Transparency to Clear with Panels and Background at the card's Reset, in sight under Liquid or kept out of sight under Paper", async () => {
     for (const [panels, hidden, reset, undo] of [
       ["liquid", [], { panels: "glass", transparency: "clear", background: "atlantic" }, { panels: "liquid", transparency: "firm", background: "plain" }],
-      ["paper", ["look.transparency"], { panels: "glass", background: "atlantic" }, { panels: "paper", background: "plain" }],
+      ["paper", ["look.transparency"], { panels: "glass", transparency: "clear", background: "atlantic" }, { panels: "paper", transparency: "firm", background: "plain" }],
     ] as const) {
       const server = fakeServer({ ...HARBOR, panels, transparency: "firm", background: "plain" });
       const card = lookUnit(LOOK_CARDS[1], server.stored(), new LookWriter(server.send));

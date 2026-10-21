@@ -41,7 +41,7 @@ There is no Save button: each pick is kept the moment you click it. Every row wo
 | **Layout** | **Corners** | **Rounded**, **Soft** | The rounded edges of cards, fields, buttons and panels. **Soft** is tighter. |
 | | **Side menu** | **Opens on hover**, **Always open**, **Icons only** | How the side menu opens: when your pointer or focus rests on it, always open with labels, or icons only. |
 
-To go back, click **Reset to defaults** at the top right of a card. It shows while one of the card's rows differs from the default, and returns those rows.
+To go back, click **Reset to defaults** at the top right of a card. It shows while one of the card's rows differs from the default, and returns every row of the card, **Transparency** too while it is out of sight.
 
 **Reset to Dezfil's default**, at the right of the **Settings** heading, returns every pick at once. It shows while any pick differs from the default.
 
