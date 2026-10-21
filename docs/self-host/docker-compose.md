@@ -83,6 +83,8 @@ If you used the Compose tab of Install, replace its `compose.yaml` with this one
 
 ## 3. Make the keys file
 
+If step 1 gave you a key, write it into `.env` as the line `DEZFIL_SECRET_KEY=<64_HEX_CHARACTERS>` and run `chmod 600 .env`, in place of the commands below. Otherwise make a new key:
+
 ```sh title="Terminal"
 printf 'DEZFIL_SECRET_KEY=%s\n' "$(openssl rand -hex 32)" > .env
 chmod 600 .env
@@ -92,7 +94,7 @@ chmod 600 .env
 - `openssl rand -hex 32` makes a random key of that length.
 - `chmod 600 .env` lets only your user read the file. Git ignores `.env`, and Docker leaves it out of the image it builds.
 
-If step 1 gave you a key, write that one instead, as the line `DEZFIL_SECRET_KEY=<64_HEX_CHARACTERS>`, and run `chmod 600 .env`. With a new key in `.env` from the first start, a copy of the volume alone cannot read those passwords.
+With a new key in `.env` from the first start, a copy of the volume alone cannot read those passwords.
 
 Add the other variables you noted in step 1, one `NAME=value` line each, or put them under `environment:` in `compose.yaml` as [Configuration](configuration.md#set-a-variable) shows. To turn on the assistant, add its key to `.env`:
 
