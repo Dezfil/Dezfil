@@ -24,7 +24,7 @@ order: 7
 
 ## Put your work in a project
 
-A project holds maps, workflows and datasets. The people you share it with reach everything filed in it. Work in no project stays private to its owner.
+A project holds maps, workflows and datasets. The people you share it with reach everything filed in it. Work in no project stays private to its owner. To share one map alone, give it a project of its own.
 
 1. Open **Projects** in the side menu and click **New project**.
 2. Type a **Name** of up to 120 characters and click **Create**. You should see the new project's card.
@@ -47,9 +47,9 @@ Only the project's owner shares it.
 
 You should see the person under **People with access**, and a line such as **Added Ana Diaz as Viewer.** at the bottom of the dialog.
 
-The project appears on their **Projects** page, and its card shows your first name and their role.
+The project appears on their **Projects** page, and its card shows your first name and their role. Dezfil sends no notice: tell them yourself.
 
-You can add only people with an active account on your Dezfil. An admin invites people on the **Users** page. See [Users](../self-host/users.md).
+You can add only people with an active account on your Dezfil. An admin invites the others on [Users](../self-host/users.md).
 
 ## What Viewers and Editors can do
 
@@ -70,7 +70,7 @@ Some acts stay with one person, whatever the roles:
 - Only a map's owner publishes it, changes its publication, unpublishes it or deletes it.
 - Only the project's owner renames, shares, hands over or deletes it. They can also edit every map and workflow in it.
 
-Being an admin gives you no access to anyone's work.
+Admins get no access to anyone's work.
 
 Database connections are never shared. A dataset that refreshes from your PostGIS connection stays yours to refresh, and the **Share** dialog names each one.
 
@@ -84,7 +84,7 @@ The project's owner does all of this in the **Share** dialog:
 - **Remove someone:** point at their row and click the cross. **Undo** at the bottom of the dialog puts them back. Nothing they own is deleted.
 - **Hand the project over:** click **Owner** on your row and pick **Transfer ownership…**, or pick **Make owner** in a member's role menu. Choose the new owner and click **Transfer ownership**.
 
-After a hand-over you stay as an Editor, and every item keeps its owner. Only an active member can receive a project.
+After a hand-over you stay an Editor, and every item keeps its owner. Only an active member can receive a project.
 
 To leave a project shared with you, click **⋯** on its page, pick **Leave project** and confirm. What you made there stays yours and stays in the project.
 
@@ -111,7 +111,7 @@ To change what readers can do, click **Published** at the top right:
 - **Opens in**: **Light** or **Dark**. A map opens in the mode you published it in, and follows when you switch the app's theme in its builder.
 - **Readers can**: untick **3D tilt**, **Fit to data**, **Light / dark**, **Basemap picker** or **Cursor coordinates**. All are on at first, and **Zoom** and **North** always stay.
 
-These changes keep the same link and reach readers on their next load.
+These changes keep the link and reach readers on their next load.
 
 To stop sharing, click **Published**, then **Unpublish**. The link stops working at once, and readers see **Map not found**. Publishing the map again gives it a new link, opening in the mode you are working in, with every control on.
 
@@ -158,7 +158,7 @@ On the **Maps** page, a card's **Publish map** publishes a draft, and **Copy sha
 
 The options change only the image, never the map. A new dialog opens at 1920 pixels wide and **4:3**; an admin changes that in **Settings** › **Publishing** › **Image export**.
 
-To download a layer's data rather than a picture, pick **Data** in the same menu.
+For a layer's data rather than a picture, pick **Data** in the same menu.
 
 ## Export a project
 
@@ -167,7 +167,7 @@ To download a layer's data rather than a picture, pick **Data** in the same menu
 3. Under **Review**, choose the **Dataset format**: **GeoParquet**, **GeoJSON** or **CSV**.
 4. Click **Download**. You should see your browser save a zip file named after the project.
 
-The zip holds the maps and workflows as JSON, without published links. Its datasets upload to any Dezfil as files; Dezfil has no import for the maps and workflows.
+The zip holds the maps and workflows as JSON, without published links. Its datasets upload to any Dezfil as files; the maps and workflows have no import.
 
 ## Troubleshooting
 
@@ -175,7 +175,7 @@ The zip holds the maps and workflows as JSON, without published links. Its datas
 
 **Publishing says "You can view this but cannot make this change."** The map belongs to someone else in the project. Ask its owner to publish it.
 
-**The person you want to add is not found: "No account with that name." or "No account with that email."** Type part of their name, or their whole email address. They need an active account, which an invited person has once they have used their sign-in link.
+**The person you want to add is not found: "No account with that name." or "No account with that email."** Type part of their name, or their whole email address. They need an active account: an invited person has one once they use their sign-in link.
 
 **The embedded map does not show on your site.** Embedding is **Off**, or your site is not listed. Ask an admin for **Any site**, or to add your site's address under **Listed sites**, such as `https://intranet.example.com`.
 
