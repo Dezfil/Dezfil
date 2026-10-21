@@ -108,10 +108,10 @@
       "kind": "picture",
       "theme": "dark",
       "version": "0.1.0",
-      "date": "2026-10-20",
+      "date": "2026-10-21",
       "width": 1536,
       "height": 1296,
-      "bytes": 47436,
+      "bytes": 47676,
       "crop": {
         "x": 336,
         "y": 126,
@@ -125,10 +125,10 @@
       "kind": "picture",
       "theme": "light",
       "version": "0.1.0",
-      "date": "2026-10-20",
+      "date": "2026-10-21",
       "width": 1536,
       "height": 1296,
-      "bytes": 47708,
+      "bytes": 48680,
       "crop": {
         "x": 336,
         "y": 126,
@@ -142,10 +142,10 @@
       "kind": "picture",
       "theme": "dark",
       "version": "0.1.0",
-      "date": "2026-10-20",
+      "date": "2026-10-21",
       "width": 2880,
       "height": 1800,
-      "bytes": 132130
+      "bytes": 130634
     },
     {
       "file": "start/first-map-finished.webp",
@@ -153,10 +153,10 @@
       "kind": "picture",
       "theme": "light",
       "version": "0.1.0",
-      "date": "2026-10-20",
+      "date": "2026-10-21",
       "width": 2880,
       "height": 1800,
-      "bytes": 160656
+      "bytes": 157464
     },
     {
       "file": "start/first-map-publish.dark.webp",
@@ -164,10 +164,10 @@
       "kind": "picture",
       "theme": "dark",
       "version": "0.1.0",
-      "date": "2026-10-20",
+      "date": "2026-10-21",
       "width": 1112,
       "height": 432,
-      "bytes": 15012,
+      "bytes": 14908,
       "crop": {
         "x": 884,
         "y": 0,
@@ -181,10 +181,10 @@
       "kind": "picture",
       "theme": "light",
       "version": "0.1.0",
-      "date": "2026-10-20",
+      "date": "2026-10-21",
       "width": 1112,
       "height": 432,
-      "bytes": 17760,
+      "bytes": 17498,
       "crop": {
         "x": 884,
         "y": 0,
