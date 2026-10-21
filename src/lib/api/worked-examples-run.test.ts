@@ -22,6 +22,13 @@ import { buildOpenApiDocument } from "./openapi";
  * and a seeded wrong one is named.
  */
 
+// Whether the tile builder and the image renderer are there is a file check
+// where their settings point, on the machine the test runs on. The examples
+// were read where the tile builder is on the search path and no browser is
+// where the image renderer's setting points, so for this test the check
+// answers as it did there, whatever this machine has.
+vi.mock("@/lib/system/executable", () => ({ executableFound: (program: string) => program === "tippecanoe" }));
+
 const ADDRESS = "http://localhost:3000";
 const PORT = "3452";
 const READER = { name: "Ana Diaz", email: "ana@example.com", password: "field notebooks at dawn" };
@@ -328,8 +335,9 @@ describe("the worked examples, sent to an instance in the quickstart's order", (
 
     // The same answers against a copy of the description whose examples
     // were changed: a wrong count, a wrong city, a renamed field, the map's
-    // identifier written two ways, an identifier where there is none, and
-    // a data folder other than the one the example was read on.
+    // identifier written two ways, an identifier where there is none, a
+    // data folder other than the one the example was read on, and an image
+    // renderer found where that host had none.
     const seeded = structuredClone(document);
     const uploaded = placedAnswer(seeded, "POST /api/tables", "quickstart").value as Record<string, unknown>;
     uploaded.rowCount = 47;
@@ -339,7 +347,9 @@ describe("the worked examples, sent to an instance in the quickstart's order", (
     media.value = Object.fromEntries(Object.entries(queried).map(([field, value]) => [field === "rowCount" ? "rowCuont" : field, value]));
     (placedAnswer(seeded, "POST /api/maps/{id}/layers", "quickstart").value as Record<string, unknown>).mapId = "99999999-8888-4777-8666-555555555555";
     (placedAnswer(seeded, "GET /api/maps", "afterQuickstart").value as Record<string, unknown>[])[0].publishToken = "33333333-4444-4555-8666-777777777777";
-    (placedAnswer(seeded, "GET /api/instance/settings", "defaults").value as { settings: Record<string, { value: unknown }> }).settings.dataDir.value = "/srv/elsewhere";
+    const settings = placedAnswer(seeded, "GET /api/instance/settings", "defaults").value as { settings: Record<string, { value: unknown }>; parts: { image_renderer: { found: boolean } } };
+    settings.settings.dataDir.value = "/srv/elsewhere";
+    settings.parts.image_renderer.found = true;
     expect(problems(seeded, answered, ran)).toEqual([
       "POST /api/tables quickstart: the answer.rowCount: the example shows 47, the instance answers 48",
       "POST /api/query quickstart: the answer.rowCuont: the example shows it, the instance answers no such field",
@@ -348,6 +358,7 @@ describe("the worked examples, sent to an instance in the quickstart's order", (
       "POST /api/maps/{id}/layers quickstart: the answer.mapId: the example shows 99999999-8888-4777-8666-555555555555 for the value it showed as 2f6e9c41-8d3b-4a7e-b1f5-6c0d2e8a9b34 before",
       "GET /api/maps afterQuickstart: the answer[0].publishToken: the example's 33333333-4444-4555-8666-777777777777 stands for an identifier, the instance answers null",
       'GET /api/instance/settings defaults: the answer.settings.dataDir.value: the example shows "/srv/elsewhere", the instance answers "/data"',
+      "GET /api/instance/settings defaults: the answer.parts.image_renderer.found: the example shows true, the instance answers false",
     ]);
   }, 120_000);
 });
