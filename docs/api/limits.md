@@ -72,7 +72,7 @@ On the **SQL** page the same query shows **Showing the first 1,000 of 1,001 rows
 | Work that runs past its time | 408, or 504 for a link import's download, and a code that names the limit. The work stops. | 408 `query_timeout` |
 | A full queue, or too many requests | 409, 429 or 503. Retry later. | 429 `rate_limited` |
 
-An MB, here, in **Settings** and in Dezfil's messages, is 1,048,576 bytes, a MiB: the 32 MB of a message is 33,554,432 bytes. Only **Engine memory** and **Trusted engine memory** count an MB as 1,000,000 bytes.
+An MB, here, in **Settings** and in Dezfil's messages, is 1,048,576 bytes, a MiB: the 32 MB that `query_result_too_large` names is 33,554,432 bytes. Only **Engine memory** and **Trusted engine memory** count an MB as 1,000,000 bytes.
 
 Most refusals at a setting's limit say in their `message` which setting changes it, such as `An admin can change "Query time limit".` A few call the setting by another name than **Settings** › **Limits** does: the `label` that `GET /api/instance/settings` gives each setting is the one the message uses. [Errors](errors.md) shows the parts of an error answer.
 
@@ -219,7 +219,7 @@ A value's quotes and escaping count toward its size. A geometry column counts to
 
 Row and engine-memory limits still apply: a result below both byte ceilings can fail the engine-memory limit while the query runs.
 
-Downloads and saved datasets take the complete result. SQL, table and layer file exports stream every row, above both byte limits. [Errors](errors.md#answers-too-large-to-return) shows both from a script.
+Downloads and saved datasets take the complete result. SQL, table and layer file exports stream every row, above both byte limits. [Errors](errors.md#answers-too-large-to-return) says what to do at each read.
 
 An inspection that is still too large keeps the dataset's page and its **Set geometry** panel from opening. It also blocks tool column pickers, SQL schema inventory and completion, workflow dataset reads and facts, and automatic layer addition after a tool run.
 

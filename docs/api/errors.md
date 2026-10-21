@@ -123,7 +123,7 @@ Agents can read the same list from the [API description](openapi.json):
 | `sql_error` | 400 | The SQL failed to parse or run, or it names a dataset you cannot reach. | Fix the SQL. `position` points at the problem when the engine gives one. Another person's dataset is `<sql name>.<dataset>`: see [Who may do what](http-api.md#who-may-do-what). |
 | `query_timeout` | 408 | The query ran past the instance's query time limit. | Narrow the query, with a `WHERE` or fewer columns. The message names the setting that raises the limit. See [Limits](limits.md). |
 | `query_memory_exceeded` | 400 | The query needed more memory than the engine allows SQL. | Narrow the query, or ask the operator to raise `DEZFIL_QUERY_MEMORY_MB`. |
-| `query_result_too_large` | 422 | The answer is over 32 MiB, or holds one value over 2 MiB. A query answers this, and so do a dataset's page, a geometry or PostGIS preview, a layer's filter values and a category fill. | Narrow the query, as [Query with SQL](../use/sql.md#troubleshooting) shows, or keep every row in a file or a dataset: see [Answers too large to return](#answers-too-large-to-return). |
+| `query_result_too_large` | 422 | The answer, or one value in it, is over a byte limit, so no rows come back. A query answers this, and so do a dataset's page, a geometry or PostGIS preview, a layer's filter values and a category fill. | Narrow the query, or keep every row: [Answers too large to return](#answers-too-large-to-return) says what to do at each read. |
 
 ### Busy or failing server
 
@@ -135,7 +135,14 @@ Agents can read the same list from the [API description](openapi.json):
 
 ## Answers too large to return
 
-`query_result_too_large` refuses an answer over 32 MiB, or one with a value over 2 MiB. [Limits](limits.md#sql-results) gives the exact rule.
+[Limits](limits.md#sql-results) gives the two byte limits behind `query_result_too_large`, and how geometry counts. No setting raises them, so what to do depends on the read that answers it:
+
+| The read | What to do |
+|---|---|
+| A query, on the **SQL** page, with `POST /api/query` or `run_sql` | Narrow it, as [Query with SQL](../use/sql.md#troubleshooting) shows. To keep every row, [download it](#download-every-row) or [save it as a dataset](#save-every-row-as-a-dataset). In the app, a **SQL step** in a [workflow](../use/workflows.md) saves it. |
+| A dataset's page, or its **Set geometry** panel | Keep a copy without the large column, as [A dataset's page does not open](#a-datasets-page-does-not-open) shows. |
+| A layer's **Filters** or **Color by**, or a **Category** widget's **Group by** | Choose another column: one with a value that long holds no categories. |
+| The PostGIS five-row preview | Import the table all the same: an import is not held to these limits. |
 
 ### Download every row
 
@@ -181,11 +188,11 @@ Mexico City,Mexico,19028000
 - `sql` is your query, here over the `world_cities` dataset of the [API quickstart](quickstart.md).
 - `format` is `csv`, `geoparquet` or `geojson`. CSV writes geometry as WKT text. GeoJSON needs a geometry column and uses the first one.
 - `name` names the file, here `largest_cities.csv`. Without it the file is `query_result.csv`.
-- curl prints the file. Add `-o largest_cities.csv` to save it instead, as you would for a large result.
+- curl prints the file. To save it instead, add `-o largest_cities.csv -w "%{http_code}\n"`: `200` means the file holds the rows, and any other status that it holds the error answer.
 
 The export still keeps to the **Query time limit** and **Engine memory**, so it can answer `query_timeout` or `query_memory_exceeded`. The [operation reference](https://dezfil.io/docs/api/reference/query/#post-api-query-export) gives every field.
 
-Over MCP, the tool `export_sql_result` hands the file back to the agent, up to **Tool attachment size**: 32 MB unless the operator changes it. A larger file fails with `attachment_too_large`, so download it over HTTP.
+Over MCP, the tool `export_sql_result` hands the file back to the agent, up to **Tool attachment size**. A larger file fails with `attachment_too_large`: download it over HTTP, or save the rows as a dataset with `run_operation`, as the next section shows.
 
 ### Save every row as a dataset
 
@@ -261,12 +268,6 @@ Run it with `node read-run.mjs`.
 
 The [operation reference](https://dezfil.io/docs/api/reference/operations/#post-api-operations-run) gives every field of a run.
 
-### A dataset's page does not open
-
-A dataset whose first 50 rows are too large to return keeps its page and **Set geometry** closed. Text there shows only its first 512 characters, so a value too large is of another kind, such as a second geometry column, JSON, a list or a binary value.
-
-To use the dataset again, keep a copy without that column. On the **SQL** page, run `SELECT * EXCLUDE (<COLUMN>) FROM <DATASET>`, then click **Save as dataset**. The copy's page opens.
-
 ## Handle errors in your code
 
 This helper returns the answer of a successful call and throws on an error,
@@ -337,6 +338,20 @@ path and its spelling against the
 
 Check that you send the revision from the latest answer, not from your first
 read. [Edit with revisions](http-api.md#edit-with-revisions) shows the chain.
+
+### A dataset's page does not open
+
+A dataset whose first 50 rows are too large to return keeps its page and **Set geometry** closed, and its inspection answers `query_result_too_large`. Text there shows only its first 512 characters, so the large value is of another kind, such as JSON, a list, a binary value or a second geometry column.
+
+To find its column, run this on the **SQL** page, or with `POST /api/query` or `run_sql`:
+
+```sql title="SQL"
+SELECT max(length(CAST(COLUMNS(*) AS VARCHAR))) FROM <DATASET>;
+```
+
+It answers one row: the length of each column's longest value, in characters, under the column's name. The column to leave out shows a number in the millions. The dataset's own geometry column does not count.
+
+Keep a copy without that column: on the **SQL** page, run `SELECT * EXCLUDE (<COLUMN>) FROM <DATASET>` and click **Save as dataset**. If that query answers `query_result_too_large` too, save it as a **SQL step** in a [workflow](../use/workflows.md), or as [Save every row as a dataset](#save-every-row-as-a-dataset) shows. The copy's page opens.
 
 ### The message says more than the catalogue
 
