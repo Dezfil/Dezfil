@@ -16,17 +16,17 @@
 //   the builder, in full screen and on a published page.
 // - The blocks inside the builder's panels (a legend entry in the Legend
 //   tab, a widget's row, a basemap's card, a tool's picker and result) lie
-//   on the raised or the panel tone with the hairline and no shadow, and
-//   the widget card over the map is the panel tone with the hairline, no
-//   blur and no shadow.
+//   on the glass of the raised or the panel tone with the hairline, no blur
+//   of their own and no shadow, and the widget card over the map is the
+//   glass with the hairline, the overlay blur and no shadow.
 // - Every glass and overlay surface computes its blur, never none; the five
 //   surfaces the workflow page's own blur check names are among them.
 // - The blur is drawn, not only computed: a hard edge of a drawn layer goes
 //   soft under the legend and under a map button inside the map card, and
 //   stays sharp in the same pixel row beside them.
 // - What stays deliberate: the rail opened over the page is solid on the
-//   lift with its one side layer, a menu and a dialog open solid, the
-//   note's colour bar is glass, the veil behind a dialog is as it was.
+//   lift with its one side layer, the note's colour bar is glass, the veil
+//   behind a dialog is as it was.
 // - A published page in its dark mode draws on the dark tones.
 // - A role restated on the root (the way a look will restate it) moves
 //   every member of that role on the screen and nothing else, and the
@@ -115,8 +115,8 @@ const STEPS: Record<Step, [y: number, blur: number, share: number]> = {
   dialog: [30, 80, 1],
 };
 
-/** The roles' values after the move: how much of the tone the fill is
- * (0.93 the glass level, 1 solid, 0 no fill of its own) and which tone (the
+/** The roles' values: how much of the tone the fill is (0.93 the glass
+ * level, 0 no fill of its own) and which tone (the
  * panel's, or the raised step), the background blur, whether the edge is
  * the hairline (else none), the shadow step (or none), and the corner where
  * the role has one (else each member keeps its own). */
@@ -125,13 +125,13 @@ const ROLE_VALUES: Record<Role, { fill: number; tone?: "raised"; blur: string; e
   "glass-panel": { fill: 0.93, blur: "blur(18px)", edge: false, shadow: "float", corner: "20px" },
   "overlay-panel": { fill: 0.93, blur: "blur(8px)", edge: false, shadow: "overlay" },
   "overlay-control": { fill: 0.93, blur: "blur(8px)", edge: false, shadow: "float" },
-  "map-card": { fill: 1, blur: "none", edge: true, shadow: null },
-  "page-card": { fill: 1, blur: "none", edge: true, shadow: "float", corner: "20px" },
-  "inner-card": { fill: 1, blur: "none", edge: true, shadow: "hairline" },
+  "map-card": { fill: 0.93, blur: "blur(8px)", edge: true, shadow: null },
+  "page-card": { fill: 0.93, blur: "blur(18px)", edge: true, shadow: "float", corner: "20px" },
+  "inner-card": { fill: 0.93, blur: "none", edge: true, shadow: "hairline" },
   // A block on the panel tone says so (see `panelTone`).
-  block: { fill: 1, tone: "raised", blur: "none", edge: true, shadow: null },
-  menu: { fill: 1, blur: "none", edge: true, shadow: "lift" },
-  dialog: { fill: 1, blur: "none", edge: true, shadow: "dialog", corner: "20px" },
+  block: { fill: 0.93, tone: "raised", blur: "none", edge: true, shadow: null },
+  menu: { fill: 0.93, blur: "blur(8px)", edge: true, shadow: "lift" },
+  dialog: { fill: 0.93, blur: "blur(18px)", edge: true, shadow: "dialog", corner: "20px" },
   stage: { fill: 0, blur: "none", edge: false, shadow: "deep", corner: "20px" },
 };
 
