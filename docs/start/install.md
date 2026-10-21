@@ -146,7 +146,7 @@ A checkout lacks two programs the container brings, `tippecanoe` for the tiles o
 
 ::::
 
-If the check answers `unready`, or nothing at all, the logs say why: run `docker logs dezfil` or `docker compose logs`, or read the terminal that runs `npm run dev`. See [Troubleshooting](../self-host/troubleshooting.md#start-up).
+If the check answers `Internal Server Error` or `unready`, or nothing at all, the logs say why: run `docker logs dezfil` or `docker compose logs`, or read the terminal that runs `npm run dev`. See [Troubleshooting](../self-host/troubleshooting.md#start-up).
 
 ## First run
 
