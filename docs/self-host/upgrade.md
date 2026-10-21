@@ -27,7 +27,7 @@ git diff HEAD origin/main -- CHANGELOG.md
 - `git fetch` downloads the new version and leaves your files as they are.
 - `git diff` shows what the new version adds to the changelog, on lines that start with `+`.
 
-Read the entries that begin with "Breaking" or "Compatibility". They say what you or your API clients must change. The [changelog](../../CHANGELOG.md) lists every version.
+Read the entries that begin with "Breaking" or "Compatibility". They say what you or your API clients must change, and what the new version changes in your data. The [changelog](../../CHANGELOG.md) lists every version.
 
 ## 2. Back up
 
@@ -108,18 +108,7 @@ Before it answers any request, Dezfil brings its metadata database up to date. T
 - Each change is applied whole or not at all. If one fails, the server stops with the error in its log, and the next start tries that change again.
 - Your datasets' files and `secret.key` stay as they are.
 
-Some updates also change what your data means. The first version that has one applies it once:
-
-| Update | What it does to your data |
-|---|---|
-| Owners | Every map, dataset, workflow, connection and project goes to the recorded original account, the one made at setup, even when another account is the admin or it is deactivated. With no account yet, setup gives them to the account it makes. Other accounts start with nothing of their own. |
-| Names | Dataset and connection names need to be unique only within one owner's work, so two accounts can each have a `roads`. |
-| SQL names | Each account gets a SQL name, made from its display name and kept when the name changes. Other people's queries name its datasets with it, as [Query with SQL](../use/sql.md#other-peoples-datasets) shows. |
-| SQL homes | Each map and workflow takes its owner's SQL name as its home. A plain dataset name in its SQL means that account's dataset, whoever opens it. |
-| Deleted accounts | A deleted account keeps its SQL name for good, so maps that name its datasets never reach an account made later. |
-| Who changed what | Maps and workflows show **Unknown** as the author of changes made before the update. Changes after it name the account that made them. |
-
-These updates share nothing: every project keeps its owner, and has no members until its owner adds people.
+When an update also changes what your data means, such as who owns it, the changelog says so in a "Compatibility" entry.
 
 ## Go back to the old version
 
