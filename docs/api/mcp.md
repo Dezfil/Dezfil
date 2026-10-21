@@ -1,6 +1,6 @@
 ---
 title: "Connect an AI agent"
-summary: "Connect Claude Code, Codex, Cursor or another MCP client to Dezfil, so an agent can work with your maps, data and workflows, and add the Dezfil plugin."
+summary: "Connect Claude Code, Codex, Cursor or another MCP client to Dezfil and add the Dezfil plugin, so an agent can work with your maps, data and workflows."
 read_when:
   - "you want an AI agent to build maps, query data or run workflows in Dezfil"
   - "you add Dezfil to Claude Code, Codex, Cursor or another MCP client"
