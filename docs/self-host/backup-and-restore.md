@@ -45,7 +45,7 @@ Copied
 
 `File exists` instead means an earlier backup is there: move it away, as with `mv "$HOME/dezfil-backup" "$HOME/dezfil-backup-1"`, and run the commands again. The folder holds `metadata.sqlite`, and `secret.key` once Dezfil has made a key.
 
-Also write down the version and the settings. In the `Dezfil` folder, `git rev-parse --short HEAD` prints the commit you built. The settings are your `docker run` command's `-e` variables, which `docker inspect dezfil` lists under `Env`, or `compose.yaml` and `.env`. Keep `.env` apart from the backup.
+Also write down the version and the settings. In the `Dezfil` folder, `git rev-parse --short HEAD` prints the commit you built. The settings are your `docker run` command's `-e` variables, which `docker inspect dezfil` lists under `Env`, or `compose.yaml` and `.env`.
 
 > [!WARNING]
 > The backup holds every account's password hash and, as `secret.key`, the encryption key. Keep every copy of it where only you can read it, as the command leaves this one.
@@ -86,12 +86,9 @@ The key is in one of two places:
 
 To see which, open **Settings** > **System**. In **Server settings**, the **Encryption key** row reads **secret.key in the data folder**, **Not created yet** or **Set**. **Set** means the key comes from `DEZFIL_SECRET_KEY`, and the **Source** column reads **Environment**.
 
-If you set `DEZFIL_SECRET_KEY`, keep its value, as in the `.env` file of [Docker Compose](docker-compose.md), apart from the backup folder. A restore needs it, unless the backup holds the same key as `secret.key`, as it does for a key you moved from the file into the variable.
+If you set `DEZFIL_SECRET_KEY`, keep its value, as in the `.env` file of [Docker Compose](docker-compose.md), apart from the backup folder. A restore needs it, unless the backup holds the same key as `secret.key`, as it does for a key you moved from the file into the variable. Without the key, [saved connections and addresses fail](#saved-connections-or-service-addresses-fail-after-a-restore).
 
 To move a key Dezfil made into the variable, see [Keep the key you have](docker-compose.md#keep-the-key-you-have).
-
-> [!WARNING]
-> A restore needs the key the backup was made with. With another key, Dezfil cannot read the saved connection passwords and service addresses: you save each address again, and delete and add each connection again.
 
 ## Restore
 
