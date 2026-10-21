@@ -1,6 +1,6 @@
 /// <reference types="vite/client" />
 import { execFileSync } from "node:child_process";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import path from "node:path";
 import { NextRequest } from "next/server";
 import { vi } from "vitest";
@@ -368,6 +368,9 @@ export interface OwnInstance { addresses: string[]; directory: string; close: ()
 export async function ownInstance(address: string, port: string): Promise<OwnInstance> {
   const scratch = process.env.DEZFIL_DATA_DIR;
   if (!scratch) throw new Error("An instance of its own needs a scratch DEZFIL_DATA_DIR");
+  // A run can name a scratch folder that nothing has made yet, as the
+  // pipeline does.
+  await mkdir(scratch, { recursive: true });
   const directory = await mkdtemp(path.join(scratch, "page-calls-"));
   vi.stubEnv("DEZFIL_DATA_DIR", directory);
   vi.stubEnv("PORT", port);
