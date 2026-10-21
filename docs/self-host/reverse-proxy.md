@@ -132,6 +132,8 @@ Start Dezfil again with that address in `DEZFIL_TRUSTED_PROXIES`:
 
 :::tab[Docker]
 
+List your variables first, as [Set a variable](configuration.md#set-a-variable) shows, and add them to the command, `DEZFIL_SECRET_KEY` among them:
+
 ```sh title="Terminal"
 docker rm -f dezfil
 docker run -d --name dezfil -p 127.0.0.1:3000:3000 -v dezfil-data:/data \
@@ -139,7 +141,7 @@ docker run -d --name dezfil -p 127.0.0.1:3000:3000 -v dezfil-data:/data \
   dezfil
 ```
 
-Add the other `-e` variables you use, such as the assistant's key. The `dezfil-data` volume keeps your data.
+The `dezfil-data` volume keeps your data.
 
 :::
 
