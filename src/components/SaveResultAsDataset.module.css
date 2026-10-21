@@ -7,8 +7,9 @@
 }
 
 .panel {
-  /* Viewport-placed by the anchoring hook: the results card clips its
-     overflow, and a short card would cut a panel positioned inside it. */
+  /* Viewport-placed by the anchoring hook and portalled to the body: the
+     results card clips its overflow, and a short card, or one that blurs
+     what lies behind it, would cut a panel positioned inside it. */
   position: fixed;
   z-index: 30;
   width: 300px;

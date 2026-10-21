@@ -4,7 +4,7 @@
 // door, and per-browser history and draft. Environment: the documented
 // gate (isolated server, fresh data dir); seeding is by API. Run via `npm
 // run e2e:sqlconsole` with DEZFIL_BASE_URL at the server.
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Locator, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
@@ -28,6 +28,24 @@ async function typeSql(page: Page, sql: string) {
 /** The document's text — the placeholder CodeMirror renders inside an
  * empty document is not the document. Lines are joined with newlines, as
  * the document has them. */
+/** A floating panel a person can reach: opened against its trigger (just
+ * below it or just above it), wholly inside the viewport, and the topmost
+ * thing at its centre, so a card that clips it or takes it as its
+ * containing block cannot hide it while it still counts as visible. */
+async function expectReachable(panel: Locator, trigger: Locator, what: string): Promise<void> {
+  const t = (await trigger.boundingBox())!;
+  const reach = await panel.evaluate((el, t) => {
+    const r = el.getBoundingClientRect();
+    const hit = document.elementFromPoint(r.left + r.width / 2, r.top + Math.min(r.height / 2, 24));
+    return {
+      anchored: Math.abs(r.top - (t.y + t.height)) <= 12 || Math.abs(r.bottom - t.y) <= 12,
+      inside: r.left >= 0 && r.top >= 0 && r.right <= window.innerWidth && r.bottom <= window.innerHeight,
+      topmost: !!hit && el.contains(hit),
+    };
+  }, t);
+  expect(reach, `${what} opens against its trigger, inside the viewport and on top`).toEqual({ anchored: true, inside: true, topmost: true });
+}
+
 async function editorText(page: Page): Promise<string> {
   return page.locator(".cm-content").evaluate((el) => {
     const clone = el.cloneNode(true) as HTMLElement;
@@ -294,6 +312,7 @@ test("the SQL console end to end", async ({ page, context }) => {
     await saveBtn.click();
     const panel = page.getByRole("group", { name: "Save as dataset" });
     await expect(panel).toBeVisible();
+    await expectReachable(panel, saveBtn, "the save panel");
     const dlAfter = (await page.getByRole("button", { name: /Download/ }).boundingBox())!;
     expect(dlAfter.x).toBe(dlBefore.x);
     expect(dlAfter.y).toBe(dlBefore.y);
@@ -319,6 +338,7 @@ test("the SQL console end to end", async ({ page, context }) => {
     await page.getByRole("button", { name: /Download/ }).click();
     const menu = page.getByRole("menu", { name: "Download format" });
     await expect(menu.getByRole("menuitem", { name: /GeoJSON/ })).toBeEnabled();
+    await expectReachable(menu, page.getByRole("button", { name: /Download/ }), "the download menu");
     const geo = page.waitForEvent("download", { timeout: 30_000 });
     await menu.getByRole("menuitem", { name: /GeoJSON/ }).click();
     const geoFile = await geo;

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { deriveTableName } from "@/lib/ingest/naming";
 import styles from "./SaveResultAsDataset.module.css";
 import {
@@ -128,7 +129,7 @@ export function SaveResultAsDataset({
       >
         Save as dataset
       </Button>
-      {open && (
+      {open && createPortal(
         <div
           ref={panelRef}
           id={panelId}
@@ -168,7 +169,8 @@ export function SaveResultAsDataset({
               {busy ? (phase === "queued" ? "Waiting…" : "Saving…") : "Save"}
             </Button>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </span>
   );

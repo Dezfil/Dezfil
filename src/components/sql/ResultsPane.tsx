@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type { TableFeaturesResult } from "@/lib/table-service";
 import type { LayerExportFormat } from "@/lib/export/layer-export";
 import type { TableListing } from "../api";
@@ -143,8 +144,9 @@ export function ResultsPane(p: Props) {
     document.addEventListener("mousedown", away);
     return () => document.removeEventListener("mousedown", away);
   }, [downloadOpen]);
-  // The menu is placed in viewport coordinates: a short results card
-  // clips its overflow, and the menu must not be cut with it.
+  // The menu is placed in viewport coordinates and portalled to the body:
+  // a short results card clips its overflow, and a card that blurs what
+  // lies behind it is the containing block of its fixed descendants.
   const dlPos = useAnchored(downloadOpen, dlBtnRef, dlMenuRef);
   // A new thing shown clears the download note — adjusted during render
   // against the shown key, so there is no second pass to cascade.
@@ -283,7 +285,7 @@ export function ResultsPane(p: Props) {
               >
                 <IconDownload /> {downloading ? "Preparing…" : "Download"}
               </Button>
-              {downloadOpen && (
+              {downloadOpen && createPortal(
                 <div
                   ref={dlMenuRef}
                   className={`${styles.menu} ${styles.menuAnchored}`}
@@ -321,7 +323,8 @@ export function ResultsPane(p: Props) {
                       <span>{note}</span>
                     </button>
                   ))}
-                </div>
+                </div>,
+                document.body,
               )}
             </div>
             <SaveResultAsDataset

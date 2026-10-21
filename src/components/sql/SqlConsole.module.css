@@ -1026,8 +1026,9 @@
   padding: 4px;
 }
 /* The results bar's menu is placed in viewport coordinates by the
-   anchoring hook: the card clips its overflow, and a short card would
-   cut a menu positioned inside it. */
+   anchoring hook and portalled to the body: the card clips its overflow,
+   and a short card, or one that blurs what lies behind it, would cut a
+   menu positioned inside it. */
 .menuAnchored {
   position: fixed;
   bottom: auto;
