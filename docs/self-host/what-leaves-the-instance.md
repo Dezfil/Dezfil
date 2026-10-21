@@ -80,14 +80,14 @@ To let the server reach hosts on your own network, list them:
 
 :::tab[Docker]
 
+A new container has only the variables you give it. List yours first, as [Set a variable](configuration.md#set-a-variable) shows, and add them to the command, `DEZFIL_SECRET_KEY` among them:
+
 ```sh title="Terminal"
 docker rm -f dezfil
 docker run -d --name dezfil -p 127.0.0.1:3000:3000 -v dezfil-data:/data \
   -e DEZFIL_EGRESS_ALLOWLIST=<YOUR_HOST>,<YOUR_RANGE> \
   dezfil
 ```
-
-A new container has only the variables you give it: add the other `-e` variables you use, `DEZFIL_SECRET_KEY` among them. The volume keeps your data.
 
 :::
 
@@ -123,6 +123,8 @@ For a database on the Docker host, use the host's address on Docker's network, w
 
 :::tab[Docker]
 
+List your variables first, as [Set a variable](configuration.md#set-a-variable) shows, and add them to the command, `DEZFIL_SECRET_KEY` among them:
+
 ```sh title="Terminal"
 docker rm -f dezfil
 docker run -d --name dezfil -p 127.0.0.1:3000:3000 -v dezfil-data:/data \
@@ -132,8 +134,6 @@ docker run -d --name dezfil -p 127.0.0.1:3000:3000 -v dezfil-data:/data \
   -e DEZFIL_EGRESS_ALLOWLIST=<YOUR_TILE_HOST>,<YOUR_OVERPASS_HOST> \
   dezfil
 ```
-
-Add the other `-e` variables you use, `DEZFIL_SECRET_KEY` among them.
 
 :::
 
@@ -237,7 +237,7 @@ pkcs11.txt
 
 :::tab[Docker]
 
-In the folder of step 1:
+List your variables first, as [Set a variable](configuration.md#set-a-variable) shows. Then run this in the folder of step 1, with them added, `DEZFIL_SECRET_KEY` and `DEZFIL_EGRESS_ALLOWLIST` among them:
 
 ```sh title="Terminal"
 docker rm -f dezfil
@@ -248,8 +248,6 @@ docker run -d --name dezfil -p 127.0.0.1:3000:3000 -v dezfil-data:/data \
   -e NODE_EXTRA_CA_CERTS=/trust/private-root.pem \
   dezfil
 ```
-
-Add the other `-e` variables you use, `DEZFIL_SECRET_KEY` and `DEZFIL_EGRESS_ALLOWLIST` among them.
 
 :::
 
