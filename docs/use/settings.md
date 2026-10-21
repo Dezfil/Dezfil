@@ -26,6 +26,8 @@ Your own settings sit under **You** in **Settings**: **Account**, **API & MCP** 
 
 You should see the whole workspace take the new color at once, and **Saved** beside the row for a moment.
 
+Above the cards, **Preview** shows a small builder over a map in your look. It stays in sight as you scroll, so you see what a pick does to the cards and panels over a map.
+
 There is no Save button: each pick is kept the moment you click it. Every row works the same way, and its first choice is Dezfil's default.
 
 | Card | Row | Choices | What it changes |
@@ -33,6 +35,7 @@ There is no Save button: each pick is kept the moment you click it. Every row wo
 | **Color and contrast** | **Color** | **Kelp**, **Harbor**, **Heather**, **Slate** | The interface's tint: accents, primary buttons, active marks, focus and the background's ink. Never a data color. |
 | | **Contrast** | **Standard**, **More contrast** | Borders, dividers and quieter text. **More contrast** makes them stronger in both themes. |
 | **Panels and background** | **Panels** | **Glass**, **Liquid**, **Paper** | How cards and panels are drawn: frosted glass, liquid glass with a light on its rim, or opaque paper with no blur. |
+| | **Transparency** | **Clear**, **Medium**, **Firm** | Shown while **Panels** is **Liquid**: how much of the map shows through its cards and panels. **Firm** shows the least and reads best over any map. |
 | | **Background** | **Atlantic chart**, **Plain**, **Graticule**, **Hex lattice** | The texture behind the workspace and in the header bar. **Plain** has none. |
 | **Text** | **Typeface** | **Inter**, **System** | The face of everything you read: Inter, or your computer's own. Identifiers and values keep the mono face. |
 | **Layout** | **Corners** | **Rounded**, **Soft** | The rounded edges of cards, fields, buttons and panels. **Soft** is tighter. |
