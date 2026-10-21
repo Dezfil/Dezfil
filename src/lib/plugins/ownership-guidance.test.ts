@@ -48,7 +48,7 @@ it("describes ownership and sharing in the published API introduction", () => {
   expect(description).toContain("<sql name>.<dataset>");
 });
 it("removes the obsolete shared-data upgrade claim and documents local draft disposal", () => {
-  for (const file of ["docs/self-host/users.md", "docs/self-host/what-leaves-the-instance.md"]) {
+  for (const file of ["docs/self-host/users.md", "docs/self-host/what-leaves-the-instance.md", "docs/use/share-and-publish.md"]) {
     expect(readFileSync(file, "utf8"), file).not.toContain("Signed-in accounts still share the same maps");
   }
   const users = readFileSync("docs/self-host/users.md", "utf8");
@@ -58,6 +58,7 @@ it("removes the obsolete shared-data upgrade claim and documents local draft dis
   // entries; Upgrade says who owns the existing work after it.
   const changelog = readFileSync("CHANGELOG.md", "utf8").replace(/\s+/g, " ");
   expect(changelog).toContain("SQL drafts and history that a browser kept before accounts");
+  expect(changelog).toContain("discarded the first time an account signs in");
   expect(readFileSync("docs/self-host/upgrade.md", "utf8")).toContain("recorded original account");
   expect(changelog).toContain("File-referencing PROJ");
 });

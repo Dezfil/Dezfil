@@ -24,7 +24,7 @@ it("keeps the product boundary and setup instructions current", () => {
   // The README's run, account, token, revision and key paragraphs now live on these pages.
   for (const [file, term] of [
     ["docs/start/install.md", "setup"], ["docs/self-host/upgrade.md", "original account"], ["docs/api/mcp.md", "API / MCP tokens"],
-    ["docs/api/http-api.md", "Reload"], ["docs/use/share-and-publish.md", "without an account"], ["docs/self-host/backup-and-restore.md", "DEZFIL_SECRET_KEY"],
+    ["docs/api/http-api.md", "Reload"], ["docs/use/share-and-publish.md", "Anyone with the link, without an account"], ["docs/self-host/backup-and-restore.md", "DEZFIL_SECRET_KEY"],
   ]) expect(read(file), `${file}: ${term}`).toContain(term);
 });
 
@@ -48,7 +48,7 @@ it("gives operators complete restoration and credential recovery instructions", 
   // commands sit with the recovery they start, on Users, with the link's
   // lifetime, the wait on a busy store and what a takeover leaves; a
   // script's chained revision example is on How the API works.
-  for (const term of ["\n## Back up\n", "\n## Restore\n", "cp -a /data/. /backup/", "&& echo Restored"]) expect(backup).toContain(term);
+  for (const term of ["\n## Back up\n", "\n## Restore\n", "mkdir \"$HOME/dezfil-backup\" &&", "cp -a /data/. /backup/", "&& echo Restored"]) expect(backup).toContain(term);
   for (const term of ["\n## Recover the admin account\n", "npm run admin:recover --", "docker exec -it", "docker run --rm -it", "--data-dir", "--origin", "--email"]) expect(users).toContain(term);
   for (const term of ["within 15 minutes", "stayed busy for five seconds", "took over the instance"]) expect(users.replace(/\s+/g, " ")).toContain(term);
   for (const term of ["X-Edit-Revision", "current.editRevision"]) expect(api).toContain(term);
