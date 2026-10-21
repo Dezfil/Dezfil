@@ -16,6 +16,7 @@ import {
   PUBLISHED,
   QUICKSTART_TOKEN,
   SAVE_RUN,
+  SAVE_RUN_FINISHED,
   SETTINGS,
   SETTINGS_CHANGED,
   TABLES,
@@ -214,6 +215,16 @@ export const WORKED_EXAMPLES: WorkedExamples = {
         "read its outcome from the run.",
       request: json({ operation: "sql_step", parameters: { sql: SAVE_RUN.run.parameters.sql, name: "big_cities" } }),
       response: answer("202", SAVE_RUN),
+    },
+  },
+  "GET /api/operations/runs/{id}": {
+    saveAsDataset: {
+      summary: "Read the run that saved big_cities, once it finished",
+      description:
+        "Needs a token and the run saving big_cities started. Until it finishes, its state is queued, then running: " +
+        "read it again until it is succeeded, failed or cancelled. A succeeded run names its dataset under output.",
+      parameters: { id: SAVE_RUN.run.id },
+      response: answer("200", SAVE_RUN_FINISHED),
     },
   },
   "GET /api/catalogue/tables": {

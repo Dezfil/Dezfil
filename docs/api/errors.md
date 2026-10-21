@@ -189,7 +189,77 @@ Over MCP, the tool `export_sql_result` hands the file back to the agent, up to *
 
 ### Save every row as a dataset
 
-**Save as dataset** stores every row too. From a script, send `{"operation": "sql_step", "parameters": {"sql": "<YOUR_SQL>", "name": "<NEW_DATASET>"}}` to `POST /api/operations/run`. The run writes the dataset when it finishes.
+A run of the operation `sql_step` saves every row of a query as a new dataset, with no byte limit:
+
+::::tabs
+:::tab[curl]
+```sh title="Terminal"
+curl -s http://localhost:3000/api/operations/run \
+  -H "Authorization: Bearer <YOUR_TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{"operation": "sql_step", "parameters": {"sql": "SELECT name, country, population, geometry FROM world_cities WHERE population > 10000000", "name": "big_cities"}}'
+```
+:::
+:::tab[JavaScript]
+```js title="save.mjs"
+const response = await fetch("http://localhost:3000/api/operations/run", {
+  method: "POST",
+  headers: {
+    Authorization: "Bearer <YOUR_TOKEN>",
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    operation: "sql_step",
+    parameters: {
+      sql: "SELECT name, country, population, geometry FROM world_cities WHERE population > 10000000",
+      name: "big_cities",
+    },
+  }),
+});
+console.log(JSON.stringify(await response.json()));
+```
+
+Run it with `node save.mjs`.
+:::
+::::
+
+```json title="Output"
+{"run":{"id":"<RUN_ID>","operation":"sql_step","state":"queued",...}}
+```
+
+- `parameters` holds the query as `sql` and the new dataset's `name`. A name already taken answers 409 `name_taken`, and nothing runs.
+- The answer comes at once, with the run's `id`, and the run writes the dataset afterwards.
+
+Read the run to see how it ended:
+
+::::tabs
+:::tab[curl]
+```sh title="Terminal"
+curl -s http://localhost:3000/api/operations/runs/<RUN_ID> \
+  -H "Authorization: Bearer <YOUR_TOKEN>"
+```
+:::
+:::tab[JavaScript]
+```js title="read-run.mjs"
+const response = await fetch("http://localhost:3000/api/operations/runs/<RUN_ID>", {
+  headers: { Authorization: "Bearer <YOUR_TOKEN>" },
+});
+console.log(JSON.stringify(await response.json()));
+```
+
+Run it with `node read-run.mjs`.
+:::
+::::
+
+```json title="Output"
+{"run":{"id":"<RUN_ID>","operation":"sql_step","state":"succeeded",...,"finishedAt":"2026-10-20T09:00:01.503Z","output":{"id":"<DATASET_ID>","name":"big_cities"}}}
+```
+
+- `state` is `queued`, then `running`. Read the run again every few seconds until it is `succeeded`, `failed` or `cancelled`.
+- A succeeded run names its dataset under `output`. A failed one holds an `error` with a `code` and a `message`, such as `sql_error`, or `operation_timeout` past **Time limit per tool run**.
+- Over MCP, `run_operation` takes the same `operation` and `parameters`, and `get_operation_run` reads the run.
+
+The [operation reference](https://dezfil.io/docs/api/reference/operations/#post-api-operations-run) gives every field of a run.
 
 ### A dataset's page does not open
 

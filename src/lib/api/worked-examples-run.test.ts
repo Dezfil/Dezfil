@@ -8,9 +8,10 @@ import { buildOpenApiDocument } from "./openapi";
  * The worked examples of the served description, sent to an instance of
  * their own in the order a reader meets them: the API quickstart's steps in
  * their order, and each guide's example where what it needs is there, so
- * the dataset list, the query's refusals, its export, the save and the
- * catalogue go between the upload and the map, and the rest after the
- * quickstart's last step. Where an example needs what no example before it
+ * the dataset list, the query's refusals, its export, the save with the
+ * run it starts, read once it finished, and the catalogue go between the
+ * upload and the map, and the rest after the quickstart's last step.
+ * Where an example needs what no example before it
  * makes, such as another account's published map, the test makes it over
  * the API first. Each request is built from the example as the
  * operation reference draws it, and each answer must be the example's. An
@@ -69,6 +70,7 @@ const SEQUENCE: [key: string, name: string, how?: "cookie" | "mcp"][] = [
   ["POST /api/query", "valueTooLarge"],
   ["POST /api/query/export", "csv"],
   ["POST /api/operations/run", "saveAsDataset"],
+  ["GET /api/operations/runs/{id}", "saveAsDataset"],
   ["GET /api/catalogue/tables", "firstPage"],
   ["POST /api/maps", "quickstart"],
   ["POST /api/maps/{id}/layers", "quickstart"],
@@ -369,8 +371,9 @@ describe("the worked examples, sent to an instance in the quickstart's order", (
     // were changed: a wrong count, a wrong city, a renamed field, the map's
     // identifier written two ways, an identifier where there is none, a
     // data folder other than the one the example was read on, an image
-    // renderer found where that host had none, and a revocation that claims
-    // the refusal for its answer.
+    // renderer found where that host had none, a save read as still running
+    // once it finished, and a revocation that claims the refusal for its
+    // answer.
     const seeded = structuredClone(document);
     const uploaded = placedAnswer(seeded, "POST /api/tables", "quickstart").value as Record<string, unknown>;
     uploaded.rowCount = 47;
@@ -383,6 +386,7 @@ describe("the worked examples, sent to an instance in the quickstart's order", (
     const settings = placedAnswer(seeded, "GET /api/instance/settings", "defaults").value as { settings: Record<string, { value: unknown }>; parts: { image_renderer: { found: boolean } } };
     settings.settings.dataDir.value = "/srv/elsewhere";
     settings.parts.image_renderer.found = true;
+    (placedAnswer(seeded, "GET /api/operations/runs/{id}", "saveAsDataset").value as { run: { state: string } }).run.state = "running";
     const revoke = lookup(seeded, "DELETE /api/publications/{token}").responses;
     revoke["404"]["x-examples"] = revoke["204"]["x-examples"];
     delete revoke["204"]["x-examples"];
@@ -391,6 +395,7 @@ describe("the worked examples, sent to an instance in the quickstart's order", (
       "POST /api/query quickstart: the answer.rowCuont: the example shows it, the instance answers no such field",
       'POST /api/query quickstart: the answer.preview[0].name: the example shows "Osaka", the instance answers "Tokyo"',
       "POST /api/query quickstart: the answer: the instance also answers rowCount, which the example does not show",
+      'GET /api/operations/runs/{id} saveAsDataset: the answer.run.state: the example shows "running", the instance answers "succeeded"',
       "POST /api/maps/{id}/layers quickstart: the answer.mapId: the example shows 99999999-8888-4777-8666-555555555555 for the value it showed as 2f6e9c41-8d3b-4a7e-b1f5-6c0d2e8a9b34 before",
       "GET /api/maps afterQuickstart: the answer[0].publishToken: the example's 33333333-4444-4555-8666-777777777777 stands for an identifier, the instance answers null",
       'GET /api/instance/settings defaults: the answer.settings.dataDir.value: the example shows "/srv/elsewhere", the instance answers "/data"',
