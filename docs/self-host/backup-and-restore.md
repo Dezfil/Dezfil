@@ -211,7 +211,7 @@ Each `cp -a` needs a target that does not exist yet. If it exists, `cp` puts the
 
 ### After a restore, the log says "Data directory /data is not writable"
 
-Every page, health included, answers `Internal Server Error`, and `docker logs dezfil` shows the line. The restored files belong to another user. Give them to `node`, then restart Dezfil:
+Every page, health included, answers `Internal Server Error`, and `docker logs dezfil` shows the line. The restored files belong to another user. When only the files inside `/data` do, the line is `attempt to write a readonly database` instead. Either way, give them to `node`, then restart Dezfil:
 
 ```sh title="Terminal"
 docker run --rm --user root --entrypoint sh -v dezfil-data:/data dezfil -c 'chown -R node:node /data'

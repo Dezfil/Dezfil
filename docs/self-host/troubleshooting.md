@@ -61,7 +61,7 @@ After a fix, [replace the container](configuration.md#set-a-variable) if you cha
 
 | The log says | Fix |
 |---|---|
-| `Data directory /data is not writable` | The files in the volume belong to another user, often after a restore. Give them to `node`, the user Dezfil runs as, as [Back up and restore](backup-and-restore.md#after-a-restore-the-log-says-data-directory-data-is-not-writable) shows. |
+| `Data directory /data is not writable`, or `attempt to write a readonly database` | The files in the volume belong to another user, often after a restore. Give them to `node`, the user Dezfil runs as, as [Back up and restore](backup-and-restore.md#after-a-restore-the-log-says-data-directory-data-is-not-writable) shows. |
 | `Data directory <PATH> cannot be created` | `DEZFIL_DATA_DIR` names a folder the container cannot create. Remove the variable: the image keeps its data in `/data`. |
 | `DEZFIL_SESSION_COOKIE must be a non-empty cookie-name token` | Use only letters, digits, `-` and `_` in the name, or remove the variable. |
 | `Invalid trusted proxy network` or `Invalid ingress address` | `DEZFIL_TRUSTED_PROXIES` takes IP addresses and CIDR ranges, as [Trusted proxies](reverse-proxy.md#trusted-proxies) lists. A host name is refused. |
