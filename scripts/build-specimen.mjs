@@ -80,28 +80,28 @@ const ROLE_NOTES = {
   },
   "map-card": {
     nm: "Map card",
-    what: "A card floating over a map on the panel tone, with the hairline: a widget's card and its menu. Solid unless a look makes it otherwise.",
+    what: "A card floating over a map on the panel tone, with the hairline: a widget's card and its menu. Glass, with the overlay panel's blur.",
   },
   "page-card": {
     nm: "Page card",
-    what: "A card on a page: the gallery cards, the Settings cards and column, the SQL editor and results, the connection cards, the set-geometry panel. A gallery card lifts on hover.",
+    what: "A card on a page: the gallery cards, the Settings cards and column, the SQL editor and results, the connection cards, the set-geometry panel. Glass, with the side panels' blur; a gallery card lifts on hover.",
   },
   "inner-card": {
     nm: "Inner card",
-    what: "A card inside a panel or card, and a control that carries a small shadow: the layer cards, the node tiles, the pickable cards in dialogs, a switch's knob, a slider's thumb. Corners as each has them.",
+    what: "A card inside a panel or card, and a control that carries a small shadow: the layer cards, the node tiles, the pickable cards in dialogs, a switch's knob, a slider's thumb. On the glass tone with no blur of its own, since only its panel lies behind it; corners as each has them.",
   },
   block: {
     nm: "Block",
-    what: "A block inside a panel on the raised or the panel tone, with the hairline: a visualization's tile, a filter's card, a legend entry, a widget's row, a basemap's card, a tool's result, the person's own message to the Assistant. No blur of its own, lying on its panel; solid unless a look makes it otherwise.",
+    what: "A block inside a panel on the raised or the panel tone, with the hairline: a visualization's tile, a filter's card, a legend entry, a widget's row, a basemap's card, a tool's result, the person's own message to the Assistant. The glass of either tone with no blur of its own, lying on its panel.",
     onPanel: true,
   },
   menu: {
     nm: "Menu and pop-over",
-    what: "What opens over something and closes: every menu, picker and pop-over, the map's tooltip and popup, the hint, the SQL peek, the map's failure notice. Solid unless a look makes it otherwise; corners as each has them.",
+    what: "What opens over something and closes: every menu, picker and pop-over, the map's tooltip and popup, the hint, the SQL peek, the map's failure notice. Glass, with the overlay panel's blur, the tooltip and popup on the raised tone's; corners as each has them.",
   },
   dialog: {
     nm: "Dialog",
-    what: "Every modal, over its veil. Solid unless a look makes it otherwise.",
+    what: "Every modal, over its veil. Glass, with the side panels' blur.",
   },
   stage: {
     nm: "The stage",
@@ -114,18 +114,29 @@ const SURFACE_PART = /^--surface-(.+?)-(fill|blur|edge|corner|shadow(?:-[a-z]+)?
 /** A step, a strength, a fill or an edge the roles read. */
 const SURFACE_STEP = /^--(shadow|blur|fill|edge)-([\w-]+)$/;
 
+/** The one rule after the block that may restate roles: an image's default
+ * scope and a published page, kept on the solid grounds the workspace draws
+ * as glass. */
+const SOLID_SCOPES = "[data-look-default], [data-published-view]";
+
 /** The one rule of a stylesheet that declares the surface roles: its text
  * verbatim from the selector list to the closing brace, its selectors, and
  * its custom properties in order. Comments are blanked (not removed) while
  * searching, so a role named in a comment is not mistaken for the rule and
- * the slice taken from the sheet keeps its comments. */
+ * the slice taken from the sheet keeps its comments. Past it, only the
+ * solid scopes' rule may name a role. */
 export function surfaceBlock(css) {
   const blank = css.replace(/\/\*[\s\S]*?\*\//g, (c) => c.replace(/[^\n]/g, " "));
   const first = blank.indexOf("--surface-");
   if (first < 0) throw new Error("no rule declares the surface roles");
   const open = blank.lastIndexOf("{", first);
   const close = blank.indexOf("}", first);
-  if (blank.indexOf("--surface-", close) >= 0) throw new Error("more than one rule declares the surface roles");
+  for (let next = blank.indexOf("--surface-", close); next >= 0; ) {
+    const at = blank.lastIndexOf("{", next), end = blank.indexOf("}", next);
+    const head = blank.slice(blank.lastIndexOf("}", at) + 1, at).split(",").map((s) => s.trim()).filter(Boolean).join(", ");
+    if (head !== SOLID_SCOPES) throw new Error("more than one rule declares the surface roles");
+    next = blank.indexOf("--surface-", end);
+  }
   const from = blank.lastIndexOf("}", open) + 1;
   const tokens = new Map(
     [...blank.slice(open + 1, close).matchAll(/(--[\w-]+)\s*:\s*([^;]+);/g)].map(([, name, value]) => [

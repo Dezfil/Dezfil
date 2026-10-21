@@ -1,1 +1,1 @@
-.ghost { position: absolute; width: 72px; height: 72px; border-radius: var(--radius-card); border: 1.5px dashed color-mix(in srgb, var(--fg-faint) 70%, transparent); pointer-events: none; }
+.ghost { position: absolute; width: 72px; height: 72px; border-radius: var(--radius-card); border: 1.5px dashed color-mix(in srgb, var(--fg-faint-palette) 70%, transparent); pointer-events: none; }

@@ -323,7 +323,7 @@ describe("the look stylesheet", () => {
     expect(rail[0].body).toMatch(/border-radius:\s*var\(--radius-rail\)/);
   });
 
-  it("makes the glass fill opaque on request, on the root, a published page's dark root and the pictures, never an image's default scope", () => {
+  it("makes both glass fills opaque on request, on the root, a published page's dark root and the pictures, never an image's default scope", () => {
     const conditional = [...LOOK_CSS.matchAll(CONDITIONAL)].map(([block]) => block);
     expect(conditional).toHaveLength(1);
     const head = conditional[0].slice(0, conditional[0].indexOf("{")).trim().replace(/\s+/g, " ");
@@ -332,7 +332,7 @@ describe("the look stylesheet", () => {
     const scopes = [...new Set(inside.map(rule => rule.selector))];
     expect(scopes).toEqual([":root", '[data-view-theme="dark"]', "[data-picture-color]", "[data-picture-contrast]",
       "[data-picture-corners]", "[data-picture-panels]"]);
-    for (const rule of inside) expect([...declared(rule.body)], rule.selector).toEqual([["--fill-glass", "var(--bg-panel)"]]);
+    for (const rule of inside) expect([...declared(rule.body)], rule.selector).toEqual([["--fill-glass", "var(--bg-panel)"], ["--fill-glass-raised", "var(--bg-raised)"]]);
     // Every element the roles' block is declared on but an image's default
     // scope, whose own declaration keeps the image translucent as the default draws it.
     const block = bodies(readFileSync("src/app/globals.css", "utf8")).filter(rule => /--surface-menu-shadow/.test(rule.body));

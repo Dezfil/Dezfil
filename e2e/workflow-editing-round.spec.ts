@@ -611,6 +611,11 @@ for (const theme of ["light", "dark"] as const) {
     // rounded margin sampled the canvas beneath, whose tiles and
     // sub-pixel offsets differ from run to run; the element capture holds
     // the picker's dress and nothing else. Re-minted with this change.
-    await expect(pop(page)).toHaveScreenshot(`picker-open-${theme}.png`, { animations: "disabled", threshold: 0 });
+    // The picker is glass, so its blur still samples the canvas beneath
+    // through its own ground: measured 7 and 18 px at a delta of 1 per
+    // channel in a whole-set run after a clean run alone. It keeps exact
+    // color with a count bound at about 1.5x that; a change of its dress
+    // moves thousands of pixels.
+    await expect(pop(page)).toHaveScreenshot(`picker-open-${theme}.png`, { animations: "disabled", threshold: 0, maxDiffPixels: 30 });
   });
 }
