@@ -75,7 +75,7 @@ docker inspect --format '{{range .Mounts}}{{.Name}}{{end}}' dezfil
 dezfil-data
 ```
 
-If it prints another name, your data is in that volume: write its name in place of `dezfil-data` in the backup and in step 4.
+If it prints another name, your data is in that volume: write its name in place of `dezfil-data` wherever this page and [Back up and restore](backup-and-restore.md) name it.
 
 Let running tools and workflows finish. Then back up the volume as [Back up](backup-and-restore.md#back-up) shows: it stops Dezfil, copies the volume to `$HOME/dezfil-backup`, prints `Copied` and starts the old version again. The version to note with this backup is the commit step 2 printed: after `git pull`, `git rev-parse` prints the new one.
 

@@ -92,7 +92,7 @@ To move a key Dezfil made into the variable, see [Keep the key you have](docker-
 
 ## Restore
 
-Restoring replaces everything in the volume with the backup, and work done since the backup is lost. Step 1 keeps a copy of the current data, in case you want it later.
+Restoring replaces everything in the volume with the backup, and work done since the backup is lost. Step 1 keeps a copy of the current data.
 
 A newer version brings a restored backup up to date when it starts. An older version cannot use data a newer one updated: after an upgrade, [go back to the old version](upgrade.md#go-back-to-the-old-version) instead.
 
@@ -136,7 +136,7 @@ Restored
 docker start dezfil
 ```
 
-`docker start` keeps the container's variables, `DEZFIL_SECRET_KEY` included. Within 30 seconds, check its health:
+`docker start` keeps the container's variables. Within 30 seconds, check its health:
 
 ```sh title="Terminal"
 curl http://localhost:3000/api/health
@@ -191,9 +191,9 @@ Compose says the `dezfil-data` volume "already exists but was not created by Doc
 
 ::::
 
-You should see your maps when you sign in.
-
 Behind a reverse proxy, set `DEZFIL_TRUSTED_PROXIES` to the new machine's proxy address, which [Trust the proxy](reverse-proxy.md#2-trust-the-proxy) prints.
+
+You should see your maps when you sign in.
 
 ## A development checkout
 
@@ -214,7 +214,7 @@ test ! -e data.before-restore && mv data data.before-restore &&
 
 It prints `Restored`.
 
-Without it, a `data.before-restore` folder is in the way, so move it away, or there is no `data` folder yet, as in a new checkout: then run only the `cp -a` line.
+Nothing printed means a `data.before-restore` folder is in the way: move it away and run the command again. `No such file or directory` means there is no `data` folder yet, as in a new checkout: run only the `cp -a` line.
 
 ## Troubleshooting
 
