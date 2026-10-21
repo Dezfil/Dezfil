@@ -53875,12 +53875,24 @@
             "schema": {
               "type": "string"
             },
-            "description": "The known publication token to revoke. This operation does not discover private maps."
+            "description": "The known publication token to revoke. This operation does not discover private maps.",
+            "examples": {
+              "deactivatedOwner": {
+                "summary": "Take a deactivated account's published map offline",
+                "value": "Q7mXc2LpV9tKw4RzB8nHd3"
+              }
+            }
           }
         ],
         "responses": {
           "204": {
-            "description": "Publication revoked. No content is returned."
+            "description": "Publication revoked. No content is returned.",
+            "x-examples": {
+              "deactivatedOwner": {
+                "summary": "Take a deactivated account's published map offline",
+                "description": "Needs an admin's token and the publish token of a map whose owner is deactivated: the end of the map's link, /v/<token>. The answer has no body, and the link stops working at once. The account and the map stay."
+              }
+            }
           },
           "401": {
             "description": "Error with a machine-readable code and human message.",

@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { assistantAvailability } from "@/lib/assistant/config";
 import { pageCalls } from "@/lib/test-support/page-calls";
 import { buildOpenApiDocument } from "./openapi";
-import { WORKED_EXAMPLES } from "./openapi-examples";
+import { WORKED_EXAMPLES, withExamples } from "./openapi-examples";
 
 /**
  * The worked examples the guides draw: one for every operation a guide
@@ -16,7 +16,9 @@ import { WORKED_EXAMPLES } from "./openapi-examples";
 type Json = Record<string, unknown>;
 type Media = { schema?: unknown; example?: unknown; examples?: Record<string, { value?: unknown; "x-filenames"?: Record<string, string> }> };
 type Parameter = { name: string; in: string; required?: boolean; schema?: unknown; example?: unknown; examples?: Record<string, { value?: unknown }> };
-type Operation = { parameters?: Parameter[]; requestBody?: { required?: boolean; content?: Record<string, Media> }; responses: Record<string, { content?: Record<string, Media> }> };
+/** A response; one without content holds its examples' words under `x-examples`. */
+type Response = { content?: Record<string, Media>; "x-examples"?: Record<string, { summary?: string; description?: string }> };
+type Operation = { parameters?: Parameter[]; requestBody?: { required?: boolean; content?: Record<string, Media> }; responses: Record<string, Response> };
 type Description = { paths: Record<string, Record<string, Operation>>; components: { schemas: Record<string, unknown> } };
 
 const METHODS = ["get", "put", "post", "delete", "patch"];
@@ -40,6 +42,7 @@ const NAMED = [
   "GET /api/maps/{id}", "PATCH /api/maps/{id}", "DELETE /api/maps/{id}/publish",
   "GET /api/tables", "POST /api/query/export", "POST /api/operations/run",
   "GET /api/config", "GET /api/instance/settings", "GET /api/settings", "PATCH /api/settings",
+  "DELETE /api/publications/{token}",
 ];
 const lookup = (doc: Description, key: string) => {
   const [method, path] = key.split(" ");
@@ -92,9 +95,18 @@ const PAGES = execFileSync("git", ["ls-files", "docs"], { encoding: "utf8" }).sp
  * carries a worked example in the description. */
 const CALLED = [...new Set([...PAGES.flatMap((file) => calledBy(readFileSync(file, "utf8"))), ...NAMED])];
 
+/** Whether an example named `name` is a success answer of a response: one
+ * under a media type with its body, or, for a success that answers without
+ * content, its words on the response itself. */
+function answers(status: string, response: Response, name: string): boolean {
+  if (!/^2\d\d$/.test(status)) return false;
+  if (!response.content) return typeof response["x-examples"]?.[name]?.description === "string";
+  return Object.values(response.content).some((media) => media.examples?.[name] && media.examples[name].value !== undefined);
+}
 /** What a worked example named `name` lacks on an operation: a value for
  * every path parameter, every required parameter and the edit revision; a
- * required body; and a success answer, with its media type and body. */
+ * required body; and a success answer, with its media type and body, or
+ * with its status alone where the success has no content. */
 function incomplete(operation: Operation, name: string): string[] {
   const missing: string[] = [];
   for (const parameter of operation.parameters ?? []) {
@@ -102,15 +114,15 @@ function incomplete(operation: Operation, name: string): string[] {
     if (wanted && !parameter.examples?.[name]) missing.push(`parameter ${parameter.name}`);
   }
   if (operation.requestBody?.required && !Object.values(operation.requestBody.content ?? {}).some((media) => media.examples?.[name])) missing.push("request body");
-  const answered = Object.entries(operation.responses).some(([status, response]) => /^2\d\d$/.test(status) &&
-    Object.values(response.content ?? {}).some((media) => media.examples?.[name] && media.examples[name].value !== undefined));
-  if (!answered) missing.push("success answer");
+  if (!Object.entries(operation.responses).some(([status, response]) => answers(status, response, name))) missing.push("success answer");
   return missing;
 }
 /** The names of an operation's examples that give a success answer. */
 function successNames(operation: Operation): string[] {
   return Object.entries(operation.responses).filter(([status]) => /^2\d\d$/.test(status))
-    .flatMap(([, response]) => Object.values(response.content ?? {}).flatMap((media) => Object.keys(media.examples ?? {})));
+    .flatMap(([, response]) => response.content
+      ? Object.values(response.content).flatMap((media) => Object.keys(media.examples ?? {}))
+      : Object.keys(response["x-examples"] ?? {}));
 }
 
 describe("the worked examples in the description", () => {
@@ -133,10 +145,18 @@ describe("the worked examples in the description", () => {
       expect(names, `${key} has no worked example with a success answer`).not.toEqual([]);
       for (const name of names) expect(incomplete(operation!, name), `${key} example ${name}`).toEqual([]);
     }
-    // The completeness rule fails an example that leaves the revision out.
+    // The completeness rule fails an example that leaves the revision out,
+    // and, for a success without content, one that leaves out the value it
+    // sends or the words that say what it needs.
     const seeded = structuredClone(document);
     delete seeded.paths["/api/maps/{id}/layers"].post.parameters!.find((parameter) => parameter.name === "X-Edit-Revision")!.examples!.quickstart;
     expect(incomplete(seeded.paths["/api/maps/{id}/layers"].post, "quickstart")).toEqual(["parameter X-Edit-Revision"]);
+    const revoke = seeded.paths["/api/publications/{token}"].delete;
+    expect(revoke.responses["204"].content, "the revocation answers without content").toBeUndefined();
+    expect(incomplete(revoke, "deactivatedOwner")).toEqual([]);
+    delete revoke.parameters!.find((parameter) => parameter.name === "token")!.examples!.deactivatedOwner;
+    delete revoke.responses["204"]["x-examples"]!.deactivatedOwner.description;
+    expect(incomplete(revoke, "deactivatedOwner")).toEqual(["parameter token", "success answer"]);
   });
 
   it("every step of the API quickstart has an example named quickstart, and their values follow one another", () => {
@@ -203,9 +223,14 @@ describe("the worked examples in the description", () => {
     for (const [key, named] of Object.entries(WORKED_EXAMPLES)) {
       const operation = lookup(document, key)!;
       for (const [name, example] of Object.entries(named)) {
-        expect(operation.responses[example.response.status]?.content?.[example.response.mediaType]?.examples?.[name], `${key} ${name}`).toBeDefined();
+        const response = operation.responses[example.response.status];
+        const placed = example.response.mediaType === undefined ? response?.["x-examples"]?.[name] : response?.content?.[example.response.mediaType]?.examples?.[name];
+        expect(placed, `${key} ${name}`).toBeDefined();
       }
     }
+    // An answer without content is placed only where the status declares none.
+    const bodyless = { "GET /api/health": { ready: { ...WORKED_EXAMPLES["GET /api/health"].ready, response: { status: "200" } } } };
+    expect(() => withExamples(buildOpenApiDocument(), bodyless)).toThrow("declares no 200 answer without content");
   });
 
   it("the description file under docs/ carries the same examples", () => {

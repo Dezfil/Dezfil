@@ -10,7 +10,9 @@ import { buildOpenApiDocument } from "./openapi";
  * their order, and each guide's example where what it needs is there, so
  * the dataset list, the query's refusals, its export, the save and the
  * catalogue go between the upload and the map, and the rest after the
- * quickstart's last step. Each request is built from the example as the
+ * quickstart's last step. Where an example needs what no example before it
+ * makes, such as another account's published map, the test makes it over
+ * the API first. Each request is built from the example as the
  * operation reference draws it, and each answer must be the example's. An
  * identifier, a revision or a placeholder in an example stands for the
  * value the instance gave at that place first, which must be of its kind
@@ -44,7 +46,7 @@ type Media = { examples?: Record<string, Example> };
 type Operation = {
   parameters?: { name: string; in: string; examples?: Record<string, Example> }[];
   requestBody?: { content?: Record<string, Media> };
-  responses: Record<string, { content?: Record<string, Media> }>;
+  responses: Record<string, { content?: Record<string, Media>; "x-examples"?: Record<string, Example> }>;
 };
 type Description = { paths: Record<string, Record<string, Operation>> };
 
@@ -90,6 +92,7 @@ const SEQUENCE: [key: string, name: string, how?: "cookie" | "mcp"][] = [
   ["GET /api/settings", "newAccount"],
   ["PATCH /api/settings", "mapsAsList"],
   ["GET /api/openapi.json", "excerpt"],
+  ["DELETE /api/publications/{token}", "deactivatedOwner"],
 ];
 /** The variables set for one call only, as its example's description says
  * the instance has them. A placeholder stands for the key: reading the
@@ -99,21 +102,43 @@ const SET_FOR: Record<string, Record<string, string>> = {
   "GET /api/assistant enabled": { ANTHROPIC_API_KEY: "placeholder-not-a-key" },
 };
 
-/** Every example placed on an answer of the description, as `METHOD /path name`. */
+/** Every example placed on an answer of the description, as `METHOD /path
+ * name`: under an answer's media type, or on an answer without content. */
 function placedExamples(doc: Description): string[] {
   return Object.entries(doc.paths).flatMap(([path, item]) => Object.entries(item).flatMap(([method, operation]) =>
-    Object.values(operation.responses ?? {}).flatMap((response) => Object.values(response.content ?? {}).flatMap((media) =>
-      Object.keys(media.examples ?? {}).map((name) => `${method.toUpperCase()} ${path} ${name}`)))));
+    Object.values(operation.responses ?? {}).flatMap((response) => [
+      ...Object.values(response.content ?? {}).flatMap((media) => Object.keys(media.examples ?? {})),
+      ...Object.keys(response["x-examples"] ?? {}),
+    ].map((name) => `${method.toUpperCase()} ${path} ${name}`))));
 }
 
-/** The answer an example names: its status, media type and value. */
-function placedAnswer(doc: Description, key: string, name: string): { status: string; type: string; value: unknown } {
+/** The answer an example names: its status, media type and value; an
+ * answer without content has no media type. */
+function placedAnswer(doc: Description, key: string, name: string): { status: string; type: string | null; value: unknown } {
   for (const [status, response] of Object.entries(lookup(doc, key).responses)) {
     for (const [type, media] of Object.entries(response.content ?? {})) {
       if (media.examples?.[name]) return { status, type, value: media.examples[name].value };
     }
+    if (response["x-examples"]?.[name]) return { status, type: null, value: undefined };
   }
   throw new Error(`${key} has no answer for the example ${name}`);
+}
+
+/** What the revocation example needs first: a map another account owns and
+ * published, that account then deactivated by the reader, an admin. The
+ * map's publish token is the one the example sends. */
+async function deactivatedOwnersLink(token: string): Promise<string> {
+  const admin = { authorization: `Bearer ${token}`, "content-type": "application/json" };
+  const invited = await fetch(`${ADDRESS}/api/users`, { method: "POST", headers: admin, body: JSON.stringify({ name: "Ben Okafor", email: "ben@example.com" }) });
+  const { account, signInUrl } = await invited.json() as { account: { id: string }; signInUrl: string };
+  const secret = new URLSearchParams(new URL(signInUrl).hash.slice(1)).get("secret");
+  const redeemed = await fetch(`${ADDRESS}/api/auth/redeem`, { method: "POST", headers: { "content-type": "application/json", origin: ADDRESS }, body: JSON.stringify({ secret, password: READER.password }) });
+  const session = { cookie: redeemed.headers.getSetCookie().map((set) => set.split(";")[0]).join("; "), origin: ADDRESS, "content-type": "application/json" };
+  const map = await (await fetch(`${ADDRESS}/api/maps`, { method: "POST", headers: session, body: JSON.stringify({ name: "Survey sites" }) })).json() as { id: string; editRevision: string };
+  const published = await (await fetch(`${ADDRESS}/api/maps/${map.id}/publish`, { method: "POST", headers: { ...session, "x-edit-revision": map.editRevision } })).json() as { token: string };
+  const deactivated = await fetch(`${ADDRESS}/api/users/${account.id}`, { method: "PATCH", headers: admin, body: JSON.stringify({ status: "deactivated" }) });
+  expect([invited.status, redeemed.status, typeof published.token, deactivated.status], "another account's published map, its owner deactivated").toEqual([201, 200, "string", 200]);
+  return published.token;
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -247,6 +272,11 @@ async function sendAll(doc: Description): Promise<Answered[]> {
   let cookie = "", token = "";
   for (const [key, name, how] of SEQUENCE) {
     const [method, template] = key.split(" "), operation = lookup(doc, key);
+    if (key === "DELETE /api/publications/{token}") {
+      // The example's token stands for the link of the map made for it.
+      const shown = operation.parameters!.find((parameter) => parameter.name === "token")!.examples![name].value as string;
+      bindings.set(shown, await deactivatedOwnersLink(token));
+    }
     let path = template;
     const headers: Record<string, string> = {}, query = new URLSearchParams();
     for (const parameter of operation.parameters ?? []) {
@@ -286,7 +316,8 @@ async function sendAll(doc: Description): Promise<Answered[]> {
     const parsed = type.includes("json") ? JSON.parse(text) : type.includes("event-stream") ? eventMessage(text) : text;
     answered.push({ key, name, status: response.status, type, body: parsed });
     // Bind what this answer gave, so the next request sends it.
-    differences(placedAnswer(doc, key, name).value, parsed, bindings, "");
+    const placed = placedAnswer(doc, key, name);
+    if (placed.type !== null) differences(placed.value, parsed, bindings, "");
     if (key === "POST /api/account/tokens" && name === "quickstart") token = (parsed as { secret: string }).secret;
     if (key === "POST /api/operations/run") await laneSettled();
   }
@@ -301,6 +332,7 @@ function problems(doc: Description, answered: Answered[], ran: RunWith): string[
     const example = placedAnswer(doc, key, name), where = `${key} ${name}`;
     const found: string[] = [];
     if (String(status) !== example.status) found.push(`${where}: the example answers ${example.status}, the instance ${status}`);
+    if (example.type === null) return body === "" ? found : [...found, `${where}: the example answers without content, the instance answers ${show(body)}`];
     // A file's example sits under the media type the operation declares, so
     // only its bytes are held.
     if (example.type.includes("json") && !type.includes("json")) found.push(`${where}: the example is JSON, the instance answers ${type}`);
@@ -336,8 +368,9 @@ describe("the worked examples, sent to an instance in the quickstart's order", (
     // The same answers against a copy of the description whose examples
     // were changed: a wrong count, a wrong city, a renamed field, the map's
     // identifier written two ways, an identifier where there is none, a
-    // data folder other than the one the example was read on, and an image
-    // renderer found where that host had none.
+    // data folder other than the one the example was read on, an image
+    // renderer found where that host had none, and a revocation that claims
+    // the refusal for its answer.
     const seeded = structuredClone(document);
     const uploaded = placedAnswer(seeded, "POST /api/tables", "quickstart").value as Record<string, unknown>;
     uploaded.rowCount = 47;
@@ -350,6 +383,9 @@ describe("the worked examples, sent to an instance in the quickstart's order", (
     const settings = placedAnswer(seeded, "GET /api/instance/settings", "defaults").value as { settings: Record<string, { value: unknown }>; parts: { image_renderer: { found: boolean } } };
     settings.settings.dataDir.value = "/srv/elsewhere";
     settings.parts.image_renderer.found = true;
+    const revoke = lookup(seeded, "DELETE /api/publications/{token}").responses;
+    revoke["404"]["x-examples"] = revoke["204"]["x-examples"];
+    delete revoke["204"]["x-examples"];
     expect(problems(seeded, answered, ran)).toEqual([
       "POST /api/tables quickstart: the answer.rowCount: the example shows 47, the instance answers 48",
       "POST /api/query quickstart: the answer.rowCuont: the example shows it, the instance answers no such field",
@@ -359,6 +395,7 @@ describe("the worked examples, sent to an instance in the quickstart's order", (
       "GET /api/maps afterQuickstart: the answer[0].publishToken: the example's 33333333-4444-4555-8666-777777777777 stands for an identifier, the instance answers null",
       'GET /api/instance/settings defaults: the answer.settings.dataDir.value: the example shows "/srv/elsewhere", the instance answers "/data"',
       "GET /api/instance/settings defaults: the answer.parts.image_renderer.found: the example shows true, the instance answers false",
+      "DELETE /api/publications/{token} deactivatedOwner: the example answers 404, the instance 204",
     ]);
   }, 120_000);
 });

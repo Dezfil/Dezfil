@@ -32,9 +32,12 @@ import {
  *
  * An example is placed in the description's own example fields: `examples`
  * on each parameter it gives a value, on its request body's media type and
- * on its response's media type, every part under the example's name. The
- * name pairs a request with its response. The steps of the API quickstart
- * are all named `quickstart`, and their values follow one another: the
+ * on its response's media type, every part under the example's name. An
+ * answer without content, such as a 204, has no media type to hold it, so
+ * the example's name, summary and description sit on the response itself,
+ * under `x-examples`. The name pairs a request with its response. The
+ * steps of the API quickstart are all named `quickstart`, and their values
+ * follow one another: the
  * dataset the upload makes is the one the query reads, the map the first
  * call makes is the one the layer joins, and each change sends the
  * editRevision the change before it answered.
@@ -56,8 +59,9 @@ export interface WorkedExample {
   /** The request body under its media type. For a file upload, `files`
    * names the file each binary field of the form is sent as. */
   request?: { mediaType: string; value: unknown; files?: Record<string, string> };
-  /** The answer: its status, media type and body. */
-  response: { status: string; mediaType: string; value: unknown };
+  /** The answer: its status, media type and body, or its status alone for
+   * an answer without content. */
+  response: { status: string; mediaType: string; value: unknown } | { status: string; mediaType?: undefined; value?: undefined };
 }
 
 /** Worked examples by operation, written `METHOD /path`, then by name. */
@@ -283,6 +287,16 @@ export const WORKED_EXAMPLES: WorkedExamples = {
       response: answer("200", UNPUBLISHED),
     },
   },
+  "DELETE /api/publications/{token}": {
+    deactivatedOwner: {
+      summary: "Take a deactivated account's published map offline",
+      description:
+        "Needs an admin's token and the publish token of a map whose owner is deactivated: the end of the map's link, /v/<token>. " +
+        "The answer has no body, and the link stops working at once. The account and the map stay.",
+      parameters: { token: "Q7mXc2LpV9tKw4RzB8nHd3" },
+      response: { status: "204" },
+    },
+  },
   "POST /api/mcp": {
     createMap: {
       summary: "Call the tool create_map",
@@ -424,6 +438,11 @@ export function withExamples<T extends { paths: Record<string, unknown> }>(docum
       }
       const { status, mediaType, value } = example.response;
       const response = operation.responses[status];
+      if (mediaType === undefined) {
+        if (!response || response.content) throw new Error(`Worked example ${key} ${name}: the operation declares no ${status} answer without content`);
+        operation.responses[status] = { ...response, "x-examples": { ...(response["x-examples"] as Record<string, unknown> | undefined), [name]: words } };
+        continue;
+      }
       const media = response?.content?.[mediaType];
       if (!media) throw new Error(`Worked example ${key} ${name}: the operation declares no ${status} ${mediaType} answer`);
       operation.responses[status] = { ...response, content: { ...response.content, [mediaType]: withNamedExample(media, name, { ...words, value: structuredClone(value) }) } };

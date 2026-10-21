@@ -16,7 +16,8 @@ type Document = ReturnType<typeof buildOpenApiDocument>;
 type Holder = Record<string, unknown>;
 
 /** The description with no example anywhere the standard places one: on a
- * parameter, and on the media types of a request body and a response. */
+ * parameter, and on the media types of a request body and a response; nor
+ * on a response without content, which holds its examples' words. */
 function withoutExamples(document: Document): Document {
   const copy = structuredClone(document);
   const strip = (holder: Holder | undefined) => { if (holder) { delete holder.example; delete holder.examples; } };
@@ -25,6 +26,7 @@ function withoutExamples(document: Document): Document {
       for (const parameter of (operation.parameters as Holder[] | undefined) ?? []) strip(parameter);
       for (const media of Object.values(((operation.requestBody as Holder | undefined)?.content as Record<string, Holder> | undefined) ?? {})) strip(media);
       for (const response of Object.values((operation.responses as Record<string, Holder> | undefined) ?? {})) {
+        delete response["x-examples"];
         for (const media of Object.values((response.content as Record<string, Holder> | undefined) ?? {})) strip(media);
       }
     }
@@ -32,7 +34,7 @@ function withoutExamples(document: Document): Document {
   return copy;
 }
 const serialized = (document: Document) => JSON.stringify(deriveTools(document));
-const counted = (document: Document) => JSON.stringify(document).split('"examples":').length - 1;
+const counted = (document: Document) => JSON.stringify(document).split(/"(?:x-)?examples":/).length - 1;
 
 describe("examples stay out of the tools", () => {
   const document = buildOpenApiDocument();

@@ -83,7 +83,7 @@ The person cannot sign in. Their maps, workflows, datasets and projects stay whe
 
 To undo it, open the row and click **Reactivate**. Everything returns to the same person.
 
-To take one offline and keep the account, an admin revokes its link through the API with `DELETE /api/publications/<TOKEN>`, where `<TOKEN>` ends the map's public link. [How the API works](../api/http-api.md) says how to call it.
+To take one offline and keep the account, an admin revokes its link through the API: `DELETE /api/publications/<PUBLISH_TOKEN>` with an admin's token, where `<PUBLISH_TOKEN>` ends the map's link, after `/v/`. It answers 204 with no body, and the link stops working at once. An active owner's link answers 404 and stays. The [operation reference](https://dezfil.io/docs/api/reference/publish/#delete-api-publications-token) shows the call.
 
 To delete an account with everything it owns:
 
