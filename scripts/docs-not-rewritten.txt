@@ -2,6 +2,3 @@
 # rewritten, one path per line. A page leaves this list in the change that
 # rewrites it, and no page is added to it. Every other check of the lint
 # still holds a listed page.
-docs/api/http-api.md
-docs/api/limits.md
-docs/api/mcp.md

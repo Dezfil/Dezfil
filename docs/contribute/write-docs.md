@@ -339,4 +339,4 @@ The median paragraph runs over 30 words. Split each long one at its second idea,
 - [Development setup](development-setup.md#run-the-checks): every check, those that read particular pages among them.
 - [How this is built](how-this-is-built.md): how a change is specified, written and reviewed.
 - [Contributing](../../CONTRIBUTING.md): get a change from your machine into the project.
-- Model pages: [Your first map](../start/first-map.md) and [Install](../start/install.md).
+- Model pages: [Your first map](../start/first-map.md), [Install](../start/install.md) and [Connect an AI agent](../api/mcp.md).

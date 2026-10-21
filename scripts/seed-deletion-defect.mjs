@@ -3,8 +3,9 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
 const defects = {
-  'doc-count': ['docs/api/http-api.md', '**145 paths,', '**146 paths,'],
-  'doc-error': ['docs/api/http-api.md', '| `deletion_changed` |', '| `missing_deletion_changed` |'],
+  // A count the served contract proof's procedure states, made stale
+  // whatever it is: the paths count gains a leading digit.
+  'doc-count': ['scripts/served-contract-proof.md', 'Expected counts: ', 'Expected counts: 1'],
   'doc-actor': ['src/lib/api/openapi-document-facts.ts', '    { type: "object", properties: { deleted: { type: "boolean", const: true } }, required: ["deleted"], additionalProperties: false },\n', ''],
   'doc-plugin': ['plugins/dezfil/skills/dezfil/analysis.md', '## account-departures', '## stale-departures'],
   'row-only': ['src/lib/metadata/account-compaction.mjs', 'db.exec("VACUUM");', '/* Seed: checkpoint alone leaves historical free pages. */'],

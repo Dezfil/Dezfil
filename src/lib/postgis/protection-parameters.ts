@@ -1,7 +1,8 @@
 /** Values whose omission requests no unsupported mandatory protection.
  * Empty values remain absent. All other nonempty values for these keys
- * are refused; nothing in this inventory is forwarded to libpq. */
-const IGNORED_VALUES: Record<string, readonly string[]> = {
+ * are refused; nothing in this inventory is forwarded to libpq. The API
+ * guide's Connections table lists every key, held by a test. */
+export const IGNORED_VALUES: Record<string, readonly string[]> = {
   options: [],
   service: [],
   min_protocol_version: [],

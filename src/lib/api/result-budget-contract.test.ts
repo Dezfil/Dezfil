@@ -19,17 +19,23 @@ it("documents all four bounded reader operations with fixed binary-byte ceilings
 });
 
 import { readFileSync } from "node:fs";
+// The SQL result limits have their home on Limits, which names the four
+// reads both as the app shows them and by their MCP tools; the four
+// operations' own entries in the operation reference carry them through
+// their descriptions, held above.
+const READS = ["SQL console", "dataset inspection", "geometry-choice preview", "PostGIS five-row preview"];
+const READ_TOOLS = ["run_sql", "inspect_table", "preview_table_geometry", "preview_postgis_relation"];
 it("keeps the four-reader limits and refusal code in every operator guide", () => {
-  for (const file of ["docs/api/limits.md", "docs/api/http-api.md", "docs/api/mcp.md"]) {
+  for (const [file, readers] of [["docs/api/limits.md", [...READS, ...READ_TOOLS]]] as const) {
     const text = readFileSync(file, "utf8");
     expect(text, file).toContain("33,554,432"); expect(text, file).toContain("2,097,152");
     expect(text, file).toContain("query_result_too_large");
-    for (const reader of file === "docs/api/mcp.md" ? ["run_sql", "inspect_table", "preview_table_geometry", "preview_postgis_relation"] : file === "docs/api/http-api.md" ? ["POST /api/query", "GET /api/tables/{name}", "POST /api/tables/{name}/geometry/preview", "POST /api/connections/postgis/{id}/preview"] : ["SQL console", "dataset inspection", "geometry-choice preview", "PostGIS five-row preview"]) expect(text, file).toContain(reader);
+    for (const reader of readers) expect(text, file).toContain(reader);
   }
 });
 
 it("names the inspection-dependent consumers in every affected guide", () => {
-  for (const file of ["docs/api/limits.md", "docs/api/http-api.md"]) {
+  for (const file of ["docs/api/limits.md"]) {
     const text = readFileSync(file, "utf8").replace(/\s+/g, " ");
     for (const consumer of ["tool column pickers", "SQL schema inventory and completion", "workflow dataset reads and facts", "automatic layer addition after a tool run"]) {
       expect(text.includes(consumer), `${file}: ${consumer}`).toBe(true);
@@ -58,7 +64,6 @@ it("keeps result-budget commands and their outcomes in the probe's procedure bes
     expect(headings, heading).toContain(heading);
   }
   for (const [file, part] of after) expect(part, file).not.toMatch(words);
-  expect(readFileSync("docs/api/http-api.md", "utf8")).toContain("](../../scripts/query-result-budget-probe.md)");
 });
 
 it("distinguishes fixed result ceilings from engine-memory admission", () => {
