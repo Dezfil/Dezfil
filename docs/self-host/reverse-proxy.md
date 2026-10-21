@@ -132,6 +132,8 @@ Start Dezfil again with that address in `DEZFIL_TRUSTED_PROXIES`:
 
 :::tab[Docker]
 
+List your variables first, as [Set a variable](configuration.md#set-a-variable) shows, and add them to the command, `DEZFIL_SECRET_KEY` among them:
+
 ```sh title="Terminal"
 docker rm -f dezfil
 docker run -d --name dezfil -p 127.0.0.1:3000:3000 -v dezfil-data:/data \
@@ -139,7 +141,7 @@ docker run -d --name dezfil -p 127.0.0.1:3000:3000 -v dezfil-data:/data \
   dezfil
 ```
 
-Add the other `-e` variables you use, such as the assistant's key. The `dezfil-data` volume keeps your data.
+The `dezfil-data` volume keeps your data.
 
 :::
 
@@ -205,13 +207,13 @@ Dezfil reads its own address differently from your browser, most often `http` wh
 
 Run the `docker inspect` command of step 2 again: `DEZFIL_TRUSTED_PROXIES` must hold the address it prints. Then check that the proxy sends the headers of step 1.
 
-### Your domain sends the browser to `127.0.0.1:3000`
+### Sign-in links from Users point at `127.0.0.1:3000`
 
-nginx sends its own upstream address as the host. Add the `proxy_set_header Host` and `X-Forwarded-Host` lines of step 1, then reload nginx.
+nginx sends its own upstream address as the host, and Dezfil builds the links **Users** hands out from it. Add the `proxy_set_header Host` and `X-Forwarded-Host` lines of step 1, then reload nginx. A link made while you opened Dezfil at another address, such as `http://localhost:3000` over SSH, carries that address: make it again from your domain.
 
 ### Pages show `{"error":{"code":"invalid_request","message":"Invalid request provenance."}}`
 
-A trusted proxy sent forwarding headers that disagree, such as a `Forwarded` header beside different `X-Forwarded-*` values. Drop `Forwarded` at the proxy as step 1 does, and let one proxy set the `X-Forwarded-*` headers.
+A trusted proxy sent forwarding headers that disagree, such as a `Forwarded` header beside different `X-Forwarded-*` values, or an `X-Forwarded-Port` that differs from the port the host names. Drop `Forwarded` at the proxy as step 1 does, and let one proxy set the `X-Forwarded-*` headers.
 
 ### Dezfil stops or restarts right after it starts
 
@@ -231,5 +233,7 @@ nginx holds the answer back until its buffers fill. Add `proxy_buffering off;`, 
 
 ## Next steps
 
+- [Docker Compose](docker-compose.md): a Compose file for a lasting instance.
 - [Configuration](configuration.md): set other variables, and see the values in effect.
+- [Users](users.md): invite people once the instance answers at your domain.
 - [What leaves the instance](what-leaves-the-instance.md): every outside request your instance can make.

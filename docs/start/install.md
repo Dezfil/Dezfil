@@ -93,6 +93,8 @@ docker compose up -d --build
 - `dezfil-data:/data` keeps everything Dezfil stores in the `dezfil-data` volume.
 - `restart: unless-stopped` starts Dezfil again after a crash or a Docker restart, unless you stopped it.
 
+For an instance that lasts, with its keys and backups, see [Docker Compose](../self-host/docker-compose.md).
+
 The first build takes a few minutes: it compiles the app and its tile builder. Dezfil should be ready within 30 seconds of the container starting. Check it:
 
 ```sh title="Terminal"
@@ -144,7 +146,7 @@ A checkout lacks two programs the container brings, `tippecanoe` for the tiles o
 
 ::::
 
-If the check answers `unready`, or nothing at all, the logs say why: run `docker logs dezfil` or `docker compose logs`, or read the terminal that runs `npm run dev`.
+If the check answers `Internal Server Error` or `unready`, or nothing at all, the logs say why: run `docker logs dezfil` or `docker compose logs`, or read the terminal that runs `npm run dev`. See [Troubleshooting](../self-host/troubleshooting.md#start-up).
 
 ## First run
 
@@ -157,7 +159,7 @@ If the check answers `unready`, or nothing at all, the logs say why: run `docker
 2. Fill in **Name**, **Email** and **Password**. The password needs at least 8 characters, and very common passwords are refused.
 3. Click **Create account**. You should see **Home**, signed in as the admin.
 
-To add people, open **Users** in the side menu and click **Invite**.
+To add people, open **Users** in the side menu and click **Invite**. See [Users](../self-host/users.md).
 
 ## Everyday commands
 
@@ -171,7 +173,7 @@ To add people, open **Users** in the side menu and click **Invite**.
 | Start | `docker start dezfil` |
 | See the logs | `docker logs -f dezfil` |
 | Check health | `curl http://localhost:3000/api/health` answers `{"status":"ready"}` |
-| Back up | Stop Dezfil, then copy the `dezfil-data` volume with the commands in [Back up and restore](../self-host/backup-and-restore.md#full-backup-and-restore). |
+| Back up | Stop Dezfil, then copy the `dezfil-data` volume with the commands in [Back up and restore](../self-host/backup-and-restore.md#back-up). |
 | Upgrade | Back up. In the `Dezfil` folder, run `git pull` and `docker build -t dezfil .`. Then run `docker stop dezfil`, `docker rm dezfil` and the install's `docker run` command, with the `-e` variables you added. |
 
 :::
@@ -186,7 +188,7 @@ Run these in the `Dezfil` folder.
 | Start | `docker compose start` |
 | See the logs | `docker compose logs -f` |
 | Check health | `curl http://localhost:3000/api/health` answers `{"status":"ready"}` |
-| Back up | Stop Dezfil, then copy the `dezfil-data` volume with the commands in [Back up and restore](../self-host/backup-and-restore.md#full-backup-and-restore). |
+| Back up | Stop Dezfil, then copy the `dezfil-data` volume with the commands in [Back up and restore](../self-host/backup-and-restore.md#back-up). |
 | Upgrade | Back up. Run `git pull`, then `docker compose up -d --build`. Compose replaces the container and keeps the volume. |
 
 :::
@@ -200,5 +202,6 @@ A new version updates the stored data when it starts. To go back, restore your b
 - [Your first map](first-map.md): add data and build a map.
 - [Reverse proxy and HTTPS](../self-host/reverse-proxy.md): serve Dezfil under your own domain.
 - [Configuration](../self-host/configuration.md): the settings that change how your instance runs.
-- [Back up and restore](../self-host/backup-and-restore.md#full-backup-and-restore): back up and restore the data volume.
+- [Back up and restore](../self-host/backup-and-restore.md): back up and restore the data volume.
+- [Upgrade](../self-host/upgrade.md): move to a new version and keep your data.
 - [What leaves the instance](../self-host/what-leaves-the-instance.md): what your instance sends out, and what to settle before other people use it.

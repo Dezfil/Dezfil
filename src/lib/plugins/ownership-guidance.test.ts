@@ -48,14 +48,19 @@ it("describes ownership and sharing in the published API introduction", () => {
   expect(description).toContain("<sql name>.<dataset>");
 });
 it("removes the obsolete shared-data upgrade claim and documents local draft disposal", () => {
-  const guide = readFileSync("docs/self-host/what-leaves-the-instance.md", "utf8");
-  expect(guide).not.toContain("Signed-in accounts still share the same maps");
-  expect(guide).toContain("Each account's maps");
-  expect(guide.replace(/\s+/g, " ")).toContain("are private, including from admins, until a project's owner shares the project");
-  const runbook = readFileSync("docs/self-host/backup-and-restore.md", "utf8");
-  expect(runbook).toContain("Unlabelled browser SQL drafts");
-  expect(runbook).toContain("recorded original account");
-  expect(runbook).toContain("File-referencing PROJ");
+  for (const file of ["docs/self-host/users.md", "docs/self-host/what-leaves-the-instance.md", "docs/use/share-and-publish.md"]) {
+    expect(readFileSync(file, "utf8"), file).not.toContain("Signed-in accounts still share the same maps");
+  }
+  const users = readFileSync("docs/self-host/users.md", "utf8");
+  expect(users).toContain("Each account's maps");
+  expect(users.replace(/\s+/g, " ")).toContain("are private, including from admins, until a project's owner shares the project");
+  // The upgrade's breaking SQL change, its draft disposal and who owns the
+  // existing work after it are changelog entries.
+  const changelog = readFileSync("CHANGELOG.md", "utf8").replace(/\s+/g, " ");
+  expect(changelog).toContain("SQL drafts and history that a browser kept before accounts");
+  expect(changelog).toContain("discarded the first time an account signs in");
+  expect(changelog).toContain("gives every map, dataset, workflow, connection and project to the recorded original account");
+  expect(changelog).toContain("File-referencing PROJ");
 });
 it("carries departure, deletion and explicit deleted actors in the generated guidance", () => {
   const section = GUIDANCE_SECTIONS.find(value => value.id === "account-departures");

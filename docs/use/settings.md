@@ -132,7 +132,7 @@ Your SQL draft and query history stay in each browser too, as [Query with SQL](s
 
 **Another browser shows another theme or look.** The theme belongs to each browser: click the theme button there. A page already open takes your new look when you reload it.
 
-**You forgot your password.** Ask an admin to open your account in **Users** and click **Reset password**. They get a sign-in link to pass to you.
+**You forgot your password.** Ask an admin to open your account in **Users** and click **Reset password**. They get a sign-in link to pass to you. [Users](../self-host/users.md) has the details.
 
 ## Next steps
 

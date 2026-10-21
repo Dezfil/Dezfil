@@ -443,3 +443,26 @@ export async function seedUseShare(api, _root, { base }) {
   const basis = captureBasis(expectStatus(await api("GET", `/api/maps/${firstMap.id}`), 200, "read the first map"));
   expectStatus(await api("POST", `/api/maps/${firstMap.id}/publish`, { basis, body: { theme: USE_SHARE.theme } }), 201, "publish the first map");
 }
+
+// ---------------------------------------------------------------------------
+// The Self-host pages, as an admin sees them.
+
+/** Two more people on Users, as an admin leaves them: one invited who has
+ * not used the link yet, and one whose account is deactivated before it was
+ * ever used. The scenes find them by their names. */
+export const SELF_HOST = {
+  invited: { name: "Ben Okafor", email: "ben@example.test" },
+  deactivated: { name: "Chen Wei", email: "chen@example.test" },
+};
+
+/**
+ * The self-host state, after the use-share one, through the users
+ * operations the Users page calls: the first person invited, the second
+ * invited and then deactivated. Nobody uses the two links.
+ */
+export async function seedSelfHost(api) {
+  expectStatus(await api("POST", "/api/users", { body: SELF_HOST.invited }), 201, `invite ${SELF_HOST.invited.name}`);
+  const { account } = expectStatus(await api("POST", "/api/users", { body: SELF_HOST.deactivated }), 201, `invite ${SELF_HOST.deactivated.name}`);
+  const changed = expectStatus(await api("PATCH", `/api/users/${encodeURIComponent(account.id)}`, { body: { status: "deactivated" } }), 200, `deactivate ${SELF_HOST.deactivated.name}`);
+  assert.equal(changed.account.status, "deactivated", `${SELF_HOST.deactivated.name}'s account is deactivated`);
+}

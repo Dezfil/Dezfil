@@ -35,7 +35,13 @@ docker run -d --name dezfil -p 127.0.0.1:3000:3000 -v dezfil-data:/data \
   dezfil
 ```
 
-A container keeps the variables it was created with. To change one, run `docker rm -f dezfil`, then the command again with every variable you use, not only the new one. The `dezfil-data` volume keeps your data.
+A container keeps the variables it was created with. To change one, first list the ones it has:
+
+```sh title="Terminal"
+docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' dezfil
+```
+
+The list holds the image's own variables too, such as `PATH` and `DEZFIL_DATA_DIR`. Run `docker rm -f dezfil`, then the command again with every variable you set, not only the new one, `DEZFIL_SECRET_KEY` among them. The `dezfil-data` volume keeps your data.
 
 :::
 
@@ -52,6 +58,8 @@ services:
 ```
 
 Then run `docker compose up -d`. Compose replaces the container and keeps the volume.
+
+Keep keys such as `ANTHROPIC_API_KEY` out of `compose.yaml`: [Docker Compose](docker-compose.md#3-make-the-keys-file) puts them in a `.env` file.
 
 :::
 
@@ -77,7 +85,7 @@ A number Dezfil cannot use still locks the row, and the default applies. The row
 Some settings live in one place only. What new maps start with and who may publish are in Settings alone. The data folder, the encryption key and the assistant's key are variables alone.
 
 > [!NOTE]
-> Remove a variable to return to its default. Set but empty, `DEZFIL_DATA_DIR`, `DEZFIL_TIPPECANOE`, `DEZFIL_CHROMIUM_PATH` and `DEZFIL_AI_MODEL` are used as they are, `DEZFIL_AI_PROVIDER` turns the assistant off and `DEZFIL_SESSION_COOKIE` stops the server.
+> Remove a variable to return to its default. Set but empty, `DEZFIL_DATA_DIR`, `DEZFIL_TIPPECANOE`, `DEZFIL_CHROMIUM_PATH` and `DEZFIL_AI_MODEL` are used as they are, `DEZFIL_AI_PROVIDER` turns the assistant off and `DEZFIL_SESSION_COOKIE` keeps Dezfil from starting.
 
 In Settings, choices save as you change them, and a typed number when you press Enter or leave the field. Other typed text waits for **Save**. Work already running keeps the value it started with.
 

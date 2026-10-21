@@ -23,6 +23,40 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   Complete first-account setup and create client tokens in Settings.
   Cookie mutations require the instance Origin. Shared resource access between
   signed-in accounts is unchanged; account administration requires an admin.
+- Breaking: user SQL refuses file readers, file-relation shorthand and engine
+  path or definition discovery with `sql_rejected`, even for a file its author
+  owns. File-referencing PROJ coordinate definitions are refused too; EPSG
+  codes and inline definitions without files still work. Saved queries and
+  published layers that use them fail until their owner changes the SQL to
+  name an uploaded dataset. Review saved queries before you upgrade.
+- Compatibility: SQL drafts and history that a browser kept before accounts
+  belong to no account, so they are discarded the first time an account signs
+  in there. Copy any draft you need before you upgrade. From then on, signing
+  out or signing in as another account clears them in that browser. Saved
+  layer and workflow SQL is unaffected.
+- Compatibility: on its first start, this version gives every map, dataset,
+  workflow, connection and project to the recorded original account, the one
+  made at setup, even when another account is the admin or it is deactivated.
+  With no account yet, setup gives them to the account it makes, so keep the
+  instance private until you have made it. Other accounts start with nothing
+  of their own, and every project keeps its owner, with no members until its
+  owner adds people. Dataset and connection names need to be unique only
+  within one owner's work, so two accounts can each have a `roads`.
+- Compatibility: each account gets a SQL name, made from its display name and
+  kept when the name changes. A deleted account keeps its SQL name for good, so
+  SQL that names it never reaches an account made later. Each map and workflow
+  takes its owner's SQL name as its SQL home, so a plain dataset name in its
+  SQL means that account's dataset, whoever opens it. Saved SQL that names
+  `main.<table>`, `memory.<table>` or `memory.main.<table>` keeps working.
+- Compatibility: maps and workflows show **Unknown** as the author of the
+  changes made before this version. Changes after it name the account that
+  made them.
+- Breaking: a client that changes a map or a workflow, its layers and steps
+  included, sends the edit revision it last read in `X-Edit-Revision`. A change
+  without one answers `400 invalid_request`, and one sent with an older
+  revision answers `409 stale_revision`. Deleting a layer and unpublishing a map
+  answer with JSON that carries the map's next revision, where they answered
+  with no body.
 
 ## [0.1.0]
 

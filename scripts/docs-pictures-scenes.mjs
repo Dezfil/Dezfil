@@ -36,7 +36,8 @@
 
 import { readFile } from "node:fs/promises";
 import { ASSISTANT_MESSAGES } from "./docs-pictures-assistant.mjs";
-import { ASSISTANT_MAP, BIG_CITIES, FIRST_MAP, MEMBER_MAPS, PROJECT, USE_MAPS, USE_SHARE, runWorkflow, seedAssistantMap, seedFirstMap, seedMember, seedUseMaps, seedUseShare, seedWorkflow } from "./docs-pictures-instance.mjs";
+import { FIXED_TIME } from "./docs-pictures-capture.mjs";
+import { ASSISTANT_MAP, BIG_CITIES, FIRST_MAP, MEMBER_MAPS, PROJECT, SELF_HOST, USE_MAPS, USE_SHARE, runWorkflow, seedAssistantMap, seedFirstMap, seedMember, seedSelfHost, seedUseMaps, seedUseShare, seedWorkflow } from "./docs-pictures-instance.mjs";
 
 /** Open the Templates page and wait until the catalogue has been read and
  * the three shipped cards are drawn with their pictures. */
@@ -1184,6 +1185,73 @@ const USE_SHARING_SCENES = [
   },
 ];
 
+// ---------------------------------------------------------------------------
+// Self-host: the pages for whoever runs the instance, in the `self-host`
+// state after every Use Dezfil one, signed in as the first account, the
+// instance's admin. The state adds two people to those the states before
+// it made, and nothing these scenes do changes the instance.
+
+/** Every account's creation and last sign-in on the Users page at the fixed
+ * clock's time, so the list shows the same dates on every run: the page
+ * reads them from the users answer, which carries the server's own clock.
+ * An account that never signed in keeps reading Never. */
+async function steadyUserDates(page) {
+  const at = FIXED_TIME.toISOString();
+  await page.route((url) => url.pathname === "/api/users", async (route) => {
+    if (route.request().method() !== "GET") return route.fallback();
+    const answer = await route.fetch();
+    if (!answer.ok()) return route.fulfill({ response: answer });
+    const body = await answer.json();
+    const users = body.users.map((user) => ({ ...user, createdAt: at, lastSignInAt: user.lastSignInAt && at }));
+    return route.fulfill({ response: answer, json: { ...body, users } });
+  });
+}
+
+/** The Users page's list: the card whose first child is the row of column
+ * heads. */
+const USERS_LIST = 'main div:has(> div[aria-hidden] > span:text-is("Last sign-in"))';
+
+const SELF_HOST_SCENES = [
+  {
+    // Users' opening picture: the heading with Invite, the search box and
+    // the whole list, the admin first, the members, the invited person, and
+    // the deactivated one under its group line. The pointer rests outside
+    // the list, so no row shows its hover.
+    id: "users-list",
+    file: "self-host/users-list.webp",
+    pages: ["docs/self-host/users.md"],
+    kind: "still",
+    state: "self-host",
+    crop: { selector: ["[data-list-heading]", USERS_LIST], margin: 24 },
+    async open(page) {
+      await steadyUserDates(page);
+      await page.goto("/users");
+      await page.locator(USERS_LIST).getByRole("button", { name: new RegExp(SELF_HOST.deactivated.name) }).waitFor();
+      await page.locator(USERS_LIST).getByText(`Deactivated · 1`, { exact: true }).waitFor();
+      await page.mouse.move(0, 0);
+    },
+  },
+  {
+    // What leaves the instance, beside the services that stay off: the
+    // first three cards of Data & services, the address finder and travel
+    // time each Not set up with its address row alone, and OpenStreetMap on
+    // the public Overpass server with its numbers and its empty cache. The
+    // instance's environment sets none of the three.
+    id: "what-leaves-the-instance-data-services",
+    file: "self-host/what-leaves-the-instance-data-services.webp",
+    pages: ["docs/self-host/what-leaves-the-instance.md"],
+    kind: "still",
+    state: "self-host",
+    crop: { selector: ["#data-geocoder", "#data-osm"], margin: 16 },
+    async open(page) {
+      await page.goto("/settings/data");
+      for (const card of ["#data-geocoder", "#data-travel"]) await page.locator(card).getByText("Not set up", { exact: true }).waitFor();
+      await page.locator("#data-osm #set-osm-cache").waitFor();
+      await page.locator(SETTINGS_HEADING).hover();
+    },
+  },
+];
+
 export const SCENES = [
   {
     id: "setup-card",
@@ -1251,9 +1319,10 @@ export const SCENES = [
   ...USE_MAPS_SCENES,
   ...TEMPLATE_SCENES,
   ...USE_SHARING_SCENES,
+  ...SELF_HOST_SCENES,
 ];
 
-export const STATES = ["fresh", "seeded", "first-map", "sql", "workflow", "workflow-run", "assistant", "member", "use-maps", "use-share"];
+export const STATES = ["fresh", "seeded", "first-map", "sql", "workflow", "workflow-run", "assistant", "member", "use-maps", "use-share", "self-host"];
 
 /** The states taken signed in as the second account, a member, rather than
  * the first, the instance's admin. */
@@ -1273,4 +1342,5 @@ export const STATE_SEEDING = {
   member: seedMember,
   "use-maps": seedUseMaps,
   "use-share": seedUseShare,
+  "self-host": seedSelfHost,
 };

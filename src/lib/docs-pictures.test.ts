@@ -23,7 +23,7 @@ import { manifestText, planRun } from "../../scripts/docs-pictures-manifest.mjs"
 import { BAND_CHOICE_KEY, DEFAULT_LOOK, MEMBER_STATES, SCENES, SQL_STORAGE_KEYS, STATES, STATE_SEEDING } from "../../scripts/docs-pictures-scenes.mjs";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: as above.
-import { ASSISTANT_MAP, BIG_CITIES, FIRST_MAP, MEMBER_MAPS, freePort, makeScratch, runWorkflow, seedAssistantMap, seedFirstMap, seedMember, seedUseMaps, seedUseShare, seedWorkflow, startServer, writeCatalogue } from "../../scripts/docs-pictures-instance.mjs";
+import { ASSISTANT_MAP, BIG_CITIES, FIRST_MAP, MEMBER_MAPS, freePort, makeScratch, runWorkflow, seedAssistantMap, seedFirstMap, seedMember, seedSelfHost, seedUseMaps, seedUseShare, seedWorkflow, startServer, writeCatalogue, SELF_HOST } from "../../scripts/docs-pictures-instance.mjs";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: as above.
 import { ASSISTANT_MESSAGES, PROPOSED_QUERY, SCRIPTED_KEY, assistantEnvironment, replyEvents, scriptedReply, startScriptedModel } from "../../scripts/docs-pictures-assistant.mjs";
@@ -176,8 +176,8 @@ describe("the scene list", () => {
     }
   });
 
-  it("takes the Use Dezfil scenes on data and maps, then those on sharing, last, so what they change as they open reaches no other page's picture", () => {
-    expect(STATES.slice(-2)).toEqual(["use-maps", "use-share"]);
+  it("takes the Use Dezfil scenes on data and maps, then those on sharing, after every other page's but Self-host's, so what they change as they open reaches no other page's picture", () => {
+    expect(STATES.slice(-3, -1)).toEqual(["use-maps", "use-share"]);
     expect(STATE_SEEDING["use-maps"]).toBe(seedUseMaps);
     expect(STATE_SEEDING["use-share"]).toBe(seedUseShare);
     for (const state of ["use-maps", "use-share"]) {
@@ -188,6 +188,34 @@ describe("the scene list", () => {
         for (const page of scene.pages) expect(page.startsWith("docs/use/")).toBe(true);
       }
     }
+  });
+
+  it("takes the Self-host scenes last, as the admin, on the people the states before made and the two its seeding adds", () => {
+    expect(STATES.at(-1)).toBe("self-host");
+    expect(MEMBER_STATES).not.toContain("self-host");
+    expect(STATE_SEEDING["self-host"]).toBe(seedSelfHost);
+    const taken = scenes.filter((s) => s.state === "self-host");
+    expect(taken.map((s) => s.id)).toEqual(["users-list", "what-leaves-the-instance-data-services"]);
+    for (const scene of taken) {
+      expect(scene.file.startsWith("self-host/")).toBe(true);
+      expect(scene.map).toBeUndefined();
+      for (const page of scene.pages) expect(page.startsWith("docs/self-host/")).toBe(true);
+    }
+  });
+
+  it("adds one invited person and one deactivated before using the link, through the users operations", async () => {
+    const calls: string[] = [];
+    const admin = async (method: string, path: string, options: { body?: Record<string, unknown> } = {}) => {
+      calls.push(`${method} ${path} ${JSON.stringify(options.body ?? {})}`);
+      if (method === "POST") return { status: 201, json: { account: { id: options.body?.name === SELF_HOST.deactivated.name ? "u/2" : "u1", status: "invited" }, signInUrl: "http://x/accept#secret=s", expiresAt: "t" } };
+      return { status: 200, json: { account: { id: "u/2", status: "deactivated" } } };
+    };
+    await seedSelfHost(admin);
+    expect(calls).toEqual([
+      `POST /api/users ${JSON.stringify(SELF_HOST.invited)}`,
+      `POST /api/users ${JSON.stringify(SELF_HOST.deactivated)}`,
+      'PATCH /api/users/u%2F2 {"status":"deactivated"}',
+    ]);
   });
 
   it("makes each state after the seeded one from the state before it, the first map by its own seeding", () => {

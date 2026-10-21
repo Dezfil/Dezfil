@@ -26,7 +26,7 @@ import { readFileSync } from "node:fs";
 const READS = ["SQL console", "dataset inspection", "geometry-choice preview", "PostGIS five-row preview"];
 const READ_TOOLS = ["run_sql", "inspect_table", "preview_table_geometry", "preview_postgis_relation"];
 it("keeps the four-reader limits and refusal code in every operator guide", () => {
-  for (const [file, readers] of [["docs/api/limits.md", [...READS, ...READ_TOOLS]], ["docs/self-host/what-leaves-the-instance.md", READS]] as const) {
+  for (const [file, readers] of [["docs/api/limits.md", [...READS, ...READ_TOOLS]]] as const) {
     const text = readFileSync(file, "utf8");
     expect(text, file).toContain("33,554,432"); expect(text, file).toContain("2,097,152");
     expect(text, file).toContain("query_result_too_large");
@@ -35,7 +35,7 @@ it("keeps the four-reader limits and refusal code in every operator guide", () =
 });
 
 it("names the inspection-dependent consumers in every affected guide", () => {
-  for (const file of ["docs/api/limits.md", "docs/self-host/what-leaves-the-instance.md"]) {
+  for (const file of ["docs/api/limits.md"]) {
     const text = readFileSync(file, "utf8").replace(/\s+/g, " ");
     for (const consumer of ["tool column pickers", "SQL schema inventory and completion", "workflow dataset reads and facts", "automatic layer addition after a tool run"]) {
       expect(text.includes(consumer), `${file}: ${consumer}`).toBe(true);
@@ -67,7 +67,7 @@ it("keeps result-budget commands and their outcomes in the probe's procedure bes
 });
 
 it("distinguishes fixed result ceilings from engine-memory admission", () => {
-  for (const file of ["docs/api/limits.md", "docs/self-host/what-leaves-the-instance.md"]) {
+  for (const file of ["docs/api/limits.md"]) {
     const text = readFileSync(file, "utf8").replace(/\s+/g, " ");
     expect(text, file).toContain("Row and engine-memory limits still apply");
     expect(text, file).toContain("a result below both byte ceilings can fail the engine-memory limit");
