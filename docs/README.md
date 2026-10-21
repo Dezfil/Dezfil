@@ -201,7 +201,7 @@ Script Dezfil over HTTP, or connect an AI agent through MCP.
 
 - [Connect an AI agent](api/mcp.md)
   - path: `docs/api/mcp.md`
-  - summary: Connect Claude Code, Codex, Cursor or another MCP client to Dezfil, so an agent can work with your maps, data and workflows.
+  - summary: Connect Claude Code, Codex, Cursor or another MCP client to Dezfil, so an agent can work with your maps, data and workflows, and add the Dezfil plugin.
   - read when: you want an AI agent to build maps, query data or run workflows in Dezfil; you add Dezfil to Claude Code, Codex, Cursor or another MCP client; you want to limit what an agent can do with your account; an agent's calls answer 401, token_expired, forbidden or stale_revision; you want the Dezfil skill and references in Claude Code or Codex
   - audience: user, operator, developer, agent
 

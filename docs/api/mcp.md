@@ -1,6 +1,6 @@
 ---
 title: "Connect an AI agent"
-summary: "Connect Claude Code, Codex, Cursor or another MCP client to Dezfil, so an agent can work with your maps, data and workflows."
+summary: "Connect Claude Code, Codex, Cursor or another MCP client to Dezfil, so an agent can work with your maps, data and workflows, and add the Dezfil plugin."
 read_when:
   - "you want an AI agent to build maps, query data or run workflows in Dezfil"
   - "you add Dezfil to Claude Code, Codex, Cursor or another MCP client"
@@ -273,7 +273,8 @@ one instance's address. The [plugin's README](../../plugins/dezfil/README.md)
 gives the commands to prepare, install, check and remove it.
 
 The plugin replaces the connection from Step 2, so remove that one when you
-install the plugin.
+install the plugin: `claude mcp remove dezfil` in Claude Code, or
+`codex mcp remove dezfil` in Codex.
 
 Once it is installed, `/dezfil:dezfil` starts the skill in Claude Code.
 
