@@ -212,11 +212,24 @@ for store in legacy-nss current-nss; do
   mkdir -p "$store"
   NSS_TRUST_TYPE=NSS certutil -N -d "sql:$store" --empty-password
   NSS_TRUST_TYPE=NSS certutil -A -d "sql:$store" -n 'Private root' -t 'C,,' -i private-root.pem
-  chmod -R a+rwX "$store"
 done
+docker run --rm --user root --entrypoint sh -v "$PWD:/trust" dezfil -c 'cd /trust &&
+  chown -R node:node legacy-nss current-nss && chmod 700 legacy-nss current-nss && ls legacy-nss current-nss'
 ```
 
-You should see two folders, `legacy-nss` and `current-nss`, each with a `cert9.db` file. The `chmod` lets the container's `node` user read and write both.
+The `docker run` line gives both folders to the container's `node` user, and no other user can open them. It lists what they hold:
+
+```text title="Output"
+current-nss:
+cert9.db
+key4.db
+pkcs11.txt
+
+legacy-nss:
+cert9.db
+key4.db
+pkcs11.txt
+```
 
 ### 2. Start the container with your root
 

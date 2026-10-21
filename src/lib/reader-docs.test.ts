@@ -53,3 +53,12 @@ it("gives operators complete restoration and credential recovery instructions", 
   for (const term of ["within 15 minutes", "stayed busy for five seconds", "took over the instance"]) expect(users.replace(/\s+/g, " ")).toContain(term);
   for (const term of ["X-Edit-Revision", "current.editRevision"]) expect(api).toContain(term);
 });
+
+it("opens no file an operator's command touches to every user on the host", () => {
+  const pages = execFileSync("git", ["ls-files", "-z", "docs/self-host", "docs/start"], { encoding: "utf8" }).split("\0").filter((file) => file.endsWith(".md"));
+  expect(pages.length).toBeGreaterThan(5);
+  for (const page of pages) expect(read(page), page).not.toMatch(/chmod\s+(?:-R\s+)?(?:[ugo]*a[ugo]*|o)\+[rx]*w|chmod\s+(?:-R\s+)?[0-7]?[0-7][0-7][2367]\b/);
+  // Chromium's trust stores belong to the user Dezfil runs as, and to no one else.
+  const egress = read("docs/self-host/what-leaves-the-instance.md");
+  for (const term of ["chown -R node:node legacy-nss current-nss", "chmod 700 legacy-nss current-nss"]) expect(egress).toContain(term);
+});
