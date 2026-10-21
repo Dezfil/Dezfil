@@ -15,7 +15,7 @@ order: 7
 
 ![The Users page: the Invite button, the search box, and the list of people with their email, role, status and last sign-in, one of them under Deactivated](../images/self-host/users-list.webp)
 
-Admins manage every account on the **Users** page. Open **Users** in the side menu; members do not see it. Nobody signs up alone: an admin adds each person.
+Admins manage every account on the **Users** page, in the side menu; members do not see it. Apart from the first account, made at setup, an admin adds each person.
 
 | To | Do this on **Users** |
 |---|---|
@@ -38,9 +38,7 @@ Dezfil sends no email. The link shows once: after **Done**, you can only make a 
 
 They open the link, see **Choose your password**, type a **Password** and click **Set password**. Dezfil signs them in, and their status turns **Active**.
 
-The line under the field names the shortest password: 8 characters, unless you raise it in **Settings** › **Security** › **Shortest password**. Very common passwords are refused.
-
-A link lasts 7 days. To change that, open **Settings** › **Security** and pick 1, 3, 7 or 14 days in **Invite and reset links last**. Each link keeps the lifetime it was made with.
+The line under the field names the shortest password, and very common passwords are refused. A link lasts 7 days by default, and each keeps the lifetime it was made with. [Security and rules](configuration/rules.md) lists both settings.
 
 > [!NOTE]
 > The link starts with the address you opened Dezfil at. Invite people while you use the address they will use, such as `https://maps.example.com`, not `http://localhost:3000`.
@@ -70,9 +68,9 @@ Your own row offers only **Change password**: you cannot remove your own admin a
 
 They open the link and choose a new password, as a new person does. For someone who has not used their invitation, the button reads **New sign-in link**. A new link replaces every earlier one.
 
-The sign-in page tells people who forgot their password: **Forgot your password? An admin can reset it.** To name someone else, such as your GIS team, type it in **Settings** › **General** › **Lost password contact** and click **Save**.
+The sign-in page tells people who forgot their password: **Forgot your password? An admin can reset it.** To name someone else, such as your GIS team, type it in **Settings** > **General** > **Lost password contact** and click **Save**.
 
-To change your own password, see [Your settings](../use/settings.md).
+To change your own password, see [Your settings](../use/settings.md#change-your-password).
 
 ## Deactivate or delete an account
 
@@ -85,20 +83,24 @@ The person cannot sign in. Their maps, workflows, datasets and projects stay whe
 
 To undo it, open the row and click **Reactivate**. Everything returns to the same person.
 
+To take one offline and keep the account, an admin revokes its link through the API with `DELETE /api/publications/<TOKEN>`, where `<TOKEN>` ends the map's public link. [How the API works](../api/http-api.md) says how to call it.
+
 To delete an account with everything it owns:
 
 1. Deactivate the account first. An invitation nobody used can be deleted at once.
 2. Open the row and click **Delete account**. The dialog counts what goes with it: maps, datasets, workflows, projects, connections and published links, and the people who lose access.
-3. Type the account's email in the box, where the dialog asks for it, and click **Delete account**. You should see **Ana Diaz: deleted**.
+3. Type the account's email in the box, where the dialog asks for it, and click **Delete account**. You should see **Ana Diaz: deleted**. An account that owns much may first show **Deleting**, then leave the list.
 
 > [!WARNING]
 > Deleting cannot be undone. It removes everything the account owns, wherever it is filed, and takes its published maps offline. To keep someone's work for the team, leave the account deactivated.
 
+Its projects close: work other people filed in them stays theirs, in no project. Other people's maps and workflows that read its datasets lose those inputs.
+
 Changes the account made to other people's maps and workflows then show **Deleted account** as their author. Deleting also empties the caches of the address finder, travel time and OpenStreetMap.
 
-Deleting reaches nothing outside the instance. Backups, files people exported or downloaded, the server's logs, what the assistant's provider holds and a database a connection wrote to keep their copies.
+Deleting reaches nothing outside the instance: backups, downloaded files, the server's logs, the assistant's provider and databases a connection wrote to keep their copies.
 
-To finish a deletion, Dezfil rewrites its metadata database, and answers no request until that ends, health checks included. The pause grows with the database, and a slow disk makes it longer. It needs free disk space of up to twice the database's size.
+To finish a deletion, Dezfil rewrites its metadata database, and answers no request until that ends, health checks included. The pause grows with the database, and a slow disk makes it longer. It needs free space of the database's size twice: in the volume, and in the container's temporary files on Docker's own disk.
 
 ## Recover the admin account
 
@@ -164,9 +166,7 @@ https://maps.example.com/accept#secret=<SECRET>
 1. Open the link within 15 minutes; the expiry is in UTC. You should see **Choose your password**.
 2. Type a new **Password** and click **Set password**. You should see **Home**, or the landing page your instance opens on, signed in as that admin.
 
-The script works with the server running or stopped, and a second run replaces the link. It ends that account's old password, earlier links, browser sessions and API tokens, so make new tokens in **Settings** › **API & MCP**. Other accounts keep theirs.
-
-The script reaches only an account that is an active admin. It never makes an admin, reactivates an account or sets up a new instance.
+The script works with the server running or stopped, and a second run replaces the link. It ends that account's old password, earlier links, browser sessions and API tokens, so make new tokens in **Settings** > **API & MCP**. Other accounts keep theirs.
 
 > [!NOTE]
 > If someone else took over the instance, the script lets you back in but leaves their accounts and changes in place. Restore a backup from before, as [Back up and restore](backup-and-restore.md) describes.
@@ -187,37 +187,27 @@ The person has an account already. Type their email in **Search users…** to fi
 
 ### A row says "Deletion unfinished"
 
-Dezfil could not delete everything yet, for example for want of disk space. The account stays closed: nobody can sign in to it or open its work. Free the space, then open the row and click **Finish deleting**.
+Dezfil could not delete everything yet, for example for want of disk space. The account stays closed: nobody can sign in to it or open its work. Free the space, then open the row and click **Finish deleting**. It is safe to repeat, also after a restart, so never edit the database or remove its files by hand.
 
 A program outside Dezfil that keeps the database open, such as a replication tool, also stops a deletion from finishing. Stop it first.
 
-### The script says "Run admin recovery in a terminal."
+### Copy link says "The link could not be copied. Select it and copy it manually."
 
-The script had no terminal to print to. Add `-it` to `docker exec` or `docker run`. With Docker Compose, leave out `-T`.
+The browser lets a page copy only over HTTPS or at `localhost`. Click the link's field, which selects the link, and copy it with your keyboard. [Reverse proxy and HTTPS](reverse-proxy.md) serves Dezfil over HTTPS.
 
-### The script says "Several active admins exist. Select one with --email."
+### The recovery script stops with a message
 
-Add `--email` with the email of the admin account you want back.
+Nothing changes when the script stops. Find the start of its message:
 
-### The script says "That email does not identify an active admin. No credentials changed."
-
-Check the spelling. The account must be an admin and active, and the script cannot change either. If another admin can sign in, they do it on **Users**.
-
-### The script says "Supply an explicit reachable HTTP/HTTPS instance origin"
-
-Give `--origin` the address alone, starting with `http://` or `https://`, such as `https://maps.example.com`: no path, no query, no user name.
-
-### The script says "No setup-complete store found."
-
-`--data-dir` names a folder without the instance's data, or setup never finished. In the container, the folder is `/data`. On a new instance, open Dezfil and create the first account.
-
-### The script says "Incompatible metadata store."
-
-The script comes from another Dezfil version than the data. Run it in the instance's own container, or with the image that last ran on the volume.
-
-### The script says "The metadata store stayed busy for five seconds."
-
-Another process was writing to the data. Wait a moment and run the script again. Nothing changed.
+| The script says | Fix |
+|---|---|
+| "Run admin recovery in a terminal." | It had no terminal to print to. Add `-it` to `docker exec` or `docker run`. With Docker Compose, leave out `-T`. |
+| "Several active admins exist. Select one with --email." | Add `--email` with the email of the admin account you want back. |
+| "That email does not identify an active admin." | Check the spelling. The account must be an admin and active, and the script cannot change either: it never makes an admin, reactivates an account or sets up an instance. Another admin who can sign in does it on **Users**. |
+| "Supply an explicit reachable HTTP/HTTPS instance origin" | Give `--origin` the address alone, starting with `http://` or `https://`, such as `https://maps.example.com`: no path, no query, no user name. |
+| "No setup-complete store found." | `--data-dir` names a folder without the instance's data, `-v` names another volume than your instance's, or setup never finished. In the container, the folder is `/data`, and `docker volume ls` lists the volumes. On a new instance, open Dezfil and create the first account. |
+| "Incompatible metadata store." | The script comes from another Dezfil version than the data, or it cannot write the data. Run it in the instance's own container, or with the image that last ran on the volume, without `:ro` on the volume. From source, run it as the user that runs Dezfil. |
+| "The metadata store stayed busy for five seconds." | Another process was writing to the data. Wait a moment and run the script again. |
 
 ## Next steps
 
