@@ -457,15 +457,17 @@ plus the shared instance name. Only admins may change the instance name.
 `sourceGrouping` is how the SQL console's source list groups datasets for
 the caller, `person` (their own, then each other person's) until they choose
 `project`; the read always carries it, and it is one account's alone.
-`look` is the caller's look, seven picks with the first choice the default:
+`look` is the caller's look, eight picks with the first choice the default:
 `color` (`kelp`, `harbor`, `heather`, `slate`), `contrast` (`standard`,
 `more`), `font` (`inter`, `system`), `background` (`atlantic`, `plain`,
 `graticule`, `hex`), `corners` (`rounded`, `soft`), `rail` (`hover`,
-`open`, `icons`) and `panels` (`glass`, `liquid`, `paper`); `liquid` makes
-every card and panel liquid alike. The eight `liquid…` keys an earlier
+`open`, `icons`), `panels` (`glass`, `liquid`, `paper`) and `transparency`
+(`clear`, `medium`, `firm`); `liquid` makes every card and panel liquid
+alike, and `transparency` is how much of the map shows through it, kept
+under any `panels` and drawn only under `liquid`. The eight `liquid…` keys an earlier
 version took are gone: a patch naming one is refused as an unknown key, and
 a value kept from then is left stored and never read. The read always
-carries all seven, a kept value this version no longer offers reading as
+carries all eight, a kept value this version no longer offers reading as
 its default without being rewritten; a patch
 takes any of them and leaves the rest as they are. There is no `null`: a
 pick returns to the default when its first choice is sent. Inside `look`

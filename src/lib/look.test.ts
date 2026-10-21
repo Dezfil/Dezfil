@@ -7,9 +7,10 @@ import { defaultLook, LOOK_ATTRIBUTES, LOOK_KEYS, lookAttributes, lookChoices, n
 
 /** Today's look, written out rather than derived, so the module's own
  * reading of the catalogue cannot stand on both sides of a comparison:
- * the six picks and Panels on Glass. */
+ * the six picks, Panels on Glass and Transparency at Clear. */
 const TODAY = {
   color: "kelp", contrast: "standard", font: "inter", background: "atlantic", corners: "rounded", rail: "hover", panels: "glass",
+  transparency: "clear",
 };
 /** The kinds of surface an earlier version let Liquid reach one by one,
  * which an account may still keep. */
@@ -18,12 +19,13 @@ const EVERY_KIND = Object.fromEntries(RETIRED_KINDS.map(key => [key, "on"]));
 const NO_KIND = Object.fromEntries(RETIRED_KINDS.map(key => [key, "off"]));
 
 describe("the look's picks and Dezfil's default", () => {
-  it("names the seven picks, each offering the catalogue's choices with today's value first", () => {
-    expect([...LOOK_KEYS]).toEqual(["color", "contrast", "font", "background", "corners", "rail", "panels"]);
+  it("names the eight picks, each offering the catalogue's choices with today's value first", () => {
+    expect([...LOOK_KEYS]).toEqual(["color", "contrast", "font", "background", "corners", "rail", "panels", "transparency"]);
     expect(defaultLook()).toEqual(TODAY);
     for (const key of LOOK_KEYS) expect(lookChoices(key)[0]).toBe(TODAY[key]);
     expect(lookChoices("background")).toEqual(["atlantic", "plain", "graticule", "hex"]);
     expect(lookChoices("panels")).toEqual(["glass", "liquid", "paper"]);
+    expect(lookChoices("transparency")).toEqual(["clear", "medium", "firm"]);
   });
 });
 
@@ -35,12 +37,13 @@ describe("reading a stored look", () => {
 
   it("keeps every pick the version offers and fills the missing ones with their defaults", () => {
     expect(normalizeLook({ color: "harbor", rail: "icons" })).toEqual({ ...TODAY, color: "harbor", rail: "icons" });
-    const every = { color: "slate", contrast: "more", font: "system", background: "hex", corners: "soft", rail: "open", panels: "paper" };
+    const every = { color: "slate", contrast: "more", font: "system", background: "hex", corners: "soft", rail: "open", panels: "paper",
+      transparency: "firm" };
     expect(normalizeLook(every)).toEqual(every);
   });
 
   it("reads a value the version does not offer, or one of the wrong kind, as that pick's default", () => {
-    expect(normalizeLook({ color: "teal", contrast: "MORE", font: 1, background: "contours", corners: ["soft"], rail: "" }))
+    expect(normalizeLook({ color: "teal", contrast: "MORE", font: 1, background: "contours", corners: ["soft"], rail: "", transparency: "opaque" }))
       .toEqual(TODAY);
     expect(normalizeLook({ color: "heather", background: "soundings" })).toEqual({ ...TODAY, color: "heather" });
     // A retired look.
@@ -86,11 +89,19 @@ describe("the root's attributes", () => {
     expect(lookAttributes({ ...TODAY, ...EVERY_KIND } as Record<string, unknown>)).toEqual({});
   });
 
+  it("name Transparency when it is not Clear, whatever Panels is: Liquid's sheet alone reads it", () => {
+    expect(lookAttributes({ ...TODAY, panels: "liquid", transparency: "firm" }))
+      .toEqual({ "data-look-panels": "liquid", "data-look-transparency": "firm" });
+    expect(lookAttributes({ ...TODAY, transparency: "medium" })).toEqual({ "data-look-transparency": "medium" });
+    expect(lookAttributes({ ...TODAY, panels: "liquid", transparency: "clear" })).toEqual({ "data-look-panels": "liquid" });
+    expect(lookAttributes({ ...TODAY, panels: "liquid", transparency: "opaque" })).toEqual({ "data-look-panels": "liquid" });
+  });
+
   it("are drawn from one fixed list, one attribute per pick", () => {
     expect([...LOOK_ATTRIBUTES]).toEqual(["data-look-color", "data-look-contrast", "data-look-font", "data-look-background",
-      "data-look-corners", "data-look-rail", "data-look-panels"]);
+      "data-look-corners", "data-look-rail", "data-look-panels", "data-look-transparency"]);
     const every = lookAttributes({ color: "slate", contrast: "more", font: "system", background: "hex", corners: "soft", rail: "open",
-      panels: "liquid" });
+      panels: "liquid", transparency: "medium" });
     expect(Object.keys(every)).toEqual([...LOOK_ATTRIBUTES]);
   });
 });

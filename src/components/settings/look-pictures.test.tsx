@@ -200,17 +200,21 @@ function panelsToken(rules: Rule[], token: string, root: Record<string, string>,
     (VOCABULARY.test(name) ? panelsToken(rules, name, root, request, at) : whole));
 }
 
-/** Where a Panels picture draws other than a page with its Panels picked, under every look a person can have. */
+/** Where a Panels picture draws other than a page with its Panels picked
+ * and the person's Transparency kept, under every look a person can have. */
 function panelsProblems(rules: Rule[]): string[] {
   const problems: string[] = [];
+  const steps = lookChoices("transparency").slice(1).map(step => ({ "data-look-transparency": step }));
   const looks: Record<string, string>[] = [
     {}, { "data-look-panels": "liquid" }, { "data-look-panels": "paper" },
+    ...steps.flatMap(step => [step, { "data-look-panels": "liquid", ...step }, { "data-look-panels": "paper", ...step }]),
   ];
   for (const theme of ["", "dark"]) for (const look of looks) for (const request of [false, true]) {
     const root = { ...look, ...(theme ? { "data-theme": theme } : {}) };
     for (const value of lookChoices("panels")) {
       const page: Record<string, string> = { ...(theme ? { "data-theme": theme } : {}) };
       if (value !== "glass") page["data-look-panels"] = value;
+      if (look["data-look-transparency"]) page["data-look-transparency"] = look["data-look-transparency"];
       for (const token of PANELS_PARTS) {
         const shown = panelsToken(rules, token, root, request, value), expected = panelsToken(rules, token, page, request, null);
         if (shown !== expected) problems.push(`${value} under ${JSON.stringify(root)}${request ? " asked for less transparency" : ""}: ${token} is ${shown}, not ${expected}`);
@@ -221,7 +225,7 @@ function panelsProblems(rules: Rule[]): string[] {
 }
 
 describe("the Panels pictures", () => {
-  it("show their own look's chrome and map panels, as a page with that Panels picked, under every look, theme and request", () => {
+  it("show their own look's chrome and map panels, as a page with that Panels picked, under every look, step, theme and request", () => {
     expect(panelsProblems(lookRules())).toEqual([]);
   });
 
@@ -235,8 +239,17 @@ describe("the Panels pictures", () => {
     expect(on({}, "liquid", "--surface-glass-chrome-fill")).toBe("color-mix(in srgb, #fff 10%, var(--bg-panel) 36%)");
     expect(on({}, "liquid", "--surface-glass-chrome-blur")).toBe("blur(6px)");
     expect(on({}, "liquid", "--surface-overlay-panel-fill")).toBe("color-mix(in srgb, #fff 10%, var(--bg-panel) 36%)");
-    expect(on({ "data-theme": "dark" }, "liquid", "--surface-overlay-panel-fill")).toBe("color-mix(in srgb, #000 6%, var(--bg-panel) 50%)");
+    expect(on({ "data-theme": "dark" }, "liquid", "--surface-overlay-panel-fill")).toBe("color-mix(in srgb, #000 8%, var(--bg-panel) 54%)");
+    expect(on({ "data-theme": "dark" }, "liquid", "--surface-glass-chrome-blur")).toBe("blur(8px)");
     expect(on({}, "liquid", "--surface-glass-chrome-shadow")).toMatch(/^inset 1px 1px 0 rgba\(255, 255, 255, 0\.9\), /);
+    expect(on({ "data-theme": "dark" }, "liquid", "--surface-glass-chrome-shadow")).toMatch(/^inset 0 1px 0 rgba\(255, 255, 255, 0\.1\), /);
+    // The person's Transparency is kept: the Liquid picture shows their step, the Glass one under Liquid stays Glass.
+    const firm = { "data-look-panels": "liquid", "data-look-transparency": "firm" };
+    expect(on(firm, "liquid", "--surface-overlay-panel-fill")).toBe("color-mix(in srgb, #fff 10%, var(--bg-panel) 68%)");
+    expect(on({ "data-look-transparency": "firm" }, "liquid", "--surface-glass-chrome-fill")).toBe("color-mix(in srgb, #fff 10%, var(--bg-panel) 68%)");
+    expect(on({ "data-theme": "dark", "data-look-transparency": "medium" }, "liquid", "--surface-overlay-panel-fill"))
+      .toBe("color-mix(in srgb, #000 10%, var(--bg-panel) 62%)");
+    expect(on(firm, "glass", "--surface-glass-chrome-fill")).toBe("color-mix(in srgb, var(--bg-panel) 93%, transparent)");
     expect(on({}, "paper", "--surface-glass-chrome-fill")).toBe("color-mix(in oklab, var(--bg-panel) 96%, var(--bg))");
     expect(on({}, "paper", "--surface-overlay-panel-blur")).toBe("none");
     expect(on({ "data-theme": "dark" }, "paper", "--surface-glass-chrome-fill")).toBe("var(--bg-raised)");

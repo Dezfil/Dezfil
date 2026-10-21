@@ -6,15 +6,17 @@ import { ErrorNote } from "@/components/ui/ErrorNote";
 import { RerunIcon } from "@/components/ui/icons";
 import { useSignedInSqlName } from "@/components/sharing/signed-in";
 import { accountRequest, failureMessage, settingsWrite } from "./api";
+import { AppearancePreview } from "./AppearancePreview";
 import {
   choiceLabel, LOOK_CARDS, LookReset, shownLook, unitKey, type LookCard, type LookResetSnapshot, type LookSend, type PictureRow,
+  type SegmentRow,
 } from "./look-tab";
 import { lookSession, openLookSession, type LookSession } from "./look-session";
 import { LookPicture } from "./LookPictures";
 import { PictureChoice } from "./PictureChoice";
 import type { SaveUnit, UnitSnapshot } from "./save-unit";
 import { useDrawn } from "./settings-land";
-import { RowError, Rows, SettingRow } from "./SettingRows";
+import { RowError, Rows, SegmentChoice, SettingRow } from "./SettingRows";
 import { ResetSlot, SavedMark, SettingsCard } from "./SettingsCard";
 import { useUnitFocus } from "./use-save-unit";
 import cardStyles from "./SettingsCard.module.css";
@@ -81,6 +83,7 @@ function LookCards({ session: { units, reset } }: { session: LookSession }) {
   return <div className={styles.tab}>
     <TopAction reset={reset} snapshot={top} shown={shown} />
     {top.note && <ErrorNote message={top.note.message} onRetry={() => reset.retry(shown)} onDismiss={() => reset.dismiss()} />}
+    <AppearancePreview />
     {LOOK_CARDS.map((card, index) => <LookCardView key={card.id} card={card} unit={units[index]} snapshot={snapshots[index]} onNewer={newer} />)}
   </div>;
 }
@@ -115,7 +118,9 @@ function LookCardView({ card, unit, snapshot, onNewer }: { card: LookCard; unit:
   useUnitFocus(root, snapshot.focus);
   return <SettingsCard ref={root} id={card.id} title={card.title} headingId={`${card.id}-heading`}
     head={<ResetSlot unit={unit} card={snapshot} onReset={onNewer} />}>
-    <Rows>{card.rows.map(row => <PictureRowView key={row.id} row={row} unit={unit} snapshot={snapshot} onNewer={onNewer} />)}</Rows>
+    <Rows>{card.rows.filter(row => !snapshot.hidden.includes(unitKey(row.key))).map(row => "under" in row
+      ? <SegmentRowView key={row.id} row={row} unit={unit} snapshot={snapshot} onNewer={onNewer} />
+      : <PictureRowView key={row.id} row={row} unit={unit} snapshot={snapshot} onNewer={onNewer} />)}</Rows>
     {snapshot.note && <ErrorNote message={snapshot.note.message} onRetry={snapshot.note.retry ? () => unit.retry() : undefined} onDismiss={() => unit.dismiss()} />}
   </SettingsCard>;
 }
@@ -125,6 +130,18 @@ function PictureRowView({ row, unit, snapshot, onNewer }: RowProps<PictureRow>) 
   return <SettingRow id={row.id} label={row.label} stack mark={snapshot.saved.includes(key) ? <SavedMark /> : null}>
     <PictureChoice label={row.label} value={String(snapshot.values[key])}
       choices={lookChoices(row.key).map(value => ({ value, label: choiceLabel(row.key, value), picture: <LookPicture pick={row.key} value={value} /> }))}
+      onChange={value => { onNewer(); unit.choose(key, value); }} />
+    {error && <RowError id={`${row.id}-error`}>{error}</RowError>}
+  </SettingRow>;
+}
+
+/** A pick under another, as segments beside its label: in sight while its
+ * card shows the value it belongs under, and saved as it is clicked. */
+function SegmentRowView({ row, unit, snapshot, onNewer }: RowProps<SegmentRow>) {
+  const key = unitKey(row.key), error = snapshot.errors[key];
+  return <SettingRow id={row.id} label={row.label} mark={snapshot.saved.includes(key) ? <SavedMark /> : null}>
+    <SegmentChoice label={row.label} value={String(snapshot.values[key])}
+      choices={lookChoices(row.key).map(value => ({ value, label: choiceLabel(row.key, value) }))}
       onChange={value => { onNewer(); unit.choose(key, value); }} />
     {error && <RowError id={`${row.id}-error`}>{error}</RowError>}
   </SettingRow>;

@@ -57,7 +57,17 @@
 //   it while the card takes the person's; a published page opened by its
 //   author carries no look, lens or rim light, in both of its modes.
 // - A fresh browser signed in with Liquid paints Liquid's fill, blur and
-//   light from its first frame, and bends within the first second.
+//   light from its first frame, and bends within the first second; one
+//   signed in with Liquid at Medium paints Medium's fill from it.
+// - Liquid's steps: at Medium and Firm the builder's roles take the step's
+//   fill and the quiet text the step's ink, the blur, the bend and the
+//   light unchanged; the requests make Firm opaque as they do Clear, and
+//   under Firm the export card's preview keeps the default look.
+// - On Appearance, the Transparency row stands under Panels only while it
+//   is Liquid and a segment saves as it is clicked; the Preview above the
+//   cards stays in sight as the page scrolls, its map a shipped
+//   template's picture in the theme in use, and its pieces follow Panels,
+//   Transparency and the theme.
 //
 // The Assistant's own message is a block too; it needs a turn answered by a
 // model, which these accounts never send, so it is named in the
@@ -81,6 +91,15 @@
 //                 stylesheets and added once the header card has been on
 //                 the page for a frame, the served attributes right: the
 //                 first-frame step fails on the header card's values alone.
+//   preview-typed the Preview's inspector types Glass's fill and blur by
+//                 hand: the Preview's reads under Liquid fail on the
+//                 inspector and only the inspector.
+//   stepless      the stylesheets lose every rule keyed on a transparency
+//                 step: the builder's reads at Medium and Firm, the
+//                 Preview's at Firm and the first frame at Medium fail on
+//                 the fills (the requests and the export card hold, the
+//                 opaque fill and the default look being the same at
+//                 every step).
 //
 // Environment: the documented gate (isolated server, fresh data dir), its
 // browsers installed. Run with DEZFIL_BASE_URL at the server.
@@ -104,13 +123,18 @@ type Role =
   | "glass-chrome" | "glass-panel" | "overlay-panel" | "overlay-control" | "map-card"
   | "page-card" | "inner-card" | "block" | "menu" | "dialog" | "stage";
 type Panels = "glass" | "liquid" | "paper";
+/** Liquid's transparency steps; Clear is the default. */
+type Step = "clear" | "medium" | "firm";
 
-/** A look as the own-settings write takes it: its Panels pick. */
-const lookOf = (panels: Panels): Record<string, string> => ({ panels });
-/** The root's attributes for that look: Glass, the default, carries none. */
-const attrsOf = (panels: Panels): LookAttributes => (panels === "glass" ? {} : { "data-look-panels": panels });
+/** A look as the own-settings write takes it: its Panels pick and its Transparency. */
+const lookOf = (panels: Panels, step: Step = "clear"): Record<string, string> => ({ panels, transparency: step });
+/** The root's attributes for that look: Glass and Clear, the defaults, carry none. */
+const attrsOf = (panels: Panels, step: Step = "clear"): LookAttributes => ({
+  ...(panels === "glass" ? {} : { "data-look-panels": panels }),
+  ...(step === "clear" ? {} : { "data-look-transparency": step }),
+});
 /** Every pick of the look, in the order the own-settings read lists them. */
-const PICKS = ["color", "contrast", "font", "background", "corners", "rail", "panels"];
+const PICKS = ["color", "contrast", "font", "background", "corners", "rail", "panels", "transparency"];
 
 /** Kelp's tones by day and by night, as the shipped palettes state them. */
 interface Tones { panel: RGBA; ground: RGBA; raised: RGBA; hover: RGBA; ink: RGBA; muted: RGBA; accent: RGBA; border: RGBA; moreBorder: RGBA; shadow: RGBA }
@@ -155,21 +179,33 @@ const step = (name: keyof typeof STEP, theme: Theme): Layer => {
 };
 
 /* Liquid: one clear recipe. The panel tone under a faint tint folded into
- * one fill (white at 10 % over the panel tone at 36 % by day, black at 6 %
- * over it at 50 % by night; a dialog, over its veil, at 40 % by day; at 8 %
- * over 92 % where a fill must be opaque), the light on the rim drawn inside
- * the edge, then a two-layer drop by height. */
-function liquidFill(theme: Theme, opaque = false, dialog = false): RGBA {
+ * one fill (white at 10 % over the panel tone at 36 % by day, black at 8 %
+ * over it at 54 % by night; a dialog, over its veil, at 40 % by day; at 8 %
+ * over 92 % where a fill must be opaque), firmer at each transparency step,
+ * the light on the rim drawn inside the edge, then a two-layer drop by
+ * height. */
+const LIQUID_STEPS: Record<Theme, Record<Step, [tint: number, panel: number, dialog: number]>> = {
+  light: { clear: [0.1, 0.36, 0.4], medium: [0.1, 0.52, 0.54], firm: [0.1, 0.68, 0.7] },
+  dark: { clear: [0.08, 0.54, 0.54], medium: [0.1, 0.62, 0.64], firm: [0.1, 0.74, 0.76] },
+};
+function liquidFill(theme: Theme, opaque = false, dialog = false, step: Step = "clear"): RGBA {
   const { panel } = TONES[theme];
-  if (opaque) return mix([theme === "light" ? WHITE : BLACK, 0.08], [panel, 0.92]);
-  return theme === "light" ? mix([WHITE, 0.1], [panel, dialog ? 0.4 : 0.36]) : mix([BLACK, 0.06], [panel, 0.5]);
+  const tint = theme === "light" ? WHITE : BLACK;
+  if (opaque) return mix([tint, 0.08], [panel, 0.92]);
+  const [share, body, overVeil] = LIQUID_STEPS[theme][step];
+  return mix([tint, share], [panel, dialog ? overVeil : body]);
 }
-const LIQUID_BLUR = "blur(6px)";
-/** Under Liquid the quiet ink steps 85 % of the way to the full ink. */
-const stepped = (theme: Theme): RGBA => mix([TONES[theme].ink, 0.85], [TONES[theme].muted, 0.15]);
+/** One blur on every role that floats: 6 px by day, 8 px by night. */
+const LIQUID_BLUR: Record<Theme, string> = { light: "blur(6px)", dark: "blur(8px)" };
+/** Under Liquid the quiet ink steps toward the full ink: by day 85 % of the
+ * way at Clear, 55 % at Medium, 25 % at Firm; by night 60 %, 20 %, and at
+ * Firm the Color's own grey. */
+const STEPPED: Record<Theme, Record<Step, number>> = { light: { clear: 0.85, medium: 0.55, firm: 0.25 }, dark: { clear: 0.6, medium: 0.2, firm: 0 } };
+const stepped = (theme: Theme, step: Step = "clear"): RGBA => mix([TONES[theme].ink, STEPPED[theme][step]], [TONES[theme].muted, 1 - STEPPED[theme][step]]);
+/** By day a bright line on the sides facing the light, a fainter one opposite, a faint glow; by night a faint line along the top, a fainter one all round, no glow. */
 const RIM: Record<Theme, Layer[]> = {
   light: [layer(1, 1, 0, 0, [255, 255, 255, 0.9], true), layer(-1, -1, 0, 0, [255, 255, 255, 0.405], true), layer(0, 0, 14, 0, [255, 255, 255, 0.144], true)],
-  dark: [layer(1, 1, 0, 0, [255, 255, 255, 0.42], true), layer(-1, -1, 0, 0, [255, 255, 255, 0.168], true), layer(0, 0, 14, 0, [255, 255, 255, 0.067], true)],
+  dark: [layer(0, 1, 0, 0, [255, 255, 255, 0.1], true), layer(0, 0, 0, 1, [255, 255, 255, 0.05], true), layer(0, 0, 0, 0, CLEAR, true)],
 };
 /** The drops by height: lying inside a panel, floating, and risen (hovered, lifted, dragged, a dialog). */
 type Drop = "contact" | "float" | "high";
@@ -237,15 +273,16 @@ function glassWant(role: Role, theme: Theme, opaque = false): Want {
     case "stage": return { fill: CLEAR, blur: "none", edge: null, shadows: [step("deep", theme)] };
   }
 }
-function liquidWant(role: Role, theme: Theme, opaque = false): Want {
-  const fill = liquidFill(theme, opaque);
+function liquidWant(role: Role, theme: Theme, opaque = false, step: Step = "clear"): Want {
+  const fill = liquidFill(theme, opaque, false, step);
+  const blur = LIQUID_BLUR[theme];
   switch (role) {
     case "glass-chrome": case "glass-panel": case "overlay-panel": case "overlay-control":
-      return { fill, blur: LIQUID_BLUR, edge: null, shadows: lit("float", theme) };
-    case "map-card": case "page-card": case "menu": return { fill, blur: LIQUID_BLUR, edge: clearLine, shadows: lit("float", theme) };
-    case "inner-card": return { fill, blur: LIQUID_BLUR, edge: clearLine, shadows: lit("contact", theme) };
+      return { fill, blur, edge: null, shadows: lit("float", theme) };
+    case "map-card": case "page-card": case "menu": return { fill, blur, edge: clearLine, shadows: lit("float", theme) };
+    case "inner-card": return { fill, blur, edge: clearLine, shadows: lit("contact", theme) };
     case "block": return { fill, blur: "none", edge: clearLine, shadows: lit("contact", theme) };
-    case "dialog": return { fill: liquidFill(theme, opaque, true), blur: LIQUID_BLUR, edge: clearLine, shadows: lit("high", theme) };
+    case "dialog": return { fill: liquidFill(theme, opaque, true, step), blur, edge: clearLine, shadows: lit("high", theme) };
     case "stage": return { fill: CLEAR, blur: "none", edge: null, shadows: liquidDrop("float", theme) };
   }
 }
@@ -262,13 +299,13 @@ function paperWant(role: Role, theme: Theme): Want {
   }
 }
 
-/** The look a screen is under: its Panels pick, and whether a fill must be opaque. */
-interface Under { panels: Panels; opaque?: boolean }
+/** The look a screen is under: its Panels pick, Liquid's step, and whether a fill must be opaque. */
+interface Under { panels: Panels; step?: Step; opaque?: boolean }
 const GLASS: Under = { panels: "glass" };
 const LIQUID: Under = { panels: "liquid" };
 const PAPER: Under = { panels: "paper" };
 function roleWant(role: Role, theme: Theme, under: Under): Want {
-  if (under.panels === "liquid") return liquidWant(role, theme, under.opaque);
+  if (under.panels === "liquid") return liquidWant(role, theme, under.opaque, under.step);
   if (under.panels === "paper") return paperWant(role, theme);
   return glassWant(role, theme, under.opaque);
 }
@@ -276,7 +313,7 @@ function roleWant(role: Role, theme: Theme, under: Under): Want {
 // ---- the seeds ----
 
 const SEED = process.env.DEZFIL_PANEL_LOOKS_SEED ?? "";
-const SEEDS = ["", "typed-liquid", "preview-lens", "late-look", "late-sheets"];
+const SEEDS = ["", "typed-liquid", "preview-lens", "late-look", "late-sheets", "stepless", "preview-typed"];
 if (!SEEDS.includes(SEED)) throw new Error(`DEZFIL_PANEL_LOOKS_SEED=${SEED} names no seed; known: ${SEEDS.filter(Boolean).join(", ")}`);
 const css = (c: RGBA) => `rgba(${c.slice(0, 3).map((v) => v.toFixed(2)).join(", ")}, ${c[3].toFixed(4)})`;
 /** Under Liquid the legend typing a Liquid of its own by hand: a firmer fill
@@ -292,6 +329,16 @@ function typedLiquid(): string {
   }).join("\n");
 }
 
+/** Under the stepless seed, every rule keyed on a transparency step is
+ * renamed in the stylesheets as they arrive, so no step applies. */
+async function holdSteps(page: Page): Promise<void> {
+  if (SEED !== "stepless") return;
+  await page.route("**/*.css", async (route) => {
+    const response = await route.fetch();
+    await route.fulfill({ response, body: (await response.text()).replace(/\[data-look-transparency=/g, "[data-look-held-step=") });
+  });
+}
+
 /** Open a workspace page and lay the seed's style over it, if one is on. */
 async function visit(page: Page, url: string): Promise<void> {
   await page.goto(url);
@@ -299,6 +346,16 @@ async function visit(page: Page, url: string): Promise<void> {
 }
 async function reseed(page: Page): Promise<void> {
   if (SEED === "typed-liquid") await page.addStyleTag({ content: typedLiquid() });
+  if (SEED === "preview-typed") await page.addStyleTag({ content: typedPreview() });
+}
+
+/** The preview-typed seed: the Preview's inspector draws Glass's ground and blur of its own. */
+function typedPreview(): string {
+  return (["light", "dark"] as Theme[]).map((theme) => {
+    const root = theme === "dark" ? ':root[data-theme="dark"]' : ':root:not([data-theme="dark"])';
+    return `${root} [data-appearance-preview] [data-piece="inspector"] {
+      background-color: ${css(thin(TONES[theme].panel, 0.93))} !important; backdrop-filter: blur(18px) !important; }`;
+  }).join("\n");
 }
 
 // ---- reading the page ----
@@ -486,6 +543,17 @@ const talkingChip: Member = { role: "block", what: "a chip of what the Assistant
 /** The header's quiet text: the section's link in the breadcrumb. */
 const crumbLink = (p: Page) => p.locator("header").getByRole("navigation", { name: "Breadcrumb" }).getByRole("link").last();
 
+/** The Preview's pieces on Appearance, each read as the role it plays in the builder. */
+const previewPiece = (piece: string, role: Role, what: string): Member => ({
+  role, what: `the Preview's ${what}`, at: (p) => p.locator(`[data-appearance-preview] [data-piece="${piece}"]`).first(),
+});
+const PREVIEW: Member[] = [
+  previewPiece("header", "glass-chrome", "header"), previewPiece("side-menu", "glass-chrome", "side menu"),
+  previewPiece("inspector", "glass-panel", "inspector"), previewPiece("layer", "inner-card", "layer card"),
+  previewPiece("map-button", "overlay-control", "map button"), previewPiece("widget", "map-card", "widget card"),
+  previewPiece("legend", "overlay-panel", "legend"),
+];
+
 /** Open one of the inspector's tabs, the pointer off every card after. */
 async function inspectorTab(page: Page, name: string): Promise<void> {
   await page.getByRole("tablist", { name: "Builder panels" }).getByRole("tab", { name, exact: true }).click();
@@ -565,6 +633,7 @@ async function personIn(browser: Parameters<typeof invitePerson>[0], request: Pa
   await routeHouse(person.context, { basemapStyleStub: true });
   await person.context.addInitScript((t) => { window.localStorage.setItem("dezfil-theme", t); }, theme);
   const page = await person.context.newPage();
+  await holdSteps(page);
   return { person, page, errors: trackConsole(page) };
 }
 
@@ -661,10 +730,11 @@ test.describe("Panels in the Appearance tab", () => {
       await expect(panels).toBeVisible();
       const saved = page.locator("#set-panels").getByRole("status");
       const settings = async () => (await (await person.api.get("/api/settings")).json()).look as Record<string, string>;
-      /** The card's rows, and the switches in it: Panels and Background, and none. */
+      /** The card's rows, and the switches in it: Panels and Background, Transparency between them under Liquid, and none. */
       const holdsTheTwo = async (choice: string) => {
+        const rows = choice.startsWith("Liquid") ? ["set-panels", "set-transparency", "set-background"] : ["set-panels", "set-background"];
         await expect.poll(async () => (await card.locator("[id^='set-']").evaluateAll((els) => els.map((el) => el.id))).filter((id) => !/-(label|error)$/.test(id)), { message: `under ${choice}, the card's rows` })
-          .toEqual(["set-panels", "set-background"]);
+          .toEqual(rows);
         await expect(card.getByRole("switch"), `under ${choice}, no switch in the card`).toHaveCount(0);
       };
 
@@ -735,7 +805,8 @@ test.describe("Panels in the Appearance tab", () => {
         await card.getByRole("button", { name: "Reset to defaults: Panels and background" }).click();
         await expect.poll(() => rootLook(page)).toEqual({});
         await expect.poll(() => writes.length).toBe(1);
-        expect(writes[0], "the card's Reset writes the two").toEqual({ panels: "glass", background: "atlantic" });
+        // Transparency, out of sight under Paper, goes back to Clear with the rest; Undo writes only what changed.
+        expect(writes[0], "the card's Reset writes the card's three").toEqual({ panels: "glass", transparency: "clear", background: "atlantic" });
         await expect.poll(async () => { const look = await settings(); return [look.panels, look.background]; }).toEqual(["glass", "atlantic"]);
         await card.getByRole("button", { name: "Undo reset to defaults: Panels and background" }).click();
         await expect.poll(() => rootLook(page)).toEqual({ ...attrsOf("paper"), "data-look-background": "graticule" });
@@ -763,7 +834,7 @@ test.describe("Panels in the Appearance tab", () => {
 
       await test.step("an own-settings write naming one of Liquid's former kinds is refused by its position, and the look stays as it was", async () => {
         const before = await settings();
-        expect(Object.keys(before).sort(), "the own-settings read lists the seven picks").toEqual([...PICKS].sort());
+        expect(Object.keys(before).sort(), "the own-settings read lists the eight picks").toEqual([...PICKS].sort());
         const refused = await person.api.patch("/api/settings", { data: { look: { panels: "paper", liquidMenus: "on" } } });
         expect(refused.status()).toBe(400);
         const body = (await refused.json()) as { error: { code: string; message: string } };
@@ -782,11 +853,137 @@ test.describe("Panels in the Appearance tab", () => {
   });
 });
 
+test.describe("Transparency and the Preview on Appearance", () => {
+  for (const theme of THEMES) {
+    test(`the Transparency row stands under Panels only while it is Liquid and saves as it is clicked; the Preview stays in sight and follows Panels, Transparency and the theme (${theme})`, async ({ browser, request, baseURL }) => {
+      test.setTimeout(240_000);
+      const people: Person[] = [];
+      try {
+        const { person, page, errors } = await personIn(browser, request, baseURL!, "Preview", theme);
+        people.push(person);
+        await page.setViewportSize({ width: 1280, height: 720 });
+        await visit(page, "/settings/appearance");
+        const panels = page.getByRole("radiogroup", { name: "Panels" });
+        const transparency = page.getByRole("radiogroup", { name: "Transparency" });
+        const preview = page.locator("[data-appearance-preview]");
+        const picture = preview.locator("img");
+        const settings = async () => (await (await person.api.get("/api/settings")).json()).look as Record<string, string>;
+        const readPreview = async (t: Theme, under: Under, where: string) => { for (const m of PREVIEW) await expectMember(page, m, t, under, where); };
+        await expect(panels).toBeVisible();
+
+        await test.step(`above the cards, on a solid card, its map a shipped template's picture in the theme in use, its pieces at Glass (${theme})`, async () => {
+          await expect(preview).toBeVisible();
+          const above = await page.evaluate(() => {
+            const first = document.querySelector("main section");
+            return !!first && !!(document.querySelector("[data-appearance-preview]")!.compareDocumentPosition(first) & Node.DOCUMENT_POSITION_FOLLOWING);
+          });
+          expect(above, "the Preview stands above the first card").toBe(true);
+          await expect(picture).toHaveAttribute("src", `/api/templates/air-routes/picture?theme=${theme}`);
+          await expect.poll(() => picture.evaluate((img) => (img as HTMLImageElement).naturalWidth), { message: "the picture loads" }).toBeGreaterThan(0);
+          await expect(transparency, "no Transparency row under Glass").toHaveCount(0);
+          await readPreview(theme, GLASS, "the Preview under Glass");
+        });
+
+        await test.step(`Liquid brings the Transparency row under Panels with Clear marked, and the Preview takes Liquid (${theme})`, async () => {
+          await panels.getByRole("radio", { name: "Liquid" }).click();
+          await expect(transparency).toBeVisible();
+          await expect(transparency.getByRole("radio")).toHaveCount(3);
+          for (const [at, name] of ["Clear", "Medium", "Firm"].entries()) await expect(transparency.getByRole("radio").nth(at)).toHaveAccessibleName(name);
+          await expect(transparency.getByRole("radio", { name: "Clear" })).toHaveAttribute("aria-checked", "true");
+          await readPreview(theme, LIQUID, "the Preview under Liquid");
+          const card = await preview.evaluate((el) => getComputedStyle(el).backgroundColor);
+          expect(sameColour(colour(card), TONES[theme].panel), `the Preview's own card is solid under Liquid: ${card}`).toBe(true);
+        });
+
+        await test.step(`a segment saves as it is clicked, Firm and then Medium, the page and the Preview at once (${theme})`, async () => {
+          for (const [step, name] of [["firm", "Firm"], ["medium", "Medium"]] as const) {
+            await transparency.getByRole("radio", { name }).click();
+            await expect.poll(() => rootLook(page), { message: `the root at ${step}` }).toEqual(attrsOf("liquid", step));
+            await expect(transparency.getByRole("radio", { name })).toHaveAttribute("aria-checked", "true");
+            await expect(page.locator("#set-transparency").getByRole("status")).toHaveText("Saved");
+            await expect.poll(async () => (await settings()).transparency, { message: `${step} is kept` }).toBe(step);
+            await readPreview(theme, { panels: "liquid", step }, `the Preview at ${step}`);
+          }
+        });
+
+        const other: Theme = theme === "light" ? "dark" : "light";
+        await test.step(`the theme changes the Preview's picture and its pieces with the page (${theme} to ${other})`, async () => {
+          await themeButton.at(page).click();
+          if (other === "dark") await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+          else await expect(page.locator("html")).not.toHaveAttribute("data-theme", "dark");
+          await expect(picture).toHaveAttribute("src", `/api/templates/air-routes/picture?theme=${other}`);
+          await readPreview(other, { panels: "liquid", step: "medium" }, `the Preview at medium, ${other}`);
+          await themeButton.at(page).click();
+          if (theme === "dark") await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+          else await expect(page.locator("html")).not.toHaveAttribute("data-theme", "dark");
+        });
+
+        await test.step(`the Preview stays in sight just under the page's top band as the cards scroll under it (${theme})`, async () => {
+          await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+          await expect.poll(() => page.evaluate(() => window.scrollY), { message: "the page scrolled" }).toBeGreaterThan(0);
+          await expect.poll(async () => Math.round((await preview.boundingBox())!.y), { message: "the Preview's top, under the band" }).toBe(58);
+          await expect(preview).toBeInViewport();
+          await expect(page.locator("main section").last()).toBeInViewport();
+          await page.evaluate(() => window.scrollTo(0, 0));
+        });
+
+        await test.step(`a row an address lands on shows below the Preview, not under it (${theme})`, async () => {
+          // From another address, so the landing is a fresh document's, as when the address is opened.
+          await visit(page, "/settings");
+          await visit(page, "/settings/appearance#set-corners");
+          const row = page.locator("#set-corners");
+          await expect(row).toBeInViewport();
+          await expect.poll(async () => {
+            const [at, over] = [(await row.boundingBox())!, (await preview.boundingBox())!];
+            return Math.round(at.y - (over.y + over.height));
+          }, { message: "the landed row's top, past the Preview's foot" }).toBeGreaterThanOrEqual(0);
+          await page.evaluate(() => window.scrollTo(0, 0));
+        });
+
+        await test.step(`Glass takes the row away and keeps the step, which changes nothing (${theme})`, async () => {
+          await panels.getByRole("radio", { name: "Glass" }).click();
+          await expect(transparency).toHaveCount(0);
+          await expect.poll(() => rootLook(page), { message: "the root under Glass, Medium kept" }).toEqual(attrsOf("glass", "medium"));
+          await expect.poll(async () => (await settings()).transparency, { message: "Medium stays kept" }).toBe("medium");
+          await readPreview(theme, GLASS, "the Preview under Glass, Medium kept");
+        });
+
+        await test.step(`the Preview follows Color, Contrast, Typeface and Corners the moment each is picked (${theme})`, async () => {
+          /** A value as the page's body resolves it, read through a probe. */
+          const resolved = (property: string, value: string) => page.evaluate(([prop, v]) => {
+            const probe = document.createElement("i");
+            probe.style.setProperty(prop, v);
+            document.body.append(probe);
+            const out = getComputedStyle(probe).getPropertyValue(prop);
+            probe.remove();
+            return out;
+          }, [property, value] as const);
+          const drawn = (at: string, property: string) => preview.locator(at).first().evaluate((el, prop) => getComputedStyle(el).getPropertyValue(prop), property);
+          for (const [row, choice, at, property, value] of [
+            ["Color", "Harbor", '[data-piece="side-menu"] [data-on]', "color", "var(--accent)"],
+            ["Contrast", "More contrast", '[data-piece="inspector"] > span:last-child', "color", "var(--fg-faint)"],
+            ["Typeface", "System", '[data-piece="header"]', "font-family", "inherit"],
+            ["Corners", "Soft", '[data-piece="header"]', "border-top-left-radius", "var(--radius-card)"],
+          ] as const) {
+            const before = await drawn(at, property);
+            await page.getByRole("radiogroup", { name: row, exact: true }).getByRole("radio", { name: choice, exact: true }).click();
+            await expect.poll(async () => (await drawn(at, property)) === (await resolved(property, value)) && (await drawn(at, property)) !== before,
+              { message: `${row} ${choice}: the Preview's ${property} follows the page` }).toBe(true);
+          }
+        });
+        expectQuiet(errors);
+      } finally {
+        await closeAll(people);
+      }
+    });
+  }
+});
+
 // ---- Liquid ----
 
 for (const theme of THEMES) {
-  test(`Liquid on every role: a member of every role, the blocks inside panels and the widget card over the map compute the one recipe (${theme})`, async ({ browser, request, baseURL }) => {
-    test.setTimeout(360_000);
+  test(`Liquid on every role: a member of every role, the blocks inside panels and the widget card over the map compute the one recipe, at each step (${theme})`, async ({ browser, request, baseURL }) => {
+    test.setTimeout(540_000);
     const people: Person[] = [];
     try {
       const { person, page, errors } = await personIn(browser, request, baseURL!, "Liquid", theme);
@@ -844,6 +1041,26 @@ for (const theme of THEMES) {
         expect(edge.edgeStyle).toBe("solid");
         expect(sameColour(colour(edge.edgeColor), thin(tint, 0.3)), `the tile's edge ${edge.edgeColor}`).toBe(true);
       });
+      for (const step of ["medium", "firm"] as const) {
+        await test.step(`at ${step}, the builder's roles take the step's fill, the blur and the light unchanged, and the quiet text the step's ink (${theme})`, async () => {
+          await setLook(person.api, lookOf("liquid", step));
+          await openBuilder(page, fx.mapId);
+          await expectRoot(page, theme, attrsOf("liquid", step));
+          await expect(widgetCard.at(page)).toBeVisible({ timeout: 30_000 });
+          const under: Under = { panels: "liquid", step };
+          await readBuilder(page, theme, under, `the builder at ${step}`, [widgetCard]);
+          await inspectorTab(page, "Legend");
+          await expectMember(page, legendEntry, theme, under, `the builder at ${step}`);
+          await inspectorTab(page, "Layers");
+          const want = stepped(theme, step);
+          for (const [name, el] of [["the header's breadcrumb link", crumbLink(page)], ["the map's Zoom in button", zoomIn.at(page)]] as const) {
+            await settle.poll(async () => {
+              const seen = await el.evaluate((node) => getComputedStyle(node).color);
+              return sameColour(colour(seen), want) ? "" : `${seen}, want ${fmt(want)}`;
+            }, { message: `${name} at ${step}` }).toBe("");
+          }
+        });
+      }
       expectQuiet(errors);
     } finally {
       await closeAll(people);
@@ -1265,14 +1482,14 @@ test("the bend in Chromium: a map button's backdrop pulled inward across its bez
     await test.step("the inspector resized keeps its blur throughout and takes the bend for its new size once settled", async () => {
       const selector = "[data-builder-pane]";
       const before = (await readEl(inspector.at(page))).lens;
-      expect(before?.blur, "the inspector is bent before the resize").toBe(LIQUID_BLUR);
+      expect(before?.blur, "the inspector is bent before the resize").toBe(LIQUID_BLUR.light);
       const frames = await sampleFrames(page, selector, 1_500, () => page.setViewportSize({ width: 1280, height: 600 }));
       const after = (await inspector.at(page).boundingBox())!;
       const size = `${Math.round(after.width)}x${Math.round(after.height)}`;
       await test.info().attach("the inspector's frames through a resize", { body: JSON.stringify(frames), contentType: "application/json" });
       expect(frames.length, "frames were read").toBeGreaterThan(10);
       expect(frames.filter((f) => f.blur === "none" || f.lens === "missing"), "never without its blur").toEqual([]);
-      expect(frames.every((f) => (f.lens ?? f.blur) === LIQUID_BLUR), "always the panels' blur, bent or plain").toBe(true);
+      expect(frames.every((f) => (f.lens ?? f.blur) === LIQUID_BLUR.light), "always the panels' blur, bent or plain").toBe(true);
       expect(size, "the harness: the inspector changed size").not.toBe(before?.size);
       expect(frames.some((f) => f.lens === null), "plain while it changed size").toBe(true);
       await expect.poll(async () => (await readEl(inspector.at(page))).lens?.size, { message: "bent for its new size once settled" }).toBe(size);
@@ -1290,7 +1507,7 @@ test("the bend in Chromium: a map button's backdrop pulled inward across its bez
       await test.info().attach("the query drawer's frames as it slides in", { body: JSON.stringify(frames), contentType: "application/json" });
       expect(frames.length, "frames were read").toBeGreaterThan(10);
       expect(new Set(frames.map((f) => f.size)).size, "one size throughout").toBe(1);
-      expect(frames.every((f) => (f.lens ?? f.blur) === LIQUID_BLUR), "always the menus' blur, bent or plain").toBe(true);
+      expect(frames.every((f) => (f.lens ?? f.blur) === LIQUID_BLUR.light), "always the menus' blur, bent or plain").toBe(true);
       expect(frames.slice(0, 5).every((f) => f.lens === null), "plain while it slides in").toBe(true);
       const drawer = page.locator(selector);
       const box = (await drawer.boundingBox())!;
@@ -1321,7 +1538,7 @@ test("@fallback where the bend is not drawn, a map button blurs and carries the 
       const seen = await readEl(button);
       expect(problems(seen, liquidWant("overlay-control", "light"))).toEqual([]);
       expect(seen.lens, "no filter bends it").toBeNull();
-      expect(seen.blur).toBe(LIQUID_BLUR);
+      expect(seen.blur).toBe(LIQUID_BLUR.light);
       // Where the bend is not drawn the lens writes nothing at all: no role blur, plain or bent, and no ink of its own.
       expect.soft(seen.inline, "the button carries nothing inline").toEqual({});
       expect(sameColour(colour(seen.color), stepped("light")), `the button's ink ${seen.color}`).toBe(true);
@@ -1334,7 +1551,7 @@ test("@fallback where the bend is not drawn, a map button blurs and carries the 
       else {
         // The control shows the screenshots cannot see any backdrop blur here, so the softness is not measured.
         test.info().annotations.push({ type: "unverified", description: `${browserName}'s screenshots show no backdrop blur, not even a plain one: the map's softness under the button is not measured` });
-        await expect(button).toHaveCSS("backdrop-filter", LIQUID_BLUR);
+        await expect(button).toHaveCSS("backdrop-filter", LIQUID_BLUR.light);
       }
       expect.soft((await traces(page)).inline, "nothing held inline after the map has moved").toEqual([]);
     });
@@ -1349,7 +1566,7 @@ test("@fallback where the bend is not drawn, a map button blurs and carries the 
 for (const theme of THEMES) {
   test(`less transparency and more contrast make every translucent fill opaque under each look; the rail opened, the veil, the wash, an entry screen and the status and data colours stay (${theme})`, async ({ browser, request, baseURL, browserName }) => {
     test.skip(browserName !== "chromium", "the requests are emulated through Chromium's devtools protocol");
-    test.setTimeout(420_000);
+    test.setTimeout(540_000);
     const people: Person[] = [];
     try {
       const { person, page, errors } = await personIn(browser, request, baseURL!, "Request", theme);
@@ -1365,14 +1582,14 @@ for (const theme of THEMES) {
         });
       };
       const untouched: Record<string, Record<string, string>> = {};
-      const looks: [string, Under][] = [["Glass", GLASS], ["Liquid", LIQUID], ["Paper", PAPER]];
+      const looks: [string, Under][] = [["Glass", GLASS], ["Liquid", LIQUID], ["Liquid at Firm", { panels: "liquid", step: "firm" }], ["Paper", PAPER]];
       const REQUESTS = ["prefers-reduced-transparency", "prefers-contrast"];
       for (const [name, under] of looks) {
         await test.step(`${name}: the fills go opaque on each request, a block's and the widget card's among them, the light and the shadow stay (${theme})`, async () => {
           const atRest = [headerCard, inspector, legend, zoomIn, layerCard, widgetCard];
-          await setLook(person.api, lookOf(under.panels));
+          await setLook(person.api, lookOf(under.panels, under.step));
           await openBuilder(page, fx.mapId);
-          await expectRoot(page, theme, attrsOf(under.panels));
+          await expectRoot(page, theme, attrsOf(under.panels, under.step));
           await expect(widgetCard.at(page)).toBeVisible({ timeout: 30_000 });
           for (const feature of REQUESTS) {
             await request_(feature);
@@ -1457,14 +1674,14 @@ for (const theme of THEMES) {
 
 // ---- the export card's preview and a published page ----
 
-for (const [name, under] of [["Liquid", LIQUID], ["Paper", PAPER]] as const) {
+for (const [name, under] of [["Liquid", LIQUID], ["Liquid at Firm", { panels: "liquid", step: "firm" } as Under], ["Paper", PAPER]] as const) {
   test(`under ${name} the export card's preview keeps the default look with no lens inside it, and a published page carries no look`, async ({ browser, request, baseURL }) => {
     const people: Person[] = [];
     try {
       const { person, page, errors } = await personIn(browser, request, baseURL!, "Exporter", "light");
       people.push(person);
       const fx = await seed(page, `${runTag()}_export`);
-      await setLook(person.api, lookOf(under.panels));
+      await setLook(person.api, lookOf(under.panels, under.step));
 
       await test.step(`${name}: the card takes the look, the preview inside it the default`, async () => {
         await openBuilder(page, fx.mapId);
@@ -1522,72 +1739,75 @@ for (const [name, under] of [["Liquid", LIQUID], ["Paper", PAPER]] as const) {
 /** The member read at the first frame on Maps: the header card. */
 const FIRST_FRAME_MEMBERS = { header: 'header [class*="headCard"]' };
 
-test("a fresh browser signed in with Liquid paints Liquid from its first frame, and bends within the first second", async ({ browser, request, baseURL, browserName }) => {
-  const people: Person[] = [];
-  try {
-    const person = await invitePerson(browser, request, baseURL!, "First", runTag());
-    people.push(person);
-    await routeHouse(person.context, { basemapStyleStub: true });
-    await setLook(person.api, lookOf("liquid"));
-    const page = await person.context.newPage();
-    const errors = trackConsole(page);
-    expect(await person.context.storageState().then((state) => state.origins.length), "the context has never loaded a page").toBe(0);
-    await installFrameRecorder(page, FIRST_FRAME_MEMBERS);
-    await page.addInitScript(() => {
-      const w = window as { __bentAt?: number };
-      new MutationObserver(() => {
-        if (w.__bentAt !== undefined) return;
-        if (document.querySelector('[style*="url(\\"#dz-lens"], [style*="url(#dz-lens"]')) w.__bentAt = performance.now();
-      }).observe(document, { subtree: true, attributes: true, attributeFilter: ["style"], childList: true });
-    });
-    if (SEED === "late-look") {
-      await page.route((url) => url.pathname === "/maps", async (route) => {
-        if (route.request().resourceType() !== "document") return route.continue();
-        const response = await route.fetch();
-        const headers = { ...response.headers() };
-        delete headers["content-length"];
-        await route.fulfill({ response, headers, body: delayLook(await response.text(), attrsOf("liquid")) });
+for (const step of ["clear", "medium"] as const) {
+  test(`a fresh browser signed in with Liquid${step === "clear" ? "" : " at Medium"} paints it from its first frame, and bends within the first second`, async ({ browser, request, baseURL, browserName }) => {
+    const people: Person[] = [];
+    try {
+      const person = await invitePerson(browser, request, baseURL!, "First", runTag());
+      people.push(person);
+      await routeHouse(person.context, { basemapStyleStub: true });
+      await setLook(person.api, lookOf("liquid", step));
+      const page = await person.context.newPage();
+      await holdSteps(page);
+      const errors = trackConsole(page);
+      expect(await person.context.storageState().then((state) => state.origins.length), "the context has never loaded a page").toBe(0);
+      await installFrameRecorder(page, FIRST_FRAME_MEMBERS);
+      await page.addInitScript(() => {
+        const w = window as { __bentAt?: number };
+        new MutationObserver(() => {
+          if (w.__bentAt !== undefined) return;
+          if (document.querySelector('[style*="url(\\"#dz-lens"], [style*="url(#dz-lens"]')) w.__bentAt = performance.now();
+        }).observe(document, { subtree: true, attributes: true, attributeFilter: ["style"], childList: true });
       });
-    }
-    let held = "";
-    if (SEED === "late-sheets") {
-      await page.route("**/*.css", async (route) => {
-        const response = await route.fetch();
-        const text = await response.text();
-        // A rule keyed on Liquid's root, its value quoted or bare as the build writes it.
-        const keyed = /\[data-look-panels=(["']?)liquid\1\]/g;
-        if (!keyed.test(text)) return route.fulfill({ response });
-        held += text;
-        await route.fulfill({ response, body: text.replace(keyed, "[data-look-held=$1liquid$1]") });
+      if (SEED === "late-look") {
+        await page.route((url) => url.pathname === "/maps", async (route) => {
+          if (route.request().resourceType() !== "document") return route.continue();
+          const response = await route.fetch();
+          const headers = { ...response.headers() };
+          delete headers["content-length"];
+          await route.fulfill({ response, headers, body: delayLook(await response.text(), attrsOf("liquid", step)) });
+        });
+      }
+      let held = "";
+      if (SEED === "late-sheets") {
+        await page.route("**/*.css", async (route) => {
+          const response = await route.fetch();
+          const text = await response.text();
+          // A rule keyed on Liquid's root, its value quoted or bare as the build writes it.
+          const keyed = /\[data-look-panels=(["']?)liquid\1\]/g;
+          if (!keyed.test(text)) return route.fulfill({ response });
+          held += text;
+          await route.fulfill({ response, body: text.replace(keyed, "[data-look-held=$1liquid$1]") });
+        });
+      }
+      await page.goto("/maps");
+      if (SEED === "late-sheets") {
+        await frameEvidence(page, Object.keys(FIRST_FRAME_MEMBERS));
+        expect(held, "the harness: the Liquid rules were held back").not.toBe("");
+        await page.addStyleTag({ content: held });
+      }
+      const evidence = await frameEvidence(page, Object.keys(FIRST_FRAME_MEMBERS));
+      console.log(describeEvidence(`Liquid at ${step}, /maps`, evidence));
+
+      await test.step("the root and the header card carry Liquid at the first painted frame", async () => {
+        expect.soft(frameProblems(evidence, attrsOf("liquid", step)), "the root at its creation and its first frame").toEqual([]);
+        const header = evidence.members?.header ?? null;
+        expect(header, "the header card was read in the first frame it was on the page").not.toBeNull();
+        console.log(`[first-frame] the header card was first on the page at frame ${header!.frame}, ${header!.t.toFixed(1)} ms, paints before: ${header!.paintsBefore.length}`);
+        const seen: Seen = { fill: header!.fill, blur: header!.blur, edgeStyle: "none", edgeWidth: "0px", edgeColor: "", shadow: header!.shadow, transform: "", color: "", lens: null, inline: {} };
+        expect(problems(seen, liquidWant("glass-chrome", "light", false, step)), `the header card at the first frame: Liquid's fill at ${step}, its blur and light, no frame of Glass or of another step`).toEqual([]);
       });
-    }
-    await page.goto("/maps");
-    if (SEED === "late-sheets") {
-      await frameEvidence(page, Object.keys(FIRST_FRAME_MEMBERS));
-      expect(held, "the harness: the Liquid rules were held back").not.toBe("");
-      await page.addStyleTag({ content: held });
-    }
-    const evidence = await frameEvidence(page, Object.keys(FIRST_FRAME_MEMBERS));
-    console.log(describeEvidence("Liquid, /maps", evidence));
 
-    await test.step("the root and the header card carry Liquid at the first painted frame", async () => {
-      expect.soft(frameProblems(evidence, attrsOf("liquid")), "the root at its creation and its first frame").toEqual([]);
-      const header = evidence.members?.header ?? null;
-      expect(header, "the header card was read in the first frame it was on the page").not.toBeNull();
-      console.log(`[first-frame] the header card was first on the page at frame ${header!.frame}, ${header!.t.toFixed(1)} ms, paints before: ${header!.paintsBefore.length}`);
-      const seen: Seen = { fill: header!.fill, blur: header!.blur, edgeStyle: "none", edgeWidth: "0px", edgeColor: "", shadow: header!.shadow, transform: "", color: "", lens: null, inline: {} };
-      expect(problems(seen, liquidWant("glass-chrome", "light")), "the header card at the first frame: Liquid's fill, blur and light, no frame of Glass").toEqual([]);
-    });
-
-    await test.step("the bend arrives within the first second", async () => {
-      test.skip(browserName !== "chromium", "the bend is drawn in Chromium");
-      await expect.poll(() => page.evaluate(() => (window as { __bentAt?: number }).__bentAt ?? null), { message: "a surface is bent", timeout: 5_000 }).not.toBeNull();
-      const at = await page.evaluate(() => (window as { __bentAt?: number }).__bentAt!);
-      console.log(`[first-frame] the first surface bent at ${at.toFixed(0)} ms`);
-      expect(at, "the first bend, in ms from the navigation").toBeLessThanOrEqual(1_000);
-    });
-    expectQuiet(errors);
-  } finally {
-    await closeAll(people);
-  }
-});
+      await test.step("the bend arrives within the first second", async () => {
+        test.skip(browserName !== "chromium", "the bend is drawn in Chromium");
+        await expect.poll(() => page.evaluate(() => (window as { __bentAt?: number }).__bentAt ?? null), { message: "a surface is bent", timeout: 5_000 }).not.toBeNull();
+        const at = await page.evaluate(() => (window as { __bentAt?: number }).__bentAt!);
+        console.log(`[first-frame] the first surface bent at ${at.toFixed(0)} ms`);
+        expect(at, "the first bend, in ms from the navigation").toBeLessThanOrEqual(1_000);
+      });
+      expectQuiet(errors);
+    } finally {
+      await closeAll(people);
+    }
+  });
+}

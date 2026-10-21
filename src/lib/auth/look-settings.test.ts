@@ -20,6 +20,7 @@ let db: Database, admin: Awaited<ReturnType<typeof createFirstAccount>>, member:
 const password = "field notebooks at dawn";
 const TODAY = {
   color: "kelp", contrast: "standard", font: "inter", background: "atlantic", corners: "rounded", rail: "hover", panels: "glass",
+  transparency: "clear",
 };
 beforeEach(async () => {
   db = metadata.open(":memory:"); vi.spyOn(metadata, "metadataDb").mockReturnValue(db);
@@ -95,7 +96,7 @@ describe("one account's look", () => {
     expect(document(member.account.id)).toEqual({ look: { color: "harbor", density: "compact", corners: "soft" } });
   });
 
-  it("reads the same seven picks for an account that kept a kind of surface Liquid once reached, and leaves it stored", async () => {
+  it("reads the same eight picks for an account that kept a kind of surface Liquid once reached, and leaves it stored", async () => {
     // Liquid once reached a chosen set of surfaces, each kept with the
     // account. Such a value is no longer read, returned or accepted, and
     // nothing removes it: it stays where an earlier version wrote it.
@@ -120,7 +121,7 @@ describe("the look through the generated tools", () => {
   const tools = () => new Map(buildTools().map(tool => [tool.name, tool]));
   type Schema = { type?: unknown; enum?: string[]; required?: string[]; additionalProperties?: unknown; properties?: Record<string, Schema> };
 
-  it("names the seven picks, closed, with the catalogue's choices, on the update input and the read output", () => {
+  it("names the eight picks, closed, with the catalogue's choices, on the update input and the read output", () => {
     const update = tools().get("update_settings")!, get = tools().get("get_settings")!;
     const input = (update.inputSchema.properties as Record<string, Schema>).look;
     expect(input.additionalProperties).toBe(false);
@@ -129,7 +130,7 @@ describe("the look through the generated tools", () => {
     expect(Object.fromEntries(Object.entries(input.properties!).map(([key, value]) => [key, value.enum]))).toEqual({
       color: ["kelp", "harbor", "heather", "slate"], contrast: ["standard", "more"], font: ["inter", "system"],
       background: ["atlantic", "plain", "graticule", "hex"], corners: ["rounded", "soft"], rail: ["hover", "open", "icons"],
-      panels: ["glass", "liquid", "paper"],
+      panels: ["glass", "liquid", "paper"], transparency: ["clear", "medium", "firm"],
     });
     expect(JSON.stringify(get.outputSchema)).toContain('"look"');
   });
@@ -137,7 +138,7 @@ describe("the look through the generated tools", () => {
   it("refuses an unknown value or key before any call, and reads and writes a pick through the API", async () => {
     const update = tools().get("update_settings")!, get = tools().get("get_settings")!;
     const unused = vi.fn();
-    for (const look of [{ color: "teal" }, { glow: "on" }, { rail: null }, { panels: "frosted" }, { liquidCards: "on" }, { liquidChrome: "off" }]) {
+    for (const look of [{ color: "teal" }, { glow: "on" }, { rail: null }, { panels: "frosted" }, { transparency: "opaque" }, { liquidCards: "on" }, { liquidChrome: "off" }]) {
       const refused = await executeTool(update, { look }, origin, unused as unknown as typeof fetch);
       expect(refused.ok, JSON.stringify(look)).toBe(false);
     }

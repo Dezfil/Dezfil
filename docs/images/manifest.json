@@ -772,15 +772,15 @@
       "kind": "picture",
       "theme": "dark",
       "version": "0.1.0",
-      "date": "2026-10-20",
+      "date": "2026-10-21",
       "width": 2716,
-      "height": 1112,
-      "bytes": 52106,
+      "height": 1676,
+      "bytes": 132312,
       "crop": {
         "x": 72,
         "y": 62,
         "width": 1358,
-        "height": 556
+        "height": 838
       }
     },
     {
@@ -789,15 +789,15 @@
       "kind": "picture",
       "theme": "light",
       "version": "0.1.0",
-      "date": "2026-10-20",
+      "date": "2026-10-21",
       "width": 2716,
-      "height": 1112,
-      "bytes": 70560,
+      "height": 1676,
+      "bytes": 159420,
       "crop": {
         "x": 72,
         "y": 62,
         "width": 1358,
-        "height": 556
+        "height": 838
       }
     },
     {
@@ -806,10 +806,10 @@
       "kind": "picture",
       "theme": "dark",
       "version": "0.1.0",
-      "date": "2026-10-20",
+      "date": "2026-10-21",
       "width": 2880,
       "height": 1800,
-      "bytes": 104542
+      "bytes": 152634
     },
     {
       "file": "use/settings-look-harbor.webp",
@@ -817,10 +817,10 @@
       "kind": "picture",
       "theme": "light",
       "version": "0.1.0",
-      "date": "2026-10-20",
+      "date": "2026-10-21",
       "width": 2880,
       "height": 1800,
-      "bytes": 126742
+      "bytes": 174510
     },
     {
       "file": "use/settings-maps-list.dark.webp",

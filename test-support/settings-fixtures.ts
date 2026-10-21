@@ -42,6 +42,7 @@ export const DEFAULTS = {
   "workflows.view": "grid", "workflows.sort": "edited", "projects.view": "grid", "projects.sort": "updated",
   sourceGrouping: "person", "look.color": "kelp", "look.contrast": "standard", "look.font": "inter",
   "look.background": "atlantic", "look.corners": "rounded", "look.rail": "hover", "look.panels": "glass",
+  "look.transparency": "clear",
   port: { rule: "runtime-port-or-request-origin" },
   extensionDir: { rule: "engine-default-extension-directory" },
 } as const;

@@ -1053,20 +1053,20 @@ describe("a control out of sight", () => {
     expect(unit.snapshot.hidden).toEqual(["detail", "hints"]);
   });
 
-  it("is never counted for the card's Reset nor returned by it, so an option out of sight stays stored", async () => {
+  it("is never counted for offering the card's Reset, but goes back to its default with the rest, and Undo writes it back", async () => {
     const server = fakeServer({ detail: "on" }), unit = display(server);
-    // Only an option out of sight differs from its default: there is nothing to reset.
+    // Only an option out of sight differs from its default: nothing in sight to reset.
     expect(unit.snapshot.slot).toBeNull();
     unit.choose("mode", "compact");
     server.calls[0].accept(); await flush();
     expect(unit.snapshot.slot).toBe("reset");
     unit.reset();
-    expect(server.calls[1].patch).toEqual({ mode: null });
+    expect(server.calls[1].patch).toEqual({ mode: null, detail: null, hints: null });
     server.calls[1].accept(); await flush();
-    expect(server.stored.detail).toBe("on");
-    expect(unit.snapshot.kept).toEqual({ mode: "simple", detail: "on", hints: "off" });
+    expect(server.stored.detail).toBe("off");
+    expect(unit.snapshot.kept).toEqual({ mode: "simple", detail: "off", hints: "off" });
     unit.undo();
-    expect(server.calls[2].patch).toEqual({ mode: "compact" });
+    expect(server.calls[2].patch).toEqual({ mode: "compact", detail: "on" });
   });
 
   it("takes the keys shown when Reset is pressed, and Undo writes back whole what that Reset changed, the options it hid included", async () => {

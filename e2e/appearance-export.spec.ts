@@ -14,7 +14,8 @@
 //   they show is the tolerance every later comparison is held to, and it
 //   must itself stay within a small fixed ceiling.
 // - Each pick off the default, set alone through the documented
-//   own-settings write, then the two Panels looks (Liquid and Paper), and
+//   own-settings write, then the two Panels looks (Liquid, also at its
+//   Firm step, and Paper), and
 //   then all the other picks together: the download equals the default
 //   one, and the nodes the download rasterizes keep the computed styles
 //   they have under the default look, while the card's options take the
@@ -55,12 +56,15 @@ import { startLoopbackBasemap } from "../scripts/loopback-basemap.mjs";
 type Look = Record<string, string>;
 const DEFAULTS: Look = {
   color: "kelp", contrast: "standard", font: "inter", background: "atlantic", corners: "rounded", rail: "hover", panels: "glass",
+  transparency: "clear",
 };
 /** Each pick off the default; together, the look compared last. */
 const PICKS: [string, string][] = [["color", "heather"], ["contrast", "more"], ["font", "system"], ["background", "graticule"], ["corners", "soft"], ["rail", "icons"]];
 const LOOK: Look = Object.fromEntries(PICKS);
-/** The two Panels looks off Glass: Liquid and Paper. */
-const PANEL_LOOKS: [string, Look][] = [["panels liquid", { panels: "liquid" }], ["panels paper", { panels: "paper" }]];
+/** The two Panels looks off Glass, Liquid and Paper, and Liquid at its firmest step. */
+const PANEL_LOOKS: [string, Look][] = [
+  ["panels liquid", { panels: "liquid" }], ["panels liquid at firm", { panels: "liquid", transparency: "firm" }], ["panels paper", { panels: "paper" }],
+];
 /** Heather's accent, light, as a token and as paint; Kelp's as the default scope restates it. */
 const HEATHER_ACCENT = "#6b4cad";
 const HEATHER_PAINT = "rgb(107, 76, 173)";
