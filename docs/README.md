@@ -163,23 +163,35 @@ Install, secure, configure and back up your own instance.
 
 Script Dezfil over HTTP, or connect an AI agent through MCP.
 
-- [Limits](api/limits.md)
-  - path: `docs/api/limits.md`
-  - summary: The fixed byte ceilings on SQL answers and previews, and the time, size, memory, rate and queue limits an operator changes.
-  - read when: a query or an inspection answers query_result_too_large; you need to know which reads are bounded and by how much; you want to raise the largest upload, the query time limit or another limit
-  - audience: user, developer, agent, operator
-
-- [The HTTP API](api/http-api.md)
-  - path: `docs/api/http-api.md`
-  - summary: How the HTTP API is organised: where its description is served, how sign-in, revisions and errors work, and where the exact rules live.
-  - read when: you script Dezfil over HTTP; you look for the operation that does a thing; a request is refused and you want to know why
+- [API quickstart](api/quickstart.md)
+  - path: `docs/api/quickstart.md`
+  - summary: Create an API token, then list your maps, upload a CSV, run SQL, add a layer and publish the map, with curl or JavaScript.
+  - read when: you want your first working calls to the Dezfil API; you need an API token for a script or an agent; you want to upload data, run SQL, or build and publish a map from code; a call answers authentication_required, invalid_request or stale_revision
   - audience: developer, agent
 
-- [The MCP server](api/mcp.md)
+- [How the API works](api/http-api.md)
+  - path: `docs/api/http-api.md`
+  - summary: Call Dezfil's HTTP API from a script: the address, signing in, editing with revisions, who may do what, paging, errors and PostGIS connection strings.
+  - read when: you call Dezfil over HTTP from a script, a program or an agent; you need an API token, or want to know how the app's browser session signs in; a change to a map or workflow answers invalid_request or stale_revision; a call answers forbidden or not_found for something you expect to reach; you want to page through a long list of datasets
+  - audience: developer, agent
+
+- [Connect an AI agent](api/mcp.md)
   - path: `docs/api/mcp.md`
-  - summary: How an AI agent reaches an instance over the Model Context Protocol: the endpoint, sign-in, the generated tools and the agent plugin.
-  - read when: you connect an AI agent or MCP client to an instance; you want to know which operations an agent can call; you install the agent plugin
+  - summary: Connect Claude Code, Codex, Cursor or another MCP client to Dezfil, so an agent can work with your maps, data and workflows.
+  - read when: you want an AI agent to build maps, query data or run workflows in Dezfil; you add Dezfil to Claude Code, Codex, Cursor or another MCP client; you want to limit what an agent can do with your account; an agent's calls answer 401, token_expired, forbidden or stale_revision; you want the Dezfil skill and references in Claude Code or Codex
   - audience: user, developer, agent
+
+- [Errors](api/errors.md)
+  - path: `docs/api/errors.md`
+  - summary: Read the error answer a failed API call returns, and know what to do about the codes a script or an agent meets most often.
+  - read when: a request or a tool call fails and you want to know why; you write a client or an agent that decides what to do when a call fails; a call answers stale_revision, rate_limited, query_timeout or query_result_too_large; you look up an error code this page does not list
+  - audience: developer, agent
+
+- [Limits](api/limits.md)
+  - path: `docs/api/limits.md`
+  - summary: Find every limit Dezfil holds requests to, what you get when you reach one, and the setting that changes it.
+  - read when: a request answers 408, 413, 422 or 429 and you want to know which limit it reached; a query shows only its first rows, or answers query_result_too_large; you want to raise the largest upload, the query time limit or another limit; an assistant message, an agent's upload or a tool's download is too large; visitors to a published map get rate_limited
+  - audience: developer, agent, operator
 
 ## Contribute
 

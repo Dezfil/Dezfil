@@ -23,12 +23,16 @@ it("accepts the actual generated server listing and committed readers through th
 it.each(["count", "error", "actor", "plugin", "tool"])("rejects %s drift in the outside checker's actual inputs", seed => {
   const values = observed(); let failure: string;
   if (seed === "count") {
-    // One more path than the reader says, whatever it says today.
-    const paths = Number(/\*\*(\d+) paths,/.exec(values.docs.api)![1]);
-    values.docs.api = values.docs.api.replace(`**${paths} paths,`, `**${paths + 1} paths,`);
-    failure = `API paths: reader says ${paths + 1}, contract requires ${paths}`;
+    // One more path than the procedure says, whatever it says today.
+    const paths = Number(/Expected counts: (\d+) paths,/.exec(values.docs.proof)![1]);
+    values.docs.proof = values.docs.proof.replace(`Expected counts: ${paths} paths,`, `Expected counts: ${paths + 1} paths,`);
+    failure = "Proof guide counts differ from contract";
   }
-  else if (seed === "error") { values.docs.api = values.docs.api.replace("| `deletion_changed` |", "| `missing_deletion_changed` |"); failure = "Reader error catalogue has missing or extra codes"; }
+  else if (seed === "error") {
+    // A served error code the served error schema does not list.
+    values.document.components.schemas.Error.properties.error.properties.code.enum.pop();
+    failure = "Error schema and source catalogue disagree";
+  }
   else if (seed === "actor") { values.document.components.schemas.RecipeRun.properties.runner.oneOf.splice(1, 1); failure = "Actor schema differs: RecipeRun.runner"; }
   else if (seed === "plugin") { values.guidance = values.guidance.replace("## account-departures", "## stale-departures"); failure = "Installed plugin guidance is stale"; }
   else { values.tools = values.tools.map((tool, index) => index ? tool : { ...tool, description: "Dropped consequence" }); failure = `Served MCP definition differs: ${values.tools[0].name}`; }

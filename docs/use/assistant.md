@@ -148,9 +148,9 @@ While a request runs, the button is locked to the model that answers it. Where y
 
 With **Settings** › **Appearance** › **Side menu** set to **Always open**, the window needs 2,016 pixels for both.
 
-**The pane says "The message and its context are too large to send."** Shorten the message, or click **Clear conversation**: each message carries the conversation before it, and on the SQL page your draft.
+**The pane says "The message and its context are too large to send."** Shorten the message, or click **Clear conversation**: each message carries the conversation before it, and on the SQL page your draft. [Limits](../api/limits.md#the-assistant-and-agents) lists the sizes.
 
-**The pane says "Page context exceeds 64 KiB of UTF-8 JSON."** On the SQL page, shorten your draft, or select less of it.
+**The pane says "Page context exceeds 64 KiB of UTF-8 JSON."** On the SQL page, shorten your draft, or select less of it. [Limits](../api/limits.md#the-assistant-and-agents) lists the sizes.
 
 ## Next steps
 

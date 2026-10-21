@@ -7,6 +7,7 @@ import { PUBLISHED_SATELLITE_PATHS, SATELLITE_TILE_DESCRIPTION, SATELLITE_TILE_P
 import { resultAccess } from "./openapi-result-access";
 import { JOB_PATHS } from "./openapi-jobs";
 import { withRequestPolicy } from "./openapi-request-policy";
+import { withExamples } from "./openapi-examples";
 import { USERS_PATHS, USERS_SCHEMAS } from "./openapi-users";
 import { ACCOUNT_PATHS, ACCOUNT_SCHEMAS } from "./openapi-account";
 import { AUTH_PATHS, AUTH_SCHEMAS, AUTH_SECURITY_SCHEMES } from "./openapi-auth";
@@ -59,7 +60,7 @@ import { RECIPE_DEPENDENCY_SCHEMAS, RECIPE_SCHEMAS } from "./openapi-recipe-sche
 
 export function buildOpenApiDocument() {
   const settings = settingsContract();
-  return withRequestPolicy(withAutomaticMethods({
+  return withExamples(withRequestPolicy(withAutomaticMethods({
     openapi: "3.1.0",
     info: {
       title: "Dezfil API",
@@ -437,7 +438,7 @@ export function buildOpenApiDocument() {
               },
             },
           },
-          responses: { "200": jsonOk("#/components/schemas/QueryResult"), "422": ERROR_RESPONSE },
+          responses: { "200": jsonOk("#/components/schemas/QueryResult"), "400": ERROR_RESPONSE, "422": ERROR_RESPONSE },
         }),
       },
       "/api/query/export": {
@@ -2917,5 +2918,5 @@ export function buildOpenApiDocument() {
     },
     "x-error-codes": ERROR_CATALOGUE,
     "x-resource-error-statuses": RESOURCE_ERROR_STATUSES,
-  }));
+  })));
 }

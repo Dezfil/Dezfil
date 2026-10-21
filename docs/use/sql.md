@@ -187,37 +187,9 @@ Each of these actions is an API operation, and an MCP tool for agents:
 | **Save as dataset** | `POST /api/operations/run` with the operation `sql_step` | `run_operation` |
 | **Add as map layer** | `POST /api/maps/{id}/layers` | `create_layer` |
 
-Run a query with an API token, which you make in **Settings** › **API & MCP**:
+The [API quickstart](../api/quickstart.md#step-4-run-sql) runs a query in curl and JavaScript, with an API token, and shows its answer. A query's geometry comes as WKT text; add `"geometry": "geojson"` to the request for GeoJSON objects instead.
 
-```sh title="Terminal"
-curl -s http://localhost:3000/api/query \
-  -H "Authorization: Bearer <YOUR_TOKEN>" \
-  -H "Content-Type: application/json" \
-  -d '{"sql": "SELECT name, country FROM world_cities ORDER BY population DESC LIMIT 3"}'
-```
-
-```json title="Output"
-{
-  "columns": [
-    { "name": "name", "type": "VARCHAR" },
-    { "name": "country", "type": "VARCHAR" }
-  ],
-  "rowCount": 3,
-  "preview": [
-    { "name": "Tokyo", "country": "Japan" },
-    { "name": "New York", "country": "United States of America" },
-    { "name": "Mexico City", "country": "Mexico" }
-  ],
-  "previewTruncated": false,
-  "runtimeMs": 5
-}
-```
-
-- `rowCount` counts every row of the result. `preview` holds the first rows, and `previewTruncated` is `true` when some were left out.
-- Geometry comes as WKT text. Add `"geometry": "geojson"` to the request for GeoJSON objects instead.
-- `runtimeMs` is how long the query took, so yours differs.
-
-To let an agent call these tools, see [Connect an AI agent](../api/mcp.md).
+To go further, follow the [API quickstart](../api/quickstart.md). To let an agent call these tools, see [Connect an AI agent](../api/mcp.md). [Errors](../api/errors.md) explains the error codes.
 
 ## Troubleshooting
 
