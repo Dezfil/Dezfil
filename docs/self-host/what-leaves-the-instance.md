@@ -27,11 +27,11 @@ Out of the box, Dezfil reaches four outside services, each only when a feature n
 | OpenStreetMap's public Overpass server, `overpass-api.de` | Someone previews or imports from **OpenStreetMap** in **Add data**, or refreshes a dataset imported from it | The Overpass query: the area and the tags chosen, or the person's own query | `DEZFIL_OVERPASS_URL`, or **Address** on the **OpenStreetMap** card |
 | Overture Maps' public bucket on Amazon S3, `overturemaps-us-west-2`: the listing at `overturemaps-us-west-2.s3.us-west-2.amazonaws.com`, the files on Amazon S3's hosts | Someone opens **Overture Maps** in **Add data**, which lists the releases (a listing that worked is kept six hours), imports from it, or refreshes a dataset imported from it | A listing of the releases, then reads of the chosen release's files | No setting: see [What has no off switch](#what-has-no-off-switch) |
 
-Every request the server makes shows the service your server's IP address. A request from a browser shows it the visitor's address instead.
+A request from the server shows the service your server's IP address, and one from a browser the visitor's.
 
 Scripts, agents and the assistant reach the same services through the API.
 
-Unless a row says otherwise, the cards these tables name are on **Settings** > **Data & services**, which only admins see. Most service cards there have a **Test** that sends one request and says how it answered.
+Unless a row says otherwise, the cards these tables name are on **Settings** > **Data & services**, which only admins see. Most service cards there have a **Test** that sends one request.
 
 Dezfil sends no email and reports nothing about itself: there is no telemetry. Links in the app, such as **Docs** in the side menu, open their sites only when someone clicks them.
 
@@ -80,7 +80,7 @@ To let the server reach hosts on your own network, list them:
 
 :::tab[Docker]
 
-A new container has only the variables you give it. List yours first, as [Set a variable](configuration.md#set-a-variable) shows, and add them to the command, `DEZFIL_SECRET_KEY` among them:
+List your variables first, as [Set a variable](configuration.md#set-a-variable) shows, and add them to the command, `DEZFIL_SECRET_KEY` among them:
 
 ```sh title="Terminal"
 docker rm -f dezfil
@@ -113,7 +113,7 @@ You should see your hosts on the **Private network** card of **Data & services**
 
 Inside the container, `localhost` is the container itself.
 
-For a database on the Docker host, use the host's address on Docker's network, which [Trust the proxy](reverse-proxy.md#2-trust-the-proxy) prints, such as `172.17.0.1`. List that address, and let the database accept connections on it.
+For a database on the Docker host, use the host's address on Docker's network, which [Trust the proxy](reverse-proxy.md#2-trust-the-proxy) prints, such as `172.17.0.1`. List that address, and let the database accept connections on it. Where Docker runs in a virtual machine, as Docker Desktop does, use and list `host.docker.internal` instead.
 
 ## Keep requests on your own network
 
@@ -217,7 +217,7 @@ docker run --rm --user root --entrypoint sh -v "$PWD:/trust" dezfil -c 'cd /trus
   chown -R node:node legacy-nss current-nss && chmod 700 legacy-nss current-nss && ls legacy-nss current-nss'
 ```
 
-The `docker run` line gives both folders to the container's `node` user, and no other user can open them. It lists what they hold:
+The `docker run` line gives both folders to the container's `node` user alone, and lists what they hold:
 
 ```text title="Output"
 current-nss:
