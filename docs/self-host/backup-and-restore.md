@@ -190,19 +190,19 @@ You should see your maps when you sign in.
 A checkout keeps its data in its `data` folder. If you set `DEZFIL_DATA_DIR`, use the folder it names in place of `data`. Stop the server, then copy the folder from the `Dezfil` folder:
 
 ```sh title="Terminal"
-cp -a data "$HOME/dezfil-data-backup"
+mkdir "$HOME/dezfil-data-backup" && cp -a data/. "$HOME/dezfil-data-backup/" && echo Copied
 ```
 
-`ls "$HOME/dezfil-data-backup"` should list `metadata.sqlite`.
+It prints `Copied`, or `File exists` when an earlier copy is there: move that one away first.
 
 To restore, stop the server, move the current folder aside and put the copy in its place:
 
 ```sh title="Terminal"
-mv data data.before-restore
-cp -a "$HOME/dezfil-data-backup" data
+test ! -e data.before-restore && mv data data.before-restore &&
+  cp -a "$HOME/dezfil-data-backup" data && echo Restored
 ```
 
-Each `cp -a` needs a target that does not exist yet. If it exists, `cp` puts the copy inside it.
+It prints `Restored`. Without it, a `data.before-restore` folder is in the way: move it away first.
 
 ## Troubleshooting
 

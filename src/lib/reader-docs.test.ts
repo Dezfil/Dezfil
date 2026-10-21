@@ -49,6 +49,8 @@ it("gives operators complete restoration and credential recovery instructions", 
   // lifetime, the wait on a busy store and what a takeover leaves; a
   // script's chained revision example is on How the API works.
   for (const term of ["\n## Back up\n", "\n## Restore\n", "mkdir \"$HOME/dezfil-backup\" &&", "cp -a /data/. /backup/", "&& echo Restored"]) expect(backup).toContain(term);
+  // A checkout's copy, like the container's, refuses to land in an earlier one.
+  for (const term of ["mkdir \"$HOME/dezfil-data-backup\" && cp -a data/.", "test ! -e data.before-restore &&"]) expect(backup).toContain(term);
   for (const term of ["\n## Recover the admin account\n", "npm run admin:recover --", "docker exec -it", "docker run --rm -it", "--data-dir", "--origin", "--email"]) expect(users).toContain(term);
   for (const term of ["within 15 minutes", "stayed busy for five seconds", "took over the instance"]) expect(users.replace(/\s+/g, " ")).toContain(term);
   for (const term of ["X-Edit-Revision", "current.editRevision"]) expect(api).toContain(term);
