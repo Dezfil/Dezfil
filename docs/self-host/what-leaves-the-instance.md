@@ -1,635 +1,303 @@
 ---
-title: "Self-hosting"
-summary: "What to decide before you put data in an instance, what the instance keeps, and what it sends out."
+title: "What leaves the instance"
+summary: "See every outside request your instance can make, what each one sends, and the setting that turns it off or points it at your own server."
 read_when:
-  - "you run an instance for yourself or for others"
-  - "you put Dezfil behind a reverse proxy"
-  - "you need to know what leaves the instance"
+  - "you need to know which outside services your instance contacts, and what each one receives"
+  - "you run Dezfil on a network without internet access, or behind a firewall that allows only some hosts"
+  - "you want basemap tiles, templates or OpenStreetMap data to come from your own servers"
+  - "you want to know what a visitor's browser contacts when they open a published map"
+  - "an import, a connection or a service is refused because its address is on a private network"
 audience:
   - operator
 checked: none
+order: 8
 moved_from:
   - "/docs/operate/self-hosting/"
 ---
 
-This page is for the person who runs the instance. It covers what to decide before
-you put data in it, what the instance keeps, and what it sends out.
+Out of the box, Dezfil reaches four outside services, each only when a feature needs it. Other services stay off until you set them up, and people can give addresses of their own.
 
-[Install](../start/install.md) has the run commands and [Configuration](configuration.md)
-links every table of settings. Start there, then read this.
+## On out of the box
 
-## Accounts and access
+| Destination | Reached when | What it receives | To turn it off or point it elsewhere |
+|---|---|---|---|
+| Basemap tiles at `tiles.openfreemap.org`, from browsers | A browser draws a map on a built-in style: in the builder, on a published map or an embed, in a preview map | Requests for the style and what it names (tiles, fonts, icons) for the area in view, from the visitor's IP address | `DEZFIL_BASEMAP_URL`, and hide the built-in styles: see [Keep requests on your own network](#keep-requests-on-your-own-network) |
+| The same tile host, from the server | The server draws a map's card picture, on its own after the map changes; an image export through the API; a picture for the assistant's map check | The same requests, for the map's area, from your server | Follows the map's basemap |
+| The template catalogue: the release files of `github.com/Dezfil/templates`, and the hosts GitHub redirects them to | Someone opens **Home** or **Templates**, at most once in ten minutes, or thirty seconds after a failed read; someone opens or copies a template that is not downloaded yet | Requests for the catalogue's index, its pictures and a template's archive, with no credential | Turn off **Catalogue** on the **Templates** card, or point **Catalogue address** there or `DEZFIL_TEMPLATES_CATALOGUE` at a mirror, as a firewall that lists hosts needs: see [step 3](#3-turn-off-the-template-catalogue) |
+| OpenStreetMap's public Overpass server, `overpass-api.de` | Someone previews or imports from **OpenStreetMap** in **Add data**, or refreshes a dataset imported from it | The Overpass query: the area and the tags chosen, or the person's own query | `DEZFIL_OVERPASS_URL`, or **Address** on the **OpenStreetMap** card |
+| Overture Maps' public bucket on Amazon S3, `overturemaps-us-west-2`: the listing at `overturemaps-us-west-2.s3.us-west-2.amazonaws.com`, the files on Amazon S3's hosts | Someone opens **Overture Maps** in **Add data**, which lists the releases (a listing that worked is kept six hours), imports from it, or refreshes a dataset imported from it | A listing of the releases, then reads of the chosen release's files | No setting: see [What has no off switch](#what-has-no-off-switch) |
 
-Keep a fresh instance reachable only by you until first-admin setup is complete.
-The first person to finish setup becomes the admin. Bind the container port to
-loopback or restrict access at your proxy before opening the setup page. Once an
-account exists there is no open signup.
+A request from the server shows the service your server's IP address, and one from a browser the visitor's.
 
-Browsers share cookies across ports on the same host. Native instances on
-separate listening ports use separate session names automatically; port 3000
-keeps `dezfil_session`. For two containers served on the same host, set a distinct
-`DEZFIL_SESSION_COOKIE` on each, such as `dezfil_session_maps` and
-`dezfil_session_test`: both listen on port 3000 internally even when their
-published ports differ. The value must be a non-empty HTTP cookie-name token; names made of ASCII
-letters, digits and underscores work. Invalid names stop startup. Changing an instance's
-cookie name requires its browsers to sign in again.
+Scripts, agents and the assistant reach the same services through the API.
 
-Admins invite people from Users. Dezfil sends no outbound mail: the admin copies
-and privately delivers a single-use invitation or reset link, valid for the
-instance's link lifetime, seven days unless an admin changes it on the
-**Security** tab of Settings. The recipient chooses a password of at least the
-instance's shortest password, eight characters unless an admin raises it there;
-very common passwords are refused. The first account always takes eight, and a
-raised minimum applies to passwords set after it: older ones keep signing in. Issuing a replacement link invalidates the previous links,
-password and browser sessions. Ordinary resets leave API tokens valid; their owner
-can revoke those separately in Settings. Deactivated accounts cannot redeem a link.
+Unless a row says otherwise, the cards these tables name are on **Settings** > **Data & services**, which only admins see. Most service cards there have a **Test** that sends one request.
 
-Each account owns its maps, datasets, workflows, projects and connections.
-Projects are the sharing boundary. A project owner gives another account a
-**Viewer** or **Editor** role for everything filed there. Viewers read; Editors
-also edit maps and workflows and run workflows. Deleting, publishing, sharing and
-transferring stay with the resource owner. Datasets change only by their owner;
-connections are never shared. Runs create outputs owned by their runner.
+Dezfil sends no email and reports nothing about itself: there is no telemetry. Links in the app, such as **Docs** in the side menu, open their sites only when someone clicks them.
 
-Admin authority manages accounts and instance preferences, without access to
-another person's private content. Owners can transfer a map or workflow filed in
-a shared project to someone it is shared with, and transfer a project to one of
-its members. Datasets and connections cannot transfer. Deactivation ends sessions
-and prevents token use, but keeps ownership, content and published links. An admin
-can revoke a deactivated owner's known published token without reading the map.
-Reactivation restores access to retained work; it does not restore ended sessions.
-Another admin must remove your admin flag or deactivate you, and at least one
-active admin must remain.
+> [!NOTE]
+> Run from a checkout, the query engine downloads each extension it needs from DuckDB's servers the first time. The image ships them, so a container never downloads one.
 
-Each account's maps, datasets, workflows, connections and projects are private,
-including from admins, until a project's owner shares the project: its people
-then reach everything filed in it, as viewers or editors.
-Connections are never shared. Dataset and connection names belong to that
-account's space; SQL names another person's dataset `<sql name>.<dataset>`.
-Basemap, palette, operation and model catalogues remain shared; any signed-in
-account can save or delete a custom palette. Published links remain readable without an account,
-as do embeds on the sites the instance allows, and the readiness probe.
+## Off until you set them up
 
-Existing work belongs to the recorded original account after an upgrade.
-Read the [ownership upgrade instructions](backup-and-restore.md#upgrading-ownership-storage)
-before updating. SQL uses your imported datasets by name. Direct file reads
-and file-referencing projection definitions are refused, including in saved
-queries and published layers; ordinary EPSG transforms remain supported.
+![The Data & services tab of Settings: the Address finder and Travel time cards show Not set up, and the OpenStreetMap card shows the public Overpass server](../images/self-host/what-leaves-the-instance-data-services.webp)
 
-For scripts and agents, create an API / MCP token in Settings. Its secret is shown
-once, and its authority follows the account's current permissions. Keep the secret
-with the client; revocation stops REST and MCP use together.
+| Service | Turn it on with | Reached when | What it receives |
+|---|---|---|---|
+| An address finder (Nominatim-compatible) | `DEZFIL_GEOCODER_URL`, or **Address** on the **Address finder** card | Someone presses Enter in **Search map & places**, or runs **Geocode addresses** | The search text, or each address in the chosen column |
+| A travel-time service (Valhalla-compatible) | `DEZFIL_ISOCHRONE_URL`, or **Address** on the **Travel time** card | Someone runs **Isochrone / travel-time area** | Each origin's coordinates, the travel mode and the time bands |
+| Satellite imagery | `DEZFIL_SATELLITE_URL`, or **Tile address** on the **Satellite imagery** card of **Settings** > **Libraries** | A map on **Satellite** is drawn, in a browser or in a picture the server makes | Each tile's zoom, column and row, with the key in your template, from your server |
+| The AI provider, `api.anthropic.com` or `api.openai.com` | `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` | Someone sends a message to the assistant | The conversation and what the assistant reads: see [What the provider receives](assistant.md#what-the-provider-receives) |
 
-A published link is a capability. It carries a token, it is not guessable, and it
-grants read access to one published map until you unpublish it. Anyone the link
-reaches can pass it on.
+To stop a service again, click **Remove** beside its saved address, then **Remove address**. An address a variable sets is locked in Settings and names its variable: unset the variable and replace the container, as [Set a variable](configuration.md#set-a-variable) shows.
 
-## Settings
+A public geocoding service receives every address your people look up, and every distinct address of the column for **Geocode addresses**. Run your own if the addresses are not yours to share.
 
-The Settings column has two groups. Under **You**, every account has **Account**
-(name, email and password), **Tokens** and **Appearance**. Under **Instance**,
-admins have **General**, **Maps**, **Workflows & SQL**, **Publishing**,
-**Data & services**, **Limits**, **Security** and **System**, with Users linked at
-the column's foot; members see General alone, read-only.
+Satellite tiles pass through your server, so no browser contacts the imagery provider, a published map's readers included. A key limited to browser origins or referrers needs that limit lifted.
 
-- **Appearance** is the person's own look: Color (Kelp, Harbor, Heather or
-  Slate), Contrast (Standard or More contrast), Panels (Glass, Liquid or
-  Paper, and for Liquid a Transparency of Clear, Medium or Firm), Background (Atlantic chart, Plain, Graticule or Hex lattice), Typeface
-  (Inter, or System for the computer's own), Corners (Rounded or Soft) and Side
-  menu (Opens on hover, Always open or Icons only). Glass frosts every card and
-  panel, the cards and blocks inside a panel on the glass tone without a blur
-  of their own; Paper makes them solid. Under both, the quieter grey text is a
-  step darker by day. Liquid makes every card and
-  panel the same clear liquid glass with a light on its rim: the header and
-  side menu, the side panels, everything over the map, the map's buttons, the
-  page cards, the cards and blocks inside panels, menus and dialogs. The map
-  shows through, and the quieter grey text is darkened so it still reads over
-  most maps. Medium and Firm make the glass firmer, so less of the map shows
-  through. Over a very dark map in the light theme (a dark basemap or
-  satellite imagery), or a very light one in the dark theme, text in the
-  panels reads less well, most at Clear; Glass and Paper keep them firm.
-  Appearance shows a live preview of the builder over a map above its cards. Text fields and
-  selects stay solid. Liquid bends the backdrop at a panel's edge in
-  Chromium-based browsers (Chrome, Edge and the like); Firefox and Safari show
-  the same fills, blur, light and shadow without the bend. A pick changes the page at once and is
-  kept with the account, so every other browser that account uses shows it from
-  its next page load, with no flash of the default first. The look is never
-  shared and never reaches a published page or an image of a map: those keep
-  Dezfil's default look. There is no instance-wide look, and the light and dark
-  button in the header stays a choice of each browser.
-- **General** holds the instance name, shown beside the wordmark and in browser
-  titles, and the sign-in page: a message under its heading, who to ask about a
-  lost password, and the page people open after signing in (Home, Projects, Maps,
-  Workflows, Data or SQL). Anyone who opens the sign-in page can read the message,
-  so keep anything private out of it.
-- **Maps**, **Workflows & SQL** and **Publishing** hold what new things start
-  with. Maps: a new map's basemap, starting view (a click on the small world
-  map sets its latitude and longitude) and legend corner, and a new layer's
-  color cycle, opacity for points, lines and areas, line width and point radius.
-  Workflows & SQL: whether a workflow canvas opens full screen or framed, its
-  minimap and results band, and the SQL console's text size and line wrap.
-  Publishing: the starting width and shape of a fresh image export card. They
-  apply to new things only: maps and layers that already exist, their published
-  views and images, and a screen already open keep what they have. Someone's own
-  minimap or results band choice still wins in their browser. Members meet the
-  defaults as the starting state of what they make;
-  [the configuration guide](configuration/defaults.md) lists every value.
-- **Publishing** also holds **Public links**: who may publish (Everyone, Admins
-  only or No one) and embedding on other sites (Any site, Listed sites, one site
-  per line, or Off). Maps already published stay public until unpublished; a
-  published page follows the embedding choice from its next load, so embed code
-  on a site no longer allowed stops showing the map.
-- **Data & services** holds the address finder, travel time, OpenStreetMap,
-  Overture, cloud storage, the template catalogue, the private hosts the server
-  may reach, and who may add database connections and import from links. A service's address is
-  pasted whole and kept on Save, then shows only as its scheme and host with
-  Set (OpenStreetMap's public server and Amazon S3 show Default); a new key
-  means pasting the whole address again, and Remove asks first. An address the
-  egress rules would refuse is refused at save, and the address finder or
-  travel time without an address shows Not set up. A card's gap between
-  requests, answer time limit and how long answers are kept change as the
-  limits do, and its Reset leaves the address alone. Test sends the service one
-  request and says how it answered, Clear empties a cache, and Check now lists
-  Overture's releases again. The Templates card turns the catalogue on or off,
-  keeps its address as a service's (a folder its variable names shows as a
-  folder, never its path), tests it while it is in use, and shows how much the
-  downloaded templates take, with Remove all, which asks first and leaves the
-  shipped templates and every copy. Reading cloud storage with the server's
-  credentials and the hosts the server may reach show locked, naming their
-  variables.
-- **Limits** changes the editable limits while the instance runs; new work uses a
-  changed value at once. A limit its environment variable sets is shown locked,
-  naming the variable, and changes only through the environment and a restart.
-- **Security** holds sign-in (how long people stay signed in, how long invite
-  and reset links last, failed sign-ins per account and per address before a
-  pause, and the shortest password) and API tokens (who may create them and
-  when new ones expire). The count per account also pauses an account's
-  password and email changes after that many wrong current passwords, counted
-  apart from its sign-ins. No save signs anyone out or changes a link, token or
-  password that already exists; each applies from the next session use, link,
-  sign-in attempt, password or token. Who may add database connections and who
-  may import from links are on Data & services;
-  [the configuration guide](configuration/rules.md) lists every
-  value.
-- **System** shows the version and how long the server has run, whether the data
-  folder is writable, whether the assistant is on, and every setting a variable
-  decides, with the value in effect and where it came from. A credential shows
-  only whether it is set, and an address only its scheme and host.
+Check that the imagery provider's terms allow its tiles to pass through a server and appear on published maps.
 
-Choices and numbers are kept as they change; typed text waits for Save. A card
-offers Reset to defaults while it differs from its defaults, then Undo for a few
-seconds. Appearance also offers **Reset to Dezfil's default** at the right of
-its heading while any pick differs, which returns every pick at once with the
-same Undo, which brings back everything the reset changed. Leaving a tab with
-unsaved typed text asks first.
+## Addresses people give
 
-## Leaving and deleting accounts
+People can also point the server at addresses of their own:
 
-A Viewer or Editor can leave a project, including a frozen one. Leaving ends only
-that person's membership. Their owned work stays filed and shared; they can
-withdraw it separately. Project owners must transfer or dissolve the project.
+| Request | Reached when | What it receives | Controlled by |
+|---|---|---|---|
+| Web links (`https://`, `http://`) | Someone imports or refreshes a dataset from a **File URL** in **Add data** > **Files** | A request for the file | **Who may import from links**, for new imports |
+| Cloud storage links (`s3://`, `gs://`, `az://`) | The same, for a cloud storage link | Anonymous reads from Google Cloud Storage and Amazon S3, or the store that `DEZFIL_S3_ENDPOINT` or **S3 address** on the **Cloud storage** card names | **Who may import from links**, for new imports |
+| PostGIS databases | Someone tests a connection, browses it, or imports or refreshes from it | The connection's user name and password, and the queries | **Who may add database connections**, for a new connection or a changed host, port or database |
+| Basemap styles from elsewhere | An admin adds a style on **Settings** > **Libraries**, or someone puts one on a single map. The server reads the style to check it, then every browser that draws a map on it loads it | The same requests as the built-in basemap | **Style addresses on single maps**, and the admins who add styles |
 
-To keep a person's work for the team, leave the account deactivated. Shared reads,
-exports, downloads, SQL, map/workflow duplication, permitted workflow runs and
-published links remain available. Frozen work cannot be edited in place or gain
-members. Before deactivation the owner can transfer projects, maps and workflows
-to existing members; datasets and connections cannot transfer.
+An `az://` link and a private bucket need `DEZFIL_OBJECT_STORE_CREDENTIALS` set to `true`. The server then signs cloud storage reads with its own credentials, so anyone who may import from links can read what the server can.
 
-Another active admin can permanently delete an account after separate deactivation,
-including a deactivated admin. An invitation never redeemed can be removed directly.
-Users shows totals and the number of other people losing reach, without revealing
-private resource names. Confirm the current preview and type the exact email for
-an ever-active account. Deletion erases everything that account owns wherever filed,
-dissolves its projects, unfiles other members' surviving work, and breaks its
-published links and embeds. Surviving maps and workflows report missing inputs.
-No handover or undelete is provided.
+### Private addresses
 
-Pending and needs-retry mean unfinished. The account and its work remain
-inaccessible, its email stays reserved, and Users offers **Finish deleting**, also
-after restart. A pending deletion first waits for the reads admitted before it to
-settle: Users shows how many it still waits on, and the server log says so once a
-wait has lasted a minute. Use the same deletion identifier through the API or MCP. Completion
-frees the email and removes the temporary deletion record; a subsequent status
-read returns not found. Deleting the original profile never reopens setup or
-adoption. Remaining admins can use this version's packaged local recovery command.
-A long-lived outside reader, such as a replication sidecar, can keep deletion unfinished until it releases the database; release it, then use Finish deleting.
+The server refuses loopback, private-network, link-local and cloud metadata addresses for every request it makes on this page. The exceptions are the AI provider, Overture imports and cloud storage read with the server's credentials.
 
-Finishing a deletion rewrites the whole metadata store, and the app answers nothing
-while that compaction runs, including health requests. Across two runs on one
-machine, the 1 GiB observations ranged from 3.4 to 13.2 seconds in the container
-(nine trials) and 9 to 38 seconds on the host. The repeat run observed up to
-1.55 seconds at 64 MiB and 3.07 seconds at 256 MiB. These observations set no bound
-and promise no maximum pause. A slow or nearly full disk and a host short of memory
-make it longer. Plan capacity and maintenance around that pause.
-SQLite needs free working space for a temporary database and a write-ahead log:
-allow up to twice the metadata database size in additional free space when both
-use one filesystem. With separate filesystems, allow roughly one database size
-on the data volume for the log and one on SQLite's temporary filesystem for the
-copy, with headroom for other writes. A large data volume does not compensate for
-a full or memory-limited temporary filesystem. See SQLite's
-[VACUUM space explanation](https://www.sqlite.org/lang_vacuum.html).
-Compaction that cannot finish leaves deletion unfinished and safe to retry after
-space is restored or the reader is released.
+To let the server reach hosts on your own network, list them:
 
-Except for never-redeemed invitations, deletion purges the entire geocode,
-isochrone and Overpass answer caches. Subsequent requests contact providers again,
-with their usual latency and cost. Instance settings, keys and palettes remain.
+::::tabs
 
-An ever-active account keeps an opaque deleted identity and its identifying SQL
-name, permanently reserved, plus the original-adoption marker where applicable.
-Its name, email, credentials and profile disappear. Surviving SQL homes never move,
-so reusing the freed email cannot capture old dataset references. Historical actors
-show **Deleted account**, distinct from **Unknown**, without a name or SQL-name
-label; times and authorship stay fixed. This is not anonymization or a promise to
-erase physical disk remanence.
+:::tab[Docker]
 
-Deletion has these copy and attribution limits:
+List your variables first, as [Set a variable](configuration.md#set-a-variable) shows, and add them to the command, `DEZFIL_SECRET_KEY` among them:
 
-- Other people's derived datasets remain theirs permanently. Their SQL, lineage,
-  run records and stored run sentences can retain dataset names, artifact identities
-  and personal text. Deleting a workflow removes its run records while its output
-  datasets remain.
-- Already issued private copies keep their existing lifetime. Completion waits for
-  prepared files to settle or expire and for observed cleanup. Recorded input
-  evidence removes affected card images, tiles, retained renders and prepared files,
-  even when another person owns them. Existing unattributed card images belonging to
-  other people remain because their source datasets cannot be identified.
-- A retired dataset generation that failed to unlink before file ownership was
-  tracked is removed by the startup sweep, not by deletion's completion.
-- Copies outside the instance are not reached: backups, snapshots, exports,
-  downloaded files, host-collected logs, provider-held data and a database a
-  connection wrote to. Browser-local SQL and conversations also remain. Restoring
-  a backup can revive erased data and credentials; review them before reopening.
+```sh title="Terminal"
+docker rm -f dezfil
+docker run -d --name dezfil -p 127.0.0.1:3000:3000 -v dezfil-data:/data \
+  -e DEZFIL_EGRESS_ALLOWLIST=<YOUR_HOST>,<YOUR_RANGE> \
+  dezfil
+```
 
-Before upgrading or rolling back, follow the [retained-identity upgrade and full
-backup instructions](backup-and-restore.md#retained-account-identity-upgrade). Keep a stopped,
-complete backup and the matching application and key; do not down-migrate a live
-store containing deleting or deleted accounts.
+:::
 
-## The data directory is the product
+:::tab[Docker Compose]
 
-Everything the instance keeps lives in one directory, the durable data directory,
-mounted as a volume in the container. Tables, the map and layer metadata, published
-links, accounts, password hashes, sessions, API token records, workflows and run
-records, generated encryption keys, cached tiles and thumbnails are all inside it.
-An externally supplied `DEZFIL_SECRET_KEY` must be preserved separately.
+Add the variable to the service in your `compose.yaml`, then run `docker compose up -d`:
 
-That makes three operations simple:
+```yaml title="compose.yaml"
+services:
+  dezfil:
+    environment:
+      DEZFIL_EGRESS_ALLOWLIST: "<YOUR_HOST>,<YOUR_RANGE>"
+```
 
-- **Back up** by stopping the container and copying the directory. A copy taken while
-  the instance is running may catch a write in progress.
-- **Move to another machine** by copying the directory and mounting it in a new
-  container.
-- **Upgrade** by starting a newer image against the same directory.
+:::
 
-Running without a volume works and is useful for a look around, but the state then
-lives and dies with that container.
+::::
 
-A full stopped backup includes `metadata.sqlite` and any SQLite journal/WAL files,
-all artifact directories, thumbnails, caches and the optional model catalogue.
-Do not back up only the GeoParquet files or only SQLite. Restore the whole copy
-into an empty directory with the matching application version and encryption key.
-Restore file ownership so the container's `node` user can read and write it.
+- `<YOUR_HOST>` is a hostname, such as `gis-db.internal`. A listed hostname is trusted whatever address it resolves to.
+- `<YOUR_RANGE>` is an IP address or a CIDR range, such as `10.20.0.0/16`.
 
-Passwords and tokens are not recoverable as plaintext. Restored account, session,
-link and token records retain their backed-up validity and expiry: a credential
-revoked after the backup can become valid again after restoration. Review and
-revoke restored credentials as needed before reopening access. Work accepted
-after the backup is not in the restore. Test the restore on an isolated port and
-copy, never with two servers writing the same directory. The
-[runbook](backup-and-restore.md#full-backup-and-restore) gives checkout and volume commands.
+You should see your hosts on the **Private network** card of **Data & services**, under **Hosts the server may reach**, with **Set in the server's environment by `DEZFIL_EGRESS_ALLOWLIST`.**
 
-## Private certificate authorities for image exports
+Inside the container, `localhost` is the container itself.
 
-Save-time HTTPS checks and Chromium image exports need separate trust setup.
-Mount your private root PEM read-only into the container at
-`/trust/private-root.pem` and start it with
-`NODE_EXTRA_CA_CERTS=/trust/private-root.pem`. Keep the mount and environment
-setting in the container configuration so they survive recreation. Node then
-trusts its bundled roots plus that file. Chromium uses its own roots and the
-`node` user's NSS stores, which need the same private root separately.
+For a database on the Docker host, use the host's address on Docker's network, which [Trust the proxy](reverse-proxy.md#2-trust-the-proxy) prints, such as `172.17.0.1`. List that address, and let the database accept connections on it. Where Docker runs in a virtual machine, as Docker Desktop does, use and list `host.docker.internal` instead.
 
-Provision two NSS SQL stores on the host with `certutil` (from NSS tools),
-using the same root PEM in each:
+## Keep requests on your own network
 
-```sh
+### 1. Point the server at your own services
+
+::::tabs
+
+:::tab[Docker]
+
+List your variables first, as [Set a variable](configuration.md#set-a-variable) shows, and add them to the command, `DEZFIL_SECRET_KEY` among them:
+
+```sh title="Terminal"
+docker rm -f dezfil
+docker run -d --name dezfil -p 127.0.0.1:3000:3000 -v dezfil-data:/data \
+  -e DEZFIL_BASEMAP_URL=<YOUR_STYLE_URL> \
+  -e DEZFIL_BASEMAP_ATTRIBUTION="<YOUR_CREDIT>" \
+  -e DEZFIL_OVERPASS_URL=<YOUR_OVERPASS_URL> \
+  -e DEZFIL_EGRESS_ALLOWLIST=<YOUR_TILE_HOST>,<YOUR_OVERPASS_HOST> \
+  dezfil
+```
+
+:::
+
+:::tab[Docker Compose]
+
+Add the variables to the service in your `compose.yaml`, then run `docker compose up -d`:
+
+```yaml title="compose.yaml"
+services:
+  dezfil:
+    environment:
+      DEZFIL_BASEMAP_URL: "<YOUR_STYLE_URL>"
+      DEZFIL_BASEMAP_ATTRIBUTION: "<YOUR_CREDIT>"
+      DEZFIL_OVERPASS_URL: "<YOUR_OVERPASS_URL>"
+      DEZFIL_EGRESS_ALLOWLIST: "<YOUR_TILE_HOST>,<YOUR_OVERPASS_HOST>"
+```
+
+:::
+
+::::
+
+- `DEZFIL_BASEMAP_URL` is a MapLibre style address. Maps on **Auto**, the default for new maps, draw on it in both themes. Browsers load it directly, so it must be reachable from them.
+- `DEZFIL_BASEMAP_ATTRIBUTION` is the credit line those maps show. Unset, they show none.
+- `DEZFIL_OVERPASS_URL` sends **OpenStreetMap** imports to your Overpass server.
+- `DEZFIL_EGRESS_ALLOWLIST` is needed only for hosts on a private network. It is one list: add these hosts to any you listed under [Private addresses](#private-addresses). The server draws map pictures through the same check, so list every host your style names: the style's own, and those of its tiles, fonts and icons.
+
+You should see, in **Settings** > **System** > **Server settings**, the **Basemap address** and **Overpass endpoint** rows with your hosts and the **Source** **Environment**.
+
+### 2. Hide the built-in basemaps
+
+1. Open **Settings** > **Libraries**.
+2. On the **Basemaps** card, turn off **Offered** for **Dark**, **Light** and **Streets**. You should see **Saved** beside each switch.
+3. Turn off **Style addresses on single maps**, so nobody puts a map on a style the library does not offer. You should see **Saved** beside it.
+
+Hidden styles leave every basemap picker, a published page's included. A map already on one keeps drawing it until its editor picks another basemap.
+
+To offer more than your own default, add styles with **Add a style** on the same card. A style's address is public to anyone who sees a map drawn on it.
+
+> [!NOTE]
+> Preview maps always draw on the built-in Dark or Light style: on a dataset's page, under SQL and workflow results, and in the area pickers of **Add data** and **Add layer**. Where the tile host cannot be reached, they draw your data on a plain background.
+
+### 3. Turn off the template catalogue
+
+1. Open **Settings** > **Data & services**.
+2. On the **Templates** card, turn off **Catalogue**. You should see **Off** beside the switch.
+
+The three shipped templates, and any already downloaded, still open and copy.
+
+To serve the catalogue yourself instead, save a mirror's `index.json` address as **Catalogue address** on the same card, or set `DEZFIL_TEMPLATES_CATALOGUE` to it.
+
+The variable also takes a folder in the container, mounted with `-v` or under `volumes:`, that holds `index.json` and the files it names.
+
+### 4. Choose who may give addresses
+
+1. On **Settings** > **Data & services**, find the **Connections and imports** card.
+2. Set **Who may import from links** and **Who may add database connections** to **Admins only**. You should see **Saved** beside each row.
+
+Members keep the connections they already have, and datasets imported from links keep refreshing.
+
+### What has no off switch
+
+**OpenStreetMap** and **Overture Maps** stay in **Add data** for everyone. OpenStreetMap reaches the public Overpass server unless you point it at your own, and Overture Maps reads the public bucket. **Who may import from links** does not cover either.
+
+Without a connection to them, an import from either fails and says why.
+
+## Trust a private certificate authority
+
+When your own services use certificates from a private authority, the container must trust it twice: in the server for its own requests, and in Chromium for map pictures.
+
+### 1. Make Chromium's trust stores
+
+On the host, with `certutil` from the NSS tools, in the folder that holds your root certificate `private-root.pem`:
+
+```sh title="Terminal"
 for store in legacy-nss current-nss; do
   mkdir -p "$store"
   NSS_TRUST_TYPE=NSS certutil -N -d "sql:$store" --empty-password
   NSS_TRUST_TYPE=NSS certutil -A -d "sql:$store" -n 'Private root' -t 'C,,' -i private-root.pem
 done
+docker run --rm --user root --entrypoint sh -v "$PWD:/trust" dezfil -c 'cd /trust &&
+  chown -R node:node legacy-nss current-nss && chmod 700 legacy-nss current-nss && ls legacy-nss current-nss'
 ```
 
-Mount `legacy-nss` at `/home/node/.pki/nssdb` and `current-nss` at
-`/home/node/.local/share/pki/nssdb`, with the directories and their files
-readable and writable by the container's `node` user. Both locations cover
-Chromium's older and newer Linux store paths. `NSS_TRUST_TYPE=NSS` writes
-trust records compatible with the image's NSS version. Configure both Node
-and browser trust before restarting the container; this needs no image change.
+The `docker run` line gives both folders to the container's `node` user alone, and lists what they hold:
 
-## Server-side render destinations
+```text title="Output"
+current-nss:
+cert9.db
+key4.db
+pkcs11.txt
 
-Image exports and map checks launch a fresh Chromium browser. Page requests
-are admitted against the instance's egress policy, and external TCP connections
-use an ephemeral SOCKS5 relay in the app process. The relay resolves each new
-connection, requires every returned address to be admitted, and dials only those
-literal addresses. A changed DNS answer cannot move an admitted request onto a
-denied private destination. An unreachable admitted address can fall back to
-another admitted address from the same lookup. Private literals, mixed answer
-sets, redirects and style dependencies receive the same checks.
+legacy-nss:
+cert9.db
+key4.db
+pkcs11.txt
+```
 
-Only the app's exact scheme, literal host and port bypass the relay. Under
-`npm run dev` the development server's reload socket, at that same host and
-port in the `ws:` scheme, bypasses it too; every other loopback address still
-goes to the relay and is refused. App render credentials stay on that exact
-origin. `DEZFIL_EGRESS_ALLOWLIST` retains its
-existing hostname, IP and CIDR exceptions: an allowlisted hostname remains
-trusted whatever it resolves to. Ordinary public destinations remain available.
-A policy denial returns the shipped `render_failed` refusal without a PNG;
-ordinary DNS or transport failure retains the data-only dead-basemap state.
-Satellite tiles come through the app's own origin, so a map on Satellite has
-its tile template's host checked against the policy before the browser starts,
-and a denial there returns the same refusal. A tile the policy refuses during
-the render, at a redirect or at another host, is marked as such by the
-instance's answer, and the render returns the same refusal for it.
-Relay startup failure returns the generic render failure and never launches a
-direct browser as a fallback. Queue-inclusive budgets and cancellation still
-apply, and relay sockets/listeners are owned by the render's cleanup.
+### 2. Start the container with your root
 
-The listener binds only to loopback, once per render, and uses no authentication.
-Another local process can use it under that same destination policy; it promises
-neither local-client authentication nor exclusivity. HTTPS stays between Chromium
-and the destination: the relay tunnels bytes without terminating TLS or changing
-certificate validation. Trusted-HTTPS compatibility needs its own observed
-browser proof; the HTTP destination gate does not supply that evidence.
+::::tabs
 
-This boundary concerns server-side style-driven rendering. It is not a statement
-about a viewer's browser, service workers, WebSocket, browser-owned background
-requests, or UDP/QUIC suppression. The launch flags configure suppression, but
-those supplementary claims are reported individually. The
-[destination probes](../../scripts/render-egress-driver.md) and
-[TLS/timing recipes](../../scripts/render-paired-driver.md) separate connection assertions,
-scripted browser stimuli and unobserved claims. The latter probes stay outside
-the image job; no additional production service or setting is required.
+:::tab[Docker]
 
-## The encryption key
+List your variables first, as [Set a variable](configuration.md#set-a-variable) shows. Then run this in the folder of step 1, with them added, `DEZFIL_SECRET_KEY` and `DEZFIL_EGRESS_ALLOWLIST` among them:
 
-Stored credentials, such as the password for a database connection, are encrypted at
-rest. The key comes from the setting if you provide one; otherwise the instance
-generates one on first boot and writes it into the data directory.
+```sh title="Terminal"
+docker rm -f dezfil
+docker run -d --name dezfil -p 127.0.0.1:3000:3000 -v dezfil-data:/data \
+  -v "$PWD/private-root.pem:/trust/private-root.pem:ro" \
+  -v "$PWD/legacy-nss:/home/node/.pki/nssdb" \
+  -v "$PWD/current-nss:/home/node/.local/share/pki/nssdb" \
+  -e NODE_EXTRA_CA_CERTS=/trust/private-root.pem \
+  dezfil
+```
 
-If you set `DEZFIL_SECRET_KEY` externally, back up that exact value securely
-alongside the deployment configuration. Otherwise include `secret.key` from the
-data directory. Data encrypted under a lost or wrong key cannot be recovered. Keep it out of your
-shell history and out of version control, the way you would any other secret.
+:::
 
-`DEZFIL_SECRET_KEY` takes 64 hex characters (32 bytes). Secrets written under a
-generated key can only ever be read with that same key. Set `DEZFIL_SECRET_KEY` to
-a fresh value later, or lose `secret.key` while keeping `metadata.sqlite`, and the
-stored credentials cannot be decrypted; the affected connections must be entered
-again. To pin the key from day one, set the variable before the first boot. To
-move from a generated key to a pinned one without losing anything, set
-`DEZFIL_SECRET_KEY` to the hex string already in `secret.key`.
+:::tab[Docker Compose]
 
-## What leaves the instance
+Add the three mounts below `dezfil-data:/data` and the variable to the service in your `compose.yaml`, then run `docker compose up -d`. `<TRUST_FOLDER>` is the folder of step 1, as an absolute path.
 
-Five flows send data off the machine. Four are off until you configure them. One is
-on by default.
+```yaml title="compose.yaml"
+services:
+  dezfil:
+    volumes:
+      - dezfil-data:/data
+      - <TRUST_FOLDER>/private-root.pem:/trust/private-root.pem:ro
+      - <TRUST_FOLDER>/legacy-nss:/home/node/.pki/nssdb
+      - <TRUST_FOLDER>/current-nss:/home/node/.local/share/pki/nssdb
+    environment:
+      NODE_EXTRA_CA_CERTS: /trust/private-root.pem
+```
 
-| Recipient | What is sent | When |
-|---|---|---|
-| Basemap tile host | tile requests, carrying the viewer's address | **on by default**, in every browser that opens a map |
-| The configured AI provider | the conversation, the instance grounding, tool results, and map images | only once a key is configured |
-| The configured geocoder | place-search queries, and for the batch operation the address column | only once its URL is set |
-| The configured travel-time service | origin coordinates and travel parameters | only once its URL is set |
-| The configured satellite imagery | tile requests from this server, carrying your key and never a viewer's address | only once a tile template is set |
+:::
 
-Notes worth having before you switch any of them on:
+::::
 
-- **The basemap** is the one to know about, because it needs no configuration to be
-  active. The default style is fetched from a public tile host, so every viewer's
-  browser contacts a third party. Point the basemap setting at your own tile server to
-  stop that, and set the matching attribution so the credit names whoever is actually
-  serving the tiles.
-- **Satellite imagery ships with nothing.** There is no imagery provider and no key
-  bundled, so no imagery basemap is offered until you configure a tile template, your
-  own key or token, and the attribution string your provider requires. That credit is
-  then shown on every map that uses the imagery and travels with anything published
-  from one. The template and its key stay on your server: the instance fetches the
-  tiles and passes them on, so no viewer's browser, a published map's readers
-  included, contacts the provider, and a key restricted to browser origins or
-  referrers needs that restriction lifted. Check your provider's terms cover the way
-  your instance will be used; several of the well-known imagery services require a
-  subscription for anything beyond evaluation, and some free ones are non-commercial
-  only.
-- **The geocoder** receives whatever the user typed, and for the batch operation the
-  whole address column of a table. A public geocoding service is a third party
-  receiving your addresses, and the public instance of the common one asks that you
-  not send personal or confidential data through it. Run your own if the addresses
-  are not yours to share.
-  Submitted place searches carry client cancellation through the shared
-  geocoder queue and exchange. Superseding a search or leaving the builder
-  aborts it; an independent request does not cancel another caller's work.
-  Advisory custom-basemap checks similarly abort on replacement, URL edit,
-  Cancel or panel departure. See the [provider cancellation
-  recipe](../../scripts/provider-cancel-probe.md) for the route and browser probes, timeouts
-  and retained save behavior.
-- **The AI assistant** is off until a provider key is set. Once it is on, the
-  conversation, the grounding about your instance, the results of the tools it calls
-  and images of your maps are sent to that provider. Which model, and whose service,
-  is your choice through the settings.
+- `NODE_EXTRA_CA_CERTS` makes the server trust your root beside its built-in ones, for its own requests: link imports, the services on **Data & services**, and the satellite imagery and styles on **Libraries**. The container's `node` user must be able to read the file.
+- The two `nssdb` folders are where Chromium looks for trust, in its older and newer layouts.
 
-There is no telemetry. The instance reports nothing about itself to anyone.
+Reads the query engine makes use neither: Overture Maps imports, and cloud storage links read with the server's credentials.
 
-## What you are responsible for
+You should see **Test** on a service that uses your certificate answer **Answered in** and a time. A map on a basemap your own server serves should then get its card picture.
 
-You run the instance, so you are the one who decides what data goes into it, who can
-reach it, and which third parties it talks to. Publishing this software does not make
-its authors responsible for your deployment. If the data is regulated, the obligations
-attach to your installation, not to the project.
+## Troubleshooting
 
-## Resources and limits
+### Map cards stay without a picture, or an image export says "The map reaches an address this instance's egress policy denies"
 
-SQL console/SQL previews, dataset inspection, geometry-choice preview and the
-PostGIS five-row preview have fixed result limits: **33,554,432 bytes (32 MiB)**
-for the complete uncompressed UTF-8 JSON answer and **2,097,152 bytes (2 MiB)**
-for one non-geometry column value. Equality is admitted. Quotes, escaping,
-nested values, schema, repeated keys and metadata count after existing display
-conversions and excerpts. Native geometry, identified by type or registered
-provenance before conversion, counts only toward the result ceiling; coordinate
-text and JSON remain non-geometry. Exceeding either bound refuses the whole
-answer with HTTP 422 `query_result_too_large`, without partial data or details:
+The map's basemap, or a host its style names, is on a private network. A card picture then fails without a message.
 
-> The result is too large to return: more than 32 MB in total, or one non-geometry value over 2 MB. Select fewer rows or columns, or shorten the value.
+An image export through the API or the assistant answers with this one. List each host in `DEZFIL_EGRESS_ALLOWLIST` as [Private addresses](#private-addresses) shows.
 
-These ceilings have no setting. Row and engine-memory limits still apply;
-a result below both byte ceilings can fail the engine-memory limit during
-query execution or result projection, including geometry decoding. Layer
-renders, dataset map features, slider and Overture previews and published
-views retain their existing limits. A filter's distinct values, categorical
-classification, category widgets and value search hold each text value they
-return to the 2 MiB value ceiling: the first two refuse with the same 422, a
-category widget answers that code as its own error while the others keep
-working, and value search names the layer under `refusedLayers` and answers no
-rows from it, which the builder's search says in a line under its results. SQL, table and layer file exports still stream complete
-results above both ceilings. Dataset inspection shows text values, and the WKT
-of its registered geometry column, longer than 512 characters as their first
-512 characters and an ellipsis, as geometry-choice preview does. Other values,
-nested values, additional geometry columns, the schema, row counts and the
-stored data stay whole, and SQL console/SQL previews and the PostGIS preview do
-not excerpt, so long text alone no longer refuses an inspection. An inspection that still exceeds a
-ceiling, with a nested value over 2 MiB for example, prevents its detail and docked set-geometry
-panel from opening. It also blocks tool column pickers, SQL schema inventory
-and completion, workflow dataset reads and facts, and automatic layer addition
-after a tool run. The tool run can report failure even though the dataset has
-already been written. Existing layer rendering, dataset map features, complete
-API file exports and owner deletion from Data use separate reads and remain
-available. This bounds serialized data on the covered reads,
-not native chunks, JavaScript object overhead, heap or RSS.
+### Maps show your data on a plain background
 
+The browser cannot reach the basemap's tile host. Your data still draws. On a closed network, set `DEZFIL_BASEMAP_URL` to a style the browsers can reach, and move maps on **Dark**, **Light** or **Streets** to **Auto**, which draws it.
 
-The query engine runs server side, so the work happens on your machine rather than in
-the viewer's browser. Data beyond what a browser could hold is the point of the
-design, and the limit is your disk and memory rather than a tab.
+Preview maps keep the built-in style, as the NOTE under [step 2](#2-hide-the-built-in-basemaps) says.
 
-The settings table has the bounds worth knowing: how large an upload may be, how many
-rows a query may return, when a layer becomes tiles instead of features, and how
-often the instance will talk to an external service. Admins change the editable ones
-on the Limits and Data & services tabs of Settings without a restart. The defaults are chosen to be
-safe on a small machine. Raise them deliberately, not because a limit annoyed you
-once.
+### The Templates page lists no templates from the catalogue
 
-Authentication entry, Account, Users and all three anonymous published POSTs
-admit at most 65,536 wire bytes of JSON. Other JSON, including MCP and workflows,
-admits 16,777,216; assistant messages keep 131,072 and their own refusal code.
-These limits include UTF-8, escaping and whitespace regardless of Content-Type.
-Optional bodies obey the same bound. Excess returns 413 before parsing, never
-a default or a write. Workflow and assistant refusal wording stays unchanged;
-[the operation reference](https://dezfil.io/docs/api/reference/) gives the exact envelopes.
-MCP base64 uploads must be below 12 MiB after envelope and metadata overhead.
-Published render selections remain at 65,536 bytes even within their semantic
-filter counts; the viewer's twelve selections of fifty long values fit.
+The catalogue is off, or the server cannot reach it. On the **Templates** card, check that **Catalogue** reads **In use**, then click **Test**. **Could not reach the service.** means the server's request failed: the name did not resolve, the connection was refused, or the answer broke off.
 
-The canonical spellings of the anonymous published widget-values, render and
-extent POST paths, and of the three authentication entry POSTs (setup, sign-in
-and sign-in link redemption), bypass the framework proxy. Percent-encoded
-spellings can still match the proxy and incur its body copy. Their handlers
-admit at most 65,536 bytes and refuse excess before parsing; the published
-paths' empty bodies retain their existing defaults. All dispatchable
-methods on excluded paths retain their method-specific request gate. `TRACE`,
-which no handler can receive, is answered with an empty 400 on every path before
-its body is read.
+## Next steps
 
-Multipart uploads at the canonical `/api/tables` path bypass the framework proxy
-and stream to scratch storage under the configured file and archive limits.
-Workflow JSON keeps its 16 MiB limit.
-The framework proxy copy limit is 17 MiB (previously 10 MiB), so complete workflow
-requests, including their over-limit refusal boundary, reach their readers.
-On paths still matched by the proxy, the framework drains and copies the body
-before the request gate runs, including for anonymous callers. The 17 MiB copy
-is bounded storage, not early wire admission. Configure a fronting reverse
-proxy's own request-size limit to bound this pre-gate copy further, allowing
-the upload size you intend to serve on `/api/tables`.
-
-When one of these seven paths refuses a request part-way through its body, the
-answer is sent at once. The instance then receives and discards the rest of that
-request, storing nothing, so the connection stays usable; the server's request
-and keep-alive timeouts bound it. A fronting proxy's request-size limit stops
-such bytes before they reach the instance.
-
-Anonymous published API reads use verified ingress sources. View, widget-values,
-render and extent share 60 requests per ten seconds across tokens; tiles have
-600 in their separate bucket, with the existing configuration overrides.
-Unknown tokens are charged before resolution. Across both buckets, at most
-10,000 source entries are retained. Traffic sweeps expired windows at most once
-per second; between sweeps, a new source at capacity evicts the least recently
-used entry. The bound holds either way. Eviction grants a fresh window.
-Window expiry permits retry; a refusal remains 429 `rate_limited`, “Too many
-requests. Please slow down.” No new retry-header guarantee applies.
-
-Direct socket sources have independent budgets, except that every address of
-one IPv6 /64 shares one budget, so a host cannot step around it with fresh
-addresses from its prefix; equivalent IPv4 and mapped IPv4 addresses share
-one, and an address in the NAT64 prefix `64:ff9b::/96` shares the budget of
-the IPv4 address it carries, so clients behind one translator stay apart. The
-local-use prefix `64:ff9b:1::/48` does not say where its IPv4 client sits and
-is grouped by /64. Only the charge is grouped: the verified source stays the full address. A trusted proxy chain uses the nearest untrusted hop.
-Behind an untrusted proxy, readers share its socket budget by design; forwarded
-headers cannot separate it. Missing or forged provenance answers private,
-no-store 503 `ingress_unavailable`, “The instance cannot serve published maps
-yet.”, before reading a body or resolving a token. Malformed wire provenance
-still answers 400. The viewer page is outside these API budgets. Rotating
-IPv6 addresses inside one /64 is bounded by that /64's budget; rotating them
-across many /64s, or across a client's own larger prefix, is not.
-
-Password derivation admission is shared across the server process: two active,
-six ordinary plus two reserved protected waiters, and a five-second maximum
-wait. FIFO applies within each class. Validated links and signed-in password
-checks are protected, with priority for the next slot and at most one active
-protected derivation. Ordinary sign-ins can use both slots. Full classes and
-deadlines answer private 503 `authentication_busy` with one-second retry advice,
-without adding login failures or a lasting lockout. Running work retains its
-slot until settlement. These fixed bounds introduce no configuration knob;
-actual derivation time depends on the host.
-
-## Upgrading
-
-Stop the container, start the new image against the same data directory. The metadata
-carries its own versioning and migrates forward on boot. Take the backup first: a
-migration that runs is easier to undo from a copy than from a snapshot you did not
-make.
-
-Read the changelog before a major version.
-
-An instance upgraded from a release without accounts shows setup once. Complete
-it promptly: whoever reaches setup first becomes the admin over the existing data.
-
-An ownership upgrade adopts old work into the recorded original account, even if
-that account is no longer an admin. With no accounts yet, first-admin setup adopts
-it atomically. It preserves identities, SQL homes, memberships, public links and
-artifacts. It does not make existing private projects shared.
-
-Edit-revision storage is additive. Existing maps and workflows receive durable
-revisions while their pre-existing last changer and history authors remain
-**Unknown**. Ownership adoption is not evidence of authorship. Existing workflow
-runs retain their stored initiator; older run records adopted into the original
-account show that adopted initiator, not a newly inferred historical author.
-The next accepted covered change records its real actor. Saved camera motion,
-server picture work and refused saves do not assign an author.
-
-Clients that write maps or workflows must now read an edit revision and carry it
-on each covered write. Formerly bodyless covered successes return JSON with the
-new revision. Update headless clients with the server; see the
-[API guide](../api/http-api.md#edit-with-revisions). For rollback use the complete stopped
-backup and its matching build. The revision-only schema additions support the
-immediately preceding compatible writers, but that is not a general promise that
-older releases understand ownership or sharing storage.
-
-## Recovering an admin account
-
-With filesystem access, use `npm run admin:recover` in a checkout or the packaged
-`scripts/admin-recover.mjs` in the container. The
-[runbook](backup-and-restore.md#admin-account-recovery) provides all three invocations.
-The command requires an existing, compatible, setup-complete data directory and
-an explicit reachable HTTP/HTTPS origin. It never creates or migrates a store.
-It selects the sole active admin, or an exact email supplied with `--email` when
-several exist. It cannot create an admin or reactivate an account.
-
-Recovery works while the server is running or stopped. It waits at most five
-seconds for a busy store; refusal prints no link and changes no credentials.
-After successful issuance the selected account's password, earlier links, browser
-sessions and API/MCP tokens are invalidated atomically. Other accounts and all
-content, ownership and admin flags stay as they were.
-
-The single-use link lasts fifteen minutes. Its secret is in the URL fragment,
-shown only in the invoking terminal with the selected email and expiry. Use a TTY
-and do not redirect the output into logs. Open the link at the supplied origin
-and choose a new password. Restarting does not extend its expiry, and another
-successful recovery replaces it. Ordinary admin-issued resets keep the
-instance's link lifetime, seven days by default.
-
-Recovery restores entry, not trust after hostile setup or a compromised machine.
-It does not remove an intruder's other accounts, undo content changes or revoke
-other accounts' credentials. Isolate such an instance and restore a trusted backup
-or rebuild after assessing what changed. Filesystem control already grants control
-of the data; there is no network recovery endpoint or ownership bypass.
+- [Configuration](configuration.md): every setting on this page, with its default and the values it takes.
+- [Set up the assistant](assistant.md): give the instance a provider key.
+- [Import data](../use/import-data.md): links, cloud storage, PostGIS and the open data providers, from the user's side.

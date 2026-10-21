@@ -91,6 +91,12 @@ Do things in the app: data, maps, SQL, workflows and sharing.
 
 Install, secure, configure and back up your own instance.
 
+- [Docker Compose](self-host/docker-compose.md)
+  - path: `docs/self-host/docker-compose.md`
+  - summary: Run Dezfil as a lasting instance with Docker Compose: the data in a named volume, the keys in a file, a restart policy and a health check.
+  - read when: you want Dezfil to keep running on a server and come back after a crash or a reboot; you move from the quick start to an instance people rely on; you want to set the encryption key with `DEZFIL_SECRET_KEY` instead of the one Dezfil makes; you want to keep provider keys out of `compose.yaml`; you want Docker to tell you whether Dezfil is healthy
+  - audience: operator
+
 - [Reverse proxy and HTTPS](self-host/reverse-proxy.md)
   - path: `docs/self-host/reverse-proxy.md`
   - summary: Serve Dezfil at your own domain over HTTPS, with Caddy or nginx in front of it.
@@ -109,16 +115,34 @@ Install, secure, configure and back up your own instance.
   - read when: you want to turn on the assistant for your instance; you want to change which models people can choose; you want to offer a model or an effort level Dezfil does not list; you need to know what the assistant sends to the AI provider; the assistant pane shows an error instead of an answer
   - audience: operator, agent
 
-- [Runbook](self-host/backup-and-restore.md)
+- [Back up and restore](self-host/backup-and-restore.md)
   - path: `docs/self-host/backup-and-restore.md`
-  - summary: Recipes for the work around an instance: its data directory, backups, upgrades, account recovery and deletion, and API clients without a browser.
-  - read when: you back up, restore or upgrade an instance; you recover an admin account; you finish deleting an account, or drive the API from a shell script
-  - audience: operator, developer
+  - summary: Back up your instance's data folder and its encryption key, then restore them on the same machine or a new one.
+  - read when: you want a backup before an upgrade, a move or a big change; you want to know which files hold your maps, data and accounts; you need to restore an instance from a backup, or move it to another machine; you want to know where the encryption key is and whether DEZFIL_SECRET_KEY must be kept with the backup; saved database connections or service addresses fail after a restore
+  - audience: operator
 
-- [Self-hosting](self-host/what-leaves-the-instance.md)
+- [Upgrade](self-host/upgrade.md)
+  - path: `docs/self-host/upgrade.md`
+  - summary: Move your instance to a new version of Dezfil, keep its data, and go back to the old version if you need to.
+  - read when: a new version of Dezfil is out and you want to run it; you want to know what a new version does to your data when it starts; you want to go back to the version you ran before an upgrade; Dezfil does not start after an upgrade; after an upgrade, Settings cannot read a saved address
+  - audience: operator
+
+- [Users](self-host/users.md)
+  - path: `docs/self-host/users.md`
+  - summary: Add people to your instance, make someone an admin, reset a forgotten password, and get back in when no admin can sign in.
+  - read when: you want to give someone an account on your Dezfil; you want to make someone an admin, or take admin access away; someone forgot their password, or their sign-in link stopped working; you want to close an account, or delete it with its work; you lost the admin password and no other admin can sign in
+  - audience: operator
+
+- [What leaves the instance](self-host/what-leaves-the-instance.md)
   - path: `docs/self-host/what-leaves-the-instance.md`
-  - summary: What to decide before you put data in an instance, what the instance keeps, and what it sends out.
-  - read when: you run an instance for yourself or for others; you put Dezfil behind a reverse proxy; you need to know what leaves the instance
+  - summary: See every outside request your instance can make, what each one sends, and the setting that turns it off or points it at your own server.
+  - read when: you need to know which outside services your instance contacts, and what each one receives; you run Dezfil on a network without internet access, or behind a firewall that allows only some hosts; you want basemap tiles, templates or OpenStreetMap data to come from your own servers; you want to know what a visitor's browser contacts when they open a published map; an import, a connection or a service is refused because its address is on a private network
+  - audience: operator
+
+- [Troubleshooting](self-host/troubleshooting.md)
+  - path: `docs/self-host/troubleshooting.md`
+  - summary: Find the symptom your instance shows, from a container that stops at start-up to a refused upload, and fix it.
+  - read when: the container stops right after it starts, or health answers unready; sign-in fails behind your reverse proxy, or your domain sends the browser to another address; an upload is refused as too large, or ends with the connection dropped; the assistant does not answer, or map cards show no pictures; you forgot the admin password
   - audience: operator
 
 ### Configuration

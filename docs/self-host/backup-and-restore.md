@@ -1,306 +1,272 @@
 ---
-title: "Runbook"
-summary: "Recipes for the work around an instance: its data directory, backups, upgrades, account recovery and deletion, and API clients without a browser."
+title: "Back up and restore"
+summary: "Back up your instance's data folder and its encryption key, then restore them on the same machine or a new one."
 read_when:
-  - "you back up, restore or upgrade an instance"
-  - "you recover an admin account"
-  - "you finish deleting an account, or drive the API from a shell script"
+  - "you want a backup before an upgrade, a move or a big change"
+  - "you want to know which files hold your maps, data and accounts"
+  - "you need to restore an instance from a backup, or move it to another machine"
+  - "you want to know where the encryption key is and whether DEZFIL_SECRET_KEY must be kept with the backup"
+  - "saved database connections or service addresses fail after a restore"
 audience:
   - operator
-  - developer
 checked: none
+order: 5
 moved_from:
   - "/docs/operate/runbook/"
 ---
 
-Operational recipes for running a self hosted instance: the things an owner
-does around the container rather than inside the app. Each section stands on
-its own and names the settings it touches. More recipes are added here as
-they are written down.
+Everything your instance keeps is in one folder, the data folder: `/data` in the container, held in the `dezfil-data` volume. A backup is a copy of that folder, made while Dezfil is stopped. The variables you start Dezfil with stay outside it, `DEZFIL_SECRET_KEY` among them.
 
-## The data directory
+The commands use the names from [Install](../start/install.md): a container and an image called `dezfil`, and a volume called `dezfil-data`. They work the same with Docker Compose, whose container is also called `dezfil`.
 
-All durable state lives in one directory. `DEZFIL_DATA_DIR` names it;
-unset, it defaults to `./data` under the working directory, and the image
-sets `/data`. Back up that directory with the instance stopped and preserve any
-externally supplied encryption key.
+## Back up
 
-What appears inside it as the instance is used: `metadata.sqlite` (maps,
-layers, styles, published links, connections, accounts, sessions, token records,
-workflows and runs), `tables/` (the GeoParquet
-artifacts), `thumbnails/`, `tmp/` (scratch for imports, exports and tile
-builds), `cache/overpass/` once an OSM import runs, and `secret.key` on
-first boot unless `DEZFIL_SECRET_KEY` was set first. It also holds `tiles/`
-(one PMTiles archive per tiled layer), `exports/` (project exports being
-assembled), the provider caches `cache/geocode/` and `cache/isochrone/`, and
-`artifact-inputs/` (what each tile archive and map card picture drew). An optional
-`assistant-models.json` placed there by hand is read as
-[Set up the assistant](assistant.md#offer-other-models) describes.
-
-## Upgrading ownership storage
-
-Stop the instance and back up the complete data directory before upgrading,
-including SQLite journal files, artifacts and `secret.key`. Preserve any
-externally configured encryption key as well. Rehearse the upgrade on a copy.
-
-The upgrade assigns existing maps, datasets, workflows, connections, projects
-and operation job records to the recorded original account, even when another
-account is now admin or the original account is deactivated. An installation
-without accounts keeps these records pending until first-account setup. Setup
-adopts them in the same transaction as the account, preferences and session.
-Failed adoption rolls back and can be retried. Existing identities, SQL,
-public links, credentials, memberships and artifact paths are preserved.
-Other accounts start with their own empty space. An admin flag does not grant
-access to the original account's content or a way to reassign it: only an
-owner can transfer their project, map or workflow, to someone it is already
-shared with. Deactivation freezes private work; reactivation restores access to
-the same records. Existing published links keep their read-only projection.
-New resources take their owner from the authenticated creator; request fields
-cannot assign a different owner. Dataset and connection names are unique within
-that owner; two accounts may use the same names and keep distinct identities.
-After duplicate names exist across accounts, an older build with global name
-constraints cannot read that store safely. Restore its matching backup as well.
-
-Restore the matching old application and the complete pre-upgrade backup to
-roll back. A build predating ownership or sharing cannot safely write those upgraded stores.
-The later edit-revision additions alone remain compatible with the immediately
-preceding writers. That compatibility does not replace a rollback backup.
-Account for work written after the backup before restoring it.
-
-The project-sharing storage upgrade takes the same backup. It gives every
-account a SQL name, derived from the display name (else the email's local
-part, else `user`, with a number added on a collision or on a name the query
-engine reserves) and fixed from then on. It marks each map and workflow with
-its owner's space as its SQL home, and records which account started each
-workflow run and produced each step output. Nothing is shared by it: every
-project keeps its owner and has no members. An installation still awaiting
-first-account setup receives the homes and run records in the setup
-transaction. The upgrade is one transaction: a failure leaves the store as it
-was, and the next start tries again.
-
-Named SQL runs against connection-local temporary views for its owner. Existing
-`main.table`, `memory.table`, `memory.main.table` and computed dynamic named
-references remain valid without editing saved SQL. A warm artifact metadata
-cache does not retain dataset views between evaluations. Publication queries
-retain their owner's scope even when that account is deactivated.
-
-**Breaking SQL change:** user file readers and engine path discovery are refused
-even for an owned file or an existing path. File-referencing PROJ definitions
-(including computed CRS values, initialization files, grids and models) are
-also refused. EPSG identifiers and inline definitions without files still work.
-Saved SQL and publication tokens survive unchanged; an affected query or published layer fails until its owner
-changes the SQL to refer to an uploaded dataset by name. Review saved queries
-for file readers, file-relation shorthand and metadata definition/path access
-before upgrading. See
-[the SQL boundary](https://dezfil.io/docs/api/reference/query/#post-api-query) for the execution rules.
-
-Unlabelled browser SQL drafts and history from older releases cannot be
-attributed to an account and are discarded when the private workspace first
-opens. Copy any draft you need before upgrading. Once labelled, same-account
-reloads retain drafts; sign-out or an account change clears private browser
-memory, including assistant recovery locators and prepared download state.
-Saved layer and workflow SQL in the data directory is unaffected by this
-browser cleanup.
-
-## Finishing account deletion
-
-Users lists pending and needs-retry deletions separately from accounts. Finish
-deleting resumes the same record and is safe to retry after restart. Never remove
-its journal or edit its identity rows manually. An active admin uses the same
-status and continuation operations through the [API](../api/http-api.md) or [MCP](../api/mcp.md).
-A long-lived outside reader, such as a replication sidecar, can keep deletion unfinished until it releases the database; release it, then use Finish deleting.
-
-Check free space on both the data volume and SQLite's temporary filesystem. The
-whole metadata-store rewrite pauses every response, including health. Across two
-runs on one machine, the 1 GiB observations ranged from 3.4 to 13.2 seconds in the
-container (nine trials) and 9 to 38 seconds on the host. The repeat run observed up
-to 1.55 seconds at 64 MiB and 3.07 seconds at 256 MiB. These observations set no
-bound and promise no maximum pause. A slow or nearly full disk and a host short of
-memory make it longer. The [host guide](what-leaves-the-instance.md#leaving-and-deleting-accounts)
-states space planning, cache purge and exact copy limits. A failed compaction stays
-unfinished and can be retried.
-
-## Retained account identity upgrade
-
-Stop the instance and verify a whole-data-directory backup, including `secret.key`,
-before starting this version. Rehearse on a separate scratch copy first. The account
-constraint rebuild preserves every row, SQL home, index and trigger. It disables
-foreign-key enforcement outside its transaction, checks the complete foreign-key
-and database integrity before commit, and restores enforcement on success or failure.
-A failed rebuild rolls back; opening again retries it.
-
-Deleted identities reserve their SQL name permanently. Their profile fields are
-absent; the original-account adoption marker still prevents setup from reopening.
-The immediately preceding application
-can read and write this migrated schema **only while no account is deleting or
-deleted**. This is not recovery-command compatibility: local recovery requires this
-version's command and its matching schema pin. Rollback restores the matched old
-application and the complete stopped backup, never a down-migration of the live file.
-
-## Full backup and restore
-
-Stop every process using the directory before copying it. For a checkout managed
-by a service, stop that service first. With absolute paths chosen for your host:
-
-```sh
-store=/srv/dezfil/data
-backup=/srv/backups/dezfil-stopped
-# Stop the instance before this copy. The destination must not already exist.
-test ! -e "$backup"
-cp -a "$store" "$backup"
-```
-
-Keep the application version and deployment configuration with the backup. Include
-`secret.key` if generated; store the exact externally supplied `DEZFIL_SECRET_KEY`
-securely if you use one. Preserve SQLite journal/WAL files and all artifacts,
-account/session/token records, model catalogue, caches and thumbnails.
-
-Restore with the instance stopped, keeping the displaced directory for inspection:
-
-```sh
-store=/srv/dezfil/data
-backup=/srv/backups/dezfil-stopped
-test ! -e "$store.before-restore"
-mv "$store" "$store.before-restore"
-cp -a "$backup" "$store"
-# Start the matching application version with the matching encryption key.
-```
-
-For the named Docker volume of [Install](../start/install.md), use your installed image to copy the
-stopped volume. Choose an empty backup directory and keep its contents private:
-
-```sh
+```sh title="Terminal"
 docker stop dezfil
-mkdir -m 700 "$PWD/dezfil-backup"
+mkdir "$HOME/dezfil-backup" && docker run --rm --user root --entrypoint sh \
+  -e OWNER="$(id -u):$(id -g)" \
+  -v dezfil-data:/data:ro -v "$HOME/dezfil-backup:/backup" dezfil \
+  -c 'cp -a /data/. /backup/ && chown -R "$OWNER" /backup && chmod 700 /backup && echo Copied'
+docker start dezfil
+```
+
+- `docker stop dezfil` stops Dezfil, so no write lands halfway through the copy.
+- `mkdir` makes the folder outside the `Dezfil` folder, so a build leaves it out. If the folder exists, `mkdir` fails and `&&` skips the copy, so no earlier backup is overwritten.
+- `docker run --rm --user root --entrypoint sh` runs a shell as root in a throwaway container of your `dezfil` image, so it can read every file. `-e OWNER=…` passes it your user and group.
+- `-v dezfil-data:/data:ro` mounts the volume read-only, and `-v "$HOME/dezfil-backup:/backup"` mounts the new folder.
+- `cp -a /data/. /backup/` copies every file with its mode and times. `chown -R "$OWNER" /backup` gives the copy to you, and `chmod 700 /backup` lets only you open the folder.
+- `docker start dezfil` starts Dezfil again on the same data, with the same variables.
+
+When the copy is done, it prints:
+
+```text title="Output"
+Copied
+```
+
+`File exists` instead means an earlier backup is there: move it away, as with `mv "$HOME/dezfil-backup" "$HOME/dezfil-backup-1"`, and run the commands again. The folder holds `metadata.sqlite`, and `secret.key` once Dezfil has made a key.
+
+Also write down the version and the settings. In the `Dezfil` folder, `git rev-parse --short HEAD` prints the commit you built. The settings are your `docker run` command's `-e` variables, which `docker inspect dezfil` lists under `Env`, or `compose.yaml` and `.env`.
+
+> [!WARNING]
+> The backup holds every account's password hash and, as `secret.key`, the encryption key. Keep every copy of it where only you can read it, as the command leaves this one.
+
+## What the backup holds
+
+To see the sizes before you copy, sign in as an admin and open **Settings** > **System**. The **Storage** card lists what the data folder holds by kind, and **Free on the disk**.
+
+| In the data folder | What it holds | In **Storage** |
+|---|---|---|
+| `metadata.sqlite`, with its `-wal` and `-shm` files when present | Accounts, sessions and API tokens; maps, layers, styles and published links; projects; workflows and their runs; connections; what admins saved in **Settings** | **Metadata database** |
+| `tables/` | Your datasets as GeoParquet files, the shapes drawn on maps among them | **Tables** |
+| `tiles/` | Tile archives built for large layers | **Tile archives** |
+| `thumbnails/` | The pictures on map cards | **Thumbnails** |
+| `templates/` | Downloaded templates | **Templates** |
+| `cache/` | Answers from the address finder, travel time and OpenStreetMap | **Service caches** |
+| `secret.key` | The encryption key, once Dezfil has made one | **Other** |
+| `assistant-models.json` | Your model catalogue file, if you added one | **Other** |
+| `tmp/`, `exports/` | Work in progress, removed at the next start | **Leftover files** |
+
+Other folders hold Dezfil's own records, such as who owns each file. Publishing a map writes no files of its own. Copy the whole folder every time, as the command does.
+
+For a smaller copy, click **Clear all** in the **Service caches** row before you back up. Dezfil asks the services again the next time it needs an answer.
+
+> [!NOTE]
+> Restore a whole backup, never part of one. When it starts, Dezfil removes the table files that `metadata.sqlite` does not name.
+
+## The encryption key
+
+Dezfil encrypts two kinds of saved secrets with one key: the passwords of database connections, and the service addresses an admin saves in **Settings** > **Data & services** or **Libraries**. Account passwords are hashed and need no key.
+
+The key is in one of two places:
+
+| Where | When | What to keep |
+|---|---|---|
+| `secret.key` in the data folder | Dezfil writes it, readable by its owner only, the first time it needs a key, unless `DEZFIL_SECRET_KEY` is set | Nothing more: the backup holds it |
+| The `DEZFIL_SECRET_KEY` variable | You set it to 64 hexadecimal characters | Its exact value, kept apart from the backup |
+
+To see which, open **Settings** > **System**. In **Server settings**, the **Encryption key** row reads **secret.key in the data folder**, **Not created yet** or **Set**. **Set** means the key comes from `DEZFIL_SECRET_KEY`, and the **Source** column reads **Environment**.
+
+If you set `DEZFIL_SECRET_KEY`, keep its value, as in the `.env` file of [Docker Compose](docker-compose.md), apart from the backup folder. A restore needs it, unless the backup holds the same key as `secret.key`, as it does for a key you moved from the file into the variable. Without the key, [saved connections and addresses fail](#saved-connections-or-service-addresses-fail-after-a-restore).
+
+To move a key Dezfil made into the variable, see [Keep the key you have](docker-compose.md#keep-the-key-you-have).
+
+## Restore
+
+Restoring replaces everything in the volume with the backup, and work done since the backup is lost. Step 1 keeps a copy of the current data, in case you want it later.
+
+A newer version brings a restored backup up to date when it starts. An older version cannot use data a newer one updated: after an upgrade, [go back to the old version](upgrade.md#go-back-to-the-old-version) instead.
+
+### 1. Stop Dezfil and keep the current data
+
+```sh title="Terminal"
+docker stop dezfil
+mkdir "$HOME/dezfil-before-restore" && docker run --rm --user root --entrypoint sh \
+  -e OWNER="$(id -u):$(id -g)" \
+  -v dezfil-data:/data:ro -v "$HOME/dezfil-before-restore:/backup" dezfil \
+  -c 'cp -a /data/. /backup/ && chown -R "$OWNER" /backup && chmod 700 /backup && echo Copied'
+```
+
+It is the backup command with another folder, and it prints `Copied` the same way. Without `Copied`, as after `File exists`, move the earlier copy away and run it again: step 2 empties the volume. If the volume holds nothing you need, run only `docker stop dezfil`: the restore needs Dezfil stopped.
+
+### 2. Copy the backup into the volume
+
+```sh title="Terminal"
 docker run --rm --user root --entrypoint sh \
-  -v dezfil-data:/data:ro -v "$PWD/dezfil-backup:/backup" dezfil \
-  -c 'cp -a /data/. /backup/'
+  -v dezfil-data:/data -v "$HOME/dezfil-backup:/backup:ro" dezfil \
+  -c 'test -f /backup/metadata.sqlite && find /data -mindepth 1 -delete &&
+      cp -a /backup/. /data/ && chown -R node:node /data && echo Restored'
 ```
 
-Restore into a new volume so the current copy remains available:
+- `:ro` mounts the backup read-only, so the restore cannot change it.
+- `test -f /backup/metadata.sqlite` stops the command before it deletes anything if the folder holds no backup. It then prints nothing.
+- `find /data -mindepth 1 -delete` empties the volume, so no file of the current data stays among the restored ones.
+- `cp -a /backup/. /data/` copies the backup in, and `chown -R node:node /data` gives every file to `node`, the user Dezfil runs as.
 
-```sh
-docker volume create dezfil-restored
-docker run --rm --user root --entrypoint sh \
-  -v dezfil-restored:/data -v "$PWD/dezfil-backup:/backup:ro" dezfil \
-  -c 'cp -a /backup/. /data/ && chown -R node:node /data'
-docker run -d --name dezfil-restored -p 127.0.0.1:3210:3000 \
-  -v dezfil-restored:/data dezfil
+When the restore is done, it prints:
+
+```text title="Output"
+Restored
 ```
 
-Use the backed-up image version and supply the original external encryption key,
-if any, through your deployment's secret mechanism. Check sign-in, datasets, maps,
-workflows and published links on the isolated restore before routing traffic to it.
-Token secrets cannot be read back. Restored credentials keep their backed-up
-validity and expiry; revocations made after the backup are absent. Review access
-before exposing the restore. No restoration can recover later writes.
+### 3. Start Dezfil and check it
 
-To rehearse an upgrade, start the new image against a separate copy of this stopped
-backup on an isolated port. Check readiness, sign-in and representative saved work,
-then stop the rehearsal. Only then start the new image on the original directory.
-An upgrade from a release without accounts still needs first-admin setup under
-restricted access. Existing last changers and history authors start unknown; new
-changes record their own actors. Legacy runs keep their stored or adopted initiator. See
-[self-hosting](what-leaves-the-instance.md#upgrading) for the attribution limits.
-
-## Admin account recovery
-
-Run these in a terminal, using the application version matching the existing
-store. The origin is the address the recipient will open, with no path, query,
-credentials or fragment. `--email` matches a normalized exact email; omit it only
-when there is exactly one active admin.
-
-Checkout:
-
-```sh
-npm run admin:recover -- --data-dir /srv/dezfil/data \
-  --origin https://maps.example.com --email admin@example.com
+```sh title="Terminal"
+docker start dezfil
 ```
 
-Running container:
+`docker start` keeps the container's variables, `DEZFIL_SECRET_KEY` included. Within 30 seconds, check its health:
 
-```sh
-docker exec -it dezfil node scripts/admin-recover.mjs \
-  --data-dir /data --origin https://maps.example.com --email admin@example.com
+```sh title="Terminal"
+curl http://localhost:3000/api/health
 ```
 
-One-off container against the stopped volume, without starting the server:
-
-```sh
-docker run --rm -it -v dezfil-data:/data dezfil \
-  node scripts/admin-recover.mjs --data-dir /data \
-  --origin https://maps.example.com --email admin@example.com
+```json title="Output"
+{"status":"ready"}
 ```
 
-The last two commands allocate a TTY because the link is terminal-only. Do not
-pipe it to a log. The command selects an active admin in a setup-complete compatible
-store; it never initializes, upgrades, promotes or reactivates an account. A busy
-store is retried for at most five seconds and then refused without changes.
-Successful issuance revokes that account's password, earlier links, sessions and
-API/MCP tokens and prints one fragment link with account and expiry. Open it
-within fifteen minutes and choose a password. Other accounts are unaffected.
-This is not compromise cleanup; see the [limits](what-leaves-the-instance.md#recovering-an-admin-account).
+Then sign in and open **Maps**. You should see your maps as they were at the backup.
 
-## Headless clients
+> [!NOTE]
+> A restore brings back accounts, sessions and API tokens as they were at the backup. Accounts deleted since return, and tokens revoked since work again. Check the accounts in **Users** before you let people in.
 
-Create an API / MCP token in Settings, copy the secret once and supply it as
-`DEZFIL_API_TOKEN` through your client's secret storage. It grants the same current
-permissions as that account, including project roles, with no admin content bypass.
-The following shell example requires `curl` and `jq`. It creates a private map,
-reads it and chains two accepted writes before printing the resulting revision:
+## Move to another machine
 
-```sh
-set -eu
-base=https://maps.example.com
-: "${DEZFIL_API_TOKEN:?Supply an account token}"
-request() { curl --fail-with-body -sS -H "Authorization: Bearer $DEZFIL_API_TOKEN" "$@"; }
-created=$(request -X POST "$base/api/maps" -H 'Content-Type: application/json' -d '{"name":"Field notes"}')
-id=$(printf '%s' "$created" | jq -er '.id')
-current=$(request "$base/api/maps/$id")
-revision=$(printf '%s' "$current" | jq -er '.editRevision')
-changed=$(request -X PATCH "$base/api/maps/$id" -H 'Content-Type: application/json' \
-  -H "X-Edit-Revision: $revision" -d '{"name":"Survey map"}')
-revision=$(printf '%s' "$changed" | jq -er '.editRevision')
-changed=$(request -X PATCH "$base/api/maps/$id" -H 'Content-Type: application/json' \
-  -H "X-Edit-Revision: $revision" -d '{"basemap":"light"}')
-printf '%s' "$changed" | jq -er '.editRevision'
+1. Copy the backup folder to the new machine, into your home folder, as with `scp -r`. There, `ls "$HOME/dezfil-backup"` should list `metadata.sqlite`, and `secret.key` if the old folder held one.
+2. Clone Dezfil there with `git clone https://github.com/Dezfil/Dezfil.git`, then run `git checkout <COMMIT>` in the `Dezfil` folder with the commit you noted. `git rev-parse --short HEAD` should print that commit.
+3. In the `Dezfil` folder, build the image with `docker build -t dezfil .`. `docker image ls dezfil` should then list it.
+4. Run the command of [step 2](#2-copy-the-backup-into-the-volume) of Restore. It creates the `dezfil-data` volume, fills it with the backup and prints `Restored`.
+5. Start Dezfil on the volume, with the settings the old instance had:
+
+::::tabs
+
+:::tab[Docker]
+
+```sh title="Terminal"
+docker run -d --name dezfil -p 127.0.0.1:3000:3000 -v dezfil-data:/data dezfil
 ```
 
-A 409 `stale_revision` stops the example. Inspect a fresh read and deliberately
-compose a new edit; do not attach its token to the refused payload and replay it.
-A 400 `invalid_request` for a missing revision means the client must implement the
-read/write contract. Child writes use the parent's revision. See the
-[API](../api/http-api.md#edit-with-revisions) and [MCP](../api/mcp.md#edit-safely)
-guides for compound filing, run starts, exceptions and executable examples.
+Add the `-e` variables of the old instance, `DEZFIL_SECRET_KEY` included.
 
-## Without the image renderer
+:::
 
-Without the image renderer, the headless Chromium `DEZFIL_CHROMIUM_PATH`
-names, map listings report `pictureState: unavailable`,
-refresh answers `outcome: unavailable`, and existing pictures stay served.
-The admin System read, `GET /api/instance/settings`, reports this as
-`parts.image_renderer.available`; `found` separately reports file presence.
-The System tab's Image renderer row reads Not found without the program and
-Could not start after a launch refusal, and every page of map cards tells
-administrators so in one line at its foot. Install or restore the configured
-executable; the hourly look discovers recovery without an edit. A launch refusal
-also holds picture work unavailable until that look, even if the file exists.
-Map pictures are made on the server even when nobody opens their builder.
+:::tab[Docker Compose]
+
+Copy your `compose.yaml`, and `.env` if you have one, into the `Dezfil` folder, then run:
+
+```sh title="Terminal"
+docker compose up -d
+```
+
+Compose says the `dezfil-data` volume "already exists but was not created by Docker Compose". It uses the volume all the same.
+
+:::
+
+::::
+
+You should see your maps when you sign in.
+
+## A development checkout
+
+A checkout keeps its data in its `data` folder. If you set `DEZFIL_DATA_DIR`, use the folder it names in place of `data`. Stop the server, then copy the folder from the `Dezfil` folder:
+
+```sh title="Terminal"
+mkdir "$HOME/dezfil-data-backup" && cp -a data/. "$HOME/dezfil-data-backup/" && echo Copied
+```
+
+It prints `Copied`, or `File exists` when an earlier copy is there: move that one away first.
+
+To restore, stop the server, move the current folder aside and put the copy in its place:
+
+```sh title="Terminal"
+test ! -e data.before-restore && mv data data.before-restore &&
+  cp -a "$HOME/dezfil-data-backup" data && echo Restored
+```
+
+It prints `Restored`. Without it, a `data.before-restore` folder is in the way: move it away first.
 
 ## Troubleshooting
 
-**The image export fails while health stays green.** The headless browser
-is missing or unreachable at `DEZFIL_CHROMIUM_PATH`. That split is
-deliberate: removing the browser leaves readiness alone.
+### After a restore, the log says "Data directory /data is not writable"
 
-**Stored connection credentials stop decrypting.** They are encrypted with
-`DEZFIL_SECRET_KEY`, or the `secret.key` generated into the data directory
-on first boot. Changing that variable later, or losing `secret.key` while
-keeping `metadata.sqlite`, makes them unreadable and those connections must
-be entered again. To pin the key without loss, set `DEZFIL_SECRET_KEY` to
-the hex string already in `secret.key`.
+Every page, health included, answers `Internal Server Error`, and `docker logs dezfil` shows the line. The restored files belong to another user. When only the files inside `/data` do, the line is `attempt to write a readonly database` instead. Either way, give them to `node`, then restart Dezfil:
 
-**The model catalogue silently falls back.** An instance
-`assistant-models.json` is rejected whole on any invalid entry and the
-shipped catalogue applies instead; `GET /api/assistant` says which
-([Offer other models](assistant.md#offer-other-models)).
+```sh title="Terminal"
+docker run --rm --user root --entrypoint sh -v dezfil-data:/data dezfil -c 'chown -R node:node /data'
+docker restart dezfil
+```
+
+### Dezfil shows "Create the first account" after a restore or a move
+
+The container runs on an empty volume, not the one you restored into. Check which volume it uses:
+
+```sh title="Terminal"
+docker inspect --format '{{range .Mounts}}{{.Name}}{{end}}' dezfil
+```
+
+```text title="Output"
+dezfil-data
+```
+
+If it prints another name, start Dezfil again on `dezfil-data`. Do not create an account there: the first one becomes the admin.
+
+::::tabs
+
+:::tab[Docker]
+
+A new container gets none of the old one's `-e` variables, so list them before you remove it:
+
+```sh title="Terminal"
+docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' dezfil
+```
+
+The list also holds the image's own, such as `PATH` and `DEZFIL_DATA_DIR`. Then remove the container and start a new one, adding to `docker run` the `-e` variables you set, `DEZFIL_SECRET_KEY` among them:
+
+```sh title="Terminal"
+docker rm -f dezfil
+docker run -d --name dezfil -p 127.0.0.1:3000:3000 -v dezfil-data:/data dezfil
+```
+
+:::
+
+:::tab[Docker Compose]
+
+Give the volume `name: dezfil-data` in `compose.yaml`, as [Docker Compose](docker-compose.md#2-write-the-compose-file) shows, then run `docker compose up -d`.
+
+:::
+
+::::
+
+### Saved connections or service addresses fail after a restore
+
+Browsing or importing from a saved connection fails with "An unexpected server error occurred.", or a service address in **Settings** says "The instance’s encryption key cannot read the saved address. Save it again." Dezfil runs with another key than the one the backup was made with.
+
+Run Dezfil with the backup's key: the same `DEZFIL_SECRET_KEY` value, or the backup's `secret.key` with the variable unset, since a set variable wins. A container keeps its variables, so replace it as [Set a variable](configuration.md#set-a-variable) shows.
+
+If that key is lost, save each address again. Delete each connection in **Connections** and add it again: its snapshots keep their data, but they cannot refresh.
+
+## Next steps
+
+- [Upgrade](upgrade.md): back up, then move to a new version.
+- [Docker Compose](docker-compose.md): keep the encryption key in `.env`, outside the data folder.
+- [Users](users.md): recover the admin account when nobody can sign in.
+- [Storage and programs](configuration/storage.md): `DEZFIL_DATA_DIR`, `DEZFIL_SECRET_KEY` and the programs Dezfil runs.

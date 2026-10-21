@@ -127,7 +127,7 @@ Dezfil ships no satellite imagery. An instance that offers **Satellite** brings 
 | A style address on one map, through **Custom…** in the builder | The same | Read from the style when the map saves it |
 | The deployment's own style, `DEZFIL_BASEMAP_URL` | The text of `DEZFIL_BASEMAP_ATTRIBUTION` | Its variable |
 
-[Basemaps and imagery](../self-host/configuration/libraries.md) holds these settings, with their defaults. To serve the basemap from your own servers, see [What leaves the instance](../self-host/what-leaves-the-instance.md).
+[Basemaps and imagery](../self-host/configuration/libraries.md) holds these settings, with their defaults. To serve the basemap from your own servers, see [What leaves the instance](../self-host/what-leaves-the-instance.md#keep-requests-on-your-own-network).
 
 ## Credit the data on your maps
 
@@ -154,4 +154,4 @@ Data you import keeps its source's licence too, so credit it the same way, in a 
 - Copy a template and see its sources: [Templates](../use/templates.md).
 - Choose a basemap for a map: [Build a map](../use/build-a-map.md#4-choose-the-basemap).
 - Export an image with its credit: [Share and publish](../use/share-and-publish.md#export-an-image).
-- Serve basemaps from your own servers: [What leaves the instance](../self-host/what-leaves-the-instance.md).
+- Serve basemaps from your own servers: [What leaves the instance](../self-host/what-leaves-the-instance.md#keep-requests-on-your-own-network).
