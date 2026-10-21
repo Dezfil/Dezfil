@@ -13,7 +13,7 @@ checked: none
 order: 9
 ---
 
-![The Appearance tab of Settings: the You and Instance groups in the column on the left, and the Color and contrast card with a picture for each color, Kelp picked](../images/use/settings-appearance.webp)
+![The Appearance tab of Settings: the You and Instance groups in the column on the left, a Preview of a map in the builder above the cards, and the Color and contrast card with a picture for each color, Kelp picked](../images/use/settings-appearance.webp)
 
 Your own settings sit under **You** in **Settings**: **Account**, **API & MCP** and **Appearance**. Your look and your list choices change only what you see.
 
@@ -22,7 +22,7 @@ Your own settings sit under **You** in **Settings**: **Account**, **API & MCP** 
 1. Click **Settings** at the foot of the side menu, then **Appearance**.
 2. In the **Color** row, click **Harbor**.
 
-![The Appearance tab after picking Harbor: the side menu, the column and the Color and contrast card tinted blue, and Reset to Dezfil's default at the right of the Settings heading](../images/use/settings-look-harbor.webp)
+![The Appearance tab after picking Harbor: the side menu, the column, the Preview and the Color and contrast card tinted blue, and Reset to Dezfil's default at the right of the Settings heading](../images/use/settings-look-harbor.webp)
 
 You should see the whole workspace take the new color at once, and **Saved** beside the row for a moment.
 
