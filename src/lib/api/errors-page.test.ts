@@ -3,12 +3,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { buildOpenApiDocument } from "./openapi";
 import { filledIn, ownInstance, pageCalls, printedProblems, runScript, runShell, type OwnInstance, type PageBlock } from "@/lib/test-support/page-calls";
 
-// Errors shows one failed call in a curl tab and a JavaScript tab, and a
-// helper a reader saves and calls. They run here as a reader runs them,
-// against an instance of their own, and each printed answer must be the one
-// the page shows. The page's tables must name real codes and fields, cover
-// every code the other API pages name, and give the status the instance
-// answers for the codes made to happen here.
+// Errors shows a failed call and an export in curl and JavaScript tabs, and
+// a helper a reader saves and calls. They run here as a reader runs them,
+// against an instance of their own holding the quickstart's dataset, and
+// each printed answer must be the one the page shows. The page's tables must
+// name real codes and fields, cover every code the other API pages name, and
+// give the status the instance answers for the codes made to happen here.
 
 const PAGE = "docs/api/errors.md";
 const ADDRESS = "http://localhost:3000";
@@ -23,7 +23,8 @@ const catalogue = document["x-error-codes"] as Record<string, string>;
 let instance: OwnInstance | undefined;
 afterEach(async () => { vi.useRealTimers(); await instance?.close(); instance = undefined; });
 
-/** A new instance with the reader's account and a token. */
+/** A new instance with the reader's account, a token, and the cities the
+ * API quickstart uploads: the file Your first map has the reader save. */
 async function readerInstance(): Promise<string> {
   instance = await ownInstance(ADDRESS, "3452");
   const json = { "content-type": "application/json", origin: ADDRESS };
@@ -31,7 +32,14 @@ async function readerInstance(): Promise<string> {
   expect(setup.status).toBe(200);
   const cookie = setup.headers.getSetCookie()[0].split(";")[0];
   const made = await fetch(`${ADDRESS}/api/account/tokens`, { method: "POST", headers: { ...json, cookie }, body: JSON.stringify({ name: "Script" }) });
-  return (await made.json()).secret as string;
+  const token = (await made.json()).secret as string;
+  const cities = pageCalls(readFileSync("docs/start/first-map.md", "utf8")).blocks.find((candidate) => candidate.title === "world-cities.csv");
+  expect(cities, "Your first map shows world-cities.csv").toBeDefined();
+  const form = new FormData();
+  form.append("file", new Blob([`${cities!.code}\n`]), "world-cities.csv");
+  const uploaded = await fetch(`${ADDRESS}/api/tables`, { method: "POST", headers: { authorization: `Bearer ${token}` }, body: form });
+  expect((await uploaded.json()).name, "the quickstart's dataset").toBe("world_cities");
+  return token;
 }
 
 /** The block a page titles so. */
@@ -51,18 +59,23 @@ function tableRows(text: string, heading: string): string[][] {
 /** The code a cell names, from its first code span. */
 const codeIn = (cell: string) => /^`([^`]+)`/.exec(cell)?.[1] ?? cell;
 
-/** Every call of a copy of the page: the curl and JavaScript tabs of the
- * tab set, then the helper and the script that calls it. */
+/** Every call of a copy of the page: the curl and JavaScript tabs of each
+ * tab set, each followed by its Output in the tab or after the set, then the
+ * helper and the script that calls it. */
 async function runPage(text: string, token: string): Promise<string[]> {
   const names = new Map<string, unknown>([["YOUR_TOKEN", token]]);
   const problems: string[] = [];
-  const [set] = pageCalls(text).calls;
-  for (const tab of ["curl", "JavaScript"]) {
-    const [call, output] = set.tabs[tab] ?? [];
-    if (!call || output?.title !== "Output") { problems.push(`${PAGE}:${set.line}: the ${tab} tab holds no call followed by its Output`); continue; }
-    const code = filledIn(call.code, names, call.line);
-    const printed = tab === "curl" ? await runShell(code, {}) : await runScript(code, {});
-    problems.push(...printedProblems(output, printed, names, `${PAGE}:${output.line} (${tab})`));
+  const sets = pageCalls(text).calls;
+  if (sets.length !== 2) problems.push(`${PAGE}: the page shows ${sets.length} calls in tabs, not the failed call and the export`);
+  for (const set of sets) {
+    for (const tab of ["curl", "JavaScript"]) {
+      const blocks = set.tabs[tab] ?? [];
+      const call = blocks.find((candidate) => candidate.title !== "Output"), output = blocks.find((candidate) => candidate.title === "Output") ?? set.output;
+      if (!call || !output) { problems.push(`${PAGE}:${set.line}: the ${tab} tab holds no call followed by its Output`); continue; }
+      const code = filledIn(call.code, names, call.line);
+      const printed = tab === "curl" ? await runShell(code, {}) : await runScript(code, {});
+      problems.push(...printedProblems(output, printed, names, `${PAGE}:${output.line} (${tab})`));
+    }
   }
   const helper = filledIn(block(text, "dezfil.mjs").code, names, 0);
   const caller = block(text, "query.mjs");
@@ -81,10 +94,13 @@ describe("Errors", () => {
 
   it("names an answer the instance does not give, in a seeded copy of the page", async () => {
     const token = await readerInstance();
-    const seeded = page.replace('"position":{"line":1,"column":15}', '"position":{"line":1,"column":16}').replace("400 sql_error: The query", "422 sql_error: The query");
+    const seeded = page.replace('"position":{"line":1,"column":15}', '"position":{"line":1,"column":16}').replace("400 sql_error: The query", "422 sql_error: The query")
+      .replace("New York,United States of America,19040000", "New York,United States,19040000");
     expect(seeded).not.toBe(page);
     expect(await runPage(seeded, token)).toEqual([
       expect.stringMatching(/\(curl\): the answer\.error\.position\.column: the page shows 16, the answer is 15$/),
+      expect.stringMatching(/\(curl\): the page shows New York,United States,19040000, the call printed New York,United States of America,19040000$/),
+      expect.stringMatching(/\(JavaScript\): the page shows New York,United States,19040000, the call printed New York,United States of America,19040000$/),
       expect.stringMatching(/\(query\.mjs\): the page shows 422 sql_error: .*, the call printed 400 sql_error: /),
     ]);
   }, 120_000);

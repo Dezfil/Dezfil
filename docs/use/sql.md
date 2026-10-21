@@ -203,7 +203,15 @@ To go further, follow the [API quickstart](../api/quickstart.md). To let an agen
 
 **The result shows `query_memory_exceeded`.** The query needed more memory than your instance gives all queries together. Narrow it with `WHERE`, or select fewer columns. Whoever runs the instance can give queries more memory.
 
-**The result shows `query_result_too_large`.** The answer is too big to show, so the workspace offers no way to keep it. Select fewer columns or rows. To download every row anyway, call `POST /api/query/export` from [a script](#from-a-script-or-an-ai-agent).
+**The result shows `query_result_too_large`.** The answer is over 32 MiB, or one value in it is over 2 MiB, so the workspace offers no way to keep it. Name the columns you need, shorten long text and add a `LIMIT`:
+
+```sql title="SQL"
+SELECT <COLUMN>, left(<TEXT_COLUMN>, 1000) AS <TEXT_COLUMN>
+FROM <DATASET>
+LIMIT 100;
+```
+
+`left(…, 1000)` keeps the first 1,000 characters of each value. To keep every row instead, download the result or save it from a script, as [Errors](../api/errors.md#answers-too-large-to-return) shows.
 
 **Save as dataset says a table with that name already exists.** Dezfil never replaces a dataset when you save. Choose another name.
 
