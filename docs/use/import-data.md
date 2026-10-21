@@ -22,8 +22,7 @@ Open **Add data** on the **Data** page or on **Home**. In a map, **Add layer** h
 ## Upload files
 
 1. Open **Data** in the side menu and click **Add data**. You should see the dialog on **Files**, with **Upload file** selected.
-2. Drop one or more files on the box that reads **Drop files. Each becomes a queryable table**, or click the box and choose them.
-3. You should see each file's name, its upload progress and its place in the batch, such as (1 of 3).
+2. Drop one or more files on the box that reads **Drop files. Each becomes a queryable table**, or click the box and choose them. You should see each file's name, its upload progress and its place in the batch, such as (1 of 3).
 
 When every file has landed, the dialog closes, unless a CSV first stops at [Column matching](#csv-columns). You should see a notice such as **world_cities is ready.** and a card for each new dataset.
 
@@ -50,7 +49,7 @@ A file that declares another coordinate system is reprojected to WGS 84 as it im
 
 ## CSV columns
 
-Dezfil first looks for geometry in a CSV's column names, in this order, in upper or lower case:
+Dezfil first looks for geometry in a CSV's column names, in this order, whatever their case:
 
 | Columns | What Dezfil makes |
 |---|---|
@@ -158,7 +157,7 @@ An upload cannot be refreshed: upload the new version, which lands beside the ol
 
 **The dataset says Header looks broken.** Its column names look like data: the header row is missing or was never split. Fix the first row and upload again.
 
-**The import says the file or area is too large.** The message names the limit and its variable. Choose a smaller file or area, or ask an admin to raise it in **Settings** › **Limits** › **Imports** or with that variable. [Limits](../api/limits.md) lists them all.
+**The import says the file or area is too large.** Choose a smaller file or area, or ask an admin to raise the limit the message names, in **Settings** › **Limits** › **Imports** or with the variable it names. [Limits](../api/limits.md) lists them all.
 
 **"The requested address is not reachable from this server".** Dezfil blocks loopback, private-network, link-local and metadata addresses, such as a database on your own network. An operator allows a host with `DEZFIL_EGRESS_ALLOWLIST`: see [Data and services](../self-host/configuration/services.md).
 

@@ -24,14 +24,14 @@ order: 7
 
 ## Put your work in a project
 
-A project holds maps, workflows and datasets. The people you share it with reach everything filed in it. Work in no project stays private to its owner. To share one map alone, give it a project of its own.
+A project holds maps, workflows and datasets. The people you share it with reach everything filed in it. Work in no project stays private to its owner. To share one map and what it brings, give it a project of its own.
 
 1. Open **Projects** in the side menu and click **New project**.
 2. Type a **Name** of up to 120 characters and click **Create**. You should see the new project's card.
 3. Open the project and click **Add to project**. The dialog has a tab each for **Maps**, **Workflows** and **Data**.
 4. Tick what you want and click the button that counts it, such as **Add 3 items**. You should see the items in the project's sections.
 
-A map or workflow sits in one project at most, so adding it moves it from its old one. A dataset can be in several.
+A map or workflow sits in one project at most: adding it moves it from its old one. A dataset can be in several.
 
 A map brings the datasets it draws and the workflows that make them; a workflow brings the datasets it reads and writes. Only your own work is offered.
 
