@@ -66,12 +66,15 @@ const FILL_PARTS = new Set(["fill", "fill-panel", "knob", "mark", "fill-raised"]
 
 /* ---- Liquid's values: one recipe for every role ---- */
 
-/** The light on the rim, drawn inside the edge: the sides facing the light
- * (the upper left), the far side fainter, a faint glow. */
+/** The light on the rim, drawn inside the edge: by day the sides facing
+ * the light (the upper left), the far side fainter, a faint glow; by night
+ * a faint line along the top, a fainter one all round, no glow. */
 const RIM: Record<Theme, string> = {
   light: "inset 1px 1px 0 rgba(255, 255, 255, 0.9), inset -1px -1px 0 rgba(255, 255, 255, 0.405), inset 0 0 14px rgba(255, 255, 255, 0.144)",
-  dark: "inset 1px 1px 0 rgba(255, 255, 255, 0.42), inset -1px -1px 0 rgba(255, 255, 255, 0.168), inset 0 0 14px rgba(255, 255, 255, 0.067)",
+  dark: "inset 0 1px 0 rgba(255, 255, 255, 0.1), inset 0 0 0 1px rgba(255, 255, 255, 0.05), inset 0 0 0 0 transparent",
 };
+/** The rim the night had before it was softened: bright and sharp. */
+const SHARP_NIGHT_RIM = "inset 1px 1px 0 rgba(255, 255, 255, 0.42), inset -1px -1px 0 rgba(255, 255, 255, 0.168), inset 0 0 14px rgba(255, 255, 255, 0.067)";
 /** The soft two-layer drops, by how high a surface sits: lying inside a
  * panel, floating, and raised (under the pointer, lifted, dragged, or a
  * dialog, the topmost). */
@@ -88,21 +91,45 @@ const DROP: Record<Theme, Record<Height, string>> = {
     high: "0 1px 1px rgba(0, 0, 0, 0.4), 0 24px 64px -12px rgba(0, 0, 0, 0.7)",
   },
 };
-/** The one clear fill: the panel tone under a tint, as one colour (by day
- * white 0.10 over 36 %, by night black 0.06 over 50 %), and the opaque tint
- * over a full share. A dialog sits over its veil, so by day it takes the
- * panel tone at 40 %. */
-const FILL: Record<Theme, string> = {
-  light: "color-mix(in srgb, #fff 10%, var(--bg-panel) 36%)",
-  dark: "color-mix(in srgb, #000 6%, var(--bg-panel) 50%)",
+/** The transparency steps; Clear is the recipe with no attribute of its own. */
+type Step = "clear" | "medium" | "firm";
+const STEPS: Step[] = ["clear", "medium", "firm"];
+/** One clear fill per step: the panel tone under a tint, as one colour (by
+ * day white 0.10, by night black 0.08 at Clear and 0.10 above it), and the
+ * opaque tint over a full share. A dialog sits over its veil, so it takes
+ * the panel tone a touch firmer, except by night at Clear. */
+const FILL: Record<Theme, Record<Step, string>> = {
+  light: {
+    clear: "color-mix(in srgb, #fff 10%, var(--bg-panel) 36%)",
+    medium: "color-mix(in srgb, #fff 10%, var(--bg-panel) 52%)",
+    firm: "color-mix(in srgb, #fff 10%, var(--bg-panel) 68%)",
+  },
+  dark: {
+    clear: "color-mix(in srgb, #000 8%, var(--bg-panel) 54%)",
+    medium: "color-mix(in srgb, #000 10%, var(--bg-panel) 62%)",
+    firm: "color-mix(in srgb, #000 10%, var(--bg-panel) 74%)",
+  },
 };
-const DIALOG_DAY = "color-mix(in srgb, #fff 10%, var(--bg-panel) 40%)";
+const DIALOG: Record<Theme, Record<Step, string>> = {
+  light: {
+    clear: "color-mix(in srgb, #fff 10%, var(--bg-panel) 40%)",
+    medium: "color-mix(in srgb, #fff 10%, var(--bg-panel) 54%)",
+    firm: "color-mix(in srgb, #fff 10%, var(--bg-panel) 70%)",
+  },
+  dark: {
+    clear: "color-mix(in srgb, #000 8%, var(--bg-panel) 54%)",
+    medium: "color-mix(in srgb, #000 10%, var(--bg-panel) 64%)",
+    firm: "color-mix(in srgb, #000 10%, var(--bg-panel) 76%)",
+  },
+};
+/** The night's fill before it was firmed. */
+const THIN_NIGHT = "color-mix(in srgb, #000 6%, var(--bg-panel) 50%)";
 const OPAQUE: Record<Theme, string> = {
   light: "color-mix(in srgb, #fff 8%, var(--bg-panel) 92%)",
   dark: "color-mix(in srgb, #000 8%, var(--bg-panel) 92%)",
 };
-const BLUR = "blur(6px)";
-const LENS = "26";
+const BLUR: Record<Theme, string> = { light: "blur(6px)", dark: "blur(8px)" };
+const LENS: Record<Theme, string> = { light: "26", dark: "16" };
 const CLEAR = "1px solid transparent";
 /** The dashed line of a card that makes something new, kept in its width with no colour. */
 const DASHED_CLEAR = "1px dashed transparent";
@@ -110,10 +137,10 @@ const DASHED_CLEAR = "1px dashed transparent";
 /** Each role's parts under Liquid, with the fill it goes opaque at: every
  * ground the one fill, every blur and bend the same, no line, and the
  * shadow the rim light over the drop for the height the role sits at. */
-function liquid(role: Role, theme: Theme, opaque = false): Record<string, string> {
+function liquid(role: Role, theme: Theme, step: Step, opaque = false): Record<string, string> {
   const lit = (height: Height) => `${RIM[theme]}, ${DROP[theme][height]}`;
-  const fill = opaque ? OPAQUE[theme] : FILL[theme];
-  const floating = { fill, blur: BLUR, lens: LENS };
+  const fill = opaque ? OPAQUE[theme] : FILL[theme][step];
+  const floating = { fill, blur: BLUR[theme], lens: LENS[theme] };
   switch (role) {
     case "glass-chrome": case "glass-panel": case "overlay-panel": return { ...floating, edge: "none", shadow: lit("float") };
     case "overlay-control": return { ...floating, edge: "none", shadow: lit("float"), grow: "none" };
@@ -125,7 +152,7 @@ function liquid(role: Role, theme: Theme, opaque = false): Record<string, string
     };
     case "block": return { fill, "fill-panel": fill, edge: CLEAR, shadow: lit("contact") };
     case "menu": return { ...floating, edge: CLEAR, shadow: lit("float"), "edge-strong": CLEAR, "fill-raised": fill };
-    case "dialog": return { ...floating, fill: theme === "light" && !opaque ? DIALOG_DAY : fill, edge: CLEAR, shadow: lit("high") };
+    case "dialog": return { ...floating, fill: opaque ? fill : DIALOG[theme][step], edge: CLEAR, shadow: lit("high") };
     case "stage": return { fill: "transparent", blur: "none", edge: "none", shadow: DROP[theme].float };
   }
 }
@@ -135,27 +162,55 @@ const REQUEST = "@media (prefers-reduced-transparency: reduce), (prefers-contras
 /** The pictures of the other picks: they show the person's look. */
 const OTHER_PICTURES = ["color", "contrast", "corners"];
 
-/** Under Liquid the root names its quiet inks stepped toward the ink, and
- * the body takes them: the one rule in the sheet that is not a role's. */
-const QUIET_ROOT = new Map([
-  ["--liquid-fg-muted", "color-mix(in srgb, var(--fg) 85%, var(--fg-muted))"],
-  ["--liquid-fg-faint", "color-mix(in srgb, var(--fg) 70%, var(--fg-muted))"],
-]);
+/** Under Liquid the root names its quiet inks stepped toward the ink, in
+ * each theme and at each step, and the body takes them: the one rule in the
+ * sheet that is not a role's. How far the muted ink steps; the faint one
+ * steps 15 points less, and at none an ink keeps the Color's own grey. */
+const QUIET_SHARE: Record<Theme, Record<Step, number>> = {
+  light: { clear: 85, medium: 55, firm: 25 },
+  dark: { clear: 60, medium: 20, firm: 0 },
+};
+function quietInks(theme: Theme, step: Step): Map<string, string> {
+  const muted = QUIET_SHARE[theme][step], faint = muted - 15;
+  return new Map([
+    ["--liquid-fg-muted", muted > 0 ? `color-mix(in srgb, var(--fg) ${muted}%, var(--fg-muted))` : "var(--fg-muted)"],
+    ["--liquid-fg-faint", faint > 0 ? `color-mix(in srgb, var(--fg) ${faint}%, var(--fg-muted))` : "var(--fg-faint)"],
+  ]);
+}
+const QUIET_TOKENS = new Set(["--liquid-fg-muted", "--liquid-fg-faint"]);
 const QUIET_BODY_SELECTOR = ':root[data-look-panels="liquid"] body';
 const QUIET_BODY = new Map([["--fg-muted", "var(--liquid-fg-muted)"], ["--fg-faint", "var(--liquid-fg-faint)"]]);
 
-const LIQUID_SELECTOR = /^:root(\[data-theme="dark"\])?\[data-look-panels="([\w-]+)"\]( \[data-picture-([\w-]+)\])?$/;
-const PICTURE_SELECTOR = /^:root(\[data-theme="dark"\])? \[data-picture-panels="liquid"\]$/;
+const LIQUID_SELECTOR = /^:root(\[data-theme="dark"\])?\[data-look-panels="([\w-]+)"\](\[data-look-transparency="([\w-]+)"\])?( \[data-picture-([\w-]+)\])?$/;
+const PICTURE_SELECTOR = /^:root(\[data-theme="dark"\])?(\[data-look-transparency="([\w-]+)"\])? \[data-picture-panels="liquid"\]$/;
+/** The steps the root carries an attribute for; Clear is the root without one. */
+const KEYED_STEPS = ["medium", "firm"];
+const THEMES: Theme[] = ["light", "dark"];
+
+const themeKey = (theme: Theme) => (theme === "dark" ? '[data-theme="dark"]' : "");
+const stepKey = (step: Step) => (step === "clear" ? "" : `[data-look-transparency="${step}"]`);
+const rootSelector = (theme: Theme, step: Step) => `:root${themeKey(theme)}[data-look-panels="liquid"]${stepKey(step)}`;
+/** Where a theme and step is restated: the root, the other picks' pictures and the Liquid picture. */
+const liquidSelectors = (theme: Theme, step: Step) => [rootSelector(theme, step),
+  ...OTHER_PICTURES.map(pick => `${rootSelector(theme, step)} [data-picture-${pick}]`),
+  `:root${themeKey(theme)}${stepKey(step)} [data-picture-panels="liquid"]`];
+/** The part a role's property names: what follows the longest role name it starts with. */
+const partOf = (property: string) => {
+  const role = [...ROLE_NAMES].sort((a, b) => b.length - a.length).find(name => property.startsWith(`--surface-${name}-`));
+  return role ? property.slice(`--surface-${role}-`.length) : property;
+};
+const inWords = (theme: Theme, step: Step) => `the root under Liquid${theme === "dark" ? " by night" : ""}${step === "clear" ? "" : ` at ${step}`}`;
 
 /** What is wrong with Liquid's stylesheet; empty when it holds. */
 export function liquidProblems(css: string, globals: string = GLOBALS): string[] {
   const problems: string[] = [];
   const parts = roleParts(globals);
   const known = new Set([...parts].flatMap(([role, names]) => names.map(part => `--surface-${role}-${part}`)));
+  const roots = new Set(THEMES.flatMap(theme => STEPS.map(step => rootSelector(theme, step))));
 
   // Each selector's restated parts, per condition, in source order.
   const restated = new Map<string, Map<string, string>>();
-  const quiet = { root: new Map<string, string>(), body: new Map<string, string>() };
+  const quiet = { root: new Map<string, Map<string, string>>(), body: new Map<string, string>() };
   for (const rule of rules(css)) {
     if (rule.within !== null && rule.within !== SUPPORTS && rule.within !== REQUEST) problems.push(`${rule.within}: not a condition a look keys on`);
     if (/!important/.test(rule.body)) problems.push(`${rule.selectors.join(", ")}: forces a declaration`);
@@ -167,23 +222,29 @@ export function liquidProblems(css: string, globals: string = GLOBALS): string[]
       const pick = LIQUID_SELECTOR.exec(selector), picture = PICTURE_SELECTOR.exec(selector);
       if (!pick && !picture) { problems.push(`${selector}: keyed on neither the root by Liquid nor the Liquid picture`); continue; }
       if (pick && pick[2] !== "liquid") problems.push(`${selector}: ${pick[2]} is not Liquid`);
-      if (pick?.[4] && !OTHER_PICTURES.includes(pick[4])) problems.push(`${selector}: dresses a picture that shows its own Panels`);
+      const step = pick ? pick[4] : picture![3];
+      if (step !== undefined && !KEYED_STEPS.includes(step)) problems.push(`${selector}: ${step} is not a step the root carries`);
+      if (pick?.[6] && !OTHER_PICTURES.includes(pick[6])) problems.push(`${selector}: dresses a picture that shows its own Panels`);
       const key = `${rule.within ?? ""}|${selector}`;
       const tokens = restated.get(key) ?? new Map<string, string>();
       for (const [property, value] of rule.declarations) {
-        if (QUIET_ROOT.has(property) && rule.within === null && selector === ':root[data-look-panels="liquid"]') { quiet.root.set(property, value); continue; }
+        if (QUIET_TOKENS.has(property) && rule.within === null && roots.has(selector)) {
+          const inks = quiet.root.get(selector) ?? new Map<string, string>();
+          quiet.root.set(selector, inks.set(property, value));
+          continue;
+        }
         if (!known.has(property)) problems.push(`${selector}: declares ${property}, not a role's part`);
+        else if (step !== undefined && rule.within === null && !FILL_PARTS.has(partOf(property)))
+          problems.push(`${selector}: a step restates ${property}, not a fill`);
         tokens.set(property, value);
       }
       restated.set(key, tokens);
     }
   }
 
-  /** Compare what a selector restates, over what it inherits from its light twin, with what it should. */
-  const holds = (within: string | null, selector: string, expected: Map<string, string>, under?: string) => {
-    const own = restated.get(`${within ?? ""}|${selector}`) ?? new Map<string, string>();
-    const base = under ? (restated.get(`${within ?? ""}|${under}`) ?? new Map<string, string>()) : new Map<string, string>();
-    const effective = new Map([...base, ...own]);
+  /** Compare what a selector restates, over what it inherits from the selectors it overrides, with what it should. */
+  const holds = (within: string | null, selector: string, expected: Map<string, string>, under: string[] = []) => {
+    const effective = new Map([...under, selector].flatMap(key => [...(restated.get(`${within ?? ""}|${key}`) ?? new Map<string, string>())]));
     for (const [token, value] of expected) {
       if (!effective.has(token)) problems.push(`${selector}${within ? ` within ${within}` : ""}: ${token} is not restated`);
       else if (effective.get(token) !== value) problems.push(`${selector}${within ? ` within ${within}` : ""}: ${token} is ${effective.get(token)}, not ${value}`);
@@ -192,32 +253,35 @@ export function liquidProblems(css: string, globals: string = GLOBALS): string[]
       if (!expected.has(token)) problems.push(`${selector}${within ? ` within ${within}` : ""}: restates ${token}, which is not the recipe's`);
     }
   };
-  const wanted = (theme: Theme, opaque: boolean) => new Map(ROLE_NAMES.flatMap(role => {
-    const values = liquid(role, theme, opaque);
+  const wanted = (theme: Theme, step: Step, opaque: boolean) => new Map(ROLE_NAMES.flatMap(role => {
+    const values = liquid(role, theme, step, opaque);
     // The stage has no ground of its own to make opaque.
     return parts.get(role)!.filter(part => restates(part) && (!opaque || (FILL_PARTS.has(part) && role !== "stage")))
       .map(part => [`--surface-${role}-${part}`, values[part] ?? "(no value named)"] as [string, string]);
   }));
 
-  // The quiet inks, exactly: the root's stepped inks and the body taking them.
-  for (const [name, want, have] of [["the root", QUIET_ROOT, quiet.root], ["the body", QUIET_BODY, quiet.body]] as const) {
+  // The quiet inks, exactly: each root's stepped inks and the body taking them.
+  const inks = [...THEMES.flatMap(theme => STEPS.map(step =>
+    [inWords(theme, step), quietInks(theme, step), quiet.root.get(rootSelector(theme, step)) ?? new Map<string, string>()] as const)),
+  ["the body under Liquid", QUIET_BODY, quiet.body] as const];
+  for (const [name, want, have] of inks) {
     for (const [token, value] of want) {
-      if (!have.has(token)) problems.push(`${name} under Liquid: ${token} is not stated`);
-      else if (have.get(token) !== value) problems.push(`${name} under Liquid: ${token} is ${have.get(token)}, not ${value}`);
+      if (!have.has(token)) problems.push(`${name}: ${token} is not stated`);
+      else if (have.get(token) !== value) problems.push(`${name}: ${token} is ${have.get(token)}, not ${value}`);
     }
-    for (const token of have.keys()) if (!want.has(token)) problems.push(`${name} under Liquid: states ${token}, which is not a quiet ink`);
+    for (const token of have.keys()) if (!want.has(token)) problems.push(`${name}: states ${token}, which is not a quiet ink`);
   }
 
-  const root = (dark: boolean) => `:root${dark ? '[data-theme="dark"]' : ""}[data-look-panels="liquid"]`;
-  const selectors = (dark: boolean) => [root(dark), ...OTHER_PICTURES.map(pick => `${root(dark)} [data-picture-${pick}]`),
-    `:root${dark ? '[data-theme="dark"]' : ""} [data-picture-panels="liquid"]`];
-  const light = selectors(false), dark = selectors(true);
-  light.forEach((selector, at) => {
-    holds(null, selector, wanted("light", false));
-    holds(null, dark[at], wanted("dark", false), selector);
+  // The night restates over the day and a step over Clear, as the cascade
+  // orders them: Clear by day, Clear by night, the step by day, the step by night.
+  for (const step of STEPS) liquidSelectors("light", step).forEach((day, at) => {
+    const night = liquidSelectors("dark", step)[at];
+    const [dayClear, nightClear] = [liquidSelectors("light", "clear")[at], liquidSelectors("dark", "clear")[at]];
+    holds(null, day, wanted("light", step, false), step === "clear" ? [] : [dayClear]);
+    holds(null, night, wanted("dark", step, false), step === "clear" ? [dayClear] : [dayClear, nightClear, day]);
     for (const condition of [SUPPORTS, REQUEST]) {
-      holds(condition, selector, wanted("light", true));
-      holds(condition, dark[at], wanted("dark", true));
+      holds(condition, day, wanted("light", step, true));
+      holds(condition, night, wanted("dark", step, true));
     }
   });
   return problems;
@@ -237,12 +301,12 @@ function layers(value: string): string[] {
 
 /** Every value a part restates across the roles under Liquid on the root,
  * by the part's kind: one recipe means one value each. */
-function recipeValues(css: string, theme: Theme): Record<"fill" | "blur" | "lens" | "rim", Set<string>> {
-  const selector = `:root${theme === "dark" ? '[data-theme="dark"]' : ""}[data-look-panels="liquid"]`;
-  const light = new Map(rules(css).filter(rule => rule.within === null && rule.selectors.includes(':root[data-look-panels="liquid"]'))
-    .flatMap(rule => rule.declarations));
-  const own = new Map(rules(css).filter(rule => rule.within === null && rule.selectors.includes(selector)).flatMap(rule => rule.declarations));
-  const effective = new Map([...light, ...own]);
+function recipeValues(css: string, theme: Theme, step: Step = "clear"): Record<"fill" | "blur" | "lens" | "rim", Set<string>> {
+  // As the cascade orders them: Clear by day, Clear by night, the step by day, the step by night.
+  const chain = [rootSelector("light", "clear"), ...(theme === "dark" ? [rootSelector("dark", "clear")] : []),
+    ...(step === "clear" ? [] : [rootSelector("light", step), ...(theme === "dark" ? [rootSelector("dark", step)] : [])])];
+  const sheet = rules(css).filter(rule => rule.within === null);
+  const effective = new Map(chain.flatMap(selector => sheet.filter(rule => rule.selectors.includes(selector)).flatMap(rule => rule.declarations)));
   const out = { fill: new Set<string>(), blur: new Set<string>(), lens: new Set<string>(), rim: new Set<string>() };
   for (const [property, value] of effective) {
     const role = ROLE_NAMES.find(name => property.startsWith(`--surface-${name}-`));
@@ -363,17 +427,17 @@ export function paperProblems(css: string, globals: string = GLOBALS): string[] 
 }
 
 describe("Liquid's stylesheet", () => {
-  it("restates every part of every role in one recipe, by day and by night, on the root, the other picks' pictures and its own picture, opaque where asked", () => {
+  it("restates every part of every role in one recipe, by day and by night at each step, on the root, the other picks' pictures and its own picture, opaque where asked", () => {
     expect(liquidProblems(LIQUID_CSS)).toEqual([]);
   });
 
-  it("gives every role the same fill, blur, bend and rim light, in each theme, a dialog by day the one firmer fill", () => {
-    for (const theme of ["light", "dark"] as const) {
-      const values = recipeValues(LIQUID_CSS, theme);
-      expect(new Set(values.fill), theme).toEqual(new Set(theme === "light" ? [FILL.light, DIALOG_DAY] : [FILL.dark]));
-      expect([...values.blur], theme).toEqual([BLUR]);
-      expect([...values.lens], theme).toEqual([LENS]);
-      expect([...values.rim], theme).toEqual([RIM[theme]]);
+  it("gives every role the same fill, blur, bend and rim light, in each theme and at each step, a dialog the one firmer fill", () => {
+    for (const theme of THEMES) for (const step of STEPS) {
+      const values = recipeValues(LIQUID_CSS, theme, step);
+      expect(values.fill, `${theme} ${step}`).toEqual(new Set([FILL[theme][step], DIALOG[theme][step]]));
+      expect([...values.blur], `${theme} ${step}`).toEqual([BLUR[theme]]);
+      expect([...values.lens], `${theme} ${step}`).toEqual([LENS[theme]]);
+      expect([...values.rim], `${theme} ${step}`).toEqual([RIM[theme]]);
     }
   });
 
@@ -391,9 +455,44 @@ describe("Liquid's stylesheet", () => {
     expect([...recipeValues(lens, "light").lens].sort()).toEqual(["14", "26"]);
     // The dialog's day fill on another role is a fill of its own there.
     const firmer = LIQUID_CSS.replace("  --surface-menu-fill: color-mix(in srgb, #fff 10%, var(--bg-panel) 36%);\n",
-      `  --surface-menu-fill: ${DIALOG_DAY};\n`);
+      `  --surface-menu-fill: ${DIALOG.light.clear};\n`);
     expect(firmer).not.toBe(LIQUID_CSS);
-    expect(liquidProblems(firmer)).toContain(`:root[data-look-panels="liquid"]: --surface-menu-fill is ${DIALOG_DAY}, not ${FILL.light}`);
+    expect(liquidProblems(firmer)).toContain(`:root[data-look-panels="liquid"]: --surface-menu-fill is ${DIALOG.light.clear}, not ${FILL.light.clear}`);
+  });
+
+  it("fails on a role left at the night's old fill, blur or bend, and on its sharp rim", () => {
+    const thin = LIQUID_CSS.replace(`  --surface-map-card-fill: ${FILL.dark.clear};\n`, `  --surface-map-card-fill: ${THIN_NIGHT};\n`);
+    expect(thin).not.toBe(LIQUID_CSS);
+    expect(liquidProblems(thin)).toContain(`:root[data-theme="dark"][data-look-panels="liquid"]: --surface-map-card-fill is ${THIN_NIGHT}, not ${FILL.dark.clear}`);
+    // A night role that does not restate its blur or bend keeps the day's.
+    const dayBlur = LIQUID_CSS.replace("  --surface-menu-blur: blur(8px);\n", "");
+    expect(dayBlur).not.toBe(LIQUID_CSS);
+    expect(liquidProblems(dayBlur)).toContain(':root[data-theme="dark"][data-look-panels="liquid"]: --surface-menu-blur is blur(6px), not blur(8px)');
+    const dayLens = LIQUID_CSS.replace("  --surface-dialog-lens: 16;\n", "");
+    expect(dayLens).not.toBe(LIQUID_CSS);
+    expect(liquidProblems(dayLens)).toContain(':root[data-theme="dark"][data-look-panels="liquid"]: --surface-dialog-lens is 26, not 16');
+    const soft = "    inset 0 1px 0 rgba(255, 255, 255, 0.1),\n    inset 0 0 0 1px rgba(255, 255, 255, 0.05),\n    inset 0 0 0 0 transparent,\n";
+    const sharp = LIQUID_CSS.replace(soft, SHARP_NIGHT_RIM.split(", inset").map((layer, at) => `    ${at ? "inset" : ""}${layer},\n`).join(""));
+    expect(sharp).not.toBe(LIQUID_CSS);
+    expect(liquidProblems(sharp).join("\n")).toMatch(/--surface-glass-chrome-shadow is inset 1px 1px 0 rgba\(255, 255, 255, 0\.42\)/);
+    expect([...recipeValues(sharp, "dark").rim].sort()).toEqual([RIM.dark, SHARP_NIGHT_RIM].sort());
+  });
+
+  it("fails on a step that leaves a role as Clear has it, changes more than the fills, or is missing where the fills go opaque", () => {
+    const left = LIQUID_CSS.replace(`  --surface-block-fill-panel: ${FILL.light.medium};\n`, "");
+    expect(left).not.toBe(LIQUID_CSS);
+    expect(liquidProblems(left)).toContain(`:root[data-look-panels="liquid"][data-look-transparency="medium"]: --surface-block-fill-panel is ${FILL.light.clear}, not ${FILL.light.medium}`);
+    const night = LIQUID_CSS.replace(`  --surface-dialog-fill: ${DIALOG.dark.firm};\n`, "");
+    expect(night).not.toBe(LIQUID_CSS);
+    expect(liquidProblems(night)).toContain(`:root[data-theme="dark"][data-look-panels="liquid"][data-look-transparency="firm"]: --surface-dialog-fill is ${DIALOG.light.firm}, not ${DIALOG.dark.firm}`);
+    const blur = LIQUID_CSS.replace(`  --surface-glass-chrome-fill: ${FILL.dark.firm};\n`, `  --surface-glass-chrome-fill: ${FILL.dark.firm};\n  --surface-glass-chrome-blur: blur(12px);\n`);
+    expect(blur).not.toBe(LIQUID_CSS);
+    expect(liquidProblems(blur)).toContain(':root[data-theme="dark"][data-look-panels="liquid"][data-look-transparency="firm"]: a step restates --surface-glass-chrome-blur, not a fill');
+    const unopaque = LIQUID_CSS.replace('\n  :root[data-look-panels="liquid"][data-look-transparency="firm"],\n', "\n");
+    expect(unopaque).not.toBe(LIQUID_CSS);
+    expect(liquidProblems(unopaque)).toContain(`:root[data-look-panels="liquid"][data-look-transparency="firm"] within ${SUPPORTS}: --surface-glass-chrome-fill is not restated`);
+    const unknown = `${LIQUID_CSS}\n:root[data-look-panels="liquid"][data-look-transparency="clear"] {\n  --surface-glass-chrome-fill: transparent;\n}\n`;
+    expect(liquidProblems(unknown)).toContain(':root[data-look-panels="liquid"][data-look-transparency="clear"]: clear is not a step the root carries');
   });
 
   it("fails on a rule keyed on a component's class, or on a kind of surface", () => {
@@ -417,13 +516,20 @@ describe("Liquid's stylesheet", () => {
     expect(liquidProblems(own)).toContain(':root[data-look-panels="liquid"]: declares --liquid-tint, not a role\'s part');
   });
 
-  it("steps the quiet inks on the body, and fails on one left unstepped or stepped otherwise", () => {
+  it("steps the quiet inks on the body in each theme and at each step, and fails on one left unstepped or stepped otherwise", () => {
     const unstepped = LIQUID_CSS.replace("  --fg-muted: var(--liquid-fg-muted);\n", "");
     expect(unstepped).not.toBe(LIQUID_CSS);
     expect(liquidProblems(unstepped)).toContain("the body under Liquid: --fg-muted is not stated");
     const other = LIQUID_CSS.replace("color-mix(in srgb, var(--fg) 85%, var(--fg-muted))", "color-mix(in srgb, var(--fg) 60%, var(--fg-muted))");
     expect(other).not.toBe(LIQUID_CSS);
     expect(liquidProblems(other)).toContain("the root under Liquid: --liquid-fg-muted is color-mix(in srgb, var(--fg) 60%, var(--fg-muted)), not color-mix(in srgb, var(--fg) 85%, var(--fg-muted))");
+    // The night steps its own way: the day's 85 % there is a night left as it was.
+    const night = LIQUID_CSS.replace("color-mix(in srgb, var(--fg) 60%, var(--fg-muted))", "color-mix(in srgb, var(--fg) 85%, var(--fg-muted))");
+    expect(night).not.toBe(LIQUID_CSS);
+    expect(liquidProblems(night)).toContain("the root under Liquid by night: --liquid-fg-muted is color-mix(in srgb, var(--fg) 85%, var(--fg-muted)), not color-mix(in srgb, var(--fg) 60%, var(--fg-muted))");
+    const firm = LIQUID_CSS.replace(':root[data-theme="dark"][data-look-panels="liquid"][data-look-transparency="firm"] {\n  --liquid-fg-muted: var(--fg-muted);\n  --liquid-fg-faint: var(--fg-faint);\n}\n', "");
+    expect(firm).not.toBe(LIQUID_CSS);
+    expect(liquidProblems(firm)).toContain("the root under Liquid by night at firm: --liquid-fg-muted is not stated");
     const elsewhere = `${LIQUID_CSS}\n:root[data-look-panels="liquid"] main {\n  --fg-muted: var(--fg);\n}\n`;
     expect(liquidProblems(elsewhere).join("\n")).toMatch(/:root\[data-look-panels="liquid"\] main: keyed on neither/);
   });

@@ -15,7 +15,7 @@ import {
 } from "./libraries-table";
 import { capacityText, LIMITS_CARDS, withShownUnit } from "./limits-table";
 import { colorsWords, PALETTES_CARD, paletteRowId } from "./palettes-table";
-import { choiceLabel, LOOK_CARDS } from "./look-tab";
+import { choiceLabel, LOOK_CARDS, rowShown } from "./look-tab";
 import { CONNECTIONS_CARD, PUBLIC_LINKS_CARD, ruleRowWords, SECURITY_CARDS, type RuleCard } from "./security-table";
 import { formatSettingNumber } from "./server-set";
 import type { IndexCard, TabDeclarations } from "./settings-search";
@@ -92,9 +92,10 @@ function tokenCards(tokens: readonly ApiToken[] | null): IndexCard[] {
 }
 
 /** Appearance's rows, by their labels, the words of each pick and the
- * words of the current choice once the look is read. */
+ * words of the current choice once the look is read. A row under another
+ * pick's value is found only while the look shows it. */
 function appearanceCards(look: Look | null): IndexCard[] {
-  return LOOK_CARDS.map(card => ({ id: card.id, title: card.title, rows: card.rows.map(row => ({
+  return LOOK_CARDS.map(card => ({ id: card.id, title: card.title, rows: card.rows.filter(row => look ? rowShown(row, key => look[key]) : !("under" in row)).map(row => ({
     id: row.id, label: row.label, keys: row.keys, ...(look ? { value: choiceLabel(row.key, look[row.key]) } : {}),
   })) }));
 }

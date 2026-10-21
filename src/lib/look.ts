@@ -1,7 +1,7 @@
 import { accountChoices } from "@/lib/settings/account";
 
 /**
- * One account's look: seven picks, each an account choice in the settings
+ * One account's look: eight picks, each an account choice in the settings
  * catalogue, whose first value is today's look and the default. The look
  * is the person's screen only. It is kept with the account, read whole
  * (every pick at a value this version offers), and stamped on the
@@ -13,7 +13,7 @@ import { accountChoices } from "@/lib/settings/account";
  * stored look through its preferences, and the page stamps a new pick with
  * the same attribute map.
  */
-export const LOOK_KEYS = ["color", "contrast", "font", "background", "corners", "rail", "panels"] as const;
+export const LOOK_KEYS = ["color", "contrast", "font", "background", "corners", "rail", "panels", "transparency"] as const;
 export type LookKey = (typeof LOOK_KEYS)[number];
 export type Look = { readonly [K in LookKey]: string };
 
@@ -21,7 +21,7 @@ export type LookAttributes = { readonly [K in LookKey as `data-look-${K}`]?: str
 
 /** Every attribute a look can put on the root, so a stamp removes what no longer applies. */
 export const LOOK_ATTRIBUTES = ["data-look-color", "data-look-contrast", "data-look-font", "data-look-background",
-  "data-look-corners", "data-look-rail", "data-look-panels"] as const satisfies readonly (keyof LookAttributes)[];
+  "data-look-corners", "data-look-rail", "data-look-panels", "data-look-transparency"] as const satisfies readonly (keyof LookAttributes)[];
 
 /** The values a pick offers, today's first. */
 export function lookChoices(key: LookKey): readonly string[] {

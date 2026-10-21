@@ -93,10 +93,11 @@ describe("the look in the settings contract", () => {
   const CHOICES = {
     color: ["kelp", "harbor", "heather", "slate"], contrast: ["standard", "more"], font: ["inter", "system"],
     background: ["atlantic", "plain", "graticule", "hex"], corners: ["rounded", "soft"], rail: ["hover", "open", "icons"],
-    panels: ["glass", "liquid", "paper"],
+    panels: ["glass", "liquid", "paper"], transparency: ["clear", "medium", "firm"],
   };
   const DEFAULTS = {
     color: "kelp", contrast: "standard", font: "inter", background: "atlantic", corners: "rounded", rail: "hover", panels: "glass",
+    transparency: "clear",
   };
   const picks = (look: Json) => {
     const properties = look.properties as Record<string, Json>;

@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { defaultLook, LOOK_ATTRIBUTES, LOOK_KEYS, lookChoices, type Look, type LookKey } from "@/lib/look";
 import { FADE_MS, UNDO_MS, WriteRefusal, type UnitSnapshot } from "./save-unit";
-import { choiceLabel, LOOK_CARDS, LookReset, lookTab, LookWriter, lookUnit, PICTURE_PICKS, shownLook, stampLook, unitKey, type LookRow } from "./look-tab";
+import { choiceLabel, LOOK_CARDS, LookReset, lookTab, LookWriter, lookUnit, PICTURE_PICKS, SEGMENT_PICKS, shownLook, stampLook, unitKey, type LookRow } from "./look-tab";
 
 /**
  * The Appearance tab's own logic: its cards and rows, one writer every
@@ -25,8 +25,11 @@ function fakeServer(initial: Partial<Look> = {}) {
 }
 const flush = () => vi.advanceTimersByTimeAsync(0);
 const HARBOR: Look = { ...defaultLook(), color: "harbor", rail: "icons" };
-/** The seven picks at Dezfil's default: what a reset returns. */
-const PICKS_DEFAULT = { color: "kelp", contrast: "standard", font: "inter", background: "atlantic", corners: "rounded", rail: "hover", panels: "glass" };
+/** The eight picks at Dezfil's default: what a reset returns. */
+const PICKS_DEFAULT = {
+  color: "kelp", contrast: "standard", font: "inter", background: "atlantic", corners: "rounded", rail: "hover", panels: "glass",
+  transparency: "clear",
+};
 const LIQUID: Look = { ...HARBOR, panels: "liquid" };
 const rowKeys = (row: LookRow) => [row.key];
 
@@ -34,21 +37,23 @@ beforeEach(() => { vi.useFakeTimers(); });
 afterEach(() => { vi.useRealTimers(); });
 
 describe("the cards and their rows", () => {
-  it("are the four cards in order with the seven picks, Color first, Panels leading the second", () => {
+  it("are the four cards in order with the eight picks, Color first, Panels leading the second, Transparency under it", () => {
     expect(LOOK_CARDS.map(card => [card.title, card.rows.map(row => row.label)])).toEqual([
       ["Color and contrast", ["Color", "Contrast"]],
-      ["Panels and background", ["Panels", "Background"]],
+      ["Panels and background", ["Panels", "Transparency", "Background"]],
       ["Text", ["Typeface"]],
       ["Layout", ["Corners", "Side menu"]],
     ]);
     // The second card keeps its address.
     expect(LOOK_CARDS[1].id).toBe("appearance-background");
-    // Every pick is a row of pictures; there is no row of kinds.
+    // Every pick is a row of pictures but Transparency, segments under Liquid's Panels; there is no row of kinds.
     const rows = LOOK_CARDS.flatMap(card => card.rows);
-    expect(rows.map(row => row.key).sort()).toEqual([...PICTURE_PICKS].sort());
+    expect(rows.filter(row => !("under" in row)).map(row => row.key).sort()).toEqual([...PICTURE_PICKS].sort());
     expect([...PICTURE_PICKS]).toEqual(["color", "contrast", "font", "background", "corners", "rail", "panels"]);
+    expect(rows.flatMap(row => "under" in row ? [[row.key, row.under]] : [])).toEqual([["transparency", { key: "panels", value: "liquid" }]]);
+    expect([...SEGMENT_PICKS]).toEqual(["transparency"]);
     expect(rows.flatMap(rowKeys).sort()).toEqual([...LOOK_KEYS].sort());
-    expect(new Set(LOOK_CARDS.flatMap(card => [card.id, ...card.rows.map(row => row.id)])).size).toBe(4 + 7);
+    expect(new Set(LOOK_CARDS.flatMap(card => [card.id, ...card.rows.map(row => row.id)])).size).toBe(4 + 8);
     expect(rows.map(row => row.id)).not.toContain("set-liquid-panels");
   });
 
@@ -76,17 +81,31 @@ describe("a card's writes", () => {
     expect(server.calls[1].patch).toEqual({ color: "kelp", contrast: "standard" });
   });
 
-  it("return Panels and Background when the card's Reset is pressed, under every Panels choice, and nothing hidden", async () => {
-    for (const panels of ["liquid", "paper"]) {
-      const server = fakeServer({ ...HARBOR, panels, background: "plain" });
+  it("return Transparency to Clear with Panels and Background at the card's Reset, in sight under Liquid or kept out of sight under Paper", async () => {
+    for (const [panels, hidden, reset, undo] of [
+      ["liquid", [], { panels: "glass", transparency: "clear", background: "atlantic" }, { panels: "liquid", transparency: "firm", background: "plain" }],
+      ["paper", ["look.transparency"], { panels: "glass", transparency: "clear", background: "atlantic" }, { panels: "paper", transparency: "firm", background: "plain" }],
+    ] as const) {
+      const server = fakeServer({ ...HARBOR, panels, transparency: "firm", background: "plain" });
       const card = lookUnit(LOOK_CARDS[1], server.stored(), new LookWriter(server.send));
-      expect(card.snapshot.hidden, panels).toEqual([]);
+      expect(card.snapshot.hidden, panels).toEqual(hidden);
       card.reset();
-      expect(server.calls[0].patch, panels).toEqual({ panels: "glass", background: "atlantic" });
+      expect(server.calls[0].patch, panels).toEqual(reset);
       server.calls[0].accept(); await flush();
       card.undo();
-      expect(server.calls[1].patch, panels).toEqual({ panels, background: "plain" });
+      expect(server.calls[1].patch, panels).toEqual(undo);
     }
+  });
+
+  it("keep Transparency out of sight while the card shows another Panels than Liquid, and in sight the moment it shows Liquid", () => {
+    const server = fakeServer({ ...HARBOR, transparency: "medium" });
+    const card = lookUnit(LOOK_CARDS[1], server.stored(), new LookWriter(server.send));
+    expect(card.snapshot.hidden).toEqual(["look.transparency"]);
+    card.choose(unitKey("panels"), "liquid");
+    expect(card.snapshot.hidden).toEqual([]);
+    expect(card.snapshot.values["look.transparency"]).toBe("medium");
+    card.choose(unitKey("panels"), "paper");
+    expect(card.snapshot.hidden).toEqual(["look.transparency"]);
   });
 
   it("put a refusal naming a pick under its row, and keep nothing", async () => {

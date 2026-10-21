@@ -9,7 +9,7 @@
 # prove the value never reaches a log line, an exported archive, or an error
 # message. They are invented strings and grant access to nothing.
 src/app/api/connections/postgis/[id]/preview/route.test.ts:generic-api-key:63
-src/app/api/settings/route.test.ts:generic-api-key:150
+src/app/api/settings/route.test.ts:generic-api-key:151
 # The same key as it sat in the commit that added it; a scan over the
 # history keys its findings by commit and line, and the line has moved.
 5bdbc71f876eb93f54e65b76282e4fc7da55421b:src/app/api/settings/route.test.ts:generic-api-key:129

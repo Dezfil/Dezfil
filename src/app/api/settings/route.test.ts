@@ -93,8 +93,9 @@ describe("view preferences per screen (workflows)", () => {
 describe("the look: its picks, read whole and written in part", () => {
   const TODAY = {
     color: "kelp", contrast: "standard", font: "inter", background: "atlantic", corners: "rounded", rail: "hover", panels: "glass",
+    transparency: "clear",
   };
-  const PICKS = "color, contrast, font, background, corners, rail, panels";
+  const PICKS = "color, contrast, font, background, corners, rail, panels, transparency";
   type Refusal = { error: { code: string; message: string } };
   const storedLook = () => (JSON.parse((metadataDb().prepare("SELECT view_prefs FROM account_preferences WHERE account_id = ?")
     .get(accountId) as { view_prefs: string }).view_prefs) as Json).look;
