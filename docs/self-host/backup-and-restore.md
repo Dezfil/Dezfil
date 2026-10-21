@@ -15,7 +15,7 @@ moved_from:
   - "/docs/operate/runbook/"
 ---
 
-Everything your instance keeps is in one folder, the data folder: `/data` in the container, held in the `dezfil-data` volume. A backup is a copy of that folder, made while Dezfil is stopped.
+Everything your instance keeps is in one folder, the data folder: `/data` in the container, held in the `dezfil-data` volume. A backup is a copy of that folder, made while Dezfil is stopped. The variables you start Dezfil with stay outside it, `DEZFIL_SECRET_KEY` among them.
 
 The commands use the names from [Install](../start/install.md): a container and an image called `dezfil`, and a volume called `dezfil-data`. They work the same with Docker Compose, whose container is also called `dezfil`.
 
@@ -24,30 +24,31 @@ The commands use the names from [Install](../start/install.md): a container and 
 ```sh title="Terminal"
 docker stop dezfil
 mkdir "$HOME/dezfil-backup" && docker run --rm --user root --entrypoint sh \
+  -e OWNER="$(id -u):$(id -g)" \
   -v dezfil-data:/data:ro -v "$HOME/dezfil-backup:/backup" dezfil \
-  -c 'cp -a /data/. /backup/'
+  -c 'cp -a /data/. /backup/ && chown -R "$OWNER" /backup && chmod 700 /backup && echo Copied'
 docker start dezfil
 ```
 
 - `docker stop dezfil` stops Dezfil, so no write lands halfway through the copy.
-- `mkdir` makes the folder the copy goes into, outside the `Dezfil` folder, so a build leaves it out. If the folder exists, `mkdir` fails and `&&` skips the copy, so an earlier backup is never overwritten: move that one away first.
-- `docker run --rm --user root --entrypoint sh` runs a shell as root in a throwaway container of your `dezfil` image, so it can read every file.
+- `mkdir` makes the folder outside the `Dezfil` folder, so a build leaves it out. If the folder exists, `mkdir` fails and `&&` skips the copy, so no earlier backup is overwritten.
+- `docker run --rm --user root --entrypoint sh` runs a shell as root in a throwaway container of your `dezfil` image, so it can read every file. `-e OWNER=…` passes it your user and group.
 - `-v dezfil-data:/data:ro` mounts the volume read-only, and `-v "$HOME/dezfil-backup:/backup"` mounts the new folder.
-- `cp -a /data/. /backup/` copies every file with its owner, mode and times.
+- `cp -a /data/. /backup/` copies every file with its mode and times. `chown -R "$OWNER" /backup` gives the copy to you, and `chmod 700 /backup` lets only you open the folder.
 - `docker start dezfil` starts Dezfil again on the same data, with the same variables.
 
-Check the copy:
+When the copy is done, it prints:
 
-```sh title="Terminal"
-ls "$HOME/dezfil-backup"
+```text title="Output"
+Copied
 ```
 
-You should see `metadata.sqlite` in the list, and `secret.key` once Dezfil has made a key.
+`File exists` instead means an earlier backup is there: move it away, as with `mv "$HOME/dezfil-backup" "$HOME/dezfil-backup-1"`, and run the commands again. The folder holds `metadata.sqlite`, and `secret.key` once Dezfil has made a key.
 
-Write down the version and the settings you start Dezfil with. In the `Dezfil` folder, `git rev-parse --short HEAD` prints the commit you built. Your `compose.yaml`, or the `-e` variables of your `docker run` command, hold the settings.
+Also write down the version and the settings. In the `Dezfil` folder, `git rev-parse --short HEAD` prints the commit you built. The settings are your `docker run` command's `-e` variables, which `docker inspect dezfil` lists under `Env`, or `compose.yaml` and `.env`. Keep `.env` apart from the backup.
 
 > [!WARNING]
-> The backup holds every account's password hash and, as `secret.key`, the encryption key. Keep it where only you can read it.
+> The backup holds every account's password hash and, as `secret.key`, the encryption key. Keep every copy of it where only you can read it, as the command leaves this one.
 
 ## What the backup holds
 
@@ -85,29 +86,30 @@ The key is in one of two places:
 
 To see which, open **Settings** > **System**. In **Server settings**, the **Encryption key** row reads **secret.key in the data folder**, **Not created yet** or **Set**. **Set** means the key comes from `DEZFIL_SECRET_KEY`, and the **Source** column reads **Environment**.
 
-If you set `DEZFIL_SECRET_KEY`, keep a copy of its value, such as the `.env` file of [Docker Compose](docker-compose.md), in another place than the backup folder. A restore needs both, and either one alone cannot read the saved passwords.
+If you set `DEZFIL_SECRET_KEY`, keep its value, as in the `.env` file of [Docker Compose](docker-compose.md), apart from the backup folder. A restore needs it, unless the backup holds the same key as `secret.key`, as it does for a key you moved from the file into the variable.
 
 To move a key Dezfil made into the variable, see [Keep the key you have](docker-compose.md#keep-the-key-you-have).
 
 > [!WARNING]
-> A restore needs the key the backup was made with. With another key, Dezfil cannot read the saved connection passwords and service addresses, and you enter each one again.
+> A restore needs the key the backup was made with. With another key, Dezfil cannot read the saved connection passwords and service addresses: you save each address again, and delete and add each connection again.
 
 ## Restore
 
 Restoring replaces everything in the volume with the backup, and work done since the backup is lost. Step 1 keeps a copy of the current data, in case you want it later.
 
-Start the version that made the backup. If you have upgraded since, [go back to the old version](upgrade.md#go-back-to-the-old-version) instead: it restores the backup with the image you kept.
+A newer version brings a restored backup up to date when it starts. An older version cannot use data a newer one updated: after an upgrade, [go back to the old version](upgrade.md#go-back-to-the-old-version) instead.
 
 ### 1. Stop Dezfil and keep the current data
 
 ```sh title="Terminal"
 docker stop dezfil
 mkdir "$HOME/dezfil-before-restore" && docker run --rm --user root --entrypoint sh \
+  -e OWNER="$(id -u):$(id -g)" \
   -v dezfil-data:/data:ro -v "$HOME/dezfil-before-restore:/backup" dezfil \
-  -c 'cp -a /data/. /backup/'
+  -c 'cp -a /data/. /backup/ && chown -R "$OWNER" /backup && chmod 700 /backup && echo Copied'
 ```
 
-It is the backup command with another folder, and you check it the same way. Skip the copy if the volume holds nothing you need.
+It is the backup command with another folder, and it prints `Copied` the same way. If the volume holds nothing you need, run only `docker stop dezfil`: the restore needs Dezfil stopped.
 
 ### 2. Copy the backup into the volume
 
@@ -152,19 +154,49 @@ Then sign in and open **Maps**. You should see your maps as they were at the bac
 
 ## Move to another machine
 
-1. Copy the backup folder to the new machine, into your home folder. There, `ls "$HOME/dezfil-backup"` should list `metadata.sqlite`.
+1. Copy the backup folder to the new machine, into your home folder, as with `scp -r`. There, `ls "$HOME/dezfil-backup"` should list `metadata.sqlite`, and `secret.key` if the old folder held one.
 2. Clone Dezfil there with `git clone https://github.com/Dezfil/Dezfil.git`, then run `git checkout <COMMIT>` in the `Dezfil` folder with the commit you noted. `git rev-parse --short HEAD` should print that commit.
 3. In the `Dezfil` folder, build the image with `docker build -t dezfil .`. `docker image ls dezfil` should then list it.
 4. Run the command of [step 2](#2-copy-the-backup-into-the-volume) of Restore. It creates the `dezfil-data` volume, fills it with the backup and prints `Restored`.
-5. Start Dezfil with the `docker run` command of [Install](../start/install.md) and the variables the old instance had, `DEZFIL_SECRET_KEY` included. With Docker Compose, copy your `compose.yaml`, and `.env` if you have one, into the `Dezfil` folder, then run `docker compose up -d`. You should see your maps when you sign in.
+5. Start Dezfil on the volume, with the settings the old instance had:
+
+::::tabs
+
+:::tab[Docker]
+
+```sh title="Terminal"
+docker run -d --name dezfil -p 127.0.0.1:3000:3000 -v dezfil-data:/data dezfil
+```
+
+Add the `-e` variables of the old instance, `DEZFIL_SECRET_KEY` included.
+
+:::
+
+:::tab[Docker Compose]
+
+Copy your `compose.yaml`, and `.env` if you have one, into the `Dezfil` folder, then run:
+
+```sh title="Terminal"
+docker compose up -d
+```
+
+Compose says the `dezfil-data` volume "already exists but was not created by Docker Compose". It uses the volume all the same.
+
+:::
+
+::::
+
+You should see your maps when you sign in.
 
 ## A development checkout
 
-A checkout keeps its data in its `data` folder, or in the folder `DEZFIL_DATA_DIR` names. Stop the server, then copy the folder:
+A checkout keeps its data in its `data` folder. If you set `DEZFIL_DATA_DIR`, use the folder it names in place of `data`. Stop the server, then copy the folder from the `Dezfil` folder:
 
 ```sh title="Terminal"
 cp -a data "$HOME/dezfil-data-backup"
 ```
+
+`ls "$HOME/dezfil-data-backup"` should list `metadata.sqlite`.
 
 To restore, stop the server, move the current folder aside and put the copy in its place:
 
@@ -177,12 +209,13 @@ Each `cp -a` needs a target that does not exist yet. If it exists, `cp` puts the
 
 ## Troubleshooting
 
-### Dezfil stops after a restore, and its log says "Data directory /data is not writable"
+### After a restore, the log says "Data directory /data is not writable"
 
-The restored files belong to another user. `docker logs dezfil` shows the line. Give the files to `node`, then run `docker start dezfil`:
+Every page, health included, answers `Internal Server Error`, and `docker logs dezfil` shows the line. The restored files belong to another user. Give them to `node`, then restart Dezfil:
 
 ```sh title="Terminal"
 docker run --rm --user root --entrypoint sh -v dezfil-data:/data dezfil -c 'chown -R node:node /data'
+docker restart dezfil
 ```
 
 ### Dezfil shows "Create the first account" after a restore or a move
@@ -197,13 +230,37 @@ docker inspect --format '{{range .Mounts}}{{.Name}}{{end}}' dezfil
 dezfil-data
 ```
 
-If it prints another name, run `docker rm -f dezfil`. Then start Dezfil again with `-v dezfil-data:/data` in the `docker run` command, or with `name: dezfil-data` for the volume in `compose.yaml`.
+If it prints another name, start Dezfil again on `dezfil-data`. Do not create an account there: the first one becomes the admin.
+
+::::tabs
+
+:::tab[Docker]
+
+A new container gets none of the old one's `-e` variables, so list them before you remove it:
+
+```sh title="Terminal"
+docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' dezfil
+docker rm -f dezfil
+docker run -d --name dezfil -p 127.0.0.1:3000:3000 -v dezfil-data:/data dezfil
+```
+
+Add to `docker run` the `-e` variables you set, `DEZFIL_SECRET_KEY` among them. The list also holds the image's own, such as `PATH` and `DEZFIL_DATA_DIR`.
+
+:::
+
+:::tab[Docker Compose]
+
+Give the volume `name: dezfil-data` in `compose.yaml`, as [Docker Compose](docker-compose.md#1-write-the-compose-file) shows, then run `docker compose up -d`.
+
+:::
+
+::::
 
 ### Saved connections or service addresses fail after a restore
 
 Browsing or importing from a saved connection fails with "An unexpected server error occurred.", or a service address in **Settings** says "The instance’s encryption key cannot read the saved address. Save it again." Dezfil runs with another key than the one the backup was made with.
 
-Run Dezfil with the backup's key: the same `DEZFIL_SECRET_KEY` value, or the backup's `secret.key` with the variable unset, since a set variable wins.
+Run Dezfil with the backup's key: the same `DEZFIL_SECRET_KEY` value, or the backup's `secret.key` with the variable unset, since a set variable wins. A container keeps its variables, so replace it as [Set a variable](configuration.md#set-a-variable) shows.
 
 If that key is lost, save each address again. Delete each connection in **Connections** and add it again: its snapshots keep their data, but they cannot refresh.
 
@@ -212,4 +269,4 @@ If that key is lost, save each address again. Delete each connection in **Connec
 - [Upgrade](upgrade.md): back up, then move to a new version.
 - [Docker Compose](docker-compose.md): keep the encryption key in `.env`, outside the data folder.
 - [Users](users.md): recover the admin account when nobody can sign in.
-- [Configuration](configuration.md): `DEZFIL_DATA_DIR`, `DEZFIL_SECRET_KEY` and the other variables.
+- [Storage and programs](configuration/storage.md): `DEZFIL_DATA_DIR`, `DEZFIL_SECRET_KEY` and the programs Dezfil runs.

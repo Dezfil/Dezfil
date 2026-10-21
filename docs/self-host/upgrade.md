@@ -198,7 +198,7 @@ To go back, stop the server, put the copy in place of `data` as that section sho
 
 `docker ps -a` lists the `dezfil` container as `Exited`, or Docker Compose restarts it over and over. Read its log with `docker logs dezfil`. A line with `An error occurred while loading instrumentation hook` names the cause:
 
-- **`Data directory /data is not writable`:** the volume's files belong to another user, often after a restore. Give them back to `node` as [Back up and restore](backup-and-restore.md#dezfil-stops-after-a-restore-and-its-log-says-data-directory-data-is-not-writable) shows, then start Dezfil again.
+- **`Data directory /data is not writable`:** the volume's files belong to another user, often after a restore. Give them back to `node` as [Back up and restore](backup-and-restore.md#after-a-restore-the-log-says-data-directory-data-is-not-writable) shows, then start Dezfil again.
 - **Anything else:** go back to the old version as above, and keep the log line for a bug report.
 
 ### `git pull` says "You are not currently on a branch."

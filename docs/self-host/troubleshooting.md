@@ -59,7 +59,7 @@ As an admin, also open **Settings** > **System**. The **Status** card shows the 
 
 | The log says | Fix |
 |---|---|
-| `Data directory /data is not writable` | The files in the volume belong to another user, often after a restore. Give them to `node`, the user Dezfil runs as, as [Back up and restore](backup-and-restore.md#dezfil-stops-after-a-restore-and-its-log-says-data-directory-data-is-not-writable) shows. |
+| `Data directory /data is not writable` | The files in the volume belong to another user, often after a restore. Give them to `node`, the user Dezfil runs as, as [Back up and restore](backup-and-restore.md#after-a-restore-the-log-says-data-directory-data-is-not-writable) shows. |
 | `Data directory <PATH> cannot be created` | `DEZFIL_DATA_DIR` names a folder the container cannot create. Remove the variable and replace the container: the image keeps its data in `/data`. |
 | `DEZFIL_SESSION_COOKIE must be a non-empty cookie-name token` | Use only letters, digits, `-` and `_` in the name, or remove the variable. Then replace the container. |
 | `Invalid trusted proxy network` or `Invalid ingress address` | `DEZFIL_TRUSTED_PROXIES` takes IP addresses and CIDR ranges, separated by commas. A host name is refused. Then replace the container. |
