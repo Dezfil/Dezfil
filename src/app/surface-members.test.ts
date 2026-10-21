@@ -651,7 +651,7 @@ describe("the members of each role", () => {
     expect(tile.background).toMatch(/var\(--gc,/);
     // Its ground is the inner card's fill under its group tint: today's colour to the digit.
     expect(tile.background).toContain("var(--surface-inner-card-fill)");
-    expect(resolveThroughBlock(tile.background)).toBe("color-mix(in srgb, var(--gc, var(--fg-muted)) 12%, var(--bg-panel))");
+    expect(resolveThroughBlock(tile.background)).toBe("color-mix(in srgb, var(--gc, var(--fg-muted-palette)) 12%, var(--bg-panel))");
     // Selected, the ring is drawn first, so it paints above the shadow as it did.
     expect(Object.fromEntries(declarations(canvas, ".member[data-sel] .tBox")!)["box-shadow"])
       .toBe("0 0 0 3px var(--accent-dim), var(--surface-inner-card-shadow-lifted)");

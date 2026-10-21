@@ -138,7 +138,7 @@
 
 .quietBtn:hover {
   color: var(--fg);
-  border-color: var(--fg-faint);
+  border-color: var(--fg-faint-palette);
 }
 
 .dangerBtn {

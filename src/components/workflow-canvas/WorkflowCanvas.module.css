@@ -85,9 +85,9 @@
   position: absolute;
   display: grid;
   place-items: center;
-  border: 1.5px solid color-mix(in srgb, var(--gc, var(--fg-muted)) 30%, transparent);
+  border: 1.5px solid color-mix(in srgb, var(--gc, var(--fg-muted-palette)) 30%, transparent);
   border-radius: var(--radius-card);
-  background: color-mix(in srgb, var(--gc, var(--fg-muted)) 12%, var(--surface-inner-card-fill));
+  background: color-mix(in srgb, var(--gc, var(--fg-muted-palette)) 12%, var(--surface-inner-card-fill));
   backdrop-filter: var(--surface-inner-card-blur);
   box-shadow: var(--surface-inner-card-shadow);
   transition:
@@ -484,7 +484,7 @@
    and the tip darker still, so the direction reads at every zoom) ---- */
 .edge .link {
   fill: none;
-  stroke: var(--fg-faint);
+  stroke: var(--fg-faint-palette);
   stroke-width: 1.8;
 }
 
@@ -504,7 +504,7 @@
 }
 
 .edge[data-time="lineage"] .link {
-  stroke: var(--fg-faint);
+  stroke: var(--fg-faint-palette);
   stroke-dasharray: 2 4;
   opacity: 0.75;
 }
@@ -825,7 +825,7 @@ button.tableRow:hover {
   border-radius: var(--radius);
   display: grid;
   place-items: center;
-  background: color-mix(in srgb, var(--gc, var(--fg-muted)) 12%, transparent);
+  background: color-mix(in srgb, var(--gc, var(--fg-muted-palette)) 12%, transparent);
   color: var(--gc, var(--fg-muted));
 }
 

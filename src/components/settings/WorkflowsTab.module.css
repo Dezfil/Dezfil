@@ -32,7 +32,7 @@
 
 .edge {
   fill: none;
-  stroke: var(--fg-faint);
+  stroke: var(--fg-faint-palette);
   stroke-width: 1;
 }
 
