@@ -170,6 +170,10 @@
    theme. */
 :root[data-theme="dark"],
 [data-view-theme="dark"] {
+  /* The browser's own parts follow: scrollbars, form popups, and the bare
+     canvas a hidden page shows while the session is read again. */
+  color-scheme: dark;
+
   --entry-pane-mark: #e9ecf3;
   --entry-pane-text: rgba(233, 236, 243, 0.9);
   --entry-pane-muted: rgba(233, 236, 243, 0.55);
@@ -322,15 +326,33 @@ button:disabled {
   }
 }
 
+/* A scrollbar shows only while the pointer is over what it scrolls. Every
+   element states its own colors, so a hovered ancestor never reveals the
+   bar of a sibling the pointer is not over. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+*:hover {
+  scrollbar-color: var(--border-strong) transparent;
+}
+
+/* The same for browsers that style scrollbars only through these. */
 ::-webkit-scrollbar {
   width: 10px;
   height: 10px;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--border-strong);
+  background: transparent;
   border-radius: 5px;
-  border: 2px solid var(--bg);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+:hover::-webkit-scrollbar-thumb {
+  background-color: var(--border-strong);
 }
 
 ::-webkit-scrollbar-track {
