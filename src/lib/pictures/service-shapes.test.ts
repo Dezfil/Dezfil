@@ -4,7 +4,7 @@ import { afterAll, expect, it, vi } from "vitest";
 /** The renderer stand-in answers each shape exactly as asked: a master of
  * the definition's size and every kept size in its format, under a
  * complete declaration; every call is recorded. */
-const calls = vi.hoisted(() => [] as { appearance: string; size: { width: number; height: number }; mapScale?: number; sizes: { width: number; type: string }[]; padding: unknown }[]);
+const calls = vi.hoisted(() => [] as { appearance: string; size: { width: number; height: number }; mapScale?: number; sizes: { width: number; type: string }[]; padding: unknown; requestRule?: string; budgetMs?: number }[]);
 const encoding = vi.hoisted(() => ({ failWide: false }));
 vi.mock("@/lib/export/render-image", async () => {
   const { captureBasemap } = await import("@/lib/thumbnail-evidence");
@@ -21,11 +21,11 @@ vi.mock("@/lib/export/render-image", async () => {
     return new Uint8Array(bytes);
   };
   return {
-    renderMapImage: async (_scope: unknown, input: { mapId: string; definition: { appearance: "light" | "dark"; size: { width: number; height: number }; mapScale?: number }; picture: { frame: { padding: unknown }; sizes: { width: number; height: number; type: string }[] }; admitted?: () => void }) => {
+    renderMapImage: async (_scope: unknown, input: { mapId: string; definition: { appearance: "light" | "dark"; size: { width: number; height: number }; mapScale?: number }; picture: { frame: { padding: unknown }; sizes: { width: number; height: number; type: string }[] }; admitted?: () => void; requestRule?: string; budgetMs?: number }) => {
       input.admitted?.();
       // The wide master is the one 3312 pixels wide.
       if (encoding.failWide && input.picture.sizes.some(s => s.width === 3312)) throw new Error("The picture could not be encoded: the browser answered image/png.");
-      calls.push({ appearance: input.definition.appearance, size: input.definition.size, mapScale: input.definition.mapScale, sizes: input.picture.sizes.map((s) => ({ width: s.width, type: s.type })), padding: input.picture.frame.padding });
+      calls.push({ appearance: input.definition.appearance, size: input.definition.size, mapScale: input.definition.mapScale, sizes: input.picture.sizes.map((s) => ({ width: s.width, type: s.type })), padding: input.picture.frame.padding, requestRule: input.requestRule, budgetMs: input.budgetMs });
       const style = captureBasemap(input.mapId, input.definition.appearance)!.url;
       return {
         png: header(input.definition.size.width, input.definition.size.height),
@@ -63,6 +63,10 @@ it("renders both shapes of each appearance, framed by their own margins, and pub
     expect(call.mapScale).toBe(spec.scale);
     expect(call.padding).toEqual(spec.padding);
     expect(call.sizes.filter((s) => s.type === "image/webp").map((s) => s.width)).toEqual(spec.widths);
+    // A slow tile is waited on as long as an export waits, inside the
+    // picture's own budget.
+    expect(call.requestRule).toBe("export");
+    expect(call.budgetMs).toBe(30_000);
   }
   expect(await publishedPictureSized(map.id)).toBe(true);
   expect((await readPicture(scope, map.id, "dark", { shape: "wide", width: 2000 }))?.type).toBe("image/webp");

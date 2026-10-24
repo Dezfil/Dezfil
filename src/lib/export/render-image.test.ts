@@ -343,6 +343,16 @@ describe("renderMapImage — bounds and lifecycle", () => {
     expect(seen).toEqual([limits.exportRequestTimeoutMs, 10_000]);
     expect(seen[1]).toBeLessThan(seen[0]);
   });
+
+  it("hands the driver the export road's bound when the call asks for the export's rule", async () => {
+    const seen: number[] = [];
+    const { browser } = browserStub({
+      render: async (input) => { seen.push(input.requestBoundMs); return { png: PNG }; },
+    });
+    await renderMapImage(testAccountScope(), { mapId: "m", definition: def(), credential: "fixture-render-credential", baseUrl: "http://127.0.0.1:3000", driver: driverOf(browser), budgetMs: 30_000, requestRule: "export" });
+    await renderMapImage(testAccountScope(), { mapId: "m", definition: def(), credential: "fixture-render-credential", baseUrl: "http://127.0.0.1:3000", driver: driverOf(browser), budgetMs: 30_000, requestRule: "budget" });
+    expect(seen).toEqual([limits.exportRequestTimeoutMs, 10_000]);
+  });
 });
 
 describe("physical renders are counted at the renderer", () => {
