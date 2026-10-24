@@ -118,7 +118,7 @@ describe("keeping a picture", () => {
     expect(admitted.headers.get("cache-control")).toBeNull();
     // Signed out, or a published visitor holding only a published page's
     // address: refused before the route, unkept.
-    for (const headers of [{}, { referer: "http://instance.test/v/published-token" }]) {
+    for (const headers of [{}, { referer: "http://instance.test/v/published-token" }] as Record<string, string>[]) {
       const refusedHere = gateRequest(request(headers));
       expect(refusedHere.status).toBe(401);
       expect(refusedHere.headers.get("cache-control")).toBe("private, no-store");
