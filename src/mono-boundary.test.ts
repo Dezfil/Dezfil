@@ -78,7 +78,7 @@ const ALLOWED = new Set([
   // on Users, beside a person in the share dialog, beside a person's group
   // in the console's source list, and in the catalogue's line naming a
   // dataset as a map's SQL types it.
-  "src/components/users/UsersScreen.module.css :: .sqlName",
+  "src/components/users/UsersScreen.module.css :: .facts .sql",
   "src/components/sharing/ShareDialog.module.css :: .sqlName",
   "src/components/sql/SqlConsole.module.css :: .eyebrowSql",
   "src/components/builder/add-layer/AddLayerCatalog.module.css :: .homeLine code",

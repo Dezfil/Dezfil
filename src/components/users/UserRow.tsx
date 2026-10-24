@@ -8,6 +8,9 @@ import { ChevronIcon } from "@/components/ui/icons";
 import { SignInHandOver, type HandOver } from "./SignInHandOver";
 import styles from "./UsersScreen.module.css";
 
+/** A day in the reader's language, the month in words: Oct 20, 2026. */
+const day = (value: string) => new Date(value).toLocaleDateString(undefined, { dateStyle: "medium" });
+
 export function UserRow({ account, own, open, busy, handOver, onToggle, onAccess, onReset, onDone, onDelete }: {
   account: Account; own: boolean; open: boolean; busy: boolean; handOver: HandOver | null;
   onToggle: () => void; onAccess: (patch: { isAdmin?: boolean; status?: "active" | "deactivated" }) => Promise<boolean>;
@@ -24,13 +27,15 @@ export function UserRow({ account, own, open, busy, handOver, onToggle, onAccess
     <button className={styles.rowLine} type="button" aria-expanded={open} aria-controls={id} disabled={busy}
       onClick={() => { setConfirm(null); onToggle(); }}>
       <span className={styles.person}><span className={styles.avatar} aria-hidden>{account.name.trim().split(/\s+/).slice(0, 2).map(word => word[0]).join("").toUpperCase()}</span>
-        <span className={styles.identity}><b>{account.name}{own && <small> · you</small>}</b><span className={styles.sqlName}>{account.sqlName}</span></span></span>
+        <span className={styles.identity}><b>{account.name}{own && <small> · you</small>}</b></span></span>
       <span className={styles.email}>{account.email}</span><span className={styles.role}>{account.isAdmin ? "Admin" : "Member"}</span>
       <StatusDot state={status} tone={account.status === "active" ? "live" : "quiet"} />
-      <span className={styles.seen}>{account.lastSignInAt ? new Date(account.lastSignInAt).toLocaleDateString() : "Never"}</span>
+      <span className={styles.seen}>{account.lastSignInAt ? day(account.lastSignInAt) : "Never"}</span>
       <span className={styles.chevron}><ChevronIcon /></span>
     </button>
     {open && <div id={id} className={styles.expanded}>
+      <p className={styles.facts}><span>Added <b>{day(account.createdAt)}</b></span><span className={styles.sep}>·</span>
+        <span>SQL name <span className={styles.sql}>{account.sqlName}</span></span></p>
       {handOver ? <SignInHandOver value={handOver} onDone={onDone} /> : own ? <div className={styles.actions}>
         <Link href="/settings#password" className={styles.passwordLink}>Change password</Link>
       </div> : confirm ? <div className={styles.actions}>
@@ -39,13 +44,16 @@ export function UserRow({ account, own, open, busy, handOver, onToggle, onAccess
         <Button variant="quiet" disabled={busy} onClick={() => setConfirm(null)}>Cancel</Button>
       </div> : account.status === "deactivated" ? <div className={styles.actions}>
         <Button busy={busy} onClick={() => void onAccess({ status: "active" })}>Reactivate</Button>
-        <span className={styles.grow} /><Button variant="quiet" disabled={busy} onClick={onDelete}>Delete account</Button>
+        <span className={styles.grow} />
+        <span className={styles.dangerZone}><Button variant="danger" disabled={busy} onClick={onDelete}>Delete account</Button></span>
       </div> : <div className={styles.actions}>
         <Button disabled={busy} onClick={() => setConfirm("reset")}>{resetLabel}</Button>
         <Button disabled={busy} onClick={() => void onAccess({ isAdmin: !account.isAdmin })}>{account.isAdmin ? "Remove admin" : "Make admin"}</Button>
-        <span className={styles.grow} /><span className={styles.note}>Added {new Date(account.createdAt).toLocaleDateString()}</span>
-        <Button variant="quiet" disabled={busy} onClick={() => setConfirm("deactivate")}>Deactivate</Button>
-        {account.status === "invited" && <Button variant="quiet" disabled={busy} onClick={onDelete}>Delete account</Button>}
+        <span className={styles.grow} />
+        <span className={styles.dangerZone}>
+          <Button variant="danger" disabled={busy} onClick={() => setConfirm("deactivate")}>Deactivate</Button>
+          {account.status === "invited" && <Button variant="danger" disabled={busy} onClick={onDelete}>Delete account</Button>}
+        </span>
       </div>}
     </div>}
   </div>;
