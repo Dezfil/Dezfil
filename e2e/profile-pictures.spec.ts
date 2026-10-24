@@ -251,13 +251,17 @@ const cardFace = (page: Page) => page.locator("#set-picture [data-face]");
 const chooser = (page: Page) => page.locator("#set-picture input[type=file]");
 const card = (page: Page) => page.locator("section#account");
 
-/** Chooses a file on the card and answers the version the server gave. */
+/** Chooses a file on the card and answers the version the server now
+ * holds. The version is read from the server, not from the upload's answer:
+ * the browser can drop its own copy of that answer's body when it lands
+ * among the page's link prefetches, though the page has read it. */
 async function chooseOnCard(page: Page, file: Upload): Promise<string> {
   const answered = page.waitForResponse((response) => response.url().endsWith("/api/account/picture") && response.request().method() === "PUT");
   await chooser(page).setInputFiles(file);
-  const response = await answered;
-  expect(response.status(), await response.text()).toBe(200);
-  return (await response.json()).account.pictureVersion;
+  expect((await answered).status()).toBe(200);
+  const version = (await (await page.request.get("/api/account")).json()).account.pictureVersion;
+  expect(typeof version).toBe("string");
+  return version;
 }
 
 async function removeOnCard(page: Page): Promise<void> {
