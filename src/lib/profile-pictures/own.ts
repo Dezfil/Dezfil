@@ -22,16 +22,19 @@ const own = (scope: AccountScope) => (db: Database) => { requireAccountScope(sco
 
 /** Set the signed-in account's picture from the request's one file. The
  * write takes its place in the account's order before the body is read;
- * reception and processing run under its work lease, and the received file
- * goes once the processing has settled. Answers the account as it stands. */
+ * reception and processing run under its work lease. The answer leaves as
+ * soon as it is known, a refusal at the processing deadline included; the
+ * lease and the received file are kept until the processing has settled.
+ * Answers the account as it stands. */
 export async function setOwnPicture(scope: AccountScope, request: Request): Promise<Account> {
   const accountId = requireAccountScope(scope);
   const write = admitPictureWrite(accountId, accountId);
+  let settled: Promise<void> = Promise.resolve();
   try {
-    const picture = await write.run(() => receivePicture(request, accountId));
+    const picture = await write.run(() => receivePicture(request, accountId, cleanup => { settled = cleanup; }));
     return (await publishPicture(write, picture, own(scope))).account;
   } finally {
-    write.release();
+    void settled.then(() => write.release());
   }
 }
 
@@ -46,18 +49,15 @@ export async function removeOwnPicture(scope: AccountScope): Promise<Account> {
   }
 }
 
-async function receivePicture(request: Request, accountId: string): Promise<Buffer> {
+/** The received file goes once the processing on it has settled, which
+ * may be after the answer has left. `hold` takes that cleanup so the caller
+ * keeps the work lease until it is done. */
+async function receivePicture(request: Request, accountId: string, hold: (cleanup: Promise<void>) => void): Promise<Buffer> {
   const received = await receiveUpload(request, accountId, PICTURE_RECEPTION);
-  try {
-    const work = normalizePicture(received.tmpPath);
-    try {
-      return await work.picture;
-    } finally {
-      await work.settled;
-    }
-  } finally {
-    // A removal that fails keeps the file's record; the start-up sweep of
-    // the upload scratch and the account's deletion take it.
-    await removeAccountFile(received.tmpPath).catch(() => undefined);
-  }
+  const work = normalizePicture(received.tmpPath);
+  // A removal that fails keeps the file's record; the start-up sweep of
+  // the upload scratch and the account's deletion take it.
+  hold(work.settled.then(() => undefined, () => undefined)
+    .then(() => removeAccountFile(received.tmpPath).catch(() => undefined)));
+  return work.picture;
 }
