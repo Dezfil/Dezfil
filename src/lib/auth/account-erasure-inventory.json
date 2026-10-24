@@ -7113,6 +7113,30 @@
       "roots": [
         "thumbnails/*.png"
       ]
+    },
+    "location:src/lib/map-thumbnails.ts#publishedPictureDigests.names:thumbnailPath": {
+      "stores": [
+        "file:thumbnails"
+      ],
+      "roots": [
+        "thumbnails/*.png"
+      ]
+    },
+    "location:src/lib/map-thumbnails.ts#publishedPictureDigests:inDir": {
+      "stores": [
+        "file:thumbnails"
+      ],
+      "roots": [
+        "thumbnails/*"
+      ]
+    },
+    "location:src/lib/templates/picture-digests.ts#installedTemplatePictureDigests:downloadedTemplatesDir": {
+      "stores": [
+        "file:templates"
+      ],
+      "roots": [
+        "templates"
+      ]
     }
   },
   "files": {

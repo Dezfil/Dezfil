@@ -5,7 +5,7 @@ import { isolatePictureData } from "@/lib/test-support/picture-data";
 import { afterAll, expect, it, vi } from "vitest";
 import { testAccountScope, testAccountRequest } from "@/lib/test-support/accounts";
 import { createMap } from "@/lib/map-service";
-import { closeMetadataDb } from "@/lib/metadata/db";
+import { closeMetadataDb, metadataDb } from "@/lib/metadata/db";
 import { documentFacts } from "@/lib/metadata/document-facts";
 import { GET, PUT } from "./route";
 import { asFirstRecipe, sizedPicture } from "@/lib/test-support/picture-sizes";
@@ -70,6 +70,21 @@ it("answers a picture made by the first sized recipe from its own sizes under ea
     ["", "light:png"],
   ];
   for (const [query, text] of cases) expect(await (await get(map.id, query)).text(), query).toBe(text);
+});
+
+it("refuses a retired picture to a plain read and to a read of a tag the browser holds", async () => {
+  const scope = testAccountScope(), map = createMap(scope, "Retired");
+  await publishPictureFixture(scope, map.id, Buffer.from("light"), Buffer.from("dark"));
+  const first = await get(map.id, "?shape=card&width=720");
+  expect(first.status).toBe(200);
+  const tag = first.headers.get("etag")!;
+  metadataDb().prepare("UPDATE map_pictures SET retired = 1 WHERE map_id = ?").run(map.id);
+  for (const query of ["", "?theme=dark", "?shape=wide", "?shape=card&width=720"]) {
+    expect((await get(map.id, query)).status, query).toBe(404);
+    const held = await get(map.id, query, { "if-none-match": tag });
+    expect(held.status, `${query} with the held tag`).toBe(404);
+    expect(held.headers.get("cache-control")).toBe("private, no-store");
+  }
 });
 
 it.each(["?width=0", "?width=-5", "?width=1.5", "?width=wide", "?width=", "?shape=square", "?shape=", "?shape=card&width=1e3"])("refuses a bad shape or width like a bad theme (%s), unkept", async query => {

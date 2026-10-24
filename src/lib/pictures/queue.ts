@@ -9,6 +9,10 @@ export interface PictureQueueOptions {
   building(mapId: string): boolean;
   capacity(): number;
   run(state: PictureState): Promise<void>;
+  /** Told of each attempt that ends failed, after the row records it,
+   * with the request's failures so far; the attempt holds its slot until
+   * this settles. */
+  failed?(state: PictureState, attemptCount: number): Promise<void> | void;
 }
 /** Pending work is derived from rows; only admitted attempts occupy memory. */
 export class PictureQueue {
@@ -37,11 +41,13 @@ export class PictureQueue {
         }
         const unavailable = error && typeof error === "object" && "code" in error && error.code === "render_unavailable";
         const attemptCount = state.attemptCount + 1;
-        settlePicture(state.mapId, state.requestedGeneration, unavailable ? { state: "unavailable" } : {
-          state: error instanceof PictureRenderError ? error.state : "failed",
+        const outcome = unavailable ? "unavailable" : error instanceof PictureRenderError ? error.state : "failed";
+        const settled = settlePicture(state.mapId, state.requestedGeneration, outcome === "unavailable" ? { state: "unavailable" } : {
+          state: outcome,
           attemptCount,
           nextAttemptAt: o.now() + (attemptCount === 1 ? 0 : attemptCount === 2 ? 60000 : attemptCount === 3 ? 600000 : 3600000),
         }, o.db);
+        if (settled && outcome === "failed") return o.failed?.(state, attemptCount);
       }).finally(() => { this.running.delete(state.mapId); });
       this.running.set(state.mapId, work);
     }

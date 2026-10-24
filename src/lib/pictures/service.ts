@@ -1,12 +1,13 @@
 import { pictureBindings, schedulingBindings, bindingMayUse, rememberBindings, bindingsChanged } from "./bindings";
 import { metadataDb } from "@/lib/metadata/db";
 import { mapOwnerWorkScope } from "@/lib/auth/scope";
-import { publishedPictureFormat, publishedPictureInputs, servedThumbnails } from "@/lib/map-thumbnails";
+import { publishedPictureDigests, publishedPictureFormat, publishedPictureInputs, servedThumbnails } from "@/lib/map-thumbnails";
+import { installedTemplatePictureDigests } from "@/lib/templates/picture-digests";
 import { limits } from "@/lib/limits";
 import { renderMapImage } from "@/lib/export/render-image";
 import { admitResourceWork, inDetachedDeletionWork } from "@/lib/auth/account-deletion-work";
 import { PictureQueue } from "./queue";
-import { getPictureState, requestPicture, requestRemake, type PictureState } from "./state";
+import { getPictureState, requestPicture, requestRemake, retirePicture, RETIREMENT_FAILURES, type PictureState } from "./state";
 import { initializePicture, adoptPicture } from "./migration";
 import { reconcilePictureFiles } from "./reconcile";
 import { pictureTarget, publishPicture } from "./publication";
@@ -35,6 +36,7 @@ export class PictureService {
     this.queue = new PictureQueue({ db: metadataDb(), now: this.now, available: () => this.rendererReady,
       capacity: () => Math.max(1, limits.exportRenderConcurrency - 1),
       building: mapId => !!metadataDb().prepare("SELECT 1 FROM layer_tiles t JOIN layers l ON l.id = t.layer_id WHERE l.map_id = ? AND l.visible = 1 AND t.state = 'building'").get(mapId),
+      failed: (state, attemptCount) => (attemptCount >= RETIREMENT_FAILURES ? this.retireIfSavedView(state) : undefined),
       run: async state => {
         try { await (options.run ?? (state => this.render(state)))(state); }
         catch (error) {
@@ -106,6 +108,25 @@ export class PictureService {
     const format = await publishedPictureFormat(mapId);
     if (format?.sized && format.recipe >= PICTURE_RECIPE) return false;
     return requestRemake(mapId, this.now())?.state === "waiting";
+  }
+  /**
+   * After a request's third failure, retires the published picture when it
+   * was framed at the map's saved view (the single image, or a set with
+   * neither sizes nor a recipe) and is not a template's (marked, or for a
+   * copy made before the mark, bytes a template version on this instance
+   * carries). A picture framed on its data, or a template's, stays served
+   * however often its re-make fails.
+   */
+  private async retireIfSavedView(state: PictureState): Promise<void> {
+    try {
+      const format = await publishedPictureFormat(state.mapId);
+      if (!format || format.recipe !== 0 || format.template) return;
+      const [published, templates] = await Promise.all([publishedPictureDigests(state.mapId), installedTemplatePictureDigests()]);
+      if (published.some((digest) => templates.has(digest))) return;
+      retirePicture(state.mapId, state.requestedGeneration);
+    } catch {
+      // A read that fails leaves the picture as it was; the next failure asks again.
+    }
   }
   dataChanged(datasetId: string): void {
     const now = this.now();

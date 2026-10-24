@@ -5,7 +5,7 @@ import { servableTo } from "./artifact-access";
 import { metadataDb } from "@/lib/metadata/db";
 import { renameSync } from "node:fs";
 import path from "node:path";
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import {
   mkdir,
   readdir,
@@ -19,6 +19,7 @@ import type { ArtifactInputs } from "@/lib/query/evaluation-inputs";
 import type { DrawnBasemap } from "./picture-credit";
 import { KEPT_SHAPE, PICTURE_RECIPE, PICTURE_SHAPE_NAMES, keptWidth, type PictureShape } from "./pictures/shapes";
 import type { PictureImages } from "./pictures/card";
+import { retiredPictures } from "./pictures/state";
 import {
   evidencedImages,
   imageEvidence,
@@ -474,9 +475,10 @@ export interface PictureAnswer {
  * The picture for a theme, as readThumbnail chooses it, and with a shape
  * or a width named, the kept size of that picture: the narrowest of the
  * shape at least that wide, else the widest; a shape alone its widest, a
- * width alone the card's. The PNG's evidence decides whether any of them
- * is served. A picture without kept sizes answers its PNG whatever is
- * named, as does a set whose size file is missing.
+ * width alone the kept shape's. The PNG's evidence decides whether any of
+ * them is served. A picture without kept sizes answers its PNG whatever
+ * is named, as does a set whose size file is missing. A retired picture
+ * answers nothing.
  */
 export async function readPicture(
   scope: AccountScope,
@@ -500,6 +502,8 @@ async function readPublished(
   want: PictureWant,
 ): Promise<PictureAnswer | null> {
   requireMap(scope, mapId);
+  // A retired picture is served to no one, in any theme, shape or size.
+  if (retiredPictures([mapId]).has(mapId)) return null;
   const set = await readSet(mapId);
   const single = thumbnailPath(mapId);
   const order = theme
@@ -561,7 +565,9 @@ export async function servedThumbnails(scope: AccountScope, mapIds: readonly str
   } catch {
     return new Map();
   }
+  const retired = retiredPictures(mapIds);
   const served = await Promise.all(mapIds.map(async (mapId): Promise<[string, DrawnBasemap | null] | null> => {
+    if (retired.has(mapId)) return null;
     const set = names.has(path.basename(thumbnailManifestPath(mapId))) ? await readSet(mapId) : null;
     const files = [set?.light, set?.dark, path.basename(thumbnailPath(mapId))]
       .filter((name): name is string => name !== undefined && names.has(name));
@@ -613,6 +619,9 @@ export function copyThumbnail(scope: AccountScope, from: string, to: string): Pr
   const [first, second] = [from, to].sort();
   return inThumbnailTurn(first, () => inThumbnailTurn(second, async () => {
     authorize();
+    // A retired picture is not carried into a duplicate, which starts
+    // without one.
+    if (retiredPictures([from]).has(from)) return;
     let single: Buffer | undefined;
     try { single = await readFile(thumbnailPath(from)); } catch { /* No single image. */ }
     authorize();
@@ -754,6 +763,21 @@ export async function publishedPictureGeneration(mapId: string): Promise<number 
       } catch { return null; }
     }
     return generation ?? null;
+  });
+}
+
+/** The SHA-256 of each PNG the map's published picture names (its set's,
+ * or the single image), for recognising bytes saved as they came. */
+export async function publishedPictureDigests(mapId: string): Promise<string[]> {
+  return queueTurn(mapId, async () => {
+    const set = await readSet(mapId);
+    const names = set ? [...new Set([set.light, set.dark])] : [path.basename(thumbnailPath(mapId))];
+    const digests: string[] = [];
+    for (const name of names) {
+      try { digests.push(createHash("sha256").update(await readFile(inDir(name))).digest("hex")); }
+      catch { /* A missing file names no bytes. */ }
+    }
+    return digests;
   });
 }
 
