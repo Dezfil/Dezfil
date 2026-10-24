@@ -21,7 +21,7 @@ const ADA: Account = {
   isOriginal: false, createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z", lastSignInAt: null,
 };
 
-interface Call { method: string; file: string | null; answer: (status: number, body: unknown) => Promise<void> }
+interface Call { url: string; method: string; file: string | null; answer: (status: number, body: unknown) => Promise<void> }
 let calls: Call[];
 let told: string[];
 let host: ReturnType<typeof installDomHost>;
@@ -31,9 +31,9 @@ let container: HostElement;
 beforeEach(() => {
   calls = []; told = [];
   vi.stubGlobal("fetch", vi.fn((url: string, init: RequestInit = {}) => new Promise<Response>(resolve => {
-    expect(url).toBe("/api/account/picture");
+    expect(["/api/account/picture", "/api/account"]).toContain(url);
     const sent = init.body instanceof FormData ? init.body.get("file") : null;
-    calls.push({ method: init.method ?? "GET", file: sent instanceof File ? sent.name : null,
+    calls.push({ url, method: init.method ?? "GET", file: sent instanceof File ? sent.name : null,
       answer: async (status, body) => { await act(async () => { resolve(Response.json(body, { status })); await new Promise(r => setTimeout(r, 0)); }); } });
   })));
   host = installDomHost();
@@ -143,6 +143,24 @@ describe("one's own picture on the Account card", () => {
     await calls[0].answer(503, { error: { code: "unavailable", message: "Please try again." } });
     expect(note()).toBeNull();
     expect(picture()).toBe("/api/accounts/ada_okafor/picture?v=p2");
+  });
+
+  it("reads the account again once overlapping requests settle: a late removal behind a refused upload leaves no picture", async () => {
+    await draw({ ...ADA, pictureVersion: "p1" });
+    await click("Remove");
+    await choose("notes.jpg");
+    await calls[1].answer(415, { error: { code: "unsupported_image", message: "Choose a JPEG, PNG or WebP image." } });
+    expect(note()).toContain("Choose a JPEG, PNG or WebP image.");
+    await calls[0].answer(200, pictured());
+    expect(calls.map(call => [call.method, call.url])).toEqual([
+      ["DELETE", "/api/account/picture"], ["PUT", "/api/account/picture"], ["GET", "/api/account"],
+    ]);
+    await calls[2].answer(200, pictured());
+    expect(picture()).toBeNull();
+    expect(buttons()).toContain("Change");
+    expect(buttons()).not.toContain("Remove");
+    expect(note()).toContain("Choose a JPEG, PNG or WebP image.");
+    expect(told).toEqual([ADA.name]);
   });
 
   it("keeps Remove open while an upload is on its way, and Change while a removal is", async () => {

@@ -7,7 +7,7 @@ import { Face } from "@/components/people/Face";
 import { Button } from "@/components/ui/Button";
 import { ErrorNote } from "@/components/ui/ErrorNote";
 import { accountInitials, DISPLAY_NAME_EVENT } from "@/components/UserBadge";
-import { failureMessage } from "./api";
+import { accountRequest, failureMessage } from "./api";
 import { Note } from "./SettingsCard";
 import styles from "./AccountPicture.module.css";
 
@@ -32,28 +32,48 @@ async function pictureWrite(file: File | null): Promise<Account> {
  * once, as a choice is, and apart from the card's typed text, so a pending
  * name, email or password edit is neither saved nor discarded by it, and
  * Cancel leaves the picture. Only the latest request's answer is drawn, so
- * an earlier upload that answers last never puts back an older picture. A
- * failure keeps the picture there was and says why.
+ * an earlier upload that answers last never puts back an older picture.
+ * When requests overlapped or one failed, an answer may have gone undrawn,
+ * so once all have settled the card reads the account again and draws what
+ * the server holds. A failure keeps the picture there was and says why.
  */
 export function AccountPicture({ account }: { account: Account }) {
   const [version, setVersion] = useState(account.pictureVersion);
   const [busy, setBusy] = useState<"change" | "remove" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const latest = useRef(0);
+  const inFlight = useRef(0);
+  const undrawn = useRef(false);
   const chooser = useRef<HTMLInputElement>(null);
+  function draw(updated: Account) {
+    setVersion(updated.pictureVersion);
+    // The side menu reads the account again, as for a new name.
+    window.dispatchEvent(new CustomEvent(DISPLAY_NAME_EVENT, { detail: updated.name }));
+  }
+  async function reconcile(request: number) {
+    try {
+      const { account: current } = await accountRequest<{ account: Account }>("/api/account");
+      if (request === latest.current && !inFlight.current) draw(current);
+    } catch { /* the card keeps what it shows; a failure there already says why */ }
+  }
   async function write(file: File | null) {
     const request = ++latest.current;
+    inFlight.current += 1;
     setBusy(file ? "change" : "remove"); setError(null);
     try {
       const updated = await pictureWrite(file);
-      if (request !== latest.current) return;
-      setVersion(updated.pictureVersion);
-      // The side menu reads the account again, as for a new name.
-      window.dispatchEvent(new CustomEvent(DISPLAY_NAME_EVENT, { detail: updated.name }));
+      if (request === latest.current) draw(updated);
+      else undrawn.current = true;
     } catch (cause) {
       if (request === latest.current) setError(failureMessage(cause));
+      undrawn.current = true;
     } finally {
+      inFlight.current -= 1;
       if (request === latest.current) setBusy(null);
+      if (!inFlight.current && undrawn.current) {
+        undrawn.current = false;
+        void reconcile(latest.current);
+      }
     }
   }
   return <div id="set-picture" className={styles.row}>
