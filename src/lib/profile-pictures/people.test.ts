@@ -83,7 +83,10 @@ describe("the column", () => {
     old.pragma("journal_mode = WAL"); old.pragma("foreign_keys = ON");
     old.function("allocate_sql_names", { deterministic: true }, (accounts: unknown) =>
       JSON.stringify(allocateSqlNames(JSON.parse(String(accounts)) as SqlNameIdentity[])));
-    for (let version = 0; version < MIGRATIONS.length - 1; version++) {
+    // The store as it stood just before the picture's column.
+    const pictureColumn = MIGRATIONS.findIndex((migration) => migration.includes("ADD COLUMN picture_version"));
+    expect(pictureColumn).toBeGreaterThan(0);
+    for (let version = 0; version < pictureColumn; version++) {
       if (MIGRATIONS[version] === IDENTITIES_MIGRATION) { rebuildIdentities(old, MIGRATIONS[version], version + 1); continue; }
       old.exec(MIGRATIONS[version]); old.pragma(`user_version = ${version + 1}`);
     }
@@ -94,6 +97,26 @@ describe("the column", () => {
     const upgraded = open(file);
     expect(upgraded.prepare("SELECT id, picture_version FROM accounts").all()).toEqual([{ id: "old", picture_version: null }]);
     expect(getAccount("old", upgraded)).not.toHaveProperty("pictureVersion");
+    upgraded.close();
+  });
+
+  it("upgrades a store that took the picture's column where it stands, adding every later column", () => {
+    const file = path.join(directory, "picture-first.sqlite");
+    const old = new Database(file);
+    old.pragma("journal_mode = WAL"); old.pragma("foreign_keys = ON");
+    old.function("allocate_sql_names", { deterministic: true }, (accounts: unknown) =>
+      JSON.stringify(allocateSqlNames(JSON.parse(String(accounts)) as SqlNameIdentity[])));
+    const pictureColumn = MIGRATIONS.findIndex((migration) => migration.includes("ADD COLUMN picture_version"));
+    for (let version = 0; version <= pictureColumn; version++) {
+      if (MIGRATIONS[version] === IDENTITIES_MIGRATION) { rebuildIdentities(old, MIGRATIONS[version], version + 1); continue; }
+      old.exec(MIGRATIONS[version]); old.pragma(`user_version = ${version + 1}`);
+    }
+    expect((old.pragma("table_info(map_pictures)") as { name: string }[]).map((column) => column.name)).not.toContain("retired");
+    old.close();
+    const upgraded = open(file);
+    expect(upgraded.pragma("user_version", { simple: true })).toBe(MIGRATIONS.length);
+    expect((upgraded.pragma("table_info(map_pictures)") as { name: string }[]).map((column) => column.name)).toContain("retired");
+    expect((upgraded.pragma("table_info(accounts)") as { name: string }[]).map((column) => column.name)).toContain("picture_version");
     upgraded.close();
   });
 
