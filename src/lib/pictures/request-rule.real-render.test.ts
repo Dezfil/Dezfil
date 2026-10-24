@@ -51,9 +51,12 @@ describe.skipIf(!base)("a picture render waits on a slow tile by the export's ru
     expect(path, "Redirect the isolated server's stderr and name the file in DEZFIL_PICTURE_RENDER_LOG").toBeTruthy();
     return path!;
   };
-  /** Ground for the marks: plain, or with land tiles held `ms` around the camera's centre. */
+  /** Ground for the marks: plain, or with land tiles held `ms` in a small
+   * box beside the camera's centre, just north of the equator, which is a
+   * tile boundary at every zoom: one tile covers it. */
+  const HELD_BOX = { w: PICTURE_CAMERA.lng - 0.0005, s: PICTURE_CAMERA.lat + 0.0095, e: PICTURE_CAMERA.lng + 0.0005, n: PICTURE_CAMERA.lat + 0.0105 };
   const groundAt = (ms?: number | "never") => ({ customBasemap: {
-    url: ms === undefined ? `${ground.origin}/plain.json` : `${ground.origin}/hold.json?ms=${ms}&w=${PICTURE_CAMERA.lng - 0.001}&s=${PICTURE_CAMERA.lat - 0.001}&e=${PICTURE_CAMERA.lng + 0.001}&n=${PICTURE_CAMERA.lat + 0.001}`,
+    url: ms === undefined ? `${ground.origin}/plain.json` : `${ground.origin}/hold.json?ms=${ms}&w=${HELD_BOX.w}&s=${HELD_BOX.s}&e=${HELD_BOX.e}&n=${HELD_BOX.n}`,
     name: "Held tile fixture", attribution: [{ label: "Fixture" }],
   } });
   /** The marks' map on `ms`'s ground; the time its last edit was answered. */
@@ -97,6 +100,7 @@ describe.skipIf(!base)("a picture render waits on a slow tile by the export's ru
     expect(cut.closed!, "before the render's budget could run out").toBeLessThan(editedAt + QUIET + BUDGET);
     expect(abandonedLine(await logSince(offset), mapId), "logged as abandoned").toBeTruthy();
     expect(failedAt, "failed as incomplete, not by the budget").toBeLessThan(editedAt + QUIET + BUDGET);
+    console.info(`[request rule] given up: held ${cut.closed! - cut.started} ms, cut ${cut.closed! - editedAt} ms and failed ${failedAt - editedAt} ms after the edit, against ${QUIET + BUDGET} ms for a budget kill`);
   }
 
   it(CONTROL
@@ -117,6 +121,7 @@ describe.skipIf(!base)("a picture render waits on a slow tile by the export's ru
     const tile = now(held);
     expect(tile.closed, "the held tile was not given up").toBeUndefined();
     expect(tile.answered! - tile.started, "answered after its hold").toBeGreaterThanOrEqual(HOLD - 50);
+    console.info(`[request rule] held ${tile.answered! - tile.started} ms from ${held.started - style.started} ms after the style, picture current ${Date.now() - map.editedAt} ms after the edit`);
     const png = new Uint8Array(await (await api.request("GET", `/api/maps/${map.id}/thumbnail?v=${ready.pictureVersion}`)).arrayBuffer());
     assertPictureMarks(Buffer.from(png));
     expect(colourIn(await decodePicture(png), PICTURE_LAND).count, "the held tile is in the picture").toBeGreaterThan(1000);
