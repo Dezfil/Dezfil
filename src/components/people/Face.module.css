@@ -1,0 +1,24 @@
+/* A person's face. The host's class draws the circle: its size, its colour,
+   its letters' type and any dimming. The face only lays the picture over
+   the whole circle once it has loaded; while it loads, and when it fails,
+   the letters show. The picture paints no background of its own, so a
+   transparent one shows the circle's colour through it. */
+
+.face {
+  position: relative;
+  overflow: hidden;
+}
+
+.picture {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  opacity: 0;
+}
+
+.face[data-face="picture"] .picture {
+  opacity: 1;
+}
