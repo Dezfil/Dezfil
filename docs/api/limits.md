@@ -246,6 +246,10 @@ A filter's distinct values, a categorical classification, category widgets and v
 | One statement of a PostGIS preview | 30 seconds, fixed | 408 `query_timeout` |
 | Memory for imports and other data work | **Trusted engine memory** | 422 `engine_memory_exceeded` |
 | A template's archive | 150 MB, and **Largest upload** unpacked | 413 `template_archive_too_large` or `template_unpacked_too_large` |
+| A profile picture | 10 MB, fixed | 413 `upload_too_large` |
+| A profile picture's size in pixels | 64 million, fixed | 413 `image_too_large` |
+| Receiving a profile picture | 60 seconds, fixed | 408 `data_processing_timeout` or `upload_stalled` |
+| Processing a profile picture | 20 seconds with its wait for a turn, one at a time and eight waiting, fixed | 408 `data_processing_timeout`, or 503 `operation_queue_full` |
 
 **Data processing time limit** also holds imports from links, OpenStreetMap, Overture and PostGIS, refreshes, geometry changes, template installs and exports of a dataset or a project.
 

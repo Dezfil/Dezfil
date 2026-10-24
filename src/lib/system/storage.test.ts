@@ -25,6 +25,10 @@ import { keepRequestsOnThisMachine } from "@/lib/test-support/outside-requests";
 import { testAccountScope } from "@/lib/test-support/accounts";
 import { cleanTileScratch, sweepTileArchives } from "@/lib/tiles/build";
 import { buildTools } from "@/lib/tools/tools";
+import { authenticatedRoute } from "@/lib/assistant/testing/account";
+import { testClient } from "@/lib/mcp/test-client";
+import { sweepProfilePictures } from "@/lib/profile-pictures/store";
+import { amountWords, filesWords, STORAGE_ROWS } from "@/components/settings/storage-table";
 import { STORAGE_KINDS, type StorageKind, type StorageRead } from "./storage-answer";
 import { forgetStorageRead, readStorage, STORAGE_WALK_MS } from "./storage";
 
@@ -141,6 +145,8 @@ const L_KEPT = "0b6f3c1e-7d1a-4a52-9c1e-000000000001", L_GONE = "0b6f3c1e-7d1a-4
 const STAGED = "exports/0b6f3c1e-7d1a-4a52-9c1e-0000000000e1.zip";
 /** A staged export registered and not yet written: its record alone is there. */
 const PENDING = "exports/0b6f3c1e-7d1a-4a52-9c1e-0000000000e2.zip";
+/** The admin's current picture, named by its version as the store names it. */
+const PICTURE = "profile-pictures/admin.current.webp";
 
 /** The fixture folder: each kind, an identical pair that differs only in
  * whether the metadata references it, and one of each leftover place. */
@@ -154,6 +160,11 @@ function fixtureFolder() {
   registerAccountFile("admin", STAGED);
   registerAccountFile("admin", "exports/project-0003/archive.zip");
   registerAccountFile("admin", PENDING);
+  // The admin's current picture, a replaced one whose removal failed and an
+  // unfinished write, each registered as the store registers them, and a
+  // picture no account names.
+  p.db.prepare("UPDATE accounts SET picture_version = 'current' WHERE id = 'admin'").run();
+  for (const rel of [PICTURE, "profile-pictures/admin.replaced.webp", "profile-pictures/admin.unfinished.webp.part"]) registerAccountFile("admin", rel);
   const sizes: Record<string, [number, StorageKind]> = {
     "tables/kept.parquet": [1000, "tables"],
     "tables/orphan.parquet": [1000, "leftover_files"],
@@ -170,6 +181,10 @@ function fixtureFolder() {
     [`thumbnails/${mapId}.png.0a1b2c.tmp`]: [70, "leftover_files"],
     [`artifact-inputs/thumbnails/${mapId}.json`]: [30, "thumbnails"],
     [`artifact-inputs/thumbnails/${mapId}.json.3d4e5f.tmp`]: [20, "leftover_files"],
+    [PICTURE]: [900, "profile_pictures"],
+    "profile-pictures/admin.replaced.webp": [800, "leftover_files"],
+    "profile-pictures/admin.unfinished.webp.part": [90, "leftover_files"],
+    "profile-pictures/gone.version.webp": [10, "leftover_files"],
     "cache/geocode/answer-1.json": [60, "service_caches"],
     "cache/overpass/answer-2.json": [80, "service_caches"],
     "secret.key": [32, "other"],
@@ -198,12 +213,14 @@ function expected(sizes: Record<string, [number, StorageKind]>): Record<StorageK
 }
 
 /** The ownership records, each as the restart treats it: a staged export's
- * goes with its file, the kept table's is the server's own. */
+ * goes with its file, as does a picture's that is not current; the kept
+ * table's and the current picture's are the server's own. */
 function ownershipRecords(): { rel: string; size: number; kind: StorageKind }[] {
   return readdirSync(path.join(data, "file-owners")).map(name => {
     const rel = path.join("file-owners", name);
     const record = JSON.parse(readFileSync(path.join(data, rel), "utf8")) as { file: string };
-    return { rel, size: lstatSync(path.join(data, rel)).size, kind: record.file.startsWith("exports/") ? "leftover_files" : "other" };
+    const leftover = record.file.startsWith("exports/") || (record.file.startsWith("profile-pictures/") && record.file !== PICTURE);
+    return { rel, size: lstatSync(path.join(data, rel)).size, kind: leftover ? "leftover_files" : "other" };
   });
 }
 
@@ -219,11 +236,13 @@ describe("the storage read", () => {
     expect(answer.disk!.free).toBeGreaterThan(0);
     expect(answer.disk!.free).toBeLessThanOrEqual(answer.disk!.total);
     // The leftover total is the fixture's with the staged exports' records,
-    // the one whose export is not yet written included, and a restart's five
-    // sweeps remove exactly those files.
+    // the one whose export is not yet written included, and those of the
+    // pictures that are not current; a restart's six sweeps remove exactly
+    // those files.
     const records = ownershipRecords().filter(record => record.kind === "leftover_files");
-    expect(records).toHaveLength(3);
-    expect(answer.kinds.leftover_files.bytes).toBe(1000 + 2000 + 50 + 300 + 400 + 100 + 500 + 600 + 70 + 20 + records.reduce((sum, record) => sum + record.size, 0));
+    expect(records).toHaveLength(5);
+    expect(answer.kinds.leftover_files.bytes).toBe(1000 + 2000 + 50 + 300 + 400 + 100 + 500 + 600 + 70 + 20 + 800 + 90 + 10 + records.reduce((sum, record) => sum + record.size, 0));
+    expect(answer.kinds.profile_pictures).toEqual({ bytes: 900, files: 1, finished: true });
     const leftovers = [...Object.entries(sizes).filter(([, [, kind]]) => kind === "leftover_files").map(([rel]) => rel), ...records.map(record => record.rel)];
     const before = filesNow();
     vi.spyOn(console, "warn").mockImplementation(() => {});
@@ -232,6 +251,7 @@ describe("the storage read", () => {
     await cleanIngestScratch();
     await cleanAbandonedDeletionCandidates();
     await sweepTableArtifacts();
+    await sweepProfilePictures();
     const after = filesNow();
     expect(before.filter(file => !after.includes(file)).sort()).toEqual(leftovers.sort());
     expect(after.filter(file => !before.includes(file))).toEqual([]);
@@ -315,6 +335,7 @@ describe("the storage read", () => {
       const mapId = tiledLayer(scope, layer, `${who} harbour map`);
       put(file, 123); put(`tiles/${layer}.pmtiles`, 45); put(`thumbnails/${mapId}.png`, 67);
       put(`tmp/${who}-upload.csv`, 8); put(`exports/${who}-project/archive.zip`, 9);
+      p.db.prepare("UPDATE accounts SET picture_version = 'v1' WHERE id = ?").run(who); put(`profile-pictures/${who}.v1.webp`, 10);
       names.push(who, `${who}@example.test`, `${who}-dataset`, `${who}_harbours`, `${who}-harbours.parquet`, file, layer, mapId, `${who} harbour map`, `${who}-upload`, `${who}-project`);
     }
     const response = await GET(read());
@@ -325,6 +346,7 @@ describe("the storage read", () => {
     expect(Object.keys(answer.kinds)).toEqual([...STORAGE_KINDS]);
     for (const use of [...Object.values(answer.kinds), answer.total]) expect(Object.keys(use).sort()).toEqual(["bytes", "files", "finished"]);
     expect(answer.kinds.tables).toEqual({ bytes: 246, files: 2, finished: true });
+    expect(answer.kinds.profile_pictures).toEqual({ bytes: 20, files: 2, finished: true });
     const text = JSON.stringify(answer);
     for (const name of names) expect(text, `the answer holds ${name}`).not.toContain(name);
   });
@@ -373,6 +395,28 @@ describe("the storage read", () => {
     // A demoted admin is refused even a kept answer.
     p.db.prepare("UPDATE accounts SET is_admin = 0 WHERE id = 'admin'").run();
     expect((await GET(read())).status).toBe(403);
+  });
+
+  it("gives the pictures' bytes alike through its route, the Storage card's row and the tool through the real transport", async () => {
+    fixtureFolder();
+    const http = await (await GET(read())).json() as StorageRead;
+    // The tool makes its own walk, not one the route's read left behind.
+    forgetStorageRead();
+    const route = authenticatedRoute(GET);
+    const client = await testClient((request) => route(request));
+    let tool: StorageRead;
+    try {
+      const result = await client.callTool({ name: "read_storage", arguments: {} });
+      expect(result.isError ?? false).toBe(false);
+      tool = (result.structuredContent as { result: StorageRead }).result;
+    } finally { await client.close(); }
+    expect(watch.walks).toBe(2);
+    expect(http.kinds.profile_pictures).toEqual({ bytes: 900, files: 1, finished: true });
+    expect(tool.kinds.profile_pictures).toEqual(http.kinds.profile_pictures);
+    // The card's row says what the read says, from either.
+    const row = (answer: StorageRead) => [STORAGE_ROWS.profile_pictures.label, amountWords(answer.kinds.profile_pictures), filesWords(answer.kinds.profile_pictures)];
+    expect(row(tool)).toEqual(row(http));
+    expect(row(http)).toEqual(["Profile pictures", "1 KB", "1 file"]);
   });
 
   it("is a generated tool that asks first, refused by the SQL and workflow assistants", () => {

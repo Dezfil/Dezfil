@@ -38,7 +38,7 @@ Dezfil is one Node.js server in one container. It keeps everything it stores in 
 +-----|-------------|-----------------------------|-------------+
       v             v                             v
  metadata.sqlite  tables/ (GeoParquet)          tiles/ (PMTiles)
-                                                thumbnails/
+ profile-pictures/ (WebP)                       thumbnails/
  (all in the data folder)
 ```
 
@@ -56,6 +56,7 @@ The data folder is `DEZFIL_DATA_DIR`, with its default in [Storage and programs]
 | Service modules | `src/lib/` | The work behind the routes: imports, layers, tiles, operations, publishing, sharing |
 | API description | `src/lib/api/openapi.ts` and the `openapi-*.ts` files beside it | The OpenAPI description, served at `GET /api/openapi.json` and written to `docs/api/openapi.json` |
 | Metadata store | `src/lib/metadata/` | Accounts, maps, layers, projects, workflows and settings in `metadata.sqlite`, with the migrations that build it |
+| Profile pictures | `src/lib/profile-pictures/` | Turns a person's upload into the server's own WebP in `profile-pictures/`, one per account, and serves it |
 | Trusted DuckDB | `src/lib/duckdb.ts`, `src/lib/trusted-*.ts`, `src/lib/ingest/` | Reads imported files and writes each dataset as one GeoParquet file in `tables/` |
 | Hardened DuckDB | `src/lib/duckdb.ts`, `src/lib/query/` | Runs user SQL and every layer's query, fenced to `tables/` and the tile scratch folder |
 | Tile builder | `src/lib/tiles/` | Builds a PMTiles archive with tippecanoe for a large point layer, and serves its tiles from the archive |

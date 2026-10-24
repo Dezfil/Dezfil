@@ -60,6 +60,7 @@ To see the sizes before you copy, sign in as an admin and open **Settings** > **
 | `tables/` | Your datasets as GeoParquet files, the shapes drawn on maps among them | **Tables** |
 | `tiles/` | Tile archives built for large layers | **Tile archives** |
 | `thumbnails/` | The pictures on map cards | **Thumbnails** |
+| `profile-pictures/` | Each person's picture, as Dezfil keeps it | **Profile pictures** |
 | `templates/` | Downloaded templates | **Templates** |
 | `cache/` | Answers from the address finder, travel time and OpenStreetMap | **Service caches** |
 | `secret.key` | The encryption key, once Dezfil has made one | **Other** |
