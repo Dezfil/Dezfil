@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { WebMercatorViewport } from "@deck.gl/core";
 import type { Bounds } from "@/lib/geo-bounds";
 import { FIT_MAX_ZOOM } from "@/lib/fit-camera";
-import { pageFrame, pictureCamera, readPictureFrame, renderCamera, worldCamera } from "./framing";
+import { pageFrame, pictureCamera, readPictureFrame, renderCamera, widerThanOneWorld, worldCamera } from "./framing";
 import type { ExtentLayer } from "@/lib/map-extent";
 import { PICTURE_SHAPES } from "./shapes";
 
@@ -81,6 +81,68 @@ describe("pictureCamera", () => {
       expect(screen(camera, f, [180, 20]).x).toBeCloseTo(f.width, 6);
     }
     expect(worldCamera({ width: 512 }).zoom).toBe(0);
+  });
+});
+
+describe("data wider than one world", () => {
+  const card = PICTURE_SHAPES.card;
+  const size = card.frame;
+  const frame = { padding: card.padding };
+  // Where the world lands, read through deck.gl's viewport, not the
+  // camera's own fields: the world once, edge to edge, centred on the
+  // prime meridian at 20 degrees north.
+  const acrossOnce = (camera: ReturnType<typeof pictureCamera>) => {
+    expect(screen(camera, size, [-180, 20]).x).toBeCloseTo(0, 6);
+    expect(screen(camera, size, [180, 20]).x).toBeCloseTo(size.width, 6);
+    expect(screen(camera, size, [0, 20]).x).toBeCloseTo(size.width / 2, 6);
+    expect(screen(camera, size, [0, 20]).y).toBeCloseTo(size.height / 2, 6);
+    expect(camera.pitch).toBe(0);
+    expect(camera.bearing).toBe(0);
+  };
+
+  it("draws data spread over most latitudes across one world, whatever the saved tilt and rotation", () => {
+    const tall: Bounds = [[-30, -80], [30, 80]];
+    expect(widerThanOneWorld(tall, size, card.padding)).toBe(true);
+    acrossOnce(pictureCamera(tall, size, frame, {}));
+    acrossOnce(pictureCamera(tall, size, frame, { pitch: 45, bearing: 30 }));
+    // The canvas would clamp this fit (data reaching both poles): the rule
+    // reads Fit's own zoom, so it takes the world instead.
+    acrossOnce(pictureCamera([[-180, -84], [180, 84]], size, frame, {}));
+  });
+
+  it("draws data around most longitudes but few latitudes across one world", () => {
+    const ring: Bounds = [[-170, -5], [170, 5]];
+    expect(widerThanOneWorld(ring, size, card.padding)).toBe(true);
+    acrossOnce(pictureCamera(ring, size, frame, { bearing: 90 }));
+  });
+
+  it("keeps Fit where the world it draws is at least as wide as the frame", () => {
+    // The boundary: Fit's world is exactly the frame's width when the
+    // data's span fills the room between the side margins.
+    const room = (size.width - card.padding.left - card.padding.right) / size.width;
+    const at = (span: number): Bounds => [[-span / 2, -1], [span / 2, 1]];
+    expect(widerThanOneWorld(at(360 * room * 0.99), size, card.padding)).toBe(false);
+    expect(widerThanOneWorld(at(360 * room * 1.01), size, card.padding)).toBe(true);
+    // Near the pole but narrower than one world: Svalbard with northern
+    // Greenland keeps Fit, tilt and rotation included.
+    const arctic: Bounds = [[-60, 76], [30, 82]];
+    expect(widerThanOneWorld(arctic, size, card.padding)).toBe(false);
+    const camera = pictureCamera(arctic, size, frame, { pitch: 30, bearing: 20 });
+    expect(camera.pitch).toBe(30);
+    expect(camera.bearing).toBe(20);
+    expect(camera.zoom).toBeGreaterThan(worldCamera(size).zoom);
+  });
+
+  it("switches with a filter that brings the data under one world, and back", () => {
+    const year = (lng: number, lat: number, y: number) => ({ type: "Feature", properties: { year: y }, geometry: { type: "Point", coordinates: [lng, lat] } });
+    const layer = (dims: ExtentLayer["dims"]): ExtentLayer => ({
+      id: "q", visible: true, dims, tiles: null,
+      geojson: { type: "FeatureCollection", features: [year(13.3, 52.5, 2000), year(13.5, 52.6, 2001), year(-150, -60, 2020), year(170, 70, 2020)] },
+    });
+    acrossOnce(renderCamera(frame, [layer([])], size, {}) as ReturnType<typeof pictureCamera>);
+    const berlin = renderCamera(frame, [layer([{ field: "year", kind: "range", range: [1990, 2010] }])], size, {});
+    expect(berlin).toEqual(pictureCamera([[13.3, 52.5], [13.5, 52.6]], size, frame, {}));
+    expect((berlin as ReturnType<typeof pictureCamera>).zoom).toBeGreaterThan(5);
   });
 });
 
