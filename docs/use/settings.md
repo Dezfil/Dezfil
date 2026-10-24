@@ -103,7 +103,7 @@ To go back to your initials, click **Remove**.
 
 ## Change your password
 
-![The Account tab: Display name, the SQL name beneath it, Email, and Change password opened with Current password and New password fields](../images/use/settings-account.webp)
+![The Account tab: the round picture showing the initials beside Change and the note that pictures are cropped to a square, then Display name, the SQL name beneath it, Email, and Change password opened with Current password and New password fields](../images/use/settings-account.webp)
 
 1. On **Account**, click **Change password**.
 2. Fill in **Current password** and **New password**. The line under **New password** names the fewest characters it needs.
