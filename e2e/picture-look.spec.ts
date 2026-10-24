@@ -80,11 +80,14 @@ async function atRest(page: Page) {
   await page.waitForFunction(() => document.getAnimations().every((a) => a.playState !== "running" || a.effect?.getComputedTiming().iterations === Infinity));
 }
 
+/** The page's theme: dark is marked on the root, light is its absence. */
+const themeOf = (page: Page) => page.evaluate(() => (document.documentElement.dataset.theme === "dark" ? "dark" : "light"));
+
 async function setTheme(page: Page, theme: "light" | "dark") {
-  for (let i = 0; i < 2 && (await page.evaluate(() => document.documentElement.dataset.theme)) !== theme; i += 1) {
+  for (let i = 0; i < 2 && (await themeOf(page)) !== theme; i += 1) {
     await page.getByRole("button", { name: "Switch between dark and light theme" }).click();
   }
-  await expect.poll(() => page.evaluate(() => document.documentElement.dataset.theme)).toBe(theme);
+  await expect.poll(() => themeOf(page)).toBe(theme);
 }
 
 type Rgb = [number, number, number];
@@ -105,6 +108,8 @@ const apart = (a: Rgb, b: Rgb) => Math.max(...a.map((v, i) => Math.abs(v - b[i])
  * out as the host lays it out (covering its box, centred): their largest
  * difference in any channel, 0 to 255. */
 async function footDifference(page: Page, img: Locator): Promise<number> {
+  // A screenshot's clip reaches only the window, so the picture is brought into it first.
+  await img.scrollIntoViewIfNeeded();
   await atRest(page);
   const box = (await img.boundingBox())!;
   const dpr = await page.evaluate(() => devicePixelRatio);
@@ -204,8 +209,9 @@ test("a map template's place label reads at 4.5 to 1 or more over every shipped 
       const card = cards.nth(i);
       await expect(card.locator("img")).toHaveAttribute("src", new RegExp(`theme=${theme}`));
       await expect(card.locator("img")).toHaveAttribute("data-loaded", "", { timeout: 30000 });
-      await atRest(page);
       const label = card.locator('[data-field="place"]');
+      await label.scrollIntoViewIfNeeded();
+      await atRest(page);
       const box = (await label.boundingBox())!;
       // The words' own colour, as the browser resolves it.
       const words = await label.evaluate((el) => {
@@ -246,6 +252,7 @@ async function windowFor(page: Page, home: number): Promise<number> {
  * the 180th meridian at its two sides. */
 async function expectWorldAcross(page: Page, img: Locator, what: string) {
   await expect(img, `${what}: the picture is drawn`).toHaveAttribute("data-loaded", "", { timeout: 30000 });
+  await img.scrollIntoViewIfNeeded();
   await atRest(page);
   const box = (await img.boundingBox())!;
   const { frame } = PICTURE_SHAPE;
