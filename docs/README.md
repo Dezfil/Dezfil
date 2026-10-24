@@ -83,8 +83,8 @@ Do things in the app: data, maps, SQL, workflows and sharing.
 
 - [Your settings](use/settings.md)
   - path: `docs/use/settings.md`
-  - summary: Change your look, light or dark, how your lists are laid out and sorted, and your name, email and password.
-  - read when: you want another color, typeface, background or panel style, or the side menu always open; you want the dark theme; you want your maps, data, workflows or projects as a list, or sorted another way; you want to change your display name, email or password; you want to know which choices follow you to another browser
+  - summary: Change your look, light or dark, how your lists are laid out and sorted, and your name, picture, email and password.
+  - read when: you want another color, typeface, background or panel style, or the side menu always open; you want the dark theme; you want your maps, data, workflows or projects as a list, or sorted another way; you want to change your display name, picture, email or password; you want to know which choices follow you to another browser
   - audience: user
 
 ## Self-host

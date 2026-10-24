@@ -1,11 +1,11 @@
 ---
 title: "Your settings"
-summary: "Change your look, light or dark, how your lists are laid out and sorted, and your name, email and password."
+summary: "Change your look, light or dark, how your lists are laid out and sorted, and your name, picture, email and password."
 read_when:
   - "you want another color, typeface, background or panel style, or the side menu always open"
   - "you want the dark theme"
   - "you want your maps, data, workflows or projects as a list, or sorted another way"
-  - "you want to change your display name, email or password"
+  - "you want to change your display name, picture, email or password"
   - "you want to know which choices follow you to another browser"
 audience:
   - user
@@ -81,7 +81,7 @@ Each screen keeps its own layout and sort. The next time you open it, it opens t
 
 ## Change your name or email
 
-1. Click your initials or name at the foot of the side menu. **Settings** opens on **Account**.
+1. Click your picture or initials at the foot of the side menu. **Settings** opens on **Account**.
 2. Change **Display name** (up to 80 characters) or **Email**. **Save** and **Cancel** appear while a field differs from what is saved.
 3. For a new email, also type your password in **Current password to change email**.
 4. Click **Save**. You should see **Saved** beside the field.
@@ -89,6 +89,17 @@ Each screen keeps its own layout and sort. The next time you open it, it opens t
 You sign in with the new email from then on.
 
 Your **SQL name** stays as it is. Other people's queries name your datasets with it, as [Query with SQL](sql.md#other-peoples-datasets) shows.
+
+## Set your picture
+
+1. On **Account**, click **Change** beside your initials.
+2. Choose a JPEG, PNG or WebP image of up to 10 MB. You should see your picture in place of your initials, on the card and in the side menu.
+
+There is no Save button: the picture is kept the moment you choose it. A name, email or password you are typing stays as you left it, unsaved, and **Cancel** leaves the picture.
+
+Dezfil crops the picture to a square from its middle and keeps its own copy, without the camera, place or time the photo recorded. Everyone signed in to your Dezfil sees it wherever Dezfil shows you, such as **Users**, **Share** and your work in their lists. People who open your published maps never see it.
+
+To go back to your initials, click **Remove**.
 
 ## Change your password
 
@@ -114,7 +125,7 @@ Your other browser sessions end, so those browsers ask you to sign in again. You
 | Layout and sort of a list | **Maps**, **Data**, **Workflows**, **Projects** | With your account, for each screen |
 | SQL source grouping | **By person** or **By project** in **SQL**, as [Query with SQL](sql.md#other-peoples-datasets) shows | With your account |
 | Light or dark | The theme button in the top bar | In this browser only |
-| Name, email and password | **Settings** › **Account** | With your account |
+| Name, picture, email and password | **Settings** › **Account** | With your account |
 
 Your SQL draft and query history stay in each browser too, as [Query with SQL](sql.md) explains.
 
@@ -131,6 +142,10 @@ Your SQL draft and query history stay in each browser too, as [Query with SQL](s
 **The card asks for more characters, or says "This password is too common. Choose a different one."** Choose a longer password that is less common.
 
 **Another browser shows another theme or look.** The theme belongs to each browser: click the theme button there. A page already open takes your new look when you reload it.
+
+**The card says "The file is an SVG image. Choose a still JPEG, PNG or WebP image."** Dezfil keeps still JPEG, PNG and WebP pictures only, never an SVG, a GIF or an animated image. Save the picture as a JPEG or PNG and choose it again. Your picture stays as it was.
+
+**The card says "The file is over the 10 MB limit for a picture, which is fixed."** Choose a smaller file. [Limits](../api/limits.md) lists the picture's limits.
 
 **You forgot your password.** Ask an admin to open your account in **Users** and click **Reset password**. They get a sign-in link to pass to you. [Users](../self-host/users.md) has the details.
 

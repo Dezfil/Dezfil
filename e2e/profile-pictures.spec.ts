@@ -3,10 +3,14 @@
 // on the side menu, the Users rows, the Share dialog, the members line, the
 // owner's pill wherever it stands, the role line and the console's rows;
 // a deactivated person's picture is dimmed where their face is dimmed, and
-// a person without one keeps their initials and asks for no picture. Each
-// case makes its own people, invited by the browser fixture's admin with a
-// tag no other spec uses. Run against a fresh scratch instance.
+// a person without one keeps their initials and asks for no picture. The
+// Account card keeps a chosen picture at once, apart from the typed fields,
+// draws only its latest answer, and a browser shows a replaced or removed
+// picture fresh. Each case makes its own people, invited by the browser
+// fixture's admin with a tag no other spec uses. Run against a fresh
+// scratch instance.
 import { test, expect, type APIRequestContext, type Locator, type Page } from "@playwright/test";
+import sharp from "sharp";
 import { readThenWriteRequestSetup } from "./edit-basis";
 import { routeHouse } from "./support";
 import { closeAll, createMapWithLayer, createProject, invitePerson, runTag, share, uploadSentinel, type Person } from "./sharing-support";
@@ -235,6 +239,221 @@ test("a shared project draws its people's pictures on every mark, a deactivated 
       await expectPicture(dialog.locator(`[data-result="${eve.sqlName}"] [data-face]`), eve.sqlName, version.eve);
       await dialog.locator(`[data-result="${eve.sqlName}"]`).click();
       await expectPicture(dialog.locator(`[data-picked="${eve.sqlName}"] [data-face]`), eve.sqlName, version.eve);
+    });
+  } finally {
+    await closeAll(people);
+  }
+});
+
+/** The Account card's face, and the chooser behind its Change. */
+const cardFace = (page: Page) => page.locator("#set-picture [data-face]");
+const chooser = (page: Page) => page.locator("#set-picture input[type=file]");
+const card = (page: Page) => page.locator("section#account");
+
+/** Chooses a file on the card and answers the version the server gave. */
+async function chooseOnCard(page: Page, file: Upload): Promise<string> {
+  const answered = page.waitForResponse((response) => response.url().endsWith("/api/account/picture") && response.request().method() === "PUT");
+  await chooser(page).setInputFiles(file);
+  const response = await answered;
+  expect(response.status(), await response.text()).toBe(200);
+  return (await response.json()).account.pictureVersion;
+}
+
+async function removeOnCard(page: Page): Promise<void> {
+  const answered = page.waitForResponse((response) => response.url().endsWith("/api/account/picture") && response.request().method() === "DELETE");
+  await card(page).getByRole("button", { name: "Remove", exact: true }).click();
+  expect((await answered).status()).toBe(200);
+}
+
+const accountOf = async (person: Person) => (await (await person.api.get("/api/account")).json()).account;
+
+test("the Account card keeps a JPEG, a PNG and a WebP at once, and leaves the typed fields alone", async ({ browser, request, baseURL }) => {
+  test.setTimeout(240_000);
+  const tag = runTag();
+  const people: Person[] = [];
+  try {
+    const [ada] = await Promise.all(["Ada"].map((first) => invitePerson(browser, request, baseURL!, first, tag)));
+    people.push(ada);
+    await routeHouse(ada.context, { basemapStyleStub: true });
+    const page = await ada.context.newPage();
+    await page.goto("/settings/account");
+    await expectLetters(cardFace(page), twoWords(ada.name));
+    await expect(card(page).getByRole("button", { name: "Remove", exact: true })).toHaveCount(0);
+
+    let last = "";
+    await test.step("a JPEG, a PNG and a WebP, each kept at once and shown in the card and the side menu without a reload", async () => {
+      for (const file of [await jpeg(), await png(), await webp()]) {
+        const version = await chooseOnCard(page, file);
+        expect(version).not.toBe(last);
+        await expectPicture(cardFace(page), ada.sqlName, version);
+        await expectPicture(railFace(page, ada), ada.sqlName, version);
+        last = version;
+      }
+      await expect(card(page).getByRole("button", { name: "Save", exact: true })).toHaveCount(0);
+    });
+
+    await test.step("a pending name, email and password edit stays unsaved through a change and a removal, and Cancel keeps the picture", async () => {
+      await page.getByLabel("Display name", { exact: true }).fill(`Ada Renamed ${tag}`);
+      await page.getByLabel("Email", { exact: true }).fill(`ada-renamed-${tag}@example.test`);
+      await page.getByLabel("Current password to change email", { exact: true }).fill("typed for the email");
+      await page.locator("#password > summary").click();
+      await page.getByLabel("Current password", { exact: true }).fill("typed current");
+      await page.getByLabel("New password", { exact: true }).fill("typed new password");
+      const typed = async () => {
+        await expect(page.getByLabel("Display name", { exact: true })).toHaveValue(`Ada Renamed ${tag}`);
+        await expect(page.getByLabel("Email", { exact: true })).toHaveValue(`ada-renamed-${tag}@example.test`);
+        await expect(page.getByLabel("Current password to change email", { exact: true })).toHaveValue("typed for the email");
+        await expect(page.getByLabel("Current password", { exact: true })).toHaveValue("typed current");
+        await expect(page.getByLabel("New password", { exact: true })).toHaveValue("typed new password");
+        await expect(card(page).getByRole("button", { name: "Save", exact: true })).toBeVisible();
+      };
+      await removeOnCard(page);
+      await expectLetters(cardFace(page), twoWords(ada.name));
+      await typed();
+      last = await chooseOnCard(page, await png());
+      await expectPicture(cardFace(page), ada.sqlName, last);
+      await typed();
+      const saved = await accountOf(ada);
+      expect([saved.name, saved.email, saved.pictureVersion]).toEqual([ada.name, ada.email, last]);
+      await card(page).getByRole("button", { name: "Cancel", exact: true }).click();
+      await expect(page.getByLabel("Display name", { exact: true })).toHaveValue(ada.name);
+      await expect(page.getByLabel("Email", { exact: true })).toHaveValue(ada.email);
+      await expectPicture(cardFace(page), ada.sqlName, last);
+      // The password card keeps what is typed in it: it has its own button.
+      await expect(page.getByLabel("New password", { exact: true })).toHaveValue("typed new password");
+    });
+
+    await test.step("a refused file keeps the picture there was and says why", async () => {
+      const answered = page.waitForResponse((response) => response.url().endsWith("/api/account/picture") && response.request().method() === "PUT");
+      await chooser(page).setInputFiles({ name: "mark.svg", mimeType: "image/svg+xml", buffer: Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="8" height="8"/>') });
+      expect((await answered).status()).toBe(415);
+      await expect(card(page).getByRole("alert")).toContainText("The file is an SVG image. Choose a still JPEG, PNG or WebP image.");
+      await expectPicture(cardFace(page), ada.sqlName, last);
+      expect((await accountOf(ada)).pictureVersion).toBe(last);
+    });
+
+    await test.step("a second card still showing the picture removes it again without a refusal", async () => {
+      const second = await ada.context.newPage();
+      await second.goto("/settings/account");
+      await expectPicture(cardFace(second), ada.sqlName, last);
+      await removeOnCard(page);
+      await removeOnCard(second);
+      await expectLetters(cardFace(second), twoWords(ada.name));
+      await expect(card(second).getByRole("alert")).toHaveCount(0);
+      expect((await accountOf(ada)).pictureVersion).toBeUndefined();
+    });
+  } finally {
+    await closeAll(people);
+  }
+});
+
+test("the Account card draws only its latest answer, and a browser shows a replaced or removed picture fresh", async ({ browser, request, baseURL }) => {
+  test.setTimeout(240_000);
+  const tag = runTag();
+  const people: Person[] = [];
+  try {
+    const [ada, bo] = await Promise.all(["Ada", "Bo"].map((first) => invitePerson(browser, request, baseURL!, first, tag)));
+    people.push(ada, bo);
+    await routeHouse(ada.context, { basemapStyleStub: true });
+    const page = await ada.context.newPage();
+    await page.goto("/settings/account");
+
+    /** Holds the next answer to this method until released; the server
+     * has the request, and has answered it, at once. */
+    async function holdNext(method: "PUT" | "DELETE") {
+      let release!: () => void;
+      const released = new Promise<void>((resolve) => { release = resolve; });
+      let delivered!: () => void;
+      const done = new Promise<void>((resolve) => { delivered = resolve; });
+      let held = false;
+      await page.route("**/api/account/picture", async (route) => {
+        if (route.request().method() !== method || held) return route.continue();
+        held = true;
+        const response = await route.fetch();
+        await released;
+        await route.fulfill({ response });
+        delivered();
+      });
+      return { release: async () => { release(); await done; await page.unrouteAll({ behavior: "wait" }); } };
+    }
+
+    await test.step("an upload whose answer arrives after a later removal's leaves no picture", async () => {
+      await chooseOnCard(page, await webp());
+      const big = await sharp({ create: { width: 4000, height: 4000, channels: 3, background: "#808080", noise: { type: "gaussian", mean: 128, sigma: 40 } } }).jpeg({ quality: 70 }).toBuffer();
+      expect(big.length).toBeLessThan(10 * 1024 * 1024);
+      const upload = await holdNext("PUT");
+      await chooser(page).setInputFiles({ name: "big.jpg", mimeType: "image/jpeg", buffer: big });
+      await removeOnCard(page);
+      await expectLetters(cardFace(page), twoWords(ada.name));
+      await upload.release();
+      await expectLetters(cardFace(page), twoWords(ada.name));
+      await expectLetters(railFace(page, ada), twoWords(ada.name));
+      expect((await accountOf(ada)).pictureVersion).toBeUndefined();
+    });
+
+    await test.step("an answer already kept by the server but delayed past a newer one never replaces the newer picture", async () => {
+      await chooseOnCard(page, await webp());
+      const removal = await holdNext("DELETE");
+      await card(page).getByRole("button", { name: "Remove", exact: true }).click();
+      const newer = await chooseOnCard(page, await png());
+      await expectPicture(cardFace(page), ada.sqlName, newer);
+      await removal.release();
+      await expectPicture(cardFace(page), ada.sqlName, newer);
+      expect((await accountOf(ada)).pictureVersion).toBe(newer);
+    });
+
+    // A context with no routes, so the browser's own cache is in play.
+    const fresh = await bo.context.newPage();
+    const seen: { url: string; status: number }[] = [];
+    fresh.on("response", (response) => { if (response.url().includes("/picture")) seen.push({ url: new URL(response.url()).pathname + new URL(response.url()).search, status: response.status() }); });
+    const fetchStatus = (url: string) => fresh.evaluate(async (address) => (await fetch(address)).status, url);
+
+    await test.step("a replaced picture shows fresh at its new address, the old one answering no bytes", async () => {
+      await fresh.goto("/settings/account");
+      const first = await chooseOnCard(fresh, await webp());
+      await expectPicture(railFace(fresh, bo), bo.sqlName, first);
+      await fresh.reload();
+      await expectPicture(cardFace(fresh), bo.sqlName, first);
+      // Kept by the browser, asked again before use, answered without the bytes.
+      expect(seen.filter((entry) => entry.url === address(bo.sqlName, first)).map((entry) => entry.status)).toContain(304);
+      const second = await chooseOnCard(fresh, await jpeg());
+      await expectPicture(cardFace(fresh), bo.sqlName, second);
+      await expectPicture(railFace(fresh, bo), bo.sqlName, second);
+      expect(await fetchStatus(address(bo.sqlName, first))).toBe(404);
+    });
+
+    await test.step("a picture that fails to load shows the initials", async () => {
+      const failing = await bo.context.newPage();
+      await failing.route("**/picture?v=*", (route) => route.abort());
+      await failing.goto("/settings/account");
+      // The picture is asked for and fails; the letters stand in its place.
+      await expectLetters(cardFace(failing), twoWords(bo.name));
+      await expectLetters(railFace(failing, bo), twoWords(bo.name));
+      await failing.close();
+    });
+
+    await test.step("a removed picture shows the initials, and the page asks for none", async () => {
+      const current = (await accountOf(bo)).pictureVersion as string;
+      await removeOnCard(fresh);
+      await expectLetters(cardFace(fresh), twoWords(bo.name));
+      await expectLetters(railFace(fresh, bo), twoWords(bo.name));
+      seen.length = 0;
+      await fresh.reload();
+      await expectLetters(cardFace(fresh), twoWords(bo.name));
+      await expectLetters(railFace(fresh, bo), twoWords(bo.name));
+      expect(seen).toEqual([]);
+      expect(await fetchStatus(address(bo.sqlName, current))).toBe(404);
+    });
+
+    await test.step("after signing out, the picture warm in the cache is served to nobody", async () => {
+      const last = await chooseOnCard(fresh, await png());
+      await fresh.reload();
+      await expectPicture(cardFace(fresh), bo.sqlName, last);
+      expect(await fresh.evaluate(async () => (await fetch("/api/auth/sign-out", { method: "POST" })).status)).toBe(200);
+      // The browser asks again before it shows what it kept, and is refused.
+      const opened = await fresh.goto(address(bo.sqlName, last));
+      expect(opened?.status()).toBe(401);
+      expect((await opened!.body()).subarray(0, 4).toString("latin1")).not.toBe("RIFF");
     });
   } finally {
     await closeAll(people);

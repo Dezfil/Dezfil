@@ -18,7 +18,9 @@ import { railHint, useRailItemMode } from "./rail-mode";
 /** Profile changes refresh the rail without a navigation. */
 export const DISPLAY_NAME_EVENT = "dezfil:display-name";
 
-function initials(name: string): string {
+/** A person's own initials, as the side menu and the Account card draw
+ * them: the first letters of the first two words of the name. */
+export function accountInitials(name: string): string {
   return name.trim().split(/\s+/).filter(Boolean).slice(0, 2)
     .map(word => word[0].toUpperCase()).join("") || "?";
 }
@@ -44,7 +46,7 @@ export function UserBadge({ account }: { account: Account | null }) {
       aria-label={account ? `${account.name}, account` : "Account"}
       {...railHint(mode, account?.name ?? "Account")}>
       <span className={styles.railIcon}>{account
-        ? <Face person={account} letters={initials(account.name)} className={styles.avatar} />
+        ? <Face person={account} letters={accountInitials(account.name)} className={styles.avatar} />
         : <span className={styles.avatar} aria-hidden />}</span>
       <span className={`${styles.railLabel} ${styles.accountLabel}`}>
         <b>{account?.name ?? "…"}</b>

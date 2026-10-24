@@ -6,6 +6,7 @@ import { TextInput } from "@/components/ui/Field";
 import { ErrorNote } from "@/components/ui/ErrorNote";
 import { PasswordCard } from "./PasswordCard";
 import { PasswordField } from "./PasswordField";
+import { AccountPicture } from "./AccountPicture";
 import { settingsWrite } from "./api";
 import { SaveUnit, type Value } from "./save-unit";
 import { useSaveUnit, useUnitFocus } from "./use-save-unit";
@@ -49,10 +50,11 @@ function accountUnit(account: Account): SaveUnit {
   return unit;
 }
 
-/** The person's own account: display name, the SQL name, email (a changed
- * email asks for the current password), then Change password on its own
- * button. Save and Cancel show only while a field differs from what was
- * saved; no Reset, since an account has no defaults. */
+/** The person's own account: their picture, kept as soon as it is chosen
+ * and apart from the typed fields; display name, the SQL name, email (a
+ * changed email asks for the current password), then Change password on
+ * its own button. Save and Cancel show only while a field differs from
+ * what was saved; no Reset, since an account has no defaults. */
 export function AccountCard({ account }: { account: Account }) {
   const ids = useId();
   const form = useRef<HTMLFormElement>(null);
@@ -65,6 +67,7 @@ export function AccountCard({ account }: { account: Account }) {
   useLiveValue("set-email", text("email"));
   const invalid = (key: string) => card.errors[key] ? { "aria-invalid": true, "aria-describedby": `${ids}-${key}-error` } : {};
   return <SettingsCard id="account" title="Account" headingId="account-heading">
+    <AccountPicture account={account} />
     <form ref={form} className={cardFormClass} noValidate onSubmit={event => { event.preventDefault(); unit.save(); }}>
       <LabelledField id="set-display-name" label="Display name" inputId={`${ids}-name`} saved={card.saved.includes("name")}
         error={card.errors.name} errorId={`${ids}-name-error`}>

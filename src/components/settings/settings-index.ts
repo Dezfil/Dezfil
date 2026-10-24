@@ -69,6 +69,7 @@ const text = (value: unknown) => typeof value === "string" ? value : "";
 
 function accountCards(account: Account): IndexCard[] {
   return [{ id: "account", title: "Account", keys: "profile", rows: [
+    { id: "set-picture", label: "Picture", keys: "photo avatar face image profile" },
     { id: "set-display-name", label: "Display name", keys: "name profile person", value: account.name },
     { id: "set-sql-name", label: "SQL name", keys: "sql identifier tables owner", value: account.sqlName },
     { id: "set-email", label: "Email", keys: "email address mail sign in", value: account.email },
