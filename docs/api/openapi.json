@@ -40936,6 +40936,392 @@
         ]
       }
     },
+    "/api/account/picture": {
+      "put": {
+        "summary": "Set your picture",
+        "description": "Requires a current cookie session or bearer token; a cookie-signed request needs the instance's Origin. Responses, including refusals, are private, no-store. It acts on the signed-in account's own picture, never another's, and an account whose deletion has been accepted is refused before anything is read. multipart/form-data with exactly one file part named `file`: a still JPEG, PNG or WebP image, recognised by its content whatever its name or declared type. The file is at most 10,485,760 bytes (10 MB, a fixed limit) and the whole body at most 65,536 bytes more, counted as they arrive whatever length is declared: one byte over answers 413 upload_too_large. An SVG, a GIF, an animated image, or one that is damaged or incomplete, answers 415 unsupported_image; more than 64 million pixels, read from the header before any pixel is decoded, 413 image_too_large. The body has 60 seconds to arrive: one not received by then, one that stops arriving included, answers 408 data_processing_timeout, or 408 upload_stalled when the upload's own 60 seconds without a body byte end first. The first refusal is delivered without waiting for the rest of the body, and the refused connection closes within five seconds. A caller who leaves before the body is received changes nothing. Processing takes at most 20 seconds, waiting included, and runs one picture at a time on the instance with eight more waiting; past that, 503 operation_queue_full. The server keeps its own copy: turned the way its orientation says, the largest centred square scaled to 320 pixels, a WebP with transparency kept and every embedded record dropped. Writes to one account's picture take effect in the order they were admitted: a change overtaken by one admitted after it changes nothing and answers the account as it stands. A refusal or failure leaves the current picture. Answers the account, its new pictureVersion included. Through MCP the file travels as base64 in content_base64; a file of the full 10,485,760 bytes fits the 16,777,216-byte envelope.",
+        "tags": [
+          "Accounts"
+        ],
+        "x-tool": "set_account_picture",
+        "x-tool-input": {
+          "multipart": {
+            "field": "file",
+            "filename": "filename",
+            "content": "content_base64"
+          }
+        },
+        "x-effects": {
+          "readOnly": false,
+          "writes": [
+            {
+              "resource": "accounts",
+              "collection": true
+            }
+          ]
+        },
+        "x-mcp": {
+          "destructiveHint": true,
+          "openWorldHint": false,
+          "repeatability": "Identical calls may update retained working state."
+        },
+        "x-tool-output": {
+          "envelope": "result-history"
+        },
+        "x-display": {
+          "verb": "Set your picture"
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "A still JPEG, PNG or WebP image of at most 10,485,760 bytes. Through MCP the file travels as base64 in content_base64; a file of the full 10,485,760 bytes fits the 16,777,216-byte envelope."
+                  }
+                },
+                "required": [
+                  "file"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountSession"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "method_not_allowed: the method is unsupported for this path.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Allow": {
+                "description": "Exactly the documented methods for this path.",
+                "schema": {
+                  "type": "string",
+                  "const": "DELETE, OPTIONS, PUT"
+                }
+              }
+            }
+          },
+          "408": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieSession": []
+          },
+          {
+            "BearerToken": []
+          }
+        ]
+      },
+      "delete": {
+        "summary": "Remove your picture",
+        "description": "Requires a current cookie session or bearer token; a cookie-signed request needs the instance's Origin. Responses, including refusals, are private, no-store. It acts on the signed-in account's own picture, never another's, and an account whose deletion has been accepted is refused before anything is read. Your initials stand in again; removing when there is no picture changes nothing. Writes to one account's picture take effect in the order they were admitted: a change overtaken by one admitted after it changes nothing and answers the account as it stands. Answers the account, without a pictureVersion.",
+        "tags": [
+          "Accounts"
+        ],
+        "x-tool": "remove_account_picture",
+        "x-effects": {
+          "readOnly": false,
+          "writes": [
+            {
+              "resource": "accounts",
+              "collection": true
+            }
+          ]
+        },
+        "x-mcp": {
+          "destructiveHint": true,
+          "openWorldHint": false,
+          "idempotentHint": true
+        },
+        "x-tool-output": {
+          "envelope": "result-history"
+        },
+        "x-display": {
+          "verb": "Removed your picture"
+        },
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountSession"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "method_not_allowed: the method is unsupported for this path.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Allow": {
+                "description": "Exactly the documented methods for this path.",
+                "schema": {
+                  "type": "string",
+                  "const": "DELETE, OPTIONS, PUT"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieSession": []
+          },
+          {
+            "BearerToken": []
+          }
+        ]
+      },
+      "options": {
+        "summary": "Read allowed methods",
+        "description": "Automatic OPTIONS returns no body and the Allow header. Authentication is required.",
+        "tags": [
+          "System"
+        ],
+        "x-tool": false,
+        "x-effects": {
+          "readOnly": true,
+          "writes": []
+        },
+        "responses": {
+          "204": {
+            "description": "Allowed methods.",
+            "headers": {
+              "Allow": {
+                "description": "Exactly the documented methods for this path.",
+                "schema": {
+                  "type": "string",
+                  "const": "DELETE, OPTIONS, PUT"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "method_not_allowed: the method is unsupported for this path.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Allow": {
+                "description": "Exactly the documented methods for this path.",
+                "schema": {
+                  "type": "string",
+                  "const": "DELETE, OPTIONS, PUT"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieSession": []
+          },
+          {
+            "BearerToken": []
+          }
+        ]
+      }
+    },
     "/api/accounts/{sqlName}/picture": {
       "get": {
         "summary": "Read a person's picture",
@@ -85990,7 +86376,7 @@
     "unsupported_format": "The uploaded file type is not one of the supported formats.",
     "unsupported_image": "The picture is not a still JPEG, PNG or WebP image: another kind, an animated image, or one that is damaged or incomplete. Nothing changed.",
     "image_too_large": "The picture has more pixels than the fixed limit of 64 million, read from its header before any pixel is decoded. Nothing changed.",
-    "upload_too_large": "The upload exceeds the configured size cap.",
+    "upload_too_large": "The upload exceeds its size cap: the configured upload cap, or a picture's fixed 10 MB.",
     "archive_too_large": "The archive's unpacked content exceeds the configured upload size cap.",
     "remote_fetch_failed": "The remote file could not be fetched (unreachable, denied, or missing).",
     "remote_fetch_abandoned": "The outbound request was abandoned before it finished, because whoever asked for it stopped waiting.",
@@ -86018,7 +86404,7 @@
     "sql_error": "The SQL failed to parse or execute.",
     "query_timeout": "The query exceeded the configured timeout.",
     "engine_memory_exceeded": "Trusted data work exceeded its shared memory or scratch budget. Reduce the work, or raise DEZFIL_TRUSTED_MEMORY_MB and restart.",
-    "data_processing_timeout": "Data processing exceeded its admitted time limit. An admin can change Data processing time limit for new work.",
+    "data_processing_timeout": "Data processing exceeded its admitted time limit. An admin can change Data processing time limit for new work; a picture's limits are fixed.",
     "request_timeout": "The request body was not received within 300 s.",
     "upload_stalled": "The upload sent no body bytes for 60 seconds. Retry the upload.",
     "render_bytes_exceeded": "The features to draw exceed the configured byte limit.",

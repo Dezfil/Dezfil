@@ -34,7 +34,7 @@ export const ERROR_CATALOGUE: Record<ErrorCode, string> = {
     "The uploaded file type is not one of the supported formats.",
   unsupported_image: "The picture is not a still JPEG, PNG or WebP image: another kind, an animated image, or one that is damaged or incomplete. Nothing changed.",
   image_too_large: "The picture has more pixels than the fixed limit of 64 million, read from its header before any pixel is decoded. Nothing changed.",
-  upload_too_large: "The upload exceeds the configured size cap.",
+  upload_too_large: "The upload exceeds its size cap: the configured upload cap, or a picture's fixed 10 MB.",
   archive_too_large:
     "The archive's unpacked content exceeds the configured upload size cap.",
   remote_fetch_failed:
@@ -80,7 +80,7 @@ export const ERROR_CATALOGUE: Record<ErrorCode, string> = {
   sql_error: "The SQL failed to parse or execute.",
   query_timeout: "The query exceeded the configured timeout.",
   engine_memory_exceeded: "Trusted data work exceeded its shared memory or scratch budget. Reduce the work, or raise DEZFIL_TRUSTED_MEMORY_MB and restart.",
-  data_processing_timeout: "Data processing exceeded its admitted time limit. An admin can change Data processing time limit for new work.",
+  data_processing_timeout: "Data processing exceeded its admitted time limit. An admin can change Data processing time limit for new work; a picture's limits are fixed.",
   request_timeout: "The request body was not received within 300 s.",
   upload_stalled: "The upload sent no body bytes for 60 seconds. Retry the upload.",
   render_bytes_exceeded: "The features to draw exceed the configured byte limit.",

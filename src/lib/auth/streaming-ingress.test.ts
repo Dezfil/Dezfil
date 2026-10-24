@@ -7,6 +7,7 @@ import { NextRequestAdapter } from "next/dist/server/web/spec-extension/adapters
 import { NodeNextRequest } from "next/dist/server/base-http/node";
 import { afterEach, expect, it, vi } from "vitest";
 import { installIngress } from "./ingress.mjs";
+import { nativeUploadReception } from "./reception.mjs";
 import { publishedJsonBody } from "@/lib/publish/published-body";
 
 const servers: Server[] = [];
@@ -132,4 +133,23 @@ it.each([
     createServer(() => {}).emit("request", incoming, outgoing);
     expect(incoming[Symbol.asyncIterator]).not.toBe(iterator);
   } finally { outgoing.emit("finish"); incoming.destroy(); socket.destroy(); }
+});
+
+it.each([
+  ["/api/tables", "POST", true], ["/api/account/picture", "PUT", true], ["/api/account/picture/", "PUT", true],
+  ["/api/account/picture", "POST", false], ["/api/account/picture", "DELETE", false], ["/api/account/picture/extra", "PUT", false],
+  ["/api/account", "PUT", false], ["/api/accounts/name/picture", "PUT", false], ["/api/tables", "PUT", false],
+])("admits the upload clock only on a streaming upload: %s %s (%s)", (pathname, method, admitted) => {
+  installIngress();
+  const socket = new Duplex({ read() {}, write(_chunk, _encoding, callback) { callback(); } });
+  Object.defineProperty(socket, "remoteAddress", { value: "127.0.0.1" });
+  const incoming = new IncomingMessage(socket as Socket);
+  incoming.url = pathname; incoming.method = method;
+  incoming.headers = { host: "instance.test" }; incoming.rawHeaders = ["host", "instance.test"];
+  const outgoing = new ServerResponse(incoming);
+  let clock: ReturnType<typeof nativeUploadReception>;
+  try {
+    createServer(() => { clock = nativeUploadReception(60_000, "The limit is fixed.", () => {}); }).emit("request", incoming, outgoing);
+    expect(clock !== undefined).toBe(admitted);
+  } finally { clock?.complete(); outgoing.emit("finish"); incoming.destroy(); socket.destroy(); }
 });

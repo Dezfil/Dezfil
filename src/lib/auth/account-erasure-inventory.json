@@ -2972,6 +2972,11 @@
         "memory:immutable-configuration"
       ]
     },
+    "memory:src/lib/api/openapi-profile-pictures.ts#writeErrors": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
     "memory:src/lib/api/openapi-publications.ts#PUBLICATION_ADMIN_PATHS": {
       "stores": [
         "memory:immutable-configuration"

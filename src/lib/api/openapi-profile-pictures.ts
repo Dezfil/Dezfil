@@ -1,12 +1,85 @@
 import { AUTH_SECURITY } from "./openapi-auth";
-import { ERROR_RESPONSE, op, pathParam } from "./openapi-helpers";
-import { LOCAL_READ } from "./operation-mcp";
-import { READ_ONLY } from "./operation-metadata";
+import { ERROR_RESPONSE, jsonOk, op, pathParam } from "./openapi-helpers";
+import { LOCAL_DELETE, LOCAL_READ, LOCAL_REPLACE } from "./operation-mcp";
+import { READ_ONLY, resource, writes } from "./operation-metadata";
 import { PICTURE_VERSION_PROPERTY } from "./openapi-picture-version";
 
 const CACHED = "private, no-cache";
+const OWN =
+  "Requires a current cookie session or bearer token; a cookie-signed request needs the instance's Origin. " +
+  "Responses, including refusals, are private, no-store. It acts on the signed-in account's own picture, " +
+  "never another's, and an account whose deletion has been accepted is refused before anything is read. ";
+const ORDER =
+  "Writes to one account's picture take effect in the order they were admitted: a change overtaken by one " +
+  "admitted after it changes nothing and answers the account as it stands. ";
+const MCP_PICTURE =
+  "Through MCP the file travels as base64 in content_base64; a file of the full 10,485,760 bytes fits the " +
+  "16,777,216-byte envelope.";
+const writeErrors = { "400": ERROR_RESPONSE, "401": ERROR_RESPONSE, "403": ERROR_RESPONSE, "503": ERROR_RESPONSE };
 
 export const PROFILE_PICTURE_PATHS = {
+  "/api/account/picture": {
+    put: {
+      ...op({
+        summary: "Set your picture",
+        description: OWN +
+          "multipart/form-data with exactly one file part named `file`: a still JPEG, PNG or WebP image, " +
+          "recognised by its content whatever its name or declared type. The file is at most 10,485,760 " +
+          "bytes (10 MB, a fixed limit) and the whole body at most 65,536 bytes more, counted as they arrive " +
+          "whatever length is declared: one byte over answers 413 upload_too_large. An SVG, a GIF, an " +
+          "animated image, or one that is damaged or incomplete, answers 415 unsupported_image; more than " +
+          "64 million pixels, read from the header before any pixel is decoded, 413 image_too_large. The " +
+          "body has 60 seconds to arrive: one not received by then, one that stops arriving included, answers " +
+          "408 data_processing_timeout, or 408 upload_stalled when the upload's own 60 seconds without a body " +
+          "byte end first. The first refusal is delivered without waiting for the rest of the " +
+          "body, and the refused connection closes within five seconds. A caller who leaves before the body " +
+          "is received changes nothing. Processing takes at most 20 seconds, waiting included, and runs " +
+          "one picture at a time on the instance with eight more waiting; past that, 503 " +
+          "operation_queue_full. The server keeps its own copy: turned the way its orientation says, the " +
+          "largest centred square scaled to 320 pixels, a WebP with transparency kept and every embedded " +
+          "record dropped. " + ORDER + "A refusal or failure leaves the current picture. Answers the " +
+          "account, its new pictureVersion included. " + MCP_PICTURE,
+        tag: "Accounts",
+        tool: "set_account_picture", mcp: LOCAL_REPLACE,
+        toolInput: { multipart: { field: "file", filename: "filename", content: "content_base64" } },
+        display: { verb: "Set your picture" },
+        effects: writes(resource("accounts")),
+        requestBody: {
+          required: true,
+          content: {
+            "multipart/form-data": {
+              schema: {
+                type: "object",
+                properties: { file: { type: "string", format: "binary", description: "A still JPEG, PNG or WebP image of at most 10,485,760 bytes. " + MCP_PICTURE } },
+                required: ["file"],
+              },
+            },
+          },
+        },
+        responses: {
+          "200": jsonOk("#/components/schemas/AccountSession"),
+          ...writeErrors,
+          "408": ERROR_RESPONSE,
+          "413": ERROR_RESPONSE,
+          "415": ERROR_RESPONSE,
+        },
+      }),
+      security: AUTH_SECURITY,
+    },
+    delete: {
+      ...op({
+        summary: "Remove your picture",
+        description: OWN + "Your initials stand in again; removing when there is no picture changes nothing. " +
+          ORDER + "Answers the account, without a pictureVersion.",
+        tag: "Accounts",
+        tool: "remove_account_picture", mcp: LOCAL_DELETE,
+        display: { verb: "Removed your picture" },
+        effects: writes(resource("accounts")),
+        responses: { "200": jsonOk("#/components/schemas/AccountSession"), ...writeErrors },
+      }),
+      security: AUTH_SECURITY,
+    },
+  },
   "/api/accounts/{sqlName}/picture": {
     get: {
       ...op({

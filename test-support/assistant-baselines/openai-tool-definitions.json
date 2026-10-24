@@ -1,6 +1,6 @@
 {
-  "count": 158,
-  "overall": "17fa9d96635fe8b5ab192957d65cb27b2b15664ba5e43497441216d076cf4e7f",
+  "count": 160,
+  "overall": "a9f82930b3edb5cd04e3b46611a95cfae97ab086577b23b3c3b813fe5b5701a4",
   "tools": {
     "get_account": "bd37f5c2eb19d2ede33cb10152a53d49e4029a871d9950f51d3671001efdfb66",
     "update_account": "9c0c6a65ffe23e18a56835e493caec39e44f1a87d0537e723e6b5d223fbe9a13",
@@ -115,6 +115,8 @@
     "transfer_map": "0074dbb3b697479558e36fe7e1ab6081df8154974df3807793af72658718e340",
     "transfer_workflow": "52295ba29159f9b8c8ae90d18c4cf5465b761aee1f5ba905881dc858101ed56d",
     "find_accounts": "1d94e0ebfcdae4e2c0a9948c43d01dc902473d1a9bda1ebbbcdc9c15507f6ea7",
+    "set_account_picture": "5445111e2e584e320744fe91be6186c7886af091f4d2fbee7a5ca51434959883",
+    "remove_account_picture": "104c7880fb053b66d9cc14409f5c3de3c73e21137d82ad906a5d0f1d2bbec198",
     "read_account_picture": "9b7177f6d12db0c18f84c6231c66d3352f8be75e3e4742811e44e93c64108d19",
     "sanitize_icon_svg": "6312de4ff4d14641ae9dc9b9d59bda1079f1ac890fe1cf71524cd5b1f0875c1d",
     "inspect_basemap_style": "e90f4aebc970a659a588bb1de421ccd2924445cc0122d8b89ef641468f99b26d",

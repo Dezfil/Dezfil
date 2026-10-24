@@ -14,6 +14,7 @@ import { authenticateSession, createApiToken, revokeApiToken, signOut } from "./
 import { config } from "@/proxy";
 import nextConfig from "../../../next.config";
 import * as tables from "@/app/api/tables/route";
+import * as picture from "@/app/api/account/picture/route";
 import * as widgets from "@/app/api/published/[token]/widget-values/route";
 import * as render from "@/app/api/published/[token]/render/[layerId]/route";
 import * as extent from "@/app/api/published/[token]/extent/[layerId]/route";
@@ -37,6 +38,7 @@ function routerMatches(input: Parameters<typeof unstable_doesMiddlewareMatch>[0]
 const methods = ["GET", "HEAD", "OPTIONS", "POST", "PUT", "DELETE", "PATCH"];
 const excluded = [
   { path: "/api/tables", handlers: tables, allowed: ["GET", "HEAD", "OPTIONS", "POST"] },
+  { path: "/api/account/picture", handlers: picture, allowed: ["DELETE", "OPTIONS", "PUT"] },
   { path: "/api/published/fixture/widget-values", handlers: widgets, allowed: ["OPTIONS", "POST"] },
   { path: "/api/published/fixture/render/fixture", handlers: render, allowed: ["OPTIONS", "POST"] },
   { path: "/api/published/fixture/extent/fixture", handlers: extent, allowed: ["OPTIONS", "POST"] },
@@ -53,7 +55,8 @@ const input = (path: string, method: string, headers: Record<string, string> = {
 
 it("excludes exactly the streaming upload and entry paths and admits the full workflow tier to dispatch", () => {
   for (const { path: url } of excluded) expect(routerMatches({ config, nextConfig, url })).toBe(false);
-  for (const url of ["/api/tables/id", "/api/tables-extra", "/api/auth/sign-out", "/api/auth/session", "/api/recipes"]) {
+  for (const url of ["/api/tables/id", "/api/tables-extra", "/api/auth/sign-out", "/api/auth/session", "/api/recipes",
+    "/api/account", "/api/account/picture/extra", "/api/account/pictures", "/api/accounts/name/picture"]) {
     expect(routerMatches({ config, nextConfig, url }), url).toBe(true);
   }
   expect(nextConfig.experimental?.proxyClientMaxBodySize).toBe(17 * 1024 * 1024);
@@ -246,7 +249,8 @@ it("holds one closed exclusion inventory against the literal compiled matcher an
     "/api/published/token/widget-values/extra", "/api/published/token/tiles/layer/0/0/0",
     "/api/published/token/%72ender/id", "/api/auth/sign-out", "/api/auth/session", "/api/auth/entry",
     "/api/auth/sign-in/extra", "/api/auth/sign-inx", "/api/auth/%73etup", "/api/auth/setup.json",
-    "/api/published/t%2Foken/widget-values", "/api/published/%74oken/render/l%2Fayer"]) {
+    "/api/published/t%2Foken/widget-values", "/api/published/%74oken/render/l%2Fayer",
+    "/api/account", "/api/account/picture/extra", "/api/account/%70icture", "/api/account/picture.webp"]) {
     expect(routerMatches({ config, nextConfig, url }), url).toBe(true);
   }
   expect(routerMatches({ config, nextConfig, url: "/api/published/token/extent/%6cayer/" })).toBe(false);
