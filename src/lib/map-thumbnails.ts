@@ -141,12 +141,15 @@ export function thumbnailSetFile(
  * set without sizes is an older picture, or a duplicate that could not
  * copy them. The recipe names how the picture was framed (shapes.ts),
  * apart from its sizes: a sized set without one was framed by the first,
- * and a set with neither at its map's saved view. */
+ * and a set with neither at its map's saved view. A set marked as the
+ * template's holds the pictures a template release made for its cards,
+ * carried by a copy of the template (or a duplicate of one). */
 export interface ThumbnailSet {
   light: string;
   dark: string;
   sizes?: PictureSizes;
   recipe?: number;
+  origin?: "template";
 }
 
 /** Kept widths by shape name, the kept shape's always among them. */
@@ -223,14 +226,14 @@ async function readSet(mapId: string): Promise<ThumbnailSet | null> {
   try {
     const parsed = JSON.parse(
       await readFile(thumbnailManifestPath(mapId), "utf8"),
-    ) as Partial<Omit<ThumbnailSet, "sizes" | "recipe">> & { sizes?: unknown; recipe?: unknown };
+    ) as Partial<Omit<ThumbnailSet, "sizes" | "recipe" | "origin">> & { sizes?: unknown; recipe?: unknown; origin?: unknown };
     if (typeof parsed.light !== "string" || typeof parsed.dark !== "string") {
       return null;
     }
     const sizes = readSizes(parsed.sizes);
     if (sizes === null) return null;
     const recipe = readRecipe(parsed.recipe);
-    const listed = { ...(sizes ? { sizes } : {}), ...(recipe ? { recipe } : {}) };
+    const listed = { ...(sizes ? { sizes } : {}), ...(recipe ? { recipe } : {}), ...(parsed.origin === "template" ? { origin: "template" as const } : {}) };
     const lightCycle = parsed.light.slice(mapId.length + 1, -".light.png".length);
     if (parsed.dark === parsed.light && isThumbnailCycle(lightCycle) && parsed.light === thumbnailSetFile(mapId, lightCycle, "light")) return { light: parsed.light, dark: parsed.dark, ...listed };
     const darkCycle = parsed.dark.slice(mapId.length + 1, -".dark.png".length);
@@ -382,7 +385,9 @@ async function moveAside(mapId: string, set: ThumbnailSet, authorize: () => void
 /**
  * One theme's image under a cycle. Held until the other theme arrives
  * under the same cycle; the pair is then published as one set by the
- * manifest switch, and everything the map had before is retired.
+ * manifest switch, and everything the map had before is retired. A
+ * template copy's pair is marked as the template's by the call that
+ * completes it.
  */
 export function saveThemedThumbnail(
   scope: AccountScope,
@@ -392,6 +397,7 @@ export function saveThemedThumbnail(
   bytes: Uint8Array,
   inputs: ArtifactInputs | null = null,
   basemap: DrawnBasemap | null = null,
+  origin?: "template",
 ): Promise<"held" | "published"> {
   requireOwnMap(scope, mapId);
   const lease = admitResourceWork(scope, [{ table: "maps", id: mapId }]);
@@ -418,8 +424,10 @@ export function saveThemedThumbnail(
     // The switch: one rename, after which the new pair is the map's set
     // and the previous one is not. Nothing before it changes a read;
     // a failure here leaves the previous set exactly as it was.
-    const next: ThumbnailSet =
-      theme === "light" ? { light: own, dark: partner } : { light: partner, dark: own };
+    const next: ThumbnailSet = {
+      ...(theme === "light" ? { light: own, dark: partner } : { light: partner, dark: own }),
+      ...(origin ? { origin } : {}),
+    };
     await writeAtomically(thumbnailManifestPath(mapId), JSON.stringify(next), authorize);
     await removeImage(path.basename(thumbnailPath(mapId)));
     await retireUnreferenced(mapId, next);
@@ -621,6 +629,7 @@ export function copyThumbnail(scope: AccountScope, from: string, to: string): Pr
       dark: set.dark.replace(from, to),
       ...(set.sizes ? { sizes: set.sizes } : {}),
       ...(framedBy(set) ? { recipe: framedBy(set) } : {}),
+      ...(set.origin ? { origin: set.origin } : {}),
     };
     const light = await readFile(inDir(set.light));
     authorize();
@@ -718,14 +727,15 @@ function framedBy(set: ThumbnailSet): number {
   return set.recipe ?? (set.sizes ? 1 : 0);
 }
 
-/** How the map's published picture was made: whether it keeps sizes and
- * the recipe it was framed by (0 at its map's saved view, as the single
- * image always was); null when it has none. */
-export async function publishedPictureFormat(mapId: string): Promise<{ sized: boolean; recipe: number } | null> {
+/** How the map's published picture was made: whether it keeps sizes, the
+ * recipe it was framed by (0 at its map's saved view, as the single image
+ * always was) and whether it is marked as a template's; null when it has
+ * none. */
+export async function publishedPictureFormat(mapId: string): Promise<{ sized: boolean; recipe: number; template: boolean } | null> {
   return queueTurn(mapId, async () => {
     const set = await readSet(mapId);
-    if (set) return { sized: !!set.sizes, recipe: framedBy(set) };
-    return (await exists(thumbnailPath(mapId))) ? { sized: false, recipe: 0 } : null;
+    if (set) return { sized: !!set.sizes, recipe: framedBy(set), template: set.origin === "template" };
+    return (await exists(thumbnailPath(mapId))) ? { sized: false, recipe: 0, template: false } : null;
   });
 }
 

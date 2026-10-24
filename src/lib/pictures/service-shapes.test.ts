@@ -65,7 +65,7 @@ it("renders the one shape once per appearance, framed by its margin, and publish
     expect(call.requestRule).toBe("export");
     expect(call.budgetMs).toBe(30_000);
   }
-  expect(await publishedPictureFormat(map.id)).toEqual({ sized: true, recipe: 2 });
+  expect(await publishedPictureFormat(map.id)).toEqual({ sized: true, recipe: 2, template: false });
   expect((await readPicture(scope, map.id, "dark", { shape: "wide", width: 2000 }))?.type).toBe("image/webp");
   expect((await readPicture(scope, map.id, "light"))?.type).toBe("image/png");
 });

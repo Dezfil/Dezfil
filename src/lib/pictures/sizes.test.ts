@@ -6,7 +6,7 @@ import { createMap } from "@/lib/map-service";
 import { testAccountScope } from "@/lib/test-support/accounts";
 import { closeMetadataDb, metadataDb } from "@/lib/metadata/db";
 import { dataDir } from "@/lib/config";
-import { copyThumbnail, publishedPictureFormat, publishedPictureGeneration, readPicture, readThumbnail, removeThumbnail } from "@/lib/map-thumbnails";
+import { copyThumbnail, publishedPictureFormat, publishedPictureGeneration, readPicture, readThumbnail, removeThumbnail, saveThemedThumbnail } from "@/lib/map-thumbnails";
 import { NO_INPUTS } from "@/lib/query/evaluation-inputs";
 import { requestPicture } from "./state";
 import { pictureTarget, publishPicture } from "./publication";
@@ -42,7 +42,7 @@ describe("a picture's kept sizes", () => {
     expect(await read(map.id, "dark", { width: 100 })).toEqual({ type: "image/webp", text: "dark:card-360" });
     expect(await read(map.id, "light")).toEqual({ type: "image/png", text: "light:png" });
     expect((await readThumbnail(scope, map.id, "dark"))?.toString()).toBe("dark:png");
-    expect(await publishedPictureFormat(map.id)).toEqual({ sized: true, recipe: 2 });
+    expect(await publishedPictureFormat(map.id)).toEqual({ sized: true, recipe: 2, template: false });
     expect(publishedManifest(map.id)).toMatchObject({ sizes: { card: [360, 720, 1080, 1440, 1980, 2904] }, recipe: 2 });
     expect(publishedManifest(map.id).sizes).not.toHaveProperty("wide");
   });
@@ -62,7 +62,7 @@ describe("a picture's kept sizes", () => {
     expect(before.filter((name) => name.endsWith(".webp"))).toHaveLength(12);
     await publish(map.id, Buffer.from("png only"), Buffer.from("png only dark"));
     expect(await read(map.id, "light", { shape: "wide", width: 1200 })).toEqual({ type: "image/png", text: "png only" });
-    expect(await publishedPictureFormat(map.id)).toEqual({ sized: false, recipe: 0 });
+    expect(await publishedPictureFormat(map.id)).toEqual({ sized: false, recipe: 0, template: false });
     expect(files(map.id).filter((name) => name.endsWith(".webp"))).toEqual([]);
     await publish(map.id, images("second"), images("second-dark"));
     const after = files(map.id);
@@ -76,7 +76,7 @@ describe("a picture's kept sizes", () => {
     await publish(from.id, images("orig"), images("orig-dark"));
     await copyThumbnail(scope, from.id, to.id);
     expect(await read(to.id, "dark", { shape: "card", width: 700 })).toEqual({ type: "image/webp", text: "orig-dark:card-720" });
-    expect(await publishedPictureFormat(to.id)).toEqual({ sized: true, recipe: 2 });
+    expect(await publishedPictureFormat(to.id)).toEqual({ sized: true, recipe: 2, template: false });
     await removeThumbnail(scope, to.id);
     expect(files(to.id)).toEqual([]);
     expect(files(from.id).filter((name) => name.endsWith(".webp"))).toHaveLength(12);
@@ -96,7 +96,7 @@ describe("a picture's kept sizes", () => {
     await publish(from.id, images("orig"), images("orig-dark"));
     rmSync(path.join(dataDir(), "thumbnails", files(from.id).find((name) => name.endsWith(".light.card-720.webp"))!));
     await copyThumbnail(scope, from.id, to.id);
-    expect(await publishedPictureFormat(to.id)).toEqual({ sized: false, recipe: 2 });
+    expect(await publishedPictureFormat(to.id)).toEqual({ sized: false, recipe: 2, template: false });
     expect(await read(to.id, "light", { shape: "card", width: 1000 })).toEqual({ type: "image/png", text: "orig:png" });
     expect(files(to.id).filter((name) => name.endsWith(".webp"))).toEqual([]);
   });
@@ -110,12 +110,28 @@ describe("a picture's kept sizes", () => {
   });
 });
 
+describe("a template's carried picture", () => {
+  it("keeps the template's mark through a duplicate, and loses it when a picture of the map's own replaces it", async () => {
+    const copy = createMap(scope, "Template copy"), duplicate = createMap(scope, "Its duplicate");
+    for (const theme of ["light", "dark"] as const) await saveThemedThumbnail(scope, copy.id, theme, "release", Buffer.from(`release-${theme}`), NO_INPUTS, null, "template");
+    expect(await publishedPictureFormat(copy.id)).toEqual({ sized: false, recipe: 0, template: true });
+    await copyThumbnail(scope, copy.id, duplicate.id);
+    expect(await publishedPictureFormat(duplicate.id)).toEqual({ sized: false, recipe: 0, template: true });
+    expect(await read(duplicate.id, "dark")).toEqual({ type: "image/png", text: "release-dark" });
+    await publish(copy.id, images("own"), images("own-dark"));
+    expect(await publishedPictureFormat(copy.id)).toEqual({ sized: true, recipe: 2, template: false });
+    // A capture without the mark is not the template's, however it was saved.
+    for (const theme of ["light", "dark"] as const) await saveThemedThumbnail(scope, duplicate.id, theme, "captured", Buffer.from(`captured-${theme}`), NO_INPUTS);
+    expect(await publishedPictureFormat(duplicate.id)).toEqual({ sized: false, recipe: 0, template: false });
+  });
+});
+
 describe("a picture made by the first sized recipe", () => {
   it("answers its own sizes under each shape name until a new picture replaces it", async () => {
     const map = createMap(scope, "First recipe");
     await publish(map.id, images("light"), images("dark"));
     asFirstRecipe(map.id);
-    expect(await publishedPictureFormat(map.id)).toEqual({ sized: true, recipe: 1 });
+    expect(await publishedPictureFormat(map.id)).toEqual({ sized: true, recipe: 1, template: false });
     expect(await read(map.id, "light", { shape: "wide", width: 1500 })).toEqual({ type: "image/webp", text: "first-light:wide-1656" });
     expect(await read(map.id, "dark", { shape: "card", width: 2500 })).toEqual({ type: "image/webp", text: "first-dark:card-1980" });
     expect(await read(map.id, "dark", { width: 700 })).toEqual({ type: "image/webp", text: "first-dark:card-720" });
@@ -133,12 +149,12 @@ describe("a picture made by the first sized recipe", () => {
     await publish(from.id, images("orig"), images("orig-dark"));
     asFirstRecipe(from.id);
     await copyThumbnail(scope, from.id, whole.id);
-    expect(await publishedPictureFormat(whole.id)).toEqual({ sized: true, recipe: 1 });
+    expect(await publishedPictureFormat(whole.id)).toEqual({ sized: true, recipe: 1, template: false });
     expect(await read(whole.id, "dark", { shape: "wide", width: 2000 })).toEqual({ type: "image/webp", text: "first-dark:wide-2208" });
     expect(files(whole.id).filter((name) => name.endsWith(".webp"))).toHaveLength(18);
     rmSync(path.join(dataDir(), "thumbnails", files(from.id).find((name) => name.endsWith(".dark.wide-1104.webp"))!));
     await copyThumbnail(scope, from.id, partial.id);
-    expect(await publishedPictureFormat(partial.id)).toEqual({ sized: false, recipe: 1 });
+    expect(await publishedPictureFormat(partial.id)).toEqual({ sized: false, recipe: 1, template: false });
     await removeThumbnail(scope, whole.id);
     expect(files(whole.id)).toEqual([]);
   });
@@ -151,7 +167,7 @@ describe("a picture made by the first sized recipe", () => {
     asFirstRecipe(map.id);
     expect(generation).not.toBeNull();
     expect(await publishedPictureGeneration(map.id)).toBe(generation);
-    expect(await publishedPictureFormat(map.id)).toEqual({ sized: true, recipe: 1 });
+    expect(await publishedPictureFormat(map.id)).toEqual({ sized: true, recipe: 1, template: false });
     expect(await read(map.id, "dark", { shape: "wide", width: 1200 })).toEqual({ type: "image/webp", text: "first-light:wide-1656" });
   });
 });

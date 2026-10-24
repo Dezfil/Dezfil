@@ -316,15 +316,15 @@ function templatePictureBasemap(key: BasemapKey | null, theme: TemplateTheme): D
 }
 
 /** The card images, after the commit: the template's pictures as the
- * map's themed pair, with evidence naming what its layers bind and the
- * basemap they were drawn on. A failure leaves the copy as it is, its card
- * on the placeholder. */
+ * map's themed pair, marked as the template's, with evidence naming what
+ * its layers bind and the basemap they were drawn on. A failure leaves the
+ * copy as it is, its card on the placeholder. */
 async function savePictures(scope: AccountScope, made: Made): Promise<void> {
   try {
     const inputs = await captureInputs(scope, made.mapId, currentMapRevision(made.mapId));
     const cycle = randomBytes(12).toString("hex");
     for (const theme of TEMPLATE_THEMES) {
-      await saveThemedThumbnail(scope, made.mapId, theme, cycle, made.pictures[theme], inputs, templatePictureBasemap(made.basemap, theme));
+      await saveThemedThumbnail(scope, made.mapId, theme, cycle, made.pictures[theme], inputs, templatePictureBasemap(made.basemap, theme), "template");
     }
   } catch {
     // The copy is whole without its card images; the first capture draws them.
