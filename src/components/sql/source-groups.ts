@@ -1,6 +1,7 @@
 import type { TableListing } from "../api";
 import { groupTables } from "../builder/drawer/derived-tables";
 import type { RecipeSummary } from "../builder/drawer/recipe-model";
+import type { PersonLabel } from "../sharing/people";
 
 /**
  * The SQL console's source list, grouped. By person, the default: one's
@@ -19,8 +20,8 @@ export interface SourceRow {
   table: TableListing;
   /** The SQL name a typed reference carries, for someone else's dataset. */
   qualifier: string | null;
-  /** The owner's name and initials, shown by project. */
-  owner: { name: string; sqlName: string } | null;
+  /** The owner, whose face is shown by project. */
+  owner: PersonLabel | null;
   /** The projects it reaches one through, named on hover by person. */
   via: string | null;
 }

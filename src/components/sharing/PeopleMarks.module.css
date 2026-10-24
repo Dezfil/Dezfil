@@ -1,7 +1,8 @@
 /* The people marks. The chip wears the gallery's chip; these rules only
    size its glyph. The pill is the strip's free corner (top left; the quick
    actions hold the right), or a quiet inline mark in a list row's name
-   cell. The initials sit in the accent wash, as the dialog's people do. */
+   cell. The owner's face sits in the accent wash, as the dialog's people
+   do: their picture, or their initials. */
 
 .peopleChip svg {
   width: 12px;

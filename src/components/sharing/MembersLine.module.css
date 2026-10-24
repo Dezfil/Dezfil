@@ -47,6 +47,11 @@
   background: var(--bg-hover);
 }
 
+/* A deactivated person's picture is dimmed as the Share dialog dims it. */
+.face[data-off][data-face="picture"] {
+  opacity: 0.5;
+}
+
 .members[data-none] svg {
   width: 14px;
   height: 14px;
