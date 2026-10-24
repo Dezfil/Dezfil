@@ -30,6 +30,17 @@ describe("the account rail", () => {
     expect(html).toContain('aria-label="Frida Merian, account"');
     expect(html).toContain(">FM<");
   });
+  it("draws the person's picture in the avatar by its version, over their first two initials until it loads", () => {
+    const html = renderToStaticMarkup(<UserBadge account={{ ...account, name: "Ada Byron King", sqlName: "ada_byron_king", pictureVersion: "p1" }} />);
+    expect(html).toContain('src="/api/accounts/ada_byron_king/picture?v=p1"');
+    expect(html).toContain('alt=""');
+    expect(html).toContain(">AB<");
+  });
+  it("draws the initials alone, asking for no picture, while the person has none", () => {
+    const html = renderToStaticMarkup(<UserBadge account={{ ...account, sqlName: "frida_merian" }} />);
+    expect(html).toContain(">FM<");
+    expect(html).not.toContain("<img");
+  });
   it("names the person without their email, which Account shows", () => {
     expect(renderToStaticMarkup(<UserBadge account={account} />)).not.toContain("frida@example.test");
   });

@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 import type { Account } from "@/lib/metadata/accounts";
 import { IconButton } from "./ui/IconButton";
 import { ErrorNote } from "./ui/ErrorNote";
+import { Face } from "./people/Face";
 import { SignOutIcon } from "./ui/icons";
 import { accountRequest, failureMessage } from "./settings/api";
 import { ACCOUNT_ADDRESS } from "./settings/settings-address";
@@ -22,7 +23,8 @@ function initials(name: string): string {
     .map(word => word[0].toUpperCase()).join("") || "?";
 }
 
-/** The expanded avatar row carries the account and its sign-out action. */
+/** The expanded avatar row carries the account and its sign-out action.
+ * The avatar is the person's face: their picture, or their initials. */
 export function UserBadge({ account }: { account: Account | null }) {
   const pathname = usePathname();
   const mode = useRailItemMode();
@@ -41,9 +43,9 @@ export function UserBadge({ account }: { account: Account | null }) {
       data-active={pathname === ACCOUNT_ADDRESS || undefined}
       aria-label={account ? `${account.name}, account` : "Account"}
       {...railHint(mode, account?.name ?? "Account")}>
-      <span className={styles.railIcon}><span className={styles.avatar} aria-hidden>
-        {account ? initials(account.name) : ""}
-      </span></span>
+      <span className={styles.railIcon}>{account
+        ? <Face person={account} letters={initials(account.name)} className={styles.avatar} />
+        : <span className={styles.avatar} aria-hidden />}</span>
       <span className={`${styles.railLabel} ${styles.accountLabel}`}>
         <b>{account?.name ?? "…"}</b>
       </span>

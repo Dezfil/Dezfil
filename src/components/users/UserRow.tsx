@@ -5,6 +5,7 @@ import type { Account } from "@/lib/metadata/accounts";
 import { Button } from "@/components/ui/Button";
 import { StatusDot } from "@/components/ui/Status";
 import { ChevronIcon } from "@/components/ui/icons";
+import { Face } from "@/components/people/Face";
 import { SignInHandOver, type HandOver } from "./SignInHandOver";
 import styles from "./UsersScreen.module.css";
 
@@ -26,7 +27,8 @@ export function UserRow({ account, own, open, busy, handOver, onToggle, onAccess
   return <div className={styles.row} data-open={open || undefined} data-off={account.status === "deactivated" || undefined}>
     <button className={styles.rowLine} type="button" aria-expanded={open} aria-controls={id} disabled={busy}
       onClick={() => { setConfirm(null); onToggle(); }}>
-      <span className={styles.person}><span className={styles.avatar} aria-hidden>{account.name.trim().split(/\s+/).slice(0, 2).map(word => word[0]).join("").toUpperCase()}</span>
+      <span className={styles.person}><Face person={account} className={styles.avatar}
+        letters={account.name.trim().split(/\s+/).slice(0, 2).map(word => word[0]).join("").toUpperCase()} />
         <span className={styles.identity}><b>{account.name}{own && <small> · you</small>}</b></span></span>
       <span className={styles.email}>{account.email}</span><span className={styles.role}>{account.isAdmin ? "Admin" : "Member"}</span>
       <StatusDot state={status} tone={account.status === "active" ? "live" : "quiet"} />

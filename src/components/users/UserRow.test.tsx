@@ -4,7 +4,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, expect, it } from "vitest";
 import type { Account } from "@/lib/metadata/accounts";
 import { cssRules } from "../testing/css-rules";
-import { installDomHost, type HostElement } from "../testing/dom-host";
+import { HostEvent, installDomHost, type HostElement } from "../testing/dom-host";
 import { UserRow } from "./UserRow";
 
 /**
@@ -82,4 +82,30 @@ it("states the facts on the person's own row, which offers no Deactivate", () =>
 it("keeps the danger pair 24px from the everyday actions", () => {
   const zone = cssRules("src/components/users/UsersScreen.module.css").filter(rule => rule.selector === ".dangerZone");
   expect(zone.map(rule => /margin-left:\s*([^;]+);/.exec(rule.body)?.[1])).toEqual(["24px"]);
+});
+
+it("draws the person's picture in the row's circle by its version, over their first two initials until it loads", async () => {
+  draw({ ...person, name: "Ada Byron Quill", pictureVersion: "p1" }, { open: false });
+  const face = container.querySelector("[data-face]")!;
+  expect(face.className).toMatch(/avatar/);
+  expect(face.querySelector("img")?.getAttribute("src")).toBe("/api/accounts/ada_quill/picture?v=p1");
+  expect(face.textContent).toBe("AB");
+  await act(async () => { face.querySelector("img")!.dispatchEvent(new HostEvent("load")); });
+  expect(face.getAttribute("data-face")).toBe("picture");
+  expect(face.textContent).toBe("");
+});
+
+it("draws the initials alone, asking for no picture, for a person who has none", () => {
+  draw({ ...person, name: "Ada Byron Quill" }, { open: false });
+  expect(container.querySelector("[data-face]")?.textContent).toBe("AB");
+  expect(container.querySelector("img")).toBeNull();
+});
+
+it("dims a deactivated person's picture with their row, as their initials are", () => {
+  draw({ ...person, status: "deactivated", pictureVersion: "p1" }, { open: false });
+  const face = container.querySelector("[data-off]")!.querySelector("[data-face]");
+  expect(face?.className).toMatch(/avatar/);
+  expect(face?.querySelector("img")).toBeTruthy();
+  const dim = cssRules("src/components/users/UsersScreen.module.css").filter(rule => rule.selector === ".row[data-off] .avatar");
+  expect(dim.map(rule => /opacity:\s*([^;]+);/.exec(rule.body)?.[1])).toEqual(["0.5"]);
 });
