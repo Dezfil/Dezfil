@@ -865,6 +865,10 @@
       "action": "purge",
       "rule": "Drain in-progress picture dependency resolution, then clear every coalesced dataset identity before account erasure completes. Future looks derive any remaining work from live maps.",
       "fixture": "memory:picture-data"
+    },
+    "memory:picture-processing": {
+      "action": "retain",
+      "rule": "Keep the instance's one profile picture slot, its waiting room and its counts. The room holds only the turn each waiting picture is woken by; the picture's file and bytes stay with its request's work, which deletion drains. They hold no account identity or content."
     }
   },
   "tables": {
@@ -7099,6 +7103,11 @@
       ],
       "roots": [
         "thumbnails/*"
+      ]
+    },
+    "memory:src/lib/profile-pictures/normalize.ts#processing": {
+      "stores": [
+        "memory:picture-processing"
       ]
     }
   },

@@ -32,6 +32,8 @@ export const ERROR_CATALOGUE: Record<ErrorCode, string> = {
   geometry_in_flight: "A geometry edit or refresh is already running for this dataset or URL import group.",
   unsupported_format:
     "The uploaded file type is not one of the supported formats.",
+  unsupported_image: "The picture is not a still JPEG, PNG or WebP image: another kind, an animated image, or one that is damaged or incomplete. Nothing changed.",
+  image_too_large: "The picture has more pixels than the fixed limit of 64 million, read from its header before any pixel is decoded. Nothing changed.",
   upload_too_large: "The upload exceeds the configured size cap.",
   archive_too_large:
     "The archive's unpacked content exceeds the configured upload size cap.",
