@@ -35,13 +35,18 @@ describe.skipIf(!base)("a picture frames what the map draws", () => {
     await ground?.close();
   });
 
-  /** A map on the loopback ground, saved at `view`, with these layers. */
-  async function withLayers(name: string, view: View, bodies: object[], box?: [number, number, number, number]) {
+  /** A map on the loopback ground, saved at `view`, with these layers. A
+   * layer is created with its name, SQL and style; a `viz` is set after. */
+  async function withLayers(name: string, view: View, bodies: ({ viz?: object } & Record<string, unknown>)[], box?: [number, number, number, number]) {
     const map = await api.json<{ id: string }>("POST", "/api/maps", { name }); maps.push(map.id);
     const url = box ? `${ground.origin}/box.json?w=${box[0]}&s=${box[1]}&e=${box[2]}&n=${box[3]}` : `${ground.origin}/plain.json`;
     await api.json("PATCH", `/api/maps/${map.id}`, { viewport: view, customBasemap: { url, name: "Framing fixture", attribution: [{ label: "Fixture" }] } }, map.id);
     const layers: { id: string }[] = [];
-    for (const body of bodies) layers.push(await api.json("POST", `/api/maps/${map.id}/layers`, body, map.id));
+    for (const { viz, ...body } of bodies) {
+      const layer = await api.json<{ id: string }>("POST", `/api/maps/${map.id}/layers`, body, map.id);
+      if (viz) await api.json("PATCH", `/api/layers/${layer.id}`, { viz }, map.id);
+      layers.push(layer);
+    }
     return { id: map.id, layers };
   }
   /** A map on the loopback ground, saved at `view`, one layer per point. */
@@ -309,7 +314,11 @@ describe.skipIf(!base)("a picture frames what the map draws", () => {
     }
   }, 300000);
 
-  it("draws arcs around the globe across one world, their ends where the world once puts them", async () => {
+  // Origin-destination pairs drawn flat (the line form of the arc layer):
+  // an arc's height lifts its middle off the ground, and under the camera's
+  // perspective the middle then spreads past its ends, so only a flat pair's
+  // outermost pixels are its ends.
+  it("draws origin-destination pairs around the globe across one world, their ends where the world once puts them", async () => {
     const arcs = [
       { from: [-170, 30], to: [170, 30], colour: BLUE },
       { from: [-120, -40], to: [150, 60], colour: ORANGE },
@@ -317,8 +326,8 @@ describe.skipIf(!base)("a picture frames what the map draws", () => {
     const bodies = arcs.map((arc, i) => ({
       name: `Arc ${i}`,
       sql: `SELECT ST_Point(${arc.from[0]}, ${arc.from[1]}) AS o, ST_Point(${arc.to[0]}, ${arc.to[1]}) AS d`,
-      style: { stroke: { r: arc.colour[0], g: arc.colour[1], b: arc.colour[2], a: 1 }, strokeOpacity: 1, strokeWidth: 4, opacity: 1 },
-      viz: { type: "arc", origin: { kind: "geometry", field: "o" }, dest: { kind: "geometry", field: "d" }, height: 0.6,
+      style: { fill: { type: "constant", color: { r: arc.colour[0], g: arc.colour[1], b: arc.colour[2], a: 1 } }, stroke: { r: arc.colour[0], g: arc.colour[1], b: arc.colour[2], a: 1 }, strokeOpacity: 1, strokeWidth: 4, pointRadius: 0, opacity: 1 },
+      viz: { type: "line", origin: { kind: "geometry", field: "o" }, dest: { kind: "geometry", field: "d" }, height: 0.6,
         targetColor: { r: arc.colour[0], g: arc.colour[1], b: arc.colour[2], a: 1 } },
     }));
     const saved: View = { lng: 0, lat: 0, zoom: 2, pitch: 0, bearing: 0 };
