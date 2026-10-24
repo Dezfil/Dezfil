@@ -25,8 +25,11 @@ import { acceptAccountDeletion } from "@/lib/auth/account-deletion";
 import { socketRequest } from "@/lib/assistant/testing/socket-request";
 import { authenticatedRoute, TEST_ACCOUNT_ID } from "@/lib/assistant/testing/account";
 import { testClient } from "@/lib/mcp/test-client";
-import { RECORDS, gif, hugePng, orientedPortraitJpeg, svg, wideJpeg } from "../../../../../test-support/profile-picture-fixtures";
+import {
+  RECORDS, animatedPng, animatedWebp, corruptJpeg, corruptPng, gif, hugePng, orientedPortraitJpeg, svg, textNamedJpg, truncatedJpeg, wideJpeg,
+} from "../../../../../test-support/profile-picture-fixtures";
 import { GET as readPicture } from "../../accounts/[sqlName]/picture/route";
+import { PATCH as changeUser } from "../../users/[id]/route";
 import { DELETE, PUT } from "./route";
 
 /**
@@ -60,7 +63,9 @@ const upload = (account: string, file: Buffer, query = "", name?: string) =>
   PUT(testAccountRequest(new Request(`http://instance.test/api/account/picture${query}`, {
     method: "PUT", body: new Uint8Array(multipart(file, name)), headers: { "content-type": `multipart/form-data; boundary=${BOUNDARY}` },
   }), undefined, account));
-const remove = (account: string) => DELETE(testAccountRequest(new Request("http://instance.test/api/account/picture", { method: "DELETE" }), undefined, account));
+const remove = (account: string, query = "", body?: string) => DELETE(testAccountRequest(new Request(`http://instance.test/api/account/picture${query}`, {
+  method: "DELETE", ...(body ? { body, headers: { "content-type": "application/json" } } : {}),
+}), undefined, account));
 const version = (id: string) => getAccount(id)?.pictureVersion;
 const served = async (sqlName: string) => {
   const response = await readPicture(testAccountRequest(new Request(`http://instance.test/api/accounts/${sqlName}/picture`), undefined, "bo"), { params: Promise.resolve({ sqlName }) });
@@ -116,15 +121,36 @@ describe("setting a picture", () => {
     expect(version("bo")).toBe(bos);
   });
 
+  it("removes only the signed-in account's picture whatever the removal names", async () => {
+    await answer(await upload("bo", await wideJpeg()), 200);
+    const bos = version("bo");
+    await answer(await upload("ada", await wideJpeg()), 200);
+    await answer(await remove("ada", "?account=bo&sqlName=bo&id=bo", JSON.stringify({ id: "bo", account: "bo" })), 200);
+    expect(version("ada")).toBeUndefined();
+    expect(version("bo")).toBe(bos);
+    expect(await served(getAccount("bo")!.sqlName)).not.toBeNull();
+  });
+
   it.each([
     ["an SVG", svg, 415, "unsupported_image"],
     ["a GIF", gif, 415, "unsupported_image"],
+    ["an animated WebP", animatedWebp, 415, "unsupported_image"],
+    ["an animated PNG", animatedPng, 415, "unsupported_image"],
+    ["a text file named .jpg", async () => textNamedJpg(), 415, "unsupported_image"],
+    ["a JPEG whose scan is garbage", corruptJpeg, 415, "unsupported_image"],
+    ["a PNG whose data fails its checksum", corruptPng, 415, "unsupported_image"],
+    ["a truncated JPEG", truncatedJpeg, 415, "unsupported_image"],
     ["more than 64 million pixels", async () => hugePng(), 413, "image_too_large"],
   ] as const)("refuses %s, keeps the current picture and leaves no received file", async (_, file, status, code) => {
     await answer(await upload("ada", await wideJpeg()), 200);
     const before = version("ada");
+    const bytes = await served("ada");
+    const files = walk(directory).map((file) => path.relative(directory, file)).sort();
     expect((await answer(await upload("ada", await file()), status)).error?.code).toBe(code);
     expect(version("ada")).toBe(before);
+    expect((await served("ada"))?.equals(bytes!)).toBe(true);
+    // Nothing of the refused upload is left anywhere in the data folder.
+    expect(walk(directory).map((file) => path.relative(directory, file)).sort()).toEqual(files);
     expect(scratch()).toEqual([]);
   });
 
@@ -163,6 +189,27 @@ describe("the received file", () => {
     expect(admittedReads("ada")).toBe(0);
     expect(scratch()).toEqual([]);
     expect(ownedFileRecords().filter((record) => record.file.startsWith("tmp"))).toEqual([]);
+  });
+});
+
+describe("an account's status", () => {
+  it("keeps the picture through a deactivation and shows it again after the reactivation", async () => {
+    await answer(await upload("ada", await wideJpeg()), 200);
+    const before = version("ada");
+    const bytes = (await served("ada"))!;
+    const status = async (value: "deactivated" | "active") => {
+      const response = await changeUser(testAccountRequest(new Request("http://instance.test/api/users/ada", {
+        method: "PATCH", body: JSON.stringify({ status: value }), headers: { "content-type": "application/json" },
+      }), undefined, "admin"), { params: Promise.resolve({ id: "ada" }) });
+      expect(response.status, await response.clone().text()).toBe(200);
+      expect(getAccount("ada")?.status).toBe(value);
+    };
+    await status("deactivated");
+    expect(version("ada")).toBe(before);
+    expect((await served("ada"))?.equals(bytes)).toBe(true);
+    await status("active");
+    expect(version("ada")).toBe(before);
+    expect((await served("ada"))?.equals(bytes)).toBe(true);
   });
 });
 
