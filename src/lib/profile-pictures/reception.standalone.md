@@ -28,10 +28,9 @@ The six cases take about four minutes. A file of exactly 10 MB, sent in chunks
 with no declared length, sets the picture and one byte more is refused with
 nothing changed. A size refusal reaches a sender that stops sending within 5
 seconds and its connection closes. A caller who leaves mid-body changes
-nothing. First-byte and mid-body silence answer 408 within 65 seconds, as
-`upload_stalled` or `data_processing_timeout`: the stall's 60 seconds and the
-reception's meet, and whichever clock reads first answers. A body still
-arriving at 60 seconds answers `data_processing_timeout`. Each case asserts its status, code and timing, that
+nothing. First-byte and mid-body silence answer 408 `upload_stalled` within
+65 seconds. A body still arriving at 120 seconds answers
+`data_processing_timeout`. Each case asserts its status, code and timing, that
 the picture stayed as it was, that no received file is left, and that the
 next upload succeeds. Stop the server before removing its scratch directory.
 

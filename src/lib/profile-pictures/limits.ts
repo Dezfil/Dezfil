@@ -11,8 +11,10 @@ export const PICTURE_LIMITS = Object.freeze({
   /** The stored square's side: three screen pixels per point at its
    * largest display, 96 points. */
   side: 320,
-  /** How long the body may take to arrive. */
-  receiveMs: 60_000,
+  /** How long the body may take to arrive: twice the upload's own 60 s
+   * stall, so a body that goes silent always answers as a stall and one
+   * still arriving has room to finish. */
+  receiveMs: 120_000,
   /** How long processing may take, counted from the end of reception and
    * covering the wait for a turn. */
   processMs: 20_000,

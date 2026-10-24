@@ -135,30 +135,29 @@ describe.skipIf(!port)("production picture reception", () => {
     await recovered(before);
   }, 60000);
 
-  // The stall's 60 seconds and the reception's meet, so silence ends with
-  // whichever clock reads first.
-  it.each([false, true])("refuses first-byte or mid-body silence (mid-body=%s): 408 in 60–65 s, nothing changed", async midBody => {
+  // Silence meets the upload's own 60 s stall well inside the 120 s reception.
+  it.each([false, true])("refuses first-byte or mid-body silence (mid-body=%s): 408 upload_stalled in 60–65 s, nothing changed", async midBody => {
     const before = await current();
     const upload = start(100000);
     if (midBody) { await write(upload.req, Buffer.concat([prefix, exact.subarray(0, 1024 * 1024)])); await partial(); }
     const answer = await upload.result;
-    expect(answer.status).toBe(408); expect(["upload_stalled", "data_processing_timeout"]).toContain(answer.json.error?.code);
+    expect(answer.status).toBe(408); expect(answer.json.error?.code).toBe("upload_stalled");
     expect(answer.elapsed).toBeGreaterThanOrEqual(59000); expect(answer.elapsed).toBeLessThan(65000);
     expect(await current()).toBe(before);
     await clean(); await recovered(before);
   }, 100000);
 
-  it("bounds a body still arriving at 60 s (408 data_processing_timeout, <65 s), nothing changed", async () => {
+  it("bounds a body still arriving at 120 s (408 data_processing_timeout, <125 s), nothing changed", async () => {
     const before = await current();
-    const upload = start(100000); await write(upload.req, Buffer.concat([prefix, exact.subarray(0, 1024)]));
+    const upload = start(160000); await write(upload.req, Buffer.concat([prefix, exact.subarray(0, 1024)]));
     let sent = 1024;
     const progress = setInterval(() => { if (!upload.done()) { upload.req.write(exact.subarray(sent, sent + 1024)); sent += 1024; } }, 10000);
     try {
       const answer = await upload.result; expect(answer.status).toBe(408);
-      expect(answer.json.error).toEqual({ code: "data_processing_timeout", message: "Upload exceeded the 60 s reception time limit. The limit is fixed." });
-      expect(answer.elapsed).toBeGreaterThanOrEqual(59000); expect(answer.elapsed).toBeLessThan(65000);
+      expect(answer.json.error).toEqual({ code: "data_processing_timeout", message: "Upload exceeded the 120 s reception time limit. The limit is fixed." });
+      expect(answer.elapsed).toBeGreaterThanOrEqual(119000); expect(answer.elapsed).toBeLessThan(125000);
       expect(await current()).toBe(before);
       await clean(); await recovered(before);
     } finally { clearInterval(progress); }
-  }, 100000);
+  }, 160000);
 });

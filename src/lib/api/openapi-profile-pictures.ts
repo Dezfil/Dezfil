@@ -29,9 +29,8 @@ export const PROFILE_PICTURE_PATHS = {
           "whatever length is declared: one byte over answers 413 upload_too_large. An SVG, a GIF, an " +
           "animated image, or one that is damaged or incomplete, answers 415 unsupported_image; more than " +
           "64 million pixels, read from the header before any pixel is decoded, 413 image_too_large. The " +
-          "body has 60 seconds to arrive: one not received by then, one that stops arriving included, answers " +
-          "408 data_processing_timeout, or 408 upload_stalled when the upload's own 60 seconds without a body " +
-          "byte end first. The first refusal is delivered without waiting for the rest of the " +
+          "body has 120 seconds to arrive: one still arriving then answers 408 data_processing_timeout, and one " +
+          "that sends no body byte for 60 seconds answers 408 upload_stalled. The first refusal is delivered without waiting for the rest of the " +
           "body, and the refused connection closes within five seconds. A caller who leaves before the body " +
           "is received changes nothing. Processing takes at most 20 seconds, waiting included, and runs " +
           "one picture at a time on the instance with eight more waiting; past that, 503 " +
