@@ -1,6 +1,6 @@
 {
-  "count": 157,
-  "overall": "0d63a34df5d15fddf985612cde10c955164786eb29b1b5b60a8f03d636b3f006",
+  "count": 158,
+  "overall": "bdbe34fa95b0bfe60259d6b363dd7838a73f4c07b5de2c106236abb71d8a3005",
   "tools": {
     "get_account": "f9449c42bd1f10ea7744e222cc62614d4a204d733c1126e6dcc7d958fb005cb1",
     "update_account": "9074c8b3e4d9dd0d5085ea1b419e99c713eb84f540cb0e0f6bf45ad5fde370de",
@@ -114,7 +114,8 @@
     "transfer_project": "cbda0234370e53d00ec734ba10b1dc20f47304ac8fe012dd3cef0e37c94dd98e",
     "transfer_map": "3c066e64a39be434b205e1ee7fdfd82bd45ed53f575db303cc5a7e101acb3efb",
     "transfer_workflow": "e18360e4efb6064677f1e7ff70abecbbfdb57f0aa08a9a6896c4cd827387910b",
-    "find_accounts": "3ff69de45eb37cdcdbf0366f8721ec49875b9a219dba6d955bf01787d0734f59",
+    "find_accounts": "252b49a9bec1c45012d2f508bf0a1d15e299d5077ec6af573818c490773fd815",
+    "read_account_picture": "3e637dad5f1618052682ce169e6133bb758eb2e2a4292281192eeedd0972b352",
     "sanitize_icon_svg": "0b3af14f4cc946727a128ffd8f3aa324c3e16cc7e377dcf854f30c77a3033f49",
     "inspect_basemap_style": "eea2e413e2f037981415ed02fe2558876c2803704ae31b8f2f9e2d4469ce1a15",
     "get_map": "d21863a05a887eb4db2e141eba40935d6682ad5fbdcb65a913edd2cd17c93cb6",

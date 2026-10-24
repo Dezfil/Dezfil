@@ -6,7 +6,7 @@ import { workflowAccess } from "./openapi-workflow-access";
 import { authenticatedOp } from "./openapi-authenticated";
 import { DIRECTORY_LIMIT, DIRECTORY_QUERY_MAX } from "@/lib/auth/directory-bounds";
 import { ERROR_RESPONSE, jsonOk, op, pathParam } from "./openapi-helpers";
-import { PICTURE_VERSION_PROPERTY } from "./openapi-profile-pictures";
+import { PICTURE_VERSION_PROPERTY } from "./openapi-picture-version";
 import { LOCAL_DELETE, LOCAL_READ, type McpConsequences } from "./operation-mcp";
 import { READ_ONLY, resource, writes } from "./operation-metadata";
 
@@ -230,8 +230,8 @@ const DIRECTORY_PATHS = {
         "The directory of active people, for sharing a project: any signed-in account can find other active " +
         "accounts by any part of their display name (case-insensitive, the query trimmed) or by their exact " +
         "email (trimmed, case-insensitive), never by part of one. This is the one deliberate exception to " +
-        "account reads being admin-only, and it is minimal: each result carries the person's display name and " +
-        "SQL name and nothing else, never an email, an admin flag or an account identity. Deactivated accounts " +
+        "account reads being admin-only, and it is minimal: each result carries the person's display name, " +
+        "SQL name and, while they have a picture, its pictureVersion, and nothing else, never an email, an admin flag or an account identity. Deactivated accounts " +
         "and invitations not yet redeemed are never offered, nor the caller's own account, and nobody answers " +
         `twice. An empty query answers nobody; at most ${DIRECTORY_LIMIT} people answer, an exact email ` +
         "match first, then by display name. The SQL name is how the sharing operations name the person. " +

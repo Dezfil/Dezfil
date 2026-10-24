@@ -1,5 +1,5 @@
 import { ERROR_RESPONSE, jsonOk, op } from "./openapi-helpers";
-import { PICTURE_VERSION_PROPERTY } from "./openapi-profile-pictures";
+import { PICTURE_VERSION_PROPERTY } from "./openapi-picture-version";
 import { READ_ONLY, resource, writes } from "./operation-metadata";
 
 export const AUTH_SECURITY = [{ CookieSession: [] }, { BearerToken: [] }];

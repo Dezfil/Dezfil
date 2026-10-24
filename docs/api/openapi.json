@@ -40627,7 +40627,7 @@
     "/api/accounts/search": {
       "get": {
         "summary": "Find people to share with",
-        "description": "Requires a current cookie session or bearer token. Cookie mutations require the same trusted Origin. Responses, including refusals, are private, no-store. The directory of active people, for sharing a project: any signed-in account can find other active accounts by any part of their display name (case-insensitive, the query trimmed) or by their exact email (trimmed, case-insensitive), never by part of one. This is the one deliberate exception to account reads being admin-only, and it is minimal: each result carries the person's display name and SQL name and nothing else, never an email, an admin flag or an account identity. Deactivated accounts and invitations not yet redeemed are never offered, nor the caller's own account, and nobody answers twice. An empty query answers nobody; at most 20 people answer, an exact email match first, then by display name. The SQL name is how the sharing operations name the person. Managing accounts stays admin-only.",
+        "description": "Requires a current cookie session or bearer token. Cookie mutations require the same trusted Origin. Responses, including refusals, are private, no-store. The directory of active people, for sharing a project: any signed-in account can find other active accounts by any part of their display name (case-insensitive, the query trimmed) or by their exact email (trimmed, case-insensitive), never by part of one. This is the one deliberate exception to account reads being admin-only, and it is minimal: each result carries the person's display name, SQL name and, while they have a picture, its pictureVersion, and nothing else, never an email, an admin flag or an account identity. Deactivated accounts and invitations not yet redeemed are never offered, nor the caller's own account, and nobody answers twice. An empty query answers nobody; at most 20 people answer, an exact email match first, then by display name. The SQL name is how the sharing operations name the person. Managing accounts stays admin-only.",
         "tags": [
           "Accounts"
         ],
@@ -40853,6 +40853,397 @@
           "writes": []
         },
         "parameters": [],
+        "responses": {
+          "204": {
+            "description": "Allowed methods.",
+            "headers": {
+              "Allow": {
+                "description": "Exactly the documented methods for this path.",
+                "schema": {
+                  "type": "string",
+                  "const": "GET, HEAD, OPTIONS"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "method_not_allowed: the method is unsupported for this path.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Allow": {
+                "description": "Exactly the documented methods for this path.",
+                "schema": {
+                  "type": "string",
+                  "const": "GET, HEAD, OPTIONS"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieSession": []
+          },
+          {
+            "BearerToken": []
+          }
+        ]
+      }
+    },
+    "/api/accounts/{sqlName}/picture": {
+      "get": {
+        "summary": "Read a person's picture",
+        "description": "Requires a current cookie session or bearer token. Any active account reads any person's current picture, with or without a shared project: the people the account, Users, directory, project people and owner reads name, a deactivated person included. The picture is a WebP, 320 pixels square, the server's own copy with no embedded records. `v` names the version a read gave: the current version is served, an earlier one answers 404, and without `v` the current picture is served. A person with no picture, under deletion or unknown answers the same 404. Every answer carries an entity tag of its bytes and `Cache-Control: private, no-cache`, so a client may keep it but asks again before each use; a request whose `If-None-Match` names the current tag is answered 304 without the bytes, after the same checks as a full read. Refusals are private, no-store. Agents receive the image as an attachment.",
+        "tags": [
+          "Accounts"
+        ],
+        "x-tool": "read_account_picture",
+        "x-effects": {
+          "readOnly": true,
+          "writes": []
+        },
+        "x-mcp": {
+          "destructiveHint": false,
+          "openWorldHint": false,
+          "idempotentHint": true
+        },
+        "x-tool-output": {
+          "envelope": "result-history",
+          "binary": {
+            "representation": "attachment",
+            "nativeImage": true
+          }
+        },
+        "x-display": {
+          "verb": "Read the picture of {arg.sqlName}"
+        },
+        "parameters": [
+          {
+            "name": "sqlName",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The person's SQL name."
+          },
+          {
+            "name": "v",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The picture version a read gave (pictureVersion); absent reads the current picture."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The picture, as an attachment.",
+            "headers": {
+              "ETag": {
+                "description": "The entity tag of these bytes.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "description": "private, no-cache",
+                "schema": {
+                  "type": "string",
+                  "const": "private, no-cache"
+                }
+              },
+              "Content-Disposition": {
+                "description": "attachment, named <sqlName>.webp",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "image/webp": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "The picture is unchanged: its entity tag matches If-None-Match."
+          },
+          "401": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No picture at this address: none, an earlier version, a person under deletion or nobody by that SQL name (not_found).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "method_not_allowed: the method is unsupported for this path.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Allow": {
+                "description": "Exactly the documented methods for this path.",
+                "schema": {
+                  "type": "string",
+                  "const": "GET, HEAD, OPTIONS"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieSession": []
+          },
+          {
+            "BearerToken": []
+          }
+        ]
+      },
+      "head": {
+        "summary": "Read response headers",
+        "description": "Automatic HEAD uses GET with no response body.",
+        "tags": [
+          "Accounts"
+        ],
+        "x-tool": false,
+        "x-effects": {
+          "readOnly": true,
+          "writes": []
+        },
+        "parameters": [
+          {
+            "name": "sqlName",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The person's SQL name."
+          },
+          {
+            "name": "v",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The picture version a read gave (pictureVersion); absent reads the current picture."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The picture, as an attachment.",
+            "headers": {
+              "ETag": {
+                "description": "The entity tag of these bytes.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "description": "private, no-cache",
+                "schema": {
+                  "type": "string",
+                  "const": "private, no-cache"
+                }
+              },
+              "Content-Disposition": {
+                "description": "attachment, named <sqlName>.webp",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "The picture is unchanged: its entity tag matches If-None-Match."
+          },
+          "401": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No picture at this address: none, an earlier version, a person under deletion or nobody by that SQL name (not_found)."
+          },
+          "405": {
+            "description": "Unsupported method. HEAD has no response body.",
+            "headers": {
+              "Allow": {
+                "description": "Exactly the documented methods for this path.",
+                "schema": {
+                  "type": "string",
+                  "const": "GET, HEAD, OPTIONS"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieSession": []
+          },
+          {
+            "BearerToken": []
+          }
+        ]
+      },
+      "options": {
+        "summary": "Read allowed methods",
+        "description": "Automatic OPTIONS returns no body and the Allow header. Authentication is required.",
+        "tags": [
+          "System"
+        ],
+        "x-tool": false,
+        "x-effects": {
+          "readOnly": true,
+          "writes": []
+        },
+        "parameters": [
+          {
+            "name": "sqlName",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The person's SQL name."
+          }
+        ],
         "responses": {
           "204": {
             "description": "Allowed methods.",
@@ -59030,7 +59421,7 @@
           },
           "pictureVersion": {
             "type": "string",
-            "description": "The version of the person's picture, present while they have one and new whenever it is replaced; absent while they have none, when their initials stand in."
+            "description": "The version of the person's picture, present while they have one and new whenever it is replaced; absent while they have none, when their initials stand in. GET /api/accounts/{sqlName}/picture?v=<version> reads it."
           },
           "status": {
             "type": "string",
@@ -59161,7 +59552,7 @@
           },
           "pictureVersion": {
             "type": "string",
-            "description": "The version of the person's picture, present while they have one and new whenever it is replaced; absent while they have none, when their initials stand in."
+            "description": "The version of the person's picture, present while they have one and new whenever it is replaced; absent while they have none, when their initials stand in. GET /api/accounts/{sqlName}/picture?v=<version> reads it."
           }
         },
         "required": [
@@ -82337,7 +82728,7 @@
           },
           "pictureVersion": {
             "type": "string",
-            "description": "The version of the person's picture, present while they have one and new whenever it is replaced; absent while they have none, when their initials stand in."
+            "description": "The version of the person's picture, present while they have one and new whenever it is replaced; absent while they have none, when their initials stand in. GET /api/accounts/{sqlName}/picture?v=<version> reads it."
           },
           "role": {
             "type": "string",
@@ -82374,7 +82765,7 @@
           },
           "pictureVersion": {
             "type": "string",
-            "description": "The version of the person's picture, present while they have one and new whenever it is replaced; absent while they have none, when their initials stand in."
+            "description": "The version of the person's picture, present while they have one and new whenever it is replaced; absent while they have none, when their initials stand in. GET /api/accounts/{sqlName}/picture?v=<version> reads it."
           }
         },
         "required": [

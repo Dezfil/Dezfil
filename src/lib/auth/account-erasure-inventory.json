@@ -2962,6 +2962,11 @@
         "memory:immutable-configuration"
       ]
     },
+    "memory:src/lib/api/openapi-profile-pictures.ts#PROFILE_PICTURE_PATHS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
     "memory:src/lib/api/openapi-profile-pictures.ts#PROFILE_PICTURE_SCHEMAS": {
       "stores": [
         "memory:immutable-configuration"
@@ -7287,6 +7292,14 @@
     "writer:src/lib/profile-pictures/store.ts#placeCandidate:registerAccountFile": {
       "stores": [
         "file:account-files"
+      ],
+      "roots": [
+        "profile-pictures/*"
+      ]
+    },
+    "location:src/lib/profile-pictures/read.ts#readProfilePicture.bytes:picturePath": {
+      "stores": [
+        "file:profile-pictures"
       ],
       "roots": [
         "profile-pictures/*"

@@ -2,6 +2,8 @@ import { expect, it } from "vitest";
 import { buildOpenApiDocument } from "./openapi";
 import { ACCOUNT_ACTOR_SCHEMA } from "./openapi-document-facts";
 import { buildTools } from "@/lib/tools/tools";
+import { isAnonymousOperation, isEntryRequest } from "@/lib/auth/request-policy";
+import { AUTH_SECURITY } from "./openapi-auth";
 
 type Schema = { properties?: Record<string, unknown>; required?: string[]; additionalProperties?: boolean };
 const document = () => buildOpenApiDocument() as unknown as { components: { schemas: Record<string, Schema> } };
@@ -57,4 +59,31 @@ it("hands the version to an agent on every person read the tools answer", () => 
     expect(tool, name).toBeDefined();
     expect(JSON.stringify(tool!.outputSchema), name).toContain("pictureVersion");
   }
+});
+
+it("names no picture in any answer a published visitor reads, and keeps the picture itself signed in", () => {
+  const doc = buildOpenApiDocument() as unknown as { paths: Record<string, Record<string, { responses?: unknown; security?: unknown[] }>> };
+  const schemas = document().components.schemas as Record<string, unknown>;
+  // Everything an answer's schema reaches, through its references.
+  const reach = (value: unknown, seen = new Set<string>()): string => {
+    const text = JSON.stringify(value) ?? "";
+    for (const [, name] of text.matchAll(/"#\/components\/schemas\/([^"]+)"/g)) {
+      if (!seen.has(name)) { seen.add(name); reach(schemas[name], seen); }
+    }
+    return text + [...seen].map((name) => JSON.stringify(schemas[name])).join("");
+  };
+  let anonymous = 0;
+  for (const [template, operations] of Object.entries(doc.paths)) {
+    const pathname = template.replace(/\{[^}]+\}/g, "fixture-id");
+    for (const [method, operation] of Object.entries(operations)) {
+      // Signing in answers the person's own account; every other anonymous
+      // answer is what a published page's visitor can read.
+      if (!isAnonymousOperation(pathname, method.toUpperCase()) || isEntryRequest(pathname, method.toUpperCase())) continue;
+      anonymous++;
+      expect(reach(operation.responses), `${method} ${template}`).not.toContain("pictureVersion");
+    }
+  }
+  expect(anonymous).toBeGreaterThan(10);
+  expect(isAnonymousOperation("/api/accounts/fixture-id/picture", "GET")).toBe(false);
+  expect(doc.paths["/api/accounts/{sqlName}/picture"].get.security).toEqual(AUTH_SECURITY);
 });

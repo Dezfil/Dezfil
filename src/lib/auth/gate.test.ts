@@ -58,7 +58,9 @@ it.each(["home", "projects", "maps", "workflows", "data", "sql"])("keeps the sig
   }
 });
 
-it("leaves the picture read's caching to its route and keeps every other signed-in answer unkept", async () => {
+/** The reads whose answers a browser may keep and revalidate. */
+const REVALIDATED = ["/api/maps/{id}/thumbnail", "/api/accounts/{sqlName}/picture"];
+it("leaves the two picture reads' caching to their routes and keeps every other signed-in answer unkept", async () => {
   const signed = await first(), cookie = `${SESSION_COOKIE}=${signed.secret}`;
   const { buildOpenApiDocument } = await import("@/lib/api/openapi");
   const { isAnonymousOperation } = await import("./request-policy");
@@ -70,15 +72,17 @@ it("leaves the picture read's caching to its route and keeps every other signed-
       if (isAnonymousOperation(pathname, method)) continue;
       const request = new NextRequest(socketRequest(new Request("http://instance.test" + pathname, { method, headers: { cookie, origin: "http://instance.test" } })));
       const policy = gateRequest(request).headers.get("cache-control");
-      if (template === "/api/maps/{id}/thumbnail" && method === "GET") expect(policy, `${method} ${template}`).toBeNull();
+      if (REVALIDATED.includes(template) && method === "GET") expect(policy, `${method} ${template}`).toBeNull();
       else expect(policy, `${method} ${template}`).toBe("private, no-store");
       checked++;
     }
   }
   expect(checked).toBeGreaterThan(100);
-  // Without a credential the read is refused before its route, unkept.
-  const refused = gateRequest(input("/api/maps/fixture-id/thumbnail"));
-  expect(refused.status).toBe(401); expect(refused.headers.get("cache-control")).toBe("private, no-store");
-  // A neighbouring path is not the picture read.
-  expect(gateRequest(input("/api/maps/fixture-id/thumbnail/extra", { cookie })).headers.get("cache-control")).toBe("private, no-store");
+  for (const path of ["/api/maps/fixture-id/thumbnail", "/api/accounts/fixture-id/picture"]) {
+    // Without a credential the read is refused before its route, unkept.
+    const refused = gateRequest(input(path));
+    expect(refused.status).toBe(401); expect(refused.headers.get("cache-control")).toBe("private, no-store");
+    // A neighbouring path is not the picture read.
+    expect(gateRequest(input(`${path}/extra`, { cookie })).headers.get("cache-control")).toBe("private, no-store");
+  }
 });

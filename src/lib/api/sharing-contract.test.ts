@@ -116,7 +116,7 @@ it("documents the directory search as the one minimal exception to admin-only ac
   expect(operation["x-tool"]).toBe("find_accounts");
   expect(operation.security).toEqual(AUTH_SECURITY);
   expect(operation.description).toContain("the one deliberate exception to account reads being admin-only");
-  expect(operation.description).toContain("display name and SQL name and nothing else");
+  expect(operation.description).toContain("display name, SQL name and, while they have a picture, its pictureVersion, and nothing else");
   expect(operation.description).toContain("Deactivated accounts and invitations not yet redeemed are never offered");
   expect(operation.description).toContain("Managing accounts stays admin-only");
   expect(operation.parameters).toEqual([expect.objectContaining({ name: "q", in: "query" })]);
