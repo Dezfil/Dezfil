@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Account } from "@/lib/metadata/accounts";
 import { AccountRailView } from "./AccountRail";
 import { UserBadge } from "./UserBadge";
-import { NavLinks, sectionFor } from "./NavLinks";
+import { NavLinks, RailSettingsLink, sectionFor } from "./NavLinks";
 import { conversation, LOCATOR_KEY } from "./builder/assistant/conversation-store";
 import { SQL_KEYS, readStored, writeStored } from "./sql/sql-storage";
 import { openPrivateState } from "./auth/private-state";
@@ -18,17 +18,34 @@ vi.mock("./ui/IconButton", async original => {
   } };
 });
 beforeEach(() => openPrivateState("one"));
-afterEach(() => vi.unstubAllGlobals());
-vi.mock("next/navigation", () => ({ usePathname: () => "/settings" }));
+afterEach(() => { vi.unstubAllGlobals(); navigation.pathname = "/settings"; });
+const navigation = vi.hoisted(() => ({ pathname: "/settings" }));
+vi.mock("next/navigation", () => ({ usePathname: () => navigation.pathname }));
 const account = { id: "one", name: "Frida Merian", email: "frida@example.test", isAdmin: true } as Account;
 
 describe("the account rail", () => {
   it("takes the avatar to the Account card and names the signed-in person", () => {
     const html = renderToStaticMarkup(<UserBadge account={account} />);
-    expect(html).toContain('href="/settings#account"');
+    expect(html).toContain('href="/settings/account"');
     expect(html).toContain('aria-label="Frida Merian, account"');
-    expect(html).toContain("frida@example.test");
     expect(html).toContain(">FM<");
+  });
+  it("names the person without their email, which Account shows", () => {
+    expect(renderToStaticMarkup(<UserBadge account={account} />)).not.toContain("frida@example.test");
+  });
+  it("marks the person's row on the Account tab and Settings on every other tab, never both", () => {
+    const marked = (html: string) => html.includes("data-active");
+    for (const [pathname, own, settings] of [
+      ["/settings/account", true, false],
+      ["/settings/limits", false, true],
+      ["/settings/appearance", false, true],
+      ["/settings", false, true],
+      ["/maps", false, false],
+    ] as const) {
+      navigation.pathname = pathname;
+      expect(marked(renderToStaticMarkup(<UserBadge account={account} />)), pathname).toBe(own);
+      expect(marked(renderToStaticMarkup(<RailSettingsLink />)), pathname).toBe(settings);
+    }
   });
   it("offers an independently named sign-out action without an account menu", () => {
     const html = renderToStaticMarkup(<UserBadge account={account} />);
@@ -51,7 +68,7 @@ describe("the account rail", () => {
     for (const value of [null, { ...account, isAdmin: false }]) {
       const html = renderToStaticMarkup(<AccountRailView account={value} />);
       expect(html).not.toContain('href="/users"');
-      expect(html).toContain('href="/settings#account"');
+      expect(html).toContain('href="/settings/account"');
       expect(html).toContain('aria-label="Sign out"');
     }
   });

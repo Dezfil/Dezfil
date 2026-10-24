@@ -1,9 +1,12 @@
 .screen { display: flex; flex-direction: column; gap: 20px; }
 .notice { width: fit-content; color: var(--accent-bright); font-size: var(--text-label); }
 .screen .ledger { overflow-x: auto; }
+/* The header, the people and the invitation share one grid, gaps included,
+   so each column's heading stands over its values. */
 .ledger .columns, .rowLine, .newRow {
   display: grid;
   grid-template-columns: minmax(220px, 1.3fr) minmax(190px, 1.2fr) 100px 120px 110px 44px;
+  column-gap: 16px;
   align-items: center;
   min-width: 820px;
 }
@@ -36,7 +39,7 @@
 .field { display: flex; flex-direction: column; gap: 5px; font-size: var(--text-label); color: var(--fg-muted); }
 .field input { font-family: var(--font-mono); }
 .invitation { background: var(--bg-raised); min-width: 820px; }
-.newRow { padding: 10px 16px 10px 12px; gap: 0 10px; }
+.newRow { padding: 10px 16px 10px 12px; row-gap: 0; }
 .newActions { grid-column: 4 / -1; display: flex; justify-content: flex-end; gap: 6px; }
 /* The note under the invitation keeps the rows' and cells' left inset. */
 .invitation .note { padding: 0 16px 12px 12px; }

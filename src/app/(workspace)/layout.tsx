@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { HealthDot } from "@/components/HealthDot";
 import { HeaderCrumbs, NavLinks } from "@/components/NavLinks";
 import { InstanceChip } from "@/components/shell/InstanceChip";
 import { HeadCard } from "@/components/shell/HeadCard";
@@ -61,7 +60,6 @@ export default async function WorkspaceLayout({
       <RailShell className={styles.rail}>
         <NavLinks />
         <span className={styles.railSpacer} />
-        <HealthDot />
         <AccountRail />
       </RailShell>
       <main className={styles.main}>{children}</main>

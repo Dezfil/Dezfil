@@ -10,6 +10,7 @@ import { PeopleChip } from "@/components/sharing/PeopleMarks";
 import { peopleMark } from "@/components/sharing/people";
 import { useProjectPeople } from "@/components/sharing/use-project-people";
 import { DOCS_SITE_URL } from "@/lib/docs-site";
+import { ACCOUNT_ADDRESS } from "@/components/settings/settings-address";
 import { railHint, useRailItemMode } from "./rail-mode";
 import { ExternalIcon } from "./ui/icons";
 
@@ -173,9 +174,12 @@ export function NavLinks() {
   );
 }
 
+/* On the Account tab the rail marks the person's own row instead. */
+const SETTINGS_IN_RAIL = { ...SETTINGS, match: (p: string) => SETTINGS.match(p) && p !== ACCOUNT_ADDRESS };
+
 export function RailSettingsLink() {
   const pathname = usePathname();
-  return <RailLink link={SETTINGS} pathname={pathname} />;
+  return <RailLink link={SETTINGS_IN_RAIL} pathname={pathname} />;
 }
 
 /** The documentation site, beside Settings: a plain anchor out of the app,

@@ -137,7 +137,6 @@ function moduleSheets(dir: string): string[] {
  * interface's and stays on the accent.
  */
 const STATUS_MARKS: [file: string, selector: string][] = [
-  ["src/components/HealthDot.module.css", '.dot[data-state="ready"]'],
   ["src/components/settings/SystemTab.module.css", '.state[data-state="on"]::before'],
   ["src/components/WorkflowStatusChip.module.css", '.stateChip[data-tone="ok"]'],
   ["src/components/WorkflowStatusChip.module.css", '.stateChip[data-tone="ok"] i'],
