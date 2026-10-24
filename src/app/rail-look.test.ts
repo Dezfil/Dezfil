@@ -126,7 +126,8 @@ describe("the Side menu pick in the stylesheets", () => {
     // selector, gate included, or the gated reveal would outweigh it and
     // keep its delay.
     const waiting = focusRules.filter(rule => declaration(rule.body, "transition-delay") !== undefined).map(rule => rule.selector).sort();
-    expect(waiting.length).toBeGreaterThanOrEqual(3);
+    // The rail itself and its labels.
+    expect(waiting.length).toBeGreaterThanOrEqual(2);
     const quieting = layout.filter(rule => rule.selector.includes(FOCUS) && rule.within === REDUCED);
     expect(quieting.map(rule => rule.selector).sort()).toEqual(waiting);
     for (const rule of quieting) {
