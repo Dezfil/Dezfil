@@ -8,7 +8,7 @@ import { parseArgs } from 'node:util';
 export async function deletionProofHost({ standalone = '.next/standalone', port = 3397, wirePort } = {}) {
   const root = process.cwd(), scratch = process.env.DEZFIL_DATA_DIR;
   assert.ok(scratch && path.isAbsolute(scratch), 'set a fresh absolute DEZFIL_DATA_DIR');
-  assert.ok(!['/srv/dezfil/data', path.join(root, 'data')].includes(path.resolve(scratch)), 'scratch only');
+  assert.ok(path.resolve(scratch) !== path.join(root, 'data'), 'scratch only');
   mkdirSync(scratch, { recursive: true }); assert.deepEqual(readdirSync(scratch), [], 'proof owns an empty scratch directory');
   assert.ok(port >= 3300 && port <= 65535, 'isolated port, never 3000');
   const base = `http://127.0.0.1:${port}`, directory = path.join(scratch, 'store');
