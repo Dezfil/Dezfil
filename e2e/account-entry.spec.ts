@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Locator, type Page } from "@playwright/test";
 
 // Run on a new isolated instance, bypassing shared global account provisioning.
 const firstRun = process.env.DEZFIL_E2E_FIRST_RUN === "1";
@@ -226,6 +226,11 @@ test.describe("account entry", () => {
     await expect(page).toHaveURL(new URL("/", baseURL).href);
     await page.goto("/users");
     const self = page.getByRole("button", { name: /Browser fixture.*you/ });
+    // Each column's heading stands over its values: the person, email, role,
+    // status and last sign-in start at the same left edge in both rows.
+    const lefts = (row: Locator) => row.evaluate(element =>
+      [...element.children].slice(0, 5).map(cell => Math.round(cell.getBoundingClientRect().left)));
+    expect(await lefts(self)).toEqual(await lefts(page.getByText("Last sign-in", { exact: true }).locator("..")));
     await self.click();
     const ownRow = self.locator("..");
     await expect(ownRow.getByRole("button", { name: "Deactivate", exact: true })).toHaveCount(0);
