@@ -25,6 +25,10 @@ export function tabAddress(tab: SettingsTabId, row?: string | null): string {
   return `${SETTINGS_PATH}/${tab}${row ? `#${row}` : ""}`;
 }
 
+/** The Account tab, which the rail marks on the person's own row rather
+ * than on its Settings entry. */
+export const ACCOUNT_ADDRESS = tabAddress("account");
+
 export interface SettingsLocation {
   readonly tab: SettingsTabId;
   /** The element to bring into view and mark, when the address names one. */

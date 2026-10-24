@@ -340,7 +340,7 @@
   flex: 1;
 }
 
-/* Account details and sign out join the rail's existing contextual reveal. */
+/* The account's name and sign out join the rail's existing contextual reveal. */
 .accountRow { position: relative; flex: none; }
 .accountLabel {
   display: flex; flex-direction: column; gap: 1px; min-width: 0;
@@ -348,10 +348,6 @@
 }
 .accountLabel b {
   font-size: 13px; font-weight: 600; color: var(--fg);
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-.accountLabel small {
-  font-size: 11px; color: var(--fg-muted);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .accountRow .accountOut {

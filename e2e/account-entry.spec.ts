@@ -66,7 +66,7 @@ test.describe("account entry", () => {
     await expect(rail.getByRole("link", { name: "Users", exact: true })).toHaveCount(1);
     await expect(rail.locator('[data-health="ready"]')).toHaveCount(1);
     const avatar = rail.getByRole("link", { name: "Browser fixture, account", exact: true });
-    await expect(avatar).toHaveAttribute("href", "/settings#account");
+    await expect(avatar).toHaveAttribute("href", "/settings/account");
     await avatar.focus();
     await page.keyboard.press("Tab");
     const signOut = rail.getByRole("button", { name: "Sign out", exact: true });

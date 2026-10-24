@@ -245,7 +245,7 @@ describe("the rail's controls are seen", () => {
     expect(computed(out, "position", null)).not.toBe("absolute");
     expect(out.parent!.classes).toContain("accountRow");
     const row = out.parent!.children;
-    expect(row[row.indexOf(out) - 1].attrs.get("href")).toBe("/settings#account");
+    expect(row[row.indexOf(out) - 1].attrs.get("href")).toBe("/settings/account");
   });
 
   it("leaves Sign out as it was under the other two picks", () => {

@@ -9,6 +9,7 @@ import { IconButton } from "./ui/IconButton";
 import { ErrorNote } from "./ui/ErrorNote";
 import { SignOutIcon } from "./ui/icons";
 import { accountRequest, failureMessage } from "./settings/api";
+import { ACCOUNT_ADDRESS } from "./settings/settings-address";
 import styles from "@/app/(workspace)/layout.module.css";
 import { accountChanged } from "./auth/private-state";
 import { railHint, useRailItemMode } from "./rail-mode";
@@ -36,15 +37,15 @@ export function UserBadge({ account }: { account: Account | null }) {
     } catch (error) { setError(failureMessage(error)); setBusy(false); }
   }
   return <div className={styles.accountRow}>
-    <Link href="/settings#account" className={styles.railLink}
-      data-active={pathname.startsWith("/settings") || undefined}
+    <Link href={ACCOUNT_ADDRESS} className={styles.railLink}
+      data-active={pathname === ACCOUNT_ADDRESS || undefined}
       aria-label={account ? `${account.name}, account` : "Account"}
       {...railHint(mode, account?.name ?? "Account")}>
       <span className={styles.railIcon}><span className={styles.avatar} aria-hidden>
         {account ? initials(account.name) : ""}
       </span></span>
       <span className={`${styles.railLabel} ${styles.accountLabel}`}>
-        <b>{account?.name ?? "…"}</b><small>{account?.email ?? ""}</small>
+        <b>{account?.name ?? "…"}</b>
       </span>
     </Link>
     <IconButton action="Sign out" tone="chrome" hint icon={<SignOutIcon />} className={styles.accountOut}
