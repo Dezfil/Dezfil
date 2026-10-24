@@ -7,7 +7,7 @@ import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { resourceAbsent } from "@/lib/auth/owned-resource";
 import { canReach, REACHED_PROJECTS, requireFilingAddition, requireFilingRemoval, requirePermitted, requireReachable,
   type FilingKind } from "@/lib/auth/reach";
-import type { AccountLabel } from "./accounts";
+import { personLabel, type PersonLabel } from "./accounts";
 import { metadataDb } from "./db";
 import * as projects from "./projects";
 export type { MemberChange, ProjectRecord } from "./projects";
@@ -29,16 +29,16 @@ export function requireProject(scope: AccountScope, id: string, db: Database = m
 
 /** A reached project, with its owner and how the acting account stands to it. */
 export interface ReachedProject extends projects.ProjectRecord {
-  owner: AccountLabel;
+  owner: PersonLabel;
   role: "owner" | "editor" | "viewer";
 }
-type ReachedProjectRow = ProjectRow & { owner_name: string; owner_sql_name: string; role: ReachedProject["role"] };
-const REACHED_PROJECT_SELECT = `SELECT p.*, a.name AS owner_name, a.sql_name AS owner_sql_name,
+type ReachedProjectRow = ProjectRow & { owner_name: string; owner_sql_name: string; owner_picture_version: string | null; role: ReachedProject["role"] };
+const REACHED_PROJECT_SELECT = `SELECT p.*, a.name AS owner_name, a.sql_name AS owner_sql_name, a.picture_version AS owner_picture_version,
     CASE WHEN p.owner_id = @me THEN 'owner' ELSE pp.role END AS role
   FROM projects p JOIN accounts a ON a.id = p.owner_id
   LEFT JOIN project_people pp ON pp.project_id = p.id AND pp.account_id = @me`;
 const reachedProjectOf = (row: ReachedProjectRow): ReachedProject =>
-  ({ ...projects.projectFromRow(row), owner: { name: row.owner_name, sqlName: row.owner_sql_name }, role: row.role });
+  ({ ...projects.projectFromRow(row), owner: personLabel(row.owner_name, row.owner_sql_name, row.owner_picture_version), role: row.role });
 
 /** The projects an account reaches, most recent first: its own, and every
  * project it belongs to, each with its owner and the account's role. */

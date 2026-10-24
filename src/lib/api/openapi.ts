@@ -11,6 +11,7 @@ import { withExamples } from "./openapi-examples";
 import { USERS_PATHS, USERS_SCHEMAS } from "./openapi-users";
 import { ACCOUNT_PATHS, ACCOUNT_SCHEMAS } from "./openapi-account";
 import { AUTH_PATHS, AUTH_SCHEMAS, AUTH_SECURITY_SCHEMES } from "./openapi-auth";
+import { PROFILE_PICTURE_SCHEMAS } from "./openapi-profile-pictures";
 import { settingsContract } from "./openapi-settings";
 import { INSTANCE_DEFAULTS_SCHEMA, INSTANCE_SETTINGS_PATHS, INSTANCE_SETTINGS_SCHEMAS, instanceRulesSchema } from "./openapi-instance-settings";
 import { INSTANCE_SERVICES_PATHS, INSTANCE_SERVICES_SCHEMAS } from "./openapi-instance-services";
@@ -867,6 +868,7 @@ export function buildOpenApiDocument() {
       securitySchemes: AUTH_SECURITY_SCHEMES,
       schemas: {
         ...AUTH_SCHEMAS,
+        ...PROFILE_PICTURE_SCHEMAS,
         ...WRITTEN_IN_SCHEMAS,
         ...ACCOUNT_SCHEMAS,
         ...USERS_SCHEMAS,

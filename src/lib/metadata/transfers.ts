@@ -5,7 +5,7 @@ import type { Database } from "better-sqlite3";
 import { ApiError } from "@/lib/api/errors";
 import { canReach, requirePermitted } from "@/lib/auth/reach";
 import type { AccountScope } from "@/lib/auth/scope";
-import { accountLabels, type AccountLabel } from "./accounts";
+import { accountPeople, type PersonLabel } from "./accounts";
 import { metadataDb } from "./db";
 import { throughTransferGate } from "./ownership-transfer";
 
@@ -28,7 +28,7 @@ export interface TransferResult {
   id: string;
   editRevision?: string;
   /** The new owner. */
-  owner: AccountLabel;
+  owner: PersonLabel;
 }
 
 /** What the request names as the new owner: a SQL name. */
@@ -40,7 +40,7 @@ function recipientName(to: unknown): string {
 }
 
 function result(id: string, owner: string, db: Database): TransferResult {
-  return { id, owner: accountLabels([owner], db).get(owner)! };
+  return { id, owner: accountPeople([owner], db).get(owner)! };
 }
 
 /** Hand a project to one of its active members. */

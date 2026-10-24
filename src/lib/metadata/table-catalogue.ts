@@ -17,7 +17,7 @@ export interface CatalogueRecord {
   /** The name the caller would type: plain for their own, `<sql name>.<name>`
    * for someone else's. Unique among what one caller reaches. */
   qualified: string;
-  owner_name: string; owner_sql_name: string;
+  owner_name: string; owner_sql_name: string; owner_picture_version: string | null;
 }
 
 /**
@@ -34,7 +34,7 @@ export function catalogueRecords(scope: AccountScope, query: CatalogueQuery) {
   if (query.project && query.project !== "none") requireReachable(scope, "project", query.project, db);
   const reached = `SELECT t.id, t.name, t.file, t.row_count, t.geometry_column, t.geometry_type, t.crs_assumed, t.owner_id,
       CASE WHEN t.owner_id = @me THEN t.name ELSE a.sql_name || '.' || t.name END AS qualified,
-      a.name AS owner_name, a.sql_name AS owner_sql_name
+      a.name AS owner_name, a.sql_name AS owner_sql_name, a.picture_version AS owner_picture_version
     FROM data_tables t JOIN accounts a ON a.id = t.owner_id
     WHERE t.owner_id = @me OR t.id IN (SELECT table_id FROM project_datasets WHERE project_id IN (${REACHED_PROJECTS}))`;
   const predicates: string[] = [];

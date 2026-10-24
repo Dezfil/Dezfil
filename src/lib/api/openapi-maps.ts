@@ -666,7 +666,7 @@ export const MAP_SCHEMAS = {
           "no project.",
       },
       owner: {
-        $ref: "#/components/schemas/ResourceOwner",
+        $ref: "#/components/schemas/Person",
         description: "The map's owner.",
       },
       home: {

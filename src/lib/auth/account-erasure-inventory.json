@@ -7,7 +7,7 @@
     },
     "table:accounts": {
       "action": "erase",
-      "rule": "Erase every profile field and all account dates. Ever-active identities retain only id, deleted status and the fixed SQL name. Never-used invitations leave no row.",
+      "rule": "Erase every profile field, the picture's version included, and all account dates. Ever-active identities retain only id, deleted status and the fixed SQL name. Never-used invitations leave no row.",
       "fixture": "table:accounts"
     },
     "table:auth_links": {
@@ -2667,6 +2667,11 @@
         "memory:immutable-configuration"
       ]
     },
+    "memory:src/lib/api/openapi-auth.ts#AUTH_SCHEMAS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
     "memory:src/lib/api/openapi-auth.ts#AUTH_SECURITY": {
       "stores": [
         "memory:immutable-configuration"
@@ -2943,6 +2948,11 @@
       ]
     },
     "memory:src/lib/api/openapi-projects.ts#PROJECT_PATHS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-profile-pictures.ts#PROFILE_PICTURE_SCHEMAS": {
       "stores": [
         "memory:immutable-configuration"
       ]
@@ -7202,6 +7212,7 @@
     "last_sign_in_at": "erase",
     "name": "erase",
     "password_hash": "erase",
+    "picture_version": "erase",
     "sql_name": "retain",
     "status": "retain",
     "updated_at": "erase"

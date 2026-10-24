@@ -1,7 +1,7 @@
 import type { Database } from "better-sqlite3";
 import { ApiError } from "@/lib/api/errors";
 import { metadataDb } from "@/lib/metadata/db";
-import { normalizeEmail } from "@/lib/metadata/accounts";
+import { normalizeEmail, personLabel, type PersonLabel } from "@/lib/metadata/accounts";
 import { DIRECTORY_LIMIT, DIRECTORY_QUERY_MAX } from "./directory-bounds";
 import { requireAccountScope, type AccountScope } from "./scope";
 
@@ -10,15 +10,13 @@ import { requireAccountScope, type AccountScope } from "./scope";
  * with. It is the one deliberate exception to account reads being an
  * admin's, and it is kept minimal: active accounts other than the caller,
  * found by any part of their display name or by their exact email, each
- * answered as a display name and a SQL name and nothing else.
+ * answered as a display name, a SQL name and, while they have a picture,
+ * its version, and nothing else.
  */
 
-export interface DirectoryPerson {
-  name: string;
-  sqlName: string;
-}
+export type DirectoryPerson = PersonLabel;
 
-type Row = { name: string; email: string; sql_name: string };
+type Row = { name: string; email: string; sql_name: string; picture_version: string | null };
 
 /** Active people matching the query, an exact email first, then by name. An
  * empty query answers nobody. */
@@ -31,7 +29,7 @@ export function findAccounts(scope: AccountScope, query: string | null, db: Data
   if (text === "") return [];
   const part = text.toLowerCase();
   const email = normalizeEmail(text);
-  const rows = db.prepare("SELECT name, email, sql_name FROM accounts WHERE status = 'active' AND id <> ?").all(me) as Row[];
+  const rows = db.prepare("SELECT name, email, sql_name, picture_version FROM accounts WHERE status = 'active' AND id <> ?").all(me) as Row[];
   const byEmail = (row: Row) => (row.email === email ? 0 : 1);
   const key = (row: Row) => row.name.toLowerCase();
   return rows
@@ -39,5 +37,5 @@ export function findAccounts(scope: AccountScope, query: string | null, db: Data
     .sort((a, b) => byEmail(a) - byEmail(b) || (key(a) < key(b) ? -1 : key(a) > key(b) ? 1 : 0) ||
       (a.sql_name < b.sql_name ? -1 : a.sql_name > b.sql_name ? 1 : 0))
     .slice(0, DIRECTORY_LIMIT)
-    .map(row => ({ name: row.name, sqlName: row.sql_name }));
+    .map(row => personLabel(row.name, row.sql_name, row.picture_version));
 }

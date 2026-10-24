@@ -3,6 +3,7 @@ import { ApiError } from "@/lib/api/errors";
 import { requirePermitted, requireReachable } from "@/lib/auth/reach";
 import type { AccountScope } from "@/lib/auth/scope";
 import { metadataDb } from "./db";
+import { personLabel } from "./accounts";
 
 /**
  * A project's people: its owner and the members the owner gave a role.
@@ -19,6 +20,8 @@ export type PersonRole = "viewer" | "editor";
 export interface ProjectPerson {
   name: string;
   sqlName: string;
+  /** The version of the person's picture, present while they have one. */
+  pictureVersion?: string;
   role: "owner" | PersonRole;
   /** The account is not active: a member's grant is inert until reactivation. */
   deactivated: boolean;
@@ -29,15 +32,15 @@ export interface ProjectPerson {
 export const NO_ACTIVE_PERSON = "No active person has that SQL name.";
 export const OWNER_NOT_MEMBER = "The project's owner is never its member.";
 
-type PersonRow = { name: string; sql_name: string; status: string; role: ProjectPerson["role"] };
+type PersonRow = { name: string; sql_name: string; picture_version: string | null; status: string; role: ProjectPerson["role"] };
 const person = (row: PersonRow): ProjectPerson =>
-  ({ name: row.name, sqlName: row.sql_name, role: row.role, deactivated: row.status !== "active" });
+  ({ ...personLabel(row.name, row.sql_name, row.picture_version), role: row.role, deactivated: row.status !== "active" });
 
 /** The owner first, then the members by name; `only` narrows the members to
  * one account. */
 function peopleOf(projectId: string, ownerId: string, db: Database, only?: string): ProjectPerson[] {
-  const owner = db.prepare("SELECT name, sql_name, status, 'owner' AS role FROM accounts WHERE id = ?").get(ownerId) as PersonRow;
-  const members = db.prepare(`SELECT a.name, a.sql_name, a.status, pp.role FROM project_people pp
+  const owner = db.prepare("SELECT name, sql_name, picture_version, status, 'owner' AS role FROM accounts WHERE id = ?").get(ownerId) as PersonRow;
+  const members = db.prepare(`SELECT a.name, a.sql_name, a.picture_version, a.status, pp.role FROM project_people pp
     JOIN accounts a ON a.id = pp.account_id WHERE pp.project_id = @project AND (@only IS NULL OR pp.account_id = @only)
     ORDER BY a.name COLLATE NOCASE, a.sql_name`).all({ project: projectId, only: only ?? null }) as PersonRow[];
   return [owner, ...members].map(person);

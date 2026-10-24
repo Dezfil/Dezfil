@@ -59028,6 +59028,10 @@
           "isAdmin": {
             "type": "boolean"
           },
+          "pictureVersion": {
+            "type": "string",
+            "description": "The version of the person's picture, present while they have one and new whenever it is replaced; absent while they have none, when their initials stand in."
+          },
           "status": {
             "type": "string",
             "enum": [
@@ -59143,6 +59147,27 @@
           "signedOut"
         ],
         "additionalProperties": false
+      },
+      "Person": {
+        "type": "object",
+        "description": "A person a resource names where the app draws their face, such as its owner. The display name, the SQL name and the picture's version, never an email.",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "sqlName": {
+            "type": "string",
+            "description": "The person's SQL name, the qualifier other people's SQL uses for their datasets."
+          },
+          "pictureVersion": {
+            "type": "string",
+            "description": "The version of the person's picture, present while they have one and new whenever it is replaced; absent while they have none, when their initials stand in."
+          }
+        },
+        "required": [
+          "name",
+          "sqlName"
+        ]
       },
       "WrittenIn": {
         "type": "object",
@@ -77442,7 +77467,7 @@
             "description": "The name the caller would type: the plain name for the caller's own dataset, <sql name>.<name> for another owner's."
           },
           "owner": {
-            "$ref": "#/components/schemas/ResourceOwner"
+            "$ref": "#/components/schemas/Person"
           },
           "owned": {
             "type": "boolean",
@@ -79394,7 +79419,7 @@
             "description": "The project this workflow is in: on the caller's own workflow always, a project they no longer reach included (they withdraw it with PATCH /api/projects/{id}/members), and on anyone else's the project through which the caller reaches it; null = in no project."
           },
           "owner": {
-            "$ref": "#/components/schemas/ResourceOwner",
+            "$ref": "#/components/schemas/Person",
             "description": "The workflow's owner."
           },
           "home": {
@@ -80887,7 +80912,7 @@
             "description": "The name the caller would type for this dataset: its plain name when it is the caller's own, <sql name>.<name> when it is another owner's, which tells two same-named datasets apart. Present on every listing and read."
           },
           "owner": {
-            "$ref": "#/components/schemas/ResourceOwner",
+            "$ref": "#/components/schemas/Person",
             "description": "The dataset's owner. Present on every listing and read."
           },
           "sourceFilename": {
@@ -81742,7 +81767,7 @@
             "description": "The project this map is in: on the caller's own map always, a project they no longer reach included (they withdraw it with PATCH /api/projects/{id}/members), and on anyone else's the project through which the caller reaches it; null = in no project."
           },
           "owner": {
-            "$ref": "#/components/schemas/ResourceOwner",
+            "$ref": "#/components/schemas/Person",
             "description": "The map's owner."
           },
           "home": {
@@ -82085,7 +82110,7 @@
             "description": "False when a member dataset's size is unknown — the sum is partial and says so."
           },
           "owner": {
-            "$ref": "#/components/schemas/ResourceOwner",
+            "$ref": "#/components/schemas/Person",
             "description": "The project's owner."
           },
           "role": {
@@ -82310,6 +82335,10 @@
             "type": "string",
             "description": "The person's SQL name, which names them on every sharing operation."
           },
+          "pictureVersion": {
+            "type": "string",
+            "description": "The version of the person's picture, present while they have one and new whenever it is replaced; absent while they have none, when their initials stand in."
+          },
           "role": {
             "type": "string",
             "enum": [
@@ -82333,7 +82362,7 @@
       "DirectoryPerson": {
         "type": "object",
         "additionalProperties": false,
-        "description": "A person the directory offers: their display name and SQL name, nothing else.",
+        "description": "A person the directory offers: their display name, their SQL name and their picture's version, nothing else.",
         "properties": {
           "name": {
             "type": "string",
@@ -82342,6 +82371,10 @@
           "sqlName": {
             "type": "string",
             "description": "The person's SQL name, which names them on every sharing operation."
+          },
+          "pictureVersion": {
+            "type": "string",
+            "description": "The version of the person's picture, present while they have one and new whenever it is replaced; absent while they have none, when their initials stand in."
           }
         },
         "required": [
@@ -82388,7 +82421,7 @@
             "type": "string"
           },
           "owner": {
-            "$ref": "#/components/schemas/ResourceOwner",
+            "$ref": "#/components/schemas/Person",
             "description": "The new owner."
           }
         },
@@ -84284,7 +84317,7 @@
                   "description": "The name the caller would type: the plain name for the caller's own dataset, <sql name>.<name> for another owner's."
                 },
                 "owner": {
-                  "$ref": "#/components/schemas/ResourceOwner"
+                  "$ref": "#/components/schemas/Person"
                 },
                 "projectIds": {
                   "type": "array",

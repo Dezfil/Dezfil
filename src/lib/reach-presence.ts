@@ -2,7 +2,7 @@ import type { Database } from "better-sqlite3";
 import type { AccountScope } from "@/lib/auth/scope";
 import { reachableProjectIds, requireReachable } from "@/lib/auth/reach";
 import { resourceAbsent } from "@/lib/auth/owned-resource";
-import { accountLabels, accountSqlNames, type AccountLabel } from "@/lib/metadata/accounts";
+import { accountPeople, accountSqlNames, type PersonLabel } from "@/lib/metadata/accounts";
 import { metadataDb } from "@/lib/metadata/db";
 import { mapStanding, type MapStanding } from "@/lib/metadata/map-queries";
 
@@ -19,7 +19,7 @@ import { mapStanding, type MapStanding } from "@/lib/metadata/map-queries";
  */
 export interface Presence {
   projectId: string | null;
-  owner: AccountLabel;
+  owner: PersonLabel;
   /** The SQL name of the home account. */
   home: string;
 }
@@ -29,7 +29,7 @@ export interface Presence {
 export function presencesOf(scope: AccountScope, standings: readonly MapStanding[], db: Database = metadataDb()): Presence[] {
   if (standings.length === 0) return [];
   const projects = reachableProjectIds(scope, db);
-  const labels = accountLabels(standings.map(s => s.ownerId), db);
+  const labels = accountPeople(standings.map(s => s.ownerId), db);
   const homes = accountSqlNames(standings.map(s => s.homeId ?? s.ownerId), db);
   return standings.map(standing => {
     const owner = labels.get(standing.ownerId);

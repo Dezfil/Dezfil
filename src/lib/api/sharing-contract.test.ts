@@ -53,7 +53,7 @@ it("documents a project's people as one read and two owner-only writes, each gen
 it("describes each person by display name, SQL name, role and the deactivated mark, never an email or an identity", () => {
   const schemas = document().components.schemas;
   expect(schemas.ProjectPerson.required).toEqual(["name", "sqlName", "role", "deactivated"]);
-  expect(Object.keys(schemas.ProjectPerson.properties!).sort()).toEqual(["deactivated", "name", "role", "sqlName"]);
+  expect(Object.keys(schemas.ProjectPerson.properties!).sort()).toEqual(["deactivated", "name", "pictureVersion", "role", "sqlName"]);
   expect(schemas.ProjectPerson.properties!.role.enum).toEqual(["owner", "editor", "viewer"]);
   expect(schemas.ProjectPeople.required).toEqual(["people"]);
   for (const name of ["list_project_people", "set_project_person", "remove_project_person"]) {
@@ -127,7 +127,7 @@ it("documents the directory search as the one minimal exception to admin-only ac
   const entry = (components.schemas.AccountDirectory.properties!.accounts as unknown as { items: { $ref: string }; maxItems: number });
   expect(entry.maxItems).toBe(20);
   const person = components.schemas.DirectoryPerson as unknown as { properties: object; required: string[]; additionalProperties: boolean };
-  expect(Object.keys(person.properties).sort()).toEqual(["name", "sqlName"]);
+  expect(Object.keys(person.properties).sort()).toEqual(["name", "pictureVersion", "sqlName"]);
   expect(person.additionalProperties).toBe(false);
   expect(JSON.stringify(find.outputSchema)).not.toMatch(/"(email|isAdmin|id|status)":/);
   for (const [path, methods] of Object.entries(paths).filter(([path]) => path.startsWith("/api/users"))) {

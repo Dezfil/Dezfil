@@ -6,6 +6,7 @@ import { workflowAccess } from "./openapi-workflow-access";
 import { authenticatedOp } from "./openapi-authenticated";
 import { DIRECTORY_LIMIT, DIRECTORY_QUERY_MAX } from "@/lib/auth/directory-bounds";
 import { ERROR_RESPONSE, jsonOk, op, pathParam } from "./openapi-helpers";
+import { PICTURE_VERSION_PROPERTY } from "./openapi-profile-pictures";
 import { LOCAL_DELETE, LOCAL_READ, type McpConsequences } from "./operation-mcp";
 import { READ_ONLY, resource, writes } from "./operation-metadata";
 
@@ -262,6 +263,7 @@ export const SHARING_SCHEMAS = {
     properties: {
       name: { type: "string", description: "The person's display name." },
       sqlName: { type: "string", description: "The person's SQL name, which names them on every sharing operation." },
+      pictureVersion: PICTURE_VERSION_PROPERTY,
       role: { type: "string", enum: ["owner", "editor", "viewer"] },
       deactivated: {
         type: "boolean",
@@ -273,10 +275,11 @@ export const SHARING_SCHEMAS = {
   DirectoryPerson: {
     type: "object",
     additionalProperties: false,
-    description: "A person the directory offers: their display name and SQL name, nothing else.",
+    description: "A person the directory offers: their display name, their SQL name and their picture's version, nothing else.",
     properties: {
       name: { type: "string", description: "The person's display name." },
       sqlName: { type: "string", description: "The person's SQL name, which names them on every sharing operation." },
+      pictureVersion: PICTURE_VERSION_PROPERTY,
     },
     required: ["name", "sqlName"],
   },
@@ -299,7 +302,7 @@ export const SHARING_SCHEMAS = {
     description: "A completed transfer: the resource's identity and its new owner.",
     properties: {
       id: { type: "string" },
-      owner: { $ref: "#/components/schemas/ResourceOwner", description: "The new owner." },
+      owner: { $ref: "#/components/schemas/Person", description: "The new owner." },
     },
     required: ["id", "owner"],
   },

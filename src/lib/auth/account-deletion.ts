@@ -83,7 +83,7 @@ async function continueDeletion(journal: DeletionJournal, db: Database): Promise
       () => { db.transaction(() => {
         if (journal.invited) db.prepare("DELETE FROM accounts WHERE id=? AND status='deleting'").run(accountId);
         else db.prepare(`UPDATE accounts SET status='deleted',name=NULL,email=NULL,password_hash=NULL,is_admin=NULL,
-          created_at=NULL,updated_at=NULL,last_sign_in_at=NULL WHERE id=? AND status='deleting'`).run(accountId);
+          created_at=NULL,updated_at=NULL,last_sign_in_at=NULL,picture_version=NULL WHERE id=? AND status='deleting'`).run(accountId);
       }).immediate(); },
       () => { compactMetadataStore(db); },
     ];

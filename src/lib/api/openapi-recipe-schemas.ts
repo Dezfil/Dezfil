@@ -222,7 +222,7 @@ export const RECIPE_SCHEMAS = {
           "reaches it; null = in no project.",
       },
       owner: {
-        $ref: "#/components/schemas/ResourceOwner",
+        $ref: "#/components/schemas/Person",
         description: "The workflow's owner.",
       },
       home: {

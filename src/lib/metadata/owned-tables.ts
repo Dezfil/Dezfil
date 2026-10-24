@@ -4,7 +4,7 @@ import type { Database } from "better-sqlite3";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { requireOwnedResource, resourceAbsent } from "@/lib/auth/owned-resource";
 import { REACHED_PROJECTS, requireReachable } from "@/lib/auth/reach";
-import type { AccountLabel } from "./accounts";
+import { personLabel, type PersonLabel } from "./accounts";
 import { dependentLayerIds } from "@/lib/table-deps";
 import { metadataDb } from "./db";
 import { fileTable } from "./owned-projects";
@@ -85,12 +85,12 @@ export function reachedTableProjectIds(scope: AccountScope, db: Database = metad
 export interface ReachedTable {
   table: DataTable;
   ownerId: string;
-  owner: AccountLabel;
+  owner: PersonLabel;
 }
-type ReachedRow = TableRow & { owner_id: string; owner_name: string; owner_sql_name: string };
+type ReachedRow = TableRow & { owner_id: string; owner_name: string; owner_sql_name: string; owner_picture_version: string | null };
 const reachedOf = (row: ReachedRow): ReachedTable =>
-  ({ table: tableFromRow(row), ownerId: row.owner_id, owner: { name: row.owner_name, sqlName: row.owner_sql_name } });
-const REACHED_SELECT = `SELECT t.*, a.name AS owner_name, a.sql_name AS owner_sql_name
+  ({ table: tableFromRow(row), ownerId: row.owner_id, owner: personLabel(row.owner_name, row.owner_sql_name, row.owner_picture_version) });
+const REACHED_SELECT = `SELECT t.*, a.name AS owner_name, a.sql_name AS owner_sql_name, a.picture_version AS owner_picture_version
   FROM data_tables t JOIN accounts a ON a.id = t.owner_id`;
 
 /** The datasets an account reaches, most recent first: its own, and every
