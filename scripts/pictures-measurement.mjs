@@ -139,7 +139,7 @@ export function capacityEvents(maps, events, complete = true) {
  * background renders one appearance admits. */
 export function firstMeasurement(maps, events, shapes) {
   assert.equal(maps.length, 20);
-  assert.ok(Number.isInteger(shapes) && shapes > 0, 'Missing the number of kept shapes');
+  assert.ok(Number.isInteger(shapes) && shapes > 0, 'Missing the number of shapes rendered per appearance');
   const published = capacityEvents(maps, events);
   const appearances = [];
   const attempts = published.map(event => {

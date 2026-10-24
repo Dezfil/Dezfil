@@ -3,7 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { decodePicture } from "../../../test-support/picture-pixels";
 import { edgeRise, luminance } from "../../../test-support/edge-rise";
 import { PICTURE_QUALITY, pictureRequest } from "@/lib/pictures/card";
-import { PICTURE_SHAPES } from "@/lib/pictures/shapes";
+import { PICTURE_SHAPE } from "@/lib/pictures/shapes";
 import { encodePictureSizes, webpDimensions } from "./picture-encode";
 import { encodePng, type DecodedImage } from "./png-codec";
 
@@ -42,19 +42,19 @@ describe.skipIf(!chromium)("the renderer's browser encodes the kept sizes", () =
   beforeAll(async () => { browser = await puppeteer.launch({ executablePath: chromium, headless: true }); }, 60000);
   afterAll(async () => { await browser?.close(); });
 
-  it.each(["card", "wide"] as const)("makes every %s size at its pixel size and format, keeping a hard edge sharp", async (shape) => {
-    const { frame, scale } = PICTURE_SHAPES[shape];
+  it("makes every kept size at its pixel size and format, keeping a hard edge sharp", async () => {
+    const { frame, scale } = PICTURE_SHAPE;
     const page = await browser.newPage();
     try {
-      const request = pictureRequest(shape);
+      const request = pictureRequest();
       const encoded = await encodePictureSizes(page, master(frame.width * scale, frame.height * scale), request);
       expect(encoded).toHaveLength(request.sizes.length);
       for (const [i, size] of request.sizes.entries()) {
         const image = await decodePicture(encoded[i]);
-        expect([image.width, image.height], `${shape} ${size.width}`).toEqual([size.width, size.height]);
+        expect([image.width, image.height], `${size.width}`).toEqual([size.width, size.height]);
         if (size.type === "image/webp") expect(webpDimensions(encoded[i])).toEqual({ width: size.width, height: size.height });
         else expect(Buffer.from(encoded[i]).subarray(1, 4).toString("latin1")).toBe("PNG");
-        expect(riseAcross(image), `${shape} ${size.width}: the edge's rise`).toBeLessThanOrEqual(2);
+        expect(riseAcross(image), `${size.width}: the edge's rise`).toBeLessThanOrEqual(2);
       }
       expect(request.quality).toBe(PICTURE_QUALITY);
     } finally { await page.close(); }
@@ -76,7 +76,7 @@ describe.skipIf(!chromium)("the renderer's browser encodes the kept sizes", () =
         const original = OffscreenCanvas.prototype.convertToBlob;
         OffscreenCanvas.prototype.convertToBlob = function (this: OffscreenCanvas) { return original.call(this, { type: "image/png" }); };
       });
-      await expect(encodePictureSizes(page, master(990, 424), pictureRequest("card"))).rejects.toThrow("could not be encoded");
+      await expect(encodePictureSizes(page, master(968, 494), pictureRequest())).rejects.toThrow("could not be encoded");
     } finally { await page.close(); }
   }, 60000);
 });

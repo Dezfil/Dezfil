@@ -5,7 +5,7 @@ import { afterAll, expect, it, vi } from "vitest";
  * the definition's size and every kept size in its format, under a
  * complete declaration; every call is recorded. */
 const calls = vi.hoisted(() => [] as { appearance: string; size: { width: number; height: number }; mapScale?: number; sizes: { width: number; type: string }[]; padding: unknown; requestRule?: string; budgetMs?: number }[]);
-const encoding = vi.hoisted(() => ({ failWide: false }));
+const encoding = vi.hoisted(() => ({ failDark: false }));
 vi.mock("@/lib/export/render-image", async () => {
   const { captureBasemap } = await import("@/lib/thumbnail-evidence");
   const header = (width: number, height: number) => {
@@ -23,8 +23,7 @@ vi.mock("@/lib/export/render-image", async () => {
   return {
     renderMapImage: async (_scope: unknown, input: { mapId: string; definition: { appearance: "light" | "dark"; size: { width: number; height: number }; mapScale?: number }; picture: { frame: { padding: unknown }; sizes: { width: number; height: number; type: string }[] }; admitted?: () => void; requestRule?: string; budgetMs?: number }) => {
       input.admitted?.();
-      // The wide master is the one 3312 pixels wide.
-      if (encoding.failWide && input.picture.sizes.some(s => s.width === 3312)) throw new Error("The picture could not be encoded: the browser answered image/png.");
+      if (encoding.failDark && input.definition.appearance === "dark") throw new Error("The picture could not be encoded: the browser answered image/png.");
       calls.push({ appearance: input.definition.appearance, size: input.definition.size, mapScale: input.definition.mapScale, sizes: input.picture.sizes.map((s) => ({ width: s.width, type: s.type })), padding: input.picture.frame.padding, requestRule: input.requestRule, budgetMs: input.budgetMs });
       const style = captureBasemap(input.mapId, input.definition.appearance)!.url;
       return {
@@ -40,35 +39,33 @@ vi.mock("@/lib/export/render-image", async () => {
 import { createMap } from "@/lib/map-service";
 import { closeMetadataDb, metadataDb } from "@/lib/metadata/db";
 import { testAccountScope } from "@/lib/test-support/accounts";
-import { publishedPictureSized, readPicture } from "@/lib/map-thumbnails";
+import { publishedPictureFormat, readPicture } from "@/lib/map-thumbnails";
 import { PictureService } from "./service";
 import { getPictureState } from "./state";
 import { pictureTarget } from "./publication";
-import { PICTURE_SHAPES } from "./shapes";
+import { PICTURE_SHAPE } from "./shapes";
 
 isolatePictureData();
 afterAll(closeMetadataDb);
 
-it("renders both shapes of each appearance, framed by their own margins, and publishes every kept size", async () => {
+it("renders the one shape once per appearance, framed by its margin, and publishes every kept size", async () => {
   const scope = testAccountScope(), map = createMap(scope, "Shapes");
   let now = Date.now();
   const service = new PictureService({ baseUrl: "http://fixture.test", available: () => true, now: () => now });
   await service.request(map.id); now += 5000; service.queue.tick(); await service.queue.drain();
   expect(getPictureState(map.id)).toMatchObject({ state: "current" });
-  const card = PICTURE_SHAPES.card, wide = PICTURE_SHAPES.wide;
-  const shapeOf = (size: { width: number }) => (size.width === card.frame.width * card.scale ? "card" : "wide");
-  expect(calls.map((c) => [c.appearance, shapeOf(c.size)])).toEqual([["light", "card"], ["light", "wide"], ["dark", "card"], ["dark", "wide"]]);
+  expect(calls.map((c) => [c.appearance, c.size])).toEqual([["light", { width: 2904, height: 1482 }], ["dark", { width: 2904, height: 1482 }]]);
   for (const call of calls) {
-    const spec = shapeOf(call.size) === "card" ? card : wide;
-    expect(call.mapScale).toBe(spec.scale);
-    expect(call.padding).toEqual(spec.padding);
-    expect(call.sizes.filter((s) => s.type === "image/webp").map((s) => s.width)).toEqual(spec.widths);
+    expect(call.mapScale).toBe(3);
+    expect(call.padding).toEqual(PICTURE_SHAPE.padding);
+    expect(call.sizes.filter((s) => s.type === "image/webp").map((s) => s.width)).toEqual([360, 720, 1080, 1440, 1980, 2904]);
+    expect(call.sizes.filter((s) => s.type === "image/png").map((s) => s.width)).toEqual([692]);
     // A slow tile is waited on as long as an export waits, inside the
     // picture's own budget.
     expect(call.requestRule).toBe("export");
     expect(call.budgetMs).toBe(30_000);
   }
-  expect(await publishedPictureSized(map.id)).toBe(true);
+  expect(await publishedPictureFormat(map.id)).toEqual({ sized: true, recipe: 2 });
   expect((await readPicture(scope, map.id, "dark", { shape: "wide", width: 2000 }))?.type).toBe("image/webp");
   expect((await readPicture(scope, map.id, "light"))?.type).toBe("image/png");
 });
@@ -84,11 +81,11 @@ it("renders a pending retry still on the digest's first formula at its own gener
   metadataDb().prepare("UPDATE map_pictures SET digest = ?, attempt_count = 1, next_attempt_at = ? WHERE map_id = ?").run(target.firstFormulaDigest, now, map.id);
   const before = calls.length;
   now += 1; service.queue.tick(); await service.queue.drain();
-  expect(calls.length).toBe(before + 4);
+  expect(calls.length).toBe(before + 2);
   expect(getPictureState(map.id)).toMatchObject({ state: "current", digest: target.digest, requestedGeneration: state.requestedGeneration, publishedGeneration: state.requestedGeneration });
 });
 
-it("publishes nothing when one shape's sizes cannot be encoded, and keeps the previous picture", async () => {
+it("publishes nothing when one appearance's sizes cannot be encoded, and keeps the previous picture", async () => {
   const scope = testAccountScope(), map = createMap(scope, "Encoding fails");
   let now = Date.now();
   const service = new PictureService({ baseUrl: "http://fixture.test", available: () => true, now: () => now });
@@ -96,10 +93,10 @@ it("publishes nothing when one shape's sizes cannot be encoded, and keeps the pr
   const previous = getPictureState(map.id)!;
   const served = (await readPicture(scope, map.id, "light", { shape: "card", width: 720 }))?.bytes;
   expect(previous.state).toBe("current");
-  encoding.failWide = true;
+  encoding.failDark = true;
   try {
     await service.refresh(map.id); now += 5000; service.queue.tick(); await service.queue.drain();
-  } finally { encoding.failWide = false; }
+  } finally { encoding.failDark = false; }
   expect(getPictureState(map.id)).toMatchObject({ state: "failed", publishedGeneration: previous.publishedGeneration });
   expect((await readPicture(scope, map.id, "light", { shape: "card", width: 720 }))?.bytes).toEqual(served);
 });

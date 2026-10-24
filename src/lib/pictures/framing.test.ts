@@ -4,7 +4,7 @@ import type { Bounds } from "@/lib/geo-bounds";
 import { FIT_MAX_ZOOM } from "@/lib/fit-camera";
 import { pageFrame, pictureCamera, readPictureFrame, renderCamera, widerThanOneWorld, worldCamera } from "./framing";
 import type { ExtentLayer } from "@/lib/map-extent";
-import { PICTURE_SHAPES } from "./shapes";
+import { PICTURE_SHAPE } from "./shapes";
 
 // deck.gl's own Web Mercator viewport, an implementation independent of
 // the one under test, with MapLibre's camera (1.5 heights away).
@@ -17,7 +17,7 @@ function screen(camera: ReturnType<typeof pictureCamera>, size: { width: number;
 const corners = ([[w, s], [e, n]]: Bounds): [number, number][] => [[w, n], [e, n], [e, s], [w, s]];
 
 describe("pictureCamera", () => {
-  const card = PICTURE_SHAPES.card;
+  const card = PICTURE_SHAPE;
   const size = card.frame;
   const frame = { padding: card.padding };
   const bounds: Bounds = [[-3.8, 40.3], [-3.6, 40.5]];
@@ -71,21 +71,19 @@ describe("pictureCamera", () => {
     expect(at.y).toBeCloseTo(size.height / 2, 3);
   });
 
-  it("shows the world, flat and north up, when nothing is drawn, in each shape", () => {
-    for (const shape of ["card", "wide"] as const) {
-      const { frame: f, padding } = PICTURE_SHAPES[shape];
-      const camera = pictureCamera(null, f, { padding }, { pitch: 50, bearing: 90 });
-      expect(camera).toEqual({ lng: 0, lat: 20, zoom: Math.log2(f.width / 512), pitch: 0, bearing: 0 });
-      // The antimeridian on both edges: the world exactly across the frame.
-      expect(screen(camera, f, [-180, 20]).x).toBeCloseTo(0, 6);
-      expect(screen(camera, f, [180, 20]).x).toBeCloseTo(f.width, 6);
-    }
+  it("shows the world, flat and north up, when nothing is drawn", () => {
+    const { frame: f, padding } = PICTURE_SHAPE;
+    const camera = pictureCamera(null, f, { padding }, { pitch: 50, bearing: 90 });
+    expect(camera).toEqual({ lng: 0, lat: 20, zoom: Math.log2(f.width / 512), pitch: 0, bearing: 0 });
+    // The antimeridian on both edges: the world exactly across the frame.
+    expect(screen(camera, f, [-180, 20]).x).toBeCloseTo(0, 6);
+    expect(screen(camera, f, [180, 20]).x).toBeCloseTo(f.width, 6);
     expect(worldCamera({ width: 512 }).zoom).toBe(0);
   });
 });
 
 describe("data wider than one world", () => {
-  const card = PICTURE_SHAPES.card;
+  const card = PICTURE_SHAPE;
   const size = card.frame;
   const frame = { padding: card.padding };
   // Where the world lands, read through deck.gl's viewport, not the
@@ -156,7 +154,7 @@ describe("readPictureFrame", () => {
 });
 
 describe("the render page's camera", () => {
-  const card = PICTURE_SHAPES.card;
+  const card = PICTURE_SHAPE;
   const frame = { padding: card.padding };
   const saved = { lng: 100, lat: -40, zoom: 2, pitch: 0, bearing: 0 };
   const point = (lng: number, lat: number, year: number) => ({ type: "Feature", properties: { year }, geometry: { type: "Point", coordinates: [lng, lat] } });

@@ -8,7 +8,7 @@ import { createMap } from "@/lib/map-service";
 import { closeMetadataDb } from "@/lib/metadata/db";
 import { documentFacts } from "@/lib/metadata/document-facts";
 import { GET, PUT } from "./route";
-import { sizedPicture } from "@/lib/test-support/picture-sizes";
+import { asFirstRecipe, sizedPicture } from "@/lib/test-support/picture-sizes";
 import { shareProject } from "@/lib/test-support/sharing";
 import { removeProjectPerson } from "@/lib/metadata/project-people";
 isolatePictureData(); afterAll(closeMetadataDb);
@@ -42,11 +42,11 @@ it("answers a named shape and width with the kept size that fits, and the PNG wh
   const scope = testAccountScope(), map = createMap(scope, "Sizes");
   await publishPictureFixture(scope, map.id, sizedPicture("light"), sizedPicture("dark"));
   const cases: [string, string, string][] = [
-    ["?shape=wide&width=1500", "image/webp", "light:wide-1656"],
+    ["?shape=wide&width=1500", "image/webp", "light:card-1980"],
     ["?theme=dark&shape=card&width=800", "image/webp", "dark:card-1080"],
-    ["?shape=wide", "image/webp", "light:wide-3312"],
+    ["?shape=wide", "image/webp", "light:card-2904"],
     ["?width=100", "image/webp", "light:card-360"],
-    ["?width=99999", "image/webp", "light:card-1980"],
+    ["?width=99999", "image/webp", "light:card-2904"],
     ["", "image/png", "light:png"],
     ["?theme=dark", "image/png", "dark:png"],
   ];
@@ -56,6 +56,20 @@ it("answers a named shape and width with the kept size that fits, and the PNG wh
     expect(response.headers.get("content-type"), query).toBe(type);
     expect(await response.text(), query).toBe(text);
   }
+});
+
+it("answers a picture made by the first sized recipe from its own sizes under each name", async () => {
+  const scope = testAccountScope(), map = createMap(scope, "First recipe");
+  await publishPictureFixture(scope, map.id, sizedPicture("light"), sizedPicture("dark"));
+  asFirstRecipe(map.id);
+  const cases: [string, string][] = [
+    ["?shape=wide&width=1500", "first-light:wide-1656"],
+    ["?shape=wide", "first-light:wide-3312"],
+    ["?theme=dark&shape=card&width=2904", "first-dark:card-1980"],
+    ["?width=700", "first-light:card-720"],
+    ["", "light:png"],
+  ];
+  for (const [query, text] of cases) expect(await (await get(map.id, query)).text(), query).toBe(text);
 });
 
 it.each(["?width=0", "?width=-5", "?width=1.5", "?width=wide", "?width=", "?shape=square", "?shape=", "?shape=card&width=1e3"])("refuses a bad shape or width like a bad theme (%s), unkept", async query => {
@@ -95,7 +109,7 @@ it("tags each answer by its bytes and answers an unchanged picture without them,
     expect(await again.text()).toBe("");
   }
   // Another size, another theme or a stale tag is answered in full, each under its own tag.
-  const other = await get(map.id, "?shape=card&width=1500", { "if-none-match": tag }, "tagviewer");
+  const other = await get(map.id, "?shape=card&width=800", { "if-none-match": tag }, "tagviewer");
   expect(other.status).toBe(200); expect(other.headers.get("etag")).not.toBe(tag);
   expect((await get(map.id, "?shape=wide&width=1500", { "if-none-match": '"stale"' }, "tagviewer")).status).toBe(200);
   // Another account on the same browser, holding the tag: refused, not confirmed.

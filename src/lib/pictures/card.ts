@@ -3,11 +3,11 @@ import type { ExportImageDefinition, Appearance } from "@/lib/export/image-defin
 import type { RenderImageResult } from "@/lib/export/render-image";
 import { pngDimensions } from "@/lib/export/png-codec";
 import { webpDimensions, type PictureRenderRequest, type PictureSize } from "@/lib/export/picture-encode";
-import { PICTURE_SHAPES, pictureHeight, type PictureShape } from "./shapes";
+import { DEFAULT_WIDTH, KEPT_SHAPE, PICTURE_SHAPE, pictureHeight, type PictureShape } from "./shapes";
 
-/** The picture a read answers when it names no shape or width: the card
- * shape at the size cards have always been served, as a PNG. */
-export const CARD_STORED_SIZE = { width: 692, height: 296 } as const;
+/** The picture a read answers when it names no shape or width: the kept
+ * shape at the width cards have always been served, as a PNG. */
+export const CARD_STORED_SIZE = { width: DEFAULT_WIDTH, height: pictureHeight(DEFAULT_WIDTH) } as const;
 /** WebP quality for the kept sizes: labels stay clean at every size. */
 export const PICTURE_QUALITY = 0.9;
 
@@ -15,7 +15,7 @@ export class PictureRenderError extends Error {
   constructor(readonly state: "failed" | "unsupported") { super(state === "unsupported" ? "This map has a layer the picture renderer cannot draw." : "The picture render was incomplete."); }
 }
 
-/** One kept size of one shape. */
+/** One kept size, listed under the kept shape's name. */
 export interface SizedPicture {
   shape: PictureShape;
   width: number;
@@ -29,11 +29,11 @@ export interface PictureImages {
   sized: SizedPicture[];
 }
 
-/** A shape's render: the saved camera (the page frames it like Fit and
- * keeps only its tilt and rotation), the shape's frame at its master
+/** An appearance's render: the saved camera (the page frames it like Fit
+ * and keeps only its tilt and rotation), the shape's frame at its master
  * scale, no overlays. */
-export function cardDefinition(viewport: Viewport, appearance: Appearance, shape: PictureShape = "card"): ExportImageDefinition {
-  const { frame, scale } = PICTURE_SHAPES[shape];
+export function cardDefinition(viewport: Viewport, appearance: Appearance): ExportImageDefinition {
+  const { frame, scale } = PICTURE_SHAPE;
   return {
     viewport: { ...viewport, pitch: viewport.pitch ?? 0, bearing: viewport.bearing ?? 0 },
     size: { width: frame.width * scale, height: frame.height * scale },
@@ -45,13 +45,12 @@ export function cardDefinition(viewport: Viewport, appearance: Appearance, shape
   };
 }
 
-/** What the renderer is asked beside the definition: the shape's frame
- * and its kept sizes, and for the card the default PNG last. */
-export function pictureRequest(shape: PictureShape): PictureRenderRequest {
-  const spec = PICTURE_SHAPES[shape];
-  const sizes: PictureSize[] = spec.widths.map((width) => ({ width, height: pictureHeight(shape, width), type: "image/webp" }));
-  if (shape === "card") sizes.push({ ...CARD_STORED_SIZE, type: "image/png" });
-  return { frame: { padding: { ...spec.padding } }, sizes, quality: PICTURE_QUALITY };
+/** What the renderer is asked beside the definition: the shape's frame,
+ * its kept sizes, and the default PNG last. */
+export function pictureRequest(): PictureRenderRequest {
+  const sizes: PictureSize[] = PICTURE_SHAPE.widths.map((width) => ({ width, height: pictureHeight(width), type: "image/webp" }));
+  sizes.push({ ...CARD_STORED_SIZE, type: "image/png" });
+  return { frame: { padding: { ...PICTURE_SHAPE.padding } }, sizes, quality: PICTURE_QUALITY };
 }
 
 function requireComplete(result: RenderImageResult, mapId: string, layerIds: readonly string[], style: string): void {
@@ -64,16 +63,16 @@ function requireComplete(result: RenderImageResult, mapId: string, layerIds: rea
       declaration.paintedStyle !== style || declaration.requestedStyle !== style || layers.length !== layerIds.length || layerIds.some(id => !layers.includes(id))) throw new PictureRenderError("failed");
 }
 
-/** One shape's render, accepted only when complete and of the asked
- * sizes: the master at the shape's frame and scale, and every kept size in
- * its format at its pixels. The card's render also yields the default PNG. */
-export function completeShape(result: RenderImageResult, mapId: string, layerIds: readonly string[], style: string, shape: PictureShape): { png: Uint8Array | null; sized: SizedPicture[] } {
+/** An appearance's render, accepted only when complete and of the asked
+ * sizes: the master at the shape's frame and scale, every kept size in its
+ * format at its pixels, and the default PNG. */
+export function completePicture(result: RenderImageResult, mapId: string, layerIds: readonly string[], style: string): PictureImages {
   requireComplete(result, mapId, layerIds, style);
-  const { frame, scale } = PICTURE_SHAPES[shape];
+  const { frame, scale } = PICTURE_SHAPE;
   let master;
   try { master = pngDimensions(result.png); } catch { throw new PictureRenderError("failed"); }
   if (master.width !== frame.width * scale || master.height !== frame.height * scale) throw new PictureRenderError("failed");
-  const asked = pictureRequest(shape).sizes;
+  const asked = pictureRequest().sizes;
   const encoded = result.encoded ?? [];
   if (encoded.length !== asked.length) throw new PictureRenderError("failed");
   let png: Uint8Array | null = null;
@@ -85,7 +84,8 @@ export function completeShape(result: RenderImageResult, mapId: string, layerIds
     else found = webpDimensions(bytes);
     if (!found || found.width !== size.width || found.height !== size.height) throw new PictureRenderError("failed");
     if (size.type === "image/png") png = bytes;
-    else sized.push({ shape, width: size.width, height: size.height, bytes });
+    else sized.push({ shape: KEPT_SHAPE, width: size.width, height: size.height, bytes });
   });
+  if (!png) throw new PictureRenderError("failed");
   return { png, sized };
 }

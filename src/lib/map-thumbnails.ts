@@ -17,7 +17,7 @@ import {
 import { dataDir } from "@/lib/config";
 import type { ArtifactInputs } from "@/lib/query/evaluation-inputs";
 import type { DrawnBasemap } from "./picture-credit";
-import { PICTURE_SHAPE_NAMES, keptWidth, type PictureShape } from "./pictures/shapes";
+import { KEPT_SHAPE, PICTURE_RECIPE, PICTURE_SHAPE_NAMES, keptWidth, type PictureShape } from "./pictures/shapes";
 import type { PictureImages } from "./pictures/card";
 import {
   evidencedImages,
@@ -134,14 +134,25 @@ export function thumbnailSetFile(
 }
 
 /** The published pair, by file name within the thumbnails directory. A
- * server picture made with kept sizes lists them: each is a WebP file
- * beside its PNG under the same publication name, and is that picture
- * for serving. A set without sizes is an older picture. */
+ * server picture made with kept sizes lists them by shape name: each is a
+ * WebP file beside its PNG under the same publication name, and is that
+ * picture for serving. The kept shape's sizes are always listed; a picture
+ * made when the wide host had a shape of its own lists that one too. A
+ * set without sizes is an older picture, or a duplicate that could not
+ * copy them. The recipe names how the picture was framed (shapes.ts),
+ * apart from its sizes: a sized set without one was framed by the first,
+ * and a set with neither at its map's saved view. */
 export interface ThumbnailSet {
   light: string;
   dark: string;
-  sizes?: Record<PictureShape, number[]>;
+  sizes?: PictureSizes;
+  recipe?: number;
 }
+
+/** Kept widths by shape name, the kept shape's always among them. */
+export type PictureSizes = Partial<Record<PictureShape, number[]>> & Record<typeof KEPT_SHAPE, number[]>;
+
+const listedShapes = (sizes: PictureSizes): PictureShape[] => PICTURE_SHAPE_NAMES.filter((shape) => sizes[shape] !== undefined);
 
 /** A kept size's file, beside the PNG it belongs to. */
 export function sizedPictureFile(png: string, shape: PictureShape, width: number): string {
@@ -154,21 +165,27 @@ function setFiles(set: ThumbnailSet): string[] {
   const sizes = set.sizes;
   return pngs.flatMap((png) => [
     png,
-    ...(sizes ? PICTURE_SHAPE_NAMES.flatMap((shape) => sizes[shape].map((width) => sizedPictureFile(png, shape, width))) : []),
+    ...(sizes ? listedShapes(sizes).flatMap((shape) => sizes[shape]!.map((width) => sizedPictureFile(png, shape, width))) : []),
   ]);
 }
 
-function readSizes(raw: unknown): Record<PictureShape, number[]> | undefined | null {
+/** The sizes a manifest lists: the kept shape's, and any other shape's it
+ * names, each a list of positive whole widths. Anything else is refused. */
+function readSizes(raw: unknown): PictureSizes | undefined | null {
   if (raw === undefined) return undefined;
   if (!raw || typeof raw !== "object") return null;
-  const sizes = {} as Record<PictureShape, number[]>;
+  const sizes: Partial<Record<PictureShape, number[]>> = {};
   for (const shape of PICTURE_SHAPE_NAMES) {
     const widths = (raw as Record<string, unknown>)[shape];
+    if (widths === undefined && shape !== KEPT_SHAPE) continue;
     if (!Array.isArray(widths) || widths.length === 0 || !widths.every((w) => Number.isInteger(w) && w > 0)) return null;
     sizes[shape] = [...widths].sort((a, b) => a - b);
   }
-  return sizes;
+  return sizes as PictureSizes;
 }
+
+/** A manifest's recipe: a positive whole number, else none. */
+const readRecipe = (raw: unknown): number | undefined => (Number.isInteger(raw) && (raw as number) > 0 ? raw as number : undefined);
 
 const otherTheme = (theme: ThumbnailTheme): ThumbnailTheme =>
   theme === "light" ? "dark" : "light";
@@ -206,13 +223,14 @@ async function readSet(mapId: string): Promise<ThumbnailSet | null> {
   try {
     const parsed = JSON.parse(
       await readFile(thumbnailManifestPath(mapId), "utf8"),
-    ) as Partial<Omit<ThumbnailSet, "sizes">> & { sizes?: unknown };
+    ) as Partial<Omit<ThumbnailSet, "sizes" | "recipe">> & { sizes?: unknown; recipe?: unknown };
     if (typeof parsed.light !== "string" || typeof parsed.dark !== "string") {
       return null;
     }
     const sizes = readSizes(parsed.sizes);
     if (sizes === null) return null;
-    const listed = sizes ? { sizes } : {};
+    const recipe = readRecipe(parsed.recipe);
+    const listed = { ...(sizes ? { sizes } : {}), ...(recipe ? { recipe } : {}) };
     const lightCycle = parsed.light.slice(mapId.length + 1, -".light.png".length);
     if (parsed.dark === parsed.light && isThumbnailCycle(lightCycle) && parsed.light === thumbnailSetFile(mapId, lightCycle, "light")) return { light: parsed.light, dark: parsed.dark, ...listed };
     const darkCycle = parsed.dark.slice(mapId.length + 1, -".dark.png".length);
@@ -505,12 +523,14 @@ async function readPublished(
 }
 
 /** The kept size a read names, for one of the set's PNGs; null when the
- * read names none or the picture keeps none. */
+ * read names none or the picture keeps none. A shape the set does not
+ * list answers the kept shape. */
 function wantedSize(set: ThumbnailSet | null, png: string, want: PictureWant): string | null {
   if (!set?.sizes || (png !== set.light && png !== set.dark)) return null;
   if (want.shape === undefined && want.width === undefined) return null;
-  const shape = want.shape ?? "card";
-  const widths = set.sizes[shape];
+  const named = want.shape ?? KEPT_SHAPE;
+  const shape = set.sizes[named] ? named : KEPT_SHAPE;
+  const widths = set.sizes[shape]!;
   const width = want.width === undefined ? widths[widths.length - 1] : keptWidth(widths, want.width);
   return sizedPictureFile(png, shape, width);
 }
@@ -600,6 +620,7 @@ export function copyThumbnail(scope: AccountScope, from: string, to: string): Pr
       light: set.light.replace(from, to),
       dark: set.dark.replace(from, to),
       ...(set.sizes ? { sizes: set.sizes } : {}),
+      ...(framedBy(set) ? { recipe: framedBy(set) } : {}),
     };
     const light = await readFile(inDir(set.light));
     authorize();
@@ -614,8 +635,8 @@ export function copyThumbnail(scope: AccountScope, from: string, to: string): Pr
     const pairs = set.dark === set.light ? [[set.light, copied.light]] as const : [[set.light, copied.light], [set.dark, copied.dark]] as const;
     for (const [source, target] of pairs) {
       if (!set.sizes) continue;
-      for (const shape of PICTURE_SHAPE_NAMES) {
-        for (const width of set.sizes[shape]) {
+      for (const shape of listedShapes(set.sizes)) {
+        for (const width of set.sizes[shape]!) {
           try { sized.push([sizedPictureFile(target, shape, width), await readFile(inDir(sizedPictureFile(source, shape, width)))]); }
           catch { delete copied.sizes; }
         }
@@ -655,7 +676,7 @@ export function savePictureSet(scope: AccountScope, mapId: string, images: { lig
     const cycle = randomBytes(12).toString("hex");
     const light = thumbnailSetFile(mapId, cycle, "light");
     const dark = images.dark ? thumbnailSetFile(mapId, cycle, "dark") : light;
-    const next: ThumbnailSet = { light, dark, ...(sizes ? { sizes } : {}) };
+    const next: ThumbnailSet = { light, dark, ...(sizes ? { sizes, recipe: PICTURE_RECIPE } : {}) };
     try {
       for (const theme of themes) {
         // The kept sizes land first, so the PNG whose evidence serves
@@ -678,23 +699,34 @@ export function savePictureSet(scope: AccountScope, mapId: string, images: { lig
 }
 
 /** The sizes a set lists: those every appearance kept, the same in each,
- * covering both shapes; none when any appearance kept none. A set whose
- * appearances disagree is refused rather than listed in part. */
-function listedSizes(pictures: PictureImages[]): Record<PictureShape, number[]> | undefined {
+ * the kept shape's among them; none when any appearance kept none. A set
+ * whose appearances disagree is refused rather than listed in part. */
+function listedSizes(pictures: PictureImages[]): PictureSizes | undefined {
   if (pictures.some((picture) => picture.sized.length === 0)) return undefined;
-  const of = (picture: PictureImages) => Object.fromEntries(PICTURE_SHAPE_NAMES.map((shape) => [
-    shape, picture.sized.filter((size) => size.shape === shape).map((size) => size.width).sort((a, b) => a - b),
-  ])) as Record<PictureShape, number[]>;
+  const of = (picture: PictureImages) => Object.fromEntries(PICTURE_SHAPE_NAMES.flatMap((shape) => {
+    const widths = picture.sized.filter((size) => size.shape === shape).map((size) => size.width).sort((a, b) => a - b);
+    return widths.length ? [[shape, widths]] : [];
+  })) as Partial<Record<PictureShape, number[]>>;
   const sizes = of(pictures[0]);
-  if (PICTURE_SHAPE_NAMES.some((shape) => sizes[shape].length === 0) ||
-    pictures.some((picture) => JSON.stringify(of(picture)) !== JSON.stringify(sizes))) throw new Error("The picture's kept sizes are incomplete.");
-  return sizes;
+  if (!sizes[KEPT_SHAPE] || pictures.some((picture) => JSON.stringify(of(picture)) !== JSON.stringify(sizes))) throw new Error("The picture's kept sizes are incomplete.");
+  return sizes as PictureSizes;
 }
 
-/** Whether the map's published picture lists kept sizes: made by this
- * version of the picture service. */
-export async function publishedPictureSized(mapId: string): Promise<boolean> {
-  return queueTurn(mapId, async () => !!(await readSet(mapId))?.sizes);
+/** The recipe a set was framed by: the one it names, else the first for
+ * a set with kept sizes, else none (0), framed at its map's saved view. */
+function framedBy(set: ThumbnailSet): number {
+  return set.recipe ?? (set.sizes ? 1 : 0);
+}
+
+/** How the map's published picture was made: whether it keeps sizes and
+ * the recipe it was framed by (0 at its map's saved view, as the single
+ * image always was); null when it has none. */
+export async function publishedPictureFormat(mapId: string): Promise<{ sized: boolean; recipe: number } | null> {
+  return queueTurn(mapId, async () => {
+    const set = await readSet(mapId);
+    if (set) return { sized: !!set.sizes, recipe: framedBy(set) };
+    return (await exists(thumbnailPath(mapId))) ? { sized: false, recipe: 0 } : null;
+  });
 }
 
 /** The generation is trusted only when every named image exists and its

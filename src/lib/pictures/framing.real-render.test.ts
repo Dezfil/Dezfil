@@ -3,7 +3,7 @@ import type { DecodedImage } from "@/lib/export/png-codec";
 import { pictureBasemap, PICTURE_LAND } from "../../../test-support/picture-basemap";
 import { colourIn, decodePicture, framedPosition, mercator, pointStyle } from "../../../test-support/picture-pixels";
 import { pictureProofClient } from "../../../test-support/pictures-http";
-import { PICTURE_SHAPES, pictureHeight, type PictureShape } from "./shapes";
+import { DEFAULT_WIDTH, PICTURE_SHAPE, pictureHeight } from "./shapes";
 
 const base = process.env.DEZFIL_PICTURE_TEST_URL;
 const ORANGE = [233, 90, 45], KELP = [26, 93, 74], BLUE = [40, 80, 220], MUSTARD = [200, 160, 20];
@@ -11,9 +11,9 @@ type Point = { lng: number; lat: number; colour: readonly number[]; fields?: str
 type View = { lng: number; lat: number; zoom: number; pitch: number; bearing: number };
 
 /**
- * A map picture frames what the map draws, as the builder's Fit does, in
- * each of its two shapes: every expectation here is worked out from the
- * fixture's coordinates and the shape's frame and margin (the arithmetic
+ * A map picture frames what the map draws, as the builder's Fit does:
+ * every expectation here is worked out from the fixture's coordinates and
+ * the picture's frame and margin (the arithmetic
  * itself is checked against deck.gl's fit in real-proof-controls), never
  * read from the renderer's camera, and each property is shown failing
  * against its own control: the saved view, a flat or north-up picture, the
@@ -25,7 +25,7 @@ type View = { lng: number; lat: number; zoom: number; pitch: number; bearing: nu
  * loopback ground this test serves:
  * npm test -- src/lib/pictures/framing.real-render.test.ts --maxWorkers=1
  */
-describe.skipIf(!base)("a picture frames what the map draws, in each shape", () => {
+describe.skipIf(!base)("a picture frames what the map draws", () => {
   const api = base ? pictureProofClient(base, process.env.DEZFIL_PICTURE_TEST_TOKEN ?? "") : undefined!;
   const maps: string[] = [];
   let ground: Awaited<ReturnType<typeof pictureBasemap>>;
@@ -46,88 +46,98 @@ describe.skipIf(!base)("a picture frames what the map draws, in each shape", () 
     }
     return { id: map.id, layers };
   }
-  /** The picture after the last edit: each shape's master and the card's PNG, decoded. */
+  /** The picture after the last edit: its master and the default PNG,
+   * decoded; the wide name answers the same master. */
   async function pictures(mapId: string) {
     // Edits reach the picture service just after their answer; a picture
     // current now predates the last edit, so wait for the next one.
     await new Promise(resolve => setTimeout(resolve, 1500));
     const row = (await api.json<{ id: string; pictureState: string; pictureVersion: string | null }[]>("GET", "/api/maps")).find(item => item.id === mapId)!;
     const ready = await api.picture(mapId, "current", row.pictureState === "current" ? row.pictureVersion : undefined);
-    const read = async (query: string) => decodePicture(new Uint8Array(await (await api.request("GET", `/api/maps/${mapId}/thumbnail?v=${ready.pictureVersion}${query}`)).arrayBuffer()));
-    return { version: ready.pictureVersion, card: await read("&shape=card&width=1980"), png: await read(""), wide: await read("&shape=wide&width=3312") };
+    const bytes = async (query: string) => new Uint8Array(await (await api.request("GET", `/api/maps/${mapId}/thumbnail?v=${ready.pictureVersion}${query}`)).arrayBuffer());
+    const widest = PICTURE_SHAPE.widths.at(-1)!;
+    const master = await bytes(`&shape=card&width=${widest}`);
+    expect(Buffer.from(await bytes(`&shape=wide&width=${widest}`)).equals(Buffer.from(master)), "the wide name answers the one shape").toBe(true);
+    return { version: ready.pictureVersion, master: await decodePicture(master), png: await decodePicture(await bytes("")) };
   }
-  const shapesOf = (shown: Awaited<ReturnType<typeof pictures>>) => [["card", shown.card], ["card", shown.png], ["wide", shown.wide]] as const;
-  const scaleOf = (shape: PictureShape, image: DecodedImage) => image.width / PICTURE_SHAPES[shape].frame.width;
+  const imagesOf = (shown: Awaited<ReturnType<typeof pictures>>) => [shown.master, shown.png];
+  const scaleOf = (image: DecodedImage) => image.width / PICTURE_SHAPE.frame.width;
   /** Within a CSS pixel and a half of the frame, plus a pixel. */
-  const tolerance = (shape: PictureShape, image: DecodedImage) => 1.5 * scaleOf(shape, image) + 1;
+  const tolerance = (image: DecodedImage) => 1.5 * scaleOf(image) + 1;
   function found(image: DecodedImage, colour: readonly number[]) {
     const mark = colourIn(image, colour);
     expect(mark.count, `colour ${colour} drawn`).toBeGreaterThanOrEqual(12);
     return mark;
   }
   /** Where the saved view itself would draw a point: the control. */
-  const savedAt = (shape: PictureShape, image: DecodedImage, view: View) => (lng: number, lat: number) => {
-    const { frame } = PICTURE_SHAPES[shape], k = scaleOf(shape, image), world = 512 * 2 ** view.zoom;
+  const savedAt = (image: DecodedImage, view: View) => (lng: number, lat: number) => {
+    const { frame } = PICTURE_SHAPE, k = scaleOf(image), world = 512 * 2 ** view.zoom;
     const [x, y] = mercator(lng, lat), [cx, cy] = mercator(view.lng, view.lat);
     return { x: (frame.width / 2 + (x - cx) * world) * k, y: (frame.height / 2 + (y - cy) * world) * k };
   };
   const apart = (a: { x: number; y: number }, b: { x: number; y: number }) => Math.hypot(a.x - b.x, a.y - b.y);
   /** The margin lines in an image's pixels. */
-  const marginOf = (shape: PictureShape, image: DecodedImage) => {
-    const { padding } = PICTURE_SHAPES[shape], k = scaleOf(shape, image);
+  const marginOf = (image: DecodedImage) => {
+    const { padding } = PICTURE_SHAPE, k = scaleOf(image);
     return { left: padding.left * k, right: image.width - padding.right * k, top: padding.top * k, bottom: image.height - padding.bottom * k };
   };
   const edit = (mapId: string, body: object, route = `/api/maps/${mapId}`) => api.json("PATCH", route, body, mapId);
 
   it("frames flat data against the margin on the side that limits it and centred on the other, not at the saved view", async () => {
-    const points: Point[] = [{ lng: 13.4, lat: 0, colour: ORANGE }, { lng: 13.43, lat: 0.012, colour: KELP }, { lng: 13.46, lat: -0.006, colour: BLUE }];
-    const saved: View = { lng: 13.43, lat: 0.003, zoom: 12, pitch: 0, bearing: 0 };
-    const map = await drawn("Framing: flat", saved, points);
-    const limits: Record<string, string> = {};
-    for (const [shape, image] of shapesOf(await pictures(map.id))) {
-      const fit = framedPosition(shape, points.map(p => [p.lng, p.lat] as const), image.width), control = savedAt(shape, image, saved);
-      const tol = tolerance(shape, image), k = scaleOf(shape, image);
-      const at = points.map(point => {
-        const mark = found(image, point.colour);
-        expect(apart(mark, fit.at(point.lng, point.lat)), `${shape} ${image.width}: ${point.colour} where Fit puts it`).toBeLessThan(tol);
-        expect(apart(mark, control(point.lng, point.lat)), `${shape}: not the saved view`).toBeGreaterThan(10 * k);
-        return mark;
-      });
-      const margin = marginOf(shape, image);
-      const gaps = { left: Math.min(...at.map(m => m.x)) - margin.left, right: margin.right - Math.max(...at.map(m => m.x)),
-        top: Math.min(...at.map(m => m.y)) - margin.top, bottom: margin.bottom - Math.max(...at.map(m => m.y)) };
-      const across = Math.abs(gaps.left) < tol && Math.abs(gaps.right) < tol && Math.abs(gaps.top - gaps.bottom) < 2 * tol && gaps.top > tol;
-      const down = Math.abs(gaps.top) < tol && Math.abs(gaps.bottom) < tol && Math.abs(gaps.left - gaps.right) < 2 * tol && gaps.left > tol;
-      expect(across !== down, `${shape}: one side limits, the other is centred (${JSON.stringify(gaps)})`).toBe(true);
-      limits[shape] = across ? "width" : "height";
+    // One fixture wider than the room inside the margin, one taller: both cases are seen.
+    const fixtures: Record<string, Point[]> = {
+      wide: [{ lng: 13.4, lat: 0, colour: ORANGE }, { lng: 13.43, lat: 0.004, colour: KELP }, { lng: 13.46, lat: -0.002, colour: BLUE }],
+      tall: [{ lng: 13.4, lat: 0, colour: ORANGE }, { lng: 13.41, lat: 0.012, colour: KELP }, { lng: 13.42, lat: -0.006, colour: BLUE }],
+    };
+    const limits: Record<string, string[]> = {};
+    for (const [name, points] of Object.entries(fixtures)) {
+      const saved: View = { lng: 13.43, lat: 0.003, zoom: 12, pitch: 0, bearing: 0 };
+      const map = await drawn(`Framing: flat, ${name}`, saved, points);
+      limits[name] = [];
+      for (const image of imagesOf(await pictures(map.id))) {
+        const fit = framedPosition(points.map(p => [p.lng, p.lat] as const), image.width), control = savedAt(image, saved);
+        const tol = tolerance(image), k = scaleOf(image);
+        const at = points.map(point => {
+          const mark = found(image, point.colour);
+          expect(apart(mark, fit.at(point.lng, point.lat)), `${name} ${image.width}: ${point.colour} where Fit puts it`).toBeLessThan(tol);
+          expect(apart(mark, control(point.lng, point.lat)), `${name}: not the saved view`).toBeGreaterThan(10 * k);
+          return mark;
+        });
+        const margin = marginOf(image);
+        const gaps = { left: Math.min(...at.map(m => m.x)) - margin.left, right: margin.right - Math.max(...at.map(m => m.x)),
+          top: Math.min(...at.map(m => m.y)) - margin.top, bottom: margin.bottom - Math.max(...at.map(m => m.y)) };
+        const across = Math.abs(gaps.left) < tol && Math.abs(gaps.right) < tol && Math.abs(gaps.top - gaps.bottom) < 2 * tol && gaps.top > tol;
+        const down = Math.abs(gaps.top) < tol && Math.abs(gaps.bottom) < tol && Math.abs(gaps.left - gaps.right) < 2 * tol && gaps.left > tol;
+        expect(across !== down, `${name}: one side limits, the other is centred (${JSON.stringify(gaps)})`).toBe(true);
+        limits[name].push(across ? "width" : "height");
+      }
     }
-    // The fixture is wider than the card's frame and narrower than the wide one's: both cases are seen.
-    expect(limits).toEqual({ card: "width", wide: "height" });
-  }, 240000);
+    expect(limits).toEqual({ wide: ["width", "width"], tall: ["height", "height"] });
+  }, 300000);
 
-  it("keeps every size the shapes keep, at its own pixel size, and the card's PNG", async () => {
+  it("keeps every size, at its own pixel size, under either name, and the default PNG", async () => {
     const map = await drawn("Framing: sizes", { lng: 13.4, lat: 0, zoom: 10, pitch: 0, bearing: 0 }, [{ lng: 13.4, lat: 0, colour: KELP }, { lng: 13.5, lat: 0.03, colour: BLUE }]);
     const ready = await pictures(map.id);
-    for (const shape of ["card", "wide"] as const) for (const width of PICTURE_SHAPES[shape].widths) {
+    for (const shape of ["card", "wide"] as const) for (const width of PICTURE_SHAPE.widths) {
       const response = await api.request("GET", `/api/maps/${map.id}/thumbnail?v=${ready.version}&shape=${shape}&width=${width}`);
       expect(response.headers.get("content-type")).toBe("image/webp");
       const image = await decodePicture(new Uint8Array(await response.arrayBuffer()));
-      expect([image.width, image.height], `${shape} ${width}`).toEqual([width, pictureHeight(shape, width)]);
+      expect([image.width, image.height], `${shape} ${width}`).toEqual([width, pictureHeight(width)]);
       found(image, KELP);
     }
     const png = await api.request("GET", `/api/maps/${map.id}/thumbnail?v=${ready.version}`);
     expect(png.headers.get("content-type")).toBe("image/png");
     const image = await decodePicture(new Uint8Array(await png.arrayBuffer()));
-    expect([image.width, image.height]).toEqual([692, 296]);
+    expect([image.width, image.height]).toEqual([DEFAULT_WIDTH, pictureHeight(DEFAULT_WIDTH)]);
   }, 240000);
 
   it("keeps the saved tilt with every mark inside the margin, where a flat picture is the control", async () => {
     const points: Point[] = [{ lng: 13.4, lat: 0, colour: ORANGE }, { lng: 13.42, lat: 0, colour: KELP }, { lng: 13.4, lat: 0.02, colour: BLUE }, { lng: 13.42, lat: 0.02, colour: MUSTARD }];
     const view: View = { lng: 13.41, lat: 0.01, zoom: 9, pitch: 45, bearing: 0 };
     const map = await drawn("Framing: tilt", view, points);
-    const shape = (shown: Awaited<ReturnType<typeof pictures>>) => shapesOf(shown).filter(([, image]) => image.width > 692).map(([name, image]) => {
+    const shape = (shown: Awaited<ReturnType<typeof pictures>>) => imagesOf(shown).filter(image => image.width > DEFAULT_WIDTH).map(image => {
       const [sw, se, nw, ne] = points.map(point => found(image, point.colour));
-      const margin = marginOf(name, image), tol = tolerance(name, image);
+      const margin = marginOf(image), tol = tolerance(image);
       for (const mark of [sw, se, nw, ne]) {
         expect(mark.x).toBeGreaterThan(margin.left - tol); expect(mark.x).toBeLessThan(margin.right + tol);
         expect(mark.y).toBeGreaterThan(margin.top - tol); expect(mark.y).toBeLessThan(margin.bottom + tol);
@@ -149,8 +159,8 @@ describe.skipIf(!base)("a picture frames what the map draws, in each shape", () 
     const points: Point[] = [{ lng: 13.4, lat: 0, colour: ORANGE }, { lng: 13.44, lat: 0, colour: KELP }, { lng: 13.42, lat: 0.01, colour: BLUE }];
     const view: View = { lng: 13.42, lat: 0.005, zoom: 9, pitch: 0, bearing: 30 };
     const map = await drawn("Framing: rotation", view, points);
-    const angles = (shown: Awaited<ReturnType<typeof pictures>>) => shapesOf(shown).map(([name, image]) => {
-      const west = found(image, ORANGE), east = found(image, KELP), margin = marginOf(name, image), tol = tolerance(name, image);
+    const angles = (shown: Awaited<ReturnType<typeof pictures>>) => imagesOf(shown).map(image => {
+      const west = found(image, ORANGE), east = found(image, KELP), margin = marginOf(image), tol = tolerance(image);
       for (const mark of points.map(point => found(image, point.colour))) {
         expect(mark.x).toBeGreaterThan(margin.left - tol); expect(mark.x).toBeLessThan(margin.right + tol);
         expect(mark.y).toBeGreaterThan(margin.top - tol); expect(mark.y).toBeLessThan(margin.bottom + tol);
@@ -168,13 +178,13 @@ describe.skipIf(!base)("a picture frames what the map draws, in each shape", () 
     const side = 0.004;
     const saved: View = { lng: 13.43, lat: 0.005, zoom: 12, pitch: 0, bearing: 0 };
     const map = await drawn("Framing: one point", saved, [point], [point.lng - side / 2, point.lat - side / 2, point.lng + side / 2, point.lat + side / 2]);
-    for (const [shape, image] of shapesOf(await pictures(map.id))) {
-      const mark = found(image, point.colour), k = scaleOf(shape, image), tol = tolerance(shape, image);
+    for (const image of imagesOf(await pictures(map.id))) {
+      const mark = found(image, point.colour), k = scaleOf(image), tol = tolerance(image);
       expect(Math.abs(mark.x - image.width / 2)).toBeLessThan(tol);
       expect(Math.abs(mark.y - image.height / 2)).toBeLessThan(tol);
       const land = found(image, PICTURE_LAND);
       const at = (zoom: number) => (side / 360) * 512 * 2 ** zoom * k;
-      expect(Math.abs(land.right - land.left - at(15)), `${shape} ${image.width}: drawn at zoom 15`).toBeLessThan(2 * tol);
+      expect(Math.abs(land.right - land.left - at(15)), `${image.width}: drawn at zoom 15`).toBeLessThan(2 * tol);
       expect(land.right - land.left).toBeGreaterThan(4 * at(saved.zoom));
     }
   }, 240000);
@@ -189,19 +199,19 @@ describe.skipIf(!base)("a picture frames what the map draws, in each shape", () 
       await edit(map.id, { filters: [{ kind: "timerange", field: "time", min: "2027-01-01", max: "2028-01-01" }] }, `/api/layers/${outside}`);
       await edit(map.id, { timeline: { layerId: outside, field: "time", speed: 1 } });
     }
-    for (const [shape, image] of shapesOf(await pictures(map.id))) {
+    for (const image of imagesOf(await pictures(map.id))) {
       expect(colourIn(image, left.colour).count, "the narrowed point is not drawn").toBeLessThan(12);
-      const only = framedPosition(shape, kept.map(p => [p.lng, p.lat] as const), image.width);
-      const ignored = framedPosition(shape, [...kept, left].map(p => [p.lng, p.lat] as const), image.width);
+      const only = framedPosition(kept.map(p => [p.lng, p.lat] as const), image.width);
+      const ignored = framedPosition([...kept, left].map(p => [p.lng, p.lat] as const), image.width);
       const misses = kept.map(point => {
         const mark = found(image, point.colour);
-        expect(apart(mark, only.at(point.lng, point.lat))).toBeLessThan(tolerance(shape, image));
+        expect(apart(mark, only.at(point.lng, point.lat))).toBeLessThan(tolerance(image));
         return apart(mark, ignored.at(point.lng, point.lat));
       });
       // The control: framed with the narrowed point too, the marks would
       // sit elsewhere. A mark on the side both boxes share sits at the
       // margin in both, so the picture as a whole is what must disagree.
-      expect(Math.max(...misses), `${shape} ${image.width}: framed as if nothing were narrowed`).toBeGreaterThan(10 * scaleOf(shape, image));
+      expect(Math.max(...misses), `${image.width}: framed as if nothing were narrowed`).toBeGreaterThan(10 * scaleOf(image));
     }
   }, 300000);
 
@@ -209,18 +219,18 @@ describe.skipIf(!base)("a picture frames what the map draws, in each shape", () 
     const box = [0, 0, 60, 40] as [number, number, number, number];
     const saved: View = { lng: 100, lat: -40, zoom: 3, pitch: 40, bearing: 60 };
     const map = await drawn("Framing: nothing drawn", saved, [], box);
-    for (const [shape, image] of shapesOf(await pictures(map.id))) {
-      const { frame } = PICTURE_SHAPES[shape], k = scaleOf(shape, image), tol = 2 * tolerance(shape, image);
+    for (const image of imagesOf(await pictures(map.id))) {
+      const { frame } = PICTURE_SHAPE, k = scaleOf(image), tol = 2 * tolerance(image);
       const world = (lng: number, lat: number) => {
         const [x, y] = mercator(lng, lat), [, cy] = mercator(0, 20);
         return { x: (frame.width / 2 + (x - 0.5) * frame.width) * k, y: (frame.height / 2 + (y - cy) * frame.width) * k };
       };
       const land = found(image, PICTURE_LAND), sw = world(box[0], box[1]), ne = world(box[2], box[3]);
-      expect(Math.abs(land.left - sw.x), `${shape} ${image.width}: west edge`).toBeLessThan(tol);
+      expect(Math.abs(land.left - sw.x), `${image.width}: west edge`).toBeLessThan(tol);
       expect(Math.abs(land.right - ne.x)).toBeLessThan(tol);
       expect(Math.abs(land.top - ne.y)).toBeLessThan(tol);
       expect(Math.abs(land.bottom - sw.y)).toBeLessThan(tol);
-      const control = savedAt(shape, image, saved)(box[0], box[1]);
+      const control = savedAt(image, saved)(box[0], box[1]);
       expect(Math.abs(land.left - control.x)).toBeGreaterThan(50 * k);
     }
   }, 240000);

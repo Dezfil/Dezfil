@@ -1,7 +1,7 @@
 "use client";
 
 import { useLayoutEffect, useRef, useState, type RefObject } from "react";
-import { coveredWidth, PICTURE_SHAPES, shapeForBox } from "@/lib/pictures/shapes";
+import { coveredWidth, KEPT_SHAPE, PICTURE_SHAPE } from "@/lib/pictures/shapes";
 import { MapPlaceholder } from "./gallery-icons";
 import { mapCardImageAddress } from "./map-card-image";
 import type { PictureCard } from "./picture-poll";
@@ -50,9 +50,9 @@ function useStripBox(inside: RefObject<Element | null>): Box | null | undefined 
  * and a new version asks again.
  *
  * The strip measures its box before the image is first drawn and offers
- * the kept sizes of the shape that box shows, with the width the picture
- * covers there, so the browser fetches the size this screen needs at its
- * density. A box it cannot measure gets the card's default picture.
+ * the picture's kept sizes with the width the picture covers there, so the
+ * browser fetches the size this screen needs at its density. A box it
+ * cannot measure gets the default picture.
  */
 export function MapStrip({ map: listed }: { map: PictureCard }) {
   const { theme } = useTheme();
@@ -61,10 +61,9 @@ export function MapStrip({ map: listed }: { map: PictureCard }) {
   const box = useStripBox(placeholder);
   const version = map.hasThumbnail ? map.pictureVersion : null;
   const src = version && box !== undefined ? mapCardImageAddress(map.id, version, theme) : null;
-  const shape = box ? shapeForBox(box) : null;
-  const sized = src && box && shape ? {
-    srcSet: PICTURE_SHAPES[shape].widths.map((width) => `${mapCardImageAddress(map.id, version!, theme, { shape, width })} ${width}w`).join(", "),
-    sizes: `${Math.ceil(coveredWidth(shape, box))}px`,
+  const sized = src && box ? {
+    srcSet: PICTURE_SHAPE.widths.map((width) => `${mapCardImageAddress(map.id, version!, theme, { shape: KEPT_SHAPE, width })} ${width}w`).join(", "),
+    sizes: `${Math.ceil(coveredWidth(box))}px`,
   } : null;
   const address = sized ? sized.srcSet : src;
   const [failed, setFailed] = useState<string | null>(null);

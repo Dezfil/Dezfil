@@ -1,7 +1,7 @@
 import { pictureBindings, schedulingBindings, bindingMayUse, rememberBindings, bindingsChanged } from "./bindings";
 import { metadataDb } from "@/lib/metadata/db";
 import { mapOwnerWorkScope } from "@/lib/auth/scope";
-import { publishedPictureInputs, publishedPictureSized, servedThumbnails } from "@/lib/map-thumbnails";
+import { publishedPictureFormat, publishedPictureInputs, servedThumbnails } from "@/lib/map-thumbnails";
 import { limits } from "@/lib/limits";
 import { renderMapImage } from "@/lib/export/render-image";
 import { admitResourceWork, inDetachedDeletionWork } from "@/lib/auth/account-deletion-work";
@@ -12,8 +12,8 @@ import { reconcilePictureFiles } from "./reconcile";
 import { pictureTarget, publishPicture } from "./publication";
 import { mintPictureCredential, revokePictureCredential, renewPictureCredential } from "./credential";
 import { inputsAreCurrent, readAttemptInputs } from "./inputs";
-import { cardDefinition, completeShape, pictureRequest, PictureRenderError, type PictureImages, type SizedPicture } from "./card";
-import { PICTURE_SHAPE_NAMES } from "./shapes";
+import { cardDefinition, completePicture, pictureRequest, type PictureImages } from "./card";
+import { PICTURE_RECIPE } from "./shapes";
 import { pictureRendererAvailable, pictureRendererFailed, retryPictureRenderer } from "./renderer";
 export interface PictureServiceOptions {
   baseUrl: string;
@@ -64,7 +64,7 @@ export class PictureService {
         const inputs = await publishedPictureInputs(map.id);
         if (state.state === "current" && inputs && !inputsAreCurrent(inputs)) state = requestPicture(map.id, target.digest, this.now(), true);
         await reconcilePictureFiles(map.id, hasPicture, this.now());
-        await this.remakeUnsized(map.id);
+        await this.remakeOutdated(map.id);
       } catch {
         // Deletion or changed ownership during a file read removes this
         // candidate from the look; the next committed change supplies it.
@@ -91,18 +91,20 @@ export class PictureService {
     if ((await servedThumbnails(scope, [mapId])).has(mapId)) {
       adoptPicture(mapId, target.digest, this.now()); rememberBindings(mapId, inputs, resolved);
       // A copy of a set without sizes waits for no look.
-      if (await this.remakeUnsized(mapId)) { this.checkRenderer(); this.queue.tick(); }
+      if (await this.remakeOutdated(mapId)) { this.checkRenderer(); this.queue.tick(); }
     }
     else await this.request(mapId);
   }
   private checkRenderer(): void {
     this.rendererReady = !this.rendererFailed && (this.options.available ?? pictureRendererAvailable)();
   }
-  /** A current picture whose published set lists no sizes was made before
-   * pictures kept them (by this server, a template or an older duplicate):
-   * it is made once more, after all other work. */
-  private async remakeUnsized(mapId: string): Promise<boolean> {
-    if (getPictureState(mapId)?.state !== "current" || await publishedPictureSized(mapId)) return false;
+  /** A current picture that keeps no sizes, or was framed by an earlier
+   * recipe (by this server, a template or an older duplicate), is made
+   * once more, after all other work. */
+  private async remakeOutdated(mapId: string): Promise<boolean> {
+    if (getPictureState(mapId)?.state !== "current") return false;
+    const format = await publishedPictureFormat(mapId);
+    if (format?.sized && format.recipe >= PICTURE_RECIPE) return false;
     return requestRemake(mapId, this.now())?.state === "waiting";
   }
   dataChanged(datasetId: string): void {
@@ -150,25 +152,17 @@ export class PictureService {
       credential = mintPictureCredential(state.mapId, Date.now() + 2 * limits.assistantLookTimeoutMs + 10000);
       const workCredential = credential;
       await inDetachedDeletionWork(lease, async () => {
-        // Both shapes of each appearance, each framed on its own; the set
-        // publishes whole or not at all.
+        // One render per appearance, framed like Fit in the kept shape;
+        // the set publishes whole or not at all.
         const images: Partial<Record<"light" | "dark", PictureImages>> = {};
         const layerIds = target.map.layers.filter(l => l.visible).map(l => l.id);
         for (const appearance of target.basemaps.dark ? ["light", "dark"] as const : ["light"] as const) {
-          let png: Uint8Array | null = null;
-          const sized: SizedPicture[] = [];
-          for (const shape of PICTURE_SHAPE_NAMES) {
-            const result = await renderMapImage(scope, { mapId: state.mapId, definition: cardDefinition(target.map.viewport, appearance, shape), picture: pictureRequest(shape),
-              baseUrl: this.options.baseUrl, credential: workCredential, background: true, budgetMs: limits.assistantLookTimeoutMs, requestRule: "export",
-              admitted: () => renewPictureCredential(workCredential, Date.now() + limits.assistantLookTimeoutMs + 10000),
-              standing: () => { lease.assertCommit(); const fresh = pictureTarget(scope, state.mapId, target.sketchIds); if (fresh.digest !== target.digest || getPictureState(state.mapId)?.requestedGeneration !== state.requestedGeneration) throw new Error("The picture request changed."); },
-            });
-            const done = completeShape(result, state.mapId, layerIds, target.basemaps[appearance]!.url, shape);
-            png ??= done.png;
-            sized.push(...done.sized);
-          }
-          if (!png) throw new PictureRenderError("failed");
-          images[appearance] = { png, sized };
+          const result = await renderMapImage(scope, { mapId: state.mapId, definition: cardDefinition(target.map.viewport, appearance), picture: pictureRequest(),
+            baseUrl: this.options.baseUrl, credential: workCredential, background: true, budgetMs: limits.assistantLookTimeoutMs, requestRule: "export",
+            admitted: () => renewPictureCredential(workCredential, Date.now() + limits.assistantLookTimeoutMs + 10000),
+            standing: () => { lease.assertCommit(); const fresh = pictureTarget(scope, state.mapId, target.sketchIds); if (fresh.digest !== target.digest || getPictureState(state.mapId)?.requestedGeneration !== state.requestedGeneration) throw new Error("The picture request changed."); },
+          });
+          images[appearance] = completePicture(result, state.mapId, layerIds, target.basemaps[appearance]!.url);
         }
         lease.assertCommit();
         await publishPicture(scope, target, state.requestedGeneration, { light: images.light!, ...(images.dark ? { dark: images.dark } : {}) }, readAttemptInputs(workCredential, layerIds));
