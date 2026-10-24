@@ -18,11 +18,42 @@ export interface ReceivedUpload {
   budget: IngestBudget;
 }
 
+/** What one reception may take and how its refusals read. Bytes are counted
+ * as they arrive, whatever length the request declared. */
+export interface ReceptionBounds {
+  /** The largest file part accepted; one byte more is refused. */
+  readonly fileBytes: number;
+  /** The largest whole body, envelope included; unbounded when absent. */
+  readonly bodyBytes?: number;
+  /** How long the body may take to arrive. */
+  readonly receiveMs: number;
+  /** The refusal of a file part or body over its bound, worded when it happens. */
+  readonly tooLarge: () => string;
+  /** What the reception time refusal tells the caller to do. */
+  readonly timeoutRemedy: string;
+}
+
+/** The table upload's bounds: the instance's settings, named in its refusals.
+ * A file that reaches the cap is refused, as the cap has always counted. */
+function ingestBounds(budget: IngestBudget): ReceptionBounds {
+  return {
+    fileBytes: budget.uploadMaxBytes - 1,
+    receiveMs: budget.dataProcessingTimeoutMs,
+    tooLarge: () => `Upload exceeds the size cap of ${Math.round(
+      budget.uploadMaxBytes / (1024 * 1024),
+    )} MB. ${settingRemedy("uploadMaxMb")}`,
+    timeoutRemedy: settingRemedy("dataProcessingTimeoutS"),
+  };
+}
+
 /** Stream exactly one "file" part to disk. Every stream and pipeline is
  * observed from creation, and failure stops and settles them before unlink.
- * Successful reception still means the destination has finished writing. */
-export async function receiveUpload(request: Request, accountId?: string): Promise<ReceivedUpload> {
+ * Successful reception still means the destination has finished writing.
+ * Without bounds, the table upload's settings bound it. */
+export async function receiveUpload(request: Request, accountId?: string, bounds?: ReceptionBounds): Promise<ReceivedUpload> {
   const budget = captureIngestBudget();
+  const limit = bounds ?? ingestBounds(budget);
+  const tooLarge = () => new ApiError("upload_too_large", limit.tooLarge(), 413);
   const interrupted = () => new ApiError(
     "invalid_request",
     "The upload was interrupted or its multipart data is incomplete.",
@@ -77,15 +108,17 @@ export async function receiveUpload(request: Request, accountId?: string): Promi
 
   const receptionFailure = (error: ReceptionRefusal) => fail(error.status === 499 ? new EvaluationCancelled()
     : error instanceof ApiError ? error : new ApiError(error.code as import("@/lib/api/errors").ErrorCode, error.message, error.status));
-  const remedy = settingRemedy("dataProcessingTimeoutS");
-  reception = nativeUploadReception(budget.dataProcessingTimeoutMs, remedy, receptionFailure)
-    ?? createUploadClock(budget.dataProcessingTimeoutMs, remedy, receptionFailure);
+  reception = nativeUploadReception(limit.receiveMs, limit.timeoutRemedy, receptionFailure)
+    ?? createUploadClock(limit.receiveMs, limit.timeoutRemedy, receptionFailure);
 
   let tmpPath: string | undefined;
   let filename: string | undefined;
   try {
     if (request.signal.aborted) abort();
     const contentType = request.headers.get("content-type") ?? "";
+    // A body declared over its bound is refused before any of it is read.
+    const declared = Number(request.headers.get("content-length") ?? Number.NaN);
+    if (limit.bodyBytes !== undefined && declared > limit.bodyBytes) throw tooLarge();
     const source = request.body
       ? own(Readable.fromWeb(request.body as import("stream/web").ReadableStream), interrupted)
       : null;
@@ -111,7 +144,8 @@ export async function receiveUpload(request: Request, accountId?: string): Promi
     try {
       bb = own(Busboy({
         headers: { "content-type": contentType },
-        limits: { files: 1, fileSize: budget.uploadMaxBytes },
+        // The parser refuses a part that reaches its limit.
+        limits: { files: 1, fileSize: limit.fileBytes + 1 },
       }), interrupted);
     } catch (error) {
       if (error instanceof Error && error.message === "Multipart: Boundary not found") {
@@ -135,13 +169,7 @@ export async function receiveUpload(request: Request, accountId?: string): Promi
         return;
       }
       filename = info.filename;
-      part.on("limit", () => fail(new ApiError(
-        "upload_too_large",
-        `Upload exceeds the size cap of ${Math.round(
-          budget.uploadMaxBytes / (1024 * 1024),
-        )} MB. ${settingRemedy("uploadMaxMb")}`,
-        413,
-      )));
+      part.on("limit", () => fail(tooLarge()));
       try {
         const destination = own(createWriteStream(tmpPath!), storageFailure);
         observe(pipeline(part, destination), storageFailure);
@@ -155,7 +183,12 @@ export async function receiveUpload(request: Request, accountId?: string): Promi
         "request, and repeat the request for a batch.",
       400,
     )));
-    source.on("data", () => reception?.progress());
+    let arrived = 0;
+    source.on("data", (chunk: Buffer) => {
+      reception?.progress();
+      arrived += chunk.byteLength;
+      if (limit.bodyBytes !== undefined && arrived > limit.bodyBytes) fail(tooLarge());
+    });
     source.once("end", () => reception?.endBody());
     await observe(pipeline(source, bb), interrupted);
     // The feed has stopped creating parts. This also waits for destruction
