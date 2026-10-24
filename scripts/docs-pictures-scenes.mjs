@@ -924,7 +924,7 @@ const USE_MAPS_SCENES = [
     // map the builder framed on them as it opened.
     id: "build-a-map-hex-bins",
     file: "use/build-a-map-hex-bins.webp",
-    pages: ["docs/use/build-a-map.md"],
+    pages: ["README.md", "docs/use/build-a-map.md"],
     kind: "still",
     state: "use-maps",
     map: true,
@@ -1268,7 +1268,7 @@ export const SCENES = [
   {
     id: "templates-page",
     file: "use/templates.webp",
-    pages: ["README.md", "docs/start/what-is-dezfil.md", "docs/use/templates.md"],
+    pages: ["docs/start/what-is-dezfil.md", "docs/use/templates.md"],
     kind: "still",
     state: "seeded",
     open: openTemplates,
