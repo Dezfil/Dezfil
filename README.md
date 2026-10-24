@@ -5,8 +5,8 @@ Upload geospatial data, query it with SQL, style it on a map, publish a
 shareable view, from one container.
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/images/use/templates.dark.webp">
-  <img src="docs/images/use/templates.webp" alt="The Templates page of a Dezfil instance: a search box, tag chips and the cards of two finished maps and a workflow example">
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/use/build-a-map-hex-bins.dark.webp">
+  <img src="docs/images/use/build-a-map-hex-bins.webp" alt="The map builder with forty years of big earthquakes near Japan counted in hex bins: the layer's style settings on the left, the legend on the map, and the basemap credit in the lower right corner">
 </picture>
 
 > Status: pre-release, under active development.
