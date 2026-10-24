@@ -6,7 +6,8 @@
 // a person without one keeps their initials and asks for no picture. The
 // Account card keeps a chosen picture at once, apart from the typed fields,
 // draws only its latest answer, and a browser shows a replaced or removed
-// picture fresh. Each case makes its own people, invited by the browser
+// picture fresh. An admin removes another person's picture from their
+// Users row. Each case makes its own people, invited by the browser
 // fixture's admin with a tag no other spec uses. Run against a fresh
 // scratch instance.
 import { test, expect, type APIRequestContext, type Locator, type Page } from "@playwright/test";
@@ -456,6 +457,70 @@ test("the Account card draws only its latest answer, and a browser shows a repla
       expect((await opened!.body()).subarray(0, 4).toString("latin1")).not.toBe("RIFF");
     });
   } finally {
+    await closeAll(people);
+  }
+});
+
+test("an admin removes another person's picture from their Users row, active or deactivated, and never sees it on their own", async ({ browser, page, request, baseURL }) => {
+  test.setTimeout(180_000);
+  const tag = runTag();
+  const people: Person[] = [];
+  let ownPicture = false;
+  try {
+    const [ada, bo, cy] = await Promise.all(["Ada", "Bo", "Cy"].map((first) => invitePerson(browser, request, baseURL!, first, tag)));
+    people.push(ada, bo, cy);
+    await setPicture(ada.api, await webp());
+    await setPicture(cy.api, await png());
+    const off = await request.patch(`/api/users/${cy.id}`, { data: { status: "deactivated" } });
+    expect(off.status(), await off.text()).toBe(200);
+    await setPicture(request, await jpeg());
+    ownPicture = true;
+    await routeHouse(page.context(), { basemapStyleStub: true });
+    await page.goto("/users");
+    await page.getByRole("textbox", { name: "Search users" }).fill(tag);
+    const removeButton = (row: Locator) => row.getByRole("button", { name: "Remove picture", exact: true });
+    const opened = (person: Person) => page.locator("div").filter({ has: userRow(page, person) }).last();
+    const inDangerZone = (button: Locator) => button.evaluate((element) => element.closest('[class*="dangerZone"]') !== null);
+
+    await test.step("an active person's row offers Remove picture among the everyday actions, and it takes effect at once", async () => {
+      await userRow(page, ada).click();
+      const row = opened(ada);
+      await expect(removeButton(row)).toBeVisible();
+      expect(await inDangerZone(removeButton(row))).toBe(false);
+      await removeButton(row).click();
+      await expect(page.getByRole("status").filter({ hasText: `${ada.name}: picture removed` })).toBeVisible();
+      await expectLetters(userRow(page, ada).locator("[data-face]"), twoWords(ada.name));
+      await expect(removeButton(row)).toHaveCount(0);
+      expect((await (await ada.api.get("/api/account")).json()).account.pictureVersion).toBeUndefined();
+    });
+
+    await test.step("a deactivated person's row offers it beside Reactivate, apart from Delete account", async () => {
+      await userRow(page, cy).click();
+      const row = opened(cy);
+      await expect(row.getByRole("button", { name: "Reactivate", exact: true })).toBeVisible();
+      await expect(removeButton(row)).toBeVisible();
+      expect(await inDangerZone(removeButton(row))).toBe(false);
+      expect(await inDangerZone(row.getByRole("button", { name: "Delete account", exact: true }))).toBe(true);
+      await removeButton(row).click();
+      await expect(page.getByRole("status").filter({ hasText: `${cy.name}: picture removed` })).toBeVisible();
+      await expectLetters(userRow(page, cy).locator("[data-face]"), twoWords(cy.name));
+      const listed = (await (await request.get("/api/users")).json()).users.find((user: { id: string }) => user.id === cy.id);
+      expect(listed.pictureVersion).toBeUndefined();
+    });
+
+    await test.step("a person without a picture, and one's own row, offer no Remove picture", async () => {
+      await userRow(page, bo).click();
+      await expect(opened(bo).getByRole("button", { name: "Make admin", exact: true })).toBeVisible();
+      await expect(removeButton(opened(bo))).toHaveCount(0);
+      await page.getByRole("textbox", { name: "Search users" }).fill("entry-browser@example.test");
+      const own = page.locator("button[aria-expanded]").filter({ hasText: "entry-browser@example.test" });
+      await own.click();
+      await expect(page.getByRole("link", { name: "Change password", exact: true })).toBeVisible();
+      await expect(page.getByRole("button", { name: "Remove picture", exact: true })).toHaveCount(0);
+    });
+  } finally {
+    // The fixture admin is every spec's: leave it as it was.
+    if (ownPicture) await request.delete("/api/account/picture");
     await closeAll(people);
   }
 });

@@ -1,7 +1,7 @@
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
-import { afterEach, beforeEach, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { Account } from "@/lib/metadata/accounts";
 import { cssRules } from "../testing/css-rules";
 import { HostEvent, installDomHost, type HostElement } from "../testing/dom-host";
@@ -33,9 +33,10 @@ afterEach(() => {
   host.uninstall();
 });
 
+let removals = 0;
 function draw(account: Account, { own = false, open = true } = {}) {
   act(() => root.render(<UserRow account={account} own={own} open={open} busy={false} handOver={null}
-    onToggle={() => {}} onAccess={async () => true} onReset={async () => true} onDone={() => {}} onDelete={() => {}} />));
+    onToggle={() => {}} onAccess={async () => true} onReset={async () => true} onRemovePicture={() => { removals += 1; }} onDone={() => {}} onDelete={() => {}} />));
   const line = container.querySelector("button[aria-expanded]")!;
   const actions = container.querySelectorAll("button").filter(b => b !== line);
   const named = (text: string) => actions.find(b => b.textContent === text);
@@ -73,7 +74,7 @@ it("sets Deactivate and Delete account apart in the danger look, and only those"
 it("states the facts on the person's own row, which offers no Deactivate", () => {
   // Static: the own row's password link prefetches, which the test host cannot run.
   const html = renderToStaticMarkup(<UserRow account={{ ...person, status: "active" }} own open busy={false} handOver={null}
-    onToggle={() => {}} onAccess={async () => true} onReset={async () => true} onDone={() => {}} onDelete={() => {}} />);
+    onToggle={() => {}} onAccess={async () => true} onReset={async () => true} onRemovePicture={() => {}} onDone={() => {}} onDelete={() => {}} />);
   expect(html).toContain("ada_quill");
   expect(html).toContain("Change password");
   expect(html).not.toContain(">Deactivate<");
@@ -108,4 +109,39 @@ it("dims a deactivated person's picture with their row, as their initials are", 
   expect(face?.querySelector("img")).toBeTruthy();
   const dim = cssRules("src/components/users/UsersScreen.module.css").filter(rule => rule.selector === ".row[data-off] .avatar");
   expect(dim.map(rule => /opacity:\s*([^;]+);/.exec(rule.body)?.[1])).toEqual(["0.5"]);
+});
+
+describe("Remove picture", () => {
+  const pictured = { ...person, status: "active" as const, pictureVersion: "p1" };
+  it("stands among an active person's everyday actions while they have a picture, and asks for its removal at once", () => {
+    removals = 0;
+    const row = draw(pictured);
+    const button = row.named("Remove picture");
+    expect(button?.getAttribute("data-variant")).not.toBe("danger");
+    expect(row.apart(button)).toBe(false);
+    act(() => { button!.click(); });
+    expect(removals).toBe(1);
+  });
+
+  it("stands beside Reactivate on a deactivated person's row, apart from Delete account", () => {
+    const row = draw({ ...pictured, status: "deactivated" });
+    expect(row.named("Reactivate")).toBeTruthy();
+    expect(row.named("Remove picture")?.getAttribute("data-variant")).toBe("secondary");
+    expect(row.apart(row.named("Remove picture"))).toBe(false);
+    expect(row.apart(row.named("Delete account"))).toBe(true);
+  });
+
+  it("is not offered for a person without a picture", () => {
+    for (const status of ["active", "deactivated"] as const) {
+      expect(draw({ ...person, status }).named("Remove picture"), status).toBeUndefined();
+    }
+  });
+
+  it("is never offered on one's own row", () => {
+    // Static: the own row's password link prefetches, which the test host cannot run.
+    const html = renderToStaticMarkup(<UserRow account={pictured} own open busy={false} handOver={null}
+      onToggle={() => {}} onAccess={async () => true} onReset={async () => true} onRemovePicture={() => {}} onDone={() => {}} onDelete={() => {}} />);
+    expect(html).toContain("Change password");
+    expect(html).not.toContain("Remove picture");
+  });
 });

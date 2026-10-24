@@ -68,6 +68,14 @@ export function UsersScreen() {
     } catch (error) { setError(failureMessage(error)); return false; }
     finally { setBusy(false); }
   }
+  async function removePicture(id: string) {
+    setBusy(true); setError(null);
+    try {
+      const { account } = await accountRequest<{ account: Account }>(`/api/users/${encodeURIComponent(id)}/picture`, "DELETE");
+      update(account); show(`${account.name}: picture removed`);
+    } catch (error) { setError(failureMessage(error)); }
+    finally { setBusy(false); }
+  }
   async function reset(id: string) {
     setBusy(true); setError(null);
     try {
@@ -95,7 +103,8 @@ export function UsersScreen() {
     return <UserRow key={account.id} account={account} own={account.id === data?.own} open={open === account.id} busy={busy}
       handOver={handOver?.account.id === account.id ? handOver : null}
       onToggle={() => { setOpen(open === account.id ? null : account.id); setHandOver(null); }}
-      onAccess={patch => change(account.id, patch)} onReset={() => reset(account.id)} onDone={() => setHandOver(null)} onDelete={() => setDeleting(account)} />;
+      onAccess={patch => change(account.id, patch)} onReset={() => reset(account.id)} onRemovePicture={() => void removePicture(account.id)}
+      onDone={() => setHandOver(null)} onDelete={() => setDeleting(account)} />;
   }
   return <div className={styles.screen}>
     <ListHeading title="Users" line={null} action={{ label: "Invite", disabled: !data || busy || inviting,

@@ -11,7 +11,7 @@ const account: Account = { id: "target", name: "Cy Marsh", email: "cy@example.te
 it.each(["active", "invited", "deactivated"] as const)("offers Delete only on eligible other %s rows, including deactivated admins", status => {
   for (const own of [false, true]) {
     const html = renderToStaticMarkup(<UserRow account={{ ...account, status }} own={own} open busy={false} handOver={null}
-      onToggle={() => {}} onAccess={async () => true} onReset={async () => true} onDone={() => {}} onDelete={() => {}} />);
+      onToggle={() => {}} onAccess={async () => true} onReset={async () => true} onRemovePicture={() => {}} onDone={() => {}} onDelete={() => {}} />);
     expect(html.includes("Delete account")).toBe(!own && status !== "active");
     if (!own && status === "deactivated") expect(html).toContain("Reactivate");
     if (own) expect(html).toContain("Change password");
