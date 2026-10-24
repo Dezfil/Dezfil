@@ -35,17 +35,18 @@ describe.skipIf(!base)("a picture frames what the map draws", () => {
     await ground?.close();
   });
 
-  /** A map on the loopback ground, saved at `view`, one layer per point. */
-  async function drawn(name: string, view: View, points: Point[], box?: [number, number, number, number]) {
+  /** A map on the loopback ground, saved at `view`, with these layers. */
+  async function withLayers(name: string, view: View, bodies: object[], box?: [number, number, number, number]) {
     const map = await api.json<{ id: string }>("POST", "/api/maps", { name }); maps.push(map.id);
     const url = box ? `${ground.origin}/box.json?w=${box[0]}&s=${box[1]}&e=${box[2]}&n=${box[3]}` : `${ground.origin}/plain.json`;
     await api.json("PATCH", `/api/maps/${map.id}`, { viewport: view, customBasemap: { url, name: "Framing fixture", attribution: [{ label: "Fixture" }] } }, map.id);
     const layers: { id: string }[] = [];
-    for (const [i, point] of points.entries()) {
-      layers.push(await api.json("POST", `/api/maps/${map.id}/layers`, { name: `Point ${i}`, sql: `SELECT ST_Point(${point.lng}, ${point.lat}) AS geom${point.fields ?? ""}`, style: pointStyle(point.colour, 10) }, map.id));
-    }
+    for (const body of bodies) layers.push(await api.json("POST", `/api/maps/${map.id}/layers`, body, map.id));
     return { id: map.id, layers };
   }
+  /** A map on the loopback ground, saved at `view`, one layer per point. */
+  const drawn = (name: string, view: View, points: Point[], box?: [number, number, number, number]) =>
+    withLayers(name, view, points.map((point, i) => ({ name: `Point ${i}`, sql: `SELECT ST_Point(${point.lng}, ${point.lat}) AS geom${point.fields ?? ""}`, style: pointStyle(point.colour, 10) })), box);
   /** The picture after the last edit: its master and the default PNG,
    * decoded; the wide name answers the same master. */
   async function pictures(mapId: string) {
@@ -234,4 +235,142 @@ describe.skipIf(!base)("a picture frames what the map draws", () => {
       expect(Math.abs(land.left - control.x)).toBeGreaterThan(50 * k);
     }
   }, 240000);
+
+  // Data wider than one world: the world once across the picture, edge to
+  // edge, centred on the prime meridian at 20 degrees north, flat and north
+  // up, whatever the saved view. Each expectation is worked out from the
+  // fixture's coordinates; the controls are Fit's own framing, where the
+  // world would be narrower than the picture and repeat, and the saved
+  // view, centred elsewhere.
+  const RED = [200, 30, 60], CYAN = [30, 180, 200], PINK = [230, 120, 200], GREEN = [90, 200, 60], BROWN = [140, 90, 40], INK = [30, 30, 30], GREY = [120, 120, 120];
+  /** Where the world once across the frame puts a point. */
+  const worldAt = (image: DecodedImage) => (lng: number, lat: number) => {
+    const { frame } = PICTURE_SHAPE, k = scaleOf(image);
+    const [x, y] = mercator(lng, lat), [, cy] = mercator(0, 20);
+    return { x: (frame.width / 2 + (x - 0.5) * frame.width) * k, y: (frame.height / 2 + (y - cy) * frame.width) * k };
+  };
+  /** Every point where the world once puts it, or not drawn when that is
+   * past the picture's top or foot; and the marks seen to miss both
+   * controls. */
+  function expectAcrossOnce(image: DecodedImage, points: Point[], saved: View, what: string) {
+    const world = worldAt(image), k = scaleOf(image), tol = tolerance(image), radius = 10 * k;
+    const fit = framedPosition(points.map(p => [p.lng, p.lat] as const), image.width), control = savedAt(image, saved);
+    let fitMiss = 0, savedMiss = 0, drawnCount = 0;
+    for (const point of points) {
+      const want = world(point.lng, point.lat);
+      if (want.y + radius < 0 || want.y - radius > image.height) {
+        expect(colourIn(image, point.colour).count, `${what} ${image.width}: ${point.lng}, ${point.lat} lies past the picture`).toBeLessThan(12);
+        continue;
+      }
+      const mark = found(image, point.colour);
+      expect(apart(mark, want), `${what} ${image.width}: ${point.lng}, ${point.lat} where the world once puts it`).toBeLessThan(tol);
+      fitMiss = Math.max(fitMiss, apart(mark, fit.at(point.lng, point.lat)));
+      savedMiss = Math.max(savedMiss, apart(mark, control(point.lng, point.lat)));
+      drawnCount += 1;
+    }
+    expect(drawnCount, `${what}: marks drawn to check`).toBeGreaterThanOrEqual(3);
+    expect(fitMiss, `${what} ${image.width}: not Fit's narrower world`).toBeGreaterThan(10 * k);
+    expect(savedMiss, `${what} ${image.width}: not centred at the saved view`).toBeGreaterThan(10 * k);
+  }
+  /** The ground's one land box where the world once puts it: drawn once,
+   * not repeated beside itself. */
+  function expectOneLand(image: DecodedImage, box: [number, number, number, number], what: string) {
+    const world = worldAt(image), tol = 2 * tolerance(image);
+    const land = found(image, PICTURE_LAND), sw = world(box[0], box[1]), ne = world(box[2], box[3]);
+    expect(Math.abs(land.left - sw.x), `${what} ${image.width}: the land's west edge`).toBeLessThan(tol);
+    expect(Math.abs(land.right - ne.x), `${what} ${image.width}: the land's east edge, one box wide`).toBeLessThan(tol);
+    expect(Math.abs(land.top - ne.y)).toBeLessThan(tol);
+    expect(Math.abs(land.bottom - sw.y)).toBeLessThan(tol);
+  }
+  const LAND_BOX = [-20, 0, 20, 30] as [number, number, number, number];
+  const CONTINENTS: Point[] = [
+    { lng: 0, lat: 20, colour: ORANGE }, { lng: -100, lat: 40, colour: KELP }, { lng: -60, lat: -30, colour: BLUE },
+    { lng: 20, lat: 0, colour: MUSTARD }, { lng: 10, lat: 50, colour: RED }, { lng: 100, lat: 30, colour: CYAN },
+    { lng: 135, lat: -25, colour: PINK }, { lng: 172, lat: 20, colour: GREEN }, { lng: -172, lat: 20, colour: BROWN },
+    { lng: 0, lat: -80, colour: INK }, { lng: 0, lat: 80, colour: GREY },
+  ];
+
+  it("draws points on every continent from 80 south to 80 north across one world, saved tilted and rotated", async () => {
+    const saved: View = { lng: 60, lat: -10, zoom: 2, pitch: 40, bearing: 30 };
+    const map = await drawn("World: every continent", saved, CONTINENTS, LAND_BOX);
+    for (const image of imagesOf(await pictures(map.id))) {
+      expectAcrossOnce(image, CONTINENTS, saved, "continents");
+      expectOneLand(image, LAND_BOX, "continents");
+    }
+  }, 300000);
+
+  it("draws points along the equator around the globe across one world, wide and not tall", async () => {
+    const ring: Point[] = [-175, -90, 0, 90, 175].map((lng, i) => ({ lng, lat: 0, colour: [ORANGE, KELP, BLUE, MUSTARD, RED][i] }));
+    const saved: View = { lng: 0, lat: 0, zoom: 1, pitch: 0, bearing: 0 };
+    const map = await drawn("World: the equator", saved, ring, LAND_BOX);
+    for (const image of imagesOf(await pictures(map.id))) {
+      expectAcrossOnce(image, ring, saved, "equator");
+      expectOneLand(image, LAND_BOX, "equator");
+    }
+  }, 300000);
+
+  it("draws arcs around the globe across one world, their ends where the world once puts them", async () => {
+    const arcs = [
+      { from: [-170, 30], to: [170, 30], colour: BLUE },
+      { from: [-120, -40], to: [150, 60], colour: ORANGE },
+    ] as const;
+    const bodies = arcs.map((arc, i) => ({
+      name: `Arc ${i}`,
+      sql: `SELECT ST_Point(${arc.from[0]}, ${arc.from[1]}) AS o, ST_Point(${arc.to[0]}, ${arc.to[1]}) AS d`,
+      style: { stroke: { r: arc.colour[0], g: arc.colour[1], b: arc.colour[2], a: 1 }, strokeOpacity: 1, strokeWidth: 4, opacity: 1 },
+      viz: { type: "arc", origin: { kind: "geometry", field: "o" }, dest: { kind: "geometry", field: "d" }, height: 0.6,
+        targetColor: { r: arc.colour[0], g: arc.colour[1], b: arc.colour[2], a: 1 } },
+    }));
+    const saved: View = { lng: 0, lat: 0, zoom: 2, pitch: 0, bearing: 0 };
+    const map = await withLayers("World: arcs", saved, bodies, LAND_BOX);
+    for (const image of imagesOf(await pictures(map.id))) {
+      const world = worldAt(image), k = scaleOf(image), tol = 2 * tolerance(image) + 2 * k;
+      const fit = framedPosition(arcs.flatMap(arc => [arc.from, arc.to]), image.width);
+      for (const arc of arcs) {
+        const line = found(image, arc.colour);
+        const west = world(arc.from[0], arc.from[1]), east = world(arc.to[0], arc.to[1]);
+        expect(Math.abs(line.left - west.x), `${image.width}: the arc's west end`).toBeLessThan(tol);
+        expect(Math.abs(line.right - east.x), `${image.width}: the arc's east end`).toBeLessThan(tol);
+        expect(Math.abs(line.left - fit.at(arc.from[0], arc.from[1]).x), `${image.width}: not Fit's narrower world`).toBeGreaterThan(10 * k);
+      }
+      expectOneLand(image, LAND_BOX, "arcs");
+    }
+  }, 300000);
+
+  it.each([
+    ["Berlin", [{ lng: 13.3, lat: 52.45, colour: ORANGE }, { lng: 13.5, lat: 52.55, colour: KELP }, { lng: 13.4, lat: 52.6, colour: BLUE }]],
+    ["Svalbard with northern Greenland", [{ lng: -60, lat: 80, colour: ORANGE }, { lng: -30, lat: 82, colour: KELP }, { lng: 15, lat: 78, colour: BLUE }, { lng: 25, lat: 79.5, colour: MUSTARD }]],
+  ] as const)("keeps Fit for %s, narrower than one world", async (name, points) => {
+    const saved: View = { lng: 0, lat: 20, zoom: 1, pitch: 0, bearing: 0 };
+    const map = await drawn(`Regional: ${name}`, saved, [...points]);
+    for (const image of imagesOf(await pictures(map.id))) {
+      const fit = framedPosition(points.map(p => [p.lng, p.lat] as const), image.width), world = worldAt(image);
+      let worldMiss = 0;
+      for (const point of points) {
+        const mark = found(image, point.colour);
+        expect(apart(mark, fit.at(point.lng, point.lat)), `${name} ${image.width}: ${point.colour} where Fit puts it`).toBeLessThan(tolerance(image));
+        worldMiss = Math.max(worldMiss, apart(mark, world(point.lng, point.lat)));
+      }
+      expect(worldMiss, `${name}: not the world across`).toBeGreaterThan(10 * scaleOf(image));
+    }
+  }, 300000);
+
+  it("switches to Fit when a filter brings a world-wide map under one world, and back when it is cleared", async () => {
+    const berlin: Point[] = [{ lng: 13.3, lat: 52.45, colour: ORANGE }, { lng: 13.5, lat: 52.55, colour: KELP }, { lng: 13.4, lat: 52.6, colour: BLUE }];
+    const far: Point[] = [{ lng: -150, lat: -50, colour: MUSTARD, fields: ", 2 AS value" }, { lng: 170, lat: 60, colour: RED, fields: ", 2 AS value" }];
+    const saved: View = { lng: 13.4, lat: 52.5, zoom: 9, pitch: 0, bearing: 0 };
+    const map = await drawn("World: a filter", saved, [...berlin, ...far]);
+    const farLayers = map.layers.slice(berlin.length);
+    // Across one world Berlin's three points draw as one mark, the last on top.
+    const seen = [berlin[berlin.length - 1], ...far];
+    for (const image of imagesOf(await pictures(map.id))) expectAcrossOnce(image, seen, saved, "unfiltered");
+    for (const layer of farLayers) await edit(map.id, { filters: [{ kind: "range", field: "value", min: null, max: 1 }] }, `/api/layers/${layer.id}`);
+    for (const image of imagesOf(await pictures(map.id))) {
+      const fit = framedPosition(berlin.map(p => [p.lng, p.lat] as const), image.width);
+      for (const point of far) expect(colourIn(image, point.colour).count, "the filtered points are not drawn").toBeLessThan(12);
+      for (const point of berlin) expect(apart(found(image, point.colour), fit.at(point.lng, point.lat)), `filtered ${image.width}: framed like Fit`).toBeLessThan(tolerance(image));
+    }
+    for (const layer of farLayers) await edit(map.id, { filters: [] }, `/api/layers/${layer.id}`);
+    for (const image of imagesOf(await pictures(map.id))) expectAcrossOnce(image, seen, saved, "cleared");
+  }, 400000);
 });
