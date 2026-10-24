@@ -170,8 +170,7 @@
    theme. */
 :root[data-theme="dark"],
 [data-view-theme="dark"] {
-  /* The browser's own parts follow: scrollbars, form popups, and the bare
-     canvas a hidden page shows while the session is read again. */
+  /* The browser's own parts follow: scrollbars, form controls and popups. */
   color-scheme: dark;
 
   --entry-pane-mark: #e9ecf3;
@@ -260,6 +259,19 @@
 html,
 body {
   height: 100%;
+}
+
+/* A hidden workspace (while the session is read again, after a tab switch)
+   keeps its root painted in the theme's background and hides what is in
+   it. A root that is not displayed paints nothing, and the browser shows
+   its own canvas there, white in most browsers whatever the theme. */
+html[hidden] {
+  display: block;
+  background: var(--bg);
+}
+
+html[hidden] > * {
+  display: none !important;
 }
 
 body {

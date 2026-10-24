@@ -3,10 +3,11 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 /**
- * What the browser draws itself follows the theme: scrollbars, form popups
- * and the bare canvas a hidden page shows while the session is read again
- * after a tab switch. Scrollbars stay out of sight until the pointer is over
- * what they scroll. Held here in the stylesheet; how it looks is judged by eye.
+ * What the browser draws itself follows the theme: scrollbars, form controls
+ * and popups, and the page a hidden workspace leaves on screen while the
+ * session is read again after a tab switch. Scrollbars stay out of sight until
+ * the pointer is over what they scroll. Held here in the stylesheet; how it
+ * looks is judged in the browser.
  */
 
 /** Each flat rule's declarations, by selector, comments removed. */
@@ -40,6 +41,13 @@ describe("the browser's own parts", () => {
   it("take the dark scheme with the dark theme", () => {
     expect(GLOBALS.get(':root[data-theme="dark"]')?.get("color-scheme")).toBe("dark");
     expect(GLOBALS.get('[data-view-theme="dark"]')?.get("color-scheme")).toBe("dark");
+  });
+
+  it("leave a hidden workspace painted in the theme's background, its content hidden", () => {
+    const root = GLOBALS.get("html[hidden]");
+    expect(root?.get("display")).toBe("block");
+    expect(root?.get("background")).toBe("var(--bg)");
+    expect(GLOBALS.get("html[hidden] > *")?.get("display")).toBe("none !important");
   });
 
   it("keep every scrollbar clear until the pointer is over what it scrolls", () => {
