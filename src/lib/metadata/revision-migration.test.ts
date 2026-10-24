@@ -4,7 +4,8 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { MIGRATIONS, open } from "./db";
 import { allocateSqlNames, type SqlNameIdentity } from "./sql-names";
-import { testAccountScope } from "@/lib/test-support/accounts";
+import { issueSession } from "@/lib/auth/credentials";
+import { markOriginalAccount, type Account } from "./accounts";
 import { getMap, updateMapFields } from "./maps";
 import { getRecipe } from "./recipes";
 import { createCascade } from "./cascades";
@@ -31,8 +32,14 @@ function store() {
 }
 function reopen() { db.close(); db = open(file); }
 function seed() {
-  testAccountScope(db, "ada");
-  testAccountScope(db, "bea");
+  // Written as that version's store held them, each with a session: today's
+  // account reads name columns a store this old does not have yet.
+  for (const id of ["ada", "bea"]) {
+    db.prepare(`INSERT INTO accounts (id, name, email, password_hash, is_admin, status, created_at, updated_at, sql_name)
+      VALUES (?, ?, ?, NULL, 0, 'active', ?, ?, ?)`).run(id, id, `${id}@example.test`, time, time, id);
+    issueSession({ id } as Account, db, Date.now());
+  }
+  markOriginalAccount("ada", db);
   db.exec(`
     INSERT INTO projects (id, name, created_at, updated_at, owner_id)
       VALUES ('project', 'Survey', '${time}', '${time}', 'ada');
