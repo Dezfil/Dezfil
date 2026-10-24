@@ -81,7 +81,7 @@ export function MapCard({
   return (
     <CardFrame kind="map">
       <CardLink label={`Open ${m.name}`} href={`/maps/${m.id}`}>
-        <div className={gallery.strip} style={{ height: stripHeight }}>
+        <div className={gallery.strip} style={{ height: stripHeight }} data-strip>
           <MapStrip map={m} />
           <span className={gallery.overlay}>
             <b>
@@ -155,7 +155,7 @@ export function WorkflowCard({
   return (
     <CardFrame kind="workflow">
       <CardLink label={`Open ${w.name}`} href={`/workflows/${w.id}`}>
-        <div className={gallery.strip} style={{ height: stripHeight }}>
+        <div className={gallery.strip} style={{ height: stripHeight }} data-strip>
           {/* No nodes, no graph to draw: the chart-paper placeholder an
               empty map's card shows, not a blank picture. */}
           {w.steps.length > 0 ? <WorkflowThumb steps={w.steps} groupOf={groupOf} /> : <MapPlaceholder />}

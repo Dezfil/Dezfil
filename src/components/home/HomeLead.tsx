@@ -31,8 +31,9 @@ import styles from "./Home.module.css";
  * a lead chosen early. With neither lead, nothing.
  */
 
-/** The lead's picture height, the Showroom reference's. */
-const LEAD_PICTURE = 226;
+/** The lead's picture height: the same for every lead, so Home's top
+ * row has one geometry whatever leads. */
+export const LEAD_PICTURE = 300;
 
 export function LeadPlace({
   lead,
@@ -148,7 +149,7 @@ function TemplateLead({
           if (e.key === "Enter") onOpen();
         }}
       >
-        <div className={gallery.strip} style={{ height: LEAD_PICTURE }}>
+        <div className={gallery.strip} style={{ height: LEAD_PICTURE }} data-strip>
           {card.steps ? (
             <WorkflowThumb steps={graphSteps(card.steps)} groupOf={groupOf} />
           ) : (
