@@ -1,4 +1,5 @@
 import { boundedMcpRequest } from "@/lib/api/bounded-handoff";
+import { LARGE_JSON_BODY_MAX_BYTES } from "@/lib/api/request-bounds";
 import { callMcpTool } from "./call";
 import {
   createMcpHandler,
@@ -60,7 +61,7 @@ export function buildMcpFetchHandler(fetchImpl?: typeof fetch) {
       return server.server.projectCallToolResult(result, tool.outputSchema as Parameters<typeof server.server.projectCallToolResult>[1]);
     });
     return server;
-  });
+  }, { maxRequestBodySize: LARGE_JSON_BODY_MAX_BYTES }); // the bound boundedMcpRequest applies first
   return { ...handler, async fetch(request: Request) {
     return handler.fetch(await boundedMcpRequest(request));
   } };

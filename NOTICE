@@ -49,8 +49,9 @@ originating projects are listed here as they are used:
   style is in use:
   - dark.webp, light.webp, streets.webp — © OpenMapTiles
     (https://openmaptiles.org) and OpenStreetMap contributors, rendered
-    from the OpenFreeMap styles (ODbL for the data, BSD-3-Clause for the
-    OpenMapTiles style schema).
+    from the OpenFreeMap styles (ODbL for the data; for the OpenMapTiles
+    schema, BSD-3-Clause for its code and CC-BY 4.0 for its cartography
+    and visual design, the licence that asks for the visible credit).
   - satellite.webp: NASA Blue Marble Next Generation (August 2004,
     topography and bathymetry), public domain. Imagery is configured per
     instance, so no capture of the service in use can ship; this global
@@ -128,7 +129,7 @@ Eight WOFF2 faces of three families are embedded directly in the design
 specimen (design/identity/dezfil-identity.html): Gabarito at 500, 600 and
 700, Inter at 400, 500 and 600, and DM Mono at 400 and 500. Five families
 are self hosted at build time by the application itself
-(src/app/layout.tsx): Archivo, DM Mono, Gabarito, IBM Plex Mono and Inter.
+(src/app/document.tsx): Archivo, DM Mono, Gabarito, IBM Plex Mono and Inter.
 All eight files and all five families are licensed under the SIL Open Font
 License, Version 1.1, whose text is reproduced at the end of this file.
 Their copyright notices:

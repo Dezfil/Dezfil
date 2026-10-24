@@ -16,5 +16,9 @@ src/app/api/settings/route.test.ts:generic-api-key:151
 src/lib/export/project-archive.test.ts:generic-api-key:66
 src/lib/postgis/tls-attachment.test.ts:generic-api-key:21
 
+# An invented publish token in an API example, as it sat in the commit that
+# added it; the example has used the <PUBLISH_TOKEN> placeholder since.
+f25d9f79d347f9220da3cecc2cae03c516ebdf4b:src/lib/api/openapi-examples.ts:generic-api-key:296
+
 # Tool-definition digest exceptions live in .gitleaks.toml, scoped to the
 # baseline paths and digest line shape so regeneration cannot move them.
