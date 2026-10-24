@@ -64,7 +64,6 @@ test.describe("account entry", () => {
     const cookie = await storedSession(page);
     const rail = page.getByRole("navigation", { name: "Product navigation" });
     await expect(rail.getByRole("link", { name: "Users", exact: true })).toHaveCount(1);
-    await expect(rail.locator('[data-health="ready"]')).toHaveCount(1);
     const avatar = rail.getByRole("link", { name: "Browser fixture, account", exact: true });
     await expect(avatar).toHaveAttribute("href", "/settings/account");
     await avatar.focus();

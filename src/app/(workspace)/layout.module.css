@@ -278,19 +278,9 @@
   color: var(--fg-muted);
 }
 
-/* The health row's quieter label — same reveal, status typography. */
-.railStatusLabel {
-  font-family: var(--font-ui);
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  color: var(--fg-muted);
-  white-space: nowrap;
-}
-
 /* Labels ride the expansion: hidden and tucked left while collapsed,
    fading in alongside the width move. */
-.railLabel,
-.railStatusLabel {
+.railLabel {
   opacity: 0;
   transform: translateX(-6px);
   transition:
@@ -298,17 +288,14 @@
     transform 0.22s var(--ease-panel);
 }
 
-:global(:root:not([data-look-rail="icons"]):not([data-look-rail="open"])) .rail:has(:focus-visible) .railLabel,
-:global(:root:not([data-look-rail="icons"]):not([data-look-rail="open"])) .rail:has(:focus-visible) .railStatusLabel {
+:global(:root:not([data-look-rail="icons"]):not([data-look-rail="open"])) .rail:has(:focus-visible) .railLabel {
   opacity: 1;
   transform: none;
   transition-delay: 0.15s;
 }
 
 .rail[data-expanded] .railLabel,
-.rail[data-expanded] .railStatusLabel,
-:global(:root[data-look-rail="open"]) .railLabel,
-:global(:root[data-look-rail="open"]) .railStatusLabel {
+:global(:root[data-look-rail="open"]) .railLabel {
   opacity: 1;
   transform: none;
 }
@@ -387,12 +374,9 @@
   .rail[data-expanded],
   :global(:root:not([data-look-rail="icons"]):not([data-look-rail="open"])) .rail:has(:focus-visible),
   .railLabel,
-  .railStatusLabel,
   .accountRow .accountOut,
   .rail[data-expanded] .railLabel,
-  .rail[data-expanded] .railStatusLabel,
-  :global(:root:not([data-look-rail="icons"]):not([data-look-rail="open"])) .rail:has(:focus-visible) .railLabel,
-  :global(:root:not([data-look-rail="icons"]):not([data-look-rail="open"])) .rail:has(:focus-visible) .railStatusLabel {
+  :global(:root:not([data-look-rail="icons"]):not([data-look-rail="open"])) .rail:has(:focus-visible) .railLabel {
     transition-duration: 0.01s;
     transition-delay: 0s;
   }

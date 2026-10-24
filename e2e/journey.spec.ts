@@ -268,8 +268,8 @@ test("the core loop through the real UI", async ({ page, context }) => {
     // The root is Home, the signed-in person's own page; the data hub
     // lives at /data. Home greets the person by the first word of their
     // display name, "Welcome back" once work of their own leads it.
+    expect((await page.request.get("/api/health")).ok()).toBe(true);
     await page.goto("/");
-    await expect(page.locator('[data-health="ready"]')).toBeVisible();
     const name = await page.evaluate(async () => {
       const response = await fetch("/api/account");
       return ((await response.json()) as { account: { name: string } }).account.name;
